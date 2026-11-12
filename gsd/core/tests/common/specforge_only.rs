@@ -108,19 +108,10 @@ pub fn shell_fences(lines: &[String]) -> Vec<(&str, Vec<&str>)> {
         .collect()
 }
 
-/// The inline-code runs (`` `…` ``) of the lines outside a fence, with their line index.
-pub fn inline_runs(lines: &[String]) -> Vec<(usize, &str)> {
-    walk(lines)
-        .into_iter()
-        .filter(|(_, _, at)| *at == At::Prose)
-        .flat_map(|(n, line, _)| {
-            line.trim()
-                .split('`')
-                .skip(1)
-                .step_by(2)
-                .map(move |run| (n, run))
-        })
-        .collect()
+/// The inline-code runs (`` `…` ``) outside a fence, with the line each starts on, as gsd-kit's Markdown reader reads
+/// them: a run may cross lines, and a line break in it reads as a space.
+pub fn inline_runs(lines: &[String]) -> Vec<(usize, String)> {
+    gsd_kit::markdown::inline_code(&lines.join("\n"))
 }
 
 /// The functions the shell fences of `texts` define (`name() {`, `function name() {`): the shell's own words too.
@@ -157,8 +148,8 @@ pub fn hits(file: &str, lines: &[String], functions: &[String]) -> Vec<Row> {
         }
     }
     for (_, run) in inline_runs(lines) {
-        for tool in command_word::commands_in_prose(run) {
-            add(tool, run);
+        for tool in command_word::commands_in_prose(&run) {
+            add(tool, &run);
         }
     }
     out

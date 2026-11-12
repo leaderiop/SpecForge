@@ -149,7 +149,11 @@ agents/gsd-executor.md	own	832+31	19	5af4240352ec	573a08159fef	ported-name
 agents/gsd-executor.md	kept	863+38	16e058bb8206
 agents/gsd-integration-checker.compact.md	kept	7+75	2d2acf3fa921
 agents/gsd-integration-checker.compact.md	own	82+3	3	f088956c245f	c233b3a70a14	ported-name
-agents/gsd-integration-checker.compact.md	kept	85+162	cade400a557c
+agents/gsd-integration-checker.compact.md	kept	85+21	cd2b4fa4549c
+agents/gsd-integration-checker.compact.md	own	106+4	5	0a10274189f8	dfb7039fd343	prose
+agents/gsd-integration-checker.compact.md	kept	110+7	290c9707ab53
+agents/gsd-integration-checker.compact.md	own	117+2	3	c2a0bbc87d1d	980393e8919d	prose
+agents/gsd-integration-checker.compact.md	kept	119+128	cd9c9ddbc1d9
 agents/gsd-integration-checker.md	kept	7+90	0c016dad85a7
 agents/gsd-integration-checker.md	own	97+8	3	5a6cb851eff8	2cdf0b508484	ported-name
 agents/gsd-integration-checker.md	kept	105+31	db246e758850
@@ -1551,7 +1555,9 @@ gsd-core/templates/spec.md	own	3+1	1	c75968022d60	89b8a61914c1	ported-name
 gsd-core/templates/spec.md	kept	4+331	5007f9b6a773
 gsd-core/templates/state.md	kept	1+2	8c8a6f112173
 gsd-core/templates/state.md	own	3+1	1	be60d0bb8ca8	36f17b7b3fde	ported-name
-gsd-core/templates/state.md	kept	4+28	ea5512104fca
+gsd-core/templates/state.md	kept	4+6	34aec929385c
+gsd-core/templates/state.md	own	10+2	2	f360216cac2c	6649a386a21a	prose
+gsd-core/templates/state.md	kept	12+20	71c107228b2e
 gsd-core/templates/state.md	own	32+1	1	2d6d7014764b	97142a25f823	ported-name
 gsd-core/templates/state.md	kept	33+44	102dd26c05f1
 gsd-core/templates/state.md	own	77+1	1	16ed3c36f033	753536a065f2	ported-name

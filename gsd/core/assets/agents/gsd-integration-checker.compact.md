@@ -98,10 +98,11 @@ Enumerate all API routes (Next.js App Router `route.ts` files under `app/api/`, 
 wildcard). Classify: **CONSUMED** (≥1 call found) or **ORPHANED** (no calls found).
 
 ## Step 4: Verify Auth Protection
-Find components/pages matching sensitive-area patterns (`dashboard|settings|profile|account|
-user`). For each, check for an auth hook/context usage (`useAuth|useSession|getCurrentUser|
-isAuthenticated`) or a redirect-on-no-auth pattern (`redirect.*login|router.push.*login|
-navigate.*login`). Classify: **PROTECTED** (either present) or **UNPROTECTED** (neither).
+Find components/pages matching sensitive-area patterns
+(`dashboard|settings|profile|account|user`). For each, check for an auth hook/context usage
+(`useAuth|useSession|getCurrentUser|isAuthenticated`) or a redirect-on-no-auth pattern
+(`redirect.*login|router.push.*login|navigate.*login`). Classify: **PROTECTED** (either present)
+or **UNPROTECTED** (neither).
 
 ## Step 5: Verify E2E Flows
 Derive flows from milestone goals and trace each through the codebase, step by step, checking
@@ -109,8 +110,9 @@ each link exists before checking the next:
 - **Auth flow:** login form exists → form submits to `/api/auth/*` → API route exists → redirect
   after success.
 - **Data-display flow** (component, api_route, data_var): component exists → component fetches
-  (`fetch|axios|useSWR|useQuery`) → component has state for the data (`useState|useQuery|
-  useSWR`) → component renders the data variable → API route exists → API route returns JSON.
+  (`fetch|axios|useSWR|useQuery`) → component has state for the data
+  (`useState|useQuery|useSWR`) → component renders the data variable → API route exists → API
+  route returns JSON.
 - **Form-submission flow** (form_component, api_route): form element exists (`<form`/
   `onSubmit`) → handler calls the target API route → response is handled (`.then|await.*fetch|
   setError|setSuccess`) → user feedback is shown (`error|success|loading|isLoading`).

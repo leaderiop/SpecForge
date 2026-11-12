@@ -95,25 +95,14 @@ fn pairs() -> Vec<Pair> {
         .collect()
 }
 
-/// The bash and sh fences of `lines` as `(first code line, end)` (0-based, end exclusive).
+/// The bash and sh fences of `lines` as `(first code line, end)` (0-based, end exclusive), as gsd-kit's Markdown
+/// reader reads the lines joined with `\n`.
 fn fences(lines: &[String]) -> Vec<(usize, usize)> {
-    let open = Regex::new(r"^\s*```(bash|sh)\s*$").expect("a regex");
-    let mut out = Vec::new();
-    let mut start: Option<usize> = None;
-    for (i, line) in lines.iter().enumerate() {
-        if let Some(s) = start {
-            if line.trim_start().starts_with("```") {
-                out.push((s, i));
-                start = None;
-            }
-        } else if open.is_match(line) {
-            start = Some(i + 1);
-        } else if line.trim_start().starts_with("```") {
-            // another fence: skip to its end
-            start = None;
-        }
-    }
-    out
+    gsd_kit::markdown::fences(&lines.join("\n"))
+        .into_iter()
+        .filter(|f| matches!(f.language.as_str(), "bash" | "sh"))
+        .map(|f| (f.code.start, f.code.end))
+        .collect()
 }
 
 /// The shells a block must parse in: `bash` on the `PATH`, and `/bin/bash` where it exists (macOS's is bash 3.2, which

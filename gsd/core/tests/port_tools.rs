@@ -205,7 +205,7 @@ fn no_shell_line_runs_jq() {
             }
         }
         for (n, run) in specforge_only::inline_runs(&lines) {
-            if command_word::runs_in_prose(run, "jq") {
+            if command_word::runs_in_prose(&run, "jq") {
                 found.push(format!("{path}:{}: `{run}`", n + 2));
             }
         }

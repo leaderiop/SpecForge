@@ -506,11 +506,11 @@ fn the_program_docs_shell_blocks_parse() {
         ("parity/README.md", PARITY_README),
     ] {
         let mut blocks = 0;
-        for block in doc.split("```").skip(1).step_by(2) {
-            let (lang, body) = block.split_once('\n').unwrap_or((block, ""));
-            if !matches!(lang.trim(), "sh" | "bash") {
+        for fence in gsd_kit::markdown::fences(doc) {
+            if !matches!(fence.language.as_str(), "sh" | "bash") {
                 continue;
             }
+            let body = &fence.text;
             blocks += 1;
             let out = std::process::Command::new("bash")
                 .arg("-n")

@@ -102,9 +102,7 @@ fn every_files_line_names_a_flag_the_verb_has() {
         let fenced = shell_blocks(&lines)
             .into_iter()
             .map(|block| block.join("\n"));
-        let inline = inline_runs(&lines)
-            .into_iter()
-            .map(|(_, run)| run.to_string());
+        let inline = inline_runs(&lines).into_iter().map(|(_, run)| run);
         for text in fenced.chain(inline) {
             for (action, flags) in files_commands(&text) {
                 seen += 1;
