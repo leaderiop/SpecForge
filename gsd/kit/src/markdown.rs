@@ -61,6 +61,11 @@ pub fn inline_code(text: &str) -> Vec<(usize, String)> {
     read(text, Options::empty()).code
 }
 
+/// Each link of `text` (inline, reference or autolink), as its byte range in `text` and its destination.
+pub fn links(text: &str) -> Vec<(Range<usize>, String)> {
+    read(text, Options::empty()).links
+}
+
 /// Every GFM table of `text`, from every level, in line order. A cell is its source text, trimmed, its code spans
 /// kept in backticks and each `\|` unescaped, as GFM reads a cell.
 pub fn tables(text: &str) -> Vec<Table> {
@@ -73,18 +78,19 @@ struct Reading {
     html: Vec<Range<usize>>,
     code: Vec<(usize, String)>,
     tables: Vec<Table>,
+    links: Vec<(Range<usize>, String)>,
     /// The text of the last heading read, kept across the fragments read again.
     heading: String,
 }
 
 fn read(text: &str, options: Options) -> Reading {
     let mut out = Reading::default();
-    read_at(text, 0, options, &mut out);
+    read_at(text, 0, 0, options, &mut out);
     out
 }
 
-/// Reads `frag`, whose first line is line `base` of the whole text, into `out`.
-fn read_at(frag: &str, base: usize, options: Options, out: &mut Reading) {
+/// Reads `frag`, whose first line is line `base` of the whole text and whose first byte is its byte `at`, into `out`.
+fn read_at(frag: &str, base: usize, at: usize, options: Options, out: &mut Reading) {
     let starts: Vec<usize> = std::iter::once(0)
         .chain(frag.match_indices('\n').map(|(i, _)| i + 1))
         .collect();
@@ -112,6 +118,10 @@ fn read_at(frag: &str, base: usize, options: Options, out: &mut Reading) {
                     .get_or_insert_default()
                     .push_str(&format!("`{code}`"));
                 out.code.push((base + line(r.start), code.into_string()));
+            }
+            Event::Start(Tag::Link { dest_url, .. }) => {
+                out.links
+                    .push((at + r.start..at + r.end, dest_url.into_string()));
             }
             Event::Start(Tag::Table(_)) => {
                 table = Some(Table {
@@ -175,7 +185,13 @@ fn read_at(frag: &str, base: usize, options: Options, out: &mut Reading) {
                 // `k > a`: the fragment read again is always shorter, so the reading ends
                 if k > a && k <= b {
                     let end = starts.get(b + 1).copied().unwrap_or(frag.len());
-                    read_at(&frag[starts[k]..end], base + k, options, out);
+                    read_at(
+                        &frag[starts[k]..end],
+                        base + k,
+                        at + starts[k],
+                        options,
+                        out,
+                    );
                 }
             }
             _ => {}
@@ -198,7 +214,7 @@ fn tag_only(line: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{fences, html_blocks, inline_code, tables};
+    use super::{fences, html_blocks, inline_code, links, tables};
 
     #[test]
     fn a_fence_under_a_section_tag_is_a_fence() {
@@ -293,5 +309,19 @@ mod tests {
         );
         // only `tables` reads GFM tables: elsewhere the `|` stays in its code span
         assert!(inline_code(text).contains(&(7, "a \\| b".to_string())));
+    }
+
+    #[test]
+    fn a_link_gives_its_range_and_destination() {
+        let text = "<step>\nSee [the glossary](https://example.com/CONTEXT.md) and <https://a.b/c>.\n</step>\n";
+        let found = links(text);
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert_eq!(
+            &text[found[0].0.clone()],
+            "[the glossary](https://example.com/CONTEXT.md)"
+        );
+        assert_eq!(found[0].1, "https://example.com/CONTEXT.md");
+        assert_eq!(&text[found[1].0.clone()], "<https://a.b/c>");
+        assert_eq!(found[1].1, "https://a.b/c");
     }
 }
