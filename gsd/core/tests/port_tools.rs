@@ -18,8 +18,6 @@ mod files;
 mod host_options;
 #[path = "common/ledger.rs"]
 mod ledger;
-#[path = "common/markdown_writes.rs"]
-mod markdown_writes;
 #[path = "common/port_map.rs"]
 mod port_map;
 #[path = "common/specforge_only.rs"]

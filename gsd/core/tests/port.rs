@@ -196,6 +196,52 @@ fn the_computed_groups_judge_both_sides() {
 }
 
 #[test]
+fn a_write_sentence_rewritten_as_a_typed_edit_is_typed_edit() {
+    use port_map::computed;
+    let up = ["Write `03-CONTEXT.md` using the template."];
+    assert_eq!(
+        computed(
+            &up,
+            &["Record it as the phase's `context` entity (`specforge new context …`)."]
+        ),
+        Some("typed-edit")
+    );
+    // the own side still writes the file
+    assert_eq!(
+        computed(
+            &up,
+            &["Then write CONTEXT.md with `specforge new context …`."]
+        ),
+        None
+    );
+    // a read records nothing
+    assert_eq!(
+        computed(&up, &["Read it with `specforge query --kind context`."]),
+        None
+    );
+    // a writer of `WRITERS`, dashed
+    assert_eq!(
+        computed(
+            &up,
+            &["```bash", "specforge gsd complete-plan \"$PLAN\"", "```"]
+        ),
+        Some("typed-edit")
+    );
+    assert_eq!(
+        computed(
+            &up,
+            &[
+                "Record it through `specforge.edit`:",
+                "```json",
+                "{\"op\": \"set\", \"field\": \"decisions\"}",
+                "```"
+            ]
+        ),
+        Some("typed-edit")
+    );
+}
+
+#[test]
 fn a_bless_carries_a_reviewed_group_and_marks_a_new_span() {
     use port_map::{Bless, Row, carry};
     let row = |sha_own: &str, group: &str| Row {

@@ -2,8 +2,8 @@
 //! by a patience diff. Kept spans are upstream's text byte for byte, the quotes; own spans are the rest, each with a
 //! group that says why it differs. `tests/port.lock` records every span, and [`check_lock`] recomputes it.
 //!
-//! It includes nothing: it uses its includer's root modules `command_word`, `files` and `specforge_only`. [`changed`]
-//! names the spans an upstream bump touches.
+//! It uses its includer's root modules `command_word`, `files` and `specforge_only`, and includes `markdown_writes`
+//! and `tool_names` as its own children. [`changed`] names the spans an upstream bump touches.
 #![allow(
     dead_code,
     reason = "each test crate that includes this module uses some of it"
@@ -21,6 +21,11 @@ use similar::{Algorithm, DiffOp, capture_diff_slices};
 use super::command_word;
 use super::specforge_only::SHELL_WORDS;
 
+#[path = "markdown_writes.rs"]
+pub mod markdown_writes;
+#[path = "tool_names.rs"]
+pub mod tool_names;
+
 /// The lock key prefix of `@gsd/security`'s assets, from `gsd/core`.
 const SECURITY: &str = "../security/assets/";
 
@@ -37,6 +42,10 @@ pub const GROUPS: &[(&str, &str)] = &[
     (
         "served",
         "the span runs `specforge` where upstream's ran a program it no longer needs",
+    ),
+    (
+        "typed-edit",
+        "a write line became a typed edit (ADR 0343 D10)",
     ),
     (
         "markdown",
@@ -80,7 +89,7 @@ pub const GROUPS: &[(&str, &str)] = &[
 ];
 
 /// The groups the test recomputes, in precedence order.
-pub const COMPUTED: &[&str] = &["ported-name", "served", "markdown"];
+pub const COMPUTED: &[&str] = &["ported-name", "served", "typed-edit", "markdown"];
 
 fn root() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -251,11 +260,35 @@ pub fn computed(up: &[&str], own: &[&str]) -> Option<&'static str> {
         Some("ported-name")
     } else if served_by_specforge(up, own) {
         Some("served")
+    } else if typed_edit(up, own) {
+        Some("typed-edit")
     } else if words(up) == words(own) {
         Some("markdown")
     } else {
         None
     }
+}
+
+/// Whether the own span `own` turns `up`'s write line into a typed edit: `up` tells the agent to write a GSD file and
+/// `own` does not, and `own` names the catalogue's `edit` tool (`specforge.edit`, or a `specforge new|set|…` line in
+/// code) or runs `specforge gsd <command>` in code, `<command>` a writer of `gsd_core::commands::WRITERS`.
+pub fn typed_edit(up: &[&str], own: &[&str]) -> bool {
+    let (up, own) = (up.join("\n"), own.join("\n"));
+    if !markdown_writes::writes(&up) || markdown_writes::writes(&own) {
+        return false;
+    }
+    let edits = tool_names::named(&own)
+        .iter()
+        .any(|tool| tool.name == "edit");
+    let writer = |command: &str| {
+        gsd_core::commands::WRITERS
+            .iter()
+            .any(|(_, _, w)| w.replace('_', "-") == command)
+    };
+    edits
+        || tool_names::code_commands(&own).iter().any(|words| {
+            matches!(words.as_slice(), [first, gsd, command, ..] if first == "specforge" && gsd == "gsd" && writer(command))
+        })
 }
 
 /// Whether `line` is blank or a fence mark alone.

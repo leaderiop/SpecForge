@@ -50,16 +50,20 @@ fn no_line_tells_an_agent_to_write_a_gsd_file() {
         (quoted.as_str(), false),
         ("```markdown\nUpdate STATE.md with the plan.\n```", true),
     ] {
-        assert_eq!(super::markdown_writes::writes(text), hit, "{text}");
+        assert_eq!(
+            super::port_map::markdown_writes::writes(text),
+            hit,
+            "{text}"
+        );
     }
     let hits: Vec<Vec<String>> = super::specforge_only::shell_assets()
         .iter()
-        .flat_map(|(path, lines)| super::markdown_writes::rows_of(path, lines))
+        .flat_map(|(path, lines)| super::port_map::markdown_writes::rows_of(path, lines))
         .collect();
     super::ledger::assert_rows(
         "markdown_writes.txt",
         "record the value as a typed edit",
         &hits,
-        super::ledger::rows(super::markdown_writes::MARKDOWN_WRITES, 2),
+        super::ledger::rows(super::port_map::markdown_writes::MARKDOWN_WRITES, 2),
     );
 }
