@@ -656,7 +656,10 @@ pub fn check_lock() {
     let computed = computed_rows();
     if let Some(mode) = bless() {
         let blessed = carry(&before, computed.clone(), mode);
-        std::fs::write(lock_path(), render(&blessed)).expect("write port.lock");
+        // a sibling test may read the lock meanwhile: it sees the old file or the new one, never a part
+        let tmp = lock_path().with_extension(format!("lock.{}.tmp", std::process::id()));
+        std::fs::write(&tmp, render(&blessed)).expect("write port.lock's temp file");
+        std::fs::rename(&tmp, lock_path()).expect("move port.lock into place");
     }
     let text = std::fs::read_to_string(lock_path()).expect("port.lock (bless it with GSD_BLESS=1)");
     assert!(
@@ -709,6 +712,11 @@ pub fn check_lock() {
         moved.is_empty(),
         "port.lock is not the assets' span map (re-bless with GSD_BLESS=1, then set each `unreviewed` group):\n{}",
         moved.join("\n")
+    );
+    // the group checks below pair the two row lists by position
+    assert!(
+        lock.iter().map(Row::key).eq(computed.iter().map(Row::key)),
+        "port.lock holds the assets' rows out of order (re-bless with GSD_BLESS=1)"
     );
     let names: Vec<&str> = GROUPS.iter().map(|(g, _)| *g).collect();
     let mut unreviewed = Vec::new();
