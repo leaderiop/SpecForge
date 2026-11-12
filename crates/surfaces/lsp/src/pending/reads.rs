@@ -5,10 +5,10 @@
 //! `T2`, `T2x` does not) in the stretch of each text: when the counts match, the place is the occurrence of the same
 //! ordinal, and reads; otherwise it reads as gone (typed over, grown, or written once more in the stretch).
 //!
-//! The work is counted, never timed, and is linear in the texts' size, whatever their size: the lines no other line
-//! of either text repeats anchor the two texts (the longest run of them in the same order in both), the lines both
-//! share at the edges of the stretch between two anchors are trimmed, and the stretch left holding a place is scanned
-//! once in each text.
+//! The work is counted, never timed, and is linear in the two texts whatever their size and however many places are
+//! read: the lines no other line of either text repeats anchor the two texts (the longest run of them in the same
+//! order in both), and each changed stretch holding a place is trimmed of the lines both share at its edges and
+//! scanned once in each text, for every place in it.
 
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -23,9 +23,10 @@ pub(super) fn reads(then: &str, now: &str, spans: &[Span], name: &str) -> bool {
 
 /// [`reads`], adding to `work` each byte it compares or scans.
 fn counted(then: &str, now: &str, spans: &[Span], name: &str, work: &Cell<usize>) -> bool {
+    let lines = starts(then);
     let Some(ranges) = spans
         .iter()
-        .map(|span| range(then, span))
+        .map(|span| range_in(&lines, span))
         .collect::<Option<Vec<_>>>()
     else {
         return false;
@@ -37,19 +38,22 @@ fn counted(then: &str, now: &str, spans: &[Span], name: &str, work: &Cell<usize>
         return true;
     }
     let aligned = Aligned::of(then, now, work);
-    ranges.iter().all(|r| aligned.keeps(r, work))
+    let mut stretches = HashMap::new();
+    ranges
+        .iter()
+        .all(|r| aligned.keeps(r, name, &mut stretches, work))
 }
 
 /// The byte range of `span` (1-based lines, 1-based byte columns, end exclusive) in `text`.
 pub(super) fn range(text: &str, span: &Span) -> Option<Range<usize>> {
+    range_in(&starts(text), span)
+}
+
+/// The byte range of `span` in the text whose lines start at `lines` ([`starts`]).
+fn range_in(lines: &[usize], span: &Span) -> Option<Range<usize>> {
     let at = |line: usize, col: usize| -> Option<usize> {
-        let start: usize = text
-            .split_inclusive('\n')
-            .take(line.checked_sub(1)?)
-            .map(str::len)
-            .sum();
-        let offset = start + col.checked_sub(1)?;
-        (offset <= text.len()).then_some(offset)
+        let offset = lines.get(line.checked_sub(1)?)? + col.checked_sub(1)?;
+        (offset <= lines[lines.len() - 1]).then_some(offset)
     };
     let (from, to) = (at(span.0, span.1)?, at(span.2, span.3)?);
     (from < to).then_some(from..to)
@@ -117,9 +121,16 @@ impl<'t> Aligned<'t> {
         a == b
     }
 
-    /// Whether `now` reads what `then` reads at `r` (on one line): its line kept, or else the name read whole as often
-    /// in the changed stretch of each text, `r` among them.
-    fn keeps(&self, r: &Range<usize>, work: &Cell<usize>) -> bool {
+    /// Whether `now` reads `name`, which `then` reads at `r` (on one line): its line kept, or else the name read whole
+    /// as often in the changed stretch of each text, `r` among them. Each stretch is trimmed and scanned once, for every place in it (`stretches`, by the
+    /// anchor after it).
+    fn keeps(
+        &self,
+        r: &Range<usize>,
+        name: &str,
+        stretches: &mut HashMap<usize, Stretch>,
+        work: &Cell<usize>,
+    ) -> bool {
         let line = |at: usize| self.old.partition_point(|&start| start <= at) - 1;
         let at = line(r.start);
         if line(r.end - 1) != at {
@@ -129,6 +140,18 @@ impl<'t> Aligned<'t> {
             return true;
         }
         let next = self.anchors.partition_point(|&(i, _)| i < at);
+        let stretch = stretches
+            .entry(next)
+            .or_insert_with(|| self.stretch(next, name, work));
+        if !stretch.lines.contains(&at) {
+            return true;
+        }
+        stretch.read.binary_search(&r.start).is_ok() && stretch.read.len() == stretch.now.len()
+    }
+
+    /// The changed stretch of lines before anchor `next`, trimmed of the lines both texts share at its edges, and
+    /// where `name` reads whole in it in each text.
+    fn stretch(&self, next: usize, name: &str, work: &Cell<usize>) -> Stretch {
         let (mut a, mut b) = next
             .checked_sub(1)
             .map_or((0, 0), |k| (self.anchors[k].0 + 1, self.anchors[k].1 + 1));
@@ -138,22 +161,24 @@ impl<'t> Aligned<'t> {
             .copied()
             .unwrap_or((self.old.len() - 1, self.new.len() - 1));
         while a < c && b < d && self.same(a, b, work) {
-            if a == at {
-                return true;
-            }
             (a, b) = (a + 1, b + 1);
         }
         while c > a && d > b && self.same(c - 1, d - 1, work) {
-            if c - 1 == at {
-                return true;
-            }
             (c, d) = (c - 1, d - 1);
         }
-        let name = &self.then[r.clone()];
-        let read = whole(self.then, self.old[a]..self.old[c], name, work);
-        let now = whole(self.now, self.new[b]..self.new[d], name, work);
-        read.contains(&r.start) && read.len() == now.len()
+        Stretch {
+            lines: a..c,
+            read: whole(self.then, self.old[a]..self.old[c], name, work),
+            now: whole(self.now, self.new[b]..self.new[d], name, work),
+        }
     }
+}
+
+/// A changed stretch: its lines in `then`, and where the name reads whole in it in each text, in order.
+struct Stretch {
+    lines: Range<usize>,
+    read: Vec<usize>,
+    now: Vec<usize>,
 }
 
 /// Where in `within` of `text` the name reads whole: neither byte beside it one that would extend it.
