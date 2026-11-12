@@ -5,7 +5,8 @@
 [ADR 0339](0339-a-verb-the-user-types-reaches-the-ports-under-the-ceiling.md) (the verbs `files`, `run`, `http`, `git`).
 D7–D9 say how prose names a tool, how an optional integration routes and where a person's own chores go.
 D4's second paragraph is amended by
-[ADR 0332](0332-the-gsd-port-is-span-by-span-and-its-kept-spans-are-locked.md) (D5).
+[ADR 0332](0332-the-gsd-port-is-span-by-span-and-its-kept-spans-are-locked.md) (D5). D10 added in place (2026-11-12;
+see ADR 0332 D8–D10).
 
 ## Context
 
@@ -102,6 +103,18 @@ No block asks `command -v` or `specforge run --which` whether an integration exi
   never by a block: no `specforge files` verb reaches it and a block would pass the ceiling.
 - A heuristic about the user's environment (a variable set, a value that is a placeholder) is prose the agent applies.
 
+## D10. A write is a typed edit; no asset names a GSD file to write
+
+- An asset that records state does it with `specforge new|set|unset|link|unlink|delete`, `specforge.edit` or a
+  `specforge gsd` writer.
+- A template is not filled into a file: the step reads the kind's fields (`specforge schema --kind <kind>`) and writes
+  the entity.
+- A computed value (the project's progress and position) is written by nothing.
+- A kept upstream sentence that only reads a GSD file's name may stay. One that tells the agent to write one is
+  rewritten; until then it is a row of the write ledger (ADR 0332 D9).
+- A translation notice ("wherever the text above says X.md is written, read …") is not a rewrite. It goes with the
+  sentence it translates.
+
 ## Rejected
 
 - Keeping parsers "until the extension lands": dead code the ledger counts as debt.
@@ -110,6 +123,8 @@ No block asks `command -v` or `specforge run --which` whether an integration exi
 - Probing PATH for an optional integration, or a setting that turns one on: agents render no settings, and a probe is
   a rule in the shell.
 - `${!VAR+x}` for an environment check: zsh has no `${!…}`, and the placeholder test is a judgement, not glue.
+- A `files write` verb for state (D2): the state is the graph (D3).
+- Translation notices in place of rewrites: the model reads the wrong sentence first.
 
 ## Consequences
 

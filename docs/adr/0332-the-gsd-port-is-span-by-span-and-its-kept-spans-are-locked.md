@@ -32,7 +32,8 @@ deleted, not blanked. No protocol change.
   - The words hash ignores blank lines, indentation and fence width, so a layout edit keeps its review; the own
     length still moves the lock.
 - **D3. Span groups.** Every own span holds one group of a closed vocabulary:
-  - computed groups (`ported-name`, `served`, `markdown`), which the test recomputes;
+  - computed groups (`ported-name`, `served`, `typed-edit`, `markdown`, in that precedence), which the test
+    recomputes; `typed-edit` is D9's;
   - reviewed groups (`relic`, `answer`, `args`, `files`, `git`, `jq`, `prose`, `quick`, `review`, `thread`, `wait`,
     `workflow`, `agent`), which a bless carries from the row with the same asset, upstream hash and words hash;
   - `unreviewed`, which a bless writes for a span it cannot carry, and which fails.
@@ -50,9 +51,32 @@ deleted, not blanked. No protocol change.
   - `PENDING_RESYNC` keeps only upstream test suites.
 - **D7. One Markdown reader.**
   - `gsd_kit::markdown` (pulldown-cmark, CommonMark, no extension) is how the gsd family reads Markdown, in the
-    guest and in tests.
+    guest and in tests. Its `tables` alone turns GFM tables on: a table's cells are what it reads, and no gsd code
+    cuts a table row at `|` by hand.
   - It reads the text under a section tag again as Markdown, below the tag lines; a comment is never read again.
   - Every asset fence reads as written. A change that makes it so is a `markdown` span.
+- **D8. The names ledger.**
+  - A GSD file name is a name of `gsd_kit::files::PLANNING_FILES`: the names of the file table of
+    `gsd/core/spec/README.md`, plus the names upstream's text keeps under `.planning/` that the table lacks.
+  - Outside an upstream quote (D4), a name in own text is a row of `gsd/core/tests/common/planning_names.txt`. Own
+    text is an asset's own spans, an agent's recording section and a prompt's Rust-authored lines.
+  - The ledger only shrinks, and `.planning` is never a row.
+  - The preamble's file table (held equal to the README), the Codex and Cursor headers (upstream's text, pinned to
+    the snapshot) and the slash metadata are not own text.
+- **D9. The write ledger and `typed-edit`.**
+  - A line that tells an agent to write a GSD file is a row of `gsd/core/tests/common/markdown_writes.txt`, in kept
+    and own text alike. In prose that is a write verb and a GSD file name in one sentence; in a shell fence, an output
+    redirect or `tee` into one, the redirect's direction read by the SDK shell reader. Its row count is the port's
+    write measure.
+  - An own span whose upstream side has such a line, and whose own side has none and records a typed edit (the
+    catalogue's `edit` tool or a `specforge gsd` writer), is computed `typed-edit`.
+- **D10. The tool counter.**
+  - The distinct graph tools of the engine-tool catalogue
+    ([ADR 0334](0334-engine-tools-are-one-catalogue-below-the-surfaces.md)) named in the 44 claude-code renders and
+    the installed claude-code agent bodies, each body cut at its generated `## SpecForge tools` section, may not fall
+    below `AT_LEAST` in `gsd/core/tests/cli/rendered_lines.rs`, and a rise raises it in the same commit. It was 6 when
+    the counter landed.
+  - An MCP name counts anywhere; a CLI line counts only as a command in code.
 
 ## Rejected
 
@@ -61,7 +85,13 @@ deleted, not blanked. No protocol change.
 - Inline quote markers: they cost tokens in every prompt.
 - A file-level resync list for assets: the lock names the exact spans.
 - An exact hash of the own text: a layout edit would lose its review.
-- GFM tables: a `|` would split a code span.
+- GFM tables everywhere: a `|` would split a code span outside a table; only `tables` reads them.
+- A bless for the ledgers: it would let them grow.
+- Folding the literal `.planning` checks into the names ledger: they are stricter (kept text, every host, no
+  ledger).
+- Counting the generated tools section: it is the catalogue rendered, not a prompt using it.
+- CLI names in bare prose: they are not a call.
+- A hand list of the named tools: the catalogue is the dictionary.
 - comrak: an arena AST over GFM, and more crates; an offset iterator is all the family needs.
 - A blank line inserted after every section tag: 125 files touched to suit a reader.
 

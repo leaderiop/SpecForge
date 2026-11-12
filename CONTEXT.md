@@ -1876,6 +1876,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   and own spans against the tracked gsd-core release. Kept spans are upstream's text byte for byte, and are the
   quotes. Each own span holds a group that says why it differs. A test recomputes the lock and `GSD_BLESS=1` rewrites
   it (ADR 0332).
+- **Port ledger**: a shrink-only list a port test of `@gsd/core` reads. Each row is a hit the test still allows. A hit
+  with no row and a row with no hit both fail. The ledgers are `pending_tools.txt` (a program a block runs, ADR 0343
+  D1), `planning_names.txt` (a GSD file named outside an upstream quote) and `markdown_writes.txt` (a line that tells
+  an agent to write a GSD file) (ADR 0332 D8, D9).
 - **Human-only value**: a kind, field or member declared `writer: "human"`; an extension's plan, the MCP tools and a
   non-interactive CLI are refused `human_only` (ADR 0289), also when they edit an existing entity of a human-only kind or
   delete an entity holding a person's value (ADR 0298).
