@@ -69,13 +69,16 @@ As the move from 1.18.0 to 1.19.0 did it (round `gsd-upgrade-1.19.0`):
    (`core/tests/declaration.rs` requires `tracks` to name the one vendored directory).
 3. **The move, in one commit.** Rename `upstream/v<old>` to `upstream/v<new>` and re-vendor its files with
    `git show "<tag>:<path>"` (SOURCE.md names each), bump the pins (`tracks`, the attribution headers, the roster rows
-   the backlog names, the settings keys), and re-bless the goldens that move only by the version. Every vendored asset
-   whose upstream text changed goes into `PENDING_RESYNC` (`core/tests/common/pending.rs`): the port tests skip a listed
-   path, and fail if its port already matches, so the gate stays green while the list is honest. That commit puts
-   `#[ignore]` on `pending_resync_is_empty` (`core/tests/port_workflows.rs`); nothing else is ignored.
-4. **The re-ports.** Each asset is re-ported line for line and taken off the list in the same commit; behaviour
-   changes are ported test first. The commit that empties the list removes the `#[ignore]`; a branch is not merged to
-   main while it is there.
+   the backlog names, the settings keys), and re-bless the goldens that move only by the version. Re-bless the port
+   lock with `GSD_BLESS=resync` on `port::the_port_lock_maps_every_asset`: each asset span whose upstream text moved
+   becomes `resync`, and the unmoved spans keep their groups (ADR 0332 D6). That commit puts `#[ignore]` on
+   `port::no_span_waits_for_resync`. An upstream test suite whose cases moved goes into `PENDING_RESYNC`
+   (`core/tests/common/pending.rs`, suites only: an asset path there fails), with `#[ignore]` on
+   `pending_resync_is_empty` (`core/tests/port_workflows.rs`); nothing else is ignored.
+4. **The re-ports.** Each re-port edits its asset and re-blesses the lock with `GSD_BLESS=1`: its `resync` rows leave,
+   and each new own span takes a computed group or a reviewed one in its group cell. A suite's re-port takes it off
+   `PENDING_RESYNC`; behaviour changes are ported test first. The commit that leaves no `resync` row and an empty list
+   removes the `#[ignore]`s; a branch is not merged to main while one is there.
 5. **Re-record** the taskboard goldens (above), the security goldens (`record-security.sh`), the ledger goldens (`record-ledger.sh`) and the hook cases
    (`record-hook-cases.cjs`) on the new tag. These run upstream under node; review the diff of the goldens.
 6. **Close the backlog.** `upgrade.sh <dir> <tag> <old-tag>` (the optional third argument is the tag to diff from,

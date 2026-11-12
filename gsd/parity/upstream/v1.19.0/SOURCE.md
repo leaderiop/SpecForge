@@ -38,9 +38,9 @@ the tests in `tests/cli/parity_plans.rs` and the passes' native tests reproduce 
 
 The 15 `@gsd/core` agents of `gsd/core/contributions/README.md` (the Agents table), copied unchanged by `git -C
 <gsd-core> show v1.19.0:agents/<file>`: `gsd-<name>.md` for each, and `gsd-<name>.compact.md` for the ten that have one
-(all but executor, phase-researcher, plan-checker, planner and verifier). `gsd/core/tests/port.rs` compares each with
-the port under `gsd/core/assets/agents/` line for line: a line may differ only where upstream's names `.planning/`,
-`gsd-tools`, `gsd_run` or `gsd-sdk`. Both copies are MIT, Copyright (c) 2026 Open GSD (`gsd/core/LICENSE-GSD`).
+(all but executor, phase-researcher, plan-checker, planner and verifier). `gsd/core/tests/port.rs` maps the port under
+`gsd/core/assets/agents/` against each copy here span by span (`gsd/core/tests/port.lock`, ADR 0332): text that is not
+upstream's is an own span with a group. Both copies are MIT, Copyright (c) 2026 Open GSD (`gsd/core/LICENSE-GSD`).
 
 ## `src/complexity-trigger.cts` and `tests/complexity-trigger.test.cjs`: the complexity scorer
 
@@ -64,9 +64,9 @@ ports `CLUSTERS` (names, order and members) and declares one `specforge.surface.
 
 The workflows, references, templates and command files the 16 lifecycle prompts of `@gsd/core` port, copied unchanged
 by `git -C <gsd-core> show v1.19.0:<path>`, at the path they have in the tag. `gsd/core/assets/<path>` is the port
-(`gsd/core/tests/port_workflows.rs` compares each with its copy here, line for line: a line may differ only where
-upstream's names `.planning`, `gsd-tools`, `gsd_run` or `gsd-sdk`, or where a relative link left the tree and became the
-absolute URL of the file at the tag). A file whose relative links leave this tree, or reach one that does, is kept as
+(`gsd/core/tests/port.rs` maps each against its copy here span by span, `gsd/core/tests/port.lock`, ADR 0332: text
+that is not upstream's is an own span with a group, such as a relative link that left the tree and became the absolute
+URL of the file at the tag). A file whose relative links leave this tree, or reach one that does, is kept as
 `<name>.md.txt`, so the repository's link check does not read it. The command files keep their frontmatter here; the
 port drops it, because the slash binding carries it. All files are MIT, Copyright (c) 2026 Open GSD
 (`gsd/core/LICENSE-GSD`).

@@ -16,6 +16,8 @@ mod command_word;
 mod files;
 #[path = "common/host_options.rs"]
 mod host_options;
+#[path = "common/port_map.rs"]
+mod port_map;
 #[path = "common/specforge_only.rs"]
 mod specforge_only;
 
@@ -23,37 +25,9 @@ fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
 }
 
-/// Body lines of an upstream file; a command or agent file loses its frontmatter.
-fn upstream_body(relative: &str) -> Vec<String> {
-    let base = Path::new(gsd_kit::snapshot!());
-    let plain = base.join(relative);
-    let file = if plain.is_file() {
-        plain
-    } else {
-        base.join(format!("{relative}.txt"))
-    };
-    let text = std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{}: {e}", file.display()));
-    let mut lines: Vec<String> = text.split('\n').map(String::from).collect();
-    if relative.starts_with("commands/") || relative.starts_with("agents/") {
-        let end = lines[1..]
-            .iter()
-            .position(|l| l == "---")
-            .expect("a closing ---")
-            + 1;
-        lines.drain(..=end);
-    }
-    lines
-}
-
-/// Every asset as `(path under assets/, its lines after the header, upstream's body)`.
-fn every_asset() -> Vec<(String, Vec<String>, Vec<String>)> {
+/// Every asset as `(path under assets/, its lines after the header)`.
+fn every_asset() -> Vec<(String, Vec<String>)> {
     asset_code::assets_under("assets")
-        .into_iter()
-        .map(|(relative, lines)| {
-            let body = upstream_body(&relative);
-            (relative, lines, body)
-        })
-        .collect()
 }
 
 /// The verbs of the `specforge` CLI that ported lines name.
@@ -76,11 +50,13 @@ fn a_ported_line_names_only_declared_tools() {
         .collect();
     let verb = Regex::new(r"specforge ([a-z][a-z0-9-]*)(?: ([a-z][a-z0-9-]*))?").expect("a regex");
     let mut seen = 0;
-    for (path, lines, body) in every_asset() {
-        for (n, (mine, theirs)) in lines.iter().zip(&body).enumerate() {
-            if mine == theirs {
-                continue;
-            }
+    for (path, lines) in every_asset() {
+        let own = port_map::map(&path).into_iter().filter_map(|s| match s {
+            port_map::Span::Own { asset, .. } => Some(asset),
+            port_map::Span::Kept { .. } => None,
+        });
+        for n in own.flatten() {
+            let mine = &lines[n];
             // the one prose phrase every shell block opens with
             let mine = mine.replace("are specforge commands", "");
             for cap in verb.captures_iter(&mine) {
@@ -110,7 +86,7 @@ fn a_ported_line_names_only_declared_tools() {
 fn no_body_names_spec_gsd_or_gsd_cjs() {
     let rx = Regex::new(r"specforge gsd query|specforge gsd\.cjs|spec/gsd/").expect("a regex");
     let mut checked = 0;
-    for (path, lines, _) in every_asset() {
+    for (path, lines) in every_asset() {
         for (n, line) in lines.iter().enumerate() {
             assert!(!rx.is_match(line), "{path}:{n}: {line}");
         }
@@ -189,7 +165,7 @@ fn a_shell_block_runs_no_node() {
     ] {
         assert_eq!(node.is_match(line), is_node, "{line}");
     }
-    for (path, lines, _) in every_asset() {
+    for (path, lines) in every_asset() {
         for (n, code) in fenced_code(&lines) {
             if !node.is_match(code) {
                 continue;

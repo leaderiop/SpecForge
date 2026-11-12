@@ -72,6 +72,10 @@ pub const GROUPS: &[(&str, &str)] = &[
         "unreviewed",
         "a bless could not carry the span's group: set one (it always fails)",
     ),
+    (
+        "resync",
+        "an upstream move changed the span's upstream text: re-port it (ADR 0332 D6)",
+    ),
 ];
 
 /// The groups the test recomputes, in precedence order.
@@ -490,12 +494,15 @@ pub fn lock_rows() -> Vec<Row> {
 pub enum Bless {
     /// `GSD_BLESS=1`: `unreviewed`.
     Review,
+    /// `GSD_BLESS=resync`, after an upstream move: `resync`.
+    Resync,
 }
 
 /// The bless `GSD_BLESS` asks for.
 pub fn bless() -> Option<Bless> {
     match std::env::var("GSD_BLESS").as_deref() {
         Ok("1") => Some(Bless::Review),
+        Ok("resync") => Some(Bless::Resync),
         _ => None,
     }
 }
@@ -518,6 +525,7 @@ pub fn carry(old: &[Row], new: Vec<Row>, mode: Bless) -> Vec<Row> {
                 row.group = match (found, mode) {
                     (Some(group), _) => group,
                     (None, Bless::Review) => "unreviewed".to_string(),
+                    (None, Bless::Resync) => "resync".to_string(),
                 };
             }
             row

@@ -1,5 +1,6 @@
-//! The ported agent bodies against the vendored upstream files (gsd-core v1.19.0): line for line, a line may differ
-//! only where upstream's names `.planning/`, `gsd-tools`, `gsd_run` or `gsd-sdk`.
+//! The port against the vendored upstream files (gsd-core v1.19.0): every `@gsd/core` and `@gsd/security` asset is
+//! mapped span by span, and `port.lock` is the map (ADR 0332); the agents' frontmatter and the commands their bodies
+//! name.
 
 use std::path::{Path, PathBuf};
 
@@ -16,20 +17,6 @@ mod files;
 mod port_map;
 #[path = "common/specforge_only.rs"]
 mod specforge_only;
-
-#[path = "common/agent_rewrites.rs"]
-mod agent_rewrites;
-#[path = "common/port.rs"]
-mod rule;
-#[path = "common/thread_rewrites.rs"]
-mod thread_rewrites;
-use rule::check_lines;
-
-#[path = "port/tables.rs"]
-mod tables;
-
-#[path = "common/pending.rs"]
-mod pending;
 
 pub fn upstream_dir() -> PathBuf {
     PathBuf::from(gsd_kit::snapshot!("agents"))
@@ -60,51 +47,6 @@ fn upstream(file: &str) -> (Vec<String>, Vec<String>) {
     (lines[1..end].to_vec(), lines[end + 1..].to_vec())
 }
 
-/// Checks one asset against its upstream file: the header, then every line.
-fn check_body(file: &str) -> usize {
-    let (_, body) = upstream(file);
-    check_lines(
-        file,
-        &format!("agents/{file}"),
-        &read(&assets_dir().join(file)),
-        &body,
-        &ported(),
-        &|n| {
-            agent_rewrites::REWRITTEN.contains(&(file, n))
-                || agent_rewrites::ROWS.contains(&(file, n))
-                || rule::in_spans(thread_rewrites::SPANS, &format!("agents/{file}"), n)
-        },
-    )
-}
-
-#[test]
-fn bodies_diff_only_in_ported_passages() {
-    assert_eq!(AGENTS.len(), 15);
-    let mut total = 0;
-    for agent in AGENTS {
-        let file = format!("{}.md", agent.id);
-        let path = format!("agents/{file}");
-        if pending::is_pending(&path) {
-            pending::assert_still_pending(&path, || {
-                check_body(&file);
-            });
-            continue;
-        }
-        total += check_body(&file);
-    }
-    assert!(total > 100, "only {total} lines were ported");
-}
-
-#[test]
-fn the_compact_bodies_are_upstreams_too() {
-    let mut seen = 0;
-    for agent in AGENTS.iter().filter(|a| a.compact.is_some()) {
-        check_body(&format!("{}.compact.md", agent.id));
-        seen += 1;
-    }
-    assert_eq!(seen, 10);
-}
-
 #[test]
 fn no_asset_names_planning_or_gsd_tools() {
     let rx = Regex::new(port_map::PORTED).expect("a regex");
@@ -122,6 +64,17 @@ fn no_asset_names_planning_or_gsd_tools() {
 #[test]
 fn the_port_lock_maps_every_asset() {
     port_map::check_lock();
+}
+
+/// No span waits for its re-port. Ignored only between a snapshot move and its last re-port, never on main.
+#[test]
+fn no_span_waits_for_resync() {
+    let waiting: Vec<String> = port_map::lock_rows()
+        .into_iter()
+        .filter(|r| r.group == "resync")
+        .map(|r| format!("{}:{}+{}", r.asset, r.up, r.n))
+        .collect();
+    assert!(waiting.is_empty(), "spans to re-port: {waiting:#?}");
 }
 
 #[test]
@@ -233,6 +186,13 @@ fn a_bless_carries_a_reviewed_group_and_marks_a_new_span() {
         .collect();
     // one old row carries once; a computed group stays
     assert_eq!(groups, ["relic", "unreviewed", "markdown"]);
+    // after an upstream move, a span no old row carries waits for its re-port
+    let new = vec![row("bbbbbbbbbbbb", ""), row("eeeeeeeeeeee", "")];
+    let groups: Vec<String> = carry(&old, new, Bless::Resync)
+        .into_iter()
+        .map(|r| r.group)
+        .collect();
+    assert_eq!(groups, ["relic", "resync"]);
 }
 
 #[test]
@@ -243,13 +203,6 @@ fn the_lock_round_trips() {
     assert!(rows.iter().any(|r| r.kept) && rows.iter().any(|r| !r.kept));
     assert_eq!(port_map::rows(&port_map::render(&rows)), rows);
     assert_eq!(port_map::render(&rows), lock);
-}
-
-/// The lock's reviewed groups are the line tables' families, each own span the family listing the most of its
-/// lines (`GSD_BLESS=seed` writes them into `unreviewed` cells). Deleted with the tables.
-#[test]
-fn the_lock_groups_agree_with_the_line_tables() {
-    tables::agree();
 }
 
 fn class(tool: &str) -> String {

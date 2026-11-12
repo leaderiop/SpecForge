@@ -9,10 +9,16 @@ use std::process::{Command, Stdio};
 
 use regex::Regex;
 
+#[path = "common/asset_code.rs"]
+mod asset_code;
+#[path = "common/command_word.rs"]
+mod command_word;
 #[path = "common/files.rs"]
 mod files;
-#[path = "common/pending.rs"]
-mod pending;
+#[path = "common/port_map.rs"]
+mod port_map;
+#[path = "common/specforge_only.rs"]
+mod specforge_only;
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
@@ -26,44 +32,67 @@ fn with_extension(dir: &Path, ext: &str) -> Vec<PathBuf> {
         .collect()
 }
 
-/// `(label, ours, upstream's)` as body lines of every asset that has an upstream file of the same line count.
-fn pairs() -> Vec<(String, Vec<String>, Vec<String>)> {
-    let base = root().join("assets");
-    let vendored = Path::new(gsd_kit::snapshot!());
-    let mut out = Vec::new();
-    for p in with_extension(&base, "md") {
-        let rel = p
-            .strip_prefix(&base)
-            .expect("under assets")
-            .display()
-            .to_string();
-        // a file waiting for its re-port is checked once it is re-ported
-        if rel.ends_with(".compact.md") || pending::is_pending(&rel) {
-            continue;
-        }
-        let plain = vendored.join(&rel);
-        let up = if plain.is_file() {
-            plain
-        } else {
-            vendored.join(format!("{rel}.txt"))
-        };
-        let split = |text: &str| -> Vec<String> { text.split('\n').map(String::from).collect() };
-        let mine = split(&std::fs::read_to_string(&p).expect("an asset"))[1..].to_vec();
-        let mut theirs = split(
-            &std::fs::read_to_string(&up).unwrap_or_else(|e| panic!("{}: {e}", up.display())),
-        );
-        if rel.starts_with("commands/") || rel.starts_with("agents/") {
-            let end = theirs[1..]
-                .iter()
-                .position(|l| l == "---")
-                .expect("frontmatter")
-                + 2;
-            theirs.drain(..end);
-        }
-        assert_eq!(mine.len(), theirs.len(), "{rel}: line count");
-        out.push((rel, mine, theirs));
+/// An asset's port: its label (the lock key), its body lines, upstream's body lines and its spans (ADR 0332).
+struct Pair {
+    label: String,
+    mine: Vec<String>,
+    theirs: Vec<String>,
+    spans: Vec<port_map::Span>,
+}
+
+impl Pair {
+    /// Whether line `n` of ours lies in an own span: text that is not upstream's.
+    fn own(&self, n: usize) -> bool {
+        self.spans
+            .iter()
+            .any(|s| matches!(s, port_map::Span::Own { asset, .. } if asset.contains(&n)))
     }
-    out
+
+    /// Upstream's lines that ours `s..e` stands for: the upstream range of the spans over it.
+    fn upstream_of(&self, s: usize, e: usize) -> &[String] {
+        let (mut from, mut to) = (usize::MAX, 0);
+        for span in &self.spans {
+            let (asset, up) = match span {
+                port_map::Span::Kept { asset, up, .. } | port_map::Span::Own { asset, up, .. } => {
+                    (asset, up)
+                }
+            };
+            if asset.start < e && s < asset.end.max(asset.start + 1) {
+                // a kept span maps line for line; an own span stands whole for its upstream range
+                let (a, b) = match span {
+                    port_map::Span::Kept { .. } => (
+                        up.start + s.max(asset.start) - asset.start,
+                        up.start + e.min(asset.end) - asset.start,
+                    ),
+                    port_map::Span::Own { .. } => (up.start, up.end),
+                };
+                from = from.min(a);
+                to = to.max(b);
+            }
+        }
+        if from > to {
+            &[]
+        } else {
+            &self.theirs[from..to]
+        }
+    }
+}
+
+/// Every asset of `@gsd/core` but the compact bodies, with its port.
+fn pairs() -> Vec<Pair> {
+    port_map::assets()
+        .into_iter()
+        .filter(|a| !a.starts_with("../") && !a.ends_with(".compact.md"))
+        .map(|label| {
+            let (theirs, _) = port_map::upstream_body(&label);
+            Pair {
+                mine: port_map::asset_body(&label),
+                spans: port_map::map(&label),
+                theirs,
+                label,
+            }
+        })
+        .collect()
 }
 
 /// The bash and sh fences of `lines` as `(first code line, end)` (0-based, end exclusive).
@@ -118,15 +147,17 @@ fn parses(bash: &str, code: &str) -> bool {
 fn a_changed_bash_block_still_parses() {
     let mut checked = 0;
     let mut broken = Vec::new();
-    for (label, mine, theirs) in pairs() {
-        for (s, e) in fences(&mine) {
-            if mine[s..e] == theirs[s..e] {
+    for pair in pairs() {
+        for (s, e) in fences(&pair.mine) {
+            if !(s..e).any(|n| pair.own(n)) {
                 continue;
             }
             checked += 1;
+            let theirs = pair.upstream_of(s, e).join("\n");
+            let mine = pair.mine[s..e].join("\n");
             for bash in shells() {
-                if parses(bash, &theirs[s..e].join("\n")) && !parses(bash, &mine[s..e].join("\n")) {
-                    broken.push(format!("{label}:{} ({bash})", s + 2));
+                if parses(bash, &theirs) && !parses(bash, &mine) {
+                    broken.push(format!("{}:{} ({bash})", pair.label, s + 2));
                 }
             }
         }
@@ -146,12 +177,13 @@ fn no_bash_code_line_carries_prose_for_a_path() {
     )
     .expect("a regex");
     let mut found = Vec::new();
-    for (label, mine, theirs) in pairs() {
-        for (s, e) in fences(&mine) {
-            for n in s..e {
-                let code = mine[n].trim_start();
+    for pair in pairs() {
+        let (label, mine) = (&pair.label, &pair.mine);
+        for (s, e) in fences(mine) {
+            for (n, line) in mine.iter().enumerate().take(e).skip(s) {
+                let code = line.trim_start();
                 // a `#` or `: #` line is a comment: it may say why there is nothing to run
-                if mine[n] != theirs[n]
+                if pair.own(n)
                     && !code.starts_with('#')
                     && !code.starts_with(": #")
                     && prose.is_match(code)
@@ -178,10 +210,10 @@ fn no_text_joins_the_spec_to_a_path() {
     )
     .expect("a regex");
     let mut found = Vec::new();
-    for (label, mine, _) in pairs() {
-        for (n, line) in mine.iter().enumerate() {
+    for pair in pairs() {
+        for (n, line) in pair.mine.iter().enumerate() {
             if joined.is_match(line) {
-                found.push(format!("{label}:{}: {line}", n + 2));
+                found.push(format!("{}:{}: {line}", pair.label, n + 2));
             }
         }
     }
