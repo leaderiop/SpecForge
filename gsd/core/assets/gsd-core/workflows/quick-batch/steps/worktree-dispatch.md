@@ -19,9 +19,9 @@ EXEC_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is no
 
 1. Re-derive eligibility (also reconciles crash-window/blocked-propagation —
    safe to call repeatedly, idempotent when nothing changed):
-   ```bash
+```bash
 QB_ELIG_JSON='{"eligible":[]}'   # quick-batch resume: the batch router is not part of @gsd/core; the eligible items are those of your notes whose dependencies are complete
-   ```
+```
    Parse `eligible` (quick ids ready to execute — every dependency already
    `complete`); `$BATCH_MANIFEST_JSON` keeps its `quick_id`, `slug`, `description` rows.
 
@@ -56,9 +56,9 @@ QB_FILTER_JSON='{"spawnEligible":[],"alreadyExecuted":[]}'   # quick-batch filte
 2. **Backpressure.** Not every eligible item necessarily spawns this round —
    cap fan-out at `$EXEC_CONCURRENCY` minus current in-flight count (row
    27/39):
-   ```bash
+```bash
 QB_SPAWN_JSON='{"spawn":[],"pending":[]}'   # quick-batch spawn-plan: the batch router is not part of @gsd/core; spawn up to $EXEC_CONCURRENCY eligible items
-   ```
+```
    Parse `spawn` (dispatch these now) and `pending` (leave `pending` in
    `BATCH.json` — already the case, no write needed; NEVER mark these
    `failed`, NEVER increase fan-out to compensate).

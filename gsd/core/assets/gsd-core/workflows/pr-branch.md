@@ -162,6 +162,7 @@ Mixed commits: {N} (code + planning — included, planning paths filtered)
 </step>
 
 <step name="create_pr_branch">
+
 ```bash
 PR_BRANCH="${CURRENT_BRANCH}-pr"
 

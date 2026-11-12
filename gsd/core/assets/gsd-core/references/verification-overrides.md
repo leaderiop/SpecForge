@@ -141,7 +141,7 @@ overrides_applied: 2
 
 When the verifier marks a must-have as FAIL and the failure looks intentional (e.g., alternative implementation exists, or the code explicitly handles the case differently), the verifier should suggest creating an override:
 
-```markdown
+````markdown
 ### F-002: OAuth2 PKCE flow
 
 **Status:** FAILED
@@ -158,7 +158,7 @@ overrides:
 ```
 
 Then re-run verification to apply.
-```
+````
 
 ### Override via the verification workflow
 

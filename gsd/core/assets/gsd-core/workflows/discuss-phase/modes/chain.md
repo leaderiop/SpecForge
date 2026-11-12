@@ -27,11 +27,11 @@ Apply response_language to all user-facing prose — narration between tool call
    and no `--chain`), clear the ephemeral chain flag from any previous
    interrupted `--auto` chain. This does NOT touch `workflow.auto_advance`
    (the user's persistent settings preference):
-   ```bash
+```bash
 
 # the commands below are specforge commands: there is no launcher to define
 
-   ```
+```
 
 3. Read consolidated auto-mode (`active` = chain flag OR user preference):
    ```bash
@@ -49,11 +49,11 @@ Apply response_language to all user-facing prose — narration between tool call
    true:** display banner and launch plan-phase.
 
    Banner:
-   ```
+```
 ### GSD ► AUTO-ADVANCING TO PLAN
 
    Context captured. Launching plan-phase...
-   ```
+```
 
    Launch plan-phase using the Skill tool to avoid nested Task sessions
    (which cause runtime freezes due to deep agent nesting — see #686):
@@ -68,7 +68,7 @@ Apply response_language to all user-facing prose — narration between tool call
 6. **Handle plan-phase return:**
 
    - **PHASE COMPLETE** → Full chain succeeded. Display:
-     ```
+```
 ### GSD ► PHASE ${PHASE} COMPLETE
 
      Auto-advance pipeline finished: discuss → plan → execute
@@ -76,7 +76,7 @@ Apply response_language to all user-facing prose — narration between tool call
      /clear then:
 
      Next: /gsd:discuss-phase ${NEXT_PHASE} ${WAS_CHAIN ? "--chain" : "--auto"}
-     ```
+```
    - **PLANNING COMPLETE** → Planning done, execution didn't complete:
      ```
      Auto-advance partial: Planning complete, execution did not finish.

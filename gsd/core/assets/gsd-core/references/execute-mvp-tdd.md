@@ -37,7 +37,7 @@ The executor MUST:
 1. Halt before running the task's implementation step.
 2. Emit a structured halt report:
 
-   ```
+```
 ### TDD GATE TRIPPED — Plan {plan_id}, Task {task_id}
 
    Reason: {missing_red_commit | red_commit_not_failing | feat_before_test | invalid_red}
@@ -49,7 +49,7 @@ The executor MUST:
    1. Write a failing test for the behavior above.
    2. Commit it as: test({phase}-{plan}): {short description}
    3. Re-run /gsd:execute-phase
-   ```
+```
 
 3. Exit the current execution wave cleanly. Do NOT roll back any prior commits in the same wave.
 4. Update `STATE.md` with `last_gate_trip: {plan_id}/{task_id}` so the user can resume after writing the test.

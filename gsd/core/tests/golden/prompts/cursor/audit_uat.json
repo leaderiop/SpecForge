@@ -58,10 +58,10 @@
     "</step>",
     "",
     "<step name=\"present\">",
-    "If `summary.parse_gap_files` is greater than 0, render this section FIRST (before the `## UAT Audit Report` below, or standalone if `total_items` is also 0). Filter `results` for entries with `parse_gap: true`:",
-    "```"
+    "",
+    "If `summary.parse_gap_files` is greater than 0, render this section FIRST (before the `## UAT Audit Report` below, or standalone if `total_items` is also 0). Filter `results` for entries with `parse_gap: true`:"
   ],
-  "bytes": 14534,
+  "bytes": 14535,
   "end": [
     "<step name=\"test_plan\">",
     "Generate a human UAT test plan for \"Testable Now\" + \"active\" items only:",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 346,
+  "lines": 347,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:ece0144b4b96d2baeca7529d00ee6e6aa33d79c51fe37f73ec82bd42e76f4589",
+    "digest": "sha256:7d2628164e621da01a9a49faa59aac221e6762c465f60fa77676f715d28e9b07",
     "prompt": "@gsd/core@VERSION:audit_uat",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "ece0144b4b96d2baeca7529d00ee6e6aa33d79c51fe37f73ec82bd42e76f4589"
+  "sha256": "7d2628164e621da01a9a49faa59aac221e6762c465f60fa77676f715d28e9b07"
 }

@@ -40,8 +40,8 @@
     "sha256": "7202997923a254da1bb1a3f4832bde28b89d4e830244af989a02013bd395e95d"
   },
   ".cursor/agents/gsd-planner.md": {
-    "bytes": 50222,
-    "sha256": "ac5444f641951a146f90a9ff3611e1778f91a9d32f207a6d8ad1ffb18f3811b1"
+    "bytes": 50223,
+    "sha256": "19109f4956ae490aaf06334370cad33999cb5cfd2f94f5ce1d7e7c93bb0789e1"
   },
   ".cursor/agents/gsd-project-researcher.md": {
     "bytes": 18302,
@@ -56,8 +56,8 @@
     "sha256": "8385221757f900fee07941b4478a3e2407192a25dd8135906ddbdab3d45017f5"
   },
   ".cursor/agents/gsd-verifier.md": {
-    "bytes": 51471,
-    "sha256": "fa3d9505a7fe0af95f335400729435bd8f32852d97cc6f64fa3b1c055e761796"
+    "bytes": 51473,
+    "sha256": "7e4c587e8437263c513cea2e507b4bf23233b7117af6c443b14cbee770230242"
   },
   ".cursor/hooks.json": {
     "bytes": 2050,

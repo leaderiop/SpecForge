@@ -730,6 +730,7 @@ Prefer vertical slices over horizontal layers.
 </step>
 
 <step name="assign_waves">
+
 ```
 waves = {}
 for each plan in plan_order:

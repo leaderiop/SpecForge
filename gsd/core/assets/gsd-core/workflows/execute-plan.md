@@ -84,6 +84,7 @@ Present plan identification, wait for confirmation.
 </step>
 
 <step name="record_start_time">
+
 ```bash
 specforge gsd start-plan "$PLAN_ID" --head "$(specforge git head --pick .sha)" || exit 1   # records the plan's start and head once, in the graph: a re-run keeps them
 
@@ -381,6 +382,7 @@ If `NODE_REPAIR` is `false` OR repair returns ESCALATE: STOP. Present: "Verifica
 </step>
 
 <step name="record_completion_time">
+
 ```bash
 # the plan closes at the end of create_summary: its summary must exist first
 

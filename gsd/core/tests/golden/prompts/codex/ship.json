@@ -61,7 +61,7 @@
     "",
     "Detect base branch for PRs and merges:"
   ],
-  "bytes": 54414,
+  "bytes": 54415,
   "end": [
     "Commits: {count}",
     "Verification: ✓ Passed",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 931,
+  "lines": 932,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:ce0634998c8b5ffad4eb824d64c529d942651231ae10cf109ac9edef85351cb0",
+    "digest": "sha256:04a07af118a4763ada09338d2dec86a8c2100b42f58928a0e3375663ec0aa961",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "ce0634998c8b5ffad4eb824d64c529d942651231ae10cf109ac9edef85351cb0"
+  "sha256": "04a07af118a4763ada09338d2dec86a8c2100b42f58928a0e3375663ec0aa961"
 }

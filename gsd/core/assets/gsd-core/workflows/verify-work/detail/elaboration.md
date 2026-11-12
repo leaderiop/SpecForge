@@ -268,4 +268,3 @@ alongside `pending_count`/`blocked_count`/`skipped_no_reason`, and its issues-ro
 (`diagnose_issues` vs. proceeding toward promotion) reads `unresolved_issues`, not the raw
 `issues` count from `## Summary`. The raw `issues` count is unchanged and still drives the
 presented summary numbers.
-```

@@ -5,7 +5,7 @@ Template for the `research` entity for STACK — recommended technologies for th
 
 <template>
 
-```markdown
+````markdown
 # Stack Research
 
 **Domain:** [domain type]
@@ -89,7 +89,7 @@ npm install -D [packages]
 ---
 *Stack research for: [domain]*
 *Researched: [date]*
-```
+````
 
 </template>
 

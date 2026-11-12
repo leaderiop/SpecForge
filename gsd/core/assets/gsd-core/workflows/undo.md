@@ -512,7 +512,7 @@ If any revert fails (merge conflict or error):
    specforge git restore . --pick .restored 2>/dev/null
    ```
 3. Display:
-   ```
+```
 ### ERROR
 
    Revert failed on commit ${HASH}.
@@ -520,7 +520,7 @@ If any revert fails (merge conflict or error):
 
    **To fix:** Resolve the conflict manually or revert commits individually.
    All pending reverts have been aborted — working tree is clean.
-   ```
+```
 4. Exit with error.
 
 After all reverts are staged successfully, create a single commit:

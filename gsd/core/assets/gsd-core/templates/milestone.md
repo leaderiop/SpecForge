@@ -63,6 +63,7 @@ If MILESTONES.md doesn't exist, create it with header:
 </guidelines>
 
 <example>
+
 ```markdown
 # Project Milestones: WeatherBar
 

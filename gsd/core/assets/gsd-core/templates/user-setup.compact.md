@@ -9,7 +9,7 @@ Template for the phase `XX-name` ({phase}-USER-SETUP.md) - human-required config
 
 ## File Template
 
-```markdown
+````markdown
 # Phase {X}: User Setup Required
 
 **Generated:** [YYYY-MM-DD]
@@ -56,7 +56,7 @@ Expected results:
 ---
 
 **Once all items complete:** Mark status as "Complete" at top of file.
-```
+````
 
 ---
 
@@ -118,7 +118,7 @@ user_setup:
 ## Service-Specific Example
 
 <stripe_example>
-```markdown
+````markdown
 # Phase 10: User Setup Required
 
 **Generated:** 2025-01-14
@@ -186,7 +186,7 @@ Expected: Build passes, webhook returns 400 (signature validation working).
 ---
 
 **Once all items complete:** Mark status as "Complete" at top of file.
-```
+````
 </stripe_example>
 
 ---

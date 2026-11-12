@@ -342,3 +342,53 @@ fn the_decision_step_runs_no_prose() {
         "{step}"
     );
 }
+
+/// Every asset fence reads as written to the gsd family's Markdown reader (ADR 0332 D7): each fence is closed, no
+/// code line opens with a run of its fence's mark as long as the fence's, and no line opening with three backticks or
+/// three tildes lies outside every fence.
+#[test]
+fn every_fence_is_read_as_written() {
+    let mut offences = Vec::new();
+    for asset in port_map::assets() {
+        let lines = port_map::asset_body(&asset);
+        let fences = gsd_kit::markdown::fences(&lines.join("\n"));
+        let mut covered = vec![false; lines.len()];
+        for f in &fences {
+            let end = if f.closed { f.code.end + 1 } else { f.code.end };
+            covered[f.open..end.min(lines.len())].fill(true);
+            if !f.closed {
+                offences.push(format!(
+                    "{asset}:{}: not closed (code ends at {})",
+                    f.open + 2,
+                    f.code.end + 1
+                ));
+            }
+            for n in f.code.clone() {
+                let run = lines[n]
+                    .trim_start()
+                    .chars()
+                    .take_while(|c| *c == f.mark)
+                    .count();
+                if run >= f.width {
+                    offences.push(format!(
+                        "{asset}:{}: a mark as long as its fence's (opened at {})",
+                        n + 2,
+                        f.open + 2
+                    ));
+                }
+            }
+        }
+        for (n, line) in lines.iter().enumerate() {
+            let t = line.trim_start();
+            if (t.starts_with("```") || t.starts_with("~~~")) && !covered[n] {
+                offences.push(format!("{asset}:{}: a mark outside every fence", n + 2));
+            }
+        }
+    }
+    assert!(
+        offences.is_empty(),
+        "{} fence offences:\n{}",
+        offences.len(),
+        offences.join("\n")
+    );
+}

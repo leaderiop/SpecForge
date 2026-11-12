@@ -221,7 +221,7 @@ Before marking any must-have as FAILED or ⚠️ PRESENT_BEHAVIOR_UNVERIFIED, ch
 
 **Suggesting overrides:** When a must-have FAILs but evidence shows an alternative implementation that achieves the same intent, include an override suggestion in the report:
 
-```markdown
+````markdown
 **This looks intentional.** To accept this deviation, a human adds an `override` entity under the verification:
 
 ```yaml
@@ -231,7 +231,7 @@ overrides:
     accepted_by: "{name}"
     accepted_at: "{ISO timestamp}"
 ```
-```
+````
 
 ## Step 4: Verify Artifacts (Three Levels)
 

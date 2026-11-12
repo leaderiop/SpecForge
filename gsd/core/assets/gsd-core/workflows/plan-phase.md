@@ -742,7 +742,7 @@ Display banner:
 
 Planner prompt:
 
-```markdown
+````markdown
 <planning_context>
 **Phase:** {phase_number}
 **Mode:** {standard | gap_closure | reviews}
@@ -939,7 +939,7 @@ Every task MUST include these fields — they are NOT optional:
 - [ ] Every SPEC ## Prohibitions resolved item is represented in a plan's must_haves.prohibitions (no silent drops)
 </quality_gate>
 <!-- gsd:protected:end -->
-```
+````
 
 **If `CHUNKED_MODE` is `false` (default):** Spawn the planner as a single long-lived Agent:
 
@@ -1022,7 +1022,7 @@ failure: stop and surface it, and do not hand the checker an empty value.
 
 Checker prompt:
 
-```markdown
+````markdown
 <verification_context>
 **Phase:** {phase_number}
 **Phase Goal:** {goal from ROADMAP}
@@ -1090,7 +1090,7 @@ Agent(
   description="Verify Phase {phase} plans",
   run_in_background=true
 )
-```
+````
 
 **Dispatch/wait gate — `PLANNER_STALL_DETECTION_ENABLED` (config key `planner.stall_detection_enabled`, resolved in `plan-phase/steps/stall-detection-helpers.md`):**
 - **`true` (default):** use `run_in_background=true` in the Agent() call above, then run the watch cycle below.

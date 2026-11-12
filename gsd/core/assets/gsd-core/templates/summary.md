@@ -217,6 +217,7 @@ The one-liner should tell someone what actually shipped.
 </one_liner_rules>
 
 <example>
+
 ```markdown
 # Phase 1: Foundation Summary
 

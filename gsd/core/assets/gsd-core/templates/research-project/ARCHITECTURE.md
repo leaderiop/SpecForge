@@ -5,7 +5,7 @@ Template for the `research` entity for ARCHITECTURE — system structure pattern
 
 <template>
 
-```markdown
+````markdown
 # Architecture Research
 
 **Domain:** [domain type]
@@ -171,7 +171,7 @@ src/
 ---
 *Architecture research for: [domain]*
 *Researched: [date]*
-```
+````
 
 </template>
 

@@ -202,6 +202,7 @@ specforge gsd pause "[reason]" --by "[who]" --phase "$MILESTONE/[phase]" --hando
 </step>
 
 <step name="confirm">
+
 ```
 ✓ Handoff created:
   - the `handoff` entity HO1 (structured and human-readable)
