@@ -50,20 +50,11 @@ impl Lcg {
     }
 }
 
-/// The five shape cues of upstream's `src/edge-probe.cts`, the bodies between the slashes.
-const CUES: [&str; 5] = [
-    r"\b(round(ing|ed)?|threshold|max(imum)?|min(imum)?|limit|bound(ary)?|between|cap|percent|amount|price|count|number|score|rate|decimal)\b",
-    r"\b(lists?|arrays?|sets?|items?|collections?|each|every|all|sort(ed|ing)?|merge|dedupe|group|ranges?|intervals?|overlap(ping)?)\b",
-    r"\b(string|text|names?|labels?|truncate|substring|char(acter)?s?|length|slug|message|unicode)\b",
-    r"\b(save|persist|store|update|toggle|create|delete|remove|submit|retry|apply|register|insert)\b",
-    r"\b(files?|requests?|fetch|upload|download|network|api|endpoints?|connections?|sockets?)\b",
-];
-
 #[test]
 fn a_word_boundary_agrees_with_the_oracle() {
     const TEXTS: usize = 2_000;
     let (mut rng, mut mismatches) = (Lcg(0x6732_2026_1112), Vec::new());
-    for p in CUES {
+    for (_, p) in crate::probe::edge::SHAPE_CUES {
         let (re, node) = (Regex::new(p), parse(p));
         let words: Vec<String> = p
             .split(|c: char| !c.is_ascii_alphabetic())

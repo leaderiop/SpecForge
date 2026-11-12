@@ -13,6 +13,8 @@ mod js_regex;
 pub mod judged;
 mod kinds;
 mod passes;
+#[allow(dead_code, reason = "the pass and the commands that read it land next")]
+mod probe;
 pub mod prompts;
 mod quick_id;
 mod relocation;

@@ -88,6 +88,8 @@ fn every_ported_source_is_attributed() {
         root.join("src/js_regex.rs"),
         root.join("src/js_regex/oracle.rs"),
     ]);
+    // the probe engine ports probe-core and edge-probe, and its tests their unit suites
+    files(&root.join("src/probe"), &mut all);
     for path in all {
         let text = std::fs::read_to_string(&path).expect("a source");
         let first = text.lines().next().unwrap_or_default();
