@@ -91,6 +91,40 @@ fn the_audit_reads_every_summarys_requirements() {
     );
 }
 
+/// A `ship:post` hook that consumes `UAT.md` is handed the phase's UAT. Today ship.md resolves it under
+/// `"${PHASE_DIR}"`, which nothing assigns: `files list ""` is a usage error hidden by `2>/dev/null`, so the hook always
+/// reads as absent and is skipped, though the graph holds the phase's `uat_session`. The fix hands it that entity.
+#[test]
+fn a_ship_hook_is_handed_the_phases_uat_session() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = taskboard();
+    let text = asset("gsd-core/workflows/ship.md");
+    assert!(!text.contains("PHASE_DIR="), "ship.md assigns PHASE_DIR");
+    let entity = p.run(&[
+        "query",
+        "v1.0/01",
+        "--depth",
+        "1",
+        "--kinds",
+        "uat_session",
+        "--pick",
+        ".nodes[kind=uat_session].id",
+    ]);
+    assert_eq!(entity.stdout.trim(), "v1.0/01/01-UAT", "{}", entity.all());
+    let run = gsd_kit::markdown::inline_code(&text)
+        .into_iter()
+        .map(|(_, run)| run)
+        .find(|run| run.starts_with("specforge files list") && run.contains("*-UAT.md"))
+        .expect("the consumes bullet's run");
+    let (out, err, _) = sh.run_in(
+        p.root(),
+        &format!("PHASE_ID=v1.0/01\nprintf '[%s]' \"$({run})\""),
+    );
+    assert_eq!(out, "[]", "{err}");
+}
+
 /// The UI gate reads the phase's computed `frontend` field (`@gsd/ui` computes it): no field holds upstream's
 /// `**UI hint**: yes`, so a grep of the phase's text for it is always false.
 #[test]
