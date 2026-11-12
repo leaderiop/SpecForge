@@ -148,16 +148,47 @@ fn a_repository_at_the_ceiling_is_none_whatever_its_worktree() {
     verify = "a search from below a git ceiling directory never reads the ceiling nor above it"
 )]
 fn a_repository_at_the_ceiling_is_never_opened() {
-    let (_dir, real) = home();
-    let config = real.join("repo/.git/config");
-    let mut text = std::fs::read_to_string(&config).unwrap();
-    // `\U` is no escape git config knows, as in a Windows path written unescaped
-    text.push_str("[core]\n\tworktree = C:\\Users\\wt\n");
-    std::fs::write(&config, text).unwrap();
+    let (_dir, real) = unreadable_ceiling();
     let vars = Vars::default().set("GIT_CEILING_DIRECTORIES", real.join("repo"));
     assert_eq!(
         vars.top(&real.join("repo/sub")),
         Err(Located::NotARepository)
+    );
+}
+
+/// [`home`], its repository's config one git cannot read: `\U` is no escape git config knows, as in a Windows path
+/// written unescaped.
+fn unreadable_ceiling() -> (tempfile::TempDir, PathBuf) {
+    let (dir, real) = home();
+    let config = real.join("repo/.git/config");
+    let mut text = std::fs::read_to_string(&config).unwrap();
+    text.push_str("[core]\n\tworktree = C:\\Users\\wt\n");
+    std::fs::write(&config, text).unwrap();
+    (dir, real)
+}
+
+/// git stops at a `.git` it cannot use below the ceiling; the search never goes on past it to the ceiling.
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "a search from below a git ceiling directory never reads the ceiling nor above it"
+)]
+fn a_broken_git_below_the_ceiling_stops_the_search_there() {
+    let (_dir, real) = unreadable_ceiling();
+    let vars = Vars::default().set("GIT_CEILING_DIRECTORIES", real.join("repo"));
+    std::fs::create_dir_all(real.join("repo/sub/.git")).unwrap();
+    assert_eq!(
+        vars.top(&real.join("repo/sub/deep")),
+        Err(Located::Unavailable(
+            "Failed to load the git configuration".into()
+        ))
+    );
+    std::fs::remove_dir(real.join("repo/sub/.git")).unwrap();
+    std::fs::write(real.join("repo/sub/.git"), "gitdir: nowhere\n").unwrap();
+    assert_eq!(
+        vars.top(&real.join("repo/sub/deep")),
+        Err(Located::Unavailable(
+            "Failed to load the git configuration".into()
+        ))
     );
 }
 
