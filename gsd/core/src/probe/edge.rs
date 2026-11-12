@@ -294,6 +294,10 @@ pub fn propose_all(reqs: &[EdgeRequirement]) -> Result<Vec<Item>, String> {
 }
 
 /// Proposes every requirement's rows ([`propose_all`]), then merges `resolutions` and rolls up through the engine.
+#[allow(
+    dead_code,
+    reason = "upstream's export, run by its ported suite; the command adds agent-raised rows between its halves"
+)]
 pub fn analyze_coverage(
     reqs: &[EdgeRequirement],
     resolutions: &[Resolution],

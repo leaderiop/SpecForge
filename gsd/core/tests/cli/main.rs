@@ -21,6 +21,7 @@ mod cmd_attest;
 mod cmd_automated_guard;
 mod cmd_branch_check;
 mod cmd_digest;
+mod cmd_edge_probe;
 mod cmd_execute;
 mod cmd_gate;
 mod cmd_milestone;

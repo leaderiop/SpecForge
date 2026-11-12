@@ -87,6 +87,7 @@ fn every_ported_source_is_attributed() {
     all.extend([
         root.join("src/js_regex.rs"),
         root.join("src/js_regex/oracle.rs"),
+        root.join("src/commands/edge_probe.rs"),
     ]);
     // the probe engine ports probe-core and edge-probe, and its tests their unit suites
     files(&root.join("src/probe"), &mut all);
