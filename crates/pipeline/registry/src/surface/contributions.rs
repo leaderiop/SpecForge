@@ -13,11 +13,11 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use specforge_common::{Diagnostic, codes};
-use specforge_protocol_types::command_args::{option_name, refusal_of};
+use specforge_protocol_types::command_args::option_name;
 use specforge_protocol_types::engine_tools::{CLASS_PREFIX, EngineClass, parse_class};
 use specforge_protocol_types::{
     AgentDescriptor, Attribution, ExtensionDeclaration, FieldType, HOOK_HOSTS, HookDescriptor,
-    SkillDescriptor, SlashCommandDescriptor,
+    SkillDescriptor, SlashCommandDescriptor, Unrunnable,
 };
 
 use super::prompts::snake_case;
@@ -89,33 +89,17 @@ fn warn(kind: &str, id: &str, extension: &str, reason: &str) -> Diagnostic {
     )
 }
 
-/// Whether an agent may run a command a loaded extension declares.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Runnable {
-    Yes,
-    /// Human-attested: only a person runs it (ADR 0301).
-    Human,
-    /// Its args break the one arg rule: the host serves it on no surface.
-    Refused,
-}
-
-/// Every command the loaded extensions declare, by `<short>.<id>`: what a `specforge:<short>.<command>` class names.
-type Commands = BTreeMap<String, Runnable>;
+/// Every command the loaded extensions declare, by `<short>.<id>`, with why an agent may not run it: what a
+/// `specforge:<short>.<command>` class names.
+type Commands = BTreeMap<String, Option<Unrunnable>>;
 
 fn commands(declarations: &[ExtensionDeclaration]) -> Commands {
     let mut out = Commands::new();
     for declaration in declarations {
         let short = declaration.short();
         for command in &declaration.surfaces.commands {
-            let runnable = if command.human {
-                Runnable::Human
-            } else if refusal_of(&command.args, command.writes).is_some() {
-                Runnable::Refused
-            } else {
-                Runnable::Yes
-            };
             out.entry(format!("{short}.{}", command.id))
-                .or_insert(runnable);
+                .or_insert(command.unrunnable());
         }
     }
     out
@@ -172,11 +156,11 @@ impl Ctx<'_> {
             EngineClass::Tool(_) | EngineClass::Group(_) => Ok(()),
             EngineClass::Command { short, id } => {
                 match self.commands.get(&format!("{short}.{id}")) {
-                    Some(Runnable::Yes) => Ok(()),
-                    Some(Runnable::Human) => Err(format!(
+                    Some(None) => Ok(()),
+                    Some(Some(Unrunnable::Human)) => Err(format!(
                         "its tool class '{class}' names '{short}.{id}', which only a person runs"
                     )),
-                    Some(Runnable::Refused) | None => Err(unknown()),
+                    Some(Some(Unrunnable::Refused)) | None => Err(unknown()),
                 }
             }
         }

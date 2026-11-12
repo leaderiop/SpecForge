@@ -57,6 +57,29 @@ pub struct CommandDescriptor {
     pub inputs: Vec<Input>,
 }
 
+impl CommandDescriptor {
+    /// Why an agent may not run the command, if it may not (ADR 0334): the one test behind a `specforge:<short>.<id>`
+    /// class and the commands a host lists among an agent's tools.
+    pub fn unrunnable(&self) -> Option<Unrunnable> {
+        if self.human {
+            Some(Unrunnable::Human)
+        } else if crate::command_args::refusal_of(&self.args, self.writes).is_some() {
+            Some(Unrunnable::Refused)
+        } else {
+            None
+        }
+    }
+}
+
+/// Why an agent may not run a command ([`CommandDescriptor::unrunnable`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Unrunnable {
+    /// Human-attested: only a person runs it (ADR 0301).
+    Human,
+    /// Its args break the one arg rule: the host serves it on no surface.
+    Refused,
+}
+
 /// Describes an argument to a CLI command.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CommandArgDescriptor {

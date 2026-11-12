@@ -460,3 +460,28 @@ fn an_engine_tool_class_the_registry_refuses_is_w021() {
     assert_eq!(asked::agents(&build), ["t-fine"]);
     assert_eq!(asked::hooks(&build), ["host_hook"]);
 }
+
+#[specforge_test(
+    behavior = "install_into_a_host",
+    verify = "an engine tool class naming a command whose args break the one arg rule is W021 and drops the item"
+)]
+fn an_engine_tool_class_naming_a_refused_command_is_w021() {
+    // `--format` is the host's own option: no surface serves a command whose arg takes it.
+    let refused = json!({"id": "dump", "title": "D", "description": "D", "export": "cmd__dump",
+        "args": [{"name": "format", "arg_type": "string"}]});
+    let build = build_registries(vec![core(json!({
+        "commands": [commands()[0].clone(), refused],
+        "agents": [
+            {"id": "t-fine", "description": "A", "tools": ["read", "specforge:t.stats"]},
+            {"id": "t-refused", "description": "A", "tools": ["read", "specforge:t.dump"]},
+        ],
+    }))]);
+    let messages = w021(&build);
+    assert_eq!(messages.len(), 1, "{messages:#?}");
+    assert!(
+        messages[0].contains("'t-refused'")
+            && messages[0].contains("its tool class 'specforge:t.dump' names no engine tool"),
+        "{messages:#?}"
+    );
+    assert_eq!(asked::agents(&build), ["t-fine"]);
+}

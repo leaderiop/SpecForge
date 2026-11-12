@@ -3,7 +3,6 @@
 //! resolves, and the generated section ([`super::sections`]) lists it.
 
 use specforge_protocol_types::ToolClass;
-use specforge_protocol_types::command_args::refusal_of;
 use specforge_protocol_types::engine_tools::{
     CLASS_PREFIX, ENGINE_TOOLS, EngineClass, EngineGroup, EngineTool, engine_tool, parse_class,
 };
@@ -65,10 +64,7 @@ pub fn served_commands(build: &RegistryBuild) -> Vec<ServedCommand> {
         .commands()
         .routed()
         .iter()
-        .filter(|r| {
-            let c = r.declaration();
-            !c.human && refusal_of(&c.args, c.writes).is_none()
-        })
+        .filter(|r| r.declaration().unrunnable().is_none())
         .map(|r| {
             let c = r.declaration();
             let text = if c.description.trim().is_empty() {

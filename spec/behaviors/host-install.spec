@@ -50,6 +50,7 @@ behavior install_into_a_host "Install Into a Host" {
   verify unit "Claude Code grants an agent, a skill or a slash command only the SpecForge tools it resolves, each by its name, never the whole server"
   verify unit "a contribution names SpecForge's engine tools as specforge:<tool>, specforge:<group> or specforge:<short>.<command>, and keeps them"
   verify unit "an engine tool class naming no tool, group or command an agent may run, SpecForge's server through mcp:, or set on a hook is W021 and drops the item"
+  verify unit "an engine tool class naming a command whose args break the one arg rule is W021 and drops the item"
   verify unit "a contribution's engine tool classes resolve in catalogue order, a group to each of its tools"
   verify unit "a contribution that names no engine tool class gets the read and navigation tools, the edit and output tools when it writes, and its extension's own commands"
   verify unit "an agent or skill that declares no tools keeps the host's whole tool set, and its section lists the default SpecForge tools"
