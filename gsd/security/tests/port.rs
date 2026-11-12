@@ -5,8 +5,16 @@ use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
+#[path = "../../core/tests/common/asset_code.rs"]
+mod asset_code;
+#[path = "../../core/tests/common/command_word.rs"]
+mod command_word;
+#[path = "../../core/tests/common/files.rs"]
+mod files;
 #[path = "../../core/tests/common/port.rs"]
 mod rule;
+#[path = "../../core/tests/common/specforge_only.rs"]
+mod specforge_only;
 use rule::check_lines;
 
 const AGENT: &str = "gsd-security-auditor";

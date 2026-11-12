@@ -6,8 +6,16 @@ use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
+#[path = "common/asset_code.rs"]
+mod asset_code;
+#[path = "common/command_word.rs"]
+mod command_word;
+#[path = "common/files.rs"]
+mod files;
 #[path = "common/port.rs"]
 mod rule;
+#[path = "common/specforge_only.rs"]
+mod specforge_only;
 use rule::check_lines;
 
 #[path = "common/pending.rs"]

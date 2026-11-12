@@ -8,14 +8,8 @@
 
 use regex::Regex;
 
-#[path = "asset_code.rs"]
-mod asset_code;
-#[path = "command_word.rs"]
-mod command_word;
-#[path = "files.rs"]
-mod files;
-#[path = "specforge_only.rs"]
-mod specforge_only;
+// the includer declares `asset_code`, `command_word`, `files` and `specforge_only` at its root, once
+use super::{command_word, specforge_only};
 
 /// Whether `mine` stands for upstream's line `theirs` as a block that calls only `specforge`: it runs no program
 /// upstream's does not, besides `specforge` and the shell's own words, and leaves out one that upstream's runs.

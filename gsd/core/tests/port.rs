@@ -6,6 +6,17 @@ use std::path::{Path, PathBuf};
 use gsd_core::agents::roster::AGENTS;
 use regex::Regex;
 
+#[path = "common/asset_code.rs"]
+mod asset_code;
+#[path = "common/command_word.rs"]
+mod command_word;
+#[path = "common/files.rs"]
+mod files;
+#[path = "common/port_map.rs"]
+mod port_map;
+#[path = "common/specforge_only.rs"]
+mod specforge_only;
+
 #[path = "common/agent_rewrites.rs"]
 mod agent_rewrites;
 #[path = "common/port.rs"]
@@ -13,6 +24,9 @@ mod rule;
 #[path = "common/thread_rewrites.rs"]
 mod thread_rewrites;
 use rule::check_lines;
+
+#[path = "port/tables.rs"]
+mod tables;
 
 #[path = "common/pending.rs"]
 mod pending;
@@ -93,17 +107,149 @@ fn the_compact_bodies_are_upstreams_too() {
 
 #[test]
 fn no_asset_names_planning_or_gsd_tools() {
-    let rx = ported();
+    let rx = Regex::new(port_map::PORTED).expect("a regex");
     let mut seen = 0;
-    for entry in std::fs::read_dir(assets_dir()).expect("assets") {
-        let path = entry.expect("an entry").path();
-        let text = read(&path);
+    for asset in port_map::assets() {
         seen += 1;
-        for (n, line) in text.lines().enumerate() {
-            assert!(!rx.is_match(line), "{}:{}: {line}", path.display(), n + 1);
+        for (n, line) in port_map::asset_body(&asset).iter().enumerate() {
+            assert!(!rx.is_match(line), "{asset}:{}: {line}", n + 2);
         }
     }
-    assert!(seen >= 15, "{seen} assets");
+    assert!(seen >= 300, "{seen} assets");
+}
+
+/// Every asset is mapped span by span against its upstream copy, and `port.lock` is that map (ADR 0332).
+#[test]
+fn the_port_lock_maps_every_asset() {
+    port_map::check_lock();
+}
+
+#[test]
+fn a_span_map_tiles_both_bodies() {
+    use port_map::Span;
+    let up = ["a", "b", "", "```", "c", "d"];
+    let own = ["a", "B", "", "```", "C", "d"];
+    let spans = port_map::spans(&up, &own);
+    let ranges: Vec<_> = spans
+        .iter()
+        .map(|s| match s {
+            Span::Kept { asset, up, .. } => (true, up.clone(), asset.clone()),
+            Span::Own { asset, up, .. } => (false, up.clone(), asset.clone()),
+        })
+        .collect();
+    // the blank and fence-mark lines between two own spans fold into one
+    assert_eq!(
+        ranges,
+        [(true, 0..1, 0..1), (false, 1..5, 1..5), (true, 5..6, 5..6)]
+    );
+    let up = ["x", "y", "z", "q"];
+    let own = ["x", "z", "w", "q", "v"];
+    let spans = port_map::spans(&up, &own);
+    let (mut u, mut a) = (0, 0);
+    for span in &spans {
+        let (su, sa) = match span {
+            Span::Kept {
+                asset, up: range, ..
+            } => {
+                assert_eq!(up[range.clone()], own[asset.clone()], "{span:?}");
+                (range.clone(), asset.clone())
+            }
+            Span::Own {
+                asset, up: range, ..
+            } => (range.clone(), asset.clone()),
+        };
+        assert_eq!(
+            (su.start, sa.start),
+            (u, a),
+            "spans tile both sides in order"
+        );
+        (u, a) = (su.end, sa.end);
+    }
+    assert_eq!((u, a), (up.len(), own.len()));
+    assert_eq!(
+        spans
+            .iter()
+            .filter(|s| matches!(s, Span::Own { .. }))
+            .count(),
+        3
+    );
+}
+
+#[test]
+fn words_ignore_blank_lines_indentation_and_fence_width() {
+    assert_eq!(
+        port_map::words(&["  ````bash", "", "   x  ", "~~~~", "\t", "``a``"]),
+        "```bash\nx\n~~~\n``a``"
+    );
+    assert_eq!(port_map::words(&["", "  "]), "");
+}
+
+#[test]
+fn the_computed_groups_judge_both_sides() {
+    use port_map::computed;
+    // a ported name wins over a served call
+    assert_eq!(
+        computed(&["X=$(gsd-tools init x)"], &["X=$(specforge gsd init x)"]),
+        Some("ported-name")
+    );
+    assert_eq!(
+        computed(
+            &["jq -r .phase \"$INIT\""],
+            &["specforge gsd init --pick .phase"]
+        ),
+        Some("served")
+    );
+    // a program upstream's span does not run is not served
+    assert_eq!(computed(&["jq -r .a f"], &["specforge x | sed 1d"]), None);
+    assert_eq!(
+        computed(&["```", "  x", ""], &["````", "x", "````"][..2]),
+        Some("markdown")
+    );
+    assert_eq!(computed(&["Read the file."], &["Read the entity."]), None);
+}
+
+#[test]
+fn a_bless_carries_a_reviewed_group_and_marks_a_new_span() {
+    use port_map::{Bless, Row, carry};
+    let row = |sha_own: &str, group: &str| Row {
+        asset: "gsd-core/workflows/x.md".to_string(),
+        kept: false,
+        up: 3,
+        n: 1,
+        m: 1,
+        sha_up: "aaaaaaaaaaaa".to_string(),
+        sha_own: sha_own.to_string(),
+        group: group.to_string(),
+    };
+    let old = [row("bbbbbbbbbbbb", "relic"), row("cccccccccccc", "jq")];
+    let new = vec![
+        row("bbbbbbbbbbbb", ""),
+        row("bbbbbbbbbbbb", ""),
+        row("dddddddddddd", "markdown"),
+    ];
+    let groups: Vec<String> = carry(&old, new, Bless::Review)
+        .into_iter()
+        .map(|r| r.group)
+        .collect();
+    // one old row carries once; a computed group stays
+    assert_eq!(groups, ["relic", "unreviewed", "markdown"]);
+}
+
+#[test]
+fn the_lock_round_trips() {
+    let lock = std::fs::read_to_string(port_map::lock_path()).expect("port.lock");
+    assert!(lock.starts_with(&port_map::header()));
+    let rows = port_map::rows(&lock);
+    assert!(rows.iter().any(|r| r.kept) && rows.iter().any(|r| !r.kept));
+    assert_eq!(port_map::rows(&port_map::render(&rows)), rows);
+    assert_eq!(port_map::render(&rows), lock);
+}
+
+/// The lock's reviewed groups are the line tables' families, each own span the family listing the most of its
+/// lines (`GSD_BLESS=seed` writes them into `unreviewed` cells). Deleted with the tables.
+#[test]
+fn the_lock_groups_agree_with_the_line_tables() {
+    tables::agree();
 }
 
 fn class(tool: &str) -> String {
