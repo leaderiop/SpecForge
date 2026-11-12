@@ -12,6 +12,11 @@ fn go(n: &Node, s: &[char], i: usize, k: &mut dyn FnMut(usize) -> bool) -> bool 
             i < s.len() && Regex::one(n, s[i]) == Some(true) && k(i + 1)
         }
         Node::Start => i == 0 && k(i),
+        Node::Boundary { neg } => {
+            let word = |c: &char| c.is_ascii_alphanumeric() || *c == '_';
+            let before = i.checked_sub(1).and_then(|b| s.get(b)).is_some_and(word);
+            (before != s.get(i).is_some_and(word)) != *neg && k(i)
+        }
         Node::Seq(v) => seq(v, s, i, k),
         Node::Alt(v) => {
             for a in v {

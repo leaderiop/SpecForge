@@ -12,7 +12,7 @@ fn a_link_rule_that_matches_a_line_matches_the_text() {
             Node::Start | Node::Look { .. } => true,
             Node::Seq(v) | Node::Alt(v) => v.iter().any(anchored),
             Node::Rep { node, .. } => anchored(node),
-            Node::Char(_) | Node::Space | Node::Class { .. } => false,
+            Node::Char(_) | Node::Space | Node::Class { .. } | Node::Boundary { .. } => false,
         }
     }
     for (id, p) in LINK_RULES {

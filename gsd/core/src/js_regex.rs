@@ -2,10 +2,12 @@
 //!
 //! A backtracking matcher for the JavaScript regular expressions of upstream's scanners, read from the very source
 //! text they have there (`patterns::INJECTION_PATTERNS` pins each). The `regex` crate has no look-ahead, which the
-//! scanners use, and the wasm guest has no other engine. Only what those patterns use is parsed: literals, `\s`, `^`,
-//! classes of characters and `\s`, groups (`(?:`, `(`, `(?=`, `(?!`), `|`, and `?`, `+`, `*`; the `i` flag is ASCII
-//! case folding, as JavaScript's is for these patterns. Anything else panics when the pattern is built, and every
-//! pattern is built by the unit tests.
+//! scanners use, and the wasm guest has no other engine. Only what those patterns and the edge probe's shape cues use
+//! is parsed: literals, `\s`, `^`, `\b` and `\B`, classes of characters and `\s`, groups (`(?:`, `(`, `(?=`, `(?!`), `|`,
+//! and `?`, `+`, `*`; the `i` flag is ASCII case folding, as JavaScript's is for these patterns. `\b` is JavaScript's
+//! word boundary without the `u` flag: a word character is ASCII `[A-Za-z0-9_]`, whatever the `i` flag. Anything else
+//! panics when the pattern is built (`[\b]`, a backspace in a class, among them), and every pattern is built by the
+//! unit tests.
 //!
 //! The work is linear in the text, so no text can run a hook past its budget. Each pattern compiles to a small program
 //! that a backtracker runs in JavaScript's leftmost-first order, with a visited bit per (split, position), RE2's
@@ -23,9 +25,11 @@
 
 #[cfg(test)]
 pub(crate) mod oracle;
+#[cfg(test)]
+mod tests;
 
-/// `\s` as JavaScript means it.
-fn js_space(c: char) -> bool {
+/// `\s` as JavaScript means it, the set `trim()` strips too.
+pub(crate) fn js_space(c: char) -> bool {
     matches!(
         c,
         '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'
@@ -55,6 +59,10 @@ pub(crate) enum Node {
         items: Vec<Item>,
     },
     Start,
+    /// `\b`, or `\B` with `neg`.
+    Boundary {
+        neg: bool,
+    },
     Seq(Vec<Node>),
     Alt(Vec<Node>),
     Rep {
@@ -168,6 +176,7 @@ impl Parser<'_> {
                     items.push(if c == '\\' {
                         let e = self.peek().expect("an escape");
                         self.at += 1;
+                        assert!(e != 'b', "unsupported escape: a backspace class item [\\b]");
                         if e == 's' { Item::Space } else { Item::Ch(e) }
                     } else {
                         Item::Ch(c)
@@ -179,10 +188,14 @@ impl Parser<'_> {
                 let e = self.peek().expect("an escape");
                 self.at += 1;
                 assert!(
-                    e == 's' || !e.is_ascii_alphanumeric(),
+                    matches!(e, 's' | 'b' | 'B') || !e.is_ascii_alphanumeric(),
                     "unsupported escape \\{e}"
                 );
-                if e == 's' { Node::Space } else { Node::Char(e) }
+                match e {
+                    's' => Node::Space,
+                    'b' | 'B' => Node::Boundary { neg: e == 'B' },
+                    e => Node::Char(e),
+                }
             }
             '^' => Node::Start,
             '.' | '$' | '{' | '}' | '*' | '+' | '?' => panic!("unsupported '{c}'"),
@@ -210,6 +223,10 @@ enum Inst {
     /// A character the one-character node (`Char`, `Space` or `Class`) accepts.
     One(Node),
     Start,
+    /// A word boundary here (or none, with `neg`); it consumes nothing.
+    Boundary {
+        neg: bool,
+    },
     Match,
     /// Go on at `x`, and at `y` if that fails; `ord` numbers the splits of a program, the rows of the visited set.
     Split {
@@ -328,7 +345,7 @@ fn firsts(insts: &[Inst], from: usize) -> Option<Vec<Node>> {
             Inst::Split { x, y, .. } => todo.extend([*x, *y]),
             Inst::Jmp(x) => todo.push(*x),
             // Both only restrict where a match may start.
-            Inst::Start | Inst::Look { .. } => todo.push(pc + 1),
+            Inst::Start | Inst::Boundary { .. } | Inst::Look { .. } => todo.push(pc + 1),
         }
     }
     Some(out)
@@ -382,7 +399,7 @@ fn compile(node: &Node, bounded: bool, progs: &mut Vec<Prog>) -> usize {
 fn nullable(n: &Node) -> bool {
     match n {
         Node::Char(_) | Node::Space | Node::Class { .. } => false,
-        Node::Start | Node::Look { .. } => true,
+        Node::Start | Node::Boundary { .. } | Node::Look { .. } => true,
         Node::Seq(v) => v.iter().all(nullable),
         Node::Alt(v) => v.iter().any(nullable),
         Node::Rep { node, min, .. } => *min == 0 || nullable(node),
@@ -393,6 +410,7 @@ fn emit(n: &Node, bounded: bool, p: &mut Prog, progs: &mut Vec<Prog>) {
     match n {
         Node::Char(_) | Node::Space | Node::Class { .. } => p.insts.push(Inst::One(n.clone())),
         Node::Start => p.insts.push(Inst::Start),
+        Node::Boundary { neg } => p.insts.push(Inst::Boundary { neg: *neg }),
         Node::Seq(v) => v.iter().for_each(|x| emit(x, bounded, p, progs)),
         Node::Alt(v) => {
             let (last, rest) = v.split_last().expect("an alternative");
@@ -447,6 +465,17 @@ fn emit(n: &Node, bounded: bool, p: &mut Prog, progs: &mut Vec<Prog>) {
             p.insts.push(Inst::Look { neg: *neg, prog });
         }
     }
+}
+
+/// A word character as JavaScript's `\b` reads one without the `u` flag.
+fn word(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '_'
+}
+
+/// Whether a word boundary falls at `i` of `s`: a word character on one side of it and none on the other.
+fn boundary(s: &[char], i: usize) -> bool {
+    let before = i > 0 && word(s[i - 1]);
+    before != s.get(i).is_some_and(|c| word(*c))
 }
 
 /// Sets bit `k` of `bits` and says whether it was set already.
@@ -532,7 +561,8 @@ impl Run<'_> {
                         (pc, i) = (pc + 1, i + 1);
                     }
                     Inst::Start if i == 0 => pc += 1,
-                    Inst::One(_) | Inst::Start => break,
+                    Inst::Boundary { neg } if boundary(s, i) != *neg => pc += 1,
+                    Inst::One(_) | Inst::Start | Inst::Boundary { .. } => break,
                     Inst::Match => break 'search Some(i),
                     Inst::Jmp(x) => pc = *x,
                     Inst::Split { x, y, ord } => {

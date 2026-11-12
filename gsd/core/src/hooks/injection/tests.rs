@@ -682,7 +682,7 @@ fn sample(n: &crate::js_regex::Node, rng: &mut Lcg, alphabet: &[char], out: &mut
         }
         Node::Class { .. } => out.push(alphabet[rng.below(alphabet.len())]),
         Node::Look { neg: false, node } if rng.below(2) == 0 => sample(node, rng, alphabet, out),
-        Node::Start | Node::Look { .. } => {}
+        Node::Start | Node::Boundary { .. } | Node::Look { .. } => {}
         Node::Seq(v) => v.iter().for_each(|x| sample(x, rng, alphabet, out)),
         Node::Alt(v) => sample(&v[rng.below(v.len())], rng, alphabet, out),
         Node::Rep { node, min, max } => {
