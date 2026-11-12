@@ -586,10 +586,7 @@ fn the_requirements_guard_refuses_a_placeholder_or_an_empty_list() {
     let p = taskboard();
     let dir = tempfile::tempdir().expect("a dir");
     let reqs = dir.path().join("reqs.json");
-    for path in [
-        "gsd-core/workflows/spec-phase.md",
-        "gsd-core/references/specless-probe-fallback.md",
-    ] {
+    for path in ["gsd-core/references/specless-probe-fallback.md"] {
         let text = asset(path);
         let guard = text
             .lines()

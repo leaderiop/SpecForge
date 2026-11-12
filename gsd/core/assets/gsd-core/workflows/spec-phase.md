@@ -198,11 +198,11 @@ ones). Reference: @~/.claude/gsd-core/references/edge-probe.md.
 not.** The shape cues the classifier matches are **English** word-boundary patterns, so
 requirement prose written in another language matches nothing, classifies to zero shapes, and
 lands every row in `unclassified` (#1110) — the taxonomy contributes nothing and `--auto`
-leaves it all `unresolved`. When this project has `response_language` set, add an optional
-`text_en` key to each `$REQS_JSON` entry: a faithful **English** translation of that
-requirement's `text`. `text_en` is **engine input, never user-facing output**, so the
-`response_language` rule at the top of this workflow does not govern it — but `text` itself is
-NOT translated: write it as the requirement's own text, exactly as it appears in the SPEC.
+leaves it all `unresolved`. When this project has `response_language` set, set the optional
+`text_en` field of each `locked_req`: a faithful **English** translation of that
+requirement (`specforge set <LR> text_en "<English>"`). `text_en` is **engine input, never
+user-facing output**, so the `response_language` rule at the top of this workflow does not govern it — but the locked
+requirement's own fields are NOT translated: keep them as the SPEC states them.
 The SPEC keeps the original language — only `text_en` is translated, and requirement
 `id`s are never translated or renumbered (coverage rows join back on `id`, and any Acceptance
 Criteria you write from the resolved edges go into the SPEC in `response_language`). Populate
@@ -216,89 +216,39 @@ classifier learned nothing about ANY requirement. When `response_language` is un
 falls back to it automatically (`text_en ?? text`).
 If a requirement still classifies to zero shapes with `text_en` populated, it carries no cue in
 any language (the recorded recall gap — ADR-857 §98 / ADR-550 D7b, not a translation failure);
-author an explicit `shapes` array on that requirement instead of relying on the prose
-classifier.
+set that requirement's `shapes` instead of relying on the prose classifier (`specforge set <LR>
+shapes collection text`, any of `numeric_range`, `collection`, `text`, `stateful`, `io`).
 
-**Runtime coverage compute — resolve and invoke edge-probe.cjs:**
+Before the probe, the spec and its requirements are entities. When `$SPEC_ID` is empty, record the
+phase spec, `specforge new phase_spec "${PHASE_ID##*/}-SPEC" "<title>" --in <the phase's spec file>
+--phase "$PHASE_ID" --goal "<the goal>"`, and one locked requirement per requirement gathered,
+`specforge new locked_req LR<n> "<label>" --in <the same file> --spec
+"${PHASE_ID}/${PHASE_ID##*/}-SPEC" --title "<label>" --current "<current>" --target "<target>"
+--acceptance "<acceptance>"`. Step 6 completes the spec.
+
+**Runtime coverage compute — `specforge gsd edge-probe`:**
 
 ```bash
-# Resolve the compiled edge-probe.cjs against the GSD install dir via RUNTIME_DIR (#448)
-# — NOT the consuming project's git root — falling back to git toplevel / $HOME/.claude.
-# Mirrors the ui-safety-gate.cjs resolution idiom at autonomous.md:290 / plan-phase.md:631.
-_GSD_RT="${RUNTIME_DIR:-$(specforge git repo --pick .top 2>/dev/null || pwd)}"
-EDGE_PROBE_JS=$(for _c in \
-  "$_GSD_RT/gsd-core/bin/lib/edge-probe.cjs" \
-  "$_GSD_RT/bin/lib/edge-probe.cjs" \
-  "$_GSD_RT/.claude/bin/lib/edge-probe.cjs" \
-  "$HOME/.claude/gsd-core/bin/lib/edge-probe.cjs" \
-  "$HOME/.claude/bin/lib/edge-probe.cjs"; do
-  [ -f "$_c" ] && { echo "$_c"; break; }
-done)
-
-# Graceful degradation — never silent skip (RR-04). Build ONLY when $_GSD_RT is a verified
-# GSD source checkout (has tsconfig.build.json + src/edge-probe.cts), and pin npm to it with
-# --prefix so we never trigger the CONSUMING project's own build:lib (its cwd package scripts:
-# codegen/migrations/writes) during a spec workflow. Real installs ship the compiled .cjs via
-# prepublishOnly, so this build path only matters in a GSD dev checkout (review High).
-if [ -z "$EDGE_PROBE_JS" ]; then
-  if [ -f "$_GSD_RT/tsconfig.build.json" ] && [ -f "$_GSD_RT/src/edge-probe.cts" ]; then
-    npm --prefix "$_GSD_RT" run build:lib 2>/dev/null || true
-    EDGE_PROBE_JS=$(for _c in \
-      "$_GSD_RT/gsd-core/bin/lib/edge-probe.cjs" \
-      "$_GSD_RT/bin/lib/edge-probe.cjs" \
-      "$_GSD_RT/.claude/bin/lib/edge-probe.cjs" \
-      "$HOME/.claude/gsd-core/bin/lib/edge-probe.cjs" \
-      "$HOME/.claude/bin/lib/edge-probe.cjs"; do
-      [ -f "$_c" ] && { echo "$_c"; break; }
-    done)
-  fi
-  if [ -z "$EDGE_PROBE_JS" ]; then
-    echo "ERROR: edge-probe.cjs not found — reinstall GSD or run \`npm run build:lib\` in your GSD checkout." >&2
-    exit 1
-  fi
-fi
-
-# Write the Requirements gathered in THIS spec session to a temp JSON, then invoke the
-# canonical coverage compute. Populate the heredoc from the SPEC's Requirements — one object
-# per requirement: {"id","text","text_en"?,"shapes"?}. This is the load-bearing step: an empty
-# file makes the probe a no-op, so the guard below fails loud rather than silently skipping
-# (RR-04). When `response_language` is set, ALSO add `text_en` — a faithful ENGLISH
-# translation of `text` (see above) — the shape cues are English-only, so original-language
-# `text` alone classifies to zero shapes; `text` itself stays the SPEC's own requirement text
-# and is never translated. Keep every `id` exactly as it appears in the SPEC.
-# BSD/macOS mktemp only randomizes XXXXXX when it is the final path component, so make a
-# suffixless temp then append the extension — portable across BSD + GNU (#1520).
-REQS_JSON=$(specforge files temp --prefix edge-probe-reqs- --suffix .json --pick .path) || exit 1
-IFS= read -rd '' REQS <<'JSON' || true
-[
-  { "id": "R1", "text": "<replace: requirement text from the SPEC>" }
-]
-JSON
-printf '%s' "$REQS" > "$REQS_JSON"   # Guard — never invoke on an empty/invalid array, OR one still holding the heredoc
-# `<replace: …>` placeholder (a forgotten substitution would otherwise yield a
-# meaningful-looking but bogus coverage report). Fail loud, not silent no-op.
-if [ "$(specforge gsd edge-probe-requirements --requirements "$(< "$REQS_JSON")" --pick .valid)" != true ]; then
-  specforge files remove --force "$REQS_JSON" >/dev/null
-  echo "ERROR: edge-probe requirements JSON is empty/invalid or still holds the <replace: …> placeholder — populate \$REQS_JSON from the SPEC Requirements before Step 5.5 runs." >&2   # also when the JSON is over the command line's limit (32,767 characters on Windows): it is passed as an argument
+SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' --first 1)
+if [ -z "$SPEC_ID" ]; then
+  echo "ERROR: record the phase spec and its locked requirements before the edge probe — it reads them from the graph." >&2
   exit 1
 fi
-# Invoke the compiled engine and CAPTURE its report — it computes which categories apply per
+# Invoke the engine and CAPTURE its report — it computes which categories apply per
 # requirement. The report is RENDERED into context below (#3102); its resolved/dismissed/
 # unresolved rows (resolved items carry verification: explicit|backstop) are the deterministic
 # FLOOR the resolution loop consumes and unions with its own classification — the loop no longer
 # re-derives the taxonomy from prose unaided. Floor, never ceiling: the classifier has a measured
 # recall gap (ADR-857 §98 / ADR-550 D7b), so the model still ADDS any category the engine missed.
-# The engine FAILS CLOSED (exit 2) on an invalid authored shape or bad input — so the capture
-# MUST be exit-checked. A bare `COVERAGE=$(node …)` swallows that exit code, leaves $COVERAGE
+# The engine FAILS CLOSED (exit 1) on an invalid authored shape or bad input — so the capture
+# MUST be exit-checked. A bare capture swallows that exit code, leaves $COVERAGE
 # empty, and lets the workflow fall through to prose re-derivation: fail-OPEN at the boundary
 # the engine validation exists to protect. Make the run fatal, then validate the captured
 # report is well-formed JSON before the resolution loop consumes it.
-if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
-  specforge files remove --force "$REQS_JSON" >/dev/null
+if ! COVERAGE=$(specforge gsd edge-probe "$SPEC_ID" --format json); then
   echo "ERROR: edge-probe engine failed (invalid shapes or bad input) — fix the requirement(s) and re-run; never proceed with empty coverage." >&2
   exit 1
 fi
-specforge files remove --force "$REQS_JSON" >/dev/null
 # Exit-0-but-garbage guard: the report must parse as JSON with the expected { items[], coverage{} } shape.
 if [ -z "$COVERAGE" ]; then
   echo "ERROR: edge-probe produced an unparseable or malformed coverage report — refusing to proceed with the resolution loop." >&2

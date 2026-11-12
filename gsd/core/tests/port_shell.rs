@@ -297,8 +297,8 @@ fn a_heredoc_is_redirected_only_into_a_temp_file() {
         }
     }
     assert!(
-        checked >= 3,
-        "spec-phase, specless-probe-fallback and regression-gate redirect a heredoc"
+        checked >= 2,
+        "specless-probe-fallback and regression-gate redirect a heredoc"
     );
     assert!(
         wrong.is_empty(),

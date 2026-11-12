@@ -138,10 +138,6 @@ const PENDING_NODE: &[(&str, &str)] = &[
         "gsd-core/references/specless-probe-fallback.md",
         r#"if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then"#,
     ),
-    (
-        "gsd-core/workflows/spec-phase.md",
-        r#"if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then"#,
-    ),
 ];
 
 /// A shell block runs no node: a project that uses SpecForge may have no node at all. Only code counts:

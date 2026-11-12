@@ -48,7 +48,7 @@ prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shippi
 
 # E network: the host HTTP service and a GitHub provider. 0 rows.
 
-# F toolchain: @javascript/* and @rust/* run the project's own toolchain. 47 rows.
+# F toolchain: @javascript/* and @rust/* run the project's own toolchain. 43 rows.
 agents/gsd-nyquist-auditor.compact.md	pytest	pytest {file} -v
 agents/gsd-nyquist-auditor.md	pytest	pytest {file} -v
 agents/gsd-phase-researcher.md	cargo	cargo search <pkg>
@@ -87,11 +87,7 @@ gsd-core/references/verification-patterns.md	npx	npx prisma migrate status 2>/de
 gsd-core/references/verification-patterns.md	npx	npx prisma db execute --stdin <<< "SELECT COUNT(*) FROM $table_name"
 gsd-core/references/verify-command-path-resolvability.md	npm	npm --prefix <literal>
 gsd-core/workflows/execute-plan.md	vercel	vercel --yes
-gsd-core/workflows/spec-phase.md	node	if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
-gsd-core/workflows/spec-phase.md	npm	npm --prefix "$_GSD_RT" run build:lib 2>/dev/null || true
 prompt:execute_plan	vercel	vercel --yes
-prompt:spec_phase	node	if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
-prompt:spec_phase	npm	npm --prefix "$_GSD_RT" run build:lib 2>/dev/null || true
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	xcodebuild	XCODE_LIST=$(xcodebuild -list -json -project "$XCODEPROJ" 2>/dev/null)
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	xcodebuild	XCODE_LIST=$(xcodebuild -list -json -project "$XCODEPROJ" 2>/dev/null)
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	xcrun	XCODE_SIMS=$(xcrun simctl list devices available -j 2>/dev/null)
