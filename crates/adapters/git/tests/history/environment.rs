@@ -178,17 +178,19 @@ fn a_broken_git_below_the_ceiling_stops_the_search_there() {
     std::fs::create_dir_all(real.join("repo/sub/.git")).unwrap();
     assert_eq!(
         vars.top(&real.join("repo/sub/deep")),
-        Err(Located::Unavailable(
-            "Failed to load the git configuration".into()
-        ))
+        Err(Located::Unavailable(format!(
+            "{} has a .git that is no repository",
+            real.join("repo/sub").display()
+        )))
     );
     std::fs::remove_dir(real.join("repo/sub/.git")).unwrap();
     std::fs::write(real.join("repo/sub/.git"), "gitdir: nowhere\n").unwrap();
     assert_eq!(
         vars.top(&real.join("repo/sub/deep")),
-        Err(Located::Unavailable(
-            "Failed to load the git configuration".into()
-        ))
+        Err(Located::Unavailable(format!(
+            "{} has a .git that is no repository",
+            real.join("repo/sub").display()
+        )))
     );
 }
 

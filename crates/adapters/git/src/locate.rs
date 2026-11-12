@@ -26,21 +26,30 @@ pub(crate) fn locate_in(dir: &Path, env: Env<'_>) -> Located {
     let real = |p: &Path| p.canonicalize().unwrap_or_else(|_| dir.join(p));
     let here = real(dir);
     let ceilings = ceilings(&here, env);
-    // git looks for a repository only strictly below the nearest ceiling; gix searches the ceiling itself and opens
-    // what it finds there (its config read, its `core.worktree` followed), so nothing at or above it is opened
+    // git looks for a repository only strictly below the nearest ceiling, and stops at the first `.git` there; gix
+    // searches the ceiling itself and walks on past a `.git` it cannot use, opening what it finds (its config read,
+    // its `core.worktree` followed). So the search ends where git's would: at the first candidate below the ceiling.
     let nearest = ceilings
         .iter()
         .max_by_key(|ceiling| ceiling.components().count());
-    if nearest.is_some_and(|ceiling| {
-        !here.ancestors().take_while(|at| at != ceiling).any(|at| {
-            at.join(".git").symlink_metadata().is_ok() || gix::discover::is_git(at).is_ok()
-        })
-    }) {
-        return named_elsewhere(dir, None, env)
-            .map_or(Located::NotARepository, Located::Unavailable);
-    }
+    let candidate = nearest.map(|ceiling| {
+        here.ancestors()
+            .take_while(|at| at != ceiling)
+            .find(|at| {
+                at.join(".git").symlink_metadata().is_ok() || gix::discover::is_git(at).is_ok()
+            })
+            .map(Path::to_path_buf)
+    });
+    let ceiling_dirs = match &candidate {
+        Some(None) => {
+            return named_elsewhere(dir, None, env)
+                .map_or(Located::NotARepository, Located::Unavailable);
+        }
+        Some(Some(at)) => vec![at.clone()],
+        None => ceilings,
+    };
     let upwards = gix::discover::upwards::Options {
-        ceiling_dirs: ceilings.clone(),
+        ceiling_dirs,
         match_ceiling_dir_or_error: false,
         ..Default::default()
     };
@@ -51,8 +60,13 @@ pub(crate) fn locate_in(dir: &Path, env: Env<'_>) -> Located {
             | Upwards::NoGitRepositoryWithinCeiling { .. }
             | Upwards::NoGitRepositoryWithinFs { .. },
         )) => {
-            return named_elsewhere(dir, None, env)
-                .map_or(Located::NotARepository, Located::Unavailable);
+            let refused = named_elsewhere(dir, None, env);
+            return match candidate {
+                Some(Some(at)) => Located::Unavailable(refused.unwrap_or_else(|| {
+                    format!("{} has a .git that is no repository", at.display())
+                })),
+                _ => refused.map_or(Located::NotARepository, Located::Unavailable),
+            };
         }
         Err(error) => return Located::Unavailable(error.to_string()),
     };
