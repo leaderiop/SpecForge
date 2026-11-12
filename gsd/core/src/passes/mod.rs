@@ -12,6 +12,7 @@ mod gates;
 mod nyquist;
 mod plan_shape;
 mod plans;
+mod probe_rows;
 mod research;
 mod roadmap;
 mod scan;
@@ -53,6 +54,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     execute::declare(c);
     schema_drift::declare(c);
     plan_shape::declare(c);
+    probe_rows::declare(c);
     cross_plan::declare(c);
     decision_coverage::declare(c);
     fails_when::declare(c);

@@ -408,6 +408,12 @@
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
       "explanation": "A code item a task or a commit names is anchored by a plan that reaches a requirement. It is a warning.",
       "title": "Item anchored only by plans that reach no requirement"
+    },
+    {
+      "code": "E523",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#discuss-spec-research",
+      "explanation": "An edge or spec prohibition of a phase spec carries what its status allows: a resolved row its tier (and an edge its resolution), a dismissed row its reason, an unresolved row neither; its requirement is a locked requirement of its spec, and one edge per requirement and category. It is an error.",
+      "title": "Probe row's resolution breaks its lifecycle"
     }
   ]
 }

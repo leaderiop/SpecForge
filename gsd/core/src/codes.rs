@@ -628,6 +628,14 @@ pub static CODES: &[Code] = &[
         Severity::Warning,
         Severity::Warning,
     ),
+    code(
+        "E523",
+        "Probe row's resolution breaks its lifecycle",
+        "An edge or spec prohibition of a phase spec carries what its status allows: a resolved row its tier (and an edge its resolution), a dismissed row its reason, an unresolved row neither; its requirement is a locked requirement of its spec, and one edge per requirement and category",
+        "discuss-spec-research",
+        Severity::Error,
+        Severity::Error,
+    ),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
