@@ -7,7 +7,7 @@ use specforge_effects::SharedGit;
 use specforge_graph::Graph;
 use specforge_ops::view::ProjectView;
 use specforge_project::values::ValueBudget;
-use specforge_project::{CompiledProject, Environment, ProjectSession};
+use specforge_project::{CompiledProject, Deadline, Environment, ProjectSession};
 use specforge_registry::{FieldRegistry, KindRegistry, RegistryBuild};
 use std::collections::{BTreeSet, HashSet};
 use std::path::Path;
@@ -35,6 +35,8 @@ pub struct LspState {
     pending: Pending,
     /// The git port every session it opens is given (ADR 0287, ADR 0335); none in a test that gives none.
     git: Option<SharedGit>,
+    /// What every session it opens holds each source file it parses to.
+    parse_deadline: Deadline,
 }
 
 /// The session, or what readers see while it is out for an update.
@@ -67,21 +69,41 @@ impl LspState {
     fn with(git: Option<SharedGit>) -> Self {
         let mut state = Self {
             files: Files::default(),
-            project: Project::Held(Box::new(detached(git.as_ref()))),
+            project: Project::Held(Box::new(detached(
+                git.as_ref(),
+                specforge_project::SESSION_PARSE_DEADLINE,
+            ))),
             last_token_signature: 0,
             shutdown: false,
             format_notices: HashSet::new(),
             client: ClientSupport::default(),
             pending: Pending::default(),
             git,
+            parse_deadline: specforge_project::SESSION_PARSE_DEADLINE,
         };
         state.last_token_signature = state.token_signature();
         state
     }
 
-    /// A session with no project, opening the next one with this state's git port.
+    /// The same state, every session it opens from now on parsing each source file within `deadline` instead of
+    /// [`specforge_project::SESSION_PARSE_DEADLINE`]: the server's entry point states production's. The session it
+    /// holds is kept, its next load held to `deadline`.
+    pub fn with_parse_deadline(mut self, deadline: Deadline) -> Self {
+        self.parse_deadline = deadline;
+        if let Project::Held(session) = &mut self.project {
+            session.set_parse_deadline(deadline);
+        }
+        self
+    }
+
+    /// What every session it opens holds each source file it parses to.
+    pub fn parse_deadline(&self) -> Deadline {
+        self.parse_deadline
+    }
+
+    /// A session with no project, opening the next one with this state's git port and parse deadline.
     pub fn detached(&self) -> ProjectSession {
-        detached(self.git.as_ref())
+        detached(self.git.as_ref(), self.parse_deadline)
     }
 
     /// What the client declared that shapes an answer.
@@ -347,11 +369,13 @@ impl LspState {
     }
 }
 
-/// A detached session, given `git` when there is one.
-fn detached(git: Option<&SharedGit>) -> ProjectSession {
-    let session = ProjectSession::detached().with_value_budget(ValueBudget::EDITOR);
-    match git {
-        Some(git) => session.with_git(Arc::clone(git)),
-        None => session,
+/// A detached session, given `git` when there is one, parsing within `parse_deadline`.
+fn detached(git: Option<&SharedGit>, parse_deadline: Deadline) -> ProjectSession {
+    let mut session = ProjectSession::detached()
+        .with_value_budget(ValueBudget::EDITOR)
+        .with_parse_deadline(parse_deadline);
+    if let Some(git) = git {
+        session = session.with_git(Arc::clone(git));
     }
+    session
 }

@@ -61,6 +61,12 @@ deadline counted in tree-sitter's progress callbacks, so no test reads a clock. 
 `not_parsed(deadline)`. There is no size cap of the reader's own: a file over the fs adapter's 64 MiB ceiling
 (ADR 0264) is `not_parsed(too_large)`.
 
+A session given no deadline parses within `SESSION_PARSE_DEADLINE`: production's, and the counted one in a build
+with `specforge-project`'s `testing` feature, which every crate that tests a session turns on, so a test session
+cannot miss it. A binary built for its own tests is such a build, so each production entry point states
+production's deadline (`specforge watch`, `specforge mcp`, the language server's `backend::production`), and a test
+pins each statement. A subprocess test of the binary therefore runs under production's deadline, as shipped.
+
 ## D4. The C-only-where-needed rule holds
 
 SpecForge admits C only where no pure-Rust crate does the job, so the host stays one build with nothing to install

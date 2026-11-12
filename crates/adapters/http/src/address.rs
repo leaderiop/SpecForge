@@ -294,7 +294,8 @@ mod tests {
 
     #[test]
     fn a_destination_is_refused_only_for_what_it_resolves_to_here() {
-        let within = Duration::from_secs(5);
+        // Each lookup answers at once: the wait ends as soon as it does, and stays under the test runner's kill.
+        let within = Duration::from_secs(20);
         let judged = |lookup| judged_destination("a.example", within, lookup);
         assert_eq!(
             judged(|_| Ok(vec!["10.0.0.8:0".parse().unwrap()])),
@@ -321,13 +322,23 @@ mod tests {
 
     #[test]
     fn a_name_that_will_not_resolve_in_time_does_not_hold_the_request() {
-        let started = std::time::Instant::now();
+        use std::sync::Mutex;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        // The lookup cannot answer while the test holds `HELD`: it answers only after the request went on.
+        static HELD: Mutex<()> = Mutex::new(());
+        static ANSWERED: AtomicBool = AtomicBool::new(false);
+        let held = HELD.lock().unwrap();
         let slow = judged_destination("a.example", Duration::from_millis(50), |_| {
-            std::thread::sleep(Duration::from_secs(2));
+            let _turn = HELD.lock();
+            ANSWERED.store(true, Ordering::SeqCst);
             Ok(vec!["10.0.0.8:0".parse().unwrap()])
         });
         assert_eq!(slow, Ok(()));
-        assert!(started.elapsed() < Duration::from_secs(1));
+        assert!(
+            !ANSWERED.load(Ordering::SeqCst),
+            "the judgement waited for the lookup"
+        );
+        drop(held);
     }
 
     #[test]

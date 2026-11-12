@@ -34,17 +34,42 @@ pub struct LedgerChange {
     /// The fact stores a collect records (ADR 0327): each replaces every `facts:` and `stale:` line of its collector.
     pub facts: Vec<Line>,
     /// The fact stores a rename marks stale (ADR 0346 D7): a `Line::stale` for each name it rewrote where a store's
-    /// facts hold it.
+    /// facts hold it, from the name the store holds to the name it wrote. In order: each replaces the line of the same
+    /// store, field and name held, so a second rename of a name leaves one line, to the name it wrote last.
     pub stale: Vec<Line>,
+}
+
+impl LedgerChange {
+    /// This change, then `later`, as one change from the project this one was planned on: the moves composed, the
+    /// values, stores and stale lines of both, `later`'s after this one's.
+    pub fn then(mut self, later: LedgerChange) -> LedgerChange {
+        for (old, new) in &later.moves {
+            compose(&mut self.moves, old, new);
+        }
+        self.set.extend(later.set);
+        self.facts.extend(later.facts);
+        self.stale.extend(later.stale);
+        self
+    }
+}
+
+/// A move `old → new` after the moves of `moves`: a chain composes, `a → b` then `b → c` is `a → c`.
+pub fn compose(moves: &mut Vec<(String, String)>, old: &str, new: &str) {
+    match moves.iter_mut().find(|(_, to)| to == old) {
+        Some((_, to)) => *to = new.to_string(),
+        None => moves.push((old.to_string(), new.to_string())),
+    }
 }
 
 impl Ledger {
     /// The ledger after a write that took the project from `before` to `after`:
     ///
     /// 1. a value `change` sets has exactly one line, with its new digest, and a fact store it records replaces every
-    ///    `facts:` and `stale:` line of its collector; a stale line it marks is added;
-    /// 2. a move re-keys every line of the entity and of those under it that matched its value before, adds the
-    ///    record `new moved:old`, and carries an existing record `old moved:x` to `new moved:x`;
+    ///    `facts:` and `stale:` line of its collector; a stale line it marks replaces the line of the same store, field
+    ///    and name held, and is dropped when it writes the name held back (the store is no longer stale there);
+    /// 2. a move re-keys every line of the entity and of those under it that matched its value before (a line under two
+    ///    moved paths by the nearer one), adds the record `new moved:old`, and carries an existing record `old moved:x`
+    ///    to `new moved:x`, dropping it when `new` is `x` (a move back);
     /// 3. a value the write respelled (a reference whose target moved) is re-recorded when it matched before, so a
     ///    value recorded before the write stays recorded after it;
     /// 4. a line whose entity or field is gone in `after` is dropped, unless the project has a source that did not
@@ -53,26 +78,32 @@ impl Ledger {
     /// 5. a key with a line that matches keeps only that line;
     /// 6. the lines are sorted and unique.
     pub fn rewritten(&self, before: &View, after: &View, change: &LedgerChange) -> Ledger {
+        // By the most specific move: the path's own, else that of the nearest scope above it that moved (a composed
+        // change lists a scope's move beside the further move of what it scopes).
         let relocate = |path: &str| -> String {
-            for (old, new) in &change.moves {
-                if path == old {
-                    return new.clone();
-                }
-                if let Some(rest) = path
-                    .strip_prefix(old.as_str())
-                    .and_then(|r| r.strip_prefix('/'))
-                {
-                    return format!("{new}/{rest}");
+            let mut nearest: Option<&(String, String)> = None;
+            for moved in &change.moves {
+                let old = moved.0.as_str();
+                let under = path
+                    .strip_prefix(old)
+                    .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'));
+                if under && nearest.is_none_or(|(o, _)| old.len() > o.len()) {
+                    nearest = Some(moved);
                 }
             }
-            path.to_string()
+            match nearest {
+                Some((old, new)) => format!("{new}{}", &path[old.len()..]),
+                None => path.to_string(),
+            }
         };
         let mut lines: Vec<Line> = Vec::new();
         for line in self.lines() {
             let path = relocate(&line.subject);
             if let Some(from) = line.moved_from() {
-                // `old moved:x` is now `new moved:x`.
-                lines.push(Line::moved(&path, from));
+                // `old moved:x` is now `new moved:x`; a move back to `x` leaves nothing to record.
+                if path != from {
+                    lines.push(Line::moved(&path, from));
+                }
             } else if !line.is_value() {
                 lines.push(line.clone());
             } else {
@@ -94,8 +125,21 @@ impl Ledger {
             lines.retain(|l| l.collector_of() != Some(store.subject.as_str()));
             lines.push(store.clone());
         }
-        lines.extend(change.stale.iter().cloned());
-        for (old, new) in &change.moves {
+        for line in &change.stale {
+            let Some(stale) = line.stale_of() else {
+                continue;
+            };
+            lines.retain(|l| {
+                l.stale_of().is_none_or(|s| {
+                    (s.collector, s.key, s.field, s.held)
+                        != (stale.collector, stale.key, stale.field, stale.held)
+                })
+            });
+            if stale.held != stale.now {
+                lines.push(line.clone());
+            }
+        }
+        for (old, new) in change.moves.iter().filter(|(old, new)| old != new) {
             lines.push(Line::moved(new, old));
         }
         for (path, field) in &change.set {
@@ -293,6 +337,84 @@ mod tests {
         );
     }
 
+    /// A milestone `milestone`, its phase `phase` and the phase's test `U1`.
+    fn scoped(milestone: &str, phase: &str) -> String {
+        format!(
+            "milestone {milestone} \"M\" {{}}\nphase {phase} \"P\" {{\n  milestone {milestone}\n}}\nuat U1 \"U\" {{\n  phase {phase}\n  result pass\n}}\n"
+        )
+    }
+
+    /// Two renames as one change, the milestone's move listed before the phase's own (a phase renamed after its
+    /// milestone): the test's line is re-keyed by the phase's move, the most specific one, not by the milestone's.
+    #[test]
+    fn a_composed_change_rekeys_a_line_by_the_most_specific_move() {
+        let harness = Harness {
+            fields: BTreeMap::from([("uat".to_string(), BTreeSet::from(["result".to_string()]))]),
+            ..Default::default()
+        };
+        let forms = forms();
+        let (before, after) = (graph(&scoped("v1.0", "03")), graph(&scoped("v1.1", "04")));
+        let view = |graph| View {
+            graph,
+            forms: &forms,
+            harness: &harness,
+            keeps_gone: false,
+        };
+        let mut ledger = Ledger::default();
+        ledger.insert(Line {
+            subject: "v1.0/03/U1".into(),
+            key: "result".into(),
+            digest: digest("v1.0/03/U1", "result", b"\"pass\""),
+        });
+        let change = LedgerChange {
+            moves: vec![
+                ("v1.0".into(), "v1.1".into()),
+                ("v1.0/03".into(), "v1.1/04".into()),
+            ],
+            ..Default::default()
+        };
+        let after_ledger = ledger.rewritten(&view(&before), &view(&after), &change);
+        assert!(
+            after_ledger.records(
+                "v1.1/04/U1",
+                "result",
+                &digest("v1.1/04/U1", "result", b"\"pass\"")
+            ),
+            "{}",
+            after_ledger.canonical()
+        );
+    }
+
+    #[test]
+    fn a_move_back_drops_the_record_it_would_carry_onto_its_own_name() {
+        let harness = Harness::default();
+        let forms = forms();
+        let (before, after) = (graph(&source("04", "pass")), graph(&source("03", "pass")));
+        let view = |graph| View {
+            graph,
+            forms: &forms,
+            harness: &harness,
+            keeps_gone: false,
+        };
+        let mut ledger = Ledger::default();
+        ledger.insert(Line::moved("v1.0/04", "v1.0/03"));
+        let change = LedgerChange {
+            moves: vec![("v1.0/04".into(), "v1.0/03".into())],
+            ..Default::default()
+        };
+        let after_ledger = ledger.rewritten(&view(&before), &view(&after), &change);
+        let records: Vec<String> = after_ledger
+            .lines()
+            .map(|l| format!("{} {}", l.subject, l.key))
+            .collect();
+        assert_eq!(
+            records,
+            ["v1.0/03 moved:v1.0/04"],
+            "{}",
+            after_ledger.canonical()
+        );
+    }
+
     const PLAN: &str = "plan P \"P\" {\n  verdict gsd/W311 passed {\n    judge \"j\"\n    model \"m\"\n    at \"t\"\n    cited [R1]\n    inputs { plan \"sha256:1\" }\n  }\n}\n";
 
     fn verdict_graph(source: &str) -> specforge_graph::Graph {
@@ -396,6 +518,53 @@ mod tests {
         assert!(lines.iter().any(|l| l.facts_of() == Some(("cargo", "a1"))));
     }
 
+    #[test]
+    fn a_stale_line_replaces_the_line_of_its_held_name_and_a_rename_back_drops_it() {
+        let (graph, forms, harness) = (
+            verdict_graph(""),
+            FieldForms::default(),
+            collecting(&["node"]),
+        );
+        let view = facts_view(&graph, &forms, &harness);
+        let mut ledger = Ledger::default();
+        ledger.insert(Line::facts("node", "a1", b"1"));
+        ledger.insert(Line::stale("node", "a1", b"1", "covers", "T1", "T2"));
+        ledger.insert(Line::stale("node", "a1", b"1", "covers", "T5", "T6"));
+        let change = |lines: Vec<Line>| LedgerChange {
+            stale: lines,
+            ..Default::default()
+        };
+
+        // `T2` renamed again, twice in one change: one line, to the last name; `T5`'s line stays.
+        let again = ledger.rewritten(
+            &view,
+            &view,
+            &change(vec![
+                Line::stale("node", "a1", b"1", "covers", "T1", "T3"),
+                Line::stale("node", "a1", b"1", "covers", "T1", "T4"),
+            ]),
+        );
+        let stale: Vec<_> = again
+            .lines()
+            .filter_map(Line::stale_of)
+            .map(|s| (s.held, s.now))
+            .collect();
+        assert_eq!(stale, [("T1", "T4"), ("T5", "T6")], "{}", again.canonical());
+
+        // Renamed back to the name the store holds: no longer stale there.
+        let back = again.rewritten(
+            &view,
+            &view,
+            &change(vec![Line::stale("node", "a1", b"1", "covers", "T1", "T1")]),
+        );
+        let stale: Vec<_> = back
+            .lines()
+            .filter_map(Line::stale_of)
+            .map(|s| s.held)
+            .collect();
+        assert_eq!(stale, ["T5"], "{}", back.canonical());
+    }
+
     #[specforge_test_macros::test(
         behavior = "collect_harness_ledger",
         verify = "a collect of a collector drops the stale lines a rename wrote for its stores"
@@ -440,7 +609,7 @@ mod tests {
         let stale: Vec<_> = collected
             .lines()
             .filter_map(Line::stale_of)
-            .map(|stale| (stale.collector, stale.key, stale.written, stale.now))
+            .map(|stale| (stale.collector, stale.key, stale.held, stale.now))
             .collect();
         assert_eq!(
             stale,

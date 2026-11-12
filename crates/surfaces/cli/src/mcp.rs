@@ -21,11 +21,18 @@ impl Args {
         // command passed: a closed stdout ends the output quietly, as for
         // every command (ADR 0029 D4b), and a broken input is the client's
         // end (ADR 0062 D4).
-        McpServer::over(ports.clone())
+        server(ports)
             .serving(self.root)
             .serve_stdio(terminal.input(), terminal.output());
         Exit::Passed
     }
+}
+
+/// The server `specforge mcp` serves over `ports`: every session it opens parses each source file within
+/// production's deadline, stated here, for a binary built for its tests would otherwise take the counted one
+/// (`specforge_project::SESSION_PARSE_DEADLINE`).
+fn server(ports: &specforge_effects::Ports) -> McpServer {
+    McpServer::over(ports.clone()).with_parse_deadline(specforge_project::PARSE_DEADLINE)
 }
 
 #[cfg(test)]
@@ -33,6 +40,15 @@ mod tests {
     use super::*;
     use crate::terminal::Facts;
     use std::io::{self, BufReader, Read, Write};
+
+    #[test]
+    fn the_served_server_states_the_production_parse_deadline() {
+        let served = server(&specforge_effects::testing::ports());
+        assert_eq!(
+            served.state().parse_deadline(),
+            specforge_project::PARSE_DEADLINE
+        );
+    }
 
     /// A reader of stdout that has gone: every write is a broken pipe.
     struct Gone;

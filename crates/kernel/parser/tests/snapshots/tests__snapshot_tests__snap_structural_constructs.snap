@@ -39,6 +39,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                             end_col: 20,
                         },
                     ),
+                    value_lexemes: [],
                 },
             ],
         },
@@ -109,6 +110,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                     ),
                     annotations: [],
                     value_span: None,
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("ref_kind"),
@@ -117,6 +119,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                     ),
                     annotations: [],
                     value_span: None,
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("identifier"),
@@ -125,6 +128,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                     ),
                     annotations: [],
                     value_span: None,
+                    value_lexemes: [],
                 },
             ],
         },
@@ -182,6 +186,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                     ),
                     annotations: [],
                     value_span: None,
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("ref_kind"),
@@ -190,6 +195,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                     ),
                     annotations: [],
                     value_span: None,
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("identifier"),
@@ -198,6 +204,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                     ),
                     annotations: [],
                     value_span: None,
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("priority"),
@@ -214,6 +221,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                             end_col: 20,
                         },
                     ),
+                    value_lexemes: [],
                 },
             ],
         },
@@ -269,6 +277,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                             end_col: 23,
                         },
                     ),
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("testable"),
@@ -285,6 +294,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                             end_col: 18,
                         },
                     ),
+                    value_lexemes: [],
                 },
             ],
         },

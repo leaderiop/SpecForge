@@ -103,6 +103,19 @@ pub fn run(
                 .is_none_or(|s| on(view, extension, &[s.to_string()]))
         });
     let history = git.and_then(|_| view.env().git());
+    let roots = match &history {
+        Some(_) => view.env().roots().landed(),
+        None => Vec::new(),
+    };
+    // git's input, or why git could not be asked: the hook is told so in a notice, never left to guess
+    let (git_facts, git_unread) = match history
+        .as_ref()
+        .map(|h| facts::git(&**h, &cwd, &roots, git.is_some_and(|git| git.status)))
+    {
+        Some(Ok(facts)) => (facts, None),
+        Some(Err(why)) => (None, Some(why)),
+        None => (None, None),
+    };
     let tool = event.tool.as_ref();
     let at = crate::extension::command::instant();
     let input = HookInput::<RawGraph> {
@@ -127,14 +140,12 @@ pub fn run(
             };
             if let Some(history) = &history {
                 for fact in paths.iter_mut().filter(|f| !f.in_project) {
-                    facts::outside_git(&**history, fact);
+                    facts::outside_git(&**history, fact, &roots);
                 }
             }
             paths
         },
-        git: history
-            .as_ref()
-            .and_then(|h| facts::git(&**h, &cwd, git.is_some_and(|git| git.status))),
+        git: git_facts,
         change: event.change.clone(),
         other_settings: served.other_settings(),
         shell: tool
@@ -202,18 +213,28 @@ pub fn run(
         caller,
         &mut outcome,
     );
+    if let Some(why) = git_unread {
+        noted(
+            &mut outcome,
+            format!("hook {route}: no git input, git cannot be asked: {why}"),
+        );
+    }
     // After the plan: a patch the cap refuses is a notice, the answer stands.
     if let Some(patch) = patch
         && let Err(refusal) =
             crate::host::state::apply(view, extension, event.session.as_deref(), &patch)
     {
-        let note = format!("hook {route}: {}", refusal.message);
-        outcome.answer.notice = Some(match outcome.answer.notice.take() {
-            Some(old) => format!("{old}\n{note}"),
-            None => note,
-        });
+        noted(&mut outcome, format!("hook {route}: {}", refusal.message));
     }
     outcome
+}
+
+/// `note` added to `outcome`'s notice, a line of its own.
+fn noted(outcome: &mut Outcome, note: String) {
+    outcome.answer.notice = Some(match outcome.answer.notice.take() {
+        Some(old) => format!("{old}\n{note}"),
+        None => note,
+    });
 }
 
 /// The answer for an event that could not be read (over the size limit, not the host's JSON): the policy of the hook

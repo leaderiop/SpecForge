@@ -256,6 +256,51 @@ export default class {}
 
 #[specforge_test(
     behavior = "js_mark_item_exports",
+    verify = "a decorated member takes the doc above its first decorator"
+)]
+fn a_decorated_member_takes_the_doc_above_its_first_decorator() {
+    let facts = collected(&[(
+        "src/m.ts",
+        r#"export class K {
+  /** One. */
+  @a
+  one() {}
+
+  /** Two. */
+  @a()
+  @b
+  two() {}
+
+  /** Far. */
+
+  @a
+  far() {}
+
+  /** Field. */
+  @a
+  field = 1;
+
+  @a
+  three() {}
+}
+"#,
+    )]);
+    let doc = |path: &str| -> Value {
+        item(&facts, &format!("js:app/src/m.ts::{path}"))
+            .fields
+            .get("doc")
+            .cloned()
+            .unwrap_or(Value::Null)
+    };
+    assert_eq!(doc("K.one"), "One.");
+    assert_eq!(doc("K.two"), "Two.");
+    assert_eq!(doc("K.far"), Value::Null);
+    assert_eq!(doc("K.field"), "Field.");
+    assert_eq!(doc("K.three"), Value::Null);
+}
+
+#[specforge_test(
+    behavior = "js_mark_item_exports",
     verify = "a signature holds types and never a value"
 )]
 fn a_signature_holds_types_and_never_a_value() {
@@ -289,6 +334,30 @@ fn a_signature_holds_types_and_never_a_value() {
     );
     assert_ne!(before[0].1, typed_changed[0].1);
     assert_ne!(before[2].1, typed_changed[2].1);
+}
+
+#[specforge_test(
+    behavior = "js_mark_item_exports",
+    verify = "a signature's literal keeps its whitespace in the digest"
+)]
+fn a_signatures_literal_keeps_its_whitespace_in_the_digest() {
+    let digest = |text: &str| -> Value {
+        let facts = collected(&[("src/t.ts", text)]);
+        item(&facts, "js:app/src/t.ts::T").fields["signature"].clone()
+    };
+    let two = digest("export type T = 'a  b' | `x  ${string}` | { 'k  l': RegExp };\n");
+    assert_eq!(
+        two,
+        digest("export type T =\n  'a  b'\n  | `x  ${string}`\n  | { 'k  l':   RegExp };\n"),
+        "a layout outside the literals is no change"
+    );
+    for one in [
+        "export type T = 'a b' | `x  ${string}` | { 'k  l': RegExp };\n",
+        "export type T = 'a  b' | `x ${string}` | { 'k  l': RegExp };\n",
+        "export type T = 'a  b' | `x  ${string}` | { 'k l': RegExp };\n",
+    ] {
+        assert_ne!(two, digest(one), "{one}");
+    }
 }
 
 #[specforge_test(behavior = "js_mark_item_exports", verify = "modifiers are attrs")]

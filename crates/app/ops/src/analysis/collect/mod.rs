@@ -233,7 +233,14 @@ pub fn collect(
     let (asking, containment) = (caller.asking(), caller.containment());
     let known = &KnownEntities::of(view.entities());
     let available = collectors(view.registries().declarations());
-    let (selected, chosen) = select(&available, runner, root, publishes(view.env(), &mode))?;
+    let git = view.env().git();
+    let (selected, chosen) = select(
+        &available,
+        runner,
+        root,
+        git.as_deref(),
+        publishes(view.env(), &mode),
+    )?;
     if let Mode::Reports(_) = mode
         && selected.len() > 1
     {
@@ -469,12 +476,13 @@ enum Chosen {
 }
 
 /// The collectors to use: the one `runner` names, else every collector
-/// whose detection files are present, and with `publish` every collector that reads the checks' outcomes. A runner
-/// no collector answers to is invalid input about the runner (E058).
+/// whose detection files are present (a repository asked of `git`), and with `publish` every collector that reads the
+/// checks' outcomes. A runner no collector answers to is invalid input about the runner (E058).
 fn select<'a>(
     available: &'a [Collector],
     runner: Option<&str>,
     root: &Path,
+    git: Option<&dyn specforge_effects::git::Git>,
     publish: bool,
 ) -> Result<(Vec<&'a Collector>, Chosen), Refusal<CollectField>> {
     if available.is_empty() {
@@ -506,7 +514,7 @@ fn select<'a>(
                 .about(CollectField::Runner)
             });
     }
-    let mut detected = detect(available, root);
+    let mut detected = detect(available, root, git);
     let (publishers, runners): (Vec<&Collector>, Vec<&Collector>) =
         available.iter().partition(|c| c.reads_outcomes());
     let published = publishers.into_iter().filter(|_| publish);
@@ -553,8 +561,15 @@ pub fn reads_outcomes(
     mode: &Mode<'_>,
 ) -> bool {
     let available = collectors(env.registries().declarations());
-    select(&available, runner, root, publishes(env, mode))
-        .is_ok_and(|(selected, _)| selected.iter().any(|c| c.reads_outcomes()))
+    let git = env.git();
+    select(
+        &available,
+        runner,
+        root,
+        git.as_deref(),
+        publishes(env, mode),
+    )
+    .is_ok_and(|(selected, _)| selected.iter().any(|c| c.reads_outcomes()))
 }
 
 /// The report `collect` merges new results into: `specforge-report.json`,

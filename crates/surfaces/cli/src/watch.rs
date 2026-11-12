@@ -55,6 +55,24 @@ impl Args {
     }
 }
 
+/// The session `watch` opens the project at `dir` into: asking `ports`' git port, running effects in `mode` under the
+/// user's consent there, and parsing each source file within production's deadline, stated here: a binary built for
+/// its tests would otherwise take the counted one (`specforge_project::SESSION_PARSE_DEADLINE`).
+fn served(
+    dir: &std::path::Path,
+    mode: specforge_effects::EffectsMode,
+    ports: &specforge_effects::Ports,
+) -> ProjectSession {
+    ProjectSession::detached()
+        .with_git(std::sync::Arc::clone(&ports.git))
+        .with_effects(
+            mode,
+            ports.clone(),
+            std::sync::Arc::new(specforge_ops::consent::UserConsent::user(dir)),
+        )
+        .with_parse_deadline(specforge_project::PARSE_DEADLINE)
+}
+
 fn watch_project(
     (project, mode): (&ProjectArg, specforge_effects::EffectsMode),
     format: OutputFormat,
@@ -68,13 +86,7 @@ fn watch_project(
         Ok(root) => root,
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
-    let mut session = ProjectSession::detached()
-        .with_git(std::sync::Arc::clone(&ports.git))
-        .with_effects(
-            mode,
-            ports.clone(),
-            std::sync::Arc::new(specforge_ops::consent::UserConsent::user(root.dir())),
-        );
+    let mut session = served(root.dir(), mode, ports);
     session.reopen(&root, RuntimeSource::project(), |_| {});
     if verify_incremental {
         session.set_verify_incremental(true);
@@ -353,6 +365,14 @@ mod tests {
     use specforge_common::{Diagnostic, Severity, SourceSpan};
     use specforge_project::{GraphDelta, Update};
     use std::sync::Arc;
+
+    #[test]
+    fn the_watched_session_states_the_production_parse_deadline() {
+        let dir = tempfile::tempdir().unwrap();
+        let ports = specforge_effects::testing::ports();
+        let session = served(dir.path(), specforge_effects::EffectsMode::Cached, &ports);
+        assert_eq!(session.parse_deadline(), specforge_project::PARSE_DEADLINE);
+    }
 
     fn render(applied: &Applied, format: OutputFormat, stamp: u64) -> Rendered {
         super::render(applied, &Codebook::default(), format, stamp)

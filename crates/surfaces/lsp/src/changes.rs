@@ -56,6 +56,10 @@ enum Step {
     Disk { changes: Changes, landing: Landing },
     /// Release the buffer of the document closed at this absolute path.
     Release { path: PathBuf, landing: Landing },
+    /// Show these renames over the session: only source documents a pending rename edits were edited, which the
+    /// session does not hold, and what the renames show follows them (ADR 0346 D7). The checks run again when that
+    /// changed.
+    Shown(Vec<Arc<LedgerOverlay>>),
     /// Hold these open buffers (by absolute path, the session keys them; never empty) as one
     /// update. `edited` is the session key of the last one edited, where a diagnostic about no
     /// entity goes.
@@ -82,10 +86,12 @@ impl Plan {
     /// as it is now:
     /// - `Open`: the root; the opened project holds the buffers the session it replaces held;
     /// - `Edited`: the buffers of the documents still open, the checks
-    ///   skipped while any of them does not parse (the fast path while the editor types);
+    ///   skipped while any of them does not parse (the fast path while the editor types), and what the pending
+    ///   renames show as the buffers say; only source documents edited, what the renames show alone;
     /// - `Closed`: the session releases the buffer (a project source is read
     ///   from disk again; any other file, and every file of a session with no
-    ///   project, leaves the project);
+    ///   project, leaves the project), and the pending renames whose files are saved land; a source document,
+    ///   which the session does not hold, only lands them;
     /// - `Watched`: what the paths reach that changed on disk
     ///   (`ProjectSession::changes`, which leaves out every held buffer; a
     ///   reload keeps them);
@@ -114,10 +120,15 @@ impl Plan {
                         open.push(key);
                     }
                 }
-                let edited = open.last().cloned()?;
                 let renames = state
                     .pending()
                     .showing(|key| Some(files.document(key)?.text().to_string()));
+                let Some(edited) = open.last().cloned() else {
+                    let sources = uris
+                        .iter()
+                        .any(|uri| crate::source_document::is_source(state, uri));
+                    return sources.then_some(Plan(Step::Shown(renames)));
+                };
                 Step::Hold {
                     renames,
                     // The buffer of each, as the path it was opened as.
@@ -136,7 +147,13 @@ impl Plan {
                 if state.document(&uri).is_some() {
                     return None;
                 }
-                let landing = Landing::of(state.pending(), vec![state.key_of(&uri)]);
+                let landing = landing(state, &[state.key_of(&uri)]);
+                if crate::source_document::is_source(state, &uri) {
+                    return (!landing.is_empty()).then_some(Plan(Step::Disk {
+                        changes: Changes::default(),
+                        landing,
+                    }));
+                }
                 Step::Release {
                     path: uri::path_of(&uri),
                     landing,
@@ -147,13 +164,11 @@ impl Plan {
                     .iter()
                     .map(|event| uri::path_of(&event.uri))
                     .collect();
-                let landing = Landing::of(
-                    state.pending(),
-                    events
-                        .iter()
-                        .map(|event| state.key_of(&event.uri))
-                        .collect(),
-                );
+                let keys: Vec<String> = events
+                    .iter()
+                    .map(|event| state.key_of(&event.uri))
+                    .collect();
+                let landing = landing(state, &keys);
                 let changes = session.changes(paths.iter().map(PathBuf::as_path));
                 if changes.is_empty() && landing.is_empty() {
                     return None;
@@ -170,8 +185,8 @@ impl Plan {
     /// the session at its root (`ProjectSession::reopen`: the project's extensions from `runtime`,
     /// its environment handed to `loaded` before any source is read, the session's buffers carried
     /// over); `Disk` applies the changes found on disk (`ProjectSession::apply`); `Release`
-    /// releases the closed document's buffer (`ProjectSession::release`); `Hold` holds every edited
-    /// buffer as one update (`ProjectSession::hold_with`).
+    /// releases the closed document's buffer (`ProjectSession::release`); `Shown` shows the pending renames over the
+    /// session; `Hold` holds every edited buffer as one update (`ProjectSession::hold_with`).
     pub fn apply(
         self,
         session: &mut ProjectSession,
@@ -183,7 +198,7 @@ impl Plan {
             Step::Open(root) => applied.opened(session.reopen(&root, runtime, loaded)),
             Step::Disk { changes, landing } => {
                 // The renames the saved files finish write their ledger first; the checks then read it.
-                if landing.land(session) {
+                if landing.land(session, &mut applied.told) {
                     applied.record(session.recheck());
                     applied.changed = true;
                 }
@@ -195,10 +210,16 @@ impl Plan {
                 applied.touched.extend(changes.sources().iter().cloned());
             }
             Step::Release { path, landing } => {
-                // A rename shown in this buffer and never saved is over: the checks stop reading its ledger.
-                let dropped = landing.discard(session);
+                // The file is read from disk again; a rename none of whose files holds a buffer unsaved lands what the
+                // disk says, and the checks read the ledger as the buffers left open say.
                 applied.close(session, &path);
-                if dropped {
+                if landing.land(session, &mut applied.told) {
+                    applied.record(session.recheck());
+                    applied.changed = true;
+                }
+            }
+            Step::Shown(renames) => {
+                if session.overlay_ledger(renames) {
                     applied.record(session.recheck());
                     applied.changed = true;
                 }
@@ -225,6 +246,15 @@ impl Plan {
     }
 }
 
+/// What an event naming the files `keys` asks of the pending renames, with each of their files' buffers as `state`
+/// holds them now.
+fn landing(state: &LspState, keys: &[String]) -> Landing {
+    let files = state.files();
+    Landing::of(state.pending(), keys, |key| {
+        Some(files.document(key)?.text().to_string())
+    })
+}
+
 /// What applying a plan did.
 #[derive(Debug, Clone, Default)]
 pub struct Applied {
@@ -238,6 +268,9 @@ pub struct Applied {
     /// Where an incremental rebuild differed from a cold build, when the
     /// session verifies its updates (debug builds).
     pub divergences: Vec<String>,
+    /// What the editor is told of the pending renames: a history whose files closed while they disagreed, which
+    /// landed nothing.
+    pub told: Vec<String>,
     edited: Option<String>,
     touched: Vec<String>,
     /// A document was closed: the editor showed its buffer's diagnostics for this file, so the

@@ -104,12 +104,14 @@ impl Collected {
 }
 
 /// Write `collector`'s store of `facts` (as the wire carries them, from [`NODE`]) under `key` in the project at
-/// `root`, and the `specforge-harness` line that records it, as a collect leaves them (ADR 0327 D2, D4).
+/// `root`, and the `specforge-harness` line that records it, as a collect leaves them (ADR 0327 D2, D4): each file a
+/// fact is placed in digested as it is on disk (ADR 0346 D2), written blank first when the test wrote none.
 pub fn stored(root: &std::path::Path, collector: &str, key: &str, facts: Value) {
     stored_with(root, collector, key, facts, Default::default());
 }
 
-/// [`stored`], the store recording the digests of the `sources` its facts' places name, by key (ADR 0346 D2).
+/// [`stored`], the store recording the digests of the `sources` its facts' places name, by key (ADR 0346 D2), and of
+/// any other file a place names as it is on disk.
 pub fn stored_with(
     root: &std::path::Path,
     collector: &str,
@@ -131,7 +133,44 @@ pub(crate) fn store_of(
 ) {
     use crate::facts::Store;
     use crate::harness::{LEDGER_FILE, Ledger, Line};
-    let facts = serde_json::from_value(facts).expect("facts as the wire carries them");
+    let facts: Vec<specforge_protocol_types::Fact> =
+        serde_json::from_value(facts).expect("facts as the wire carries them");
+    let mut sources = sources;
+    // Each file a place names and the test gave no digest of: its extent, the last line and column a place reaches.
+    let mut extents: std::collections::BTreeMap<String, (usize, usize)> = Default::default();
+    for fact in &facts {
+        let named = fact
+            .named_at
+            .values()
+            .flat_map(|ids| ids.values().flatten());
+        for place in fact.at.iter().chain(named) {
+            if !sources.contains_key(&place.file) {
+                let extent = extents.entry(place.file.clone()).or_default();
+                extent.0 = extent.0.max(place.end_line);
+                extent.1 = extent.1.max(place.start_col).max(place.end_col);
+            }
+        }
+    }
+    for (file, (lines, cols)) in extents {
+        // A key outside the root is no file a collect digests: the store keeps no digest of it, and is not served.
+        let inside = std::path::Path::new(&file)
+            .components()
+            .all(|c| matches!(c, std::path::Component::Normal(_)));
+        if !inside {
+            continue;
+        }
+        let path = root.join(&file);
+        // A collect stores no fact placed in a file that is not there: one the test did not write is written blank.
+        if !path.exists() {
+            std::fs::create_dir_all(path.parent().expect("a file has a directory"))
+                .expect("the source's directory is made");
+            let line = format!("{}\n", " ".repeat(cols));
+            std::fs::write(&path, line.repeat(lines)).expect("the source is written");
+        }
+        let bytes = std::fs::read(&path).expect("the source reads");
+        let digest = format!("sha256:{}", specforge_package::Sha256::of(&bytes));
+        sources.insert(file, digest);
+    }
     let bytes = Store::new(collector, extension, key, facts, sources).bytes();
     let path = root.join(Store::path(collector, key));
     std::fs::create_dir_all(path.parent().expect("a store path has a directory"))

@@ -13,9 +13,11 @@
 ;                       types, heritage, a type alias's, an interface's or an enum's body; never a value
 ;   @reference.doc      a /** comment, its text @doc: the pack gives it to the item that starts on its last line or
 ;                       the line after it
-;   @lead               a decorator written before a class's `export`: the item's first line, for its doc
+;   @lead               a decorator written before a class's `export` or a method: the item's first line, for its doc
 ;   @reference.export   an export list's or module.exports's entry: the item @name names is exported (its @attr
 ;                       `default` when it is the default export)
+;   @reference.literal  a string's, a template's or a regular expression's own text holding whitespace: the pack
+;                       keeps that whitespace as written in a signature it lies in
 ; A capture whose name starts with _ only feeds a predicate.
 ;
 ; Matches of one defining node merge in the pack (captures united; function and class win over const and variable).
@@ -142,7 +144,9 @@
 ]))
 ; ---------------------------------------------------------------- a dotted namespace name: one @name per segment
 ; These merge into the namespace's match above, whatever its context (the pack drops one at no item scope).
-; shortcut: a name of more than six segments has none and is no item; upgrade with a pattern per further segment.
+; shortcut: a name of more than six segments has none and is no item: a query has no pattern that reaches a segment
+; at any depth, and the pack never splits the name's text (a space or a comment between segments would fool it);
+; upgrade with a pattern per further segment.
 [(internal_module name: (nested_identifier object: (identifier) @name property: (property_identifier) @name)) (module name: (nested_identifier object: (identifier) @name property: (property_identifier) @name))] @definition.namespace
 [(internal_module name: (nested_identifier object: (member_expression object: (identifier) @name property: (property_identifier) @name) property: (property_identifier) @name)) (module name: (nested_identifier object: (member_expression object: (identifier) @name property: (property_identifier) @name) property: (property_identifier) @name))] @definition.namespace
 [(internal_module name: (nested_identifier object: (member_expression object: (member_expression object: (identifier) @name property: (property_identifier) @name) property: (property_identifier) @name) property: (property_identifier) @name)) (module name: (nested_identifier object: (member_expression object: (member_expression object: (identifier) @name property: (property_identifier) @name) property: (property_identifier) @name) property: (property_identifier) @name))] @definition.namespace
@@ -242,6 +246,8 @@
 (class_body (public_field_definition name: (string [(string_fragment) (escape_sequence)]* @part)) @definition.field)
 (interface_body (method_signature name: (string [(string_fragment) (escape_sequence)]* @part)) @definition.method)
 (interface_body (property_signature name: (string [(string_fragment) (escape_sequence)]* @part)) @definition.field)
+; A method's decorators are its class body's children before it (a field's are its own): the first starts it.
+(class_body (decorator)+ @lead . (method_definition) @definition.method)
 
 ; ---------------------------------------------------------------- modifiers: matches that merge into their definition
 (function_declaration "async" @attr) @definition.function
@@ -292,3 +298,6 @@
 
 ; ---------------------------------------------------------------- documentation
 ((comment) @doc @reference.doc (#match? @doc "^/\\*\\*"))
+
+; ---------------------------------------------------------------- literal text a signature keeps as written
+([(string_fragment) (regex_pattern)] @_text @reference.literal (#match? @_text "\\s"))

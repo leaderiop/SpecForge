@@ -95,7 +95,8 @@ Independently, a field may be `immutable` (E084 when its value differs from the 
 merge-base with `check --since <rev>`; unset at the baseline, it may be set once) or `append_only` (E085 when a
 list rewrites its baseline's items), and a kind may be `append_only` (E085 when an entity of it is removed).
 `specforge harness gc` rewrites the ledger canonically; a rename or a scope move re-keys its lines and records
-`<new> moved:<old>`, so a moved value stays recorded and its history follows it.
+`<new> moved:<old>`, so a moved value stays recorded and its history follows it. A move back drops the record it
+would carry onto its own name.
 
 ### Field types
 

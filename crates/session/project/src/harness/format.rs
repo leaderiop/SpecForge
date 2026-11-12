@@ -27,7 +27,7 @@ pub const VERDICT_KEY: &str = "verdict:";
 /// The prefix of the key of a fact store's line: `<collector> facts:<key> <digest>` (ADR 0327).
 pub const FACTS_KEY: &str = "facts:";
 
-/// The prefix of the key of a stale fact store's line: `<collector> stale:<key>:<field>:<written>:<now> <digest>`, one
+/// The prefix of the key of a stale fact store's line: `<collector> stale:<key>:<field>:<held>:<now> <digest>`, one
 /// per name a rename rewrote where the store's facts hold it in `field` (ADR 0346 D7).
 pub const STALE_KEY: &str = "stale:";
 
@@ -78,18 +78,18 @@ impl Line {
     }
 
     /// The line marking stale the store of `collector`'s facts filed under `key`, whose file holds `bytes`: a rename
-    /// rewrote the name its facts hold in `field` as `written` to `now` where the collector read it, after the collect
-    /// (ADR 0346 D7). Its digest is `digest(collector, "stale:<key>:<field>:<written>:<now>", bytes)`, so it marks
+    /// rewrote the name its facts hold in `field` as `held` to `now` where the collector read it, after the collect
+    /// (ADR 0346 D7). Its digest is `digest(collector, "stale:<key>:<field>:<held>:<now>", bytes)`, so it marks
     /// exactly those bytes; the next collect of the collector drops it. No part holds `:` (an entity's name does not).
     pub fn stale(
         collector: &str,
         key: &str,
         bytes: &[u8],
         field: &str,
-        written: &str,
+        held: &str,
         now: &str,
     ) -> Line {
-        let key = format!("{STALE_KEY}{key}:{field}:{written}:{now}");
+        let key = format!("{STALE_KEY}{key}:{field}:{held}:{now}");
         Line {
             subject: collector.to_string(),
             digest: digest(collector, &key, bytes),
@@ -105,7 +105,7 @@ impl Line {
             collector: &self.subject,
             key: parts.next()?,
             field: parts.next()?,
-            written: parts.next()?,
+            held: parts.next()?,
             now: parts.next()?,
         })
     }
@@ -144,7 +144,9 @@ pub struct Stale<'l> {
     pub collector: &'l str,
     pub key: &'l str,
     pub field: &'l str,
-    pub written: &'l str,
+    /// The name the store's facts hold, as collected.
+    pub held: &'l str,
+    /// The name the last rename wrote for it.
     pub now: &'l str,
 }
 

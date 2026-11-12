@@ -142,3 +142,17 @@ the broken part comes out unchanged, the valid parts come out formatted.
 `specforge format` exits 1 for such a file (W142 names the lines it kept), in every mode, as it
 does for a file it cannot read; it still formats and writes the rest of the file. A check passes only
 when every file is read and in canonical form.
+
+## Git refuses the repository
+
+SpecForge reads the repository a project directory is in, found as git finds it, and nothing else. Where the
+environment or a `.git` points elsewhere it refuses, naming why, rather than read a repository git would not read
+there or one outside the project's roots ([ADR 0352](../adr/0352-gsd-git-reads-the-host-git-port-and-commits-name-their-items.md),
+[ADR 0339](../adr/0339-a-verb-the-user-types-reaches-the-ports-under-the-ceiling.md) D5).
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `W164 the baseline cannot be read: GIT_DIR names …, but … is in the repository at …`; a hook's notice `no git input, git cannot be asked: GIT_DIR names …` | `GIT_DIR` or `GIT_WORK_TREE` is exported in the shell, as a bare dotfiles setup (`git --git-dir=~/.dotfiles --work-tree=~`) or a script that exports them does. A relative value is read from the working directory; the message shows where it lands. | Unset them where `specforge` runs. A dotfiles alias that passes `--git-dir` on its own command line sets nothing for other programs; one that exports the variables does. |
+| `GIT_COMMON_DIR`, `GIT_OBJECT_DIRECTORY`, `GIT_ALTERNATE_OBJECT_DIRECTORIES` or `GIT_INDEX_FILE names …` | The variable names another repository's refs, object store or index. git's own hooks set `GIT_INDEX_FILE` to a file in the git directory, which is read. | Unset it, or run from the repository it names. |
+| `the repository at … reads …, through its .git, a commondir, core.worktree or an alternate, and that is in no root` (W164, a hook's notice, a guest's git call denied, or `specforge git` refusing) | The project's `.git` is a file or link naming a git directory outside every root (`git init --separate-git-dir`, a copied or planted `.git`), or an alternate names objects outside. A real linked worktree or submodule is read wherever it lies. | Remove the redirect if you did not make it. To keep it, name that directory a root: `specforge grants approve --root <name> --at <dir>`, or move the git directory into the project. |
+

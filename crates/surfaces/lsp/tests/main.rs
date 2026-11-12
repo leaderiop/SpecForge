@@ -46,6 +46,11 @@ mod rebuilding;
 mod recorder;
 mod registries;
 mod rename;
+mod rename_history;
+mod rename_outside;
+mod rename_pending;
+mod rename_scopes;
+mod rename_undo;
 mod scoped_names;
 mod semantic_tokens;
 mod served;
@@ -60,6 +65,7 @@ mod token_agreement;
 mod typed_members;
 mod union_title;
 mod use_bindings;
+mod watchers;
 
 /// Every `.spec` file under `dir`, recursively.
 pub fn spec_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {

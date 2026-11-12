@@ -473,7 +473,7 @@ mod ledger {
         std::fs::remove_file(served.root().join(".specforge")).unwrap();
         save(&mut served);
         assert!(ledger_on_disk(&served).contains("v1.0/05"));
-        assert!(served.state().pending().open().is_empty());
+        assert!(served.state().pending().shown().is_empty(), "landed");
     }
 
     #[spec(
@@ -583,6 +583,195 @@ fn rename_of_a_collected_entity_is_refused_with_why() {
     verify = "an editor rename of an entity a fact names edits the source file where the fact read it"
 )]
 fn rename_of_an_entity_a_fact_names_edits_its_source_file() {
+    let served = fact_named();
+    let uri = served.uri("truths.spec");
+
+    let edit = answers::rename(&served.state(), &uri, Position::new(0, 7), "T2")
+        .unwrap()
+        .expect("an edit");
+
+    let changes = edit.changes.expect("plain changes");
+    let in_source = &changes[&served.uri("a.test.js")];
+    assert_eq!(in_source.len(), 1, "{in_source:?}");
+    assert_eq!(in_source[0].new_text, "T2");
+    assert_eq!(
+        (in_source[0].range.start, in_source[0].range.end),
+        (Position::new(0, 10), Position::new(0, 12))
+    );
+    assert_eq!(changes[&uri].len(), 1, "{changes:?}");
+}
+
+/// Apply the whole of `edit` to the editor's buffers, saving nothing: each file's buffer, else its disk text, edited.
+pub(crate) fn apply_to_buffers(
+    served: &mut crate::served::Served,
+    edit: tower_lsp::lsp_types::WorkspaceEdit,
+) {
+    for (uri, edits) in edit.changes.expect("plain changes") {
+        let file = served.state().key_of(&uri);
+        let edits: Vec<serde_json::Value> = edits
+            .iter()
+            .map(|edit| serde_json::to_value(edit).unwrap())
+            .collect();
+        let held = served
+            .state()
+            .files()
+            .document(&file)
+            .map(|d| d.text().to_string());
+        let text =
+            held.unwrap_or_else(|| std::fs::read_to_string(served.root().join(&file)).unwrap());
+        let text = crate::contracts::apply_edits(&text, &edits);
+        if served.state().files().document(&file).is_some() {
+            served.edit(&file, &text);
+        } else {
+            served.open_document(&uri, &text);
+        }
+    }
+}
+
+/// A second editor rename made before the first one's ledger change lands reads the facts as the first leaves them
+/// (ADR 0289): the fact the first moved names the entity where it went, in the source file the first rewrote in the
+/// editor's buffer. Renames compose (ADR 0346 D7): the second edits that buffer where the first left the name, and,
+/// saved, one change lands, the store's stale line from the name collected to the name written last.
+#[spec(
+    behavior = "land_rename_ledger",
+    verify = "a second editor rename before the first lands reads the facts as the first leaves them"
+)]
+fn a_second_rename_before_the_first_lands_sees_the_fact_it_moved() {
+    use specforge_project::harness::{Ledger, Line};
+    use tower_lsp::lsp_types::{FileChangeType, FileEvent};
+    let mut served = fact_named();
+    let uri = served.uri("truths.spec");
+    let store = std::fs::read(served.root().join(FACT_STORE)).unwrap();
+    let first = answers::rename(&served.state(), &uri, Position::new(0, 7), "T2")
+        .unwrap()
+        .expect("an edit");
+    assert_eq!(
+        first.changes.as_ref().map(|c| c.len()),
+        Some(2),
+        "{first:?}"
+    );
+    apply_to_buffers(&mut served, first);
+    assert_eq!(served.state().pending().open().len(), 1);
+
+    let second = answers::rename(&served.state(), &uri, Position::new(0, 7), "Third")
+        .unwrap()
+        .expect("the second rename applies");
+
+    let in_source = &second.changes.as_ref().expect("plain changes")[&served.uri("a.test.js")];
+    assert_eq!(in_source.len(), 1, "{in_source:?}");
+    assert_eq!(
+        (in_source[0].range.start, in_source[0].new_text.as_str()),
+        (Position::new(0, 10), "Third")
+    );
+    apply_to_buffers(&mut served, second);
+    let buffer = |file: &str| {
+        served
+            .state()
+            .files()
+            .document(file)
+            .unwrap()
+            .text()
+            .to_string()
+    };
+    assert!(
+        buffer("a.test.js").starts_with("// covers Third\n"),
+        "{}",
+        buffer("a.test.js")
+    );
+    assert!(
+        buffer("truths.spec").starts_with("truth Third "),
+        "{}",
+        buffer("truths.spec")
+    );
+    // Saved: one change lands, from the name collected to the name written last.
+    for file in ["truths.spec", "a.test.js"] {
+        served.write(file, &buffer(file));
+    }
+    let events = ["truths.spec", "a.test.js"]
+        .map(|file| FileEvent {
+            uri: served.uri(file),
+            typ: FileChangeType::CHANGED,
+        })
+        .to_vec();
+    served.apply(specforge_lsp::changes::Change::Watched(events));
+    let ledger = Ledger::parse(
+        &std::fs::read_to_string(served.root().join("specforge-harness")).unwrap_or_default(),
+    )
+    .ledger;
+    let stale: Vec<_> = ledger.lines().filter_map(Line::stale_of).collect();
+    assert_eq!(stale.len(), 1, "{}", ledger.canonical());
+    assert!(
+        ledger.contains(&Line::stale(
+            "node", FACT_KEY, &store, "covers", "T1", "Third"
+        )),
+        "{}",
+        ledger.canonical()
+    );
+    assert!(served.state().pending().shown().is_empty(), "both landed");
+}
+
+/// A second rename undone in the buffers leaves the first showing: saved, the first's change lands alone.
+#[test]
+fn an_undone_second_rename_shows_the_first_again() {
+    use specforge_project::harness::{Ledger, Line};
+    use tower_lsp::lsp_types::{FileChangeType, FileEvent};
+    let mut served = fact_named();
+    let uri = served.uri("truths.spec");
+    let store = std::fs::read(served.root().join(FACT_STORE)).unwrap();
+    let first = answers::rename(&served.state(), &uri, Position::new(0, 7), "T2")
+        .unwrap()
+        .expect("an edit");
+    apply_to_buffers(&mut served, first);
+    let buffer = |served: &crate::served::Served, file: &str| {
+        served
+            .state()
+            .files()
+            .document(file)
+            .unwrap()
+            .text()
+            .to_string()
+    };
+    let (spec, source) = (buffer(&served, "truths.spec"), buffer(&served, "a.test.js"));
+    let second = answers::rename(&served.state(), &uri, Position::new(0, 7), "T3")
+        .unwrap()
+        .expect("an edit");
+    apply_to_buffers(&mut served, second);
+
+    // Undone: the buffers hold the first rename's text again.
+    served.edit("truths.spec", &spec);
+    served.edit("a.test.js", &source);
+
+    for file in ["truths.spec", "a.test.js"] {
+        served.write(file, &buffer(&served, file));
+    }
+    let events = ["truths.spec", "a.test.js"]
+        .map(|file| FileEvent {
+            uri: served.uri(file),
+            typ: FileChangeType::CHANGED,
+        })
+        .to_vec();
+    served.apply(specforge_lsp::changes::Change::Watched(events));
+    let ledger = Ledger::parse(
+        &std::fs::read_to_string(served.root().join("specforge-harness")).unwrap_or_default(),
+    )
+    .ledger;
+    assert!(
+        ledger.contains(&Line::stale("node", FACT_KEY, &store, "covers", "T1", "T2")),
+        "{}",
+        ledger.canonical()
+    );
+    assert_eq!(ledger.lines().filter_map(Line::stale_of).count(), 1);
+    assert!(served.state().pending().shown().is_empty());
+}
+
+/// The key `fact_named`'s store is filed under, and the store.
+pub(crate) const FACT_KEY: &str = "0123456789abcdef0123456789abcdef01234567";
+pub(crate) const FACT_STORE: &str =
+    ".specforge/facts/0123456789abcdef0123456789abcdef01234567/node.json";
+
+/// A project whose truth `T1` a collected fact names in `a.test.js`, where its collector read it, served with
+/// `truths.spec` open.
+pub(crate) fn fact_named() -> crate::served::Served {
     use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, stored_with};
     let source = "// covers T1\ntest('adds', () => {});\n";
     let dir = tempfile::TempDir::new().unwrap();
@@ -602,22 +791,6 @@ fn rename_of_an_entity_a_fact_names_edits_its_source_file() {
         )]
         .into(),
     );
-    let served =
-        crate::served::Served::served_by(dir, Collected::new().runtime(), &COLLECTED_EXTENSIONS)
-            .open(&["truths.spec"]);
-    let uri = served.uri("truths.spec");
-
-    let edit = answers::rename(&served.state(), &uri, Position::new(0, 7), "T2")
-        .unwrap()
-        .expect("an edit");
-
-    let changes = edit.changes.expect("plain changes");
-    let in_source = &changes[&served.uri("a.test.js")];
-    assert_eq!(in_source.len(), 1, "{in_source:?}");
-    assert_eq!(in_source[0].new_text, "T2");
-    assert_eq!(
-        (in_source[0].range.start, in_source[0].range.end),
-        (Position::new(0, 10), Position::new(0, 12))
-    );
-    assert_eq!(changes[&uri].len(), 1, "{changes:?}");
+    crate::served::Served::served_by(dir, Collected::new().runtime(), &COLLECTED_EXTENSIONS)
+        .open(&["truths.spec"])
 }

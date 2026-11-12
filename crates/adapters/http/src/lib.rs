@@ -1,5 +1,7 @@
-//! The adapter behind the effect plane's `Http` port (ADR 0335): one blocking reqwest client, built on first use, on
-//! rustls with ring and the platform verifier. It follows redirects itself under the caller's policy, refuses a
+//! The adapter behind the effect plane's `Http` port (ADR 0335): one blocking reqwest client, built on first use
+//! within the first request's deadline, on rustls with ring and the platform verifier, whose configuration is built once
+//! per client, within the deadline of the first request or handshake that needs it (a failed build is not kept: the
+//! next caller builds again). It follows redirects itself under the caller's policy, refuses a
 //! private address unless the request allows one (judged here, for through a proxy the proxy resolves the name),
 //! holds the whole request to one timeout and reads at most the body cap. A transport failure is an outcome class,
 //! never a panic.
@@ -7,7 +9,7 @@
 use std::error::Error as StdError;
 use std::io::Read as _;
 use std::net::IpAddr;
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Condvar, Mutex, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
 use hyper_util::client::proxy::matcher::Matcher;
@@ -29,15 +31,124 @@ pub use address::public;
 use address::{Failed, PublicOnly, destination};
 
 /// The `Http` port over the network. Its two reqwest clients (one that refuses private addresses, one that allows
-/// them) are built on first use, so a command that never reaches the network loads no trust store.
+/// them) and the TLS configuration both they and a handshake use are built on first use, so a command that never
+/// reaches the network loads no trust store; a request or handshake waits for a build no longer than its own deadline
+/// ([`Lazy`]).
 #[derive(Default)]
 pub struct Client {
-    public: OnceLock<Result<Reqwest, String>>,
-    any: OnceLock<Result<Reqwest, String>>,
-    /// The TLS configuration to use in place of the platform's verifier.
-    tls: Option<rustls::ClientConfig>,
+    public: Arc<Lazy<Reqwest>>,
+    any: Arc<Lazy<Reqwest>>,
+    /// The TLS configuration: the platform's verifier, or a test's set by [`Client::with_tls`].
+    config: Arc<Lazy<rustls::ClientConfig>>,
     /// The proxy every request goes through, in place of the environment's and the system's.
     proxy: Option<String>,
+    /// The ceiling on a request's time in place of [`TIMEOUT_CEILING`] (only lower, and only a test's).
+    ceiling: Option<Duration>,
+    /// Run on a build's thread before it builds, given what it builds; an error fails that build: a test's.
+    before_build: Option<Arc<Hook>>,
+}
+
+/// A test's hook run before a build ([`Client::with_before_build`]).
+type Hook = dyn Fn(Build) -> Result<(), String> + Send + Sync;
+
+/// What a [`Client`] builds on first use: what a test's [`Client::with_before_build`] hook is given.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Build {
+    /// The TLS configuration, with the platform's verifier.
+    Tls,
+    /// A reqwest client, and whether it allows private addresses.
+    Client { allow_private: bool },
+}
+
+/// One thing built on a thread of its own the first time a request needs it: a reqwest client, or the TLS
+/// configuration. A build reads the trust store and the system's proxies, which takes seconds on a loaded machine: the
+/// request that started it waits at most its own time left, and a later one takes what the build left. A failed build
+/// is not kept: the callers waiting on it get its error, and the next caller starts another (a long-lived server
+/// recovers once the trust store is readable).
+struct Lazy<T> {
+    built: OnceLock<T>,
+    /// The builds started and how the last failed one failed; the lock [`Self::done`] is signalled under.
+    state: Mutex<Builds>,
+    done: Condvar,
+}
+
+#[derive(Default)]
+struct Builds {
+    /// Whether a build is under way.
+    building: bool,
+    /// The builds started so far: a build's number is the count when it started.
+    started: u64,
+    /// The last failed build's number and error.
+    failed: Option<(u64, String)>,
+}
+
+impl<T> Default for Lazy<T> {
+    fn default() -> Self {
+        Lazy {
+            built: OnceLock::new(),
+            state: Mutex::new(Builds::default()),
+            done: Condvar::new(),
+        }
+    }
+}
+
+impl<T: Send + Sync + 'static> Lazy<T> {
+    /// What `build` (started here, on a thread named `name`, if no build is under way) has made within `within`: its
+    /// error when the build this call waited on failed, `None` when it has not ended.
+    fn within(
+        self: &Arc<Self>,
+        name: &str,
+        within: Duration,
+        build: impl FnOnce() -> Result<T, String> + Send + 'static,
+    ) -> Option<Result<&T, String>> {
+        if let Some(built) = self.built.get() {
+            return Some(Ok(built));
+        }
+        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        if self.built.get().is_none() && !state.building {
+            state.building = true;
+            state.started += 1;
+            let (this, number) = (Arc::clone(self), state.started);
+            let spawned = std::thread::Builder::new()
+                .name(name.into())
+                .spawn(move || {
+                    let built = build();
+                    let mut state = this.state.lock().unwrap_or_else(PoisonError::into_inner);
+                    match built {
+                        Ok(built) => {
+                            let _ = this.built.set(built);
+                        }
+                        Err(why) => state.failed = Some((number, why)),
+                    }
+                    state.building = false;
+                    this.done.notify_all();
+                });
+            if let Err(e) = spawned {
+                state.building = false;
+                state.failed = Some((number, format!("cannot start the {name} thread: {e}")));
+            }
+        }
+        // The build under way is the latest started: this call takes its end (or a later failure's, should one fail
+        // before this call wakes).
+        let awaited = state.started;
+        let failed = |state: &Builds| {
+            state
+                .failed
+                .as_ref()
+                .filter(|(number, _)| *number >= awaited)
+                .map(|(_, why)| why.clone())
+        };
+        let (state, _) = self
+            .done
+            .wait_timeout_while(state, within, |state| {
+                self.built.get().is_none() && failed(state).is_none()
+            })
+            .unwrap_or_else(PoisonError::into_inner);
+        match self.built.get() {
+            Some(built) => Some(Ok(built)),
+            None => failed(&state).map(Err),
+        }
+    }
 }
 
 impl Client {
@@ -47,10 +158,9 @@ impl Client {
 
     /// A client that verifies with `tls`, not the platform's verifier: for a test's own certificate.
     pub fn with_tls(tls: rustls::ClientConfig) -> Self {
-        Client {
-            tls: Some(tls),
-            ..Client::default()
-        }
+        let client = Client::default();
+        let _ = client.config.built.set(tls);
+        client
     }
 
     /// A client that sends every request through the proxy at `url`: for a test's own proxy, whose environment no
@@ -62,10 +172,35 @@ impl Client {
         }
     }
 
+    /// This client with every request, resolve and handshake held to `ceiling` (when lower than
+    /// [`TIMEOUT_CEILING`]): a test's request that must time out does so well within its runner's kill.
+    #[cfg(any(test, feature = "testing"))]
+    pub fn with_timeout_ceiling(mut self, ceiling: Duration) -> Self {
+        self.ceiling = Some(ceiling);
+        self
+    }
+
+    /// This client with `hook` run on a build's thread before each build, given what it builds: a test holds a build
+    /// back to see a request wait for it no longer than its deadline, counts the builds, or fails one with the error
+    /// it returns.
+    #[cfg(any(test, feature = "testing"))]
+    pub fn with_before_build(
+        mut self,
+        hook: impl Fn(Build) -> Result<(), String> + Send + Sync + 'static,
+    ) -> Self {
+        self.before_build = Some(Arc::new(hook));
+        self
+    }
+
+    /// The ceiling on any request's time.
+    fn ceiling(&self) -> Duration {
+        self.ceiling
+            .map_or(TIMEOUT_CEILING, |c| c.min(TIMEOUT_CEILING))
+    }
+
     /// The host of the proxy a request to `url` goes through: this client's own, else the system's or the
     /// environment's, read as reqwest reads them; none when it goes direct.
     fn proxy_host(&self, url: &Url) -> Option<String> {
-        static SYSTEM: OnceLock<Matcher> = OnceLock::new();
         if let Some(proxy) = &self.proxy {
             return Some(
                 Url::parse(proxy)
@@ -75,34 +210,74 @@ impl Client {
             );
         }
         let uri = url.as_str().parse::<http::Uri>().ok()?;
-        let intercept = SYSTEM.get_or_init(Matcher::from_system).intercept(&uri)?;
+        let intercept = system_proxies().intercept(&uri)?;
         // A proxy URI with no host is still a proxy: judged by an empty name, which no grant reaches.
         Some(intercept.uri().host().unwrap_or_default().to_string())
     }
 
-    fn client(&self, allow_private: bool) -> Result<&Reqwest, &str> {
-        let cell = if allow_private {
-            &self.any
+    /// The reqwest client of `allow_private`, built within `within` ([`Lazy`]): `None` when its build outlasts it.
+    fn client(&self, allow_private: bool, within: Duration) -> Option<Result<&Reqwest, String>> {
+        let (lazy, name) = if allow_private {
+            (&self.any, "http-any-client-build")
         } else {
-            &self.public
+            (&self.public, "http-public-client-build")
         };
-        cell.get_or_init(|| build(allow_private, self.tls.clone(), self.proxy.as_deref()))
-            .as_ref()
-            .map_err(String::as_str)
+        let (config, proxy, hook) = (
+            Arc::clone(&self.config),
+            self.proxy.clone(),
+            self.before_build.clone(),
+        );
+        lazy.within(name, within, move || {
+            if let Some(hook) = &hook {
+                hook(Build::Client { allow_private })?;
+            }
+            // The system's proxies are read here too, so a request's own reading of them never waits.
+            if proxy.is_none() {
+                system_proxies();
+            }
+            // This build's thread has no deadline of its own: the request waiting on it holds to its own.
+            let config = config
+                .within(TLS_BUILD, Duration::MAX, move || {
+                    built_config(hook.as_deref())
+                })
+                .ok_or("the TLS configuration was not built")??
+                .clone();
+            build(allow_private, config, proxy.as_deref())
+        })
+    }
+
+    /// The TLS configuration, built within `within` ([`Lazy`]): `None` when its build outlasts it.
+    fn config(&self, within: Duration) -> Option<Result<&rustls::ClientConfig, String>> {
+        let hook = self.before_build.clone();
+        self.config
+            .within(TLS_BUILD, within, move || built_config(hook.as_deref()))
     }
 }
 
-/// A reqwest client that follows no redirect, connects within [`CONNECT_TIMEOUT`] and, unless `allow_private`,
-/// resolves names to public addresses only.
+/// The name of the TLS configuration's build thread.
+const TLS_BUILD: &str = "http-tls-build";
+
+/// The platform's TLS configuration ([`tls`]), `hook` run first.
+fn built_config(hook: Option<&Hook>) -> Result<rustls::ClientConfig, String> {
+    if let Some(hook) = hook {
+        hook(Build::Tls)?;
+    }
+    tls()
+}
+
+/// The system's and the environment's proxies, read once, as reqwest reads them.
+fn system_proxies() -> &'static Matcher {
+    static SYSTEM: OnceLock<Matcher> = OnceLock::new();
+    SYSTEM.get_or_init(Matcher::from_system)
+}
+
+/// A reqwest client on `config` that follows no redirect, connects within [`CONNECT_TIMEOUT`] and, unless
+/// `allow_private`, resolves names to public addresses only.
 fn build(
     allow_private: bool,
-    config: Option<rustls::ClientConfig>,
+    config: rustls::ClientConfig,
     proxy: Option<&str>,
 ) -> Result<Reqwest, String> {
-    let config = match config {
-        Some(config) => config,
-        None => tls()?,
-    };
     let mut builder = Reqwest::builder()
         .tls_backend_preconfigured(config)
         .redirect(reqwest::redirect::Policy::none())
@@ -139,8 +314,8 @@ fn tls() -> Result<rustls::ClientConfig, String> {
 
 impl Http for Client {
     fn request(&self, request: &HttpRequest, redirects: &dyn Redirects) -> HttpOutcome {
-        let deadline =
-            Instant::now() + Duration::from_millis(request.timeout_ms).min(TIMEOUT_CEILING);
+        // Started before anything else: the deadline covers building the client too.
+        let deadline = Instant::now() + handshake::time_of(request.timeout_ms, self.ceiling());
         let typed = Url::parse(&request.url).map(|url| url.origin()).ok();
         let mut url = request.url.clone();
         let mut method = request.method.clone();
@@ -164,10 +339,18 @@ impl Http for Client {
                 Private::TypedOrigin => typed.as_ref() == Some(&parsed.origin()),
                 Private::Any => true,
             };
-            let client = match self.client(private) {
-                Ok(client) => client,
-                Err(why) => return HttpOutcome::unreachable(&url, Unreachable::Tls, why),
-            };
+            let client =
+                match self.client(private, deadline.saturating_duration_since(Instant::now())) {
+                    Some(Ok(client)) => client,
+                    Some(Err(why)) => return HttpOutcome::unreachable(&url, Unreachable::Tls, why),
+                    None => {
+                        return HttpOutcome::unreachable(
+                            &url,
+                            Unreachable::Timeout,
+                            "the request's time ran out while its client was being built",
+                        );
+                    }
+                };
             if !private && literal(&parsed).is_some_and(|ip| !public(ip)) {
                 return HttpOutcome::unreachable(
                     &url,
@@ -282,14 +465,20 @@ impl Http for Client {
     }
 
     fn resolve(&self, request: &ResolveRequest) -> ResolveOutcome {
-        handshake::resolve(request)
+        handshake::resolve(request, self.ceiling())
     }
 
     fn tls(&self, request: &TlsRequest) -> TlsOutcome {
-        let config = self.tls.clone().map_or_else(tls, Ok);
-        match config {
-            Ok(config) => handshake::tls(config, request),
-            Err(_) => TlsOutcome::of(OutcomeClass::Unreachable(Unreachable::Tls)),
+        // Started before anything else: the deadline covers building the configuration too.
+        let deadline = Instant::now() + handshake::time_of(request.timeout_ms, self.ceiling());
+        match self.config(deadline.saturating_duration_since(Instant::now())) {
+            Some(Ok(config)) => handshake::tls(
+                config.clone(),
+                request,
+                deadline.saturating_duration_since(Instant::now()),
+            ),
+            Some(Err(_)) => TlsOutcome::of(OutcomeClass::Unreachable(Unreachable::Tls)),
+            None => TlsOutcome::of(OutcomeClass::Unreachable(Unreachable::Timeout)),
         }
     }
 }

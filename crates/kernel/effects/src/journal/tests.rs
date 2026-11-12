@@ -133,6 +133,27 @@ fn a_record_past_its_ttl_is_expired_not_fresh() {
 }
 
 #[test]
+fn a_record_files_answer_expires_while_it_is_fresh_and_never_otherwise() {
+    let dir = tempfile::tempdir().unwrap();
+    let journal = EffectJournal::at(dir.path());
+    let request = http("https://example.org/");
+    let path = journal.path(&RecordDigest::of(&request)).unwrap();
+    assert_eq!(journal.answer_expires(&path, at(0)), None, "no record yet");
+    let (written, record) = journal
+        .keep(&request, &answer(OutcomeClass::Ok), at(0))
+        .unwrap()
+        .unwrap();
+    assert_eq!(written, path);
+    let end = expires(&record).unwrap();
+    assert_eq!(journal.answer_expires(&path, at(1)), Some(end));
+    assert_eq!(journal.answer_expires(&path, end), None, "expired");
+    // A file this journal would not keep a record at answers nothing.
+    let elsewhere = dir.path().join("not-a-digest.json");
+    std::fs::copy(&path, &elsewhere).unwrap();
+    assert_eq!(journal.answer_expires(&elsewhere, at(1)), None);
+}
+
+#[test]
 fn an_undecodable_record_is_missing_and_the_next_record_replaces_it() {
     let dir = tempfile::tempdir().unwrap();
     let journal = EffectJournal::at(dir.path());

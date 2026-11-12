@@ -14,6 +14,9 @@ pub use specforge_protocol_types::{
     GitBranch, GitChange, GitEntry, GitEntryKind, GitHunk, GitStatus,
 };
 
+mod reach;
+pub use reach::{LedOutside, locate_within, within_roots};
+
 /// A full commit id (hex).
 #[derive(
     Debug,
@@ -56,6 +59,8 @@ pub struct GitPlace {
     pub common_dir: PathBuf,
     /// A shallow clone: history before its boundary is not there.
     pub shallow: bool,
+    /// The index read in place of the git directory's own: a temporary one git hands a hook (`GIT_INDEX_FILE`).
+    pub index: Option<PathBuf>,
 }
 
 /// What locating a repository found.
@@ -254,13 +259,14 @@ pub struct DiffQuery {
     /// Give each text file's changed line ranges, with no context ([`GitFileDiff::hunks`]).
     pub hunks: bool,
     /// Pair a deletion with an addition as a rename: by identical content, else by similarity (half the lines, at
-    /// most [`RENAME_PAIRS`] pairs compared), whatever the repository's config says; `false` lists them apart
-    /// (`--no-renames`). No copy is searched.
+    /// most [`RENAME_PAIRS`] pairs compared, and for a bounded diff only while the deleted and added blobs together fit
+    /// [`DiffQuery::budget`]), whatever the repository's config says; `false` lists them apart (`--no-renames`). No
+    /// copy is searched.
     pub renames: bool,
     /// The most bytes the diff reads of its files (both sides, and its paths' names), and as many again of a worktree's
     /// files on disk; none reads every file (a person's diff). The first file is always read, so a diff of one file
-    /// always is. A bounded worktree diff neither reads nor hashes a file past it, nor one over [`BLOB_CAP`]: it lists
-    /// it as changed.
+    /// always is. A bounded worktree diff reads each file on disk at most once, counted (one whose stat alone changed
+    /// among them), and neither reads nor hashes a file past it, nor one over [`BLOB_CAP`]: it lists it as changed.
     pub budget: Option<u64>,
 }
 
@@ -297,7 +303,7 @@ pub struct GitFileDiff {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hunks: Option<Vec<GitHunk>>,
     /// The diff's [`DiffQuery::budget`] was spent before it: neither side was read, no line is counted, and the file
-    /// says `truncated`.
+    /// says `truncated`. A worktree file listed so is known only by its changed stat: it may be unchanged.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub unread: bool,
 }

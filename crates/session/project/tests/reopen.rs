@@ -4,7 +4,10 @@ use std::cell::Cell;
 use std::sync::Arc;
 
 use specforge_project::testing::{TestProject, disk_changed};
-use specforge_project::{Buffer, ProjectSession, RuntimeSource, SharedRuntime, UpdateKind};
+use specforge_project::{
+    Buffer, COUNTED_DEADLINE, PARSE_DEADLINE, ProjectSession, RuntimeSource,
+    SESSION_PARSE_DEADLINE, SharedRuntime, UpdateKind,
+};
 use specforge_test::prelude::*;
 
 use crate::buffers::{check_runs, counting, has, opened};
@@ -13,6 +16,39 @@ const ALPHA: &str = "type alpha \"A\" {}\n";
 const OMEGA: &str = "type omega \"O\" {}\n";
 const ZETA: &str = "type zeta \"Z\" {}\n";
 const GAMMA: &str = "type gamma \"G\" {}\n";
+
+/// A session parses within the counted deadline in a build for tests, however it was made, and within the deadline it
+/// is given across reloads: a production entry point states production's.
+#[test]
+fn a_session_parses_within_the_deadline_it_was_given_across_reloads() {
+    let dir = TestProject::new().file("a.spec", ALPHA);
+    let deadline = |session: &ProjectSession| session.project().environment().syntax().deadline();
+    let root = dir.project_root();
+    assert_eq!(
+        SESSION_PARSE_DEADLINE, COUNTED_DEADLINE,
+        "a build for tests"
+    );
+    for (made, session) in [
+        ("a test project's session", dir.session_bare()),
+        (
+            "a test's open",
+            ProjectSession::open_with_runtime(&root, None),
+        ),
+        (
+            "an open",
+            ProjectSession::open_from(&root, RuntimeSource::Fixed(None)),
+        ),
+    ] {
+        assert_eq!(deadline(&session), COUNTED_DEADLINE, "{made}");
+    }
+
+    let mut session = ProjectSession::detached().with_parse_deadline(PARSE_DEADLINE);
+    assert_eq!(session.parse_deadline(), PARSE_DEADLINE);
+    session.reopen(&root, RuntimeSource::Fixed(None), |_| {});
+    assert_eq!(deadline(&session), PARSE_DEADLINE);
+    session.reload_environment();
+    assert_eq!(deadline(&session), PARSE_DEADLINE, "a reload keeps it");
+}
 
 #[specforge_test(
     behavior = "validate_delta_correctness",

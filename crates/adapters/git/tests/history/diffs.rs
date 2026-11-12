@@ -2,7 +2,8 @@
 //! seconds: what a guest reading a commit's changed lines needs of the port.
 
 use specforge_effects::git::{
-    DiffQuery, DiffSide, DiffStatus, Git, GitFileDiff, GitHunk, LogQuery, PickaxeReads, Sha,
+    BLOB_CAP, DiffQuery, DiffSide, DiffStatus, Git, GitFileDiff, GitHunk, LogQuery, PickaxeReads,
+    Sha,
 };
 use specforge_git::Gix;
 use specforge_git::testing::Repo;
@@ -244,5 +245,164 @@ fn a_bounded_worktree_diff_reads_no_file_past_its_bound() {
         unread
             .iter()
             .all(|f| f.truncated && f.status == DiffStatus::Modified && f.removed == 0)
+    );
+}
+
+/// A worktree diff with `budget`, renames as `renames` asks.
+fn bounded(
+    repo: &Repo,
+    base: &str,
+    head: DiffSide,
+    renames: bool,
+    budget: u64,
+) -> Vec<GitFileDiff> {
+    Gix::default()
+        .diff(
+            &place(repo),
+            &DiffQuery {
+                base: Some(Sha::new(base)),
+                head,
+                paths: Vec::new(),
+                patch: false,
+                hunks: false,
+                renames,
+                budget: Some(budget),
+            },
+        )
+        .unwrap()
+}
+
+/// A bounded worktree diff hashes no file outside its bound: a file whose stat changed but whose content did not is
+/// read, counted, to be told unchanged, and past the bound it is listed as changed and unread, as any other.
+#[test]
+fn a_bounded_worktree_diff_counts_the_files_it_hashes() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "old\n")
+        .write("big.txt", "z\n".repeat(4096));
+    let base = repo.commit_all("base");
+    // the same size, so only the content tells; then the same bytes again, its stat moved
+    repo.write("a.txt", "new\n")
+        .write("big.txt", "z\n".repeat(4096));
+    std::fs::File::options()
+        .write(true)
+        .open(dir.path().join("big.txt"))
+        .unwrap()
+        .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000))
+        .unwrap();
+    // a.txt is the first file and always read; big.txt is far past the bound
+    let files = bounded(&repo, &base, DiffSide::Worktree, false, 64);
+    let listed: Vec<_> = files
+        .iter()
+        .map(|f| (f.path.as_str(), f.status, f.truncated, f.unread))
+        .collect();
+    assert_eq!(
+        listed,
+        [
+            ("a.txt", DiffStatus::Modified, false, false),
+            ("big.txt", DiffStatus::Modified, true, true),
+        ]
+    );
+    // within the bound it is read and found unchanged
+    let files = bounded(&repo, &base, DiffSide::Worktree, false, 64 * 1024);
+    let listed: Vec<_> = files.iter().map(|f| f.path.as_str()).collect();
+    assert_eq!(listed, ["a.txt"]);
+}
+
+/// A file over the blob cap is hashed as it streams, counted, while its whole length fits what a bounded diff's bound
+/// has left: one only touched is then told unchanged, one changed is listed with no counts but read; past the bound it
+/// is listed unread, as any other.
+#[test]
+fn a_bounded_worktree_diff_hashes_a_file_over_the_cap_within_its_bound() {
+    let over = usize::try_from(BLOB_CAP).unwrap() + 2;
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "old\n")
+        .write("huge.bin", "h\n".repeat(over / 2));
+    let base = repo.commit_all("base");
+    // a.txt first, always read; huge.bin the same bytes, its stat moved
+    repo.write("a.txt", "new\n")
+        .write("huge.bin", "h\n".repeat(over / 2));
+    let stamp = |seconds: u64| {
+        std::fs::File::options()
+            .write(true)
+            .open(dir.path().join("huge.bin"))
+            .unwrap()
+            .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(seconds))
+            .unwrap();
+    };
+    stamp(1_600_000_000);
+    let touched = |budget: u64| {
+        bounded(&repo, &base, DiffSide::Worktree, false, budget)
+            .into_iter()
+            .map(|f| (f.path, f.truncated, f.unread))
+            .collect::<Vec<_>>()
+    };
+    let room = 2 * BLOB_CAP + 1024;
+    assert_eq!(touched(room), [("a.txt".to_string(), false, false)]);
+    assert_eq!(
+        touched(64),
+        [
+            ("a.txt".to_string(), false, false),
+            ("huge.bin".to_string(), true, true)
+        ]
+    );
+    repo.write("huge.bin", "i\n".repeat(over / 2));
+    stamp(1_600_000_100);
+    assert_eq!(
+        touched(room),
+        [
+            ("a.txt".to_string(), false, false),
+            ("huge.bin".to_string(), true, false)
+        ]
+    );
+}
+
+/// A bounded diff searches renames by similarity only while the blobs it would compare fit its bound; past it, a rename
+/// pairs by identical content only.
+#[test]
+fn a_bounded_diff_searches_renames_within_its_bytes() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("old.txt", lines(200))
+        .write("same.txt", "same\n");
+    let base = repo.commit_all("base");
+    let mut edited = lines(199);
+    edited.push_str("the last line, changed\n");
+    repo.delete("old.txt")
+        .write("new.txt", edited)
+        .delete("same.txt")
+        .write("moved.txt", "same\n");
+    let head = repo.commit_all("moved");
+    let files = bounded(&repo, &base, DiffSide::Commit(Sha::new(&head)), true, 64);
+    let listed: Vec<_> = files
+        .iter()
+        .map(|f| (f.path.as_str(), f.status, f.old_path.as_deref()))
+        .collect();
+    assert_eq!(
+        listed,
+        [
+            ("moved.txt", DiffStatus::Renamed, Some("same.txt")),
+            ("new.txt", DiffStatus::Added, None),
+            ("old.txt", DiffStatus::Deleted, None),
+        ]
+    );
+    let files = bounded(
+        &repo,
+        &base,
+        DiffSide::Commit(Sha::new(&head)),
+        true,
+        64 * 1024,
+    );
+    let paired: Vec<_> = files
+        .iter()
+        .map(|f| (f.path.as_str(), f.old_path.as_deref()))
+        .collect();
+    assert_eq!(
+        paired,
+        [
+            ("moved.txt", Some("same.txt")),
+            ("new.txt", Some("old.txt"))
+        ]
     );
 }

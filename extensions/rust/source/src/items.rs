@@ -3,7 +3,9 @@
 //! comments of the contiguous run of lines directly above it. A test function knows the id nextest gives it and the
 //! entity its spec-link attribute names (D7).
 
-use specforge_code_facts::{location, Definition, ItemId, ItemKind, Names, Owner, Visibility};
+use specforge_code_facts::{
+    location, signature_spelling, Definition, ItemId, ItemKind, Names, Owner, Signature, Visibility,
+};
 use specforge_extension_sdk::host::{SyntaxMatch, SyntaxRole};
 
 use crate::modules::{Crate, ModuleFile};
@@ -203,15 +205,17 @@ fn captures(above: &[&SyntaxMatch], kind: &str, name: &str) -> Vec<String> {
         .collect()
 }
 
-/// A function's signature: its generics, parameters and return type, as written.
-fn signature(found: &SyntaxMatch) -> Option<String> {
+/// A function's signature: its generics, parameters and return type, in one spelling ([`signature_spelling`]).
+fn signature(found: &SyntaxMatch) -> Option<Signature> {
     let parts: Vec<&str> = found
         .captures
         .iter()
         .filter(|c| c.name == "signature")
         .map(|c| c.text.as_str())
         .collect();
-    (!parts.is_empty()).then(|| parts.join(" "))
+    // shortcut: a literal's whitespace is collapsed too (a tab char in a const generic argument, a string in an
+    // unstable one); capture the literals as the JavaScript pack does when one matters.
+    (!parts.is_empty()).then(|| signature_spelling(&parts.join(" "), &[]))
 }
 
 /// The doc comments above, one line each, the marker's following space dropped.

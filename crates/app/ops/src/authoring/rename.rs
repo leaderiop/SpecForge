@@ -11,6 +11,7 @@
 
 use crate::authoring::apply::{self, Origin};
 use crate::authoring::entity_id::validate_id;
+pub use crate::authoring::fact_names::{Marked, MarkedPlace};
 use crate::authoring::planned::PlannedChange;
 use crate::read::navigate::{Navigator, Precision, TextEdit, apply_edits};
 use crate::view::EntityField;
@@ -20,7 +21,7 @@ use specforge_common::Sym;
 use specforge_common::shape::Shape;
 use specforge_graph::{Form, Holder, Node, written_tokens};
 use specforge_parser::lex::lex;
-use specforge_project::harness::{LedgerChange, Line};
+use specforge_project::harness::LedgerChange;
 use std::collections::BTreeSet;
 
 /// The field of a rename's request a refusal can be about (ADR 0072).
@@ -41,12 +42,22 @@ pub const UNPARSED: &str = "source_unparsed";
 /// The project writes the new ID for no entity (a type name, a reference that does not resolve): the rename would make
 /// it name the renamed entity.
 pub const CAPTURED: &str = "name_captured";
-/// A source file a fact names the entity in changed since `specforge collect` read it, or no longer spells the name
-/// where the fact's store says: the rename cannot rewrite it exactly (ADR 0346 D7).
+/// A source file a fact names the entity in is not the text its store's served places are in (the text collected, or
+/// the text the renames since left: it was edited otherwise), or no longer spells the name where the store says: the
+/// rename cannot rewrite it exactly (ADR 0346 D7).
 pub const SOURCE_MOVED: &str = "source_moved";
-/// A plan's rename needs a source file an earlier rename of the same plan rewrites where a fact names what it moved:
-/// one rewrite of a file per collect, so the second is refused (ADR 0346 D7).
-pub const SOURCE_REWRITTEN: &str = "source_rewritten";
+/// A fact store holds the name the rename rewrites in a field where another of its facts holds the same name for
+/// something else (another entity, or no reference): a stale line renames a name in every fact of the store that
+/// holds it, so the rename cannot rewrite only the renamed entity's places. Or the rename would write over a name a
+/// fact (of any store) holds at a place in the file and the rename does not rename: that fact would read another name
+/// there (ADR 0346 D7).
+pub const NAME_SHARED: &str = "name_shared";
+/// Two places a rename would write in one source file cross one another (or nest, their names disagreeing): no one
+/// text writes both (ADR 0346 D7).
+pub const PLACES_CROSS: &str = "places_cross";
+/// The ledger renames a name a fact store holds two ways (two merged branches each renamed it, W202): the store's places
+/// are not served where the source has them, so no rename can rewrite them until the next collect (ADR 0346 D7).
+pub const STALE_CONFLICT: &str = "stale_conflict";
 /// The edits that rename one entity: its declaration and every reference, and the change they make.
 #[derive(Debug, Clone)]
 pub struct RenamePlan {
@@ -62,7 +73,7 @@ pub struct RenamePlan {
     /// The texts the edits make, planned with them (ADR 0184).
     change: PlannedChange,
     /// The stale line of each fact store whose facts name what the rename moves (ADR 0346 D7).
-    stale: Vec<Line>,
+    stale: Vec<Marked>,
 }
 
 impl RenamePlan {
@@ -79,8 +90,9 @@ impl RenamePlan {
         &self.change
     }
 
-    /// The stale line of each fact store whose facts name what the rename moves: what its ledger change writes.
-    pub fn stale(&self) -> &[Line] {
+    /// The stale line of each fact store whose facts name what the rename moves, with the source files it writes the
+    /// name at: what its ledger change writes.
+    pub fn stale(&self) -> &[Marked] {
         &self.stale
     }
 }
@@ -244,7 +256,7 @@ pub fn plan(
         nav.view().project(),
         LedgerChange {
             moves: moved.clone(),
-            stale: facts.stale.clone(),
+            stale: facts.stale.iter().map(|m| m.line.clone()).collect(),
             ..Default::default()
         },
     );

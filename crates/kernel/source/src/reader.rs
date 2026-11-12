@@ -93,6 +93,11 @@ impl SourceReader {
         self
     }
 
+    /// What each file it parses is held to.
+    pub fn deadline(&self) -> Deadline {
+        self.deadline
+    }
+
     /// Its cache.
     pub fn cache(&self) -> &SyntaxCache {
         &self.cache

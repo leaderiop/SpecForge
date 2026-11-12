@@ -43,13 +43,26 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
     `.specforge/facts/` that a `facts:` line of specforge-harness records
     (its collector, key and digest) MUST be built as one file of read-only
     entities; a store no line records is W191 and one that does not read
-    W192, and neither is served. With no such kind loaded, no fact store and
+    W192, and neither is served. A store placing a fact in a file whose
+    digest it does not record does not read: every file a served store
+    places a fact in has its digest (ADR 0346 D2). With no such kind loaded, no fact store and
     no ledger is read for facts (ADR 0327 D5). A store whose bytes a
     `stale:` line of the ledger marks (a rename rewrote a name its facts
     hold after the collect) MUST be served with exactly the names its stale
-    lines record read as the rename wrote them, and is W197 until its
-    collector collects again; a store collected after the rename follows no
-    move, and no older move is followed (ADR 0346 D7).
+    lines record read as the rename wrote them, every place it records in a
+    file a rename rewrote shifted exactly by what the renames wrote there,
+    and is W197 until its collector collects again. What the renames wrote
+    in a file is derived across every stale store, so every store placed in
+    it that collected the same text MUST be served shifted by it, one that
+    holds none of the renamed names included. Places nested one in
+    another (two names held one inside the other) MUST be served exactly:
+    the outermost is what is written, a nested one read inside it; a place
+    inside a write is served where it stands while the write keeps its
+    text, and a file where a write changed a name the store does not
+    rename is served as collected; a store collected after
+    the rename follows no move, and no older move is followed (ADR 0346 D7).
+    A store whose stale lines rename one name it holds two ways (two merged
+    branches) MUST be served with none of its renames, W202.
   """
   verify unit "graph contains one node per entity"
   verify unit "graph contains one edge per resolved reference"
@@ -66,8 +79,14 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify unit "a served fact is located where its collector says it is written, and each name it holds where that name is written"
   verify integration "a finding on a fact is placed where it is written, not at its store"
   verify unit "a served store gives the digest it recorded of each source file its facts are placed in"
+  verify unit "a fact store placing a fact in a file it records no digest of is W192 and not served"
   verify integration "a compiled project serves the source digests its fact stores recorded"
   verify integration "a fact store a rename marked stale is served through the ledger's moves with W197 until the next collect"
+  verify unit "a stale store's places are shifted exactly by what the renames wrote, and only the text they left holds"
+  verify unit "a store whose stale lines rename one name two ways serves none of its renames, W202"
+  verify unit "names a store holds one inside another, both renamed, are served exactly where the renames left them"
+  verify unit "a name inside a name written is served where it stands while the write keeps it, and its file is not the text the places are in when the write changed it"
+  verify integration "a store placed in a file another store's renames rewrote is served shifted by them, and read again with it"
   verify unit "build_graph emits W061 for reference cycles"
   verify unit "W061 names the cycle's entities in its data"
   verify unit "W061 names every entity of a cycle, one whose cycle closes through an entity already walked included"

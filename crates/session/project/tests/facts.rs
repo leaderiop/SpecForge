@@ -499,9 +499,19 @@ fn renamed() -> TestProject {
         {"kind": "test", "id": "js:a.test.js#adds", "fields": {"covers": ["adds_numbers"]},
          "named_at": {"covers": {"adds_numbers": [place("a.test.js", 2, 12, 24)]}}},
     ]);
-    stored(p.root(), "node", KEY, facts);
+    stored_with(p.root(), "node", KEY, facts, collected_source());
     recording(&p, Line::moved("add_numbers", "adds_numbers"));
     p
+}
+
+/// The digest a collect recorded of `a.test.js`: what the renames' places are spans of.
+fn collected_source() -> std::collections::BTreeMap<String, String> {
+    let text = "test('one');\n// covers adds_numbers\n// covers TR1\n";
+    [(
+        "a.test.js".to_string(),
+        specforge_project::testing::revision_of(text.as_bytes()),
+    )]
+    .into()
 }
 
 /// `line` added to the ledger of `p`.
@@ -548,18 +558,24 @@ fn a_stale_store_follows_the_moves_and_is_w197() {
         w197[0].message,
         format!(
             "fact store '{STORE}' is stale: a rename moved what its facts name ('adds_numbers' → 'add_numbers') after \
-             the collect; its places in a.test.js may be off until `specforge collect`"
+             the collect; its places in a.test.js are served as the rename left them, until `specforge collect`"
         )
     );
-    // The name is still placed where it is written.
+    // The name is placed where the rename wrote it, one byte shorter.
     let fact = project.graph().node("js:a.test.js#adds").unwrap();
     let covers = fact.fields.entry("covers").unwrap();
     let Some(specforge_parser::FieldValue::List(items)) = Some(&covers.value) else {
         panic!("{covers:?}");
     };
+    let span = &items[0].span;
     assert_eq!(
-        (items[0].text.as_str(), items[0].span.start_line),
-        ("add_numbers", 2)
+        (
+            items[0].text.as_str(),
+            span.start_line,
+            span.start_col,
+            span.end_col
+        ),
+        ("add_numbers", 2, 12, 23)
     );
 }
 
@@ -663,8 +679,8 @@ fn a_compiled_project_serves_its_stores_source_digests() {
     let project = compiled(&p);
 
     assert_eq!(
-        project.fact_sources().into_iter().collect::<Vec<_>>(),
-        [("a.test.js", [(STORE, "sha256:aa")].into())]
+        digests(&project),
+        [("a.test.js", vec![(STORE, "sha256:aa")])]
     );
     // A session's update of the store serves the digests it records now.
     let mut session = session(&p);
@@ -679,7 +695,7 @@ fn a_compiled_project_serves_its_stores_source_digests() {
     let changes = session.changes([root.join(STORE).as_path()]);
     assert!(session.apply(&changes).is_some());
     assert_eq!(
-        session.project().fact_sources()["a.test.js"][STORE],
+        session.project().fact_sources()["a.test.js"][STORE].digest,
         "sha256:bb"
     );
     // A second store placing the file keeps its own digest beside the first's.
@@ -692,9 +708,28 @@ fn a_compiled_project_serves_its_stores_source_digests() {
     );
     let other = format!(".specforge/facts/{KEY}/other.json");
     assert_eq!(
-        compiled(&p).fact_sources()["a.test.js"],
-        [(STORE, "sha256:bb"), (other.as_str(), "sha256:cc")].into()
+        digests(&compiled(&p)),
+        [(
+            "a.test.js",
+            vec![(STORE, "sha256:bb"), (other.as_str(), "sha256:cc")]
+        )]
     );
 }
 
+/// The digest each served store recorded of each file, by file then store.
+fn digests(project: &CompiledProject) -> Vec<(&str, Vec<(&str, &str)>)> {
+    project
+        .fact_sources()
+        .into_iter()
+        .map(|(file, stores)| {
+            let stores = stores
+                .into_iter()
+                .map(|(store, placed)| (store, placed.digest.as_str()))
+                .collect();
+            (file, stores)
+        })
+        .collect()
+}
+
+mod rewritten;
 mod sent;

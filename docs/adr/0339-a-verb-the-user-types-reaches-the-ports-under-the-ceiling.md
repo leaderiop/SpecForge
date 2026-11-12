@@ -121,7 +121,7 @@ The `Git` port's adapter reads through gix: the git program is never run by the 
 git installed. `GitCli` is deleted, with no shim.
 
 - A repository is opened per call, isolated from `GIT_DIR`, `GIT_WORK_TREE` and the other variables that would point
-  the host at another repository.
+  the host at another repository; locating one refuses where either names another (ADR 0352).
 - No lazy fetch. A blob a partial clone lacks reads `unreadable` on every machine, so ADR 0300 D5's `GIT_NO_LAZY_FETCH`
   and its git 2.44 clause no longer apply.
 - No program a repository's config names runs on a read. The adapter drops every filter driver (`filter.<x>.clean`,

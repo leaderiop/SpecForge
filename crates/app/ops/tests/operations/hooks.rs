@@ -324,6 +324,7 @@ fn a_hook_that_reads_git_is_told_the_head() {
         git_dir: root.join(".git"),
         common_dir: root.join(".git"),
         shallow: false,
+        index: None,
     });
     fake.branch = "agent-x".into();
     fake.status = serde_json::from_value(json!({
@@ -372,6 +373,37 @@ fn a_hook_that_reads_git_is_told_the_head() {
         hosted.input("hook__context_monitor")["git"]["status"],
         json!({"branch": {"head": "agent-x", "ahead": 0, "behind": 0},
                "entries": [{"kind": "untracked", "path": "new.txt"}]})
+    );
+}
+
+/// A hook that declares the git input, where git cannot be asked, gets no git input and a notice naming why.
+#[test]
+fn a_hook_whose_git_cannot_be_asked_is_told_why() {
+    use specforge_effects::git::Located;
+    use specforge_effects::testing::FakeGit;
+    let crate::host_support::Hosted {
+        project, runtime, ..
+    } = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
+    let mut fake = FakeGit::none();
+    fake.located = Located::Unavailable("GIT_DIR names /elsewhere/.git".into());
+    let project = project.with_git(std::sync::Arc::new(fake));
+    let compiled =
+        project.compile_in(std::sync::Arc::clone(&runtime) as specforge_project::SharedRuntime);
+    let hosted = crate::host_support::Hosted {
+        project,
+        runtime,
+        compiled,
+    };
+    let run = run_hook(
+        &hosted,
+        "write_guard",
+        &write_event("claude-code", "/elsewhere/x.txt", "x"),
+    );
+    assert!(hosted.input("hook__write_guard").get("git").is_none());
+    let notice = run.answer["notice"].as_str().unwrap_or_default();
+    assert!(
+        notice.contains("git cannot be asked") && notice.contains("GIT_DIR names /elsewhere/.git"),
+        "{run:?}"
     );
 }
 

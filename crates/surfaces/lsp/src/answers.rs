@@ -13,6 +13,7 @@ use specforge_ops::read::navigate::{EntityQuery, MatchScope, Navigator, find_ent
 use specforge_ops::read::trace::route_traces;
 use specforge_project::RuntimeSource;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 use tower_lsp::jsonrpc::{Error, ErrorCode};
 use tower_lsp::lsp_types::{
     CodeAction, CodeActionOrCommand, CodeActionResponse, CodeLens, Command, CompletionResponse,
@@ -356,8 +357,15 @@ pub fn rename(
     // compiled text, planned by the shared rename (the MCP tool's rules). A
     // rename is all or nothing: one that cannot be done whole is refused
     // with why.
+    // Planned over the facts as the renames the editor shows leave them, so one moved
+    // since the ledger was last written is rewritten too (ADR 0289).
+    // A source file is read as the editor holds it: a rename composes with one applied to the buffers (ADR 0346 D7).
+    let shown = state.compiled_project().with_shown_facts();
+    let held = crate::source_document::held_texts(state);
     let plan = match specforge_ops::authoring::rename::plan(
-        &compiled.navigator(),
+        &specforge_ops::read::navigate::Navigator::new(
+            specforge_ops::view::ProjectView::of(&shown).holding(&held),
+        ),
         id.as_str(),
         new_name,
     ) {
@@ -367,9 +375,8 @@ pub fn rename(
     };
 
     // The edits are positions in the compiled text and apply to the editor's buffer: a file
-    // typed in since is not that text, so the rename waits for the compile (ContentModified); a
-    // source file typed in since the collect is refused, as its file changed on disk is (W198).
-    crate::source_document::rewrites_held_text(state, &plan)?;
+    // typed in since is not that text, so the rename waits for the compile (ContentModified). A
+    // source file's edits are positions in the text it was planned on, its buffer when open.
     let edit = compiled
         .rename_edit(&plan)
         .map_err(|Unplaced(file)| content_modified(file.as_str()))?;
@@ -400,16 +407,33 @@ fn hold_ledger(
         .collect();
     files.sort();
     files.dedup();
-    if let Some(pending) = crate::pending::PendingLedger::of(
-        state.compiled_project(),
-        plan.moved().to_vec(),
-        plan.stale().to_vec(),
-        node.source_span.file.to_string(),
-        node.name().to_string(),
-        new_name.to_string(),
+    let renamed = crate::pending::Renamed {
+        declaring: node.source_span.file.to_string(),
+        old_id: id.to_string(),
+        new_id: plan.new_id.clone(),
+        old_name: node.name().to_string(),
+        new_name: new_name.to_string(),
+    };
+    let rewrites = crate::pending::Rewrites {
+        moves: plan.moved().to_vec(),
+        stale: plan.stale().to_vec(),
+        sources: plan
+            .change()
+            .rewritten_sources()
+            .map(|(key, file)| {
+                (
+                    key.to_string(),
+                    Arc::clone(&file.before),
+                    file.after.clone(),
+                )
+            })
+            .collect(),
         files,
-    ) {
-        state.pending().hold(pending);
+        edits: plan.edits().to_vec(),
+    };
+    let before = state.compiled_project();
+    if let Some(pending) = crate::pending::PendingLedger::of(before, renamed, rewrites) {
+        state.pending().hold(pending, before);
     }
 }
 

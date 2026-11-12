@@ -180,15 +180,31 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     cannot put back MUST be listed in the failure's files_written.
     A rename of a collected entity is refused (collected). One of an entity a
     collected fact names rewrites the source file at every place the fact's
-    store records the name written, its written suffix becoming the same
+    store records the name written, its spelling there becoming the same
     suffix of the new path, and writes the store's stale line to
     specforge-harness; it is refused as collected when the fact records no
-    place, and as source_moved when a file changed since the collect read it
-    or no longer spells the name there, a second rename before the next
-    collect of a name the first rewrote included; a plan whose second rename
-    needs a file its first rewrote is refused as source_rewritten (ADR 0346
-    D7). A delete that unlinks
-    an entity a fact names stays refused.
+    place, and as source_moved when a file is not the text the store's
+    served places are in (edited since otherwise than by a rename) or no
+    longer spells the name there. Renames compose: a second rename before
+    the next collect of a name an earlier one rewrote, or of another name in
+    a file it rewrote, MUST rewrite the file again where the store's served
+    places are (shifted exactly by what the earlier renames wrote) and
+    replace the name's stale line, within one plan too; a store placed in
+    a file a rename rewrote is served shifted by it, so a rename of a name it
+    holds applies too (ADR 0346 D7). A
+    rename to a name a fact holds for no entity is refused as name_captured,
+    and one of a name another fact of the same store holds in that field for
+    something else (another entity, or no reference), or one that would
+    write over a name any fact holds in the file and the rename does not
+    rename, as name_shared. Places of names two facts hold one inside the
+    other (`v1/T1` and its `T1`) MUST be written as one text, the outermost
+    of each, and renames of them compose; two places a rename would write
+    that cross one another are refused as places_cross. While
+    the ledger renames a name a store holds two ways (W202), a rename of a
+    name that store holds is refused as stale_conflict.
+    When renames made two names a store holds read as one, a rename of it
+    writes a stale line for each. A delete that unlinks an entity a fact
+    names stays refused.
   """
   verify unit "specforge.rename renames entity and all references"
   verify unit "non-existent entity returns error response"
@@ -211,6 +227,15 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
   verify integration "a rename of a collected entity, or of one a fact names with no place, is refused with why"
   verify integration "a rename of an entity a fact names rewrites the source where the fact read it and marks its store stale"
   verify integration "a rename whose source changed since the collect is refused as source_moved"
+  verify integration "a rename of a name an earlier rename rewrote rewrites the source again where the first left it"
+  verify integration "a rename to a name a fact holds for no entity is refused as name_captured"
+  verify integration "a rename of a name two held names are read as writes a stale line for each"
+  verify integration "a rename of a name a fact of the same store holds for something else is refused as name_shared"
+  verify integration "a rename that would write over a name another fact holds for something else is refused as name_shared"
+  verify integration "a rename of names whose places cross one another is refused as places_cross"
+  verify integration "a rename of what two facts name one inside the other writes one text, and renames of it compose"
+  verify integration "a rename of a name a store holds while the ledger renames one of its names two ways is refused as stale_conflict"
+  verify integration "every store placed in a file a rename rewrote is served shifted by it, and a rename of its own name applies"
 }
 
 behavior provide_mcp_edit_tool "Provide MCP Edit Tool" {

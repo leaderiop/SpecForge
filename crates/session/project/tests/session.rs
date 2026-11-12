@@ -5,7 +5,7 @@ use std::sync::Arc;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
 use specforge_project::testing::{TestProject, disk_changed, disk_changed_under};
-use specforge_project::{Buffer, CheckMode, ProjectSession, UpdateKind};
+use specforge_project::{Buffer, CheckMode, ProjectSession, RuntimeSource, UpdateKind};
 use specforge_registry::PlainDisk;
 use specforge_test::prelude::*;
 use tempfile::TempDir;
@@ -537,7 +537,7 @@ fn a_nested_projects_files_are_not_compiled() {
         assert!(!codes.contains(&code), "{code} in {codes:?}");
     }
 
-    let mut session = ProjectSession::open(&project_root);
+    let mut session = ProjectSession::open_from(&project_root, RuntimeSource::project());
     let held = root.join("sub/b.spec");
     let update = session.hold(&[Buffer::new(
         held.to_str().unwrap(),
@@ -2299,7 +2299,7 @@ fn source_writing(
 ) -> (specforge_project::RuntimeSource, SeenConfigs) {
     let seen: SeenConfigs = Default::default();
     let recorded = std::sync::Arc::clone(&seen);
-    let source = specforge_project::RuntimeSource::Build(std::sync::Arc::new(
+    let source = RuntimeSource::Build(std::sync::Arc::new(
         move |root: &Path, config: &specforge_common::ProjectConfig| {
             let first = {
                 let mut seen = recorded.lock().unwrap();
@@ -2668,7 +2668,7 @@ fn a_reload_keeps_the_root_it_was_opened_at() {
     let sub = dir.root().join("sub");
     let opened = specforge_common::ProjectRoot::of(&sub).unwrap();
     assert_eq!(opened.dir(), dir.root());
-    let mut session = ProjectSession::open(&opened);
+    let mut session = ProjectSession::open_from(&opened, RuntimeSource::project());
 
     // A project of its own appears under the opened one.
     write(&sub, "specforge.json", r#"{"name": "inner"}"#);

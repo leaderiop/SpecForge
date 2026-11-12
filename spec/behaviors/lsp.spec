@@ -1255,15 +1255,59 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
   category   mutation
   contract   """
     The edits of a rename and of a fix name the version of the buffer they apply to when the client takes versioned
-    document changes (ADR 0289). The server writes no file: the ledger change of a rename is held beside the
-    session, shown over its checks, written under the write lock once the renamed files are saved, and dropped
-    when the edit is undone.
+    document changes (ADR 0289). The server writes no file: the ledger change of a rename is held beside the session,
+    shown over its checks as the buffers say, and written under the write lock, as the disk says, once no file the
+    rename edits holds an unsaved buffer. A rename reads a source file a fact is placed in as the editor's buffer
+    holds it, so a second rename made before a pending one lands composes with it: its edits land where the first left
+    the name. The renames of an entity and of whatever their moves touch are one history, whichever files declare
+    them: a rename moving a path a history's renames moved (or one under or above it) joins it, and one touching
+    several histories merges them. Each rename hangs under the rename that gave the entity it renames (matched by
+    path, not name), and the history is read from the texts each time, never kept as a phase: a rename is in effect
+    while the spec files it edited hold it, each reading the name it wrote at its places or a later rename of the same
+    entity made over it (the declaring file counted: an entity declared by hand under the old name beside it takes
+    nothing), with the renames it came from; one that some of its files hold and others went back from (the name it
+    read at its places again) is in no state of the history until they agree; each stale line is at the latest rename
+    every source file it is about holds or came after, a file holding one whose name still reads at the places it
+    wrote it, whatever else changed in the file (another entity renamed, typing, text beside it that cannot extend it,
+    a re-indent, lines moved whole; read by work linear in the texts, a place in a changed stretch reading while the
+    name reads whole as often there as before and beside the text before or after it that it was beside), else the one
+    in effect before the first whose name read still reads there, else none (the name typed over). What is shown and
+    landed is the change from what the ledger holds of the history to that, as one change: the renames left undone
+    undone, the last made first, those taken up done in the order made, and each stale line whose rename moved. So an
+    undo in one buffer and not another, part way, by hand, or a redo, before a save or after, shows and lands what the
+    buffers hold; texts in which a rename is in effect without one it was planned after (an earlier rename undone by
+    hand before a later one) show and land nothing, as do texts holding a rename in some files and not others; a
+    history whose files all close so ends having landed nothing, and the editor is told which files disagree and that
+    `specforge rename` finishes the rename. A landing that writes nothing leaves the project the ledger was written
+    over as it was. A history spans every file its renames edit and is kept while any of them is open and the ledger
+    reads as it last left it: a ledger write the editor did not make that touches its entities or stale lines ends it.
+    A rename answered and never applied is dropped at the first change of its declaring file that is not its edit (ADR
+    0346 D7).
   """
   verify unit "the LSP rename writes its ledger change once the rename lands on disk"
   verify unit "an undone LSP rename writes no ledger change"
   verify unit "an applied LSP rename whose buffers are closed unsaved is undone"
   verify unit "a rename whose ledger write fails stays pending and lands on the next event"
   verify unit "a saved LSP rename lands its ledger change at shutdown"
+  verify integration "a second editor rename before the first lands reads the facts as the first leaves them"
+  verify unit "a later editor rename never applied leaves the earlier one to show and land alone"
+  verify unit "a later editor rename composes only with the rename of the entity it renames, matched by path"
+  verify unit "a chain of editor renames typed back to its first name is undone whole"
+  verify unit "composed editor renames show and land, file by file, what the buffers hold however they were undone"
+  verify unit "composed editor renames undone and redone show and land again"
+  verify unit "composed editor renames land once no file of theirs holds an unsaved buffer, what the disk says"
+  verify unit "an editor rename's stale line holds while its names read in the source, whatever else changed there"
+  verify unit "editor renames redone after a save land what the redo says"
+  verify unit "an editor rename never applied is dropped at the first change of its declaring file that is not its edit"
+  verify unit "a stale line about two source files is the line of the earliest rename either holds"
+  verify unit "a ledger write from outside the editor ends the editor renames it touches"
+  verify unit "an entity declared by hand under the name an editor rename left takes nothing of it"
+  verify unit "editor renames of a scope and of what it scopes compose as one history"
+  verify unit "an editor rename touching two histories of renames joins them into one"
+  verify unit "an earlier editor rename undone by hand before a later one it led to lands nothing"
+  verify unit "an editor rename held in some of the files it edited and not in others lands nothing"
+  verify unit "a landing of an editor rename that writes nothing leaves the project the ledger was written over"
+  verify unit "an editor rename whose files disagree when they all close lands nothing and says so"
   verify unit "the LSP rename and fixes are versioned for a client that takes document changes"
   verify unit "a fix names the version of the buffer it edits for a client that takes document changes"
 }

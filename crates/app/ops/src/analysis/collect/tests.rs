@@ -41,7 +41,9 @@ fn wildcard_matches_segments() {
     behavior = "auto_detect_collector",
     verify = "a repository above the project root selects a collector detecting a repository"
 )]
-fn a_repository_above_the_project_root_selects_a_collector_detecting_one() {
+fn a_repository_the_git_port_locates_selects_a_collector_detecting_one() {
+    use specforge_effects::git::Located;
+    use specforge_effects::testing::FakeGit;
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().join("repo/sub/project");
     std::fs::create_dir_all(&root).unwrap();
@@ -51,15 +53,18 @@ fn a_repository_above_the_project_root_selects_a_collector_detecting_one() {
         ..collector("r.json")
     };
     let collectors = [repository];
-    assert!(detect(&collectors, &root).is_empty());
-    // a repository's directory, then a linked worktree's file, two levels up
+    // the port decides, never a `.git` on disk: here a directory two levels up that the port does not locate
     std::fs::create_dir(dir.path().join("repo/.git")).unwrap();
-    assert_eq!(detect(&collectors, &root).len(), 1);
-    std::fs::remove_dir(dir.path().join("repo/.git")).unwrap();
-    std::fs::write(dir.path().join("repo/.git"), "gitdir: /elsewhere\n").unwrap();
-    assert_eq!(detect(&collectors, &root).len(), 1);
+    assert!(detect(&collectors, &root, Some(&FakeGit::none())).is_empty());
+    assert!(detect(&collectors, &root, None).is_empty(), "no port");
+    let found = FakeGit::repo(&dir.path().join("repo"), "abc", Vec::new());
+    assert_eq!(detect(&collectors, &root, Some(&found)).len(), 1);
+    // one the port refuses to read is still one: the collector's own locate says why
+    let mut refused = FakeGit::none();
+    refused.located = Located::Unavailable("GIT_DIR names another repository".into());
+    assert_eq!(detect(&collectors, &root, Some(&refused)).len(), 1);
     // files alone, as before
-    assert!(detect(&[collector("r.json")], &root).is_empty());
+    assert!(detect(&[collector("r.json")], &root, Some(&found)).is_empty());
 }
 
 #[specforge_test(
@@ -303,20 +308,20 @@ fn an_unknown_runner_is_invalid_input_about_it() {
     let dir = tempfile::tempdir().unwrap();
     let available = vec![collector("r.json")];
 
-    let refusal = select(&available, Some("nope"), dir.path(), false).unwrap_err();
+    let refusal = select(&available, Some("nope"), dir.path(), None, false).unwrap_err();
     assert_eq!(refusal.error.kind, OpErrorKind::InvalidInput);
     assert_eq!(refusal.error.code, "E058");
     assert_eq!(refusal.subject, Some(CollectField::Runner));
     // The collector's own name and its extension's both answer.
-    assert!(select(&available, Some("acme"), dir.path(), false).is_ok());
-    assert!(select(&available, Some("@acme/runner"), dir.path(), false).is_ok());
+    assert!(select(&available, Some("acme"), dir.path(), None, false).is_ok());
+    assert!(select(&available, Some("@acme/runner"), dir.path(), None, false).is_ok());
 
     // No collector at all, or none detected: a refusal of the project.
-    let refusal = select(&[], Some("nope"), dir.path(), false).unwrap_err();
+    let refusal = select(&[], Some("nope"), dir.path(), None, false).unwrap_err();
     assert_eq!(refusal.error.kind, OpErrorKind::PreconditionFailed);
     assert_eq!(refusal.subject, None);
     let several = [collector("a.json"), collector("b.json")];
-    let refusal = select(&several, None, dir.path(), false);
+    let refusal = select(&several, None, dir.path(), None, false);
     assert_eq!(refusal.unwrap_err().subject, None);
 }
 

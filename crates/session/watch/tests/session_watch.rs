@@ -100,7 +100,10 @@ impl Fixture {
     fn watch(&self) -> (SessionWatch<Recorder>, Recorder) {
         let recorder = Recorder::default();
         let watch = SessionWatch::start(
-            ProjectSession::open(&specforge_common::ProjectRoot::of(&self.root).unwrap()),
+            ProjectSession::open_from(
+                &specforge_common::ProjectRoot::of(&self.root).unwrap(),
+                specforge_project::RuntimeSource::project(),
+            ),
             recorder.clone(),
         )
         .expect("the project is watched");
@@ -300,7 +303,10 @@ fn a_failed_rearm_with_nothing_stale_ends_on_the_report() {
 )]
 fn what_was_written_before_the_watchers_is_applied_at_the_start() {
     let fixture = Fixture::new(PLAIN);
-    let session = ProjectSession::open(&specforge_common::ProjectRoot::of(&fixture.root).unwrap());
+    let session = ProjectSession::open_from(
+        &specforge_common::ProjectRoot::of(&fixture.root).unwrap(),
+        specforge_project::RuntimeSource::project(),
+    );
     fixture.write("spec/b.spec", &PLAIN.replace("gadget_one", "gadget_two"));
     let mut watch = SessionWatch::start(session, Recorder::default()).unwrap();
 
@@ -410,7 +416,10 @@ fn start_refuses_a_session_built_from_no_directory() {
     let dir = TempDir::new().unwrap();
     let missing = dir.path().join("gone");
     std::fs::create_dir(&missing).unwrap();
-    let session = ProjectSession::open(&specforge_common::ProjectRoot::of(&missing).unwrap());
+    let session = ProjectSession::open_from(
+        &specforge_common::ProjectRoot::of(&missing).unwrap(),
+        specforge_project::RuntimeSource::project(),
+    );
     std::fs::remove_dir(&missing).unwrap();
     let Err(e) = SessionWatch::start(session, Recorder::default()) else {
         panic!("a missing project root is watched");
@@ -709,8 +718,10 @@ fn watch_wakes_at_the_next_expiry() {
     let record = fixture
         .root
         .join(".specforge/effects/journal/ab/record.json");
-    let mut session =
-        ProjectSession::open(&specforge_common::ProjectRoot::of(&fixture.root).unwrap());
+    let mut session = ProjectSession::open_from(
+        &specforge_common::ProjectRoot::of(&fixture.root).unwrap(),
+        specforge_project::RuntimeSource::project(),
+    );
     let expiry = now().plus(std::time::Duration::from_millis(200));
     session.stamp_consulted(vec![specforge_project::Consulted {
         path: record,

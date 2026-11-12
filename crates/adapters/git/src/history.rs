@@ -124,6 +124,19 @@ impl Reads {
         true
     }
 
+    /// [`Self::take`] without the first read's pass: whether `bytes` more fit what the bound has left, counting them
+    /// when they do; once they do not, nothing may be read after them.
+    pub(crate) fn take_within(&self, bytes: u64) -> bool {
+        if self
+            .limit
+            .is_some_and(|limit| self.read.get().saturating_add(bytes) > limit)
+        {
+            self.read.set(u64::MAX);
+            return false;
+        }
+        self.take(bytes)
+    }
+
     /// Whether there is a bound at all.
     pub(crate) fn bounded(&self) -> bool {
         self.limit.is_some()

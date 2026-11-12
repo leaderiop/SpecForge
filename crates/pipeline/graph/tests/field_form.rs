@@ -31,6 +31,7 @@ fn member(text: &str) -> TypeMember {
         text: text.to_string(),
         span: span(),
         written: Written::Bare,
+        lexemes: Vec::new(),
     }
 }
 
@@ -245,6 +246,7 @@ fn stored_is_the_coerced_value_or_the_value_as_written() {
         value,
         annotations: Vec::new(),
         value_span: Some(span()),
+        value_lexemes: Vec::new(),
     };
     let one = entry("refs", FieldValue::Identifier("a".into()));
     let stored = forms.stored("k", &one);
@@ -298,6 +300,7 @@ fn map(entries: &[(&str, FieldValue)]) -> FieldMap {
             value: value.clone(),
             annotations: Vec::new(),
             value_span: Some(span()),
+            value_lexemes: Vec::new(),
         });
     }
     map
@@ -484,6 +487,7 @@ fn the_walker_names_each_typed_member_by_its_path() {
         ]),
         annotations: Vec::new(),
         value_span: Some(span),
+        value_lexemes: Vec::new(),
     };
     let paths: Vec<String> = forms
         .walk("k", &entry)
@@ -521,6 +525,7 @@ fn a_member_is_respelled_by_its_form() {
         }]),
         annotations: Vec::new(),
         value_span: Some(span()),
+        value_lexemes: Vec::new(),
     };
     let rewrites = forms.rewrites("k", &entry, &span());
     assert_eq!(rewrites.len(), 1, "{rewrites:?}");

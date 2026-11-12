@@ -10,8 +10,8 @@
 //! - target autodiscovery (`src/lib.rs`, `src/main.rs`, `src/bin/*.rs`, `src/bin/*/main.rs`, `tests`, `examples`,
 //!   `benches`, `build.rs`) and the explicit `[[bin]]`, `[[test]]`, … tables, `autotests = false` included.
 //!
-//! A virtual manifest is no package. Two packages of one name keep [`PackageId::cargo`] for the one whose directory
-//! is shallowest (fewest segments, then lexically first) and [`PackageId::cargo_in`] for every other. A package's `depends_on` names the
+//! A virtual manifest is no package. Two packages of one name take their ids as [`PackageId::cargo_each`] gives
+//! them: the plain id for the shallowest, `#<dir>` for every other. A package's `depends_on` names the
 //! project's packages its path dependencies (normal, dev, build, per target platform) reach.
 
 mod listing;
@@ -103,28 +103,12 @@ pub fn read_packages(
         .collect())
 }
 
-/// The id each package takes: the plain purl for the package of its name whose directory is shallowest (fewest
-/// segments, then lexically first), the purl subpath for every other (ADR 0348 D5).
+/// The id each package takes ([`PackageId::cargo_each`]).
 fn ids(read: &[Read]) -> Vec<PackageId> {
-    let depth = |dir: &str| dir.split('/').filter(|s| !s.is_empty()).count();
-    let mut first: BTreeMap<&str, &str> = BTreeMap::new();
-    for r in read {
-        let dir = r.package.path.as_str();
-        first
-            .entry(r.name.as_str())
-            .and_modify(|kept| {
-                if (depth(dir), dir) < (depth(kept), *kept) {
-                    *kept = dir;
-                }
-            })
-            .or_insert(dir);
-    }
-    read.iter()
-        .map(|r| match first.get(r.name.as_str()) {
-            Some(kept) if *kept == r.package.path => PackageId::cargo(&r.name),
-            _ => PackageId::cargo_in(&r.name, &r.package.path),
-        })
-        .collect()
+    PackageId::cargo_each(
+        read.iter()
+            .map(|r| (r.name.as_str(), r.package.path.as_str())),
+    )
 }
 
 /// The package `manifest` (completed, at `path` in `dir`, written as `text`) declares.

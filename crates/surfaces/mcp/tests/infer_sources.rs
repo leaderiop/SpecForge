@@ -18,7 +18,10 @@ fn answer(server: &mut Served, tool: &str, arguments: Value) -> Value {
 )]
 fn infer_gaps_lists_no_file_outside_the_served_project() {
     let project = TestProject::new().file("src/lib.rs", "pub fn inside() {}\n");
-    specforge_project::testing::stored_items(
+    // A store no collect writes (it refuses a place outside the root), with a digest of each key so it is served.
+    let digests =
+        ["../outside.rs", "/etc/absolute.rs"].map(|f| (f.to_string(), "sha256:00".to_string()));
+    specforge_project::testing::stored_items_with(
         project.root(),
         "rust-source",
         vec![
@@ -47,6 +50,7 @@ fn infer_gaps_lists_no_file_outside_the_served_project() {
                 "absolute",
             ),
         ],
+        digests.into(),
     );
     let mut server = project.serve(&[TestExtension::items()]);
     let gaps = answer(&mut server, "specforge.infer_gaps", json!({}));

@@ -16,6 +16,6 @@ async fn main() {
     };
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
-    let (service, socket) = specforge_lsp::backend::service(ports);
+    let (service, socket) = specforge_lsp::backend::production(ports);
     Server::new(stdin, stdout, socket).serve(service).await;
 }

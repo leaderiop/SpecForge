@@ -276,3 +276,202 @@ fn the_baseline_digests_a_checked_value_at_the_commit() {
     assert_eq!(judgement(&now, PLAN, W311).0, "stale");
     assert_eq!(at_commit(&now), "fresh");
 }
+
+/// The link [`linked`] writes in its first decision.
+const LINK: &str = "https://gone.example/";
+
+/// An extension whose one compute pass reads the plans' baseline, so the project declares history, and computes nothing.
+const HISTORY: &str = "@pin/history";
+
+/// [`gsd_judged_project`] whose first decision's `text` is `link`, checked by `@specforge/checks:url`, with
+/// [`HISTORY`], and the runtime that serves them.
+fn linked(link: &str) -> (TestProject, specforge_project::SharedRuntime) {
+    use specforge_extension_sdk::DeclaredCategory;
+    use specforge_extension_sdk::prelude::{ContributionsBuilder, ExtensionMeta};
+    let spec = GSD_JUDGED_SPEC.replace(
+        "decision D-01 \"Use tokens\" {\n",
+        &format!("decision D-01 \"Use tokens\" {{\n  text \"{link}\"\n"),
+    );
+    let project = TestProject::new()
+        .config(|c| {
+            c["name"] = "p".into();
+            c["checks"] =
+                serde_json::json!({"fields": {"decision.text": ["@specforge/checks:url"]}});
+        })
+        .enabling(&[GSD_JUDGED, HISTORY, "@specforge/checks"])
+        .installing_enabled()
+        .file("a.spec", spec)
+        .file("CLAUDE.md", "# Instructions\n")
+        .file("src/auth/session.ts", "export const session = 1;\n");
+    let history = || {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(HISTORY, "1.0.0"));
+        let pass = serde_json::json!([{"name": "prior", "phase": "compute", "baseline": ["plan"]}]);
+        c.raw_category(DeclaredCategory::Passes, pass);
+        c
+    };
+    let nothing = serde_json::json!({"diagnostics": [], "summary": {}, "values": []});
+    let runtime = gsd_judged_runtime()
+        .with(history)
+        .answer_raw(
+            HISTORY,
+            "__pass_prior",
+            specforge_wasm::WasmCallResult::Ok(nothing.to_string().into_bytes()),
+        )
+        .beside(specforge_project::testing::component_runtime());
+    (project, std::sync::Arc::new(runtime))
+}
+
+/// `project` compiled online, [`LINK`] answering `status`: its answer is journaled.
+fn online(
+    project: &TestProject,
+    runtime: &specforge_project::SharedRuntime,
+    status: u16,
+) -> specforge_project::CompiledProject {
+    use specforge_effects::testing::{FakeHttp, MemoryConsent};
+    let env = project.environment_in(runtime.clone());
+    let ports = specforge_effects::Ports {
+        http: std::sync::Arc::new(FakeHttp::new().route(LINK, status, "")),
+        ..specforge_effects::testing::ports()
+    };
+    let effects = specforge_project::effects::of(
+        specforge_effects::EffectsMode::Online,
+        &ports,
+        &env,
+        &project.project_root(),
+        &MemoryConsent::default(),
+    );
+    specforge_project::CompiledProject::compile_through(env.with_effects(effects), &PlainDisk)
+}
+
+/// A repository at `project` whose `HEAD` holds every file as it is now.
+fn committed(project: &TestProject) -> specforge_effects::testing::FakeGit {
+    let read = |keys: &[&str]| -> Vec<(std::path::PathBuf, Vec<u8>)> {
+        keys.iter()
+            .map(|key| (key.into(), project.read(key).into_bytes()))
+            .collect()
+    };
+    let mut fake = specforge_effects::testing::FakeGit::repo(
+        project.root(),
+        &"c".repeat(40),
+        read(&["a.spec", "specforge-harness"]),
+    );
+    fake.blobs = read(&["CLAUDE.md", "src/auth/session.ts"]);
+    fake
+}
+
+/// The verdict of [`W311`] on the plan of [`linked`], recorded while [`LINK`] answered `ok`, and then the journal
+/// emptied: the link has no record.
+fn recorded_then_forgotten(project: &TestProject, runtime: &specforge_project::SharedRuntime) {
+    record_from(
+        project,
+        &online(project, runtime, 200),
+        PLAN,
+        W311,
+        "passed",
+        &Cited::default(),
+        "",
+    );
+    std::fs::remove_dir_all(project.root().join(JOURNAL)).unwrap();
+}
+
+const JOURNAL: &str = ".specforge/effects/journal";
+
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "the baseline is cached by commit, environment and the journal answers its checks read"
+)]
+fn a_cached_baseline_judges_a_probe_the_journal_answers_later() {
+    use specforge_effects::git::{Git, Located, Sha};
+    use specforge_project::baseline::{Baseline, Checking};
+    use std::sync::Arc;
+
+    let (project, runtime) = linked(LINK);
+    recorded_then_forgotten(&project, &runtime);
+    let fake = committed(&project);
+    let Located::Repo(place) = Git::locate(&fake, project.root()) else {
+        panic!("a repository")
+    };
+    let at_commit = || {
+        let env = project.environment_in(runtime.clone());
+        Baseline::at(
+            &env,
+            &fake,
+            &place,
+            &Sha::new("c".repeat(40)),
+            &Checking::of(&env),
+        )
+        .expect("a baseline")
+    };
+    let state = |baseline: &Baseline| {
+        let judged = &baseline.entities[PLAN].judgements;
+        let w311 = judged
+            .iter()
+            .find(|j| j.rule == W311)
+            .expect("W311 at the commit");
+        (w311.state.clone(), w311.changed.clone())
+    };
+    // No record: the link is not asked in cached mode, so its input is skipped, and the baseline is cached.
+    let unjudged = at_commit();
+    assert_eq!(state(&unjudged), ("fresh".to_string(), Vec::new()));
+    assert!(Arc::ptr_eq(&unjudged, &at_commit()), "read from the cache");
+    // A fresh record now says the link is gone: the next read compiles the baseline again and judges it.
+    online(&project, &runtime, 404);
+    let judged = at_commit();
+    assert!(!Arc::ptr_eq(&unjudged, &judged), "compiled again");
+    assert_eq!(
+        state(&judged),
+        ("stale".to_string(), vec!["decisions".to_string()])
+    );
+    assert!(Arc::ptr_eq(&judged, &at_commit()), "and cached again");
+}
+
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "a cached baseline is compiled again once a journal record its checks read answers otherwise"
+)]
+fn a_record_only_the_baseline_read_is_an_input_of_a_sessions_checks() {
+    let (project, runtime) = linked(LINK);
+    // The link's answer, kept aside.
+    online(&project, &runtime, 404);
+    let journal = project.root().join(JOURNAL);
+    let record: Vec<_> = walk(&journal)
+        .into_iter()
+        .filter(|path| path.extension().is_some_and(|e| e == "json"))
+        .collect();
+    assert_eq!(record.len(), 1, "one record: {record:?}");
+    let kept = tempfile::tempdir().unwrap();
+    std::fs::rename(&journal, kept.path().join("journal")).unwrap();
+    recorded_then_forgotten(&project, &runtime);
+    // The commit names the link; the working tree no longer does, so only the baseline's checks read its record.
+    let fake = std::sync::Arc::new(committed(&project));
+    let project = project.with_git(fake.clone());
+    project.write("a.spec", project.read("a.spec").replace(LINK, "not a link"));
+    let mut session = project.session_in(runtime.clone());
+    assert!(session.stale().is_empty(), "{:?}", session.stale());
+    std::fs::rename(kept.path().join("journal"), &journal).unwrap();
+    let stale = session.stale();
+    assert_eq!(stale.check_inputs(), [record[0].clone()], "{stale:?}");
+    let trees = fake.trees_asked();
+    assert!(session.ensure_fresh().is_some(), "the checks run again");
+    assert_eq!(
+        fake.trees_asked(),
+        trees + 1,
+        "over the baseline compiled again"
+    );
+    assert!(session.stale().is_empty(), "{:?}", session.stale());
+}
+
+/// Every file under `dir`, in order.
+fn walk(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut found = Vec::new();
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            found.extend(walk(&path));
+        } else {
+            found.push(path);
+        }
+    }
+    found.sort();
+    found
+}

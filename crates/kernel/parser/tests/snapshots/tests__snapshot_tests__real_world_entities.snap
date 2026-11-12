@@ -62,6 +62,7 @@ expression: result.entities
                             end_col: 70,
                         },
                     ),
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("types"),
@@ -112,6 +113,7 @@ expression: result.entities
                             end_col: 50,
                         },
                     ),
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("requires"),
@@ -133,6 +135,7 @@ expression: result.entities
                                             end_col: 55,
                                         },
                                     ),
+                                    value_lexemes: [],
                                 },
                             ],
                         },
@@ -147,6 +150,7 @@ expression: result.entities
                             end_col: 6,
                         },
                     ),
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("ensures"),
@@ -168,6 +172,7 @@ expression: result.entities
                                             end_col: 50,
                                         },
                                     ),
+                                    value_lexemes: [],
                                 },
                             ],
                         },
@@ -182,6 +187,7 @@ expression: result.entities
                             end_col: 6,
                         },
                     ),
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("contract"),
@@ -198,6 +204,7 @@ expression: result.entities
                             end_col: 8,
                         },
                     ),
+                    value_lexemes: [],
                 },
             ],
         },
@@ -279,6 +286,7 @@ expression: result.entities
                     ),
                     annotations: [],
                     value_span: None,
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("ref_kind"),
@@ -287,6 +295,7 @@ expression: result.entities
                     ),
                     annotations: [],
                     value_span: None,
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("identifier"),
@@ -295,6 +304,7 @@ expression: result.entities
                     ),
                     annotations: [],
                     value_span: None,
+                    value_lexemes: [],
                 },
             ],
         },
@@ -372,6 +382,7 @@ expression: result.entities
                             end_col: 40,
                         },
                     ),
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("types"),
@@ -400,6 +411,7 @@ expression: result.entities
                             end_col: 28,
                         },
                     ),
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("status"),
@@ -416,6 +428,7 @@ expression: result.entities
                             end_col: 23,
                         },
                     ),
+                    value_lexemes: [],
                 },
             ],
         },

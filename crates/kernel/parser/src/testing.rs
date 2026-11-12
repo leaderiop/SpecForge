@@ -196,10 +196,55 @@ impl std::fmt::Debug for EditedFile {
     }
 }
 
+/// The corpus file a drawn `key` picks, by a key of its own and not its position: rendezvous hashing over each file's
+/// path relative to the repository root ([`corpus_path`]), the file whose [`rendezvous`] score with `key` is highest
+/// ([`rendezvous_pick`]). Every file is as likely, and a file added or removed moves only the keys it wins or won,
+/// so the other cases still edit the files they did.
+pub fn corpus_file(key: u64) -> &'static (PathBuf, String) {
+    static PATHS: OnceLock<Vec<String>> = OnceLock::new();
+    let paths = PATHS.get_or_init(|| corpus().iter().map(|(path, _)| corpus_path(path)).collect());
+    &corpus()[rendezvous_pick(key, paths)]
+}
+
+/// The index in `paths` of the path whose [`rendezvous`] score with `key` is highest, the first of equal scores.
+pub fn rendezvous_pick(key: u64, paths: &[impl AsRef<str>]) -> usize {
+    assert!(!paths.is_empty(), "a key picks among no paths");
+    let mut best = (rendezvous(key, paths[0].as_ref()), 0);
+    for (at, path) in paths.iter().enumerate().skip(1) {
+        let score = rendezvous(key, path.as_ref());
+        if score > best.0 {
+            best = (score, at);
+        }
+    }
+    best.1
+}
+
+/// `path`'s score for `key`: FNV-1a over `key`'s eight little-endian bytes, then `path`'s bytes, the same on every
+/// platform and every run.
+pub fn rendezvous(key: u64, path: &str) -> u64 {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for &byte in key.to_le_bytes().iter().chain(path.as_bytes()) {
+        hash = (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
+    }
+    hash
+}
+
+/// `path` relative to the repository root, its components joined by `/` on every platform: what [`corpus_file`]
+/// hashes.
+pub fn corpus_path(path: &Path) -> String {
+    let root = specforge_repo_root::repo_root();
+    let relative = path.strip_prefix(root).unwrap_or(path);
+    relative
+        .components()
+        .map(|part| part.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
 /// A corpus file edited one to three times.
 pub fn edited_corpus() -> impl Strategy<Value = EditedFile> {
-    (0..corpus().len(), vec(edit(), 1..=3)).prop_map(|(file, edits)| {
-        let (path, original) = &corpus()[file];
+    (any::<u64>(), vec(edit(), 1..=3)).prop_map(|(key, edits)| {
+        let (path, original) = corpus_file(key);
         let edited = edits
             .iter()
             .fold(original.clone(), |text, e| e.apply(&text));
@@ -284,8 +329,8 @@ fn relaid(text: &str, indent: &str) -> String {
 /// lie in no `[ ... ]` that holds a comment lexeme. `edits` is empty and
 /// `edited` is the relaid text.
 pub fn relaid_corpus() -> impl Strategy<Value = EditedFile> {
-    (0..corpus().len(), any::<bool>()).prop_map(|(file, tab)| {
-        let (path, original) = &corpus()[file];
+    (any::<u64>(), any::<bool>()).prop_map(|(key, tab)| {
+        let (path, original) = corpus_file(key);
         EditedFile {
             path: relative(path),
             edits: Vec::new(),

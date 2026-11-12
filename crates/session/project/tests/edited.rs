@@ -147,10 +147,12 @@ fn an_edited_compile_reads_no_source_the_project_could_not_read() {
         ("a.spec", "behavior alpha \"Alpha\" {\n}\n"),
         ("leak.spec", LEAK),
     ]);
-    let session = ProjectSession::open_through(
+    let mut session = ProjectSession::detached();
+    session.reopen_through(
         &dir.project_root(),
         RuntimeSource::Fixed(None),
         Some(Arc::new(RefusesLeak)),
+        |_| {},
     );
     let project = session.project();
     let before = format!("{:?}", project.diagnostics());

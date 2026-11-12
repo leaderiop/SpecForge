@@ -2,7 +2,9 @@
 
 use proptest::test_runner::TestRunner;
 use specforge_parser::lex::{MAX_NESTING, nested_too_deep};
-use specforge_parser::testing::{edited_corpus, property_config};
+use specforge_parser::testing::{
+    corpus, corpus_file, corpus_path, edited_corpus, property_config, rendezvous, rendezvous_pick,
+};
 use specforge_parser::{FieldValue, Previous, parse, parse_incremental};
 use specforge_test_macros::test as specforge_test;
 
@@ -319,4 +321,62 @@ fn a_bare_scheme_kind_ref_is_still_a_provider_ref() {
         "{:?}",
         file.errors
     );
+}
+
+#[test]
+fn a_corpus_case_picks_its_file_by_the_files_own_path() {
+    // A score is the key and the file's relative path alone: no position in the corpus, no checkout, no platform.
+    let root = specforge_repo_root::repo_root();
+    assert_eq!(
+        corpus_path(&root.join("spec").join("x.spec")),
+        "spec/x.spec"
+    );
+    assert_eq!(rendezvous(7, "spec/x.spec"), 0xccaf_a0ca_a4d5_77c7);
+    let paths: Vec<String> = corpus().iter().map(|(path, _)| corpus_path(path)).collect();
+    let reversed: Vec<&String> = paths.iter().rev().collect();
+    for key in keys(512) {
+        let picked = &paths[rendezvous_pick(key, &paths)];
+        assert_eq!(reversed[rendezvous_pick(key, &reversed)], picked);
+        assert_eq!(&corpus_path(&corpus_file(key).0), picked);
+    }
+}
+
+#[test]
+fn a_corpus_file_removed_moves_only_the_keys_it_won() {
+    let paths: Vec<String> = corpus().iter().map(|(path, _)| corpus_path(path)).collect();
+    let gone = paths.len() / 2;
+    let kept: Vec<&String> = paths
+        .iter()
+        .enumerate()
+        .filter(|(at, _)| *at != gone)
+        .map(|(_, p)| p)
+        .collect();
+    for key in keys(2048) {
+        let before = rendezvous_pick(key, &paths);
+        if before != gone {
+            assert_eq!(
+                kept[rendezvous_pick(key, &kept)],
+                &paths[before],
+                "key {key}"
+            );
+        }
+    }
+}
+
+#[test]
+fn every_corpus_file_is_as_likely() {
+    // Eight paths, 64 draws each on average: a ring by arc length gives some two or three times others' share.
+    let paths: Vec<String> = (0..8)
+        .map(|i| format!("spec/behaviors/f{i}.spec"))
+        .collect();
+    let mut wins = [0usize; 8];
+    for key in keys(512) {
+        wins[rendezvous_pick(key, &paths)] += 1;
+    }
+    assert!(wins.iter().all(|&n| (32..=96).contains(&n)), "{wins:?}");
+}
+
+/// `n` drawn keys, spread over the whole `u64` range as proptest's would be.
+fn keys(n: u64) -> impl Iterator<Item = u64> {
+    (0..n).map(|i| i.wrapping_mul(0x9e37_79b9_7f4a_7c15) ^ (i << 7))
 }

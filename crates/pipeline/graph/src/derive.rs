@@ -101,7 +101,8 @@ pub(crate) struct TypeExpression<'v> {
     /// Where `text` starts; `None` for a value built without a position.
     pub at: Option<&'v SourceSpan>,
     /// Where each lexeme of `text` is written, when `text` is a spelling and not the text as written (a method's
-    /// types); empty otherwise, and each name is then at `at` plus its offset.
+    /// types, a union field's members, an array type); empty otherwise, and each name is then at `at` plus its
+    /// offset.
     pub lexemes: &'v [SourceSpan],
 }
 
@@ -118,7 +119,7 @@ pub(crate) fn expressions<'v>(reading: &Reading, entry: &'v FieldEntry) -> Vec<T
             owner: entry.key.as_str(),
             typed: true,
             at: entry.value_span.as_ref(),
-            lexemes: &[],
+            lexemes: &entry.value_lexemes,
         }],
         FieldValue::TypeUnion(members) | FieldValue::VariantList(members) => members
             .iter()
@@ -128,7 +129,7 @@ pub(crate) fn expressions<'v>(reading: &Reading, entry: &'v FieldEntry) -> Vec<T
                 owner: entry.key.as_str(),
                 typed: matches!(entry.value, FieldValue::TypeUnion(_)),
                 at: Some(&m.span),
-                lexemes: &[],
+                lexemes: &m.lexemes,
             })
             .collect(),
         FieldValue::List(items) if *reading == Reading::Member => items

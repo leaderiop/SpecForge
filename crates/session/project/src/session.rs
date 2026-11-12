@@ -6,6 +6,7 @@ use std::sync::Arc;
 use specforge_common::{Diagnostic, ProjectConfig, ProjectRoot};
 use specforge_effects::{EffectsMode, Ports, SharedConsent, SharedGit, UnixMillis};
 use specforge_graph::{Applied, GraphDelta, NodeChange};
+use specforge_source::Deadline;
 
 use crate::buffers::{Buffer, Held};
 use crate::compiled::CompiledProject;
@@ -160,14 +161,38 @@ pub struct ProjectSession {
     outside: Outside,
 }
 
+/// What a session parses each source file within until it is given a deadline ([`ProjectSession::with_parse_deadline`]):
+/// the production deadline, and the counted one in a build for tests (the `testing` feature, which every crate that
+/// tests a session turns on), so no test session reads the clock, whichever way it was made. A binary built for its
+/// own tests is built with `testing` too: each production entry point states its deadline.
+#[cfg(not(feature = "testing"))]
+pub const SESSION_PARSE_DEADLINE: Deadline = specforge_source::PARSE_DEADLINE;
+/// What a session parses each source file within until it is given a deadline: in this build for tests, the counted
+/// one ([`specforge_source::COUNTED_DEADLINE`]).
+#[cfg(feature = "testing")]
+pub const SESSION_PARSE_DEADLINE: Deadline = specforge_source::COUNTED_DEADLINE;
+
 /// What a session's every environment load is given of the outside: the git port (ADR 0287, ADR 0335; none: no
 /// judgement against history) and the effects mode and ports a surface chose (ADR 0337 D4; none: `cached`).
-#[derive(Clone, Default)]
+#[derive(Clone)]
 struct Outside {
     git: Option<SharedGit>,
     effects: Option<(EffectsMode, Ports, SharedConsent)>,
     /// What its values phase may spend; none: a run's.
     value_budget: Option<crate::values::ValueBudget>,
+    /// What each source file its reader parses is held to.
+    parse_deadline: Deadline,
+}
+
+impl Default for Outside {
+    fn default() -> Self {
+        Outside {
+            git: None,
+            effects: None,
+            value_budget: None,
+            parse_deadline: SESSION_PARSE_DEADLINE,
+        }
+    }
 }
 
 /// A project whose environment is loaded and whose sources are not read yet
@@ -255,6 +280,24 @@ impl ProjectSession {
         self
     }
 
+    /// The same session, every environment it loads from now on parsing each source file within `deadline` rather
+    /// than [`SESSION_PARSE_DEADLINE`]: a production entry point's statement of [`specforge_source::PARSE_DEADLINE`].
+    pub fn with_parse_deadline(mut self, deadline: Deadline) -> Self {
+        self.set_parse_deadline(deadline);
+        self
+    }
+
+    /// Every environment this session loads from now on (a reopen, a reload) parses each source file within
+    /// `deadline`; the environment loaded now keeps its own until then.
+    pub fn set_parse_deadline(&mut self, deadline: Deadline) {
+        self.outside.parse_deadline = deadline;
+    }
+
+    /// What every environment this session loads parses each source file within.
+    pub fn parse_deadline(&self) -> Deadline {
+        self.outside.parse_deadline
+    }
+
     /// Open the project at `root`, running its extensions in the project's
     /// own runtime ([`RuntimeSource::project`]).
     pub fn open(root: &ProjectRoot) -> Self {
@@ -301,6 +344,7 @@ impl ProjectSession {
         let mut env = Environment::read_through(&mut ledger, root, |config| {
             source.runtime_for(root.dir(), config)
         });
+        env = env.with_parse_deadline(outside.parse_deadline);
         if let Some(git) = &outside.git {
             env = env.with_git(Arc::clone(git));
         }
@@ -590,6 +634,22 @@ impl ProjectSession {
             return Some(self.reload_environment());
         }
         let mut sources = changes.sources.clone();
+        // What a store serves depends on every stale store's bytes (what renames wrote in a file is derived across
+        // them, ADR 0346 D7): one store read again, they all are; one that reads as held changes nothing.
+        if sources
+            .iter()
+            .any(|key| specforge_common::facts::is_fact_store(key))
+        {
+            let stores: Vec<String> = self
+                .project
+                .source_keys()
+                .into_iter()
+                .filter(|key| specforge_common::facts::is_fact_store(key))
+                .filter(|key| !sources.iter().any(|s| s == key))
+                .map(str::to_string)
+                .collect();
+            sources.extend(stores);
+        }
         self.held.leave_out(&mut sources);
         let rechecks = !changes.check_inputs.is_empty();
         if sources.is_empty() && !rechecks {

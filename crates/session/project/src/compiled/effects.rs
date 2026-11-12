@@ -5,6 +5,7 @@ use std::sync::Arc;
 use specforge_effects::Effects;
 
 use super::CompiledProject;
+use crate::baseline::HeldBaseline;
 use crate::ledger::{Consulted, Unrecorded};
 
 impl CompiledProject {
@@ -24,12 +25,14 @@ impl CompiledProject {
         project
     }
 
-    /// The effect records this run of the checks consulted (ADR 0337 D5): each an input of the checks.
-    pub(super) fn consulted(&self) -> Vec<Consulted> {
+    /// The effect records this run of the checks consulted (ADR 0337 D5), and those the checks of the `baseline` it
+    /// judged against read at the commit: each an input of the checks, so a write to one runs them again.
+    pub(super) fn consulted(&self, baseline: Option<&HeldBaseline>) -> Vec<Consulted> {
         let log = self.effects().log();
         let consulted = log.consulted.into_iter();
         consulted
             .map(|(path, expires)| Consulted { path, expires })
+            .chain(baseline.into_iter().flat_map(HeldBaseline::consulted))
             .collect()
     }
 }

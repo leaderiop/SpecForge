@@ -9,11 +9,21 @@
 )]
 
 use std::cell::Cell;
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 use gix::bstr::ByteSlice;
 use gix::index::entry::{Flags, Mode, Stage, Stat};
 use gix::objs::tree::EntryKind;
+
+/// What the port's `locate` answers for `dir` with git's variables read from `env` rather than the process's
+/// environment, which a test never sets: tests run on threads of one process, and `set_var` beside a read is undefined.
+pub fn locate_in(
+    dir: &Path,
+    env: &dyn Fn(&str) -> Option<OsString>,
+) -> specforge_effects::git::Located {
+    crate::locate::locate_in(dir, env)
+}
 
 /// A repository with a working tree, on branch `main` until a test moves `HEAD`.
 pub struct Repo {

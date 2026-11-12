@@ -1,7 +1,6 @@
 //! The diff `Gix` answers: the trees it compares (a commit's, or the index or worktree built as one) and how a
 //! changed file reads.
 
-use std::collections::BTreeMap;
 use std::path::Path;
 
 use gix::bstr::ByteSlice as _;
@@ -22,32 +21,31 @@ pub(crate) fn tree_of(repo: &gix::Repository, sha: &Sha) -> Result<gix::ObjectId
         .map_err(|e| read(&e))
 }
 
-/// The worktree files a diff's tree holds by blob id: those read from disk, their bytes already taken from the diff's
-/// [`Reads`], and those over [`BLOB_CAP`] it names but never reads, hashed as they stream and kept out of memory. A
-/// bounded diff (a guest's) hashes none it does not read: those stay as the index has them, in `past` by path, with
-/// whether the bound (not the cap) left them unread.
+/// The worktree files a diff's tree holds by blob id, read from disk, their bytes already taken from the diff's
+/// [`Reads`]; and the files it lists apart, staying as the index has them in its tree. A file over [`BLOB_CAP`] is
+/// hashed as it streams and never kept (no object holds it, so no tree can name it): one whose content changed is in
+/// `over` by path (a bounded diff hashes one only while its length fits what the bound has left, counted). A bounded
+/// diff (a guest's) hashes none past its bound: those are in `past` by path, their stat changed and nothing more known.
 #[derive(Default)]
 pub(crate) struct Disk {
     pub(crate) read: std::collections::HashSet<gix::ObjectId>,
-    pub(crate) unread: std::collections::HashSet<gix::ObjectId>,
-    pub(crate) past: BTreeMap<String, bool>,
+    pub(crate) over: std::collections::BTreeSet<String>,
+    pub(crate) past: std::collections::BTreeSet<String>,
 }
 
 /// The index as a tree, kept in memory; with `worktree`, each tracked file `paths` keeps as it is on disk instead (its
-/// bytes taken from `reads`), and the files over the cap hashed without keeping, or, when `reads` is bounded, those
-/// over the cap or past it left as the index has them, never hashed ([`Disk::past`]). A changed file `paths`
+/// bytes taken from `reads`), and the files over the cap hashed without keeping; when `reads` is bounded, those past
+/// it are left as the index has them, never hashed ([`Disk::past`]). A changed file `paths`
 /// keeps with more than one name is refused (ADR 0146); one it does not keep stays as the index has it, unread.
 // shortcut: no clean filters (autocrlf, LFS) are applied to a worktree file; upgrade when a block diffs one
 pub(crate) fn index_tree(
     repo: &gix::Repository,
+    index: &gix::index::File,
     worktree: bool,
     paths: &[String],
     reads: &Reads,
 ) -> Result<(gix::ObjectId, Disk), GitError> {
     let mut disk = Disk::default();
-    let index = repo
-        .index_or_empty()
-        .map_err(|e| failed("read the index", &e))?;
     let mut tree = repo
         .edit_tree(repo.empty_tree().id)
         .map_err(|e| failed("build a tree", &e))?;
@@ -59,26 +57,40 @@ pub(crate) fn index_tree(
         let Some(kind) = entry.mode.to_tree_entry_mode().map(|mode| mode.kind()) else {
             continue;
         };
-        tree.upsert(entry.path(&index), kind, entry.id)
+        tree.upsert(entry.path(index), kind, entry.id)
             .map_err(|e| failed("build a tree", &e))?;
     }
     if worktree {
-        use gix::status::index_worktree::Item;
         use gix::status::plumbing::index_as_worktree::{Change, EntryStatus};
+        use gix::status::plumbing::index_as_worktree_with_renames::{Entry, Recorder, Sorting};
         let top = repo
             .workdir()
             .ok_or_else(|| GitError("a bare repository has no working tree".into()))?
             .to_path_buf();
-        let items = repo
-            .status(gix::progress::Discard)
-            .map_err(|e| failed("read the status", &e))?
-            .untracked_files(gix::status::UntrackedFiles::None)
-            .into_index_worktree_iter(Vec::new())
-            .map_err(|e| failed("read the status", &e))?;
-        for item in items {
-            let Item::Modification {
-                rela_path, status, ..
-            } = item.map_err(|e| failed("read the status", &e))?
+        let mut recorder = Recorder::default();
+        let options = gix::status::index_worktree::Options {
+            // by path, so a bounded diff reads the same files first on every run
+            sorting: Some(Sorting::ByPathCaseSensitive),
+            ..Default::default()
+        };
+        repo.index_worktree_status(
+            index,
+            Vec::<gix::bstr::BString>::new(),
+            &mut recorder,
+            StatOnly(reads.bounded()),
+            NoSubmodule,
+            &mut gix::progress::Discard,
+            &std::sync::atomic::AtomicBool::new(false),
+            options,
+        )
+        .map_err(|e| failed("read the status", &e))?;
+        for record in recorder.records {
+            let Entry::Modification {
+                entry,
+                rela_path,
+                status,
+                ..
+            } = record
             else {
                 continue;
             };
@@ -120,11 +132,15 @@ pub(crate) fn index_tree(
                             id
                         }
                         OnDisk::Over(id) => {
-                            disk.unread.insert(id);
-                            id
+                            let same_kind =
+                                entry.mode.to_tree_entry_mode().map(|m| m.kind()) == Some(kind);
+                            if id != entry.id || !same_kind {
+                                disk.over.insert(rela_path.to_string());
+                            }
+                            continue;
                         }
-                        OnDisk::Past { bound } => {
-                            disk.past.insert(rela_path.to_string(), bound);
+                        OnDisk::Past => {
+                            disk.past.insert(rela_path.to_string());
                             continue;
                         }
                     };
@@ -138,6 +154,51 @@ pub(crate) fn index_tree(
     tree.write()
         .map(|id| (id.detach(), disk))
         .map_err(|e| failed("build a tree", &e))
+}
+
+/// How the status compares a tracked file whose stat changed with its entry: unbounded (a person's diff), as gix does,
+/// hashing it when its size is unchanged; bounded (a guest's), never: it is reported changed and read once, counted
+/// against the diff's bound, when the tree is built, where an unchanged one hashes back to its entry's blob.
+#[derive(Clone, Copy)]
+struct StatOnly(bool);
+
+impl gix::status::plumbing::index_as_worktree::traits::CompareBlobs for StatOnly {
+    type Output = ();
+
+    fn compare_blobs<'a, 'b>(
+        &mut self,
+        entry: &gix::index::Entry,
+        worktree_blob_size: u64,
+        data: impl gix::status::plumbing::index_as_worktree::traits::ReadData<'a>,
+        buf: &mut Vec<u8>,
+    ) -> Result<Option<()>, gix::status::plumbing::index_as_worktree::Error> {
+        if self.0 {
+            return Ok(Some(()));
+        }
+        gix::status::plumbing::index_as_worktree::traits::FastEq.compare_blobs(
+            entry,
+            worktree_blob_size,
+            data,
+            buf,
+        )
+    }
+}
+
+/// No submodule is opened: a diff lists none of their changes, so none is worth reading.
+#[derive(Clone, Copy)]
+struct NoSubmodule;
+
+impl gix::status::plumbing::index_as_worktree::traits::SubmoduleStatus for NoSubmodule {
+    type Output = ();
+    type Error = std::convert::Infallible;
+
+    fn status(
+        &mut self,
+        _: &gix::index::Entry,
+        _: &gix::bstr::BStr,
+    ) -> Result<Option<()>, std::convert::Infallible> {
+        Ok(None)
+    }
 }
 
 /// Whether a directory `rela` leads through under `top` is a link, or no directory at all: git reads a file there as
@@ -157,13 +218,11 @@ fn under_a_link(top: &Path, rela: &Path) -> bool {
 }
 
 /// What a worktree file gives a tree: its bytes, or, over [`BLOB_CAP`], only its blob id, hashed as it streams; or, for a
-/// bounded diff, nothing past the cap or the bound (`bound`: the bound).
+/// bounded diff, nothing past the bound.
 enum OnDisk {
     Bytes(Vec<u8>),
     Over(gix::ObjectId),
-    Past {
-        bound: bool,
-    },
+    Past,
     /// More than one name: unread, and why.
     SecondName(std::io::Error),
 }
@@ -194,13 +253,14 @@ fn on_disk(
         return Some((kind, OnDisk::SecondName(why)));
     }
     let length = opened.metadata().ok()?.len();
-    if reads.bounded() && (length > BLOB_CAP || !reads.take(length)) {
-        return Some((
-            kind,
-            OnDisk::Past {
-                bound: length <= BLOB_CAP,
-            },
-        ));
+    // a file over the cap is hashed as it streams, never kept: a bounded diff counts it, and only while its whole
+    // length fits what is left (the first read's pass is for a file it keeps)
+    let fits = match length > BLOB_CAP {
+        true => reads.take_within(length),
+        false => reads.take(length),
+    };
+    if reads.bounded() && !fits {
+        return Some((kind, OnDisk::Past));
     }
     if length > BLOB_CAP {
         let id = gix::objs::compute_stream_hash(
@@ -319,11 +379,10 @@ pub(crate) fn file_diff(
     if !kept(&path, paths) && !old_path.as_deref().is_some_and(|p| kept(p, paths)) {
         return Ok(None);
     }
-    // the bytes a side takes to read, or `None` when it is never read (over the cap, or past the bound when hashed); a
-    // submodule's commit is no blob: it counts no lines
+    // the bytes a side takes to read, or `None` when it is never read (over the cap); a submodule's commit is no blob:
+    // it counts no lines
     let size = |side: Side| -> Result<Option<u64>, GitError> {
         match side {
-            Some((_, object)) if disk.unread.contains(&object) => Ok(None),
             Some((_, object)) if disk.read.contains(&object) => Ok(Some(0)),
             Some((mode, object)) if mode.is_blob_or_symlink() => {
                 let size = repo

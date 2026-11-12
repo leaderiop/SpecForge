@@ -126,6 +126,38 @@ fn a_method_type_reads_in_one_spelling_whatever_its_layout() {
 }
 
 #[test]
+fn a_field_type_reads_in_the_one_spelling_a_method_type_reads_in() {
+    let types = |source: &str| {
+        let result = parse(source, "types.spec");
+        assert!(result.errors.is_empty(), "errors: {:?}", result.errors);
+        let fields = &result.entities[0].fields;
+        let Some(FieldValue::TypeUnion(members)) = fields.get("kind") else {
+            panic!("expected a TypeUnion in {source}");
+        };
+        let members: Vec<String> = members.iter().map(|m| m.text.clone()).collect();
+        let Some(FieldValue::Identifier(items)) = fields.get("items") else {
+            panic!("expected an array type in {source}");
+        };
+        (members, items.clone())
+    };
+    let spelled = (
+        vec![
+            "Map<K, V>[]".to_string(),
+            "fn(A, ()) -> B".to_string(),
+            "\"a  b\"".to_string(),
+        ],
+        "Result<A, B>[]".to_string(),
+    );
+    for source in [
+        "entity_kind EK \"E\" {\n    kind Map<K, V>[] | fn(A, ()) -> B | \"a  b\"\n    items Result<A, B>[]\n}\n",
+        "entity_kind EK \"E\" {\n    kind Map< K ,V >[]|fn( A,( ) )->B|\"a  b\"\n    items Result<A,B>[]\n}\n",
+        "entity_kind EK \"E\" {\n    kind Map<K,\n V>[]\n | fn(A, // a\n ()) -> B | \"a  b\"\n    items Result<\n A, B>[]\n}\n",
+    ] {
+        assert_eq!(types(source), spelled, "{source}");
+    }
+}
+
+#[test]
 fn each_lexeme_of_a_method_type_keeps_where_it_is_written() {
     let source = "port P {\n    method m(a: Map<K,\n      V>) -> R\n}\n";
     let result = parse(source, "ports.spec");

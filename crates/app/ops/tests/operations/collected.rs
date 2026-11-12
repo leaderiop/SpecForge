@@ -19,12 +19,13 @@ use specforge_project::testing::{
 };
 use specforge_test_macros::test as specforge_test;
 
-const KEY: &str = "0123456789abcdef0123456789abcdef01234567";
-const FACT: &str = "js:a.test.js#adds";
-const STORE: &str = ".specforge/facts/0123456789abcdef0123456789abcdef01234567/node.json";
+pub(crate) const KEY: &str = "0123456789abcdef0123456789abcdef01234567";
+pub(crate) const FACT: &str = "js:a.test.js#adds";
+pub(crate) const STORE: &str =
+    ".specforge/facts/0123456789abcdef0123456789abcdef01234567/node.json";
 
 /// A project whose truth `T1` cites the fact `FACT`, which names `T1` back, with `node`'s store recorded.
-fn project() -> TestProject {
+pub(crate) fn project() -> TestProject {
     let p = TestProject::new()
         .config(|c| c["name"] = "p".into())
         .enabling(&COLLECTED_EXTENSIONS)
@@ -333,97 +334,230 @@ fn a_rename_whose_source_moved_since_the_collect_is_source_moved() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename whose source changed since the collect is refused as source_moved"
-)]
-fn a_second_rename_before_the_collect_is_source_moved() {
-    let p = located(&[1]);
-    let first = compiled(&p);
+/// Rename `from` to `to` over `p` compiled now, as a person at a terminal does.
+pub(crate) fn rename_now(p: &TestProject, from: &str, to: &str) -> Result<(), String> {
+    let compiled = compiled_quietly(p);
     rename::run(
-        &Navigator::new(ProjectView::of(&first)),
-        "T1",
-        "T2",
+        &Navigator::new(ProjectView::of(&compiled)),
+        from,
+        to,
         false,
         &Origin::cli(true),
         caller(),
     )
-    .unwrap();
-    let renamed = std::fs::read_to_string(p.root().join("a.test.js")).unwrap();
-    let second = compiled_quietly(&p);
-    let nav = Navigator::new(ProjectView::of(&second));
-
-    // The store still holds `T1`; served, it names `T2` at the place the first rename rewrote.
-    let refused = rename::run(&nav, "T2", "T3", false, &Origin::cli(true), caller()).unwrap_err();
-
-    assert_eq!(refused.error.code, rename::SOURCE_MOVED);
-    assert_eq!(
-        refused.error.message,
-        "cannot rename 'T2': a.test.js changed since `specforge collect` read it"
-    );
-    assert_eq!(
-        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
-        renamed
-    );
-    assert!(
-        std::fs::read_to_string(p.root().join("truths.spec"))
-            .unwrap()
-            .contains("T2")
-    );
+    .map(drop)
+    .map_err(|refused| format!("{}: {}", refused.error.code, refused.error.message))
 }
 
-#[test]
-fn a_plans_second_rename_of_a_name_in_a_rewritten_source_is_source_rewritten() {
-    // `a.test.js` writes `T1` on line 1 and `T5` on line 2; one plan renames both.
+/// The stale lines of the ledger of `p`: (field, name the store holds, name written).
+pub(crate) fn stale_lines(p: &TestProject) -> Vec<(String, String, String)> {
+    let ledger =
+        Ledger::parse(&std::fs::read_to_string(p.root().join("specforge-harness")).unwrap()).ledger;
+    ledger
+        .lines()
+        .filter_map(Line::stale_of)
+        .map(|s| (s.field.to_string(), s.held.to_string(), s.now.to_string()))
+        .collect()
+}
+
+/// The ids `FACT` covers in `p` compiled now, and whether the store's places hold `a.test.js` as it is on disk.
+pub(crate) fn covered_and_placed(p: &TestProject) -> (Vec<String>, bool) {
+    let after = compiled_quietly(p);
+    let covered = after
+        .graph()
+        .edges_from(FACT)
+        .iter()
+        .map(|e| e.target.to_string())
+        .collect();
+    let text = std::fs::read(p.root().join("a.test.js")).unwrap();
+    let placed = after.fact_sources()["a.test.js"][STORE].holds(&text);
+    (covered, placed)
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "a rename of a name an earlier rename rewrote rewrites the source again where the first left it"
+)]
+fn a_second_rename_before_the_collect_rewrites_the_source_again() {
+    let p = located(&[1]);
+    rename_now(&p, "T1", "T2").unwrap();
+
+    // The store still holds `T1`; served, it names `T2` at the place the first rename rewrote.
+    rename_now(&p, "T2", "T3").unwrap();
+
+    assert_eq!(
+        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
+        SOURCE.replacen("T1", "T3", 1)
+    );
+    // One line, from the name the store holds to the name written last.
+    assert_eq!(
+        stale_lines(&p),
+        [("covers".into(), "T1".into(), "T3".into())]
+    );
+    assert_eq!(covered_and_placed(&p), (vec!["T3".to_string()], true));
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "a rename of a name an earlier rename rewrote rewrites the source again where the first left it"
+)]
+fn three_renames_of_one_name_before_the_collect_each_rewrite_the_source() {
+    let p = located(&[1, 3]);
+
+    for (from, to) in [("T1", "Two"), ("Two", "T3"), ("T3", "Fourth")] {
+        rename_now(&p, from, to).unwrap();
+    }
+
+    assert_eq!(
+        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
+        SOURCE.replace("T1", "Fourth")
+    );
+    assert_eq!(
+        stale_lines(&p),
+        [("covers".into(), "T1".into(), "Fourth".into())]
+    );
+    assert_eq!(covered_and_placed(&p), (vec!["Fourth".to_string()], true));
+    // Renamed back to the name collected, the store is no longer stale: the line goes.
+    rename_now(&p, "Fourth", "T1").unwrap();
+    assert_eq!(
+        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
+        SOURCE
+    );
+    assert!(stale_lines(&p).is_empty());
+}
+
+/// [`project`] with a second truth `T5` the fact covers, both names written on line 1 of `a.test.js` (`T1` at columns
+/// 11..13, `T5` at 14..16), the store recording both places.
+pub(crate) fn two_named() -> TestProject {
     let p = project();
     p.write(
         "truths.spec",
         format!("truth T1 \"One\" {{\n  proof [\"{FACT}\"]\n}}\n\ntruth T5 \"Five\" {{}}\n"),
     );
-    let source = "// covers T1\n// covers T5\n";
+    let source = "// covers T1 T5\n";
     std::fs::write(p.root().join("a.test.js"), source).unwrap();
-    let at = |line: usize| json!([{"file": "a.test.js", "start_line": line, "start_col": 11, "end_line": line, "end_col": 13}]);
+    let at = |from: usize| json!([{"file": "a.test.js", "start_line": 1, "start_col": from, "end_line": 1, "end_col": from + 2}]);
     stored_with(
         p.root(),
         "node",
         KEY,
         json!([{"kind": "test", "id": FACT, "fields": {"file": "a.test.js", "covers": ["T1", "T5"]},
-                "named_at": {"covers": {"T1": at(1), "T5": at(2)}}}]),
+                "named_at": {"covers": {"T1": at(11), "T5": at(14)}}}]),
         [(
             "a.test.js".to_string(),
             specforge_ops::revision::of_bytes(source.as_bytes()),
         )]
         .into(),
     );
+    p
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "a rename of a name an earlier rename rewrote rewrites the source again where the first left it"
+)]
+fn a_rename_finds_its_places_where_an_earlier_rename_of_another_name_shifted_them() {
+    let p = two_named();
+    rename_now(&p, "T1", "Longer").unwrap();
+
+    // `T5` now stands at columns 18..20: the first rename wrote four bytes more before it.
+    rename_now(&p, "T5", "T6").unwrap();
+
+    assert_eq!(
+        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
+        "// covers Longer T6\n"
+    );
+    assert_eq!(
+        stale_lines(&p),
+        [
+            ("covers".into(), "T1".into(), "Longer".into()),
+            ("covers".into(), "T5".into(), "T6".into())
+        ]
+    );
+    let (covered, placed) = covered_and_placed(&p);
+    assert_eq!((covered.len(), placed), (2, true), "{covered:?}");
+    let after = compiled_quietly(&p);
+    let fact = after.graph().node(FACT).unwrap();
+    let Some(specforge_parser::FieldValue::List(items)) =
+        fact.fields.entry("covers").map(|e| &e.value)
+    else {
+        panic!("{:?}", fact.fields);
+    };
+    let at: Vec<(&str, usize, usize)> = items
+        .iter()
+        .map(|i| (i.text.as_str(), i.span.start_col, i.span.end_col))
+        .collect();
+    assert_eq!(at, [("Longer", 11, 17), ("T6", 18, 20)]);
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "a rename whose source changed since the collect is refused as source_moved"
+)]
+fn a_hand_edit_after_a_rename_still_refuses_the_next_as_source_moved() {
+    let p = located(&[1]);
+    rename_now(&p, "T1", "T2").unwrap();
+    let edited = format!(
+        "{}// by hand\n",
+        std::fs::read_to_string(p.root().join("a.test.js")).unwrap()
+    );
+    std::fs::write(p.root().join("a.test.js"), &edited).unwrap();
+
+    let refused = rename_now(&p, "T2", "T3").unwrap_err();
+
+    assert_eq!(
+        refused,
+        "source_moved: cannot rename 'T2': a.test.js changed since `specforge collect` read it"
+    );
+    assert_eq!(
+        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
+        edited
+    );
+    // Put back as the collect read it: also no longer the text the rename left, so refused too.
+    std::fs::write(p.root().join("a.test.js"), SOURCE).unwrap();
+    assert!(
+        rename_now(&p, "T2", "T3")
+            .unwrap_err()
+            .starts_with("source_moved")
+    );
+}
+
+#[test]
+fn a_plans_renames_of_two_names_in_one_source_compose() {
+    let p = two_named();
     let compiled = compiled(&p);
     let revision = crate::plans::revision(&p, "truths.spec");
     let plan = serde_json::from_value(json!({"ops": [
-        {"op": "rename", "entity": "T1", "to": "T2", "revision": revision},
+        {"op": "rename", "entity": "T1", "to": "Longer", "revision": revision},
         {"op": "rename", "entity": "T5", "to": "T6", "revision": revision},
+        {"op": "rename", "entity": "Longer", "to": "Lo", "revision": revision},
     ]}))
     .unwrap();
 
-    let refused = apply_plan(
+    apply_plan(
         &ProjectView::of(&compiled),
         &plan,
         &Origin::cli(true),
         false,
         caller(),
     )
-    .unwrap_err();
+    .unwrap();
 
-    assert_eq!(refused.error.code, rename::SOURCE_REWRITTEN);
-    assert!(
-        refused
-            .error
-            .message
-            .ends_with("cannot rename 'T5': an earlier rename of the plan rewrites a.test.js"),
-        "{}",
-        refused.error.message
-    );
     assert_eq!(
         std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
-        source
+        "// covers Lo T6\n"
+    );
+    assert_eq!(
+        stale_lines(&p),
+        [
+            ("covers".into(), "T1".into(), "Lo".into()),
+            ("covers".into(), "T5".into(), "T6".into())
+        ]
+    );
+    let (covered, placed) = covered_and_placed(&p);
+    assert_eq!(
+        (covered, placed),
+        (vec!["Lo".to_string(), "T6".to_string()], true)
     );
 }
 
@@ -474,7 +608,7 @@ fn a_delete_of_an_entity_a_fact_names_is_still_refused() {
 }
 
 /// `p` compiled as [`compiled`] does, without asserting it is clean.
-fn compiled_quietly(p: &TestProject) -> CompiledProject {
+pub(crate) fn compiled_quietly(p: &TestProject) -> CompiledProject {
     p.compile_in(Arc::new(Collected::new().runtime()))
 }
 

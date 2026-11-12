@@ -406,8 +406,8 @@ impl TestProject {
         }
     }
 
-    /// The project opened from `source`, a surface's way when it has a git port: into a detached session that
-    /// holds it.
+    /// The project opened from `source`, parsing source within a counted deadline, a surface's way when it has a
+    /// git port: into a detached session that holds it.
     fn open(&self, source: RuntimeSource) -> ProjectSession {
         match &self.git {
             Some(git) => {

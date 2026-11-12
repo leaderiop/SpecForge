@@ -8,7 +8,6 @@ use std::path::Path;
 use std::sync::Arc;
 
 use specforge_common::{Diagnostic, Sym};
-use specforge_ops::authoring::rename::RenamePlan;
 use specforge_ops::read::navigate::CollectedSources;
 use specforge_ops::read::trace::route_traces;
 use std::collections::BTreeMap;
@@ -176,22 +175,16 @@ pub(crate) fn renamed_at(
     })
 }
 
-/// Refused (`invalid_params`, W198's sentence) when a source file `plan` rewrites is open with a text other than the
-/// one the rename planned on (the disk's, as collected): its edits would land elsewhere in what the editor holds.
-pub(crate) fn rewrites_held_text(
-    state: &LspState,
-    plan: &RenamePlan,
-) -> tower_lsp::jsonrpc::Result<()> {
-    for (key, file) in plan.change().rewritten_sources() {
-        if state
-            .files()
-            .document(key)
-            .is_some_and(|document| document.text() != &*file.before)
-        {
-            return Err(Error::invalid_params(stale(state, key).message));
-        }
-    }
-    Ok(())
+/// The editor's buffer of each open source document, by key: what a rename reads a source file a fact is placed in as
+/// (`ProjectView::holding`), so it composes with an earlier rename applied to the buffers and not yet saved, and a
+/// buffer typed in otherwise since is not the text the store's places are in (ADR 0346 D7).
+pub(crate) fn held_texts(state: &LspState) -> BTreeMap<String, Arc<str>> {
+    let files = state.files();
+    files
+        .open_keys()
+        .filter(|key| is_source_key(state, key))
+        .filter_map(|key| Some((key.to_string(), Arc::from(files.document(key)?.text()))))
+        .collect()
 }
 
 #[cfg(test)]

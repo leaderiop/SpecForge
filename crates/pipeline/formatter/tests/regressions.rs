@@ -247,3 +247,28 @@ fn a_method_type_written_across_lines_reads_as_its_formatted_line() {
     );
     assert_eq!(types(&formatted), types(source));
 }
+
+#[specforge_test(
+    invariant = "formatting_semantic_preservation",
+    verify = "formatting does not alter entity IDs, field values, or reference lists"
+)]
+fn a_field_type_is_written_in_the_spelling_the_parse_reads() {
+    let source = "shape s \"S\" {\n  kind Map< K ,V >[]|fn( A,( ) )->B|\"a  b\"\n  items Result<\n    A,B>[]\n}\n";
+    let types = |text: &str| {
+        let fields = specforge_parser::parse(text, "s.spec").entities[0]
+            .fields
+            .clone();
+        let Some(specforge_parser::FieldValue::TypeUnion(members)) = fields.get("kind") else {
+            panic!("expected a union in {text}");
+        };
+        let members: Vec<String> = members.iter().map(|m| m.text.clone()).collect();
+        (members, fields.get("items").cloned())
+    };
+    let formatted = fmt(source);
+    assert_eq!(
+        formatted,
+        "shape s \"S\" {\n  kind  Map<K, V>[] | fn(A, ()) -> B | \"a  b\"\n  items Result<A, B>[]\n}\n"
+    );
+    assert_eq!(types(&formatted), types(source));
+    assert_eq!(fmt(&formatted), formatted);
+}

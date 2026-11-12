@@ -4604,9 +4604,10 @@ Level: warning
 W192: A fact store that cannot be read
 
 A file under `.specforge/facts/<key>/` (ADR 0327) does not read as a fact store:
-it cannot be read, is not JSON of the store's shape, or names a store version
-this specforge does not read. Its facts are not served. Run `specforge collect`
-to write it again.
+it cannot be read, is not JSON of the store's shape, names a store version this
+specforge does not read, or places a fact in a file whose digest it does not
+record (a collect digests every file a fact is placed in, ADR 0346 D2). Its
+facts are not served. Run `specforge collect` to write it again.
 
 Owner: core
 Level: warning
@@ -4655,12 +4656,15 @@ entity that a collected fact names, and rewrote the source file where the
 collector read the name (ADR 0346 D7). The fact store itself is the collector's
 bytes and was not rewritten; the rename wrote `<collector>
 stale:<key>:<field>:<name>:<new name>` to `specforge-harness` for each name it
-rewrote. Until that collector collects again, exactly those names are read as
-the rename wrote them, so they still link, and this warning names what moved.
-The places the store records in the rewritten files may be off by the rename's
-change of length. Run `specforge collect` to collect the facts again: it
-replaces the store and drops the stale line. A store collected after the rename
-is not stale: if it still names the old id, its collector's facts disagree.
+rewrote. A second rename of such a name replaces its line, so renames compose.
+Until that collector collects again, exactly those names are read as the rename
+wrote them, so they still link, every place any store records in a rewritten
+file, one holding none of the renamed names included, is shifted by what the
+renames wrote there (exact: a file edited otherwise since is no longer the text
+its places are in, W198), and this warning names what moved. Run `specforge
+collect` to collect the facts again: it replaces the store and drops the stale
+line. A store collected after the rename is not stale: if it still names the old
+id, its collector's facts disagree.
 
 Owner: core
 Level: warning
@@ -4671,15 +4675,15 @@ Level: warning
 ```
 W198: A source anchor is stale
 
-An anchors answer (ADR 0349) names a source file that no longer hashes to the
-digest its fact store recorded when `specforge collect` read it (ADR 0346 D2),
-or that is gone: the file was edited, by hand or by a rename, since the collect,
-so the lines its rows give may have moved. One per such file the answer names
-(only those are hashed); its rows are still listed. Said by the anchors read
-view, so by `specforge.find_implementation`, `specforge.find_spec_for_source`,
-the infer prompt's file scope, `specforge anchors` and the editor's source
-lenses; never by `check`, which hashes no source file. Run `specforge collect`
-again.
+An anchors answer (ADR 0349) names a source file that is no longer the text its
+fact store's places are in (the text `specforge collect` read, whose digest the
+store recorded, ADR 0346 D2, with only what a rename since rewrote there, D7),
+or that is gone: the file was edited otherwise since the collect, so the lines
+its rows give may have moved. One per such file the answer names (only those are
+hashed); its rows are still listed. Said by the anchors read view, so by
+`specforge.find_implementation`, `specforge.find_spec_for_source`, the infer
+prompt's file scope, `specforge anchors` and the editor's source lenses; never
+by `check`, which hashes no source file. Run `specforge collect` again.
 
 Owner: core
 Level: warning
@@ -4734,6 +4738,26 @@ missing. The message names the collector, the kind and the declared collectors
 that answer it, or says no loaded collector does. Collect with them first
 (`specforge collect --runner <name>`), or run `specforge collect` without
 `--runner`; with none, load the extension whose collector answers the kind.
+
+Owner: core
+Level: warning
+```
+
+## W202
+
+```
+W202: Fact store renamed two ways
+
+The harness ledger holds two `stale:` lines for one name a fact store holds (ADR
+0346 D7): `<collector> stale:<key>:<field>:<name>:<one name>` and
+`...:<name>:<another name>`, both for the store's bytes. A rename replaces the
+line of the name it renames again, so one ledger never writes two; two branches
+that each renamed the name, merged (`specforge-harness` merges as a union of
+lines), do. The ledger cannot say which name the source holds now, so none of
+the store's renames is served: its facts read as collected, and its places as
+the collect read them (a file the renames rewrote is not the text they are in,
+W198). A rename of a name the store holds is refused (`stale_conflict`). Run
+`specforge collect`: it replaces the store and drops its stale lines.
 
 Owner: core
 Level: warning

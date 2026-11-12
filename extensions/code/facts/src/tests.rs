@@ -178,6 +178,41 @@ fn a_second_package_of_one_name_takes_its_dir() {
 
 #[specforge_test(
     behavior = "cc_mint_code_ids",
+    verify = "the shallowest package of one name keeps the plain id"
+)]
+fn the_shallowest_package_of_one_name_keeps_the_plain_id() {
+    let packages = [
+        ("app", "b/app"),
+        ("app", "a/app"),
+        ("app", "app"),
+        ("lib", "z/lib"),
+        ("app", "c/d/app"),
+    ];
+    let written = |ids: Vec<PackageId>| ids.iter().map(|id| id.to_string()).collect::<Vec<_>>();
+    assert_eq!(
+        written(PackageId::cargo_each(packages)),
+        [
+            "pkg:cargo/app#b/app",
+            "pkg:cargo/app#a/app",
+            "pkg:cargo/app",
+            "pkg:cargo/lib",
+            "pkg:cargo/app#c/d/app",
+        ]
+    );
+    // Of one depth the lexically first keeps it; the root (`""`) is shallowest of all.
+    assert_eq!(
+        written(PackageId::npm_each([
+            ("x", "b"),
+            ("x", "a"),
+            ("y", "q/r"),
+            ("y", "")
+        ])),
+        ["pkg:npm/x#b", "pkg:npm/x", "pkg:npm/y#q/r", "pkg:npm/y"]
+    );
+}
+
+#[specforge_test(
+    behavior = "cc_mint_code_ids",
     verify = "a second npm package of one name takes its dir"
 )]
 fn a_second_npm_package_of_one_name_takes_its_dir() {

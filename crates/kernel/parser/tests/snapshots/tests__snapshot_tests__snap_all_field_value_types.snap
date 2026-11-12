@@ -39,6 +39,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                             end_col: 20,
                         },
                     ),
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("count"),
@@ -55,6 +56,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                             end_col: 13,
                         },
                     ),
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("enabled"),
@@ -71,6 +73,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                             end_col: 17,
                         },
                     ),
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("disabled"),
@@ -87,6 +90,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                             end_col: 19,
                         },
                     ),
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("created"),
@@ -103,6 +107,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                             end_col: 23,
                         },
                     ),
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("status"),
@@ -119,6 +124,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                             end_col: 19,
                         },
                     ),
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("tags"),
@@ -169,6 +175,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                             end_col: 30,
                         },
                     ),
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("labels"),
@@ -208,6 +215,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                             end_col: 34,
                         },
                     ),
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("config"),
@@ -229,6 +237,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                                             end_col: 19,
                                         },
                                     ),
+                                    value_lexemes: [],
                                 },
                                 FieldEntry {
                                     key: Sym("retries"),
@@ -245,6 +254,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                                             end_col: 18,
                                         },
                                     ),
+                                    value_lexemes: [],
                                 },
                             ],
                         },
@@ -259,6 +269,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                             end_col: 6,
                         },
                     ),
+                    value_lexemes: [],
                 },
             ],
         },

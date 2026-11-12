@@ -291,12 +291,12 @@ fn noticed<'f, T>(
     Noticed::new(value, notices)
 }
 
-/// What the served fact stores recorded of the source files their facts are placed in (ADR 0346 D2, ADR 0349 D5):
-/// each store's digest of each file, by file and by the store's collector, read once per answer. The one owner of
-/// whether a source file is still the text a store's facts were placed in: the anchors read view's W198 and the
-/// language server's placing read it.
+/// What the served fact stores say of the source files their facts are placed in (ADR 0346 D2, D7, ADR 0349 D5): each
+/// store's [`Placed`](specforge_project::facts::Placed) of each file, by file and by the store's collector, read once
+/// per answer. The one owner of whether a source file is the text a store's served places are in (the text collected,
+/// or the text a rename since left): the anchors read view's W198, the language server's placing and a rename read it.
 pub struct CollectedSources<'p> {
-    by_file: BTreeMap<&'p str, BTreeMap<&'p str, &'p str>>,
+    by_file: BTreeMap<&'p str, BTreeMap<&'p str, &'p specforge_project::facts::Placed>>,
 }
 
 impl<'p> CollectedSources<'p> {
@@ -309,10 +309,10 @@ impl<'p> CollectedSources<'p> {
             .map(|(file, stores)| {
                 let by_collector = stores
                     .into_iter()
-                    .map(|(store, digest)| {
+                    .map(|(store, placed)| {
                         let collector =
                             specforge_common::facts::filed(store).map_or(store, |(c, _)| c);
-                        (collector, digest)
+                        (collector, placed)
                     })
                     .collect();
                 (file, by_collector)
@@ -326,9 +326,9 @@ impl<'p> CollectedSources<'p> {
         self.by_file.contains_key(file)
     }
 
-    /// Whether `text`, the bytes of `file` now, hashes to the digest each store placing a fact in it recorded, or only
-    /// the store of `collector` when given. `false` for a file no such store records: nothing says its text is the one
-    /// collected.
+    /// Whether `text`, the bytes of `file` now, is the text the places of each store placing a fact in it are in, or
+    /// of only the store of `collector` when given ([`Placed::holds`](specforge_project::facts::Placed::holds)).
+    /// `false` for a file no such store records: nothing says its text is the one collected.
     pub fn holds(&self, file: &str, collector: Option<&str>, text: &[u8]) -> bool {
         let Some(stores) = self.by_file.get(file) else {
             return false;
@@ -336,13 +336,12 @@ impl<'p> CollectedSources<'p> {
         let mut recorded = stores
             .iter()
             .filter(|(of, _)| collector.is_none_or(|wanted| wanted == **of))
-            .map(|(_, digest)| *digest)
+            .map(|(_, placed)| *placed)
             .peekable();
         if recorded.peek().is_none() {
             return false;
         }
-        let now = crate::revision::of_bytes(text);
-        recorded.all(|digest| digest == now)
+        recorded.all(|placed| placed.holds(text))
     }
 }
 
@@ -350,8 +349,12 @@ impl<'p> CollectedSources<'p> {
 /// whatever the view's containment: a key that climbs out of it, a link that lands outside it and a file with another
 /// name are refused (`PermissionDenied`, ADR 0144, ADR 0146), as a file of a view with no root is (`NotFound`). The
 /// one read of a placed source file: what the anchors read view hashes, a rename rewrites and the language server
-/// places in.
+/// places in. A text the view holds for `file` ([`ProjectView::holding`]: an editor's buffer, a plan's rewrite not yet
+/// written) is that text.
 pub fn read_placed(view: &ProjectView<'_>, file: &str) -> std::io::Result<Vec<u8>> {
+    if let Some(text) = view.held(file) {
+        return Ok(text.as_bytes().to_vec());
+    }
     let root = view.root().ok_or_else(|| {
         std::io::Error::new(std::io::ErrorKind::NotFound, "the view has no project root")
     })?;

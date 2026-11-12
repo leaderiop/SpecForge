@@ -20,6 +20,7 @@ use crate::ports::{PortCall, PortSession};
 use crate::sandbox::Limits;
 
 mod bounds;
+mod redirects;
 
 const SHA: &str = "abcdefabcdefabcdefabcdefabcdefabcdefabcd";
 

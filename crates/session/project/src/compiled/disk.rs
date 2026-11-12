@@ -1,8 +1,11 @@
 //! A project read against the disk as it is now (ADR 0289): what a write under the lock needs to know when another
 //! writer may have landed since the project was compiled.
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
+
+use specforge_registry::PlainDisk;
 
 use super::CompiledProject;
 use crate::ledger::{Reads, Unrecorded};
@@ -61,5 +64,63 @@ impl CompiledProject {
             None => project.check(&mut Unrecorded::plain()),
         }
         project
+    }
+
+    /// This project with each fact store served as the ledger reads with the renames the editor shows and has not
+    /// saved (ADR 0289): a fact an earlier rename moved names the entity where it went, so a rename planned over it
+    /// rewrites that fact too. Itself when it shows none. The checks are not run again.
+    pub fn with_shown_facts(&self) -> Cow<'_, CompiledProject> {
+        if self.ledger_overlay.is_empty() {
+            return Cow::Borrowed(self);
+        }
+        self.served_through(&self.ledger_overlay)
+    }
+
+    /// [`Self::with_shown_facts`], then the stale lines `stale` (ADR 0346 D7) as one more change: what a plan's later
+    /// rename reads, its earlier renames written. Itself when nothing changes what a store serves.
+    pub fn with_facts_after(&self, stale: &[crate::harness::Line]) -> Cow<'_, CompiledProject> {
+        if stale.is_empty() {
+            return self.with_shown_facts();
+        }
+        let mut overlays = self.ledger_overlay.clone();
+        overlays.push(Arc::new(crate::harness::LedgerOverlay::new(
+            self.clone(),
+            crate::harness::LedgerChange {
+                stale: stale.to_vec(),
+                ..Default::default()
+            },
+        )));
+        self.served_through(&overlays)
+    }
+
+    /// This project with each fact store served as the ledger reads once `overlays` are made, in order. Itself when no
+    /// store serves other than it does.
+    fn served_through(
+        &self,
+        overlays: &[Arc<crate::harness::LedgerOverlay>],
+    ) -> Cow<'_, CompiledProject> {
+        let mut bytes = Vec::new();
+        let disk = crate::harness::overlay::through(&PlainDisk, self, overlays, &mut bytes);
+        // Read once for every store: what each serves depends on every stale store's renames.
+        let recorded = crate::facts::recorded(&disk, self.env.sources().base());
+        let reads: Vec<(String, Read)> = self
+            .sources
+            .keys()
+            .into_iter()
+            .filter(|key| specforge_common::facts::is_fact_store(key))
+            .map(|key| {
+                (
+                    key.to_string(),
+                    crate::facts::read(&disk, self.env.sources(), key, Some(&recorded)),
+                )
+            })
+            .filter(|(key, read)| !self.is_current(key, read))
+            .collect();
+        if reads.is_empty() {
+            return Cow::Borrowed(self);
+        }
+        let mut shown = self.clone();
+        shown.apply(reads);
+        Cow::Owned(shown)
     }
 }

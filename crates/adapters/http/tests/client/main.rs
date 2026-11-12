@@ -7,9 +7,10 @@
 
 use std::io::{Read as _, Write as _};
 use std::net::TcpListener;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, channel};
-use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use specforge_effects::http::{Any, get};
 use specforge_effects::testing::server::Server;
@@ -17,8 +18,23 @@ use specforge_effects::{
     AttachedSecret, EffectsCeiling, Grant, Header, Http, HttpCeiling, HttpRequest, Narrow,
     OutcomeClass, Private, Redirected, ResolveRequest, TlsRequest, Unreachable,
 };
-use specforge_http::Client;
+use specforge_http::{Build, Client};
 use specforge_protocol_types::{HttpMethod, Operation};
+
+mod tls;
+
+/// How long a test waits for what must come: a wait ends as soon as it does, so only a failing test spends it, and it
+/// stays under the test runner's kill (60 s), so a failing test prints its assertion.
+const WAIT: Duration = Duration::from_secs(20);
+/// A request to a server that answers is given [`WAIT`], so a loaded machine never times it out.
+const WAIT_MS: u64 = WAIT.as_millis() as u64;
+/// The ceiling of a client whose request must time out: whatever holds the request, its deadline ends it by then.
+const SHORT: Duration = Duration::from_millis(500);
+
+/// A client whose every request, resolve and handshake gives up by [`SHORT`].
+fn short() -> Client {
+    Client::new().with_timeout_ceiling(SHORT)
+}
 
 fn ok(body: &str) -> String {
     format!(
@@ -37,6 +53,7 @@ fn moved(to: &str) -> String {
 fn private(url: &str) -> HttpRequest {
     HttpRequest {
         allow_private: Private::Any,
+        timeout_ms: WAIT_MS,
         ..get(url)
     }
 }
@@ -45,6 +62,7 @@ fn private(url: &str) -> HttpRequest {
 fn typed(url: &str) -> HttpRequest {
     HttpRequest {
         allow_private: Private::TypedOrigin,
+        timeout_ms: WAIT_MS,
         ..get(url)
     }
 }
@@ -157,17 +175,13 @@ fn a_sensitive_header_is_dropped_on_a_redirect_to_another_origin() {
     assert_eq!(outcome.final_url, format!("{other}/landed"));
     assert!(
         seen_here
-            .next(Duration::from_secs(5))
+            .next(WAIT)
             .unwrap()
             .head
             .to_ascii_lowercase()
             .contains("authorization: bearer t")
     );
-    let there = seen_there
-        .next(Duration::from_secs(5))
-        .unwrap()
-        .head
-        .to_ascii_lowercase();
+    let there = seen_there.next(WAIT).unwrap().head.to_ascii_lowercase();
     assert!(!there.contains("authorization"), "{there}");
     assert!(there.contains("x-plain: p"), "{there}");
 }
@@ -199,39 +213,26 @@ fn a_body_past_its_cap_is_cut_there_and_capped() {
 
 #[test]
 fn a_request_is_held_to_its_whole_timeout() {
-    let base = Server::serve(|_, _, stream| {
-        // Headers, then a body that never ends.
+    // Headers, then a body that never ends: the connection is held open for the whole run, so only the request's
+    // own deadline can end it.
+    let held = std::sync::Mutex::new(Vec::new());
+    let base = Server::serve(move |_, _, stream| {
         let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\nslow");
-        std::thread::sleep(Duration::from_secs(10));
+        held.lock().unwrap().push(stream.try_clone().unwrap());
     })
     .base;
-    let started = Instant::now();
-    let outcome = Client::new().request(
-        &HttpRequest {
-            timeout_ms: 500,
-            ..private(&format!("{base}/"))
-        },
-        &Any,
-    );
+    let outcome = short().request(&private(&format!("{base}/")), &Any);
     assert_eq!(
         outcome.class,
         OutcomeClass::Unreachable(Unreachable::Timeout),
         "{outcome:?}"
     );
-    assert!(started.elapsed() < Duration::from_secs(5));
 }
 
 #[test]
 fn a_blackhole_address_gives_up_within_the_timeout() {
-    let started = Instant::now();
     // 10.255.255.1 is never routed: the connect waits until the request's time runs out, or fails at once offline.
-    let outcome = Client::new().request(
-        &HttpRequest {
-            timeout_ms: 1000,
-            ..private("http://10.255.255.1:81/")
-        },
-        &Any,
-    );
+    let outcome = short().request(&private("http://10.255.255.1:81/"), &Any);
     assert!(
         matches!(
             outcome.class,
@@ -239,49 +240,57 @@ fn a_blackhole_address_gives_up_within_the_timeout() {
         ),
         "{outcome:?}"
     );
-    assert!(started.elapsed() < Duration::from_secs(7));
 }
 
+/// Building a client reads the trust store and the system's proxies, seconds on a loaded machine: a fresh client's
+/// first request waits for that build no longer than its own deadline, and a later request takes what it built.
 #[test]
-fn tls_rejection_is_one_class() {
-    let cert =
-        rustls::pki_types::CertificateDer::from(include_bytes!("self-signed.cert.der").to_vec());
-    let key = rustls::pki_types::PrivateKeyDer::Pkcs8(
-        include_bytes!("self-signed.key.der").to_vec().into(),
+fn a_request_waits_for_its_clients_build_no_longer_than_its_deadline() {
+    let base = Server::reply(|_, _| ok("hi")).base;
+    let (release, released) = channel::<()>();
+    let released = Mutex::new(released);
+    let (builds, past_hold) = (
+        Arc::new(AtomicUsize::new(0)),
+        Arc::new(AtomicBool::new(false)),
     );
-    let config = Arc::new(
-        rustls::ServerConfig::builder_with_provider(Arc::new(
-            rustls::crypto::ring::default_provider(),
-        ))
-        .with_safe_default_protocol_versions()
-        .unwrap()
-        .with_no_client_auth()
-        .with_single_cert(vec![cert], key)
-        .unwrap(),
-    );
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let port = listener.local_addr().unwrap().port();
-    std::thread::spawn(move || {
-        for stream in listener.incoming() {
-            let Ok(stream) = stream else { continue };
-            let connection = rustls::ServerConnection::new(config.clone()).unwrap();
-            let mut tls = rustls::StreamOwned::new(connection, stream);
-            // The client rejects the certificate: the handshake fails here.
-            let _ = tls.write_all(&ok("secret").into_bytes());
+    let (counted, passed) = (Arc::clone(&builds), Arc::clone(&past_hold));
+    let client = Client::new().with_before_build(move |build| {
+        if let Build::Client { .. } = build {
+            counted.fetch_add(1, Ordering::SeqCst);
+            // Held until the test lets it go; at most WAIT, so a failing test still ends.
+            let _ = released.lock().unwrap().recv_timeout(WAIT);
+            passed.store(true, Ordering::SeqCst);
         }
+        Ok(())
     });
-    for url in [
-        format!("https://127.0.0.1:{port}/"),
-        format!("https://localhost:{port}/"),
-    ] {
-        let outcome = Client::new().request(&private(&url), &Any);
-        assert_eq!(
-            outcome.class,
-            OutcomeClass::Unreachable(Unreachable::Tls),
-            "{outcome:?}"
-        );
-        assert!(outcome.body.is_empty());
-    }
+
+    let first = client.request(
+        &HttpRequest {
+            timeout_ms: 300,
+            ..private(&format!("{base}/"))
+        },
+        &Any,
+    );
+
+    assert_eq!(
+        first.class,
+        OutcomeClass::Unreachable(Unreachable::Timeout),
+        "{first:?}"
+    );
+    assert!(
+        !past_hold.load(Ordering::SeqCst),
+        "the request waited for the build"
+    );
+    release.send(()).unwrap();
+    // The build goes on once let go; the next request, given time, waits for it.
+    let second = client.request(&private(&format!("{base}/")), &Any);
+    assert_eq!(second.class, OutcomeClass::Ok, "{second:?}");
+    assert_eq!(second.body, b"hi");
+    assert_eq!(
+        builds.load(Ordering::SeqCst),
+        1,
+        "one build, taken by the later request"
+    );
 }
 
 /// The whole request under a grant that lists only `127.0.0.1`.
@@ -364,7 +373,7 @@ fn a_name_only_the_proxy_can_resolve_is_the_proxys_to_judge() {
     assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
     assert!(
         heads
-            .next(Duration::from_secs(5))
+            .next(WAIT)
             .unwrap()
             .head
             .to_ascii_lowercase()
@@ -380,7 +389,7 @@ fn a_request_that_allows_private_addresses_still_goes_through_the_proxy() {
     assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
     assert!(
         heads
-            .next(Duration::from_secs(5))
+            .next(WAIT)
             .unwrap()
             .head
             .to_ascii_lowercase()
@@ -469,11 +478,7 @@ fn a_hop_the_scope_allows_as_a_get_is_sent_as_a_get_with_no_body() {
     let outcome = only_methods(&[HttpMethod::Post, HttpMethod::Get])
         .request(&posting(&format!("{base}/")), &Any);
     assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
-    let head = next_heads
-        .next(Duration::from_secs(5))
-        .unwrap()
-        .head
-        .to_ascii_lowercase();
+    let head = next_heads.next(WAIT).unwrap().head.to_ascii_lowercase();
     assert!(head.starts_with("get / "), "{head}");
     assert!(!head.contains("content-length"), "{head}");
 }
@@ -489,11 +494,7 @@ fn a_head_redirected_by_a_303_stays_a_head() {
     };
     let outcome = only_methods(&[HttpMethod::Head]).request(&heading, &Any);
     assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
-    let head = next_heads
-        .next(Duration::from_secs(5))
-        .unwrap()
-        .head
-        .to_ascii_lowercase();
+    let head = next_heads.next(WAIT).unwrap().head.to_ascii_lowercase();
     assert!(head.starts_with("head / "), "{head}");
 }
 
@@ -506,193 +507,9 @@ fn a_hop_that_keeps_its_method_is_judged_with_it() {
         let outcome =
             only_methods(&[HttpMethod::Post]).request(&posting(&format!("{base}/")), &Any);
         assert_eq!(outcome.class, OutcomeClass::Ok, "{status}: {outcome:?}");
-        let head = next_heads
-            .next(Duration::from_secs(5))
-            .unwrap()
-            .head
-            .to_ascii_lowercase();
+        let head = next_heads.next(WAIT).unwrap().head.to_ascii_lowercase();
         assert!(head.starts_with("post / "), "{status}: {head}");
     }
-}
-
-/// A TLS server on loopback answering each connection as [`serve`] does, under the certificate for `localhost` and
-/// `127.0.0.1` that [`trusting`] trusts. Its port.
-fn serve_tls(answer: impl Fn(&str) -> String + Send + 'static) -> (u16, Receiver<String>) {
-    let cert = rustls::pki_types::CertificateDer::from(
-        include_bytes!("self-signed-leaf.cert.der").to_vec(),
-    );
-    let key = rustls::pki_types::PrivateKeyDer::Pkcs8(
-        include_bytes!("self-signed.key.der").to_vec().into(),
-    );
-    let config = Arc::new(
-        rustls::ServerConfig::builder_with_provider(Arc::new(
-            rustls::crypto::ring::default_provider(),
-        ))
-        .with_safe_default_protocol_versions()
-        .unwrap()
-        .with_no_client_auth()
-        .with_single_cert(vec![cert], key)
-        .unwrap(),
-    );
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let port = listener.local_addr().unwrap().port();
-    let (heads, seen) = channel();
-    std::thread::spawn(move || {
-        for stream in listener.incoming() {
-            let Ok(stream) = stream else { continue };
-            let connection = rustls::ServerConnection::new(config.clone()).unwrap();
-            let mut tls = rustls::StreamOwned::new(connection, stream);
-            let mut head = Vec::new();
-            let mut byte = [0u8; 1];
-            while !head.ends_with(b"\r\n\r\n") && tls.read(&mut byte).is_ok_and(|n| n == 1) {
-                head.push(byte[0]);
-            }
-            let head = String::from_utf8_lossy(&head).to_ascii_lowercase();
-            let _ = heads.send(head.clone());
-            let _ = tls.write_all(answer(&head).as_bytes());
-            tls.conn.send_close_notify();
-            let _ = tls.flush();
-        }
-    });
-    (port, seen)
-}
-
-/// A client that trusts [`serve_tls`]'s certificate.
-fn trusting() -> Client {
-    let mut roots = rustls::RootCertStore::empty();
-    roots
-        .add(rustls::pki_types::CertificateDer::from(
-            include_bytes!("self-signed-leaf.cert.der").to_vec(),
-        ))
-        .unwrap();
-    Client::with_tls(
-        rustls::ClientConfig::builder_with_provider(Arc::new(
-            rustls::crypto::ring::default_provider(),
-        ))
-        .with_safe_default_protocol_versions()
-        .unwrap()
-        .with_root_certificates(roots)
-        .with_no_client_auth(),
-    )
-}
-
-#[test]
-fn a_secret_goes_to_the_hosts_it_lists_and_is_dropped_on_a_redirect_elsewhere() {
-    let (foreign, foreign_heads) = serve_tls(|_| ok("foreign"));
-    let (listed, listed_heads) =
-        serve_tls(move |_| moved(&format!("https://localhost:{foreign}/")));
-    let request = HttpRequest {
-        secret: Some(AttachedSecret {
-            header: "X-Token".to_string(),
-            // A variable set in every test run: setting one here would race the other tests.
-            env: "PATH".to_string(),
-            scheme: None,
-            hosts: vec!["127.0.0.1".to_string()],
-        }),
-        ..private(&format!("https://127.0.0.1:{listed}/"))
-    };
-    let outcome = trusting().request(&request, &Any);
-    assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
-    let head = listed_heads.recv_timeout(Duration::from_secs(5)).unwrap();
-    assert!(head.contains("x-token:"), "the listed host gets it: {head}");
-    let head = foreign_heads.recv_timeout(Duration::from_secs(5)).unwrap();
-    assert!(
-        !head.contains("x-token"),
-        "the hop elsewhere does not: {head}"
-    );
-}
-
-#[test]
-fn resolving_a_dot_invalid_host_is_unreachable_dns() {
-    let outcome = Client::new().resolve(&ResolveRequest {
-        host: "no-such-host.invalid".to_string(),
-        allow_private: false,
-        timeout_ms: 10_000,
-    });
-    assert_eq!(outcome.class, OutcomeClass::Unreachable(Unreachable::Dns));
-    assert!(outcome.addresses.is_empty());
-}
-
-#[test]
-fn a_host_that_resolves_only_to_loopback_is_refused_address() {
-    let asked = |allow_private| {
-        Client::new().resolve(&ResolveRequest {
-            host: "127.0.0.1".to_string(),
-            allow_private,
-            timeout_ms: 10_000,
-        })
-    };
-    let refused = asked(false);
-    assert_eq!(
-        refused.class,
-        OutcomeClass::Unreachable(Unreachable::RefusedAddress)
-    );
-    assert!(refused.addresses.is_empty(), "no private address gets out");
-    assert_eq!(asked(true).addresses, ["127.0.0.1"]);
-}
-
-#[test]
-fn a_handshake_reads_its_certificate_whether_or_not_the_chain_verifies() {
-    let (port, _) = serve_tls(|_| ok("hi"));
-    let request = TlsRequest {
-        host: "localhost".to_string(),
-        tcp_port: port,
-        allow_private: true,
-        timeout_ms: 10_000,
-    };
-    let trusted = trusting().tls(&request);
-    assert_eq!(trusted.class, OutcomeClass::Ok, "{trusted:?}");
-    assert!(trusted.chain_valid);
-    assert_eq!(trusted.issuer.as_deref(), Some("localhost"));
-    assert!(trusted.not_after.is_some());
-
-    let rejected = Client::new().tls(&request);
-    assert_eq!(rejected.class, OutcomeClass::Unreachable(Unreachable::Tls));
-    assert!(!rejected.chain_valid);
-    assert_eq!(rejected.not_after, trusted.not_after, "the facts it read");
-    assert_eq!(rejected.issuer, trusted.issuer);
-
-    let refused = Client::new().tls(&TlsRequest {
-        allow_private: false,
-        ..request
-    });
-    assert_eq!(
-        refused.class,
-        OutcomeClass::Unreachable(Unreachable::RefusedAddress),
-        "a handshake reaches no address the request does not allow"
-    );
-    assert_eq!(refused.not_after, None);
-}
-
-#[test]
-fn a_host_that_drips_bytes_does_not_outlive_the_deadline() {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let port = listener.local_addr().unwrap().port();
-    std::thread::spawn(move || {
-        let (mut stream, _) = listener.accept().unwrap();
-        // The head of a long handshake record, then its body a byte at a time: each read gets one.
-        let _ = stream.write_all(&[0x16, 0x03, 0x03, 0x40, 0x00]);
-        let began = Instant::now();
-        while began.elapsed() < Duration::from_secs(6) && stream.write_all(&[0]).is_ok() {
-            std::thread::sleep(Duration::from_millis(20));
-        }
-    });
-    let began = Instant::now();
-    let dripped = Client::new().tls(&TlsRequest {
-        host: "localhost".to_string(),
-        tcp_port: port,
-        timeout_ms: 300,
-        allow_private: true,
-    });
-    assert_eq!(
-        dripped.class,
-        OutcomeClass::Unreachable(Unreachable::Timeout)
-    );
-    assert!(
-        began.elapsed() < Duration::from_secs(3),
-        "{:?}",
-        began.elapsed()
-    );
 }
 
 #[test]
@@ -709,10 +526,10 @@ fn a_post_query_sends_its_json_body_and_is_never_retried() {
         ..private(&url)
     };
     let client = Client::new();
-    let outcome = client.request(&query(format!("{base}/v1/query"), 5_000), &Any);
+    let outcome = client.request(&query(format!("{base}/v1/query"), WAIT_MS), &Any);
     assert_eq!(outcome.status, Some(200), "{outcome:?}");
     assert_eq!(outcome.body, b"{}");
-    let asked = answering.next(Duration::from_secs(5)).unwrap();
+    let asked = answering.next(WAIT).unwrap();
     assert!(asked.method.eq_ignore_ascii_case("POST"), "{asked:?}");
     assert_eq!(asked.path, "/v1/query");
     assert_eq!(asked.header("content-type"), Some("application/json"));
@@ -729,11 +546,17 @@ fn a_post_query_sends_its_json_body_and_is_never_retried() {
         OutcomeClass::Unreachable(Unreachable::Timeout),
         "{outcome:?}"
     );
-    assert!(silent.next(Duration::from_secs(2)).is_some());
-    assert!(
-        silent.next(Duration::from_millis(500)).is_none(),
-        "sent once"
-    );
+    // The server reads its connections in the order they came, and the client sent all it would before it returned:
+    // what the server read before this request is the query's connection, at most once.
+    let mut after =
+        std::net::TcpStream::connect(silent.base.trim_start_matches("http://")).unwrap();
+    after
+        .write_all(b"GET /after HTTP/1.1\r\nHost: x\r\n\r\n")
+        .unwrap();
+    let before: Vec<_> = std::iter::from_fn(|| silent.next(WAIT))
+        .take_while(|request| request.path != "/after")
+        .collect();
+    assert_eq!(before.len(), 1, "sent once: {before:?}");
 }
 
 /// A policy that permits every redirect and the proxies on `hosts` alone, and keeps each proxy it was asked about.

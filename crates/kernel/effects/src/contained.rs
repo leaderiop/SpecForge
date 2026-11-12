@@ -81,6 +81,17 @@ impl Roots {
         &self.project
     }
 
+    /// Where every root lands on the real file system, its links followed: what a located repository is held to
+    /// ([`crate::git::within_roots`]).
+    pub fn landed(&self) -> Vec<PathBuf> {
+        [Some(&self.project), self.spec.as_ref(), self.temp.as_ref()]
+            .into_iter()
+            .flatten()
+            .chain(self.named.values())
+            .map(|root| RealFs::landing(root))
+            .collect()
+    }
+
     /// These roots with no spec root: what a reader with no approval gets when it lies outside the project.
     pub fn without_spec(mut self) -> Self {
         self.spec = None;

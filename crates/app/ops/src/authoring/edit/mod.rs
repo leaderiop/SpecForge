@@ -21,7 +21,7 @@ pub mod write;
 pub use crate::edit_report::{EditDocument, EditReport};
 pub use outcome::{Edited, run, run_revised};
 pub use skeleton::{Skeleton, Skeletons, Slot, SlotOf};
-use steps::compose;
+use specforge_project::harness::compose;
 pub use steps::{Step, plan, plan_steps};
 pub use typed::takes_json;
 

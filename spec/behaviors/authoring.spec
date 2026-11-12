@@ -305,7 +305,8 @@ behavior collect_harness_ledger "Keep the Harness Ledger" {
   contract   """
     Every host write keeps `specforge-harness` (ADR 0287): a planned change carries its ledger rewrite, applied
     under `.specforge/write.lock` (every write of a project that declares a harness field takes it) to the ledger as read, so two writers on disjoint files both land their lines.
-    A rename or scope move writes a move record and re-keys its lines. `specforge harness gc` rewrites the ledger
+    A rename or scope move writes a move record and re-keys its lines; a move back drops the record it would carry
+    onto its own name. `specforge harness gc` rewrites the ledger
     canonically, and the first ledger write adds `/specforge-harness merge=union` to `.gitattributes`.
     A collect records one `facts:` line per collector and drops the `stale:` lines a rename wrote for its stores;
     a `facts:` or `stale:` line goes when no loaded extension declares its collector.

@@ -180,6 +180,7 @@ impl FieldMap {
             value,
             annotations: Vec::new(),
             value_span: None,
+            value_lexemes: Vec::new(),
         });
     }
 
@@ -315,6 +316,9 @@ pub struct FieldEntry {
     /// Where the value is written, so diagnostics about the value (E061)
     /// point at it rather than at the whole entity.
     pub value_span: Option<SourceSpan>,
+    /// Where each lexeme of an array type's spelling (`Result<A, B>[]`) is written, so a name in a type
+    /// written across lines is placed where it is written; empty for every other value.
+    pub value_lexemes: Vec<SourceSpan>,
 }
 
 /// One item of a list as written: its text, the exact source span of its
@@ -338,6 +342,9 @@ pub struct TypeMember {
     pub text: String,
     pub span: SourceSpan,
     pub written: Written,
+    /// Where each lexeme of a union field's type member is written (its `text` is a spelling); empty for a
+    /// quoted member and a union body's variant, whose text is one token.
+    pub lexemes: Vec<SourceSpan>,
 }
 
 impl PartialEq<&str> for TypeMember {
@@ -400,11 +407,14 @@ pub enum FieldValue {
     /// Spans are absolute file positions.
     Expression(Vec<SpannedExpr>),
     /// Union-typed field declaration value: `query_scope string | string[]`.
-    /// Each element is the declared type's source text. (RES-20 direction.)
+    /// Each element is the declared type in its one spelling ([`crate::lex::type_spelling`]), whatever its
+    /// layout; a quoted member as written.
     TypeUnion(Vec<TypeMember>),
     Integer(i64),
     Boolean(bool),
     Date(String),
+    /// A bare word, a reference path, or an array type (`Result<A, B>[]`) in its one spelling
+    /// ([`crate::lex::type_spelling`]).
     Identifier(String),
 }
 

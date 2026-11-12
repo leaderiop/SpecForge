@@ -356,6 +356,8 @@ pub struct FakeGit {
     pub log: GitLog,
     /// What `diff` answers, whatever is asked.
     pub diffs: Vec<GitFileDiff>,
+    /// What `leads_to` answers: where the repository's reads are led beyond its `.git`.
+    pub leads: Vec<PathBuf>,
     /// Every log and every diff asked, in order.
     pub logs: Mutex<Vec<LogQuery>>,
     pub diffed: Mutex<Vec<DiffQuery>>,
@@ -376,6 +378,7 @@ impl FakeGit {
                 git_dir: toplevel.join(".git"),
                 common_dir: toplevel.join(".git"),
                 shallow: false,
+                index: None,
             }),
             head: Ok(Some(Sha::new(sha))),
             files: Ok(files),
@@ -391,6 +394,7 @@ impl FakeGit {
             status: GitStatus::default(),
             log: GitLog::default(),
             diffs: Vec::new(),
+            leads: Vec::new(),
             logs: Mutex::new(Vec::new()),
             diffed: Mutex::new(Vec::new()),
             asked: AtomicUsize::new(0),
@@ -418,6 +422,7 @@ impl FakeGit {
             status: GitStatus::default(),
             log: GitLog::default(),
             diffs: Vec::new(),
+            leads: Vec::new(),
             logs: Mutex::new(Vec::new()),
             diffed: Mutex::new(Vec::new()),
             asked: AtomicUsize::new(0),
@@ -459,6 +464,9 @@ impl FakeGit {
 }
 
 impl Git for FakeGit {
+    fn leads_to(&self, _: &GitPlace) -> Vec<PathBuf> {
+        self.leads.clone()
+    }
     fn log(&self, _: &GitPlace, query: &LogQuery) -> Result<GitLog, GitError> {
         self.any.fetch_add(1, Ordering::SeqCst);
         self.logs

@@ -2,6 +2,7 @@
 //! pack's definitions, `package` from a manifest.
 
 use std::collections::BTreeMap;
+use std::ops::Range;
 
 use sha2::{Digest, Sha256};
 use specforge_code_junit::Case;
@@ -283,8 +284,8 @@ pub struct Definition {
     /// Its file, project-relative with `/`.
     pub file: String,
     pub at: FactLocation,
-    /// Its signature's text, digested with its twins' (never stored as written).
-    pub signature: Option<String>,
+    /// Its signature in one spelling ([`signature_spelling`]), digested with its twins' (never stored as written).
+    pub signature: Option<Signature>,
     pub doc: Option<String>,
     /// `test`, `ignore`, `cfg(<predicate>)`, `export`, …
     pub attrs: Vec<String>,
@@ -293,10 +294,50 @@ pub struct Definition {
     pub test_id: Option<TestId>,
 }
 
+/// A signature in the one spelling [`item_facts`] digests: made only by [`signature_spelling`], so a pack cannot hand
+/// over a text it did not spell.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Signature(String);
+
+impl std::ops::Deref for Signature {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl PartialEq<&str> for Signature {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
+}
+
+/// A signature's `text` in one spelling, what a source pack hands [`item_facts`]: each run of whitespace one space,
+/// none at either end, except at a byte of `literals`, the ranges of `text` the pack's grammar read as a string's or
+/// a regular expression's own text, kept as written (`'a  b'` is another type than `'a b'`). `literals` may come in
+/// any order.
+pub fn signature_spelling(text: &str, literals: &[Range<usize>]) -> Signature {
+    let mut spelled = String::with_capacity(text.len());
+    let mut gap = false;
+    for (at, c) in text.char_indices() {
+        if c.is_whitespace() && !literals.iter().any(|literal| literal.contains(&at)) {
+            gap = !spelled.is_empty();
+            continue;
+        }
+        if gap {
+            spelled.push(' ');
+            gap = false;
+        }
+        spelled.push(c);
+    }
+    Signature(spelled)
+}
+
 /// One `item` fact per distinct id of `definitions`, by id (ADR 0347 D3): titled by its own name, with `package`, `file`
 /// (the first definition's, by file then line), `kind` (each definition's, in vocabulary order), `visibility` (the
-/// widest), `signature` (`sha256:<hex>` over the definitions' signature texts, each whitespace-collapsed, sorted and
-/// deduplicated, joined by a newline; absent when none has one), `doc` (the first that has one), `attrs` (sorted),
+/// widest), `signature` (`sha256:<hex>` over the definitions' signatures, each in its one spelling, sorted and deduplicated,
+/// joined by a newline; absent when none has one), `doc` (the first that has one), `attrs` (sorted),
 /// `names`, `test_id` (the first) and every place, sorted.
 pub fn item_facts(definitions: impl IntoIterator<Item = Definition>) -> Vec<Fact> {
     let mut by_id: BTreeMap<String, Vec<Definition>> = BTreeMap::new();
@@ -355,10 +396,9 @@ pub fn item_facts(definitions: impl IntoIterator<Item = Definition>) -> Vec<Fact
 
 /// The digest of the definitions' signature texts (see [`item_facts`]).
 fn signature(definitions: &[Definition]) -> Option<String> {
-    let mut texts: Vec<String> = definitions
+    let mut texts: Vec<&str> = definitions
         .iter()
         .filter_map(|d| d.signature.as_deref())
-        .map(|text| text.split_whitespace().collect::<Vec<_>>().join(" "))
         .collect();
     if texts.is_empty() {
         return None;

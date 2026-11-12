@@ -89,8 +89,10 @@ impl Session {
     pub fn spawn() -> Session {
         let (client_to_server, server_stdin) = tokio::io::duplex(1 << 20);
         let (server_stdout, server_to_client) = tokio::io::duplex(1 << 20);
-        let (service, socket) =
-            specforge_lsp::backend::service(specforge_effects::testing::ports());
+        let (service, socket) = specforge_lsp::backend::service(
+            specforge_effects::testing::ports(),
+            specforge_project::SESSION_PARSE_DEADLINE,
+        );
         let server = tokio::spawn(async move {
             Server::new(server_stdin, server_stdout, socket)
                 .serve(service)
@@ -556,4 +558,23 @@ impl Session {
         )
         .await
     }
+}
+
+/// The binary's service parses within production's deadline, stated where `main` takes it: a build for tests gives a
+/// session the counted one unless told otherwise, and the binary's tests are such a build.
+#[tokio::test]
+async fn the_binarys_service_states_the_production_parse_deadline() {
+    let (served, _) = specforge_lsp::backend::production(specforge_effects::testing::ports());
+    assert_eq!(
+        served.inner().parse_deadline().await,
+        specforge_project::PARSE_DEADLINE
+    );
+    let (tested, _) = specforge_lsp::backend::service(
+        specforge_effects::testing::ports(),
+        specforge_project::SESSION_PARSE_DEADLINE,
+    );
+    assert_eq!(
+        tested.inner().parse_deadline().await,
+        specforge_project::COUNTED_DEADLINE
+    );
 }

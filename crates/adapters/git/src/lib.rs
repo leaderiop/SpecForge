@@ -2,7 +2,8 @@
 //! program is never run, so history reads need nothing installed. A repository is opened per call, apart from the
 //! variables that would point the host at another repository or another object store (`GIT_DIR`, `GIT_WORK_TREE`,
 //! `GIT_OBJECT_DIRECTORY`, `GIT_CONFIG_*`); a repository another user owns is opened with reduced trust, so its config
-//! runs nothing.
+//! runs nothing. Locating one keeps git's `GIT_CEILING_DIRECTORIES`, and refuses where `GIT_DIR` or `GIT_WORK_TREE`
+//! names another repository than the one around the directory (ADR 0352).
 //!
 //! No lazy fetch (ADR 0300 D5, amended by ADR 0339): gix never asks a partial clone's promisor remote, so a blob the
 //! clone lacks reads as missing on every machine. A tree listing reads no blob at all.
@@ -20,7 +21,9 @@ use specforge_effects::git::{
 
 mod branching;
 mod history;
+mod locate;
 mod merging;
+mod racy;
 mod redirects;
 mod refs;
 use refs::{branch_of, local_branch};
@@ -56,6 +59,21 @@ fn options(trust: gix::sec::Trust) -> gix::open::Options {
     permissions.env.objects = gix::sec::Permission::Deny;
     permissions.config.env = false;
     gix::open::Options::default_for_level(trust).permissions(permissions)
+}
+
+/// The index `place` reads: the one its `locate` took from `GIT_INDEX_FILE` (a temporary index git hands a hook), else
+/// the git directory's own, empty when there is none.
+fn index_of(
+    repo: &gix::Repository,
+    place: &GitPlace,
+) -> Result<gix::worktree::IndexPersistedOrInMemory, GitError> {
+    let read = |e: &dyn std::fmt::Display| failed("read the index", e);
+    match &place.index {
+        Some(path) => gix::index::File::at(path, repo.object_hash(), false, Default::default())
+            .map(Into::into)
+            .map_err(|e| read(&e)),
+        None => repo.index_or_empty().map(Into::into).map_err(|e| read(&e)),
+    }
 }
 
 /// The trust map discovery opens a found repository with.
@@ -101,6 +119,44 @@ fn without_drivers(repo: &mut gix::Repository) -> Result<(), GitError> {
         .commit()
         .map(drop)
         .map_err(|e| failed("read the config", &e))
+}
+
+/// Whether a diff from `old` to `new` with `budget` may search renames by similarity: unbounded (a person's diff), or
+/// when the blobs a search would compare, every deleted and every added one, fit the budget, which it reads beside the
+/// files' own reads. Past it, renames pair by identical content only, which compares ids and reads no blob.
+fn similar(
+    repo: &gix::Repository,
+    old: &gix::Tree<'_>,
+    new: &gix::Tree<'_>,
+    budget: Option<u64>,
+) -> bool {
+    use gix::object::tree::diff::ChangeDetached as Change;
+    let Some(budget) = budget else {
+        return true;
+    };
+    // the trees alone: no blob is read to list what was deleted and added
+    let Ok(changes) = repo.diff_tree_to_tree(old, new, Some(gix::diff::Options::default())) else {
+        return false;
+    };
+    let (mut deleted, mut added) = (Vec::new(), Vec::new());
+    for change in changes {
+        match change {
+            Change::Deletion { id, entry_mode, .. } if entry_mode.is_blob() => deleted.push(id),
+            Change::Addition { id, entry_mode, .. } if entry_mode.is_blob() => added.push(id),
+            _ => {}
+        }
+    }
+    if deleted.is_empty() || added.is_empty() {
+        return true;
+    }
+    let mut bytes = 0u64;
+    deleted.iter().chain(&added).all(|id| {
+        // a blob that cannot be sized cannot be held to the budget either
+        repo.find_header(*id).is_ok_and(|header| {
+            bytes = bytes.saturating_add(header.size());
+            bytes <= budget
+        })
+    })
 }
 
 /// A gix failure as the port's error.
@@ -181,53 +237,7 @@ fn blob_at(tree: &gix::Tree<'_>, path: &Path) -> Option<gix::ObjectId> {
 
 impl Git for Gix {
     fn locate(&self, dir: &Path) -> Located {
-        if !dir.is_dir() {
-            return Located::NotARepository;
-        }
-        use gix::discover::upwards::Error as Upwards;
-        let repo =
-            match gix::ThreadSafeRepository::discover_opts(dir, Default::default(), trust_map()) {
-                Ok(repo) => repo.to_thread_local(),
-                Err(gix::discover::Error::Discover(
-                    Upwards::NoGitRepository { .. }
-                    | Upwards::NoGitRepositoryWithinCeiling { .. }
-                    | Upwards::NoGitRepositoryWithinFs { .. },
-                )) => return Located::NotARepository,
-                Err(error) => return Located::Unavailable(error.to_string()),
-            };
-        let Some(top) = repo.workdir() else {
-            return Located::Unavailable("a bare repository has no working tree".into());
-        };
-        let real = |p: &Path| p.canonicalize().unwrap_or_else(|_| dir.join(p));
-        // git answers no worktree from inside the git directory ("must be run in a work tree"); gix finds the
-        // repository, so a hook would read a `.git/` path as the worktree's own
-        let here = real(dir);
-        if here.starts_with(real(repo.git_dir())) || here.starts_with(real(repo.common_dir())) {
-            return Located::Unavailable(format!(
-                "{} is inside the git directory, which has no working tree",
-                dir.display()
-            ));
-        }
-        // git stops at a `.git` it cannot use; gix looks on upwards, and a broken repository would answer as the one
-        // around it, read clean when that one is
-        let toplevel = real(top);
-        if here.starts_with(&toplevel)
-            && let Some(broken) = here
-                .ancestors()
-                .take_while(|at| *at != toplevel)
-                .find(|at| at.join(".git").symlink_metadata().is_ok())
-        {
-            return Located::Unavailable(format!(
-                "{} has a .git that is no repository",
-                broken.display()
-            ));
-        }
-        Located::Repo(GitPlace {
-            toplevel,
-            git_dir: real(repo.git_dir()),
-            common_dir: real(repo.common_dir()),
-            shallow: repo.is_shallow(),
-        })
+        locate::locate(dir)
     }
 
     fn leads_to(&self, place: &GitPlace) -> Vec<PathBuf> {
@@ -444,8 +454,12 @@ impl Git for Gix {
         let (on_disk, reads) = (Reads::up_to(query.budget), Reads::up_to(query.budget));
         let (head, disk) = match &query.head {
             DiffSide::Commit(sha) => (tree_of(&repo, sha)?, Default::default()),
-            DiffSide::Index => index_tree(&repo, false, &paths, &on_disk)?,
-            DiffSide::Worktree => index_tree(&repo, true, &paths, &on_disk)?,
+            DiffSide::Index => {
+                index_tree(&repo, &*index_of(&repo, place)?, false, &paths, &on_disk)?
+            }
+            DiffSide::Worktree => {
+                index_tree(&repo, &*index_of(&repo, place)?, true, &paths, &on_disk)?
+            }
         };
         let old = repo
             .find_tree(base)
@@ -455,9 +469,9 @@ impl Git for Gix {
             .map_err(|e| failed("read a tree", &e))?;
         // the host's own rename rules, never the repository's `diff.renames` and `diff.renameLimit`: a configured limit
         // of 0 would compare every deletion with every addition; the default options track none
-        let rewrites = query.renames.then_some(gix::diff::Rewrites {
+        let rewrites = query.renames.then(|| gix::diff::Rewrites {
             copies: None,
-            percentage: Some(0.5),
+            percentage: similar(&repo, &old, &new, query.budget).then_some(0.5),
             limit: RENAME_PAIRS,
             track_empty: false,
         });
@@ -471,8 +485,10 @@ impl Git for Gix {
                 files.push(file);
             }
         }
-        // a worktree file a bounded diff did not read: changed on disk, so listed, with no counts
-        for (path, bound) in disk.past {
+        // a worktree file over the cap that changed, hashed, never read: listed with no counts; and one a bounded diff
+        // did not read: its stat changed, its content unknown, so listed unread
+        let apart = disk.over.into_iter().map(|path| (path, false));
+        for (path, unread) in apart.chain(disk.past.into_iter().map(|path| (path, true))) {
             let file = match files.iter_mut().find(|file| file.path == path) {
                 Some(file) => file,
                 None => {
@@ -492,7 +508,7 @@ impl Git for Gix {
                 }
             };
             (file.added, file.removed, file.patch, file.hunks) = (0, 0, None, None);
-            (file.truncated, file.unread) = (true, bound);
+            (file.truncated, file.unread) = (true, unread);
         }
         files.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(files)
@@ -627,7 +643,7 @@ impl Git for Gix {
     }
 
     fn switch(&self, place: &GitPlace, name: &str) -> Result<(), GitError> {
-        branching::switch(place, name)
+        racy::kept(place, || branching::switch(place, name))
     }
 
     fn worktree_add(&self, place: &GitPlace, path: &Path, branch: &str) -> Result<(), GitError> {
@@ -661,11 +677,11 @@ impl Git for Gix {
     }
 
     fn merge(&self, place: &GitPlace, theirs: &Sha, merging: &Merging) -> Result<Merged, GitError> {
-        merging::merge(self, place, theirs, merging)
+        racy::kept(place, || merging::merge(self, place, theirs, merging))
     }
 
     fn reset(&self, place: &GitPlace, to: &Sha, mode: ResetMode) -> Result<(), GitError> {
-        merging::reset(place, to, mode)
+        racy::kept(place, || merging::reset(place, to, mode))
     }
 
     fn restore(
@@ -674,7 +690,7 @@ impl Git for Gix {
         paths: &[String],
         restoring: &Restoring,
     ) -> Result<(), GitError> {
-        merging::restore(place, paths, restoring)
+        racy::kept(place, || merging::restore(place, paths, restoring))
     }
 
     fn stash_push(
@@ -683,11 +699,11 @@ impl Git for Gix {
         message: Option<&str>,
         untracked: bool,
     ) -> Result<Sha, GitError> {
-        merging::stash_push(place, message, untracked)
+        racy::kept(place, || merging::stash_push(place, message, untracked))
     }
 
     fn stash_pop(&self, place: &GitPlace, index: usize) -> Result<(), GitError> {
-        merging::stash_pop(place, index)
+        racy::kept(place, || merging::stash_pop(place, index))
     }
 
     fn stashes(&self, place: &GitPlace) -> Result<Vec<GitStash>, GitError> {
@@ -701,15 +717,17 @@ impl Git for Gix {
         revert: bool,
         record: bool,
     ) -> Result<Merged, GitError> {
-        if record {
-            merging::pick(self, place, commit, revert)
-        } else {
-            merging::pick_staged(place, commit, revert)
-        }
+        racy::kept(place, || {
+            if record {
+                merging::pick(self, place, commit, revert)
+            } else {
+                merging::pick_staged(place, commit, revert)
+            }
+        })
     }
 
     fn pick_end(&self, place: &GitPlace, abort: bool) -> Result<bool, GitError> {
-        merging::pick_end(place, abort)
+        racy::kept(place, || merging::pick_end(place, abort))
     }
 
     fn names_a_remote(&self, source: &str) -> bool {

@@ -58,14 +58,18 @@ impl<E: Editor> Reaction<E> {
     /// What of `change` is the project session's to apply: a `specforge.json` buffer is checked and
     /// published here instead ([`crate::config_document`]), and closing one clears what was published. A source
     /// document's buffer is held for placing and never applied: opening, typing in or closing one rebuilds nothing
-    /// ([`crate::source_document`]).
+    /// ([`crate::source_document`]), except what a pending rename that edits it shows and lands (`crate::pending`).
     fn sources_of(&mut self, change: Change) -> Option<Change> {
+        let renamed = |state: &crate::LspState, uri: &Url| {
+            !crate::source_document::is_source(state, uri)
+                || state.pending().touches(&state.key_of(uri))
+        };
         match change {
             Change::Edited(uris) => {
                 let (configs, sources): (Vec<Url>, Vec<Url>) = {
                     let state = self.state.blocking_read();
                     uris.into_iter()
-                        .filter(|uri| !crate::source_document::is_source(&state, uri))
+                        .filter(|uri| renamed(&state, uri))
                         .partition(|uri| crate::config_document::is_config(&state, uri))
                 };
                 for uri in configs {
@@ -82,11 +86,7 @@ impl<E: Editor> Reaction<E> {
                 self.publish_config(&uri);
                 None
             }
-            Change::Closed(uri)
-                if crate::source_document::is_source(&self.state.blocking_read(), &uri) =>
-            {
-                None
-            }
+            Change::Closed(uri) if !renamed(&self.state.blocking_read(), &uri) => None,
             change => Some(change),
         }
     }
@@ -283,6 +283,9 @@ impl<E: Editor> Reaction<E> {
                 MessageType::ERROR,
                 format!("an incremental rebuild diverged from a cold build: {divergence}"),
             );
+        }
+        for told in &applied.told {
+            self.editor.log(MessageType::WARNING, told.clone());
         }
         self.publish(&applied);
         debug_assert!(applied.divergences.is_empty(), "{:?}", applied.divergences);

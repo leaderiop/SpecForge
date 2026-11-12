@@ -83,13 +83,16 @@ pub use policy::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintP
 pub use providers::Providers;
 pub use raises::Raises;
 pub use resolved_effects::{NamedRoot, ROOT_NAME_MAX, ResolvedEffects, not_a_root_name};
-pub use session::{CheckMode, ProjectSession, RuntimeSource, Update, UpdateKind};
+pub use session::{
+    CheckMode, ProjectSession, RuntimeSource, SESSION_PARSE_DEADLINE, Update, UpdateKind,
+};
 pub use settings::{ExtensionValues, ResolvedSettings, Setting, SettingOrigin, admit, is_secret};
 pub use setup::{SetupDiagnostic, SetupPart};
 pub use specforge_graph::{
     EdgeChange, GraphDelta, ModifiedNodeChange, NodeAspect, NodeChange, compute_graph_delta,
 };
 pub use specforge_installed::{EnabledExtension, LoadSubject, Loaded, Origin};
+pub use specforge_source::{COUNTED_DEADLINE, Deadline, PARSE_DEADLINE};
 
 /// The runtime a project's extensions run in (every [`WasmRuntime`] is
 /// `Send + Sync`).

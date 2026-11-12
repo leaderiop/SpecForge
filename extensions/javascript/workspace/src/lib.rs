@@ -9,11 +9,9 @@
 //! A `package.json` that could not be read, whose text is not JSON, or whose `name` is missing or not a string is no
 //! package: the file falls to the named package above it.
 //!
-//! Two packages of one name keep `pkg:npm/<name>` for the one whose directory is shallowest (fewest segments, then
-//! lexically first) and `pkg:npm/<name>#<dir>` for every other, named `<name>@<dir>` in a test or an item id
+//! Two packages of one name take their ids as [`PackageId::npm_each`] gives them: `pkg:npm/<name>` for the one whose
+//! directory is shallowest, `pkg:npm/<name>#<dir>` for every other, named `<name>@<dir>` in a test or an item id
 //! ([`Package::segment`]): as `@rust/cargo` names a second cargo package (ADR 0347 D5), so no two files' ids meet.
-
-use std::collections::BTreeMap;
 
 use serde_json::Value;
 use specforge_code_facts::{js_segment, PackageId};
@@ -117,20 +115,9 @@ impl Workspace {
             .filter(|file| file.error.is_none())
             .filter_map(|file| Package::read(&file.path, file.text.as_deref()?))
             .collect();
-        let depth = |dir: &str| dir.split('/').filter(|s| !s.is_empty()).count();
-        let mut first: BTreeMap<String, String> = BTreeMap::new();
-        for package in &packages {
-            let kept = first
-                .entry(package.name.clone())
-                .or_insert_with(|| package.dir.clone());
-            if (depth(&package.dir), &package.dir) < (depth(kept), &*kept) {
-                kept.clone_from(&package.dir);
-            }
-        }
-        for package in &mut packages {
-            if first[&package.name] != package.dir {
-                package.id = PackageId::npm_in(&package.name, &package.dir);
-            }
+        let ids = PackageId::npm_each(packages.iter().map(|p| (p.name.as_str(), p.dir.as_str())));
+        for (package, id) in packages.iter_mut().zip(ids) {
+            package.id = id;
         }
         Workspace { packages }
     }

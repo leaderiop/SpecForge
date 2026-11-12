@@ -366,11 +366,12 @@ impl CompiledProject {
         self.sources.text(path).cloned()
     }
 
-    /// The digest (`sha256:<hex>`) each served fact store recorded of each source file its facts are placed in, by
-    /// the file's key, then by the store's path, as the host read it when it admitted them (ADR 0346 D2): what says a
-    /// source file changed since a store's facts were collected (ADR 0349 D5). Two stores naming one file each keep
-    /// their own digest: a file is the text one store's facts were placed in and not the other's when they differ.
-    pub fn fact_sources(&self) -> BTreeMap<&str, BTreeMap<&str, &str>> {
+    /// What each served fact store says of each source file its facts are placed in ([`crate::facts::Placed`]: the
+    /// digest the host recorded when it admitted them, ADR 0346 D2, and what a rename rewrote there since, D7), by the
+    /// file's key, then by the store's path: what says a source file is no longer the text a store's places are in
+    /// (ADR 0349 D5). Two stores naming one file each keep their own: a file is the text one store's facts were placed
+    /// in and not the other's when they differ.
+    pub fn fact_sources(&self) -> BTreeMap<&str, BTreeMap<&str, &crate::facts::Placed>> {
         self.sources.fact_sources()
     }
 
@@ -621,7 +622,7 @@ impl CompiledProject {
             // The files `HEAD` is named by are read first, so each is an input of this run: a commit changes one.
             let stamp = crate::baseline::Baseline::ref_stamp(&env, disk);
             let read = match held {
-                Some(held) if held.pinned || held.stamp == stamp => held,
+                Some(held) if held.reusable(stamp.as_ref(), this.effects().journal()) => held,
                 _ => Arc::new(crate::baseline::HeldBaseline {
                     read: crate::baseline::Baseline::of_head(
                         &env,
@@ -646,7 +647,7 @@ impl CompiledProject {
             let mut authored = env.entity_snapshot(graph);
             // A fact still naming what a rename moved is told where it went, from the ledger (ADR 0346 D7).
             if let Some(root) = this.root().filter(|_| env.reads_facts()) {
-                authored.suggest_moved(&crate::facts::moves(&crate::facts::recorded(disk, root)));
+                authored.suggest_moved(&crate::facts::moves(&crate::facts::ledger(disk, root)));
             }
             let text_of = |file: &str| this.sources.text(file).cloned();
             // One budget over both stages of the values phase (ADR 0350).
@@ -699,7 +700,7 @@ impl CompiledProject {
                 value_checks: values.checks,
                 checked_values,
             });
-            this.consulted()
+            this.consulted(baseline.as_deref())
         });
         self.checks_skipped = false;
         self.baseline = baseline;
