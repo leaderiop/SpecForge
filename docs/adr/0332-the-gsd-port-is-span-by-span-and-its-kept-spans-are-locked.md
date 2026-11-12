@@ -51,8 +51,10 @@ deleted, not blanked. No protocol change.
   - `PENDING_RESYNC` keeps only upstream test suites.
 - **D7. One Markdown reader.**
   - `gsd_kit::markdown` (pulldown-cmark, CommonMark, no extension) is how the gsd family reads Markdown, in the
-    guest and in tests. Its `tables` alone turns GFM tables on: a table's cells are what it reads, and no gsd code
-    cuts a table row at `|` by hand.
+    guest and in tests. Its `tables` and `inline_blocks` turn GFM tables on, since an agent reads a table cell by
+    cell: `tables` gives the cells, and `inline_blocks` reads each cell as a block of its own, so no row runs into the
+    next. Its readers of fences, code spans, HTML blocks and links keep them off, so a `|` never cuts a code span.
+    No gsd code cuts a table row at `|` by hand.
   - It reads the text under a section tag again as Markdown, below the tag lines; a comment is never read again.
   - Every asset fence reads as written. A change that makes it so is a `markdown` span.
 - **D8. The names ledger.**

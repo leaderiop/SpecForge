@@ -64,6 +64,7 @@ commands/gsd/discuss-phase.md	6. Create CONTEXT.md with decisions that guide res
 commands/gsd/mvp-phase.md	3. Writes `**Mode:** mvp` and the reformatted `**Goal:**` to the phase's ROADMAP.md section
 commands/gsd/mvp-phase.md	The phase must already exist in ROADMAP.md (created via `/gsd:new-project`, `/gsd:phase`, or `/gsd:phase --insert`). This command does not create new phases — it converts an existing phase to MVP mode.
 commands/gsd/new-milestone.md	Brownfield equivalent of new-project. Project exists, PROJECT.md has history. Gathers "what's next", updates PROJECT.md, then runs requirements → roadmap cycle.
+commands/gsd/ns-workflow.md	| Create a PLAN.md | gsd-plan-phase |
 commands/gsd/plan-phase.md	Create executable phase prompts (PLAN.md files) for a roadmap phase with integrated research and verification.
 commands/gsd/plan-phase.md	**Research-only mode (`--research-phase <N>`):** Spawn `gsd-phase-researcher` for phase `N`, write `RESEARCH.md`, then exit before the planner runs. Useful for cross-phase research, doc review before committing to a planning approach, and correction-without-replanning loops where iterating on research alone is dramatically cheaper than re-spawning the planner. Replaces the deleted research-phase command (#3042).
 commands/gsd/quick-batch.md	leaves, and owns every shared write (`BATCH.json`, STATE.md, worktree
@@ -74,12 +75,18 @@ commands/gsd/spec-phase.md	- `--auto` — Skip interactive questions; Claude sel
 commands/gsd/spec-phase.md	- SPEC.md written with falsifiable requirements, explicit boundaries, and acceptance criteria
 commands/gsd/validate-phase.md	Output: updated VALIDATION.md + generated test files.
 gsd-core/references/agent-contracts.md	| gsd-ai-researcher | AI framework research | No marker (writes the AI-SPEC.md framework section via Edit) | `gsd-core/workflows/ai-integration-phase.md` reads the AI-SPEC.md section after the agent returns | artifact+query |
+gsd-core/references/agent-contracts.md	| gsd-code-fixer | Applies code-review fixes | No marker (fix commits + REVIEW.md updates) | `gsd-core/workflows/code-review-fix.md` reads REVIEW.md resolution state + git log | artifact+query |
+gsd-core/references/agent-contracts.md	| gsd-code-reviewer | Source-code review | No marker (writes REVIEW.md) | `gsd-core/workflows/code-review.md` reads REVIEW.md | artifact+query |
+gsd-core/references/agent-contracts.md	| gsd-domain-researcher | Domain research | No marker (writes the AI-SPEC.md domain section via Edit) | `gsd-core/workflows/ai-integration-phase.md` reads the AI-SPEC.md section after the agent returns | artifact+query |
+gsd-core/references/agent-contracts.md	| gsd-eval-auditor | Evaluation coverage audit | No marker (writes the REVIEW.md audit section) | `gsd-core/workflows/eval-review.md` reads REVIEW.md | artifact+query |
+gsd-core/references/agent-contracts.md	| gsd-eval-planner | Evaluation strategy design | No marker (writes the AI-SPEC.md evaluation section via Edit) | `gsd-core/workflows/ai-integration-phase.md` reads the AI-SPEC.md section after the agent returns | artifact+query |
 gsd-core/references/autonomous-smart-discuss.md	## Sub-step 5: Write CONTEXT.md
 gsd-core/references/autonomous-smart-discuss.md	After all areas are resolved (or infrastructure skip), write the CONTEXT.md file.
 gsd-core/references/execute-mvp-tdd.md	4. Update `STATE.md` with `last_gate_trip: {plan_id}/{task_id}` so the user can resume after writing the test.
 gsd-core/references/execute-phase-response-language.md	**The `gsd-verifier` subagent has no workflow file of its own (#2529):** the shared verification step (`workflows/execute-phase/steps/verify-phase-goal.md`, included by execute-phase's `verify_phase_goal` and by verify-work, #5118) reaches it by dispatch, not by reading a workflow, so there is no file in which to place a directive — the dispatch prompt is the only place its coverage can live. That prompt MUST carry this line verbatim, immediately after `Create VERIFICATION.md.` (the shared step's prompt carries it inline, so both callers inject it):
 gsd-core/references/executor-examples.md	### Writing `deferred-items.md`
 gsd-core/references/git-integration.md	| PLAN.md created         | NO      | Intermediate - commit with plan completion       |
+gsd-core/references/git-integration.md	| RESEARCH.md created     | NO      | Intermediate                                     |
 gsd-core/references/mvp-concepts.md	- **Per-phase mode authoring** — `workflows/mvp-phase.md` (writes `**Mode:** mvp` to ROADMAP.md after collecting the user story).
 gsd-core/references/mvp-concepts.md	- **`--mvp` and `--prd <file>` together on Phase 1.** Both paths converge at the planner spawn. The PRD express path creates `CONTEXT.md` from the PRD file and continues to the research step; the Walking Skeleton gate fires independently when Phase 1 + new project + `--mvp`. The planner therefore receives both `WALKING_SKELETON=true` and PRD-derived context. This is intentional: the PRD informs what the skeleton should prove.
 gsd-core/references/planner-chunked.md	Write **only** `{OUTLINE_FILE}`, the path the orchestrator names. Do not write any PLAN.md files.
@@ -117,7 +124,6 @@ gsd-core/workflows/analyze-dependencies.md	Suggested ROADMAP.md updates:
 gsd-core/workflows/analyze-dependencies.md	- **yes** — Write all suggested `Depends on` entries to ROADMAP.md. Confirm each write.
 gsd-core/workflows/analyze-dependencies.md	When writing to ROADMAP.md:
 gsd-core/workflows/analyze-dependencies.md	After applying: "ROADMAP.md updated. Run `/gsd:manager` to execute phases in the correct order."
-gsd-core/workflows/audit-milestone.md	| VERIFICATION.md Status | SUMMARY Frontmatter | REQUIREMENTS.md | → Final Status |
 gsd-core/workflows/audit-milestone.md	> **NOT-VALIDATED vs PARTIAL (#2117):** A phase reads `status: draft` when it was seeded by plan-phase but never reconciled by validate-phase, OR when its `VALIDATION.md` predates the `status` field (files written before #2117 stay `draft` whether or not validation ran). In both cases `nyquist_compliant` is not authoritative, so this is a coverage TODO ("run validate-phase") — not a compliance failure. Re-running validate-phase promotes the file to `status: validated` and yields the real COMPLIANT/PARTIAL verdict. Only `status: validated` + `nyquist_compliant: false` is a genuine PARTIAL.
 gsd-core/workflows/audit-milestone.md	- [ ] v{version}-MILESTONE-AUDIT.md created with structured requirement gap objects
 gsd-core/workflows/autonomous.md	Write a minimal CONTEXT.md so downstream plan-phase has valid input. Get phase details:
@@ -213,6 +219,8 @@ gsd-core/workflows/execute-plan.md	- ROADMAP.md updated — same exception
 gsd-core/workflows/fast.md	- NEVER create PLAN.md or SUMMARY.md files
 gsd-core/workflows/fast.md	- [ ] STATE.md updated if it exists
 gsd-core/workflows/graduation.md	| `decisions` | `PROJECT.md` — append under `## Validated Decisions` (create section if absent) |
+gsd-core/workflows/graduation.md	| `patterns` | `PATTERNS.md` — append under the appropriate category section (create file if absent) |
+gsd-core/workflows/graduation.md	| `lessons` | `PROJECT.md` — append under `## Invariants` (create section if absent) |
 gsd-core/workflows/graduation.md	3. For each source LEARNINGS.md item in the cluster, append `**Graduated:** {target-file}:{ISO_DATE}` after its last existing field
 gsd-core/workflows/ingest-docs.md	> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more intel files, write planning artifacts, or create ROADMAP.md independently while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 gsd-core/workflows/list-phase-assumptions.md	If "Discuss context": Note that CONTEXT.md will incorporate any corrections discussed here

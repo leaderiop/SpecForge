@@ -4,8 +4,9 @@
 //! Plain CommonMark swallows the text under an XML section tag (`<step name="x">` and the lines after it, up to a
 //! blank line) into one HTML block, and an agent reads that text as Markdown. So when an HTML block that is not a
 //! comment ends, its leading tag-only lines are skipped and the rest is read again as Markdown, at its own lines,
-//! at any depth. A comment is never read again. GFM tables are on for [`tables`] alone: everywhere else they would
-//! split a code span at a `|`.
+//! at any depth. A comment is never read again. GFM tables are on for [`tables`] and [`inline_blocks`], which read a
+//! table's cells as an agent does, each a block of its own; the readers of code spans, fences, HTML blocks and links
+//! keep them off, so that a `|` inside a code span never cuts it.
 //!
 //! Lines are 0-based indices over `text.split('\n')`.
 
@@ -85,9 +86,10 @@ pub fn links(text: &str) -> Vec<(Range<usize>, String)> {
     read(text, Options::empty()).links
 }
 
-/// The inline text of every leaf block of `text` outside a fence, from every level, in line order.
+/// The inline text of every leaf block of `text` outside a fence, from every level, in line order. A table cell is a
+/// leaf block: GFM tables are on, so no row runs into the next.
 pub fn inline_blocks(text: &str) -> Vec<InlineBlock> {
-    read(text, Options::empty()).blocks
+    read(text, Options::ENABLE_TABLES).blocks
 }
 
 /// Every GFM table of `text`, from every level, in line order. A cell is its source text, trimmed, its code spans
@@ -447,5 +449,29 @@ mod tests {
         );
         assert_eq!(found[3].links, [(4..5, "https://a.b/x".to_string())]);
         assert_eq!(found[3].lines[0], 6);
+    }
+
+    #[test]
+    fn a_table_cell_is_a_leaf_block_of_its_own() {
+        let text =
+            "| File | Step |\n|---|---|\n| `STATE.md` | read it |\n| x | update it. Then go |\n";
+        let texts: Vec<String> = inline_blocks(text).into_iter().map(|b| b.text).collect();
+        // the header row does not run into a later row, and no cell into the next
+        assert_eq!(
+            texts,
+            [
+                "File",
+                "Step",
+                "`STATE.md`",
+                "read it",
+                "x",
+                "update it. Then go"
+            ]
+        );
+        let found = inline_blocks(text);
+        assert_eq!(
+            (found[0].lines[0], found[2].lines[0], found[5].lines[0]),
+            (0, 2, 3)
+        );
     }
 }
