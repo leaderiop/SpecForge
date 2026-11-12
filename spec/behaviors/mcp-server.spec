@@ -238,6 +238,8 @@ behavior list_mcp_tools "List MCP Tools" {
   verify contract "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, discovery_emitted, listed_once"
   verify unit "tools have categories"
   verify unit "every listed core tool dispatches to its handler"
+  verify unit "every core MCP tool is a row of the engine-tool catalogue, in its order, with its effect and group"
+  verify unit "every CLI twin the engine-tool catalogue names is a declared command with its flags"
   verify unit "each core tool's input schema advertises exactly the arguments its handler reads"
   verify unit "every listed tool has a spec category and a source"
   verify unit "core tools are annotated: read-only tools readOnlyHint, writing tools how they write"

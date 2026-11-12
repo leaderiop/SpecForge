@@ -424,6 +424,45 @@ mod tests {
         assert_eq!(tree, listed);
     }
 
+    /// The problem with the CLI twin `line`, if it is not a declared command with its flags: its plain words name
+    /// nested subcommands of `root`, and each `--flag` is a long argument of the last one.
+    fn twin_problem(root: &clap::Command, line: &str) -> Option<String> {
+        let mut command = root;
+        let (flags, plain): (Vec<&str>, Vec<&str>) =
+            line.split(' ').partition(|w| w.starts_with("--"));
+        for word in plain {
+            match command.find_subcommand(word) {
+                Some(sub) => command = sub,
+                None => return Some(format!("`specforge {line}`: no command `{word}`")),
+            }
+        }
+        flags
+            .into_iter()
+            .find(|flag| {
+                !command
+                    .get_arguments()
+                    .any(|a| a.get_long().is_some_and(|long| flag[2..] == *long))
+            })
+            .map(|flag| format!("`specforge {line}`: no flag `{flag}`"))
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "list_mcp_tools",
+        verify = "every CLI twin the engine-tool catalogue names is a declared command with its flags"
+    )]
+    fn every_engine_twin_is_a_declared_command() {
+        let mut root = declared();
+        root.build();
+        let problems: Vec<String> = specforge_protocol_types::engine_tools::ENGINE_TOOLS
+            .iter()
+            .flat_map(|tool| tool.cli.iter())
+            .filter_map(|line| twin_problem(&root, line))
+            .collect();
+        assert!(problems.is_empty(), "{problems:#?}");
+        assert!(twin_problem(&root, "query --nope").is_some());
+        assert!(twin_problem(&root, "nope").is_some());
+    }
+
     /// The commands that read no project: they take no `--path`.
     const NO_PROJECT: [&str; 7] = [
         "init",
