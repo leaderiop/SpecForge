@@ -4,6 +4,8 @@
 [ADR 0325](0325-pick-prints-one-value-of-a-json-answer.md) (`--pick` and its shapes) and
 [ADR 0339](0339-a-verb-the-user-types-reaches-the-ports-under-the-ceiling.md) (the verbs `files`, `run`, `http`, `git`).
 D7–D9 say how prose names a tool, how an optional integration routes and where a person's own chores go.
+D4's second paragraph is amended by
+[ADR 0332](0332-the-gsd-port-is-span-by-span-and-its-kept-spans-are-locked.md) (D5).
 
 ## Context
 

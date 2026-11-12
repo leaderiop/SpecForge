@@ -1860,6 +1860,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (ADR 0352 D2).
 - **Decision coverage**: a planned phase's context decisions each listed in the `decisions` of one of its plans:
   typed references resolved in the phase, never a match on the plan's text (gsd/E310, W317, W506; ADR 0351).
+- **Port lock**: `gsd/core/tests/port.lock`, which splits every `@gsd/core` and `@gsd/security` asset into kept spans
+  and own spans against the tracked gsd-core release. Kept spans are upstream's text byte for byte, and are the
+  quotes. Each own span holds a group that says why it differs. A test recomputes the lock and `GSD_BLESS=1` rewrites
+  it (ADR 0332).
 - **Human-only value**: a kind, field or member declared `writer: "human"`; an extension's plan, the MCP tools and a
   non-interactive CLI are refused `human_only` (ADR 0289), also when they edit an existing entity of a human-only kind or
   delete an entity holding a person's value (ADR 0298).
