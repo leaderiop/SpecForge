@@ -728,19 +728,24 @@ fn every_command_pick_names_a_member_of_its_answer() {
     );
 }
 
-/// Upstream's install, runtime and host claims: its installer, its `node` runtime and its claim that a subagent cannot
-/// see project-scoped MCP servers (a subagent has the MCP tools of the conversation that spawned it, narrowed by its
-/// own tool list). Agents are project files `specforge install <host>` writes.
-const UPSTREAM_RELICS: [&str; 3] = [
-    "npx @opengsd/gsd-core",
-    "use `node` to invoke",
-    "cannot see project-scoped",
-];
+/// Upstream's install, runtime and host claims: its package (`npx @opengsd/gsd-core@latest --global`, `npx -y
+/// @opengsd/…`), its `node` runtime and its claim that a subagent sees only a user-scoped `mcp.json` (a subagent has
+/// the MCP tools of the conversation that spawned it, narrowed by its own tool list). Agents are project files
+/// `specforge install <host>` writes.
+const UPSTREAM_RELICS: [&str; 3] = ["@opengsd/", "use `node` to invoke", "mcp.json"];
 
-/// No asset tells the user or an agent to run upstream's installer or runtime, or repeats its false MCP claim.
+/// No asset, and no prompt rendered once for claude-code (which adds the lines a prompt module writes in Rust), tells
+/// the user or an agent to run upstream's package or runtime, or repeats its false MCP claim.
 #[test]
 fn no_asset_names_an_upstream_installer_or_runtime() {
-    let hits: Vec<(String, &str)> = asset_files()
+    let mut sources: Vec<(String, String)> = asset_files();
+    for (command, combos) in prompts() {
+        let (arguments, values) = &combos[0];
+        let text = render_text(&command, "claude-code", arguments, values)
+            .unwrap_or_else(|e| panic!("{command}: {e}"));
+        sources.push((format!("prompt:{command}"), text));
+    }
+    let hits: Vec<(String, &str)> = sources
         .into_iter()
         .flat_map(|(path, text)| {
             UPSTREAM_RELICS
