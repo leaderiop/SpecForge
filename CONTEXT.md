@@ -294,7 +294,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Probe**: an effect a **checker** asks the host to perform on a value (`specforge_protocol_types::Probe`: `fs.*`,
   `http.*`, `dns.resolve`, `git.*`), inside the scopes it declares (E090). The host contains its path, deduplicates it,
   performs it through the effect plane and answers a `ProbeOutcome`; a guest never performs one, and never hears about a
-  path outside its root.
+  path outside its root. _Not_ GSD's edge probe (`specforge gsd edge-probe`, ADR 0333).
 - **Input (of a call)**: one thing a call declares the host serves it before the call, one variant of
   `inputs: Vec<Input>` on a pass, command, prompt, hook or collector: `files` (a `FileRead`), `tests`, `state`,
   `graph`, `slash_commands`, `git { status, when }` (its status a typed `GitStatus`), `setting { extension, name }`,

@@ -6,7 +6,9 @@
 D7–D9 say how prose names a tool, how an optional integration routes and where a person's own chores go.
 D4's second paragraph is amended by
 [ADR 0332](0332-the-gsd-port-is-span-by-span-and-its-kept-spans-are-locked.md) (D5). D10 added in place (2026-11-12;
-see ADR 0332 D8–D10). D3's guards widened 2026-11-12.
+see ADR 0332 D8–D10). D3's guards widened 2026-11-12. D2's glue example amended by
+[ADR 0333](0333-gsds-engines-are-ported-commands-and-a-specs-probe-rows-are-entities.md) (the requirements heredoc
+is gone; the regression gate's run step stays the example).
 
 ## Context
 
