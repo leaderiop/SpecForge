@@ -61,7 +61,7 @@
     "collapsing plan roles into the orchestrator context.",
     ""
   ],
-  "bytes": 116758,
+  "bytes": 116788,
   "end": [
     "</file>",
     "</execution_context>",
@@ -139,7 +139,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:7b0478b95e669ed1ac038425b64dba18fdb703ec57067dfc7e631f7a7418626f",
+    "digest": "sha256:9af6649c4e41ee8e4af9b1ca69d252a266f7395352f0490866272ee9238197d8",
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
@@ -240,5 +240,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "7b0478b95e669ed1ac038425b64dba18fdb703ec57067dfc7e631f7a7418626f"
+  "sha256": "9af6649c4e41ee8e4af9b1ca69d252a266f7395352f0490866272ee9238197d8"
 }

@@ -61,7 +61,7 @@
     "",
     "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
   ],
-  "bytes": 11376,
+  "bytes": 11406,
   "end": [
     "",
     "3. **Present the list to the user** via AskUserQuestion:",
@@ -120,7 +120,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:abb0f205d321160c6806fa621a3541b625c5819ea1ea5a5df10b791a2b7d25d3",
+    "digest": "sha256:3a4f512ed1ec987af975a313fae069cb4a1bf928934abbc77372edc4480d2401",
     "prompt": "@gsd/core@VERSION:review_backlog",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "abb0f205d321160c6806fa621a3541b625c5819ea1ea5a5df10b791a2b7d25d3"
+  "sha256": "3a4f512ed1ec987af975a313fae069cb4a1bf928934abbc77372edc4480d2401"
 }

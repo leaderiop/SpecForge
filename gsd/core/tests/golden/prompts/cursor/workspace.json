@@ -61,7 +61,7 @@
     "- `--branch` → `BRANCH_NAME` (defaults to `workspace/$WORKSPACE_NAME`)",
     "- `--auto` → skip interactive questions"
   ],
-  "bytes": 32985,
+  "bytes": 33015,
   "end": [
     "- Box panels drawn with double-line box characters (U+2554, U+2557, U+255A, U+255D, U+2551, U+2560, U+2563) — the borders wrap independently of their contents. They are named here by code point rather than shown, because the guard below rejects the characters themselves anywhere in shipped content.",
     "- A `---` directly under a line of text with no blank line between — that is a setext heading underline, not a break, and it swallows the line above",
@@ -139,7 +139,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:a6e0c63b41281abcf7ebeb7401e7125dec24bde9c455ed6443881812bdddeb5c",
+    "digest": "sha256:60b3da2d11709047761bd11e4f694605304e0516ec259ada86427c15322e1df5",
     "prompt": "@gsd/core@VERSION:workspace"
   },
-  "sha256": "a6e0c63b41281abcf7ebeb7401e7125dec24bde9c455ed6443881812bdddeb5c"
+  "sha256": "60b3da2d11709047761bd11e4f694605304e0516ec259ada86427c15322e1df5"
 }

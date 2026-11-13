@@ -49,6 +49,10 @@ pub const PLANNING_FILES: &[(&str, &str)] = &[
         "context, decision, deferred_idea, discussion",
     ),
     (
+        "NN-DISCUSS-CHECKPOINT.json",
+        "context, decision, deferred_idea, discussion",
+    ),
+    (
         "NN-SPEC.md",
         "phase_spec, locked_req, interview, edge, spec_prohibition",
     ),

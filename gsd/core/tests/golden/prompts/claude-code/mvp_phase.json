@@ -61,7 +61,7 @@
     "PHASE_GOAL=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.goal' 2>/dev/null)",
     "PHASE_MODE=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.mode' 2>/dev/null)"
   ],
-  "bytes": 26260,
+  "bytes": 26290,
   "end": [
     "1. The `**Goal:**` line stays on a single line (no line breaks inside the story). If the story is longer than ~120 chars, it should be split into multiple phases via SPIDR (see `spidr-splitting.md`).",
     "2. The `**Mode:** mvp` line is added immediately below `**Goal:**`. If `**Mode:**` already exists, it is replaced (not duplicated).",
@@ -120,7 +120,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:07cfae135a4667105a57cb6d4e533b9beeb6fa246da9934d907b33c0cb3c15f0",
+    "digest": "sha256:7c8e31822752cc2e598e0097bc55b283c93937a946f4de458fa09bf040e87a4c",
     "prompt": "@gsd/core@VERSION:mvp_phase",
     "steps": [
       {
@@ -206,5 +206,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "07cfae135a4667105a57cb6d4e533b9beeb6fa246da9934d907b33c0cb3c15f0"
+  "sha256": "7c8e31822752cc2e598e0097bc55b283c93937a946f4de458fa09bf040e87a4c"
 }

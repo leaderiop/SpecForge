@@ -61,7 +61,7 @@
     "| `/gsd-surface` | command `specforge gsd surface` (served by @gsd/core) |",
     "| `/gsd-help` | command `specforge gsd help` (served by @gsd/core) |"
   ],
-  "bytes": 11682,
+  "bytes": 11712,
   "end": [
     "| Process inbox items | gsd-inbox |",
     "| Create a clean PR branch | gsd-pr-branch |",
@@ -120,7 +120,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b8bcf7ad266509abdee00d36baeba15aa6b11c1ff5ef9980bb982a63a89d360b",
+    "digest": "sha256:278cb2b8a86ceb515f07553874ef49f055cab745e629fca05f9e03b3134ec929",
     "prompt": "@gsd/core@VERSION:ns_manage"
   },
-  "sha256": "b8bcf7ad266509abdee00d36baeba15aa6b11c1ff5ef9980bb982a63a89d360b"
+  "sha256": "278cb2b8a86ceb515f07553874ef49f055cab745e629fca05f9e03b3134ec929"
 }

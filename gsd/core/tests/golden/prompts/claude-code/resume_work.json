@@ -61,7 +61,7 @@
     "Read and parse STATE.md, then PROJECT.md:",
     ""
   ],
-  "bytes": 20389,
+  "bytes": 20419,
   "end": [
     "",
     "</process>",
@@ -120,7 +120,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:809747dc43d698932aaa40c5076f334376f0cc7c6c2ba7f5018b5a05f7ee64b4",
+    "digest": "sha256:3c6f7dca065c7e2adebf5062d3ef5934767143887f948e64b263ea89bfa3cfff",
     "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "809747dc43d698932aaa40c5076f334376f0cc7c6c2ba7f5018b5a05f7ee64b4"
+  "sha256": "3c6f7dca065c7e2adebf5062d3ef5934767143887f948e64b263ea89bfa3cfff"
 }

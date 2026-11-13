@@ -61,7 +61,7 @@
     "- Extract milestone definition of done from ROADMAP.md",
     "- Extract requirements mapped to this milestone from REQUIREMENTS.md"
   ],
-  "bytes": 24850,
+  "bytes": 24880,
   "end": [
     "",
     "<success_criteria>",
@@ -120,7 +120,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:59fecd680101a50f92775c339a8c668514d7b601ed31455a7f94efa44021b549",
+    "digest": "sha256:7034a6a46cfffcfa579396f7d792ca436804c1d62356a923d327cd4a9f296a75",
     "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "59fecd680101a50f92775c339a8c668514d7b601ed31455a7f94efa44021b549"
+  "sha256": "7034a6a46cfffcfa579396f7d792ca436804c1d62356a923d327cd4a9f296a75"
 }

@@ -61,7 +61,7 @@
     "",
     "**Always available:**"
   ],
-  "bytes": 19647,
+  "bytes": 19677,
   "end": [
     "```",
     "</file>",
@@ -120,7 +120,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:6c738fa57a5382519f52f9744e854ec4b815b617568fcea2636ff75a2226c25e",
+    "digest": "sha256:1c24eda5a1a93eeb94963e47c3498991e14ae3fa551c35f1872227aa1365ee2c",
     "prompt": "@gsd/core@VERSION:milestone_summary",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "6c738fa57a5382519f52f9744e854ec4b815b617568fcea2636ff75a2226c25e"
+  "sha256": "1c24eda5a1a93eeb94963e47c3498991e14ae3fa551c35f1872227aa1365ee2c"
 }

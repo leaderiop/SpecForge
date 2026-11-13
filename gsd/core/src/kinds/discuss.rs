@@ -78,6 +78,20 @@ const ENTRY: &[Field] = &[
     str("chosen"),
     en("mode", DISCUSSION_MODES),
 ];
+const CHECKPOINT_DECISION: &[Field] = &[
+    str("area").r(),
+    str("question").r(),
+    str("answer"),
+    strs("options_presented"),
+];
+const CHECKPOINT: &[Field] = &[
+    ts("timestamp"),
+    strs("areas_completed"),
+    strs("areas_remaining"),
+    blocks("decisions", CHECKPOINT_DECISION),
+    strs("deferred_ideas"),
+    strs("canonical_refs"),
+];
 
 /// `NN-DISCUSSION-LOG.md`, named `02-DISCUSSION-LOG`: an audit record no agent context is built from.
 pub const DISCUSSION: Kind = Kind::new(
@@ -88,6 +102,9 @@ pub const DISCUSSION: Kind = Kind::new(
         blocks("entries", ENTRY)
             .append()
             .doc("one entry per question asked"),
+        block("checkpoint", CHECKPOINT).doc(
+            "`NN-DISCUSS-CHECKPOINT.json`: where an interrupted discussion stands; set with `specforge set`, cleared with `specforge unset`",
+        ),
     ],
 )
 .scoped_by("phase");

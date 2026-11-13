@@ -112,7 +112,11 @@ fail-closed where it is used, not judged here.
 
 GSD: `NN-DISCUSSION-LOG.md`. Name `03-DISCUSSION-LOG`. `phase → phase R I`;
 `entries {area str, question str, options strs, chosen str, mode enum{interactive, assumptions, advisor}}` `+`.
-An audit record: no agent context is built from it.
+An audit record: no agent context is built from it. `checkpoint {timestamp ts, areas_completed strs, areas_remaining
+strs, decisions {area str R, question str R, answer str, options_presented strs}*, deferred_ideas strs, canonical_refs
+strs}`: GSD's `NN-DISCUSS-CHECKPOINT.json` (`templates/checkpoint.json`'s members), where an interrupted discussion
+stands. The agent sets it with `specforge set` after each area and clears it with `specforge unset` once the context is
+written; it is not append-only.
 
 ## research and its items
 

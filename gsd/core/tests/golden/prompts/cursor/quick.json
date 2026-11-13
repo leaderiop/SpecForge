@@ -61,7 +61,7 @@
     "- gsd-verifier — Verifies phase completion, checks quality gates",
     "- gsd-code-reviewer — Reviews source files for bugs, security issues, and code quality"
   ],
-  "bytes": 58469,
+  "bytes": 58499,
   "end": [
     "Execute end-to-end.",
     "Preserve all workflow gates (validation, task description, planning, execution, state updates, commits).",
@@ -139,7 +139,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:9146de15d603bf3e07a68ca7aca3c71e000c786dbf770c4f375ad018344b8976",
+    "digest": "sha256:c41ec0d25c9b00986274550afc0b55ca10074d8c2b35ed5f473b784fa779775a",
     "prompt": "@gsd/core@VERSION:quick",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "9146de15d603bf3e07a68ca7aca3c71e000c786dbf770c4f375ad018344b8976"
+  "sha256": "c41ec0d25c9b00986274550afc0b55ca10074d8c2b35ed5f473b784fa779775a"
 }

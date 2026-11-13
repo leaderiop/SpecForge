@@ -717,3 +717,32 @@ fn a_research_without_phase_is_e206_even_when_the_project_has_none() {
         p.codes()
     );
 }
+
+/// An interrupted discussion's checkpoint is a block on the discussion: set with its decisions, read back, unset.
+#[test]
+fn a_checkpoint_is_set_and_unset_on_the_discussion() {
+    let p = project("discuss");
+    let log = "v1.0/02/02-DISCUSSION-LOG";
+    let checkpoint = serde_json::json!({
+        "timestamp": "2026-11-12T10:00:00Z",
+        "areas_completed": ["Storage"],
+        "areas_remaining": ["Sync"],
+        "decisions": [
+            { "area": "Storage", "question": "Where are tasks kept?", "answer": "One JSON file" },
+            { "area": "Storage", "question": "Who may edit it?", "options_presented": ["Anyone", "The owner"] }
+        ]
+    });
+    let run = p.run(&["set", log, "checkpoint", &checkpoint.to_string()]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let fields = p.fields_of(log);
+    assert_eq!(
+        fields["checkpoint"]["decisions"][1]["question"],
+        "Who may edit it?"
+    );
+    assert_eq!(fields["checkpoint"]["areas_remaining"][0], "Sync");
+    checks_clean(&p);
+    let run = p.run(&["unset", log, "checkpoint"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(p.fields_of(log).get("checkpoint").is_none());
+    checks_clean(&p);
+}

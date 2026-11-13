@@ -61,7 +61,7 @@
     "operator's explicit flag overrides this gate for that run. Standalone invocation carries no such",
     "flag and remains gated by the config below."
   ],
-  "bytes": 75613,
+  "bytes": 75643,
   "end": [
     "- `## Self-Check: FAILED` (summary self-check)",
     "",
@@ -120,7 +120,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:a04f4a3f0129dbee807f1341594a1d8de5c0a7fd8b1f2270a816b663fc7d634e",
+    "digest": "sha256:a3667b2929dd5b80487e6192de14c3706bc14bbc454c0b7d3ebf5878a79ef051",
     "prompt": "@gsd/core@VERSION:plan_review_convergence",
     "steps": [
       {
@@ -211,5 +211,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "a04f4a3f0129dbee807f1341594a1d8de5c0a7fd8b1f2270a816b663fc7d634e"
+  "sha256": "a3667b2929dd5b80487e6192de14c3706bc14bbc454c0b7d3ebf5878a79ef051"
 }

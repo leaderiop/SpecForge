@@ -61,7 +61,7 @@
     "",
     "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id), and its `plan` entities are among the other nodes (a plan whose `status` is not `complete` has no summary yet). `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`; the sub-repositories are `specforge git repos`' answer; an installed agent carries its own model."
   ],
-  "bytes": 48752,
+  "bytes": 48782,
   "end": [
     "",
     "| Condition | Route | Action |",
@@ -120,7 +120,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:551c1acf9726cdeaabe96bf787976691ce9486ca3f54750472fd306f81ca597a",
+    "digest": "sha256:052a1b971db9981be831526d52aeec9b234cc8ff2c9c0b695010f563aaa0a313",
     "prompt": "@gsd/core@VERSION:execute_plan",
     "steps": [
       {
@@ -258,5 +258,5 @@
     ],
     "subject": "v1.0/02/02-01"
   },
-  "sha256": "551c1acf9726cdeaabe96bf787976691ce9486ca3f54750472fd306f81ca597a"
+  "sha256": "052a1b971db9981be831526d52aeec9b234cc8ff2c9c0b695010f563aaa0a313"
 }

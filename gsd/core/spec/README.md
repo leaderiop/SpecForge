@@ -187,7 +187,7 @@ TASK-01
 | `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state | core |
 | `config.json` | settings | core |
 | `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology | core |
-| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion | core |
+| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion | core |
 | `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition | core |
 | `NN-RESEARCH.md`, `research/*.md` | research and its items | core |
 | `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup | core |

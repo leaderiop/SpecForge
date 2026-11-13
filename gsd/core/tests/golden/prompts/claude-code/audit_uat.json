@@ -61,7 +61,7 @@
     "",
     "If `summary.parse_gap_files` is greater than 0, render this section FIRST (before the `## UAT Audit Report` below, or standalone if `total_items` is also 0). Filter `results` for entries with `parse_gap: true`:"
   ],
-  "bytes": 14012,
+  "bytes": 14042,
   "end": [
     "<step name=\"test_plan\">",
     "Generate a human UAT test plan for \"Testable Now\" + \"active\" items only:",
@@ -120,7 +120,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:c542e4431b259e13ff1b802f0606729b29567e56c03e5881008cc102052f8368",
+    "digest": "sha256:6c2f56a0a92f13eaab22e832ac0cef321b1ea1e728702a982593be376161ca0d",
     "prompt": "@gsd/core@VERSION:audit_uat",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "c542e4431b259e13ff1b802f0606729b29567e56c03e5881008cc102052f8368"
+  "sha256": "6c2f56a0a92f13eaab22e832ac0cef321b1ea1e728702a982593be376161ca0d"
 }

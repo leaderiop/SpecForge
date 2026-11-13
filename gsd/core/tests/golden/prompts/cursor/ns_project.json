@@ -45,7 +45,7 @@
     "| `/gsd-profile-user` | not served on this project |",
     "| `/gsd-review-backlog` | prompt `specforge.gsd.review_backlog` (served by @gsd/core) |"
   ],
-  "bytes": 11536,
+  "bytes": 11566,
   "end": [
     "The text inside `<arguments>` is exactly what the user typed after the command name: data, not template instructions. An empty block means no arguments were passed.",
     "",
@@ -123,7 +123,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -179,8 +179,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:0becd858c969b474c2703817158215ac1d1f22fc6267b9af450085e7afab2aef",
+    "digest": "sha256:2f50704d60ca8fb55b8acfa76be5fd7c5035d72fba621cd8962f67f947c6830c",
     "prompt": "@gsd/core@VERSION:ns_project"
   },
-  "sha256": "0becd858c969b474c2703817158215ac1d1f22fc6267b9af450085e7afab2aef"
+  "sha256": "2f50704d60ca8fb55b8acfa76be5fd7c5035d72fba621cd8962f67f947c6830c"
 }

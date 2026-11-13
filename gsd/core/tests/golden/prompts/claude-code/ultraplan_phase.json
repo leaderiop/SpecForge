@@ -61,7 +61,7 @@
     "fi",
     "```"
   ],
-  "bytes": 20271,
+  "bytes": 20301,
   "end": [
     "| Phase | Status | Plans | Progress |",
     "|-------|--------|-------|----------|",
@@ -120,7 +120,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:73731824ff10f23d55e11f3236e491326b27d810aa41733cd39ccfea88e49177",
+    "digest": "sha256:834cfabf77c9ca520766df31cc3c13e03f9e0c5df7272d542998c41f7efca212",
     "prompt": "@gsd/core@VERSION:ultraplan_phase",
     "steps": [
       {
@@ -213,5 +213,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "73731824ff10f23d55e11f3236e491326b27d810aa41733cd39ccfea88e49177"
+  "sha256": "834cfabf77c9ca520766df31cc3c13e03f9e0c5df7272d542998c41f7efca212"
 }

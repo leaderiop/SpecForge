@@ -61,7 +61,7 @@
     "Track which optional artifacts are missing for the `missing_artifacts` frontmatter field.",
     "</step>"
   ],
-  "bytes": 29365,
+  "bytes": 29395,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:c6b0d79142d102a35e835b7b07a4a2368726f9eb9dadc5a605d16188ff42d0a4",
+    "digest": "sha256:94792a2f898b4fc51bf5be764645d5ab0fc3efe123978fdee3fed9a06a8449ed",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "c6b0d79142d102a35e835b7b07a4a2368726f9eb9dadc5a605d16188ff42d0a4"
+  "sha256": "94792a2f898b4fc51bf5be764645d5ab0fc3efe123978fdee3fed9a06a8449ed"
 }

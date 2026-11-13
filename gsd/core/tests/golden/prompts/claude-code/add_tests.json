@@ -61,7 +61,7 @@
     "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id; `name` is its field). `response_language` is a setting: `specforge settings --format json --extension @gsd/core`.",
     ""
   ],
-  "bytes": 22394,
+  "bytes": 22424,
   "end": [
     "",
     "---",
@@ -120,7 +120,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:dff49931e03dff717ef656794fb099f57df2a72ac1ced7d66f43ad0301fa823d",
+    "digest": "sha256:d53c147326d062a60385cb4f085ef00fb710e77bc45c2d9f311dbca34a5ffffe",
     "prompt": "@gsd/core@VERSION:add_tests",
     "subject": "v1.0/02"
   },
-  "sha256": "dff49931e03dff717ef656794fb099f57df2a72ac1ced7d66f43ad0301fa823d"
+  "sha256": "d53c147326d062a60385cb4f085ef00fb710e77bc45c2d9f311dbca34a5ffffe"
 }

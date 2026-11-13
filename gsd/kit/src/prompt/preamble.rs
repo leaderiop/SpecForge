@@ -25,7 +25,7 @@ pub const FILES: &[(&str, &str)] = &[
         "retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology",
     ),
     (
-        "`NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`",
+        "`NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json`",
         "context, decision, deferred_idea, discussion",
     ),
     (

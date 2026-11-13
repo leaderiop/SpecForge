@@ -61,7 +61,7 @@
     "The strategy is `git.branching_strategy` in these settings; the branch is the phase's computed `branch`.",
     ""
   ],
-  "bytes": 46301,
+  "bytes": 46331,
   "end": [
     "Commits: {count}",
     "Verification: ✓ Passed",
@@ -120,7 +120,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:86536c7231df2e3ba706462fd9caf71bf3988ac49a616e72f2edd1f4a33a25f4",
+    "digest": "sha256:ad1b0f56430c1ad3087e027e0c1f434a95f04b72633e2f196f10f065271f602e",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "86536c7231df2e3ba706462fd9caf71bf3988ac49a616e72f2edd1f4a33a25f4"
+  "sha256": "ad1b0f56430c1ad3087e027e0c1f434a95f04b72633e2f196f10f065271f602e"
 }

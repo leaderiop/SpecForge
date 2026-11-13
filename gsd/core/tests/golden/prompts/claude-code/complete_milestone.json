@@ -61,7 +61,7 @@
     "   chain. Or proceed anyway to accept the gaps as tech debt.",
     ""
   ],
-  "bytes": 13692,
+  "bytes": 13722,
   "end": [
     "",
     "7. **Commit and tag:**",
@@ -120,7 +120,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:00457171cf48ff1fd8f6299eca5c7bc1cd22e18f5efc7156ec96f5bf9cd22098",
+    "digest": "sha256:d57c014820a84f3274386170a892884671f7d4c16bd0af71b9676131163edd42",
     "prompt": "@gsd/core@VERSION:complete_milestone",
     "steps": [
       {
@@ -229,5 +229,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "00457171cf48ff1fd8f6299eca5c7bc1cd22e18f5efc7156ec96f5bf9cd22098"
+  "sha256": "d57c014820a84f3274386170a892884671f7d4c16bd0af71b9676131163edd42"
 }

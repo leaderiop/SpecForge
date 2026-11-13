@@ -61,7 +61,7 @@
     "",
     "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated."
   ],
-  "bytes": 99343,
+  "bytes": 99373,
   "end": [
     "- [ ] `agent_skills.<agent-type>` slugs validated against `[a-zA-Z0-9_-]+` before write; `review.models.<cli>` slugs accepted only from the registry-derived settable set; skill lists written as JSON arrays (never comma-joined strings)",
     "- [ ] Config merge preserves all keys outside the three sections this workflow owns",
@@ -139,7 +139,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:1d494b43fc0351dce4da736d7b19ae84fbff8035ecdbf126e7651232ff2d39dc",
+    "digest": "sha256:32f22f5ad8f47f73e6f6ae21a0bf4a813e7b923a633a407e4baebff245861f78",
     "prompt": "@gsd/core@VERSION:config"
   },
-  "sha256": "1d494b43fc0351dce4da736d7b19ae84fbff8035ecdbf126e7651232ff2d39dc"
+  "sha256": "32f22f5ad8f47f73e6f6ae21a0bf4a813e7b923a633a407e4baebff245861f78"
 }

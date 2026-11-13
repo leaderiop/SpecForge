@@ -61,7 +61,7 @@
     "",
     "## 1. Detect Input State"
   ],
-  "bytes": 19325,
+  "bytes": 19355,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
@@ -139,7 +139,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:4c6111c0454cbca7a5cb6c07c6fc00b7f9b82a8b14a2191bf31931ce01f0669f",
+    "digest": "sha256:d0153bb2c5eb1946ab07c852a0d8afe9f3dd86343057331e4e648c45ed1dd5c2",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "4c6111c0454cbca7a5cb6c07c6fc00b7f9b82a8b14a2191bf31931ce01f0669f"
+  "sha256": "d0153bb2c5eb1946ab07c852a0d8afe9f3dd86343057331e4e648c45ed1dd5c2"
 }

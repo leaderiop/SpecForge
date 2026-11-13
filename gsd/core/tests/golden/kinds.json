@@ -3619,6 +3619,120 @@
             "name": "entries",
             "required": false,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`NN-DISCUSS-CHECKPOINT.json`: where an interrupted discussion stands; set with `specforge set`, cleared with `specforge unset`",
+            "edge": null,
+            "field_type": "block",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "timestamp",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "areas_completed",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "areas_remaining",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "block_list",
+                "inverse_of": null,
+                "members": [
+                  {
+                    "default_value": null,
+                    "description": null,
+                    "edge": null,
+                    "field_type": "string",
+                    "inverse_of": null,
+                    "name": "area",
+                    "required": true,
+                    "target_kind": null
+                  },
+                  {
+                    "default_value": null,
+                    "description": null,
+                    "edge": null,
+                    "field_type": "string",
+                    "inverse_of": null,
+                    "name": "question",
+                    "required": true,
+                    "target_kind": null
+                  },
+                  {
+                    "default_value": null,
+                    "description": null,
+                    "edge": null,
+                    "field_type": "string",
+                    "inverse_of": null,
+                    "name": "answer",
+                    "required": false,
+                    "target_kind": null
+                  },
+                  {
+                    "default_value": null,
+                    "description": null,
+                    "edge": null,
+                    "field_type": "string_list",
+                    "inverse_of": null,
+                    "name": "options_presented",
+                    "required": false,
+                    "target_kind": null
+                  }
+                ],
+                "name": "decisions",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "deferred_ideas",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "canonical_refs",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "checkpoint",
+            "required": false,
+            "target_kind": null
           }
         ],
         "has_body_parser": false,

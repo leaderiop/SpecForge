@@ -61,7 +61,7 @@
     "  test -f \"{MANIFEST_PATH}\" || echo \"MANIFEST_NOT_FOUND\"",
     "fi"
   ],
-  "bytes": 43789,
+  "bytes": 43819,
   "end": [
     "1. **Its own check list per bucket** — which conditions are BLOCKER vs WARNING vs INFO. These are domain-specific (plan ingestion checks are not doc ingestion checks).",
     "2. **The loaded context** — what it reads (ROADMAP.md, PROJECT.md, REQUIREMENTS.md, CONTEXT.md, intel files) before running checks.",
@@ -120,7 +120,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:7ad1b95773661ddae6bc39da909a72838ed03ac1c19376c617ee7e641be7ef15",
+    "digest": "sha256:2f3858b90a41bb107d7cacfc7e5f503896f46fae78125bcf055e88c1be1cffbf",
     "prompt": "@gsd/core@VERSION:ingest_docs",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "7ad1b95773661ddae6bc39da909a72838ed03ac1c19376c617ee7e641be7ef15"
+  "sha256": "2f3858b90a41bb107d7cacfc7e5f503896f46fae78125bcf055e88c1be1cffbf"
 }

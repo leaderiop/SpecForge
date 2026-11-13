@@ -61,7 +61,7 @@
     "",
     "Parse flags from `02 --codex`:"
   ],
-  "bytes": 67158,
+  "bytes": 67188,
   "end": [
     "- [ ] Consensus summary synthesized from multiple reviewers",
     "- [ ] Temp files cleaned up",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:ecef7f633fd43a0f73c8aac503825a1b045c9c5241981c77ac25138957f2903e",
+    "digest": "sha256:d333eb408eb7513c7fccaac3ef879faa06da217e16adc312f52214040f737bb7",
     "prompt": "@gsd/core@VERSION:review",
     "subject": "v1.0/02"
   },
-  "sha256": "ecef7f633fd43a0f73c8aac503825a1b045c9c5241981c77ac25138957f2903e"
+  "sha256": "d333eb408eb7513c7fccaac3ef879faa06da217e16adc312f52214040f737bb7"
 }

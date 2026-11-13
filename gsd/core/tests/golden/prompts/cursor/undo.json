@@ -61,7 +61,7 @@
     "",
     "Examples:"
   ],
-  "bytes": 48432,
+  "bytes": 48462,
   "end": [
     "- question: \"How thorough should planning be?\"",
     "- header: \"Depth\"",
@@ -139,7 +139,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2681c687e18c5ec23e22001680e010ce971554b575d17748d1ac4b99fcad6628",
+    "digest": "sha256:db85e07b823acbeb6dcf210e98272b8bc75ab0324f612292ad3d6c73a8b6e0d1",
     "prompt": "@gsd/core@VERSION:undo"
   },
-  "sha256": "2681c687e18c5ec23e22001680e010ce971554b575d17748d1ac4b99fcad6628"
+  "sha256": "db85e07b823acbeb6dcf210e98272b8bc75ab0324f612292ad3d6c73a8b6e0d1"
 }

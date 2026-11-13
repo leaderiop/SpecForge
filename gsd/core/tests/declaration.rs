@@ -614,7 +614,9 @@ fn every_field_of_an_interview_is_immutable() {
 
 #[test]
 fn the_discussion_entries_are_append_only() {
-    assert_eq!(fields_of("discussion"), ["phase", "entries"]);
+    assert_eq!(fields_of("discussion"), ["phase", "entries", "checkpoint"]);
+    // the checkpoint is set and cleared as the discussion goes: not append-only
+    assert_ne!(field_of("discussion", "checkpoint")["append_only"], true);
     let entries = field_of("discussion", "entries");
     assert_eq!(entries["field_type"], "block_list");
     assert_eq!(entries["append_only"], true);
@@ -655,7 +657,8 @@ fn the_discuss_kinds_declare_every_field_of_discuss_md() {
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
     // + 3: the quick plan's `plan` on context, decision and research. + 2 + 7 + 11: the edge probe's `shapes` and
     // `text_en` on locked_req, and its two row kinds, edge (7 fields) and spec_prohibition (11) (ADR 0333).
-    assert_eq!(total, 95 - 1 + 1 + 3 + 2 + 7 + 11, "the kinds' fields");
+    // + 1: the discussion's `checkpoint` (a block's members are not counted).
+    assert_eq!(total, 95 - 1 + 1 + 3 + 2 + 7 + 11 + 1, "the kinds' fields");
 }
 
 #[test]

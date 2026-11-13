@@ -61,7 +61,7 @@
     "  Code), you MUST spawn gsd-executor agents — inline execution is not authorized. Check for",
     "  actual tool availability, not runtime name."
   ],
-  "bytes": 93545,
+  "bytes": 93575,
   "end": [
     "- Random emoji (`🚀`, `✨`, `💫`)",
     "- Missing Next Up block after completions",
@@ -120,7 +120,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:98692eb1a700b571787a744df9a129f663d0d31d3284252c03891251cbc80aeb",
+    "digest": "sha256:db35b6493bcd0c3b42be5ea22f26fbd842da71d49bf751b20e7cc88268516281",
     "prompt": "@gsd/core@VERSION:execute_phase",
     "steps": [
       {
@@ -230,5 +230,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "98692eb1a700b571787a744df9a129f663d0d31d3284252c03891251cbc80aeb"
+  "sha256": "db35b6493bcd0c3b42be5ea22f26fbd842da71d49bf751b20e7cc88268516281"
 }

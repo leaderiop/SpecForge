@@ -61,7 +61,7 @@
     "Set:",
     "- `TEXT_MODE=true` if `--text` is present or `text_mode` is true. When `TEXT_MODE` is active, replace every `conversational prompting` call below with a plain-text numbered list and ask the user to type their choice number — required for non-Claude runtimes (OpenAI Codex, Antigravity, etc.) where `conversational prompting` is not available."
   ],
-  "bytes": 31298,
+  "bytes": 31328,
   "end": [
     "- options: Quick (3-5 phases, skip research) | Standard (5-8 phases, default) | Comprehensive (8-12 phases, deep research)",
     "",
@@ -139,7 +139,7 @@
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:43e852f6221c54df7a2a73815ddad939810006be2017b52c0712340d6df4df8f",
+    "digest": "sha256:5e9291a191cfd5fc6189249eb9b62941958fa6e5f45a00cd31236e3575954eca",
     "prompt": "@gsd/core@VERSION:onboard",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "43e852f6221c54df7a2a73815ddad939810006be2017b52c0712340d6df4df8f"
+  "sha256": "5e9291a191cfd5fc6189249eb9b62941958fa6e5f45a00cd31236e3575954eca"
 }
