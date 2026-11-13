@@ -7,7 +7,7 @@
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, fields, next_id, node, required, run, text};
+use super::support::{answer, fields, next_id, node, required, run, target, text};
 use crate::probe::edge::EDGE_VALIDATORS;
 use crate::probe::{Resolution, validate_prohibition_resolution, validate_resolution};
 
@@ -19,15 +19,6 @@ const CHECK: [&str; 5] = [
     "check_violation_fixture",
     "check_clean_fixture",
 ];
-
-/// The resolved target of `id`'s reference field `label`.
-fn target<'a>(graph: &'a CommandGraph, id: &str, label: &str) -> Option<&'a str> {
-    graph
-        .edges_from(id)
-        .into_iter()
-        .find(|e| e.label == label)
-        .map(|e| e.target.as_str())
-}
 
 /// Sets each given field of `id` and unsets each absent one it holds, so the row holds exactly `values`.
 fn write(plan: &mut PlanBuilder, row: &GraphNode, values: &[(&str, Option<&str>)]) {

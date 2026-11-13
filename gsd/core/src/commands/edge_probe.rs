@@ -8,20 +8,11 @@
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, natural, node, required, run};
+use super::support::{answer, natural, node, required, run, target};
 use crate::probe::edge::{
     EDGE_VALIDATORS, EdgeRequirement, Shape, TAXONOMY, UNCLASSIFIED_PROBE, propose_all,
 };
 use crate::probe::{Item, Resolution, analyze_coverage};
-
-/// The resolved target of `id`'s reference field `label`.
-fn target<'a>(graph: &'a CommandGraph, id: &str, label: &str) -> Option<&'a str> {
-    graph
-        .edges_from(id)
-        .into_iter()
-        .find(|e| e.label == label)
-        .map(|e| e.target.as_str())
-}
 
 /// The requirements of a phase spec (its locked requirements, by id) or of a phase (its `requirements`, in field
 /// order), as the edge probe reads them: a locked requirement's text is its title, current, target and acceptance,
