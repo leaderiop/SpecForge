@@ -499,9 +499,10 @@ fn a_blocker_raised_from_execute_plan_holds_the_words_alone() {
     assert_eq!(p.fields_of("BL1")["text"], "The file format is undecided");
 }
 
-/// A tripped TDD gate stops the plan and records nothing: the person who resumes finds no trace of the trip.
+/// A tripped TDD gate stops the plan with one open blocker on its task, so the person who resumes finds the trip;
+/// tripping again reuses the open blocker.
 #[test]
-fn a_tripped_tdd_gate_records_nothing() {
+fn a_tripped_tdd_gate_raises_a_blocker_on_its_task() {
     let Some(sh) = Shell::without_jq() else {
         return;
     };
@@ -515,14 +516,23 @@ fn a_tripped_tdd_gate_records_nothing() {
         "{gate}"
     );
     let before = p.nodes_of("blocker").len();
-    let (out, err, code) = sh.run_in(
-        p.root(),
-        &format!("TDD_MODE=true\nPLAN_ID=02-01\nTASK_ID=T1\n{gate}"),
-    );
-    assert_eq!(code, 1, "{out}{err}");
-    assert_eq!(
-        out, "TDD GATE TRIPPED: missing RED commit for 02-01/T1\n",
-        "{err}"
-    );
-    assert_eq!(p.nodes_of("blocker").len(), before);
+    for _ in 0..2 {
+        let (out, err, code) = sh.run_in(
+            p.root(),
+            &format!("TDD_MODE=true\nPLAN_ID=02-01\nTASK_ID=T1\n{gate}"),
+        );
+        assert_eq!(code, 1, "{out}{err}");
+        assert_eq!(
+            out, "TDD GATE TRIPPED: missing RED commit for 02-01/T1\n",
+            "{err}"
+        );
+        assert_eq!(p.nodes_of("blocker").len(), before + 1);
+    }
+    let gates: Vec<serde_json::Value> = p
+        .nodes_of("blocker")
+        .iter()
+        .map(|n| n["fields"]["gate"].clone())
+        .filter(|g| !g.is_null())
+        .collect();
+    assert_eq!(gates, [serde_json::json!("v1.0/02/02-01/T1")]);
 }

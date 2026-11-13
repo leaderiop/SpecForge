@@ -217,7 +217,7 @@ if [ "$TDD_MODE" = "true" ]; then
     if [ "$RED_SCOPE_RC" -ne 0 ]; then echo "TDD GATE UNAVAILABLE: could not resolve the plan's commits for ${PLAN_ID}/${TASK_ID} (evaluation-scope exit ${RED_SCOPE_RC})"; exit 1; fi
     RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | specforge files search -q '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' - && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
     if [ -z "$RED_COMMIT" ]; then
-      : # the last gate trip is not recorded: STATE is computed
+      specforge gsd raise-blocker "TDD gate tripped: missing RED commit for ${PLAN_ID}/${TASK_ID}" --plan "$PLAN_ID" --gate "$TASK_ID" >/dev/null || echo "TDD GATE: the trip could not be recorded" >&2   # one open blocker per tripped gate: a second trip reuses it
       echo "TDD GATE TRIPPED: missing RED commit for ${PLAN_ID}/${TASK_ID}"
       exit 1
     fi
