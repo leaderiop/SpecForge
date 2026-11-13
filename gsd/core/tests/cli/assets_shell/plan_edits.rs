@@ -28,3 +28,18 @@ fn the_plan_check_step_reads_keys_the_check_answer_lacks() {
     }
     assert!(text.contains("valid=false"), "the step still reads `valid`");
 }
+
+/// Convergence checks the review agent's REVIEWS.md under `phase_dir`, which no line of the workflow assigns: the
+/// guard stops every cycle after the first review returns.
+#[test]
+fn the_convergence_step_stops_on_an_unset_phase_dir() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let text = asset("gsd-core/workflows/plan-review-convergence.md");
+    let fence = fence_after(&text, "After agent returns, verify REVIEWS.md exists");
+    let dir = tempfile::tempdir().expect("an empty dir");
+    let (out, err, code) = sh.run_in(dir.path(), &fence);
+    assert_eq!(code, 1, "{out}{err}");
+    assert!(err.contains("phase_dir is empty"), "{err}");
+}
