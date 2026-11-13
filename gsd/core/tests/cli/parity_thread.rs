@@ -226,12 +226,18 @@ fn traced_within(p: &Project, scope: &str) -> Vec<String> {
         "json",
     ]);
     succeeds(&run);
-    let document: serde_json::Value = serde_json::from_str(&run.stdout).unwrap();
+    let document: serde_json::Value =
+        serde_json::from_str(&run.stdout).expect("trace --format json writes JSON");
     document["traces"]
         .as_array()
-        .unwrap()
+        .expect("a list of traces")
         .iter()
-        .map(|trace| trace["entity_id"].as_str().unwrap().to_string())
+        .map(|trace| {
+            trace["entity_id"]
+                .as_str()
+                .expect("an entity id")
+                .to_string()
+        })
         .collect()
 }
 
