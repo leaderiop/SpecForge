@@ -11,7 +11,9 @@ use std::collections::BTreeSet;
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{Seed, answer, given, nonce, now, plain, run, text, title};
+use super::support::{
+    Seed, answer, fields, given, node, nonce, now, plain, required, run, target, text, texts, title,
+};
 use crate::branch::{fill, refused, slug};
 use crate::quick_id::QuickId;
 
@@ -140,7 +142,12 @@ fn init(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let template = text(call, "template")?.unwrap_or_default();
     let date = call.today();
     let day = date[2..].replace('-', "");
-    let batch = call.flag("batch").then(|| format!("{day}-batch"));
+    let graph = call.graph();
+    let batch = call.flag("batch").then(|| {
+        batch_id(&day, |id| {
+            graph.node(id).is_some_and(|n| n.kind == "quick_batch")
+        })
+    });
     let minted = ids(
         seed,
         &day,
@@ -177,6 +184,70 @@ fn init(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     Ok(answer(call, json!({ "items": items }), human, None))
 }
 
+/// The first batch id of `day` that `taken` does not hold: `<day>-batch`, then `<day>-batch-2`, `-3`, ...
+fn batch_id(day: &str, taken: impl Fn(&str) -> bool) -> String {
+    std::iter::once(format!("{day}-batch"))
+        .chain((2..).map(|n| format!("{day}-batch-{n}")))
+        .find(|id| !taken(id))
+        .expect("the ids are endless")
+}
+
+/// `start_batch <batch> --items <json list of quick plans> --base <sha>`: the batch, with its items in order, the commit
+/// it starts from and the host's clock.
+fn start_batch(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
+    let batch = required(call, "batch")?;
+    let graph = call.graph();
+    if graph.node(batch).is_some() {
+        return Err(format!("'{batch}' is already taken"));
+    }
+    let names = texts(call, "items")?.ok_or("'items' is required")?;
+    let base = required(call, "base")?;
+    if base.len() != 40 || !base.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')) {
+        return Err(format!(
+            "--base '{base}' is not a commit: 40 lowercase hex digits"
+        ));
+    }
+    let mut items: Vec<&GraphNode> = Vec::new();
+    for name in &names {
+        let plan = node(call, "plan", name)?;
+        if target(graph, &plan.id, "phase").is_some() {
+            return Err(format!("'{name}' is a plan of a phase, not a quick plan"));
+        }
+        if items.iter().any(|i| i.id == plan.id) {
+            return Err(format!("items: '{name}' is named twice"));
+        }
+        items.push(plan);
+    }
+    if items.len() < 2 {
+        return Err(format!(
+            "a batch has at least 2 items; --items names {}",
+            items.len()
+        ));
+    }
+    let created = now(call)?;
+    let file = items[0].file.as_deref().unwrap_or("spec/quick.spec");
+    let ids: Vec<&str> = items.iter().map(|i| i.id.as_str()).collect();
+    let mut edit = call.plan();
+    edit.create(
+        "quick_batch",
+        batch,
+        &format!("Quick batch {batch}"),
+        file,
+        fields([
+            ("items", json!(ids)),
+            ("base", json!(base)),
+            ("created", json!(created)),
+        ]),
+        Vec::new(),
+    );
+    Ok(answer(
+        call,
+        json!({ "batch": batch, "items": ids, "wrote": [batch] }),
+        format!("quick batch {batch}: {} item(s)\n", ids.len()),
+        Some(&edit),
+    ))
+}
+
 pub fn declare(c: &mut ContributionsBuilder) {
     c.command("quick_init", |cmd| {
         cmd.description("What a quick task or a batch starts from: one quick id per task, each free in the graph, with its slug, branch name and the host's date")
@@ -193,6 +264,20 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.description("the branch template (`git.quick_branch_template`): `{num}` is the id, `{slug}` the slug; empty names no branch");
             })
             .handler(|call| run(call, init));
+    });
+    c.command("start_batch", |cmd| {
+        cmd.description("Record a quick batch: its quick plans in item order, the commit it starts from and the host's clock (GSD BATCH.json)")
+            .writes()
+            .arg("batch", |a| {
+                a.required().description("the batch id quick-init answered (`261112-batch`)");
+            })
+            .arg("items", |a| {
+                a.description("required; the batch's quick plans, as a JSON list of ids, in item order");
+            })
+            .arg("base", |a| {
+                a.description("required; the commit the batch starts from: 40 lowercase hex digits");
+            })
+            .handler(|call| run(call, start_batch));
     });
 }
 

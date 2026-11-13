@@ -192,3 +192,31 @@ pub const BLOCKER: Kind = Kind::new(
             .doc("how and when it was resolved (an authored time: gsd/E107)"),
     ],
 );
+
+const BATCH_STATUS: &[&str] = &["open", "complete"];
+
+/// `quick-batches/<id>/BATCH.json`: a `/gsd-quick-batch` run, named by its batch id (`261112-batch`), in the project
+/// scope beside its quick plans. Each item's state is its plan's computed status; the batch records only what resume
+/// needs.
+pub const QUICK_BATCH: Kind = Kind::new(
+    "quick_batch",
+    "A batch of quick tasks run together (GSD BATCH.json)",
+    &[
+        rfs("items", "plan")
+            .r()
+            .i()
+            .doc("the batch's quick plans, in item order"),
+        str("base")
+            .h()
+            .doc("the commit the batch started from, written once by `start_batch`"),
+        ts("created")
+            .h()
+            .doc("written by `start_batch`, with the host's clock"),
+        en("status", BATCH_STATUS)
+            .c()
+            .doc("complete once every item's plan is, else open"),
+        strs("eligible").c().doc(
+            "the items whose plan has not started, halted or blocked and whose `depends_on` are all complete, in item order; empty, never absent",
+        ),
+    ],
+);

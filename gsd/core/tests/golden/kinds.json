@@ -808,6 +808,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "QuickBatchItems",
+        "source_kind": "quick_batch",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "VerificationPhase",
         "source_kind": "verification",
         "target_kind": "phase"
@@ -7512,6 +7521,85 @@
         "keyword": null,
         "lsp_icon": null,
         "name": "blocker",
+        "open_fields": false,
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A batch of quick tasks run together (GSD BATCH.json)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "the batch's quick plans, in item order",
+            "edge": "QuickBatchItems",
+            "field_type": "reference_list",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "items",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "the commit the batch started from, written once by `start_batch`",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "base",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "written by `start_batch`, with the host's clock",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "created",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "complete once every item's plan is, else open",
+            "edge": null,
+            "enum_values": [
+              "open",
+              "complete"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the items whose plan has not started, halted or blocked and whose `depends_on` are all complete, in item order; empty, never absent",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "eligible",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "quick_batch",
         "open_fields": false,
         "semantic_token": null,
         "singleton": false,

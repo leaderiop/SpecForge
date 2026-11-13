@@ -7,12 +7,13 @@
 //! `verify` answers a verification's status, score and re-verification, `uat` a session's totals and status and a
 //! gap's resolution, `audit` a validation's coverage, a milestone audit and the windows and proposals, and `ladder` the
 //! phase's `complete` and `needs_review`, `completed`, a requirement's `gaps_found` and `project.windows_*`. `estimate`
-//! answers a plan's slices under the smart-zone budget. `review` answers a review concern's status and a round's open
-//! counts.
+//! answers a plan's slices under the smart-zone budget. `review` answers a review concern's status, a round's open
+//! counts and a revision conflict's status, and `batch` a quick batch's status and eligible items.
 //!
 //! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection) and `retrospective.sessions` (no harness).
 
 mod audit;
+mod batch;
 mod branch;
 mod estimate;
 mod execute;
@@ -56,6 +57,7 @@ fn derive(input: &PassInput) -> PassOutput {
     let verified = verify::by_phase(input);
     values.extend(progress::values(input, &commits, &statuses, &verified));
     values.extend(uat::values(input, &statuses));
+    values.extend(batch::values(input, &statuses));
     let failing = verified
         .iter()
         .filter(|(_, v)| v.status == "gaps_found")

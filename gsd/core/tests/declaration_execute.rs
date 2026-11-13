@@ -301,6 +301,7 @@ fn the_model_declares_the_execute_kinds() {
         "pause",
         "handoff",
         "blocker",
+        "quick_batch",
     ] {
         assert!(names.contains(&kind), "{kind} in {names:?}");
     }
@@ -316,12 +317,13 @@ fn the_model_counts_its_fields() {
         "pause",
         "handoff",
         "blocker",
+        "quick_batch",
     ]
     .iter()
     .map(|k| fields_of(k).len())
     .sum();
-    // + 1: the blocker's `gate`.
-    assert_eq!(total, 22 + 6 + 5 + 13 + 6 + 10 + 5 + 1);
+    // + 1: the blocker's `gate`; + 5: the quick batch.
+    assert_eq!(total, 22 + 6 + 5 + 13 + 6 + 10 + 5 + 1 + 5);
 }
 
 #[test]

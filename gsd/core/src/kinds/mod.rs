@@ -70,6 +70,7 @@ const KINDS: &[&Kind] = &[
     &execute::PAUSE,
     &execute::HANDOFF,
     &execute::BLOCKER,
+    &execute::QUICK_BATCH,
     &verify::VERIFICATION,
     &verify::VERIFY_GAP,
     &verify::OVERRIDE,

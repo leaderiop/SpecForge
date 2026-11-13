@@ -128,7 +128,10 @@ pub const PLANNING_FILES: &[(&str, &str)] = &[
         "none: the milestone close's guard file, which the graph does not need",
     ),
     ("SEED-*.md", "ops kinds"),
-    ("quick-batches/*", "plan, summary (a batch of quick plans)"),
+    (
+        "quick-batches/*",
+        "plan, summary, quick_batch (a batch of quick plans; its BATCH.json is the quick_batch)",
+    ),
     ("ui-reviews/*", "ui_review"),
     (
         "MEMORY.md",
