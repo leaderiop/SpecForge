@@ -17,15 +17,7 @@ agents/gsd-executor.md	**3. Append result to SUMMARY.md:** `## Self-Check: PASSE
 agents/gsd-executor.md	- [ ] SUMMARY.md created with substantive content
 agents/gsd-executor.md	- [ ] STATE.md updated (position, decisions, issues, session)
 agents/gsd-executor.md	- [ ] ROADMAP.md updated with plan progress (via `roadmap update-plan-progress`)
-agents/gsd-pattern-mapper.compact.md	**Tracked-source gate (#3645):** every analog path must be git-TRACKED source, never a gitignored install/runtime mirror (e.g. `<root>/.gsd/capabilities/<id>/...` synced from a plugin's tracked tree). Before naming an analog whose file exists on disk, verify `git ls-files -- <path>` prints it (non-empty = tracked); if the closest analog is a gitignored mirror, substitute its tracked origin (e.g. `plugins/*/.gsd/capabilities/<id>/...`, or root `capabilities/<id>/...`). PATTERNS.md must never emit mirror paths — the planner builds later phases on your output, so one mirror path self-propagates across phases and the executor's edits die on the next capability sync. For files inside a nested submodule, run the check from within the submodule.
-agents/gsd-pattern-mapper.md	- Extract list of files to be created or modified from CONTEXT.md and RESEARCH.md
-agents/gsd-pattern-mapper.md	`capabilities/<id>/...`). PATTERNS.md must never emit mirror paths — the
 agents/gsd-pattern-mapper.md	Write to: nothing — the report is your reply: @gsd/core keeps no PATTERNS.md, and the pattern map entity is @gsd/codebase's
-agents/gsd-plan-checker.md	Spawned by `/gsd:plan-phase` orchestrator (after planner creates PLAN.md) or re-verification (after planner revises).
-agents/gsd-plan-checker.md	- Plan creates a file listed in PATTERNS.md but does not reference the analog
-agents/gsd-plan-checker.md	description: "Plan 01-03 creates src/controllers/auth.ts but does not reference analog src/controllers/users.ts from PATTERNS.md"
-agents/gsd-plan-checker.md	description: "Plan 01-02 creates a controller but does not include the shared auth middleware pattern from PATTERNS.md"
-agents/gsd-plan-checker.md	- Measurement confirms plan → WARNING: RESEARCH.md is stale; recommend updating it.
 agents/gsd-research-synthesizer.compact.md	- Identify confidence levels and gaps; write SUMMARY.md
 agents/gsd-research-synthesizer.compact.md	## Step 6: Write SUMMARY.md
 agents/gsd-research-synthesizer.compact.md	5. **If Write errors,** surface the actual error in your return message. Do not silently fall back to returning content — that hides the failure. **Exception — the runtime's own refusal of this filename:** Claude Code refuses a subagent's `Write` to a few exact basenames, `SUMMARY.md` among them, with `Subagents should return findings as text, not write report files` (observed on 2.1.301; name-based, not tied to your tools or effort). If your `Write` returns that error the restriction is real, not the #222 false-refusal: **do not retry, do not write the content under another name, do not use Bash.** Finish Step 7, then in Step 8 append the complete SUMMARY.md document under `### SUMMARY.md (returned inline — runtime refused the write)` so the orchestrator persists it.

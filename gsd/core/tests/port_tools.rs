@@ -38,8 +38,9 @@ fn every_asset() -> Vec<(String, Vec<String>)> {
 
 /// The verbs of the `specforge` CLI that ported lines name.
 const VERBS: &[&str] = &[
-    "add", "check", "collect", "explain", "export", "files", "format", "git", "grants", "gsd",
-    "http", "init", "install", "link", "new", "query", "run", "schema", "set", "settings", "wait",
+    "add", "anchors", "check", "collect", "explain", "export", "files", "format", "git", "grants",
+    "gsd", "http", "init", "install", "link", "new", "query", "run", "schema", "search", "set",
+    "settings", "trace", "wait",
 ];
 
 /// Commands of `@gsd/security` that core's text asks for when it is loaded (`security-hooks` for the security gate).

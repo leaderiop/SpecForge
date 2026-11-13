@@ -455,3 +455,78 @@ fn the_mvp_and_dependency_edits_change_the_phase() {
         "A board that never loses a task"
     );
 }
+
+/// The checker's coverage trace reaches the phase's requirements: both of phase 02's reach a plan, and a requirement
+/// the phase lists that no plan claims says `no plan`.
+#[test]
+fn the_coverage_trace_names_an_uncovered_requirement() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let text = asset("agents/gsd-plan-checker.md");
+    let trace = typed::filled(
+        &typed::typed_fence(&text, "2. Trace each of the phase's requirements"),
+        &[("PHASE_ID", "v1.0/02")],
+    );
+    let thread = |p: &crate::harness::Project| {
+        let (out, err, code) = sh.run_in(p.root(), &trace);
+        assert_eq!(code, 0, "{out}{err}");
+        out
+    };
+    let covered = thread(&p);
+    assert!(
+        covered.contains("STORE-01") && covered.contains("STORE-02"),
+        "{covered}"
+    );
+    assert!(!covered.contains("no plan"), "{covered}");
+    // A requirement the phase lists and no plan claims is written by hand: a typed edit refuses the error it makes.
+    p.edit(
+        "spec/v1.0.spec",
+        "requirements     [STORE-01, STORE-02]",
+        "requirements     [STORE-01, STORE-02, STORE-03]",
+    );
+    let requirements = p.read("spec/requirements.spec");
+    p.write(
+        "spec/requirements.spec",
+        &format!(
+            "{requirements}\nrequirement STORE-03 \"A save survives a crash\" {{\n  text     \"A crash mid-save leaves the board whole\"\n  category \"Storage\"\n  tier     v1\n  defined  2026-03-02\n}}\n"
+        ),
+    );
+    let uncovered = thread(&p);
+    assert!(uncovered.contains("STORE-03 → no plan"), "{uncovered}");
+}
+
+/// The pattern mapper finds an analog from the graph: the store task's search, then the source its facts are anchored
+/// to.
+#[test]
+fn the_analog_lookup_names_the_anchored_task() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let run = p.collect(&[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    for body in [
+        "agents/gsd-pattern-mapper.md",
+        "agents/gsd-pattern-mapper.compact.md",
+    ] {
+        let text = asset(body);
+        let heading = if body.ends_with("compact.md") {
+            "Find the closest existing file"
+        } else {
+            "For each classified file, find the closest"
+        };
+        let lookup = typed::filled(
+            &typed::typed_fence(&text, heading),
+            &[("ROLE_WORDS", "board"), ("TASK_ID", "v1.0/01/01-01/T1")],
+        );
+        let (out, err, code) = sh.run_in(p.root(), &lookup);
+        assert_eq!(code, 0, "{body}: {out}{err}");
+        assert!(out.contains("v1.0/01/01-01/T1"), "{body}: {out}");
+        assert!(out.contains("src/tasks.js"), "{body}: {out}");
+        let (owner, err, code) = sh.run_in(p.root(), "specforge anchors --file src/tasks.js");
+        assert_eq!(code, 0, "{err}");
+        assert!(owner.contains("[task v1.0/01/01-01/T1]"), "{owner}");
+    }
+}

@@ -9,7 +9,7 @@ Spawned by `/gsd:plan-phase` orchestrator (between research and planning steps).
 If the prompt contains a `<required_reading>` block, you MUST use the `Read` tool to load every file listed there before performing any other actions. This is your primary context.
 
 **Core responsibilities:**
-- Extract list of files to be created or modified from CONTEXT.md and RESEARCH.md
+- Extract list of files to be created or modified from the phase's context and research
 - Classify each file by role (controller, component, service, model, middleware, utility, config, test) AND data flow (CRUD, streaming, file I/O, event-driven, request-response)
 - Search the codebase for the closest existing analog per file
 - Read each analog and extract concrete code excerpts (imports, auth patterns, core pattern, error handling)
@@ -33,7 +33,7 @@ This ensures pattern extraction aligns with project-specific conventions.
 </project_context>
 
 <upstream_input>
-**CONTEXT.md** (if exists) — User decisions from `/gsd:discuss-phase`
+**The phase's context** (if any) — User decisions from `/gsd:discuss-phase`
 
 | Section | How You Use It |
 |---------|----------------|
@@ -41,7 +41,7 @@ This ensures pattern extraction aligns with project-specific conventions.
 | `## Claude's Discretion` | Freedom areas — identify files from these too |
 | `## Deferred Ideas` | Out of scope — ignore completely |
 
-**RESEARCH.md** (if exists) — Technical research from gsd-phase-researcher
+**The phase's research** (if any) — Technical research from gsd-phase-researcher
 
 | Section | How You Use It |
 |---------|----------------|
@@ -66,9 +66,15 @@ Your PATTERNS.md is consumed by `gsd-planner`:
 
 ## Step 1: Receive Scope and Load Context
 
-Orchestrator provides: phase number/name, phase directory, CONTEXT.md path, RESEARCH.md path.
+Orchestrator provides: phase number/name and the phase id.
 
-Read CONTEXT.md and RESEARCH.md to extract:
+Read the phase's context, decisions and research to extract:
+
+```bash
+PHASE_ID="{the phase id, e.g. v1.0/02}"
+specforge query "$PHASE_ID" --depth 1 --kinds context,decision,research --format context || exit 1
+```
+
 1. **Explicit file list** — files mentioned by name in decisions or research
 2. **Implied files** — files inferred from features described (e.g., "user authentication" implies auth controller, middleware, model)
 
@@ -83,7 +89,18 @@ For each file to be created or modified:
 
 ## Step 3: Find Closest Analogs
 
-For each classified file, search the codebase for the closest existing file that serves the same role and data flow pattern:
+For each classified file, find the closest existing file that serves the same role and data flow pattern. Start from
+the graph: a task whose words match the role, and the source its facts are anchored to, is an analog the project
+already ties to its work; `specforge anchors --file <candidate>` tells which task a candidate belongs to:
+
+```bash
+ROLE_WORDS="{the role's words, e.g. store}"
+TASK_ID="{a task the search printed, e.g. v1.0/01/01-01/T1}"
+specforge search "$ROLE_WORDS" --kinds task || exit 1
+specforge anchors "$TASK_ID" || exit 1
+```
+
+When nothing is anchored, search the codebase:
 
 ```bash
 # Find files by role patterns
@@ -111,7 +128,7 @@ source, never a gitignored install/runtime mirror (e.g. `<root>/.gsd/capabilitie
 file exists on disk, verify `git ls-files -- <path>` prints it (non-empty =
 tracked); if the closest analog is a gitignored mirror, substitute its tracked
 origin (e.g. `plugins/*/.gsd/capabilities/<id>/...`, or root
-`capabilities/<id>/...`). PATTERNS.md must never emit mirror paths — the
+`capabilities/<id>/...`). The map must never name mirror paths — the
 planner builds later phases on your output, so one mirror path self-propagates
 across phases and the executor's edits die on the next capability sync. For
 files inside a nested submodule, run the check from within the submodule.
@@ -258,7 +275,7 @@ router.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 
 ## No Analog Found
 
-Files with no close match in the codebase (planner should use RESEARCH.md patterns instead):
+Files with no close match in the codebase (planner should use the research's patterns instead):
 
 | File | Role | Data Flow | Reason |
 |------|------|-----------|--------|
@@ -317,7 +334,7 @@ Pattern mapping complete. Planner can now reference analog patterns in PLAN.md f
 
 Pattern mapping is complete when:
 
-- [ ] All files from CONTEXT.md and RESEARCH.md classified by role and data flow
+- [ ] All files from the phase's context and research classified by role and data flow
 - [ ] Codebase searched for closest analog per file
 - [ ] Each analog read and concrete code excerpts extracted
 - [ ] Shared cross-cutting patterns identified
