@@ -479,8 +479,10 @@ review, and an `unresolved` row is flagged as an assumption.
 ## Step 6: Check the spec
 
 The spec, its requirements, interviews, edges and prohibitions are recorded. Check them against the rules below; a
-fix is a `specforge set` / `specforge link` on the entity. The check of the spec's file names no code but the judged
-ones that wait for the verdict the prompt's `record_spec` step asks for (`gsd/E202`, `gsd/W203`):
+fix is a `specforge set` / `specforge link` on the entity. The check prints the codes of `spec/discuss.spec`, which
+also holds other phases' contexts, specs and logs: a code of theirs is not this step's to fix, and of this spec's own
+entities none should print but the judged ones that wait for the verdict the prompt's `record_spec` step asks for
+(`gsd/E202`, `gsd/W203`):
 
 ```bash
 specforge check --format json --pick '.[file=spec/discuss.spec].code'

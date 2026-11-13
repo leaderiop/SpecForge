@@ -261,3 +261,22 @@ fn the_synthesizer_self_heal_sets_the_research_summary() {
         "the check writes nothing"
     );
 }
+
+/// The pending text the project research is recorded with is one text in the four lines that write or compare it: a
+/// copy that drifted would make new-milestone's self-heal read a set summary as pending, or a pending one as set.
+#[test]
+fn the_pending_summary_is_one_text() {
+    let mut seen = Vec::new();
+    for workflow in [
+        "gsd-core/workflows/new-project.md",
+        "gsd-core/workflows/new-milestone.md",
+    ] {
+        for line in asset(workflow).lines().map(str::trim) {
+            if let Some(value) = line.strip_prefix("PENDING=") {
+                seen.push(value.to_string());
+            }
+        }
+    }
+    assert_eq!(seen.len(), 4, "{seen:?}");
+    assert!(seen.iter().all(|v| *v == seen[0]), "{seen:?}");
+}

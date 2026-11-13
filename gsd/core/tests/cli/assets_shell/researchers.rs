@@ -72,3 +72,32 @@ fn the_discuss_researchers_read_their_packs_and_search() {
         assert_eq!(code, 0, "{agent}: {by_file}: {err}");
     }
 }
+
+/// The project researcher's pack line, as new-project's and new-milestone's researcher spawns name it, runs on the
+/// taskboard and prints the pack.
+#[test]
+fn the_project_researcher_reads_its_pack() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    for workflow in [
+        "gsd-core/workflows/new-project/detail/elaboration.md",
+        "gsd-core/workflows/new-milestone.md",
+    ] {
+        let text = asset(workflow);
+        let line = text
+            .lines()
+            .map(str::trim_start)
+            .find_map(|l| l.strip_prefix("- specforge context gsd/project-researcher "))
+            .unwrap_or_else(|| panic!("{workflow}: no project researcher pack line"));
+        let subject = line.split_whitespace().next().expect("a subject");
+        assert_eq!(subject, "{project}", "{workflow}: {line}");
+        let (out, err, code) = sh.run_in(
+            p.root(),
+            "specforge context gsd/project-researcher taskboard",
+        );
+        assert_eq!(code, 0, "{workflow}: {err}");
+        assert!(out.contains("taskboard"), "{workflow}: {out}");
+    }
+}

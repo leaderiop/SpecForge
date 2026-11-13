@@ -1,7 +1,7 @@
 {
   ".codex/agents/gsd-advisor-researcher.toml": {
-    "bytes": 7070,
-    "sha256": "2a66b06b55f049e377377309cec2f2e5a32ae51bff003d2eb1a41cea06d2103f"
+    "bytes": 7092,
+    "sha256": "d0617a7e675b226183e19f6718957d8e3ef5366b7242ab66b7c9c770015aa328"
   },
   ".codex/agents/gsd-assumptions-analyzer.toml": {
     "bytes": 7278,

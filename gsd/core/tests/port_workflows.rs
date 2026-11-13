@@ -90,8 +90,12 @@ fn security_assets() -> Vec<String> {
     all
 }
 
-/// Vendored for its metadata alone: the prompt renders text of ours (D-r43-16), so the file is not an asset.
-const VENDORED_ONLY: &[&str] = &["commands/gsd/update.md"];
+/// Vendored, not assets: `update.md` for its metadata alone, since the prompt renders text of ours (D-r43-16), and
+/// discuss-phase's `checkpoint.json` shape, which the `discussion` entity's `checkpoint` field replaced.
+const VENDORED_ONLY: &[&str] = &[
+    "commands/gsd/update.md",
+    "gsd-core/workflows/discuss-phase/templates/checkpoint.json",
+];
 
 #[test]
 fn the_vendored_tree_lists_every_asset() {

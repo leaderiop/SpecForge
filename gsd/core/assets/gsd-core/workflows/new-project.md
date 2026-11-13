@@ -1010,7 +1010,7 @@ Use AskUserQuestion:
 - Present revised roadmap
 - Loop until user approves
 
-**If "Review full file":** Display the `milestone` and `phase` entities in full (`specforge query "$MILESTONE" --kinds phase --format context`), then re-ask.
+**If "Review full roadmap":** Display the `milestone` and `phase` entities in full (`specforge query "$MILESTONE" --kinds phase --format context`), then re-ask.
 
 **Generate or refresh project instruction file before final commit:**
 

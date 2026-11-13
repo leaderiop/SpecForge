@@ -61,7 +61,7 @@
     "```bash",
     ""
   ],
-  "bytes": 77487,
+  "bytes": 77490,
   "end": [
     "TIER=\"{v1, v2 or out_of_scope}\"",
     "IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\\n'}",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:5a5708c36dd4bb5a75e915b16c9c1313b67c8ab0ef0eb1f3a4f2f6f3fd7691e0",
+    "digest": "sha256:a7ad9b0c444d666d80a4c0a4291b3d8fd68e7edaa8f19948704a835a753b2b3d",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "5a5708c36dd4bb5a75e915b16c9c1313b67c8ab0ef0eb1f3a4f2f6f3fd7691e0"
+  "sha256": "a7ad9b0c444d666d80a4c0a4291b3d8fd68e7edaa8f19948704a835a753b2b3d"
 }

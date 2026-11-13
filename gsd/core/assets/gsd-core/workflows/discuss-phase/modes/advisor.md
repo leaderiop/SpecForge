@@ -95,7 +95,6 @@ research agents.
      prompt="<gray_area>{area_name}: {area_description from gray area identification}</gray_area>
      <required_reading>
      - specforge context gsd/advisor-researcher {PHASE_ID} (the advisor pack: the phase, its goal, context and decisions, and the milestone's other phases)
-     - specforge query "$PROJECT" --depth 0 --format context (the project's name and description)
      </required_reading>
      <calibration_tier>{resolved calibration tier: full_maturity | standard | minimal_decisive}</calibration_tier>
 

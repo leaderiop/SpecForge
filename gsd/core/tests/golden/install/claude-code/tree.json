@@ -1,7 +1,7 @@
 {
   ".claude/agents/gsd-advisor-researcher.md": {
-    "bytes": 7491,
-    "sha256": "435fada763be0857b44789c6f92da6458ce1d2b922b7986622fe89f507112c96"
+    "bytes": 7513,
+    "sha256": "c6218fe0b0c413644ff2dc2676b5b1acd120b3922634e73595945f03d7b5eb46"
   },
   ".claude/agents/gsd-assumptions-analyzer.md": {
     "bytes": 7626,
