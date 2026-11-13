@@ -224,3 +224,53 @@ fn a_pack_renders_its_budget_sections_and_served_graph() {
     nodes.sort();
     assert_eq!(nodes, ["hub", "i1", "i2", "i3", "late", "near", "s"]);
 }
+
+/// The plan at `budget` over core `hub` and the enrich sections `enrich`, each `(name, members)`.
+fn plan_over(budget: usize, enrich: &[(&str, &[&str])]) -> PackPlan<'static> {
+    let mut plan = plan_at(budget);
+    plan.sections.truncate(1);
+    for (n, (name, ids)) in enrich.iter().enumerate() {
+        plan.sections
+            .push(entities(name, ContextTier::Enrich, ids, n as u8 + 2));
+    }
+    plan
+}
+
+/// Every cut from the floor of `enrich` up to the budget that serves it all.
+fn cuts(graph: &Graph, enrich: &[(&str, &[&str])]) -> Vec<Cut> {
+    let at = (1..5_000)
+        .find(|&budget| fit(graph, &plan_over(budget, enrich)).is_ok())
+        .expect("a budget holds the core");
+    let mut cuts = Vec::new();
+    for budget in at..at + 5_000 {
+        let cut = fit(graph, &plan_over(budget, enrich)).unwrap();
+        let whole = cut.served.iter().all(|s| *s == Served::Whole);
+        cuts.push(cut);
+        if whole {
+            return cuts;
+        }
+    }
+    panic!("no budget serves {enrich:?}");
+}
+
+#[test]
+fn a_subject_an_enrich_section_also_selects_is_never_new_nor_truncated() {
+    let graph = graph();
+    let cuts = cuts(&graph, &[("rest", &["s", "i1", "i2", "i3"])]);
+    for cut in &cuts {
+        assert!(
+            !cut.truncated_entities.contains(&"s".to_string()),
+            "{cut:?}"
+        );
+        if let Served::Part(kept) = &cut.served[1] {
+            assert!(kept.contains(&Sym::new("s")), "{cut:?}");
+        }
+    }
+    // Kept entities only grow with the budget.
+    let kept = |cut: &Cut| match &cut.served[1] {
+        Served::Cut => 0,
+        Served::Part(kept) => kept.len(),
+        Served::Whole => 4,
+    };
+    assert!(cuts.windows(2).all(|w| kept(&w[0]) <= kept(&w[1])));
+}

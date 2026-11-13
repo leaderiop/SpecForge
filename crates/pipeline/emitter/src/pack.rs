@@ -179,7 +179,9 @@ pub fn fit(graph: &Graph, plan: &PackPlan<'_>) -> Result<Cut, EmitterError> {
         let SectionBody::Entities(members) = &plan.sections[at].body else {
             break;
         };
-        let before = served_entities(plan, &served);
+        // The subject is always in the graph: it is never new, never truncated.
+        let mut before = served_entities(plan, &served);
+        before.insert(plan.subject);
         let mut fresh: Vec<Sym> = members
             .iter()
             .copied()
