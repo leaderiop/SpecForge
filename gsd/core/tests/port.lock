@@ -355,26 +355,18 @@ agents/gsd-planner.md	kept	170+19	257ca09d1868
 agents/gsd-planner.md	own	189+1	1	7d020638f73a	7621ab2f684f	agent
 agents/gsd-planner.md	kept	190+5	69927fde50ce
 agents/gsd-planner.md	own	195+1	1	6778a4d30bca	e3145f37d3b1	served
-agents/gsd-planner.md	kept	196+118	73a3d8df1a89
-agents/gsd-planner.md	own	314+1	1	f34e0a038dd5	e78f6dfe84f2	thread
-agents/gsd-planner.md	kept	315+2	4d3ebf43400c
-agents/gsd-planner.md	own	317+1	1	6006c59d4212	1bcac83b9a2b	thread
-agents/gsd-planner.md	kept	318+28	d80cba92e2e9
-agents/gsd-planner.md	own	346+3	3	0ad5616f05e9	efc4929c41d6	ported-name
-agents/gsd-planner.md	kept	349+9	3ec7045dded1
-agents/gsd-planner.md	own	358+1	1	748b2d4f3e7a	10b882680e11	thread
-agents/gsd-planner.md	kept	359+24	3e428e4aed51
-agents/gsd-planner.md	own	383+1	1	e3b0c44298fc	2511d9e1427d	agent
-agents/gsd-planner.md	kept	384+9	5bcaa9938285
-agents/gsd-planner.md	own	393+1	1	2bb87d7dc9b3	a7157fd49a59	ported-name
-agents/gsd-planner.md	kept	394+10	493b51a8348e
+agents/gsd-planner.md	kept	196+111	5fa88cbfffad
+agents/gsd-planner.md	own	307+89	86	783bd45a0789	60749f9004cf	ported-name
+agents/gsd-planner.md	kept	396+8	bac43ee40ea5
 agents/gsd-planner.md	own	404+1	1	d32f932706f6	6c6ee48ec884	thread
 agents/gsd-planner.md	kept	405+2	db1c4f5c0c4f
 agents/gsd-planner.md	own	407+1	1	285b81b5311f	97f2bdb6ba4c	thread
 agents/gsd-planner.md	kept	408+5	6c75d8eeca29
 agents/gsd-planner.md	own	413+1	1	ce8f08b12d49	93a3c21634c9	thread
-agents/gsd-planner.md	kept	414+43	3157546ed8a5
-agents/gsd-planner.md	own	457+1	1	72e6091214cc	0d795f85e8f6	agent
+agents/gsd-planner.md	kept	414+15	65eb7bc2b5d5
+agents/gsd-planner.md	own	429+11	2	0656ac699a99	8ad9a35a70c2	prose
+agents/gsd-planner.md	kept	440+17	c03a513fe338
+agents/gsd-planner.md	own	457+1	1	72e6091214cc	6320ed9223c3	prose
 agents/gsd-planner.md	kept	458+116	2518f9f10c70
 agents/gsd-planner.md	own	574+7	7	5241625da65f	4bc91604ba82	ported-name
 agents/gsd-planner.md	kept	581+1	ad332335cfaa
@@ -392,7 +384,7 @@ agents/gsd-planner.md	own	666+2	2	c17532431411	7f1eb9adfe54	ported-name
 agents/gsd-planner.md	kept	668+19	1c772ae66659
 agents/gsd-planner.md	own	687+1	1	45b9f6e21c91	ffb3f01b7f65	ported-name
 agents/gsd-planner.md	kept	688+9	6f81fa4a12e2
-agents/gsd-planner.md	own	697+1	1	083d6f01ad72	6352452c6f92	ported-name
+agents/gsd-planner.md	own	697+1	1	083d6f01ad72	35230c59ed33	ported-name
 agents/gsd-planner.md	kept	698+3	1db52bfcc1ba
 agents/gsd-planner.md	own	701+1	1	6d613f49213c	903cb822b32b	agent
 agents/gsd-planner.md	kept	702+2	5f046190424d
@@ -401,27 +393,25 @@ agents/gsd-planner.md	kept	710+34	b57dff1d1b86
 agents/gsd-planner.md	own	744+0	1	e3b0c44298fc	e3b0c44298fc	markdown
 agents/gsd-planner.md	kept	744+28	a1c21bfa588d
 agents/gsd-planner.md	own	772+1	1	13b2f9242400	e70a2aecb042	thread
-agents/gsd-planner.md	kept	773+36	c6c5cde62355
-agents/gsd-planner.md	own	809+3	3	41946739eb6c	7a0afa80e19a	ported-name
-agents/gsd-planner.md	kept	812+8	63a477c117b9
-agents/gsd-planner.md	own	820+1	1	84bda9ac191a	19e418acf2ef	served
-agents/gsd-planner.md	kept	821+21	4c529fc3b50a
-agents/gsd-planner.md	own	842+1	1	0eccaa561377	1a79520c0d15	ported-name
-agents/gsd-planner.md	kept	843+8	36942357c13a
-agents/gsd-planner.md	own	851+1	1	829fb19cd071	38c2f4a1c121	ported-name
-agents/gsd-planner.md	kept	852+9	67af03463ff4
-agents/gsd-planner.md	own	861+1	1	c8b2a421107b	27984adfc02e	ported-name
-agents/gsd-planner.md	kept	862+7	0069f4b4e941
-agents/gsd-planner.md	own	869+1	1	262d0d4a5606	6ddf09774b65	thread
-agents/gsd-planner.md	kept	870+7	6da8bd94c206
-agents/gsd-planner.md	own	877+1	1	4f9e2b9e3156	a141188b75b3	ported-name
-agents/gsd-planner.md	kept	878+22	b0518c4324ac
+agents/gsd-planner.md	kept	773+30	1deab3d8d2e6
+agents/gsd-planner.md	own	803+42	11	3271a0c6b0a2	733f839de0aa	ported-name
+agents/gsd-planner.md	kept	845+3	3868e46b9748
+agents/gsd-planner.md	own	848+12	2	9bd852f73eab	184080ecde7e	ported-name
+agents/gsd-planner.md	kept	860+1	ad332335cfaa
+agents/gsd-planner.md	own	861+9	8	4971f92777d0	c62c18456e23	ported-name
+agents/gsd-planner.md	kept	870+3	45f0ad754e15
+agents/gsd-planner.md	own	873+23	10	369ccc2f52b3	4b7ed3c4d351	ported-name
+agents/gsd-planner.md	kept	896+4	21ab516270e7
 agents/gsd-planner.md	own	900+2	2	35a8352793a6	6121098f8ff4	ported-name
-agents/gsd-planner.md	kept	902+80	be2f1b555916
-agents/gsd-planner.md	own	982+1	1	f9d590c5355b	41812ef67c9a	thread
+agents/gsd-planner.md	kept	902+22	9899f8e3b530
+agents/gsd-planner.md	own	924+1	1	c51f9190bedc	164574055e17	served
+agents/gsd-planner.md	kept	925+56	cc27aaa0e206
+agents/gsd-planner.md	own	981+2	2	360b2e89f8b1	8defa6022f80	prose
 agents/gsd-planner.md	kept	983+8	d552351d2d32
 agents/gsd-planner.md	own	991+1	1	20dcb2676a84	16e4cba4ac28	agent
-agents/gsd-planner.md	kept	992+18	b89c4100b828
+agents/gsd-planner.md	kept	992+11	16fc893c384c
+agents/gsd-planner.md	own	1003+1	1	97f4a834d2de	3b319987c245	prose
+agents/gsd-planner.md	kept	1004+6	af131e910546
 agents/gsd-project-researcher.compact.md	kept	13+4	c5b1f0464e90
 agents/gsd-project-researcher.compact.md	own	17+1	1	d1917f6febb7	b3c6238eb9c4	ported-name
 agents/gsd-project-researcher.compact.md	kept	18+64	0ac073f50066
@@ -1070,20 +1060,30 @@ gsd-core/references/planner-antipatterns.md	kept	214+6	9a685340ada1
 gsd-core/references/planner-antipatterns.md	own	220+2	2	49e544453125	e9b97a4ef1b1	served
 gsd-core/references/planner-antipatterns.md	kept	222+35	db910477d9ba
 gsd-core/references/planner-chunked.md	kept	1+10	86be6ea0f1ec
-gsd-core/references/planner-chunked.md	own	11+1	1	ceaa30df472b	b60a4033e1e5	files
-gsd-core/references/planner-chunked.md	kept	12+39	e24770c5dfb4
+gsd-core/references/planner-chunked.md	own	11+1	2	ceaa30df472b	7944035b3eec	prose
+gsd-core/references/planner-chunked.md	kept	12+22	a4b167f71227
+gsd-core/references/planner-chunked.md	own	34+1	2	23dfd78cb85d	5fadf41f8d1d	prose
+gsd-core/references/planner-chunked.md	kept	35+7	792fae059829
+gsd-core/references/planner-chunked.md	own	42+1	1	1e1594c63e17	b12b37868960	prose
+gsd-core/references/planner-chunked.md	kept	43+3	cd89b7295a10
+gsd-core/references/planner-chunked.md	own	46+1	1	8e1e0f5cea64	93d705e6d5b1	prose
+gsd-core/references/planner-chunked.md	kept	47+4	f3e6c48c77e5
 gsd-core/references/planner-chunked.md	own	51+1	1	60eb3087f484	3ca18ab07dbd	served
-gsd-core/references/planner-chunked.md	kept	52+3	8228666964e1
+gsd-core/references/planner-chunked.md	kept	52+1	ac9719b8f583
+gsd-core/references/planner-chunked.md	own	53+1	1	f367cef1f1f5	608de980f4e8	prose
+gsd-core/references/planner-chunked.md	kept	54+1	e3b0c44298fc
 gsd-core/references/planner-coupling.md	kept	1+43	27a8e4553981
 gsd-core/references/planner-failing-direction.md	kept	1+54	1d1c5075bd7b
-gsd-core/references/planner-gap-closure.md	kept	1+8	71c30c520be5
+gsd-core/references/planner-gap-closure.md	kept	1+4	4d6db3d63ff0
+gsd-core/references/planner-gap-closure.md	own	5+1	1	aa9139f1e5e2	e6b7a066aaec	prose
+gsd-core/references/planner-gap-closure.md	kept	6+3	2414f63d119f
 gsd-core/references/planner-gap-closure.md	own	9+1	1	19d44cf9638c	2bed40c44b8c	relic
 gsd-core/references/planner-gap-closure.md	kept	10+3	3b6fea29013d
 gsd-core/references/planner-gap-closure.md	own	13+1	1	f6a91a3e07db	b570ca6b508e	served
 gsd-core/references/planner-gap-closure.md	kept	14+2	7c38be306870
 gsd-core/references/planner-gap-closure.md	own	16+1	1	0a4eb110df3b	239740b21ee1	served
-gsd-core/references/planner-gap-closure.md	kept	17+47	301999a9b24c
-gsd-core/references/planner-gap-closure.md	own	64+1	1	3e8c3312abdd	5bd6ad2ded26	workflow
+gsd-core/references/planner-gap-closure.md	kept	17+32	5dd9a8e0606d
+gsd-core/references/planner-gap-closure.md	own	49+16	9	d8677aee106b	e295f3651ec1	prose
 gsd-core/references/planner-gap-closure.md	kept	65+1	e3b0c44298fc
 gsd-core/references/planner-guidance.md	kept	1+247	4d307cecacab
 gsd-core/references/planner-interface-context.md	kept	1+11	dcb7dd27e40c
@@ -3233,10 +3233,12 @@ gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	27+8	2f6637974
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	35+1	1	dd410330e275	47a8293677b2	files
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	36+3	0391dcdb4ee2
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	39+4	4	8f6cc14ee8a8	2e5c958c66f7	served
-gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	43+11	d5a3c76bfb12
+gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	43+7	dff846e0dd4e
+gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	50+2	2	9e7b96af7ab8	7ee47ad48112	served
+gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	52+2	9394338f94f6
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	54+1	1	6da80e2d5f66	6c1c29bf4e05	wait
-gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	55+7	73f7bebc782c
-gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	62+1	1	f09638a723c3	87a7e465bc29	files
+gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	55+6	9a857c4d981f
+gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	61+2	2	6a9a45af65f0	b3fe2ff8b62a	served
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	63+14	b604c9370c95
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	77+3	3	bf99922bed7c	263075fe1c92	wait
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	80+2	76d8d71ad78b
@@ -3245,7 +3247,9 @@ gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	83+37	5d1b9944
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	120+1	1	0b82b515f679	04e0e3fe1bd9	relic
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	121+4	917bbb3f0830
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	125+6	3	dd28ef5bb020	8a7830e8f918	served
-gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	131+25	045755142608
+gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	131+15	33bf4586f25d
+gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	146+1	1	b4a9bb5e51f2	ffb48df336da	prose
+gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	147+9	d348edd5ad12
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	156+1	1	ba53416989a6	a07122ccd7d9	prose
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	157+18	5e0bce91d2ca
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	175+2	2	652512b3e803	afb5ff7c7f1e	wait

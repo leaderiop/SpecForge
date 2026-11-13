@@ -476,11 +476,30 @@ fn invocations(file: &str, verb: &str) -> Vec<(usize, Vec<String>)> {
             rx.captures_iter(&line)
                 .map(|c| {
                     let words = c.get(1).map_or("", |m| m.as_str());
-                    (n, words.split_whitespace().map(String::from).collect())
+                    (n, field_flags(words.split_whitespace().map(String::from)))
                 })
                 .collect::<Vec<(usize, Vec<String>)>>()
         })
         .collect()
+}
+
+/// `words` with each `--field <name>=<value>` (the CLI's way to set a field named like one of its options) as
+/// `--<name> <value>`.
+fn field_flags(words: impl Iterator<Item = String>) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut field = false;
+    for word in words {
+        match word.split_once('=').filter(|_| field) {
+            Some((name, value)) => {
+                out.push(format!("--{name}"));
+                out.push(value.to_string());
+            }
+            None if word == "--field" => {}
+            None => out.push(word.clone()),
+        }
+        field = word == "--field";
+    }
+    out
 }
 
 /// The `--flag` names among `words`, with `_` as `-` and without `=value`.
@@ -649,11 +668,10 @@ fn threat_model_lines_name_the_security_kinds() {
     }
     let planner = read(&assets_dir().join("gsd-planner.md"));
     let lines: Vec<&str> = planner.lines().collect();
-    let close = lines
+    let named = lines
         .iter()
-        .position(|l| *l == "</threat_model>")
-        .expect("the template");
-    let named = lines[close + 1];
+        .find(|l| l.starts_with("With `@gsd/security` loaded, each trust boundary"))
+        .expect("the threat model's line");
     for word in ["`trust_boundary`", "`threat`", "`specforge new threat"] {
         assert!(named.contains(word), "{word} is not in: {named}");
     }

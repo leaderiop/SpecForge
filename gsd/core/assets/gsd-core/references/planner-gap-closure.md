@@ -3,7 +3,7 @@
 
 Triggered by `--gaps` flag. Creates plans to address verification or UAT failures.
 
-**Important: Skip deferred items.** When reading VERIFICATION.md, only the `gaps:` section contains actionable items that need closure plans. The `deferred:` section (if present) lists items explicitly addressed in later milestone phases — these are NOT gaps and must be ignored during gap closure planning. Creating plans for deferred items wastes effort on work already scheduled for future phases.
+**Important: Skip deferred items.** When reading the verification, only its `verify_gap` entities are actionable items that need closure plans. A deferred item lists items explicitly addressed in later milestone phases — these are NOT gaps and must be ignored during gap closure planning. Creating plans for deferred items wastes effort on work already scheduled for future phases.
 
 **1. Find gap sources:**
 
@@ -47,19 +47,12 @@ specforge query "$PHASE_ID" --depth 1 --kinds uat_session --pick '.nodes[fields.
 - Plans that depend on other gap closure plans → max(dependency waves) + 1
 - Also consider dependencies on existing (non-gap) plans in the phase
 
-**8. Write PLAN.md files:**
+**8. Write each gap plan with the typed edits of the planner's `<plan_format>`**, numbered after the existing plans,
+with the gaps it closes: `--gap_closure` takes the `verify_gap` or `uat_gap` ids, comma-separated. `wave` and
+`autonomous` are computed. The gaps are read with:
 
-```yaml
----
-phase: XX-name
-plan: NN              # Sequential after existing
-type: execute
-wave: N               # Computed from depends_on (see assign_waves)
-depends_on: [...]     # Other plans this depends on (gap or existing)
-files_modified: [...]
-autonomous: true
-gap_closure: true     # Flag for tracking
----
+```bash
+specforge query "$PHASE_ID" --depth 3 --kinds verify_gap,uat_gap --format context
 ```
 
-**9. Number threat IDs after the phase's existing registers** (#4683): when `@gsd/security` is loaded and `workflow.security_enforcement` is on, read the `<threat_model>` blocks of the phase's existing PLAN files and continue after their highest `T-{phase}-NN` — do not renumber from `T-{phase}-01`. Every ID already names a specific threat in an earlier plan; reusing it makes `SECURITY.md` rows and `VALIDATION.md`'s Threat Ref column ambiguous. `T-{phase}-SC` is reserved and every plan keeps it. `specforge gsd threat-ids` reports any cross-plan duplicates (`threat_id_duplicates`) and execute-phase hard-stops on them, so a collision surfaces here as a failed plan check.
+**9. Number threat IDs after the phase's existing registers** (#4683): when `@gsd/security` is loaded and `workflow.security_enforcement` is on, read the phase's threat ids (`specforge gsd threat-ids`) and continue after their highest `T-{phase}-NN` — do not renumber from `T-{phase}-01`. Every ID already names a specific threat in an earlier plan; reusing it makes the phase's threat references ambiguous. `T-{phase}-SC` is reserved and every plan keeps it. `specforge gsd threat-ids` reports any cross-plan duplicates (`threat_id_duplicates`) and execute-phase hard-stops on them, so a collision surfaces here as a failed plan check.

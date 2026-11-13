@@ -52,8 +52,9 @@ pub const PLANNER: Role = Role {
         "specforge:validate",
         "specforge:explain",
         "specforge:export",
+        "specforge:schema",
     ],
-    writes: &["specforge:edit", "specforge:collect"],
+    writes: &["specforge:edit", "specforge:collect", "specforge:gsd.phase"],
 };
 
 /// Judges a plan or a whole against the graph; writes nothing.
@@ -184,13 +185,13 @@ mod tests {
     }
 
     #[test]
-    fn the_roles_name_thirteen_graph_tools() {
+    fn the_roles_name_fourteen_graph_tools() {
         let graph: BTreeSet<&str> = classes()
             .filter_map(|c| match parse_class(c) {
                 Some(EngineClass::Tool(t)) if t.group.graph() => Some(t.name),
                 _ => None,
             })
             .collect();
-        assert_eq!(graph.len(), 13, "{graph:?}");
+        assert_eq!(graph.len(), 14, "{graph:?}");
     }
 }

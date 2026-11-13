@@ -29,11 +29,6 @@ agents/gsd-plan-checker.md	- Plan creates a file listed in PATTERNS.md but does 
 agents/gsd-plan-checker.md	description: "Plan 01-03 creates src/controllers/auth.ts but does not reference analog src/controllers/users.ts from PATTERNS.md"
 agents/gsd-plan-checker.md	description: "Plan 01-02 creates a controller but does not include the shared auth middleware pattern from PATTERNS.md"
 agents/gsd-plan-checker.md	- Measurement confirms plan → WARNING: RESEARCH.md is stale; recommend updating it.
-agents/gsd-planner.md	**Write is for net-new PLAN.md only.** For any existing file (`ROADMAP.md`, the spec files) use `Edit` (scoped replacement), never `Write`. See `update_roadmap`.
-agents/gsd-planner.md	1. **Default: write each PLAN.md in a single `Write` call.** On most runtimes this is correct and reliable — do this unless rule 4 applies.
-agents/gsd-planner.md	5. **Verify the write landed (#4927).** A `Write` that returns success can still have stored a truncated payload. After writing each PLAN.md, run `verify.plan-structure` on it (see below) and read the file's last lines with your Read tool: it must end with the closing `</output>` (or the last closing tag of the template) and must not contain `<!-- gsd:write-continue -->`. If it ends mid-tag, rewrite it with the incremental method in rule 4.
-agents/gsd-planner.md	Update ROADMAP.md to finalize phase placeholders:
-agents/gsd-planner.md	**CRITICAL — use `Edit` (scoped), NOT `Write`, for ROADMAP.md.** A whole-file `Write` destroys all phase entries outside your diff window. Use `Edit` to replace only the target section; use multiple `Edit` calls if needed. NEVER pass the entire ROADMAP.md content to `Write`.
 agents/gsd-research-synthesizer.compact.md	- Identify confidence levels and gaps; write SUMMARY.md
 agents/gsd-research-synthesizer.compact.md	## Step 6: Write SUMMARY.md
 agents/gsd-research-synthesizer.compact.md	5. **If Write errors,** surface the actual error in your return message. Do not silently fall back to returning content — that hides the failure. **Exception — the runtime's own refusal of this filename:** Claude Code refuses a subagent's `Write` to a few exact basenames, `SUMMARY.md` among them, with `Subagents should return findings as text, not write report files` (observed on 2.1.301; name-based, not tied to your tools or effort). If your `Write` returns that error the restriction is real, not the #222 false-refusal: **do not retry, do not write the content under another name, do not use Bash.** Finish Step 7, then in Step 8 append the complete SUMMARY.md document under `### SUMMARY.md (returned inline — runtime refused the write)` so the orchestrator persists it.
@@ -89,9 +84,6 @@ gsd-core/references/git-integration.md	| PLAN.md created         | NO      | Int
 gsd-core/references/git-integration.md	| RESEARCH.md created     | NO      | Intermediate                                     |
 gsd-core/references/mvp-concepts.md	- **Per-phase mode authoring** — `workflows/mvp-phase.md` (writes `**Mode:** mvp` to ROADMAP.md after collecting the user story).
 gsd-core/references/mvp-concepts.md	- **`--mvp` and `--prd <file>` together on Phase 1.** Both paths converge at the planner spawn. The PRD express path creates `CONTEXT.md` from the PRD file and continues to the research step; the Walking Skeleton gate fires independently when Phase 1 + new project + `--mvp`. The planner therefore receives both `WALKING_SKELETON=true` and PRD-derived context. This is intentional: the PRD informs what the skeleton should prove.
-gsd-core/references/planner-chunked.md	Write **only** `{OUTLINE_FILE}`, the path the orchestrator names. Do not write any PLAN.md files.
-gsd-core/references/planner-chunked.md	Write **exactly one** `{PHASE_DIR}/{plan_id}-PLAN.md`. Do not write any other plan files.
-gsd-core/references/planner-gap-closure.md	**8. Write PLAN.md files:**
 gsd-core/references/planner-reviews.md	### Step 5: Write the ledger into PLAN.md (#3806)
 gsd-core/references/planner-reviews.md	Add or extend a `## Review Dispositions Ledger` section in the affected PLAN.md, containing one
 gsd-core/references/planner-reviews.md	PLAN.md content written before this convention existed is not migrated or flagged by it.
@@ -261,9 +253,6 @@ gsd-core/workflows/new-workspace.md	Write the workspace manifest at `$TARGET_PAT
 gsd-core/workflows/new-workspace.md	- [ ] WORKSPACE.md manifest written with correct repo table
 gsd-core/workflows/next.md	1. For each incomplete item, create a backlog entry in `ROADMAP.md` under `## Backlog` using the existing `999.x` numbering scheme:
 gsd-core/workflows/plan-phase/detail/elaboration.md	**If "Prioritize":** Use AskUserQuestion (multiSelect) to let user pick which items are "now" vs "later". Create CONTEXT.md for each sub-phase with the selected items.
-gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	PLAN.md files:
-gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	Do NOT write any PLAN.md files in this Task.
-gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	4. Spawn the planner in **single-plan** mode — it must write exactly one PLAN.md file. The prompt
 gsd-core/workflows/plan-phase/steps/prd-express-path.md	- Create CONTEXT.md in the phase directory
 gsd-core/workflows/plan-phase/steps/prd-express-path.md	4. Write CONTEXT.md:
 gsd-core/workflows/plan-phase/steps/prd-express-path.md	**Effect:** This completely bypasses step 4 (Load CONTEXT.md) since we just created it. The rest of the workflow (research, planning, verification) proceeds normally with the PRD-derived context.

@@ -9,7 +9,8 @@ shorter-lived Tasks to bound the blast radius of Windows stdio hangs.
 
 ### outline-only
 
-Write **only** `{OUTLINE_FILE}`, the path the orchestrator names. Do not write any PLAN.md files.
+Write **only** the outline scratch the orchestrator names (`{OUTLINE_FILE}`, under `.specforge/tmp/`): it is
+no spec file, and no plan entity is written in this mode.
 Return:
 
 ```markdown
@@ -32,7 +33,8 @@ supports it (#3777; see `gsd-core/workflows/plan-phase/steps/chunked-planning-mo
 
 ### single-plan
 
-Write **exactly one** `{PHASE_DIR}/{plan_id}-PLAN.md`. Do not write any other plan files.
+Write **exactly one** plan entity, `{plan_id}`, with the typed edits of the planner's `<plan_format>`, in its own
+file. Write no other plan.
 Return:
 
 ```markdown
@@ -40,15 +42,15 @@ Return:
 
 **Plan:** {plan-id}
 **Objective:** {brief}
-**File:** {PHASE_DIR}/{plan-id}-PLAN.md
+**File:** {the plan's spec file}
 **Tasks:** {N}
 ```
 
-The orchestrator verifies the file exists on disk after each return, commits it, then moves
+The orchestrator verifies the plan entity exists after each return, commits it, then moves
 to the next plan entry from the outline.
 
 ## Resume Behaviour
 
 If the orchestrator detects that the outline already holds its marker (from a prior interrupted
 run), it skips the outline-only Task and goes directly to single-plan Tasks, skipping any
-`{plan_id}-PLAN.md` files that already exist on disk.
+plan whose entity already exists.

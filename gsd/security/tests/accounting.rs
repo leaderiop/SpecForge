@@ -259,7 +259,7 @@ fn the_severity_gate_cases() {
     has_all(
         planner,
         &[
-            "| Threat ID | Category | Component | Severity | Disposition | Mitigation Plan |",
+            "--severity <s>",
             "critical|high|medium|low",
             "Every threat has a Severity (critical|high|medium|low)",
         ],
@@ -513,7 +513,7 @@ const SECURE_PORTED: &[(&str, &str, &str)] = &[
     (
         "gsd-planner.md threat_model register header has Severity column",
         "the_severity_gate_cases",
-        "\"| Threat ID | Category | Component | Severity | Disposition | Mitigation Plan |\"",
+        "\"--severity <s>\"",
     ),
     (
         "gsd-planner.md security instruction assigns severity to each threat",

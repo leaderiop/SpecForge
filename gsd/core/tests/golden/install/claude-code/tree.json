@@ -40,8 +40,8 @@
     "sha256": "1f8fb91e3ff354a6772f88fa6dab5a1f414eb0ae87d4555ceb83098bbae59e5d"
   },
   ".claude/agents/gsd-planner.md": {
-    "bytes": 52747,
-    "sha256": "dc0c0890953e6c04569d9b2fbea47b2ffa1f4d0b68a647135a97631494a102d5"
+    "bytes": 51764,
+    "sha256": "41b9cac3d1c51adcabc1dcc8fcee13ce04212998f9fa822d7bc4eaea3f72f176"
   },
   ".claude/agents/gsd-project-researcher.md": {
     "bytes": 20668,
@@ -52,8 +52,8 @@
     "sha256": "e044cb263f37f78b34d5628c2ccb6e135cbee0fd660ddaa6f60ba8b7fe085b88"
   },
   ".claude/agents/gsd-roadmapper.md": {
-    "bytes": 27241,
-    "sha256": "393336f9f28aa96a939dfa0faa09e19f845ef41402710468c122383f8acd679d"
+    "bytes": 27615,
+    "sha256": "1d873ec09769b8bfa6d87e0b12eb80791b459294ece3944d1da9624f059d2c9c"
   },
   ".claude/agents/gsd-verifier.md": {
     "bytes": 54104,

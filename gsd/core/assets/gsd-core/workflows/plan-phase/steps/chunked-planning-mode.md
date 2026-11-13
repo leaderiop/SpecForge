@@ -48,8 +48,8 @@ Display:
 ◆ Chunked mode: spawning outline planner... (runs in a subagent — no output until it returns, ~1–5 min; expected, not a freeze)
 ```
 
-Spawn the planner in **outline-only** mode — it must write only the outline manifest, not any
-PLAN.md files:
+Spawn the planner in **outline-only** mode — it must write only the outline manifest, and no plan
+entity:
 
 **Dispatch/wait gate — `PLANNER_STALL_DETECTION_ENABLED` (config key `planner.stall_detection_enabled`, resolved in `plan-phase/steps/stall-detection-helpers.md`):**
 - **`true` (default):** use `run_in_background=true` in the Agent() call below, then run the outline watch cycle after it (it watches the outline, the one file this planner writes).
@@ -59,7 +59,7 @@ Agent(
   prompt="{same planning_context as step 8, plus:}
 
   **Chunked mode: outline-only.**
-  Do NOT write any PLAN.md files in this Task.
+  Write no plan entity in this Task.
   Write only: {OUTLINE_FILE}
 
   The outline must be a markdown table with columns:
@@ -141,7 +141,7 @@ path regardless of `CHUNKED_PARALLEL` — there is nothing to batch.
    Concurrent dispatch: print one line per plan in the runnable set, immediately before issuing
    the batch's Agent() calls together.
 
-4. Spawn the planner in **single-plan** mode — it must write exactly one PLAN.md file. The prompt
+4. Spawn the planner in **single-plan** mode — it must write exactly one plan entity. The prompt
    is unchanged per plan; what changes is whether the runnable set's Agent() calls are issued one
    at a time (serial) or together in one message (concurrent, every call still carrying
    `run_in_background=true` exactly as today when `PLANNER_STALL_DETECTION_ENABLED` (config key `planner.stall_detection_enabled`) is `true`
