@@ -163,6 +163,16 @@ const CONVERTED: &[(&str, &[&str])] = &[
         "gsd-core/workflows/discuss-phase/templates/discussion-log.md",
         &["discussion"],
     ),
+    (
+        "gsd-core/templates/spec.md",
+        &[
+            "phase_spec",
+            "locked_req",
+            "interview",
+            "edge",
+            "spec_prohibition",
+        ],
+    ),
 ];
 
 /// A converted template's answer names its kinds and how to read their fields (`specforge schema --kind`), each kind

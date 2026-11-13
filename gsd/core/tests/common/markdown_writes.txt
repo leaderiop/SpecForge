@@ -37,9 +37,6 @@ commands/gsd/complete-milestone.md	6. **Update PROJECT.md:**
 commands/gsd/complete-milestone.md	- PROJECT.md updated with current state
 commands/gsd/new-milestone.md	Brownfield equivalent of new-project. Project exists, PROJECT.md has history. Gathers "what's next", updates PROJECT.md, then runs requirements → roadmap cycle.
 commands/gsd/ns-workflow.md	| Create a PLAN.md | gsd-plan-phase |
-commands/gsd/spec-phase.md	5. Gate: ambiguity ≤ 0.20 AND all dimensions meet minimums → write SPEC.md
-commands/gsd/spec-phase.md	- `--auto` — Skip interactive questions; Claude selects recommended defaults and writes SPEC.md
-commands/gsd/spec-phase.md	- SPEC.md written with falsifiable requirements, explicit boundaries, and acceptance criteria
 commands/gsd/validate-phase.md	Output: updated VALIDATION.md + generated test files.
 gsd-core/references/agent-contracts.md	| gsd-ai-researcher | AI framework research | No marker (writes the AI-SPEC.md framework section via Edit) | `gsd-core/workflows/ai-integration-phase.md` reads the AI-SPEC.md section after the agent returns | artifact+query |
 gsd-core/references/agent-contracts.md	| gsd-code-fixer | Applies code-review fixes | No marker (fix commits + REVIEW.md updates) | `gsd-core/workflows/code-review-fix.md` reads REVIEW.md resolution state + git log | artifact+query |
@@ -70,7 +67,6 @@ gsd-core/templates/UAT.md	4. UAT.md Gaps section updated with diagnosis:
 gsd-core/templates/milestone-archive.md	- Update ROADMAP.md to collapse completed milestone in `<details>` tag
 gsd-core/templates/milestone-archive.md	- Update PROJECT.md to brownfield format with Current State section
 gsd-core/templates/milestone.md	If MILESTONES.md doesn't exist, create it with header:
-gsd-core/templates/spec.md	**SPEC.md is a one-way door for requirements.** discuss-phase will treat these as locked. If requirements change after SPEC.md is written, the user should update SPEC.md first, then re-run discuss-phase.
 gsd-core/templates/state.md	**Creation:** After ROADMAP.md is created (during init)
 gsd-core/templates/state.md	- execute: After SUMMARY.md created
 gsd-core/templates/verification-report.md	covered_files: # #4155 — see agents/gsd-verifier.md's "Create VERIFICATION.md" step for what belongs here and how to compute it
@@ -152,21 +148,6 @@ gsd-core/workflows/settings.md	Store `$GSD_CONFIG_PATH` — all subsequent reads
 gsd-core/workflows/ship.md	{key-files.created and key-files.modified from SUMMARY.md frontmatter}
 gsd-core/workflows/ship.md	Update STATE.md to reflect the shipping action. Write the activity line only, with its description; do not write `Status`. At ship time the Current Position block already describes the next phase, and `Status` feeds the frontmatter `status` field, so a free-text value such as "Phase N shipped" does not belong there (#5165).
 gsd-core/workflows/ship.md	- [ ] STATE.md updated with shipping status
-gsd-core/workflows/spec-phase.md	**Gate:** ambiguity ≤ 0.20 AND all dimensions ≥ their minimums → ready to write SPEC.md.
-gsd-core/workflows/spec-phase.md	message the interactive "Skip" prints. Log: `[auto] SPEC.md exists — reusing as-is.` An unattended
-gsd-core/workflows/spec-phase.md	If "Update": Load existing SPEC.md, continue to Step 3.
-gsd-core/workflows/spec-phase.md	- question: "Ambiguity is [score] — requirements are clear enough to write SPEC.md. Proceed?"
-gsd-core/workflows/spec-phase.md	- "Yes — write SPEC.md" → Jump to Step 5.5
-gsd-core/workflows/spec-phase.md	**If `--auto`:** Write SPEC.md anyway — flag unresolved dimensions. Log: `[auto] Max rounds reached. Writing SPEC.md with [N] dimensions below minimum. Planner will need to treat these as assumptions.`
-gsd-core/workflows/spec-phase.md	- "Write SPEC.md anyway — flag gaps" → Write SPEC.md, mark unresolved dimensions in Ambiguity Report
-gsd-core/workflows/spec-phase.md	- options: "Resolve now" (loop back) / "Write SPEC.md anyway — flag unresolved" /
-gsd-core/workflows/spec-phase.md	- On "anyway": write SPEC.md with those rows marked `⚠ Edge unresolved — planner must
-gsd-core/workflows/spec-phase.md	- options: "Resolve now" (loop back) / "Write SPEC.md anyway — flag unresolved" /
-gsd-core/workflows/spec-phase.md	- On "anyway": write SPEC.md with those rows marked `⚠ Prohibition unresolved — planner
-gsd-core/workflows/spec-phase.md	Write to: `{phase_dir}/{padded_phase}-SPEC.md`
-gsd-core/workflows/spec-phase.md	If `commit_docs` is false the CLI returns `skipped`; SPEC.md is written, not committed.
-gsd-core/workflows/spec-phase.md	SPEC.md written — {N} requirements locked.
-gsd-core/workflows/spec-phase.md	- SPEC.md is NEVER written if the user selects "Abandon"
 gsd-core/workflows/transition.md	(re-running `phase.complete` would double-write STATE.md/ROADMAP.md). Run
 gsd-core/workflows/transition.md	**Delegate ROADMAP.md and STATE.md updates to the computed phase status:**
 gsd-core/workflows/transition.md	**Update PROJECT.md:**

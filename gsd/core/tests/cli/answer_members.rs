@@ -30,6 +30,7 @@ type Mode = (&'static str, fn() -> Project, &'static [&'static str]);
 /// Every mode of every listed command.
 const MODES: &[Mode] = &[
     ("branch-check", committed, &[]),
+    ("edge-probe", taskboard, &["v1.0/03"]),
     ("gate-command", taskboard, &["build"]),
     ("gate-command", taskboard, &["test"]),
     ("milestone-branches", committed, &["v1.0"]),

@@ -22,6 +22,7 @@ mod roadmap;
 mod scripts;
 mod search;
 mod shapes;
+mod spec;
 mod stall;
 mod typed;
 

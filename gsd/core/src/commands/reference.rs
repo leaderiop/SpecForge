@@ -19,7 +19,6 @@ const TEMPLATES: &[(&str, &[&str])] = &[
     ("requirements.md", &["requirement"]),
     ("roadmap.md", &["milestone", "phase"]),
     ("milestone.md", &["milestone", "phase"]),
-    ("spec.md", &["phase_spec"]),
     ("summary.md", &["summary"]),
     ("UAT.md", &["uat_session"]),
     ("VALIDATION.md", &["validation"]),

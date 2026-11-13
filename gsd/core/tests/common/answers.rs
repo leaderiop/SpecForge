@@ -20,6 +20,7 @@ pub const ANSWERS: &[(&str, &[&str])] = &[
             "blocks_commit",
         ],
     ),
+    ("edge-probe", &["kind", "subject", "items", "coverage"]),
     (
         "gate-command",
         &["target", "scope", "source", "argv", "note"],
