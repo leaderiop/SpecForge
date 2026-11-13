@@ -40,6 +40,9 @@ behavior serve_context_pack "Serve a Context Pack" {
     the MCP tool and the resource read with a role MUST answer the same bytes (ADR 0356).
   """
   verify unit "a budgeted context read of a plan for its executor keeps every core member and cuts only enrich sections"
+  verify unit "a section digests as the judged input of the same selector does"
+  verify unit "a files section lists paths and digests and a settings section the values of its settings"
+  verify unit "the pack digest covers the sections served and recomputes from the pack"
 }
 
 behavior declare_context_route "Declare a Context Route" {

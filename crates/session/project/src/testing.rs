@@ -40,7 +40,10 @@ pub use collected::{
     CODE, COLLECTED_EXTENSIONS, Collected, NODE, NODE_REPORT, SPEC, UNIT_REPORT, collected_answer,
     collected_wire, stored, stored_with,
 };
-pub use contexts::{CONTEXT_PLAN, GSD_CONTEXT_SPEC, gsd_context_project};
+pub use contexts::{
+    CONTEXT_INSTRUCTIONS, CONTEXT_PLAN, GSD_CONTEXT_SPEC, declare_gsd_contexts,
+    gsd_context_builder, gsd_context_project, gsd_context_runtime,
+};
 pub use gsd::{
     GSD_EXTENSION, gsd_history_extension, gsd_history_kinds, gsd_history_runtime,
     gsd_member_history_runtime,

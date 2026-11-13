@@ -2,9 +2,12 @@
 //! it reaches whose kinds the routed fixture declares, with the twin's ids and titles and only the fields that fixture
 //! declares, so a budgeted read of the plan is the read an executor makes of the twin.
 
+use specforge_extension_sdk::prelude::ContributionsBuilder;
+use specforge_wasm::testing::InProcessRuntime;
+
 use super::TestProject;
-use super::judged::{CODE_CORE, GSD_JUDGED};
-use super::routed::gsd_routed_project_over;
+use super::judged::{CODE_CORE, GSD_JUDGED, PLAN_CHECK_INPUTS};
+use super::routed::{gsd_routed_builder, gsd_routed_project_over, gsd_routed_serving};
 
 /// The plan whose context the tests read.
 pub const CONTEXT_PLAN: &str = "v1.0/02/02-01";
@@ -197,11 +200,68 @@ deferred_idea DI1 "Keep two machines in step" {
 }
 "#;
 
+/// The instructions file of [`gsd_context_project`].
+pub const CONTEXT_INSTRUCTIONS: &str = "Write the store before the command line.\n";
+
 /// A project over `@gsd/core` and [`CODE_CORE`] whose spec is [`GSD_CONTEXT_SPEC`], with the instructions file
 /// `CLAUDE.md` and the files plan `02-01` modifies on disk.
 pub fn gsd_context_project() -> TestProject {
     gsd_routed_project_over(GSD_CONTEXT_SPEC, &[GSD_JUDGED, CODE_CORE])
+        .file("CLAUDE.md", CONTEXT_INSTRUCTIONS)
         .file("src/store.js", "")
         .file("src/cli.js", "")
         .file("test/store.test.js", "")
+}
+
+/// The executor's agent and two context routes of `@gsd/core`, as `c` contributes them: `executor`, what an executor
+/// reads of a plan (core: the plan, its body, its phase and requirements; enrich: its phase's context, decisions, the
+/// instructions, the research and the sibling plans; the `plan_check` setting), and `plan-checker`, every input of the
+/// plan-check rules as a core section.
+pub fn declare_gsd_contexts(c: &mut ContributionsBuilder) {
+    c.agent("gsd-executor", |a| {
+        a.description("Executes a plan");
+    });
+    c.context("executor", |r| {
+        r.subject("plan")
+            .description("What an executor reads of a plan")
+            .agent("gsd-executor")
+            .budget(6000)
+            .core("plan", "self")
+            .core(
+                "body",
+                "self<task|checkpoint|truth|artifact|key_link|prohibition|user_setup.plan",
+            )
+            .core("phase", "self.phase")
+            .core("requirements", "self.requirements")
+            .enrich("context", "self.phase<context|deferred_idea.phase")
+            .enrich("decisions", "self.phase<decision.phase")
+            .enrich("instructions", "file(\"CLAUDE.md\", \"AGENTS.md\")")
+            .enrich(
+                "research_items",
+                "self.phase<research.phase<finding|stack_choice|pattern|pitfall|dont_hand_roll|open_question.research",
+            )
+            .enrich("siblings", "self.phase<plan.phase")
+            .settings(&["plan_check"]);
+    });
+    c.context("plan-checker", |r| {
+        r.subject("plan")
+            .description("What the plan checker reads of a plan")
+            .agent("gsd-plan-checker")
+            .budget(8000);
+        for (name, selector) in PLAN_CHECK_INPUTS {
+            r.core(name, selector);
+        }
+    });
+}
+
+/// [`gsd_routed_builder`] with [`declare_gsd_contexts`], under the short name `gsd`.
+pub fn gsd_context_builder() -> ContributionsBuilder {
+    let mut c = gsd_routed_builder();
+    declare_gsd_contexts(&mut c);
+    c
+}
+
+/// `@gsd/core` with its context routes, served in process.
+pub fn gsd_context_runtime() -> InProcessRuntime {
+    gsd_routed_serving(gsd_context_builder)
 }

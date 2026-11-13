@@ -17,6 +17,7 @@ mod checks_registries;
 mod checks_structured;
 mod compile;
 mod computed;
+mod context_sections;
 mod copy;
 mod custom_rules;
 mod delta;
