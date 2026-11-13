@@ -236,6 +236,7 @@ module specforge_project "specforge-project" {
     specforge_coverage,
     specforge_diagnostics,
     specforge_effects,
+    specforge_emitter,
     specforge_extension_sdk,
     specforge_graph,
     specforge_installed,
