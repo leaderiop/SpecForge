@@ -1,11 +1,6 @@
 use crate::target::View;
 use crate::tool::{CoreTool, Effect, ReplySpec, ToolGroup};
-use serde::Serialize;
-use specforge_common::SourceSpan;
-use specforge_common::shape::Shape;
-use specforge_ops::read::navigate::{
-    DIRECTION, Direction, Navigator, Occurrence, Precision, ReferenceQuery, Role,
-};
+use specforge_ops::read::navigate::{Direction, Navigator, ReferenceLocations, ReferenceQuery};
 
 use crate::args::Arguments;
 use crate::refusal::ArgumentOf;
@@ -23,42 +18,6 @@ pub struct Args {
     direction: Direction,
     /// Also return the entity's own declaration (its name)
     include_declaration: bool,
-}
-
-/// `specforge.find_references`'s reply.
-#[derive(Debug, Serialize, Shape)]
-pub struct Reply {
-    entity_id: String,
-    #[shape(names = specforge_ops::read::navigate::DIRECTION)]
-    direction: String,
-    locations: Vec<Location>,
-}
-
-/// One occurrence of the entity's ID (`McpReferenceLocation`).
-#[derive(Debug, Serialize, Shape)]
-pub struct Location {
-    referencing_entity_id: String,
-    referenced_entity_id: String,
-    /// The field naming the referenced entity; none for its declaration.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    field: Option<String>,
-    role: Role,
-    precision: Precision,
-    source_span: SourceSpan,
-}
-
-impl Location {
-    /// One occurrence as a location.
-    pub(crate) fn of(occurrence: &Occurrence) -> Self {
-        Location {
-            referencing_entity_id: occurrence.holder.to_string(),
-            referenced_entity_id: occurrence.target.to_string(),
-            field: occurrence.field.as_ref().map(ToString::to_string),
-            role: occurrence.role,
-            precision: occurrence.precision,
-            source_span: occurrence.span.clone(),
-        }
-    }
 }
 
 /// `specforge.find_references`: each occurrence of the entity's ID, held by
@@ -83,21 +42,16 @@ impl CoreTool for Tool {
     const SPEC: ReplySpec = ReplySpec::Type("McpReferenceResult");
     type Args = Args;
     type Input = View;
-    type Returns = Answered<Reply>;
+    type Returns = Answered<ReferenceLocations>;
 
-    fn call(view: ProjectView<'_>, args: Args) -> Answered<Reply> {
+    fn call(view: ProjectView<'_>, args: Args) -> Answered<ReferenceLocations> {
         let query = ReferenceQuery {
             direction: args.direction,
             include_declaration: args.include_declaration,
         };
-        let occurrences = Navigator::new(view)
-            .references(&args.entity_id, query)
-            .map_err(Self::refused)?;
-        Ok(Reply {
-            direction: DIRECTION.name_of(args.direction).to_string(),
-            entity_id: args.entity_id,
-            locations: occurrences.iter().map(Location::of).collect(),
-        }
-        .into())
+        Ok(Navigator::new(view)
+            .reference_locations(&args.entity_id, query)
+            .map_err(Self::refused)?
+            .into())
     }
 }

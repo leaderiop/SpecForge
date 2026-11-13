@@ -19,6 +19,7 @@ Commands:
   stats         Show project statistics
   explore       Where to start reading the graph: starting points, hubs and unconnected entities
   anchors       The source places an entity is anchored to, or the entities a source file's facts are anchored to
+  refs          List the references to an entity: where other entities name it, or where it names them
   review        Coverage gaps around an entity, or of the whole project
   infer-guide   What to look for in code to write a kind's entities
   prompt        Render an extension's prompt: `specforge prompt <extension>.<prompt> [arguments]`

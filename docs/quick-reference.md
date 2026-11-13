@@ -36,6 +36,7 @@ specforge trace <id> --route <name>  # along the named route (`<extension>/<rout
 specforge trace <id> --reach         # the traceability chain, whatever route starts at its kind
 specforge trace --plan plan.json     # check an agent plan (AgentPlan JSON) against the graph
 specforge search <text> [--kinds k,..]  # entities by id, title or text (specforge.search)
+specforge refs <id> [--direction both]  # what references it (specforge.find_references)
 specforge schema                     # emit the Graph Protocol schema
 specforge model                      # render the logical data model
 specforge outline                    # render the extension architecture

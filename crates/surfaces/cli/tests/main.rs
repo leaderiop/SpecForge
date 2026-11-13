@@ -81,6 +81,7 @@ mod project_from_path;
 mod publish;
 mod query;
 mod read_views;
+mod refs;
 mod refusal_wire;
 mod registry;
 mod registry_dry_run;

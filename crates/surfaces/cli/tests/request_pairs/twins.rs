@@ -1,4 +1,5 @@
-//! The pairing table's rows for the command-line twins of MCP reads (ADR 0355): `search` and `specforge.search`.
+//! The pairing table's rows for the command-line twins of MCP reads (ADR 0355): `search` and `specforge.search`,
+//! `refs` and `specforge.find_references`.
 //! One table with the rows of `request_pairs` (ADR 0101 D5): [`super::pair`] and the unique-label test read both.
 
 use serde_json::json;
@@ -24,6 +25,32 @@ pub(super) const TWIN_PAIRS: &[Pair] = &[
         tool: "specforge.search",
         arguments: || json!({"query": "alpha", "field": "contract"}),
     },
+    Pair {
+        label: "refs_incoming",
+        project: rv1,
+        cli: &["refs", "Red", "--path", "{root}", "--format", "json"],
+        exit: 0,
+        tool: "specforge.find_references",
+        arguments: || json!({"entity_id": "Red"}),
+    },
+    Pair {
+        label: "refs_both_with_declaration",
+        project: rv1,
+        cli: &[
+            "refs",
+            "Red",
+            "--direction",
+            "both",
+            "--include-declaration",
+            "--path",
+            "{root}",
+            "--format",
+            "json",
+        ],
+        exit: 0,
+        tool: "specforge.find_references",
+        arguments: || json!({"entity_id": "Red", "direction": "both", "include_declaration": true}),
+    },
 ];
 
 #[test]
@@ -35,4 +62,26 @@ fn search_is_one_request() {
 #[test]
 fn search_field_without_value_is_refused_on_both() {
     assert_eq!(pair("search_field_without_value").0, Outcome::Refused);
+}
+
+#[test]
+fn refs_is_one_request() {
+    let (cli, _) = pair("refs_incoming");
+    assert!(matches!(cli, Outcome::Answered(_)), "{cli:?}");
+}
+
+#[test]
+fn refs_with_direction_and_declaration_is_one_request() {
+    match pair("refs_both_with_declaration").0 {
+        Outcome::Answered(document) => {
+            let roles: Vec<&str> = document["locations"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|location| location["role"].as_str().unwrap())
+                .collect();
+            assert!(roles.contains(&"declaration"), "{document}");
+        }
+        Outcome::Refused => panic!("both surfaces refused"),
+    }
 }

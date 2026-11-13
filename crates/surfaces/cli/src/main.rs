@@ -49,6 +49,7 @@ mod prompt;
 mod providers;
 mod publish;
 mod query;
+mod refs;
 mod remove;
 mod review;
 mod scaffold;
@@ -121,6 +122,8 @@ enum Commands {
     Explore(explore::Args),
     /// The source places an entity is anchored to, or the entities a source file's facts are anchored to
     Anchors(anchors::Args),
+    /// List the references to an entity: where other entities name it, or where it names them
+    Refs(refs::Args),
     /// Coverage gaps around an entity, or of the whole project
     Review(review::Args),
     /// What to look for in code to write a kind's entities
@@ -329,6 +332,7 @@ fn run(command: Commands, terminal: &Terminal, ports: &Ports) -> Exit {
         Commands::Stats(args) => args.run(terminal, ports),
         Commands::Explore(args) => args.run(terminal, ports),
         Commands::Anchors(args) => args.run(terminal, ports),
+        Commands::Refs(args) => args.run(terminal, ports),
         Commands::Review(args) => args.run(terminal, ports),
         Commands::InferGuide(args) => args.run(terminal, ports),
         Commands::Prompt(args) => args.run(terminal, ports),

@@ -694,6 +694,26 @@ behavior provide_search_cli "Provide CLI Search Command" {
   verify integration "search with no hit says no entity matches"
 }
 
+behavior provide_refs_cli "Provide CLI Refs Command" {
+  invariants [diagnostic_determinism]
+  category   cli
+  contract   """
+    specforge refs ENTITY [--direction incoming|outgoing|both]
+    [--include-declaration] [--path PROJECT] [--format human|json] [--pick
+    PATH] MUST answer the references of ENTITY (ADR 0355) in the project
+    compiled at PROJECT: under --format json the document
+    specforge.find_references replies for the same direction and
+    declaration options. Human output is one line per occurrence, by file
+    and position, file:line:col, the holder and its field, an arrow and
+    the entity named, and the role; the declaration, when asked for, is
+    marked as such; an empty answer says no reference. An unknown ENTITY
+    is E003, exit 1. refs is a core command name: an extension command
+    short-named refs is E114.
+  """
+  verify integration "refs prints the locations find_references returns"
+  verify integration "refs of an unknown entity is E003"
+}
+
 behavior provide_review_cli "Provide CLI Review Command" {
   features   [agent_export, extension_driven_coverage]
   invariants [diagnostic_determinism]
