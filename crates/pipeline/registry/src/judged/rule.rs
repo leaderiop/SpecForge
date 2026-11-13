@@ -304,10 +304,10 @@ fn check_filters(registries: Registries<'_>, kinds: &Kinds) -> Result<(), WalkEr
         })?;
         if matches!(
             entry.writer(),
-            Some(FieldWriter::Computed | FieldWriter::Verdict)
+            Some(FieldWriter::Computed | FieldWriter::Verdict | FieldWriter::Context)
         ) {
             return Err(format!(
-                "filter '{kind}[{field}=…]': '{kind}.{field}' is computed or written by a verdict, not authored"
+                "filter '{kind}[{field}=…]': '{kind}.{field}' is computed or written by a verdict or a context record, not authored"
             )
             .into());
         }

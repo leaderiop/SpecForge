@@ -475,10 +475,30 @@ fn read(
     form
 }
 
+/// Whether `declared` has the shape of a context record (ADR 0356 D9): a block of exactly `route` and `digest`
+/// (strings) and `max_tokens` (an integer), none of them written by anyone else.
+fn is_record(declared: &FieldDescriptor) -> bool {
+    let shape = [
+        ("route", FieldType::String),
+        ("digest", FieldType::String),
+        ("max_tokens", FieldType::Integer),
+    ];
+    FieldType::parse(&declared.field_type) == Some(FieldType::Block)
+        && declared.members.len() == shape.len()
+        && shape.iter().all(|(name, ty)| {
+            declared.members.iter().any(|member| {
+                member.name == *name
+                    && FieldType::parse(&member.field_type) == Some(*ty)
+                    && member.writer.is_none()
+            })
+        })
+}
+
 /// The writer `declared` states, with whatever contradicts it dropped and listed in `problems` (ADR 0287): an
-/// unknown writer is dropped, and so is `collector` (a collector writes whole entities, ADR 0327); `harness` on a member is dropped (a ledger key is an entity and a field); a computed
-/// field is never `required`, `immutable` or `append_only` (those are dropped), and one that is also `derived_from`
-/// has two writers, so its writer is dropped.
+/// unknown writer is dropped, and so is `collector` (a collector writes whole entities, ADR 0327); `harness` or
+/// `context` on a member is dropped (a ledger key is an entity and a field), and `context` on a field not shaped as a
+/// context record (ADR 0356); a computed, verdict or context field is never `required`, `immutable` or `append_only`
+/// (those are dropped), and one that is also `derived_from` has two writers, so its writer is dropped.
 fn read_writer(
     declared: &mut FieldDescriptor,
     is_member: bool,
@@ -492,7 +512,7 @@ fn read_writer(
                 problems,
                 path,
                 format!(
-                    "declares writer '{name}': expected 'computed', 'harness', 'human' or 'verdict'"
+                    "declares writer '{name}': expected 'computed', 'harness', 'human', 'verdict' or 'context'"
                 ),
             );
             declared.writer = None;
@@ -516,11 +536,23 @@ fn read_writer(
             declared.writer = None;
             return None;
         }
-        Some(FieldWriter::Harness) if is_member => {
+        Some(writer @ (FieldWriter::Harness | FieldWriter::Context)) if is_member => {
             refuse(
                 problems,
                 path,
-                "declares writer 'harness' on a member: a ledger key is an entity and a field"
+                format!(
+                    "declares writer '{writer}' on a member: a ledger key is an entity and a field"
+                ),
+            );
+            declared.writer = None;
+            return None;
+        }
+        Some(FieldWriter::Context) if !is_record(declared) => {
+            refuse(
+                problems,
+                path,
+                "declares writer 'context', but is not a block of exactly route (string), digest (string) and \
+                 max_tokens (integer): a context record has that shape"
                     .into(),
             );
             declared.writer = None;
@@ -528,7 +560,10 @@ fn read_writer(
         }
         Some(writer) => writer,
     };
-    if matches!(writer, FieldWriter::Computed | FieldWriter::Verdict) {
+    if matches!(
+        writer,
+        FieldWriter::Computed | FieldWriter::Verdict | FieldWriter::Context
+    ) {
         if declared.derived_from.is_some() {
             refuse(
                 problems,

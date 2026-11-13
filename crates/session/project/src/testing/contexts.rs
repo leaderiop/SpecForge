@@ -2,12 +2,16 @@
 //! it reaches whose kinds the routed fixture declares, with the twin's ids and titles and only the fields that fixture
 //! declares, so a budgeted read of the plan is the read an executor makes of the twin.
 
+use serde_json::{Value, json};
+use specforge_extension_sdk::DeclaredCategory;
 use specforge_extension_sdk::prelude::ContributionsBuilder;
 use specforge_wasm::testing::InProcessRuntime;
 
 use super::TestProject;
 use super::judged::{CODE_CORE, GSD_JUDGED, PLAN_CHECK_INPUTS};
-use super::routed::{gsd_routed_builder, gsd_routed_project_over, gsd_routed_serving};
+use super::routed::{
+    gsd_routed_builder, gsd_routed_project_over, gsd_routed_serving, gsd_routed_wire,
+};
 
 /// The plan whose context the tests read.
 pub const CONTEXT_PLAN: &str = "v1.0/02/02-01";
@@ -213,11 +217,39 @@ pub fn gsd_context_project() -> TestProject {
         .file("test/store.test.js", "")
 }
 
-/// The executor's agent and two context routes of `@gsd/core`, as `c` contributes them: `executor`, what an executor
+/// The plan's context record, as the wire carries a field written `context` (ADR 0356 D9).
+pub const CONTEXT_PACK: &str = "context_pack";
+
+/// [`gsd_routed_wire`] with the plan's context record [`CONTEXT_PACK`].
+pub fn gsd_context_wire() -> Value {
+    let mut kinds = gsd_routed_wire();
+    let plan = kinds
+        .as_array_mut()
+        .expect("the kinds are a list")
+        .iter_mut()
+        .find(|kind| kind["name"] == "plan")
+        .expect("the routed kinds declare a plan");
+    plan["fields"]
+        .as_array_mut()
+        .expect("a kind lists fields")
+        .push(
+            json!({"name": CONTEXT_PACK, "field_type": "block", "writer": "context", "members": [
+                {"name": "route", "field_type": "string"},
+                {"name": "digest", "field_type": "string"},
+                {"name": "max_tokens", "field_type": "integer"},
+            ]}),
+        );
+    kinds
+}
+
+/// The executor's agent and two context routes of `@gsd/core`, as `c` contributes them, over the kinds of
+/// [`gsd_context_wire`]: `executor`, what an executor
 /// reads of a plan (core: the plan, its body, its phase and requirements; enrich: its phase's context, decisions, the
 /// instructions, the research and the sibling plans; the `plan_check` setting), and `plan-checker`, every input of the
 /// plan-check rules as a core section.
 pub fn declare_gsd_contexts(c: &mut ContributionsBuilder) {
+    // A raw category replaces the one given before.
+    c.raw_category(DeclaredCategory::Entities, gsd_context_wire());
     c.agent("gsd-executor", |a| {
         a.description("Executes a plan");
     });

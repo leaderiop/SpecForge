@@ -88,6 +88,7 @@ behavior digest_judged_inputs "Digest a Judged Rule's Inputs" {
   verify unit "cited tests are an input of their own, judged once a report exists"
   verify unit "the tests of a report digest sorted, whatever order they ran in"
   verify unit "a test input of several chains digests their union"
+  verify unit "a judged entity digest is the same with or without a context record, whatever it holds"
   verify unit "a selector's kind filter names an authored scalar field of the kind and values it declares"
   verify unit "a filtered kind keeps only the entities whose field holds one of the values, and its digest moves with no entity it drops"
   verify unit "a fact's own result is its test input, and a status change stales it"

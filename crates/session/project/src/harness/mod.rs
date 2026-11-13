@@ -40,7 +40,11 @@ impl Harness {
     pub fn of(registries: &RegistryBuild) -> Self {
         let mut kinds: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         for (kind, field, entry) in registries.fields().iter() {
-            if entry.writer() == Some(FieldWriter::Harness) {
+            // A context record is ledgered as a harness value is (ADR 0356 D9).
+            if matches!(
+                entry.writer(),
+                Some(FieldWriter::Harness | FieldWriter::Context)
+            ) {
                 kinds
                     .entry(kind.to_string())
                     .or_default()

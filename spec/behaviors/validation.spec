@@ -379,6 +379,11 @@ behavior record_harness_values "Record Harness Values" {
   produces []
   verify unit "the value digest reads the target of a reference, not its spelling"
   verify unit "a harness value with no matching line in specforge-harness is E083"
+  verify unit "a context value with no matching line in specforge-harness is E083"
+  verify unit "a context writer round trips on the wire"
+  verify unit "the SDK declares a context field as the block of a context record"
+  verify unit "a context-written field is a block of route, digest and max_tokens, or it is W021 and its writer dropped"
+  verify unit "an entity digest leaves out a context-written value as it leaves out computed and verdict values"
   verify unit "a malformed ledger line is W163 and ignored, and a bad header makes every harness value E083"
   verify unit "a union-merged ledger reads, and is I203 once"
   verify unit "a rename records its move and re-keys its lines"

@@ -534,7 +534,9 @@ c.command("record", |cmd| {
 ```
 
 A judged rule is declared with `r.judged("judge", |j| { j.outcomes(..).passing(..); j.target("kind", |t| { t.input("name", "selector"); }) })` inside `c.rule(..)`
-and a field a verdict sets with `field.verdict()` (ADR 0290, [guide](guides/judged-rules.md)); a command's `GraphNode`
+and a field a verdict sets with `field.verdict()` (ADR 0290, [guide](guides/judged-rules.md)); a field the host's
+record of a context route's pack sets is declared with `field.context()`, which also declares its block of `route`,
+`digest` and `max_tokens` (ADR 0356); a command's `GraphNode`
 lists its `judgements`, and `set_verdict` takes the `basis` the command read through `specforge query --inputs`. The judge is an agent
 of the extension or a declared peer, or `"prompt:<id>"`, a prompt of the extension itself (protocol 1.11.0, ADR 0295);
 the prompt's rendered payload lists the rules it judges under `judged`.

@@ -135,3 +135,25 @@ fn an_unknown_key_of_a_context_route_or_a_section_is_reported() {
         ]
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "record_harness_values",
+    verify = "a context writer round trips on the wire"
+)]
+fn a_context_writer_round_trips() {
+    use specforge_protocol_types::FieldWriter;
+    assert_eq!(FieldWriter::parse("context"), Some(FieldWriter::Context));
+    assert_eq!(FieldWriter::Context.as_str(), "context");
+    let wire = json!({
+        "name": "context_pack", "field_type": "block", "writer": "context",
+        "members": [
+            {"name": "route", "field_type": "string"},
+            {"name": "digest", "field_type": "string"},
+            {"name": "max_tokens", "field_type": "integer"},
+        ],
+    });
+    let field: specforge_protocol_types::FieldDescriptor =
+        serde_json::from_value(wire.clone()).unwrap();
+    assert_eq!(field.writer.as_deref(), Some("context"));
+    assert_eq!(serde_json::to_value(&field).unwrap()["writer"], "context");
+}

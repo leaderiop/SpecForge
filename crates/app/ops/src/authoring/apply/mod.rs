@@ -41,6 +41,8 @@ pub const HUMAN_ONLY: &str = "human_only";
 pub const COMPUTED_FIELD: &str = "computed_field";
 /// A plan, or a typed edit, sets a harness value its origin may not set.
 pub const HARNESS_FIELD: &str = "harness_field";
+/// A plan, or a typed edit, sets a context record: only the host's record of its route writes one (ADR 0356).
+pub const CONTEXT_FIELD: &str = "context_field";
 /// A plan names a revision of a file that is not the file's now.
 pub const STALE_REVISION: &str = "stale_revision";
 /// A write of a collected entity, a fact (ADR 0327): only `specforge collect` writes one.
@@ -48,12 +50,13 @@ pub const COLLECTED: &str = "collected";
 
 /// The slugs a write refuses an agent with (ADR 0289): the code is the contract, so a surface that maps the failure by
 /// its kind keeps it.
-pub const WRITE_REFUSALS: [&str; 8] = [
+pub const WRITE_REFUSALS: [&str; 9] = [
     INVALID_PLAN,
     UNDECLARED_WRITE,
     HUMAN_ONLY,
     COMPUTED_FIELD,
     HARNESS_FIELD,
+    CONTEXT_FIELD,
     STALE_REVISION,
     NOT_JUDGED,
     COLLECTED,

@@ -42,6 +42,8 @@
 /// the ordered sections a role reads, each a named selector, core or enrich (ADR 0356).
 /// A selector kind may carry a field filter, `kind[field=value|…]`, in judged inputs, context sections and route
 /// steps: only entities whose authored scalar field holds one of the values (ADR 0356 D13).
+/// A field may declare writer `context`: only the host's record of a context route's pack writes it, ledgered and left
+/// out of every digest (ADR 0356 D9).
 /// A 2.0.0 guest still loads, being an older minor.
 ///
 /// A change that adds to the current minor (grants, host imports, value checks) adds its item here and to that

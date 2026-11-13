@@ -1,10 +1,13 @@
 //! What a plan may not write (ADR 0289): checked per operation before anything is planned, so the refusal names the
-//! operation and not a later E080. A computed value is never written; a harness value only by the extension that
-//! declares the field or one that names it a peer; `verdict` is no field. An existing human-only entity is not edited,
-//! and an entity holding a person's value is not deleted (ADR 0298). A collected entity, a fact, is written by no edit,
-//! whoever asks (ADR 0327).
+//! operation and not a later E080. A computed value and a context record (ADR 0356) are never written by an edit; a
+//! harness value only by the extension that declares the field or one that names it a peer; `verdict` is no field. An
+//! existing human-only entity is not edited, and an entity holding a person's value is not deleted (ADR 0298). A
+//! collected entity, a fact, is written by no edit, whoever asks (ADR 0327).
 
-use super::{COLLECTED, COMPUTED_FIELD, HARNESS_FIELD, HUMAN_ONLY, Op, Origin, Surface, invalid};
+use super::{
+    COLLECTED, COMPUTED_FIELD, CONTEXT_FIELD, HARNESS_FIELD, HUMAN_ONLY, Op, Origin, Surface,
+    invalid,
+};
 use crate::OpError;
 use crate::OpErrorKind;
 use crate::authoring::edit::{Edit, Input, Step};
@@ -428,6 +431,16 @@ fn enforce(
             plan,
             format!(
                 "{at}'{field}' of {kind} is computed by a pass of {source} and is never written"
+            ),
+        )),
+        Some(FieldWriter::Context) => Err(refuse(
+            OpErrorKind::InvalidInput,
+            CONTEXT_FIELD,
+            number,
+            plan,
+            format!(
+                "{at}'{field}' of {kind} is a context record, written by the host's record of its route: run \
+                 `specforge context <route> <subject> --record <entity>`"
             ),
         )),
         Some(FieldWriter::Harness) if !may_write_harness(view, origin, source) => Err(refuse(

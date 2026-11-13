@@ -89,3 +89,45 @@ fn a_union_merged_ledger_reads_and_is_i203() {
     );
     assert_eq!(with_code(&diagnostics, "I203").len(), 1, "{diagnostics:?}");
 }
+
+#[specforge_test(
+    behavior = "record_harness_values",
+    verify = "a context value with no matching line in specforge-harness is E083"
+)]
+fn a_context_value_without_its_line_is_e083() {
+    use specforge_project::testing::{CONTEXT_PACK, CONTEXT_PLAN, gsd_context_runtime};
+    let project = crate::judged::recorded_plan(
+        "{ route \"gsd/executor\" digest \"sha256:1\" max_tokens 6000 }",
+    );
+    let runtime: specforge_project::SharedRuntime = Arc::new(gsd_context_runtime());
+    let unrecorded = project.compile_in(Arc::clone(&runtime));
+    let e083 = with_code(&unrecorded.diagnostics(), "E083")
+        .into_iter()
+        .map(|d| d.message.clone())
+        .collect::<Vec<_>>();
+    assert_eq!(e083.len(), 1, "{e083:?}");
+    assert!(e083[0].contains(CONTEXT_PACK), "{e083:?}");
+
+    let graph = unrecorded.graph();
+    let node = graph.node(CONTEXT_PLAN).expect("the plan");
+    let forms = unrecorded.environment().registries().field_forms();
+    let value = specforge_graph::wire::resolved(graph, forms, node, CONTEXT_PACK).expect("a value");
+    let line = specforge_project::harness::Line {
+        subject: CONTEXT_PLAN.to_string(),
+        key: CONTEXT_PACK.to_string(),
+        digest: specforge_project::harness::digest(
+            CONTEXT_PLAN,
+            CONTEXT_PACK,
+            &specforge_graph::wire::bytes(&value),
+        ),
+    };
+    let mut ledger = specforge_project::harness::Ledger::default();
+    ledger.insert(line);
+    project.write("specforge-harness", ledger.canonical());
+    let recorded = project.compile_in(runtime);
+    assert!(
+        with_code(&recorded.diagnostics(), "E083").is_empty(),
+        "{:?}",
+        recorded.diagnostics()
+    );
+}

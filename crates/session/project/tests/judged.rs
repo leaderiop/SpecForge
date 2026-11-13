@@ -743,3 +743,35 @@ fn a_kind_filter_keeps_only_the_entities_whose_field_holds_a_value() {
     );
     assert_ne!(read(&project)[0].digest, before[0].digest);
 }
+
+/// [`specforge_project::testing::GSD_CONTEXT_SPEC`]'s plan with `record` (a block's text) as its context record.
+pub(crate) fn recorded_plan(record: &str) -> TestProject {
+    let project = specforge_project::testing::gsd_context_project();
+    let plan = "plan 02-01 \"Save and load tasks.json\" {\n";
+    project.write(
+        "a.spec",
+        project
+            .read("a.spec")
+            .replace(plan, &format!("{plan}  context_pack {record}\n")),
+    );
+    project
+}
+
+#[specforge_test(
+    behavior = "digest_judged_inputs",
+    verify = "a judged entity digest is the same with or without a context record, whatever it holds"
+)]
+fn an_entity_digest_ignores_context_written_values() {
+    let runtime: SharedRuntime = Arc::new(specforge_project::testing::gsd_context_runtime());
+    let plan = specforge_project::testing::CONTEXT_PLAN;
+    let digest = |project: &TestProject| digest_of(&project.compile_in(Arc::clone(&runtime)), plan);
+    let bare = digest(&specforge_project::testing::gsd_context_project());
+    let one = digest(&recorded_plan(
+        "{ route \"gsd/executor\" digest \"sha256:1\" max_tokens 6000 }",
+    ));
+    let other = digest(&recorded_plan(
+        "{ route \"gsd/executor\" digest \"sha256:2\" max_tokens 8000 }",
+    ));
+    assert_eq!(bare, one);
+    assert_eq!(one, other);
+}

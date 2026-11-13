@@ -700,3 +700,33 @@ fn a_context_builds_the_descriptor_the_host_reads() {
         serde_json::to_value(&declared.contexts).unwrap()
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "record_harness_values",
+    verify = "the SDK declares a context field as the block of a context record"
+)]
+fn a_context_field_declares_writer_context() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/plans", "0.1.0"));
+    b.kind("plan", |k| {
+        k.field("context_pack", |f| {
+            f.context();
+        });
+    });
+    let field = &b.declaration().entities[0].fields[0];
+
+    assert_eq!(field.writer.as_deref(), Some("context"));
+    assert_eq!(field.field_type, "block");
+    let members: Vec<(&str, &str)> = field
+        .members
+        .iter()
+        .map(|m| (m.name.as_str(), m.field_type.as_str()))
+        .collect();
+    assert_eq!(
+        members,
+        [
+            ("route", "string"),
+            ("digest", "string"),
+            ("max_tokens", "integer")
+        ]
+    );
+}

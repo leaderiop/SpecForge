@@ -197,6 +197,22 @@ impl FieldBuilder {
         self.0.writer = Some(FieldWriter::Verdict.as_str().to_string());
         self
     }
+    /// Only the host's record of a context route's pack sets the field (ADR 0356): a block of `route`, `digest` and
+    /// `max_tokens`, which this declares, recorded in `specforge-harness` and read by no digest. A route of this
+    /// extension names it in its `records`.
+    pub fn context(&mut self) -> &mut Self {
+        self.0.writer = Some(FieldWriter::Context.as_str().to_string());
+        self.field_type(FieldType::Block)
+            .member("route", |m| {
+                m.field_type(FieldType::String);
+            })
+            .member("digest", |m| {
+                m.field_type(FieldType::String);
+            })
+            .member("max_tokens", |m| {
+                m.field_type(FieldType::Integer);
+            })
+    }
     /// A value set at the baseline never changes (ADR 0287): a field unset there may be set once.
     pub fn immutable(&mut self) -> &mut Self {
         self.0.immutable = true;
