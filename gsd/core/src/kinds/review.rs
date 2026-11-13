@@ -48,7 +48,7 @@ pub const REVIEW: Kind = Kind::new(
             .append()
             .doc("the symbols a convergence cycle could not check, and why"),
         block("open", OPEN).c().doc(
-            "its open concerns: `high` ones, and `actionable` ones that are neither high nor drift",
+            "its open concerns that are not drift (a drift finding counts in neither): `high` ones, and `actionable` ones that are not high",
         ),
     ],
 )

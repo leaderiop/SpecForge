@@ -110,6 +110,7 @@ fn drift_and_non_actionable_concerns_are_not_counted() {
         ),
         concern(3, &[("severity", "low")]),
         concern(4, &[("severity", "high"), ("actionable", "true")]),
+        concern(5, &[("severity", "high"), ("drift", "true")]),
     ]));
     assert_eq!(
         found(&values, REVIEW, "open"),

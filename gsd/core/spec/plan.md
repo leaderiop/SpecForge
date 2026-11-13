@@ -146,7 +146,7 @@ Name `RV1`, scoped by its phase.
 | divergent | strs | I | `### Divergent Views` |
 | reviewed_at | ts | H | `reviewed:`: when `record-review` wrote the round |
 | unchecked | {symbol str R, why str R}* | + | the symbols a convergence cycle could not check (`record-review --round`) |
-| open | {high int, actionable int} | C | its open concerns: `high` ones, and `actionable` ones that are neither high nor drift |
+| open | {high int, actionable int} | C | its open concerns that are not drift (a drift finding counts in neither): `high` ones, and `actionable` ones that are not high |
 
 ### review_concern
 
