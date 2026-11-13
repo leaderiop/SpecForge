@@ -255,7 +255,7 @@ To write specs by hand, start with the [authoring tutorial](docs/guides/authorin
 | CLI (`specforge`) | Shipped | Check, query, export, typed edits, CI |
 | MCP server (`specforge mcp`) | Shipped | AI agents read, query and edit the graph |
 | LSP + [VS Code extension](integrations/vscode/) | Shipped | Diagnostics, completion, navigation and formatting while you type |
-| Package registry (`add`, `search`, `publish`) | Shipped | Install and share extensions ([trust model](docs/registry-trust.md)) |
+| Package registry (`add`, `extensions search`, `publish`) | Shipped | Install and share extensions ([trust model](docs/registry-trust.md)) |
 | AG-UI | Planned | Agent-driven screens for people who don't use an editor |
 | HTTP | Planned | Other applications reading and changing the graph |
 
