@@ -10,9 +10,14 @@ the design's behavior table).
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-CURRENT_BASE=$(specforge git head --pick .sha)
-QB_RESUME_JSON='{}'   # quick-batch resume: the batch router is not part of @gsd/core; resume from your notes of the batch and the quick plans that exist
-QB_RESUME_RC=$?
+QB_RESUME_JSON=$(specforge query "$RESUME_BATCH_ID" --depth 0 --kinds quick_batch --pick '.nodes[0].fields') && QB_RESUME_RC=0 || QB_RESUME_RC=$?   # an id no batch holds is refused
+if [ "$QB_RESUME_RC" -eq 0 ]; then
+  QB_BASE=$(specforge query "$RESUME_BATCH_ID" --depth 0 --pick '.nodes[0].fields.base')
+  if [ -z "$QB_BASE" ] || [ "$(specforge git merge-base "$QB_BASE" HEAD --pick .sha 2>/dev/null)" != "$QB_BASE" ]; then
+    echo "quick batch ${RESUME_BATCH_ID}: its base ${QB_BASE} is no longer an ancestor of HEAD: the history diverged" >&2
+    QB_RESUME_RC=1
+  fi
+fi
 
 ```
 
@@ -21,27 +26,21 @@ batch id (row 18) or a diverged base revision (row 17, ADR-1239 "Base
 divergence"). Print the CLI's error message verbatim and STOP. Do not dispatch
 anything, do not create a new batch on the user's behalf.
 
-**Otherwise:** parse `$QB_RESUME_JSON` for `eligible` (array of quick ids),
-`transitions` (status changes just applied — e.g. a `blocked` item reverting
-to `pending`, or a crash-window STATE-row detection completing an item
-without re-appending, row 45), and `manifest` (the full, current batch
-document).
+**Otherwise:** `$QB_RESUME_JSON` holds the batch's fields: `items`, `base`,
+`created`, its computed `status` and `eligible` (the quick ids whose plan has
+not started, halted or blocked and whose dependencies are complete). There
+are no `transitions` to apply: each item's status is its plan's, computed from
+the graph every time it is read.
 
 ```bash
 BATCH_ID="$RESUME_BATCH_ID"
-BATCH_MANIFEST_JSON=   # the manifest's items, one quick_id, slug, description row each, from your notes of the batch: the batch router is not part of @gsd/core
+BATCH_MANIFEST_JSON=$(specforge query "$BATCH_ID" --depth 1 --kinds plan --pick '.nodes[kind=plan]' --fields id,fields.slug,fields.objective) || exit 1   # the manifest's items, one quick_id, slug, description row each
 ```
 
 Report to user:
 ```
 Resuming batch ${BATCH_ID}: ${eligible.length} item(s) eligible now.
 ```
-
-If `transitions` is non-empty, display it as a diagnostic (which items moved
-to `blocked`/`complete` since the batch was last touched) — this is expected,
-successful crash-window recovery, not an error (per the design's negative-space
-note: a `resumeBatch` call producing zero transitions is also success, not a
-no-op failure).
 
 Continue to Step 3 in `quick-batch.md` — the DAG-layer loop in `planner-wave.md`
 reads `$BATCH_MANIFEST_JSON`/`$BATCH_ID` exactly the same way whether this

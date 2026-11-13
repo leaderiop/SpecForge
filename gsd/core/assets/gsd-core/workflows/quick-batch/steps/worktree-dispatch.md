@@ -20,10 +20,10 @@ EXEC_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is no
 1. Re-derive eligibility (also reconciles crash-window/blocked-propagation —
    safe to call repeatedly, idempotent when nothing changed):
 ```bash
-QB_ELIG_JSON='{"eligible":[]}'   # quick-batch resume: the batch router is not part of @gsd/core; the eligible items are those of your notes whose dependencies are complete
+QB_ELIGIBLE=$(specforge query "$BATCH_ID" --depth 0 --kinds quick_batch --pick '.nodes[0].fields.eligible[]') || exit 1   # the batch's computed eligible items, one quick id per line
 ```
-   Parse `eligible` (quick ids ready to execute — every dependency already
-   `complete`); `$BATCH_MANIFEST_JSON` keeps its `quick_id`, `slug`, `description` rows.
+   `$QB_ELIGIBLE` holds the quick ids ready to execute (every dependency already
+   `complete`), one per line; `$BATCH_MANIFEST_JSON` keeps its `quick_id`, `slug`, `description` rows.
 
    **Crash-window guard (mirrors `planner-wave.md`'s PLAN.md-existence
    check one layer earlier — #3677):** `quick-batch resume`'s `eligible` is

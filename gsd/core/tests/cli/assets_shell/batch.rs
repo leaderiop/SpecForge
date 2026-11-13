@@ -1,7 +1,7 @@
 //! The quick batch's list is rows of one `quick-init` answer (`quick_id`, `slug`, `description`), its merge-eligible
 //! prefix a bash array and its verification route a `case`: no jq on the `PATH`.
 
-use super::{Shell, asset, block, fence_after, line, q};
+use super::{Shell, asset, block, fence_after, fence_from, line, q};
 use crate::commands_support::{is_quick_id, rows, twin};
 
 #[test]
@@ -313,22 +313,104 @@ fn one_call_of_quick_init_reads_everything() {
     assert_eq!((out.as_str(), code), ("", 1), "{err}");
 }
 
-/// Resume proceeds for any batch id: the step answers `{}` and exit 0 for a batch nothing recorded.
+/// Resume refuses closed: a batch id nothing recorded, and a batch whose base is no longer an ancestor of `HEAD`.
 #[test]
-fn resuming_any_batch_id_proceeds() {
+fn resuming_an_unknown_or_diverged_batch_stops() {
     let Some(sh) = Shell::without_jq() else {
         return;
     };
     let p = twin();
+    p.commit();
     let resume = fence_after(
         &asset("gsd-core/workflows/quick-batch/steps/resume-mode.md"),
         "**Step 2a",
     );
+    let rc = |id: &str| {
+        sh.run_in(
+            p.root(),
+            &format!("RESUME_BATCH_ID={id}\n{resume}\nprintf '%s' \"$QB_RESUME_RC\""),
+        )
+    };
+    let (out, err, _) = rc("261112-batch");
+    assert_ne!(out, "0", "an unknown batch resumes: {err}");
+    // a base no commit of this history holds
+    quick_plans(&p);
+    let base = "0123456789abcdef0123456789abcdef01234567";
+    let items = r#"["261112-abc", "261112-def"]"#;
+    let run = p.run(&[
+        "gsd",
+        "start-batch",
+        "261112-batch",
+        "--items",
+        items,
+        "--base",
+        base,
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let (out, err, _) = rc("261112-batch");
+    assert_eq!(out, "1", "{err}");
+    assert!(err.contains("diverged"), "{err}");
+}
+
+/// Two quick plans of the twin, as batch-init leaves them before it records the batch.
+fn quick_plans(p: &crate::harness::Project) {
+    crate::commands_support::plant(
+        p,
+        "spec/quick.spec",
+        "plan 261112-abc \"Trim titles\" {\n  type           execute\n  files_modified []\n  objective      \"Trim titles\"\n  slug           \"trim-titles\"\n}\n\nplan 261112-def \"Sort tasks\" {\n  type           execute\n  files_modified []\n  objective      \"Sort tasks\"\n  slug           \"sort-tasks\"\n}\n",
+    );
+}
+
+/// batch-init records the batch on the commit it starts from, and resume reads it back from the graph: its fields,
+/// its manifest and its eligible items.
+#[test]
+fn a_batch_is_recorded_and_resumed_from_the_graph() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = twin();
+    p.commit();
+    let init = asset("gsd-core/workflows/quick-batch/steps/batch-init.md");
+    let create = block(&init, "QB_CREATE_LIST=", "specforge new --in");
+    let record = fence_after(&init, "**Otherwise:** `$QB_CREATE_LIST` holds");
+    let (id, err, code) = sh.run_in(
+        p.root(),
+        &format!(
+            "QB_TASKS=$(printf '%b' '- Trim titles\\n- Sort tasks')\n{create}\n{record}\nprintf '%s' \"$BATCH_ID\""
+        ),
+    );
+    assert_eq!(code, 0, "{id}{err}");
+    let batch = p.fields_of(&id);
+    let items = batch["items"].as_array().expect("items").clone();
+    assert_eq!(items.len(), 2, "{batch}");
+    assert_eq!(batch["status"], "open");
+    let head = p.run(&["git", "head", "--pick", ".sha"]);
+    assert_eq!(batch["base"], head.stdout.trim_end(), "{}", head.all());
+
+    let resume_text = asset("gsd-core/workflows/quick-batch/steps/resume-mode.md");
+    let resume = fence_after(&resume_text, "**Step 2a");
+    let manifest = fence_after(&resume_text, "**Otherwise:**");
     let (out, err, _) = sh.run_in(
         p.root(),
         &format!(
-            "RESUME_BATCH_ID=261112-batch\n{resume}\nprintf '%s|%s' \"$QB_RESUME_RC\" \"$QB_RESUME_JSON\""
+            "RESUME_BATCH_ID={id}\n{resume}\n[ \"$QB_RESUME_RC\" -eq 0 ] || exit 9\n{manifest}\nprintf '%s' \"$BATCH_MANIFEST_JSON\""
         ),
     );
-    assert_eq!(out, "0|{}", "{err}");
+    let rows: Vec<&str> = out.lines().collect();
+    assert_eq!(rows.len(), 2, "{out}{err}");
+    for (row, item) in rows.iter().zip(&items) {
+        assert!(row.starts_with(item.as_str().unwrap_or_default()), "{row}");
+    }
+    let dispatch = fence_from(
+        &asset("gsd-core/workflows/quick-batch/steps/worktree-dispatch.md"),
+        "QB_ELIGIBLE=",
+    );
+    let (out, err, code) = sh.run_in(
+        p.root(),
+        &format!("BATCH_ID={id}\n{dispatch}\nprintf '%s' \"$QB_ELIGIBLE\""),
+    );
+    assert_eq!(code, 0, "{out}{err}");
+    let eligible: Vec<&str> = out.lines().collect();
+    let expected: Vec<&str> = items.iter().filter_map(|i| i.as_str()).collect();
+    assert_eq!(eligible, expected, "{err}");
 }

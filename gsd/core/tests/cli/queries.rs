@@ -94,6 +94,9 @@ const UNBOUND: &[&str] = &[
     "${quick_id}",
     "${quick_id}-RESEARCH",
     "${quick_id}/${quick_id}-SUMMARY",
+    // a quick batch: the twin holds none; `assets_shell::batch` records one and runs these
+    "$BATCH_ID",
+    "$RESUME_BATCH_ID",
     "$summary",
     "$s",
     "$_ID",
