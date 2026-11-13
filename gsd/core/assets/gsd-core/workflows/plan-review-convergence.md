@@ -4,7 +4,7 @@ Cross-AI plan convergence loop — automates the manual chain:
 gsd-plan-phase N → gsd-review N --codex → gsd-plan-phase N --reviews → gsd-review N --codex → ...
 Plan-phase runs inline (bare Skill at depth 0) so it can spawn gsd-planner/gsd-plan-checker at depth 1.
 Review runs inside an isolated Agent (leaf skill — Bash only, no sub-agents needed).
-Orchestrator only does: init, loop control, parse CYCLE_SUMMARY for HIGH and actionable non-HIGH counts, stall detection, escalation.
+The orchestrator only runs the init, the loop control, the read of the latest round's open counts from the graph, the stall detection and the escalation.
 </purpose>
 
 <required_reading>

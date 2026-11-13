@@ -3578,7 +3578,9 @@ gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	own	7+2	2	f770a11
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	kept	9+3	853dd09178d6
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	own	12+2	2	9a584f6b2fb7	446f5262ce6d	prose
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	kept	14+11	01c373936596
-gsd-core/workflows/plan-review-convergence.md	kept	1+20	34caed956cb7
+gsd-core/workflows/plan-review-convergence.md	kept	1+5	62e7025e7a76
+gsd-core/workflows/plan-review-convergence.md	own	6+1	1	66cd4cd13ddd	8482d3043208	review
+gsd-core/workflows/plan-review-convergence.md	kept	7+14	a2e444fa48c9
 gsd-core/workflows/plan-review-convergence.md	own	21+1	1	57aae42c423d	4995229c2f03	args
 gsd-core/workflows/plan-review-convergence.md	kept	22+2	5f046190424d
 gsd-core/workflows/plan-review-convergence.md	own	24+4	1	f1a1f61e251c	e3b0c44298fc	served
@@ -3641,9 +3643,9 @@ gsd-core/workflows/plan-review-convergence.md	own	336+1	1	a7621d6bcc51	c2a08f2f1
 gsd-core/workflows/plan-review-convergence.md	kept	337+25	a77d4c9d95f3
 gsd-core/workflows/plan-review-convergence.md	own	362+3	3	5f2dc5fe8eee	dd9cb4bd93b2	review
 gsd-core/workflows/plan-review-convergence.md	kept	365+5	e64d19f9c39d
-gsd-core/workflows/plan-review-convergence.md	own	370+4	5	e62a4b06951f	ac2212829d4c	prose
+gsd-core/workflows/plan-review-convergence.md	own	370+4	5	e62a4b06951f	ac2212829d4c	review
 gsd-core/workflows/plan-review-convergence.md	kept	374+1	ad332335cfaa
-gsd-core/workflows/plan-review-convergence.md	own	375+16	18	3c1d797ea201	b33160d280e5	prose
+gsd-core/workflows/plan-review-convergence.md	own	375+16	18	3c1d797ea201	b33160d280e5	answer
 gsd-core/workflows/plan-review-convergence.md	kept	391+2	5f046190424d
 gsd-core/workflows/plan-review-convergence.md	own	393+7	4	7a6a0737fea5	8adc4282aa91	served
 gsd-core/workflows/plan-review-convergence.md	kept	400+2	370f386594e8

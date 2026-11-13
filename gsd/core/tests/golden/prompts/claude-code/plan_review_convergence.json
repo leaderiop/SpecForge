@@ -24,7 +24,7 @@
     "gsd-plan-phase N → gsd-review N --codex → gsd-plan-phase N --reviews → gsd-review N --codex → ...",
     "Plan-phase runs inline (bare Skill at depth 0) so it can spawn gsd-planner/gsd-plan-checker at depth 1.",
     "Review runs inside an isolated Agent (leaf skill — Bash only, no sub-agents needed).",
-    "Orchestrator only does: init, loop control, parse CYCLE_SUMMARY for HIGH and actionable non-HIGH counts, stall detection, escalation.",
+    "The orchestrator only runs the init, the loop control, the read of the latest round's open counts from the graph, the stall detection and the escalation.",
     "</purpose>",
     "",
     "<required_reading>",
@@ -61,7 +61,7 @@
     "operator's explicit flag overrides this gate for that run. Standalone invocation carries no such",
     "flag and remains gated by the config below."
   ],
-  "bytes": 71599,
+  "bytes": 71619,
   "end": [
     "- `## Self-Check: FAILED` (summary self-check)",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:379d4433185eacf90dd52b4603d11709049ac74e67af48adcf00a8268e440c80",
+    "digest": "sha256:89814a1c16f10a81166b725cbf1ef786c60b31e8129387d91782e4f9811f7094",
     "prompt": "@gsd/core@VERSION:plan_review_convergence",
     "steps": [
       {
@@ -211,5 +211,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "379d4433185eacf90dd52b4603d11709049ac74e67af48adcf00a8268e440c80"
+  "sha256": "89814a1c16f10a81166b725cbf1ef786c60b31e8129387d91782e4f9811f7094"
 }
