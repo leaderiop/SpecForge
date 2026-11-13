@@ -2,6 +2,7 @@
 
 use crate::harness::{Project, project};
 
+mod log;
 mod probe;
 
 /// `(source, target, label)` of every edge `specforge query <name> --depth 1` prints.

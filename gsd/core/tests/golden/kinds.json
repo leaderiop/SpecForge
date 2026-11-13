@@ -3614,6 +3614,41 @@
                 "name": "mode",
                 "required": false,
                 "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": "the user's follow-up notes, or the reason for a correction",
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "notes",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": "assumptions mode: how sure the assumption is",
+                "edge": null,
+                "enum_values": [
+                  "confident",
+                  "likely",
+                  "unclear"
+                ],
+                "field_type": "enum",
+                "inverse_of": null,
+                "name": "confidence",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": "assumptions mode: the file paths behind the assumption",
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "evidence",
+                "required": false,
+                "target_kind": null
               }
             ],
             "name": "entries",

@@ -77,6 +77,10 @@ const ENTRY: &[Field] = &[
     strs("options"),
     str("chosen"),
     en("mode", DISCUSSION_MODES),
+    str("notes").doc("the user's follow-up notes, or the reason for a correction"),
+    en("confidence", &["confident", "likely", "unclear"])
+        .doc("assumptions mode: how sure the assumption is"),
+    strs("evidence").doc("assumptions mode: the file paths behind the assumption"),
 ];
 const CHECKPOINT_DECISION: &[Field] = &[
     str("area").r(),

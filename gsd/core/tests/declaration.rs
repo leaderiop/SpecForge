@@ -626,7 +626,8 @@ fn the_discussion_entries_are_append_only() {
         .iter()
         .map(|m| m["name"].as_str().expect("a name"))
         .collect();
-    assert_eq!(members, ["area", "question", "options", "chosen", "mode"]);
+    let entry = "area question options chosen mode notes confidence evidence";
+    assert_eq!(members.join(" "), entry);
 }
 
 /// `discuss.md` listed 95 fields over its 16 kinds before `source.research` was added. The model fixes: the decision's

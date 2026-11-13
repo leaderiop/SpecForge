@@ -111,7 +111,9 @@ fail-closed where it is used, not judged here.
 ## discussion
 
 GSD: `NN-DISCUSSION-LOG.md`. Name `03-DISCUSSION-LOG`. `phase → phase R I`;
-`entries {area str, question str, options strs, chosen str, mode enum{interactive, assumptions, advisor}}` `+`.
+`entries {area str, question str, options strs, chosen str, mode enum{interactive, assumptions, advisor}, notes str,
+confidence enum{confident, likely, unclear}, evidence strs}` `+`: `notes` is the user's follow-up notes (upstream's
+"**Notes:**") or a correction's reason; `confidence` and `evidence` are assumptions mode's Confidence and Evidence columns.
 An audit record: no agent context is built from it. `checkpoint {timestamp ts, areas_completed strs, areas_remaining
 strs, decisions {area str R, question str R, answer str, options_presented strs}*, deferred_ideas strs, canonical_refs
 strs}`: GSD's `NN-DISCUSS-CHECKPOINT.json` (`templates/checkpoint.json`'s members), where an interrupted discussion
