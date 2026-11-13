@@ -1710,38 +1710,34 @@ gsd-core/templates/summary.md	kept	291+2	e35c4eb5a5ae
 gsd-core/templates/summary.md	own	293+6	2	911a14c3dc5f	ebfbd65ab406	prose
 gsd-core/templates/summary.md	kept	299+2	b6e6d30cd912
 gsd-core/templates/user-setup.compact.md	kept	1+2	6fc4a4c2359b
-gsd-core/templates/user-setup.compact.md	own	3+1	1	2c460882eeb0	668b917d13ab	ported-name
-gsd-core/templates/user-setup.compact.md	kept	4+7	5e709e08e0c7
-gsd-core/templates/user-setup.compact.md	own	11+1	1	307c96a4d2ab	307c96a4d2ab	markdown
-gsd-core/templates/user-setup.compact.md	kept	12+46	b87fbf4859df
-gsd-core/templates/user-setup.compact.md	own	58+1	1	f1b901847390	f1b901847390	markdown
-gsd-core/templates/user-setup.compact.md	kept	59+61	7b8aac188500
-gsd-core/templates/user-setup.compact.md	own	120+1	1	307c96a4d2ab	307c96a4d2ab	markdown
-gsd-core/templates/user-setup.compact.md	kept	121+67	57e8588ac6d0
-gsd-core/templates/user-setup.compact.md	own	188+1	1	f1b901847390	f1b901847390	markdown
-gsd-core/templates/user-setup.compact.md	kept	189+10	4296218f0c2a
-gsd-core/templates/user-setup.compact.md	own	199+1	1	db978ac9fad7	3283efe149c3	ported-name
+gsd-core/templates/user-setup.compact.md	own	3+3	3	3bf228bf526d	b59219eb16cc	ported-name
+gsd-core/templates/user-setup.compact.md	kept	6+2	3d0b188170e8
+gsd-core/templates/user-setup.compact.md	own	8+39	9	c457731e8e52	889b2bf58ebc	prose
+gsd-core/templates/user-setup.compact.md	kept	47+2	5f046190424d
+gsd-core/templates/user-setup.compact.md	own	49+46	12	61e2404992f0	1f1fa1084895	prose
+gsd-core/templates/user-setup.compact.md	kept	95+5	49babd7c0dc2
+gsd-core/templates/user-setup.compact.md	own	100+3	3	4b77f27a653d	79d450e34cc0	prose
+gsd-core/templates/user-setup.compact.md	kept	103+9	544c6b10ba64
+gsd-core/templates/user-setup.compact.md	own	112+1	1	fcd3198675b0	2c110855bb26	prose
+gsd-core/templates/user-setup.compact.md	kept	113+4	07e57e1ec96a
+gsd-core/templates/user-setup.compact.md	own	117+76	0	c80de553f90e	e3b0c44298fc	served
+gsd-core/templates/user-setup.compact.md	kept	193+4	d012dc2f48be
+gsd-core/templates/user-setup.compact.md	own	197+3	2	ee350253c8ee	e90e17d7ccdb	ported-name
 gsd-core/templates/user-setup.compact.md	kept	200+1	e3b0c44298fc
 gsd-core/templates/user-setup.md	kept	1+2	6fc4a4c2359b
-gsd-core/templates/user-setup.md	own	3+1	1	2c460882eeb0	668b917d13ab	ported-name
-gsd-core/templates/user-setup.md	kept	4+7	5e709e08e0c7
-gsd-core/templates/user-setup.md	own	11+1	1	307c96a4d2ab	307c96a4d2ab	markdown
-gsd-core/templates/user-setup.md	kept	12+46	b87fbf4859df
-gsd-core/templates/user-setup.md	own	58+1	1	f1b901847390	f1b901847390	markdown
-gsd-core/templates/user-setup.md	kept	59+61	05b19d45f065
-gsd-core/templates/user-setup.md	own	120+1	1	307c96a4d2ab	307c96a4d2ab	markdown
-gsd-core/templates/user-setup.md	kept	121+67	57e8588ac6d0
-gsd-core/templates/user-setup.md	own	188+1	1	f1b901847390	f1b901847390	markdown
-gsd-core/templates/user-setup.md	kept	189+3	70edb9eba400
-gsd-core/templates/user-setup.md	own	192+1	1	307c96a4d2ab	307c96a4d2ab	markdown
-gsd-core/templates/user-setup.md	kept	193+46	f4b25ca48b57
-gsd-core/templates/user-setup.md	own	239+1	1	f1b901847390	f1b901847390	markdown
-gsd-core/templates/user-setup.md	kept	240+3	d537148aaf4b
-gsd-core/templates/user-setup.md	own	243+1	1	307c96a4d2ab	307c96a4d2ab	markdown
-gsd-core/templates/user-setup.md	kept	244+47	61c7cf761ad8
-gsd-core/templates/user-setup.md	own	291+1	1	f1b901847390	f1b901847390	markdown
-gsd-core/templates/user-setup.md	kept	292+10	a61f24bb51fa
-gsd-core/templates/user-setup.md	own	302+1	1	db978ac9fad7	3283efe149c3	ported-name
+gsd-core/templates/user-setup.md	own	3+3	3	3bf228bf526d	b59219eb16cc	ported-name
+gsd-core/templates/user-setup.md	kept	6+2	3d0b188170e8
+gsd-core/templates/user-setup.md	own	8+39	9	c457731e8e52	889b2bf58ebc	prose
+gsd-core/templates/user-setup.md	kept	47+2	5f046190424d
+gsd-core/templates/user-setup.md	own	49+46	12	61e2404992f0	1f1fa1084895	prose
+gsd-core/templates/user-setup.md	kept	95+5	49babd7c0dc2
+gsd-core/templates/user-setup.md	own	100+3	3	4b77f27a653d	79d450e34cc0	prose
+gsd-core/templates/user-setup.md	kept	103+9	544c6b10ba64
+gsd-core/templates/user-setup.md	own	112+1	1	fcd3198675b0	2c110855bb26	prose
+gsd-core/templates/user-setup.md	kept	113+4	07e57e1ec96a
+gsd-core/templates/user-setup.md	own	117+179	0	0ce0918d86b8	e3b0c44298fc	served
+gsd-core/templates/user-setup.md	kept	296+4	d012dc2f48be
+gsd-core/templates/user-setup.md	own	300+3	2	ee350253c8ee	e90e17d7ccdb	ported-name
 gsd-core/templates/user-setup.md	kept	303+1	e3b0c44298fc
 gsd-core/templates/verification-report.md	kept	1+2	5dc276bd5b29
 gsd-core/templates/verification-report.md	own	3+1	1	72b1fb6dcf52	389db0ee9c5a	ported-name
@@ -2568,9 +2564,13 @@ gsd-core/workflows/execute-phase/steps/worktree-base-check.md	own	1+25	2	1ead1be
 gsd-core/workflows/execute-phase/steps/worktree-base-check.md	kept	26+1	e3b0c44298fc
 gsd-core/workflows/execute-phase/steps/worktree-recovery-policy.md	own	1+11	2	9ca14e11a3c0	7a157c5349a5	relic
 gsd-core/workflows/execute-phase/steps/worktree-recovery-policy.md	kept	12+1	e3b0c44298fc
-gsd-core/workflows/execute-plan.md	kept	1+23	99a1745a23e5
-gsd-core/workflows/execute-plan.md	own	24+1	1	63199f26e1db	1996ba1b72dc	ported-name
-gsd-core/workflows/execute-plan.md	kept	25+23	fee9d83735e1
+gsd-core/workflows/execute-plan.md	kept	1+1	67c8626203ca
+gsd-core/workflows/execute-plan.md	own	2+1	1	32437f49f843	22da4ce2be4f	prose
+gsd-core/workflows/execute-plan.md	kept	3+21	6690acbd020b
+gsd-core/workflows/execute-plan.md	own	24+1	1	63199f26e1db	a5acc2e3ff4f	ported-name
+gsd-core/workflows/execute-plan.md	kept	25+12	ca3d98299b2f
+gsd-core/workflows/execute-plan.md	own	37+1	1	77f354f25b62	9ef461dfdf9a	prose
+gsd-core/workflows/execute-plan.md	kept	38+10	7033c9cff94c
 gsd-core/workflows/execute-plan.md	own	48+10	6	107f9590c81f	ecf4b1a791cd	ported-name
 gsd-core/workflows/execute-plan.md	kept	58+3	5b72c385513a
 gsd-core/workflows/execute-plan.md	own	61+1	1	9b5dc1301edc	d196b8bad137	ported-name
@@ -2591,64 +2591,52 @@ gsd-core/workflows/execute-plan.md	own	129+1	1	fae12417868b	40c24e67cf89	prose
 gsd-core/workflows/execute-plan.md	kept	130+11	ef9b379ddc86
 gsd-core/workflows/execute-plan.md	own	141+1	1	62a338bed8b8	e61c99e99d57	ported-name
 gsd-core/workflows/execute-plan.md	kept	142+6	a73f2e6feaf3
-gsd-core/workflows/execute-plan.md	own	148+3	3	35a5f20316da	02129ade8e2c	ported-name
-gsd-core/workflows/execute-plan.md	kept	151+10	221dc2bd1ec0
-gsd-core/workflows/execute-plan.md	own	161+2	2	c93f7a791ab0	4bc84e61f03f	ported-name
-gsd-core/workflows/execute-plan.md	kept	163+4	63eae72e5174
-gsd-core/workflows/execute-plan.md	own	167+2	2	df412037f83b	d4ac4bd9fe58	ported-name
-gsd-core/workflows/execute-plan.md	kept	169+2	7a663b98eb20
-gsd-core/workflows/execute-plan.md	own	171+1	1	0ae9f054b228	572afe52bc25	ported-name
-gsd-core/workflows/execute-plan.md	kept	172+23	599975b42636
-gsd-core/workflows/execute-plan.md	own	195+1	1	804a53ceb6b6	0bf91b74bd76	ported-name
-gsd-core/workflows/execute-plan.md	kept	196+11	0f4d77fdf5ee
+gsd-core/workflows/execute-plan.md	own	148+5	5	09abf7281dab	d0659d7c4e66	ported-name
+gsd-core/workflows/execute-plan.md	kept	153+7	575cbb7c0132
+gsd-core/workflows/execute-plan.md	own	160+17	2	5032cff66ff8	7f435f06684b	ported-name
+gsd-core/workflows/execute-plan.md	kept	177+11	facf2733e009
+gsd-core/workflows/execute-plan.md	own	188+12	9	6113bcda5f76	18a9ce853197	ported-name
+gsd-core/workflows/execute-plan.md	kept	200+7	5194f3de7209
 gsd-core/workflows/execute-plan.md	own	207+1	1	d3f08cf9e19c	2d7e0a4d0816	ported-name
 gsd-core/workflows/execute-plan.md	kept	208+8	c469530aaec4
 gsd-core/workflows/execute-plan.md	own	216+1	1	acb43f5d3de9	b6681a7b1ee3	ported-name
 gsd-core/workflows/execute-plan.md	kept	217+13	7519154b5f3d
-gsd-core/workflows/execute-plan.md	own	230+1	1	9f4176fa4ef3	4869cdceded5	ported-name
+gsd-core/workflows/execute-plan.md	own	230+1	1	9f4176fa4ef3	5494aeac5ba6	ported-name
 gsd-core/workflows/execute-plan.md	kept	231+141	eeaafd4c3f61
 gsd-core/workflows/execute-plan.md	own	372+1	1	818197841701	158c944e5559	ported-name
-gsd-core/workflows/execute-plan.md	kept	373+14	7a5f6e4070e5
+gsd-core/workflows/execute-plan.md	kept	373+10	b08fd83a860b
+gsd-core/workflows/execute-plan.md	own	383+1	1	24eda7a07e63	9d780d8615d2	prose
+gsd-core/workflows/execute-plan.md	kept	384+3	914761721fd0
 gsd-core/workflows/execute-plan.md	own	387+14	4	e8ffa3dc366e	e4e9e92f170a	served
 gsd-core/workflows/execute-plan.md	kept	401+5	09c1eeb33102
-gsd-core/workflows/execute-plan.md	own	406+1	1	3d356286bb9a	df4f0b121b80	ported-name
-gsd-core/workflows/execute-plan.md	kept	407+11	1c125d987b8a
-gsd-core/workflows/execute-plan.md	own	418+3	3	90013c2a0f4d	f7fd9eec0feb	ported-name
-gsd-core/workflows/execute-plan.md	kept	421+4	46cbf4a978b7
-gsd-core/workflows/execute-plan.md	own	425+9	9	3ffe47018e60	01aa5f51dfd3	ported-name
-gsd-core/workflows/execute-plan.md	kept	434+7	570c561ffa8a
-gsd-core/workflows/execute-plan.md	own	441+1	1	04430b9cee2c	6d9090ba1940	ported-name
-gsd-core/workflows/execute-plan.md	kept	442+8	07a9968554c7
-gsd-core/workflows/execute-plan.md	own	450+1	1	9ef45e19371b	918fd383c1d2	ported-name
-gsd-core/workflows/execute-plan.md	kept	451+2	bd3c5c77fef8
-gsd-core/workflows/execute-plan.md	own	453+1	1	ea5e1a3655dd	a0fd86777b2c	ported-name
-gsd-core/workflows/execute-plan.md	kept	454+2	06a64f486339
-gsd-core/workflows/execute-plan.md	own	456+2	2	ff6f92e72a19	c42a6d09cd18	ported-name
-gsd-core/workflows/execute-plan.md	kept	458+11	ba5445f8760e
-gsd-core/workflows/execute-plan.md	own	469+5	5	2f3c00d4f164	3ae7fe17592e	ported-name
-gsd-core/workflows/execute-plan.md	kept	474+4	3df414392200
-gsd-core/workflows/execute-plan.md	own	478+1	1	6b4f8a95e006	6ae4264117d6	ported-name
+gsd-core/workflows/execute-plan.md	own	406+4	7	9036d07d33cd	cb92e5164c84	ported-name
+gsd-core/workflows/execute-plan.md	kept	410+3	29c796fe728e
+gsd-core/workflows/execute-plan.md	own	413+30	11	b83e8dad70ae	58f6f399f10a	ported-name
+gsd-core/workflows/execute-plan.md	kept	443+1	ad332335cfaa
+gsd-core/workflows/execute-plan.md	own	444+16	3	96d0edea3f48	75a87e372bc0	ported-name
+gsd-core/workflows/execute-plan.md	kept	460+4	f4a5dac683bd
+gsd-core/workflows/execute-plan.md	own	464+15	1	ddea74a53edc	ec84b2acab40	ported-name
 gsd-core/workflows/execute-plan.md	kept	479+2	5f046190424d
-gsd-core/workflows/execute-plan.md	own	481+1	1	32ad25807a2d	9a0890a71dd7	ported-name
-gsd-core/workflows/execute-plan.md	kept	482+25	ef4eebe8383e
-gsd-core/workflows/execute-plan.md	own	507+1	1	1d064e096641	70eb2efcd617	ported-name
-gsd-core/workflows/execute-plan.md	kept	508+13	383d893e8fef
-gsd-core/workflows/execute-plan.md	own	521+8	5	344587b35099	0cf5fffc0f2f	ported-name
-gsd-core/workflows/execute-plan.md	kept	529+16	1c2f799fc543
-gsd-core/workflows/execute-plan.md	own	545+1	1	fba5605b41eb	0244210a5ab4	ported-name
-gsd-core/workflows/execute-plan.md	kept	546+1	7dd530c4d36d
-gsd-core/workflows/execute-plan.md	own	547+1	1	9dcb6502d3c0	0244210a5ab4	ported-name
-gsd-core/workflows/execute-plan.md	kept	548+5	892fbd17e710
-gsd-core/workflows/execute-plan.md	own	553+1	1	807aa3f03349	9ac915f699dd	ported-name
-gsd-core/workflows/execute-plan.md	kept	554+8	a90176be94e6
-gsd-core/workflows/execute-plan.md	own	562+2	2	9795257b4e4b	a808770e667d	ported-name
-gsd-core/workflows/execute-plan.md	kept	564+5	ecf493f76e95
-gsd-core/workflows/execute-plan.md	own	569+1	1	92d5048a76b8	c24c9c92c068	ported-name
-gsd-core/workflows/execute-plan.md	kept	570+6	b012e09b0165
-gsd-core/workflows/execute-plan.md	own	576+3	3	8b6292eb8e81	cbce253b7b04	review
+gsd-core/workflows/execute-plan.md	own	481+6	5	05c67e720400	5f59dc3c7c67	ported-name
+gsd-core/workflows/execute-plan.md	kept	487+3	3cacbfa14142
+gsd-core/workflows/execute-plan.md	own	490+21	1	070c51c24a03	9a18a748d654	ported-name
+gsd-core/workflows/execute-plan.md	kept	511+3	489ba56e1a59
+gsd-core/workflows/execute-plan.md	own	514+15	2	646acea08854	d621c86335bc	ported-name
+gsd-core/workflows/execute-plan.md	kept	529+3	277cb94f4b2f
+gsd-core/workflows/execute-plan.md	own	532+6	1	b9d39d0795ef	8e7fd3c7010c	prose
+gsd-core/workflows/execute-plan.md	kept	538+2	5f046190424d
+gsd-core/workflows/execute-plan.md	own	540+9	1	52ad4bbd902a	62321d2c7733	ported-name
+gsd-core/workflows/execute-plan.md	kept	549+4	2b88d62b37e8
+gsd-core/workflows/execute-plan.md	own	553+18	2	2aaf7090936d	8e2eafec64b3	ported-name
+gsd-core/workflows/execute-plan.md	kept	571+3	a9652c730a91
+gsd-core/workflows/execute-plan.md	own	574+5	5	31f735d3a05c	d37d510d454d	prose
 gsd-core/workflows/execute-plan.md	kept	579+2	5f046190424d
 gsd-core/workflows/execute-plan.md	own	581+3	3	94774c51c208	a89afa2e36e4	ported-name
-gsd-core/workflows/execute-plan.md	kept	584+25	d3e744024892
+gsd-core/workflows/execute-plan.md	kept	584+15	c87f493325be
+gsd-core/workflows/execute-plan.md	own	599+1	1	1e6f52316419	b08095d0a01f	prose
+gsd-core/workflows/execute-plan.md	kept	600+1	b62f87deb55f
+gsd-core/workflows/execute-plan.md	own	601+6	4	d08e6767c8a5	1df334b76fd4	prose
+gsd-core/workflows/execute-plan.md	kept	607+2	f06da1895c23
 gsd-core/workflows/extract-learnings.md	kept	1+3	941df86109c2
 gsd-core/workflows/extract-learnings.md	own	4+1	1	6d2fecff81e3	1376663fabba	workflow
 gsd-core/workflows/extract-learnings.md	kept	5+7	5da18e3eff7c

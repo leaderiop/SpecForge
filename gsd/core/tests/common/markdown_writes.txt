@@ -160,20 +160,6 @@ gsd-core/workflows/execute-phase.md	Gap closure cycle: `/gsd:plan-phase {X} --ga
 gsd-core/workflows/execute-phase.md	- Updating REQUIREMENTS.md traceability
 gsd-core/workflows/execute-phase.md	This step runs AFTER phase completion and SUMMARY.md is written. It produces the phase's
 gsd-core/workflows/execute-phase.md	`write_learnings` step writes `{phase_dir}/{PADDED_PHASE}-LEARNINGS.md`). Extraction
-gsd-core/workflows/execute-plan.md	Execute a phase prompt (PLAN.md) and create the outcome summary (SUMMARY.md).
-gsd-core/workflows/execute-plan.md	- gsd-executor — Executes plan tasks, commits, creates SUMMARY.md
-gsd-core/workflows/execute-plan.md	**Tracking protocol:** On spawn: write agent_id to `current-agent-id.txt`, append to agent-history.json: `{"agent_id":"[id]","task_description":"[desc]","phase":"[phase]","plan":"[plan]","segment":[num|null],"timestamp":"[ISO]","status":"spawned","completion_timestamp":null}`. On completion: status → "completed", set completion_timestamp, delete current-agent-id.txt. Prune: if entries > max_entries, remove oldest "completed" (never "spawned").
-gsd-core/workflows/execute-plan.md	3. **Critical ordering — write and commit SUMMARY.md as one atomic block.** Do NOT
-gsd-core/workflows/execute-plan.md	After ALL segments: aggregate files/deviations/decisions → create SUMMARY.md → self-check:
-gsd-core/workflows/execute-plan.md	**Critical ordering — write and commit SUMMARY.md as one atomic block.** Do NOT
-gsd-core/workflows/execute-plan.md	Create `{phase}-{plan}-SUMMARY.md` at the phase `XX-name`. Use the template at `~/.claude/gsd-core/templates/summary.md` (or `summary.compact.md` — same `compact-content-gate.md` resolution as the USER-SETUP template above).
-gsd-core/workflows/execute-plan.md	**Frontmatter:** phase, plan, subsystem, tags | requires/provides/affects | tech-stack.added/patterns | key-files.created/modified | key-decisions | requirements-completed (**MUST** copy `requirements` array from PLAN.md frontmatter verbatim) | never `started`, `completed` or `duration`: `complete-plan` writes the times and `duration` is computed from them.
-gsd-core/workflows/execute-plan.md	handles STATE.md/ROADMAP.md updates centrally after merging worktrees to avoid
-gsd-core/workflows/execute-plan.md	worktree has its own ROADMAP.md, so per-plan writes here would diverge
-gsd-core/workflows/execute-plan.md	**Critical ordering — write and commit SUMMARY.md as one atomic block.** Do NOT
-gsd-core/workflows/execute-plan.md	- SUMMARY.md created with substantive content
-gsd-core/workflows/execute-plan.md	- STATE.md updated (position, decisions, issues, session) — unless parallel mode (orchestrator handles)
-gsd-core/workflows/execute-plan.md	- ROADMAP.md updated — same exception
 gsd-core/workflows/fast.md	- NEVER create PLAN.md or SUMMARY.md files
 gsd-core/workflows/fast.md	- [ ] STATE.md updated if it exists
 gsd-core/workflows/graduation.md	| `decisions` | `PROJECT.md` — append under `## Validated Decisions` (create section if absent) |

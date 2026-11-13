@@ -8,7 +8,7 @@
     "<execution_context>",
     "<file path=\"gsd-core/workflows/execute-plan.md\">",
     "<purpose>",
-    "Execute a phase prompt (PLAN.md) and create the outcome summary (SUMMARY.md).",
+    "Execute a plan (the `plan` entity and its tasks) and write its outcome summary (the `summary` entity).",
     "</purpose>",
     "",
     "<required_reading>",
@@ -30,7 +30,7 @@
     "",
     "**Async exception — `external_job_waiting`.** When an executor dispatches an",
     "async external job (long-running compute) it commits an async-job manifest at",
-    "the spec and returns *without* SUMMARY.md. With a",
+    "the spec and returns *without* a summary entity. With a",
     "manifest recording a non-terminal job for this plan, the SUMMARY-absent state is",
     "a **legal deferred state** (`external_job_waiting`), not an illegal partial.",
     "SUMMARY.md is deferred until the external job reaches a terminal state and its",
@@ -43,7 +43,7 @@
     "",
     "<available_agent_types>",
     "Valid GSD subagent types (use exact names — do not fall back to 'general-purpose'):",
-    "- gsd-executor — Executes plan tasks, commits, creates SUMMARY.md",
+    "- gsd-executor — Executes plan tasks, commits, writes the summary entity",
     "</available_agent_types>",
     "",
     "<process>",
@@ -61,8 +61,10 @@
     "",
     "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id), and its `plan` entities are among the other nodes (a plan whose `status` is not `complete` has no summary yet). `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`; the sub-repositories are `specforge git repos`' answer; an installed agent carries its own model."
   ],
-  "bytes": 49413,
+  "bytes": 41881,
   "end": [
+    "SUMMARY_COUNT=$(specforge gsd progress-report --phase \"$PHASE_ID\" --pick '.phases[0].summaries')",
+    "```",
     "",
     "| Condition | Route | Action |",
     "|-----------|-------|--------|",
@@ -77,14 +79,12 @@
     "",
     "<success_criteria>",
     "",
-    "- All tasks from PLAN.md completed",
+    "- All tasks of the plan completed",
     "- All verifications pass",
-    "- USER-SETUP.md generated if user_setup in frontmatter",
-    "- SUMMARY.md created with substantive content",
-    "- STATE.md updated (position, decisions, issues, session) — unless parallel mode (orchestrator handles)",
-    "- ROADMAP.md updated — same exception",
-    "- If codebase map exists: map updated with execution changes (or skipped if no significant changes)",
-    "- If USER-SETUP.md created: surfaced in completion output",
+    "- The plan's `user_setup` steps shown, if it has any",
+    "- The summary entity written with substantive content, and the plan closed with `complete-plan`",
+    "- Decisions and blockers recorded as entities; progress and requirement completion are computed",
+    "- If the plan has setup steps: surfaced in completion output",
     "</success_criteria>",
     "</file>",
     "</execution_context>",
@@ -186,7 +186,7 @@
     "",
     "```json"
   ],
-  "lines": 812,
+  "lines": 689,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2a5e55e11d522ae2af4a4cf0dc55aa78a38e55dc8a54bca84c3cb8c781152463",
+    "digest": "sha256:e0a0f77296019b922c0a1c3b4ea83a30073bfaff657d67f994ea834a7088a013",
     "prompt": "@gsd/core@VERSION:execute_plan",
     "steps": [
       {
@@ -258,5 +258,5 @@
     ],
     "subject": "v1.0/02/02-01"
   },
-  "sha256": "2a5e55e11d522ae2af4a4cf0dc55aa78a38e55dc8a54bca84c3cb8c781152463"
+  "sha256": "e0a0f77296019b922c0a1c3b4ea83a30073bfaff657d67f994ea834a7088a013"
 }

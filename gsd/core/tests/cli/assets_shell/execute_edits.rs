@@ -160,3 +160,46 @@ fn a_gate_trip_raises_a_blocker_on_its_task() {
         assert!(fields["resolved"].is_null(), "{path}: the blocker is open");
     }
 }
+
+/// The user-setup template's fence, in both forms, writes the plan's setup step as a model fills it: the step exists,
+/// its `done` is unset (a person's to confirm), and the check reports nothing new.
+#[test]
+fn the_user_setup_template_writes_a_setup_step() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    for path in [
+        "gsd-core/templates/user-setup.md",
+        "gsd-core/templates/user-setup.compact.md",
+    ] {
+        let p = taskboard();
+        let setup = typed::filled(
+            &typed::typed_fence(&asset(path), "## The User Setup's Typed Edits"),
+            &[
+                ("PLAN_ID", "v1.0/02/02-01"),
+                ("SETUP_ID", "US1"),
+                ("SERVICE", "stripe"),
+                ("WHY", "Payment processing requires API keys"),
+                (
+                    "ENV_VARS",
+                    r#"[{"name": "STRIPE_SECRET_KEY", "source": "Stripe Dashboard → Developers → API keys"}]"#,
+                ),
+                (
+                    "DASHBOARD",
+                    r#"[{"task": "Create webhook endpoint", "location": "Stripe Dashboard → Webhooks", "details": "URL: https://example.test/hook"}]"#,
+                ),
+                (
+                    "LOCAL_DEV",
+                    "stripe listen --forward-to localhost:3000/hook",
+                ),
+            ],
+        );
+        let run = typed::apply(&sh, &p, &setup);
+        assert_eq!(run.code, 0, "{path}: {}{}", run.out, run.err);
+        assert!(run.added.is_empty(), "{path}: {:?}", run.added);
+        let fields = p.fields_of("v1.0/02/02-01/US1");
+        assert_eq!(fields["service"], "stripe", "{path}: {fields}");
+        assert_eq!(fields["env_vars"][0]["name"], "STRIPE_SECRET_KEY", "{path}");
+        assert!(fields["done"].is_null(), "{path}: a person confirms it");
+    }
+}
