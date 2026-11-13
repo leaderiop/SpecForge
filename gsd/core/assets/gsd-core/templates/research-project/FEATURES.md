@@ -7,10 +7,12 @@ Template for the features dimension of the project research: the feature landsca
 
 ## The Features' Typed Edits
 
-The features are `finding` items (topic `features`) of the project research `RESEARCH` in `spec/research.spec`, written with `specforge new` and scoped by `--research RESEARCH`: nothing writes a research file by hand. The orchestrator recorded `RESEARCH` before spawning the researchers; the synthesizer sets its summary. `specforge schema --kind finding` lists the fields. Fill the quoted values; leave out a flag you have no value for, and repeat the lines per item with the next free id (`specforge query RESEARCH --depth 1 --format context` lists the items already recorded). A refusal names its code: read it with `specforge explain <code>`.
+The features are `finding` items (topic `features`) of the project research `RESEARCH` in `spec/research.spec`, written with `specforge new` and scoped by `--research RESEARCH`: nothing writes a research file by hand. The orchestrator recorded `RESEARCH` before spawning the researchers; the synthesizer sets its summary. `specforge schema --kind finding` lists the fields. Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment; leave out a flag you have no value for, and repeat the lines per item with the next free id (`specforge query RESEARCH --depth 1 --format context` lists the items already recorded). A refusal names its code: read it with `specforge explain <code>`.
 
 ```bash
-TEXT="{the feature, and whether it is table stakes, a differentiator or an anti-feature}"
+IFS= read -rd '' TEXT <<'TEXT' || true; TEXT=${TEXT%$'\n'}
+{the feature, and whether it is table stakes, a differentiator or an anti-feature}
+TEXT
 CONFIDENCE="{high, medium or low}"
 specforge new finding FEAT1 "$TEXT" --in spec/research.spec --research RESEARCH --topic features --text "$TEXT" --confidence "$CONFIDENCE" || exit 1
 ```

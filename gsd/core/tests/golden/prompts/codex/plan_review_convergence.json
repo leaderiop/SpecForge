@@ -61,7 +61,7 @@
     "operator's explicit flag overrides this gate for that run. Standalone invocation carries no such",
     "flag and remains gated by the config below."
   ],
-  "bytes": 80177,
+  "bytes": 80246,
   "end": [
     "- `## Self-Check: FAILED` (summary self-check)",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1246,
+  "lines": 1248,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:3a9b89b28ad94e91f329e13feb82a88aae31eba8b9607698258408758b5afe16",
+    "digest": "sha256:97fb5cbc523a65f79e3b96b5cc6991887c81e0b46b74d9408b0fa3c0b562590f",
     "prompt": "@gsd/core@VERSION:plan_review_convergence",
     "steps": [
       {
@@ -211,5 +211,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "3a9b89b28ad94e91f329e13feb82a88aae31eba8b9607698258408758b5afe16"
+  "sha256": "97fb5cbc523a65f79e3b96b5cc6991887c81e0b46b74d9408b0fa3c0b562590f"
 }

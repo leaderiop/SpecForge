@@ -61,7 +61,7 @@
     "- \"If you had to cut 50%, what's the irreducible core?\"",
     "- \"What would make this phase a success even without the nice-to-haves?\""
   ],
-  "bytes": 59659,
+  "bytes": 61130,
   "end": [
     "<context>",
     "Phase number: the `<arguments>` block (required)",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1011,
+  "lines": 1051,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:921e2bc96540440b1d2b965ad39c58ca9840507769401d1fe585bd9f5045723d",
+    "digest": "sha256:783f6ea6a3c26835183b36d96e48718ecb1d26196de7f6837eac6ad142eefe04",
     "judged": [
       {
         "outcomes": [
@@ -235,5 +235,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "921e2bc96540440b1d2b965ad39c58ca9840507769401d1fe585bd9f5045723d"
+  "sha256": "783f6ea6a3c26835183b36d96e48718ecb1d26196de7f6837eac6ad142eefe04"
 }

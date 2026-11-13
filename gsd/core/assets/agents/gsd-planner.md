@@ -300,7 +300,7 @@ A plan is entities in the spec, written with `specforge new`, changed with `spec
 `task`, `checkpoint`, `truth`, `artifact`, `key_link`, `prohibition` and `user_setup`, and `specforge new plan --help`
 prints the plan's as flags (likewise for each kind). A list of ids is a comma list (`--requirements AUTH-01,AUTH-02`), a list of texts takes
 its flag once per item (`--files_modified src/a.ts --files_modified src/b.ts`), a block is JSON (`--estimate '<json>'`),
-and a field named like an option is written with `--field path=<value>`. Fill the quoted values; leave out a flag you
+and a field named like an option is written with `--field path=<value>`. Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment; leave out a flag you
 have no value for (an empty `DEPENDS_ON`, no `DECISIONS`), and repeat a `new task`, `truth`, `artifact` or `key_link`
 line per item with the next id (`T2`, `TR2`, `AR2`, `KL2`).
 
@@ -309,34 +309,64 @@ Each plan has its own file beside the phase's file, so the executors of one wave
 ```bash
 PHASE_ID="{the phase id, e.g. v1.0/02}"
 PLAN="{padded phase}-{NN, the next plan number of the phase}"
-TITLE="{the plan's title}"
+IFS= read -rd '' TITLE <<'TEXT' || true; TITLE=${TITLE%$'\n'}
+{the plan's title}
+TEXT
 TYPE="{execute or tdd}"
 DEPENDS_ON="{the plan ids this plan needs, comma-separated}"
 FILE_1="{a file this plan touches}"
 FILE_2="{the next file it touches: one --files_modified per file}"
 REQUIREMENTS="{the requirement ids this plan addresses, comma-separated: never empty}"
 DECISIONS="{the D-NN ids of the phase's context this plan implements, comma-separated}"
-OBJECTIVE="{what this plan accomplishes}"
-PURPOSE="{why this matters}"
-OUTPUT="{what it creates}"
+IFS= read -rd '' OBJECTIVE <<'TEXT' || true; OBJECTIVE=${OBJECTIVE%$'\n'}
+{what this plan accomplishes}
+TEXT
+IFS= read -rd '' PURPOSE <<'TEXT' || true; PURPOSE=${PURPOSE%$'\n'}
+{why this matters}
+TEXT
+IFS= read -rd '' OUTPUT <<'TEXT' || true; OUTPUT=${OUTPUT%$'\n'}
+{what it creates}
+TEXT
 CONTEXT_REF="{a spec file or source the executor reads, only if genuinely needed}"
-VERIFICATION="{the overall check}"
-SUCCESS_CRITERIA="{the measurable completion}"
+IFS= read -rd '' VERIFICATION <<'TEXT' || true; VERIFICATION=${VERIFICATION%$'\n'}
+{the overall check}
+TEXT
+IFS= read -rd '' SUCCESS_CRITERIA <<'TEXT' || true; SUCCESS_CRITERIA=${SUCCESS_CRITERIA%$'\n'}
+{the measurable completion}
+TEXT
 ESTIMATE='{"tokens": {the calibrated projection}}'
-TASK_NAME="{Task 1: an action-oriented name}"
+IFS= read -rd '' TASK_NAME <<'TEXT' || true; TASK_NAME=${TASK_NAME%$'\n'}
+{Task 1: an action-oriented name}
+TEXT
 TASK_FILE="{the file the task touches}"
-TASK_ACTION="{the specific implementation}"
-TASK_VERIFY="{the command or check}"
-TASK_DONE="{the acceptance criteria}"
-TRUTH="{an observable behavior that must be true}"
+IFS= read -rd '' TASK_ACTION <<'TEXT' || true; TASK_ACTION=${TASK_ACTION%$'\n'}
+{the specific implementation}
+TEXT
+IFS= read -rd '' TASK_VERIFY <<'TEXT' || true; TASK_VERIFY=${TASK_VERIFY%$'\n'}
+{the command or check}
+TEXT
+IFS= read -rd '' TASK_DONE <<'TEXT' || true; TASK_DONE=${TASK_DONE%$'\n'}
+{the acceptance criteria}
+TEXT
+IFS= read -rd '' TRUTH <<'TEXT' || true; TRUTH=${TRUTH%$'\n'}
+{an observable behavior that must be true}
+TEXT
 TRUTH_REQUIREMENT="{the requirement id it proves}"
-ARTIFACT_NAME="{what the file is}"
+IFS= read -rd '' ARTIFACT_NAME <<'TEXT' || true; ARTIFACT_NAME=${ARTIFACT_NAME%$'\n'}
+{what the file is}
+TEXT
 ARTIFACT_PATH="{a file that must exist}"
-ARTIFACT_PROVIDES="{what it provides}"
-LINK_NAME="{the connection}"
+IFS= read -rd '' ARTIFACT_PROVIDES <<'TEXT' || true; ARTIFACT_PROVIDES=${ARTIFACT_PROVIDES%$'\n'}
+{what it provides}
+TEXT
+IFS= read -rd '' LINK_NAME <<'TEXT' || true; LINK_NAME=${LINK_NAME%$'\n'}
+{the connection}
+TEXT
 LINK_FROM="{the file that uses it}"
 LINK_TO="{the file it uses}"
-LINK_VIA="{how, e.g. the import}"
+IFS= read -rd '' LINK_VIA <<'TEXT' || true; LINK_VIA=${LINK_VIA%$'\n'}
+{how, e.g. the import}
+TEXT
 PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
 PLAN_FILE="${PHASE_FILE%/*}/plans/$PLAN.spec"
 PLAN_ID="$PHASE_ID/$PLAN"
@@ -354,16 +384,30 @@ written:
 ```bash
 PLAN_ID="{the plan's id, e.g. v1.0/02/02-02}"
 PLAN_FILE="{the plan's file, e.g. spec/plans/02-02.spec}"
-CHECKPOINT_TITLE="{what the person checks or decides}"
+IFS= read -rd '' CHECKPOINT_TITLE <<'TEXT' || true; CHECKPOINT_TITLE=${CHECKPOINT_TITLE%$'\n'}
+{what the person checks or decides}
+TEXT
 CHECKPOINT_KIND="{human_verify, decision, human_action or tdd_review}"
 CHECKPOINT_AFTER="{the task it follows, e.g. T1}"
-WHAT_BUILT="{what the person is shown}"
-HOW_TO_VERIFY="{how they check it}"
-RESUME_SIGNAL="{what the person types to resume, e.g. approved}"
-STATEMENT="{what must never happen}"
+IFS= read -rd '' WHAT_BUILT <<'TEXT' || true; WHAT_BUILT=${WHAT_BUILT%$'\n'}
+{what the person is shown}
+TEXT
+IFS= read -rd '' HOW_TO_VERIFY <<'TEXT' || true; HOW_TO_VERIFY=${HOW_TO_VERIFY%$'\n'}
+{how they check it}
+TEXT
+IFS= read -rd '' RESUME_SIGNAL <<'TEXT' || true; RESUME_SIGNAL=${RESUME_SIGNAL%$'\n'}
+{what the person types to resume, e.g. approved}
+TEXT
+IFS= read -rd '' STATEMENT <<'TEXT' || true; STATEMENT=${STATEMENT%$'\n'}
+{what must never happen}
+TEXT
 VERIFICATION_KIND="{test or judgment}"
-SERVICE="{the external service}"
-WHY="{why the plan needs it}"
+IFS= read -rd '' SERVICE <<'TEXT' || true; SERVICE=${SERVICE%$'\n'}
+{the external service}
+TEXT
+IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\n'}
+{why the plan needs it}
+TEXT
 NEEDED_PLAN="{a plan id this plan turned out to need}"
 specforge new checkpoint CP1 "$CHECKPOINT_TITLE" --in "$PLAN_FILE" --plan "$PLAN_ID" --kind "$CHECKPOINT_KIND" --after "$PLAN_ID/$CHECKPOINT_AFTER" --what_built "$WHAT_BUILT" --how_to_verify "$HOW_TO_VERIFY" --resume_signal "$RESUME_SIGNAL" || exit 1
 specforge new prohibition PR1 "$STATEMENT" --in "$PLAN_FILE" --plan "$PLAN_ID" --statement "$STATEMENT" --verification "$VERIFICATION_KIND" || exit 1
@@ -823,7 +867,9 @@ Only a placeholder goal is yours to fill, derived from the phase's context, then
 
 ```bash
 PHASE_NUMBER="{the phase number, e.g. 02}"
-GOAL="{the phase's outcome-shaped goal}"
+IFS= read -rd '' GOAL <<'TEXT' || true; GOAL=${GOAL%$'\n'}
+{the phase's outcome-shaped goal}
+TEXT
 specforge gsd phase --edit "$PHASE_NUMBER" --goal "$GOAL" || exit 1
 ```
 

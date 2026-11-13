@@ -383,8 +383,12 @@ All modes preserve the universal rules below.
   ```bash
   PHASE_ID="{the phase's id, e.g. v1.0/03}"
   PADDED_PHASE="{the phase number, zero-padded, e.g. 03}"
-  NAME="{the phase name}"
-  CHECKPOINT='{"timestamp": "{now, e.g. 2026-11-13T10:00:00Z}", "areas_completed": ["{an area discussed}"], "areas_remaining": ["{an area still to discuss}"], "decisions": [{"area": "{its area}", "question": "{the question}", "answer": "{the answer}", "options_presented": ["{an option}"]}], "deferred_ideas": ["{a deferred idea}"], "canonical_refs": ["{a path the user referenced}"]}'
+  IFS= read -rd '' NAME <<'TEXT' || true; NAME=${NAME%$'\n'}
+  {the phase name}
+  TEXT
+  IFS= read -rd '' CHECKPOINT <<'TEXT' || true; CHECKPOINT=${CHECKPOINT%$'\n'}
+  {"timestamp": "{now, e.g. 2026-11-13T10:00:00Z}", "areas_completed": ["{an area discussed}"], "areas_remaining": ["{an area still to discuss}"], "decisions": [{"area": "{its area}", "question": "{the question}", "answer": "{the answer}", "options_presented": ["{an option}"]}], "deferred_ideas": ["{a deferred idea}"], "canonical_refs": ["{a path the user referenced}"]}
+  TEXT
   LOG=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=discussion].id') || exit 1
   if [ -n "$LOG" ]; then
     specforge set "$LOG" checkpoint "$CHECKPOINT" || exit 1

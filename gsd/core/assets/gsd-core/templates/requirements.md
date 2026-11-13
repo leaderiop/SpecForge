@@ -9,16 +9,22 @@ Template for the `requirement` entities: checkable requirements that define "don
 
 Requirements are entities in `spec/requirements.spec`, one `requirement` per requirement, written with `specforge new`;
 nothing writes a requirements list by hand. `specforge schema --kind requirement` lists the fields, and `specforge new
-requirement --help` prints them as flags. Fill the quoted values and repeat the line per requirement; `--reason` is for
+requirement --help` prints them as flags. Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment and repeat the line per requirement; `--reason` is for
 an `out_of_scope` requirement, and is left out otherwise. A refusal names its code: read it with `specforge explain
 <code>`.
 
 ```bash
 REQ_ID="{CATEGORY-NN, e.g. AUTH-01}"
-TEXT="{the requirement: user-centric, testable, atomic}"
-CATEGORY="{its category, e.g. Authentication}"
+IFS= read -rd '' TEXT <<'TEXT' || true; TEXT=${TEXT%$'\n'}
+{the requirement: user-centric, testable, atomic}
+TEXT
+IFS= read -rd '' CATEGORY <<'TEXT' || true; CATEGORY=${CATEGORY%$'\n'}
+{its category, e.g. Authentication}
+TEXT
 TIER="{v1, v2 or out_of_scope}"
-REASON="{why it is out of scope}"
+IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
+{why it is out of scope}
+TEXT
 specforge new requirement "$REQ_ID" "$TEXT" --in spec/requirements.spec --text "$TEXT" --category "$CATEGORY" --tier "$TIER" --reason "$REASON" || exit 1
 ```
 

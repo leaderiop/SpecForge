@@ -60,7 +60,9 @@ milestone's commit is its "last updated":
 ```bash
 PROJECT="{the project id}"
 FIELD="{the field that changed, e.g. core_value}"
-VALUE="{its new value}"
+IFS= read -rd '' VALUE <<'TEXT' || true; VALUE=${VALUE%$'\n'}
+{its new value}
+TEXT
 specforge set "$PROJECT" "$FIELD" "$VALUE" || exit 1
 ```
 

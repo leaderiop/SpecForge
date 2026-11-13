@@ -19,7 +19,7 @@ A phase's context is entities in `spec/discuss.spec`: one `context`, one `decisi
 and one `deferred_idea` per idea that belongs in another phase, written with `specforge new`; nothing writes a context
 by hand. `specforge schema --kind context` (likewise `decision`, `deferred_idea`) lists the fields, and `specforge new
 context --help` prints them as flags. A list of texts takes its flag once per item (`--discretion "Spacing"
---discretion "Error copy"`), and `canonical_refs` is JSON. Fill the quoted values; leave out a flag you have no value
+--discretion "Error copy"`), and `canonical_refs` is JSON. Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment; leave out a flag you have no value
 for, and repeat a `new decision` or `new deferred_idea` line per item with the next id (`D-02`, `DI2`). A context that
 already exists ("Update it") takes `specforge set` / `specforge link` on its fields instead of `new`. A refusal names
 its code: read it with `specforge explain <code>`.
@@ -27,21 +27,47 @@ its code: read it with `specforge explain <code>`.
 ```bash
 PHASE_ID="{the phase's id, e.g. v1.0/03}"
 PADDED_PHASE="{the phase number, zero-padded, e.g. 03}"
-NAME="{the phase name}"
+IFS= read -rd '' NAME <<'TEXT' || true; NAME=${NAME%$'\n'}
+{the phase name}
+TEXT
 GATHERED="{today, YYYY-MM-DD}"
-BOUNDARY="{what this phase delivers: the scope anchor, from the phase goal}"
-SPECIFICS="{particular references, examples or I want it like X moments; or: No specific requirements, open to standard approaches}"
-REFS='[{"topic": "{a topic area}", "paths": ["{path/to/adr-or-spec.md}"]}]'
-DISCRETION="{an area where the user said you decide: one --discretion per area}"
-ASSET="{a component, hook or utility, and how this phase could use it: one --reusable_assets per item}"
-PATTERN="{an established pattern, and how it constrains or enables this phase: one --patterns per item}"
-INTEGRATION="{where new code connects to the existing system: one --integration_points per item}"
-AREA="{the area the decision was discussed under}"
-DECISION="{the decision or preference captured}"
+IFS= read -rd '' BOUNDARY <<'TEXT' || true; BOUNDARY=${BOUNDARY%$'\n'}
+{what this phase delivers: the scope anchor, from the phase goal}
+TEXT
+IFS= read -rd '' SPECIFICS <<'TEXT' || true; SPECIFICS=${SPECIFICS%$'\n'}
+{particular references, examples or I want it like X moments; or: No specific requirements, open to standard approaches}
+TEXT
+IFS= read -rd '' REFS <<'TEXT' || true; REFS=${REFS%$'\n'}
+[{"topic": "{a topic area}", "paths": ["{path/to/adr-or-spec.md}"]}]
+TEXT
+IFS= read -rd '' DISCRETION <<'TEXT' || true; DISCRETION=${DISCRETION%$'\n'}
+{an area where the user said you decide: one --discretion per area}
+TEXT
+IFS= read -rd '' ASSET <<'TEXT' || true; ASSET=${ASSET%$'\n'}
+{a component, hook or utility, and how this phase could use it: one --reusable_assets per item}
+TEXT
+IFS= read -rd '' PATTERN <<'TEXT' || true; PATTERN=${PATTERN%$'\n'}
+{an established pattern, and how it constrains or enables this phase: one --patterns per item}
+TEXT
+IFS= read -rd '' INTEGRATION <<'TEXT' || true; INTEGRATION=${INTEGRATION%$'\n'}
+{where new code connects to the existing system: one --integration_points per item}
+TEXT
+IFS= read -rd '' AREA <<'TEXT' || true; AREA=${AREA%$'\n'}
+{the area the decision was discussed under}
+TEXT
+IFS= read -rd '' DECISION <<'TEXT' || true; DECISION=${DECISION%$'\n'}
+{the decision or preference captured}
+TEXT
 REVERSIBILITY="{reversible, costly or one_way}"
-RATIONALE="{what undoing it would cost: the migration, the contract or the dependent system}"
-IDEA="{an idea that came up but belongs in another phase}"
-WHY="{why it was deferred: out of scope, belongs in a later phase}"
+IFS= read -rd '' RATIONALE <<'TEXT' || true; RATIONALE=${RATIONALE%$'\n'}
+{what undoing it would cost: the migration, the contract or the dependent system}
+TEXT
+IFS= read -rd '' IDEA <<'TEXT' || true; IDEA=${IDEA%$'\n'}
+{an idea that came up but belongs in another phase}
+TEXT
+IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\n'}
+{why it was deferred: out of scope, belongs in a later phase}
+TEXT
 specforge new context "${PADDED_PHASE}-CONTEXT" "$NAME context" --in spec/discuss.spec --phase "$PHASE_ID" --gathered "$GATHERED" --boundary "$BOUNDARY" --specifics "$SPECIFICS" --canonical_refs "$REFS" --discretion "$DISCRETION" --reusable_assets "$ASSET" --patterns "$PATTERN" --integration_points "$INTEGRATION" || exit 1
 specforge new decision D-01 "$DECISION" --in spec/discuss.spec --phase "$PHASE_ID" --origin context --area "$AREA" --text "$DECISION" --reversibility "$REVERSIBILITY" --rationale "$RATIONALE" || exit 1
 specforge new deferred_idea DI1 "$IDEA" --in spec/discuss.spec --phase "$PHASE_ID" --text "$IDEA" --why "$WHY" || exit 1

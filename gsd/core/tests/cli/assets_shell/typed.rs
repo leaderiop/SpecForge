@@ -14,9 +14,10 @@ pub(super) struct Applied {
     pub added: Vec<String>,
 }
 
-/// `fence` with the model's values filled in. A key `NAME` gives the assignment `NAME="…"` (or `NAME='…'`) its
-/// value; a key `{placeholder}` replaces that text wherever it stands. A key that fills nothing panics, and so does an
-/// assignment that still holds a `{…}` placeholder afterwards: the test must fill every value the model writes.
+/// `fence` with the model's values filled in. A key `NAME` gives the quoted heredoc `IFS= read -rd '' NAME <<'TEXT'`
+/// its body, or the assignment `NAME="…"` (or `NAME='…'`) its value; a key `{placeholder}` replaces that text wherever
+/// it stands. A key that fills nothing panics, and so does a heredoc body or an assignment that still holds a `{…}`
+/// placeholder afterwards: the test must fill every value the model writes.
 pub(super) fn filled(fence: &str, values: &[(&str, &str)]) -> String {
     let mut text = fence.to_string();
     for (key, value) in values {
@@ -26,31 +27,81 @@ pub(super) fn filled(fence: &str, values: &[(&str, &str)]) -> String {
             continue;
         }
         let mut hit = false;
-        let lines: Vec<String> = text
-            .lines()
-            .map(|line| {
-                let Some(rest) = line.strip_prefix(&format!("{key}=")) else {
-                    return line.to_string();
-                };
-                let quote = rest.chars().next().filter(|q| *q == '"' || *q == '\'');
-                hit = quote.is_some();
-                match quote {
-                    Some(q) => format!("{key}={q}{value}{q}"),
-                    None => line.to_string(),
+        let mut lines: Vec<String> = Vec::new();
+        let mut body: Option<String> = None;
+        for line in text.lines() {
+            if let Some(end) = &body {
+                if line.trim_start() == end {
+                    body = None;
+                    lines.push(line.to_string());
                 }
-            })
-            .collect();
-        assert!(hit, "no quoted assignment {key}= in the fence:\n{fence}");
+                continue;
+            }
+            if let Some(end) = heredoc_of(line, key) {
+                hit = true;
+                lines.push(line.to_string());
+                lines.push(value.to_string());
+                body = Some(end);
+                continue;
+            }
+            let Some(rest) = line.strip_prefix(&format!("{key}=")) else {
+                lines.push(line.to_string());
+                continue;
+            };
+            match rest.chars().next().filter(|q| *q == '"' || *q == '\'') {
+                Some(q) => {
+                    hit = true;
+                    lines.push(format!("{key}={q}{value}{q}"));
+                }
+                None => lines.push(line.to_string()),
+            }
+        }
+        assert!(
+            hit,
+            "no heredoc or quoted assignment {key} in the fence:\n{fence}"
+        );
         text = lines.join("\n");
     }
     let placeholder = regex::Regex::new(r"^[A-Z][A-Z0-9_]*=.*[^$]\{[A-Za-z]").expect("a regex");
+    let in_body = regex::Regex::new(r"\{[A-Za-z]").expect("a regex");
+    let mut body: Option<String> = None;
     for line in text.lines() {
+        if let Some(end) = &body {
+            if line.trim_start() == end {
+                body = None;
+            } else {
+                assert!(
+                    !in_body.is_match(line),
+                    "a value the model writes is left unfilled: {line}"
+                );
+            }
+            continue;
+        }
+        body = heredoc_end(line);
         assert!(
             !placeholder.is_match(line),
             "a value the model writes is left unfilled: {line}"
         );
     }
     text
+}
+
+/// The delimiter of `line` when it reads a quoted heredoc into `var` (`IFS= read -rd '' VAR <<'TEXT'`).
+fn heredoc_of(line: &str, var: &str) -> Option<String> {
+    let rest = line
+        .trim_start()
+        .strip_prefix(&format!("IFS= read -rd '' {var} <<'"))?;
+    Some(rest[..rest.find('\'')?].to_string())
+}
+
+/// The delimiter of `line` when it reads a quoted heredoc into any variable.
+fn heredoc_end(line: &str) -> Option<String> {
+    let rest = line.trim_start().strip_prefix("IFS= read -rd '' ")?;
+    let var: String = rest
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+        .collect();
+    heredoc_of(line, &var)
 }
 
 /// Runs `script` in `p`'s root under `sh`, with `p`'s check codes read before and after.

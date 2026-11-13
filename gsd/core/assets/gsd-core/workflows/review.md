@@ -673,7 +673,9 @@ Only reached when `TOTAL_LANE_FAILURE` and `ALL_LANES_SKIPPED` are both `false` 
 
 ```bash
 PHASE_ID="{the phase id, e.g. v1.0/02}"
-REVIEW_JSON='{the round as JSON: {"plans": [...], "reviewers": [...], "lanes": [...], "consensus": "...", "strengths": [...], "divergent": [...], "concerns": [...]}}'
+IFS= read -rd '' REVIEW_JSON <<'TEXT' || true; REVIEW_JSON=${REVIEW_JSON%$'\n'}
+{the round as JSON: {"plans": [...], "reviewers": [...], "lanes": [...], "consensus": "...", "strengths": [...], "divergent": [...], "concerns": [...]}}
+TEXT
 REVIEW_ID=$(specforge gsd record-review "$PHASE_ID" --review "$REVIEW_JSON" --pick .review) || exit 1
 echo "Recorded review: $REVIEW_ID"
 ```

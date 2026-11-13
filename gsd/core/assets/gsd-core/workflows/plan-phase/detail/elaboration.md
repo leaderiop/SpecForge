@@ -103,8 +103,12 @@ step 10:
 ```bash
 PHASE_ID="{the phase id, e.g. v1.0/02}"
 IDEA_ID="{the phase's next deferred idea id, e.g. DI2}"
-DEFERRED="{the unplanned item, in the developer's words}"
-WHY="{why it waits, e.g. the developer deferred it at the source audit}"
+IFS= read -rd '' DEFERRED <<'TEXT' || true; DEFERRED=${DEFERRED%$'\n'}
+{the unplanned item, in the developer's words}
+TEXT
+IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\n'}
+{why it waits, e.g. the developer deferred it at the source audit}
+TEXT
 PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
 specforge new deferred_idea "$IDEA_ID" "$DEFERRED" --in "$PHASE_FILE" --phase "$PHASE_ID" --text "$DEFERRED" --why "$WHY" || exit 1
 ```

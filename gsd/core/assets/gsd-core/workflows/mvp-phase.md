@@ -177,7 +177,9 @@ replaces the mode and the goal):
 ```bash
 PHASE_ID="{the phase id, e.g. v1.0/03}"
 PHASE="{the zero-padded phase number, e.g. 03}"
-USER_STORY="{the assembled user story}"
+IFS= read -rd '' USER_STORY <<'TEXT' || true; USER_STORY=${USER_STORY%$'\n'}
+{the assembled user story}
+TEXT
 specforge set "$PHASE_ID" mode mvp || exit 1
 specforge gsd phase --edit "$PHASE" --goal "$USER_STORY" || exit 1
 ```

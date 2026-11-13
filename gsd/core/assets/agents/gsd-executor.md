@@ -423,7 +423,9 @@ specified in the canonical `gsd-core/references/tdd.md` "Gate Enforcement Rules"
 2. Emit the structured halt report defined in `gsd-core/references/execute-mvp-tdd.md` (header line, reason code, expected behavior, required next step).
 3. Record the trip as an open blocker on its task (its `gate`); the person resumes from that blocker:
    ```bash
-   HALT_REASON="{the halt report's reason code and the task it names}"
+   IFS= read -rd '' HALT_REASON <<'TEXT' || true; HALT_REASON=${HALT_REASON%$'\n'}
+   {the halt report's reason code and the task it names}
+   TEXT
    PLAN_ID="{the plan's id, e.g. v1.0/02/02-01}"
    TASK_ID="{the tripped task's id, e.g. v1.0/02/02-01/T1}"
    specforge gsd raise-blocker "$HALT_REASON" --plan "$PLAN_ID" --gate "$TASK_ID" || exit 1
@@ -433,7 +435,9 @@ specified in the canonical `gsd-core/references/tdd.md` "Gate Enforcement Rules"
    implementation step, so the project is no longer blocked:
    ```bash
    TASK_ID="{the task's id, e.g. v1.0/02/02-01/T1}"
-   REASON="{how the gate was met, e.g. the failing test was committed first}"
+   IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
+   {how the gate was met, e.g. the failing test was committed first}
+   TEXT
    BLOCKERS=$(specforge query "$TASK_ID" --depth 1 --kinds blocker --pick ".nodes[fields.gate=$TASK_ID].id") || exit 1
    for BLOCKER in $BLOCKERS; do
      # a resolved blocker prints its `resolved` object: only an open one is resolved
@@ -694,7 +698,9 @@ orchestrator queries the `summary` entity after you return; your return message 
 ```bash
 PLAN_ID="{the plan's id, e.g. v1.0/02/02-01}"
 DECISION_ID="{the phase's next decision id, e.g. D-04}"
-DECISION="{the decision and its rationale, in one line}"
+IFS= read -rd '' DECISION <<'TEXT' || true; DECISION=${DECISION%$'\n'}
+{the decision and its rationale, in one line}
+TEXT
 PLAN_FILE=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].file') || exit 1
 PHASE_ID=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].fields.phase') || exit 1
 specforge new decision "$DECISION_ID" "$DECISION" --in "$PLAN_FILE" --phase "$PHASE_ID" --text "$DECISION" --origin summary || exit 1

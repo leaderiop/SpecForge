@@ -7,12 +7,16 @@ Template for the stack dimension of the project research: the recommended techno
 
 ## The Stack's Typed Edits
 
-The stack is `stack_choice` items of the project research `RESEARCH` in `spec/research.spec`, written with `specforge new` and scoped by `--research RESEARCH`: nothing writes a research file by hand. The orchestrator recorded `RESEARCH` before spawning the researchers; the synthesizer sets its summary. `specforge schema --kind stack_choice` lists the fields. A rejected option is a `stack_choice` of tier `alternative` with `--rejected_because`; version compatibility and the sources are `finding` items with `--topic stack`. Fill the quoted values; leave out a flag you have no value for, and repeat the lines per item with the next free id (`specforge query RESEARCH --depth 1 --format context` lists the items already recorded). A refusal names its code: read it with `specforge explain <code>`.
+The stack is `stack_choice` items of the project research `RESEARCH` in `spec/research.spec`, written with `specforge new` and scoped by `--research RESEARCH`: nothing writes a research file by hand. The orchestrator recorded `RESEARCH` before spawning the researchers; the synthesizer sets its summary. `specforge schema --kind stack_choice` lists the fields. A rejected option is a `stack_choice` of tier `alternative` with `--rejected_because`; version compatibility and the sources are `finding` items with `--topic stack`. Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment; leave out a flag you have no value for, and repeat the lines per item with the next free id (`specforge query RESEARCH --depth 1 --format context` lists the items already recorded). A refusal names its code: read it with `specforge explain <code>`.
 
 ```bash
-NAME="{the technology or library}"
+IFS= read -rd '' NAME <<'TEXT' || true; NAME=${NAME%$'\n'}
+{the technology or library}
+TEXT
 VERSION="{its version, e.g. 5.4}"
-PURPOSE="{what it is for, and why it is the standard choice}"
+IFS= read -rd '' PURPOSE <<'TEXT' || true; PURPOSE=${PURPOSE%$'\n'}
+{what it is for, and why it is the standard choice}
+TEXT
 TIER="{core, supporting or alternative}"
 specforge new stack_choice SC1 "$NAME" --in spec/research.spec --research RESEARCH --name "$NAME" --version "$VERSION" --purpose "$PURPOSE" --tier "$TIER" || exit 1
 ```

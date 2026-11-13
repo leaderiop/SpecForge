@@ -81,7 +81,9 @@ For each file to be created/modified:
 Find the closest existing file with the same role and data flow, starting from the graph: a task whose words match the role, and the source its facts are anchored to; `specforge anchors --file <candidate>` tells which task a candidate belongs to:
 
 ```bash
-ROLE_WORDS="{the role's words, e.g. store}"
+IFS= read -rd '' ROLE_WORDS <<'TEXT' || true; ROLE_WORDS=${ROLE_WORDS%$'\n'}
+{the role's words, e.g. store}
+TEXT
 TASK_ID="{a task the search printed, e.g. v1.0/01/01-01/T1}"
 specforge search "$ROLE_WORDS" --kinds task || exit 1
 specforge anchors "$TASK_ID" || exit 1

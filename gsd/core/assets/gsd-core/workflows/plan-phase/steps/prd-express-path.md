@@ -28,7 +28,7 @@ Recording the phase context from requirements...
    - Identify any areas the PRD doesn't cover and mark as "Claude's Discretion"
    - **Extract canonical refs** from the phase entity, plus any specs/ADRs referenced in the PRD — expand to full file paths (MANDATORY)
 
-4. Record the context as typed edits, filling the quoted values (`specforge schema --kind context`, `--kind decision`
+4. Record the context as typed edits, filling the values (free text in its quoted heredoc, as written) (`specforge schema --kind context`, `--kind decision`
    and `--kind deferred_idea` list the fields): one `new decision` line per requirement, story or criterion of the PRD
    (`D-01`, `D-02`, …), one `new deferred_idea` line per item the PRD marks as future, v2 or out of scope, and no line
    for a part that is empty:
@@ -36,14 +36,30 @@ Recording the phase context from requirements...
 ```bash
 PHASE_ID="{the phase id, e.g. v1.0/03}"
 CONTEXT="{padded phase}-CONTEXT"
-TITLE="{the phase's name} context"
-BOUNDARY="{what this phase delivers, extracted from the PRD}"
-DISCRETION="{an area the PRD does not cover: implementation details, technical choices}"
-SPECIFICS="{specific references, examples or concrete requirements from the PRD}"
-CANONICAL_REFS='[{"topic": "{a topic area}", "paths": ["{the full relative path of a spec or ADR it names}"]}]'
-AREA="{the category derived from the content}"
-DECISION="{a requirement of the PRD, as a locked decision}"
-DEFERRED="{an item the PRD marks as future, v2 or out of scope}"
+IFS= read -rd '' TITLE <<'TEXT' || true; TITLE=${TITLE%$'\n'}
+{the phase's name} context
+TEXT
+IFS= read -rd '' BOUNDARY <<'TEXT' || true; BOUNDARY=${BOUNDARY%$'\n'}
+{what this phase delivers, extracted from the PRD}
+TEXT
+IFS= read -rd '' DISCRETION <<'TEXT' || true; DISCRETION=${DISCRETION%$'\n'}
+{an area the PRD does not cover: implementation details, technical choices}
+TEXT
+IFS= read -rd '' SPECIFICS <<'TEXT' || true; SPECIFICS=${SPECIFICS%$'\n'}
+{specific references, examples or concrete requirements from the PRD}
+TEXT
+IFS= read -rd '' CANONICAL_REFS <<'TEXT' || true; CANONICAL_REFS=${CANONICAL_REFS%$'\n'}
+[{"topic": "{a topic area}", "paths": ["{the full relative path of a spec or ADR it names}"]}]
+TEXT
+IFS= read -rd '' AREA <<'TEXT' || true; AREA=${AREA%$'\n'}
+{the category derived from the content}
+TEXT
+IFS= read -rd '' DECISION <<'TEXT' || true; DECISION=${DECISION%$'\n'}
+{a requirement of the PRD, as a locked decision}
+TEXT
+IFS= read -rd '' DEFERRED <<'TEXT' || true; DEFERRED=${DEFERRED%$'\n'}
+{an item the PRD marks as future, v2 or out of scope}
+TEXT
 PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
 CONTEXT_ID="$PHASE_ID/$CONTEXT"
 specforge new context "$CONTEXT" "$TITLE" --in "$PHASE_FILE" --phase "$PHASE_ID" --boundary "$BOUNDARY" --discretion "$DISCRETION" --specifics "$SPECIFICS" --canonical_refs "$CANONICAL_REFS" || exit 1

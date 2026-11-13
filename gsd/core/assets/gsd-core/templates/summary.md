@@ -12,7 +12,7 @@ A plan's summary is entities in the plan's file: one `summary`, one `deliverable
 `specforge schema --kind summary` (likewise `deliverable`, `deviation`) lists the fields, and `specforge new summary
 --help` prints them as flags. A list of ids is a comma list (`--requirements_completed AUTH-01,AUTH-02`), a list of
 texts takes its flag once per item (`--tags jose --tags prisma`), and a block is JSON (`--requires '<json>'`,
-`--checks '<json>'`). Fill the quoted values; leave out a flag you have no value for (no `KEY_DECISIONS`, no
+`--checks '<json>'`). Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment; leave out a flag you have no value for (no `KEY_DECISIONS`, no
 `THREAT_FLAG`, no `RATIONALE` when a person need not judge), and repeat a `new deliverable` or `new deviation` line per
 item with the next id (`D2`, `DV2`). A plan that stopped by design takes `--status halted --halted_because "<why>"`.
 Never write `started`, `completed`, `duration`, `actuals`, `files_created` or `files_modified`: `complete-plan` writes
@@ -21,29 +21,63 @@ the times, and the rest are computed from the plan's commits. A refusal names it
 
 ```bash
 PLAN_ID="{the plan's id, e.g. v1.0/02/02-01}"
-TITLE="{the plan's name}: summary"
+IFS= read -rd '' TITLE <<'TEXT' || true; TITLE=${TITLE%$'\n'}
+{the plan's name}: summary
+TEXT
 STATUS="{complete, or halted when the plan stopped by design}"
-ONE_LINER="{one substantive line: what actually shipped}"
-SUBSYSTEM="{the primary category: auth, payments, ui, api, database, infra, testing}"
-TAG="{a searchable technology: one --tags per tag}"
-REQUIRES='[{"phase": "{a prior phase id}", "provides": "{what that phase built that this plan uses}"}]'
-PROVIDES="{what this plan built: one --provides per item}"
-AFFECTS="{a phase or keyword that will need this context: one --affects per item}"
-TECH_ADDED="{a library or tool added: one --tech_added per item}"
-TECH_PATTERN="{an architectural or code pattern established: one --tech_patterns per item}"
+IFS= read -rd '' ONE_LINER <<'TEXT' || true; ONE_LINER=${ONE_LINER%$'\n'}
+{one substantive line: what actually shipped}
+TEXT
+IFS= read -rd '' SUBSYSTEM <<'TEXT' || true; SUBSYSTEM=${SUBSYSTEM%$'\n'}
+{the primary category: auth, payments, ui, api, database, infra, testing}
+TEXT
+IFS= read -rd '' TAG <<'TEXT' || true; TAG=${TAG%$'\n'}
+{a searchable technology: one --tags per tag}
+TEXT
+IFS= read -rd '' REQUIRES <<'TEXT' || true; REQUIRES=${REQUIRES%$'\n'}
+[{"phase": "{a prior phase id}", "provides": "{what that phase built that this plan uses}"}]
+TEXT
+IFS= read -rd '' PROVIDES <<'TEXT' || true; PROVIDES=${PROVIDES%$'\n'}
+{what this plan built: one --provides per item}
+TEXT
+IFS= read -rd '' AFFECTS <<'TEXT' || true; AFFECTS=${AFFECTS%$'\n'}
+{a phase or keyword that will need this context: one --affects per item}
+TEXT
+IFS= read -rd '' TECH_ADDED <<'TEXT' || true; TECH_ADDED=${TECH_ADDED%$'\n'}
+{a library or tool added: one --tech_added per item}
+TEXT
+IFS= read -rd '' TECH_PATTERN <<'TEXT' || true; TECH_PATTERN=${TECH_PATTERN%$'\n'}
+{an architectural or code pattern established: one --tech_patterns per item}
+TEXT
 KEY_DECISIONS="{the decision ids this plan took, comma-separated}"
-PATTERN="{a convention future phases should keep: one --patterns_established per item}"
+IFS= read -rd '' PATTERN <<'TEXT' || true; PATTERN=${PATTERN%$'\n'}
+{a convention future phases should keep: one --patterns_established per item}
+TEXT
 REQUIREMENTS_COMPLETED="{the plan's requirements, verbatim, comma-separated}"
-THREAT_FLAG="{threat_flag: type | file | the new surface the plan's threat model lacks}"
-NEXT_READINESS="{what is ready for the next phase, and any blocker or concern}"
-DELIVERABLE="{a deliverable in human-readable form}"
+IFS= read -rd '' THREAT_FLAG <<'TEXT' || true; THREAT_FLAG=${THREAT_FLAG%$'\n'}
+{threat_flag: type | file | the new surface the plan's threat model lacks}
+TEXT
+IFS= read -rd '' NEXT_READINESS <<'TEXT' || true; NEXT_READINESS=${NEXT_READINESS%$'\n'}
+{what is ready for the next phase, and any blocker or concern}
+TEXT
+IFS= read -rd '' DELIVERABLE <<'TEXT' || true; DELIVERABLE=${DELIVERABLE%$'\n'}
+{a deliverable in human-readable form}
+TEXT
 REQUIREMENT="{the requirement id it joins, from the plan's requirements}"
 HUMAN_JUDGMENT="{false when passing checks prove it, true when a person signs it off}"
-RATIONALE="{why automation is insufficient}"
-CHECKS='[{"kind": "{unit, integration, e2e, automated_ui, manual_procedural or other}", "ref": "{path#test name}"}]'
+IFS= read -rd '' RATIONALE <<'TEXT' || true; RATIONALE=${RATIONALE%$'\n'}
+{why automation is insufficient}
+TEXT
+IFS= read -rd '' CHECKS <<'TEXT' || true; CHECKS=${CHECKS%$'\n'}
+[{"kind": "{unit, integration, e2e, automated_ui, manual_procedural or other}", "ref": "{path#test name}"}]
+TEXT
 DEVIATION_KIND="{deviation, or issue for a problem met during planned work}"
-RULE="{the rule and category, e.g. Rule 1 - Bug}"
-DEVIATION_TEXT="{what was wrong, what was done, and how it was verified}"
+IFS= read -rd '' RULE <<'TEXT' || true; RULE=${RULE%$'\n'}
+{the rule and category, e.g. Rule 1 - Bug}
+TEXT
+IFS= read -rd '' DEVIATION_TEXT <<'TEXT' || true; DEVIATION_TEXT=${DEVIATION_TEXT%$'\n'}
+{what was wrong, what was done, and how it was verified}
+TEXT
 DEVIATION_FILE="{a path it touched: one --files per path}"
 SUMMARY="${PLAN_ID##*/}-SUMMARY"
 SUMMARY_ID="$PLAN_ID/$SUMMARY"

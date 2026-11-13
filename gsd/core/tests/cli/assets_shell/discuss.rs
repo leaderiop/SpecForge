@@ -199,26 +199,31 @@ fn the_assumptions_log_keeps_confidence_and_evidence() {
 /// A value the model writes with a code span, a dollar amount and a double quote in it.
 const HOSTILE: &str = r#"`useAuth` in `src/hooks/useAuth.ts` costs $5 a "seat""#;
 
-/// The context fence stores a free-text value as the model wrote it: bash runs no code span, expands no `$5` and ends
-/// no string at a `"`.
+/// The context fence stores free text as the model wrote it: bash runs no code span, expands no `$5` and ends no
+/// string at a `"`, and a JSON value keeps its apostrophe. Each value is a quoted heredoc's body.
 #[test]
 fn a_fence_stores_free_text_as_written() {
     let Some(sh) = Shell::only(&[]) else {
         return;
     };
     let p = taskboard();
-    let fence = context_fence().replace(
-        "Open tasks are listed, oldest first, and filtered by a word",
-        HOSTILE,
-    );
+    let fence = context_fence()
+        .replace(
+            "Open tasks are listed, oldest first, and filtered by a word",
+            HOSTILE,
+        )
+        .replace(
+            "No external specs: requirements fully captured in the decisions",
+            "The user's notes",
+        );
     let run = typed::apply(&sh, &p, &fence);
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
-    let stored = picked(&p, "v1.0/03/03-CONTEXT", ".nodes[0].fields.boundary");
-    // pinned: a double-quoted assignment hands the value to bash, which runs the spans and drops `$5`
-    assert_ne!(stored, HOSTILE);
-    assert!(
-        stored.contains("costs") && !stored.contains('`'),
-        "{stored}"
+    assert!(run.added.is_empty(), "{:?}", run.added);
+    let context = p.fields_of("v1.0/03/03-CONTEXT");
+    assert_eq!(context["boundary"], HOSTILE, "{context}");
+    assert_eq!(
+        context["canonical_refs"][0]["topic"], "The user's notes",
+        "{context}"
     );
 }
 

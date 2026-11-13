@@ -63,9 +63,13 @@ DISPOSITION_ID="{the plan's next disposition id, e.g. DP1}"
 CONCERN_ID="{the review_concern id, e.g. v1.0/02/RV1/RC1}"
 ROUND="{the reviews-mode round number, e.g. 1}"
 REVIEWER="{who raised the concern, e.g. codex}"
-FEEDBACK="{the concern, in a few words}"
+IFS= read -rd '' FEEDBACK <<'TEXT' || true; FEEDBACK=${FEEDBACK%$'\n'}
+{the concern, in a few words}
+TEXT
 OUTCOME="{addressed or deferred}"
-REASON="{how it was addressed, or why it was deferred}"
+IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
+{how it was addressed, or why it was deferred}
+TEXT
 PLAN_FILE=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].file') || exit 1
 specforge new disposition "$DISPOSITION_ID" "$FEEDBACK" --in "$PLAN_FILE" --plan "$PLAN_ID" --round "$ROUND" --reviewer "$REVIEWER" --concern "$CONCERN_ID" --feedback "$FEEDBACK" --outcome "$OUTCOME" --reason "$REASON" || exit 1
 ```

@@ -7,13 +7,21 @@ Template for the architecture dimension of the project research: system structur
 
 ## The Architecture's Typed Edits
 
-The architecture is `pattern` items and `finding` items (topic `architecture`) of the project research `RESEARCH` in `spec/research.spec`, written with `specforge new` and scoped by `--research RESEARCH`: nothing writes a research file by hand. The orchestrator recorded `RESEARCH` before spawning the researchers; the synthesizer sets its summary. `specforge schema --kind pattern` (likewise `finding`) lists the fields. An anti-pattern is a `pattern` with `--anti true`, and `--example` holds a code example. Fill the quoted values; leave out a flag you have no value for, and repeat the lines per item with the next free id (`specforge query RESEARCH --depth 1 --format context` lists the items already recorded). A refusal names its code: read it with `specforge explain <code>`.
+The architecture is `pattern` items and `finding` items (topic `architecture`) of the project research `RESEARCH` in `spec/research.spec`, written with `specforge new` and scoped by `--research RESEARCH`: nothing writes a research file by hand. The orchestrator recorded `RESEARCH` before spawning the researchers; the synthesizer sets its summary. `specforge schema --kind pattern` (likewise `finding`) lists the fields. An anti-pattern is a `pattern` with `--anti true`, and `--example` holds a code example. Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment; leave out a flag you have no value for, and repeat the lines per item with the next free id (`specforge query RESEARCH --depth 1 --format context` lists the items already recorded). A refusal names its code: read it with `specforge explain <code>`.
 
 ```bash
-PATTERN="{the pattern's name}"
-WHAT="{what it is, and its trade-offs}"
-WHEN="{when to use it, and when it is overkill}"
-FINDING="{a structural finding: the major components and their boundaries, the data flow, the project structure, or what breaks first at scale}"
+IFS= read -rd '' PATTERN <<'TEXT' || true; PATTERN=${PATTERN%$'\n'}
+{the pattern's name}
+TEXT
+IFS= read -rd '' WHAT <<'TEXT' || true; WHAT=${WHAT%$'\n'}
+{what it is, and its trade-offs}
+TEXT
+IFS= read -rd '' WHEN <<'TEXT' || true; WHEN=${WHEN%$'\n'}
+{when to use it, and when it is overkill}
+TEXT
+IFS= read -rd '' FINDING <<'TEXT' || true; FINDING=${FINDING%$'\n'}
+{a structural finding: the major components and their boundaries, the data flow, the project structure, or what breaks first at scale}
+TEXT
 CONFIDENCE="{high, medium or low}"
 specforge new pattern P1 "$PATTERN" --in spec/research.spec --research RESEARCH --name "$PATTERN" --what "$WHAT" --when "$WHEN" || exit 1
 specforge new finding ARCH1 "$FINDING" --in spec/research.spec --research RESEARCH --topic architecture --text "$FINDING" --confidence "$CONFIDENCE" || exit 1

@@ -946,8 +946,12 @@ SESSION_ID="{the phase number}-UAT"
 TITLE="Phase {X}: human verification"
 SOURCE="{the summary ids the items come from, comma-separated}"
 STARTED="{now, ISO 8601}"
-TEST_TITLE="{the first human_verification item, in a few words}"
-EXPECTED="{its expected behavior, from the verification}"
+IFS= read -rd '' TEST_TITLE <<'TEXT' || true; TEST_TITLE=${TEST_TITLE%$'\n'}
+{the first human_verification item, in a few words}
+TEXT
+IFS= read -rd '' EXPECTED <<'TEXT' || true; EXPECTED=${EXPECTED%$'\n'}
+{its expected behavior, from the verification}
+TEXT
 PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
 specforge new uat_session "$SESSION_ID" "$TITLE" --in "$PHASE_FILE" --phase "$PHASE_ID" --source "$SOURCE" --started "$STARTED" || exit 1
 specforge new uat_test U1 "$TEST_TITLE" --in "$PHASE_FILE" --session "$PHASE_ID/$SESSION_ID" --expected "$EXPECTED" || exit 1

@@ -247,7 +247,9 @@ AskUserQuestion: "Research the domain ecosystem for new features before defining
 **Record the project research:** the four researchers record their items in the project research `RESEARCH`, and the synthesizer sets its summary. Record it first; a later milestone's research takes the same entity back, its summary pending again:
 
 ```bash
-DOMAIN="{the domain researched}"
+IFS= read -rd '' DOMAIN <<'TEXT' || true; DOMAIN=${DOMAIN%$'\n'}
+{the domain researched}
+TEXT
 RESEARCHED="{today, YYYY-MM-DD}"
 PENDING="Pending: the research synthesizer sets the summary"
 if specforge query RESEARCH --depth 0 --format json >/dev/null 2>&1; then
@@ -408,10 +410,16 @@ Track: Selected → this milestone. Unselected table stakes → future. Unselect
 
   ```bash
   REQ_ID="{CATEGORY-NN, continuing the numbering}"
-  TEXT="{the requirement: user-centric, testable, atomic}"
-  CATEGORY="{its category}"
+  IFS= read -rd '' TEXT <<'TEXT' || true; TEXT=${TEXT%$'\n'}
+  {the requirement: user-centric, testable, atomic}
+  TEXT
+  IFS= read -rd '' CATEGORY <<'TEXT' || true; CATEGORY=${CATEGORY%$'\n'}
+  {its category}
+  TEXT
   TIER="{v2 or out_of_scope}"
-  REASON="{why it is out of scope}"
+  IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
+  {why it is out of scope}
+  TEXT
   specforge new requirement "$REQ_ID" "$TEXT" --in spec/requirements.spec --text "$TEXT" --category "$CATEGORY" --tier "$TIER" --reason "$REASON" || exit 1
   ```
 

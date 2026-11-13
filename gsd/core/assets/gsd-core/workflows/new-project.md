@@ -607,7 +607,9 @@ Researching [domain] ecosystem...
 **Record the project research:** the four researchers record their items in the project research `RESEARCH`, and the synthesizer sets its summary. Record it first; a later milestone's research takes the same entity back, its summary pending again:
 
 ```bash
-DOMAIN="{the domain researched}"
+IFS= read -rd '' DOMAIN <<'TEXT' || true; DOMAIN=${DOMAIN%$'\n'}
+{the domain researched}
+TEXT
 RESEARCHED="{today, YYYY-MM-DD}"
 PENDING="Pending: the research synthesizer sets the summary"
 if specforge query RESEARCH --depth 0 --format json >/dev/null 2>&1; then

@@ -307,8 +307,12 @@ For each Requirement gathered so far:
    CATEGORY="{boundary, adjacency, empty, encoding, ordering, precision, idempotency, concurrency or unclassified}"
    STATUS="{resolved, dismissed or unresolved}"
    VERIFICATION="{explicit or backstop}"
-   RESOLUTION="{the pass/fail line, or the backstop note}"
-   REASON="{why the edge is dismissed}"
+   IFS= read -rd '' RESOLUTION <<'TEXT' || true; RESOLUTION=${RESOLUTION%$'\n'}
+   {the pass/fail line, or the backstop note}
+   TEXT
+   IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
+   {why the edge is dismissed}
+   TEXT
    specforge gsd resolve-edge "$LR_ID" "$CATEGORY" "$STATUS" --verification "$VERIFICATION" --resolution "$RESOLUTION" --reason "$REASON" || exit 1
    specforge link "$SPEC_ID" acceptance "$RESOLUTION" || exit 1
    ```
@@ -418,15 +422,23 @@ For each Requirement gathered so far, run the two-stage recall→precision pass:
 
    ```bash
    LR_ID="{the locked requirement it guards, e.g. $SPEC_ID/LR1}"
-   STATEMENT="{the must-NOT, e.g. The export must not include raw email addresses}"
+   IFS= read -rd '' STATEMENT <<'TEXT' || true; STATEMENT=${STATEMENT%$'\n'}
+   {the must-NOT, e.g. The export must not include raw email addresses}
+   TEXT
    STATUS="{resolved, dismissed or unresolved}"
    VERIFICATION="{test or judgment}"
-   REASON="{why it is dismissed}"
+   IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
+   {why it is dismissed}
+   TEXT
    CHECK_KIND="{node_test or lint_rule}"
    CHECK_TARGET="{the negative test file, or the path to lint}"
    CHECK_RULE="{the lint rule id; lint_rule only}"
-   CHECK_VIOLATION_FIXTURE="{a known-bad subject}"
-   CHECK_CLEAN_FIXTURE="{a known-clean subject; required for node_test}"
+   IFS= read -rd '' CHECK_VIOLATION_FIXTURE <<'TEXT' || true; CHECK_VIOLATION_FIXTURE=${CHECK_VIOLATION_FIXTURE%$'\n'}
+   {a known-bad subject}
+   TEXT
+   IFS= read -rd '' CHECK_CLEAN_FIXTURE <<'TEXT' || true; CHECK_CLEAN_FIXTURE=${CHECK_CLEAN_FIXTURE%$'\n'}
+   {a known-clean subject; required for node_test}
+   TEXT
    specforge new spec_prohibition SP1 "$STATEMENT" --in spec/discuss.spec --spec "$SPEC_ID" --requirement "$LR_ID" --statement "$STATEMENT" --status "$STATUS" --verification "$VERIFICATION" --reason "$REASON" --check_kind "$CHECK_KIND" --check_target "$CHECK_TARGET" --check_rule "$CHECK_RULE" --check_violation_fixture "$CHECK_VIOLATION_FIXTURE" --check_clean_fixture "$CHECK_CLEAN_FIXTURE" || exit 1
    specforge link "$SPEC_ID" acceptance "Must not: $STATEMENT" || exit 1
    ```

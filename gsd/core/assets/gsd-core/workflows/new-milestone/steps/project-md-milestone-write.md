@@ -3,9 +3,15 @@
 
 ```bash
 VERSION="{the milestone version, e.g. v1.1}"
-NAME="{the milestone name}"
-GOAL="{one sentence describing the milestone focus}"
-FEATURE="{a target feature: one --target_features per feature}"
+IFS= read -rd '' NAME <<'TEXT' || true; NAME=${NAME%$'\n'}
+{the milestone name}
+TEXT
+IFS= read -rd '' GOAL <<'TEXT' || true; GOAL=${GOAL%$'\n'}
+{one sentence describing the milestone focus}
+TEXT
+IFS= read -rd '' FEATURE <<'TEXT' || true; FEATURE=${FEATURE%$'\n'}
+{a target feature: one --target_features per feature}
+TEXT
 specforge new milestone "$VERSION" "$NAME" --in "spec/$VERSION.spec" --name "$NAME" --goal "$GOAL" --target_features "$FEATURE" || exit 1
 ```
 

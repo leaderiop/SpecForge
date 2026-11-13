@@ -54,7 +54,9 @@ The executor MUST:
 3. Exit the current execution wave cleanly. Do NOT roll back any prior commits in the same wave.
 4. Record the trip as an open blocker on its task, so the user can resume after writing the test (the blocker's `gate` names the task):
    ```bash
-   HALT_REASON="{the halt report's reason code and the task it names}"
+   IFS= read -rd '' HALT_REASON <<'TEXT' || true; HALT_REASON=${HALT_REASON%$'\n'}
+   {the halt report's reason code and the task it names}
+   TEXT
    PLAN_ID="{the plan's id, e.g. v1.0/02/02-01}"
    TASK_ID="{the tripped task's id, e.g. v1.0/02/02-01/T1}"
    specforge gsd raise-blocker "$HALT_REASON" --plan "$PLAN_ID" --gate "$TASK_ID" || exit 1
@@ -63,7 +65,9 @@ The executor MUST:
    open gate blocker before the implementation step, so the project is no longer blocked:
    ```bash
    TASK_ID="{the task's id, e.g. v1.0/02/02-01/T1}"
-   REASON="{how the gate was met, e.g. the failing test was committed first}"
+   IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
+   {how the gate was met, e.g. the failing test was committed first}
+   TEXT
    BLOCKERS=$(specforge query "$TASK_ID" --depth 1 --kinds blocker --pick ".nodes[fields.gate=$TASK_ID].id") || exit 1
    for BLOCKER in $BLOCKERS; do
      # a resolved blocker prints its `resolved` object: only an open one is resolved

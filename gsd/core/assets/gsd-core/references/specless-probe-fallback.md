@@ -109,7 +109,7 @@ assumption — never a silent drop.
 ## C. Authoring (the `<downstream_consumer>` else-branch)
 
 Write the fallback report into the plan with the SAME lift the SPEC path uses — only the source
-changes (the fallback report, not the SPEC). Fill the quoted values (`specforge new truth --help`,
+changes (the fallback report, not the SPEC). Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment (`specforge new truth --help`,
 `specforge new prohibition --help`): one `new truth` or `new prohibition` line per item, each with the
 plan's next free id, and no line for a kind the report has none of:
 
@@ -117,12 +117,20 @@ plan's next free id, and no line for a kind the report has none of:
 PLAN_ID="{the plan id, e.g. v1.0/02/02-01}"
 REQUIREMENT="{the requirement the edge was probed on}"
 EXPLICIT_ID="{the plan's next truth id, e.g. TR4}"
-CRITERION="{a resolved (verification: explicit) edge's acceptance criterion}"
+IFS= read -rd '' CRITERION <<'TEXT' || true; CRITERION=${CRITERION%$'\n'}
+{a resolved (verification: explicit) edge's acceptance criterion}
+TEXT
 BACKSTOP_ID="{the truth id after it, e.g. TR5}"
-CHECK="{a resolved (verification: backstop) edge's check}"
+IFS= read -rd '' CHECK <<'TEXT' || true; CHECK=${CHECK%$'\n'}
+{a resolved (verification: backstop) edge's check}
+TEXT
 PROHIBITION_ID="{the plan's next prohibition id, e.g. PR1}"
-STATEMENT="{a kept prohibition: what must never happen}"
-PURPOSE="{the plan's purpose, then each unresolved or unclassified row, as an assumption}"
+IFS= read -rd '' STATEMENT <<'TEXT' || true; STATEMENT=${STATEMENT%$'\n'}
+{a kept prohibition: what must never happen}
+TEXT
+IFS= read -rd '' PURPOSE <<'TEXT' || true; PURPOSE=${PURPOSE%$'\n'}
+{the plan's purpose, then each unresolved or unclassified row, as an assumption}
+TEXT
 PLAN_FILE=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].file') || exit 1
 specforge new truth "$EXPLICIT_ID" "$CRITERION" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$CRITERION" --requirement "$REQUIREMENT" || exit 1
 specforge new truth "$BACKSTOP_ID" "$CHECK" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$CHECK" --requirement "$REQUIREMENT" --proposed_verification backstop || exit 1

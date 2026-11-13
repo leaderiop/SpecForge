@@ -21,7 +21,7 @@ A phase's spec is entities in `spec/discuss.spec`: one `phase_spec`, one `locked
 a spec by hand. Its `edge` and `spec_prohibition` rows are recorded as they are resolved (spec-phase Steps 5.5 and 5.6).
 `specforge schema --kind phase_spec` (likewise `locked_req`, `interview`, `edge`, `spec_prohibition`) lists the fields,
 and `specforge new phase_spec --help` prints them as flags. A list of texts takes its flag once per item (`--in_scope
-"Backup command" --in_scope "Compression"`). Fill the quoted values; leave out a flag you have no value for, and repeat
+"Backup command" --in_scope "Compression"`). Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment; leave out a flag you have no value for, and repeat
 a `new locked_req` (with its `link … traces` line) or `new interview` line per item with the next id (`LR2`, `IV2`).
 The spec's `scores` are the judged verdict `specforge gsd record-spec` asks for, never written here. A refusal names its
 code: read it with `specforge explain <code>`.
@@ -29,24 +29,52 @@ code: read it with `specforge explain <code>`.
 ```bash
 PHASE_ID="{the phase's id, e.g. v1.0/03}"
 PADDED_PHASE="{the phase number, zero-padded, e.g. 03}"
-NAME="{the phase name}"
+IFS= read -rd '' NAME <<'TEXT' || true; NAME=${NAME%$'\n'}
+{the phase name}
+TEXT
 CREATED="{today, YYYY-MM-DD}"
-GOAL="{one precise sentence: what is true when this phase is done, not a feature list}"
-BACKGROUND="{what exists today and why this phase is needed, grounded in the codebase scout}"
-IN_SCOPE="{what this phase produces: one --in_scope per item}"
-OUT_OF_SCOPE="{what this phase explicitly does not do, with brief reasoning: one --out_of_scope per item}"
-CONSTRAINT="{a performance, compatibility, data volume or dependency constraint: one --constraints per item}"
-ACCEPTANCE="{a pass/fail criterion: one --acceptance per item}"
-REQ_TITLE="{the requirement's short label}"
-CURRENT="{what exists now}"
-TARGET="{what it should become: not improve X but X becomes Y}"
-REQ_ACCEPTANCE="{the falsifiable check: how a verifier confirms it was met}"
+IFS= read -rd '' GOAL <<'TEXT' || true; GOAL=${GOAL%$'\n'}
+{one precise sentence: what is true when this phase is done, not a feature list}
+TEXT
+IFS= read -rd '' BACKGROUND <<'TEXT' || true; BACKGROUND=${BACKGROUND%$'\n'}
+{what exists today and why this phase is needed, grounded in the codebase scout}
+TEXT
+IFS= read -rd '' IN_SCOPE <<'TEXT' || true; IN_SCOPE=${IN_SCOPE%$'\n'}
+{what this phase produces: one --in_scope per item}
+TEXT
+IFS= read -rd '' OUT_OF_SCOPE <<'TEXT' || true; OUT_OF_SCOPE=${OUT_OF_SCOPE%$'\n'}
+{what this phase explicitly does not do, with brief reasoning: one --out_of_scope per item}
+TEXT
+IFS= read -rd '' CONSTRAINT <<'TEXT' || true; CONSTRAINT=${CONSTRAINT%$'\n'}
+{a performance, compatibility, data volume or dependency constraint: one --constraints per item}
+TEXT
+IFS= read -rd '' ACCEPTANCE <<'TEXT' || true; ACCEPTANCE=${ACCEPTANCE%$'\n'}
+{a pass/fail criterion: one --acceptance per item}
+TEXT
+IFS= read -rd '' REQ_TITLE <<'TEXT' || true; REQ_TITLE=${REQ_TITLE%$'\n'}
+{the requirement's short label}
+TEXT
+IFS= read -rd '' CURRENT <<'TEXT' || true; CURRENT=${CURRENT%$'\n'}
+{what exists now}
+TEXT
+IFS= read -rd '' TARGET <<'TEXT' || true; TARGET=${TARGET%$'\n'}
+{what it should become: not improve X but X becomes Y}
+TEXT
+IFS= read -rd '' REQ_ACCEPTANCE <<'TEXT' || true; REQ_ACCEPTANCE=${REQ_ACCEPTANCE%$'\n'}
+{the falsifiable check: how a verifier confirms it was met}
+TEXT
 TRACES="{the project requirement it refines, e.g. TASK-03}"
 ROUND="{the interview round}"
 PERSPECTIVE="{researcher, simplifier, boundary_keeper or failure_analyst}"
-QUESTION="{the question asked}"
-ANSWER="{the answer}"
-LOCKED="{what the answer locked}"
+IFS= read -rd '' QUESTION <<'TEXT' || true; QUESTION=${QUESTION%$'\n'}
+{the question asked}
+TEXT
+IFS= read -rd '' ANSWER <<'TEXT' || true; ANSWER=${ANSWER%$'\n'}
+{the answer}
+TEXT
+IFS= read -rd '' LOCKED <<'TEXT' || true; LOCKED=${LOCKED%$'\n'}
+{what the answer locked}
+TEXT
 SPEC_ID="$PHASE_ID/${PADDED_PHASE}-SPEC"
 specforge new phase_spec "${PADDED_PHASE}-SPEC" "$NAME spec" --in spec/discuss.spec --phase "$PHASE_ID" --created "$CREATED" --goal "$GOAL" --background "$BACKGROUND" --in_scope "$IN_SCOPE" --out_of_scope "$OUT_OF_SCOPE" --constraints "$CONSTRAINT" --acceptance "$ACCEPTANCE" || exit 1
 specforge new locked_req LR1 "$REQ_TITLE" --in spec/discuss.spec --spec "$SPEC_ID" --title "$REQ_TITLE" --current "$CURRENT" --target "$TARGET" --acceptance "$REQ_ACCEPTANCE" || exit 1

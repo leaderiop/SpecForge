@@ -22,8 +22,12 @@ checkpoint created already exists: the fence sets its entries, and creates the l
 ```bash
 PHASE_ID="{the phase's id, e.g. v1.0/03}"
 PADDED_PHASE="{the phase number, zero-padded, e.g. 03}"
-NAME="{the phase name}"
-ENTRIES='[{"area": "{the gray area}", "question": "{the question asked}", "options": ["{an option} — {its description}"], "chosen": "{the selected option, or the free-text answer}", "mode": "{interactive, assumptions or advisor}", "notes": "{the clarifications or rationale the user gave}"}]'
+IFS= read -rd '' NAME <<'TEXT' || true; NAME=${NAME%$'\n'}
+{the phase name}
+TEXT
+IFS= read -rd '' ENTRIES <<'TEXT' || true; ENTRIES=${ENTRIES%$'\n'}
+[{"area": "{the gray area}", "question": "{the question asked}", "options": ["{an option} — {its description}"], "chosen": "{the selected option, or the free-text answer}", "mode": "{interactive, assumptions or advisor}", "notes": "{the clarifications or rationale the user gave}"}]
+TEXT
 LOG=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=discussion].id') || exit 1
 if [ -n "$LOG" ]; then
   specforge set "$LOG" entries "$ENTRIES" || exit 1

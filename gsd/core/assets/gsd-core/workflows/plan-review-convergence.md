@@ -344,7 +344,9 @@ Run this pass whenever the source-grounding pass ran — it is the second axis o
 
 ```bash
 PHASE_ID="{the phase id, e.g. v1.0/02}"
-ROUND_JSON='{the additions as JSON, e.g. {"unchecked": [{"symbol": "--flag", "why": "grep cannot check a signature"}], "concerns": [{"plan": "v1.0/02/02-01", "severity": "low", "text": "the divergence and its authority", "drift": true, "evidence": ["<file:line>", "<file:line>"]}]}}'
+IFS= read -rd '' ROUND_JSON <<'TEXT' || true; ROUND_JSON=${ROUND_JSON%$'\n'}
+{the additions as JSON, e.g. {"unchecked": [{"symbol": "--flag", "why": "grep cannot check a signature"}], "concerns": [{"plan": "v1.0/02/02-01", "severity": "low", "text": "the divergence and its authority", "drift": true, "evidence": ["<file:line>", "<file:line>"]}]}}
+TEXT
 REVIEW_ID=$(specforge query "$PHASE_ID" --depth 1 --kinds review --pick '.nodes[kind=review].id' --last 1) || exit 1
 [ -n "$REVIEW_ID" ] || { echo "ERROR: no review recorded for this cycle — /gsd:review recorded no round of $PHASE_ID." >&2; exit 1; }
 specforge gsd record-review "$PHASE_ID" --round "$REVIEW_ID" --review "$ROUND_JSON" || exit 1

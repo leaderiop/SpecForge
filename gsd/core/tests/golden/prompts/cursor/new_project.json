@@ -61,12 +61,12 @@
     "```bash",
     ""
   ],
-  "bytes": 76525,
+  "bytes": 77453,
   "end": [
-    "TEXT=\"{the requirement: user-centric, testable, atomic}\"",
-    "CATEGORY=\"{its category, e.g. Authentication}\"",
     "TIER=\"{v1, v2 or out_of_scope}\"",
-    "REASON=\"{why it is out of scope}\"",
+    "IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\\n'}",
+    "{why it is out of scope}",
+    "TEXT",
     "specforge new requirement \"$REQ_ID\" \"$TEXT\" --in spec/requirements.spec --text \"$TEXT\" --category \"$CATEGORY\" --tier \"$TIER\" --reason \"$REASON\" || exit 1",
     "```",
     "",
@@ -186,7 +186,7 @@
     "",
     "```json"
   ],
-  "lines": 1865,
+  "lines": 1889,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:ee5d3add9e25dd48c3f585288b1dbac60c17b51b2b897c156dec2b9121b5b382",
+    "digest": "sha256:2e35f32ac709af9aa6fd1936b40bef61f647192f04b1543bd003e9aee76f40be",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "ee5d3add9e25dd48c3f585288b1dbac60c17b51b2b897c156dec2b9121b5b382"
+  "sha256": "2e35f32ac709af9aa6fd1936b40bef61f647192f04b1543bd003e9aee76f40be"
 }

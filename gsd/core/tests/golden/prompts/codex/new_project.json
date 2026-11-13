@@ -61,12 +61,12 @@
     "```bash",
     ""
   ],
-  "bytes": 84028,
+  "bytes": 84956,
   "end": [
-    "TEXT=\"{the requirement: user-centric, testable, atomic}\"",
-    "CATEGORY=\"{its category, e.g. Authentication}\"",
     "TIER=\"{v1, v2 or out_of_scope}\"",
-    "REASON=\"{why it is out of scope}\"",
+    "IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\\n'}",
+    "{why it is out of scope}",
+    "TEXT",
     "specforge new requirement \"$REQ_ID\" \"$TEXT\" --in spec/requirements.spec --text \"$TEXT\" --category \"$CATEGORY\" --tier \"$TIER\" --reason \"$REASON\" || exit 1",
     "```",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1958,
+  "lines": 1982,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:0f4d0bb136714ad5e403377529f6e12461285827f3785f5aa8835a4fe425673e",
+    "digest": "sha256:5a8f4bb8fdc16a939edaf8aaa0610b0ba617c3cc1477fc1795828759e735d37d",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "0f4d0bb136714ad5e403377529f6e12461285827f3785f5aa8835a4fe425673e"
+  "sha256": "5a8f4bb8fdc16a939edaf8aaa0610b0ba617c3cc1477fc1795828759e735d37d"
 }

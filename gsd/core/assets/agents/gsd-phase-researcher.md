@@ -723,22 +723,40 @@ Record the research with `specforge new`, never with a file tool or a heredoc: t
 
 The `research` entity `{phase_id}/{phase_num}-RESEARCH` (`$RESEARCH_ID`) is the canonical output of this agent. The orchestrator reads it from the graph after you return; it does NOT read your return message for its content.
 
-1. **Create the entity first**, then its items, filling the quoted values (`specforge schema --kind research`, and
+1. **Create the entity first**, then its items, filling the values (free text in its quoted heredoc, as written) (`specforge schema --kind research`, and
    `--kind finding`, `--kind pitfall`, `--kind pattern` for the items; one line per item, with the next id):
 
    ```bash
    PHASE_ID="{the phase id, e.g. v1.0/02}"
    RESEARCH="{padded phase}-RESEARCH"
-   TITLE="{the research's title}"
+   IFS= read -rd '' TITLE <<'TEXT' || true; TITLE=${TITLE%$'\n'}
+   {the research's title}
+   TEXT
    CONFIDENCE="{high, medium or low}"
-   SUMMARY="{the executive summary}"
-   FINDING="{one finding}"
-   PITFALL="{a pitfall's name}"
-   GOES_WRONG="{what goes wrong}"
-   WHY="{why it happens}"
-   AVOID="{how to avoid it}"
-   PATTERN="{a pattern's name}"
-   WHAT="{what the pattern is}"
+   IFS= read -rd '' SUMMARY <<'TEXT' || true; SUMMARY=${SUMMARY%$'\n'}
+   {the executive summary}
+   TEXT
+   IFS= read -rd '' FINDING <<'TEXT' || true; FINDING=${FINDING%$'\n'}
+   {one finding}
+   TEXT
+   IFS= read -rd '' PITFALL <<'TEXT' || true; PITFALL=${PITFALL%$'\n'}
+   {a pitfall's name}
+   TEXT
+   IFS= read -rd '' GOES_WRONG <<'TEXT' || true; GOES_WRONG=${GOES_WRONG%$'\n'}
+   {what goes wrong}
+   TEXT
+   IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\n'}
+   {why it happens}
+   TEXT
+   IFS= read -rd '' AVOID <<'TEXT' || true; AVOID=${AVOID%$'\n'}
+   {how to avoid it}
+   TEXT
+   IFS= read -rd '' PATTERN <<'TEXT' || true; PATTERN=${PATTERN%$'\n'}
+   {a pattern's name}
+   TEXT
+   IFS= read -rd '' WHAT <<'TEXT' || true; WHAT=${WHAT%$'\n'}
+   {what the pattern is}
+   TEXT
    PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
    RESEARCH_ID="$PHASE_ID/$RESEARCH"
    specforge new research "$RESEARCH" "$TITLE" --in "$PHASE_FILE" --phase "$PHASE_ID" --confidence "$CONFIDENCE" --summary "$SUMMARY" || exit 1

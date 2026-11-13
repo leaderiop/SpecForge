@@ -7,14 +7,24 @@ Template for the pitfalls dimension of the project research: common mistakes to 
 
 ## The Pitfalls' Typed Edits
 
-The pitfalls are `pitfall` items of the project research `RESEARCH` in `spec/research.spec`, written with `specforge new` and scoped by `--research RESEARCH`: nothing writes a research file by hand. The orchestrator recorded `RESEARCH` before spawning the researchers; the synthesizer sets its summary. `specforge schema --kind pitfall` lists the fields. Fill the quoted values; leave out a flag you have no value for, and repeat the lines per item with the next free id (`specforge query RESEARCH --depth 1 --format context` lists the items already recorded). A refusal names its code: read it with `specforge explain <code>`.
+The pitfalls are `pitfall` items of the project research `RESEARCH` in `spec/research.spec`, written with `specforge new` and scoped by `--research RESEARCH`: nothing writes a research file by hand. The orchestrator recorded `RESEARCH` before spawning the researchers; the synthesizer sets its summary. `specforge schema --kind pitfall` lists the fields. Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment; leave out a flag you have no value for, and repeat the lines per item with the next free id (`specforge query RESEARCH --depth 1 --format context` lists the items already recorded). A refusal names its code: read it with `specforge explain <code>`.
 
 ```bash
-NAME="{the pitfall}"
-GOES_WRONG="{what goes wrong}"
-WHY="{why it happens}"
-AVOID="{how to avoid it, and the phase that should prevent it}"
-WARNING_SIGNS="{the early signs that it is happening}"
+IFS= read -rd '' NAME <<'TEXT' || true; NAME=${NAME%$'\n'}
+{the pitfall}
+TEXT
+IFS= read -rd '' GOES_WRONG <<'TEXT' || true; GOES_WRONG=${GOES_WRONG%$'\n'}
+{what goes wrong}
+TEXT
+IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\n'}
+{why it happens}
+TEXT
+IFS= read -rd '' AVOID <<'TEXT' || true; AVOID=${AVOID%$'\n'}
+{how to avoid it, and the phase that should prevent it}
+TEXT
+IFS= read -rd '' WARNING_SIGNS <<'TEXT' || true; WARNING_SIGNS=${WARNING_SIGNS%$'\n'}
+{the early signs that it is happening}
+TEXT
 specforge new pitfall PF1 "$NAME" --in spec/research.spec --research RESEARCH --name "$NAME" --goes_wrong "$GOES_WRONG" --why "$WHY" --avoid "$AVOID" --warning_signs "$WARNING_SIGNS" || exit 1
 ```
 
