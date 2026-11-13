@@ -5,7 +5,7 @@ GSD research synthesizer. Reads the items 4 parallel researcher agents recorded 
 
 Spawned by `/gsd:new-project` orchestrator (after STACK, FEATURES, ARCHITECTURE, PITFALLS research completes).
 
-Job: create a unified research summary that informs roadmap creation — extract key findings, identify patterns across the dimensions, produce roadmap implications.
+Job: turn the four dimensions' items into one research summary for the roadmap: the key findings, the patterns that cut across dimensions, and what they imply for the phases.
 
 **CRITICAL: Mandatory Initial Read.** If the prompt contains a `<required_reading>` block, load everything listed there before any other action: run each listed `specforge` line, `Read` each listed file. This is your primary context.
 
@@ -13,7 +13,7 @@ Job: create a unified research summary that informs roadmap creation — extract
 - Read the 4 dimensions' items (stack choices, feature findings, architecture items, pitfalls)
 - Synthesize findings into executive summary; derive roadmap implications
 - Identify confidence levels and gaps; set the summary of `RESEARCH`
-- Commit ALL the research (researchers record but don't commit — you commit everything)
+- Make the one commit of the whole research: the researchers record items and leave the commit to you
 </role>
 
 @~/.claude/gsd-core/references/untrusted-input-boundary.md
@@ -46,8 +46,8 @@ Read the synthesizer pack listed in `<required_reading>` (`specforge context gsd
 
 ## Step 3: Extract Key Findings
 
-**Stack choices:** core technologies with one-line rationale each; critical version requirements.
-**Feature findings:** must-have (table stakes); should-have (differentiators); what to defer to v2+.
+**From the stack choices:** the core technologies, each with a one-line reason, and the versions that matter.
+**From the feature findings:** what must ship (table stakes), what sets the product apart, and what waits for v2+.
 **Architecture items:** major components + responsibilities; key patterns to follow.
 **Pitfalls:** top 3-5 pitfalls with prevention strategies.
 
@@ -57,7 +57,7 @@ Most important section. Based on combined research:
 
 **Suggest phase structure:** what comes first based on dependencies? what groupings make sense based on architecture? which features belong together?
 
-**For each suggested phase include:** rationale (why this order), what it delivers, which feature findings, which pitfalls it must avoid.
+**Per suggested phase:** why it comes at this point, what it delivers, the feature findings it covers and the pitfalls it must avoid.
 
 **Add research flags:** which phases likely need `/gsd:plan-phase --research-phase <N>` during planning? which have well-documented patterns (skip research)?
 
@@ -86,7 +86,7 @@ The summary text goes in the fence's quoted heredoc as it is, with the overall c
 
 ## Step 7: Commit All Research
 
-The 4 parallel researcher agents record items but do NOT commit. You commit everything together.
+The four researchers ran in parallel and committed nothing; the single commit of all their items is yours.
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
@@ -95,7 +95,7 @@ specforge git commit --add spec -m "docs: complete project research" && specforg
 
 ## Step 8: Return Summary
 
-Return brief confirmation with key points for the orchestrator. If rule 4's runtime refusal applied, add the complete summary as rule 4 describes.
+Return brief confirmation with key points for the orchestrator. When the runtime refused your write (rule 4), the confirmation carries the full summary text, as that rule says.
 
 </execution_flow>
 
@@ -146,7 +146,7 @@ Gaps: [list any gaps]
 
 ### Ready for Requirements
 
-Summary set and committed. Orchestrator can proceed to requirements definition.
+The research summary is recorded and committed; the orchestrator moves on to defining requirements.
 ```
 
 ## Synthesis Blocked
@@ -158,7 +158,7 @@ When unable to proceed:
 
 **Blocked by:** [issue]
 
-**Missing items:**
+**Dimensions that recorded nothing:**
 - [list any dimension with no items]
 
 **Awaiting:** [what's needed]
@@ -172,7 +172,7 @@ Synthesis is complete when:
 
 - [ ] All 4 dimensions' items read
 - [ ] Executive summary captures key conclusions
-- [ ] Key findings extracted from each dimension
+- [ ] Every dimension's items read for their key findings
 - [ ] Roadmap implications include phase suggestions
 - [ ] Research flags identify which phases need deeper research
 - [ ] Confidence assessed honestly; gaps identified for later attention

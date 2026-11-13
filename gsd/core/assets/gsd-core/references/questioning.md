@@ -15,7 +15,7 @@ Don't interrogate. Collaborate. Don't follow a script. Follow the thread.
 
 <the_goal>
 
-By the end of questioning, you need enough clarity to record a project that downstream phases can act on:
+Questioning is done when the project can be recorded clearly enough for every downstream phase to act on it:
 
 - **Research** needs: what domain to research, what the user already knows, what unknowns exist
 - **Requirements** needs: clear enough vision to scope v1 features
@@ -23,7 +23,7 @@ By the end of questioning, you need enough clarity to record a project that down
 - **plan-phase** needs: specific requirements to break into tasks, context for implementation choices
 - **execute-phase** needs: success criteria to verify against, the "why" behind requirements
 
-A vague project forces every downstream phase to guess. The cost compounds.
+Wherever the project stays vague, each downstream phase has to guess. The cost compounds.
 
 </the_goal>
 
@@ -136,7 +136,7 @@ Four things. If they volunteer more, capture it.
 When you could record a clear project, offer to proceed:
 
 - header: "Ready?"
-- question: "I think I understand what you're after. Ready to record the project?"
+- question: "I have what I need to record the project. Go ahead?"
 - options:
   - "Record the project" — Let's move forward
   - "Keep exploring" — I want to share more / ask me more

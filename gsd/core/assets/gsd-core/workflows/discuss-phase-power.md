@@ -23,7 +23,7 @@ Check whether the phase has a spec (from the spec-phase workflow): it locks requ
 **If `has_spec` is true:**
 1. Read the spec and its locked requirements: `specforge query "$SPEC_ID" --depth 1 --format context`.
 2. Count its `locked_req` entities: `specforge query "$SPEC_ID" --depth 1 --pick '.nodes[kind=locked_req].id' --count`.
-3. Display: `Found the phase spec — {N} requirements locked. Focusing on implementation decisions.`
+3. Display: `{N} requirements are locked by the phase spec; this discussion covers implementation decisions only.`
 4. Set `spec_loaded = true`.
 5. Hold the requirements, boundaries and acceptance criteria as `<locked_requirements>`: the context names the spec, and they are not asked again.
 

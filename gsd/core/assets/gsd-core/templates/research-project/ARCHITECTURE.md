@@ -31,8 +31,8 @@ specforge new finding ARCH1 "$FINDING" --in spec/research.spec --research RESEAR
 
 - System overview (a `finding`): the major components and their relationships. Don't over-detail: this is conceptual,
   not implementation.
-- Project structure (a `finding`): be specific about folder organization, explain the rationale for grouping, and match
-  the conventions of the chosen stack.
+- Project structure (a `finding`): name the folders and why things are grouped as they are, laid out the way the
+  chosen stack lays out its projects.
 - Patterns (`pattern`): include code examples where helpful, explain trade-offs honestly, and note when a pattern is
   overkill for small projects.
 - Scaling considerations (a `finding`): be realistic, most projects don't need to scale to millions. Focus on what

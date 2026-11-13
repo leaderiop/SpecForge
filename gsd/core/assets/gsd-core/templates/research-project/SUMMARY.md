@@ -23,8 +23,8 @@ specforge set RESEARCH confidence "$CONFIDENCE" || exit 1
 - `## Executive Summary`: written for someone who will only read this section. The key recommendation and the main
   risk, 2-3 paragraphs at most.
 - `## Key Findings`: the recommended stack, the expected features (must have, should have, defer to v2+), the
-  architecture approach and the critical pitfalls. Summarize, don't duplicate the items: name them (`SC1`, `PF2`), and
-  focus on what matters for roadmap decisions.
+  architecture approach and the critical pitfalls. Name the items (`SC1`, `PF2`) rather than repeat
+  them, and keep to what the roadmap's decisions turn on.
 - `## Implications for Roadmap`: the most important section, directly informing roadmap creation. Per suggested phase:
   its rationale (why this order), what it delivers, the features it addresses and the pitfalls it avoids, then the
   phase ordering rationale and the research flags (which phases need deeper research during planning, which have
@@ -34,5 +34,5 @@ specforge set RESEARCH confidence "$CONFIDENCE" || exit 1
   with several sources agreeing, low is a single source or inference.
 - `## Sources`: aggregated from the items, by confidence.
 
-The roadmapper reads the summary as context: its phase suggestions become the roadmap's starting point, and its
-research flags inform phase planning.
+The roadmapper reads the summary as context: its phase suggestions start the roadmap, and phase planning follows
+where its research flags point.

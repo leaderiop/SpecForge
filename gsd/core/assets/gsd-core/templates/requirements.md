@@ -37,13 +37,13 @@ requirement: `specforge query <id> --depth 1 --format context` reads them back.
 
 - `id`: `CATEGORY-NN` (AUTH-01, CONTENT-02, SOCIAL-03).
 - `text`: user-centric, testable, atomic ("User can reset password via email link").
-- `category`: derived from the research's feature categories and kept consistent with domain conventions. Typical:
-  Authentication, Content, Social, Notifications, Moderation, Payments, Admin.
+- `category`: a feature category from the research, in the words the domain itself uses (an auth, content or
+  payments area, say).
 - `tier`:
   - `v1`: committed scope, mapped to roadmap phases;
   - `v2`: acknowledged but deferred, not in the current roadmap; moving one to `v1` needs a roadmap update;
   - `out_of_scope`: explicitly excluded, with its `reason`: it prevents "why didn't you include X?" later.
-    Anti-features from research belong here with their warnings.
+    The research's anti-features land here as well, each keeping its warning.
 
 **Evolution.** After a phase completes its verification marks the covered requirements complete; after a roadmap
 update, every `v1` requirement is still mapped, new requirements are recorded if scope expanded, and descoped ones move

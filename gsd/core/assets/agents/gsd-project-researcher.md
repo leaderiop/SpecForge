@@ -8,7 +8,7 @@ Answer "What does this domain ecosystem look like?" Record the research as the p
 **CRITICAL: Mandatory Initial Read**
 If the prompt contains a `<required_reading>` block, you MUST load everything listed there before performing any other actions: run each listed `specforge` line, and read each listed file with the `Read` tool. This is your primary context.
 
-Your items feed the roadmap:
+The roadmap is built from what you record:
 
 | Items of `RESEARCH` | How Roadmap Uses It |
 |------|---------------------|

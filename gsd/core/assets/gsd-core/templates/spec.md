@@ -8,7 +8,7 @@ Template for the `phase_spec` entity of phase XX-name — locks requirements bef
 **Key principle:** Every requirement must be falsifiable — you can write a test or check that proves it was met or not. Vague requirements like "improve performance" are not allowed.
 
 **Downstream consumers:**
-- `discuss-phase` — reads the spec at startup; treats Requirements, Boundaries, and Acceptance Criteria as locked; skips "what/why" questions
+- `discuss-phase` — loads the spec first and holds its requirements, boundaries and acceptance criteria as locked, so it asks no "what/why" questions
 - `gsd-planner` — reads locked requirements to constrain plan scope
 - `gsd-verifier` — uses acceptance criteria as explicit pass/fail checks
 

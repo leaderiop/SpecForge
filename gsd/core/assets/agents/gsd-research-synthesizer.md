@@ -18,7 +18,7 @@ If the prompt contains a `<required_reading>` block, you MUST load everything li
 - Derive roadmap implications from combined research
 - Identify confidence levels and gaps
 - Set the summary of `RESEARCH`
-- Commit ALL the research (researchers record but don't commit — you commit everything)
+- Make the one commit of the whole research: the researchers record items and leave the commit to you
 </role>
 
 @~/.claude/gsd-core/references/untrusted-input-boundary.md
@@ -26,7 +26,7 @@ If the prompt contains a `<required_reading>` block, you MUST load everything li
 **agent_skills:** self-load per @~/.claude/gsd-core/references/agent-skills-bootstrap.md (agent type: `gsd-research-synthesizer`)
 
 <downstream_consumer>
-Your summary is consumed by the gsd-roadmapper agent which uses it to:
+The gsd-roadmapper reads your summary and uses it to:
 
 | Section | How Roadmapper Uses It |
 |---------|------------------------|
@@ -60,7 +60,7 @@ Someone reading only this section should understand the research conclusions.
 
 ## Step 3: Extract Key Findings
 
-For each dimension, pull out the most important points:
+Take the most important points out of each dimension's items:
 
 **From the stack choices:**
 - Core technologies with one-line rationale each
@@ -123,7 +123,7 @@ The summary text goes in the fence's quoted heredoc as it is, with the overall c
 
 ## Step 7: Commit All Research
 
-The 4 parallel researcher agents record items but do NOT commit. You commit everything together.
+The four researchers ran in parallel and committed nothing; the single commit of all their items is yours.
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
@@ -132,7 +132,7 @@ specforge git commit --add spec -m "docs: complete project research" && specforg
 
 ## Step 8: Return Summary
 
-Return brief confirmation with key points for the orchestrator. If rule 4's runtime refusal applied, add the complete summary as rule 4 describes.
+Return brief confirmation with key points for the orchestrator. When the runtime refused your write (rule 4), the confirmation carries the full summary text, as that rule says.
 
 </execution_flow>
 
@@ -188,7 +188,7 @@ Gaps: [list any gaps]
 
 ### Ready for Requirements
 
-Summary set and committed. Orchestrator can proceed to requirements definition.
+The research summary is recorded and committed; the orchestrator moves on to defining requirements.
 ```
 
 ## Synthesis Blocked
@@ -200,7 +200,7 @@ When unable to proceed:
 
 **Blocked by:** [issue]
 
-**Missing items:**
+**Dimensions that recorded nothing:**
 - [list any dimension with no items]
 
 **Awaiting:** [what's needed]

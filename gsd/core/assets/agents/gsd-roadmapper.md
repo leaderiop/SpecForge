@@ -203,8 +203,8 @@ Track coverage as you go.
 
 ## Phase ID Convention
 
-Read `phase_id_convention` from config.json. This setting controls how phase ids are formed
-throughout the roadmap edit (a phase's id is its number within the milestone).
+Read `phase_id_convention` from config.json. It decides the form of every phase id in the roadmap
+edit, where a phase's id is its number within the milestone.
 
 | Convention | Phase id | Shown as |
 |---|---|---|
@@ -215,11 +215,11 @@ When `phase_id_convention` is absent or set to `"sequential"`, use plain sequent
 (e.g. `Phase 1`, `Phase 2`). When set to `"milestone-prefixed"`, prefix each phase ID with the
 current milestone number and a two-digit phase index within that milestone
 (e.g. `Phase 1-01`, `Phase 1-02`, `Phase 2-01`). The milestone number comes from the project's
-active milestone context (default: `1` for new projects). This ensures milestone-scoped
-workflows receive correctly prefixed IDs.
+active milestone context (default: `1` for new projects). Milestone-scoped workflows rely
+on that prefix.
 
-`project_code` is only a phase-directory prefix. Never include `project_code` in a phase id. For example, even when `project_code: "PROJ"` is configured,
-write `07` for `sequential` and `1-07` for `milestone-prefixed`, not `PROJ-7`.
+`project_code` is only a phase-directory prefix. Never include `project_code` in a phase id. With `project_code: "PROJ"` configured,
+phase 7's id is still `07` (`sequential`) or `1-07` (`milestone-prefixed`), never `PROJ-7`.
 
 ## Granularity Calibration
 
@@ -408,7 +408,7 @@ Total v1: 11 requirements
 ## Step 3: Load Research Context (if exists)
 
 If the pack holds the project research:
-- Extract suggested phase structure from its summary's "Implications for Roadmap"
+- Extract suggested phase structure from "Implications for Roadmap"
 - Note research flags (which phases need deeper research)
 - Use as input, not mandate
 
@@ -466,7 +466,7 @@ If orchestrator provides revision feedback:
 
 ## Roadmap Created
 
-When the roadmap is written and returning to orchestrator:
+Once the roadmap edit is written, return to the orchestrator with:
 
 ```markdown
 ## ROADMAP CREATED
@@ -511,7 +511,7 @@ User can review the entities in the editor or via SDK queries (e.g. `specforge q
 
 ## Roadmap Revised
 
-After incorporating user feedback and updating the phases:
+Once the feedback is written into the phases, return:
 
 ```markdown
 ## ROADMAP REVISED

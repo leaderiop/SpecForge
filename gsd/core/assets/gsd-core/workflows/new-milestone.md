@@ -233,7 +233,7 @@ AskUserQuestion: "Research the domain ecosystem for new features before defining
 - "Skip research (current default)" — Go straight to requirements
 - "Research first" — Discover patterns, features, architecture for NEW capabilities
 
-**IMPORTANT:** Do NOT persist this choice as a setting (`specforge settings set`). The `workflow.research` setting is a persistent user preference that controls plan-phase behavior across the project. Changing it here would silently alter future `/gsd:plan-phase` behavior. To change the default, use `/gsd:settings`.
+**IMPORTANT:** The choice holds for this run only: never save it with `specforge settings set`. The `workflow.research` setting is a persistent user preference that controls plan-phase behavior across the project. Changing it here would silently alter future `/gsd:plan-phase` behavior. To change the default, use `/gsd:settings`.
 
 **If user chose "Research first":**
 

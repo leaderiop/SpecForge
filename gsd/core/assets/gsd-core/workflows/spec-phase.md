@@ -18,7 +18,7 @@ Score each dimension 0.0 (completely unclear) to 1.0 (crystal clear):
 
 **Ambiguity score** = 1.0 − (0.35×goal + 0.25×boundary + 0.20×constraint + 0.20×acceptance)
 
-**Gate:** ambiguity ≤ 0.20 AND all dimensions ≥ their minimums → ready to record the spec.
+**Gate:** the spec is recorded once ambiguity is ≤ 0.20 and every dimension meets its minimum.
 
 A score of 0.20 means 80% weighted clarity — enough precision that the planner won't silently make wrong assumptions.
 </ambiguity_model>
@@ -77,15 +77,15 @@ Exit.
 
 If `has_spec` is true:
 
-**If `--auto`:** Auto-select "Skip" — leave the existing spec unchanged and exit with the same
-message the interactive "Skip" prints. Log: `[auto] the phase spec exists — reusing as-is.` An unattended
+**If `--auto`:** Take "Skip": the spec stays as it is, and the run ends with the message an
+interactive "Skip" prints. Log: `[auto] Spec found: kept unchanged.` An unattended
 run reuses an existing artifact rather than regenerating it (#4776): "Update it" re-scores and
 rewrites the spec, discarding answers a person already recorded in it, and nobody is present to
 notice.
 
 **Otherwise:** Use AskUserQuestion:
 - header: "Spec"
-- question: "Phase [X] already has a spec. What do you want to do?"
+- question: "A spec of Phase [X] is recorded already: what now?"
 - options:
   - "Update it" — Revise and re-score
   - "View it" — Show current spec
@@ -165,11 +165,11 @@ If gate passes (ambiguity ≤ 0.20 AND all minimums met):
 
 **Otherwise:** AskUserQuestion:
 - header: "Spec Gate Passed"
-- question: "Ambiguity is [score] — requirements are clear enough to record the spec. Proceed?"
+- question: "At ambiguity [score] the requirements can be recorded as the spec. Proceed?"
 - options:
   - "Yes — record the spec" → Jump to Step 5.5
   - "One more round" → Continue interview
-  - "Done talking — record it" → Jump to Step 5.5
+  - "Stop here and record" → Jump to Step 5.5
 
 **If max rounds reached (6) and gate not passed:**
 
@@ -293,7 +293,7 @@ For each Requirement gathered so far:
 3. Resolve each with the user (AskUserQuestion; text mode → numbered list):
    - **Specify it** → the edge is `resolved` with `verification: explicit`, and its pass/fail line joins the spec's
      acceptance criteria.
-   - **Dismiss (reason)** → `dismissed` with a required non-empty reason.
+   - **Dismiss (reason)** → mark `dismissed` with a required non-empty reason.
    - **Backstop with a test** → `resolved` with `verification: backstop`; note "held-out edge test" for plan-phase.
    - **Defer** → leave `unresolved`.
 
@@ -333,8 +333,8 @@ UNRESOLVED=$(specforge gsd edge-probe "$SPEC_ID" --pick .coverage.unresolved) ||
   - question: "[N] edge(s) are unresolved: [list]. What do you want to do?"
   - options: "Resolve now" (loop back) / "Record the spec anyway — flag unresolved" /
     "Keep probing"
-  - On "anyway": the rows stay `unresolved`, which marks them `⚠ Edge unresolved — planner
-    must treat as assumption`.
+  - On "anyway": the rows stay `unresolved`, which flags each
+    for the planner as an assumption (`⚠ Edge unresolved`).
 
 **`--auto` mode:** resolve over the **same rendered floor** (#3102) — every engine-proposed row
 from Step 5.5's report (step 1) plus any category the classifier missed, never a narrower set.
@@ -500,7 +500,7 @@ specforge check --format json --pick '.[file=spec/discuss.spec].code'
 - ✓ "API endpoint responds in < 200ms at p95 under 100 concurrent requests"
 - ✓ "CLI command exits with code 1 and prints to stderr on invalid input"
 
-**Count requirements.** The display in discuss-phase reads: "Found the phase spec — {N} requirements locked.":
+**Count requirements:** the {N} that discuss-phase shows as the spec's locked requirements:
 
 ```bash
 specforge query "$SPEC_ID" --depth 1 --pick '.nodes[kind=locked_req].id' --count
@@ -561,5 +561,5 @@ Next: /gsd:discuss-phase {X}
 - SPEC.md committed atomically (when commit_docs is true)
 - User directed to /gsd:discuss-phase as next step
 - Edge-completeness probe run; each edge row recorded; unresolved edges flagged as assumptions
-- Prohibition-completeness probe run; each prohibition recorded; unresolved prohibitions flagged as assumptions
+- The prohibition probe ran, every prohibition is recorded, and the unresolved ones are flagged as assumptions
 </success_criteria>

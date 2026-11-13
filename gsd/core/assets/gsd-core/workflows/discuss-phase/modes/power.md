@@ -43,5 +43,5 @@ session.
 
 - `--power --auto`: power wins. Power mode is incompatible with
   autonomous selection — its purpose is offline answering.
-- `--power --chain`: after the power-mode finalize step records the
-  context, the chain auto-advance still applies (Read `chain.md`).
+- `--power --chain`: the chain's auto-advance still runs once power
+  mode's finalize step has recorded the context (Read `chain.md`).

@@ -16,8 +16,8 @@
     "2. Scout the codebase — understand current state before asking questions",
     "3. Run Socratic interview loop (up to 6 rounds, rotating perspectives)",
     "4. Score ambiguity across 4 weighted dimensions after each round",
-    "5. Gate: ambiguity ≤ 0.20 AND all dimensions meet minimums → record the spec",
-    "6. Commit it — discuss-phase picks it up automatically on next run",
+    "5. Gate: the spec is recorded once ambiguity is ≤ 0.20 and every dimension meets its minimum",
+    "6. Commit the spec, which discuss-phase reads on its next run",
     "",
     "**Output:** the phase's `phase_spec` entity and its locked requirements — falsifiable requirements that lock \"what/why\" before discuss-phase handles \"how\"",
     "</objective>",
@@ -43,7 +43,7 @@
     "",
     "**Ambiguity score** = 1.0 − (0.35×goal + 0.25×boundary + 0.20×constraint + 0.20×acceptance)",
     "",
-    "**Gate:** ambiguity ≤ 0.20 AND all dimensions ≥ their minimums → ready to record the spec.",
+    "**Gate:** the spec is recorded once ambiguity is ≤ 0.20 and every dimension meets its minimum.",
     "",
     "A score of 0.20 means 80% weighted clarity — enough precision that the planner won't silently make wrong assumptions.",
     "</ambiguity_model>",
@@ -61,13 +61,13 @@
     "- \"If you had to cut 50%, what's the irreducible core?\"",
     "- \"What would make this phase a success even without the nice-to-haves?\""
   ],
-  "bytes": 53636,
+  "bytes": 53593,
   "end": [
     "<context>",
     "Phase number: the `<arguments>` block (required)",
     "",
     "**Flags:**",
-    "- `--auto` — Skip interactive questions; Claude selects recommended defaults and records the spec",
+    "- `--auto` — No questions asked: Claude takes the recommended defaults and records the spec itself",
     "- `--text` — Use plain-text numbered lists instead of TUI menus (required for `/rc` remote sessions)",
     "",
     "Context files are resolved in-workflow using `init phase-op`.",
@@ -83,9 +83,9 @@
     "- Codebase scouted for current state before questioning begins",
     "- All 4 ambiguity dimensions scored after each interview round",
     "- Gate passed: ambiguity ≤ 0.20 AND all dimension minimums met",
-    "- The spec recorded with falsifiable requirements, explicit boundaries, and acceptance criteria",
+    "- The spec recorded: every requirement falsifiable, the boundaries explicit, the acceptance criteria set",
     "- The spec committed atomically",
-    "- User knows they can now run /gsd-discuss-phase which will read the spec automatically",
+    "- User told that /gsd-discuss-phase comes next, and that it reads the spec on its own",
     "</success_criteria>",
     "",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:f3c7f4b2d500d877a140571cc5f1f31223df30300fa0364e0364130848e51a6a",
+    "digest": "sha256:9a4dfdda463230244994399f3aa3a793abb41e9bc840df4c229f0a8e8dce396b",
     "judged": [
       {
         "outcomes": [
@@ -235,5 +235,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "f3c7f4b2d500d877a140571cc5f1f31223df30300fa0364e0364130848e51a6a"
+  "sha256": "9a4dfdda463230244994399f3aa3a793abb41e9bc840df4c229f0a8e8dce396b"
 }

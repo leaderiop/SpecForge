@@ -35,8 +35,8 @@ specforge new pitfall PF1 "$NAME" --in spec/research.spec --research RESEARCH --
   and success criteria.
 - Technical debt: be realistic, some shortcuts are acceptable. Note when a shortcut is never acceptable or only in MVP,
   and the long-term cost.
-- Performance traps: include scale thresholds ("breaks at 10k users"), relevant to this project's expected scale; don't
-  over-engineer for hypothetical scale.
+- Performance traps: the scale at which each one breaks ("breaks at 10k users"), weighed against the scale this
+  project expects, with no design for load it will never see.
 - Security mistakes: beyond OWASP basics, the domain-specific issues (a community platform has other concerns than
   e-commerce), with their risk level.
 - "Looks done but isn't": what to verify during execution, common in demos versus production.

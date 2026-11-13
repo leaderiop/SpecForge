@@ -36,9 +36,9 @@ Apply response_language to all user-facing prose — narration between tool call
 
 In `--auto` mode, the discuss step MUST complete in a **single pass**. After
 recording the context once, you are DONE — proceed immediately to
-`write_context` and then auto_advance. Do NOT re-read your own context to
-find "gaps", "undefined types", or "missing decisions" and run additional
-passes. This creates a self-feeding loop where each pass generates references
+`write_context` and then auto_advance. Never read back the context you just
+recorded to hunt for "gaps", "undefined types" or "missing decisions" and
+run more passes. This creates a self-feeding loop where each pass generates references
 that the next pass treats as gaps, consuming unbounded time and resources.
 
 If you have already recorded and committed the context, the discuss step is

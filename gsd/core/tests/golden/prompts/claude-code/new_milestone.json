@@ -61,7 +61,7 @@
     "",
     "MILESTONE_NAME=\"Next\""
   ],
-  "bytes": 62300,
+  "bytes": 62264,
   "end": [
     "the roadmap wait for it, and the roadmapper maps each `v1` requirement to exactly one phase (the phase's",
     "`requirements`). Coverage, traceability and status are computed from the phases, plans and verifications that cover a",
@@ -71,13 +71,13 @@
     "",
     "- `id`: `CATEGORY-NN` (AUTH-01, CONTENT-02, SOCIAL-03).",
     "- `text`: user-centric, testable, atomic (\"User can reset password via email link\").",
-    "- `category`: derived from the research's feature categories and kept consistent with domain conventions. Typical:",
-    "  Authentication, Content, Social, Notifications, Moderation, Payments, Admin.",
+    "- `category`: a feature category from the research, in the words the domain itself uses (an auth, content or",
+    "  payments area, say).",
     "- `tier`:",
     "  - `v1`: committed scope, mapped to roadmap phases;",
     "  - `v2`: acknowledged but deferred, not in the current roadmap; moving one to `v1` needs a roadmap update;",
     "  - `out_of_scope`: explicitly excluded, with its `reason`: it prevents \"why didn't you include X?\" later.",
-    "    Anti-features from research belong here with their warnings.",
+    "    The research's anti-features land here as well, each keeping its warning.",
     "",
     "**Evolution.** After a phase completes its verification marks the covered requirements complete; after a roadmap",
     "update, every `v1` requirement is still mapped, new requirements are recorded if scope expanded, and descoped ones move",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2624a51c69a51b127f21fcd5b0c3ba5935feb5e88d3e16e8deeab4b555920d91",
+    "digest": "sha256:727aa0740e6712d93357fa271ea6e589aa1ea2fd38052a6d163564eaafc6b45a",
     "prompt": "@gsd/core@VERSION:new_milestone",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "2624a51c69a51b127f21fcd5b0c3ba5935feb5e88d3e16e8deeab4b555920d91"
+  "sha256": "727aa0740e6712d93357fa271ea6e589aa1ea2fd38052a6d163564eaafc6b45a"
 }

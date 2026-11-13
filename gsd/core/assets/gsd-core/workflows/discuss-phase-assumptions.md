@@ -93,7 +93,7 @@ Exit workflow.
 
 **Auto mode** — If `--auto` is present in ARGUMENTS:
 - In `check_existing`: auto-select "Update it" (if context exists) or continue without prompting
-- In `present_assumptions`: skip confirmation gate, proceed directly to `write_context`
+- In `present_assumptions`: no confirmation gate; go straight on to `write_context`
 - In `correct_assumptions`: auto-select recommended option for each correction
 - Log each auto-selected choice inline
 - After completion, auto-advance to plan-phase
@@ -105,7 +105,7 @@ Check whether the phase has a spec (from the spec-phase workflow): it locks requ
 **If `has_spec` is true:**
 1. Read the spec and its locked requirements: `specforge query "$SPEC_ID" --depth 1 --format context`.
 2. Count its `locked_req` entities: `specforge query "$SPEC_ID" --depth 1 --pick '.nodes[kind=locked_req].id' --count`.
-3. Display: `Found the phase spec — {N} requirements locked. Focusing on implementation decisions.`
+3. Display: `{N} requirements are locked by the phase spec; this discussion covers implementation decisions only.`
 4. Set `spec_loaded = true`.
 5. Hold the requirements, boundaries and acceptance criteria as `<locked_requirements>`: the context names the spec, and they are not asked again.
 
@@ -296,7 +296,7 @@ Phase goal: {roadmap_description}
 Prior decisions: {prior_decisions_summary}
 Codebase scout hints: {codebase_context_summary}
 Calibration: {calibration_tier}
-Locked requirements (already answered by the phase spec; omit this line when spec_loaded = false): {locked_requirements}
+Settled by the phase spec (leave this line out when spec_loaded = false): {locked_requirements}
 
 Your job:
 1. Read the analyzer pack (`<required_reading>`)

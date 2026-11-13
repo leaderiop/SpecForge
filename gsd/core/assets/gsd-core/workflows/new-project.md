@@ -108,7 +108,7 @@ All subsequent references to the project instruction file use `$INSTRUCTION_FILE
 
 ## 2. Brownfield Offer
 
-**If auto mode:** Skip to Step 4 (assume greenfield, synthesize the project from provided document).
+**If auto mode:** Go on to Step 4: the project is taken as greenfield and drawn from the provided document.
 
 <!-- gsd:section id="codebase-map-offer" when="state:needs-codebase-map" -->
 If `section_manifest` is `null` or `"codebase-map-offer"` is in its `included` list: read and execute `gsd-core/workflows/new-project/steps/codebase-map-offer.md`. Otherwise skip — do not read the file.
@@ -181,7 +181,7 @@ As you go, mentally check the context checklist from `questioning.md`. If gaps r
 When you could record a clear project, use AskUserQuestion:
 
 - header: "Ready?"
-- question: "I think I understand what you're after. Ready to record the project?"
+- question: "I have what I need to record the project. Go ahead?"
 - options:
   - "Record the project" — Let's move forward
   - "Keep exploring" — I want to share more / ask me more
