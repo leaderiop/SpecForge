@@ -263,6 +263,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify unit "the command runs in the runtime that read the project's declarations, which loaded only the extensions the project enables"
   verify unit "args serialized as JSON to cmd__ export"
   verify unit "a command is told the host that calls it, and nothing when none does"
+  verify unit "an extension command with no title is listed by its description, and a titled one by its title"
   verify unit "the host option reaches a command on the command line, and a host that is none is refused"
   verify unit "a command that declares a host argument keeps it as its own and is not told the calling host"
   verify unit "an MCP command call is told the host the session's client named"

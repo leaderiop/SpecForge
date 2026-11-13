@@ -747,18 +747,29 @@ fn pick_fails_a_command_whose_answer_is_not_json() {
 
 mod shapes;
 
-#[test]
-fn an_untitled_command_is_listed_bare() {
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "an extension command with no title is listed by its description, and a titled one by its title"
+)]
+fn an_untitled_command_is_listed_by_its_description() {
+    let listed = |command: &ExtensionCommand, summary: &str| {
+        let text = help(&[command], &["--help"]);
+        let found = text
+            .lines()
+            .any(|line| line.contains("milestone-completion") && line.contains(summary));
+        assert!(found, "{text}");
+        text
+    };
     let untitled = declared(CommandDescriptor {
         title: String::new(),
         description: "Answer whether it holds".into(),
         ..contribution()
     });
-    let text = help(&[&untitled], &["--help"]);
-    assert!(
-        text.lines()
-            .any(|line| line.trim() == "milestone-completion"),
-        "{text}"
-    );
+    listed(&untitled, "Answer whether it holds");
+    let titled = declared(CommandDescriptor {
+        description: "Answer whether it holds".into(),
+        ..contribution()
+    });
+    let text = listed(&titled, "Show progress");
     assert!(!text.contains("Answer whether it holds"), "{text}");
 }

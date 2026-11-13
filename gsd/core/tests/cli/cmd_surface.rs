@@ -242,3 +242,38 @@ fn the_host_options_are_the_binarys() {
         assert_eq!(listed, want, "{command} --help:\n{}", run.stdout);
     }
 }
+
+#[test]
+fn specforge_gsd_help_lists_each_command_with_its_description() {
+    let p = project("empty");
+    let run = p.run(&["gsd", "--help"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let line = |name: &str| {
+        run.stdout
+            .lines()
+            .find(|line| line.trim_start().starts_with(&format!("{name} ")))
+            .unwrap_or_else(|| panic!("no line names {name}: {}", run.stdout))
+    };
+    assert!(
+        line("branch-check").contains("Answer whether the branch HEAD"),
+        "{}",
+        run.stdout
+    );
+    assert!(
+        line("plan-coverage").contains("Check that a reviewer's text"),
+        "{}",
+        run.stdout
+    );
+    let commands = run
+        .stdout
+        .split("Commands:")
+        .nth(1)
+        .expect("a Commands: section");
+    let listed = commands.split("\n\n").next().unwrap_or_default();
+    for entry in listed.lines().filter(|l| !l.trim().is_empty()) {
+        assert!(
+            entry.split_whitespace().count() > 1,
+            "a bare command: {entry:?}"
+        );
+    }
+}
