@@ -172,6 +172,11 @@ const ROWS: &[Row] = &[
     ),
     row("search", &["search", "foo", "--format", "json"], Kind::Read),
     row(
+        "extensions search",
+        &["extensions", "search", "foo", "--format", "json"],
+        Kind::Read,
+    ),
+    row(
         "add",
         &["add", "@specforge/governance", "--format", "json"],
         Kind::Writes,

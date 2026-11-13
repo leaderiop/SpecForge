@@ -95,10 +95,10 @@ fn search_refuses_an_unreadable_credential_store_once() {
         {"alias": "two", "url": "http://other.invalid"}
     ]));
     break_the_store(&dir);
-    let document = Cli::on(&dir).document(&["search", "x"]);
+    let document = Cli::on(&dir).document(&["extensions", "search", "x"]);
     assert_eq!(document.code, 1);
     assert_eq!(document.json["code"], "R012", "{}", document.json);
-    let stderr = Cli::on(&dir).run(&["search", "x"]).stderr;
+    let stderr = Cli::on(&dir).run(&["extensions", "search", "x"]).stderr;
     assert_eq!(stderr.matches("error[R012]").count(), 1, "{stderr}");
     assert!(!stderr.contains("search failed on registry"), "{stderr}");
 }

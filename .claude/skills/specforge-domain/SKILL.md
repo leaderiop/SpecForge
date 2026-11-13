@@ -129,7 +129,8 @@ specforge anchors <id> | --file <path>           # the code anchored to an entit
 specforge watch / mcp                            # incremental rebuild; MCP server over stdio
 specforge-lsp                                    # the language server: a separate binary (the VS Code extension starts it)
 specforge extension init|build|validate          # author an extension
-specforge search / publish / login / update      # registry
+specforge search <text>                          # entities by id, title or text
+specforge extensions search / publish / login / update  # registry
 specforge <extension> <command>                  # an extension's own commands, e.g. specforge product features
 ```
 

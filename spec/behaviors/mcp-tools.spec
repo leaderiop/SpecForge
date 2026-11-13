@@ -275,7 +275,7 @@ behavior provide_mcp_search_tool "Provide MCP Search Tool" {
     and value? (together: only entities whose field's text, by the
     one field-text rule, contains the value, ignoring case: a list item by
     item, an expression in its written form, a block by its keys; one without the other MUST be an invalid-input
-    error naming the missing one), references? (an entity id: only
+    error naming the missing one, a pairing the operation states, ADR 0355), references? (an entity id: only
     entities that reference it; one the graph lacks is an entity_not_found
     error on references), and limit? (default 20). The tool MUST
     return what select_entities_over_the_view selects. Unknown kind values

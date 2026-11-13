@@ -3,9 +3,15 @@ use crate::terminal::{Terminal, outln};
 use specforge_ops::extension;
 use specforge_ops::view::ProjectView;
 
-// `specforge extensions`'s command line.
+mod search;
+
+// `specforge extensions`'s command line: the listing, or `search` over the configured registries.
 #[derive(clap::Args)]
+#[command(args_conflicts_with_subcommands = true)]
 pub(crate) struct Args {
+    #[command(subcommand)]
+    action: Option<Action>,
+
     #[command(flatten)]
     project: crate::project::ProjectArg,
 
@@ -13,11 +19,21 @@ pub(crate) struct Args {
     output: OutputArg,
 }
 
+#[derive(clap::Subcommand)]
+enum Action {
+    /// Search for extensions in the project's registries
+    Search(search::Args),
+}
+
 impl Args {
     /// `specforge extensions`: every extension the project enables, has
     /// locked or loaded, alphabetically, with the entity kinds each
     /// registered and how many of the project's entities use them.
+    /// `specforge extensions search <query>`: the registry search.
     pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
+        if let Some(Action::Search(search)) = self.action {
+            return search.run(terminal, ports);
+        }
         let format = self.output.format;
         let project = match self.project.compile(ports) {
             Ok(project) => project,

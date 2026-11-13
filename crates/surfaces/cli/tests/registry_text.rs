@@ -56,7 +56,10 @@ fn search_writes_no_registry_control_character_and_no_hit_that_is_no_package_nam
     let registry = serve_hostile();
     let dir = project_on(&registry);
 
-    let output = Cli::on(&dir).command(&["search", "sdk"]).output().unwrap();
+    let output = Cli::on(&dir)
+        .command(&["extensions", "search", "sdk"])
+        .output()
+        .unwrap();
 
     assert!(output.status.success(), "{output:?}");
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -66,7 +69,7 @@ fn search_writes_no_registry_control_character_and_no_hit_that_is_no_package_nam
     assert!(stdout.contains("nice \\u{1b}[2J"), "{stdout}");
 
     let output = Cli::on(&dir)
-        .command(&["search", "sdk", "--format", "json"])
+        .command(&["extensions", "search", "sdk", "--format", "json"])
         .output()
         .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();

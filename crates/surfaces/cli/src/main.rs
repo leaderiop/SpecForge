@@ -136,7 +136,7 @@ enum Commands {
     /// Publish an extension to the registry that serves its name: its binary,
     /// and the declaration read from it as the package's manifest
     Publish(publish::Args),
-    /// Search for extensions in registries
+    /// Search the project's entities by text, kind, field or reference
     Search(search::Args),
     /// Run static analysis passes over the compiled project
     Analyze(analyze::Args),
@@ -528,9 +528,11 @@ mod tests {
                 );
                 continue;
             }
-            // A command with subcommands only dispatches; its leaves read. `settings` and `grants` also list, and
-            // take --path for the listing (their subcommands conflict with the listing's flags).
-            if command.has_subcommands() && name != "settings" && name != "grants" {
+            // A command with subcommands only dispatches; its leaves read. `settings`, `grants` and `extensions` also
+            // list, and take --path for the listing (their subcommands conflict with the listing's flags).
+            if command.has_subcommands()
+                && !["settings", "grants", "extensions"].contains(&name.as_str())
+            {
                 assert!(
                     paths.is_empty(),
                     "`specforge {name}` dispatches but takes --path"

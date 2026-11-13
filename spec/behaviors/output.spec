@@ -673,6 +673,27 @@ behavior provide_anchors_cli "Provide CLI Anchors Command" {
   verify integration "anchors answers a Rust test's file and line after a real collect"
 }
 
+behavior provide_search_cli "Provide CLI Search Command" {
+  invariants [diagnostic_determinism]
+  category   cli
+  contract   """
+    specforge search TEXT [--kinds K,..] [--field F --value V] [--references
+    ENTITY] [--limit N] [--path PROJECT] [--format human|json] [--pick PATH]
+    MUST answer the search read view (ADR 0355) of the project compiled at
+    PROJECT: under --format json the document specforge.search replies, its
+    hits best first. Human output is one line per hit, the kind, the id,
+    the title and file:line, and under a match in a field's text the field
+    and the text around it; no hit says no entity matches. The notices
+    (I020) go to stderr under every format. --field and --value need each
+    other: one alone is a usage error, exit 2. An unknown --references
+    entity is E003, exit 1. The registry search is specforge extensions
+    search.
+  """
+  verify integration "search prints the entities specforge.search returns, best first"
+  verify integration "search with --kinds keeps only those kinds"
+  verify integration "search with no hit says no entity matches"
+}
+
 behavior provide_review_cli "Provide CLI Review Command" {
   features   [agent_export, extension_driven_coverage]
   invariants [diagnostic_determinism]

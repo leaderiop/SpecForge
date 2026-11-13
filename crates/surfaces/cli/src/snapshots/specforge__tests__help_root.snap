@@ -26,7 +26,7 @@ Commands:
   remove        Remove an installed extension
   extensions    List the project's extensions: enabled, locked or loaded
   publish       Publish an extension to the registry that serves its name: its binary, and the declaration read from it as the package's manifest
-  search        Search for extensions in registries
+  search        Search the project's entities by text, kind, field or reference
   analyze       Run static analysis passes over the compiled project
   watch         Watch a project and rebuild incrementally on changes
   new           Create an entity
