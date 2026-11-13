@@ -275,8 +275,8 @@ fn an_agent_a_route_names_gets_a_context_section_and_others_none() {
     );
     assert!(
         executor.contains(
-            "Sections, in order: plan, body, phase, requirements (core), then context, decisions, instructions, \
-             research_items, siblings (as the budget of 6000 tokens allows)."
+            "Sections, in order: plan (core), body (core), phase (core), requirements (core), context, decisions, \
+             instructions, research_items, siblings (as the budget of 6000 tokens allows)."
         ),
         "{executor}"
     );

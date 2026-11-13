@@ -55,20 +55,15 @@ pub(crate) fn context_section(view: &ProjectView<'_>, agent: &str) -> String {
     let Some(route) = view.registries().contexts().of_agent(agent) else {
         return String::new();
     };
-    let names = |tier: ContextTier| -> Vec<&str> {
-        route
-            .sections
-            .iter()
-            .filter(|section| section.tier == tier)
-            .map(|section| section.name.as_str())
-            .collect()
-    };
-    let core = names(ContextTier::Core);
-    let enrich = names(ContextTier::Enrich);
-    let order = match enrich.is_empty() {
-        true => format!("{} (core)", core.join(", ")),
-        false => format!("{} (core), then {}", core.join(", "), enrich.join(", ")),
-    };
+    let order: Vec<String> = route
+        .sections
+        .iter()
+        .map(|section| match section.tier {
+            ContextTier::Core => format!("{} (core)", section.name),
+            ContextTier::Enrich => section.name.clone(),
+        })
+        .collect();
+    let order = order.join(", ");
     format!(
         "\n## Context\n\nBefore you start, read the context of the `{subject}` you were given: `specforge context {name} \
          <id>` (MCP: the tool `specforge.context`, or the resource `specforge://context/<id>?role={name}`).\n\n\
