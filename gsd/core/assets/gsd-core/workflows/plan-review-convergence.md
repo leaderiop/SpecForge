@@ -204,7 +204,7 @@ actionable concerns from the graph (`open.high`, `open.actionable` of the round)
 return message. Each concern that remains unresolved is an item of the round's `concerns`.
 
 Consensus gate (applies to NEWLY RAISED HIGHs only; evaluate before the recording rules below):
-  This gate engages ONLY when 2 or more reviewers actually ran and produced a review this
+  This gate engages ONLY when 2 or more reviewers actually ran and produced a review section this
   cycle. With exactly one reviewer, skip this entire gate — a single reviewer's HIGH always counts,
   exactly as before.
 
@@ -220,9 +220,9 @@ Consensus gate (applies to NEWLY RAISED HIGHs only; evaluate before the recordin
   A HIGH raised by 2+ reviewers is corroborated and always counts.
 
   For a HIGH raised by exactly ONE reviewer:
-    - EXISTENCE-CLASS — counts only if the source-grounding pass independently confirms it against
-      real project source, or another reviewer raised the same or a materially overlapping concern
-      (i.e. it is one of the round's agreed concerns).
+    - EXISTENCE-CLASS — it counts only once the source-grounding pass confirms it against the real
+      project source on its own, or once another reviewer raised the same or a closely overlapping
+      concern, which makes it one of the round's agreed concerns.
     - JUDGMENT-CLASS — counts UNLESS that reviewer's own section OPENS with an evidence-quality
       discount marker blockquote: `[reviewed-without-source-citations]` or
       `[reviewed-without-repo-access]`, or the reviewer is a diff-only lane (CodeRabbit). The marker
@@ -242,7 +242,7 @@ Consensus gate (applies to NEWLY RAISED HIGHs only; evaluate before the recordin
   with severity `high` and `actionable` false: excluded from `open.high` only, never silently dropped,
   and never removed from the round.
 
-  This gate governs HIGHs only. Actionable non-HIGH concerns are unaffected.
+  The gate decides HIGH concerns alone; it leaves the actionable concerns that are not HIGH as they are.
 
 Recording rules:
   RECORD as a concern of this round:

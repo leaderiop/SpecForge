@@ -375,11 +375,11 @@ agents/gsd-plan-checker.md	own	646+2	2	9da7ce5b1cd6	b9220028e8da	prose
 agents/gsd-plan-checker.md	kept	648+1	d1f1807c12a2
 agents/gsd-plan-checker.md	own	649+1	1	362de21581d8	40e39f039443	prose
 agents/gsd-plan-checker.md	kept	650+3	0836feb3e674
-agents/gsd-plan-checker.md	own	653+2	2	6e790efdec60	b6c30dd2a15e	prose
+agents/gsd-plan-checker.md	own	653+2	2	6e790efdec60	5f02b88eec0a	review
 agents/gsd-plan-checker.md	kept	655+8	a28dbc8ad874
-agents/gsd-plan-checker.md	own	663+2	2	a17876380f91	fb65f9a83a6d	prose
+agents/gsd-plan-checker.md	own	663+2	2	a17876380f91	7cb5dd26d492	review
 agents/gsd-plan-checker.md	kept	665+10	9bb4e7d045eb
-agents/gsd-plan-checker.md	own	675+2	2	c0d57114ffb3	48c584fced72	prose
+agents/gsd-plan-checker.md	own	675+2	2	c0d57114ffb3	457847b1bde1	review
 agents/gsd-plan-checker.md	kept	677+2	7c0ee57705d2
 agents/gsd-plan-checker.md	own	679+1	1	5d06e2473b76	5c08fc441700	prose
 agents/gsd-plan-checker.md	kept	680+7	d8d700064e36
@@ -391,9 +391,9 @@ agents/gsd-plan-checker.md	own	695+1	1	473d948954cb	58e56ca160c2	agent
 agents/gsd-plan-checker.md	kept	696+2	036c0df8d828
 agents/gsd-plan-checker.md	own	698+1	1	2b68f2a6175a	b4fdac31ecb6	served
 agents/gsd-plan-checker.md	kept	699+12	ff93021e00f8
-agents/gsd-plan-checker.md	own	711+2	2	9233abfe3ef2	58c61dbb3b2c	served
+agents/gsd-plan-checker.md	own	711+2	2	9233abfe3ef2	db79a168de75	review
 agents/gsd-plan-checker.md	kept	713+3	817f1a3c8274
-agents/gsd-plan-checker.md	own	716+1	1	eea303acc976	8f7c5238c7aa	prose
+agents/gsd-plan-checker.md	own	716+1	1	eea303acc976	be231a338350	review
 agents/gsd-plan-checker.md	kept	717+12	257da5580907
 agents/gsd-plan-checker.md	own	729+1	1	f685616ece4b	a23ec5f8cb97	agent
 agents/gsd-plan-checker.md	kept	730+2	5f046190424d
@@ -3619,11 +3619,11 @@ gsd-core/workflows/plan-review-convergence.md	own	190+1	1	ef52565c6f0e	30b9969fa
 gsd-core/workflows/plan-review-convergence.md	kept	191+4	358be5fda0ed
 gsd-core/workflows/plan-review-convergence.md	own	195+1	1	8932a3494445	829299efa842	prose
 gsd-core/workflows/plan-review-convergence.md	kept	196+21	55bfc23ff628
-gsd-core/workflows/plan-review-convergence.md	own	217+14	11	da0ba7322b60	8ff359907f92	prose
-gsd-core/workflows/plan-review-convergence.md	kept	231+17	8e3c808ee487
-gsd-core/workflows/plan-review-convergence.md	own	248+1	1	70fadfe50627	594e8458a28e	prose
+gsd-core/workflows/plan-review-convergence.md	own	217+13	10	79b89accaa7d	1e501ac1bfec	review
+gsd-core/workflows/plan-review-convergence.md	kept	230+16	45f16ae030a8
+gsd-core/workflows/plan-review-convergence.md	own	246+3	3	7b2133a88760	c2afc39cc569	review
 gsd-core/workflows/plan-review-convergence.md	kept	249+15	d8d1605f111a
-gsd-core/workflows/plan-review-convergence.md	own	264+8	8	9f2c5d6cb31a	719453176a94	prose
+gsd-core/workflows/plan-review-convergence.md	own	264+8	8	9f2c5d6cb31a	1cb1ba6172cb	review
 gsd-core/workflows/plan-review-convergence.md	kept	272+3	476e98b7d2f0
 gsd-core/workflows/plan-review-convergence.md	own	275+2	3	fff8503b4430	46b2a38b0508	prose
 gsd-core/workflows/plan-review-convergence.md	kept	277+3	7ef57b901d27

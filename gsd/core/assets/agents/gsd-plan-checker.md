@@ -654,7 +654,7 @@ nothing with `@gsd/core` alone). Output: "Dimension 12: SKIPPED (no pattern map)
 4. For `## Shared Patterns`, verify all applicable plans include the cross-cutting concern
 
 **Red flags:**
-- Plan creates a file listed in the pattern map but does not reference the analog
+- A file the plan creates has an analog in the pattern map that the plan never references
 - Plan uses a different pattern than the one mapped in the pattern map without justification
 - Shared pattern (auth, error handling) missing from a plan that creates a file it applies to
 - Plan references an analog that does not exist in the codebase
@@ -665,7 +665,7 @@ issue:
   dimension: pattern_compliance
   severity: warning
   required_property: "Every new file names its closest the pattern map analog, or cites the research if none exists"
-  description: "Plan 01-03 creates src/controllers/auth.ts but does not reference analog src/controllers/users.ts from the pattern map"
+  description: "Plan 01-03's new src/controllers/auth.ts never references its pattern-map analog, src/controllers/users.ts"
   file: "01-03-PLAN.md"
   expected_analog: "src/controllers/users.ts"
   fix_hint: "Add analog reference and pattern excerpts to plan action section"
@@ -677,7 +677,7 @@ issue:
   dimension: pattern_compliance
   severity: warning
   required_property: "Plans reusing a the pattern map shared pattern reference it"
-  description: "Plan 01-02 creates a controller but does not include the shared auth middleware pattern from the pattern map"
+  description: "Plan 01-02's new controller leaves out the shared auth middleware pattern the pattern map names"
   file: "01-02-PLAN.md"
   shared_pattern: "Authentication"
   fix_hint: "Add auth middleware pattern from the pattern map's shared patterns to plan"
@@ -713,11 +713,11 @@ issue:
 **Process when a plan's numeric/factual claim conflicts with RESEARCH.md:**
 
 1. **Attempt live measurement first** with a targeted read-only command (e.g., `specforge files list --kind file --glob '*.test.*' --pick .count`). Run it. Use the result as ground truth:
-   - Measurement confirms plan → WARNING: the phase's research is stale (`gsd/W406` once its context changed); recommend recording it again.
+   - A measurement that confirms the plan → WARNING: the research is out of date; gsd/W406 says so once the context it was written against moved, and recording the research again clears it.
    - Measurement contradicts plan → BLOCKER: plan value is wrong; prescribe the measured value.
 
 2. **If live measurement is not possible** (external system, future state): report the discrepancy WITHOUT prescribing which value is correct:
-   > Discrepancy: plan asserts X, the research asserts Y. Cannot determine ground truth without live measurement. Verify manually and update the stale artifact.
+   > Discrepancy: the plan asserts X and the research asserts Y, and without a live measurement neither can be trusted. Check by hand and correct whichever is out of date.
 
 **NEVER** prescribe a specific value by assuming RESEARCH.md is authoritative for a numeric/factual claim.
 
