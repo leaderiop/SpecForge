@@ -60,15 +60,58 @@ fn start_plan_records_the_hosts_now_once() {
     let start = format!("{PLAN}/START");
     assert_eq!(p.fields_of(&start)["at"], started.as_str());
     assert!(ledgered(&p, &start, "at", &format!("\"{started}\"")));
-    // A second call, a second later and by a short form, answers the first value and writes nothing.
+    // A second call, a second later and by a short form, answers the first value and leaves it.
     std::thread::sleep(std::time::Duration::from_millis(1100));
-    let before = bytes(&p);
-    let run = gsd(&p, "start-plan", &["02-01", "--format", "json"]);
+    let before = p.fields_of(&start);
+    let run = gsd(&p, "start-plan", &["02-01", "--pick", ".started"]);
     assert_eq!(run.code, 0, "{}", run.all());
-    let answer = json(&run);
-    assert_eq!(answer["plan"], PLAN);
-    assert_eq!(answer["started"], started.as_str());
-    assert_eq!(bytes(&p), before);
+    assert_eq!(run.stdout.trim_end(), started);
+    assert_eq!(p.fields_of(&start), before);
+}
+
+/// The executor pack `specforge context` prints of [`PLAN`], at `budget` when one is given.
+fn executor_pack(p: &crate::harness::Project, budget: Option<&str>) -> serde_json::Value {
+    let mut args = vec!["context", "gsd/executor", PLAN];
+    if let Some(budget) = budget {
+        args.extend(["--max-tokens", budget]);
+    }
+    let run = p.run(&args);
+    assert_eq!(run.code, 0, "{}", run.all());
+    serde_json::from_str(&run.stdout).expect("a pack")
+}
+
+/// Every call records the plan's executor pack, at the route's budget or at `--max-tokens`; a re-run leaves
+/// `plan_start` as the first call wrote it.
+#[test]
+fn start_plan_records_the_executor_pack_on_every_call() {
+    let p = twin();
+    let run = gsd(&p, "start-plan", &[PLAN, "--pick", ".recorded"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(run.stdout.trim_end(), "gsd/executor");
+    let record = p.fields_of(PLAN)["context_pack"].clone();
+    assert_eq!(record["route"], "gsd/executor", "{record}");
+    assert_eq!(
+        record["digest"],
+        executor_pack(&p, None)["digest"],
+        "{record}"
+    );
+    assert_eq!(record["max_tokens"], 6000, "{record}");
+    let start = p.fields_of(&format!("{PLAN}/START"));
+    let run = gsd(&p, "start-plan", &[PLAN, "--max-tokens", "4000"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let record = p.fields_of(PLAN)["context_pack"].clone();
+    assert_eq!(record["max_tokens"], 4000, "{record}");
+    assert_eq!(
+        record["digest"],
+        executor_pack(&p, Some("4000"))["digest"],
+        "{record}"
+    );
+    assert_eq!(p.fields_of(&format!("{PLAN}/START")), start);
+    assert!(
+        !p.codes().iter().any(|c| c == "E083" || c == "gsd/W524"),
+        "{:?}",
+        p.codes()
+    );
 }
 
 /// `--head` is a commit id, recorded once beside the time; empty is an unborn branch, which has none.
@@ -215,6 +258,53 @@ fn complete_plan_refuses() {
 
 pub(super) const CHECKPOINT: &str = "v1.0/01/01-02/C1";
 const SECOND_PLAN: &str = "v1.0/01/01-02";
+
+/// Each person's step and the plan it belongs to: answering a checkpoint, confirming a user setup.
+fn steps() -> [(&'static str, &'static str, Vec<&'static str>); 2] {
+    [
+        (
+            SECOND_PLAN,
+            "answer-checkpoint",
+            vec![CHECKPOINT, "--option", "timestamp", "--by", "ada"],
+        ),
+        ("v1.0/02/02-01", "confirm-setup", vec![SETUP, "--by", "ada"]),
+    ]
+}
+
+/// Opens `plan` (its plan checks played first), then takes the person's `step`; whether `gsd/W524` is raised after.
+fn stepped(plan: &str, command: &str, args: &[&str], restart: bool) -> bool {
+    let p = super::harness::project("execute");
+    for code in ["W311", "W313", "W315", "W316"] {
+        let run = p.record(plan, code, "passed", &[]);
+        assert_eq!(run.code, 0, "{code}: {}", run.all());
+    }
+    opened(&p, plan);
+    assert!(
+        !p.codes().contains(&"gsd/W524".to_string()),
+        "{:?}",
+        p.codes()
+    );
+    let run = gsd_as_person(&p, command, args);
+    assert_eq!(run.code, 0, "{command}: {}", run.all());
+    if restart {
+        opened(&p, plan);
+    }
+    p.codes().contains(&"gsd/W524".to_string())
+}
+
+#[test]
+fn answering_a_checkpoint_or_confirming_setup_then_start_plan_raises_no_w524() {
+    for (plan, command, args) in steps() {
+        assert!(!stepped(plan, command, &args, true), "{command}");
+    }
+}
+
+#[test]
+fn answering_a_checkpoint_or_confirming_setup_without_start_plan_raises_w524() {
+    for (plan, command, args) in steps() {
+        assert!(stepped(plan, command, &args, false), "{command}");
+    }
+}
 pub(super) const SETUP: &str = "v1.0/02/02-01/US1";
 
 /// Plays the plan checker on the second plan of the `execute` project: its four plan-check verdicts are fresh.

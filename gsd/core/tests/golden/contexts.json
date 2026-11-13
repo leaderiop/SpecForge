@@ -5,6 +5,13 @@
       "agent": "gsd-executor",
       "budget": 6000,
       "name": "executor",
+      "records": [
+        {
+          "field": "plan.context_pack",
+          "subject": "self",
+          "suggestion": "read the pack again (`specforge context {route} {subject}`), then run `specforge gsd start-plan {entity}`; the continuation does"
+        }
+      ],
       "sections": [
         {
           "name": "plan",
@@ -68,6 +75,7 @@
         "workflow.tdd_mode",
         "git.allow_default_branch_commits"
       ],
+      "stale": "W524",
       "subject": "plan"
     },
     {

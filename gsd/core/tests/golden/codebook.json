@@ -414,6 +414,12 @@
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#discuss-spec-research",
       "explanation": "An edge or spec prohibition of a phase spec carries what its status allows: a resolved row its tier (and an edge its resolution), a dismissed row its reason, an unresolved row neither; its requirement is a locked requirement of its spec, and one edge per requirement and category. It is an error.",
       "title": "Probe row's resolution breaks its lifecycle"
+    },
+    {
+      "code": "W524",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
+      "explanation": "A plan's executor pack, recorded by `start-plan`, has moved while the plan is open: its plan, tasks, must-haves, phase, requirements, decisions, the earlier plans' summaries, research items, instructions or settings changed since the executor started, or a checkpoint was answered or a setup confirmed; re-run `specforge gsd start-plan <plan>` (the continuation does) once the executor has read them. It is a warning.",
+      "title": "Stale executor pack"
     }
   ]
 }

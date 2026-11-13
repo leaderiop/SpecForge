@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 69] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 70] = [
     (
         "E101",
         Evidence::Tests {
@@ -491,6 +491,13 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 69] = [
         Evidence::Tests {
             fires: "an_edge_resolved_without_a_tier_is_e523",
             silent: "a_resolved_edge_and_a_dismissed_prohibition_are_not_e523",
+        },
+    ),
+    (
+        "W524",
+        Evidence::Tests {
+            fires: "a_plan_whose_executor_pack_moved_is_w524_while_it_is_open",
+            silent: "a_recorded_executor_pack_in_step_with_its_plan_is_silent",
         },
     ),
 ];

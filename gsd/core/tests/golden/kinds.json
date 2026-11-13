@@ -4577,6 +4577,50 @@
             "required": false,
             "target_kind": null,
             "writer": "computed"
+          },
+          {
+            "checks_while": "pending",
+            "default_value": null,
+            "description": "the `gsd/executor` pack `start-plan` recorded (gsd/W524)",
+            "edge": null,
+            "field_type": "block",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "route",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "digest",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "max_tokens",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "context_pack",
+            "required": false,
+            "target_kind": null,
+            "writer": "context"
           }
         ],
         "has_body_parser": false,

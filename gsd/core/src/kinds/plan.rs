@@ -71,6 +71,9 @@ pub const PLAN: Kind = Kind::new(
             "how many plans `estimate.tokens` makes under `workflow.smart_zone_tokens`, rounded up: over 1 is a \
              re-slice to recommend, never a block; absent without an estimate",
         ),
+        context_record("context_pack")
+            .o()
+            .doc("the `gsd/executor` pack `start-plan` recorded (gsd/W524)"),
     ],
 )
 .scoped_by("phase")

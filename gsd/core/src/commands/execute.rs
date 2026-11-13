@@ -34,13 +34,21 @@ fn head_given<'a>(call: &'a CommandCall<'_>) -> Result<Option<&'a str>, String> 
     }
 }
 
-/// `start_plan <plan> [--head <sha>]`: gated. Records the host's `now` and the commit in the plan's `plan_start`, each
-/// once: a second call answers the first values and writes nothing, so re-running the step never makes a false duration
-/// or a false commit count. A prompt's step opens a plan with no head and the executor names it next, so a head comes
-/// once whichever call brings it.
+/// The route whose pack `start-plan` records on its plan, each call.
+const EXECUTOR: &str = "gsd/executor";
+
+/// `start_plan <plan> [--head <sha>] [--max-tokens <n>]`: gated. Records the host's `now` and the commit in the plan's
+/// `plan_start`, each once: a second call answers the first values and leaves them, so re-running the step never makes
+/// a false duration or a false commit count. A prompt's step opens a plan with no head and the executor names it next,
+/// so a head comes once whichever call brings it. Every call records the plan's executor pack, so the continuation
+/// after a checkpoint re-records what the executor reads and silences `gsd/W524`.
 fn start(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let plan = node(call, "plan", required(call, "plan")?)?;
     let head = head_given(call)?;
+    let max_tokens = call
+        .count("max_tokens")
+        .map(|n| u32::try_from(n).map_err(|_| format!("'max_tokens' is above {}", u32::MAX)))
+        .transpose()?;
     if let Some(first) = of_start(call, &plan.id, "at") {
         let kept = of_start(call, &plan.id, "head");
         let mut edit = call.plan();
@@ -48,11 +56,12 @@ fn start(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         if let (true, Some(head)) = (fills, head) {
             edit.set(&format!("{}/START", plan.id), "head", head);
         }
+        edit.record_context(&plan.id, EXECUTOR, max_tokens);
         return Ok(answer(
             call,
-            json!({ "plan": plan.id, "started": first, "head": kept.or(head) }),
+            json!({ "plan": plan.id, "started": first, "head": kept.or(head), "recorded": EXECUTOR }),
             format!("plan {} may go on; started {first}\n", plan.id),
-            fills.then_some(&edit),
+            Some(&edit),
         ));
     }
     let started = now(call)?;
@@ -70,9 +79,10 @@ fn start(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         ]),
         Vec::new(),
     );
+    edit.record_context(&plan.id, EXECUTOR, max_tokens);
     Ok(answer(
         call,
-        json!({ "plan": plan.id, "started": started, "head": head }),
+        json!({ "plan": plan.id, "started": started, "head": head, "recorded": EXECUTOR }),
         format!("plan {} may start; started {started}\n", plan.id),
         Some(&edit),
     ))
@@ -215,7 +225,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
             .handler(|call| run(call, confirm_setup));
     });
     c.command("start_plan", |cmd| {
-        cmd.description("Open a plan: runs the plan's entry gates (W318, E516) and records the host's clock and the commit it opens at in its `plan_start`, each once; a second call answers the first values")
+        cmd.description("Open a plan: runs the plan's entry gates (W318, E516), records the host's clock and the commit it opens at in its `plan_start`, each once (a second call answers the first values), and on every call records the plan's gsd/executor pack in its `context_pack` (gsd/W524)")
             .writes()
             .gate("W318")
             .gate("E516")
@@ -225,6 +235,9 @@ pub fn declare(c: &mut ContributionsBuilder) {
             })
             .arg("head", |a| {
                 a.description("the commit it opens at, in full (`specforge git head --pick .sha`); empty on an unborn branch, which has none");
+            })
+            .arg("max_tokens", |a| {
+                a.count().description("the budget of the executor pack it records (default: the route's own)");
             })
             .handler(|call| run(call, start));
     });

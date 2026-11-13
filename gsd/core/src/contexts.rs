@@ -38,6 +38,13 @@ pub struct Record {
 /// Every context field `@gsd/core` declares, by the route that records it. A stale record raises the route's code.
 pub const RECORDS: &[Record] = &[
     Record {
+        route: "executor",
+        field: "plan.context_pack",
+        subject: "self",
+        suggestion: "read the pack again (`specforge context {route} {subject}`), then run `specforge gsd start-plan \
+                     {entity}`; the continuation does",
+    },
+    Record {
         route: "phase-context",
         field: "research.context_pack",
         subject: "self.phase",
@@ -68,7 +75,11 @@ pub const RECORDS: &[Record] = &[
 ];
 
 /// The code a stale record of each recording route raises.
-const STALE: &[(&str, &str)] = &[("phase-context", "W406"), ("quick-context", "W406")];
+const STALE: &[(&str, &str)] = &[
+    ("executor", "W524"),
+    ("phase-context", "W406"),
+    ("quick-context", "W406"),
+];
 
 /// A route's sections, each `(name, selector, core)`.
 type Sections<'a> = &'a [(&'a str, &'a str, bool)];

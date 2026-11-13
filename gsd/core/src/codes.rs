@@ -636,6 +636,14 @@ pub static CODES: &[Code] = &[
         Severity::Error,
         Severity::Error,
     ),
+    code(
+        "W524",
+        "Stale executor pack",
+        "A plan's executor pack, recorded by `start-plan`, has moved while the plan is open: its plan, tasks, must-haves, phase, requirements, decisions, the earlier plans' summaries, research items, instructions or settings changed since the executor started, or a checkpoint was answered or a setup confirmed; re-run `specforge gsd start-plan <plan>` (the continuation does) once the executor has read them",
+        "execute",
+        Severity::Warning,
+        Severity::Warning,
+    ),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

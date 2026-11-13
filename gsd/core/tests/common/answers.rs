@@ -52,7 +52,7 @@ pub const ANSWERS: &[(&str, &[&str])] = &[
     ),
     ("quick-init", &["items"]),
     ("security-hooks", &["activeHooks", "skippedHooks"]),
-    ("start-plan", &["plan", "started", "head"]),
+    ("start-plan", &["plan", "started", "head", "recorded"]),
     (
         "user-story-validate",
         &["valid", "errors", "role", "capability", "outcome"],

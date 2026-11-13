@@ -177,3 +177,52 @@ fn the_phase_context_pack_holds_the_context_its_discussed_decisions_and_deferred
     let again = pack(&p, "phase-context", phase);
     assert_eq!(members(&again, "decisions"), discussed);
 }
+
+/// The plan the executor tests open, and a line of one of its tasks.
+const PLAN: &str = "v1.0/02/02-01";
+const DONE: &str = "done        \"The store tests pass\"";
+
+/// `start-plan` on `plan`, which records its executor pack.
+fn start(p: &Project, plan: &str) {
+    let run = p.run(&["gsd", "start-plan", plan]);
+    assert_eq!(run.code, 0, "{}", run.all());
+}
+
+/// The message of `gsd/W524`, when the check raises it.
+fn w524(p: &Project) -> Option<String> {
+    p.report()
+        .into_iter()
+        .find(|(code, _)| code == "gsd/W524")
+        .map(|(_, message)| message)
+}
+
+#[test]
+fn a_plan_whose_executor_pack_moved_is_w524_while_it_is_open() {
+    let p = taskboard();
+    start(&p, PLAN);
+    p.edit(
+        "spec/plans.spec",
+        DONE,
+        "done        \"The store tests pass twice\"",
+    );
+    let message = w524(&p).unwrap_or_else(|| panic!("no W524: {:?}", p.codes()));
+    assert!(
+        message.contains(PLAN) && message.contains("gsd/executor"),
+        "{message}"
+    );
+    // The continuation re-records the pack, and the plan is silent again.
+    start(&p, PLAN);
+    assert_eq!(w524(&p), None);
+}
+
+#[test]
+fn a_recorded_executor_pack_in_step_with_its_plan_is_silent() {
+    let p = taskboard();
+    start(&p, PLAN);
+    assert_eq!(w524(&p), None, "no W524: {:?}", p.codes());
+    // Recording, and opening the plan, move nothing the executor reads.
+    assert_eq!(
+        p.fields_of(PLAN)["context_pack"]["digest"],
+        pack(&p, "executor", PLAN)["digest"]
+    );
+}
