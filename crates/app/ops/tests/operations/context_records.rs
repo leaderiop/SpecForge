@@ -12,8 +12,8 @@ use specforge_ops::read::context::{ContextRequest, context};
 use specforge_ops::read::export::Format;
 use specforge_ops::view::ProjectView;
 use specforge_project::testing::{
-    CODE_CORE, CONTEXT_PLAN, GSD_CONTEXT_SPEC, GSD_JUDGED, TestProject, gsd_context_builder,
-    gsd_context_project, gsd_routed_project_over, gsd_routed_serving,
+    CODE_CORE, CONTEXT_PLAN, CONTEXT_STALE, GSD_CONTEXT_SPEC, GSD_JUDGED, TestProject,
+    gsd_context_builder, gsd_context_project, gsd_routed_project_over, gsd_routed_serving,
 };
 use specforge_project::{CompiledProject, SharedRuntime};
 use specforge_protocol_types::EditPlan;
@@ -30,7 +30,7 @@ fn runtime() -> InProcessRuntime {
                 .budget(2000)
                 .core("requirement", "self")
                 .record("plan.context_pack", "self.requirements")
-                .stale("W524");
+                .stale(CONTEXT_STALE);
         });
         c
     })

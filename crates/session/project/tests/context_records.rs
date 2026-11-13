@@ -1,5 +1,5 @@
 //! The records a context route keeps of its pack (ADR 0356 D12): the GSD-shaped executor route records the plan's
-//! `context_pack` and raises `gsd/W524` when the pack it recorded has moved, when it reaches no subject or several, or
+//! `context_pack` and raises `gsd/W910` when the pack it recorded has moved, when it reaches no subject or several, or
 //! when its core outgrew the recorded budget; the plan's owner gate decides when it is checked, and a check evaluates
 //! one pack per record and none without one.
 
@@ -10,9 +10,9 @@ use specforge_common::{Diagnostic, DiagnosticData, Severity};
 use specforge_emitter::{EmitFormat, generate_schema};
 use specforge_project::context::{pack, testing::packs_evaluated};
 use specforge_project::testing::{
-    CODE_CORE, CONTEXT_PACK, CONTEXT_PLAN, GSD_CONTEXT_SPEC, GSD_JUDGED, TestProject,
-    code_core_builder, gsd_context_builder, gsd_context_project, gsd_routed_project_over,
-    recording,
+    CODE_CORE, CONTEXT_PACK, CONTEXT_PLAN, CONTEXT_STALE, GSD_CONTEXT_SPEC, GSD_JUDGED,
+    TestProject, code_core_builder, gsd_context_builder, gsd_context_project,
+    gsd_routed_project_over, recording,
 };
 use specforge_project::{CompiledProject, SharedRuntime};
 use specforge_registry::PlainDisk;
@@ -21,7 +21,7 @@ use specforge_wasm::WasmCallResult;
 use specforge_wasm::testing::InProcessRuntime;
 
 /// The stale code as the project prints it.
-const STALE: &str = "gsd/W524";
+const STALE: &str = "gsd/W910";
 
 /// `@gsd/core` with its context routes and `requirement-pack`, which reads a requirement and records it in a plan's
 /// `context_pack` through the plan's requirements; the plan-status pass gives each of `complete` the status `complete`.
@@ -38,7 +38,7 @@ fn runtime(complete: &[&str]) -> SharedRuntime {
                     .budget(2000)
                     .core("requirement", "self")
                     .record("plan.context_pack", "self.requirements")
-                    .stale("W524");
+                    .stale(CONTEXT_STALE);
             });
             c
         })

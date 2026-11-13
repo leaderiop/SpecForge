@@ -12,6 +12,7 @@ use crate::read::export::Format;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 use serde_json::json;
+use specforge_common::codes;
 use specforge_graph::Found;
 use specforge_project::select::Selection;
 use specforge_registry::{ContextRecord, ContextRoute};
@@ -151,7 +152,7 @@ pub(crate) fn check(
     };
     let pack = context(view, &request).map_err(|refusal| {
         let error = refusal.into_error();
-        if error.code == "E062" {
+        if error.code == codes::E062.id() {
             refused(op.number, "budget", error.message)
         } else {
             error

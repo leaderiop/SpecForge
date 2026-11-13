@@ -220,8 +220,8 @@ pub fn gsd_context_project() -> TestProject {
 /// The plan's context record, as the wire carries a field written `context` (ADR 0356 D9).
 pub const CONTEXT_PACK: &str = "context_pack";
 
-/// The code a stale record of the executor's pack raises, as `@gsd/core` catalogues it.
-pub const CONTEXT_STALE: &str = "W524";
+/// The code a stale record of the executor's pack raises: an example extension's local code, never the host's.
+pub const CONTEXT_STALE: &str = "W910";
 
 /// [`gsd_routed_wire`] with the plan's context record [`CONTEXT_PACK`], checked while the plan is open, and the plan's
 /// computed `status` an enum whose `complete` closes it, as the real `@gsd/core` declares them.
