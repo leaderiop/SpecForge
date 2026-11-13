@@ -58,3 +58,44 @@ fn the_close_extracts_keys_close_milestone_never_prints() {
         assert!(answer.get(key).is_none(), "{key}: {answer}");
     }
 }
+
+/// Autonomous keeps a deferred verification in a `## Deferred Verification` section of STATE.md and, on re-entry,
+/// parses that section out of `progress-report`'s answer, which never holds it: a deferred phase runs again.
+#[test]
+fn a_deferred_verification_is_kept_where_progress_never_prints_it() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let text = asset("gsd-core/workflows/autonomous.md");
+    let read = super::line(&text, "STATE_CONTENT=$(");
+    let p = crate::harness::taskboard();
+    let (out, err, code) = sh.run_in(p.root(), &format!("{read}\nprintf '%s' \"$STATE_CONTENT\""));
+    assert_eq!(code, 0, "{err}");
+    assert!(!out.trim().is_empty(), "{err}");
+    assert!(!out.contains("Deferred Verification"), "{out}");
+    assert!(!out.contains("phase_complete"), "{out}");
+    assert!(text.contains("Append/update this STATE.md section"));
+}
+
+/// Graduation keeps defer and dismiss under `graduation_backlog`, a field no kind declares: a dismissed cluster is
+/// offered again on every transition.
+#[test]
+fn a_graduation_disposition_is_kept_in_a_field_no_kind_declares() {
+    let p = crate::harness::taskboard();
+    let run = p.run(&["schema"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let schema: serde_json::Value = serde_json::from_str(&run.stdout).expect("a JSON schema");
+    let fields: Vec<&str> = schema["entity_kinds"]
+        .as_array()
+        .expect("kinds")
+        .iter()
+        .flat_map(|k| k["fields"].as_array().into_iter().flatten())
+        .filter_map(|f| f["name"].as_str())
+        .collect();
+    assert!(
+        fields.contains(&"graduated"),
+        "the lesson's fields are listed"
+    );
+    assert!(!fields.contains(&"graduation_backlog"));
+    assert!(asset("gsd-core/workflows/graduation.md").contains("under `graduation_backlog`"));
+}
