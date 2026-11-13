@@ -43,3 +43,23 @@ fn the_convergence_step_stops_on_an_unset_phase_dir() {
     assert_eq!(code, 1, "{out}{err}");
     assert!(err.contains("phase_dir is empty"), "{err}");
 }
+
+/// The review's commit step, reached only when a lane produced a review, runs `:` and nothing else: the combined
+/// review is recorded nowhere, though the `review` kind exists.
+#[test]
+fn the_review_commit_records_nothing() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let text = asset("gsd-core/workflows/review.md");
+    let fence = fence_after(&text, "Commit (only reached when");
+    assert!(!fence.contains("specforge"), "{fence}");
+    let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/02\n{fence}"));
+    assert_eq!(code, 0, "{out}{err}");
+    let (count, err, _) = sh.run_in(
+        p.root(),
+        "specforge query v1.0/02 --depth 1 --kinds review --pick '.nodes[kind=review].id' --count",
+    );
+    assert_eq!(count.trim(), "0", "{err}");
+}
