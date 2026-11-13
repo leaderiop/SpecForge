@@ -253,6 +253,11 @@ fn a_checkpoint_answer_is_a_harness_block_with_no_e107_rule() {
 #[test]
 fn a_truths_verification_is_a_persons_to_write() {
     assert_eq!(field_of("truth", "verification")["writer"], "human");
+    // the planner proposes a tier instead, once; a person confirms it in `verification`
+    assert_ne!(
+        field_of("truth", "proposed_verification")["writer"],
+        "human"
+    );
 }
 
 #[test]
@@ -270,6 +275,7 @@ fn must_haves_golden() {
                     "requirement",
                     "proof",
                     "verification",
+                    "proposed_verification",
                     "criterion"
                 ]
             ),
@@ -297,7 +303,7 @@ fn must_haves_golden() {
         .map(|(k, f)| (k, f.into_iter().map(String::from).collect()))
     );
     let total: usize = fields.iter().map(|(_, f)| f.len()).sum();
-    assert_eq!(total, 23);
+    assert_eq!(total, 24);
     for (kind, required) in [
         ("truth", vec!["plan", "text"]),
         ("artifact", vec!["plan", "path", "provides"]),
@@ -424,7 +430,12 @@ fn the_plan_kinds_declare_every_field_of_plan_md() {
         "user_setup",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 81 - 1 + 4 + 2 + 3 + 1 + 1 + 1, "the kinds' fields");
+    // + 1: truth.proposed_verification
+    assert_eq!(
+        total,
+        81 - 1 + 4 + 2 + 3 + 1 + 1 + 1 + 1,
+        "the kinds' fields"
+    );
 }
 
 /// The host refuses a computed field that two compute passes claim, and one that none does (W021): every `C` field of

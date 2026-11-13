@@ -125,7 +125,7 @@ STATEMENT="{a kept prohibition: what must never happen}"
 PURPOSE="{the plan's purpose, then each unresolved or unclassified row, as an assumption}"
 PLAN_FILE=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].file') || exit 1
 specforge new truth "$EXPLICIT_ID" "$CRITERION" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$CRITERION" --requirement "$REQUIREMENT" || exit 1
-specforge new truth "$BACKSTOP_ID" "$CHECK" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$CHECK" --requirement "$REQUIREMENT" || exit 1
+specforge new truth "$BACKSTOP_ID" "$CHECK" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$CHECK" --requirement "$REQUIREMENT" --proposed_verification backstop || exit 1
 specforge new prohibition "$PROHIBITION_ID" "$STATEMENT" --in "$PLAN_FILE" --plan "$PLAN_ID" --statement "$STATEMENT" --verification judgment || exit 1
 specforge set "$PLAN_ID" purpose "$PURPOSE" || exit 1
 ```

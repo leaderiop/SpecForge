@@ -31,6 +31,10 @@ pub const TRUTH: Kind = Kind::new(
         en("verification", TRUTH_VERIFICATION)
             .u()
             .doc("explicit: a named passing test; backstop: judged"),
+        en("proposed_verification", TRUTH_VERIFICATION).i().doc(
+            "the tier the planner proposes (backstop for a lifted backstop edge); a person confirms it by setting \
+             `verification`, and a verifier abstains on a proposed backstop with no `verification`",
+        ),
         int("criterion").doc("the phase success criterion it proves"),
     ],
 )

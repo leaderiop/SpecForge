@@ -430,6 +430,14 @@ fn the_spec_less_lift_writes_truths_and_a_descriptor_less_prohibition() {
         assert!(truth.is_object(), "{id} is missing");
         assert!(truth.get("verification").is_none(), "{truth}");
     }
+    // the backstop edge is proposed; a person confirms it by setting `verification`
+    let backstop = p.fields_of("v1.0/02/02-01/TR5");
+    assert_eq!(backstop["proposed_verification"], "backstop", "{backstop}");
+    assert!(
+        p.fields_of("v1.0/02/02-01/TR4")
+            .get("proposed_verification")
+            .is_none()
+    );
     let prohibition = p.fields_of("v1.0/02/02-01/PR1");
     assert_eq!(prohibition["verification"], "judgment", "{prohibition}");
     assert!(prohibition.get("test").is_none(), "{prohibition}");

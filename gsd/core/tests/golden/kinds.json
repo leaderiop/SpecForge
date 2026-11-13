@@ -5513,6 +5513,21 @@
           },
           {
             "default_value": null,
+            "description": "the tier the planner proposes (backstop for a lifted backstop edge); a person confirms it by setting `verification`, and a verifier abstains on a proposed backstop with no `verification`",
+            "edge": null,
+            "enum_values": [
+              "explicit",
+              "backstop"
+            ],
+            "field_type": "enum",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "proposed_verification",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
             "description": "the phase success criterion it proves",
             "edge": null,
             "field_type": "integer",
