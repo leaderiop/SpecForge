@@ -1,7 +1,7 @@
 //! The quick batch's list is rows of one `quick-init` answer (`quick_id`, `slug`, `description`), its merge-eligible
 //! prefix a bash array and its verification route a `case`: no jq on the `PATH`.
 
-use super::{Shell, asset, block, line, q};
+use super::{Shell, asset, block, fence_after, line, q};
 use crate::commands_support::{is_quick_id, rows, twin};
 
 #[test]
@@ -311,4 +311,24 @@ fn one_call_of_quick_init_reads_everything() {
     let read = line(&text, "IFS=$'\\x1f' read -r _ _ _ BATCH_ID");
     let (out, err, code) = sh.run_in(p.root(), &format!("QB_CREATE_LIST=\n{read}\necho after"));
     assert_eq!((out.as_str(), code), ("", 1), "{err}");
+}
+
+/// Resume proceeds for any batch id: the step answers `{}` and exit 0 for a batch nothing recorded.
+#[test]
+fn resuming_any_batch_id_proceeds() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = twin();
+    let resume = fence_after(
+        &asset("gsd-core/workflows/quick-batch/steps/resume-mode.md"),
+        "**Step 2a",
+    );
+    let (out, err, _) = sh.run_in(
+        p.root(),
+        &format!(
+            "RESUME_BATCH_ID=261112-batch\n{resume}\nprintf '%s|%s' \"$QB_RESUME_RC\" \"$QB_RESUME_JSON\""
+        ),
+    );
+    assert_eq!(out, "0|{}", "{err}");
 }
