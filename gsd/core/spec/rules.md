@@ -185,6 +185,31 @@ gsd/E501 reads the files a truth's plan (`files_modified`), an artifact (`path`)
 A summary is no plan-check input (writing it after execution stales nothing), and no verifier input either (its claims
 are not evidence).
 
+## Context routes
+
+What each role reads of the entity it is spawned for (ADR 0356), as `specforge context gsd/<route> <id>` serves it:
+the core sections are never cut and a budget below them fails; the enrich sections are served whole in order while the
+budget lasts. A route bound to an agent gives the agent's installed body a `## Context` section naming it. The plan
+checker's and the integration checker's sections are their judged rules' inputs, so a pack digests as the verdict's
+basis. The executor reads no `files_modified`: it edits those files. `phase-context` and `quick-context` are read by
+no agent; they bound the context a research, a spec or a validation is written against.
+
+| Route | Subject | Agent | Core | Enrich | Budget |
+|---|---|---|---|---|---|
+| `gsd/executor` | plan | gsd-executor | `plan` self · `body` self<task\|checkpoint\|truth\|artifact\|key_link\|prohibition\|user_setup.plan · `phase` self.phase · `requirements` self.requirements · `decisions` self.decisions | `context` self.phase<context\|decision[origin=context]\|deferred_idea.phase · `quick` self<context\|decision[origin=context]\|research.plan · `prior` self.depends_on<summary.plan · `research` self.phase<research.phase<pitfall\|pattern\|dont_hand_roll.research · `project` project · `instructions` file("CLAUDE.md", "AGENTS.md"); settings `workflow.auto_advance`, `workflow.human_verify_mode`, `workflow.tdd_mode`, `git.allow_default_branch_commits` | 6000 |
+| `gsd/plan-checker` | plan | gsd-plan-checker | the plan check's inputs (above) | — | 8000 |
+| `gsd/integration-checker` | milestone_audit | gsd-integration-checker | gsd/E518's inputs (above) | — | 8000 |
+| `gsd/planner` | phase | gsd-planner | `phase` self · `requirements` self.requirements · `context` self<context\|deferred_idea.phase · `decisions` self<decision[origin=context].phase | `research` self<research.phase · `research_items` its findings, choices, patterns, pitfalls and questions · `plans` self<plan.phase · `milestone` self.milestone · `gaps` self<verification.phase<verify_gap.verification · `uat_gaps` self<uat_session.phase<uat_test.session<uat_gap.test · `prior` self.depends_on<plan.phase<summary.plan · `project_decisions` decision[origin=project] · `project` · `instructions`; settings `workflow.tdd_mode`, `workflow.human_verify_mode` | 8000 |
+| `gsd/verifier` | phase | gsd-verifier | `phase` self · `requirements` self.requirements · `must_haves` self<plan.phase<truth\|artifact\|key_link.plan · `plans` self<plan.phase · `summaries` self<plan.phase<summary.plan | `files` file(self<plan.phase.files_modified) · `context` self<context\|decision[origin=context]\|deferred_idea.phase · `pitfalls` self<research.phase<pitfall.research | 8000 |
+| `gsd/phase-researcher` | phase | gsd-phase-researcher | `phase` self · `requirements` self.requirements · `context` self<context\|deferred_idea.phase · `decisions` self<decision[origin=context].phase | `milestone` self.milestone · `siblings` self.milestone<phase.milestone · `project` · `instructions` | 6000 |
+| `gsd/advisor-researcher`, `gsd/assumptions-analyzer` | phase | gsd-advisor-researcher, gsd-assumptions-analyzer | as the phase researcher's | `milestone` · `siblings` | 6000 |
+| `gsd/nyquist-auditor` | phase | gsd-nyquist-auditor | `phase` self · `plans` self<plan.phase · `tasks` self<plan.phase<task.plan · `validation` self<validation.phase · `rows` self<validation.phase<validation_row.validation | `requirements` self.requirements · `research` self<research.phase · `summaries` self<plan.phase<summary.plan | 8000 |
+| `gsd/project-researcher` | project | gsd-project-researcher | `project` self · `requirements` requirement · `decisions` decision[origin=project] | `milestones` milestone | 8000 |
+| `gsd/research-synthesizer` | project | gsd-research-synthesizer | `project` self · `research` research · `research_items` research<finding\|stack_choice\|pattern\|pitfall\|dont_hand_roll\|open_question.research | `requirements` requirement | 8000 |
+| `gsd/roadmapper` | project | gsd-roadmapper | `project` self · `requirements` requirement · `decisions` decision[origin=project] | `research` research · `research_items` (as the synthesizer's) · `milestones` milestone | 8000 |
+| `gsd/phase-context` | phase | — | `context` self<context.phase · `decisions` self<decision[origin=context].phase · `deferred` self<deferred_idea.phase | — | 50000 |
+| `gsd/quick-context` | plan | — | `context` self<context.plan · `decisions` self<decision[origin=context].plan | — | 50000 |
+
 ## Derivations, not rules
 
 These are computed fields, not checks; they are listed so the parity suite can compare them with GSD's own values:

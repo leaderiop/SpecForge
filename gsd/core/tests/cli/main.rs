@@ -40,6 +40,7 @@ mod collect;
 mod command_word;
 mod commands;
 mod commands_support;
+mod contexts;
 mod decision_coverage;
 mod discuss;
 mod e502_probe;

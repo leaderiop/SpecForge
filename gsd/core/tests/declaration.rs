@@ -205,6 +205,18 @@ fn the_code_book_golden() {
     common::golden("codebook.json", &describe("codes"));
 }
 
+/// ADR 0356: the context route of each role `@gsd/core` spawns, and the two that bound a written context.
+#[test]
+fn the_contexts_golden() {
+    let contexts = describe("contexts");
+    assert_eq!(
+        contexts["items"].as_array().map(Vec::len),
+        Some(14),
+        "{contexts}"
+    );
+    common::golden("contexts.json", &contexts);
+}
+
 #[test]
 fn project_and_requirement_declare_the_fields_of_the_model() {
     // `spec/project.md`; a requirement reads its phase back from `phase.requirements`.

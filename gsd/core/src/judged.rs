@@ -34,7 +34,8 @@ pub struct Judged {
     pub outcome_fields: &'static [&'static str],
 }
 
-const PLAN_CHECK_INPUTS: &[(&str, &str)] = &[
+/// What the plan checks read of a plan; the `gsd/plan-checker` route serves the same sections.
+pub(crate) const PLAN_CHECK_INPUTS: &[(&str, &str)] = &[
     ("plan", "self"),
     (
         "body",
@@ -53,6 +54,20 @@ const PLAN_CHECK_INPUTS: &[(&str, &str)] = &[
     ),
     ("siblings", "self.phase<plan.phase"),
     ("instructions", "file(\"CLAUDE.md\", \"AGENTS.md\")"),
+];
+
+/// What E518 reads of a milestone audit; the `gsd/integration-checker` route serves the same sections.
+pub(crate) const INTEGRATION_INPUTS: &[(&str, &str)] = &[
+    ("audit", "self"),
+    ("phases", "self.milestone<phase.milestone"),
+    (
+        "verifications",
+        "self.milestone<phase.milestone<verification.phase",
+    ),
+    (
+        "requirements",
+        "self.milestone<phase.milestone.requirements",
+    ),
 ];
 
 const PLAN_CHECK: &[Target] = &[Target {
@@ -148,18 +163,7 @@ pub const JUDGED: &[Judged] = &[
         passing: &["passed"],
         targets: &[Target {
             kind: "milestone_audit",
-            inputs: &[
-                ("audit", "self"),
-                ("phases", "self.milestone<phase.milestone"),
-                (
-                    "verifications",
-                    "self.milestone<phase.milestone<verification.phase",
-                ),
-                (
-                    "requirements",
-                    "self.milestone<phase.milestone.requirements",
-                ),
-            ],
+            inputs: INTEGRATION_INPUTS,
             unless_set: &[],
         }],
         values: &[],

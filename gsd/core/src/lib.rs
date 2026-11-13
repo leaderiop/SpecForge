@@ -7,6 +7,7 @@ mod branch;
 pub mod codes;
 mod collectors;
 pub mod commands;
+mod contexts;
 mod digest;
 pub mod hooks;
 mod js_regex;
@@ -58,6 +59,7 @@ impl Contributions for GsdCore {
         settings::declare(c);
         hooks::declare(c);
         route::declare(c);
+        contexts::declare(c);
         codes::declare(c);
     }
 }

@@ -320,3 +320,46 @@ fn every_judges_file_lists_exactly_its_rules() {
         }
     }
 }
+
+/// The role each context route of `@gsd/core` is bound to (ADR 0356): the twelve spawned with a context to read.
+const ROUTED: [(&str, &str); 12] = [
+    ("gsd-executor", "executor"),
+    ("gsd-planner", "planner"),
+    ("gsd-plan-checker", "plan-checker"),
+    ("gsd-verifier", "verifier"),
+    ("gsd-integration-checker", "integration-checker"),
+    ("gsd-advisor-researcher", "advisor-researcher"),
+    ("gsd-assumptions-analyzer", "assumptions-analyzer"),
+    ("gsd-project-researcher", "project-researcher"),
+    ("gsd-research-synthesizer", "research-synthesizer"),
+    ("gsd-roadmapper", "roadmapper"),
+    ("gsd-phase-researcher", "phase-researcher"),
+    ("gsd-nyquist-auditor", "nyquist-auditor"),
+];
+
+#[test]
+fn each_spawned_role_reads_its_route_and_the_others_have_no_context_section() {
+    let p = project("empty");
+    installed(&p, "claude-code");
+    let mut routed = 0;
+    for agent in AGENTS {
+        let file = claude_agent(&p, agent.id);
+        // The host's section, not a heading an agent's own body may carry.
+        let section = file
+            .split("\n## Context\n\nBefore you start, read the context of the")
+            .nth(1);
+        match ROUTED.iter().find(|(id, _)| *id == agent.id) {
+            Some((_, route)) => {
+                routed += 1;
+                let section = section.unwrap_or_else(|| panic!("{}: no Context section", agent.id));
+                assert!(
+                    section.contains(&format!("`specforge context gsd/{route} <id>`")),
+                    "{}: {section}",
+                    agent.id
+                );
+            }
+            None => assert!(section.is_none(), "{}", agent.id),
+        }
+    }
+    assert_eq!(routed, 12);
+}

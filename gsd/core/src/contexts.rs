@@ -1,0 +1,308 @@
+//! The context routes `@gsd/core` declares (ADR 0356): for each role it spawns, what the role reads of the entity it
+//! is spawned for, in order, core sections first and never cut, enrich sections served whole while the budget lasts.
+//! Twelve are bound to their agent, whose installed body gains a `## Context` section naming the route; two,
+//! `phase-context` and `quick-context`, are read by no agent: they bound the context a research, a spec or a
+//! validation is written against (`spec/rules.md`, "Context routes").
+
+use specforge_extension_sdk::prelude::*;
+
+use crate::judged::{INTEGRATION_INPUTS, PLAN_CHECK_INPUTS};
+
+/// What every phase researcher reads first: the phase, its requirements, its context and the decisions it settled.
+pub(crate) const PHASE_CORE: &[(&str, &str)] = &[
+    ("phase", "self"),
+    ("requirements", "self.requirements"),
+    ("context", "self<context|deferred_idea.phase"),
+    ("decisions", "self<decision[origin=context].phase"),
+];
+
+/// The findings, choices, patterns and the like a research holds.
+pub(crate) const RESEARCH_ITEMS: &str =
+    "research<finding|stack_choice|pattern|pitfall|dont_hand_roll|open_question.research";
+
+/// The agent instructions of the project.
+pub(crate) const INSTRUCTIONS: &str = "file(\"CLAUDE.md\", \"AGENTS.md\")";
+
+/// A route's sections, each `(name, selector, core)`.
+type Sections<'a> = &'a [(&'a str, &'a str, bool)];
+
+/// Declare `name` over `subject`, bound to `agent` when it names one, at `budget`, with `sections` in order and the
+/// settings `settings` carries.
+fn route(
+    c: &mut ContributionsBuilder,
+    name: &str,
+    subject: &str,
+    agent: Option<&str>,
+    budget: u32,
+    sections: Sections<'_>,
+    settings: &[&str],
+) {
+    c.context(name, |r| {
+        r.subject(subject).budget(budget);
+        if let Some(agent) = agent {
+            r.agent(agent);
+        }
+        for (section, selector, core) in sections {
+            if *core {
+                r.core(section, selector);
+            } else {
+                r.enrich(section, selector);
+            }
+        }
+        if !settings.is_empty() {
+            r.settings(settings);
+        }
+    });
+}
+
+/// `rows`, every one core.
+fn core<'a>(rows: &'a [(&'a str, &'a str)]) -> Vec<(&'a str, &'a str, bool)> {
+    rows.iter()
+        .map(|(name, selector)| (*name, *selector, true))
+        .collect()
+}
+
+/// [`PHASE_CORE`], then the phase's milestone and its sibling phases, enrich.
+fn researcher() -> Vec<(&'static str, &'static str, bool)> {
+    let mut sections = core(PHASE_CORE);
+    sections.extend([
+        ("milestone", "self.milestone", false),
+        ("siblings", "self.milestone<phase.milestone", false),
+    ]);
+    sections
+}
+
+const RESEARCH_ITEMS_OF_PHASE: &str = "self<research.phase<finding|stack_choice|pattern|pitfall|dont_hand_roll|open_question.research";
+
+/// Declare every route.
+pub(crate) fn declare(c: &mut ContributionsBuilder) {
+    route(
+        c,
+        "executor",
+        "plan",
+        Some("gsd-executor"),
+        6000,
+        &[
+            ("plan", "self", true),
+            (
+                "body",
+                "self<task|checkpoint|truth|artifact|key_link|prohibition|user_setup.plan",
+                true,
+            ),
+            ("phase", "self.phase", true),
+            ("requirements", "self.requirements", true),
+            ("decisions", "self.decisions", true),
+            (
+                "context",
+                "self.phase<context|decision[origin=context]|deferred_idea.phase",
+                false,
+            ),
+            (
+                "quick",
+                "self<context|decision[origin=context]|research.plan",
+                false,
+            ),
+            ("prior", "self.depends_on<summary.plan", false),
+            (
+                "research",
+                "self.phase<research.phase<pitfall|pattern|dont_hand_roll.research",
+                false,
+            ),
+            ("project", "project", false),
+            ("instructions", INSTRUCTIONS, false),
+        ],
+        &[
+            "workflow.auto_advance",
+            "workflow.human_verify_mode",
+            "workflow.tdd_mode",
+            "git.allow_default_branch_commits",
+        ],
+    );
+    route(
+        c,
+        "plan-checker",
+        "plan",
+        Some("gsd-plan-checker"),
+        8000,
+        &core(PLAN_CHECK_INPUTS),
+        &[],
+    );
+    route(
+        c,
+        "integration-checker",
+        "milestone_audit",
+        Some("gsd-integration-checker"),
+        8000,
+        &core(INTEGRATION_INPUTS),
+        &[],
+    );
+    route(
+        c,
+        "planner",
+        "phase",
+        Some("gsd-planner"),
+        8000,
+        &[
+            ("phase", "self", true),
+            ("requirements", "self.requirements", true),
+            ("context", "self<context|deferred_idea.phase", true),
+            ("decisions", "self<decision[origin=context].phase", true),
+            ("research", "self<research.phase", false),
+            ("research_items", RESEARCH_ITEMS_OF_PHASE, false),
+            ("plans", "self<plan.phase", false),
+            ("milestone", "self.milestone", false),
+            (
+                "gaps",
+                "self<verification.phase<verify_gap.verification",
+                false,
+            ),
+            (
+                "uat_gaps",
+                "self<uat_session.phase<uat_test.session<uat_gap.test",
+                false,
+            ),
+            ("prior", "self.depends_on<plan.phase<summary.plan", false),
+            ("project_decisions", "decision[origin=project]", false),
+            ("project", "project", false),
+            ("instructions", INSTRUCTIONS, false),
+        ],
+        &["workflow.tdd_mode", "workflow.human_verify_mode"],
+    );
+    route(
+        c,
+        "verifier",
+        "phase",
+        Some("gsd-verifier"),
+        8000,
+        &[
+            ("phase", "self", true),
+            ("requirements", "self.requirements", true),
+            (
+                "must_haves",
+                "self<plan.phase<truth|artifact|key_link.plan",
+                true,
+            ),
+            ("plans", "self<plan.phase", true),
+            ("summaries", "self<plan.phase<summary.plan", true),
+            ("files", "file(self<plan.phase.files_modified)", false),
+            (
+                "context",
+                "self<context|decision[origin=context]|deferred_idea.phase",
+                false,
+            ),
+            ("pitfalls", "self<research.phase<pitfall.research", false),
+        ],
+        &[],
+    );
+    let mut phase_researcher = researcher();
+    phase_researcher.extend([
+        ("project", "project", false),
+        ("instructions", INSTRUCTIONS, false),
+    ]);
+    route(
+        c,
+        "phase-researcher",
+        "phase",
+        Some("gsd-phase-researcher"),
+        6000,
+        &phase_researcher,
+        &[],
+    );
+    for (name, agent) in [
+        ("advisor-researcher", "gsd-advisor-researcher"),
+        ("assumptions-analyzer", "gsd-assumptions-analyzer"),
+    ] {
+        route(c, name, "phase", Some(agent), 6000, &researcher(), &[]);
+    }
+    route(
+        c,
+        "nyquist-auditor",
+        "phase",
+        Some("gsd-nyquist-auditor"),
+        8000,
+        &[
+            ("phase", "self", true),
+            ("plans", "self<plan.phase", true),
+            ("tasks", "self<plan.phase<task.plan", true),
+            ("validation", "self<validation.phase", true),
+            (
+                "rows",
+                "self<validation.phase<validation_row.validation",
+                true,
+            ),
+            ("requirements", "self.requirements", false),
+            ("research", "self<research.phase", false),
+            ("summaries", "self<plan.phase<summary.plan", false),
+        ],
+        &[],
+    );
+    route(
+        c,
+        "project-researcher",
+        "project",
+        Some("gsd-project-researcher"),
+        8000,
+        &[
+            ("project", "self", true),
+            ("requirements", "requirement", true),
+            ("decisions", "decision[origin=project]", true),
+            ("milestones", "milestone", false),
+        ],
+        &[],
+    );
+    route(
+        c,
+        "research-synthesizer",
+        "project",
+        Some("gsd-research-synthesizer"),
+        8000,
+        &[
+            ("project", "self", true),
+            ("research", "research", true),
+            ("research_items", RESEARCH_ITEMS, true),
+            ("requirements", "requirement", false),
+        ],
+        &[],
+    );
+    route(
+        c,
+        "roadmapper",
+        "project",
+        Some("gsd-roadmapper"),
+        8000,
+        &[
+            ("project", "self", true),
+            ("requirements", "requirement", true),
+            ("decisions", "decision[origin=project]", true),
+            ("research", "research", false),
+            ("research_items", RESEARCH_ITEMS, false),
+            ("milestones", "milestone", false),
+        ],
+        &[],
+    );
+    route(
+        c,
+        "phase-context",
+        "phase",
+        None,
+        50000,
+        &[
+            ("context", "self<context.phase", true),
+            ("decisions", "self<decision[origin=context].phase", true),
+            ("deferred", "self<deferred_idea.phase", true),
+        ],
+        &[],
+    );
+    route(
+        c,
+        "quick-context",
+        "plan",
+        None,
+        50000,
+        &[
+            ("context", "self<context.plan", true),
+            ("decisions", "self<decision[origin=context].plan", true),
+        ],
+        &[],
+    );
+}
