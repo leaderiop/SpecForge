@@ -1,6 +1,7 @@
 mod add_extension;
 pub(crate) mod analyze;
 mod collect;
+mod context;
 pub(crate) mod coverage;
 mod doctor;
 pub(crate) mod edit;
@@ -59,6 +60,7 @@ pub static CORE_TOOLS: &[&dyn ToolSpec] = &[
     spec(&analyze::Tool),
     spec(&export::Tool),
     spec(&trace::Tool),
+    spec(&context::Tool),
     spec(&search::Tool),
     spec(&explain::Tool),
     spec(&schema::Tool),

@@ -2045,6 +2045,50 @@ expression: listing
     }
   },
   {
+    "name": "specforge.context",
+    "description": "Read the context a route declares for one entity: its sections in declared order under a token budget, with a digest",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "default": "context",
+          "description": "Format of the pack's graph: context: every entity's fields, annotations, methods and verify, its headline on top, without file and line, for an agent; brief: id, kind and title; graph (also json): every entity with its fields, file and line (Graph Protocol)",
+          "enum": [
+            "context",
+            "brief",
+            "graph",
+            "json"
+          ],
+          "type": "string"
+        },
+        "max_tokens": {
+          "description": "The token budget (default: the route's own); the subject and the core sections are never cut",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "route": {
+          "description": "The context route, by its qualified name (`<extension>/<route>`)",
+          "type": "string"
+        },
+        "subject": {
+          "description": "The entity to read it for: one of the route's subject kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "route",
+        "subject"
+      ],
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
     "name": "specforge.search",
     "description": "Find entities by id, title or field text, ranked as the LSP ranks them (exact, prefix, substring, field text, then fuzzy)",
     "inputSchema": {

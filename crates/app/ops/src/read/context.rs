@@ -63,15 +63,16 @@ pub struct Pack {
 
 /// The pack of `request.route` for `request.subject` over the view's project.
 ///
-/// Refused: a route no loaded extension declares (`unknown_route`, about the route); a subject the graph lacks (E003,
-/// about the subject) or of another kind than the route's (`route_of_another_kind`, about the subject); a budget below
-/// the subject and the core sections (E062, about `max_tokens`).
+/// Refused: a subject the graph lacks (E003, about the subject); a route no loaded extension declares
+/// (`unknown_route`, about the route); a subject of another kind than the route's (`route_of_another_kind`, about the
+/// subject); a budget below the subject and the core sections (E062, about `max_tokens`).
 pub fn context(
     view: &ProjectView,
     request: &ContextRequest,
 ) -> Result<Pack, Refusal<ContextField>> {
-    let route = named_route(view, request.route)?;
+    // The subject first: with nothing served, a read about an entity is refused as no project (ADR 0025).
     let subject = view.entity(request.subject, ContextField::Subject)?.node;
+    let route = named_route(view, request.route)?;
     if subject.kind.raw.as_str() != route.subject {
         return Err(OpError::new(
             OpErrorKind::InvalidInput,

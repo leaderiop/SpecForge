@@ -17,12 +17,12 @@ fn every_name_is_one_row_and_no_group_is_a_tool_name() {
 }
 
 #[test]
-fn the_groups_hold_16_7_3_2_11_rows_and_graph_leaves_out_setup() {
+fn the_groups_hold_17_7_3_2_11_rows_and_graph_leaves_out_setup() {
     let count = |g: EngineGroup| ENGINE_TOOLS.iter().filter(|t| t.group == g).count();
     let counts: Vec<usize> = EngineGroup::ALL.into_iter().map(count).collect();
-    assert_eq!(counts, [16, 7, 3, 2, 11]);
-    assert_eq!(ENGINE_TOOLS.len(), 39);
-    assert_eq!(ENGINE_TOOLS.iter().filter(|t| t.group.graph()).count(), 28);
+    assert_eq!(counts, [17, 7, 3, 2, 11]);
+    assert_eq!(ENGINE_TOOLS.len(), 40);
+    assert_eq!(ENGINE_TOOLS.iter().filter(|t| t.group.graph()).count(), 29);
     assert!(!EngineGroup::Setup.graph());
 }
 

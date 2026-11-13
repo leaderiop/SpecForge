@@ -51,11 +51,11 @@ also serves 2026-07-28 (stateless) requests (ADR 0004, D4-c).
 
 ### Tools
 
-The server exposes 39 core tools, plus the commands of the extensions your project enables.
+The server exposes 40 core tools, plus the commands of the extensions your project enables.
 
 | Job | Tools |
 |---|---|
-| **Read the graph** | `specforge.query` (an entity and its neighbours, to a depth), `specforge.inspect` (one entity in full), `specforge.list` (entities by kind and field values), `specforge.search` (by id, title or text; `specforge search` on the command line), `specforge.trace` (what an entity traces to, or every entity within one with `in`; or check an agent's plan for gaps), `specforge.export`, `specforge.stats`, `specforge.outline` (a file's entities) |
+| **Read the graph** | `specforge.query` (an entity and its neighbours, to a depth), `specforge.inspect` (one entity in full), `specforge.list` (entities by kind and field values), `specforge.search` (by id, title or text; `specforge search` on the command line), `specforge.trace` (what an entity traces to, or every entity within one with `in`; or check an agent's plan for gaps), `specforge.export`, `specforge.context` (the context a route of an extension declares for one entity, cut to its budget, with a digest; `specforge context` on the command line), `specforge.stats`, `specforge.outline` (a file's entities) |
 | **Learn the vocabulary** | `specforge.schema` (every kind the loaded extensions declare, with its fields and edges), `specforge.model`, `specforge.extensions`, `specforge.outline_extensions`, `specforge.explain` (a diagnostic code) |
 | **Change the graph** | `specforge.edit` (typed edits: create, set, unset, append, remove, retitle, link, unlink, add_verify, remove_verify, delete — all or nothing), `specforge.rename` (an entity, across every file), `specforge.format`, `specforge.migrate`, `specforge.suggest_fixes` (the fixes the LSP offers, with their edits) |
 | **Check it** | `specforge.validate` (recompile and report diagnostics), `specforge.analyze` (analysis passes, coverage among them; the SMT `--prove` pass is CLI-only), `specforge.coverage`, `specforge.doctor` |

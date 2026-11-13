@@ -147,6 +147,13 @@ pub const ENGINE_TOOLS: &[EngineTool] = &[
         "Follow an entity's thread along its kind's route, the entities within one, or check an agent plan for gaps.",
     ),
     row(
+        "context",
+        Read,
+        Reads,
+        &["context"],
+        "Read the context a role reads for one entity, cut to its budget.",
+    ),
+    row(
         "search",
         Read,
         Reads,

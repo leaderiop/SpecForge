@@ -47,6 +47,7 @@ behavior serve_context_pack "Serve a Context Pack" {
   verify unit "enrich sections fill the budget whole in declared order, and inside the first that does not fit its most central entities are kept"
   verify unit "a route no loaded extension declares, or a subject of another kind, is invalid input"
   verify unit "specforge context prints a route's pack and --pick reads its digest"
+  verify unit "specforge.context answers the pack specforge context prints"
 }
 
 behavior declare_context_route "Declare a Context Route" {

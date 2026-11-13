@@ -38,6 +38,7 @@ specforge trace --in <id> --route <name>  # every start entity within <id>: its 
 specforge trace --plan plan.json     # check an agent plan (AgentPlan JSON) against the graph
 specforge context <route> <id>       # the pack a context route declares for <id>: sections fitted to its budget
 specforge context <route> <id> --pick .digest  # the pack's digest, recomputable from what it served
+# MCP: specforge.context { route, subject, max_tokens?, format? }; the resource specforge://context/<id>?role=<route>
 specforge search <text> [--kinds k,..]  # entities by id, title or text (specforge.search)
 specforge refs <id> [--direction both]  # what references it (specforge.find_references)
 specforge schema                     # emit the Graph Protocol schema

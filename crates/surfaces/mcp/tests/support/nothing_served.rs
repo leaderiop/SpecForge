@@ -16,6 +16,11 @@ pub const NOTHING_SERVED_PROBES: &[(Entry, &str, &str)] = &[
     (Entry::Tool, "specforge.analyze", "{}"),
     (Entry::Tool, "specforge.export", "{}"),
     (Entry::Tool, "specforge.trace", r#"{"entity_id":"x"}"#),
+    (
+        Entry::Tool,
+        "specforge.context",
+        r#"{"route":"a/b","subject":"x"}"#,
+    ),
     (Entry::Tool, "specforge.search", r#"{"query":"x"}"#),
     (Entry::Tool, "specforge.explain", r#"{"code":"E003"}"#),
     (Entry::Tool, "specforge.schema", "{}"),
