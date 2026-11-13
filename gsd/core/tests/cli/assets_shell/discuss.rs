@@ -168,3 +168,30 @@ fn an_interrupted_discussion_resumes_from_its_checkpoint() {
         assert!(run.added.is_empty(), "{:?}", run.added);
     }
 }
+
+/// Assumptions mode records its audit trail through the same log fence: an assumption keeps its confidence and
+/// evidence, a correction its reason, and the check reports nothing new.
+#[test]
+fn the_assumptions_log_keeps_confidence_and_evidence() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let entries = r#"[{"area": "Ordering", "question": "Open tasks are listed oldest first", "options": [], "chosen": "Open tasks are listed oldest first", "mode": "assumptions", "confidence": "likely", "evidence": ["src/board.js", "src/cli.js"]}, {"area": "Filter", "question": "A word matches whole words only", "options": ["Whole words only", "Anywhere in the title"], "chosen": "Anywhere in the title", "mode": "assumptions", "notes": "Titles are short phrases"}]"#;
+    let run = typed::apply(&sh, &p, &log_fence(entries));
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(run.added.is_empty(), "{:?}", run.added);
+    let log = "v1.0/03/03-DISCUSSION-LOG";
+    assert_eq!(
+        picked(&p, log, ".nodes[0].fields.entries[0].confidence"),
+        "likely"
+    );
+    assert_eq!(
+        picked(&p, log, ".nodes[0].fields.entries[0].evidence[1]"),
+        "src/cli.js"
+    );
+    assert_eq!(
+        picked(&p, log, ".nodes[0].fields.entries[1].notes"),
+        "Titles are short phrases"
+    );
+}

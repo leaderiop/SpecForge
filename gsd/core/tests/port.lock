@@ -747,7 +747,9 @@ commands/gsd/config.md	own	52+2	2	eb3b321ae204	63ce6fb4b414	ported-name
 commands/gsd/config.md	kept	54+5	f415dd9b6b30
 commands/gsd/config.md	own	59+1	1	404b1ee6ed05	8db2463c50cc	workflow
 commands/gsd/config.md	kept	60+3	f3dc2019ea6f
-commands/gsd/discuss-phase.md	kept	17+37	16b298641b24
+commands/gsd/discuss-phase.md	kept	17+14	d04dfcd7905b
+commands/gsd/discuss-phase.md	own	31+1	1	ba12ccf65578	1dab55d1f407	prose
+commands/gsd/discuss-phase.md	kept	32+22	dfa4a25dc2e9
 commands/gsd/discuss-phase.md	own	54+2	2	32cc7443d2fb	83bd7c0f7ba8	ported-name
 commands/gsd/discuss-phase.md	kept	56+27	39a8ae5ff0ce
 commands/gsd/execute-phase.md	kept	18+46	c91ba970d567
@@ -925,9 +927,13 @@ gsd-core/references/autonomous-smart-discuss.md	kept	71+9	6ffb58e5e892
 gsd-core/references/autonomous-smart-discuss.md	own	80+2	2	ce982d8c38ca	1cba670caa75	served
 gsd-core/references/autonomous-smart-discuss.md	kept	82+16	cedb1ce57a3e
 gsd-core/references/autonomous-smart-discuss.md	own	98+1	1	89be3e3d06fe	8b524ce5964a	ported-name
-gsd-core/references/autonomous-smart-discuss.md	kept	99+171	310874886a7e
+gsd-core/references/autonomous-smart-discuss.md	kept	99+95	35816edb0140
+gsd-core/references/autonomous-smart-discuss.md	own	194+72	12	0147ad2228be	3c2577a05bb2	prose
+gsd-core/references/autonomous-smart-discuss.md	kept	266+4	ec8c323f9be4
 gsd-core/references/autonomous-smart-discuss.md	own	270+1	1	2234d6e408b0	4d83543da0e5	ported-name
-gsd-core/references/autonomous-smart-discuss.md	kept	271+9	6d3613dab462
+gsd-core/references/autonomous-smart-discuss.md	kept	271+5	eaa13bdcf20d
+gsd-core/references/autonomous-smart-discuss.md	own	276+1	1	687d80c01577	5b7bca7f8be7	prose
+gsd-core/references/autonomous-smart-discuss.md	kept	277+3	dc097c5267fa
 gsd-core/references/autonomous-ui-design-contract.md	kept	1+9	5dd67f96578b
 gsd-core/references/autonomous-ui-design-contract.md	own	10+5	5	a6b0c53063b3	76f0c1955f29	ported-name
 gsd-core/references/autonomous-ui-design-contract.md	kept	15+4	b558152543fe
@@ -2094,11 +2100,19 @@ gsd-core/workflows/discuss-phase-assumptions.md	kept	76+2	7cba6c91b260
 gsd-core/workflows/discuss-phase-assumptions.md	own	78+1	1	9bf2c8f70629	42b2ebeb68e9	ported-name
 gsd-core/workflows/discuss-phase-assumptions.md	kept	79+4	b28fac2a3468
 gsd-core/workflows/discuss-phase-assumptions.md	own	83+3	3	88961c4ba089	aaf0420ec65a	prose
-gsd-core/workflows/discuss-phase-assumptions.md	kept	86+20	9a16f0b89514
-gsd-core/workflows/discuss-phase-assumptions.md	own	106+1	1	629d5e7114b9	b7cba5b18ff5	served
-gsd-core/workflows/discuss-phase-assumptions.md	kept	107+17	3bec91ef20dc
+gsd-core/workflows/discuss-phase-assumptions.md	kept	86+13	b6d612a749cc
+gsd-core/workflows/discuss-phase-assumptions.md	own	99+1	1	5d82ebb4b889	da6c7695e091	prose
+gsd-core/workflows/discuss-phase-assumptions.md	kept	100+6	bd1027d8b09d
+gsd-core/workflows/discuss-phase-assumptions.md	own	106+1	1	629d5e7114b9	6392ec1f364f	served
+gsd-core/workflows/discuss-phase-assumptions.md	kept	107+2	03420accb5cb
+gsd-core/workflows/discuss-phase-assumptions.md	own	109+3	3	268e01c94a51	5b19ef1237d1	prose
+gsd-core/workflows/discuss-phase-assumptions.md	kept	112+1	63cec3752567
+gsd-core/workflows/discuss-phase-assumptions.md	own	113+1	1	f76d7c6f525b	42a0fe7362fe	prose
+gsd-core/workflows/discuss-phase-assumptions.md	kept	114+10	457fe6fe84d7
 gsd-core/workflows/discuss-phase-assumptions.md	own	124+1	1	d2501ea266f8	b6463c907a93	served
-gsd-core/workflows/discuss-phase-assumptions.md	kept	125+44	ea73ef41e971
+gsd-core/workflows/discuss-phase-assumptions.md	kept	125+15	36d3d7ceb89b
+gsd-core/workflows/discuss-phase-assumptions.md	own	140+1	1	fbbf021dcd77	595ea8a601e0	prose
+gsd-core/workflows/discuss-phase-assumptions.md	kept	141+28	748ef97bb97d
 gsd-core/workflows/discuss-phase-assumptions.md	own	169+3	3	33d93372cafb	045318fdb8ec	ported-name
 gsd-core/workflows/discuss-phase-assumptions.md	kept	172+9	7f302dccf305
 gsd-core/workflows/discuss-phase-assumptions.md	own	181+1	1	984416460f89	21219fa0c403	ported-name
@@ -2110,33 +2124,49 @@ gsd-core/workflows/discuss-phase-assumptions.md	kept	221+17	2e40eb18b1c5
 gsd-core/workflows/discuss-phase-assumptions.md	own	238+1	1	a420e5ebb43e	dcd7cd4afed0	ported-name
 gsd-core/workflows/discuss-phase-assumptions.md	kept	239+9	76222c8e4504
 gsd-core/workflows/discuss-phase-assumptions.md	own	248+1	1	b15f57cca7b5	0b080a3714be	served
-gsd-core/workflows/discuss-phase-assumptions.md	kept	249+35	7e359798687e
+gsd-core/workflows/discuss-phase-assumptions.md	kept	249+20	cd0c9c9b47fc
+gsd-core/workflows/discuss-phase-assumptions.md	own	269+1	1	300eeb1aacb4	269f147b89cd	prose
+gsd-core/workflows/discuss-phase-assumptions.md	kept	270+14	61605524c14a
 gsd-core/workflows/discuss-phase-assumptions.md	own	284+1	1	98fd755a54b7	6039c0176254	ported-name
-gsd-core/workflows/discuss-phase-assumptions.md	kept	285+320	4d8ade800ff9
+gsd-core/workflows/discuss-phase-assumptions.md	kept	285+126	3d28ea4249f5
+gsd-core/workflows/discuss-phase-assumptions.md	own	411+1	1	0dfa1b226bc6	50018fe71485	prose
+gsd-core/workflows/discuss-phase-assumptions.md	kept	412+35	8b4dca5d8060
+gsd-core/workflows/discuss-phase-assumptions.md	own	447+98	11	d8b3e8bed07a	8bf4a3945fb6	prose
+gsd-core/workflows/discuss-phase-assumptions.md	kept	545+3	92763fc4af6e
+gsd-core/workflows/discuss-phase-assumptions.md	own	548+51	9	db61a9f59518	14b418b05382	prose
+gsd-core/workflows/discuss-phase-assumptions.md	kept	599+6	893714dad268
 gsd-core/workflows/discuss-phase-assumptions.md	own	605+1	1	e34052523387	1f670a3ad355	ported-name
-gsd-core/workflows/discuss-phase-assumptions.md	kept	606+9	69761097a847
-gsd-core/workflows/discuss-phase-assumptions.md	own	615+1	1	32ad25807a2d	aa614914c829	ported-name
-gsd-core/workflows/discuss-phase-assumptions.md	kept	616+1	d57193a60aca
-gsd-core/workflows/discuss-phase-assumptions.md	own	617+1	1	aee6c24f2f42	27117d7855ac	relic
-gsd-core/workflows/discuss-phase-assumptions.md	kept	618+5	f122f63dd295
-gsd-core/workflows/discuss-phase-assumptions.md	own	623+1	1	75f5737ff9ad	a55e25f1f7d6	ported-name
-gsd-core/workflows/discuss-phase-assumptions.md	kept	624+7	59aa2da93309
+gsd-core/workflows/discuss-phase-assumptions.md	kept	606+5	9c0e4778998a
+gsd-core/workflows/discuss-phase-assumptions.md	own	611+16	0	96099050e530	e3b0c44298fc	ported-name
+gsd-core/workflows/discuss-phase-assumptions.md	kept	627+4	0dce677f4f46
 gsd-core/workflows/discuss-phase-assumptions.md	own	631+1	1	c1322fee4ddb	ec763064bc13	ported-name
-gsd-core/workflows/discuss-phase-assumptions.md	kept	632+43	edc4de644069
+gsd-core/workflows/discuss-phase-assumptions.md	kept	632+31	1deecd2eff07
+gsd-core/workflows/discuss-phase-assumptions.md	own	663+1	1	b47759dcb6a3	bbca39e34c6e	prose
+gsd-core/workflows/discuss-phase-assumptions.md	kept	664+11	288b2030b158
 gsd-core/workflows/discuss-phase-assumptions.md	own	675+7	1	ff859458c22c	e3b0c44298fc	ported-name
 gsd-core/workflows/discuss-phase-assumptions.md	kept	682+3	5cddc7013ab1
 gsd-core/workflows/discuss-phase-assumptions.md	own	685+1	1	ef9442e024a6	2a31e80253db	ported-name
 gsd-core/workflows/discuss-phase-assumptions.md	kept	686+5	a5ba07e6a58e
 gsd-core/workflows/discuss-phase-assumptions.md	own	691+1	1	f7d3242ca733	f1183433230a	ported-name
-gsd-core/workflows/discuss-phase-assumptions.md	kept	692+27	1b6815d9c7a3
+gsd-core/workflows/discuss-phase-assumptions.md	kept	692+23	ec89137776e4
+gsd-core/workflows/discuss-phase-assumptions.md	own	715+1	0	20d10b0b5734	e3b0c44298fc	relic
+gsd-core/workflows/discuss-phase-assumptions.md	kept	716+3	2dfc344049e6
 gsd-core/workflows/discuss-phase-assumptions/steps/auto-advance-dispatch.md	kept	1+14	b29510c8bb53
 gsd-core/workflows/discuss-phase-power.md	kept	1+13	cc0162bfe806
 gsd-core/workflows/discuss-phase-power.md	own	14+1	1	252bb48d7465	faeed619708a	workflow
 gsd-core/workflows/discuss-phase-power.md	kept	15+5	640521c7f240
-gsd-core/workflows/discuss-phase-power.md	own	20+1	1	629d5e7114b9	b7cba5b18ff5	served
-gsd-core/workflows/discuss-phase-power.md	kept	21+86	ceabc322cb5d
+gsd-core/workflows/discuss-phase-power.md	own	20+1	1	629d5e7114b9	6392ec1f364f	served
+gsd-core/workflows/discuss-phase-power.md	kept	21+2	03420accb5cb
+gsd-core/workflows/discuss-phase-power.md	own	23+3	3	268e01c94a51	5b19ef1237d1	prose
+gsd-core/workflows/discuss-phase-power.md	kept	26+1	63cec3752567
+gsd-core/workflows/discuss-phase-power.md	own	27+1	1	f76d7c6f525b	42a0fe7362fe	prose
+gsd-core/workflows/discuss-phase-power.md	kept	28+79	d41f6f106484
 gsd-core/workflows/discuss-phase-power.md	own	107+1	1	45495eb79341	aa536aebe00a	prose
-gsd-core/workflows/discuss-phase-power.md	kept	108+204	75d0fc2dfa69
+gsd-core/workflows/discuss-phase-power.md	kept	108+166	e753f53ba457
+gsd-core/workflows/discuss-phase-power.md	own	274+8	9	27444c373a27	047636b3991d	prose
+gsd-core/workflows/discuss-phase-power.md	kept	282+10	43d1711cbf12
+gsd-core/workflows/discuss-phase-power.md	own	292+1	1	4e71fc8af650	f479cecf6acf	prose
+gsd-core/workflows/discuss-phase-power.md	kept	293+19	2137f25adddd
 gsd-core/workflows/discuss-phase.md	kept	1+36	b7f32ac1b682
 gsd-core/workflows/discuss-phase.md	own	37+1	1	6b9b4c2e086d	f71cdb0def1c	prose
 gsd-core/workflows/discuss-phase.md	kept	38+80	8269447c9ac6
@@ -2205,21 +2235,29 @@ gsd-core/workflows/discuss-phase.md	kept	515+1	8d02ae30405c
 gsd-core/workflows/discuss-phase.md	own	516+1	1	b8fede867209	7cc3d298b284	prose
 gsd-core/workflows/discuss-phase.md	kept	517+5	9932eaae222c
 gsd-core/workflows/discuss-phase/modes/advisor.md	kept	1+6	a910747155e8
-gsd-core/workflows/discuss-phase/modes/advisor.md	own	7+1	1	48f2fb34b6fc	48141b00edf5	relic
+gsd-core/workflows/discuss-phase/modes/advisor.md	own	7+1	1	48f2fb34b6fc	fcdd5372b8e2	prose
 gsd-core/workflows/discuss-phase/modes/advisor.md	kept	8+6	5a10082ae260
 gsd-core/workflows/discuss-phase/modes/advisor.md	own	14+1	1	5101bbcc5905	e7e99a101541	relic
-gsd-core/workflows/discuss-phase/modes/advisor.md	kept	15+15	6288d9cf805b
-gsd-core/workflows/discuss-phase/modes/advisor.md	own	30+1	1	a300bd3922e6	6b91e45ca152	relic
+gsd-core/workflows/discuss-phase/modes/advisor.md	kept	15+13	49330cedc4e4
+gsd-core/workflows/discuss-phase/modes/advisor.md	own	28+3	3	cbb423085465	b5432cc37ac1	prose
 gsd-core/workflows/discuss-phase/modes/advisor.md	kept	31+11	e0f9be05d321
 gsd-core/workflows/discuss-phase/modes/advisor.md	own	42+2	2	086989392892	88bcffc5250b	ported-name
 gsd-core/workflows/discuss-phase/modes/advisor.md	kept	44+4	03e570bc589f
 gsd-core/workflows/discuss-phase/modes/advisor.md	own	48+5	2	d7b11d9e00e2	67590e231bf6	prose
 gsd-core/workflows/discuss-phase/modes/advisor.md	kept	53+38	7f9d960bee39
 gsd-core/workflows/discuss-phase/modes/advisor.md	own	91+1	1	95f5a1f58bc1	10b596ba54ac	served
-gsd-core/workflows/discuss-phase/modes/advisor.md	kept	92+86	c6b74acde24a
+gsd-core/workflows/discuss-phase/modes/advisor.md	kept	92+6	c9c1973c2e22
+gsd-core/workflows/discuss-phase/modes/advisor.md	own	98+2	4	82393b9f8507	4ff1253c46db	prose
+gsd-core/workflows/discuss-phase/modes/advisor.md	kept	100+78	8afd450d220d
 gsd-core/workflows/discuss-phase/modes/all.md	kept	1+31	c20f95c2c2e9
 gsd-core/workflows/discuss-phase/modes/analyze.md	kept	1+47	440ef488ba91
-gsd-core/workflows/discuss-phase/modes/auto.md	kept	1+54	eb1ce55f8704
+gsd-core/workflows/discuss-phase/modes/auto.md	kept	1+11	8fe8e7432d79
+gsd-core/workflows/discuss-phase/modes/auto.md	own	12+1	1	9a4f94708d86	af7b860e5517	prose
+gsd-core/workflows/discuss-phase/modes/auto.md	kept	13+24	e3530cadc7cc
+gsd-core/workflows/discuss-phase/modes/auto.md	own	37+2	2	4bf650957e6b	64fe7ccbfede	prose
+gsd-core/workflows/discuss-phase/modes/auto.md	kept	39+4	c9d170b8af0c
+gsd-core/workflows/discuss-phase/modes/auto.md	own	43+1	1	28c7c299e0dd	7347e21705f1	prose
+gsd-core/workflows/discuss-phase/modes/auto.md	kept	44+11	d0b6c46546ea
 gsd-core/workflows/discuss-phase/modes/batch.md	kept	1+55	9a73b49bc7f4
 gsd-core/workflows/discuss-phase/modes/chain.md	kept	1+28	c990f0cd249f
 gsd-core/workflows/discuss-phase/modes/chain.md	own	29+10	5	c36e4031c644	0bb068ee6ad9	ported-name
@@ -2253,7 +2291,9 @@ gsd-core/workflows/discuss-phase/modes/default.md	own	143+1	1	3a767c7db4ef	57264
 gsd-core/workflows/discuss-phase/modes/default.md	kept	144+1	e3b0c44298fc
 gsd-core/workflows/discuss-phase/modes/power.md	kept	1+23	1474c57e6cbd
 gsd-core/workflows/discuss-phase/modes/power.md	own	24+1	1	d2d4ad200ad3	cdbcc3a8c262	served
-gsd-core/workflows/discuss-phase/modes/power.md	kept	25+23	f9ad7f70a3e2
+gsd-core/workflows/discuss-phase/modes/power.md	kept	25+20	849d049d58b0
+gsd-core/workflows/discuss-phase/modes/power.md	own	45+2	2	71b3f52eed6a	5efe0348cd01	prose
+gsd-core/workflows/discuss-phase/modes/power.md	kept	47+1	e3b0c44298fc
 gsd-core/workflows/discuss-phase/modes/text.md	kept	1+22	a7fb71db9a02
 gsd-core/workflows/discuss-phase/modes/text.md	own	23+1	1	4e3becc70dca	c715d81063ab	ported-name
 gsd-core/workflows/discuss-phase/modes/text.md	kept	24+35	b2f03f1fe4b5

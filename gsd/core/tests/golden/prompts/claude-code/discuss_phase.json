@@ -15,7 +15,7 @@
     "3. Analyze phase — skip gray areas already decided in prior phases",
     "4. Present remaining gray areas — user selects which to discuss",
     "5. Deep-dive each selected area until satisfied",
-    "6. Create CONTEXT.md with decisions that guide research and planning",
+    "6. Record the phase context: decisions that guide research and planning",
     "",
     "**Output:** `{phase_num}-CONTEXT.md` — decisions clear enough that downstream agents can act without asking the user again",
     "</objective>",
@@ -61,7 +61,7 @@
     "- User chose which areas to discuss",
     "- Each selected area explored until satisfied"
   ],
-  "bytes": 11745,
+  "bytes": 11748,
   "end": [
     "",
     "Context files are resolved in-workflow using `init phase-op` and roadmap/state tool calls.",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:ed01afa30a757b7dcde75d58e14204a2993d6d1c25acd20162c539193529f9a1",
+    "digest": "sha256:971727b378528f21f8796e42b5cc74111f5440b91f0d9ff8e0647fb85f252e9e",
     "prompt": "@gsd/core@VERSION:discuss_phase",
     "steps": [
       {
@@ -216,5 +216,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "ed01afa30a757b7dcde75d58e14204a2993d6d1c25acd20162c539193529f9a1"
+  "sha256": "971727b378528f21f8796e42b5cc74111f5440b91f0d9ff8e0647fb85f252e9e"
 }

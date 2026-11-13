@@ -5,7 +5,7 @@ Apply response_language to all user-facing prose — narration between tool call
 
 > **Lazy-loaded and gated.** The parent `workflows/discuss-phase.md` Reads
 > this file ONLY when `ADVISOR_MODE` is true (i.e., when
-> `@gsd/ops` is loaded and its USER-PROFILE.md exists). Skip the Read
+> `@gsd/ops` is loaded and the user's profile exists). Skip the Read
 > entirely when no profile is present — that's the inverse of the
 > `--advisor` flag from #2174 (don't pay the cost when unused).
 
@@ -26,9 +26,9 @@ standard `default.md` discussion flow.
 ## Calibration tier
 
 Resolve `vendor_philosophy` calibration tier:
-1. **Priority 1:** Read `config.json` > `preferences.vendor_philosophy`
-   (project-level override)
-2. **Priority 2:** (`@gsd/ops` loaded) USER-PROFILE.md's `Vendor Choices/Philosophy` rating
+1. **Priority 1:** a project override of `preferences.vendor_philosophy`
+   (not a `@gsd/core` setting: skip to priority 2)
+2. **Priority 2:** (`@gsd/ops` loaded) the user profile's `Vendor Choices/Philosophy` rating
    (global)
 3. **Priority 3:** Default to `"standard"` if neither has a value or value
    is `UNSCORED`
@@ -93,8 +93,10 @@ research agents.
    ```
    Agent(
      prompt="<gray_area>{area_name}: {area_description from gray area identification}</gray_area>
-     <phase_context>{phase_goal and description from ROADMAP.md}</phase_context>
-     <project_context>{project name and brief description from PROJECT.md}</project_context>
+     <required_reading>
+     - specforge context gsd/advisor-researcher {PHASE_ID} (the advisor pack: the phase, its goal, context and decisions, and the milestone's other phases)
+     - specforge query "$PROJECT" --depth 0 --format context (the project's name and description)
+     </required_reading>
      <calibration_tier>{resolved calibration tier: full_maturity | standard | minimal_decisive}</calibration_tier>
 
      Research this gray area and return a structured comparison table with rationale.

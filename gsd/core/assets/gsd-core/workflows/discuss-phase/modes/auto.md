@@ -10,7 +10,7 @@ Apply response_language to all user-facing prose — narration between tool call
 
 ## Effect across steps
 
-- **`check_existing`**: if CONTEXT.md exists, auto-select "Update it" — load
+- **`check_existing`**: if the phase has a context, auto-select "Update it" — load
   existing context and continue to `analyze_phase` (matches the parent step's
   documented `--auto` branch). If no context exists, continue without
   prompting. For interrupted checkpoints, auto-select "Resume". For existing
@@ -35,13 +35,13 @@ Apply response_language to all user-facing prose — narration between tool call
 ## CRITICAL — Auto-mode pass cap
 
 In `--auto` mode, the discuss step MUST complete in a **single pass**. After
-writing CONTEXT.md once, you are DONE — proceed immediately to
-`write_context` and then auto_advance. Do NOT re-read your own CONTEXT.md to
+recording the context once, you are DONE — proceed immediately to
+`write_context` and then auto_advance. Do NOT re-read your own context to
 find "gaps", "undefined types", or "missing decisions" and run additional
 passes. This creates a self-feeding loop where each pass generates references
 that the next pass treats as gaps, consuming unbounded time and resources.
 
-If you have already written and committed CONTEXT.md, the discuss step is
+If you have already recorded and committed the context, the discuss step is
 complete. Move on.
 
 ## Combination rules
