@@ -103,6 +103,7 @@ behavior record_context_pack "Record a Context Pack" {
   verify unit "a record of an unknown route, a kind it does not record, from another extension or with no subject is refused record_refused"
   verify unit "recording a pack stales no verdict"
   verify unit "specforge context --record writes the digest it prints"
+  verify unit "specforge context --record below the core sections is refused as the record, with nothing written"
 }
 
 behavior report_stale_context_record "Report a Stale Context Record" {

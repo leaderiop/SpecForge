@@ -40,6 +40,16 @@ pub(crate) fn refused(number: usize, reason: &str, message: impl std::fmt::Displ
     .with_data(json!({"op": number, "reason": reason}))
 }
 
+/// A pack read for a record, its error as the record reports it: a budget below the route's core sections (E062) is
+/// `record_refused` for `budget`, about operation `number`; any other error is itself.
+pub fn record_read_error(number: usize, error: OpError) -> OpError {
+    if error.code == codes::E062.id() {
+        refused(number, "budget", error.message)
+    } else {
+        error
+    }
+}
+
 /// What a record of `route` on one entity reads: the record of the entity's kind and the entity's path.
 pub struct Recorded<'v> {
     pub route: &'v ContextRoute,
@@ -150,14 +160,8 @@ pub(crate) fn check(
         max_tokens: Some(budget as usize),
         format: Format::Context,
     };
-    let pack = context(view, &request).map_err(|refusal| {
-        let error = refusal.into_error();
-        if error.code == codes::E062.id() {
-            refused(op.number, "budget", error.message)
-        } else {
-            error
-        }
-    })?;
+    let pack = context(view, &request)
+        .map_err(|refusal| record_read_error(op.number, refusal.into_error()))?;
     let value = BTreeMap::from([
         ("route".to_string(), Input::One(route.name.clone())),
         ("digest".to_string(), Input::One(pack.digest)),

@@ -68,7 +68,12 @@ impl Args {
         let pack = match context::context(view, &request) {
             Ok(pack) => pack,
             Err(refusal) => {
-                return Refusal::of(OutputFormat::Json).report(terminal, &refusal.into_error());
+                // With --record, a pack read for the record fails as the record does in an edit plan.
+                let error = match self.record {
+                    Some(_) => apply::record_read_error(1, refusal.into_error()),
+                    None => refusal.into_error(),
+                };
+                return Refusal::of(OutputFormat::Json).report(terminal, &error);
             }
         };
         if let Some(entity) = &self.record
@@ -235,5 +240,35 @@ mod tests {
             "{written}"
         );
         assert!(written.contains("max_tokens 5000"), "{written}");
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "record_context_pack",
+        verify = "specforge context --record below the core sections is refused as the record, with nothing written"
+    )]
+    fn a_record_below_the_core_sections_is_refused_as_the_record() {
+        let project = gsd_context_project();
+        let compiled =
+            project.compile_in(std::sync::Arc::new(gsd_context_runtime()) as SharedRuntime);
+        let view = ProjectView::of(&compiled);
+        let before = std::fs::read_to_string(project.root().join("a.spec")).expect("the spec");
+        let words = ["gsd/executor", CONTEXT_PLAN, "--max-tokens", "1"];
+
+        let (terminal, read) = Terminal::captured("", Facts::PIPED);
+        assert_eq!(args(&words).answer(&terminal, &view), Exit::Failed);
+        assert!(read.stdout().contains("E062"), "{}", read.stdout());
+
+        let (terminal, refused) = Terminal::captured("", Facts::PIPED);
+        let recording = [&words[..], &["--record", CONTEXT_PLAN]].concat();
+        assert_eq!(args(&recording).answer(&terminal, &view), Exit::Failed);
+        let error: serde_json::Value =
+            serde_json::from_str(refused.stdout().trim_end()).expect("the refusal is JSON");
+        assert_eq!(error["code"], RECORD_REFUSED, "{error}");
+        let message = error["error"].as_str().expect("a message");
+        assert!(message.contains("cannot hold route"), "{message}");
+        assert_eq!(
+            std::fs::read_to_string(project.root().join("a.spec")).expect("the spec"),
+            before
+        );
     }
 }

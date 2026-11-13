@@ -13,7 +13,7 @@ mod lower;
 mod record;
 mod revision;
 mod verdict;
-pub use record::{RECORD_REFUSED, Recorded, recorded};
+pub use record::{RECORD_REFUSED, Recorded, record_read_error, recorded};
 pub use verdict::{
     Calendar, JudgedRule, JudgedRules, NoJudgedRules, Rules, SystemCalendar, UnknownCite,
     VERDICT_REFUSED, VerdictMember, VerdictStep,
