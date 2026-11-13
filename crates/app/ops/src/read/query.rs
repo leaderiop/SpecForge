@@ -1,11 +1,14 @@
 //! Query, list and search: the read views that select entities of the
 //! project view (ADR 0015, section "Query"). `specforge query` and
 //! `specforge.query` render one query; `specforge.list` and
-//! `specforge://entities/{kind}` one listing; `specforge.search` one
-//! search. Each request holds its defaults; a kind filter reports the
-//! kinds the project does not know (I020) and still drops them.
+//! `specforge://entities/{kind}` one listing; `specforge search` and
+//! `specforge.search` one search, the document [`EntityHits`]. Each request
+//! holds its defaults; a kind filter reports the kinds the project does not
+//! know (I020) and still drops them.
 
+use serde::Serialize;
 use serde_json::{Map, Value, json};
+use specforge_common::shape::Shape;
 use specforge_graph::Node;
 
 use crate::read::export::{self, AGENT_FORMAT, ExportField, FORMAT, Format, Schema};
@@ -13,7 +16,7 @@ use crate::read::navigate::{
     EntityMatch, EntityQuery, MatchScope, MatchedOn, find_entities, snippet,
 };
 use crate::view::{ProjectView, Select};
-use crate::{Noticed, Refusal};
+use crate::{Noticed, OpError, OpErrorKind, Refusal};
 
 /// Hops from the queried entity when a query names none: its direct
 /// neighbours. `specforge query --depth` and `specforge.query`'s `depth`
@@ -173,11 +176,47 @@ pub struct FieldHolds<'a> {
     pub value: &'a str,
 }
 
+/// The code of the refusal of a search's field without the text it must contain.
+pub const FIELD_WITHOUT_VALUE: &str = "field_without_value";
+
+/// The code of the refusal of a search's text to find in a field without the field.
+pub const VALUE_WITHOUT_FIELD: &str = "value_without_field";
+
+impl<'a> FieldHolds<'a> {
+    /// The one reading of a search's field and value, for every surface (ADR 0101 D1): both are the field
+    /// filter, neither is none, and one alone is invalid input about the other, the one it needs.
+    pub fn of(
+        field: Option<&'a str>,
+        value: Option<&'a str>,
+    ) -> Result<Option<Self>, Refusal<SearchField>> {
+        match (field, value) {
+            (Some(field), Some(value)) => Ok(Some(FieldHolds { field, value })),
+            (None, None) => Ok(None),
+            (Some(_), None) => Err(OpError::new(
+                OpErrorKind::InvalidInput,
+                FIELD_WITHOUT_VALUE,
+                "'field' needs 'value': the text the field must contain",
+            )
+            .about(SearchField::Value)),
+            (None, Some(_)) => Err(OpError::new(
+                OpErrorKind::InvalidInput,
+                VALUE_WITHOUT_FIELD,
+                "'value' needs 'field': the field whose text it must be in",
+            )
+            .about(SearchField::Field)),
+        }
+    }
+}
+
 /// The field of a search request a refusal can be about (ADR 0072).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SearchField {
     /// `SearchRequest::referencing`.
     Referencing,
+    /// The field of [`FieldHolds`]: a value given without it.
+    Field,
+    /// The text of [`FieldHolds`]: a field given without it.
+    Value,
 }
 
 /// Entities a text finds, ranked as the LSP ranks completion and
@@ -196,21 +235,54 @@ pub struct SearchRequest<'a> {
     pub limit: Option<usize>,
 }
 
-/// One match: how it matched, and for a field-text match the field's text
-/// around it ([`SNIPPET_WIDTH`] characters each side).
-#[derive(Debug, Clone)]
-pub struct Hit<'v> {
-    pub found: EntityMatch<'v>,
-    pub snippet: Option<String>,
+/// What a search finds, best first: the document `specforge search --format json` prints and `specforge.search`
+/// replies (`McpSearchResults`).
+#[derive(Debug, Serialize, Shape)]
+pub struct EntityHits {
+    pub results: Vec<EntityHit>,
+}
+
+/// One entity a search finds (`McpSearchResult`): its id, kind, title and place, its rank's score, and for a match
+/// in a field's text the field and the text around it ([`SNIPPET_WIDTH`] characters each side).
+#[derive(Debug, Serialize, Shape)]
+pub struct EntityHit {
+    pub entity_id: String,
+    pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    pub file_path: String,
+    pub line: usize,
+    pub score: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub match_field: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub match_snippet: Option<String>,
+}
+
+impl EntityHit {
+    /// The hit of one match, with the snippet of a field-text match.
+    fn of(found: &EntityMatch, match_snippet: Option<String>) -> Self {
+        let node = found.node;
+        EntityHit {
+            entity_id: node.id.raw.to_string(),
+            kind: node.kind.raw.to_string(),
+            title: node.title.as_ref().map(ToString::to_string),
+            file_path: node.source_span.file.to_string(),
+            line: node.source_span.start_line,
+            score: found.score,
+            match_field: found.on.field_name().map(ToString::to_string),
+            match_snippet,
+        }
+    }
 }
 
 /// The entities `request` finds, best first, at most the limit, with I020
 /// for a kind of the filter the project does not know. A `referencing`
 /// entity the graph lacks is [`crate::view::not_found`] (E003).
-pub fn search<'v>(
-    view: &ProjectView<'v>,
+pub fn search(
+    view: &ProjectView,
     request: &SearchRequest,
-) -> Result<Noticed<Vec<Hit<'v>>>, Refusal<SearchField>> {
+) -> Result<Noticed<EntityHits>, Refusal<SearchField>> {
     let selection = view.select(&Select {
         entity: request.referencing,
         named_by: SearchField::Referencing,
@@ -225,15 +297,44 @@ pub fn search<'v>(
         referencing: request.referencing,
         limit: Some(request.limit.unwrap_or(DEFAULT_SEARCH_LIMIT)),
     };
-    let hits = find_entities(view.graph(), &query)
-        .into_iter()
+    let results = find_entities(view.graph(), &query)
+        .iter()
         .map(|found| {
             let snippet = match found.on {
                 MatchedOn::Field(field) => snippet(found.node, field, request.text, SNIPPET_WIDTH),
                 _ => None,
             };
-            Hit { found, snippet }
+            EntityHit::of(found, snippet)
         })
         .collect();
-    Ok(Noticed::new(hits, selection.into_notices()))
+    Ok(Noticed::new(
+        EntityHits { results },
+        selection.into_notices(),
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn field_holds_of_one_alone_is_refused_about_the_other() {
+        let refusal = FieldHolds::of(Some("contract"), None).unwrap_err();
+        assert_eq!(refusal.error.kind, OpErrorKind::InvalidInput);
+        assert_eq!(refusal.error.code, FIELD_WITHOUT_VALUE);
+        assert_eq!(refusal.subject, Some(SearchField::Value));
+        let refusal = FieldHolds::of(None, Some("alpha")).unwrap_err();
+        assert_eq!(refusal.error.kind, OpErrorKind::InvalidInput);
+        assert_eq!(refusal.error.code, VALUE_WITHOUT_FIELD);
+        assert_eq!(refusal.subject, Some(SearchField::Field));
+    }
+
+    #[test]
+    fn field_holds_of_both_or_neither_is_one_request() {
+        let held = FieldHolds::of(Some("contract"), Some("alpha"))
+            .unwrap()
+            .unwrap();
+        assert_eq!((held.field, held.value), ("contract", "alpha"));
+        assert!(FieldHolds::of(None, None).unwrap().is_none());
+    }
 }

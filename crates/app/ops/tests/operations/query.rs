@@ -499,6 +499,7 @@ fn search_defaults_to_twenty() {
                 ..SearchRequest::default()
             },
         ))
+        .results
         .len()
     };
     assert_eq!(DEFAULT_SEARCH_LIMIT, 20);
@@ -522,10 +523,7 @@ fn search_filters_by_a_field_pair_and_snippets_the_match() {
             ..SearchRequest::default()
         },
     ));
-    let found: Vec<&str> = hits
-        .iter()
-        .map(|hit| hit.found.node.id.raw.as_str())
-        .collect();
+    let found: Vec<&str> = hits.results.iter().map(|h| h.entity_id.as_str()).collect();
     assert_eq!(found, ["b1", "b3"]);
 
     // A match in a string field carries the text around it.
@@ -538,7 +536,7 @@ fn search_filters_by_a_field_pair_and_snippets_the_match() {
         },
     ));
     assert_eq!(outcome.notices()[0].code, "I020");
-    assert!(plain(outcome).is_empty());
+    assert!(plain(outcome).results.is_empty());
 }
 
 // The contract of query_graph_multi_resolution, over a view: a(feature) ->
