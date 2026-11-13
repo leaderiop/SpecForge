@@ -226,7 +226,7 @@ fn text_en_is_classified_first() {
 fn the_probe_refuses_what_upstream_refuses() {
     let p = taskboard();
     for (subject, needle) in [
-        ("NOPE", "no phase spec or phase 'NOPE'"),
+        ("NOPE", "no phase_spec 'NOPE'; no phase 'NOPE'"),
         ("v1.0/02.1", "has no requirements: nothing to probe"),
     ] {
         let run = gsd(&p, "edge-probe", &[subject]);
@@ -397,4 +397,28 @@ fn two_set_calls_cannot_resolve_an_edge() {
         run.all()
     );
     unchanged(&p, &before);
+}
+
+/// A short form two entities share names both, whether the phase specs or the phases share it.
+#[test]
+fn an_ambiguous_subject_names_each_entity() {
+    let p = project("discuss");
+    p.write(
+        "spec/n.spec",
+        "milestone v1.1 \"N\" {\n  name \"N\"\n}\n\nphase 02 \"P02\" {\n  milestone v1.1\n  name \"P02\"\n  slug \"p02\"\n  goal \"g\"\n  success_criteria [\"a\"]\n}\n\nphase_spec 02-SPEC \"Other spec\" {\n  phase   v1.1/02\n  created 2026-10-28\n  goal    \"g\"\n}\n",
+    );
+    for (subject, needle) in [
+        (
+            "02",
+            "no phase_spec '02'; phase '02' is ambiguous: v1.0/02, v1.1/02",
+        ),
+        (
+            "02-SPEC",
+            "phase_spec '02-SPEC' is ambiguous: v1.0/02/02-SPEC, v1.1/02/02-SPEC",
+        ),
+    ] {
+        let run = gsd(&p, "edge-probe", &[subject]);
+        assert_eq!(run.code, 1, "{subject}: {}", run.all());
+        assert!(run.all().contains(needle), "{subject}: {}", run.all());
+    }
 }

@@ -93,11 +93,13 @@ fn recorded(graph: &CommandGraph, spec: &str) -> Vec<(String, Resolution)> {
 fn edge_probe(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let subject = required(call, "subject")?;
     let graph = call.graph();
+    // a phase spec's lookup error stands unless it found none; then the phase's lookup speaks too
     let (node, spec) = match node(call, "phase_spec", subject) {
         Ok(spec) => (spec, true),
-        Err(_) => match node(call, "phase", subject) {
+        Err(why) if !why.starts_with("no ") => return Err(why),
+        Err(why) => match node(call, "phase", subject) {
             Ok(phase) => (phase, false),
-            Err(_) => return Err(format!("no phase spec or phase '{subject}'")),
+            Err(also) => return Err(format!("{why}; {also}")),
         },
     };
     let reqs = requirements(graph, node, spec);
