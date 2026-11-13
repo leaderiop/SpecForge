@@ -16,12 +16,18 @@ A phase's discussion log is one `discussion` entity in `spec/discuss.spec` (`spe
 its `entries` one block per question asked. Its entries are append-only: an entry once written is never rewritten or
 removed. An option carries its description after " — "; `notes` holds the user's clarifications, follow-up context or
 rationale; `mode` is `interactive`, `assumptions` (with `confidence` and `evidence`) or `advisor`. Claude's discretion
-areas and deferred ideas are on the context, so the log does not repeat them.
+areas and deferred ideas are on the context, so the log does not repeat them. A log an interrupted discussion's
+checkpoint created already exists: the fence sets its entries, and creates the log otherwise.
 
 ```bash
 PHASE_ID="{the phase's id, e.g. v1.0/03}"
 PADDED_PHASE="{the phase number, zero-padded, e.g. 03}"
 NAME="{the phase name}"
 ENTRIES='[{"area": "{the gray area}", "question": "{the question asked}", "options": ["{an option} — {its description}"], "chosen": "{the selected option, or the free-text answer}", "mode": "{interactive, assumptions or advisor}", "notes": "{the clarifications or rationale the user gave}"}]'
-specforge new discussion "${PADDED_PHASE}-DISCUSSION-LOG" "$NAME discussion" --in spec/discuss.spec --phase "$PHASE_ID" --entries "$ENTRIES" || exit 1
+LOG=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=discussion].id') || exit 1
+if [ -n "$LOG" ]; then
+  specforge set "$LOG" entries "$ENTRIES" || exit 1
+else
+  specforge new discussion "${PADDED_PHASE}-DISCUSSION-LOG" "$NAME discussion" --in spec/discuss.spec --phase "$PHASE_ID" --entries "$ENTRIES" || exit 1
+fi
 ```

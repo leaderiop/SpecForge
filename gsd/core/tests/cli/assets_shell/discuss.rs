@@ -1,7 +1,7 @@
 //! The discuss family's typed edits, run as the templates hold them on a taskboard copy under bash with only
 //! `specforge` on the `PATH`.
 
-use super::{Shell, asset, typed};
+use super::{Shell, asset, fence_after, typed};
 use crate::harness::{Project, taskboard};
 
 /// The context template's fence (`gsd-core/templates/context.md`), filled as a model fills it for phase `v1.0/03`.
@@ -107,4 +107,64 @@ fn the_log_fence_records_the_discussion() {
         picked(&p, log, ".nodes[0].fields.entries[1].chosen"),
         "Anywhere in the title"
     );
+}
+
+/// The checkpoint fence of discuss-phase's `discuss_areas` step, filled for phase `v1.0/03` after one area.
+fn checkpoint_fence() -> String {
+    typed::filled(
+        &fence_after(
+            &asset("gsd-core/workflows/discuss-phase.md"),
+            "**Incremental checkpoint**",
+        ),
+        &[
+            ("PHASE_ID", "v1.0/03"),
+            ("PADDED_PHASE", "03"),
+            ("NAME", "Listing"),
+            (
+                "CHECKPOINT",
+                r#"{"timestamp": "2026-11-13T10:00:00Z", "areas_completed": ["Ordering"], "areas_remaining": ["Filter"], "decisions": [{"area": "Ordering", "question": "Which tasks come first?", "answer": "Oldest first", "options_presented": ["Oldest first", "Newest first"]}], "deferred_ideas": ["Sort by due date"], "canonical_refs": []}"#,
+            ),
+        ],
+    )
+}
+
+/// An interrupted discussion resumes from the checkpoint on its log: the area fence records it, `check_existing`'s
+/// check prints it, the log fence then records the entries on the same log, and the cleanup clears it; the check
+/// reports nothing new.
+#[test]
+fn an_interrupted_discussion_resumes_from_its_checkpoint() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let workflow = asset("gsd-core/workflows/discuss-phase.md");
+    let check = format!(
+        "PHASE_ID=v1.0/03\n{}",
+        fence_after(&workflow, "Check for an interrupted discussion")
+    );
+    let area = typed::apply(&sh, &p, &checkpoint_fence());
+    assert_eq!(area.code, 0, "{}{}", area.out, area.err);
+    let (printed, err, code) = sh.run_in(p.root(), &check);
+    assert_eq!(code, 0, "{err}");
+    assert!(
+        printed.contains(r#""areas_completed":["Ordering"]"#),
+        "{printed}"
+    );
+    let second = typed::apply(&sh, &p, &checkpoint_fence());
+    assert_eq!(second.code, 0, "a later area sets it: {}", second.err);
+    let entries = r#"[{"area": "Ordering", "question": "Which tasks come first?", "options": ["Oldest first", "Newest first"], "chosen": "Oldest first", "mode": "interactive", "notes": ""}]"#;
+    let log = typed::apply(&sh, &p, &log_fence(entries));
+    assert_eq!(log.code, 0, "{}{}", log.out, log.err);
+    let cleanup = format!(
+        "PHASE_ID=v1.0/03\nPADDED_PHASE=03\n{}",
+        fence_after(&workflow, "**Clear the checkpoint**")
+    );
+    let cleared = typed::apply(&sh, &p, &cleanup);
+    assert_eq!(cleared.code, 0, "{}", cleared.err);
+    let (after, _, _) = sh.run_in(p.root(), &check);
+    assert!(!after.contains("checkpoint"), "{after}");
+    assert!(after.contains("Which tasks come first?"), "{after}");
+    for run in [area, second, log, cleared] {
+        assert!(run.added.is_empty(), "{:?}", run.added);
+    }
 }

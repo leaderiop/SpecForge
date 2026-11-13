@@ -35,7 +35,7 @@ this file under the discuss-phase byte budget (32000 bytes, #717; mirrors the ag
 | no flags above | `workflows/discuss-phase/modes/default.md` |
 | in `write_context` step | `workflows/discuss-phase/templates/context.md` |
 | in `git_commit` step | `workflows/discuss-phase/templates/discussion-log.md` |
-| writing checkpoints | `workflows/discuss-phase/templates/checkpoint.json` |
+| writing checkpoints | the checkpoint fence under `discuss_areas` (`specforge schema --kind discussion`, its `checkpoint`) |
 
 Do not Read mode files unless the corresponding flag/condition is set.
 </progressive_disclosure>
@@ -210,16 +210,17 @@ specforge query "$PHASE_ID" --depth 1 --kinds context --format brief
 
 **If doesn't exist:**
 
-Check for an interrupted discussion checkpoint:
+Check for an interrupted discussion: its checkpoint is on the phase's discussion log, which this prints when the
+phase has one:
 ```bash
-MILESTONE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.milestone') && [ -n "$MILESTONE" ] || exit 1; CHECKPOINT=$(specforge files temp --name "gsd-discuss-${MILESTONE}-${PHASE_ID##*/}.json" --pick .path) || exit 1; echo "CHECKPOINT=$CHECKPOINT"; specforge files read "$CHECKPOINT" --pick .text
+specforge query "$PHASE_ID" --depth 1 --kinds discussion --format context
 ```
 
-If the checkpoint file holds anything (an interrupted discussion wrote it):
+If the discussion log holds a `checkpoint` (an interrupted discussion set it):
 
 **If `--auto`:** Auto-select "Resume" — load checkpoint and continue from last completed area.
 
-**Otherwise:** AskUserQuestion (header: "Resume"; question: "Found interrupted discussion checkpoint ({N} areas completed out of {M}). Resume from where you left off?"; options: "Resume" / "Start fresh"). On "Resume", parse the checkpoint JSON, load `decisions` into the internal accumulator, set `areas_completed` to skip those areas, continue to `present_gray_areas` with only the remaining areas. On "Start fresh", delete the checkpoint and continue.
+**Otherwise:** AskUserQuestion (header: "Resume"; question: "Found interrupted discussion checkpoint ({N} areas completed out of {M}). Resume from where you left off?"; options: "Resume" / "Start fresh"). On "Resume", load the checkpoint's `decisions` into the internal accumulator, skip its `areas_completed`, and continue to `present_gray_areas` with only the remaining areas. On "Start fresh", clear it with `specforge unset "$PHASE_ID/${PADDED_PHASE}-DISCUSSION-LOG" checkpoint` and continue.
 
 Check `has_plans` and `plan_count` from init. **If `has_plans` is true:**
 
@@ -374,7 +375,23 @@ All modes preserve the universal rules below.
 
 - **Canonical ref accumulation** — when the user references a doc/spec/ADR during any answer, immediately Read it (or confirm it exists) and add it to the canonical refs accumulator with full relative path. Use what you learned to inform subsequent questions. These docs are often MORE important than ROADMAP.md refs because the user specifically wants downstream agents to follow them.
 - **Scope creep** — if user mentions something outside the phase domain, capture as deferred idea and redirect.
-- **Incremental checkpoint** — after each area completes, write the `CHECKPOINT` path the check for an interrupted discussion printed. Read `workflows/discuss-phase/templates/checkpoint.json` for the schema. The checkpoint is structured state, not the canonical CONTEXT.md (`write_context` produces the canonical output). On session resume, the parent's `check_existing` step detects the checkpoint and offers to resume.
+- **Incremental checkpoint** — after each area completes, record where the discussion stands as the `checkpoint` of
+  the phase's discussion log: the first area creates the log, a later one sets its checkpoint. The checkpoint is
+  structured state, not the context (`write_context` records that). On session resume, `check_existing` reads it and
+  offers to resume. The decisions so far are a list, each with its `area`; the phase is the log's own.
+
+  ```bash
+  PHASE_ID="{the phase's id, e.g. v1.0/03}"
+  PADDED_PHASE="{the phase number, zero-padded, e.g. 03}"
+  NAME="{the phase name}"
+  CHECKPOINT='{"timestamp": "{now, e.g. 2026-11-13T10:00:00Z}", "areas_completed": ["{an area discussed}"], "areas_remaining": ["{an area still to discuss}"], "decisions": [{"area": "{its area}", "question": "{the question}", "answer": "{the answer}", "options_presented": ["{an option}"]}], "deferred_ideas": ["{a deferred idea}"], "canonical_refs": ["{a path the user referenced}"]}'
+  LOG=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=discussion].id') || exit 1
+  if [ -n "$LOG" ]; then
+    specforge set "$LOG" checkpoint "$CHECKPOINT" || exit 1
+  else
+    specforge new discussion "${PADDED_PHASE}-DISCUSSION-LOG" "$NAME discussion" --in spec/discuss.spec --phase "$PHASE_ID" --checkpoint "$CHECKPOINT" || exit 1
+  fi
+  ```
 - **Discussion log accumulation** — for each question asked, accumulate area name, options presented, user's selection, follow-up notes. `git_commit` records them as the discussion log.
 </step>
 
@@ -436,9 +453,9 @@ workflows/discuss-phase/templates/discussion-log.md` and run its fence with the 
 per question asked (area, the options presented with their descriptions, the user's selection and notes). Claude's
 discretion areas and the deferred ideas are on the context already.
 
-**Clean up checkpoint file** — CONTEXT.md is now the canonical record:
+**Clear the checkpoint** — the context is now the canonical record:
 ```bash
-MILESTONE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.milestone') && [ -n "$MILESTONE" ] || exit 1; specforge files remove --force "$(specforge files temp --name "gsd-discuss-${MILESTONE}-${PHASE_ID##*/}.json" --pick .path)" >/dev/null
+specforge unset "$PHASE_ID/${PADDED_PHASE}-DISCUSSION-LOG" checkpoint || exit 1
 ```
 
 Commit phase context and discussion log:
@@ -473,9 +490,9 @@ Otherwise, end here — `confirm_creation` already ran; do not route back to it.
 - CONTEXT.md includes code_context section with reusable assets and patterns
 - Deferred ideas preserved for future phases
 - User knows next steps
-- Checkpoint file written after each area completes (incremental save)
+- Checkpoint recorded on the discussion log after each area completes (incremental save)
 - Interrupted sessions can be resumed from checkpoint
-- Checkpoint file cleaned up after successful CONTEXT.md write
+- Checkpoint cleared once the context is recorded
 - `--chain` triggers interactive discuss followed by auto plan+execute (no auto-answering)
 - `--chain` and `--auto` both persist chain flag and auto-advance to plan-phase
 - Per-mode bodies, templates, and advisor flow are lazy-loaded — parent stays under the workflow size budget enforced by `tests/workflow-size-budget.test.cjs`

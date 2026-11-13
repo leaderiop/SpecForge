@@ -40,7 +40,7 @@ fn every_asset() -> Vec<(String, Vec<String>)> {
 const VERBS: &[&str] = &[
     "add", "anchors", "check", "collect", "context", "delete", "explain", "export", "files",
     "format", "git", "grants", "gsd", "http", "init", "install", "link", "new", "query", "refs",
-    "run", "schema", "search", "set", "settings", "trace", "wait",
+    "run", "schema", "search", "set", "settings", "trace", "unset", "wait",
 ];
 
 /// Commands of `@gsd/security` that core's text asks for when it is loaded (`security-hooks` for the security gate).

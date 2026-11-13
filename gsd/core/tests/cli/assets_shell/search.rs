@@ -520,40 +520,6 @@ fn an_outline_is_reused_only_for_its_own_milestones_phase() {
     assert_eq!(printed(&out, "OUTLINE_FILE"), None, "{out}");
 }
 
-/// The same for an interrupted discussion's checkpoint: one per milestone's phase, removed by the block that closes it.
-#[test]
-fn a_discussion_checkpoint_is_read_only_for_its_own_milestones_phase() {
-    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
-        return;
-    };
-    let p = two_milestones();
-    let text = super::asset("gsd-core/workflows/discuss-phase.md");
-    let read = line_with(&text, "CHECKPOINT=$(specforge files temp");
-    let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{read}"));
-    assert_eq!(code, 0, "{err}");
-    let checkpoint = printed(&out, "CHECKPOINT")
-        .expect("the path is printed")
-        .to_string();
-    assert!(checkpoint.ends_with("gsd-discuss-v1.0-01.json"), "{out}");
-    std::fs::write(&checkpoint, "{\"area\":1}\n").expect("a checkpoint");
-    let (out, _, _) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{read}"));
-    assert!(out.contains("{\"area\":1}"), "{out}");
-    let (out, _, _) = sh.run_in(p.root(), &format!("PHASE_ID=v2.0/01\n{read}"));
-    assert!(!out.contains("area"), "{out}");
-    let (out, _, code) = sh.run_in(p.root(), &format!("PHASE_ID=\n{read}"));
-    assert_ne!(code, 0, "no phase, no name: {out}");
-    let clean = line_with(
-        &text,
-        "specforge files remove --force \"$(specforge files temp --name \"gsd-discuss",
-    );
-    let (_, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{clean}"));
-    assert_eq!(code, 0, "{err}");
-    assert!(
-        !std::path::Path::new(&checkpoint).exists()
-            || std::fs::read(&checkpoint).expect("the path").is_empty()
-    );
-}
-
 /// The lines of the `# gsd-handoff:begin <name>` block of `path`.
 fn handoff_block(path: &str, name: &str) -> String {
     let text = super::asset(path);

@@ -116,8 +116,6 @@ gsd-core/workflows/discuss-phase-assumptions.md	Update STATE.md with session inf
 gsd-core/workflows/discuss-phase-assumptions.md	- STATE.md updated with session info
 gsd-core/workflows/discuss-phase-power.md	5. Write CONTEXT.md using the standard context template format:
 gsd-core/workflows/discuss-phase-power.md	CONTEXT.md written: {phase_dir}/{padded_phase}-CONTEXT.md
-gsd-core/workflows/discuss-phase.md	- **Incremental checkpoint** — after each area completes, write the `CHECKPOINT` path the check for an interrupted discussion printed. Read `workflows/discuss-phase/templates/checkpoint.json` for the schema. The checkpoint is structured state, not the canonical CONTEXT.md (`write_context` produces the canonical output). On session resume, the parent's `check_existing` step detects the checkpoint and offers to resume.
-gsd-core/workflows/discuss-phase.md	- Checkpoint file cleaned up after successful CONTEXT.md write
 gsd-core/workflows/execute-phase/steps/regression-gate.md	- File patterns from `key-files.created` in corresponding SUMMARY.md files that match `*.test.*` or `*.spec.*`
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	Create VERIFICATION.md.
 gsd-core/workflows/graduation.md	| `decisions` | `PROJECT.md` — append under `## Validated Decisions` (create section if absent) |
