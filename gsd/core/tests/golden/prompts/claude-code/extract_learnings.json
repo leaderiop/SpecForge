@@ -61,7 +61,7 @@
     "Track which optional artifacts are missing for the `missing_artifacts` frontmatter field.",
     "</step>"
   ],
-  "bytes": 20717,
+  "bytes": 20736,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -124,7 +124,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:aba71ed05200c9ded252b129d0e529b09de467f249c07832432ac6215891a3c2",
+    "digest": "sha256:94d8e1444fe948a56d3fea5454d1746413ca9aab511698486b8c8d1f07eee1bf",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "aba71ed05200c9ded252b129d0e529b09de467f249c07832432ac6215891a3c2"
+  "sha256": "94d8e1444fe948a56d3fea5454d1746413ca9aab511698486b8c8d1f07eee1bf"
 }

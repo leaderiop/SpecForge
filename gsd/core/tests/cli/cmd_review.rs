@@ -167,3 +167,174 @@ fn round_takes_only_unchecked_and_concerns() {
     );
     unchanged(&p, &before);
 }
+
+const PLAN: &str = "v1.0/01/01-02";
+
+fn conflict(p: &crate::harness::Project, dimension: &str) -> crate::harness::Run {
+    gsd(
+        p,
+        "record-conflict",
+        &[
+            "01-02",
+            "--dimension",
+            dimension,
+            "--property",
+            "titles survive a reload",
+            "--conflicts-with",
+            "D-02",
+            "--alternatives",
+            "keep the id",
+            "--format",
+            "json",
+        ],
+    )
+}
+
+#[test]
+fn a_conflict_is_recorded_once() {
+    let p = twin();
+    let run = conflict(&p, "task_completeness");
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(json(&run)["output"]["conflict"], "v1.0/01/CF1");
+    assert_eq!(json(&run)["output"]["reused"], false);
+    let before = bytes(&p);
+    let again = conflict(&p, "task_completeness");
+    assert_eq!(again.code, 0, "{}", again.all());
+    assert_eq!(json(&again)["conflict"], "v1.0/01/CF1");
+    assert_eq!(json(&again)["reused"], true);
+    unchanged(&p, &before);
+    let fields = p.fields_of("v1.0/01/CF1");
+    assert_eq!(fields["status"], "open");
+    assert_eq!(fields["plan"], PLAN);
+    assert!(
+        !p.codes().iter().any(|c| c.starts_with('E')),
+        "{:?}",
+        p.codes()
+    );
+}
+
+#[test]
+fn newlines_in_a_conflict_field_become_one_space() {
+    let p = twin();
+    assert_eq!(conflict(&p, "task\n\t completeness\n").code, 0);
+    assert_eq!(
+        p.fields_of("v1.0/01/CF1")["dimension"],
+        "task  completeness"
+    );
+    let before = bytes(&p);
+    refused(
+        &conflict(&p, "\n\t"),
+        "invalid_input",
+        &["dimension", "empty"],
+    );
+    unchanged(&p, &before);
+}
+
+#[test]
+fn a_quick_plan_has_no_conflict_channel() {
+    let p = twin();
+    plant(
+        &p,
+        "spec/quick.spec",
+        "plan 261112-abc \"Trim titles\" {\n  type           execute\n  files_modified []\n  objective      \"Trim titles\"\n}\n",
+    );
+    let before = bytes(&p);
+    let run = gsd(
+        &p,
+        "record-conflict",
+        &[
+            "261112-abc",
+            "--dimension",
+            "d",
+            "--property",
+            "p",
+            "--conflicts-with",
+            "c",
+        ],
+    );
+    refused(&run, "invalid_input", &["261112-abc", "quick"]);
+    unchanged(&p, &before);
+}
+
+#[test]
+fn resolve_by_plan_closes_its_open_conflicts() {
+    let p = twin();
+    assert_eq!(conflict(&p, "one").code, 0);
+    assert_eq!(conflict(&p, "two").code, 0);
+    let run = gsd(
+        &p,
+        "resolve-conflict",
+        &[
+            "adopted the alternative",
+            "--plan",
+            "01-02",
+            "--format",
+            "json",
+        ],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(
+        json(&run)["output"]["resolved"],
+        serde_json::json!(["v1.0/01/CF1", "v1.0/01/CF2"])
+    );
+    for id in ["v1.0/01/CF1", "v1.0/01/CF2"] {
+        let fields = p.fields_of(id);
+        assert_eq!(fields["status"], "resolved");
+        assert_eq!(fields["resolved"]["how"], "adopted the alternative");
+    }
+    // none left: an empty answer, exit 0
+    let run = gsd(
+        &p,
+        "resolve-conflict",
+        &["x", "--plan", "01-02", "--format", "json"],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(json(&run)["resolved"], serde_json::json!([]));
+}
+
+#[test]
+fn a_resolved_conflict_is_refused() {
+    let p = twin();
+    assert_eq!(conflict(&p, "one").code, 0);
+    let args = ["amended D-02", "--conflict", "v1.0/01/CF1"];
+    assert_eq!(gsd(&p, "resolve-conflict", &args).code, 0);
+    let before = bytes(&p);
+    refused(
+        &gsd(&p, "resolve-conflict", &args),
+        "invalid_input",
+        &["CF1", "already resolved"],
+    );
+    refused(
+        &gsd(&p, "resolve-conflict", &["x"]),
+        "invalid_input",
+        &["--conflict", "--plan"],
+    );
+    unchanged(&p, &before);
+}
+
+#[test]
+fn a_conflict_no_command_raised_has_no_status() {
+    let p = twin();
+    let run = p.run(&[
+        "new",
+        "--in",
+        "spec/v1.0.spec",
+        "--field",
+        "phase=v1.0/01",
+        "--field",
+        "plan=v1.0/01/01-02",
+        "--field",
+        "dimension=d",
+        "--field",
+        "property=p",
+        "--field",
+        "conflicts_with=c",
+        "--",
+        "revision_conflict",
+        "CF1",
+        "Hand-made",
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let fields = p.fields_of("v1.0/01/CF1");
+    assert!(fields.get("status").is_none(), "{fields}");
+}

@@ -132,7 +132,7 @@ pub const DEVIATION: Kind = Kind::new(
 const HANDOFF_STATE: &[&str] = &["in_progress", "blocked", "almost_done"];
 const WORK_STATE: &[&str] = &["done", "in_progress", "not_started"];
 const COMPLETED_WORK: &[Field] = &[rf("task", "task"), en("state", WORK_STATE)];
-const RESOLVED: &[Field] = &[ts("at"), str("how")];
+pub(crate) const RESOLVED: &[Field] = &[ts("at"), str("how")];
 
 /// `/gsd-pause-work`'s record, named `PS1`: what a teammate who pulls the repository must see. Removed on resume.
 pub const PAUSE: Kind = Kind::new(

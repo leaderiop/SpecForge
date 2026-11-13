@@ -61,7 +61,7 @@
     "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id; `name` is its field). `response_language` is a setting: `specforge settings --format json --extension @gsd/core`.",
     ""
   ],
-  "bytes": 22241,
+  "bytes": 22260,
   "end": [
     "",
     "---",
@@ -124,7 +124,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:6612cc4fa643e57df17e030803ff47e2a10415357e2519b41d6761ca0c4eee88",
+    "digest": "sha256:d7113cf803f3ee2af5eb0cf227340bc8877f52033e2c6ea94eea5e5c45482395",
     "prompt": "@gsd/core@VERSION:add_tests",
     "subject": "v1.0/02"
   },
-  "sha256": "6612cc4fa643e57df17e030803ff47e2a10415357e2519b41d6761ca0c4eee88"
+  "sha256": "d7113cf803f3ee2af5eb0cf227340bc8877f52033e2c6ea94eea5e5c45482395"
 }

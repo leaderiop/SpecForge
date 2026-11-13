@@ -61,7 +61,7 @@
     "- **Default**: no detectable context → the project's handoff, note the ambiguity in `<current_state>`",
     ""
   ],
-  "bytes": 19879,
+  "bytes": 19898,
   "end": [
     "To resume: /gsd-resume-work",
     "",
@@ -143,7 +143,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:f7a46048c15a9a59e5a60285a441c9117e76c26b39c0fbf86c63e33ac52cc8f4",
+    "digest": "sha256:a83a42283e185ce399a08c83c02f7ce19b4a706d8c3a079ba2556c467e030b2e",
     "prompt": "@gsd/core@VERSION:pause_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "f7a46048c15a9a59e5a60285a441c9117e76c26b39c0fbf86c63e33ac52cc8f4"
+  "sha256": "a83a42283e185ce399a08c83c02f7ce19b4a706d8c3a079ba2556c467e030b2e"
 }

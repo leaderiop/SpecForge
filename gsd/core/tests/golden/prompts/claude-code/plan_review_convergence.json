@@ -61,7 +61,7 @@
     "operator's explicit flag overrides this gate for that run. Standalone invocation carries no such",
     "flag and remains gated by the config below."
   ],
-  "bytes": 75460,
+  "bytes": 75479,
   "end": [
     "- `## Self-Check: FAILED` (summary self-check)",
     "",
@@ -124,7 +124,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:81d1f41b507afc9a900ba8c42625da73078c80ed80e57710f37af66e1ec53037",
+    "digest": "sha256:484ca74dabf4c99fbe9e8011dded5cf736437671878090a7259ee4650bae9ac7",
     "prompt": "@gsd/core@VERSION:plan_review_convergence",
     "steps": [
       {
@@ -211,5 +211,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "81d1f41b507afc9a900ba8c42625da73078c80ed80e57710f37af66e1ec53037"
+  "sha256": "484ca74dabf4c99fbe9e8011dded5cf736437671878090a7259ee4650bae9ac7"
 }

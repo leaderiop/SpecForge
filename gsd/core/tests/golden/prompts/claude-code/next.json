@@ -61,7 +61,7 @@
     "  \"summary\": \"Phase 2 of 5 · 60% · executing\",",
     "  \"signals\": { \"...\": \"...\" },"
   ],
-  "bytes": 22669,
+  "bytes": 22688,
   "end": [
     "## Anti-Patterns",
     "",
@@ -124,7 +124,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:074eeede61abc15f1c360dcb36def8a263bfa36d65616e154800f26f18ac7891",
+    "digest": "sha256:27128be017261fea19d88dafdf5cd1fccb956225f1b21774f9544ed952dc151a",
     "prompt": "@gsd/core@VERSION:next",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "074eeede61abc15f1c360dcb36def8a263bfa36d65616e154800f26f18ac7891"
+  "sha256": "27128be017261fea19d88dafdf5cd1fccb956225f1b21774f9544ed952dc151a"
 }

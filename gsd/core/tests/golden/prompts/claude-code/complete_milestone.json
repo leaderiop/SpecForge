@@ -61,7 +61,7 @@
     "   chain. Or proceed anyway to accept the gaps as tech debt.",
     ""
   ],
-  "bytes": 13539,
+  "bytes": 13558,
   "end": [
     "",
     "7. **Commit and tag:**",
@@ -124,7 +124,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:8a5eb1708eb2ea5b35e864501e8892652aecbf2913ba12b6dd2a97abc2563b83",
+    "digest": "sha256:f2e842fc8eb83124665ef6c10e05deebc51959ffe2d16a63cf01f0645a43066c",
     "prompt": "@gsd/core@VERSION:complete_milestone",
     "steps": [
       {
@@ -229,5 +229,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "8a5eb1708eb2ea5b35e864501e8892652aecbf2913ba12b6dd2a97abc2563b83"
+  "sha256": "f2e842fc8eb83124665ef6c10e05deebc51959ffe2d16a63cf01f0645a43066c"
 }

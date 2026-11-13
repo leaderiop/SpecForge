@@ -61,7 +61,7 @@
     "Read and parse STATE.md, then PROJECT.md:",
     ""
   ],
-  "bytes": 20995,
+  "bytes": 21014,
   "end": [
     "",
     "</process>",
@@ -143,7 +143,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:00dc1a56b87c9022be5b30c3f96a0a77e223e73f287128903a3e281ddeea24f8",
+    "digest": "sha256:fef0b195d6507f1e85ad5b8ba382b360f3c296cf024cb84c8704f6d5f434149c",
     "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "00dc1a56b87c9022be5b30c3f96a0a77e223e73f287128903a3e281ddeea24f8"
+  "sha256": "fef0b195d6507f1e85ad5b8ba382b360f3c296cf024cb84c8704f6d5f434149c"
 }

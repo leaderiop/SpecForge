@@ -61,7 +61,7 @@
     "collapsing plan roles into the orchestrator context.",
     ""
   ],
-  "bytes": 114005,
+  "bytes": 114024,
   "end": [
     "</file>",
     "</execution_context>",
@@ -124,7 +124,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:e3f5a76be85d9e615ba946c5f5936469f8de8b17870046ad181efdbeb221f9ee",
+    "digest": "sha256:df49923e88858b5de44a1ed5acef5a6b1c0321a63f30f847d3bf0db0d08eea84",
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
@@ -240,5 +240,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "e3f5a76be85d9e615ba946c5f5936469f8de8b17870046ad181efdbeb221f9ee"
+  "sha256": "df49923e88858b5de44a1ed5acef5a6b1c0321a63f30f847d3bf0db0d08eea84"
 }

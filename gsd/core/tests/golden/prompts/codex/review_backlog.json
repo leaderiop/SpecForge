@@ -61,7 +61,7 @@
     "",
     "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
   ],
-  "bytes": 19692,
+  "bytes": 19711,
   "end": [
     "",
     "3. **Present the list to the user** via AskUserQuestion:",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:810f4a8ba0ac081ccaf04c485f640db54a6099c6edb782fbea09f5bd9b8b844f",
+    "digest": "sha256:11f5e3a08a48d4475ed11349b91582770a6915312c545893de4f8b1ca8c6fc00",
     "prompt": "@gsd/core@VERSION:review_backlog",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "810f4a8ba0ac081ccaf04c485f640db54a6099c6edb782fbea09f5bd9b8b844f"
+  "sha256": "11f5e3a08a48d4475ed11349b91582770a6915312c545893de4f8b1ca8c6fc00"
 }

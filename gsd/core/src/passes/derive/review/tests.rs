@@ -116,3 +116,34 @@ fn drift_and_non_actionable_concerns_are_not_counted() {
         json!({ "high": 1, "actionable": 1 })
     );
 }
+
+#[test]
+fn a_conflict_is_open_once_raised_and_resolved_once_closed() {
+    let mut given = input(Vec::new());
+    for (name, fields) in [
+        ("CF1", &[("raised", "2026-11-12T10:00:00Z")][..]),
+        (
+            "CF2",
+            &[("raised", "2026-11-12T10:00:00Z"), ("resolved", "{}")][..],
+        ),
+        ("CF3", &[][..]),
+    ] {
+        given.entities.push(entity(
+            &format!("v1.0/02/{name}"),
+            "revision_conflict",
+            fields,
+        ));
+    }
+    let statuses: Vec<(String, String)> = values(&given)
+        .into_iter()
+        .filter(|v| v.entity.contains("/CF"))
+        .map(|v| (v.entity, v.value.as_str().unwrap_or_default().to_string()))
+        .collect();
+    assert_eq!(
+        statuses,
+        [
+            ("v1.0/02/CF1".to_string(), "open".to_string()),
+            ("v1.0/02/CF2".to_string(), "resolved".to_string()),
+        ]
+    );
+}

@@ -1,7 +1,10 @@
-//! The kinds of a cross-AI review (`spec/plan.md`, "Reviews and revision conflicts"): a review round and the concerns
-//! it raised. A concern's status is computed from the dispositions that name it, so a round is written once.
+//! The kinds of a cross-AI review (`spec/plan.md`, "Reviews and revision conflicts"): a review round, the concerns
+//! it raised, and the revision conflicts a replan reports. A concern's status is computed from the dispositions that
+//! name it, so a round is written once.
 
 use gsd_kit::dsl::*;
+
+use super::execute::RESOLVED;
 
 const REVIEWER: &[Field] = &[str("name").r(), str("model").r(), str("source").r()];
 const RISK: &[&str] = &["low", "medium", "high"];
@@ -79,3 +82,39 @@ pub const REVIEW_CONCERN: Kind = Kind::new(
 )
 .append_only()
 .scoped_by("review");
+
+const CONFLICT_STATUS: &[&str] = &["open", "resolved"];
+
+/// A conflict a plan revision reports between a reviewer's ask and a property the plan must keep, named `CF1` and
+/// scoped by its phase, in the phase's file: raised by `record_conflict`, closed by `resolve_conflict`.
+pub const REVISION_CONFLICT: Kind = Kind::new(
+    "revision_conflict",
+    "A conflict a plan revision reported (GSD REVISION_CONFLICT lines)",
+    &[
+        rf("phase", "phase").r().i().doc("parent"),
+        rf("plan", "plan")
+            .r()
+            .i()
+            .doc("the plan whose revision reported it"),
+        str("dimension")
+            .r()
+            .i()
+            .doc("the checker dimension or review lane that asked"),
+        str("property").r().i().doc("what the ask would change"),
+        str("conflicts_with")
+            .r()
+            .i()
+            .doc("the decision, requirement or must-have it would break"),
+        str("alternatives")
+            .i()
+            .doc("the ways out the planner named"),
+        ts("raised").h().doc("when `record_conflict` raised it"),
+        block("resolved", RESOLVED)
+            .h()
+            .doc("when and how `resolve_conflict` closed it"),
+        en("status", CONFLICT_STATUS)
+            .c()
+            .doc("resolved once `resolved` is set, open while only `raised` is, else none"),
+    ],
+)
+.scoped_by("phase");

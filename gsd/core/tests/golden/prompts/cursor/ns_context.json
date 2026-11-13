@@ -38,7 +38,7 @@
     "| `/gsd-mempalace-recall` | not served on this project |",
     "| `/gsd-mempalace-capture` | not served on this project |"
   ],
-  "bytes": 10882,
+  "bytes": 10901,
   "end": [
     "}",
     "```",
@@ -120,7 +120,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -172,8 +172,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:8b0412a6b83342034f7a291304bc91e9dda48d5200932343e78d2e27a723533f",
+    "digest": "sha256:47b0a3a3cdb30f23ea1297154a7a11b6e5d61b17c1f693f703fdb44c81224533",
     "prompt": "@gsd/core@VERSION:ns_context"
   },
-  "sha256": "8b0412a6b83342034f7a291304bc91e9dda48d5200932343e78d2e27a723533f"
+  "sha256": "47b0a3a3cdb30f23ea1297154a7a11b6e5d61b17c1f693f703fdb44c81224533"
 }

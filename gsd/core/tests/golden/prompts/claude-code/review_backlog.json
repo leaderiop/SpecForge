@@ -61,7 +61,7 @@
     "",
     "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
   ],
-  "bytes": 11223,
+  "bytes": 11242,
   "end": [
     "",
     "3. **Present the list to the user** via AskUserQuestion:",
@@ -124,7 +124,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:fa08c884916abfa0dabebe6ec304ba0e4053d5d7748676d2b6626f2f5ed3644f",
+    "digest": "sha256:2f783b1edf2d748d37718a8832dcb59a94fd87164264a76dd842b123d958801b",
     "prompt": "@gsd/core@VERSION:review_backlog",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "fa08c884916abfa0dabebe6ec304ba0e4053d5d7748676d2b6626f2f5ed3644f"
+  "sha256": "2f783b1edf2d748d37718a8832dcb59a94fd87164264a76dd842b123d958801b"
 }

@@ -61,7 +61,7 @@
     "- Extract milestone definition of done from ROADMAP.md",
     "- Extract requirements mapped to this milestone from REQUIREMENTS.md"
   ],
-  "bytes": 24697,
+  "bytes": 24716,
   "end": [
     "",
     "<success_criteria>",
@@ -124,7 +124,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:9984181479c6d0cbfe22b45a79aff54c84e622a51c4acb4bb780407a60a1fa08",
+    "digest": "sha256:e1c32dba208753b6a775ef70ecd535fd9e543b5e9cb49c57c58f58369c64257e",
     "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "9984181479c6d0cbfe22b45a79aff54c84e622a51c4acb4bb780407a60a1fa08"
+  "sha256": "e1c32dba208753b6a775ef70ecd535fd9e543b5e9cb49c57c58f58369c64257e"
 }

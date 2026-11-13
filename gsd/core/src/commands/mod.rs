@@ -61,6 +61,8 @@ pub const WRITERS: &[(&str, &str, &str)] = &[
     ("refactor_proposal", "candidates", "propose_refactor"),
     ("refactor_proposal", "disposition", "dispose_refactor"),
     ("review", "reviewed_at", "record_review"),
+    ("revision_conflict", "raised", "record_conflict"),
+    ("revision_conflict", "resolved", "resolve_conflict"),
     ("commit", "hash", "gsd-git"),
     ("commit", "task", "gsd-git"),
     ("commit", "plan", "gsd-git"),

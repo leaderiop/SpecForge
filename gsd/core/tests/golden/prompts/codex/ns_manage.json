@@ -61,7 +61,7 @@
     "| `$gsd-surface` | command `specforge gsd surface` (served by @gsd/core) |",
     "| `$gsd-help` | command `specforge gsd help` (served by @gsd/core) |"
   ],
-  "bytes": 19998,
+  "bytes": 20017,
   "end": [
     "| Process inbox items | gsd-inbox |",
     "| Create a clean PR branch | gsd-pr-branch |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:26bbb01fffcb8931ef235f826d1c4a32f8a59074f144c4ba67c20da912e8fd1a",
+    "digest": "sha256:a754af16661dcf25c51c2a3dc820b9e8265c382f8041ce735fb5b65564b53d50",
     "prompt": "@gsd/core@VERSION:ns_manage"
   },
-  "sha256": "26bbb01fffcb8931ef235f826d1c4a32f8a59074f144c4ba67c20da912e8fd1a"
+  "sha256": "a754af16661dcf25c51c2a3dc820b9e8265c382f8041ce735fb5b65564b53d50"
 }

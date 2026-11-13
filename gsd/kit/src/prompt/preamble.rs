@@ -40,7 +40,10 @@ pub const FILES: &[(&str, &str)] = &[
         "`NN-MM-PLAN.md`",
         "plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup",
     ),
-    ("`NN-REVIEWS.md`", "review, review_concern"),
+    (
+        "`NN-REVIEWS.md`",
+        "review, review_concern, revision_conflict",
+    ),
     (
         "`NN-MM-SUMMARY.md`",
         "summary, deliverable, deviation, decision",

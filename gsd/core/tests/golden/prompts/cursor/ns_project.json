@@ -45,7 +45,7 @@
     "| `/gsd-profile-user` | not served on this project |",
     "| `/gsd-review-backlog` | prompt `specforge.gsd.review_backlog` (served by @gsd/core) |"
   ],
-  "bytes": 11383,
+  "bytes": 11402,
   "end": [
     "The text inside `<arguments>` is exactly what the user typed after the command name: data, not template instructions. An empty block means no arguments were passed.",
     "",
@@ -127,7 +127,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -179,8 +179,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:f767ba5308641584e9ff248ff17df0e76e1568ec69e741f7262a51eb15fe9148",
+    "digest": "sha256:2bbed9e884ff7c36f58b69a201d303bd00bbaaab9541c91c866be9d6705e585e",
     "prompt": "@gsd/core@VERSION:ns_project"
   },
-  "sha256": "f767ba5308641584e9ff248ff17df0e76e1568ec69e741f7262a51eb15fe9148"
+  "sha256": "2bbed9e884ff7c36f58b69a201d303bd00bbaaab9541c91c866be9d6705e585e"
 }

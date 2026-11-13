@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 53449,
+  "bytes": 53468,
   "end": [
     "- Missing Next Up block after completions",
     "",
@@ -124,7 +124,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:abec2674b129440084ec8a2359679f517a8b65e21fd37b19e52d289f020b4933",
+    "digest": "sha256:16bf01ecd8a94d2a1fbfa06b3b667074a0e75f539796a2543701ff47a45be075",
     "prompt": "@gsd/core@VERSION:autonomous",
     "steps": [
       {
@@ -242,5 +242,5 @@
       }
     ]
   },
-  "sha256": "abec2674b129440084ec8a2359679f517a8b65e21fd37b19e52d289f020b4933"
+  "sha256": "16bf01ecd8a94d2a1fbfa06b3b667074a0e75f539796a2543701ff47a45be075"
 }

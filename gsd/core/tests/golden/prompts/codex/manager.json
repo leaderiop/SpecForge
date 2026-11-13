@@ -61,7 +61,7 @@
     "",
     "**If error:** Display the error message and exit."
   ],
-  "bytes": 46272,
+  "bytes": 46291,
   "end": [
     "",
     "Table rules use ASCII `-`, never box-drawing characters.",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:a423591d27b3419ff7e8869df149cd27e794b194edd0950995142fc9d6613e58",
+    "digest": "sha256:ec0d1b13af824341007b7eba586adb4d41d16f085bc61780cb9cdc4469371f67",
     "prompt": "@gsd/core@VERSION:manager",
     "steps": [
       {
@@ -232,5 +232,5 @@
       }
     ]
   },
-  "sha256": "a423591d27b3419ff7e8869df149cd27e794b194edd0950995142fc9d6613e58"
+  "sha256": "ec0d1b13af824341007b7eba586adb4d41d16f085bc61780cb9cdc4469371f67"
 }

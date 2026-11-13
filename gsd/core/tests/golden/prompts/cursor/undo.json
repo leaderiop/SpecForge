@@ -61,7 +61,7 @@
     "",
     "Examples:"
   ],
-  "bytes": 48279,
+  "bytes": 48298,
   "end": [
     "- question: \"How thorough should planning be?\"",
     "- header: \"Depth\"",
@@ -143,7 +143,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:d11c49c7bd54014c29032d7b58434d4c8df49e2e2cc6f9f1e7ede61c7445cf13",
+    "digest": "sha256:277b582883df80753ccf7cb60cc5188795c4118e5c7cd0b4aac7ee068c54a76c",
     "prompt": "@gsd/core@VERSION:undo"
   },
-  "sha256": "d11c49c7bd54014c29032d7b58434d4c8df49e2e2cc6f9f1e7ede61c7445cf13"
+  "sha256": "277b582883df80753ccf7cb60cc5188795c4118e5c7cd0b4aac7ee068c54a76c"
 }

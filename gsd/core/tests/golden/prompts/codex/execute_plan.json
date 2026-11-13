@@ -61,7 +61,7 @@
     "",
     "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id), and its `plan` entities are among the other nodes (a plan whose `status` is not `complete` has no summary yet). `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`; the sub-repositories are `specforge git repos`' answer; an installed agent carries its own model."
   ],
-  "bytes": 57190,
+  "bytes": 57209,
   "end": [
     "",
     "| Condition | Route | Action |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:bc0627e6fa069b2f29d98db3660c0fc06cc5f764ab06c083d609d4d3d27655b6",
+    "digest": "sha256:83e3eaadd356f2a7832aa9db39568a48a9a008b227a8a4a2fda94a9796549975",
     "prompt": "@gsd/core@VERSION:execute_plan",
     "steps": [
       {
@@ -258,5 +258,5 @@
     ],
     "subject": "v1.0/02/02-01"
   },
-  "sha256": "bc0627e6fa069b2f29d98db3660c0fc06cc5f764ab06c083d609d4d3d27655b6"
+  "sha256": "83e3eaadd356f2a7832aa9db39568a48a9a008b227a8a4a2fda94a9796549975"
 }

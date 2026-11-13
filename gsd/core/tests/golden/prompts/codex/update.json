@@ -26,7 +26,7 @@
     "4. Tell the user to restart the host, so that it reads the new skills.",
     "</process>"
   ],
-  "bytes": 19044,
+  "bytes": 19063,
   "end": [
     "  \"effort.routing_tier_defaults.heavy\": \"xhigh\",",
     "  \"effort.routing_tier_defaults.light\": \"low\",",
@@ -153,8 +153,8 @@
   ],
   "lines": 322,
   "payload": {
-    "digest": "sha256:7ce1a280b7fd91893ac66209e9ee8d190c610bf93933f7076f42690f5482f15b",
+    "digest": "sha256:a248e80047184828833d8134788a4d627e54ca6f3bd1fbc1a53780bebf2bf80d",
     "prompt": "@gsd/core@VERSION:update"
   },
-  "sha256": "7ce1a280b7fd91893ac66209e9ee8d190c610bf93933f7076f42690f5482f15b"
+  "sha256": "a248e80047184828833d8134788a4d627e54ca6f3bd1fbc1a53780bebf2bf80d"
 }

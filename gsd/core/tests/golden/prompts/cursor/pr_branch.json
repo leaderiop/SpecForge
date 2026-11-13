@@ -61,7 +61,7 @@
     "fi",
     ""
   ],
-  "bytes": 23197,
+  "bytes": 23216,
   "end": [
     "Planning paths in diff: {FORBIDDEN} — must be 0",
     "Planning deletions: {PLANNING_DELETIONS} (must be 0 — #3679)",
@@ -143,7 +143,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:7bcb15c86bd540c35b21b19a8b7f427c8d852a80e7233f7dd4ee0fd4929594fd",
+    "digest": "sha256:4aeab0019a4776e9f030be2be4d5aaffafa0c7357025a4f4bc488dd184a6eacf",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "7bcb15c86bd540c35b21b19a8b7f427c8d852a80e7233f7dd4ee0fd4929594fd"
+  "sha256": "4aeab0019a4776e9f030be2be4d5aaffafa0c7357025a4f4bc488dd184a6eacf"
 }

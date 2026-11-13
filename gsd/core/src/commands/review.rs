@@ -1,6 +1,7 @@
 //! The commands of a cross-AI review (`spec/plan.md`, "Reviews and revision conflicts"): `record_review` writes a round
 //! and its concerns in one plan, from the JSON the review workflow assembles. Every value is checked before anything
 //! is written: a plan of another phase, a reviewer the round lacks, a concern with no reviewer is refused, naming it.
+//! `record_conflict` and `resolve_conflict` raise and close a revision conflict.
 
 use std::collections::BTreeSet;
 
@@ -421,6 +422,153 @@ fn record_review(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     ))
 }
 
+/// `text` with every run of line breaks and tabs collapsed to one space, trimmed (upstream's sanitize rule: one
+/// conflict is one line).
+fn one_line(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut gap = false;
+    for c in text.chars() {
+        if matches!(c, '\n' | '\r' | '\t') {
+            gap = true;
+            continue;
+        }
+        if gap {
+            out.push(' ');
+            gap = false;
+        }
+        out.push(c);
+    }
+    out.trim().to_string()
+}
+
+/// The arg `arg` on one line ([`one_line`]); refused when it holds a control character or nothing is left.
+fn line_arg(call: &CommandCall<'_>, arg: &str, needed: bool) -> Result<Option<String>, String> {
+    let Some(raw) = call.str(arg) else {
+        return if needed {
+            Err(format!("'{arg}' is required"))
+        } else {
+            Ok(None)
+        };
+    };
+    let line = one_line(raw);
+    plain(arg, &line)?;
+    match line.is_empty() {
+        true if needed => Err(format!("'{arg}' is empty")),
+        true => Ok(None),
+        false => Ok(Some(line)),
+    }
+}
+
+/// Whether a conflict is open: a command raised it and none resolved it.
+fn open(conflict: &GraphNode) -> bool {
+    conflict.has_field("raised") && !conflict.has_field("resolved")
+}
+
+/// `record_conflict <plan> --dimension --property --conflicts-with [--alternatives]`: an open revision conflict in the
+/// plan's phase, or the open one that already says the same.
+fn record_conflict(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
+    let plan = node(call, "plan", required(call, "plan")?)?;
+    let graph = call.graph();
+    let Some(phase) = target(graph, &plan.id, "phase") else {
+        return Err(format!(
+            "plan '{}' is a quick plan: quick has no conflict channel",
+            plan.id
+        ));
+    };
+    let dimension = line_arg(call, "dimension", true)?.unwrap_or_default();
+    let property = line_arg(call, "property", true)?.unwrap_or_default();
+    let conflicts_with = line_arg(call, "conflicts_with", true)?.unwrap_or_default();
+    let alternatives = line_arg(call, "alternatives", false)?;
+    let same = graph.nodes_of_kind("revision_conflict").find(|c| {
+        open(c)
+            && target(graph, &c.id, "plan") == Some(plan.id.as_str())
+            && c.text("dimension") == Some(dimension.as_str())
+            && c.text("property") == Some(property.as_str())
+            && c.text("conflicts_with") == Some(conflicts_with.as_str())
+    });
+    if let Some(conflict) = same {
+        return Ok(answer(
+            call,
+            json!({ "conflict": conflict.id, "reused": true, "wrote": [] }),
+            format!("revision conflict {} is already open\n", conflict.id),
+            None,
+        ));
+    }
+    let raised = now(call)?;
+    let name = next_id(graph, "revision_conflict", &format!("{phase}/"), "CF");
+    let id = format!("{phase}/{name}");
+    let file = graph
+        .node(phase)
+        .and_then(|p| p.file.clone())
+        .unwrap_or_else(|| "spec/plans.spec".to_string());
+    let mut edit = call.plan();
+    edit.create(
+        "revision_conflict",
+        &name,
+        &title(&format!("{dimension}/{}: {property}", plan.id)),
+        &file,
+        fields([
+            ("phase", json!(phase)),
+            ("plan", json!(plan.id)),
+            ("dimension", json!(dimension)),
+            ("property", json!(property)),
+            ("conflicts_with", json!(conflicts_with)),
+            (
+                "alternatives",
+                alternatives.map_or(Value::Null, Value::from),
+            ),
+            ("raised", json!(raised)),
+        ]),
+        Vec::new(),
+    );
+    Ok(answer(
+        call,
+        json!({ "conflict": id, "reused": false, "wrote": [id] }),
+        format!("revision conflict {id} raised at {raised}\n"),
+        Some(&edit),
+    ))
+}
+
+/// `resolve_conflict <how> (--conflict <id> | --plan <plan>)`: one open conflict, or every open one of a plan.
+fn resolve_conflict(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
+    let how = required(call, "how")?;
+    let graph = call.graph();
+    let targets: Vec<&GraphNode> = match (call.str("conflict"), call.str("plan")) {
+        (Some(_), Some(_)) | (None, None) => {
+            return Err("give one of --conflict and --plan".to_string());
+        }
+        (Some(id), None) => {
+            let conflict = node(call, "revision_conflict", id)?;
+            if conflict.has_field("resolved") {
+                return Err(format!(
+                    "revision conflict '{}' is already resolved",
+                    conflict.id
+                ));
+            }
+            vec![conflict]
+        }
+        (None, Some(id)) => {
+            let plan = node(call, "plan", id)?;
+            graph
+                .nodes_of_kind("revision_conflict")
+                .filter(|c| open(c) && target(graph, &c.id, "plan") == Some(plan.id.as_str()))
+                .collect()
+        }
+    };
+    let at = now(call)?;
+    let mut edit = call.plan();
+    let ids: Vec<&str> = targets.iter().map(|c| c.id.as_str()).collect();
+    for id in &ids {
+        edit.set(id, "resolved", json!({ "at": at, "how": how }));
+    }
+    Ok(answer(
+        call,
+        json!({ "resolved": ids, "wrote": ids }),
+        format!("{} revision conflict(s) resolved at {at}\n", ids.len()),
+        (!ids.is_empty()).then_some(&edit),
+    ))
+}
+
 pub fn declare(c: &mut ContributionsBuilder) {
     c.command("record_review", |cmd| {
         cmd.description("Record a cross-AI review round of a phase's plans (GSD NN-REVIEWS.md): its reviewers, lanes, coverage and consensus, and one concern each; with --round, more unchecked symbols and concerns of a round")
@@ -435,5 +583,39 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.description("a round already recorded: the JSON then holds only unchecked and concerns, which are added to it");
             })
             .handler(|call| run(call, record_review));
+    });
+    c.command("record_conflict", |cmd| {
+        cmd.description("Record a conflict a plan revision reported (GSD REVISION_CONFLICT): open in the plan's phase; the same open conflict twice is one entity, answered reused")
+            .writes()
+            .arg("plan", |a| {
+                a.required().description("the plan whose revision reported it");
+            })
+            .arg("dimension", |a| {
+                a.description("required; the checker dimension or review lane that asked (one line)");
+            })
+            .arg("property", |a| {
+                a.description("required; what the ask would change (one line)");
+            })
+            .arg("conflicts_with", |a| {
+                a.description("required; the decision, requirement or must-have it would break (one line)");
+            })
+            .arg("alternatives", |a| {
+                a.description("the ways out the planner named (one line)");
+            })
+            .handler(|call| run(call, record_conflict));
+    });
+    c.command("resolve_conflict", |cmd| {
+        cmd.description("Resolve a revision conflict: one with --conflict, or every open one of a plan with --plan")
+            .writes()
+            .arg("how", |a| {
+                a.required().description("how the replan resolved it");
+            })
+            .arg("conflict", |a| {
+                a.description("the open conflict to resolve");
+            })
+            .arg("plan", |a| {
+                a.description("the plan whose open conflicts all resolve");
+            })
+            .handler(|call| run(call, resolve_conflict));
     });
 }

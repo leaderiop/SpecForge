@@ -61,7 +61,7 @@
     "# the commands below are specforge commands: there is no launcher to define",
     ""
   ],
-  "bytes": 64956,
+  "bytes": 64975,
   "end": [
     "## Gaps",
     "",
@@ -124,7 +124,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:3ab979484ac3aa9a6dc12a0820aca32dcc9174c2fce9820597f3b30ac8569ba7",
+    "digest": "sha256:5ba933cf1ae620f5f4203013371c32b68adba7982218af9594c5a6502834cc89",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "3ab979484ac3aa9a6dc12a0820aca32dcc9174c2fce9820597f3b30ac8569ba7"
+  "sha256": "5ba933cf1ae620f5f4203013371c32b68adba7982218af9594c5a6502834cc89"
 }

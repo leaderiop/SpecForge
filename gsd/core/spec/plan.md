@@ -5,6 +5,7 @@
 ```
  phase ─1──*─ plan ─1──*─ task
    ├──*─ review ─1──*─ review_concern   (a cross-AI review round)
+   ├──*─ revision_conflict              (a conflict a replan reported)
                 │   ├──*─ checkpoint         (options are a block of it)
                 │   ├──*─ truth          ┐
                 │   ├──*─ artifact       │ must_haves
@@ -162,6 +163,24 @@ Name `RC1`, scoped by its review. Append-only, every authored field immutable.
 | drift | bool | I | a drift finding: advisory, never a blocker |
 | evidence | strs | I | what the reviewers cited |
 | status | enum{open, addressed, deferred} | C | the `outcome` of the disposition naming it (`disposition.concern`) with the highest `round`, else open |
+
+### revision_conflict
+
+GSD: a `REVISION_CONFLICT` line a planner returns when a reviewer's ask would break a property the plan must keep.
+Name `CF1`, scoped by its phase, in the phase's file. `specforge gsd record-conflict <plan>` raises it (each field on
+one line; the same open conflict twice is one entity), `specforge gsd resolve-conflict` closes it.
+
+| Field | Type | Flags | GSD |
+|---|---|---|---|
+| phase | → phase | R I | parent |
+| plan | → plan | R I | the plan whose revision reported it (a quick plan has no channel) |
+| dimension | str | R I | the checker dimension or review lane that asked |
+| property | str | R I | what the ask would change |
+| conflicts_with | str | R I | the decision, requirement or must-have it would break |
+| alternatives | str | I | the ways out the planner named |
+| raised | ts | H | when `record_conflict` raised it |
+| resolved | {at ts, how str} | H | when and how `resolve_conflict` closed it |
+| status | enum{open, resolved} | C | resolved once `resolved` is set, open while only `raised` is, else none |
 
 ## The plan check
 

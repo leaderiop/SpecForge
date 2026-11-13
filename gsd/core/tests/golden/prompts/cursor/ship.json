@@ -61,7 +61,7 @@
     "The strategy is `git.branching_strategy` in these settings; the branch is the phase's computed `branch`.",
     ""
   ],
-  "bytes": 46920,
+  "bytes": 46939,
   "end": [
     "Commits: {count}",
     "Verification: ✓ Passed",
@@ -143,7 +143,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:84496adfee1478fcf3bb774b978d384d8fbbc77873172727a4f3114ff8bae4f9",
+    "digest": "sha256:1b6182cc11ebda37d33551c9416d8541ed7e9aa9ab3ea015c1e6c455c9d3b476",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "84496adfee1478fcf3bb774b978d384d8fbbc77873172727a4f3114ff8bae4f9"
+  "sha256": "1b6182cc11ebda37d33551c9416d8541ed7e9aa9ab3ea015c1e6c455c9d3b476"
 }

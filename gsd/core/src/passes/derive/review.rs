@@ -1,9 +1,10 @@
-//! The computed values of a review round (`spec/plan.md`, "Reviews and revision conflicts"): a concern's status and a
-//! round's open counts.
+//! The computed values of a review round (`spec/plan.md`, "Reviews and revision conflicts"): a concern's status, a
+//! round's open counts and a revision conflict's status.
 //!
 //! A concern is `open` until a disposition names it; the disposition with the highest `round` decides (`addressed`,
 //! `deferred`). A round counts its open concerns: `high` ones, and `actionable` ones that are neither high nor drift
-//! (a drift finding is advisory, never a blocker).
+//! (a drift finding is advisory, never a blocker). A revision conflict is `resolved` once `resolved` is set, `open`
+//! while only `raised` is, and has no status when no command raised it.
 
 use std::collections::BTreeMap;
 
@@ -65,6 +66,17 @@ pub fn values(input: &PassInput) -> Vec<PassValue> {
             "open",
             json!({ "high": high, "actionable": actionable }),
         ));
+    }
+    for conflict in of_kind(input, "revision_conflict") {
+        let has = |field: &str| conflict.fields.contains_key(field);
+        let status = if has("resolved") {
+            "resolved"
+        } else if has("raised") {
+            "open"
+        } else {
+            continue;
+        };
+        out.push(value(&conflict.id, "status", status));
     }
     out
 }

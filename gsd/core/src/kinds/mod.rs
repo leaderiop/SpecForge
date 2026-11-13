@@ -60,6 +60,7 @@ const KINDS: &[&Kind] = &[
     &plan::DISPOSITION,
     &review::REVIEW,
     &review::REVIEW_CONCERN,
+    &review::REVISION_CONFLICT,
     &plan::USER_SETUP,
     &execute::PLAN_START,
     &execute::SUMMARY,

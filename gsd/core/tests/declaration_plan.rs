@@ -570,3 +570,30 @@ fn the_review_kinds_declare_the_fields_of_the_model() {
         "review_concern"
     );
 }
+
+/// A revision conflict: four authored lines, two harness fields its commands write, and a computed status.
+#[test]
+fn the_revision_conflict_declares_the_fields_of_the_model() {
+    assert_eq!(
+        fields_of("revision_conflict"),
+        [
+            "phase",
+            "plan",
+            "dimension",
+            "property",
+            "conflicts_with",
+            "alternatives",
+            "raised",
+            "resolved",
+            "status"
+        ]
+    );
+    assert_eq!(kind_of("revision_conflict")["scoped_by"], "phase");
+    for field in ["raised", "resolved"] {
+        assert_eq!(field_of("revision_conflict", field)["writer"], "harness");
+    }
+    assert_eq!(
+        field_of("revision_conflict", "status")["writer"],
+        "computed"
+    );
+}

@@ -574,6 +574,24 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "RevisionConflictPhase",
+        "source_kind": "revision_conflict",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "RevisionConflictPlan",
+        "source_kind": "revision_conflict",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "UserSetupPlan",
         "source_kind": "user_setup",
         "target_kind": "plan"
@@ -6101,6 +6119,152 @@
         "name": "review_concern",
         "open_fields": false,
         "scoped_by": "review",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A conflict a plan revision reported (GSD REVISION_CONFLICT lines)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "RevisionConflictPhase",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": true,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "the plan whose revision reported it",
+            "edge": "RevisionConflictPlan",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "the checker dimension or review lane that asked",
+            "edge": null,
+            "field_type": "string",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "dimension",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "what the ask would change",
+            "edge": null,
+            "field_type": "string",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "property",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the decision, requirement or must-have it would break",
+            "edge": null,
+            "field_type": "string",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "conflicts_with",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the ways out the planner named",
+            "edge": null,
+            "field_type": "string",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "alternatives",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "when `record_conflict` raised it",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "raised",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "when and how `resolve_conflict` closed it",
+            "edge": null,
+            "field_type": "block",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "at",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "how",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "resolved",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "resolved once `resolved` is set, open while only `raised` is, else none",
+            "edge": null,
+            "enum_values": [
+              "open",
+              "resolved"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "revision_conflict",
+        "open_fields": false,
+        "scoped_by": "phase",
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,

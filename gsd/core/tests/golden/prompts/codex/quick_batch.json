@@ -61,7 +61,7 @@
     "",
     "<available_agent_types>"
   ],
-  "bytes": 31884,
+  "bytes": 31903,
   "end": [
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
     "capacity/isolation, and dispatch wave-by-wave.",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:cfd8a996f9e1b733a224172280c582a9e1eec4cfb106cfb10618bb7ef8b0e9c8",
+    "digest": "sha256:ddfc8e6a3964c1fbbb8451553d56596c112ce30826bcf8c3e48ba9911539d11b",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "cfd8a996f9e1b733a224172280c582a9e1eec4cfb106cfb10618bb7ef8b0e9c8"
+  "sha256": "ddfc8e6a3964c1fbbb8451553d56596c112ce30826bcf8c3e48ba9911539d11b"
 }

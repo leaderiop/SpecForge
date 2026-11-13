@@ -26,7 +26,7 @@
     "4. Tell the user to restart the host, so that it reads the new skills.",
     "</process>"
   ],
-  "bytes": 10575,
+  "bytes": 10594,
   "end": [
     "  \"effort.routing_tier_defaults.heavy\": \"xhigh\",",
     "  \"effort.routing_tier_defaults.light\": \"low\",",
@@ -89,7 +89,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-REVIEWS.md` | review, review_concern |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -153,8 +153,8 @@
   ],
   "lines": 204,
   "payload": {
-    "digest": "sha256:5d3795fee2d4c6e46108d7152a971c37312b406e34d5c5a30166386a080a4c37",
+    "digest": "sha256:1ca94ab8c9d1cb700e352a74ff1718252b63af2a680bef2a2a3ebbe1e153bdb6",
     "prompt": "@gsd/core@VERSION:update"
   },
-  "sha256": "5d3795fee2d4c6e46108d7152a971c37312b406e34d5c5a30166386a080a4c37"
+  "sha256": "1ca94ab8c9d1cb700e352a74ff1718252b63af2a680bef2a2a3ebbe1e153bdb6"
 }
