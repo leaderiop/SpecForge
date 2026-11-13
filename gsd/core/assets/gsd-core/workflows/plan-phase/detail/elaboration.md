@@ -97,7 +97,17 @@ Use AskUserQuestion for each gap (or batch if multiple gaps).
 
 **If "Add plan":** Return to planner (step 8) with instruction to add plans covering the missing items, preserving existing plans.
 **If "Split":** Use `/gsd:phase --insert` for overflow items, then replan.
-**If "Defer":** Record in CONTEXT.md `## Deferred Ideas` with developer's confirmation. Proceed to step 10.
+**If "Defer":** once the developer confirms, record each deferred item as a `deferred_idea` of the phase, then go on to
+step 10:
+
+```bash
+PHASE_ID="{the phase id, e.g. v1.0/02}"
+IDEA_ID="{the phase's next deferred idea id, e.g. DI2}"
+DEFERRED="{the unplanned item, in the developer's words}"
+WHY="{why it waits, e.g. the developer deferred it at the source audit}"
+PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
+specforge new deferred_idea "$IDEA_ID" "$DEFERRED" --in "$PHASE_FILE" --phase "$PHASE_ID" --text "$DEFERRED" --why "$WHY" || exit 1
+```
 
 ## § 11a — Filesystem Fallback (Checker)
 

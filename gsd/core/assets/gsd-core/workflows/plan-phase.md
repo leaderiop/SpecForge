@@ -981,7 +981,7 @@ When the planner returns `## PHASE SPLIT RECOMMENDED`, the phase's source items 
 
 ## 9c. Handle Source Audit Gaps
 
-When the planner returns `## ⚠ Source Audit: Unplanned Items Found`, items from REQUIREMENTS.md, RESEARCH.md, ROADMAP goal, or CONTEXT.md decisions have no corresponding plan. Present each gap to the user with three options: Add a plan (return to planner, step 8), Split phase (`/gsd:phase --insert`, then replan), or Defer (record in CONTEXT.md `## Deferred Ideas` with developer confirmation, proceed to step 10). Full banner text: `gsd-core/workflows/plan-phase/detail/elaboration.md` § 9c.
+When the planner returns `## ⚠ Source Audit: Unplanned Items Found`, some of the phase's requirements, research findings, roadmap goal or context decisions have no plan. Each gap goes to the user with three choices: add a plan (back to the planner, step 8), split the phase (`/gsd:phase --insert`, then replan), or defer it, which records the item as a `deferred_idea` of the phase once the developer confirms (the fence in § 9c) and goes on to step 10. Full banner text: `gsd-core/workflows/plan-phase/detail/elaboration.md` § 9c.
 
 ## 10. Spawn gsd-plan-checker Agent
 

@@ -3375,7 +3375,9 @@ gsd-core/workflows/plan-phase.md	kept	979+21	fcc1ac5559c3
 gsd-core/workflows/plan-phase.md	own	1000+1	1	e508f4643c24	49f04f2ca22a	ported-name
 gsd-core/workflows/plan-phase.md	kept	1001+6	e3a6708f8849
 gsd-core/workflows/plan-phase.md	own	1007+1	1	8ef552f335a5	9e2817cd4d06	prose
-gsd-core/workflows/plan-phase.md	kept	1008+23	edc5ec76f3a6
+gsd-core/workflows/plan-phase.md	kept	1008+3	c91c34d65e63
+gsd-core/workflows/plan-phase.md	own	1011+1	1	1b621c8a591e	c1857abb3ad0	served
+gsd-core/workflows/plan-phase.md	kept	1012+19	784e50e89aaa
 gsd-core/workflows/plan-phase.md	own	1031+2	2	3f6ee30c7042	188ac03bf321	ported-name
 gsd-core/workflows/plan-phase.md	kept	1033+9	9d66beb2ef7e
 gsd-core/workflows/plan-phase.md	own	1042+1	1	307c96a4d2ab	307c96a4d2ab	markdown
@@ -3454,7 +3456,9 @@ gsd-core/workflows/plan-phase.md	own	1560+1	1	be1ed7c93b5c	5f195ec38e55	ported-n
 gsd-core/workflows/plan-phase.md	kept	1561+15	05f1d39e9586
 gsd-core/workflows/plan-phase/detail/elaboration.md	kept	1+70	a35bacedd7a6
 gsd-core/workflows/plan-phase/detail/elaboration.md	own	71+1	1	a1eaaef18592	7df5f3fa4170	prose
-gsd-core/workflows/plan-phase/detail/elaboration.md	kept	72+84	2f3d16bc8949
+gsd-core/workflows/plan-phase/detail/elaboration.md	kept	72+27	a93bf2e8d7fa
+gsd-core/workflows/plan-phase/detail/elaboration.md	own	99+1	11	6eaee776ee34	f8f5776aa073	prose
+gsd-core/workflows/plan-phase/detail/elaboration.md	kept	100+56	5368f875c66e
 gsd-core/workflows/plan-phase/detail/elaboration.md	own	156+3	3	54be0acd1391	665190d7872c	ported-name
 gsd-core/workflows/plan-phase/detail/elaboration.md	kept	159+14	d4ba6eb04c0f
 gsd-core/workflows/plan-phase/detail/elaboration.md	own	173+1	1	f1f97b37fc50	673a2a76111d	served

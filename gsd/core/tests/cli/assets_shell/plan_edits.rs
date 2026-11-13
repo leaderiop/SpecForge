@@ -647,3 +647,31 @@ fn the_plan_checker_spawn_reads_one_pack_per_plan() {
         "{out}"
     );
 }
+
+/// A source-audit gap the developer defers is recorded as a deferred idea of the phase, as the model fills the fence.
+#[test]
+fn a_deferred_audit_gap_is_a_deferred_idea() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let defer = typed::filled(
+        &typed::typed_fence(
+            &asset("gsd-core/workflows/plan-phase/detail/elaboration.md"),
+            "**If \"Defer\":**",
+        ),
+        &[
+            ("PHASE_ID", "v1.0/02"),
+            ("IDEA_ID", "DI2"),
+            ("DEFERRED", "Export the board as CSV"),
+            ("WHY", "the developer deferred it at the source audit"),
+        ],
+    );
+    let run = typed::apply(&sh, &p, &defer);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    // the idea joins the phase context the twin's research was written against, so the research reads as stale
+    assert_eq!(run.added, ["gsd/W406"], "{:?}", run.added);
+    let idea = p.fields_of("v1.0/02/DI2");
+    assert_eq!(idea["phase"], "v1.0/02", "{idea}");
+    assert_eq!(idea["text"], "Export the board as CSV", "{idea}");
+}
