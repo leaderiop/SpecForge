@@ -261,25 +261,10 @@ fn the_kinds_golden() {
 
 #[test]
 fn milestone_and_phase_declare_the_fields_of_the_model() {
-    assert_eq!(
-        fields_of("milestone"),
-        [
-            "name",
-            "delivered",
-            "accomplishments",
-            "whats_next",
-            "abandoned",
-            "workstream",
-            "completion",
-            "state",
-            "first_commit",
-            "shipped",
-            "stats",
-            "git_range",
-            "progress",
-            "branch"
-        ]
-    );
+    let milestone = "name delivered accomplishments whats_next goal target_features abandoned workstream completion \
+        state first_commit shipped stats git_range progress branch";
+    let milestone: Vec<&str> = milestone.split_whitespace().collect();
+    assert_eq!(fields_of("milestone"), milestone);
     assert_eq!(
         fields_of("phase"),
         [
@@ -372,8 +357,8 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
     // + 2: the requirement's `shapes` and `text_en`, which the spec-less edge probe reads (ADR 0333).
-    // + 2: the lesson's `graduated` and `status`.
-    assert_eq!(total, 72 + 3 - 2 + 1 + 2 + 2 + 2, "the kinds' fields");
+    // + 2: the lesson's `graduated` and `status`; + 2: the milestone's `goal` and `target_features`.
+    assert_eq!(total, 72 + 3 - 2 + 1 + 2 + 2 + 2 + 2, "the kinds' fields");
 }
 
 #[test]

@@ -1563,6 +1563,26 @@
           },
           {
             "default_value": null,
+            "description": "**Goal:** of the Current Milestone in PROJECT.md",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "goal",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "**Target features:** of the Current Milestone in PROJECT.md",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "target_features",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
             "description": "gsd-path's abandon ruling",
             "edge": null,
             "field_type": "block",

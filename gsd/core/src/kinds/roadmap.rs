@@ -30,6 +30,8 @@ pub const MILESTONE: Kind = Kind::new(
         str("delivered").doc("Delivered"),
         strs("accomplishments").doc("Key accomplishments"),
         str("whats_next").doc("What's next"),
+        str("goal").doc("**Goal:** of the Current Milestone in PROJECT.md"),
+        strs("target_features").doc("**Target features:** of the Current Milestone in PROJECT.md"),
         block("abandoned", ABANDONED).doc("gsd-path's abandon ruling"),
         rf("workstream", "workstream")
             .i()

@@ -1,7 +1,7 @@
 //! The roadmap rules, end to end: which codes `specforge check` reports on the `roadmap_errors` project, and that
 //! the clean `roadmap` project reports none.
 
-use crate::harness::project;
+use crate::harness::{project, taskboard};
 
 #[test]
 fn roadmap_errors_report_each_code_once() {
@@ -167,5 +167,28 @@ fn a_phase_with_two_contexts_is_e206() {
             .1
             .contains("'v1.0/02/02-CONTEXT-B' is a second context"),
         "{found:#?}"
+    );
+}
+
+/// A milestone keeps the Current Milestone's goal and target features: both write on the taskboard, read back, and
+/// the check reports nothing new.
+#[test]
+fn a_milestone_keeps_its_goal_and_target_features() {
+    let p = taskboard();
+    let before = p.codes();
+    for args in [
+        &["set", "v1.0", "goal", "A board that survives a restart"][..],
+        &["link", "v1.0", "target_features", "Save after every change"],
+        &["link", "v1.0", "target_features", "List the open tasks"],
+    ] {
+        let run = p.run(args);
+        assert_eq!(run.code, 0, "{args:?}: {}", run.all());
+    }
+    assert_eq!(p.codes(), before);
+    let fields = p.fields_of("v1.0");
+    assert_eq!(fields["goal"], "A board that survives a restart");
+    assert_eq!(
+        fields["target_features"],
+        serde_json::json!(["Save after every change", "List the open tasks"])
     );
 }

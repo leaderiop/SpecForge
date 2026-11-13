@@ -59,6 +59,8 @@ GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. N
 | delivered | str | | `**Delivered:**` |
 | accomplishments | strs | | `**Key accomplishments:**` |
 | whats_next | str | | `**What's next:**` |
+| goal | str | | the Current Milestone's `**Goal:**` (PROJECT.md), recorded by `/gsd-new-milestone` |
+| target_features | strs | | the Current Milestone's `**Target features:**` (PROJECT.md) |
 | abandoned | {reason str R, ruled_by str R, at date R} | | gsd-path's abandon ruling |
 | workstream | → workstream | I | the workstream it belongs to (K2: it scopes the milestone, `auth-rework/v1.0`); absent outside one, and the milestone keeps its short id |
 | completion | {at date, audit → milestone_audit} | H | written by `close_milestone` (`/gsd-complete-milestone`) once its audit passes: `audit` is the latest audit it closed on |
