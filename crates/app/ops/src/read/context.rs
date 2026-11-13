@@ -14,11 +14,9 @@ use crate::options::OptionTable;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Refusal};
 
-/// The code of the refusal of a route no loaded extension declares.
-pub const UNKNOWN_ROUTE: &str = "unknown_route";
-
-/// The code of the refusal of a subject of another kind than the route's.
-pub const ROUTE_OF_ANOTHER_KIND: &str = "route_of_another_kind";
+// One code each for trace and context routes: a route no loaded extension declares, a subject of another kind than
+// the route's.
+pub use super::trace::{ROUTE_OF_ANOTHER_KIND, UNKNOWN_ROUTE};
 
 /// The formats of a pack's `graph` member: `context` by default.
 pub const PACK_FORMAT: OptionTable<Format> = OptionTable {
