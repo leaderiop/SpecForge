@@ -67,6 +67,23 @@ behavior follow_trace_route "Follow a Trace Route" {
   verify unit "a route step reaches collector-written facts through a scheme reference, and an unheld one is no match"
 }
 
+behavior trace_within_entity "Trace Within an Entity" {
+  invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
+  category   query
+  contract   """
+    A trace within an entity (ADR 0355) MUST trace every entity within it: the entity, every entity its scope holds
+    at any depth, and every entity one reference away from one of those, either way, each once, in id order, as a
+    trace of every entity traces each. A named route MUST keep the entities of its start kind; the declared route and
+    the reach keep all. The answer is the document of a trace of every entity. An entity the graph lacks is not found
+    about in. An entity, in and a plan are three exclusive targets: in beside an entity or a plan is invalid input
+    about in.
+  """
+  verify unit "in beside an entity or a plan is refused about in"
+  verify unit "a trace within a milestone traces the requirements its phases name, and none of another milestone"
+  verify unit "a trace within an entity with no route traces it, its scope's entities and those one reference away"
+  verify unit "a trace within an entity the graph lacks is not found about in"
+}
+
 behavior render_trace_thread "Render a Trace Thread" {
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query

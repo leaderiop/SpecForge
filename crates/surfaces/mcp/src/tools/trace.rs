@@ -4,7 +4,7 @@ use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_ops::read::plan::{AgentPlan, PlanOutcome};
 use specforge_ops::read::trace::{
-    Ask, RouteTrace, Target, Trace, TraceChain, TraceDocument, TraceField,
+    Ask, RouteTrace, Target, Trace, TraceChain, TraceDocument, TraceField, TraceRequest,
 };
 use specforge_ops::view::ProjectView;
 
@@ -48,6 +48,7 @@ impl ArgumentOf<TraceField> for Tool {
             TraceField::EntityId => Some("entity_id"),
             TraceField::Plan => Some("plan"),
             TraceField::Route => Some("route"),
+            TraceField::In => Some("in"),
         }
     }
 }
@@ -73,19 +74,20 @@ impl CoreTool for Tool {
     type Returns = Answered<Reply>;
 
     fn call(view: ProjectView<'_>, args: Args) -> Answered<Reply> {
-        let (entity_id, follow) = match Ask::of(
-            args.entity_id.as_deref(),
-            args.plan.as_ref(),
-            args.route.as_deref(),
-            args.reach,
-        )
+        let (entity_id, follow) = match Ask::of(TraceRequest {
+            entity: args.entity_id.as_deref(),
+            within: None,
+            plan: args.plan.as_ref(),
+            route: args.route.as_deref(),
+            reach: args.reach,
+        })
         .map_err(|refusal| Box::new(Self::refused(refusal)))?
         {
             Ask::Plan(plan) => {
                 return Ok(Reply::Plan(specforge_ops::read::plan::check(&view, plan)).into());
             }
             Ask::Trace(Target::Entity(entity_id), follow) => (entity_id, follow),
-            Ask::Trace(Target::Every, _) => return Err(every_is_not_offered()),
+            Ask::Trace(Target::Every | Target::Within(_), _) => return Err(every_is_not_offered()),
         };
         let traced = specforge_ops::read::trace::trace_one(&view, entity_id, follow)
             .map_err(|refusal| Box::new(Self::refused(refusal)))?;

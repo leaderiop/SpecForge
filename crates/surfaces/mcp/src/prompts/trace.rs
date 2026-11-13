@@ -4,7 +4,7 @@
 use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_ops::read::plan::AgentPlan;
-use specforge_ops::read::trace::{self, Ask, Gap, Target, TraceField};
+use specforge_ops::read::trace::{self, Ask, Gap, Target, TraceField, TraceRequest};
 
 use crate::args::Arguments;
 use crate::prompt::{CorePrompt, Prompted};
@@ -31,8 +31,8 @@ impl ArgumentOf<TraceField> for Prompt {
         match field {
             TraceField::EntityId => Some("entity_id"),
             TraceField::Plan => Some("plan"),
-            // The prompt reads the reach: it takes no route.
-            TraceField::Route => None,
+            // The prompt reads the reach: it takes no route, and traces within no entity.
+            TraceField::Route | TraceField::In => None,
         }
     }
 }
@@ -70,30 +70,33 @@ pub struct Args {
 fn render(view: ProjectView<'_>, args: Args) -> Result<Prompted<Payload>, Box<McpError>> {
     // A plan's entries, or the one entity, seed the trace; the gaps are the
     // plan's, or the entity's chain's missing links.
-    let (seeds, coverage_gaps, subject) =
-        match Ask::of(args.entity_id.as_deref(), args.plan.as_ref(), None, false)
-            .map_err(|refusal| Box::new(Prompt::refused(refusal)))?
-        {
-            Ask::Plan(plan) => {
-                let outcome = specforge_ops::read::plan::check(&view, plan);
-                let gaps = outcome.gaps.iter().map(Gap::from).collect();
-                (outcome.resolved_entries, gaps, "the plan".to_string())
-            }
-            Ask::Trace(Target::Entity(entity_id), _) => {
-                // As the trace tool traces it: its chain and missing links.
-                // ADR 0111 D6: the trace prompt's payload has no `_meta`, so it reports no notices.
-                let (document, _unreported) = trace::chain(&view, entity_id)
-                    .map_err(|refusal: Refusal<EntityField>| Prompt::refused(refusal))?
-                    .into_value_and_notices();
-                let gaps = document.trace.missing.iter().map(Gap::from).collect();
-                (
-                    vec![entity_id.to_string()],
-                    gaps,
-                    format!("entity '{entity_id}'"),
-                )
-            }
-            Ask::Trace(Target::Every, _) => return Err(every_is_not_offered()),
-        };
+    let (seeds, coverage_gaps, subject) = match Ask::of(TraceRequest {
+        entity: args.entity_id.as_deref(),
+        plan: args.plan.as_ref(),
+        ..TraceRequest::default()
+    })
+    .map_err(|refusal| Box::new(Prompt::refused(refusal)))?
+    {
+        Ask::Plan(plan) => {
+            let outcome = specforge_ops::read::plan::check(&view, plan);
+            let gaps = outcome.gaps.iter().map(Gap::from).collect();
+            (outcome.resolved_entries, gaps, "the plan".to_string())
+        }
+        Ask::Trace(Target::Entity(entity_id), _) => {
+            // As the trace tool traces it: its chain and missing links.
+            // ADR 0111 D6: the trace prompt's payload has no `_meta`, so it reports no notices.
+            let (document, _unreported) = trace::chain(&view, entity_id)
+                .map_err(|refusal: Refusal<EntityField>| Prompt::refused(refusal))?
+                .into_value_and_notices();
+            let gaps = document.trace.missing.iter().map(Gap::from).collect();
+            (
+                vec![entity_id.to_string()],
+                gaps,
+                format!("entity '{entity_id}'"),
+            )
+        }
+        Ask::Trace(Target::Every | Target::Within(_), _) => return Err(every_is_not_offered()),
+    };
 
     // What the seeds' chains reach, and which of it is unverified.
     let affected = trace::affected(&view, seeds.iter().map(String::as_str))

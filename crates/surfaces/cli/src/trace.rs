@@ -3,7 +3,7 @@ use crate::outcome::{Exit, OutputFormat, Refusal};
 use crate::terminal::{Terminal, out};
 use specforge_ops::read::plan::{AgentPlan, PlanOutcome};
 use specforge_ops::read::trace::{
-    Ask, Partial, RouteTrace, Trace, TraceChain, TraceLink, TraceOutcome,
+    Ask, Partial, RouteTrace, Trace, TraceChain, TraceLink, TraceOutcome, TraceRequest,
 };
 use specforge_ops::view::ProjectView;
 
@@ -61,12 +61,13 @@ impl Args {
         };
         let view = ProjectView::of(&project);
         // clap refuses an entity with --plan first; the reading is the operation's all the same.
-        let (target, follow) = match Ask::of(
-            self.entity.as_deref(),
-            self.plan.as_ref(),
-            self.route.as_deref(),
-            self.reach,
-        ) {
+        let (target, follow) = match Ask::of(TraceRequest {
+            entity: self.entity.as_deref(),
+            within: None,
+            plan: self.plan.as_ref(),
+            route: self.route.as_deref(),
+            reach: self.reach,
+        }) {
             Err(refusal) => {
                 return Refusal::of(self.asked_or_json()).report(terminal, &refusal.into_error());
             }

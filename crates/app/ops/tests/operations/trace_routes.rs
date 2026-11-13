@@ -522,3 +522,71 @@ fn an_unheld_scheme_reference_is_no_match() {
     assert!(route.steps[3].matches.is_empty());
     assert_eq!(route.missing, ["test"]);
 }
+
+/// The ids a trace outcome traces, in order.
+fn traced_ids(outcome: &TraceOutcome) -> Vec<String> {
+    assert!(matches!(outcome, TraceOutcome::Every(_)), "{outcome:?}");
+    outcome
+        .traces()
+        .iter()
+        .map(|trace| match trace {
+            Trace::Chain(chain) => chain.entity_id.clone(),
+            Trace::Route(route) => route.entity_id.clone(),
+        })
+        .collect()
+}
+
+/// [`GSD_ROUTED_SPEC`] with a second milestone, `v2.0`, whose phase `04` names `AUTH-08`.
+fn two_milestones() -> String {
+    format!(
+        "{GSD_ROUTED_SPEC}\nmilestone v2.0 \"Two\" {{}}\n\nrequirement AUTH-08 \"Logout\" {{}}\n\n\
+         phase 04 \"Four\" {{\n  milestone v2.0\n  requirements [AUTH-08]\n}}\n"
+    )
+}
+
+#[specforge_test(
+    behavior = "trace_within_entity",
+    verify = "a trace within a milestone traces the requirements its phases name, and none of another milestone"
+)]
+fn within_a_milestone_traces_the_requirements_its_phases_name() {
+    let (_project, compiled) = compiled(&two_milestones());
+    let thread = Follow::Route("gsd/requirement-thread");
+    let within = |id| traced_ids(&traced(&compiled, Target::Within(id), thread).0);
+    assert_eq!(within("v1.0"), ["AUTH-07"]);
+    assert_eq!(within("v2.0"), ["AUTH-08"]);
+    assert_eq!(within("03"), ["AUTH-07"]);
+}
+
+#[specforge_test(
+    behavior = "trace_within_entity",
+    verify = "a trace within an entity with no route traces it, its scope's entities and those one reference away"
+)]
+fn within_with_no_route_traces_the_scope_and_one_reference_away() {
+    let (_project, compiled) = compiled(&two_milestones());
+    let (outcome, _) = traced(&compiled, Target::Within("03"), Follow::Declared);
+    assert_eq!(
+        traced_ids(&outcome),
+        [
+            "5e2a91c0d3b4",
+            "AUTH-07",
+            "js:app/test/auth.test.js#keeps a session",
+            "v1.0",
+            "v1.0/03",
+            "v1.0/03/03-02",
+            "v1.0/03/03-02/T1",
+            "v1.0/03/03-02/TR1",
+        ]
+    );
+}
+
+#[specforge_test(
+    behavior = "trace_within_entity",
+    verify = "a trace within an entity the graph lacks is not found about in"
+)]
+fn within_an_unknown_entity_is_not_found_about_in() {
+    let (_project, compiled) = compiled(GSD_ROUTED_SPEC);
+    let view = ProjectView::of(&compiled);
+    let missing = trace(&view, Target::Within("v9.9"), Follow::Declared).unwrap_err();
+    assert_eq!(missing.error.code, "E003");
+    assert_eq!(missing.subject, Some(TraceField::In));
+}
