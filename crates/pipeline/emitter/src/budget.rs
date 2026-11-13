@@ -131,14 +131,24 @@ pub(crate) fn fit(
             ),
         });
     }
-    let (mut lo, mut hi) = (1, n);
+    let cut = fewest(1, n, |cut| Ok(with_cut(cut)?.1 <= max_tokens))?;
+    Ok(with_cut(cut)?.0)
+}
+
+/// The smallest `k` in `lo..=hi` for which `fits(k)`, by bisection: `fits` holds for every `k` above one that fits,
+/// and the caller has seen it hold at `hi`.
+pub(crate) fn fewest(
+    mut lo: usize,
+    mut hi: usize,
+    mut fits: impl FnMut(usize) -> Result<bool, EmitterError>,
+) -> Result<usize, EmitterError> {
     while lo < hi {
         let mid = lo + (hi - lo) / 2;
-        if with_cut(mid)?.1 <= max_tokens {
+        if fits(mid)? {
             hi = mid;
         } else {
             lo = mid + 1;
         }
     }
-    Ok(with_cut(lo)?.0)
+    Ok(lo)
 }

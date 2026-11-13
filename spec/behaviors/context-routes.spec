@@ -43,6 +43,8 @@ behavior serve_context_pack "Serve a Context Pack" {
   verify unit "a section digests as the judged input of the same selector does"
   verify unit "a files section lists paths and digests and a settings section the values of its settings"
   verify unit "the pack digest covers the sections served and recomputes from the pack"
+  verify unit "core sections are never cut, and a budget below them is E062 naming the route"
+  verify unit "enrich sections fill the budget whole in declared order, and inside the first that does not fit its most central entities are kept"
 }
 
 behavior declare_context_route "Declare a Context Route" {

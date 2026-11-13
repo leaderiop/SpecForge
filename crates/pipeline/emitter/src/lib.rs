@@ -18,6 +18,7 @@ pub mod json;
 pub mod markdown;
 pub mod model;
 pub mod outline;
+pub mod pack;
 mod publish;
 pub mod schema;
 mod text;
