@@ -15,8 +15,6 @@ use crate::settings;
 
 /// What a template becomes: `(file name or folder, kinds)`; no kinds means the template has no entity.
 const TEMPLATES: &[(&str, &[&str])] = &[
-    ("project.md", &["project"]),
-    ("requirements.md", &["requirement"]),
     ("roadmap.md", &["milestone", "phase"]),
     ("milestone.md", &["milestone", "phase"]),
     ("summary.md", &["summary"]),

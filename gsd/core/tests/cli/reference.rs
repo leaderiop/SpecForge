@@ -173,6 +173,8 @@ const CONVERTED: &[(&str, &[&str])] = &[
             "spec_prohibition",
         ],
     ),
+    ("gsd-core/templates/project.md", &["project", "decision"]),
+    ("gsd-core/templates/requirements.md", &["requirement"]),
 ];
 
 /// A converted template's answer names its kinds and how to read their fields (`specforge schema --kind`), each kind

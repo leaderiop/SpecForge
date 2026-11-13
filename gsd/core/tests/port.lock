@@ -1319,7 +1319,19 @@ gsd-core/references/prohibition-probe.md	kept	117+26	7f94038be21d
 gsd-core/references/prohibition-probe.md	own	143+1	1	d5640b7c1354	e043c9c31d82	served
 gsd-core/references/prohibition-probe.md	kept	144+190	bafaf8bce80e
 gsd-core/references/project-skills-discovery.md	kept	1+20	c155e03dce8d
-gsd-core/references/questioning.md	kept	1+163	a8c988cab05f
+gsd-core/references/questioning.md	kept	1+16	1230c430baa9
+gsd-core/references/questioning.md	own	17+1	1	0087299963bb	5a4605997bf0	prose
+gsd-core/references/questioning.md	kept	18+7	213f4bbe1b52
+gsd-core/references/questioning.md	own	25+1	1	244fde075b13	266a6fe44c72	prose
+gsd-core/references/questioning.md	kept	26+109	740894066ddc
+gsd-core/references/questioning.md	own	135+1	1	db5881c7be50	be03d2ddda60	prose
+gsd-core/references/questioning.md	kept	136+2	34a0179158fe
+gsd-core/references/questioning.md	own	138+1	1	cd370dee6bb1	a26ae68d90b5	prose
+gsd-core/references/questioning.md	kept	139+1	fdc1afaef56f
+gsd-core/references/questioning.md	own	140+1	1	06e7fdcf2e1a	cf5c97596238	prose
+gsd-core/references/questioning.md	kept	141+4	a949eecbc057
+gsd-core/references/questioning.md	own	145+1	1	4fe0751d75b7	e696975aee9a	prose
+gsd-core/references/questioning.md	kept	146+18	1795706730ef
 gsd-core/references/research-documentation-lookup.md	kept	1+6	e4b2d93ba47a
 gsd-core/references/research-documentation-lookup.md	own	7+4	2	efd106d1b1ea	3b62c3bf14ff	prose
 gsd-core/references/research-documentation-lookup.md	kept	11+3	e843f9acbe21
@@ -1669,14 +1681,15 @@ gsd-core/templates/milestone.md	own	54+2	2	ef5742fa15f5	8cc65a5a4195	served
 gsd-core/templates/milestone.md	kept	56+9	0bb98df7d5c1
 gsd-core/templates/milestone.md	own	65+0	1	e3b0c44298fc	e3b0c44298fc	markdown
 gsd-core/templates/milestone.md	kept	65+52	932bdd15811e
-gsd-core/templates/project.md	kept	1+2	0e5547faacb8
-gsd-core/templates/project.md	own	3+1	1	b5da04a6968b	6f20a060bf74	ported-name
-gsd-core/templates/project.md	kept	4+191	892c88221194
-gsd-core/templates/project.md	own	195+1	1	2d6d7014764b	cc84ff90b015	ported-name
-gsd-core/templates/project.md	kept	196+9	7d8762959297
+gsd-core/templates/project.md	own	1+73	3	dddb4707a8c9	b361118235d4	ported-name
+gsd-core/templates/project.md	kept	74+2	3d0b188170e8
+gsd-core/templates/project.md	own	76+128	60	1c862e91d0b8	86590444f6b6	ported-name
+gsd-core/templates/project.md	kept	204+1	e3b0c44298fc
 gsd-core/templates/requirements.md	kept	1+2	4e4770dc4777
-gsd-core/templates/requirements.md	own	3+1	1	7143bdbd5325	85ff63ccf9e9	ported-name
-gsd-core/templates/requirements.md	kept	4+229	fa18c4e255f4
+gsd-core/templates/requirements.md	own	3+66	1	ae2b68e6d8e9	e745623c2698	ported-name
+gsd-core/templates/requirements.md	kept	69+2	3d0b188170e8
+gsd-core/templates/requirements.md	own	71+161	39	e639292d8ec4	e095285e31e3	prose
+gsd-core/templates/requirements.md	kept	232+1	e3b0c44298fc
 gsd-core/templates/research-project/ARCHITECTURE.md	kept	1+2	9c4f4a864fdf
 gsd-core/templates/research-project/ARCHITECTURE.md	own	3+1	1	adce2337310c	d1bcc55ca034	ported-name
 gsd-core/templates/research-project/ARCHITECTURE.md	kept	4+3	f1ce2fca7b0b
@@ -3069,17 +3082,23 @@ gsd-core/workflows/new-project.md	own	94+1	1	7e06c2a5ab9b	8b7b836e36a0	ported-na
 gsd-core/workflows/new-project.md	kept	95+1	ad332335cfaa
 gsd-core/workflows/new-project.md	own	96+1	1	92c6c9fc1cfd	9007a43bbdd9	ported-name
 gsd-core/workflows/new-project.md	kept	97+4	a1d09164f4dd
-gsd-core/workflows/new-project.md	own	101+1	1	33dda80335f7	f7d5a16c4b2a	ported-name
+gsd-core/workflows/new-project.md	own	101+1	1	33dda80335f7	ce9a4624bbf1	ported-name
 gsd-core/workflows/new-project.md	kept	102+25	f982268905bf
-gsd-core/workflows/new-project.md	own	127+1	1	c019317497dc	c1f14cd2d5e0	ported-name
+gsd-core/workflows/new-project.md	own	127+1	1	c019317497dc	fd47dd8369ad	ported-name
 gsd-core/workflows/new-project.md	kept	128+21	e7f992e59225
 gsd-core/workflows/new-project.md	own	149+1	1	e3e25eab81fa	d8d4137876ad	ported-name
-gsd-core/workflows/new-project.md	kept	150+49	e0be925b5964
-gsd-core/workflows/new-project.md	own	199+1	1	e25097d30f46	5fd2e50b829d	ported-name
-gsd-core/workflows/new-project.md	kept	200+30	9462bdb623ea
-gsd-core/workflows/new-project.md	own	230+1	1	e7c1e4cdaf56	67daf0eb4ed1	ported-name
-gsd-core/workflows/new-project.md	kept	231+67	39d81a5726c5
-gsd-core/workflows/new-project.md	own	298+2	2	74b771e70daf	8e6fa82c2670	ported-name
+gsd-core/workflows/new-project.md	kept	150+33	71b841dbaf06
+gsd-core/workflows/new-project.md	own	183+1	1	df87f115ce0d	5645ef3fd19b	prose
+gsd-core/workflows/new-project.md	kept	184+2	34a0179158fe
+gsd-core/workflows/new-project.md	own	186+1	1	cd370dee6bb1	a26ae68d90b5	prose
+gsd-core/workflows/new-project.md	kept	187+1	fdc1afaef56f
+gsd-core/workflows/new-project.md	own	188+1	1	06e7fdcf2e1a	cf5c97596238	prose
+gsd-core/workflows/new-project.md	kept	189+4	8bb17400a065
+gsd-core/workflows/new-project.md	own	193+3	3	e1836eb88861	dc74117377e8	prose
+gsd-core/workflows/new-project.md	kept	196+3	c5233ab79127
+gsd-core/workflows/new-project.md	own	199+98	6	635742e563b7	60c7af78cbb9	ported-name
+gsd-core/workflows/new-project.md	kept	297+1	ad332335cfaa
+gsd-core/workflows/new-project.md	own	298+2	1	74b771e70daf	c782169313b2	ported-name
 gsd-core/workflows/new-project.md	kept	300+6	8bc2ec03fba5
 gsd-core/workflows/new-project.md	own	306+5	2	ab85be121a20	de8948b64d79	prose
 gsd-core/workflows/new-project.md	kept	311+194	aa4ac6dd096f
@@ -3104,11 +3123,17 @@ gsd-core/workflows/new-project.md	kept	710+54	b98af6ba1de7
 gsd-core/workflows/new-project.md	own	764+4	4	e9ca50c125ea	c042f10d24cb	ported-name
 gsd-core/workflows/new-project.md	kept	768+17	22cfef2a23c7
 gsd-core/workflows/new-project.md	own	785+1	1	430104a253ae	14cefcfc9664	ported-name
-gsd-core/workflows/new-project.md	kept	786+102	5861cd07481d
-gsd-core/workflows/new-project.md	own	888+1	1	c102611d5f4b	ce937ffe2c6d	ported-name
-gsd-core/workflows/new-project.md	kept	889+50	efe0abab62ec
+gsd-core/workflows/new-project.md	kept	786+14	8598945f194d
+gsd-core/workflows/new-project.md	own	800+1	1	11b565cf9d6c	be0d889c78db	prose
+gsd-core/workflows/new-project.md	kept	801+15	e78dbef7472e
+gsd-core/workflows/new-project.md	own	816+1	1	bc754ec3fa69	80789cc2bcaa	prose
+gsd-core/workflows/new-project.md	kept	817+67	65bcb383cd2d
+gsd-core/workflows/new-project.md	own	884+10	5	f2d80a05a124	50fc8a8fd782	ported-name
+gsd-core/workflows/new-project.md	kept	894+45	69e85676622d
 gsd-core/workflows/new-project.md	own	939+1	1	f205299fd140	41869ca30766	ported-name
-gsd-core/workflows/new-project.md	kept	940+168	21d3cd15f26e
+gsd-core/workflows/new-project.md	kept	940+27	7d58a082cb05
+gsd-core/workflows/new-project.md	own	967+14	1	d033ab21fa63	5448dd3dfa91	prose
+gsd-core/workflows/new-project.md	kept	981+127	ec5285c1fdb8
 gsd-core/workflows/new-project.md	own	1108+1	1	8a50075b4d8a	b04fbd405419	ported-name
 gsd-core/workflows/new-project.md	kept	1109+4	854828658fbf
 gsd-core/workflows/new-project.md	own	1113+1	1	8753c8565961	e6858fece5c1	ported-name
@@ -3126,7 +3151,13 @@ gsd-core/workflows/new-project.md	kept	1212+5	267988984c41
 gsd-core/workflows/new-project.md	own	1217+3	3	cabf83fa3335	dbe5bc048bc8	ported-name
 gsd-core/workflows/new-project.md	kept	1220+6	866249c20b58
 gsd-core/workflows/new-project.md	own	1226+1	1	3846db6e5151	dcd1fadb0b9c	ported-name
-gsd-core/workflows/new-project.md	kept	1227+22	80720c007b2a
+gsd-core/workflows/new-project.md	kept	1227+3	d0e4d7b0d01a
+gsd-core/workflows/new-project.md	own	1230+1	1	82e27d12d1ca	77720581481b	prose
+gsd-core/workflows/new-project.md	kept	1231+4	d2791f16f93a
+gsd-core/workflows/new-project.md	own	1235+1	1	9a77ed4e145a	4cd160282195	prose
+gsd-core/workflows/new-project.md	kept	1236+3	88e384bd021e
+gsd-core/workflows/new-project.md	own	1239+3	1	442d7ddb3f5e	a983e8d47934	prose
+gsd-core/workflows/new-project.md	kept	1242+7	f9c79ad5bf02
 gsd-core/workflows/new-project/detail/elaboration.md	kept	1+13	18ef8f5fc612
 gsd-core/workflows/new-project/detail/elaboration.md	own	14+1	1	45ecb0fa8bea	caeeb9ae9338	served
 gsd-core/workflows/new-project/detail/elaboration.md	kept	15+2	fade40c5ca52
@@ -3138,7 +3169,9 @@ gsd-core/workflows/new-project/detail/elaboration.md	own	83+1	1	98fd755a54b7	603
 gsd-core/workflows/new-project/detail/elaboration.md	kept	84+134	19610f23bbff
 gsd-core/workflows/new-project/steps/auto-mode-config.md	kept	1+35	254d8b25632e
 gsd-core/workflows/new-project/steps/auto-mode-config.md	own	36+1	1	e2576bc3cbb6	3559c46fbf5f	ported-name
-gsd-core/workflows/new-project/steps/auto-mode-config.md	kept	37+116	b7ee4dccf429
+gsd-core/workflows/new-project/steps/auto-mode-config.md	kept	37+105	b3315ee97aaa
+gsd-core/workflows/new-project/steps/auto-mode-config.md	own	142+2	2	4a70a8f334ee	32fef71c5f54	prose
+gsd-core/workflows/new-project/steps/auto-mode-config.md	kept	144+9	2b76c588f3a4
 gsd-core/workflows/new-project/steps/auto-mode-config.md	own	153+1	1	aca24e64e2d4	534a35b8da12	ported-name
 gsd-core/workflows/new-project/steps/auto-mode-config.md	kept	154+2	5f046190424d
 gsd-core/workflows/new-project/steps/auto-mode-config.md	own	156+6	6	778b659d4a01	0b42199d219e	ported-name

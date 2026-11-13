@@ -15,7 +15,7 @@ Don't interrogate. Collaborate. Don't follow a script. Follow the thread.
 
 <the_goal>
 
-By the end of questioning, you need enough clarity to write a PROJECT.md that downstream phases can act on:
+By the end of questioning, you need enough clarity to record a project that downstream phases can act on:
 
 - **Research** needs: what domain to research, what the user already knows, what unknowns exist
 - **Requirements** needs: clear enough vision to scope v1 features
@@ -23,7 +23,7 @@ By the end of questioning, you need enough clarity to write a PROJECT.md that do
 - **plan-phase** needs: specific requirements to break into tasks, context for implementation choices
 - **execute-phase** needs: success criteria to verify against, the "why" behind requirements
 
-A vague PROJECT.md forces every downstream phase to guess. The cost compounds.
+A vague project forces every downstream phase to guess. The cost compounds.
 
 </the_goal>
 
@@ -133,17 +133,17 @@ Four things. If they volunteer more, capture it.
 
 <decision_gate>
 
-When you could write a clear PROJECT.md, offer to proceed:
+When you could record a clear project, offer to proceed:
 
 - header: "Ready?"
-- question: "I think I understand what you're after. Ready to create PROJECT.md?"
+- question: "I think I understand what you're after. Ready to record the project?"
 - options:
-  - "Create PROJECT.md" — Let's move forward
+  - "Record the project" — Let's move forward
   - "Keep exploring" — I want to share more / ask me more
 
 If "Keep exploring" — ask what they want to add or identify gaps and probe naturally.
 
-Loop until "Create PROJECT.md" selected.
+Loop until "Record the project" selected.
 
 </decision_gate>
 

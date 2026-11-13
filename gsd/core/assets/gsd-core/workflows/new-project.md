@@ -96,7 +96,7 @@ INSTRUCTION_FILE=""   # the host install writes the instruction file; leave it e
 
 All subsequent references to the project instruction file use `$INSTRUCTION_FILE`.
 
-**If `project_exists` is true and `init_incomplete` is true (#4040 — interrupted bootstrap):** Resume initialization instead of erroring. the spec exists but initialization stopped before all core artifacts landed. Keep the existing `PROJECT.md` and any already-created artifacts (`REQUIREMENTS.md` if present, `config.json`); skip the steps that would recreate them and continue the flow from the first missing artifact in init order — `REQUIREMENTS.md` → `ROADMAP.md` + `STATE.md` — until all exist. Do not error and do not bounce the user back to `/gsd:progress` (that routing loop is the #4040 bug).
+**If `project_exists` is true and `init_incomplete` is true (#4040 — interrupted bootstrap):** Resume initialization instead of erroring. the spec exists but initialization stopped before all core artifacts landed. Keep the `project` entity and whatever is already recorded (its requirements, `config.json`); skip the steps that would record them again and continue the flow from the first missing piece in init order (the requirements, then the roadmap) until all exist. Do not error and do not bounce the user back to `/gsd:progress` (that routing loop is the #4040 bug).
 
 **If `project_exists` is true and `init_incomplete` is false:** Error — project already initialized. Use `/gsd:progress`.
 
@@ -122,7 +122,7 @@ If `section_manifest` is `null` or `"auto-mode-config"` is in its `included` lis
 
 ## 2b. Prior Spike/Sketch Detection
 
-Check for a spike/sketch findings skill or raw spike or sketch manifests (they are not part of @gsd/core). If any exist, surface them before questioning (which findings-skill, if any, and any raw un-wrapped spikes/sketches worth `/gsd:spike --wrap-up` / `/gsd:sketch --wrap-up`), and if a findings skill exists, read its SKILL.md to inform the questioning phase — it carries validated patterns, constraints, and design decisions that should shape the project definition.
+Check for a spike or sketch findings skill, or raw spike or sketch manifests (they are not part of @gsd/core). If any exist, surface them before questioning (which findings-skill, if any, and any raw un-wrapped spikes or sketches worth `/gsd:spike --wrap-up` / `/gsd:sketch --wrap-up`), and if a findings skill exists, read its SKILL.md to inform the questioning phase — it carries validated patterns, constraints, and design decisions that should shape the project definition.
 
 Exact detection commands and the surfaced-findings banner: `gsd-core/workflows/new-project/detail/elaboration.md` § 1.
 
@@ -178,122 +178,29 @@ As you go, mentally check the context checklist from `questioning.md`. If gaps r
 
 **Decision gate:**
 
-When you could write a clear PROJECT.md, use AskUserQuestion:
+When you could record a clear project, use AskUserQuestion:
 
 - header: "Ready?"
-- question: "I think I understand what you're after. Ready to create PROJECT.md?"
+- question: "I think I understand what you're after. Ready to record the project?"
 - options:
-  - "Create PROJECT.md" — Let's move forward
+  - "Record the project" — Let's move forward
   - "Keep exploring" — I want to share more / ask me more
 
 If "Keep exploring" — ask what they want to add, or identify gaps and probe naturally.
 
-Loop until "Create PROJECT.md" selected.
+Loop until "Record the project" selected.
 
-## 4. Write PROJECT.md
+## 4. Record the project
 
 **If auto mode:** Synthesize from provided document. No "Ready?" gate was shown — proceed directly to commit.
 
-Synthesize all context into the `project` entity using the template from `templates/project.md`.
+Synthesize all context into the `project` entity and its key decisions: run **the project fence** in `templates/project.md` (`specforge gsd reference templates/project.md`), its values filled from what was gathered, one `new decision` and `link` per decision made during questioning (outcome `pending`). Do not compress. Capture everything gathered.
 
-**For greenfield projects:**
+The requirements are not part of the project: Step 7 records them as `requirement` entities, and each starts active, its status computed as phases cover and verify it. For a brownfield project the `@gsd/codebase` map (`/gsd:map-codebase`) records what the code already does; read it and write the current state into `context`. The project evolves through typed edits at phase transitions and milestone boundaries (`workflows/transition.md`, `workflows/complete-milestone.md`): nothing is appended to it.
 
-Initialize requirements as hypotheses:
-
-```markdown
-## Requirements
-
-### Validated
-
-(None yet — ship to validate)
-
-### Active
-
-- [ ] [Requirement 1]
-- [ ] [Requirement 2]
-- [ ] [Requirement 3]
-
-### Out of Scope
-
-- [Exclusion 1] — [why]
-- [Exclusion 2] — [why]
-```
-
-All Active requirements are hypotheses until shipped and validated.
-
-**For brownfield projects (codebase map exists):**
-
-Infer Validated requirements from existing code:
-
-1. Read the codebase map's architecture and `STACK.md` documents
-2. Identify what the codebase already does
-3. These become the initial Validated set
-
-```markdown
-## Requirements
-
-### Validated
-
-- ✓ [Existing capability 1] — existing
-- ✓ [Existing capability 2] — existing
-- ✓ [Existing capability 3] — existing
-
-### Active
-
-- [ ] [New requirement 1]
-- [ ] [New requirement 2]
-
-### Out of Scope
-
-- [Exclusion 1] — [why]
-```
-
-**Key Decisions:**
-
-Initialize with any decisions made during questioning:
-
-```markdown
-## Key Decisions
-
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| [Choice from questioning] | [Why] | — Pending |
-```
-
-**Last updated footer:**
-
-```markdown
----
-*Last updated: [date] after initialization*
-```
-
-**Evolution section** (include at the end of PROJECT.md, before the footer):
-
-```markdown
-## Evolution
-
-This document evolves at phase transitions and milestone boundaries.
-
-**After each phase transition** (via `/gsd-transition`):
-1. Requirements invalidated? → Move to Out of Scope with reason
-2. Requirements validated? → Move to Validated with phase reference
-3. New requirements emerged? → Add to Active
-4. Decisions to log? → Add to Key Decisions
-5. "What This Is" still accurate? → Update if drifted
-
-**After each milestone** (via `/gsd:complete-milestone`):
-1. Full review of all sections
-2. Core Value check — still the right priority?
-3. Audit Out of Scope — reasons still valid?
-4. Update Context with current state
-```
-
-Do not compress. Capture everything gathered.
-
-**Commit PROJECT.md:**
+**Commit the project:**
 
 ```bash
-# no folder to create: the entities live in the spec
 specforge git commit --add spec -m "docs: initialize project" && specforge collect --runner gsd-git --yes
 ```
 
@@ -791,7 +698,7 @@ Display stage banner:
 
 **Load context:**
 
-Read PROJECT.md and extract:
+Read the `project` entity (`specforge export --kinds project --format context`) and extract:
 
 - Core value (the ONE thing that must work)
 - Stated constraints (budget, timeline, tech limitations)
@@ -807,7 +714,7 @@ Read PROJECT.md and extract:
 - Skip per-category AskUserQuestion loops
 - Skip "Any additions?" question
 - Skip requirements approval gate
-- Generate REQUIREMENTS.md and commit directly
+- Record the requirements and commit directly
 
 **Present features by category (interactive mode only):**
 
@@ -875,16 +782,11 @@ Use AskUserQuestion:
 
 **Validate core value:**
 
-Cross-check requirements against Core Value from PROJECT.md. If gaps detected, surface them.
+Cross-check requirements against the project's core value. If gaps detected, surface them.
 
-**Generate REQUIREMENTS.md:**
+**Record the requirements:**
 
-Create the `requirement` entities with:
-
-- v1 Requirements grouped by category (checkboxes, REQ-IDs)
-- v2 Requirements (deferred)
-- Out of Scope (explicit exclusions with reasoning)
-- Traceability section (empty, filled by roadmap)
+Run **the requirement fence** in `templates/requirements.md` (`specforge gsd reference templates/requirements.md`) once per requirement, grouped by category: the v1 requirements (tier `v1`), the deferred ones (`v2`) and the explicit exclusions (`out_of_scope`, with their `reason`). There is no traceability to fill: the roadmapper maps each v1 requirement to a phase, and `gsd/E101` binds once the project has a phase.
 
 **REQ-ID format:** `[CATEGORY]-[NUMBER]` (AUTH-01, CONTENT-02)
 
@@ -958,20 +860,7 @@ Display stage banner:
 ◆ Spawning roadmapper... (runs in a subagent — no output until it returns, ~1–5 min; expected, not a freeze)
 ```
 
-**ROADMAP.md template — mode-aware emit.** When generating the initial ROADMAP.md:
-
-- If `PROJECT_MODE=mvp`: under each `### Phase N:` header, emit `**Mode:** mvp` on the line immediately following `**Goal:**`. This sets every initial phase to MVP mode (per Phase-4-Persistence decision: per-phase mode, not project-wide config).
-- If `PROJECT_MODE=standard`: emit the standard ROADMAP.md template with no `**Mode:**` lines (Horizontal Layers standard template — no behavioral change for users who pick Horizontal Layers).
-
-Example MVP-mode emit for Phase 1:
-
-```markdown
-### Phase 1: [Name]
-**Goal:** [Goal]
-**Mode:** mvp
-**Success Criteria**:
-1. [Criterion]
-```
+**The phases' mode.** The mode is each phase's `mode` field, which the roadmapper writes: with `PROJECT_MODE=mvp` every initial phase gets `mode mvp` (per-phase mode, not project-wide config); with `PROJECT_MODE=standard` the field is left out (Horizontal Layers, no behavioral change).
 
 Pass `PROJECT_MODE` to the roadmapper so it applies the correct template.
 
@@ -1221,18 +1110,16 @@ PHASE1_HAS_UI=${PHASE1_HAS_UI:-false}   # @gsd/ui computes frontend: false when 
 - [ ] Git repo initialized
 - [ ] Brownfield detection completed
 - [ ] Deep questioning completed (threads followed, not rushed)
-- [ ] PROJECT.md captures full context → **committed**
+- [ ] The `project` entity and its key decisions capture full context → **committed**
 - [ ] config.json has workflow mode, granularity, parallelization → **committed**
 - [ ] Research completed (if selected) — 4 parallel agents spawned → **committed**
 - [ ] Requirements gathered (from research or conversation)
 - [ ] User scoped each category (v1/v2/out of scope)
-- [ ] REQUIREMENTS.md created with REQ-IDs → **committed**
+- [ ] `requirement` entities recorded with REQ-IDs and tiers → **committed**
 - [ ] gsd-roadmapper spawned with context
 - [ ] Roadmap files written immediately (not draft)
 - [ ] User feedback incorporated (if any)
-- [ ] ROADMAP.md created with phases, requirement mappings, success criteria
-- [ ] STATE.md initialized
-- [ ] REQUIREMENTS.md traceability updated
+- [ ] Milestone and `phase` entities recorded, each v1 requirement in exactly one phase, with success criteria
 - [ ] `$INSTRUCTION_FILE` generated with GSD workflow guidance (runtime-derived via the shared `getProjectInstructionFile` policy — `AGENTS.md` for codex/opencode/kilo/kimi, `.github/copilot-instructions.md` for copilot, `GEMINI.md` for antigravity, `.claude/CLAUDE.md` for claude; an existing hand-crafted file without GSD markers is left untouched unless `--force`)
 - [ ] User knows next step is `/gsd:discuss-phase 1`
 

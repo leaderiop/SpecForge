@@ -61,36 +61,36 @@
     "```bash",
     ""
   ],
-  "bytes": 81044,
+  "bytes": 74691,
   "end": [
-    "| AUTH-03 | Phase 1 | Pending |",
-    "| AUTH-04 | Phase 1 | Pending |",
-    "| PROF-01 | Phase 2 | Pending |",
-    "| PROF-02 | Phase 2 | Pending |",
-    "| PROF-03 | Phase 2 | Pending |",
-    "| PROF-04 | Phase 2 | Pending |",
-    "| CONT-01 | Phase 3 | Pending |",
-    "| CONT-02 | Phase 3 | Pending |",
-    "| CONT-03 | Phase 3 | Pending |",
-    "| CONT-04 | Phase 3 | Pending |",
-    "| CONT-05 | Phase 3 | Pending |",
-    "| SOCL-01 | Phase 4 | Pending |",
-    "| SOCL-02 | Phase 4 | Pending |",
-    "| SOCL-03 | Phase 4 | Pending |",
-    "| SOCL-04 | Phase 4 | Pending |",
-    "| SOCL-05 | Phase 4 | Pending |",
-    "",
-    "**Coverage:**",
-    "- v1 requirements: 18 total",
-    "- Mapped to phases: 18",
-    "- Unmapped: 0 ✓",
-    "",
-    "---",
-    "*Requirements defined: 2025-01-14*",
-    "*Last updated: 2025-01-14 after initial definition*",
+    "TEXT=\"{the requirement: user-centric, testable, atomic}\"",
+    "CATEGORY=\"{its category, e.g. Authentication}\"",
+    "TIER=\"{v1, v2 or out_of_scope}\"",
+    "REASON=\"{why it is out of scope}\"",
+    "specforge new requirement \"$REQ_ID\" \"$TEXT\" --in spec/requirements.spec --text \"$TEXT\" --category \"$CATEGORY\" --tier \"$TIER\" --reason \"$REASON\" || exit 1",
     "```",
     "",
-    "</example>",
+    "A `v1` requirement must be in a phase: `gsd/E101` binds once the project has a phase, so requirements recorded before",
+    "the roadmap wait for it, and the roadmapper maps each `v1` requirement to exactly one phase (the phase's",
+    "`requirements`). Coverage, traceability and status are computed from the phases, plans and verifications that cover a",
+    "requirement: `specforge query <id> --depth 1 --format context` reads them back.",
+    "",
+    "**What goes where:**",
+    "",
+    "- `id`: `CATEGORY-NN` (AUTH-01, CONTENT-02, SOCIAL-03).",
+    "- `text`: user-centric, testable, atomic (\"User can reset password via email link\").",
+    "- `category`: derived from the research's feature categories and kept consistent with domain conventions. Typical:",
+    "  Authentication, Content, Social, Notifications, Moderation, Payments, Admin.",
+    "- `tier`:",
+    "  - `v1`: committed scope, mapped to roadmap phases;",
+    "  - `v2`: acknowledged but deferred, not in the current roadmap; moving one to `v1` needs a roadmap update;",
+    "  - `out_of_scope`: explicitly excluded, with its `reason`: it prevents \"why didn't you include X?\" later.",
+    "    Anti-features from research belong here with their warnings.",
+    "",
+    "**Evolution.** After a phase completes its verification marks the covered requirements complete; after a roadmap",
+    "update, every `v1` requirement is still mapped, new requirements are recorded if scope expanded, and descoped ones move",
+    "to `v2` or `out_of_scope` (`specforge set <id> tier …`). A requirement is complete when its feature is implemented,",
+    "verified and committed.",
     "</file>",
     "</execution_context>",
     "",
@@ -186,7 +186,7 @@
     "  \"features.thinking_partner\": false,",
     "  \"gates.confirm_milestone_scope\": true,"
   ],
-  "lines": 2264,
+  "lines": 1826,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:aa9123b70597b73eb35d7febed0852fd362f9f6bc6d70fa79922492797248570",
+    "digest": "sha256:4aa0cfd98943cc18f295b1c6366c1bb70e96c358d61765d1783ba3dee3686e59",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "aa9123b70597b73eb35d7febed0852fd362f9f6bc6d70fa79922492797248570"
+  "sha256": "4aa0cfd98943cc18f295b1c6366c1bb70e96c358d61765d1783ba3dee3686e59"
 }
