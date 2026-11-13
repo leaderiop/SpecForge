@@ -139,7 +139,7 @@ PLAN_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is no
 
 8. **Persist parsed frontmatter and recompute waves in ONE call** (row 15 —
    this is the single, additive `quick-batch update` verb, never a second
-   writer): for each item that produced a PLAN.md this round, read its
+   writer): for each item whose plan got its tasks this round, read its
    `depends_on`/`files_modified` via
    `specforge query "${quick_id}" --depth 0 --format json` (the `depends_on` field)
    and `... files_modified`, then:

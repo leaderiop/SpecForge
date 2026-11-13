@@ -25,13 +25,12 @@ QB_ELIGIBLE=$(specforge query "$BATCH_ID" --depth 0 --kinds quick_batch --pick '
    `$QB_ELIGIBLE` holds the quick ids ready to execute (every dependency already
    `complete`), one per line; `$BATCH_MANIFEST_JSON` keeps its `quick_id`, `slug`, `description` rows.
 
-   **Crash-window guard (mirrors `planner-wave.md`'s PLAN.md-existence
-   check one layer earlier — #3677):** `quick-batch resume`'s `eligible` is
+   **Crash-window guard (mirrors `planner-wave.md`'s plan check one layer
+   earlier — #3677):** `quick-batch resume`'s `eligible` is
    purely status/dependency-derived; it does NOT know an item already
    finished executing. A coordinator crash between this step returning
-   (executor committed, `SUMMARY.md` written) and Step 9's completion leaves
-   `BATCH.json` at `pending` with no STATE.md row yet (that row is written
-   only in Step 9) — so on `--resume`, such an item still comes back
+   (executor committed, its summary entity recorded) and Step 9's completion
+   leaves the item `pending` in the batch (only Step 9 completes it) — so on `--resume`, such an item still comes back
    `eligible` here. Before computing `spawn-plan`, determine which eligible
    items already have a summary `${quick_id}/${quick_id}-SUMMARY` (`specforge query "${quick_id}/${quick_id}-SUMMARY" --depth 0`, on the working tree, where its executor wrote it; same
    `item_dir` derivation via `generate-slug` every other step uses), then
@@ -101,8 +100,8 @@ QB_SPAWN_JSON='{"spawn":[],"pending":[]}'   # quick-batch spawn-plan: the batch 
    - Record the summary `${quick_id}/${quick_id}-SUMMARY` with `status complete`
    - NEVER invoke /gsd:quick or any other GSD command — you are a leaf, not a coordinator
    - NEVER write the batch notes
-   - Do NOT update STATE.md or ROADMAP.md — the orchestrator owns those writes after every item in this dispatch round completes (ADR-1239 single-writer invariant)
-   - Do NOT commit docs artifacts (SUMMARY.md, STATE.md, PLAN.md) — the orchestrator commits them at completion
+   - Record nothing for the batch — the orchestrator owns the batch entity after every item in this dispatch round completes (ADR-1239 single-writer invariant)
+   - Do NOT commit `spec` — the orchestrator commits the item's plan and summary at completion
    </constraints>
    ",
      subagent_type="gsd-executor",

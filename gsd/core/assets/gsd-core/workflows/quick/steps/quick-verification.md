@@ -22,7 +22,7 @@ Task goal: ${DESCRIPTION}
 
 ${AGENT_SKILLS_VERIFIER}
 
-Check must_haves against actual codebase. Create VERIFICATION.md at ${QUICK_DIR}/${quick_id}-VERIFICATION.md.",
+Check must_haves against actual codebase. Record a verdict on each truth of plan ${quick_id}, as your Record the verdicts step says: the verification's status is computed from them.",
   subagent_type="gsd-verifier",
   model="{verifier_model}",
   description="Verify: ${DESCRIPTION}"
@@ -59,8 +59,6 @@ The query is **total** over the closed VerificationStatus set (#5118): beyond th
 > `${quick_id}-${slug}` with a date-derived `quick_id`, so that argument resolves to the date: for
 > `260808-abc-some-slug` the projected recovery command carries `260808` as its phase argument — a
 > date posing as a phase number.
-> Quick therefore supplies its own recovery actions above. The split is the point:
-> `readVerificationStatus` *discovers and parses* shape-agnostically — it scans whatever directory
-> it is given for `*-VERIFICATION.md` — which is what makes the status half correct for
-> `${QUICK_DIR}`; but it also reads that directory's basename as a phase token to build the
-> projected commands, and that is the half quick must not use.
+> Quick therefore supplies its own recovery actions above. The split is the point: the status is
+> computed from the verifier's verdicts on the quick plan, so it holds for a quick task; the projected
+> commands are built for a phase, and that is the half quick must not use.

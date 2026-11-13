@@ -9,8 +9,9 @@
     "<objective>",
     "Batch several `$gsd-quick`-shaped tasks together: one coordinator parses the",
     "task list, dispatches per-item planner/researcher/checker/executor/verifier",
-    "leaves, and owns every shared write (`BATCH.json`, STATE.md, worktree",
-    "create/merge/cleanup) so leaves never race each other (ADR-1239 \"Quick-batch",
+    "leaves, and owns every shared write — the batch is a `quick_batch` entity:",
+    "`specforge gsd start-batch` records its items and base, and resume reads its",
+    "computed `eligible` — so leaves never race each other (ADR-1239 \"Quick-batch",
     "binding\").",
     "",
     "**Task list:** either an inline bulleted/numbered list (≥2 items — the same",
@@ -42,12 +43,13 @@
     "`specforge gsd reference gsd-core/references/response-language-directive.md --host codex`",
     "<purpose>",
     "Batch several `$gsd-quick`-shaped tasks together (#3676, epic #3344, ADR-1239",
-    "\"Quick-batch binding\"). ONE coordinator (this workflow) owns every shared",
-    "write — `BATCH.json`, STATE.md, each executor's dispatch — and never",
-    "delegates them to a leaf. Leaves (planner/researcher/checker/executor/",
-    "verifier) return structured results only; they never invoke `$gsd-quick`,",
-    "never touch `BATCH.json`, and never write STATE.md/ROADMAP.md themselves",
-    "(single-writer invariant).",
+    "\"Quick-batch binding\"). ONE coordinator (this workflow) records the batch and",
+    "each executor's dispatch, and never delegates them to a leaf: the batch is a",
+    "`quick_batch` entity — `specforge gsd start-batch` records its items and base,",
+    "and resume reads its computed `eligible`. Leaves (planner/researcher/checker/",
+    "executor/verifier) return structured results only; they never invoke",
+    "`$gsd-quick`, never write the batch entity, and record only their own item's",
+    "entities (single-writer invariant).",
     "",
     "Dispatch decisions (effective concurrency, deterministic merge order, spawn",
     "backpressure, failure/verification routing) are computed by the pure",
@@ -57,11 +59,9 @@
     "",
     "<required_reading>",
     "Read all files referenced by the invoking prompt's execution_context before starting.",
-    "</required_reading>",
-    "",
-    "<available_agent_types>"
+    "</required_reading>"
   ],
-  "bytes": 32067,
+  "bytes": 32306,
   "end": [
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
     "capacity/isolation, and dispatch wave-by-wave.",
@@ -96,7 +96,7 @@
     "specforge set \"$quick_id\" objective \"<objective>\"",
     "specforge set \"$quick_id\" files_modified <paths>",
     "specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"",
-    "# an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`",
+    "specforge new artifact AR1 \"<name>\" --in spec/quick.spec --plan \"$quick_id\" --field path=<file> --provides \"<what it provides>\"",
     "specforge gsd start-plan \"$quick_id\" --head \"$(specforge git head --pick .sha)\"",
     "specforge new summary \"$quick_id-SUMMARY\" \"<title>\" --in spec/quick.spec --plan \"$quick_id\" --status complete --one_liner \"<one line>\" --subsystem <area> --requirements_completed \"\"",
     "specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\"",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 588,
+  "lines": 590,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:796d0cf1c66ad19b4f71580d8a3e7bccefa67189fb41961b2ac35206bea65d6b",
+    "digest": "sha256:cec990d70630288e4b54c61c122890fa119561bbdc97f0adfbfce32606cf0d4d",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "796d0cf1c66ad19b4f71580d8a3e7bccefa67189fb41961b2ac35206bea65d6b"
+  "sha256": "cec990d70630288e4b54c61c122890fa119561bbdc97f0adfbfce32606cf0d4d"
 }

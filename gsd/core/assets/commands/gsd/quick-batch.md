@@ -7,8 +7,9 @@ The text inside `<arguments>` is exactly what the user typed after the command n
 <objective>
 Batch several `/gsd:quick`-shaped tasks together: one coordinator parses the
 task list, dispatches per-item planner/researcher/checker/executor/verifier
-leaves, and owns every shared write (`BATCH.json`, STATE.md, worktree
-create/merge/cleanup) so leaves never race each other (ADR-1239 "Quick-batch
+leaves, and owns every shared write — the batch is a `quick_batch` entity:
+`specforge gsd start-batch` records its items and base, and resume reads its
+computed `eligible` — so leaves never race each other (ADR-1239 "Quick-batch
 binding").
 
 **Task list:** either an inline bulleted/numbered list (≥2 items — the same

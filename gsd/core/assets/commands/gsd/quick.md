@@ -10,7 +10,7 @@ Execute small, ad-hoc tasks with GSD guarantees (atomic commits, STATE.md tracki
 Quick mode is the same system with a shorter path:
 - Spawns gsd-planner (quick mode) + gsd-executor(s)
 - Quick tasks live in `spec/quick.spec`, separate from planned phases
-- Updates STATE.md "Quick Tasks Completed" table (NOT ROADMAP.md)
+- Closes each task on its summary entity: the computed project state lists it (the roadmap has no row for it)
 
 **Default:** Skips research, discussion, plan-checker, verifier. Use when you know exactly what to do.
 
@@ -155,9 +155,9 @@ Preserve all workflow gates (validation, task description, planning, execution, 
 </process>
 
 <notes>
-- Quick tasks live in `spec/quick.spec` — separate from phases, not tracked in ROADMAP.md
-- Each quick task gets a `YYYYMMDD-{slug}/` directory with PLAN.md and eventually SUMMARY.md
-- STATE.md "Quick Tasks Completed" table is updated on completion
+- Quick tasks live in `spec/quick.spec` — separate from phases, not tracked in the roadmap
+- Each quick task is a plan named by its quick id, with its tasks and eventually its summary
+- The computed project state lists a quick task once its plan is closed
 - Use `list` to audit accumulated tasks; use `resume` to continue in-progress work
 </notes>
 

@@ -826,7 +826,9 @@ commands/gsd/pr-branch.md	kept	12+6	76ce7f72a8b8
 commands/gsd/pr-branch.md	own	18+1	1	191315a91d5d	c7faf56ed576	ported-name
 commands/gsd/pr-branch.md	kept	19+14	e29db262de9d
 commands/gsd/progress.md	kept	15+41	83067231088e
-commands/gsd/quick-batch.md	kept	15+50	4fafdacd8fee
+commands/gsd/quick-batch.md	kept	15+8	a241f64d3eba
+commands/gsd/quick-batch.md	own	23+2	3	dd554bfdf6c7	cbfacc77c5bb	typed-edit
+commands/gsd/quick-batch.md	kept	25+40	25571b23ce7b
 commands/gsd/quick-batch.md	own	65+29	7	a9650aba4ec6	5f4fb557b756	ported-name
 commands/gsd/quick-batch.md	kept	94+19	19e8a13b94d1
 commands/gsd/quick-batch.md	own	113+1	1	1054da6c83e6	dcfca3490b3f	served
@@ -834,8 +836,8 @@ commands/gsd/quick-batch.md	kept	114+2	42ff931923ff
 commands/gsd/quick-batch.md	own	116+1	1	2450bfbed13c	ed49dc6f3df5	ported-name
 commands/gsd/quick-batch.md	kept	117+2	09aa09e17b37
 commands/gsd/quick.md	kept	16+10	42a0c24d36ad
-commands/gsd/quick.md	own	26+1	1	0be952f20510	543965164a3a	ported-name
-commands/gsd/quick.md	kept	27+46	24f80cabf685
+commands/gsd/quick.md	own	26+2	2	d9712a03c6ba	bb9300a6c321	ported-name
+commands/gsd/quick.md	kept	28+45	c3df39a0e5cc
 commands/gsd/quick.md	own	73+10	10	88adb5c2a654	a7e29a288ef5	ported-name
 commands/gsd/quick.md	kept	83+1	9c3c7e7c1928
 commands/gsd/quick.md	own	84+4	4	e5b4bc8404f1	632a9a923c1c	workflow
@@ -852,8 +854,8 @@ commands/gsd/quick.md	own	153+1	1	a6788eef33b6	f1b901847390	markdown
 commands/gsd/quick.md	kept	154+2	ff25e2279b05
 commands/gsd/quick.md	own	156+3	3	45e1c385e811	f48dc4883c63	ported-name
 commands/gsd/quick.md	kept	159+13	06e4c9501a17
-commands/gsd/quick.md	own	172+1	1	42ab1736a436	1fba575b2b75	ported-name
-commands/gsd/quick.md	kept	173+9	41852d82a398
+commands/gsd/quick.md	own	172+3	3	d18ad3469b39	9628ffc55af7	ported-name
+commands/gsd/quick.md	kept	175+7	29bf5fb1bb7f
 commands/gsd/quick.md	own	182+1	1	d016c79e04d6	d31750b807be	ported-name
 commands/gsd/quick.md	kept	183+2	09aa09e17b37
 commands/gsd/resume-work.md	kept	12+6	3815f114bf4d
@@ -3851,9 +3853,11 @@ gsd-core/workflows/progress/steps/forensic-audit.md	kept	125+2	b0f72af715b5
 gsd-core/workflows/progress/steps/mvp-display.md	kept	1+3	098a73e5d24d
 gsd-core/workflows/progress/steps/mvp-display.md	own	4+1	1	d692b0359658	2ee7b15cf35d	ported-name
 gsd-core/workflows/progress/steps/mvp-display.md	kept	5+15	a12f50ba625e
-gsd-core/workflows/quick-batch.md	kept	1+4	4e448c3be4ed
-gsd-core/workflows/quick-batch.md	own	5+1	1	a375da460e73	93a3b642231a	relic
-gsd-core/workflows/quick-batch.md	kept	6+28	4c74cd583e3f
+gsd-core/workflows/quick-batch.md	kept	1+3	de0a2d4311ec
+gsd-core/workflows/quick-batch.md	own	4+6	7	49d27ca2fdcf	e00c59245eb2	typed-edit
+gsd-core/workflows/quick-batch.md	kept	10+16	780e290fedcf
+gsd-core/workflows/quick-batch.md	own	26+1	1	b27025626c16	97db877251b2	prose
+gsd-core/workflows/quick-batch.md	kept	27+7	9612aeb18479
 gsd-core/workflows/quick-batch.md	own	34+2	2	ba492cb89236	de227a767a7b	ported-name
 gsd-core/workflows/quick-batch.md	kept	36+4	1633c3e5f22b
 gsd-core/workflows/quick-batch.md	own	40+1	1	0ae2645eeac3	fd12c81446d9	args
@@ -3875,11 +3879,13 @@ gsd-core/workflows/quick-batch.md	kept	168+2	446c3ddbdc62
 gsd-core/workflows/quick-batch.md	own	170+3	1	e33b18188f0f	0afec33a0d21	relic
 gsd-core/workflows/quick-batch.md	kept	173+5	edca88a926d6
 gsd-core/workflows/quick-batch.md	own	178+3	2	4cc20beebdf8	725d199f7fd4	relic
-gsd-core/workflows/quick-batch.md	kept	181+25	c884932462fa
+gsd-core/workflows/quick-batch.md	kept	181+13	b7b91df6e2d3
+gsd-core/workflows/quick-batch.md	own	194+1	1	1a2b00f0b868	470e04a2612a	prose
+gsd-core/workflows/quick-batch.md	kept	195+11	88cb3520abb5
 gsd-core/workflows/quick-batch.md	own	206+3	3	28c487f3f1ca	eb2323702d42	relic
 gsd-core/workflows/quick-batch.md	kept	209+1	36d397904343
-gsd-core/workflows/quick-batch.md	own	210+1	1	b1fac1358041	e3b0c44298fc	relic
-gsd-core/workflows/quick-batch.md	kept	211+3	1cfc6df91999
+gsd-core/workflows/quick-batch.md	own	210+2	2	895629f3f745	86c22b85bae6	prose
+gsd-core/workflows/quick-batch.md	kept	212+2	f06da1895c23
 gsd-core/workflows/quick-batch/steps/batch-init.md	kept	1+5	2560e862e719
 gsd-core/workflows/quick-batch/steps/batch-init.md	own	6+2	2	2b2ae85b6e88	a8ba45218173	args
 gsd-core/workflows/quick-batch/steps/batch-init.md	kept	8+5	928133806839
@@ -3931,14 +3937,18 @@ gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	102+13	fa9cb53d2e4f
 gsd-core/workflows/quick-batch/steps/planner-wave.md	own	115+2	3	ded99c8aad4d	e1d1656054f0	typed-edit
 gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	117+12	5a2f18e76edb
 gsd-core/workflows/quick-batch/steps/planner-wave.md	own	129+1	1	b9f79ea5d2df	ac9d7b058861	quick
-gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	130+12	f42a4375bd75
+gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	130+10	d837c0cdcf9e
+gsd-core/workflows/quick-batch/steps/planner-wave.md	own	140+1	1	7181fff36197	65d12f3b5a29	prose
+gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	141+1	dd7bc996c6b8
 gsd-core/workflows/quick-batch/steps/planner-wave.md	own	142+1	1	399ab11132a2	454a944353c3	ported-name
 gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	143+1	38ab752ca429
 gsd-core/workflows/quick-batch/steps/planner-wave.md	own	144+3	3	f338242001ff	c1c126f94bbc	ported-name
 gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	147+8	36e0f570f9a6
 gsd-core/workflows/quick-batch/steps/planner-wave.md	own	155+1	1	b446191d57ad	72f766285cfa	jq
 gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	156+4	9ab132315efd
-gsd-core/workflows/quick-batch/steps/research-phase.md	kept	1+11	c33c663c59f3
+gsd-core/workflows/quick-batch/steps/research-phase.md	kept	1+6	3f8d572bedb4
+gsd-core/workflows/quick-batch/steps/research-phase.md	own	7+1	1	03235235c2c4	76ff70870e47	prose
+gsd-core/workflows/quick-batch/steps/research-phase.md	kept	8+4	51df37ddf4fc
 gsd-core/workflows/quick-batch/steps/research-phase.md	own	12+7	7	575b4a5d12ae	423f2da70d7c	ported-name
 gsd-core/workflows/quick-batch/steps/research-phase.md	kept	19+4	7d5414b9636b
 gsd-core/workflows/quick-batch/steps/research-phase.md	own	23+3	3	4e8efdcf394b	ec1b37bfccfd	ported-name
@@ -3981,10 +3991,10 @@ gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	own	7+17	4	1ac13ef2d7d
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	kept	24+1	ad332335cfaa
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	own	25+2	2	eb95e9cfa23d	d9d41578efdc	ported-name
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	kept	27+7	b62875df8d78
-gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	own	34+5	5	ef870ae9c72a	ed9990c5eaf5	ported-name
-gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	kept	39+5	6b755739e6d7
-gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	own	44+1	1	e7374028fc73	301cec7b47af	relic
-gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	kept	45+3	be0ea326af59
+gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	own	34+8	8	191a71908aad	8d5af7579cc2	ported-name
+gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	kept	42+2	daa8829e29ae
+gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	own	44+3	2	370ba3316a23	4c4807be52d4	prose
+gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	kept	47+1	4146f1489cb8
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	own	48+1	1	567922f91eaa	2203d513b59c	served
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	kept	49+6	26f6ecbe39c6
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	own	55+1	1	90af53720714	95232650bcc5	ported-name
@@ -4003,8 +4013,8 @@ gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	own	102+2	2	61dfc44350
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	kept	104+11	5fb55977ab05
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	own	115+1	1	26be8dbb33f0	eada1980796d	relic
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	kept	116+1	31ebc9af939e
-gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	own	117+1	1	6a66bace5cf7	a8da20e95a34	ported-name
-gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	kept	118+6	6115f6f85168
+gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	own	117+3	3	0ad0dbaeb7c2	4e39fa959346	ported-name
+gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	kept	120+4	79abf56f43d2
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	own	124+1	1	78a4742156cc	e3b0c44298fc	relic
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	kept	125+3	605b156d99b9
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	own	128+34	3	fa887dab610b	59376bb17be3	ported-name
@@ -4012,8 +4022,12 @@ gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	kept	162+2	4059c916d10
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	own	164+3	3	83afeb155197	a9c19e0140f5	relic
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	kept	167+4	c3cdb558aef1
 gsd-core/workflows/quick.md	kept	1+1	67c8626203ca
-gsd-core/workflows/quick.md	own	2+1	1	bb7a95b1e565	55e3d5de063b	ported-name
-gsd-core/workflows/quick.md	kept	3+39	de354753708d
+gsd-core/workflows/quick.md	own	2+1	1	bb7a95b1e565	0329df966823	ported-name
+gsd-core/workflows/quick.md	kept	3+5	057fa6436fb5
+gsd-core/workflows/quick.md	own	8+1	1	e7ddd5c8fbac	cda8d22f47a6	prose
+gsd-core/workflows/quick.md	kept	9+15	961eead1eb48
+gsd-core/workflows/quick.md	own	24+1	1	77f354f25b62	4adad2194c7a	prose
+gsd-core/workflows/quick.md	kept	25+17	75c2d08b3a3a
 gsd-core/workflows/quick.md	own	42+2	2	ba492cb89236	de227a767a7b	ported-name
 gsd-core/workflows/quick.md	kept	44+76	7e4664462bb6
 gsd-core/workflows/quick.md	own	120+21	13	93d2a9e62624	53e260e02cd4	ported-name
@@ -4044,7 +4058,7 @@ gsd-core/workflows/quick.md	own	266+1	1	140df0bd48c7	7b4589954088	served
 gsd-core/workflows/quick.md	kept	267+1	f784a0e94b0a
 gsd-core/workflows/quick.md	own	268+3	3	0e828bef8fb9	f7dab9793d64	served
 gsd-core/workflows/quick.md	kept	271+14	db449a819dc6
-gsd-core/workflows/quick.md	own	285+1	1	6ec4eab463b9	4e837a55c642	ported-name
+gsd-core/workflows/quick.md	own	285+1	1	6ec4eab463b9	003407dd585a	ported-name
 gsd-core/workflows/quick.md	kept	286+17	a27a94688685
 gsd-core/workflows/quick.md	own	303+4	4	785762365495	da40be054262	ported-name
 gsd-core/workflows/quick.md	kept	307+17	7fc8053cb97c
@@ -4053,7 +4067,11 @@ gsd-core/workflows/quick.md	kept	325+1	157463f30942
 gsd-core/workflows/quick.md	own	326+2	2	434092bff61d	a84bda852e23	quick
 gsd-core/workflows/quick.md	kept	328+11	d09e66cbf445
 gsd-core/workflows/quick.md	own	339+1	1	33a497628ada	fada3a5b3b80	quick
-gsd-core/workflows/quick.md	kept	340+23	ee4efca697b6
+gsd-core/workflows/quick.md	kept	340+2	4a57ae07eef1
+gsd-core/workflows/quick.md	own	342+1	1	3147aa7fe498	93e5aaa2afa0	prose
+gsd-core/workflows/quick.md	kept	343+7	b733fe94eaab
+gsd-core/workflows/quick.md	own	350+2	2	100c177685f0	7775adf6e787	prose
+gsd-core/workflows/quick.md	kept	352+11	21ededfb0f07
 gsd-core/workflows/quick.md	own	363+1	1	b9272f04e1d9	09ce38c6c7b1	quick
 gsd-core/workflows/quick.md	kept	364+1	a82649ff3482
 gsd-core/workflows/quick.md	own	365+3	3	51280188b940	9bc48f39ccce	quick
@@ -4070,14 +4088,20 @@ gsd-core/workflows/quick.md	own	425+4	4	fbeb3273e301	c5abf82ddb1a	served
 gsd-core/workflows/quick.md	kept	429+16	7c7b458d6433
 gsd-core/workflows/quick.md	own	445+1	1	3e5f3fcb4e71	db53ff4e0bc7	served
 gsd-core/workflows/quick.md	kept	446+3	aff56909ddb7
-gsd-core/workflows/quick.md	own	449+7	11	a4d4ca6ee761	913cfd66aa88	workflow
+gsd-core/workflows/quick.md	own	449+7	11	a4d4ca6ee761	35e027d4164f	prose
 gsd-core/workflows/quick.md	kept	456+1	b4bdc8481097
 gsd-core/workflows/quick.md	own	457+7	4	548820fe8d18	41509f5e25cc	workflow
 gsd-core/workflows/quick.md	kept	464+1	b4bdc8481097
-gsd-core/workflows/quick.md	own	465+8	7	253f80b0e914	0594d7e6e137	workflow
+gsd-core/workflows/quick.md	own	465+8	7	253f80b0e914	65a339c3b5e3	prose
 gsd-core/workflows/quick.md	kept	473+8	87f82240ba67
 gsd-core/workflows/quick.md	own	481+5	1	fcbbc214671d	7ddb51cd29c4	prose
-gsd-core/workflows/quick.md	kept	486+58	ad1842a76cb8
+gsd-core/workflows/quick.md	kept	486+36	e82f25fc920d
+gsd-core/workflows/quick.md	own	522+1	1	4ae20df8069e	94243d4d2fbd	prose
+gsd-core/workflows/quick.md	kept	523+6	5d09b7b2b6eb
+gsd-core/workflows/quick.md	own	529+2	2	870c57021656	13bb18a5506e	prose
+gsd-core/workflows/quick.md	kept	531+1	a725d9421b63
+gsd-core/workflows/quick.md	own	532+1	0	c409ed96ea50	e3b0c44298fc	served
+gsd-core/workflows/quick.md	kept	533+11	92e45e33de10
 gsd-core/workflows/quick.md	own	544+1	1	84beeda442e0	c4242dc43164	jq
 gsd-core/workflows/quick.md	kept	545+3	2e1701fdba2a
 gsd-core/workflows/quick.md	own	548+1	1	4511fa32b038	ad332335cfaa	markdown
@@ -4101,20 +4125,24 @@ gsd-core/workflows/quick.md	kept	619+19	eba847dcab7c
 gsd-core/workflows/quick.md	own	638+65	4	aa4627575a0c	d15690ce7df9	ported-name
 gsd-core/workflows/quick.md	kept	703+5	212ba7b91c3e
 gsd-core/workflows/quick.md	own	708+1	1	6979a5e041cd	c37fbd0f86bc	ported-name
-gsd-core/workflows/quick.md	kept	709+4	cc714ba102fc
-gsd-core/workflows/quick.md	own	713+1	1	af945a008239	97b7591f8d99	ported-name
-gsd-core/workflows/quick.md	kept	714+6	f5d81b4b4add
+gsd-core/workflows/quick.md	kept	709+2	824eadf2b9e4
+gsd-core/workflows/quick.md	own	711+6	1	56c0bf8e84bb	84df6f55c253	ported-name
+gsd-core/workflows/quick.md	kept	717+3	810b3149bac2
 gsd-core/workflows/quick.md	own	720+11	7	e00cea50b094	bda11ecf89d1	ported-name
 gsd-core/workflows/quick.md	kept	731+4	08d4919ae343
 gsd-core/workflows/quick.md	own	735+1	1	71ef653528b9	7ad3c708886b	served
-gsd-core/workflows/quick.md	kept	736+19	99689c925330
+gsd-core/workflows/quick.md	kept	736+12	3359709bb8d3
+gsd-core/workflows/quick.md	own	748+3	3	1dafbc4f6037	c75c20fe9098	prose
+gsd-core/workflows/quick.md	kept	751+4	4a8695dcd763
 gsd-core/workflows/quick.md	own	755+1	1	8f7bec2ef384	be1774d55b5f	args
-gsd-core/workflows/quick.md	kept	756+16	53e80b196eb2
+gsd-core/workflows/quick.md	kept	756+10	d256a2a65ca9
+gsd-core/workflows/quick.md	own	766+2	2	f6c911b8da22	8f12ed55b9eb	prose
+gsd-core/workflows/quick.md	kept	768+4	4a8695dcd763
 gsd-core/workflows/quick.md	own	772+1	1	8f7bec2ef384	be1774d55b5f	args
 gsd-core/workflows/quick.md	kept	773+11	7499202822d8
-gsd-core/workflows/quick.md	own	784+1	1	8d387bba955b	2cc33b768a87	ported-name
-gsd-core/workflows/quick.md	kept	785+6	916c8a128466
-gsd-core/workflows/quick.md	own	791+1	1	c4598a6d9ad6	f8d026fb4fde	served
+gsd-core/workflows/quick.md	own	784+4	4	1a95d7fd2f99	3ec634ed2331	ported-name
+gsd-core/workflows/quick.md	kept	788+1	24dae0c431d8
+gsd-core/workflows/quick.md	own	789+3	3	59cd67a808d7	05a8e09c6c2b	prose
 gsd-core/workflows/quick.md	kept	792+3	68b11e2581bb
 gsd-core/workflows/quick/steps/discussion-phase.md	kept	1+40	132cc37185b2
 gsd-core/workflows/quick/steps/discussion-phase.md	own	41+1	1	c3aa192fbf68	ecf5395fc4db	quick
@@ -4148,11 +4176,15 @@ gsd-core/workflows/quick/steps/plan-checker-loop.md	own	169+1	1	19acce379297	b9c
 gsd-core/workflows/quick/steps/plan-checker-loop.md	kept	170+3	b9959b750271
 gsd-core/workflows/quick/steps/quick-verification.md	kept	1+18	36f2ce364a82
 gsd-core/workflows/quick/steps/quick-verification.md	own	19+1	1	1aafe422a1df	1b3923552513	quick
-gsd-core/workflows/quick/steps/quick-verification.md	kept	20+15	103a273f238e
+gsd-core/workflows/quick/steps/quick-verification.md	kept	20+4	410a44c60215
+gsd-core/workflows/quick/steps/quick-verification.md	own	24+1	1	eb73f5974fab	e4720cbdde45	prose
+gsd-core/workflows/quick/steps/quick-verification.md	kept	25+10	979f52b08dd9
 gsd-core/workflows/quick/steps/quick-verification.md	own	35+6	6	8f90b498cfbf	d41106f520a6	ported-name
 gsd-core/workflows/quick/steps/quick-verification.md	kept	41+15	fb4cc0223714
 gsd-core/workflows/quick/steps/quick-verification.md	own	56+1	1	bd05b106db13	bd19d835553c	served
-gsd-core/workflows/quick/steps/quick-verification.md	kept	57+10	262432f1f626
+gsd-core/workflows/quick/steps/quick-verification.md	kept	57+4	5af03662fcff
+gsd-core/workflows/quick/steps/quick-verification.md	own	61+5	3	ebb1d352b4cd	150339cfbda4	served
+gsd-core/workflows/quick/steps/quick-verification.md	kept	66+1	e3b0c44298fc
 gsd-core/workflows/quick/steps/research-phase.md	kept	1+11	cd8b20e61d7e
 gsd-core/workflows/quick/steps/research-phase.md	own	12+1	1	91d22f7a1453	6b77401db379	quick
 gsd-core/workflows/quick/steps/research-phase.md	kept	13+7	37a856960971
@@ -4175,7 +4207,7 @@ gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	own	15+1	1	c71090
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	kept	16+3	b9f24605c285
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	own	19+1	1	34d8ebe1b3c8	e0e65c2cd01b	ported-name
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	kept	20+1	cea79772a93f
-gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	own	21+13	13	cf08e2d9104a	59dd073512e4	served
+gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	own	21+13	13	cf08e2d9104a	494e90618c14	served
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	kept	34+1	5d287a40002a
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	own	35+1	1	b452040287d6	603830d00e6b	served
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	kept	36+4	28580d7dcf18

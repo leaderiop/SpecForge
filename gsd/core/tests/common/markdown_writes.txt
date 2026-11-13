@@ -39,9 +39,6 @@ commands/gsd/complete-milestone.md	- PROJECT.md updated with current state
 commands/gsd/discuss-phase.md	6. Create CONTEXT.md with decisions that guide research and planning
 commands/gsd/new-milestone.md	Brownfield equivalent of new-project. Project exists, PROJECT.md has history. Gathers "what's next", updates PROJECT.md, then runs requirements → roadmap cycle.
 commands/gsd/ns-workflow.md	| Create a PLAN.md | gsd-plan-phase |
-commands/gsd/quick-batch.md	leaves, and owns every shared write (`BATCH.json`, STATE.md, worktree
-commands/gsd/quick.md	- Updates STATE.md "Quick Tasks Completed" table (NOT ROADMAP.md)
-commands/gsd/quick.md	- STATE.md "Quick Tasks Completed" table is updated on completion
 commands/gsd/spec-phase.md	5. Gate: ambiguity ≤ 0.20 AND all dimensions meet minimums → write SPEC.md
 commands/gsd/spec-phase.md	- `--auto` — Skip interactive questions; Claude selects recommended defaults and writes SPEC.md
 commands/gsd/spec-phase.md	- SPEC.md written with falsifiable requirements, explicit boundaries, and acceptance criteria
@@ -181,27 +178,7 @@ gsd-core/workflows/plan-review-convergence.md	- [ ] STATE.md updated on converge
 gsd-core/workflows/progress/steps/forensic-audit.md	- Check 3 (deferred scope): `Add the missing phases to ROADMAP.md or update the deferred references`
 gsd-core/workflows/progress.md	the spec exists but the core initialization artifacts are missing (one or more of `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md` were never created — a bootstrap that stopped partway, e.g. after PROJECT.md). This is NOT a new project, NOT a missing STATE.md, and NOT a between-milestones state — do not fall through to any of those routes. Route to initialization recovery:
 gsd-core/workflows/progress.md	`/gsd:new-project` — resumes initialization from the first missing artifact; existing PROJECT.md (and any already-created artifacts) are kept, not regenerated.
-gsd-core/workflows/quick/steps/quick-verification.md	Check must_haves against actual codebase. Create VERIFICATION.md at ${QUICK_DIR}/${quick_id}-VERIFICATION.md.",
-gsd-core/workflows/quick-batch/steps/planner-wave.md	writer): for each item that produced a PLAN.md this round, read its
-gsd-core/workflows/quick-batch/steps/research-phase.md	only writes `${item_dir}/${quick_id}-RESEARCH.md`, never touches git), so the
 gsd-core/workflows/quick-batch/steps/resume-mode.md	which artifacts already exist on disk (PLAN.md/SUMMARY.md/VERIFICATION.md),
-gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	(executor committed, `SUMMARY.md` written) and Step 9's completion leaves
-gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	- Do NOT update STATE.md or ROADMAP.md — the orchestrator owns those writes after every item in this dispatch round completes (ADR-1239 single-writer invariant)
-gsd-core/workflows/quick-batch.md	write — `BATCH.json`, STATE.md, each executor's dispatch — and never
-gsd-core/workflows/quick-batch.md	never touch `BATCH.json`, and never write STATE.md/ROADMAP.md themselves
-gsd-core/workflows/quick-batch.md	- gsd-executor — Executes one item's plan, commits, creates SUMMARY.md
-gsd-core/workflows/quick-batch.md	complete item, updates STATE.md, and prints the final batch report.
-gsd-core/workflows/quick-batch.md	- [ ] `completeQuickItem` called only for genuinely complete items; STATE.md updated; artifacts committed
-gsd-core/workflows/quick.md	Execute small, ad-hoc tasks with GSD guarantees (atomic commits, STATE.md tracking). Quick mode spawns gsd-planner (quick mode) + gsd-executor(s), tracks each task as a plan of `spec/quick.spec`, and updates STATE.md's "Quick Tasks Completed" table.
-gsd-core/workflows/quick.md	- gsd-executor — Executes plan tasks, commits, creates SUMMARY.md
-gsd-core/workflows/quick.md	**Step 4 ordering (#3894):** Check whether `workflow.research_before_questions` is enabled in the settings (or the config from init context) — the same check `/gsd:discuss-phase` and `/gsd:new-project` already make. When **enabled**, execute the research-phase section BELOW BEFORE the discussion-phase section: a gray-area answer given without research is written to `<quick_id>-CONTEXT.md` as a locked decision downstream agents are told not to revisit, so the evidence must come first. When **false or unset**, keep the written order (discussion, then research) — behavior unchanged. With both `--discuss` and `--research`, once both sections have run (in either order), record the digest of the context the research was made against: `specforge gsd record-research "${quick_id}-RESEARCH"`.
-gsd-core/workflows/quick.md	- MUTABLE-SCOPE AUTHORITY (#3786): when concrete edit or verification scope depends on mutable external state (a merge index, PR/base diffs, the working tree), authorize scope ONLY from a live observation made at planning time — for conflict resolution that is the fresh merge index via `git diff --name-only --diff-filter=U` — or keep `files`/`verify` CONDITIONAL on that observation. Historical STATE.md entries, recovery notes, and cached PR/base diff paths may guide investigation only; they are never edit or verification authority, and a plan must not enumerate them as authorized files "pending replacement".
-gsd-core/workflows/quick.md	Write plan to: ${QUICK_DIR}/${quick_id}-PLAN.md
-gsd-core/workflows/quick.md	- Do NOT update ROADMAP.md (quick tasks are separate from planned phases)
-gsd-core/workflows/quick.md	- [ ] (--research) Research agent spawned, `${quick_id}-RESEARCH.md` created
-gsd-core/workflows/quick.md	- [ ] `${quick_id}-PLAN.md` created by planner (honors CONTEXT.md decisions when --discuss, uses RESEARCH.md findings when --research)
-gsd-core/workflows/quick.md	- [ ] `${quick_id}-SUMMARY.md` created by executor
-gsd-core/workflows/quick.md	- [ ] (--validate) `${quick_id}-VERIFICATION.md` created by verifier
 gsd-core/workflows/session-report.md	Generate a post-session summary document capturing work performed, outcomes achieved, and estimated resource usage. Writes SESSION_REPORT.md to `reports/` in the repository for human review and stakeholder sharing.
 gsd-core/workflows/session-report.md	- [ ] Report written to `reports/`
 gsd-core/workflows/settings.md	Store `$GSD_CONFIG_PATH` — all subsequent reads and writes use this path, not a hardcoded path, so active-workstream installs target the correct file (#2282).

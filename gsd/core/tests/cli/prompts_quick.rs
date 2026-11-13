@@ -56,20 +56,14 @@ fn quick_creates_a_quick_plan() {
         "specforge set \"$quick_id\" objective",
         "specforge set \"$quick_id\" files_modified",
         "specforge new truth",
+        "specforge new artifact",
     ] {
         let args = command(&text, prefix, &id, &fill);
         let made = run(&p, &args);
         assert_eq!(made.code, 0, "{args:?}: {}", made.all());
     }
     assert_eq!(p.fields_of(&id)["slug"], "trim-titles");
-    // The artifact goes through `specforge.edit`; the file is what that tool writes.
-    let quick = p.read("spec/quick.spec");
-    p.write(
-        "spec/quick.spec",
-        &format!(
-            "{quick}\nartifact AR1 \"Task store\" {{\n  plan     {id}\n  path     \"src/tasks.js\"\n  provides \"add() that trims\"\n}}\n"
-        ),
-    );
+    assert_eq!(p.fields_of(&format!("{id}/AR1"))["path"], "src/tasks.js");
     let codes = p.codes();
     for code in ["W323", "E302", "E401"] {
         assert!(!codes.contains(&code.to_string()), "{code}: {codes:?}");

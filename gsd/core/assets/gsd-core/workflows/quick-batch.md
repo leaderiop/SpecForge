@@ -2,12 +2,13 @@
 @~/.claude/gsd-core/references/response-language-directive.md
 <purpose>
 Batch several `/gsd:quick`-shaped tasks together (#3676, epic #3344, ADR-1239
-"Quick-batch binding"). ONE coordinator (this workflow) owns every shared
-write — `BATCH.json`, STATE.md, each executor's dispatch — and never
-delegates them to a leaf. Leaves (planner/researcher/checker/executor/
-verifier) return structured results only; they never invoke `/gsd:quick`,
-never touch `BATCH.json`, and never write STATE.md/ROADMAP.md themselves
-(single-writer invariant).
+"Quick-batch binding"). ONE coordinator (this workflow) records the batch and
+each executor's dispatch, and never delegates them to a leaf: the batch is a
+`quick_batch` entity — `specforge gsd start-batch` records its items and base,
+and resume reads its computed `eligible`. Leaves (planner/researcher/checker/
+executor/verifier) return structured results only; they never invoke
+`/gsd:quick`, never write the batch entity, and record only their own item's
+entities (single-writer invariant).
 
 Dispatch decisions (effective concurrency, deterministic merge order, spawn
 backpressure, failure/verification routing) are computed by the pure
@@ -24,7 +25,7 @@ Valid GSD subagent types (use exact names — do not fall back to 'general-purpo
 - gsd-phase-researcher — Researches technical approaches for an item
 - gsd-planner — Creates a plan for one item (`quick-batch` mode)
 - gsd-plan-checker — Reviews one item's plan before execution
-- gsd-executor — Executes one item's plan, commits, creates SUMMARY.md
+- gsd-executor — Executes one item's plan, commits, writes the item's summary entity
 - gsd-verifier — Verifies one item's goal achievement
 </available_agent_types>
 
@@ -170,7 +171,7 @@ If `section_manifest` is `null` or `"verification-wave"` is in its `included` li
 
 Read and execute `gsd-core/workflows/quick-batch/steps/completion.md`. Calls
 `completeQuickItem` (via `quick-batch complete`) only for a genuinely
-complete item, updates STATE.md, and prints the final batch report.
+complete item (the computed state lists it), and prints the final batch report.
 
 </process>
 
@@ -187,5 +188,5 @@ complete item, updates STATE.md, and prints the final batch report.
 
 - [ ] (--validate) Verifier dispatched per item post-merge; `human_needed` never completes the item, `gaps_found` fails it without rollback or retry
 
-- [ ] `completeQuickItem` called only for genuinely complete items; STATE.md updated; artifacts committed
+- [ ] `completeQuickItem` called only for genuinely complete items; the batch's computed status follows; artifacts committed
 </success_criteria>
