@@ -214,6 +214,10 @@ pub fn fit(graph: &Graph, plan: &PackPlan<'_>) -> Result<Cut, EmitterError> {
         }
         let dropped = fewest(0, fresh.len(), |dropped| Ok(costs(dropped)? <= plan.budget))?;
         let (part, truncated_entities) = part(dropped);
+        // Nothing kept: the section is cut whole, as when nothing fits.
+        if part == Served::Part(Vec::new()) {
+            break;
+        }
         served[at] = part;
         let estimated_tokens = cost(graph, plan, &served, &truncated, &truncated_entities)?;
         cut = Cut {

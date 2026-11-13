@@ -274,3 +274,24 @@ fn a_subject_an_enrich_section_also_selects_is_never_new_nor_truncated() {
     };
     assert!(cuts.windows(2).all(|w| kept(&w[0]) <= kept(&w[1])));
 }
+
+#[test]
+fn an_empty_enrich_section_is_whole_or_cut_never_an_empty_part() {
+    let graph = graph();
+    for cut in cuts(&graph, &[("none", &[])]) {
+        assert_ne!(cut.served[1], Served::Part(Vec::new()), "{cut:?}");
+        assert!(cut.truncated_entities.is_empty(), "{cut:?}");
+    }
+}
+
+#[test]
+fn an_enrich_section_bigger_than_the_budget_is_cut_whole_not_served_empty() {
+    let graph = graph();
+    let cuts = cuts(&graph, &[("rest", &["i1", "i2", "i3"])]);
+    assert_eq!(cuts[0].served[1], Served::Cut);
+    assert_eq!(cuts[0].truncated_sections, ["rest"]);
+    assert!(cuts[0].truncated_entities.is_empty());
+    for cut in &cuts {
+        assert_ne!(cut.served[1], Served::Part(Vec::new()), "{cut:?}");
+    }
+}
