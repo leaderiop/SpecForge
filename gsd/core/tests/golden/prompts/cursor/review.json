@@ -21,7 +21,7 @@
     "<purpose>",
     "Cross-AI peer review — invoke external AI CLIs to independently review phase plans.",
     "Each CLI gets the same prompt (PROJECT.md context, phase plans, requirements) and",
-    "produces structured feedback. Results are combined into one review, shown and not stored, for the planner",
+    "produces structured feedback. Results are combined into one review round, recorded on the phase, for the planner",
     "to incorporate via --reviews flag.",
     "",
     "This implements adversarial review: different AI models catch different blind spots.",
@@ -61,8 +61,10 @@
     "",
     "Parse flags from `02 --codex`:"
   ],
-  "bytes": 59426,
+  "bytes": 56706,
   "end": [
+    "- [ ] At least one external CLI invoked successfully",
+    "- [ ] The review round recorded with its concerns",
     "- [ ] Consensus summary synthesized from multiple reviewers",
     "- [ ] Temp files cleaned up",
     "- [ ] User knows how to use feedback (/gsd-plan-phase --reviews)",
@@ -98,9 +100,7 @@
     "",
     "In the shell blocks above, `$PHASE_ID` is `v1.0/02`; `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`.",
     "",
-    "## Where the reviews go",
-    "",
-    "The reviews are shown to the user, not stored: wherever the text above says `REVIEWS.md` is written or committed, read that the combined review is shown in the conversation. `/gsd-plan-phase <phase> --reviews` reads it from there, and its dispositions are recorded as `disposition` rows.",
+    "## The reviewers",
     "",
     "The reviewers are the CLIs of the flags (`claude`, `codex`, `coderabbit`, `opencode`, `qwen`, `cursor`, `agy`, `kimi`) and the local servers (`ollama`, `lm-studio`, `llama-cpp`), run through the shell. Their invocation is the CLI's own: there is no lane manifest, no prompt budget and no lane runner here, so read each CLI's `--help` for the flag that takes a prompt. The settings `review.models.*`, `review.timeouts.*`, `review.effort.*` and `review.max_prompt_tokens*` are declared but inert for that reason: nothing reads them (`review.default_reviewers` is read)."
   ],
@@ -186,7 +186,7 @@
     "",
     "```json"
   ],
-  "lines": 1103,
+  "lines": 1027,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b9df5a7ce3d4049eaea709982d0962f341c3cc06567fc8c1c31c3c851da9617d",
+    "digest": "sha256:cbea5a72d55e930231b82973d3fb9c4d493b389e3eb132913add105bc2018c21",
     "prompt": "@gsd/core@VERSION:review",
     "subject": "v1.0/02"
   },
-  "sha256": "b9df5a7ce3d4049eaea709982d0962f341c3cc06567fc8c1c31c3c851da9617d"
+  "sha256": "cbea5a72d55e930231b82973d3fb9c4d493b389e3eb132913add105bc2018c21"
 }

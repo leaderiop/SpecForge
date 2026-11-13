@@ -21,7 +21,7 @@
     "<purpose>",
     "Cross-AI peer review — invoke external AI CLIs to independently review phase plans.",
     "Each CLI gets the same prompt (PROJECT.md context, phase plans, requirements) and",
-    "produces structured feedback. Results are combined into one review, shown and not stored, for the planner",
+    "produces structured feedback. Results are combined into one review round, recorded on the phase, for the planner",
     "to incorporate via --reviews flag.",
     "",
     "This implements adversarial review: different AI models catch different blind spots.",
@@ -61,8 +61,10 @@
     "",
     "Parse flags from `02 --codex`:"
   ],
-  "bytes": 67188,
+  "bytes": 64468,
   "end": [
+    "- [ ] At least one external CLI invoked successfully",
+    "- [ ] The review round recorded with its concerns",
     "- [ ] Consensus summary synthesized from multiple reviewers",
     "- [ ] Temp files cleaned up",
     "- [ ] User knows how to use feedback ($gsd-plan-phase --reviews)",
@@ -98,9 +100,7 @@
     "",
     "In the shell blocks above, `$PHASE_ID` is `v1.0/02`; `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`.",
     "",
-    "## Where the reviews go",
-    "",
-    "The reviews are shown to the user, not stored: wherever the text above says `REVIEWS.md` is written or committed, read that the combined review is shown in the conversation. `$gsd-plan-phase <phase> --reviews` reads it from there, and its dispositions are recorded as `disposition` rows.",
+    "## The reviewers",
     "",
     "The reviewers are the CLIs of the flags (`claude`, `codex`, `coderabbit`, `opencode`, `qwen`, `cursor`, `agy`, `kimi`) and the local servers (`ollama`, `lm-studio`, `llama-cpp`), run through the shell. Their invocation is the CLI's own: there is no lane manifest, no prompt budget and no lane runner here, so read each CLI's `--help` for the flag that takes a prompt. The settings `review.models.*`, `review.timeouts.*`, `review.effort.*` and `review.max_prompt_tokens*` are declared but inert for that reason: nothing reads them (`review.default_reviewers` is read)."
   ],
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1202,
+  "lines": 1126,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:d333eb408eb7513c7fccaac3ef879faa06da217e16adc312f52214040f737bb7",
+    "digest": "sha256:655adbffdd09e3efcfb448ad4297afcd75835a2a8fbf96c295b3493f9f072f2a",
     "prompt": "@gsd/core@VERSION:review",
     "subject": "v1.0/02"
   },
-  "sha256": "d333eb408eb7513c7fccaac3ef879faa06da217e16adc312f52214040f737bb7"
+  "sha256": "655adbffdd09e3efcfb448ad4297afcd75835a2a8fbf96c295b3493f9f072f2a"
 }

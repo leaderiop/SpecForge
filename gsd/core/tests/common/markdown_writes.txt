@@ -78,7 +78,6 @@ gsd-core/references/git-integration.md	| RESEARCH.md created     | NO      | Int
 gsd-core/references/mvp-concepts.md	- **Per-phase mode authoring** — `workflows/mvp-phase.md` (writes `**Mode:** mvp` to ROADMAP.md after collecting the user story).
 gsd-core/references/mvp-concepts.md	- **`--mvp` and `--prd <file>` together on Phase 1.** Both paths converge at the planner spawn. The PRD express path creates `CONTEXT.md` from the PRD file and continues to the research step; the Walking Skeleton gate fires independently when Phase 1 + new project + `--mvp`. The planner therefore receives both `WALKING_SKELETON=true` and PRD-derived context. This is intentional: the PRD informs what the skeleton should prove.
 gsd-core/references/planner-reviews.md	### Step 5: Write the ledger into PLAN.md (#3806)
-gsd-core/references/planner-reviews.md	Add or extend a `## Review Dispositions Ledger` section in the affected PLAN.md, containing one
 gsd-core/references/planner-reviews.md	PLAN.md content written before this convention existed is not migrated or flagged by it.
 gsd-core/references/questioning.md	By the end of questioning, you need enough clarity to write a PROJECT.md that downstream phases can act on:
 gsd-core/references/questioning.md	When you could write a clear PROJECT.md, offer to proceed:
@@ -272,9 +271,6 @@ gsd-core/workflows/quick.md	- [ ] (--research) Research agent spawned, `${quick_
 gsd-core/workflows/quick.md	- [ ] `${quick_id}-PLAN.md` created by planner (honors CONTEXT.md decisions when --discuss, uses RESEARCH.md findings when --research)
 gsd-core/workflows/quick.md	- [ ] `${quick_id}-SUMMARY.md` created by executor
 gsd-core/workflows/quick.md	- [ ] (--validate) `${quick_id}-VERIFICATION.md` created by verifier
-gsd-core/workflows/review.md	- **If `ALL_LANES_SKIPPED=true`:** do NOT write `REVIEWS.md` and do NOT run the commit below —
-gsd-core/workflows/review.md	- **If `TOTAL_LANE_FAILURE=true`:** do NOT write `REVIEWS.md` and do NOT run the commit below.
-gsd-core/workflows/review.md	summary below entirely** — no `REVIEWS.md` was written or committed, so there is nothing to
 gsd-core/workflows/session-report.md	Generate a post-session summary document capturing work performed, outcomes achieved, and estimated resource usage. Writes SESSION_REPORT.md to `reports/` in the repository for human review and stakeholder sharing.
 gsd-core/workflows/session-report.md	- [ ] Report written to `reports/`
 gsd-core/workflows/settings.md	Store `$GSD_CONFIG_PATH` — all subsequent reads and writes use this path, not a hardcoded path, so active-workstream installs target the correct file (#2282).

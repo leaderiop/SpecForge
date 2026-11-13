@@ -53,6 +53,15 @@ const MODES: &[Mode] = &[
             "c",
         ],
     ),
+    (
+        "record-review",
+        taskboard,
+        &[
+            "v1.0/02",
+            "--review",
+            r#"{"plans": ["v1.0/02/02-01"], "reviewers": [{"name": "codex", "model": "unknown", "source": "unknown"}], "lanes": [{"reviewer": "codex", "summary": "s", "risk": "low"}], "consensus": "c", "concerns": [{"plan": "v1.0/02/02-01", "reviewers": ["codex"], "severity": "low", "text": "t"}]}"#,
+        ],
+    ),
     ("security-hooks", secured, &["plan:pre"]),
     ("start-plan", taskboard, &["v1.0/02/02-01"]),
     (

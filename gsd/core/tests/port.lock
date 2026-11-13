@@ -1122,7 +1122,9 @@ gsd-core/references/planner-mvp-mode.md	kept	1+53	969e533bdf79
 gsd-core/references/planner-preconditions.md	kept	1+157	54f15f89c704
 gsd-core/references/planner-quick-batch.md	kept	1+72	517d562bdc4a
 gsd-core/references/planner-reversibility.md	kept	1+147	24b426adf498
-gsd-core/references/planner-reviews.md	kept	1+90	7747edaca4ff
+gsd-core/references/planner-reviews.md	kept	1+55	b51f03fe0b34
+gsd-core/references/planner-reviews.md	own	56+3	2	90f07fc1a067	d07f3d848611	prose
+gsd-core/references/planner-reviews.md	kept	59+32	01724325c17a
 gsd-core/references/planner-revision.md	kept	1+9	ca66a1f149f0
 gsd-core/references/planner-revision.md	own	10+1	1	1fdc3899d027	2f3a21bbd7f5	ported-name
 gsd-core/references/planner-revision.md	kept	11+88	dc264d34df37
@@ -4058,7 +4060,7 @@ gsd-core/workflows/resume-project.md	kept	355+4	b75e87aec855
 gsd-core/workflows/resume-project.md	own	359+1	1	17924a8a6b5c	52f55f2f9c66	workflow
 gsd-core/workflows/resume-project.md	kept	360+2	0b7a67a8b936
 gsd-core/workflows/review.md	kept	1+5	7d049c20c4d4
-gsd-core/workflows/review.md	own	6+1	1	575a4426e13b	591ec1875b44	workflow
+gsd-core/workflows/review.md	own	6+1	1	575a4426e13b	5cb962d2ac38	prose
 gsd-core/workflows/review.md	kept	7+9	aaacefce8349
 gsd-core/workflows/review.md	own	16+1	1	22f60d79842d	1ee0b708b811	prose
 gsd-core/workflows/review.md	kept	17+2	5f046190424d
@@ -4113,13 +4115,17 @@ gsd-core/workflows/review.md	kept	410+20	3fe1b0666860
 gsd-core/workflows/review.md	own	430+7	2	72031f485fa6	eff36a013b68	ported-name
 gsd-core/workflows/review.md	kept	437+3	aba1e012990c
 gsd-core/workflows/review.md	own	440+3	1	059ffff27c19	424d3d157fb9	ported-name
-gsd-core/workflows/review.md	kept	443+18	94dd7ebdb266
+gsd-core/workflows/review.md	kept	443+7	adc3527aceda
+gsd-core/workflows/review.md	own	450+2	2	994ef05243ca	d344bfa2c2a5	prose
+gsd-core/workflows/review.md	kept	452+9	1fd3910c3f19
 gsd-core/workflows/review.md	own	461+3	2	3150bda918ea	4a8be55ee05d	ported-name
 gsd-core/workflows/review.md	kept	464+20	e1386f00742b
 gsd-core/workflows/review.md	own	484+3	3	081aeff1afb4	e3f6ffdbeab3	ported-name
 gsd-core/workflows/review.md	kept	487+13	3d9641f1843b
 gsd-core/workflows/review.md	own	500+1	1	8bcc28528c7d	271a5d6b0518	served
-gsd-core/workflows/review.md	kept	501+36	bdd19827d3de
+gsd-core/workflows/review.md	kept	501+23	2c83ec8c06d6
+gsd-core/workflows/review.md	own	524+1	1	ddb2832a46af	cb5f311e24ff	prose
+gsd-core/workflows/review.md	kept	525+12	cec1dbb58580
 gsd-core/workflows/review.md	own	537+1	1	c233d76f9450	7416ec659cd4	served
 gsd-core/workflows/review.md	kept	538+12	2916d412490e
 gsd-core/workflows/review.md	own	550+1	1	337151a61d18	5a26049c56aa	ported-name
@@ -4131,7 +4137,11 @@ gsd-core/workflows/review.md	kept	577+6	79a5af006967
 gsd-core/workflows/review.md	own	583+1	1	6e69dfc08add	2bfe7c4088cd	served
 gsd-core/workflows/review.md	kept	584+17	fec527078367
 gsd-core/workflows/review.md	own	601+1	1	69a448771f73	857a4ac0a36f	served
-gsd-core/workflows/review.md	kept	602+16	6179db13b7ec
+gsd-core/workflows/review.md	kept	602+11	9992b7de4821
+gsd-core/workflows/review.md	own	613+1	1	b02c5344a953	748db4552d37	served
+gsd-core/workflows/review.md	kept	614+2	8790f7f6a9a2
+gsd-core/workflows/review.md	own	616+1	1	c75569c039b3	3adc5ff17087	served
+gsd-core/workflows/review.md	kept	617+1	d0eadee43976
 gsd-core/workflows/review.md	own	618+1	1	061be7fd5412	4edcda8256ba	files
 gsd-core/workflows/review.md	kept	619+4	f3200d9a4e9f
 gsd-core/workflows/review.md	own	623+2	2	7cbb4f367f2a	53a99e5f90d7	jq
@@ -4146,25 +4156,21 @@ gsd-core/workflows/review.md	own	659+12	2	5613f8439912	aece0348725f	ported-name
 gsd-core/workflows/review.md	kept	671+5	61bd6a7f0276
 gsd-core/workflows/review.md	own	676+18	5	dac6741d7805	c7d3befc6437	served
 gsd-core/workflows/review.md	kept	694+3	67b3bb6b22f0
-gsd-core/workflows/review.md	own	697+1	1	2ba8d4295533	3a704396956f	review
-gsd-core/workflows/review.md	kept	698+11	e49c505d6fe9
-gsd-core/workflows/review.md	own	709+1	1	e709eb4e29ec	a8c75294d68c	workflow
-gsd-core/workflows/review.md	kept	710+65	d73b3d0b1196
-gsd-core/workflows/review.md	own	775+2	2	1a3d60c656c8	4a800d93da61	ported-name
-gsd-core/workflows/review.md	kept	777+33	3019ffbf2abd
-gsd-core/workflows/review.md	own	810+1	1	873eb03057c3	a5496655cb89	ported-name
-gsd-core/workflows/review.md	kept	811+12	436799cdc662
-gsd-core/workflows/review.md	own	823+1	1	4e217e79c985	cacdf8f2a0ef	workflow
+gsd-core/workflows/review.md	own	697+112	38	6c95e284ecfc	f4d5fc4df18c	ported-name
+gsd-core/workflows/review.md	kept	809+1	ad332335cfaa
+gsd-core/workflows/review.md	own	810+1	2	873eb03057c3	73d266a1df0b	ported-name
+gsd-core/workflows/review.md	kept	811+5	c5a0cfc00509
+gsd-core/workflows/review.md	own	816+1	1	be8f4ceb5027	015af67437a2	served
+gsd-core/workflows/review.md	kept	817+6	856cc5b3c95f
+gsd-core/workflows/review.md	own	823+1	1	4e217e79c985	4861991266bc	prose
 gsd-core/workflows/review.md	kept	824+2	76dc75bd5dd1
 gsd-core/workflows/review.md	own	826+1	1	90bbb778bb0a	3b105b6e4458	workflow
 gsd-core/workflows/review.md	kept	827+13	71f761685ed5
-gsd-core/workflows/review.md	own	840+1	1	e10684ed8479	80a86f2ea2f7	workflow
+gsd-core/workflows/review.md	own	840+1	1	e10684ed8479	b737d53d0327	prose
 gsd-core/workflows/review.md	kept	841+5	da18ee112bb7
 gsd-core/workflows/review.md	own	846+1	1	9621bcae7573	15cfb5243842	files
 gsd-core/workflows/review.md	kept	847+1	7abd2ab96072
-gsd-core/workflows/review.md	own	848+3	3	58a396864484	46689eacd383	files
-gsd-core/workflows/review.md	kept	851+1	7dd1f2068983
-gsd-core/workflows/review.md	own	852+3	3	8ab03cbc59c9	101541422661	files
+gsd-core/workflows/review.md	own	848+7	6	9d602473e17e	fa8d65924fd4	prose
 gsd-core/workflows/review.md	kept	855+4	8dd8f5148cb9
 gsd-core/workflows/review.md	own	859+2	2	c0177605e400	0c41feb954ae	ported-name
 gsd-core/workflows/review.md	kept	861+6	3bfe58966198
@@ -4178,7 +4184,7 @@ gsd-core/workflows/review.md	own	887+45	12	fffa2ea444f4	8448cc84f231	served
 gsd-core/workflows/review.md	kept	932+1	7dd530c4d36d
 gsd-core/workflows/review.md	own	933+1	1	abf83db85485	8e239ec048fd	files
 gsd-core/workflows/review.md	kept	934+8	04479bbf08f0
-gsd-core/workflows/review.md	own	942+1	1	ecf493b032ae	65f3c6f1cbf2	workflow
+gsd-core/workflows/review.md	own	942+1	1	ecf493b032ae	68c506e8c642	prose
 gsd-core/workflows/review.md	kept	943+5	ede41f6e635b
 gsd-core/workflows/review/steps/reviewer-instances-note-1.md	kept	1+5	8e99eab70c78
 gsd-core/workflows/review/steps/reviewer-instances-note-2.md	kept	1+4	25672f5511d7

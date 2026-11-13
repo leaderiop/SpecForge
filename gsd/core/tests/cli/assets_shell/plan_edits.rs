@@ -142,24 +142,53 @@ fn the_convergence_step_stops_on_an_unset_phase_dir() {
     assert!(err.contains("phase_dir is empty"), "{err}");
 }
 
-/// The review's commit step, reached only when a lane produced a review, runs `:` and nothing else: the combined
-/// review is recorded nowhere, though the `review` kind exists.
+/// `/gsd-review` records its round with the concerns the lanes agreed on, then commits it.
 #[test]
-fn the_review_commit_records_nothing() {
+fn a_review_is_recorded_with_its_concerns() {
     let Some(sh) = Shell::only(&[]) else {
         return;
     };
     let p = taskboard();
+    p.commit();
+    // The commit fence commits through specforge, which reads the repository's identity, not the harness's flags.
+    p.git(&["config", "user.name", "gsd"], "2026-01-01T00:00:00Z");
+    p.git(
+        &["config", "user.email", "gsd@example.com"],
+        "2026-01-01T00:00:00Z",
+    );
     let text = asset("gsd-core/workflows/review.md");
-    let fence = fence_after(&text, "Commit (only reached when");
-    assert!(!fence.contains("specforge"), "{fence}");
-    let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/02\n{fence}"));
-    assert_eq!(code, 0, "{out}{err}");
-    let (count, err, _) = sh.run_in(
+    let round = r#"{"plans": ["v1.0/02/02-01"], "reviewers": [{"name": "codex", "model": "unknown", "source": "unknown"}, {"name": "claude", "model": "unknown", "source": "unknown"}], "lanes": [{"reviewer": "codex", "summary": "Sound, one gap", "strengths": ["small plan"], "suggestions": ["fsync the file"], "risk": "medium"}], "consensus": "The save is not crash-safe", "strengths": ["small plan"], "divergent": ["whether a lock is needed"], "concerns": [{"plan": "v1.0/02/02-01", "reviewers": ["codex", "claude"], "severity": "high", "text": "The rename is not atomic on every platform", "actionable": true}, {"plan": "v1.0/02/02-01", "reviewers": ["codex", "claude"], "severity": "medium", "text": "The file is never synced", "actionable": true}]}"#;
+    let record = typed::filled(
+        &typed::typed_fence(&text, "Only reached when `TOTAL_LANE_FAILURE`"),
+        &[("PHASE_ID", "v1.0/02"), ("REVIEW_JSON", round)],
+    );
+    let run = typed::apply(&sh, &p, &record);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(run.added.is_empty(), "{:?}", run.added);
+    assert!(run.out.contains("v1.0/02/RV1"), "{}", run.out);
+    let commit = typed::filled(
+        &typed::typed_fence(&text, "Commit the recorded round"),
+        &[("PHASE_ID", "v1.0/02")],
+    );
+    let run = typed::apply(&sh, &p, &commit);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(run.added.is_empty(), "{:?}", run.added);
+    let (reviews, err, _) = sh.run_in(
         p.root(),
         "specforge query v1.0/02 --depth 1 --kinds review --pick '.nodes[kind=review].id' --count",
     );
-    assert_eq!(count.trim(), "0", "{err}");
+    assert_eq!(reviews.trim(), "1", "{err}");
+    let (statuses, err, _) = sh.run_in(
+        p.root(),
+        "specforge query v1.0/02/RV1 --depth 1 --kinds review_concern --pick '.nodes[kind=review_concern].fields.status'",
+    );
+    assert_eq!(
+        statuses.lines().collect::<Vec<_>>(),
+        ["open", "open"],
+        "{err}"
+    );
+    let subject = p.git(&["log", "-1", "--format=%s"], "2026-01-01T00:00:00Z");
+    assert_eq!(subject.trim(), "docs(review): record the review of v1.0/02");
 }
 
 /// The PRD express path records the phase's context as typed edits: the context, a decision per requirement (the

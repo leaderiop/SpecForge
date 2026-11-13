@@ -4,7 +4,7 @@
 <purpose>
 Cross-AI peer review — invoke external AI CLIs to independently review phase plans.
 Each CLI gets the same prompt (PROJECT.md context, phase plans, requirements) and
-produces structured feedback. Results are combined into one review, shown and not stored, for the planner
+produces structured feedback. Results are combined into one review round, recorded on the phase, for the planner
 to incorporate via --reviews flag.
 
 This implements adversarial review: different AI models catch different blind spots.
@@ -417,8 +417,8 @@ prepare_trimmed_prompt_for_reviewer() {
 #
 # The result goes to a SLUG-SCOPED file, never a shared append. Concurrent O_APPEND is atomic only
 # below PIPE_BUF (4096 on Linux, 512 on some platforms), so a lane result above that bound could
-# interleave — and write_reviews parses this JSONL to render the models:/model_sources: frontmatter,
-# so a torn line is a broken REVIEWS.md, not a cosmetic log defect.
+# interleave — and write_reviews parses this JSONL to record each reviewer's model and source,
+# so a torn line is a broken review round, not a cosmetic log defect.
 run_review_lane() {
   # `local` is hygiene, not a live fix: each `&`-dispatched call already forks its own subshell, so
   # concurrent lanes cannot share these today. Scoped anyway so the isolation is a property of this
@@ -490,7 +490,7 @@ done
 
 # Join every dispatched lane. A bare `wait` with no background jobs returns 0, so the sequential
 # path needs no guard around it. NOTHING below this line may run before every lane has finished —
-# write_reviews renders REVIEWS.md and the consensus summary from the aggregate below, and a review
+# write_reviews records the round and its consensus summary from the aggregate below, and a review
 # assembled from a partial set looks complete while silently missing a reviewer.
 wait
 
@@ -579,10 +579,10 @@ if [ ! -s "$JSONL" ]; then
 fi
 ```
 
-- **If `ALL_LANES_SKIPPED=true`:** do NOT write `REVIEWS.md` and do NOT run the commit below —
+- **If `ALL_LANES_SKIPPED=true`:** record nothing and do NOT run the commit below —
   there is nothing to review. Report to the user that every selected lane was budget-skipped
   (not a failure) and stop; do not proceed to `present_results`' summary claiming a review ran.
-- **If `TOTAL_LANE_FAILURE=true`:** do NOT write `REVIEWS.md` and do NOT run the commit below.
+- **If `TOTAL_LANE_FAILURE=true`:** record nothing and do NOT run the commit below.
   Report the total lane failure to the user (name the lanes that were dispatched and point at
   their `.err`/stub files kept in `RUN_DIR` by `present_results`) and stop.
 - **Otherwise** (at least one lane produced a result — R1, unchanged): proceed exactly as below.
@@ -641,132 +641,59 @@ done
 ```
 
 Each `${RUN_DIR}/.plan-coverage-<slug>.json` carries `{complete, missing_ids, total}` (with `error` and `complete: false` when the check failed: record that lane as incomplete, its coverage unknown) for one
-graded lane. Collect these into a `plan_coverage` frontmatter block — **only** when at least one
-graded lane has `complete: false` (mirrors the existing `trimmed_reviewers` precedent: present
-only when there is something to report):
+graded lane. A lane with `complete: false` is an item of the round's `coverage` — **only** those (present only when
+there is something to report).
 
-```yaml
-plan_coverage:        # only present if at least one graded lane is incomplete
-  <slug>:
-    total: 7
-    missing: ["12.6-07"]
-```
+Combine all review responses into one review round and record it on the phase with `specforge gsd record-review`
+(`specforge schema --kind review` and `specforge schema --kind review_concern` name the fields). Plan-revision
+conflicts are `revision_conflict` entities that `/gsd:plan-phase` records: the round neither carries nor rewrites
+them, since reviewers do not own blocking state.
 
-Combine all review responses into one review (shown to the user, not stored):
+The round's JSON holds, read from each lane's `{run_dir}/gsd-review-<slug>.md`:
+- `plans`: the ids of the phase's plans reviewed;
+- `reviewers`: one `{name, model, source}` per reviewer actually invoked, a reviewer instance under its own name
+  (#1517, `gsd-core/references/reviewer-instances.md`). **Resolved model (#2295):** each lane's
+  `review-lane invoke --json` line in `{run_dir}/gsd-review-lane-results.jsonl` carries a `model` object: `model` is
+  its `value` and `source` its `source`, as-is (a `(reasoning=<level>)` suffix included). Write the literal
+  `unknown` rather than leaving one out: a missing value is indistinguishable from the feature not having run;
+- `lanes`: one `{reviewer, summary, strengths, suggestions, risk}` per lane that produced a review (`risk` is `low`,
+  `medium` or `high`). A trimmed lane (a `.metadata.json` file exists and `hardFailed` or `omitted` is non-empty, or
+  `projectMdShrunk` is true, or `planTruncationPct > 0`) names what was trimmed in its `summary`;
+- `coverage`: one `{reviewer, total, missing}` per incomplete graded lane (#3301), as above;
+- `consensus`, `strengths`, `divergent`: the consensus summary below;
+- `concerns`: one item per agreed concern, `{plan, reviewers, severity, text, actionable, drift, evidence}`
+  (`severity` is `high`, `medium` or `low`; `actionable` and `drift` are booleans, `evidence` a list of
+  `file:line` citations). `record-review` checks each and writes it as a `review_concern`.
 
-Capture only the existing conflict entry bytes after the exact `## Plan-Revision Conflicts`
-heading and before the end of the first exact `<!-- gsd:plan-revision-conflicts:begin -->` /
-`<!-- gsd:plan-revision-conflicts:end -->` pair immediately after the artifact title, if present,
-as `{preserved_plan_revision_conflict_entries}`. Ignore identical headings or delimiters in reviewer
-output: reviewers do not own blocking state. Restore the captured bytes at the explicit slot below.
+**Consensus summary:** synthesize common concerns across all reviewers. CodeRabbit is a diff-only reviewer (it never received the source-grounding prompt), so do not weight its verdict as a grounded plan review — fold in its diff findings, but base plan-level consensus on the prompt-fed reviewers. A reviewer output carrying the `[reviewed-without-repo-access]` marker (or beginning with `REVIEWED-WITHOUT-REPO-ACCESS`) ran without repo access (#2176) — treat it the same way: note its concerns, but do not count its verdict at full consensus weight. A reviewer output carrying the `[reviewed-without-source-citations]` marker (#3194) declared source-grounded evidence but cited no `file:line` evidence, so it reviewed the plan text only — treat it the same way: note its concerns, but do not count its verdict at full consensus weight. `strengths` are the ones mentioned by 2+ reviewers, `concerns` the ones raised by 2+ reviewers (highest priority), and `divergent` where reviewers disagreed (worth investigating).
 
-After all reviewers complete, collect trim metadata files written during the run. For each reviewer that was trimmed (i.e. a `.metadata.json` file exists and `hardFailed` or `omitted` is non-empty, or `projectMdShrunk` is true, or `planTruncationPct > 0`), include a `trimmed_reviewers` block in the frontmatter. Omit the key entirely if no reviewer was trimmed.
+Only reached when `TOTAL_LANE_FAILURE` and `ALL_LANES_SKIPPED` are both `false` (the gate above). Fill the values (a
+`'` inside the JSON is written `'\''`) and run:
 
-**Reviewer instances (#1517, optional):** when instances ran, frontmatter records their
-names, each gets its own `## <Adapter> Review (<instance>)` section, and ≥2 same-cli
-instances print a one-line shared-adapter caveat. Format in
-`gsd-core/references/reviewer-instances.md`.
-
-**Resolved model (#2295):** each lane's `review-lane invoke --json` line in
-`{run_dir}/gsd-review-lane-results.jsonl` carries a `model` object; render `models:` from
-its `value` and `model_sources:` from its `source`. Both maps carry exactly one entry per
-reviewer that appears in `reviewers:` — the two key sets always match. Write the literal
-`unknown` rather than omitting a key: an omitted key is indistinguishable from the feature
-not having run, and a reader must be able to tell *no model recorded* from *nothing to
-look at*. Emit every `models:`/`model_sources:` value as a DOUBLE-QUOTED YAML scalar — a
-legitimate model id can contain `:` (`llama3:70b`, `qwen2.5:7b`), which is unquotable as a
-bare scalar; a control character is already refused at the recording seam, so quoting is
-what closes the remaining `:`/`#`/leading-`-` cases. When GSD applied a reasoning effort to
-a lane, its `value` already carries a `(reasoning=<level>)` suffix (e.g.
-`gpt-5.6-sol (reasoning=high)`) — render it as-is, without re-deriving or re-formatting it.
-
-```markdown
----
-phase: {N}
-reviewers: [claude, codex, coderabbit, opencode, qwen, cursor, antigravity, ollama, lm_studio, llama_cpp]  # populate at runtime with only the reviewers actually invoked
-reviewed_at: {ISO timestamp}
-plans_reviewed: [{list of PLAN.md files}]
-models:                   # resolved model per reviewer; `unknown` when not recoverable
-  codex: "gpt-5.6-sol (reasoning=low)"
-  antigravity: "unknown"
-model_sources:            # how each value above was determined
-  codex: "banner"
-  antigravity: "unknown"
-trimmed_reviewers:        # only present if at least one reviewer was trimmed
-  ollama:
-    budget: 6000
-    effective_budget: 5400
-    estimated_tokens: 5380
-    omitted: [context, research]
-    project_md_shrunk: true
-    plan_truncation_pct: 22
-    hard_failed: false
-    note_injected: true
-plan_coverage:            # only present if at least one graded lane is incomplete (#3301)
-  ollama:
-    total: 7
-    missing: ["12.6-07"]
----
-
-# Cross-AI Plan Review — Phase {N}
-
-<!-- gsd:plan-revision-conflicts:begin -->
-## Plan-Revision Conflicts
-{preserved_plan_revision_conflict_entries}
-<!-- gsd:plan-revision-conflicts:end -->
-
-<!-- Sections are RENDERED from each lane's declared `reviewsSection`, in descriptor order.
-     There is deliberately no hardcoded per-reviewer heading list here any more: a hand-maintained
-     list is exactly the drift #2781 was filed about, and it silently disagreed with the roster.
-     the reviewers selected above, in order; each lane's section is named after its reviewer. For each lane,
-     `<slug>` and its section name; for each lane, emit:
-
-         ## <reviewsSection> Review
-
-         {contents of {run_dir}/gsd-review-<slug>.md}
-
-         ---
-
-     Two headings must NOT be generated from this list, because they are not lanes:
-       * `## <Adapter> Review (<instance>)` — an ADR-1517 reviewer INSTANCE resolves THROUGH a lane
-         and is rendered from the instance list, not the lane list (ADR-2782 D8).
-       * `## Consensus Summary` — not a review section at all.
-
-     A lane whose `evidenceClass` is `diff-only` (CodeRabbit) carries its caveat from data: it never
-     received the source-grounding prompt, so its verdict is folded in as a diff observation and is
-     not weighted as a grounded plan review. -->
-
-## Consensus Summary
-
-{synthesize common concerns across all reviewers. CodeRabbit is a diff-only reviewer (it never received the source-grounding prompt), so do not weight its verdict as a grounded plan review — fold in its diff findings, but base plan-level consensus on the prompt-fed reviewers. A reviewer output carrying the `[reviewed-without-repo-access]` marker (or beginning with `REVIEWED-WITHOUT-REPO-ACCESS`) ran without repo access (#2176) — treat it the same way: note its concerns, but do not count its verdict at full consensus weight. A reviewer output carrying the `[reviewed-without-source-citations]` marker (#3194) declared source-grounded evidence but cited no `file:line` evidence, so it reviewed the plan text only — treat it the same way: note its concerns, but do not count its verdict at full consensus weight.}
-
-### Agreed Strengths
-{strengths mentioned by 2+ reviewers}
-
-### Agreed Concerns
-{concerns raised by 2+ reviewers — highest priority}
-
-### Divergent Views
-{where reviewers disagreed — worth investigating}
-```
-
-Commit (only reached when `TOTAL_LANE_FAILURE` and `ALL_LANES_SKIPPED` are both `false` — the
-gate above):
 ```bash
-: # the reviews are shown to the user, not stored: there is no file to commit
+PHASE_ID="{the phase id, e.g. v1.0/02}"
+REVIEW_JSON='{the round as JSON: {"plans": [...], "reviewers": [...], "lanes": [...], "consensus": "...", "strengths": [...], "divergent": [...], "concerns": [...]}}'
+REVIEW_ID=$(specforge gsd record-review "$PHASE_ID" --review "$REVIEW_JSON" --pick .review) || exit 1
+echo "Recorded review: $REVIEW_ID"
+```
+
+Commit the recorded round (the spec only: `RUN_DIR` is never part of it):
+```bash
+PHASE_ID="{the phase id, e.g. v1.0/02}"
+specforge git commit --add spec -m "docs(review): record the review of $PHASE_ID" || exit 1
 ```
 </step>
 
 <step name="present_results">
 **If `write_reviews` set `TOTAL_LANE_FAILURE=true` or `ALL_LANES_SKIPPED=true`, skip the success
-summary below entirely** — no `REVIEWS.md` was written or committed, so there is nothing to
+summary below entirely** — no review was recorded or committed, so there is nothing to
 present as complete. Report instead:
 
 ```
 ### GSD ► REVIEW FAILED
 
 Phase {N}: every selected reviewer lane {failed to produce a result|was budget-skipped} — no
-review was shown.
+review was recorded.
 
 {If the preserve+cleanup block below reports success: "Diagnostics preserved:
 {diagnostics directory}". If it reports failure: relay its own warning verbatim —
@@ -783,7 +710,7 @@ Phase {N} reviewed by {count} AI systems.
 Consensus concerns:
 {top 3 shared concerns}
 
-Full review: shown above
+Full review: specforge query {REVIEW_ID} --depth 1 --format context
 
 To incorporate feedback into planning:
   /gsd:plan-phase {N} --reviews
@@ -794,8 +721,7 @@ which branch above ran, the run's temp directory is the only record that a lane 
 it stays in that directory after this block. A lane that produced no output at all (L4)
 leaves nothing to keep; that is a smaller directory, not a fabricated one, and is
 NOT a failure. The directory is deliberately NOT part of the commit above (N6) — that
-step names only `{padded_phase}-REVIEWS.md` explicitly, never a directory glob, so
-`RUN_DIR` is never swept into it.
+step names only `spec` explicitly, never a directory glob, so `RUN_DIR` is never swept into it.
 
 **#4097: keep lane OUTPUT, never the run's own input copies.** `RUN_DIR` holds not only
 lane outputs — prompt assembly (the `gather_context`/section-copy step above) also writes the
@@ -851,7 +777,7 @@ fi
 
 <success_criteria>
 - [ ] At least one external CLI invoked successfully
-- [ ] The review shown with structured feedback
+- [ ] The review round recorded with its concerns
 - [ ] Consensus summary synthesized from multiple reviewers
 - [ ] Temp files cleaned up
 - [ ] User knows how to use feedback (/gsd:plan-phase --reviews)
