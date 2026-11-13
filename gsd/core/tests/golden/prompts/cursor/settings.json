@@ -61,7 +61,7 @@
     "- `workflow.plan_check` — spawn plan checker during plan-phase",
     "- `workflow.verifier` — spawn verifier during execute-phase"
   ],
-  "bytes": 46449,
+  "bytes": 46520,
   "end": [
     "These settings apply to future /gsd-plan-phase and /gsd-execute-phase runs.",
     "",
@@ -138,7 +138,7 @@
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
-    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
+    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:11ebc8bbcee3ba40e8602c4b6024c44b8c7e964385c25ae0e5dbbe8fa70a35e9",
+    "digest": "sha256:175a9d69101eb74b9cd76b883f06bcb360b2e9efb7afcaf83c01e1d025b2bbf7",
     "prompt": "@gsd/core@VERSION:settings"
   },
-  "sha256": "11ebc8bbcee3ba40e8602c4b6024c44b8c7e964385c25ae0e5dbbe8fa70a35e9"
+  "sha256": "175a9d69101eb74b9cd76b883f06bcb360b2e9efb7afcaf83c01e1d025b2bbf7"
 }

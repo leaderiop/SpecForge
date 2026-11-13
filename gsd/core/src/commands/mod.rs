@@ -8,6 +8,7 @@ mod digest;
 mod execute;
 mod gate;
 mod help;
+mod learning;
 mod milestone;
 mod milestone_branches;
 mod phase;
@@ -48,6 +49,7 @@ pub const WRITERS: &[(&str, &str, &str)] = &[
     ("pause", "at", "pause"),
     ("pause", "by", "pause"),
     ("blocker", "raised", "raise_blocker"),
+    ("lesson", "graduated", "graduate_lessons"),
     ("quick_batch", "base", "start_batch"),
     ("quick_batch", "created", "start_batch"),
     ("blocker", "gate", "raise_blocker"),
@@ -108,5 +110,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
     milestone_branches::declare(c);
     smart_entry::declare(c);
     quick::declare(c);
+    learning::declare(c);
     surface::declare(c);
 }

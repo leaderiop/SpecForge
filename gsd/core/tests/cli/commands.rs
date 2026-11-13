@@ -272,7 +272,7 @@ fn a_failing_gate_refuses_and_an_off_setting_allows() {
 
 #[test]
 fn every_command_refuses_an_unknown_entity_with_its_name() {
-    let unknown: [(&str, Vec<&str>); 22] = [
+    let unknown: [(&str, Vec<&str>); 23] = [
         ("start-plan", vec!["NOPE"]),
         ("complete-plan", vec!["NOPE"]),
         (
@@ -308,6 +308,10 @@ fn every_command_refuses_an_unknown_entity_with_its_name() {
             ],
         ),
         ("resolve-conflict", vec!["x", "--conflict", "NOPE"]),
+        (
+            "graduate-lessons",
+            vec!["[\"NOPE\"]", "--disposition", "dismissed"],
+        ),
         (
             "start-batch",
             vec![

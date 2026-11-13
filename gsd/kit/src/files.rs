@@ -28,9 +28,18 @@ pub const PLANNING_FILES: &[(&str, &str)] = &[
         "STATE.md",
         "computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state",
     ),
-    ("RETROSPECTIVE.md", "retrospective, lesson, methodology"),
-    ("LEARNINGS.md", "retrospective, lesson, methodology"),
-    ("METHODOLOGY.md", "retrospective, lesson, methodology"),
+    (
+        "RETROSPECTIVE.md",
+        "retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology",
+    ),
+    (
+        "LEARNINGS.md",
+        "retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology",
+    ),
+    (
+        "METHODOLOGY.md",
+        "retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology",
+    ),
     (
         "NN-CONTEXT.md",
         "context, decision, deferred_idea, discussion",

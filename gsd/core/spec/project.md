@@ -119,6 +119,13 @@ Which workstream is active is session state, not a field ([execute.md](execute.m
 `/gsd-extract-learnings` writes, which is in the project scope), `text str R`, `milestone → milestone`, `top bool`.
 Also holds what `/gsd-extract-learnings` writes (`LEARNINGS.md`), with `kind enum{decision, lesson, pattern, surprise}`:
 those lessons are named `L-<phase>-<n>` (the phase is in the id, not a field), live in `spec/lessons.spec`, and have no counts (they are the lessons of each kind).
+`graduated {disposition enum{promoted, deferred, dismissed} R, target → decision, until → phase, at ts R} H`: what
+`/gsd-graduation` chose for the lesson's cluster (upstream's `**Graduated:**` mark and `graduation_backlog` row),
+written by `specforge gsd graduate-lessons '<json list>' --disposition <d>`: a promotion names its decision
+(`--target`), a deferral its phase (`--until`), a dismissal neither; a promoted or dismissed lesson is not graduated
+again. `status enum{open, deferred, promoted, dismissed} C`: open with no graduation, and open again once a deferral's
+phase is complete. Known difference: the state is per lesson, not per cluster. Upstream keys its backlog by a sha256 of
+a lexical cluster the next run recomputes; the lesson is what persists, so each lesson of the cluster records it.
 
 ## methodology
 

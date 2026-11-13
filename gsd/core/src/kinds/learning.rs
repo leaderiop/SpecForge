@@ -25,6 +25,14 @@ pub const RETROSPECTIVE: Kind = Kind::new(
 .scoped_by("milestone");
 
 const LESSON_KINDS: &[&str] = &["decision", "lesson", "pattern", "surprise"];
+const GRADUATION: &[&str] = &["promoted", "deferred", "dismissed"];
+const GRADUATED: &[Field] = &[
+    en("disposition", GRADUATION).r(),
+    rf("target", "decision"),
+    rf("until", "phase"),
+    ts("at").r(),
+];
+const LESSON_STATUS: &[&str] = &["open", "deferred", "promoted", "dismissed"];
 
 /// A lesson, named `L1` and scoped by its retrospective; what /gsd-extract-learnings writes has none.
 pub const LESSON: Kind = Kind::new(
@@ -38,6 +46,12 @@ pub const LESSON: Kind = Kind::new(
         rf("milestone", "milestone"),
         bool("top"),
         en("kind", LESSON_KINDS).doc("what /gsd-extract-learnings classified it as"),
+        block("graduated", GRADUATED).h().doc(
+            "`**Graduated:**` and `graduation_backlog`: promoted into a decision (`target`), deferred until a phase (`until`) or dismissed, written by `graduate_lessons`",
+        ),
+        en("status", LESSON_STATUS)
+            .c()
+            .doc("open unless graduated; a deferral is open again once its phase is complete"),
     ],
 )
 .scoped_by("retrospective");

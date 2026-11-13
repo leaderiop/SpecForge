@@ -186,7 +186,7 @@ TASK-01
 | `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase | core |
 | `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state | core |
 | `config.json` | settings | core |
-| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology | core |
+| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology | core |
 | `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion | core |
 | `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition | core |
 | `NN-RESEARCH.md`, `research/*.md` | research and its items | core |

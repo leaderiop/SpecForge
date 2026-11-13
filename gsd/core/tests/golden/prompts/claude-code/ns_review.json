@@ -47,7 +47,7 @@
     "| `/gsd-review` | prompt `specforge.gsd.review` (served by @gsd/core) |",
     "| `/gsd-ui-phase` | not served on this project |"
   ],
-  "bytes": 10648,
+  "bytes": 10719,
   "end": [
     "Route to the appropriate quality / review skill based on the user's intent.",
     "`gsd-code-review-fix` was absorbed by `/gsd-code-review --fix` in #2790.",
@@ -105,7 +105,7 @@
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
-    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
+    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
@@ -181,8 +181,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:e8af95f3f6abae25a3d7a36c78b61225b094d8ddd1544302bfeb72bf1c86873e",
+    "digest": "sha256:5cd0db8e12f7ed11fddd4ecbe2c4b02355e712114418bdeb4f97b5f8e1df0da2",
     "prompt": "@gsd/core@VERSION:ns_review"
   },
-  "sha256": "e8af95f3f6abae25a3d7a36c78b61225b094d8ddd1544302bfeb72bf1c86873e"
+  "sha256": "5cd0db8e12f7ed11fddd4ecbe2c4b02355e712114418bdeb4f97b5f8e1df0da2"
 }

@@ -38,7 +38,7 @@
     "| `$gsd-mempalace-recall` | not served on this project |",
     "| `$gsd-mempalace-capture` | not served on this project |"
   ],
-  "bytes": 18702,
+  "bytes": 18773,
   "end": [
     "}",
     "```",
@@ -172,8 +172,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:f3953c24772b4062356d8cf6aaa662588e3a20af699d7f81c18f360062641639",
+    "digest": "sha256:2f3c49e3ae4d5e2ea8cae1a8a6bed5c136982f3ada1525f01295a1fdc41a554f",
     "prompt": "@gsd/core@VERSION:ns_context"
   },
-  "sha256": "f3953c24772b4062356d8cf6aaa662588e3a20af699d7f81c18f360062641639"
+  "sha256": "2f3c49e3ae4d5e2ea8cae1a8a6bed5c136982f3ada1525f01295a1fdc41a554f"
 }

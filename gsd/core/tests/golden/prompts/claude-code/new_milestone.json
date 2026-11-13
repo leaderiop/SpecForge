@@ -61,7 +61,7 @@
     "",
     "MILESTONE_NAME=\"Next\""
   ],
-  "bytes": 67706,
+  "bytes": 67777,
   "end": [
     "| CONT-03 | Phase 3 | Pending |",
     "| CONT-04 | Phase 3 | Pending |",
@@ -119,7 +119,7 @@
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
-    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
+    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:d843c25252afe0ad06d20f15c9ff2e4d92ed284341ff77534bd321057f435ded",
+    "digest": "sha256:ed5ea98b62907c28c4506af21074a5c6376c96eac8ac0f51d0d9efbad882f432",
     "prompt": "@gsd/core@VERSION:new_milestone",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "d843c25252afe0ad06d20f15c9ff2e4d92ed284341ff77534bd321057f435ded"
+  "sha256": "ed5ea98b62907c28c4506af21074a5c6376c96eac8ac0f51d0d9efbad882f432"
 }

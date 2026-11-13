@@ -332,7 +332,15 @@ fn the_learning_kinds_declare_the_fields_of_the_model() {
     );
     assert_eq!(
         fields_of("lesson"),
-        ["retrospective", "text", "milestone", "top", "kind"]
+        [
+            "retrospective",
+            "text",
+            "milestone",
+            "top",
+            "kind",
+            "graduated",
+            "status"
+        ]
     );
     assert_eq!(
         fields_of("methodology"),
@@ -364,7 +372,8 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
     // + 2: the requirement's `shapes` and `text_en`, which the spec-less edge probe reads (ADR 0333).
-    assert_eq!(total, 72 + 3 - 2 + 1 + 2 + 2, "the kinds' fields");
+    // + 2: the lesson's `graduated` and `status`.
+    assert_eq!(total, 72 + 3 - 2 + 1 + 2 + 2 + 2, "the kinds' fields");
 }
 
 #[test]

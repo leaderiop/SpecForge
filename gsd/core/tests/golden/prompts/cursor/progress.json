@@ -61,7 +61,7 @@
     "the spec exists but the core initialization artifacts are missing (one or more of `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md` were never created — a bootstrap that stopped partway, e.g. after PROJECT.md). This is NOT a new project, NOT a missing STATE.md, and NOT a between-milestones state — do not fall through to any of those routes. Route to initialization recovery:",
     ""
   ],
-  "bytes": 69497,
+  "bytes": 69568,
   "end": [
     "| 3     | ○      | 0/2   | 0%       |",
     "```",
@@ -138,7 +138,7 @@
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
-    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
+    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:3311d372c04ab76e6cfd6251f84359bd2ac4bf7bbcf9f264f24a8a71fe1c283d",
+    "digest": "sha256:17d9b4661ae3d377e68a44d2f4a5135d798fe10a16fc44701f11493b56551ebf",
     "prompt": "@gsd/core@VERSION:progress",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "3311d372c04ab76e6cfd6251f84359bd2ac4bf7bbcf9f264f24a8a71fe1c283d"
+  "sha256": "17d9b4661ae3d377e68a44d2f4a5135d798fe10a16fc44701f11493b56551ebf"
 }

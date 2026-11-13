@@ -61,7 +61,7 @@
     "",
     "**If error:** Display the error message and exit."
   ],
-  "bytes": 38692,
+  "bytes": 38763,
   "end": [
     "",
     "Table rules use ASCII `-`, never box-drawing characters.",
@@ -138,7 +138,7 @@
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
-    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
+    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:99f57aff5f866c8bb510c63806e2d683736c9c9a036fe76ecde7d2b847b34b0f",
+    "digest": "sha256:11f8c98a0b4f6cd82b8f616899a476ded5526dfc7cb89745b8672483808099ce",
     "prompt": "@gsd/core@VERSION:manager",
     "steps": [
       {
@@ -232,5 +232,5 @@
       }
     ]
   },
-  "sha256": "99f57aff5f866c8bb510c63806e2d683736c9c9a036fe76ecde7d2b847b34b0f"
+  "sha256": "11f8c98a0b4f6cd82b8f616899a476ded5526dfc7cb89745b8672483808099ce"
 }

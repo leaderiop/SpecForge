@@ -24,6 +24,7 @@ mod cmd_digest;
 mod cmd_edge_probe;
 mod cmd_execute;
 mod cmd_gate;
+mod cmd_learning;
 mod cmd_milestone;
 mod cmd_phase;
 mod cmd_quick;

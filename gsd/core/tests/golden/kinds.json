@@ -106,6 +106,24 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "LessonGraduatedTarget",
+        "source_kind": "lesson",
+        "target_kind": "decision"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "LessonGraduatedUntil",
+        "source_kind": "lesson",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "MethodologySupersededBy",
         "source_kind": "methodology",
         "target_kind": "methodology"
@@ -2304,6 +2322,81 @@
             "name": "kind",
             "required": false,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`**Graduated:**` and `graduation_backlog`: promoted into a decision (`target`), deferred until a phase (`until`) or dismissed, written by `graduate_lessons`",
+            "edge": null,
+            "field_type": "block",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "promoted",
+                  "deferred",
+                  "dismissed"
+                ],
+                "field_type": "enum",
+                "inverse_of": null,
+                "name": "disposition",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "LessonGraduatedTarget",
+                "field_type": "reference",
+                "inverse_of": null,
+                "name": "target",
+                "required": false,
+                "target_kind": "decision"
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "LessonGraduatedUntil",
+                "field_type": "reference",
+                "inverse_of": null,
+                "name": "until",
+                "required": false,
+                "target_kind": "phase"
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "at",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "graduated",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "open unless graduated; a deferral is open again once its phase is complete",
+            "edge": null,
+            "enum_values": [
+              "open",
+              "deferred",
+              "promoted",
+              "dismissed"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,

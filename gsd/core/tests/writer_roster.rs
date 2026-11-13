@@ -37,7 +37,7 @@ fn fields_written(writer: &str) -> BTreeSet<(String, String)> {
 #[test]
 fn every_h_field_has_one_writer() {
     let declared = fields_written("harness");
-    assert_eq!(declared.len(), 42, "the 42 harness fields of the model");
+    assert_eq!(declared.len(), 43, "the 43 harness fields of the model");
     let rows: Vec<(String, String)> = WRITERS
         .iter()
         .map(|(k, f, _)| (k.to_string(), f.to_string()))
@@ -45,7 +45,7 @@ fn every_h_field_has_one_writer() {
     let listed: BTreeSet<(String, String)> = rows.iter().cloned().collect();
     assert_eq!(listed.len(), rows.len(), "a field has two writer rows");
     assert_eq!(listed, declared, "the rows and the H fields differ");
-    assert_eq!(WRITERS.len(), 42, "every H field has a writer");
+    assert_eq!(WRITERS.len(), 43, "every H field has a writer");
 }
 
 /// Every context field (ADR 0356) is a row of `RECORDS`, and the row's route records it: a field no route records could

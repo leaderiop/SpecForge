@@ -22,7 +22,7 @@ pub const FILES: &[(&str, &str)] = &[
     ("`config.json`", "settings"),
     (
         "`RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md`",
-        "retrospective, lesson, methodology",
+        "retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology",
     ),
     (
         "`NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`",
