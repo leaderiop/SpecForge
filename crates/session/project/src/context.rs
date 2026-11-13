@@ -1,6 +1,6 @@
 //! A context route read over a project (ADR 0356): each section of the route evaluated from one subject through the
 //! judged inputs' evaluator, so a section digests exactly as a judged input of the same selector does; the route's
-//! settings as one last section; and the digest of a pack over the sections it served.
+//! settings as one last section; and the digest of a pack over its subject and the sections it served.
 
 use std::collections::BTreeMap;
 
@@ -119,12 +119,25 @@ pub fn served(
     hash(&set)
 }
 
-/// The digest of a pack of `route` for `subject` over the sections it served, each as `(name, selector, digest)` in
-/// the pack's order: what was left out moves nothing, what was served moves it.
-pub fn digest(route: &str, subject: &str, served: &[(String, String, String)]) -> String {
+/// The digest of `subject` as a pack shows it: the judged digest of the one-member entity set, its checked values
+/// with it, so a pack whose sections never serve the subject still moves when the subject does.
+pub fn subject(project: &CompiledProject, disk: &dyn Disk, subject: &str) -> String {
+    let (set, _) = cx(project, disk).entity_set("", [subject.to_string()]);
+    hash(&set)
+}
+
+/// The digest of a pack of `route` for `subject` (whose own digest, by [`subject`], is `entity`) over the sections it
+/// served, each as `(name, selector, digest)` in the pack's order: what was left out moves nothing, what was served
+/// moves it, and the subject, always served, always moves it.
+pub fn digest(
+    route: &str,
+    subject: &str,
+    entity: &str,
+    served: &[(String, String, String)],
+) -> String {
     let sections: Vec<Value> = served
         .iter()
         .map(|(name, selector, digest)| json!([name, selector, digest]))
         .collect();
-    hash(&json!({"route": route, "subject": subject, "sections": sections}))
+    hash(&json!({"route": route, "subject": subject, "entity": entity, "sections": sections}))
 }

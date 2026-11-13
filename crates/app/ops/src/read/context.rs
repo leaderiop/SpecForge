@@ -111,7 +111,7 @@ fn named_route<'v>(
 }
 
 /// The pack of `route` for `subject` at `budget`: its sections read, fitted, each served section digested (a part
-/// over the members it kept), the pack digested over them, and the document rendered.
+/// over the members it kept), the pack digested over the subject and them, and the document rendered.
 fn seal(
     view: &ProjectView,
     route: &ContextRoute,
@@ -157,7 +157,8 @@ fn seal(
         .filter(|(_, digest)| !digest.is_empty())
         .map(|(read, digest)| (read.name.clone(), read.selector.clone(), digest.clone()))
         .collect();
-    let digest = context::digest(&route.name, subject.as_str(), &listed);
+    let entity = context::subject(project, &PlainDisk, subject.as_str());
+    let digest = context::digest(&route.name, subject.as_str(), &entity, &listed);
     let sealed = Sealed {
         sections,
         pack: digest.clone(),

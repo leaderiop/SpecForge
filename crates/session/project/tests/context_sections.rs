@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use serde_json::json;
-use specforge_project::context::{SectionKind, SectionRead, digest, read, served};
+use specforge_project::context::{SectionKind, SectionRead, digest, read, served, subject};
 use specforge_project::judged::{Cited, file_digest};
 use specforge_project::testing::{
     CODE_CORE, CONTEXT_INSTRUCTIONS, CONTEXT_PLAN, GSD_CONTEXT_SPEC, GSD_JUDGED, TestProject,
@@ -164,10 +164,38 @@ fn the_pack_digest_covers_what_is_served() {
         .file("CLAUDE.md", CONTEXT_INSTRUCTIONS);
     let compiled_after = compile(&edited);
     let after = sections(&compiled_after, "gsd/executor");
+    let entity = subject(&compiled, &PlainDisk, CONTEXT_PLAN);
+    assert_eq!(entity, subject(&compiled_after, &PlainDisk, CONTEXT_PLAN));
     let pack = |sections: &[SectionRead], left_out: &str| {
-        digest("gsd/executor", CONTEXT_PLAN, &listed(sections, left_out))
+        digest(
+            "gsd/executor",
+            CONTEXT_PLAN,
+            &entity,
+            &listed(sections, left_out),
+        )
     };
     assert_eq!(pack(&before, ""), pack(&before, ""));
     assert_ne!(pack(&before, ""), pack(&after, ""));
     assert_eq!(pack(&before, "decisions"), pack(&after, "decisions"));
+}
+
+#[specforge_test(
+    behavior = "serve_context_pack",
+    verify = "the pack digest covers the sections served and recomputes from the pack"
+)]
+fn the_pack_digest_moves_with_its_subject_when_no_section_serves_it() {
+    let project = gsd_context_project();
+    let compiled = compile(&project);
+    let edited =
+        GSD_CONTEXT_SPEC.replace("Save and load tasks.json", "Save and load the task file");
+    let edited = gsd_routed_project_over(&edited, &[GSD_JUDGED, CODE_CORE])
+        .file("CLAUDE.md", CONTEXT_INSTRUCTIONS);
+    let compiled_after = compile(&edited);
+    // No section listed: the subject is the only thing the pack served.
+    let pack = |compiled: &CompiledProject| {
+        let entity = subject(compiled, &PlainDisk, CONTEXT_PLAN);
+        digest("gsd/executor", CONTEXT_PLAN, &entity, &[])
+    };
+    assert_eq!(pack(&compiled), pack(&compiled));
+    assert_ne!(pack(&compiled), pack(&compiled_after));
 }

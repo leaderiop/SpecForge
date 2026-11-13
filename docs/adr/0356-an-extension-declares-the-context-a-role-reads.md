@@ -52,9 +52,11 @@ which order of importance.
 - **D5 The pack and its digest.** A pack answers `route`, `subject`, `agent` (when bound), `digest`, `budget` (strategy,
   budget, estimate and what was cut), `sections` as served (each its members, or its files as paths and digests, or
   its settings as values, with its digest), `skipped`, and `graph`: the export envelope of the subject and every
-  served entity in the asked format. The digest is the judged digest function over `{route, subject, sections:
-  [[name, selector, digest], …]}`, each section's digest over the members it served; the budget is recorded beside
-  it, not in it, so an entity no pack served never moves it. A reader recomputes it with `specforge context <route>
+  served entity in the asked format. The digest is the judged digest function over `{route, subject, entity,
+  sections: [[name, selector, digest], …]}`: `entity` is the subject's own digest (the judged digest of the
+  one-member entity set, its checked values with it), since the subject is always served even when no section
+  selects `self`; each section's digest is over the members it served. The budget is recorded beside it, not in
+  it, so an entity no pack served never moves it. A reader recomputes it with `specforge context <route>
   <subject> --max-tokens <budget> --pick .digest`.
 - **D6 Surfaces.** `specforge context <route> <subject>`, the MCP tool `specforge.context` and `role` on
   `specforge://context/{+entity_id}` are one operation and answer one text. `role` beside `depth` or `kinds` is
