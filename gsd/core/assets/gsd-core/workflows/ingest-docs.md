@@ -328,9 +328,9 @@ Load the existing roadmap (`specforge export --kinds milestone,phase,context --f
 The synthesizer has already hard-blocked on any LOCKED-in-ingest vs LOCKED-in-existing contradiction; if we reach this step, no such blockers remain.
 
 Plan the merge:
-- **New requirements** from synthesized `{intel_dir}/requirements.md` that do not overlap existing requirement entities → add them as `requirement` entities
+- **New requirements** from synthesized `{intel_dir}/requirements.md` that do not overlap existing requirement entities → v2 and out-of-scope ones are recorded on their own (`specforge gsd reference templates/requirements.md`); a v1 one goes into the roadmap edit below, with the phase that holds it
 - **New decisions** from synthesized `{intel_dir}/decisions.md` that do not overlap existing `context` entities' `<decisions>` blocks → write to a new phase's `context` entity or append to the next milestone's requirements
-- **New scope** → derive phase additions following the `new-milestone.md` pattern; add the phases to the roadmap (`specforge new phase`)
+- **New scope** → derive phase additions following the `new-milestone.md` pattern, and write them with the new v1 requirements in one `specforge.edit` call (the roadmap edit, `specforge gsd reference templates/roadmap.md`, without its milestone op when the milestone exists): a phase or a v1 requirement written alone leaves a v1 requirement in no phase, and `gsd/E101` refuses it
 
 Preview the merge diff to the user and gate via approve-revise-abort before writing.
 

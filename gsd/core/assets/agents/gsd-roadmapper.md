@@ -456,7 +456,7 @@ Return `## ROADMAP CREATED` with summary of what was written.
 
 If orchestrator provides revision feedback:
 - Parse specific concerns
-- Change the phases in place (`specforge set` / `specforge link`; a new phase with what it maps in one `specforge.edit` call), not from scratch
+- Change the phases in place, not from scratch, in one `specforge.edit` call: a `set` op on every phase whose `requirements` change and a `create` op per new phase. A requirement moved by `link` and `unlink` one write at a time sits in two phases or in none in between, and `gsd/E101` refuses that write
 - Re-validate coverage
 - Return `## ROADMAP REVISED` with changes made
 

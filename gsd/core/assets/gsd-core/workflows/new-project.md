@@ -999,7 +999,7 @@ Use AskUserQuestion:
 
   ${AGENT_SKILLS_ROADMAPPER}
 
-  Update the roadmap based on feedback. Change the phases in place.
+  Update the roadmap based on feedback. Change the phases in place, all in one `specforge.edit` call.
   Return ROADMAP REVISED with changes made.
   </revision>
   ", subagent_type="gsd-roadmapper", model="{roadmapper_model}", description="Revise roadmap")

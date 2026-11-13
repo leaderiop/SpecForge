@@ -253,7 +253,7 @@ Then confirm coverage: `specforge check --format json --pick '.[code=gsd/E101].m
 Return `## ROADMAP CREATED` with summary of what was written.
 
 ## Step 9: Handle Revision (if needed)
-Orchestrator provides revision feedback → parse concerns, change the phases in place (`specforge set` / `specforge link`; a new phase with what it maps in one `specforge.edit` call), not from scratch, re-validate coverage, return `## ROADMAP REVISED` with changes made.
+Orchestrator provides revision feedback → parse concerns, change the phases in place, not from scratch, in one `specforge.edit` call (a `set` op on every phase whose `requirements` change, a `create` op per new phase: a requirement moved one write at a time is refused by `gsd/E101`), re-validate coverage, return `## ROADMAP REVISED` with changes made.
 
 </execution_flow>
 

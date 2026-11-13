@@ -52,8 +52,8 @@
     "sha256": "88b5ce41e4bcaf46fe9415e03a5fe987b75415854c0591174ad1432747c05190"
   },
   ".claude/agents/gsd-roadmapper.md": {
-    "bytes": 24955,
-    "sha256": "a373faedc6e1c4b6086021dcce82454c19e65665732818714805466c2eabc3bd"
+    "bytes": 25115,
+    "sha256": "9b5532044387f57aba91554dc34628e65b3979495af229f2330e3088927fd489"
   },
   ".claude/agents/gsd-verifier.md": {
     "bytes": 54104,

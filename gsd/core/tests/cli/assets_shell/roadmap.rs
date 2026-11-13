@@ -131,11 +131,22 @@ fn a_revision_moves_a_requirement_in_one_edit() {
     let linked = p.run(&["link", "v1.0/03", "requirements", "TASK-01"]);
     assert_ne!(linked.code, 0, "{}", linked.all());
     assert!(linked.all().contains("gsd/E101"), "{}", linked.all());
-    // pinned: the revision step changes the phases with `specforge link` one write at a time
-    assert!(
-        revision.contains("(`specforge set` / `specforge link`;"),
-        "{revision}"
+    for text in [revision, asset("agents/gsd-roadmapper.compact.md")] {
+        assert!(
+            text.contains("in one `specforge.edit` call") && text.contains("gsd/E101"),
+            "{text}"
+        );
+    }
+    let moved = mcp_edit(
+        &p,
+        &json!([
+            {"op": "set", "entity_id": "v1.0/01", "field": "requirements", "value": ["TASK-02"]},
+            {"op": "set", "entity_id": "v1.0/03", "field": "requirements", "value": ["TASK-03", "LIST-01", "TASK-01"]},
+        ]),
     );
+    assert_ne!(moved["isError"], true, "{moved}");
+    assert_eq!(p.fields_of("v1.0/01")["requirements"], json!(["TASK-02"]));
+    assert!(p.codes().iter().all(|c| c != "gsd/E101"));
 }
 
 /// ingest-docs' merge writes its new v1 requirements with the phases that hold them, in the roadmap edit: a v1
@@ -164,10 +175,10 @@ fn the_ingest_merge_writes_requirements_with_their_phases() {
     ]);
     assert_ne!(alone.code, 0, "{}", alone.all());
     assert!(alone.all().contains("gsd/E101"), "{}", alone.all());
-    // pinned: the merge records requirements and phases one write at a time
     assert!(
-        merge.contains("add them as `requirement` entities")
-            && merge.contains("(`specforge new phase`)"),
+        merge.contains("templates/roadmap.md")
+            && merge.contains("gsd/E101")
+            && !merge.contains("`specforge new phase`"),
         "{merge}"
     );
 }
