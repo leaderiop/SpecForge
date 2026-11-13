@@ -406,7 +406,13 @@ specified in the canonical `gsd-core/references/tdd.md` "Gate Enforcement Rules"
 
 1. Stop. Do not run the task's implementation step.
 2. Emit the structured halt report defined in `gsd-core/references/execute-mvp-tdd.md` (header line, reason code, expected behavior, required next step).
-3. Update `STATE.md` with `last_gate_trip: {plan_id}/{task_id}`.
+3. Record the trip as an open blocker on its task (its `gate`); the person resumes from that blocker:
+   ```bash
+   HALT_REASON="{the halt report's reason code and the task it names}"
+   PLAN_ID="{the plan's id, e.g. v1.0/02/02-01}"
+   TASK_ID="{the tripped task's id, e.g. v1.0/02/02-01/T1}"
+   specforge gsd raise-blocker "$HALT_REASON" --plan "$PLAN_ID" --gate "$TASK_ID" || exit 1
+   ```
 4. Exit the current execution wave cleanly. Prior commits in the same wave stay — do not roll back.
 
 **Behavior-Adding Task detection** (the gate only fires when this predicate returns true): read the task's `type` instead of inlining the three checks:

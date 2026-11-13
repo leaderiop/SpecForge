@@ -52,7 +52,13 @@ The executor MUST:
 ```
 
 3. Exit the current execution wave cleanly. Do NOT roll back any prior commits in the same wave.
-4. Update `STATE.md` with `last_gate_trip: {plan_id}/{task_id}` so the user can resume after writing the test.
+4. Record the trip as an open blocker on its task, so the user can resume after writing the test (the blocker's `gate` names the task):
+   ```bash
+   HALT_REASON="{the halt report's reason code and the task it names}"
+   PLAN_ID="{the plan's id, e.g. v1.0/02/02-01}"
+   TASK_ID="{the tripped task's id, e.g. v1.0/02/02-01/T1}"
+   specforge gsd raise-blocker "$HALT_REASON" --plan "$PLAN_ID" --gate "$TASK_ID" || exit 1
+   ```
 
 ## Escalation: end-of-phase TDD review under TDD
 

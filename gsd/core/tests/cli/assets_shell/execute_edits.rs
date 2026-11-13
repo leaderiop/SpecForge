@@ -120,3 +120,43 @@ fn the_summary_template_closes_a_plan() {
         assert!(p.fields_of(&id).is_object(), "{id} is missing");
     }
 }
+
+/// A tripped TDD gate, in the executor's halt protocol and in the MVP+TDD reference alike, is an open blocker whose
+/// `gate` names the task, and the check reports nothing new.
+#[test]
+fn a_gate_trip_raises_a_blocker_on_its_task() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    for (path, heading) in [
+        (
+            "agents/gsd-executor.md",
+            "3. Record the trip as an open blocker",
+        ),
+        (
+            "gsd-core/references/execute-mvp-tdd.md",
+            "4. Record the trip as an open blocker",
+        ),
+    ] {
+        let p = taskboard();
+        let trip = typed::filled(
+            &typed::typed_fence(&asset(path), heading),
+            &[
+                (
+                    "HALT_REASON",
+                    "NO_FAILING_TEST: T1 adds behavior with no failing test",
+                ),
+                ("PLAN_ID", "v1.0/02/02-01"),
+                ("TASK_ID", "v1.0/02/02-01/T1"),
+            ],
+        );
+        let run = typed::apply(&sh, &p, &trip);
+        assert_eq!(run.code, 0, "{path}: {}{}", run.out, run.err);
+        assert!(run.added.is_empty(), "{path}: {:?}", run.added);
+        let blockers = p.nodes_of("blocker");
+        assert_eq!(blockers.len(), 1, "{path}: {blockers:?}");
+        let fields = &blockers[0]["fields"];
+        assert_eq!(fields["gate"], "v1.0/02/02-01/T1", "{path}");
+        assert!(fields["resolved"].is_null(), "{path}: the blocker is open");
+    }
+}

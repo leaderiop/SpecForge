@@ -9,7 +9,6 @@ agents/gsd-doc-synthesizer.md	You do NOT prompt the user. You do NOT write PROJE
 agents/gsd-doc-synthesizer.md	- `CONFLICTS_PATH` — where to write `INGEST-CONFLICTS.md` (absolute, given by the orchestrator: it reads this file to gate the ingest, so always write it, with the three-bucket header)
 agents/gsd-doc-synthesizer.md	- Write PROJECT.md, REQUIREMENTS.md, ROADMAP.md, or STATE.md — those are the roadmapper's job
 agents/gsd-doc-synthesizer.md	- [ ] INGEST-CONFLICTS.md written with three buckets, format per `doc-conflict-engine.md`
-agents/gsd-executor.md	3. Update `STATE.md` with `last_gate_trip: {plan_id}/{task_id}`.
 agents/gsd-pattern-mapper.md	Write to: nothing — the report is your reply: @gsd/core keeps no PATTERNS.md, and the pattern map entity is @gsd/codebase's
 agents/gsd-research-synthesizer.compact.md	- Identify confidence levels and gaps; write SUMMARY.md
 agents/gsd-research-synthesizer.compact.md	## Step 6: Write SUMMARY.md
@@ -55,7 +54,6 @@ gsd-core/references/agent-contracts.md	| gsd-eval-auditor | Evaluation coverage 
 gsd-core/references/agent-contracts.md	| gsd-eval-planner | Evaluation strategy design | No marker (writes the AI-SPEC.md evaluation section via Edit) | `gsd-core/workflows/ai-integration-phase.md` reads the AI-SPEC.md section after the agent returns | artifact+query |
 gsd-core/references/autonomous-smart-discuss.md	## Sub-step 5: Write CONTEXT.md
 gsd-core/references/autonomous-smart-discuss.md	After all areas are resolved (or infrastructure skip), write the CONTEXT.md file.
-gsd-core/references/execute-mvp-tdd.md	4. Update `STATE.md` with `last_gate_trip: {plan_id}/{task_id}` so the user can resume after writing the test.
 gsd-core/references/execute-phase-response-language.md	**The `gsd-verifier` subagent has no workflow file of its own (#2529):** the shared verification step (`workflows/execute-phase/steps/verify-phase-goal.md`, included by execute-phase's `verify_phase_goal` and by verify-work, #5118) reaches it by dispatch, not by reading a workflow, so there is no file in which to place a directive — the dispatch prompt is the only place its coverage can live. That prompt MUST carry this line verbatim, immediately after `Create VERIFICATION.md.` (the shared step's prompt carries it inline, so both callers inject it):
 gsd-core/references/executor-examples.md	### Writing `deferred-items.md`
 gsd-core/references/git-integration.md	| PLAN.md created         | NO      | Intermediate - commit with plan completion       |

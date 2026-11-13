@@ -90,7 +90,9 @@ agents/gsd-executor.md	kept	272+37	73f0210ca577
 agents/gsd-executor.md	own	309+3	3	765b1da8d4fb	3f44cf8d5e91	ported-name
 agents/gsd-executor.md	kept	312+100	fd2307908a9f
 agents/gsd-executor.md	own	412+2	2	c8bb60611b89	3c49cb22581b	ported-name
-agents/gsd-executor.md	kept	414+15	738cb036627c
+agents/gsd-executor.md	kept	414+12	4252c69781fd
+agents/gsd-executor.md	own	426+1	7	02e50e45e5ba	850597629cbc	typed-edit
+agents/gsd-executor.md	kept	427+2	a9d2f02e2928
 agents/gsd-executor.md	own	429+1	1	ef62d97f8fa9	4af5f94ace0d	agent
 agents/gsd-executor.md	kept	430+2	5f046190424d
 agents/gsd-executor.md	own	432+4	4	d5328e0107c4	1b9137c03a9b	ported-name
@@ -975,7 +977,9 @@ gsd-core/references/execute-mvp-tdd.md	kept	22+17	422215fed030
 gsd-core/references/execute-mvp-tdd.md	own	39+1	1	a6788eef33b6	f1b901847390	markdown
 gsd-core/references/execute-mvp-tdd.md	kept	40+11	9ea8bd9622ec
 gsd-core/references/execute-mvp-tdd.md	own	51+1	1	a6788eef33b6	f1b901847390	markdown
-gsd-core/references/execute-mvp-tdd.md	kept	52+26	285f09881f0e
+gsd-core/references/execute-mvp-tdd.md	kept	52+2	ca89e48fdb0f
+gsd-core/references/execute-mvp-tdd.md	own	54+1	7	fe87717d6288	9733517310e9	typed-edit
+gsd-core/references/execute-mvp-tdd.md	kept	55+23	f95b79cf7ea6
 gsd-core/references/execute-phase-between-wave-reset.md	kept	1+1	1786c8875819
 gsd-core/references/execute-phase-between-wave-reset.md	own	2+1	1	272b44544b25	6a8d5bd9a6d4	ported-name
 gsd-core/references/execute-phase-between-wave-reset.md	kept	3+8	38ee43db1b28
