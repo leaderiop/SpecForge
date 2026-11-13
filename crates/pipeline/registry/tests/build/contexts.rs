@@ -325,6 +325,44 @@ fn a_context_route_that_cannot_be_served_is_e123_and_not_registered() {
 
 #[spec(
     behavior = "declare_context_route",
+    verify = "a file section follows its referrers on to their file field, and one that ends at the reference is E123"
+)]
+fn a_file_section_follows_its_referrers_on_to_their_file_field() {
+    let section = |selector: &'static str| {
+        move |c: &mut ContributionsBuilder| {
+            c.context("r", |r| {
+                r.subject("need").budget(10).core("x", selector);
+            });
+        }
+    };
+    let built = build([proof(), work(section("file(self<plan.need.files)"))]);
+    assert!(
+        coded(&built, "E123").is_empty(),
+        "{:?}",
+        coded(&built, "E123")
+    );
+    assert!(built.contexts().named("work/r").is_some());
+    for (selector, why) in [
+        (
+            "file(self<plan.need)",
+            "ends at a reference, not a file field",
+        ),
+        ("file(self<plan.need.title)", "'title' is not a file field"),
+    ] {
+        let built = build([proof(), work(section(selector))]);
+        let e123 = coded(&built, "E123");
+        assert_eq!(e123.len(), 1, "{selector}: {e123:#?}");
+        assert!(
+            e123[0].message.contains(why),
+            "{selector}: {}",
+            e123[0].message
+        );
+        assert!(built.contexts().is_empty());
+    }
+}
+
+#[spec(
+    behavior = "declare_context_route",
     verify = "a context section of an optional peer the project does not load is skipped and listed"
 )]
 fn a_section_of_an_unloaded_optional_peer_is_skipped_and_recorded() {

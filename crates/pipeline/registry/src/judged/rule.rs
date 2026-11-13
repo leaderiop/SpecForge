@@ -494,15 +494,33 @@ pub(crate) fn check_selector(
             let (last, steps) = chain.steps.split_last().ok_or_else(|| {
                 invalid("file() of a chain needs a step ending at a file field".into())
             })?;
-            let kinds = walked(steps.len(), chain).map_err(|e| invalid(e.why()))?;
             match last {
-                Step::Path(path) => ends_at_file(registries, kinds, path, reader),
+                Step::Path(path) => {
+                    let kinds = walked(steps.len(), chain).map_err(|e| invalid(e.why()))?;
+                    ends_at_file(registries, kinds, path, reader).map_err(invalid)?;
+                }
+                // The referrers are found by the path's reference prefix, as a check reads it (ADR 0304); the rest
+                // is a forward path from them that ends at a file field.
                 Step::Referrers { kinds, path } => {
-                    ends_at_file(registries, kinds.iter().cloned().collect(), path, reader)
+                    let words: Vec<&str> = path.split('.').collect();
+                    let first = kinds.names.first().map_or("", String::as_str);
+                    let end = reference_end(registries, first, &words, reader).map_err(invalid)?;
+                    if end == words.len() {
+                        return Err(invalid(format!(
+                            "file() of '{path}' ends at a reference, not a file field"
+                        )));
+                    }
+                    let mut prefix = chain.clone();
+                    if let Some(Step::Referrers { path, .. }) = prefix.steps.last_mut() {
+                        *path = words[..end].join(".");
+                    }
+                    let reached =
+                        walked(prefix.steps.len(), &prefix).map_err(|e| invalid(e.why()))?;
+                    ends_at_file(registries, reached, &words[end..].join("."), reader)
+                        .map_err(invalid)?;
                 }
             }
-            .map(|()| None)
-            .map_err(invalid)
+            Ok(None)
         }
         Selector::Files(_) => Ok(None),
     }
