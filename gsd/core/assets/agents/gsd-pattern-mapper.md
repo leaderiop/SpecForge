@@ -167,7 +167,7 @@ Look for cross-cutting patterns that apply to multiple new files:
 
 **Write no file** — no Write, no `Bash(cat << 'EOF')`, no heredoc: the report is your reply.
 
-Write to: nothing — the report is your reply: @gsd/core keeps no PATTERNS.md, and the pattern map entity is @gsd/codebase's
+Write to: nothing — the report is your reply: @gsd/core keeps no pattern map file, and the pattern map entity is @gsd/codebase's
 
 ## Step 7: Return Structured Result
 
@@ -177,7 +177,7 @@ Write to: nothing — the report is your reply: @gsd/core keeps no PATTERNS.md, 
 
 ## PATTERNS.md Structure
 
-**Location:** return the report in your reply: PATTERNS.md has no entity in @gsd/core, and the orchestrator hands it to the planner
+**Location:** return the report in your reply: a pattern map has no entity in @gsd/core, and the orchestrator hands it to the planner
 
 ```markdown
 # Phase [X]: [Name] - Pattern Map

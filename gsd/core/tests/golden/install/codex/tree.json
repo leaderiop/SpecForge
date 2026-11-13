@@ -28,8 +28,8 @@
     "sha256": "5bf6546313681779d919ee0799259fbf308237c5499a6b0594e51b02436b01dd"
   },
   ".codex/agents/gsd-pattern-mapper.toml": {
-    "bytes": 15629,
-    "sha256": "933df92771bf91058ef352e8f2ae75152d55c2b49a5958547a43a8e834534554"
+    "bytes": 15636,
+    "sha256": "8d011b37cd32a4ecc15a784f88f819dc60dca14ce2205f03411f87ffe1eb4a72"
   },
   ".codex/agents/gsd-phase-researcher.toml": {
     "bytes": 47547,

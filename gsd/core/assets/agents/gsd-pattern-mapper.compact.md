@@ -127,7 +127,7 @@ Cross-cutting patterns applying to multiple new files: auth middleware/guards, e
 
 ## Step 6: Compose the pattern map
 
-**Write no file** — no Write, no heredoc: the report is your reply. @gsd/core keeps no PATTERNS.md, and the pattern map entity is @gsd/codebase's.
+**Write no file** — no Write, no heredoc: the report is your reply. @gsd/core keeps no pattern map file, and the pattern map entity is @gsd/codebase's.
 
 ## Step 7: Return Structured Result
 
@@ -137,7 +137,7 @@ Cross-cutting patterns applying to multiple new files: auth middleware/guards, e
 
 ## PATTERNS.md Structure
 
-**Location:** return the report in your reply: PATTERNS.md has no entity in @gsd/core, and the orchestrator hands it to the planner
+**Location:** return the report in your reply: a pattern map has no entity in @gsd/core, and the orchestrator hands it to the planner
 
 ```markdown
 # Phase [X]: [Name] - Pattern Map

@@ -82,4 +82,4 @@ Plan 3"); the concern's status reads the highest round.
 
 **Out of scope for this contract.** A deterministic lint/check verb that mechanically enforces this
 shape is a separate, later addition (#3806 part 2) — this section defines the format only. Legacy
-PLAN.md content written before this convention existed is not migrated or flagged by it.
+A plan written before this convention existed is not migrated or flagged by it.

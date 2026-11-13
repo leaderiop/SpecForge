@@ -105,7 +105,7 @@ Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its numbe
 
 **If `response_language` is set:** All user-facing orchestrator output — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be in `{response_language}`; technical terms, code, paths, and subagent prompts stay in English. Pass `response_language: {value}` into every spawned subagent prompt.
 
-**Entity ids (for <required_reading> blocks):** `roadmap_path`, `context_path`, `research_path`, `verification_path`, `uat_path` each name an entity, and `requirements_path` holds the phase's requirement ids, one per line: each is read with `specforge query <id> --format context`. These are empty if the phase has no such entity. The project state is computed (`specforge gsd progress-report`), and REVIEWS.md is no entity: neither has a value here.
+**Entity ids (for <required_reading> blocks):** `roadmap_path`, `context_path`, `research_path`, `verification_path`, `uat_path` each name an entity, and `requirements_path` holds the phase's requirement ids, one per line: each is read with `specforge query <id> --format context`. These are empty if the phase has no such entity. The project state is computed (`specforge gsd progress-report`) and has no value here; the phase's reviews are `review` entities.
 
 **If `planning_exists` is false:** Error — run `/gsd:new-project` first.
 
@@ -794,7 +794,7 @@ A concern a disposition already addressed or deferred is no longer open and requ
 **Phase requirement IDs (every ID MUST appear in a plan's `requirements` field):** {phase_req_ids}
 
 <tracked_source_paths>
-**Tracked-source paths (#3645):** Every path you write into PLAN.md —
+**Tracked-source paths (#3645):** Every path you write into a plan —
 `files_modified`, `must_haves.artifacts`, action paths, and paths inherited
 from `{PATTERNS_PATH}` or prior-phase plans — must name git-tracked source,
 never a gitignored install/runtime mirror (e.g. `<root>/.gsd/capabilities/<id>/...`
@@ -925,7 +925,7 @@ Every task MUST include these fields — they are NOT optional:
 - [ ] Dependencies correctly identified
 - [ ] Waves assigned for parallel execution
 - [ ] must_haves derived from phase goal
-- [ ] Every PLAN.md includes an "Artifacts this phase produces" section listing symbols created by this phase (decorators, classes, functions, CLI flags, struct/dataclass fields, new file paths)
+- [ ] Every plan lists the artifacts this phase produces as `artifact` entities, naming the symbols created by this phase (decorators, classes, functions, CLI flags, struct/dataclass fields, new file paths)
 - [ ] Every SPEC ## Edge Coverage resolved edge is represented in a plan's must_haves (no silent drops)
 - [ ] Every UI-SPEC ## UI Considerations resolved consideration is represented in a plan's must_haves (no silent drops)
 - [ ] Every SPEC ## Prohibitions resolved item is represented in a plan's must_haves.prohibitions (no silent drops)
