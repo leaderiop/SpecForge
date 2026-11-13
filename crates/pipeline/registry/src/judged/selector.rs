@@ -5,11 +5,16 @@
 //! selector := "file" "(" ( string ( "," string )* | chain ) ")" | "test" "(" chain ( "," chain )* ")" | chain
 //! chain    := head step*
 //! head     := "self" | kinds
-//! kinds    := word ( "|" word )*
+//! kinds    := pick ( "|" pick )*
+//! pick     := word ( "[" word "=" value ( "|" value )* "]" )?
+//! value    := word
 //! step     := "." path | "<" kinds "." path
 //! path     := word ( "." word )*
 //! ```
+//!
+//! A pick's filter (ADR 0356 D13) keeps only the entities of its kind whose field holds one of the values.
 
+use std::collections::BTreeSet;
 use std::fmt;
 
 /// Where a chain starts.
@@ -18,7 +23,52 @@ pub enum Head {
     /// The judged entity.
     This,
     /// Every entity of these kinds with no scope parent.
-    Kinds(Vec<String>),
+    Kinds(Kinds),
+}
+
+/// The kinds a head or a referrer step picks, each with at most one field filter.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Kinds {
+    /// The kind names, as written.
+    pub names: Vec<String>,
+    /// The field filters, at most one per kind.
+    pub filters: Vec<Filter>,
+}
+
+/// `kind[field=value|…]`: only the entities of `kind` whose authored scalar `field` holds one of `values`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Filter {
+    pub kind: String,
+    pub field: String,
+    pub values: BTreeSet<String>,
+}
+
+impl Kinds {
+    /// Kinds with no filter.
+    pub fn of(names: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Kinds {
+            names: names.into_iter().map(Into::into).collect(),
+            filters: Vec::new(),
+        }
+    }
+
+    /// The kind names, as written.
+    pub fn iter(&self) -> std::slice::Iter<'_, String> {
+        self.names.iter()
+    }
+
+    /// The filter on `kind`, when it carries one.
+    pub fn filter(&self, kind: &str) -> Option<&Filter> {
+        self.filters.iter().find(|filter| filter.kind == kind)
+    }
+}
+
+impl<'a> IntoIterator for &'a Kinds {
+    type Item = &'a String;
+    type IntoIter = std::slice::Iter<'a, String>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.names.iter()
+    }
 }
 
 /// One step of a chain.
@@ -27,7 +77,7 @@ pub enum Step {
     /// `.path`: what the reference field (or member) `path` of each entity names.
     Path(String),
     /// `<kinds.path`: the entities of `kinds` whose `path` names one of the entities so far.
-    Referrers { kinds: Vec<String>, path: String },
+    Referrers { kinds: Kinds, path: String },
 }
 
 /// An entity-valued chain.
@@ -123,12 +173,36 @@ impl Parser<'_> {
         Ok(path)
     }
 
-    fn kinds(&mut self) -> Result<Vec<String>, String> {
-        let mut kinds = vec![self.word()?];
-        while self.eat('|') {
-            kinds.push(self.word()?);
+    fn kinds(&mut self) -> Result<Kinds, String> {
+        let mut kinds = Kinds::of(Vec::<String>::new());
+        loop {
+            let name = self.word()?;
+            if self.eat('[') {
+                let at = self.at;
+                if name == "self" {
+                    return Err(format!("'self' carries no filter at {at}"));
+                }
+                if kinds.filter(&name).is_some() {
+                    return Err(format!("kind '{name}' carries one filter at {at}"));
+                }
+                let field = self.word()?;
+                self.expect('=')?;
+                let mut values = BTreeSet::from([self.word()?]);
+                while self.eat('|') {
+                    values.insert(self.word()?);
+                }
+                self.expect(']')?;
+                kinds.filters.push(Filter {
+                    kind: name.clone(),
+                    field,
+                    values,
+                });
+            }
+            kinds.names.push(name);
+            if !self.eat('|') {
+                return Ok(kinds);
+            }
         }
-        Ok(kinds)
     }
 
     fn string(&mut self) -> Result<String, String> {
@@ -153,8 +227,8 @@ impl Parser<'_> {
 
     fn chain(&mut self) -> Result<Chain, String> {
         let kinds = self.kinds()?;
-        let head = match kinds.as_slice() {
-            [one] if one == "self" => Head::This,
+        let head = match kinds.names.as_slice() {
+            [one] if one == "self" && kinds.filters.is_empty() => Head::This,
             _ => Head::Kinds(kinds),
         };
         let mut steps = Vec::new();
@@ -218,16 +292,34 @@ impl Parser<'_> {
     }
 }
 
+impl fmt::Display for Kinds {
+    /// Each name with its filter after its first occurrence, the filter's values sorted.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (at, name) in self.names.iter().enumerate() {
+            if at > 0 {
+                f.write_str("|")?;
+            }
+            f.write_str(name)?;
+            let first = !self.names[..at].contains(name);
+            if let Some(filter) = self.filter(name).filter(|_| first) {
+                let values: Vec<&str> = filter.values.iter().map(String::as_str).collect();
+                write!(f, "[{}={}]", filter.field, values.join("|"))?;
+            }
+        }
+        Ok(())
+    }
+}
+
 impl fmt::Display for Chain {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.head {
             Head::This => f.write_str("self")?,
-            Head::Kinds(kinds) => f.write_str(&kinds.join("|"))?,
+            Head::Kinds(kinds) => write!(f, "{kinds}")?,
         }
         for step in &self.steps {
             match step {
                 Step::Path(path) => write!(f, ".{path}")?,
-                Step::Referrers { kinds, path } => write!(f, "<{}.{path}", kinds.join("|"))?,
+                Step::Referrers { kinds, path } => write!(f, "<{kinds}.{path}")?,
             }
         }
         Ok(())
@@ -295,6 +387,7 @@ mod tests {
             "test(self, self.plan)"
         );
         assert!(Selector::parse("test(self,)").is_err());
+        assert!(Selector::parse("self[a=b]").is_err());
         // `file` and `test` are kinds only when no `(` follows.
         assert_eq!(
             Selector::parse("file.path").unwrap().to_string(),
@@ -302,12 +395,66 @@ mod tests {
         );
     }
 
+    #[spec(
+        behavior = "declare_judged_rule",
+        verify = "a selector's kind filter prints its values sorted and parses back"
+    )]
+    fn a_kind_filter_prints_its_values_sorted_and_parses_back() {
+        let selector = Selector::parse(
+            "self.phase < decision [ origin = summary | context | context ] .phase",
+        )
+        .unwrap();
+        assert_eq!(
+            selector.to_string(),
+            "self.phase<decision[origin=context|summary].phase"
+        );
+        assert_eq!(Selector::parse(&selector.to_string()), Ok(selector.clone()));
+        let Selector::Entities(chain) = selector else {
+            panic!("an entities selector")
+        };
+        let Step::Referrers { kinds, .. } = &chain.steps[1] else {
+            panic!("a referrer step")
+        };
+        assert_eq!(kinds.names, ["decision"]);
+        let filter = kinds.filter("decision").expect("decision carries a filter");
+        assert_eq!(filter.field, "origin");
+        assert_eq!(
+            filter.values,
+            BTreeSet::from(["context".to_string(), "summary".to_string()])
+        );
+        assert_eq!(
+            Selector::parse("decision[origin=project]|phase")
+                .unwrap()
+                .to_string(),
+            "decision[origin=project]|phase"
+        );
+        assert!(Selector::parse("decision[origin=a]|decision[origin=b]").is_err());
+        assert!(Selector::parse("decision[origin]").is_err());
+        assert!(Selector::parse("decision[origin=]").is_err());
+    }
+
     fn word() -> impl Strategy<Value = String> {
         "[a-z][a-z0-9_]{0,6}".prop_filter("reserved", |w| w != "self" && w != "file" && w != "test")
     }
 
-    fn kinds() -> impl Strategy<Value = Vec<String>> {
-        prop::collection::vec(word(), 1..3)
+    fn filter() -> impl Strategy<Value = Option<(String, BTreeSet<String>)>> {
+        prop::option::of((word(), prop::collection::btree_set(word(), 1..3)))
+    }
+
+    fn kinds() -> impl Strategy<Value = Kinds> {
+        prop::collection::btree_map(word(), filter(), 1..3).prop_map(|picks| Kinds {
+            names: picks.keys().cloned().collect(),
+            filters: picks
+                .into_iter()
+                .filter_map(|(kind, filter)| {
+                    filter.map(|(field, values)| Filter {
+                        kind,
+                        field,
+                        values,
+                    })
+                })
+                .collect(),
+        })
     }
 
     fn path() -> impl Strategy<Value = String> {

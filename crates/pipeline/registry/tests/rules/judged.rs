@@ -347,3 +347,87 @@ fn a_chain_into_an_unloaded_optional_peers_kind_is_inert() {
         assert_eq!(refused.rules.iter().count(), 0);
     }
 }
+
+/// `@test` declaring a phase and a decision of a phase with an `origin` enum, a computed `status` and a `related`
+/// reference list, and a rule over the phase whose input is `selector`.
+fn filter_built(selector: &str) -> Built {
+    use specforge_extension_sdk::prelude::Vocabulary;
+    const ORIGIN: Vocabulary = Vocabulary::new(&["context", "summary"]);
+    let mut declaration = declare("@test", |c| {
+        c.agent("checker", |a| {
+            a.description("Judges");
+        });
+        c.kind("phase", |k| {
+            k.keyword("phase");
+        });
+        c.kind("decision", |k| {
+            k.keyword("decision");
+            k.field("phase", |f| {
+                f.field_type(FieldType::Reference).target_kind("phase");
+            });
+            k.field("origin", |f| {
+                f.vocabulary(&ORIGIN);
+            });
+            k.field("status", |f| {
+                f.field_type(FieldType::String).computed();
+            });
+            k.field("related", |f| {
+                f.field_type(FieldType::ReferenceList).target_kind("phase");
+            });
+        });
+    });
+    let judged = json!({
+        "judge": "checker", "outcomes": ["passed", "issues"], "passing": ["passed"],
+        "targets": [{"kind": "phase", "inputs": [{"name": "input", "selector": selector}]}],
+    });
+    declaration.validation_rules = vec![descriptor(judged)];
+    rules_of(vec![declaration])
+}
+
+#[spec(
+    behavior = "digest_judged_inputs",
+    verify = "a selector's kind filter names an authored scalar field of the kind and values it declares"
+)]
+fn a_kind_filter_names_an_authored_scalar_field_and_declared_values() {
+    for selector in [
+        "self<decision[origin=context].phase",
+        "self<decision[origin=context|summary].phase",
+        "decision[origin=summary]",
+    ] {
+        let built = filter_built(selector);
+        assert!(
+            built.coded("W112").is_empty(),
+            "{selector}: {:?}",
+            built.diagnostics
+        );
+        assert_eq!(built.rules.iter().count(), 1, "{selector}");
+    }
+    for (selector, why) in [
+        (
+            "self<decision[kind=context].phase",
+            "declares no field 'kind'",
+        ),
+        (
+            "self<decision[status=done].phase",
+            "computed or written by a verdict",
+        ),
+        (
+            "self<decision[related=x].phase",
+            "not a string, enum, bool or integer",
+        ),
+        (
+            "self<decision[origin=checkpoint].phase",
+            "'checkpoint' is no value",
+        ),
+    ] {
+        let built = filter_built(selector);
+        let w112 = built.coded("W112");
+        assert_eq!(w112.len(), 1, "{selector}: {:?}", built.diagnostics);
+        assert!(
+            w112[0].message.contains(why),
+            "{selector}: {}",
+            w112[0].message
+        );
+        assert_eq!(built.rules.iter().count(), 0, "{selector}");
+    }
+}

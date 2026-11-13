@@ -45,6 +45,7 @@ behavior declare_judged_rule "Declare a Judged Rule" {
   verify unit "a chain to a kind of an unloaded optional peer is inert, not W112"
   verify unit "a chain into an unloaded optional peer's kind is inert, and into any other unloaded kind W112"
   verify unit "a selector prints back to its canonical text"
+  verify unit "a selector's kind filter prints its values sorted and parses back"
   verify unit "a verdict-written field is set by exactly one judged rule, and is never required"
   verify unit "an SDK judged rule builds the descriptor the host reads"
 }
@@ -87,6 +88,8 @@ behavior digest_judged_inputs "Digest a Judged Rule's Inputs" {
   verify unit "cited tests are an input of their own, judged once a report exists"
   verify unit "the tests of a report digest sorted, whatever order they ran in"
   verify unit "a test input of several chains digests their union"
+  verify unit "a selector's kind filter names an authored scalar field of the kind and values it declares"
+  verify unit "a filtered kind keeps only the entities whose field holds one of the values, and its digest moves with no entity it drops"
   verify unit "a fact's own result is its test input, and a status change stales it"
   verify unit "each chain of a test input counts on its own, and the input is unjudged only when no chain is read"
   verify unit "a proof the store does not hold leaves the input unjudged, and one the store lost stales it"

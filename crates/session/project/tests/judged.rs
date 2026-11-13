@@ -679,3 +679,67 @@ fn re_verification_reads_the_baselines_judgements() {
         "{stale:?}"
     );
 }
+
+#[specforge_test(
+    behavior = "digest_judged_inputs",
+    verify = "a filtered kind keeps only the entities whose field holds one of the values, and its digest moves with no entity it drops"
+)]
+fn a_kind_filter_keeps_only_the_entities_whose_field_holds_a_value() {
+    use specforge_protocol_types::ContextTier;
+    use specforge_registry::judged::Selector;
+    use specforge_registry::{ContextRoute, ContextSection};
+
+    let extra = "decision D-02 \"From a summary\" {\n  phase 03\n  origin summary\n}\n\n\
+                 decision D-03 \"Discussed\" {\n  phase 03\n  origin context\n}\n\n\
+                 decision D-04 \"A project summary\" {\n  origin summary\n}\n";
+    let project = gsd_judged_project(extra);
+    let section = |name: &str, selector: &str| ContextSection {
+        name: name.to_string(),
+        tier: ContextTier::Core,
+        selector: Selector::parse(selector).expect("the selector parses"),
+    };
+    let route = ContextRoute {
+        name: "gsd/filtered".into(),
+        extension: GSD_JUDGED.into(),
+        description: None,
+        subject: "plan".into(),
+        agent: None,
+        budget: 1000,
+        sections: vec![
+            section("discussed", "self.phase<decision[origin=context].phase"),
+            section("both", "self.phase<decision[origin=context|summary].phase"),
+            section("summaries", "decision[origin=summary]"),
+        ],
+        settings: Vec::new(),
+        skipped: Vec::new(),
+    };
+    let read = |project: &TestProject| {
+        specforge_project::context::read(&compile(project), &PlainDisk, &route, PLAN)
+    };
+    let before = read(&project);
+    assert_eq!(before[0].members, ["v1.0/03/D-03"]);
+    assert_eq!(before[1].members, ["v1.0/03/D-02", "v1.0/03/D-03"]);
+    // A head of kinds picks entities with no scope parent; the project decision with no origin is dropped.
+    assert_eq!(before[2].members, ["D-04"]);
+
+    project.write(
+        "a.spec",
+        project
+            .read("a.spec")
+            .replace("From a summary", "From another summary"),
+    );
+    let dropped = read(&project);
+    assert_eq!(
+        dropped[0].digest, before[0].digest,
+        "a dropped entity moves nothing"
+    );
+    assert_ne!(dropped[1].digest, before[1].digest);
+
+    project.write(
+        "a.spec",
+        project
+            .read("a.spec")
+            .replace("Discussed", "Discussed again"),
+    );
+    assert_ne!(read(&project)[0].digest, before[0].digest);
+}

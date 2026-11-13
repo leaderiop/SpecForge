@@ -590,3 +590,42 @@ fn within_an_unknown_entity_is_not_found_about_in() {
     assert_eq!(missing.error.code, "E003");
     assert_eq!(missing.subject, Some(TraceField::In));
 }
+
+#[specforge_test(
+    behavior = "declare_trace_route",
+    verify = "a trace route step with a kind filter follows only the entities whose field holds one of the values"
+)]
+fn a_route_step_with_a_kind_filter_follows_only_matching_entities() {
+    let spec = format!(
+        "{GSD_ROUTED_SPEC}\ndecision D-01 \"Discussed\" {{\n  phase 03\n  origin context\n}}\n\n\
+         decision D-02 \"From a summary\" {{\n  phase 03\n  origin summary\n}}\n"
+    );
+    let runtime = gsd_routed_serving(|| {
+        let mut c = gsd_routed_builder();
+        c.route("discussed", |r| {
+            r.start("phase")
+                .description("A phase's discussed decisions")
+                .step("decision", "<decision[origin=context].phase", |s| {
+                    s.label("decision");
+                });
+        });
+        c
+    });
+    let (_project, compiled) = compiled_in(gsd_routed_project(&spec), runtime);
+    let routes = compiled.environment().registries().routes();
+    assert!(
+        routes.named("gsd/discussed").is_some(),
+        "{:?}",
+        compiled.diagnostics()
+    );
+    let (outcome, _) = traced(
+        &compiled,
+        Target::Entity("v1.0/03"),
+        Follow::Route("gsd/discussed"),
+    );
+    let [Trace::Route(route)] = outcome.traces() else {
+        panic!("one route trace: {outcome:?}")
+    };
+    assert!(route.text.contains("D-01"), "{}", route.text);
+    assert!(!route.text.contains("D-02"), "{}", route.text);
+}

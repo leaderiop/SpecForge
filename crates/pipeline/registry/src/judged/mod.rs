@@ -8,4 +8,4 @@ pub use rule::{CITED, CITED_TESTS, JudgedRule, JudgedTargetRule, PROMPT_JUDGE};
 pub(crate) use rule::{
     Reader, WalkError, check_paths, check_selector, is_word, resolve, shape, walk,
 };
-pub use selector::{Chain, Head, Selector, Step};
+pub use selector::{Chain, Filter, Head, Kinds, Selector, Step};

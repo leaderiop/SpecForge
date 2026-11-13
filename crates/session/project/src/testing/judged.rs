@@ -81,6 +81,8 @@ pub fn gsd_judged_wire() -> Value {
             vec![
                 reference("phase", "phase"),
                 json!({"name": "text", "field_type": "string"}),
+                json!({"name": "origin", "field_type": "enum",
+                "enum_values": ["context", "project", "summary", "checkpoint"]}),
             ],
         ),
         kind("context", Some("phase"), vec![reference("phase", "phase")]),

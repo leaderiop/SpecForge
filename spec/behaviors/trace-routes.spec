@@ -44,6 +44,7 @@ behavior declare_trace_route "Declare a Trace Route" {
   verify unit "a route that cannot be followed is E118 and is not registered"
   verify unit "a route step of an optional peer the project does not load is skipped, not reported"
   verify unit "several routes from one kind without one default are W195, and the first in load order is followed"
+  verify unit "a trace route step with a kind filter follows only the entities whose field holds one of the values"
 }
 
 behavior follow_trace_route "Follow a Trace Route" {

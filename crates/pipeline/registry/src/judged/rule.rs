@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 use specforge_common::Severity;
 use specforge_protocol_types::{FieldType, FieldWriter, JudgedDescriptor};
 
-use super::selector::{Chain, Head, Selector, Step};
+use super::selector::{Chain, Head, Kinds, Selector, Step};
 use crate::compilation::UnloadedPeers;
 use crate::rules::Registries;
 
@@ -247,6 +247,7 @@ pub(crate) fn walk(
         Head::This => this.clone(),
         Head::Kinds(kinds) => {
             kinds.iter().try_for_each(loaded)?;
+            check_filters(registries, kinds)?;
             kinds.iter().cloned().collect()
         }
     };
@@ -258,6 +259,7 @@ pub(crate) fn walk(
                 path,
             } => {
                 sources.iter().try_for_each(loaded)?;
+                check_filters(registries, sources)?;
                 let words: Vec<&str> = path.split('.').collect();
                 // The path may go on past its reference (ADR 0304): the prefix finds the referrers, the rest is a
                 // forward path from each.
@@ -290,6 +292,49 @@ pub(crate) fn walk(
         };
     }
     Ok(kinds)
+}
+
+/// Every filter of `kinds` names an authored scalar field of its kind (ADR 0356 D13): a string, enum, bool or integer
+/// field that no compute pass or verdict writes, and an enum filter's values are declared.
+fn check_filters(registries: Registries<'_>, kinds: &Kinds) -> Result<(), WalkError> {
+    for filter in &kinds.filters {
+        let (kind, field) = (&filter.kind, &filter.field);
+        let entry = registries.fields.get(kind, field).ok_or_else(|| {
+            format!("filter '{kind}[{field}=…]': kind '{kind}' declares no field '{field}'")
+        })?;
+        if matches!(
+            entry.writer(),
+            Some(FieldWriter::Computed | FieldWriter::Verdict)
+        ) {
+            return Err(format!(
+                "filter '{kind}[{field}=…]': '{kind}.{field}' is computed or written by a verdict, not authored"
+            )
+            .into());
+        }
+        let ty = entry.field_type();
+        if !matches!(
+            ty,
+            FieldType::String | FieldType::Enum | FieldType::Bool | FieldType::Integer
+        ) {
+            return Err(format!(
+                "filter '{kind}[{field}=…]': '{kind}.{field}' is a {}, not a string, enum, bool or integer",
+                ty.as_str()
+            )
+            .into());
+        }
+        if ty == FieldType::Enum
+            && let Some(value) = filter
+                .values
+                .iter()
+                .find(|value| !entry.enum_values().contains(value))
+        {
+            return Err(format!(
+                "filter '{kind}[{field}=…]': '{value}' is no value of the enum '{kind}.{field}'"
+            )
+            .into());
+        }
+    }
+    Ok(())
 }
 
 /// One hop from `kinds` along the reference the first words of `words` end at: the words it took and the kinds it
