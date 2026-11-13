@@ -25,8 +25,8 @@ use super::sides;
 use super::validate::validate_extension_testability;
 use crate::rules::{CustomVerdicts, Registries, Rules};
 use crate::{
-    CheckRegistry, CommandRoutes, EdgeRegistry, FieldRegistry, KindRegistry, RouteRegistry,
-    SettingsRegistry, refuse_malformed_tool_schemas, register_surface_contributions,
+    CheckRegistry, CommandRoutes, ContextRegistry, EdgeRegistry, FieldRegistry, KindRegistry,
+    RouteRegistry, SettingsRegistry, refuse_malformed_tool_schemas, register_surface_contributions,
 };
 
 /// The phase a pass declares to run with every compile instead of under
@@ -170,6 +170,8 @@ pub struct RegistryBuild {
     settings: SettingsRegistry,
     /// The routes `specforge trace` follows, checked against the registries and the judged rules (ADR 0330).
     routes: RouteRegistry,
+    /// The context routes a role reads, checked against the registries, the agents and the settings (ADR 0356).
+    contexts: ContextRegistry,
     /// Every field's value checks, resolved, and the checkers the registry kept (ADR 0336).
     checks: CheckRegistry,
     /// The extensions' commands as the CLI and MCP route them; a shadowed
@@ -183,7 +185,8 @@ pub struct RegistryBuild {
     /// order, extension by extension within each.
     declaration_diagnostics: Vec<Reported>,
     /// Populate (E026, W018, W019, W021, I004, then the edge types' W021),
-    /// W017, the rule set's (W150, W147 or W112 per declared rule), then the routes' E118 and W195, then
+    /// W017, the rule set's (W150, W147 or W112 per declared rule), then the routes' E118 and W195, the context
+    /// routes' E123 and E124, then
     /// E039 for a shared code namespace, then the settings' W019 and W021, then the value checks' W019 and W189 — in
     /// that order.
     registry_diagnostics: Vec<Reported>,
@@ -315,6 +318,11 @@ impl RegistryBuild {
     /// The routes `specforge trace` follows, and the one followed from each kind (ADR 0330).
     pub fn routes(&self) -> &RouteRegistry {
         &self.routes
+    }
+
+    /// The context routes a role reads one entity through, and the route each agent is bound to (ADR 0356).
+    pub fn contexts(&self) -> &ContextRegistry {
+        &self.contexts
     }
 
     /// Every declared pass with its extension, in order (both phases).
@@ -563,6 +571,10 @@ pub fn build_registries_with(
     let (routes, route_diagnostics) =
         crate::registries::build_routes(&declarations, registries, &rules, &candidates);
     registry_diagnostics.extend(about(BuildPart::Registries, route_diagnostics));
+    // The context routes read the agents the host contributions leave and the settings: E123, E124.
+    let (contexts, context_diagnostics) =
+        crate::registries::build_contexts(&declarations, registries, &settings, &candidates);
+    registry_diagnostics.extend(about(BuildPart::Registries, context_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Collision, namespace_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Registries, settings_diagnostics));
     // The value checks: W019 and W189.
@@ -594,6 +606,7 @@ pub fn build_registries_with(
         codes,
         settings,
         routes,
+        contexts,
         checks,
         commands,
         passes,

@@ -1694,6 +1694,49 @@ Owner: core
 Level: error
 ```
 
+## E123
+
+```
+E123: Context route cannot be served
+
+An extension declares a context route (`contexts`, protocol 2.1, ADR 0356) the
+host cannot serve: its name is not kebab case, repeats one of its extension's,
+or its qualified name (`<short>/<name>`) is an earlier extension's; its budget
+is 0; it has no core section; a section's name is not a word, repeats one, or is
+`settings`; a section's selector does not parse, its `file("…")` path leaves
+the project, holds a glob or names a `.spec` source, or it does not type-check
+from the subject kind (a kind or field it names is not loaded or declared, or it
+crosses a field that is not a reference or that is computed or written by a
+verdict: such a reference makes no edge); its subject kind is not loaded; or a
+setting it names is not a setting of its extension (a secret is not one). The
+message names the extension, the route, the section and why. The route is not
+registered: `specforge context` and `specforge.context` refuse it as unknown,
+and its agent gets no Context section. A subject kind of an optional peer the
+project does not load drops the route without a diagnostic, and a section that
+reaches one is skipped and listed in the pack. Fix the route's declaration in
+the extension.
+
+Owner: core
+Level: error
+```
+
+## E124
+
+```
+E124: Context route's agent cannot be bound
+
+A context route (ADR 0356) names an `agent` its extension does not declare, or
+one an earlier context route (in load order) already binds. The message names
+the extension, the route and the agent. The route stays registered and serves on
+the CLI and MCP, but the binding is dropped: the agent's body carries no Context
+section for it. An agent reads one route, written by its own extension. Name an
+agent of the route's extension that no other context route names, or leave
+`agent` out.
+
+Owner: core
+Level: error
+```
+
 ## I002
 
 ```

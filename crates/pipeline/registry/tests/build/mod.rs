@@ -3,6 +3,7 @@
 
 mod checkers;
 mod consistency;
+mod contexts;
 mod credit;
 mod diagnostics;
 mod edges;

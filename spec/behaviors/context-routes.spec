@@ -55,4 +55,7 @@ behavior declare_context_route "Declare a Context Route" {
   verify unit "a contexts category round trips on the wire and a 2.0 guest is never asked for it"
   verify unit "an unknown key of a context route or a section is reported"
   verify unit "an SDK context route builds the descriptor the host reads"
+  verify unit "a context route that cannot be served is E123 and is not registered"
+  verify unit "a context section of an optional peer the project does not load is skipped and listed"
+  verify unit "a context route's agent its extension does not declare, or another route binds, is E124 and the route stays"
 }
