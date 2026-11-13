@@ -11,6 +11,7 @@ mod counts;
 mod gates;
 mod new_project;
 mod pick;
+mod plan_edits;
 mod probe;
 mod relics;
 mod review;
