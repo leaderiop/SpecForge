@@ -650,3 +650,53 @@ fn an_extension_declares_a_capability() {
     };
     assert_eq!(process.argv, ["cargo", "test"]);
 }
+
+#[specforge_test_macros::test(
+    behavior = "declare_context_route",
+    verify = "an SDK context route builds the descriptor the host reads"
+)]
+fn a_context_builds_the_descriptor_the_host_reads() {
+    use specforge_protocol_types::{ContextDescriptor, ContextSectionDescriptor, ContextTier};
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/work", "1.0.0"));
+    c.context("executor", |r| {
+        r.subject("plan")
+            .description("What an executor reads")
+            .agent("work-executor")
+            .budget(6000)
+            .core("plan", "self")
+            .enrich("decisions", "self.phase<decision.phase")
+            .settings(&["plan_check"]);
+    });
+    let declared = c.declaration();
+    let section = |name: &str, selector: &str, tier| ContextSectionDescriptor {
+        name: name.to_string(),
+        selector: selector.to_string(),
+        tier,
+    };
+    assert_eq!(
+        declared.contexts,
+        [ContextDescriptor {
+            name: "executor".to_string(),
+            description: Some("What an executor reads".to_string()),
+            subject: "plan".to_string(),
+            agent: Some("work-executor".to_string()),
+            budget: 6000,
+            sections: vec![
+                section("plan", "self", ContextTier::Core),
+                section(
+                    "decisions",
+                    "self.phase<decision.phase",
+                    ContextTier::Enrich
+                ),
+            ],
+            settings: vec!["plan_check".to_string()],
+        }]
+    );
+    assert!(declared.declares(DeclaredCategory::Contexts));
+    let answer: DescribeResponse =
+        serde_json::from_str(&declared.describe_json(DeclaredCategory::Contexts)).unwrap();
+    assert_eq!(
+        answer.items,
+        serde_json::to_value(&declared.contexts).unwrap()
+    );
+}

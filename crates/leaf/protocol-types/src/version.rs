@@ -38,9 +38,11 @@
 ///
 /// 2.1.0 adds: a contribution's `tools` may name `specforge:<tool>`, `specforge:<group>` and
 /// `specforge:<short>.<command>` (ADR 0334); `specforge_protocol_types::engine_tools` is the catalogue they name.
+/// An extension declares `contexts`, the fifteenth describe category, read last: for one entity of a subject kind,
+/// the ordered sections a role reads, each a named selector, core or enrich (ADR 0356).
 /// A 2.0.0 guest still loads, being an older minor.
 ///
 /// A change that adds to the current minor (grants, host imports, value checks) adds its item here and to that
 /// minor's row of `docs/extension-protocol.md` ("Protocol Versions"), which also keeps the 1.x history, 1.15.0
-/// included; it does not bump. A new describe category goes after `routes`.
+/// included; it does not bump. A new describe category goes last.
 pub const PROTOCOL_VERSION: &str = "2.1.0";

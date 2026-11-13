@@ -37,6 +37,7 @@ mod capability;
 mod checks;
 mod code_catalog;
 pub mod command_args;
+mod context;
 mod contrib;
 mod declaration;
 mod effects;
@@ -73,6 +74,7 @@ pub use checks::{
     OutcomeData, PlannedItem, Probe, ProbeOutcome, StatEntry, ValueForm,
 };
 pub use code_catalog::CodeDescriptor;
+pub use context::{CONTEXT_SETTINGS, ContextDescriptor, ContextSectionDescriptor, ContextTier};
 pub use contrib::*;
 pub use declaration::{
     DECLARED_CATEGORIES, DeclaredCategory, ExtensionDeclaration, UnknownKey, is_valid_short,

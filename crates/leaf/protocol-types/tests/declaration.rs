@@ -152,6 +152,10 @@ fn full() -> ExtensionDeclaration {
             applies_to: vec!["string".to_string()],
             ..Default::default()
         }],
+        contexts: serde_json::from_value(json!([
+            {"name": "reader", "subject": "report", "budget": 100, "sections": [{"name": "report", "selector": "self"}]},
+        ]))
+        .unwrap(),
     }
 }
 

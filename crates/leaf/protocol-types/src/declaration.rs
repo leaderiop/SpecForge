@@ -15,14 +15,14 @@ use serde_json::Value;
 use crate::{
     AgentDescriptor, Attribution, AutoDetectConfig, CAPABILITY_KEYS, CapabilityDescriptor,
     CheckerDescriptor, CodeDescriptor, CollectorDescriptor, CommandArgDescriptor,
-    CommandDescriptor, CompilerPassDescriptor, DescribeResponse, EdgeTypeDescriptor,
-    EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor,
-    FieldConstraintDescriptor, FieldDescriptor, FsScope, GitScope, HandshakeResponse,
-    HookDescriptor, HttpScope, McpResourceDescriptor, McpToolDescriptor, PeerDependency,
-    PresetDescriptor, ProcessConfig, ProcessScope, PromptArgDescriptor, PromptDescriptor,
-    PromptStep, ProtocolError, RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor,
-    SecretDescriptor, SecretHeader, SettingDescriptor, SettingsItem, SkillDescriptor,
-    SlashCommandDescriptor, SurfaceDescriptor, ValidationRuleDescriptor,
+    CommandDescriptor, CompilerPassDescriptor, ContextDescriptor, ContextSectionDescriptor,
+    DescribeResponse, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
+    FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor, FsScope, GitScope,
+    HandshakeResponse, HookDescriptor, HttpScope, McpResourceDescriptor, McpToolDescriptor,
+    PeerDependency, PresetDescriptor, ProcessConfig, ProcessScope, PromptArgDescriptor,
+    PromptDescriptor, PromptStep, ProtocolError, RouteAnnotationDescriptor, RouteDescriptor,
+    RouteStepDescriptor, SecretDescriptor, SecretHeader, SettingDescriptor, SettingsItem,
+    SkillDescriptor, SlashCommandDescriptor, SurfaceDescriptor, ValidationRuleDescriptor,
 };
 
 /// Everything one extension declares: its handshake and every describe
@@ -64,10 +64,13 @@ pub struct ExtensionDeclaration {
     /// The value checkers it serves at [`CHECK_VALUES_EXPORT`](crate::CHECK_VALUES_EXPORT) (ADR 0336).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub checkers: Vec<CheckerDescriptor>,
+    /// The context routes a role reads one entity through (protocol 2.1.0, ADR 0356).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub contexts: Vec<ContextDescriptor>,
 }
 
 /// A describe category, in the order the host reads them (ADR 0012 D2). The
-/// protocol defines no other: a guest answers these fourteen and nothing else
+/// protocol defines no other: a guest answers these fifteen and nothing else
 /// (ADR 0050).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DeclaredCategory {
@@ -85,12 +88,13 @@ pub enum DeclaredCategory {
     Routes,
     Capabilities,
     Checkers,
+    Contexts,
 }
 
 impl DeclaredCategory {
     /// Every describe category, in the host's read order: the protocol's one
     /// list of them.
-    pub const ALL: [DeclaredCategory; 14] = [
+    pub const ALL: [DeclaredCategory; 15] = [
         DeclaredCategory::Entities,
         DeclaredCategory::Edges,
         DeclaredCategory::SharedFields,
@@ -105,6 +109,7 @@ impl DeclaredCategory {
         DeclaredCategory::Routes,
         DeclaredCategory::Capabilities,
         DeclaredCategory::Checkers,
+        DeclaredCategory::Contexts,
     ];
 
     /// Its wire name (`shared_fields`).
@@ -124,6 +129,7 @@ impl DeclaredCategory {
             DeclaredCategory::Routes => "routes",
             DeclaredCategory::Capabilities => "capabilities",
             DeclaredCategory::Checkers => "checkers",
+            DeclaredCategory::Contexts => "contexts",
         }
     }
 
@@ -135,6 +141,7 @@ impl DeclaredCategory {
             DeclaredCategory::Settings => (1, 8),
             DeclaredCategory::Routes => (1, 15),
             DeclaredCategory::Capabilities | DeclaredCategory::Checkers => (2, 0),
+            DeclaredCategory::Contexts => (2, 1),
             _ => (1, 0),
         }
     }
@@ -164,6 +171,7 @@ impl DeclaredCategory {
             DeclaredCategory::Routes => &ROUTE,
             DeclaredCategory::Capabilities => &CAPABILITY,
             DeclaredCategory::Checkers => &CHECKER,
+            DeclaredCategory::Contexts => &CONTEXT,
         }
     }
 }
@@ -265,6 +273,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::Routes => !self.routes.is_empty(),
             DeclaredCategory::Capabilities => !self.capabilities.is_empty(),
             DeclaredCategory::Checkers => !self.checkers.is_empty(),
+            DeclaredCategory::Contexts => !self.contexts.is_empty(),
         }
     }
 
@@ -296,6 +305,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::Routes => to_items(&self.routes),
             DeclaredCategory::Capabilities => to_items(&self.capabilities),
             DeclaredCategory::Checkers => to_items(&self.checkers),
+            DeclaredCategory::Contexts => to_items(&self.contexts),
         }
     }
 
@@ -329,6 +339,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::Routes => self.routes = parse(name, items)?,
             DeclaredCategory::Capabilities => self.capabilities = parse(name, items)?,
             DeclaredCategory::Checkers => self.checkers = parse(name, items)?,
+            DeclaredCategory::Contexts => self.contexts = parse(name, items)?,
         }
         Ok(())
     }
@@ -581,6 +592,14 @@ static CAPABILITY: Shape = Shape {
 static CHECKER: Shape = Shape {
     fields: struct_fields::<CheckerDescriptor>,
     nested: &[("args", Nested::List(&FIELD))],
+};
+static CONTEXT_SECTION: Shape = Shape {
+    fields: struct_fields::<ContextSectionDescriptor>,
+    nested: &[],
+};
+static CONTEXT: Shape = Shape {
+    fields: struct_fields::<ContextDescriptor>,
+    nested: &[("sections", Nested::List(&CONTEXT_SECTION))],
 };
 static SECRET_HEADER: Shape = Shape {
     fields: struct_fields::<SecretHeader>,

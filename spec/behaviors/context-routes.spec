@@ -41,3 +41,18 @@ behavior serve_context_pack "Serve a Context Pack" {
   """
   verify unit "a budgeted context read of a plan for its executor keeps every core member and cuts only enrich sections"
 }
+
+behavior declare_context_route "Declare a Context Route" {
+  invariants [entity_id_uniqueness]
+  category   validation
+  contract   """
+    An extension MAY declare `contexts` (protocol 2.1): each a kebab name, a subject kind, an optional agent of its
+    own, a default budget, ordered sections of named selectors with a tier, and setting keys it carries (ADR 0356). A
+    guest older than 2.1 is never asked for the category. The registry checks each route once: one that cannot be
+    served is E123 and is not registered, an agent binding that cannot hold is E124, and a section of an optional peer
+    the project does not load is skipped.
+  """
+  verify unit "a contexts category round trips on the wire and a 2.0 guest is never asked for it"
+  verify unit "an unknown key of a context route or a section is reported"
+  verify unit "an SDK context route builds the descriptor the host reads"
+}

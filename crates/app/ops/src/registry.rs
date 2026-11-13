@@ -435,6 +435,7 @@ pub const CONTRIBUTES: OptionTable<DeclaredCategory> = OptionTable {
             DeclaredCategory::Capabilities,
         ),
         category("checkers", "value checkers", DeclaredCategory::Checkers),
+        category("contexts", "context routes", DeclaredCategory::Contexts),
     ],
     default: None,
 };

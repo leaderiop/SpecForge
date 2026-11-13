@@ -79,6 +79,7 @@ mod builders;
 mod capability;
 mod checker;
 mod command_graph;
+mod context;
 mod contrib;
 mod guest;
 pub mod host;
@@ -96,6 +97,7 @@ pub use builders::{
 pub use capability::Capability;
 pub use checker::{CheckerBuilder, Judged};
 pub use command_graph::{CommandGraph, CommandInput};
+pub use context::ContextBuilder;
 pub use guest::{ExportHandler, Served, answer_export, no_other_exports};
 pub use host_contrib::{
     AgentBuilder, HookBuilder, HookCall, RenderCall, SkillBuilder, SlashBuilder, hook_export,
@@ -612,9 +614,9 @@ pub mod prelude {
     pub use crate::{AgentBuilder, HookBuilder, HookCall, RenderCall, SkillBuilder, SlashBuilder};
     pub use crate::{
         Annotates, ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence,
-        CommandFormat, CommandGraph, CommandInput, CommandOutput, EntityEvidence, GraphEdge,
-        GraphNode, McpResourceBuilder, McpToolBuilder, PromptArgBuilder, PromptBuilder, PromptCall,
-        PromptStepBuilder, RouteAnnotationBuilder, RouteBuilder, RouteStepBuilder,
+        CommandFormat, CommandGraph, CommandInput, CommandOutput, ContextBuilder, EntityEvidence,
+        GraphEdge, GraphNode, McpResourceBuilder, McpToolBuilder, PromptArgBuilder, PromptBuilder,
+        PromptCall, PromptStepBuilder, RouteAnnotationBuilder, RouteBuilder, RouteStepBuilder,
     };
     pub use crate::{
         ByteRange, CheckFinding, CheckItem, CheckRef, CheckerBuilder, Judged, MAX_PROBE_ROUNDS,

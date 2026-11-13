@@ -88,7 +88,7 @@ The host checks `protocol_version`: a major version other than its own fails the
 
 ### Describe
 
-After the handshake, the host calls `__describe(category)` once for each category it reads, always, in this order: `entities`, `edges`, `shared_fields`, `enhancements`, `validation_rules`, `surfaces`, `collectors`, `passes`, `feature_flags`, `codes`, `settings`, `routes`, `capabilities`, `checkers` (`specforge_protocol_types::DECLARED_CATEGORIES`). Together with the handshake they are the extension's **declaration** (`specforge_protocol_types::ExtensionDeclaration`, ADR 0012): the host loads it once per environment load (`specforge_wasm::protocol::load_declaration`) and nothing describes a category again. A guest whose handshake `protocol_version` is older than 1.7 is not asked for `codes`, and one older than 1.8 is not asked for `settings` (the host compares `(major, minor)` as numbers); each loads with none. An extension answers every supported category, `[]` when it contributes nothing to it; the SDK does.
+After the handshake, the host calls `__describe(category)` once for each category it reads, always, in this order: `entities`, `edges`, `shared_fields`, `enhancements`, `validation_rules`, `surfaces`, `collectors`, `passes`, `feature_flags`, `codes`, `settings`, `routes`, `capabilities`, `checkers`, `contexts` (`specforge_protocol_types::DECLARED_CATEGORIES`). Together with the handshake they are the extension's **declaration** (`specforge_protocol_types::ExtensionDeclaration`, ADR 0012): the host loads it once per environment load (`specforge_wasm::protocol::load_declaration`) and nothing describes a category again. A guest whose handshake `protocol_version` is older than 1.7 is not asked for `codes`, and one older than 1.8 is not asked for `settings` (the host compares `(major, minor)` as numbers); each loads with none. An extension answers every supported category, `[]` when it contributes nothing to it; the SDK does.
 
 A category whose answer fails or doesn't parse as its descriptors fails the extension's load (E028), naming the category. An item key a descriptor doesn't define is ignored and reported (W138), naming the extension, the category, the item and the key.
 
@@ -1093,6 +1093,56 @@ shows `SchemaField.checks` and `specforge extensions` each extension's checkers.
 
 SDK: `c.checker("url", |k| { .. })`, `f.check("url")`.
 
+### Category: contexts
+
+Returns the context routes a role reads (protocol 2.1.0, ADR 0356). A context route serves one entity of its `subject`
+kind as a pack: its sections in declared order, cut to a token budget, with a digest (`specforge context <route>
+<entity>`, the MCP tool `specforge.context`, `specforge://context/{+entity_id}?role=<route>`).
+
+```json
+{
+  "category": "contexts",
+  "items": [
+    {
+      "name": "executor",
+      "description": "What an executor reads of the plan it runs",
+      "subject": "plan",
+      "agent": "gsd-executor",
+      "budget": 6000,
+      "sections": [
+        {"name": "plan", "selector": "self", "tier": "core"},
+        {"name": "body", "selector": "self<task|truth.plan", "tier": "core"},
+        {"name": "decisions", "selector": "self.phase<decision.phase", "tier": "enrich"},
+        {"name": "instructions", "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")", "tier": "enrich"}
+      ],
+      "settings": ["plan_check"]
+    }
+  ]
+}
+```
+
+- `name` is kebab case, unique among the extension's context routes; the host qualifies it by the extension's short
+  name (`gsd/executor`). Context routes and trace routes are separate namespaces.
+- `budget` is the token budget a read takes when it names none, positive. `agent` is an agent of the extension's own:
+  the host appends a `## Context` section to its body on every host.
+- A section's `name` is a word, unique in the route and never `settings`. `selector` is the judged rules' grammar with
+  its head: an entity chain (`self<task.plan`, `decision`), `file(..)` or `test(..)`. `tier` is `core` (absent: core)
+  or `enrich`. At least one section is core.
+- `settings` names settings of the extension's own; the pack carries their values. A secret is not a setting.
+
+A pack keeps the subject and every core section whatever the budget (below them the read is E062 naming the route),
+serves enrich sections whole in declared order, keeps the most connected entities of the first that does not fit, and
+lists what it cut. Its digest covers the sections served, each digested as a judged input of the same selector.
+
+The host checks each route once, when the extension loads. One that cannot be served (a name not kebab case or taken,
+no core section, a section name not a word, repeated or `settings`, a selector that does not parse, leaves the
+project or does not type-check from the subject kind, a subject kind not loaded, a setting the extension does not
+declare, a budget of 0) is E123 and is not registered. A subject kind of an optional peer the project does not load
+drops the route without a diagnostic; a section that reaches one is skipped and listed in the pack's `skipped`. An
+`agent` the extension does not declare, or one an earlier route binds, is E124: the binding is dropped, the route kept.
+
+SDK: `c.context("executor", |r| { r.subject("plan").agent("gsd-executor").budget(6000).core("plan", "self").enrich("decisions", "self.phase<decision.phase"); })`.
+
 ## Operate
 
 Once the declaration is loaded, the host calls an extension's exports on
@@ -1314,7 +1364,7 @@ or answered.
 | `1.14.0` | A hook may declare `hosts`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings`, its input carries `commands`, `git`, `change`, `other_settings`, each path's `real` (and `toplevel`, `in_git_dir`), a commit's `cleanup`, and the event `file_changed` (ADR 0320-0324). A 1.13 host reports each new key as W138 (it installs a `hosts`-limited hook everywhere), and refuses the whole `surfaces` category of a guest that declares a `file_changed` hook (`HookEvent` is a closed enum there: `DescribeFailed`), so such a guest needs a 1.14.0 host. `HookEvent` decodes an unknown event as `Unknown` from 1.14.0 on, so a newer guest's new event costs a 1.14 host that one hook (W021), not the category. |
 | `1.15.0` | A collector answers `facts`, the entities it observed (ADR 0327): each a `Fact` (`kind`, `id`, optional `title`, `fields`) of a kind that declares `writer: "collector"` and its `schemes`, the prefixes of its ids; a field that declares `writer: "collector"` is W021. Every collector's input carries `cwd`, the project root (a writing collector's only before). A collector may declare `reads` and its input then carries `files` (ports plan 00). A guest of another major is E088, saying which side is behind, and so is a component importing a host port this specforge does not provide (ADR 0326 D1a/D1b). A pass is sent `fact_stores`, the fact stores the session served. A reference in a fact scheme that names no fact is unheld, not E003: a `PassEntity` lists it under `unheld`. A kind may declare `complete_when`, a pass entity carries `pending`, and an unheld reference its `span` (ADR 0329). A collector-written kind may name its facts' `result` field (ADR 0329). An extension may declare `routes`, the steps `specforge trace` follows from a kind (ADR 0330). A 1.14 host ignores `facts` and `schemes` (W138) and reads a `collector` kind writer as nobody's; a guest older than 1.15 is not asked for `routes`. |
 | `2.0.0` | ADR 0337 (the ports round). A command, MCP tool or resource and a collector may call the five `specforge:host@0.1.0` ports (see [Host ports](#host-ports)), `syntax` parsing source with a tags query (ADR 0344, ADR 0345 D1). A pass, command, prompt, hook or collector declares what the host serves it as one tagged list, `inputs`: `files` (a `FileRead`), `tests`, `state`, `graph`, `slash_commands`, `git` (`status`, `when`) and `setting` (`extension`, `name`), replacing `reads`, `reads_tests`, `reads_state`, `reads_graph`, `reads_slash_commands`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings` (see [Inputs](#inputs-200-adr-0337)); an input its call kind is not served, or a second one of a kind served once, is W021 and served empty. A hook's `git.status` is a typed `GitStatus` (`branch` with `oid`, `head`, `upstream`, `ahead`, `behind`; `entries` with `kind`, `path`, `orig_path`, `index`, `worktree`), not porcelain text. A `codes` entry may declare `machine` (`CodeDescriptor.machine`, see [codes](#category-codes)): its finding is this machine's, never promoted by `--strict` nor counted by the gate's warning baseline. A 1.x guest is E088 (older): its keys would be W138 and its inputs unserved. An extension declares `capabilities` (a describe category, see [capabilities](#category-capabilities)): what it may make the host do, each on one port under a scope name (ADR 0335 D2), and a collector names the process `capability` it runs instead of carrying `run`. An extension declares `checkers` (a describe category, see [checkers](#category-checkers)), a field its `checks`, and the host calls `__check_values` in a values phase that runs first (ADR 0336); `CollectInput` gains `check_outcomes`, for a collector declaring that input, and `facts`, for a collector declaring a `facts` input (`kinds`); a collector declares `answers`, the collected kinds whose facts it answers, which order the collect (E119 for a cycle) and admit its facts (E116 otherwise); a collector with no `capability` and no `report` reads through its ports (ADR 0345). A `Fact` carries `at` (a list of `FactLocation`: where it is written, a project-relative file, 1-based lines, 1-based byte columns, end exclusive) and `named_at` (field → id → places: where each name it holds is written); a `PassEntity` carries `dangling` (`DanglingReference`: `field`, `id`, `span`, `reason` `unresolved` \| `ambiguous` \| `mistyped`, `actual`, `did_you_mean`, `candidates`), a fact's references that name no entity, the wrong kind or several: sent to every pass, judged by the extension declaring the holder's kind (ADR 0346). An `UnheldReference` carries `kinds`, the collected kinds of its scheme its field admits, and a `FactStore` carries `held` (scheme → the kinds of its facts), replacing `schemes` (ADR 0347 D9). `CommandInput` gains `nonce`, 32 lowercase hex digits of the host's entropy, fresh per call (ADR 0341); a pass, prompt, hook or collector is not told one. A field may declare `checks_while`, `complete` or `pending` (ADR 0350), and a check row's status (`CheckOutcome.status`) may be `planned` or `closed`. The source scanners' describe category and their operation (and its request and response types) are gone: source code reaches the graph as the `item` facts a source pack collects (ADR 0199). A `process` capability may declare one `config` (`ProcessConfig`: `name`, `template`): the host writes it to `.specforge/reports/<collector>.<name>` before the run, `{report}` expanded and escaped for a quoted string, and `{config}` in the argv names it; a `CollectorDescriptor` may declare `install`, the line said when its program is not found (ADR 0348). The git port answers `log` (a `log-query` of commit ids and paths from the repository's top: typed commits, their trailers and each signature's `name` and `seconds` (never an email address nor the signer's offset), as many as the answer holds, `truncated` past it or past the host's counted walk, which leaves no `count`; a pickaxe never reads a withheld file and is refused a withheld path) and `diff` (a `diff-query` from a commit or the empty tree to a commit, the index or the worktree, with `hunks`, a file's changed line ranges, and `renames`, searched by the host's rules: a file past the bytes the host reads for one diff says `truncated` and counts no lines; each `file-change` says `withheld` and then carries no `patch` nor `hunks`: a withheld name, or, against the worktree, a file the call's fs grant does not read) (ADR 0352). A collector's `auto_detect` may declare `repository`: it is detected when the git port locates the project root in a repository, git's ceilings kept, so a project in a subdirectory of its repository is (ADR 0352 D4). An `UnheldReference` carries `history` when its field is one the harness writes once (`writer: "harness"` and `immutable`): a pass reads it as what held then, never a missing fact (ADR 0352 D2). |
-| `2.1.0` | A contribution's `tools` may name the engine's tools (ADR 0334): `specforge:<tool>` (`specforge:trace`), `specforge:<group>` (`specforge:reads`, `navigation`, `edits`, `output`, `setup`) and `specforge:<short>.<command>`, an extension command run as `specforge <short> <command>`. An unknown one, a human-attested or refused command, `mcp:specforge/…` and any `specforge:` class on a hook are W021. `specforge_protocol_types::engine_tools` is the catalogue they name. A 2.0.0 guest still loads. |
+| `2.1.0` | A contribution's `tools` may name the engine's tools (ADR 0334): `specforge:<tool>` (`specforge:trace`), `specforge:<group>` (`specforge:reads`, `navigation`, `edits`, `output`, `setup`) and `specforge:<short>.<command>`, an extension command run as `specforge <short> <command>`. An unknown one, a human-attested or refused command, `mcp:specforge/…` and any `specforge:` class on a hook are W021. `specforge_protocol_types::engine_tools` is the catalogue they name. An extension declares `contexts`, the fifteenth describe category, read last: for one entity of a subject kind, the ordered sections a role reads, each a named selector, core or enrich (ADR 0356). A 2.0.0 guest still loads. |
 
 A host of `1.1.x` still loads a `1.0.0` guest and hands it the `1.1.0` values it knows; a host of
 `1.0.x` refuses a `1.1.0` guest (E088), and every host refuses a guest of another major (E088). A newer patch of the
