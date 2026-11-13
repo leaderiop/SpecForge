@@ -280,3 +280,31 @@ fn a_persons_command_refuses_source_automated_and_names_the_agents() {
     refused(&run, "invalid_input", &["record-automated-uat"]);
     assert_eq!(bytes(&p), before);
 }
+
+/// A deferred follow-up is only a skip reason: the session keeps no list of them, and `--follow-up` is no argument.
+#[test]
+fn a_deferred_follow_up_is_only_a_skip_reason() {
+    let p = unanswered();
+    let test = format!("{SESSION}/U3");
+    let run = gsd_as_person(
+        &p,
+        "set-uat-result",
+        &[
+            &test,
+            "skipped",
+            "--by",
+            "ana",
+            "--reason",
+            "Deferred follow-up: dark mode",
+        ],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(p.fields_of(SESSION).get("follow_ups").is_none());
+    let run = gsd_as_person(
+        &p,
+        "set-uat-result",
+        &[&test, "skipped", "--by", "ana", "--follow-up", "dark mode"],
+    );
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("follow-up"), "{}", run.all());
+}
