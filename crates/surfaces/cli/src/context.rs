@@ -1,0 +1,132 @@
+use crate::options;
+use crate::outcome::{Exit, OutputFormat, Refusal};
+use crate::pick::Picked;
+use crate::terminal::{Terminal, err, out, outln};
+use specforge_ops::read::context::{self, ContextRequest, PACK_FORMAT};
+use specforge_ops::read::export::Format;
+use specforge_ops::view::ProjectView;
+
+// `specforge context`'s command line.
+#[derive(clap::Args)]
+#[command(mut_arg(crate::pick::PICK, |arg| arg.long_help(crate::pick::CONTEXT_LONG_HELP)))]
+pub(crate) struct Args {
+    /// The context route to read: its qualified name, `<extension>/<route>`
+    route: String,
+
+    /// The entity to read it for: one of the route's subject kind
+    subject: String,
+
+    /// Token budget for the pack (default: the route's own). The subject and the core sections are never cut, and a
+    /// budget below them fails (E062); enrich sections are served whole in declared order, the first that does not fit
+    /// keeps its most connected entities that fit, and the pack lists what was cut under `budget`
+    #[arg(long)]
+    max_tokens: Option<usize>,
+
+    /// Format of the pack's graph
+    #[arg(
+        long,
+        value_parser = options::choice(&PACK_FORMAT),
+        default_value = PACK_FORMAT.default_name()
+    )]
+    format: Format,
+
+    #[command(flatten)]
+    project: crate::project::ProjectArg,
+
+    #[command(flatten)]
+    picked: Picked,
+}
+
+impl Args {
+    /// `specforge context <route> <subject>`: the pack of a context route for one entity (ADR 0356) over the project
+    /// compiled at `path`, the document `specforge.context` answers, on stdout as compact JSON. A refusal is the error
+    /// document on stdout (exit 1).
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
+        let project = match self.project.compile(ports) {
+            Ok(project) => project,
+            Err(error) => return Refusal::of(OutputFormat::Json).report(terminal, &error),
+        };
+        self.answer(terminal, &ProjectView::of(&project))
+    }
+
+    fn answer(&self, terminal: &Terminal, view: &ProjectView) -> Exit {
+        let request = ContextRequest {
+            route: &self.route,
+            subject: &self.subject,
+            max_tokens: self.max_tokens,
+            format: self.format,
+        };
+        let pack = match context::context(view, &request) {
+            Ok(pack) => pack,
+            Err(refusal) => {
+                return Refusal::of(OutputFormat::Json).report(terminal, &refusal.into_error());
+            }
+        };
+        match self.picked.printed(&pack.text) {
+            Some(Ok(lines)) => out!(terminal, "{lines}"),
+            Some(Err(refused)) => {
+                err!(terminal, "{refused}");
+                return Exit::Failed;
+            }
+            None => outln!(terminal, "{}", pack.text),
+        }
+        Exit::Passed
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::terminal::Facts;
+    use clap::Parser;
+    use specforge_project::SharedRuntime;
+    use specforge_project::testing::{CONTEXT_PLAN, gsd_context_project, gsd_context_runtime};
+
+    #[derive(Parser)]
+    struct Line {
+        #[command(flatten)]
+        args: Args,
+    }
+
+    fn args(words: &[&str]) -> Args {
+        Line::try_parse_from(std::iter::once("context").chain(words.iter().copied()))
+            .expect("the words parse")
+            .args
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "serve_context_pack",
+        verify = "specforge context prints a route's pack and --pick reads its digest"
+    )]
+    fn specforge_context_prints_the_pack_and_pick_reads_its_digest() {
+        let project = gsd_context_project();
+        let compiled =
+            project.compile_in(std::sync::Arc::new(gsd_context_runtime()) as SharedRuntime);
+        let view = ProjectView::of(&compiled);
+
+        let (terminal, printed) = Terminal::captured("", Facts::PIPED);
+        let exit = args(&["gsd/executor", CONTEXT_PLAN]).answer(&terminal, &view);
+        assert_eq!(exit, Exit::Passed);
+        let pack: serde_json::Value =
+            serde_json::from_str(printed.stdout().trim_end()).expect("the pack is JSON");
+        assert_eq!(pack["route"], "gsd/executor");
+        assert_eq!(pack["subject"], CONTEXT_PLAN);
+        let digest = pack["digest"].as_str().expect("a digest");
+        assert!(digest.starts_with("sha256:"), "{digest}");
+
+        let (terminal, picked) = Terminal::captured("", Facts::PIPED);
+        let exit =
+            args(&["gsd/executor", CONTEXT_PLAN, "--pick", ".digest"]).answer(&terminal, &view);
+        assert_eq!(exit, Exit::Passed);
+        assert_eq!(picked.stdout(), format!("{digest}\n"));
+
+        let (terminal, refused) = Terminal::captured("", Facts::PIPED);
+        let exit = args(&["gsd/executor", "v1.0/02"]).answer(&terminal, &view);
+        assert_eq!(exit, Exit::Failed);
+        assert!(
+            refused.stdout().contains("route_of_another_kind"),
+            "{}",
+            refused.stdout()
+        );
+    }
+}

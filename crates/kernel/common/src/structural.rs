@@ -40,6 +40,7 @@ pub const CORE_COMMANDS: &[&str] = &[
     "outline",
     "query",
     "trace",
+    "context",
     "format",
     "stats",
     "explore",

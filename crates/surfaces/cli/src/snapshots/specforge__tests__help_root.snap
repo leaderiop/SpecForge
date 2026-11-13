@@ -15,6 +15,7 @@ Commands:
   outline       Render the extension architecture (dependencies, enhancements, contributions)
   query         Query the graph at multiple resolutions
   trace         Show an entity's thread along its kind's route, its traceability chain, or every entity's
+  context       Read the context a route of an extension declares for one entity: its sections fitted to a token budget in declared order, with a digest
   format        Format .spec files
   stats         Show project statistics
   explore       Where to start reading the graph: starting points, hubs and unconnected entities

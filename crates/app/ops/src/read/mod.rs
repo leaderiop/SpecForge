@@ -5,6 +5,7 @@
 //! change no source: export records the schema (ADR 0015 D10) and an inference session its
 //! manifest, nothing else. The group uses only the base (`lib.rs`, "Module groups").
 
+pub mod context;
 pub mod coverage;
 pub mod explain;
 pub mod explore;

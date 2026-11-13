@@ -54,19 +54,19 @@ impl Format {
     }
 }
 
-const GRAPH: Choice<Format> = Choice {
+pub(crate) const GRAPH: Choice<Format> = Choice {
     name: "graph",
     aliases: &["json"],
     help: "every entity with its fields, file and line (Graph Protocol)",
     value: Format::Graph,
 };
-const CONTEXT: Choice<Format> = Choice {
+pub(crate) const CONTEXT: Choice<Format> = Choice {
     name: "context",
     aliases: &[],
     help: "every entity's fields, annotations, methods and verify, its headline on top, without file and line, for an agent",
     value: Format::Context,
 };
-const BRIEF: Choice<Format> = Choice {
+pub(crate) const BRIEF: Choice<Format> = Choice {
     name: "brief",
     aliases: &[],
     help: "id, kind and title",

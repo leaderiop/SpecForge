@@ -14,6 +14,7 @@ mod cli;
 mod cli_only_documents;
 mod collect;
 mod config_schema;
+mod context;
 mod contracts;
 mod coverage_corpus;
 mod coverage_gate;

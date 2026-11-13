@@ -15,6 +15,7 @@ mod build_commit;
 mod caller;
 mod check;
 mod collect;
+mod context;
 mod doctor;
 mod edit;
 mod effects;
@@ -114,6 +115,9 @@ enum Commands {
     Query(query::Args),
     /// Show an entity's thread along its kind's route, its traceability chain, or every entity's
     Trace(trace::Args),
+    /// Read the context a route of an extension declares for one entity: its sections fitted to a token budget in
+    /// declared order, with a digest
+    Context(context::Args),
     /// Format .spec files
     Format(format::Args),
     /// Show project statistics
@@ -328,6 +332,7 @@ fn run(command: Commands, terminal: &Terminal, ports: &Ports) -> Exit {
         Commands::Outline(args) => args.run(terminal, ports),
         Commands::Query(args) => args.run(terminal, ports),
         Commands::Trace(args) => args.run(terminal, ports),
+        Commands::Context(args) => args.run(terminal, ports),
         Commands::Format(args) => args.run(terminal),
         Commands::Stats(args) => args.run(terminal, ports),
         Commands::Explore(args) => args.run(terminal, ports),
