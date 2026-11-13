@@ -7,7 +7,7 @@ produces: PLAN.md
 consumes: CONTEXT.md
 -->
 <purpose>
-Create executable phase prompts (PLAN.md files) for a roadmap phase with integrated research and verification. Default flow: Research (if needed) -> Plan -> Verify -> Done. Orchestrates gsd-phase-researcher, gsd-planner, and gsd-plan-checker agents with a revision loop (max 3 iterations).
+Create executable phase plans (plan entities) for a roadmap phase with integrated research and verification. Default flow: Research (if needed) -> Plan -> Verify -> Done. Orchestrates gsd-phase-researcher, gsd-planner, and gsd-plan-checker agents with a revision loop (max 3 iterations).
 </purpose>
 
 <required_reading>
@@ -122,7 +122,7 @@ Extract from $ARGUMENTS: phase number (integer or decimal like `2.1`), flags (`-
 
 In research-only mode, two modifiers control behavior when `RESEARCH.md` already exists:
 
-- **`--research`** — force-refresh re-research without prompting. Re-spawns the researcher unconditionally and overwrites the existing RESEARCH.md. (This is the existing `--research` flag's standard "force re-research" semantics, reused here.)
+- **`--research`** — force-refresh re-research without prompting. Re-spawns the researcher unconditionally, which records the phase's research again. (This is the existing `--research` flag's standard "force re-research" semantics, reused here.)
 - **`--view`** — view-only: print existing `RESEARCH.md` to stdout, do **not** spawn the researcher. Sets `VIEW_ONLY=true`. Cheapest mode for the correction-without-replanning loop. If `RESEARCH.md` does not exist, error with a hint to drop `--view`.
 
 ```bash
@@ -176,14 +176,14 @@ When `WALKING_SKELETON=true`:
 - Planner is instructed to produce `SKELETON.md` in the phase directory alongside `PLAN.md`. The template lives at `~/.claude/gsd-core/references/skeleton-template.md` — the planner reads it when producing SKELETON.md (lazy; not loaded on non-skeleton runs).
 - The plan must scaffold project + routing + one real DB read/write + one real UI interaction + dev deployment — the thinnest possible end-to-end working slice.
 
-**Interaction with `--prd <filepath>`.** `--mvp` and `--prd` compose. The PRD express path (Step 3.5) creates `CONTEXT.md` from the PRD file and continues to research; the Walking Skeleton gate fires independently from the conditions above. When both are active on Phase 1 of a new project, the planner receives `WALKING_SKELETON=true` and PRD-derived context simultaneously — the PRD informs *what the skeleton should prove*. No precedence is needed; the two signals are orthogonal. See [`gsd-core/references/mvp-concepts.md`](../references/mvp-concepts.md) for the broader interaction map.
+**Interaction with `--prd <filepath>`.** `--mvp` and `--prd` compose. The PRD express path (Step 3.5) records the phase's `context` entity from the PRD file and continues to research; the Walking Skeleton gate fires independently from the conditions above. When both are active on Phase 1 of a new project, the planner receives `WALKING_SKELETON=true` and PRD-derived context simultaneously — the PRD informs *what the skeleton should prove*. No precedence is needed; the two signals are orthogonal. See [`gsd-core/references/mvp-concepts.md`](../references/mvp-concepts.md) for the broader interaction map.
 
 Extract express-path args from $ARGUMENTS: `PRD_FILE` (`--prd <filepath>`), `INGEST_PATH` (`--ingest <path-or-glob>`), and optional `INGEST_FORMAT` (`--ingest-format <auto|nygard|madr|narrative>`, default `auto`).
 
 `--prd` and `--ingest` are mutually exclusive. If both are present, error and exit:
 `Invalid arguments: cannot combine \`--prd\` with \`--ingest\`.`
 
-**If no phase number:** Auto-detect it — `query init.plan-phase` and `query roadmap.get-phase` require an explicit number, so this is an orchestrator step. Run `specforge query "$MILESTONE" --kinds phase --format json` and read the first phase that is not yet planned (`next_phase`) (first phase with `disk_status` of `no_directory`, `empty`, `discussed`, or `researched`). If `next_phase` is `null`, read ROADMAP.md's `### Phase N:` headers and ask the user which phase to plan. Set `PHASE` to the result before step 1's `query init.plan-phase "$PHASE"` call.
+**If no phase number:** Auto-detect it — `query init.plan-phase` and `query roadmap.get-phase` require an explicit number, so this is an orchestrator step. Run `specforge query "$MILESTONE" --kinds phase --format json` and read the first phase that is not yet planned (`next_phase`) (first phase with `disk_status` of `no_directory`, `empty`, `discussed`, or `researched`). If `next_phase` is `null`, list the milestone's phases (`specforge query "$MILESTONE" --kinds phase --format brief`) and ask the user which phase to plan. Set `PHASE` to the result before step 1's `query init.plan-phase "$PHASE"` call.
 
 **If `phase_found` is false:** Validate phase exists in ROADMAP.md. If valid, create the directory using `expected_phase_dir` from init (includes `project_code` prefix when set):
 ```bash
@@ -231,13 +231,13 @@ If `section_manifest` is `null` or `"adr-ingest-express-path"` is in its `includ
 
 ## 4. Load CONTEXT.md
 
-**Skip if:** PRD express path or ADR ingest express path was used (CONTEXT.md already created in step 3.5/3.6).
+**Skip if:** PRD express path or ADR ingest express path was used (the phase's context was recorded in step 3.5/3.6).
 
 Check whether the phase has a `context` entity among `INIT`'s nodes.
 
 If it has one, display: `Using phase context from: <its id>`
 
-**If it has none (no CONTEXT.md exists):**
+**If it has none (the phase has no context entity):**
 
 Read discuss mode for context gate label:
 ```bash
@@ -420,7 +420,13 @@ Agent(
 
 ### Handle Researcher Return
 
-- **`## RESEARCH COMPLETE`:** Display confirmation, continue to step 6
+- **`## RESEARCH COMPLETE`:** Display confirmation, record the pack the research read, so a later change of the
+  phase's context reports it stale (gsd/W406), and continue to step 6:
+
+  ```bash
+  RESEARCH_ID="{the research id the researcher returned, e.g. v1.0/02/02-RESEARCH}"
+  specforge gsd record-research "$RESEARCH_ID" || exit 1
+  ```
 - **`## RESEARCH BLOCKED`:** Display blocker, offer: 1) Provide context, 2) Skip research, 3) Abort
 
 <!-- gsd:section id="research-only-early-exit" when="flag:--research-phase" -->
@@ -431,7 +437,7 @@ If `section_manifest` is `null` or `"research-only-early-exit"` is in its `inclu
 
 Skip if `nyquist_validation_enabled` is false OR `research_enabled` is false.
 
-If `research_enabled` is false and `nyquist_validation_enabled` is true: warn "Nyquist validation enabled but research disabled — VALIDATION.md cannot be created without RESEARCH.md. Plans will lack validation requirements (Dimension 8)." Continue to step 6.
+If `research_enabled` is false and `nyquist_validation_enabled` is true: warn "Nyquist validation enabled but research disabled — a validation strategy cannot be recorded without the phase's research. Plans will lack validation requirements (Dimension 8)." Continue to step 6.
 
 **But Nyquist is not applicable for this run** when all of the following are true:
 - `research_enabled` is false
@@ -925,7 +931,7 @@ Every task MUST include these fields — they are NOT optional:
 
 <!-- gsd:protected:start -->
 <quality_gate>
-- [ ] PLAN.md files created in phase directory
+- [ ] Plan entities written for the phase
 - [ ] Each plan has valid frontmatter
 - [ ] Tasks are specific and actionable
 - [ ] Every task has `<read_first>` with at least the file being modified
@@ -988,7 +994,7 @@ If `DISK_PLANS` is greater than 0 (a known Windows stdio hang pattern — the pl
 
 ## 9b. Handle Phase Split Recommendation
 
-When the planner returns `## PHASE SPLIT RECOMMENDED`, the phase's source items exceed the context budget for full-fidelity implementation. Extract the planner's proposed sub-phase groupings and present the user three options via AskUserQuestion: Split into sub-phases (use `/gsd:phase --insert`, then replan each), Proceed anyway (return to planner accepting degraded quality), or Prioritize (AskUserQuestion multiSelect to choose now vs. later, create CONTEXT.md per sub-phase). Full banner text: `gsd-core/workflows/plan-phase/detail/elaboration.md` § 9b.
+When the planner returns `## PHASE SPLIT RECOMMENDED`, the phase's source items exceed the context budget for full-fidelity implementation. Extract the planner's proposed sub-phase groupings and present the user three options via AskUserQuestion: Split into sub-phases (use `/gsd:phase --insert`, then replan each), Proceed anyway (return to planner accepting degraded quality), or Prioritize (AskUserQuestion multiSelect to choose now vs. later, one `context` entity per sub-phase). Full banner text: `gsd-core/workflows/plan-phase/detail/elaboration.md` § 9b.
 
 ## 9c. Handle Source Audit Gaps
 
@@ -1381,7 +1387,7 @@ if it should not be tracked. Then offer:
 ```text
 Options:
 1. Re-plan to cover missing decisions (recommended)
-2. Edit CONTEXT.md to mark dropped decisions as [informational] / Discretion
+2. Mark each dropped decision `settled false` (`specforge set <decision> settled false`), so it reads as discretion
 3. Proceed anyway — accept the coverage gap
 ```
 
@@ -1394,39 +1400,31 @@ between discuss-phase and execute-phase; if a decision isn't visible in any
 plan, no executor will implement it. Catching that now beats discovering it
 after thousands of dollars of execution.
 
-## 13b. Record Planning Completion in STATE.md
+## 13b. Planning Completion
 
-After plans pass all gates, record that planning is complete so STATE.md reflects the new phase status:
+Nothing to record: the plan entities are the record that the phase is planned, and its status, plan count and
+last activity are computed from them.
 
-```bash
-# STATE is computed: the plan entities are the record that the phase is planned
-```
+## 13c. Record Phase Dependencies
 
-This updates STATUS to "Ready to execute", sets the correct plan count, and timestamps Last Activity.
-
-## 13c. Annotate ROADMAP with Wave Dependencies and Cross-cutting Constraints
-
-After plans are finalized, annotate the ROADMAP.md plan list for this phase with:
-- **Wave dependency notes** — a bold header before each wave group ("Wave 2 *(blocked on Wave 1 completion)*")
-- **Cross-cutting constraints** — a "Cross-cutting constraints:" subsection listing `must_haves.truths` entries that appear in 2 or more plans
-
-This step is derived entirely from existing PLAN frontmatter — no extra LLM pass is required.
+The waves and the cross-cutting truths of the phase's plans are computed from their `depends_on` and truths: there
+is nothing to annotate. Only a dependency on another phase that the plans revealed is recorded:
 
 ```bash
 specforge gsd phase --edit "${PHASE_NUMBER}" --depends-on '<json of the phase numbers it depends on>'
 ```
 
-This operation is idempotent: if wave headers or cross-cutting constraints already exist in the ROADMAP phase section, the command returns without modifying the file. Skip this step if `plan_count` is 0.
+Skip this step if the phase has no plan, or its dependencies did not change.
 
 ## 13d. Commit Plans if commit_docs is true
 
-If `commit_docs` is true (from the init JSON parsed in step 1), commit the generated plan artifacts (including any ROADMAP.md annotations from step 13c):
+If `commit_docs` is true (from the init JSON parsed in step 1), commit the plan entities and the phase's recorded dependencies (step 13c):
 
 ```bash
 specforge git commit --add spec -m "docs(${PADDED_PHASE}): create phase plan" && specforge collect --runner gsd-git --yes
 ```
 
-This commits all PLAN.md files for the phase plus the updated STATE.md and ROADMAP.md to version-control the planning artifacts. Skip this step if `commit_docs` is false.
+This commits the spec, which holds the phase's plans. Skip this step if `commit_docs` is false.
 
 ## 13e. Post-Planning Gap Analysis (plan:post capability gate dispatch)
 

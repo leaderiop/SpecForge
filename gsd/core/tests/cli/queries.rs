@@ -113,6 +113,9 @@ const UNBOUND: &[&str] = &[
     "$SUMMARY_FILE",
     "$SUMMARY_ID",
     "$RESEARCH_ID",
+    // the context the PRD path just recorded and the research the researcher returned (`assets_shell::plan_edits`)
+    "$CONTEXT_ID",
+    "<research>",
     "$uat_path",
     // entity ids a prompt hands its agent, each read with `--format context`
     "{roadmap_path}",

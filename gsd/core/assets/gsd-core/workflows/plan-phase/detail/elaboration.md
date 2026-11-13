@@ -69,7 +69,7 @@ Use AskUserQuestion with these 3 options.
 
 **If "Split":** Use `/gsd:phase --insert` to create the sub-phases, then replan each.
 **If "Proceed":** Return to planner with instruction to attempt all items at full fidelity, accepting more plans/tasks.
-**If "Prioritize":** Use AskUserQuestion (multiSelect) to let user pick which items are "now" vs "later". Create CONTEXT.md for each sub-phase with the selected items.
+**If "Prioritize":** Use AskUserQuestion (multiSelect) to let user pick which items are "now" vs "later". Record one `context` entity for each sub-phase with the selected items, as the PRD express path does.
 
 ## § 9c — Handle Source Audit Gaps
 

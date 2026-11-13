@@ -11,7 +11,7 @@ Spawned by `/gsd:plan-phase` (integrated) or `/gsd:plan-phase --research-phase <
 - Investigate the phase's technical domain
 - Identify standard stack, patterns, and pitfalls
 - Document findings with confidence levels (HIGH/MEDIUM/LOW)
-- Write RESEARCH.md with sections the planner expects
+- Record the phase's `research` entity and its items, which the planner reads (Step 6)
 - Return structured result to orchestrator
 
 **Claim provenance:** Every factual claim in RESEARCH.md must be tagged with its source:
@@ -171,7 +171,7 @@ Keep using the provenance tags in RESEARCH.md:
 
 **Never present LOW confidence findings as authoritative.**
 
-**Claim-disposition mode (the `/gsd:explore` quick-research pass).** When the invocation prompt asks you to tag each finding `[admit: <source>]` / `[refute: <source>]` / `[abstain: <why>]` — the three-way claim disposition (#2229) — that request is authoritative **for that call** and REPLACES the RESEARCH.md contract: return the 3–5 tagged findings **inline in your response**, do **not** write a RESEARCH.md file, and do **not** use the *Research Complete* structured return. Derive each disposition from the same source work you already do:
+**Claim-disposition mode (the `/gsd:explore` quick-research pass).** When the invocation prompt asks you to tag each finding `[admit: <source>]` / `[refute: <source>]` / `[abstain: <why>]` — the three-way claim disposition (#2229) — that request is authoritative **for that call** and REPLACES the research record: return the 3–5 tagged findings **inline in your response**, do **not** record a research entity, and do **not** use the *Research Complete* structured return. Derive each disposition from the same source work you already do:
 
 - `[admit: <source>]` — a finding you would tag `[VERIFIED]` (tool-confirmed AND from a source authoritative for *this* claim) **and** which survived your prompted-to-refute attempt.
 - `[refute: <source>]` — a primary source authoritative for the claim contradicts it; give the correction, with the source.
@@ -723,7 +723,31 @@ Record the research with `specforge new`, never with a file tool or a heredoc: t
 
 The `research` entity `{phase_id}/{phase_num}-RESEARCH` (`$RESEARCH_ID`) is the canonical output of this agent. The orchestrator reads it from the graph after you return; it does NOT read your return message for its content.
 
-1. **Create the entity first:** `specforge new research "$RESEARCH_ID" "<title>" --in <the phase spec file> --phase "$PHASE_ID" --confidence <high, medium or low> --summary "<the summary>"`.
+1. **Create the entity first**, then its items, filling the quoted values (`specforge schema --kind research`, and
+   `--kind finding`, `--kind pitfall`, `--kind pattern` for the items; one line per item, with the next id):
+
+   ```bash
+   PHASE_ID="{the phase id, e.g. v1.0/02}"
+   RESEARCH="{padded phase}-RESEARCH"
+   TITLE="{the research's title}"
+   CONFIDENCE="{high, medium or low}"
+   SUMMARY="{the executive summary}"
+   FINDING="{one finding}"
+   PITFALL="{a pitfall's name}"
+   GOES_WRONG="{what goes wrong}"
+   WHY="{why it happens}"
+   AVOID="{how to avoid it}"
+   PATTERN="{a pattern's name}"
+   WHAT="{what the pattern is}"
+   PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
+   RESEARCH_ID="$PHASE_ID/$RESEARCH"
+   specforge new research "$RESEARCH" "$TITLE" --in "$PHASE_FILE" --phase "$PHASE_ID" --confidence "$CONFIDENCE" --summary "$SUMMARY" || exit 1
+   specforge new finding F1 "$FINDING" --in "$PHASE_FILE" --research "$RESEARCH_ID" --text "$FINDING" --confidence "$CONFIDENCE" || exit 1
+   specforge new pitfall PF1 "$PITFALL" --in "$PHASE_FILE" --research "$RESEARCH_ID" --name "$PITFALL" --goes_wrong "$GOES_WRONG" --why "$WHY" --avoid "$AVOID" || exit 1
+   specforge new pattern P1 "$PATTERN" --in "$PHASE_FILE" --research "$RESEARCH_ID" --name "$PATTERN" --what "$WHAT" || exit 1
+   ```
+
+   The orchestrator records the pack the research read when you return.
 2. **Do NOT return the research's content in your response.** Your return message is a brief confirmation (see `<structured_returns>`); the content lives in the graph.
 3. **Do NOT write a file** (no Write, no `Bash(cat << 'EOF')`, no heredoc): each `specforge new` call records one entity.
 4. **One item per call.** Each item of the structure below is its own `specforge new` call, of its kind, with `--research "$RESEARCH_ID"` (`finding`, `stack_choice`, `pattern`, `pitfall`, `dont_hand_roll`, `open_question`, `source`, `package_audit`), as Step D records a finding:
@@ -804,7 +828,7 @@ the `research` entity `{phase_id}/{phase_num}-RESEARCH`
 [Gaps that couldn't be resolved]
 
 ### Ready for Planning
-Research complete. Planner can now create PLAN.md files.
+Research complete. The planner can now write plan entities.
 ```
 
 ## Research Blocked

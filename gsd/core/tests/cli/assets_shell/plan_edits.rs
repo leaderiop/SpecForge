@@ -161,3 +161,88 @@ fn the_review_commit_records_nothing() {
     );
     assert_eq!(count.trim(), "0", "{err}");
 }
+
+/// The PRD express path records the phase's context as typed edits: the context, a decision per requirement (the
+/// line repeated with the next id, as a model repeats it) and a deferred idea, on a phase with no context.
+#[test]
+fn the_prd_express_path_writes_the_phase_context() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let text = asset("gsd-core/workflows/plan-phase/steps/prd-express-path.md");
+    let fence = typed::filled(
+        &typed::typed_fence(&text, "4. Record the context as typed edits"),
+        &[
+            ("PHASE_ID", "v1.0/03"),
+            ("CONTEXT", "03-CONTEXT"),
+            ("TITLE", "Listing context"),
+            ("BOUNDARY", "Open tasks are listed and filtered by a word"),
+            ("DISCRETION", "The column widths"),
+            ("SPECIFICS", "taskboard list prints one task per line"),
+            (
+                "CANONICAL_REFS",
+                r#"[{"topic": "No external specs — requirements fully captured in decisions above", "paths": []}]"#,
+            ),
+            ("AREA", "Listing"),
+            ("DECISION", "The list shows open tasks, oldest first"),
+            ("DEFERRED", "Sorting by due date"),
+        ],
+    );
+    let second = super::line(&fence, "specforge new decision D-01")
+        .replace("D-01 \"$DECISION\"", "D-02 \"$DECISION\"");
+    let script = format!("{fence}\nDECISION=\"A filter matches a word of the title\"\n{second}");
+    let run = typed::apply(&sh, &p, &script);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(run.added.is_empty(), "{:?}", run.added);
+    for id in ["03-CONTEXT", "D-01", "D-02", "DI1"] {
+        let id = format!("v1.0/03/{id}");
+        assert!(p.fields_of(&id).is_object(), "{id} is missing");
+    }
+    assert_eq!(p.fields_of("v1.0/03/D-02")["origin"], "context");
+}
+
+/// The researcher records the phase's research and its items as typed edits, and plan-phase records the pack the
+/// research read when the researcher returns.
+#[test]
+fn the_research_fence_records_the_phase_research() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let text = asset("agents/gsd-phase-researcher.md");
+    let fence = typed::filled(
+        &typed::typed_fence(&text, "1. **Create the entity first**"),
+        &[
+            ("PHASE_ID", "v1.0/03"),
+            ("RESEARCH", "03-RESEARCH"),
+            ("TITLE", "Listing research"),
+            ("CONFIDENCE", "high"),
+            ("SUMMARY", "Filter in memory; the board is small"),
+            ("FINDING", "The board fits in memory"),
+            ("PITFALL", "Case-sensitive filters"),
+            ("GOES_WRONG", "A filter misses a title in another case"),
+            ("WHY", "String includes is case-sensitive"),
+            ("AVOID", "Lower-case both sides"),
+            ("PATTERN", "Filter then sort"),
+            ("WHAT", "Filter the open tasks, then sort them by id"),
+        ],
+    );
+    let run = typed::apply(&sh, &p, &fence);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(run.added.is_empty(), "{:?}", run.added);
+    for id in ["", "/F1", "/PF1", "/P1"] {
+        let id = format!("v1.0/03/03-RESEARCH{id}");
+        assert!(p.fields_of(&id).is_object(), "{id} is missing");
+    }
+    let record = typed::filled(
+        &typed::typed_fence(
+            &asset("gsd-core/workflows/plan-phase.md"),
+            "- **`## RESEARCH COMPLETE`:**",
+        ),
+        &[("RESEARCH_ID", "v1.0/03/03-RESEARCH")],
+    );
+    let run = typed::apply(&sh, &p, &record);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(run.added.is_empty(), "{:?}", run.added);
+}

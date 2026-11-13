@@ -21,9 +21,6 @@ agents/gsd-pattern-mapper.compact.md	**Tracked-source gate (#3645):** every anal
 agents/gsd-pattern-mapper.md	- Extract list of files to be created or modified from CONTEXT.md and RESEARCH.md
 agents/gsd-pattern-mapper.md	`capabilities/<id>/...`). PATTERNS.md must never emit mirror paths — the
 agents/gsd-pattern-mapper.md	Write to: nothing — the report is your reply: @gsd/core keeps no PATTERNS.md, and the pattern map entity is @gsd/codebase's
-agents/gsd-phase-researcher.md	- Write RESEARCH.md with sections the planner expects
-agents/gsd-phase-researcher.md	**Claim-disposition mode (the `/gsd:explore` quick-research pass).** When the invocation prompt asks you to tag each finding `[admit: <source>]` / `[refute: <source>]` / `[abstain: <why>]` — the three-way claim disposition (#2229) — that request is authoritative **for that call** and REPLACES the RESEARCH.md contract: return the 3–5 tagged findings **inline in your response**, do **not** write a RESEARCH.md file, and do **not** use the *Research Complete* structured return. Derive each disposition from the same source work you already do:
-agents/gsd-phase-researcher.md	Research complete. Planner can now create PLAN.md files.
 agents/gsd-plan-checker.md	Spawned by `/gsd:plan-phase` orchestrator (after planner creates PLAN.md) or re-verification (after planner revises).
 agents/gsd-plan-checker.md	- Plan creates a file listed in PATTERNS.md but does not reference the analog
 agents/gsd-plan-checker.md	description: "Plan 01-03 creates src/controllers/auth.ts but does not reference analog src/controllers/users.ts from PATTERNS.md"
@@ -60,8 +57,6 @@ commands/gsd/mvp-phase.md	3. Writes `**Mode:** mvp` and the reformatted `**Goal:
 commands/gsd/mvp-phase.md	The phase must already exist in ROADMAP.md (created via `/gsd:new-project`, `/gsd:phase`, or `/gsd:phase --insert`). This command does not create new phases — it converts an existing phase to MVP mode.
 commands/gsd/new-milestone.md	Brownfield equivalent of new-project. Project exists, PROJECT.md has history. Gathers "what's next", updates PROJECT.md, then runs requirements → roadmap cycle.
 commands/gsd/ns-workflow.md	| Create a PLAN.md | gsd-plan-phase |
-commands/gsd/plan-phase.md	Create executable phase prompts (PLAN.md files) for a roadmap phase with integrated research and verification.
-commands/gsd/plan-phase.md	**Research-only mode (`--research-phase <N>`):** Spawn `gsd-phase-researcher` for phase `N`, write `RESEARCH.md`, then exit before the planner runs. Useful for cross-phase research, doc review before committing to a planning approach, and correction-without-replanning loops where iterating on research alone is dramatically cheaper than re-spawning the planner. Replaces the deleted research-phase command (#3042).
 commands/gsd/quick-batch.md	leaves, and owns every shared write (`BATCH.json`, STATE.md, worktree
 commands/gsd/quick.md	- Updates STATE.md "Quick Tasks Completed" table (NOT ROADMAP.md)
 commands/gsd/quick.md	- STATE.md "Quick Tasks Completed" table is updated on completion
@@ -252,21 +247,8 @@ gsd-core/workflows/new-workspace.md	## 7. Write WORKSPACE.md
 gsd-core/workflows/new-workspace.md	Write the workspace manifest at `$TARGET_PATH/WORKSPACE.md`:
 gsd-core/workflows/new-workspace.md	- [ ] WORKSPACE.md manifest written with correct repo table
 gsd-core/workflows/next.md	1. For each incomplete item, create a backlog entry in `ROADMAP.md` under `## Backlog` using the existing `999.x` numbering scheme:
-gsd-core/workflows/plan-phase/detail/elaboration.md	**If "Prioritize":** Use AskUserQuestion (multiSelect) to let user pick which items are "now" vs "later". Create CONTEXT.md for each sub-phase with the selected items.
-gsd-core/workflows/plan-phase/steps/prd-express-path.md	- Create CONTEXT.md in the phase directory
-gsd-core/workflows/plan-phase/steps/prd-express-path.md	4. Write CONTEXT.md:
-gsd-core/workflows/plan-phase/steps/prd-express-path.md	**Effect:** This completely bypasses step 4 (Load CONTEXT.md) since we just created it. The rest of the workflow (research, planning, verification) proceeds normally with the PRD-derived context.
-gsd-core/workflows/plan-phase.md	Create executable phase prompts (PLAN.md files) for a roadmap phase with integrated research and verification. Default flow: Research (if needed) -> Plan -> Verify -> Done. Orchestrates gsd-phase-researcher, gsd-planner, and gsd-plan-checker agents with a revision loop (max 3 iterations).
-gsd-core/workflows/plan-phase.md	- **`--research`** — force-refresh re-research without prompting. Re-spawns the researcher unconditionally and overwrites the existing RESEARCH.md. (This is the existing `--research` flag's standard "force re-research" semantics, reused here.)
-gsd-core/workflows/plan-phase.md	**Interaction with `--prd <filepath>`.** `--mvp` and `--prd` compose. The PRD express path (Step 3.5) creates `CONTEXT.md` from the PRD file and continues to research; the Walking Skeleton gate fires independently from the conditions above. When both are active on Phase 1 of a new project, the planner receives `WALKING_SKELETON=true` and PRD-derived context simultaneously — the PRD informs *what the skeleton should prove*. No precedence is needed; the two signals are orthogonal. See [`gsd-core/references/mvp-concepts.md`](../references/mvp-concepts.md) for the broader interaction map.
-gsd-core/workflows/plan-phase.md	**Skip if:** PRD express path or ADR ingest express path was used (CONTEXT.md already created in step 3.5/3.6).
-gsd-core/workflows/plan-phase.md	If `research_enabled` is false and `nyquist_validation_enabled` is true: warn "Nyquist validation enabled but research disabled — VALIDATION.md cannot be created without RESEARCH.md. Plans will lack validation requirements (Dimension 8)." Continue to step 6.
 gsd-core/workflows/plan-phase.md	**Tracked-source paths (#3645):** Every path you write into PLAN.md —
-gsd-core/workflows/plan-phase.md	- [ ] PLAN.md files created in phase directory
 gsd-core/workflows/plan-phase.md	- [ ] Every PLAN.md includes an "Artifacts this phase produces" section listing symbols created by this phase (decorators, classes, functions, CLI flags, struct/dataclass fields, new file paths)
-gsd-core/workflows/plan-phase.md	When the planner returns `## PHASE SPLIT RECOMMENDED`, the phase's source items exceed the context budget for full-fidelity implementation. Extract the planner's proposed sub-phase groupings and present the user three options via AskUserQuestion: Split into sub-phases (use `/gsd:phase --insert`, then replan each), Proceed anyway (return to planner accepting degraded quality), or Prioritize (AskUserQuestion multiSelect to choose now vs. later, create CONTEXT.md per sub-phase). Full banner text: `gsd-core/workflows/plan-phase/detail/elaboration.md` § 9b.
-gsd-core/workflows/plan-phase.md	2. Edit CONTEXT.md to mark dropped decisions as [informational] / Discretion
-gsd-core/workflows/plan-phase.md	This commits all PLAN.md files for the phase plus the updated STATE.md and ROADMAP.md to version-control the planning artifacts. Skip this step if `commit_docs` is false.
 gsd-core/workflows/plan-review-convergence.md	Display: `Initial planning complete: ${PLAN_COUNT} PLAN.md files created.`
 gsd-core/workflows/plan-review-convergence.md	These two sections MUST be the final content of your response, in this exact order, with no additional "## " headings after them (the source-grounding "Verification coverage" block is appended to REVIEWS.md, not to this return message).",
 gsd-core/workflows/plan-review-convergence.md	5. **Coverage block.** Append a "Verification coverage" section to `REVIEWS.md` listing every UNCHECKABLE/skipped symbol and why — a clean review must never silently mean "nothing was checked."
