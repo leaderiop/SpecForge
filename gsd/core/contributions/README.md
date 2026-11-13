@@ -102,7 +102,7 @@ Every `/gsd-*` command of v1.19.0 has one owner and one round (`tests/roster.rs`
 | `/gsd-pr-branch` | r43 | prompt `pr_branch` |
 | `/gsd-profile-user` | after r44 | @gsd/ops |
 | `/gsd-progress` | r43 | prompt `progress` over the command `progress_report` |
-| `/gsd-quick-batch` | r43 | prompt `quick_batch` |
+| `/gsd-quick-batch` | r43 | prompt `quick_batch` over `quick_init` and `start_batch` |
 | `/gsd-quick` | r43 | prompt `quick` |
 | `/gsd-resume-work` | r43 | prompt `resume_work` over the command `resume` |
 | `/gsd-review-backlog` | r43 | prompt `review_backlog` over `phase --promote` |
@@ -138,12 +138,12 @@ templates a prompt does not inline (`specforge gsd reference gsd-core/references
 | `discuss_phase` | none | assumptions analyzer, advisor researcher; `plan_phase` |
 | `spec_phase` | none | `record_spec`; `discuss_phase` |
 | `mvp_phase` | E516 | `plan_phase` |
-| `plan_phase` | E201, W204, E206, W406, E516 | phase researcher, pattern mapper, planner, plan checker; `record_research`, `record_verdict`; `execute_phase` |
+| `plan_phase` | E201, W204, E206, W406, E516 | phase researcher, pattern mapper, planner, plan checker; `record_research`, `record_verdict`, `record_conflict`, `resolve_conflict`; `execute_phase` |
 | `plan_review_convergence` | E201, W204, E206, W406, E516 | `plan_phase`; plan checker |
 | `ultraplan_phase` | E201, W204, E206, W406, E516 | plan checker; `record_verdict` |
-| `execute_phase` | W311, W313, W315, W318, E516 | `execute_plan`; verifier; `record_verdict`, `record_window`; `verify_work` |
+| `execute_phase` | W311, W313, W315, W318, E516 | `execute_plan`; verifier; `record_verdict`, `record_window`, `raise_blocker` (a tripped TDD gate); `verify_work` |
 | `execute_plan` (no slash command) | W318, E516 | `start_plan`, `answer_checkpoint`, `confirm_setup`, `raise_blocker`, `complete_plan`; executor |
-| `verify_work` | E516 | `set_uat_result`, `record_automated_uat`; planner, plan checker |
+| `verify_work` | E516 | `set_uat_result` (`--follow-up` keeps a deferred follow-up), `record_automated_uat`; planner, plan checker |
 | `validate_phase` | E516 | nyquist auditor; `record_validation`, `approve_validation` |
 | `add_tests` | E516 | none |
 | `audit_uat` | none | `set_uat_result` |
