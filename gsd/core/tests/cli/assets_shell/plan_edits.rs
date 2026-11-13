@@ -206,6 +206,36 @@ fn the_convergence_step_counts_the_open_concerns() {
     );
 }
 
+/// A round with one reviewer (the `--codex` default) records the concerns its lane raised, so its HIGH concern is open
+/// and convergence does not pass on the first cycle.
+#[test]
+fn a_one_reviewer_round_keeps_its_high_concern() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let round = r#"{"plans": ["v1.0/02/02-01"], "reviewers": [{"name": "codex", "model": "unknown", "source": "unknown"}], "lanes": [{"reviewer": "codex", "summary": "One gap", "strengths": ["small plan"], "suggestions": ["fsync the file"], "risk": "high"}], "consensus": "The save is not crash-safe", "strengths": [], "divergent": [], "concerns": [{"plan": "v1.0/02/02-01", "reviewers": ["codex"], "severity": "high", "text": "The rename is not atomic on every platform", "actionable": true}]}"#;
+    let record = typed::filled(
+        &typed::typed_fence(
+            &asset("gsd-core/workflows/review.md"),
+            "Only reached when `TOTAL_LANE_FAILURE`",
+        ),
+        &[("PHASE_ID", "v1.0/02"), ("REVIEW_JSON", round)],
+    );
+    let run = typed::apply(&sh, &p, &record);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    let counts = typed::filled(
+        &typed::typed_fence(
+            &asset("gsd-core/workflows/plan-review-convergence.md"),
+            "### 5b. Read the Open Concerns from the Graph",
+        ),
+        &[("PHASE_ID", "v1.0/02")],
+    );
+    let run = typed::apply(&sh, &p, &counts);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(run.out.contains("HIGH_COUNT=1 "), "{}", run.out);
+}
+
 /// The convergence counts block stops when the phase has no recorded round.
 #[test]
 fn the_convergence_step_stops_without_a_review() {

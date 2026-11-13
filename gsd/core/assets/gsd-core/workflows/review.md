@@ -661,7 +661,8 @@ The round's JSON holds, read from each lane's `{run_dir}/gsd-review-<slug>.md`:
   `projectMdShrunk` is true, or `planTruncationPct > 0`) names what was trimmed in its `summary`;
 - `coverage`: one `{reviewer, total, missing}` per incomplete graded lane (#3301), as above;
 - `consensus`, `strengths`, `divergent`: the consensus summary below;
-- `concerns`: one item per agreed concern, `{plan, reviewers, severity, text, actionable, drift, evidence}`
+- `concerns`: one item per concern any lane raised, `reviewers` naming every lane that raised it (two or more make
+  it agreed), `{plan, reviewers, severity, text, actionable, drift, evidence}`
   (`severity` is `high`, `medium` or `low`; `actionable` and `drift` are booleans, `evidence` a list of
   `file:line` citations). `record-review` checks each and writes it as a `review_concern`.
 
