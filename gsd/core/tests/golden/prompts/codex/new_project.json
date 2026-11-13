@@ -61,7 +61,7 @@
     "```bash",
     ""
   ],
-  "bytes": 83751,
+  "bytes": 84028,
   "end": [
     "TEXT=\"{the requirement: user-centric, testable, atomic}\"",
     "CATEGORY=\"{its category, e.g. Authentication}\"",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1960,
+  "lines": 1958,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:737f5d26a8ce69ccf21128deb2724f1766691b2daf1d3eeb4ed6fc87814e6278",
+    "digest": "sha256:0f4d0bb136714ad5e403377529f6e12461285827f3785f5aa8835a4fe425673e",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "737f5d26a8ce69ccf21128deb2724f1766691b2daf1d3eeb4ed6fc87814e6278"
+  "sha256": "0f4d0bb136714ad5e403377529f6e12461285827f3785f5aa8835a4fe425673e"
 }

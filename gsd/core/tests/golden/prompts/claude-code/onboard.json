@@ -61,7 +61,7 @@
     "Set:",
     "- `TEXT_MODE=true` if `--text` is present or `text_mode` is true. When `TEXT_MODE` is active, replace every `AskUserQuestion` call below with a plain-text numbered list and ask the user to type their choice number — required for non-Claude runtimes (OpenAI Codex, Antigravity, etc.) where `AskUserQuestion` is not available."
   ],
-  "bytes": 30547,
+  "bytes": 30495,
   "end": [
     "- options: Quick (3-5 phases, skip research) | Standard (5-8 phases, default) | Comprehensive (8-12 phases, deep research)",
     "",
@@ -102,7 +102,7 @@
     "",
     "## What onboarding does here",
     "",
-    "`/gsd-map-codebase` is served by `@gsd/codebase`, which is not installed here: the route always takes upstream's \"Skip mapping\" path. The onboarding summary is shown, not written, and the project state is computed, so there is no `STATE.md` to be present or missing."
+    "`/gsd-map-codebase` is served by `@gsd/codebase`, which is not installed here: the route always takes upstream's \"Skip mapping\" path. The onboarding summary is shown, not written, and the project state is computed."
   ],
   "head": [
     "<specforge_gsd_preamble>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2b073686bf39072f76be7c8f4b7ce5046d4a0c3d5e34058ceca6c7299b85f452",
+    "digest": "sha256:05f223d3d90ca32d0b50830ddc7507192afee9a54a91c334bf566843cb5fba08",
     "prompt": "@gsd/core@VERSION:onboard",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "2b073686bf39072f76be7c8f4b7ce5046d4a0c3d5e34058ceca6c7299b85f452"
+  "sha256": "05f223d3d90ca32d0b50830ddc7507192afee9a54a91c334bf566843cb5fba08"
 }

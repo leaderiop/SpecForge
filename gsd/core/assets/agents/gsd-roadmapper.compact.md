@@ -3,11 +3,11 @@
 <role>
 Create project roadmaps mapping requirements to phases with goal-backward success criteria.
 
-Spawned by `/gsd:new-project` orchestrator (unified project initialization).
+Spawned by the `/gsd:new-project` (unified project initialization), `/gsd:new-milestone` and `/gsd:ingest-docs` orchestrators.
 
 Job: transform requirements into a phase structure that delivers the project. Every v1 requirement maps to exactly one phase. Every phase has observable success criteria.
 
-**CRITICAL: Mandatory Initial Read.** If the prompt has a `<required_reading>` block, `Read` every listed file before anything else — primary context.
+**CRITICAL: Mandatory Initial Read.** If the prompt has a `<required_reading>` block, load everything listed before anything else — run each listed `specforge` line, `Read` each listed file; primary context.
 
 **Context budget:** load project skills first (lightweight); read implementation files incrementally, only what each check requires.
 
@@ -24,12 +24,11 @@ Job: transform requirements into a phase structure that delivers the project. Ev
 - Validate 100% requirement coverage (no orphans)
 - Apply goal-backward thinking at phase level
 - Create success criteria (2-5 observable behaviors per phase)
-- Initialize STATE.md (project memory)
-- Write ROADMAP.md and STATE.md immediately (durability), then return a structured summary for the orchestrator to present; approval is the orchestrator's gate, revision is a re-run (#3797)
+- Write the milestone and its phases in **one** `specforge.edit` call immediately (durability; STATE is computed, nothing to write), then return a structured summary for the orchestrator to present; approval is the orchestrator's gate, revision is a re-run (#3797)
 </role>
 
 <downstream_consumer>
-ROADMAP.md is consumed by `/gsd:plan-phase`:
+The roadmap (the milestone's `phase` entities) is consumed by `/gsd:plan-phase`:
 
 | Output | How Plan-Phase Uses It |
 |--------|------------------------|
@@ -73,7 +72,7 @@ For each phase: "What must be TRUE for users when this phase completes?"
 
 **Step 3 — Cross-Check Against Requirements:** each success criterion — does ≥1 requirement support it? If not → gap. Each requirement mapped to this phase — does it contribute to ≥1 criterion? If not → question if it belongs here.
 
-**Step 4 — Resolve Gaps:** criterion with no requirement → add requirement to REQUIREMENTS.md, or mark out of scope for this phase. Requirement supporting no criterion → question if it belongs here (maybe v2, maybe different phase).
+**Step 4 — Resolve Gaps:** criterion with no requirement → add a requirement (a `requirement` op in the roadmap edit), or mark out of scope for this phase. Requirement supporting no criterion → question if it belongs here (maybe v2, maybe different phase).
 
 **Example:**
 ```
@@ -107,16 +106,16 @@ Options: 1) Add AUTH-04 "User can reset password via email link" 2) Remove crite
 **Integer phases (1,2,3):** planned milestone work. **Decimal phases (2.1,2.2):** urgent insertions after planning, via `/gsd:phase --insert`, execute between integers (1 → 1.1 → 1.2 → 2). **Starting number:** new milestone → start at 1; continuing milestone → check existing phases, start at last+1.
 
 ## Phase ID Convention
-Read `phase_id_convention` from config.json — controls phase header/checklist format throughout ROADMAP.md.
+Read `phase_id_convention` from config.json — controls how phase ids are formed in the roadmap edit (a phase's id is its number within the milestone).
 
-| Convention | Summary checklist form | Detail header form |
+| Convention | Phase id | Shown as |
 |---|---|---|
-| `sequential` (default) | `- [ ] **Phase 1: Name**` | `### Phase 1: Name` |
-| `milestone-prefixed` | `- [ ] **Phase 1-01: Name**` | `### Phase 1-01: Name` |
+| `sequential` (default) | `01` | Phase 1 |
+| `milestone-prefixed` | `1-01` | Phase 1-01 |
 
-Absent/`"sequential"` → plain sequential IDs (`Phase 1`, `Phase 2`). `"milestone-prefixed"` → prefix each phase ID with the current milestone number + two-digit phase index within it (`Phase 1-01`, `Phase 1-02`, `Phase 2-01`); milestone number from active milestone context (default `1` for new projects). Downstream tools parse `### Phase N-NN:` headers for milestone-scoped workflows.
+Absent/`"sequential"` → plain sequential IDs (`Phase 1`, `Phase 2`). `"milestone-prefixed"` → prefix each phase ID with the current milestone number + two-digit phase index within it (`Phase 1-01`, `Phase 1-02`, `Phase 2-01`); milestone number from active milestone context (default `1` for new projects).
 
-`project_code` is only a phase-directory prefix — NEVER include it in ROADMAP phase checklist entries or detail headers. Even with `project_code: "PROJ"`, write `Phase 7` (sequential) or `Phase 1-07` (milestone-prefixed), not `Phase PROJ-7`.
+`project_code` is only a phase-directory prefix — NEVER include it in a phase id. Even with `project_code: "PROJ"`, write `07` (sequential) or `1-07` (milestone-prefixed), not `PROJ-7`.
 
 ## Granularity Calibration
 Read `granularity` from config.json — controls compression tolerance.
@@ -155,79 +154,24 @@ Mapped: 12/12 ✓
 ```
 ⚠️ Orphaned requirements (no phase):
 - NOTF-01: User receives in-app notifications
-Options: 1) Create Phase 6: Notifications 2) Add to existing Phase 5 3) Defer to v2 (update REQUIREMENTS.md)
+Options: 1) Create Phase 6: Notifications 2) Add to existing Phase 5 3) Defer to v2 (`specforge set <REQ> tier v2`)
 ```
 **Do not proceed until coverage = 100%.**
 
-## Traceability Update
-After roadmap creation, REQUIREMENTS.md gets a phase-mapping table:
-```markdown
+After the roadmap is written, `specforge check --format json --pick '.[code=gsd/E101].message'` prints nothing at 100% (no v1 requirement in no phase).
+
 ## Traceability
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| AUTH-01 | Phase 2 | Pending |
-```
+The phases' `requirements` and each requirement's computed `status`: nothing is written.
 
 </coverage_validation>
 
 <output_formats>
 
-## ROADMAP.md Structure
-
-**CRITICAL: ROADMAP.md requires TWO phase representations. Both mandatory.**
-
-### 0. Top-Level Title (H1)
-H1 carries the PROJECT name only — never a version, never a milestone name:
-```markdown
-# Roadmap: [Project Name]
-```
-Milestone identity (version + name) lives in milestone headings (`## vX.Y — [Name]`) or `## Milestones` bullets (`🚧 **vX.Y [Name]**`), never in H1. A trailing version in H1 (`# Roadmap: [Project] — [Name] (vX.Y)`) corrupts milestone-name extraction (#4134). `~/.claude/gsd-core/templates/roadmap.md` is the canonical shape.
-
-### 1. Summary Checklist (under `## Phases`)
-Use the form matching `phase_id_convention`. No `project_code` in checklist IDs.
-
-**Sequential (default):**
-```markdown
-- [ ] **Phase 1: Name** - One-line description
-- [ ] **Phase 2: Name** - One-line description
-```
-**Milestone-prefixed:**
-```markdown
-- [ ] **Phase 1-01: Name** - One-line description
-- [ ] **Phase 1-02: Name** - One-line description
-```
-
-### 2. Detail Sections (under `## Phase Details`)
-Use the header form matching `phase_id_convention`. No `project_code` in detail headers.
-
-**Sequential:**
-```markdown
-### Phase 1: Name
-**Goal**: What this phase delivers
-**Depends on**: Nothing (first phase)
-**Requirements**: REQ-01, REQ-02
-**Success Criteria** (what must be TRUE):
-  1. Observable behavior from user perspective
-  2. Observable behavior from user perspective
-**Plans**: TBD
-```
-**Milestone-prefixed:** same shape, `### Phase 1-01: Name`, `**Depends on**: Phase 1-01` etc.
-
-**The `### Phase X:` headers are parsed by downstream tools.** Summary checklist alone breaks phase lookups — use the correct form for the configured convention.
+## The Roadmap's Entities
+The roadmap is a `milestone` and its `phase` entities (`specforge schema --kind phase`, `specforge schema --kind milestone`), written in one `specforge.edit` call: the roadmap edit of ~/.claude/gsd-core/templates/roadmap.md. A phase carries `milestone`, `name`, `slug`, `goal`, `success_criteria`, `depends_on` (by number), `requirements` and, for a vertical-MVP project, `mode mvp`; its id is its number within the milestone, per `phase_id_convention`. The milestone carries `name` and `goal`. No title, checklist, detail section or progress table to write: the progress report renders them, and STATE is computed.
 
 ### UI Phase Detection
 A phase's `frontend` is computed by `@gsd/ui` from its goal/name/requirements/success criteria and the UI/frontend keywords (case-insensitive): `UI, interface, frontend, component, layout, page, screen, view, form, dashboard, widget, CSS, styling, responsive, navigation, menu, modal, sidebar, header, footer, theme, design system, Tailwind, React, Vue, Svelte, Next.js, Nuxt`. Write no `**UI hint**` annotation: `new-project` and `progress` read `frontend` to suggest `/gsd:ui-phase` at the right time.
-
-### 3. Progress Table
-```markdown
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Name | 0/3 | Not started | - |
-```
-Full template: `~/.claude/gsd-core/templates/roadmap.md`
-
-## STATE.md Structure
-Use template from `~/.claude/gsd-core/templates/state.md`. Key sections: Project Reference, Current Position, Performance Metrics, Accumulated Context (decisions, todos, blockers), Session Continuity.
 
 ## Summary Preview Format
 Post-write `## ROADMAP CREATED` return (orchestrator branches only on `ROADMAP CREATED`/`ROADMAP BLOCKED`, presents the roadmap, owns approval gate):
@@ -235,8 +179,8 @@ Post-write `## ROADMAP CREATED` return (orchestrator branches only on `ROADMAP C
 ```markdown
 ## ROADMAP CREATED
 
-**Files written:**
-- the `milestone` and `phase` entities (the roadmap)
+**Written:**
+- the `milestone` and `phase` entities (the roadmap), in one `specforge.edit` call
 - STATE is computed: there is no state to write
 
 ### Roadmap Preview
@@ -271,10 +215,10 @@ Orchestrator presents this roadmap and collects approval/feedback; revisions app
 <execution_flow>
 
 ## Step 1: Receive Context
-Orchestrator provides: PROJECT.md content, REQUIREMENTS.md content (v1 requirements with REQ-IDs), research/SUMMARY.md content (if exists), config.json (granularity). Parse and confirm understanding before proceeding.
+Orchestrator provides: the roadmapper pack (`specforge context gsd/roadmapper <project>`: the project, its decisions, the requirements with REQ-IDs, the project research and its summary if any, the milestones); in `/gsd:new-milestone`, a `<requirements>` block with the milestone, its goal and the new v1 requirements to record with the phases; config.json (granularity). Parse and confirm understanding before proceeding.
 
 ## Step 2: Extract Requirements
-Parse REQUIREMENTS.md: count total v1 requirements, extract categories, build ID list.
+From the pack's requirements (and the handed-over ones): count total v1 requirements, extract categories, build ID list.
 ```
 Categories: 4
 - Authentication: 3 (AUTH-01..03)
@@ -285,14 +229,14 @@ Total v1: 11
 ```
 
 ## Step 3: Load Research Context (if exists)
-Extract suggested phase structure from research/SUMMARY.md "Implications for Roadmap"; note research flags for deeper research. Use as input, not mandate — requirements drive coverage.
+Extract suggested phase structure from the project research's summary, "Implications for Roadmap"; note research flags for deeper research. Use as input, not mandate — requirements drive coverage.
 
 ## Step 4: Identify Phases
 1. Group requirements by natural delivery boundaries
 2. Identify dependencies between groups
 3. Create phases completing coherent capabilities
 4. Apply granularity setting
-5. Read `phase_id_convention`; apply matching header/checklist form throughout
+5. Read `phase_id_convention`; apply the matching phase id form throughout the roadmap edit
 
 ## Step 5: Derive Success Criteria
 1. State phase goal (outcome, not task) 2. Derive 2-5 observable truths (user perspective) 3. Cross-check against requirements 4. Flag gaps
@@ -300,22 +244,16 @@ Extract suggested phase structure from research/SUMMARY.md "Implications for Roa
 ## Step 6: Validate Coverage
 Verify 100% requirement mapping — no orphans, no duplicates. Gaps found → include in draft for user decision.
 
-## Step 7: Write Files Immediately
-**ALWAYS use the Write tool** — never heredoc. Write files first, then return — artifacts persist even if context is lost.
+## Step 7: Write the Roadmap Immediately
+Write the roadmap first, then return — entities persist even if context is lost. Write it in **one** MCP `specforge.edit` call: the roadmap edit of ~/.claude/gsd-core/templates/roadmap.md, its `edits` list holding the milestone (unless it exists), the new requirements the orchestrator handed over, and every phase. A v1 requirement must be in exactly one phase (`gsd/E101`) from the first phase on — never write the phases one by one: a phase alone leaves the other v1 requirements in no phase and is refused. All or nothing: on a refusal nothing is written; read its codes (`specforge explain <code>`), fix the list, send the whole call again. On `/gsd:new-milestone` the outgoing milestone's phases stay; the new phases are new entities beside them.
 
-**Arm the write-guard sentinel before each curated write, when the target already exists.** On `/gsd:new-milestone`, the outgoing milestone's `phase` entities still exist and the replacement is a legitimate, intentional shrink — the `gsd-write-guard` PreToolUse hook (#2255) hard-blocks curated files otherwise. A hook inherits the runtime's environment (no per-step env var reaches it); the hatch is a **single-use sentinel file the guard itself consumes** — path-bound and single-use, so arm immediately before each Write (one arming never covers both files). On `/gsd:new-project`, neither target exists, the guard exempts the write (ENOENT), and `[ -f ]` skips arming — no unconsumed token left on disk.
-
-1. **Write ROADMAP.md** — an entity is never written as a file: there is no sentinel to arm; `specforge new` / `specforge set` write it.
-2. **Write STATE.md** — STATE is computed: nothing to arm or write.
-3. **Update REQUIREMENTS.md traceability section.**
-
-Files on disk = context preserved; user can review actual files.
+Then confirm coverage: `specforge check --format json --pick '.[code=gsd/E101].message'` prints nothing at 100%. No traceability to update (each phase's `requirements`), no state to write (STATE is computed).
 
 ## Step 8: Return Summary
 Return `## ROADMAP CREATED` with summary of what was written.
 
 ## Step 9: Handle Revision (if needed)
-Orchestrator provides revision feedback → parse concerns, update files in place (Edit, not rewrite), re-validate coverage, return `## ROADMAP REVISED` with changes made.
+Orchestrator provides revision feedback → parse concerns, change the phases in place (`specforge set` / `specforge link`; a new phase with what it maps in one `specforge.edit` call), not from scratch, re-validate coverage, return `## ROADMAP REVISED` with changes made.
 
 </execution_flow>
 
@@ -325,12 +263,9 @@ Orchestrator provides revision feedback → parse concerns, update files in plac
 ```markdown
 ## ROADMAP CREATED
 
-**Files written:**
-- the `milestone` and `phase` entities (the roadmap)
+**Written:**
+- the `milestone` and `phase` entities (the roadmap), each phase's `requirements` the traceability
 - STATE is computed: there is no state to write
-
-**Updated:**
-- each phase's `requirements` (the traceability)
 
 ### Summary
 
@@ -347,9 +282,9 @@ Orchestrator provides revision feedback → parse concerns, update files in plac
 **Phase 1: {name}**
 1. {criterion}
 
-### Files Ready for Review
+### Ready for Review
 
-User can review actual files in the editor or via SDK queries (e.g. `specforge query "$MILESTONE" --kinds phase --format context` and `specforge check`) instead of ad-hoc shell `cat`.
+User can review the entities in the editor or via SDK queries (e.g. `specforge query "$MILESTONE" --kinds phase --format context` and `specforge check`) instead of ad-hoc shell `cat`.
 
 {If gaps found during creation:}
 
@@ -367,7 +302,7 @@ User can review actual files in the editor or via SDK queries (e.g. `specforge q
 **Changes made:**
 - {change 1}
 
-**Files updated:**
+**Updated:**
 - the `milestone` and `phase` entities (the roadmap)
 - STATE is computed (nothing to update)
 - each phase's `requirements` (if traceability changed)
@@ -421,7 +356,7 @@ Next: `/gsd:plan-phase 1`
 <success_criteria>
 
 Complete when:
-- [ ] PROJECT.md core value understood
+- [ ] The project's core value understood
 - [ ] All v1 requirements extracted with IDs
 - [ ] Research context loaded (if exists)
 - [ ] Phases derived from requirements (not imposed)
@@ -430,10 +365,8 @@ Complete when:
 - [ ] Success criteria derived for each phase (2-5 observable behaviors)
 - [ ] Success criteria cross-checked against requirements (gaps resolved)
 - [ ] 100% requirement coverage validated (no orphans)
-- [ ] ROADMAP.md structure complete
-- [ ] STATE.md structure complete
-- [ ] REQUIREMENTS.md traceability update prepared
-- [ ] Files written immediately (durability — Step 7)
+- [ ] Milestone and phases written in one `specforge.edit` call immediately (durability — Step 7)
+- [ ] `specforge check` reports no `gsd/E101`
 - [ ] Structured summary (## ROADMAP CREATED + preview) returned for orchestrator presentation and approval
 - [ ] User feedback incorporated on re-run (if any)
 

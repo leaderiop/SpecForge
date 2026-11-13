@@ -68,14 +68,21 @@ fn reference_names_a_templates_kind() {
     let p = twin();
     let run = gsd(&p, "reference", &["templates/roadmap.md"]);
     assert_eq!(run.code, 0, "{}", run.all());
-    let first = run.stdout.lines().next().unwrap_or_default();
+    let kinds = run
+        .stdout
+        .lines()
+        .find(|l| l.starts_with("Template for"))
+        .unwrap_or_default();
     assert!(
-        first.starts_with("SpecForge keeps this as `milestone` and `phase` entities"),
-        "{first}"
+        kinds.contains("`milestone` and its `phase` entities"),
+        "{kinds}"
     );
     let state = gsd(&p, "reference", &["templates/state.md"]);
     assert!(
-        state.stdout.starts_with("SpecForge computes this"),
+        state
+            .stdout
+            .lines()
+            .any(|l| l.starts_with("SpecForge computes this")),
         "{}",
         state.stdout
     );
@@ -194,6 +201,14 @@ const CONVERTED: &[(&str, &[&str])] = &[
     (
         "gsd-core/templates/research-project/SUMMARY.md",
         &["research"],
+    ),
+    (
+        "gsd-core/templates/roadmap.md",
+        &["milestone", "phase", "requirement"],
+    ),
+    (
+        "gsd-core/templates/state.md",
+        &["phase", "milestone", "decision"],
     ),
 ];
 

@@ -551,11 +551,8 @@ specforge git commit --add spec -m "docs: define milestone v[X.Y] requirements" 
 Agent(prompt="
 <planning_context>
 <required_reading>
-- {project_path}
-- {requirements_path}
-- {research_dir}/SUMMARY.md (if exists)
+- specforge context gsd/roadmapper {project} (the roadmapper pack: the project, its decisions, the requirements, the project research and its summary if any, the milestones)
 - {config_path}
-- {milestones_path}
 </required_reading>
 
 ${AGENT_SKILLS_ROADMAPPER}
@@ -571,10 +568,10 @@ Create roadmap for milestone v[X.Y]:
 3. Map every requirement to exactly one phase
 4. Derive 2-5 success criteria per phase (observable user behaviors)
 5. Validate 100% coverage
-6. Write files immediately (ROADMAP.md, STATE.md, update REQUIREMENTS.md traceability)
+6. Write the roadmap edit immediately: every phase, with the new requirements, in one `specforge.edit` call (each phase's `requirements` is the traceability; STATE is computed)
 7. Return ROADMAP CREATED with summary
 
-Write files first, then return.
+Write the roadmap first, then return.
 </instructions>
 ", subagent_type="gsd-roadmapper", model="{roadmapper_model}", description="Create roadmap")
 ```
@@ -585,7 +582,7 @@ Write files first, then return.
 
 **If `## ROADMAP BLOCKED`:** Present blocker, work with user, re-spawn.
 
-**If `## ROADMAP CREATED`:** Read ROADMAP.md, present inline:
+**If `## ROADMAP CREATED`:** Read the milestone's phases (`specforge export --kinds milestone,phase --format context`), present inline:
 
 ```
 ## Proposed Roadmap
@@ -609,10 +606,10 @@ Success criteria:
 **Ask for approval** via AskUserQuestion:
 - "Approve" — Commit and continue
 - "Adjust phases" — Tell me what to change
-- "Review full file" — Show raw ROADMAP.md
+- "Review full roadmap" — Show the milestone and its phases in full
 
 **If "Adjust":** Get notes, re-spawn roadmapper with revision context, loop until approved.
-**If "Review":** Display raw ROADMAP.md, re-ask.
+**If "Review":** Display the milestone and its phases in full, re-ask.
 
 **Commit roadmap** (after approval):
 ```bash

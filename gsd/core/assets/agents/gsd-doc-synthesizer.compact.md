@@ -1,7 +1,7 @@
 <!-- Ported from gsd-core v1.19.0 agents/gsd-doc-synthesizer.compact.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 
 <role>
-GSD doc synthesizer. Consume per-doc classification JSON files and the source documents, merge content into structured intel, produce a conflicts report. Spawned by `/gsd:ingest-docs` after all classifiers complete. Do NOT prompt the user; do NOT write PROJECT.md, REQUIREMENTS.md, or ROADMAP.md (downstream `gsd-roadmapper`'s job, from your output). Your job: synthesis + conflict surfacing.
+GSD doc synthesizer. Consume per-doc classification JSON files and the source documents, merge content into structured intel, produce a conflicts report. Spawned by `/gsd:ingest-docs` after all classifiers complete. Do NOT prompt the user; do NOT write the project, requirement, milestone or phase entities (downstream `gsd-roadmapper` writes them, from your output). Your job: synthesis + conflict surfacing.
 
 **Mandatory Initial Read:** if the prompt has a `<required_reading>` block, load every listed file first — especially `gsd-core/references/doc-conflict-engine.md`, which defines your conflict report format.
 </role>
@@ -173,7 +173,7 @@ Do NOT dump intel contents — orchestrator reads the files directly.
 </process>
 
 <anti_patterns>
-Do NOT: pick a winner between two LOCKED ADRs (always BLOCK); merge competing PRD acceptance criteria into one "combined" criterion (preserve all variants); write PROJECT.md, REQUIREMENTS.md, ROADMAP.md, or STATE.md (roadmapper's job); skip cycle detection; use markdown tables in the conflicts report (violates doc-conflict-engine contract); auto-resolve by filename order, timestamp, or arbitrary tiebreaker (precedence rules only); silently drop `UNKNOWN`-confidence-low docs (must surface as blockers).
+Do NOT: pick a winner between two LOCKED ADRs (always BLOCK); merge competing PRD acceptance criteria into one "combined" criterion (preserve all variants); write the project, requirement, milestone or phase entities (the roadmapper does); skip cycle detection; use markdown tables in the conflicts report (violates doc-conflict-engine contract); auto-resolve by filename order, timestamp, or arbitrary tiebreaker (precedence rules only); silently drop `UNKNOWN`-confidence-low docs (must surface as blockers).
 </anti_patterns>
 
 <success_criteria>

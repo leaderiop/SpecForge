@@ -3,25 +3,9 @@
 # into one in a shell fence. Its row count is the port's write measure. A row with no hit fails, and so does a hit
 # with no row: take a row off in the commit that rewrites its line; never add a row.
 agents/gsd-doc-synthesizer.compact.md	- `CONFLICTS_PATH` — `INGEST-CONFLICTS.md` output (absolute, from the orchestrator, which gates on it: always write it)
-agents/gsd-doc-synthesizer.compact.md	Do NOT: pick a winner between two LOCKED ADRs (always BLOCK); merge competing PRD acceptance criteria into one "combined" criterion (preserve all variants); write PROJECT.md, REQUIREMENTS.md, ROADMAP.md, or STATE.md (roadmapper's job); skip cycle detection; use markdown tables in the conflicts report (violates doc-conflict-engine contract); auto-resolve by filename order, timestamp, or arbitrary tiebreaker (precedence rules only); silently drop `UNKNOWN`-confidence-low docs (must surface as blockers).
 agents/gsd-doc-synthesizer.compact.md	- [ ] INGEST-CONFLICTS.md written with three buckets, format per `doc-conflict-engine.md`
-agents/gsd-doc-synthesizer.md	You do NOT prompt the user. You do NOT write PROJECT.md, REQUIREMENTS.md, or ROADMAP.md — those are produced downstream by `gsd-roadmapper` using your output. Your job is synthesis + conflict surfacing.
 agents/gsd-doc-synthesizer.md	- `CONFLICTS_PATH` — where to write `INGEST-CONFLICTS.md` (absolute, given by the orchestrator: it reads this file to gate the ingest, so always write it, with the three-bucket header)
-agents/gsd-doc-synthesizer.md	- Write PROJECT.md, REQUIREMENTS.md, ROADMAP.md, or STATE.md — those are the roadmapper's job
 agents/gsd-doc-synthesizer.md	- [ ] INGEST-CONFLICTS.md written with three buckets, format per `doc-conflict-engine.md`
-agents/gsd-roadmapper.compact.md	- Write ROADMAP.md and STATE.md immediately (durability), then return a structured summary for the orchestrator to present; approval is the orchestrator's gate, revision is a re-run (#3797)
-agents/gsd-roadmapper.compact.md	Options: 1) Create Phase 6: Notifications 2) Add to existing Phase 5 3) Defer to v2 (update REQUIREMENTS.md)
-agents/gsd-roadmapper.compact.md	1. **Write ROADMAP.md** — an entity is never written as a file: there is no sentinel to arm; `specforge new` / `specforge set` write it.
-agents/gsd-roadmapper.compact.md	2. **Write STATE.md** — STATE is computed: nothing to arm or write.
-agents/gsd-roadmapper.compact.md	3. **Update REQUIREMENTS.md traceability section.**
-agents/gsd-roadmapper.compact.md	- [ ] REQUIREMENTS.md traceability update prepared
-agents/gsd-roadmapper.md	- Write ROADMAP.md and STATE.md immediately (durability — artifacts persist even if context is lost), then return a structured summary for the orchestrator to present; approval is the orchestrator's gate, revision is a re-run (#3797)
-agents/gsd-roadmapper.md	3. Defer to v2 (update REQUIREMENTS.md)
-agents/gsd-roadmapper.md	After roadmap creation, REQUIREMENTS.md gets updated with phase mappings:
-agents/gsd-roadmapper.md	1. **Write ROADMAP.md** using output format — arm first, then Write:
-agents/gsd-roadmapper.md	2. **Write STATE.md** using output format — arm first, then Write:
-agents/gsd-roadmapper.md	3. **Update REQUIREMENTS.md traceability section**
-agents/gsd-roadmapper.md	- [ ] REQUIREMENTS.md traceability update prepared
 agents/gsd-verifier.md	**Never write a VERIFICATION.md.** The phase's `verification` entity exists already; its status, score and covered files are computed from your verdicts, so you record verdicts and never a status.
 commands/gsd/complete-milestone.md	Mark milestone {{version}} complete, archive to milestones/, and update ROADMAP.md and REQUIREMENTS.md.
 commands/gsd/complete-milestone.md	- Update ROADMAP.md to one-line summary with link
@@ -54,8 +38,6 @@ gsd-core/templates/UAT.md	4. UAT.md Gaps section updated with diagnosis:
 gsd-core/templates/milestone-archive.md	- Update ROADMAP.md to collapse completed milestone in `<details>` tag
 gsd-core/templates/milestone-archive.md	- Update PROJECT.md to brownfield format with Current State section
 gsd-core/templates/milestone.md	If MILESTONES.md doesn't exist, create it with header:
-gsd-core/templates/state.md	**Creation:** After ROADMAP.md is created (during init)
-gsd-core/templates/state.md	- execute: After SUMMARY.md created
 gsd-core/templates/verification-report.md	covered_files: # #4155 — see agents/gsd-verifier.md's "Create VERIFICATION.md" step for what belongs here and how to compute it
 gsd-core/workflows/add-tests.md	2. **Create test file** targeting the user scenario from CONTEXT.md/VERIFICATION.md
 gsd-core/workflows/audit-milestone.md	> **NOT-VALIDATED vs PARTIAL (#2117):** A phase reads `status: draft` when it was seeded by plan-phase but never reconciled by validate-phase, OR when its `VALIDATION.md` predates the `status` field (files written before #2117 stay `draft` whether or not validation ran). In both cases `nyquist_compliant` is not authoritative, so this is a coverage TODO ("run validate-phase") — not a compliance failure. Re-running validate-phase promotes the file to `status: validated` and yields the real COMPLIANT/PARTIAL verdict. Only `status: validated` + `nyquist_compliant: false` is a genuine PARTIAL.
@@ -90,7 +72,6 @@ gsd-core/workflows/graduation.md	| `decisions` | `PROJECT.md` — append under `
 gsd-core/workflows/graduation.md	| `patterns` | `PATTERNS.md` — append under the appropriate category section (create file if absent) |
 gsd-core/workflows/graduation.md	| `lessons` | `PROJECT.md` — append under `## Invariants` (create section if absent) |
 gsd-core/workflows/graduation.md	3. For each source LEARNINGS.md item in the cluster, append `**Graduated:** {target-file}:{ISO_DATE}` after its last existing field
-gsd-core/workflows/ingest-docs.md	> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more intel files, write planning artifacts, or create ROADMAP.md independently while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 gsd-core/workflows/list-phase-assumptions.md	If "Discuss context": Note that CONTEXT.md will incorporate any corrections discussed here
 gsd-core/workflows/new-milestone.md	Start a new milestone cycle for an existing project. Loads project context, gathers milestone goals (from MILESTONE-CONTEXT.md or conversation), updates PROJECT.md and STATE.md, optionally runs parallel research, defines scoped requirements with REQ-IDs, spawns the roadmapper to create phased execution plan, and commits all artifacts. Brownfield equivalent of new-project.
 gsd-core/workflows/new-milestone.md	- "Looks good" — Proceed to write PROJECT.md
@@ -98,12 +79,8 @@ gsd-core/workflows/new-milestone.md	## 4. Update PROJECT.md
 gsd-core/workflows/new-milestone.md	## 5. Update STATE.md
 gsd-core/workflows/new-milestone.md	SDK handler above — do not hand-edit STATE.md here.
 gsd-core/workflows/new-milestone.md	Stage PROJECT.md in both modes. Step 4's Part A guard — not this commit — is what protects the shared `## Current Milestone` heading (#2308): when a workstream is active Part A never writes it, so the only change PROJECT.md can carry here is Part B's idempotent `## Evolution` backfill, which must be committed rather than stranded as a dangling edit. Do NOT reintroduce a `[ -n "$WS" ]` branch around this commit: `WS` is set in Step 1's shell and each step's bash block runs in its own shell (the same reason Step 6 repeats `OUTGOING_MILESTONE` by hand), so such a guard reads an unset variable, always takes the flat-mode branch, and only appears to work. STATE.md, unlike PROJECT.md, is computed, so there is no state file to stage.
-gsd-core/workflows/new-milestone.md	6. Write files immediately (ROADMAP.md, STATE.md, update REQUIREMENTS.md traceability)
-gsd-core/workflows/new-milestone.md	**If `## ROADMAP CREATED`:** Read ROADMAP.md, present inline:
 gsd-core/workflows/new-milestone.md	- [ ] PROJECT.md updated with Current Milestone section (skipped when a workstream is active — shared file, see Step 4)
 gsd-core/workflows/new-milestone.md	- [ ] REQUIREMENTS.md created with REQ-IDs
-gsd-core/workflows/new-project.md	5. Write files immediately (ROADMAP.md, STATE.md, update REQUIREMENTS.md traceability)
-gsd-core/workflows/new-project.md	Read the created ROADMAP.md and present it nicely inline:
 gsd-core/workflows/new-workspace.md	## 7. Write WORKSPACE.md
 gsd-core/workflows/new-workspace.md	Write the workspace manifest at `$TARGET_PATH/WORKSPACE.md`:
 gsd-core/workflows/new-workspace.md	- [ ] WORKSPACE.md manifest written with correct repo table

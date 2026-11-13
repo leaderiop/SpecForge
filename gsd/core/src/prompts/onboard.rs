@@ -13,10 +13,8 @@ fn ingested(_call: &PromptCall<'_>) -> String {
     "\n\n## Where the ingest goes\n\n\
      The documents are scanned under the directory the first positional word names (`[path]`, default the project). The \
      classifier and the synthesizer write their staging files to a scratch directory outside the project: \
-     the intel files and the conflict report are not part of the spec, and the report is shown to the user. Wherever \
-     the text above says `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md` or `STATE.md` is written, read that the \
-     roadmapper writes the `project`, `requirement`, `milestone` and `phase` entities (`specforge new`, `specforge \
-     set`), and that the project state is computed. `--resolve interactive` is reserved, as upstream's.\n"
+     the intel files and the conflict report are not part of the spec, and the report is shown to the user. \
+     `--resolve interactive` is reserved, as upstream's.\n"
         .to_string()
 }
 
@@ -24,8 +22,7 @@ fn ingested(_call: &PromptCall<'_>) -> String {
 fn onboarding(_call: &PromptCall<'_>) -> String {
     "\n\n## What onboarding does here\n\n\
      `/gsd-map-codebase` is served by `@gsd/codebase`, which is not installed here: the route always takes upstream's \
-     \"Skip mapping\" path. The onboarding summary is shown, not written, and the project state is computed, so there \
-     is no `STATE.md` to be present or missing.\n"
+     \"Skip mapping\" path. The onboarding summary is shown, not written, and the project state is computed.\n"
         .to_string()
 }
 

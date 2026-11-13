@@ -61,7 +61,7 @@
     "  test -f \"{MANIFEST_PATH}\" || echo \"MANIFEST_NOT_FOUND\"",
     "fi"
   ],
-  "bytes": 44599,
+  "bytes": 44457,
   "end": [
     "1. **Its own check list per bucket** — which conditions are BLOCKER vs WARNING vs INFO. These are domain-specific (plan ingestion checks are not doc ingestion checks).",
     "2. **The loaded context** — what it reads (ROADMAP.md, PROJECT.md, REQUIREMENTS.md, CONTEXT.md, intel files) before running checks.",
@@ -102,7 +102,7 @@
     "",
     "## Where the ingest goes",
     "",
-    "The documents are scanned under the directory the first positional word names (`[path]`, default the project). The classifier and the synthesizer write their staging files to a scratch directory outside the project: the intel files and the conflict report are not part of the spec, and the report is shown to the user. Wherever the text above says `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md` or `STATE.md` is written, read that the roadmapper writes the `project`, `requirement`, `milestone` and `phase` entities (`specforge new`, `specforge set`), and that the project state is computed. `--resolve interactive` is reserved, as upstream's."
+    "The documents are scanned under the directory the first positional word names (`[path]`, default the project). The classifier and the synthesizer write their staging files to a scratch directory outside the project: the intel files and the conflict report are not part of the spec, and the report is shown to the user. `--resolve interactive` is reserved, as upstream's."
   ],
   "head": [
     "<cursor_skill_adapter>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:257ce34c509c193e52ebf7cc99e0f5a38f57a069c54b882f8835d63073e6f329",
+    "digest": "sha256:f618cd4a27c729a04dc32fa7f06aebc646a522a8a952c4c8f5801a2fbfda8eb4",
     "prompt": "@gsd/core@VERSION:ingest_docs",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "257ce34c509c193e52ebf7cc99e0f5a38f57a069c54b882f8835d63073e6f329"
+  "sha256": "f618cd4a27c729a04dc32fa7f06aebc646a522a8a952c4c8f5801a2fbfda8eb4"
 }

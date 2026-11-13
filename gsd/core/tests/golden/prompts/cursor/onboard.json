@@ -61,7 +61,7 @@
     "Set:",
     "- `TEXT_MODE=true` if `--text` is present or `text_mode` is true. When `TEXT_MODE` is active, replace every `conversational prompting` call below with a plain-text numbered list and ask the user to type their choice number — required for non-Claude runtimes (OpenAI Codex, Antigravity, etc.) where `conversational prompting` is not available."
   ],
-  "bytes": 31328,
+  "bytes": 31276,
   "end": [
     "- options: Quick (3-5 phases, skip research) | Standard (5-8 phases, default) | Comprehensive (8-12 phases, deep research)",
     "",
@@ -102,7 +102,7 @@
     "",
     "## What onboarding does here",
     "",
-    "`/gsd-map-codebase` is served by `@gsd/codebase`, which is not installed here: the route always takes upstream's \"Skip mapping\" path. The onboarding summary is shown, not written, and the project state is computed, so there is no `STATE.md` to be present or missing."
+    "`/gsd-map-codebase` is served by `@gsd/codebase`, which is not installed here: the route always takes upstream's \"Skip mapping\" path. The onboarding summary is shown, not written, and the project state is computed."
   ],
   "head": [
     "<cursor_skill_adapter>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:5e9291a191cfd5fc6189249eb9b62941958fa6e5f45a00cd31236e3575954eca",
+    "digest": "sha256:85cb39c4881419f27029897334c57f5248e3196969ed11a40cfb49e1118ce35a",
     "prompt": "@gsd/core@VERSION:onboard",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "5e9291a191cfd5fc6189249eb9b62941958fa6e5f45a00cd31236e3575954eca"
+  "sha256": "85cb39c4881419f27029897334c57f5248e3196969ed11a40cfb49e1118ce35a"
 }

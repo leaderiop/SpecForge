@@ -108,7 +108,7 @@ All subsequent references to the project instruction file use `$INSTRUCTION_FILE
 
 ## 2. Brownfield Offer
 
-**If auto mode:** Skip to Step 4 (assume greenfield, synthesize PROJECT.md from provided document).
+**If auto mode:** Skip to Step 4 (assume greenfield, synthesize the project from provided document).
 
 <!-- gsd:section id="codebase-map-offer" when="state:needs-codebase-map" -->
 If `section_manifest` is `null` or `"codebase-map-offer"` is in its `included` list: read and execute `gsd-core/workflows/new-project/steps/codebase-map-offer.md`. Otherwise skip — do not read the file.
@@ -893,9 +893,7 @@ Agent(prompt="
 <planning_context>
 
 <required_reading>
-- {project_path} (Project context)
-- {requirements_path} (v1 Requirements)
-- {research_dir}/SUMMARY.md (Research findings - if exists)
+- specforge context gsd/roadmapper {project} (the roadmapper pack: the project, its decisions, the requirements, the project research and its summary if any, the milestones)
 - {config_path} (Granularity and mode settings)
 </required_reading>
 
@@ -909,10 +907,10 @@ Create roadmap:
 2. Map every v1 requirement to exactly one phase
 3. Derive 2-5 success criteria per phase (observable user behaviors)
 4. Validate 100% coverage
-5. Write files immediately (ROADMAP.md, STATE.md, update REQUIREMENTS.md traceability)
+5. Write the roadmap edit immediately: the milestone and every phase in one `specforge.edit` call (each phase's `requirements` is the traceability; STATE is computed)
 6. Return ROADMAP CREATED with summary
 
-Write files first, then return. This ensures artifacts persist even if context is lost.
+Write the roadmap first, then return. This ensures the entities persist even if context is lost.
 </instructions>
 ", subagent_type="gsd-roadmapper", model="{roadmapper_model}", description="Create roadmap")
 ```
@@ -929,7 +927,7 @@ Write files first, then return. This ensures artifacts persist even if context i
 
 **If `## ROADMAP CREATED`:**
 
-Read the created ROADMAP.md and present it nicely inline:
+Read the written roadmap (`specforge export --kinds milestone,phase --format context`) and present it nicely inline:
 
 ```
 ---
@@ -978,7 +976,7 @@ Use AskUserQuestion:
 - options:
   - "Approve" — Commit and continue
   - "Adjust phases" — Tell me what to change
-  - "Review full file" — Show raw ROADMAP.md
+  - "Review full roadmap" — Show the milestone and its phases in full
 
 **If "Approve":** Continue to commit.
 
@@ -994,12 +992,12 @@ Use AskUserQuestion:
   [user's notes]
 
   <required_reading>
-  - {roadmap_path} (Current roadmap to revise)
+  - specforge context gsd/roadmapper {project} (the roadmapper pack: the current phases among its milestones)
   </required_reading>
 
   ${AGENT_SKILLS_ROADMAPPER}
 
-  Update the roadmap based on feedback. Edit files in place.
+  Update the roadmap based on feedback. Change the phases in place.
   Return ROADMAP REVISED with changes made.
   </revision>
   ", subagent_type="gsd-roadmapper", model="{roadmapper_model}", description="Revise roadmap")
@@ -1071,7 +1069,7 @@ PHASE1_HAS_UI=${PHASE1_HAS_UI:-false}   # @gsd/ui computes frontend: false when 
 
 ## ▶ Next Up — [${PROJECT_CODE}] ${PROJECT_TITLE}
 
-**Phase 1: [Phase Name]** — [Goal from ROADMAP.md]
+**Phase 1: [Phase Name]** — [Goal of the phase]
 
 /clear then:
 
@@ -1093,7 +1091,7 @@ PHASE1_HAS_UI=${PHASE1_HAS_UI:-false}   # @gsd/ui computes frontend: false when 
 
 ## ▶ Next Up — [${PROJECT_CODE}] ${PROJECT_TITLE}
 
-**Phase 1: [Phase Name]** — [Goal from ROADMAP.md]
+**Phase 1: [Phase Name]** — [Goal of the phase]
 
 /clear then:
 

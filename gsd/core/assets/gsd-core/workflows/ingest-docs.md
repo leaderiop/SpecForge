@@ -304,7 +304,7 @@ Agent({
     Per-type intel: {intel_dir}/decisions.md, {intel_dir}/requirements.md, {intel_dir}/constraints.md, {intel_dir}/context.md
     User-supplied fields: {collected in previous step}
 
-    Produce:
+    Produce, in one `specforge.edit` call (the roadmap edit, with the project, its decisions and the requirements as create ops ahead of the milestone and phases):
     - the `project` entity
     - the `requirement` entities
     - the `milestone` and `phase` entities (the roadmap)
@@ -315,7 +315,7 @@ Agent({
 })
 ```
 
-> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more intel files, write planning artifacts, or create ROADMAP.md independently while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
+> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more intel files, or write the roadmap entities yourself, while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
 </step>
 
