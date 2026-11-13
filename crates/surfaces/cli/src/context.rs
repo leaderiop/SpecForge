@@ -271,4 +271,19 @@ mod tests {
             before
         );
     }
+
+    #[test]
+    fn record_and_format_conflict() {
+        let parsed = Line::try_parse_from([
+            "context",
+            "gsd/executor",
+            CONTEXT_PLAN,
+            "--record",
+            CONTEXT_PLAN,
+            "--format",
+            "graph",
+        ]);
+        let error = parsed.err().expect("--record and --format conflict");
+        assert_eq!(error.kind(), clap::error::ErrorKind::ArgumentConflict);
+    }
 }
