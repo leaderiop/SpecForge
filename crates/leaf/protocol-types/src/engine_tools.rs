@@ -144,7 +144,7 @@ pub const ENGINE_TOOLS: &[EngineTool] = &[
         Read,
         Reads,
         &["trace"],
-        "Follow an entity's thread along its kind's route, or check an agent plan for gaps.",
+        "Follow an entity's thread along its kind's route, the entities within one, or check an agent plan for gaps.",
     ),
     row(
         "search",
