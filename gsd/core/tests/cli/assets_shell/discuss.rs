@@ -227,7 +227,8 @@ fn a_fence_stores_free_text_as_written() {
     );
 }
 
-/// The log fence run in a later session, on a log whose entries are committed, keeps them and adds this session's.
+/// The log fence run in a later session, on a log whose entries are committed, keeps them and adds this session's;
+/// the check reports nothing new.
 #[test]
 fn a_second_discussion_appends_to_the_log() {
     let Some(sh) = Shell::only(&[]) else {
@@ -238,13 +239,18 @@ fn a_second_discussion_appends_to_the_log() {
     let run = typed::apply(&sh, &p, &log_fence(first));
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     p.commit();
-    let second = r#"[{"area": "Filter", "question": "How is a word matched?", "options": ["Anywhere in the title", "Whole words only"], "chosen": "Whole words only", "mode": "interactive", "notes": "Titles are short"}]"#;
+    let second = r#"[{"area": "Filter", "question": "How is a word matched?", "options": ["Anywhere in the title", "Whole words only"], "chosen": "Whole words only", "mode": "interactive", "notes": "It's a short title"}]"#;
     let again = typed::apply(&sh, &p, &log_fence(second));
-    // pinned: the fence sets the list to this session's entries, and the append-only list refuses that
-    assert!(
-        again.code != 0 || !again.added.is_empty(),
-        "{}{}",
-        again.out,
-        again.err
+    assert_eq!(again.code, 0, "{}{}", again.out, again.err);
+    assert!(again.added.is_empty(), "{:?}", again.added);
+    let log = "v1.0/03/03-DISCUSSION-LOG";
+    assert_eq!(
+        picked(&p, log, ".nodes[0].fields.entries[0].area"),
+        "Ordering"
     );
+    assert_eq!(
+        picked(&p, log, ".nodes[0].fields.entries[1].notes"),
+        "It's a short title"
+    );
+    assert_eq!(picked(&p, log, ".nodes[0].fields.entries[2].area"), "");
 }

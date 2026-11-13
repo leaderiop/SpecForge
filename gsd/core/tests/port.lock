@@ -2506,7 +2506,7 @@ gsd-core/workflows/discuss-phase/templates/context.md	kept	153+1	e3b0c44298fc
 gsd-core/workflows/discuss-phase/templates/discussion-log.md	kept	1+2	2f2526f23797
 gsd-core/workflows/discuss-phase/templates/discussion-log.md	own	3+5	3	baf9473a06b8	0f8649f75286	prose
 gsd-core/workflows/discuss-phase/templates/discussion-log.md	kept	8+6	13b280246358
-gsd-core/workflows/discuss-phase/templates/discussion-log.md	own	14+38	24	eea46ccc04b7	b29990777768	prose
+gsd-core/workflows/discuss-phase/templates/discussion-log.md	own	14+38	31	eea46ccc04b7	79cda257fc5c	prose
 gsd-core/workflows/discuss-phase/templates/discussion-log.md	kept	52+2	47c06c561d5c
 gsd-core/workflows/do.md	kept	1+11	9e272ace2962
 gsd-core/workflows/do.md	own	12+2	2	ba492cb89236	de227a767a7b	ported-name

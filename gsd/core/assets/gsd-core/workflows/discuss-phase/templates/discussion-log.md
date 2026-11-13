@@ -17,7 +17,9 @@ its `entries` one block per question asked. Its entries are append-only: an entr
 removed. An option carries its description after " — "; `notes` holds the user's clarifications, follow-up context or
 rationale; `mode` is `interactive`, `assumptions` (with `confidence` and `evidence`) or `advisor`. Claude's discretion
 areas and deferred ideas are on the context, so the log does not repeat them. A log an interrupted discussion's
-checkpoint created already exists: the fence sets its entries, and creates the log otherwise.
+checkpoint created, or an earlier session of this phase wrote, already exists: `ENTRIES` holds this session's entries
+alone, and the fence writes the log's current entries followed by them, since a list that does not start with the
+committed entries is refused. The fence creates the log otherwise.
 
 ```bash
 PHASE_ID="{the phase's id, e.g. v1.0/03}"
@@ -30,7 +32,12 @@ IFS= read -rd '' ENTRIES <<'TEXT' || true; ENTRIES=${ENTRIES%$'\n'}
 TEXT
 LOG=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=discussion].id') || exit 1
 if [ -n "$LOG" ]; then
-  specforge set "$LOG" entries "$ENTRIES" || exit 1
+  NOW=$(specforge query "$LOG" --depth 0 --format json --pick '.nodes[0].fields.entries') || exit 1
+  case "$NOW" in
+    ''|'[]') ALL=$ENTRIES ;;
+    *) ALL="${NOW%]}, ${ENTRIES#[}" ;;   # the committed entries first: the list is append-only
+  esac
+  specforge set "$LOG" entries "$ALL" || exit 1
 else
   specforge new discussion "${PADDED_PHASE}-DISCUSSION-LOG" "$NAME discussion" --in spec/discuss.spec --phase "$PHASE_ID" --entries "$ENTRIES" || exit 1
 fi

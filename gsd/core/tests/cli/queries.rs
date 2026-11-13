@@ -110,6 +110,8 @@ const UNBOUND: &[&str] = &[
     "$TASK_ID",
     // a gate blocker the line above found: `assets_shell::execute_edits` trips one and runs the clearing fence
     "$BLOCKER",
+    // the phase's log the line above found: `assets_shell::discuss` writes one twice and runs this
+    "$LOG",
     "$SPEC_ID",
     "$SPEC_FILE",
     "$SUMMARY_FILE",
