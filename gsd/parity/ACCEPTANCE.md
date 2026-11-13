@@ -16,7 +16,7 @@ disagrees. Every row but Capabilities is computed from tables of code; Capabilit
 | Workflows and references | 297 | 234 | 53 | 10 | 0 | `core/tests/parity_roster/assets.rs` |
 | CLI modules | 288 | 170 | 21 | 97 | 0 | `core/tests/parity_roster/modules.rs` |
 | Config keys | 212 | 161 | 35 | 16 | 0 | `core/spec/settings.md` |
-| Gate-cutover verdicts | 171 | 92 | 51 | 14 | 14 | `core/tests/parity_rules/cutover.rs` |
+| Gate-cutover verdicts | 171 | 93 | 51 | 14 | 13 | `core/tests/parity_rules/cutover.rs` |
 | Codes | 69 | 69 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
 
 Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, verification) are the kinds of
@@ -44,8 +44,8 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   tags, the argument-heredoc terminator).
 - Config keys: of 212, 161 are declared in `@gsd/core`, 35 are owned by an extension and 16 do not apply, in
   `core/spec/settings.md`.
-- Gate-cutover verdicts: 92 of the 171 are reproduced by a test or by construction (the typed commands refuse the
-  argument shape); 51 belong to an extension, 14 are the gate engine, and 14 are core codes whose verdict is not reproduced: 11
+- Gate-cutover verdicts: 93 of the 171 are reproduced by a test or by construction (the typed commands refuse the
+  argument shape); 51 belong to an extension, 14 are the gate engine, and 13 are core codes whose verdict is not reproduced: 10
   that no twin reaches, and 3 that a twin reaches and answers differently (`Diverges`, below). Each is named, with its
   reason, in `core/tests/parity_rules/cutover.rs`.
 - Codes: 69 of the 69 codes fire and stay silent in a named test.
@@ -207,7 +207,7 @@ Not verified:
   (upstream blocks a TDD plan with a RED and no GREEN, or no RED and GREEN commit; W403 judges a recorded GREEN with no
   RED before it and is silent otherwise) and `prohibition-enforcement-request-file-judgment-mode` (upstream flags a
   judgment-tier prohibition without evidence; E319 judges the test tier only).
-- The 11 other unreached verdicts are named in `cutover.rs`.
+- The 10 other unreached verdicts are named in `cutover.rs`.
 - The "silent" evidence of 38 of the 69 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
   raised there, not that the rule judged a clean case.
 - `[agent-namespace-one-rule]` `workflow_guard` reads the agent namespace as `worktree_path_guard` does, with `worktree-wf_` and the charset; upstream's workflow guard has the two prefixes `agent-` and `worktree-agent-`.

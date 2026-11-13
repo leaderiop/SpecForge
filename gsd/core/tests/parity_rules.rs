@@ -197,5 +197,5 @@ fn the_divergences_and_the_unreached_verdicts_are_counted_apart() {
             "tdd-review-checkpoint-red-only"
         ]
     );
-    assert_eq!(names(|c| matches!(c, Class::NotReproduced(_))).len(), 11);
+    assert_eq!(names(|c| matches!(c, Class::NotReproduced(_))).len(), 10);
 }

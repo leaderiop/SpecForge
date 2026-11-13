@@ -2,7 +2,10 @@
 //! is spawned for, in order, core sections first and never cut, enrich sections served whole while the budget lasts.
 //! Twelve are bound to their agent, whose installed body gains a `## Context` section naming the route; two,
 //! `phase-context` and `quick-context`, are read by no agent: they bound the context a research, a spec or a
-//! validation is written against (`spec/rules.md`, "Context routes").
+//! validation is written against (`spec/rules.md`, "Context routes"): a research, a spec or a validation records the
+//! pack in its `context_pack`, and the host reports the record `gsd/W406` once that pack moves.
+//!
+//! gsd-core modules this file ports: gate-context-drift.cjs.
 
 use specforge_extension_sdk::prelude::*;
 
@@ -23,11 +26,55 @@ pub(crate) const RESEARCH_ITEMS: &str =
 /// The agent instructions of the project.
 pub(crate) const INSTRUCTIONS: &str = "file(\"CLAUDE.md\", \"AGENTS.md\")";
 
+/// A record a route keeps of its pack: the route, the `kind.field` it writes, the chain from that kind to the route's
+/// subject, and what the stale record suggests.
+pub struct Record {
+    pub route: &'static str,
+    pub field: &'static str,
+    pub subject: &'static str,
+    pub suggestion: &'static str,
+}
+
+/// Every context field `@gsd/core` declares, by the route that records it. A stale record raises the route's code.
+pub const RECORDS: &[Record] = &[
+    Record {
+        route: "phase-context",
+        field: "research.context_pack",
+        subject: "self.phase",
+        suggestion: "regenerate the research of {subject} (/gsd-plan-phase --research), then run `specforge gsd \
+                     record-research {entity}`; do not hand-inject the newer decisions into a prompt",
+    },
+    Record {
+        route: "phase-context",
+        field: "phase_spec.context_pack",
+        subject: "self.phase",
+        suggestion: "regenerate or reconcile the spec against the current decisions, then run `specforge gsd \
+                     record-spec {entity}`; do not hand-inject the newer decisions into a prompt",
+    },
+    Record {
+        route: "phase-context",
+        field: "validation.context_pack",
+        subject: "self.phase",
+        suggestion: "regenerate or reconcile the validation against the current decisions, then run `specforge gsd \
+                     record-validation {entity}`; do not hand-inject the newer decisions into a prompt",
+    },
+    Record {
+        route: "quick-context",
+        field: "research.context_pack",
+        subject: "self.plan",
+        suggestion: "regenerate the research of quick task {subject} (/gsd-quick --research), then run `specforge \
+                     gsd record-research {entity}`; do not hand-inject the newer decisions into a prompt",
+    },
+];
+
+/// The code a stale record of each recording route raises.
+const STALE: &[(&str, &str)] = &[("phase-context", "W406"), ("quick-context", "W406")];
+
 /// A route's sections, each `(name, selector, core)`.
 type Sections<'a> = &'a [(&'a str, &'a str, bool)];
 
-/// Declare `name` over `subject`, bound to `agent` when it names one, at `budget`, with `sections` in order and the
-/// settings `settings` carries.
+/// Declare `name` over `subject`, bound to `agent` when it names one, at `budget`, with `sections` in order, then what
+/// `more` adds (its settings); its [`RECORDS`] and stale code when it records.
 fn route(
     c: &mut ContributionsBuilder,
     name: &str,
@@ -35,7 +82,7 @@ fn route(
     agent: Option<&str>,
     budget: u32,
     sections: Sections<'_>,
-    settings: &[&str],
+    more: impl FnOnce(&mut ContextBuilder),
 ) {
     c.context(name, |r| {
         r.subject(subject).budget(budget);
@@ -49,8 +96,12 @@ fn route(
                 r.enrich(section, selector);
             }
         }
-        if !settings.is_empty() {
-            r.settings(settings);
+        more(r);
+        for record in RECORDS.iter().filter(|record| record.route == name) {
+            r.record_suggesting(record.field, record.subject, record.suggestion);
+        }
+        if let Some((_, code)) = STALE.iter().find(|(route, _)| *route == name) {
+            r.stale(code);
         }
     });
 }
@@ -111,12 +162,14 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
             ("project", "project", false),
             ("instructions", INSTRUCTIONS, false),
         ],
-        &[
-            "workflow.auto_advance",
-            "workflow.human_verify_mode",
-            "workflow.tdd_mode",
-            "git.allow_default_branch_commits",
-        ],
+        |r| {
+            r.settings(&[
+                "workflow.auto_advance",
+                "workflow.human_verify_mode",
+                "workflow.tdd_mode",
+                "git.allow_default_branch_commits",
+            ]);
+        },
     );
     route(
         c,
@@ -125,7 +178,7 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
         Some("gsd-plan-checker"),
         8000,
         &core(PLAN_CHECK_INPUTS),
-        &[],
+        |_| {},
     );
     route(
         c,
@@ -134,7 +187,7 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
         Some("gsd-integration-checker"),
         8000,
         &core(INTEGRATION_INPUTS),
-        &[],
+        |_| {},
     );
     route(
         c,
@@ -166,7 +219,9 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
             ("project", "project", false),
             ("instructions", INSTRUCTIONS, false),
         ],
-        &["workflow.tdd_mode", "workflow.human_verify_mode"],
+        |r| {
+            r.settings(&["workflow.tdd_mode", "workflow.human_verify_mode"]);
+        },
     );
     route(
         c,
@@ -192,7 +247,7 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
             ),
             ("pitfalls", "self<research.phase<pitfall.research", false),
         ],
-        &[],
+        |_| {},
     );
     let mut phase_researcher = researcher();
     phase_researcher.extend([
@@ -206,13 +261,13 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
         Some("gsd-phase-researcher"),
         6000,
         &phase_researcher,
-        &[],
+        |_| {},
     );
     for (name, agent) in [
         ("advisor-researcher", "gsd-advisor-researcher"),
         ("assumptions-analyzer", "gsd-assumptions-analyzer"),
     ] {
-        route(c, name, "phase", Some(agent), 6000, &researcher(), &[]);
+        route(c, name, "phase", Some(agent), 6000, &researcher(), |_| {});
     }
     route(
         c,
@@ -234,7 +289,7 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
             ("research", "self<research.phase", false),
             ("summaries", "self<plan.phase<summary.plan", false),
         ],
-        &[],
+        |_| {},
     );
     route(
         c,
@@ -248,7 +303,7 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
             ("decisions", "decision[origin=project]", true),
             ("milestones", "milestone", false),
         ],
-        &[],
+        |_| {},
     );
     route(
         c,
@@ -262,7 +317,7 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
             ("research_items", RESEARCH_ITEMS, true),
             ("requirements", "requirement", false),
         ],
-        &[],
+        |_| {},
     );
     route(
         c,
@@ -278,7 +333,7 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
             ("research_items", RESEARCH_ITEMS, false),
             ("milestones", "milestone", false),
         ],
-        &[],
+        |_| {},
     );
     route(
         c,
@@ -291,7 +346,7 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
             ("decisions", "self<decision[origin=context].phase", true),
             ("deferred", "self<deferred_idea.phase", true),
         ],
-        &[],
+        |_| {},
     );
     route(
         c,
@@ -303,6 +358,6 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
             ("context", "self<context.plan", true),
             ("decisions", "self<decision[origin=context].plan", true),
         ],
-        &[],
+        |_| {},
     );
 }

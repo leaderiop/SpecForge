@@ -2467,17 +2467,6 @@
             "required": false,
             "target_kind": null,
             "writer": "computed"
-          },
-          {
-            "default_value": null,
-            "description": "the digest of the context, its origin-context decisions and deferred ideas, that a research or spec records (gsd/W406)",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "digest",
-            "required": false,
-            "target_kind": null,
-            "writer": "computed"
           }
         ],
         "has_body_parser": false,
@@ -2704,14 +2693,46 @@
           },
           {
             "default_value": null,
-            "description": "the digest of the phase's context when the spec was recorded (gsd/W406)",
+            "description": "the gsd/phase-context pack it was written against (gsd/W406)",
             "edge": null,
-            "field_type": "string",
+            "field_type": "block",
             "inverse_of": null,
-            "name": "context_digest",
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "route",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "digest",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "max_tokens",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "context_pack",
             "required": false,
             "target_kind": null,
-            "writer": "harness"
+            "writer": "context"
           },
           {
             "default_value": null,
@@ -3461,14 +3482,46 @@
           },
           {
             "default_value": null,
-            "description": "the digest of the phase's (or quick plan's) context when the research was recorded (gsd/W406)",
+            "description": "the gsd/phase-context pack (a quick plan's research: gsd/quick-context) it was written against (gsd/W406)",
             "edge": null,
-            "field_type": "string",
+            "field_type": "block",
             "inverse_of": null,
-            "name": "context_digest",
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "route",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "digest",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "max_tokens",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "context_pack",
             "required": false,
             "target_kind": null,
-            "writer": "harness"
+            "writer": "context"
           },
           {
             "default_value": null,
@@ -7781,14 +7834,46 @@
           },
           {
             "default_value": null,
-            "description": "the digest of the phase's context when it was recorded (gsd/W406)",
+            "description": "the gsd/phase-context pack it was written against (gsd/W406)",
             "edge": null,
-            "field_type": "string",
+            "field_type": "block",
             "inverse_of": null,
-            "name": "context_digest",
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "route",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "digest",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "max_tokens",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "context_pack",
             "required": false,
             "target_kind": null,
-            "writer": "harness"
+            "writer": "context"
           },
           {
             "default_value": null,

@@ -439,7 +439,7 @@ pub static CODES: &[Code] = &[
     code(
         "W406",
         "Context drifted since the plan was written",
-        "The context the plan was written against has not drifted (the context_digest a research, spec or validation recorded differs from the context's current digest)",
+        "A research, spec or validation records the pack of gsd/phase-context (a quick plan's research: gsd/quick-context) it was written against; the host reports it when that pack moves",
         "execute",
         Severity::Warning,
         Severity::Error,

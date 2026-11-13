@@ -34,7 +34,6 @@ name `251101-abc-CONTEXT`.
 | canonical_refs | {topic str, paths paths<present>} | | `<canonical_refs>` (mandatory: not `R`, so gsd/E201 is the one diagnostic of its absence, whether the field is missing or `[]`; a context with no external spec writes one ref whose `topic` is GSD's sentence, "No external specs — requirements are fully captured in decisions above", and whose `paths` is empty) |
 | reusable_assets, patterns, integration_points | strs | | `<code_context>` |
 | status | enum{gathering, ready_for_planning} | C | `**Status:**`: ready once `boundary` is written and `canonical_refs` has an item. GSD's "no interview is open" is not computable: an interview belongs to a `phase_spec` and has no state |
-| digest | str | C | (new: the digest of the context, its `origin context` decisions and its deferred ideas, `fnv1a64:` and 16 hex digits; a research or spec records it as its `context_digest`, and `gsd/W406` compares; a list or block field is hashed as the structured value the kernel sends, every other field as its text, so a protocol change that sends structured values for more types must not change what is hashed, or every recorded digest goes stale at once) |
 
 ## decision
 
@@ -63,7 +62,7 @@ GSD: `<deferred>`. `text str R`, `phase → phase R`, `why str`. Excluded from e
 
 GSD: `NN-SPEC.md`, written by `/gsd-spec-phase`. Names `03-SPEC`, `LR1`, `IV1`, `EC1`, `SP1`.
 
-**phase_spec**: `phase → phase R I`, `context_digest str H` (the digest of the phase's context, written by the command that records the spec; gsd/W406), `created date I`, `goal str R` (X changes from A to B), `background text`,
+**phase_spec**: `phase → phase R I`, `context_pack {route str, digest str, max_tokens int} P` (the `gsd/phase-context` pack the spec was written against, recorded by the host for `record-spec`; gsd/W406), `created date I`, `goal str R` (X changes from A to B), `background text`,
 `in_scope strs`, `out_of_scope strs`, `constraints strs`, `acceptance strs`;
 `scores {goal int{0..100}, boundary int{0..100}, constraint int{0..100}, acceptance int{0..100}, ambiguity int{0..100}}`
 is `V`: the judged verdict of the `spec_phase` prompt (a `prompt:spec_phase` judge, K15), in percent (GSD's 0–1 score × 100), gated at
@@ -123,8 +122,8 @@ Markdown sections become typed items, so a pitfall or an open question can be re
 **research**: name `03-RESEARCH` (project research: `RESEARCH`; a quick plan's: `251101-abc-RESEARCH`, though any name
 is allowed); each item kind below is scoped by its `research` and named `F1`, `SC1`, `P1`, `PF1`, `DH1`, `OQ1`, `SRC1`, `PA1`.
 `phase → phase` (absent for project research and a quick plan's), `plan → plan I` (a quick plan's research,
-`/gsd-quick --research`; at most one of `phase` and `plan`, gsd/E206), `context_digest str H` (as on the spec, against
-the quick plan's context for a quick research; gsd/W406), `domain str`, `researched date I`,
+`/gsd-quick --research`; at most one of `phase` and `plan`, gsd/E206), `context_pack P` (as on the spec; a quick
+research records `gsd/quick-context`; gsd/W406), `domain str`, `researched date I`,
 `confidence enum{high, medium, low} R`, `summary text R`, `user_constraints →* decision`,
 `responsibility_map {capability str, tier str}`.
 

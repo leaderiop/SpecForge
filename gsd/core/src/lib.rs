@@ -7,7 +7,7 @@ mod branch;
 pub mod codes;
 mod collectors;
 pub mod commands;
-mod contexts;
+pub mod contexts;
 mod digest;
 pub mod hooks;
 mod js_regex;

@@ -382,8 +382,7 @@ fn context_decision_and_deferred_idea_declare_the_fields_of_the_model() {
             "reusable_assets",
             "patterns",
             "integration_points",
-            "status",
-            "digest"
+            "status"
         ]
     );
     assert_eq!(
@@ -448,7 +447,7 @@ fn the_spec_kinds_declare_the_fields_of_the_model() {
         fields_of("phase_spec"),
         [
             "phase",
-            "context_digest",
+            "context_pack",
             "created",
             "goal",
             "background",
@@ -619,9 +618,9 @@ fn the_discussion_entries_are_append_only() {
     assert_eq!(members, ["area", "question", "options", "chosen", "mode"]);
 }
 
-/// `discuss.md` listed 95 fields over its 16 kinds before r36 added two rows (`context.digest`, `source.research`). The model fixes: the decision's `from_summary` waits for `summary`
-/// (r38) and `source` gains `research` (the model says every item has one); the context gains its computed `digest`
-/// (the fix of round r36): 95 - 1 + 1 + 1 = 96, the research's and the spec's `context_digest` included.
+/// `discuss.md` listed 95 fields over its 16 kinds before `source.research` was added. The model fixes: the decision's
+/// `from_summary` waits for `summary` and `source` gains `research` (the model says every item has one): 95 - 1 + 1 =
+/// 95, the research's and the spec's `context_pack` included.
 #[test]
 fn the_discuss_kinds_declare_every_field_of_discuss_md() {
     let kinds = [
@@ -647,7 +646,7 @@ fn the_discuss_kinds_declare_every_field_of_discuss_md() {
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
     // + 3: the quick plan's `plan` on context, decision and research. + 2 + 7 + 11: the edge probe's `shapes` and
     // `text_en` on locked_req, and its two row kinds, edge (7 fields) and spec_prohibition (11) (ADR 0333).
-    assert_eq!(total, 95 - 1 + 1 + 1 + 3 + 2 + 7 + 11, "the kinds' fields");
+    assert_eq!(total, 95 - 1 + 1 + 3 + 2 + 7 + 11, "the kinds' fields");
 }
 
 #[test]
@@ -672,13 +671,24 @@ fn every_research_item_is_scoped_by_its_research() {
     }
 }
 
+/// ADR 0356: the pack a research, a spec or a validation was written against is the host's record, a block of the
+/// route, its digest and its budget; the context holds no digest of its own.
 #[test]
-fn the_context_digest_is_computed_and_the_recorded_copies_are_harness_values() {
-    assert_eq!(field_of("context", "digest")["writer"], "computed");
-    for kind in ["research", "phase_spec"] {
-        assert_eq!(
-            field_of(kind, "context_digest")["writer"],
-            "harness",
+fn the_recorded_context_packs_are_context_values() {
+    assert!(fields_of("context").iter().all(|f| f != "digest"));
+    for kind in ["research", "phase_spec", "validation"] {
+        let field = field_of(kind, "context_pack");
+        assert_eq!(field["writer"], "context", "{kind}");
+        assert_eq!(field["field_type"], "block", "{kind}");
+        let members: Vec<&str> = field["members"]
+            .as_array()
+            .expect("members")
+            .iter()
+            .map(|m| m["name"].as_str().expect("a name"))
+            .collect();
+        assert_eq!(members, ["route", "digest", "max_tokens"], "{kind}");
+        assert!(
+            fields_of(kind).iter().all(|f| f != "context_digest"),
             "{kind}"
         );
     }

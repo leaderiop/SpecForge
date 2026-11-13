@@ -565,6 +565,23 @@
     {
       "budget": 50000,
       "name": "phase-context",
+      "records": [
+        {
+          "field": "research.context_pack",
+          "subject": "self.phase",
+          "suggestion": "regenerate the research of {subject} (/gsd-plan-phase --research), then run `specforge gsd record-research {entity}`; do not hand-inject the newer decisions into a prompt"
+        },
+        {
+          "field": "phase_spec.context_pack",
+          "subject": "self.phase",
+          "suggestion": "regenerate or reconcile the spec against the current decisions, then run `specforge gsd record-spec {entity}`; do not hand-inject the newer decisions into a prompt"
+        },
+        {
+          "field": "validation.context_pack",
+          "subject": "self.phase",
+          "suggestion": "regenerate or reconcile the validation against the current decisions, then run `specforge gsd record-validation {entity}`; do not hand-inject the newer decisions into a prompt"
+        }
+      ],
       "sections": [
         {
           "name": "context",
@@ -582,11 +599,19 @@
           "tier": "core"
         }
       ],
+      "stale": "W406",
       "subject": "phase"
     },
     {
       "budget": 50000,
       "name": "quick-context",
+      "records": [
+        {
+          "field": "research.context_pack",
+          "subject": "self.plan",
+          "suggestion": "regenerate the research of quick task {subject} (/gsd-quick --research), then run `specforge gsd record-research {entity}`; do not hand-inject the newer decisions into a prompt"
+        }
+      ],
       "sections": [
         {
           "name": "context",
@@ -599,6 +624,7 @@
           "tier": "core"
         }
       ],
+      "stale": "W406",
       "subject": "plan"
     }
   ]

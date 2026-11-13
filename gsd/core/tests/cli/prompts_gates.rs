@@ -124,7 +124,7 @@ fn e206_a_second_research_in_the_phase_refuses_the_planning_prompts() {
     }
 }
 
-/// The digest `compute` gave the context of phase 02, recorded on its research, then a decision of the context edited.
+/// The research of phase 02 recorded against its context, then a decision of the context edited.
 pub(super) fn research_against_a_stale_context(p: &Project) {
     research_in_step_with_its_context(p);
     let decisions = p.read("spec/discuss.spec");
@@ -137,32 +137,10 @@ pub(super) fn research_against_a_stale_context(p: &Project) {
     );
 }
 
-/// The digest of the context of phase 02, recorded on its research: the research is in step with its context.
+/// The research of phase 02 recorded by `record-research`: it holds the pack of its context as it is.
 pub(super) fn research_in_step_with_its_context(p: &Project) {
-    let query = p.run(&[
-        "query",
-        "v1.0/02/02-CONTEXT",
-        "--depth",
-        "0",
-        "--format",
-        "json",
-    ]);
-    let graph: Value = serde_json::from_str(&query.stdout).expect("JSON");
-    let digest = graph["nodes"][0]["fields"]["digest"]
-        .as_str()
-        .expect("a digest")
-        .to_string();
-    let anchor = "research 02-RESEARCH \"Persistence research\" {\n";
-    let spec = discuss_file("research.spec");
-    p.write(
-        "spec/research.spec",
-        &spec.replace(anchor, &format!("{anchor}  context_digest {digest:?}\n")),
-    );
-    p.record_harness(
-        "v1.0/02/02-RESEARCH",
-        "context_digest",
-        &format!("{digest:?}"),
-    );
+    let run = p.run(&["gsd", "record-research", "v1.0/02/02-RESEARCH"]);
+    assert_eq!(run.code, 0, "{}", run.all());
 }
 
 #[test]

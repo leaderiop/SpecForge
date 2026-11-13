@@ -471,52 +471,21 @@ fn w204_is_an_error_under_gsd_strict() {
     assert!(check.all().contains("W204"), "check: {}", check.all());
 }
 
-/// The `digest` the compute pass gave the context of phase 02.
-fn context_digest(p: &Project) -> String {
-    let query = p.run(&[
-        "query",
-        "v1.0/02/02-CONTEXT",
-        "--depth",
-        "0",
-        "--format",
-        "json",
-    ]);
-    let graph: serde_json::Value = serde_json::from_str(&query.stdout)
-        .unwrap_or_else(|e| panic!("query is JSON ({e}): {}", query.all()));
-    let node = graph["nodes"]
-        .as_array()
-        .and_then(|nodes| nodes.iter().find(|n| n["id"] == "v1.0/02/02-CONTEXT"))
-        .unwrap_or_else(|| panic!("the context is queried: {}", query.all()));
-    let digest = node["fields"]["digest"].as_str().unwrap_or_default();
-    assert!(
-        digest.starts_with("fnv1a64:"),
-        "the context's digest: {node}"
-    );
-    digest.to_string()
+/// `specforge gsd <command> <entity>`: the host records the entity's `context_pack`.
+fn record(p: &Project, command: &str, entity: &str) {
+    let run = p.run(&["gsd", command, entity]);
+    assert_eq!(run.code, 0, "{command} {entity}: {}", run.all());
 }
 
-/// Writes `context_digest <digest>` after `anchor` in the fixture `file`, without the ledger line.
-fn write_digest(p: &Project, file: &str, anchor: &str, digest: &str) {
-    let spec = std::fs::read_to_string(format!(
-        "{}/tests/projects/discuss/spec/{file}",
-        env!("CARGO_MANIFEST_DIR")
-    ))
-    .expect("the fixture");
-    assert!(spec.contains(anchor), "the fixture holds `{anchor}`");
-    p.write(
-        &format!("spec/{file}"),
-        &spec.replace(anchor, &format!("{anchor}  context_digest {digest:?}\n")),
-    );
-}
-
-/// Writes `context_digest <digest>` on the research (or the spec) and records it in the ledger.
-fn record(p: &Project, file: &str, entity: &str, anchor: &str, digest: &str) {
-    write_digest(p, file, anchor, digest);
-    p.record_harness(entity, "context_digest", &format!("{digest:?}"));
+/// The digest of `gsd/phase-context` for phase 02, as `specforge context` prints it.
+fn phase_pack(p: &Project) -> String {
+    let run = p.run(&["context", "gsd/phase-context", "v1.0/02"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let pack: serde_json::Value = serde_json::from_str(&run.stdout).expect("a pack");
+    pack["digest"].as_str().expect("a digest").to_string()
 }
 
 const RESEARCH_ANCHOR: &str = "research 02-RESEARCH \"Persistence research\" {\n";
-const SPEC_ANCHOR: &str = "phase_spec 02-SPEC \"Persistence spec\" {\n";
 
 fn edit_decision(p: &Project) {
     let spec = p.read("spec/discuss.spec");
@@ -531,14 +500,7 @@ fn edit_decision(p: &Project) {
 #[test]
 fn context_changed_after_research_is_w406() {
     let p = project("discuss");
-    let digest = context_digest(&p);
-    record(
-        &p,
-        "research.spec",
-        "v1.0/02/02-RESEARCH",
-        RESEARCH_ANCHOR,
-        &digest,
-    );
+    record(&p, "record-research", "v1.0/02/02-RESEARCH");
     checks_clean(&p);
     edit_decision(&p);
     assert_eq!(codes(&p), ["gsd/W406"], "no kernel code joins it");
@@ -547,7 +509,9 @@ fn context_changed_after_research_is_w406() {
     assert_eq!(found[0].0, "gsd/W406");
     assert!(
         found[0].1.contains("research 'v1.0/02/02-RESEARCH'")
-            && found[0].1.contains("'v1.0/02/02-CONTEXT' changed since"),
+            && found[0]
+                .1
+                .contains("gsd/phase-context for 'v1.0/02', which has moved since"),
         "{found:#?}"
     );
 }
@@ -555,22 +519,22 @@ fn context_changed_after_research_is_w406() {
 #[test]
 fn a_spec_recorded_before_its_context_is_w406() {
     let p = project("discuss");
-    let before = context_digest(&p);
-    record(&p, "discuss.spec", "v1.0/02/02-SPEC", SPEC_ANCHOR, &before);
+    let before = phase_pack(&p);
+    record(&p, "record-spec", "v1.0/02/02-SPEC");
     checks_clean(&p);
     edit_decision(&p);
-    assert_ne!(context_digest(&p), before, "the edit moves the digest");
+    assert_ne!(phase_pack(&p), before, "the edit moves the pack");
     let found = p.findings();
     assert_eq!(found.len(), 1, "{found:#?}");
     assert_eq!(found[0].0, "gsd/W406");
     assert!(
-        found[0].1.contains("phase spec 'v1.0/02/02-SPEC'"),
+        found[0].1.contains("phase_spec 'v1.0/02/02-SPEC'"),
         "{found:#?}"
     );
 }
 
 #[test]
-fn a_decision_of_another_origin_does_not_move_the_digest() {
+fn a_decision_of_another_origin_does_not_move_the_pack() {
     let p = project("discuss");
     let summary = |text: &str| {
         format!(
@@ -578,43 +542,81 @@ fn a_decision_of_another_origin_does_not_move_the_digest() {
         )
     };
     p.write("spec/summary.spec", &summary("first"));
-    let digest = context_digest(&p);
-    record(
-        &p,
-        "research.spec",
-        "v1.0/02/02-RESEARCH",
-        RESEARCH_ANCHOR,
-        &digest,
-    );
+    record(&p, "record-research", "v1.0/02/02-RESEARCH");
     p.write("spec/summary.spec", &summary("second"));
     checks_clean(&p);
 }
 
 #[test]
-fn a_hand_written_digest_is_e083() {
+fn a_hand_written_context_pack_is_e083() {
     let p = project("discuss");
-    let digest = context_digest(&p);
-    write_digest(&p, "research.spec", RESEARCH_ANCHOR, &digest);
-    assert_eq!(codes(&p), ["E083"]);
-    p.record_harness(
-        "v1.0/02/02-RESEARCH",
-        "context_digest",
-        &format!("{digest:?}"),
+    let digest = phase_pack(&p);
+    let research = p.read("spec/research.spec");
+    p.write(
+        "spec/research.spec",
+        &research.replace(
+            RESEARCH_ANCHOR,
+            &format!(
+                "{RESEARCH_ANCHOR}  context_pack {{ route \"gsd/phase-context\" digest {digest:?} max_tokens 50000 }}\n"
+            ),
+        ),
     );
+    assert_eq!(codes(&p), ["E083"]);
+    // The host's record of the same pack holds.
+    record(&p, "record-research", "v1.0/02/02-RESEARCH");
     assert_eq!(codes(&p), Vec::<String>::new());
+}
+
+/// Upstream's drift check passes a phase with research and no `CONTEXT.md`: a research of a phase with no context
+/// records the pack of its empty sections, and nothing moves it.
+#[test]
+fn a_phase_with_research_and_no_context_raises_no_w406() {
+    let upstream = super::parity_plans::printed("verify-context-drift-no-context-md");
+    assert_eq!(
+        (
+            upstream["block"].clone(),
+            upstream["stale_artifacts"].clone()
+        ),
+        (false.into(), serde_json::json!([]))
+    );
+    let p = project("verify");
+    p.write(
+        "spec/research.spec",
+        "research 01-RESEARCH \"R\" {\n  phase      v1.0/01\n  confidence high\n  summary    \"x\"\n}\n",
+    );
+    record(&p, "record-research", "v1.0/01/01-RESEARCH");
+    assert!(
+        !p.codes().contains(&"gsd/W406".to_string()),
+        "{:?}",
+        p.codes()
+    );
+}
+
+/// A research still holding the `context_digest` of before is refused as an unknown field: re-run `record-research`.
+#[test]
+fn a_leftover_context_digest_is_an_unknown_field() {
+    let p = project("discuss");
+    let research = p.read("spec/research.spec");
+    p.write(
+        "spec/research.spec",
+        &research.replace(
+            RESEARCH_ANCHOR,
+            &format!("{RESEARCH_ANCHOR}  context_digest \"fnv1a64:4312322ac67d01d2\"\n"),
+        ),
+    );
+    let report = p.report();
+    assert!(
+        report
+            .iter()
+            .any(|(_, message)| message.contains("context_digest")),
+        "{report:#?}"
+    );
 }
 
 /// A project whose research was recorded against the context before a decision of the context was edited.
 fn stale_research() -> Project {
     let p = project("discuss");
-    let digest = context_digest(&p);
-    record(
-        &p,
-        "research.spec",
-        "v1.0/02/02-RESEARCH",
-        RESEARCH_ANCHOR,
-        &digest,
-    );
+    record(&p, "record-research", "v1.0/02/02-RESEARCH");
     edit_decision(&p);
     p
 }

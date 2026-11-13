@@ -86,11 +86,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
     dsl::declare(c, KINDS);
 }
 
-/// `kind.field` of every field whose structured value the digest reads (see `dsl::structured`).
-pub fn structured() -> Vec<String> {
-    dsl::structured(KINDS)
-}
-
 /// Every path field and block member path, with the mode its file check follows and its writer (see
 /// `dsl::path_fields`).
 pub fn path_fields() -> Vec<dsl::PathField> {

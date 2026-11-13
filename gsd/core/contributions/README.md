@@ -255,7 +255,7 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `raise_blocker`, `resolve_blocker` | blocker `raised`, `resolved` |
 | `record_window`, `waive_window`, `fix_window` | broken_window `recorded_at`; `waiver`; `fixed_at` |
 | `propose_refactor`, `dispose_refactor` | refactor_proposal `score`, `baseline`, `delta`, `reasons`, `candidates`; `disposition` |
-| `record_research`, `record_spec`, `record_validation` | research, phase_spec, validation `context_digest` (the computed `digest` of the phase's context) |
+| `record_research`, `record_spec`, `record_validation` | research, phase_spec, validation `context_pack`, recorded by the host: the pack of `gsd/phase-context` (a quick plan's research: `gsd/quick-context`) |
 | `health`, `stats`, `progress_report` (`/gsd-health`, `/gsd-stats`) | nothing: they report from the computed values of the graph |
 | `smart_entry` (`/gsd-next`) | nothing: it is read-only, and classifies the project from its computed `status`, `backlog` and `verification.status` fields |
 | `quick_init [--description <text>\|--tasks <text>] [--batch] [--template <text>]` (`specforge gsd quick-init`; upstream's `init quick`) | nothing: it is read-only, no gate, no subject, and answers `{items[{id, date, count, batch?, description, title, slug, branch_name?}]}`: one quick id per task, with the host's date on each, so one row of one call reads everything, drawn from the host's nonce (ADR 0341) and free in the graph. `--tasks` strips list markers and blank lines, and `--batch` needs 2 entries of it. A task whose text gives no slug takes its id as one |

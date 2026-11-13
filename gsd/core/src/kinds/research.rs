@@ -20,9 +20,9 @@ pub const RESEARCH: Kind = Kind::new(
         rf("plan", "plan")
             .i()
             .doc("the quick plan of a quick task's research (/gsd-quick --research)"),
-        str("context_digest")
-            .h()
-            .doc("the digest of the phase's (or quick plan's) context when the research was recorded (gsd/W406)"),
+        context_record("context_pack").doc(
+            "the gsd/phase-context pack (a quick plan's research: gsd/quick-context) it was written against (gsd/W406)",
+        ),
         str("domain"),
         date("researched").i(),
         en("confidence", CONFIDENCE).r(),

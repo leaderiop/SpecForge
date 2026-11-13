@@ -1,18 +1,5 @@
-//! The digest of a phase's (or a quick plan's) context: what `gsd/W406` compares. GSD judges drift by file times (CONTEXT.md newer than
-//! RESEARCH.md); a pass sees no git history, so a research or spec records the digest of the context it was written
-//! against and the drift pass compares it with the context's current one.
-//!
-//! The digest covers what GSD's `CONTEXT.md` holds: the context, the decisions with `origin context` and the deferred
-//! ideas of its phase (a quick context: the decisions that name its quick plan). It is `fnv1a64:` and 16 lowercase hex digits of FNV-1a 64 over the members sorted by id; per
-//! member `id 0x1F kind 0x1E`, then each written field sorted by name, computed fields left out, as
-//! `name 0x1F value 0x1E`, where value is the compact JSON of the structured value when the kernel sends one and the
-//! field text otherwise; members are separated by `0x1D`. FNV and not SHA-256: drift needs no collision resistance
-//! (the `H` field is guarded by the ledger), and the prefix keeps it apart from a kernel `sha256:` digest.
-//! Raw text versus structured value is a fixed choice per field, from the kind tables: `values` is read only for the
-//! fields declared as a list or a block, so a later protocol version that sends `values` for another type (a date, a
-//! reference) cannot move every recorded `context_digest` at once (that would be W406 on every research and spec, with
-//! no `record_*` command to rewrite them before r41). Those fields are hashed as their text, as today.
-//! A respelt reference changes the digest; GSD's commit-time check flags any edit to CONTEXT.md too.
+//! The scope helpers the passes share, and the digest of the files a verdict covered: `fnv1a64:` and 16 lowercase hex
+//! digits of FNV-1a 64 over the sorted `(path, digest)` pairs.
 
 use specforge_extension_sdk::prelude::*;
 
@@ -42,70 +29,6 @@ pub fn quick_plan<'a>(input: &'a PassInput, id: &str) -> Option<&'a str> {
 /// What owns a context, decision or research: its quick plan, else its scope (its phase, or `""` for the project).
 pub fn owner<'a>(input: &'a PassInput, entity: &'a PassEntity) -> &'a str {
     quick_plan(input, &entity.id).unwrap_or_else(|| scope_of(&entity.id))
-}
-
-/// The members of the context `context_id`, sorted by id: the context, and the decisions with `origin context` and
-/// the deferred ideas of its owner (a phase's are in its scope; a quick plan's decisions name it in `plan`, and a quick
-/// context has no deferred ideas).
-fn members<'a>(input: &'a PassInput, context_id: &str) -> Vec<&'a PassEntity> {
-    let quick = quick_plan(input, context_id);
-    let scope = scope_of(context_id);
-    let mut found: Vec<&PassEntity> = input
-        .entities
-        .iter()
-        .filter(|e| {
-            let mine = match quick {
-                Some(plan) => quick_plan(input, &e.id) == Some(plan),
-                None => scope_of(&e.id) == scope,
-            };
-            e.id == context_id
-                || (mine
-                    && match e.kind.as_str() {
-                        "decision" => e.fields.get("origin").map(String::as_str) == Some("context"),
-                        "deferred_idea" => quick.is_none(),
-                        _ => false,
-                    })
-        })
-        .collect();
-    found.sort_by(|a, b| a.id.cmp(&b.id));
-    found
-}
-
-/// The digest of the context `context_id`, `None` when the input holds no such entity.
-pub fn context(input: &PassInput, context_id: &str) -> Option<String> {
-    let computed = crate::kinds::computed();
-    let structured = crate::kinds::structured();
-    let members = members(input, context_id);
-    members.iter().find(|e| e.id == context_id)?;
-    let mut bytes = Vec::new();
-    for (index, entity) in members.iter().enumerate() {
-        if index > 0 {
-            bytes.push(0x1D);
-        }
-        bytes.extend_from_slice(entity.id.as_bytes());
-        bytes.push(0x1F);
-        bytes.extend_from_slice(entity.kind.as_bytes());
-        bytes.push(0x1E);
-        // `fields` is a sorted map: names come in order.
-        for (name, text) in &entity.fields {
-            if computed.contains(&format!("{}.{name}", entity.kind)) {
-                continue;
-            }
-            bytes.extend_from_slice(name.as_bytes());
-            bytes.push(0x1F);
-            let key = format!("{}.{name}", entity.kind);
-            match entity
-                .values
-                .get(name)
-                .filter(|_| structured.contains(&key))
-            {
-                Some(value) => bytes.extend_from_slice(value.to_string().as_bytes()),
-                None => bytes.extend_from_slice(text.as_bytes()),
-            }
-            bytes.push(0x1E);
-        }
-    }
-    Some(hex(&bytes))
 }
 
 fn hex(bytes: &[u8]) -> String {

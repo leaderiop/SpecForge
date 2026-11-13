@@ -14,4 +14,4 @@ and how the goldens are recorded.
   `js:taskboard/test/tasks.test.js#<test name>`, a fact `@code/core` serves once `@javascript/node-test` has collected
   it), so `specforge trace TASK-01` follows the requirement to its plan, tasks, commits, test and truth.
 - `specforge-harness`: the ledger lines of phase 1's seven verifier verdicts (recorded over the collected tests) and of
-  the UAT results and the twin research's `context_digest`.
+  the UAT results and the twin research's `context_pack`.

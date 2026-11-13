@@ -145,7 +145,7 @@ pub const MODULES: &[(&str, Module)] = &[
     ("gap-checker.cjs", Ported("src/passes/roadmap.rs")),
     ("gate-api-coverage-verify-pre.cjs", Owned("@gsd/ai")),
     ("gate-codebase-drift.cjs", Owned("@gsd/codebase")),
-    ("gate-context-drift.cjs", Ported("src/passes/drift.rs")),
+    ("gate-context-drift.cjs", Ported("src/contexts.rs")),
     (
         "gate-decision-coverage-*",
         Ported("src/passes/decision_coverage.rs"),

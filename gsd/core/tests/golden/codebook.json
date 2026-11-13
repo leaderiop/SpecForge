@@ -268,7 +268,7 @@
     {
       "code": "W406",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
-      "explanation": "The context the plan was written against has not drifted (the context_digest a research, spec or validation recorded differs from the context's current digest). It is a warning, and an error under gsd-strict.",
+      "explanation": "A research, spec or validation records the pack of gsd/phase-context (a quick plan's research: gsd/quick-context) it was written against; the host reports it when that pack moves. It is a warning, and an error under gsd-strict.",
       "title": "Context drifted since the plan was written"
     },
     {

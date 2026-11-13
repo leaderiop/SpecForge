@@ -16,9 +16,8 @@ pub const VALIDATION: Kind = Kind::new(
     "How a phase's tasks are sampled by tests (GSD NN-VALIDATION.md)",
     &[
         rf("phase", "phase").r().i().doc("`phase:`"),
-        str("context_digest")
-            .h()
-            .doc("the digest of the phase's context when it was recorded (gsd/W406)"),
+        context_record("context_pack")
+            .doc("the gsd/phase-context pack it was written against (gsd/W406)"),
         str("framework").doc("`framework`"),
         path("config_file", Mode::Planned).doc(
             "`config_file`: checked once the phase is executed (E016), as wave 0 may create it",

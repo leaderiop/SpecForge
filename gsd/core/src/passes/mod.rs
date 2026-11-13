@@ -4,7 +4,6 @@ mod commits;
 mod cross_plan;
 mod decision_coverage;
 pub(crate) mod derive;
-mod drift;
 mod execute;
 mod fails_when;
 mod file_scope;
@@ -50,7 +49,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
     derive::declare(c);
     roadmap::declare(c);
     research::declare(c);
-    drift::declare(c);
     execute::declare(c);
     schema_drift::declare(c);
     plan_shape::declare(c);

@@ -97,7 +97,7 @@ Every verb that writes a `.planning/` file was run for real (`config-new-project
 written by hand: the workflows need a model session, which a recording script cannot run. The goldens are therefore
 `gsd-tools` over a faithful `.planning/`, not a transcript of `/gsd-new-project`.
 
-Phase 2's `02-CONTEXT.md`, `02-DISCUSSION-LOG.md` and `02-RESEARCH.md` (round r36) follow the v1.18.0 templates and were also written by hand: `workflow.research` is false in the fixture's config, so the research stands for a run of `/gsd-plan-phase 2 --research`. `02-01-PLAN.md` cites `D-01`..`D-03`, so the decision-coverage golden records 3 of 3 covered (GSD's blocking plan-phase gate passes). `gsd/E310` (r37) counts, as GSD does, every trackable `D-NN` of the phase's CONTEXT (a decision with `origin context`), not the `settled` ones; the twin's plan cites all three, so it is clean, and the twin's context, decisions and deferred idea stay as they are (any edit moves the committed `context_digest` literal and its ledger line).
+Phase 2's `02-CONTEXT.md`, `02-DISCUSSION-LOG.md` and `02-RESEARCH.md` (round r36) follow the v1.18.0 templates and were also written by hand: `workflow.research` is false in the fixture's config, so the research stands for a run of `/gsd-plan-phase 2 --research`. `02-01-PLAN.md` cites `D-01`..`D-03`, so the decision-coverage golden records 3 of 3 covered (GSD's blocking plan-phase gate passes). `gsd/E310` (r37) counts, as GSD does, every trackable `D-NN` of the phase's CONTEXT (a decision with `origin context`), not the `settled` ones; the twin's plan cites all three, so it is clean, and the twin's context, decisions and deferred idea stay as they are (any edit moves the committed `context_pack` digest and its ledger line).
 
 ## Known limits of the checks (r44 review)
 
@@ -109,8 +109,9 @@ Phase 2's `02-CONTEXT.md`, `02-DISCUSSION-LOG.md` and `02-RESEARCH.md` (round r3
   `fixtures/taskboard/spec/*` in `parity_verify.rs`.
 - The silent evidence of 38 of the 61 built codes is the unedited twin (`rules_silent.rs`), which does not set up the
   code's precondition.
-- Four rows are analogues rather than reproductions: `verify-schema-drift-env-skip` goes through a setting,
-  `decision-coverage-plan-context-absent` deletes decisions, `verify-context-drift-no-context-md` is probably
-  reachable, and the four `decision-coverage-verify-*` rows say "not built in r44" though the verified phase now exists.
+- Three rows are analogues rather than reproductions: `verify-schema-drift-env-skip` goes through a setting,
+  `decision-coverage-plan-context-absent` deletes decisions, and the four `decision-coverage-verify-*` rows say "not
+  built in r44" though the verified phase now exists. `verify-context-drift-no-context-md` is reproduced: a phase with
+  research and no context records the pack of its empty sections.
 - `install_hosts.rs` normalises any `@gsd/core@<x>` to `VERSION`; the version itself is pinned in `declaration.rs` and
   `main.rs`.

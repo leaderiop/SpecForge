@@ -270,20 +270,22 @@ fn a_research_step_finds_the_plan_the_init_step_wrote() {
     }
 }
 
-/// With `--discuss` and `--research`, quick records the research's digest of the context once both exist, as
-/// `/gsd-plan-phase` does for a phase's: the served command, run for the fixture's quick plan, copies the context's
-/// digest into its research.
+/// With `--discuss` and `--research`, quick records the research's context pack once both exist, as
+/// `/gsd-plan-phase` does for a phase's: the served command, run for the fixture's quick plan, records the pack of
+/// `gsd/quick-context` on its research.
 #[test]
-fn quick_records_its_researchs_context_digest() {
+fn quick_records_its_researchs_context_pack() {
     let p = project("quick-context");
     let text = served(&p, "quick.md");
     let record = commands(&text, "specforge gsd record-research");
     assert_eq!(record.len(), 1, "{record:#?}");
     assert!(holds(&p, &record[0], "251101-abc"), "{}", record[0]);
-    assert_eq!(
-        p.fields_of("251101-abc-RESEARCH")["context_digest"],
-        p.fields_of("251101-abc-CONTEXT")["digest"]
-    );
+    let pack = p.run(&["context", "gsd/quick-context", "251101-abc"]);
+    assert_eq!(pack.code, 0, "{}", pack.all());
+    let pack: serde_json::Value = serde_json::from_str(&pack.stdout).expect("a pack");
+    let recorded = &p.fields_of("251101-abc-RESEARCH")["context_pack"];
+    assert_eq!(recorded["route"], "gsd/quick-context", "{recorded}");
+    assert_eq!(recorded["digest"], pack["digest"], "{recorded}");
 }
 
 /// The reading-list queries the quick prompts build from `quick_id` (`'... ' + quick_id + '...'`), as served: each

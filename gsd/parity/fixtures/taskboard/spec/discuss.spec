@@ -73,7 +73,6 @@ discussion 02-DISCUSSION-LOG "Persistence discussion" {
 
 research 02-RESEARCH "Persistence research" {
   phase              v1.0/02
-  context_digest     "fnv1a64:4312322ac67d01d2"
   domain             "File-backed storage for a small Node 20 command line tool"
   researched         2026-03-04
   confidence         high
@@ -82,6 +81,11 @@ research 02-RESEARCH "Persistence research" {
   responsibility_map [
     { capability "Persist the board" tier "Database/Storage" }
   ]
+  context_pack {
+    route      "gsd/phase-context"
+    digest     "sha256:87753859c98c6547076989f9437ed655421891560905799ab014324e4f6278c6"
+    max_tokens 50000
+  }
 }
 
 source SRC1 "Node 20 fs documentation" {
