@@ -14,10 +14,10 @@ use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
 use super::halt::{self, Node};
-use crate::digest::scope_of;
 use crate::passes::commits::Commit;
 use crate::passes::plans::{of_kind, rows, text};
 use crate::passes::thread::{Evidence, Thread};
+use crate::scope::scope_of;
 use crate::time::seconds;
 
 pub fn value(entity: &str, field: &str, value: impl Into<Value>) -> PassValue {

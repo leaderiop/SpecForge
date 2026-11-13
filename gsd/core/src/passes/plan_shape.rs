@@ -9,8 +9,8 @@ mod checkpoint;
 
 use specforge_extension_sdk::prelude::*;
 
-use crate::digest::scope_of;
 use crate::quick_id::QuickId;
+use crate::scope::scope_of;
 
 use super::plans::{block, children, name_of, of_kind, phase_of, strings, text};
 

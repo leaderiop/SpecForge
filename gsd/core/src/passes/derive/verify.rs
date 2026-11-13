@@ -209,7 +209,7 @@ fn latest(group: &Group) -> Option<String> {
         .max()
 }
 
-/// One digest over the `(path, digest)` of every file the phase's verdicts covered.
+/// One digest over the `(path, digest)` of every file the phase's verdicts covered (`sha256:`).
 fn covered_digest(group: &Group) -> Option<String> {
     let pairs: Vec<(&str, &str)> = group
         .entities
@@ -218,7 +218,23 @@ fn covered_digest(group: &Group) -> Option<String> {
         .filter(|j| j.rule.ends_with("E501"))
         .flat_map(|j| j.files.iter().map(|f| (f.path.as_str(), f.digest.as_str())))
         .collect();
-    (!pairs.is_empty()).then(|| crate::digest::files(pairs))
+    (!pairs.is_empty()).then(|| files_digest(pairs))
+}
+
+/// `sha256:` and 64 hex digits over the sorted, de-duplicated `(path, digest)` pairs, each as `path 0x1F digest 0x1E`.
+fn files_digest<'a>(covered: impl IntoIterator<Item = (&'a str, &'a str)>) -> String {
+    use sha2::{Digest, Sha256};
+    let mut pairs: Vec<_> = covered.into_iter().collect();
+    pairs.sort_unstable();
+    pairs.dedup();
+    let mut hasher = Sha256::new();
+    for (path, digest) in pairs {
+        hasher.update(path.as_bytes());
+        hasher.update([0x1F]);
+        hasher.update(digest.as_bytes());
+        hasher.update([0x1E]);
+    }
+    format!("sha256:{:x}", hasher.finalize())
 }
 
 fn covered(group: &Group) -> Vec<String> {

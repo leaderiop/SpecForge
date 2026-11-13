@@ -352,7 +352,11 @@ fn covered_digest_changes_with_a_covered_file() {
         .as_str()
         .expect("a digest")
         .to_string();
-    assert!(digest.starts_with("fnv1a64:"), "{before}");
+    let hex = digest.strip_prefix("sha256:").expect("a sha256 digest");
+    assert!(
+        hex.len() == 64 && hex.bytes().all(|b| b.is_ascii_hexdigit()),
+        "{before}"
+    );
     assert_eq!(
         before["covered_files"],
         serde_json::json!(["src/tasks.js", "test/tasks.test.js"])

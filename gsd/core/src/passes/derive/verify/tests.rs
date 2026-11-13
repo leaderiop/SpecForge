@@ -539,3 +539,26 @@ fn a_backstop_or_unreported_or_overridden_truth_stays_verified() {
         assert_eq!(of(&out, "score"), Some(json!("1/1")));
     }
 }
+
+#[test]
+fn a_files_digest_is_a_sha256_that_ignores_order_and_repeats_and_follows_a_digest() {
+    let a = files_digest([("a.js", "sha256:1"), ("b.js", "sha256:2")]);
+    let hex = a.strip_prefix("sha256:").expect("the prefix");
+    assert_eq!(hex.len(), 64, "{a}");
+    assert!(
+        hex.bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+    );
+    assert_eq!(
+        a,
+        files_digest([
+            ("b.js", "sha256:2"),
+            ("a.js", "sha256:1"),
+            ("a.js", "sha256:1")
+        ])
+    );
+    assert_ne!(
+        a,
+        files_digest([("a.js", "sha256:1"), ("b.js", "sha256:3")])
+    );
+}

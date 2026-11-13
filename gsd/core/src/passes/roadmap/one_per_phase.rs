@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use specforge_extension_sdk::prelude::*;
 
-use crate::digest::{owner, quick_plan, scope_of};
+use crate::scope::{owner, quick_plan, scope_of};
 
 /// The kinds a phase (or, for `context` and `research`, a quick plan; for `research`, the project) holds one of.
 const ONE_PER_SCOPE: &[&str] = &["context", "phase_spec", "discussion", "research"];

@@ -74,7 +74,7 @@ pub fn name_of(id: &str) -> &str {
 /// The entities of `kind` scoped by `plan` (a task, a checkpoint or a must-have of it), in id order.
 pub fn children<'a>(input: &'a PassInput, plan: &str, kind: &'a str) -> Vec<&'a PassEntity> {
     let mut found: Vec<&PassEntity> = of_kind(input, kind)
-        .filter(|e| crate::digest::scope_of(&e.id) == plan)
+        .filter(|e| crate::scope::scope_of(&e.id) == plan)
         .collect();
     found.sort_by(|a, b| a.id.cmp(&b.id));
     found
