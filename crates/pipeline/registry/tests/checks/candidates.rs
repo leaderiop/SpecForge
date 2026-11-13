@@ -75,7 +75,7 @@ fn a_build_handed_no_vocabulary_suggests_search() {
             .suggestion
             .as_deref()
             .unwrap()
-            .contains("specforge search feature"),
+            .contains("specforge extensions search feature"),
         "{diags:?}"
     );
     let w020 = coded_in(&diags, "W020");

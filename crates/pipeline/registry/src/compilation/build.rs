@@ -470,7 +470,7 @@ impl RegistryBuild {
 
 /// Build every registry and derived input from the loaded declarations, given in entry order:
 /// the build puts them in load order first (ADR 0041), and everything after reads that order.
-/// It knows no candidate vocabulary: its suggestions say `specforge search`, and no kind is an
+/// It knows no candidate vocabulary: its suggestions say `specforge extensions search`, and no kind is an
 /// unloaded optional peer's ([`build_registries_with`]).
 pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuild {
     build_registries_with(declarations, CandidateVocabulary::default())

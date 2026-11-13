@@ -1,4 +1,5 @@
-//! `specforge search`'s document: the shape every command writes a diagnostic in, and no `null` (ADR 0052 D1).
+//! `specforge extensions search`'s document: the shape every command writes a diagnostic in, and no `null`
+//! (ADR 0052 D1).
 
 use specforge_common::{Diagnostic, DiagnosticList, codes};
 use specforge_ops::registry::{Found, Searched};
