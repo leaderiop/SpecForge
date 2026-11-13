@@ -4,15 +4,16 @@ Execute a plan (the `plan` entity and its tasks) and write its outcome summary (
 </purpose>
 
 <required_reading>
-Read STATE.md before any operation to load project context.
-Read config.json for planning behavior settings.
+Load the project context with `specforge gsd progress-report` before any operation, and the settings with
+`specforge settings --format json --extension @gsd/core`.
 
 @~/.claude/gsd-core/references/git-integration.md
 </required_reading>
 
 <atomic_close_out_invariant>
-For each executed plan, the only complete close-out order is:
-`production-code commit(s) -> SUMMARY commit -> STATE/ROADMAP update`.
+For each executed plan, the only complete close-out order is: the production-code commits, then the summary entity
+and `specforge gsd complete-plan`, then the commit of `spec`. Progress and the roadmap are computed from the closed
+plan.
 
 For a synchronous executor, the only legal half-state is mid-production-commits
 while the executor is still actively working. Once production commits for a plan
@@ -147,7 +148,7 @@ Otherwise: Apply checkpoint-based routing below.
 
 **Pattern A:** init_agent_tracking → capture `EXPECTED_BASE=$(git rev-parse HEAD)` → **before spawning, run the #2649 pre-dispatch worktree base-check** (mirrors execute-phase #683/#1369 and quick #1941): if `ISOLATION = "harness-worktree"`, run the `worktree.base-check` operation (not part of @gsd/core) (#3659/#4588: `--mode` names the creator; `"head"` suppresses the check — honored by GSD worktrees and, measured, by Claude Code); if it returns `true`, print its `--pick message` to stderr, emit the `⚠ [#2649] Worktree fork base diverged from orchestrator HEAD — auto-degrading to sequential mode for this plan to avoid a base-mismatch halt.` warning, and treat `ISOLATION` as `"none"` for this dispatch (spawn without `{harnessFlag}`), **then re-record the degrade before spawning** — run the `dispatch-isolation` operation (not part of @gsd/core). That re-record is mandatory, not bookkeeping: the resolve step already persisted `harness-worktree` to the run-scoped sentinel, the degrade above happens where the resolver cannot see it, and the shipped `PreToolUse` isolation guard (#3045) reads that sentinel at the instant of the `Agent()` call — a stale `harness-worktree` against a dispatch that correctly omits `{harnessFlag}` is denied with `exit 2`, so the plan does not run at all. See `Re-record after every degrade` in `gsd-core/references/dispatch-isolation-gate.md`. With `worktree.baseRef` unset, Claude Code's `isolation="worktree"` forks from `origin/HEAD`, not live local HEAD; without this gate a plan whose commit advanced local HEAD past a stale `origin/HEAD` hits the verify-only guard's `exit 42` mid-execution with no auto-degrade. Setting `"head"` is what changes that, and the harness is measured to honor it (#4588) — except where a `WorktreeCreate` hook creates the worktree, which the base-check detects and reports separately (#4881). → print `Spawning executor agent (runs in a subagent — no output until it returns, ~1–5 min; expected, not a freeze)` → spawn Agent(subagent_type="gsd-executor", model=executor_model) with prompt: execute plan at [path], autonomous, all tasks + SUMMARY + commit, follow deviation/auth rules, honor checkpoint gate semantics (#3370) — gate="blocking" (the default) is auto-approvable in auto-mode per the executor's own checkpoint protocol, gate="blocking-human" always surfaces to a human; add no instruction overriding that protocol — report: plan name, tasks, summary id, commit hash → track agent_id → wait → update tracking → report. **Include `{harnessFlag}` only when `ISOLATION = "harness-worktree"` and the #2649 base-check did not degrade** — never hardcode `isolation="worktree"`, which is Claude Code's own literal and wrong on any other harness-worktree host. **When dispatching with `{harnessFlag}`, embed the `<worktree_branch_check>` block from `gsd-core/references/worktree-branch-check.md` into the prompt, substituting `{EXPECTED_BASE}` with the captured base SHA.** That guard is **verify-only and fail-closed** (#48) and stays active as a backstop whether or not the base-check degraded: it asserts a per-agent `agent-*` / `worktree-agent-*` branch and the exact base, forbids `git update-ref` self-recovery (#2924), and on any mismatch prints `FATAL:` and `exit 42` so the orchestrator can recover — the sub-agent never rewrites a worktree it did not create. This supersedes the former self-recovery (#2015), whose destructive base rewrite could fail silently under a deny rule; the base-drift it addressed affects all platforms, and base correction is now the orchestrator's responsibility.
 
-**Pattern B:** Execute segment-by-segment. Autonomous segments: spawn subagent for assigned tasks only (no SUMMARY/commit). Checkpoints: main context. After all segments: aggregate, write the summary entity, commit. See segment_execution. **Segments run unisolated on the main working tree by design** — each continues where the previous one stopped — so dispatch them WITHOUT `{harnessFlag}`, and only after the `ISOLATION=none` re-record above has run (#2652/#3045).
+**Pattern B:** Execute segment-by-segment. Each autonomous segment runs in a subagent that does its assigned tasks only: it writes no summary and makes no metadata commit. Checkpoints run in the main context. Once every segment is done, the main context aggregates them, writes the summary entity and commits. See segment_execution. **Segments run unisolated on the main working tree by design** — each continues where the previous one stopped — so dispatch them WITHOUT `{harnessFlag}`, and only after the `ISOLATION=none` re-record above has run (#2652/#3045).
 
 **Pattern C:** Execute in main using standard flow (step name="execute").
 
@@ -243,7 +244,7 @@ Auth errors during execution are NOT failures — they're expected interaction p
 
 **Example:** `vercel --yes` → "Not authenticated" → checkpoint asking user to `vercel login` → verify with `vercel whoami` → retry deploy → continue
 
-**In Summary:** Document as normal flow under "## Authentication Gates", not as deviations.
+**In the summary:** an authentication gate is normal flow, not a deviation: name it in the summary's `next_readiness`.
 
 </authentication_gates>
 
@@ -264,7 +265,7 @@ Apply deviation rules from the gsd-executor agent definition (single source of t
 
 ## Documenting Deviations
 
-Summary MUST include deviations section. None? → `## Deviations from Plan\n\nNone - plan executed exactly as written.`
+Each deviation is a `deviation` entity of the summary (the summary template's typed edits); a plan executed exactly as written has none.
 
 Per deviation: **[Rule N - Category] Title** — Found during: Task X | Issue | Fix | Files modified | Verification | Commit hash
 

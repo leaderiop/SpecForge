@@ -783,10 +783,10 @@ increases monotonically across waves. `{status}` is `complete` (success),
    [checkpoint] phase {PHASE_NUMBER} wave {N}/{M} complete, {P}/{Q} plans done ({wave_success}/{wave_plan_count} ok)
    ```
 
-   For each SUMMARY.md:
-   - Verify first 2 files from `key-files.created` exist on disk
+   For each plan of the wave:
+   - Check the plan has its summary entity and no artifact whose `state` is `missing`
+     (`specforge query "{phase}-{plan}" --depth 1 --kinds summary,artifact --format json`)
    - Check `specforge query "{phase}-{plan}" --kinds commit --format json` (after `specforge collect --runner gsd-git --yes`) lists `commits` with ≥1 entry (commits on THIS branch only — #5164; a commit that lives only on another branch does not satisfy the check; exit `69` means the scope could not be resolved, which fails the spot-check, never "no commits yet")
-   - Check for `## Self-Check: FAILED` marker
 
    If ANY spot-check fails: report which plan failed, route to failure handler — ask "Retry plan?" or "Continue with remaining waves?"
 

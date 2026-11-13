@@ -123,12 +123,14 @@ agents/gsd-executor.md	own	526+2	2	9ae1e31d2492	581a7a2245aa	served
 agents/gsd-executor.md	kept	528+19	285d734d4342
 agents/gsd-executor.md	own	547+6	6	c56f381bd82d	0277503d9fff	ported-name
 agents/gsd-executor.md	kept	553+1	ad332335cfaa
-agents/gsd-executor.md	own	554+6	5	c7358ad8d727	013e3c1b0d62	prose
-agents/gsd-executor.md	kept	560+5	43f5fff21781
+agents/gsd-executor.md	own	554+8	7	b10ae9faae7e	3216a34e98df	review
+agents/gsd-executor.md	kept	562+3	8c6c7a172e70
 agents/gsd-executor.md	own	565+1	1	765d60237c65	9b52da7b606a	served
 agents/gsd-executor.md	kept	566+3	3c1505c0f61e
 agents/gsd-executor.md	own	569+1	1	8a331fdde703	f97f87cd75b2	thread
-agents/gsd-executor.md	kept	570+8	677f3758ece2
+agents/gsd-executor.md	kept	570+4	4d7e60cdc263
+agents/gsd-executor.md	own	574+1	1	25ae3866a45f	001f2300942f	served
+agents/gsd-executor.md	kept	575+3	ef06832c93d1
 agents/gsd-executor.md	own	578+1	1	45112a019f85	e1c5aa32277a	served
 agents/gsd-executor.md	kept	579+6	eaaadde66552
 agents/gsd-executor.md	own	585+1	1	8bd370483f0d	dacfb0553a0b	served
@@ -2378,9 +2380,9 @@ gsd-core/workflows/execute-phase.md	kept	978+6	74a1c6bdd795
 gsd-core/workflows/execute-phase.md	own	984+4	4	ef25f3b525d0	daa35cffd8c7	ported-name
 gsd-core/workflows/execute-phase.md	kept	988+15	ddabd1a29e11
 gsd-core/workflows/execute-phase.md	own	1003+2	2	d6b595a91843	53c715f8fe96	served
-gsd-core/workflows/execute-phase.md	kept	1005+42	2b996aa7b754
-gsd-core/workflows/execute-phase.md	own	1047+1	1	df2d68727a97	da98703fc786	ported-name
-gsd-core/workflows/execute-phase.md	kept	1048+20	559cc46d5c25
+gsd-core/workflows/execute-phase.md	kept	1005+40	b972476e453f
+gsd-core/workflows/execute-phase.md	own	1045+4	4	7fef72f36714	1bf8b6db1e2c	ported-name
+gsd-core/workflows/execute-phase.md	kept	1049+19	83a9b24ab2d2
 gsd-core/workflows/execute-phase.md	own	1068+4	4	bf1e3286d9c2	1f143b154699	ported-name
 gsd-core/workflows/execute-phase.md	kept	1072+19	9cc9649d332f
 gsd-core/workflows/execute-phase.md	own	1091+0	10	e3b0c44298fc	d514fd48aafd	prose
@@ -2618,7 +2620,11 @@ gsd-core/workflows/execute-phase/steps/worktree-recovery-policy.md	own	1+11	2	9c
 gsd-core/workflows/execute-phase/steps/worktree-recovery-policy.md	kept	12+1	e3b0c44298fc
 gsd-core/workflows/execute-plan.md	kept	1+1	67c8626203ca
 gsd-core/workflows/execute-plan.md	own	2+1	1	32437f49f843	22da4ce2be4f	prose
-gsd-core/workflows/execute-plan.md	kept	3+21	6690acbd020b
+gsd-core/workflows/execute-plan.md	kept	3+3	8ef618f2b74d
+gsd-core/workflows/execute-plan.md	own	6+2	2	a7fe3afcb70b	238bf41771c4	review
+gsd-core/workflows/execute-plan.md	kept	8+5	a6579507ca74
+gsd-core/workflows/execute-plan.md	own	13+2	3	709fdaae3bf5	0c800796f14f	review
+gsd-core/workflows/execute-plan.md	kept	15+9	b0e328741046
 gsd-core/workflows/execute-plan.md	own	24+1	1	63199f26e1db	a5acc2e3ff4f	ported-name
 gsd-core/workflows/execute-plan.md	kept	25+12	ca3d98299b2f
 gsd-core/workflows/execute-plan.md	own	37+1	1	77f354f25b62	9ef461dfdf9a	prose
@@ -2643,7 +2649,7 @@ gsd-core/workflows/execute-plan.md	own	129+1	1	fae12417868b	40c24e67cf89	prose
 gsd-core/workflows/execute-plan.md	kept	130+11	ef9b379ddc86
 gsd-core/workflows/execute-plan.md	own	141+1	1	62a338bed8b8	e61c99e99d57	ported-name
 gsd-core/workflows/execute-plan.md	kept	142+6	a73f2e6feaf3
-gsd-core/workflows/execute-plan.md	own	148+5	5	09abf7281dab	d0659d7c4e66	ported-name
+gsd-core/workflows/execute-plan.md	own	148+5	5	09abf7281dab	d5e28ea92432	ported-name
 gsd-core/workflows/execute-plan.md	kept	153+7	575cbb7c0132
 gsd-core/workflows/execute-plan.md	own	160+17	2	5032cff66ff8	7f435f06684b	ported-name
 gsd-core/workflows/execute-plan.md	kept	177+11	facf2733e009
@@ -2654,7 +2660,11 @@ gsd-core/workflows/execute-plan.md	kept	208+8	c469530aaec4
 gsd-core/workflows/execute-plan.md	own	216+1	1	acb43f5d3de9	b6681a7b1ee3	ported-name
 gsd-core/workflows/execute-plan.md	kept	217+13	7519154b5f3d
 gsd-core/workflows/execute-plan.md	own	230+1	1	9f4176fa4ef3	5494aeac5ba6	ported-name
-gsd-core/workflows/execute-plan.md	kept	231+125	6958bf9cac3c
+gsd-core/workflows/execute-plan.md	kept	231+35	7321fd1fc6c2
+gsd-core/workflows/execute-plan.md	own	266+1	1	4adb97b002bd	476e02ba85b8	review
+gsd-core/workflows/execute-plan.md	kept	267+20	c3b1455e747c
+gsd-core/workflows/execute-plan.md	own	287+1	1	bbab1f41e5c9	bba9e92aaaf3	review
+gsd-core/workflows/execute-plan.md	kept	288+68	0467d7510c0e
 gsd-core/workflows/execute-plan.md	own	356+0	6	e3b0c44298fc	c88177ce2f34	prose
 gsd-core/workflows/execute-plan.md	kept	356+8	20d26f4e8678
 gsd-core/workflows/execute-plan.md	own	364+1	1	2a2286acf2bb	f52919281ae9	prose
@@ -3344,8 +3354,8 @@ gsd-core/workflows/plan-phase.md	own	798+1	1	2b826fc54f93	4c2bbe127a74	prose
 gsd-core/workflows/plan-phase.md	kept	799+12	b984b3956ff7
 gsd-core/workflows/plan-phase.md	own	811+7	7	abe010cb94c1	a3601c7aae82	prose
 gsd-core/workflows/plan-phase.md	kept	818+5	d55cf5794d8c
-gsd-core/workflows/plan-phase.md	own	823+1	1	d2fe79edcea4	053657a7facd	prose
-gsd-core/workflows/plan-phase.md	kept	824+58	03a948b791a2
+gsd-core/workflows/plan-phase.md	own	823+6	4	333eb490da12	f4595755f76d	review
+gsd-core/workflows/plan-phase.md	kept	829+53	ac91dd8c192c
 gsd-core/workflows/plan-phase.md	own	882+3	4	98e8b859ad95	b9c08f93fd31	prose
 gsd-core/workflows/plan-phase.md	kept	885+15	78cbe5c18df8
 gsd-core/workflows/plan-phase.md	own	900+2	2	388169507684	a2cb40be81ef	prose
@@ -3595,7 +3605,7 @@ gsd-core/workflows/plan-review-convergence.md	own	144+5	5	0cc3cc933fdf	e2b6c90b9
 gsd-core/workflows/plan-review-convergence.md	kept	149+8	6b01856f5a1a
 gsd-core/workflows/plan-review-convergence.md	own	157+1	1	27600dd0ea2e	9075379f2700	ported-name
 gsd-core/workflows/plan-review-convergence.md	kept	158+22	f229255f9937
-gsd-core/workflows/plan-review-convergence.md	own	180+4	4	6072340a81c6	b6ebf0a726e0	prose
+gsd-core/workflows/plan-review-convergence.md	own	180+4	4	6072340a81c6	f16bc8dc8563	served
 gsd-core/workflows/plan-review-convergence.md	kept	184+3	a828be912b15
 gsd-core/workflows/plan-review-convergence.md	own	187+2	2	8f1596e4c687	020a5959c9a8	review
 gsd-core/workflows/plan-review-convergence.md	kept	189+1	ad332335cfaa
@@ -3625,7 +3635,7 @@ gsd-core/workflows/plan-review-convergence.md	own	325+1	1	d8d9124f3018	1f7e7dd43
 gsd-core/workflows/plan-review-convergence.md	kept	326+10	38b8e2fbe038
 gsd-core/workflows/plan-review-convergence.md	own	336+1	1	a7621d6bcc51	c2a08f2f1ddb	ported-name
 gsd-core/workflows/plan-review-convergence.md	kept	337+25	a77d4c9d95f3
-gsd-core/workflows/plan-review-convergence.md	own	362+3	3	5f2dc5fe8eee	ce35be0e4f6d	prose
+gsd-core/workflows/plan-review-convergence.md	own	362+3	3	5f2dc5fe8eee	dd9cb4bd93b2	review
 gsd-core/workflows/plan-review-convergence.md	kept	365+5	e64d19f9c39d
 gsd-core/workflows/plan-review-convergence.md	own	370+4	5	e62a4b06951f	ac2212829d4c	prose
 gsd-core/workflows/plan-review-convergence.md	kept	374+1	ad332335cfaa
@@ -3653,7 +3663,7 @@ gsd-core/workflows/plan-review-convergence.md	own	572+1	1	ffe49d33db01	9740ebcd4
 gsd-core/workflows/plan-review-convergence.md	kept	573+8	6aa399c92931
 gsd-core/workflows/plan-review-convergence.md	own	581+1	1	dcf74f31c149	c6ce57d80bb7	prose
 gsd-core/workflows/plan-review-convergence.md	kept	582+15	236578bf6ef8
-gsd-core/workflows/plan-review-convergence.md	own	597+4	4	cf5300fbceaa	767b59d0de7a	prose
+gsd-core/workflows/plan-review-convergence.md	own	597+4	4	cf5300fbceaa	695489b9f9e9	review
 gsd-core/workflows/plan-review-convergence.md	kept	601+8	f8836ee47efa
 gsd-core/workflows/plan-review-convergence.md	own	609+1	1	2b5238db40f9	8252c92e5a55	args
 gsd-core/workflows/plan-review-convergence.md	kept	610+1	3110c5a09c3d
@@ -4070,7 +4080,7 @@ gsd-core/workflows/quick.md	own	266+1	1	140df0bd48c7	7b4589954088	served
 gsd-core/workflows/quick.md	kept	267+1	f784a0e94b0a
 gsd-core/workflows/quick.md	own	268+3	3	0e828bef8fb9	f7dab9793d64	served
 gsd-core/workflows/quick.md	kept	271+14	db449a819dc6
-gsd-core/workflows/quick.md	own	285+1	1	6ec4eab463b9	003407dd585a	ported-name
+gsd-core/workflows/quick.md	own	285+1	1	6ec4eab463b9	7a877e28856b	ported-name
 gsd-core/workflows/quick.md	kept	286+17	a27a94688685
 gsd-core/workflows/quick.md	own	303+4	4	785762365495	da40be054262	ported-name
 gsd-core/workflows/quick.md	kept	307+17	7fc8053cb97c
@@ -4192,10 +4202,10 @@ gsd-core/workflows/quick/steps/quick-verification.md	kept	20+4	410a44c60215
 gsd-core/workflows/quick/steps/quick-verification.md	own	24+1	1	eb73f5974fab	e4720cbdde45	prose
 gsd-core/workflows/quick/steps/quick-verification.md	kept	25+10	979f52b08dd9
 gsd-core/workflows/quick/steps/quick-verification.md	own	35+6	6	8f90b498cfbf	d41106f520a6	ported-name
-gsd-core/workflows/quick/steps/quick-verification.md	kept	41+15	fb4cc0223714
-gsd-core/workflows/quick/steps/quick-verification.md	own	56+1	1	bd05b106db13	bd19d835553c	served
-gsd-core/workflows/quick/steps/quick-verification.md	kept	57+4	5af03662fcff
-gsd-core/workflows/quick/steps/quick-verification.md	own	61+5	3	ebb1d352b4cd	150339cfbda4	served
+gsd-core/workflows/quick/steps/quick-verification.md	kept	41+5	074d44f84b89
+gsd-core/workflows/quick/steps/quick-verification.md	own	46+1	1	5b5658a36218	17f1b1e4e54b	served
+gsd-core/workflows/quick/steps/quick-verification.md	kept	47+8	dcaf137e6feb
+gsd-core/workflows/quick/steps/quick-verification.md	own	55+11	5	58cb031899d2	b54ffab8d0cc	served
 gsd-core/workflows/quick/steps/quick-verification.md	kept	66+1	e3b0c44298fc
 gsd-core/workflows/quick/steps/research-phase.md	kept	1+11	cd8b20e61d7e
 gsd-core/workflows/quick/steps/research-phase.md	own	12+1	1	91d22f7a1453	6b77401db379	quick

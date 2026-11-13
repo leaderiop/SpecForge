@@ -569,7 +569,7 @@ A rebase after the start can overcount: a commit collected before it keeps its e
 The summary's `actuals.commits` is computed from this ledger, and `/gsd:verify-work` reads the same recorded
 head for its same-instrument check. Multi-repo keeps commit-to-subrepo JSON hashes instead.
 
-Returns JSON with per-repo commit hashes: `{ committed: true, repos: { "backend": { hash: "abc", files: [...] }, ... } }`. Record all hashes for SUMMARY.
+Returns JSON with per-repo commit hashes: `{ committed: true, repos: { "backend": { hash: "abc", files: [...] }, ... } }`. The summary names no hash: the commits are collected (`specforge collect --runner gsd-git --yes`) and read from the graph.
 
 **Otherwise (standard single-repo):**
 ```bash
@@ -582,7 +582,7 @@ specforge git commit -m "{type}({phase}-{plan}): {concise task description}
 
 **5. Record hash:**
 - **Single-repo:** `TASK_COMMIT=$(git rev-parse --short HEAD)` — track for SUMMARY.
-- **Multi-repo (sub_repos):** Extract hashes from `commit-to-subrepo` JSON output (`repos.{name}.hash`). Record all hashes for SUMMARY (e.g., `backend@abc1234, frontend@def5678`).
+- **Multi-repo (sub_repos):** Extract hashes from `commit-to-subrepo` JSON output (`repos.{name}.hash`). The summary names none of them: the collector reads the commits.
 
 **6. Post-commit deletion check:** After recording the hash, verify the commit did not accidentally delete tracked files:
 ```bash

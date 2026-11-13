@@ -12,15 +12,16 @@
     "</purpose>",
     "",
     "<required_reading>",
-    "Read STATE.md before any operation to load project context.",
-    "Read config.json for planning behavior settings.",
+    "Load the project context with `specforge gsd progress-report` before any operation, and the settings with",
+    "`specforge settings --format json --extension @gsd/core`.",
     "",
     "`specforge gsd reference gsd-core/references/git-integration.md --host cursor`",
     "</required_reading>",
     "",
     "<atomic_close_out_invariant>",
-    "For each executed plan, the only complete close-out order is:",
-    "`production-code commit(s) -> SUMMARY commit -> STATE/ROADMAP update`.",
+    "For each executed plan, the only complete close-out order is: the production-code commits, then the summary entity",
+    "and `specforge gsd complete-plan`, then the commit of `spec`. Progress and the roadmap are computed from the closed",
+    "plan.",
     "",
     "For a synchronous executor, the only legal half-state is mid-production-commits",
     "while the executor is still actively working. Once production commits for a plan",
@@ -58,10 +59,9 @@
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)",
     "",
     "```",
-    "",
-    "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id), and its `plan` entities are among the other nodes (a plan whose `status` is not `complete` has no summary yet). `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`; the sub-repositories are `specforge git repos`' answer; an installed agent carries its own model."
+    ""
   ],
-  "bytes": 42513,
+  "bytes": 42809,
   "end": [
     "SUMMARY_COUNT=$(specforge gsd progress-report --phase \"$PHASE_ID\" --pick '.phases[0].summaries')",
     "```",
@@ -186,7 +186,7 @@
     "",
     "```json"
   ],
-  "lines": 701,
+  "lines": 702,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:4b23d7422486c637a155678e3c3e664bb585594447e51b2b4a117632be4c691f",
+    "digest": "sha256:7778384337ff591386c5daf6c67e6535da44bf93da07cc7e441288724fd74bbd",
     "prompt": "@gsd/core@VERSION:execute_plan",
     "steps": [
       {
@@ -258,5 +258,5 @@
     ],
     "subject": "v1.0/02/02-01"
   },
-  "sha256": "4b23d7422486c637a155678e3c3e664bb585594447e51b2b4a117632be4c691f"
+  "sha256": "7778384337ff591386c5daf6c67e6535da44bf93da07cc7e441288724fd74bbd"
 }

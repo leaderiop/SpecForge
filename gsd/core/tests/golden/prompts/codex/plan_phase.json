@@ -61,7 +61,7 @@
     "collapsing plan roles into the orchestrator context.",
     ""
   ],
-  "bytes": 122667,
+  "bytes": 122638,
   "end": [
     "</file>",
     "</execution_context>",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 2074,
+  "lines": 2072,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:5e94dba4c2f173761f4f5f6f55420ffc84269595545ca3e7974643124c6e8766",
+    "digest": "sha256:c5913b2204be70ff762f2ab6c9c5714d15a9de575142b9c8b3be977a05cfa1b4",
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
@@ -240,5 +240,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "5e94dba4c2f173761f4f5f6f55420ffc84269595545ca3e7974643124c6e8766"
+  "sha256": "c5913b2204be70ff762f2ab6c9c5714d15a9de575142b9c8b3be977a05cfa1b4"
 }

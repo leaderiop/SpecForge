@@ -794,12 +794,10 @@ A concern a disposition already addressed or deferred is no longer open and requ
 **Phase requirement IDs (every ID MUST appear in a plan's `requirements` field):** {phase_req_ids}
 
 <tracked_source_paths>
-**Tracked-source paths (#3645):** Every path you write into a plan —
-`files_modified`, `must_haves.artifacts`, action paths, and paths inherited
-from `{PATTERNS_PATH}` or prior-phase plans — must name git-tracked source,
-never a gitignored install/runtime mirror (e.g. `<root>/.gsd/capabilities/<id>/...`
-synced from a plugin's tracked tree; executor edits to a mirror die on the
-next capability sync). Verify existing-file paths with `git ls-files -- <path>`
+**Tracked-source paths (#3645):** Every path a plan names — its `files_modified`, its artifacts' paths, its
+actions' paths, and paths taken from `{PATTERNS_PATH}` or an earlier phase's plans — is git-tracked source, never a
+gitignored install or runtime mirror such as `<root>/.gsd/capabilities/<id>/...`, which a capability sync overwrites
+along with the executor's edits. Verify existing-file paths with `git ls-files -- <path>`
 (non-empty = tracked); resolve a gitignored hit to its tracked origin
 (`plugins/*/.gsd/capabilities/<id>/...`, root `capabilities/<id>/...`). A
 not-yet-existing path is a new file — keep the intended path. Re-verify

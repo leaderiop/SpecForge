@@ -160,7 +160,7 @@ Display: `◆ No plans found — running initial planning inline... (plan-phase 
 Skill(skill="gsd-plan-phase", args="{PHASE}")
 ```
 
-Run plan-phase **inline** (do NOT wrap it in Agent()). The convergence orchestrator runs at depth 0 with Agent available, so inline plan-phase can spawn gsd-planner and gsd-plan-checker at depth 1 — the one level of nesting that works on Claude Code. Wrapping plan-phase in Agent() would push it to depth 1 where the Agent tool is absent, preventing it from spawning any sub-agents. Wait until plan-phase completes and the plans are committed before continuing.
+Run plan-phase **inline** (do NOT wrap it in Agent()). The convergence orchestrator runs at depth 0 with Agent available, so inline plan-phase can spawn gsd-planner and gsd-plan-checker at depth 1 — the one level of nesting that works on Claude Code. Wrapping plan-phase in Agent() would push it to depth 1 where the Agent tool is absent, preventing it from spawning any sub-agents. Continue only once plan-phase has completed and its plans are committed.
 
 After plan-phase completes, verify plans were created. This asks "did initial
 planning write files to disk" — a planner-produced-nothing check, not
@@ -331,7 +331,7 @@ Run this pass whenever the source-grounding pass ran — it is the second axis o
 
 4. **Record.** Record each finding as a concern of the round with `drift` true and no reviewers (the fence below), its `evidence` quoting both locations and its text naming the divergence and the authority, so the author can collapse the two copies to a single source of truth.
 
-**Do NOT flag:** a wording-only difference that asserts the same thing; a fact that appears in one artifact only — single-source is the target state, not a finding; a PLAN that ADDS a truth beyond the roadmap Success Criteria, which is sanctioned (plans may add, never subtract); a `lag` verdict from step 1 — two non-terminal statuses a single lifecycle step apart, in either direction, since the two statuses are recorded at different steps and either can lead as readily as trail (a disagreement about *completion* is never lag, and step 1 already reports it as `drifted`); anything under the context's `discretion` or its deferred ideas, which are non-authoritative by design.
+**Do NOT flag:** a wording-only difference that asserts the same thing; a fact that appears in one artifact only — single-source is the target state, not a finding; a PLAN that ADDS a truth beyond the roadmap Success Criteria, which is sanctioned (plans may add, never subtract); a `lag` verdict from step 1 — with @gsd/core alone step 1 is `uncheckable`, so no `lag` arises; the context's `discretion` items and its deferred ideas, which are not authoritative.
 
 **Report once, not twice — these belong to `gsd-plan-checker`:** a PLAN that omits a roadmap Success Criterion is scope reduction (Dimension 7b); a requirement ID the ROADMAP never defines is requirement coverage (Dimension 1); two PLAN.md files in one phase disagreeing is cross-plan data contracts (Dimension 9).
 
@@ -495,7 +495,7 @@ Display: `◆ Replanning inline with review feedback... (plan-phase runs here in
 Skill(skill="gsd-plan-phase", args="{PHASE} --reviews --skip-research")
 ```
 
-Run plan-phase **inline** (do NOT wrap it in Agent()). Same rationale as step 4: the convergence orchestrator runs at depth 0 with Agent available, so inline plan-phase can spawn gsd-planner and gsd-plan-checker at depth 1. Wrapping in Agent() pushes plan-phase to depth 1 where the Agent tool is absent — the replan loop can never produce a revised plan when HIGHs are found. This is the root cause of bug #936. Actionable MEDIUM/LOW findings must be incorporated into the plans' tasks or explicitly deferred/rejected on the relevant plan before convergence can complete. The same holds for any open `## Plan-Revision Conflicts` entry (#3771): the replan must resolve it by adopting one of its recorded alternatives, overriding the named constraint, or amending the constraint — and mark the entry resolved. Re-running the planner against an unchanged conflict cannot resolve it and only burns a cycle. Wait until plan-phase completes (outputs '## PLANNING COMPLETE') and the updated plans are committed before continuing.
+Run plan-phase **inline** (do NOT wrap it in Agent()). Same rationale as step 4: the convergence orchestrator runs at depth 0 with Agent available, so inline plan-phase can spawn gsd-planner and gsd-plan-checker at depth 1. Wrapping in Agent() pushes plan-phase to depth 1 where the Agent tool is absent — the replan loop can never produce a revised plan when HIGHs are found. This is the root cause of bug #936. Before convergence completes, each actionable MEDIUM/LOW finding is a task of a plan or is recorded as deferred or rejected on its plan. The same holds for any open `## Plan-Revision Conflicts` entry (#3771): the replan must resolve it by adopting one of its recorded alternatives, overriding the named constraint, or amending the constraint — and mark the entry resolved. Re-running the planner against an unchanged conflict cannot resolve it and only burns a cycle. Continue only once plan-phase has printed '## PLANNING COMPLETE' and its updated plans are committed.
 
 After plan-phase completes → go back to **step 5a** (review again).
 

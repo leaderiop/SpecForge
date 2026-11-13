@@ -44,7 +44,7 @@ machine without jq — the default on Windows/Git-Bash — which here would rout
 
 Route on `$STATUS` and store the display string as `$VERIFICATION_STATUS` (consumed by the quick index row and the completion banner).
 
-The query is **total** over the closed VerificationStatus set (#5118): beyond the verifier's own statuses it can also return `missing` (no `*-VERIFICATION.md`, or no `status` in its frontmatter), `stale` (the covered inputs changed after the verifier ran), `unparseable` (the report's frontmatter is not YAML) or `phase_dir_not_found` (no directory at `${QUICK_DIR}`). A report `status` outside `passed | gaps_found | human_needed` is not a status at all: the query exits non-zero with the reason on stderr, and the fence above stops. Which status wins when more than one applies is the query's own precedence, not this table's concern — every non-verifier status lands in the same arm here. That arm is reachable in normal operation and must never be dropped.
+The query is **total** over the closed VerificationStatus set (#5118): beyond the verifier's own statuses it can also return `missing` (the plan has no verification yet, or its verification no status), `stale` (the covered inputs changed after the verifier ran), `unparseable` or `phase_dir_not_found`. A report `status` outside `passed | gaps_found | human_needed` is not a status at all: the query exits non-zero with the reason on stderr, and the fence above stops. Which status wins when more than one applies is the query's own precedence, not this table's concern — every non-verifier status lands in the same arm here. That arm is reachable in normal operation and must never be dropped.
 
 | `$STATUS` | Action |
 |--------|--------|
@@ -53,12 +53,8 @@ The query is **total** over the closed VerificationStatus set (#5118): beyond th
 | `gaps_found` | Display gap summary, offer: 1) Re-run executor to fix gaps, 2) Accept as-is. Store `$VERIFICATION_STATUS = "Gaps"` |
 | anything else — `missing`, `stale`, `unparseable`, `phase_dir_not_found` | Do **not** improvise a result. Report that verification produced no usable status, naming `$STATUS`, then offer: 1) Re-run the verifier, 2) Accept as-is without verification. Store `$VERIFICATION_STATUS = "Unverified (${STATUS})"` |
 
-> **Why the status only, and not `next_action` / `next_command`.** The query projects those two for
-> the phase pipeline — they name `execute-phase`, `/gsd:plan-phase --gaps` and `verify-work`, and they
-> append a phase-number argument taken from the directory basename. A quick task directory is named
-> `${quick_id}-${slug}` with a date-derived `quick_id`, so that argument resolves to the date: for
-> `260808-abc-some-slug` the projected recovery command carries `260808` as its phase argument — a
-> date posing as a phase number.
-> Quick therefore supplies its own recovery actions above. The split is the point: the status is
-> computed from the verifier's verdicts on the quick plan, so it holds for a quick task; the projected
-> commands are built for a phase, and that is the half quick must not use.
+> **Why the status only, and not `next_action` / `next_command`.** The query projects those two for the
+> phase pipeline: they name `execute-phase`, `/gsd:plan-phase --gaps` and `verify-work` with a phase argument, and a
+> quick plan has no phase, so a projected command would carry its date-derived quick id as a phase number. Quick
+> therefore supplies its own recovery actions above: the status is computed from the verifier's verdicts on the quick
+> plan, so it holds for a quick task, and the projected commands are the half quick must not use.
