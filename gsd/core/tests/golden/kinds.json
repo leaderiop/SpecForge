@@ -5885,6 +5885,17 @@
             "target_kind": null
           },
           {
+            "default_value": null,
+            "description": "`reviewed:`: when `record_review` wrote the round",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "reviewed_at",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
             "append_only": true,
             "default_value": null,
             "description": "the symbols a convergence cycle could not check, and why",

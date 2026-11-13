@@ -38,6 +38,9 @@ pub const REVIEW: Kind = Kind::new(
         str("consensus").i().doc("`## Consensus Summary`"),
         strs("strengths").i().doc("`### Agreed Strengths`"),
         strs("divergent").i().doc("`### Divergent Views`"),
+        ts("reviewed_at")
+            .h()
+            .doc("`reviewed:`: when `record_review` wrote the round"),
         blocks("unchecked", UNCHECKED)
             .append()
             .doc("the symbols a convergence cycle could not check, and why"),

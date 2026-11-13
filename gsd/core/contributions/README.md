@@ -254,6 +254,7 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `pause`, `resume` | pause `at`, `by`; removes the pause |
 | `raise_blocker`, `resolve_blocker` | blocker `raised`, `resolved` |
 | `record_window`, `waive_window`, `fix_window` | broken_window `recorded_at`; `waiver`; `fixed_at` |
+| `record_review <phase> --review <json> [--round <review>]` (`specforge gsd record-review`; upstream wrote NN-REVIEWS.md) | a `review` round (`RV<n>`, scoped by its phase, in the phase's file) with its reviewers, lanes, coverage, consensus and unchecked symbols, and `reviewed_at`, and one `review_concern` (`RC<n>`) per concern, in one plan; every plan, reviewer and enum is checked first, naming where it stands. `--round` adds unchecked symbols and concerns to a recorded round, nothing else |
 | `propose_refactor`, `dispose_refactor` | refactor_proposal `score`, `baseline`, `delta`, `reasons`, `candidates`; `disposition` |
 | `record_research`, `record_spec`, `record_validation` | research, phase_spec, validation `context_pack`, recorded by the host: the pack of `gsd/phase-context` (a quick plan's research: `gsd/quick-context`) |
 | `health`, `stats`, `progress_report` (`/gsd-health`, `/gsd-stats`) | nothing: they report from the computed values of the graph |

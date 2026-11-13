@@ -528,6 +528,7 @@ fn the_review_kinds_declare_the_fields_of_the_model() {
             "consensus",
             "strengths",
             "divergent",
+            "reviewed_at",
             "unchecked",
             "open"
         ]
@@ -545,6 +546,7 @@ fn the_review_kinds_declare_the_fields_of_the_model() {
     assert_eq!(field_of("review", "lanes")["field_type"], "block_list");
     assert_eq!(field_of("review", "unchecked")["append_only"], true);
     assert_eq!(field_of("review", "open")["writer"], "computed");
+    assert_eq!(field_of("review", "reviewed_at")["writer"], "harness");
     assert_eq!(
         fields_of("review_concern"),
         [

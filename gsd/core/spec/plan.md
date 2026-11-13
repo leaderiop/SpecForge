@@ -125,7 +125,7 @@ GSD: `NN-REVIEWS.md`, the cross-AI review `/gsd-review` writes and `/gsd-plan-re
 `review` with one `review_concern` per concern, written in one call by `specforge gsd record-review <phase> --review
 '<json>'`, in the phase's file. Neither is a plan-check input: a new round stales no plan check; the replan it causes
 does. The frontmatter maps to fields (`reviewers`, `models` and `model_sources` are the `reviewers` rows,
-`plans_reviewed` is `plans`, `plan_coverage` is `coverage`); `### Agreed Concerns` are
+`plans_reviewed` is `plans`, `plan_coverage` is `coverage`, `reviewed` is `reviewed_at`); `### Agreed Concerns` are
 the concerns two or more reviewers raised, derived, not stored. The port never trims a reviewer lane, so there is no
 `trimmed_reviewers`, and convergence records one round per cycle, so the latest round is the highest `RV<n>`.
 
@@ -143,6 +143,7 @@ Name `RV1`, scoped by its phase.
 | consensus | str | I | `## Consensus Summary` |
 | strengths | strs | I | `### Agreed Strengths` |
 | divergent | strs | I | `### Divergent Views` |
+| reviewed_at | ts | H | `reviewed:`: when `record-review` wrote the round |
 | unchecked | {symbol str R, why str R}* | + | the symbols a convergence cycle could not check (`record-review --round`) |
 | open | {high int, actionable int} | C | its open concerns: `high` ones, and `actionable` ones that are neither high nor drift |
 

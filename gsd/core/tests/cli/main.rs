@@ -29,6 +29,7 @@ mod cmd_phase;
 mod cmd_quick;
 mod cmd_refactor;
 mod cmd_reports;
+mod cmd_review;
 mod cmd_smart_entry;
 mod cmd_state;
 mod cmd_surface;

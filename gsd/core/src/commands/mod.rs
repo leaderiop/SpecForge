@@ -16,6 +16,7 @@ mod quick;
 mod refactor;
 mod reference;
 pub(crate) mod reports;
+mod review;
 pub mod smart_entry;
 mod state;
 pub(crate) mod support;
@@ -59,6 +60,7 @@ pub const WRITERS: &[(&str, &str, &str)] = &[
     ("refactor_proposal", "reasons", "propose_refactor"),
     ("refactor_proposal", "candidates", "propose_refactor"),
     ("refactor_proposal", "disposition", "dispose_refactor"),
+    ("review", "reviewed_at", "record_review"),
     ("commit", "hash", "gsd-git"),
     ("commit", "task", "gsd-git"),
     ("commit", "plan", "gsd-git"),
@@ -88,6 +90,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     help::declare(c);
     reports::declare(c);
     reference::declare(c);
+    review::declare(c);
     user_story::declare(c);
     edge_probe::declare(c);
     probe_rows::declare(c);
