@@ -61,7 +61,7 @@
     "",
     "MILESTONE_NAME=\"Next\""
   ],
-  "bytes": 76057,
+  "bytes": 76102,
   "end": [
     "| CONT-03 | Phase 3 | Pending |",
     "| CONT-04 | Phase 3 | Pending |",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1835,
+  "lines": 1836,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:e41a536efbfb3ae6a5396ad39c80f4d6f851422499070a6bfb5f1c94173c221b",
+    "digest": "sha256:eca90eda833a11e674ec37ec79a7684269b8a4fedde6fdd8fc7ddae617edc457",
     "prompt": "@gsd/core@VERSION:new_milestone",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "e41a536efbfb3ae6a5396ad39c80f4d6f851422499070a6bfb5f1c94173c221b"
+  "sha256": "eca90eda833a11e674ec37ec79a7684269b8a4fedde6fdd8fc7ddae617edc457"
 }

@@ -7,7 +7,8 @@
 //! `verify` answers a verification's status, score and re-verification, `uat` a session's totals and status and a
 //! gap's resolution, `audit` a validation's coverage, a milestone audit and the windows and proposals, and `ladder` the
 //! phase's `complete` and `needs_review`, `completed`, a requirement's `gaps_found` and `project.windows_*`. `estimate`
-//! answers a plan's slices under the smart-zone budget.
+//! answers a plan's slices under the smart-zone budget. `review` answers a review concern's status and a round's open
+//! counts.
 //!
 //! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection) and `retrospective.sessions` (no harness).
 
@@ -18,6 +19,7 @@ mod execute;
 mod halt;
 pub mod ladder;
 mod progress;
+mod review;
 pub(crate) mod uat;
 pub mod verify;
 
@@ -63,6 +65,7 @@ fn derive(input: &PassInput) -> PassOutput {
     values.extend(audit::values(input, &requirements, &verified));
     values.extend(branch::values(input));
     values.extend(estimate::values(input));
+    values.extend(review::values(input));
     PassOutput {
         values,
         diagnostics: branch::diagnostics(input),

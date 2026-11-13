@@ -61,7 +61,7 @@
     "",
     "MILESTONE_NAME=\"Next\""
   ],
-  "bytes": 67579,
+  "bytes": 67624,
   "end": [
     "| CONT-03 | Phase 3 | Pending |",
     "| CONT-04 | Phase 3 | Pending |",
@@ -124,6 +124,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -183,10 +184,9 @@
     "  \"fast_mode.enabled\": false,",
     "  \"features.global_learnings\": false,",
     "  \"features.thinking_partner\": false,",
-    "  \"gates.confirm_milestone_scope\": true,",
-    "  \"gates.confirm_transition\": true,"
+    "  \"gates.confirm_milestone_scope\": true,"
   ],
-  "lines": 1721,
+  "lines": 1722,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:9d303cc2d8772343e23a074d61f375b1ea98231dd2983ce70797a1457a513aae",
+    "digest": "sha256:6babfe403c1cb286dfca7e1ab3f64cf28c1fc1017babf9601257c259bdb0b1fa",
     "prompt": "@gsd/core@VERSION:new_milestone",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "9d303cc2d8772343e23a074d61f375b1ea98231dd2983ce70797a1457a513aae"
+  "sha256": "6babfe403c1cb286dfca7e1ab3f64cf28c1fc1017babf9601257c259bdb0b1fa"
 }

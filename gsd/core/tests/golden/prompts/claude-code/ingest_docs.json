@@ -61,7 +61,7 @@
     "  test -f \"{MANIFEST_PATH}\" || echo \"MANIFEST_NOT_FOUND\"",
     "fi"
   ],
-  "bytes": 43591,
+  "bytes": 43636,
   "end": [
     "1. **Its own check list per bucket** — which conditions are BLOCKER vs WARNING vs INFO. These are domain-specific (plan ingestion checks are not doc ingestion checks).",
     "2. **The loaded context** — what it reads (ROADMAP.md, PROJECT.md, REQUIREMENTS.md, CONTEXT.md, intel files) before running checks.",
@@ -124,6 +124,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -183,10 +184,9 @@
     "  \"fast_mode.enabled\": false,",
     "  \"features.global_learnings\": false,",
     "  \"features.thinking_partner\": false,",
-    "  \"gates.confirm_milestone_scope\": true,",
-    "  \"gates.confirm_transition\": true,"
+    "  \"gates.confirm_milestone_scope\": true,"
   ],
-  "lines": 1001,
+  "lines": 1002,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:12f78d2b46e17f8822eb7c0421ae0fada668f457ddf7359094c13f2a4e690d50",
+    "digest": "sha256:523cc4860e596991501ed7664c4c1d609bd78ad76afb7aa57f3653fba04142af",
     "prompt": "@gsd/core@VERSION:ingest_docs",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "12f78d2b46e17f8822eb7c0421ae0fada668f457ddf7359094c13f2a4e690d50"
+  "sha256": "523cc4860e596991501ed7664c4c1d609bd78ad76afb7aa57f3653fba04142af"
 }

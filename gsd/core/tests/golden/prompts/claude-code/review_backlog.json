@@ -61,7 +61,7 @@
     "",
     "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
   ],
-  "bytes": 11178,
+  "bytes": 11223,
   "end": [
     "",
     "3. **Present the list to the user** via AskUserQuestion:",
@@ -124,6 +124,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -183,10 +184,9 @@
     "  \"fast_mode.enabled\": false,",
     "  \"features.global_learnings\": false,",
     "  \"features.thinking_partner\": false,",
-    "  \"gates.confirm_milestone_scope\": true,",
-    "  \"gates.confirm_transition\": true,"
+    "  \"gates.confirm_milestone_scope\": true,"
   ],
-  "lines": 238,
+  "lines": 239,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:df2a1afb3a8136ba2072499b0e8fea023a799e72c0653ec64c37ae3935605f2d",
+    "digest": "sha256:fa08c884916abfa0dabebe6ec304ba0e4053d5d7748676d2b6626f2f5ed3644f",
     "prompt": "@gsd/core@VERSION:review_backlog",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "df2a1afb3a8136ba2072499b0e8fea023a799e72c0653ec64c37ae3935605f2d"
+  "sha256": "fa08c884916abfa0dabebe6ec304ba0e4053d5d7748676d2b6626f2f5ed3644f"
 }

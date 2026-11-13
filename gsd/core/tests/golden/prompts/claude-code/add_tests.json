@@ -61,7 +61,7 @@
     "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id; `name` is its field). `response_language` is a setting: `specforge settings --format json --extension @gsd/core`.",
     ""
   ],
-  "bytes": 22196,
+  "bytes": 22241,
   "end": [
     "",
     "---",
@@ -124,6 +124,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -183,10 +184,9 @@
     "  \"fast_mode.enabled\": false,",
     "  \"features.global_learnings\": false,",
     "  \"features.thinking_partner\": false,",
-    "  \"gates.confirm_milestone_scope\": true,",
-    "  \"gates.confirm_transition\": true,"
+    "  \"gates.confirm_milestone_scope\": true,"
   ],
-  "lines": 567,
+  "lines": 568,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:c65aabebeb9595c6aeddfb5036fb2e77ff3167618b5a93f8aeaf63138add9640",
+    "digest": "sha256:6612cc4fa643e57df17e030803ff47e2a10415357e2519b41d6761ca0c4eee88",
     "prompt": "@gsd/core@VERSION:add_tests",
     "subject": "v1.0/02"
   },
-  "sha256": "c65aabebeb9595c6aeddfb5036fb2e77ff3167618b5a93f8aeaf63138add9640"
+  "sha256": "6612cc4fa643e57df17e030803ff47e2a10415357e2519b41d6761ca0c4eee88"
 }

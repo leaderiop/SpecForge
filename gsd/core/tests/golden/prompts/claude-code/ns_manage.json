@@ -61,7 +61,7 @@
     "| `/gsd-surface` | command `specforge gsd surface` (served by @gsd/core) |",
     "| `/gsd-help` | command `specforge gsd help` (served by @gsd/core) |"
   ],
-  "bytes": 11484,
+  "bytes": 11529,
   "end": [
     "| Process inbox items | gsd-inbox |",
     "| Create a clean PR branch | gsd-pr-branch |",
@@ -124,6 +124,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -183,10 +184,9 @@
     "  \"fast_mode.enabled\": false,",
     "  \"features.global_learnings\": false,",
     "  \"features.thinking_partner\": false,",
-    "  \"gates.confirm_milestone_scope\": true,",
-    "  \"gates.confirm_transition\": true,"
+    "  \"gates.confirm_milestone_scope\": true,"
   ],
-  "lines": 238,
+  "lines": 239,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:17ef17397a4e51de70b1968e301245aeb2907ebc98ae8c458322fb4b300417cb",
+    "digest": "sha256:e308d3b8531aa6cc3686cb93fc0c952dedc41b56e8431e378c962e9ef2c522fc",
     "prompt": "@gsd/core@VERSION:ns_manage"
   },
-  "sha256": "17ef17397a4e51de70b1968e301245aeb2907ebc98ae8c458322fb4b300417cb"
+  "sha256": "e308d3b8531aa6cc3686cb93fc0c952dedc41b56e8431e378c962e9ef2c522fc"
 }

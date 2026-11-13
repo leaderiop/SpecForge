@@ -61,7 +61,7 @@
     "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id; `name` is its field). `response_language` is a setting: `specforge settings --format json --extension @gsd/core`.",
     ""
   ],
-  "bytes": 22972,
+  "bytes": 23017,
   "end": [
     "",
     "---",
@@ -143,6 +143,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -183,10 +184,9 @@
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
     "",
-    "```json",
-    "{"
+    "```json"
   ],
-  "lines": 586,
+  "lines": 587,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2540bbeaaf80a4de042285f9c48e33daac7e8131ea91f68d363731d5aa7c65f2",
+    "digest": "sha256:aaf31473bef38f98f7a81a1087d775c4dbcad585dc9b943d50127c615adc0ed0",
     "prompt": "@gsd/core@VERSION:add_tests",
     "subject": "v1.0/02"
   },
-  "sha256": "2540bbeaaf80a4de042285f9c48e33daac7e8131ea91f68d363731d5aa7c65f2"
+  "sha256": "aaf31473bef38f98f7a81a1087d775c4dbcad585dc9b943d50127c615adc0ed0"
 }

@@ -61,7 +61,7 @@
     "| `/gsd-surface` | command `specforge gsd surface` (served by @gsd/core) |",
     "| `/gsd-help` | command `specforge gsd help` (served by @gsd/core) |"
   ],
-  "bytes": 12215,
+  "bytes": 12260,
   "end": [
     "| Process inbox items | gsd-inbox |",
     "| Create a clean PR branch | gsd-pr-branch |",
@@ -143,6 +143,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -183,10 +184,9 @@
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
     "",
-    "```json",
-    "{"
+    "```json"
   ],
-  "lines": 257,
+  "lines": 258,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:f4b4b3373d076abba50a44afe57c6c416dd19029fcd0e27d808cde9beafb800b",
+    "digest": "sha256:15f3718020f51160aead46efbfdc0dd28ac3a93c21aaa5ee97292596b5e0d5f7",
     "prompt": "@gsd/core@VERSION:ns_manage"
   },
-  "sha256": "f4b4b3373d076abba50a44afe57c6c416dd19029fcd0e27d808cde9beafb800b"
+  "sha256": "15f3718020f51160aead46efbfdc0dd28ac3a93c21aaa5ee97292596b5e0d5f7"
 }

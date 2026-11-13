@@ -61,7 +61,7 @@
     "collapsing plan roles into the orchestrator context.",
     ""
   ],
-  "bytes": 114951,
+  "bytes": 114996,
   "end": [
     "</file>",
     "</execution_context>",
@@ -143,6 +143,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -183,10 +184,9 @@
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
     "",
-    "```json",
-    "{"
+    "```json"
   ],
-  "lines": 1968,
+  "lines": 1969,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2171d5269c8b253ae2deda20158cf7051e9a4af2c2b4ecaa874b1cce9868ac44",
+    "digest": "sha256:e0ce40df605d6e622139e78f133f7d24d98069e78c16977823c589bea543476c",
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
@@ -240,5 +240,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "2171d5269c8b253ae2deda20158cf7051e9a4af2c2b4ecaa874b1cce9868ac44"
+  "sha256": "e0ce40df605d6e622139e78f133f7d24d98069e78c16977823c589bea543476c"
 }

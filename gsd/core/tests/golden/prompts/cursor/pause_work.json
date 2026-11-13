@@ -61,7 +61,7 @@
     "- **Default**: no detectable context → the project's handoff, note the ambiguity in `<current_state>`",
     ""
   ],
-  "bytes": 19834,
+  "bytes": 19879,
   "end": [
     "To resume: /gsd-resume-work",
     "",
@@ -143,6 +143,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -183,10 +184,9 @@
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
     "",
-    "```json",
-    "{"
+    "```json"
   ],
-  "lines": 474,
+  "lines": 475,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:20011a5cb207c3ecd5efe8bced4e5feb9e8fccb9ee777953f04a4a3809b17fcd",
+    "digest": "sha256:f7a46048c15a9a59e5a60285a441c9117e76c26b39c0fbf86c63e33ac52cc8f4",
     "prompt": "@gsd/core@VERSION:pause_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "20011a5cb207c3ecd5efe8bced4e5feb9e8fccb9ee777953f04a4a3809b17fcd"
+  "sha256": "f7a46048c15a9a59e5a60285a441c9117e76c26b39c0fbf86c63e33ac52cc8f4"
 }

@@ -61,7 +61,7 @@
     "- Extract milestone definition of done from ROADMAP.md",
     "- Extract requirements mapped to this milestone from REQUIREMENTS.md"
   ],
-  "bytes": 25397,
+  "bytes": 25442,
   "end": [
     "",
     "<success_criteria>",
@@ -143,6 +143,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -183,10 +184,9 @@
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
     "",
-    "```json",
-    "{"
+    "```json"
   ],
-  "lines": 617,
+  "lines": 618,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:eec98cc836b76eff7f14e0a59c237b073560889c1abe110426edb1aa5e84fa5c",
+    "digest": "sha256:58d59db8e5bc5c7a963ccdbaf1025d1d29263c5ca6e0c4bf23d9569164def660",
     "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "eec98cc836b76eff7f14e0a59c237b073560889c1abe110426edb1aa5e84fa5c"
+  "sha256": "58d59db8e5bc5c7a963ccdbaf1025d1d29263c5ca6e0c4bf23d9569164def660"
 }

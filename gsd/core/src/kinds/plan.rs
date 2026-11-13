@@ -173,6 +173,9 @@ pub const DISPOSITION: Kind = Kind::new(
         str("feedback").r().i().doc("the finding"),
         en("outcome", OUTCOME).r().i().doc("addressed or deferred"),
         str("reason").i().doc("why it was deferred"),
+        rf("concern", "review_concern")
+            .i()
+            .doc("the review concern it rules on; the concern's status reads the highest round"),
     ],
 )
 .append_only()

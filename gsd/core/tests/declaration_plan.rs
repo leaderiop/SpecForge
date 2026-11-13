@@ -375,7 +375,7 @@ fn the_disposition_kind_is_append_only_and_every_field_immutable() {
     assert_eq!(disposition["append_only"], true);
     assert_eq!(disposition["scoped_by"], "plan");
     let fields = disposition["fields"].as_array().expect("fields");
-    assert_eq!(fields.len(), 6);
+    assert_eq!(fields.len(), 7);
     for field in fields {
         assert_eq!(field["immutable"], true, "{}", field["name"]);
     }
@@ -406,10 +406,10 @@ fn a_setup_done_is_a_harness_block_and_the_dashboard_a_block_list() {
     assert_eq!(kind_of("user_setup")["scoped_by"], "plan");
 }
 
-/// `plan.md` lists 81 fields over its nine kinds. The model fixes: `task.commits` waits for `commit`, which is 1
+/// `plan.md` lists 81 fields over its nine kinds (the review kinds are counted on their own). The model fixes: `task.commits` waits for `commit`, which is 1
 /// fewer, and `task.verify_text`, `task.verify_paths` (gsd/E320), `checkpoint.action` and `checkpoint.verification`
 /// are 4 more: 81 - 1 + 4 = 84. `plan.gap_closure` is declared with the UAT kinds, and `artifact.state` and
-/// `key_link.state` (computed by the scan) are 2 more: 86. `plan.estimate_slices` (the smart-zone budget's answer) is 1 more.
+/// `key_link.state` (computed by the scan) are 2 more: 86. `plan.estimate_slices` (the smart-zone budget's answer) is 1 more, and `disposition.concern` 1 more.
 #[test]
 fn the_plan_kinds_declare_every_field_of_plan_md() {
     let kinds = [
@@ -424,7 +424,7 @@ fn the_plan_kinds_declare_every_field_of_plan_md() {
         "user_setup",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 81 - 1 + 4 + 2 + 3 + 1 + 1, "the kinds' fields");
+    assert_eq!(total, 81 - 1 + 4 + 2 + 3 + 1 + 1 + 1, "the kinds' fields");
 }
 
 /// The host refuses a computed field that two compute passes claim, and one that none does (W021): every `C` field of
@@ -511,4 +511,60 @@ fn the_phase_and_the_windows_declare_when_they_are_complete() {
             "{kind}"
         );
     }
+}
+
+/// A review round and its concerns (`spec/plan.md`, "Reviews and revision conflicts"): the round's rows are block
+/// lists, its open counts a computed block; a concern is append-only and its status computed.
+#[test]
+fn the_review_kinds_declare_the_fields_of_the_model() {
+    assert_eq!(
+        fields_of("review"),
+        [
+            "phase",
+            "plans",
+            "reviewers",
+            "lanes",
+            "coverage",
+            "consensus",
+            "strengths",
+            "divergent",
+            "unchecked",
+            "open"
+        ]
+    );
+    let review = kind_of("review");
+    assert_eq!(review["scoped_by"], "phase");
+    assert_eq!(
+        members(&field_of("review", "reviewers")),
+        [
+            ("name".to_string(), true),
+            ("model".to_string(), true),
+            ("source".to_string(), true)
+        ]
+    );
+    assert_eq!(field_of("review", "lanes")["field_type"], "block_list");
+    assert_eq!(field_of("review", "unchecked")["append_only"], true);
+    assert_eq!(field_of("review", "open")["writer"], "computed");
+    assert_eq!(
+        fields_of("review_concern"),
+        [
+            "review",
+            "plan",
+            "reviewers",
+            "severity",
+            "text",
+            "actionable",
+            "drift",
+            "evidence",
+            "status"
+        ]
+    );
+    let concern = kind_of("review_concern");
+    assert_eq!(concern["append_only"], true);
+    assert_eq!(concern["scoped_by"], "review");
+    assert_eq!(field_of("review_concern", "status")["writer"], "computed");
+    assert_eq!(
+        field_of("disposition", "concern")["target_kind"],
+        "review_concern"
+    );
 }

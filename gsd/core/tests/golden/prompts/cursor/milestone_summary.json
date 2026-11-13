@@ -61,7 +61,7 @@
     "",
     "**Always available:**"
   ],
-  "bytes": 20199,
+  "bytes": 20244,
   "end": [
     "```",
     "</file>",
@@ -143,6 +143,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -183,10 +184,9 @@
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
     "",
-    "```json",
-    "{"
+    "```json"
   ],
-  "lines": 475,
+  "lines": 476,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:12ee67244f9586e17bd6cf7c7f3a29e0c6ebd1d0bde3ff0a8e1dcd9896d6b8f0",
+    "digest": "sha256:81ea6f1f8edf408a00b4ab7a88dc8a63ee8e55b08c4c89829fa38b4a8b9d3245",
     "prompt": "@gsd/core@VERSION:milestone_summary",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "12ee67244f9586e17bd6cf7c7f3a29e0c6ebd1d0bde3ff0a8e1dcd9896d6b8f0"
+  "sha256": "81ea6f1f8edf408a00b4ab7a88dc8a63ee8e55b08c4c89829fa38b4a8b9d3245"
 }

@@ -529,6 +529,51 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "DispositionConcern",
+        "source_kind": "disposition",
+        "target_kind": "review_concern"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ReviewPhase",
+        "source_kind": "review",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ReviewPlans",
+        "source_kind": "review",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ReviewConcernReview",
+        "source_kind": "review_concern",
+        "target_kind": "review"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ReviewConcernPlan",
+        "source_kind": "review_concern",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "UserSetupPlan",
         "source_kind": "user_setup",
         "target_kind": "plan"
@@ -5597,6 +5642,17 @@
             "name": "reason",
             "required": false,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the review concern it rules on; the concern's status reads the highest round",
+            "edge": "DispositionConcern",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "concern",
+            "required": false,
+            "target_kind": "review_concern"
           }
         ],
         "has_body_parser": false,
@@ -5607,6 +5663,433 @@
         "name": "disposition",
         "open_fields": false,
         "scoped_by": "plan",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A cross-AI review round of a phase's plans (GSD NN-REVIEWS.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "`phase:`; parent",
+            "edge": "ReviewPhase",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": true,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "`plans_reviewed:`: the phase's plans the round read",
+            "edge": "ReviewPlans",
+            "field_type": "reference_list",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plans",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "`reviewers:`, `models:` and `model_sources:`: one row per reviewer, names unique",
+            "edge": null,
+            "field_type": "block_list",
+            "immutable": true,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "name",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "model",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "source",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "reviewers",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "each reviewer's section: summary, strengths, suggestions and risk",
+            "edge": null,
+            "field_type": "block_list",
+            "immutable": true,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "reviewer",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "summary",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "strengths",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "suggestions",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "field_type": "enum",
+                "inverse_of": null,
+                "name": "risk",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "lanes",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`plan_coverage:`: the plans each reviewer read of the total, and the ones it missed",
+            "edge": null,
+            "field_type": "block_list",
+            "immutable": true,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "reviewer",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "total",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "missing",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "coverage",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`## Consensus Summary`",
+            "edge": null,
+            "field_type": "string",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "consensus",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`### Agreed Strengths`",
+            "edge": null,
+            "field_type": "string_list",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "strengths",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`### Divergent Views`",
+            "edge": null,
+            "field_type": "string_list",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "divergent",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "append_only": true,
+            "default_value": null,
+            "description": "the symbols a convergence cycle could not check, and why",
+            "edge": null,
+            "field_type": "block_list",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "symbol",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "why",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "unchecked",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "its open concerns: `high` ones, and `actionable` ones that are neither high nor drift",
+            "edge": null,
+            "field_type": "block",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "high",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "actionable",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "open",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "review",
+        "open_fields": false,
+        "scoped_by": "phase",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "append_only": true,
+        "description": "A concern a review round raised about a plan (GSD NN-REVIEWS.md concerns)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "ReviewConcernReview",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "review",
+            "required": true,
+            "target_kind": "review"
+          },
+          {
+            "default_value": null,
+            "description": "the plan it is about",
+            "edge": "ReviewConcernPlan",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": false,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "the reviewers who raised it",
+            "edge": null,
+            "field_type": "string_list",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "reviewers",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "HIGH, MEDIUM or LOW",
+            "edge": null,
+            "enum_values": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "field_type": "enum",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "severity",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the concern",
+            "edge": null,
+            "field_type": "string",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "text",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "a concern the planner can act on (convergence counts it)",
+            "edge": null,
+            "field_type": "bool",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "actionable",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "a drift finding: advisory, never a blocker",
+            "edge": null,
+            "field_type": "bool",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "drift",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "what the reviewers cited",
+            "edge": null,
+            "field_type": "string_list",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "evidence",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the outcome of the disposition naming it with the highest round, else open",
+            "edge": null,
+            "enum_values": [
+              "open",
+              "addressed",
+              "deferred"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "review_concern",
+        "open_fields": false,
+        "scoped_by": "review",
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,

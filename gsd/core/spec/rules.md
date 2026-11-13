@@ -217,7 +217,7 @@ no agent; they bound the context a research, a spec or a validation is written a
 These are computed fields, not checks; they are listed so the parity suite can compare them with GSD's own values:
 phase status (`complete` once its verification is `passed`), plan wave, `autonomous`, plan and task status (blocked by halt propagation), a summary's duration, actuals and key files, a deliverable check's status, requirement status, milestone state,
 verification status, score and re-verification, UAT totals and status, validation status, audit status, broken-window status and the
-project's window counts, refactor proposal status, `STATE.md` progress.
+project's window counts, refactor proposal status, a review concern's status and a review round's open counts, `STATE.md` progress.
 
 ## Elsewhere
 

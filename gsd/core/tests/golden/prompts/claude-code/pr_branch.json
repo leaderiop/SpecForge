@@ -61,7 +61,7 @@
     "fi",
     ""
   ],
-  "bytes": 22407,
+  "bytes": 22452,
   "end": [
     "Planning paths in diff: {FORBIDDEN} — must be 0",
     "Planning deletions: {PLANNING_DELETIONS} (must be 0 — #3679)",
@@ -124,6 +124,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -183,10 +184,9 @@
     "  \"fast_mode.enabled\": false,",
     "  \"features.global_learnings\": false,",
     "  \"features.thinking_partner\": false,",
-    "  \"gates.confirm_milestone_scope\": true,",
-    "  \"gates.confirm_transition\": true,"
+    "  \"gates.confirm_milestone_scope\": true,"
   ],
-  "lines": 506,
+  "lines": 507,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:a3c54e57cf82c3c8ac8a40fa22ab8e172e3a256bf22054c6fcb875a2ae02356c",
+    "digest": "sha256:be18e66883ada7e5a9938c513b6bebffc53274dfd532bfae581400ef4a78b20d",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "a3c54e57cf82c3c8ac8a40fa22ab8e172e3a256bf22054c6fcb875a2ae02356c"
+  "sha256": "be18e66883ada7e5a9938c513b6bebffc53274dfd532bfae581400ef4a78b20d"
 }

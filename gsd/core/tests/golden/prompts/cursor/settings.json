@@ -61,7 +61,7 @@
     "- `workflow.plan_check` — spawn plan checker during plan-phase",
     "- `workflow.verifier` — spawn verifier during execute-phase"
   ],
-  "bytes": 46322,
+  "bytes": 46367,
   "end": [
     "These settings apply to future /gsd-plan-phase and /gsd-execute-phase runs.",
     "",
@@ -143,6 +143,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -183,10 +184,9 @@
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
     "",
-    "```json",
-    "{"
+    "```json"
   ],
-  "lines": 846,
+  "lines": 847,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:90a4bfe1df01875b3ea5563ba76b877acfda73d6bf28986049f9e9485a798dfa",
+    "digest": "sha256:1a5abf4733f32c22ebe9e9d6f4e7d095466d28d6d3b8125a0ec737965e237b4b",
     "prompt": "@gsd/core@VERSION:settings"
   },
-  "sha256": "90a4bfe1df01875b3ea5563ba76b877acfda73d6bf28986049f9e9485a798dfa"
+  "sha256": "1a5abf4733f32c22ebe9e9d6f4e7d095466d28d6d3b8125a0ec737965e237b4b"
 }

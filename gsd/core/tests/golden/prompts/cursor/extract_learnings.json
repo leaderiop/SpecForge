@@ -61,7 +61,7 @@
     "Track which optional artifacts are missing for the `missing_artifacts` frontmatter field.",
     "</step>"
   ],
-  "bytes": 21431,
+  "bytes": 21476,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -143,6 +143,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -183,10 +184,9 @@
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
     "",
-    "```json",
-    "{"
+    "```json"
   ],
-  "lines": 486,
+  "lines": 487,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:fdf94cc81d3f483e4f58f91e69f9393a76f1f54f7f682d63004ed4ae1cb7bc1a",
+    "digest": "sha256:b39de50b4b72da718d8ff4c7a6a71535660d8bffb7f97520077a2f8a0d1ab514",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "fdf94cc81d3f483e4f58f91e69f9393a76f1f54f7f682d63004ed4ae1cb7bc1a"
+  "sha256": "b39de50b4b72da718d8ff4c7a6a71535660d8bffb7f97520077a2f8a0d1ab514"
 }

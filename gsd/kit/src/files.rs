@@ -49,6 +49,7 @@ pub const PLANNING_FILES: &[(&str, &str)] = &[
         "NN-MM-PLAN.md",
         "plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup",
     ),
+    ("NN-REVIEWS.md", "review, review_concern"),
     (
         "NN-MM-SUMMARY.md",
         "summary, deliverable, deviation, decision",
@@ -102,7 +103,6 @@ pub const PLANNING_FILES: &[(&str, &str)] = &[
     ("BACKLOG.md", "ops kinds"),
     ("USER-PROFILE.md", "ops kinds"),
     // written nowhere, on purpose (the README's list under the table)
-    ("REVIEWS.md", SHOWN),
     ("reports/*.md", SHOWN),
     ("onboarding/SUMMARY.md", SHOWN),
     ("INGEST-CONFLICTS.md", SHOWN),

@@ -61,7 +61,7 @@
     "",
     "Examples:"
   ],
-  "bytes": 55892,
+  "bytes": 55937,
   "end": [
     "- question: \"How thorough should planning be?\"",
     "- header: \"Depth\"",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1235,
+  "lines": 1236,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:e2ede7957da272455b4f9f8e00e84b47d787dbb2c0c872481a03a8dd51f53653",
+    "digest": "sha256:bd9089ad0f8d564c5293a16e0ac6396c0f1069a26eee1ee551c122d6963b7343",
     "prompt": "@gsd/core@VERSION:undo"
   },
-  "sha256": "e2ede7957da272455b4f9f8e00e84b47d787dbb2c0c872481a03a8dd51f53653"
+  "sha256": "bd9089ad0f8d564c5293a16e0ac6396c0f1069a26eee1ee551c122d6963b7343"
 }

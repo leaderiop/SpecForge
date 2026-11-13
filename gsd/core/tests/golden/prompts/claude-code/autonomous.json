@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 53404,
+  "bytes": 53449,
   "end": [
     "- Missing Next Up block after completions",
     "",
@@ -124,6 +124,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -183,10 +184,9 @@
     "  \"fast_mode.enabled\": false,",
     "  \"features.global_learnings\": false,",
     "  \"features.thinking_partner\": false,",
-    "  \"gates.confirm_milestone_scope\": true,",
-    "  \"gates.confirm_transition\": true,"
+    "  \"gates.confirm_milestone_scope\": true,"
   ],
-  "lines": 1212,
+  "lines": 1213,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:518e61b769015599b01e1cd4bb36c65cde65217578f0e9edd06935f3508ed659",
+    "digest": "sha256:abec2674b129440084ec8a2359679f517a8b65e21fd37b19e52d289f020b4933",
     "prompt": "@gsd/core@VERSION:autonomous",
     "steps": [
       {
@@ -242,5 +242,5 @@
       }
     ]
   },
-  "sha256": "518e61b769015599b01e1cd4bb36c65cde65217578f0e9edd06935f3508ed659"
+  "sha256": "abec2674b129440084ec8a2359679f517a8b65e21fd37b19e52d289f020b4933"
 }

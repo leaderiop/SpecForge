@@ -61,7 +61,7 @@
     "",
     "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
   ],
-  "bytes": 19647,
+  "bytes": 19692,
   "end": [
     "",
     "3. **Present the list to the user** via AskUserQuestion:",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 356,
+  "lines": 357,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:015b5f25d997ac98ee116d674e9c2a98febac46889c7a443e8b27a1feea5d44f",
+    "digest": "sha256:810f4a8ba0ac081ccaf04c485f640db54a6099c6edb782fbea09f5bd9b8b844f",
     "prompt": "@gsd/core@VERSION:review_backlog",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "015b5f25d997ac98ee116d674e9c2a98febac46889c7a443e8b27a1feea5d44f"
+  "sha256": "810f4a8ba0ac081ccaf04c485f640db54a6099c6edb782fbea09f5bd9b8b844f"
 }

@@ -11,6 +11,7 @@ mod must_haves;
 mod plan;
 mod project;
 mod research;
+mod review;
 mod roadmap;
 mod spec;
 mod uat;
@@ -57,6 +58,8 @@ const KINDS: &[&Kind] = &[
     &must_haves::KEY_LINK,
     &must_haves::PROHIBITION,
     &plan::DISPOSITION,
+    &review::REVIEW,
+    &review::REVIEW_CONCERN,
     &plan::USER_SETUP,
     &execute::PLAN_START,
     &execute::SUMMARY,

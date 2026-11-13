@@ -38,7 +38,7 @@
     "| `$gsd-mempalace-recall` | not served on this project |",
     "| `$gsd-mempalace-capture` | not served on this project |"
   ],
-  "bytes": 18575,
+  "bytes": 18620,
   "end": [
     "}",
     "```",
@@ -163,7 +163,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 333,
+  "lines": 334,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -172,8 +172,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:06dd574aca6da4472e517af57a98873d4ecdf3db3230f68ac5d6ebcacf16e84d",
+    "digest": "sha256:104ac9cd099054a147ca7e59e5d5fc76235e4289c11a6353e892e5004693ab96",
     "prompt": "@gsd/core@VERSION:ns_context"
   },
-  "sha256": "06dd574aca6da4472e517af57a98873d4ecdf3db3230f68ac5d6ebcacf16e84d"
+  "sha256": "104ac9cd099054a147ca7e59e5d5fc76235e4289c11a6353e892e5004693ab96"
 }

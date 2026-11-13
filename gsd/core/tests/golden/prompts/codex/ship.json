@@ -61,7 +61,7 @@
     "The strategy is `git.branching_strategy` in these settings; the branch is the phase's computed `branch`.",
     ""
   ],
-  "bytes": 54594,
+  "bytes": 54639,
   "end": [
     "Commits: {count}",
     "Verification: ✓ Passed",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 934,
+  "lines": 935,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:83ae05aa5d51ae6d49690d1a4e7523f6630e4fab34a6ecb6f41967bc227ff0d4",
+    "digest": "sha256:26fb310b9eb06555d77148915f6c1331ba2e35a982d6b9bd58cd2c710d799eb5",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "83ae05aa5d51ae6d49690d1a4e7523f6630e4fab34a6ecb6f41967bc227ff0d4"
+  "sha256": "26fb310b9eb06555d77148915f6c1331ba2e35a982d6b9bd58cd2c710d799eb5"
 }

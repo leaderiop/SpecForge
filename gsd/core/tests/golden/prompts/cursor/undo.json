@@ -61,7 +61,7 @@
     "",
     "Examples:"
   ],
-  "bytes": 48234,
+  "bytes": 48279,
   "end": [
     "- question: \"How thorough should planning be?\"",
     "- header: \"Depth\"",
@@ -143,6 +143,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -183,10 +184,9 @@
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
     "",
-    "```json",
-    "{"
+    "```json"
   ],
-  "lines": 1140,
+  "lines": 1141,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:35a47e7b9362d7071c5318f14c291a10325a3588433c19838a180228b4452d2a",
+    "digest": "sha256:d11c49c7bd54014c29032d7b58434d4c8df49e2e2cc6f9f1e7ede61c7445cf13",
     "prompt": "@gsd/core@VERSION:undo"
   },
-  "sha256": "35a47e7b9362d7071c5318f14c291a10325a3588433c19838a180228b4452d2a"
+  "sha256": "d11c49c7bd54014c29032d7b58434d4c8df49e2e2cc6f9f1e7ede61c7445cf13"
 }

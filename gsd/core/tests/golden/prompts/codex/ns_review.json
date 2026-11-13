@@ -47,7 +47,7 @@
     "| `$gsd-review` | prompt `specforge.gsd.review` (served by @gsd/core) |",
     "| `$gsd-ui-phase` | not served on this project |"
   ],
-  "bytes": 18990,
+  "bytes": 19035,
   "end": [
     "Route to the appropriate quality / review skill based on the user's intent.",
     "`gsd-code-review-fix` was absorbed by `$gsd-code-review --fix` in #2790.",
@@ -172,7 +172,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 342,
+  "lines": 343,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -181,8 +181,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:20a4a34e510779086338e7aab802a86f91770803796866548acda4709e43df68",
+    "digest": "sha256:46b235ebe796d7d3ba875f7528f0f1c65b1db4ff52a4423e89a8c4bb993c3fcd",
     "prompt": "@gsd/core@VERSION:ns_review"
   },
-  "sha256": "20a4a34e510779086338e7aab802a86f91770803796866548acda4709e43df68"
+  "sha256": "46b235ebe796d7d3ba875f7528f0f1c65b1db4ff52a4423e89a8c4bb993c3fcd"
 }

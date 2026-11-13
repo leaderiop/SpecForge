@@ -61,7 +61,7 @@
     "| `$gsd-mvp-phase` | prompt `specforge.gsd.mvp_phase` (served by @gsd/core) |",
     "| `$gsd-quick` | prompt `specforge.gsd.quick` (served by @gsd/core) |"
   ],
-  "bytes": 20247,
+  "bytes": 20292,
   "end": [
     "| Advance to the next logical step | gsd-progress |",
     "| Open the state-aware smart-entry launcher | gsd-next |",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 357,
+  "lines": 358,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:da2286a461bbdc55f57a18e25befa2e6f03948ca12a17b19e8f5e5ab6037e56d",
+    "digest": "sha256:33824ae42bb65a5557791d58b375d4814747bb3907bd0aa37524b8cd56a23502",
     "prompt": "@gsd/core@VERSION:ns_workflow"
   },
-  "sha256": "da2286a461bbdc55f57a18e25befa2e6f03948ca12a17b19e8f5e5ab6037e56d"
+  "sha256": "33824ae42bb65a5557791d58b375d4814747bb3907bd0aa37524b8cd56a23502"
 }

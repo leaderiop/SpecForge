@@ -61,7 +61,7 @@
     "",
     "If `summary.parse_gap_files` is greater than 0, render this section FIRST (before the `## UAT Audit Report` below, or standalone if `total_items` is also 0). Filter `results` for entries with `parse_gap: true`:"
   ],
-  "bytes": 14559,
+  "bytes": 14604,
   "end": [
     "<step name=\"test_plan\">",
     "Generate a human UAT test plan for \"Testable Now\" + \"active\" items only:",
@@ -143,6 +143,7 @@
     "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
@@ -183,10 +184,9 @@
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
     "",
-    "```json",
-    "{"
+    "```json"
   ],
-  "lines": 347,
+  "lines": 348,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:4b0ad536d939b407bf6072f204e7bf1ede09bad0bcbf2595ec4d80b4269d41da",
+    "digest": "sha256:d24314c1b4e8c00b4adf0fb42628392b6985fc9de86837d05aa293fb2d1d6078",
     "prompt": "@gsd/core@VERSION:audit_uat",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "4b0ad536d939b407bf6072f204e7bf1ede09bad0bcbf2595ec4d80b4269d41da"
+  "sha256": "d24314c1b4e8c00b4adf0fb42628392b6985fc9de86837d05aa293fb2d1d6078"
 }

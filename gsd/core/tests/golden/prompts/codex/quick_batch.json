@@ -61,7 +61,7 @@
     "",
     "<available_agent_types>"
   ],
-  "bytes": 31839,
+  "bytes": 31884,
   "end": [
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
     "capacity/isolation, and dispatch wave-by-wave.",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 587,
+  "lines": 588,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:5a592210f86aa1905d2a33b48d9c60094a328d9abfa66bbfa015f67da4e1b7f5",
+    "digest": "sha256:cfd8a996f9e1b733a224172280c582a9e1eec4cfb106cfb10618bb7ef8b0e9c8",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "5a592210f86aa1905d2a33b48d9c60094a328d9abfa66bbfa015f67da4e1b7f5"
+  "sha256": "cfd8a996f9e1b733a224172280c582a9e1eec4cfb106cfb10618bb7ef8b0e9c8"
 }

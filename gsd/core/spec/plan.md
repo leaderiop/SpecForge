@@ -4,6 +4,7 @@
 
 ```
  phase ─1──*─ plan ─1──*─ task
+   ├──*─ review ─1──*─ review_concern   (a cross-AI review round)
                 │   ├──*─ checkpoint         (options are a block of it)
                 │   ├──*─ truth          ┐
                 │   ├──*─ artifact       │ must_haves
@@ -110,13 +111,56 @@ GSD: the `must_haves:` block. Each item is an entity, so a verifier's verdict ca
 ## disposition
 
 GSD: the plan's `## Review Dispositions Ledger`, written by `/gsd-plan-review-convergence`. Append-only. Name `DSP1`.
-`plan → plan R`, `round int R`, `reviewer str R`, `feedback str R`, `outcome enum{addressed, deferred} R`, `reason str`.
+`plan → plan R`, `round int R`, `reviewer str R`, `feedback str R`, `outcome enum{addressed, deferred} R`, `reason str`, `concern → review_concern` (the review concern it rules on: its status reads the disposition with the highest round).
 
 ## user_setup
 
 GSD: `user_setup:` and `NN-USER-SETUP.md`. Name `US1`. `plan → plan R I`, `service str R`, `why str R`,
 `env_vars` (a list of `{name str R, source str}`), `dashboard` (a list of `{task str, location str, details str}`, GSD's `dashboard_config`), `local_dev strs`;
 `done {at ts, by str}` is `H`, written when the human confirms (`confirm_setup`). Both it and a checkpoint's `answer` are inputs of the plan check, so recording one stales the plan's W311-W316 verdicts; once the plan has a summary with `completed` that is history and the gates W318 and E516 skip it (a summary merely created does not count).
+
+## Reviews and revision conflicts
+
+GSD: `NN-REVIEWS.md`, the cross-AI review `/gsd-review` writes and `/gsd-plan-review-convergence` reads. A round is a
+`review` with one `review_concern` per concern, written in one call by `specforge gsd record-review <phase> --review
+'<json>'`, in the phase's file. Neither is a plan-check input: a new round stales no plan check; the replan it causes
+does. The frontmatter maps to fields (`reviewers`, `models` and `model_sources` are the `reviewers` rows,
+`plans_reviewed` is `plans`, `plan_coverage` is `coverage`); `### Agreed Concerns` are
+the concerns two or more reviewers raised, derived, not stored. The port never trims a reviewer lane, so there is no
+`trimmed_reviewers`, and convergence records one round per cycle, so the latest round is the highest `RV<n>`.
+
+### review
+
+Name `RV1`, scoped by its phase.
+
+| Field | Type | Flags | GSD |
+|---|---|---|---|
+| phase | → phase | R I | `phase:` |
+| plans | →* plan | R I | `plans_reviewed:`: plans of the phase |
+| reviewers | {name str R, model str R, source str R}* | I | `reviewers:`, `models:`, `model_sources:`; names unique |
+| lanes | {reviewer str R, summary str R, strengths strs, suggestions strs, risk enum{low, medium, high}}* | I | each reviewer's section |
+| coverage | {reviewer str R, total int, missing strs}* | I | `plan_coverage:` |
+| consensus | str | I | `## Consensus Summary` |
+| strengths | strs | I | `### Agreed Strengths` |
+| divergent | strs | I | `### Divergent Views` |
+| unchecked | {symbol str R, why str R}* | + | the symbols a convergence cycle could not check (`record-review --round`) |
+| open | {high int, actionable int} | C | its open concerns: `high` ones, and `actionable` ones that are neither high nor drift |
+
+### review_concern
+
+Name `RC1`, scoped by its review. Append-only, every authored field immutable.
+
+| Field | Type | Flags | GSD |
+|---|---|---|---|
+| review | → review | R I | the round |
+| plan | → plan | I | the plan it is about: one the round reviewed |
+| reviewers | strs | I | who raised it; empty only for a drift finding |
+| severity | enum{high, medium, low} | R I | HIGH, MEDIUM, LOW |
+| text | str | R I | the concern |
+| actionable | bool | I | the planner can act on it |
+| drift | bool | I | a drift finding: advisory, never a blocker |
+| evidence | strs | I | what the reviewers cited |
+| status | enum{open, addressed, deferred} | C | the `outcome` of the disposition naming it (`disposition.concern`) with the highest `round`, else open |
 
 ## The plan check
 
