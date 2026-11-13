@@ -24,8 +24,8 @@ Spawned by `discuss-phase` via `Task()`. You do NOT present output directly to t
 Agent receives via prompt:
 
 - `<gray_area>` -- area name and description
-- `<phase_context>` -- phase description from roadmap
-- `<project_context>` -- brief project info
+- `<phase_context>` -- the advisor pack (`specforge context gsd/advisor-researcher <phase>`): the phase, its goal, context and decisions, and the milestone's other phases
+- `<project_context>` -- the project's core value and constraints, read from the project entity
 - `<calibration_tier>` -- one of: `full_maturity`, `standard`, `minimal_decisive`
 </input>
 

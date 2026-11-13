@@ -3,8 +3,6 @@
 # A row with no hit fails, and so does a hit with no row: take a row off in the commit that rewrites its line;
 # never add one. No row holds `.planning`.
 ../security/assets/gsd-core/workflows/secure-phase.md	Verify threat mitigations for a completed phase. Confirm the plans' threat dispositions are resolved. Update the phase's SECURITY.md, the security audit.
-agents/gsd-assumptions-analyzer.compact.md	2. Read prior CONTEXT.md (`specforge query "$MILESTONE" --depth 2 --kinds context --format brief`)
-agents/gsd-assumptions-analyzer.md	2. Read any prior CONTEXT.md files from earlier phases (find via `specforge query "$MILESTONE" --depth 2 --kinds context --format brief`)
 agents/gsd-doc-synthesizer.compact.md	- `CONFLICTS_PATH` — `INGEST-CONFLICTS.md` output (absolute, from the orchestrator, which gates on it: always write it)
 agents/gsd-doc-synthesizer.md	- `CONFLICTS_PATH` — where to write `INGEST-CONFLICTS.md` (absolute, given by the orchestrator: it reads this file to gate the ingest, so always write it, with the three-bucket header)
 commands/gsd/extract-learnings.md	Extract structured learnings from completed phase artifacts (PLAN.md, SUMMARY.md, VERIFICATION.md, UAT.md, STATE.md) into `lesson` entities that capture decisions, lessons learned, patterns discovered, and surprises encountered.

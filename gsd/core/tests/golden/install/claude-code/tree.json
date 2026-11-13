@@ -1,11 +1,11 @@
 {
   ".claude/agents/gsd-advisor-researcher.md": {
-    "bytes": 7322,
-    "sha256": "986d6bd17f3cb7073a540a1e4ce35df30796de4fdb8b964db3e5c509d10cd012"
+    "bytes": 7491,
+    "sha256": "435fada763be0857b44789c6f92da6458ce1d2b922b7986622fe89f507112c96"
   },
   ".claude/agents/gsd-assumptions-analyzer.md": {
-    "bytes": 7265,
-    "sha256": "5f3e19d002f6192603ce162c6637c07c6c61f7a9365270a1f3e1658ed61d0ac7"
+    "bytes": 7626,
+    "sha256": "713a2b3a06ee712ffaa3dfd6d87a9c43b3145421c6d5367f078df1087d06e471"
   },
   ".claude/agents/gsd-doc-classifier.md": {
     "bytes": 14092,

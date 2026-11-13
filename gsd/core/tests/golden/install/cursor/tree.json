@@ -1,11 +1,11 @@
 {
   ".cursor/agents/gsd-advisor-researcher.md": {
-    "bytes": 6847,
-    "sha256": "7e8f0374e0aa684f35d707f482fbfeafeba3420ac987576954efab2eb9b0da71"
+    "bytes": 7016,
+    "sha256": "50cfd6b9316d40ff5be62dcbf202303f8ec1ffe1f95511812b6d8fc89e807647"
   },
   ".cursor/agents/gsd-assumptions-analyzer.md": {
-    "bytes": 6863,
-    "sha256": "de27c06968924f3bbbc3714e1806457117aee3e154d21494961fdff8045752ad"
+    "bytes": 7224,
+    "sha256": "79287ce6f6791b0f865b18c3206674750c86ee9f85673f59e0b2046258dd8388"
   },
   ".cursor/agents/gsd-doc-classifier.md": {
     "bytes": 13628,

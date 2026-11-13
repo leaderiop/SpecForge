@@ -17,6 +17,7 @@ mod pick;
 mod plan_edits;
 mod probe;
 mod relics;
+mod researchers;
 mod review;
 mod roadmap;
 mod scripts;

@@ -1,11 +1,11 @@
 {
   ".codex/agents/gsd-advisor-researcher.toml": {
-    "bytes": 6901,
-    "sha256": "e5df90f583a8dac73b063666295f1918353df6cf8002876893b01d0dcfd303e2"
+    "bytes": 7070,
+    "sha256": "2a66b06b55f049e377377309cec2f2e5a32ae51bff003d2eb1a41cea06d2103f"
   },
   ".codex/agents/gsd-assumptions-analyzer.toml": {
-    "bytes": 6917,
-    "sha256": "87d115bcbd9cf0a5a1cb8ab74bfa931bf7baf71af48521c6403d756eaed54c93"
+    "bytes": 7278,
+    "sha256": "22bf8ea9336bd09b84728d0e998dff4f06745d62341cc77cf65c8a637ff9e16c"
   },
   ".codex/agents/gsd-doc-classifier.toml": {
     "bytes": 13682,

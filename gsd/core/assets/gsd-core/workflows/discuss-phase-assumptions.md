@@ -286,18 +286,22 @@ If no USER-PROFILE.md: calibration_tier = "standard"
 
 ```
 Agent(subagent_type="gsd-assumptions-analyzer", model="{ANALYZER_MODEL}", prompt="""
-Analyze the codebase for Phase {PHASE}: {phase_name}.
+Analyze the codebase for Phase {PHASE}: {phase_name} (PHASE_ID {PHASE_ID}).
+
+<required_reading>
+- specforge context gsd/assumptions-analyzer {PHASE_ID} (the analyzer pack: the phase, its requirements, the earlier phases' contexts and decisions)
+</required_reading>
 
 Phase goal: {roadmap_description}
 Prior decisions: {prior_decisions_summary}
 Codebase scout hints: {codebase_context_summary}
 Calibration: {calibration_tier}
-Locked requirements (already answered by SPEC.md; omit this line when spec_loaded = false): {locked_requirements}
+Locked requirements (already answered by the phase spec; omit this line when spec_loaded = false): {locked_requirements}
 
 Your job:
-1. Read ROADMAP.md phase {PHASE} description
-2. Read any prior CONTEXT.md files from earlier phases
-3. Glob/Grep for files related to: {phase_relevant_terms}
+1. Read the analyzer pack (`<required_reading>`)
+2. Find related work: `specforge search` for the goal terms, then `specforge anchors` for the source places an entity names (`--file <path>`: which entity claims a file)
+3. Glob/Grep for files related to: {phase_relevant_terms} that no entity is anchored to
 4. Read 5-15 most relevant source files
 5. Return structured assumptions
 6. When locked requirements are given, treat them as decided: form assumptions about HOW to implement them only, never about WHAT to build or WHY

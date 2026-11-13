@@ -36,14 +36,24 @@
 ../security/assets/gsd-core/workflows/secure-phase.md	kept	166+7	9556ec3ecbfc
 ../security/assets/gsd-core/workflows/secure-phase.md	own	173+2	2	1205d94fbfd6	be9d0b90e499	ported-name
 ../security/assets/gsd-core/workflows/secure-phase.md	kept	175+32	59470e47418b
-agents/gsd-advisor-researcher.compact.md	kept	7+80	7178879b9efa
-agents/gsd-advisor-researcher.md	kept	7+107	950717a18135
-agents/gsd-assumptions-analyzer.compact.md	kept	7+25	5d38567fbe21
-agents/gsd-assumptions-analyzer.compact.md	own	32+1	1	6541e4cff580	66acf8d0a97f	ported-name
-agents/gsd-assumptions-analyzer.compact.md	kept	33+50	d5d1696915da
-agents/gsd-assumptions-analyzer.md	kept	7+49	14c9f330b99a
-agents/gsd-assumptions-analyzer.md	own	56+1	1	410d4cf66dca	767cc71c8eb2	ported-name
-agents/gsd-assumptions-analyzer.md	kept	57+54	6349fe90ed4a
+agents/gsd-advisor-researcher.compact.md	kept	7+20	ce45c6e8a50f
+agents/gsd-advisor-researcher.compact.md	own	27+2	2	6aabc8e44dc6	4c5b1ba47fe9	agent
+agents/gsd-advisor-researcher.compact.md	kept	29+58	40ad5c199504
+agents/gsd-advisor-researcher.md	kept	7+25	77f3d8af0387
+agents/gsd-advisor-researcher.md	own	32+2	2	e2719e90a166	fb6b0df39573	agent
+agents/gsd-advisor-researcher.md	kept	34+80	032807786eab
+agents/gsd-assumptions-analyzer.compact.md	kept	7+10	054343be2ae8
+agents/gsd-assumptions-analyzer.compact.md	own	17+1	1	e7ea18ea3a12	4844e78b69a4	agent
+agents/gsd-assumptions-analyzer.compact.md	kept	18+13	de94e014cbef
+agents/gsd-assumptions-analyzer.compact.md	own	31+3	3	213a9a70af5e	3f79b39744bf	ported-name
+agents/gsd-assumptions-analyzer.compact.md	kept	34+49	794c13145ec7
+agents/gsd-assumptions-analyzer.md	kept	7+7	08002289a0e0
+agents/gsd-assumptions-analyzer.md	own	14+1	1	60631fef28cd	071a960dd4fa	agent
+agents/gsd-assumptions-analyzer.md	kept	15+13	8effd3eddcc0
+agents/gsd-assumptions-analyzer.md	own	28+2	2	aa553f1da99f	8317e71b0864	agent
+agents/gsd-assumptions-analyzer.md	kept	30+25	4a4e72ec8bbc
+agents/gsd-assumptions-analyzer.md	own	55+3	3	279fd055f04d	28da94cda878	ported-name
+agents/gsd-assumptions-analyzer.md	kept	58+53	44fd769ca4d2
 agents/gsd-doc-classifier.compact.md	kept	13+3	e01463bcbb08
 agents/gsd-doc-classifier.compact.md	own	16+1	1	2c9582237958	5d10b7efe0ae	ported-name
 agents/gsd-doc-classifier.compact.md	kept	17+13	45e7f4d3405a
@@ -2315,7 +2325,13 @@ gsd-core/workflows/discuss-phase-assumptions.md	kept	249+20	cd0c9c9b47fc
 gsd-core/workflows/discuss-phase-assumptions.md	own	269+1	1	300eeb1aacb4	269f147b89cd	prose
 gsd-core/workflows/discuss-phase-assumptions.md	kept	270+14	61605524c14a
 gsd-core/workflows/discuss-phase-assumptions.md	own	284+1	1	98fd755a54b7	6039c0176254	ported-name
-gsd-core/workflows/discuss-phase-assumptions.md	kept	285+126	3d28ea4249f5
+gsd-core/workflows/discuss-phase-assumptions.md	kept	285+7	fffdad4b4f59
+gsd-core/workflows/discuss-phase-assumptions.md	own	292+1	5	0d5e46fd23b8	220d0f13ae78	prose
+gsd-core/workflows/discuss-phase-assumptions.md	kept	293+5	10090b4fc821
+gsd-core/workflows/discuss-phase-assumptions.md	own	298+1	1	9c31397ff75d	4f49c0527c8a	prose
+gsd-core/workflows/discuss-phase-assumptions.md	kept	299+2	62c9196815b3
+gsd-core/workflows/discuss-phase-assumptions.md	own	301+3	3	db12cda0d0f0	43db2289b875	prose
+gsd-core/workflows/discuss-phase-assumptions.md	kept	304+107	19b2c5c43a4f
 gsd-core/workflows/discuss-phase-assumptions.md	own	411+1	1	0dfa1b226bc6	50018fe71485	prose
 gsd-core/workflows/discuss-phase-assumptions.md	kept	412+35	8b4dca5d8060
 gsd-core/workflows/discuss-phase-assumptions.md	own	447+98	11	d8b3e8bed07a	8bf4a3945fb6	prose
