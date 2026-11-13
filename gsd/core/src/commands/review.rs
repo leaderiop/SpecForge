@@ -537,7 +537,7 @@ fn resolve_conflict(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let graph = call.graph();
     let targets: Vec<&GraphNode> = match (call.str("conflict"), call.str("plan")) {
         (Some(_), Some(_)) | (None, None) => {
-            return Err("give one of --conflict and --plan".to_string());
+            return Err("give exactly one of --conflict, --plan".to_string());
         }
         (Some(id), None) => {
             let conflict = node(call, "revision_conflict", id)?;
@@ -613,10 +613,10 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.required().description("how the replan resolved it");
             })
             .arg("conflict", |a| {
-                a.description("the open conflict to resolve");
+                a.description("the open conflict to resolve (exactly one of --conflict, --plan)");
             })
             .arg("plan", |a| {
-                a.description("the plan whose open conflicts all resolve");
+                a.description("the plan whose open conflicts all resolve (exactly one of --conflict, --plan)");
             })
             .handler(|call| run(call, resolve_conflict));
     });
