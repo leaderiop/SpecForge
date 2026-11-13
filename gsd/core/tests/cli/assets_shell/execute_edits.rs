@@ -1,7 +1,7 @@
 //! The execute family's shell lines, run as the assets hold them on a taskboard copy under bash with only `specforge`
 //! on the `PATH`.
 
-use super::{Shell, asset, block, typed};
+use super::{Shell, asset, block, span, typed};
 use crate::harness::taskboard;
 
 /// The `<required_reading>` block of execute-phase's executor spawn: the spawn's prompt sits in a `text` fence, so the
@@ -382,16 +382,6 @@ fn the_continuation_re_records_the_executor_pack() {
         p.codes()
     );
     assert!(run.added.is_empty(), "{:?}", run.added);
-}
-
-/// The code span of `text` that starts with `prefix`, read as text: a span inside a Markdown fence counts too.
-fn span(text: &str, prefix: &str) -> String {
-    let at = text
-        .find(&format!("`{prefix}"))
-        .unwrap_or_else(|| panic!("no code span starts with {prefix}"))
-        + 1;
-    let end = text[at..].find('`').expect("the span's closing backtick");
-    text[at..at + end].to_string()
 }
 
 /// The executor's artifact self-check, as the model fills it, prints the id of an artifact whose file is missing.

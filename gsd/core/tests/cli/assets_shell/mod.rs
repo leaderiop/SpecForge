@@ -152,3 +152,13 @@ fn block(text: &str, start: &str, end: &str) -> String {
         .unwrap_or_else(|| panic!("no line after {start} contains {end}"));
     lines[a..=b].join("\n")
 }
+
+/// The code span of `text` that starts with `prefix`, read as text: a span inside a Markdown fence counts too.
+pub(super) fn span(text: &str, prefix: &str) -> String {
+    let at = text
+        .find(&format!("`{prefix}"))
+        .unwrap_or_else(|| panic!("no code span starts with {prefix}"))
+        + 1;
+    let end = text[at..].find('`').expect("the span's closing backtick");
+    text[at..at + end].to_string()
+}

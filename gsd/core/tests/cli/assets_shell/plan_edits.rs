@@ -1,7 +1,7 @@
 //! The plan family's shell lines, run as the assets hold them on a taskboard copy under bash with only `specforge` on
 //! the `PATH`.
 
-use super::{Shell, asset, block, fence_after, typed};
+use super::{Shell, asset, block, fence_after, span, typed};
 use crate::harness::taskboard;
 
 /// A review round of phase 02 with one high and one medium actionable concern, as the model fills it.
@@ -158,7 +158,8 @@ fn the_convergence_step_counts_the_open_concerns() {
         &typed::typed_fence(&text, "### 5b. Read the Open Concerns from the Graph"),
         &[("PHASE_ID", "v1.0/02")],
     );
-    let run = typed::apply(&sh, &p, &counts);
+    // the block's open-concern lines, read through `--fields` with the unit separator
+    let run = typed::apply(&sh, &p, &format!("{counts}\nprintf '%s' \"$OPEN_LINES\""));
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(
         run.out
@@ -166,6 +167,13 @@ fn the_convergence_step_counts_the_open_concerns() {
         "{}",
         run.out
     );
+    for line in [
+        "- high: The rename is not atomic on every platform",
+        "- medium: The file is never synced",
+        "- high: A lock is missing (single-reviewer, unconfirmed)",
+    ] {
+        assert!(run.out.contains(line), "{line}:\n{}", run.out);
+    }
     let drift = typed::filled(
         &typed::typed_fence(
             &text,
@@ -497,6 +505,24 @@ fn the_mvp_and_dependency_edits_change_the_phase() {
         p.fields_of("taskboard")["core_value"],
         "A board that never loses a task"
     );
+    // the planner's roadmap step fills a phase's goal
+    let goal = typed::filled(
+        &typed::typed_fence(
+            &asset("agents/gsd-planner.md"),
+            "<step name=\"update_roadmap\">",
+        ),
+        &[
+            ("PHASE_NUMBER", "03"),
+            ("GOAL", "A user sees only the tasks a filter keeps"),
+        ],
+    );
+    let run = typed::apply(&sh, &p, &goal);
+    assert_eq!(run.code, 0, "{goal}\n{}{}", run.out, run.err);
+    assert!(run.added.is_empty(), "{:?}", run.added);
+    assert_eq!(
+        p.fields_of("v1.0/03")["goal"],
+        "A user sees only the tasks a filter keeps"
+    );
 }
 
 /// The checker's coverage trace reaches the phase's requirements: both of phase 02's reach a plan, and a requirement
@@ -674,4 +700,61 @@ fn a_deferred_audit_gap_is_a_deferred_idea() {
     let idea = p.fields_of("v1.0/02/DI2");
     assert_eq!(idea["phase"], "v1.0/02", "{idea}");
     assert_eq!(idea["text"], "Export the board as CSV", "{idea}");
+}
+
+/// Plan-phase's decision coverage reads gsd/E310 the same way in its step and its gate: on a copy whose plan dropped
+/// a decision, both name it, and moving the decision into the context's discretion, as the gate's second option says,
+/// clears it.
+#[test]
+fn the_decision_coverage_reads_e310_and_discretion_clears_it() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let plans = p.read("spec/plans.spec");
+    let dropped = plans.replace(
+        "decisions        [D-01, D-02, D-03]",
+        "decisions        [D-01, D-02]",
+    );
+    assert_ne!(dropped, plans, "the twin's plan lists D-03");
+    p.write("spec/plans.spec", &dropped);
+    let text = asset("gsd-core/workflows/plan-phase.md");
+    let step = [span(
+        &text,
+        "specforge check --format json --pick '[code=gsd/E310].message'",
+    )];
+    let gate = text
+        .lines()
+        .map(str::trim)
+        .find(|l| l.starts_with("GATE_RESULT=$(specforge check"))
+        .expect("the gate's read");
+    let gate = gate.split("   #").next().expect("the line").to_string();
+    let (out, err, code) = sh.run_in(p.root(), &step[0]);
+    assert!(code <= 1, "{out}{err}");
+    assert!(out.contains("D-03"), "{out}{err}");
+    let (out, err, code) = sh.run_in(
+        p.root(),
+        &format!("{gate}\nprintf '%s|%s' \"$GATE_EXIT\" \"$GATE_RESULT\""),
+    );
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(out.starts_with("1|") && out.contains("D-03"), "{out}{err}");
+    let discretion = span(&text, "specforge set <context> discretion")
+        .replace("<context>", "v1.0/02/02-CONTEXT")
+        .replace(
+            "<each item>…",
+            "\"The indent of the JSON file\" \"A title may be trimmed\"",
+        );
+    let delete = span(&text, "specforge delete <decision>").replace("<decision>", "v1.0/02/D-03");
+    // the twin's research cites D-03 in `user_constraints`: the delete's refusal names it, so it goes first
+    let uncite = "specforge set v1.0/02/02-RESEARCH user_constraints D-01 D-02".to_string();
+    for line in [discretion, uncite, delete] {
+        let (out, err, code) = sh.run_in(p.root(), &line);
+        assert_eq!(code, 0, "{line}: {out}{err}");
+    }
+    assert_eq!(
+        p.fields_of("v1.0/02/02-CONTEXT")["discretion"][1],
+        "A title may be trimmed"
+    );
+    let (out, _, _) = sh.run_in(p.root(), &step[0]);
+    assert!(!out.contains("D-03"), "{out}");
 }

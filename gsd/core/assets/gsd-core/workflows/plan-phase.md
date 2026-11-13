@@ -1326,7 +1326,7 @@ if [ "$GATE_CFG" != "false" ]; then
   # empty arg, so an unguarded empty glob would halt a context-less phase).
   CONTEXT_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds context --pick '.nodes[kind=context].id')
   if [ -n "$CONTEXT_PATH" ]; then
-    GATE_RESULT=$(specforge check --pick '.[code=gsd/E310].message') && GATE_EXIT=0 || GATE_EXIT=$?   # E310 (decision coverage of the plans): one line per uncovered decision
+    GATE_RESULT=$(specforge check --format json --pick '[code=gsd/E310].message') && GATE_EXIT=0 || GATE_EXIT=$?   # E310 (decision coverage of the plans): one line per uncovered decision
     # 69 UNAVAILABLE (#5170) = the gate could not look: surface it and stop.
     [ "$GATE_EXIT" -le 1 ] || { echo "Decision coverage gate could not run (exit ${GATE_EXIT}): $GATE_RESULT"; exit 1; }   # 1 is a finding of the check
     # BLOCKING: refuse to mark phase planned when a trackable decision is uncovered.
@@ -1364,7 +1364,7 @@ if it should not be tracked. Then offer:
 ```text
 Options:
 1. Re-plan to cover missing decisions (recommended)
-2. Mark each dropped decision `settled false` (`specforge set <decision> settled false`), so it reads as discretion
+2. Move each dropped decision into the context's discretion: write the context's `discretion` with the decision's text added (`specforge set <context> discretion <each item>…`, one value per item), then delete the decision (`specforge delete <decision>`: a refusal names what still cites it, such as a research's `user_constraints`, which is set without it first); E310 tracks only the decisions a context records, and `settled` plays no part
 3. Proceed anyway — accept the coverage gap
 ```
 
