@@ -49,6 +49,14 @@ fn an_entity_placeholder_is_a_non_empty_path() {
     ] {
         assert_refused(&mut server, uri, "entity_id");
     }
+    // A dot segment, written or encoded, and an encoded empty segment are no entity id.
+    for uri in [
+        "specforge://graph/a/../b",
+        "specforge://graph/%2E%2E",
+        "specforge://graph/a%2F%2Fb",
+    ] {
+        assert_refused(&mut server, uri, "entity_id");
+    }
     // A path the graph lacks is not found, no longer malformed.
     let error = read_error(&mut server, "specforge://graph/alpha/x");
     assert_eq!(error["data"]["code"], "entity_not_found", "{error}");
