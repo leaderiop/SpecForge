@@ -167,13 +167,16 @@ fn known(names: &BTreeSet<&str>, at: &str, reviewer: &str) -> Result<(), String>
     }
 }
 
+/// A concern to create: its heading and its fields (without `review`).
+type Concern = (String, Map<String, Value>);
+
 /// The concerns of a round, checked, as `create` fields (without `review`).
 fn concerns(
     call: &CommandCall<'_>,
     doc: &Reader<'_>,
     plans: &BTreeSet<&str>,
     names: &BTreeSet<&str>,
-) -> Result<Vec<(String, serde_json::Map<String, Value>)>, String> {
+) -> Result<Vec<Concern>, String> {
     let mut out = Vec::new();
     for row in doc.rows("concerns")? {
         row.only(&[
@@ -391,11 +394,10 @@ fn record_review(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         }
     };
     let first = next_id(graph, "review_concern", &format!("{review}/"), "RC");
-    let mut number: u64 = first[2..].parse().unwrap_or(1);
+    let number: u64 = first[2..].parse().unwrap_or(1);
     let mut created = Vec::new();
-    for (heading, mut values) in concerns(call, &doc, &plans, &names)? {
-        let name = format!("RC{number}");
-        number += 1;
+    for (n, (heading, mut values)) in (number..).zip(concerns(call, &doc, &plans, &names)?) {
+        let name = format!("RC{n}");
         values.insert("review".to_string(), json!(review));
         edit.create(
             "review_concern",
