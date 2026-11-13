@@ -261,16 +261,32 @@ pub fn trace(
     target: Target,
     follow: Follow,
 ) -> Result<Noticed<TraceOutcome>, Refusal<TraceField>> {
-    if let Target::Entity(entity_id) = target {
-        return Ok(trace_one(view, entity_id, follow)?.map(TraceOutcome::One));
-    }
-    let mut tracer = Tracer::new(view, follow)?;
-    let nodes = match target {
+    match target {
+        Target::Entity(entity_id) => Ok(trace_one(view, entity_id, follow)?.map(TraceOutcome::One)),
         Target::Within(entity_id) => {
-            within(view.graph(), view.entity(entity_id, TraceField::In)?.node)
+            Ok(trace_within(view, entity_id, follow)?.map(TraceOutcome::Every))
         }
-        Target::Entity(_) | Target::Every => view.graph().nodes(),
-    };
+        Target::Every => {
+            let tracer = Tracer::new(view, follow)?;
+            Ok(traces(view, tracer, view.graph().nodes()).map(TraceOutcome::Every))
+        }
+    }
+}
+
+/// Every entity within `entity_id` traced ([`within`]): the document of a trace of every entity, bounded by the
+/// entity's scope and one reference away. An entity the graph lacks is not found about `in`.
+pub fn trace_within(
+    view: &ProjectView,
+    entity_id: &str,
+    follow: Follow,
+) -> Result<Noticed<Traces>, Refusal<TraceField>> {
+    let tracer = Tracer::new(view, follow)?;
+    let node = view.entity(entity_id, TraceField::In)?.node;
+    Ok(traces(view, tracer, within(view.graph(), node)))
+}
+
+/// `nodes` traced in id order, those of a named route's start kind only.
+fn traces<'a>(view: &ProjectView, mut tracer: Tracer<'a>, nodes: Vec<&Node>) -> Noticed<Traces> {
     let mut nodes: Vec<&Node> = nodes
         .into_iter()
         .filter(|node| {
@@ -281,10 +297,10 @@ pub fn trace(
         .collect();
     nodes.sort_by(|a, b| a.id.raw.as_str().cmp(b.id.raw.as_str()));
     let traces = nodes.into_iter().map(|node| tracer.trace(node)).collect();
-    Ok(tracer.noticed(TraceOutcome::Every(Traces {
+    tracer.noticed(Traces {
         schema_version: view.versioned_schema().version().to_string(),
         traces,
-    })))
+    })
 }
 
 /// The entities a trace within `node` follows: `node`, every entity its scope holds at any depth, and every entity

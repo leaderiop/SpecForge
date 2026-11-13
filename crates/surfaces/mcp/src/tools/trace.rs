@@ -4,8 +4,7 @@ use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_ops::read::plan::{AgentPlan, PlanOutcome};
 use specforge_ops::read::trace::{
-    Ask, RouteTrace, Target, Trace, TraceChain, TraceDocument, TraceField, TraceOutcome,
-    TraceRequest, Traces,
+    Ask, RouteTrace, Target, Trace, TraceChain, TraceDocument, TraceField, TraceRequest, Traces,
 };
 use specforge_ops::view::ProjectView;
 
@@ -94,13 +93,10 @@ impl CoreTool for Tool {
                 return Ok(Reply::Plan(specforge_ops::read::plan::check(&view, plan)).into());
             }
             Ask::Trace(Target::Entity(entity_id), follow) => (entity_id, follow),
-            Ask::Trace(target @ Target::Within(_), follow) => {
-                let traced = specforge_ops::read::trace::trace(&view, target, follow)
+            Ask::Trace(Target::Within(entity_id), follow) => {
+                let traced = specforge_ops::read::trace::trace_within(&view, entity_id, follow)
                     .map_err(|refusal| Box::new(Self::refused(refusal)))?;
-                return Ok(Answer::noticed(traced.map(|outcome| match outcome {
-                    TraceOutcome::Every(traces) => Reply::Traces(traces),
-                    TraceOutcome::One(_) => unreachable!("a trace within an entity traces a list"),
-                })));
+                return Ok(Answer::noticed(traced.map(Reply::Traces)));
             }
             Ask::Trace(Target::Every, _) => {
                 return Err(every_is_not_offered("entity_id, in or plan"));
