@@ -270,14 +270,10 @@ fn the_uat_step_writes_a_uat_session() {
             "**Step A: Persist human verification items",
         ),
         &[
-            ("PHASE_ID", "v1.0/01"),
-            // the twin's phase 01 already holds the session `01-UAT`
-            ("SESSION_ID", "01-HUMAN-UAT"),
-            ("TITLE", "Phase 01: human verification"),
-            (
-                "SOURCE",
-                "v1.0/01/01-01/01-01-SUMMARY,v1.0/01/01-02/01-02-SUMMARY",
-            ),
+            ("PHASE_ID", "v1.0/02"),
+            ("{the phase number}", "02"),
+            ("TITLE", "Phase 02: human verification"),
+            ("SOURCE", "v1.0/01/01-01/01-01-SUMMARY"),
             ("STARTED", "2026-11-13T10:00:00Z"),
             ("TEST_TITLE", "The usage line reads well"),
             (
@@ -289,10 +285,10 @@ fn the_uat_step_writes_a_uat_session() {
     let run = typed::apply(&sh, &p, &uat);
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(run.added.is_empty(), "{:?}", run.added);
-    let session = p.fields_of("v1.0/01/01-HUMAN-UAT");
-    assert_eq!(session["phase"], "v1.0/01", "{session}");
-    let test = p.fields_of("v1.0/01/01-HUMAN-UAT/U1");
-    assert_eq!(test["session"], "v1.0/01/01-HUMAN-UAT", "{test}");
+    let session = p.fields_of("v1.0/02/02-UAT");
+    assert_eq!(session["phase"], "v1.0/02", "{session}");
+    let test = p.fields_of("v1.0/02/02-UAT/U1");
+    assert_eq!(test["session"], "v1.0/02/02-UAT", "{test}");
     assert!(
         test["result"].is_null(),
         "the result is the person's: {test}"
@@ -300,7 +296,8 @@ fn the_uat_step_writes_a_uat_session() {
 }
 
 /// The manager's background prompts tell a stuck agent to raise a blocker on its phase; each backticked line runs as
-/// written once the agent fills the text and the phase number progress-report prints, and leaves one open blocker.
+/// written once the agent fills the text, and the milestone and phase number progress-report prints, and leaves one
+/// open blocker.
 #[test]
 fn the_manager_blocker_line_raises_a_blocker() {
     let Some(sh) = Shell::only(&[]) else {
@@ -318,6 +315,7 @@ fn the_manager_blocker_line_raises_a_blocker() {
         let filled = line
             .replace("<the blocker>", "the plan needs a schema decision")
             .replace("<the error>", "permission denied for npm test")
+            .replace("{milestone_version}", "v1.0")
             .replace("{N}", "02");
         let run = typed::apply(&sh, &p, &filled);
         assert_eq!(run.code, 0, "{filled}: {}{}", run.out, run.err);
