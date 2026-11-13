@@ -349,8 +349,11 @@ impl Check<'_> {
                     entry.source_extension()
                 )));
             }
-            if records.iter().any(|r| r.kind == kind && r.field == field) {
-                return Err(at("the route records the field twice".into()));
+            // The record and its check find a kind's record by kind, so a second field of one kind would never be read.
+            if records.iter().any(|r| r.kind == kind) {
+                return Err(at(format!(
+                    "a route records one field per kind, and it records kind '{kind}' twice"
+                )));
             }
             let subject = match Selector::parse(&declared.subject) {
                 Ok(Selector::Entities(chain)) if chain.head == Head::This => chain,

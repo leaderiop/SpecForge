@@ -31,6 +31,9 @@ fn work(f: impl FnOnce(&mut ContributionsBuilder)) -> ExtensionDeclaration {
             })
             .field("pack", |f| {
                 f.context();
+            })
+            .field("again", |f| {
+                f.context();
             });
         });
         c.kind("task", |k| {
@@ -588,7 +591,12 @@ fn a_record_the_registry_cannot_hold_is_e123_and_the_route_not_registered() {
         (
             &[("plan.pack", "self"), ("plan.pack", "self")],
             Some("W901"),
-            "the route records the field twice",
+            "records kind 'plan' twice",
+        ),
+        (
+            &[("plan.pack", "self"), ("plan.again", "self")],
+            Some("W901"),
+            "a route records one field per kind",
         ),
     ];
     for (records, stale, why) in cases {

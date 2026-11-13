@@ -104,7 +104,8 @@ verdict may read, so it is in the entity digest: recording it staled every verdi
   `stale: "<code>"`, both or neither. The route is E123 (not registered) when a record's field is not `kind.field`,
   its kind is not loaded, the field is not declared, not written `context`, declared by another extension or not of
   the record shape; when its subject is not a chain with head `self` or does not type-check from the kind to the
-  route's subject kind; when the route records a field twice; or when the code is not in its extension's catalogue.
+  route's subject kind; when the route records two fields of one kind (a record is found by its entity's kind); or
+  when the code is not in its extension's catalogue.
 - **D11 Recording.** An edit plan's `record_context {entity, route, max_tokens?}`: the route records the entity's
   kind; the subject is derived from the entity by the record's selector, exactly one; the pack is computed over the
   view the plan applies to, at `max_tokens` or the route's budget; the host writes the block and its ledger line.
