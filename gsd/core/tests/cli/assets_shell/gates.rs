@@ -498,3 +498,31 @@ fn a_blocker_raised_from_execute_plan_holds_the_words_alone() {
     assert_eq!(code, 0, "{out}{err}");
     assert_eq!(p.fields_of("BL1")["text"], "The file format is undecided");
 }
+
+/// A tripped TDD gate stops the plan and records nothing: the person who resumes finds no trace of the trip.
+#[test]
+fn a_tripped_tdd_gate_records_nothing() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = crate::harness::taskboard();
+    let gate = fence_after(
+        &asset("gsd-core/workflows/execute-phase.md"),
+        "**TDD gate.**",
+    );
+    assert!(
+        gate.starts_with("if [ \"$TDD_MODE\" = \"true\" ]; then"),
+        "{gate}"
+    );
+    let before = p.nodes_of("blocker").len();
+    let (out, err, code) = sh.run_in(
+        p.root(),
+        &format!("TDD_MODE=true\nPLAN_ID=02-01\nTASK_ID=T1\n{gate}"),
+    );
+    assert_eq!(code, 1, "{out}{err}");
+    assert_eq!(
+        out, "TDD GATE TRIPPED: missing RED commit for 02-01/T1\n",
+        "{err}"
+    );
+    assert_eq!(p.nodes_of("blocker").len(), before);
+}
