@@ -917,12 +917,15 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `default_registry`; with neither, none does, and the operation refuses with R-OPS-001 before any
   request (`specforge_ops_registry::Configured::registry_for`, ADR 0045); a `registries` entry that can't be
   read refuses every registry operation with E067 first, so a scope it claims never falls to the default. `add`, `update` and
-  `publish` ask that one registry; `search` asks every entry. A registry credential is kept under
+  `publish` ask that one registry; `extensions search` asks every entry. A registry credential is kept under
   the registry's root (`login --registry <alias>`, else the default registry's; `logout --url <root>` needs no project).
-- **Search hit**: one package a registry search lists: a package name, the SemVer version `latest` picks among its
+- **Search hit**: one package a registry search (`specforge extensions search`) lists: a package name, the SemVer version `latest` picks among its
   stored versions, its declaration's description (printable) and, once merged, the registry it was found in
   (`specforge_registry_wire::SearchHit`, `specforge_ops::registry::Found`, ADR 0231). A reply holding a hit that is
   neither is that registry's failure (R009); a registry serves no stored package whose name is no package name.
+- **Entity hit**: one entity an entity search finds (`specforge search`, `specforge.search`): its id, kind, title, file
+  and line, its rank's score, and for a match in a field's text the field and the text around it
+  (`specforge_ops::read::query::EntityHit`, ADR 0355).
 - **Printable text**: text another program supplies (a registry's reply or error, an extension's answer), as SpecForge
   writes it into a message or a listing: each control character and bidirectional control as its `\u{..}` escape
   (`specforge_common::remedy::printable`, ADR 0231). Applied where the text enters, and by a registry error's writer as a
@@ -1508,12 +1511,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Resource spec**: the single definition of a core MCP resource: one module under `specforge_mcp::resources`
   implementing `CoreResource` once (its URI or template, name, description, MIME type, what it changes with and its
   read of the project view); `CORE_RESOURCES` lists each once, seen as a `ResourceSpec` (ADR 0103). A graph view
-  (`graph`, `context`, `brief`, scoped or not, and `graph/{entity_id}`) is `specforge export` over the call's project
+  (`graph`, `context`, `brief`, scoped or not, and `graph/{+entity_id}`) is `specforge export` over the call's project
   view; the entity list and the diagnostics read what `specforge.list` and `specforge.validate` read. A URI names a
   resource, core or extension, by one rule (`specforge_mcp`'s `uri_template::names`): a template names every URI that
   starts with its text before the first placeholder, a URI without one names itself, alone or with a query. A core
-  template reads each placeholder as one non-empty, percent-decoded path segment and refuses any other value as
-  `invalid_input` naming it (`uri_template::read`); a query is the reader's to read or refuse (ADR 0049, ADR 0103).
+  template reads each placeholder as one non-empty, percent-decoded path segment, and a reserved one (`{+entity_id}`,
+  always last) as the rest of the path, each segment non-empty, and refuses any other value as `invalid_input` naming
+  it (`uri_template::read`); a query is the reader's to read or refuse (ADR 0049, ADR 0103, ADR 0355).
 - **Stateless request**: an MCP request whose `_meta` names its protocol version (MCP 2026-07-28),
   answered on its own without `initialize`; every other request follows the revision `initialize`
   negotiated (`specforge_mcp::modern`). Every request is served under its revision, which travels
@@ -1646,7 +1650,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Scope**: the entity a kind's `scoped_by` reference field names (a phase for a decision); a name is unique within
   its scope and kind (E002, W060), and the project is the scope of an entity with none (ADR 0284).
 - **Path**: an entity's ID, its scope's path and its name joined by `/` (`v1.0/03/D-01`); an unscoped entity's path is its
-  name. A reference writes a path one name at a time, relative to its holder or rooted by a leading `/`.
+  name. A reference writes a path one name at a time, relative to its holder or rooted by a leading `/`. The entity
+  templates take it as written, `/` included (`specforge://graph/{+entity_id}`, ADR 0355).
 - **Shortest spelling**: the fewest trailing names of a path that still resolve to the entity from a given holder
   (`D-01`, `03/D-01`, `/D-01`); what an edit, completion or a fix writes (`Scopes::spell`), never what a report shows.
 - **Bare word**: the one word a field value, a list item, an entity header's name or a selective `use` binding is
@@ -1860,6 +1865,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Thread**: what `trace` prints along a route: the start and each step's matches, joined by ` → ` on one line when no
   step has more than one, else a tree. It is complete when one path reaches every step; only a complete thread prints
   by default, a partial one with `--partial` (ADR 0330).
+- **Within**: the entities a trace within an entity follows (`trace --in`, MCP `in`): the entity, every entity its
+  scope holds at any depth, and every entity one reference away from one of those, either way; a named route keeps
+  those of its start kind (ADR 0355).
 - **Result field**: the enum field of a collector-written kind that holds a fact's result, its values `TestStatus`
   names (`KindBuilder::result`, ADR 0329 D3); what a judged `test(..)` input and a reader of a reference to the fact
   take as its result (ADR 0331 D6).

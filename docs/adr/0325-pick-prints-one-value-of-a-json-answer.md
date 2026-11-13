@@ -3,7 +3,7 @@
 **Status:** accepted (2026-11-01, GSD follow-ups G4, plan 03; amended by plan 05: `check`, `settings` and `export`
 take it, D6; the selector takes any key and `.` is the whole answer, D1; a dotted key and a scalar that is not a
 string, D1a; `--fields` rows on `query` and `export`, D7; amended 2026-11-05 by the S1 round: the shapes `--count`,
-`--first`, `--last` and `--join`, D8; D2 reaffirmed 2026-11-12). Extends [ADR 0318](0318-a-command-is-told-its-host.md) (a host option added
+`--first`, `--last` and `--join`, D8; D2 reaffirmed 2026-11-12; amended by [ADR 0355](0355-a-read-a-prompt-needs-has-a-cli-twin-and-takes-a-path-id-as-written.md): `search` and `refs` take it, D6). Extends [ADR 0318](0318-a-command-is-told-its-host.md) (a host option added
 unless a command declares the name). No wire change.
 
 ## Context

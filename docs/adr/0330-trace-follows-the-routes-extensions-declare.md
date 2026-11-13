@@ -7,7 +7,7 @@
 [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (the selector grammar, judgement state) and
 [ADR 0299](0299-the-graph-a-call-receives-carries-what-every-surface-shows.md) (judgements are read, not sent). Amends
 [ADR 0029](0029-operations-decide-their-failure-and-verdict.md) D5b. Ships in extension protocol 1.15.0, with
-[ADR 0327](0327-a-collectors-facts-are-read-only-entities-recorded-by-digest.md).
+[ADR 0327](0327-a-collectors-facts-are-read-only-entities-recorded-by-digest.md). Amended by [ADR 0355](0355-a-read-a-prompt-needs-has-a-cli-twin-and-takes-a-path-id-as-written.md) (D3 and D7: a route over the entities within one, `trace --in`).
 
 ## Context
 
