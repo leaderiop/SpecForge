@@ -196,18 +196,15 @@ Agent(
 
 Execute: Skill(skill='gsd-review', args='--phase {PHASE} {REVIEWER_FLAGS}')
 
-Complete the full review workflow. Do NOT return until REVIEWS.md is committed.
+Complete the full review workflow. Do NOT return until the review round is recorded and committed.
 
-IMPORTANT — CYCLE_SUMMARY contract (required):
-Your final response MUST include a machine-readable line of exactly this form:
+IMPORTANT — recording contract (required):
+The round you record holds this cycle's CURRENT concerns: convergence counts its open HIGH and open
+actionable concerns from the graph (`open.high`, `open.actionable` of the round), never from your
+return message. Each concern that remains unresolved is an item of the round's `concerns`.
 
-  CYCLE_SUMMARY: current_high=<N> current_actionable=<M>
-
-Where <N> is the integer count of HIGH-severity concerns that REMAIN UNRESOLVED in this cycle's findings.
-Where <M> is the integer count of actionable MEDIUM/LOW concerns that REMAIN UNRESOLVED because the latest PLAN.md files do not yet incorporate them or explicitly defer/reject them.
-
-Consensus gate (applies to NEWLY RAISED HIGHs only; evaluate before the counting rules below):
-  This gate engages ONLY when 2 or more reviewers actually ran and produced a review section this
+Consensus gate (applies to NEWLY RAISED HIGHs only; evaluate before the recording rules below):
+  This gate engages ONLY when 2 or more reviewers actually ran and produced a review this
   cycle. With exactly one reviewer, skip this entire gate — a single reviewer's HIGH always counts,
   exactly as before.
 
@@ -225,7 +222,7 @@ Consensus gate (applies to NEWLY RAISED HIGHs only; evaluate before the counting
   For a HIGH raised by exactly ONE reviewer:
     - EXISTENCE-CLASS — counts only if the source-grounding pass independently confirms it against
       real project source, or another reviewer raised the same or a materially overlapping concern
-      (i.e. it lands in REVIEWS.md's Consensus Summary "Agreed Concerns").
+      (i.e. it is one of the round's agreed concerns).
     - JUDGMENT-CLASS — counts UNLESS that reviewer's own section OPENS with an evidence-quality
       discount marker blockquote: `[reviewed-without-source-citations]` or
       `[reviewed-without-repo-access]`, or the reviewer is a diff-only lane (CodeRabbit). The marker
@@ -241,39 +238,32 @@ Consensus gate (applies to NEWLY RAISED HIGHs only; evaluate before the counting
   apply at all — count as if it were absent. A gate must never manufacture convergence out of a
   cycle in which nothing was verified.
 
-  A HIGH suppressed by this gate is still listed under "## Current HIGH Concerns", tagged
-  `(single-reviewer, unconfirmed)`. It is excluded from current_high only — never silently dropped,
-  and never removed from the report.
+  A HIGH suppressed by this gate is still recorded, its text tagged `(single-reviewer, unconfirmed)`,
+  with severity `medium` and `actionable` false: counted in neither, never silently dropped, and
+  never removed from the round.
 
-  This gate governs current_high only. current_actionable is unaffected.
+  This gate governs HIGHs only. Actionable non-HIGH concerns are unaffected.
 
-Counting rules:
-  INCLUDE in the count:
+Recording rules:
+  RECORD as a concern of this round:
     - Newly raised HIGHs in this cycle (subject to the consensus gate above)
     - PARTIALLY RESOLVED HIGHs: concern acknowledged and a mitigation is in progress, but not yet verified/completed
     - Previously raised HIGHs that are still unresolved
+    - Actionable MEDIUM/LOW concerns, with `actionable` true
 
-  EXCLUDE from the count:
+  DO NOT RECORD as a concern:
     - FULLY RESOLVED HIGHs: concern addressed with verification complete (closed ticket, verification log, or reviewer sign-off)
     - HIGH mentions in retrospective/summary tables comparing cycles
     - Quoted excerpts from prior reviews referencing past HIGH items
-    - MEDIUM/LOW concerns that are already incorporated into a PLAN.md task, action, acceptance_criteria, verify command, must_haves item, threat model, artifact list, or explicit deferral/rejection rationale
+
+  A MEDIUM/LOW concern already incorporated into a plan's task, action, acceptance criteria, verify command, truth, threat, artifact, or a deferral disposition is recorded with `actionable` false.
 
 Definitions:
   PARTIALLY RESOLVED — concern acknowledged and mitigation is in progress but not yet verified/completed (e.g., open ticket exists but fix not landed).
   FULLY RESOLVED — concern addressed with verification complete (closed ticket, verification log, or explicit reviewer sign-off confirming closure).
-  ACTIONABLE — a non-HIGH review finding that would be invisible to /gsd:execute-phase unless it is incorporated into PLAN.md or explicitly deferred/rejected in PLAN.md.
+  ACTIONABLE — a non-HIGH review finding that would be invisible to /gsd:execute-phase unless a plan incorporates it or a disposition defers it.
 
-Your final response MUST also include this section immediately after the CYCLE_SUMMARY line:
-
-## Current HIGH Concerns
-[List each unresolved HIGH with a brief description, one per bullet]
-[If none: write exactly 'None.']
-
-## Current Actionable Non-HIGH Concerns
-[List each unresolved actionable MEDIUM/LOW with a brief description and the PLAN.md change still needed, one per bullet]
-[If none: write exactly 'None.']
-These two sections MUST be the final content of your response, in this exact order, with no additional "## " headings after them (the source-grounding "Verification coverage" block is appended to REVIEWS.md, not to this return message).",
+Your final response names the review round you recorded.",
   mode="auto"
 )
 ```
@@ -302,7 +292,7 @@ Run this pass unless `plan_review.source_grounding` is `false`. It verifies ever
    - `hardBlock: false`, severity `needs-acknowledgement` — plan proceeds only if the author confirms the symbol is genuinely new or dynamically resolved, and that acknowledgement is recorded.
    - `AMBIGUOUS` → MEDIUM. `UNCHECKABLE` → INFO.
    - Signature mismatches cannot be asserted under `grep`/`intel`; report the signature as UNCHECKABLE.
-5. **Coverage block.** Append a "Verification coverage" section to `REVIEWS.md` listing every UNCHECKABLE/skipped symbol and why — a clean review must never silently mean "nothing was checked."
+5. **Coverage block.** Record every UNCHECKABLE/skipped symbol and why as an `unchecked` item of the round (the fence after the drift pass) — a clean review must never silently mean "nothing was checked."
 
 ### Cross-artifact fact-drift pass (same gate: `plan_review.source_grounding`)
 
@@ -339,7 +329,7 @@ Run this pass whenever the source-grounding pass ran — it is the second axis o
    2. the two representations *contradict*, one asserting what the other denies, rather than differing in wording or in level of detail; and
    3. the pair is one of the judgment pairs above.
 
-4. **Record.** Emit each finding into `REVIEWS.md` beside the source-grounding coverage block, quoting both locations and naming the divergence and the authority, so the author can collapse the two copies to a single source of truth.
+4. **Record.** Record each finding as a concern of the round with `drift` true and no reviewers (the fence below), its `evidence` quoting both locations and its text naming the divergence and the authority, so the author can collapse the two copies to a single source of truth.
 
 **Do NOT flag:** a wording-only difference that asserts the same thing; a fact that appears in one artifact only — single-source is the target state, not a finding; a PLAN that ADDS a truth beyond the roadmap Success Criteria, which is sanctioned (plans may add, never subtract); a `lag` verdict from step 1 — two non-terminal statuses a single lifecycle step apart, in either direction, since STATE.md is written at planning time independently of ROADMAP.md and can lead as readily as trail (a disagreement about *completion* is never lag, and step 1 already reports it as `drifted`); anything under CONTEXT.md's `Claude's Discretion` or `Deferred Ideas`, which are non-authoritative by design.
 
@@ -347,118 +337,53 @@ Run this pass whenever the source-grounding pass ran — it is the second axis o
 
 **Severity: advisory, never a blocker.** This pass never sets `hardBlock`, and its findings contribute to neither `HIGH_COUNT` nor `ACTIONABLE_COUNT` — a project carrying pre-existing drift must still be able to converge, or an advisory check becomes an endless replan loop.
 
-**Coverage, never silence.** If STATE.md or CONTEXT.md is absent, that axis is skipped and the skip is recorded in the same "Verification coverage" block. A clean pass must never mean "nothing was compared."
+**Coverage, never silence.** If one side of a pair is absent (the phase's status or its context), that axis is skipped and the skip is recorded as an `unchecked` item of the round. A clean pass must never mean "nothing was compared."
 
-After agent returns, verify REVIEWS.md exists. Assign the path directly and quote it — an unquoted
-`${phase_dir}` inside `$(ls …)` word-splits and glob-expands, and a discarded stderr hides it (#3899):
+**Record the coverage block and the drift findings** on the round the review agent recorded, filling the additions
+(the `--round` and `--review` options of `specforge gsd record-review`; no line when there is nothing to add):
+
 ```bash
-if [ -z "${phase_dir}" ]; then
-  echo "ERROR: phase_dir is empty — cannot resolve the expected REVIEWS.md path." >&2
-  exit 1
-fi
-REVIEWS_FILE="${phase_dir}/${padded_phase}-REVIEWS.md"
-if [ ! -f "${REVIEWS_FILE}" ] || [ ! -r "${REVIEWS_FILE}" ]; then
-  echo "ERROR: expected reviews file is not a readable file: '${REVIEWS_FILE}'. Confirm the phase directory resolved correctly before concluding the review agent produced nothing." >&2
-  exit 1
-fi
+PHASE_ID="{the phase id, e.g. v1.0/02}"
+ROUND_JSON='{the additions as JSON, e.g. {"unchecked": [{"symbol": "--flag", "why": "grep cannot check a signature"}], "concerns": [{"plan": "v1.0/02/02-01", "severity": "low", "text": "the divergence and its authority", "drift": true, "evidence": ["<file:line>", "<file:line>"]}]}}'
+REVIEW_ID=$(specforge query "$PHASE_ID" --depth 1 --kinds review --pick '.nodes[kind=review].id' --last 1) || exit 1
+[ -n "$REVIEW_ID" ] || { echo "ERROR: no review recorded for this cycle — /gsd:review recorded no round of $PHASE_ID." >&2; exit 1; }
+specforge gsd record-review "$PHASE_ID" --round "$REVIEW_ID" --review "$ROUND_JSON" || exit 1
 ```
 
-### 5b. Extract unresolved counts from CYCLE_SUMMARY Contract
+### 5b. Read the Open Concerns from the Graph
 
-**Do NOT grep REVIEWS.md for HIGH or actionable counts.** REVIEWS.md accumulates history across cycles — resolved findings from prior cycles remain in the file as audit trail, inflating a raw grep count and causing false stall detection.
+The counts are the latest recorded round's, computed: a concern is open until a planner's disposition
+(`addressed` or `deferred`) rules on it, and drift findings count in neither. Never count them from the review
+agent's return message or from a review's text.
 
-Read `CYCLE_SUMMARY: current_high=N current_actionable=M` from the review agent's return and write its two numbers below; write the `## Current HIGH Concerns` and `## Current Actionable Non-HIGH Concerns` sections into `HIGH_LINES`/`ACTIONABLE_LINES` the same way. A return with no `CYCLE_SUMMARY` line did not honor the contract: stop and retry, or switch reviewer.
+**Open plan-revision conflicts are part of the converged condition (#3771).** A plan-revision conflict is a checker
+`fix_hint` that contradicted a locked decision, capability guidance, or an existing plan constraint: a
+`revision_conflict` entity `/gsd:plan-phase` records (`gsd record-conflict`) together with the alternatives the
+planner considered, and that convergence reads and never writes. Evaluate it BEFORE the converged branch below, or a
+run would print the success banner over a conflict nobody resolved:
 
 ```bash
-# written from the agent's return: {current_high} and {current_actionable}, each a whole number
-HIGH_COUNT="{current_high}"
-ACTIONABLE_COUNT="{current_actionable}"
-IFS= read -rd '' HIGH_LINES <<'END' || true   # the lines under "## Current HIGH Concerns"
-<those lines; no line when the section is absent>
-END
-IFS= read -rd '' ACTIONABLE_LINES <<'END' || true   # the lines under "## Current Actionable Non-HIGH Concerns"
-<those lines; no line when the section is absent>
-END
-
-case "$HIGH_COUNT" in ''|*[!0-9]*)
-  echo "CYCLE_SUMMARY present but current_high is missing or malformed — expected integer, got non-numeric or absent value. Retry or switch reviewer."
-  exit 1 ;;
-esac
-
-case "$ACTIONABLE_COUNT" in ''|*[!0-9]*)
-  echo "CYCLE_SUMMARY present but current_actionable is missing or malformed — expected integer, got non-numeric or absent value. Retry or switch reviewer."
-  exit 1 ;;
-esac
-
+PHASE_ID="{the phase id, e.g. v1.0/02}"
+REVIEW_ID=$(specforge query "$PHASE_ID" --depth 1 --kinds review --pick '.nodes[kind=review].id' --last 1) || exit 1
+if [ -z "$REVIEW_ID" ]; then
+  echo "ERROR: no review recorded for this cycle — /gsd:review recorded no round of $PHASE_ID." >&2
+  exit 1
+fi
+HIGH_COUNT=$(specforge query "$REVIEW_ID" --depth 0 --pick '.nodes[0].fields.open.high') || exit 1
+ACTIONABLE_COUNT=$(specforge query "$REVIEW_ID" --depth 0 --pick '.nodes[0].fields.open.actionable') || exit 1
+OPEN_CONFLICTS=$(specforge query "$PHASE_ID" --depth 1 --kinds revision_conflict --pick '.nodes[fields.status=open].id' --count) || exit 1
+HIGH_COUNT=${HIGH_COUNT:-0}   # a round with no open concern of a kind prints nothing for it
+ACTIONABLE_COUNT=${ACTIONABLE_COUNT:-0}
 UNRESOLVED_COUNT=$((HIGH_COUNT + ACTIONABLE_COUNT))
-
-
-if [ "${HIGH_COUNT}" -gt 0 ] && [ -z "${HIGH_LINES}" ]; then
-  echo "⚠ Review agent's CYCLE_SUMMARY reports ${HIGH_COUNT} HIGHs but did not provide ## Current HIGH Concerns section — continuing with incomplete escalation details."
-fi
-
-if [ "${ACTIONABLE_COUNT}" -gt 0 ] && [ -z "${ACTIONABLE_LINES}" ]; then
-  echo "⚠ Review agent's CYCLE_SUMMARY reports ${ACTIONABLE_COUNT} actionable non-HIGH concerns but did not provide ## Current Actionable Non-HIGH Concerns section — continuing with incomplete escalation details."
-fi
+OPEN_LINES=""
+while IFS=$'\x1f' read -r severity title; do
+  OPEN_LINES="${OPEN_LINES}- ${severity}: ${title}"$'\n'
+done < <(specforge query "$REVIEW_ID" --depth 1 --kinds review_concern --pick '.nodes[fields.status=open]' --fields fields.severity,title)
+echo "REVIEW_ID=$REVIEW_ID HIGH_COUNT=$HIGH_COUNT ACTIONABLE_COUNT=$ACTIONABLE_COUNT OPEN_CONFLICTS=$OPEN_CONFLICTS"
 ```
 
-**Open plan-revision conflicts are part of the converged condition (#3771).** An entry under
-`## Plan-Revision Conflicts` in REVIEWS.md is a checker `fix_hint` that contradicted a locked
-decision, capability guidance, or an existing plan constraint, recorded by `/gsd:plan-phase`
-together with the alternatives the planner considered. It is NOT counted by `CYCLE_SUMMARY`, so
-it must be read from the file directly — evaluate this BEFORE the converged branch below, or a
-run would write `planned-phase` and print the success banner over a conflict nobody resolved:
-
-```bash
-if [ ! -f "${REVIEWS_FILE}" ]; then
-  # Fail CLOSED. A missing/non-file REVIEWS.md is "I cannot tell", never "no conflicts".
-  echo "BLOCKED: cannot read REVIEWS.md ('${REVIEWS_FILE}') to check for open plan-revision conflicts. Refusing to declare convergence on an unverifiable gate." >&2
-  exit 1
-fi
-if OPEN_CONFLICTS=$(awk '
-  BEGIN { saw_title = 0; in_owned = 0; saw_heading = 0; done = 0; count = 0 }
-  { sub(/\r$/, "") }
-  !saw_title && /^# Cross-AI Plan Review — Phase / { saw_title = 1; next }
-  saw_title && !in_owned && !done {
-    if ($0 == "") next
-    if ($0 == "<!-- gsd:plan-revision-conflicts:begin -->") { in_owned = 1; next }
-    exit 2
-  }
-  in_owned && $0 == "<!-- gsd:plan-revision-conflicts:begin -->" { exit 2 }
-  in_owned && !saw_heading && $0 == "" { next }
-  in_owned && !saw_heading && $0 == "## Plan-Revision Conflicts" { saw_heading = 1; next }
-  in_owned && !saw_heading { exit 2 }
-  in_owned && $0 == "<!-- gsd:plan-revision-conflicts:end -->" {
-    done = 1
-    in_owned = 0
-    print count
-    exit
-  }
-  in_owned && /^- \[ \] REVISION_CONFLICT .*required_property:/ { count++ }
-  END { if (!done) exit 2 }
-' "${REVIEWS_FILE}"); then
-  :
-else
-  awk_status=$?
-  echo "BLOCKED: could not parse the writer-owned plan-revision conflict block in '${REVIEWS_FILE}' (awk exit ${awk_status}). Refusing to declare convergence on an unverifiable gate." >&2
-  exit 1
-fi
-```
-
-`/gsd:review` emits exactly one writer-owned slot immediately after the artifact title,
-between `<!-- gsd:plan-revision-conflicts:begin -->` and
-`<!-- gsd:plan-revision-conflicts:end -->`. Inside that slot, `/gsd:plan-phase` records each
-conflict as a `- [ ] REVISION_CONFLICT` checklist line and flips it to
-`- [x] REVISION_CONFLICT` when resolved. The reader counts only the first fixed slot at that
-position and stops at its explicit end delimiter. Reviewer output is rendered after the slot, so
-raw reviewer text containing either the heading or an exact conflict-shaped checklist line cannot
-forge blocking state. There is deliberately no fallback to the prior global line-shape scan: that
-shape never merged to `next`, and accepting both grammars would recreate the reviewer collision.
-
-**Only `/gsd:plan-phase` mutates the contents of this slot.** The review agent preserves the
-existing `## Plan-Revision Conflicts` block byte-for-byte between its delimiters; every other
-agent with write access to REVIEWS.md must leave it alone. Appending, editing, reordering or
-deleting a line there forges the state of a blocking gate. Readers read. If `OPEN_CONFLICTS` > 0, convergence has NOT been
+A conflict's status is computed from its resolution, which only `/gsd:plan-phase` records; no other agent writes a
+`revision_conflict`, since writing one forges the state of a blocking gate. Readers read. If `OPEN_CONFLICTS` > 0, convergence has NOT been
 achieved regardless of the counts: skip the converged branch and continue to 5c so the next cycle
 arbitrates. Escalation at `MAX_CYCLES` is unchanged and still terminates the loop, so an
 unresolvable conflict escalates rather than deadlocking.
@@ -475,9 +400,9 @@ Display:
 
  Phase {phase_number} converged in {cycle} cycle(s).
  No HIGH concerns remaining.
- No actionable MEDIUM/LOW review findings remain outside PLAN.md.
+ No actionable MEDIUM/LOW review concern remains open.
 
- REVIEWS.md: {REVIEWS_FILE}
+ Review: {REVIEW_ID}
  Next: /gsd:execute-phase {PHASE}
 ```
 
@@ -507,11 +432,9 @@ If `TEXT_MODE` is true, present as plain text:
 Plan convergence did not complete after {MAX_CYCLES} cycles.
 {OPEN_CONFLICTS} open plan-revision conflict(s) remain — these are blockers and cannot be accepted:
 
-{HIGH_LINES}
+{OPEN_LINES}
 
-{ACTIONABLE_LINES}
-
-Review the concerns in: {REVIEWS_FILE}
+Review the concerns: specforge query {REVIEW_ID} --depth 1 --format context
 
 To replan manually:  /gsd:plan-phase {PHASE} --reviews
 To restart loop:     /gsd:plan-review-convergence {PHASE} {REVIEWER_FLAGS}
@@ -525,14 +448,12 @@ If `TEXT_MODE` is true, present as plain-text numbered list:
 Plan convergence did not complete after {MAX_CYCLES} cycles.
 {HIGH_COUNT} HIGH concerns and {ACTIONABLE_COUNT} actionable non-HIGH concerns remain:
 
-{HIGH_LINES}
-
-{ACTIONABLE_LINES}
+{OPEN_LINES}
 
 How would you like to proceed?
 
 1. Proceed anyway — Accept plans with remaining review concerns and move to execution
-2. Manual review — Stop here, review REVIEWS.md and address concerns manually
+2. Manual review — Stop here, review the recorded round and address concerns manually
 
 Enter number:
 ```
@@ -541,12 +462,12 @@ Otherwise use AskUserQuestion:
 ```js
 AskUserQuestion([
   {
-    question: "Plan convergence did not complete after {MAX_CYCLES} cycles. {HIGH_COUNT} HIGH concerns and {ACTIONABLE_COUNT} actionable non-HIGH concerns remain:\n\n{HIGH_LINES}\n\n{ACTIONABLE_LINES}\n\nHow would you like to proceed?",
+    question: "Plan convergence did not complete after {MAX_CYCLES} cycles. {HIGH_COUNT} HIGH concerns and {ACTIONABLE_COUNT} actionable non-HIGH concerns remain:\n\n{OPEN_LINES}\n\nHow would you like to proceed?",
     header: "Convergence",
     multiSelect: false,
     options: [
       { label: "Proceed anyway", description: "Accept plans with remaining review concerns and move to execution" },
-      { label: "Manual review", description: "Stop here — review REVIEWS.md and address concerns manually" }
+      { label: "Manual review", description: "Stop here — review the recorded round and address concerns manually" }
     ]
   }
 ])
@@ -555,7 +476,7 @@ AskUserQuestion([
 If "Proceed anyway": Display final status and exit.
 If "Manual review":
 ```text
-Review the concerns in: {REVIEWS_FILE}
+Review the concerns: specforge query {REVIEW_ID} --depth 1 --format context
 
 To replan manually:  /gsd:plan-phase {PHASE} --reviews
 To restart loop:     /gsd:plan-review-convergence {PHASE} {REVIEWER_FLAGS}
@@ -585,16 +506,13 @@ After plan-phase completes → go back to **step 5a** (review again).
 - [ ] Initial planning via inline Skill("gsd-plan-phase") if no plans exist — NOT wrapped in Agent() (bug #936: depth-1 Agent has no Agent tool)
 - [ ] Review via Agent → Skill("gsd-review") — isolated Agent is correct; gsd-review is a Bash leaf with no sub-agent spawns
 - [ ] Replan via inline Skill("gsd-plan-phase --reviews") — NOT wrapped in Agent(); inline lets plan-phase spawn gsd-planner/gsd-plan-checker at depth 1
-- [ ] Orchestrator only does: init, config gate, loop control, parse CYCLE_SUMMARY for HIGH and actionable non-HIGH counts, stall detection, escalation
-- [ ] HIGH and actionable non-HIGH counts extracted from review agent's CYCLE_SUMMARY return message (not by grepping REVIEWS.md)
-- [ ] Review agent prompt defines CYCLE_SUMMARY: current_high=<N> current_actionable=<M> contract with PARTIALLY/FULLY RESOLVED/ACTIONABLE definitions
-- [ ] Abort with clear error if CYCLE_SUMMARY is absent; distinguish malformed from absent
-- [ ] Warn if HIGH_COUNT > 0 but ## Current HIGH Concerns section is absent from return message
-- [ ] Abort with clear error if current_actionable is absent or malformed
-- [ ] Warn if ACTIONABLE_COUNT > 0 but ## Current Actionable Non-HIGH Concerns section is absent from return message
+- [ ] Orchestrator only does: init, config gate, loop control, read the open HIGH and actionable non-HIGH counts of the latest round, stall detection, escalation
+- [ ] HIGH and actionable non-HIGH counts read from the latest recorded round's `open` (never from the agent's return message or a review's text)
+- [ ] Review agent prompt defines the recording contract with PARTIALLY/FULLY RESOLVED/ACTIONABLE definitions
+- [ ] Abort with clear error if no review round is recorded for the cycle
 - [ ] The review Agent fully completes gsd-review before returning (plan-phase runs inline — no Agent wrap)
 - [ ] Loop exits on: no HIGH concerns, no actionable non-HIGH concerns, and OPEN_CONFLICTS == 0 (converged) OR max cycles (escalation)
-- [ ] OPEN_CONFLICTS read from REVIEWS.md and evaluated BEFORE the converged branch writes state or prints the banner
+- [ ] OPEN_CONFLICTS read from the phase's `revision_conflict` entities and evaluated BEFORE the converged branch writes state or prints the banner
 - [ ] Stall detection reported when total unresolved review concern count is not decreasing
 - [ ] STATE.md updated on convergence completion
 </success_criteria>

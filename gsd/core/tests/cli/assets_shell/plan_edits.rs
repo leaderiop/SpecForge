@@ -4,6 +4,9 @@
 use super::{Shell, asset, fence_after, typed};
 use crate::harness::taskboard;
 
+/// A review round of phase 02 with one high and one medium actionable concern, as the model fills it.
+const ROUND: &str = r#"{"plans": ["v1.0/02/02-01"], "reviewers": [{"name": "codex", "model": "unknown", "source": "unknown"}, {"name": "claude", "model": "unknown", "source": "unknown"}], "lanes": [{"reviewer": "codex", "summary": "Sound, one gap", "strengths": ["small plan"], "suggestions": ["fsync the file"], "risk": "medium"}], "consensus": "The save is not crash-safe", "strengths": ["small plan"], "divergent": ["whether a lock is needed"], "concerns": [{"plan": "v1.0/02/02-01", "reviewers": ["codex", "claude"], "severity": "high", "text": "The rename is not atomic on every platform", "actionable": true}, {"plan": "v1.0/02/02-01", "reviewers": ["codex", "claude"], "severity": "medium", "text": "The file is never synced", "actionable": true}]}"#;
+
 /// The planner's plan check reads the error codes `check` prints: on a copy whose plan lost its required
 /// `files_modified`, the step prints `E006` beside what the clean copy prints.
 #[test]
@@ -127,19 +130,99 @@ fn the_planners_typed_edits_write_a_checked_plan() {
     );
 }
 
-/// Convergence checks the review agent's REVIEWS.md under `phase_dir`, which no line of the workflow assigns: the
-/// guard stops every cycle after the first review returns.
+/// Convergence reads the latest round's open counts from the graph: one high and one medium actionable concern give
+/// 1 and 1 with no open conflict; the round takes a drift finding that counts in neither, and a disposition that
+/// addresses the high concern closes it.
 #[test]
-fn the_convergence_step_stops_on_an_unset_phase_dir() {
-    let Some(sh) = Shell::without_jq() else {
+fn the_convergence_step_counts_the_open_concerns() {
+    let Some(sh) = Shell::only(&[]) else {
         return;
     };
+    let p = taskboard();
+    let record = typed::filled(
+        &typed::typed_fence(
+            &asset("gsd-core/workflows/review.md"),
+            "Only reached when `TOTAL_LANE_FAILURE`",
+        ),
+        &[("PHASE_ID", "v1.0/02"), ("REVIEW_JSON", ROUND)],
+    );
+    let run = typed::apply(&sh, &p, &record);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     let text = asset("gsd-core/workflows/plan-review-convergence.md");
-    let fence = fence_after(&text, "After agent returns, verify REVIEWS.md exists");
-    let dir = tempfile::tempdir().expect("an empty dir");
-    let (out, err, code) = sh.run_in(dir.path(), &fence);
+    let counts = typed::filled(
+        &typed::typed_fence(&text, "### 5b. Read the Open Concerns from the Graph"),
+        &[("PHASE_ID", "v1.0/02")],
+    );
+    let run = typed::apply(&sh, &p, &counts);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(
+        run.out
+            .contains("REVIEW_ID=v1.0/02/RV1 HIGH_COUNT=1 ACTIONABLE_COUNT=1 OPEN_CONFLICTS=0"),
+        "{}",
+        run.out
+    );
+    let drift = typed::filled(
+        &typed::typed_fence(
+            &text,
+            "**Record the coverage block and the drift findings**",
+        ),
+        &[
+            ("PHASE_ID", "v1.0/02"),
+            (
+                "ROUND_JSON",
+                r#"{"unchecked": [{"symbol": "--watch", "why": "grep cannot check a signature"}], "concerns": [{"plan": "v1.0/02/02-01", "severity": "low", "text": "The roadmap and the plan disagree on the file name", "drift": true, "evidence": ["spec/v1.0.spec:30", "spec/plans.spec:240"]}]}"#,
+            ),
+        ],
+    );
+    let run = typed::apply(&sh, &p, &drift);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(run.added.is_empty(), "{:?}", run.added);
+    let disposition = typed::filled(
+        &typed::typed_fence(
+            &asset("gsd-core/references/planner-reviews.md"),
+            "The ledger is one `disposition` per concern",
+        ),
+        &[
+            ("PLAN_ID", "v1.0/02/02-01"),
+            ("DISPOSITION_ID", "DP1"),
+            ("CONCERN_ID", "v1.0/02/RV1/RC1"),
+            ("ROUND", "1"),
+            ("REVIEWER", "codex"),
+            ("FEEDBACK", "Rename not atomic"),
+            ("OUTCOME", "addressed"),
+            ("REASON", "Task 1 writes then renames on the same volume"),
+        ],
+    );
+    let run = typed::apply(&sh, &p, &disposition);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(run.added.is_empty(), "{:?}", run.added);
+    let run = typed::apply(&sh, &p, &counts);
+    assert!(
+        run.out
+            .contains("HIGH_COUNT=0 ACTIONABLE_COUNT=1 OPEN_CONFLICTS=0"),
+        "{}{}",
+        run.out,
+        run.err
+    );
+}
+
+/// The convergence counts block stops when the phase has no recorded round.
+#[test]
+fn the_convergence_step_stops_without_a_review() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let counts = typed::filled(
+        &typed::typed_fence(
+            &asset("gsd-core/workflows/plan-review-convergence.md"),
+            "### 5b. Read the Open Concerns from the Graph",
+        ),
+        &[("PHASE_ID", "v1.0/02")],
+    );
+    let (out, err, code) = sh.run_in(p.root(), &counts);
     assert_eq!(code, 1, "{out}{err}");
-    assert!(err.contains("phase_dir is empty"), "{err}");
+    assert!(err.contains("no review recorded for this cycle"), "{err}");
 }
 
 /// `/gsd-review` records its round with the concerns the lanes agreed on, then commits it.
@@ -157,10 +240,9 @@ fn a_review_is_recorded_with_its_concerns() {
         "2026-01-01T00:00:00Z",
     );
     let text = asset("gsd-core/workflows/review.md");
-    let round = r#"{"plans": ["v1.0/02/02-01"], "reviewers": [{"name": "codex", "model": "unknown", "source": "unknown"}, {"name": "claude", "model": "unknown", "source": "unknown"}], "lanes": [{"reviewer": "codex", "summary": "Sound, one gap", "strengths": ["small plan"], "suggestions": ["fsync the file"], "risk": "medium"}], "consensus": "The save is not crash-safe", "strengths": ["small plan"], "divergent": ["whether a lock is needed"], "concerns": [{"plan": "v1.0/02/02-01", "reviewers": ["codex", "claude"], "severity": "high", "text": "The rename is not atomic on every platform", "actionable": true}, {"plan": "v1.0/02/02-01", "reviewers": ["codex", "claude"], "severity": "medium", "text": "The file is never synced", "actionable": true}]}"#;
     let record = typed::filled(
         &typed::typed_fence(&text, "Only reached when `TOTAL_LANE_FAILURE`"),
-        &[("PHASE_ID", "v1.0/02"), ("REVIEW_JSON", round)],
+        &[("PHASE_ID", "v1.0/02"), ("REVIEW_JSON", ROUND)],
     );
     let run = typed::apply(&sh, &p, &record);
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);

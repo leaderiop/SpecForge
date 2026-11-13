@@ -78,14 +78,14 @@ If CONTEXT.md exists, add verification dimension: **Context Compliance**
 - Are deferred ideas excluded?
 - Are discretion areas handled appropriately?
 
-**REVIEWS.md** (if included by reviews mode) — Cross-AI review feedback from `/gsd:review`
+**The review round** (if included by reviews mode) — Cross-AI review feedback from `/gsd:review`, a `review` entity and its `review_concern` entities
 
-REVIEWS.md is audit trail and feedback input, not a hidden execution contract. /gsd:execute-phase primarily consumes PLAN.md plus normal phase context. Add verification dimension: **Review Incorporation**.
+The review is audit trail and feedback input, not a hidden execution contract. /gsd:execute-phase primarily consumes the plan entities plus normal phase context. Add verification dimension: **Review Incorporation**.
 
-- Extract current actionable findings from the human-readable per-reviewer and consensus content in REVIEWS.md. Do NOT look for a `CYCLE_SUMMARY: current_high=<N> current_actionable=<M>` line or `## Current HIGH Concerns` / `## Current Actionable Non-HIGH Concerns` section headers — those machine-readable fields exist only in the convergence orchestrator's return message, never in REVIEWS.md (which contains only human-readable review content).
-- Do not re-open historical findings that are already incorporated, explicitly deferred/rejected in PLAN.md, or marked fully resolved.
-- Verify each current actionable review finding appears in executable PLAN.md content: a task, `<action>`, `<acceptance_criteria>`, `<verify>`, `must_haves`, threat model, artifact list, stale-path correction, or explicit deferral/rejection rationale using the Review Dispositions Ledger in `gsd-core/references/planner-reviews.md`.
-- If a current actionable finding remains only in REVIEWS.md and would be invisible to /gsd:execute-phase, return `## ISSUES FOUND`. Use WARNING by default; use BLOCKER when the missing incorporation can prevent the phase goal, create unsafe execution, or invalidate verification.
+- A current actionable finding is an open `review_concern` of the latest round (its `status`, computed from the dispositions that rule on it): `specforge query "$REVIEW_ID" --depth 1 --kinds review_concern --pick '.nodes[fields.status=open]' --fields id,fields.severity,fields.text`.
+- Do not re-open a concern a disposition already addressed or deferred: its status is no longer open.
+- Verify each open concern appears in a plan's executable content (a task, its action, acceptance criteria or verify command, a truth, a threat, an artifact, a stale-path correction) or is ruled on by a disposition, as `gsd-core/references/planner-reviews.md` records one.
+- If an open concern is in no plan and has no disposition, so it would be invisible to /gsd:execute-phase, return `## ISSUES FOUND`. Use WARNING by default; use BLOCKER when the missing incorporation can prevent the phase goal, create unsafe execution, or invalidate verification.
 </upstream_input>
 
 <core_principle>

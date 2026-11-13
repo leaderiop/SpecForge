@@ -614,7 +614,7 @@ RESEARCH_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds research --pick '.
 VERIFICATION_PATH=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id')
 UAT_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds uat_session --pick '.nodes[kind=uat_session].id')
 CONTEXT_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds context --pick '.nodes[kind=context].id')
-REVIEWS_PATH=""   # REVIEWS.md is written by /gsd:review, not an entity
+REVIEWS_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds review --pick '.nodes[kind=review].id' --last 1)   # the latest round /gsd:review recorded
 PATTERNS_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds pattern_map --pick '.nodes[kind=pattern_map].id' 2>/dev/null)   # @gsd/codebase's: empty when it is not loaded
 
 # Detect spike/sketch findings skills (project-local)
@@ -798,13 +798,13 @@ ${API_SURFACE_PATH ? `
 ${AGENT_SKILLS_PLANNER}
 
 <review_incorporation_contract>
-**If Mode is reviews:** REVIEWS.md is feedback input, not a hidden execution contract. /gsd:execute-phase primarily consumes PLAN.md plus the normal phase context, so every current actionable review finding must become visible in the relevant PLAN.md before planning can pass.
+**If Mode is reviews:** the review round is feedback input, not a hidden execution contract. /gsd:execute-phase primarily consumes the plan entities plus the normal phase context, so every current actionable review finding must become visible in the relevant plan before planning can pass.
 
-For each current actionable finding in REVIEWS.md, the planner MUST either:
-- incorporate it into a PLAN.md task, `<action>`, `<acceptance_criteria>`, `<verify>`, `must_haves`, threat model, or artifact list; or
-- explicitly document a deferral/rejection rationale in the relevant PLAN.md, using the Review Dispositions Ledger in `gsd-core/references/planner-reviews.md`.
+A current actionable finding is an open `review_concern` of the latest round (`REVIEWS_PATH`, step 7; its status is computed from its dispositions). For each, the planner MUST either:
+- incorporate it into a plan's task, action, acceptance criteria, verify command, truth, threat, or artifact, and record a disposition `--outcome addressed`; or
+- record a disposition `--outcome deferred` with its reason, as `gsd-core/references/planner-reviews.md` writes it.
 
-Historical findings already incorporated, explicitly deferred/rejected in PLAN.md, or marked fully resolved do not require new plan changes.
+A concern a disposition already addressed or deferred is no longer open and requires no new plan change.
 </review_incorporation_contract>
 
 **Phase requirement IDs (every ID MUST appear in a plan's `requirements` field):** {phase_req_ids}
@@ -1073,9 +1073,9 @@ Quote the command that has no stated failure mode; never author the statement fo
 </failing_direction_probe>
 
 <review_incorporation_verification>
-**If Mode is reviews:** Read REVIEWS.md and verify each current actionable review finding is visible in executable PLAN.md content or explicitly deferred/rejected in the relevant PLAN.md. A finding remains actionable if it requires a concrete plan task, `<action>`, `<acceptance_criteria>`, `<verify>`, `must_haves`, threat-model item, stale-path correction, or execution contract change before /gsd:execute-phase runs.
+**If Mode is reviews:** Read the open `review_concern` entities of the latest round and verify each is visible in a plan's executable content or ruled on by a disposition. A finding remains actionable if it requires a concrete plan task, `<action>`, `<acceptance_criteria>`, `<verify>`, `must_haves`, threat-model item, stale-path correction, or execution contract change before /gsd:execute-phase runs.
 
-If an actionable finding remains only in REVIEWS.md and would be invisible to /gsd:execute-phase, return `## ISSUES FOUND`. Use WARNING by default; use BLOCKER when the missing incorporation can prevent the phase goal, create unsafe execution, or invalidate verification.
+If an open concern is in no plan and has no disposition, so it would be invisible to /gsd:execute-phase, return `## ISSUES FOUND`. Use WARNING by default; use BLOCKER when the missing incorporation can prevent the phase goal, create unsafe execution, or invalidate verification.
 </review_incorporation_verification>
 
 **Phase requirement IDs (MUST ALL be covered):** {phase_req_ids}

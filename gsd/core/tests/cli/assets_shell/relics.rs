@@ -186,37 +186,6 @@ fn the_milestone_close_writes_no_scratch_file() {
     assert!(left.is_empty(), "{left:?}: {err}");
 }
 
-/// The model writes the review agent's counts and sections into the block; the shell checks the counts are whole
-/// numbers and parses nothing.
-#[test]
-fn the_review_counts_are_written_by_the_model_and_checked() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
-    let text = asset("gsd-core/workflows/plan-review-convergence.md");
-    let counts = block(&text, "HIGH_COUNT=", "UNRESOLVED_COUNT=");
-    let show = "printf '[%s][%s][%s]' \"$UNRESOLVED_COUNT\" \"$HIGH_LINES\" \"$ACTIONABLE_LINES\"";
-    let written = |high: &str| {
-        let mut sections = [Some("- a\n- b"), None].into_iter();
-        let filled = counts
-            .lines()
-            .filter_map(|l| match l {
-                "<those lines; no line when the section is absent>" => sections.next().unwrap(),
-                _ => Some(l),
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
-            .replace("{current_high}", high)
-            .replace("{current_actionable}", "1");
-        sh.run(&format!("{filled}\n{show}"))
-    };
-    assert_eq!(written("2"), "[3][- a\n- b\n][]");
-    assert!(
-        written("two")
-            .starts_with("CYCLE_SUMMARY present but current_high is missing or malformed")
-    );
-}
-
 /// Chunked planning resumes past a plan whose entity exists, not past a file with a frontmatter fence; `--reviews`
 /// replans it.
 #[test]

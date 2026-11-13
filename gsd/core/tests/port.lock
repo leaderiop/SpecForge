@@ -304,7 +304,9 @@ agents/gsd-phase-researcher.md	own	888+1	1	9bcdb1b32863	714f645cddc3	agent
 agents/gsd-phase-researcher.md	kept	889+1	a02445f3fd9c
 agents/gsd-phase-researcher.md	own	890+2	2	b1212709668a	d90c5ca84190	typed-edit
 agents/gsd-phase-researcher.md	kept	892+11	9565463ea041
-agents/gsd-plan-checker.md	kept	7+298	2ccb9f4d33ef
+agents/gsd-plan-checker.md	kept	7+79	ad3bc4d5c09e
+agents/gsd-plan-checker.md	own	86+8	8	dd2b1b5e2622	d5b4565099f5	prose
+agents/gsd-plan-checker.md	kept	94+211	63defc7566bc
 agents/gsd-plan-checker.md	own	305+11	11	022452bea592	6ae2ba7cc4ff	agent
 agents/gsd-plan-checker.md	kept	316+69	e40001a5f610
 agents/gsd-plan-checker.md	own	385+2	2	182e0a89672f	cda7e7df6d0d	thread
@@ -1122,9 +1124,21 @@ gsd-core/references/planner-mvp-mode.md	kept	1+53	969e533bdf79
 gsd-core/references/planner-preconditions.md	kept	1+157	54f15f89c704
 gsd-core/references/planner-quick-batch.md	kept	1+72	517d562bdc4a
 gsd-core/references/planner-reversibility.md	kept	1+147	24b426adf498
-gsd-core/references/planner-reviews.md	kept	1+55	b51f03fe0b34
-gsd-core/references/planner-reviews.md	own	56+3	2	90f07fc1a067	d07f3d848611	prose
-gsd-core/references/planner-reviews.md	kept	59+32	01724325c17a
+gsd-core/references/planner-reviews.md	kept	1+2	4b0649263659
+gsd-core/references/planner-reviews.md	own	3+1	1	bc1b8f99fa6f	526e6ece7743	prose
+gsd-core/references/planner-reviews.md	kept	4+3	8ad6bb6dc6b5
+gsd-core/references/planner-reviews.md	own	7+4	4	54189fd8669d	f6085254fd36	prose
+gsd-core/references/planner-reviews.md	kept	11+14	dd06031afe48
+gsd-core/references/planner-reviews.md	own	25+1	1	c1eb49fbca43	67e21f06dacb	prose
+gsd-core/references/planner-reviews.md	kept	26+18	dacfb841076f
+gsd-core/references/planner-reviews.md	own	44+4	4	adafaffcbdc2	179bc5a4b332	served
+gsd-core/references/planner-reviews.md	kept	48+6	a2304f889d9d
+gsd-core/references/planner-reviews.md	own	54+25	20	43551047da84	5dcf770037af	typed-edit
+gsd-core/references/planner-reviews.md	kept	79+3	ea026d5bb179
+gsd-core/references/planner-reviews.md	own	82+2	2	59576309a9c5	bfccc92aebb5	prose
+gsd-core/references/planner-reviews.md	kept	84+1	41176a995bf0
+gsd-core/references/planner-reviews.md	own	85+1	1	b2e5f1745fc6	9f21cb630159	prose
+gsd-core/references/planner-reviews.md	kept	86+5	94d956cfe31a
 gsd-core/references/planner-revision.md	kept	1+9	ca66a1f149f0
 gsd-core/references/planner-revision.md	own	10+1	1	1fdc3899d027	2f3a21bbd7f5	ported-name
 gsd-core/references/planner-revision.md	kept	11+88	dc264d34df37
@@ -3156,7 +3170,7 @@ gsd-core/workflows/plan-phase.md	own	599+1	1	1c93c64d3a14	bec0e47d1920	ported-na
 gsd-core/workflows/plan-phase.md	kept	600+10	7ff6c1643d75
 gsd-core/workflows/plan-phase.md	own	610+1	1	58535745ec62	1cb6d20ea9e0	served
 gsd-core/workflows/plan-phase.md	kept	611+9	f7e3ebb4a049
-gsd-core/workflows/plan-phase.md	own	620+10	10	8915b091d8f0	c105251e273f	served
+gsd-core/workflows/plan-phase.md	own	620+10	10	8915b091d8f0	8030302bf51a	served
 gsd-core/workflows/plan-phase.md	kept	630+2	cf20484c5213
 gsd-core/workflows/plan-phase.md	own	632+2	2	182be28077a8	424ad1637a9b	served
 gsd-core/workflows/plan-phase.md	kept	634+5	cd0297d47f83
@@ -3183,7 +3197,9 @@ gsd-core/workflows/plan-phase.md	kept	749+13	47262067949b
 gsd-core/workflows/plan-phase.md	own	762+1	1	307c96a4d2ab	307c96a4d2ab	markdown
 gsd-core/workflows/plan-phase.md	kept	763+3	5105cdc8e3f6
 gsd-core/workflows/plan-phase.md	own	766+14	14	ca9d90b5f738	8717facc1b1c	relic
-gsd-core/workflows/plan-phase.md	kept	780+102	8b3b364b895b
+gsd-core/workflows/plan-phase.md	kept	780+31	a7180f32eefa
+gsd-core/workflows/plan-phase.md	own	811+7	7	abe010cb94c1	a3601c7aae82	prose
+gsd-core/workflows/plan-phase.md	kept	818+64	b9efcf42a678
 gsd-core/workflows/plan-phase.md	own	882+3	4	98e8b859ad95	b9c08f93fd31	prose
 gsd-core/workflows/plan-phase.md	kept	885+15	78cbe5c18df8
 gsd-core/workflows/plan-phase.md	own	900+2	2	388169507684	a2cb40be81ef	prose
@@ -3207,7 +3223,9 @@ gsd-core/workflows/plan-phase.md	kept	1033+9	9d66beb2ef7e
 gsd-core/workflows/plan-phase.md	own	1042+1	1	307c96a4d2ab	307c96a4d2ab	markdown
 gsd-core/workflows/plan-phase.md	kept	1043+6	3e495962a339
 gsd-core/workflows/plan-phase.md	own	1049+6	6	55d145b92095	d02a86cf74ed	served
-gsd-core/workflows/plan-phase.md	kept	1055+55	8d42016c9e5c
+gsd-core/workflows/plan-phase.md	kept	1055+30	0e3a7a43e33a
+gsd-core/workflows/plan-phase.md	own	1085+3	3	e27f847e53ca	efbe6e8fd587	prose
+gsd-core/workflows/plan-phase.md	kept	1088+22	1bce028bf7c9
 gsd-core/workflows/plan-phase.md	own	1110+1	1	f1b901847390	f1b901847390	markdown
 gsd-core/workflows/plan-phase.md	kept	1111+2	9394338f94f6
 gsd-core/workflows/plan-phase.md	own	1113+5	5	20ae2900799b	3677da63e94e	wait
@@ -3431,32 +3449,64 @@ gsd-core/workflows/plan-review-convergence.md	own	187+2	2	8f1596e4c687	020a5959c
 gsd-core/workflows/plan-review-convergence.md	kept	189+1	ad332335cfaa
 gsd-core/workflows/plan-review-convergence.md	own	190+1	1	ef52565c6f0e	30b9969faa03	ported-name
 gsd-core/workflows/plan-review-convergence.md	kept	191+26	99112e88b315
-gsd-core/workflows/plan-review-convergence.md	own	217+1	1	ddb36f25fc8d	00350a22b84d	args
-gsd-core/workflows/plan-review-convergence.md	kept	218+91	52147320d2ff
+gsd-core/workflows/plan-review-convergence.md	own	217+14	11	da0ba7322b60	8ff359907f92	prose
+gsd-core/workflows/plan-review-convergence.md	kept	231+17	8e3c808ee487
+gsd-core/workflows/plan-review-convergence.md	own	248+1	1	70fadfe50627	594e8458a28e	prose
+gsd-core/workflows/plan-review-convergence.md	kept	249+15	d8d1605f111a
+gsd-core/workflows/plan-review-convergence.md	own	264+8	8	9f2c5d6cb31a	4fabfbbc71b6	prose
+gsd-core/workflows/plan-review-convergence.md	kept	272+3	476e98b7d2f0
+gsd-core/workflows/plan-review-convergence.md	own	275+2	3	fff8503b4430	46b2a38b0508	prose
+gsd-core/workflows/plan-review-convergence.md	kept	277+3	7ef57b901d27
+gsd-core/workflows/plan-review-convergence.md	own	280+1	2	225e68698ad1	ddc610700085	prose
+gsd-core/workflows/plan-review-convergence.md	kept	282+3	d3634a2b1aa5
+gsd-core/workflows/plan-review-convergence.md	own	285+12	3	075b671c2dc2	f4527d1605ce	served
+gsd-core/workflows/plan-review-convergence.md	kept	297+12	fe364f5e260b
 gsd-core/workflows/plan-review-convergence.md	own	309+1	1	68955d93fe52	5f112346e9eb	ported-name
 gsd-core/workflows/plan-review-convergence.md	kept	310+3	9910debdbfc3
 gsd-core/workflows/plan-review-convergence.md	own	313+1	1	d38b55937ad2	a1e2ec9be467	ported-name
 gsd-core/workflows/plan-review-convergence.md	kept	314+4	255818c02237
 gsd-core/workflows/plan-review-convergence.md	own	318+1	1	84cef7200924	92bd991680f7	ported-name
-gsd-core/workflows/plan-review-convergence.md	kept	319+17	a58670b92a6d
+gsd-core/workflows/plan-review-convergence.md	kept	319+6	be86f248997a
+gsd-core/workflows/plan-review-convergence.md	own	325+1	1	d8d9124f3018	1f7e7dd43bfb	prose
+gsd-core/workflows/plan-review-convergence.md	kept	326+10	38b8e2fbe038
 gsd-core/workflows/plan-review-convergence.md	own	336+1	1	a7621d6bcc51	c2a08f2f1ddb	ported-name
-gsd-core/workflows/plan-review-convergence.md	kept	337+53	8615b2b7e975
-gsd-core/workflows/plan-review-convergence.md	own	390+1	1	ecd0d128be4c	03f659c9cac2	relic
+gsd-core/workflows/plan-review-convergence.md	kept	337+25	a77d4c9d95f3
+gsd-core/workflows/plan-review-convergence.md	own	362+1	1	bb35ede31b62	5e6d53229b21	prose
+gsd-core/workflows/plan-review-convergence.md	kept	363+7	11641694bd03
+gsd-core/workflows/plan-review-convergence.md	own	370+4	5	e62a4b06951f	ac2212829d4c	prose
+gsd-core/workflows/plan-review-convergence.md	kept	374+1	ad332335cfaa
+gsd-core/workflows/plan-review-convergence.md	own	375+16	18	3c1d797ea201	b33160d280e5	prose
 gsd-core/workflows/plan-review-convergence.md	kept	391+2	5f046190424d
-gsd-core/workflows/plan-review-convergence.md	own	393+11	11	80f955172857	a4cddd6abf27	relic
-gsd-core/workflows/plan-review-convergence.md	kept	404+1	5a696b6414fc
-gsd-core/workflows/plan-review-convergence.md	own	405+4	4	9c405d18972b	e7d84a0f4b74	relic
-gsd-core/workflows/plan-review-convergence.md	kept	409+1	595af001188b
-gsd-core/workflows/plan-review-convergence.md	own	410+2	2	370f386594e8	ba2ca924ffd1	relic
-gsd-core/workflows/plan-review-convergence.md	kept	412+3	5082ea35b5f9
-gsd-core/workflows/plan-review-convergence.md	own	415+3	0	7d57a9e2d60c	e3b0c44298fc	served
-gsd-core/workflows/plan-review-convergence.md	kept	418+74	1d15206b4fff
+gsd-core/workflows/plan-review-convergence.md	own	393+7	4	7a6a0737fea5	8adc4282aa91	served
+gsd-core/workflows/plan-review-convergence.md	kept	400+2	370f386594e8
+gsd-core/workflows/plan-review-convergence.md	own	402+11	5	1e558eae8d7e	34e5d168984d	prose
+gsd-core/workflows/plan-review-convergence.md	kept	413+1	6487772bef38
+gsd-core/workflows/plan-review-convergence.md	own	414+71	9	f733a6b2a78e	7016ab376591	prose
+gsd-core/workflows/plan-review-convergence.md	kept	485+7	aa8313ba3c8f
 gsd-core/workflows/plan-review-convergence.md	own	492+1	1	d0f76a39c671	0b7acb3e44ed	ported-name
-gsd-core/workflows/plan-review-convergence.md	kept	493+104	b78b7735960f
+gsd-core/workflows/plan-review-convergence.md	kept	493+8	5daf55d8123c
+gsd-core/workflows/plan-review-convergence.md	own	501+3	3	048d20e5fd9b	affedfe2f0d0	prose
+gsd-core/workflows/plan-review-convergence.md	kept	504+29	793b115df192
+gsd-core/workflows/plan-review-convergence.md	own	533+5	3	1e8980e69fa2	70323e8f09be	prose
+gsd-core/workflows/plan-review-convergence.md	kept	538+13	652aa1b61558
+gsd-core/workflows/plan-review-convergence.md	own	551+3	1	971c096c6cae	7a4b544903c6	prose
+gsd-core/workflows/plan-review-convergence.md	kept	554+4	40243c1c2076
+gsd-core/workflows/plan-review-convergence.md	own	558+1	1	de1fdcdca455	61745ccbf1c5	prose
+gsd-core/workflows/plan-review-convergence.md	kept	559+8	22a56eebf762
+gsd-core/workflows/plan-review-convergence.md	own	567+1	1	a164c54a0a6b	5105a7634915	prose
+gsd-core/workflows/plan-review-convergence.md	kept	568+4	ad1c36b8118b
+gsd-core/workflows/plan-review-convergence.md	own	572+1	1	ffe49d33db01	9740ebcd4356	prose
+gsd-core/workflows/plan-review-convergence.md	kept	573+8	6aa399c92931
+gsd-core/workflows/plan-review-convergence.md	own	581+1	1	dcf74f31c149	c6ce57d80bb7	prose
+gsd-core/workflows/plan-review-convergence.md	kept	582+15	236578bf6ef8
 gsd-core/workflows/plan-review-convergence.md	own	597+1	1	bbfb6dd71e0e	ebe15dfe7dc9	args
 gsd-core/workflows/plan-review-convergence.md	kept	598+11	af0e2df6dc6c
 gsd-core/workflows/plan-review-convergence.md	own	609+1	1	2b5238db40f9	8252c92e5a55	args
-gsd-core/workflows/plan-review-convergence.md	kept	610+15	67140ea15155
+gsd-core/workflows/plan-review-convergence.md	kept	610+1	3110c5a09c3d
+gsd-core/workflows/plan-review-convergence.md	own	611+7	4	f9426850ec9b	ae955280f2c1	prose
+gsd-core/workflows/plan-review-convergence.md	kept	618+2	fdf33bdb7aac
+gsd-core/workflows/plan-review-convergence.md	own	620+1	1	3a3614925f78	9e1b4f0f0726	prose
+gsd-core/workflows/plan-review-convergence.md	kept	621+4	d89defc3359b
 gsd-core/workflows/pr-branch.md	kept	1+3	941df86109c2
 gsd-core/workflows/pr-branch.md	own	4+1	1	5e240e3fc5be	b0066d46c0ee	ported-name
 gsd-core/workflows/pr-branch.md	kept	5+6	422a73c7e666

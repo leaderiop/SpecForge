@@ -117,6 +117,9 @@ const UNBOUND: &[&str] = &[
     "$CONTEXT_ID",
     "<research>",
     "{REVIEW_ID}",
+    // the latest review round, read by the line above it: `assets_shell::plan_edits` records one and runs them
+    "$REVIEW_ID",
+    "<review>",
     "$uat_path",
     // entity ids a prompt hands its agent, each read with `--format context`
     "{roadmap_path}",
