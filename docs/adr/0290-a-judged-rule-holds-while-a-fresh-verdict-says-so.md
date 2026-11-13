@@ -6,6 +6,7 @@ Takes extension protocol 1.9.0. Extended by [ADR 0297](0297-a-judged-rules-findi
 Amended by [ADR 0331](0331-the-gsd-requirement-thread.md) (D3: a `test(..)` input takes several chains and reads a fact's own result; nothing linked is the value `none`; a chain to unloaded kinds only is inert, not W112).
 Amended by [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md) (a verdict digests each checked value's outcome class; an unknown one is I207).
 Amended by [ADR 0350](0350-a-fields-checks-may-wait-for-its-owner.md) (D9: the baseline runs the ungated checks at the commit, over its files, for D7).
+Extended by [ADR 0356](0356-an-extension-declares-the-context-a-role-reads.md) (a context section reads through the input evaluator and digests as the input of its selector).
 
 ## Context
 

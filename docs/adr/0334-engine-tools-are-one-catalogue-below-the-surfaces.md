@@ -4,7 +4,7 @@
 [ADR 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md) (a contribution's `tools` may name
 SpecForge's own tools; install resolves them and writes a generated section) and
 [ADR 0049](0049-a-core-tool-is-one-module.md) (a core tool is asserted to be its engine-tool row). Takes extension
-protocol 2.1.0.
+protocol 2.1.0. Extended by [ADR 0356](0356-an-extension-declares-the-context-a-role-reads.md): the `## Context` section between the tools section and the judged rules.
 
 ## Context
 

@@ -1868,6 +1868,17 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Within**: the entities a trace within an entity follows (`trace --in`, MCP `in`): the entity, every entity its
   scope holds at any depth, and every entity one reference away from one of those, either way; a named route keeps
   those of its start kind (ADR 0355).
+- **Context route**: what an extension declares (the `contexts` category) for a role to read one entity of a subject
+  kind: ordered sections of named selectors, each core or enrich, the settings it carries, a default budget and an
+  optional agent. One the registry can't serve is E123; an agent binding that can't hold is E124 (ADR 0356).
+- **Context pack**: one context route served for one entity: its sections as served, the subject and the served
+  entities as an export, the budget and what was cut, and the pack digest; `specforge context`, `specforge.context`
+  and `specforge://context/{+entity_id}?role=` answer the same bytes (ADR 0356).
+- **Core section** / **Enrich section**: a context route's section a budget never cuts (core; below them the read is
+  E062), or one served whole in declared order while it fits, the first that does not fit keeping its most connected
+  entities and every later one dropped (enrich) (ADR 0356).
+- **Pack digest**: the sha256 of a pack's route, subject and served sections, each section's digest the judged input
+  digest of its selector over the members it served; the budget is recorded beside it, not in it (ADR 0356).
 - **Result field**: the enum field of a collector-written kind that holds a fact's result, its values `TestStatus`
   names (`KindBuilder::result`, ADR 0329 D3); what a judged `test(..)` input and a reader of a reference to the fact
   take as its result (ADR 0331 D6).
