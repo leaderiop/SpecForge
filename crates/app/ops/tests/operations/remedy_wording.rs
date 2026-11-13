@@ -24,7 +24,7 @@ const LAYERS: [&str; 7] = [
     "leaf", "kernel", "pipeline", "runtime", "session", "app", "adapters",
 ];
 /// The CLI's subcommands, from `specforge --help`. A new subcommand is not guarded until it is added here.
-const SUBCOMMANDS: [&str; 40] = [
+const SUBCOMMANDS: [&str; 41] = [
     "init",
     "check",
     "export",
@@ -36,6 +36,7 @@ const SUBCOMMANDS: [&str; 40] = [
     "format",
     "stats",
     "explore",
+    "anchors",
     "refs",
     "review",
     "infer-guide",
