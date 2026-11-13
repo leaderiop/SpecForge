@@ -2,6 +2,8 @@
 //! serves a subject of its kind; the checkers' packs digest as the inputs their judged rules read; the executor's keeps
 //! every task of its plan and no file; the phase context holds what its discussion settled.
 
+use crate::cmd_execute::{PLANTED, SUMMARY};
+use crate::commands_support::plant;
 use crate::harness::{Project, ledger, taskboard, vault};
 use serde_json::Value;
 
@@ -213,6 +215,17 @@ fn a_plan_whose_executor_pack_moved_is_w524_while_it_is_open() {
     // The continuation re-records the pack, and the plan is silent again.
     start(&p, PLAN);
     assert_eq!(w524(&p), None);
+    // Moved again, then completed: a closed plan's record is not checked.
+    p.edit(
+        "spec/plans.spec",
+        "done        \"The store tests pass twice\"",
+        DONE,
+    );
+    assert!(w524(&p).is_some(), "{:?}", p.codes());
+    plant(&p, "spec/plans.spec", PLANTED);
+    let run = p.run(&["gsd", "complete-plan", SUMMARY]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(w524(&p), None, "no W524 once the plan is complete");
 }
 
 #[test]
