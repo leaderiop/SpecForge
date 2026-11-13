@@ -57,7 +57,7 @@ INIT_EARLY=$(specforge query "$MILESTONE" --depth 1 --format json)
 
 ```
 
-`--ws` is forwarded nowhere: no command and no routing hint in this workflow takes a workstream. Step 4's shared-file guard reads `WS`, which Step 1 sets from the `ws` argument.
+`--ws` reaches one command: Step 4 records the milestone with `--workstream`, which scopes its id to the workstream. No other command and no routing hint here takes a workstream; Step 1 binds `WS` from the `ws` argument.
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations (including the "What do you want to build next?" prompt and seed-selection questions below) — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
@@ -163,10 +163,10 @@ AskUserQuestion:
 
 ## 4. Record the Milestone and the Project's Changes
 
-The project is shared across workstreams (`gsd-core/references/workstream-flag.md` marks it `# Shared`). This step has two independently-scoped parts — only Part A is workstream-guarded.
+This step has two parts. Part A records the milestone, which a workstream scopes when one is active; Part B records what the milestone changes in the project, which every workstream shares (`gsd-core/references/workstream-flag.md` marks it `# Shared`).
 
 <!-- gsd:section id="project-md-milestone-write" when="state:flat-mode" -->
-If `section_manifest` (from `INIT_EARLY`) is `null` or `"project-md-milestone-write"` is in its `included` list: read and execute `gsd-core/workflows/new-milestone/steps/project-md-milestone-write.md`. Otherwise (a workstream is active) skip — do not read the file; Part B below still runs regardless of the workstream.
+Read and execute `gsd-core/workflows/new-milestone/steps/project-md-milestone-write.md` in either mode: it records the milestone under the workstream when `WS` is set, and on its own otherwise.
 <!-- /gsd:section -->
 
 **Part B — the project's changes (always runs, regardless of the workstream).** Record what this milestone changes in the `project` entity with typed edits: `specforge set <project> what "…"` (likewise `context`, `core_value`) when its description drifted, and per new key decision the `new decision` and `link <project> key_decisions` lines of the project fence (`specforge gsd reference templates/project.md`). Leave the project as it is when nothing drifted. Nothing is backfilled: upstream's Evolution section describes what `/gsd-transition` and `/gsd:complete-milestone` do to the entities.
@@ -483,7 +483,7 @@ ${AGENT_SKILLS_ROADMAPPER}
 </planning_context>
 
 <requirements>
-Milestone v[X.Y] [Name] (recorded): [its goal]
+Milestone [its id: v[X.Y], or [WS]/v[X.Y] in a workstream] [Name] (recorded): [its goal]
 New v1 requirements, to record with the phases in the roadmap edit:
 - [CAT-NN]: [text] ([Category])
 </requirements>
@@ -494,7 +494,7 @@ Create roadmap for milestone v[X.Y]:
    - `--reset-phase-numbers` → start at Phase 1
    - default behavior → continue from the previous milestone's last phase number
 2. Derive phases from THIS MILESTONE's requirements only (the `<requirements>` block)
-3. Map every requirement to exactly one phase; leave out the milestone op (it is recorded)
+3. Map every requirement to exactly one phase. Step 4 recorded the milestone, so the edit has no milestone op, and each phase's `milestone` is the id above
 4. Derive 2-5 success criteria per phase (observable user behaviors)
 5. Validate 100% coverage
 6. Write the roadmap edit immediately: every phase, with the new requirements, in one `specforge.edit` call (each phase's `requirements` is the traceability; STATE is computed)
@@ -629,7 +629,7 @@ Also: `/gsd:plan-phase [N]` — skip discussion, plan directly
 </process>
 
 <success_criteria>
-- [ ] The milestone recorded with its goal and target features (skipped when a workstream is active — see Step 4); the project's changes recorded
+- [ ] The milestone recorded with its goal and target features (scoped by the workstream when one is active); the project's changes recorded
 - [ ] Research completed (if selected) — 4 parallel agents, milestone-aware
 - [ ] Requirements gathered and scoped per category
 - [ ] Future and out-of-scope requirements recorded; this milestone's v1 requirements handed to the roadmapper with REQ-IDs

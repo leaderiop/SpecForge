@@ -1893,7 +1893,7 @@ gsd-core/templates/research-project/SUMMARY.md	own	134+37	32	5d02ac9fab46	3451cf
 gsd-core/templates/research-project/SUMMARY.md	kept	171+1	e3b0c44298fc
 gsd-core/templates/retrospective.md	kept	1+55	03981e30dd76
 gsd-core/templates/roadmap.md	kept	1+2	f712c1693da0
-gsd-core/templates/roadmap.md	own	3+200	42	a553c27b2f6f	f59c19f27094	ported-name
+gsd-core/templates/roadmap.md	own	3+200	44	a553c27b2f6f	eff7bfe577a0	ported-name
 gsd-core/templates/roadmap.md	kept	203+1	e3b0c44298fc
 gsd-core/templates/spec.md	kept	1+2	f714433f3c7b
 gsd-core/templates/spec.md	own	3+3	3	15286ccbd93e	d0cbbd0f6b94	ported-name
@@ -3192,7 +3192,7 @@ gsd-core/workflows/new-milestone.md	own	27+4	4	6fc61101d7a0	fc47a079be55	args
 gsd-core/workflows/new-milestone.md	kept	31+2	5f046190424d
 gsd-core/workflows/new-milestone.md	own	33+13	10	88c4713c7e48	5f4ee5df8dcc	ported-name
 gsd-core/workflows/new-milestone.md	kept	46+9	907d9a982d3e
-gsd-core/workflows/new-milestone.md	own	55+9	8	152544460300	e260d95f0319	ported-name
+gsd-core/workflows/new-milestone.md	own	55+9	8	152544460300	5663a7c0e8c6	ported-name
 gsd-core/workflows/new-milestone.md	kept	64+3	abebec83dec0
 gsd-core/workflows/new-milestone.md	own	67+4	3	09064670636b	936fddb13753	served
 gsd-core/workflows/new-milestone.md	kept	71+3	d5b36cceb1d9
@@ -3206,9 +3206,9 @@ gsd-core/workflows/new-milestone.md	own	133+1	1	c61f777d9e6e	091dbd5ae6a8	ported
 gsd-core/workflows/new-milestone.md	kept	134+30	f116ccaec125
 gsd-core/workflows/new-milestone.md	own	164+1	1	df54f272ddb7	551a4c7f856f	prose
 gsd-core/workflows/new-milestone.md	kept	165+6	ee029e19ed63
-gsd-core/workflows/new-milestone.md	own	171+3	3	b506647ae3fa	173e4f0f1861	prose
+gsd-core/workflows/new-milestone.md	own	171+3	3	b506647ae3fa	f13c036ded3b	prose
 gsd-core/workflows/new-milestone.md	kept	174+2	015253417fa8
-gsd-core/workflows/new-milestone.md	own	176+1	1	92b81d0f8f45	447c6483e019	served
+gsd-core/workflows/new-milestone.md	own	176+1	1	92b81d0f8f45	eb98dd1bda52	prose
 gsd-core/workflows/new-milestone.md	kept	177+1	0cb799edbed9
 gsd-core/workflows/new-milestone.md	own	178+94	10	a1b74f607cdf	e24c28c41b87	ported-name
 gsd-core/workflows/new-milestone.md	kept	272+2	5f046190424d
@@ -3260,9 +3260,9 @@ gsd-core/workflows/new-milestone.md	own	557+3	1	31abf20ab6d7	60aebbff1837	prose
 gsd-core/workflows/new-milestone.md	kept	560+1	529dc1906004
 gsd-core/workflows/new-milestone.md	own	561+1	0	4b709662eadf	e3b0c44298fc	relic
 gsd-core/workflows/new-milestone.md	kept	562+6	790576ffbd92
-gsd-core/workflows/new-milestone.md	own	568+0	6	e3b0c44298fc	0607689dbc66	prose
+gsd-core/workflows/new-milestone.md	own	568+0	6	e3b0c44298fc	3b57e54c2f5a	prose
 gsd-core/workflows/new-milestone.md	kept	568+5	6d9547d9083b
-gsd-core/workflows/new-milestone.md	own	573+2	2	13c6978b7fee	2138bd25ab23	prose
+gsd-core/workflows/new-milestone.md	own	573+2	2	13c6978b7fee	28bea94b34ff	prose
 gsd-core/workflows/new-milestone.md	kept	575+2	765a1ed21e3c
 gsd-core/workflows/new-milestone.md	own	577+1	1	babbe30c43d0	a49b417a248b	typed-edit
 gsd-core/workflows/new-milestone.md	kept	578+2	43b974320e15
@@ -3284,7 +3284,7 @@ gsd-core/workflows/new-milestone.md	own	694+4	4	606c9c1f0db7	1b2964ceadd8	ported
 gsd-core/workflows/new-milestone.md	kept	698+9	c1a7487a6273
 gsd-core/workflows/new-milestone.md	own	707+3	3	9f23d4bb4e70	d986fbbb87ab	args
 gsd-core/workflows/new-milestone.md	kept	710+5	f0ec6d197aef
-gsd-core/workflows/new-milestone.md	own	715+3	1	6ec510a305ae	021e1fe55d4b	prose
+gsd-core/workflows/new-milestone.md	own	715+3	1	6ec510a305ae	62738005b32a	prose
 gsd-core/workflows/new-milestone.md	kept	718+2	002a89624e2b
 gsd-core/workflows/new-milestone.md	own	720+1	1	ca71f0c559ed	6b64dd2d64e8	prose
 gsd-core/workflows/new-milestone.md	kept	721+1	f868a8715a36
@@ -3292,7 +3292,7 @@ gsd-core/workflows/new-milestone.md	own	722+1	1	9880b518a52d	e1c4cb6af828	prose
 gsd-core/workflows/new-milestone.md	kept	723+4	a56776e8de2f
 gsd-core/workflows/new-milestone.md	own	727+1	1	eb0791774912	037927832c0b	args
 gsd-core/workflows/new-milestone.md	kept	728+5	044544179f02
-gsd-core/workflows/new-milestone/steps/project-md-milestone-write.md	own	1+16	17	d3f3bdd853b8	f07b076fc470	ported-name
+gsd-core/workflows/new-milestone/steps/project-md-milestone-write.md	own	1+16	18	d3f3bdd853b8	6ad7806cd694	ported-name
 gsd-core/workflows/new-milestone/steps/project-md-milestone-write.md	kept	17+1	e3b0c44298fc
 gsd-core/workflows/new-milestone/steps/reset-phase-safety.md	kept	1+10	f95b633f3ea6
 gsd-core/workflows/new-milestone/steps/reset-phase-safety.md	own	11+5	5	752c6ec0cf2e	32f92c7a502a	ported-name

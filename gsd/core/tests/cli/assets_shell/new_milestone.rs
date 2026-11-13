@@ -58,9 +58,10 @@ fn the_requirements_step() {
     let milestone = typed::filled(
         &fence_after(
             &asset("gsd-core/workflows/new-milestone/steps/project-md-milestone-write.md"),
-            "In flat mode",
+            "**Part A",
         ),
         &[
+            ("WS", ""),
             ("VERSION", "v1.1"),
             ("NAME", "Sync"),
             ("GOAL", "Two machines keep one board"),
@@ -107,11 +108,13 @@ fn the_requirements_step() {
     );
 }
 
-/// With a workstream, step 4 records the milestone scoped by it (`api/v1.1`), and the roadmap edit step 10 sends
-/// without a milestone op then writes the phases under it.
+/// With a workstream, step 4 records the milestone scoped by it (`api/v1.1`) with its goal, and the roadmap edit step
+/// 10 sends without a milestone op then writes the phases under it; the check reports nothing new.
 #[test]
 fn a_workstream_milestone_is_recorded() {
-    let step = asset("gsd-core/workflows/new-milestone/steps/project-md-milestone-write.md");
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
     let p = taskboard();
     let run = p.run(&[
         "new",
@@ -124,14 +127,40 @@ fn a_workstream_milestone_is_recorded() {
         "The public API",
     ]);
     assert_eq!(run.code, 0, "{}", run.all());
+    let milestone = typed::filled(
+        &fence_after(
+            &asset("gsd-core/workflows/new-milestone/steps/project-md-milestone-write.md"),
+            "**Part A",
+        ),
+        &[
+            ("WS", "api"),
+            ("VERSION", "v1.1"),
+            ("NAME", "Sync"),
+            ("GOAL", "Two machines keep one board"),
+            ("FEATURE", "Export a board"),
+        ],
+    );
+    let recorded = typed::apply(&sh, &p, &milestone);
+    assert_eq!(recorded.code, 0, "{}{}", recorded.out, recorded.err);
+    assert!(recorded.added.is_empty(), "{:?}", recorded.added);
+    let ws = p.fields_of("api/v1.1");
+    assert_eq!(ws["goal"], "Two machines keep one board", "{ws}");
+    assert_eq!(ws["workstream"], "api", "{ws}");
     let mut edit = super::roadmap::roadmap_edit();
     let ops = edit.as_array_mut().expect("a list of edits");
     ops.retain(|op| op["kind"] != "milestone");
     for op in ops.iter_mut().filter(|op| op["kind"] == "phase") {
         op["fields"]["milestone"] = serde_json::json!("api/v1.1");
     }
-    // pinned: Part A is skipped in a workstream, so nothing records the milestone the phases name
-    assert!(step.contains("Skip Part A if `WS`"), "{step}");
-    let refused = super::mcp_edit(&p, &edit);
-    assert_eq!(refused["isError"], true, "{refused}");
+    let before = p.codes();
+    let written = super::mcp_edit(&p, &edit);
+    assert_ne!(written["isError"], true, "{written}");
+    assert_eq!(p.fields_of("api/v1.1/04")["milestone"], "api/v1.1");
+    let mut after = p.codes();
+    for code in &before {
+        if let Some(at) = after.iter().position(|c| c == code) {
+            after.remove(at);
+        }
+    }
+    assert!(after.is_empty(), "added: {after:?}");
 }

@@ -28,7 +28,9 @@ create ops ahead of the milestone (their fields: `templates/project.md`, `templa
 ```
 
 A phase id is its number within the milestone (`04`), and a `depends_on` names the phases it needs by number; the
-milestone scopes them (`v1.1/04`). `mode` is `mvp` for a vertical-MVP project (`PROJECT_MODE=mvp`) and is left out
+milestone scopes them (`v1.1/04`). In a workstream the milestone's id is
+`<workstream>/<version>` (`api/v1.1`, which `specforge new milestone --workstream` gives it), and each phase's
+`milestone` names that id. `mode` is `mvp` for a vertical-MVP project (`PROJECT_MODE=mvp`) and is left out
 otherwise. A phase's status, its plans and the milestone's progress are computed: `specforge gsd progress-report`
 reads them back, and nothing writes a progress table.
 
