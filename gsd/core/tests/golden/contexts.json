@@ -49,6 +49,11 @@
           "tier": "enrich"
         },
         {
+          "name": "quick_research",
+          "selector": "self<research.plan<finding|stack_choice|pattern|pitfall|dont_hand_roll|open_question.research",
+          "tier": "enrich"
+        },
+        {
           "name": "prior",
           "selector": "self.depends_on<summary.plan",
           "tier": "enrich"

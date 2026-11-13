@@ -164,6 +164,12 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
                 "self<context|decision[origin=context]|research.plan",
                 false,
             ),
+            // a quick plan's research items: the quick section stops at the research itself
+            (
+                "quick_research",
+                "self<research.plan<finding|stack_choice|pattern|pitfall|dont_hand_roll|open_question.research",
+                false,
+            ),
             ("prior", "self.depends_on<summary.plan", false),
             (
                 "research",

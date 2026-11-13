@@ -331,6 +331,7 @@ fn a_quick_reading_list_query_reaches_the_context_decisions_and_findings() {
         "251101-abc-CONTEXT",
         "251101-abc-D-01",
         "251101-abc-RESEARCH",
+        "251101-abc-RESEARCH/F1",
     ] {
         assert!(
             text.contains(want),
