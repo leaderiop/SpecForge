@@ -57,3 +57,36 @@ fn audit_milestone_gate_refuses_a_stale_verdict_under_plus() {
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(run.all().contains("E516"), "{}", run.all());
 }
+
+/// The milestone audit tells the orchestrator to record the integration checker's `gsd/E518` verdict on each phase,
+/// and the rule refuses a phase: it judges the milestone's audit, which no fence of the workflow creates.
+#[test]
+fn the_integration_verdict_names_a_phase_the_rule_refuses() {
+    let p = twin();
+    let text = text_of(&payload(&prompt(
+        &p,
+        "audit_milestone",
+        &[MILESTONE],
+        "claude-code",
+    )));
+    assert!(text.contains("record-verdict <phase> E518"), "{text}");
+    let tb = crate::harness::taskboard();
+    let run = super::commands_support::gsd(
+        &tb,
+        "record-verdict",
+        &["v1.0/01", "E518", "passed", "gsd-integration-checker", "{}"],
+    );
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.stderr.contains("verdict_refused"), "{}", run.all());
+    let asset = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("assets/gsd-core/workflows/audit-milestone.md"),
+    )
+    .expect("the workflow");
+    assert!(
+        !gsd_kit::markdown::fences(&asset)
+            .iter()
+            .any(|f| f.language == "bash" && f.text.contains("specforge new milestone_audit")),
+        "a fence creates the audit"
+    );
+}
