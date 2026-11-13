@@ -352,6 +352,68 @@ fn resuming_an_unknown_or_diverged_batch_stops() {
     assert!(err.contains("diverged"), "{err}");
 }
 
+#[test]
+fn a_batch_resumes_after_head_moves_forward_and_stops_once_its_base_is_left() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = twin();
+    p.commit();
+    quick_plans(&p);
+    let resume = fence_after(
+        &asset("gsd-core/workflows/quick-batch/steps/resume-mode.md"),
+        "**Step 2a",
+    );
+    let rc = |id: &str| {
+        sh.run_in(
+            p.root(),
+            &format!("RESUME_BATCH_ID={id}\n{resume}\nprintf '%s' \"$QB_RESUME_RC\""),
+        )
+    };
+    let start = |id: &str, base: &str| {
+        let items = r#"["261112-abc", "261112-def"]"#;
+        let run = p.run(&["gsd", "start-batch", id, "--items", items, "--base", base]);
+        assert_eq!(run.code, 0, "{}", run.all());
+    };
+    // a commit away from the history: made, then reset away, and another commit in its place
+    let away = p.git_commit(
+        "feat: away",
+        &[("away.txt", "away")],
+        "2026-11-12T10:00:00Z",
+    );
+    p.git(&["reset", "-q", "--hard", "HEAD~1"], "2026-11-12T10:01:00Z");
+    let base = p.git_commit(
+        "feat: kept",
+        &[("kept.txt", "kept")],
+        "2026-11-12T10:02:00Z",
+    );
+    start("261112-fwd", &base);
+    start("261112-away", &away);
+    // HEAD moves forward past the base: the batch still resumes
+    p.git_commit(
+        "feat: later",
+        &[("later.txt", "later")],
+        "2026-11-12T10:03:00Z",
+    );
+    let (out, err, _) = rc("261112-fwd");
+    assert_eq!(
+        out, "0",
+        "a batch whose base HEAD descends from is refused: {err}"
+    );
+    // a real commit that is no ancestor of HEAD: refused
+    let common = p.run(&["git", "merge-base", &away, "HEAD", "--pick", ".sha"]);
+    assert_eq!(
+        common.code,
+        0,
+        "the reset-away commit is still known: {}",
+        common.all()
+    );
+    assert_ne!(common.stdout.trim_end(), away);
+    let (out, err, _) = rc("261112-away");
+    assert_eq!(out, "1", "{err}");
+    assert!(err.contains("diverged"), "{err}");
+}
+
 /// Two quick plans of the twin, as batch-init leaves them before it records the batch.
 fn quick_plans(p: &crate::harness::Project) {
     crate::commands_support::plant(
