@@ -48,6 +48,7 @@ behavior serve_context_pack "Serve a Context Pack" {
   verify unit "a route no loaded extension declares, or a subject of another kind, is invalid input"
   verify unit "specforge context prints a route's pack and --pick reads its digest"
   verify unit "specforge.context answers the pack specforge context prints"
+  verify unit "specforge://context/{+entity_id}?role= answers the role's pack, and depth or kinds beside role are refused naming the key"
 }
 
 behavior declare_context_route "Declare a Context Route" {
