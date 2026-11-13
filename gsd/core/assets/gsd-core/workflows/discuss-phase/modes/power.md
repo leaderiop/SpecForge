@@ -30,8 +30,8 @@ pace before processing all answers in a single pass.
    command
 4. On "refresh": read the JSON, process answered questions, update stats
    and HTML
-5. On "finalize": read all answers from JSON, generate CONTEXT.md in the
-   standard format
+5. On "finalize": every answer in the JSON is recorded as the phase
+   context, the same entities a standard discussion records
 
 ## When to use
 

@@ -489,9 +489,9 @@ Otherwise, end here — `confirm_creation` already ran; do not route back to it.
 - User selected which areas to discuss (or `--all`/`--auto` auto-selected)
 - Each selected area explored under the active mode's rules until satisfied
 - Scope creep redirected to deferred ideas
-- CONTEXT.md captures actual decisions, not vague vision
-- CONTEXT.md includes canonical_refs section with full file paths to every spec/ADR/doc downstream agents need (MANDATORY)
-- CONTEXT.md includes code_context section with reusable assets and patterns
+- The phase context records actual decisions, not a vague vision
+- The context's `canonical_refs` give the full path of every spec, ADR or doc downstream agents need (MANDATORY)
+- The context's `reusable_assets` and `patterns` hold what the codebase scout found
 - Deferred ideas preserved for future phases
 - User knows next steps
 - Checkpoint recorded on the discussion log after each area completes (incremental save)

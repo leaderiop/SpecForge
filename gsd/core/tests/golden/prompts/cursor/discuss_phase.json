@@ -17,7 +17,7 @@
     "5. Deep-dive each selected area until satisfied",
     "6. Record the phase context: decisions that guide research and planning",
     "",
-    "**Output:** `{phase_num}-CONTEXT.md` — decisions clear enough that downstream agents can act without asking the user again",
+    "**Output:** the phase context (`context`, `decision` and `deferred_idea` entities), its decisions clear enough that downstream agents act without asking the user again",
     "</objective>",
     "",
     "<execution_context>",
@@ -61,7 +61,7 @@
     "- User chose which areas to discuss",
     "- Each selected area explored until satisfied"
   ],
-  "bytes": 12521,
+  "bytes": 12564,
   "end": [
     "",
     "Context files are resolved in-workflow using `init phase-op` and roadmap/state tool calls.",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:bf049f1454b8f3574d1e633cbf7e3a01ccc2db7bee1103a89179438124dacd9c",
+    "digest": "sha256:4472e9370700df6a85d84ccdb61928825c997f14b30a33abdb14dd1029ee0bdb",
     "prompt": "@gsd/core@VERSION:discuss_phase",
     "steps": [
       {
@@ -216,5 +216,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "bf049f1454b8f3574d1e633cbf7e3a01ccc2db7bee1103a89179438124dacd9c"
+  "sha256": "4472e9370700df6a85d84ccdb61928825c997f14b30a33abdb14dd1029ee0bdb"
 }

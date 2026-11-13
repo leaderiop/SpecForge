@@ -128,7 +128,7 @@ Acceptance Criteria:[score 0.0–1.0]
 Ambiguity: [score] ([calculate])
 ```
 
-**If `--auto` and initial ambiguity already ≤ 0.20 with all minimums met:** Skip interview — derive SPEC.md directly from roadmap + requirements. Log: `[auto] Phase requirements are already sufficiently clear — generating SPEC.md from existing context.` Jump to Step 5.5.
+**If `--auto` and initial ambiguity already ≤ 0.20 with all minimums met:** No interview: the spec is drawn straight from the phase and its requirements. Log: `[auto] Requirements already clear: recording the spec from the existing context.` Jump to Step 5.5.
 
 **Otherwise:** Continue to Step 4.
 

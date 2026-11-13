@@ -2,10 +2,6 @@
 # kept and own text alike: a write verb and a GSD file name in one sentence of prose, or an output redirect or `tee`
 # into one in a shell fence. Its row count is the port's write measure. A row with no hit fails, and so does a hit
 # with no row: take a row off in the commit that rewrites its line; never add a row.
-agents/gsd-doc-synthesizer.compact.md	- `CONFLICTS_PATH` — `INGEST-CONFLICTS.md` output (absolute, from the orchestrator, which gates on it: always write it)
-agents/gsd-doc-synthesizer.compact.md	- [ ] INGEST-CONFLICTS.md written with three buckets, format per `doc-conflict-engine.md`
-agents/gsd-doc-synthesizer.md	- `CONFLICTS_PATH` — where to write `INGEST-CONFLICTS.md` (absolute, given by the orchestrator: it reads this file to gate the ingest, so always write it, with the three-bucket header)
-agents/gsd-doc-synthesizer.md	- [ ] INGEST-CONFLICTS.md written with three buckets, format per `doc-conflict-engine.md`
 agents/gsd-verifier.md	**Never write a VERIFICATION.md.** The phase's `verification` entity exists already; its status, score and covered files are computed from your verdicts, so you record verdicts and never a status.
 commands/gsd/complete-milestone.md	Mark milestone {{version}} complete, archive to milestones/, and update ROADMAP.md and REQUIREMENTS.md.
 commands/gsd/complete-milestone.md	- Update ROADMAP.md to one-line summary with link

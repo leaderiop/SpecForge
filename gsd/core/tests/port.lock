@@ -71,21 +71,25 @@ agents/gsd-doc-classifier.md	kept	162+115	16a5588f5d56
 agents/gsd-doc-synthesizer.compact.md	kept	13+2	b7ba42e17cc2
 agents/gsd-doc-synthesizer.compact.md	own	15+1	1	473c87ea89d9	155a7f7c6fec	agent
 agents/gsd-doc-synthesizer.compact.md	kept	16+58	fcb0c71dbbfe
-agents/gsd-doc-synthesizer.compact.md	own	74+2	2	4a7cbbbdba48	154ec4e04093	ported-name
+agents/gsd-doc-synthesizer.compact.md	own	74+2	2	4a7cbbbdba48	deee6a08721b	ported-name
 agents/gsd-doc-synthesizer.compact.md	kept	76+1	1849f8509271
 agents/gsd-doc-synthesizer.compact.md	own	77+1	1	8d5e274f7e60	6dccc764d31d	ported-name
 agents/gsd-doc-synthesizer.compact.md	kept	78+109	298f2654d510
 agents/gsd-doc-synthesizer.compact.md	own	187+1	1	8db2fbce7a0f	39f25fbe1848	agent
-agents/gsd-doc-synthesizer.compact.md	kept	188+14	e2be894db453
+agents/gsd-doc-synthesizer.compact.md	kept	188+6	07d22dca8096
+agents/gsd-doc-synthesizer.compact.md	own	194+1	1	118a17801f9f	0d6f9f417e0b	agent
+agents/gsd-doc-synthesizer.compact.md	kept	195+7	8062ece0377c
 agents/gsd-doc-synthesizer.md	kept	13+4	5f4e39893b21
 agents/gsd-doc-synthesizer.md	own	17+1	1	fbb33ce58d00	c25d3bf93ac4	agent
 agents/gsd-doc-synthesizer.md	kept	18+64	1ff3878a30d8
-agents/gsd-doc-synthesizer.md	own	82+2	2	55874cd7affb	c1878d2035e0	ported-name
+agents/gsd-doc-synthesizer.md	own	82+2	2	55874cd7affb	477963bf7bd7	ported-name
 agents/gsd-doc-synthesizer.md	kept	84+1	1849f8509271
 agents/gsd-doc-synthesizer.md	own	85+1	1	206af071b7c4	1a22908f0c24	ported-name
 agents/gsd-doc-synthesizer.md	kept	86+163	7317d041848a
 agents/gsd-doc-synthesizer.md	own	249+1	1	6905abc85efc	c99e3067106d	agent
-agents/gsd-doc-synthesizer.md	kept	250+17	b8f70b3b79ba
+agents/gsd-doc-synthesizer.md	kept	250+10	b2f435ef9d5a
+agents/gsd-doc-synthesizer.md	own	260+1	1	118a17801f9f	0d6f9f417e0b	agent
+agents/gsd-doc-synthesizer.md	kept	261+6	6e62f47a3c7f
 agents/gsd-executor.md	kept	13+2	b7ba42e17cc2
 agents/gsd-executor.md	own	15+1	1	d321ad140b38	3e5124d3d05e	prose
 agents/gsd-executor.md	kept	16+3	ba7aa2cb2d64
@@ -922,8 +926,8 @@ commands/gsd/config.md	kept	54+5	f415dd9b6b30
 commands/gsd/config.md	own	59+1	1	404b1ee6ed05	8db2463c50cc	workflow
 commands/gsd/config.md	kept	60+3	f3dc2019ea6f
 commands/gsd/discuss-phase.md	kept	17+14	d04dfcd7905b
-commands/gsd/discuss-phase.md	own	31+1	1	ba12ccf65578	1dab55d1f407	prose
-commands/gsd/discuss-phase.md	kept	32+22	dfa4a25dc2e9
+commands/gsd/discuss-phase.md	own	31+3	3	a6b437624eb3	2e24c49e6c02	prose
+commands/gsd/discuss-phase.md	kept	34+20	39d1814279f7
 commands/gsd/discuss-phase.md	own	54+2	2	32cc7443d2fb	83bd7c0f7ba8	ported-name
 commands/gsd/discuss-phase.md	kept	56+27	39a8ae5ff0ce
 commands/gsd/execute-phase.md	kept	18+46	c91ba970d567
@@ -1097,7 +1101,9 @@ gsd-core/references/agent-skills-bootstrap.md	own	33+1	1	c73f3c2ebe29	52d06f2ff9
 gsd-core/references/agent-skills-bootstrap.md	kept	34+2	05fa00241d41
 gsd-core/references/agent-skills-bootstrap.md	own	36+4	4	04f831937a32	1f46cde48f60	ported-name
 gsd-core/references/agent-skills-bootstrap.md	kept	40+41	71490e1c9537
-gsd-core/references/autonomous-smart-discuss.md	kept	1+7	ee8a0c696442
+gsd-core/references/autonomous-smart-discuss.md	kept	1+2	7fb9f4645fc1
+gsd-core/references/autonomous-smart-discuss.md	own	3+1	1	566f5f70aa73	77909475d9a1	prose
+gsd-core/references/autonomous-smart-discuss.md	kept	4+4	e00a88fe285c
 gsd-core/references/autonomous-smart-discuss.md	own	8+5	5	de2a8a389eb3	f41ffddee7bb	ported-name
 gsd-core/references/autonomous-smart-discuss.md	kept	13+10	cb4f2a7f8860
 gsd-core/references/autonomous-smart-discuss.md	own	23+3	3	33d93372cafb	e09b3421bb1b	ported-name
@@ -1109,7 +1115,9 @@ gsd-core/references/autonomous-smart-discuss.md	kept	71+9	6ffb58e5e892
 gsd-core/references/autonomous-smart-discuss.md	own	80+2	2	ce982d8c38ca	1cba670caa75	served
 gsd-core/references/autonomous-smart-discuss.md	kept	82+16	cedb1ce57a3e
 gsd-core/references/autonomous-smart-discuss.md	own	98+1	1	89be3e3d06fe	8b524ce5964a	ported-name
-gsd-core/references/autonomous-smart-discuss.md	kept	99+95	35816edb0140
+gsd-core/references/autonomous-smart-discuss.md	kept	99+11	c9a0230f7047
+gsd-core/references/autonomous-smart-discuss.md	own	110+1	1	52035c5a21a7	3a3902846b18	prose
+gsd-core/references/autonomous-smart-discuss.md	kept	111+83	28271efa0184
 gsd-core/references/autonomous-smart-discuss.md	own	194+72	12	0147ad2228be	3c2577a05bb2	prose
 gsd-core/references/autonomous-smart-discuss.md	kept	266+4	ec8c323f9be4
 gsd-core/references/autonomous-smart-discuss.md	own	270+1	1	2234d6e408b0	4d83543da0e5	ported-name
@@ -2351,8 +2359,8 @@ gsd-core/workflows/discuss-phase-assumptions.md	kept	682+3	5cddc7013ab1
 gsd-core/workflows/discuss-phase-assumptions.md	own	685+1	1	ef9442e024a6	2a31e80253db	ported-name
 gsd-core/workflows/discuss-phase-assumptions.md	kept	686+5	a5ba07e6a58e
 gsd-core/workflows/discuss-phase-assumptions.md	own	691+1	1	f7d3242ca733	f1183433230a	ported-name
-gsd-core/workflows/discuss-phase-assumptions.md	kept	692+23	ec89137776e4
-gsd-core/workflows/discuss-phase-assumptions.md	own	715+1	0	20d10b0b5734	e3b0c44298fc	relic
+gsd-core/workflows/discuss-phase-assumptions.md	kept	692+19	53cbf0ba8dd7
+gsd-core/workflows/discuss-phase-assumptions.md	own	711+5	4	aa3916d4c9f4	1e774cbdf6c4	served
 gsd-core/workflows/discuss-phase-assumptions.md	kept	716+3	2dfc344049e6
 gsd-core/workflows/discuss-phase-assumptions/steps/auto-advance-dispatch.md	kept	1+14	b29510c8bb53
 gsd-core/workflows/discuss-phase-power.md	kept	1+13	cc0162bfe806
@@ -2365,11 +2373,21 @@ gsd-core/workflows/discuss-phase-power.md	kept	26+1	63cec3752567
 gsd-core/workflows/discuss-phase-power.md	own	27+1	1	f76d7c6f525b	42a0fe7362fe	prose
 gsd-core/workflows/discuss-phase-power.md	kept	28+79	d41f6f106484
 gsd-core/workflows/discuss-phase-power.md	own	107+1	1	45495eb79341	aa536aebe00a	prose
-gsd-core/workflows/discuss-phase-power.md	kept	108+166	e753f53ba457
+gsd-core/workflows/discuss-phase-power.md	kept	108+93	de28a63d286a
+gsd-core/workflows/discuss-phase-power.md	own	201+1	1	551efabe466a	6db009063500	prose
+gsd-core/workflows/discuss-phase-power.md	kept	202+50	fcd77609e153
+gsd-core/workflows/discuss-phase-power.md	own	252+1	1	0c89a72b48bc	6c6904430e5a	prose
+gsd-core/workflows/discuss-phase-power.md	kept	253+11	92e4946ff464
+gsd-core/workflows/discuss-phase-power.md	own	264+1	1	dcec4fcf4274	b3d4c39607f0	prose
+gsd-core/workflows/discuss-phase-power.md	kept	265+9	b3b272affd2a
 gsd-core/workflows/discuss-phase-power.md	own	274+8	9	27444c373a27	047636b3991d	prose
-gsd-core/workflows/discuss-phase-power.md	kept	282+10	43d1711cbf12
+gsd-core/workflows/discuss-phase-power.md	kept	282+4	77e6f7bc6fc7
+gsd-core/workflows/discuss-phase-power.md	own	286+1	1	840be79cd62e	ece08c37fb58	prose
+gsd-core/workflows/discuss-phase-power.md	kept	287+5	35b66bf535df
 gsd-core/workflows/discuss-phase-power.md	own	292+1	1	4e71fc8af650	f479cecf6acf	prose
-gsd-core/workflows/discuss-phase-power.md	kept	293+19	2137f25adddd
+gsd-core/workflows/discuss-phase-power.md	kept	293+13	d339c47587ce
+gsd-core/workflows/discuss-phase-power.md	own	306+1	1	33dd76e9a874	d6ea04f99c69	prose
+gsd-core/workflows/discuss-phase-power.md	kept	307+5	07e4dd189f9f
 gsd-core/workflows/discuss-phase.md	kept	1+36	b7f32ac1b682
 gsd-core/workflows/discuss-phase.md	own	37+1	1	6b9b4c2e086d	f71cdb0def1c	prose
 gsd-core/workflows/discuss-phase.md	kept	38+80	8269447c9ac6
@@ -2430,7 +2448,9 @@ gsd-core/workflows/discuss-phase.md	kept	467+4	7151e34b418c
 gsd-core/workflows/discuss-phase.md	own	471+1	1	ca442bbb3e65	1f321860256a	ported-name
 gsd-core/workflows/discuss-phase.md	kept	472+5	b76e097d65e6
 gsd-core/workflows/discuss-phase.md	own	477+12	0	753b47fb05dc	e3b0c44298fc	ported-name
-gsd-core/workflows/discuss-phase.md	kept	489+23	0f7576ef3da6
+gsd-core/workflows/discuss-phase.md	kept	489+19	d0560b9ec4f2
+gsd-core/workflows/discuss-phase.md	own	508+3	3	47d2cfbf1a31	10ca0dad5583	served
+gsd-core/workflows/discuss-phase.md	kept	511+1	60cb9030611b
 gsd-core/workflows/discuss-phase.md	own	512+1	0	20d10b0b5734	e3b0c44298fc	relic
 gsd-core/workflows/discuss-phase.md	kept	513+1	1f230c712b7b
 gsd-core/workflows/discuss-phase.md	own	514+1	1	135c607c9335	b98ca4e59ec9	prose
@@ -2494,7 +2514,9 @@ gsd-core/workflows/discuss-phase/modes/default.md	own	143+1	1	3a767c7db4ef	57264
 gsd-core/workflows/discuss-phase/modes/default.md	kept	144+1	e3b0c44298fc
 gsd-core/workflows/discuss-phase/modes/power.md	kept	1+23	1474c57e6cbd
 gsd-core/workflows/discuss-phase/modes/power.md	own	24+1	1	d2d4ad200ad3	cdbcc3a8c262	served
-gsd-core/workflows/discuss-phase/modes/power.md	kept	25+20	849d049d58b0
+gsd-core/workflows/discuss-phase/modes/power.md	kept	25+7	6086fa1feead
+gsd-core/workflows/discuss-phase/modes/power.md	own	32+2	2	8e80cae23881	d221a38ef166	prose
+gsd-core/workflows/discuss-phase/modes/power.md	kept	34+11	525a6c4abd56
 gsd-core/workflows/discuss-phase/modes/power.md	own	45+2	2	71b3f52eed6a	5efe0348cd01	prose
 gsd-core/workflows/discuss-phase/modes/power.md	kept	47+1	e3b0c44298fc
 gsd-core/workflows/discuss-phase/modes/text.md	kept	1+22	a7fb71db9a02
@@ -3052,7 +3074,7 @@ gsd-core/workflows/ingest-docs.md	own	50+1	1	18d6afef9586	b96776c47062	workflow
 gsd-core/workflows/ingest-docs.md	kept	51+2	5f046190424d
 gsd-core/workflows/ingest-docs.md	own	53+7	6	30245518da17	944f3b19fd9b	ported-name
 gsd-core/workflows/ingest-docs.md	kept	60+4	b28fac2a3468
-gsd-core/workflows/ingest-docs.md	own	64+3	3	9588ed81c2f7	6894b55091bc	ported-name
+gsd-core/workflows/ingest-docs.md	own	64+3	3	9588ed81c2f7	deccc12fc9db	ported-name
 gsd-core/workflows/ingest-docs.md	kept	67+2	e7de31328420
 gsd-core/workflows/ingest-docs.md	own	69+4	4	85c3b0675583	3be651a665e2	ported-name
 gsd-core/workflows/ingest-docs.md	kept	73+8	f8f4665825e8
@@ -3076,7 +3098,7 @@ gsd-core/workflows/ingest-docs.md	own	201+1	1	98fd755a54b7	5ddccb406252	ported-n
 gsd-core/workflows/ingest-docs.md	kept	202+10	acb5f4d92b2f
 gsd-core/workflows/ingest-docs.md	own	212+1	1	10e8a50e460a	7d8d90ba72c3	ported-name
 gsd-core/workflows/ingest-docs.md	kept	213+12	4f4b1ed1619e
-gsd-core/workflows/ingest-docs.md	own	225+4	4	bf78f7cd37a6	2e0b2cd9138a	ported-name
+gsd-core/workflows/ingest-docs.md	own	225+4	4	bf78f7cd37a6	13bc9c565248	ported-name
 gsd-core/workflows/ingest-docs.md	kept	229+5	dbaadd49a47d
 gsd-core/workflows/ingest-docs.md	own	234+1	1	bfcef10760cd	b4ce9d449d6f	ported-name
 gsd-core/workflows/ingest-docs.md	kept	235+11	94db0e7f89d4
@@ -5117,7 +5139,9 @@ gsd-core/workflows/spec-phase.md	kept	81+6	89c79014ebba
 gsd-core/workflows/spec-phase.md	own	87+1	1	cf94bee37a08	34d410df878e	prose
 gsd-core/workflows/spec-phase.md	kept	88+5	78fdb2fdae5c
 gsd-core/workflows/spec-phase.md	own	93+3	3	ec6381e76e51	1c9b98640956	typed-edit
-gsd-core/workflows/spec-phase.md	kept	96+71	6bd6cb21f611
+gsd-core/workflows/spec-phase.md	kept	96+34	09a0a9ba1bc9
+gsd-core/workflows/spec-phase.md	own	130+1	1	5d0b6bf1f0a1	8080faabaa14	prose
+gsd-core/workflows/spec-phase.md	kept	131+36	03b912172234
 gsd-core/workflows/spec-phase.md	own	167+1	1	1ebdbfc7d5d5	b765ef428b8a	prose
 gsd-core/workflows/spec-phase.md	kept	168+1	fdc1afaef56f
 gsd-core/workflows/spec-phase.md	own	169+1	1	cc7af72980c8	5a63beec1e02	prose

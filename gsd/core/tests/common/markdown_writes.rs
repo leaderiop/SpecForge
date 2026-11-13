@@ -58,8 +58,23 @@ const PERSON: &[&str] = &["user", "users", "human", "person"];
 /// The fence languages read as shell.
 const SHELL: &[&str] = &["bash", "sh", "shell", "zsh"];
 
+/// The words that tell an agent to generate: no ledger counts them, and a family whose rows are gone holds none.
+pub const GENERATE: &[&str] = &["generate", "generates", "generated", "generating"];
+
 /// The 0-based lines of `text` that tell an agent to write a GSD file, each once.
 pub fn hits(text: &str) -> BTreeSet<usize> {
+    hits_by(text, VERBS, true)
+}
+
+/// The 0-based lines of `text` that tell an agent to generate a GSD file: a [`GENERATE`] word and a GSD file name in
+/// one sentence of prose, or of a line of a fence that is not shell.
+pub fn generates(text: &str) -> BTreeSet<usize> {
+    hits_by(text, GENERATE, false)
+}
+
+/// The lines of `text` where one of `verbs` and a GSD file name share a sentence, and with `redirects` a shell
+/// fence's line that writes one.
+fn hits_by(text: &str, verbs: &[&str], redirects: bool) -> BTreeSet<usize> {
     let mut out = BTreeSet::new();
     for block in gsd_kit::markdown::inline_blocks(text) {
         let quoted: Vec<Range<usize>> = block
@@ -69,7 +84,7 @@ pub fn hits(text: &str) -> BTreeSet<usize> {
             .map(|(range, _)| range.clone())
             .collect();
         for sentence in sentences(&block.text) {
-            if let Some(at) = writes_in(&block.text, sentence, &quoted) {
+            if let Some(at) = writes_in(&block.text, sentence, &quoted, verbs) {
                 out.insert(block.lines[at]);
             }
         }
@@ -80,12 +95,12 @@ pub fn hits(text: &str) -> BTreeSet<usize> {
         for n in fence.code.clone() {
             let line = lines.get(n).copied().unwrap_or_default();
             let hit = if shell {
-                shell_writes(line)
+                redirects && shell_writes(line)
             } else {
                 // a template or an example is prose, line by line
                 sentences(line)
                     .into_iter()
-                    .any(|s| writes_in(line, s, &[]).is_some())
+                    .any(|s| writes_in(line, s, &[], verbs).is_some())
             };
             if hit {
                 out.insert(n);
@@ -119,9 +134,14 @@ fn sentences(text: &str) -> Vec<Range<usize>> {
     out
 }
 
-/// The byte (in `text`) of the first GSD file name of the sentence `range` when it also holds a write verb that
+/// The byte (in `text`) of the first GSD file name of the sentence `range` when it also holds one of `verbs` that
 /// counts, outside the `quoted` ranges.
-fn writes_in(text: &str, range: Range<usize>, quoted: &[Range<usize>]) -> Option<usize> {
+fn writes_in(
+    text: &str,
+    range: Range<usize>,
+    quoted: &[Range<usize>],
+    verbs: &[&str],
+) -> Option<usize> {
     let sentence = &text[range.clone()];
     let name = gsd_kit::files::planning_names(sentence)
         .into_iter()
@@ -130,7 +150,7 @@ fn writes_in(text: &str, range: Range<usize>, quoted: &[Range<usize>]) -> Option
     let words = words(sentence);
     let counts = words.iter().enumerate().any(|(k, (at, word))| {
         let lower = word.to_ascii_lowercase();
-        if !VERBS.contains(&lower.as_str())
+        if !verbs.contains(&lower.as_str())
             || quoted.iter().any(|q| q.contains(&(range.start + at)))
         {
             return false;

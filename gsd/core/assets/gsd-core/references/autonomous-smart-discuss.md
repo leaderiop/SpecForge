@@ -1,7 +1,7 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/references/autonomous-smart-discuss.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Smart Discuss — Autonomous Mode
 
-Smart discuss is the autonomous-optimized variant of `gsd-discuss-phase`. It proposes grey area answers in batch tables — the user accepts or overrides per area — then writes an identical CONTEXT.md to what discuss-phase produces.
+Smart discuss is the autonomous-optimized variant of `gsd-discuss-phase`. It proposes grey area answers in batch tables — the user accepts or overrides per area — then records the same phase context entities discuss-phase records.
 
 **Inputs:** `PHASE_NUM` from execute_phase. Run init to get phase paths:
 
@@ -108,7 +108,7 @@ A phase is pure infrastructure when ALL of these are true:
 2. AND success criteria are all technical: "file exists", "test passes", "config valid", "command runs"
 3. AND no user-facing behavior is described (no "users can", "displays", "shows", "presents")
 
-**If infrastructure-only:** Skip Sub-step 4. Jump directly to Sub-step 5 with minimal CONTEXT.md. Display:
+**If infrastructure-only:** Skip Sub-step 4. Jump directly to Sub-step 5, which records a minimal phase context. Display:
 
 ```
 Phase ${PHASE_NUM}: Infrastructure phase — skipping discuss, writing minimal context.

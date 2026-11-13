@@ -63,7 +63,7 @@ if [ -n "$(specforge export --kinds project --pick '.nodes[].id' 2>/dev/null)" ]
 
 Work out `project_exists` (`PROJECT_EXISTS` above), `has_git`, `git_worktree_root` and `in_nested_subdir` (from `git rev-parse`).
 
-**Absolute paths (#2376):** a spawned subagent's own cwd may differ from the orchestrator's, so the staging directory is absolute: `INTEL_DIR` (made in the classify step, a scratch directory in the project's temp root, outside its specs) is `{intel_dir}` below, and `{conflicts_path}` is `$INTEL_DIR/INGEST-CONFLICTS.md`. The intel files are staging only; nothing in them is part of the spec.
+**Absolute paths (#2376):** a spawned subagent's own cwd may differ from the orchestrator's, so the staging directory is absolute: `INTEL_DIR` (made in the classify step, a scratch directory in the project's temp root, outside its specs) is `{intel_dir}` below, and `{conflicts_path}` is `$INTEL_DIR/conflicts.md`. The intel files are staging only; nothing in them is part of the spec.
 
 **Auto-detect MODE** if not set:
 - `project_exists: true` → `MODE=merge`
@@ -225,7 +225,7 @@ Agent({
 The synthesizer writes its staging files outside the spec:
 - `{intel_dir}/decisions.md`, `{intel_dir}/requirements.md`, `{intel_dir}/constraints.md`, `{intel_dir}/context.md`
 - `{intel_dir}/SYNTHESIS.md`
-- `{conflicts_path}` (`INGEST-CONFLICTS.md`, which is reported to the user)
+- `{conflicts_path}` (the conflict report, shown to the user)
 
 </step>
 

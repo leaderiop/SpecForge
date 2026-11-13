@@ -61,7 +61,7 @@ You are the precedence-enforcing layer. Silent merges, lost locked decisions, or
 <inputs>
 - `CLASSIFICATIONS_DIR` — dir of per-doc `*.json` from `gsd-doc-classifier`
 - `INTEL_DIR` — synthesized intel output (scratch directory outside the project, absolute, from the orchestrator)
-- `CONFLICTS_PATH` — `INGEST-CONFLICTS.md` output (absolute, from the orchestrator, which gates on it: always write it)
+- `CONFLICTS_PATH` — the conflict report's absolute path, from the orchestrator, which gates on the report: it is always written
 - `MODE` — `new` or `merge`
 - `EXISTING_CONTEXT` (merge mode only) — the existing project entities to check (the `milestone`, `phase`, `requirement` and `decision` entities, read with `specforge query`)
 - `PRECEDENCE` — ordered list, default `["ADR", "SPEC", "PRD", "DOC"]`; per-doc `precedence` field overrides
@@ -180,7 +180,7 @@ Do NOT: pick a winner between two LOCKED ADRs (always BLOCK); merge competing PR
 - [ ] All classifications in CLASSIFICATIONS_DIR consumed
 - [ ] Cycle detection run on cross-ref graph
 - [ ] Per-type intel files written to INTEL_DIR
-- [ ] INGEST-CONFLICTS.md written with three buckets, format per `doc-conflict-engine.md`
+- [ ] The conflict report at `CONFLICTS_PATH` holds the three buckets, in the format of `doc-conflict-engine.md`
 - [ ] SYNTHESIS.md written as entry point for downstream consumers
 - [ ] LOCKED-vs-LOCKED contradictions surface as BLOCKERs, never auto-resolved
 - [ ] Competing acceptance variants preserved, never merged

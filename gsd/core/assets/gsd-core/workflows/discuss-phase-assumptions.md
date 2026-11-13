@@ -558,9 +558,9 @@ End here — `confirm_creation` already ran; do not route back to it.
 - Assumptions surfaced with evidence and confidence levels
 - User confirmed or corrected assumptions (~2-4 interactions max)
 - Scope creep redirected to deferred ideas
-- CONTEXT.md captures actual decisions (identical format to discuss mode)
-- CONTEXT.md includes canonical_refs with full file paths (MANDATORY)
-- CONTEXT.md includes code_context from codebase analysis
-- DISCUSSION-LOG.md records assumptions and corrections as audit trail
+- The phase context records actual decisions, as the same entities discuss mode records
+- The context's `canonical_refs` give full file paths (MANDATORY)
+- The context's `reusable_assets`, `patterns` and `integration_points` hold what the codebase analysis found
+- The discussion log's entries keep the assumptions and corrections as the audit trail
 - User knows next steps
 </success_criteria>

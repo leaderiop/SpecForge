@@ -67,3 +67,30 @@ fn no_line_tells_an_agent_to_write_a_gsd_file() {
         super::ledger::rows(super::port_map::markdown_writes::MARKDOWN_WRITES, 2),
     );
 }
+
+/// The discuss, spec and project family: the assets whose write rows are all gone.
+const FAMILY: &str = r"^(commands/gsd/(discuss-phase|spec-phase|new-project|new-milestone|ingest-docs)\.md|gsd-core/workflows/(discuss-phase|discuss-phase-assumptions|discuss-phase-power|spec-phase|new-project|new-milestone|ingest-docs)(\.md|/)|gsd-core/references/(questioning|autonomous-smart-discuss)\.md|gsd-core/templates/((context|project|requirements|roadmap|state|spec)\.md|research-project/)|agents/gsd-(roadmapper|research-synthesizer|doc-synthesizer|doc-classifier|project-researcher|advisor-researcher|assumptions-analyzer)(\.compact)?\.md)";
+
+/// No line of the family tells an agent to generate a GSD file: the write ledger does not count "generate", so a
+/// line like "generate CONTEXT.md" would pass its test, and this one holds the family to it.
+#[test]
+fn no_family_line_tells_an_agent_to_generate_a_gsd_file() {
+    use super::port_map::markdown_writes::generates;
+    assert_eq!(generates("Generate CONTEXT.md as normal."), [0].into());
+    assert!(generates("Record the phase context.").is_empty());
+    assert!(generates("```bash\necho generate > STATE.md\n```").is_empty());
+    let family = regex::Regex::new(FAMILY).expect("a regex");
+    let mut seen = 0;
+    let mut hits = Vec::new();
+    for (path, lines) in super::specforge_only::shell_assets() {
+        if !family.is_match(&path) {
+            continue;
+        }
+        seen += 1;
+        for n in generates(&lines.join("\n")) {
+            hits.push(format!("{path}: {}", lines[n].trim()));
+        }
+    }
+    assert!(seen > 50, "the family's assets: {seen}");
+    assert!(hits.is_empty(), "{hits:#?}");
+}
