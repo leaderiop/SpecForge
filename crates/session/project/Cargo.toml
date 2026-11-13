@@ -21,6 +21,8 @@ specforge-common = { workspace = true }
 specforge-component = { workspace = true }
 specforge-coverage = { path = "../../leaf/coverage" }
 specforge-diagnostics = { path = "../../leaf/diagnostics" }
+# A context pack is fitted and sealed here, so a check can evaluate a record again (ADR 0356).
+specforge-emitter = { path = "../../pipeline/emitter" }
 # `Contained` and the credential deny-list: K11 reads and judged file inputs resolve through them (ADR 0335).
 specforge-effects = { path = "../../kernel/effects" }
 specforge-graph = { path = "../../pipeline/graph" }
@@ -49,8 +51,6 @@ specforge-git = { path = "../../adapters/git", features = ["testing"] }
 specforge-parser = { workspace = true, features = ["testing"] }
 # The builtins, loaded outside the extension load by the tests.
 specforge-component = { path = "../../runtime/component", features = ["testing"] }
-# The pipeline tests render what they compile.
-specforge-emitter = { path = "../../pipeline/emitter" }
 insta = { workspace = true }
 proptest = { version = "1.11", default-features = false, features = ["std"] }
 # Extensions declared with the SDK, served in process.

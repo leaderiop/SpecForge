@@ -34,8 +34,9 @@ pub(crate) struct Args {
     format: Format,
 
     /// Record the pack on ENTITY, a kind the route records whose subject is <SUBJECT>: the host writes the route, the
-    /// pack's digest and its budget, with its ledger line, then prints the pack it recorded
-    #[arg(long, value_name = "ENTITY")]
+    /// pack's digest and its budget, with its ledger line, then prints the pack it recorded (in the context format,
+    /// which a record is fitted in)
+    #[arg(long, value_name = "ENTITY", conflicts_with = "format")]
     record: Option<String>,
 
     #[command(flatten)]

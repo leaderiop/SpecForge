@@ -43,7 +43,7 @@ pub use collected::{
 pub use contexts::{
     CONTEXT_INSTRUCTIONS, CONTEXT_PACK, CONTEXT_PLAN, CONTEXT_STALE, GSD_CONTEXT_SPEC,
     declare_gsd_contexts, gsd_context_builder, gsd_context_project, gsd_context_runtime,
-    gsd_context_wire,
+    gsd_context_wire, recording,
 };
 pub use gsd::{
     GSD_EXTENSION, gsd_history_extension, gsd_history_kinds, gsd_history_runtime,

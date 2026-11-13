@@ -1146,7 +1146,14 @@ The host checks each route once, when the extension loads. One that cannot be se
 no core section, a section name not a word, repeated or `settings`, a selector that does not parse, leaves the
 project or does not type-check from the subject kind, a subject kind not loaded, a setting the extension does not
 declare, a budget of 0, a record or stale code that cannot hold) is E123 and is not registered. A context-written
-field needs no check for its owner gate (`checks_while`): its staleness is its check. A subject kind of an optional peer the project does not load
+field needs no check for its owner gate (`checks_while`): its staleness is its check.
+
+A record is written by the host (`record_context`, below; `specforge context <route> <subject> --record <entity>`).
+On each check, every record of a route that names `stale`, when its field's owner gate admits the owner's state, is
+evaluated again at its recorded budget, in the context format: a pack whose digest moved, a record that reaches no
+subject or several, or a core above the budget is one finding of the route's stale code at the field, its severity by
+its letter, with the record's `suggestion` (`{entity}`, `{subject}` and `{route}` filled in). The extension's settings
+raise and gate it as any of its codes. A project that holds no record evaluates no pack. A subject kind of an optional peer the project does not load
 drops the route without a diagnostic; a section that reaches one is skipped and listed in the pack's `skipped`. An
 `agent` the extension does not declare, or one an earlier route binds, is E124: the binding is dropped, the route kept.
 

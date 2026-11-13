@@ -684,6 +684,8 @@ impl CompiledProject {
             let mut diagnostics = values.diagnostics;
             diagnostics.extend(checked.diagnostics);
             diagnostics.extend(gated.diagnostics);
+            let stale = this.stale_records(disk, &entities, &checked_values, &checked.computed);
+            diagnostics.extend(stale);
             diagnostics.extend(crate::values::approvals(this.effects(), &stages.spent));
             // What this machine did not perform of them: an effect's, once for the run.
             diagnostics.extend(crate::effects::not_run(&this.effects().log()));

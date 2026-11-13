@@ -103,3 +103,18 @@ behavior record_context_pack "Record a Context Pack" {
   verify unit "recording a pack stales no verdict"
   verify unit "specforge context --record writes the digest it prints"
 }
+
+behavior report_stale_context_record "Report a Stale Context Record" {
+  invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   validation
+  contract   """
+    On each check the host MUST re-evaluate, at its recorded budget, the pack of every record a route with a stale code
+    holds, when the field's owner gate admits it, and report a record whose pack has another digest, no or several
+    subjects, or a core above its budget with the route's stale code at the record. A project holding no record MUST
+    evaluate no pack (ADR 0356).
+  """
+  verify unit "a record whose pack has moved raises its route's stale code at the record"
+  verify unit "a record is checked only when its field's owner gate admits it"
+  verify unit "a record with no subject, or whose core no longer fits its budget, is stale"
+  verify unit "a check evaluates one pack per held record and none for a project without one"
+}

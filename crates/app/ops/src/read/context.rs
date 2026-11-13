@@ -5,8 +5,8 @@
 
 use specforge_common::Sym;
 use specforge_emitter::EmitterError;
-use specforge_emitter::pack::{self, PackPlan, PackSection, Sealed, SectionBody, Served};
-use specforge_project::context::{self, SectionKind, SectionRead};
+use specforge_emitter::pack;
+use specforge_project::context;
 use specforge_registry::{ContextRoute, PlainDisk};
 
 use super::export::{BRIEF, CONTEXT, Format, GRAPH};
@@ -108,8 +108,7 @@ fn named_route<'v>(
     })
 }
 
-/// The pack of `route` for `subject` at `budget`: its sections read, fitted, each served section digested (a part
-/// over the members it kept), the pack digested over the subject and them, and the document rendered.
+/// The pack of `route` for `subject` at `budget`, fitted and sealed over the project, and the document rendered.
 fn seal(
     view: &ProjectView,
     route: &ContextRoute,
@@ -117,76 +116,23 @@ fn seal(
     budget: usize,
     format: Format,
 ) -> Result<Pack, EmitterError> {
-    let project = view.project();
-    let reads = context::read(project, &PlainDisk, route, subject.as_str());
     let schema = view.schema();
-    let plan = PackPlan {
-        route: route.name.clone(),
-        subject,
-        agent: route.agent.clone(),
-        format: format.emit_format(),
+    let packed = context::pack(
+        view.project(),
+        &PlainDisk,
+        route,
+        subject.as_str(),
         budget,
-        sections: reads.iter().map(section).collect(),
-        skipped: route
-            .skipped
-            .iter()
-            .map(|s| (s.section.clone(), s.kind.clone()))
-            .collect(),
-        schema: &schema,
-        registries: view.registries(),
-        computed: Some(view.computed()),
-    };
-    let cut = pack::fit(view.graph(), &plan)?;
-    let sections: Vec<String> = reads
-        .iter()
-        .zip(&cut.served)
-        .map(|(read, served)| match served {
-            Served::Whole => read.digest.clone(),
-            Served::Part(ids) => {
-                let ids: Vec<String> = ids.iter().map(|id| id.as_str().to_string()).collect();
-                context::served(project, &PlainDisk, read, &ids)
-            }
-            Served::Cut => String::new(),
-        })
-        .collect();
-    let listed: Vec<(String, String, String)> = reads
-        .iter()
-        .zip(&sections)
-        .filter(|(_, digest)| !digest.is_empty())
-        .map(|(read, digest)| (read.name.clone(), read.selector.clone(), digest.clone()))
-        .collect();
-    let entity = context::subject(project, &PlainDisk, subject.as_str());
-    let digest = context::digest(&route.name, subject.as_str(), &entity, &listed);
-    let sealed = Sealed {
-        sections,
-        pack: digest.clone(),
-    };
-    let text = pack::render(view.graph(), &plan, &cut, &sealed)?;
+        format.emit_format(),
+        &schema,
+    )?;
+    let text = pack::render(view.graph(), &packed.plan, &packed.cut, &packed.sealed)?;
     Ok(Pack {
         route: route.name.clone(),
         subject: subject.as_str().to_string(),
-        digest,
+        digest: packed.digest,
         text,
     })
-}
-
-/// A section as read, as the emitter fits it.
-fn section(read: &SectionRead) -> PackSection {
-    let body = match read.kind {
-        SectionKind::Entities => {
-            SectionBody::Entities(read.members.iter().map(|id| Sym::new(id)).collect())
-        }
-        SectionKind::Files => SectionBody::Files(read.files.clone()),
-        SectionKind::Tests => SectionBody::Tests(read.members.clone()),
-        SectionKind::Settings => SectionBody::Settings(read.settings.clone()),
-    };
-    PackSection {
-        name: read.name.clone(),
-        tier: read.tier,
-        selector: read.selector.clone(),
-        body,
-        digest: read.digest.clone(),
-    }
 }
 
 /// The emitter's failure as the operation's: a budget too small is invalid input about `max_tokens` with its code

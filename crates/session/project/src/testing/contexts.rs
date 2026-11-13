@@ -327,3 +327,34 @@ pub fn gsd_context_builder() -> ContributionsBuilder {
 pub fn gsd_context_runtime() -> InProcessRuntime {
     gsd_routed_serving(gsd_context_builder)
 }
+
+/// `project` (a [`gsd_context_project`] or one made from it) whose plan [`CONTEXT_PLAN`] holds the context record
+/// `record` (the block as written, `{ route "gsd/executor" digest "sha256:…" max_tokens 6000 }`), with its ledger line,
+/// as the host's record of the route leaves it. The ledger line is digested over the value `runtime` compiles.
+pub fn recording(project: TestProject, record: &str, runtime: crate::SharedRuntime) -> TestProject {
+    let plan = "plan 02-01 \"Save and load tasks.json\" {\n";
+    project.write(
+        "a.spec",
+        project
+            .read("a.spec")
+            .replace(plan, &format!("{plan}  {CONTEXT_PACK} {record}\n")),
+    );
+    let compiled = project.compile_in(runtime);
+    let graph = compiled.graph();
+    let node = graph.node(CONTEXT_PLAN).expect("the plan");
+    let forms = compiled.environment().registries().field_forms();
+    let value = specforge_graph::wire::resolved(graph, forms, node, CONTEXT_PACK)
+        .expect("a recorded value");
+    let mut ledger = crate::harness::Ledger::default();
+    ledger.insert(crate::harness::Line {
+        subject: CONTEXT_PLAN.to_string(),
+        key: CONTEXT_PACK.to_string(),
+        digest: crate::harness::digest(
+            CONTEXT_PLAN,
+            CONTEXT_PACK,
+            &specforge_graph::wire::bytes(&value),
+        ),
+    });
+    project.write("specforge-harness", ledger.canonical());
+    project
+}

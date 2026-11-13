@@ -28,7 +28,7 @@ Options:
           [default: context]
 
       --record <ENTITY>
-          Record the pack on ENTITY, a kind the route records whose subject is <SUBJECT>: the host writes the route, the pack's digest and its budget, with its ledger line, then prints the pack it recorded
+          Record the pack on ENTITY, a kind the route records whose subject is <SUBJECT>: the host writes the route, the pack's digest and its budget, with its ledger line, then prints the pack it recorded (in the context format, which a record is fitted in)
 
       --path <PATH>
           A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)

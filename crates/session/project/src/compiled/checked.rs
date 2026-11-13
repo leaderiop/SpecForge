@@ -102,6 +102,26 @@ impl CompiledProject {
         &self.value_checks
     }
 
+    /// The context records whose pack has moved (ADR 0356 D12), over the snapshot a check has just merged, read as the
+    /// owner gates read it, with what the run's compute passes and value checks gave.
+    pub(crate) fn stale_records(
+        &self,
+        disk: &dyn specforge_registry::Disk,
+        entities: &specforge_registry::EntitySnapshot,
+        checked: &CheckedValues,
+        computed: &specforge_graph::Computed,
+    ) -> Vec<specforge_common::Diagnostic> {
+        crate::context::records::stale(&crate::context::Over {
+            env: &self.env,
+            graph: self.graph.graph(),
+            entities,
+            disk,
+            digests: &self.digests,
+            checked,
+            computed,
+        })
+    }
+
     /// This project as its checks run with `values` as the values phase's (tests: a project with no checker keeps them).
     #[cfg(feature = "testing")]
     pub fn with_checked_values(mut self, values: CheckedValues) -> Self {
