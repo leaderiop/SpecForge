@@ -86,6 +86,7 @@ pub const EXECUTOR: Role = Role {
         "specforge:validate",
         "specforge:explain",
         "specforge:gsd.branch_check",
+        "specforge:context",
     ],
     writes: &[
         "specforge:edit",

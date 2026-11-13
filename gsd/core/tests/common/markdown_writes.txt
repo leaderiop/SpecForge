@@ -133,14 +133,6 @@ gsd-core/workflows/discuss-phase.md	- STATE.md updated with session info
 gsd-core/workflows/discuss-phase.md	- Checkpoint file cleaned up after successful CONTEXT.md write
 gsd-core/workflows/execute-phase/steps/regression-gate.md	- File patterns from `key-files.created` in corresponding SUMMARY.md files that match `*.test.*` or `*.spec.*`
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	Create VERIFICATION.md.
-gsd-core/workflows/execute-phase.md	Commit each task atomically. Create SUMMARY.md.
-gsd-core/workflows/execute-phase.md	Do NOT update STATE.md or ROADMAP.md — the orchestrator owns those writes after every plan in the wave completes (sequential mode).
-gsd-core/workflows/execute-phase.md	REQUIRED ORDER: Write SUMMARY.md → commit → only then any narration. No text between Write and commit (truncation risk; #2070 rescue is not primary defense).
-gsd-core/workflows/execute-phase.md	- [ ] SUMMARY.md created in plan directory
-gsd-core/workflows/execute-phase.md	REQUIRED ORDER: Write SUMMARY.md → commit → only then any narration. No text between Write and commit (truncation risk; #2070 rescue is not primary defense).
-gsd-core/workflows/execute-phase.md	- [ ] SUMMARY.md created in plan directory
-gsd-core/workflows/execute-phase.md	- [ ] STATE.md updated with position and decisions
-gsd-core/workflows/execute-phase.md	- [ ] ROADMAP.md updated with plan progress (via `roadmap update-plan-progress`)
 gsd-core/workflows/graduation.md	| `decisions` | `PROJECT.md` — append under `## Validated Decisions` (create section if absent) |
 gsd-core/workflows/graduation.md	| `patterns` | `PATTERNS.md` — append under the appropriate category section (create file if absent) |
 gsd-core/workflows/graduation.md	| `lessons` | `PROJECT.md` — append under `## Invariants` (create section if absent) |

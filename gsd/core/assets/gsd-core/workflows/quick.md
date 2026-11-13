@@ -130,9 +130,8 @@ AGENT_SKILLS_RESEARCHER=""   # the host install carries the skills of gsd-phase-
 
 The fence above printed `quick_id`, `slug`, `branch_name`, `title` and `date`; `quick_dir` and `task_dir` are `$quick_id`. Nothing here answers a model: an installed agent carries its own model, so every `Agent()` below omits `model`. `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`.
 
-The project state and the project are no files, so there is no path to hand a subagent: it reads them with `specforge` (#2376):
+The project is no file, so there is no path to hand a subagent: it reads it with `specforge` (#2376):
 ```bash
-STATE_PATH=""   # the project state is computed: specforge gsd progress-report
 PROJECT_PATH=""   # the project is an entity: specforge query "$PROJECT" --depth 0
 ```
 
@@ -314,7 +313,6 @@ Agent(
 **Description:** ${DESCRIPTION}
 
 <required_reading>
-- ${STATE_PATH} (Project State)
 - ./CLAUDE.md or ./.claude/CLAUDE.md (if exists — follow project-specific guidelines)
 ${DISCUSS_MODE ? '- `specforge query ' + quick_id + '-CONTEXT --depth 2 --kinds context,decision --format context` (User decisions — locked, do not revisit)' : ''}
 ${RESEARCH_MODE ? '- `specforge query ' + quick_id + '-RESEARCH --depth 1 --format context` (Research findings — use to inform implementation choices)' : ''}
@@ -471,11 +469,7 @@ You are running as a SEQUENTIAL executor agent on the main working tree (set SEQ
 `}
 
 <required_reading>
-- `specforge query ${quick_id} --depth 1 --format context` (Plan)
-${DISCUSS_MODE ? '- `specforge query ' + quick_id + '-CONTEXT --depth 2 --kinds context,decision --format context` (User decisions — locked, do not revisit)' : ''}
-${RESEARCH_MODE ? '- `specforge query ' + quick_id + '-RESEARCH --depth 1 --format context` (Research findings — use to inform implementation choices)' : ''}
-- ${STATE_PATH} (Project state)
-- ./CLAUDE.md or ./.claude/CLAUDE.md (Project instructions, if exists)
+- `specforge context gsd/executor "${quick_id}"` (the executor's context pack: the quick plan, its --discuss decisions and --research findings, the project, `CLAUDE.md` / `AGENTS.md` and the settings; a quick plan has no phase sections)
 - .claude/skills/ or .agents/skills/ (Project skills, if either exists — list skills, read SKILL.md for each, follow relevant rules during implementation)
 </required_reading>
 

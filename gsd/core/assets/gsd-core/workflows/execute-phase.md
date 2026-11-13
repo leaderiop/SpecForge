@@ -128,23 +128,6 @@ EXECUTOR_STALL_THRESHOLD_MINUTES="{{setting:executor.stall_threshold_minutes|10}
 Executors run in sequential mode on the working tree: `@gsd/core` has no worktree isolation (no submodule check, no base-check degrade).
 
 
-Read context window size for adaptive prompt enrichment:
-
-```bash
-CONTEXT_WINDOW="{{setting:context_window|200000}}"   # context_window (the settings)
-```
-
-When `CONTEXT_WINDOW >= 500000` (1M-class models), subagent prompts include richer context:
-- Executor agents receive prior wave SUMMARY.md files and the phase CONTEXT.md/RESEARCH.md
-- Verifier agents receive all PLAN.md, SUMMARY.md, CONTEXT.md files plus REQUIREMENTS.md
-- This enables cross-phase awareness and history-aware verification
-
-When `CONTEXT_WINDOW < 200000` (sub-200K models), subagent prompts are thinned to reduce static overhead:
-- Executor agents omit extended deviation rule examples and checkpoint examples from inline prompt — load on-demand via @~/.claude/gsd-core/references/executor-examples.md
-- Planner agents omit extended anti-pattern lists and specificity examples from inline prompt — load on-demand via @~/.claude/gsd-core/references/planner-antipatterns.md
-- Core rules and decision logic remain inline; only verbose examples and edge-case lists are extracted
-- This reduces executor static overhead by ~40% while preserving behavioral correctness
-
 **If `phase_found` is false:** Error — phase directory not found.
 **If `plan_count` is 0:** Error — no plans found in phase.
 **If `state_exists` is false but the spec exists:** Offer reconstruct or continue.
@@ -582,7 +565,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
    `[checkpoint] phase {PHASE_NUMBER} wave {N}/{M} plan {plan_id} starting ({P}/{Q} plans done)`
 
-   Pass paths only — executors read files themselves.
+   Pass the plan id only — the executor reads its context pack with `specforge context gsd/executor`.
 
    **Substitute `{plan_id}` in the prompt below with this plan's `id` field** from the `phase-plan-index` JSON loaded in step 1 (the same field referred to elsewhere in this workflow as `plan.id`) — unmodified and un-truncated, never a paraphrase.
 
@@ -613,30 +596,21 @@ increases monotonically across waves. `{status}` is `complete` (success),
        <objective>
        Execute plan {plan_number} of phase {phase_number}-{phase_name}.
        [gsd:dispatch phase="{phase_number}" plan="{plan_id}"]
-       Commit each task atomically. Create SUMMARY.md.
-       Do NOT update STATE.md or ROADMAP.md — the orchestrator owns those writes after every plan in the wave completes (sequential mode).
+       Commit each task atomically. Write the summary entity and close the plan with `specforge gsd complete-plan`.
+       Progress and the roadmap are computed from the closed plan: there is nothing else to update.
        </objective>
 
 
-       <parallel_execution>
-       You are running as a PARALLEL executor agent in a git worktree. Worktree path safety (cwd-drift, absolute-path guards) is in `worktree-path-safety.md` (loaded below).
-       Run `git commit` normally — hooks run by default. Do NOT pass `--no-verify`
-       unless the orchestrator surfaces `workflow.worktree_skip_hooks=true` in this
-       prompt; silent bypass violates project CLAUDE.md guidance (#2924).
+       <sequential_execution>
+       You are running as a SEQUENTIAL executor agent on the main working tree (set SEQUENTIAL=true in your Step 0 commit guard; a linked phase worktree on the configured branch is allowed, #4799).
+       Use normal git commits (with hooks). Do NOT use --no-verify.
+       Run the `<project_root_pin>` guard before your first Edit/Write and before every commit (#4254).
+       REQUIRED ORDER: write the summary entity → `complete-plan` → final commit → only then any narration. No text between the summary and the commit (truncation risk; #2070 rescue is not primary defense).
+       </sequential_execution>
 
-       IMPORTANT: Do NOT modify STATE.md or ROADMAP.md. execute-plan.md
-       auto-detects worktree mode (`.git` is a file, not a directory) and skips
-       shared file updates automatically. The orchestrator updates them centrally
-       after merge.
-
-       REQUIRED: SUMMARY.md MUST be committed before you return. In worktree mode the
-       git_commit_metadata step in execute-plan.md commits SUMMARY.md and REQUIREMENTS.md
-       only (STATE.md and ROADMAP.md are excluded automatically). Do NOT skip or defer
-       this commit — the orchestrator force-removes the worktree after you return, and
-       any uncommitted SUMMARY.md will be permanently lost (#2070).
-       REQUIRED ORDER: Write SUMMARY.md → commit → only then any narration. No text between Write and commit (truncation risk; #2070 rescue is not primary defense).
-
-       </parallel_execution>
+       <project_root_pin>
+       {ORCHESTRATOR build-time embed: bound step-0p guard per sequential-root-pin.md — never this note}
+       </project_root_pin>
 
        <execution_context>
        ORCHESTRATOR build-time embed (NOT a sub-agent runtime step): before this dispatch, read each file listed below and replace this note with those files' contents, inlined verbatim in this block in the listed order. Never leave `@`-include lines in the dispatched prompt — `@path` never expands inside an Agent() `prompt="..."` string (#3324), so an include arrives as literal text the executor never sees.
@@ -644,25 +618,12 @@ increases monotonically across waves. `{status}` is `complete` (success),
        - `~/.claude/gsd-core/templates/summary.md`
        - `~/.claude/gsd-core/references/checkpoints.md`
        ${TDD_APPLICABLE ? '- `~/.claude/gsd-core/references/tdd.md`' : ''}  # #3990/#4265: type: tdd, tdd="true", or workflow.tdd_mode
-
-       ${CONTEXT_WINDOW < 200000 ? '' : '- `~/.claude/gsd-core/references/executor-examples.md`'}
        </execution_context>
 
        <required_reading>
-       Read these files at execution start using the Read tool.
-       First resolve repo root so every path is anchored:
-       \`PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)\`
-       - ${PROJECT_ROOT}/{phase_dir}/{plan_file} (Plan)
-       - ${PROJECT_ROOT}/the `project` entity (Project context — core value, requirements, evolution rules)
-       - ${PROJECT_ROOT}/the computed project state (State)
-       - ${PROJECT_ROOT}/the settings (`specforge settings`) (Config, if exists)
-       ${CONTEXT_WINDOW >= 500000 ? `
-       - ${PROJECT_ROOT}/${phase_dir}/*-CONTEXT.md (User decisions from discuss-phase — honors locked choices)
-       - ${PROJECT_ROOT}/${phase_dir}/*-RESEARCH.md (Technical research — pitfalls and patterns to follow)
-       - ${PROJECT_ROOT}/${prior_wave_summaries} (SUMMARY.md files from earlier waves in this phase — what was already built)
-       ` : ''}
-       - ${PROJECT_ROOT}/CLAUDE.md (Project instructions, if exists — follow project-specific guidelines and coding conventions)
-       - ${PROJECT_ROOT}/.claude/skills/ or ${PROJECT_ROOT}/.agents/skills/ (Project skills, if either exists — list skills, read SKILL.md for each, follow relevant rules during implementation)
+       specforge context gsd/executor "{plan_id}"
+       Run the line above first. Its pack is the plan with its tasks, truths, artifacts, key links, setup steps and checkpoints, the phase and its requirements, the plan's decisions, the phase's context and research, the summaries of the plans it depends on, the project, `CLAUDE.md` / `AGENTS.md` and the settings, at the executor route's budget.
+       - .claude/skills/ or .agents/skills/ (Project skills, if either exists — list skills, read SKILL.md for each, follow relevant rules during implementation)
        </required_reading>
 
        ${AGENT_SKILLS}
@@ -677,8 +638,8 @@ increases monotonically across waves. `{status}` is `complete` (success),
        <success_criteria>
        - [ ] All tasks executed
        - [ ] Each task committed individually
-       - [ ] SUMMARY.md created in plan directory
-       - [ ] No modifications to shared orchestrator artifacts (the orchestrator handles all post-wave shared-file writes)
+       - [ ] The summary entity written, then the plan closed with `specforge gsd complete-plan`
+       - [ ] The final commit made, and only then any narration
        </success_criteria>
      "
    )
@@ -692,35 +653,8 @@ increases monotonically across waves. `{status}` is `complete` (success),
    **Sequential mode** (every plan):
 
    Omit `isolation="worktree"` from the Agent call. Before composing the prompt, read and execute
-   `execute-phase/steps/sequential-root-pin.md` (#4254) — it owns the sequential root-pin build-time
-   embed and the wave serialization rules.
-
-   Replace the `<parallel_execution>` block with:
-
-   ```
-       <sequential_execution>
-       You are running as a SEQUENTIAL executor agent on the main working tree (set SEQUENTIAL=true in your Step 0 commit guard; a linked phase worktree on the configured branch is allowed, #4799).
-       Use normal git commits (with hooks). Do NOT use --no-verify.
-       Run the `<project_root_pin>` guard before your first Edit/Write and before every commit (#4254).
-       REQUIRED ORDER: Write SUMMARY.md → commit → only then any narration. No text between Write and commit (truncation risk; #2070 rescue is not primary defense).
-       </sequential_execution>
-
-       <project_root_pin>
-       {ORCHESTRATOR build-time embed: bound step-0p guard per sequential-root-pin.md — never this note}
-       </project_root_pin>
-   ```
-
-   The sequential mode Agent prompt uses the same structure as worktree mode but with these differences in success_criteria — since there is only one agent writing at a time, there are no shared-file conflicts:
-
-   ```
-       <success_criteria>
-       - [ ] All tasks executed
-       - [ ] Each task committed individually
-       - [ ] SUMMARY.md created in plan directory
-       - [ ] STATE.md updated with position and decisions
-       - [ ] ROADMAP.md updated with plan progress (via `roadmap update-plan-progress`)
-       </success_criteria>
-   ```
+   `execute-phase/steps/sequential-root-pin.md` (#4254) — it owns the `<project_root_pin>` build-time embed above
+   and the wave serialization rules.
 
 4. **Wait for all agents in wave to complete.**
 
@@ -895,6 +829,16 @@ increases monotonically across waves. `{status}` is `complete` (success),
 </step>
 <step name="checkpoint_handling">
 Plans with `autonomous: false` require user interaction.
+**Before every continuation spawn, re-record the executor pack.** The person's answer (`specforge gsd
+answer-checkpoint` writes `checkpoint.answer`) or confirmed setup (`specforge gsd confirm-setup` writes
+`user_setup.done`) moved the plan's executor pack, and neither command records it again; without this line gsd/W524
+fires on the running plan. `start-plan` serves and records the pack; the plan keeps its first start and head, so the
+re-run moves nothing else:
+```bash
+PLAN_ID="{plan_id}"
+specforge gsd start-plan "$PLAN_ID" --head "$(specforge git head --pick .sha)" || exit 1
+```
+
 **Auto-mode checkpoint handling:**
 Read auto-advance config (chain flag OR user preference — same boolean as `check.auto-mode`):
 ```bash
@@ -902,8 +846,8 @@ AUTO_MODE="{{setting:workflow._auto_chain_active|}}"   # workflow._auto_chain_ac
 ```
 
 When executor returns a checkpoint AND `AUTO_MODE` is `true`:
-- **human-verify** → Auto-spawn continuation agent with `{user_response}` = `"approved"`. Log `⚡ Auto-approved checkpoint`. **Except `blocking-human`.**
-- **decision** → `auto_select` present: auto-spawn with `{user_response}` = that option, log `⚡ Auto-selected: [option]`. Absent: present to user (#4095). **Except `blocking-human`.**
+- **human-verify** → Re-record the executor pack (above), then auto-spawn continuation agent with `{user_response}` = `"approved"`. Log `⚡ Auto-approved checkpoint`. **Except `blocking-human`.**
+- **decision** → `auto_select` present: re-record the executor pack (above), then auto-spawn with `{user_response}` = that option, log `⚡ Auto-selected: [option]`. Absent: present to user (#4095). **Except `blocking-human`.**
 - **human-action** → Present to user (existing behavior below). Auth gates cannot be automated.
 
 <!-- gsd:protected -->
@@ -925,7 +869,7 @@ When executor returns a checkpoint AND `AUTO_MODE` is `true`:
    [Awaiting section from agent return]
    ```
 5. User responds: "approved"/"done" | issue description | decision selection
-6. **Spawn continuation agent (NOT resume)** with a prompt built from these placeholders (there is no separate template file; this list is the contract):
+6. **Re-record the executor pack** (the fence above), then **spawn continuation agent (NOT resume)** with a prompt built from these placeholders (there is no separate template file; this list is the contract); its `<required_reading>` opens with the same `specforge context gsd/executor "{plan_id}"` line:
    - `{completed_tasks_table}`: From checkpoint return, wrapped in a `<completed_tasks>` tag (the executor's continuation handling keys on it)
    - `{resume_task_number}` + `{resume_task_name}`: Current task
    - `{user_response}`: What user provided

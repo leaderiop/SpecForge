@@ -333,6 +333,12 @@ Display: `### CHECKPOINT: [Type]` heading → Progress {X}/{Y} → Task name →
 
 After response: verify if specified. Pass → continue. Fail → inform, wait. WAIT for user — do NOT hallucinate completion.
 
+The answer (`specforge gsd answer-checkpoint`) moved the plan's executor pack: re-record it before the next task, or
+gsd/W524 fires on the running plan. The plan keeps its first start and head:
+```bash
+specforge gsd start-plan "$PLAN_ID" --head "$(specforge git head --pick .sha)" || exit 1
+```
+
 See ~/.claude/gsd-core/references/checkpoints.md for details.
 </step>
 
@@ -341,7 +347,7 @@ When spawned via Task and hitting checkpoint: return structured state (cannot in
 
 **Required return:** 1) Completed Tasks table (hashes + files) 2) Current Task (what's blocking) 3) Checkpoint Details (user-facing content) 4) Awaiting (what's needed from user)
 
-Orchestrator parses → presents to user → spawns fresh continuation with your completed tasks state. You will NOT be resumed. In main context: use checkpoint_protocol above.
+Orchestrator parses → presents to user → re-runs `specforge gsd start-plan` for the plan (the answer moved its executor pack) → spawns fresh continuation with your completed tasks state. You will NOT be resumed. In main context: use checkpoint_protocol above.
 </step>
 
 <step name="verification_failure_gate">
@@ -380,6 +386,12 @@ The plan's `user_setup` entities are its setup steps, written by the planner wit
 edits (`~/.claude/gsd-core/templates/user-setup.md`). If the plan has any, show each one's service, env vars,
 dashboard configuration and local development steps, and set `USER_SETUP_SHOWN=true`. A person confirms each step
 with `specforge gsd confirm-setup` (human-attested: never run it for them). None: skip.
+
+A confirmed step moved the plan's executor pack: once the person confirmed, re-record it before going on, or gsd/W524
+fires on the running plan:
+```bash
+specforge gsd start-plan "$PLAN_ID" --head "$(specforge git head --pick .sha)" || exit 1
+```
 </step>
 
 <step name="create_summary">

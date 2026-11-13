@@ -77,11 +77,20 @@ If the query finds no such phase: Error — project not initialized.
 </step>
 
 <step name="load_plan">
-Read the plan file provided in your prompt context.
+```bash
+PLAN_ID="{the plan id, e.g. v1.0/02/02-01}"
+specforge context gsd/executor "$PLAN_ID" || exit 1
+```
 
-Parse: frontmatter (phase, plan, type, autonomous, wave, depends_on), objective, context (@-references), tasks with types, verification/success criteria, output spec.
+That is the executor pack: the plan (type, autonomous, wave, depends_on, objective, verification and success
+criteria, output), its tasks, truths, artifacts, key links, setup steps and checkpoints, the phase and its
+requirements, the plan's decisions, the phase's context and research, the summaries of the plans it depends on, the
+project, `CLAUDE.md` / `AGENTS.md` and the settings. Over MCP it is the resource
+`specforge://context/{+entity_id}?role=gsd/executor`; a host that generates this agent's `## Context` section already
+holds it there. `--pick .budget` lists what the budget cut: read a cut entity with
+`specforge query <id> --format context`. The pack serves no file contents: read a file the plan names yourself.
 
-**If plan references CONTEXT.md:** Honor user's vision throughout execution.
+**The context's decisions are locked:** honor the user's vision throughout execution.
 </step>
 
 <step name="record_start_time">
@@ -245,6 +254,9 @@ Use `gate="blocking-human"` for package-legitimacy checkpoints so they are unamb
 
 **SCOPE BOUNDARY:**
 Only auto-fix issues DIRECTLY caused by the current task's changes. Pre-existing warnings, linting errors, or failures in unrelated files are out of scope.
+- A file is in scope when the plan lists it (`specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].fields.files_modified[]'`);
+  `specforge anchors --file <path>` names the entities anchored in a file, so a file the plan does not list whose
+  anchors are another plan's is out of scope
 - Log out-of-scope discoveries to `deferred-items.md` in the phase directory
 - Do NOT fix them
 - Do NOT re-run builds hoping they resolve themselves
@@ -254,6 +266,9 @@ Track auto-fix attempts per task. After 3 auto-fix attempts on a single task:
 - STOP fixing — record each remaining issue as a `deviation` of kind `issue` in the summary
 - Continue to the next task (or return checkpoint if blocked)
 - Do NOT restart the build to find more issues
+
+**REFUSALS:** a `specforge` line that refuses names its code: read it with `specforge explain <code>`, fix the value,
+and run the line again.
 
 **Extended examples and edge case guide:**
 For detailed deviation rule examples, checkpoint examples, and edge case decision guidance:

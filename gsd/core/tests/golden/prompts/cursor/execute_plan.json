@@ -61,7 +61,7 @@
     "",
     "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id), and its `plan` entities are among the other nodes (a plan whose `status` is not `complete` has no summary yet). `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`; the sub-repositories are `specforge git repos`' answer; an installed agent carries its own model."
   ],
-  "bytes": 41881,
+  "bytes": 42513,
   "end": [
     "SUMMARY_COUNT=$(specforge gsd progress-report --phase \"$PHASE_ID\" --pick '.phases[0].summaries')",
     "```",
@@ -186,7 +186,7 @@
     "",
     "```json"
   ],
-  "lines": 689,
+  "lines": 701,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:e0a0f77296019b922c0a1c3b4ea83a30073bfaff657d67f994ea834a7088a013",
+    "digest": "sha256:4b23d7422486c637a155678e3c3e664bb585594447e51b2b4a117632be4c691f",
     "prompt": "@gsd/core@VERSION:execute_plan",
     "steps": [
       {
@@ -258,5 +258,5 @@
     ],
     "subject": "v1.0/02/02-01"
   },
-  "sha256": "e0a0f77296019b922c0a1c3b4ea83a30073bfaff657d67f994ea834a7088a013"
+  "sha256": "4b23d7422486c637a155678e3c3e664bb585594447e51b2b4a117632be4c691f"
 }

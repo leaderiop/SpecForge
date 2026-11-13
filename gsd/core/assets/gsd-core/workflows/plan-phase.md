@@ -606,7 +606,6 @@ Extract from INIT JSON:
 
 ```bash
 # the phase's state is entities: each value is an entity id, read with `specforge query <id> --format context`; empty when the phase has none
-STATE_PATH=""   # the project state is computed: specforge gsd progress-report
 ROADMAP_PATH=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.milestone')
 REQUIREMENTS_PATH=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]')
 RESEARCH_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds research --pick '.nodes[kind=research].id')
@@ -712,8 +711,7 @@ Read the active intel step hook from `PLAN_PRE_HOOKS_JSON` where `kind == "step"
 **If an active intel step hook exists:**
 ```bash
 # the intel capability is not part of @gsd/core: there is no API surface to regenerate
-API_SURFACE_PATH="${STATE_PATH%/*}/intel/API-SURFACE.md"
-echo "✓ API surface regenerated: ${API_SURFACE_PATH}"  # injected into step 8 as HINT
+API_SURFACE_PATH=""
 ```
 
 Continue to step 8.

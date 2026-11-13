@@ -13,21 +13,51 @@ fn executor_reading(text: &str) -> String {
     block(&text[at..], "<required_reading>", "</required_reading>")
 }
 
-/// The executor spawn hands the executor `{phase_dir}/{plan_file}` as its plan, and no fence of the workflow assigns
-/// either: the executor's reading list carries no plan.
+/// The executor spawn's reading opens with the executor route's line, which serves the plan's pack on the taskboard
+/// as written: its body names the plan's tasks, no section serves files the plan modifies, and no line of the block
+/// names a path variable or the context window.
 #[test]
-fn the_executor_spawn_reads_paths_no_step_sets() {
-    let text = asset("gsd-core/workflows/execute-phase.md");
-    let reading = executor_reading(&text);
-    assert!(reading.contains("{phase_dir}/{plan_file}"), "{reading}");
-    let assigns = regex::Regex::new(r"(?m)\b(phase_dir|plan_file)=").expect("a regex");
-    for fence in gsd_kit::markdown::fences(&text) {
-        assert!(
-            !assigns.is_match(&fence.text),
-            "a fence sets it:\n{}",
-            fence.text
-        );
+fn the_executor_spawn_reads_the_executor_route() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let reading = executor_reading(&asset("gsd-core/workflows/execute-phase.md"));
+    let first = reading
+        .lines()
+        .map(str::trim)
+        .find(|l| !l.is_empty() && *l != "<required_reading>")
+        .expect("a first line");
+    assert_eq!(first, r#"specforge context gsd/executor "{plan_id}""#);
+    for gone in [
+        "{phase_dir}",
+        "{plan_file}",
+        "${STATE_PATH}",
+        "CONTEXT_WINDOW",
+    ] {
+        assert!(!reading.contains(gone), "{gone}:\n{reading}");
     }
+    let p = taskboard();
+    let line = first.replace("{plan_id}", "v1.0/02/02-01");
+    let (out, err, code) = sh.run_in(p.root(), &format!("{line} --format json"));
+    assert_eq!(code, 0, "{out}{err}");
+    let pack: serde_json::Value = serde_json::from_str(&out).expect("the pack is JSON");
+    let sections = pack["sections"].as_array().expect("sections");
+    let body = sections
+        .iter()
+        .find(|s| s["name"] == "body")
+        .expect("a body section");
+    assert!(
+        body["members"]
+            .as_array()
+            .is_some_and(|m| m.iter().any(|id| id == "v1.0/02/02-01/T1")),
+        "{body}"
+    );
+    assert!(
+        sections
+            .iter()
+            .all(|s| !s["name"].as_str().unwrap_or("").contains("files")),
+        "{sections:?}"
+    );
 }
 
 /// The summary template's fence, with a decision the executor took first, closes a plan as a model fills it: the
@@ -275,4 +305,61 @@ fn the_manager_blocker_line_raises_a_blocker() {
         assert_eq!(blockers[0]["fields"]["phase"], "v1.0/02", "{filled}");
         assert!(blockers[0]["fields"]["resolved"].is_null(), "{filled}");
     }
+}
+
+/// A confirmed setup step moves the executor pack `start-plan` recorded, so gsd/W524 fires on the running plan; the
+/// continuation fence of execute-phase's checkpoint handling records it again, as the orchestrator fills it, and the
+/// check reports nothing new.
+#[test]
+fn the_continuation_re_records_the_executor_pack() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let setup = typed::filled(
+        &typed::typed_fence(
+            &asset("gsd-core/templates/user-setup.md"),
+            "## The User Setup's Typed Edits",
+        ),
+        &[
+            ("PLAN_ID", "v1.0/02/02-01"),
+            ("SETUP_ID", "US1"),
+            ("SERVICE", "stripe"),
+            ("WHY", "Payment processing requires API keys"),
+            (
+                "ENV_VARS",
+                r#"[{"name": "STRIPE_SECRET_KEY", "source": "Stripe Dashboard → Developers → API keys"}]"#,
+            ),
+            ("DASHBOARD", "[]"),
+            ("LOCAL_DEV", "none"),
+        ],
+    );
+    let run = typed::apply(&sh, &p, &setup);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    let start = asset("gsd-core/workflows/execute-plan.md")
+        .lines()
+        .map(str::trim)
+        .find(|l| l.starts_with("specforge gsd start-plan \"$PLAN_ID\""))
+        .expect("execute-plan's start-plan line")
+        .to_string();
+    let run = typed::apply(&sh, &p, &format!("PLAN_ID=v1.0/02/02-01\n{start}"));
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    let confirmed = p.run_as_person(&["gsd", "confirm-setup", "v1.0/02/02-01/US1", "--by", "ada"]);
+    assert_eq!(confirmed.code, 0, "{}", confirmed.all());
+    assert!(p.codes().iter().any(|c| c == "gsd/W524"), "{:?}", p.codes());
+    let continuation = typed::filled(
+        &typed::typed_fence(
+            &asset("gsd-core/workflows/execute-phase.md"),
+            "**Before every continuation spawn, re-record the executor pack.**",
+        ),
+        &[("PLAN_ID", "v1.0/02/02-01")],
+    );
+    let run = typed::apply(&sh, &p, &continuation);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(
+        !p.codes().iter().any(|c| c == "gsd/W524"),
+        "{:?}",
+        p.codes()
+    );
+    assert!(run.added.is_empty(), "{:?}", run.added);
 }

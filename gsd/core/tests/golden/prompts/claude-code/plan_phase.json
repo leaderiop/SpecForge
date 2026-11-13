@@ -61,7 +61,7 @@
     "collapsing plan roles into the orchestrator context.",
     ""
   ],
-  "bytes": 114252,
+  "bytes": 114048,
   "end": [
     "</file>",
     "</execution_context>",
@@ -186,7 +186,7 @@
     "  \"features.thinking_partner\": false,",
     "  \"gates.confirm_milestone_scope\": true,"
   ],
-  "lines": 1962,
+  "lines": 1960,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:696a45674251607643755476b5d1b99009e80edc918254a7c855cec91c4cfdbf",
+    "digest": "sha256:1e65db285bb25cbeb8916773af62e37d7e9bcdc7ab0e0d21c122618bbd261a43",
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
@@ -240,5 +240,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "696a45674251607643755476b5d1b99009e80edc918254a7c855cec91c4cfdbf"
+  "sha256": "1e65db285bb25cbeb8916773af62e37d7e9bcdc7ab0e0d21c122618bbd261a43"
 }

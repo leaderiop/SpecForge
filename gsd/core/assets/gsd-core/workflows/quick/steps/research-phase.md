@@ -30,7 +30,7 @@ Agent(
 **Output:** the `research` entity `${quick_id}-RESEARCH`, with `plan ${quick_id}` (that plan exists: the init step wrote it, so never `specforge new plan`)
 
 <required_reading>
-- ${STATE_PATH} (Project state — what's already built)
+- `specforge gsd progress-report` (Project state — what's already built)
 - ${PROJECT_PATH} (Project context)
 - ./CLAUDE.md or ./.claude/CLAUDE.md (if exists — project-specific guidelines)
 ${DISCUSS_MODE ? '- `specforge query ' + quick_id + '-CONTEXT --depth 2 --kinds context,decision --format context` (User decisions — research should align with these. #3894: when workflow.research_before_questions is enabled research runs BEFORE discussion, so this file will not exist yet — read it only if present)' : ''}

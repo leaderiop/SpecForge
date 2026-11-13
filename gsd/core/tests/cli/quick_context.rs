@@ -289,7 +289,8 @@ fn quick_records_its_researchs_context_pack() {
 }
 
 /// The reading-list queries the quick prompts build from `quick_id` (`'... ' + quick_id + '...'`), as served: each
-/// hands the sub-agent what it names. The context's reaches the plan's decisions (they name the context's plan, not
+/// hands the sub-agent what it names, and the quick executor's route line serves the context, its decisions and the
+/// research. The context's reaches the plan's decisions (they name the context's plan, not
 /// the context, so depth 1 would miss them) and the research's its findings.
 #[test]
 fn a_quick_reading_list_query_reaches_the_context_decisions_and_findings() {
@@ -319,7 +320,24 @@ fn a_quick_reading_list_query_reaches_the_context_decisions_and_findings() {
             ran += 1;
         }
     }
-    assert_eq!(ran, 6, "the reading-list queries");
+    assert_eq!(ran, 4, "the reading-list queries");
+    // the quick executor reads the executor route, whose quick section serves the plan's context and research
+    let routes = commands(&served(&p, "quick.md"), "specforge context gsd/executor");
+    assert_eq!(routes.len(), 1, "{routes:?}");
+    let out = bash(&p, &routes[0], "251101-abc", &[]);
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(out.status.success(), "{}: {text}", routes[0]);
+    for want in [
+        "251101-abc-CONTEXT",
+        "251101-abc-D-01",
+        "251101-abc-RESEARCH",
+    ] {
+        assert!(
+            text.contains(want),
+            "`{}` misses {want}:\n{text}",
+            routes[0]
+        );
+    }
 }
 
 /// A batch item's executor writes its summary on the working tree (`@gsd/core` runs no worktree isolation): the crash-
