@@ -175,6 +175,7 @@ behavior list_mcp_resources "List MCP Resources" {
   """
   verify unit "templated resources are listed by resources/templates/list, not resources/list"
   verify unit "a core resource template reads each placeholder as one non-empty, percent-decoded path segment and refuses any other value as invalid input naming it"
+  verify unit "a core template's reserved placeholder reads the rest of the path, decoded whole, with no empty segment, and is the template's last part"
   verify unit "returns all registered resource descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects resources from newly loaded extension"
@@ -433,7 +434,7 @@ behavior expose_context_as_mcp_resource "Expose Context as MCP Resource" {
     In MCP server mode, the system MUST register a specforge://context resource
     that returns the current graph in a token-optimized context format. The output
     MUST be equivalent to specforge export --format=context.
-    specforge://context/{entity_id} is that export scoped to the entity
+    specforge://context/{+entity_id} is that export scoped to the entity
     (specforge export --format context --scope <entity_id>): everything it
     reaches, unless a depth query narrows it. The resource MUST
     refresh after each recompilation. Agents SHOULD prefer this resource when they
@@ -525,7 +526,7 @@ behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
     resource_read_emitted "mcp_resource_read event emitted"
   }
   contract   """
-    In MCP server mode, the system MUST register a specforge://graph/{entity_id}
+    In MCP server mode, the system MUST register a specforge://graph/{+entity_id}
     resource template that returns a single entity and its immediate neighbors as
     a subgraph: the scoped graph export at depth 1 (specforge export --format
     graph --scope <entity_id>), which references the published schema with a
@@ -533,19 +534,20 @@ behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
     nodes, and the edges between them. If the entity_id does not exist, the
     read MUST fail as not found (-32002 in a handshake session, -32602 in a
     2026-07-28 request) whose data is an entity_not_found McpError carrying
-    E003 and the uri (the 404 case); a malformed entity_id (empty, more than one path
-    segment, or a text that is no entity ID: neither an identifier nor a
+    E003 and the uri (the 404 case); entity_id is the rest of the path, as
+    written or percent-encoded (a reserved placeholder, ADR 0355), and a
+    malformed entity_id (empty, with an empty path segment, or a text that is no entity ID: neither an identifier nor a
     scheme ref ID such as jira.issue:ABC-123) is invalid input naming
     entity_id (the 400 case). The resource MUST refresh after recompilation.
   """
-  verify unit "specforge://graph/{entity_id} returns entity and its neighbors"
+  verify unit "specforge://graph/{+entity_id} returns entity and its neighbors"
   verify unit "non-existent entity_id returns 404 error"
   verify unit "malformed entity_id returns 400 error"
-  verify unit "an empty entity_id or one of more than one path segment is invalid input naming entity_id, in both entity templates"
+  verify unit "an empty entity_id, or one with an empty path segment, is invalid input naming entity_id, in both entity templates"
   verify unit "an entity_id that is a scheme ref ID reads that ref in both entity templates, and a text that is no entity ID is invalid input naming entity_id"
   verify unit "the entity resource is the scoped graph export with its schema_ref"
   verify unit "resource refreshes after recompilation"
-  verify unit "an entity resource names an entity by its percent-encoded path, a rooted path or a unique short form"
+  verify unit "an entity resource names an entity by its path as written, its percent-encoded path, a rooted path or a unique short form"
   verify contract "Expose Per-Entity MCP Resource: per-entity MCP resource holds — validation_complete_fired, subgraph_returned, resource_read_emitted"
 }
 
@@ -588,7 +590,7 @@ behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
     changed aspects, the added and removed edges and the affected files:
     the delta watch --format json prints. An entity that only moved
     (another file or line) changes the resources that write its place
-    (specforge://graph and specforge://graph/{entity_id}), which are
+    (specforge://graph and specforge://graph/{+entity_id}), which are
     notified, and no other; no specforge/graphChanged is sent for it: the
     graph did not change. A subscription is to one resource: unsubscribing one keeps the
     others, and the client's subscriptions end with its connection.

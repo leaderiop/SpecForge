@@ -6,7 +6,7 @@ expression: extension_listings(&mut server)
   "diagnostics": [
     {
       "code": "I017",
-      "message": "MCP resource 'graph-ext' (specforge://graph/ext/{id}) of '@test/cmds' not served: the core resource 'specforge://graph/{entity_id}' serves its URIs"
+      "message": "MCP resource 'graph-ext' (specforge://graph/ext/{id}) of '@test/cmds' not served: the core resource 'specforge://graph/{+entity_id}' serves its URIs"
     },
     {
       "code": "I017",

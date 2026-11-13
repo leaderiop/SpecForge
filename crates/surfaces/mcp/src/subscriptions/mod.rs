@@ -26,10 +26,10 @@ use crate::events::{EventSink, McpEvent};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Watched {
     /// The graph as the graph documents write it, each node's place
-    /// included: `specforge://graph` and `specforge://graph/{entity_id}`.
+    /// included: `specforge://graph` and `specforge://graph/{+entity_id}`.
     Graph,
     /// The graph's content, no position written: `context`, `brief`,
-    /// `context/{entity_id}`, `entities/{kind}`, and every extension
+    /// `context/{+entity_id}`, `entities/{kind}`, and every extension
     /// resource (its module reads a graph that carries no position).
     Content,
     /// The environment alone: `specforge://schema`.

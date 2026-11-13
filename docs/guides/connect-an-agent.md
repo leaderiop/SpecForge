@@ -79,8 +79,8 @@ moment it is installed ([Extending SpecForge](extending-specforge.md#a-command))
 ### Resources and prompts
 
 - **Resources:** `specforge://graph`, `specforge://schema`, `specforge://context`, `specforge://brief` and
-  `specforge://diagnostics`, plus templates for one entity (`specforge://graph/{entity_id}`,
-  `specforge://context/{entity_id}`) and one kind (`specforge://entities/{kind}`). A client that subscribes
+  `specforge://diagnostics`, plus templates for one entity (`specforge://graph/{+entity_id}`,
+  `specforge://context/{+entity_id}`; an id is written as is, `/` included) and one kind (`specforge://entities/{kind}`). A client that subscribes
   hears when they change.
 - **Prompts:** `specforge://prompts/context`, `review`, `trace`, `explore` and `infer`: ready-made
   instructions for common jobs (load the context of an entity, review coverage gaps, explore the graph,

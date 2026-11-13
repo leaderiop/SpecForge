@@ -23,7 +23,7 @@ use specforge_ops::view::ProjectView;
 
 /// One core resource, stated once in its own module under `resources/`.
 pub trait CoreResource: Sync + 'static {
-    /// Its URI, or an RFC 6570 template (`specforge://graph/{entity_id}`).
+    /// Its URI, or an RFC 6570 template (`specforge://graph/{+entity_id}`).
     const URI: &'static str;
     /// Its name as the listing gives it.
     const NAME: &'static str;

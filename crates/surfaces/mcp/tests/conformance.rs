@@ -119,7 +119,7 @@ fn every_listed_core_resource_is_readable() {
         .filter_map(|uri| {
             // A template is read at a value the scratch project holds.
             let uri = uri
-                .replace("{entity_id}", "alpha")
+                .replace("{+entity_id}", "alpha")
                 .replace("{kind}", "behavior");
             let resp = call(&mut server, "resources/read", json!({"uri": uri}));
             let contents = &resp["result"]["contents"];

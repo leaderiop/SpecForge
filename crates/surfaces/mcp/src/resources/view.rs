@@ -1,5 +1,5 @@
 //! The graph views the core resources serve (ADR 0024 D4): `graph`,
-//! `context`, `brief` (whole or scoped) and `graph/{entity_id}` are
+//! `context`, `brief` (whole or scoped) and `graph/{+entity_id}` are
 //! `specforge export` over the call's project view, through the same
 //! function. The resource modules read their query through this one.
 //! Nothing here reads the server's state.
@@ -226,7 +226,7 @@ mod tests {
         );
         assert_eq!(
             key(
-                "specforge://graph/{entity_id}",
+                "specforge://graph/{+entity_id}",
                 "specforge://graph/ghost",
                 Some("entity_id")
             ),

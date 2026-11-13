@@ -5,14 +5,14 @@ use crate::resource::{CoreResource, ReadOutcome};
 use crate::subscriptions::Watched;
 use crate::uri_template::Matched;
 
-/// `specforge://graph/{entity_id}`: the entity and its neighbours, the
+/// `specforge://graph/{+entity_id}`: the entity and its neighbours, the
 /// scoped graph export at the query's default depth (`query::DEFAULT_DEPTH`; a `depth` query widens it). A malformed
 /// ID is `invalid_input` (the 400 case); a well-formed one that names no
 /// entity is the export's `entity_not_found` with its E003 (the 404 case).
 pub struct EntityResource;
 
 impl CoreResource for EntityResource {
-    const URI: &'static str = "specforge://graph/{entity_id}";
+    const URI: &'static str = "specforge://graph/{+entity_id}";
     const NAME: &'static str = "entity";
     const DESCRIPTION: &'static str =
         "An entity and its direct neighbours (a depth query widens it)";

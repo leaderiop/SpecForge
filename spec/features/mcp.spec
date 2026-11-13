@@ -14,7 +14,7 @@ feature mcp_resource_exposure "MCP Resource Exposure" {
   """
   solution """
     Six MCP resources — specforge://graph, specforge://schema, specforge://context,
-    specforge://brief, specforge://diagnostics, and specforge://graph/{entity_id} —
+    specforge://brief, specforge://diagnostics, and specforge://graph/{+entity_id} —
     expose the compiled graph in multiple resolutions. Agents read these directly
     through MCP, receiving Graph Protocol JSON that refreshes on each recompilation.
   """

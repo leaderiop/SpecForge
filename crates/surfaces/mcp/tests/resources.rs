@@ -251,7 +251,7 @@ const UNRESOLVED_GHOST: &str = "unresolved reference 'ghost' in entity 'broken'"
 // B:expose_entity_as_mcp_resource — verify unit "returns entity subgraph"
 #[specforge_test(
     behavior = "expose_entity_as_mcp_resource",
-    verify = "specforge://graph/{entity_id} returns entity and its neighbors"
+    verify = "specforge://graph/{+entity_id} returns entity and its neighbors"
 )]
 fn entity_resource_returns_subgraph() {
     let mut server = test_server();
@@ -744,8 +744,8 @@ fn context_entity_template_registered() {
         .map(|r| r["uriTemplate"].as_str().unwrap())
         .collect();
     assert!(
-        uris.contains(&"specforge://context/{entity_id}"),
-        "specforge://context/{{entity_id}} must be advertised: {uris:?}"
+        uris.contains(&"specforge://context/{+entity_id}"),
+        "specforge://context/{{+entity_id}} must be advertised: {uris:?}"
     );
 }
 

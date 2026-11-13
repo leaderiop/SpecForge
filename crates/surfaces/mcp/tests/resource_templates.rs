@@ -1,6 +1,6 @@
 //! What a core resource template makes of its placeholder: one non-empty,
-//! percent-decoded path segment, or a refusal naming the placeholder
-//! (ADR 0103 D2-D3).
+//! percent-decoded path segment, or a reserved placeholder's non-empty path,
+//! or a refusal naming the placeholder (ADR 0103 D2-D3, ADR 0355 D4).
 
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
@@ -37,18 +37,21 @@ fn assert_refused(server: &mut McpServer, uri: &str, argument: &str) {
 
 #[specforge_test(
     behavior = "expose_entity_as_mcp_resource",
-    verify = "an empty entity_id or one of more than one path segment is invalid input naming entity_id, in both entity templates"
+    verify = "an empty entity_id, or one with an empty path segment, is invalid input naming entity_id, in both entity templates"
 )]
-fn an_entity_placeholder_is_one_non_empty_segment() {
+fn an_entity_placeholder_is_a_non_empty_path() {
     let mut server = served();
     for uri in [
         "specforge://graph/",
         "specforge://context/",
-        "specforge://graph/alpha/x",
-        "specforge://context/alpha/x",
+        "specforge://graph/alpha//x",
+        "specforge://context/alpha/",
     ] {
         assert_refused(&mut server, uri, "entity_id");
     }
+    // A path the graph lacks is not found, no longer malformed.
+    let error = read_error(&mut server, "specforge://graph/alpha/x");
+    assert_eq!(error["data"]["code"], "entity_not_found", "{error}");
 }
 
 #[specforge_test(

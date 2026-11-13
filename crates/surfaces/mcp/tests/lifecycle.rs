@@ -752,11 +752,11 @@ fn list_resources_core_only() {
         vec![
             "specforge://brief",
             "specforge://context",
-            "specforge://context/{entity_id}",
+            "specforge://context/{+entity_id}",
             "specforge://diagnostics",
             "specforge://entities/{kind}",
             "specforge://graph",
-            "specforge://graph/{entity_id}",
+            "specforge://graph/{+entity_id}",
             "specforge://schema",
         ]
     );

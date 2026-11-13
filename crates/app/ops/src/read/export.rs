@@ -1,7 +1,7 @@
 //! Graph export: the one function behind `specforge export`, the MCP
 //! `specforge.export` tool, `specforge.render` and the `specforge://graph`,
 //! `context` and `brief` resources with their scoped forms and
-//! `specforge://graph/{entity_id}` (ADR 0004 D3-a, ADR 0024 D4). `specforge.render` also
+//! `specforge://graph/{+entity_id}` (ADR 0004 D3-a, ADR 0024 D4). `specforge.render` also
 //! writes it into a directory of the project ([`write_into`]).
 //!
 //! Every caller gets the same Graph Protocol document for the same request,

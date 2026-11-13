@@ -199,8 +199,8 @@ fn templated_resources_are_resource_templates() {
     assert_eq!(
         uri_templates,
         [
-            "specforge://context/{entity_id}",
-            "specforge://graph/{entity_id}",
+            "specforge://context/{+entity_id}",
+            "specforge://graph/{+entity_id}",
             "specforge://entities/{kind}",
         ]
     );
