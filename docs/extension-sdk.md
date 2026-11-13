@@ -542,7 +542,8 @@ of the extension or a declared peer, or `"prompt:<id>"`, a prompt of the extensi
 the prompt's rendered payload lists the rules it judges under `judged`.
 
 `PlanBuilder` has one method per op: `create`, `set`, `unset`, `append`, `remove`, `link`, `unlink`, `retitle`,
-`add_verify`, `remove_verify`, `delete`, `rename` and `set_verdict(Verdict { .. })`. A collector declares `k.writes()`
+`add_verify`, `remove_verify`, `delete`, `rename`, `set_verdict(Verdict { .. })` and `record_context(entity, route,
+max_tokens)` (the host computes the pack and writes the record, ADR 0356). A collector declares `k.writes()`
 and builds with `PlanBuilder::for_collect(input)`, answering `CollectOutput.plan`. If the files changed since the
 call read them, the host refuses the plan `stale_revision` and writes nothing; the caller runs the command again. The
 plan is the call's whole write: a handler that also touches the disk itself is outside the host's checks, its lock

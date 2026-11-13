@@ -8,7 +8,7 @@ mod settings;
 
 pub use checks::{CheckCall, CheckRegistry, QualifiedChecker, ResolvedCheck};
 pub(crate) use context::build as build_contexts;
-pub use context::{ContextRegistry, ContextRoute, ContextSection, SkippedSection};
+pub use context::{ContextRecord, ContextRegistry, ContextRoute, ContextSection, SkippedSection};
 pub use edge::{EdgeRegistry, EdgeRegistryEntry, EdgeWriter};
 pub use field::{FieldProblem, FieldRegistry, FieldRegistryEntry, UnknownFieldType};
 pub use kind::{KindRegistry, KindRegistryEntry};

@@ -8,7 +8,7 @@ use specforge_extension_sdk::prelude::ContributionsBuilder;
 use specforge_wasm::testing::InProcessRuntime;
 
 use super::TestProject;
-use super::judged::{CODE_CORE, GSD_JUDGED, PLAN_CHECK_INPUTS};
+use super::judged::{CODE_CORE, GSD_JUDGED, PLAN_CHECK_INPUTS, gsd_judged_rules};
 use super::routed::{
     gsd_routed_builder, gsd_routed_project_over, gsd_routed_serving, gsd_routed_wire,
 };
@@ -220,7 +220,11 @@ pub fn gsd_context_project() -> TestProject {
 /// The plan's context record, as the wire carries a field written `context` (ADR 0356 D9).
 pub const CONTEXT_PACK: &str = "context_pack";
 
-/// [`gsd_routed_wire`] with the plan's context record [`CONTEXT_PACK`].
+/// The code a stale record of the executor's pack raises, as `@gsd/core` catalogues it.
+pub const CONTEXT_STALE: &str = "W524";
+
+/// [`gsd_routed_wire`] with the plan's context record [`CONTEXT_PACK`], checked while the plan is open, and the plan's
+/// computed `status` an enum whose `complete` closes it, as the real `@gsd/core` declares them.
 pub fn gsd_context_wire() -> Value {
     let mut kinds = gsd_routed_wire();
     let plan = kinds
@@ -229,24 +233,31 @@ pub fn gsd_context_wire() -> Value {
         .iter_mut()
         .find(|kind| kind["name"] == "plan")
         .expect("the routed kinds declare a plan");
-    plan["fields"]
-        .as_array_mut()
-        .expect("a kind lists fields")
-        .push(
-            json!({"name": CONTEXT_PACK, "field_type": "block", "writer": "context", "members": [
-                {"name": "route", "field_type": "string"},
-                {"name": "digest", "field_type": "string"},
-                {"name": "max_tokens", "field_type": "integer"},
-            ]}),
-        );
+    plan["complete_when"] = json!({"field": "status", "values": ["complete"]});
+    let fields = plan["fields"].as_array_mut().expect("a kind lists fields");
+    let status = fields
+        .iter_mut()
+        .find(|field| field["name"] == "status")
+        .expect("a plan has a status");
+    *status = json!({"name": "status", "field_type": "enum", "writer": "computed",
+        "enum_values": ["draft", "checked", "ready", "executing", "complete", "halted", "blocked"]});
+    fields.push(
+        json!({"name": CONTEXT_PACK, "field_type": "block", "writer": "context", "checks_while": "pending",
+        "members": [
+            {"name": "route", "field_type": "string"},
+            {"name": "digest", "field_type": "string"},
+            {"name": "max_tokens", "field_type": "integer"},
+        ]}),
+    );
     kinds
 }
 
 /// The executor's agent and two context routes of `@gsd/core`, as `c` contributes them, over the kinds of
 /// [`gsd_context_wire`]: `executor`, what an executor
 /// reads of a plan (core: the plan, its body, its phase and requirements; enrich: its phase's context, decisions, the
-/// instructions, the research and the sibling plans; the `plan_check` setting), and `plan-checker`, every input of the
-/// plan-check rules as a core section.
+/// instructions, the research and the sibling plans; the `plan_check` setting), recorded in the plan's
+/// [`CONTEXT_PACK`] and stale as [`CONTEXT_STALE`], and `plan-checker`, every input of the plan-check rules as a core
+/// section.
 pub fn declare_gsd_contexts(c: &mut ContributionsBuilder) {
     // A raw category replaces the one given before.
     c.raw_category(DeclaredCategory::Entities, gsd_context_wire());
@@ -273,8 +284,27 @@ pub fn declare_gsd_contexts(c: &mut ContributionsBuilder) {
                 "self.phase<research.phase<finding|stack_choice|pattern|pitfall|dont_hand_roll|open_question.research",
             )
             .enrich("siblings", "self.phase<plan.phase")
-            .settings(&["plan_check"]);
+            .settings(&["plan_check"])
+            .record_suggesting(
+                "plan.context_pack",
+                "self",
+                "run `specforge context {route} {subject} --record {entity}` again",
+            )
+            .stale(CONTEXT_STALE);
     });
+    // The judged rules' catalogue is a raw category, which this one replaces: their codes, then the stale code.
+    let mut catalog: Vec<Value> = gsd_judged_rules()
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|rule| rule["code"].as_str())
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .map(|code| json!({"code": code, "title": "A test rule", "explanation": "A test rule's finding."}))
+        .collect();
+    catalog.push(json!({"code": CONTEXT_STALE, "title": "Stale context pack",
+        "explanation": "The pack recorded on the entity is not the pack its route serves now."}));
+    c.raw_category(DeclaredCategory::Codes, Value::Array(catalog));
     c.context("plan-checker", |r| {
         r.subject("plan")
             .description("What the plan checker reads of a plan")

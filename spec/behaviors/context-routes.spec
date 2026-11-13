@@ -85,3 +85,21 @@ behavior render_context_section "Render a Context Section" {
   """
   verify unit "an installed agent a context route names gets a Context section naming the route, its sections and how to read it"
 }
+
+behavior record_context_pack "Record a Context Pack" {
+  invariants [zero_domain_knowledge_core, diagnostic_determinism]
+  category   command
+  contract   """
+    A context route's extension, or a person or agent at a core surface, MAY ask the host to record the route's pack
+    on an entity of a kind the route records. The host MUST derive the subject from the entity by the route's declared
+    selector, compute the pack over the view the write applies to at the given budget or the route's, and write the
+    route, the pack digest and the budget with its ledger line; it MUST refuse an unknown route, a kind the route does
+    not record, another extension's command, no or several subjects, and a budget below the pack's core (ADR 0356).
+  """
+  verify unit "a record_context op round trips, its budget optional"
+  verify unit "a record_context op names the entity, the route and the budget, and no revision"
+  verify unit "a recorded pack holds the route, the digest the pack read gives and its budget, with its ledger line"
+  verify unit "a record of an unknown route, a kind it does not record, from another extension or with no subject is refused record_refused"
+  verify unit "recording a pack stales no verdict"
+  verify unit "specforge context --record writes the digest it prints"
+}

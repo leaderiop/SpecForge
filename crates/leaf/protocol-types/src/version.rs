@@ -45,6 +45,7 @@
 /// A field may declare writer `context`: only the host's record of a context route's pack writes it, ledgered and left
 /// out of every digest (ADR 0356 D9). A context route may declare `records` (its `context` fields a pack is recorded
 /// in, each with a subject chain and a suggestion) and `stale`, the code a record whose pack moved raises (D10).
+/// An edit plan may `record_context` a route's pack on an entity; the host computes and writes it (D11).
 /// A 2.0.0 guest still loads, being an older minor.
 ///
 /// A change that adds to the current minor (grants, host imports, value checks) adds its item here and to that

@@ -16,6 +16,7 @@ mod compiled_support;
 mod computed;
 mod config_gate;
 mod connectivity;
+mod context_records;
 mod context_routes;
 mod contracts;
 mod contracts_pass;

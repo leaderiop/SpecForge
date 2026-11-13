@@ -10,8 +10,10 @@ pub(crate) mod flags;
 pub(crate) mod hand;
 mod judged;
 mod lower;
+mod record;
 mod revision;
 mod verdict;
+pub use record::{RECORD_REFUSED, Recorded, recorded};
 pub use verdict::{
     Calendar, JudgedRule, JudgedRules, NoJudgedRules, Rules, SystemCalendar, UnknownCite,
     VERDICT_REFUSED, VerdictMember, VerdictStep,
@@ -149,11 +151,29 @@ pub fn apply_plan_with(
     let lowered = lower::lower(view, plan)?;
     flags::check(view, origin, &lowered.ops, true)?;
     let mut steps: Vec<Step> = lowered.ops.iter().map(|op| op.step.clone()).collect();
-    // The verdicts go back where the plan wrote them, once checked.
-    for (inserted, (at, op)) in lowered.verdicts.iter().enumerate() {
-        let step = verdict::check(view, rules, calendar, origin, op)?;
-        flags::verdict(view, origin, &step)?;
-        steps.insert(at + inserted, Step::Verdict(Box::new(step)));
+    // The verdicts and the records go back where the plan wrote them, in its order, once checked.
+    let mut hosted: Vec<(usize, usize, Hosted)> = lowered
+        .verdicts
+        .iter()
+        .map(|(at, op)| (*at, op.number, Hosted::Verdict(op)))
+        .chain(
+            lowered
+                .records
+                .iter()
+                .map(|(at, op)| (*at, op.number, Hosted::Record(op))),
+        )
+        .collect();
+    hosted.sort_by_key(|(_, number, _)| *number);
+    for (inserted, (at, _, hosted)) in hosted.into_iter().enumerate() {
+        let step = match hosted {
+            Hosted::Verdict(op) => {
+                let step = verdict::check(view, rules, calendar, origin, op)?;
+                flags::verdict(view, origin, &step)?;
+                Step::Verdict(Box::new(step))
+            }
+            Hosted::Record(op) => record::check(view, origin, op)?,
+        };
+        steps.insert(at + inserted, step);
     }
     revision::against_compile(view.project(), &lowered.files)?;
     let host_only = matches!(origin, Origin::Collector { .. });
@@ -178,6 +198,12 @@ pub fn apply_plan_with(
         })
     })?;
     Ok(Edited { report, wrote })
+}
+
+/// An operation whose write the host decides: a verdict through the judged-rules port, a record by computing the pack.
+enum Hosted<'a> {
+    Verdict(&'a verdict::VerdictOp),
+    Record(&'a record::RecordOp),
 }
 
 /// Check typed `edits` of a core surface against the field flags, for `origin`: a computed value is never written, and

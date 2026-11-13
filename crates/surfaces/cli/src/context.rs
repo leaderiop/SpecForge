@@ -2,9 +2,12 @@ use crate::options;
 use crate::outcome::{Exit, OutputFormat, Refusal};
 use crate::pick::Picked;
 use crate::terminal::{Terminal, err, out, outln};
+use specforge_ops::authoring::apply::{self, Origin, RECORD_REFUSED};
 use specforge_ops::read::context::{self, ContextRequest, PACK_FORMAT};
 use specforge_ops::read::export::Format;
 use specforge_ops::view::ProjectView;
+use specforge_ops::{OpError, OpErrorKind};
+use specforge_protocol_types::{EditPlan, PlanOp};
 
 // `specforge context`'s command line.
 #[derive(clap::Args)]
@@ -29,6 +32,11 @@ pub(crate) struct Args {
         default_value = PACK_FORMAT.default_name()
     )]
     format: Format,
+
+    /// Record the pack on ENTITY, a kind the route records whose subject is <SUBJECT>: the host writes the route, the
+    /// pack's digest and its budget, with its ledger line, then prints the pack it recorded
+    #[arg(long, value_name = "ENTITY")]
+    record: Option<String>,
 
     #[command(flatten)]
     project: crate::project::ProjectArg,
@@ -62,6 +70,11 @@ impl Args {
                 return Refusal::of(OutputFormat::Json).report(terminal, &refusal.into_error());
             }
         };
+        if let Some(entity) = &self.record
+            && let Err(error) = self.record(terminal, view, entity, &pack.subject)
+        {
+            return Refusal::of(OutputFormat::Json).report(terminal, &error);
+        }
         match self.picked.printed(&pack.text) {
             Some(Ok(lines)) => out!(terminal, "{lines}"),
             Some(Err(refused)) => {
@@ -71,6 +84,47 @@ impl Args {
             None => outln!(terminal, "{}", pack.text),
         }
         Exit::Passed
+    }
+
+    /// Record the route's pack on `entity`, whose record must derive `subject` (by path), as a core operation.
+    fn record(
+        &self,
+        terminal: &Terminal,
+        view: &ProjectView,
+        entity: &str,
+        subject: &str,
+    ) -> Result<(), OpError> {
+        let derived = apply::recorded(view, 1, &self.route, entity)?.subject(view, 1)?;
+        if derived != subject {
+            return Err(OpError::new(
+                OpErrorKind::InvalidInput,
+                RECORD_REFUSED,
+                format!(
+                    "the route '{}' reads '{derived}' for '{entity}', not '{subject}'",
+                    self.route
+                ),
+            )
+            .with_data(serde_json::json!({"reason": "subject_mismatch"})));
+        }
+        let plan = EditPlan {
+            ops: vec![PlanOp::RecordContext {
+                entity: entity.to_string(),
+                route: self.route.clone(),
+                max_tokens: self
+                    .max_tokens
+                    .map(|n| u32::try_from(n).unwrap_or(u32::MAX)),
+            }],
+            title: None,
+        };
+        apply::apply_plan(
+            view,
+            &plan,
+            &Origin::cli(terminal.facts().interactive),
+            false,
+            crate::caller::of(false, OutputFormat::Json, terminal),
+        )
+        .map(|_| ())
+        .map_err(|refusal| refusal.into_error())
     }
 }
 
@@ -128,5 +182,57 @@ mod tests {
             "{}",
             refused.stdout()
         );
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "record_context_pack",
+        verify = "specforge context --record writes the digest it prints"
+    )]
+    fn specforge_context_record_writes_the_digest_it_prints() {
+        let project = gsd_context_project();
+        let compiled =
+            project.compile_in(std::sync::Arc::new(gsd_context_runtime()) as SharedRuntime);
+        let view = ProjectView::of(&compiled);
+        // The formatter aligns a block's values: runs of spaces read as one.
+        let spec = || {
+            let text = std::fs::read_to_string(project.root().join("a.spec")).expect("the spec");
+            text.split_whitespace().collect::<Vec<_>>().join(" ")
+        };
+
+        // Another subject than the one the record derives is refused, and nothing is written.
+        let before = spec();
+        let (terminal, refused) = Terminal::captured("", Facts::PIPED);
+        let exit = args(&["gsd/executor", "v1.0/01/01-01", "--record", CONTEXT_PLAN])
+            .answer(&terminal, &view);
+        assert_eq!(exit, Exit::Failed);
+        assert!(
+            refused.stdout().contains("record_refused")
+                && refused.stdout().contains("not 'v1.0/01/01-01'"),
+            "{}",
+            refused.stdout()
+        );
+        assert_eq!(spec(), before);
+
+        let (terminal, printed) = Terminal::captured("", Facts::PIPED);
+        let exit = args(&[
+            "gsd/executor",
+            CONTEXT_PLAN,
+            "--record",
+            CONTEXT_PLAN,
+            "--max-tokens",
+            "5000",
+            "--pick",
+            ".digest",
+        ])
+        .answer(&terminal, &view);
+        assert_eq!(exit, Exit::Passed, "{}", printed.stdout());
+        let digest = printed.stdout().trim_end().to_string();
+        assert!(digest.starts_with("sha256:"), "{digest}");
+        let written = spec();
+        assert!(
+            written.contains(&format!("digest \"{digest}\"")),
+            "{written}"
+        );
+        assert!(written.contains("max_tokens 5000"), "{written}");
     }
 }
