@@ -2,6 +2,9 @@
 
 use gsd_kit::dsl::*;
 
+use crate::probe::edge::EDGE_VALIDATORS;
+use crate::probe::{PROHIBITION_VALIDATORS, VALID_STATUS};
+
 /// The `spec_phase` prompt's verdict, in percent: `scores` is a verdict field (`V`) bound by the judged rule `gsd/E202`.
 const SCORES: &[Field] = &[
     int("goal").range(0, 100),
@@ -78,33 +81,17 @@ pub const INTERVIEW: Kind = Kind::new(
 .scoped_by("spec")
 .append_only();
 
-/// The lifecycle of a probe row (upstream's `VALID_STATUS`).
-const PROBE_STATUS: &[&str] = &["resolved", "dismissed", "unresolved"];
-
-/// The eight edge categories of upstream's taxonomy, and its `unclassified` row.
-const EDGE_CATEGORIES: &[&str] = &[
-    "boundary",
-    "adjacency",
-    "empty",
-    "encoding",
-    "ordering",
-    "precision",
-    "idempotency",
-    "concurrency",
-    "unclassified",
-];
-
-/// One `## Edge Coverage` row, named `EC1`: a requirement's edge category and its resolution. gsd/E523 holds the
-/// lifecycle; `specforge gsd resolve-edge` writes it in one edit.
+/// One `## Edge Coverage` row, named `EC1`: a requirement's edge category and its resolution, in the probe engine's
+/// vocabularies. gsd/E523 holds the lifecycle; `specforge gsd resolve-edge` writes it in one edit.
 pub const EDGE: Kind = Kind::new(
     "edge",
     "One edge-coverage row of a phase spec (GSD NN-SPEC.md ## Edge Coverage)",
     &[
         rf("spec", "phase_spec").r().i(),
         rf("requirement", "locked_req").r(),
-        en("category", EDGE_CATEGORIES).r(),
-        en("status", PROBE_STATUS).r(),
-        en("verification", &["explicit", "backstop"]),
+        en("category", EDGE_VALIDATORS.categories).r(),
+        en("status", &VALID_STATUS).r(),
+        en("verification", EDGE_VALIDATORS.verification),
         str("resolution").doc("the acceptance criterion or backstop test note"),
         str("reason").doc("why it is dismissed"),
     ],
@@ -121,8 +108,8 @@ pub const SPEC_PROHIBITION: Kind = Kind::new(
         rf("spec", "phase_spec").r().i(),
         rf("requirement", "locked_req").r(),
         str("statement").r(),
-        en("status", PROBE_STATUS).r(),
-        en("verification", &["test", "judgment"]),
+        en("status", &VALID_STATUS).r(),
+        en("verification", PROHIBITION_VALIDATORS.verification),
         str("reason"),
         en("check_kind", &["node_test", "lint_rule"]),
         str("check_target"),
