@@ -90,15 +90,14 @@ INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 AGENT_SKILLS_RESEARCHER=""   # the host install carries the skills of gsd-phase-researcher
 AGENT_SKILLS_PLANNER=""   # the host install carries the skills of gsd-planner
 AGENT_SKILLS_CHECKER=""   # the host install carries the skills of gsd-plan-checker
-CONTEXT_WINDOW="{{setting:context_window|200000}}"   # context_window (the settings)
 MVP_MODE_CFG="{{setting:workflow.mvp_mode|false}}"   # workflow.mvp_mode (the settings)
 ```
 
 When the tdd capability's `workflow.tdd_mode` is active (resolved via the plan:pre render-hooks), the planner agent is instructed to apply `type: tdd` to eligible tasks using heuristics from `gsd-core/references/tdd.md`. The TDD guidance is injected via the tdd capability's contribution hook at §5.6; no inline config-get is needed.
 
-When `CONTEXT_WINDOW >= 500000`, the planner prompt includes the 3 most recent prior-phase CONTEXT.md/SUMMARY.md files plus any phases in the current phase's `Depends on:` field (explicit deps load regardless of recency).
+The planner reads the planner pack (`specforge context gsd/planner`) at the route's budget: the summaries of the plans its phase depends on are among its sections, whatever the context window.
 
-**#2401 — `prior_verify_commands` is NOT part of that enrichment and is never gated on `CONTEXT_WINDOW`.** It is a handful of one-line `<automated>` commands harvested from the nearest prior phase that had any; the payload is tiny and its absence at 200k is exactly what made the planner re-invent a verify command and author an unrunnable path. Surface it at every context window.
+**#2401 — `prior_verify_commands` is NOT part of that pack and is never gated on the context window.** It is a handful of one-line `<automated>` commands harvested from the nearest prior phase that had any; the payload is tiny and its absence at 200k is exactly what made the planner re-invent a verify command and author an unrunnable path. Surface it at every context window.
 
 Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name`, `slug`, `goal`, `status` and `requirements` are its fields; a phase not in the graph is an E003 error), and the other nodes are what links to it or from it: its milestone, its requirements, its `plan` entities and its `context`, `research`, `verification` and `uat_session` when it has them. `phase_status` (#3569) is the phase's `status`, `phase_req_ids` its `requirements`, `plan_count` the number of its plans, and `has_research`, `has_context` and `has_plans` whether one is there. `commit_docs`, `workflow.research`, `workflow.plan_check`, `workflow.nyquist_validation`, `workflow.text_mode`, `response_language` and `granularity` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model. `prior_verify_commands` (#2401) are the `verification` of each plan of the nearest earlier phase that has plans, read with a depth-1 query of that phase.
 
@@ -755,14 +754,9 @@ Planner prompt:
 **Mode:** {standard | gap_closure | reviews}
 **Graph context:** {the `/gsd-graphify` line of "Graph context on this install" at the end of the plan-phase prompt}
 <required_reading>
-- `specforge gsd progress-report` (Project State, computed)
-- `specforge query {roadmap_path} --format context` (Roadmap: the milestone)
-- `specforge query <id> --format context` for each id of {requirements_path} (Requirements)
-- `specforge query {context_path} --format context` (USER DECISIONS from /gsd:discuss-phase)
-- `specforge query {research_path} --format context` (Technical Research)
-- `specforge query {PATTERNS_PATH} --format context` (Pattern Map — analog files and code excerpts, if set)
-- `specforge query {verification_path} --format context` (Verification Gaps - if --gaps)
-- `specforge query {uat_path} --format context` (UAT Gaps - if --gaps)
+- `specforge context gsd/planner {PHASE_ID}` (the planner pack: the phase, its requirements, USER DECISIONS from /gsd:discuss-phase, the research and its items, the plans, the milestone, verification and UAT gaps, the summaries of the plans it depends on, the project and its decisions, `CLAUDE.md` / `AGENTS.md` and the settings; `--pick .budget` lists what the budget cut, read with `specforge query <id> --format context`)
+- `specforge export --kinds lesson --format context` (Lessons, which the pack does not select)
+- When `@gsd/codebase` is loaded, its pattern map of the phase: `specforge query {PATTERNS_PATH} --format context` (analog files and code excerpts; nothing with `@gsd/core` alone)
 
 - `specforge query {AI_SPEC_PATH} --format context` (AI Design Contract — framework and evaluation strategy, if set)
 - `specforge query {UI_SPEC_PATH} --format context` (UI Design Contract — visual/interaction specs, if set)
@@ -770,14 +764,6 @@ Planner prompt:
 - {SPIKE_FINDINGS_PATH} (Spike Findings — validated patterns, constraints, landmines from experiments, if exists)
 - {SKETCH_FINDINGS_PATH} (Sketch Findings — validated design decisions, CSS patterns, visual direction, if exists)
 - {API_SURFACE_PATH} (API Surface — HINT ONLY, when intel capability is active; see <intel_surface_hint> below)
-${CONTEXT_WINDOW >= 500000 ? `
-**Cross-phase context (1M model enrichment):**
-- CONTEXT.md files from the 3 most recent completed phases (locked decisions — maintain consistency)
-- SUMMARY.md files from the 3 most recent completed phases (what was built — reuse patterns, avoid duplication)
-- LEARNINGS.md files from the 3 most recent completed phases (structured decisions, patterns, lessons, surprises — skip silently if a phase has no LEARNINGS.md; prefix each block with \`[from Phase N LEARNINGS]\` for source attribution; if total size exceeds 15% of context budget, drop oldest first)
-- CONTEXT.md, SUMMARY.md, and LEARNINGS.md from any phases listed in the current phase's "Depends on:" field in ROADMAP.md (regardless of recency — explicit dependencies always load, deduplicated against the 3 most recent)
-- Skip all other prior phases to stay within context budget
-` : ''}
 </required_reading>
 ${prior_verify_commands.length > 0 ? `
 <proven_verify_commands>
@@ -785,7 +771,7 @@ ${prior_verify_commands.length > 0 ? `
 are the `<automated>` commands from the nearest prior phase that had any. They resolved from
 the executor's cwd in a real run, so a path here is grounded evidence, not a guess. When this
 phase's build/test story is the same, **copy the command verbatim**; do not re-derive a
-directory. Surfaced at every context window — not part of the 1M enrichment above.
+directory. Surfaced at every context window.
 
 {For each entry in \`prior_verify_commands\`: \`- Phase {phase} · {task}: \\\`{command}\\\`\`}
 </proven_verify_commands>
@@ -1037,11 +1023,7 @@ Checker prompt:
 **Mode:** {standard | gap_closure | reviews}
 
 <required_reading>
-- `specforge query {PHASE_ID} --kinds plan --format context` (Plans to verify)
-- `specforge query {roadmap_path} --format context` (Roadmap: the milestone)
-- `specforge query <id> --format context` for each id of {requirements_path} (Requirements)
-- `specforge query {context_path} --format context` (USER DECISIONS from /gsd:discuss-phase)
-- `specforge query {research_path} --format context` (Technical Research — includes Validation Architecture)
+- `specforge context gsd/plan-checker <id>` for each id of `specforge query {PHASE_ID} --kinds plan --pick '.nodes[kind=plan].id'` (each plan's check pack: the plan, its tasks and must-haves, its phase, requirements, decisions and research — what the judged plan-check rules digest)
 
 </required_reading>
 
@@ -1166,8 +1148,7 @@ Revision prompt:
 **Mode:** revision
 
 <required_reading>
-- `specforge query {PHASE_ID} --kinds plan --format context` (Existing plans)
-- `specforge query {context_path} --format context` (USER DECISIONS from /gsd:discuss-phase)
+- `specforge context gsd/planner {PHASE_ID}` (the planner pack, as the planner spawn reads it: the existing plans and USER DECISIONS from /gsd:discuss-phase among its sections)
 </required_reading>
 
 ${AGENT_SKILLS_PLANNER}
@@ -1288,21 +1269,20 @@ After plans pass the checker (or checker is skipped), verify that all phase requ
 
 **Skip if:** `phase_req_ids` is null or TBD (no requirements mapped to this phase).
 
-**Step 1: Extract requirement IDs claimed by plans**
+**Step 1: Trace the phase's requirements**
 ```bash
-# Collect all requirement IDs from plan frontmatter
-PLAN_REQS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].fields.requirements[]')
+specforge trace --route gsd/requirement-thread --in "$PHASE_ID" --partial || exit 1
 ```
 
-**Step 2: Compare against phase requirements from ROADMAP**
+**Step 2: Read the threads**
 
-For each REQ-ID in `phase_req_ids`:
-- If REQ-ID appears in `PLAN_REQS` → covered ✓
-- If REQ-ID does NOT appear in any plan → uncovered ✗
+A requirement whose thread says `no plan` is uncovered ✗; every other reaches a plan and is covered ✓.
 
-**Step 3: Check CONTEXT.md features against plan objectives**
+**Step 3: Check the phase's decisions against the plans**
 
-Read CONTEXT.md `<decisions>` section. Extract feature/capability names. Check each against plan `<objective>` blocks. Features not mentioned in any plan objective → potentially dropped.
+Each `decision` of the phase is referenced by a plan's `decisions`: the decision-coverage rule prints one line per
+decision no plan lists (`specforge check --format json --pick '[code=gsd/E310].message'`). A decision it names is
+potentially dropped.
 
 **Step 4: Report**
 
@@ -1320,10 +1300,10 @@ If gaps found:
 
 | REQ-ID | Description | Plans |
 |--------|-------------|-------|
-| {id} | {from REQUIREMENTS.md} | None |
+| {id} | {the requirement's text} | None |
 
-{K} CONTEXT.md features not found in plan objectives:
-- {feature_name} — described in CONTEXT.md but no plan covers it
+{K} decisions of the phase in no plan's `decisions`:
+- {decision} — recorded in the phase's context but no plan covers it
 
 Options:
 1. Re-plan to include missing requirements (recommended)

@@ -745,10 +745,10 @@ Orchestrator provides CONTEXT.md content in the verification prompt. If provided
 # #2962: zsh aborts the block on an unmatched for-list glob (nomatch); bash passes it through. nullglob both.
 shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
-specforge query "$PHASE_ID" --kinds plan --format json
-# Research / summary entities (deterministic listing)
-specforge query "$PHASE_ID" --kinds research --format json
-specforge query "$PHASE_ID" --format json   # the phase: goal and success criteria
+# one check pack per plan: the plan, its tasks and must-haves, its phase, requirements, decisions and research
+for PLAN_ID in $(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id'); do
+  specforge context gsd/plan-checker "$PLAN_ID" || exit 1
+done
 specforge query "$PHASE_ID" --depth 2 --kinds summary --format json
 
 # Smart-zone estimate check (#2631) — advisory, never fails the check.

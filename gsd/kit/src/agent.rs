@@ -54,6 +54,8 @@ pub const PLANNER: Role = Role {
         "specforge:explain",
         "specforge:export",
         "specforge:schema",
+        "specforge:find_references",
+        "specforge:context",
     ],
     writes: &["specforge:edit", "specforge:collect", "specforge:gsd.phase"],
 };
@@ -69,6 +71,7 @@ pub const CHECKER: Role = Role {
         "specforge:find_references",
         "specforge:validate",
         "specforge:explain",
+        "specforge:context",
     ],
     writes: &[],
 };
@@ -186,13 +189,13 @@ mod tests {
     }
 
     #[test]
-    fn the_roles_name_fourteen_graph_tools() {
+    fn the_roles_name_fifteen_graph_tools() {
         let graph: BTreeSet<&str> = classes()
             .filter_map(|c| match parse_class(c) {
                 Some(EngineClass::Tool(t)) if t.group.graph() => Some(t.name),
                 _ => None,
             })
             .collect();
-        assert_eq!(graph.len(), 14, "{graph:?}");
+        assert_eq!(graph.len(), 15, "{graph:?}");
     }
 }

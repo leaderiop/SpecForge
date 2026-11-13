@@ -508,7 +508,7 @@ fn a_rendered_prompt_calls_only_specforge() {
 /// The distinct graph tools of the engine-tool catalogue (every group but setup) that the 44 claude-code renders and
 /// the installed claude-code agent bodies name, by `tool_names::named`: the port's tool measure (ADR 0332). The count
 /// may not fall below it, and a rise raises it in the commit that names the new tool.
-const AT_LEAST: usize = 12;
+const AT_LEAST: usize = 14;
 
 #[test]
 fn the_graph_tools_the_prompts_name_are_a_ratchet() {

@@ -1,7 +1,7 @@
 //! The plan family's shell lines, run as the assets hold them on a taskboard copy under bash with only `specforge` on
 //! the `PATH`.
 
-use super::{Shell, asset, fence_after, typed};
+use super::{Shell, asset, block, fence_after, typed};
 use crate::harness::taskboard;
 
 /// A review round of phase 02 with one high and one medium actionable concern, as the model fills it.
@@ -529,4 +529,78 @@ fn the_analog_lookup_names_the_anchored_task() {
         assert_eq!(code, 0, "{err}");
         assert!(owner.contains("[task v1.0/01/01-01/T1]"), "{owner}");
     }
+}
+
+/// The code spans of the line of `text` that starts with `start`, in order.
+fn spans(text: &str, start: &str) -> Vec<String> {
+    gsd_kit::markdown::inline_code(super::line(text, start))
+        .into_iter()
+        .map(|(_, s)| s.to_string())
+        .collect()
+}
+
+/// The planner spawn's first required reading is the planner route's pack of the phase: it answers the route's core
+/// sections, and the block reads no entity path the pack serves and no context-window branch.
+#[test]
+fn the_planner_spawn_reads_the_planner_route() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let text = asset("gsd-core/workflows/plan-phase.md");
+    let reading = block(
+        &text,
+        "- `specforge context gsd/planner {PHASE_ID}` (the planner pack",
+        "</required_reading>",
+    );
+    let before = text
+        .lines()
+        .take_while(|l| !l.contains("(the planner pack:"))
+        .last();
+    assert_eq!(
+        before,
+        Some("<required_reading>"),
+        "the pack is the first reading"
+    );
+    let first = spans(&text, "- `specforge context gsd/planner {PHASE_ID}`")[0]
+        .replace("{PHASE_ID}", "v1.0/02");
+    let (out, err, code) = sh.run_in(p.root(), &format!("{first} --pick '.sections[].name'"));
+    assert_eq!(code, 0, "{out}{err}");
+    for section in ["phase", "requirements", "context", "decisions", "settings"] {
+        assert!(out.lines().any(|l| l == section), "no {section}: {out}");
+    }
+    for gone in ["query {context_path}", "{research_path}", "CONTEXT_WINDOW"] {
+        assert!(!reading.contains(gone), "{gone} in:\n{reading}");
+    }
+}
+
+/// The plan checker spawn reads one check pack per plan of the phase.
+#[test]
+fn the_plan_checker_spawn_reads_one_pack_per_plan() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let text = asset("gsd-core/workflows/plan-phase.md");
+    let [pack, plans] = &spans(&text, "- `specforge context gsd/plan-checker <id>`")[..2] else {
+        panic!("the checker line has its two commands");
+    };
+    let plans = plans.replace("{PHASE_ID}", "v1.0/01");
+    let pack = pack.replace("<id>", "\"$id\"");
+    let script = format!("for id in $({plans}); do {pack} --pick '.subject'; done");
+    let (out, err, code) = sh.run_in(p.root(), &script);
+    assert_eq!(code, 0, "{out}{err}");
+    assert_eq!(
+        out.lines().collect::<Vec<_>>(),
+        ["v1.0/01/01-01", "v1.0/01/01-02"],
+        "{err}"
+    );
+    let body = asset("agents/gsd-plan-checker.md");
+    let lp = fence_after(&body, "Orchestrator provides CONTEXT.md content");
+    let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{lp}"));
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(
+        out.contains("v1.0/01/01-01") && out.contains("v1.0/01/01-02"),
+        "{out}"
+    );
 }

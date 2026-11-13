@@ -548,16 +548,17 @@ Load planning context:
 @~/.claude/gsd-core/references/gsd-run-resolver.md
 
 ```bash
-INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-
+PHASE_ID="{the phase id, e.g. v1.0/02}"
+specforge context gsd/planner "$PHASE_ID" || exit 1
 ```
 
-Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id), and its `research` and `context` entities, when it has them, are among the other nodes. `commit_docs` and `workflow.research` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model.
+That is the planner pack: the phase, its requirements, context, decisions, research and its items, plans, milestone,
+gaps and UAT gaps, the summaries of the plans it depends on, the project and its decisions, `CLAUDE.md` / `AGENTS.md`
+and the settings. Over MCP it is the resource `specforge://context/{+entity_id}?role=gsd/planner`; a host that
+generates this agent's `## Context` section already holds it there. `--pick .budget` lists what the budget cut: read a
+cut entity with `specforge query <id> --format context`. `commit_docs` and `workflow.research` are settings:
+`specforge settings --format json --extension @gsd/core`; an installed agent carries its own model.
 
-Also load planning state (position, decisions, blockers) from the graph:
-```bash
-specforge query "$MILESTONE" --depth 2 --kinds milestone,phase,decision --format context 2>/dev/null
-```
 If the spec has no project entity yet, offer to create one with `/gsd-new-project` or continue without.
 </step>
 
@@ -706,6 +707,10 @@ For each task:
 2. What does it CREATE? (files, types, APIs others might need)
 3. Can it run independently? (no dependencies = Wave 1 candidate)
 
+Before writing a task, `specforge search "<the task's words>" --kinds decision,task` finds prior decisions and
+similar tasks. For each file it lists in `files_modified`, `specforge anchors --file <path>` and
+`specforge refs <the entity it names>` show which entity already claims the file.
+
 Apply TDD detection heuristic. Apply user setup detection.
 </step>
 
@@ -801,7 +806,14 @@ printf '%s\n' "$ERRORS"
 
 An error code whose rule is not a judged one (`gsd/E501` is the verifier's) is yours: read it with
 `specforge explain <code>`, fix the entity it names with `specforge set`, and check again. A plan with no truth and no
-artifact is `gsd/W309` (`specforge check --format json --pick '[code=gsd/W309]'`): add them. The plan-check warnings
+artifact is `gsd/W309` (`specforge check --format json --pick '[code=gsd/W309]'`): add them. Before returning, check the
+phase's requirement coverage with the trace the checker runs: a thread that says `no plan` is uncovered.
+
+```bash
+PHASE_ID="{the phase id, e.g. v1.0/02}"
+specforge trace --route gsd/requirement-thread --in "$PHASE_ID" --partial || exit 1
+```
+ The plan-check warnings
 (`gsd/W311`, `gsd/W313`, `gsd/W315`, `gsd/W316`: no verdict yet) are the checker's to record, not yours.
 </step>
 

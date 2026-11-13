@@ -379,7 +379,7 @@ agents/gsd-plan-checker.md	own	729+1	1	f685616ece4b	a23ec5f8cb97	agent
 agents/gsd-plan-checker.md	kept	730+2	5f046190424d
 agents/gsd-plan-checker.md	own	732+5	5	2a0022d650e2	5deb60a655f5	ported-name
 agents/gsd-plan-checker.md	kept	737+7	1d980396b946
-agents/gsd-plan-checker.md	own	744+5	5	ab8c564570da	ea8b31c6ff31	ported-name
+agents/gsd-plan-checker.md	own	744+5	5	ab8c564570da	bb9c839e4439	ported-name
 agents/gsd-plan-checker.md	kept	749+2	7c90a5833d9f
 agents/gsd-plan-checker.md	own	751+5	3	71eb14128ecd	1964a892308f	ported-name
 agents/gsd-plan-checker.md	kept	756+6	69f60465b90f
@@ -432,9 +432,7 @@ agents/gsd-planner.md	own	429+11	2	0656ac699a99	8ad9a35a70c2	prose
 agents/gsd-planner.md	kept	440+17	c03a513fe338
 agents/gsd-planner.md	own	457+1	1	72e6091214cc	6320ed9223c3	prose
 agents/gsd-planner.md	kept	458+116	2518f9f10c70
-agents/gsd-planner.md	own	574+7	7	5241625da65f	4bc91604ba82	ported-name
-agents/gsd-planner.md	kept	581+1	ad332335cfaa
-agents/gsd-planner.md	own	582+3	3	17e2bc87ab27	a007659b7140	ported-name
+agents/gsd-planner.md	own	574+11	12	61a87f5a610f	13d57e4de248	ported-name
 agents/gsd-planner.md	kept	585+19	e01eafd4f8dd
 agents/gsd-planner.md	own	604+1	1	f10214078d93	808351c79d1e	ported-name
 agents/gsd-planner.md	kept	605+17	dff344211636
@@ -453,16 +451,20 @@ agents/gsd-planner.md	kept	698+3	1db52bfcc1ba
 agents/gsd-planner.md	own	701+1	1	6d613f49213c	903cb822b32b	agent
 agents/gsd-planner.md	kept	702+2	5f046190424d
 agents/gsd-planner.md	own	704+6	6	43b93832f8fa	54cb08810add	served
-agents/gsd-planner.md	kept	710+34	b57dff1d1b86
+agents/gsd-planner.md	kept	710+22	7c37eb16d56b
+agents/gsd-planner.md	own	732+0	4	e3b0c44298fc	b4a88ad811e3	prose
+agents/gsd-planner.md	kept	732+12	25791ec4191c
 agents/gsd-planner.md	own	744+0	1	e3b0c44298fc	e3b0c44298fc	markdown
 agents/gsd-planner.md	kept	744+28	a1c21bfa588d
 agents/gsd-planner.md	own	772+1	1	13b2f9242400	e70a2aecb042	thread
 agents/gsd-planner.md	kept	773+30	1deab3d8d2e6
 agents/gsd-planner.md	own	803+42	11	3271a0c6b0a2	733f839de0aa	ported-name
 agents/gsd-planner.md	kept	845+3	3868e46b9748
-agents/gsd-planner.md	own	848+12	2	9bd852f73eab	184080ecde7e	ported-name
-agents/gsd-planner.md	kept	860+1	ad332335cfaa
-agents/gsd-planner.md	own	861+9	8	4971f92777d0	c62c18456e23	ported-name
+agents/gsd-planner.md	own	848+1	1	21f24256ab24	184080ecde7e	prose
+agents/gsd-planner.md	kept	849+2	5f046190424d
+agents/gsd-planner.md	own	851+8	8	caabfb997fbd	bfe052c68ffc	ported-name
+agents/gsd-planner.md	kept	859+2	5f046190424d
+agents/gsd-planner.md	own	861+9	5	4971f92777d0	b2cc9dc3c017	ported-name
 agents/gsd-planner.md	kept	870+3	45f0ad754e15
 agents/gsd-planner.md	own	873+23	10	369ccc2f52b3	4b7ed3c4d351	ported-name
 agents/gsd-planner.md	kept	896+4	21ab516270e7
@@ -3120,9 +3122,9 @@ gsd-core/workflows/plan-phase.md	own	73+11	5	ffee07495618	ea150c9000fb	ported-na
 gsd-core/workflows/plan-phase.md	kept	84+4	3fcad43dabfc
 gsd-core/workflows/plan-phase.md	own	88+2	2	28c9893ca9c7	bbea5bc14c32	args
 gsd-core/workflows/plan-phase.md	kept	90+2	b7349b514038
-gsd-core/workflows/plan-phase.md	own	92+8	8	603468349fe5	0b1d5a28cb1a	ported-name
-gsd-core/workflows/plan-phase.md	kept	100+8	0c65c24da66c
-gsd-core/workflows/plan-phase.md	own	108+1	1	5693b5621ce9	82cf459ecd41	prose
+gsd-core/workflows/plan-phase.md	own	92+8	7	603468349fe5	8a5914519d85	ported-name
+gsd-core/workflows/plan-phase.md	kept	100+4	e78c0ab23def
+gsd-core/workflows/plan-phase.md	own	104+5	5	1e17e6cb256a	f0fb5f4f0e90	prose
 gsd-core/workflows/plan-phase.md	kept	109+5	eec253415c87
 gsd-core/workflows/plan-phase.md	own	114+1	1	0ad8dc5ef1be	060156ea7b57	relic
 gsd-core/workflows/plan-phase.md	kept	115+5	14d516cf073a
@@ -3252,8 +3254,14 @@ gsd-core/workflows/plan-phase.md	own	747+2	2	429243add2a3	09dca53c7b21	wait
 gsd-core/workflows/plan-phase.md	kept	749+13	47262067949b
 gsd-core/workflows/plan-phase.md	own	762+1	1	307c96a4d2ab	307c96a4d2ab	markdown
 gsd-core/workflows/plan-phase.md	kept	763+3	5105cdc8e3f6
-gsd-core/workflows/plan-phase.md	own	766+14	14	ca9d90b5f738	8717facc1b1c	relic
-gsd-core/workflows/plan-phase.md	kept	780+31	a7180f32eefa
+gsd-core/workflows/plan-phase.md	own	766+1	1	e3b0c44298fc	bc9b9486901d	prose
+gsd-core/workflows/plan-phase.md	kept	767+1	9841e6b9c48f
+gsd-core/workflows/plan-phase.md	own	768+12	7	14e74cac4d31	4bff4ba46848	prose
+gsd-core/workflows/plan-phase.md	kept	780+3	82960f6be81c
+gsd-core/workflows/plan-phase.md	own	783+8	0	61a0b0aa3af1	e3b0c44298fc	served
+gsd-core/workflows/plan-phase.md	kept	791+7	fe178a1d9ab8
+gsd-core/workflows/plan-phase.md	own	798+1	1	2b826fc54f93	4c2bbe127a74	prose
+gsd-core/workflows/plan-phase.md	kept	799+12	b984b3956ff7
 gsd-core/workflows/plan-phase.md	own	811+7	7	abe010cb94c1	a3601c7aae82	prose
 gsd-core/workflows/plan-phase.md	kept	818+64	b9efcf42a678
 gsd-core/workflows/plan-phase.md	own	882+3	4	98e8b859ad95	b9c08f93fd31	prose
@@ -3278,7 +3286,7 @@ gsd-core/workflows/plan-phase.md	own	1031+2	2	3f6ee30c7042	188ac03bf321	ported-n
 gsd-core/workflows/plan-phase.md	kept	1033+9	9d66beb2ef7e
 gsd-core/workflows/plan-phase.md	own	1042+1	1	307c96a4d2ab	307c96a4d2ab	markdown
 gsd-core/workflows/plan-phase.md	kept	1043+6	3e495962a339
-gsd-core/workflows/plan-phase.md	own	1049+6	6	55d145b92095	d02a86cf74ed	served
+gsd-core/workflows/plan-phase.md	own	1049+6	2	55d145b92095	f0c9ea84b064	prose
 gsd-core/workflows/plan-phase.md	kept	1055+30	0e3a7a43e33a
 gsd-core/workflows/plan-phase.md	own	1085+3	3	e27f847e53ca	efbe6e8fd587	prose
 gsd-core/workflows/plan-phase.md	kept	1088+22	1bce028bf7c9
@@ -3288,7 +3296,7 @@ gsd-core/workflows/plan-phase.md	own	1113+5	5	20ae2900799b	3677da63e94e	wait
 gsd-core/workflows/plan-phase.md	kept	1118+15	d32245d4d4b4
 gsd-core/workflows/plan-phase.md	own	1133+1	1	e508f4643c24	49f04f2ca22a	ported-name
 gsd-core/workflows/plan-phase.md	kept	1134+44	626aaacb5ed1
-gsd-core/workflows/plan-phase.md	own	1178+2	2	17368efa2f19	3995f9f1ed1f	relic
+gsd-core/workflows/plan-phase.md	own	1178+2	1	17368efa2f19	4ecbfa223868	prose
 gsd-core/workflows/plan-phase.md	kept	1180+30	24033fddc1a7
 gsd-core/workflows/plan-phase.md	own	1210+5	5	99c5bc04c3f5	f2c410ac5544	wait
 gsd-core/workflows/plan-phase.md	kept	1215+5	c012ff7be27d
@@ -3305,9 +3313,13 @@ gsd-core/workflows/plan-phase.md	kept	1240+2	5f046190424d
 gsd-core/workflows/plan-phase.md	own	1242+17	7	ae42097d24da	00821f41c831	served
 gsd-core/workflows/plan-phase.md	kept	1259+1	b4bdc8481097
 gsd-core/workflows/plan-phase.md	own	1260+24	5	24ce0fdb3c46	b02fdaba0e57	served
-gsd-core/workflows/plan-phase.md	kept	1284+28	cc6c8b3f6d6c
-gsd-core/workflows/plan-phase.md	own	1312+1	1	5656a6cba839	87b0e9112fa4	served
-gsd-core/workflows/plan-phase.md	kept	1313+51	8b583315d8fb
+gsd-core/workflows/plan-phase.md	kept	1284+25	eaa1ecec8637
+gsd-core/workflows/plan-phase.md	own	1309+1	1	f6f71d601786	cc4cb8136d32	prose
+gsd-core/workflows/plan-phase.md	kept	1310+1	ad332335cfaa
+gsd-core/workflows/plan-phase.md	own	1311+13	12	379f28d1c67d	a666e36ea6ec	prose
+gsd-core/workflows/plan-phase.md	kept	1324+17	4f8c482161f2
+gsd-core/workflows/plan-phase.md	own	1341+4	4	e634e0ade112	54e2b1e8e119	served
+gsd-core/workflows/plan-phase.md	kept	1345+19	27b28b00d52d
 gsd-core/workflows/plan-phase.md	own	1364+1	1	210a05f80ce2	9177fb9e712c	ported-name
 gsd-core/workflows/plan-phase.md	kept	1365+4	346724e0339a
 gsd-core/workflows/plan-phase.md	own	1369+1	1	b29ca7fe0eab	11f1bc043a2c	served
