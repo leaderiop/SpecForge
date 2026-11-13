@@ -746,3 +746,19 @@ fn pick_fails_a_command_whose_answer_is_not_json() {
 }
 
 mod shapes;
+
+#[test]
+fn an_untitled_command_is_listed_bare() {
+    let untitled = declared(CommandDescriptor {
+        title: String::new(),
+        description: "Answer whether it holds".into(),
+        ..contribution()
+    });
+    let text = help(&[&untitled], &["--help"]);
+    assert!(
+        text.lines()
+            .any(|line| line.trim() == "milestone-completion"),
+        "{text}"
+    );
+    assert!(!text.contains("Answer whether it holds"), "{text}");
+}
