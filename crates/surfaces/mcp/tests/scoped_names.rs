@@ -56,3 +56,22 @@ fn an_mcp_uri_names_an_entity_by_its_encoded_path() {
         "{refused}"
     );
 }
+
+#[test]
+fn a_path_id_written_as_is_is_refused_as_more_than_one_segment() {
+    let mut server = serving(SCOPED);
+    for uri in [
+        "specforge://graph/v1.0/03/D-01",
+        "specforge://context/v1.0/03/D-01",
+    ] {
+        let refused = call(&mut server, "resources/read", json!({"uri": uri}));
+        let error = &refused["error"];
+        assert_eq!(error["code"], json!(-32602), "{uri}: {refused}");
+        assert_eq!(error["data"]["argument"], "entity_id", "{uri}: {refused}");
+        let message = error["message"].as_str().unwrap_or_default();
+        assert!(
+            message.contains("is more than one path segment"),
+            "{uri}: {refused}"
+        );
+    }
+}
