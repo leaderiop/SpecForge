@@ -203,3 +203,46 @@ fn the_user_setup_template_writes_a_setup_step() {
         assert!(fields["done"].is_null(), "{path}: a person confirms it");
     }
 }
+
+/// execute-phase's human-verification step records its items as a UAT session of the phase with one test per item,
+/// as a model fills it: both exist, the test has no result (the person's), and the check reports nothing new.
+#[test]
+fn the_uat_step_writes_a_uat_session() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let uat = typed::filled(
+        &typed::typed_fence(
+            &asset("gsd-core/workflows/execute-phase.md"),
+            "**Step A: Persist human verification items",
+        ),
+        &[
+            ("PHASE_ID", "v1.0/01"),
+            // the twin's phase 01 already holds the session `01-UAT`
+            ("SESSION_ID", "01-HUMAN-UAT"),
+            ("TITLE", "Phase 01: human verification"),
+            (
+                "SOURCE",
+                "v1.0/01/01-01/01-01-SUMMARY,v1.0/01/01-02/01-02-SUMMARY",
+            ),
+            ("STARTED", "2026-11-13T10:00:00Z"),
+            ("TEST_TITLE", "The usage line reads well"),
+            (
+                "EXPECTED",
+                "`node src/cli.js` prints one usage line a person understands",
+            ),
+        ],
+    );
+    let run = typed::apply(&sh, &p, &uat);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(run.added.is_empty(), "{:?}", run.added);
+    let session = p.fields_of("v1.0/01/01-HUMAN-UAT");
+    assert_eq!(session["phase"], "v1.0/01", "{session}");
+    let test = p.fields_of("v1.0/01/01-HUMAN-UAT/U1");
+    assert_eq!(test["session"], "v1.0/01/01-HUMAN-UAT", "{test}");
+    assert!(
+        test["result"].is_null(),
+        "the result is the person's: {test}"
+    );
+}
