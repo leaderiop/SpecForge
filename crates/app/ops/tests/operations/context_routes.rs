@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use serde_json::Value;
+use serde_json::{Value, json};
 use specforge_ops::read::context::{
     ContextField, ContextRequest, Pack, ROUTE_OF_ANOTHER_KIND, UNKNOWN_ROUTE, context,
 };
@@ -15,6 +15,7 @@ use specforge_project::testing::{
 };
 use specforge_project::{CompiledProject, SharedRuntime};
 use specforge_test_macros::test as specforge_test;
+use specforge_wasm::WasmCallResult;
 
 fn compile(project: &TestProject) -> CompiledProject {
     project.compile_in(Arc::new(gsd_context_runtime()) as SharedRuntime)
@@ -238,4 +239,54 @@ fn the_pack_digest_recomputes_and_covers_only_what_is_served() {
         small.digest
     );
     assert_ne!(pack(&recompiled, "gsd/executor", None).digest, whole.digest);
+}
+
+#[specforge_test(
+    behavior = "render_context_section",
+    verify = "an installed agent a context route names gets a Context section naming the route, its sections and how to read it"
+)]
+fn an_agent_a_route_names_gets_a_context_section_and_others_none() {
+    use specforge_ops::host::{Host, render};
+    let body = json!({"body": "# The agent\n"}).to_string().into_bytes();
+    let runtime =
+        gsd_context_runtime().answer_raw(GSD_JUDGED, "render__", WasmCallResult::Ok(body));
+    let project = gsd_context_project();
+    let compiled = project.compile_in(Arc::new(runtime) as SharedRuntime);
+    let rendered = render::rendered(&ProjectView::of(&compiled), Host::ClaudeCode)
+        .unwrap_or_else(|error| panic!("render refused: {error:?}"));
+    let body = |id: &str| {
+        rendered
+            .agents
+            .iter()
+            .find(|agent| agent.id == id)
+            .unwrap_or_else(|| panic!("the agent {id}"))
+            .body
+            .clone()
+    };
+    let executor = body("gsd-executor");
+    assert!(executor.contains("\n## Context\n"), "{executor}");
+    assert!(
+        executor.contains("`specforge context gsd/executor <id>`"),
+        "{executor}"
+    );
+    assert!(
+        executor.contains("`specforge://context/<id>?role=gsd/executor`"),
+        "{executor}"
+    );
+    assert!(
+        executor.contains(
+            "Sections, in order: plan, body, phase, requirements (core), then context, decisions, instructions, \
+             research_items, siblings (as the budget of 6000 tokens allows)."
+        ),
+        "{executor}"
+    );
+    assert!(executor.contains("the `plan` you were given"), "{executor}");
+    let checker = body("gsd-plan-checker");
+    let context = checker.find("## Context").expect("a Context section");
+    let judged = checker
+        .find("## Judged rules")
+        .expect("a Judged rules section");
+    assert!(context < judged, "{checker}");
+    assert!(checker.contains("gsd/plan-checker"), "{checker}");
+    assert!(!body("gsd-verifier").contains("## Context"));
 }

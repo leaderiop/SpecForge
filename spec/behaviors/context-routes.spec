@@ -68,3 +68,14 @@ behavior declare_context_route "Declare a Context Route" {
   verify unit "a context section of an optional peer the project does not load is skipped and listed"
   verify unit "a context route's agent its extension does not declare, or another route binds, is E124 and the route stays"
 }
+
+behavior render_context_section "Render a Context Section" {
+  invariants [zero_domain_knowledge_core]
+  category   query
+  contract   """
+    An installed agent that a context route names MUST carry, after its body and the generated tools section, a Context
+    section naming the route, its subject kind, its sections in order (core marked), its budget and the CLI line, the
+    MCP tool and the resource that read the pack; an agent no route names MUST carry none (ADR 0356).
+  """
+  verify unit "an installed agent a context route names gets a Context section naming the route, its sections and how to read it"
+}

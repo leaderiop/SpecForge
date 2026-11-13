@@ -1,5 +1,8 @@
 //! The sections a host adds after the body an extension renders (ADR 0334 D6), in one order: the SpecForge tools the
-//! contribution is granted, then the rules an agent judges, so every later section names tools the first lists.
+//! contribution is granted, then the context route an agent reads (ADR 0356), then the rules an agent judges, so every
+//! later section names tools the first lists.
+
+use specforge_protocol_types::ContextTier;
 
 use super::engine::EngineLine;
 use crate::view::ProjectView;
@@ -45,9 +48,42 @@ pub(crate) fn judged_section(view: &ProjectView<'_>, agent: &str) -> String {
     out
 }
 
+/// The section a host adds after the body of an agent a context route names (ADR 0356): the route, its subject kind,
+/// its sections in order (core marked), its budget, and the CLI line, the MCP tool and the resource that read the pack;
+/// nothing for an agent no route names.
+pub(crate) fn context_section(view: &ProjectView<'_>, agent: &str) -> String {
+    let Some(route) = view.registries().contexts().of_agent(agent) else {
+        return String::new();
+    };
+    let names = |tier: ContextTier| -> Vec<&str> {
+        route
+            .sections
+            .iter()
+            .filter(|section| section.tier == tier)
+            .map(|section| section.name.as_str())
+            .collect()
+    };
+    let core = names(ContextTier::Core);
+    let enrich = names(ContextTier::Enrich);
+    let order = match enrich.is_empty() {
+        true => format!("{} (core)", core.join(", ")),
+        false => format!("{} (core), then {}", core.join(", "), enrich.join(", ")),
+    };
+    format!(
+        "\n## Context\n\nBefore you start, read the context of the `{subject}` you were given: `specforge context {name} \
+         <id>` (MCP: the tool `specforge.context`, or the resource `specforge://context/<id>?role={name}`).\n\n\
+         Sections, in order: {order} (as the budget of {budget} tokens allows).\n\n\
+         Cite the file digests it lists; `budget.truncated_sections` names what did not fit, read it with a larger \
+         `max_tokens` when you need it.\n",
+        subject = route.subject,
+        name = route.name,
+        budget = route.budget,
+    )
+}
+
 /// Every section an agent's body is followed by, in order.
 pub(crate) fn agent_sections(view: &ProjectView<'_>, agent: &str, lines: &[EngineLine]) -> String {
-    tools_section(lines) + &judged_section(view, agent)
+    tools_section(lines) + &context_section(view, agent) + &judged_section(view, agent)
 }
 
 #[cfg(test)]
