@@ -34,6 +34,7 @@ specforge trace <id>                 # its thread along its kind's route (human 
 specforge trace <id> --partial       # a route's thread even when incomplete, `no <step>` where it falls short
 specforge trace <id> --route <name>  # along the named route (`<extension>/<route>`); no <id>: its start kind's
 specforge trace <id> --reach         # the traceability chain, whatever route starts at its kind
+specforge trace --in <id> --route <name>  # every start entity within <id>: its scope and one reference away
 specforge trace --plan plan.json     # check an agent plan (AgentPlan JSON) against the graph
 specforge search <text> [--kinds k,..]  # entities by id, title or text (specforge.search)
 specforge refs <id> [--direction both]  # what references it (specforge.find_references)

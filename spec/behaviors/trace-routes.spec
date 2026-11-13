@@ -82,6 +82,10 @@ behavior trace_within_entity "Trace Within an Entity" {
   verify unit "a trace within a milestone traces the requirements its phases name, and none of another milestone"
   verify unit "a trace within an entity with no route traces it, its scope's entities and those one reference away"
   verify unit "a trace within an entity the graph lacks is not found about in"
+  verify unit "the trace tool's in answers the traces of every entity within the entity"
+  verify unit "specforge trace --in prints the thread of each route start within the entity"
+  verify integration "specforge trace --in and specforge.trace's in answer the same document"
+  verify integration "specforge trace and specforge.trace both refuse an entity with in"
 }
 
 behavior render_trace_thread "Render a Trace Thread" {

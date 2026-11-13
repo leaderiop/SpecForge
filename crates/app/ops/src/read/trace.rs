@@ -75,6 +75,7 @@ pub struct TraceLink {
 /// kind to have, which it writes no reference in and no edge of carries (ADR 0232). Always has
 /// status `missing`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
+#[shape(define)]
 pub struct MissingLink {
     /// The entity that lacks the edge.
     pub from: String,
@@ -210,8 +211,9 @@ pub enum Trace {
 }
 
 /// Some entities' traces, ordered by entity id: the document `specforge
-/// trace --format json` writes with no entity, `{schema_version, traces}`.
-#[derive(Debug, Serialize)]
+/// trace --format json` writes with no entity or within one,
+/// `{schema_version, traces}`, and `specforge.trace` answers for `in`.
+#[derive(Debug, Serialize, Shape)]
 pub struct Traces {
     pub schema_version: String,
     pub traces: Vec<Trace>,

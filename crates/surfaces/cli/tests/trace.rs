@@ -230,3 +230,22 @@ fn partial_and_reach_conflict() {
     let output = Cli::on(&dir).run(&["trace", "alpha", "--reach", "--partial"]);
     assert_eq!(output.code, 2, "{}", output.stderr);
 }
+
+#[specforge_test(
+    behavior = "trace_within_entity",
+    verify = "specforge trace --in prints the thread of each route start within the entity"
+)]
+fn trace_in_prints_each_route_start_within_the_entity() {
+    let dir = TestProject::new()
+        .without_config()
+        .files(&[("main.spec", SPEC_CONTENT)]);
+    let human = Cli::on(&dir).run(&["trace", "--in", "alpha", "--format", "human"]);
+    assert_eq!(human.code, 0, "{}", human.stderr);
+    let text = &human.stdout;
+    assert!(text.starts_with("alpha [behavior]\n"), "{text}");
+    assert!(text.contains("\ngamma [feature]\n"), "{text}");
+    // beta names gamma, two references from alpha: not within it.
+    assert!(!text.contains("\nbeta [behavior]\n"), "{text}");
+    let both = Cli::on(&dir).run(&["trace", "alpha", "--in", "gamma"]);
+    assert_eq!(both.code, 2, "{}", both.stderr);
+}

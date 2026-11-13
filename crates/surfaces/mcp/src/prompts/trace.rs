@@ -95,7 +95,10 @@ fn render(view: ProjectView<'_>, args: Args) -> Result<Prompted<Payload>, Box<Mc
                 format!("entity '{entity_id}'"),
             )
         }
-        Ask::Trace(Target::Every | Target::Within(_), _) => return Err(every_is_not_offered()),
+        // The prompt takes no `in`: its request is never within an entity.
+        Ask::Trace(Target::Every | Target::Within(_), _) => {
+            return Err(every_is_not_offered("entity_id or plan"));
+        }
     };
 
     // What the seeds' chains reach, and which of it is unverified.

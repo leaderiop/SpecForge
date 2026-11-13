@@ -208,6 +208,7 @@ behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
     McpTraceChainResult,
     McpTraceRouteResult,
     McpTracePlanResult,
+    McpTraceListResult,
     McpToolDescriptor,
   ]
   ports      [McpProtocol, CompilerApi]
@@ -229,8 +230,8 @@ behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
     TraceLink entries and its missing links, the expected edges the entity
     lacks. It carries no other gap list. When plan is provided, the tool
     MUST perform the plan check (validate_agent_plan) and return its document,
-    a McpTracePlanResult: ok, the affected entities and the gaps. At least one of entityId
-    or plan MUST be provided; otherwise the tool MUST return an error.
+    a McpTracePlanResult: ok, the affected entities and the gaps. At least one of entityId,
+    in or plan MUST be provided; otherwise the tool MUST return an error.
     entityId and plan are two requests: a call with both MUST be refused as
     invalid input on plan, as specforge trace refuses an entity with --plan.
     An entity of a kind a loaded extension declares a route from is traced
@@ -239,11 +240,15 @@ behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
     McpTraceRouteResult. route names a route to follow instead, and reach
     asks for the chain whatever route starts at the kind; both together are
     invalid input on route, and so is a route no loaded extension declares
-    or one that starts at another kind.
+    or one that starts at another kind. in names an entity to trace within
+    (trace_within_entity): the tool returns the document
+    specforge trace --in <entity> --format json writes, a McpTraceListResult.
+    entityId, in and plan are three requests: in beside either is invalid
+    input on in. With none of the three the error names all three.
   """
   verify unit "specforge.trace tool returns traceability chain for valid entityId"
   verify unit "plan parameter triggers gap analysis"
-  verify unit "trace without entity_id or plan returns error"
+  verify unit "trace without entity_id, in or plan returns error"
   verify unit "non-existent entityId returns error response"
   verify unit "a trace call with both entity_id and plan is invalid input on plan"
   verify unit "specforge.trace follows a kind's declared route, a named route, or the reach as asked"

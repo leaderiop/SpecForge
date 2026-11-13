@@ -63,3 +63,36 @@ fn an_unknown_route_is_invalid_input_on_route() {
         assert_eq!(error["argument"], "route", "{arguments}: {error}");
     }
 }
+
+#[specforge_test(
+    behavior = "trace_within_entity",
+    verify = "the trace tool's in answers the traces of every entity within the entity"
+)]
+fn the_tools_in_answers_the_traces_within_the_entity() {
+    let mut server = serving();
+    let within = server.tool(
+        "specforge.trace",
+        json!({"in": "v1.0", "route": "gsd/requirement-thread"}),
+    );
+    let traces = within["traces"].as_array().unwrap();
+    assert_eq!(traces.len(), 1, "{within}");
+    assert_eq!(traces[0]["entity_id"], "AUTH-07", "{within}");
+    assert_eq!(traces[0]["route"], "gsd/requirement-thread", "{within}");
+    assert!(within["schema_version"].is_string(), "{within}");
+
+    let both = server.call_tool(
+        "specforge.trace",
+        json!({"entity_id": "AUTH-07", "in": "v1.0"}),
+    );
+    let error = crate::tool_errors::mcp_error(&both);
+    assert_eq!(error["argument"], "in", "{error}");
+    let missing = server.call_tool("specforge.trace", json!({"in": "v9.9"}));
+    let error = crate::tool_errors::mcp_error(&missing);
+    assert_eq!(error["argument"], "in", "{error}");
+    let none = server.call_tool("specforge.trace", json!({}));
+    let error = crate::tool_errors::mcp_error(&none);
+    assert_eq!(
+        error["message"], "Missing required parameter: entity_id, in or plan",
+        "{error}"
+    );
+}

@@ -847,6 +847,47 @@ type McpEditResult "Mcp Edit Result" {
 type McpTraceResult "Mcp Trace Result" = McpTraceChainResult
   | McpTraceRouteResult
   | McpTracePlanResult
+  | McpTraceListResult
+
+type McpTraceListResult "Trace tool response within an entity" {
+  schema_version string
+  /// The trace of every entity within the entity, in id order: its chain, or its route's thread.
+  traces         McpTraceListItem[]
+  verify unit "Trace tool response within an entity conforms to schema"
+}
+
+type McpTraceListItem "One trace of a list: an entity's chain or its route's thread" = McpTraceListChain
+  | McpTraceListRoute
+
+type McpTraceListChain "An entity's traceability chain in a list of traces" {
+  entity_id   string @readonly
+  entity_kind string @readonly
+  upstream    McpTraceLink[]
+  downstream  McpTraceLink[]
+  /// Expected edges the traced entity does not have.
+  missing     McpMissingLink[]
+  verify unit "McpTraceListChain schema is valid"
+}
+
+type McpTraceListRoute "An entity's thread along a route in a list of traces" {
+  entity_id   string   @readonly
+  entity_kind string   @readonly
+  /// The route's qualified name (gsd/requirement-thread).
+  route       string
+  /// What the start entity's annotations print.
+  annotations McpTraceAnnotation[]
+  /// Every step the route registered, in declared order, with every match.
+  steps       McpTraceRouteStep[]
+  /// The steps and annotations the route skips for an optional peer the project does not load; absent when none.
+  skipped     string[] @optional
+  /// At least one path reaches every step: specforge trace prints the thread by default.
+  complete    boolean
+  /// The steps the thread falls short at, in declared order.
+  missing     string[]
+  /// The thread over every match, as specforge trace --partial prints it.
+  text        string
+  verify unit "McpTraceListRoute schema is valid"
+}
 
 type McpTraceChainResult "Trace tool response when entity_id is provided" {
   schema_version string
