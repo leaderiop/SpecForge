@@ -792,9 +792,9 @@ Level: error
 ```
 E063: No registry configured
 
-`specforge add @scope/name@version`, `update`, `search`, `publish` and `login`
-(and the MCP `add_extension` tool) talk to an extension registry, and SpecForge
-has no built-in one: the only registries are those the project's
+`specforge add @scope/name@version`, `update`, `extensions search`, `publish`
+and `login` (and the MCP `add_extension` tool) talk to an extension registry,
+and SpecForge has no built-in one: the only registries are those the project's
 `specforge.json` lists. None is listed, so the command stopped before making any
 network call. Add a `registries` array, for example `"registries": [{"alias":
 "main", "url": "<registry URL>", "default_registry": true}]`; an entry with
