@@ -239,8 +239,8 @@ Consensus gate (applies to NEWLY RAISED HIGHs only; evaluate before the recordin
   cycle in which nothing was verified.
 
   A HIGH suppressed by this gate is still recorded, its text tagged `(single-reviewer, unconfirmed)`,
-  with severity `medium` and `actionable` false: counted in neither, never silently dropped, and
-  never removed from the round.
+  with severity `high` and `actionable` false: excluded from `open.high` only, never silently dropped,
+  and never removed from the round.
 
   This gate governs HIGHs only. Actionable non-HIGH concerns are unaffected.
 

@@ -2,8 +2,9 @@
 //! round's open counts and a revision conflict's status.
 //!
 //! A concern is `open` until a disposition names it; the disposition with the highest `round` decides (`addressed`,
-//! `deferred`). A round counts its open concerns that are not drift: `high` ones, and `actionable` ones that are not
-//! high (a drift finding is advisory, never a blocker, so it counts in neither). A revision conflict is `resolved` once `resolved` is set, `open`
+//! `deferred`). A round counts its open concerns that are not drift: `high` ones not marked `actionable` false (a
+//! single-reviewer, unconfirmed HIGH), and `actionable` ones that are not high (a drift finding is advisory, never a
+//! blocker, so it counts in neither). A revision conflict is `resolved` once `resolved` is set, `open`
 //! while only `raised` is, and has no status when no command raised it.
 
 use std::collections::BTreeMap;
@@ -54,7 +55,9 @@ pub fn values(input: &PassInput) -> Vec<PassValue> {
         let flag = |c: &PassEntity, field: &str| text(c, field) == Some("true");
         let high = open
             .iter()
+            // a single-reviewer, unconfirmed HIGH keeps its severity and is recorded with `actionable` false
             .filter(|c| text(c, "severity") == Some("high") && !flag(c, "drift"))
+            .filter(|c| text(c, "actionable") != Some("false"))
             .count();
         let actionable = open
             .iter()

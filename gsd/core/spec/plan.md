@@ -146,7 +146,7 @@ Name `RV1`, scoped by its phase.
 | divergent | strs | I | `### Divergent Views` |
 | reviewed_at | ts | H | `reviewed:`: when `record-review` wrote the round |
 | unchecked | {symbol str R, why str R}* | + | the symbols a convergence cycle could not check (`record-review --round`) |
-| open | {high int, actionable int} | C | its open concerns that are not drift (a drift finding counts in neither): `high` ones, and `actionable` ones that are not high |
+| open | {high int, actionable int} | C | its open concerns that are not drift (a drift finding counts in neither): `high` ones not marked `actionable` false (a single-reviewer, unconfirmed HIGH), and `actionable` ones that are not high |
 
 ### review_concern
 
@@ -159,7 +159,7 @@ Name `RC1`, scoped by its review. Append-only, every authored field immutable.
 | reviewers | strs | I | who raised it; empty only for a drift finding |
 | severity | enum{high, medium, low} | R I | HIGH, MEDIUM, LOW |
 | text | str | R I | the concern |
-| actionable | bool | I | the planner can act on it |
+| actionable | bool | I | the planner can act on it; false on a single-reviewer, unconfirmed HIGH, which keeps its severity and leaves the high count |
 | drift | bool | I | a drift finding: advisory, never a blocker |
 | evidence | strs | I | what the reviewers cited |
 | status | enum{open, addressed, deferred} | C | the `outcome` of the disposition naming it (`disposition.concern`) with the highest `round`, else open |

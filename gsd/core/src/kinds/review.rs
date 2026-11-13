@@ -48,7 +48,7 @@ pub const REVIEW: Kind = Kind::new(
             .append()
             .doc("the symbols a convergence cycle could not check, and why"),
         block("open", OPEN).c().doc(
-            "its open concerns that are not drift (a drift finding counts in neither): `high` ones, and `actionable` ones that are not high",
+            "its open concerns that are not drift (a drift finding counts in neither): `high` ones not marked `actionable` false (a single-reviewer, unconfirmed HIGH), and `actionable` ones that are not high",
         ),
     ],
 )
@@ -70,7 +70,7 @@ pub const REVIEW_CONCERN: Kind = Kind::new(
         str("text").r().i().doc("the concern"),
         bool("actionable")
             .i()
-            .doc("a concern the planner can act on (convergence counts it)"),
+            .doc("a concern the planner can act on (convergence counts it); false on a single-reviewer, unconfirmed HIGH, which keeps its severity and leaves the high count"),
         bool("drift")
             .i()
             .doc("a drift finding: advisory, never a blocker"),

@@ -139,12 +139,17 @@ fn the_convergence_step_counts_the_open_concerns() {
         return;
     };
     let p = taskboard();
+    // a single-reviewer, unconfirmed HIGH: recorded high with `actionable` false, so HIGH_COUNT stays 1
+    let round = ROUND.replace(
+        "]}",
+        r#", {"plan": "v1.0/02/02-01", "reviewers": ["codex"], "severity": "high", "text": "A lock is missing (single-reviewer, unconfirmed)", "actionable": false}]}"#,
+    );
     let record = typed::filled(
         &typed::typed_fence(
             &asset("gsd-core/workflows/review.md"),
             "Only reached when `TOTAL_LANE_FAILURE`",
         ),
-        &[("PHASE_ID", "v1.0/02"), ("REVIEW_JSON", ROUND)],
+        &[("PHASE_ID", "v1.0/02"), ("REVIEW_JSON", &round)],
     );
     let run = typed::apply(&sh, &p, &record);
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
