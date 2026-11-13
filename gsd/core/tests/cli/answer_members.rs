@@ -40,6 +40,19 @@ const MODES: &[Mode] = &[
     ("phase", twelve, &["--remove", "04"]),
     ("progress-report", taskboard, &[]),
     ("quick-init", taskboard, &["--description", "a"]),
+    (
+        "record-conflict",
+        taskboard,
+        &[
+            "02-01",
+            "--dimension",
+            "d",
+            "--property",
+            "p",
+            "--conflicts-with",
+            "c",
+        ],
+    ),
     ("security-hooks", secured, &["plan:pre"]),
     ("start-plan", taskboard, &["v1.0/02/02-01"]),
     (

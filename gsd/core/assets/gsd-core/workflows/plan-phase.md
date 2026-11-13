@@ -1205,26 +1205,58 @@ if ! CONVERGENCE_ENABLED=$(echo "{{setting:workflow.plan_review_convergence|fals
   echo "BLOCKED: cannot read workflow.plan_review_convergence." >&2
   exit 1
 fi
-REVIEWS_FILE="${REVIEWS_PATH}"
-if [ "${CONVERGENCE_ENABLED}" = "true" ] && [ -n "${REVIEWS_FILE}" ] && [ ! -f "${REVIEWS_FILE}" ]; then
-  echo "BLOCKED: cannot persist plan-revision conflict -- REVIEWS_PATH not a regular file: ${REVIEWS_FILE}" >&2
+if ! REVIEW_ROUNDS=$(specforge query "$PHASE_ID" --depth 1 --kinds review --pick '.nodes[kind=review].id' --count); then
+  echo "BLOCKED: cannot read the phase's review rounds" >&2
   exit 1
+fi
+if [ "${CONVERGENCE_ENABLED}" = "true" ] && [ "${REVIEW_ROUNDS}" -gt 0 ]; then   # the channel: convergence on and the phase holds a review round
+IFS= read -rd '' CONFLICT_PLAN <<'GSD_CONFLICT_END' || true
+<the conflict's plan id, verbatim>
+GSD_CONFLICT_END
+IFS= read -rd '' DIMENSION <<'GSD_CONFLICT_END' || true
+<its dimension, verbatim>
+GSD_CONFLICT_END
+IFS= read -rd '' PROPERTY <<'GSD_CONFLICT_END' || true
+<its required_property, verbatim>
+GSD_CONFLICT_END
+IFS= read -rd '' CONFLICTS_WITH <<'GSD_CONFLICT_END' || true
+<what it conflicts with (locked decision D-nn / CLAUDE.md rule / plan constraint), verbatim>
+GSD_CONFLICT_END
+IFS= read -rd '' ALTERNATIVES <<'GSD_CONFLICT_END' || true
+<the agent's alternatives, verbatim; empty when it gave none>
+GSD_CONFLICT_END
+  specforge gsd record-conflict "$CONFLICT_PLAN" --dimension "$DIMENSION" --property "$PROPERTY" --conflicts-with "$CONFLICTS_WITH" --alternatives "$ALTERNATIVES" --pick .conflict || exit 1
 fi
 ```
 
 - Counter not spent: `iteration_count`.
-- Record channel: none here. The port keeps no REVIEWS.md (`REVIEWS_PATH` is empty), so plan-phase
-  writes and closes no conflict line: name the conflict and its resolution in your reply.
+- Record channel: the phase's `revision_conflict` entities, open while convergence is on and the phase holds a
+  review round. The fence above records the conflict (`specforge gsd record-conflict`); fill its five values from the
+  planner's return.
 - After re-spawning, return to this step, not the checker.
 - Escalates via the iteration cap on repeated `required_property`, and on the THIRD conflict
   return of this loop whatever property it names.
-- No conflict line is written (see the record channel above), so nothing is sanitized or inserted.
+- The command collapses every newline and tab run of a value to one space, and reuses the plan's open conflict
+  that says the same instead of raising a second one.
 
-<!-- the conflict insert ran only on a REVIEWS.md, which this port never has (REVIEWS_PATH is empty) -->
+**Otherwise (revised plans, not `## REVISION_CONFLICT`):** the replan holds, so close the phase's open conflicts:
 
-**Otherwise (revised plans, not `## REVISION_CONFLICT`):** there is no conflict record to close.
-
-<!-- the conflict close ran only on a REVIEWS.md, which this port never has (REVIEWS_PATH is empty) -->
+```bash
+if ! CONVERGENCE_ENABLED=$(echo "{{setting:workflow.plan_review_convergence|false}}"); then   # workflow.plan_review_convergence (the settings)
+  echo "BLOCKED: cannot read workflow.plan_review_convergence." >&2
+  exit 1
+fi
+if ! REVIEW_ROUNDS=$(specforge query "$PHASE_ID" --depth 1 --kinds review --pick '.nodes[kind=review].id' --count); then
+  echo "BLOCKED: cannot read the phase's review rounds" >&2
+  exit 1
+fi
+if [ "${CONVERGENCE_ENABLED}" = "true" ] && [ "${REVIEW_ROUNDS}" -gt 0 ]; then
+  OPEN_CONFLICTS=$(specforge query "$PHASE_ID" --depth 1 --kinds revision_conflict --pick '.nodes[fields.status=open].id') || exit 1
+  for CONFLICT in $OPEN_CONFLICTS; do
+    specforge gsd resolve-conflict "the revised plans satisfy the required property" --conflict "$CONFLICT" >/dev/null || exit 1
+  done
+fi
+```
 
 Spawn checker again (step 10), then increment `iteration_count`.
 

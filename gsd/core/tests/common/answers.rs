@@ -51,6 +51,7 @@ pub const ANSWERS: &[(&str, &[&str])] = &[
         ],
     ),
     ("quick-init", &["items"]),
+    ("record-conflict", &["conflict", "reused", "wrote"]),
     ("security-hooks", &["activeHooks", "skippedHooks"]),
     ("start-plan", &["plan", "started", "head", "recorded"]),
     (

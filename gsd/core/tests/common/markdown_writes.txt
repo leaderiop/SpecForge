@@ -276,7 +276,6 @@ gsd-core/workflows/plan-phase.md	**Tracked-source paths (#3645):** Every path yo
 gsd-core/workflows/plan-phase.md	- [ ] PLAN.md files created in phase directory
 gsd-core/workflows/plan-phase.md	- [ ] Every PLAN.md includes an "Artifacts this phase produces" section listing symbols created by this phase (decorators, classes, functions, CLI flags, struct/dataclass fields, new file paths)
 gsd-core/workflows/plan-phase.md	When the planner returns `## PHASE SPLIT RECOMMENDED`, the phase's source items exceed the context budget for full-fidelity implementation. Extract the planner's proposed sub-phase groupings and present the user three options via AskUserQuestion: Split into sub-phases (use `/gsd:phase --insert`, then replan each), Proceed anyway (return to planner accepting degraded quality), or Prioritize (AskUserQuestion multiSelect to choose now vs. later, create CONTEXT.md per sub-phase). Full banner text: `gsd-core/workflows/plan-phase/detail/elaboration.md` § 9b.
-gsd-core/workflows/plan-phase.md	- Record channel: none here. The port keeps no REVIEWS.md (`REVIEWS_PATH` is empty), so plan-phase
 gsd-core/workflows/plan-phase.md	2. Edit CONTEXT.md to mark dropped decisions as [informational] / Discretion
 gsd-core/workflows/plan-phase.md	This commits all PLAN.md files for the phase plus the updated STATE.md and ROADMAP.md to version-control the planning artifacts. Skip this step if `commit_docs` is false.
 gsd-core/workflows/plan-review-convergence.md	Display: `Initial planning complete: ${PLAN_COUNT} PLAN.md files created.`

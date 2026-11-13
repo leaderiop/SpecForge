@@ -467,7 +467,8 @@ fn open(conflict: &GraphNode) -> bool {
 /// `record_conflict <plan> --dimension --property --conflicts-with [--alternatives]`: an open revision conflict in the
 /// plan's phase, or the open one that already says the same.
 fn record_conflict(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
-    let plan = node(call, "plan", required(call, "plan")?)?;
+    // a heredoc-read id ends in a line break
+    let plan = node(call, "plan", required(call, "plan")?.trim())?;
     let graph = call.graph();
     let Some(phase) = target(graph, &plan.id, "phase") else {
         return Err(format!(

@@ -3153,11 +3153,19 @@ gsd-core/workflows/plan-phase.md	kept	1180+30	24033fddc1a7
 gsd-core/workflows/plan-phase.md	own	1210+5	5	99c5bc04c3f5	f2c410ac5544	wait
 gsd-core/workflows/plan-phase.md	kept	1215+5	c012ff7be27d
 gsd-core/workflows/plan-phase.md	own	1220+1	1	ee7f838d61f1	fcf022f421bd	ported-name
-gsd-core/workflows/plan-phase.md	kept	1221+11	5c28c0a4d95a
-gsd-core/workflows/plan-phase.md	own	1232+2	2	3a07939e4944	9f83a69d5d42	relic
+gsd-core/workflows/plan-phase.md	kept	1221+3	e0a398cb172e
+gsd-core/workflows/plan-phase.md	own	1224+3	2	a8bb2e4fe1b5	cee270fe5453	review
+gsd-core/workflows/plan-phase.md	kept	1227+2	370f386594e8
+gsd-core/workflows/plan-phase.md	own	1229+0	18	e3b0c44298fc	f3d0cdf8b293	answer
+gsd-core/workflows/plan-phase.md	kept	1229+3	9a683fec64e7
+gsd-core/workflows/plan-phase.md	own	1232+2	3	3a07939e4944	703ba1238773	review
 gsd-core/workflows/plan-phase.md	kept	1234+3	12501cb839df
-gsd-core/workflows/plan-phase.md	own	1237+49	7	bafb6b11bfd7	894ffa314b9f	relic
-gsd-core/workflows/plan-phase.md	kept	1286+26	a1fa849ffae7
+gsd-core/workflows/plan-phase.md	own	1237+3	4	f0fab5aa5df0	53c7348c7e2b	review
+gsd-core/workflows/plan-phase.md	kept	1240+2	5f046190424d
+gsd-core/workflows/plan-phase.md	own	1242+17	7	ae42097d24da	00821f41c831	served
+gsd-core/workflows/plan-phase.md	kept	1259+1	b4bdc8481097
+gsd-core/workflows/plan-phase.md	own	1260+24	5	24ce0fdb3c46	b02fdaba0e57	served
+gsd-core/workflows/plan-phase.md	kept	1284+28	cc6c8b3f6d6c
 gsd-core/workflows/plan-phase.md	own	1312+1	1	5656a6cba839	87b0e9112fa4	served
 gsd-core/workflows/plan-phase.md	kept	1313+51	8b583315d8fb
 gsd-core/workflows/plan-phase.md	own	1364+1	1	210a05f80ce2	9177fb9e712c	ported-name
