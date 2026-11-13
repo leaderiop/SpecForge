@@ -2,7 +2,7 @@
 //! under bash with no jq on the `PATH`. The taskboard fixture: phase 02 depends on phase 01, so a query of phase 01
 //! at depth 2 also reaches 02's plan 02-01.
 
-use super::{Shell, asset, fence_from};
+use super::{Shell, asset, fence_after, fence_from};
 use crate::harness::taskboard;
 
 /// The inline code run of `line` that starts with `start`, without its backticks.
@@ -307,4 +307,28 @@ fn the_environment_audit_runs_the_tool_or_says_it_is_missing() {
         out.starts_with("specforge: specforge ") && out.lines().count() == 1,
         "{out}{err}"
     );
+}
+
+/// plan-phase's conflict channel, run as served with convergence on: it writes no conflict, so convergence can never
+/// count one.
+#[test]
+fn a_revision_conflict_leaves_no_record() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = taskboard();
+    p.settings(serde_json::json!({ "workflow.plan_review_convergence": true }));
+    let served = p.run(&["gsd", "reference", "gsd-core/workflows/plan-phase.md"]);
+    assert_eq!(served.code, 0, "{}", served.all());
+    let fence = fence_after(&served.stdout, "with this workflow's bindings:");
+    let (out, err, code) = sh.run_in(
+        p.root(),
+        &format!("PHASE_ID=v1.0/02\nREVIEWS_PATH=\n{fence}"),
+    );
+    assert_eq!(code, 0, "{out}{err}");
+    let (out, err, code) = sh.run_in(
+        p.root(),
+        "specforge query v1.0/02 --depth 1 --kinds revision_conflict --pick '.nodes[kind=revision_conflict].id' --count",
+    );
+    assert_eq!((out.trim(), code), ("0", 0), "{err}");
 }
