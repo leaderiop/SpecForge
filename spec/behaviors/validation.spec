@@ -489,6 +489,7 @@ behavior check_values_by_owner_state "Check a Value When Its Owner Allows" {
     absolute path or a climb out of its root E094, a backslash W175.
   """
   verify unit "an owner gate needs a check and a complete_when on its kind or a scope ancestor, else W199"
+  verify unit "a gate on a context-written field is kept with no declared check"
   verify unit "a planned value's checks wait while its owner is pending, and its row says planned"
   verify unit "a planned value is checked once its owner is complete, its computed state deciding"
   verify unit "a kind with no complete_when follows its nearest scope ancestor's owner state"

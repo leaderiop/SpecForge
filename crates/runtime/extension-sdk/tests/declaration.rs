@@ -690,6 +690,8 @@ fn a_context_builds_the_descriptor_the_host_reads() {
                 ),
             ],
             settings: vec!["plan_check".to_string()],
+            records: Vec::new(),
+            stale: None,
         }]
     );
     assert!(declared.declares(DeclaredCategory::Contexts));
@@ -729,4 +731,40 @@ fn a_context_field_declares_writer_context() {
             ("max_tokens", "integer")
         ]
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "declare_context_route",
+    verify = "an SDK route records context fields and names its stale code"
+)]
+fn a_context_route_records_fields_and_names_its_stale_code() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/plans", "0.1.0"));
+    b.context("executor", |r| {
+        r.subject("plan")
+            .budget(10)
+            .core("plan", "self")
+            .record("plan.context_pack", "self")
+            .record_suggesting("research.context_pack", "self.plan", "redo {entity}")
+            .stale("W524");
+    });
+    let route = &b.declaration().contexts[0];
+    let records: Vec<(&str, &str, Option<&str>)> = route
+        .records
+        .iter()
+        .map(|r| {
+            (
+                r.field.as_str(),
+                r.subject.as_str(),
+                r.suggestion.as_deref(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        records,
+        [
+            ("plan.context_pack", "self", None),
+            ("research.context_pack", "self.plan", Some("redo {entity}")),
+        ]
+    );
+    assert_eq!(route.stale.as_deref(), Some("W524"));
 }

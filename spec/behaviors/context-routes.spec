@@ -59,10 +59,16 @@ behavior declare_context_route "Declare a Context Route" {
     own, a default budget, ordered sections of named selectors with a tier, and setting keys it carries (ADR 0356). A
     guest older than 2.1 is never asked for the category. The registry checks each route once: one that cannot be
     served is E123 and is not registered, an agent binding that cannot hold is E124, and a section of an optional peer
-    the project does not load is skipped.
+    the project does not load is skipped. A route MAY record its pack in context-written fields of its own extension,
+    each with an entity chain from the recording kind to its subject, and MUST then name a code its extension
+    catalogues that a stale record raises; a record that cannot hold is E123.
   """
   verify unit "a contexts category round trips on the wire and a 2.0 guest is never asked for it"
   verify unit "an unknown key of a context route or a section is reported"
+  verify unit "a route's records and stale code round trip on the wire, and an unknown record key is reported"
+  verify unit "an SDK route records context fields and names its stale code"
+  verify unit "a context record that cannot be held makes its route E123, and the route is not registered"
+  verify unit "a context route records context fields of its own extension, each with a subject selector to its subject kind, and names a code its extension catalogues"
   verify unit "an SDK context route builds the descriptor the host reads"
   verify unit "a context route that cannot be served is E123 and is not registered"
   verify unit "a context section of an optional peer the project does not load is skipped and listed"

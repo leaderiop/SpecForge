@@ -1,18 +1,21 @@
 //! The context routes a role reads (ADR 0356), each checked once against the loaded kinds, fields, agents and settings:
 //! a route that cannot be served is E123 and is not registered; an agent binding that cannot hold is E124 and is
 //! dropped, the route kept. A section that reaches a kind of an optional peer the project does not load is skipped and
-//! recorded, not reported; a subject kind of one drops the route.
+//! recorded, not reported; a subject kind of one drops the route. A route that records its pack names, for each
+//! `context` field of its extension it is recorded in, the chain to its subject, and the code a stale record raises.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_common::{Diagnostic, codes};
+use specforge_diagnostics::{Codebook, qualify};
 use specforge_protocol_types::{
-    CONTEXT_SETTINGS, ContextDescriptor, ContextTier, ExtensionDeclaration, is_valid_short,
+    CONTEXT_SETTINGS, ContextDescriptor, ContextTier, ExtensionDeclaration, FieldWriter,
+    is_valid_short,
 };
 
 use super::SettingsRegistry;
 use crate::compilation::UnloadedPeers;
-use crate::judged::{Reader, Selector, check_paths, check_selector, is_word};
+use crate::judged::{Chain, Head, Reader, Selector, check_paths, check_selector, is_word, walk};
 use crate::rules::Registries;
 
 /// One registered section.
@@ -28,6 +31,17 @@ pub struct ContextSection {
 pub struct SkippedSection {
     pub section: String,
     pub kind: String,
+}
+
+/// A field a route's pack is recorded in (ADR 0356 D10).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ContextRecord {
+    pub kind: String,
+    pub field: String,
+    /// From the recorded entity (`self`) to the route's subject.
+    pub subject: Chain,
+    /// What a stale record's finding suggests, `{entity}`, `{subject}` and `{route}` to fill in.
+    pub suggestion: Option<String>,
 }
 
 /// A registered context route.
@@ -46,6 +60,19 @@ pub struct ContextRoute {
     /// Settings of its extension whose values a pack carries, as declared.
     pub settings: Vec<String>,
     pub skipped: Vec<SkippedSection>,
+    /// The fields its pack is recorded in.
+    pub records: Vec<ContextRecord>,
+    /// The qualified code a stale record raises (`gsd/W524`): present exactly when `records` is not empty.
+    pub stale: Option<String>,
+}
+
+impl ContextRoute {
+    /// The record of `kind.field`, when this route records one.
+    pub fn record(&self, kind: &str, field: &str) -> Option<&ContextRecord> {
+        self.records
+            .iter()
+            .find(|record| record.kind == kind && record.field == field)
+    }
 }
 
 /// Every registered context route, and the route each agent is bound to.
@@ -74,6 +101,17 @@ impl ContextRegistry {
     pub fn is_empty(&self) -> bool {
         self.routes.is_empty()
     }
+
+    /// The routes that record their pack in `kind.field`, in load order.
+    pub fn recording<'a>(
+        &'a self,
+        kind: &'a str,
+        field: &'a str,
+    ) -> impl Iterator<Item = &'a ContextRoute> + 'a {
+        self.routes
+            .iter()
+            .filter(move |route| route.record(kind, field).is_some())
+    }
 }
 
 /// The context routes `declarations` (in load order) declare, checked against `registries` and the settings their
@@ -82,6 +120,7 @@ pub(crate) fn build(
     declarations: &[ExtensionDeclaration],
     registries: Registries<'_>,
     settings: &SettingsRegistry,
+    book: &Codebook,
     candidates: &crate::CandidateVocabulary,
 ) -> (ContextRegistry, Vec<Diagnostic>) {
     let loaded: Vec<&str> = declarations.iter().map(|d| d.name()).collect();
@@ -93,6 +132,7 @@ pub(crate) fn build(
             declaration,
             registries,
             settings,
+            book,
             unloaded: UnloadedPeers::of(declaration, &loaded, candidates),
         };
         for descriptor in &declaration.contexts {
@@ -173,6 +213,7 @@ struct Check<'a> {
     declaration: &'a ExtensionDeclaration,
     registries: Registries<'a>,
     settings: &'a SettingsRegistry,
+    book: &'a Codebook,
     /// The optional peers of its extension the project does not load: a section that reaches a kind of theirs is
     /// skipped, and a section that reaches any other kind no loaded extension declares is E123.
     unloaded: UnloadedPeers<'a>,
@@ -249,6 +290,7 @@ impl Check<'_> {
                 }),
             }
         }
+        let (records, stale) = self.records(d)?;
         Ok(Some(ContextRoute {
             name: qualified,
             extension: self.declaration.name().to_string(),
@@ -259,6 +301,91 @@ impl Check<'_> {
             sections,
             settings: d.settings.clone(),
             skipped,
+            records,
+            stale,
         }))
+    }
+
+    /// The route's records and its qualified stale code (ADR 0356 D10), or why they cannot be held.
+    fn records(
+        &self,
+        d: &ContextDescriptor,
+    ) -> Result<(Vec<ContextRecord>, Option<String>), String> {
+        let extension = self.declaration.name();
+        let stale = match (&d.stale, d.records.is_empty()) {
+            (None, true) => return Ok((Vec::new(), None)),
+            (Some(code), false) if self.book.catalogued(extension, code) => {
+                qualify(extension, &code.to_uppercase())
+            }
+            (Some(code), false) => {
+                return Err(format!(
+                    "stale code '{code}' is not in the catalogue of {extension}"
+                ));
+            }
+            _ => return Err("a context route declares records and stale together".into()),
+        };
+        let mut records: Vec<ContextRecord> = Vec::new();
+        for declared in &d.records {
+            let at = |why: String| format!("record '{}': {why}", declared.field);
+            let (kind, field) = declared
+                .field
+                .split_once('.')
+                .filter(|(_, field)| !field.contains('.'))
+                .ok_or_else(|| at("a record names 'kind.field'".into()))?;
+            if !self.registries.kinds.contains(kind) {
+                return Err(at(format!("kind '{kind}' is not loaded")));
+            }
+            let entry = self
+                .registries
+                .fields
+                .get(kind, field)
+                .ok_or_else(|| at(format!("kind '{kind}' declares no field '{field}'")))?;
+            if entry.writer() != Some(FieldWriter::Context) {
+                return Err(at("the field is not written 'context'".into()));
+            }
+            if entry.source_extension() != extension {
+                return Err(at(format!(
+                    "the field is declared by {}, not by {extension}",
+                    entry.source_extension()
+                )));
+            }
+            if records.iter().any(|r| r.kind == kind && r.field == field) {
+                return Err(at("the route records the field twice".into()));
+            }
+            let subject = match Selector::parse(&declared.subject) {
+                Ok(Selector::Entities(chain)) if chain.head == Head::This => chain,
+                Ok(_) => {
+                    return Err(at(format!(
+                        "subject '{}' is not a chain from self",
+                        declared.subject
+                    )));
+                }
+                Err(why) => return Err(at(format!("subject '{}': {why}", declared.subject))),
+            };
+            let from = BTreeSet::from([kind.to_string()]);
+            let reached = walk(
+                &subject,
+                subject.steps.len(),
+                &from,
+                self.registries,
+                Reader::Context,
+            )
+            .map_err(|e| at(format!("subject '{}': {}", declared.subject, e.why())))?;
+            if reached != BTreeSet::from([d.subject.clone()]) {
+                return Err(at(format!(
+                    "subject '{}' reaches {}, not the route's subject kind '{}'",
+                    declared.subject,
+                    reached.into_iter().collect::<Vec<_>>().join("|"),
+                    d.subject
+                )));
+            }
+            records.push(ContextRecord {
+                kind: kind.to_string(),
+                field: field.to_string(),
+                subject,
+                suggestion: declared.suggestion.clone(),
+            });
+        }
+        Ok((records, Some(stale)))
     }
 }

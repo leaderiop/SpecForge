@@ -74,7 +74,10 @@ pub use checks::{
     OutcomeData, PlannedItem, Probe, ProbeOutcome, StatEntry, ValueForm,
 };
 pub use code_catalog::CodeDescriptor;
-pub use context::{CONTEXT_SETTINGS, ContextDescriptor, ContextSectionDescriptor, ContextTier};
+pub use context::{
+    CONTEXT_SETTINGS, ContextDescriptor, ContextRecordDescriptor, ContextSectionDescriptor,
+    ContextTier,
+};
 pub use contrib::*;
 pub use declaration::{
     DECLARED_CATEGORIES, DeclaredCategory, ExtensionDeclaration, UnknownKey, is_valid_short,

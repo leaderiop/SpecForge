@@ -712,6 +712,8 @@ fn a_kind_filter_keeps_only_the_entities_whose_field_holds_a_value() {
         ],
         settings: Vec::new(),
         skipped: Vec::new(),
+        records: Vec::new(),
+        stale: None,
     };
     let read = |project: &TestProject| {
         specforge_project::context::read(&compile(project), &PlainDisk, &route, PLAN)

@@ -99,7 +99,7 @@ verdict may read, so it is in the entity digest: recording it staled every verdi
   writes it; a typed edit of it, from any origin, is refused `context_field`; the ledger records it as it records a
   harness value (E083 without its line); entity digests, judged input digests and pack section digests leave it out,
   as they leave out computed and verdict values. A `context` field is a block of exactly `route` (string), `digest`
-  (string) and `max_tokens` (integer); any other shape is W021 and the field is dropped.
+  (string) and `max_tokens` (integer); any other shape is W021 and the writer is dropped.
 - **D10 A route records.** A route may declare `records: [{field: "kind.field", subject, suggestion?}]` and
   `stale: "<code>"`, both or neither. The route is E123 (not registered) when a record's field is not `kind.field`,
   its kind is not loaded, the field is not declared, not written `context`, declared by another extension or not of

@@ -15,14 +15,15 @@ use serde_json::Value;
 use crate::{
     AgentDescriptor, Attribution, AutoDetectConfig, CAPABILITY_KEYS, CapabilityDescriptor,
     CheckerDescriptor, CodeDescriptor, CollectorDescriptor, CommandArgDescriptor,
-    CommandDescriptor, CompilerPassDescriptor, ContextDescriptor, ContextSectionDescriptor,
-    DescribeResponse, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
-    FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor, FsScope, GitScope,
-    HandshakeResponse, HookDescriptor, HttpScope, McpResourceDescriptor, McpToolDescriptor,
-    PeerDependency, PresetDescriptor, ProcessConfig, ProcessScope, PromptArgDescriptor,
-    PromptDescriptor, PromptStep, ProtocolError, RouteAnnotationDescriptor, RouteDescriptor,
-    RouteStepDescriptor, SecretDescriptor, SecretHeader, SettingDescriptor, SettingsItem,
-    SkillDescriptor, SlashCommandDescriptor, SurfaceDescriptor, ValidationRuleDescriptor,
+    CommandDescriptor, CompilerPassDescriptor, ContextDescriptor, ContextRecordDescriptor,
+    ContextSectionDescriptor, DescribeResponse, EdgeTypeDescriptor, EntityEnhancementDescriptor,
+    EntityKindDescriptor, FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor,
+    FsScope, GitScope, HandshakeResponse, HookDescriptor, HttpScope, McpResourceDescriptor,
+    McpToolDescriptor, PeerDependency, PresetDescriptor, ProcessConfig, ProcessScope,
+    PromptArgDescriptor, PromptDescriptor, PromptStep, ProtocolError, RouteAnnotationDescriptor,
+    RouteDescriptor, RouteStepDescriptor, SecretDescriptor, SecretHeader, SettingDescriptor,
+    SettingsItem, SkillDescriptor, SlashCommandDescriptor, SurfaceDescriptor,
+    ValidationRuleDescriptor,
 };
 
 /// Everything one extension declares: its handshake and every describe
@@ -597,9 +598,16 @@ static CONTEXT_SECTION: Shape = Shape {
     fields: struct_fields::<ContextSectionDescriptor>,
     nested: &[],
 };
+static CONTEXT_RECORD: Shape = Shape {
+    fields: struct_fields::<ContextRecordDescriptor>,
+    nested: &[],
+};
 static CONTEXT: Shape = Shape {
     fields: struct_fields::<ContextDescriptor>,
-    nested: &[("sections", Nested::List(&CONTEXT_SECTION))],
+    nested: &[
+        ("sections", Nested::List(&CONTEXT_SECTION)),
+        ("records", Nested::List(&CONTEXT_RECORD)),
+    ],
 };
 static SECRET_HEADER: Shape = Shape {
     fields: struct_fields::<SecretHeader>,

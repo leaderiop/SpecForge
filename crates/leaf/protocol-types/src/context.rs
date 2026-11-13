@@ -26,6 +26,25 @@ pub struct ContextDescriptor {
     /// Settings of the extension's own whose values the pack carries.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub settings: Vec<String>,
+    /// The `context` fields of the extension's own a pack of this route is recorded in (ADR 0356 D10); with
+    /// [`Self::stale`], or neither.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub records: Vec<ContextRecordDescriptor>,
+    /// The code of the extension's own catalogue a record whose pack moved raises, local (`W524`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stale: Option<String>,
+}
+
+/// A field a route's pack is recorded in, and how the route's subject is found from the entity holding it.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContextRecordDescriptor {
+    /// `kind.field`: a field of the extension's own written `context`.
+    pub field: String,
+    /// A chain from `self` (the recorded entity) to one entity of the route's subject kind: `self`, `self.phase`.
+    pub subject: String,
+    /// What a stale record's finding suggests; `{entity}`, `{subject}` and `{route}` are filled in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggestion: Option<String>,
 }
 
 /// One section of a context route.

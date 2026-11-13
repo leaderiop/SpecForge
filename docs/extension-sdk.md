@@ -290,7 +290,7 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 | `c.secret(name, env, description)` | a secret read from an environment variable | `settings` |
 | `c.code(code, \|d\| ..)` | a diagnostic code the extension reports: `title(..)`, `explanation(..)`, `docs(..)` (an `http(s)` URL) | `codes` |
 | `c.route(name, \|r\| ..)` | a route `specforge trace` follows from a kind: `start(..)`, `step(name, via, \|s\| ..)`, annotations | `routes` |
-| `c.context(name, \|r\| ..)` | a context route a role reads one entity through: `subject(..)`, `agent(..)`, `budget(..)`, `core(name, selector)`, `enrich(name, selector)`, `settings(..)` | `contexts` |
+| `c.context(name, \|r\| ..)` | a context route a role reads one entity through: `subject(..)`, `agent(..)`, `budget(..)`, `core(name, selector)`, `enrich(name, selector)`, `settings(..)`, `record(field, subject)`, `record_suggesting(field, subject, help)`, `stale(code)` | `contexts` |
 | `c.peer(name, range)`, `c.optional_peer(name, range)` | a peer requirement | handshake |
 | `c.providers()` | it implements configured providers | handshake |
 

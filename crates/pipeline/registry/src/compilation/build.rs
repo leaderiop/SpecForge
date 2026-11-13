@@ -572,8 +572,13 @@ pub fn build_registries_with(
         crate::registries::build_routes(&declarations, registries, &rules, &candidates);
     registry_diagnostics.extend(about(BuildPart::Registries, route_diagnostics));
     // The context routes read the agents the host contributions leave and the settings: E123, E124.
-    let (contexts, context_diagnostics) =
-        crate::registries::build_contexts(&declarations, registries, &settings, &candidates);
+    let (contexts, context_diagnostics) = crate::registries::build_contexts(
+        &declarations,
+        registries,
+        &settings,
+        &codes,
+        &candidates,
+    );
     registry_diagnostics.extend(about(BuildPart::Registries, context_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Collision, namespace_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Registries, settings_diagnostics));

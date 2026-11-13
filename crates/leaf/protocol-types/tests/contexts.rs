@@ -64,6 +64,8 @@ fn a_contexts_category_round_trips_and_a_2_0_guest_is_never_asked_for_it() {
                 ),
             ],
             settings: vec!["plan_check".to_string()],
+            records: Vec::new(),
+            stale: None,
         }]
     );
     assert_eq!(declared.describe_items(DeclaredCategory::Contexts), items);
@@ -156,4 +158,76 @@ fn a_context_writer_round_trips() {
         serde_json::from_value(wire.clone()).unwrap();
     assert_eq!(field.writer.as_deref(), Some("context"));
     assert_eq!(serde_json::to_value(&field).unwrap()["writer"], "context");
+}
+
+#[specforge_test_macros::test(
+    behavior = "declare_context_route",
+    verify = "a route's records and stale code round trip on the wire, and an unknown record key is reported"
+)]
+fn records_and_stale_round_trip_and_an_unknown_record_key_is_reported() {
+    use specforge_protocol_types::ContextRecordDescriptor;
+    let item = json!({
+        "name": "executor", "subject": "plan", "budget": 10,
+        "sections": [{"name": "plan", "selector": "self", "tier": "core"}],
+        "records": [
+            {"field": "plan.context_pack", "subject": "self", "suggestion": "run start-plan {entity}"},
+            {"field": "research.context_pack", "subject": "self.plan"},
+        ],
+        "stale": "W524",
+    });
+    let route: ContextDescriptor = serde_json::from_value(item.clone()).unwrap();
+    assert_eq!(
+        route.records,
+        [
+            ContextRecordDescriptor {
+                field: "plan.context_pack".into(),
+                subject: "self".into(),
+                suggestion: Some("run start-plan {entity}".into()),
+            },
+            ContextRecordDescriptor {
+                field: "research.context_pack".into(),
+                subject: "self.plan".into(),
+                suggestion: None,
+            },
+        ]
+    );
+    assert_eq!(route.stale.as_deref(), Some("W524"));
+    assert_eq!(serde_json::to_value(&route).unwrap(), item);
+    let bare: ContextDescriptor = serde_json::from_value(json!({
+        "name": "executor", "subject": "plan", "budget": 10,
+        "sections": [{"name": "plan", "selector": "self"}],
+    }))
+    .unwrap();
+    let written = serde_json::to_value(&bare).unwrap();
+    assert!(written.get("records").is_none() && written.get("stale").is_none());
+
+    let mut unknown = Vec::new();
+    ExtensionDeclaration::from_wire(
+        handshake(PROTOCOL_VERSION),
+        |category| {
+            Ok(DescribeResponse {
+                category: category.name().to_string(),
+                items: if category == DeclaredCategory::Contexts {
+                    json!([{
+                        "name": "executor", "subject": "plan", "budget": 10,
+                        "sections": [{"name": "plan", "selector": "self"}],
+                        "records": [{"field": "plan.context_pack", "subject": "self", "subjet": "x"}],
+                        "stale": "W524",
+                    }])
+                } else {
+                    json!([])
+                },
+            })
+        },
+        |key| unknown.push(key),
+    )
+    .unwrap();
+    assert_eq!(
+        unknown,
+        [UnknownKey {
+            category: "contexts",
+            item: "executor.records[#0]".to_string(),
+            key: "subjet".to_string(),
+        }]
+    );
 }

@@ -1,7 +1,9 @@
 //! Declaring the context routes a role reads (protocol 2.1.0, ADR 0356). The builders don't validate: the host's
 //! registry does, where every loaded kind, agent and setting is known (E123, E124).
 
-use specforge_protocol_types::{ContextDescriptor, ContextSectionDescriptor, ContextTier};
+use specforge_protocol_types::{
+    ContextDescriptor, ContextRecordDescriptor, ContextSectionDescriptor, ContextTier,
+};
 
 use crate::ContributionsBuilder;
 
@@ -62,6 +64,30 @@ impl ContextBuilder {
     /// A section served whole while it fits, after the sections declared before it.
     pub fn enrich(&mut self, name: &str, selector: &str) -> &mut Self {
         self.section(name, selector, ContextTier::Enrich)
+    }
+    /// Record this route's pack in `field` (`kind.field`, a `context` field of this extension), its subject found from
+    /// the entity holding it by the chain `subject` (`self`, `self.phase`). Name the code a moved one raises with
+    /// [`Self::stale`].
+    pub fn record(&mut self, field: &str, subject: &str) -> &mut Self {
+        self.push_record(field, subject, None)
+    }
+    /// [`Self::record`], a stale record's finding suggesting `suggestion` (`{entity}`, `{subject}` and `{route}` are
+    /// filled in).
+    pub fn record_suggesting(&mut self, field: &str, subject: &str, suggestion: &str) -> &mut Self {
+        self.push_record(field, subject, Some(suggestion))
+    }
+    /// The code of this extension's catalogue a record whose pack moved raises, local (`W524`).
+    pub fn stale(&mut self, code: &str) -> &mut Self {
+        self.0.stale = Some(code.to_string());
+        self
+    }
+    fn push_record(&mut self, field: &str, subject: &str, suggestion: Option<&str>) -> &mut Self {
+        self.0.records.push(ContextRecordDescriptor {
+            field: field.to_string(),
+            subject: subject.to_string(),
+            suggestion: suggestion.map(str::to_string),
+        });
+        self
     }
     /// Settings of this extension whose values the pack carries.
     pub fn settings(&mut self, names: &[&str]) -> &mut Self {

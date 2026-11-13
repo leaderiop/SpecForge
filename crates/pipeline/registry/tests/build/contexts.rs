@@ -28,12 +28,28 @@ fn work(f: impl FnOnce(&mut ContributionsBuilder)) -> ExtensionDeclaration {
             })
             .field("files", |f| {
                 f.field_type(FieldType::StringList);
+            })
+            .field("pack", |f| {
+                f.context();
             });
         });
         c.kind("task", |k| {
             k.field("plan", |f| {
                 f.field_type(FieldType::Reference).target_kind("plan");
             });
+        });
+        // Where a pack read for a plan is recorded: on the plan, and on a note of a task of the plan.
+        c.kind("note", |k| {
+            k.field("task", |f| {
+                f.field_type(FieldType::Reference).target_kind("task");
+            })
+            .field("pack", |f| {
+                f.context();
+            });
+        });
+        c.code("W901", |code| {
+            code.title("Stale pack")
+                .explanation("A recorded pack moved.");
         });
         c.kind("claim", |k| {
             k.field("task", |f| {
@@ -79,6 +95,9 @@ fn proof() -> ExtensionDeclaration {
         c.kind("check", |k| {
             k.field("result", |f| {
                 f.field_type(FieldType::String);
+            })
+            .field("pack", |f| {
+                f.context();
             });
         });
     })
@@ -389,5 +408,185 @@ fn an_agent_its_extension_does_not_declare_or_another_route_binds_is_e124() {
     assert_eq!(
         contexts.of_agent("acme-runner").map(|r| r.name.as_str()),
         Some("work/runner")
+    );
+}
+
+/// The (field, subject) pairs a route records.
+type Records<'a> = &'a [(&'a str, &'a str)];
+
+/// A route over `plan` recording `records` (field, subject), its stale code `stale`.
+fn recording(c: &mut ContributionsBuilder, records: &[(&str, &str)], stale: Option<&str>) {
+    c.context("r", |r| {
+        r.subject("plan").budget(10).core("plan", "self");
+        for (field, subject) in records {
+            r.record(field, subject);
+        }
+        if let Some(code) = stale {
+            r.stale(code);
+        }
+    });
+}
+
+#[spec(
+    behavior = "declare_context_route",
+    verify = "a context route records context fields of its own extension, each with a subject selector to its subject kind, and names a code its extension catalogues"
+)]
+fn a_route_records_its_extensions_context_fields_and_names_a_catalogued_code() {
+    let built = build([
+        proof(),
+        work(|c| {
+            c.context("r", |r| {
+                r.subject("plan")
+                    .budget(10)
+                    .core("plan", "self")
+                    .record("plan.pack", "self")
+                    .record_suggesting("note.pack", "self.task.plan", "redo {entity}")
+                    .stale("W901");
+            });
+        }),
+    ]);
+    assert!(
+        coded(&built, "E123").is_empty(),
+        "{:?}",
+        coded(&built, "E123")
+    );
+    let route = built.contexts().named("work/r").expect("registered");
+    assert_eq!(route.stale.as_deref(), Some("acme.work/W901"));
+    let records: Vec<(&str, &str, String, Option<&str>)> = route
+        .records
+        .iter()
+        .map(|r| {
+            (
+                r.kind.as_str(),
+                r.field.as_str(),
+                r.subject.to_string(),
+                r.suggestion.as_deref(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        records,
+        [
+            ("plan", "pack", "self".to_string(), None),
+            (
+                "note",
+                "pack",
+                "self.task.plan".to_string(),
+                Some("redo {entity}")
+            ),
+        ]
+    );
+    let names: Vec<&str> = built
+        .contexts()
+        .recording("note", "pack")
+        .map(|r| r.name.as_str())
+        .collect();
+    assert_eq!(names, ["work/r"]);
+    assert_eq!(built.contexts().recording("plan", "files").count(), 0);
+}
+
+#[spec(
+    behavior = "declare_context_route",
+    verify = "a context record that cannot be held makes its route E123, and the route is not registered"
+)]
+fn a_record_the_registry_cannot_hold_is_e123_and_the_route_not_registered() {
+    let cases: &[(Records, Option<&str>, &str)] = &[
+        (
+            &[("plan.pack", "self")],
+            None,
+            "declares records and stale together",
+        ),
+        (&[], Some("W901"), "declares records and stale together"),
+        (
+            &[("plan.pack", "self")],
+            Some("W999"),
+            "stale code 'W999' is not in the catalogue",
+        ),
+        (
+            &[("pack", "self")],
+            Some("W901"),
+            "a record names 'kind.field'",
+        ),
+        (
+            &[("ghost.pack", "self")],
+            Some("W901"),
+            "kind 'ghost' is not loaded",
+        ),
+        (
+            &[("plan.nope", "self")],
+            Some("W901"),
+            "kind 'plan' declares no field 'nope'",
+        ),
+        (
+            &[("task.plan", "self")],
+            Some("W901"),
+            "the field is not written 'context'",
+        ),
+        (
+            &[("check.pack", "self")],
+            Some("W901"),
+            "declared by @acme/proof",
+        ),
+        (
+            &[("plan.pack", "self.need")],
+            Some("W901"),
+            "reaches need, not the route's subject kind 'plan'",
+        ),
+        (
+            &[("plan.pack", "plan")],
+            Some("W901"),
+            "is not a chain from self",
+        ),
+        (
+            &[("plan.pack", "file(self.files)")],
+            Some("W901"),
+            "is not a chain from self",
+        ),
+        (
+            &[("plan.pack", "self.nope")],
+            Some("W901"),
+            "declares no field 'nope'",
+        ),
+        (
+            &[("plan.pack", "self"), ("plan.pack", "self")],
+            Some("W901"),
+            "the route records the field twice",
+        ),
+    ];
+    for (records, stale, why) in cases {
+        let built = build([proof(), work(|c| recording(c, records, *stale))]);
+        let e123 = coded(&built, "E123");
+        assert_eq!(e123.len(), 1, "{why}: {e123:#?}");
+        assert!(e123[0].message.contains(why), "{why}: {}", e123[0].message);
+        assert!(built.contexts().is_empty(), "{why}: not registered");
+    }
+}
+
+#[spec(
+    behavior = "check_values_by_owner_state",
+    verify = "a gate on a context-written field is kept with no declared check"
+)]
+fn a_gate_on_a_context_field_is_kept_without_a_check() {
+    let states = Vocabulary::new(&["draft", "complete"]);
+    let declaration = declare("@acme/plans", |c| {
+        c.kind("plan", |k| {
+            k.complete_when("status", &["complete"])
+                .field("status", |f| {
+                    f.vocabulary(&states);
+                })
+                .field("pack", |f| {
+                    f.context().while_open();
+                });
+        });
+    });
+    let built = build([declaration]);
+    assert!(
+        coded(&built, "W199").is_empty(),
+        "{:?}",
+        coded(&built, "W199")
+    );
+    assert_eq!(
+        built.checks().gate("plan", "pack"),
+        Some(specforge_protocol_types::OwnerState::Pending)
     );
 }
