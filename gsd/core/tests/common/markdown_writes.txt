@@ -53,8 +53,6 @@ commands/gsd/complete-milestone.md	- Update ROADMAP.md to one-line summary with 
 commands/gsd/complete-milestone.md	6. **Update PROJECT.md:**
 commands/gsd/complete-milestone.md	- PROJECT.md updated with current state
 commands/gsd/discuss-phase.md	6. Create CONTEXT.md with decisions that guide research and planning
-commands/gsd/mvp-phase.md	3. Writes `**Mode:** mvp` and the reformatted `**Goal:**` to the phase's ROADMAP.md section
-commands/gsd/mvp-phase.md	The phase must already exist in ROADMAP.md (created via `/gsd:new-project`, `/gsd:phase`, or `/gsd:phase --insert`). This command does not create new phases — it converts an existing phase to MVP mode.
 commands/gsd/new-milestone.md	Brownfield equivalent of new-project. Project exists, PROJECT.md has history. Gathers "what's next", updates PROJECT.md, then runs requirements → roadmap cycle.
 commands/gsd/ns-workflow.md	| Create a PLAN.md | gsd-plan-phase |
 commands/gsd/quick-batch.md	leaves, and owns every shared write (`BATCH.json`, STATE.md, worktree
@@ -106,14 +104,9 @@ gsd-core/templates/state.md	- execute: After SUMMARY.md created
 gsd-core/templates/summary.md	**After creation:** STATE.md updated with position, decisions, issues.
 gsd-core/templates/verification-report.md	covered_files: # #4155 — see agents/gsd-verifier.md's "Create VERIFICATION.md" step for what belongs here and how to compute it
 gsd-core/workflows/add-tests.md	2. **Create test file** targeting the user scenario from CONTEXT.md/VERIFICATION.md
-gsd-core/workflows/analyze-dependencies.md	Suggested ROADMAP.md updates:
-gsd-core/workflows/analyze-dependencies.md	- **yes** — Write all suggested `Depends on` entries to ROADMAP.md. Confirm each write.
-gsd-core/workflows/analyze-dependencies.md	When writing to ROADMAP.md:
-gsd-core/workflows/analyze-dependencies.md	After applying: "ROADMAP.md updated. Run `/gsd:manager` to execute phases in the correct order."
 gsd-core/workflows/audit-milestone.md	> **NOT-VALIDATED vs PARTIAL (#2117):** A phase reads `status: draft` when it was seeded by plan-phase but never reconciled by validate-phase, OR when its `VALIDATION.md` predates the `status` field (files written before #2117 stay `draft` whether or not validation ran). In both cases `nyquist_compliant` is not authoritative, so this is a coverage TODO ("run validate-phase") — not a compliance failure. Re-running validate-phase promotes the file to `status: validated` and yields the real COMPLIANT/PARTIAL verdict. Only `status: validated` + `nyquist_compliant: false` is a genuine PARTIAL.
 gsd-core/workflows/audit-milestone.md	- [ ] v{version}-MILESTONE-AUDIT.md created with structured requirement gap objects
 gsd-core/workflows/autonomous.md	Write a minimal CONTEXT.md so downstream plan-phase has valid input. Get phase details:
-gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md	Update PROJECT.md inline. Update "Last updated" footer:
 gsd-core/workflows/complete-milestone.md	Mark a shipped version (v1.0, v1.1, v2.0) as complete. Creates historical record in MILESTONES.md, performs the full PROJECT.md evolution review (flat mode only; skipped under `--ws`, because PROJECT.md is shared across workstreams), reorganizes ROADMAP.md with milestone groupings, and tags the release in git.
 gsd-core/workflows/complete-milestone.md	3. Update ROADMAP.md — overwrite in place with milestone grouping (preserve Backlog section)
 gsd-core/workflows/complete-milestone.md	4. Safety commit archive files + updated ROADMAP.md, then nothing is removed: the `requirement` entities stay with the completed milestone (new ones are added for the next)
@@ -212,8 +205,6 @@ gsd-core/workflows/ingest-docs.md	> **ORCHESTRATOR RULE — CODEX RUNTIME**: Aft
 gsd-core/workflows/list-phase-assumptions.md	If "Discuss context": Note that CONTEXT.md will incorporate any corrections discussed here
 gsd-core/workflows/manager.md	Important: You are running in the background. Do NOT use AskUserQuestion — make autonomous decisions based on project context. If you hit a blocker, write it to STATE.md as a blocker and stop. Do NOT silently work around permission or file access errors — let them fail so the manager can surface them with resolution hints. Do NOT use --no-verify on git commits."
 gsd-core/workflows/manager.md	Important: You are running in the background. Do NOT use AskUserQuestion — make autonomous decisions. Do NOT use --no-verify on git commits — let pre-commit hooks run normally. If you hit a permission error, file lock, or any access issue, do NOT work around it — let it fail and write the error to STATE.md as a blocker so the manager can surface it with resolution guidance."
-gsd-core/workflows/mvp-phase.md	## 5. Update ROADMAP.md
-gsd-core/workflows/mvp-phase.md	On Apply, write the updated `ROADMAP.md` atomically (read-edit-write).
 gsd-core/workflows/new-milestone.md	Start a new milestone cycle for an existing project. Loads project context, gathers milestone goals (from MILESTONE-CONTEXT.md or conversation), updates PROJECT.md and STATE.md, optionally runs parallel research, defines scoped requirements with REQ-IDs, spawns the roadmapper to create phased execution plan, and commits all artifacts. Brownfield equivalent of new-project.
 gsd-core/workflows/new-milestone.md	- "Looks good" — Proceed to write PROJECT.md
 gsd-core/workflows/new-milestone.md	## 4. Update PROJECT.md
@@ -261,7 +252,6 @@ gsd-core/workflows/progress/steps/forensic-audit.md	- Check 3 (deferred scope): 
 gsd-core/workflows/progress.md	the spec exists but the core initialization artifacts are missing (one or more of `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md` were never created — a bootstrap that stopped partway, e.g. after PROJECT.md). This is NOT a new project, NOT a missing STATE.md, and NOT a between-milestones state — do not fall through to any of those routes. Route to initialization recovery:
 gsd-core/workflows/progress.md	`/gsd:new-project` — resumes initialization from the first missing artifact; existing PROJECT.md (and any already-created artifacts) are kept, not regenerated.
 gsd-core/workflows/quick/steps/quick-verification.md	Check must_haves against actual codebase. Create VERIFICATION.md at ${QUICK_DIR}/${quick_id}-VERIFICATION.md.",
-gsd-core/workflows/quick-batch/steps/planner-wave.md	Write plan to: ${item_dir}/${quick_id}-PLAN.md
 gsd-core/workflows/quick-batch/steps/planner-wave.md	writer): for each item that produced a PLAN.md this round, read its
 gsd-core/workflows/quick-batch/steps/research-phase.md	only writes `${item_dir}/${quick_id}-RESEARCH.md`, never touches git), so the
 gsd-core/workflows/quick-batch/steps/resume-mode.md	which artifacts already exist on disk (PLAN.md/SUMMARY.md/VERIFICATION.md),
@@ -317,7 +307,6 @@ gsd-core/workflows/transition.md	Review and update Accumulated Context section i
 gsd-core/workflows/transition.md	Update Session Continuity section in STATE.md to reflect transition completion.
 gsd-core/workflows/transition.md	- [ ] ROADMAP.md updated with completion status and plan count
 gsd-core/workflows/transition.md	- [ ] STATE.md updated (position, project reference, context, session)
-gsd-core/workflows/ultraplan-phase.md	validate via plan-checker, update ROADMAP.md, and commit.
 gsd-core/workflows/undo.md	`milestones/v<X.Y>-phases/<phase>/` archive and the workstream archive
 gsd-core/workflows/undo.md	commits; a workstream completed into `milestones/ws-feat-<date>/` and then re-created as `feat`
 gsd-core/workflows/validate-phase.md	Audit Nyquist validation gaps for a completed phase. Generate missing tests. Update VALIDATION.md.

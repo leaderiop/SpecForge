@@ -113,8 +113,9 @@ PLAN_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is no
    </constraints>
 
    <output>
-   Write plan to: ${item_dir}/${quick_id}-PLAN.md
-   Return: ## PLANNING COMPLETE with plan path
+   Fill the item's plan, which exists (`${quick_id}`): its fields with `specforge set`, one
+   `specforge new task` per task (the typed edits of the planner's `<plan_format>`)
+   Return: ## PLANNING COMPLETE with the plan id
    </output>
    ",
      subagent_type="gsd-planner",

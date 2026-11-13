@@ -173,7 +173,7 @@ When ◆ ultraplan ready appears in your terminal:
   7. Run: /gsd:import --from <the file path>
 
 /gsd:import will run conflict detection, convert to GSD format,
-validate via plan-checker, update ROADMAP.md, and commit.
+validate via plan-checker, record the phase's plans, and commit.
 
 ### Launching ultraplan for Phase {N}: {phase_name}...
 ```

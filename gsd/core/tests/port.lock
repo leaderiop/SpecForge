@@ -696,7 +696,13 @@ commands/gsd/milestone-summary.md	own	50+1	1	2baababe5561	30272c78a0b3	ported-na
 commands/gsd/milestone-summary.md	kept	51+3	c514b83076bd
 commands/gsd/milestone-summary.md	own	54+1	1	de2a1d08106c	a7bcaaeccb5c	workflow
 commands/gsd/milestone-summary.md	kept	55+2	f06da1895c23
-commands/gsd/mvp-phase.md	kept	15+37	eaf6e9bc118f
+commands/gsd/mvp-phase.md	kept	15+10	9c1d20d5143a
+commands/gsd/mvp-phase.md	own	25+2	2	8e97f7a592c7	96a17a65b29a	prose
+commands/gsd/mvp-phase.md	kept	27+17	3bc4761ddf15
+commands/gsd/mvp-phase.md	own	44+1	1	4250f7f34e5d	880e1586774b	prose
+commands/gsd/mvp-phase.md	kept	45+4	82a8799ec374
+commands/gsd/mvp-phase.md	own	49+1	1	fdeaa418b5cd	5481935a3fe6	prose
+commands/gsd/mvp-phase.md	kept	50+2	d91cca276930
 commands/gsd/new-milestone.md	kept	14+11	cacc95e474af
 commands/gsd/new-milestone.md	own	25+5	5	b08aa9bb6a8d	5ba2b6442a4e	ported-name
 commands/gsd/new-milestone.md	kept	30+23	86a4c048ccfa
@@ -1663,9 +1669,17 @@ gsd-core/workflows/add-tests.md	own	306+1	1	0b900e042d0e	ccf2c3bc60e1	ported-nam
 gsd-core/workflows/add-tests.md	kept	307+5	de20a7150a55
 gsd-core/workflows/add-tests.md	own	312+2	2	699cc3d7e125	bae41d7ab7d6	served
 gsd-core/workflows/add-tests.md	kept	314+45	bcec7723c7e4
-gsd-core/workflows/analyze-dependencies.md	kept	1+10	fea2516961ef
-gsd-core/workflows/analyze-dependencies.md	own	11+1	1	db2e2d7158da	8bcbc6d75c12	ported-name
-gsd-core/workflows/analyze-dependencies.md	kept	12+88	99a4d5850c60
+gsd-core/workflows/analyze-dependencies.md	kept	1+3	941df86109c2
+gsd-core/workflows/analyze-dependencies.md	own	4+1	1	d8c7dd58ba10	4ae74d55f91e	served
+gsd-core/workflows/analyze-dependencies.md	kept	5+4	97aa45c13ae2
+gsd-core/workflows/analyze-dependencies.md	own	9+3	3	ca89105f67d0	5e8acdc55e68	ported-name
+gsd-core/workflows/analyze-dependencies.md	kept	12+62	2f313a8fe5f2
+gsd-core/workflows/analyze-dependencies.md	own	74+4	4	f43e0745d2fa	b3550fdf3048	prose
+gsd-core/workflows/analyze-dependencies.md	kept	78+7	22d5eb1444f3
+gsd-core/workflows/analyze-dependencies.md	own	85+3	3	e31a3020e4cc	a6d5c958cddd	served
+gsd-core/workflows/analyze-dependencies.md	kept	88+3	0dbfc3682c1b
+gsd-core/workflows/analyze-dependencies.md	own	91+6	10	0918e44e6e45	464d5200df5d	prose
+gsd-core/workflows/analyze-dependencies.md	kept	97+3	c95d594b0139
 gsd-core/workflows/audit-milestone.md	kept	1+20	6684d99b18b8
 gsd-core/workflows/audit-milestone.md	own	21+12	9	c3f3ef1e2428	500b53336aa2	ported-name
 gsd-core/workflows/audit-milestone.md	kept	33+3	052fe63be0bc
@@ -1928,7 +1942,9 @@ gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md	kept	
 gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md	own	8+2	2	345499d05886	19394077382e	ported-name
 gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md	kept	10+24	071c2d83f632
 gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md	own	34+1	1	fd73a9d39a92	0ad656b4e88c	workflow
-gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md	kept	35+112	5df183b2a5ca
+gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md	kept	35+21	84fde3dfff19
+gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md	own	56+5	8	7100d0f06a64	af695e8c90bc	typed-edit
+gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md	kept	61+86	784af0f87e2c
 gsd-core/workflows/diagnose-issues.md	kept	1+16	836b1d4426a1
 gsd-core/workflows/diagnose-issues.md	own	17+3	3	d85ba0fa9663	08eb05b68f78	ported-name
 gsd-core/workflows/diagnose-issues.md	kept	20+43	5809993761b7
@@ -2713,17 +2729,23 @@ gsd-core/workflows/milestone-summary.md	own	229+1	1	18918b1157be	8561c9c0a03d	wo
 gsd-core/workflows/milestone-summary.md	kept	230+2	5f046190424d
 gsd-core/workflows/milestone-summary.md	own	232+3	2	eab27c15bf97	1f1356bac0c5	ported-name
 gsd-core/workflows/milestone-summary.md	kept	235+2	47c06c561d5c
-gsd-core/workflows/mvp-phase.md	kept	1+36	4793c654fdeb
+gsd-core/workflows/mvp-phase.md	kept	1+1	67c8626203ca
+gsd-core/workflows/mvp-phase.md	own	2+1	1	46e45c0a7e4f	756ea51e1834	prose
+gsd-core/workflows/mvp-phase.md	kept	3+34	db6990dfe2f0
 gsd-core/workflows/mvp-phase.md	own	37+10	9	94730b24589d	d91910d8b162	ported-name
 gsd-core/workflows/mvp-phase.md	kept	47+58	1497f5c6ca0d
 gsd-core/workflows/mvp-phase.md	own	105+1	1	bd9ea5cec462	0312397ddc6c	jq
 gsd-core/workflows/mvp-phase.md	kept	106+2	5f046190424d
 gsd-core/workflows/mvp-phase.md	own	108+3	3	c3d716761980	90fa891ead06	ported-name
-gsd-core/workflows/mvp-phase.md	kept	111+59	ff8dd30170ae
-gsd-core/workflows/mvp-phase.md	own	170+1	1	141da2a2ea47	03b013e82f41	served
-gsd-core/workflows/mvp-phase.md	kept	171+22	4a043007bfce
+gsd-core/workflows/mvp-phase.md	kept	111+6	ebfb95238079
+gsd-core/workflows/mvp-phase.md	own	117+1	1	ad481666d043	fbbbeeba77e2	prose
+gsd-core/workflows/mvp-phase.md	kept	118+50	6f0a80570bae
+gsd-core/workflows/mvp-phase.md	own	168+21	16	d8c78c5b3e5d	f84d6ba9e43c	typed-edit
+gsd-core/workflows/mvp-phase.md	kept	189+4	55c19401ddf3
 gsd-core/workflows/mvp-phase.md	own	193+2	2	7c30fd6b1851	263d0ab91e08	ported-name
-gsd-core/workflows/mvp-phase.md	kept	195+35	320b3de2c4c1
+gsd-core/workflows/mvp-phase.md	kept	195+10	af5e71a44d5b
+gsd-core/workflows/mvp-phase.md	own	205+1	1	9f94a29f25d5	aa2a926f4423	prose
+gsd-core/workflows/mvp-phase.md	kept	206+24	705446c633a7
 gsd-core/workflows/new-milestone.md	kept	1+26	f132e414e1dc
 gsd-core/workflows/new-milestone.md	own	27+4	4	6fc61101d7a0	fc47a079be55	args
 gsd-core/workflows/new-milestone.md	kept	31+2	5f046190424d
@@ -3711,7 +3733,9 @@ gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	90+1	27da12b4303e
 gsd-core/workflows/quick-batch/steps/planner-wave.md	own	91+1	1	699cd0d0f68e	3eaa16f57740	quick
 gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	92+9	854a7718a02b
 gsd-core/workflows/quick-batch/steps/planner-wave.md	own	101+1	1	382c5ed9d513	a40e518efc6d	quick
-gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	102+27	b6362c1ce3fe
+gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	102+13	fa9cb53d2e4f
+gsd-core/workflows/quick-batch/steps/planner-wave.md	own	115+2	3	ded99c8aad4d	e1d1656054f0	typed-edit
+gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	117+12	5a2f18e76edb
 gsd-core/workflows/quick-batch/steps/planner-wave.md	own	129+1	1	b9f79ea5d2df	ac9d7b058861	quick
 gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	130+12	f42a4375bd75
 gsd-core/workflows/quick-batch/steps/planner-wave.md	own	142+1	1	399ab11132a2	454a944353c3	ported-name
@@ -4521,7 +4545,9 @@ gsd-core/workflows/ultraplan-phase.md	kept	1+66	3ca0aa1e8dc2
 gsd-core/workflows/ultraplan-phase.md	own	67+12	9	c23fd08a2db6	f9eea83ef067	ported-name
 gsd-core/workflows/ultraplan-phase.md	kept	79+4	a514e951f449
 gsd-core/workflows/ultraplan-phase.md	own	83+1	1	888b87cd4a11	a208f39ba6a2	ported-name
-gsd-core/workflows/ultraplan-phase.md	kept	84+116	c7bce0e3c058
+gsd-core/workflows/ultraplan-phase.md	kept	84+94	6dcba0437841
+gsd-core/workflows/ultraplan-phase.md	own	178+1	1	d1ccc3c45c57	598ab4abb102	prose
+gsd-core/workflows/ultraplan-phase.md	kept	179+21	2b654729bff0
 gsd-core/workflows/undo.md	kept	1+11	2d5c99f3db14
 gsd-core/workflows/undo.md	own	12+2	2	ba492cb89236	de227a767a7b	ported-name
 gsd-core/workflows/undo.md	kept	14+16	295ec649401b

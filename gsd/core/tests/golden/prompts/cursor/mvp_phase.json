@@ -11,8 +11,8 @@
     "",
     "1. Prompts for an \"As a / I want to / So that\" user story (three structured questions)",
     "2. Runs SPIDR splitting check — if the story is too large, walks through Spike/Paths/Interfaces/Data/Rules and offers to split into multiple phases",
-    "3. Writes `**Mode:** mvp` and the reformatted `**Goal:**` to the phase's ROADMAP.md section",
-    "4. Delegates to `/gsd-plan-phase <N>` which auto-detects MVP mode via the roadmap field",
+    "3. Records `mode mvp` and the reformatted goal on the phase entity",
+    "4. Delegates to `/gsd-plan-phase <N>` which auto-detects MVP mode via the phase's `mode` field",
     "",
     "Phase 1 of the vertical-mvp-slice PRD shipped the planner-side machinery; this command is the user entry point for it.",
     "</objective>",
@@ -20,7 +20,7 @@
     "<execution_context>",
     "<file path=\"gsd-core/workflows/mvp-phase.md\">",
     "<purpose>",
-    "Guide the user through MVP-mode planning for a phase. Prompts for an \"As a / I want to / So that\" user story, runs SPIDR splitting check on the story, writes the result to ROADMAP.md, and delegates to `/gsd-plan-phase` (which auto-detects MVP via the roadmap mode field shipped in PRD Phase 1).",
+    "Guide the user through MVP-mode planning for a phase. Prompts for an \"As a / I want to / So that\" user story, runs SPIDR splitting check on the story, records the result on the phase entity (its `mode` and `goal`), and delegates to `/gsd-plan-phase` (which auto-detects MVP via the phase's `mode` field).",
     "</purpose>",
     "",
     "<required_reading>",
@@ -61,7 +61,7 @@
     "PHASE_GOAL=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.goal' 2>/dev/null)",
     "PHASE_MODE=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.mode' 2>/dev/null)"
   ],
-  "bytes": 27182,
+  "bytes": 27071,
   "end": [
     "1. The `**Goal:**` line stays on a single line (no line breaks inside the story). If the story is longer than ~120 chars, it should be split into multiple phases via SPIDR (see `spidr-splitting.md`).",
     "2. The `**Mode:** mvp` line is added immediately below `**Goal:**`. If `**Mode:**` already exists, it is replaced (not duplicated).",
@@ -91,12 +91,12 @@
     "<context>",
     "Phase number: the `<arguments>` block (required — integer or decimal like `2.1`)",
     "",
-    "The phase must already exist in ROADMAP.md (created via `/gsd-new-project`, `/gsd-phase`, or `/gsd-phase --insert`). This command does not create new phases — it converts an existing phase to MVP mode.",
+    "The phase entity must already exist (created via `/gsd-new-project`, `/gsd-phase`, or `/gsd-phase --insert`). This command does not create new phases — it converts an existing phase to MVP mode.",
     "</context>",
     "",
     "<process>",
     "Execute the mvp-phase workflow from `specforge gsd reference gsd-core/workflows/mvp-phase.md --host cursor` end-to-end.",
-    "Preserve all gates: phase existence, status guard (refuse in_progress/completed), user-story format validation, SPIDR splitting check, ROADMAP write confirmation, plan-phase delegation.",
+    "Preserve all gates: phase existence, status guard (refuse in_progress/completed), user-story format validation, SPIDR splitting check, phase write confirmation, plan-phase delegation.",
     "</process>",
     "",
     "",
@@ -186,7 +186,7 @@
     "",
     "```json"
   ],
-  "lines": 593,
+  "lines": 588,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:1777fe96e38f054bf3144711ca3111abf6d9316789a02f8023b194b05962b7e0",
+    "digest": "sha256:84d2599de09a84bc0209094d6d90a7bf754f0cec47a6566ba13bdbc6216830af",
     "prompt": "@gsd/core@VERSION:mvp_phase",
     "steps": [
       {
@@ -206,5 +206,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "1777fe96e38f054bf3144711ca3111abf6d9316789a02f8023b194b05962b7e0"
+  "sha256": "84d2599de09a84bc0209094d6d90a7bf754f0cec47a6566ba13bdbc6216830af"
 }

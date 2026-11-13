@@ -290,3 +290,57 @@ fn the_spec_less_lift_writes_truths_and_a_descriptor_less_prohibition() {
     let purpose = p.fields_of("v1.0/02/02-01")["purpose"].to_string();
     assert!(purpose.contains("Assumption:"), "{purpose}");
 }
+
+/// The MVP fence sets the phase's mode and goal, the dependency fence its `depends_on`, and the milestone review a
+/// project field: each a typed edit, nothing written to a roadmap or project file.
+#[test]
+fn the_mvp_and_dependency_edits_change_the_phase() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let story = "As a user, I want to filter my tasks, so that I see only what matters now.";
+    let mvp = typed::filled(
+        &typed::typed_fence(
+            &asset("gsd-core/workflows/mvp-phase.md"),
+            "## 5. Record the MVP Mode and Goal",
+        ),
+        &[
+            ("PHASE_ID", "v1.0/03"),
+            ("PHASE", "03"),
+            ("USER_STORY", story),
+        ],
+    );
+    let deps = typed::filled(
+        &typed::typed_fence(
+            &asset("gsd-core/workflows/analyze-dependencies.md"),
+            "Each accepted phase's dependencies",
+        ),
+        &[("PHASE", "03"), ("DEPENDS_ON", r#"["01", "02"]"#)],
+    );
+    let project = typed::filled(
+        &typed::typed_fence(
+            &asset("gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md"),
+            "Record each change on the project entity",
+        ),
+        &[
+            ("PROJECT", "taskboard"),
+            ("FIELD", "core_value"),
+            ("VALUE", "A board that never loses a task"),
+        ],
+    );
+    for fence in [mvp, deps, project] {
+        let run = typed::apply(&sh, &p, &fence);
+        assert_eq!(run.code, 0, "{fence}\n{}{}", run.out, run.err);
+        assert!(run.added.is_empty(), "{:?}", run.added);
+    }
+    let phase = p.fields_of("v1.0/03");
+    assert_eq!(phase["mode"], "mvp", "{phase}");
+    assert_eq!(phase["goal"], story, "{phase}");
+    let depends = phase["depends_on"].to_string();
+    assert!(depends.contains("01") && depends.contains("02"), "{phase}");
+    assert_eq!(
+        p.fields_of("taskboard")["core_value"],
+        "A board that never loses a task"
+    );
+}
