@@ -94,6 +94,7 @@ pub const EXECUTOR: Role = Role {
         "specforge:gsd.start_plan",
         "specforge:gsd.complete_plan",
         "specforge:gsd.raise_blocker",
+        "specforge:gsd.resolve_blocker",
         "specforge:gsd.record_window",
         "specforge:gsd.pause",
     ],

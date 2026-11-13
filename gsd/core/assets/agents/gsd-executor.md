@@ -429,6 +429,18 @@ specified in the canonical `gsd-core/references/tdd.md` "Gate Enforcement Rules"
    specforge gsd raise-blocker "$HALT_REASON" --plan "$PLAN_ID" --gate "$TASK_ID" || exit 1
    ```
 4. Exit the current execution wave cleanly. Prior commits in the same wave stay — do not roll back.
+5. The gate clears: when a re-run finds the task's gate met, resolve the task's open gate blocker before its
+   implementation step, so the project is no longer blocked:
+   ```bash
+   TASK_ID="{the task's id, e.g. v1.0/02/02-01/T1}"
+   REASON="{how the gate was met, e.g. the failing test was committed first}"
+   BLOCKERS=$(specforge query "$TASK_ID" --depth 1 --kinds blocker --pick ".nodes[fields.gate=$TASK_ID].id") || exit 1
+   for BLOCKER in $BLOCKERS; do
+     # a resolved blocker prints its `resolved` object: only an open one is resolved
+     RESOLVED=$(specforge query "$BLOCKER" --depth 0 --pick '.nodes[0].fields.resolved') || exit 1
+     [ -n "$RESOLVED" ] || specforge gsd resolve-blocker "$BLOCKER" "$REASON" || exit 1
+   done
+   ```
 
 **Behavior-Adding Task detection** (the gate only fires when this predicate returns true): read the task's `type` instead of inlining the three checks:
 

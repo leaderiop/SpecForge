@@ -152,20 +152,23 @@ fn the_summary_template_closes_a_plan() {
 }
 
 /// A tripped TDD gate, in the executor's halt protocol and in the MVP+TDD reference alike, is an open blocker whose
-/// `gate` names the task, and the check reports nothing new.
+/// `gate` names the task, and the check reports nothing new; once the gate is met, the clearing fence resolves it, and
+/// a second run resolves nothing.
 #[test]
 fn a_gate_trip_raises_a_blocker_on_its_task() {
     let Some(sh) = Shell::only(&[]) else {
         return;
     };
-    for (path, heading) in [
+    for (path, heading, clears) in [
         (
             "agents/gsd-executor.md",
             "3. Record the trip as an open blocker",
+            "5. The gate clears",
         ),
         (
             "gsd-core/references/execute-mvp-tdd.md",
             "4. Record the trip as an open blocker",
+            "5. The gate clears",
         ),
     ] {
         let p = taskboard();
@@ -188,6 +191,25 @@ fn a_gate_trip_raises_a_blocker_on_its_task() {
         let fields = &blockers[0]["fields"];
         assert_eq!(fields["gate"], "v1.0/02/02-01/T1", "{path}");
         assert!(fields["resolved"].is_null(), "{path}: the blocker is open");
+        let clear = typed::filled(
+            &typed::typed_fence(&asset(path), clears),
+            &[
+                ("TASK_ID", "v1.0/02/02-01/T1"),
+                ("REASON", "the failing test was committed first"),
+            ],
+        );
+        let run = typed::apply(&sh, &p, &clear);
+        assert_eq!(run.code, 0, "{path}: {}{}", run.out, run.err);
+        assert!(run.added.is_empty(), "{path}: {:?}", run.added);
+        let blockers = p.nodes_of("blocker");
+        assert_eq!(blockers.len(), 1, "{path}: {blockers:?}");
+        assert!(
+            blockers[0]["fields"]["resolved"].is_object(),
+            "{path}: the blocker is resolved: {blockers:?}"
+        );
+        // a second run finds no open gate blocker and resolves nothing
+        let again = typed::apply(&sh, &p, &clear);
+        assert_eq!(again.code, 0, "{path}: {}{}", again.out, again.err);
     }
 }
 

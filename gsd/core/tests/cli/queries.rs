@@ -108,6 +108,8 @@ const UNBOUND: &[&str] = &[
     "$p",
     "$m",
     "$TASK_ID",
+    // a gate blocker the line above found: `assets_shell::execute_edits` trips one and runs the clearing fence
+    "$BLOCKER",
     "$SPEC_ID",
     "$SPEC_FILE",
     "$SUMMARY_FILE",

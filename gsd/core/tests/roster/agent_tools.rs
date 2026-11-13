@@ -72,7 +72,7 @@ fn every_specforge_command_an_agent_runs_is_a_tool_its_role_grants() {
     }
     assert!(missing.is_empty(), "{missing:#?}");
     // Counted work: a scan that lost commands would pass vacuously, so the count is pinned to the bodies'.
-    assert_eq!(checked, 184, "commands checked");
+    assert_eq!(checked, 187, "commands checked");
     assert_eq!(
         cli_only.into_iter().collect::<Vec<_>>(),
         ["files", "git", "http", "run", "settings"],
