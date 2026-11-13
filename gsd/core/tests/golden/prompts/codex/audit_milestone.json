@@ -17,7 +17,7 @@
     "`specforge gsd reference gsd-core/references/response-language-directive.md --host codex`",
     "",
     "<purpose>",
-    "Verify milestone achieved its definition of done by aggregating phase verifications, checking cross-phase integration, and assessing requirements coverage. Reads existing VERIFICATION.md files (phases already verified during execute-phase), aggregates tech debt and deferred gaps, then spawns integration checker for cross-phase wiring.",
+    "Verify the milestone achieved its definition of done: read its requirements along their threads (requirement → plans → tasks → commits → tests → truths) and the phases' verifications, record the cross-phase integration verdict on the milestone's audit, and record its tech debt. The audit's gaps, Nyquist counts and status are computed from the graph.",
     "</purpose>",
     "",
     "<required_reading>",
@@ -56,27 +56,27 @@
     "specforge query \"$MILESTONE\" --kinds phase --format json",
     "```",
     "",
-    "- Parse version from arguments or detect current from ROADMAP.md",
-    "- Identify all phase directories in scope",
-    "- Extract milestone definition of done from ROADMAP.md",
-    "- Extract requirements mapped to this milestone from REQUIREMENTS.md"
+    "The version is `$MILESTONE`. Its phases are the answer's `phase` nodes, its definition of done is the milestone's `goal` and the phases' `success_criteria`, and its requirements are the phases' `requirements`.",
+    "",
+    "Resolve the milestone's audit, the `milestone_audit` entity this workflow records into. A re-audit reuses it; the first audit creates `<milestone>/A1`, before the integration checker is spawned, since its verdict is recorded on it:",
+    ""
   ],
-  "bytes": 33326,
+  "bytes": 36609,
   "end": [
     "",
     "<success_criteria>",
     "- [ ] Milestone scope identified",
-    "- [ ] All phase VERIFICATION.md files read",
-    "- [ ] SUMMARY.md `requirements-completed` frontmatter extracted for each phase",
-    "- [ ] REQUIREMENTS.md traceability table parsed for all milestone REQ-IDs",
-    "- [ ] 3-source cross-reference completed (VERIFICATION + SUMMARY + traceability)",
-    "- [ ] Orphaned requirements detected (in traceability but absent from all VERIFICATIONs)",
+    "- [ ] The milestone's audit resolved, or created as `<milestone>/A1`, before the checker's spawn",
+    "- [ ] Every requirement traced along its thread, and every phase's verification read",
+    "- [ ] The summaries' `requirements_completed` read for each phase",
+    "- [ ] 3-source cross-reference completed (threads and verifications, summaries, requirement status)",
+    "- [ ] Orphaned requirements read from the audit's computed `gaps`",
     "- [ ] Tech debt and deferred gaps aggregated",
     "- [ ] Integration checker spawned with milestone requirement IDs",
-    "- [ ] v{version}-MILESTONE-AUDIT.md created with structured requirement gap objects",
-    "- [ ] FAIL gate enforced — any unsatisfied requirement forces gaps_found status",
-    "- [ ] Nyquist compliance scanned for all milestone phases (if enabled)",
-    "- [ ] Missing VALIDATION.md phases flagged with validate-phase suggestion",
+    "- [ ] The integration verdict (`gsd/E518`) recorded once, on the audit",
+    "- [ ] The audit's `tech_debt` recorded; its `status` read (an unsatisfied requirement makes it `gaps_found`)",
+    "- [ ] Nyquist compliance read from the audit's `nyquist` (if enabled)",
+    "- [ ] Phases with no validation flagged with validate-phase suggestion",
     "- [ ] Results presented with actionable next steps",
     "</success_criteria>",
     "</file>",
@@ -102,7 +102,7 @@
     "",
     "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`.",
     "",
-    "The integration checker's finding is the judged rule E518: record its verdict with `specforge gsd record-verdict <phase> E518 <outcome> <model> '<basis>'` once per phase it checked."
+    "The integration checker's finding is the judged rule E518, which judges the milestone's audit: record its verdict with `specforge gsd record-verdict <milestone>/A1 E518 <outcome> <model> '<basis>'` once, on the milestone's audit."
   ],
   "head": [
     "<codex_skill_adapter>",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 711,
+  "lines": 727,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:c8763f9962e62a6a32b6f8b69ac17ae6db3e9f95821c21b77766f6199eb01a9f",
+    "digest": "sha256:1cfb2bbe842b07dfd44fcbbcb5121301c3a65f8a37bedc92aebebc296d833303",
     "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
@@ -207,7 +207,7 @@
         "cli": "specforge gsd record-verdict --host codex",
         "gate": [],
         "id": "record_verdict",
-        "title": "Record the integration checker's verdicts (specforge gsd record-verdict <phase> E518 <outcome> <model> '<basis>')",
+        "title": "Record the integration checker's verdict once, on the milestone's audit (specforge gsd record-verdict <milestone>/A1 E518 <outcome> <model> '<basis>')",
         "tool": "specforge.gsd.record_verdict"
       },
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "c8763f9962e62a6a32b6f8b69ac17ae6db3e9f95821c21b77766f6199eb01a9f"
+  "sha256": "1cfb2bbe842b07dfd44fcbbcb5121301c3a65f8a37bedc92aebebc296d833303"
 }

@@ -97,6 +97,8 @@ const UNBOUND: &[&str] = &[
     // a quick batch: the twin holds none; `assets_shell::batch` records one and runs these
     "$BATCH_ID",
     "$RESUME_BATCH_ID",
+    // the milestone's audit, which step 1 creates: `assets_shell::milestone_edits` creates one and runs these
+    "$AUDIT",
     "$QB_ITEM",
     "$summary",
     "$s",
@@ -154,6 +156,7 @@ const UNBOUND: &[&str] = &[
     "<entity>",
     "<id>",
     "<truth>",
+    "<requirement>",
     "<verification>",
     "<package_audit>",
     "<capability-keyword>",
