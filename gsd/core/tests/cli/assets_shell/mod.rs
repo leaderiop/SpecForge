@@ -15,6 +15,7 @@ mod counts;
 mod discuss;
 mod execute_edits;
 mod gates;
+mod milestone_edits;
 mod new_milestone;
 mod new_project;
 mod pick;
