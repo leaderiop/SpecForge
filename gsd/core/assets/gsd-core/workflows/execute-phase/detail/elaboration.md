@@ -46,7 +46,8 @@ checkpoints between tasks. The user can review, modify, or redirect work at any 
    d. **After each task:** Pause briefly. If the user intervenes (types anything), stop and address
       their feedback before continuing. Otherwise proceed to next task.
 
-   e. **After plan complete:** Show results, commit, create SUMMARY.md, then present next plan.
+   e. **After plan complete:** Show results, commit, write the plan's summary entity (execute-plan's create_summary),
+      then present next plan.
 
 3. After all plans: proceed to verification (same as normal mode).
 
@@ -83,8 +84,9 @@ CROSS_AI_TIMEOUT="{{setting:workflow.cross_ai_timeout|300}}"   # workflow.cross_
 **For each cross-AI plan (sequentially):**
 
 1. **Construct the task prompt** from the plan file:
-   - Extract `<objective>` and `<tasks>` sections from the PLAN.md
-   - Append PROJECT.md context (project name, description, tech stack)
+   - Read the plan's objective and tasks: `specforge query "$PLAN_ID" --depth 1 --format context`
+   - Append the project's context (name, description, tech stack) from the plan's context pack:
+     `specforge context gsd/executor "$PLAN_ID"`
    - Format as a self-contained execution prompt
 
 2. **Check for dirty working tree before execution:**
@@ -105,10 +107,9 @@ CROSS_AI_TIMEOUT="{{setting:workflow.cross_ai_timeout|300}}"   # workflow.cross_
 
    **Success (exit 0 + valid summary):**
    - Read `$CANDIDATE_SUMMARY` and validate it contains meaningful content
-     (not empty, has at least a heading and description — a valid SUMMARY.md structure)
-   - Write it as the plan's SUMMARY.md file
-   - Update STATE.md plan status to complete
-   - Update ROADMAP.md progress
+     (not empty, and it names a substantive one-liner and what the plan delivered)
+   - Record it as the plan's `summary` entity with the summary template's typed edits, then close the plan with
+     `specforge gsd complete-plan`: the plan's status and the roadmap's progress are computed from it
    - Mark plan as handled — skip it in execute_waves
 
    **Failure (non-zero exit or invalid summary):**

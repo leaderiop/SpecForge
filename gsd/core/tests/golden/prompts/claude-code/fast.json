@@ -61,8 +61,9 @@
     "```",
     ""
   ],
-  "bytes": 12835,
+  "bytes": 12795,
   "end": [
+    "</step>",
     "",
     "<step name=\"done\">",
     "Report completion:",
@@ -80,7 +81,7 @@
     "",
     "<guardrails>",
     "- NEVER spawn a Task/subagent — this runs inline",
-    "- NEVER create PLAN.md or SUMMARY.md files",
+    "- NEVER write a plan or summary entity",
     "- NEVER run research or plan-checking",
     "- If the task takes more than 3 file edits, STOP and redirect to /gsd-quick",
     "- If you're unsure how to implement it, STOP and redirect to /gsd-quick",
@@ -89,7 +90,6 @@
     "<success_criteria>",
     "- [ ] Task completed in current context (no subagents)",
     "- [ ] Atomic git commit with conventional message",
-    "- [ ] STATE.md updated if it exists",
     "- [ ] Total operation under 2 minutes wall time",
     "</success_criteria>",
     "</file>",
@@ -186,7 +186,7 @@
     "  \"features.thinking_partner\": false,",
     "  \"gates.confirm_milestone_scope\": true,"
   ],
-  "lines": 321,
+  "lines": 320,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:508fc099bddefe2e60d2ad1b8eab36c6600ef711fe0fcaec774ed2994dedb8c2",
+    "digest": "sha256:7f2ec707139dc9929fd4e7d14284e99f35aa7686863b16eb28b32b8761de4828",
     "prompt": "@gsd/core@VERSION:fast"
   },
-  "sha256": "508fc099bddefe2e60d2ad1b8eab36c6600ef711fe0fcaec774ed2994dedb8c2"
+  "sha256": "7f2ec707139dc9929fd4e7d14284e99f35aa7686863b16eb28b32b8761de4828"
 }

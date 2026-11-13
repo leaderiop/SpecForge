@@ -131,11 +131,6 @@ gsd-core/workflows/discuss-phase.md	**Write DISCUSSION-LOG.md before committing.
 gsd-core/workflows/discuss-phase.md	Update STATE.md with session info:
 gsd-core/workflows/discuss-phase.md	- STATE.md updated with session info
 gsd-core/workflows/discuss-phase.md	- Checkpoint file cleaned up after successful CONTEXT.md write
-gsd-core/workflows/execute-phase/detail/elaboration.md	e. **After plan complete:** Show results, commit, create SUMMARY.md, then present next plan.
-gsd-core/workflows/execute-phase/detail/elaboration.md	- Append PROJECT.md context (project name, description, tech stack)
-gsd-core/workflows/execute-phase/detail/elaboration.md	- Write it as the plan's SUMMARY.md file
-gsd-core/workflows/execute-phase/detail/elaboration.md	- Update STATE.md plan status to complete
-gsd-core/workflows/execute-phase/detail/elaboration.md	- Update ROADMAP.md progress
 gsd-core/workflows/execute-phase/steps/regression-gate.md	- File patterns from `key-files.created` in corresponding SUMMARY.md files that match `*.test.*` or `*.spec.*`
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	Create VERIFICATION.md.
 gsd-core/workflows/execute-phase.md	Commit each task atomically. Create SUMMARY.md.
@@ -146,16 +141,12 @@ gsd-core/workflows/execute-phase.md	REQUIRED ORDER: Write SUMMARY.md → commit 
 gsd-core/workflows/execute-phase.md	- [ ] SUMMARY.md created in plan directory
 gsd-core/workflows/execute-phase.md	- [ ] STATE.md updated with position and decisions
 gsd-core/workflows/execute-phase.md	- [ ] ROADMAP.md updated with plan progress (via `roadmap update-plan-progress`)
-gsd-core/workflows/fast.md	- NEVER create PLAN.md or SUMMARY.md files
-gsd-core/workflows/fast.md	- [ ] STATE.md updated if it exists
 gsd-core/workflows/graduation.md	| `decisions` | `PROJECT.md` — append under `## Validated Decisions` (create section if absent) |
 gsd-core/workflows/graduation.md	| `patterns` | `PATTERNS.md` — append under the appropriate category section (create file if absent) |
 gsd-core/workflows/graduation.md	| `lessons` | `PROJECT.md` — append under `## Invariants` (create section if absent) |
 gsd-core/workflows/graduation.md	3. For each source LEARNINGS.md item in the cluster, append `**Graduated:** {target-file}:{ISO_DATE}` after its last existing field
 gsd-core/workflows/ingest-docs.md	> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more intel files, write planning artifacts, or create ROADMAP.md independently while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 gsd-core/workflows/list-phase-assumptions.md	If "Discuss context": Note that CONTEXT.md will incorporate any corrections discussed here
-gsd-core/workflows/manager.md	Important: You are running in the background. Do NOT use AskUserQuestion — make autonomous decisions based on project context. If you hit a blocker, write it to STATE.md as a blocker and stop. Do NOT silently work around permission or file access errors — let them fail so the manager can surface them with resolution hints. Do NOT use --no-verify on git commits."
-gsd-core/workflows/manager.md	Important: You are running in the background. Do NOT use AskUserQuestion — make autonomous decisions. Do NOT use --no-verify on git commits — let pre-commit hooks run normally. If you hit a permission error, file lock, or any access issue, do NOT work around it — let it fail and write the error to STATE.md as a blocker so the manager can surface it with resolution guidance."
 gsd-core/workflows/new-milestone.md	Start a new milestone cycle for an existing project. Loads project context, gathers milestone goals (from MILESTONE-CONTEXT.md or conversation), updates PROJECT.md and STATE.md, optionally runs parallel research, defines scoped requirements with REQ-IDs, spawns the roadmapper to create phased execution plan, and commits all artifacts. Brownfield equivalent of new-project.
 gsd-core/workflows/new-milestone.md	- "Looks good" — Proceed to write PROJECT.md
 gsd-core/workflows/new-milestone.md	## 4. Update PROJECT.md

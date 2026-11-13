@@ -246,3 +246,33 @@ fn the_uat_step_writes_a_uat_session() {
         "the result is the person's: {test}"
     );
 }
+
+/// The manager's background prompts tell a stuck agent to raise a blocker on its phase; each backticked line runs as
+/// written once the agent fills the text and the phase number progress-report prints, and leaves one open blocker.
+#[test]
+fn the_manager_blocker_line_raises_a_blocker() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let text = asset("gsd-core/workflows/manager.md");
+    let lines: Vec<String> = text
+        .split('`')
+        .filter(|span| span.starts_with("specforge gsd raise-blocker"))
+        .map(|span| span.replace("\\\"", "\""))
+        .collect();
+    assert_eq!(lines.len(), 2, "{lines:?}");
+    for line in lines {
+        let p = taskboard();
+        let filled = line
+            .replace("<the blocker>", "the plan needs a schema decision")
+            .replace("<the error>", "permission denied for npm test")
+            .replace("{N}", "02");
+        let run = typed::apply(&sh, &p, &filled);
+        assert_eq!(run.code, 0, "{filled}: {}{}", run.out, run.err);
+        assert!(run.added.is_empty(), "{filled}: {:?}", run.added);
+        let blockers = p.nodes_of("blocker");
+        assert_eq!(blockers.len(), 1, "{filled}: {blockers:?}");
+        assert_eq!(blockers[0]["fields"]["phase"], "v1.0/02", "{filled}");
+        assert!(blockers[0]["fields"]["resolved"].is_null(), "{filled}");
+    }
+}

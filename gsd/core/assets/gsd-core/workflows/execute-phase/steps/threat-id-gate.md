@@ -7,8 +7,8 @@ this phase (#4683). The reserved `T-{phase}-SC` supply-chain row is never listed
 it by design.
 
 This is a hard stop BEFORE any dispatch — do not spawn executors, do not update state, do not
-write artifacts. A reused ID names two different threats, so `SECURITY.md` rows and
-`VALIDATION.md`'s Threat Ref column are ambiguous until it is fixed; executing the phase would
+write artifacts. A reused ID names two different threats, so `@gsd/security`'s threat entities and
+the validation's Threat Ref column are ambiguous until it is fixed; executing the phase would
 silently mark the wrong threat.
 
 Report the full `threat_id_duplicates` list verbatim — each ID with its claiming plan files:
