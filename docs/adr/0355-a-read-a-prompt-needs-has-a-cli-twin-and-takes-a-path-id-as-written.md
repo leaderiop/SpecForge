@@ -43,7 +43,7 @@ it, and the roles of [ADR 0334](0334-engine-tools-are-one-catalogue-below-the-su
   `specforge extensions search <query>`, unchanged but for E063's label. There is no alias: the old spelling is the
   new command.
 - **D2. `specforge refs <entity>` twins `specforge.find_references`.** Same direction and declaration options, same
-  document (`specforge_ops::read::navigate::References`). `refs` is a core command name (`CORE_COMMANDS`), so an
+  document (`specforge_ops::read::navigate::ReferenceLocations`). `refs` is a core command name (`CORE_COMMANDS`), so an
   extension command short-named `refs` is E114.
 - **D3. A trace within an entity.** `trace --in <entity>` (MCP `in`) traces every entity *within* one: the entity,
   every entity its scope holds at any depth, and every entity one reference away from one of those, either way. A
@@ -58,7 +58,7 @@ it, and the roles of [ADR 0334](0334-engine-tools-are-one-catalogue-below-the-su
   `specforge://context/{+entity_id}`; an id the graph lacks is "not found", no longer "malformed".
 - **D5. The relations and documents of these reads live in ops** (ADR 0101 D1, ADR 0052): the field/value pairing
   (`FieldHolds::of`), the trace request (`TraceRequest`, read by `Ask::of`), the search document (`EntityHits`) and
-  the references document (`References`). The CLI and MCP read them, and the request-pairs table has a row for each.
+  the references document (`ReferenceLocations`). The CLI and MCP read them, and the request-pairs table has a row for each.
 - **D6. Coverage is no gsd role's tool.** [ADR 0334](0334-engine-tools-are-one-catalogue-below-the-surfaces.md)'s roles name their tools one by one and none names `coverage`;
   `trace` and `gsd plan-coverage` answer it.
 - **D7. An extension command with no title is listed by its description** (`ExtensionCommand::summary`). A declared
