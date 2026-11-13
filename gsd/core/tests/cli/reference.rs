@@ -148,3 +148,53 @@ fn reference_converts_the_text_for_the_host() {
     );
     assert_ne!(run.code, 0, "{}", run.all());
 }
+
+/// The templates whose Markdown file form became the typed edits of their kinds: `(path, kinds)`.
+const CONVERTED: &[(&str, &[&str])] = &[
+    (
+        "gsd-core/templates/context.md",
+        &["context", "decision", "deferred_idea"],
+    ),
+    (
+        "gsd-core/workflows/discuss-phase/templates/context.md",
+        &["context", "decision", "deferred_idea"],
+    ),
+    (
+        "gsd-core/workflows/discuss-phase/templates/discussion-log.md",
+        &["discussion"],
+    ),
+];
+
+/// A converted template's answer names its kinds and how to read their fields (`specforge schema --kind`), each kind
+/// one `specforge schema` declares, starts with no line about where SpecForge keeps the file, and holds no Markdown
+/// file form.
+#[test]
+fn a_converted_template_names_its_kinds_and_no_file_layout() {
+    let p = twin();
+    let schema = p.run(&["schema"]);
+    assert_eq!(schema.code, 0, "{}", schema.all());
+    let declared: Vec<String> = json(&schema)["entity_kinds"]
+        .as_array()
+        .expect("entity_kinds")
+        .iter()
+        .map(|k| k["name"].as_str().expect("a name").to_string())
+        .collect();
+    for (path, kinds) in CONVERTED {
+        let run = gsd(&p, "reference", &[path]);
+        assert_eq!(run.code, 0, "{path}: {}", run.all());
+        let text = &run.stdout;
+        assert!(text.contains("specforge schema --kind"), "{path}: {text}");
+        assert!(!text.starts_with("SpecForge keeps this"), "{path}");
+        assert!(
+            !text.contains("```markdown"),
+            "{path}: a Markdown file form"
+        );
+        for kind in *kinds {
+            assert!(declared.iter().any(|k| k == kind), "{path}: no kind {kind}");
+            assert!(
+                text.contains(&format!("`{kind}`")) || text.contains(&format!("--kind {kind}")),
+                "{path}: {kind}"
+            );
+        }
+    }
+}

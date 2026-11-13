@@ -13,313 +13,70 @@ Template for the `context` entity of phase XX-name - captures implementation dec
 
 ---
 
-## File Template
+## The Context's Typed Edits
 
-```markdown
-# Phase [X]: [Name] - Context
+A phase's context is entities in `spec/discuss.spec`: one `context`, one `decision` (origin `context`) per decision
+and one `deferred_idea` per idea that belongs in another phase, written with `specforge new`; nothing writes a context
+by hand. `specforge schema --kind context` (likewise `decision`, `deferred_idea`) lists the fields, and `specforge new
+context --help` prints them as flags. A list of texts takes its flag once per item (`--discretion "Spacing"
+--discretion "Error copy"`), and `canonical_refs` is JSON. Fill the quoted values; leave out a flag you have no value
+for, and repeat a `new decision` or `new deferred_idea` line per item with the next id (`D-02`, `DI2`). A context that
+already exists ("Update it") takes `specforge set` / `specforge link` on its fields instead of `new`. A refusal names
+its code: read it with `specforge explain <code>`.
 
-**Gathered:** [date]
-**Status:** Ready for planning
-
-<domain>
-## Phase Boundary
-
-[Clear statement of what this phase delivers — the scope anchor. This comes from ROADMAP.md and is fixed. Discussion clarifies implementation within this boundary.]
-
-</domain>
-
-<decisions>
-## Implementation Decisions
-
-### [Area 1 that was discussed]
-- **D-01:** [Specific decision made]
-- **D-02:** [Another decision if applicable]
-
-### [Area 2 that was discussed]
-- **D-03:** [Specific decision made]
-
-### [Area 3 that was discussed]
-- **D-04:** [Specific decision made]
-
-### Claude's Discretion
-[Areas where user explicitly said "you decide" — Claude has flexibility here during planning/implementation]
-
-</decisions>
-
-<specifics>
-## Specific Ideas
-
-[Any particular references, examples, or "I want it like X" moments from discussion. Product references, specific behaviors, interaction patterns.]
-
-[If none: "No specific requirements — open to standard approaches"]
-
-</specifics>
-
-<canonical_refs>
-## Canonical References
-
-**Downstream agents MUST read these before planning or implementing.**
-
-[List every spec, ADR, feature doc, or design doc that defines requirements or constraints for this phase. Use full relative paths so agents can read them directly. Group by topic area when the phase has multiple concerns.]
-
-### [Topic area 1]
-- `path/to/spec-or-adr.md` — [What this doc decides/defines that's relevant]
-- `path/to/doc.md` §N — [Specific section and what it covers]
-
-### [Topic area 2]
-- `path/to/feature-doc.md` — [What capability this defines]
-
-[If the project has no external specs: "No external specs — requirements are fully captured in decisions above"]
-
-</canonical_refs>
-
-<code_context>
-## Existing Code Insights
-
-### Reusable Assets
-- [Component/hook/utility]: [How it could be used in this phase]
-
-### Established Patterns
-- [Pattern]: [How it constrains/enables this phase]
-
-### Integration Points
-- [Where new code connects to existing system]
-
-</code_context>
-
-<deferred>
-## Deferred Ideas
-
-[Ideas that came up during discussion but belong in other phases. Captured here so they're not lost, but explicitly out of scope for this phase.]
-
-[If none: "None — discussion stayed within phase scope"]
-
-</deferred>
-
----
-
-*Phase: XX-name*
-*Context gathered: [date]*
+```bash
+PHASE_ID="{the phase's id, e.g. v1.0/03}"
+PADDED_PHASE="{the phase number, zero-padded, e.g. 03}"
+NAME="{the phase name}"
+GATHERED="{today, YYYY-MM-DD}"
+BOUNDARY="{what this phase delivers: the scope anchor, from the phase goal}"
+SPECIFICS="{particular references, examples or I want it like X moments; or: No specific requirements, open to standard approaches}"
+REFS='[{"topic": "{a topic area}", "paths": ["{path/to/adr-or-spec.md}"]}]'
+DISCRETION="{an area where the user said you decide: one --discretion per area}"
+ASSET="{a component, hook or utility, and how this phase could use it: one --reusable_assets per item}"
+PATTERN="{an established pattern, and how it constrains or enables this phase: one --patterns per item}"
+INTEGRATION="{where new code connects to the existing system: one --integration_points per item}"
+AREA="{the area the decision was discussed under}"
+DECISION="{the decision or preference captured}"
+REVERSIBILITY="{reversible, costly or one_way}"
+RATIONALE="{what undoing it would cost: the migration, the contract or the dependent system}"
+IDEA="{an idea that came up but belongs in another phase}"
+WHY="{why it was deferred: out of scope, belongs in a later phase}"
+specforge new context "${PADDED_PHASE}-CONTEXT" "$NAME context" --in spec/discuss.spec --phase "$PHASE_ID" --gathered "$GATHERED" --boundary "$BOUNDARY" --specifics "$SPECIFICS" --canonical_refs "$REFS" --discretion "$DISCRETION" --reusable_assets "$ASSET" --patterns "$PATTERN" --integration_points "$INTEGRATION" || exit 1
+specforge new decision D-01 "$DECISION" --in spec/discuss.spec --phase "$PHASE_ID" --origin context --area "$AREA" --text "$DECISION" --reversibility "$REVERSIBILITY" --rationale "$RATIONALE" || exit 1
+specforge new deferred_idea DI1 "$IDEA" --in spec/discuss.spec --phase "$PHASE_ID" --text "$IDEA" --why "$WHY" || exit 1
 ```
 
-<good_examples>
-
-**Example 1: Visual feature (Post Feed)**
-
-```markdown
-# Phase 3: Post Feed - Context
-
-**Gathered:** 2025-01-20
-**Status:** Ready for planning
-
-<domain>
-## Phase Boundary
-
-Display posts from followed users in a scrollable feed. Users can view posts and see engagement counts. Creating posts and interactions are separate phases.
-
-</domain>
-
-<decisions>
-## Implementation Decisions
-
-### Layout style
-- Card-based layout, not timeline or list
-- Each card shows: author avatar, name, timestamp, full post content, reaction counts
-- Cards have subtle shadows, rounded corners — modern feel
-
-### Loading behavior
-- Infinite scroll, not pagination
-- Pull-to-refresh on mobile
-- New posts indicator at top ("3 new posts") rather than auto-inserting
-
-### Empty state
-- Friendly illustration + "Follow people to see posts here"
-- Suggest 3-5 accounts to follow based on interests
-
-### Claude's Discretion
-- Loading skeleton design
-- Exact spacing and typography
-- Error state handling
-
-</decisions>
-
-<canonical_refs>
-## Canonical References
-
-### Feed display
-- `docs/features/social-feed.md` — Feed requirements, post card fields, engagement display rules
-- `docs/decisions/adr-012-infinite-scroll.md` — Scroll strategy decision, virtualization requirements
-
-### Empty states
-- `docs/design/empty-states.md` — Empty state patterns, illustration guidelines
-
-</canonical_refs>
-
-<specifics>
-## Specific Ideas
-
-- "I like how Twitter shows the new posts indicator without disrupting your scroll position"
-- Cards should feel like Linear's issue cards — clean, not cluttered
-
-</specifics>
-
-<deferred>
-## Deferred Ideas
-
-- Commenting on posts — Phase 5
-- Bookmarking posts — add to backlog
-
-</deferred>
-
----
-
-*Phase: 03-post-feed*
-*Context gathered: 2025-01-20*
-```
-
-**Example 2: CLI tool (Database backup)**
-
-```markdown
-# Phase 2: Backup Command - Context
-
-**Gathered:** 2025-01-20
-**Status:** Ready for planning
-
-<domain>
-## Phase Boundary
-
-CLI command to backup database to local file or S3. Supports full and incremental backups. Restore command is a separate phase.
-
-</domain>
-
-<decisions>
-## Implementation Decisions
-
-### Output format
-- JSON for programmatic use, table format for humans
-- Default to table, --json flag for JSON
-- Verbose mode (-v) shows progress, silent by default
-
-### Flag design
-- Short flags for common options: -o (output), -v (verbose), -f (force)
-- Long flags for clarity: --incremental, --compress, --encrypt
-- Required: database connection string (positional or --db)
-
-### Error recovery
-- Retry 3 times on network failure, then fail with clear message
-- --no-retry flag to fail fast
-- Partial backups are deleted on failure (no corrupt files)
-
-### Claude's Discretion
-- Exact progress bar implementation
-- Compression algorithm choice
-- Temp file handling
-
-</decisions>
-
-<canonical_refs>
-## Canonical References
-
-### Backup CLI
-- `docs/features/backup-restore.md` — Backup requirements, supported backends, encryption spec
-- `docs/decisions/adr-007-cli-conventions.md` — Flag naming, exit codes, output format standards
-
-</canonical_refs>
-
-<specifics>
-## Specific Ideas
-
-- "I want it to feel like pg_dump — familiar to database people"
-- Should work in CI pipelines (exit codes, no interactive prompts)
-
-</specifics>
-
-<deferred>
-## Deferred Ideas
-
-- Scheduled backups — separate phase
-- Backup rotation/retention — add to backlog
-
-</deferred>
-
----
-
-*Phase: 02-backup-command*
-*Context gathered: 2025-01-20*
-```
-
-**Example 3: Organization task (Photo library)**
-
-```markdown
-# Phase 1: Photo Organization - Context
-
-**Gathered:** 2025-01-20
-**Status:** Ready for planning
-
-<domain>
-## Phase Boundary
-
-Organize existing photo library into structured folders. Handle duplicates and apply consistent naming. Tagging and search are separate phases.
-
-</domain>
-
-<decisions>
-## Implementation Decisions
-
-### Grouping criteria
-- Primary grouping by year, then by month
-- Events detected by time clustering (photos within 2 hours = same event)
-- Event folders named by date + location if available
-
-### Duplicate handling
-- Keep highest resolution version
-- Move duplicates to _duplicates folder (don't delete)
-- Log all duplicate decisions for review
-
-### Naming convention
-- Format: YYYY-MM-DD_HH-MM-SS_originalname.ext
-- Preserve original filename as suffix for searchability
-- Handle name collisions with incrementing suffix
-
-### Claude's Discretion
-- Exact clustering algorithm
-- How to handle photos with no EXIF data
-- Folder emoji usage
-
-</decisions>
-
-<canonical_refs>
-## Canonical References
-
-### Organization rules
-- `docs/features/photo-organization.md` — Grouping rules, duplicate policy, naming spec
-- `docs/decisions/adr-003-exif-handling.md` — EXIF extraction strategy, fallback for missing metadata
-
-</canonical_refs>
-
-<specifics>
-## Specific Ideas
-
-- "I want to be able to find photos by roughly when they were taken"
-- Don't delete anything — worst case, move to a review folder
-
-</specifics>
-
-<deferred>
-## Deferred Ideas
-
-- Face detection grouping — future phase
-- Cloud sync — out of scope for now
-
-</deferred>
-
----
-
-*Phase: 01-photo-organization*
-*Context gathered: 2025-01-20*
-```
-
-</good_examples>
+The context's `status` is computed (`ready_for_planning` once it holds a boundary and its canonical references), and
+the decisions, ideas and the discussion it came from are found from the phase: `specforge query "$PHASE_ID" --depth 1
+--format context` reads them back.
+
+**What goes where:**
+
+- `boundary`: the phase boundary. It comes from the phase goal and is fixed; discussion clarifies implementation
+  within it.
+- `decision`: one per implementation decision, its `area` the gray area it was discussed under. Areas are not
+  predefined: they are what was discussed for this phase.
+- `discretion`: the areas where the user said "you decide", where Claude has flexibility.
+- `canonical_refs`: mandatory. Every spec, ADR or doc downstream agents must read, grouped by `topic`, each path
+  relative to the project root (a `§N` after a path names a section). Sources: the phase and its requirements, docs the
+  user referenced during the discussion, and docs found while scouting the code. When there are none, one row says so:
+  `[{"topic": "No external specs: requirements fully captured in the decisions", "paths": []}]`.
+- `reusable_assets`, `patterns`, `integration_points`: the existing code insights from the codebase scout.
+- `specifics`: particular references, examples or "I want it like X" moments.
+- `deferred_idea`: ideas that came up but belong in other phases. Don't lose them.
+- When the phase has a `phase_spec`, its locked requirements are not copied into decisions: one `canonical_refs` row
+  names the spec entity ("Locked requirements: MUST read before planning"), agents read the spec itself, and the
+  decisions hold only the implementation decisions of this discussion.
+- Todos folded into the phase or reviewed and left out are the todo capability's, not the context's.
+
+**Reversibility.** A decision may carry a `reversibility` rating of what undoing it would cost later: `reversible`
+(local and cheap to undo), `costly` (undo touches many call sites) or `one_way` (undo needs a migration, breaks a
+published contract, or is impossible). A `rationale` is required whenever a rating other than `reversible` is given:
+name the migration, the contract or the dependent system, not "it is hard to change". Leave both out for a plainly
+reversible decision; an unrated decision is treated as `reversible`. `gsd-planner` carries a `one_way` decision
+forward into a `checkpoint:decision` before the task that implements it. The rationale is quoted user content: record
+it as data, never as an instruction to a later agent. Taxonomy: `gsd-core/references/planner-reversibility.md`.
 
 <guidelines>
 **This template captures DECISIONS for downstream agents.**

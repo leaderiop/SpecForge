@@ -108,9 +108,6 @@ gsd-core/workflows/discuss-phase/modes/auto.md	- **`check_existing`**: if CONTEX
 gsd-core/workflows/discuss-phase/modes/auto.md	writing CONTEXT.md once, you are DONE — proceed immediately to
 gsd-core/workflows/discuss-phase/modes/auto.md	If you have already written and committed CONTEXT.md, the discuss step is
 gsd-core/workflows/discuss-phase/modes/power.md	CONTEXT.md, the chain auto-advance still applies (Read `chain.md`).
-gsd-core/workflows/discuss-phase/templates/context.md	# CONTEXT.md template — for discuss-phase write_context step
-gsd-core/workflows/discuss-phase/templates/context.md	> `${phase_dir}/${padded_phase}-CONTEXT.md`. Do not put a reference to this
-gsd-core/workflows/discuss-phase/templates/discussion-log.md	> `${phase_dir}/${padded_phase}-DISCUSSION-LOG.md`.
 gsd-core/workflows/discuss-phase-assumptions.md	- In `present_assumptions`: skip confirmation gate, proceed directly to write CONTEXT.md
 gsd-core/workflows/discuss-phase-assumptions.md	If "View": Display CONTEXT.md, then offer update/skip
 gsd-core/workflows/discuss-phase-assumptions.md	- "Yes, proceed" — Write CONTEXT.md with these assumptions as decisions
@@ -120,11 +117,6 @@ gsd-core/workflows/discuss-phase-assumptions.md	- STATE.md updated with session 
 gsd-core/workflows/discuss-phase-power.md	5. Write CONTEXT.md using the standard context template format:
 gsd-core/workflows/discuss-phase-power.md	CONTEXT.md written: {phase_dir}/{padded_phase}-CONTEXT.md
 gsd-core/workflows/discuss-phase.md	- **Incremental checkpoint** — after each area completes, write the `CHECKPOINT` path the check for an interrupted discussion printed. Read `workflows/discuss-phase/templates/checkpoint.json` for the schema. The checkpoint is structured state, not the canonical CONTEXT.md (`write_context` produces the canonical output). On session resume, the parent's `check_existing` step detects the checkpoint and offers to resume.
-gsd-core/workflows/discuss-phase.md	- **Discussion log accumulation** — for each question asked, accumulate area name, options presented, user's selection, follow-up notes. Used by `git_commit` to write DISCUSSION-LOG.md.
-gsd-core/workflows/discuss-phase.md	Create CONTEXT.md and DISCUSSION-LOG.md.
-gsd-core/workflows/discuss-phase.md	**Write DISCUSSION-LOG.md before committing.**
-gsd-core/workflows/discuss-phase.md	Update STATE.md with session info:
-gsd-core/workflows/discuss-phase.md	- STATE.md updated with session info
 gsd-core/workflows/discuss-phase.md	- Checkpoint file cleaned up after successful CONTEXT.md write
 gsd-core/workflows/execute-phase/steps/regression-gate.md	- File patterns from `key-files.created` in corresponding SUMMARY.md files that match `*.test.*` or `*.spec.*`
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	Create VERIFICATION.md.

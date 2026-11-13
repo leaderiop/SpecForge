@@ -8,6 +8,7 @@ mod answers;
 mod batch;
 mod commits;
 mod counts;
+mod discuss;
 mod execute_edits;
 mod gates;
 mod new_milestone;

@@ -1638,7 +1638,9 @@ gsd-core/templates/UAT.md	kept	280+3	0d1b6fe03758
 gsd-core/templates/VALIDATION.md	kept	1+79	e2281534271f
 gsd-core/templates/context.md	kept	1+2	718fbb0bae6e
 gsd-core/templates/context.md	own	3+1	1	53588d1181eb	f205e613ef57	ported-name
-gsd-core/templates/context.md	kept	4+337	a7072164859b
+gsd-core/templates/context.md	kept	4+11	4ed17db46492
+gsd-core/templates/context.md	own	15+307	64	cf28936bf00a	b401be19926b	prose
+gsd-core/templates/context.md	kept	322+19	e7bec95f8b04
 gsd-core/templates/context.md	own	341+1	1	699b15e65d93	6818cdcef62c	ported-name
 gsd-core/templates/context.md	kept	342+12	0ced15df2f94
 gsd-core/templates/milestone-archive.md	kept	1+2	48f5dd45e5a6
@@ -2140,20 +2142,26 @@ gsd-core/workflows/discuss-phase.md	own	118+11	8	eb7616f2ab78	4add6b184802	porte
 gsd-core/workflows/discuss-phase.md	kept	129+6	0a92e10c4d54
 gsd-core/workflows/discuss-phase.md	own	135+1	1	94c4967453e9	6d2555b940d1	args
 gsd-core/workflows/discuss-phase.md	kept	136+31	e456be22e65a
-gsd-core/workflows/discuss-phase.md	own	167+1	1	cb9fc7f6fe59	63117e0c13f8	relic
+gsd-core/workflows/discuss-phase.md	own	167+1	1	cb9fc7f6fe59	12fb58e3e979	prose
 gsd-core/workflows/discuss-phase.md	kept	168+2	5f046190424d
-gsd-core/workflows/discuss-phase.md	own	170+1	1	bd9cd0f45691	2b420b5bbf57	served
-gsd-core/workflows/discuss-phase.md	kept	171+15	e82b693a8974
-gsd-core/workflows/discuss-phase.md	own	186+1	1	629d5e7114b9	b7cba5b18ff5	served
-gsd-core/workflows/discuss-phase.md	kept	187+17	3bec91ef20dc
+gsd-core/workflows/discuss-phase.md	own	170+4	4	ce51d627cce1	cd818ad694a1	served
+gsd-core/workflows/discuss-phase.md	kept	174+6	9940961ab4dc
+gsd-core/workflows/discuss-phase.md	own	180+3	3	59c8b66c03c3	f2fb0a70be7e	prose
+gsd-core/workflows/discuss-phase.md	kept	183+3	171de216fe9d
+gsd-core/workflows/discuss-phase.md	own	186+1	1	629d5e7114b9	6392ec1f364f	served
+gsd-core/workflows/discuss-phase.md	kept	187+2	03420accb5cb
+gsd-core/workflows/discuss-phase.md	own	189+3	3	268e01c94a51	5b19ef1237d1	prose
+gsd-core/workflows/discuss-phase.md	kept	192+1	63cec3752567
+gsd-core/workflows/discuss-phase.md	own	193+1	1	f76d7c6f525b	42a0fe7362fe	prose
+gsd-core/workflows/discuss-phase.md	kept	194+10	457fe6fe84d7
 gsd-core/workflows/discuss-phase.md	own	204+1	1	d2501ea266f8	b6463c907a93	served
 gsd-core/workflows/discuss-phase.md	kept	205+12	cafbedd55de1
 gsd-core/workflows/discuss-phase.md	own	217+4	4	8859c2ea7976	376aa44c013f	files
 gsd-core/workflows/discuss-phase.md	kept	221+18	1b16e133b052
-gsd-core/workflows/discuss-phase.md	own	239+6	6	8b8315caad71	a9b381b01e34	ported-name
+gsd-core/workflows/discuss-phase.md	own	239+6	6	8b8315caad71	f792b6d691f9	ported-name
 gsd-core/workflows/discuss-phase.md	kept	245+2	5f046190424d
-gsd-core/workflows/discuss-phase.md	own	247+1	1	45532aa15d0f	21219fa0c403	ported-name
-gsd-core/workflows/discuss-phase.md	kept	248+6	0ad37327f57b
+gsd-core/workflows/discuss-phase.md	own	247+4	4	5df5219832e3	ac33f5cd9ab0	ported-name
+gsd-core/workflows/discuss-phase.md	kept	251+3	16ff9d6dbcd1
 gsd-core/workflows/discuss-phase.md	own	254+4	4	8d5718800440	33e153450d40	ported-name
 gsd-core/workflows/discuss-phase.md	kept	258+17	8d56ed2c6416
 gsd-core/workflows/discuss-phase.md	own	275+1	1	62077c842663	3e406d3fb7f3	ported-name
@@ -2162,26 +2170,30 @@ gsd-core/workflows/discuss-phase.md	own	291+1	1	8fdfdd391000	0b2303462432	ported
 gsd-core/workflows/discuss-phase.md	kept	292+6	cc148c74925d
 gsd-core/workflows/discuss-phase.md	own	298+1	1	da636a355e73	8dd0a508e420	ported-name
 gsd-core/workflows/discuss-phase.md	kept	299+80	40b16b72d3a6
-gsd-core/workflows/discuss-phase.md	own	379+1	1	966e4a670a51	fe8c43380cd8	files
-gsd-core/workflows/discuss-phase.md	kept	380+12	a53d686a5a62
-gsd-core/workflows/discuss-phase.md	own	392+1	1	e5853fd2268c	f201b410f82b	served
-gsd-core/workflows/discuss-phase.md	kept	393+24	5e632bb4805f
+gsd-core/workflows/discuss-phase.md	own	379+2	2	0188e1fc9555	12d672ea281f	prose
+gsd-core/workflows/discuss-phase.md	kept	381+3	6cd9bd7fbeb1
+gsd-core/workflows/discuss-phase.md	own	384+1	1	e6bb4285bc25	294be5490d4c	prose
+gsd-core/workflows/discuss-phase.md	kept	385+3	753977fae35d
+gsd-core/workflows/discuss-phase.md	own	388+25	8	2a7448816665	f0cefb348ff9	prose
+gsd-core/workflows/discuss-phase.md	kept	413+4	95bb30b11291
 gsd-core/workflows/discuss-phase.md	own	417+1	1	3071c9067fe3	098ac8b62aba	ported-name
 gsd-core/workflows/discuss-phase.md	kept	418+8	5a5587ba7061
 gsd-core/workflows/discuss-phase.md	own	426+1	1	c1322fee4ddb	ec763064bc13	ported-name
 gsd-core/workflows/discuss-phase.md	kept	427+17	f01f357da071
 gsd-core/workflows/discuss-phase.md	own	444+1	1	e582711637d0	4b412ea34d78	args
 gsd-core/workflows/discuss-phase.md	kept	445+3	316deeb28892
-gsd-core/workflows/discuss-phase.md	own	448+1	1	a5753a865846	0baf2c295281	args
-gsd-core/workflows/discuss-phase.md	kept	449+17	5673a52f7729
+gsd-core/workflows/discuss-phase.md	own	448+1	1	a5753a865846	adece1d0f90e	prose
+gsd-core/workflows/discuss-phase.md	kept	449+4	96533bcee739
+gsd-core/workflows/discuss-phase.md	own	453+10	4	ed29f4d7bdab	00f6af65dcc4	prose
+gsd-core/workflows/discuss-phase.md	kept	463+3	fe341c7d14a8
 gsd-core/workflows/discuss-phase.md	own	466+1	1	28583141a19c	c23bc3dd10d3	served
 gsd-core/workflows/discuss-phase.md	kept	467+4	7151e34b418c
 gsd-core/workflows/discuss-phase.md	own	471+1	1	ca442bbb3e65	1f321860256a	ported-name
-gsd-core/workflows/discuss-phase.md	kept	472+9	be6eeebb0dc1
-gsd-core/workflows/discuss-phase.md	own	481+1	1	32ad25807a2d	aa614914c829	ported-name
-gsd-core/workflows/discuss-phase.md	kept	482+1	9554aa4abe7a
-gsd-core/workflows/discuss-phase.md	own	483+3	3	8d7da01647cc	97e900d5bdd9	ported-name
-gsd-core/workflows/discuss-phase.md	kept	486+36	c5f19d0dbe8d
+gsd-core/workflows/discuss-phase.md	kept	472+5	b76e097d65e6
+gsd-core/workflows/discuss-phase.md	own	477+12	0	753b47fb05dc	e3b0c44298fc	ported-name
+gsd-core/workflows/discuss-phase.md	kept	489+23	0f7576ef3da6
+gsd-core/workflows/discuss-phase.md	own	512+1	0	20d10b0b5734	e3b0c44298fc	relic
+gsd-core/workflows/discuss-phase.md	kept	513+9	502d7e93dc7e
 gsd-core/workflows/discuss-phase/modes/advisor.md	kept	1+6	a910747155e8
 gsd-core/workflows/discuss-phase/modes/advisor.md	own	7+1	1	48f2fb34b6fc	48141b00edf5	relic
 gsd-core/workflows/discuss-phase/modes/advisor.md	kept	8+6	5a10082ae260
@@ -2233,8 +2245,14 @@ gsd-core/workflows/discuss-phase/modes/power.md	kept	25+23	f9ad7f70a3e2
 gsd-core/workflows/discuss-phase/modes/text.md	kept	1+22	a7fb71db9a02
 gsd-core/workflows/discuss-phase/modes/text.md	own	23+1	1	4e3becc70dca	c715d81063ab	ported-name
 gsd-core/workflows/discuss-phase/modes/text.md	kept	24+35	b2f03f1fe4b5
-gsd-core/workflows/discuss-phase/templates/context.md	kept	1+153	323884311c94
-gsd-core/workflows/discuss-phase/templates/discussion-log.md	kept	1+53	e829d02ec03d
+gsd-core/workflows/discuss-phase/templates/context.md	kept	1+2	2f2526f23797
+gsd-core/workflows/discuss-phase/templates/context.md	own	3+150	8	7e0f037b2b3c	846af8d1f29e	prose
+gsd-core/workflows/discuss-phase/templates/context.md	kept	153+1	e3b0c44298fc
+gsd-core/workflows/discuss-phase/templates/discussion-log.md	kept	1+2	2f2526f23797
+gsd-core/workflows/discuss-phase/templates/discussion-log.md	own	3+5	3	baf9473a06b8	0f8649f75286	prose
+gsd-core/workflows/discuss-phase/templates/discussion-log.md	kept	8+6	13b280246358
+gsd-core/workflows/discuss-phase/templates/discussion-log.md	own	14+38	14	eea46ccc04b7	72eb681691e3	prose
+gsd-core/workflows/discuss-phase/templates/discussion-log.md	kept	52+2	47c06c561d5c
 gsd-core/workflows/do.md	kept	1+11	9e272ace2962
 gsd-core/workflows/do.md	own	12+2	2	ba492cb89236	de227a767a7b	ported-name
 gsd-core/workflows/do.md	kept	14+21	d372d62cb9db
