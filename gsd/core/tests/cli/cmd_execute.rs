@@ -60,13 +60,14 @@ fn start_plan_records_the_hosts_now_once() {
     let start = format!("{PLAN}/START");
     assert_eq!(p.fields_of(&start)["at"], started.as_str());
     assert!(ledgered(&p, &start, "at", &format!("\"{started}\"")));
-    // A second call, a second later and by a short form, answers the first value and leaves it.
+    // A second call, a second later and by a short form, answers the first value; the pack it records again is the
+    // one it recorded, so it writes the same bytes.
     std::thread::sleep(std::time::Duration::from_millis(1100));
-    let before = p.fields_of(&start);
+    let before = bytes(&p);
     let run = gsd(&p, "start-plan", &["02-01", "--pick", ".started"]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(run.stdout.trim_end(), started);
-    assert_eq!(p.fields_of(&start), before);
+    assert_eq!(bytes(&p), before);
 }
 
 /// The executor pack `specforge context` prints of [`PLAN`], at `budget` when one is given.
