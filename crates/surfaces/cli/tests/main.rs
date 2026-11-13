@@ -91,6 +91,7 @@ mod run_verb;
 mod scaffold_builds;
 mod schema_cache;
 mod schema_notices;
+mod search;
 mod settings;
 mod settings_set;
 mod stats;
