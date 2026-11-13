@@ -30,7 +30,7 @@ pub struct ContextDescriptor {
     /// [`Self::stale`], or neither.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub records: Vec<ContextRecordDescriptor>,
-    /// The code of the extension's own catalogue a record whose pack moved raises, local (`W524`).
+    /// The code of the extension's own catalogue a record whose pack moved raises, local (`W900`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stale: Option<String>,
 }

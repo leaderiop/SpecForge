@@ -76,7 +76,7 @@ impl ContextBuilder {
     pub fn record_suggesting(&mut self, field: &str, subject: &str, suggestion: &str) -> &mut Self {
         self.push_record(field, subject, Some(suggestion))
     }
-    /// The code of this extension's catalogue a record whose pack moved raises, local (`W524`).
+    /// The code of this extension's catalogue a record whose pack moved raises, local (`W900`).
     pub fn stale(&mut self, code: &str) -> &mut Self {
         self.0.stale = Some(code.to_string());
         self

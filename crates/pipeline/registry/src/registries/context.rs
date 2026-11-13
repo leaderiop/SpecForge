@@ -62,7 +62,7 @@ pub struct ContextRoute {
     pub skipped: Vec<SkippedSection>,
     /// The fields its pack is recorded in.
     pub records: Vec<ContextRecord>,
-    /// The qualified code a stale record raises (`gsd/W524`): present exactly when `records` is not empty.
+    /// The qualified code a stale record raises (`acme/W900`): present exactly when `records` is not empty.
     pub stale: Option<String>,
 }
 

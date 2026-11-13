@@ -1118,7 +1118,7 @@ kind as a pack: its sections in declared order, cut to a token budget, with a di
       ],
       "settings": ["plan_check"],
       "records": [{"field": "plan.context_pack", "subject": "self", "suggestion": "gsd start-plan {entity}"}],
-      "stale": "W524"
+      "stale": "W900"
     }
   ]
 }
