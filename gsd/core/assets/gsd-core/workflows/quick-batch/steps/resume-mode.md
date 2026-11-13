@@ -11,6 +11,10 @@ the design's behavior table).
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 QB_RESUME_JSON=$(specforge query "$RESUME_BATCH_ID" --depth 0 --kinds quick_batch --pick '.nodes[0].fields') && QB_RESUME_RC=0 || QB_RESUME_RC=$?   # an id no batch holds is refused
+if [ "$QB_RESUME_RC" -eq 0 ] && [ "$(specforge query "$RESUME_BATCH_ID" --depth 0 --pick '.nodes[0].kind')" != quick_batch ]; then
+  echo "no quick batch ${RESUME_BATCH_ID}" >&2   # the id names another entity
+  QB_RESUME_RC=1
+fi
 if [ "$QB_RESUME_RC" -eq 0 ]; then
   QB_BASE=$(specforge query "$RESUME_BATCH_ID" --depth 0 --pick '.nodes[0].fields.base')
   if [ -z "$QB_BASE" ] || [ "$(specforge git merge-base "$QB_BASE" HEAD --pick .sha 2>/dev/null)" != "$QB_BASE" ]; then

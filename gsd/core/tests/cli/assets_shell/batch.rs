@@ -335,6 +335,11 @@ fn resuming_an_unknown_or_diverged_batch_stops() {
     assert_ne!(out, "0", "an unknown batch resumes: {err}");
     // a base no commit of this history holds
     quick_plans(&p);
+    // an id the graph holds that is no quick batch
+    let (out, err, _) = rc("261112-abc");
+    assert_eq!(out, "1", "{err}");
+    assert!(err.contains("no quick batch 261112-abc"), "{err}");
+    assert!(!err.contains("diverged"), "{err}");
     let base = "0123456789abcdef0123456789abcdef01234567";
     let items = r#"["261112-abc", "261112-def"]"#;
     let run = p.run(&[
