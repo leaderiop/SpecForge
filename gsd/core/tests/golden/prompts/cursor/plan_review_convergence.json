@@ -61,7 +61,7 @@
     "operator's explicit flag overrides this gate for that run. Standalone invocation carries no such",
     "flag and remains gated by the config below."
   ],
-  "bytes": 76312,
+  "bytes": 76342,
   "end": [
     "- `## Self-Check: FAILED` (summary self-check)",
     "",
@@ -147,7 +147,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:ec0c61fa8227fb357bdccde04a311795076644a99e93a445b7a968c0ffa03f9f",
+    "digest": "sha256:979b39b38c11bd60f7a050046bc22a86e2ec77a75a68acd676135b64dae396cc",
     "prompt": "@gsd/core@VERSION:plan_review_convergence",
     "steps": [
       {
@@ -211,5 +211,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "ec0c61fa8227fb357bdccde04a311795076644a99e93a445b7a968c0ffa03f9f"
+  "sha256": "979b39b38c11bd60f7a050046bc22a86e2ec77a75a68acd676135b64dae396cc"
 }

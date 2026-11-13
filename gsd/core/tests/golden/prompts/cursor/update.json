@@ -26,7 +26,7 @@
     "4. Tell the user to restart the host, so that it reads the new skills.",
     "</process>"
   ],
-  "bytes": 11358,
+  "bytes": 11388,
   "end": [
     "  \"effort.routing_tier_defaults.heavy\": \"xhigh\",",
     "  \"effort.routing_tier_defaults.light\": \"low\",",
@@ -112,7 +112,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -153,8 +153,8 @@
   ],
   "lines": 223,
   "payload": {
-    "digest": "sha256:f27133a74b2ab44ae5cf5c7ae1311a61143d038a6ecbf663032ceb3bbd7bcbf8",
+    "digest": "sha256:cf81fadc78902d18047b6f9f50548793292947a9b5d37ca543629e409d975b11",
     "prompt": "@gsd/core@VERSION:update"
   },
-  "sha256": "f27133a74b2ab44ae5cf5c7ae1311a61143d038a6ecbf663032ceb3bbd7bcbf8"
+  "sha256": "cf81fadc78902d18047b6f9f50548793292947a9b5d37ca543629e409d975b11"
 }

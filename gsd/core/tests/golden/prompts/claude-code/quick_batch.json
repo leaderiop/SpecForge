@@ -61,7 +61,7 @@
     "",
     "<available_agent_types>"
   ],
-  "bytes": 23451,
+  "bytes": 23481,
   "end": [
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
     "capacity/isolation, and dispatch wave-by-wave.",
@@ -128,7 +128,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:11caaa84077017b2ccaede4d07a13e67958c12a657af76ed0b734a7948416451",
+    "digest": "sha256:f340b71bb500e613a1dd39d7b09e29cf19c9a97b821504d684675e297c9260f7",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "11caaa84077017b2ccaede4d07a13e67958c12a657af76ed0b734a7948416451"
+  "sha256": "f340b71bb500e613a1dd39d7b09e29cf19c9a97b821504d684675e297c9260f7"
 }

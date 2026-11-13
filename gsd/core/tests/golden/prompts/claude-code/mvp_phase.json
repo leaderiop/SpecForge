@@ -61,7 +61,7 @@
     "PHASE_GOAL=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.goal' 2>/dev/null)",
     "PHASE_MODE=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.mode' 2>/dev/null)"
   ],
-  "bytes": 26159,
+  "bytes": 26189,
   "end": [
     "1. The `**Goal:**` line stays on a single line (no line breaks inside the story). If the story is longer than ~120 chars, it should be split into multiple phases via SPIDR (see `spidr-splitting.md`).",
     "2. The `**Mode:** mvp` line is added immediately below `**Goal:**`. If `**Mode:**` already exists, it is replaced (not duplicated).",
@@ -128,7 +128,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:ee42eaa4b23654cee65f386d548d6d83347ea184ce62c3bd4e9c72359e684857",
+    "digest": "sha256:575b13df870ecf4070d23344845e4fc6b4605155a1739b9870b182de2ce1b653",
     "prompt": "@gsd/core@VERSION:mvp_phase",
     "steps": [
       {
@@ -206,5 +206,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "ee42eaa4b23654cee65f386d548d6d83347ea184ce62c3bd4e9c72359e684857"
+  "sha256": "575b13df870ecf4070d23344845e4fc6b4605155a1739b9870b182de2ce1b653"
 }

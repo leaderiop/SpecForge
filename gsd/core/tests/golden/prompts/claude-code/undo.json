@@ -61,7 +61,7 @@
     "",
     "Examples:"
   ],
-  "bytes": 47518,
+  "bytes": 47548,
   "end": [
     "- question: \"How thorough should planning be?\"",
     "- header: \"Depth\"",
@@ -128,7 +128,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:5c70f61d332a9e4aa2e38649d603fdb10874ccd4d580ec14e5d623cf3d8f0ded",
+    "digest": "sha256:687aad95a3ab3da7f4a428f02a918d9b013efbbdb2b99690ce5ac98431547aea",
     "prompt": "@gsd/core@VERSION:undo"
   },
-  "sha256": "5c70f61d332a9e4aa2e38649d603fdb10874ccd4d580ec14e5d623cf3d8f0ded"
+  "sha256": "687aad95a3ab3da7f4a428f02a918d9b013efbbdb2b99690ce5ac98431547aea"
 }

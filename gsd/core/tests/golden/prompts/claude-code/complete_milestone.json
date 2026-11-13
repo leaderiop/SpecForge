@@ -61,7 +61,7 @@
     "   chain. Or proceed anyway to accept the gaps as tech debt.",
     ""
   ],
-  "bytes": 13591,
+  "bytes": 13621,
   "end": [
     "",
     "7. **Commit and tag:**",
@@ -128,7 +128,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:62730d2c2e3e72050e0931e9b75bef72b32122248d54e31871f2c3746a21a546",
+    "digest": "sha256:1997a40bc4ff88359fd26d288ebe93f71fe825fdfc8a6fa8b0d01bfb4662770b",
     "prompt": "@gsd/core@VERSION:complete_milestone",
     "steps": [
       {
@@ -229,5 +229,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "62730d2c2e3e72050e0931e9b75bef72b32122248d54e31871f2c3746a21a546"
+  "sha256": "1997a40bc4ff88359fd26d288ebe93f71fe825fdfc8a6fa8b0d01bfb4662770b"
 }

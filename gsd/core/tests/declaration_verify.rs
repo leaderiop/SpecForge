@@ -69,6 +69,9 @@ fn the_verification_kinds_declare_the_fields_of_the_model() {
     assert_eq!(field_of("override", "by")["required"], false);
     assert_eq!(field_of("override", "accepts")["required"], false);
     assert_eq!(field_of("override", "accepts")["writer"], "human");
+    let follow_ups = field_of("uat_session", "follow_ups");
+    assert_eq!(follow_ups["writer"], "harness");
+    assert_eq!(follow_ups["append_only"], true);
 }
 
 #[test]

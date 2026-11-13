@@ -61,7 +61,7 @@
     "Read and parse STATE.md, then PROJECT.md:",
     ""
   ],
-  "bytes": 28770,
+  "bytes": 28800,
   "end": [
     "",
     "</process>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:475d239180cef11bc81233a4fff213af5be134db5d8aff568a5e4bc2292ee042",
+    "digest": "sha256:cc6713f1cc1789f61ca83d7958bd818af08bf617eb78703d9358b0e3c335fa97",
     "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "475d239180cef11bc81233a4fff213af5be134db5d8aff568a5e4bc2292ee042"
+  "sha256": "cc6713f1cc1789f61ca83d7958bd818af08bf617eb78703d9358b0e3c335fa97"
 }

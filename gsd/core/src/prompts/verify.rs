@@ -49,7 +49,7 @@ fn uat(_: &PromptCall<'_>) -> String {
     "\n\nA test that passing tests already cover is not put to the person: record it yourself with \
      `specforge gsd record-automated-uat <uat_test> <pass|issue> --by <who>` (an issue takes `--reported \"<what the run showed>\"`); \
      it is written `source: automated`.\n\nFor each answer of the person, ask them to run `specforge gsd set-uat-result <uat_test> <pass|issue|skipped|blocked|pending> \
-     --by <who>` (an issue takes `--reported \"<their words>\"`, a skipped takes `--reason \"<why>\"`, a blocked takes \
+     --by <who>` (an issue takes `--reported \"<their words>\"`, a skipped takes `--reason \"<why>\"`, a deferred follow-up takes `--follow-up \"<their words>\"` with `skipped`, a blocked takes \
      `--blocked-by <server|physical_device|release_build|third_party|prior_phase>`) in their terminal (an agent's call is refused: it records what a person says): the UAT file's `result:` lines are not \
      edited by hand.\n"
         .to_string()

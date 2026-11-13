@@ -61,7 +61,7 @@
     "# the commands below are specforge commands: there is no launcher to define",
     ""
   ],
-  "bytes": 73501,
+  "bytes": 73604,
   "end": [
     "## Gaps",
     "",
@@ -102,7 +102,7 @@
     "",
     "A test that passing tests already cover is not put to the person: record it yourself with `specforge gsd record-automated-uat <uat_test> <pass|issue> --by <who>` (an issue takes `--reported \"<what the run showed>\"`); it is written `source: automated`.",
     "",
-    "For each answer of the person, ask them to run `specforge gsd set-uat-result <uat_test> <pass|issue|skipped|blocked|pending> --by <who>` (an issue takes `--reported \"<their words>\"`, a skipped takes `--reason \"<why>\"`, a blocked takes `--blocked-by <server|physical_device|release_build|third_party|prior_phase>`) in their terminal (an agent's call is refused: it records what a person says): the UAT file's `result:` lines are not edited by hand."
+    "For each answer of the person, ask them to run `specforge gsd set-uat-result <uat_test> <pass|issue|skipped|blocked|pending> --by <who>` (an issue takes `--reported \"<their words>\"`, a skipped takes `--reason \"<why>\"`, a deferred follow-up takes `--follow-up \"<their words>\"` with `skipped`, a blocked takes `--blocked-by <server|physical_device|release_build|third_party|prior_phase>`) in their terminal (an agent's call is refused: it records what a person says): the UAT file's `result:` lines are not edited by hand."
   ],
   "head": [
     "<codex_skill_adapter>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:8ff0fee8eac4e0f48122810cc12c2c7780b27a69720cfea09e084ef6183724d4",
+    "digest": "sha256:167b0ece9818fb7218c327b46d350772c3859a4c553b24ab4f4d9e613284d236",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "8ff0fee8eac4e0f48122810cc12c2c7780b27a69720cfea09e084ef6183724d4"
+  "sha256": "167b0ece9818fb7218c327b46d350772c3859a4c553b24ab4f4d9e613284d236"
 }

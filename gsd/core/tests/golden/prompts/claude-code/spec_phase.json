@@ -61,7 +61,7 @@
     "- \"If you had to cut 50%, what's the irreducible core?\"",
     "- \"What would make this phase a success even without the nice-to-haves?\""
   ],
-  "bytes": 57766,
+  "bytes": 57796,
   "end": [
     "<context>",
     "Phase number: the `<arguments>` block (required)",
@@ -128,7 +128,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:43fe24d6993ec60b6ce0b54d5006f6aa65999aae383080508a9415f49118d3d6",
+    "digest": "sha256:c8a3009578f8ecc41ad4500c4738b87c1fe97a6f5536148ae3150498f2edc6ef",
     "judged": [
       {
         "outcomes": [
@@ -235,5 +235,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "43fe24d6993ec60b6ce0b54d5006f6aa65999aae383080508a9415f49118d3d6"
+  "sha256": "c8a3009578f8ecc41ad4500c4738b87c1fe97a6f5536148ae3150498f2edc6ef"
 }

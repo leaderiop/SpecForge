@@ -61,7 +61,7 @@
     "",
     "If `summary.parse_gap_files` is greater than 0, render this section FIRST (before the `## UAT Audit Report` below, or standalone if `total_items` is also 0). Filter `results` for entries with `parse_gap: true`:"
   ],
-  "bytes": 13911,
+  "bytes": 13941,
   "end": [
     "<step name=\"test_plan\">",
     "Generate a human UAT test plan for \"Testable Now\" + \"active\" items only:",
@@ -128,7 +128,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:1b57fb3988bfa7d0bf64334fd3e2714d7d8f4ea5ef364c0975078f335c9b585f",
+    "digest": "sha256:4e38a159aa96458ad5dc3c3b9282a67f0d788e5415cbca4b4481f5b142f863bd",
     "prompt": "@gsd/core@VERSION:audit_uat",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "1b57fb3988bfa7d0bf64334fd3e2714d7d8f4ea5ef364c0975078f335c9b585f"
+  "sha256": "4e38a159aa96458ad5dc3c3b9282a67f0d788e5415cbca4b4481f5b142f863bd"
 }

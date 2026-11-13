@@ -61,7 +61,7 @@
     "- `--branch` → `BRANCH_NAME` (defaults to `workspace/$WORKSPACE_NAME`)",
     "- `--auto` → skip interactive questions"
   ],
-  "bytes": 32884,
+  "bytes": 32914,
   "end": [
     "- Box panels drawn with double-line box characters (U+2554, U+2557, U+255A, U+255D, U+2551, U+2560, U+2563) — the borders wrap independently of their contents. They are named here by code point rather than shown, because the guard below rejects the characters themselves anywhere in shipped content.",
     "- A `---` directly under a line of text with no blank line between — that is a setext heading underline, not a break, and it swallows the line above",
@@ -147,7 +147,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:41a575ba1945b72aeff6226621577ca5f1331d5d5fa7c04fedaaf5df23015e7d",
+    "digest": "sha256:11f0bbbb5b78c13e9f84ea4a0e21dbd7d1613fb4652092edd3d13dc1dfd32ee6",
     "prompt": "@gsd/core@VERSION:workspace"
   },
-  "sha256": "41a575ba1945b72aeff6226621577ca5f1331d5d5fa7c04fedaaf5df23015e7d"
+  "sha256": "11f0bbbb5b78c13e9f84ea4a0e21dbd7d1613fb4652092edd3d13dc1dfd32ee6"
 }

@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 54347,
+  "bytes": 54377,
   "end": [
     "- Missing Next Up block after completions",
     "",
@@ -147,7 +147,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:a3efb2d5346a4c3fbebee58f7ac7000f32210d8de7e659b346a9f7167b1ea89d",
+    "digest": "sha256:e0963db9a219da4e416dea5351a3dd08ec9fe45c3002c574b63040d22a0c7e3d",
     "prompt": "@gsd/core@VERSION:autonomous",
     "steps": [
       {
@@ -242,5 +242,5 @@
       }
     ]
   },
-  "sha256": "a3efb2d5346a4c3fbebee58f7ac7000f32210d8de7e659b346a9f7167b1ea89d"
+  "sha256": "e0963db9a219da4e416dea5351a3dd08ec9fe45c3002c574b63040d22a0c7e3d"
 }

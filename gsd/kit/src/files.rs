@@ -59,7 +59,10 @@ pub const PLANNING_FILES: &[(&str, &str)] = &[
         "NN-VERIFICATION.md",
         "verification, verify_gap, override, human_item, and verdicts",
     ),
-    ("NN-UAT.md", "uat_session, uat_test, uat_gap"),
+    (
+        "NN-UAT.md",
+        "uat_session (and its deferred follow-ups), uat_test, uat_gap",
+    ),
     (
         "NN-VALIDATION.md",
         "validation, validation_row, wave0_item, manual_check",

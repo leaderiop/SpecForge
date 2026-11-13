@@ -195,7 +195,7 @@ TASK-01
 | `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision | core |
 | `.continue-here.md` | handoff | core |
 | `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts | core |
-| `NN-UAT.md` | uat_session, uat_test, uat_gap | core |
+| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap | core |
 | `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check | core |
 | `v<version>-MILESTONE-AUDIT.md` | milestone_audit | core |
 | git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity | core |

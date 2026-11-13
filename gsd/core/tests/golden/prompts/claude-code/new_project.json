@@ -61,7 +61,7 @@
     "```bash",
     ""
   ],
-  "bytes": 80913,
+  "bytes": 80943,
   "end": [
     "| AUTH-03 | Phase 1 | Pending |",
     "| AUTH-04 | Phase 1 | Pending |",
@@ -128,7 +128,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:1ca89535dce731f57a6b6722fa38a62cea9d06bcae0c906a7c7e97fb1fc51d3b",
+    "digest": "sha256:107b17bd6e639631c04b2916e482ed4bddcc8524732d57ea25e975047027e4bd",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "1ca89535dce731f57a6b6722fa38a62cea9d06bcae0c906a7c7e97fb1fc51d3b"
+  "sha256": "107b17bd6e639631c04b2916e482ed4bddcc8524732d57ea25e975047027e4bd"
 }

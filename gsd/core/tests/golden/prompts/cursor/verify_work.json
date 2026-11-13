@@ -61,7 +61,7 @@
     "# the commands below are specforge commands: there is no launcher to define",
     ""
   ],
-  "bytes": 65799,
+  "bytes": 65902,
   "end": [
     "## Gaps",
     "",
@@ -102,7 +102,7 @@
     "",
     "A test that passing tests already cover is not put to the person: record it yourself with `specforge gsd record-automated-uat <uat_test> <pass|issue> --by <who>` (an issue takes `--reported \"<what the run showed>\"`); it is written `source: automated`.",
     "",
-    "For each answer of the person, ask them to run `specforge gsd set-uat-result <uat_test> <pass|issue|skipped|blocked|pending> --by <who>` (an issue takes `--reported \"<their words>\"`, a skipped takes `--reason \"<why>\"`, a blocked takes `--blocked-by <server|physical_device|release_build|third_party|prior_phase>`) in their terminal (an agent's call is refused: it records what a person says): the UAT file's `result:` lines are not edited by hand."
+    "For each answer of the person, ask them to run `specforge gsd set-uat-result <uat_test> <pass|issue|skipped|blocked|pending> --by <who>` (an issue takes `--reported \"<their words>\"`, a skipped takes `--reason \"<why>\"`, a deferred follow-up takes `--follow-up \"<their words>\"` with `skipped`, a blocked takes `--blocked-by <server|physical_device|release_build|third_party|prior_phase>`) in their terminal (an agent's call is refused: it records what a person says): the UAT file's `result:` lines are not edited by hand."
   ],
   "head": [
     "<cursor_skill_adapter>",
@@ -147,7 +147,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:e29c227d733a170833c727fd66d3fb5c66dfa754fd5d620b0a3cbf2e75bec709",
+    "digest": "sha256:6974418b266f6df938649493e2bba05021082bc31b7997f89c77c7f0ecd9d4e5",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "e29c227d733a170833c727fd66d3fb5c66dfa754fd5d620b0a3cbf2e75bec709"
+  "sha256": "6974418b266f6df938649493e2bba05021082bc31b7997f89c77c7f0ecd9d4e5"
 }

@@ -9,7 +9,7 @@
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, node, now, required, run, text};
+use super::support::{answer, node, now, required, run, target, text};
 
 const RESULTS: &[&str] = &["pending", "pass", "issue", "skipped", "blocked"];
 const SEVERITIES: &[&str] = &["blocker", "major", "minor", "cosmetic"];
@@ -21,7 +21,8 @@ const BLOCKED_BY: &[&str] = &[
     "prior_phase",
 ];
 
-/// `set_uat_result <uat_test> <result> --by <who> [--source] [--reported] [--severity] [--reason] [--blocked-by]`.
+/// `set_uat_result <uat_test> <result> --by <who> [--source] [--reported] [--severity] [--reason | --follow-up]
+/// [--blocked-by]`.
 fn set_uat_result(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     if call.str("source") == Some("automated") {
         return Err("--source automated is refused here: a person's answer is never automated. An agent or CI records an automated result with \
@@ -50,11 +51,29 @@ fn write_result(call: &CommandCall<'_>, automated: bool) -> Result<CommandOutput
     let kept = |arg: &str| test.has_field(arg);
     let reported = given("reported")?;
     let severity = call.str("severity");
-    let (reason, blocked_by) = if automated {
+    let (mut reason, blocked_by) = if automated {
         (None, None)
     } else {
-        (given("reason")?, call.str("blocked_by"))
+        (given("reason")?.map(str::to_string), call.str("blocked_by"))
     };
+    // A deferred follow-up is a skip whose reason is upstream's text, and an entry on the session.
+    let follow_up = if automated { None } else { given("follow_up")? };
+    if let Some(idea) = follow_up {
+        if result != "skipped" {
+            return Err(format!(
+                "--follow-up belongs to a 'skipped' result, not '{result}'"
+            ));
+        }
+        if reason.is_some() {
+            return Err(
+                "--follow-up writes the reason itself: give it without --reason".to_string(),
+            );
+        }
+        if idea.trim().is_empty() {
+            return Err("'follow_up' is empty".to_string());
+        }
+        reason = Some(format!("Deferred follow-up: {idea}"));
+    }
     for (needed, result_of, name, have) in [
         (
             "issue",
@@ -93,7 +112,7 @@ fn write_result(call: &CommandCall<'_>, automated: bool) -> Result<CommandOutput
     for (name, value, results) in [
         ("reported", reported, "issue"),
         ("severity", severity, "issue"),
-        ("reason", reason, "skipped"),
+        ("reason", reason.as_deref(), "skipped"),
         ("blocked_by", blocked_by, "blocked"),
     ] {
         match value {
@@ -112,9 +131,35 @@ fn write_result(call: &CommandCall<'_>, automated: bool) -> Result<CommandOutput
             None => {}
         }
     }
+    let mut wrote = vec![id.clone()];
+    if let Some(idea) = follow_up {
+        let session = target(call.graph(), id, "session")
+            .ok_or_else(|| format!("uat test '{id}' names no session"))?;
+        let held = call
+            .graph()
+            .node(session)
+            .and_then(|s| s.fields.get("follow_ups"))
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|entries| {
+                entries.iter().any(|e| {
+                    e.get("idea").and_then(serde_json::Value::as_str) == Some(idea)
+                        && e.get("test")
+                            .and_then(serde_json::Value::as_str)
+                            .is_some_and(|t| t == id || id.ends_with(&format!("/{t}")))
+                })
+            });
+        if !held {
+            plan.append(
+                session,
+                "follow_ups",
+                json!({ "test": id, "idea": idea, "deferred_at": call.today() }),
+            );
+            wrote.push(session.to_string());
+        }
+    }
     Ok(answer(
         call,
-        json!({ "wrote": [id], "result": result }),
+        json!({ "wrote": wrote, "result": result }),
         format!("uat test {id}: {result} (told by {by})\n"),
         Some(&plan),
     ))
@@ -164,7 +209,10 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.one_of(SEVERITIES).description("how bad the issue is (major when absent)");
             })
             .arg("reason", |a| {
-                a.description("why the test was skipped (required for a skipped)");
+                a.description("why the test was skipped (required for a skipped, unless --follow-up)");
+            })
+            .arg("follow_up", |a| {
+                a.description("a skipped test's deferred follow-up, in the person's words: the reason becomes `Deferred follow-up: <words>` and the session keeps the idea");
             })
             .arg("blocked_by", |a| {
                 a.one_of(BLOCKED_BY).description("what blocks the test (required for a blocked)");

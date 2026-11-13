@@ -61,7 +61,7 @@
     "- `workflow.plan_check` — spawn plan checker during plan-phase",
     "- `workflow.verifier` — spawn verifier during execute-phase"
   ],
-  "bytes": 45589,
+  "bytes": 45619,
   "end": [
     "These settings apply to future /gsd-plan-phase and /gsd-execute-phase runs.",
     "",
@@ -128,7 +128,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:9dc47ee2f238c0a0915fd34f8990cac85c5dacafdc5c608c1e3c65f24762f936",
+    "digest": "sha256:4ddb4446818e7f66959a49c9b4ecc3e9f0af9139ef19646fc604978e7a112310",
     "prompt": "@gsd/core@VERSION:settings"
   },
-  "sha256": "9dc47ee2f238c0a0915fd34f8990cac85c5dacafdc5c608c1e3c65f24762f936"
+  "sha256": "4ddb4446818e7f66959a49c9b4ecc3e9f0af9139ef19646fc604978e7a112310"
 }

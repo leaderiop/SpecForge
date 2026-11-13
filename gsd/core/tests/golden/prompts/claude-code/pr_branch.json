@@ -61,7 +61,7 @@
     "fi",
     ""
   ],
-  "bytes": 22504,
+  "bytes": 22534,
   "end": [
     "Planning paths in diff: {FORBIDDEN} — must be 0",
     "Planning deletions: {PLANNING_DELETIONS} (must be 0 — #3679)",
@@ -128,7 +128,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:7eb495af450aed4068c85fa154a1619d1dc282abd5cc002a29bde477e219bbaf",
+    "digest": "sha256:089b4d570343b5b78632cff1e919e470996a7eebe37448a6da631bac60c1a758",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "7eb495af450aed4068c85fa154a1619d1dc282abd5cc002a29bde477e219bbaf"
+  "sha256": "089b4d570343b5b78632cff1e919e470996a7eebe37448a6da631bac60c1a758"
 }

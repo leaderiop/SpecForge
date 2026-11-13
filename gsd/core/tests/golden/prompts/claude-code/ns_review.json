@@ -47,7 +47,7 @@
     "| `/gsd-review` | prompt `specforge.gsd.review` (served by @gsd/core) |",
     "| `/gsd-ui-phase` | not served on this project |"
   ],
-  "bytes": 10618,
+  "bytes": 10648,
   "end": [
     "Route to the appropriate quality / review skill based on the user's intent.",
     "`gsd-code-review-fix` was absorbed by `/gsd-code-review --fix` in #2790.",
@@ -114,7 +114,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -181,8 +181,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:df4ca789ba7fb1bcfde94c3e64b3b843d9ada0c083842e598e9dde317dfe76d8",
+    "digest": "sha256:e8af95f3f6abae25a3d7a36c78b61225b094d8ddd1544302bfeb72bf1c86873e",
     "prompt": "@gsd/core@VERSION:ns_review"
   },
-  "sha256": "df4ca789ba7fb1bcfde94c3e64b3b843d9ada0c083842e598e9dde317dfe76d8"
+  "sha256": "e8af95f3f6abae25a3d7a36c78b61225b094d8ddd1544302bfeb72bf1c86873e"
 }

@@ -99,7 +99,13 @@ fn the_uat_twin_totals_are_the_uat_summary() {
                 )
             })
             .collect();
-    assert_eq!(p.fields_of(SESSION)["totals"], Value::Object(expected));
+    let mut totals = p.fields_of(SESSION)["totals"].clone();
+    // the deferred follow-ups' count is ours: the twin defers none
+    assert_eq!(
+        totals.as_object_mut().and_then(|t| t.remove("follow_ups")),
+        Some(serde_json::json!(0))
+    );
+    assert_eq!(totals, Value::Object(expected));
     assert_eq!(p.fields_of(&format!("{SESSION}/U2/G1"))["status"], "open");
 }
 

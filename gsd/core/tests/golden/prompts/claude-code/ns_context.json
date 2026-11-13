@@ -38,7 +38,7 @@
     "| `/gsd-mempalace-recall` | not served on this project |",
     "| `/gsd-mempalace-capture` | not served on this project |"
   ],
-  "bytes": 10203,
+  "bytes": 10233,
   "end": [
     "}",
     "```",
@@ -105,7 +105,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -172,8 +172,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b9e4a290070e9cf16f8a6d747244e73b3073e27adec26baefa46f658dcafd4e6",
+    "digest": "sha256:b0923054f2eae6dbb659cedf7778a2e228498b652029cc6a19e96f76ad1a4f44",
     "prompt": "@gsd/core@VERSION:ns_context"
   },
-  "sha256": "b9e4a290070e9cf16f8a6d747244e73b3073e27adec26baefa46f658dcafd4e6"
+  "sha256": "b0923054f2eae6dbb659cedf7778a2e228498b652029cc6a19e96f76ad1a4f44"
 }

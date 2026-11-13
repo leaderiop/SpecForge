@@ -61,7 +61,7 @@
     "fi",
     "```"
   ],
-  "bytes": 20885,
+  "bytes": 20915,
   "end": [
     "| Phase | Status | Plans | Progress |",
     "|-------|--------|-------|----------|",
@@ -147,7 +147,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:bddb99e42e5624c7ea868de553dc5f5bbcc3e609a9fc475628e9536866d8dd38",
+    "digest": "sha256:e63457dfdcd4466864f9025797a28ffa2d560ac1cc8455d9f434ea570e26bd29",
     "prompt": "@gsd/core@VERSION:ultraplan_phase",
     "steps": [
       {
@@ -213,5 +213,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "bddb99e42e5624c7ea868de553dc5f5bbcc3e609a9fc475628e9536866d8dd38"
+  "sha256": "e63457dfdcd4466864f9025797a28ffa2d560ac1cc8455d9f434ea570e26bd29"
 }

@@ -82,7 +82,10 @@ a phase warns.
 GSD: `NN-UAT.md`, written by `/gsd-verify-work`.
 
 **uat_session** (name `03-UAT`): `phase → phase R I`, `source →* summary R I`, `started ts I`;
-`status enum{testing, partial, complete, diagnosed}` and `totals {total int, passed int, issues int, pending int, skipped int, blocked int}` are `C`.
+`follow_ups {test → uat_test R, idea str R, deferred_at date R}* H +` (`## Deferred Follow-Ups`: a skipped test's
+idea in the person's words, written by `set_uat_result <test> skipped --follow-up <words>`, which also writes the
+test's reason `Deferred follow-up: <words>`, upstream's text; the same test and idea twice is one entry);
+`status enum{testing, partial, complete, diagnosed}` and `totals {total int, passed int, issues int, pending int, skipped int, blocked int, follow_ups int}` are `C`.
 The test being asked now is session state.
 
 **uat_test**: `### N. [Test Name]`. Name `U1`, scoped by its session.

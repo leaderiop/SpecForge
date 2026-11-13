@@ -61,7 +61,7 @@
     "collapsing plan roles into the orchestrator context.",
     ""
   ],
-  "bytes": 115661,
+  "bytes": 115691,
   "end": [
     "</file>",
     "</execution_context>",
@@ -128,7 +128,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:de5d95f84e12d086d763b3ee822846b2f08eadd0afc34f9227aab6ae64673f62",
+    "digest": "sha256:88d43ccdf3b487fd7e3ce76291040ae03db77a14e0286a4aca19bd3812bf7687",
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
@@ -240,5 +240,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "de5d95f84e12d086d763b3ee822846b2f08eadd0afc34f9227aab6ae64673f62"
+  "sha256": "88d43ccdf3b487fd7e3ce76291040ae03db77a14e0286a4aca19bd3812bf7687"
 }

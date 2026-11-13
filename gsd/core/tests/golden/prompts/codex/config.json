@@ -61,7 +61,7 @@
     "",
     "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated."
   ],
-  "bytes": 106741,
+  "bytes": 106771,
   "end": [
     "- [ ] `agent_skills.<agent-type>` slugs validated against `[a-zA-Z0-9_-]+` before write; `review.models.<cli>` slugs accepted only from the registry-derived settable set; skill lists written as JSON arrays (never comma-joined strings)",
     "- [ ] Config merge preserves all keys outside the three sections this workflow owns",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:1948cb111eb24b70080252cbd4f802f1834e1571443fd3decacb54452a5efb88",
+    "digest": "sha256:6e6555ca49b74ea15098801bd8da571f90c07aa9e126019cd7ac76e9baa786e4",
     "prompt": "@gsd/core@VERSION:config"
   },
-  "sha256": "1948cb111eb24b70080252cbd4f802f1834e1571443fd3decacb54452a5efb88"
+  "sha256": "6e6555ca49b74ea15098801bd8da571f90c07aa9e126019cd7ac76e9baa786e4"
 }

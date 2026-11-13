@@ -61,7 +61,7 @@
     "| `/gsd-mvp-phase` | prompt `specforge.gsd.mvp_phase` (served by @gsd/core) |",
     "| `/gsd-quick` | prompt `specforge.gsd.quick` (served by @gsd/core) |"
   ],
-  "bytes": 11875,
+  "bytes": 11905,
   "end": [
     "| Advance to the next logical step | gsd-progress |",
     "| Open the state-aware smart-entry launcher | gsd-next |",
@@ -128,7 +128,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:26b3f4f54ba7ad70108b2227c3eb37f3524e973a1d06c3cda1c81d4906f91637",
+    "digest": "sha256:6441471f8aaa72162df16f9dd90f0b79a4be54251600e38b34cf42dc433cec06",
     "prompt": "@gsd/core@VERSION:ns_workflow"
   },
-  "sha256": "26b3f4f54ba7ad70108b2227c3eb37f3524e973a1d06c3cda1c81d4906f91637"
+  "sha256": "6441471f8aaa72162df16f9dd90f0b79a4be54251600e38b34cf42dc433cec06"
 }

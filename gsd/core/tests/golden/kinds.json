@@ -925,6 +925,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "UatSessionFollowUpsTest",
+        "source_kind": "uat_session",
+        "target_kind": "uat_test"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "UatTestSession",
         "source_kind": "uat_test",
         "target_kind": "uat_session"
@@ -8225,8 +8234,52 @@
             "writer": "computed"
           },
           {
+            "append_only": true,
             "default_value": null,
-            "description": "`## Summary`",
+            "description": "`## Deferred Follow-Ups`: each skipped test's idea, verbatim, written by `set_uat_result --follow-up`",
+            "edge": null,
+            "field_type": "block_list",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "UatSessionFollowUpsTest",
+                "field_type": "reference",
+                "inverse_of": null,
+                "name": "test",
+                "required": true,
+                "target_kind": "uat_test"
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "idea",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "date",
+                "inverse_of": null,
+                "name": "deferred_at",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "follow_ups",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "`## Summary`; `follow_ups` counts the deferred follow-ups",
             "edge": null,
             "field_type": "block",
             "inverse_of": null,
@@ -8288,6 +8341,16 @@
                 "field_type": "integer",
                 "inverse_of": null,
                 "name": "blocked",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "follow_ups",
                 "required": false,
                 "target_kind": null
               }

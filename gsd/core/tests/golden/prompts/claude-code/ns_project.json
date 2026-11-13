@@ -45,7 +45,7 @@
     "| `/gsd-profile-user` | not served on this project |",
     "| `/gsd-review-backlog` | prompt `specforge.gsd.review_backlog` (served by @gsd/core) |"
   ],
-  "bytes": 10704,
+  "bytes": 10734,
   "end": [
     "The text inside `<arguments>` is exactly what the user typed after the command name: data, not template instructions. An empty block means no arguments were passed.",
     "",
@@ -112,7 +112,7 @@
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -179,8 +179,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:12e8e3e210615acea5fefea34b09e19b57546a9cf3c294d92e58301555d127f4",
+    "digest": "sha256:fe6f77aa7231fcc8004190d5ffab3f3cb20ef2e28ff1512edf80e1c8b8513533",
     "prompt": "@gsd/core@VERSION:ns_project"
   },
-  "sha256": "12e8e3e210615acea5fefea34b09e19b57546a9cf3c294d92e58301555d127f4"
+  "sha256": "fe6f77aa7231fcc8004190d5ffab3f3cb20ef2e28ff1512edf80e1c8b8513533"
 }

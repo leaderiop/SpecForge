@@ -247,7 +247,7 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `complete_plan` | summary `started`, `completed` |
 | `answer_checkpoint` | checkpoint `answer` |
 | `confirm_setup` | user_setup `done` |
-| `set_uat_result` | uat_test `result`, `source` (a person's answer) |
+| `set_uat_result` | uat_test `result`, `source` (a person's answer); with `skipped --follow-up <words>`, uat_session `follow_ups` (the reason becomes `Deferred follow-up: <words>`) |
 | `record_automated_uat` | uat_test `result`, `source: automated` (an agent's or CI's call; the same fields, so the roster lists `set_uat_result`) |
 | `approve_validation` | validation `approval` |
 | `close_milestone` | milestone `completion` (gated by gsd/E106, E511, E516), its retrospective |

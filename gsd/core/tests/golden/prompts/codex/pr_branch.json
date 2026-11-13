@@ -61,7 +61,7 @@
     "fi",
     ""
   ],
-  "bytes": 30986,
+  "bytes": 31016,
   "end": [
     "Planning paths in diff: {FORBIDDEN} — must be 0",
     "Planning deletions: {PLANNING_DELETIONS} (must be 0 — #3679)",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:009145b99ce161f19a5ad7d4a7813b5bc9b61fdc528c6d73f5cfbfa37b472ccd",
+    "digest": "sha256:4302f07ef3c210f53a1d8f31a64df7bce35a11d1bffdcaf05ab8feb3e6a94b35",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "009145b99ce161f19a5ad7d4a7813b5bc9b61fdc528c6d73f5cfbfa37b472ccd"
+  "sha256": "4302f07ef3c210f53a1d8f31a64df7bce35a11d1bffdcaf05ab8feb3e6a94b35"
 }
