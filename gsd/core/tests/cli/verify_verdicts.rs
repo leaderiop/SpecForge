@@ -426,3 +426,27 @@ fn a_passed_integration_sets_the_field() {
     );
     assert!(p.codes().contains(&"E082".to_string()), "{:?}", p.codes());
 }
+
+/// Every judge's "Recording a verdict" section reads the rule's inputs with no citation, then records with
+/// `--cited`: the basis of an uncited read is not the basis of a citing verdict, so the record it teaches is refused
+/// (`stale_revision`) as soon as it cites a file, and the section names no `--cite-file` to read the inputs with.
+#[test]
+fn the_recording_sections_loop_is_refused_once_it_cites_a_file() {
+    let section = gsd_core::agents::recording("gsd-verifier");
+    assert!(
+        section.contains("--inputs gsd/<code> --format json") && section.contains("--cited"),
+        "{section}"
+    );
+    assert!(!section.contains("--cite-file"), "{section}");
+    let p = bare();
+    let basis = p.inputs(TRUTH, "E501")["basis"].to_string();
+    let run = p.record_over(
+        TRUTH,
+        "E501",
+        "verified",
+        &basis,
+        &["--cited", r#"[{"file": "src/tasks.js"}]"#],
+    );
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.stderr.contains("stale_revision"), "{}", run.all());
+}
