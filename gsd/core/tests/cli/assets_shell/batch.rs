@@ -398,14 +398,12 @@ fn a_batch_is_recorded_and_resumed_from_the_graph() {
     );
     let rows: Vec<&str> = out.lines().collect();
     assert_eq!(rows.len(), 2, "{out}{err}");
-    // The query lists the plans in graph order, not the batch's item order.
-    for item in &items {
-        let item = item.as_str().unwrap_or_default();
-        assert!(
-            rows.iter().any(|row| row.starts_with(item)),
-            "{item} in {out}"
-        );
-    }
+    let ids: Vec<&str> = rows
+        .iter()
+        .filter_map(|row| row.split('\u{1f}').next())
+        .collect();
+    let order: Vec<&str> = items.iter().filter_map(|item| item.as_str()).collect();
+    assert_eq!(ids, order, "the manifest keeps the batch's order: {out}");
     let dispatch = fence_from(
         &asset("gsd-core/workflows/quick-batch/steps/worktree-dispatch.md"),
         "QB_ELIGIBLE=",

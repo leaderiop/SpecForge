@@ -34,7 +34,14 @@ the graph every time it is read.
 
 ```bash
 BATCH_ID="$RESUME_BATCH_ID"
-BATCH_MANIFEST_JSON=$(specforge query "$BATCH_ID" --depth 1 --kinds plan --pick '.nodes[kind=plan]' --fields id,fields.slug,fields.objective) || exit 1   # the manifest's items, one quick_id, slug, description row each
+QB_ITEMS=$(specforge query "$BATCH_ID" --depth 0 --pick '.nodes[0].fields.items[]') || exit 1   # the batch's quick ids, in its order
+BATCH_MANIFEST_JSON=""
+while IFS= read -r QB_ITEM; do
+  [ -n "$QB_ITEM" ] || continue
+  QB_ROW=$(specforge query "$QB_ITEM" --depth 0 --pick '.nodes[0]' --fields id,fields.slug,fields.objective) || exit 1
+  BATCH_MANIFEST_JSON="${BATCH_MANIFEST_JSON:+$BATCH_MANIFEST_JSON
+}$QB_ROW"
+done <<< "$QB_ITEMS"   # the manifest's items in the batch's order, one quick_id, slug, description row each
 ```
 
 Report to user:

@@ -97,6 +97,7 @@ const UNBOUND: &[&str] = &[
     // a quick batch: the twin holds none; `assets_shell::batch` records one and runs these
     "$BATCH_ID",
     "$RESUME_BATCH_ID",
+    "$QB_ITEM",
     "$summary",
     "$s",
     "$_ID",
