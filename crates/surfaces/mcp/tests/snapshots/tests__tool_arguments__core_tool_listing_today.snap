@@ -9861,7 +9861,7 @@ expression: listing
   },
   {
     "name": "specforge.find_implementation",
-    "description": "Find source code locations that implement a specforge entity",
+    "description": "Find the source code locations that implement an entity: the facts anchored to it. An entity whose code is reached through other entities answers none: follow its route with specforge.trace",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {

@@ -636,7 +636,9 @@ behavior provide_mcp_find_implementation_tool "Provide MCP Find Implementation T
     the answer that no longer hashes to the digest the store of one of its
     rows recorded at collect (each row is judged by its own store's digest:
     two stores collected at different times may record two), or is gone;
-    only the answer's files are hashed.
+    only the answer's files are hashed. Its description says that an entity
+    whose code is reached through other entities answers none, and to follow
+    its route with specforge.trace (ADR 0355 D8).
   """
   verify unit "find_implementation lists every anchor of the entity, by file and line"
   verify unit "an anchor is an edge either way: a fact naming the entity or the entity citing the fact"

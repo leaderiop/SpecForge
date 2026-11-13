@@ -78,6 +78,15 @@ fn by_cli_picks_the_twin_with_the_most_words() {
     assert_eq!(name(&["settings", "set", "k", "v"]), Some("settings_set"));
     assert_eq!(name(&["settings"]), Some("settings"));
     assert_eq!(name(&["link", "a", "b"]), Some("edit"));
+    assert_eq!(
+        name(&["search", "alpha", "--kinds", "plan"]),
+        Some("search")
+    );
+    assert_eq!(name(&["refs", "Red"]), Some("find_references"));
+    assert_eq!(
+        name(&["trace", "--route", "r", "--in", "v1.0"]),
+        Some("trace")
+    );
     assert_eq!(name(&["review"]), None);
     assert_eq!(name(&[]), None);
 }

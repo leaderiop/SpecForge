@@ -32,8 +32,8 @@ impl ArgumentOf<EntityField> for Tool {
 
 impl CoreTool for Tool {
     const NAME: &'static str = "specforge.find_implementation";
-    const DESCRIPTION: &'static str =
-        "Find source code locations that implement a specforge entity";
+    const DESCRIPTION: &'static str = "Find the source code locations that implement an entity: the facts anchored to it. \
+         An entity whose code is reached through other entities answers none: follow its route with specforge.trace";
     const EFFECT: Effect = Effect::Reads {
         group: ToolGroup::Navigation,
     };

@@ -150,7 +150,7 @@ pub const ENGINE_TOOLS: &[EngineTool] = &[
         "search",
         Read,
         Reads,
-        &[],
+        &["search"],
         "Find entities by id, title or text when you do not know the id.",
     ),
     row(
@@ -220,7 +220,7 @@ pub const ENGINE_TOOLS: &[EngineTool] = &[
         "find_references",
         Read,
         Navigation,
-        &[],
+        &["refs"],
         "Find each place another entity's field names this one.",
     ),
     row(
