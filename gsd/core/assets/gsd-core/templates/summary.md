@@ -5,173 +5,66 @@ Template for the `summary` entity of phase XX-name - phase completion documentat
 
 ---
 
-## File Template
+## The Summary's Typed Edits
 
-```markdown
----
-phase: XX-name
-plan: YY
-subsystem: [primary category: auth, payments, ui, api, database, infra, testing, etc.]
-tags: [searchable tech: jwt, stripe, react, postgres, prisma]
+A plan's summary is entities in the plan's file: one `summary`, one `deliverable` per shipped deliverable and one
+`deviation` per deviation or issue, written with `specforge new`; nothing writes a summary by hand.
+`specforge schema --kind summary` (likewise `deliverable`, `deviation`) lists the fields, and `specforge new summary
+--help` prints them as flags. A list of ids is a comma list (`--requirements_completed AUTH-01,AUTH-02`), a list of
+texts takes its flag once per item (`--tags jose --tags prisma`), and a block is JSON (`--requires '<json>'`,
+`--checks '<json>'`). Fill the quoted values; leave out a flag you have no value for (no `KEY_DECISIONS`, no
+`THREAT_FLAG`, no `RATIONALE` when a person need not judge), and repeat a `new deliverable` or `new deviation` line per
+item with the next id (`D2`, `DV2`). A plan that stopped by design takes `--status halted --halted_because "<why>"`.
+Never write `started`, `completed`, `duration`, `actuals`, `files_created` or `files_modified`: `complete-plan` writes
+the times, and the rest are computed from the plan's commits. A refusal names its code: read it with
+`specforge explain <code>`.
 
-# Dependency graph
-requires:
-  - phase: [prior phase this depends on]
-    provides: [what that phase built that this uses]
-provides:
-  - [bullet list of what this phase built/delivered]
-affects: [list of phase names or keywords that will need this context]
-
-# Actuals (#2632) — pairs with the plan's `estimate` to calibrate future estimates.
-# Same estimateTokens scale (chars/4 over the realized diff), never a harness token count.
-actuals:
-  tokens: [chars/4 over files actually changed]
-  tasks: [tasks completed]
-  commits: [commits made]
-
-# Tech tracking
-tech-stack:
-  added: [libraries/tools added in this phase]
-  patterns: [architectural/code patterns established]
-
-key-files:
-  created: [important files created]
-  modified: [important files modified]
-
-key-decisions:
-  - "Decision 1"
-  - "Decision 2"
-
-patterns-established:
-  - "Pattern 1: description"
-  - "Pattern 2: description"
-
-requirements-completed: []  # REQUIRED — Copy ALL requirement IDs from this plan's `requirements` frontmatter field.
-
-# Coverage metadata (#1602) — one entry per shipped deliverable. Drives DETERMINISTIC UAT routing in verify-work.
-# OMIT this whole block for legacy/prose-only SUMMARYs — verify-work then falls back to the ## Accomplishments bullets
-# (byte-identical behavior for un-migrated phases). See <coverage_guidance> below for the contract.
-coverage:
-  - id: D1
-    description: "[deliverable in human-readable form — what would have been a prose ## Accomplishments bullet]"
-    requirement: "[REQ-ID from this plan's `requirements`, or omit if none]"
-    verification:
-      - kind: unit            # unit | integration | e2e | automated_ui | manual_procedural | other
-        ref: "[tests/path.test.ts#test name | playwright:shot.png | command invocation]"
-        status: pass          # pass | fail | unknown — from the latest run
-    human_judgment: false     # REQUIRED boolean. false => may auto-pass IF every verification status is `pass`.
-  - id: D2
-    description: "[a deliverable that needs a human to sign off]"
-    verification: []
-    human_judgment: true
-    rationale: "[REQUIRED when human_judgment: true — why automation is insufficient]"
-
-# Metrics
-duration: Xmin
-completed: YYYY-MM-DD
-status: complete
----
-
-# Phase [X]: [Name] Summary
-
-**[Substantive one-liner describing outcome - NOT "phase complete" or "implementation finished"]**
-
-## Performance
-
-- **Duration:** [time] (e.g., 23 min, 1h 15m)
-- **Started:** [ISO timestamp]
-- **Completed:** [ISO timestamp]
-- **Tasks:** [count completed]
-- **Files modified:** [count]
-
-## Accomplishments
-- [Most important outcome]
-- [Second key accomplishment]
-- [Third if applicable]
-
-## Task Commits
-
-Each task was committed atomically:
-
-1. **Task 1: [task name]** - `abc123f` (feat/fix/test/refactor)
-2. **Task 2: [task name]** - `def456g` (feat/fix/test/refactor)
-3. **Task 3: [task name]** - `hij789k` (feat/fix/test/refactor)
-
-**Plan metadata:** `lmn012o` (docs: complete plan)
-
-_Note: TDD tasks may have multiple commits (test → feat → refactor)_
-
-## Files Created/Modified
-- `path/to/file.ts` - What it does
-- `path/to/another.ts` - What it does
-
-## Decisions Made
-[Key decisions with brief rationale, or "None - followed plan as specified"]
-
-## Deviations from Plan
-
-[If no deviations: "None - plan executed exactly as written"]
-
-[If deviations occurred:]
-
-### Auto-fixed Issues
-
-**1. [Rule X - Category] Brief description**
-- **Found during:** Task [N] ([task name])
-- **Issue:** [What was wrong]
-- **Fix:** [What was done]
-- **Files modified:** [file paths]
-- **Verification:** [How it was verified]
-- **Committed in:** [hash] (part of task commit)
-
-[... repeat for each auto-fix ...]
-
----
-
-**Total deviations:** [N] auto-fixed ([breakdown by rule])
-**Impact on plan:** [Brief assessment - e.g., "All auto-fixes necessary for correctness/security. No scope creep."]
-
-## Issues Encountered
-[Problems and how they were resolved, or "None"]
-
-[Note: "Deviations from Plan" documents unplanned work that was handled automatically via deviation rules. "Issues Encountered" documents problems during planned work that required problem-solving.]
-
-## User Setup Required
-
-[If USER-SETUP.md was generated:]
-**External services require manual configuration.** See [{phase}-USER-SETUP.md](./{phase}-USER-SETUP.md) for:
-- Environment variables to add
-- Dashboard configuration steps
-- Verification commands
-
-[If no USER-SETUP.md:]
-None - no external service configuration required.
-
-## Next Phase Readiness
-[What's ready for next phase]
-[Any blockers or concerns]
-
----
-*Phase: XX-name*
-*Completed: [date]*
+```bash
+PLAN_ID="{the plan's id, e.g. v1.0/02/02-01}"
+TITLE="{the plan's name}: summary"
+STATUS="{complete, or halted when the plan stopped by design}"
+ONE_LINER="{one substantive line: what actually shipped}"
+SUBSYSTEM="{the primary category: auth, payments, ui, api, database, infra, testing}"
+TAG="{a searchable technology: one --tags per tag}"
+REQUIRES='[{"phase": "{a prior phase id}", "provides": "{what that phase built that this plan uses}"}]'
+PROVIDES="{what this plan built: one --provides per item}"
+AFFECTS="{a phase or keyword that will need this context: one --affects per item}"
+TECH_ADDED="{a library or tool added: one --tech_added per item}"
+TECH_PATTERN="{an architectural or code pattern established: one --tech_patterns per item}"
+KEY_DECISIONS="{the decision ids this plan took, comma-separated}"
+PATTERN="{a convention future phases should keep: one --patterns_established per item}"
+REQUIREMENTS_COMPLETED="{the plan's requirements, verbatim, comma-separated}"
+THREAT_FLAG="{threat_flag: type | file | the new surface the plan's threat model lacks}"
+NEXT_READINESS="{what is ready for the next phase, and any blocker or concern}"
+DELIVERABLE="{a deliverable in human-readable form}"
+REQUIREMENT="{the requirement id it joins, from the plan's requirements}"
+HUMAN_JUDGMENT="{false when passing checks prove it, true when a person signs it off}"
+RATIONALE="{why automation is insufficient}"
+CHECKS='[{"kind": "{unit, integration, e2e, automated_ui, manual_procedural or other}", "ref": "{path#test name}"}]'
+DEVIATION_KIND="{deviation, or issue for a problem met during planned work}"
+RULE="{the rule and category, e.g. Rule 1 - Bug}"
+DEVIATION_TEXT="{what was wrong, what was done, and how it was verified}"
+DEVIATION_FILE="{a path it touched: one --files per path}"
+SUMMARY="${PLAN_ID##*/}-SUMMARY"
+SUMMARY_ID="$PLAN_ID/$SUMMARY"
+PLAN_FILE=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].file') || exit 1
+specforge new summary "$SUMMARY" "$TITLE" --in "$PLAN_FILE" --plan "$PLAN_ID" --status "$STATUS" --one_liner "$ONE_LINER" --subsystem "$SUBSYSTEM" --tags "$TAG" --requires "$REQUIRES" --provides "$PROVIDES" --affects "$AFFECTS" --tech_added "$TECH_ADDED" --tech_patterns "$TECH_PATTERN" --key_decisions "$KEY_DECISIONS" --patterns_established "$PATTERN" --requirements_completed "$REQUIREMENTS_COMPLETED" --threat_flags "$THREAT_FLAG" --next_readiness "$NEXT_READINESS" || exit 1
+specforge new deliverable D1 "$DELIVERABLE" --in "$PLAN_FILE" --summary "$SUMMARY_ID" --description "$DELIVERABLE" --requirement "$REQUIREMENT" --human_judgment "$HUMAN_JUDGMENT" --rationale "$RATIONALE" --checks "$CHECKS" || exit 1
+specforge new deviation DV1 "$RULE" --in "$PLAN_FILE" --summary "$SUMMARY_ID" --kind "$DEVIATION_KIND" --rule "$RULE" --text "$DEVIATION_TEXT" --files "$DEVIATION_FILE" || exit 1
+specforge gsd complete-plan "$SUMMARY_ID" || exit 1
 ```
 
+`complete-plan` closes the plan: it writes the summary's `started` (the start `specforge gsd start-plan` recorded)
+and `completed` (the host's clock), and is refused while the summary lacks a required field.
+
 <frontmatter_guidance>
-**Purpose:** Enable automatic context assembly via dependency graph. Frontmatter makes summary metadata machine-readable so plan-phase can scan all summaries quickly and select relevant ones based on dependencies.
-
-**Fast scanning:** Frontmatter is first ~25 lines, cheap to scan across all summaries without reading full content.
-
 **Dependency graph:** `requires`/`provides`/`affects` create explicit links between phases, enabling transitive closure for context selection.
 
 **Subsystem:** Primary categorization (auth, payments, ui, api, database, infra, testing) for detecting related phases.
 
 **Tags:** Searchable technical keywords (libraries, frameworks, tools) for tech stack awareness.
 
-**Key-files:** Important files for @context references in PLAN.md.
-
 **Patterns:** Established conventions future phases should maintain.
-
-**Population:** Frontmatter is populated during summary creation in execute-plan.md. See `<step name="create_summary">` for field-by-field guidance.
 
 **Status (#2830):** `status: complete` is the default — the plan finished. Use `status: halted` instead when the plan reached a designed stop (a gate failure, a spike concluding without expanding into the full build, or any other intentional non-completion) and intentionally left tasks unfinished. `halted` is machine-read: any plan whose `depends_on` (directly or transitively) names a halted plan is reported as blocked, not offered to the executor, until the halt is resolved and re-summarized as `complete`.
 </frontmatter_guidance>
@@ -179,24 +72,14 @@ None - no external service configuration required.
 <coverage_guidance>
 **Purpose (#1602):** The `coverage:` block is a per-deliverable Requirements Traceability Matrix. It lets `verify-work`'s `extract_tests` step route deliverables DETERMINISTICALLY — auto-passing those proven by passing tests and reserving human UAT for genuine judgment — instead of re-deriving coverage from prose. Consumed via `specforge check` (it reads the summary's deliverables).
 
-**Field semantics:**
-
-| Field | Purpose |
-|---|---|
-| `id` | Stable identifier (`D1`, `D2`…) for cross-referencing from UAT.md and audit reports. Must be unique within the SUMMARY. |
-| `description` | The deliverable in human-readable form — what would have been a prose bullet. |
-| `requirement` | Links back to a REQUIREMENTS.md REQ-ID (joins `requirements-completed`). Optional. |
-| `verification[].kind` | Enum: `unit`, `integration`, `e2e`, `automated_ui`, `manual_procedural` or `other`. |
-| `verification[].ref` | Test path + descriptor (`file#test name`), Playwright screenshot ref, or command invocation. Required per entry. |
-| `verification[].status` | `pass`, `fail` or `unknown` — populated from the latest test run. |
-| `human_judgment` | Explicit boolean; REQUIRED. `true` always routes to a human. |
-| `rationale` | REQUIRED when `human_judgment: true`. The audit trail for why automation is insufficient. |
+The coverage block is the summary's `deliverable` entities, and a deliverable's `checks` are its `verification`
+entries (`kind`, and `ref` as `path#test name`); a check's `status` is computed from the latest run, never
+written.
 
 **Deterministic contract (what the classifier does):**
 - A deliverable auto-passes (no human prompt) **only** when `human_judgment: false` AND `verification` is non-empty AND every `verification[].status` is `pass`. This is the narrow, fully-proven case.
 - **Everything else is presented to a human** — `human_judgment: true`, an empty `verification:`, any non-`pass`/`unknown` status, or any schema error. A false-negative is a redundant prompt (the status quo); a false-positive ships a bug UAT existed to catch.
 - **Fail-safe default:** if you cannot determine coverage for a deliverable, you MUST set `human_judgment: true` with `rationale: "Coverage not determined at authoring time — verifier must classify"`. Never leave a deliverable's `human_judgment` empty, and never set it `false` just to skip the prompt — auto-pass additionally requires a passing `verification` entry, so the flag alone cannot skip the human.
-- `coverage: []` means "no deliverables to classify" (the single-confirmation path). OMITTING the block entirely means "legacy" — `verify-work` falls back to prose `## Accomplishments` extraction unchanged.
 </coverage_guidance>
 
 <one_liner_rules>
@@ -216,86 +99,9 @@ The one-liner MUST be substantive:
 The one-liner should tell someone what actually shipped.
 </one_liner_rules>
 
-<example>
-
-```markdown
-# Phase 1: Foundation Summary
-
-**JWT auth with refresh rotation using jose library, Prisma User model, and protected API middleware**
-
-## Performance
-
-- **Duration:** 28 min
-- **Started:** 2025-01-15T14:22:10Z
-- **Completed:** 2025-01-15T14:50:33Z
-- **Tasks:** 5
-- **Files modified:** 8
-
-## Accomplishments
-- User model with email/password auth
-- Login/logout endpoints with httpOnly JWT cookies
-- Protected route middleware checking token validity
-- Refresh token rotation on each request
-
-## Files Created/Modified
-- `prisma/schema.prisma` - User and Session models
-- `src/app/api/auth/login/route.ts` - Login endpoint
-- `src/app/api/auth/logout/route.ts` - Logout endpoint
-- `src/middleware.ts` - Protected route checks
-- `src/lib/auth.ts` - JWT helpers using jose
-
-## Decisions Made
-- Used jose instead of jsonwebtoken (ESM-native, Edge-compatible)
-- 15-min access tokens with 7-day refresh tokens
-- Storing refresh tokens in database for revocation capability
-
-## Deviations from Plan
-
-### Auto-fixed Issues
-
-**1. [Rule 2 - Missing Critical] Added password hashing with bcrypt**
-- **Found during:** Task 2 (Login endpoint implementation)
-- **Issue:** Plan didn't specify password hashing - storing plaintext would be critical security flaw
-- **Fix:** Added bcrypt hashing on registration, comparison on login with salt rounds 10
-- **Files modified:** src/app/api/auth/login/route.ts, src/lib/auth.ts
-- **Verification:** Password hash test passes, plaintext never stored
-- **Committed in:** abc123f (Task 2 commit)
-
-**2. [Rule 3 - Blocking] Installed missing jose dependency**
-- **Found during:** Task 4 (JWT token generation)
-- **Issue:** jose package not in package.json, import failing
-- **Fix:** Ran `npm install jose`
-- **Files modified:** package.json, package-lock.json
-- **Verification:** Import succeeds, build passes
-- **Committed in:** def456g (Task 4 commit)
-
----
-
-**Total deviations:** 2 auto-fixed (1 missing critical, 1 blocking)
-**Impact on plan:** Both auto-fixes essential for security and functionality. No scope creep.
-
-## Issues Encountered
-- jsonwebtoken CommonJS import failed in Edge runtime - switched to jose (planned library change, worked as expected)
-
-## Next Phase Readiness
-- Auth foundation complete, ready for feature development
-- User registration endpoint needed before public launch
-
----
-*Phase: 01-foundation*
-*Completed: 2025-01-15*
-```
-</example>
-
 <guidelines>
-**Frontmatter:** MANDATORY - complete all fields. Enables automatic context assembly for future planning.
-
 **One-liner:** Must be substantive. "JWT auth with refresh rotation using jose library" not "Authentication implemented".
 
-**Decisions section:**
-- Key decisions made during execution with rationale
-- Extracted to STATE.md accumulated context
-- Use "None - followed plan as specified" if no deviations
-
-**After creation:** STATE.md updated with position, decisions, issues.
+**Decisions:** each key decision the plan took is a `decision` entity the summary's `key_decisions` names (with
+`--origin summary`), or none when the plan was followed as specified.
 </guidelines>

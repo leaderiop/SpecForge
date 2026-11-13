@@ -64,7 +64,11 @@ agents/gsd-doc-synthesizer.md	own	82+2	2	55874cd7affb	c1878d2035e0	ported-name
 agents/gsd-doc-synthesizer.md	kept	84+1	1849f8509271
 agents/gsd-doc-synthesizer.md	own	85+1	1	206af071b7c4	1a22908f0c24	ported-name
 agents/gsd-doc-synthesizer.md	kept	86+181	b94dc68483b3
-agents/gsd-executor.md	kept	13+18	a4e327482426
+agents/gsd-executor.md	kept	13+2	b7ba42e17cc2
+agents/gsd-executor.md	own	15+1	1	d321ad140b38	3e5124d3d05e	prose
+agents/gsd-executor.md	kept	16+3	ba7aa2cb2d64
+agents/gsd-executor.md	own	19+1	1	9d4afc6badc1	c2d1eb8f05dd	prose
+agents/gsd-executor.md	kept	20+11	e4567f655a1a
 agents/gsd-executor.md	own	31+4	2	efd106d1b1ea	3b62c3bf14ff	prose
 agents/gsd-executor.md	kept	35+3	e843f9acbe21
 agents/gsd-executor.md	own	38+5	3	e8dbaa57778c	703d37dde72f	served
@@ -79,12 +83,14 @@ agents/gsd-executor.md	own	106+2	2	6d24430581bc	ebf617473c04	served
 agents/gsd-executor.md	kept	108+14	93b6477a48aa
 agents/gsd-executor.md	own	122+3	3	ee78dfb1d1d2	745506e1f931	served
 agents/gsd-executor.md	kept	125+6	6f1cd221ec52
-agents/gsd-executor.md	own	131+1	1	87a25478dd0b	26fb7d6d4a14	served
-agents/gsd-executor.md	kept	132+177	b88217f9db9a
+agents/gsd-executor.md	own	131+4	4	270269f22421	58229bb88836	served
+agents/gsd-executor.md	kept	135+136	517c24e0b4e0
+agents/gsd-executor.md	own	271+1	1	1a8cf58ac29b	ed1eba1506f2	prose
+agents/gsd-executor.md	kept	272+37	73f0210ca577
 agents/gsd-executor.md	own	309+3	3	765b1da8d4fb	3f44cf8d5e91	ported-name
 agents/gsd-executor.md	kept	312+100	fd2307908a9f
-agents/gsd-executor.md	own	412+1	1	41ebd1278722	ea930b377675	ported-name
-agents/gsd-executor.md	kept	413+16	2534c9255d2f
+agents/gsd-executor.md	own	412+2	2	c8bb60611b89	3c49cb22581b	ported-name
+agents/gsd-executor.md	kept	414+15	738cb036627c
 agents/gsd-executor.md	own	429+1	1	ef62d97f8fa9	4af5f94ace0d	agent
 agents/gsd-executor.md	kept	430+2	5f046190424d
 agents/gsd-executor.md	own	432+4	4	d5328e0107c4	1b9137c03a9b	ported-name
@@ -109,8 +115,8 @@ agents/gsd-executor.md	own	526+2	2	9ae1e31d2492	581a7a2245aa	served
 agents/gsd-executor.md	kept	528+19	285d734d4342
 agents/gsd-executor.md	own	547+6	6	c56f381bd82d	0277503d9fff	ported-name
 agents/gsd-executor.md	kept	553+1	ad332335cfaa
-agents/gsd-executor.md	own	554+2	2	ce78d778a300	cb036ecd93f5	served
-agents/gsd-executor.md	kept	556+9	2253ec0f9a4b
+agents/gsd-executor.md	own	554+6	5	c7358ad8d727	013e3c1b0d62	prose
+agents/gsd-executor.md	kept	560+5	43f5fff21781
 agents/gsd-executor.md	own	565+1	1	765d60237c65	9b52da7b606a	served
 agents/gsd-executor.md	kept	566+3	3c1505c0f61e
 agents/gsd-executor.md	own	569+1	1	8a331fdde703	f97f87cd75b2	thread
@@ -120,35 +126,39 @@ agents/gsd-executor.md	kept	579+6	eaaadde66552
 agents/gsd-executor.md	own	585+1	1	8bd370483f0d	dacfb0553a0b	served
 agents/gsd-executor.md	kept	586+51	d0e6eaf7f6c6
 agents/gsd-executor.md	own	637+1	1	5946f1f8cdaa	a1a04676112f	served
-agents/gsd-executor.md	kept	638+8	4de17f9c53e6
-agents/gsd-executor.md	own	646+3	3	80ce83f7a177	e9937a676475	ported-name
-agents/gsd-executor.md	kept	649+3	832100716d35
-agents/gsd-executor.md	own	652+1	1	c3f9c0294c7c	3a09e3330130	ported-name
-agents/gsd-executor.md	kept	653+26	f0fb57d008b4
-agents/gsd-executor.md	own	679+3	3	d67c5a505c55	1c89e8a6beac	served
-agents/gsd-executor.md	kept	682+40	654c76d20052
-agents/gsd-executor.md	own	722+1	1	329c4ade8c15	116c5176bc5a	ported-name
+agents/gsd-executor.md	kept	638+7	3c63fec2c01a
+agents/gsd-executor.md	own	645+0	25	e3b0c44298fc	eae45d262d82	prose
+agents/gsd-executor.md	kept	645+1	20a977861215
+agents/gsd-executor.md	own	646+16	3	73426260d858	d08683f0d60b	ported-name
+agents/gsd-executor.md	kept	662+3	c3031fd49e12
+agents/gsd-executor.md	own	665+13	5	815cd88cc639	e30d1f1c8573	prose
+agents/gsd-executor.md	kept	678+1	ad332335cfaa
+agents/gsd-executor.md	own	679+12	7	c51db53ed0a0	111b028ade5b	served
+agents/gsd-executor.md	kept	691+5	e8188b2aed9d
+agents/gsd-executor.md	own	696+20	8	82e3b7879368	894ed2c6b7ad	prose
+agents/gsd-executor.md	kept	716+4	060f600c314c
+agents/gsd-executor.md	own	720+3	6	b9248b03d9e3	573b44d77b04	ported-name
 agents/gsd-executor.md	kept	723+2	5f046190424d
-agents/gsd-executor.md	own	725+3	2	84518b71f8e2	ada3de422246	ported-name
+agents/gsd-executor.md	own	725+3	2	84518b71f8e2	3de0c61c0742	ported-name
 agents/gsd-executor.md	kept	728+1	07e455df8012
-agents/gsd-executor.md	own	729+7	7	c7402f712337	75f3e34fa472	ported-name
-agents/gsd-executor.md	kept	736+24	aa6c2df909cd
-agents/gsd-executor.md	own	760+1	1	bd841ae16afa	8f09f0d59020	served
-agents/gsd-executor.md	kept	761+8	65c210d4dd7f
-agents/gsd-executor.md	own	769+1	1	47dc987be0a8	eccb6c252858	ported-name
-agents/gsd-executor.md	kept	770+2	5f046190424d
-agents/gsd-executor.md	own	772+14	5	2212f9f3ef26	124d50bbb048	ported-name
-agents/gsd-executor.md	kept	786+1	8decf30fbe02
-agents/gsd-executor.md	own	787+1	1	88351d085587	264a8ee22b19	ported-name
-agents/gsd-executor.md	kept	788+2	d117fa006ba9
-agents/gsd-executor.md	own	790+31	24	c87f29449841	dd7c34a5c71d	ported-name
+agents/gsd-executor.md	own	729+19	15	f9bd4f5a18d6	718ff4cc1f20	ported-name
+agents/gsd-executor.md	kept	748+2	6013733e46c7
+agents/gsd-executor.md	own	750+18	0	2d2254a32e59	e3b0c44298fc	served
+agents/gsd-executor.md	kept	768+1	4b53aba5e2d0
+agents/gsd-executor.md	own	769+25	1	ce91c1d03ae3	f389d237f9ad	ported-name
+agents/gsd-executor.md	kept	794+2	5f046190424d
+agents/gsd-executor.md	own	796+25	20	814954cdf1b1	aa8d3a975950	ported-name
 agents/gsd-executor.md	kept	821+2	e6e21763b4a9
 agents/gsd-executor.md	own	823+0	2	e3b0c44298fc	e3b0c44298fc	markdown
 agents/gsd-executor.md	kept	823+3	9afcc38ba290
 agents/gsd-executor.md	own	826+2	3	a733354a2a05	b2c8246aec10	ported-name
 agents/gsd-executor.md	kept	828+4	edaf73f4a085
 agents/gsd-executor.md	own	832+31	19	5af4240352ec	acb8699c2836	ported-name
-agents/gsd-executor.md	kept	863+38	16e058bb8206
+agents/gsd-executor.md	kept	863+8	4e914ff61701
+agents/gsd-executor.md	own	871+1	1	e785f412ff91	ec30ee64062b	prose
+agents/gsd-executor.md	kept	872+22	2d3da4cb7a3c
+agents/gsd-executor.md	own	894+4	4	7de27400d075	77f6adf53191	prose
+agents/gsd-executor.md	kept	898+3	caebfd115204
 agents/gsd-integration-checker.compact.md	kept	7+75	2d2acf3fa921
 agents/gsd-integration-checker.compact.md	own	82+3	3	f088956c245f	c233b3a70a14	ported-name
 agents/gsd-integration-checker.compact.md	kept	85+21	cd2b4fa4549c
@@ -1346,9 +1356,11 @@ gsd-core/references/specless-probe-fallback.md	kept	174+1	e3b0c44298fc
 gsd-core/references/spidr-splitting.md	kept	1+70	6c495fbfebdb
 gsd-core/references/tdd.md	kept	1+52	09cb6f057093
 gsd-core/references/tdd.md	own	53+2	2	6029212e10a3	4d947eba7e35	ported-name
-gsd-core/references/tdd.md	kept	55+49	8619d8fb830a
-gsd-core/references/tdd.md	own	104+1	1	8a1ae37310da	e754359b588c	ported-name
-gsd-core/references/tdd.md	kept	105+2	a137b7cc7a5a
+gsd-core/references/tdd.md	kept	55+25	27065db4ce13
+gsd-core/references/tdd.md	own	80+5	3	73d7c20699e3	5f8cf0afd0bd	prose
+gsd-core/references/tdd.md	kept	85+19	40c91aa810bb
+gsd-core/references/tdd.md	own	104+2	2	05fb45b14d64	8096a0b7fb6d	ported-name
+gsd-core/references/tdd.md	kept	106+1	39644e97f06b
 gsd-core/references/tdd.md	own	107+1	1	3e7440e3971d	288fd943a598	thread
 gsd-core/references/tdd.md	kept	108+5	304ac43a0662
 gsd-core/references/tdd.md	own	113+1	1	2c3868d066b6	9e381fa57f3d	thread
@@ -1360,13 +1372,15 @@ gsd-core/references/tdd.md	kept	182+2	8e2267723a3e
 gsd-core/references/tdd.md	own	184+1	1	ae5defcd818c	e3b0c44298fc	served
 gsd-core/references/tdd.md	kept	185+86	0543e9199bdf
 gsd-core/references/tdd.md	own	271+1	1	89d3b6e9f761	d97d60424c0c	thread
-gsd-core/references/tdd.md	kept	272+40	c7d0a4a361a4
+gsd-core/references/tdd.md	kept	272+25	e31b3082d72b
+gsd-core/references/tdd.md	own	297+1	1	1479f8fc2554	97df50866baf	prose
+gsd-core/references/tdd.md	kept	298+14	8fd6cd302a90
 gsd-core/references/tdd.md	own	312+1	1	418df72d2abe	4ef8bf3c4455	served
 gsd-core/references/tdd.md	kept	313+1	366a55846121
 gsd-core/references/tdd.md	own	314+1	1	197f903fb098	cd8df070a7cc	served
 gsd-core/references/tdd.md	kept	315+1	9459b6afbaa8
-gsd-core/references/tdd.md	own	316+1	1	903109fa7eef	9bd545515641	served
-gsd-core/references/tdd.md	kept	317+28	bae65db7f4f8
+gsd-core/references/tdd.md	own	316+4	6	6f79b5821b23	a5f04312f082	prose
+gsd-core/references/tdd.md	kept	320+25	56befe1ba52e
 gsd-core/references/tdd.md	own	345+1	1	df4b8ea7ce4f	eeea9f89cc1a	served
 gsd-core/references/tdd.md	kept	346+22	34138d48bd65
 gsd-core/references/thinking-models-execution.md	kept	1+51	dcc650a8b5f3
@@ -1671,16 +1685,26 @@ gsd-core/templates/state.md	kept	33+44	102dd26c05f1
 gsd-core/templates/state.md	own	77+1	1	16ed3c36f033	753536a065f2	ported-name
 gsd-core/templates/state.md	kept	78+129	a9d148e516af
 gsd-core/templates/summary.md	kept	1+2	c299fcf871ec
-gsd-core/templates/summary.md	own	3+1	1	8d9619125c1e	b14d6162e00c	ported-name
-gsd-core/templates/summary.md	kept	4+175	2b0a9d39d541
-gsd-core/templates/summary.md	own	179+1	1	e6cd1841e7e3	b8b896e0e73e	ported-name
-gsd-core/templates/summary.md	kept	180+8	a0714ce4e789
-gsd-core/templates/summary.md	own	188+1	1	5a958df6533d	dd258c14c31f	prose
-gsd-core/templates/summary.md	kept	189+1	f576529d33e7
-gsd-core/templates/summary.md	own	190+1	1	3395c5118452	0addbe709829	prose
-gsd-core/templates/summary.md	kept	191+28	7056acf1432f
-gsd-core/templates/summary.md	own	219+0	1	e3b0c44298fc	e3b0c44298fc	markdown
-gsd-core/templates/summary.md	kept	219+82	3c6a7de29679
+gsd-core/templates/summary.md	own	3+124	1	fb94ebc4caa3	b14d6162e00c	ported-name
+gsd-core/templates/summary.md	kept	127+3	316deeb28892
+gsd-core/templates/summary.md	own	130+28	52	08569363b410	eed12ef9cd7c	prose
+gsd-core/templates/summary.md	kept	158+1	d228b21e8c1b
+gsd-core/templates/summary.md	own	159+4	0	936a619d0bb2	e3b0c44298fc	relic
+gsd-core/templates/summary.md	kept	163+6	fafa6accc056
+gsd-core/templates/summary.md	own	169+2	0	e86a70c5cbfb	e3b0c44298fc	relic
+gsd-core/templates/summary.md	kept	171+2	09fc0368d60f
+gsd-core/templates/summary.md	own	173+2	0	fc368c1b857f	e3b0c44298fc	relic
+gsd-core/templates/summary.md	kept	175+4	c6d3bb7f5549
+gsd-core/templates/summary.md	own	179+14	5	0fd6a6be54d1	b98236fbbd56	ported-name
+gsd-core/templates/summary.md	kept	193+5	c1d2e42bd515
+gsd-core/templates/summary.md	own	198+1	0	84d69922a8eb	e3b0c44298fc	served
+gsd-core/templates/summary.md	kept	199+19	2ce1ca87ff51
+gsd-core/templates/summary.md	own	218+70	0	f10858382174	e3b0c44298fc	served
+gsd-core/templates/summary.md	kept	288+1	f7c077e0cacb
+gsd-core/templates/summary.md	own	289+2	0	1dfafe728c9e	e3b0c44298fc	relic
+gsd-core/templates/summary.md	kept	291+2	e35c4eb5a5ae
+gsd-core/templates/summary.md	own	293+6	2	911a14c3dc5f	ebfbd65ab406	prose
+gsd-core/templates/summary.md	kept	299+2	b6e6d30cd912
 gsd-core/templates/user-setup.compact.md	kept	1+2	6fc4a4c2359b
 gsd-core/templates/user-setup.compact.md	own	3+1	1	2c460882eeb0	668b917d13ab	ported-name
 gsd-core/templates/user-setup.compact.md	kept	4+7	5e709e08e0c7

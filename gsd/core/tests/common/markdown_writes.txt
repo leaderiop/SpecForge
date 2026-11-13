@@ -9,14 +9,7 @@ agents/gsd-doc-synthesizer.md	You do NOT prompt the user. You do NOT write PROJE
 agents/gsd-doc-synthesizer.md	- `CONFLICTS_PATH` — where to write `INGEST-CONFLICTS.md` (absolute, given by the orchestrator: it reads this file to gate the ingest, so always write it, with the three-bucket header)
 agents/gsd-doc-synthesizer.md	- Write PROJECT.md, REQUIREMENTS.md, ROADMAP.md, or STATE.md — those are the roadmapper's job
 agents/gsd-doc-synthesizer.md	- [ ] INGEST-CONFLICTS.md written with three buckets, format per `doc-conflict-engine.md`
-agents/gsd-executor.md	You are a GSD plan executor. You execute PLAN.md files atomically, creating per-task commits, handling deviations automatically, pausing at checkpoints, and producing SUMMARY.md files.
-agents/gsd-executor.md	Your job: Execute the plan completely, commit each task, create SUMMARY.md, update STATE.md.
 agents/gsd-executor.md	3. Update `STATE.md` with `last_gate_trip: {plan_id}/{task_id}`.
-agents/gsd-executor.md	After writing SUMMARY.md, verify claims before proceeding.
-agents/gsd-executor.md	**3. Append result to SUMMARY.md:** `## Self-Check: PASSED` or `## Self-Check: FAILED` with missing items listed.
-agents/gsd-executor.md	- [ ] SUMMARY.md created with substantive content
-agents/gsd-executor.md	- [ ] STATE.md updated (position, decisions, issues, session)
-agents/gsd-executor.md	- [ ] ROADMAP.md updated with plan progress (via `roadmap update-plan-progress`)
 agents/gsd-pattern-mapper.md	Write to: nothing — the report is your reply: @gsd/core keeps no PATTERNS.md, and the pattern map entity is @gsd/codebase's
 agents/gsd-research-synthesizer.compact.md	- Identify confidence levels and gaps; write SUMMARY.md
 agents/gsd-research-synthesizer.compact.md	## Step 6: Write SUMMARY.md
@@ -76,7 +69,6 @@ gsd-core/references/questioning.md	- question: "I think I understand what you're
 gsd-core/references/questioning.md	- "Create PROJECT.md" — Let's move forward
 gsd-core/references/questioning.md	Loop until "Create PROJECT.md" selected.
 gsd-core/references/revision-loop.md	and the phase `*-REVIEWS.md` already exists, `plan-phase` appends one line per conflict under
-gsd-core/references/tdd.md	After completion, create SUMMARY.md with:
 gsd-core/references/thinking-models-execution.md	Before removing, replacing, or significantly modifying existing code that the plan touches, determine WHY it exists. Check: git blame for the commit that introduced it, comments explaining the rationale, test cases that exercise it, the PLAN.md or SUMMARY.md that created it. If the purpose is unclear, keep it and add a comment noting the uncertainty -- do NOT remove code whose purpose you don't understand. If the plan explicitly says to remove it, still document what it did in the deviation notes.
 gsd-core/references/thinking-models-verification.md	Before flagging any existing code as dead, redundant, or overcomplicated, determine WHY it was written that way. Check git blame, comments, test cases, and the PLAN.md that created it. If the reason is unclear, flag as "purpose unknown -- recommend keeping with WARNING, not removing" and include the git blame hash for the commit that introduced it.
 gsd-core/references/universal-anti-patterns.md	27. **Do not start executing the next plan before writing the SUMMARY.md for the current plan** -- downstream plans may reference it via `@` includes.
@@ -91,7 +83,6 @@ gsd-core/templates/milestone.md	If MILESTONES.md doesn't exist, create it with h
 gsd-core/templates/spec.md	**SPEC.md is a one-way door for requirements.** discuss-phase will treat these as locked. If requirements change after SPEC.md is written, the user should update SPEC.md first, then re-run discuss-phase.
 gsd-core/templates/state.md	**Creation:** After ROADMAP.md is created (during init)
 gsd-core/templates/state.md	- execute: After SUMMARY.md created
-gsd-core/templates/summary.md	**After creation:** STATE.md updated with position, decisions, issues.
 gsd-core/templates/verification-report.md	covered_files: # #4155 — see agents/gsd-verifier.md's "Create VERIFICATION.md" step for what belongs here and how to compute it
 gsd-core/workflows/add-tests.md	2. **Create test file** targeting the user scenario from CONTEXT.md/VERIFICATION.md
 gsd-core/workflows/audit-milestone.md	> **NOT-VALIDATED vs PARTIAL (#2117):** A phase reads `status: draft` when it was seeded by plan-phase but never reconciled by validate-phase, OR when its `VALIDATION.md` predates the `status` field (files written before #2117 stay `draft` whether or not validation ran). In both cases `nyquist_compliant` is not authoritative, so this is a coverage TODO ("run validate-phase") — not a compliance failure. Re-running validate-phase promotes the file to `status: validated` and yields the real COMPLIANT/PARTIAL verdict. Only `status: validated` + `nyquist_compliant: false` is a genuine PARTIAL.

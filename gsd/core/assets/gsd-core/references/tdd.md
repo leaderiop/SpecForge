@@ -78,11 +78,9 @@ the `milestone` and `phase` entities
 </success_criteria>
 
 <output>
-After completion, create SUMMARY.md with:
-- RED: What test was written, why it failed, and the semantic assessment of its RED evidence
-- GREEN: What implementation made it pass
-- REFACTOR: What cleanup was done (if any)
-- Commits: List of commits produced
+After completion, write the plan's summary with the summary template's typed edits: its deliverables name
+the test (RED: what was written, why it failed, and the semantic assessment of its RED evidence), the
+implementation that made it pass (GREEN) and any cleanup (REFACTOR); the commits are counted from git.
 </output>
 ```
 
@@ -103,7 +101,7 @@ After completion, create SUMMARY.md with:
    - `go test`: capture the complete console output (`go test ./...` or `-v`; `-json` is not supported) including every package summary line (`FAIL\tpkg\t0.004s`). A failed test is its `--- FAIL: TestName` line; the same test name failing in two packages is ambiguous and needs the package-qualified target `import/path.TestName`. A package that does not compile (`FAIL\tpkg [build failed]`) or load (`[setup failed]`) asserted nothing — the usual cause is a test naming a symbol that does not exist yet — and the whole run is refused as `build_failure`, even if another package genuinely failed. Make the test compile and fail on its assertion, then record the run again.
    - swift-testing and `unittest`: capture the complete console output without color (`NO_COLOR=1`), including the final summary. swift-testing needs one `Test` result line (passed, failed, skipped, or cancelled) for every test its `Test run with N tests` summary counts; it names a test by its quoted display name or, without one, by its function name (`addsNumbers()`), and either name identifies the target; repeated swift-testing names are ambiguous and block GREEN. `unittest` needs one `FAIL:`/`ERROR:` header for every failure or error its `FAILED (...)` line counts; repeated headers from one test's failing subTests count as one failing test, a method name that repeats across classes needs its `module.Class.method` id, and a `unittest.loader._FailedTest` entry is a load failure, never RED.
    - Pass the unchanged record through `specforge check` (the TDD red-evidence pass reads the plan's record) and require no finding of it before GREEN. Every `INVALID_RED` reason (`unexpected_green`, `zero_tests_discovered`, `nonzero_exit_without_test_failure`, `fixture_or_load_failure`, `no_target_test_failure`, `build_failure`, `invalid_record`, `unreadable_record`) trips the gate. `invalid_record` includes unsupported or malformed reports; inspect `evidence.report_errors`. An unsupported format requires a supported reporter or a parser adapter before GREEN. Classifier rejection never authorizes a fallback to self-attestation.
-   - After machine validation, inspect whether the target actually executed and failed on the planned assertion for the intended reason. Zero tests, a missing, skipped, or cancelled target, setup, collection, import, syntax, or fixture faults, unrelated failures, unexpected green, and incomplete or ambiguous evidence block GREEN. Record this semantic assessment as `semanticAssessment` in the RED evidence and in the SUMMARY's RED entry; never fabricate reports, counters, or parser verdicts.
+   - After machine validation, inspect whether the target actually executed and failed on the planned assertion for the intended reason. Zero tests, a missing, skipped, or cancelled target, setup, collection, import, syntax, or fixture faults, unrelated failures, unexpected green, and incomplete or ambiguous evidence block GREEN. Record this semantic assessment as `semanticAssessment` in the RED evidence and in the summary's RED deliverable; never fabricate reports, counters, or parser verdicts.
 5. If test passes: feature exists or test is wrong. Investigate.
 6. Commit: `test({phase}-{plan}): add failing test for [feature]` with the `Gsd-Task: {phase}-{plan}/{task}` trailer
 
@@ -295,7 +293,7 @@ When `workflow.tdd_mode` is enabled in config, the RED/GREEN/REFACTOR gate seque
 
 1. **Unexpected GREEN in RED phase:** If the test passes before any implementation code is written, STOP. The feature may already exist or the test is wrong. Investigate before proceeding.
 2. **INVALID_RED in RED phase (#3770):** A nonzero exit is not RED by itself. Follow the format-based evidence contract in RED step 4, including reporter reruns and report freshness. An `INVALID_RED` verdict or failed semantic assessment halts GREEN. Unsupported, incomplete, ambiguous, or contradictory evidence cannot authorize implementation.
-3. **Missing RED commit:** If no `test(...)` commit precedes the `feat(...)` commit, the TDD discipline was violated. Flag in SUMMARY.md.
+3. **Missing RED commit:** If no `test(...)` commit precedes the `feat(...)` commit, the TDD discipline was violated. Record it as the summary's TDD gate deviation (below).
 4. **REFACTOR breaks tests:** Undo the refactor immediately. Commit was premature — refactor in smaller steps.
 
 ### Executor Gate Validation
@@ -317,7 +315,9 @@ specforge git log --grep="^feat\((0*${PHASE_N})-(0*${PLAN_N})\):" --max 1 --form
 specforge git log --grep="^refactor\((0*${PHASE_N})-(0*${PLAN_N})\):" --max 1 --format human
 ```
 
-If RED or GREEN gate commits are missing, or no GREEN commit follows a RED commit (#5275), add a `## TDD Gate Compliance` section to SUMMARY.md with the violation details.
+If RED or GREEN gate commits are missing, or no GREEN commit follows a RED commit (#5275), record one `deviation` of
+kind `issue` in the summary (the template's `new deviation` line, `RULE="TDD gate"`) whose text names the missing
+gate commits.
 </gate_enforcement>
 
 <end_of_phase_review>
