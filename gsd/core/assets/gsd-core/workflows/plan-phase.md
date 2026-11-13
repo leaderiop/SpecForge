@@ -869,9 +869,10 @@ ${MVP_MODE === 'true' ? `
 
 <specless_probe_fallback>
 **Spec-less probe fallback** (only when step 7.95 set `EDGE_ABSENT` and/or `PROHIB_ABSENT`). The SPEC
-omitted that section — author its predicates into `must_haves` via the `<downstream_consumer>`
-else-branch below, per §A/§B/§C of `~/.claude/gsd-core/references/specless-probe-fallback.md`
-(descriptor-less prohibitions, never auto-dismiss, no silent drops).
+omitted that section — write its predicates as the plan's `truth` and `prohibition` entities via the
+`<downstream_consumer>` else-branch below, per §A/§B/§C of
+`~/.claude/gsd-core/references/specless-probe-fallback.md` (prohibitions with no test, never
+auto-dismiss, no silent drops).
 
 Edge coverage report (`$COVERAGE`, present when `EDGE_ABSENT`):
 
@@ -887,14 +888,14 @@ ${SPECLESS_FALLBACK_DISABLED ? `
 <!-- gsd:protected:start -->
 <downstream_consumer>
 Output consumed by /gsd:execute-phase. Plans need:
-- Frontmatter (wave, depends_on, files_modified, autonomous)
-- Tasks in XML format with read_first and acceptance_criteria fields (MANDATORY on every task)
+- The plan entity's fields (depends_on, files_modified; wave and autonomous are computed)
+- `task` entities with `read_first` and `acceptance` (MANDATORY on every task)
 - Verification criteria
-- must_haves for goal-backward verification
-- If the SPEC has an `## Edge Coverage` section, lift every resolved (verification: explicit) edge's acceptance criterion into `must_haves.truths` as a plain string, and every resolved (verification: backstop) edge **as a structured flat-scalar marker** — an object item `{ statement: <the check>, verification: backstop }`, NOT a prose note (the verifier branches deterministically on the `verification: backstop` field; a parenthetical is unparseable — the #1110 fragility). Use a flat scalar `verification:` continuation key, never a nested object (ADR-550 #1278). At verify time a `backstop` truth the verifier cannot confirm with explicit evidence abstains → `human_needed` (reason `insufficient_spec`), never a silent pass (#1154; see `gsd-core/references/honest-verifier.md`). `unresolved` edges are explicit assumptions — surface them in the plan, do not silently drop them. **Otherwise** (`EDGE_ABSENT`): apply the SAME lift to the fallback report `{COVERAGE}` (per §C of `gsd-core/references/specless-probe-fallback.md`); a SPEC-supplied section is never re-run.
-- If the SPEC has a `## Prohibitions` section, lift every resolved prohibition into the `must_haves.prohibitions:` sibling block (NOT `truths` — ADR-550 D3) with `statement`+`status`+`verification`, via the single `projectProhibitions` serializer (Hyrum — no second serializer); unresolved -> flagged assumptions, don't drop; never put a must-NOT under `truths`. **Otherwise** (`PROHIB_ABSENT`), author the recalled prohibitions into the SAME block via the SAME `projectProhibitions` contract but **descriptor-less** (no `check_*`) so each disposes flagged-unverified; never auto-dismiss. Section-level precedence + no-silent-drop equality apply (§C).
-- If a `-UI-SPEC.md` exists (resolved above as `UI_SPEC_PATH`) with a `## UI Considerations` section, lift it by the **identical rule** as `## Edge Coverage` above — resolved (explicit) → `must_haves.truths` string, resolved (backstop) → flat scalar `{ statement, verification: backstop }`, `unresolved` → explicit planner assumption (no new verb — ADR-550 #1278/#1154; #1867). Read it from `UI_SPEC_PATH` (the SPEC glob excludes `-UI-SPEC.md`).
-- **"Artifacts this phase produces" section (MANDATORY)** — list every symbol this phase creates: decorators, classes, functions, CLI flags, struct/dataclass fields, new file paths. The plan-review-convergence source-grounding pass reads this section to exclude newly-created symbols from drift verification; omitting it causes new symbols to be flagged for acknowledgement.
+- `truth`, `artifact` and `key_link` entities for goal-backward verification
+- If the SPEC has an `## Edge Coverage` section, read its edges with `specforge gsd edge-probe "$SPEC_ID" --format json` (resolutions merged) and lift every resolved (verification: explicit) edge's acceptance criterion into a `truth` entity of the plan, and every resolved (verification: backstop) edge into a `truth` too, never a prose note, whose id your return lists as backstop: the tier (`verification backstop`) is the person's to set. At verify time a `backstop` truth the verifier cannot confirm with explicit evidence abstains → `human_needed` (reason `insufficient_spec`), never a silent pass (#1154; see `gsd-core/references/honest-verifier.md`). `unresolved` edges are explicit assumptions — surface them in the plan, do not silently drop them. **Otherwise** (`EDGE_ABSENT`): apply the SAME lift to the fallback report `{COVERAGE}` (per §C of `gsd-core/references/specless-probe-fallback.md`); a SPEC-supplied section is never re-run.
+- If the SPEC has a `## Prohibitions` section, read them with `specforge query "$SPEC_ID" --depth 1 --kinds spec_prohibition --format json` and lift every resolved prohibition into a `prohibition` entity of the plan (never a `truth`) with its `statement` and `verification`, and its `test` when the verification is `test`; the wired check stays on the spec prohibition. Unresolved -> flagged assumptions, don't drop. **Otherwise** (`PROHIB_ABSENT`), write the recalled prohibitions by the SAME lift with `verification judgment` and no `test`, so each is judged; never auto-dismiss. Section-level precedence + no-silent-drop equality apply (§C).
+- When `@gsd/ui` is loaded, its hook or a query of its kind lifts a UI spec's considerations by the **identical rule** as the edges above; nothing with `@gsd/core` alone.
+- **Artifacts this phase produces (MANDATORY)** — one `artifact` entity per thing this phase creates: decorators, classes, functions, CLI flags, struct/dataclass fields, new file paths. The plan-review-convergence source-grounding pass reads them to exclude newly-created symbols from drift verification; omitting one causes a new symbol to be flagged for acknowledgement.
 </downstream_consumer>
 <!-- gsd:protected:end -->
 

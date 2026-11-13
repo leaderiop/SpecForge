@@ -76,12 +76,9 @@ fi
 ```
 
 **Edge `--auto` resolution rules (reuse spec-phase 5.5 verbatim, D-06):** auto-`resolved`
-(verification: explicit) where a defensible acceptance criterion can be written (→ a plain
-`must_haves.truths` string); else auto-`resolved` (verification: backstop) → author it as a
-**structured flat-scalar marker** `{ statement: <the check>,
-verification: backstop }` in `must_haves.truths`, NOT a prose note (the verifier branches
-deterministically on the `verification: backstop` field; a parenthetical is unparseable — the #1110
-fragility; flat scalar `verification:` key, never a nested object, ADR-550 #1278). A `backstop` truth
+(verification: explicit) where a defensible acceptance criterion can be written (→ a `truth` entity of the plan); else
+auto-`resolved` (verification: backstop) → a `truth` entity too, never a prose note, whose id your
+return lists as backstop (§C). A `backstop` truth
 the verifier cannot confirm with explicit evidence abstains → `human_needed` (reason
 `insufficient_spec`), never a silent pass (#1154; `gsd-core/references/honest-verifier.md`). **Never
 auto-dismiss** (a wrong dismissal is the exact silent failure this eliminates). An `unclassified` row
@@ -103,27 +100,45 @@ this in-prompt. Full two-stage protocol, canon-referral rule, and status×verifi
   prototype-pollution / path-traversal / injection / GDPR / generic fairness) is NOT minted — emit a
   one-line breadcrumb and DROP it.
 
-**Fallback `--auto` divergence (D-06 / RAIL-04 / PROH-1):** author each kept prohibition as
-**flagged-unverified with NO wired-check descriptor**. NEVER write `check_kind` / `check_target` /
-`check_rule` / `check_violation_fixture` / `check_clean_fixture` — there is no human to wire/verify a
-check, and a descriptor-less item is what keeps it fail-closed (it disposes
-`{status:'unverified', flagged:true}` downstream via the reused `dispositionForProhibition`). **Never
+**Fallback `--auto` divergence (D-06 / RAIL-04 / PROH-1):** write each kept prohibition as a
+`prohibition` entity with `verification judgment` and no `test` (§C): there is no human to wire or
+verify a check, and a prohibition with no test is judged at verify time, never passed silently. **Never
 auto-dismiss**; never fabricate a check path. Surface any `unresolved` prohibition as a flagged
 assumption — never a silent drop.
 
 ## C. Authoring (the `<downstream_consumer>` else-branch)
 
-Author the fallback report into `must_haves` with the SAME lift the SPEC path uses — only the source
-changes (the fallback report, not the SPEC):
+Write the fallback report into the plan with the SAME lift the SPEC path uses — only the source
+changes (the fallback report, not the SPEC). Fill the quoted values (`specforge new truth --help`,
+`specforge new prohibition --help`): one `new truth` or `new prohibition` line per item, each with the
+plan's next free id, and no line for a kind the report has none of:
 
-- **Edges →** every resolved (verification: explicit) edge's acceptance criterion → `must_haves.truths` as a plain string;
-  every resolved (verification: backstop) edge → `must_haves.truths` as a structured `{ statement, verification: backstop }`
-  marker (NOT prose; #1110/#1278), which abstains → `human_needed` at verify time when unconfirmed
-  (#1154); every `unresolved`/`unclassified` row → an explicit flagged assumption (never a silent drop).
-- **Prohibitions →** every kept prohibition → the `must_haves.prohibitions:` sibling block (NOT
-  `truths`, ADR-550 D3) via the single `projectProhibitions` serializer (Hyrum — no second
-  serializer), authored **descriptor-less** (no `check_*` scalar) so each disposes flagged-unverified.
+```bash
+PLAN_ID="{the plan id, e.g. v1.0/02/02-01}"
+REQUIREMENT="{the requirement the edge was probed on}"
+EXPLICIT_ID="{the plan's next truth id, e.g. TR4}"
+CRITERION="{a resolved (verification: explicit) edge's acceptance criterion}"
+BACKSTOP_ID="{the truth id after it, e.g. TR5}"
+CHECK="{a resolved (verification: backstop) edge's check}"
+PROHIBITION_ID="{the plan's next prohibition id, e.g. PR1}"
+STATEMENT="{a kept prohibition: what must never happen}"
+PURPOSE="{the plan's purpose, then each unresolved or unclassified row, as an assumption}"
+PLAN_FILE=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].file') || exit 1
+specforge new truth "$EXPLICIT_ID" "$CRITERION" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$CRITERION" --requirement "$REQUIREMENT" || exit 1
+specforge new truth "$BACKSTOP_ID" "$CHECK" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$CHECK" --requirement "$REQUIREMENT" || exit 1
+specforge new prohibition "$PROHIBITION_ID" "$STATEMENT" --in "$PLAN_FILE" --plan "$PLAN_ID" --statement "$STATEMENT" --verification judgment || exit 1
+specforge set "$PLAN_ID" purpose "$PURPOSE" || exit 1
+```
+
+- **Edges →** a resolved (verification: explicit) edge is a truth; a resolved (verification: backstop)
+  edge is a truth whose id your return lists as backstop. A truth's tier (`verification`) is a
+  person's field: the person sets `verification backstop` in the editor, and an agent's write of it is
+  refused (`human_only`). A truth with no `explicit` tier is never contradicted by a test result, and
+  one the verifier cannot confirm abstains → `human_needed` (#1154); every `unresolved`/`unclassified` row is an
+  assumption named in the plan's `purpose` (never a silent drop), never a truth.
+- **Prohibitions →** every kept prohibition is a `prohibition` entity (never a truth), with
+  `verification judgment` and no `test`: the spec-less pass writes no check, so each is judged.
 - **Section-level precedence:** a SPEC-supplied section is never re-run or overwritten — exactly one
   producer per section.
-- **No-silent-drop equality:** for each section, (# probe-surfaced items) == (# authored into
-  `must_haves` + # surfaced as flagged assumptions).
+- **No-silent-drop equality:** for each section, (# probe-surfaced items) == (# written as `truth` or
+  `prohibition` entities + # named as assumptions in the plan's `purpose`).

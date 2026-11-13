@@ -246,3 +246,47 @@ fn the_research_fence_records_the_phase_research() {
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(run.added.is_empty(), "{:?}", run.added);
 }
+
+/// The spec-less lift writes both resolved edges as truths with no tier (a person's field, so the backstop one is never
+/// contradicted by a test), a kept prohibition with no test, and an unresolved row as an assumption in the purpose.
+#[test]
+fn the_spec_less_lift_writes_truths_and_a_descriptor_less_prohibition() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let text = asset("gsd-core/references/specless-probe-fallback.md");
+    let fence = typed::filled(
+        &typed::typed_fence(&text, "## C. Authoring"),
+        &[
+            ("PLAN_ID", "v1.0/02/02-01"),
+            ("REQUIREMENT", "STORE-01"),
+            ("EXPLICIT_ID", "TR4"),
+            (
+                "CRITERION",
+                "A save interrupted midway leaves the previous tasks.json whole",
+            ),
+            ("BACKSTOP_ID", "TR5"),
+            ("CHECK", "A full disk is reported, not ignored"),
+            ("PROHIBITION_ID", "PR1"),
+            ("STATEMENT", "The board never sends a task over the network"),
+            (
+                "PURPOSE",
+                "Keep the board across restarts. Assumption: a file locked by another process is not handled",
+            ),
+        ],
+    );
+    let run = typed::apply(&sh, &p, &fence);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(run.added.is_empty(), "{:?}", run.added);
+    for id in ["TR4", "TR5"] {
+        let truth = p.fields_of(&format!("v1.0/02/02-01/{id}"));
+        assert!(truth.is_object(), "{id} is missing");
+        assert!(truth.get("verification").is_none(), "{truth}");
+    }
+    let prohibition = p.fields_of("v1.0/02/02-01/PR1");
+    assert_eq!(prohibition["verification"], "judgment", "{prohibition}");
+    assert!(prohibition.get("test").is_none(), "{prohibition}");
+    let purpose = p.fields_of("v1.0/02/02-01")["purpose"].to_string();
+    assert!(purpose.contains("Assumption:"), "{purpose}");
+}
