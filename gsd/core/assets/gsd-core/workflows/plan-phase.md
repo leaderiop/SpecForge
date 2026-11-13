@@ -1213,6 +1213,7 @@ if [ "${CONVERGENCE_ENABLED}" = "true" ] && [ "${REVIEW_ROUNDS}" -gt 0 ]; then  
 IFS= read -rd '' CONFLICT_PLAN <<'GSD_CONFLICT_END' || true
 <the conflict's plan id, verbatim>
 GSD_CONFLICT_END
+CONFLICT_PLAN=${CONFLICT_PLAN%$'\n'}   # the heredoc's line break is no part of the id
 IFS= read -rd '' DIMENSION <<'GSD_CONFLICT_END' || true
 <its dimension, verbatim>
 GSD_CONFLICT_END
