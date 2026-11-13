@@ -4,6 +4,10 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use serde_json::{Value, json};
+
+use crate::harness::Project;
+
 mod answers;
 mod batch;
 mod commits;
@@ -166,4 +170,23 @@ pub(super) fn span(text: &str, prefix: &str) -> String {
         + 1;
     let end = text[at..].find('`').expect("the span's closing backtick");
     text[at..at + end].to_string()
+}
+
+/// Sends `edits` to `specforge mcp .` in `p` as one `specforge.edit` call: the call's result.
+pub(super) fn mcp_edit(p: &Project, edits: &Value) -> Value {
+    let messages = [
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+            "protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test", "version": "0"}}}),
+        json!({"jsonrpc": "2.0", "method": "notifications/initialized"}),
+        json!({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {
+            "name": "specforge.edit", "arguments": {"edits": edits}}}),
+    ];
+    let input: String = messages.iter().map(|m| format!("{m}\n")).collect();
+    let run = p.run_stdin(&["mcp", "."], &input);
+    run.stdout
+        .lines()
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+        .find(|m| m["id"] == 2)
+        .unwrap_or_else(|| panic!("no answer to the call: {}", run.all()))["result"]
+        .clone()
 }

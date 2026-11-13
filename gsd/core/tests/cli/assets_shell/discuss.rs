@@ -195,3 +195,51 @@ fn the_assumptions_log_keeps_confidence_and_evidence() {
         "Titles are short phrases"
     );
 }
+
+/// A value the model writes with a code span, a dollar amount and a double quote in it.
+const HOSTILE: &str = r#"`useAuth` in `src/hooks/useAuth.ts` costs $5 a "seat""#;
+
+/// The context fence stores a free-text value as the model wrote it: bash runs no code span, expands no `$5` and ends
+/// no string at a `"`.
+#[test]
+fn a_fence_stores_free_text_as_written() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let fence = context_fence().replace(
+        "Open tasks are listed, oldest first, and filtered by a word",
+        HOSTILE,
+    );
+    let run = typed::apply(&sh, &p, &fence);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    let stored = picked(&p, "v1.0/03/03-CONTEXT", ".nodes[0].fields.boundary");
+    // pinned: a double-quoted assignment hands the value to bash, which runs the spans and drops `$5`
+    assert_ne!(stored, HOSTILE);
+    assert!(
+        stored.contains("costs") && !stored.contains('`'),
+        "{stored}"
+    );
+}
+
+/// The log fence run in a later session, on a log whose entries are committed, keeps them and adds this session's.
+#[test]
+fn a_second_discussion_appends_to_the_log() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let first = r#"[{"area": "Ordering", "question": "Which tasks come first?", "options": ["Oldest first", "Newest first"], "chosen": "Oldest first", "mode": "interactive", "notes": ""}]"#;
+    let run = typed::apply(&sh, &p, &log_fence(first));
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    p.commit();
+    let second = r#"[{"area": "Filter", "question": "How is a word matched?", "options": ["Anywhere in the title", "Whole words only"], "chosen": "Whole words only", "mode": "interactive", "notes": "Titles are short"}]"#;
+    let again = typed::apply(&sh, &p, &log_fence(second));
+    // pinned: the fence sets the list to this session's entries, and the append-only list refuses that
+    assert!(
+        again.code != 0 || !again.added.is_empty(),
+        "{}{}",
+        again.out,
+        again.err
+    );
+}

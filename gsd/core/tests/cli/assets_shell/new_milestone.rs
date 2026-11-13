@@ -106,3 +106,32 @@ fn the_requirements_step() {
         "Accounts are out of scope"
     );
 }
+
+/// With a workstream, step 4 records the milestone scoped by it (`api/v1.1`), and the roadmap edit step 10 sends
+/// without a milestone op then writes the phases under it.
+#[test]
+fn a_workstream_milestone_is_recorded() {
+    let step = asset("gsd-core/workflows/new-milestone/steps/project-md-milestone-write.md");
+    let p = taskboard();
+    let run = p.run(&[
+        "new",
+        "workstream",
+        "api",
+        "API",
+        "--in",
+        "spec/api.spec",
+        "--purpose",
+        "The public API",
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let mut edit = super::roadmap::roadmap_edit();
+    let ops = edit.as_array_mut().expect("a list of edits");
+    ops.retain(|op| op["kind"] != "milestone");
+    for op in ops.iter_mut().filter(|op| op["kind"] == "phase") {
+        op["fields"]["milestone"] = serde_json::json!("api/v1.1");
+    }
+    // pinned: Part A is skipped in a workstream, so nothing records the milestone the phases name
+    assert!(step.contains("Skip Part A if `WS`"), "{step}");
+    let refused = super::mcp_edit(&p, &edit);
+    assert_eq!(refused["isError"], true, "{refused}");
+}

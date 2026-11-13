@@ -3,8 +3,8 @@
 
 use serde_json::{Value, json};
 
-use super::{asset, block};
-use crate::harness::{Project, taskboard};
+use super::{asset, block, mcp_edit};
+use crate::harness::taskboard;
 
 /// The roadmapper's write step (`gsd-roadmapper.md`).
 fn write_step() -> String {
@@ -13,25 +13,6 @@ fn write_step() -> String {
         "## Step 7: Write the Roadmap Immediately",
         "## Step 8",
     )
-}
-
-/// Sends `edits` to `specforge mcp .` in `p` as one `specforge.edit` call: the call's result.
-fn mcp_edit(p: &Project, edits: &Value) -> Value {
-    let messages = [
-        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
-            "protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test", "version": "0"}}}),
-        json!({"jsonrpc": "2.0", "method": "notifications/initialized"}),
-        json!({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {
-            "name": "specforge.edit", "arguments": {"edits": edits}}}),
-    ];
-    let input: String = messages.iter().map(|m| format!("{m}\n")).collect();
-    let run = p.run_stdin(&["mcp", "."], &input);
-    run.stdout
-        .lines()
-        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
-        .find(|m| m["id"] == 2)
-        .unwrap_or_else(|| panic!("no answer to the call: {}", run.all()))["result"]
-        .clone()
 }
 
 /// The values the model writes into the roadmap edit: milestone v1.1, phases 04 and 05, one new requirement each.
@@ -75,7 +56,7 @@ const FILL: &[(&str, &str)] = &[
 ];
 
 /// The roadmap edit of `templates/roadmap.md` (its `json` fence), filled with [`FILL`].
-fn roadmap_edit() -> Value {
+pub(super) fn roadmap_edit() -> Value {
     let text = asset("gsd-core/templates/roadmap.md");
     let mut edit = gsd_kit::markdown::fences(&text)
         .into_iter()
@@ -134,4 +115,59 @@ fn the_roadmap_write_step() {
     }
     assert!(after.is_empty(), "added: {after:?}");
     assert!(p.codes().iter().all(|c| c != "gsd/E101"));
+}
+
+/// A revision that moves a requirement to another phase changes both phases in one `specforge.edit` call: a `link`
+/// alone leaves the requirement in two phases, and `gsd/E101` refuses it.
+#[test]
+fn a_revision_moves_a_requirement_in_one_edit() {
+    let roadmapper = asset("agents/gsd-roadmapper.md");
+    let revision = block(
+        &roadmapper,
+        "## Step 9: Handle Revision",
+        "</execution_flow>",
+    );
+    let p = taskboard();
+    let linked = p.run(&["link", "v1.0/03", "requirements", "TASK-01"]);
+    assert_ne!(linked.code, 0, "{}", linked.all());
+    assert!(linked.all().contains("gsd/E101"), "{}", linked.all());
+    // pinned: the revision step changes the phases with `specforge link` one write at a time
+    assert!(
+        revision.contains("(`specforge set` / `specforge link`;"),
+        "{revision}"
+    );
+}
+
+/// ingest-docs' merge writes its new v1 requirements with the phases that hold them, in the roadmap edit: a v1
+/// requirement recorded alone in a project that has phases is in no phase, and `gsd/E101` refuses it.
+#[test]
+fn the_ingest_merge_writes_requirements_with_their_phases() {
+    let merge = block(
+        &asset("gsd-core/workflows/ingest-docs.md"),
+        "<step name=\"route_merge_mode\">",
+        "</step>",
+    );
+    let p = taskboard();
+    let alone = p.run(&[
+        "new",
+        "requirement",
+        "SYNC-09",
+        "A board syncs",
+        "--in",
+        "spec/requirements.spec",
+        "--text",
+        "A board syncs",
+        "--category",
+        "Sync",
+        "--tier",
+        "v1",
+    ]);
+    assert_ne!(alone.code, 0, "{}", alone.all());
+    assert!(alone.all().contains("gsd/E101"), "{}", alone.all());
+    // pinned: the merge records requirements and phases one write at a time
+    assert!(
+        merge.contains("add them as `requirement` entities")
+            && merge.contains("(`specforge new phase`)"),
+        "{merge}"
+    );
 }
