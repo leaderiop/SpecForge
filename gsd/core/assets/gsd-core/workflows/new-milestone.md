@@ -1,7 +1,7 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/workflows/new-milestone.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <purpose>
 
-Start a new milestone cycle for an existing project. Loads project context, gathers milestone goals (from MILESTONE-CONTEXT.md or conversation), updates PROJECT.md and STATE.md, optionally runs parallel research, defines scoped requirements with REQ-IDs, spawns the roadmapper to create phased execution plan, and commits all artifacts. Brownfield equivalent of new-project.
+Start a new milestone cycle for an existing project. Loads project context, gathers milestone goals from the conversation (SpecForge keeps no milestone context file), records the milestone and the project's changes, optionally runs parallel research, defines scoped requirements with REQ-IDs, spawns the roadmapper to create phased execution plan, and commits all artifacts. Brownfield equivalent of new-project.
 
 </purpose>
 
@@ -61,18 +61,14 @@ INIT_EARLY=$(specforge query "$MILESTONE" --depth 1 --format json)
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations (including the "What do you want to build next?" prompt and seed-selection questions below) — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
-- Read PROJECT.md (existing project, validated requirements, decisions)
-- Read MILESTONES.md (what shipped previously)
-- Read STATE.md (pending todos, blockers)
-- Check for MILESTONE-CONTEXT.md (from /gsd-discuss-milestone)
+- Read the project and its decisions (`specforge export --kinds project,decision --format context`): the existing project, its validated requirements
+- Read the milestones (`specforge export --kinds milestone --format context`): what shipped previously
+- The current position is computed (`specforge gsd progress-report`); pending todos and blockers are their capabilities' entities
 
 ## 2. Gather Milestone Goals
 
-**If MILESTONE-CONTEXT.md exists:**
-- Use features and scope from discuss-milestone
-- Present summary for confirmation
+The goals come from the conversation: SpecForge keeps no milestone context file.
 
-**If no context file:**
 - Present what shipped in last milestone
 
 **Text mode (`workflow.text_mode: true` in config or `--text` flag):** Set `TEXT_MODE=true` if `--text` is present in `$ARGUMENTS` OR `text_mode` from init JSON is `true`. When TEXT_MODE is active, replace every `AskUserQuestion` call with a plain-text numbered list and ask the user to type their choice number. This is required for non-Claude runtimes (OpenAI Codex, Antigravity, etc.) where `AskUserQuestion` is not available.
@@ -158,122 +154,32 @@ AskUserQuestion:
 - header: "Confirm?"
 - question: "Does this capture what you want to build in this milestone?"
 - options:
-  - "Looks good" — Proceed to write PROJECT.md
+  - "Looks good" — Proceed to record the milestone
   - "Adjust" — Let me correct or add details
 
 **If "Adjust":** Ask what needs changing (plain text, NOT AskUserQuestion). Incorporate changes, re-present the summary. Loop until "Looks good" is selected.
 
 **If "Looks good":** Proceed to Step 4.
 
-## 4. Update PROJECT.md
+## 4. Record the Milestone and the Project's Changes
 
-PROJECT.md is shared across workstreams (`gsd-core/references/workstream-flag.md` marks it `# Shared` in the directory diagram). This step has two independently-scoped parts — only Part A is workstream-guarded.
+The project is shared across workstreams (`gsd-core/references/workstream-flag.md` marks it `# Shared`). This step has two independently-scoped parts — only Part A is workstream-guarded.
 
 <!-- gsd:section id="project-md-milestone-write" when="state:flat-mode" -->
 If `section_manifest` (from `INIT_EARLY`) is `null` or `"project-md-milestone-write"` is in its `included` list: read and execute `gsd-core/workflows/new-milestone/steps/project-md-milestone-write.md`. Otherwise (a workstream is active) skip — do not read the file; Part B below still runs regardless of the workstream.
 <!-- /gsd:section -->
 
-**Part B — Evolution structural repair (always runs, regardless of the workstream).** `## Evolution` is a shared, idempotent structural section, not workstream state — a pre-Evolution project must be backfilled whether or not a workstream is active, so this part is NOT covered by Part A's skip. Ensure the `## Evolution` section exists in PROJECT.md. If missing (projects created before this feature), add it before the footer:
+**Part B — the project's changes (always runs, regardless of the workstream).** Record what this milestone changes in the `project` entity with typed edits: `specforge set <project> what "…"` (likewise `context`, `core_value`) when its description drifted, and per new key decision the `new decision` and `link <project> key_decisions` lines of the project fence (`specforge gsd reference templates/project.md`). Leave the project as it is when nothing drifted. Nothing is backfilled: upstream's Evolution section describes what `/gsd-transition` and `/gsd:complete-milestone` do to the entities.
 
-```markdown
-## Evolution
+## 5. The Current Milestone
 
-This document evolves at phase transitions and milestone boundaries.
+The current milestone is computed from the milestones and their phases' statuses: there is no state to reset, and the previous milestone's phases stay with it.
 
-**After each phase transition** (via `/gsd-transition`):
-1. Requirements invalidated? → Move to Out of Scope with reason
-2. Requirements validated? → Move to Validated with phase reference
-3. New requirements emerged? → Add to Active
-4. Decisions to log? → Add to Key Decisions
-5. "What This Is" still accurate? → Update if drifted
+## 6. Commit
 
-**After each milestone** (via `/gsd:complete-milestone`):
-1. Full review of all sections
-2. Core Value check — still the right priority?
-3. Audit Out of Scope — reasons still valid?
-4. Update Context with current state
-```
-
-## 5. Update STATE.md
-
-Reset STATE.md frontmatter AND body atomically via the SDK. This writes the new
-milestone version/name into the YAML frontmatter, resets `status` to
-`planning`, zeroes `progress.*` counters, and rewrites the `## Current Position`
-section to the new-milestone template. Accumulated Context (decisions,
-blockers, todos) is preserved across the switch — symmetric with
-`milestone.complete`.
+Nothing is cleared or archived from the previous milestone: its phases stay with it, and phase ids are milestone-scoped, so numbering may restart at 1 without a collision. The commit carries the milestone and the project's changes:
 
 ```bash
-
-OUTGOING_MILESTONE=""   # the milestone being closed, from `specforge check --format json`
-# note OUTGOING_MILESTONE: Step 6 repeats it
-echo "Outgoing milestone (phase history archives under THIS version in step 6): ${OUTGOING_MILESTONE:-<unknown>}"
-# the current milestone is computed: there is no state to switch
-```
-
-**Capture the outgoing version now.** The lines above read the *current* (previous) milestone
-version BEFORE the switch flips STATE.md's `milestone:` field to the new one, and persist it to
-a file so Step 6 can consume it; here it is carried by your notes and repeated in Step 6's block — do NOT
-transcribe the echoed value into a later command by hand. Step 6 reads that file back into
-`--archive-version` so the previous milestone's phase directories archive under
-`<outgoing-version>-phases/`, not the new one (#2288). Once `state.milestone-switch` runs,
-current-milestone state no longer holds the outgoing version, which is why it is captured here.
-
-The resulting Current Position section looks like:
-
-```markdown
-## Current Position
-
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: [today] — Milestone v[X.Y] started
-```
-
-Bug #2630: a prior version of this workflow rewrote the Current Position body
-manually but left the frontmatter pointing at the previous milestone, so every
-downstream reader (`state.json`, `getMilestoneInfo`, progress bars) reported the
-stale milestone until the first phase advance forced a resync. Always use the
-SDK handler above — do not hand-edit STATE.md here.
-
-## 6. Cleanup and Commit
-
-Delete MILESTONE-CONTEXT.md if exists (consumed).
-
-Nothing is cleared from the previous milestone: its phases stay with it. Read the outgoing version
-persisted in Step 5 back into a shell variable and pass it as `--archive-version` so the
-archive lands under the *previous* milestone's label — the switch in Step 5 has already
-advanced current-milestone state, so without this override the archive would be mislabeled
-with the *new* version (#2288). Use the shell variable directly (quoted) — never hand-retype
-the captured value into the command, so untrusted STATE.md content cannot be re-parsed by the
-shell:
-
-```bash
-
-OUTGOING_MILESTONE="<the outgoing milestone noted in Step 3>"
-if [ -n "$OUTGOING_MILESTONE" ]; then
-  : # nothing to clear: the phases stay with "$OUTGOING_MILESTONE"; ids are milestone-scoped, so numbering restarts at 1 without a collision
-else
-  : # nothing to clear: phases stay with their milestone
-fi
-# nothing to clean up: no scratch file was written
-```
-
-Nothing is cleared or archived, with or without an outgoing milestone: the phases stay with their
-milestone (upstream's phases.clear is not part of @gsd/core).
-
-The archived phases are entities: Step 6's commit carries them (`--add spec`), so there is nothing to stage here.
-
-```bash
-
-```
-
-Nothing is left unstaged: the archived phases are entities, and Step 6's commit carries them.
-
-Stage PROJECT.md in both modes. Step 4's Part A guard — not this commit — is what protects the shared `## Current Milestone` heading (#2308): when a workstream is active Part A never writes it, so the only change PROJECT.md can carry here is Part B's idempotent `## Evolution` backfill, which must be committed rather than stranded as a dangling edit. Do NOT reintroduce a `[ -n "$WS" ]` branch around this commit: `WS` is set in Step 1's shell and each step's bash block runs in its own shell (the same reason Step 6 repeats `OUTGOING_MILESTONE` by hand), so such a guard reads an unset variable, always takes the flat-mode branch, and only appears to work. STATE.md, unlike PROJECT.md, is computed, so there is no state file to stage.
-
-```bash
-
 specforge git commit --add spec -m "docs: start milestone v[X.Y] [Name]" && specforge collect --runner gsd-git --yes
 ```
 
@@ -327,7 +233,7 @@ AskUserQuestion: "Research the domain ecosystem for new features before defining
 - "Skip research (current default)" — Go straight to requirements
 - "Research first" — Discover patterns, features, architecture for NEW capabilities
 
-**IMPORTANT:** Do NOT persist this choice to config.json. The `workflow.research` setting is a persistent user preference that controls plan-phase behavior across the project. Changing it here would silently alter future `/gsd:plan-phase` behavior. To change the default, use `/gsd:settings`.
+**IMPORTANT:** Do NOT persist this choice as a setting (`specforge settings set`). The `workflow.research` setting is a persistent user preference that controls plan-phase behavior across the project. Changing it here would silently alter future `/gsd:plan-phase` behavior. To change the default, use `/gsd:settings`.
 
 **If user chose "Research first":**
 
@@ -469,11 +375,11 @@ Display the key findings of the summary:
 ### GSD ► DEFINING REQUIREMENTS
 ```
 
-Read PROJECT.md: core value, current milestone goals, validated requirements (what exists).
+Read the project and the milestone (`specforge export --kinds project,milestone --format context`): core value, the milestone's goal and target features, the validated requirements (what exists).
 
 **If `$SELECTED_SEEDS` is non-empty (from step 2.5):** Include selected seed ideas and their "Why This Matters" sections as additional input when defining requirements. Seeds provide user-validated feature ideas that should be incorporated into the requirement categories alongside research findings or conversation-gathered features.
 
-**If research exists:** Read FEATURES.md, extract feature categories.
+**If research exists:** read the feature findings of `RESEARCH` (`specforge query RESEARCH --depth 1 --format context`), extract feature categories.
 
 Present features by category:
 ```
@@ -496,11 +402,20 @@ Track: Selected → this milestone. Unselected table stakes → future. Unselect
 - "No, research covered it" — Proceed
 - "Yes, let me add some" — Capture additions
 
-**Generate REQUIREMENTS.md:**
-- v1 Requirements grouped by category (checkboxes, REQ-IDs)
-- Future Requirements (deferred)
-- Out of Scope (explicit exclusions with reasoning)
-- Traceability section (empty, filled by roadmap)
+**Record the requirements:**
+
+- **Future and out-of-scope requirements** (tier `v2` or `out_of_scope`): record them now, one line per requirement, the requirement fence of `templates/requirements.md`. `--reason` is for an out-of-scope requirement: leave it out for a `v2` one.
+
+  ```bash
+  REQ_ID="{CATEGORY-NN, continuing the numbering}"
+  TEXT="{the requirement: user-centric, testable, atomic}"
+  CATEGORY="{its category}"
+  TIER="{v2 or out_of_scope}"
+  REASON="{why it is out of scope}"
+  specforge new requirement "$REQ_ID" "$TEXT" --in spec/requirements.spec --text "$TEXT" --category "$CATEGORY" --tier "$TIER" --reason "$REASON" || exit 1
+  ```
+
+- **This milestone's v1 requirements:** hold them. A v1 requirement must be in a phase (`gsd/E101`), and the project has phases, so one recorded alone is refused. Show them for approval below, then hand them to the roadmapper in the spawn's `<requirements>` block (Step 10): it writes them with the phases in its one roadmap edit.
 
 **REQ-ID format:** `[CATEGORY]-[NUMBER]` (AUTH-01, NOTIF-02). Continue numbering from existing.
 
@@ -529,7 +444,7 @@ Does this capture what you're building? (yes / adjust)
 
 If "adjust": Return to scoping.
 
-**Commit requirements:**
+**Commit the recorded requirements** (the v1 ones are committed with the roadmap):
 ```bash
 
 specforge git commit --add spec -m "docs: define milestone v[X.Y] requirements" && specforge collect --runner gsd-git --yes
@@ -559,13 +474,19 @@ ${AGENT_SKILLS_ROADMAPPER}
 
 </planning_context>
 
+<requirements>
+Milestone v[X.Y] [Name] (recorded): [its goal]
+New v1 requirements, to record with the phases in the roadmap edit:
+- [CAT-NN]: [text] ([Category])
+</requirements>
+
 <instructions>
 Create roadmap for milestone v[X.Y]:
 1. Respect the selected numbering mode:
    - `--reset-phase-numbers` → start at Phase 1
    - default behavior → continue from the previous milestone's last phase number
-2. Derive phases from THIS MILESTONE's requirements only
-3. Map every requirement to exactly one phase
+2. Derive phases from THIS MILESTONE's requirements only (the `<requirements>` block)
+3. Map every requirement to exactly one phase; leave out the milestone op (it is recorded)
 4. Derive 2-5 success criteria per phase (observable user behaviors)
 5. Validate 100% coverage
 6. Write the roadmap edit immediately: every phase, with the new requirements, in one `specforge.edit` call (each phase's `requirements` is the traceability; STATE is computed)
@@ -700,14 +621,12 @@ Also: `/gsd:plan-phase [N]` — skip discussion, plan directly
 </process>
 
 <success_criteria>
-- [ ] PROJECT.md updated with Current Milestone section (skipped when a workstream is active — shared file, see Step 4)
-- [ ] STATE.md reset for new milestone
-- [ ] MILESTONE-CONTEXT.md consumed and deleted (if existed)
+- [ ] The milestone recorded with its goal and target features (skipped when a workstream is active — see Step 4); the project's changes recorded
 - [ ] Research completed (if selected) — 4 parallel agents, milestone-aware
 - [ ] Requirements gathered and scoped per category
-- [ ] REQUIREMENTS.md created with REQ-IDs
+- [ ] Future and out-of-scope requirements recorded; this milestone's v1 requirements handed to the roadmapper with REQ-IDs
 - [ ] gsd-roadmapper spawned with phase numbering context
-- [ ] Roadmap files written immediately (not draft)
+- [ ] Roadmap written immediately, in one edit (not draft)
 - [ ] User feedback incorporated (if any)
 - [ ] Phase numbering mode respected (continued or reset)
 - [ ] All commits made (if planning docs committed)

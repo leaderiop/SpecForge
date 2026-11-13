@@ -7,7 +7,7 @@ The text inside `<arguments>` is exactly what the user typed after the command n
 <objective>
 Start a new milestone: questioning → research (optional) → requirements → roadmap.
 
-Brownfield equivalent of new-project. Project exists, PROJECT.md has history. Gathers "what's next", updates PROJECT.md, then runs requirements → roadmap cycle.
+Brownfield equivalent of new-project. The project exists and has history. Gathers "what's next", records the milestone and the project's changes, then runs requirements → roadmap cycle.
 
 **Creates/Updates:**
 - the `project` entity — updated with new milestone goals

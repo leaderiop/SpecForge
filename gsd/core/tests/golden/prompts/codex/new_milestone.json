@@ -9,7 +9,7 @@
     "<objective>",
     "Start a new milestone: questioning → research (optional) → requirements → roadmap.",
     "",
-    "Brownfield equivalent of new-project. Project exists, PROJECT.md has history. Gathers \"what's next\", updates PROJECT.md, then runs requirements → roadmap cycle.",
+    "Brownfield equivalent of new-project. The project exists and has history. Gathers \"what's next\", records the milestone and the project's changes, then runs requirements → roadmap cycle.",
     "",
     "**Creates/Updates:**",
     "- the `project` entity — updated with new milestone goals",
@@ -25,7 +25,7 @@
     "<file path=\"gsd-core/workflows/new-milestone.md\">",
     "<purpose>",
     "",
-    "Start a new milestone cycle for an existing project. Loads project context, gathers milestone goals (from MILESTONE-CONTEXT.md or conversation), updates PROJECT.md and STATE.md, optionally runs parallel research, defines scoped requirements with REQ-IDs, spawns the roadmapper to create phased execution plan, and commits all artifacts. Brownfield equivalent of new-project.",
+    "Start a new milestone cycle for an existing project. Loads project context, gathers milestone goals from the conversation (SpecForge keeps no milestone context file), records the milestone and the project's changes, optionally runs parallel research, defines scoped requirements with REQ-IDs, spawns the roadmapper to create phased execution plan, and commits all artifacts. Brownfield equivalent of new-project.",
     "",
     "</purpose>",
     "",
@@ -61,7 +61,7 @@
     "",
     "MILESTONE_NAME=\"Next\""
   ],
-  "bytes": 72349,
+  "bytes": 69612,
   "end": [
     "the roadmap wait for it, and the roadmapper maps each `v1` requirement to exactly one phase (the phase's",
     "`requirements`). Coverage, traceability and status are computed from the phases, plans and verifications that cover a",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1535,
+  "lines": 1454,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:0da43ed7c18579eef66151c91fdb644bb95a0dd662d6c022edb4f8e7672684a4",
+    "digest": "sha256:871b05cda8ad20f8dbe28610baee4a5c82b34d0bdce28cc5768c01e885dd21d8",
     "prompt": "@gsd/core@VERSION:new_milestone",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "0da43ed7c18579eef66151c91fdb644bb95a0dd662d6c022edb4f8e7672684a4"
+  "sha256": "871b05cda8ad20f8dbe28610baee4a5c82b34d0bdce28cc5768c01e885dd21d8"
 }

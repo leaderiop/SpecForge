@@ -11,7 +11,6 @@ commands/gsd/complete-milestone.md	Mark milestone {{version}} complete, archive 
 commands/gsd/complete-milestone.md	- Update ROADMAP.md to one-line summary with link
 commands/gsd/complete-milestone.md	6. **Update PROJECT.md:**
 commands/gsd/complete-milestone.md	- PROJECT.md updated with current state
-commands/gsd/new-milestone.md	Brownfield equivalent of new-project. Project exists, PROJECT.md has history. Gathers "what's next", updates PROJECT.md, then runs requirements → roadmap cycle.
 commands/gsd/ns-workflow.md	| Create a PLAN.md | gsd-plan-phase |
 commands/gsd/validate-phase.md	Output: updated VALIDATION.md + generated test files.
 gsd-core/references/agent-contracts.md	| gsd-ai-researcher | AI framework research | No marker (writes the AI-SPEC.md framework section via Edit) | `gsd-core/workflows/ai-integration-phase.md` reads the AI-SPEC.md section after the agent returns | artifact+query |
@@ -73,14 +72,6 @@ gsd-core/workflows/graduation.md	| `patterns` | `PATTERNS.md` — append under t
 gsd-core/workflows/graduation.md	| `lessons` | `PROJECT.md` — append under `## Invariants` (create section if absent) |
 gsd-core/workflows/graduation.md	3. For each source LEARNINGS.md item in the cluster, append `**Graduated:** {target-file}:{ISO_DATE}` after its last existing field
 gsd-core/workflows/list-phase-assumptions.md	If "Discuss context": Note that CONTEXT.md will incorporate any corrections discussed here
-gsd-core/workflows/new-milestone.md	Start a new milestone cycle for an existing project. Loads project context, gathers milestone goals (from MILESTONE-CONTEXT.md or conversation), updates PROJECT.md and STATE.md, optionally runs parallel research, defines scoped requirements with REQ-IDs, spawns the roadmapper to create phased execution plan, and commits all artifacts. Brownfield equivalent of new-project.
-gsd-core/workflows/new-milestone.md	- "Looks good" — Proceed to write PROJECT.md
-gsd-core/workflows/new-milestone.md	## 4. Update PROJECT.md
-gsd-core/workflows/new-milestone.md	## 5. Update STATE.md
-gsd-core/workflows/new-milestone.md	SDK handler above — do not hand-edit STATE.md here.
-gsd-core/workflows/new-milestone.md	Stage PROJECT.md in both modes. Step 4's Part A guard — not this commit — is what protects the shared `## Current Milestone` heading (#2308): when a workstream is active Part A never writes it, so the only change PROJECT.md can carry here is Part B's idempotent `## Evolution` backfill, which must be committed rather than stranded as a dangling edit. Do NOT reintroduce a `[ -n "$WS" ]` branch around this commit: `WS` is set in Step 1's shell and each step's bash block runs in its own shell (the same reason Step 6 repeats `OUTGOING_MILESTONE` by hand), so such a guard reads an unset variable, always takes the flat-mode branch, and only appears to work. STATE.md, unlike PROJECT.md, is computed, so there is no state file to stage.
-gsd-core/workflows/new-milestone.md	- [ ] PROJECT.md updated with Current Milestone section (skipped when a workstream is active — shared file, see Step 4)
-gsd-core/workflows/new-milestone.md	- [ ] REQUIREMENTS.md created with REQ-IDs
 gsd-core/workflows/new-workspace.md	## 7. Write WORKSPACE.md
 gsd-core/workflows/new-workspace.md	Write the workspace manifest at `$TARGET_PATH/WORKSPACE.md`:
 gsd-core/workflows/new-workspace.md	- [ ] WORKSPACE.md manifest written with correct repo table
