@@ -4,6 +4,7 @@
 [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (D8), [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md)
 (a writing collector's graph), [ADR 0291](0291-an-extension-contributes-mcp-prompts.md) and
 [ADR 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md) (`reads_graph`). No protocol change.
+D3's context digest stamp superseded by [ADR 0356](0356-an-extension-declares-the-context-a-role-reads.md): the host computes a context record when it applies the plan; GSD has no digest of its own.
 
 ## Context
 

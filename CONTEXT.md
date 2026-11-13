@@ -1879,6 +1879,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   entities and every later one dropped (enrich) (ADR 0356).
 - **Pack digest**: the sha256 of a pack's route, subject and served sections, each section's digest the judged input
   digest of its selector over the members it served; the budget is recorded beside it, not in it (ADR 0356).
+- **Context record**: a `context`-written block `{route, digest, max_tokens}` the host writes when it records a
+  route's pack on an entity (ADR 0356).
+- **Stale record**: a record whose pack, evaluated again at its budget, has another digest or no subject; reported
+  with the route's stale code (ADR 0356).
+- **Field filter**: `kind[field=value|…]` in a selector: only entities whose field holds one of the values (ADR 0356).
 - **Result field**: the enum field of a collector-written kind that holds a fact's result, its values `TestStatus`
   names (`KindBuilder::result`, ADR 0329 D3); what a judged `test(..)` input and a reader of a reference to the fact
   take as its result (ADR 0331 D6).

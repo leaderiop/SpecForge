@@ -67,7 +67,7 @@ which order of importance.
 - **D8 What stays.** `query`, `export`, the context export format and the trace routes are unchanged; the estimate stays
   the host's (`estimate_tokens`, no tokenizer); a project whose extensions declare no context route compiles, exports
   and installs byte for byte as before. Recording a pack's digest on an entity and reporting it stale are decided in
-  an amendment of this ADR.
+  [Records and staleness](#records-and-staleness-amendment-2026-11-12) below.
 
 ## Rejected
 
@@ -86,6 +86,56 @@ which order of importance.
 - A route's budget states what its role costs; a read at a budget below its core sections refuses loudly instead of
   dropping a task.
 - A pack carries setting values, so a changed setting moves its digest: the role read them.
+
+
+## Records and staleness (amendment, 2026-11-12)
+
+A role's pack is read when the role is spawned; what the role then writes was made against that pack. An extension
+kept its own second digest of the same context to notice that it moved: a guest digest of a different scheme, stamped
+by a compute pass, copied into a `harness` field by a command and compared by a pass. A harness value is evidence a
+verdict may read, so it is in the entity digest: recording it staled every verdict that read the recorded entity.
+
+- **D9 The context writer.** A fifth `FieldWriter`, `context`: only the host's record of a context route's pack
+  writes it; a typed edit of it, from any origin, is refused `context_field`; the ledger records it as it records a
+  harness value (E083 without its line); entity digests, judged input digests and pack section digests leave it out,
+  as they leave out computed and verdict values. A `context` field is a block of exactly `route` (string), `digest`
+  (string) and `max_tokens` (integer); any other shape is W021 and the field is dropped.
+- **D10 A route records.** A route may declare `records: [{field: "kind.field", subject, suggestion?}]` and
+  `stale: "<code>"`, both or neither. The route is E123 (not registered) when a record's field is not `kind.field`,
+  its kind is not loaded, the field is not declared, not written `context`, declared by another extension or not of
+  the record shape; when its subject is not a chain with head `self` or does not type-check from the kind to the
+  route's subject kind; when the route records a field twice; or when the code is not in its extension's catalogue.
+- **D11 Recording.** An edit plan's `record_context {entity, route, max_tokens?}`: the route records the entity's
+  kind; the subject is derived from the entity by the record's selector, exactly one; the pack is computed over the
+  view the plan applies to, at `max_tokens` or the route's budget; the host writes the block and its ledger line.
+  Who may ask: a command, collector or hook of the route's extension or of one naming it a peer (the harness rule),
+  and every core surface, since the value is computed by the host and no origin can forge it.
+  `specforge context <route> <subject> --record <entity>` is the CLI's; the MCP `specforge.context` stays a read.
+  A refusal is `record_refused` with a reason: `unknown_route`, `not_recorded`, `origin`, `no_subject`,
+  `several_subjects`, `subject_mismatch` (the CLI's subject is not the derived one) or `budget`.
+- **D12 Staleness.** On each check, on the merged snapshot after the compute passes: every record of a route with a
+  stale code, when its field's `checks_while` admits the owner state, is evaluated again at its budget. A moved
+  digest, no subject, several subjects or a core above the budget is one finding with the stale code, its severity
+  by its letter, at the field, with the record's suggestion; the extension's raises and gates apply to it as to any
+  of its codes. A project holding no record evaluates no pack. ADR 0350's W199 keeps a gate on a `context` field
+  that declares no check: the record's staleness is its check.
+- **D13 The field filter.** A selector kind may carry `[field=value|…]`: only entities whose authored scalar field
+  (string, enum, bool or integer; not computed, verdict or context) holds one of the values are kept; an enum value
+  must be declared; an entity without the field is dropped; the canonical text sorts and dedups the values. Judged
+  inputs, context sections, record subjects and trace route steps share the one grammar.
+- **D14 Judge roles record nothing.** A judged rule's verdict already records its input digests; a judge's route,
+  whose sections are the rule's inputs, needs no record.
+- **D15 What goes.** An extension's own digest of a pack, and the stamp race of ADR 0299 D3: the host computes the
+  record when it applies the plan.
+
+### Rejected
+
+- **Recording into a `harness` field.** It is in the entity digest, so every record stales every verdict over the
+  entity.
+- **A record without its budget.** A cut pack cannot be evaluated again.
+- **Evaluating every route's pack on each check.** Cost without a reader.
+- **An MCP record.** It turns the read tool into a write.
+- **A guest-supplied subject.** It records a pack of another entity.
 
 ## What would reopen it
 
