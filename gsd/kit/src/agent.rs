@@ -37,6 +37,7 @@ pub const RESEARCHER: Role = Role {
         "specforge:find_implementation",
         "specforge:explain",
         "specforge:schema",
+        "specforge:context",
     ],
     writes: &["specforge:edit", "specforge:collect"],
 };

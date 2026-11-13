@@ -61,7 +61,7 @@
     "```bash",
     ""
   ],
-  "bytes": 74691,
+  "bytes": 75272,
   "end": [
     "TEXT=\"{the requirement: user-centric, testable, atomic}\"",
     "CATEGORY=\"{its category, e.g. Authentication}\"",
@@ -186,7 +186,7 @@
     "  \"features.thinking_partner\": false,",
     "  \"gates.confirm_milestone_scope\": true,"
   ],
-  "lines": 1826,
+  "lines": 1848,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:4aa0cfd98943cc18f295b1c6366c1bb70e96c358d61765d1783ba3dee3686e59",
+    "digest": "sha256:73fbdaafa701819bb573f9e98cc1304372f0310a67e8ffc6b1c40b1dbd0eca2e",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "4aa0cfd98943cc18f295b1c6366c1bb70e96c358d61765d1783ba3dee3686e59"
+  "sha256": "73fbdaafa701819bb573f9e98cc1304372f0310a67e8ffc6b1c40b1dbd0eca2e"
 }

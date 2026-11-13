@@ -175,6 +175,26 @@ const CONVERTED: &[(&str, &[&str])] = &[
     ),
     ("gsd-core/templates/project.md", &["project", "decision"]),
     ("gsd-core/templates/requirements.md", &["requirement"]),
+    (
+        "gsd-core/templates/research-project/STACK.md",
+        &["stack_choice", "finding"],
+    ),
+    (
+        "gsd-core/templates/research-project/FEATURES.md",
+        &["finding"],
+    ),
+    (
+        "gsd-core/templates/research-project/ARCHITECTURE.md",
+        &["pattern", "finding"],
+    ),
+    (
+        "gsd-core/templates/research-project/PITFALLS.md",
+        &["pitfall"],
+    ),
+    (
+        "gsd-core/templates/research-project/SUMMARY.md",
+        &["research"],
+    ),
 ];
 
 /// A converted template's answer names its kinds and how to read their fields (`specforge schema --kind`), each kind

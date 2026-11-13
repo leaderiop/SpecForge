@@ -52,10 +52,7 @@ const NOT_COMMANDS: &[&str] = &[
 ];
 
 /// Files of upstream's tree that no ticket of r34-r44 ports: a rendered text names them as "not part of @gsd/core".
-const NOT_PORTED: &[&str] = &[
-    "gsd-core/templates/research-project/",
-    "gsd-core/workflows/node-repair.md",
-];
+const NOT_PORTED: &[&str] = &["gsd-core/workflows/node-repair.md"];
 
 /// One render's input: the argument text and every declared name with its placeholder value (`args::values`).
 type Combo = (String, Values);

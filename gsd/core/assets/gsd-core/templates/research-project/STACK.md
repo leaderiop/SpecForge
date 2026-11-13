@@ -1,121 +1,31 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/templates/research-project/STACK.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Stack Research Template
 
-Template for the `research` entity for STACK — recommended technologies for the project domain.
-
-<template>
-
-````markdown
-# Stack Research
-
-**Domain:** [domain type]
-**Researched:** [date]
-**Confidence:** [HIGH/MEDIUM/LOW]
-
-## Recommended Stack
-
-### Core Technologies
-
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| [name] | [version] | [what it does] | [why experts use it for this domain] |
-| [name] | [version] | [what it does] | [why experts use it for this domain] |
-| [name] | [version] | [what it does] | [why experts use it for this domain] |
-
-### Supporting Libraries
-
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| [name] | [version] | [what it does] | [specific use case] |
-| [name] | [version] | [what it does] | [specific use case] |
-| [name] | [version] | [what it does] | [specific use case] |
-
-### Development Tools
-
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| [name] | [what it does] | [configuration tips] |
-| [name] | [what it does] | [configuration tips] |
-
-## Installation
-
-```bash
-# Core
-npm install [packages]
-
-# Supporting
-npm install [packages]
-
-# Dev dependencies
-npm install -D [packages]
-```
-
-## Alternatives Considered
-
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| [our choice] | [other option] | [conditions where alternative is better] |
-| [our choice] | [other option] | [conditions where alternative is better] |
-
-## What NOT to Use
-
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| [technology] | [specific problem] | [recommended alternative] |
-| [technology] | [specific problem] | [recommended alternative] |
-
-## Stack Patterns by Variant
-
-**If [condition]:**
-- Use [variation]
-- Because [reason]
-
-**If [condition]:**
-- Use [variation]
-- Because [reason]
-
-## Version Compatibility
-
-| Package A | Compatible With | Notes |
-|-----------|-----------------|-------|
-| [package@version] | [package@version] | [compatibility notes] |
-
-## Sources
-
-- [Context7 library ID] — [topics fetched]
-- [Official docs URL] — [what was verified]
-- [Other source] — [confidence level]
+Template for the stack dimension of the project research: the recommended technologies for the project domain.
 
 ---
-*Stack research for: [domain]*
-*Researched: [date]*
-````
 
-</template>
+## The Stack's Typed Edits
 
-<guidelines>
+The stack is `stack_choice` items of the project research `RESEARCH` in `spec/research.spec`, written with `specforge new` and scoped by `--research RESEARCH`: nothing writes a research file by hand. The orchestrator recorded `RESEARCH` before spawning the researchers; the synthesizer sets its summary. `specforge schema --kind stack_choice` lists the fields. A rejected option is a `stack_choice` of tier `alternative` with `--rejected_because`; version compatibility and the sources are `finding` items with `--topic stack`. Fill the quoted values; leave out a flag you have no value for, and repeat the lines per item with the next free id (`specforge query RESEARCH --depth 1 --format context` lists the items already recorded). A refusal names its code: read it with `specforge explain <code>`.
 
-**Core Technologies:**
-- Include specific version numbers
-- Explain why this is the standard choice, not just what it does
-- Focus on technologies that affect architecture decisions
+```bash
+NAME="{the technology or library}"
+VERSION="{its version, e.g. 5.4}"
+PURPOSE="{what it is for, and why it is the standard choice}"
+TIER="{core, supporting or alternative}"
+specforge new stack_choice SC1 "$NAME" --in spec/research.spec --research RESEARCH --name "$NAME" --version "$VERSION" --purpose "$PURPOSE" --tier "$TIER" || exit 1
+```
 
-**Supporting Libraries:**
-- Include libraries commonly needed for this domain
-- Note when each is needed (not all projects need all libraries)
+**What goes where:**
 
-**Alternatives:**
-- Don't just dismiss alternatives
-- Explain when alternatives make sense
-- Helps user make informed decisions if they disagree
-
-**What NOT to Use:**
-- Actively warn against outdated or problematic choices
-- Explain the specific problem, not just "it's old"
-- Provide the recommended alternative
-
-**Version Compatibility:**
-- Note any known compatibility issues
-- Critical for avoiding debugging time later
-
-</guidelines>
+- Core technologies (tier `core`): include specific version numbers; explain why this is the standard choice, not just
+  what it does; focus on technologies that affect architecture decisions.
+- Supporting libraries (tier `supporting`): the libraries commonly needed for this domain; note when each is needed (not
+  all projects need all libraries).
+- Alternatives (tier `alternative`): don't just dismiss them; explain when an alternative makes sense, which helps the
+  user make an informed decision if they disagree.
+- What not to use (`rejected_because`): actively warn against outdated or problematic choices; explain the specific
+  problem, not just "it's old", and name the recommended alternative.
+- Version compatibility (a `finding`, topic `stack`): known compatibility issues, critical for avoiding debugging time
+  later.

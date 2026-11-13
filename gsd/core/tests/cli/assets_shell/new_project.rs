@@ -186,3 +186,78 @@ fn the_project_fence_records_the_project_and_its_requirements() {
         "One machine is enough for now"
     );
 }
+
+/// What the synthesizer returned inline: a summary with an apostrophe, set as it is.
+const RETURNED: &str = "## Executive Summary\nIt's a small board: node:fs reads and writes it.\n\n## Key Findings\n- SC1";
+
+/// On a taskboard copy, step 6 records the project research and the stack researcher one `stack_choice` through
+/// the template's line; the self-heal's check reads the summary as pending, the returned summary is set with the
+/// overall confidence, and a second check finds it and writes nothing. The check reports nothing new.
+#[test]
+fn the_synthesizer_self_heal_sets_the_research_summary() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let workflow = asset("gsd-core/workflows/new-project.md");
+    let open = typed::filled(
+        &fence_after(&workflow, "**Record the project research:**"),
+        &[
+            ("DOMAIN", "Command-line task boards"),
+            ("RESEARCHED", "2026-11-13"),
+        ],
+    );
+    let stack = typed::filled(
+        &typed::typed_fence(
+            &asset("gsd-core/templates/research-project/STACK.md"),
+            "## The Stack's Typed Edits",
+        ),
+        &[
+            ("NAME", "node:fs"),
+            ("VERSION", "20"),
+            (
+                "PURPOSE",
+                "Reads and writes the board file; it ships with Node",
+            ),
+            ("TIER", "core"),
+        ],
+    );
+    let check = fence_after(&workflow, "1. Check that the summary is set");
+    let persist = typed::filled(
+        &fence_after(&workflow, "2. On `summary: pending`"),
+        &[
+            ("CONFIDENCE", "medium"),
+            ("{the summary the synthesizer returned}", RETURNED),
+        ],
+    );
+    let mut added = Vec::new();
+    for (name, script, says) in [
+        ("open", open, ""),
+        ("stack", stack, ""),
+        ("check", check.clone(), "summary: pending\n"),
+        ("persist", persist, ""),
+        ("check again", check.clone(), "summary: recorded\n"),
+    ] {
+        let run = typed::apply(&sh, &p, &script);
+        assert_eq!(run.code, 0, "{name}: {}{}", run.out, run.err);
+        assert!(run.out.ends_with(says), "{name}: {}", run.out);
+        added.extend(run.added);
+    }
+    assert!(added.is_empty(), "{added:?}");
+    let research = p.fields_of("RESEARCH");
+    assert_eq!(
+        research["summary"].as_str().map(str::trim_end),
+        Some(RETURNED),
+        "{research}"
+    );
+    assert_eq!(research["confidence"], "medium", "{research}");
+    assert_eq!(p.fields_of("RESEARCH/SC1")["tier"], "core");
+    let before = p.read("spec/research.spec");
+    let (out, _, code) = sh.run_in(p.root(), &check);
+    assert_eq!((out.as_str(), code), ("summary: recorded\n", 0));
+    assert_eq!(
+        p.read("spec/research.spec"),
+        before,
+        "the check writes nothing"
+    );
+}

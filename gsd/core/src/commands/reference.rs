@@ -23,7 +23,6 @@ const TEMPLATES: &[(&str, &[&str])] = &[
     ("verification-report.md", &["verification"]),
     ("retrospective.md", &["retrospective"]),
     ("user-setup.md", &["user_setup"]),
-    ("research-project/", &["research"]),
 ];
 
 /// The line a template answer starts with, when SpecForge keeps its content somewhere else.

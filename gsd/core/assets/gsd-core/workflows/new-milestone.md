@@ -338,8 +338,17 @@ AskUserQuestion: "Research the domain ecosystem for new features before defining
   → Stack, Features, Architecture, Pitfalls
 ```
 
+**Record the project research:** the four researchers record their items in the project research `RESEARCH`, and the synthesizer sets its summary. Record it first; a later milestone's research takes the same entity back, its summary pending again:
+
 ```bash
-# no folder to create: the entities live in the spec
+DOMAIN="{the domain researched}"
+RESEARCHED="{today, YYYY-MM-DD}"
+PENDING="Pending: the research synthesizer sets the summary"
+if specforge query RESEARCH --depth 0 --format json >/dev/null 2>&1; then
+  specforge set RESEARCH summary "$PENDING" || exit 1
+else
+  specforge new research RESEARCH "Project research" --in spec/research.spec --domain "$DOMAIN" --researched "$RESEARCHED" --confidence low --summary "$PENDING" || exit 1
+fi
 ```
 
 Spawn 4 parallel gsd-project-researcher agents. Each uses this template with dimension-specific fields:
@@ -362,7 +371,7 @@ Focus ONLY on what's needed for the NEW features.
 <question>{QUESTION}</question>
 
 <required_reading>
-- {project_path} (Project context)
+- specforge context gsd/project-researcher {project} (the researcher pack: the project, its requirements, decisions and milestones)
 </required_reading>
 
 ${AGENT_SKILLS_RESEARCHER}
@@ -376,8 +385,7 @@ ${AGENT_SKILLS_RESEARCHER}
 > **Runtime-aware dispatch (#2508 Phase 4).** GSD workflows dispatch specialized subagents by role. Before dispatching on a built-in-only runtime (kimi-code — three built-ins only), resolve the role to a built-in via the role name as it is installed. On named-dispatch runtimes (Claude/OpenCode/…) the role is returned unchanged; on kimi-code it maps to `coder`/`explore`/`plan` by role-suffix. The persona rides `${AGENT_SKILLS_<ROLE>}` (Phase 3) regardless. See @gsd-core/references/runtime-aware-dispatch.md.
 
 <output>
-Write to: {research_dir}/{FILE}
-Use template: ~/.claude/gsd-core/templates/research-project/{FILE}
+Record the {DIMENSION} items in `RESEARCH` with the fence of {FILE}.
 </output>
 ", subagent_type="gsd-project-researcher", model="{researcher_model}", description="{DIMENSION} research")
 ```
@@ -386,52 +394,71 @@ Use template: ~/.claude/gsd-core/templates/research-project/{FILE}
 
 | Field | Stack | Features | Architecture | Pitfalls |
 |-------|-------|----------|-------------|----------|
-| EXISTING_CONTEXT | Existing validated capabilities (DO NOT re-research): [from PROJECT.md] | Existing features (already built): [from PROJECT.md] | Existing architecture: [from PROJECT.md or codebase map] | Focus on common mistakes when ADDING these features to existing system |
+| EXISTING_CONTEXT | Existing validated capabilities (DO NOT re-research): [the project's `validated`] | Existing features (already built): [the project's `validated`] | Existing architecture: [the project's context or the codebase map] | Focus on common mistakes when ADDING these features to existing system |
 | QUESTION | What stack additions/changes are needed for [new features]? | How do [target features] typically work? Expected behavior? | How do [target features] integrate with existing architecture? | Common mistakes when adding [target features] to [domain]? |
 | CONSUMER | Specific libraries with versions for NEW capabilities, integration points, what NOT to add | Table stakes vs differentiators vs anti-features, complexity noted, dependencies on existing | Integration points, new components, data flow changes, suggested build order | Warning signs, prevention strategy, which phase should address it |
 | GATES | Versions current (verify with Context7), rationale explains WHY, integration considered | Categories clear, complexity noted, dependencies identified | Integration points identified, new vs modified explicit, build order considers deps | Pitfalls specific to adding these features, integration pitfalls covered, prevention actionable |
-| FILE | STACK.md | FEATURES.md | ARCHITECTURE.md | PITFALLS.md |
+| FILE | ~/.claude/gsd-core/templates/research-project/STACK.md | ~/.claude/gsd-core/templates/research-project/FEATURES.md | ~/.claude/gsd-core/templates/research-project/ARCHITECTURE.md | ~/.claude/gsd-core/templates/research-project/PITFALLS.md |
 
 > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling all 4 researcher Agent() calls above, do NOT read research files or synthesize content independently while the subagents are active. Wait for all 4 researchers to complete before spawning the synthesizer. This prevents duplicate work and wasted context.
 
-After all 4 complete, spawn synthesizer:
+After all 4 complete, spawn the synthesizer to set the research summary:
 
 ```text
 Agent(prompt="
-Synthesize research outputs into SUMMARY.md.
+<task>
+Synthesize the project research into its summary.
+</task>
 
 <required_reading>
-- {research_dir}/STACK.md
-- {research_dir}/FEATURES.md
-- {research_dir}/ARCHITECTURE.md
-- {research_dir}/PITFALLS.md
+- specforge context gsd/research-synthesizer {project} (the synthesizer pack: the project, `RESEARCH` with its stack choices, findings, patterns and pitfalls, and the requirements)
 </required_reading>
 
 ${AGENT_SKILLS_SYNTHESIZER}
 
-Write to: {research_dir}/SUMMARY.md
-Use template: ~/.claude/gsd-core/templates/research-project/SUMMARY.md
-Commit after writing.
+<output>
+Set the summary of `RESEARCH` with the fence of ~/.claude/gsd-core/templates/research-project/SUMMARY.md.
+Commit after setting it (`specforge git commit --add spec`).
+</output>
 ", subagent_type="gsd-research-synthesizer", model="{synthesizer_model}", description="Synthesize research")
 ```
 
 > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
-**Synthesizer output self-heal (#222) — verify SUMMARY.md materialized:** The synthesizer's canonical output is the `research` entity for SUMMARY on disk; its brief structured return (`## SYNTHESIS COMPLETE` plus a few `###` confirmation lines) is NOT the file content. The restriction is not always fabricated: Claude Code refuses a subagent's `Write` to a few exact basenames — `SUMMARY.md` among them — with `Subagents should return findings as text, not write report files` (observed on Claude Code 2.1.301), and the synthesizer is told to return the full document inline when its `Write` hits that error; the refusal is real, not fabricated. It depends on the exact basename (`SUMMARY.md`, `REPORT.md`, `FINDINGS.md`, `ANALYSIS.md`, case-insensitive; a prefixed name such as `01-01-SUMMARY.md` and other agents' files write fine), so do not tell other agents to avoid `Write`. Either cause lands in step 2. A known LLM false-refusal (issue #222) sometimes makes the agent return the full SUMMARY.md document inline — fabricating a write restriction (e.g. "the runtime is blocking file writes") — instead of writing the file. Prompt hardening alone does not fully eliminate it, so the orchestrator MUST absorb either cause deterministically before spawning `gsd-roadmapper`:
+**Synthesizer output self-heal (#222): verify the summary is set.** The synthesizer's canonical output is the `summary` of `RESEARCH`; its brief structured return (`## SYNTHESIS COMPLETE` plus a few `###` confirmation lines) is NOT the summary. A known LLM false-refusal (issue #222) sometimes makes the agent return the full summary inline, fabricating a restriction (e.g. "the runtime is blocking writes"), instead of setting it, and a runtime may refuse a subagent's tool call for real. Prompt hardening alone does not fully eliminate it, so the orchestrator MUST absorb either cause deterministically before spawning `gsd-roadmapper`:
 
-1. Verify the `research` entity for SUMMARY exists AND is substantive — non-empty, and free of any leftover `<!-- gsd:write-continue -->` continuation sentinel (which marks a truncated/incomplete write). You may validate with `specforge check`: a missing or invalid research entity is a finding. If it passes, continue normally.
-2. If it is MISSING or invalid AND the synthesizer's return message contains the FULL SUMMARY.md document — recognizable by the template's top-level markers `# Project Research Summary`, `## Key Findings`, `## Implications for Roadmap`, and `## Sources`, not merely the brief `## SYNTHESIS COMPLETE` confirmation — the synthesizer returned the document inline (the #222 false-refusal, or the runtime's real refusal of the name `SUMMARY.md`): write that returned document to the `research` entity for SUMMARY with the Write tool, then commit ALL research artifacts the synthesizer owns (it commits on behalf of the four researchers) with `git commit -m "docs: complete project research"`, then `specforge collect --runner gsd-git --yes` unless they are already committed. Log `⚠ #222 self-heal: synthesizer returned SUMMARY.md inline without writing it; orchestrator persisted the file.`
-3. If it is MISSING or invalid AND the return is only a brief confirmation (no full SUMMARY document to recover), the synthesizer genuinely failed — surface the error and stop; do NOT spawn `gsd-roadmapper` against a missing or incomplete SUMMARY.md.
+1. Check that the summary is set: until the synthesizer sets it, it reads the pending text the research was recorded with.
 
-This guarantees `gsd-roadmapper` (which lists SUMMARY.md as required reading) never runs against a missing or truncated SUMMARY.md.
+   ```bash
+   PENDING="Pending: the research synthesizer sets the summary"
+   NOW=$(specforge query RESEARCH --depth 0 --format json --pick '.nodes[0].fields.summary') || exit 1
+   if [ -n "$NOW" ] && [ "$NOW" != "$PENDING" ]; then echo "summary: recorded"; else echo "summary: pending"; fi
+   ```
 
-Display key findings from SUMMARY.md:
+   On `summary: recorded`, continue normally.
+2. On `summary: pending`, if the synthesizer's return holds the FULL summary (recognizable by its sections `## Executive Summary`, `## Key Findings`, `## Implications for Roadmap` and `## Sources`, not merely the brief `## SYNTHESIS COMPLETE` confirmation), the synthesizer returned it inline: set it from the return, the text in the quoted heredoc as it is.
+
+   ```bash
+   CONFIDENCE="{high, medium or low: the overall confidence the return states}"
+   IFS= read -r -d '' SUMMARY <<'SUMMARY_EOF'
+   {the summary the synthesizer returned}
+   SUMMARY_EOF
+   specforge set RESEARCH summary "$SUMMARY" || exit 1
+   specforge set RESEARCH confidence "$CONFIDENCE" || exit 1
+   ```
+
+   Then commit the research (the synthesizer commits on behalf of the four researchers): `specforge git commit --add spec -m "docs: complete project research" && specforge collect --runner gsd-git --yes`. Log `⚠ #222 self-heal: synthesizer returned the summary inline without setting it; orchestrator set it.`
+3. On `summary: pending` with only a brief confirmation (no full summary to recover), the synthesizer genuinely failed: surface the error and stop; do NOT spawn `gsd-roadmapper` against a pending summary.
+
+This guarantees `gsd-roadmapper` (whose pack holds the research) never runs against a pending summary.
+
+Display the key findings of the summary:
 ```
 ### GSD ► RESEARCH COMPLETE ✓
 
-**Stack additions:** [from SUMMARY.md]
-**Feature table stakes:** [from SUMMARY.md]
-**Watch Out For:** [from SUMMARY.md]
+**Stack additions:** [from the summary]
+**Feature table stakes:** [from the summary]
+**Watch Out For:** [from the summary]
 ```
 
 **If "Skip research":** Continue to Step 9.
