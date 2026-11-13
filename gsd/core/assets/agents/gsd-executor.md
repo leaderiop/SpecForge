@@ -669,8 +669,9 @@ legitimate. The summary's `actuals.commits` is computed from the same base: noth
 
 **2. Check the artifacts exist:**
 ```bash
-specforge collect --runner gsd-git --yes
-specforge query "$PLAN_ID" --depth 1 --kinds artifact --pick '.nodes[fields.state=missing].id'
+PLAN_ID="{the plan's id, e.g. v1.0/02/02-01}"
+specforge collect --runner gsd-git --yes || exit 1
+specforge query "$PLAN_ID" --depth 1 --kinds artifact --pick '.nodes[fields.state=missing].id' || exit 1
 ```
 No output means passed; each id printed names an artifact whose file is missing.
 

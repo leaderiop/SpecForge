@@ -385,3 +385,86 @@ fn the_continuation_re_records_the_executor_pack() {
     );
     assert!(run.added.is_empty(), "{:?}", run.added);
 }
+
+/// The code span of `text` that starts with `prefix`, read as text: a span inside a Markdown fence counts too.
+fn span(text: &str, prefix: &str) -> String {
+    let at = text
+        .find(&format!("`{prefix}"))
+        .unwrap_or_else(|| panic!("no code span starts with {prefix}"))
+        + 1;
+    let end = text[at..].find('`').expect("the span's closing backtick");
+    text[at..at + end].to_string()
+}
+
+/// The executor's artifact self-check, as the model fills it, prints the id of an artifact whose file is missing.
+#[test]
+fn the_self_check_prints_a_missing_artifact() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    // the collector reads the project's git history
+    p.commit();
+    let check = typed::filled(
+        &typed::typed_fence(
+            &asset("agents/gsd-executor.md"),
+            "**2. Check the artifacts exist:**",
+        ),
+        &[("PLAN_ID", "v1.0/02/02-01")],
+    );
+    let run = typed::apply(&sh, &p, &check);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(run.out.contains("v1.0/02/02-01/AR1"), "{}", run.out);
+}
+
+/// The reads the execute family names inline run as written: the executor's scope pick lists the plan's files,
+/// execute-plan's setup read serves a setup step, and execute-phase's report reads serve the phase's verification.
+#[test]
+fn the_execute_reads_run_as_written() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let scope = span(
+        &asset("agents/gsd-executor.md"),
+        "specforge query \"$PLAN_ID\" --depth 0 --pick '.nodes[0].fields.files_modified[]'",
+    );
+    let (out, err, code) = sh.run_in(p.root(), &format!("PLAN_ID=v1.0/02/02-01\n{scope}"));
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(out.lines().any(|l| l == "src/store.js"), "{out}");
+
+    let setup = typed::filled(
+        &typed::typed_fence(
+            &asset("gsd-core/templates/user-setup.md"),
+            "## The User Setup's Typed Edits",
+        ),
+        &[
+            ("PLAN_ID", "v1.0/02/02-01"),
+            ("SETUP_ID", "US1"),
+            ("SERVICE", "stripe"),
+            ("WHY", "Payment processing requires API keys"),
+            ("ENV_VARS", "[]"),
+            ("DASHBOARD", "[]"),
+            ("LOCAL_DEV", "none"),
+        ],
+    );
+    assert_eq!(typed::apply(&sh, &p, &setup).code, 0);
+    let read = typed::typed_fence(
+        &asset("gsd-core/workflows/execute-plan.md"),
+        "<step name=\"generate_user_setup\">",
+    );
+    let (out, err, code) = sh.run_in(p.root(), &format!("PLAN_ID=v1.0/02/02-01\n{read}"));
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(out.contains("v1.0/02/02-01/US1"), "{out}");
+
+    let phase = asset("gsd-core/workflows/execute-phase.md");
+    for prefix in [
+        "specforge query \"$PHASE_ID\" --kinds verification --format context",
+        "specforge query \"$PHASE_ID\" --depth 2 --kinds verification,verify_gap --format context",
+    ] {
+        let line = span(&phase, prefix);
+        let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{line}"));
+        assert_eq!(code, 0, "{line}: {out}{err}");
+        assert!(out.contains("\"kind\":\"verification\""), "{line}: {out}");
+    }
+}
