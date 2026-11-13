@@ -61,7 +61,7 @@
     "Track which optional artifacts are missing for the `missing_artifacts` frontmatter field.",
     "</step>"
   ],
-  "bytes": 21495,
+  "bytes": 21528,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -136,7 +136,7 @@
     "| `PROJECT.md` | project, requirement, decision |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:1dc3017ff3fc6671140957efee345301e8bff046526aeb3a5f9aa53b8e2b8069",
+    "digest": "sha256:31788b93f311d63f88d875e9dfdda181ce5fd67b230c38e5d3308d5ef75840bd",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "1dc3017ff3fc6671140957efee345301e8bff046526aeb3a5f9aa53b8e2b8069"
+  "sha256": "31788b93f311d63f88d875e9dfdda181ce5fd67b230c38e5d3308d5ef75840bd"
 }

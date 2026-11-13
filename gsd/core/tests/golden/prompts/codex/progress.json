@@ -61,7 +61,7 @@
     "the spec exists but the core initialization artifacts are missing (one or more of `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md` were never created — a bootstrap that stopped partway, e.g. after PROJECT.md). This is NOT a new project, NOT a missing STATE.md, and NOT a between-milestones state — do not fall through to any of those routes. Route to initialization recovery:",
     ""
   ],
-  "bytes": 76844,
+  "bytes": 76877,
   "end": [
     "| 3     | ○      | 0/2   | 0%       |",
     "```",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b6d3b75aac8865e2b4177613d26712d8b51fab4e6aafc5ecdf21892154f5f798",
+    "digest": "sha256:5437738e61fdd7dd97a29a2829915ff7cb849c4b87f7d42c18406f9efe0e358e",
     "prompt": "@gsd/core@VERSION:progress",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "b6d3b75aac8865e2b4177613d26712d8b51fab4e6aafc5ecdf21892154f5f798"
+  "sha256": "5437738e61fdd7dd97a29a2829915ff7cb849c4b87f7d42c18406f9efe0e358e"
 }

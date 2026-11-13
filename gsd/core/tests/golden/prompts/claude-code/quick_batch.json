@@ -61,7 +61,7 @@
     "",
     "<available_agent_types>"
   ],
-  "bytes": 23418,
+  "bytes": 23451,
   "end": [
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
     "capacity/isolation, and dispatch wave-by-wave.",
@@ -117,7 +117,7 @@
     "| `PROJECT.md` | project, requirement, decision |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:49d3a8ffc4493114ec74a908f296e8931d80c03ec3c6fbc2dde374698350c135",
+    "digest": "sha256:11caaa84077017b2ccaede4d07a13e67958c12a657af76ed0b734a7948416451",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "49d3a8ffc4493114ec74a908f296e8931d80c03ec3c6fbc2dde374698350c135"
+  "sha256": "11caaa84077017b2ccaede4d07a13e67958c12a657af76ed0b734a7948416451"
 }

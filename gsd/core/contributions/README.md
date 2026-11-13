@@ -252,7 +252,7 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `approve_validation` | validation `approval` |
 | `close_milestone` | milestone `completion` (gated by gsd/E106, E511, E516), its retrospective |
 | `pause`, `resume` | pause `at`, `by`; removes the pause |
-| `raise_blocker`, `resolve_blocker` | blocker `raised`, `resolved` |
+| `raise_blocker`, `resolve_blocker` | blocker `raised` (and `gate`, the task whose TDD gate tripped, with `--plan <plan> --gate <task>`: the open blocker of the same gate is reused), `resolved` |
 | `record_window`, `waive_window`, `fix_window` | broken_window `recorded_at`; `waiver`; `fixed_at` |
 | `record_review <phase> --review <json> [--round <review>]` (`specforge gsd record-review`; upstream wrote NN-REVIEWS.md) | a `review` round (`RV<n>`, scoped by its phase, in the phase's file) with its reviewers, lanes, coverage, consensus and unchecked symbols, and `reviewed_at`, and one `review_concern` (`RC<n>`) per concern, in one plan; every plan, reviewer and enum is checked first, naming where it stands. `--round` adds unchecked symbols and concerns to a recorded round, nothing else |
 | `record_conflict <plan> --dimension D --property P --conflicts-with C [--alternatives A]`, `resolve_conflict <how> (--conflict <id> \| --plan <plan>)` (`specforge gsd record-conflict`, `resolve-conflict`; upstream kept REVISION_CONFLICT lines in the planner's return) | revision_conflict `raised` (`CF<n>` in the plan's phase, each field on one line, the open one that says the same reused); `resolved` `{at, how}` of one open conflict, or of every open one of a plan. A quick plan has no conflict channel |

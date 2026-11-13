@@ -61,7 +61,7 @@
     "",
     "**If error:** Display the error message and exit."
   ],
-  "bytes": 37822,
+  "bytes": 37855,
   "end": [
     "",
     "Table rules use ASCII `-`, never box-drawing characters.",
@@ -117,7 +117,7 @@
     "| `PROJECT.md` | project, requirement, decision |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:57aae547545e8b5a4056df8a2990e68bdf6520d7c1ae167efa7fde4039f8501c",
+    "digest": "sha256:a93923c4fdae5442906a96b6a4e1d139a59bef1a6d8e8ee90da31dd8694ecd26",
     "prompt": "@gsd/core@VERSION:manager",
     "steps": [
       {
@@ -232,5 +232,5 @@
       }
     ]
   },
-  "sha256": "57aae547545e8b5a4056df8a2990e68bdf6520d7c1ae167efa7fde4039f8501c"
+  "sha256": "a93923c4fdae5442906a96b6a4e1d139a59bef1a6d8e8ee90da31dd8694ecd26"
 }

@@ -36,7 +36,7 @@
     "| `/gsd-spike` | not served on this project |",
     "| `/gsd-spec-phase` | prompt `specforge.gsd.spec_phase` (served by @gsd/core) |"
   ],
-  "bytes": 9979,
+  "bytes": 10012,
   "end": [
     "  \"parallelization.skip_checkpoints\": true,",
     "  \"parallelization.task_level\": false",
@@ -92,7 +92,7 @@
     "| `PROJECT.md` | project, requirement, decision |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
@@ -170,8 +170,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:fe465e3467cd07dd262b1e637239e1e4ed8400d7199a765d7645be9ea25672e0",
+    "digest": "sha256:5fbc952141402d6e8035806960c9e625c076907fdc178265ffede970a5c8e7ee",
     "prompt": "@gsd/core@VERSION:ns_ideate"
   },
-  "sha256": "fe465e3467cd07dd262b1e637239e1e4ed8400d7199a765d7645be9ea25672e0"
+  "sha256": "5fbc952141402d6e8035806960c9e625c076907fdc178265ffede970a5c8e7ee"
 }

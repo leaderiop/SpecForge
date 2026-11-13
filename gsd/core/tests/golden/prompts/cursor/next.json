@@ -61,7 +61,7 @@
     "  \"summary\": \"Phase 2 of 5 · 60% · executing\",",
     "  \"signals\": { \"...\": \"...\" },"
   ],
-  "bytes": 23539,
+  "bytes": 23572,
   "end": [
     "## Anti-Patterns",
     "",
@@ -136,7 +136,7 @@
     "| `PROJECT.md` | project, requirement, decision |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:17d99ce2494e296784ed1eb473d3ae15c55886669927b134205f7581b21abe9a",
+    "digest": "sha256:1534a9f060699364dee39f55659ec08984f66f63f17cb6f57fc02031e15c212e",
     "prompt": "@gsd/core@VERSION:next",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "17d99ce2494e296784ed1eb473d3ae15c55886669927b134205f7581b21abe9a"
+  "sha256": "1534a9f060699364dee39f55659ec08984f66f63f17cb6f57fc02031e15c212e"
 }

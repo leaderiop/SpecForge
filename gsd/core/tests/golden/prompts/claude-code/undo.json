@@ -61,7 +61,7 @@
     "",
     "Examples:"
   ],
-  "bytes": 47485,
+  "bytes": 47518,
   "end": [
     "- question: \"How thorough should planning be?\"",
     "- header: \"Depth\"",
@@ -117,7 +117,7 @@
     "| `PROJECT.md` | project, requirement, decision |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:62a87152b3c3bfb529c91d741f499055b0861feb67cfa2655328b6648d9082f2",
+    "digest": "sha256:5c70f61d332a9e4aa2e38649d603fdb10874ccd4d580ec14e5d623cf3d8f0ded",
     "prompt": "@gsd/core@VERSION:undo"
   },
-  "sha256": "62a87152b3c3bfb529c91d741f499055b0861feb67cfa2655328b6648d9082f2"
+  "sha256": "5c70f61d332a9e4aa2e38649d603fdb10874ccd4d580ec14e5d623cf3d8f0ded"
 }

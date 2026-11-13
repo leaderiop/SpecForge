@@ -26,7 +26,7 @@
     "4. Tell the user to restart the host, so that it reads the new skills.",
     "</process>"
   ],
-  "bytes": 10594,
+  "bytes": 10627,
   "end": [
     "  \"effort.routing_tier_defaults.heavy\": \"xhigh\",",
     "  \"effort.routing_tier_defaults.light\": \"low\",",
@@ -82,7 +82,7 @@
     "| `PROJECT.md` | project, requirement, decision |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
@@ -153,8 +153,8 @@
   ],
   "lines": 204,
   "payload": {
-    "digest": "sha256:1ca94ab8c9d1cb700e352a74ff1718252b63af2a680bef2a2a3ebbe1e153bdb6",
+    "digest": "sha256:85daf3b2b31d26502dccdd40dfc0813008f698772b9c7333df048a1ea854263c",
     "prompt": "@gsd/core@VERSION:update"
   },
-  "sha256": "1ca94ab8c9d1cb700e352a74ff1718252b63af2a680bef2a2a3ebbe1e153bdb6"
+  "sha256": "85daf3b2b31d26502dccdd40dfc0813008f698772b9c7333df048a1ea854263c"
 }

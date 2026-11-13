@@ -38,7 +38,7 @@
     "| `/gsd-mempalace-recall` | not served on this project |",
     "| `/gsd-mempalace-capture` | not served on this project |"
   ],
-  "bytes": 10901,
+  "bytes": 10934,
   "end": [
     "}",
     "```",
@@ -113,7 +113,7 @@
     "| `PROJECT.md` | project, requirement, decision |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
@@ -172,8 +172,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:47b0a3a3cdb30f23ea1297154a7a11b6e5d61b17c1f693f703fdb44c81224533",
+    "digest": "sha256:62b6b02f40b51fd630e093146d3d1d9931f519c0127d11f9c6df21ac7eaef9f8",
     "prompt": "@gsd/core@VERSION:ns_context"
   },
-  "sha256": "47b0a3a3cdb30f23ea1297154a7a11b6e5d61b17c1f693f703fdb44c81224533"
+  "sha256": "62b6b02f40b51fd630e093146d3d1d9931f519c0127d11f9c6df21ac7eaef9f8"
 }

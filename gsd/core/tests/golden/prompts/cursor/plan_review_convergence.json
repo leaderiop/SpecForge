@@ -61,7 +61,7 @@
     "operator's explicit flag overrides this gate for that run. Standalone invocation carries no such",
     "flag and remains gated by the config below."
   ],
-  "bytes": 76279,
+  "bytes": 76312,
   "end": [
     "- `## Self-Check: FAILED` (summary self-check)",
     "",
@@ -136,7 +136,7 @@
     "| `PROJECT.md` | project, requirement, decision |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:ade7ae2f90c4bf424f7b678b9814b3740a51e49e9070bdd991e42cd093f31c3d",
+    "digest": "sha256:ec0c61fa8227fb357bdccde04a311795076644a99e93a445b7a968c0ffa03f9f",
     "prompt": "@gsd/core@VERSION:plan_review_convergence",
     "steps": [
       {
@@ -211,5 +211,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "ade7ae2f90c4bf424f7b678b9814b3740a51e49e9070bdd991e42cd093f31c3d"
+  "sha256": "ec0c61fa8227fb357bdccde04a311795076644a99e93a445b7a968c0ffa03f9f"
 }

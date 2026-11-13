@@ -61,7 +61,7 @@
     "# the commands below are specforge commands: there is no launcher to define",
     ""
   ],
-  "bytes": 65766,
+  "bytes": 65799,
   "end": [
     "## Gaps",
     "",
@@ -136,7 +136,7 @@
     "| `PROJECT.md` | project, requirement, decision |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:517f12995813f2ce8e793ea3f4223a23bd1ba322d8680f285536dcc00398215b",
+    "digest": "sha256:e29c227d733a170833c727fd66d3fb5c66dfa754fd5d620b0a3cbf2e75bec709",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "517f12995813f2ce8e793ea3f4223a23bd1ba322d8680f285536dcc00398215b"
+  "sha256": "e29c227d733a170833c727fd66d3fb5c66dfa754fd5d620b0a3cbf2e75bec709"
 }

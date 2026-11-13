@@ -61,7 +61,7 @@
     "fi",
     "```"
   ],
-  "bytes": 20852,
+  "bytes": 20885,
   "end": [
     "| Phase | Status | Plans | Progress |",
     "|-------|--------|-------|----------|",
@@ -136,7 +136,7 @@
     "| `PROJECT.md` | project, requirement, decision |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:8cd35cd7d3c367709c7a8e7bd0f7b3006df60c8125f0c41a0f0b8db25f4af767",
+    "digest": "sha256:bddb99e42e5624c7ea868de553dc5f5bbcc3e609a9fc475628e9536866d8dd38",
     "prompt": "@gsd/core@VERSION:ultraplan_phase",
     "steps": [
       {
@@ -213,5 +213,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "8cd35cd7d3c367709c7a8e7bd0f7b3006df60c8125f0c41a0f0b8db25f4af767"
+  "sha256": "bddb99e42e5624c7ea868de553dc5f5bbcc3e609a9fc475628e9536866d8dd38"
 }

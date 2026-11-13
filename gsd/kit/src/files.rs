@@ -26,7 +26,7 @@ pub const PLANNING_FILES: &[(&str, &str)] = &[
     ("milestones/*", "milestone, phase"),
     (
         "STATE.md",
-        "computed (progress, position) + pause, blocker + session state",
+        "computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state",
     ),
     ("RETROSPECTIVE.md", "retrospective, lesson, methodology"),
     ("LEARNINGS.md", "retrospective, lesson, methodology"),

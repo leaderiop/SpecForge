@@ -219,7 +219,7 @@ fn the_ops_kinds_declare_the_fields_of_the_model() {
     );
     assert_eq!(
         fields_of("blocker"),
-        ["text", "phase", "plan", "raised", "resolved"]
+        ["text", "phase", "plan", "gate", "raised", "resolved"]
     );
     for kind in ["pause", "handoff"] {
         assert_eq!(kind_of(kind)["scoped_by"], "phase", "{kind}");
@@ -240,7 +240,12 @@ fn the_ops_kinds_declare_the_fields_of_the_model() {
     ] {
         assert_eq!(field_of(kind, field)["required"], true, "{kind}.{field}");
     }
-    for (kind, field) in [("pause", "at"), ("pause", "by"), ("blocker", "raised")] {
+    for (kind, field) in [
+        ("pause", "at"),
+        ("pause", "by"),
+        ("blocker", "gate"),
+        ("blocker", "raised"),
+    ] {
         assert_eq!(writer(kind, field), "harness", "{kind}.{field}");
     }
     // `resolved` is authored, so its `at` gets the E107 rule; a `pause.at` is harness-written, so it gets none.
@@ -315,7 +320,8 @@ fn the_model_counts_its_fields() {
     .iter()
     .map(|k| fields_of(k).len())
     .sum();
-    assert_eq!(total, 22 + 6 + 5 + 13 + 6 + 10 + 5);
+    // + 1: the blocker's `gate`.
+    assert_eq!(total, 22 + 6 + 5 + 13 + 6 + 10 + 5 + 1);
 }
 
 #[test]

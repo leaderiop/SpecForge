@@ -61,7 +61,7 @@
     "",
     "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
   ],
-  "bytes": 11242,
+  "bytes": 11275,
   "end": [
     "",
     "3. **Present the list to the user** via AskUserQuestion:",
@@ -117,7 +117,7 @@
     "| `PROJECT.md` | project, requirement, decision |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2f783b1edf2d748d37718a8832dcb59a94fd87164264a76dd842b123d958801b",
+    "digest": "sha256:b646c870f0b2e4c4b51f28a61e5472257aa9c3dec5456c006f694597a1ead4d9",
     "prompt": "@gsd/core@VERSION:review_backlog",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "2f783b1edf2d748d37718a8832dcb59a94fd87164264a76dd842b123d958801b"
+  "sha256": "b646c870f0b2e4c4b51f28a61e5472257aa9c3dec5456c006f694597a1ead4d9"
 }

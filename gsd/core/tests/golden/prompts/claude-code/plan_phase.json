@@ -61,7 +61,7 @@
     "collapsing plan roles into the orchestrator context.",
     ""
   ],
-  "bytes": 115628,
+  "bytes": 115661,
   "end": [
     "</file>",
     "</execution_context>",
@@ -117,7 +117,7 @@
     "| `PROJECT.md` | project, requirement, decision |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:8479920cfa78e293c616f76b91004f0c5159c6aa28ed3826fef52d9ad6d26d1c",
+    "digest": "sha256:de5d95f84e12d086d763b3ee822846b2f08eadd0afc34f9227aab6ae64673f62",
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
@@ -240,5 +240,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "8479920cfa78e293c616f76b91004f0c5159c6aa28ed3826fef52d9ad6d26d1c"
+  "sha256": "de5d95f84e12d086d763b3ee822846b2f08eadd0afc34f9227aab6ae64673f62"
 }

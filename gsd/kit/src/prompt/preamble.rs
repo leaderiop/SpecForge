@@ -17,7 +17,7 @@ pub const FILES: &[(&str, &str)] = &[
     ),
     (
         "`STATE.md`",
-        "computed (progress, position) + pause, blocker + session state",
+        "computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state",
     ),
     ("`config.json`", "settings"),
     (

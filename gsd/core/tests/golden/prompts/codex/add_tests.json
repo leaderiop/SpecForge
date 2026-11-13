@@ -61,7 +61,7 @@
     "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id; `name` is its field). `response_language` is a setting: `specforge settings --format json --extension @gsd/core`.",
     ""
   ],
-  "bytes": 30732,
+  "bytes": 30765,
   "end": [
     "",
     "---",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:e0d12063133d0018e40179d9b2763b95b4fa3ba7f7d209674f22614194589c8f",
+    "digest": "sha256:1101d8017410480c66358b0d472044156f9058b489ecd47f1f48f06d2b43541e",
     "prompt": "@gsd/core@VERSION:add_tests",
     "subject": "v1.0/02"
   },
-  "sha256": "e0d12063133d0018e40179d9b2763b95b4fa3ba7f7d209674f22614194589c8f"
+  "sha256": "1101d8017410480c66358b0d472044156f9058b489ecd47f1f48f06d2b43541e"
 }

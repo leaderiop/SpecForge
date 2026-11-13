@@ -48,6 +48,7 @@ pub const WRITERS: &[(&str, &str, &str)] = &[
     ("pause", "at", "pause"),
     ("pause", "by", "pause"),
     ("blocker", "raised", "raise_blocker"),
+    ("blocker", "gate", "raise_blocker"),
     ("uat_test", "result", "set_uat_result"),
     ("uat_test", "source", "set_uat_result"),
     ("validation", "approval", "approve_validation"),

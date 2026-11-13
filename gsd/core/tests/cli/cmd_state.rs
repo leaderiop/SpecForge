@@ -133,3 +133,73 @@ fn a_control_character_in_how_is_refused() {
     assert_ne!(run.code, 0);
     assert_eq!(bytes(&p), before);
 }
+
+/// A tripped TDD gate is a blocker on its plan whose `gate` is the task; tripping again reuses the open one.
+#[test]
+fn a_gate_trip_raises_one_blocker_on_its_task() {
+    let p = twin();
+    let trip = |p: &crate::harness::Project| {
+        gsd(
+            p,
+            "raise-blocker",
+            &[
+                "TDD gate tripped: missing RED commit for 02-01/T1",
+                "--plan",
+                "02-01",
+                "--gate",
+                "T1",
+                "--format",
+                "json",
+            ],
+        )
+    };
+    let run = trip(&p);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let fields = p.fields_of("BL1");
+    assert_eq!(fields["gate"], "v1.0/02/02-01/T1");
+    assert_eq!(fields["plan"], "v1.0/02/02-01");
+    let before = bytes(&p);
+    let again = trip(&p);
+    assert_eq!(again.code, 0, "{}", again.all());
+    assert_eq!(json(&again)["reused"], "BL1");
+    unchanged(&p, &before);
+    assert!(
+        !p.codes().iter().any(|c| c.starts_with('E')),
+        "{:?}",
+        p.codes()
+    );
+}
+
+#[test]
+fn a_gate_without_a_plan_is_refused() {
+    let p = twin();
+    let before = bytes(&p);
+    refused(
+        &gsd(&p, "raise-blocker", &["tripped", "--gate", "T1"]),
+        "invalid_input",
+        &["--gate", "--plan"],
+    );
+    refused(
+        &gsd(
+            &p,
+            "raise-blocker",
+            &["tripped", "--plan", "02-01", "--gate", "v1.0/01/01-01/T1"],
+        ),
+        "invalid_input",
+        &["01-01/T1", "02-01"],
+    );
+    unchanged(&p, &before);
+}
+
+#[test]
+fn a_resolved_gate_blocker_is_not_reused() {
+    let p = twin();
+    let args = ["tripped", "--plan", "02-01", "--gate", "T1"];
+    assert_eq!(gsd(&p, "raise-blocker", &args).code, 0);
+    assert_eq!(
+        gsd(&p, "resolve-blocker", &["BL1", "wrote the RED test"]).code,
+        0
+    );
+    assert_eq!(gsd(&p, "raise-blocker", &args).code, 0);
+    assert_eq!(p.fields_of("BL2")["gate"], "v1.0/02/02-01/T1");
+}

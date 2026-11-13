@@ -61,7 +61,7 @@
     "The strategy is `git.branching_strategy` in these settings; the branch is the phase's computed `branch`.",
     ""
   ],
-  "bytes": 54658,
+  "bytes": 54691,
   "end": [
     "Commits: {count}",
     "Verification: ✓ Passed",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:47963f6f8de3b5f1f3564334ea8733d45ce07cddc86f518b9be1d43dcd552c0b",
+    "digest": "sha256:b4dbdba8904b7da6271862e07d50b6d730b0f675328a74718795f399630aff01",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "47963f6f8de3b5f1f3564334ea8733d45ce07cddc86f518b9be1d43dcd552c0b"
+  "sha256": "b4dbdba8904b7da6271862e07d50b6d730b0f675328a74718795f399630aff01"
 }

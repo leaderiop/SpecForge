@@ -61,7 +61,7 @@
     "- **Default**: no detectable context → the project's handoff, note the ambiguity in `<current_state>`",
     ""
   ],
-  "bytes": 27637,
+  "bytes": 27670,
   "end": [
     "To resume: $gsd-resume-work",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:cfa360a2aadeb0db4ad13a4369601b3b05d623758c8ef34f1ba42228aff54611",
+    "digest": "sha256:f6abd817e3653ac45c03d899f32edfae293a926992abd117a3b6abece0843d51",
     "prompt": "@gsd/core@VERSION:pause_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "cfa360a2aadeb0db4ad13a4369601b3b05d623758c8ef34f1ba42228aff54611"
+  "sha256": "f6abd817e3653ac45c03d899f32edfae293a926992abd117a3b6abece0843d51"
 }

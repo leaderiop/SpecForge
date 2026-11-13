@@ -61,7 +61,7 @@
     "",
     "**Always available:**"
   ],
-  "bytes": 19513,
+  "bytes": 19546,
   "end": [
     "```",
     "</file>",
@@ -117,7 +117,7 @@
     "| `PROJECT.md` | project, requirement, decision |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:677113f0b56e0629f8252043fe28d90d241fd6d54229ad46ec9303ea29a0e64a",
+    "digest": "sha256:a49ee38b8bf331dce604c77016dbae1d104009fb0c7348f58dc23796a6e00372",
     "prompt": "@gsd/core@VERSION:milestone_summary",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "677113f0b56e0629f8252043fe28d90d241fd6d54229ad46ec9303ea29a0e64a"
+  "sha256": "a49ee38b8bf331dce604c77016dbae1d104009fb0c7348f58dc23796a6e00372"
 }

@@ -61,7 +61,7 @@
     "fi",
     ""
   ],
-  "bytes": 22471,
+  "bytes": 22504,
   "end": [
     "Planning paths in diff: {FORBIDDEN} — must be 0",
     "Planning deletions: {PLANNING_DELETIONS} (must be 0 — #3679)",
@@ -117,7 +117,7 @@
     "| `PROJECT.md` | project, requirement, decision |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:c4dc1b19c86b699c19a9ff3eb76823db90e7b5c61606f88d230c56cda4aad986",
+    "digest": "sha256:7eb495af450aed4068c85fa154a1619d1dc282abd5cc002a29bde477e219bbaf",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "c4dc1b19c86b699c19a9ff3eb76823db90e7b5c61606f88d230c56cda4aad986"
+  "sha256": "7eb495af450aed4068c85fa154a1619d1dc282abd5cc002a29bde477e219bbaf"
 }

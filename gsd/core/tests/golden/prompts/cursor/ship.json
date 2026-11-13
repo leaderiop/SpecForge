@@ -61,7 +61,7 @@
     "The strategy is `git.branching_strategy` in these settings; the branch is the phase's computed `branch`.",
     ""
   ],
-  "bytes": 46939,
+  "bytes": 46972,
   "end": [
     "Commits: {count}",
     "Verification: ✓ Passed",
@@ -136,7 +136,7 @@
     "| `PROJECT.md` | project, requirement, decision |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:1b6182cc11ebda37d33551c9416d8541ed7e9aa9ab3ea015c1e6c455c9d3b476",
+    "digest": "sha256:97a4db10a8834e871d57f81ce4edb2ac7677fe37bdd7c1fcd532a9df75234fb5",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "1b6182cc11ebda37d33551c9416d8541ed7e9aa9ab3ea015c1e6c455c9d3b476"
+  "sha256": "97a4db10a8834e871d57f81ce4edb2ac7677fe37bdd7c1fcd532a9df75234fb5"
 }

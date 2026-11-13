@@ -184,7 +184,7 @@ TASK-01
 | `PROJECT.md` | project, requirement, decision | core |
 | `REQUIREMENTS.md` | requirement | core |
 | `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase | core |
-| `STATE.md` | computed (progress, position) + pause, blocker + session state | core |
+| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state | core |
 | `config.json` | settings | core |
 | `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology | core |
 | `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion | core |

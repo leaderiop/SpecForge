@@ -61,7 +61,7 @@
     "| `/gsd-surface` | command `specforge gsd surface` (served by @gsd/core) |",
     "| `/gsd-help` | command `specforge gsd help` (served by @gsd/core) |"
   ],
-  "bytes": 12279,
+  "bytes": 12312,
   "end": [
     "| Process inbox items | gsd-inbox |",
     "| Create a clean PR branch | gsd-pr-branch |",
@@ -136,7 +136,7 @@
     "| `PROJECT.md` | project, requirement, decision |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:f965eca7f1174a9448a5a42548184784a5c7f820f18ae7083e352e967b88f09d",
+    "digest": "sha256:ba52473d8e94ce9a3d1708baf611bdc8c198bced955e006a56ea0a261ea023ef",
     "prompt": "@gsd/core@VERSION:ns_manage"
   },
-  "sha256": "f965eca7f1174a9448a5a42548184784a5c7f820f18ae7083e352e967b88f09d"
+  "sha256": "ba52473d8e94ce9a3d1708baf611bdc8c198bced955e006a56ea0a261ea023ef"
 }

@@ -799,6 +799,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "BlockerGate",
+        "source_kind": "blocker",
+        "target_kind": "task"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "VerificationPhase",
         "source_kind": "verification",
         "target_kind": "phase"
@@ -7441,6 +7450,17 @@
             "name": "plan",
             "required": false,
             "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "the task whose TDD gate tripped (STATE.md's `last_gate_trip`), written by `raise_blocker --gate`",
+            "edge": "BlockerGate",
+            "field_type": "reference",
+            "inverse_of": null,
+            "name": "gate",
+            "required": false,
+            "target_kind": "task",
+            "writer": "harness"
           },
           {
             "default_value": null,
