@@ -140,6 +140,45 @@ fn json_round_trips_exactly() {
 }
 
 #[test]
+fn json_text_round_trips_exactly() {
+    for text in [
+        "1.602176634e-19",
+        "1.5e-29",
+        "1.23e-23",
+        "9.99999999999999e307",
+        "1e-307",
+    ] {
+        let value = d(text);
+        let json = serde_json::to_string(&value).unwrap();
+        assert_eq!(
+            serde_json::from_str::<Decimal>(&json).ok(),
+            Some(value),
+            "{text}"
+        );
+        let node: GraphNode = serde_json::from_value(json!({
+            "id": "m1",
+            "kind": "measure",
+            "fields": serde_json::from_str::<serde_json::Value>(&format!(r#"{{"v":{json}}}"#)).unwrap(),
+        }))
+        .unwrap();
+        assert_eq!(node.number("v"), Some(value), "{text} in a graph node");
+    }
+    // Every adjusted exponent the cap allows, for a short, a long and a full-width coefficient.
+    for coefficient in ["15", "1602176634", "123456789012345"] {
+        let digits = coefficient.len() as i32;
+        for exponent in (-307 - digits + 1)..=(307 - digits + 1) {
+            let value = d(&format!("{coefficient}e{exponent}"));
+            let json = serde_json::to_string(&value).unwrap();
+            assert_eq!(
+                serde_json::from_str::<Decimal>(&json).ok(),
+                Some(value),
+                "{coefficient}e{exponent} written {json}"
+            );
+        }
+    }
+}
+
+#[test]
 fn serde_writes_a_plain_json_number() {
     assert_eq!(serde_json::to_string(&d("1.5")).unwrap(), "1.5");
     assert_eq!(serde_json::to_string(&d("3")).unwrap(), "3");
