@@ -553,3 +553,59 @@ fn a_quick_plans_research_named_research_is_e206() {
         found[0].message
     );
 }
+
+fn milestone(id: &str) -> PassEntity {
+    PassEntity {
+        id: id.into(),
+        kind: "milestone".into(),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn a_milestone_on_a_dependency_cycle_is_e102() {
+    let found = check(&input(
+        vec![milestone("v1.0"), milestone("v1.1"), milestone("v2.0")],
+        vec![
+            edge("v1.0", "v1.1", "depends_on"),
+            edge("v1.1", "v1.0", "depends_on"),
+            edge("v2.0", "v2.0", "depends_on"),
+        ],
+    ));
+    assert_eq!(ids(&found, "E102"), ["v1.0", "v1.1", "v2.0"], "{found:?}");
+    assert_eq!(found.len(), 3, "{found:?}");
+    assert_eq!(
+        found[0].message,
+        "milestone 'v1.0' is on a dependency cycle"
+    );
+    assert_eq!(
+        found[0].suggestion.as_deref(),
+        Some("break the cycle: remove one depends_on")
+    );
+}
+
+#[test]
+fn a_milestone_depending_on_another_is_clean() {
+    // A chain in either direction of the names: milestone names carry no order GSD defines.
+    let found = check(&input(
+        vec![milestone("v1.0"), milestone("v1.1"), milestone("v2.0")],
+        vec![
+            edge("v1.1", "v1.0", "depends_on"),
+            edge("v1.0", "v2.0", "depends_on"),
+        ],
+    ));
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn a_milestone_cycle_is_read_from_depends_on_only() {
+    // Two milestones linked both ways by another field are no dependency cycle.
+    let found = check(&input(
+        vec![milestone("v1.0"), milestone("v1.1")],
+        vec![
+            edge("v1.0", "v1.1", "depends_on"),
+            edge("v1.1", "v1.0", "supersedes"),
+        ],
+    ));
+    assert!(found.is_empty(), "{found:?}");
+}

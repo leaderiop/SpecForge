@@ -10,7 +10,7 @@
     {
       "code": "E102",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
-      "explanation": "Phase and plan depends_on are acyclic and point at earlier ones only. It is an error.",
+      "explanation": "Phase, plan and milestone depends_on are acyclic; phase and plan ones point at earlier ones only. It is an error.",
       "title": "Dependency cycle or forward dependency"
     },
     {

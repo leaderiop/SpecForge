@@ -247,3 +247,25 @@ fn a_milestone_carries_its_planning_fields_beyond_gsd() {
         crate::product::edges_from(&p, "v1.1")
     );
 }
+
+/// Two milestones that depend on each other are each on the cycle: one `gsd/E102` per milestone, as for phases.
+#[test]
+fn a_milestone_dependency_cycle_is_e102() {
+    let p = project("roadmap");
+    p.write(
+        "spec/v1.1.spec",
+        &milestone_v1_1("2026-01-05", "2026-03-01"),
+    );
+    p.edit(
+        "spec/v1.0.spec",
+        "  name \"Taskboard 1.0\"\n",
+        "  name \"Taskboard 1.0\"\n  depends_on [v1.1]\n",
+    );
+    let found = p.findings();
+    let codes: Vec<&str> = found.iter().map(|(code, _)| code.as_str()).collect();
+    assert_eq!(codes, ["gsd/E102", "gsd/E102"], "{found:#?}");
+    for (at, milestone) in ["v1.0", "v1.1"].into_iter().enumerate() {
+        let expected = format!("milestone '{milestone}' is on a dependency cycle");
+        assert!(found[at].1.contains(&expected), "{expected} in {found:#?}");
+    }
+}

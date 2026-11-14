@@ -1965,7 +1965,7 @@
           },
           {
             "default_value": null,
-            "description": "the milestones that ship before it (beyond GSD)",
+            "description": "the milestones that ship before it; acyclic, gsd/E102 (beyond GSD)",
             "edge": "MilestoneDependsOn",
             "field_type": "reference_list",
             "inverse_of": null,

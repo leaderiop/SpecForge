@@ -95,7 +95,7 @@ pub static CODES: &[Code] = &[
     code(
         "E102",
         "Dependency cycle or forward dependency",
-        "Phase and plan depends_on are acyclic and point at earlier ones only",
+        "Phase, plan and milestone depends_on are acyclic; phase and plan ones point at earlier ones only",
         "project-and-roadmap",
         Severity::Error,
         Severity::Error,

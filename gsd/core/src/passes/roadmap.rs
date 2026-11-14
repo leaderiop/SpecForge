@@ -1,6 +1,6 @@
 //! The roadmap pass: `gsd/E101`, `gsd/E102`, `gsd/W103`, `gsd/W104`, `gsd/E108` and `gsd/E206` over the project, requirements,
-//! phases and their references. Pure functions over the pass input; the plan half of E102 is `plans` and E106 is a
-//! gate guard (r39).
+//! phases and their references. Pure functions over the pass input; the plan half of E102 is `plans`, its milestone
+//! half (beyond GSD, ADR 0357) `milestone_cycles`, and E106 is a gate guard (r39).
 //!
 //! Also ports gsd-core bin/lib modules: gap-checker.cjs, roadmap-parser.cjs, roadmap-upgrade.cjs.
 //!
@@ -135,7 +135,8 @@ fn milestone_of(id: &str) -> &str {
     id.rsplit_once('/').map_or("", |(milestone, _)| milestone)
 }
 
-/// E102: a phase's `depends_on` is acyclic and names earlier phases of its milestone only.
+/// E102: a phase's `depends_on` is acyclic and names earlier phases of its milestone only, and a milestone's is
+/// acyclic.
 fn dependencies(input: &PassInput) -> Vec<PassDiagnostic> {
     let depends = edges_between(input, "phase", "phase");
     let mut graph: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
@@ -172,7 +173,36 @@ fn dependencies(input: &PassInput) -> Vec<PassDiagnostic> {
             .with_entity(phase),
         );
     }
+    found.extend(milestone_cycles(input));
     found
+}
+
+/// E102 for milestones (beyond GSD, ADR 0357): every milestone on a cycle of `depends_on`, one finding each. Only that
+/// field's edges between two milestones count, and there is no forward check: milestone names carry no order GSD
+/// defines.
+fn milestone_cycles(input: &PassInput) -> Vec<PassDiagnostic> {
+    let kinds = kind_of(input);
+    let milestone = |id: &str| kinds.get(id) == Some(&"milestone");
+    let mut graph: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for edge in input
+        .edges
+        .iter()
+        .filter(|e| e.label == "depends_on" && milestone(&e.source) && milestone(&e.target))
+    {
+        graph.entry(&edge.source).or_default().push(&edge.target);
+    }
+    on_a_cycle(&graph)
+        .into_iter()
+        .map(|milestone| {
+            PassDiagnostic::new(
+                "E102",
+                PassSeverity::Error,
+                format!("milestone '{milestone}' is on a dependency cycle"),
+            )
+            .with_suggestion("break the cycle: remove one depends_on")
+            .with_entity(milestone)
+        })
+        .collect()
 }
 
 /// The nodes on a cycle: every member of a strongly connected component of more than one node, and a node that

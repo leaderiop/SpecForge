@@ -35,7 +35,8 @@ pub const MILESTONE: Kind = Kind::new(
         strs("exit_criteria").doc("what must hold to call it done (beyond GSD)"),
         date("starts").doc("when work on it starts (beyond GSD)"),
         date("targets").doc("the date it aims to ship (beyond GSD)"),
-        rfs("depends_on", "milestone").doc("the milestones that ship before it (beyond GSD)"),
+        rfs("depends_on", "milestone")
+            .doc("the milestones that ship before it; acyclic, gsd/E102 (beyond GSD)"),
         str("owner").doc("the person or team that answers for it (beyond GSD)"),
         strs("contributors").doc("the others working on it (beyond GSD)"),
         strs("artifact_types").doc(

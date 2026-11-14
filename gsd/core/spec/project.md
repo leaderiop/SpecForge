@@ -4,7 +4,7 @@
  project ─1──*─ requirement ─*──1─ phase           (each v1 requirement maps to exactly one phase)
     │
     ├─1──*─ milestone ─1──*─ phase ─*──*─ phase     (depends_on: a DAG, earlier phases only)
-    │           ├─*──*─ milestone                   (depends_on, beyond GSD)
+    │           ├─*──*─ milestone                   (depends_on: acyclic, beyond GSD)
     │           └─0..1─ retrospective ─1──*─ lesson
     ├─0..*─ workstream (a scope: its own milestones and phases)
     └─0..*─ methodology
@@ -65,7 +65,7 @@ GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. N
 | exit_criteria | strs | | beyond GSD (ADR 0357): what must hold to call it done |
 | starts | date | | beyond GSD (ADR 0357): when work on it starts |
 | targets | date | | beyond GSD (ADR 0357): the day it aims to ship |
-| depends_on | →* milestone | | beyond GSD (ADR 0357): the milestones that ship before it |
+| depends_on | →* milestone | | beyond GSD (ADR 0357): the milestones that ship before it; acyclic, gsd/E102 |
 | owner | str | | beyond GSD (ADR 0357): the person or team that answers for it |
 | contributors | strs | | beyond GSD (ADR 0357): the others working on it |
 | artifact_types | strs | | beyond GSD (ADR 0357): the kinds of thing it ships, as open words (`cli`, `library`, `extension`, `service`); one milestone may ship several |
