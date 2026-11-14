@@ -78,7 +78,8 @@ AFTER   measure m1 { ratio 0.75 }     the number 0.75; graph JSON 0.75, field te
 - **D8. Writing.** `specforge format` keeps the word as written (`1.50` stays `1.50`). W159 writes a quoted number bare
   as given (`"1.50"` → `1.50`), or in its canonical text when the given text cannot be a bare word (`"+1.5"` → `1.5`).
   `specforge new`, `specforge set` and edit plans write a text input as given once it parses, and a JSON number in its
-  canonical text; a required number field of a new entity is created as `0`. `settings set k 1.50` stores `1.5`.
+  canonical text; a required number or integer field of a new entity is created as `0`, or as the bound nearest it
+  when `0` lies outside its bounds (`0.05` for `0.05..0.95`). `settings set k 1.50` stores `1.5`.
 - **D9. Declaring one.** The SDK's `FieldBuilder::number()` declares a number field or member, and its `minimum` and
   `maximum` take `impl Into<serde_json::Number>` (an integer, or a `Decimal`). The SDK prelude exports `Decimal`. The
   gsd kit's `num(name)` declares one, bounded by `.range(lo, hi)` (whole) or `.within("0.05", "0.95")` (decimal

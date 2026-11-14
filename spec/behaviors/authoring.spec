@@ -67,6 +67,7 @@ behavior create_entity "Create an Entity" {
   verify unit "new writes into a spec root outside the project by the file check names"
   verify unit "a create that would shadow a target or make a short scope field ambiguous respells the tokens to keep their targets"
   verify unit "a skeleton writes a block list and a typed block empty, and a list of words with a slot"
+  verify unit "a skeleton fills a number or an integer with the value within its bounds nearest zero"
   verify unit "a collected entity is never created, edited or deleted by an edit, whoever asks"
   verify unit "new writes a number flag as given, and a skeleton fills a required number with zero"
 }

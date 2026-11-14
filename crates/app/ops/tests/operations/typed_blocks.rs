@@ -156,6 +156,28 @@ fn a_skeleton_writes_typed_fields_empty() {
 }
 
 #[specforge_test(
+    behavior = "create_entity",
+    verify = "a skeleton fills a number or an integer with the value within its bounds nearest zero"
+)]
+fn a_skeleton_fills_a_bounded_number_within_its_bounds() {
+    use specforge_ops::authoring::edit::Skeletons;
+    use specforge_ops::authoring::format::Place;
+    let project = Assembled::typed().sources(&[("a.spec", SOURCE)]);
+    let view = project.view();
+    let path = view.env().spec_root().join("new.spec");
+    let skeletons = Skeletons::at(&view, Place::File(&path));
+    for (kind, field, text) in [
+        ("measure", "value", "value 0"),
+        ("measure", "ratio", "ratio 0.05"),
+        ("truth", "criterion", "criterion 1"),
+        ("refactor_proposal", "score", "score 0"),
+    ] {
+        let skeleton = skeletons.member(kind, field).expect("a skeleton");
+        assert_eq!(skeleton.text, text, "{kind}.{field}");
+    }
+}
+
+#[specforge_test(
     behavior = "edit_entity_field",
     verify = "a typed edit sets a block member, appends and removes a block-list item, and refuses the other ways to change one"
 )]

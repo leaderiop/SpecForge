@@ -65,6 +65,23 @@ impl Bounds {
         }
     }
 
+    /// The text of the value within the bounds nearest zero: `0` when zero lies within them, else the bound nearer
+    /// it (`0.05` for `0.05..0.95`, `-3` for at most `-3`). What a new entity's required number is filled with.
+    pub fn nearest_zero(&self) -> String {
+        fn clamp<T: Ord + ToString>(zero: T, low: Option<T>, high: Option<T>) -> String {
+            match (low, high) {
+                (Some(low), _) if zero < low => low,
+                (_, Some(high)) if zero > high => high,
+                _ => zero,
+            }
+            .to_string()
+        }
+        match *self {
+            Bounds::Integer(low, high) => clamp(0, low, high),
+            Bounds::Number(low, high) => clamp(Decimal::ZERO, low, high),
+        }
+    }
+
     /// Each bound as the JSON number the schema publishes.
     pub fn json(&self) -> (Option<serde_json::Number>, Option<serde_json::Number>) {
         match *self {

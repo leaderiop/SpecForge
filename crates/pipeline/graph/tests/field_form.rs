@@ -478,6 +478,25 @@ fn an_open_block_admits_every_integer_and_a_decimal_fraction() {
 }
 
 #[specforge_test(
+    behavior = "create_entity",
+    verify = "a skeleton fills a number or an integer with the value within its bounds nearest zero"
+)]
+fn the_value_within_bounds_nearest_zero() {
+    let decimal = |text: &str| Some(Decimal::parse(text).unwrap());
+    for (bounds, nearest) in [
+        (Bounds::Integer(None, None), "0"),
+        (Bounds::Integer(Some(1), Some(5)), "1"),
+        (Bounds::Integer(Some(-5), Some(5)), "0"),
+        (Bounds::Integer(None, Some(-3)), "-3"),
+        (Bounds::Number(decimal("0.05"), decimal("0.95")), "0.05"),
+        (Bounds::Number(decimal("-0.95"), decimal("-0.05")), "-0.05"),
+        (Bounds::Number(None, decimal("0.5")), "0"),
+    ] {
+        assert_eq!(bounds.nearest_zero(), nearest, "{bounds:?}");
+    }
+}
+
+#[specforge_test(
     behavior = "check_field_value_types",
     verify = "an integer outside its declared minimum or maximum is E061 naming the bounds"
 )]
