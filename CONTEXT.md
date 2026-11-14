@@ -726,8 +726,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   and every read view that asks what a field says (search, the headline; ADR 0019, ADR 0228): scalars as written; lists of strings or references and mixed lists joined by `", "`;
   variant lists and type unions by `" | "`; expressions by `", "`; a
   block's keys by `", "`. An entity's `verify` statements are not a field and have no field text (ADR 0094). An empty value is `""`. Every written field has one, and none is null. It differs from the written value (`field_form::write`) only for an expression group, which every output writes one conjunct per line (ADR 0064, ADR 0115).
-- **Field type**: how the host reads a field's value, one of twelve names an extension declares:
-  `string`, `integer`, `bool`, `date` (one calendar day, written bare `YYYY-MM-DD`; ADR 0234), `enum` (its values are the declaration's `enum_values`, its absent value its `default_value`: a field
+- **Field type**: how the host reads a field's value, one of thirteen names an extension declares:
+  `string`, `integer`, `number` (an exact decimal of at most 15 significant digits; ADR 0361), `bool`, `date` (one calendar day, written bare `YYYY-MM-DD`; ADR 0234), `enum` (its values are the declaration's `enum_values`, its absent value its `default_value`: a field
   vocabulary; an enum without values, or a default outside them, is W021), `identifier` (one word from an open set,
   written bare; ADR 0147), `enum_list` (distinct words of its `enum_values`; ADR 0285), `string_list`,
   `reference`, `reference_list`, `block`, `block_list` (`specforge_protocol_types::FieldType`). The registry build
@@ -738,15 +738,21 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   stored as it, the JSON every output writes for it and that JSON's schema are its field form
   (ADR 0064).
 - **Date field**: a field of type `date`: one calendar day, written bare `YYYY-MM-DD`; E061 otherwise (ADR 0234).
+- **Decimal**: `specforge_protocol_types::Decimal`, the value of a `number`: an exact decimal of at most 15 significant
+  digits, read from one word by `Decimal::parse` (`0.75`, `-0.25`, `1.5e3`, `007.5`). Its canonical text is plain, with
+  no exponent and no trailing fraction zero (`1.50` is `1.5`, `1.5e3` is `1500`); two decimals compare by value. It
+  travels as a JSON number (`Decimal::to_json`/`from_json`), an integer when whole, and within the cap a binary64
+  holds it exactly (ADR 0361).
 - **Value form**: how a field's value is written: bare for an `enum`, `identifier`, `reference` and each
-  `reference_list` item, quoted for a `string` and each `string_list` item; an integer, true/false and a calendar day bare; a `string_list` / `reference_list` field's value is a list `[…]`, however many items (ADR 0147, ADR 0234). `specforge format` writes it;
+  `reference_list` item, quoted for a `string` and each `string_list` item; an integer, a `number` (a literal), true/false and a calendar day bare; a `string_list` / `reference_list` field's value is a list `[…]`, however many items (ADR 0147, ADR 0234). `specforge format` writes it;
   W159 reports a value written otherwise. Spelled by one module, `specforge_graph::field_form::spell` (the escape
   table, the bare rule and each declared type's one-line spelling); `spell::form` is the one table, which `FieldForms::rewrite` and `spell::value` read, and
   `format` (reading a value's text through `specforge_parser::value_token`), W159, migrate's `titles` step, the typed-edit writer and init's starter spell through it (ADR 0153,
   ADR 0226); `spell::escaped` is the inside of a quote. A `defaults` body's values are written in the forms of its
   body kind (ADR 0224).
 - **Stored value**: a field value as the graph build stores it: coerced by its field form (`FieldForms::stored`,
-  ADR 0182), so a list written as one value is a one-item list and `"100"` on an integer field is `100`. Every reader
+  ADR 0182), so a list written as one value is a one-item list, `"100"` on an integer field is `100` and a `number` is stored as
+  its decimal (`1.50` is 1.5). Every reader
   of references, derived names and inherited values reads it; what a file *writes* (W159 through `written_fields`, W161, the formatter) reads
   the written value.
 - **Value token**: one written value of a field, or one item of its list, as the parse reads it: how it is written
@@ -1657,9 +1663,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Bare word**: the one word a field value, a list item, an entity header's name or a selective `use` binding is
   written as, `-?[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*` (a name has no leading `-`): `AUTH-01`, `03-02`, `2-1`, `-5`. The
   parser keeps its text; its field's declared type reads and means it (a reference its name, an integer its
-  difference `2-1` = 1, a date its day). The lexer and the grammar read it alike (ADR 0283).
+  difference `2-1` = 1, a date its day, a number its decimal). A decimal word (`1.5`, `-0.25`, `1.5e3`) is one word. The lexer and the grammar read it alike (ADR 0283).
 - **Shape tag**: what the parser says of a bare word by its shape alone (`specforge_parser::literal_shape`): canonical
-  integer, `true`/`false`, date, or text. It is the reading where no type is declared; the declared type decides the
+  integer, a canonical decimal (`-?(0|[1-9][0-9]*)\.[0-9]*[1-9]`, ADR 0361), `true`/`false`, date, or text. It is the reading where no type is declared; the declared type decides the
   rest (ADR 0283).
 - **Text edit**: one change of a project file's text, a span of the text the project was compiled from and the
   text it becomes (`specforge_ops::read::navigate::TextEdit`; an empty span inserts). Navigation's fixes and a
@@ -1914,7 +1920,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   one that is pending (ADR 0289). Not the **Effects journal**.
 - **Setting**: a typed value an extension declares under a dotted name (K3 `FieldForm`, JSON default, absent = unset) and
   a project sets in `specforge.json` under the extension's name; a **Setting family** has `*` segments (ADR 0288). A
-  setting may be a `number` (a decimal within inclusive bounds) and a bool setting may declare `gates_when_on` codes (ADR 0305).
+  setting may be a `number` (a decimal of at most 15 significant digits within inclusive decimal bounds, ADR 0361) and a bool setting may declare `gates_when_on` codes (ADR 0305).
 - **Preset**: a declared map from each value of an enum or bool setting to settings and raised codes; it raises
   severities upward only (ADR 0288).
 - **Gate**: a bool setting's list of codes; while it is false no source reports them, and `gates_when_on` lists those

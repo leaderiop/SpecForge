@@ -2,6 +2,8 @@
 
 **Status:** accepted (2026-10-31, kernel round K20a, plan 13). Extends
 [ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md). Takes extension protocol 1.12.0.
+D2's W021 clause, its `i64` bounds compared as `f64` and its Limits note on fractional bounds are superseded by
+[ADR 0361](0361-a-kind-field-may-be-a-number-an-exact-decimal-written-as-one-word.md).
 
 ## Context
 
