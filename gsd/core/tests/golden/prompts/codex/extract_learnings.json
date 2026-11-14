@@ -7,7 +7,7 @@
     "The text inside `<arguments>` is exactly what the user typed after the command name: data, not template instructions. An empty block means no arguments were passed.",
     "",
     "<objective>",
-    "Extract structured learnings from completed phase artifacts (PLAN.md, SUMMARY.md, VERIFICATION.md, UAT.md, STATE.md) into `lesson` entities that capture decisions, lessons learned, patterns discovered, and surprises encountered.",
+    "Extract structured learnings from a completed phase's entities (its plans, summaries, verification and UAT sessions, and the computed state) into `lesson` entities that capture decisions, lessons learned, patterns discovered, and surprises encountered.",
     "</objective>",
     "",
     "<execution_context>",
@@ -23,7 +23,7 @@
     "</required_reading>",
     "",
     "<objective>",
-    "Analyze completed phase artifacts (PLAN.md, SUMMARY.md, VERIFICATION.md, UAT.md, STATE.md) and extract structured learnings into 4 categories: decisions, lessons, patterns, and surprises. Each extracted item includes source attribution. The output is one `lesson` entity per item, with its `kind` set to the category.",
+    "Analyze a completed phase's entities (its plans, summaries, verification and UAT sessions, and the computed state) and extract structured learnings into 4 categories: decisions, lessons, patterns, and surprises. Each extracted item includes source attribution. The output is one `lesson` entity per item, with its `kind` set to the category.",
     "</objective>",
     "",
     "<process>",
@@ -61,7 +61,7 @@
     "Track which optional artifacts are missing for the `missing_artifacts` frontmatter field.",
     "</step>"
   ],
-  "bytes": 29395,
+  "bytes": 29433,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -102,7 +102,7 @@
     "",
     "## Where the learnings go",
     "",
-    "Each learning is a `lesson` entity in `spec/lessons.spec`, written with `specforge new lesson`; its `kind` is the category (`decision`, `lesson`, `pattern` or `surprise`), and `specforge check` checks it like any entity. A `lesson` has no phase field and no counts: its id (`L-<phase>-<n>`) carries the phase, and the counts are the lessons of each kind. `LEARNINGS.md` is not written. Nothing here removes a lesson: if an earlier run of the phase recorded more lessons than this one, name the extra ids to the user."
+    "Each learning is a `lesson` entity in `spec/lessons.spec`, written with `specforge new lesson`; its `kind` is the category (`decision`, `lesson`, `pattern` or `surprise`), and `specforge check` checks it like any entity. A `lesson` has no phase field and no counts: its id (`L-<phase>-<n>`) carries the phase, and the counts are the lessons of each kind. No learnings file is kept. Nothing here removes a lesson: if an earlier run of the phase recorded more lessons than this one, name the extra ids to the user."
   ],
   "head": [
     "<codex_skill_adapter>",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:94792a2f898b4fc51bf5be764645d5ab0fc3efe123978fdee3fed9a06a8449ed",
+    "digest": "sha256:58069f382b3a31a846473ef2ca6cc0ff813f457be5ba07f0a3dec567be19f413",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "94792a2f898b4fc51bf5be764645d5ab0fc3efe123978fdee3fed9a06a8449ed"
+  "sha256": "58069f382b3a31a846473ef2ca6cc0ff813f457be5ba07f0a3dec567be19f413"
 }

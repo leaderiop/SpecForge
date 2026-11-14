@@ -61,7 +61,7 @@
     "",
     "Parse flags from `02 --codex`:"
   ],
-  "bytes": 56128,
+  "bytes": 56132,
   "end": [
     "- [ ] At least one external CLI invoked successfully",
     "- [ ] The review round recorded with its concerns",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2412c313b50a527587e637bd87b41f73547808828489ea6563dc4076cef0ea6a",
+    "digest": "sha256:69d4111c5085f57597f4b18ebb53547100aa8c56ba3eab6864d5510e2c7a6c9f",
     "prompt": "@gsd/core@VERSION:review",
     "subject": "v1.0/02"
   },
-  "sha256": "2412c313b50a527587e637bd87b41f73547808828489ea6563dc4076cef0ea6a"
+  "sha256": "69d4111c5085f57597f4b18ebb53547100aa8c56ba3eab6864d5510e2c7a6c9f"
 }

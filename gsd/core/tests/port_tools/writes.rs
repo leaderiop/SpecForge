@@ -1,7 +1,8 @@
-//! The write ledger's test: the lines that tell an agent to write a GSD file, counted over every asset.
+//! No asset tells an agent to write a GSD file: a write is a typed edit (ADR 0343 D10).
 
-/// The write ledger (ADR 0332 D9, ADR 0343 D10): every line of every asset, kept or own, that tells an agent to write a
-/// GSD file is a row of `markdown_writes.txt`; a row with no hit fails, so the ledger only shrinks.
+/// No line of any asset of either tree, kept or own, tells an agent to write a GSD file, to edit a state file or a
+/// part of one ("Update Tests section", "record overrides in MILESTONES.md"), or to generate one ("generate
+/// CONTEXT.md"): the write, section and generate detectors all find nothing.
 #[test]
 fn no_line_tells_an_agent_to_write_a_gsd_file() {
     let quoted = format!(
@@ -56,55 +57,10 @@ fn no_line_tells_an_agent_to_write_a_gsd_file() {
             "{text}"
         );
     }
-    let hits: Vec<Vec<String>> = super::specforge_only::shell_assets()
-        .iter()
-        .flat_map(|(path, lines)| super::port_map::markdown_writes::rows_of(path, lines))
-        .collect();
-    super::ledger::assert_rows(
-        "markdown_writes.txt",
-        "record the value as a typed edit",
-        &hits,
-        super::ledger::rows(super::port_map::markdown_writes::MARKDOWN_WRITES, 2),
-    );
-}
-
-/// The discuss, spec and project family: the assets whose write rows are all gone.
-const FAMILY: &str = r"^(commands/gsd/(discuss-phase|spec-phase|new-project|new-milestone|ingest-docs)\.md|gsd-core/workflows/(discuss-phase|discuss-phase-assumptions|discuss-phase-power|spec-phase|new-project|new-milestone|ingest-docs)(\.md|/)|gsd-core/references/(questioning|autonomous-smart-discuss)\.md|gsd-core/templates/((context|project|requirements|roadmap|state|spec)\.md|research-project/)|agents/gsd-(roadmapper|research-synthesizer|doc-synthesizer|doc-classifier|project-researcher|advisor-researcher|assumptions-analyzer)(\.compact)?\.md)";
-
-/// No line of the family tells an agent to generate a GSD file: the write ledger does not count "generate", so a
-/// line like "generate CONTEXT.md" would pass its test, and this one holds the family to it.
-#[test]
-fn no_family_line_tells_an_agent_to_generate_a_gsd_file() {
-    use super::port_map::markdown_writes::generates;
+    use super::port_map::markdown_writes::{generates, section_edits};
     assert_eq!(generates("Generate CONTEXT.md as normal."), [0].into());
     assert!(generates("Record the phase context.").is_empty());
     assert!(generates("```bash\necho generate > STATE.md\n```").is_empty());
-    let family = regex::Regex::new(FAMILY).expect("a regex");
-    let mut seen = 0;
-    let mut hits = Vec::new();
-    for (path, lines) in super::specforge_only::shell_assets() {
-        if !family.is_match(&path) {
-            continue;
-        }
-        seen += 1;
-        for n in generates(&lines.join("\n")) {
-            hits.push(format!("{path}: {}", lines[n].trim()));
-        }
-    }
-    assert!(seen > 50, "the family's assets: {seen}");
-    assert!(hits.is_empty(), "{hits:#?}");
-}
-
-/// The verify, security and milestone family, with the shared references and templates it rewrote: the assets whose
-/// write rows are all gone.
-const VERIFY_FAMILY: &str = r"^(agents/gsd-(verifier|nyquist-auditor)(\.compact)?|commands/gsd/(complete-milestone|ns-workflow)|gsd-core/references/(thinking-models-verification|verify-mvp-mode|agent-contracts|mvp-concepts|planning-config|revision-loop|thinking-models-planning|universal-anti-patterns|user-story-template)|gsd-core/templates/(verification-report|milestone-archive|milestone|retrospective|UAT|VALIDATION)|gsd-core/workflows/(add-tests|diagnose-issues|graduation|validate-phase|verify-work|audit-milestone|autonomous|complete-milestone|next|progress|ship|transition|settings|milestone-summary|progress/steps/forensic-audit|verify-work/detail/elaboration|execute-phase/steps/verify-phase-goal)|\.\./security/assets/(agents/gsd-security-auditor(\.compact)?|commands/gsd/secure-phase|gsd-core/(workflows/secure-phase|templates/SECURITY)))\.md$";
-
-/// No line of the verify family tells an agent to edit a state file or part of one: the write ledger counts a write
-/// verb beside a file name, so "Update Tests section", "Append to Gaps section" or "record overrides in
-/// MILESTONES.md" would pass its test, and this one holds the family to them.
-#[test]
-fn no_verify_family_line_edits_part_of_a_state_file() {
-    use super::port_map::markdown_writes::section_edits;
     for (text, hit) in [
         ("Update Tests section:", true),
         (
@@ -128,18 +84,19 @@ fn no_verify_family_line_edits_part_of_a_state_file() {
     ] {
         assert_eq!(!section_edits(text).is_empty(), hit, "{text}");
     }
-    let family = regex::Regex::new(VERIFY_FAMILY).expect("a regex");
     let mut seen = 0;
     let mut hits = Vec::new();
     for (path, lines) in super::specforge_only::shell_assets() {
-        if !family.is_match(&path) {
-            continue;
-        }
         seen += 1;
-        for n in section_edits(&lines.join("\n")) {
-            hits.push(format!("{path}: {}", lines[n].trim()));
+        let text = lines.join("\n");
+        for n in section_edits(&text).union(&generates(&text)) {
+            hits.push(format!("{path}:{} {}", n + 1, lines[*n].trim()));
         }
     }
-    assert!(seen > 40, "the family's assets: {seen}");
-    assert!(hits.is_empty(), "{hits:#?}");
+    assert!(seen > 300, "the assets: {seen}");
+    assert!(
+        hits.is_empty(),
+        "a write is a typed edit (ADR 0343 D10):\n{}",
+        hits.join("\n")
+    );
 }

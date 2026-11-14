@@ -10,7 +10,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 </required_reading>
 
 <objective>
-Analyze completed phase artifacts (PLAN.md, SUMMARY.md, VERIFICATION.md, UAT.md, STATE.md) and extract structured learnings into 4 categories: decisions, lessons, patterns, and surprises. Each extracted item includes source attribution. The output is one `lesson` entity per item, with its `kind` set to the category.
+Analyze a completed phase's entities (its plans, summaries, verification and UAT sessions, and the computed state) and extract structured learnings into 4 categories: decisions, lessons, patterns, and surprises. Each extracted item includes source attribution. The output is one `lesson` entity per item, with its `kind` set to the category.
 </objective>
 
 <process>
@@ -56,7 +56,7 @@ Technical and architectural decisions made during the phase. Look for:
 - Explicit decisions documented in PLAN.md or SUMMARY.md
 - Technology choices and their rationale
 - Trade-offs that were evaluated
-- Design decisions recorded in STATE.md
+- The phase's `decision` entities
 
 Each decision entry must include:
 - **What** was decided

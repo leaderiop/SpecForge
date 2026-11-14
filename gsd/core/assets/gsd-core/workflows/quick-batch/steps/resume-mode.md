@@ -56,5 +56,5 @@ Resuming batch ${BATCH_ID}: ${eligible.length} item(s) eligible now.
 Continue to Step 3 in `quick-batch.md` — the DAG-layer loop in `planner-wave.md`
 reads `$BATCH_MANIFEST_JSON`/`$BATCH_ID` exactly the same way whether this
 batch was just created or just resumed; it re-derives per-item progress from
-which artifacts already exist on disk (PLAN.md/SUMMARY.md/VERIFICATION.md),
+which entities already exist (each item's plan, summary and verification),
 never from a separate "resume" code path.

@@ -28,7 +28,7 @@ Ensure config exists and resolve the workstream-aware config path (mirrors `sett
 # the commands below are specforge commands: there is no launcher to define
 : # config-ensure-section: every setting has its default, so there is no section to create
 if [[ -z "${GSD_CONFIG_PATH:-}" ]]; then
-  if false; then   # there is no active-workstream file: the settings are one file, specforge.json
+  if false; then   # the settings are one file, specforge.json, whichever workstream is active
     WS=""
     GSD_CONFIG_PATH="specforge.json"
   else
@@ -144,7 +144,7 @@ AskUserQuestion([
     ]
   },
   {
-    question: "Run external plan-bounce validator against generated PLAN.md? (current: <value or false>)",
+    question: "Run external plan-bounce validator against each new plan? (current: <value or false>)",
     header: "Plan Bounce",
     multiSelect: false,
     options: [

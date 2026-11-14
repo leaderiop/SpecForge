@@ -115,9 +115,9 @@ and excluded v1.0's own `feat(03-01): implement auth endpoint`. Feeding that to
 fails closed.
 
 **Two archive layouts exist, and `find-phase` searches only one of them.** The phase locator
-(`listArchiveVersionDirs`, `src/phase-locator.cts`) enumerates both the flat
-`milestones/v<X.Y>-phases/<phase>/` archive and the workstream archive
-`milestones/ws-<name>-<date>/phases/<phase>/` that `workstream complete` writes. `cmdFindPhase`
+(`listArchiveVersionDirs`, `src/phase-locator.cts`) enumerates both upstream
+archive layouts: a milestone's flat phase archive, and the archive of a workstream that
+`workstream complete` closed. `cmdFindPhase`
 builds its own search list and admits only the first (`/^v\d+.*-phases$/`), so a phase that lives
 *only* in a `ws-*` archive resolves to nothing today and the not-found rule above fails closed.
 The refusal below still names both layouts, so it keeps holding if `find-phase` is ever taught the
@@ -341,8 +341,8 @@ makes the oldest add at that path the **previous occupant's**. The archived refu
 cannot reach it — `find-phase` returns the **live** directory, so nothing is under
 `milestones/` to refuse. Driven before the guard: two milestones both using
 a directory path `phases/03-auth` anchored on the v1 plan commit and selected all four v1+v2 phase-03
-commits; a workstream completed into `milestones/ws-feat-<date>/` and then re-created as `feat`
-with the same `03-auth` did the same across the two workstream generations. The collision check
+commits; a workstream completed and archived, then begun again as `feat`
+with the same `03-auth`, did the same across the two workstream generations. The collision check
 closes both without a phase identity a directory name does not carry, and without restating any
 archive layout: a path that went empty in `HEAD`'s history and came back has had a previous
 occupant, so the anchor is untrustworthy and both modes refuse. `code-review.md` carries the

@@ -166,35 +166,13 @@ specforge git switch "$BRANCH_NAME" --create --pick .branch
 
 Track results: which repos succeeded, which failed, what branch was used.
 
-## 7. Write WORKSPACE.md
-
-Write the workspace manifest at `$TARGET_PATH/WORKSPACE.md`:
-
-```markdown
-# Workspace: $WORKSPACE_NAME
-
-Created: $DATE
-Strategy: $STRATEGY
-
-## Member Repos
-
-| Repo | Source | Branch | Strategy |
-|------|--------|--------|----------|
-| $REPO_NAME | $SOURCE_PATH | $BRANCH | $STRATEGY |
-...for each repo...
-
-## Notes
-
-[Add context about what this workspace is for]
-```
-
-## 8. Initialize the spec in the workspace
+## 7. Initialize the spec in the workspace
 
 ```bash
 HOST=claude-code; ( cd "$TARGET_PATH" && specforge init && specforge add @gsd/core && specforge install "$HOST" )   # HOST is claude-code, codex or cursor
 ```
 
-## 9. Report and Next Steps
+## 8. Report and Next Steps
 
 **If all repos succeeded:**
 
@@ -237,7 +215,6 @@ Use AskUserQuestion:
 <success_criteria>
 - [ ] Workspace directory created at target path
 - [ ] All specified repos copied (worktree or clone) into workspace
-- [ ] WORKSPACE.md manifest written with correct repo table
 - [ ] The spec initialized at the workspace root (`specforge init`, `specforge add @gsd/core`, `specforge install`)
 - [ ] User informed of workspace path and next steps
 </success_criteria>

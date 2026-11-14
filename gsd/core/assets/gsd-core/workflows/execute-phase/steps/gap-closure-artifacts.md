@@ -23,30 +23,12 @@ PARENT_INFO=$(specforge query "${PARENT_PHASE}" --depth 0 --format json)
 
 **If no parent UAT found:** Skip this step (gap-closure may have been triggered by VERIFICATION.md instead).
 
-**3. Update UAT gap statuses:**
+**3. The gaps resolve themselves:** a `uat_gap`'s `status` reads resolved once a `gap_closure`
+plan naming it completes, and its UAT session's `status` follows from its gaps.
 
-Read the parent UAT file's `## Gaps` section. For each gap entry with `status: failed`:
-- Update to `status: resolved`
+**4. Debug sessions are not entities of `@gsd/core`:** there is none to resolve.
 
-**4. Update UAT frontmatter:**
-
-If all gaps now have `status: resolved`:
-- Update frontmatter `status: diagnosed` → `status: resolved`
-- Update frontmatter `updated:` timestamp
-
-**5. Resolve referenced debug sessions:**
-
-For each gap that has a `debug_session:` field:
-- Read the debug session file
-- Update frontmatter `status:` → `resolved`
-- Update frontmatter `updated:` timestamp
-- Move to resolved directory:
-```bash
-# no folder to create: the entities live in the spec
-: # no file to move: debug sessions are not entities of @gsd/core
-```
-
-**6. Commit updated artifacts:**
+**5. Commit the spec:**
 ```bash
 specforge git commit --add spec -m "docs(phase-${PARENT_PHASE}): resolve UAT gaps and debug sessions after ${PHASE_NUMBER} gap closure" && specforge collect --runner gsd-git --yes
 ```

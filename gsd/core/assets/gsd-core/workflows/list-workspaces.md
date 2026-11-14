@@ -16,7 +16,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(specforge files list "$WORKSPACE_BASE" --depth 1 --kind dir --pick '.entries[].path' 2>/dev/null); WORKSPACE_COUNT=$(specforge files list "$WORKSPACE_BASE" --depth 1 --kind dir --pick .count 2>/dev/null)
-# a workspace has a WORKSPACE.md; its repos are the directories with a .git entry (for g in "$WORKSPACE_BASE"/<name>/*/.git; do [ -e "$g" ] && ...), and specforge git --in "<repo>" worktrees shows the worktrees
+# a workspace is a directory of repos, and no manifest: its repos are the directories with a .git entry (for g in "$WORKSPACE_BASE"/<name>/*/.git; do [ -e "$g" ] && ...), and specforge git --in "<repo>" worktrees shows the worktrees
 ```
 
 The fields above are shell variables: `workspace_base`, `workspaces` and `workspace_count` are `WORKSPACE_BASE`, `WORKSPACES` and `WORKSPACE_COUNT`. An empty `workspace_count` means this machine has not approved the root, or the directory is gone: say so, with the command that names and makes it: `specforge grants approve --root workspaces --at ~/gsd-workspaces`.
@@ -54,7 +54,7 @@ Manage:
 For each workspace, show:
 - **Name** — directory name
 - **Repos** — count from init data
-- **Strategy** — from WORKSPACE.md
+- **Strategy** — `worktree` when its repos are linked worktrees (`specforge git repos "<workspace>" --pick '.repos[linked=true].name'`), else `clone`
 - **GSD Project** — whether the workspace holds a SpecForge project, a `specforge.json` at its root (Yes/No)
 
 </process>

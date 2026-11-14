@@ -280,7 +280,7 @@ Check `has_context`. If false → go to handle_blocker: "Discuss for phase ${PHA
 
 > Full instructions are in `gsd-core/references/autonomous-ui-design-contract.md`. Read that file now and follow it exactly.
 
-**Inputs:** `PHASE_NUM`, `PHASE_DIR` from execute_phase. Resolves whether the phase needs a UI-SPEC.md generated before planning via active `plan:pre` step hooks. Always non-blocking — proceeds to 3b regardless of outcome.
+**Inputs:** `PHASE_NUM`, `PHASE_DIR` from execute_phase. Resolves whether the phase needs a UI design contract (`@gsd/ui`'s `ui_spec`) before planning, through the active `plan:pre` step hooks. Always non-blocking — proceeds to 3b regardless of outcome.
 
 Read and execute: `$HOME/.claude/gsd-core/references/autonomous-ui-design-contract.md`
 

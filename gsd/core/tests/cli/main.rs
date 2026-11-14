@@ -76,6 +76,8 @@ mod judged_refusals;
 mod ladder;
 #[path = "../common/ledger.rs"]
 mod ledger;
+#[path = "../common/markdown_writes.rs"]
+mod markdown_writes;
 #[path = "../common/node.rs"]
 mod node;
 mod node_test;

@@ -622,3 +622,28 @@ fn no_rendered_tail_names_a_gsd_file() {
     }
     super::planning_names::assert_listed(&hits, |source| source.starts_with("prompt:"));
 }
+
+/// No line of a rendered claude-code prompt tells an agent to write a GSD file, to edit a state file or a part of one,
+/// or to generate one: the asset test's detectors over the text as rendered, so what a prompt's Rust side writes (its
+/// tail, the preamble) is held too. The preamble's file table is a read list and is skipped.
+#[test]
+fn no_rendered_line_tells_an_agent_to_write_a_gsd_file() {
+    use super::markdown_writes::{generates, section_edits};
+    let mut hits = Vec::new();
+    for (id, text) in rendered() {
+        let preamble = text.find("</specforge_gsd_preamble>").unwrap_or(0);
+        let preamble_lines = text[..preamble].matches('\n').count();
+        let lines: Vec<&str> = text.split('\n').collect();
+        for n in section_edits(text).union(&generates(text)) {
+            let line = lines[*n].trim();
+            if !(line.starts_with('|') && *n <= preamble_lines) {
+                hits.push(format!("prompt:{id}:{} {line}", n + 1));
+            }
+        }
+    }
+    assert!(
+        hits.is_empty(),
+        "a write is a typed edit (ADR 0343 D10):\n{}",
+        hits.join("\n")
+    );
+}

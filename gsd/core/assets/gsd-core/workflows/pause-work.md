@@ -96,7 +96,7 @@ UNCOMMITTED=$(specforge git status --format human)
 </step>
 
 <step name="write">
-**The sections below are the shape of the handoff's `current_state` and `context` text** (the `handoff` entity holds them: there is no `.continue-here.md`):
+**The sections below are the shape of the handoff's `current_state` and `context` text** (the `handoff` entity holds them, and nothing else does):
 
 ```markdown
 ---
@@ -162,7 +162,7 @@ Completed Tasks:
 ## Required Reading (in order)
 <!-- List documents the resuming agent must read before acting -->
 1. [document] — [why it matters]
-1. `METHODOLOGY.md` (if it exists) — project analytical lenses; apply before any assumption analysis
+1. The project's `methodology` entities (if any) — its analytical lenses; apply before any assumption analysis
 
 ## Critical Anti-Patterns (do NOT repeat these)
 <!-- Mistakes discovered this session that must be structurally avoided -->

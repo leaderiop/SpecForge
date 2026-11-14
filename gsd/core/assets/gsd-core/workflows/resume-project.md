@@ -220,9 +220,9 @@ What would you like to do?
    OR
 1. Execute phase (/gsd:execute-phase {phase})
    OR
-1. Discuss Phase 3 context (/gsd:discuss-phase 3) [if CONTEXT.md missing]
+1. Discuss Phase 3 context (/gsd:discuss-phase 3) [if the phase has no context]
    OR
-1. Plan Phase 3 (/gsd:plan-phase 3) [if CONTEXT.md exists or discuss option declined]
+1. Plan Phase 3 (/gsd:plan-phase 3) [if the phase has a context, or discuss was declined]
 
 [Secondary options:]
 2. Review current phase status

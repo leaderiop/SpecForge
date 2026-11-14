@@ -45,15 +45,14 @@ caller error about the phase directory (`reason` is `'phase directory not found'
 `'phase path is not a directory'`, `'phase directory unreadable'` or
 `'phase directory holds no plans'`), `total` and `honored` are `null` and
 `not_honored` is `[]`; nothing was checked, so there is no count to report.
-A non-zero `DECISION_EXIT` (`69` `UNAVAILABLE`: the gate
-could not read CONTEXT.md or the phase artifacts, #5170) is **not** "no decisions": record
-`Decision coverage: not evaluated (the gate could not read its evidence)` in VERIFICATION.md
-and do not report counts.
+A non-zero `DECISION_EXIT` (`69` `UNAVAILABLE`, #5170) means the gate could not read the
+phase's context or its plans, which is **not** "no decisions": say
+`Decision coverage: not evaluated (the gate could not read its evidence)` in the report you
+return, with no counts.
 
-**Reporting:** Append the handler's `message` (a `### Decision Coverage`
-section) to VERIFICATION.md regardless of outcome — even when all
-decisions are honored, recording the count helps reviewers spot drift over
-time. Set `decision_coverage` in the verification result to
+**Reporting:** The report you return carries the handler's `message` under
+`### Decision Coverage` whatever the outcome: even when all decisions are
+honored, the count helps reviewers spot drift over time. Set `decision_coverage` in the verification result to
 `{honored, total, not_honored: [...]}` so downstream tooling can read it.
 On a caller error that is `{honored: null, total: null, not_honored: []}`;
 pass the nulls through rather than coercing them to `0`.

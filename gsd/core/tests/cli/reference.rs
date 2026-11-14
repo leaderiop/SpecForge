@@ -246,17 +246,12 @@ fn a_converted_template_names_its_kinds_and_no_file_layout() {
         .map(|k| k["name"].as_str().expect("a name").to_string())
         .collect();
     for (path, kinds) in CONVERTED {
-        for ledger in [
-            include_str!("../common/planning_names.txt"),
-            include_str!("../common/markdown_writes.txt"),
-        ] {
-            assert!(
-                !ledger
-                    .lines()
-                    .any(|row| row.split('\t').next() == Some(*path)),
-                "{path}: a ledger row"
-            );
-        }
+        assert!(
+            !include_str!("../common/planning_names.txt")
+                .lines()
+                .any(|row| row.split('\t').next() == Some(*path)),
+            "{path}: a ledger row"
+        );
         let run = gsd(&p, "reference", &[path]);
         assert_eq!(run.code, 0, "{path}: {}", run.all());
         let text = &run.stdout;

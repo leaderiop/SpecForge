@@ -75,7 +75,7 @@ Each strategy is the usual route, not the only one. Any change that makes the is
 
 ### Step 4: Make Targeted Updates
 
-**DO:** Edit specific flagged sections, preserve working parts, update waves if dependencies change.
+**DO:** Change only what the checker flagged, keep what works, and re-read the waves when dependencies change.
 Choose the smallest mechanism that makes each issue's `required_property` true — explicitly
 including a mechanism smaller than, or different from, the one its `fix_hint` names.
 

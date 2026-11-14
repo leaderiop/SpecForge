@@ -626,7 +626,7 @@ issue:
   unresolved_questions:
     - "Hash prefix — keep or change?"
     - "Cache TTL — what duration?"
-  fix_hint: "Resolve questions and mark section as '## Open Questions (RESOLVED)'"
+  fix_hint: "Resolve each open_question: link the decision that answers it as its resolved_by"
 ```
 
 **Example — resolved (PASS):**

@@ -164,7 +164,7 @@ What's next?
 
 Wait for user selection.
 
-If "Discuss context": Note that CONTEXT.md will incorporate any corrections discussed here
+If "Discuss context": Note that discuss-phase takes any corrections discussed here into the phase's context
 If "Plan this phase": Proceed knowing assumptions are understood
 If "Re-examine": Return to analyze_phase with updated understanding
 </step>

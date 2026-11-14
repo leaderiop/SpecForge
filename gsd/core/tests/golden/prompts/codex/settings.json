@@ -54,14 +54,14 @@
     "- `plan_review.source_grounding` — verify plan symbols against live source during plan review (default: true if absent; set `plan_review.source_grounding_authority` to select the resolver adapter: `grep` (default), `intel`, `treesitter`, `lsp`, or `scip`)",
     "- `workflow.nyquist_validation` — validation architecture research during plan-phase (default: true if absent)",
     "- `workflow.pattern_mapper` — run gsd-pattern-mapper between research and planning (default: true if absent)",
-    "- `workflow.ui_phase` — generate UI-SPEC.md design contracts for frontend phases (default: true if absent)",
+    "- `workflow.ui_phase` — UI design contracts (`@gsd/ui`'s `ui_spec`) for frontend phases (default: true if absent)",
     "- `workflow.ui_safety_gate` — prompt to run $gsd-ui-phase before planning frontend phases (default: true if absent)",
     "- `workflow.ai_integration_phase` — framework selection + eval strategy for AI phases (default: true if absent)",
     "- `workflow.tdd_mode` — enforce RED/GREEN/REFACTOR gate sequence during execute-phase (default: false if absent)",
     "- `workflow.code_review` — enable $gsd-code-review and $gsd-code-review --fix commands (default: true if absent)",
     "- `workflow.code_review_depth` — default depth for $gsd-code-review: `quick`, `standard`, or `deep` (default: `\"standard\"` if absent; only relevant when `code_review` is on)"
   ],
-  "bytes": 53845,
+  "bytes": 53834,
   "end": [
     "These settings apply to future $gsd-plan-phase and $gsd-execute-phase runs.",
     "",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2b1fb0afca16529920d43791c168416f2c6096001b90dfe3a3c8fb04d4401c33",
+    "digest": "sha256:169306bf531a6a3822631da3a3511ff3024d7ec2d9115ba329f140e323613fe8",
     "prompt": "@gsd/core@VERSION:settings"
   },
-  "sha256": "2b1fb0afca16529920d43791c168416f2c6096001b90dfe3a3c8fb04d4401c33"
+  "sha256": "169306bf531a6a3822631da3a3511ff3024d7ec2d9115ba329f140e323613fe8"
 }

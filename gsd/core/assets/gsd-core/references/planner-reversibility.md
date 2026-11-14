@@ -54,7 +54,7 @@ the presence of required tags and does not reject unknown optional tags.
 ## Emission rules
 
 Emit `<reversibility>` when a task **implements** a decision whose undo cost is
-above `reversible` — typically one carried forward from the phase CONTEXT.md
+above `reversible` — typically one of the phase's context decisions
 `<decisions>` block, where discuss-phase already recorded a rating and rationale.
 Carry that rating through rather than re-deriving it; where discuss-phase
 recorded none, rate it here.
@@ -68,9 +68,8 @@ For a `one-way` rating, emit **two** things:
 2. The `<reversibility rating="one-way">` element on the dependent task itself,
    so the signal survives in the plan after the checkpoint is resolved.
 
-Any plan containing a checkpoint must set `autonomous: false` in frontmatter —
-inserting a reversibility gate flips a previously-autonomous plan, so update the
-frontmatter in the same pass.
+A plan's `autonomous` is computed, false exactly when the plan has a checkpoint:
+inserting a reversibility gate flips a previously-autonomous plan by itself.
 
 ## The override
 

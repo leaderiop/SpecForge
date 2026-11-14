@@ -221,7 +221,7 @@ specforge export --kinds methodology --format context 2>/dev/null || true
 - Parse each named lens: its diagnoses, recommendations, and triggering conditions
 - Store as internal `<active_lenses>` for use in deep_codebase_analysis and present_assumptions
 - When spawning the gsd-assumptions-analyzer, pass the lens list so it can flag which lenses apply
-- When presenting assumptions, append a "Methodology" section showing which lenses were applied
+- When presenting assumptions, end with the lenses applied, under a "Methodology" heading
   and what they flagged (if anything)
 
 **If METHODOLOGY.md does not exist:** Skip silently. This artifact is optional.

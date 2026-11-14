@@ -12,7 +12,7 @@ parallel milestone work by multiple Claude Code instances on the same codebase.
 2. `GSD_WORKSTREAM` environment variable (per-instance)
 3. Session-scoped active workstream pointer in temp storage (per runtime session / terminal),
    when that pointer exists and is non-blank
-4. the active-workstream marker — consulted whenever step 3 has nothing to say: either
+4. the project's active workstream (`specforge gsd workstreams switch` sets it) — consulted whenever step 3 has nothing to say: either
    there is no session identity at all, or there is one but it has never pointed at a
    workstream. A session that already has its own pointer (step 3) is never overridden by
    this step, even if that pointer is stale.
@@ -20,7 +20,7 @@ parallel milestone work by multiple Claude Code instances on the same codebase.
 
 ## Why session-scoped pointers exist
 
-The shared active-workstream marker is fundamentally unsafe when multiple
+The project's shared active workstream is fundamentally unsafe when multiple
 Claude/Codex instances are active on the same repo at the same time. One session can
 silently repoint another session's `STATE.md`, `ROADMAP.md`, and phase paths.
 
@@ -30,7 +30,7 @@ GSD now prefers a session-scoped pointer keyed by runtime/session identity
 or the controlling TTY). This keeps concurrent sessions isolated while preserving
 legacy compatibility for runtimes that do not expose a stable session key.
 
-A session that has never set its own pointer inherits the active-workstream marker
+A session that has never set its own pointer inherits the project's active workstream
 (step 4) rather than silently falling back to flat mode — this does not weaken the
 isolation guarantee above: inheritance only fires when a session's own pointer is
 absent, and a session that has ever set one is never repointed by the shared file.
@@ -47,7 +47,7 @@ When GSD resolves the session-scoped pointer in step 3 above, it uses this order
 3. A single best-effort `tty` probe, but only when stdin is interactive
 
 If none of those produce a stable identity, GSD does not keep probing. It falls
-back directly to the legacy shared active-workstream marker.
+back directly to the project's shared active workstream.
 
 This matters in headless or stripped environments: when stdin is already
 non-interactive, GSD intentionally skips shelling out to `tty` because that path
@@ -60,7 +60,7 @@ Session-scoped pointers are intentionally lightweight and best-effort:
 
 - Clearing a workstream for one session removes only that session's pointer file.
   This returns that session to step 4 of Resolution Priority above — it goes back
-  to **inheriting** the active-workstream marker (if one exists there), not
+  to **inheriting** the project's active workstream (if one is set), not
   to flat mode. A cleared session with no marker present resolves to `null`; a
   cleared session with a marker present resolves to whatever that marker names.
   To force flat mode for a cleared session, remove the shared marker file, or use

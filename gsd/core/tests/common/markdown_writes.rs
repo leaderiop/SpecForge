@@ -1,7 +1,6 @@
-//! The write ledger (ADR 0332 D9): a line that tells an agent to write a GSD file is a row of `markdown_writes.txt`,
-//! `<asset>\t<trimmed line>`, in kept and own text alike; its row count is the port's write measure. In prose that is a
-//! write verb and a GSD file name in one sentence; in a shell fence, an output redirect or `tee` into one, the
-//! redirect's direction read by the SDK shell reader.
+//! The write detectors (ADR 0332 D9, ADR 0343 D10): a line that tells an agent to write a GSD file, in kept and own text
+//! alike. In prose that is a write verb and a GSD file name in one sentence; in a shell fence, an output redirect or
+//! `tee` into one, the redirect's direction read by the SDK shell reader. No asset holds one.
 #![allow(
     dead_code,
     reason = "each test crate that includes this module uses some of it"
@@ -11,9 +10,6 @@ use std::collections::BTreeSet;
 use std::ops::Range;
 
 use specforge_extension_sdk::shell;
-
-/// The ledger's rows.
-pub const MARKDOWN_WRITES: &str = include_str!("markdown_writes.txt");
 
 /// The words that tell an agent to write.
 const VERBS: &[&str] = &[
@@ -58,7 +54,7 @@ const PERSON: &[&str] = &["user", "users", "human", "person"];
 /// The fence languages read as shell.
 const SHELL: &[&str] = &["bash", "sh", "shell", "zsh"];
 
-/// The words that tell an agent to generate: no ledger counts them, and a family whose rows are gone holds none.
+/// The words that tell an agent to generate: no asset holds one.
 pub const GENERATE: &[&str] = &["generate", "generates", "generated", "generating"];
 
 /// The words beyond [`VERBS`] that tell an agent to put an entry in a state file: recorded or noted there, a value
@@ -108,8 +104,7 @@ pub fn hits(text: &str) -> BTreeSet<usize> {
 /// The 0-based lines of `text` that tell an agent to edit a state file or part of one: a write or [`ENTRY_VERBS`]
 /// word with a GSD file name in one sentence ("record overrides in MILESTONES.md"), or one of those or [`MARK`]
 /// followed closely by a [`PARTS`] word ("Update Tests section"), in prose or a line of a fence that is not shell;
-/// and a shell line that writes a GSD file. No ledger counts the wider set, so a family whose ledger rows are gone
-/// holds none.
+/// and a shell line that writes a GSD file.
 pub fn section_edits(text: &str) -> BTreeSet<usize> {
     hits_by(
         text,
@@ -292,12 +287,4 @@ fn shell_writes(line: &str) -> bool {
                     && segment.words[1..].iter().any(|w| names(w)))
         })
     })
-}
-
-/// The ledger rows of `asset`'s `lines` (its body after the attribution header).
-pub fn rows_of(asset: &str, lines: &[String]) -> Vec<Vec<String>> {
-    hits(&lines.join("\n"))
-        .into_iter()
-        .map(|n| vec![asset.to_string(), lines[n].trim().to_string()])
-        .collect()
 }
