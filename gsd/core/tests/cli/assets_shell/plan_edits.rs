@@ -758,3 +758,21 @@ fn the_decision_coverage_reads_e310_and_discretion_clears_it() {
     let (out, _, _) = sh.run_in(p.root(), &step[0]);
     assert!(!out.contains("D-03"), "{out}");
 }
+
+/// revision-loop's record fence, run as written for a plan of the taskboard: it binds none of the four values it
+/// passes, so `record-conflict` is refused and no conflict is recorded.
+#[test]
+fn the_conflict_fence_binds_none_of_its_values() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let fence = super::verify_edits::fence_holding(
+        &asset("gsd-core/references/revision-loop.md"),
+        "record-conflict",
+    );
+    let done = typed::apply(&sh, &p, &format!("PLAN_ID=v1.0/01/01-02\n{fence}"));
+    assert_ne!(done.code, 0, "{}{}", done.out, done.err);
+    assert!(done.err.contains("dimension"), "{}", done.err);
+    assert!(p.nodes_of("revision_conflict").is_empty());
+}
