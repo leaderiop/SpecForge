@@ -219,7 +219,7 @@ Written nowhere, on purpose: a prompt shows these to the user and stores no file
 - the session report and the milestone summary (`reports/*.md`), and the onboarding summary (`onboarding/SUMMARY.md`);
 - the ingest staging (`intel/*`) and the conflict report (`INGEST-CONFLICTS.md`): the classifier and the synthesizer write scratch files outside the project, and the conflicts are reported to the user;
 - `estimation-calibration.json`: `/gsd-extract-learnings` skips that step;
-- a workspace's `WORKSPACE.md` stays a file the agent writes in the workspace directory, beside the worktrees it lists; the workspace gets its own spec with `specforge init`, `specforge add @gsd/core` and `specforge install <host>`.
+- a workspace's `WORKSPACE.md`: no agent writes it; `specforge git repos <workspace>` answers what it listed (each repo, whether it is a linked worktree and whether it is clean), and the workspace gets its own spec with `specforge init`, `specforge add @gsd/core` and `specforge install <host>`.
 
 Not modelled, on purpose: GSD's `references/*` and `workflows/*` are GSD's own rules and procedures, so they become
 [rules](rules.md) and ported prompts ([contributions](../contributions/)), not data; the text a prompt does not inline
