@@ -173,6 +173,15 @@ impl GraphNode {
         self.fields.get(field).and_then(|v| v.as_str())
     }
 
+    /// A `number` field's value, read from the JSON number the graph export writes (ADR 0361); `None` when the field
+    /// is absent or holds no number a [`crate::Decimal`] takes.
+    pub fn number(&self, field: &str) -> Option<crate::Decimal> {
+        match self.fields.get(field)? {
+            Value::Number(n) => crate::Decimal::from_json(n).ok(),
+            _ => None,
+        }
+    }
+
     /// Whether the entity sets `field`, whatever its value.
     pub fn has_field(&self, field: &str) -> bool {
         self.fields.contains_key(field)
@@ -429,6 +438,14 @@ pub struct PassEntity {
     /// its kind declares none, the nearest scope ancestor's whose kind declares one does not. Sent only when true.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub pending: bool,
+}
+
+impl PassEntity {
+    /// A `number` field's value, read from its field text, the decimal's canonical text (ADR 0361); `None` when the
+    /// field is absent or its text is no decimal.
+    pub fn number(&self, field: &str) -> Option<crate::Decimal> {
+        crate::Decimal::parse(self.fields.get(field)?).ok()
+    }
 }
 
 /// One resolved reference in the snapshot (label = edge label, e.g.

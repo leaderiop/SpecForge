@@ -40,6 +40,7 @@ mod code_catalog;
 pub mod command_args;
 mod context;
 mod contrib;
+mod decimal;
 mod declaration;
 mod effects;
 pub mod engine_tools;
@@ -81,6 +82,7 @@ pub use context::{
     ContextTier,
 };
 pub use contrib::*;
+pub use decimal::{Decimal, DecimalError};
 pub use declaration::{
     DECLARED_CATEGORIES, DeclaredCategory, ExtensionDeclaration, UnknownKey, is_valid_short,
     protocol_minor,
