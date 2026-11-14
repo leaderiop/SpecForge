@@ -626,6 +626,71 @@ fn a_schema_change_to_members_is_classified() {
 
 #[specforge_test(
     behavior = "detect_breaking_schema_changes",
+    verify = "a bound removed or loosened is minor and one set or tightened major, compared by value"
+)]
+fn a_bound_is_compared_by_value() {
+    let number = |text: &str| -> serde_json::Number { serde_json::from_str(text).unwrap() };
+    let bounded = |field_type: FieldType, minimum: Option<&str>, maximum: Option<&str>| {
+        let mut schema = rich_schema();
+        let contract = field(&mut schema, "contract");
+        contract.field_type = field_type;
+        contract.minimum = minimum.map(number);
+        contract.maximum = maximum.map(number);
+        schema
+    };
+    let ratio =
+        |minimum: Option<&str>, maximum: Option<&str>| bounded(FieldType::Number, minimum, maximum);
+    let bump = |old: &GraphProtocolSchema, new: &GraphProtocolSchema| {
+        diff(old, new).iter().map(SchemaChange::bump).max()
+    };
+    let before = ratio(Some("0.05"), Some("0.95"));
+    for (after, expected) in [
+        (ratio(Some("0.05"), Some("0.99")), Bump::Minor),
+        (ratio(Some("0.05"), None), Bump::Minor),
+        (ratio(Some("0.01"), Some("0.95")), Bump::Minor),
+        (ratio(None, Some("0.95")), Bump::Minor),
+        (ratio(Some("0.05"), Some("0.9")), Bump::Major),
+        (ratio(Some("0.1"), Some("0.95")), Bump::Major),
+    ] {
+        assert_eq!(
+            bump(&before, &after),
+            Some(expected),
+            "{:?}",
+            diff(&before, &after)
+        );
+    }
+    assert_eq!(
+        bump(&ratio(None, None), &ratio(None, Some("0.95"))),
+        Some(Bump::Major),
+        "a bound set is a tightening"
+    );
+    assert_eq!(
+        diff(
+            &ratio(Some("1"), Some("1e2")),
+            &ratio(Some("1.0"), Some("100"))
+        ),
+        [],
+        "one value written two ways is no change"
+    );
+    let wide = |maximum: &str| bounded(FieldType::Integer, None, Some(maximum));
+    assert_eq!(
+        bump(&wide("1234567890123456"), &wide("1234567890123457")),
+        Some(Bump::Minor),
+        "an integer bound past 15 digits compares as an integer"
+    );
+    // A bound recorded in the cache's file reads back as written.
+    let tiny = ratio(None, Some("1.5e-29"));
+    let dir = tempfile::tempdir().unwrap();
+    let cache = SchemaCache::in_dir(dir.path());
+    cache.seed(&tiny);
+    assert_eq!(
+        cache.version(tiny.clone(), &PlainDisk).version(),
+        &tiny.schema_version
+    );
+}
+
+#[specforge_test(
+    behavior = "detect_breaking_schema_changes",
     verify = "an added check or changed args is major, and a removed check minor"
 )]
 fn an_added_check_is_major_and_a_removed_one_minor() {

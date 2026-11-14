@@ -411,6 +411,7 @@ behavior detect_breaking_schema_changes "Detect Breaking Schema Changes" {
   verify unit "removed field is breaking"
   verify unit "a cache an older host wrote reads its field types unchanged"
   verify unit "a required member or a bound tightened is major, a member or a target kind added is minor"
+  verify unit "a bound removed or loosened is minor and one set or tightened major, compared by value"
 }
 
 behavior compute_schema_version "Compute Schema Version" {

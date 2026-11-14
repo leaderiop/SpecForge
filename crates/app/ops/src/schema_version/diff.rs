@@ -12,6 +12,7 @@
 //! load order) move the patch number. A field added as required is the one
 //! growth that is major: an earlier document lacks it.
 
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
@@ -19,6 +20,7 @@ use specforge_emitter::{
     GraphProtocolSchema, SchemaCheck, SchemaEdgeType, SchemaEntityKind, SchemaExtensionInfo,
     SchemaField, SchemaVersion,
 };
+use specforge_protocol_types::Decimal;
 
 /// One change between the recorded schema and the generated one. Its
 /// [`fmt::Display`] is the one text W053 and every test read.
@@ -97,9 +99,9 @@ pub enum Scalar {
     TargetKind,
     Description,
     DefaultValue,
-    /// An integer field's least value; loosening it is minor, tightening it major.
+    /// An `integer` or `number` field's least value; loosening it is minor, tightening it major.
     Minimum,
-    /// An integer field's greatest value.
+    /// An `integer` or `number` field's greatest value.
     Maximum,
     /// The checks its values pass (ADR 0336): one more, or other args, is major; one fewer minor. Its values are the
     /// checks as JSON.
@@ -163,8 +165,8 @@ impl AttributeChange {
                 Scalar::Checks => checks_bump(before, after),
                 Scalar::ChecksWhile if before.is_none() => Bump::Minor,
                 Scalar::ChecksWhile => Bump::Major,
-                Scalar::Minimum => bound_bump(before, after, |after, before| after < before),
-                Scalar::Maximum => bound_bump(before, after, |after, before| after > before),
+                Scalar::Minimum => bound_bump(before, after, Ordering::Less),
+                Scalar::Maximum => bound_bump(before, after, Ordering::Greater),
                 Scalar::SourceExtension
                 | Scalar::Testable
                 | Scalar::DotColor
@@ -178,17 +180,28 @@ impl AttributeChange {
     }
 }
 
-/// A bound moved: loosened (no bound, or `loosened(after, before)`) is minor, tightened major (ADR 0285).
-fn bound_bump(
-    before: &Option<String>,
-    after: &Option<String>,
-    loosened: fn(i64, i64) -> bool,
-) -> Bump {
-    let number = |value: &Option<String>| value.as_deref().and_then(|v| v.parse::<i64>().ok());
-    match (number(before), number(after)) {
-        (Some(_), None) => Bump::Minor,
-        (Some(before), Some(after)) if loosened(after, before) => Bump::Minor,
-        _ => Bump::Major,
+/// A bound moved: removed, or moved the way that `loosens` it (`after` against `before`), is minor; set or tightened
+/// is major (ADR 0285). Bounds are compared by value: as `i64`s when both are whole, which an `integer`'s bound past
+/// 15 digits needs, else as decimals (ADR 0361); a bound neither reads is major.
+fn bound_bump(before: &Option<String>, after: &Option<String>, loosens: Ordering) -> Bump {
+    let (Some(before), Some(after)) = (before.as_deref(), after.as_deref()) else {
+        return if after.is_none() {
+            Bump::Minor
+        } else {
+            Bump::Major
+        };
+    };
+    let order = match (before.parse::<i64>(), after.parse::<i64>()) {
+        (Ok(before), Ok(after)) => Some(after.cmp(&before)),
+        _ => Decimal::parse(before)
+            .ok()
+            .zip(Decimal::parse(after).ok())
+            .map(|(before, after)| after.cmp(&before)),
+    };
+    if order == Some(loosens) {
+        Bump::Minor
+    } else {
+        Bump::Major
     }
 }
 
@@ -357,6 +370,12 @@ impl fmt::Display for SchemaChange {
             Self::EdgeType { label, change } => change.describe(&Subject::EdgeType(label), f),
         }
     }
+}
+
+/// A bound's text in one form per value: a decimal's canonical text (`1.0` and `1` are `1`), else the JSON number's
+/// own (an `integer` bound past 15 digits).
+fn bound_text(bound: &serde_json::Number) -> String {
+    Decimal::from_json(bound).map_or_else(|_| bound.to_string(), |value| value.to_string())
 }
 
 /// `before` and `after` as a change of `attribute`, when they differ.
@@ -680,13 +699,13 @@ fn diff_field(
     attributes.extend(members(Members::TargetKinds, &old_set, new_target_kinds));
     attributes.extend(scalar(
         Scalar::Minimum,
-        old_minimum.as_ref().map(|n| n.to_string()),
-        new_minimum.as_ref().map(|n| n.to_string()),
+        old_minimum.as_ref().map(bound_text),
+        new_minimum.as_ref().map(bound_text),
     ));
     attributes.extend(scalar(
         Scalar::Maximum,
-        old_maximum.as_ref().map(|n| n.to_string()),
-        new_maximum.as_ref().map(|n| n.to_string()),
+        old_maximum.as_ref().map(bound_text),
+        new_maximum.as_ref().map(bound_text),
     ));
     let checks = |checks: &Vec<SchemaCheck>| {
         (!checks.is_empty()).then(|| serde_json::to_string(checks).expect("JSON values"))
