@@ -309,6 +309,52 @@ fn a_deferred_plan_becomes_a_backlog_phase() {
     );
 }
 
+/// `/gsd-next`'s backlog fence holds its criteria in a single-quoted assignment: a plan title with an apostrophe ends
+/// the quote, so the fence fails and no backlog phase is added.
+#[test]
+fn a_criterion_with_an_apostrophe_breaks_the_backlog_fence() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let defer = typed::filled(
+        &fence_holding(&asset("gsd-core/workflows/next.md"), "phase --backlog"),
+        &[
+            ("SRC", "02"),
+            ("DEST", "03"),
+            (
+                "CRITERIA",
+                r#"["02-01: save the user's board (ran, no summary)", "Every plan above has a summary"]"#,
+            ),
+        ],
+    );
+    let done = typed::apply(&sh, &p, &format!("MILESTONE=v1.0\n{defer}"));
+    assert_ne!(done.code, 0, "{}{}", done.out, done.err);
+    assert!(p.nodes_of("phase").iter().all(|n| n["id"] != "v1.0/999.1"));
+}
+
+/// complete-milestone's close line, run as written on a ready milestone, closes it but prints the human answer: the
+/// `wrote`, `completion` and `archived` keys the step extracts are in no JSON it prints.
+#[test]
+fn the_close_line_prints_no_answer_the_step_reads() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = crate::cmd_milestone::ready();
+    let line = fence_holding(
+        &asset("gsd-core/workflows/complete-milestone.md"),
+        "ARCHIVE=$(",
+    )
+    .replace("v[X.Y]", "v1.0");
+    let (out, err, code) = sh.run_in(p.root(), &format!("{line}\necho \"$ARCHIVE\""));
+    assert_eq!(code, 0, "{err}");
+    assert!(
+        serde_json::from_str::<serde_json::Value>(&out).is_err(),
+        "{out}"
+    );
+    assert_eq!(p.fields_of("v1.0")["state"], "shipped");
+}
+
 /// The two lessons graduation reads in `review.rs`'s window test, on a taskboard copy.
 fn with_lessons() -> crate::harness::Project {
     let p = taskboard();

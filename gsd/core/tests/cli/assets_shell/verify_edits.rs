@@ -243,7 +243,7 @@ fn a_deferred_follow_up_lands_on_the_session() {
     assert!(out.contains("deferred follow-ups: 1"), "{out}");
 }
 
-/// verify-work's [P] fence for one follow-up adds the backlog phase `v1.0/999.1`.
+/// verify-work's [P] fence for one follow-up adds the backlog phase `v1.0/999.1`, and with it a gsd/W103 warning.
 #[test]
 fn uat_follow_ups_promote_to_backlog_phases() {
     let Some(sh) = Shell::only(&[]) else {
@@ -259,6 +259,8 @@ fn uat_follow_ups_promote_to_backlog_phases() {
     );
     let done = typed::apply(&sh, &p, &format!("PHASE_ID=v1.0/01\n{promote}"));
     assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    // the backlog phase keeps the default single criterion, which gsd/W103 counts
+    assert_eq!(done.added, ["gsd/W103"]);
     let phase = p.fields_of("v1.0/999.1");
     assert_eq!(
         phase["goal"], "print the version beside the usage line",
