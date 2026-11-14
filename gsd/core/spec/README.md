@@ -18,6 +18,7 @@ nothing is kept as Markdown.
 
 ```
  str     quoted string            text   triple-quoted prose          int     integer        int{1..4}  bounded
+ num     number (a decimal)       num{a..b}  bounded, decimal bounds allowed
  bool    true/false               date   YYYY-MM-DD                   ts      RFC 3339 UTC string (a `str` that `matches`, gsd/E107)
  enum{}  one closed value         enums{} list of closed values       id      bare identifier
  strs    list of strings          path<mode>  path                    paths<mode>  list of paths (mode planned | present | open | history)
@@ -25,7 +26,7 @@ nothing is kept as Markdown.
  {..}    repeatable typed block, its own fields inside
 ```
 
-`enums{}`, `{..}`, `→ A|B` and `int{a..b}` are kernel field types proposed in K3.
+`enums{}`, `{..}`, `→ A|B`, `int{a..b}` and `num` are kernel field types proposed in K3.
 
 ## Who writes a field
 

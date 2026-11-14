@@ -269,3 +269,83 @@ fn path_fields_lists_each_path_with_its_mode_and_writer() {
         ]
     );
 }
+
+const MEASURED: Kind = Kind::new(
+    "measured",
+    "a kind with whole-bounded, decimal-bounded and unbounded numbers",
+    &[
+        num("threshold").range(0, 100),
+        num("ratio").within("0.05", "0.95"),
+        block("metric", &[str("name"), num("threshold")]),
+    ],
+);
+
+/// The field `path` (`field` or `block.member`) of `kind`, as the declaration writes it.
+fn declared_in(kind: &Kind, path: &str) -> serde_json::Value {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@gsd/test", "0.0.0"));
+    declare(&mut c, &[kind]);
+    let declaration = serde_json::to_value(c.declaration()).expect("JSON");
+    let named = |list: &serde_json::Value, name: &str| {
+        list.as_array()
+            .and_then(|items| items.iter().find(|f| f["name"] == name))
+            .cloned()
+            .unwrap_or_else(|| panic!("'{name}' is declared"))
+    };
+    let mut parts = path.split('.');
+    let mut found = named(
+        &declaration["entities"][0]["fields"],
+        parts.next().expect("a field"),
+    );
+    if let Some(member) = parts.next() {
+        found = named(&found["members"], member);
+    }
+    found
+}
+
+#[test]
+fn a_num_field_declares_a_number_with_its_bounds() {
+    let threshold = declared_in(&MEASURED, "threshold");
+    assert_eq!(threshold["field_type"], "number");
+    assert_eq!(threshold["minimum"], serde_json::json!(0));
+    assert_eq!(threshold["maximum"], serde_json::json!(100));
+}
+
+#[test]
+fn a_num_field_takes_decimal_bounds() {
+    let ratio = declared_in(&MEASURED, "ratio");
+    assert_eq!(ratio["field_type"], "number");
+    assert_eq!(ratio["minimum"], serde_json::json!(0.05));
+    assert_eq!(ratio["maximum"], serde_json::json!(0.95));
+}
+
+#[test]
+fn a_num_member_of_a_block_declares_a_number_member() {
+    let member = declared_in(&MEASURED, "metric.threshold");
+    assert_eq!(member["field_type"], "number");
+    assert!(
+        member.get("minimum").is_none_or(serde_json::Value::is_null),
+        "{member}"
+    );
+}
+
+#[test]
+#[should_panic(expected = "measured.ratio: the bound '1,5' is refused: '1,5' is no decimal number")]
+fn a_decimal_bound_that_is_no_decimal_is_refused_at_declare_time() {
+    const BAD: Kind = Kind::new(
+        "measured",
+        "a bound that is no decimal",
+        &[num("ratio").within("0", "1,5")],
+    );
+    declared_in(&BAD, "ratio");
+}
+
+#[test]
+#[should_panic(expected = "measured.count: within bounds a num only")]
+fn within_on_a_field_that_is_no_num_is_refused_at_declare_time() {
+    const BAD: Kind = Kind::new(
+        "measured",
+        "within on an int",
+        &[int("count").within("0", "1")],
+    );
+    declared_in(&BAD, "count");
+}
