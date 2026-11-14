@@ -58,8 +58,8 @@ fn requirement_in_two_phases_is_e101() {
             phase("v1.0/02"),
         ],
         vec![
-            edge("v1.0/01", "AUTH-01", "PhaseRequirements"),
-            edge("v1.0/02", "AUTH-01", "PhaseRequirements"),
+            edge("v1.0/01", "AUTH-01", "requirements"),
+            edge("v1.0/02", "AUTH-01", "requirements"),
         ],
     ));
     assert_eq!(codes(&found), [("E101", "AUTH-01")]);
@@ -75,7 +75,7 @@ fn a_requirement_in_one_phase_and_a_v2_requirement_in_none_are_clean() {
             requirement("AUTH-03", "out_of_scope"),
             phase("v1.0/01"),
         ],
-        vec![edge("v1.0/01", "AUTH-01", "PhaseRequirements")],
+        vec![edge("v1.0/01", "AUTH-01", "requirements")],
     ));
     assert!(found.is_empty(), "{found:?}");
 }
@@ -85,8 +85,8 @@ fn cycle_is_e102() {
     let found = check(&input(
         vec![phase("v1.0/01"), phase("v1.0/02"), phase("v1.0/03")],
         vec![
-            edge("v1.0/02", "v1.0/03", "PhaseDependsOn"),
-            edge("v1.0/03", "v1.0/02", "PhaseDependsOn"),
+            edge("v1.0/02", "v1.0/03", "depends_on"),
+            edge("v1.0/03", "v1.0/02", "depends_on"),
         ],
     ));
     let on_cycle: Vec<_> = found
@@ -101,7 +101,7 @@ fn cycle_is_e102() {
 fn forward_dependency_is_e102() {
     let found = check(&input(
         vec![phase("v1.0/01"), phase("v1.0/02")],
-        vec![edge("v1.0/01", "v1.0/02", "PhaseDependsOn")],
+        vec![edge("v1.0/01", "v1.0/02", "depends_on")],
     ));
     assert_eq!(codes(&found), [("E102", "v1.0/01")]);
     assert!(found[0].message.contains("not an earlier phase"));
@@ -112,8 +112,8 @@ fn a_dependency_on_an_earlier_phase_or_an_inserted_one_is_clean() {
     let found = check(&input(
         vec![phase("v1.0/01"), phase("v1.0/01.1"), phase("v1.0/02")],
         vec![
-            edge("v1.0/01.1", "v1.0/01", "PhaseDependsOn"),
-            edge("v1.0/02", "v1.0/01.1", "PhaseDependsOn"),
+            edge("v1.0/01.1", "v1.0/01", "depends_on"),
+            edge("v1.0/02", "v1.0/01.1", "depends_on"),
         ],
     ));
     assert!(found.is_empty(), "{found:?}");
@@ -212,12 +212,12 @@ fn every_member_of_a_cycle_is_named_not_only_the_back_edge_path() {
             phase("v1.0/09"),
         ],
         vec![
-            edge("v1.0/05", "v1.0/06", "PhaseDependsOn"),
-            edge("v1.0/06", "v1.0/07", "PhaseDependsOn"),
-            edge("v1.0/07", "v1.0/05", "PhaseDependsOn"),
-            edge("v1.0/05", "v1.0/08", "PhaseDependsOn"),
-            edge("v1.0/08", "v1.0/07", "PhaseDependsOn"),
-            edge("v1.0/09", "v1.0/05", "PhaseDependsOn"),
+            edge("v1.0/05", "v1.0/06", "depends_on"),
+            edge("v1.0/06", "v1.0/07", "depends_on"),
+            edge("v1.0/07", "v1.0/05", "depends_on"),
+            edge("v1.0/05", "v1.0/08", "depends_on"),
+            edge("v1.0/08", "v1.0/07", "depends_on"),
+            edge("v1.0/09", "v1.0/05", "depends_on"),
         ],
     ));
     let on_cycle: Vec<_> = found
@@ -236,7 +236,7 @@ fn a_long_dependency_chain_does_not_exhaust_the_stack() {
             edge(
                 &format!("v1.0/{n}"),
                 &format!("v1.0/{}", n - 1),
-                "PhaseDependsOn",
+                "depends_on",
             )
         })
         .collect();
@@ -279,8 +279,8 @@ fn a_forward_dependency_between_letter_and_nested_phases_is_e102() {
             phase("v1.0/12.1"),
         ],
         vec![
-            edge("v1.0/12", "v1.0/12A", "PhaseDependsOn"),
-            edge("v1.0/12.1", "v1.0/12.1.1", "PhaseDependsOn"),
+            edge("v1.0/12", "v1.0/12A", "depends_on"),
+            edge("v1.0/12.1", "v1.0/12.1.1", "depends_on"),
         ],
     ));
     assert_eq!(ids(&found, "E102"), ["v1.0/12", "v1.0/12.1"], "{found:?}");
@@ -305,7 +305,7 @@ fn decimal_parts_order_numerically() {
             phase("v1.0/02.9"),
             phase("v1.0/02.10"),
         ],
-        vec![edge("v1.0/02.9", "v1.0/02.10", "PhaseDependsOn")],
+        vec![edge("v1.0/02.9", "v1.0/02.10", "depends_on")],
     ));
     assert_eq!(ids(&found, "E102"), ["v1.0/02.9"]);
 }
@@ -608,6 +608,62 @@ fn a_milestone_cycle_is_read_from_depends_on_only() {
         ],
     ));
     assert!(found.is_empty(), "{found:?}");
+}
+
+/// An entity of another kind sharing an id, listed before or after its namesake (E002 forbids a second id within one
+/// kind only).
+fn namesake(id: &str, kind: &str) -> PassEntity {
+    PassEntity {
+        id: id.into(),
+        kind: kind.into(),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn a_term_or_journey_sharing_a_milestones_id_hides_no_cycle() {
+    for kind in ["term", "journey", "persona"] {
+        for after in [true, false] {
+            let mut entities = vec![milestone("mvp"), milestone("beta")];
+            let other = namesake("mvp", kind);
+            if after {
+                entities.push(other);
+            } else {
+                entities.insert(0, other);
+            }
+            let found = check(&input(
+                entities,
+                vec![
+                    edge("mvp", "beta", "depends_on"),
+                    edge("beta", "mvp", "depends_on"),
+                ],
+            ));
+            assert_eq!(
+                ids(&found, "E102"),
+                ["beta", "mvp"],
+                "{kind} after: {after}: {found:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_term_sharing_a_requirements_id_hides_no_phase_of_it() {
+    // The phase lists the requirement; a term of the same id, before or after it, is not what it lists.
+    for after in [true, false] {
+        let mut entities = vec![requirement("AUTH-01", "v1"), phase("v1.0/01")];
+        let term = namesake("AUTH-01", "term");
+        if after {
+            entities.push(term);
+        } else {
+            entities.insert(0, term);
+        }
+        let found = check(&input(
+            entities,
+            vec![edge("v1.0/01", "AUTH-01", "requirements")],
+        ));
+        assert!(found.is_empty(), "term after: {after}: {found:?}");
+    }
 }
 
 /// A milestone with the dates it writes, `(field, day)`.

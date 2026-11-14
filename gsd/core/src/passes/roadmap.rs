@@ -39,22 +39,27 @@ fn of_kind<'a>(input: &'a PassInput, kind: &'a str) -> impl Iterator<Item = &'a 
     input.entities.iter().filter(move |e| e.kind == kind)
 }
 
-fn kind_of(input: &PassInput) -> BTreeMap<&str, &str> {
-    input
-        .entities
-        .iter()
-        .map(|e| (e.id.as_str(), e.kind.as_str()))
-        .collect()
+/// The ids of the entities of `kind`. An id is unique within a kind only (E002): a term, a journey or a persona may
+/// share a milestone's or a requirement's id, so an edge end is matched against one kind's ids, never an id→kind map.
+fn ids_of<'a>(input: &'a PassInput, kind: &'a str) -> BTreeSet<&'a str> {
+    of_kind(input, kind).map(|e| e.id.as_str()).collect()
 }
 
-/// The edges from an entity of kind `from` to an entity of kind `to`, as `(source, target)`.
-fn edges_between<'a>(input: &'a PassInput, from: &str, to: &str) -> Vec<(&'a str, &'a str)> {
-    let kinds = kind_of(input);
+/// The `label` edges from an entity of kind `from` to an entity of kind `to`, as `(source, target)`.
+fn edges_between<'a>(
+    input: &'a PassInput,
+    from: &str,
+    label: &str,
+    to: &str,
+) -> Vec<(&'a str, &'a str)> {
+    let (sources, targets) = (ids_of(input, from), ids_of(input, to));
     input
         .edges
         .iter()
         .filter(|e| {
-            kinds.get(e.source.as_str()) == Some(&from) && kinds.get(e.target.as_str()) == Some(&to)
+            e.label == label
+                && sources.contains(e.source.as_str())
+                && targets.contains(e.target.as_str())
         })
         .map(|e| (e.source.as_str(), e.target.as_str()))
         .collect()
@@ -93,7 +98,7 @@ fn unmapped_requirements(input: &PassInput) -> Vec<PassDiagnostic> {
         return Vec::new();
     }
     let mut phases_of: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
-    for (phase, requirement) in edges_between(input, "phase", "requirement") {
+    for (phase, requirement) in edges_between(input, "phase", "requirements", "requirement") {
         phases_of.entry(requirement).or_default().insert(phase);
     }
     of_kind(input, "requirement")
@@ -139,7 +144,7 @@ fn milestone_of(id: &str) -> &str {
 /// E102: a phase's `depends_on` is acyclic and names earlier phases of its milestone only, and a milestone's is
 /// acyclic.
 fn dependencies(input: &PassInput) -> Vec<PassDiagnostic> {
-    let depends = edges_between(input, "phase", "phase");
+    let depends = edges_between(input, "phase", "depends_on", "phase");
     let mut graph: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
     for (phase, on) in &depends {
         graph.entry(phase).or_default().push(on);
@@ -182,15 +187,9 @@ fn dependencies(input: &PassInput) -> Vec<PassDiagnostic> {
 /// field's edges between two milestones count, and there is no forward check: milestone names carry no order GSD
 /// defines.
 fn milestone_cycles(input: &PassInput) -> Vec<PassDiagnostic> {
-    let kinds = kind_of(input);
-    let milestone = |id: &str| kinds.get(id) == Some(&"milestone");
     let mut graph: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
-    for edge in input
-        .edges
-        .iter()
-        .filter(|e| e.label == "depends_on" && milestone(&e.source) && milestone(&e.target))
-    {
-        graph.entry(&edge.source).or_default().push(&edge.target);
+    for (milestone, on) in edges_between(input, "milestone", "depends_on", "milestone") {
+        graph.entry(milestone).or_default().push(on);
     }
     on_a_cycle(&graph)
         .into_iter()
