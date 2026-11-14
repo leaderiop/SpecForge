@@ -231,6 +231,46 @@ fn a_term_without_its_word_is_e006() {
     assert!(found[0].1.contains("name"), "{found:#?}");
 }
 
+/// A term's `avoid` holding a word the glossary accepts, its own alias or another term's name, is `gsd/W538` on the
+/// avoiding term, a warning under every profile, compared case-insensitively.
+#[test]
+fn a_term_that_avoids_an_accepted_word_is_w538() {
+    for profile in ["gsd-compat", "gsd-strict", "gsd-plus"] {
+        let p = product();
+        p.settings(serde_json::json!({ "profile": profile }));
+        p.edit(
+            "spec/product.spec",
+            "avoid      [\"ticket\"]",
+            "avoid      [\"ticket\", \"To-Do\", \"Board\"]",
+        );
+        let found = p.findings();
+        let codes: Vec<&str> = found.iter().map(|(code, _)| code.as_str()).collect();
+        assert_eq!(codes, ["gsd/W538", "gsd/W538"], "{profile}: {found:#?}");
+        for expected in [
+            "term 'work_item' avoids \"Board\", which is the name of term 'board'",
+            "term 'work_item' avoids \"To-Do\", which is its own alias",
+        ] {
+            assert!(
+                found.iter().any(|(_, message)| message.contains(expected)),
+                "{profile}: {expected} in {found:#?}"
+            );
+        }
+        let check = p.run(&["check"]);
+        assert_eq!(check.code, 0, "{profile}: a warning: {}", check.all());
+    }
+}
+
+/// The fixture's glossary avoids no word it accepts: no `gsd/W538`.
+#[test]
+fn a_glossary_that_avoids_no_accepted_word_is_not_w538() {
+    let p = product();
+    assert!(
+        !p.codes().iter().any(|code| code == "gsd/W538"),
+        "{:#?}",
+        p.report()
+    );
+}
+
 /// A journey names the requirements it exercises as a whole, an edge apart from its steps' finer ones.
 #[test]
 fn a_journey_names_the_requirements_it_exercises() {

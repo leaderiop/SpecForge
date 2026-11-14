@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 71] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 72] = [
     (
         "E101",
         Evidence::Tests {
@@ -505,6 +505,13 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 71] = [
         Evidence::Tests {
             fires: "a_milestone_targeting_before_it_starts_is_e537",
             silent: "a_milestone_targeting_on_or_after_its_start_is_not_e537",
+        },
+    ),
+    (
+        "W538",
+        Evidence::Tests {
+            fires: "a_term_that_avoids_its_own_alias_is_w538",
+            silent: "a_glossary_whose_avoided_words_are_accepted_nowhere_is_not_w538",
         },
     ),
 ];

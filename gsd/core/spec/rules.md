@@ -117,6 +117,12 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/E521 | a task commit names its task by its `Gsd-Task:` trailer (ADR 0351, amending ADR 0331 D3): one error per recorded commit, on the commit, when the gsd-git collector found its task by the subject's title (`linked_by title`), or when it names no task and its type is one of the executor's task types other than `docs` (`feat`, `fix`, `test`, `refactor`, `perf`, `style`, `chore`). A `docs` commit (a plan's metadata commit) and a commit with no type are not judged. The setting `specforge.task_trailers` (on in gsd-plus) gates it; a collector's plan is never refused for it (ADR 0303) | pass | — | E (plus) | (new: gsd-plus) |
 | gsd/W522 | a code item a task or a commit names is anchored by a plan that reaches a requirement (ADR 0352 D7): for each item a `task.items` (its plan the task's) or a `commit.items_changed` (the commit's plan) names, the anchors in a quick plan dropped, when some remain and none of their plans reaches a requirement (a `requirements` entry that resolves to one, or a truth of the plan whose `requirement` resolves to one), one warning on the first anchoring task by id (else commit), naming the item and the plans. The item need not be held. On under every profile | pass | W | W | (new: the items a task names) |
 
+## Product
+
+| Code | Rule | Kind | compat | strict | GSD source |
+|---|---|---|---|---|---|
+| gsd/W538 | a term's `avoid` lists no word the glossary accepts: one warning per term and avoided word, on the avoiding term, when the word is its own `name` or one of its `aliases`, or another term's, compared with each run of whitespace as one space and Unicode lowercase (`str::to_lowercase`); the message names every term and field that accepts it | pass | W | W | (new: GSD keeps no glossary, [ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)) |
+
 ## Retired and kernel-provided
 
 - `gsd/E508` (what a verdict cites exists when it is recorded) is retired: the host already refuses it. `set_verdict`

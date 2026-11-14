@@ -70,8 +70,11 @@ pub const TERM: Kind = Kind::new(
             .r()
             .doc("the word or phrase as prose writes it; a pass sees no title, so the vocabulary checks read this"),
         str("definition").r().doc("what it means in this project"),
-        strs("avoid").doc("synonyms not to use for it"),
-        strs("aliases").doc("other accepted names; never the same as `avoid`"),
+        strs("avoid").doc(
+            "synonyms not to use for it; a word the glossary accepts (this term's `name` or `aliases`, or another \
+             term's) is gsd/W538",
+        ),
+        strs("aliases").doc("other accepted names; one also in a term's `avoid` is gsd/W538"),
         rfs("related", "term").doc("related terms"),
         str("context").doc("where or how it is used"),
         strs("tags").doc("free words"),

@@ -47,7 +47,10 @@ D1 (open words). No kernel, SDK or protocol change.
   priority too). "Won't" is no
   journey at all.
 - **D6. A term carries its word in `name`,** because a pass sees no entity's title.
-  - `aliases` are accepted names and `avoid` the words not to use; one is never the other.
+  - `aliases` are accepted names and `avoid` the words not to use; one is never the other. A term whose `avoid` lists
+    a word the glossary accepts, its own `name` or one of its `aliases` or another term's, is `gsd/W538`, a warning
+    under every profile. The words compare with each run of whitespace as one space and Unicode lowercase. The
+    warning sits on the avoiding term and names every term and field that accepts the word.
   - `related` is a relation of terms with themselves (ADR 0354's kind-pair rule pairs two different kinds only).
 - **D7. A persona has a status,** `active` or `deprecated`, and absent means active. A deprecated persona says the
   product no longer serves them; nothing else reads it.

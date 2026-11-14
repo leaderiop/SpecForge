@@ -1805,7 +1805,7 @@
           },
           {
             "default_value": null,
-            "description": "synonyms not to use for it",
+            "description": "synonyms not to use for it; a word the glossary accepts (this term's `name` or `aliases`, or another term's) is gsd/W538",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
@@ -1815,7 +1815,7 @@
           },
           {
             "default_value": null,
-            "description": "other accepted names; never the same as `avoid`",
+            "description": "other accepted names; one also in a term's `avoid` is gsd/W538",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,

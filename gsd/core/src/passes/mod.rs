@@ -8,6 +8,7 @@ mod execute;
 mod fails_when;
 mod file_scope;
 mod gates;
+mod glossary;
 mod nyquist;
 mod plan_shape;
 mod plans;
@@ -48,6 +49,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     scan::declare(c);
     derive::declare(c);
     roadmap::declare(c);
+    glossary::declare(c);
     research::declare(c);
     execute::declare(c);
     schema_drift::declare(c);

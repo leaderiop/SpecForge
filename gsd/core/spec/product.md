@@ -56,8 +56,8 @@ A glossary entry: a word of the project and what it means. Name: a word, `spec_r
 |---|---|---|---|
 | name | str | R | the word or phrase as prose writes it; a pass sees no title, so the vocabulary checks read this |
 | definition | str | R | what it means in this project |
-| avoid | strs | | synonyms not to use for it |
-| aliases | strs | | other accepted names; never the same as `avoid` |
+| avoid | strs | | synonyms not to use for it; a word the glossary accepts (this term's `name` or `aliases`, or another term's) is gsd/W538 |
+| aliases | strs | | other accepted names; one also in a term's `avoid` is gsd/W538 |
 | related | →* term | | related terms |
 | context | str | | where or how it is used |
 | tags | strs | | free words |

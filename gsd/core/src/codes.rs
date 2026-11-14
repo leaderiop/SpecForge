@@ -82,7 +82,7 @@ const fn code(
     }
 }
 
-/// The 71 codes of `spec/rules.md`.
+/// The 72 codes of `spec/rules.md`.
 pub static CODES: &[Code] = &[
     code(
         "E101",
@@ -651,6 +651,14 @@ pub static CODES: &[Code] = &[
         "project-and-roadmap",
         Severity::Error,
         Severity::Error,
+    ),
+    code(
+        "W538",
+        "Term avoids a word the glossary accepts",
+        "A term's avoid lists no word the glossary accepts: its own name or aliases, or another term's",
+        "product",
+        Severity::Warning,
+        Severity::Warning,
     ),
 ];
 

@@ -426,6 +426,12 @@
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
       "explanation": "A milestone's targets day is on or after its starts day. It is an error.",
       "title": "Milestone targets a day before it starts"
+    },
+    {
+      "code": "W538",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#product",
+      "explanation": "A term's avoid lists no word the glossary accepts: its own name or aliases, or another term's. It is a warning.",
+      "title": "Term avoids a word the glossary accepts"
     }
   ]
 }
