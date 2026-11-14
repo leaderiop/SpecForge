@@ -1,9 +1,10 @@
 //! W103: a phase has 2 to 5 success criteria (the roadmapper's "2-5 observable behaviors"). It counts the list's
 //! items, which the kernel hands a pass as `values`: the joined field text cannot tell an item that holds a
-//! comma from two.
+//! comma from two. A `999.x` backlog phase is exempt: it holds a deferred follow-up, not a planned phase.
 
 use specforge_extension_sdk::prelude::*;
 
+use super::numbering::Number;
 use super::of_kind;
 
 const LEAST: usize = 2;
@@ -11,6 +12,7 @@ const MOST: usize = 5;
 
 pub fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     of_kind(input, "phase")
+        .filter(|phase| !Number::of(&phase.id).is_some_and(|n| n.backlog()))
         .filter_map(|phase| {
             // A phase that writes none is the host's required-field error, not W103.
             let count = phase.values.get("success_criteria")?.as_array()?.len();

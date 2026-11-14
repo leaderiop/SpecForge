@@ -61,7 +61,7 @@
     "the spec exists but the core initialization entities are missing (one or more of the requirement, milestone and phase entities were never created — a bootstrap that stopped partway, e.g. after the `project` entity). This is NOT a new project, NOT a missing project state, and NOT a between-milestones state — do not fall through to any of those routes. Route to initialization recovery:",
     ""
   ],
-  "bytes": 69157,
+  "bytes": 69041,
   "end": [
     "| 3     | ○      | 0/2   | 0%       |",
     "```",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:cf9f0ba1be726ba5e6199194cdda33d23a24894ec419c6d2ee1b1a14b42919ea",
+    "digest": "sha256:44d129f562ce6d14c99310870a41d12422558d23aa9efdbee47054fcd0d23220",
     "prompt": "@gsd/core@VERSION:progress",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "cf9f0ba1be726ba5e6199194cdda33d23a24894ec419c6d2ee1b1a14b42919ea"
+  "sha256": "44d129f562ce6d14c99310870a41d12422558d23aa9efdbee47054fcd0d23220"
 }

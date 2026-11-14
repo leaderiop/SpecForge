@@ -21,8 +21,11 @@ TEXT
 IFS= read -rd '' PHASE_GOAL <<'TEXT' || true; PHASE_GOAL=${PHASE_GOAL%$'\n'}
 {the first phase's goal}
 TEXT
+IFS= read -rd '' PHASE_CRITERIA <<'TEXT' || true; PHASE_CRITERIA=${PHASE_CRITERIA%$'\n'}
+{a JSON list of 2 to 5 observable behaviours that show the phase is done, e.g. ["A board has a share link", "The link opens the board read-only"]}
+TEXT
 specforge new milestone "$VERSION" "$NAME" --in "spec/$VERSION.spec" --name "$NAME" --goal "$GOAL" || exit 1
-specforge gsd phase --milestone "$VERSION" --name "$PHASE_NAME" --goal "$PHASE_GOAL" || exit 1
+specforge gsd phase --milestone "$VERSION" --name "$PHASE_NAME" --goal "$PHASE_GOAL" --criteria "$PHASE_CRITERIA" || exit 1
 ```
 
 When it ships, record what was delivered and what comes next (the close records the completion):

@@ -25,7 +25,7 @@ every profile, while that setting is false; its letter is still the severity it 
 |---|---|---|---|---|---|
 | gsd/E101 | every v1 requirement maps to exactly one phase (waits for the first phase: requirements written before the roadmap are not unmapped yet) | pass | E | E | roadmapper coverage, `REQUIREMENT_UNMAPPED` |
 | gsd/E102 | phase `depends_on` is acyclic and points at earlier phases of its milestone only; plan `depends_on` is acyclic and names plans of its own phase only (a token that does not resolve in the phase is dropped by GSD, which then places the wave unreliably; a quick plan is checked for cycles only) | pass | E | E | D3, `src/phase.cts` (`depends_on` resolution and cycle error) |
-| gsd/W103 | a phase has 2–5 success criteria (reads the list's items) | pass | W | E | roadmap template |
+| gsd/W103 | a phase has 2–5 success criteria (reads the list's items); a `999.x` backlog phase is exempt | pass | W | E | roadmap template |
 | gsd/W104 | phase numbers (GSD's `\d+[A-Z]?(\.\d+)*`: `12A`, `3.2.1`) are continuous, one warning per run of missing integers; two ids do not share a number; an inserted phase follows the phase it is numbered from. A name outside the grammar and a `999.x` backlog phase are exempt | pass | W | W | roadmap |
 | gsd/E105 | an `out_of_scope` requirement has a reason | decl | E | E | requirements template |
 | gsd/E106 | a milestone completes only with a passing (or accepted) audit: at the gate, the subject milestone's latest audit is `passed`, or `tech_debt` with a person's `debt_accepted`; no audit is refused too. Silent outside a gate | guard | E | E | complete-milestone |

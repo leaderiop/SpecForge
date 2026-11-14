@@ -1964,7 +1964,7 @@ gsd-core/templates/milestone-archive.md	kept	1+2	48f5dd45e5a6
 gsd-core/templates/milestone-archive.md	own	3+121	1	a0925a81c63b	23c7361abbc5	ported-name
 gsd-core/templates/milestone-archive.md	kept	124+1	e3b0c44298fc
 gsd-core/templates/milestone.md	kept	1+2	d23da2973a8f
-gsd-core/templates/milestone.md	own	3+37	41	7fb4b027e05f	cc15ecab6fa5	ported-name
+gsd-core/templates/milestone.md	own	3+37	44	7fb4b027e05f	2f202b320f55	ported-name
 gsd-core/templates/milestone.md	kept	40+6	425325f16a8b
 gsd-core/templates/milestone.md	own	46+1	0	5d5740185721	e3b0c44298fc	served
 gsd-core/templates/milestone.md	kept	47+5	ccee0180257f
@@ -3710,7 +3710,7 @@ gsd-core/workflows/next.md	own	132+2	2	4d4094622459	55608c5f4d1c	served
 gsd-core/workflows/next.md	kept	134+25	02a8fe46c206
 gsd-core/workflows/next.md	own	159+1	1	f21dae1469c8	779a37c9a517	ported-name
 gsd-core/workflows/next.md	kept	160+31	41a094824f6d
-gsd-core/workflows/next.md	own	191+9	8	94d13432b340	3e51860f7884	prose
+gsd-core/workflows/next.md	own	191+9	8	94d13432b340	eb3c4b5631a3	prose
 gsd-core/workflows/next.md	kept	200+3	7be0ef1ca419
 gsd-core/workflows/next.md	own	203+2	2	714713978050	c428f416f76a	ported-name
 gsd-core/workflows/next.md	kept	205+11	9339c02a7ed1

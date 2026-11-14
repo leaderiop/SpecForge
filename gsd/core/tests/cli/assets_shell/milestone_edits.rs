@@ -60,6 +60,15 @@ fn the_transition_reads_the_next_phase_from_progress() {
             assert!(phase.get(key).is_some(), "{key}: {phase}");
         }
     }
+    // the step's rule: the first phase after this one whose status is not `Complete`
+    let next = phases
+        .iter()
+        .skip_while(|phase| phase["number"] != "01")
+        .skip(1)
+        .find(|phase| phase["status"] != "Complete")
+        .expect("a phase after 01");
+    assert_eq!(next["number"], "02", "{answer}");
+    assert_eq!(next["name"], "persistence", "{answer}");
 }
 
 /// The transition's `evolve_project` fences, filled, on a taskboard: an invalidated requirement moves out of scope
@@ -205,10 +214,15 @@ fn the_milestone_templates_record_a_milestone_its_close_and_a_lesson() {
             ("GOAL", "Share a board with a link"),
             ("PHASE_NAME", "Links"),
             ("PHASE_GOAL", "A board has a share link"),
+            (
+                "PHASE_CRITERIA",
+                r#"["A board has a share link", "The link opens the board read-only"]"#,
+            ),
         ],
     );
     let done = typed::apply(&sh, &p, &create);
     assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert!(done.added.is_empty(), "{:?}", done.added);
     assert_eq!(p.fields_of("v1.1")["goal"], "Share a board with a link");
     assert_eq!(p.fields_of("v1.1/01")["name"], "Links");
     let shipped = typed::filled(
@@ -221,6 +235,7 @@ fn the_milestone_templates_record_a_milestone_its_close_and_a_lesson() {
     );
     let done = typed::apply(&sh, &p, &shipped);
     assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert!(done.added.is_empty(), "{:?}", done.added);
     assert_eq!(p.fields_of("v1.1")["delivered"], "Boards shared by link");
 
     let p = crate::cmd_milestone::ready();
@@ -237,6 +252,7 @@ fn the_milestone_templates_record_a_milestone_its_close_and_a_lesson() {
     );
     let done = typed::apply(&sh, &p, &close);
     assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert!(done.added.is_empty(), "{:?}", done.added);
     assert_eq!(
         p.fields_of("v1.0/v1.0-RETROSPECTIVE")["worked"][0],
         "Small plans"
@@ -253,6 +269,7 @@ fn the_milestone_templates_record_a_milestone_its_close_and_a_lesson() {
     );
     let done = typed::apply(&sh, &p, &lesson);
     assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert!(done.added.is_empty(), "{:?}", done.added);
     assert_eq!(
         p.fields_of("v1.0/v1.0-RETROSPECTIVE/L1")["text"],
         "Write the failing test before the fix"
@@ -337,7 +354,7 @@ fn a_criterion_with_quotes_and_a_dollar_reaches_the_backlog_phase() {
     };
     let p = taskboard();
     let first = "02-01: save the user's board with `mv` under $HOME (ran, no summary)";
-    let criteria = serde_json::json!([first, "Every plan above has a summary"]);
+    let criteria = serde_json::json!([first]);
     let defer = typed::filled(
         &fence_holding(&asset("gsd-core/workflows/next.md"), "phase --backlog"),
         &[
@@ -348,6 +365,7 @@ fn a_criterion_with_quotes_and_a_dollar_reaches_the_backlog_phase() {
     );
     let done = typed::apply(&sh, &p, &format!("MILESTONE=v1.0\n{defer}"));
     assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert!(done.added.is_empty(), "{:?}", done.added);
     assert_eq!(p.fields_of("v1.0/999.1")["success_criteria"], criteria);
 }
 

@@ -189,12 +189,12 @@ Choice [S]:
 **If the user chooses "Stop" (S or Enter/default):** Exit without routing.
 
 **If the user chooses "Continue and defer" (C):**
-1. Add the incomplete items as one backlog phase: `specforge gsd phase --backlog` takes the first free `999.x` number of the milestone, and its success criteria list the plans that ran without a summary (a phase holds 2–5 criteria: `gsd/W103`):
+1. Add the incomplete items as one backlog phase: `specforge gsd phase --backlog` takes the first free `999.x` number of the milestone, and its success criteria list the plans that ran without a summary:
 ```bash
 SRC="{the source phase's number, e.g. 02}"
 DEST="{the phase this advancement routes to, e.g. 03}"
 IFS= read -rd '' CRITERIA <<'TEXT' || true; CRITERIA=${CRITERIA%$'\n'}
-{a JSON list: one item per plan that ran without a summary, then "Every plan above has a summary", e.g. ["02-01: login form (ran, no summary)", "Every plan above has a summary"]}
+{a JSON list: one item per plan that ran without a summary, e.g. ["02-01: login form (ran, no summary)"]}
 TEXT
 specforge gsd phase --backlog --name "Follow-up — Phase $SRC incomplete plans" --goal "Resolve plans that ran without producing summaries during Phase $SRC execution (deferred during /gsd:progress --next advancement to Phase $DEST)" --criteria "$CRITERIA" || exit 1
 ```
