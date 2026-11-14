@@ -232,8 +232,7 @@ const CONVERTED: &[(&str, &[&str])] = &[
 
 /// A converted template's answer names its kinds and how to read their fields (`specforge schema --kind`), each kind
 /// one `specforge schema` declares, starts with no line about where SpecForge keeps the file, and holds no Markdown
-/// file form. No own line of it names a GSD file, and no line tells an agent to write one: neither ledger holds a row
-/// of it.
+/// file form. No line of it names a GSD file or tells an agent to write one: the asset tests hold every asset to that.
 #[test]
 fn a_converted_template_names_its_kinds_and_no_file_layout() {
     let p = twin();
@@ -246,12 +245,6 @@ fn a_converted_template_names_its_kinds_and_no_file_layout() {
         .map(|k| k["name"].as_str().expect("a name").to_string())
         .collect();
     for (path, kinds) in CONVERTED {
-        assert!(
-            !include_str!("../common/planning_names.txt")
-                .lines()
-                .any(|row| row.split('\t').next() == Some(*path)),
-            "{path}: a ledger row"
-        );
         let run = gsd(&p, "reference", &[path]);
         assert_eq!(run.code, 0, "{path}: {}", run.all());
         let text = &run.stdout;

@@ -1,5 +1,5 @@
-//! The names ledger, natively (ADR 0332 D8): an own span of an asset, or an agent's recording section, that names a
-//! GSD file outside an upstream quote is a row of `common/planning_names.txt`. Kept spans are upstream's text.
+//! Own text names no GSD file (ADR 0332 D8): no own span of an asset, and no agent's recording section, names one
+//! outside an upstream quote. Kept spans are upstream's text.
 
 #[path = "common/asset_code.rs"]
 mod asset_code;
@@ -42,7 +42,5 @@ fn no_own_span_names_a_gsd_file() {
             |_| true,
         ));
     }
-    planning_names::assert_listed(&hits, |source| {
-        !source.starts_with("prompt:") && !source.starts_with("security-prompt:")
-    });
+    planning_names::assert_none(&hits);
 }

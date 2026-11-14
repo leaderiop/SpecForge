@@ -1,18 +1,13 @@
-//! The names ledger (ADR 0332 D8): own text that names a GSD file (`gsd_kit::files::PLANNING_FILES`) outside an
-//! upstream quote is a row of `planning_names.txt`, `<source>\t<trimmed line>`. A source is an asset's lock key (its
-//! own spans), `agent:<id>` (an agent's recording section), `prompt:<id>` (a core prompt's Rust-authored lines) or
-//! `security-prompt:<id>`. An upstream quote is a kept span, or a link into the tracked release's blobs, exempt whole.
+//! Own text names no GSD file (ADR 0332 D8): no own line names one of `gsd_kit::files::PLANNING_FILES` outside an
+//! upstream quote. A hit is `<source>\t<trimmed line>`; a source is an asset's lock key (its own spans), `agent:<id>`
+//! (an agent's recording section), `prompt:<id>` (a core prompt's Rust-authored lines) or `security-prompt:<id>`. An
+//! upstream quote is a kept span, or a link into the tracked release's blobs, exempt whole.
 #![allow(
     dead_code,
     reason = "each test crate that includes this module uses some of it"
 )]
 
 use std::collections::BTreeMap;
-
-use super::ledger;
-
-/// The ledger's rows.
-pub const PLANNING_NAMES: &str = include_str!("planning_names.txt");
 
 /// The 0-based lines of `text` that name a GSD file outside a link into the tracked release's blobs, each with the
 /// rows it names (`.planning` among them).
@@ -37,7 +32,7 @@ pub fn naming_lines(text: &str) -> BTreeMap<usize, Vec<&'static str>> {
 }
 
 /// The hits of the lines of `text` that name a GSD file, as `(source, trimmed line)` rows. A `.planning` hit fails:
-/// no own text names the folder, and no ledger row may hold it.
+/// no own text names the folder.
 pub fn hits(source: &str, text: &str, keep: impl Fn(usize) -> bool) -> Vec<Vec<String>> {
     let lines: Vec<&str> = text.split('\n').collect();
     naming_lines(text)
@@ -54,25 +49,14 @@ pub fn hits(source: &str, text: &str, keep: impl Fn(usize) -> bool) -> Vec<Vec<S
         .collect()
 }
 
-/// The ledger's rows whose source `keep` takes; none may hold `.planning`.
-pub fn rows(keep: impl Fn(&str) -> bool) -> Vec<Vec<String>> {
-    let rows = ledger::rows(PLANNING_NAMES, 2);
-    for row in &rows {
-        assert!(
-            !row[1].contains(".planning"),
-            "a planning_names.txt row holds `.planning`: {}",
-            row.join("\t")
-        );
-    }
-    rows.into_iter().filter(|row| keep(&row[0])).collect()
-}
-
-/// Fails unless `hits` are the ledger's rows that `keep` takes.
-pub fn assert_listed(hits: &[Vec<String>], keep: impl Fn(&str) -> bool) {
-    ledger::assert_rows(
-        "planning_names.txt",
-        "name the entity, not the GSD file",
-        hits,
-        rows(keep),
+/// Fails when own text names a GSD file: each hit is a line to rewrite.
+pub fn assert_none(hits: &[Vec<String>]) {
+    assert!(
+        hits.is_empty(),
+        "own text names a GSD file (name the entity or the command, not the file):\n{}",
+        hits.iter()
+            .map(|row| row.join("\t"))
+            .collect::<Vec<_>>()
+            .join("\n")
     );
 }

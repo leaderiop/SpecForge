@@ -595,9 +595,8 @@ fn asset_lines() -> std::collections::HashSet<String> {
         .collect()
 }
 
-/// The names ledger over what a prompt's Rust side writes (ADR 0332 D8): a rendered line that is no asset line, no row
-/// of the preamble's file table (held equal to the README) and names a GSD file is a `prompt:<id>` row of
-/// `planning_names.txt`.
+/// What a prompt's Rust side writes names no GSD file (ADR 0332 D8): no rendered line that is no asset line and no row
+/// of the preamble's file table (held equal to the README) names one.
 #[test]
 fn no_rendered_tail_names_a_gsd_file() {
     let assets = asset_lines();
@@ -620,7 +619,7 @@ fn no_rendered_tail_names_a_gsd_file() {
             !(line.starts_with('|') && starts[n] < preamble) && !assets.contains(line)
         }));
     }
-    super::planning_names::assert_listed(&hits, |source| source.starts_with("prompt:"));
+    super::planning_names::assert_none(&hits);
 }
 
 /// No line of a rendered claude-code prompt tells an agent to write a GSD file, to edit a state file or a part of one,

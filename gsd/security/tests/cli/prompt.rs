@@ -245,9 +245,8 @@ fn the_prompt_honours_core_response_language() {
     assert!(text.contains("RESPONSE_LANGUAGE=\"French\""), "{text}");
 }
 
-/// The names ledger over what `secure_phase`'s Rust side writes (ADR 0332 D8): a rendered line that is no asset
-/// line, no row of a preamble table and names a GSD file is a `security-prompt:secure_phase` row of core's
-/// `planning_names.txt`.
+/// What `secure_phase`'s Rust side writes names no GSD file (ADR 0332 D8): no rendered line that is no asset line
+/// and no row of a preamble table names one.
 #[test]
 fn the_rendered_tail_names_no_gsd_file() {
     let text = text_of(&render(&model(), &[PHASE], "claude-code"));
@@ -280,5 +279,5 @@ fn the_rendered_tail_names_no_gsd_file() {
         let line = lines[n].trim();
         !(line.starts_with('|') && starts[n] < preamble) && !assets.contains(line)
     });
-    super::planning_names::assert_listed(&hits, |source| source.starts_with("security-prompt:"));
+    super::planning_names::assert_none(&hits);
 }

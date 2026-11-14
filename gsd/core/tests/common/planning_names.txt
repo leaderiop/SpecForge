@@ -1,4 +1,0 @@
-# Own text that names a GSD file outside an upstream quote (ADR 0332 D8): `<source>\t<trimmed line>`.
-# A source is an asset's lock key, `agent:<id>`, `prompt:<id>` or `security-prompt:<id>`.
-# A row with no hit fails, and so does a hit with no row: take a row off in the commit that rewrites its line;
-# never add one. No row holds `.planning`.
