@@ -57,6 +57,7 @@ import io
 import json
 import os
 import random
+import re
 import shlex
 import shutil
 import subprocess
@@ -458,45 +459,84 @@ def schedule(tasks: dict, seeds: int = SEEDS) -> list[tuple[str, int, list[str]]
     return order
 
 
-# Where a command line is cut into segments: the shell's control operators, and a line break.
-SEGMENT_BREAKS = {"&&", "||", ";", "|", "&", "\n"}
+# What cuts a command line into segments: the shell's control operators, a subshell's or a command substitution's
+# parentheses, a backtick and a line break.
+BREAKS = set(";|&()`\n")
+
+# The words a command may follow in its segment: shell keywords and the `!` that negates it.
+KEYWORDS = {"if", "then", "elif", "else", "while", "until", "do", "!", "time", "{"}
+
+# A heredoc's start, `<<WORD`, `<<'WORD'`, `<<"WORD"` or `<<-WORD`, but not a here-string `<<<`.
+HEREDOC = re.compile(r"(?<!<)<<(-?)\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2")
 
 
-def segments(command: str, where: str) -> list[list[str]]:
-    """The words of each segment of the shell line `command`, cut at `&&`, `||`, `;`, `|`, `&` and line breaks;
-    refused, naming `where`, when it does not split (an unclosed quote)."""
-    lexer = shlex.shlex(command, posix=True, punctuation_chars="();<>|&\n")
+def unheredoc(command: str) -> str:
+    """`command` without its heredoc bodies: the lines after a line that starts one, up to its delimiter's line."""
+    out, ends = [], []
+    for line in command.split("\n"):
+        if ends:
+            dash, word = ends[0]
+            if (line.lstrip("\t") if dash else line) == word:
+                ends.pop(0)
+            continue
+        out.append(line)
+        ends = [(m.group(1), m.group(3)) for m in HEREDOC.finditer(line)]
+    return "\n".join(out)
+
+
+def lexed(text: str) -> list[str]:
+    """The words of `text` by the standard library's shell reader, each run of breaks one word; a `ValueError` when a
+    quote does not close."""
+    lexer = shlex.shlex(text, posix=True, punctuation_chars="();<>|&\n`")
     lexer.whitespace = " \t\r"
     lexer.whitespace_split = True
-    out, current = [], []
-    try:
-        for word in lexer:
-            if word in SEGMENT_BREAKS:
+    return list(lexer)
+
+
+def segments(command: str) -> list[list[str]]:
+    """The words of each segment of the shell text `command`, its heredoc bodies dropped, cut at `&&`, `||`, `;`, `|`,
+    `&`, `(`, `)`, backticks and line breaks. A command substitution inside a quoted word is a segment of its own. A
+    line the shell reader cannot split (an unclosed quote) is cut at those characters and split on whitespace alone."""
+    out = []
+    for line in unheredoc(command).split("\n"):
+        try:
+            words = lexed(line)
+        except ValueError:
+            words = [w.strip("'\"") for part in re.split(r"([;|&()`])", line) for w in part.split()]
+        current = []
+        for word in words:
+            if word and all(c in BREAKS for c in word):
                 out.append(current)
                 current = []
-            else:
-                current.append(word)
-    except ValueError as error:
-        raise Refused(f"{where}: a Bash command the shell reader cannot split ({error}): {command[:80]!r}") from None
-    return [segment for segment in out + [current] if segment]
+                continue
+            current.append(word)
+            if "$(" in word or "`" in word:
+                out.extend(segments(word[min(i for i in (word.find("$("), word.find("`")) if i >= 0) + 1:]))
+        out.append(current)
+    return [segment for segment in out if segment]
 
 
-def changes_state(call: dict, writes: dict, where: str) -> bool:
+def changes_state(call: dict, writes: dict) -> bool:
     """Whether the tool call `call` (a `tool_use` block) changes state, by `tasks.json#state_writes`: a file tool, a
     mutating MCP tool, or a Bash command with a `specforge` segment whose leading words are a mutating CLI line or a
-    writing command."""
+    writing command. A segment's leading assignments (`X=...`) and keywords (`if`, `then`, `!`) are skipped, and so are
+    the global flags before the verb, each with its value unless a verb follows it."""
     name = call.get("name", "")
     if name in writes["files"] or name in writes["mcp"]:
         return True
     if name != "Bash":
         return False
     lines = [line.split() for line in writes["cli"] + writes["commands"]]
-    for words in segments(str((call.get("input") or {}).get("command", "")), where):
-        # shortcut: leading `VAR=value` words are skipped, global flags before the verb are not; read them if a host
-        # transcript shows them
-        while words and "=" in words[0] and not words[0].startswith("-"):
+    verbs = {line[0] for line in lines}
+    for words in segments(str((call.get("input") or {}).get("command", ""))):
+        while words and (words[0] in KEYWORDS or ("=" in words[0] and not words[0].startswith("-"))):
             words = words[1:]
-        if words and Path(words[0]).name == "specforge" and any(words[1:1 + len(line)] == line for line in lines):
+        if not words or Path(words[0]).name != "specforge":
+            continue
+        rest = words[1:]
+        while rest and rest[0].startswith("-"):
+            rest = rest[1:] if "=" in rest[0] or rest[1:2] and rest[1] in verbs else rest[2:]
+        if any(rest[:len(line)] == line for line in lines):
             return True
     return False
 
@@ -549,7 +589,7 @@ def spawns(tasks: dict, transcript: Path) -> list[dict]:
             request["output"] = max(request["output"], int(usage.get("output_tokens", 0)))
             calls = [block for block in message.get("content") or [] if isinstance(block, dict)
                      and block.get("type") == "tool_use"]
-            if any(changes_state(call, tasks["state_writes"], where) for call in calls):
+            if any(changes_state(call, tasks["state_writes"]) for call in calls):
                 request["writes"] = True
         if not requests:
             continue
@@ -696,7 +736,6 @@ def spawns_self_test(run: Path) -> None:
         (lambda: agent("g", None, [turn("t", "m1", (1, 0, 0, 1))]), "has no agent-g.meta.json"),
         (lambda: (run / "subagents/agent-g.meta.json").write_text("{}"), "no agentType"),
         (lambda: agent("g", "x", [{"type": "assistant", "message": {"id": "m1"}}]), "without usage"),
-        (lambda: agent("g", "x", [turn("t", "m1", (1, 0, 0, 1), use("Bash", command="echo 'open"))]), "cannot split"),
     ):
         setup()
         try:
@@ -715,11 +754,12 @@ def spawns_self_test(run: Path) -> None:
         except Refused as refused:
             assert why in str(refused), refused
             refusals += 1
-    assert refusals == 6, f"six layouts refused: {refusals}"
+    assert refusals == 5, f"five layouts refused: {refusals}"
 
 
 # The shell forms the typed-edit fences take, each a state write: a heredoc whose body holds an apostrophe, a
-# command substitution bare and quoted, a keyword, a subshell, and a global flag before the verb.
+# command substitution bare and quoted, a keyword, a subshell, a global flag before the verb, and a line after one
+# whose quote does not close.
 FORMS = {
     "heredoc": "IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\\n'}\nthe check isn't wired\nTEXT\n"
                'specforge set X why "$WHY" || exit 1',
@@ -728,6 +768,7 @@ FORMS = {
     "keyword": "if specforge set X status done; then echo ok; fi",
     "subshell": "( specforge set X status done )",
     "global flag": "specforge --format json set X status done",
+    "unclosed quote": "echo 'an unclosed quote\nspecforge set X status done",
 }
 
 
@@ -737,7 +778,7 @@ def forms_self_test() -> dict:
     seen = {}
     for name, command in FORMS.items():
         try:
-            seen[name] = changes_state({"name": "Bash", "input": {"command": command}}, writes, name)
+            seen[name] = changes_state({"name": "Bash", "input": {"command": command}}, writes)
         except Refused:
             seen[name] = "refused"
     return seen
@@ -917,8 +958,7 @@ def self_test() -> None:
 
         spawns_self_test(root / "transcript")
         seen = forms_self_test()
-        # pinned: the shell reader refuses a heredoc body and misses every other form
-        assert seen == {**{name: False for name in FORMS}, "heredoc": "refused"}, seen
+        assert seen == {name: True for name in FORMS}, seen
         print(f"forms: {sum(v is True for v in seen.values())} of {len(FORMS)} shell forms counted as state writes")
 
         order = schedule(SYNTHETIC)

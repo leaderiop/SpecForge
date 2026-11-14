@@ -117,7 +117,7 @@ v1's fixed set, M1 to M6, and v2's M7 (measures of autonomy may join v2 before i
 | M4 | tokens per completed plan | total tokens over plans completed, per arm |
 | M5 | wall time and human interventions | `wall_seconds`, `interventions` |
 | M6 | rework commits after verify | `rework_commits`: the run's commits after its first one that writes verification state (A: a `VERIFICATION.md`; B: a verdict, a `verdict:` line of `specforge-harness`), 0 when none does; `seed.py rework` counts them |
-| M7 | context tokens per gsd-executor spawn | `spawns`: the context tokens a gsd-executor spawn holds at its first state change: a file tool, a mutating engine tool or a writing command, by MCP or by CLI (`tasks.json#state_writes`); its last request's when it changes none; `seed.py spawns` reads them from the run's transcript, and M7 is the mean over the run's `gsd-executor` spawns (none: no M7) |
+| M7 | context tokens per gsd-executor spawn | `spawns`: the context tokens a gsd-executor spawn holds at its first state change: a file tool, a mutating engine tool or a writing command, by MCP or by CLI (`tasks.json#state_writes`); its last request's when it changes none; `seed.py spawns` reads them from the run's transcript, cutting a Bash call into its `specforge` segments with its heredoc bodies dropped, at control operators, parentheses and backticks, past leading assignments, keywords and global flags; M7 is the mean over the run's `gsd-executor` spawns (none: no M7), and H3 pairs the runs' M7 |
 
 M2 is mechanical. A ground truth key's kind (`tasks.json#states.kinds`) is the one whose `id` pattern it matches; its
 value and the run's claim on it are words of that kind's `values`, and `score.py` refuses any other. Each kind says,

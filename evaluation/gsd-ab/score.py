@@ -221,8 +221,11 @@ def score(runs: list[dict], tasks: dict) -> tuple[bool, bool | None, bool | None
             continue
         spawned = [spawn for _, run in values for spawn in run["spawns"] if spawn["agent"] == EXECUTOR]
         if spawned:
+            # H3 pairs the runs' own M7 (the mean of each run's spawns); the pooled mean weighs a run by its spawns
+            per_run = [m for m, _ in values if m is not None]
             mean_tokens = sum(spawn["context_tokens"] for spawn in spawned) / len(spawned)
-            print(f"M7 {arm}: {mean_tokens:.0f} context tokens per {EXECUTOR} spawn over {len(spawned)} spawns")
+            print(f"M7 {arm}: {sum(per_run) / len(per_run):.0f} context tokens per run over {len(per_run)} runs "
+                  f"(H3 reads these); {mean_tokens:.0f} per {EXECUTOR} spawn pooled over {len(spawned)} spawns")
         else:
             print(f"M7 {arm}: no {EXECUTOR} spawn")
     ab = pair(runs, tasks, "B", "A")

@@ -59,7 +59,8 @@ fn every_acceptance_row_is_run_or_judged() {
 }
 
 /// `seed.py --self-test` passes, its `spawns` cases among them, and it reports how many of the shell forms the typed
-/// edits take (a heredoc, a command substitution, a keyword, a subshell, a global flag) it counts as state writes.
+/// edits take (a heredoc, a command substitution, a keyword, a subshell, a global flag, a line after an unclosed
+/// quote) it counts as state writes: all of them.
 #[test]
 fn the_seeding_script_passes_its_self_test() {
     let stdout = passes("seed.py");
@@ -70,7 +71,7 @@ fn the_seeding_script_passes_its_self_test() {
     assert!(
         stdout
             .lines()
-            .any(|l| l == "forms: 0 of 6 shell forms counted as state writes"),
+            .any(|l| l == "forms: 7 of 7 shell forms counted as state writes"),
         "{stdout}"
     );
 }
