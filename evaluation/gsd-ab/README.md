@@ -106,8 +106,8 @@ seeded entity, so a row still checks the truth it names; the other stale verdict
 
 ## 6. Measures
 
-Per arm, per (task, seed) run. The operator's scripts write a run file (section 7); `score.py` computes M1 to M6, the
-measure set fixed for v1, which v2 keeps and adds M7 to (measures of autonomy may join v2 before its tag, section 10):
+Per arm, per (task, seed) run. The operator's scripts write a run file (section 7); `score.py` computes M1 to M7:
+v1's fixed set, M1 to M6, and v2's M7 (measures of autonomy may join v2 before its tag, section 10):
 
 | Id | Measure | From the run file |
 |---|---|---|

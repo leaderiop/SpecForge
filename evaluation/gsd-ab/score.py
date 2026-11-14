@@ -73,7 +73,7 @@ def kind_of(corpus: dict, key: str) -> dict | None:
 
 
 def measures(run: dict, task: dict, corpus: dict) -> dict:
-    """M1-M6 of one run (README section 6), `corpus` the tasks.json it belongs to. M4 is per arm, so it is the run's
+    """M1-M7 of one run (README section 6), `corpus` the tasks.json it belongs to. M4 is per arm, so it is the run's
     tokens and plans. M3 counts only the defects a run can remove: one marked `"fixable": false` (a seeded commit
     stays in history) is judged by an acceptance row instead."""
     defects = {defect["id"]: defect for defect in corpus.get("defects", [])}
