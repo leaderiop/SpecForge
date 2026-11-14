@@ -47,7 +47,7 @@
     "<available_agent_types>",
     "Valid GSD subagent types (use exact names — do not fall back to 'general-purpose'):",
     "- gsd-phase-researcher — Researches technical approaches for a phase",
-    "- gsd-pattern-mapper — Analyzes codebase for existing patterns and returns a pattern map",
+    "- gsd-pattern-mapper — Finds the existing code new files should copy, and replies with its map of analogs",
     "- gsd-planner — Creates detailed plans from phase scope",
     "- gsd-plan-checker — Reviews plan quality before execution",
     "</available_agent_types>",
@@ -61,7 +61,7 @@
     "collapsing plan roles into the orchestrator context.",
     ""
   ],
-  "bytes": 115519,
+  "bytes": 115613,
   "end": [
     "</file>",
     "</execution_context>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:221b77eb72e2c55cea89180d9b2a47d2f45dc09aa3f1eda306b186f0d6c3d5be",
+    "digest": "sha256:4029f471bd1335808b98d828f79b2ca17f846efe1989957b939441115e1b2653",
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
@@ -240,5 +240,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "221b77eb72e2c55cea89180d9b2a47d2f45dc09aa3f1eda306b186f0d6c3d5be"
+  "sha256": "4029f471bd1335808b98d828f79b2ca17f846efe1989957b939441115e1b2653"
 }

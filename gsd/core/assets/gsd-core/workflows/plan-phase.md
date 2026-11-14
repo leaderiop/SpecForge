@@ -23,7 +23,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 <available_agent_types>
 Valid GSD subagent types (use exact names — do not fall back to 'general-purpose'):
 - gsd-phase-researcher — Researches technical approaches for a phase
-- gsd-pattern-mapper — Analyzes codebase for existing patterns and returns a pattern map
+- gsd-pattern-mapper — Finds the existing code new files should copy, and replies with its map of analogs
 - gsd-planner — Creates detailed plans from phase scope
 - gsd-plan-checker — Reviews plan quality before execution
 </available_agent_types>
@@ -172,7 +172,7 @@ fi
 ```
 
 When `WALKING_SKELETON=true`:
-- The planner's first plan is the walking skeleton, and it records the skeleton's architectural choices as project `decision` entities. It reads `~/.claude/gsd-core/references/skeleton-template.md` for them (only on a skeleton run).
+- The planner's first plan is the walking skeleton, and it records the skeleton's architectural choices as project `decision` entities. Only a skeleton run loads `~/.claude/gsd-core/references/skeleton-template.md`, where the planner finds how to record them.
 - The plan must scaffold project + routing + one real DB read/write + one real UI interaction + dev deployment — the thinnest possible end-to-end working slice.
 
 **Interaction with `--prd <filepath>`.** `--mvp` and `--prd` compose. The PRD express path (Step 3.5) records the phase's `context` entity from the PRD file and continues to research; the Walking Skeleton gate fires independently from the conditions above. When both are active on Phase 1 of a new project, the planner receives `WALKING_SKELETON=true` and PRD-derived context simultaneously — the PRD informs *what the skeleton should prove*. No precedence is needed; the two signals are orthogonal. See [`gsd-core/references/mvp-concepts.md`](../references/mvp-concepts.md) for the broader interaction map.
@@ -443,7 +443,7 @@ If `research_enabled` is false and `nyquist_validation_enabled` is true: warn "N
 - `has_research` is false
 - no `--research` flag was provided
 
-In that case: **skip validation-strategy creation entirely**. Do **not** expect a `research` or a `validation` entity for this run, and continue to Step 6.
+In that case: **skip validation-strategy creation entirely**. Neither a `research` entity nor a `validation` entity is due from this run; go on to Step 6.
 
 ```bash
 specforge query "$PHASE_ID" --depth 1 --kinds research --pick '.nodes[kind=research].id'
@@ -456,7 +456,7 @@ specforge query "$PHASE_ID" --depth 1 --kinds research --pick '.nodes[kind=resea
 [ -n "$(specforge query "$PHASE_ID" --depth 1 --kinds validation --pick '.nodes[kind=validation].id')" ] && echo "VALIDATION_CREATED=true" || echo "VALIDATION_CREATED=false"
 ```
 3. If `VALIDATION_CREATED=false`: STOP — do not proceed to Step 6
-4. If `commit_docs`: `specforge git commit --add spec -m "docs(phase-${PHASE}): add validation strategy"`
+4. When `commit_docs` is set, the strategy goes into a commit of its own, made with `specforge git commit --add spec -m "docs(phase-${PHASE}): add validation strategy"`.
 
 **If not found:** Warn and continue — plans may fail Dimension 8.
 
@@ -838,7 +838,7 @@ Rules + worked examples: @gsd-core/references/planner-failing-direction.md
 **TRACER_MODE:** ${TRACER_MODE} (false = horizontal layers instead of a leading `type="tracer"` slice; see `planner-mvp-mode.md`.)
 **REVERSIBILITY_GATES:** ${REVERSIBILITY_GATES} (false = rate but do not gate; see `planner-reversibility.md`.)
 **MVP_MODE:** ${MVP_MODE} (when true, follow vertical-slice rules from `~/.claude/gsd-core/references/planner-mvp-mode.md`; when false, ignore MVP guidance entirely.)
-**WALKING_SKELETON:** ${WALKING_SKELETON} (when true, the first plan is the Walking Skeleton: read `~/.claude/gsd-core/references/skeleton-template.md` and record its architectural choices as project decisions.)
+**WALKING_SKELETON:** ${WALKING_SKELETON} (if true, plan 1 builds the Walking Skeleton; `~/.claude/gsd-core/references/skeleton-template.md` shows how its architectural choices become project decisions.)
 **Granularity:** {granularity}
 
 ${MVP_MODE === 'true' ? `
@@ -1367,8 +1367,8 @@ Options:
 ```
 
 If `TEXT_MODE` is true, present as a plain-text numbered list. Otherwise use
-AskUserQuestion. Selecting "Proceed anyway" continues to step 13b,
-and nothing is recorded: `gsd/E310` reports each decision no plan implements until one does.
+AskUserQuestion. Selecting "Proceed anyway" continues to step 13b but
+records nothing: `gsd/E310` reports each decision no plan implements until one does.
 
 **Why this gate blocks:** failing here is cheap. The plans are the contract
 between discuss-phase and execute-phase; if a decision isn't visible in any
