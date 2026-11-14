@@ -43,9 +43,8 @@ D1 (open words). No kernel, SDK or protocol change.
     ([ADR 0284](0284-a-name-is-unique-within-its-scope.md) D1), and SpecForge's own spec ships 8 journeys in 2 to 4
     deliverables each.
   - A journey's id is project-wide, and a reference to it never needs a path.
-- **D5. Priority is MoSCoW:** `must`, `should`, `could` (`kinds/product.rs`'s `PRIORITY`, for a requirement's
-  priority too). "Won't" is no
-  journey at all.
+- **D5. Priority is MoSCoW:** `must`, `should`, `could` (`kinds/product.rs`'s `PRIORITY`). "Won't" is no journey at
+  all. The requirement kind gains a `priority` of the same three words; it declares none yet.
 - **D6. A term carries its word in `name`,** because a pass sees no entity's title.
   - `aliases` are accepted names and `avoid` the words not to use; one is never the other. A term whose `avoid` lists
     a word the glossary accepts, its own `name` or one of its `aliases` or another term's, is `gsd/W538`, a warning
@@ -106,7 +105,7 @@ D1 (open words). No kernel, SDK or protocol change.
 | persona.pain_points | 6 | persona.pain_points |
 | persona.status | 6, all `active` | persona.status |
 | persona.reason | 0 | refused |
-| persona.key_features →* feature | 0 | `requirement.personas` of each feature's requirement |
+| persona.key_features →* feature | 0 | `personas`, a field the requirement kind gains, of each feature's requirement |
 | persona.tags | 6 | persona.tags |
 | journey (id, title) | 54 | journey, id and title kept |
 | journey.persona | 54 | journey.persona |
