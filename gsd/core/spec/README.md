@@ -182,6 +182,7 @@ TASK-01
 | GSD file | Kinds | Extension |
 |---|---|---|
 | `PROJECT.md` | project, requirement, decision | core |
+| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) | core |
 | `REQUIREMENTS.md` | requirement | core |
 | `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase | core |
 | `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state | core |

@@ -61,7 +61,7 @@
     "   chain. Or proceed anyway to accept the gaps as tech debt.",
     ""
   ],
-  "bytes": 21595,
+  "bytes": 21693,
   "end": [
     "4. **Close the milestone:** `specforge gsd close-milestone v{{version}}` records its completion against the latest audit and creates its retrospective; the roadmap is computed from the phases.",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 420,
+  "lines": 421,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:94acdebec539a8d1ddd9ff3013144331a0f8627bda2ffe47d51a5cc3544d6ab2",
+    "digest": "sha256:ab4bc6d5300f5b386a38afad92f985632bab9af4531359e71274261e2415f304",
     "prompt": "@gsd/core@VERSION:complete_milestone",
     "steps": [
       {
@@ -229,5 +229,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "94acdebec539a8d1ddd9ff3013144331a0f8627bda2ffe47d51a5cc3544d6ab2"
+  "sha256": "ab4bc6d5300f5b386a38afad92f985632bab9af4531359e71274261e2415f304"
 }

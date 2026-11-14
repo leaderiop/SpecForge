@@ -36,7 +36,7 @@
     "| `/gsd-spike` | not served on this project |",
     "| `/gsd-spec-phase` | prompt `specforge.gsd.spec_phase` (served by @gsd/core) |"
   ],
-  "bytes": 10143,
+  "bytes": 10241,
   "end": [
     "  \"parallelization.skip_checkpoints\": true,",
     "  \"parallelization.task_level\": false",
@@ -90,6 +90,7 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
@@ -158,10 +159,9 @@
     "  \"external_job.submit_timeout_ms\": 30000,",
     "  \"fast_mode.enabled\": false,",
     "  \"features.global_learnings\": false,",
-    "  \"features.thinking_partner\": false,",
-    "  \"gates.confirm_milestone_scope\": true,"
+    "  \"features.thinking_partner\": false,"
   ],
-  "lines": 214,
+  "lines": 215,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -170,8 +170,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:6903727420c7c60327dc2bce0ab058dd78576c1191ceb520cb60939d380f5d09",
+    "digest": "sha256:c5629889a0af672c1db96ea893a8fb28ce1db0347c781e7f3486dd2d4b9ce24e",
     "prompt": "@gsd/core@VERSION:ns_ideate"
   },
-  "sha256": "6903727420c7c60327dc2bce0ab058dd78576c1191ceb520cb60939d380f5d09"
+  "sha256": "c5629889a0af672c1db96ea893a8fb28ce1db0347c781e7f3486dd2d4b9ce24e"
 }

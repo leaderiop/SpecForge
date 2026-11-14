@@ -2,7 +2,7 @@
 @~/.claude/gsd-core/references/response-language-directive.md
 
 <purpose>
-Power user mode for discuss-phase. Generates ALL questions upfront into a JSON state file and an HTML companion UI, then waits for the user to answer at their own pace. When the user signals readiness, processes all answers in one pass and generates CONTEXT.md.
+Power user mode for discuss-phase. Generates ALL questions upfront into a JSON state file and an HTML companion UI, then waits for the user to answer at their own pace. Once the user says they are ready, it reads every answer in one pass and records the phase's context.
 
 **When to use:** Large phases with many gray areas, or when users prefer to answer questions offline / asynchronously rather than interactively in the chat session.
 </purpose>

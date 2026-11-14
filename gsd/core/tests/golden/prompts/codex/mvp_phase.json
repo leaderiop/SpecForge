@@ -61,14 +61,14 @@
     "PHASE_GOAL=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.goal' 2>/dev/null)",
     "PHASE_MODE=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.mode' 2>/dev/null)"
   ],
-  "bytes": 34798,
+  "bytes": 34804,
   "end": [
     "1. The `**Goal:**` line stays on a single line (no line breaks inside the story). If the story is longer than ~120 chars, it should be split into multiple phases via SPIDR (see `spidr-splitting.md`).",
     "2. The `**Mode:** mvp` line is added immediately below `**Goal:**`. If `**Mode:**` already exists, it is replaced (not duplicated).",
     "",
     "## How it lands in PLAN.md",
     "",
-    "The `gsd-planner` agent (with MVP_MODE=true) emits the user story as the first content under the phase header in `PLAN.md`:",
+    "With MVP_MODE=true, each plan's objective opens with the user story, as the `gsd-planner` agent writes it:",
     "",
     "```markdown",
     "## Phase Goal",
@@ -82,7 +82,7 @@
     "...",
     "```",
     "",
-    "Note the bold-keyword formatting (`**As a**`, `**I want to**`, `**so that**`) is for the PLAN.md emit only. The ROADMAP.md `**Goal:**` line uses prose form (the keywords are not bolded inside the goal line, since the goal is itself a single bolded label).",
+    "Only the plan bolds the keywords (`**As a**`, `**I want to**`, `**so that**`). The phase's goal in the roadmap keeps them plain, since that goal is already shown as one bold label.",
     "</file>",
     "</execution_context>",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 689,
+  "lines": 690,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:115a7310a4ea6d2afa414f7b7ab1e4d8cd9745649dbfc3c0304a1c3c126498d0",
+    "digest": "sha256:c78fe50e7cdb0025d9d6af4dbb7cc22ca1e8be2a0b36d609262694afa14dfbe2",
     "prompt": "@gsd/core@VERSION:mvp_phase",
     "steps": [
       {
@@ -206,5 +206,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "115a7310a4ea6d2afa414f7b7ab1e4d8cd9745649dbfc3c0304a1c3c126498d0"
+  "sha256": "c78fe50e7cdb0025d9d6af4dbb7cc22ca1e8be2a0b36d609262694afa14dfbe2"
 }

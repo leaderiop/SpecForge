@@ -10,6 +10,10 @@ const END: &str = "</specforge_gsd_preamble>";
 /// own rows to [`text`] (`@gsd/security`: `NN-SECURITY.md` and the threat model).
 pub const FILES: &[(&str, &str)] = &[
     ("`PROJECT.md`", "project, requirement, decision"),
+    (
+        "`SKELETON.md`",
+        "decision (the walking skeleton's architectural choices, as project decisions)",
+    ),
     ("`REQUIREMENTS.md`", "requirement"),
     (
         "`ROADMAP.md`, `MILESTONES.md`, `milestones/*`",

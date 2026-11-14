@@ -38,7 +38,7 @@
     "| `/gsd-mempalace-recall` | not served on this project |",
     "| `/gsd-mempalace-capture` | not served on this project |"
   ],
-  "bytes": 11065,
+  "bytes": 11163,
   "end": [
     "}",
     "```",
@@ -111,6 +111,7 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
@@ -160,10 +161,9 @@
     "",
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
-    "",
-    "```json"
+    ""
   ],
-  "lines": 235,
+  "lines": 236,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -172,8 +172,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:43e0437cc24d84ea6d57771bd2b73bccba3054f323c369b422e5bbabd5caca2f",
+    "digest": "sha256:1c45a6c84e579e6c8ea4565ea2725f6c1ddaae0fe16c0935e2be0db575ce287f",
     "prompt": "@gsd/core@VERSION:ns_context"
   },
-  "sha256": "43e0437cc24d84ea6d57771bd2b73bccba3054f323c369b422e5bbabd5caca2f"
+  "sha256": "1c45a6c84e579e6c8ea4565ea2725f6c1ddaae0fe16c0935e2be0db575ce287f"
 }

@@ -61,7 +61,7 @@
     "- User chose which areas to discuss",
     "- Each selected area explored until satisfied"
   ],
-  "bytes": 20299,
+  "bytes": 20397,
   "end": [
     "",
     "Context files are resolved in-workflow using `init phase-op` and roadmap/state tool calls.",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 366,
+  "lines": 367,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:e7938d19f9218d816f335633af48cb3fd535f983e8e69c9feb498adb6531178d",
+    "digest": "sha256:fd6df09a78ef9488d4e474e4cf10028a8a4543036a77e39a423d00d4b7a45b60",
     "prompt": "@gsd/core@VERSION:discuss_phase",
     "steps": [
       {
@@ -216,5 +216,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "e7938d19f9218d816f335633af48cb3fd535f983e8e69c9feb498adb6531178d"
+  "sha256": "fd6df09a78ef9488d4e474e4cf10028a8a4543036a77e39a423d00d4b7a45b60"
 }

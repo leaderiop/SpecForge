@@ -48,7 +48,7 @@ const VERBS: &[&str] = &[
 /// A verb after one of these offers the person a choice: the agent writes nothing.
 const OFFER: &[&str] = &["offer", "offers", "offered", "offering"];
 
-/// A verb after one of these in its sentence is the person's to do.
+/// A verb after one of these in its own clause (after the last `,`, `;` or `and` before it) is the person's to do.
 const PERSON: &[&str] = &["user", "users", "human", "person"];
 
 /// The fence languages read as shell.
@@ -70,6 +70,33 @@ const ENTRY_VERBS: &[&str] = &[
     "filled",
 ];
 
+/// The words beyond [`ENTRY_VERBS`] that put something into a GSD file named after them in the sentence: "add an
+/// override to VERIFICATION.md", "produce a single RESEARCH.md", "Document in RESEARCH.md". Their past forms describe
+/// a file ("REVIEWS.md (produced by ...)") and `including` is a preposition, so neither counts; a word an article
+/// leads is a noun ("a document") and a word a colon follows is a label ("produces: PLAN.md").
+const PUT_VERBS: &[&str] = &[
+    "add",
+    "adds",
+    "adding",
+    "produce",
+    "produces",
+    "producing",
+    "document",
+    "documents",
+    "documenting",
+    "store",
+    "stores",
+    "storing",
+    "include",
+    "includes",
+    "emit",
+    "emits",
+    "emitting",
+];
+
+/// The words before a [`PUT_VERBS`] word that make it a noun.
+const ARTICLES: &[&str] = &["a", "an", "the", "this", "that", "each", "every", "one"];
+
 /// The words beyond [`ENTRY_VERBS`] that edit a part of a file named just after them: "mark the frontmatter".
 const MARK: &[&str] = &["mark", "marks", "marked"];
 
@@ -79,12 +106,13 @@ const PARTS: &[&str] = &["section", "sections", "frontmatter"];
 /// How many words may stand between a verb and the [`PARTS`] word it edits ("Append to Gaps section").
 const PART_REACH: usize = 2;
 
-/// What a sentence must hold: one of `verbs` with a GSD file name in the sentence, or one of `part_verbs` (not the
-/// head of a compound: "append-only") with a [`PARTS`] word within [`PART_REACH`] words after it; and with
-/// `redirects`, a shell line that writes a GSD file counts.
+/// What a sentence must hold: one of `verbs` with a GSD file name in the sentence, one of `put_verbs` with a GSD file
+/// name after it, or one of `part_verbs` (not the head of a compound: "append-only") with a [`PARTS`] word within
+/// [`PART_REACH`] words after it; and with `redirects`, a shell line that writes a GSD file counts.
 #[derive(Clone, Copy)]
 struct Rule<'a> {
     verbs: &'a [&'a [&'a str]],
+    put_verbs: &'a [&'a str],
     part_verbs: &'a [&'a [&'a str]],
     redirects: bool,
 }
@@ -95,6 +123,7 @@ pub fn hits(text: &str) -> BTreeSet<usize> {
         text,
         Rule {
             verbs: &[VERBS],
+            put_verbs: &[],
             part_verbs: &[],
             redirects: true,
         },
@@ -102,7 +131,8 @@ pub fn hits(text: &str) -> BTreeSet<usize> {
 }
 
 /// The 0-based lines of `text` that tell an agent to edit a state file or part of one: a write or [`ENTRY_VERBS`]
-/// word with a GSD file name in one sentence ("record overrides in MILESTONES.md"), or one of those or [`MARK`]
+/// word with a GSD file name in one sentence ("record overrides in MILESTONES.md"), a [`PUT_VERBS`] word with one
+/// after it ("add an override to VERIFICATION.md"), or one of those or [`MARK`]
 /// followed closely by a [`PARTS`] word ("Update Tests section"), in prose or a line of a fence that is not shell;
 /// and a shell line that writes a GSD file.
 pub fn section_edits(text: &str) -> BTreeSet<usize> {
@@ -110,6 +140,7 @@ pub fn section_edits(text: &str) -> BTreeSet<usize> {
         text,
         Rule {
             verbs: &[VERBS, ENTRY_VERBS],
+            put_verbs: PUT_VERBS,
             part_verbs: &[VERBS, ENTRY_VERBS, MARK],
             redirects: true,
         },
@@ -123,6 +154,7 @@ pub fn generates(text: &str) -> BTreeSet<usize> {
         text,
         Rule {
             verbs: &[GENERATE],
+            put_verbs: &[],
             part_verbs: &[],
             redirects: false,
         },
@@ -200,10 +232,12 @@ fn writes_in(
     rule: Rule,
 ) -> Option<usize> {
     let sentence = &text[range.clone()];
-    let name = gsd_kit::files::planning_names(sentence)
+    let names: Vec<Range<usize>> = gsd_kit::files::planning_names(sentence)
         .into_iter()
         .map(|(r, _)| range.start + r.start..range.start + r.end)
-        .find(|r| !quoted.iter().any(|q| q.start <= r.start && r.end <= q.end));
+        .filter(|r| !quoted.iter().any(|q| q.start <= r.start && r.end <= q.end))
+        .collect();
+    let name = names.first().cloned();
     if name.is_none() && rule.part_verbs.is_empty() {
         return None;
     }
@@ -219,8 +253,13 @@ fn writes_in(
         let lower = word.to_ascii_lowercase();
         let of = |lists: &[&[&str]]| lists.iter().any(|v| v.contains(&lower.as_str()));
         let compound = sentence.as_bytes().get(at + word.len()) == Some(&b'-');
+        let put = rule.put_verbs.contains(&lower.as_str())
+            && sentence.as_bytes().get(at + word.len()) != Some(&b':')
+            && !words[..k]
+                .last()
+                .is_some_and(|(_, w)| ARTICLES.contains(&w.to_ascii_lowercase().as_str()));
         let (verb, part_verb) = (of(rule.verbs), of(rule.part_verbs) && !compound);
-        if !(verb || part_verb) || quoted.iter().any(|q| q.contains(&(range.start + at))) {
+        if !(verb || put || part_verb) || quoted.iter().any(|q| q.contains(&(range.start + at))) {
             return None;
         }
         let slash = |i: Option<usize>| i.and_then(|i| sentence.as_bytes().get(i)) == Some(&b'/');
@@ -233,16 +272,32 @@ fn writes_in(
         let offered = words[..k]
             .last()
             .is_some_and(|(_, w)| OFFER.contains(&w.to_ascii_lowercase().as_str()));
-        // 3. the person is its subject
-        let person = words[..k]
+        // 3. the person is its subject: named in the verb's own clause
+        let clause = (0..=k)
+            .rev()
+            .find_map(|c| {
+                let (i, w) = words[c];
+                if c < k && w.eq_ignore_ascii_case("and") {
+                    Some(c + 1)
+                } else {
+                    sentence[..i].trim_end().ends_with([',', ';']).then_some(c)
+                }
+            })
+            .unwrap_or(0);
+        let person = words[clause..k]
             .iter()
             .any(|(_, w)| PERSON.contains(&w.to_ascii_lowercase().as_str()));
         if offered || person {
             return None;
         }
+        let after = range.start + at;
         name.as_ref()
             .filter(|_| verb)
             .map(|n| n.start)
+            .or_else(|| {
+                put.then(|| names.iter().find(|n| n.start > after).map(|n| n.start))
+                    .flatten()
+            })
             .or_else(|| part_verb.then(|| part_after(k)).flatten())
     })
 }

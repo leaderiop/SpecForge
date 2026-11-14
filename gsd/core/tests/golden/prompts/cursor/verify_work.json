@@ -61,7 +61,7 @@
     "# the commands below are specforge commands: there is no launcher to define",
     ""
   ],
-  "bytes": 63707,
+  "bytes": 63805,
   "end": [
     "</section_rules>",
     "",
@@ -134,6 +134,7 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
@@ -183,10 +184,9 @@
     "",
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
-    "",
-    "```json"
+    ""
   ],
-  "lines": 1167,
+  "lines": 1168,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:4269788582babf51023e7c22e5983a0e3c4516f6acf07812aa18e73453c717db",
+    "digest": "sha256:42540d3189fccc28748623b33ce3a6458a11833479af9d9b0d3302b369e3f473",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "4269788582babf51023e7c22e5983a0e3c4516f6acf07812aa18e73453c717db"
+  "sha256": "42540d3189fccc28748623b33ce3a6458a11833479af9d9b0d3302b369e3f473"
 }

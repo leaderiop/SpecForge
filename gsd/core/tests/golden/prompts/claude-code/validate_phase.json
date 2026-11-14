@@ -61,7 +61,7 @@
     "",
     "## 1. Detect Input State"
   ],
-  "bytes": 20340,
+  "bytes": 20438,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
@@ -115,6 +115,7 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
@@ -183,10 +184,9 @@
     "  \"external_job.submit_timeout_ms\": 30000,",
     "  \"fast_mode.enabled\": false,",
     "  \"features.global_learnings\": false,",
-    "  \"features.thinking_partner\": false,",
-    "  \"gates.confirm_milestone_scope\": true,"
+    "  \"features.thinking_partner\": false,"
   ],
-  "lines": 428,
+  "lines": 429,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:9e34bd7d413dcb770ddd1794af8b9649a1626aa15264a3980874132dbc8dcf04",
+    "digest": "sha256:375c1b9d5223bc3b21fb73dcd4d668233873adfc2845d6be1e091e406b12fd21",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "9e34bd7d413dcb770ddd1794af8b9649a1626aa15264a3980874132dbc8dcf04"
+  "sha256": "375c1b9d5223bc3b21fb73dcd4d668233873adfc2845d6be1e091e406b12fd21"
 }

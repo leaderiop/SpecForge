@@ -61,7 +61,7 @@
     "Track which optional artifacts are missing for the `missing_artifacts` frontmatter field.",
     "</step>"
   ],
-  "bytes": 20938,
+  "bytes": 21036,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -115,6 +115,7 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
@@ -183,10 +184,9 @@
     "  \"external_job.submit_timeout_ms\": 30000,",
     "  \"fast_mode.enabled\": false,",
     "  \"features.global_learnings\": false,",
-    "  \"features.thinking_partner\": false,",
-    "  \"gates.confirm_milestone_scope\": true,"
+    "  \"features.thinking_partner\": false,"
   ],
-  "lines": 468,
+  "lines": 469,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:9909554538cfa818dd31a613fe854ab7ce1706e411b2576b18c39bd3e28a3b44",
+    "digest": "sha256:699e9ad093e1cabf9bc822de3eb035fa0858481fe962ff1a0e276a6e2e3e0484",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "9909554538cfa818dd31a613fe854ab7ce1706e411b2576b18c39bd3e28a3b44"
+  "sha256": "699e9ad093e1cabf9bc822de3eb035fa0858481fe962ff1a0e276a6e2e3e0484"
 }

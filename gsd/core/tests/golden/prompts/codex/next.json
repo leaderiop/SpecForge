@@ -61,7 +61,7 @@
     "  \"summary\": \"Phase 2 of 5 · 60% · executing\",",
     "  \"signals\": { \"...\": \"...\" },"
   ],
-  "bytes": 31388,
+  "bytes": 31486,
   "end": [
     "## Anti-Patterns",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 664,
+  "lines": 665,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:5422ebf4b17b9eec8ab44328ec6cb4ce8e96c43784deacc885b4dea5ecc86953",
+    "digest": "sha256:2702e876574df1ed2338c69617f518831e9db007ad3898f26628aac9ef879a94",
     "prompt": "@gsd/core@VERSION:next",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "5422ebf4b17b9eec8ab44328ec6cb4ce8e96c43784deacc885b4dea5ecc86953"
+  "sha256": "2702e876574df1ed2338c69617f518831e9db007ad3898f26628aac9ef879a94"
 }

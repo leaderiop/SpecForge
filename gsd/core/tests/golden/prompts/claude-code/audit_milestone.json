@@ -61,7 +61,7 @@
     "Resolve the milestone's audit, the `milestone_audit` entity this workflow records into. A re-audit reuses it; the first audit creates `<milestone>/A1`, before the integration checker is spawned, since its verdict is recorded on it:",
     ""
   ],
-  "bytes": 28208,
+  "bytes": 28306,
   "end": [
     "",
     "<success_criteria>",
@@ -115,6 +115,7 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
@@ -183,10 +184,9 @@
     "  \"external_job.submit_timeout_ms\": 30000,",
     "  \"fast_mode.enabled\": false,",
     "  \"features.global_learnings\": false,",
-    "  \"features.thinking_partner\": false,",
-    "  \"gates.confirm_milestone_scope\": true,"
+    "  \"features.thinking_partner\": false,"
   ],
-  "lines": 615,
+  "lines": 616,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:074f91f29f71ef28c6dfd446b5273e75fe78bde619cd46689c2b431d81bcc106",
+    "digest": "sha256:29f9a906aadcafa1bfbb42c8526271615c4d518accc782d111292c3501a3cb54",
     "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "074f91f29f71ef28c6dfd446b5273e75fe78bde619cd46689c2b431d81bcc106"
+  "sha256": "29f9a906aadcafa1bfbb42c8526271615c4d518accc782d111292c3501a3cb54"
 }

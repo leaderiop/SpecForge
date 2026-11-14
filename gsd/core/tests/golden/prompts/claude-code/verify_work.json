@@ -61,7 +61,7 @@
     "# the commands below are specforge commands: there is no launcher to define",
     ""
   ],
-  "bytes": 62916,
+  "bytes": 63014,
   "end": [
     "</section_rules>",
     "",
@@ -115,6 +115,7 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
@@ -183,10 +184,9 @@
     "  \"external_job.submit_timeout_ms\": 30000,",
     "  \"fast_mode.enabled\": false,",
     "  \"features.global_learnings\": false,",
-    "  \"features.thinking_partner\": false,",
-    "  \"gates.confirm_milestone_scope\": true,"
+    "  \"features.thinking_partner\": false,"
   ],
-  "lines": 1148,
+  "lines": 1149,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:66de2174d7a5b4ed4cdf4e188bc4019461ab93331ce8278117e0eb3924b7e55a",
+    "digest": "sha256:552093788f335fbfd326d5041f0aa693bcc8df2f781be7e7841c1777bc745ce8",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "66de2174d7a5b4ed4cdf4e188bc4019461ab93331ce8278117e0eb3924b7e55a"
+  "sha256": "552093788f335fbfd326d5041f0aa693bcc8df2f781be7e7841c1777bc745ce8"
 }

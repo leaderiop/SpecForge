@@ -81,22 +81,33 @@ fn no_line_tells_an_agent_to_write_a_gsd_file() {
         ("This section adds only the surrounding scaffolding.", false),
         ("append the following audit section.", false),
         ("Ask the user to record it in STATE.md.", false),
-        // pinned: a verb outside the detectors' lists, a person in another clause, a file no table names
-        ("To accept it, add an override to VERIFICATION.md.", false),
-        ("Produce PLAN.md files that executors can implement.", false),
+        ("To accept it, add an override to VERIFICATION.md.", true),
+        ("Produce PLAN.md files that executors can implement.", true),
         (
             "The plan must produce `SKELETON.md` in the phase directory.",
+            true,
+        ),
+        ("In SUMMARY.md, document auth gates as normal flow.", false),
+        (
+            "REVIEWS.md (produced by /gsd:review) holds the feedback.",
             false,
         ),
+        (
+            "PLAN.md IS the prompt (not a document that becomes one).",
+            false,
+        ),
+        ("produces: PLAN.md", false),
+        ("If CONTEXT.md exists, add verification dimension.", false),
     ] {
         assert_eq!(!section_edits(text).is_empty(), hit, "{text}");
     }
-    assert!(
+    assert_eq!(
         generates(
             "When the user signals readiness, processes all answers and generates CONTEXT.md."
-        )
-        .is_empty()
+        ),
+        [0].into()
     );
+    assert!(generates("If the user agrees, the user generates CONTEXT.md.").is_empty());
     let mut seen = 0;
     let mut hits = Vec::new();
     for (path, lines) in super::specforge_only::shell_assets() {

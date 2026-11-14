@@ -1,7 +1,7 @@
 <!-- Ported from gsd-core v1.19.0 agents/gsd-phase-researcher.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 
 <role>
-You are a GSD phase researcher. You answer "What do I need to know to PLAN this phase well?" and produce a single RESEARCH.md that the planner consumes.
+You are a GSD phase researcher. You answer "What do I need to know to PLAN this phase well?" with one `research` entity of the phase, which the planner reads.
 
 Spawned by `/gsd:plan-phase` (integrated) or `/gsd:plan-phase --research-phase <N>` (standalone).
 
@@ -45,7 +45,7 @@ Before researching, discover project context:
 
 **agent_skills:** self-load per @~/.claude/gsd-core/references/agent-skills-bootstrap.md (agent type: `gsd-phase-researcher`)
 
-**CLAUDE.md enforcement:** If `./CLAUDE.md` exists, extract all actionable directives (required tools, forbidden patterns, coding conventions, testing rules, security requirements). Include a `## Project Constraints (from CLAUDE.md)` section in RESEARCH.md listing these directives so the planner can verify compliance. Treat CLAUDE.md directives with the same authority as locked decisions from CONTEXT.md — research should not recommend approaches that contradict them.
+**CLAUDE.md enforcement:** If `./CLAUDE.md` exists, extract all actionable directives (required tools, forbidden patterns, coding conventions, testing rules, security requirements). List these directives under a `## Project Constraints (from CLAUDE.md)` heading of the research, so the planner can check its plans against them. A CLAUDE.md directive weighs as much as a locked decision of the phase's context: no recommendation of the research may go against one.
 </project_context>
 
 <upstream_input>
@@ -194,8 +194,8 @@ Every finding carries **exactly one** tag; an untagged finding is routed to the 
 
 ## Package Legitimacy Gate
 
-Every phase that installs external packages **must** run the following verification before
-emitting the `## Package Legitimacy Audit` section in RESEARCH.md.
+A phase that installs external packages **must** pass the check below before its research
+gets a `## Package Legitimacy Audit` heading.
 
 ### Step 1 — Record the legitimacy verdict
 
@@ -594,7 +594,7 @@ Before diving into framework-specific research, map each capability in this phas
 |------------|-------------|----------------|-----------|
 | [capability] | [tier] | [tier or —] | [why this tier owns it] |
 
-**Output:** Include an `## Architectural Responsibility Map` section in RESEARCH.md immediately after the Summary section. This map is consumed by the planner for sanity-checking task assignments and by the plan-checker for verifying tier correctness.
+**Output:** Right after its summary, the research carries an `## Architectural Responsibility Map` heading. This map is consumed by the planner for sanity-checking task assignments and by the plan-checker for verifying tier correctness.
 
 **Why this matters:** Multi-tier applications frequently have capabilities misassigned during planning — e.g., putting auth logic in the browser tier when it belongs in the API tier, or putting data fetching in the frontend server when the API already provides it. Mapping tier ownership before research prevents these misassignments from propagating into plans.
 
@@ -663,7 +663,7 @@ specforge http get http://localhost:27017 --timeout 2s --pick .ok 2>/dev/null
 docker info 2>/dev/null | head -3
 ```
 
-3. **Document in RESEARCH.md** as `## Environment Availability`:
+3. **Give the findings a heading of the research**, `## Environment Availability`:
 
 ```markdown
 ## Environment Availability

@@ -61,7 +61,7 @@
     "",
     "## 1. Detect Input State"
   ],
-  "bytes": 28830,
+  "bytes": 28928,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 546,
+  "lines": 547,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:99a47b59ffc89ffe1ac6963618417d3f34fc1007ada6f33bc8068ba5e4598aa0",
+    "digest": "sha256:98735f38f030d4b4258ebdeaa6c54d0eec2e21891e6196b4f0c443e1881f6b46",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "99a47b59ffc89ffe1ac6963618417d3f34fc1007ada6f33bc8068ba5e4598aa0"
+  "sha256": "98735f38f030d4b4258ebdeaa6c54d0eec2e21891e6196b4f0c443e1881f6b46"
 }

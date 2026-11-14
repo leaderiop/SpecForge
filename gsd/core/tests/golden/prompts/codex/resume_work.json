@@ -61,7 +61,7 @@
     "Read and parse STATE.md, then PROJECT.md:",
     ""
   ],
-  "bytes": 28911,
+  "bytes": 29009,
   "end": [
     "",
     "</process>",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 641,
+  "lines": 642,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:bbe34c141ff1c0e47e8c9d2038a94d944dc9b8f502e71ad1fe99272cd3338944",
+    "digest": "sha256:a0c154eb40c6009587b0b2879cab3ed2d3fe51fe0022fec6da23224d63bbac04",
     "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "bbe34c141ff1c0e47e8c9d2038a94d944dc9b8f502e71ad1fe99272cd3338944"
+  "sha256": "a0c154eb40c6009587b0b2879cab3ed2d3fe51fe0022fec6da23224d63bbac04"
 }

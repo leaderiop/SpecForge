@@ -127,7 +127,7 @@ Plan phase {phase_number}: {phase_name}
 
 ## Output Format
 
-Produce a GSD PLAN.md with the following YAML frontmatter:
+Write the plan as one Markdown document with the YAML frontmatter below; `/gsd:import` turns it into plan entities:
 
 ---
 phase: "{padded_phase}-{phase_slug}"

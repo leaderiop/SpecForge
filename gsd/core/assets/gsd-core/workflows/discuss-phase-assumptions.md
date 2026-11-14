@@ -203,8 +203,8 @@ Parse JSON for: `todo_count`, `matches[]`.
 
 **If matches found:** Present matched todos, use AskUserQuestion (multiSelect) to fold relevant ones into scope.
 
-**For selected (folded) todos:** Store as `<folded_todos>` for CONTEXT.md `<decisions>` section.
-**For unselected:** Store as `<reviewed_todos>` for CONTEXT.md `<deferred>` section.
+**For selected (folded) todos:** keep them as `<folded_todos>`; each becomes a `decision` of the phase's context.
+**For unselected:** keep them as `<reviewed_todos>`; each becomes a `deferred_idea` of the phase.
 
 **Auto mode (`--auto`):** Fold all todos with score >= 0.4 automatically. Log the selection.
 </step>
@@ -370,7 +370,7 @@ Use WebSearch for ecosystem/best-practice questions.
 Merge findings back into assumptions:
 - Update confidence levels where research resolves ambiguity
 - Add source attribution to affected assumptions
-- Store research findings for DISCUSSION-LOG.md
+- Keep the research findings for the phase's discussion log
 
 **If no gaps flagged:** Skip entirely. Most phases will skip this step.
 </step>

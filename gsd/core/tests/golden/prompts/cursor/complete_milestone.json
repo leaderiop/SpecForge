@@ -61,7 +61,7 @@
     "   chain. Or proceed anyway to accept the gaps as tech debt.",
     ""
   ],
-  "bytes": 13859,
+  "bytes": 13957,
   "end": [
     "4. **Close the milestone:** `specforge gsd close-milestone v{{version}}` records its completion against the latest audit and creates its retrospective; the roadmap is computed from the phases.",
     "",
@@ -134,6 +134,7 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
@@ -183,10 +184,9 @@
     "",
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
-    "",
-    "```json"
+    ""
   ],
-  "lines": 321,
+  "lines": 322,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:6e91cedf1ba6fed61934212b967a70a876472e9a1e2f67e67b7b1214299e3e1d",
+    "digest": "sha256:4e3e4a70a65ecb6cefe63b03a511d818856ac6c8a9334e49ef12c4a61fa9cb96",
     "prompt": "@gsd/core@VERSION:complete_milestone",
     "steps": [
       {
@@ -229,5 +229,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "6e91cedf1ba6fed61934212b967a70a876472e9a1e2f67e67b7b1214299e3e1d"
+  "sha256": "4e3e4a70a65ecb6cefe63b03a511d818856ac6c8a9334e49ef12c4a61fa9cb96"
 }

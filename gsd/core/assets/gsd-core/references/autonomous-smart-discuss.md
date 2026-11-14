@@ -188,7 +188,7 @@ I'll note it as a deferred idea.
 Back to {current area}: {return to current question}"
 ```
 
-Track deferred ideas internally for inclusion in CONTEXT.md.
+Keep the deferred ideas in mind: each becomes a `deferred_idea` of the phase when its context is recorded.
 
 ---
 

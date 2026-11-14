@@ -20,6 +20,10 @@ const SHOWN: &str = "none: shown to the user, not stored";
 /// `milestones/*`) or a glob, where `*` is any run of characters but `/`.
 pub const PLANNING_FILES: &[(&str, &str)] = &[
     ("PROJECT.md", "project, requirement, decision"),
+    (
+        "SKELETON.md",
+        "decision (the walking skeleton's architectural choices, as project decisions)",
+    ),
     ("REQUIREMENTS.md", "requirement"),
     ("ROADMAP.md", "milestone, phase"),
     ("MILESTONES.md", "milestone, phase"),

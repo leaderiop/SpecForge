@@ -61,7 +61,7 @@
     "fi",
     ""
   ],
-  "bytes": 31117,
+  "bytes": 31215,
   "end": [
     "Planning paths in diff: {FORBIDDEN} — must be 0",
     "Planning deletions: {PLANNING_DELETIONS} (must be 0 — #3679)",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 625,
+  "lines": 626,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:caaea3ffc83ea78a41f2a2071e5d3276f230272cb2c7790bc450f1ea052a5da1",
+    "digest": "sha256:738906fc4ee15356154a445afc6cf13858fb5a9673fb245a3f1b2af5b55a8c81",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "caaea3ffc83ea78a41f2a2071e5d3276f230272cb2c7790bc450f1ea052a5da1"
+  "sha256": "738906fc4ee15356154a445afc6cf13858fb5a9673fb245a3f1b2af5b55a8c81"
 }

@@ -274,7 +274,7 @@ After discuss completes (either mode), verify context was written:
 PHASE_STATE=$(specforge query "$MILESTONE/${PHASE_NUM}" --depth 1 --format json)
 ```
 
-Check `has_context`. If false → go to handle_blocker: "Discuss for phase ${PHASE_NUM} did not produce CONTEXT.md."
+Check `has_context`. If false → go to handle_blocker: "Discuss for phase ${PHASE_NUM} recorded no context."
 
 **3a.5. UI Design Contract (Frontend Phases)**
 
@@ -503,7 +503,7 @@ Read the `activeHooks` array directly from the `HOOKS_JSON` value already in con
 
 For each entry in `activeHooks` in array order where `kind == "step"` and `ref.skill` is set:
 
-- **Honor `consumes`:** if the hook's `consumes` array includes `"UI-SPEC.md"` and `UI_SPEC_FILE` is empty (no `*-UI-SPEC.md` exists in `PHASE_DIR`) → skip that hook (`onError: skip`). Hooks that do not declare `"UI-SPEC.md"` in their `consumes` proceed normally regardless of `UI_SPEC_FILE`.
+- **Honor `consumes`:** a hook whose `consumes` names `ui_spec` is skipped (`onError: skip`) while `UI_SPEC_FILE` is empty, the phase having no `ui_spec` entity; a hook that does not name it runs either way.
 - Invoke:
 
 ```

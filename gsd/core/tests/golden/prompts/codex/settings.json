@@ -61,7 +61,7 @@
     "- `workflow.code_review` — enable $gsd-code-review and $gsd-code-review --fix commands (default: true if absent)",
     "- `workflow.code_review_depth` — default depth for $gsd-code-review: `quick`, `standard`, or `deep` (default: `\"standard\"` if absent; only relevant when `code_review` is on)"
   ],
-  "bytes": 53834,
+  "bytes": 53932,
   "end": [
     "These settings apply to future $gsd-plan-phase and $gsd-execute-phase runs.",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 937,
+  "lines": 938,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:169306bf531a6a3822631da3a3511ff3024d7ec2d9115ba329f140e323613fe8",
+    "digest": "sha256:6633f181f313628c2f23eafe993b40b3733620523cc7085c46d7c9c031b16209",
     "prompt": "@gsd/core@VERSION:settings"
   },
-  "sha256": "169306bf531a6a3822631da3a3511ff3024d7ec2d9115ba329f140e323613fe8"
+  "sha256": "6633f181f313628c2f23eafe993b40b3733620523cc7085c46d7c9c031b16209"
 }

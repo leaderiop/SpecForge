@@ -61,7 +61,7 @@
     "Set:",
     "- `TEXT_MODE=true` if `--text` is present or `text_mode` is true. When `TEXT_MODE` is active, replace every `AskUserQuestion` call below with a plain-text numbered list and ask the user to type their choice number — required for non-the agent runtimes (OpenAI Codex, Antigravity, etc.) where `AskUserQuestion` is not available."
   ],
-  "bytes": 38967,
+  "bytes": 39065,
   "end": [
     "- options: Quick (3-5 phases, skip research) | Standard (5-8 phases, default) | Comprehensive (8-12 phases, deep research)",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 905,
+  "lines": 906,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:ffd8d8fea9fb97f90aa478a6ddc1bdb44f8fdae04e0303593ab1a1d3dfc457e3",
+    "digest": "sha256:f509138c171afd17db8db24de0f2e466225816b198f9f80f98092e425a2643c7",
     "prompt": "@gsd/core@VERSION:onboard",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "ffd8d8fea9fb97f90aa478a6ddc1bdb44f8fdae04e0303593ab1a1d3dfc457e3"
+  "sha256": "f509138c171afd17db8db24de0f2e466225816b198f9f80f98092e425a2643c7"
 }

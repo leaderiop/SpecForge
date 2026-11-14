@@ -136,7 +136,7 @@ If a requirement demands value-level or behavioral-level proof and the test only
 
 If a requirement specifies a quantity of test cases (e.g., "30 calculations"), check if the actual number of active (non-skipped) test cases meets the requirement.
 
-**Reporting — add to VERIFICATION.md:**
+**Reporting — in the report you return:**
 
 ```markdown
 ### Test Quality Audit

@@ -68,7 +68,7 @@ The "show expected, ask if reality matches" model is preserved. The user still t
 
 ## Output: VERIFICATION.md changes under MVP mode
 
-The `gsd-verifier` agent produces `VERIFICATION.md`. Under MVP mode, the report adds a top-level "User Flow Coverage" section that maps each step of the user story to evidence in the codebase:
+The `gsd-verifier` agent records the phase's `verification` and returns its report. Under MVP mode, the report adds a top-level "User Flow Coverage" section that maps each step of the user story to evidence in the codebase:
 
 ```markdown
 ## User Flow Coverage

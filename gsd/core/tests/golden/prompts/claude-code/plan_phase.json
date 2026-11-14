@@ -47,7 +47,7 @@
     "<available_agent_types>",
     "Valid GSD subagent types (use exact names — do not fall back to 'general-purpose'):",
     "- gsd-phase-researcher — Researches technical approaches for a phase",
-    "- gsd-pattern-mapper — Analyzes codebase for existing patterns, produces PATTERNS.md",
+    "- gsd-pattern-mapper — Analyzes codebase for existing patterns and returns a pattern map",
     "- gsd-planner — Creates detailed plans from phase scope",
     "- gsd-plan-checker — Reviews plan quality before execution",
     "</available_agent_types>",
@@ -61,7 +61,7 @@
     "collapsing plan roles into the orchestrator context.",
     ""
   ],
-  "bytes": 114399,
+  "bytes": 114516,
   "end": [
     "</file>",
     "</execution_context>",
@@ -81,7 +81,7 @@
     "- `--ingest-format <auto|nygard|madr|narrative>` — Optional ADR parser format override (`auto` default).",
     "- `--reviews` — Replan incorporating cross-AI review feedback from REVIEWS.md (produced by `/gsd-review`)",
     "- `--text` — Use plain-text numbered lists instead of TUI menus (required for `/rc` remote sessions)",
-    "- `--mvp` — MVP enrichment on top of the default tracer-first ordering: frames the phase goal as a user story and, on Phase 1 of a new project, also emits `SKELETON.md` (Walking Skeleton). Vertical slicing itself is now the default (see `--no-tracer`); `--mvp` no longer *turns it on*. Can be persisted on a phase via `**Mode:** mvp` in ROADMAP.md.",
+    "- `--mvp` — MVP enrichment on top of the default tracer-first ordering: opens each plan with the phase goal as a user story and, on Phase 1 of a new project, makes the first plan a Walking Skeleton whose architectural choices are recorded as project decisions. Vertical slicing is the default already (see `--no-tracer`); `--mvp` does not turn it on. A phase keeps the choice as its `mode` field (`mvp`).",
     "- `--no-tracer` — Opt out of the default **tracer-first** decomposition and plan horizontal layers (the legacy default). By default every plan LEADS with one production-quality end-to-end `tracer` slice that is verified before any expansion task.",
     "- `--no-reversibility-gates` — Suppress the human checkpoint that a **one-way-door** decision normally earns, for runs you intend to leave unattended. By default a decision rated `one-way` (undo needs a migration, breaks a published contract, or is impossible) gets a `checkpoint:decision` before the task implementing it. Ratings are still recorded on tasks and `costly` items still flagged — the flag changes what stops the run, not what the plan remembers.",
     "",
@@ -115,6 +115,7 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
@@ -183,10 +184,9 @@
     "  \"external_job.submit_timeout_ms\": 30000,",
     "  \"fast_mode.enabled\": false,",
     "  \"features.global_learnings\": false,",
-    "  \"features.thinking_partner\": false,",
-    "  \"gates.confirm_milestone_scope\": true,"
+    "  \"features.thinking_partner\": false,"
   ],
-  "lines": 1956,
+  "lines": 1957,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:31067d6c3fb890d083ae31089ccfdbdae725974f0794b8468f00c591b749c647",
+    "digest": "sha256:9021d9c6e5144fba628aa89737ff813ea736ac61979afce7c7821130b96fc3a3",
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
@@ -240,5 +240,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "31067d6c3fb890d083ae31089ccfdbdae725974f0794b8468f00c591b749c647"
+  "sha256": "9021d9c6e5144fba628aa89737ff813ea736ac61979afce7c7821130b96fc3a3"
 }

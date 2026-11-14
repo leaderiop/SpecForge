@@ -61,7 +61,7 @@
     "the spec exists but the core initialization entities are missing (one or more of the requirement, milestone and phase entities were never created — a bootstrap that stopped partway, e.g. after the `project` entity). This is NOT a new project, NOT a missing project state, and NOT a between-milestones state — do not fall through to any of those routes. Route to initialization recovery:",
     ""
   ],
-  "bytes": 77283,
+  "bytes": 77381,
   "end": [
     "| 3     | ○      | 0/2   | 0%       |",
     "```",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1722,
+  "lines": 1723,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:e585c41c59eeebdb2635e588b57ef5e66365dffb36a23506ba508c379d2058b2",
+    "digest": "sha256:c5a876acb07e4b79e812ecce5cbdbb04d8a19d44c3aa71490f129f87bcbfde4c",
     "prompt": "@gsd/core@VERSION:progress",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "e585c41c59eeebdb2635e588b57ef5e66365dffb36a23506ba508c379d2058b2"
+  "sha256": "c5a876acb07e4b79e812ecce5cbdbb04d8a19d44c3aa71490f129f87bcbfde4c"
 }

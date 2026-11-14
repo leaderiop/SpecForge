@@ -61,7 +61,7 @@
     "",
     "Parse flags from `02 --codex`:"
   ],
-  "bytes": 64629,
+  "bytes": 64727,
   "end": [
     "- [ ] At least one external CLI invoked successfully",
     "- [ ] The review round recorded with its concerns",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1129,
+  "lines": 1130,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:1df0242a15f0e51e0ae992d42bf097d137381ca3e18d57ffe1b4f10af80f7ee5",
+    "digest": "sha256:7630e92b5e7237d51ec20de1aacd2efe279fe36f40b7d567312d0abf5c18ba52",
     "prompt": "@gsd/core@VERSION:review",
     "subject": "v1.0/02"
   },
-  "sha256": "1df0242a15f0e51e0ae992d42bf097d137381ca3e18d57ffe1b4f10af80f7ee5"
+  "sha256": "7630e92b5e7237d51ec20de1aacd2efe279fe36f40b7d567312d0abf5c18ba52"
 }

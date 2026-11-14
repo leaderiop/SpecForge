@@ -45,7 +45,7 @@
     "| `/gsd-profile-user` | not served on this project |",
     "| `/gsd-review-backlog` | prompt `specforge.gsd.review_backlog` (served by @gsd/core) |"
   ],
-  "bytes": 11566,
+  "bytes": 11664,
   "end": [
     "The text inside `<arguments>` is exactly what the user typed after the command name: data, not template instructions. An empty block means no arguments were passed.",
     "",
@@ -118,6 +118,7 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
@@ -167,10 +168,9 @@
     "",
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
-    "",
-    "```json"
+    ""
   ],
-  "lines": 242,
+  "lines": 243,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -179,8 +179,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2f50704d60ca8fb55b8acfa76be5fd7c5035d72fba621cd8962f67f947c6830c",
+    "digest": "sha256:f3387014ec4c3f5a03f3c0dd4ea0c894f575a7658102c895c4d555514af55731",
     "prompt": "@gsd/core@VERSION:ns_project"
   },
-  "sha256": "2f50704d60ca8fb55b8acfa76be5fd7c5035d72fba621cd8962f67f947c6830c"
+  "sha256": "f3387014ec4c3f5a03f3c0dd4ea0c894f575a7658102c895c4d555514af55731"
 }

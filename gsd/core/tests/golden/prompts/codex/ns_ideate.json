@@ -36,7 +36,7 @@
     "| `$gsd-spike` | not served on this project |",
     "| `$gsd-spec-phase` | prompt `specforge.gsd.spec_phase` (served by @gsd/core) |"
   ],
-  "bytes": 18612,
+  "bytes": 18710,
   "end": [
     "  \"parallelization.skip_checkpoints\": true,",
     "  \"parallelization.task_level\": false",
@@ -161,7 +161,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 332,
+  "lines": 333,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -170,8 +170,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:9cea6d66200ec0b84e036f44220a7da28868dd6580e2b69f3ce09a2c07e3e10e",
+    "digest": "sha256:74db9837fff7f8981e83766814b6347b061eb6586ca1d63ef4aaf6445737966d",
     "prompt": "@gsd/core@VERSION:ns_ideate"
   },
-  "sha256": "9cea6d66200ec0b84e036f44220a7da28868dd6580e2b69f3ce09a2c07e3e10e"
+  "sha256": "74db9837fff7f8981e83766814b6347b061eb6586ca1d63ef4aaf6445737966d"
 }

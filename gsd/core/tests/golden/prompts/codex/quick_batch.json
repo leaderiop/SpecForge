@@ -61,7 +61,7 @@
     "Read all files referenced by the invoking prompt's execution_context before starting.",
     "</required_reading>"
   ],
-  "bytes": 32306,
+  "bytes": 32404,
   "end": [
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
     "capacity/isolation, and dispatch wave-by-wave.",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 590,
+  "lines": 591,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:cec990d70630288e4b54c61c122890fa119561bbdc97f0adfbfce32606cf0d4d",
+    "digest": "sha256:bac1f059e4f023f3b10d780dfd1924de8da1649dbc9895715c74e8b0f3c416a7",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "cec990d70630288e4b54c61c122890fa119561bbdc97f0adfbfce32606cf0d4d"
+  "sha256": "bac1f059e4f023f3b10d780dfd1924de8da1649dbc9895715c74e8b0f3c416a7"
 }

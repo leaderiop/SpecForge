@@ -47,7 +47,7 @@
     "| `/gsd-review` | prompt `specforge.gsd.review` (served by @gsd/core) |",
     "| `/gsd-ui-phase` | not served on this project |"
   ],
-  "bytes": 11480,
+  "bytes": 11578,
   "end": [
     "Route to the appropriate quality / review skill based on the user's intent.",
     "`gsd-code-review-fix` was absorbed by `/gsd-code-review --fix` in #2790.",
@@ -120,6 +120,7 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
@@ -169,10 +170,9 @@
     "",
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
-    "",
-    "```json"
+    ""
   ],
-  "lines": 244,
+  "lines": 245,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -181,8 +181,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:0dd6e195caedef3e40b4b52af362183878515f110f80377e746ed529866dafbc",
+    "digest": "sha256:3287e40a7ca6290718ca15f72c8e825f97654120459d728f9c692544f88f21cd",
     "prompt": "@gsd/core@VERSION:ns_review"
   },
-  "sha256": "0dd6e195caedef3e40b4b52af362183878515f110f80377e746ed529866dafbc"
+  "sha256": "3287e40a7ca6290718ca15f72c8e825f97654120459d728f9c692544f88f21cd"
 }

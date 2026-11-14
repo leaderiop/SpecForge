@@ -61,7 +61,7 @@
     "Track which optional artifacts are missing for the `missing_artifacts` frontmatter field.",
     "</step>"
   ],
-  "bytes": 29433,
+  "bytes": 29531,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 586,
+  "lines": 587,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:58069f382b3a31a846473ef2ca6cc0ff813f457be5ba07f0a3dec567be19f413",
+    "digest": "sha256:8fb1c08ab60d45f78015c2a25dea45378c1d9262236b74f2e6258a88ae5c7b7d",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "58069f382b3a31a846473ef2ca6cc0ff813f457be5ba07f0a3dec567be19f413"
+  "sha256": "8fb1c08ab60d45f78015c2a25dea45378c1d9262236b74f2e6258a88ae5c7b7d"
 }

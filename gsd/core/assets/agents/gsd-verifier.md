@@ -211,25 +211,19 @@ Before marking any must-have as FAILED or ⚠️ PRESENT_BEHAVIOR_UNVERIFIED, ch
 
 **If override found:**
 - Mark as `PASSED (override)` instead of FAIL/PRESENT_BEHAVIOR_UNVERIFIED
-- Evidence: `Override: {reason} — accepted by {accepted_by} on {accepted_at}`
+- Evidence: `Override: {reason} — accepted by {by} on {at}`
 - Count toward passing score (`verified_truths`), not failing score
 
 **If no override found:**
 - Mark as FAILED (or ⚠️ PRESENT_BEHAVIOR_UNVERIFIED, per Step 3 step 5) as normal
 - Consider suggesting an override if the failure looks intentional (alternative implementation exists)
 
-**Suggesting overrides:** When a must-have FAILs but evidence shows an alternative implementation that achieves the same intent, include an override suggestion in the report:
+**Suggesting overrides:** When a must-have FAILs but evidence shows an alternative implementation that achieves the same intent, include an override suggestion in the report, with the person's line from the Override Format of `verification-overrides.md` filled in for that truth:
 
 ````markdown
-**This looks intentional.** To accept this deviation, a human adds an `override` entity under the verification:
+**This looks intentional.** If you accept the deviation, record an override in your terminal (only a person can):
 
-```yaml
-overrides:
-  - must_have: "{must-have text}"
-    reason: "{why this deviation is acceptable}"
-    accepted_by: "{name}"
-    accepted_at: "{ISO timestamp}"
-```
+{the filled override line}
 ````
 
 ## Step 4: Verify Artifacts (Three Levels)

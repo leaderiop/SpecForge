@@ -26,7 +26,7 @@
     "4. Tell the user to restart the host, so that it reads the new skills.",
     "</process>"
   ],
-  "bytes": 11489,
+  "bytes": 11587,
   "end": [
     "  \"effort.routing_tier_defaults.heavy\": \"xhigh\",",
     "  \"effort.routing_tier_defaults.light\": \"low\",",
@@ -99,6 +99,7 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
@@ -148,13 +149,12 @@
     "",
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
-    "",
-    "```json"
+    ""
   ],
-  "lines": 223,
+  "lines": 224,
   "payload": {
-    "digest": "sha256:3facbc96de1f5fed86bf1d6f4fbfa03f47c4b85d1fae948150f436885909f41b",
+    "digest": "sha256:7bd54236b2c97d9240269aa6430100109b5b8d053351909de251f3f34a254d5b",
     "prompt": "@gsd/core@VERSION:update"
   },
-  "sha256": "3facbc96de1f5fed86bf1d6f4fbfa03f47c4b85d1fae948150f436885909f41b"
+  "sha256": "7bd54236b2c97d9240269aa6430100109b5b8d053351909de251f3f34a254d5b"
 }

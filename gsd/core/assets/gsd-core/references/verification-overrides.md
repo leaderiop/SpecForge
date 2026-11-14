@@ -7,35 +7,24 @@ Mechanism for intentionally accepting must-have failures when the deviation is k
 
 ## Override Format
 
-Overrides are declared in the VERIFICATION.md frontmatter under an `overrides:` key:
+An override is an `override` entity under the phase's verification, and only a person records one: the host refuses
+an agent's write to it (`specforge schema --kind override` lists its fields). The person runs, in their terminal:
 
-```yaml
----
-phase: 03-authentication
-verified: 2026-04-05T12:00:00Z
-status: passed
-score: 5/5
-overrides_applied: 2
-overrides:
-  - must_have: "OAuth2 PKCE flow implemented"
-    reason: "Using session-based auth instead — PKCE unnecessary for server-rendered app"
-    accepted_by: "dave"
-    accepted_at: "2026-04-04T15:30:00Z"
-  - must_have: "Rate limiting on login endpoint"
-    reason: "Deferred to Phase 5 (infrastructure) — tracked in ROADMAP.md"
-    accepted_by: "dave"
-    accepted_at: "2026-04-04T15:30:00Z"
----
+```
+specforge new override OV<n> "<the truth's title>" --in <the verification's file> --verification <the verification> --truth <the truth> --accepts "<the truth's text>" --reason "<why>" --by "<who>" --at <YYYY-MM-DD>
 ```
 
-### Required Fields
+The verifier reads them with `specforge query "$VERIFICATION" --depth 1 --kinds override --format context`.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `must_have` | string | The must-have truth, artifact description, or key link being overridden. Does not need to be an exact match — fuzzy matching applies. |
-| `reason` | string | Why this deviation is acceptable. Must be specific — not just "not needed". |
-| `accepted_by` | string | Who accepted the override (username or role). Required. |
-| `accepted_at` | string | ISO timestamp of when the override was accepted. Required. |
+### Fields
+
+| Field | Description |
+|-------|-------------|
+| `truth` | The truth the person accepts. |
+| `accepts` | The truth's text as the person accepted it: the override counts only while the truth still says this. |
+| `reason` | Why the deviation is acceptable. It must be specific, not just "not needed". |
+| `by` | Who accepted it (gsd/E503 when absent). |
+| `at` | When (gsd/E503 when absent). |
 
 </override_format>
 
@@ -97,7 +86,7 @@ The override check happens **before marking a must-have as FAIL**. The flow is:
 
 1. Evaluate must-have against codebase (Steps 3-5 of verification process)
 2. If evaluation result is FAIL or UNCERTAIN:
-   a. Check `overrides:` array in VERIFICATION.md frontmatter for a fuzzy match
+   a. Look for a matching `override` among the verification's (`specforge query "$VERIFICATION" --depth 1 --kinds override`)
    b. If override found: mark as `PASSED (override)` instead of FAIL
    c. If no override found: mark as FAIL as normal
 3. If evaluation result is PASS: mark as VERIFIED (overrides are irrelevant)
@@ -122,14 +111,9 @@ The `PASSED (override)` status must be visually distinct from both `VERIFIED` an
 - A phase with all items either VERIFIED or PASSED (override) can have status `passed`
 - Overrides do NOT suppress `human_needed` items — those still require human testing
 
-### Frontmatter Score
+### Score
 
-The score and override count in frontmatter reflect applied overrides:
-
-```yaml
-score: 5/5  # includes 2 overrides
-overrides_applied: 2
-```
+The verification's computed `score` counts each truth an override accepts as verified.
 
 </verifier_behavior>
 
@@ -147,17 +131,12 @@ When the verifier marks a must-have as FAIL and the failure looks intentional (e
 **Status:** FAILED
 **Evidence:** No PKCE implementation found. Session-based auth used instead.
 
-**This looks intentional.** The codebase uses session-based authentication which achieves the same goal differently. To accept this deviation, add an override to VERIFICATION.md frontmatter:
+**This looks intentional.** The codebase reaches the same goal with session-based authentication. If you accept
+the deviation, record an override in your terminal, then re-run verification:
 
-```yaml
-overrides:
-  - must_have: "OAuth2 PKCE flow implemented"
-    reason: "Using session-based auth instead — PKCE unnecessary for server-rendered app"
-    accepted_by: "{your name}"
-    accepted_at: "{current ISO timestamp}"
 ```
-
-Then re-run verification to apply.
+specforge new override OV<n> "<the truth's title>" --in <the verification's file> --verification <the verification> --truth v1.0/03/03-01/TR2 --accepts "<the truth's text>" --reason "Session-based auth instead; PKCE is not needed for a server-rendered app" --by "<who>" --at <YYYY-MM-DD>
+```
 ````
 
 ### Override via the verification workflow
@@ -166,7 +145,7 @@ Overrides can also be managed through the verification workflow:
 
 1. Run `/gsd:verify-work` — verification finds gaps
 2. Review gaps — determine which are intentional deviations
-3. Add override entries to VERIFICATION.md frontmatter
+3. Record an override for each one you accept, in your terminal (the line above)
 4. Re-run `/gsd:verify-work` — overrides are applied, remaining gaps shown
 
 </creating_overrides>
@@ -202,22 +181,15 @@ Stale overrides (where the must-have was later implemented or removed from ROADM
 
 </override_lifecycle>
 
-## Example VERIFICATION.md
+## Example
+
+An override the person recorded on phase 3's verification, and the report the verifier returns:
+
+```
+specforge new override OV1 "<the truth's title>" --in <the verification's file> --verification <the verification> --truth v1.0/03/03-02/TR1 --accepts "<the truth's text>" --reason "Descoped: under 100 items, pagination adds complexity without value" --by "<who>" --at <YYYY-MM-DD>
+```
 
 ```markdown
----
-phase: 03-api-layer
-verified: 2026-04-05T12:00:00Z
-status: passed
-score: 3/3
-overrides_applied: 1
-overrides:
-  - must_have: "paginated API responses"
-    reason: "Descoped — dataset under 100 items, pagination adds complexity without value"
-    accepted_by: "dave"
-    accepted_at: "2026-04-04T15:30:00Z"
----
-
 ## Phase 3: API Layer — Verification
 
 | # | Truth | Status | Evidence |

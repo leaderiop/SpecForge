@@ -61,14 +61,14 @@
     "PHASE_GOAL=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.goal' 2>/dev/null)",
     "PHASE_MODE=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.mode' 2>/dev/null)"
   ],
-  "bytes": 26238,
+  "bytes": 26244,
   "end": [
     "1. The `**Goal:**` line stays on a single line (no line breaks inside the story). If the story is longer than ~120 chars, it should be split into multiple phases via SPIDR (see `spidr-splitting.md`).",
     "2. The `**Mode:** mvp` line is added immediately below `**Goal:**`. If `**Mode:**` already exists, it is replaced (not duplicated).",
     "",
     "## How it lands in PLAN.md",
     "",
-    "The `gsd-planner` agent (with MVP_MODE=true) emits the user story as the first content under the phase header in `PLAN.md`:",
+    "With MVP_MODE=true, each plan's objective opens with the user story, as the `gsd-planner` agent writes it:",
     "",
     "```markdown",
     "## Phase Goal",
@@ -82,7 +82,7 @@
     "...",
     "```",
     "",
-    "Note the bold-keyword formatting (`**As a**`, `**I want to**`, `**so that**`) is for the PLAN.md emit only. The ROADMAP.md `**Goal:**` line uses prose form (the keywords are not bolded inside the goal line, since the goal is itself a single bolded label).",
+    "Only the plan bolds the keywords (`**As a**`, `**I want to**`, `**so that**`). The phase's goal in the roadmap keeps them plain, since that goal is already shown as one bold label.",
     "</file>",
     "</execution_context>",
     "",
@@ -115,6 +115,7 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
     "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
@@ -183,10 +184,9 @@
     "  \"external_job.submit_timeout_ms\": 30000,",
     "  \"fast_mode.enabled\": false,",
     "  \"features.global_learnings\": false,",
-    "  \"features.thinking_partner\": false,",
-    "  \"gates.confirm_milestone_scope\": true,"
+    "  \"features.thinking_partner\": false,"
   ],
-  "lines": 571,
+  "lines": 572,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:790f7fc4e5590c501ab84d7f1fb881f9d9abca4a10d0b8486aac105e96151818",
+    "digest": "sha256:972ec7bfda27940dffd59dd08030da8cc647deb1a8538dfed9a073dfaf0cf0b8",
     "prompt": "@gsd/core@VERSION:mvp_phase",
     "steps": [
       {
@@ -206,5 +206,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "790f7fc4e5590c501ab84d7f1fb881f9d9abca4a10d0b8486aac105e96151818"
+  "sha256": "972ec7bfda27940dffd59dd08030da8cc647deb1a8538dfed9a073dfaf0cf0b8"
 }
