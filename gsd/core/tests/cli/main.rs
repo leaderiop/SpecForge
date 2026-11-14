@@ -54,6 +54,7 @@ mod execute_status;
 #[path = "../common/files.rs"]
 mod files;
 mod gates;
+mod governance;
 mod harness;
 mod hooks_community;
 mod hooks_config;

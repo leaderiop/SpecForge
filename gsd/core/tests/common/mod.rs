@@ -2,6 +2,12 @@
 
 use std::path::Path;
 
+#[allow(
+    dead_code,
+    reason = "each test crate that includes this module uses some of it"
+)]
+pub mod model_doc;
+
 /// One rule row of `spec/rules.md`'s code tables.
 #[derive(Debug)]
 pub struct RuleRow {

@@ -6,6 +6,7 @@ mod audit;
 mod commit;
 mod discuss;
 mod execute;
+mod governance;
 mod learning;
 mod must_haves;
 mod plan;
@@ -89,6 +90,7 @@ const KINDS: &[&Kind] = &[
     &audit::MILESTONE_AUDIT,
     &windows::BROKEN_WINDOW,
     &windows::REFACTOR_PROPOSAL,
+    &governance::RISK,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

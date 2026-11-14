@@ -1171,6 +1171,33 @@
         "label": "RefactorProposalPhase",
         "source_kind": "refactor_proposal",
         "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "RiskMitigatedBy",
+        "source_kind": "risk",
+        "target_kind": null
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "RiskAffects",
+        "source_kind": "risk",
+        "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "RiskMilestone",
+        "source_kind": "risk",
+        "target_kind": "milestone"
       }
     ]
   },
@@ -10615,6 +10642,226 @@
         "name": "refactor_proposal",
         "open_fields": false,
         "scoped_by": "phase",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A risk: what can go wrong, rated 1 to 10 for severity, occurrence and detection (FMEA), and what controls it (beyond GSD)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "what makes it happen",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "cause",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "what breaks when it does",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "effect",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "1 no effect … 10 hazardous, without warning",
+            "edge": null,
+            "field_type": "integer",
+            "inverse_of": null,
+            "maximum": 10,
+            "minimum": 1,
+            "name": "severity",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "1 remote … 10 almost certain",
+            "edge": null,
+            "field_type": "integer",
+            "inverse_of": null,
+            "maximum": 10,
+            "minimum": 1,
+            "name": "occurrence",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "1 almost certainly caught before harm … 10 cannot be caught",
+            "edge": null,
+            "field_type": "integer",
+            "inverse_of": null,
+            "maximum": 10,
+            "minimum": 1,
+            "name": "detection",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the ratings once every mitigation is done; a member left out keeps its pre rating",
+            "edge": null,
+            "field_type": "block",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": "severity once mitigated",
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "maximum": 10,
+                "minimum": 1,
+                "name": "severity",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": "occurrence once mitigated",
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "maximum": 10,
+                "minimum": 1,
+                "name": "occurrence",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": "detection once mitigated",
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "maximum": 10,
+                "minimum": 1,
+                "name": "detection",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "post",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "what controls it: a task done, a truth verified",
+            "edge": "RiskMitigatedBy",
+            "field_type": "reference_list",
+            "inverse_of": null,
+            "name": "mitigated_by",
+            "required": false,
+            "target_kind": null,
+            "target_kinds": [
+              "task",
+              "truth"
+            ]
+          },
+          {
+            "default_value": null,
+            "description": "the planned control as prose; no evidence",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "mitigation",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the requirements it threatens; each reads it back as `risks`",
+            "edge": "RiskAffects",
+            "field_type": "reference_list",
+            "inverse_of": "risks",
+            "name": "affects",
+            "required": false,
+            "target_kind": "requirement"
+          },
+          {
+            "default_value": null,
+            "description": "where it must be settled when no phase's plan mitigates it; the milestone reads it back as `risks`",
+            "edge": "RiskMilestone",
+            "field_type": "reference",
+            "inverse_of": "risks",
+            "name": "milestone",
+            "required": false,
+            "target_kind": "milestone"
+          },
+          {
+            "default_value": null,
+            "description": "words to group it",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "tags",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "free prose",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "description",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "external references",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "refs",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "severity × occurrence × detection (1 to 1000)",
+            "edge": null,
+            "field_type": "integer",
+            "inverse_of": null,
+            "name": "rpn",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the post ratings' product; the rpn without a post block",
+            "edge": null,
+            "field_type": "integer",
+            "inverse_of": null,
+            "name": "post_rpn",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "risk",
+        "open_fields": false,
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,
