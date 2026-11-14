@@ -2,7 +2,7 @@
 //! admitted by the form of the field it is for, as a written value is by [`FieldForm::admit`].
 
 use serde_json::Value;
-use specforge_protocol_types::{Decimal, FieldType};
+use specforge_protocol_types::{Decimal, DecimalError, FieldType};
 
 use super::{FieldForm, FieldJson, Refusal, ValueShape};
 
@@ -61,9 +61,15 @@ impl FieldForm {
     fn admit_entries(&self, entries: &serde_json::Map<String, Value>) -> Result<(), Refusal> {
         let Some(members) = self.members().filter(|m| !m.is_empty()) else {
             // An open block: named entries, each a field value.
-            return match entries.iter().find(|(_, v)| !is_field_json(v)) {
+            return match entries
+                .iter()
+                .find_map(|(name, v)| not_field_json(v).map(|why| (name, why)))
+            {
                 None => Ok(()),
-                Some((name, _)) => Err(Refusal::with(&format!(
+                Some((name, NotFieldJson::Number(error))) => {
+                    Err(Refusal::with(&format!("'{name}': {error}")))
+                }
+                Some((name, NotFieldJson::Shape)) => Err(Refusal::with(&format!(
                     "give '{name}' a string, a number, a boolean, a list or an object"
                 ))),
             };
@@ -84,21 +90,30 @@ impl FieldForm {
     }
 }
 
-/// Whether `value` is a field value as every output writes one (`FieldJson`'s shape): a string, a number a
-/// [`Decimal`] holds (at most 15 significant digits, ADR 0361), a boolean, an array of strings, numbers, booleans and
-/// objects, or an object of field values.
-fn is_field_json(value: &Value) -> bool {
+/// Why a value is no field value as every output writes one.
+enum NotFieldJson {
+    /// A fraction no [`Decimal`] holds: more than 15 significant digits or out of range (ADR 0361).
+    Number(DecimalError),
+    /// A null, or a list holding a list or a null.
+    Shape,
+}
+
+/// Why `value` is no field value as every output writes one (`FieldJson`'s shape), `None` when it is one: a string,
+/// a whole number within `i64` or `u64` (an `integer`, as `.spec` writes one), a fraction a [`Decimal`] holds, a
+/// boolean, an array of strings, numbers, booleans and objects, or an object of field values.
+fn not_field_json(value: &Value) -> Option<NotFieldJson> {
     let scalar = |v: &Value| match v {
-        Value::String(_) | Value::Bool(_) => true,
-        Value::Number(n) => Decimal::from_json(n).is_ok(),
-        _ => false,
+        Value::String(_) | Value::Bool(_) => None,
+        Value::Number(n) if n.is_i64() || n.is_u64() => None,
+        Value::Number(n) => Decimal::from_json(n).err().map(NotFieldJson::Number),
+        _ => Some(NotFieldJson::Shape),
     };
     match value {
-        Value::Array(items) => items.iter().all(|item| match item {
-            Value::Object(entries) => entries.values().all(is_field_json),
+        Value::Array(items) => items.iter().find_map(|item| match item {
+            Value::Object(entries) => entries.values().find_map(not_field_json),
             other => scalar(other),
         }),
-        Value::Object(entries) => entries.values().all(is_field_json),
+        Value::Object(entries) => entries.values().find_map(not_field_json),
         other => scalar(other),
     }
 }

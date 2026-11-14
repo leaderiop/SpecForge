@@ -403,6 +403,38 @@ fn a_number_form_compares_its_decimal_bounds_exactly() {
 
 #[specforge_test(
     behavior = "check_field_value_types",
+    verify = "an open block admits a whole JSON number of any length and a fraction a decimal holds"
+)]
+fn an_open_block_admits_every_integer_and_a_decimal_fraction() {
+    let open = FieldForm::new(FieldType::Block, Vec::new());
+    for entry in [
+        json!(1234567890123456i64),
+        json!(i64::MIN),
+        json!(u64::MAX),
+        json!(0.5),
+        json!([1234567890123456i64, 0.5]),
+        json!({"inner": 1234567890123456i64}),
+    ] {
+        assert!(open.admit_json(&json!({ "seq": entry })).is_ok(), "{entry}");
+    }
+    assert_eq!(
+        open.admit_json(&json!({"drift": 0.1 + 0.2}))
+            .unwrap_err()
+            .suggestion
+            .as_deref(),
+        Some("'drift': a number keeps at most 15 significant digits")
+    );
+    assert_eq!(
+        open.admit_json(&json!({"gap": null}))
+            .unwrap_err()
+            .suggestion
+            .as_deref(),
+        Some("give 'gap' a string, a number, a boolean, a list or an object")
+    );
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
     verify = "an integer outside its declared minimum or maximum is E061 naming the bounds"
 )]
 fn bounds_name_the_range_in_the_remedy() {

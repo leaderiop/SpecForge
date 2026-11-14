@@ -522,6 +522,7 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "a typed block reads and admits each member by its own declared type"
   verify unit "an integer outside its declared minimum or maximum is E061 naming the bounds"
   verify unit "a number is compared with its decimal bounds exactly"
+  verify unit "an open block admits a whole JSON number of any length and a fraction a decimal holds"
   verify unit "E061, E006, W020 and the declarative rules reach every member of every item of a typed block"
   verify unit "a field descriptor carries its members, target kinds and bounds on the wire"
   verify unit "a typed block is stored with each member coerced by its form, and a single block on a block list is its one item"
