@@ -131,7 +131,7 @@ Phase requirement IDs: {PHASE_REQ_IDS}
 Check must_haves against actual codebase.
 Every requirement of the phase's threads (`specforge trace --route gsd/requirement-thread --in {PHASE_ID} --partial`) MUST be accounted for.
 Record your verdicts; the verification is computed from them.
-Use response_language {RESPONSE_LANGUAGE} for all user-facing prose — narration between tool calls, status updates, progress notes, and findings included; preserve code and paths.
+Write all user-facing prose (narration between tool calls, status updates, progress notes, findings) in {RESPONSE_LANGUAGE}; keep code and paths as they are.
 
 <required_reading>
 specforge context gsd/verifier "{PHASE_ID}"

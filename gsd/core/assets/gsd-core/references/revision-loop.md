@@ -146,8 +146,8 @@ specforge gsd record-conflict "$PLAN_ID" --dimension "$DIMENSION" --property "$P
    `required_property` still fails, and that choice belongs to the cap escalation.
 4. **Close** — the workflow that recorded the conflict resolves it once the resolution has been
    applied, with `specforge gsd resolve-conflict "<chosen resolution>" --conflict <conflict>`
-   (`--plan <plan>` resolves every open conflict of the plan). Readers only read. A conflict left open
-   is a live blocker, never a stale artifact.
+   (`--plan <plan>` resolves every open conflict of the plan). Readers only read. An open
+   conflict blocks until it is resolved; it never goes stale.
 5. **Re-spawn** with the chosen resolution, then re-evaluate the return from the top of this
    handler — never fall through to the checker spawn. A second conflict is still a conflict, not
    a revised output, and handing it to the checker would check the conflict message.

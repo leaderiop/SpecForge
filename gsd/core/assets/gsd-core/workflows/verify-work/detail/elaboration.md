@@ -19,7 +19,7 @@ When verify-work resumes after `/gsd:execute-phase --gaps-only`, a gap whose fix
 Reconciled gap-closure state: {resolved_count} gap(s) resolved by executed plans, {open_count} still open.
 ```
 
-Resolved gaps are NOT re-diagnosed and do NOT spawn new gap plans. A later report of the same behavior as still broken is a new issue (a regression) with a new `uat_gap`.
+Resolved gaps are NOT re-diagnosed and do NOT spawn new gap plans. The same behavior reported broken again later is a regression: record it as a new issue with its own `uat_gap`.
 
 ## § 2 — resume_from_file
 

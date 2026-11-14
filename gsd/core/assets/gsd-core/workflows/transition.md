@@ -289,7 +289,7 @@ if [ -n "${_SUMMARIES[0]}" ]; then for s in "${_SUMMARIES[@]}"; do specforge que
 **Step complete when:**
 
 - [ ] Phase summaries reviewed for learnings
-- [ ] Invalidated requirements moved out of scope with their reason
+- [ ] Each invalidated requirement is out of scope, its reason recorded
 - [ ] Emerged requirements recorded in the phase that builds them
 - [ ] New decisions logged with rationale
 - [ ] "What This Is" updated if product changed

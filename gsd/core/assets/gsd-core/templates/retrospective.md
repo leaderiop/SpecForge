@@ -15,13 +15,13 @@ IFS= read -rd '' BUILT <<'TEXT' || true; BUILT=${BUILT%$'\n'}
 ["{key deliverable}"]
 TEXT
 IFS= read -rd '' WORKED <<'TEXT' || true; WORKED=${WORKED%$'\n'}
-["{efficiency win or successful pattern}"]
+["{what saved time, or a way of working that paid off}"]
 TEXT
 IFS= read -rd '' INEFFICIENT <<'TEXT' || true; INEFFICIENT=${INEFFICIENT%$'\n'}
 ["{missed opportunity, or what took longer than expected}"]
 TEXT
 IFS= read -rd '' PATTERNS <<'TEXT' || true; PATTERNS=${PATTERNS%$'\n'}
-["{new pattern or convention that should persist}"]
+["{a convention to keep for the next milestone}"]
 TEXT
 specforge gsd close-milestone "$MILESTONE" --built "$BUILT" --worked "$WORKED" --inefficient "$INEFFICIENT" --patterns "$PATTERNS" || exit 1
 ```
@@ -36,7 +36,7 @@ IFS= read -rd '' TITLE <<'TEXT' || true; TITLE=${TITLE%$'\n'}
 {the lesson in a few words}
 TEXT
 IFS= read -rd '' LESSON <<'TEXT' || true; LESSON=${LESSON%$'\n'}
-{a specific, actionable lesson}
+{the lesson, specific enough to act on}
 TEXT
 RETRO="$MILESTONE/$MILESTONE-RETROSPECTIVE"
 RETRO_FILE=$(specforge query "$RETRO" --depth 0 --pick '.nodes[0].file') || exit 1

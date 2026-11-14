@@ -24,7 +24,7 @@ Instead of checking what IS correct, list 3 specific ways this implementation co
 
 **Counters:** Flagging purposeful code as dead or unnecessary.
 
-Before flagging any existing code as dead, redundant, or overcomplicated, determine WHY it was written that way. Check git blame, comments, test cases, and the plan entity that created it. If the reason is unclear, flag as "purpose unknown -- recommend keeping with WARNING, not removing" and include the git blame hash for the commit that introduced it.
+Before flagging any existing code as dead, redundant, or overcomplicated, determine WHY it was written that way. Read its git blame, its comments and tests, and the plan whose task introduced it. If the reason is unclear, flag as "purpose unknown -- recommend keeping with WARNING, not removing" and include the git blame hash for the commit that introduced it.
 
 ## 3. Confirmation Bias Counter
 

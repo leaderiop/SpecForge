@@ -61,7 +61,7 @@
     "",
     "Display banner: `GSD > SECURE PHASE {N}: {name}`"
   ],
-  "bytes": 26825,
+  "bytes": 26816,
   "end": [
     "Execute end-to-end.",
     "Preserve all workflow gates.",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:44bbe6f7429b761fa59dbc673d8476ccdf990aa4e1a5c47cbe08f564a24270a5",
+    "digest": "sha256:aed4f7589303b3753430d008a4b901c867f1706f9a9fd57cba94b9ba4a16adbb",
     "prompt": "@gsd/security@VERSION:secure_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "44bbe6f7429b761fa59dbc673d8476ccdf990aa4e1a5c47cbe08f564a24270a5"
+  "sha256": "aed4f7589303b3753430d008a4b901c867f1706f9a9fd57cba94b9ba4a16adbb"
 }

@@ -61,7 +61,7 @@
     "",
     "## 1. Detect Input State"
   ],
-  "bytes": 28729,
+  "bytes": 28830,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:da1f68ca37fd24ff0af5dde98b8bf47a797ab21cfe7957a41e3db9c840795b13",
+    "digest": "sha256:99a47b59ffc89ffe1ac6963618417d3f34fc1007ada6f33bc8068ba5e4598aa0",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "da1f68ca37fd24ff0af5dde98b8bf47a797ab21cfe7957a41e3db9c840795b13"
+  "sha256": "99a47b59ffc89ffe1ac6963618417d3f34fc1007ada6f33bc8068ba5e4598aa0"
 }

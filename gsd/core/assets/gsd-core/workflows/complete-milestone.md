@@ -257,13 +257,13 @@ IFS= read -rd '' BUILT <<'TEXT' || true; BUILT=${BUILT%$'\n'}
 ["{key deliverable}"]
 TEXT
 IFS= read -rd '' WORKED <<'TEXT' || true; WORKED=${WORKED%$'\n'}
-["{efficiency win or successful pattern}"]
+["{what saved time, or a way of working that paid off}"]
 TEXT
 IFS= read -rd '' INEFFICIENT <<'TEXT' || true; INEFFICIENT=${INEFFICIENT%$'\n'}
 ["{missed opportunity, or what took longer than expected}"]
 TEXT
 IFS= read -rd '' PATTERNS <<'TEXT' || true; PATTERNS=${PATTERNS%$'\n'}
-["{new pattern or convention that should persist}"]
+["{a convention to keep for the next milestone}"]
 TEXT
 ARCHIVE=$(specforge gsd close-milestone "$MILESTONE" --built "$BUILT" --worked "$WORKED" --inefficient "$INEFFICIENT" --patterns "$PATTERNS" --format json) || exit 1
 ```
@@ -442,7 +442,7 @@ Milestone completion is successful when:
 - [ ] Known deferred items shown with the audit's output (they stay open entities, counted by the milestone's `stats`)
 
 - [ ] Milestone closed by `close-milestone`, its computed stats shown
-- [ ] Project full evolution review completed (flat mode only; skipped under `--ws`)
+- [ ] The project's evolution reviewed in full (flat mode only; skipped under `--ws`)
 - [ ] Key Decisions updated with outcomes
 - [ ] Safety commit made BEFORE the final commit
 - [ ] `requirement` entities kept with the completed milestone (none deleted)

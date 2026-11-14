@@ -72,8 +72,8 @@ fn the_transition_reads_the_next_phase_from_progress() {
 }
 
 /// The transition's `evolve_project` fences, filled, on a taskboard: an invalidated requirement moves out of scope
-/// with its reason, an emerged one is recorded in the phase that builds it, and the project's `what` is rewritten;
-/// the check gains no finding.
+/// with its reason, an emerged one is recorded in the phase that builds it, the project's `what` is rewritten and a
+/// project decision joins its `key_decisions`; the check gains no finding.
 #[test]
 fn the_project_evolution_is_typed_edits() {
     let Some(sh) = Shell::only(&[]) else {
@@ -106,6 +106,14 @@ fn the_project_evolution_is_typed_edits() {
                 "A task board for small teams, searchable across boards.",
             )],
         ),
+        typed::filled(
+            &fence_holding(&step, "--outcome pending"),
+            &[
+                ("DECISION_ID", "D-07"),
+                ("DECISION", "Boards stay on the user's disk"),
+                ("RATIONALE", "No server in v1"),
+            ],
+        ),
     ];
     for fence in &fences {
         let done = typed::apply(&sh, &p, fence);
@@ -122,6 +130,8 @@ fn the_project_evolution_is_typed_edits() {
         p.fields_of("taskboard")["what"],
         "A task board for small teams, searchable across boards."
     );
+    let decisions = p.fields_of("taskboard")["key_decisions"].to_string();
+    assert!(decisions.contains("D-07"), "{decisions}");
 }
 
 /// complete-milestone's close fence, filled with a deliverable holding an apostrophe, a backtick and a `$`: on a ready

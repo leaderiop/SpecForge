@@ -337,11 +337,11 @@ The person runs `specforge gsd set-uat-result <uat_test> skipped --by <who> --re
 - Or any response containing: "server", "blocked", "not running", "physical device", "release build"
 
 Infer the `blocked_by` tag from the response, one of the five the field takes:
-- server, not running, gateway, API → `server`
-- physical, device, hardware, real phone → `physical_device`
-- release, preview, build, EAS → `release_build`
-- stripe, twilio, third-party, configure → `third_party`
-- depends on, prior phase, prerequisite → `prior_phase`
+- `server`: the response names a server, something not running, a gateway or an API
+- `physical_device`: a physical device, hardware or a real phone
+- `release_build`: a release, a preview, a build or EAS
+- `third_party`: Stripe, Twilio, a third party or its configuration
+- `prior_phase`: a dependency, a prior phase or a prerequisite
 - None of these: ask the person which of the five blocks the test.
 
 The person runs `specforge gsd set-uat-result <uat_test> blocked --by <who> --blocked-by <tag>`.

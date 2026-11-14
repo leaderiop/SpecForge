@@ -113,7 +113,7 @@ Print: `◆ Spawning nyquist auditor... (runs in a subagent — no output until 
 ```
 Agent(
   prompt="Read ~/.claude/agents/gsd-nyquist-auditor.md for instructions.\n\n" +
-    "<required_reading>specforge context gsd/nyquist-auditor \"{PHASE_ID}\"</required_reading>" +
+    "<required_reading>specforge context gsd/nyquist-auditor \"{PHASE_ID}\"\nRun the line above first. It prints the phase's context pack at the nyquist-auditor route's budget.</required_reading>" +
     "<gaps>{gap list}</gaps>" +
     "<test_infrastructure>{framework, config, commands}</test_infrastructure>" +
     "<constraints>Never modify impl files. Max 3 debug iterations. Escalate impl bugs.</constraints>" +

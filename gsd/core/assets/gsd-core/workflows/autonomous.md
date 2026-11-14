@@ -471,9 +471,9 @@ If `passed` or `human_needed`: route normally.
 
 Any status other than `passed`/`human_needed`/`gaps_found`: handle_blocker with the owner's `next_action` (`--pick next_action`).
 
-If still `gaps_found` after this retry, display "Gaps persist after closure attempt." and ask "Continue anyway" / "Stop autonomous mode".
+When the retry still ends in `gaps_found`, display "Gaps persist after closure attempt." and let the user pick "Continue anyway" or "Stop autonomous mode".
 
-On "Continue anyway": raise the `verification_deferred_gaps` blocker with the fence below, display "Phase ${PHASE_NUM} ⏭ verification_deferred_gaps — resume with /gsd:plan-phase ${PHASE_NUM} --gaps", then handle_blocker: "Verification gaps deferred for phase ${PHASE_NUM}."
+On "Continue anyway", run the fence below: it raises the `verification_deferred_gaps` blocker. Then display "Phase ${PHASE_NUM} ⏭ verification_deferred_gaps — resume with /gsd:plan-phase ${PHASE_NUM} --gaps" and go to handle_blocker with "Verification gaps deferred for phase ${PHASE_NUM}."
 On "Stop autonomous mode": Go to handle_blocker.
 
 This limits gap closure to 1 retry.

@@ -28,6 +28,8 @@ This doc describes what IS, not what should be. Casing inconsistencies are docum
 | gsd-pattern-mapper | Codebase pattern mapping | `## PATTERN MAPPING COMPLETE` | `gsd-core/workflows/plan-phase.md` (also spawned by `gsd-core/workflows/settings.md`) | sentinel-match |
 | gsd-doc-synthesizer | Doc synthesis for `/gsd:ingest-docs` | No marker (the synthesis and ingest-conflicts files) | the synthesis and ingest-conflicts files (not part of @gsd/core), read by `gsd-core/workflows/ingest-docs.md` | artifact+query |
 
+The registry lists the agents GSD on SpecForge ships. A workflow that spawns an agent it does not ship (the debugger, the codebase mapper, the code reviewer) reads that agent's return as the workflow itself describes: no contract here holds it.
+
 ## Marker Rules
 
 1. **ALL-CAPS markers** (e.g., `## PLANNING COMPLETE`) are the standard convention

@@ -213,7 +213,6 @@ fn a_uat_gap_diagnosis_is_a_typed_edit() {
 
 /// The line verify-work shows the person for a deferred follow-up, run as the person runs it on `01-UAT`'s `U3`, adds
 /// one `follow_ups` entry to the session, and the step's count reads it.
-#[cfg(unix)]
 #[test]
 fn a_deferred_follow_up_lands_on_the_session() {
     let Some(sh) = Shell::only(&[]) else {
@@ -315,7 +314,13 @@ fn the_validation_audit_writes_rows() {
         .find(|l| l.contains("specforge context gsd/nyquist-auditor"))
         .expect("the spawn's context line");
     let start = line.find("specforge context").expect("the command");
-    let end = line[start..].find("</required_reading>").expect("its end") + start;
+    // the command ends at the prompt's first `\n` or at the tag
+    let rest = &line[start..];
+    let end = rest
+        .find("\\n")
+        .or_else(|| rest.find("</required_reading>"))
+        .expect("its end")
+        + start;
     let command = line[start..end]
         .replace("\\\"", "\"")
         .replace("{PHASE_ID}", "$PHASE_ID");
