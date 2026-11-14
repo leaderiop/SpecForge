@@ -387,3 +387,182 @@ fn w532_fires_at_the_threshold_with_nothing_named_and_not_one_below() {
     );
     assert_eq!(findings[0].severity, PassSeverity::Warning);
 }
+
+/// Two milestones, `v1.0` (phases 01 and 02) and `v2.0` (phase 01), a plan with a task and a truth in each phase, a
+/// quick plan `260101-q1` with its task, and `risks`; each `mitigated_by` item that exists becomes an edge.
+fn roadmap(risks: Vec<serde_json::Value>) -> PassInput {
+    let mut entities = Vec::new();
+    for milestone in ["v1.0", "v2.0"] {
+        entities.push(json!({ "id": milestone, "kind": "milestone" }));
+    }
+    for phase in ["v1.0/01", "v1.0/02", "v2.0/01"] {
+        let milestone = &phase[..4];
+        entities
+            .push(json!({ "id": phase, "kind": "phase", "fields": { "milestone": milestone } }));
+        let plan = format!("{phase}/P1");
+        entities.push(json!({ "id": plan, "kind": "plan", "fields": { "phase": phase } }));
+        entities.push(
+            json!({ "id": format!("{plan}/T1"), "kind": "task", "fields": { "plan": plan } }),
+        );
+        entities.push(
+            json!({ "id": format!("{plan}/TR1"), "kind": "truth", "fields": { "plan": plan } }),
+        );
+    }
+    entities.push(json!({ "id": "260101-q1", "kind": "plan" }));
+    entities
+        .push(json!({ "id": "260101-q1/T1", "kind": "task", "fields": { "plan": "260101-q1" } }));
+    let ids: Vec<String> = entities
+        .iter()
+        .map(|e| e["id"].as_str().expect("an id").to_string())
+        .collect();
+    let mut edges = Vec::new();
+    for risk in &risks {
+        for target in risk["values"]["mitigated_by"]
+            .as_array()
+            .into_iter()
+            .flatten()
+        {
+            let target = target.as_str().expect("an id");
+            if ids.iter().any(|id| id == target) {
+                edges.push(
+                    json!({ "source": risk["id"], "target": target, "label": "mitigated_by" }),
+                );
+            }
+        }
+    }
+    entities.extend(risks);
+    serde_json::from_value(crate::passes::plans::with_field_edges(
+        json!({ "entities": entities, "edges": edges }),
+    ))
+    .expect("a pass input")
+}
+
+/// A risk rated `ratings`, naming `mitigated_by` and, when `Some`, its `milestone`.
+fn placed(
+    id: &str,
+    ratings: [&str; 3],
+    mitigated_by: &[&str],
+    milestone: Option<&str>,
+) -> serde_json::Value {
+    let mut risk = rated_risk(id, ratings, mitigated_by);
+    if let Some(milestone) = milestone {
+        risk["fields"]["milestone"] = json!(milestone);
+    }
+    risk
+}
+
+/// `risk_level` of each phase and milestone that has one, under the default threshold, with `commits`.
+fn levels(input: &PassInput, commits: &[Commit]) -> BTreeMap<String, i64> {
+    values_and_findings(input, commits, &BTreeMap::new(), 100)
+        .0
+        .into_iter()
+        .filter(|v| v.field == "risk_level")
+        .map(|v| (v.entity, v.value.as_i64().expect("an integer")))
+        .collect()
+}
+
+fn level_map(pairs: &[(&str, i64)]) -> BTreeMap<String, i64> {
+    pairs
+        .iter()
+        .map(|(id, level)| (id.to_string(), *level))
+        .collect()
+}
+
+#[test]
+fn a_phase_risk_level_is_the_highest_current_rpn_its_plans_mitigate() {
+    let input = roadmap(vec![
+        placed("TASKED", ["7", "5", "5"], &["v1.0/01/P1/T1"], None),
+        placed("TRUTHED", ["5", "5", "5"], &["v1.0/01/P1/TR1"], None),
+        placed(
+            "LOW",
+            ["2", "3", "1"],
+            &["v1.0/01/P1/T1", "v1.0/02/P1/TR1"],
+            None,
+        ),
+    ]);
+    assert_eq!(
+        levels(&input, &[]),
+        level_map(&[("v1.0/01", 175), ("v1.0/02", 6), ("v1.0", 175)]),
+        "TASKED 175 is the highest in 01; LOW alone reaches 02"
+    );
+    let mitigated = rate(sod(7, 5, 5), NO_POST, &[true], 100).current;
+    assert_eq!(mitigated, 175, "no post block: the current rpn stays");
+    let input = roadmap(vec![placed(
+        "TASKED",
+        ["7", "5", "5"],
+        &["v1.0/01/P1/T1"],
+        None,
+    )]);
+    let mut with_post = input.clone();
+    let tasked = with_post
+        .entities
+        .iter_mut()
+        .find(|e| e.id == "TASKED")
+        .expect("the risk");
+    tasked
+        .values
+        .insert("post".into(), json!({ "occurrence": 1 }));
+    let done = Commit {
+        task: Some("v1.0/01/P1/T1".into()),
+        ..Default::default()
+    };
+    assert_eq!(
+        levels(&with_post, &[done]),
+        level_map(&[("v1.0/01", 35), ("v1.0", 35)]),
+        "the level drops to the post rpn once the task is done"
+    );
+}
+
+#[test]
+fn a_milestone_carries_its_phases_and_the_risks_that_name_it() {
+    let input = roadmap(vec![
+        placed("PHASED", ["5", "5", "5"], &["v1.0/02/P1/T1"], None),
+        placed("NAMED", ["10", "5", "7"], &[], Some("v2.0")),
+        placed("BOTH", ["4", "4", "4"], &["v1.0/01/P1/TR1"], Some("v2.0")),
+    ]);
+    assert_eq!(
+        levels(&input, &[]),
+        level_map(&[
+            ("v1.0/01", 64),
+            ("v1.0/02", 125),
+            ("v1.0", 125),
+            ("v2.0", 350),
+        ]),
+        "v1.0 from its phases; v2.0 from the risks that name it"
+    );
+}
+
+#[test]
+fn a_phase_or_milestone_with_no_risk_has_no_risk_level() {
+    assert_eq!(levels(&roadmap(Vec::new()), &[]), BTreeMap::new());
+    let input = roadmap(vec![placed("OPEN", ["10", "10", "10"], &[], None)]);
+    assert_eq!(
+        levels(&input, &[]),
+        BTreeMap::new(),
+        "an open risk names no phase"
+    );
+    let unrated = roadmap(vec![placed(
+        "UNRATED",
+        ["10", "10", "11"],
+        &["v1.0/01/P1/T1"],
+        Some("v1.0"),
+    )]);
+    assert_eq!(
+        levels(&unrated, &[]),
+        BTreeMap::new(),
+        "a risk with no rpn raises nothing"
+    );
+}
+
+#[test]
+fn a_quick_plan_mitigation_reaches_no_phase() {
+    let input = roadmap(vec![placed(
+        "QUICK",
+        ["7", "5", "5"],
+        &["260101-q1/T1"],
+        None,
+    )]);
+    assert_eq!(levels(&input, &[]), BTreeMap::new());
+    let (values, _) = values_and_findings(&input, &[], &BTreeMap::new(), 100);
+    assert_eq!(found(&values, "QUICK", "status"), Some(json!("mitigating")));
+}

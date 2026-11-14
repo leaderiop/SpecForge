@@ -219,3 +219,45 @@ fn a_mitigated_or_low_risk_is_not_w532() {
     p.settings(serde_json::json!({ "specforge.risk_block_on": 400 }));
     assert_eq!(w532(&p), Vec::<String>::new(), "350 is under 400");
 }
+
+/// `risk_level` of `id`, `None` when absent.
+fn risk_level(p: &Project, id: &str) -> Option<i64> {
+    p.fields_of(id)["risk_level"].as_i64()
+}
+
+/// Phase 01 is reached by RK1 (175, through T1) and RK4 (125, through TR1); milestone v1.0 by its phase and by RK3
+/// (350), which names it. Once plan 01-01 is complete, RK1 is mitigated at 35 and the phase drops to RK4's 125.
+#[test]
+fn phase_and_milestone_carry_their_risk_level() {
+    let p = project("governance");
+    assert_eq!(risk_level(&p, "v1.0/01"), Some(175));
+    assert_eq!(risk_level(&p, "v1.0"), Some(350));
+    let plans = p.read("spec/plans.spec");
+    p.write("spec/plans.spec", &format!("{plans}{SUMMARY}"));
+    assert_eq!(risk_level(&p, "v1.0/01"), Some(125));
+    assert_eq!(risk_level(&p, "v1.0"), Some(350));
+    p.edit("spec/risks.spec", "  milestone  v1.0\n", "");
+    assert_eq!(risk_level(&p, "v1.0"), Some(125), "from its phase alone");
+}
+
+#[test]
+fn a_phase_that_writes_risk_level_is_e082() {
+    let p = project("governance");
+    p.edit(
+        "spec/v1.0.spec",
+        "  slug             \"store\"\n",
+        "  slug             \"store\"\n  risk_level       5\n",
+    );
+    let report = p.report();
+    assert!(
+        report
+            .iter()
+            .any(|(code, message)| code == "E082" && message.contains("risk_level")),
+        "{report:#?}"
+    );
+    assert_eq!(
+        risk_level(&p, "v1.0/01"),
+        Some(175),
+        "the computed value stands"
+    );
+}

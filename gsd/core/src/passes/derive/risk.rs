@@ -11,15 +11,20 @@
 //!
 //! gsd/W532 warns on a risk whose rpn is at or above the threshold and that names nothing in `mitigated_by`: this pass
 //! holds the product, the threshold and the finding, so nothing reads a computed value back.
+//!
+//! A phase's `risk_level` is the highest current rpn of the risks that reach it (a task or a truth they name is of a
+//! plan of the phase); a milestone's, the highest of its phases' and of the risks whose `milestone` names it.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_extension_sdk::prelude::*;
 
 use super::execute::{task_done, value};
 use super::verify::{self, Item};
 use crate::passes::commits::Commit;
-use crate::passes::plans::{block, of_kind, resolve, strings, targets, text};
+use crate::passes::plans::{
+    block, link, links, of_kind, phase_of, resolve, strings, targets, text,
+};
 
 /// A risk's three ratings, each 1 to 10.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -207,19 +212,67 @@ fn unmitigated(risk: &PassEntity, rated: &Rating, block_on: i64) -> PassDiagnost
     .with_entity(&risk.id)
 }
 
-/// The values of each rated risk (`rpn`, `post_rpn`, `status`, `blocking`), and gsd/W532 on each one at or above the
-/// threshold that names no mitigation.
+/// Raises `levels[id]` to `current`.
+fn raise<'a>(levels: &mut BTreeMap<&'a str, i64>, id: &'a str, current: i64) {
+    let level = levels.entry(id).or_insert(current);
+    *level = (*level).max(current);
+}
+
+/// `risk_level` of each phase a rated risk reaches and of each milestone that carries one. A mitigation's plan is read
+/// kind by kind (a task's, a truth's `plan`), and a quick plan is in no phase.
+fn risk_levels(input: &PassInput, rated: &[(&PassEntity, Rating)]) -> Vec<PassValue> {
+    let plans: BTreeMap<&str, &str> = ["task", "truth"]
+        .into_iter()
+        .flat_map(|kind| of_kind(input, kind))
+        .filter_map(|e| Some((e.id.as_str(), link(input, e, "plan")?)))
+        .collect();
+    let mut phases: BTreeMap<&str, i64> = BTreeMap::new();
+    let mut milestones: BTreeMap<&str, i64> = BTreeMap::new();
+    for (risk, rating) in rated {
+        let reached: BTreeSet<&str> = links(input, risk, "mitigated_by")
+            .into_iter()
+            .filter_map(|target| plans.get(target))
+            .filter_map(|plan| phase_of(input, plan))
+            .collect();
+        for phase in reached {
+            raise(&mut phases, phase, rating.current);
+        }
+        if let Some(milestone) = link(input, risk, "milestone") {
+            raise(&mut milestones, milestone, rating.current);
+        }
+    }
+    let mut values = Vec::new();
+    for phase in of_kind(input, "phase") {
+        let Some(level) = phases.get(phase.id.as_str()).copied() else {
+            continue;
+        };
+        values.push(value(&phase.id, "risk_level", level));
+        if let Some(milestone) = link(input, phase, "milestone") {
+            raise(&mut milestones, milestone, level);
+        }
+    }
+    for milestone in of_kind(input, "milestone") {
+        if let Some(level) = milestones.get(milestone.id.as_str()) {
+            values.push(value(&milestone.id, "risk_level", *level));
+        }
+    }
+    values
+}
+
+/// The values of each rated risk (`rpn`, `post_rpn`, `status`, `blocking`) and the `risk_level` of the phases and
+/// milestones they reach, and gsd/W532 on each risk at or above the threshold that names no mitigation.
 pub fn values_and_findings(
     input: &PassInput,
     commits: &[Commit],
     statuses: &BTreeMap<&str, &'static str>,
     block_on: i64,
 ) -> (Vec<PassValue>, Vec<PassDiagnostic>) {
+    let risks = rated(input, commits, statuses, block_on);
     let mut values = Vec::new();
     let mut findings = Vec::new();
-    for (risk, rated) in rated(input, commits, statuses, block_on) {
+    for (risk, rated) in &risks {
         if rated.unmitigated {
-            findings.push(unmitigated(risk, &rated, block_on));
+            findings.push(unmitigated(risk, rated, block_on));
         }
         values.extend([
             value(&risk.id, "rpn", rated.rpn),
@@ -228,6 +281,7 @@ pub fn values_and_findings(
             value(&risk.id, "blocking", rated.blocking),
         ]);
     }
+    values.extend(risk_levels(input, &risks));
     (values, findings)
 }
 

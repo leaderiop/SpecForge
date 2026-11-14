@@ -41,6 +41,9 @@ Each computed value is absent while a required rating is missing or one is outsi
 (a missing required field, E061 out of bounds, in the post block too), and no number is guessed. Writing a computed
 field is E082.
 
+`mitigated_by` names no reverse: the kernel reads a reverse name through a field's one target kind, and this field
+has two.
+
 ### What mitigates a risk
 
 A risk is `mitigated` once every item of its `mitigated_by` is done:
@@ -63,9 +66,6 @@ gsd/W532 ([rules.md](rules.md#governance)) warns on a risk whose `rpn` is at or 
 nothing in `mitigated_by`: rate it again, or name what controls it. It is silent below the threshold and once anything
 is named, done or not (`blocking` says whether it still blocks).
 
-`mitigated_by` names no reverse: the kernel reads a reverse name through a field's one target kind, and this field
-has two.
-
 ### The ratings
 
 Each rating is an integer from 1 to 10, as the FMEA scales give it. Detection runs the other way: 10 is a failure no
@@ -76,3 +76,15 @@ control catches.
 | severity | no effect | hazardous, without warning |
 | occurrence | remote | almost certain |
 | detection | almost certainly caught before harm | cannot be caught |
+
+## Risk on phases and milestones
+
+A phase and a milestone carry a computed `risk_level` ([project.md](project.md)): how risky they are now.
+
+- A risk *reaches* a phase when a task or a truth its `mitigated_by` names belongs to a plan of that phase. A quick
+  plan is in no phase, so a risk it mitigates reaches none.
+- A phase's `risk_level` is the highest current rpn (`post_rpn` once mitigated, else `rpn`) of the risks that reach
+  it, so it drops as their mitigations land.
+- A milestone's `risk_level` is the highest of its phases' levels and of the current rpn of each risk whose
+  `milestone` names it: a risk no phase's plan mitigates is settled there.
+- Each is absent when no risk reaches it.

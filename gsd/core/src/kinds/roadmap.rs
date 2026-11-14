@@ -70,6 +70,9 @@ pub const MILESTONE: Kind = Kind::new(
         str("branch")
             .c()
             .doc("the branch it is executed on: git.branching_strategy and its template"),
+        int("risk_level").c().doc(
+            "the highest current rpn of the risks it carries: its phases' and those that name it (beyond GSD)",
+        ),
     ],
 )
 .scoped_by("workstream");
@@ -119,6 +122,9 @@ pub const PHASE: Kind = Kind::new(
             .c()
             .doc("Progress: Plans Complete, N/M"),
         date("completed").c().doc("Progress: Completed"),
+        int("risk_level")
+            .c()
+            .doc("the highest current rpn of the risks its plans mitigate (beyond GSD)"),
     ],
 )
 .scoped_by("milestone")

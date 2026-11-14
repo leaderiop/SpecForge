@@ -2322,6 +2322,17 @@
             "required": false,
             "target_kind": null,
             "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the highest current rpn of the risks it carries: its phases' and those that name it (beyond GSD)",
+            "edge": null,
+            "field_type": "integer",
+            "inverse_of": null,
+            "name": "risk_level",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,
@@ -2529,6 +2540,17 @@
             "field_type": "date",
             "inverse_of": null,
             "name": "completed",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the highest current rpn of the risks its plans mitigate (beyond GSD)",
+            "edge": null,
+            "field_type": "integer",
+            "inverse_of": null,
+            "name": "risk_level",
             "required": false,
             "target_kind": null,
             "writer": "computed"
