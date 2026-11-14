@@ -58,7 +58,6 @@ gsd-core/workflows/diagnose-issues.md	**Update UAT.md gaps with diagnosis:**
 gsd-core/workflows/diagnose-issues.md	Commit the updated UAT.md:
 gsd-core/workflows/diagnose-issues.md	- [ ] UAT.md gaps updated with artifacts and missing
 gsd-core/workflows/execute-phase/steps/regression-gate.md	- File patterns from `key-files.created` in corresponding SUMMARY.md files that match `*.test.*` or `*.spec.*`
-gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	Create VERIFICATION.md.
 gsd-core/workflows/graduation.md	| `decisions` | `PROJECT.md` — append under `## Validated Decisions` (create section if absent) |
 gsd-core/workflows/graduation.md	| `patterns` | `PATTERNS.md` — append under the appropriate category section (create file if absent) |
 gsd-core/workflows/graduation.md	| `lessons` | `PROJECT.md` — append under `## Invariants` (create section if absent) |

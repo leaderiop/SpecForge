@@ -2893,7 +2893,7 @@ gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	own	15+4	4	bc57da525
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	kept	19+1	a35c14d04b59
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	own	20+1	1	e78a3f4fdfa1	0ac9fcb6f3e5	served
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	kept	21+3	5c1d676abd41
-gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	own	24+11	7	cc4dbc5f49d2	c886ea6942b4	ported-name
+gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	own	24+11	7	cc4dbc5f49d2	fdf17acdb3b2	ported-name
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	kept	35+10	c0f4f8a1beab
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	own	45+2	2	712dfb3ba24b	a9afae528e3e	ported-name
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	kept	47+6	3687953b43db
@@ -2916,11 +2916,11 @@ gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	kept	125+8	c79496689
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	own	133+3	3	08b04978bd81	c3bb88094ee1	relic
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	kept	136+1	943b1e59a8f8
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	own	137+1	1	592243b8aead	316d469c3ea7	relic
-gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	kept	138+3	31106bfe79d2
-gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	own	141+1	1	22e5046ed9f3	186b95d9db83	relic
-gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	kept	142+3	2ef390c1454b
-gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	own	145+5	5	c0820111d7a6	9b689598a998	relic
-gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	kept	150+6	e1327c855c3e
+gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	kept	138+1	c08f46f1acb7
+gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	own	139+3	3	a8dcb9e1fb10	59dd91ee87e3	relic
+gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	kept	142+2	d4a63a926dea
+gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	own	144+8	3	327077a46ff9	671f36a8363d	relic
+gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	kept	152+4	e397b9bff835
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	own	156+1	1	536080e7694f	e3b0c44298fc	relic
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	kept	157+3	3c22f14891b9
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	own	160+1	1	c8b634fd93f6	e165f851f7a0	relic

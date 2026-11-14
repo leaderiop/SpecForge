@@ -96,3 +96,25 @@ fn the_verifier_cites_a_test_by_fact_id() {
     let inputs = p.run(&["query", truth, "--inputs", "gsd/E501", "--format", "json"]);
     assert!(inputs.stdout.contains(&test), "{}", inputs.stdout);
 }
+
+/// The verifier spawn's reading list opens with the `gsd/verifier` pack line and reads no context window; run with
+/// `PHASE_ID=v1.0/01`, the line serves the phase's truths.
+#[test]
+fn the_verifier_spawn_reads_one_context_line() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let text = asset("gsd-core/workflows/execute-phase/steps/verify-phase-goal.md");
+    assert!(!text.contains("CONTEXT_WINDOW"));
+    let reading = super::block(&text, "<required_reading>", "</required_reading>");
+    let first = reading.lines().nth(1).expect("a first line");
+    assert!(
+        first.starts_with("specforge context gsd/verifier"),
+        "{reading}"
+    );
+    let p = taskboard();
+    let line = first.replace("{PHASE_ID}", "$PHASE_ID");
+    let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{line}"));
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("v1.0/01/01-01/TR1"), "{out}");
+}

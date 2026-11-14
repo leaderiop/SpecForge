@@ -51,7 +51,8 @@ fn bound(subject: &str) -> Option<&'static str> {
         | "${UNDO_MILESTONE:-${PHASE_DIR%%/*}}"
         | "v${VERSION}"
         | "v{version}"
-        | "${milestone_version}" => "v1.0",
+        | "${milestone_version}"
+        | "{MILESTONE}" => "v1.0",
         "$PHASE_ID"
         | "${PHASE_ID}"
         | "${PHASE}"
