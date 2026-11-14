@@ -52,6 +52,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "JourneyRequirements",
+        "source_kind": "journey",
+        "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "JourneyMilestones",
         "source_kind": "journey",
         "target_kind": "milestone"
@@ -1699,6 +1708,16 @@
             "name": "steps",
             "required": true,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the requirements it exercises as a whole; a step's `requirement` is the finer link",
+            "edge": "JourneyRequirements",
+            "field_type": "reference_list",
+            "inverse_of": null,
+            "name": "requirements",
+            "required": false,
+            "target_kind": "requirement"
           },
           {
             "default_value": null,

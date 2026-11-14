@@ -2,6 +2,7 @@
 
 ```
  persona ─1──*─ journey ─*──*─ milestone        (milestones: where it ships; the milestone reads `journeys`)
+                   ├─*──*─ requirement          (requirements: what it exercises as a whole)
                    └─ steps[] ─*──0..1─ requirement
  term ─*──*─ term                               (related)
 ```
@@ -36,6 +37,7 @@ A persona's path through the product, step by step. Name: a word, `sign_in`.
 | persona | → persona | R | who takes the journey; the persona reads it back as `journeys` |
 | channels | strs | | the surfaces it goes through, as words (`cli`, `web`): a channel is no kind |
 | steps | {action str R, requirement → requirement} | R | the ordered steps; a step names the requirement it exercises once known |
+| requirements | →* requirement | | the requirements it exercises as a whole; a step's `requirement` is the finer link |
 | milestones | →* milestone | | every milestone it ships in; each milestone reads it back as `journeys` |
 | priority | enum{must, should, could} | | MoSCoW; a journey nobody wants is not written |
 | tags | strs | | free words |

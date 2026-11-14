@@ -4,7 +4,7 @@
 use crate::harness::{Project, project};
 
 /// A persona, two journeys and two terms, written on the `roadmap` project as `spec/product.spec`: `add_and_finish`
-/// ships in `v1.0` and steps through TASK-01 and TASK-02; `share_board` steps through SHARE-01; the term
+/// ships in `v1.0` and steps through TASK-01 and TASK-02; `share_board` steps through and exercises SHARE-01; the term
 /// `work_item`, whose word is "task" (a keyword is no entity id, E013), is related to `board`.
 pub(crate) const PRODUCT: &str = r#"persona owner "Board owner" {
   context         "Runs a small team's board"
@@ -28,8 +28,9 @@ journey add_and_finish "Add a task and finish it" {
 }
 
 journey share_board "Share the board" {
-  persona owner
-  steps   [ { action "copies the board's link" requirement SHARE-01 } ]
+  persona      owner
+  steps        [ { action "copies the board's link" requirement SHARE-01 } ]
+  requirements [SHARE-01]
 }
 
 term work_item "Task" {
@@ -228,4 +229,24 @@ fn a_term_without_its_word_is_e006() {
         "{found:#?}"
     );
     assert!(found[0].1.contains("name"), "{found:#?}");
+}
+
+/// A journey names the requirements it exercises as a whole, an edge apart from its steps' finer ones.
+#[test]
+fn a_journey_names_the_requirements_it_exercises() {
+    let p = product();
+    assert_eq!(p.codes(), Vec::<String>::new());
+    let found = edges_from(&p, "share_board");
+    for expected in [
+        edge("requirements", "share_board", "SHARE-01"),
+        edge("steps.requirement", "share_board", "SHARE-01"),
+    ] {
+        assert!(found.contains(&expected), "{expected:?} in {found:#?}");
+    }
+    p.edit(
+        "spec/product.spec",
+        "requirements [SHARE-01]",
+        "requirements [SHARE-09]",
+    );
+    assert_eq!(p.codes(), ["E003"], "{:#?}", p.report());
 }

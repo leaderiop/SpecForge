@@ -50,6 +50,9 @@ pub const JOURNEY: Kind = Kind::new(
         blocks("steps", STEP)
             .r()
             .doc("the ordered steps; a step names the requirement it exercises once known"),
+        rfs("requirements", "requirement").doc(
+            "the requirements it exercises as a whole; a step's `requirement` is the finer link",
+        ),
         rfs("milestones", "milestone")
             .inverse("journeys")
             .doc("every milestone it ships in; each milestone reads it back as `journeys`"),
