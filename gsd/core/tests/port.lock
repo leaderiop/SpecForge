@@ -892,7 +892,7 @@ agents/gsd-verifier.md	own	378+4	4	873dfdd3fbc3	737be70e6f83	ported-name
 agents/gsd-verifier.md	kept	382+3	2b67c0f37977
 agents/gsd-verifier.md	own	385+1	1	adfb78a7ac49	cc3a3e1f808c	agent
 agents/gsd-verifier.md	kept	386+2	5f046190424d
-agents/gsd-verifier.md	own	388+5	2	5da450d0f774	1355d95833a5	ported-name
+agents/gsd-verifier.md	own	388+5	2	5da450d0f774	d80c5814e785	ported-name
 agents/gsd-verifier.md	kept	393+1	8310258972ee
 agents/gsd-verifier.md	own	394+2	2	16f849a17af2	1b918f9395c2	ported-name
 agents/gsd-verifier.md	kept	396+2	3769d237cd42
@@ -909,7 +909,9 @@ agents/gsd-verifier.md	kept	414+1	d83dd895ba19
 agents/gsd-verifier.md	own	415+1	1	24b2991aa554	21766c230ad3	served
 agents/gsd-verifier.md	kept	416+1	66a4c8822042
 agents/gsd-verifier.md	own	417+1	1	e0def095498f	5508b2085dff	served
-agents/gsd-verifier.md	kept	418+16	0cd869093248
+agents/gsd-verifier.md	kept	418+6	5f86fe0576a8
+agents/gsd-verifier.md	own	424+1	1	6bbff7613e32	a73852c40856	prose
+agents/gsd-verifier.md	kept	425+9	c4f63e9c291c
 agents/gsd-verifier.md	own	434+1	1	9ca220215448	45e36b06cc9a	agent
 agents/gsd-verifier.md	kept	435+7	4d734c231a52
 agents/gsd-verifier.md	own	442+1	1	d63e2548d3ae	c9ab9d7b58c0	served
@@ -1963,7 +1965,9 @@ gsd-core/templates/milestone-archive.md	own	3+121	1	a0925a81c63b	23c7361abbc5	po
 gsd-core/templates/milestone-archive.md	kept	124+1	e3b0c44298fc
 gsd-core/templates/milestone.md	kept	1+2	d23da2973a8f
 gsd-core/templates/milestone.md	own	3+37	41	7fb4b027e05f	cc15ecab6fa5	ported-name
-gsd-core/templates/milestone.md	kept	40+12	b93fb2e7444d
+gsd-core/templates/milestone.md	kept	40+6	425325f16a8b
+gsd-core/templates/milestone.md	own	46+1	0	5d5740185721	e3b0c44298fc	served
+gsd-core/templates/milestone.md	kept	47+5	ccee0180257f
 gsd-core/templates/milestone.md	own	52+10	0	e23b54f2dfc0	e3b0c44298fc	served
 gsd-core/templates/milestone.md	kept	62+2	b6e6d30cd912
 gsd-core/templates/milestone.md	own	64+53	0	16c37c9690ab	e3b0c44298fc	served
@@ -2001,8 +2005,8 @@ gsd-core/templates/research-project/SUMMARY.md	own	3+129	1	5f9745f95833	43396fcd
 gsd-core/templates/research-project/SUMMARY.md	kept	132+2	3d0b188170e8
 gsd-core/templates/research-project/SUMMARY.md	own	134+37	32	5d02ac9fab46	039bec0fa80a	prose
 gsd-core/templates/research-project/SUMMARY.md	kept	171+1	e3b0c44298fc
-gsd-core/templates/retrospective.md	kept	1+4	2dfb907e79b5
-gsd-core/templates/retrospective.md	own	5+50	41	8753001e61a7	0c6da6871b8a	prose
+gsd-core/templates/retrospective.md	kept	1+2	627fd13feaee
+gsd-core/templates/retrospective.md	own	3+52	43	e4bd471ac6b8	7eda071c6846	prose
 gsd-core/templates/retrospective.md	kept	55+1	e3b0c44298fc
 gsd-core/templates/roadmap.md	kept	1+2	f712c1693da0
 gsd-core/templates/roadmap.md	own	3+200	44	a553c27b2f6f	a5de38a6aa0c	ported-name
@@ -2072,8 +2076,15 @@ gsd-core/templates/user-setup.md	own	300+3	2	ee350253c8ee	e90e17d7ccdb	ported-na
 gsd-core/templates/user-setup.md	kept	303+1	e3b0c44298fc
 gsd-core/templates/verification-report.md	kept	1+2	5dc276bd5b29
 gsd-core/templates/verification-report.md	own	3+173	20	8da995ac0d2a	c19753210b3f	ported-name
-gsd-core/templates/verification-report.md	kept	176+36	6eb5c6f0396c
-gsd-core/templates/verification-report.md	own	212+138	0	536cdf465362	e3b0c44298fc	served
+gsd-core/templates/verification-report.md	kept	176+5	f241142c5d4d
+gsd-core/templates/verification-report.md	own	181+1	1	56e37b9a1f16	6e00411bdc6e	prose
+gsd-core/templates/verification-report.md	kept	182+4	180b5071a18b
+gsd-core/templates/verification-report.md	own	186+1	1	a878ab3e9ac4	3e0438552f0b	prose
+gsd-core/templates/verification-report.md	kept	187+4	b5cb2dfc8c54
+gsd-core/templates/verification-report.md	own	191+1	1	c4f19e105937	745126bd86a7	prose
+gsd-core/templates/verification-report.md	kept	192+9	e549451fd413
+gsd-core/templates/verification-report.md	own	201+148	3	d9fc5feb74b7	2e81be1f375a	prose
+gsd-core/templates/verification-report.md	kept	349+1	e3b0c44298fc
 gsd-core/workflows/add-tests.md	kept	1+14	d7aaa567790c
 gsd-core/workflows/add-tests.md	own	15+1	1	610c39df4a69	50639440ca40	args
 gsd-core/workflows/add-tests.md	kept	16+2	8ff58960e6f3
@@ -2158,8 +2169,8 @@ gsd-core/workflows/audit-milestone.md	kept	328+11	aba4f400371d
 gsd-core/workflows/audit-milestone.md	own	339+1	1	db81ca156e16	ed8c63fc4d72	ported-name
 gsd-core/workflows/audit-milestone.md	kept	340+39	f1ab8eb685d3
 gsd-core/workflows/audit-milestone.md	own	379+5	5	bbb029605a62	5d6871072e45	prose
-gsd-core/workflows/audit-milestone.md	kept	384+2	b7874722ec0b
-gsd-core/workflows/audit-milestone.md	own	386+4	4	94f83ab7ee46	28d19828c079	prose
+gsd-core/workflows/audit-milestone.md	kept	384+1	ae56822c6b01
+gsd-core/workflows/audit-milestone.md	own	385+5	5	3cd01375c104	7aca0987a67e	prose
 gsd-core/workflows/audit-milestone.md	kept	390+3	f4b843e04eba
 gsd-core/workflows/audit-uat.md	kept	1+12	7bdd6d21255e
 gsd-core/workflows/audit-uat.md	own	13+2	2	f00801985261	8354c226236c	ported-name
@@ -2303,7 +2314,11 @@ gsd-core/workflows/complete-milestone.md	kept	73+7	7b995ce7ecb1
 gsd-core/workflows/complete-milestone.md	own	80+7	3	a490ddcba63b	0f0b61da092e	ported-name
 gsd-core/workflows/complete-milestone.md	kept	87+10	2017350a1ee2
 gsd-core/workflows/complete-milestone.md	own	97+4	2	255637f5a6d0	1c9eec012477	served
-gsd-core/workflows/complete-milestone.md	kept	101+51	acae2dae9e44
+gsd-core/workflows/complete-milestone.md	kept	101+3	96b1a4eb7396
+gsd-core/workflows/complete-milestone.md	own	104+1	1	dd655e1a7793	2ad29dedbaab	prose
+gsd-core/workflows/complete-milestone.md	kept	105+42	36caaef64532
+gsd-core/workflows/complete-milestone.md	own	147+1	1	41a8ddc4b16e	4e92267df688	served
+gsd-core/workflows/complete-milestone.md	kept	148+4	cbb2461dd916
 gsd-core/workflows/complete-milestone.md	own	152+1	1	daf0ac84ae8f	3421abda3c90	ported-name
 gsd-core/workflows/complete-milestone.md	kept	153+36	97c179438826
 gsd-core/workflows/complete-milestone.md	own	189+5	2	140fd9875692	784b7547f1b0	served
@@ -2360,13 +2375,11 @@ gsd-core/workflows/complete-milestone.md	own	551+6	6	f14af0f39403	915b2a3b5e9b	p
 gsd-core/workflows/complete-milestone.md	kept	557+16	be791341167a
 gsd-core/workflows/complete-milestone.md	own	573+1	1	25f685789b87	0bf93dc99ace	ported-name
 gsd-core/workflows/complete-milestone.md	kept	574+45	c6863245c5be
-gsd-core/workflows/complete-milestone.md	own	619+1	1	7aa891d12bef	8257320251ec	served
-gsd-core/workflows/complete-milestone.md	kept	620+2	1e0054c3194c
-gsd-core/workflows/complete-milestone.md	own	622+3	2	10c254e04053	44d1bf2b52d4	prose
+gsd-core/workflows/complete-milestone.md	own	619+6	5	7f51b56f750e	1ed1ede98ea9	prose
 gsd-core/workflows/complete-milestone.md	kept	625+1	8234b70baad3
 gsd-core/workflows/complete-milestone.md	own	626+7	2	ca31ae77e479	a2d1b24015d2	workflow
-gsd-core/workflows/complete-milestone.md	kept	633+6	6f13b6ce6eaf
-gsd-core/workflows/complete-milestone.md	own	639+1	1	ea3bcccf3445	6bab27a60763	prose
+gsd-core/workflows/complete-milestone.md	kept	633+5	2ae39f5af76d
+gsd-core/workflows/complete-milestone.md	own	638+2	2	a7d12d5b7b3f	459cf8709810	prose
 gsd-core/workflows/complete-milestone.md	kept	640+5	2a328612a480
 gsd-core/workflows/complete-milestone/detail/elaboration.md	kept	1+9	f11312356871
 gsd-core/workflows/complete-milestone/detail/elaboration.md	own	10+131	11	55c4aabce7c0	714a4bf300e2	ported-name
@@ -3332,7 +3345,9 @@ gsd-core/workflows/milestone-summary.md	kept	108+12	b4e6c9590eeb
 gsd-core/workflows/milestone-summary.md	own	120+1	1	d2546662762f	c04d5a5616bf	ported-name
 gsd-core/workflows/milestone-summary.md	kept	121+42	4b53ae9afb8f
 gsd-core/workflows/milestone-summary.md	own	163+1	1	d21207fa86ea	a2bce1aba9bd	prose
-gsd-core/workflows/milestone-summary.md	kept	164+6	c0a5fb0e8c32
+gsd-core/workflows/milestone-summary.md	kept	164+4	af7d5fb92495
+gsd-core/workflows/milestone-summary.md	own	168+1	1	da93855f5f15	47bea798591c	prose
+gsd-core/workflows/milestone-summary.md	kept	169+1	439b91092309
 gsd-core/workflows/milestone-summary.md	own	170+1	1	c6cda7049e19	45046a0a4ef3	prose
 gsd-core/workflows/milestone-summary.md	kept	171+20	7503409a9107
 gsd-core/workflows/milestone-summary.md	own	191+7	5	8d944e99c42a	edaa4553150a	ported-name
@@ -4463,8 +4478,8 @@ gsd-core/workflows/progress/steps/forensic-audit.md	kept	90+28	1ee4ed6ff10c
 gsd-core/workflows/progress/steps/forensic-audit.md	own	118+2	2	459a2f3321c5	7960be02ffe2	args
 gsd-core/workflows/progress/steps/forensic-audit.md	kept	120+1	c61784daa314
 gsd-core/workflows/progress/steps/forensic-audit.md	own	121+1	1	1709e6a2f542	4b5e4ed9d973	ported-name
-gsd-core/workflows/progress/steps/forensic-audit.md	kept	122+2	07cbda85daa7
-gsd-core/workflows/progress/steps/forensic-audit.md	own	124+1	1	d84e045cd467	bc23c847b320	args
+gsd-core/workflows/progress/steps/forensic-audit.md	kept	122+1	ead442c20ddd
+gsd-core/workflows/progress/steps/forensic-audit.md	own	123+2	2	2900270e33db	e62e791c55dd	prose
 gsd-core/workflows/progress/steps/forensic-audit.md	kept	125+2	b0f72af715b5
 gsd-core/workflows/progress/steps/mvp-display.md	kept	1+3	098a73e5d24d
 gsd-core/workflows/progress/steps/mvp-display.md	own	4+1	1	d692b0359658	2ee7b15cf35d	ported-name
@@ -5688,11 +5703,15 @@ gsd-core/workflows/verify-work.md	kept	697+7	40efdbfee007
 gsd-core/workflows/verify-work.md	own	704+4	4	7d820ebd8479	ff3106318d5f	ported-name
 gsd-core/workflows/verify-work.md	kept	708+7	8daf22c74bd6
 gsd-core/workflows/verify-work.md	own	715+4	4	dc57ab910496	7bad9bb4dd4b	ported-name
-gsd-core/workflows/verify-work.md	kept	719+35	0879a41effc0
+gsd-core/workflows/verify-work.md	kept	719+14	9cb9f38e7d59
+gsd-core/workflows/verify-work.md	own	733+1	1	285efe4d6347	b0f2debb2c16	prose
+gsd-core/workflows/verify-work.md	kept	734+20	9de91d63a53f
 gsd-core/workflows/verify-work.md	own	754+1	1	4c7b8f2727c0	98fe1b4bbdeb	ported-name
 gsd-core/workflows/verify-work.md	kept	755+2	5f046190424d
 gsd-core/workflows/verify-work.md	own	757+1	1	5cd2d458f836	8191e0369a85	ported-name
-gsd-core/workflows/verify-work.md	kept	758+26	297d7f240a78
+gsd-core/workflows/verify-work.md	kept	758+19	931d3db93e52
+gsd-core/workflows/verify-work.md	own	777+1	1	585ff324b1ab	d25dffb4f653	prose
+gsd-core/workflows/verify-work.md	kept	778+6	689198e8c813
 gsd-core/workflows/verify-work.md	own	784+1	1	635c4d49a5db	7e546d8a69ee	prose
 gsd-core/workflows/verify-work.md	kept	785+3	6f9120fb3eca
 gsd-core/workflows/verify-work.md	own	788+1	1	4508fdc0f3da	ddee13e12ca5	prose

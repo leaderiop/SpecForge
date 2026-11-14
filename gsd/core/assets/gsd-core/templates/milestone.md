@@ -48,7 +48,6 @@ specforge set "$MILESTONE" whats_next "$WHATS_NEXT" || exit 1
 - Initial v1.0 MVP shipped
 - Major version releases (v2.0, v3.0)
 - Significant feature milestones (v1.1, v1.2)
-- Before archiving planning (capture what was shipped)
 
 **Don't create milestones for:**
 - Individual phase completions (normal workflow)

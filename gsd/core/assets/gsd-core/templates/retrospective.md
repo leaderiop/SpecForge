@@ -1,7 +1,7 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/templates/retrospective.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Project Retrospective
 
-*A living document updated after each milestone. Lessons feed forward into future planning.*
+*One retrospective per milestone, created when the milestone closes. Lessons feed forward into future planning.*
 
 ## The Retrospective's Typed Edits
 

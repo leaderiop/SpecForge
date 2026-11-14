@@ -121,6 +121,6 @@ Then for each failed check, add a concrete next action:
 - Check 4 (memory pending): `Review the flagged memory entries and resolve or clear them`
 - Check 5 (blocking todos): `Complete the operational steps in the pending todos before continuing`
 - Check 6 (uncommitted code): `Commit or stash the uncommitted changes before advancing`
-- Check 7 (unresolved deferred items): `Address each deferred item and mark it status: resolved in its deferred-items.md, or fold it into the roadmap`
+- Check 7 (unresolved deferred items): `Address each deferred item, or fold it into the roadmap as a phase`
 - Check 1 (STATE inconsistency): `Run /gsd:verify-work ${PHASE} to reconcile state`
 </step>

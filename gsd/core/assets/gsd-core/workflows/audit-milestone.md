@@ -390,7 +390,7 @@ or `5.2` if `5.1` exists), never `<after-phase>`.
 - [ ] 3-source cross-reference completed (threads and verifications, summaries, requirement status)
 - [ ] Orphaned requirements read from the audit's computed `gaps`
 - [ ] Tech debt and deferred gaps aggregated
-- [ ] Integration checker spawned with milestone requirement IDs
+- [ ] Integration checker spawned with the audit's context line (`specforge context gsd/integration-checker`)
 - [ ] The integration verdict (`gsd/E518`) recorded once, on the audit
 - [ ] The audit's `tech_debt` recorded; its `status` read (an unsatisfied requirement makes it `gaps_found`)
 - [ ] Nyquist compliance read from the audit's `nyquist` (if enabled)

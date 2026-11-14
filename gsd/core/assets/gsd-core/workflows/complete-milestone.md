@@ -92,7 +92,7 @@ ALL_PHASES_VERIFIED=false; : "${MILESTONE:?MILESTONE is not set: the milestone b
 ```
 
 If not all_phases_verified, verified_closeout must not proceed. Set `closeout_type=override_closeout`, show each phase whose `phase_complete !== true` or `verification_status !== 'passed'`, and require an explicit user choice:
-1. **Proceed anyway** — record verification overrides in MILESTONES.md/STATE.md
+1. **Proceed anyway** — a person accepts the latest audit's tech debt (`debt_accepted`, the [A] branch above); an unverified phase still blocks `close-milestone` (gsd/E515, gsd/E516) until it is verified
 2. **Run verification first** — `/gsd:verify-work {phase}` or `/gsd:execute-phase {phase}`
 3. **Abort** — return to development
 
@@ -135,7 +135,7 @@ MUST present 3 options:
 2. **Run audit first** — `/gsd:audit-milestone` to assess gap severity
 3. **Abort** — return to development
 
-If user selects "Proceed anyway": set `closeout_type=override_closeout`; note incomplete requirements in MILESTONES.md under `### Known Gaps` with REQ-IDs and descriptions.
+If user selects "Proceed anyway": set `closeout_type=override_closeout`. The incomplete requirements are the milestone's open requirements, which its computed `stats` keep: nothing is written.
 
 <config-check>
 
@@ -426,7 +426,7 @@ Milestone completion is successful when:
 
 - [ ] Pre-close artifact audit run and output shown to user
 - [ ] The audit's tech debt accepted by a person (`debt_accepted`) if they chose [A]
-- [ ] Known deferred items count noted in MILESTONES.md entry
+- [ ] Known deferred items shown with the audit's output (they stay open entities, counted by the milestone's `stats`)
 
 - [ ] Milestone closed by `close-milestone`, its computed stats shown
 - [ ] Project full evolution review completed (flat mode only; skipped under `--ws`)
@@ -438,7 +438,7 @@ Milestone completion is successful when:
 - [ ] Milestone commit made (includes archive files and deletion)
 - [ ] Requirements completion checked against REQUIREMENTS.md traceability table
 - [ ] Incomplete requirements surfaced with proceed/audit/abort options
-- [ ] Known gaps recorded in MILESTONES.md if user proceeded with incomplete requirements
+- [ ] Known gaps left open as requirements of the milestone if user proceeded with incomplete requirements
 - [ ] The retrospective recorded, with its lessons
 - [ ] Cross-milestone trends updated
 - [ ] User knows next step (/gsd:new-milestone)

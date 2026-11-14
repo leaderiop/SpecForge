@@ -61,7 +61,7 @@
     "Resolve the milestone's audit, the `milestone_audit` entity this workflow records into. A re-audit reuses it; the first audit creates `<milestone>/A1`, before the integration checker is spawned, since its verdict is recorded on it:",
     ""
   ],
-  "bytes": 28908,
+  "bytes": 28953,
   "end": [
     "",
     "<success_criteria>",
@@ -72,7 +72,7 @@
     "- [ ] 3-source cross-reference completed (threads and verifications, summaries, requirement status)",
     "- [ ] Orphaned requirements read from the audit's computed `gaps`",
     "- [ ] Tech debt and deferred gaps aggregated",
-    "- [ ] Integration checker spawned with milestone requirement IDs",
+    "- [ ] Integration checker spawned with the audit's context line (`specforge context gsd/integration-checker`)",
     "- [ ] The integration verdict (`gsd/E518`) recorded once, on the audit",
     "- [ ] The audit's `tech_debt` recorded; its `status` read (an unsatisfied requirement makes it `gaps_found`)",
     "- [ ] Nyquist compliance read from the audit's `nyquist` (if enabled)",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2051f8446eaddeb09d76fab6f244fdb0f9c0763f4ee3cea5ccc368cad7e31675",
+    "digest": "sha256:35b50691c0da2cc245b6b95db2352c6fd47c4a804c264a349f08743faf78e7b8",
     "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "2051f8446eaddeb09d76fab6f244fdb0f9c0763f4ee3cea5ccc368cad7e31675"
+  "sha256": "35b50691c0da2cc245b6b95db2352c6fd47c4a804c264a349f08743faf78e7b8"
 }

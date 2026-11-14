@@ -158,7 +158,7 @@ Present as a bulleted list of decisions with brief rationale:
 
 ## 6. Tech Debt & Deferred Items
 
-{From VERIFICATION.md files: gaps found, anti-patterns noted}
+{From the phases' `verification` entities: the gaps and anti-patterns their findings name}
 {From RETROSPECTIVE.md: lessons learned, what to improve}
 {The `deferred_idea` entities of that read: ideas parked for later}
 

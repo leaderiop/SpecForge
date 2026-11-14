@@ -61,20 +61,82 @@ const SHELL: &[&str] = &["bash", "sh", "shell", "zsh"];
 /// The words that tell an agent to generate: no ledger counts them, and a family whose rows are gone holds none.
 pub const GENERATE: &[&str] = &["generate", "generates", "generated", "generating"];
 
+/// The words beyond [`VERBS`] that tell an agent to put an entry in a state file: recorded or noted there, a value
+/// filled in.
+const ENTRY_VERBS: &[&str] = &[
+    "record",
+    "records",
+    "recorded",
+    "recording",
+    "noted",
+    "fill",
+    "fills",
+    "filled",
+];
+
+/// The words beyond [`ENTRY_VERBS`] that edit a part of a file named just after them: "mark the frontmatter".
+const MARK: &[&str] = &["mark", "marks", "marked"];
+
+/// The words that name part of a state file: "Update Tests section", "Update frontmatter.updated".
+const PARTS: &[&str] = &["section", "sections", "frontmatter"];
+
+/// How many words may stand between a verb and the [`PARTS`] word it edits ("Append to Gaps section").
+const PART_REACH: usize = 2;
+
+/// What a sentence must hold: one of `verbs` with a GSD file name in the sentence, or one of `part_verbs` (not the
+/// head of a compound: "append-only") with a [`PARTS`] word within [`PART_REACH`] words after it; and with
+/// `redirects`, a shell line that writes a GSD file counts.
+#[derive(Clone, Copy)]
+struct Rule<'a> {
+    verbs: &'a [&'a [&'a str]],
+    part_verbs: &'a [&'a [&'a str]],
+    redirects: bool,
+}
+
 /// The 0-based lines of `text` that tell an agent to write a GSD file, each once.
 pub fn hits(text: &str) -> BTreeSet<usize> {
-    hits_by(text, VERBS, true)
+    hits_by(
+        text,
+        Rule {
+            verbs: &[VERBS],
+            part_verbs: &[],
+            redirects: true,
+        },
+    )
+}
+
+/// The 0-based lines of `text` that tell an agent to edit a state file or part of one: a write or [`ENTRY_VERBS`]
+/// word with a GSD file name in one sentence ("record overrides in MILESTONES.md"), or one of those or [`MARK`]
+/// followed closely by a [`PARTS`] word ("Update Tests section"), in prose or a line of a fence that is not shell;
+/// and a shell line that writes a GSD file. No ledger counts the wider set, so a family whose ledger rows are gone
+/// holds none.
+pub fn section_edits(text: &str) -> BTreeSet<usize> {
+    hits_by(
+        text,
+        Rule {
+            verbs: &[VERBS, ENTRY_VERBS],
+            part_verbs: &[VERBS, ENTRY_VERBS, MARK],
+            redirects: true,
+        },
+    )
 }
 
 /// The 0-based lines of `text` that tell an agent to generate a GSD file: a [`GENERATE`] word and a GSD file name in
 /// one sentence of prose, or of a line of a fence that is not shell.
 pub fn generates(text: &str) -> BTreeSet<usize> {
-    hits_by(text, GENERATE, false)
+    hits_by(
+        text,
+        Rule {
+            verbs: &[GENERATE],
+            part_verbs: &[],
+            redirects: false,
+        },
+    )
 }
 
-/// The lines of `text` where one of `verbs` and a GSD file name share a sentence, and with `redirects` a shell
-/// fence's line that writes one.
-fn hits_by(text: &str, verbs: &[&str], redirects: bool) -> BTreeSet<usize> {
+/// The lines of `text` whose sentences hold what `rule` asks, and with its `redirects` a shell fence's line that
+/// writes a GSD file.
+fn hits_by(text: &str, rule: Rule) -> BTreeSet<usize> {
     let mut out = BTreeSet::new();
     for block in gsd_kit::markdown::inline_blocks(text) {
         let quoted: Vec<Range<usize>> = block
@@ -84,7 +146,7 @@ fn hits_by(text: &str, verbs: &[&str], redirects: bool) -> BTreeSet<usize> {
             .map(|(range, _)| range.clone())
             .collect();
         for sentence in sentences(&block.text) {
-            if let Some(at) = writes_in(&block.text, sentence, &quoted, verbs) {
+            if let Some(at) = writes_in(&block.text, sentence, &quoted, rule) {
                 out.insert(block.lines[at]);
             }
         }
@@ -95,12 +157,12 @@ fn hits_by(text: &str, verbs: &[&str], redirects: bool) -> BTreeSet<usize> {
         for n in fence.code.clone() {
             let line = lines.get(n).copied().unwrap_or_default();
             let hit = if shell {
-                redirects && shell_writes(line)
+                rule.redirects && shell_writes(line)
             } else {
                 // a template or an example is prose, line by line
                 sentences(line)
                     .into_iter()
-                    .any(|s| writes_in(line, s, &[], verbs).is_some())
+                    .any(|s| writes_in(line, s, &[], rule).is_some())
             };
             if hit {
                 out.insert(n);
@@ -134,32 +196,43 @@ fn sentences(text: &str) -> Vec<Range<usize>> {
     out
 }
 
-/// The byte (in `text`) of the first GSD file name of the sentence `range` when it also holds one of `verbs` that
-/// counts, outside the `quoted` ranges.
+/// The byte (in `text`) of what the sentence `range` edits when it also holds one of `rule`'s verbs that counts,
+/// outside the `quoted` ranges: its first GSD file name, else a [`PARTS`] word close after a part verb.
 fn writes_in(
     text: &str,
     range: Range<usize>,
     quoted: &[Range<usize>],
-    verbs: &[&str],
+    rule: Rule,
 ) -> Option<usize> {
     let sentence = &text[range.clone()];
     let name = gsd_kit::files::planning_names(sentence)
         .into_iter()
         .map(|(r, _)| range.start + r.start..range.start + r.end)
-        .find(|r| !quoted.iter().any(|q| q.start <= r.start && r.end <= q.end))?;
+        .find(|r| !quoted.iter().any(|q| q.start <= r.start && r.end <= q.end));
+    if name.is_none() && rule.part_verbs.is_empty() {
+        return None;
+    }
     let words = words(sentence);
-    let counts = words.iter().enumerate().any(|(k, (at, word))| {
+    let part_after = |k: usize| {
+        words[k + 1..]
+            .iter()
+            .take(PART_REACH + 1)
+            .find(|(_, w)| PARTS.contains(&w.to_ascii_lowercase().as_str()))
+            .map(|(at, _)| range.start + at)
+    };
+    words.iter().enumerate().find_map(|(k, (at, word))| {
         let lower = word.to_ascii_lowercase();
-        if !verbs.contains(&lower.as_str())
-            || quoted.iter().any(|q| q.contains(&(range.start + at)))
-        {
-            return false;
+        let of = |lists: &[&[&str]]| lists.iter().any(|v| v.contains(&lower.as_str()));
+        let compound = sentence.as_bytes().get(at + word.len()) == Some(&b'-');
+        let (verb, part_verb) = (of(rule.verbs), of(rule.part_verbs) && !compound);
+        if !(verb || part_verb) || quoted.iter().any(|q| q.contains(&(range.start + at))) {
+            return None;
         }
         let slash = |i: Option<usize>| i.and_then(|i| sentence.as_bytes().get(i)) == Some(&b'/');
         let (before, after) = (at.checked_sub(1), Some(at + word.len()));
         // 1. a slash alternative is a menu choice: `update/skip`, `Review/edit`
         if slash(before) || slash(after) {
-            return false;
+            return None;
         }
         // 2. the agent offers the choice: the word before the verb, or before its alternative
         let offered = words[..k]
@@ -169,9 +242,14 @@ fn writes_in(
         let person = words[..k]
             .iter()
             .any(|(_, w)| PERSON.contains(&w.to_ascii_lowercase().as_str()));
-        !offered && !person
-    });
-    counts.then_some(name.start)
+        if offered || person {
+            return None;
+        }
+        name.as_ref()
+            .filter(|_| verb)
+            .map(|n| n.start)
+            .or_else(|| part_verb.then(|| part_after(k)).flatten())
+    })
 }
 
 /// The words of `sentence` with their byte offsets: runs of ASCII letters.
