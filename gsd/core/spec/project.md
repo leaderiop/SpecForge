@@ -4,6 +4,7 @@
  project ─1──*─ requirement ─*──1─ phase           (each v1 requirement maps to exactly one phase)
     │
     ├─1──*─ milestone ─1──*─ phase ─*──*─ phase     (depends_on: a DAG, earlier phases only)
+    │           ├─*──*─ milestone                   (depends_on, beyond GSD)
     │           └─0..1─ retrospective ─1──*─ lesson
     ├─0..*─ workstream (a scope: its own milestones and phases)
     └─0..*─ methodology
@@ -61,6 +62,14 @@ GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. N
 | whats_next | str | | `**What's next:**` |
 | goal | str | | the Current Milestone's `**Goal:**` (PROJECT.md), recorded by `/gsd-new-milestone` |
 | target_features | strs | | the Current Milestone's `**Target features:**` (PROJECT.md) |
+| exit_criteria | strs | | beyond GSD (ADR 0357): what must hold to call it done |
+| starts | date | | beyond GSD (ADR 0357): when work on it starts |
+| targets | date | | beyond GSD (ADR 0357): the day it aims to ship |
+| depends_on | →* milestone | | beyond GSD (ADR 0357): the milestones that ship before it |
+| owner | str | | beyond GSD (ADR 0357): the person or team that answers for it |
+| contributors | strs | | beyond GSD (ADR 0357): the others working on it |
+| artifact_types | strs | | beyond GSD (ADR 0357): the kinds of thing it ships, as open words (`cli`, `library`, `extension`, `service`); one milestone may ship several |
+| tags | strs | | beyond GSD (ADR 0357): free words |
 | abandoned | {reason str R, ruled_by str R, at date R} | | gsd-path's abandon ruling |
 | workstream | → workstream | I | the workstream it belongs to (K2: it scopes the milestone, `auth-rework/v1.0`); absent outside one, and the milestone keeps its short id |
 | completion | {at date, audit → milestone_audit} | H | written by `close_milestone` (`/gsd-complete-milestone`) once its audit passes: `audit` is the latest audit it closed on |
@@ -71,6 +80,9 @@ GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. N
 | git_range | str | C | `**Git range:**`: the first and last recorded `feat` commit as `` `feat(01-01)` → `feat(01-02)` `` (the scope is the name of the plan the commit names); absent with none |
 | progress | {phases int, phases_complete int, plans int, plans_complete int, percent int} | C | `STATE.md`'s `progress`, per milestone: `percent` is the smaller of plans_complete/plans and phases_complete/phases (a side with nothing counts 1, `state-document.cts:861-878`); `phases_complete` counts the phases whose verification passed, which needs r40's verdicts. `plans_complete` counts every plan with a summary, a halted one too (#2830), and the sentinel `999.x` backlog phases are left out (#3167) |
 | branch | str | C | the branch it is executed on, from `git.branching_strategy` and its template (`{milestone}`, `{slug}`); under the `milestone` strategy, else absent |
+
+Upstream GSD's milestone has none of the fields marked beyond GSD: they are optional, no GSD file renders them and no
+ported prompt asks for them.
 
 The milestone reads back the journeys that ship in it as `journeys` (`journey.milestones`, [product.md](product.md)):
 writing `journeys` on a milestone is E079.

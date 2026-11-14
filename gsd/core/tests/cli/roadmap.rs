@@ -192,3 +192,58 @@ fn a_milestone_keeps_its_goal_and_target_features() {
         serde_json::json!(["Save after every change", "List the open tasks"])
     );
 }
+
+/// The milestone `v1.1` with every field beyond GSD (ADR 0357), depending on `v1.0`, its dates `starts` and `targets`
+/// given by the caller.
+fn milestone_v1_1(starts: &str, targets: &str) -> String {
+    format!(
+        "milestone v1.1 \"Taskboard 1.1\" {{
+  name           \"Taskboard 1.1\"
+  exit_criteria  [\"A board is shared by link\", \"No task is lost on a restart\"]
+  starts         {starts}
+  targets        {targets}
+  depends_on     [v1.0]
+  owner          \"Board team\"
+  contributors   [\"Ana\", \"Ben\"]
+  artifact_types [\"cli\"]
+  tags           [\"sharing\"]
+}}
+"
+    )
+}
+
+/// A milestone may carry the old product milestone's planning fields, beyond GSD: all eight write, read back, and the
+/// GSD project checks as clean as before.
+#[test]
+fn a_milestone_carries_its_planning_fields_beyond_gsd() {
+    let p = project("roadmap");
+    p.write(
+        "spec/v1.1.spec",
+        &milestone_v1_1("2026-01-05", "2026-03-01"),
+    );
+    assert_eq!(p.findings_all(), []);
+    assert_eq!(p.codes(), Vec::<String>::new());
+    let fields = p.fields_of("v1.1");
+    let expected = serde_json::json!({
+        "exit_criteria": ["A board is shared by link", "No task is lost on a restart"],
+        "starts": "2026-01-05",
+        "targets": "2026-03-01",
+        "depends_on": ["v1.0"],
+        "owner": "Board team",
+        "contributors": ["Ana", "Ben"],
+        "artifact_types": ["cli"],
+        "tags": ["sharing"],
+    });
+    for (field, value) in expected.as_object().expect("an object") {
+        assert_eq!(&fields[field], value, "{field}: {fields}");
+    }
+    assert!(
+        crate::product::edges_from(&p, "v1.1").contains(&(
+            "depends_on".into(),
+            "v1.1".into(),
+            "v1.0".into()
+        )),
+        "{:#?}",
+        crate::product::edges_from(&p, "v1.1")
+    );
+}

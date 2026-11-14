@@ -32,6 +32,16 @@ pub const MILESTONE: Kind = Kind::new(
         str("whats_next").doc("What's next"),
         str("goal").doc("**Goal:** of the Current Milestone in PROJECT.md"),
         strs("target_features").doc("**Target features:** of the Current Milestone in PROJECT.md"),
+        strs("exit_criteria").doc("what must hold to call it done (beyond GSD)"),
+        date("starts").doc("when work on it starts (beyond GSD)"),
+        date("targets").doc("the date it aims to ship (beyond GSD)"),
+        rfs("depends_on", "milestone").doc("the milestones that ship before it (beyond GSD)"),
+        str("owner").doc("the person or team that answers for it (beyond GSD)"),
+        strs("contributors").doc("the others working on it (beyond GSD)"),
+        strs("artifact_types").doc(
+            "the kinds of thing it ships, as words: cli, library, extension, service (beyond GSD)",
+        ),
+        strs("tags").doc("free words (beyond GSD)"),
         block("abandoned", ABANDONED).doc("gsd-path's abandon ruling"),
         rf("workstream", "workstream")
             .i()
