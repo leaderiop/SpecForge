@@ -1,6 +1,6 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/workflows/validate-phase.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <purpose>
-Audit Nyquist validation gaps for a completed phase. Generate missing tests. Update VALIDATION.md.
+Audit Nyquist validation gaps for a completed phase. Generate missing tests. Record the validation rows.
 </purpose>
 
 <required_reading>
@@ -64,7 +64,7 @@ Per task: `{ task_id, plan_id, wave, requirement_ids, has_automated_command }`
 
 ### 2c. Detect Test Infrastructure
 
-State A: Parse from existing VALIDATION.md Test Infrastructure table.
+State A: Read the existing validation's `framework`, `quick_cmd` and `full_cmd`, and its rows: `specforge query "$PHASE_ID" --depth 2 --kinds validation,validation_row --format context`.
 State B: Filesystem scan:
 
 ```bash
@@ -113,7 +113,7 @@ Print: `◆ Spawning nyquist auditor... (runs in a subagent — no output until 
 ```
 Agent(
   prompt="Read ~/.claude/agents/gsd-nyquist-auditor.md for instructions.\n\n" +
-    "<required_reading>{PLAN, SUMMARY, impl files, VALIDATION.md}</required_reading>" +
+    "<required_reading>specforge context gsd/nyquist-auditor \"{PHASE_ID}\"</required_reading>" +
     "<gaps>{gap list}</gaps>" +
     "<test_infrastructure>{framework, config, commands}</test_infrastructure>" +
     "<constraints>Never modify impl files. Max 3 debug iterations. Escalate impl bugs.</constraints>" +
@@ -131,15 +131,38 @@ Handle return:
 - `## PARTIAL` → record resolved, move escalated to manual-only, Step 6
 - `## ESCALATE` → move all to manual-only, Step 6
 
-## 6. Generate/Update VALIDATION.md
+## 6. Record the Validation Rows
 
-**State B (create):**
-1. Read template from `~/.claude/gsd-core/templates/VALIDATION.md`
-2. Fill: frontmatter (**set `status: validated`**), Test Infrastructure, Per-Task Map, Manual-Only, Sign-Off
-3. Record it as the phase's `validation` entity `${PHASE_ID##*/}-VALIDATION` (`specforge new validation … --phase "$PHASE_ID"`), its map rows as `validation_row` entities
+Record the phase's `validation` when it has none (State B), with the detected test infrastructure, then one `validation_row` per task of the map (`task`, `test_type`, the requirement, the test file and its automated command); a row's `status` and the validation's `nyquist_compliant` are computed from the tests. The fence is the validation template's:
+
+```bash
+PHASE_ID="{the phase's id, e.g. v1.0/01}"
+FRAMEWORK="{the test framework, e.g. vitest}"
+IFS= read -rd '' QUICK_CMD <<'TEXT' || true; QUICK_CMD=${QUICK_CMD%$'\n'}
+{the quick run command}
+TEXT
+IFS= read -rd '' FULL_CMD <<'TEXT' || true; FULL_CMD=${FULL_CMD%$'\n'}
+{the full suite command}
+TEXT
+ROW_ID="{R and the row's number, e.g. R1}"
+TASK="{the task's id, e.g. v1.0/01/01-01/T1}"
+TEST_TYPE="{unit, integration, smoke, e2e or manual}"
+REQUIREMENT="{the requirement's id, e.g. AUTH-01}"
+TEST_FILE="{the row's test file, ROOT-relative}"
+IFS= read -rd '' COMMAND <<'TEXT' || true; COMMAND=${COMMAND%$'\n'}
+{the row's automated command}
+TEXT
+PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
+VALIDATION=$(specforge query "$PHASE_ID" --depth 1 --kinds validation --pick '.nodes[kind=validation].id' --first 1) || exit 1
+if [ -z "$VALIDATION" ]; then
+  specforge new validation "${PHASE_ID##*/}-VALIDATION" "Phase ${PHASE_ID##*/} validation strategy" --in "$PHASE_FILE" --phase "$PHASE_ID" --framework "$FRAMEWORK" --quick_cmd "$QUICK_CMD" --full_cmd "$FULL_CMD" || exit 1
+  VALIDATION="$PHASE_ID/${PHASE_ID##*/}-VALIDATION"
+fi
+specforge new validation_row "$ROW_ID" "$TASK" --in "$PHASE_FILE" --validation "$VALIDATION" --task "$TASK" --test_type "$TEST_TYPE" --requirement "$REQUIREMENT" --file "$TEST_FILE" --command "$COMMAND" || exit 1
+```
 
 **State A (update):**
-1. Update Per-Task Map statuses, add escalated to Manual-Only, update frontmatter (**set `status: validated`**)
+1. Add a `validation_row` for each newly covered task with the same fence; an escalated task stays without a row, as manual-only. The person approves the strategy with `specforge gsd approve-validation`, which sets its `status` to validated.
 2. Append to the audit trail through the owning verb — it compares against the LAST `## Validation Audit` block and skips the write entirely when nothing material changed (#5105 R3; #4981: idempotence alone is insufficient for VALIDATION, whose content legitimately changes with the plan/SUMMARY set, so this call is made AFTER the Per-Task Map update above, not instead of it):
 
 ```bash
@@ -188,7 +211,7 @@ Display `/clear` reminder.
 - [ ] User gate with gap table
 - [ ] Auditor spawned with complete context
 - [ ] All three return formats handled
-- [ ] VALIDATION.md created or updated
+- [ ] `validation` and its `validation_row` entities recorded
 - [ ] Test files committed separately
 - [ ] Results with routing presented
 </success_criteria>

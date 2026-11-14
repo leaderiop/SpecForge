@@ -8,17 +8,17 @@
     "",
     "<objective>",
     "Audit Nyquist validation coverage for a completed phase. Three states:",
-    "- (A) VALIDATION.md exists — audit and fill gaps",
-    "- (B) No VALIDATION.md, SUMMARY.md exists — reconstruct from artifacts",
+    "- (A) The phase has a `validation` — audit and fill gaps",
+    "- (B) No `validation`, a summary exists — reconstruct from artifacts",
     "- (C) Phase not executed — exit with guidance",
     "",
-    "Output: updated VALIDATION.md + generated test files.",
+    "Output: the `validation` and its `validation_row` entities + generated test files.",
     "</objective>",
     "",
     "<execution_context>",
     "<file path=\"gsd-core/workflows/validate-phase.md\">",
     "<purpose>",
-    "Audit Nyquist validation gaps for a completed phase. Generate missing tests. Update VALIDATION.md.",
+    "Audit Nyquist validation gaps for a completed phase. Generate missing tests. Record the validation rows.",
     "</purpose>",
     "",
     "<required_reading>",
@@ -61,7 +61,7 @@
     "",
     "## 1. Detect Input State"
   ],
-  "bytes": 18569,
+  "bytes": 20239,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
@@ -83,7 +83,7 @@
     "- [ ] User gate with gap table",
     "- [ ] Auditor spawned with complete context",
     "- [ ] All three return formats handled",
-    "- [ ] VALIDATION.md created or updated",
+    "- [ ] `validation` and its `validation_row` entities recorded",
     "- [ ] Test files committed separately",
     "- [ ] Results with routing presented",
     "</success_criteria>",
@@ -186,7 +186,7 @@
     "  \"features.thinking_partner\": false,",
     "  \"gates.confirm_milestone_scope\": true,"
   ],
-  "lines": 405,
+  "lines": 428,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:892255db0ccf3965a7cf145f0c7a9bb0646912bb2877d0405aea52e28d18f37f",
+    "digest": "sha256:74bb74f7365959ac8efcbc441ced743dd786167ef6cf281d3e13f181a42ea9e6",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "892255db0ccf3965a7cf145f0c7a9bb0646912bb2877d0405aea52e28d18f37f"
+  "sha256": "74bb74f7365959ac8efcbc441ced743dd786167ef6cf281d3e13f181a42ea9e6"
 }

@@ -7,7 +7,7 @@ For each gap in `<gaps>`: generate minimal behavioral test, run it, debug if fai
 
 **Mandatory Initial Read:** If prompt contains `<required_reading>`, load ALL listed files before any action.
 
-**Implementation files are READ-ONLY.** Only create/modify: test files, fixtures, VALIDATION.md. Implementation bugs → ESCALATE. Never fix implementation.
+**Implementation files are READ-ONLY.** Only create/modify: test files and fixtures; the orchestrator records the rows. Implementation bugs → ESCALATE. Never fix implementation.
 </role>
 
 <adversarial_stance>
@@ -34,7 +34,7 @@ Read ALL files from `<required_reading>`. Extract:
 - PLANs: requirement IDs, task structure, verify blocks
 - SUMMARYs: what was implemented, files changed, deviations
 - Test infrastructure: framework, config, runner commands, conventions
-- Existing VALIDATION.md: current map, compliance status
+- The phase's `validation` and its rows: current map, compliance status
 
 **Context budget:** Load project skills first (lightweight). Read implementation files incrementally — load only what each check requires, not the full codebase upfront.
 

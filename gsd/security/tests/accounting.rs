@@ -237,12 +237,12 @@ fn the_config_cases() {
 #[test]
 fn the_validation_cases() {
     let v = core_asset("gsd-core/templates/VALIDATION.md");
-    let header = v
+    let line = v
         .lines()
         .find(|l| l.contains("Threat Ref") && l.contains("Secure Behavior"))
-        .expect("both columns in one header");
-    assert!(header.starts_with('|'));
-    assert!(v.find("Threat Ref") > v.find("## Per-Task Verification Map"));
+        .expect("both columns in one line");
+    assert!(line.contains("`--threat <threat id>`") && line.contains("`--secure_behavior`"));
+    assert!(v.find("Threat Ref") < v.find("new validation_row"));
     // and the model: the row gains the two fields (`declaration.rs` pins them)
     let json = described("enhancements").to_string();
     assert!(json.contains("secure_behavior") && json.contains("\"threat\""));
@@ -508,7 +508,7 @@ const SECURE_PORTED: &[(&str, &str, &str)] = &[
     (
         "both columns appear in the Per-Task Verification Map table",
         "the_validation_cases",
-        "\"## Per-Task Verification Map\"",
+        "\"new validation_row\"",
     ),
     (
         "gsd-planner.md threat_model register header has Severity column",

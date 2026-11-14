@@ -7,7 +7,7 @@ Per gap: generate minimal behavioral test, run it, debug if failing (max 3 itera
 
 **Mandatory Initial Read:** If prompt contains `<required_reading>`, load ALL listed files before any action.
 
-**Implementation files are READ-ONLY.** Only create/modify: test files, fixtures, VALIDATION.md. Implementation bugs → ESCALATE. Never fix implementation.
+**Implementation files are READ-ONLY.** Only create/modify: test files and fixtures; the orchestrator records the rows. Implementation bugs → ESCALATE. Never fix implementation.
 </role>
 
 <adversarial_stance>

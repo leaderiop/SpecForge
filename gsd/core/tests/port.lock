@@ -253,8 +253,14 @@ agents/gsd-integration-checker.md	own	337+2	2	eaa50706528b	aa5f3d1eace7	served
 agents/gsd-integration-checker.md	kept	339+2	059e7016280e
 agents/gsd-integration-checker.md	own	341+2	2	31ab108fa42c	edd40fc315a4	served
 agents/gsd-integration-checker.md	kept	343+134	7285f2bfb14b
-agents/gsd-nyquist-auditor.compact.md	kept	14+167	af7cfe533f20
-agents/gsd-nyquist-auditor.md	kept	14+194	3f83673ee27a
+agents/gsd-nyquist-auditor.compact.md	kept	14+8	38226618e2ea
+agents/gsd-nyquist-auditor.compact.md	own	22+1	1	a6b6337d0e60	30e2883647a6	agent
+agents/gsd-nyquist-auditor.compact.md	kept	23+158	d432004ef531
+agents/gsd-nyquist-auditor.md	kept	14+8	af024a15014d
+agents/gsd-nyquist-auditor.md	own	22+1	1	a6b6337d0e60	30e2883647a6	agent
+agents/gsd-nyquist-auditor.md	kept	23+26	e2594e6205ff
+agents/gsd-nyquist-auditor.md	own	49+1	1	5cac75822e0c	9383fec28d78	agent
+agents/gsd-nyquist-auditor.md	kept	50+158	908766af81c4
 agents/gsd-pattern-mapper.compact.md	kept	13+9	42c157360508
 agents/gsd-pattern-mapper.compact.md	own	22+1	1	f6d43a25df61	8e4b09bb580c	prose
 agents/gsd-pattern-mapper.compact.md	kept	23+5	354678d07379
@@ -1078,7 +1084,11 @@ commands/gsd/spec-phase.md	own	64+3	3	38c0105482fb	06ac25b4c43f	prose
 commands/gsd/spec-phase.md	kept	67+2	f06da1895c23
 commands/gsd/ultraplan-phase.md	kept	12+28	3b4b50f87fde
 commands/gsd/undo.md	kept	13+28	f6de2e18c739
-commands/gsd/validate-phase.md	kept	16+27	ceebcf29b275
+commands/gsd/validate-phase.md	kept	16+7	14466002e0df
+commands/gsd/validate-phase.md	own	23+2	2	11bb8423be38	08be8a1ce893	prose
+commands/gsd/validate-phase.md	kept	25+2	d69dcecc2ec9
+commands/gsd/validate-phase.md	own	27+1	1	8529d5d94b36	45d1d94c088f	prose
+commands/gsd/validate-phase.md	kept	28+15	7c950e616d8f
 commands/gsd/verify-work.md	kept	15+31	63a22e0f5745
 commands/gsd/workspace.md	kept	12+9	810758ce128c
 commands/gsd/workspace.md	own	21+1	1	823a8312c0f7	f66f9cdc4d92	ported-name
@@ -1860,7 +1870,14 @@ gsd-core/templates/UAT.md	kept	124+5	c8e7604e476f
 gsd-core/templates/UAT.md	own	129+72	0	0b168422ad99	e3b0c44298fc	ported-name
 gsd-core/templates/UAT.md	kept	201+15	a8a5bce73598
 gsd-core/templates/UAT.md	own	216+67	0	7f7af96c279d	e3b0c44298fc	ported-name
-gsd-core/templates/VALIDATION.md	kept	1+79	e2281534271f
+gsd-core/templates/VALIDATION.md	own	1+11	0	7a6567bca503	e3b0c44298fc	prose
+gsd-core/templates/VALIDATION.md	kept	12+4	558727874da5
+gsd-core/templates/VALIDATION.md	own	16+11	33	1f64b71c681f	a4953e1486e5	prose
+gsd-core/templates/VALIDATION.md	kept	27+12	fa1676176de9
+gsd-core/templates/VALIDATION.md	own	39+30	0	f8e4f1ce757e	e3b0c44298fc	served
+gsd-core/templates/VALIDATION.md	kept	69+7	236d934737a5
+gsd-core/templates/VALIDATION.md	own	76+3	1	1ebc36b10218	99d709f7d046	prose
+gsd-core/templates/VALIDATION.md	kept	79+1	e3b0c44298fc
 gsd-core/templates/context.md	kept	1+2	718fbb0bae6e
 gsd-core/templates/context.md	own	3+1	1	53588d1181eb	f205e613ef57	ported-name
 gsd-core/templates/context.md	kept	4+11	4ed17db46492
@@ -5404,7 +5421,9 @@ gsd-core/workflows/undo.md	own	574+1	1	5ce3bc0846bb	4ef06eded86a	served
 gsd-core/workflows/undo.md	kept	575+4	bdc674f998ca
 gsd-core/workflows/undo.md	own	579+1	1	b88eb56a150b	4eed7834e422	served
 gsd-core/workflows/undo.md	kept	580+54	f9db437b4633
-gsd-core/workflows/validate-phase.md	kept	1+18	b65ac654acbb
+gsd-core/workflows/validate-phase.md	kept	1+1	67c8626203ca
+gsd-core/workflows/validate-phase.md	own	2+1	1	f92a7d57b260	5632eb554d58	prose
+gsd-core/workflows/validate-phase.md	kept	3+16	e07e106b063f
 gsd-core/workflows/validate-phase.md	own	19+11	7	a38c96847cb7	72c68c2acca7	ported-name
 gsd-core/workflows/validate-phase.md	kept	30+4	b28fac2a3468
 gsd-core/workflows/validate-phase.md	own	34+1	1	dd0387bea9e4	d77fa669d95a	prose
@@ -5414,13 +5433,19 @@ gsd-core/workflows/validate-phase.md	kept	39+11	890156cb4d8e
 gsd-core/workflows/validate-phase.md	own	50+2	2	3535aa376e59	459a39c25042	served
 gsd-core/workflows/validate-phase.md	kept	52+4	77666b7ff7d2
 gsd-core/workflows/validate-phase.md	own	56+1	1	d0e3bef1d74b	46d7cd793aa0	args
-gsd-core/workflows/validate-phase.md	kept	57+17	fa3cc1a2bce8
+gsd-core/workflows/validate-phase.md	kept	57+13	e1a73b790db2
+gsd-core/workflows/validate-phase.md	own	70+1	1	3d31483fe3d7	2735b74e9fe8	prose
+gsd-core/workflows/validate-phase.md	kept	71+3	8bbc5783d026
 gsd-core/workflows/validate-phase.md	own	74+2	2	8471f3ec630a	ead0422fb97a	served
 gsd-core/workflows/validate-phase.md	kept	76+34	a533ce0f1f86
 gsd-core/workflows/validate-phase.md	own	110+1	1	98fd755a54b7	5ddccb406252	ported-name
-gsd-core/workflows/validate-phase.md	kept	111+31	cba6890a04eb
-gsd-core/workflows/validate-phase.md	own	142+1	1	b628cca2e39e	cd2a120b4b8c	typed-edit
-gsd-core/workflows/validate-phase.md	kept	143+6	f7ddf580b598
+gsd-core/workflows/validate-phase.md	kept	111+8	7610fb8f6a10
+gsd-core/workflows/validate-phase.md	own	119+1	1	b5ae18852c74	8b30d7d30d53	prose
+gsd-core/workflows/validate-phase.md	kept	120+17	4adf6b9b71a0
+gsd-core/workflows/validate-phase.md	own	137+6	29	ff4624053179	de1e3a3a5979	typed-edit
+gsd-core/workflows/validate-phase.md	kept	143+2	eee598b8f4e9
+gsd-core/workflows/validate-phase.md	own	145+1	1	0526c25c6c16	dc244ab5b033	prose
+gsd-core/workflows/validate-phase.md	kept	146+3	8a2745df745d
 gsd-core/workflows/validate-phase.md	own	149+1	1	addab178b75d	ad674364e50f	ported-name
 gsd-core/workflows/validate-phase.md	kept	150+7	ae245c3c23fe
 gsd-core/workflows/validate-phase.md	own	157+5	5	b83f59372fe3	4a584b2a63ed	ported-name
@@ -5428,7 +5453,9 @@ gsd-core/workflows/validate-phase.md	kept	162+8	4fff19b3eeb6
 gsd-core/workflows/validate-phase.md	own	170+1	1	e5d889e2ab75	eaf3074bcd6a	args
 gsd-core/workflows/validate-phase.md	kept	171+6	ac3ff5a3f26c
 gsd-core/workflows/validate-phase.md	own	177+1	1	36aad90b8240	5c951ab89afa	args
-gsd-core/workflows/validate-phase.md	kept	178+21	86894f999c31
+gsd-core/workflows/validate-phase.md	kept	178+16	992c85455016
+gsd-core/workflows/validate-phase.md	own	194+1	1	5309965f7a61	74b6acbc327e	prose
+gsd-core/workflows/validate-phase.md	kept	195+4	5ba473f640ba
 gsd-core/workflows/verify-work.md	kept	1+8	7a474580d009
 gsd-core/workflows/verify-work.md	own	9+1	1	4c712f8249f0	0476151d60be	prose
 gsd-core/workflows/verify-work.md	kept	10+32	16cb499fc020

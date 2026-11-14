@@ -17,7 +17,6 @@ use crate::settings;
 const TEMPLATES: &[(&str, &[&str])] = &[
     ("milestone.md", &["milestone", "phase"]),
     ("summary.md", &["summary"]),
-    ("VALIDATION.md", &["validation"]),
     ("retrospective.md", &["retrospective"]),
     ("user-setup.md", &["user_setup"]),
 ];

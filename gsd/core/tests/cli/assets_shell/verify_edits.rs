@@ -261,3 +261,59 @@ fn uat_follow_ups_promote_to_backlog_phases() {
         "{phase}"
     );
 }
+
+/// validate-phase §6's fence, filled and run once per row on `v1.0/02` (no validation yet; its tasks given an
+/// automated verify, as `gsd/E314` asks of a validated phase), creates one validation and two rows with no new finding;
+/// the auditor spawn's context line, run with that phase, names the validation.
+#[test]
+fn the_validation_audit_writes_rows() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    for task in ["v1.0/02/02-01/T1", "v1.0/02/02-01/T2"] {
+        let run = p.run(&[
+            "set",
+            task,
+            "verify",
+            r#"[{"automated": "npm test", "fails_when": "a task test fails"}]"#,
+        ]);
+        assert_eq!(run.code, 0, "{}", run.all());
+    }
+    let text = asset("gsd-core/workflows/validate-phase.md");
+    let fence = fence_holding(&text, "new validation_row");
+    for (row, task) in [("R1", "v1.0/02/02-01/T1"), ("R2", "v1.0/02/02-01/T2")] {
+        let filled = typed::filled(
+            &fence,
+            &[
+                ("PHASE_ID", "v1.0/02"),
+                ("FRAMEWORK", "node:test"),
+                ("QUICK_CMD", "node --test"),
+                ("FULL_CMD", "npm test"),
+                ("ROW_ID", row),
+                ("TASK", task),
+                ("TEST_TYPE", "unit"),
+                ("REQUIREMENT", "TASK-03"),
+                ("TEST_FILE", "test/tasks.test.js"),
+                ("COMMAND", "node --test test/tasks.test.js"),
+            ],
+        );
+        let done = typed::apply(&sh, &p, &filled);
+        assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+        assert!(done.added.is_empty(), "{:?}", done.added);
+    }
+    assert_eq!(p.nodes_of("validation").len(), 1);
+    assert_eq!(p.nodes_of("validation_row").len(), 2);
+    let line = text
+        .lines()
+        .find(|l| l.contains("specforge context gsd/nyquist-auditor"))
+        .expect("the spawn's context line");
+    let start = line.find("specforge context").expect("the command");
+    let end = line[start..].find("</required_reading>").expect("its end") + start;
+    let command = line[start..end]
+        .replace("\\\"", "\"")
+        .replace("{PHASE_ID}", "$PHASE_ID");
+    let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/02\n{command}"));
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("02-VALIDATION"), "{out}");
+}

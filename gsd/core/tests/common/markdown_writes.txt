@@ -7,7 +7,6 @@ commands/gsd/complete-milestone.md	- Update ROADMAP.md to one-line summary with 
 commands/gsd/complete-milestone.md	6. **Update PROJECT.md:**
 commands/gsd/complete-milestone.md	- PROJECT.md updated with current state
 commands/gsd/ns-workflow.md	| Create a PLAN.md | gsd-plan-phase |
-commands/gsd/validate-phase.md	Output: updated VALIDATION.md + generated test files.
 gsd-core/references/agent-contracts.md	| gsd-ai-researcher | AI framework research | No marker (writes the AI-SPEC.md framework section via Edit) | `gsd-core/workflows/ai-integration-phase.md` reads the AI-SPEC.md section after the agent returns | artifact+query |
 gsd-core/references/agent-contracts.md	| gsd-code-fixer | Applies code-review fixes | No marker (fix commits + REVIEW.md updates) | `gsd-core/workflows/code-review-fix.md` reads REVIEW.md resolution state + git log | artifact+query |
 gsd-core/references/agent-contracts.md	| gsd-code-reviewer | Source-code review | No marker (writes REVIEW.md) | `gsd-core/workflows/code-review.md` reads REVIEW.md | artifact+query |
@@ -81,8 +80,6 @@ gsd-core/workflows/transition.md	- [ ] ROADMAP.md updated with completion status
 gsd-core/workflows/transition.md	- [ ] STATE.md updated (position, project reference, context, session)
 gsd-core/workflows/undo.md	`milestones/v<X.Y>-phases/<phase>/` archive and the workstream archive
 gsd-core/workflows/undo.md	commits; a workstream completed into `milestones/ws-feat-<date>/` and then re-created as `feat`
-gsd-core/workflows/validate-phase.md	Audit Nyquist validation gaps for a completed phase. Generate missing tests. Update VALIDATION.md.
-gsd-core/workflows/validate-phase.md	- [ ] VALIDATION.md created or updated
 ../security/assets/agents/gsd-security-auditor.compact.md	A phase has been submitted for security audit. Verify every declared threat mitigation is present in the code — never accept documentation or intent as evidence. Does NOT scan blindly for new vulnerabilities — verifies each threat in `<threat_model>` by its declared disposition (mitigate / accept / transfer) and reports gaps. Orchestrator owns the SECURITY.md write (#2119: single-writer contract).
 ../security/assets/agents/gsd-security-auditor.compact.md	**Implementation files are READ-ONLY.** Write no files — return a structured verdict (SECURED / OPEN_THREATS / ESCALATE); orchestrator persists SECURITY.md. Implementation gaps → OPEN_THREATS or ESCALATE. Never patch implementation.
 ../security/assets/agents/gsd-security-auditor.compact.md	Return SECURED / OPEN_THREATS / ESCALATE with `threats_open` set to the severity-filtered count. The orchestrator writes SECURITY.md from this data — you write no files (#2119).

@@ -24,8 +24,8 @@
     "sha256": "a3da5b098a7f7497cbe17abf56fff0ad1645df67d003aa7ecc4dbde0e32c4b04"
   },
   ".claude/agents/gsd-nyquist-auditor.md": {
-    "bytes": 10249,
-    "sha256": "c1447e039115288f3246cf2f6d03e49fe5a3a5f7e00f5b42272117cec01c49f7"
+    "bytes": 10287,
+    "sha256": "042d83700686a3bda80e26611d6f4f5ce3125790075d1b73e7f19bce6fd79a87"
   },
   ".claude/agents/gsd-pattern-mapper.md": {
     "bytes": 16237,
