@@ -110,7 +110,7 @@ IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\n'}
 {why it waits, e.g. the developer deferred it at the source audit}
 TEXT
 PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
-specforge new deferred_idea "$IDEA_ID" "$DEFERRED" --in "$PHASE_FILE" --phase "$PHASE_ID" --text "$DEFERRED" --why "$WHY" || exit 1
+specforge new deferred_idea "$IDEA_ID" "$DEFERRED" --in "$PHASE_FILE" --phase "$PHASE_ID" --origin discussion --text "$DEFERRED" --why "$WHY" || exit 1
 ```
 
 ## § 11a — Filesystem Fallback (Checker)

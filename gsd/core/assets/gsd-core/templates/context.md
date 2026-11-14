@@ -70,7 +70,7 @@ IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\n'}
 TEXT
 specforge new context "${PADDED_PHASE}-CONTEXT" "$NAME context" --in spec/discuss.spec --phase "$PHASE_ID" --gathered "$GATHERED" --boundary "$BOUNDARY" --specifics "$SPECIFICS" --canonical_refs "$REFS" --discretion "$DISCRETION" --reusable_assets "$ASSET" --patterns "$PATTERN" --integration_points "$INTEGRATION" || exit 1
 specforge new decision D-01 "$DECISION" --in spec/discuss.spec --phase "$PHASE_ID" --origin context --area "$AREA" --text "$DECISION" --reversibility "$REVERSIBILITY" --rationale "$RATIONALE" || exit 1
-specforge new deferred_idea DI1 "$IDEA" --in spec/discuss.spec --phase "$PHASE_ID" --text "$IDEA" --why "$WHY" || exit 1
+specforge new deferred_idea DI1 "$IDEA" --in spec/discuss.spec --phase "$PHASE_ID" --origin discussion --text "$IDEA" --why "$WHY" || exit 1
 ```
 
 The context's `status` is computed (`ready_for_planning` once it holds a boundary and its canonical references), and

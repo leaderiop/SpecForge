@@ -2870,7 +2870,22 @@
           },
           {
             "default_value": null,
-            "description": "an executor's out-of-scope discovery: open until resolved; absent is open",
+            "description": "`discussion`: deferred while the phase's context was set (discuss, the PRD path, the source audit), and served with that context; `execution`: an executor's out-of-scope discovery, which no context serves and the forensic audit lists",
+            "edge": null,
+            "enum_values": [
+              "discussion",
+              "execution"
+            ],
+            "field_type": "enum",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "origin",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "an execution idea: open until resolved; absent is open",
             "edge": null,
             "enum_values": [
               "open",

@@ -72,23 +72,28 @@
 
 ### Recording an out-of-scope discovery
 
-Each discovery is a `deferred_idea` of the plan's phase, its `why` the reason it is out of this task's scope. It
-stays open until someone resolves it (`specforge set "$IDEA_ID" status resolved`); the forensic audit of
-`/gsd:progress` lists every open one. A quick plan, which belongs to no phase, names the discovery in its summary
+Each discovery is a `deferred_idea` of the plan's phase whose `origin` is `execution`, its `why` the reason it is out
+of this task's scope. It stays open until someone resolves it (`specforge set "$IDEA_ID" status resolved`); the
+forensic audit of `/gsd:progress` lists every open one, and no context pack serves it, so recording one mid-plan
+stales nothing written against the phase's context. A quick plan, which belongs to no phase, names the discovery in its summary
 instead.
 
 ```bash
 PLAN_ID="{the plan's id, e.g. v1.0/02/02-01}"
-IDEA_ID="{the phase's next deferred idea id, e.g. DI3}"
 IFS= read -rd '' FOUND <<'TEXT' || true; FOUND=${FOUND%$'\n'}
 {what you found and where, in one line}
 TEXT
 IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\n'}
 {why it is out of this task's scope}
 TEXT
-PLAN_FILE=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].file') || exit 1
 PHASE_ID=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].fields.phase') || exit 1
-specforge new deferred_idea "$IDEA_ID" "$FOUND" --in "$PLAN_FILE" --phase "$PHASE_ID" --text "$FOUND" --why "$WHY" --status open || exit 1
+[ -n "$PHASE_ID" ] || { echo "no plan $PLAN_ID in the graph" >&2; exit 1; }
+PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
+IDS=$(specforge query "$PHASE_ID" --depth 1 --kinds deferred_idea --pick '.nodes[kind=deferred_idea].id') || exit 1
+N=1
+for ID in $IDS; do K=${ID##*/DI}; [ "$K" -ge "$N" ] && N=$(( K + 1 )); done
+IDEA_ID="DI$N"
+specforge new deferred_idea "$IDEA_ID" "$FOUND" --in "$PHASE_FILE" --phase "$PHASE_ID" --origin execution --text "$FOUND" --why "$WHY" --status open || exit 1
 ```
 
 ## Checkpoint Examples

@@ -15,7 +15,10 @@ use crate::judged::{INTEGRATION_INPUTS, PLAN_CHECK_INPUTS};
 pub(crate) const PHASE_CORE: &[(&str, &str)] = &[
     ("phase", "self"),
     ("requirements", "self.requirements"),
-    ("context", "self<context|deferred_idea.phase"),
+    (
+        "context",
+        "self<context|deferred_idea[origin=discussion].phase",
+    ),
     ("decisions", "self<decision[origin=context].phase"),
 ];
 
@@ -156,7 +159,7 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
             ("decisions", "self.decisions", true),
             (
                 "context",
-                "self.phase<context|decision[origin=context]|deferred_idea.phase",
+                "self.phase<context|decision[origin=context]|deferred_idea[origin=discussion].phase",
                 false,
             ),
             (
@@ -215,7 +218,11 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
         &[
             ("phase", "self", true),
             ("requirements", "self.requirements", true),
-            ("context", "self<context|deferred_idea.phase", true),
+            (
+                "context",
+                "self<context|deferred_idea[origin=discussion].phase",
+                true,
+            ),
             ("decisions", "self<decision[origin=context].phase", true),
             ("research", "self<research.phase", false),
             ("research_items", RESEARCH_ITEMS_OF_PHASE, false),
@@ -259,7 +266,7 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
             ("files", "file(self<plan.phase.files_modified)", false),
             (
                 "context",
-                "self<context|decision[origin=context]|deferred_idea.phase",
+                "self<context|decision[origin=context]|deferred_idea[origin=discussion].phase",
                 false,
             ),
             ("pitfalls", "self<research.phase<pitfall.research", false),
@@ -361,7 +368,11 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
         &[
             ("context", "self<context.phase", true),
             ("decisions", "self<decision[origin=context].phase", true),
-            ("deferred", "self<deferred_idea.phase", true),
+            (
+                "deferred",
+                "self<deferred_idea[origin=discussion].phase",
+                true,
+            ),
         ],
         |_| {},
     );

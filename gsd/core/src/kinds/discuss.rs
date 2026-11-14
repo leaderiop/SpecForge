@@ -62,7 +62,10 @@ pub const DECISION: Kind = Kind::new(
 )
 .scoped_by("phase");
 
-/// `<deferred>`: excluded from every coverage rule. Named `DI1`.
+const IDEA_ORIGIN: &[&str] = &["discussion", "execution"];
+
+/// `<deferred>`: excluded from every coverage rule. Named `DI1`. Only a `discussion` idea is part of the phase's
+/// context, so an executor's discovery stales no pack written against that context.
 pub const DEFERRED_IDEA: Kind = Kind::new(
     "deferred_idea",
     "An idea deferred out of a phase (GSD CONTEXT.md <deferred>)",
@@ -70,8 +73,11 @@ pub const DEFERRED_IDEA: Kind = Kind::new(
         str("text").r(),
         rf("phase", "phase").r(),
         str("why"),
+        en("origin", IDEA_ORIGIN).r().i().doc(
+            "`discussion`: deferred while the phase's context was set (discuss, the PRD path, the source audit), and served with that context; `execution`: an executor's out-of-scope discovery, which no context serves and the forensic audit lists",
+        ),
         en("status", &["open", "resolved"])
-            .doc("an executor's out-of-scope discovery: open until resolved; absent is open"),
+            .doc("an execution idea: open until resolved; absent is open"),
     ],
 )
 .scoped_by("phase")

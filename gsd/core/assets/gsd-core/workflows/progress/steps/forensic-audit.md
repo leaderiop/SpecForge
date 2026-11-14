@@ -85,10 +85,11 @@ Emit:
 
 **Check 7 — Unresolved deferred items**
 
-The milestone's deferred ideas, with their status (an executor records each out-of-scope discovery as one, per
-`agents/gsd-executor.md`):
+The milestone's executor discoveries, with their status: the deferred ideas whose `origin` is `execution` (an executor
+records each out-of-scope discovery as one, per `agents/gsd-executor.md`). An idea deferred while a phase's context
+was set (`origin` `discussion`) is parked for a later phase on purpose and is not listed:
 ```bash
-specforge query "$MILESTONE" --depth 3 --kinds deferred_idea --pick '.nodes[kind=deferred_idea]' --fields id,fields.status,fields.text || true
+specforge query "$MILESTONE" --depth 3 --kinds deferred_idea --pick '.nodes[fields.origin=execution]' --fields id,fields.status,fields.text || true
 ```
 
 An idea is RESOLVED only when its `status` is `resolved`; every other one — including one with no `status` at all —

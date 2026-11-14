@@ -396,7 +396,7 @@ fn context_decision_and_deferred_idea_declare_the_fields_of_the_model() {
     );
     assert_eq!(
         fields_of("deferred_idea"),
-        ["text", "phase", "why", "status"]
+        ["text", "phase", "why", "origin", "status"]
     );
 }
 
@@ -647,10 +647,11 @@ fn the_discuss_kinds_declare_every_field_of_discuss_md() {
     // + 3: the quick plan's `plan` on context, decision and research. + 2 + 7 + 11: the edge probe's `shapes` and
     // `text_en` on locked_req, and its two row kinds, edge (7 fields) and spec_prohibition (11) (ADR 0333).
     // + 1: the discussion's `checkpoint` (a block's members are not counted). + 1: the deferred idea's `status`, open
-    // until an executor's out-of-scope discovery is resolved.
+    // until an executor's out-of-scope discovery is resolved. + 1: its `origin`, discussion or execution, so only a
+    // discussion idea is part of the phase's context.
     assert_eq!(
         total,
-        95 - 1 + 1 + 3 + 2 + 7 + 11 + 1 + 1,
+        95 - 1 + 1 + 3 + 2 + 7 + 11 + 1 + 1 + 1,
         "the kinds' fields"
     );
 }

@@ -1327,7 +1327,7 @@ gsd-core/references/execute-phase-response-language.md	kept	6+9	ebcd45cb673e
 gsd-core/references/execute-phase-wave-guard.md	own	1+50	2	984269f1d4d5	c93bdca780a8	ported-name
 gsd-core/references/execute-phase-wave-guard.md	kept	51+1	e3b0c44298fc
 gsd-core/references/executor-examples.md	kept	1+69	5749972c3899
-gsd-core/references/executor-examples.md	own	70+42	21	0a720175dcb2	4153d1415679	typed-edit
+gsd-core/references/executor-examples.md	own	70+42	26	0a720175dcb2	0c039870c803	typed-edit
 gsd-core/references/executor-examples.md	kept	112+42	7d3c2b58aee3
 gsd-core/references/failing-direction.md	kept	1+36	dd04fc928e52
 gsd-core/references/failing-direction.md	own	37+1	1	3f2585e5c701	196193a56c73	ported-name
@@ -2041,7 +2041,7 @@ gsd-core/templates/VALIDATION.md	kept	79+1	e3b0c44298fc
 gsd-core/templates/context.md	kept	1+2	718fbb0bae6e
 gsd-core/templates/context.md	own	3+1	1	53588d1181eb	f205e613ef57	ported-name
 gsd-core/templates/context.md	kept	4+11	4ed17db46492
-gsd-core/templates/context.md	own	15+307	90	cf28936bf00a	bd1c0058c098	prose
+gsd-core/templates/context.md	own	15+307	90	cf28936bf00a	8a94a5ddf6c7	prose
 gsd-core/templates/context.md	kept	322+19	e7bec95f8b04
 gsd-core/templates/context.md	own	341+1	1	699b15e65d93	6818cdcef62c	ported-name
 gsd-core/templates/context.md	kept	342+12	0ced15df2f94
@@ -4165,7 +4165,7 @@ gsd-core/workflows/plan-phase.md	kept	1561+15	05f1d39e9586
 gsd-core/workflows/plan-phase/detail/elaboration.md	kept	1+70	a35bacedd7a6
 gsd-core/workflows/plan-phase/detail/elaboration.md	own	71+1	1	a1eaaef18592	7df5f3fa4170	prose
 gsd-core/workflows/plan-phase/detail/elaboration.md	kept	72+27	a93bf2e8d7fa
-gsd-core/workflows/plan-phase/detail/elaboration.md	own	99+1	15	6eaee776ee34	f75a9de3c194	prose
+gsd-core/workflows/plan-phase/detail/elaboration.md	own	99+1	15	6eaee776ee34	38c71272ab5d	prose
 gsd-core/workflows/plan-phase/detail/elaboration.md	kept	100+56	5368f875c66e
 gsd-core/workflows/plan-phase/detail/elaboration.md	own	156+3	3	54be0acd1391	665190d7872c	ported-name
 gsd-core/workflows/plan-phase/detail/elaboration.md	kept	159+14	d4ba6eb04c0f
@@ -4249,7 +4249,7 @@ gsd-core/workflows/plan-phase/steps/prd-express-path.md	own	9+1	1	d31412b26d42	b
 gsd-core/workflows/plan-phase/steps/prd-express-path.md	kept	10+11	49d649b221fd
 gsd-core/workflows/plan-phase/steps/prd-express-path.md	own	21+4	4	6ce03580f281	8259e6f835cd	prose
 gsd-core/workflows/plan-phase/steps/prd-express-path.md	kept	25+3	25e54d457993
-gsd-core/workflows/plan-phase/steps/prd-express-path.md	own	28+65	43	c49d3ba6939f	6f5ed97c232e	typed-edit
+gsd-core/workflows/plan-phase/steps/prd-express-path.md	own	28+65	43	c49d3ba6939f	204d8f01f26a	typed-edit
 gsd-core/workflows/plan-phase/steps/prd-express-path.md	kept	93+3	f4db76b59dbb
 gsd-core/workflows/plan-phase/steps/prd-express-path.md	own	96+7	7	9902f5def722	125674af645d	ported-name
 gsd-core/workflows/plan-phase/steps/prd-express-path.md	kept	103+1	e3b0c44298fc
@@ -4590,9 +4590,9 @@ gsd-core/workflows/progress/steps/forensic-audit.md	own	76+4	4	111a6a264d79	a444
 gsd-core/workflows/progress/steps/forensic-audit.md	kept	80+2	9624b78b38b1
 gsd-core/workflows/progress/steps/forensic-audit.md	own	82+1	1	c093c142897b	072d259fef1b	ported-name
 gsd-core/workflows/progress/steps/forensic-audit.md	kept	83+4	cfcc37b35124
-gsd-core/workflows/progress/steps/forensic-audit.md	own	87+1	2	f947a1bf4bfb	97a3a6b5d433	prose
+gsd-core/workflows/progress/steps/forensic-audit.md	own	87+1	3	f947a1bf4bfb	ea14515b2d28	prose
 gsd-core/workflows/progress/steps/forensic-audit.md	kept	88+1	ad332335cfaa
-gsd-core/workflows/progress/steps/forensic-audit.md	own	89+4	5	7210359711b7	c0d5633ce5eb	ported-name
+gsd-core/workflows/progress/steps/forensic-audit.md	own	89+4	5	7210359711b7	f443bf86d3f2	ported-name
 gsd-core/workflows/progress/steps/forensic-audit.md	kept	93+2	9624b78b38b1
 gsd-core/workflows/progress/steps/forensic-audit.md	own	95+2	2	a5034f12aadf	a913e6b2e0eb	prose
 gsd-core/workflows/progress/steps/forensic-audit.md	kept	97+21	56853d519278

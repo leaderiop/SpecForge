@@ -46,7 +46,10 @@ pub(crate) const PLAN_CHECK_INPUTS: &[(&str, &str)] = &[
     ("decisions", "self.decisions"),
     ("phase_decisions", "self.phase<decision.phase"),
     ("all_decisions", "decision"),
-    ("context", "self.phase<context|deferred_idea.phase"),
+    (
+        "context",
+        "self.phase<context|deferred_idea[origin=discussion].phase",
+    ),
     ("research", "self.phase<research.phase"),
     (
         "research_items",

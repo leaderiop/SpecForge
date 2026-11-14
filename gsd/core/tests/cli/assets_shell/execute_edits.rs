@@ -457,9 +457,10 @@ fn the_execute_reads_run_as_written() {
     }
 }
 
-/// An out-of-scope discovery recorded as `executor-examples.md` shows is a deferred idea of the plan's phase, which
-/// the forensic audit's Check 7 lists open until its `status` reads resolved: Check 7 once queried a kind no extension
-/// declares, and a log file no command reads.
+/// An out-of-scope discovery recorded as `executor-examples.md` shows is an `execution` deferred idea of the plan's
+/// phase, under the phase's next id: it stales nothing written against the phase's context, and the forensic audit's
+/// Check 7 lists it open until its `status` reads resolved, beside no idea deferred while the context was set. Check 7
+/// once queried a kind no extension declares, and a log file no command reads.
 #[test]
 fn an_out_of_scope_discovery_stays_open_in_the_forensic_audit_until_resolved() {
     let Some(sh) = Shell::only(&[]) else {
@@ -473,7 +474,6 @@ fn an_out_of_scope_discovery_stays_open_in_the_forensic_audit_until_resolved() {
         ),
         &[
             ("PLAN_ID", "v1.0/02/02-01"),
-            ("IDEA_ID", "DI9"),
             (
                 "FOUND",
                 "The retry budget is hardcoded at 3 in src/store.js",
@@ -483,8 +483,9 @@ fn an_out_of_scope_discovery_stays_open_in_the_forensic_audit_until_resolved() {
     );
     let applied = typed::apply(&sh, &p, &record);
     assert_eq!(applied.code, 0, "{}{}", applied.out, applied.err);
-    // the phase's context gained the idea: the research written against it reports the drift
-    assert_eq!(applied.added, ["gsd/W406"], "new codes");
+    // an execution idea is no part of the phase's context: nothing written against it goes stale
+    assert!(applied.added.is_empty(), "new codes: {:?}", applied.added);
+    assert_eq!(p.fields_of("v1.0/02/DI2")["origin"], "execution");
     let check = format!(
         "MILESTONE=v1.0\n{}",
         typed::typed_fence(
@@ -496,8 +497,12 @@ fn an_out_of_scope_discovery_stays_open_in_the_forensic_audit_until_resolved() {
     assert_eq!(code, 0, "{out}{err}");
     let row = out
         .lines()
-        .find(|l| l.contains("DI9"))
-        .unwrap_or_else(|| panic!("Check 7 lists no DI9: {out}"));
+        .find(|l| l.contains("DI2"))
+        .unwrap_or_else(|| panic!("Check 7 lists no DI2: {out}"));
+    assert!(
+        !out.lines().any(|l| l.contains("/DI1")),
+        "Check 7 lists the discussion idea: {out}"
+    );
     assert!(
         row.contains("open") && row.contains("hardcoded at 3"),
         "{row}"
@@ -509,7 +514,7 @@ fn an_out_of_scope_discovery_stays_open_in_the_forensic_audit_until_resolved() {
     assert_eq!(code, 0, "{out}{err}");
     assert!(
         out.lines()
-            .any(|l| l.contains("DI9") && l.contains("resolved")),
+            .any(|l| l.contains("DI2") && l.contains("resolved")),
         "{out}"
     );
 }

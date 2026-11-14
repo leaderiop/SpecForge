@@ -64,7 +64,7 @@ PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || e
 CONTEXT_ID="$PHASE_ID/$CONTEXT"
 specforge new context "$CONTEXT" "$TITLE" --in "$PHASE_FILE" --phase "$PHASE_ID" --boundary "$BOUNDARY" --discretion "$DISCRETION" --specifics "$SPECIFICS" --canonical_refs "$CANONICAL_REFS" || exit 1
 specforge new decision D-01 "$DECISION" --in "$PHASE_FILE" --phase "$PHASE_ID" --area "$AREA" --text "$DECISION" --origin context || exit 1
-specforge new deferred_idea DI1 "$DEFERRED" --in "$PHASE_FILE" --phase "$PHASE_ID" --text "$DEFERRED" || exit 1
+specforge new deferred_idea DI1 "$DEFERRED" --in "$PHASE_FILE" --phase "$PHASE_ID" --origin discussion --text "$DEFERRED" || exit 1
 ```
 
 `CANONICAL_REFS` holds one item per topic area, grouping its paths. With no external spec, one item whose topic says

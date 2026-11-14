@@ -56,7 +56,11 @@ in `plan`, and is named `<quick_id>-D-01` so it cannot collide with a project de
 
 ## deferred_idea
 
-GSD: `<deferred>`. `text str R`, `phase → phase R`, `why str`. Excluded from every coverage rule.
+GSD: `<deferred>`. `text str R`, `phase → phase R`, `why str`, `origin discussion|execution R I`, `status open|resolved`.
+Excluded from every coverage rule. A `discussion` idea was deferred while the phase's context was set (discuss, the
+PRD path, the source audit) and the context routes serve it; an `execution` idea is an executor's out-of-scope
+discovery, which no route serves (recording one stales no pack, gsd/W406) and the forensic audit's Check 7 lists
+until its `status` is `resolved`. The idea is complete when resolved; an absent status is open.
 
 ## phase_spec, locked_req, interview, edge, spec_prohibition
 

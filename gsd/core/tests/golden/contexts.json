@@ -40,7 +40,7 @@
         },
         {
           "name": "context",
-          "selector": "self.phase<context|decision[origin=context]|deferred_idea.phase",
+          "selector": "self.phase<context|decision[origin=context]|deferred_idea[origin=discussion].phase",
           "tier": "enrich"
         },
         {
@@ -125,7 +125,7 @@
         },
         {
           "name": "context",
-          "selector": "self.phase<context|deferred_idea.phase",
+          "selector": "self.phase<context|deferred_idea[origin=discussion].phase",
           "tier": "core"
         },
         {
@@ -196,7 +196,7 @@
         },
         {
           "name": "context",
-          "selector": "self<context|deferred_idea.phase",
+          "selector": "self<context|deferred_idea[origin=discussion].phase",
           "tier": "core"
         },
         {
@@ -298,7 +298,7 @@
         },
         {
           "name": "context",
-          "selector": "self<context|decision[origin=context]|deferred_idea.phase",
+          "selector": "self<context|decision[origin=context]|deferred_idea[origin=discussion].phase",
           "tier": "enrich"
         },
         {
@@ -326,7 +326,7 @@
         },
         {
           "name": "context",
-          "selector": "self<context|deferred_idea.phase",
+          "selector": "self<context|deferred_idea[origin=discussion].phase",
           "tier": "core"
         },
         {
@@ -374,7 +374,7 @@
         },
         {
           "name": "context",
-          "selector": "self<context|deferred_idea.phase",
+          "selector": "self<context|deferred_idea[origin=discussion].phase",
           "tier": "core"
         },
         {
@@ -412,7 +412,7 @@
         },
         {
           "name": "context",
-          "selector": "self<context|deferred_idea.phase",
+          "selector": "self<context|deferred_idea[origin=discussion].phase",
           "tier": "core"
         },
         {
@@ -608,7 +608,7 @@
         },
         {
           "name": "deferred",
-          "selector": "self<deferred_idea.phase",
+          "selector": "self<deferred_idea[origin=discussion].phase",
           "tier": "core"
         }
       ],

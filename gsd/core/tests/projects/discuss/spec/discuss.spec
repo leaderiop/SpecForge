@@ -28,9 +28,10 @@ decision D-02 "Write the file atomically" {
 }
 
 deferred_idea DI1 "Sync between machines" {
-  phase v1.0/02
-  text  "Tasks sync between machines"
-  why   "Needs accounts, which v1 does not have"
+  phase  v1.0/02
+  origin discussion
+  text   "Tasks sync between machines"
+  why    "Needs accounts, which v1 does not have"
 }
 
 phase_spec 02-SPEC "Persistence spec" {
