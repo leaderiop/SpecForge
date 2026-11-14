@@ -75,23 +75,46 @@ fn a_facts_field_values_become_field_values_by_their_form() {
 
 #[specforge_test_macros::test(
     behavior = "build_in_memory_graph",
-    verify = "a fact's fraction is a number value, and one of more than 15 significant digits is none"
+    verify = "a fact's fraction is a number value, and one no decimal holds is its text on a declared field, for E061"
 )]
 fn a_fraction_is_a_number_value() {
+    use specforge_graph::field_form::ValueShape;
+    use specforge_protocol_types::FieldType;
     let fact = Fact::new("test", "js:a#b")
         .field("ratio", 0.25)
         .field("big", 1e20)
-        .field("drift", 0.1 + 0.2);
+        .field("drift", 0.1 + 0.2)
+        .field("noise", 2.0 / 3.0);
     let text = String::from_utf8(
         Store::new("node", "@t/node", "abc", vec![fact], BTreeMap::new()).bytes(),
     )
     .unwrap();
+    let drift = FieldForm::new(FieldType::Number, Vec::new());
+    let forms = FieldForms::new(
+        HashMap::from([(("test".to_string(), "drift".to_string()), drift.clone())]),
+        BTreeSet::new(),
+        BTreeSet::from(["test".to_string()]),
+    );
 
-    let (file, _) = served(KEY, &text, &FieldForms::default()).unwrap();
+    let (file, _) = served(KEY, &text, &forms).unwrap();
 
     let fields = &file.entities[0].fields;
     let number = |text: &str| Some(FieldValue::Number(Decimal::parse(text).unwrap()));
     assert_eq!(fields.get("ratio").cloned(), number("0.25"));
     assert_eq!(fields.get("big").cloned(), number("1e20"));
-    assert_eq!(fields.get("drift"), None);
+    // The declared field keeps the text, so its form refuses it naming the cap; the undeclared one is none.
+    let text = "0.30000000000000004";
+    assert_eq!(
+        fields.get("drift"),
+        Some(&FieldValue::Identifier(text.into()))
+    );
+    assert_eq!(
+        drift
+            .admit(ValueShape::Identifier, text)
+            .unwrap_err()
+            .suggestion
+            .as_deref(),
+        Some("a number keeps at most 15 significant digits")
+    );
+    assert_eq!(fields.get("noise"), None);
 }

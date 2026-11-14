@@ -674,8 +674,10 @@ pub fn source_span(place: &FactLocation) -> SourceSpan {
 }
 
 /// A fact's JSON value as a field value of `form` (none for an undeclared field: text, items quoted), each list item
-/// spanned at `place` of its text; `None` for a form no field holds (an object, a null, a number of more than 15
-/// significant digits, ADR 0361). A whole number within `i64` is an integer, any other number its exact decimal.
+/// spanned at `place` of its text; `None` for a form no field holds (an object, a null). A whole number within `i64`
+/// is an integer, any other number its exact decimal; a number no decimal holds (more than 15 significant digits,
+/// ADR 0361) is its JSON text on a declared field, so the form's E061 names the cap as it does for the word, and
+/// `None` on an undeclared one.
 fn field_value(
     value: serde_json::Value,
     form: Option<&FieldForm>,
@@ -687,9 +689,11 @@ fn field_value(
         Value::String(text) if written(&text) == Written::Bare => FieldValue::Identifier(text),
         Value::String(text) => FieldValue::String(text),
         Value::Bool(b) => FieldValue::Boolean(b),
-        Value::Number(n) => match n.as_i64() {
-            Some(whole) => FieldValue::Integer(whole),
-            None => FieldValue::Number(Decimal::from_json(&n).ok()?),
+        Value::Number(n) => match (n.as_i64(), Decimal::from_json(&n)) {
+            (Some(whole), _) => FieldValue::Integer(whole),
+            (None, Ok(decimal)) => FieldValue::Number(decimal),
+            (None, Err(_)) if form.is_some() => FieldValue::Identifier(n.to_string()),
+            (None, Err(_)) => return None,
         },
         Value::Array(items) => FieldValue::List(
             items

@@ -64,7 +64,7 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
     A store whose stale lines rename one name it holds two ways (two merged
     branches) MUST be served with none of its renames, W202.
   """
-  verify unit "a fact's fraction is a number value, and one of more than 15 significant digits is none"
+  verify unit "a fact's fraction is a number value, and one no decimal holds is its text on a declared field, for E061"
   verify unit "graph contains one node per entity"
   verify unit "graph contains one edge per resolved reference"
   verify unit "edge types match relationship semantics"
