@@ -7,9 +7,10 @@ use specforge_diagnostics::codes;
 use specforge_emitter::pack::{
     Cut, PackPlan, PackSection, Sealed, SectionBody, Served, fit, render,
 };
-use specforge_emitter::{EmitFormat, GraphProtocolSchema, estimate_tokens};
+use specforge_emitter::{EmitFormat, GraphProtocolSchema};
 use specforge_graph::Graph;
 use specforge_protocol_types::ContextTier;
+use specforge_protocol_types::tokens::estimate_tokens;
 use specforge_registry::RegistryBuild;
 
 const SRC: &str = r#"

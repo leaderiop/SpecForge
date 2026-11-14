@@ -20,6 +20,8 @@ pub use specforge_extension_sdk_macros::extension;
 pub use specforge_protocol_types::engine_tools;
 /// A command line as the shell's words: the host's reader (ADR 0292), for a guest that holds a command as text.
 pub use specforge_protocol_types::shell;
+/// The token estimate the host fits a context budget with, for a guest that declares or measures one.
+pub use specforge_protocol_types::tokens;
 
 /// The bindings generator [`component_guest!`] expands through.
 #[doc(hidden)]

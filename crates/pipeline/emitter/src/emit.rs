@@ -282,7 +282,7 @@ impl Shape<'_> {
         match self.attach {
             Some(SchemaAttachment::Embedded) => serde_json::to_string(self.schema)
                 .ok()
-                .map(|json| crate::budget::estimate_tokens(&json)),
+                .map(|json| specforge_protocol_types::tokens::estimate_tokens(&json)),
             _ => None,
         }
     }

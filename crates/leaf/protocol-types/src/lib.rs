@@ -23,6 +23,7 @@
 //! And two rules both sides run: [`command_args`], what a command's declared
 //! args admit and what its export receives (ADR 0017), and [`tool_input`],
 //! what an explicit MCP tool's input schema may not declare (ADR 0239).
+//! The token estimate ([`tokens`]) is the unit a context budget is declared and fitted in, the same on both sides.
 //!
 //! What sits here is what both sides compile: every builtin blob is built from this crate, so an
 //! item only the host reads lives host-side (the package names and the peer rule are
@@ -56,6 +57,7 @@ mod settings;
 pub mod shell;
 mod surface;
 mod syntax;
+pub mod tokens;
 pub mod tool_input;
 mod trigger;
 mod version;

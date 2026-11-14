@@ -412,7 +412,7 @@ fn schema_tokens(dir: &TestProject) -> (serde_json::Value, usize) {
     let full: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     let schema = full["schema"].clone();
     assert!(schema.is_object(), "{full}");
-    let tokens = specforge_emitter::estimate_tokens(&serde_json::to_string(&schema).unwrap());
+    let tokens = specforge_protocol_types::tokens::estimate_tokens(&schema.to_string());
     (schema, tokens)
 }
 
@@ -428,7 +428,7 @@ fn graph_export_honours_max_tokens_without_the_schema() {
     assert_eq!(code, 0, "{stderr}");
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
 
-    let used = specforge_emitter::estimate_tokens(&stdout);
+    let used = specforge_protocol_types::tokens::estimate_tokens(&stdout);
     assert!(used <= budget, "{used} tokens over the {budget} budget");
     assert!(parsed.get("schema").is_none(), "{parsed}");
     assert_eq!(parsed["format_version"], "1.0", "{parsed}");
@@ -457,7 +457,7 @@ fn embedded_schema_counts_toward_the_budget() {
     assert_eq!(code, 0, "{stderr}");
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
 
-    let used = specforge_emitter::estimate_tokens(&stdout);
+    let used = specforge_protocol_types::tokens::estimate_tokens(&stdout);
     assert!(used <= budget, "{used} tokens over the {budget} budget");
     assert_eq!(parsed["format_version"], "2.0", "{parsed}");
     assert_eq!(parsed["schema"], schema, "the schema travels whole");
@@ -508,7 +508,7 @@ fn budget_below_one_entity_yields_an_empty_envelope() {
     assert_eq!(code, 0, "{stderr}");
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
 
-    let used = specforge_emitter::estimate_tokens(&stdout);
+    let used = specforge_protocol_types::tokens::estimate_tokens(&stdout);
     assert!(used <= budget, "{used} tokens over the {budget} budget");
     assert_eq!(parsed["format_version"], "1.0", "{parsed}");
     assert!(parsed["schema_version"].is_string(), "{parsed}");
@@ -553,7 +553,7 @@ fn context_and_brief_exports_honour_max_tokens() {
     for format in ["context", "brief"] {
         let (code, whole, stderr) = export_format(&dir, format, &[]);
         assert_eq!(code, 0, "{format}: {stderr}");
-        let cost = specforge_emitter::estimate_tokens(&whole);
+        let cost = specforge_protocol_types::tokens::estimate_tokens(&whole);
 
         // Half the cost: entities are dropped, and the export says which.
         let budget = cost / 2;
@@ -561,7 +561,7 @@ fn context_and_brief_exports_honour_max_tokens() {
             export_format(&dir, format, &["--max-tokens", &budget.to_string()]);
         assert_eq!(code, 0, "{format}: {stderr}");
         let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-        let used = specforge_emitter::estimate_tokens(&stdout);
+        let used = specforge_protocol_types::tokens::estimate_tokens(&stdout);
         assert!(
             used <= budget,
             "{format}: {used} tokens over the {budget} budget"
@@ -742,7 +742,7 @@ fn the_export_matrix() {
                         .iter()
                         .map(|n| n["id"].as_str().unwrap())
                         .collect();
-                    let used = specforge_emitter::estimate_tokens(&stdout);
+                    let used = specforge_protocol_types::tokens::estimate_tokens(&stdout);
                     match expect {
                         Expect::Whole { keys } => {
                             let mut seen: Vec<&str> = object

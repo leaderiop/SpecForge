@@ -18,10 +18,11 @@ use specforge_graph::{Computed, Graph};
 use specforge_protocol_types::{ContextTier, JudgedFile};
 use specforge_registry::RegistryBuild;
 
-use crate::budget::{estimate_tokens, fewest};
+use crate::budget::fewest;
 use crate::emit::{EmitFormat, Shape};
 use crate::error::EmitterError;
 use crate::schema::GraphProtocolSchema;
+use specforge_protocol_types::tokens::estimate_tokens;
 
 /// What a digest costs while it is not known yet: a digest's tokens are its scheme and one hex run, whatever its value.
 const PLACEHOLDER: &str = "sha256:0000000000000000000000000000000000000000000000000000000000000000";

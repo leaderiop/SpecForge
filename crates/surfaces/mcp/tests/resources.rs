@@ -649,7 +649,10 @@ fn graph_resource_max_tokens_budgets() {
     let text = resource_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert!(parsed.get("schema").is_none(), "{parsed}");
-    assert!(specforge_emitter::estimate_tokens(&text) <= 200, "{text}");
+    assert!(
+        specforge_protocol_types::tokens::estimate_tokens(&text) <= 200,
+        "{text}"
+    );
 }
 
 // `root` is what the resource has always read: it stays an alias of `scope`.
