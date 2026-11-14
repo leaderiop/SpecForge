@@ -164,7 +164,7 @@ What's next?
 
 Wait for user selection.
 
-If "Discuss context": Note that discuss-phase takes any corrections discussed here into the phase's context
+If "Discuss context": tell the user that whatever they corrected here reaches the phase's context once discuss-phase runs
 If "Plan this phase": Proceed knowing assumptions are understood
 If "Re-examine": Return to analyze_phase with updated understanding
 </step>

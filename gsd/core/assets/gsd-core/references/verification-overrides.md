@@ -35,7 +35,7 @@ Overrides apply when a phase intentionally deviated from the original plan durin
 Without overrides, the verifier reports these as FAIL even though the deviation was intentional. Overrides let the developer mark specific items as `PASSED (override)` with a documented reason.
 
 Overrides are appropriate when:
-- A requirement changed after planning and the roadmap does not show it yet
+- The roadmap has not caught up yet with a requirement that moved once the plan was made
 - An alternative implementation satisfies the intent but not the literal wording
 - A must-have is deferred to a later phase with explicit tracking
 - External constraints make the original must-have impossible or unnecessary

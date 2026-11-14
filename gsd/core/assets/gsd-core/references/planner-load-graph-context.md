@@ -13,7 +13,7 @@ If what it runs reports the graph as stale, note for later: "Graph is {age_hours
 
 Query the graph for phase-relevant dependency context (single query per D-06): run what the line names (a prompt, or a `specforge` command) with the phase-goal keyword, for the related nodes and, when it offers them, the subsystems the phase may affect.
 
-Its output's shape is the serving extension's: read whichever you get; do not assume a stable shape and do not paste raw output into the plan.
+What comes back is shaped by the extension that serves it, so take it as it comes, expect no fixed format, and summarise it in the plan rather than pasting it raw.
 
 Use the keyword that best captures the phase goal. Prefer the full domain word over a
 prefix of it — a reader may match a prefix as a substring, so "auth" also

@@ -38,7 +38,7 @@ Parse current values (default to `true` if not present):
 - `plan_review.source_grounding` — verify plan symbols against live source during plan review (default: true if absent; set `plan_review.source_grounding_authority` to select the resolver adapter: `grep` (default), `intel`, `treesitter`, `lsp`, or `scip`)
 - `workflow.nyquist_validation` — validation architecture research during plan-phase (default: true if absent)
 - `workflow.pattern_mapper` — run gsd-pattern-mapper between research and planning (default: true if absent)
-- `workflow.ui_phase` — UI design contracts (`@gsd/ui`'s `ui_spec`) for frontend phases (default: true if absent)
+- `workflow.ui_phase` — when on, every frontend phase gets its interface spelled out by `@gsd/ui` as a `ui_spec` entity before anyone plans it (default: true if absent)
 - `workflow.ui_safety_gate` — prompt to run /gsd:ui-phase before planning frontend phases (default: true if absent)
 - `workflow.ai_integration_phase` — framework selection + eval strategy for AI phases (default: true if absent)
 - `workflow.tdd_mode` — enforce RED/GREEN/REFACTOR gate sequence during execute-phase (default: false if absent)
@@ -322,7 +322,7 @@ AskUserQuestion([
   // Note: Nyquist validation depends on research output. If research is disabled,
   // plan-phase automatically skips Nyquist steps (no RESEARCH.md to extract from).
   {
-    question: "Enable UI Phase? (UI design contracts for frontend phases)",
+    question: "Enable UI Phase? (@gsd/ui drafts each frontend phase's interface contract)",
     header: "UI Phase",
     multiSelect: false,
     options: [

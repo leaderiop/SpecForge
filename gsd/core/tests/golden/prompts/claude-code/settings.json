@@ -54,14 +54,14 @@
     "- `plan_review.source_grounding` — verify plan symbols against live source during plan review (default: true if absent; set `plan_review.source_grounding_authority` to select the resolver adapter: `grep` (default), `intel`, `treesitter`, `lsp`, or `scip`)",
     "- `workflow.nyquist_validation` — validation architecture research during plan-phase (default: true if absent)",
     "- `workflow.pattern_mapper` — run gsd-pattern-mapper between research and planning (default: true if absent)",
-    "- `workflow.ui_phase` — UI design contracts (`@gsd/ui`'s `ui_spec`) for frontend phases (default: true if absent)",
+    "- `workflow.ui_phase` — when on, every frontend phase gets its interface spelled out by `@gsd/ui` as a `ui_spec` entity before anyone plans it (default: true if absent)",
     "- `workflow.ui_safety_gate` — prompt to run /gsd-ui-phase before planning frontend phases (default: true if absent)",
     "- `workflow.ai_integration_phase` — framework selection + eval strategy for AI phases (default: true if absent)",
     "- `workflow.tdd_mode` — enforce RED/GREEN/REFACTOR gate sequence during execute-phase (default: false if absent)",
     "- `workflow.code_review` — enable /gsd-code-review and /gsd-code-review --fix commands (default: true if absent)",
     "- `workflow.code_review_depth` — default depth for /gsd-code-review: `quick`, `standard`, or `deep` (default: `\"standard\"` if absent; only relevant when `code_review` is on)"
   ],
-  "bytes": 45433,
+  "bytes": 45504,
   "end": [
     "These settings apply to future /gsd-plan-phase and /gsd-execute-phase runs.",
     "",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:436144e5db3b00d80a4273151f21a474fca5db52afed30006f11864ab44d908f",
+    "digest": "sha256:284f78ae695dff788fcae9fb7a592068726ecbb99328838d6140983f00ff78fd",
     "prompt": "@gsd/core@VERSION:settings"
   },
-  "sha256": "436144e5db3b00d80a4273151f21a474fca5db52afed30006f11864ab44d908f"
+  "sha256": "284f78ae695dff788fcae9fb7a592068726ecbb99328838d6140983f00ff78fd"
 }

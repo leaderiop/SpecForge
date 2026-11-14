@@ -222,7 +222,7 @@ Output your review in markdown format.
 
 Write to a temp file: `{run_dir}/gsd-review-prompt.md`
 
-Also copy each part of the prompt to a file of its own, so the budget tool can re-trim per reviewer:
+The budget tool re-trims the prompt for each reviewer, so give every part its own file too:
 
 ```bash
 # #2962: zsh aborts the block on an unmatched for-list glob (nomatch); bash passes it through. nullglob both.
@@ -312,7 +312,7 @@ specforge files read "${RUN_DIR}/.plans-manifest.md" --format human >> "${RUN_DI
 specforge files read "${RUN_DIR}/.plans-manifest.md" --format human >> "${RUN_DIR}/gsd-review-prompt.md" || exit 1
 ```
 
-Note: `INSTRUCTIONS_BLOCK_FILE` and `ROADMAP_SECTION_FILE` come from prompt assembly; `RUN_DIR` is the run-scoped dir from `gather_context` (#2358) re-assigned from `{run_dir}` above. Copy the temp files of prompt assembly to these paths; when the prompt was built inline, put each part there directly.
+Note: prompt assembly supplies `INSTRUCTIONS_BLOCK_FILE` and `ROADMAP_SECTION_FILE`, and the block sets `RUN_DIR` again from `{run_dir}`, the directory of this run that `gather_context` (#2358) named. The block copies the temp files of prompt assembly to these paths; when the prompt was assembled inline and there is no temp file, place each part at its path by hand.
 </step>
 
 <step name="invoke_reviewers">

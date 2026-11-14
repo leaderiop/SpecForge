@@ -162,7 +162,7 @@ Completed Tasks:
 ## Required Reading (in order)
 <!-- List documents the resuming agent must read before acting -->
 1. [document] — [why it matters]
-1. The project's `methodology` entities (if any) — its analytical lenses; apply before any assumption analysis
+1. Any `methodology` entities the project holds — lenses to look through before you analyse an assumption
 
 ## Critical Anti-Patterns (do NOT repeat these)
 <!-- Mistakes discovered this session that must be structurally avoided -->

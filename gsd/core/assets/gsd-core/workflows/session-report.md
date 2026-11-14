@@ -2,7 +2,7 @@
 @~/.claude/gsd-core/references/response-language-directive.md
 
 <purpose>
-Generate a post-session summary capturing work performed, outcomes achieved, and estimated resource usage, shown in the conversation for human review and stakeholder sharing: no file is kept.
+Sum up the session for a person: the work done, what it achieved and an estimate of the resources it used, shown in the conversation for review or sharing and kept in no file.
 </purpose>
 
 <required_reading>

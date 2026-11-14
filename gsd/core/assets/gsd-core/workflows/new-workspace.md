@@ -172,7 +172,7 @@ Track results: which repos succeeded, which failed, what branch was used.
 HOST=claude-code; ( cd "$TARGET_PATH" && specforge init && specforge add @gsd/core && specforge install "$HOST" )   # HOST is claude-code, codex or cursor
 ```
 
-## 8. Report and Next Steps
+## 8. Report the outcome and what to do next
 
 **If all repos succeeded:**
 

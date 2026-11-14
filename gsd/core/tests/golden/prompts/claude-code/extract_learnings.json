@@ -23,7 +23,7 @@
     "</required_reading>",
     "",
     "<objective>",
-    "Analyze a completed phase's entities (its plans, summaries, verification and UAT sessions, and the computed state) and extract structured learnings into 4 categories: decisions, lessons, patterns, and surprises. Each extracted item includes source attribution. The output is one `lesson` entity per item, with its `kind` set to the category.",
+    "Read what a finished phase left in the graph (its plans, summaries, verification, UAT sessions and the computed state) and sort what it teaches into 4 categories: decisions, lessons, patterns, and surprises. Each extracted item includes source attribution. The output is one `lesson` entity per item, with its `kind` set to the category.",
     "</objective>",
     "",
     "<process>",
@@ -61,7 +61,7 @@
     "Track which optional artifacts are missing for the `missing_artifacts` frontmatter field.",
     "</step>"
   ],
-  "bytes": 21036,
+  "bytes": 21032,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:699e9ad093e1cabf9bc822de3eb035fa0858481fe962ff1a0e276a6e2e3e0484",
+    "digest": "sha256:28e6b84aa382c12b1efc3e8bc6b13aa43a1fd72746a4ada27f87aee4ab3b434e",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "699e9ad093e1cabf9bc822de3eb035fa0858481fe962ff1a0e276a6e2e3e0484"
+  "sha256": "28e6b84aa382c12b1efc3e8bc6b13aa43a1fd72746a4ada27f87aee4ab3b434e"
 }

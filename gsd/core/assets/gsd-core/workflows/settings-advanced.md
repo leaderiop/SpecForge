@@ -144,7 +144,7 @@ AskUserQuestion([
     ]
   },
   {
-    question: "Run external plan-bounce validator against each new plan? (current: <value or false>)",
+    question: "Bounce each new plan off the external validator? (current: <value or false>)",
     header: "Plan Bounce",
     multiSelect: false,
     options: [

@@ -12,5 +12,5 @@
 5. Record the phase's context as `templates/context.md`'s typed-edit fence does, from the ADR records: its boundary, locked decisions, canonical refs, specifics and deferred ideas, `consequences_positive[]` as success criteria and `consequences_negative[]` as the risk summary in its specifics, which also name `ADR Ingest Express Path ({INGEST_PATH})` as the source.
 6. Commit with `git commit -m "docs(${padded_phase}): generate context from ADR ingest"`, then `specforge collect --runner gsd-git --yes` and set `context_content`; continue to step 5.
 
-**Effect:** This bypasses step 4 (loading the context), since the context came from the ADRs.
+**Effect:** Step 4 is skipped: there is no context left to load, as the ADRs have just supplied it.
 

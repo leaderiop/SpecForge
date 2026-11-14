@@ -10,7 +10,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 </required_reading>
 
 <objective>
-Analyze a completed phase's entities (its plans, summaries, verification and UAT sessions, and the computed state) and extract structured learnings into 4 categories: decisions, lessons, patterns, and surprises. Each extracted item includes source attribution. The output is one `lesson` entity per item, with its `kind` set to the category.
+Read what a finished phase left in the graph (its plans, summaries, verification, UAT sessions and the computed state) and sort what it teaches into 4 categories: decisions, lessons, patterns, and surprises. Each extracted item includes source attribution. The output is one `lesson` entity per item, with its `kind` set to the category.
 </objective>
 
 <process>

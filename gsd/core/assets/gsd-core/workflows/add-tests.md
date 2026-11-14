@@ -1,6 +1,6 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/workflows/add-tests.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <purpose>
-Generate unit and E2E tests for a completed phase from its summaries, its context and its implementation. Classifies each changed file into TDD (unit), E2E (browser), or Skip categories, presents a test plan for user approval, then generates tests following RED-GREEN conventions.
+Once a phase is complete, this workflow derives unit and E2E tests from its summaries, its context and the code it shipped. Classifies each changed file into TDD (unit), E2E (browser), or Skip categories, presents a test plan for user approval, then generates tests following RED-GREEN conventions.
 
 Users currently hand-craft `/gsd:quick` prompts for test generation after each phase. This workflow standardizes the process with proper classification, quality gates, and gap reporting.
 </purpose>
