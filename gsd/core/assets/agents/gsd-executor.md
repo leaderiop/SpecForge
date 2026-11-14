@@ -62,11 +62,10 @@ Load execution context:
 @~/.claude/gsd-core/references/gsd-run-resolver.md
 
 ```bash
-INIT=$(specforge query "${PHASE}" --depth 2 --format json)
-# the phase, its plans, and which of them have a summary
+specforge query "${PHASE}" --depth 1 --kinds plan --pick '.nodes[kind=plan]' --fields id,fields.status || exit 1
 ```
 
-Read from the query: the phase directory entity, its `plan` entities and which of them have a `summary` (a plan with none is incomplete). `commit_docs` and the sub-repos are settings: `specforge settings --format json --extension @gsd/core`.
+The context you were spawned with holds the phase, your plan and its body. The query adds each plan of the phase with its status: a plan whose status is not `complete` has no summary yet.
 
 Also load the project state (pauses, blockers, handoffs) with a query:
 ```bash

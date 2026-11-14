@@ -102,7 +102,7 @@ impl Shell {
 }
 
 /// The asset `path` (under `assets/`) as text.
-fn asset(path: &str) -> String {
+pub(super) fn asset(path: &str) -> String {
     std::fs::read_to_string(format!("{}/assets/{path}", env!("CARGO_MANIFEST_DIR")))
         .unwrap_or_else(|e| panic!("{path}: {e}"))
 }
@@ -140,7 +140,7 @@ fn fence_from(text: &str, mark: &str) -> String {
 }
 
 /// A fence's code without the line break that ends its last line.
-fn code(text: &str) -> &str {
+pub(super) fn code(text: &str) -> &str {
     text.strip_suffix('\n').unwrap_or(text)
 }
 
@@ -151,7 +151,7 @@ fn q(s: &str) -> String {
 
 /// The lines of `text` from the first that starts (after its indent) with `start` through the first that contains
 /// `end`.
-fn block(text: &str, start: &str, end: &str) -> String {
+pub(super) fn block(text: &str, start: &str, end: &str) -> String {
     let lines: Vec<&str> = text.lines().collect();
     let a = lines
         .iter()
