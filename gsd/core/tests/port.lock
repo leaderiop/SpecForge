@@ -2096,7 +2096,7 @@ gsd-core/workflows/audit-uat.md	kept	15+37	cc0971eb7d36
 gsd-core/workflows/audit-uat.md	own	52+0	1	e3b0c44298fc	e3b0c44298fc	markdown
 gsd-core/workflows/audit-uat.md	kept	52+77	506fd794fd25
 gsd-core/workflows/autonomous.md	kept	1+4	fcf6ea8860ae
-gsd-core/workflows/autonomous.md	own	5+1	1	e5bfd8f18dce	af3414dde2b0	served
+gsd-core/workflows/autonomous.md	own	5+1	1	e5bfd8f18dce	90adfd3ddb25	served
 gsd-core/workflows/autonomous.md	kept	6+15	06fd5fad3f64
 gsd-core/workflows/autonomous.md	own	21+1	1	fd68585bf9f9	501d04283c12	args
 gsd-core/workflows/autonomous.md	kept	22+2	5f046190424d
@@ -2123,7 +2123,11 @@ gsd-core/workflows/autonomous.md	kept	144+4	1bdf70f185fc
 gsd-core/workflows/autonomous.md	own	148+1	1	96c11bcff671	0a95b6d2fe51	ported-name
 gsd-core/workflows/autonomous.md	kept	149+10	6b258671a271
 gsd-core/workflows/autonomous.md	own	159+10	4	46a2836422ee	99f69003034a	ported-name
-gsd-core/workflows/autonomous.md	kept	169+59	ad1c1631a1ad
+gsd-core/workflows/autonomous.md	kept	169+4	708e29c1ad7a
+gsd-core/workflows/autonomous.md	own	173+1	8	6c3fca018669	a2403cf43d3a	prose
+gsd-core/workflows/autonomous.md	kept	174+2	435f4e61d014
+gsd-core/workflows/autonomous.md	own	176+4	5	40909d1b418c	27b5f054cd45	prose
+gsd-core/workflows/autonomous.md	kept	180+48	74220499d10c
 gsd-core/workflows/autonomous.md	own	228+1	1	22e79ac0d0a7	7b8541a40a2c	served
 gsd-core/workflows/autonomous.md	kept	229+4	45ea607a405e
 gsd-core/workflows/autonomous.md	own	233+1	1	89be3e3d06fe	8b524ce5964a	ported-name
@@ -2133,7 +2137,9 @@ gsd-core/workflows/autonomous.md	kept	251+6	75220f83a11d
 gsd-core/workflows/autonomous.md	own	257+6	2	aeedfe7ff0c2	4ed6a2a58c21	ported-name
 gsd-core/workflows/autonomous.md	kept	263+15	0923e7500960
 gsd-core/workflows/autonomous.md	own	278+1	1	97b3d8253dcb	1781f9865b2a	ported-name
-gsd-core/workflows/autonomous.md	kept	279+11	697f58a44ee0
+gsd-core/workflows/autonomous.md	kept	279+8	c8d6c48dba3f
+gsd-core/workflows/autonomous.md	own	287+1	1	1afcd563261e	78a0971125c6	prose
+gsd-core/workflows/autonomous.md	kept	288+2	5f046190424d
 gsd-core/workflows/autonomous.md	own	290+4	4	29e81ac9d9d0	2ed414825d67	ported-name
 gsd-core/workflows/autonomous.md	kept	294+4	e817e179eb81
 gsd-core/workflows/autonomous.md	own	298+1	1	d811b59046a1	ace3593df57e	ported-name
@@ -2156,27 +2162,29 @@ gsd-core/workflows/autonomous.md	own	427+1	1	314a2b5eb49a	57e8558307e4	ported-na
 gsd-core/workflows/autonomous.md	kept	428+25	e21b1100bc4d
 gsd-core/workflows/autonomous.md	own	453+4	3	0b0f56541d25	a8321973b703	ported-name
 gsd-core/workflows/autonomous.md	kept	457+5	e256e47b1412
-gsd-core/workflows/autonomous.md	own	462+3	3	7bf3fec70683	f20a061d21b4	ported-name
+gsd-core/workflows/autonomous.md	own	462+3	11	7bf3fec70683	81587854cbd1	ported-name
 gsd-core/workflows/autonomous.md	kept	465+5	0da6df11808c
-gsd-core/workflows/autonomous.md	own	470+1	1	5d7df0ad3f39	107f6f8945ef	served
-gsd-core/workflows/autonomous.md	kept	471+13	b9dafecc282a
-gsd-core/workflows/autonomous.md	own	484+1	1	5f129442046d	e5ba54d7e266	served
+gsd-core/workflows/autonomous.md	own	470+1	1	5d7df0ad3f39	dd8ae790022d	prose
+gsd-core/workflows/autonomous.md	kept	471+5	d473f37df296
+gsd-core/workflows/autonomous.md	own	476+9	5	26595f65418f	f3344b516418	prose
 gsd-core/workflows/autonomous.md	kept	485+21	b91b42f47d03
 gsd-core/workflows/autonomous.md	own	506+1	1	fd3cc316f2d7	13a09cdd2b49	args
 gsd-core/workflows/autonomous.md	kept	507+5	f187e04b4fe2
 gsd-core/workflows/autonomous.md	own	512+1	1	5521686d3fa8	ab6bf26135d0	ported-name
 gsd-core/workflows/autonomous.md	kept	513+8	6d0c0b93640a
-gsd-core/workflows/autonomous.md	own	521+3	3	58f6726a4034	d1f2a1ae2659	served
-gsd-core/workflows/autonomous.md	kept	524+14	1c448f887c7d
-gsd-core/workflows/autonomous.md	own	538+1	1	fcce7c71e790	32bf902e34ca	served
+gsd-core/workflows/autonomous.md	own	521+3	3	58f6726a4034	a52ebeffc292	prose
+gsd-core/workflows/autonomous.md	kept	524+6	5d1b710317c1
+gsd-core/workflows/autonomous.md	own	530+9	5	84765576a80d	870a2822df17	prose
 gsd-core/workflows/autonomous.md	kept	539+10	ca298b3c7929
 gsd-core/workflows/autonomous.md	own	549+5	5	964c380a8170	3be98542cd8a	ported-name
-gsd-core/workflows/autonomous.md	kept	554+49	5dd79317674a
-gsd-core/workflows/autonomous.md	own	603+1	1	23d483f82bcb	a57148b9ed3e	ported-name
+gsd-core/workflows/autonomous.md	kept	554+22	9716c1ef7a18
+gsd-core/workflows/autonomous.md	own	576+1	1	cddcfc735c2e	62b3f63514ac	prose
+gsd-core/workflows/autonomous.md	kept	577+26	068caf385c49
+gsd-core/workflows/autonomous.md	own	603+1	1	23d483f82bcb	d02368907ee6	ported-name
 gsd-core/workflows/autonomous.md	kept	604+2	5f046190424d
-gsd-core/workflows/autonomous.md	own	606+11	5	38491aaa3d40	66a74bf97afa	ported-name
-gsd-core/workflows/autonomous.md	kept	617+8	110764c5bcfa
-gsd-core/workflows/autonomous.md	own	625+1	1	3a8dc6632e44	dec8d4843060	served
+gsd-core/workflows/autonomous.md	own	606+16	10	8a2f62be6ba7	dacee3f87490	ported-name
+gsd-core/workflows/autonomous.md	kept	622+3	7d8d4fc5a48e
+gsd-core/workflows/autonomous.md	own	625+1	1	3a8dc6632e44	f8e6683a93cf	served
 gsd-core/workflows/autonomous.md	kept	626+50	a1949e8fd927
 gsd-core/workflows/autonomous.md	own	676+2	2	241ee8643060	730e55272c42	ported-name
 gsd-core/workflows/autonomous.md	kept	678+26	3b19d094ac29
@@ -2186,10 +2194,12 @@ gsd-core/workflows/autonomous.md	own	719+1	1	4e2278674896	b369f3623272	served
 gsd-core/workflows/autonomous.md	kept	720+12	901f9acd1639
 gsd-core/workflows/autonomous.md	own	732+13	4	2cf05cc612f9	21023fd8b46e	ported-name
 gsd-core/workflows/autonomous.md	kept	745+38	345cfa1a5008
-gsd-core/workflows/autonomous.md	own	783+3	3	887ceb2277eb	b4bf83c9d911	prose
+gsd-core/workflows/autonomous.md	own	783+3	3	887ceb2277eb	4812398bd3dc	served
 gsd-core/workflows/autonomous.md	kept	786+21	f5a8372aacc0
 gsd-core/workflows/autonomous.md	own	807+1	1	4d1294c187d8	6cb15ee081ba	served
-gsd-core/workflows/autonomous.md	kept	808+43	240664bf840b
+gsd-core/workflows/autonomous.md	kept	808+6	75ed9c85b167
+gsd-core/workflows/autonomous.md	own	814+2	2	73b0334151f1	07b57366aaa8	served
+gsd-core/workflows/autonomous.md	kept	816+35	ea288e01d2eb
 gsd-core/workflows/autonomous.md	own	851+1	1	23aa7fc3de5b	d091a5ce6880	args
 gsd-core/workflows/autonomous.md	kept	852+1	088ee086c5a4
 gsd-core/workflows/autonomous.md	own	853+1	1	f791bfaab1d0	ea32a2e09d7f	args

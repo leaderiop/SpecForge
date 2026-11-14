@@ -25,7 +25,7 @@
     "",
     "<purpose>",
     "",
-    "Drive milestone phases autonomously — all remaining phases, a range via `--from N`/`--to N`, or a single phase via `--only N`. For each incomplete phase: discuss → plan → execute using Skill() flat invocations. When `--converge` is set, route the planning step through plan-review convergence before execution. Pauses only for explicit user decisions (grey area acceptance, blockers, validation requests). Re-reads ROADMAP.md after each phase to catch dynamically inserted phases.",
+    "Drive milestone phases autonomously — all remaining phases, a range via `--from N`/`--to N`, or a single phase via `--only N`. For each incomplete phase: discuss → plan → execute using Skill() flat invocations. When `--converge` is set, route the planning step through plan-review convergence before execution. Pauses only for explicit user decisions (grey area acceptance, blockers, validation requests). Re-reads the milestone's phases (`specforge gsd progress-report`) after each phase to catch dynamically inserted phases.",
     "",
     "</purpose>",
     "",
@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 62163,
+  "bytes": 63571,
   "end": [
     "- Missing Next Up block after completions",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1329,
+  "lines": 1337,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:23e287f9cfe1db03794c11d8df04c1ec6bc0b53679398bc194f1d56fe4e199dd",
+    "digest": "sha256:2da8d87a522463bcad7d01fe0d07d12730531bc7c31adf9bd3b8da6c1ef664aa",
     "prompt": "@gsd/core@VERSION:autonomous",
     "steps": [
       {
@@ -242,5 +242,5 @@
       }
     ]
   },
-  "sha256": "23e287f9cfe1db03794c11d8df04c1ec6bc0b53679398bc194f1d56fe4e199dd"
+  "sha256": "2da8d87a522463bcad7d01fe0d07d12730531bc7c31adf9bd3b8da6c1ef664aa"
 }

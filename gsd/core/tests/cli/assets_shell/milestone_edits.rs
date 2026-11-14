@@ -240,22 +240,38 @@ fn the_milestone_templates_record_a_milestone_its_close_and_a_lesson() {
     );
 }
 
-/// Autonomous keeps a deferred verification in a `## Deferred Verification` section of STATE.md and, on re-entry,
-/// parses that section out of `progress-report`'s answer, which never holds it: a deferred phase runs again.
+/// Autonomous records a deferred verification as a blocker on the phase: on a taskboard the deferral fence, run for
+/// phase 01, raises one; discover_phases' re-entry list names it with its phase and resume command; once the phase
+/// passes, the resolve fence closes it and the list is empty again.
 #[test]
-fn a_deferred_verification_is_kept_where_progress_never_prints_it() {
-    let Some(sh) = Shell::without_jq() else {
+fn a_deferred_verification_is_a_blocker_the_reentry_lists() {
+    let Some(sh) = Shell::only(&[]) else {
         return;
     };
     let text = asset("gsd-core/workflows/autonomous.md");
-    let read = super::line(&text, "STATE_CONTENT=$(");
-    let p = crate::harness::taskboard();
-    let (out, err, code) = sh.run_in(p.root(), &format!("{read}\nprintf '%s' \"$STATE_CONTENT\""));
+    assert!(!text.contains("## Deferred Verification\n"));
+    let at = "MILESTONE=v1.0\nPHASE_NUM=01\n";
+    let p = taskboard();
+    let defer = fence_holding(&text, "verification_deferred_human: resume");
+    let done = typed::apply(&sh, &p, &format!("{at}{defer}"));
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert!(done.added.is_empty(), "{:?}", done.added);
+    let open = fence_holding(&text, "one line per open blocker on a phase");
+    let (out, err, code) = sh.run_in(p.root(), &format!("{at}{open}"));
     assert_eq!(code, 0, "{err}");
-    assert!(!out.trim().is_empty(), "{err}");
-    assert!(!out.contains("Deferred Verification"), "{out}");
-    assert!(!out.contains("phase_complete"), "{out}");
-    assert!(text.contains("Append/update this STATE.md section"));
+    let rows: Vec<&str> = out.lines().collect();
+    assert_eq!(rows.len(), 1, "{out}");
+    let cells: Vec<&str> = rows[0].split('\t').collect();
+    assert_eq!(cells[1], "v1.0/01", "{out}");
+    assert!(cells[2].contains("/gsd:verify-work 01"), "{out}");
+    assert_eq!(p.fields_of(cells[0])["phase"], "v1.0/01");
+    let resolve = fence_holding(&text, "resolve-blocker \"$BLOCKER\"");
+    let done = typed::apply(&sh, &p, &format!("{at}{resolve}"));
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert!(done.added.is_empty(), "{:?}", done.added);
+    let (out, err, code) = sh.run_in(p.root(), &format!("{at}{open}"));
+    assert_eq!(code, 0, "{err}");
+    assert!(out.trim().is_empty(), "{out}");
 }
 
 /// The two lessons graduation reads in `review.rs`'s window test, on a taskboard copy.

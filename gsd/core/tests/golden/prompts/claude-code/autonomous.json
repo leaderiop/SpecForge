@@ -25,7 +25,7 @@
     "",
     "<purpose>",
     "",
-    "Drive milestone phases autonomously — all remaining phases, a range via `--from N`/`--to N`, or a single phase via `--only N`. For each incomplete phase: discuss → plan → execute using Skill() flat invocations. When `--converge` is set, route the planning step through plan-review convergence before execution. Pauses only for explicit user decisions (grey area acceptance, blockers, validation requests). Re-reads ROADMAP.md after each phase to catch dynamically inserted phases.",
+    "Drive milestone phases autonomously — all remaining phases, a range via `--from N`/`--to N`, or a single phase via `--only N`. For each incomplete phase: discuss → plan → execute using Skill() flat invocations. When `--converge` is set, route the planning step through plan-review convergence before execution. Pauses only for explicit user decisions (grey area acceptance, blockers, validation requests). Re-reads the milestone's phases (`specforge gsd progress-report`) after each phase to catch dynamically inserted phases.",
     "",
     "</purpose>",
     "",
@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 53632,
+  "bytes": 55040,
   "end": [
     "- Missing Next Up block after completions",
     "",
@@ -186,7 +186,7 @@
     "  \"features.thinking_partner\": false,",
     "  \"gates.confirm_milestone_scope\": true,"
   ],
-  "lines": 1213,
+  "lines": 1221,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:e6110f0c9a9e2e83461bd5edff77b52f5e933cae32821abcaed98d7a18e59f5f",
+    "digest": "sha256:2e4c00488297789f19717b0a7199961d8e773c7c0fb2c17f05fd098dd5a39f35",
     "prompt": "@gsd/core@VERSION:autonomous",
     "steps": [
       {
@@ -242,5 +242,5 @@
       }
     ]
   },
-  "sha256": "e6110f0c9a9e2e83461bd5edff77b52f5e933cae32821abcaed98d7a18e59f5f"
+  "sha256": "2e4c00488297789f19717b0a7199961d8e773c7c0fb2c17f05fd098dd5a39f35"
 }
