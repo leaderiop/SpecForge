@@ -3,8 +3,9 @@
 
 use crate::harness::{Project, project};
 
-/// A persona and two journeys, written on the `roadmap` project as `spec/product.spec`: `add_and_finish` ships in
-/// `v1.0` and steps through TASK-01 and TASK-02; `share_board` steps through SHARE-01.
+/// A persona, two journeys and two terms, written on the `roadmap` project as `spec/product.spec`: `add_and_finish`
+/// ships in `v1.0` and steps through TASK-01 and TASK-02; `share_board` steps through SHARE-01; the term
+/// `work_item`, whose word is "task" (a keyword is no entity id, E013), is related to `board`.
 pub(crate) const PRODUCT: &str = r#"persona owner "Board owner" {
   context         "Runs a small team's board"
   goals           ["Never lose a task"]
@@ -29,6 +30,21 @@ journey add_and_finish "Add a task and finish it" {
 journey share_board "Share the board" {
   persona owner
   steps   [ { action "copies the board's link" requirement SHARE-01 } ]
+}
+
+term work_item "Task" {
+  name       "task"
+  definition "A unit of work on the board, with a title"
+  avoid      ["ticket"]
+  aliases    ["to-do"]
+  related    [board]
+  context    "the board's lists"
+  tags       ["core"]
+}
+
+term board "Board" {
+  name       "board"
+  definition "The tasks a team shares"
 }
 "#;
 
@@ -177,4 +193,39 @@ fn a_journey_priority_is_must_should_or_could() {
     for word in ["must", "should", "could"] {
         assert!(found[0].1.contains(word), "{word} in {found:#?}");
     }
+}
+
+#[test]
+fn a_term_names_its_related_terms() {
+    let p = product();
+    assert_eq!(p.codes(), Vec::<String>::new());
+    assert_eq!(
+        edges_from(&p, "work_item"),
+        [edge("related", "work_item", "board")]
+    );
+    p.edit(
+        "spec/product.spec",
+        "related    [board]",
+        "related    [nope]",
+    );
+    let found = p.report();
+    assert_eq!(
+        found.iter().map(|(c, _)| c.as_str()).collect::<Vec<_>>(),
+        ["E003"],
+        "{found:#?}"
+    );
+    assert!(found[0].1.contains("nope"), "{found:#?}");
+}
+
+#[test]
+fn a_term_without_its_word_is_e006() {
+    let p = product();
+    p.edit("spec/product.spec", "  name       \"task\"\n", "");
+    let found = p.report();
+    assert_eq!(
+        found.iter().map(|(c, _)| c.as_str()).collect::<Vec<_>>(),
+        ["E006"],
+        "{found:#?}"
+    );
+    assert!(found[0].1.contains("name"), "{found:#?}");
 }

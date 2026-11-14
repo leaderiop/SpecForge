@@ -57,3 +57,20 @@ pub const JOURNEY: Kind = Kind::new(
         strs("tags").doc("free words"),
     ],
 );
+
+/// A glossary entry. Unscoped: a term's id is project-wide.
+pub const TERM: Kind = Kind::new(
+    "term",
+    "A glossary entry: a word of the project and what it means (beyond GSD)",
+    &[
+        str("name")
+            .r()
+            .doc("the word or phrase as prose writes it; a pass sees no title, so the vocabulary checks read this"),
+        str("definition").r().doc("what it means in this project"),
+        strs("avoid").doc("synonyms not to use for it"),
+        strs("aliases").doc("other accepted names; never the same as `avoid`"),
+        rfs("related", "term").doc("related terms"),
+        str("context").doc("where or how it is used"),
+        strs("tags").doc("free words"),
+    ],
+);

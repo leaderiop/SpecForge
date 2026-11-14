@@ -61,6 +61,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "TermRelated",
+        "source_kind": "term",
+        "target_kind": "term"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "MilestoneWorkstream",
         "source_kind": "milestone",
         "target_kind": "workstream"
@@ -1733,6 +1742,96 @@
         "keyword": null,
         "lsp_icon": null,
         "name": "journey",
+        "open_fields": false,
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A glossary entry: a word of the project and what it means (beyond GSD)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "the word or phrase as prose writes it; a pass sees no title, so the vocabulary checks read this",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "name",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "what it means in this project",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "definition",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "synonyms not to use for it",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "avoid",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "other accepted names; never the same as `avoid`",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "aliases",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "related terms",
+            "edge": "TermRelated",
+            "field_type": "reference_list",
+            "inverse_of": null,
+            "name": "related",
+            "required": false,
+            "target_kind": "term"
+          },
+          {
+            "default_value": null,
+            "description": "where or how it is used",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "context",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "free words",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "tags",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "term",
         "open_fields": false,
         "semantic_token": null,
         "singleton": false,

@@ -3,9 +3,10 @@
 ```
  persona ─1──*─ journey ─*──*─ milestone        (milestones: where it ships; the milestone reads `journeys`)
                    └─ steps[] ─*──0..1─ requirement
+ term ─*──*─ term                               (related)
 ```
 
-Files: `spec/gsd/product/personas.spec`, `spec/gsd/product/journeys.spec`.
+Files: `spec/gsd/product/personas.spec`, `spec/gsd/product/journeys.spec`, `spec/gsd/product/glossary.spec`.
 
 GSD keeps no persona, journey or glossary file: these kinds are beyond parity, and no `gsd-compat` rule needs them.
 Each is unscoped, so its id is unique across the project and a reference to it never needs a path.
@@ -41,3 +42,20 @@ A persona's path through the product, step by step. Name: a word, `sign_in`.
 
 A step's requirement is the journey's edge `steps.requirement`, resolved from the journey outward (ADR 0285 D4). A
 journey lists every milestone it ships in rather than being scoped by one: a scope is one reference (ADR 0284 D1).
+
+## term
+
+A glossary entry: a word of the project and what it means. Name: a word, `spec_root`. A word that is a kind's keyword
+(`task`) is no entity id (E013), so its term takes another id (`work_item`) and `name` still holds the word.
+
+| Field | Type | Flags | Meaning |
+|---|---|---|---|
+| name | str | R | the word or phrase as prose writes it; a pass sees no title, so the vocabulary checks read this |
+| definition | str | R | what it means in this project |
+| avoid | strs | | synonyms not to use for it |
+| aliases | strs | | other accepted names; never the same as `avoid` |
+| related | →* term | | related terms |
+| context | str | | where or how it is used |
+| tags | strs | | free words |
+
+`related` relates terms with themselves, so it has no reverse to read: a term names the terms it relates to.

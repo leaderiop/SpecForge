@@ -29,6 +29,7 @@ const KINDS: &[&Kind] = &[
     &project::REQUIREMENT,
     &product::PERSONA,
     &product::JOURNEY,
+    &product::TERM,
     &roadmap::MILESTONE,
     &roadmap::PHASE,
     &roadmap::WORKSTREAM,
