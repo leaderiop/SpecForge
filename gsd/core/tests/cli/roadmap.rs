@@ -269,3 +269,38 @@ fn a_milestone_dependency_cycle_is_e102() {
         assert!(found[at].1.contains(&expected), "{expected} in {found:#?}");
     }
 }
+
+/// A milestone that targets a day before it starts is a contradiction, `gsd/E537`, an error under every profile;
+/// the same day is clean.
+#[test]
+fn a_milestone_targeting_before_it_starts_is_e537() {
+    for profile in ["gsd-compat", "gsd-strict", "gsd-plus"] {
+        let p = project("roadmap");
+        p.settings(serde_json::json!({ "profile": profile }));
+        p.write(
+            "spec/v1.1.spec",
+            &milestone_v1_1("2026-03-01", "2026-02-01"),
+        );
+        let found = p.findings();
+        let codes: Vec<&str> = found.iter().map(|(code, _)| code.as_str()).collect();
+        assert_eq!(codes, ["gsd/E537"], "{profile}: {found:#?}");
+        assert!(
+            found[0]
+                .1
+                .contains("milestone 'v1.1' targets 2026-02-01 before it starts 2026-03-01"),
+            "{profile}: {found:#?}"
+        );
+        let check = p.run(&["check"]);
+        assert_eq!(
+            check.code,
+            1,
+            "{profile}: an error fails the check: {}",
+            check.all()
+        );
+        p.write(
+            "spec/v1.1.spec",
+            &milestone_v1_1("2026-03-01", "2026-03-01"),
+        );
+        assert_eq!(p.findings(), [], "{profile}: the same day is clean");
+    }
+}

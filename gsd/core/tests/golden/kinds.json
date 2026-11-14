@@ -1955,7 +1955,7 @@
           },
           {
             "default_value": null,
-            "description": "the date it aims to ship (beyond GSD)",
+            "description": "the date it aims to ship; not before `starts`, gsd/E537 (beyond GSD)",
             "edge": null,
             "field_type": "date",
             "inverse_of": null,

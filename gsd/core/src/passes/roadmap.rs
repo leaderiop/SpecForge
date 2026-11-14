@@ -1,6 +1,6 @@
-//! The roadmap pass: `gsd/E101`, `gsd/E102`, `gsd/W103`, `gsd/W104`, `gsd/E108` and `gsd/E206` over the project, requirements,
-//! phases and their references. Pure functions over the pass input; the plan half of E102 is `plans`, its milestone
-//! half (beyond GSD, ADR 0357) `milestone_cycles`, and E106 is a gate guard (r39).
+//! The roadmap pass: `gsd/E101`, `gsd/E102`, `gsd/W103`, `gsd/W104`, `gsd/E108`, `gsd/E206` and `gsd/E537` over the
+//! project, requirements, milestones, phases and their references. Pure functions over the pass input; the plan half
+//! of E102 is `plans`, its milestone half (beyond GSD, ADR 0357) `milestone_cycles`, and E106 is a gate guard (r39).
 //!
 //! Also ports gsd-core bin/lib modules: gap-checker.cjs, roadmap-parser.cjs, roadmap-upgrade.cjs.
 //!
@@ -27,6 +27,7 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut found = one_project(input);
     found.extend(unmapped_requirements(input));
     found.extend(dependencies(input));
+    found.extend(milestone_dates(input));
     found.extend(criteria::check(input));
     found.extend(numbering::check(input));
     found.extend(one_per_phase::check(input));
@@ -201,6 +202,30 @@ fn milestone_cycles(input: &PassInput) -> Vec<PassDiagnostic> {
             )
             .with_suggestion("break the cycle: remove one depends_on")
             .with_entity(milestone)
+        })
+        .collect()
+}
+
+/// E537 (beyond GSD, ADR 0357): a milestone whose `targets` day is before its `starts` day, a contradiction. The kernel
+/// admits a `date` only as `YYYY-MM-DD`, so text order is day order; the same day, or a milestone missing either date,
+/// is clean.
+fn milestone_dates(input: &PassInput) -> Vec<PassDiagnostic> {
+    of_kind(input, "milestone")
+        .filter_map(|milestone| {
+            let starts = milestone.fields.get("starts")?;
+            let targets = milestone.fields.get("targets")?;
+            (targets < starts).then(|| {
+                PassDiagnostic::new(
+                    "E537",
+                    PassSeverity::Error,
+                    format!(
+                        "milestone '{}' targets {targets} before it starts {starts}",
+                        milestone.id
+                    ),
+                )
+                .with_suggestion("move `targets` on or after `starts`, or correct `starts`")
+                .with_entity(milestone.id.as_str())
+            })
         })
         .collect()
 }

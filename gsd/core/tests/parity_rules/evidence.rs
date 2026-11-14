@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 70] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 71] = [
     (
         "E101",
         Evidence::Tests {
@@ -498,6 +498,13 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 70] = [
         Evidence::Tests {
             fires: "a_plan_whose_executor_pack_moved_is_w524_while_it_is_open",
             silent: "a_recorded_executor_pack_in_step_with_its_plan_is_silent",
+        },
+    ),
+    (
+        "E537",
+        Evidence::Tests {
+            fires: "a_milestone_targeting_before_it_starts_is_e537",
+            silent: "a_milestone_targeting_on_or_after_its_start_is_not_e537",
         },
     ),
 ];

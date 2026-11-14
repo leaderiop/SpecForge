@@ -609,3 +609,59 @@ fn a_milestone_cycle_is_read_from_depends_on_only() {
     ));
     assert!(found.is_empty(), "{found:?}");
 }
+
+/// A milestone with the dates it writes, `(field, day)`.
+fn dated(id: &str, dates: &[(&str, &str)]) -> PassEntity {
+    PassEntity {
+        fields: dates
+            .iter()
+            .map(|(field, day)| (field.to_string(), day.to_string()))
+            .collect(),
+        ..milestone(id)
+    }
+}
+
+#[test]
+fn a_milestone_targeting_before_it_starts_is_e537() {
+    let found = check(&input(
+        vec![dated(
+            "v1.1",
+            &[("starts", "2026-03-01"), ("targets", "2026-02-01")],
+        )],
+        vec![],
+    ));
+    assert_eq!(codes(&found), [("E537", "v1.1")]);
+    assert_eq!(
+        found[0].message,
+        "milestone 'v1.1' targets 2026-02-01 before it starts 2026-03-01"
+    );
+    assert_eq!(found[0].severity, PassSeverity::Error);
+    assert_eq!(
+        found[0].suggestion.as_deref(),
+        Some("move `targets` on or after `starts`, or correct `starts`")
+    );
+    // A day earlier in a later month and year is still compared as a day.
+    let found = check(&input(
+        vec![dated(
+            "v2.0",
+            &[("starts", "2027-01-01"), ("targets", "2026-12-31")],
+        )],
+        vec![],
+    ));
+    assert_eq!(codes(&found), [("E537", "v2.0")]);
+}
+
+#[test]
+fn a_milestone_targeting_on_or_after_its_start_is_not_e537() {
+    for dates in [
+        &[("starts", "2026-03-01"), ("targets", "2026-03-01")][..],
+        &[("starts", "2026-03-01"), ("targets", "2026-03-02")],
+        &[("starts", "2026-12-31"), ("targets", "2027-01-01")],
+        &[("starts", "2026-03-01")],
+        &[("targets", "2026-03-01")],
+        &[],
+    ] {
+        let found = check(&input(vec![dated("v1.1", dates)], vec![]));
+        assert!(found.is_empty(), "{dates:?}: {found:?}");
+    }
+}

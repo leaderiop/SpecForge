@@ -64,7 +64,7 @@ GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. N
 | target_features | strs | | the Current Milestone's `**Target features:**` (PROJECT.md) |
 | exit_criteria | strs | | beyond GSD (ADR 0357): what must hold to call it done |
 | starts | date | | beyond GSD (ADR 0357): when work on it starts |
-| targets | date | | beyond GSD (ADR 0357): the day it aims to ship |
+| targets | date | | beyond GSD (ADR 0357): the day it aims to ship; on or after `starts` (both written; the same day is clean), gsd/E537 |
 | depends_on | →* milestone | | beyond GSD (ADR 0357): the milestones that ship before it; acyclic, gsd/E102 |
 | owner | str | | beyond GSD (ADR 0357): the person or team that answers for it |
 | contributors | strs | | beyond GSD (ADR 0357): the others working on it |

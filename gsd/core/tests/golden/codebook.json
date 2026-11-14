@@ -420,6 +420,12 @@
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
       "explanation": "A plan's executor pack, recorded by `start-plan`, has moved while the plan is open: its plan, tasks, must-haves, phase, requirements, decisions, the earlier plans' summaries, research items, instructions or settings changed since the executor started, or a checkpoint was answered or a setup confirmed; re-run `specforge gsd start-plan <plan>` (the continuation does) once the executor has read them. It is a warning.",
       "title": "Stale executor pack"
+    },
+    {
+      "code": "E537",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
+      "explanation": "A milestone's targets day is on or after its starts day. It is an error.",
+      "title": "Milestone targets a day before it starts"
     }
   ]
 }

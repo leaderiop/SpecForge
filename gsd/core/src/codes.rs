@@ -82,7 +82,7 @@ const fn code(
     }
 }
 
-/// The 67 codes of `spec/rules.md`, in the order of its tables.
+/// The 71 codes of `spec/rules.md`.
 pub static CODES: &[Code] = &[
     code(
         "E101",
@@ -643,6 +643,14 @@ pub static CODES: &[Code] = &[
         "execute",
         Severity::Warning,
         Severity::Warning,
+    ),
+    code(
+        "E537",
+        "Milestone targets a day before it starts",
+        "A milestone's targets day is on or after its starts day",
+        "project-and-roadmap",
+        Severity::Error,
+        Severity::Error,
     ),
 ];
 
