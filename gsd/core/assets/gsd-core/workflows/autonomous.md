@@ -499,7 +499,7 @@ UI_SPEC_FILE=$(specforge query "$MILESTONE/${PHASE_NUM}" --depth 1 --kinds ui_sp
 HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --after-fingerprint "$MILESTONE/${PHASE_NUM}" --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 ```
 
-Read the `activeHooks` array directly from the `HOOKS_JSON` value already in context (do not invoke a shell pipeline — parse each line as the JSON object it is). **If `activeHooks` is empty or absent:** skip silently to the iterate step. `--after-fingerprint "$MILESTONE/${PHASE_NUM}"` (#5105) moves a step whose declared artifact the phase already has (the capability extension decides: `@gsd/security` maps `SECURITY.md` to the phase having a `security_audit`) into `skippedHooks` instead of `activeHooks` — execute-phase already ran it, so it is not re-dispatched here.
+Read the `activeHooks` array directly from the `HOOKS_JSON` value already in context (do not invoke a shell pipeline — parse each line as the JSON object it is). **If `activeHooks` is empty or absent:** skip silently to the iterate step. `--after-fingerprint "$MILESTONE/${PHASE_NUM}"` (#5105) moves a step whose declared artifact the phase already has (the capability extension decides: the secure-phase step's declared artifact is the phase's `security_audit`) into `skippedHooks` instead of `activeHooks` — execute-phase already ran it, so it is not re-dispatched here.
 
 For each entry in `activeHooks` in array order where `kind == "step"` and `ref.skill` is set:
 

@@ -1,13 +1,54 @@
 # gsd-core v1.19.0 port lock (ADR 0332): <asset> kept <u>+<n> <sha> | <asset> own <u>+<n> <m> <sha_up> <sha_own> <group>. GSD_BLESS=1 rewrites it; edit only group cells.
-../security/assets/agents/gsd-security-auditor.compact.md	kept	12+152	6b79dca34727
-../security/assets/agents/gsd-security-auditor.md	kept	12+165	a4609180df3c
-../security/assets/commands/gsd/secure-phase.md	kept	16+27	38c76c76db72
-../security/assets/gsd-core/templates/SECURITY.md	kept	1+64	4a60dd6efdc4
+../security/assets/agents/gsd-security-auditor.compact.md	kept	12+2	b7ba42e17cc2
+../security/assets/agents/gsd-security-auditor.compact.md	own	14+1	1	b6a3b6755d98	b7d5b4075a5f	agent
+../security/assets/agents/gsd-security-auditor.compact.md	kept	15+3	c1a7baceb06f
+../security/assets/agents/gsd-security-auditor.compact.md	own	18+1	1	36e021bb0aa4	6ea5ff6953e3	agent
+../security/assets/agents/gsd-security-auditor.compact.md	kept	19+55	17a395d1e8d8
+../security/assets/agents/gsd-security-auditor.compact.md	own	74+1	1	b6d3604eeff8	ca42601b7293	served
+../security/assets/agents/gsd-security-auditor.compact.md	kept	75+4	436439f62776
+../security/assets/agents/gsd-security-auditor.compact.md	own	79+1	1	68dd4ba0140e	9880b1a180f8	agent
+../security/assets/agents/gsd-security-auditor.compact.md	kept	80+50	a90a4efb01dd
+../security/assets/agents/gsd-security-auditor.compact.md	own	130+1	1	a6a82bc471e3	57611000292f	served
+../security/assets/agents/gsd-security-auditor.compact.md	kept	131+28	0f957b6a1d7e
+../security/assets/agents/gsd-security-auditor.compact.md	own	159+1	1	6ac63ec91c46	7dbfa0a7f1c5	agent
+../security/assets/agents/gsd-security-auditor.compact.md	kept	160+4	e8c88d695554
+../security/assets/agents/gsd-security-auditor.md	kept	12+4	75cfffe69bdd
+../security/assets/agents/gsd-security-auditor.md	own	16+1	1	fd7c8aaad28f	df736b478340	agent
+../security/assets/agents/gsd-security-auditor.md	kept	17+3	117f1054a953
+../security/assets/agents/gsd-security-auditor.md	own	20+1	1	8bc5eb52a2c4	5b1ef1783804	agent
+../security/assets/agents/gsd-security-auditor.md	kept	21+67	199e2ab8bfbe
+../security/assets/agents/gsd-security-auditor.md	own	88+1	1	0eaaf652ea7c	1b4313241065	agent
+../security/assets/agents/gsd-security-auditor.md	kept	89+4	5c39c988bddd
+../security/assets/agents/gsd-security-auditor.md	own	93+1	1	f158ac4462f2	6e295419834d	agent
+../security/assets/agents/gsd-security-auditor.md	kept	94+50	a90a4efb01dd
+../security/assets/agents/gsd-security-auditor.md	own	144+1	1	a6a82bc471e3	57611000292f	served
+../security/assets/agents/gsd-security-auditor.md	kept	145+28	0f957b6a1d7e
+../security/assets/agents/gsd-security-auditor.md	own	173+1	1	6ac63ec91c46	7dbfa0a7f1c5	agent
+../security/assets/agents/gsd-security-auditor.md	kept	174+3	daa93f4e8f2a
+../security/assets/commands/gsd/secure-phase.md	kept	16+7	ae6c50a19588
+../security/assets/commands/gsd/secure-phase.md	own	23+2	2	0a71635da64e	330888a835fd	prose
+../security/assets/commands/gsd/secure-phase.md	kept	25+2	d69dcecc2ec9
+../security/assets/commands/gsd/secure-phase.md	own	27+1	1	484ebcb126e7	cd9188e06a96	prose
+../security/assets/commands/gsd/secure-phase.md	kept	28+15	6bed261f2c0b
+../security/assets/gsd-core/templates/SECURITY.md	own	1+10	0	cfc2f77097c4	e3b0c44298fc	prose
+../security/assets/gsd-core/templates/SECURITY.md	kept	11+4	27e8937e85a4
+../security/assets/gsd-core/templates/SECURITY.md	own	15+15	5	c7a548ba2963	019fe693948a	prose
+../security/assets/gsd-core/templates/SECURITY.md	kept	30+5	06ee564dc24c
+../security/assets/gsd-core/templates/SECURITY.md	own	35+7	0	a4b422e33c80	e3b0c44298fc	served
+../security/assets/gsd-core/templates/SECURITY.md	kept	42+2	1044910ba70c
+../security/assets/gsd-core/templates/SECURITY.md	own	44+12	0	fb90685a9362	e3b0c44298fc	served
+../security/assets/gsd-core/templates/SECURITY.md	kept	56+3	3af7c50a4c31
+../security/assets/gsd-core/templates/SECURITY.md	own	59+1	0	d5af284b28a6	e3b0c44298fc	prose
+../security/assets/gsd-core/templates/SECURITY.md	kept	60+1	f88c81dc96a1
+../security/assets/gsd-core/templates/SECURITY.md	own	61+3	0	9718c69600c0	e3b0c44298fc	prose
+../security/assets/gsd-core/templates/SECURITY.md	kept	64+1	e3b0c44298fc
 ../security/assets/gsd-core/workflows/secure-phase.md	kept	1+1	67c8626203ca
-../security/assets/gsd-core/workflows/secure-phase.md	own	2+1	1	e5f66e8dc663	508b286d2b45	relic
+../security/assets/gsd-core/workflows/secure-phase.md	own	2+1	1	e5f66e8dc663	89fe739831e0	relic
 ../security/assets/gsd-core/workflows/secure-phase.md	kept	3+16	123c8c8b60ee
 ../security/assets/gsd-core/workflows/secure-phase.md	own	19+11	7	2ce8e1827b45	c495fb7bf1ab	ported-name
-../security/assets/gsd-core/workflows/secure-phase.md	kept	30+7	2f7b41bc236c
+../security/assets/gsd-core/workflows/secure-phase.md	kept	30+4	b28fac2a3468
+../security/assets/gsd-core/workflows/secure-phase.md	own	34+1	1	dd0387bea9e4	7365c1a09f32	prose
+../security/assets/gsd-core/workflows/secure-phase.md	kept	35+2	5f046190424d
 ../security/assets/gsd-core/workflows/secure-phase.md	own	37+4	4	fb5324c8c4be	5b1c11924fc3	ported-name
 ../security/assets/gsd-core/workflows/secure-phase.md	kept	41+11	71dd22820358
 ../security/assets/gsd-core/workflows/secure-phase.md	own	52+7	7	609a531e2adf	17170aa75446	relic
@@ -17,25 +58,37 @@
 ../security/assets/gsd-core/workflows/secure-phase.md	own	69+1	1	d1a040b11b5a	55cc37f05790	relic
 ../security/assets/gsd-core/workflows/secure-phase.md	kept	70+5	4a81968610fa
 ../security/assets/gsd-core/workflows/secure-phase.md	own	75+1	1	3f0de04d62fa	9908df2c798c	relic
-../security/assets/gsd-core/workflows/secure-phase.md	kept	76+23	197b65d44ffd
+../security/assets/gsd-core/workflows/secure-phase.md	kept	76+7	066dfac0fc7b
+../security/assets/gsd-core/workflows/secure-phase.md	own	83+1	1	29299888d51c	894158a07b63	prose
+../security/assets/gsd-core/workflows/secure-phase.md	kept	84+7	4007a3d65bad
+../security/assets/gsd-core/workflows/secure-phase.md	own	91+1	1	87a0b18fb4a4	7795214b03ca	prose
+../security/assets/gsd-core/workflows/secure-phase.md	kept	92+7	1c3e0a3f4eca
 ../security/assets/gsd-core/workflows/secure-phase.md	own	99+1	1	f855d4dfc0d3	0187d634795e	answer
 ../security/assets/gsd-core/workflows/secure-phase.md	kept	100+9	a24ecf7dfe84
 ../security/assets/gsd-core/workflows/secure-phase.md	own	109+1	1	30a80720a8b0	bd4e2c9b41e8	served
 ../security/assets/gsd-core/workflows/secure-phase.md	kept	110+5	a8e30bbd84c2
 ../security/assets/gsd-core/workflows/secure-phase.md	own	115+1	1	98fd755a54b7	1270b9a01cb9	ported-name
-../security/assets/gsd-core/workflows/secure-phase.md	kept	116+29	e460f4cb8f78
-../security/assets/gsd-core/workflows/secure-phase.md	own	145+1	1	0ec363df5df6	e60db5e69259	answer
-../security/assets/gsd-core/workflows/secure-phase.md	kept	146+1	6f3e12748b90
-../security/assets/gsd-core/workflows/secure-phase.md	own	147+1	1	2d39729b4568	d69a6f8b3708	answer
+../security/assets/gsd-core/workflows/secure-phase.md	kept	116+8	fce476de8510
+../security/assets/gsd-core/workflows/secure-phase.md	own	124+1	1	eb61f414804c	9d4469d0c431	prose
+../security/assets/gsd-core/workflows/secure-phase.md	kept	125+2	381a47589772
+../security/assets/gsd-core/workflows/secure-phase.md	own	127+1	1	a099cada8f4f	4db13bdf8b50	prose
+../security/assets/gsd-core/workflows/secure-phase.md	kept	128+14	2a43f19307f6
+../security/assets/gsd-core/workflows/secure-phase.md	own	142+1	1	1560a2b8fdea	d214a33eb587	prose
+../security/assets/gsd-core/workflows/secure-phase.md	kept	143+2	2964778450bd
+../security/assets/gsd-core/workflows/secure-phase.md	own	145+3	3	0eb822449b41	be950795102d	answer
 ../security/assets/gsd-core/workflows/secure-phase.md	kept	148+3	b4d62ada0f1d
-../security/assets/gsd-core/workflows/secure-phase.md	own	151+1	1	cb7a6c5f76cb	8f31833b7369	answer
+../security/assets/gsd-core/workflows/secure-phase.md	own	151+1	1	cb7a6c5f76cb	9116f0e2bf20	answer
 ../security/assets/gsd-core/workflows/secure-phase.md	kept	152+2	5f046190424d
 ../security/assets/gsd-core/workflows/secure-phase.md	own	154+3	3	6aeb22349d4f	5487d54d9dcb	ported-name
 ../security/assets/gsd-core/workflows/secure-phase.md	kept	157+8	76fc018fcc93
 ../security/assets/gsd-core/workflows/secure-phase.md	own	165+1	1	32178162d1aa	fdbf777ee3c5	relic
 ../security/assets/gsd-core/workflows/secure-phase.md	kept	166+7	9556ec3ecbfc
 ../security/assets/gsd-core/workflows/secure-phase.md	own	173+2	2	1205d94fbfd6	be9d0b90e499	ported-name
-../security/assets/gsd-core/workflows/secure-phase.md	kept	175+32	59470e47418b
+../security/assets/gsd-core/workflows/secure-phase.md	kept	175+19	674f6e36c0a3
+../security/assets/gsd-core/workflows/secure-phase.md	own	194+2	2	922ae2f2c0b6	3b6702a90166	prose
+../security/assets/gsd-core/workflows/secure-phase.md	kept	196+6	84bfdf52f4a2
+../security/assets/gsd-core/workflows/secure-phase.md	own	202+1	1	abc1d2b20133	282250a0cb6c	prose
+../security/assets/gsd-core/workflows/secure-phase.md	kept	203+4	97bbb6e67b75
 agents/gsd-advisor-researcher.compact.md	kept	7+20	ce45c6e8a50f
 agents/gsd-advisor-researcher.compact.md	own	27+2	1	6aabc8e44dc6	22bbeaab7b47	agent
 agents/gsd-advisor-researcher.compact.md	kept	29+58	40ad5c199504
@@ -2194,7 +2247,7 @@ gsd-core/workflows/autonomous.md	own	521+3	3	58f6726a4034	a52ebeffc292	prose
 gsd-core/workflows/autonomous.md	kept	524+6	5d1b710317c1
 gsd-core/workflows/autonomous.md	own	530+9	5	84765576a80d	870a2822df17	prose
 gsd-core/workflows/autonomous.md	kept	539+10	ca298b3c7929
-gsd-core/workflows/autonomous.md	own	549+5	5	964c380a8170	3be98542cd8a	ported-name
+gsd-core/workflows/autonomous.md	own	549+5	5	964c380a8170	9d6ba105cca5	ported-name
 gsd-core/workflows/autonomous.md	kept	554+22	9716c1ef7a18
 gsd-core/workflows/autonomous.md	own	576+1	1	cddcfc735c2e	62b3f63514ac	prose
 gsd-core/workflows/autonomous.md	kept	577+26	068caf385c49
@@ -5570,7 +5623,7 @@ gsd-core/workflows/verify-work.md	own	562+15	11	94a7f7be94ba	5483854fe943	ported
 gsd-core/workflows/verify-work.md	kept	577+1	ad332335cfaa
 gsd-core/workflows/verify-work.md	own	578+4	4	682f3eb6f9cf	166f89acaf4d	ported-name
 gsd-core/workflows/verify-work.md	kept	582+24	6f26f7db03f7
-gsd-core/workflows/verify-work.md	own	606+9	9	3c3c95547710	e6798ca0ed22	ported-name
+gsd-core/workflows/verify-work.md	own	606+9	9	3c3c95547710	1abca381ee74	ported-name
 gsd-core/workflows/verify-work.md	kept	615+5	99abf6b09431
 gsd-core/workflows/verify-work.md	own	620+1	1	f96a4a1a7056	8f7f9a48637e	workflow
 gsd-core/workflows/verify-work.md	kept	621+2	5f046190424d

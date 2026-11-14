@@ -52,7 +52,7 @@ fn verify_post_is_the_secure_phase_step() {
         out["activeHooks"],
         json!([{
             "capId": "security", "kind": "step", "ref": { "skill": "secure-phase" },
-            "when": "workflow.security_enforcement", "produces": ["SECURITY.md"], "consumes": ["SUMMARY.md"],
+            "when": "workflow.security_enforcement", "produces": ["security_audit"], "consumes": ["summary"],
             "onError": "halt"
         }])
     );
@@ -105,7 +105,7 @@ fn hooks_after(p: &super::harness::Project, point: &str, fingerprint: &str) -> V
 }
 
 /// Upstream #5105 R2: `--after-fingerprint <phase>` moves the `verify:post` step to
-/// `skippedHooks` once the phase's audit (`SECURITY.md`) exists, and keeps it active before.
+/// `skippedHooks` once the phase's `security_audit` exists, and keeps it active before.
 #[test]
 fn after_fingerprint_skips_the_step_once_the_phases_audit_exists() {
     // phase 02 has no audit: the step stays active
@@ -124,7 +124,7 @@ fn after_fingerprint_skips_the_step_once_the_phases_audit_exists() {
             after["skippedHooks"],
             json!([{
                 "capId": "security", "kind": "step", "ref": { "skill": "secure-phase" },
-                "reason": "produces-present", "artifacts": ["SECURITY.md"]
+                "reason": "produces-present", "artifacts": ["security_audit"]
             }]),
             "{fingerprint}"
         );

@@ -144,12 +144,13 @@ Not verified:
   - `[retro-threat-in-plan]` a retroactive threat is written into a plan of the phase with `retroactive: true`, not held in SECURITY.md only.
   - `[threats-open-live]` `threats_open` is computed from the threats and the current `block_on`, not frozen at audit time.
   - `[security-absent-off]` without `@gsd/security` loaded there is no threat model, where upstream's agents read an absent `security_enforcement` as enabled.
-  - `[verify-post-produces]` the `verify:post` step keeps upstream's `produces: ["SECURITY.md"]`, although plan 16's parity
-    table said `security_audit`: the hook text is upstream's and agents read the name from it. `SECURITY.md` there
-    stands for the phase's `security_audit`: `security-hooks verify:post --after-fingerprint <phase>` moves the step to
-    `skippedHooks` (`reason: produces-present`) once the audit exists, as upstream's `producesEntryPresent` does for the
-    file (#5105), so verify-work and autonomous do not run the auditor a second time. Without the flag `skippedHooks` is
-    `[]` where upstream omits the key; core's jq fold absorbs both (REVIEW-security-part2 M3).
+  - `[verify-post-produces]` the `verify:post` step answers `produces: ["security_audit"]` and `consumes: ["summary"]`
+    where upstream's names the files `SECURITY.md` and `SUMMARY.md`: agents read kinds, not state files.
+    `security-hooks verify:post --after-fingerprint <phase>` moves the step to `skippedHooks` (`reason:
+    produces-present`, `artifacts: ["security_audit"]`) once the phase's `security_audit` exists, as upstream's
+    `producesEntryPresent` does for the file (#5105), so verify-work and autonomous do not run the auditor a second
+    time. Without the flag `skippedHooks` is `[]` where upstream omits the key; core's jq fold absorbs both
+    (REVIEW-security-part2 M3).
   - `[injection-key-explicit]` the vault fixture sets `security.injection_blocking: false` explicitly, because gsd-tools' `config-get`
     errors on an unset key where `specforge settings` answers the default: a recording choice, not a product divergence.
   - `[surface-peer-setting]` the slash `/gsd-secure-phase` is hidden by `@gsd/security`'s own `specforge.surface.audit_review`

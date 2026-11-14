@@ -279,3 +279,62 @@ threat T-03-01 "Later threat" {
     assert!(later.contains("audit_run AU1"), "{later}");
     assert!(!p.read("spec/security.spec").contains("03-SECURITY"));
 }
+
+/// `secure-phase.md`'s record fence, filled with one threat verdict and run under bash with only `specforge` on the
+/// `PATH`, records the phase's `security_audit`; `security-hooks verify:post --after-fingerprint` then lists the step
+/// under `skippedHooks` with the audit as its artifact.
+#[cfg(unix)]
+#[test]
+fn the_secure_phase_fence_records_an_audit() {
+    let text = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/assets/gsd-core/workflows/secure-phase.md"
+    ))
+    .expect("the workflow");
+    let fence = gsd_kit::markdown::fences(&text)
+        .into_iter()
+        .find(|f| f.language == "bash" && f.text.contains("record-security-audit"))
+        .expect("the record fence")
+        .text
+        .replace("{N}", "01")
+        .replace("{file}", "src/a.js:12");
+    let p = recording();
+    let bin = tempfile::tempdir().expect("a bin dir");
+    std::os::unix::fs::symlink(
+        std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"),
+        bin.path().join("specforge"),
+    )
+    .expect("a link");
+    // the shell is named by its path: PATH holds only `specforge`
+    let out = std::process::Command::new("/bin/bash")
+        .current_dir(p.root())
+        .env("PATH", bin.path())
+        .env("SPECFORGE_WASMTIME_CACHE", harness::compile_cache())
+        .args(["-c", &format!("PHASE_ID=v1.0/01\n{fence}")])
+        .stdin(std::process::Stdio::null())
+        .output()
+        .expect("bash runs");
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(p.fields_of(T1)["status"], "closed");
+    assert!(!p.nodes_of("security_audit").is_empty());
+    let run = p.run(&[
+        "gsd",
+        "security-hooks",
+        "verify:post",
+        "--after-fingerprint",
+        "v1.0/01",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let hooks: Value = serde_json::from_str(&run.stdout).expect("a JSON answer");
+    assert_eq!(hooks["activeHooks"], json!([]), "{hooks}");
+    assert_eq!(
+        hooks["skippedHooks"][0]["artifacts"],
+        json!(["security_audit"])
+    );
+}

@@ -19,14 +19,3 @@ gsd-core/workflows/session-report.md	Generate a post-session summary document ca
 gsd-core/workflows/session-report.md	- [ ] Report written to `reports/`
 gsd-core/workflows/undo.md	`milestones/v<X.Y>-phases/<phase>/` archive and the workstream archive
 gsd-core/workflows/undo.md	commits; a workstream completed into `milestones/ws-feat-<date>/` and then re-created as `feat`
-../security/assets/agents/gsd-security-auditor.compact.md	A phase has been submitted for security audit. Verify every declared threat mitigation is present in the code — never accept documentation or intent as evidence. Does NOT scan blindly for new vulnerabilities — verifies each threat in `<threat_model>` by its declared disposition (mitigate / accept / transfer) and reports gaps. Orchestrator owns the SECURITY.md write (#2119: single-writer contract).
-../security/assets/agents/gsd-security-auditor.compact.md	**Implementation files are READ-ONLY.** Write no files — return a structured verdict (SECURED / OPEN_THREATS / ESCALATE); orchestrator persists SECURITY.md. Implementation gaps → OPEN_THREATS or ESCALATE. Never patch implementation.
-../security/assets/agents/gsd-security-auditor.compact.md	Return SECURED / OPEN_THREATS / ESCALATE with `threats_open` set to the severity-filtered count. The orchestrator writes SECURITY.md from this data — you write no files (#2119).
-../security/assets/agents/gsd-security-auditor.compact.md	- [ ] No files written — structured verdict returned only (orchestrator writes SECURITY.md)
-../security/assets/agents/gsd-security-auditor.md	Does NOT scan blindly for new vulnerabilities. Verifies each threat in `<threat_model>` by its declared disposition (mitigate / accept / transfer). Reports gaps. Returns a structured verdict — the orchestrator owns the SECURITY.md file write (#2119: single-writer contract).
-../security/assets/agents/gsd-security-auditor.md	Return the structured result (SECURED / OPEN_THREATS / ESCALATE) with `threats_open` set to the severity-filtered count. The orchestrator writes SECURITY.md from this data — the auditor does NOT write any files (#2119).
-../security/assets/agents/gsd-security-auditor.md	- [ ] No files written — structured verdict returned only (orchestrator writes SECURITY.md)
-../security/assets/commands/gsd/secure-phase.md	Output: updated SECURITY.md.
-../security/assets/gsd-core/workflows/secure-phase.md	Verify threat mitigations for a completed phase. Confirm the plans' threat dispositions are resolved. Update the phase's SECURITY.md, the security audit.
-../security/assets/gsd-core/workflows/secure-phase.md	"<constraints>Never modify implementation files. Verify mitigations exist — do not scan for new threats. Escalate implementation gaps. Return a structured verdict only — do NOT write SECURITY.md (the orchestrator owns the file write).</constraints>" +
-../security/assets/gsd-core/workflows/secure-phase.md	- [ ] SECURITY.md created or updated

@@ -89,7 +89,7 @@ fn secure_phase_renders_for_three_hosts() {
         assert!(text.contains("<purpose>"), "{host}");
         assert_clean(&text);
         assert!(text.contains("`$PHASE_ID` is `v1.0/01`"), "{host}");
-        // the template ends the text, whose columns are the kinds' fields
+        // the template, which names the kinds, ends the text
         assert!(
             text.contains("<file path=\"gsd-core/templates/SECURITY.md\">"),
             "{host}"

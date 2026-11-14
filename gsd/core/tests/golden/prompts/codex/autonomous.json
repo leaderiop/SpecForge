@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2da8d87a522463bcad7d01fe0d07d12730531bc7c31adf9bd3b8da6c1ef664aa",
+    "digest": "sha256:715861c6babc5adca1c5db808c9fa7cb56b1bebd973519e0e8f446a53fea1f5d",
     "prompt": "@gsd/core@VERSION:autonomous",
     "steps": [
       {
@@ -242,5 +242,5 @@
       }
     ]
   },
-  "sha256": "2da8d87a522463bcad7d01fe0d07d12730531bc7c31adf9bd3b8da6c1ef664aa"
+  "sha256": "715861c6babc5adca1c5db808c9fa7cb56b1bebd973519e0e8f446a53fea1f5d"
 }
