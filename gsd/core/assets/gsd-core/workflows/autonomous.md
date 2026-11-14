@@ -424,7 +424,7 @@ done
 
 Read `human_verification` items. In text mode (`--text` or init `text_mode=true`), replace AskUserQuestion with a plain-text numbered list. Otherwise ask whether to validate now or continue without validation. If validating now, present items, then ask `Validation result?` with `All good — continue` / `Found issues`.
 
-On "All good — continue": each result is the person's to record, so show them, for every human item they approved, the line `specforge gsd set-uat-result <test> pass --by <who>` with their name; the verification's status is computed from those results. Then display "Phase ${PHASE_NUM} ✅ Human validation passed", run `@~/.claude/gsd-core/workflows/transition.md` and iterate.
+On "All good — continue": each result is the person's to record, so show them, for every human item they approved that links a UAT test (its `uat`), the line `specforge gsd set-uat-result <test> pass --by <who>` with their name; the verification's status is computed from those results. Then display "Phase ${PHASE_NUM} ✅ Human validation passed", run `@~/.claude/gsd-core/workflows/transition.md` and iterate.
 
 On "Found issues": Go to handle_blocker with the user's reported issues as the description.
 
@@ -616,8 +616,7 @@ Skill(skill="gsd-audit-milestone")
 After audit completes, detect the result:
 
 ```bash
-AUDIT_FILE="${milestone_version}-MILESTONE-AUDIT"   # the milestone_audit entity
-AUDIT_STATUS=$(specforge query "${milestone_version}" --kinds milestone_audit --pick '.nodes[kind=milestone_audit].fields.status' --first 1)
+AUDIT_STATUS=$(specforge query "${milestone_version}" --kinds milestone_audit --pick '.nodes[kind=milestone_audit].fields.status' --last 1)   # the latest audit
 ```
 
 **If AUDIT_STATUS is empty** (no audit file or no status field):

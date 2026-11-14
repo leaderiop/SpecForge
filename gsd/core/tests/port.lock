@@ -79,7 +79,7 @@
 ../security/assets/gsd-core/workflows/secure-phase.md	kept	148+3	b4d62ada0f1d
 ../security/assets/gsd-core/workflows/secure-phase.md	own	151+1	1	cb7a6c5f76cb	9116f0e2bf20	answer
 ../security/assets/gsd-core/workflows/secure-phase.md	kept	152+2	5f046190424d
-../security/assets/gsd-core/workflows/secure-phase.md	own	154+3	3	6aeb22349d4f	5487d54d9dcb	ported-name
+../security/assets/gsd-core/workflows/secure-phase.md	own	154+3	4	6aeb22349d4f	e71c4f548ef1	ported-name
 ../security/assets/gsd-core/workflows/secure-phase.md	kept	157+8	76fc018fcc93
 ../security/assets/gsd-core/workflows/secure-phase.md	own	165+1	1	32178162d1aa	fdbf777ee3c5	relic
 ../security/assets/gsd-core/workflows/secure-phase.md	kept	166+7	9556ec3ecbfc
@@ -1615,7 +1615,7 @@ gsd-core/references/reviewer-instances.md	kept	7+69	410f79b0c49e
 gsd-core/references/reviewer-instances.md	own	76+8	8	422ddf96cbc8	8758697635c3	ported-name
 gsd-core/references/reviewer-instances.md	kept	84+57	d8b4b25bd8ca
 gsd-core/references/revision-loop.md	kept	1+116	ba4ba2a47314
-gsd-core/references/revision-loop.md	own	117+25	11	f59bf8acb623	94ea1a57266b	typed-edit
+gsd-core/references/revision-loop.md	own	117+25	24	f59bf8acb623	807b172970b9	typed-edit
 gsd-core/references/revision-loop.md	kept	142+5	0ae9798cc5d6
 gsd-core/references/revision-loop.md	own	147+3	4	f7c7080d478c	3c526eca09b4	prose
 gsd-core/references/revision-loop.md	kept	150+56	98a997cf81c8
@@ -2246,7 +2246,7 @@ gsd-core/workflows/autonomous.md	own	453+4	3	0b0f56541d25	a8321973b703	ported-na
 gsd-core/workflows/autonomous.md	kept	457+5	e256e47b1412
 gsd-core/workflows/autonomous.md	own	462+3	11	7bf3fec70683	81587854cbd1	ported-name
 gsd-core/workflows/autonomous.md	kept	465+5	0da6df11808c
-gsd-core/workflows/autonomous.md	own	470+1	1	5d7df0ad3f39	dd8ae790022d	prose
+gsd-core/workflows/autonomous.md	own	470+1	1	5d7df0ad3f39	ae688fda909e	prose
 gsd-core/workflows/autonomous.md	kept	471+5	d473f37df296
 gsd-core/workflows/autonomous.md	own	476+9	5	26595f65418f	f3344b516418	prose
 gsd-core/workflows/autonomous.md	kept	485+21	b91b42f47d03
@@ -2268,7 +2268,7 @@ gsd-core/workflows/autonomous.md	own	606+16	10	8a2f62be6ba7	dacee3f87490	ported-
 gsd-core/workflows/autonomous.md	kept	622+3	7d8d4fc5a48e
 gsd-core/workflows/autonomous.md	own	625+1	1	3a8dc6632e44	f8e6683a93cf	served
 gsd-core/workflows/autonomous.md	kept	626+50	a1949e8fd927
-gsd-core/workflows/autonomous.md	own	676+2	2	241ee8643060	730e55272c42	ported-name
+gsd-core/workflows/autonomous.md	own	676+2	1	241ee8643060	0f1f74006732	ported-name
 gsd-core/workflows/autonomous.md	kept	678+26	3b19d094ac29
 gsd-core/workflows/autonomous.md	own	704+1	1	35aa964c9487	5d1218f2b6a2	served
 gsd-core/workflows/autonomous.md	kept	705+14	e2757ade77a9
@@ -2337,9 +2337,9 @@ gsd-core/workflows/complete-milestone.md	own	250+8	4	a0cf113a677a	a6109f60737a	p
 gsd-core/workflows/complete-milestone.md	kept	258+3	bab71b8eec63
 gsd-core/workflows/complete-milestone.md	own	261+1	1	a6daff37666e	ccdeb9f2b61c	workflow
 gsd-core/workflows/complete-milestone.md	kept	262+6	23562e902744
-gsd-core/workflows/complete-milestone.md	own	268+12	4	8987732fa0a5	0452b1af8544	ported-name
-gsd-core/workflows/complete-milestone.md	kept	280+1	ad332335cfaa
-gsd-core/workflows/complete-milestone.md	own	281+29	9	5802520c1c55	60f679730b4f	ported-name
+gsd-core/workflows/complete-milestone.md	own	268+11	3	1003c97e1be6	0452b1af8544	ported-name
+gsd-core/workflows/complete-milestone.md	kept	279+2	5f046190424d
+gsd-core/workflows/complete-milestone.md	own	281+29	22	5802520c1c55	ec0d0e0e7a4d	ported-name
 gsd-core/workflows/complete-milestone.md	kept	310+1	ad332335cfaa
 gsd-core/workflows/complete-milestone.md	own	311+12	9	1d6b070547f6	5777e41bbf14	ported-name
 gsd-core/workflows/complete-milestone.md	kept	323+5	a67f04dbf61d
@@ -3710,7 +3710,7 @@ gsd-core/workflows/next.md	own	132+2	2	4d4094622459	55608c5f4d1c	served
 gsd-core/workflows/next.md	kept	134+25	02a8fe46c206
 gsd-core/workflows/next.md	own	159+1	1	f21dae1469c8	779a37c9a517	ported-name
 gsd-core/workflows/next.md	kept	160+31	41a094824f6d
-gsd-core/workflows/next.md	own	191+9	6	94d13432b340	265cef7f3362	prose
+gsd-core/workflows/next.md	own	191+9	8	94d13432b340	3e51860f7884	prose
 gsd-core/workflows/next.md	kept	200+3	7be0ef1ca419
 gsd-core/workflows/next.md	own	203+2	2	714713978050	c428f416f76a	ported-name
 gsd-core/workflows/next.md	kept	205+11	9339c02a7ed1

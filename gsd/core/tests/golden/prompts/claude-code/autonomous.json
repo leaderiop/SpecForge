@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 55040,
+  "bytes": 55013,
   "end": [
     "- Missing Next Up block after completions",
     "",
@@ -186,7 +186,7 @@
     "  \"features.thinking_partner\": false,",
     "  \"gates.confirm_milestone_scope\": true,"
   ],
-  "lines": 1221,
+  "lines": 1220,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:efbce0fc2d839271040056f36a6991ccccbdae649665bd2f938a574a11219dac",
+    "digest": "sha256:4cf95e4c78f3de67c0a8ce51010bfbb15467cc30ec5142cf348e000aa07c4eff",
     "prompt": "@gsd/core@VERSION:autonomous",
     "steps": [
       {
@@ -242,5 +242,5 @@
       }
     ]
   },
-  "sha256": "efbce0fc2d839271040056f36a6991ccccbdae649665bd2f938a574a11219dac"
+  "sha256": "4cf95e4c78f3de67c0a8ce51010bfbb15467cc30ec5142cf348e000aa07c4eff"
 }

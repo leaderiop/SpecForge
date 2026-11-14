@@ -61,7 +61,7 @@
     "",
     "Display banner: `GSD > SECURE PHASE {N}: {name}`"
   ],
-  "bytes": 26741,
+  "bytes": 26825,
   "end": [
     "Execute end-to-end.",
     "Preserve all workflow gates.",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 433,
+  "lines": 434,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:3c0929b958df3befd37dd89db15f5a89cd50f3e123ef94dc60b5a573781755c6",
+    "digest": "sha256:44bbe6f7429b761fa59dbc673d8476ccdf990aa4e1a5c47cbe08f564a24270a5",
     "prompt": "@gsd/security@VERSION:secure_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "3c0929b958df3befd37dd89db15f5a89cd50f3e123ef94dc60b5a573781755c6"
+  "sha256": "44bbe6f7429b761fa59dbc673d8476ccdf990aa4e1a5c47cbe08f564a24270a5"
 }

@@ -148,9 +148,10 @@ Handle return:
 2. Append to the audit trail through the owning command, `record_security_audit` — it compares against the last `audit_run` and skips the write entirely when nothing material changed (#5105 R3; #4887 Defect 2: an unchanged register no longer grows a new identical row on every re-run). A verdict id is a threat's ID; `T-{N}-SC` sets the supply-chain threat of every plan of the phase, and `<plan>/T-{N}-02` (the plan's name, then the ID) names one of two plans' threats that claim the same ID:
 
 ```bash
-specforge gsd record-security-audit "$PHASE_ID" \
-  --verdict '{"threats": [{"id": "T-{N}-01", "status": "closed", "evidence": "{file}"}]}' \
-  --run-by "gsd-security-auditor"
+IFS= read -rd '' VERDICT <<'TEXT' || true; VERDICT=${VERDICT%$'\n'}
+{"threats": [{"id": "T-{N}-01", "status": "closed", "evidence": "{file}"}]}
+TEXT
+specforge gsd record-security-audit "$PHASE_ID" --verdict "$VERDICT" --run-by "gsd-security-auditor" || exit 1
 ```
 
 **ENFORCING GATE:** If `threats_open > 0` after all options exhausted (user did not accept, not all verified closed):

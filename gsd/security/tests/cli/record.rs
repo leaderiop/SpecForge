@@ -313,15 +313,20 @@ fn record_fence(p: &Project, evidence: &str) -> std::process::Output {
         .expect("bash runs")
 }
 
-/// Evidence with an apostrophe ends the record fence's single-quoted verdict: the fence fails and the threat stays
-/// open.
+/// Evidence holding an apostrophe, a backtick and a `$` reaches the threat as written.
 #[cfg(unix)]
 #[test]
-fn an_apostrophe_in_the_evidence_breaks_the_record_fence() {
+fn the_record_fence_keeps_quoted_evidence_as_written() {
     let p = recording();
-    let out = record_fence(&p, "src/a.js:12 checks the user's token");
-    assert!(!out.status.success());
-    assert_ne!(p.fields_of(T1)["status"], "closed");
+    let evidence = "src/a.js:12 checks the user's `token` against $HOME";
+    let out = record_fence(&p, evidence);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(p.fields_of(T1)["status"], "closed");
+    assert_eq!(p.fields_of(T1)["evidence"], evidence);
 }
 
 /// `secure-phase.md`'s record fence, filled with one threat verdict and run under bash with only `specforge` on the

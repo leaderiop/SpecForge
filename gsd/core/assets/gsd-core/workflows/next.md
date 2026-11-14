@@ -193,7 +193,9 @@ Choice [S]:
 ```bash
 SRC="{the source phase's number, e.g. 02}"
 DEST="{the phase this advancement routes to, e.g. 03}"
-CRITERIA='{a JSON list: one item per plan that ran without a summary, then "Every plan above has a summary", e.g. ["02-01: login form (ran, no summary)", "Every plan above has a summary"]}'
+IFS= read -rd '' CRITERIA <<'TEXT' || true; CRITERIA=${CRITERIA%$'\n'}
+{a JSON list: one item per plan that ran without a summary, then "Every plan above has a summary", e.g. ["02-01: login form (ran, no summary)", "Every plan above has a summary"]}
+TEXT
 specforge gsd phase --backlog --name "Follow-up — Phase $SRC incomplete plans" --goal "Resolve plans that ran without producing summaries during Phase $SRC execution (deferred during /gsd:progress --next advancement to Phase $DEST)" --criteria "$CRITERIA" || exit 1
 ```
 2. Commit the deferral record:

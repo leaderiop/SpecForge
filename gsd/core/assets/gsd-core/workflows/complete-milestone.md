@@ -252,12 +252,25 @@ Quick plans stay entities of the project: there is nothing to archive with the m
 **Close the milestone with `specforge gsd close-milestone`:**
 
 ```bash
-ARCHIVE=$(specforge gsd close-milestone "v[X.Y]" --built '["[Milestone Name]"]')
+MILESTONE="{the milestone's version, e.g. v1.0}"
+IFS= read -rd '' BUILT <<'TEXT' || true; BUILT=${BUILT%$'\n'}
+["{key deliverable}"]
+TEXT
+IFS= read -rd '' WORKED <<'TEXT' || true; WORKED=${WORKED%$'\n'}
+["{efficiency win or successful pattern}"]
+TEXT
+IFS= read -rd '' INEFFICIENT <<'TEXT' || true; INEFFICIENT=${INEFFICIENT%$'\n'}
+["{missed opportunity, or what took longer than expected}"]
+TEXT
+IFS= read -rd '' PATTERNS <<'TEXT' || true; PATTERNS=${PATTERNS%$'\n'}
+["{new pattern or convention that should persist}"]
+TEXT
+ARCHIVE=$(specforge gsd close-milestone "$MILESTONE" --built "$BUILT" --worked "$WORKED" --inefficient "$INEFFICIENT" --patterns "$PATTERNS" --format json) || exit 1
 ```
 
 `close-milestone` closes a milestone whose latest audit passes and whose phases are verified: it is refused without the audit `/gsd-audit-milestone` created. It records the milestone's `completion` (`at`, `audit`) with the host's clock, and creates `<version>-RETROSPECTIVE` from `--built`, `--worked`, `--inefficient` and `--patterns` when the milestone has none. Nothing is moved, archived or rewritten: the phases, plans and requirements stay entities of the milestone.
 
-Extract from result: `wrote`, `completion`, `archived`.
+Extract from result, the answer's output object: `wrote`, `completion`, `archived`. A refused close prints its code and stops the step: resolve it through the gate above.
 
 The stats are the milestone's, computed; `state` reads `shipped` once the close wrote `completion`, and the accomplishments are the `--built` list this step passed:
 

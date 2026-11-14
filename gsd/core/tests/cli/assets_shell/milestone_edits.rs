@@ -115,25 +115,44 @@ fn the_project_evolution_is_typed_edits() {
     );
 }
 
-/// The close step reads `close-milestone`'s answer and the milestone's computed stats: every key its "Extract from
-/// result" line names is in the answer, and its stats fence prints an object with `phases` and `plans` and the state
-/// `shipped`.
+/// complete-milestone's close fence, filled with a deliverable holding an apostrophe, a backtick and a `$`: on a ready
+/// milestone it closes it, its JSON answer's `output` carries every key the step's "Extract from result" line names,
+/// the retrospective keeps the text as written, and the stats fence prints an object with `phases` and `plans` and the
+/// state `shipped`. On a milestone with no audit the refused close stops the fence.
 #[test]
 fn the_close_reads_the_answer_and_the_milestones_stats() {
     let Some(sh) = Shell::only(&[]) else {
         return;
     };
-    let p = crate::cmd_milestone::ready();
-    let run = p.run(&["gsd", "close-milestone", "v1.0", "--format", "json"]);
-    assert_eq!(run.code, 0, "{}", run.all());
-    let answer: serde_json::Value = serde_json::from_str(&run.stdout).expect("a JSON answer");
-    let answer = &answer["output"];
     let text = asset("gsd-core/workflows/complete-milestone.md");
+    let built = "The board's `save` keeps $HOME";
+    let close = typed::filled(
+        &fence_holding(&text, "ARCHIVE=$("),
+        &[
+            ("MILESTONE", "v1.0"),
+            ("BUILT", &serde_json::json!([built]).to_string()),
+            ("WORKED", r#"["Small plans"]"#),
+            ("INEFFICIENT", r#"["The reload took longer"]"#),
+            ("PATTERNS", r#"["Test the reload first"]"#),
+        ],
+    );
+    let refused = taskboard();
+    let (_, err, code) = sh.run_in(refused.root(), &format!("{close}\necho closed"));
+    assert_ne!(code, 0, "{err}");
+    let p = crate::cmd_milestone::ready();
+    let (out, err, code) = sh.run_in(p.root(), &format!("{close}\necho \"$ARCHIVE\""));
+    assert_eq!(code, 0, "{err}");
+    let answer: serde_json::Value = serde_json::from_str(&out).expect("a JSON answer");
+    let answer = &answer["output"];
     let keys = extracted(&text);
     assert!(!keys.is_empty());
     for key in &keys {
         assert!(answer.get(key).is_some(), "{key}: {answer}");
     }
+    assert_eq!(
+        p.fields_of("v1.0/v1.0-RETROSPECTIVE")["built"],
+        serde_json::json!([built])
+    );
     let stats = fence_holding(&text, "STATS=$(");
     let (out, err, code) = sh.run_in(p.root(), &format!("MILESTONE=v1.0\n{stats}"));
     assert_eq!(code, 0, "{err}");
@@ -309,50 +328,27 @@ fn a_deferred_plan_becomes_a_backlog_phase() {
     );
 }
 
-/// `/gsd-next`'s backlog fence holds its criteria in a single-quoted assignment: a plan title with an apostrophe ends
-/// the quote, so the fence fails and no backlog phase is added.
+/// `/gsd-next`'s backlog fence, its criteria holding an apostrophe, a backtick and a `$`, adds the backlog phase
+/// `v1.0/999.1` with the criteria as written.
 #[test]
-fn a_criterion_with_an_apostrophe_breaks_the_backlog_fence() {
+fn a_criterion_with_quotes_and_a_dollar_reaches_the_backlog_phase() {
     let Some(sh) = Shell::only(&[]) else {
         return;
     };
     let p = taskboard();
+    let first = "02-01: save the user's board with `mv` under $HOME (ran, no summary)";
+    let criteria = serde_json::json!([first, "Every plan above has a summary"]);
     let defer = typed::filled(
         &fence_holding(&asset("gsd-core/workflows/next.md"), "phase --backlog"),
         &[
             ("SRC", "02"),
             ("DEST", "03"),
-            (
-                "CRITERIA",
-                r#"["02-01: save the user's board (ran, no summary)", "Every plan above has a summary"]"#,
-            ),
+            ("CRITERIA", &criteria.to_string()),
         ],
     );
     let done = typed::apply(&sh, &p, &format!("MILESTONE=v1.0\n{defer}"));
-    assert_ne!(done.code, 0, "{}{}", done.out, done.err);
-    assert!(p.nodes_of("phase").iter().all(|n| n["id"] != "v1.0/999.1"));
-}
-
-/// complete-milestone's close line, run as written on a ready milestone, closes it but prints the human answer: the
-/// `wrote`, `completion` and `archived` keys the step extracts are in no JSON it prints.
-#[test]
-fn the_close_line_prints_no_answer_the_step_reads() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
-    let p = crate::cmd_milestone::ready();
-    let line = fence_holding(
-        &asset("gsd-core/workflows/complete-milestone.md"),
-        "ARCHIVE=$(",
-    )
-    .replace("v[X.Y]", "v1.0");
-    let (out, err, code) = sh.run_in(p.root(), &format!("{line}\necho \"$ARCHIVE\""));
-    assert_eq!(code, 0, "{err}");
-    assert!(
-        serde_json::from_str::<serde_json::Value>(&out).is_err(),
-        "{out}"
-    );
-    assert_eq!(p.fields_of("v1.0")["state"], "shipped");
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert_eq!(p.fields_of("v1.0/999.1")["success_criteria"], criteria);
 }
 
 /// The two lessons graduation reads in `review.rs`'s window test, on a taskboard copy.

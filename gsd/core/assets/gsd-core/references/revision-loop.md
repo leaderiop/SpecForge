@@ -118,11 +118,24 @@ so they restate the operative rules inline; this section is the authority they m
 2. **Record** the conflict as a `revision_conflict` of the plan's phase, open until it is resolved:
 
 ```bash
+PLAN_ID="{the plan's id, e.g. v1.0/01/01-02}"
+IFS= read -rd '' DIMENSION <<'TEXT' || true; DIMENSION=${DIMENSION%$'\n'}
+{the dimension the conflict blocks, as the agent returned it}
+TEXT
+IFS= read -rd '' PROPERTY <<'TEXT' || true; PROPERTY=${PROPERTY%$'\n'}
+{the property the revision cannot reach}
+TEXT
+IFS= read -rd '' CONFLICTS_WITH <<'TEXT' || true; CONFLICTS_WITH=${CONFLICTS_WITH%$'\n'}
+{what it conflicts with}
+TEXT
+IFS= read -rd '' ALTERNATIVES <<'TEXT' || true; ALTERNATIVES=${ALTERNATIVES%$'\n'}
+{the agent's alternatives; empty when it named none}
+TEXT
 specforge gsd record-conflict "$PLAN_ID" --dimension "$DIMENSION" --property "$PROPERTY" --conflicts-with "$CONFLICTS_WITH" --alternatives "$ALTERNATIVES" || exit 1
 ```
 
    `CONFLICTS_WITH` names the locked decision D-nn, CLAUDE.md rule or plan constraint, and
-   `ALTERNATIVES` the agent's alternatives (leave `--alternatives` out when it named none). The
+   `ALTERNATIVES` the agent's alternatives (an empty heredoc when it named none: the conflict then records none). The
    same open conflict is reused, not recorded twice, and each value is a command argument, so
    agent-authored text cannot forge a second conflict. An open conflict blocks convergence even if
    this run is abandoned. A workflow with no phase (`quick`) skips this step.

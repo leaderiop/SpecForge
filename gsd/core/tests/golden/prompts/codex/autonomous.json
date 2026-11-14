@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 63571,
+  "bytes": 63544,
   "end": [
     "- Missing Next Up block after completions",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1337,
+  "lines": 1336,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:715861c6babc5adca1c5db808c9fa7cb56b1bebd973519e0e8f446a53fea1f5d",
+    "digest": "sha256:af0cba14fad49a81a1a063606bbd01165f03cac14cc5772eeebbd8452ff238a3",
     "prompt": "@gsd/core@VERSION:autonomous",
     "steps": [
       {
@@ -242,5 +242,5 @@
       }
     ]
   },
-  "sha256": "715861c6babc5adca1c5db808c9fa7cb56b1bebd973519e0e8f446a53fea1f5d"
+  "sha256": "af0cba14fad49a81a1a063606bbd01165f03cac14cc5772eeebbd8452ff238a3"
 }
