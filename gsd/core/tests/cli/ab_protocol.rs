@@ -57,9 +57,118 @@ fn every_acceptance_row_is_run_or_judged() {
     }
 }
 
+/// `seed.py --self-test` passes, its `spawns` cases among them.
 #[test]
 fn the_seeding_script_passes_its_self_test() {
-    passes("seed.py");
+    let stdout = passes("seed.py");
+    assert!(
+        stdout.lines().any(|l| l.starts_with("spawns: ")),
+        "{stdout}"
+    );
+}
+
+/// Claude Code's name for an MCP tool: `mcp__specforge__` and the name with every character outside
+/// `[A-Za-z0-9_-]` as `_`.
+fn claude_name(mcp: &str) -> String {
+    let safe: String = mcp
+        .chars()
+        .map(|c| match c {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-' => c,
+            _ => '_',
+        })
+        .collect();
+    format!("mcp__specforge__{safe}")
+}
+
+/// The writing commands of `@gsd/core` and `@gsd/security` as the host serves them: the `specforge.gsd.*` MCP tools of a
+/// copy that loads both whose annotations say they write, each with its CLI name. Core's are its `gsd help` writers.
+fn writing_commands() -> Vec<(String, String)> {
+    let p = super::harness::ab::seeded("vault-execute-01-02", "B", &["--unseeded"])
+        .expect("a vault copy");
+    let messages = [
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"0"}}}"#,
+        r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+    ];
+    let run = p.run_stdin(&["mcp", "."], &(messages.join("\n") + "\n"));
+    let listed = run
+        .stdout
+        .lines()
+        .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+        .find(|m| m["id"] == 2)
+        .unwrap_or_else(|| panic!("no tools/list answer: {}", run.all()));
+    let mut out: Vec<(String, String)> = listed["result"]["tools"]
+        .as_array()
+        .expect("tools")
+        .iter()
+        .filter(|t| t["annotations"]["readOnlyHint"] == false)
+        .filter_map(|t| {
+            t["name"]
+                .as_str()?
+                .strip_prefix("specforge.gsd.")
+                .map(String::from)
+        })
+        .map(|name| (format!("specforge.gsd.{name}"), name.replace('_', "-")))
+        .collect();
+    out.sort();
+    let help = p.run(&["gsd", "help", "--format", "json"]);
+    let help: serde_json::Value = serde_json::from_str(&help.stdout).expect("help answers JSON");
+    for command in help["commands"].as_array().expect("commands") {
+        let name = command["command"].as_str().expect("a name");
+        assert_eq!(
+            command["writes"] == true,
+            out.iter().any(|(_, cli)| cli == name),
+            "{name}: core's writers are the MCP tools that write"
+        );
+    }
+    assert!(
+        out.iter().any(|(_, cli)| cli == "record-security-audit"),
+        "security's writers are served: {out:?}"
+    );
+    out
+}
+
+/// `tasks.json#state_writes`, the state changes M7 stops at, is a checked copy: its MCP names and CLI lines are the
+/// catalogue's mutating engine tools and the extensions' writing commands, and its files the host's file tools.
+#[test]
+fn the_state_writes_are_the_mutating_tools_and_the_writing_commands() {
+    use specforge_extension_sdk::engine_tools::{ENGINE_TOOLS, EngineEffect};
+    let tasks = ab_tasks();
+    let listed = |key: &str| -> Vec<String> {
+        let mut all: Vec<String> = tasks["state_writes"][key]
+            .as_array()
+            .unwrap_or_else(|| panic!("state_writes.{key}"))
+            .iter()
+            .map(|v| v.as_str().expect("a name").to_string())
+            .collect();
+        all.sort();
+        all
+    };
+    let mutating: Vec<_> = ENGINE_TOOLS
+        .iter()
+        .filter(|t| t.effect == EngineEffect::Mutates)
+        .collect();
+    let commands = writing_commands();
+    let mut mcp: Vec<String> = mutating
+        .iter()
+        .map(|t| claude_name(&t.mcp_name()))
+        .chain(commands.iter().map(|(name, _)| claude_name(name)))
+        .collect();
+    mcp.sort();
+    let mut cli: Vec<String> = mutating
+        .iter()
+        .flat_map(|t| t.cli.iter().map(|l| l.to_string()))
+        .collect();
+    cli.sort();
+    let mut gsd: Vec<String> = commands.iter().map(|(_, c)| format!("gsd {c}")).collect();
+    gsd.sort();
+    assert_eq!(listed("mcp"), mcp);
+    assert_eq!(listed("cli"), cli);
+    assert_eq!(listed("commands"), gsd);
+    assert_eq!(
+        listed("files"),
+        ["Edit", "MultiEdit", "NotebookEdit", "Write"]
+    );
 }
 
 /// `git check-ignore`'s exit code for a run file: 0 when it is ignored.

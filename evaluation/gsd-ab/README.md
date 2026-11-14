@@ -135,9 +135,12 @@ acceptance row "the report names the commit whose trailer names the wrong task",
 - The operator follows a script, [OPERATOR.md](OPERATOR.md): the copies, each arm's tools, the prompt, when a run
   ends, how each field of the run file is read. An intervention is one of its four, with its text, logged with its
   turn and counted, never improvised.
-- Every run file is `runs/<arm>/<task>/<seed>.json` and its transcript `runs/transcripts/<arm>/<task>/<seed>.jsonl`
-  (both git-ignored), archived with the report. `score.py` reads only `<arm>/<task>/<number>.json`, so a transcript
-  is never read as a run.
+- Every run file is `runs/<arm>/<task>/<seed>.json` and its transcript the directory
+  `runs/transcripts/<arm>/<task>/<seed>/`: the host's session file `session.jsonl` and its subagents' files
+  `subagents/agent-<id>.jsonl` with `agent-<id>.meta.json`, as the host wrote them (both git-ignored), archived with
+  the report. `score.py` reads only `<arm>/<task>/<number>.json`, so a transcript is never read as a run.
+  `seed.py spawns --transcript <dir>` reads that directory in Claude Code's layout (as of Claude Code 2.1.316) and
+  refuses any other; the study's `host.agent` names the host.
 
 A run file:
 

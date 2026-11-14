@@ -23,6 +23,46 @@
       "drop": [".planning/", "README.md"]
     }
   ],
+  "state_writes": {
+    "files": [
+      "Edit", "Write", "MultiEdit", "NotebookEdit"
+    ],
+    "mcp": [
+      "mcp__specforge__specforge_format", "mcp__specforge__specforge_rename", "mcp__specforge__specforge_edit",
+      "mcp__specforge__specforge_init", "mcp__specforge__specforge_add_extension",
+      "mcp__specforge__specforge_remove_extension", "mcp__specforge__specforge_migrate",
+      "mcp__specforge__specforge_settings_set", "mcp__specforge__specforge_infer_session",
+      "mcp__specforge__specforge_gsd_accept_risk", "mcp__specforge__specforge_gsd_answer_checkpoint",
+      "mcp__specforge__specforge_gsd_approve_validation", "mcp__specforge__specforge_gsd_close_milestone",
+      "mcp__specforge__specforge_gsd_complete_plan", "mcp__specforge__specforge_gsd_confirm_setup",
+      "mcp__specforge__specforge_gsd_dispose_refactor", "mcp__specforge__specforge_gsd_fix_window",
+      "mcp__specforge__specforge_gsd_graduate_lessons", "mcp__specforge__specforge_gsd_pause",
+      "mcp__specforge__specforge_gsd_phase", "mcp__specforge__specforge_gsd_propose_refactor",
+      "mcp__specforge__specforge_gsd_raise_blocker", "mcp__specforge__specforge_gsd_record_automated_uat",
+      "mcp__specforge__specforge_gsd_record_conflict", "mcp__specforge__specforge_gsd_record_research",
+      "mcp__specforge__specforge_gsd_record_review", "mcp__specforge__specforge_gsd_record_security_audit",
+      "mcp__specforge__specforge_gsd_record_spec", "mcp__specforge__specforge_gsd_record_validation",
+      "mcp__specforge__specforge_gsd_record_verdict", "mcp__specforge__specforge_gsd_record_window",
+      "mcp__specforge__specforge_gsd_resolve_blocker", "mcp__specforge__specforge_gsd_resolve_conflict",
+      "mcp__specforge__specforge_gsd_resolve_edge", "mcp__specforge__specforge_gsd_resolve_prohibition",
+      "mcp__specforge__specforge_gsd_resume", "mcp__specforge__specforge_gsd_set_uat_result",
+      "mcp__specforge__specforge_gsd_start_batch", "mcp__specforge__specforge_gsd_start_plan",
+      "mcp__specforge__specforge_gsd_waive_window", "mcp__specforge__specforge_gsd_workstreams"
+    ],
+    "cli": [
+      "format", "new", "set", "unset", "link", "unlink", "delete", "init", "add", "remove", "migrate",
+      "settings set", "settings unset"
+    ],
+    "commands": [
+      "gsd accept-risk", "gsd answer-checkpoint", "gsd approve-validation", "gsd close-milestone",
+      "gsd complete-plan", "gsd confirm-setup", "gsd dispose-refactor", "gsd fix-window", "gsd graduate-lessons",
+      "gsd pause", "gsd phase", "gsd propose-refactor", "gsd raise-blocker", "gsd record-automated-uat",
+      "gsd record-conflict", "gsd record-research", "gsd record-review", "gsd record-security-audit",
+      "gsd record-spec", "gsd record-validation", "gsd record-verdict", "gsd record-window", "gsd resolve-blocker",
+      "gsd resolve-conflict", "gsd resolve-edge", "gsd resolve-prohibition", "gsd resume", "gsd set-uat-result",
+      "gsd start-batch", "gsd start-plan", "gsd waive-window", "gsd workstreams"
+    ]
+  },
   "fixtures": [
     { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "baf3024fe8830b9401a25efcbea3d670a7872d2f", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"],
       "baseline": [

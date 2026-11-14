@@ -56,8 +56,10 @@ For each `(task, seed, arm)` in the schedule's order:
 4. **During the run** the operator says nothing but an intervention (below).
 5. **The end.** The run ends when the agent's turn ends with a `RESULT:` line, after a second stop without one, or
    when the budget is reached. Stop the clock (`wall_seconds`).
-6. **The run file**, `evaluation/gsd-ab/runs/<arm>/<task>/<seed>.json` (git-ignored; the transcript under
-   `runs/transcripts/<arm>/<task>/<seed>.jsonl`, outside what `score.py` reads), with the fields of README section 7:
+6. **The run file**, `evaluation/gsd-ab/runs/<arm>/<task>/<seed>.json` (git-ignored), with the fields of README
+   section 7. First copy the transcript to `runs/transcripts/<arm>/<task>/<seed>/`, outside what `score.py` reads:
+   the session's file as `session.jsonl` and its `<session>/subagents/` folder beside it, from the host
+   (`~/.claude/projects/<project>/` for Claude Code). `seed.py spawns` reads Claude Code's layout only.
    - `final_report`: the value of the agent's last `RESULT:` line, one of the task's workflow's in
      `tasks.json#results`, or `none` when the run ended without one or with another value.
    - `acceptance`: one entry per acceptance row of the task, keyed by its `text`. A row with `run` is that command, run

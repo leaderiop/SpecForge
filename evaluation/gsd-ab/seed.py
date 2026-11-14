@@ -8,6 +8,7 @@ Usage:
     python3 -I evaluation/gsd-ab/seed.py rework --arm A|B|B0|Bv1 --dir <dir>
     python3 -I evaluation/gsd-ab/seed.py prompt --task <id> --arm A|B|B0|Bv1
     python3 -I evaluation/gsd-ab/seed.py schedule
+    python3 -I evaluation/gsd-ab/seed.py spawns --transcript <dir>
     python3 -I evaluation/gsd-ab/seed.py preflight [--arm B|Bv1] --specforge <bin> --gsd-core <wasm>
         --gsd-security <wasm> [--record]
     python3 -I evaluation/gsd-ab/seed.py --self-test
@@ -37,7 +38,13 @@ unseeded B copy of each fixture, runs a real `specforge collect --yes` in it (th
 `specforge check --format json`, and compares the diagnostics with the fixture's `baseline` in `tasks.json`: a
 difference (another build, another node or cargo) refuses the study before its first run. `--record` prints the
 baselines instead. `--arm Bv1` makes Bv1's copies from the tag's trees and compares them with the baselines of the
-tag's own `tasks.json`, with Bv1's binary and components (built from the tag).
+tag's own `tasks.json`, with Bv1's binary and components (built from the tag). `spawns` reads a run's transcript
+directory as Claude Code writes it (`session.jsonl` and `subagents/agent-<id>.jsonl` with its `agent-<id>.meta.json`)
+and prints, per subagent, its type and its context and
+total tokens (the run file's `spawns`, README section 6's M7): `context_tokens` is the input (cache included) of the
+spawn's first request that changes state (a file tool, a mutating engine tool or a writing command, by MCP or by
+CLI: `tasks.json#state_writes`), or of its last request when it changes none, and `total_tokens` the sum of every
+request's input and output. It refuses a layout it does not read, never answering an empty list for it.
 
 Standard library and the `git` program only (arm A's gsd-core needs git too), Python 3.11+.
 """
@@ -50,6 +57,7 @@ import io
 import json
 import os
 import random
+import shlex
 import shutil
 import subprocess
 import sys
@@ -450,6 +458,110 @@ def schedule(tasks: dict, seeds: int = SEEDS) -> list[tuple[str, int, list[str]]
     return order
 
 
+# Where a command line is cut into segments: the shell's control operators, and a line break.
+SEGMENT_BREAKS = {"&&", "||", ";", "|", "&", "\n"}
+
+
+def segments(command: str, where: str) -> list[list[str]]:
+    """The words of each segment of the shell line `command`, cut at `&&`, `||`, `;`, `|`, `&` and line breaks;
+    refused, naming `where`, when it does not split (an unclosed quote)."""
+    lexer = shlex.shlex(command, posix=True, punctuation_chars="();<>|&\n")
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
+    out, current = [], []
+    try:
+        for word in lexer:
+            if word in SEGMENT_BREAKS:
+                out.append(current)
+                current = []
+            else:
+                current.append(word)
+    except ValueError as error:
+        raise Refused(f"{where}: a Bash command the shell reader cannot split ({error}): {command[:80]!r}") from None
+    return [segment for segment in out + [current] if segment]
+
+
+def changes_state(call: dict, writes: dict, where: str) -> bool:
+    """Whether the tool call `call` (a `tool_use` block) changes state, by `tasks.json#state_writes`: a file tool, a
+    mutating MCP tool, or a Bash command with a `specforge` segment whose leading words are a mutating CLI line or a
+    writing command."""
+    name = call.get("name", "")
+    if name in writes["files"] or name in writes["mcp"]:
+        return True
+    if name != "Bash":
+        return False
+    lines = [line.split() for line in writes["cli"] + writes["commands"]]
+    for words in segments(str((call.get("input") or {}).get("command", "")), where):
+        # shortcut: leading `VAR=value` words are skipped, global flags before the verb are not; read them if a host
+        # transcript shows them
+        while words and "=" in words[0] and not words[0].startswith("-"):
+            words = words[1:]
+        if words and Path(words[0]).name == "specforge" and any(words[1:1 + len(line)] == line for line in lines):
+            return True
+    return False
+
+
+def spawns(tasks: dict, transcript: Path) -> list[dict]:
+    """Each subagent of the run whose transcript directory is `transcript`, as `{agent, context_tokens, total_tokens}`,
+    ordered by its file's first record's timestamp, then by file name (README section 6, M7)."""
+    if not transcript.is_dir():
+        raise Refused(f"{transcript} is not a directory: a run's transcript is session.jsonl and subagents/")
+    subagents = transcript / "subagents"
+    if not subagents.is_dir():
+        for session in sorted(transcript.glob("*.jsonl")):
+            for line in session.read_text().splitlines():
+                if line.strip() and json.loads(line).get("isSidechain") is True:
+                    raise Refused(
+                        f"{session}: a sidechain record and no subagents/: an older layout that keeps subagents "
+                        "inline, which spawns does not read"
+                    )
+        return []
+    logs = {path.name[: -len(".jsonl")] for path in subagents.glob("agent-*.jsonl")}
+    metas = {path.name[: -len(".meta.json")] for path in subagents.glob("agent-*.meta.json")}
+    for name in sorted(logs ^ metas):
+        has, lacks = (".jsonl", ".meta.json") if name in logs else (".meta.json", ".jsonl")
+        raise Refused(f"{subagents / (name + has)} has no {name}{lacks} beside it")
+    found = []
+    for name in sorted(logs):
+        meta = json.loads((subagents / f"{name}.meta.json").read_text())
+        if not isinstance(meta.get("agentType"), str):
+            raise Refused(f"{subagents / (name + '.meta.json')}: no agentType")
+        requests: dict[str, dict] = {}
+        first = None
+        for number, line in enumerate((subagents / f"{name}.jsonl").read_text().splitlines(), 1):
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            first = record.get("timestamp", "") if first is None else first
+            if record.get("type") != "assistant":
+                continue
+            where = f"{subagents / (name + '.jsonl')}:{number}"
+            message = record.get("message") or {}
+            usage = message.get("usage")
+            if not isinstance(usage, dict):
+                raise Refused(f"{where}: an assistant record without usage")
+            # a message split over several records repeats its input usage; its output grows
+            request = requests.setdefault(message.get("id") or where, {
+                "input": sum(int(usage.get(key, 0)) for key in (
+                    "input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")),
+                "output": 0, "writes": False,
+            })
+            request["output"] = max(request["output"], int(usage.get("output_tokens", 0)))
+            calls = [block for block in message.get("content") or [] if isinstance(block, dict)
+                     and block.get("type") == "tool_use"]
+            if any(changes_state(call, tasks["state_writes"], where) for call in calls):
+                request["writes"] = True
+        if not requests:
+            continue
+        ordered = list(requests.values())
+        start = next((request for request in ordered if request["writes"]), ordered[-1])
+        found.append(((first or "", name), {
+            "agent": meta["agentType"], "context_tokens": start["input"],
+            "total_tokens": sum(request["input"] + request["output"] for request in ordered),
+        }))
+    return [spawn for _, spawn in sorted(found, key=lambda item: item[0])]
+
+
 SYNTHETIC = {
     "arms": [
         {"id": "A", "config": None, "drop": ["spec/", "specforge-harness", "README.md"]},
@@ -518,6 +630,92 @@ def corpus(tasks: dict, root: Path, scratch: Path) -> tuple[int, list[str]]:
                 assert got == want, f"{copy.name}: present {got}, want {want}"
                 made += 1
     return made, arms
+
+
+def spawns_self_test(run: Path) -> None:
+    """`spawns` over a synthetic transcript directory: each spawn's first state change, the tokens it counts, and what
+    it refuses."""
+    writes = json.loads(TASKS.read_text())["state_writes"]
+    tasks = {"state_writes": writes}
+
+    def use(name: str, **arguments: str) -> dict:
+        return {"type": "tool_use", "name": name, "input": arguments}
+
+    def turn(at: str, id_: str, tokens: tuple[int, int, int, int], *calls: dict) -> dict:
+        usage = dict(zip(("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "output_tokens"),
+                         tokens))
+        return {"type": "assistant", "timestamp": at, "message": {"id": id_, "usage": usage, "content": list(calls)}}
+
+    def agent(name: str, kind: str | None, records: list[dict]) -> None:
+        (run / "subagents").mkdir(parents=True, exist_ok=True)
+        (run / "subagents" / f"agent-{name}.jsonl").write_text("".join(json.dumps(r) + "\n" for r in records))
+        if kind is not None:
+            (run / "subagents" / f"agent-{name}.meta.json").write_text(json.dumps({"agentType": kind}))
+
+    run.mkdir()
+    (run / "session.jsonl").write_text(json.dumps({"type": "user", "message": {"content": "go"}}) + "\n")
+    assert spawns(tasks, run) == [], "no subagents/, no sidechain: no spawns"
+    agent("a", "gsd-executor", [
+        {"type": "user", "timestamp": "2026-11-12T10:00:00Z"},
+        turn("t", "m1", (10, 100, 0, 5)),
+        turn("t", "m2", (20, 0, 110, 1), use("Read", file_path="x")),
+        turn("t", "m2", (20, 0, 110, 7), use("Edit", file_path="x")),
+        turn("t", "m3", (30, 0, 140, 9)),
+    ])
+    agent("b", "gsd-executor", [
+        {"type": "user", "timestamp": "2026-11-12T10:01:00Z"},
+        turn("t", "m1", (50, 0, 0, 1), use("Bash", command="specforge query X")),
+        turn("t", "m2", (60, 0, 0, 1), use("Bash", command="specforge query X && specforge set X status done")),
+    ])
+    agent("c", "gsd-executor", [
+        {"type": "user", "timestamp": "2026-11-12T10:02:00Z"},
+        turn("t", "m1", (70, 0, 0, 1), use("mcp__specforge__specforge_edit", edits="[]")),
+        turn("t", "m2", (80, 0, 0, 1), use("Write", file_path="x")),
+    ])
+    agent("d", "gsd-executor", [
+        {"type": "user", "timestamp": "2026-11-12T10:03:00Z"},
+        turn("t", "m1", (90, 0, 0, 1), use("Bash", command="cd /tmp\nspecforge gsd complete-plan v1.0/01/01-01")),
+    ])
+    agent("e", "gsd-verifier", [
+        {"type": "user", "timestamp": "2026-11-12T10:04:00Z"},
+        turn("t", "m1", (5, 0, 0, 1), use("Read", file_path="x")),
+        turn("t", "m2", (7, 0, 0, 1), use("Bash", command="specforge check")),
+    ])
+    agent("f", "gsd-planner", [{"type": "user", "timestamp": "2026-11-12T10:05:00Z"}])
+    got = spawns(tasks, run)
+    assert got == [
+        {"agent": "gsd-executor", "context_tokens": 130, "total_tokens": 110 + 5 + 130 + 7 + 170 + 9},
+        {"agent": "gsd-executor", "context_tokens": 60, "total_tokens": 51 + 61},
+        {"agent": "gsd-executor", "context_tokens": 70, "total_tokens": 71 + 81},
+        {"agent": "gsd-executor", "context_tokens": 90, "total_tokens": 91},
+        {"agent": "gsd-verifier", "context_tokens": 7, "total_tokens": 6 + 8},
+    ], got
+    print(f"spawns: {len(got)} spawns, the first state change of each, a subagent with no request left out")
+    refusals = 0
+    for setup, why in (
+        (lambda: agent("g", None, [turn("t", "m1", (1, 0, 0, 1))]), "has no agent-g.meta.json"),
+        (lambda: (run / "subagents/agent-g.meta.json").write_text("{}"), "no agentType"),
+        (lambda: agent("g", "x", [{"type": "assistant", "message": {"id": "m1"}}]), "without usage"),
+        (lambda: agent("g", "x", [turn("t", "m1", (1, 0, 0, 1), use("Bash", command="echo 'open"))]), "cannot split"),
+    ):
+        setup()
+        try:
+            spawns(tasks, run)
+        except Refused as refused:
+            assert why in str(refused), refused
+            refusals += 1
+    for path in (run / "subagents").glob("agent-g*"):
+        path.unlink()
+    inline = run.parent / "inline"
+    inline.mkdir()
+    (inline / "session.jsonl").write_text(json.dumps({"type": "assistant", "isSidechain": True}) + "\n")
+    for where, why in ((inline, "older layout"), (run / "session.jsonl", "not a directory")):
+        try:
+            spawns(tasks, where)
+        except Refused as refused:
+            assert why in str(refused), refused
+            refusals += 1
+    assert refusals == 6, f"six layouts refused: {refusals}"
 
 
 def self_test() -> None:
@@ -692,6 +890,8 @@ def self_test() -> None:
         assert preflight(SYNTHETIC, root, str(stand_in), components, arm_id="Bv1", folder="ab") == {
             "fx": ["W1 a.spec:3"]}, "Bv1's preflight compares with the tag's baselines"
 
+        spawns_self_test(root / "transcript")
+
         order = schedule(SYNTHETIC)
         assert len(order) == len(SYNTHETIC["tasks"]) * SEEDS
         assert len({(task, number) for task, number, _ in order}) == len(order), "each (task, seed) once"
@@ -736,6 +936,8 @@ def main() -> None:
     said.add_argument("--task", required=True)
     said.add_argument("--arm", required=True)
     verbs.add_parser("schedule", help="the run order")
+    spawned = verbs.add_parser("spawns", help="each subagent's context and total tokens, from a run's transcript")
+    spawned.add_argument("--transcript", required=True, type=Path, help="session.jsonl and subagents/, as written")
     checked = verbs.add_parser("preflight", help="each fixture's diagnostics against its baseline")
     checked.add_argument("--specforge", required=True, help="the specforge binary built from the tag")
     checked.add_argument("--gsd-core", required=True)
@@ -749,7 +951,7 @@ def main() -> None:
         self_test()
         return
     if not args.verb:
-        parser.error("a verb (seed, present, rework, prompt, schedule) or --self-test")
+        parser.error("a verb (seed, present, rework, prompt, schedule, spawns, preflight) or --self-test")
     tasks = json.loads(TASKS.read_text())
     try:
         if args.verb == "seed":
@@ -765,6 +967,8 @@ def main() -> None:
             print(rework(args.arm, args.dir))
         elif args.verb == "prompt":
             print(prompt(tasks, args.task, args.arm), end="")
+        elif args.verb == "spawns":
+            print(json.dumps(spawns(tasks, args.transcript)))
         elif args.verb == "preflight":
             components = {"@gsd/core": args.gsd_core, "@gsd/security": args.gsd_security}
             found = preflight(tasks, REPO, args.specforge, components, args.record, args.arm)
