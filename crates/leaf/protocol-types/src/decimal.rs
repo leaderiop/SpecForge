@@ -287,9 +287,13 @@ impl TryFrom<i64> for Decimal {
 impl TryFrom<f64> for Decimal {
     type Error = DecimalError;
 
-    /// The decimal of the `f64`'s shortest round-trip text (`95.0` is 95); `NaN` and the infinities are no decimal.
+    /// The decimal of the `f64`'s shortest round-trip text (`95.0` is 95); `NaN` and the infinities are no decimal. A
+    /// value out of range is echoed in scientific notation (`1e308`), not in the hundreds of digits `{}` prints.
     fn try_from(x: f64) -> Result<Decimal, DecimalError> {
-        Decimal::parse(&format!("{x}"))
+        Decimal::parse(&format!("{x}")).map_err(|error| match error {
+            DecimalError::OutOfRange(_) => DecimalError::OutOfRange(format!("{x:e}")),
+            error => error,
+        })
     }
 }
 

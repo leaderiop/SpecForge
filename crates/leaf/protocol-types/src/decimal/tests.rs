@@ -203,6 +203,22 @@ fn try_from_f64_takes_the_shortest_text() {
         Err(DecimalError::NotADecimal(_))
     ));
     assert_eq!(Decimal::try_from(-0.0), Ok(Decimal::ZERO));
+    // Out of range is echoed in scientific notation, not as the 309 digits `{}` prints.
+    for (x, echo) in [
+        (1e308, "1e308"),
+        (-2.5e-308, "-2.5e-308"),
+        (1.5e-320, "1.5e-320"),
+    ] {
+        assert_eq!(
+            Decimal::try_from(x),
+            Err(DecimalError::OutOfRange(echo.into()))
+        );
+        let n = serde_json::Number::from_f64(x).expect("finite");
+        assert_eq!(
+            Decimal::from_json(&n).map_err(|e| e.to_string()),
+            Err(format!("'{echo}' is outside the range a number holds"))
+        );
+    }
     assert_eq!(Decimal::try_from(1000000000000000000i64), Ok(d("1e18")));
     assert_eq!(Decimal::from(-42), d("-42"));
 }
