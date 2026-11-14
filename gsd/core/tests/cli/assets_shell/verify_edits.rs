@@ -317,3 +317,56 @@ fn the_validation_audit_writes_rows() {
     assert_eq!(code, 0, "{err}");
     assert!(out.contains("02-VALIDATION"), "{out}");
 }
+
+/// The taskboard with phase `v1.0/01`'s UAT entities taken out: its summaries stay, so a session can be created on it.
+fn without_a_session() -> crate::harness::Project {
+    let p = taskboard();
+    p.write(
+        "spec/verify.spec",
+        "verification 01-VERIFICATION \"Phase 01 verification\" {\n  phase v1.0/01\n}\n",
+    );
+    p
+}
+
+/// The UAT loop as the assets hold it, on `v1.0/01` with no session: the template's fence creates the session, but the
+/// step that presents a test reads a `$uat_path` nothing binds and fails; the step that processes an answer edits the
+/// Tests and Gaps sections of a UAT file, with no line that records a result or a gap; and diagnosis parses the Gaps
+/// section of that file, so no gap is ever read back.
+#[test]
+fn the_uat_loop_stops_at_a_uat_file_no_step_writes() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = without_a_session();
+    let session = typed::filled(
+        &fence_holding(&asset("gsd-core/templates/UAT.md"), "new uat_session"),
+        &[
+            ("PHASE_ID", "v1.0/01"),
+            ("SOURCE", "v1.0/01/01-01/01-01-SUMMARY"),
+            ("TEST_ID", "U1"),
+            ("NAME", "Add a task"),
+            ("EXPECTED", "`node src/cli.js add x` prints `added 1: x`"),
+        ],
+    );
+    let done = typed::apply(&sh, &p, &session);
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    let work = asset("gsd-core/workflows/verify-work.md");
+    let present = fence_holding(&work, "CHECKPOINT=");
+    let (_, _, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{present}"));
+    assert_ne!(code, 0, "the present step's query ran");
+    let process = super::block(&work, "<step name=\"process_response\">", "</step>");
+    assert!(process.contains("Update Tests section"), "{process}");
+    assert!(process.contains("Append to Gaps section"), "{process}");
+    assert!(
+        !process.contains("set-uat-result <uat_test> pass"),
+        "{process}"
+    );
+    assert!(!process.contains("new uat_gap"), "{process}");
+    let diagnose = asset("gsd-core/workflows/diagnose-issues.md");
+    let parse = super::block(&diagnose, "<step name=\"parse_gaps\">", "</step>");
+    assert!(parse.contains("Read the \"Gaps\" section"), "{parse}");
+    assert!(
+        diagnose.contains("{phase_num}-UAT.md"),
+        "the debug spawn's reading"
+    );
+}
