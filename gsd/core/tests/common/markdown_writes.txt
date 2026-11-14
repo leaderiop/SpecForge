@@ -2,22 +2,11 @@
 # kept and own text alike: a write verb and a GSD file name in one sentence of prose, or an output redirect or `tee`
 # into one in a shell fence. Its row count is the port's write measure. A row with no hit fails, and so does a hit
 # with no row: take a row off in the commit that rewrites its line; never add a row.
-commands/gsd/ns-workflow.md	| Create a PLAN.md | gsd-plan-phase |
-gsd-core/references/agent-contracts.md	| gsd-ai-researcher | AI framework research | No marker (writes the AI-SPEC.md framework section via Edit) | `gsd-core/workflows/ai-integration-phase.md` reads the AI-SPEC.md section after the agent returns | artifact+query |
-gsd-core/references/agent-contracts.md	| gsd-code-fixer | Applies code-review fixes | No marker (fix commits + REVIEW.md updates) | `gsd-core/workflows/code-review-fix.md` reads REVIEW.md resolution state + git log | artifact+query |
-gsd-core/references/agent-contracts.md	| gsd-code-reviewer | Source-code review | No marker (writes REVIEW.md) | `gsd-core/workflows/code-review.md` reads REVIEW.md | artifact+query |
-gsd-core/references/agent-contracts.md	| gsd-domain-researcher | Domain research | No marker (writes the AI-SPEC.md domain section via Edit) | `gsd-core/workflows/ai-integration-phase.md` reads the AI-SPEC.md section after the agent returns | artifact+query |
-gsd-core/references/agent-contracts.md	| gsd-eval-auditor | Evaluation coverage audit | No marker (writes the REVIEW.md audit section) | `gsd-core/workflows/eval-review.md` reads REVIEW.md | artifact+query |
-gsd-core/references/agent-contracts.md	| gsd-eval-planner | Evaluation strategy design | No marker (writes the AI-SPEC.md evaluation section via Edit) | `gsd-core/workflows/ai-integration-phase.md` reads the AI-SPEC.md section after the agent returns | artifact+query |
 gsd-core/references/execute-phase-response-language.md	**The `gsd-verifier` subagent has no workflow file of its own (#2529):** the shared verification step (`workflows/execute-phase/steps/verify-phase-goal.md`, included by execute-phase's `verify_phase_goal` and by verify-work, #5118) reaches it by dispatch, not by reading a workflow, so there is no file in which to place a directive — the dispatch prompt is the only place its coverage can live. That prompt MUST carry this line verbatim, immediately after `Create VERIFICATION.md.` (the shared step's prompt carries it inline, so both callers inject it):
 gsd-core/references/executor-examples.md	### Writing `deferred-items.md`
 gsd-core/references/git-integration.md	| PLAN.md created         | NO      | Intermediate - commit with plan completion       |
 gsd-core/references/git-integration.md	| RESEARCH.md created     | NO      | Intermediate                                     |
-gsd-core/references/mvp-concepts.md	- **Per-phase mode authoring** — `workflows/mvp-phase.md` (writes `**Mode:** mvp` to ROADMAP.md after collecting the user story).
-gsd-core/references/mvp-concepts.md	- **`--mvp` and `--prd <file>` together on Phase 1.** Both paths converge at the planner spawn. The PRD express path creates `CONTEXT.md` from the PRD file and continues to the research step; the Walking Skeleton gate fires independently when Phase 1 + new project + `--mvp`. The planner therefore receives both `WALKING_SKELETON=true` and PRD-derived context. This is intentional: the PRD informs what the skeleton should prove.
-gsd-core/references/revision-loop.md	and the phase `*-REVIEWS.md` already exists, `plan-phase` appends one line per conflict under
 gsd-core/references/thinking-models-execution.md	Before removing, replacing, or significantly modifying existing code that the plan touches, determine WHY it exists. Check: git blame for the commit that introduced it, comments explaining the rationale, test cases that exercise it, the PLAN.md or SUMMARY.md that created it. If the purpose is unclear, keep it and add a comment noting the uncertainty -- do NOT remove code whose purpose you don't understand. If the plan explicitly says to remove it, still document what it did in the deviation notes.
-gsd-core/references/universal-anti-patterns.md	27. **Do not start executing the next plan before writing the SUMMARY.md for the current plan** -- downstream plans may reference it via `@` includes.
 gsd-core/references/verification-overrides.md	- A requirement changed after planning but ROADMAP.md hasn't been updated yet
 gsd-core/references/verifier-phase-gates.md	section) to VERIFICATION.md regardless of outcome — even when all
 gsd-core/workflows/execute-phase/steps/regression-gate.md	- File patterns from `key-files.created` in corresponding SUMMARY.md files that match `*.test.*` or `*.spec.*`
@@ -28,7 +17,6 @@ gsd-core/workflows/new-workspace.md	- [ ] WORKSPACE.md manifest written with cor
 gsd-core/workflows/quick-batch/steps/resume-mode.md	which artifacts already exist on disk (PLAN.md/SUMMARY.md/VERIFICATION.md),
 gsd-core/workflows/session-report.md	Generate a post-session summary document capturing work performed, outcomes achieved, and estimated resource usage. Writes SESSION_REPORT.md to `reports/` in the repository for human review and stakeholder sharing.
 gsd-core/workflows/session-report.md	- [ ] Report written to `reports/`
-gsd-core/workflows/settings.md	Store `$GSD_CONFIG_PATH` — all subsequent reads and writes use this path, not a hardcoded path, so active-workstream installs target the correct file (#2282).
 gsd-core/workflows/undo.md	`milestones/v<X.Y>-phases/<phase>/` archive and the workstream archive
 gsd-core/workflows/undo.md	commits; a workstream completed into `milestones/ws-feat-<date>/` and then re-created as `feat`
 ../security/assets/agents/gsd-security-auditor.compact.md	A phase has been submitted for security audit. Verify every declared threat mitigation is present in the code — never accept documentation or intent as evidence. Does NOT scan blindly for new vulnerabilities — verifies each threat in `<threat_model>` by its declared disposition (mitigate / accept / transfer) and reports gaps. Orchestrator owns the SECURITY.md write (#2119: single-writer contract).

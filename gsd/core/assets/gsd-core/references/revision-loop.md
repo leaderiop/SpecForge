@@ -115,39 +115,26 @@ so they restate the operative rules inline; this section is the authority they m
 
 1. **Do not spend budget.** Do NOT increment the iteration counter and do NOT update
    `prev_issue_count`. Do NOT re-spawn the checker yet — the conflict is not a revised output.
-2. **Record**, where the host has a channel an arbitration loop reads. `review.md` emits one
-   fixed writer-owned slot immediately after the artifact title, between
-   `<!-- gsd:plan-revision-conflicts:begin -->` and
-   `<!-- gsd:plan-revision-conflicts:end -->`. When `workflow.plan_review_convergence` is enabled
-   and the phase `*-REVIEWS.md` already exists, `plan-phase` appends one line per conflict under
-   `## Plan-Revision Conflicts` inside that slot:
+2. **Record** the conflict as a `revision_conflict` of the plan's phase, open until it is resolved:
 
-```markdown
-- [ ] REVISION_CONFLICT {dimension}/{plan} — required_property: {property} | conflicts with: {locked decision D-nn / CLAUDE.md rule / plan constraint} | alternatives: {the agent's alternatives}
+```bash
+specforge gsd record-conflict "$PLAN_ID" --dimension "$DIMENSION" --property "$PROPERTY" --conflicts-with "$CONFLICTS_WITH" --alternatives "$ALTERNATIVES" || exit 1
 ```
 
-   A checkbox, not a table row: `- [ ] REVISION_CONFLICT` is open and `- [x] REVISION_CONFLICT`
-   is resolved. The reader counts matching open lines only inside the first fixed slot after the
-   artifact title; an identical marker in reviewer output is not state. An open line in the owned
-   slot blocks convergence even if this run is abandoned.
-   A workflow with no such channel (`quick` has no phase and no REVIEWS.md) skips this step.
-
-   Before appending, reuse the existing open line instead of appending a duplicate when its
-   sanitized fields identify the same conflict. This makes persisted conflict state idempotent.
-
-   **Sanitize before writing — the conflict text is agent-authored.** Every field comes from the
-   producing agent. Before appending, for EACH field: collapse every newline and tab to a single
-   space, and strip any leading `#`, `-`, `|` or backtick-fence run. Otherwise an embedded
-   newline can forge an extra conflict-shaped record inside the owned slot. One conflict is exactly
-   one line beginning `- [ ]`. Never append agent text verbatim, and never append a fenced block.
+   `CONFLICTS_WITH` names the locked decision D-nn, CLAUDE.md rule or plan constraint, and
+   `ALTERNATIVES` the agent's alternatives (leave `--alternatives` out when it named none). The
+   same open conflict is reused, not recorded twice, and each value is a command argument, so
+   agent-authored text cannot forge a second conflict. An open conflict blocks convergence even if
+   this run is abandoned. A workflow with no phase (`quick`) skips this step.
 3. **Resolve** — present the conflict and its alternatives to the user and ask which to take
    (pattern: `gsd-core/references/gate-prompts.md`): adopt a named alternative / override the
    named constraint and apply the hint / amend the constraint itself. Each option resolves the
    conflict. Accepting the output with the blocker still open is NOT offered here — the blocking
    `required_property` still fails, and that choice belongs to the cap escalation.
-4. **Close** — the workflow that wrote the line owns flipping it to `- [x]` once the resolution
-   has been applied, appending ` | resolved: {chosen resolution}`. Readers only read. A line left
-   open is a live blocker, never a stale artifact.
+4. **Close** — the workflow that recorded the conflict resolves it once the resolution has been
+   applied, with `specforge gsd resolve-conflict "<chosen resolution>" --conflict <conflict>`
+   (`--plan <plan>` resolves every open conflict of the plan). Readers only read. A conflict left open
+   is a live blocker, never a stale artifact.
 5. **Re-spawn** with the chosen resolution, then re-evaluate the return from the top of this
    handler — never fall through to the checker spawn. A second conflict is still a conflict, not
    a revised output, and handing it to the checker would check the conflict message.

@@ -61,7 +61,7 @@ For each `<action>` step, re-read it as if you have NEVER seen this codebase. Is
 
 **Counters:** Planners ignoring low-confidence research caveats.
 
-Before finalizing the plan, read ALL `[NEEDS DECISION]` items and LOW-confidence recommendations from SUMMARY.md. For each: either (a) create a `checkpoint:decision` task to resolve it, or (b) document why the risk is acceptable in the plan's deviation notes. LOW-confidence items that are silently accepted become undocumented technical debt.
+Before finalizing the plan, read ALL `[NEEDS DECISION]` items and LOW-confidence recommendations from the research entity's summary. For each: either (a) create a `checkpoint:decision` task to resolve it, or (b) document why the risk is acceptable in the plan's deviation notes. LOW-confidence items that are silently accepted become undocumented technical debt.
 
 ## Gap Closure Mode: Root-Cause Check
 

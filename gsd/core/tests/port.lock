@@ -993,7 +993,9 @@ commands/gsd/ns-project.md	kept	10+24	4f4bb7907f94
 commands/gsd/ns-review.md	kept	10+6	f6be56e72a8b
 commands/gsd/ns-review.md	own	16+1	1	f6e7409985c5	6be55c1cf2b3	served
 commands/gsd/ns-review.md	kept	17+18	70a0289ac424
-commands/gsd/ns-workflow.md	kept	10+34	0ffca17644d1
+commands/gsd/ns-workflow.md	kept	10+16	dd7b0470ae75
+commands/gsd/ns-workflow.md	own	26+1	1	8b2b1662af08	ed50a4fa42c7	prose
+commands/gsd/ns-workflow.md	kept	27+17	566f6332a786
 commands/gsd/onboard.md	kept	15+13	3432f83e07d0
 commands/gsd/onboard.md	own	28+3	3	690ed2d7801b	66ea0555bf7d	ported-name
 commands/gsd/onboard.md	kept	31+22	2103a531eed4
@@ -1095,16 +1097,20 @@ commands/gsd/verify-work.md	kept	15+31	63a22e0f5745
 commands/gsd/workspace.md	kept	12+9	810758ce128c
 commands/gsd/workspace.md	own	21+1	1	823a8312c0f7	f66f9cdc4d92	ported-name
 commands/gsd/workspace.md	kept	22+37	d1f1ab98c64f
-gsd-core/references/agent-contracts.md	kept	1+26	3da60745dfab
-gsd-core/references/agent-contracts.md	own	27+1	1	dba3e0a1acd7	c60996f92c79	ported-name
+gsd-core/references/agent-contracts.md	kept	1+12	547eae3bb3e7
+gsd-core/references/agent-contracts.md	own	13+1	0	eeb8648314d7	e3b0c44298fc	served
+gsd-core/references/agent-contracts.md	kept	14+6	75e1d5b863ce
+gsd-core/references/agent-contracts.md	own	20+2	0	3731fc4d88e7	e3b0c44298fc	served
+gsd-core/references/agent-contracts.md	kept	22+1	3e7128065a79
+gsd-core/references/agent-contracts.md	own	23+5	1	d69f85ca1fb1	c60996f92c79	ported-name
 gsd-core/references/agent-contracts.md	kept	28+3	26f218566cc3
-gsd-core/references/agent-contracts.md	own	31+1	1	aa3ec964ef2b	6d28649d0b41	ported-name
-gsd-core/references/agent-contracts.md	kept	32+3	17128cede8db
-gsd-core/references/agent-contracts.md	own	35+2	2	38a930235826	fd252c5b8715	ported-name
-gsd-core/references/agent-contracts.md	kept	37+7	70916b545c78
-gsd-core/references/agent-contracts.md	own	44+1	1	715ad2f57a66	3ab8a9f064db	ported-name
-gsd-core/references/agent-contracts.md	kept	45+2	812af6b14838
-gsd-core/references/agent-contracts.md	own	47+1	1	25c8907c9ddf	a9f3704833e7	ported-name
+gsd-core/references/agent-contracts.md	own	31+3	0	35fcd3b62574	e3b0c44298fc	ported-name
+gsd-core/references/agent-contracts.md	kept	34+1	98c7b829e468
+gsd-core/references/agent-contracts.md	own	35+7	1	5e07230c7efa	6a58b4f15d2d	ported-name
+gsd-core/references/agent-contracts.md	kept	42+1	d2293ee31079
+gsd-core/references/agent-contracts.md	own	43+3	0	2eaafceab9fb	e3b0c44298fc	ported-name
+gsd-core/references/agent-contracts.md	kept	46+1	35c45dd06076
+gsd-core/references/agent-contracts.md	own	47+1	1	25c8907c9ddf	a13dc179bc17	ported-name
 gsd-core/references/agent-contracts.md	kept	48+51	646efa579d42
 gsd-core/references/agent-skills-bootstrap.md	kept	1+3	d0e2a2616329
 gsd-core/references/agent-skills-bootstrap.md	own	4+1	1	b9181d973743	3d53a9cafdd3	ported-name
@@ -1328,7 +1334,11 @@ gsd-core/references/model-profiles.md	own	264+1	1	9bacba24b2c0	fc7074d832e3	port
 gsd-core/references/model-profiles.md	kept	265+26	3344dbddcd55
 gsd-core/references/mvp-concepts.md	kept	1+4	a8e145ba5038
 gsd-core/references/mvp-concepts.md	own	5+1	1	8432a25edf0b	af1824820ff0	served
-gsd-core/references/mvp-concepts.md	kept	6+45	36608e441e91
+gsd-core/references/mvp-concepts.md	kept	6+23	44e98868db77
+gsd-core/references/mvp-concepts.md	own	29+1	1	dc1a4d84eddb	32f027e7870b	prose
+gsd-core/references/mvp-concepts.md	kept	30+4	ffe5f8f414b0
+gsd-core/references/mvp-concepts.md	own	34+1	1	8b35571462e7	cac12c7af9fe	served
+gsd-core/references/mvp-concepts.md	kept	35+16	87f2c5a31de2
 gsd-core/references/nyquist-compliance.md	kept	1+20	b7117ff7a0ce
 gsd-core/references/nyquist-compliance.md	own	21+1	1	9e9d36c7de07	04bd1607af22	served
 gsd-core/references/nyquist-compliance.md	kept	22+54	22d0f06bae62
@@ -1457,7 +1467,7 @@ gsd-core/references/planner-verify-command-grounding.md	kept	36+15	5240142c5b3b
 gsd-core/references/planning-config.md	kept	1+2	07e6e89ba572
 gsd-core/references/planning-config.md	own	3+1	1	b87e27bb375c	6c0e151fcf16	ported-name
 gsd-core/references/planning-config.md	kept	4+28	fe452783c657
-gsd-core/references/planning-config.md	own	32+1	1	7f626eda6d39	588af96bcca5	ported-name
+gsd-core/references/planning-config.md	own	32+1	1	7f626eda6d39	28fa1f2ee55f	ported-name
 gsd-core/references/planning-config.md	kept	33+5	774694bd9c8e
 gsd-core/references/planning-config.md	own	38+1	1	d1061523ace8	dc9bd8835a6d	workflow
 gsd-core/references/planning-config.md	kept	39+44	d86522585869
@@ -1495,11 +1505,11 @@ gsd-core/references/planning-config.md	own	223+3	3	d57f19310190	640bc1cec556	ser
 gsd-core/references/planning-config.md	kept	226+37	cd57fb3f8176
 gsd-core/references/planning-config.md	own	263+1	1	cb842bd5c2cc	51c354b85192	ported-name
 gsd-core/references/planning-config.md	kept	264+30	048abc6d312e
-gsd-core/references/planning-config.md	own	294+1	1	5613bbc25298	d08a9cc9bfa6	ported-name
+gsd-core/references/planning-config.md	own	294+1	1	5613bbc25298	be103ee5146d	ported-name
 gsd-core/references/planning-config.md	kept	295+11	1b8ed530c2f8
 gsd-core/references/planning-config.md	own	306+2	2	380fdb5b85b8	39b7292a1d43	served
 gsd-core/references/planning-config.md	kept	308+8	ebb9da61dbf2
-gsd-core/references/planning-config.md	own	316+1	1	7202781f4738	d3192305c22e	prose
+gsd-core/references/planning-config.md	own	316+1	1	7202781f4738	a5509082ec29	prose
 gsd-core/references/planning-config.md	kept	317+7	cc4ff5743f23
 gsd-core/references/planning-config.md	own	324+1	1	6d290be2ea11	267eddd958fb	served
 gsd-core/references/planning-config.md	kept	325+19	8363a6bad48b
@@ -1549,7 +1559,11 @@ gsd-core/references/reviewer-instances.md	own	6+1	1	b9ea26f62ae9	c6de1227e7bb	wo
 gsd-core/references/reviewer-instances.md	kept	7+69	410f79b0c49e
 gsd-core/references/reviewer-instances.md	own	76+8	8	422ddf96cbc8	8758697635c3	ported-name
 gsd-core/references/reviewer-instances.md	kept	84+57	d8b4b25bd8ca
-gsd-core/references/revision-loop.md	kept	1+205	09cf2d9ac182
+gsd-core/references/revision-loop.md	kept	1+116	ba4ba2a47314
+gsd-core/references/revision-loop.md	own	117+25	11	f59bf8acb623	94ea1a57266b	typed-edit
+gsd-core/references/revision-loop.md	kept	142+5	0ae9798cc5d6
+gsd-core/references/revision-loop.md	own	147+3	4	f7c7080d478c	3c526eca09b4	prose
+gsd-core/references/revision-loop.md	kept	150+56	98a997cf81c8
 gsd-core/references/runtime-aware-dispatch.md	kept	1+21	eedc0f26522d
 gsd-core/references/runtime-aware-dispatch.md	own	22+1	1	c82bf0e727f2	373167822f9b	ported-name
 gsd-core/references/runtime-aware-dispatch.md	kept	23+21	85caa6940557
@@ -1626,7 +1640,9 @@ gsd-core/references/tdd.md	kept	320+25	56befe1ba52e
 gsd-core/references/tdd.md	own	345+1	1	df4b8ea7ce4f	eeea9f89cc1a	served
 gsd-core/references/tdd.md	kept	346+22	34138d48bd65
 gsd-core/references/thinking-models-execution.md	kept	1+51	dcc650a8b5f3
-gsd-core/references/thinking-models-planning.md	kept	1+81	7cc8aeaa6934
+gsd-core/references/thinking-models-planning.md	kept	1+62	93e28120c51f
+gsd-core/references/thinking-models-planning.md	own	63+1	1	3c7dceb0e5cb	f5226b9fe0ce	served
+gsd-core/references/thinking-models-planning.md	kept	64+18	582ba06270ad
 gsd-core/references/thinking-models-research.md	kept	1+51	5f6bf3f3b889
 gsd-core/references/thinking-models-verification.md	kept	1+25	260094cc6fc2
 gsd-core/references/thinking-models-verification.md	own	26+1	1	b2fde6d86e43	10cd1339cb21	prose
@@ -1644,12 +1660,14 @@ gsd-core/references/universal-anti-patterns.md	own	11+1	1	b532fef10195	74209814f
 gsd-core/references/universal-anti-patterns.md	kept	12+7	34378b26152d
 gsd-core/references/universal-anti-patterns.md	own	19+1	1	085d40647193	62a6f1b11c9a	ported-name
 gsd-core/references/universal-anti-patterns.md	kept	20+17	0043804197ee
-gsd-core/references/universal-anti-patterns.md	own	37+1	1	5598b6ee2345	4ba849380b9b	ported-name
+gsd-core/references/universal-anti-patterns.md	own	37+1	1	5598b6ee2345	55dfbd9bb7f4	ported-name
 gsd-core/references/universal-anti-patterns.md	kept	38+18	ca793619ee28
-gsd-core/references/universal-anti-patterns.md	own	56+2	2	cfb0924c5628	8467d2849a8b	ported-name
-gsd-core/references/universal-anti-patterns.md	kept	58+7	4ffb9cd73829
+gsd-core/references/universal-anti-patterns.md	own	56+3	3	95f3e04ad5eb	d2bbd0c71b92	ported-name
+gsd-core/references/universal-anti-patterns.md	kept	59+6	a96c9810b964
 gsd-core/references/untrusted-input-boundary.md	kept	1+14	d33b80d4d348
-gsd-core/references/user-story-template.md	kept	1+59	0cc50e06a144
+gsd-core/references/user-story-template.md	kept	1+2	769f6a07884b
+gsd-core/references/user-story-template.md	own	3+1	1	469383903862	9afd70b613cc	served
+gsd-core/references/user-story-template.md	kept	4+56	d8c129cd1abc
 gsd-core/references/verification-overrides.md	kept	1+142	4549bc4cb7d5
 gsd-core/references/verification-overrides.md	own	143+1	1	307c96a4d2ab	307c96a4d2ab	markdown
 gsd-core/references/verification-overrides.md	kept	144+16	e95b1bfc8d87
@@ -5047,13 +5065,9 @@ gsd-core/workflows/settings-integrations.md	kept	346+4	4a3b3cf8b9e5
 gsd-core/workflows/settings.md	kept	1+1	67c8626203ca
 gsd-core/workflows/settings.md	own	2+1	1	65d75d8c17bb	f9f9c51eebb7	ported-name
 gsd-core/workflows/settings.md	kept	3+12	7145f644502f
-gsd-core/workflows/settings.md	own	15+6	6	c75f526ceeb9	f1a810a19420	ported-name
-gsd-core/workflows/settings.md	kept	21+1	3ba628c0f678
-gsd-core/workflows/settings.md	own	22+3	3	8e9ae1310fe0	a62e341b0e8a	ported-name
-gsd-core/workflows/settings.md	kept	25+1	421185ca32f0
-gsd-core/workflows/settings.md	own	26+1	1	446ef3131a91	30dd21ed44b7	ported-name
-gsd-core/workflows/settings.md	kept	27+7	fb0e51e8c996
-gsd-core/workflows/settings.md	own	34+1	1	e5d63377852e	d171b32b702d	ported-name
+gsd-core/workflows/settings.md	own	15+14	6	483e62f91a8b	f1a810a19420	ported-name
+gsd-core/workflows/settings.md	kept	29+4	b28fac2a3468
+gsd-core/workflows/settings.md	own	33+2	1	08fe4a956106	5f3d70438e70	ported-name
 gsd-core/workflows/settings.md	kept	35+4	a29f1adeeca3
 gsd-core/workflows/settings.md	own	39+1	1	73d670c20410	23ab5d959ed2	served
 gsd-core/workflows/settings.md	kept	40+16	525e70ac0ada

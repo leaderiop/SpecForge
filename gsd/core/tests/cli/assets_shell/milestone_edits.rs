@@ -466,3 +466,27 @@ fn the_audit_creates_its_entity_once_and_writes_only_tech_debt() {
     assert_eq!(fields["tech_debt"][0]["item"], "TODO: add rate limiting");
     assert_eq!(fields["status"], "gaps_found");
 }
+
+/// `agent-contracts.md`'s registry lists only the agents GSD on SpecForge ships: each row's agent has its file under
+/// `gsd/core/assets/agents/` or `gsd/security/assets/agents/`.
+#[test]
+fn the_references_name_only_shipped_agents() {
+    let text = asset("gsd-core/references/agent-contracts.md");
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let registry = gsd_kit::markdown::tables(&text)
+        .into_iter()
+        .find(|t| t.heading == "Agent Registry")
+        .expect("the registry");
+    let mut rows = 0;
+    for row in &registry.rows {
+        let agent = &row[0];
+        let file = format!("{agent}.md");
+        assert!(
+            root.join("assets/agents").join(&file).is_file()
+                || root.join("../security/assets/agents").join(&file).is_file(),
+            "{agent} is not shipped"
+        );
+        rows += 1;
+    }
+    assert_eq!(rows, 16);
+}

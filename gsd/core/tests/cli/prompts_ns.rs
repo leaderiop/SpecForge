@@ -66,8 +66,13 @@ fn ns_skills_route() {
             "Route to the appropriate",
         ) {
             let text = text_of(&rendered);
-            // upstream's table rows are verbatim
-            for row in vendored(router).lines().filter(|l| l.starts_with("| ")) {
+            // the router's table rows are verbatim (upstream's, but a row that named a GSD file names the entity)
+            let asset = std::fs::read_to_string(format!(
+                "{}/assets/commands/gsd/ns-{router}.md",
+                env!("CARGO_MANIFEST_DIR")
+            ))
+            .expect("the router");
+            for row in asset.lines().filter(|l| l.starts_with("| ")) {
                 assert!(text.contains(row), "{router} {host}: no '{row}'");
             }
             let rows = route_rows(&text);

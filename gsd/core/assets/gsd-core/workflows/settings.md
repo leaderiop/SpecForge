@@ -19,20 +19,11 @@ RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the se
 INIT=$(specforge gsd progress-report --format json)
 
 # the settings live in specforge.json: there is no config path to resolve, and no active workstream (#2282).
-if [[ -z "${GSD_CONFIG_PATH:-}" ]]; then
-  if false; then   # there is no active-workstream file: the settings are one file, specforge.json
-    WS=""
-    GSD_CONFIG_PATH="specforge.json"
-  else
-    GSD_CONFIG_PATH="specforge.json"
-  fi
-fi
 ```
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
-Creates `config.json` (at the resolved path) with defaults if missing. `INIT` still holds `state.load` output for any step that needs STATE fields.
-Store `$GSD_CONFIG_PATH` — all subsequent reads and writes use this path, not a hardcoded path, so active-workstream installs target the correct file (#2282).
+Settings are written with `specforge settings set`; nothing creates a file, and every setting has its default. `INIT` holds the computed progress for any step that needs it.
 </step>
 
 <step name="read_current">

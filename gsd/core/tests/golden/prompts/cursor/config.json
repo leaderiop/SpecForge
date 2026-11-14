@@ -49,19 +49,19 @@
     "INIT=$(specforge gsd progress-report --format json)",
     "",
     "# the settings live in specforge.json: there is no config path to resolve, and no active workstream (#2282).",
-    "if [[ -z \"${GSD_CONFIG_PATH:-}\" ]]; then",
-    "  if false; then   # there is no active-workstream file: the settings are one file, specforge.json",
-    "    WS=\"\"",
-    "    GSD_CONFIG_PATH=\"specforge.json\"",
-    "  else",
-    "    GSD_CONFIG_PATH=\"specforge.json\"",
-    "  fi",
-    "fi",
     "```",
     "",
-    "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated."
+    "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.",
+    "",
+    "Settings are written with `specforge settings set`; nothing creates a file, and every setting has its default. `INIT` holds the computed progress for any step that needs it.",
+    "</step>",
+    "",
+    "<step name=\"read_current\">",
+    "```bash",
+    "specforge settings --format json --extension @gsd/core",
+    "```"
   ],
-  "bytes": 99373,
+  "bytes": 98999,
   "end": [
     "- [ ] `agent_skills.<agent-type>` slugs validated against `[a-zA-Z0-9_-]+` before write; `review.models.<cli>` slugs accepted only from the registry-derived settable set; skill lists written as JSON arrays (never comma-joined strings)",
     "- [ ] Config merge preserves all keys outside the three sections this workflow owns",
@@ -186,7 +186,7 @@
     "",
     "```json"
   ],
-  "lines": 2068,
+  "lines": 2059,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:32f22f5ad8f47f73e6f6ae21a0bf4a813e7b923a633a407e4baebff245861f78",
+    "digest": "sha256:980b7409457ad8ee313b54ba91c77828375f04f0323917ad1569500f67c766d2",
     "prompt": "@gsd/core@VERSION:config"
   },
-  "sha256": "32f22f5ad8f47f73e6f6ae21a0bf4a813e7b923a633a407e4baebff245861f78"
+  "sha256": "980b7409457ad8ee313b54ba91c77828375f04f0323917ad1569500f67c766d2"
 }
