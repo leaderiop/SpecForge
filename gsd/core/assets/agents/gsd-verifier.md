@@ -596,27 +596,34 @@ Parse the JSON to extract all phases. Identify phases with `number > current_pha
 
 Before recording the verdicts, verify that the status field matches the decision tree from Step 9 — in particular, confirm that status is not `passed` when human verification items exist.
 
-Give each gap of the report you return in this shape:
+Record each gap Step 9b kept as a `verify_gap` of the phase's verification, the entity `/gsd:plan-phase --gaps` closes: one per failed truth, its `truth` the truth's id, its `reason` why it failed, its `artifacts` the files at fault with what is wrong in each, and its `missing` the specific things to add or fix, one per line. A truth that already has an open gap keeps it, since a re-verification reads that gap as remaining; a new gap takes the number after the verification's last (`VG1`, `VG2`, …). Its `status` and `closed_by` are computed: it reads `closed` once a plan whose `gap_closure` names it completes. Fill the values: free text in its quoted heredoc, as written, and an id in its assignment.
 
-```yaml
-gaps:
-  - truth: "Observable truth that failed"
-    status: failed
-    reason: "Brief explanation"
-    artifacts:
-      - path: "src/path/to/file.tsx"
-        issue: "What's wrong"
-    missing:
-      - "Specific thing to add/fix"
+```bash
+VERIFICATION="{the phase's verification, e.g. v1.0/01/01-VERIFICATION}"
+GAP_ID="{VG and the gap's number in the verification, e.g. VG1}"
+TRUTH="{the failed truth's id, e.g. v1.0/01/01-02/TR2}"
+IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
+{why the truth failed, in a sentence}
+TEXT
+IFS= read -rd '' ARTIFACTS <<'TEXT' || true; ARTIFACTS=${ARTIFACTS%$'\n'}
+[{"path": "{a file at fault, ROOT-relative}", "issue": "{what is wrong there}"}]
+TEXT
+IFS= read -rd '' MISSING <<'TEXT' || true; MISSING=${MISSING%$'\n'}
+{a specific thing to add or fix}
+TEXT
+IFS=$'\n' read -rd '' -a MISSING_ITEMS <<<"$MISSING" || true
+TITLE=$(specforge query "$TRUTH" --depth 0 --pick '.nodes[0].title') || exit 1
+[ -n "$TITLE" ] || { echo "no truth $TRUTH in the graph" >&2; exit 1; }
+FILE=$(specforge query "$VERIFICATION" --depth 0 --pick '.nodes[0].file') || exit 1
+[ -n "$FILE" ] || { echo "no verification $VERIFICATION in the graph" >&2; exit 1; }
+MISSING_FLAGS=()
+for ITEM in "${MISSING_ITEMS[@]}"; do MISSING_FLAGS+=(--missing "$ITEM"); done
+specforge new verify_gap "$GAP_ID" "$TITLE" --in "$FILE" --verification "$VERIFICATION" --truth "$TRUTH" --reason "$REASON" --artifacts "$ARTIFACTS" "${MISSING_FLAGS[@]}" || exit 1
 ```
 
-- `truth`: The observable truth that failed
-- `status`: failed | partial
-- `reason`: Brief explanation
-- `artifacts`: Files with issues
-- `missing`: Specific things to add/fix
+`specforge query "$PHASE_ID" --depth 3 --kinds verify_gap,uat_gap --format context` reads the phase's gaps back, as plan-phase does.
 
-If Step 9b identified deferred items, add a `deferred` section after `gaps`:
+If Step 9b identified deferred items, give them in the report you return in this shape:
 
 ```yaml
 deferred:  # Items addressed in later phases — not actionable gaps
@@ -811,7 +818,7 @@ Automated checks passed. Awaiting human verification.
 
 **DO NOT skip key link verification.** 80% of stubs hide here — pieces exist but aren't connected.
 
-**Give each gap of the report in Step 10's shape.**
+**Record each gap as a `verify_gap` (Step 10).**
 
 **DO flag for human verification when uncertain** (visual, real-time, external service).
 
@@ -889,7 +896,7 @@ return <div>No messages</div>  // Always shows "no messages"
 - [ ] Human verification items identified
 - [ ] Overall status determined
 - [ ] Deferred items filtered against later milestone phases (Step 9b)
-- [ ] Gaps given in Step 10's shape in the report (if gaps_found)
+- [ ] Each gap recorded as a `verify_gap` (Step 10, if gaps_found)
 - [ ] Deferred items given in Step 10's shape in the report (if deferred items exist)
 - [ ] Re-verification metadata included (if previous existed)
 - [ ] fingerprint fields written via verification.fingerprint (#4155)

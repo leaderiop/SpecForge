@@ -101,7 +101,7 @@ pub const EXECUTOR: Role = Role {
     ],
 };
 
-/// Checks that what was built is what the graph asks, and records the tests' results.
+/// Checks that what was built is what the graph asks, records the tests' results and each gap it finds.
 pub const VERIFIER: Role = Role {
     id: "verifier",
     reads: &[
@@ -115,7 +115,7 @@ pub const VERIFIER: Role = Role {
         "specforge:context",
         "specforge:find_spec_for_source",
     ],
-    writes: &["specforge:collect"],
+    writes: &["specforge:edit", "specforge:collect"],
 };
 
 /// Every role.

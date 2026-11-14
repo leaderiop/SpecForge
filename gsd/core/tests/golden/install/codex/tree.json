@@ -24,8 +24,8 @@
     "sha256": "0829a31ec7cbc3ee05919f2d1c1dddf1262119f1366e0696a900fe9fb4244626"
   },
   ".codex/agents/gsd-nyquist-auditor.toml": {
-    "bytes": 9939,
-    "sha256": "57bc61c21be3ec69b766cc6e91db5a1820e6178688b62077bb9429450b3b330a"
+    "bytes": 10168,
+    "sha256": "006ed7f9a127ada38eb3ea5298d96dc4bde98af6fe1d708546ccae174b53c3f0"
   },
   ".codex/agents/gsd-pattern-mapper.toml": {
     "bytes": 15820,
@@ -56,8 +56,8 @@
     "sha256": "1e88813603a572bac3be1ea8cacbe3c6b8d5d3196e3438ea954593af55145ba3"
   },
   ".codex/agents/gsd-verifier.toml": {
-    "bytes": 53185,
-    "sha256": "9c76c72fe04dadaef5b85f8ec76a30b5780bc9e3a2396902bee29388cdf76e63"
+    "bytes": 55031,
+    "sha256": "5497a55472c28a1b81f59aa5a38e08256549410b61fa4fc653712df109d02d3d"
   },
   ".codex/config.toml": {
     "bytes": 124,

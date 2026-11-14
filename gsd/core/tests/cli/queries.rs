@@ -139,6 +139,7 @@ fn bound(subject: &str) -> Option<&'static str> {
         "$PLAN_ID" | "$PLAN_ENTITY" | "$PLAN_FULL_ID" | "${TARGET_PLAN_ID}" | "$plan_id"
         | "$plan" => "v1.0/01/01-01",
         "$UAT_SESSION" => "v1.0/01/01-UAT",
+        "$VERIFICATION" => "v1.0/01/01-VERIFICATION",
         "$TEST" => "v1.0/01/01-UAT/U2",
         "{GAP}" => "v1.0/01/01-UAT/U2/G1",
         // facts: `the_verifiers_fact_spot_checks_print_what_they_promise` collects them first

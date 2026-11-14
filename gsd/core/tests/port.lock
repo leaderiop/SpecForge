@@ -938,8 +938,8 @@ agents/gsd-verifier.md	own	567+1	1	a9b2ef776a0a	35fbc7800086	ported-name
 agents/gsd-verifier.md	kept	568+21	6ea94c67a7e7
 agents/gsd-verifier.md	own	589+1	1	6986a9a4af78	0da76325a991	ported-name
 agents/gsd-verifier.md	kept	590+21	1a8b9dbf53c6
-agents/gsd-verifier.md	own	611+3	3	f01dfb881a3f	6866967173a2	agent
-agents/gsd-verifier.md	kept	614+42	32f0f5a07bdd
+agents/gsd-verifier.md	own	611+23	30	8a26db6ddc2b	8b1ca6c6ee14	typed-edit
+agents/gsd-verifier.md	kept	634+22	603b1e4bf30d
 agents/gsd-verifier.md	own	656+1	1	acac18539176	c62108cb5aff	agent
 agents/gsd-verifier.md	kept	657+4	0a563311f3da
 agents/gsd-verifier.md	own	661+1	1	4f37d21590b4	5116ea3c4334	agent
@@ -960,11 +960,11 @@ agents/gsd-verifier.md	own	852+1	1	3054f96e1586	a2ab7f8727ff	ported-name
 agents/gsd-verifier.md	kept	853+10	aab79a668dc0
 agents/gsd-verifier.md	own	863+1	1	a8e2d71e54a4	65d91015aa6d	agent
 agents/gsd-verifier.md	kept	864+20	a9ed8fa95f01
-agents/gsd-verifier.md	own	884+1	1	f500d0e52725	0ab89ae705e2	agent
+agents/gsd-verifier.md	own	884+1	1	f500d0e52725	3a69c2c0cf90	agent
 agents/gsd-verifier.md	kept	885+64	b39b884fdc5f
 agents/gsd-verifier.md	own	949+1	1	d3b0ad0339e7	ccc942081e12	agent
 agents/gsd-verifier.md	kept	950+12	fac58c8ad973
-agents/gsd-verifier.md	own	962+2	2	6f1372825f8f	bf5d3f0a33cb	agent
+agents/gsd-verifier.md	own	962+2	2	6f1372825f8f	c81df6fd34bd	agent
 agents/gsd-verifier.md	kept	964+2	a213ee328969
 agents/gsd-verifier.md	own	966+1	1	17d9c85a63d3	acd72d51db8b	agent
 agents/gsd-verifier.md	kept	967+3	4a8732c5613f

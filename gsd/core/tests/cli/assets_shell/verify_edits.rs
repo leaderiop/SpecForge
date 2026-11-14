@@ -518,17 +518,86 @@ fn the_uat_loop_records_a_pass_and_a_gap_the_diagnosis_reads() {
     assert_eq!(p.fields_of("v1.0/01/01-UAT")["status"], "diagnosed");
 }
 
-/// The verifier hands its gaps to `/gsd:plan-phase --gaps` as `verify_gap` entities, which the derive pass closes and
-/// the planner and execute-phase read, yet no fence of its body, nor of any other asset, creates one: a phase's gaps
-/// never reach the graph.
+/// The verifier records each gap Step 9b keeps as a `verify_gap` of the phase's verification: on a taskboard copy, a
+/// failed verdict on `01-02`'s TR2, recorded with the verification template's fence, then Step 10's gap fence, filled;
+/// the planner's gap read finds the gap open with its reason, and the verification reads `gaps_found`.
 #[test]
 fn the_verifier_records_each_gap_as_a_verify_gap() {
-    let verifier = asset("agents/gsd-verifier.md");
-    assert!(verifier.contains("Structured gaps (`verify_gap` entities)"));
-    let creating: Vec<String> = crate::asset_code::assets_under("assets")
-        .into_iter()
-        .filter(|(_, lines)| lines.iter().any(|l| l.contains("specforge new verify_gap")))
-        .map(|(path, _)| path)
-        .collect();
-    assert!(creating.is_empty(), "{creating:?}");
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let truth = "v1.0/01/01-02/TR2";
+    let inputs = p.run(&[
+        "query",
+        truth,
+        "--inputs",
+        "gsd/E501",
+        "--cite-file",
+        "src/cli.js",
+        "--format",
+        "json",
+    ]);
+    let inputs: serde_json::Value = serde_json::from_str(&inputs.stdout).expect("the inputs");
+    let verdict = typed::filled(
+        &fence_holding(
+            &asset("gsd-core/templates/verification-report.md"),
+            "record-verdict",
+        ),
+        &[
+            ("TRUTH", truth),
+            ("OUTCOME", "failed"),
+            ("BASIS", &inputs["basis"].to_string()),
+            ("CITED", r#"[{"file": "src/cli.js"}]"#),
+            (
+                "FINDINGS",
+                r#"[{"severity": "error", "message": "src/cli.js rethrows the lookup error"}]"#,
+            ),
+        ],
+    );
+    let done = typed::apply(&sh, &p, &verdict);
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    let reason = "done 7 prints a stack trace before the message";
+    let gap = typed::filled(
+        &fence_holding(&asset("agents/gsd-verifier.md"), "new verify_gap"),
+        &[
+            ("VERIFICATION", "v1.0/01/01-VERIFICATION"),
+            ("GAP_ID", "VG1"),
+            ("TRUTH", truth),
+            ("REASON", reason),
+            (
+                "ARTIFACTS",
+                r#"[{"path": "src/cli.js", "issue": "the catch rethrows"}]"#,
+            ),
+            (
+                "MISSING",
+                "Catch the lookup error in done\nPrint only its message",
+            ),
+        ],
+    );
+    let done = typed::apply(&sh, &p, &gap);
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert!(done.added.is_empty(), "{:?}", done.added);
+    let fields = p.fields_of("v1.0/01/01-VERIFICATION/VG1");
+    assert_eq!(fields["truth"], truth);
+    assert_eq!(fields["status"], "open");
+    assert_eq!(fields["artifacts"][0]["path"], "src/cli.js");
+    assert_eq!(
+        fields["missing"],
+        serde_json::json!(["Catch the lookup error in done", "Print only its message"])
+    );
+    assert_eq!(
+        p.fields_of("v1.0/01/01-VERIFICATION")["status"],
+        "gaps_found"
+    );
+    let read = fence_holding(
+        &asset("gsd-core/references/planner-gap-closure.md"),
+        "--kinds verify_gap,uat_gap",
+    );
+    let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{read}"));
+    assert_eq!(code, 0, "{err}");
+    assert!(
+        out.contains("v1.0/01/01-VERIFICATION/VG1") && out.contains(reason),
+        "{out}"
+    );
 }
