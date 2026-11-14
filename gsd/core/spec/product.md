@@ -9,8 +9,10 @@
 
 Files: `spec/gsd/product/personas.spec`, `spec/gsd/product/journeys.spec`, `spec/gsd/product/glossary.spec`.
 
-GSD keeps no persona, journey or glossary file: these kinds are beyond parity, and no `gsd-compat` rule needs them.
-Each is unscoped, so its id is unique across the project and a reference to it never needs a path.
+GSD keeps no persona, journey or glossary file: these kinds are beyond parity
+([ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)), and no
+`gsd-compat` rule needs them. Each is unscoped, so its id is unique across the project and a reference to it never
+needs a path.
 
 ## persona
 
@@ -61,3 +63,14 @@ A glossary entry: a word of the project and what it means. Name: a word, `spec_r
 | tags | strs | | free words |
 
 `related` relates terms with themselves, so it has no reverse to read: a term names the terms it relates to.
+
+## What the old product kinds became
+
+The old `@specforge/product` declared `persona`, `journey`, `term`, `channel`, `deliverable` and `milestone`, with
+product commands, rules that reported an absence, and presentation keywords.
+[ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md) maps each of
+their fields to its home here or on the milestone ([project.md](project.md#milestone)): a channel is a word of
+`journey.channels` and its own text a term, a deliverable is a milestone whose kind of artifact is a word of
+`artifact_types`, and a field no tracked project writes and that has no home is refused rather than dropped. The
+commands and the absence rules are not carried: `specforge query`, `list` and `trace` answer what the commands
+answered.
