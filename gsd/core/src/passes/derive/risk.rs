@@ -1,13 +1,22 @@
-//! The computed values of a risk (`spec/governance.md`): its `rpn` and `post_rpn`, from its ratings.
+//! The computed values of a risk (`spec/governance.md`): its `rpn` and `post_rpn` from its ratings, its `status` from
+//! what its `mitigated_by` names, and whether it is `blocking` under `specforge.risk_block_on`.
 //!
 //! One seam rates a risk, [`rate`]: the product of severity, occurrence and detection, and of the post ratings, a post
 //! member left out keeping its pre rating. A risk whose rating is missing or outside 1 to 10 gets no value: the kernel
 //! reports it (a required field, E061), and no number is guessed.
+//!
+//! A mitigation is done when a task is done (a recorded commit names it, or its plan is complete: `execute::task_done`)
+//! or a truth is verified (its phase's verification verifies it: `verify::items`). A name that does not resolve is
+//! never done, and the prose `mitigation` is no evidence.
+
+use std::collections::BTreeMap;
 
 use specforge_extension_sdk::prelude::*;
 
-use super::execute::value;
-use crate::passes::plans::{block, of_kind, text};
+use super::execute::{task_done, value};
+use super::verify::{self, Item};
+use crate::passes::commits::Commit;
+use crate::passes::plans::{block, of_kind, resolve, strings, targets, text};
 
 /// A risk's three ratings, each 1 to 10.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -31,25 +40,71 @@ pub struct Post {
     pub detection: Option<i64>,
 }
 
-/// What a risk's ratings compute.
+/// How far a risk's mitigations are.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Status {
+    /// It names no mitigation.
+    Open,
+    /// It names some, and one is not done.
+    Mitigating,
+    /// Every mitigation it names is done.
+    Mitigated,
+}
+
+impl Status {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Status::Open => "open",
+            Status::Mitigating => "mitigating",
+            Status::Mitigated => "mitigated",
+        }
+    }
+}
+
+/// What a risk's ratings and mitigations compute.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Rating {
     /// severity × occurrence × detection.
     pub rpn: i64,
     /// The same product over the post ratings: `rpn` without a post block.
     pub post_rpn: i64,
+    pub status: Status,
+    /// The rpn the risk carries now: `post_rpn` once mitigated, `rpn` until then.
+    pub current: i64,
+    /// `current` is at or above the threshold.
+    pub blocking: bool,
+    /// It names no mitigation and its `rpn` is at or above the threshold.
+    pub unmitigated: bool,
 }
 
-/// Rates a risk: pure and total over ratings already read in range.
-pub fn rate(pre: Sod, post: Post) -> Rating {
+/// Rates a risk: pure and total over ratings already read in range. `done` holds one entry per written `mitigated_by`
+/// item, `block_on` is `specforge.risk_block_on`.
+pub fn rate(pre: Sod, post: Post, done: &[bool], block_on: i64) -> Rating {
     let after = Sod {
         severity: post.severity.unwrap_or(pre.severity),
         occurrence: post.occurrence.unwrap_or(pre.occurrence),
         detection: post.detection.unwrap_or(pre.detection),
     };
+    let (rpn, post_rpn) = (pre.product(), after.product());
+    let status = if done.is_empty() {
+        Status::Open
+    } else if done.iter().all(|d| *d) {
+        Status::Mitigated
+    } else {
+        Status::Mitigating
+    };
+    let current = if status == Status::Mitigated {
+        post_rpn
+    } else {
+        rpn
+    };
     Rating {
-        rpn: pre.product(),
-        post_rpn: after.product(),
+        rpn,
+        post_rpn,
+        status,
+        current,
+        blocking: current >= block_on,
+        unmitigated: status == Status::Open && rpn >= block_on,
     }
 }
 
@@ -84,18 +139,74 @@ fn read(risk: &PassEntity) -> Option<(Sod, Post)> {
     Some((sod, post))
 }
 
-/// `rpn` and `post_rpn` of each risk whose ratings are read.
-pub fn values(input: &PassInput) -> Vec<PassValue> {
+/// What the derive pass already knows of the things a risk may name: each read through its own kind, as an id is
+/// unique only within its kind.
+struct Done<'a> {
+    commits: &'a [Commit],
+    statuses: &'a BTreeMap<&'a str, &'static str>,
+    tasks: BTreeMap<&'a str, &'a PassEntity>,
+    items: BTreeMap<(&'a str, &'a str), Item>,
+}
+
+/// Whether the mitigation `id` (a resolved `mitigated_by` target) is done: a task done, or a truth verified.
+fn mitigation_done(id: &str, done: &Done) -> bool {
+    let task = done
+        .tasks
+        .get(id)
+        .is_some_and(|task| task_done(task, done.commits, done.statuses));
+    task || done.items.get(&("truth", id)) == Some(&Item::Verified)
+}
+
+/// One entry per item `risk` writes in `mitigated_by`: whether it is done; `false` for one that does not resolve.
+fn mitigations(input: &PassInput, risk: &PassEntity, done: &Done) -> Vec<bool> {
+    let resolved = targets(input, &risk.id, "mitigated_by");
+    strings(risk, "mitigated_by")
+        .iter()
+        .map(|written| resolve(&resolved, written).is_some_and(|id| mitigation_done(id, done)))
+        .collect()
+}
+
+/// Each rated risk with its rating.
+fn rated<'a>(
+    input: &'a PassInput,
+    commits: &'a [Commit],
+    statuses: &'a BTreeMap<&'a str, &'static str>,
+    block_on: i64,
+) -> Vec<(&'a PassEntity, Rating)> {
+    let done = Done {
+        commits,
+        statuses,
+        tasks: of_kind(input, "task").map(|t| (t.id.as_str(), t)).collect(),
+        items: verify::items(input),
+    };
     of_kind(input, "risk")
-        .filter_map(|risk| Some((risk, read(risk)?)))
-        .flat_map(|(risk, (pre, post))| {
-            let rated = rate(pre, post);
-            [
-                value(&risk.id, "rpn", rated.rpn),
-                value(&risk.id, "post_rpn", rated.post_rpn),
-            ]
+        .filter_map(|risk| {
+            let (pre, post) = read(risk)?;
+            Some((
+                risk,
+                rate(pre, post, &mitigations(input, risk, &done), block_on),
+            ))
         })
         .collect()
+}
+
+/// The values of each rated risk (`rpn`, `post_rpn`, `status`, `blocking`), and its findings.
+pub fn values_and_findings(
+    input: &PassInput,
+    commits: &[Commit],
+    statuses: &BTreeMap<&str, &'static str>,
+    block_on: i64,
+) -> (Vec<PassValue>, Vec<PassDiagnostic>) {
+    let mut values = Vec::new();
+    for (risk, rated) in rated(input, commits, statuses, block_on) {
+        values.extend([
+            value(&risk.id, "rpn", rated.rpn),
+            value(&risk.id, "post_rpn", rated.post_rpn),
+            value(&risk.id, "status", rated.status.as_str()),
+            value(&risk.id, "blocking", rated.blocking),
+        ]);
+    }
+    (values, Vec::new())
 }
 
 #[cfg(test)]

@@ -41,6 +41,8 @@ fn the_risk_declares_the_fields_of_the_model() {
             "refs",
             "rpn",
             "post_rpn",
+            "status",
+            "blocking",
         ]
     );
     model_doc::assert_declared(GOVERNANCE_MD, &["risk"]);
@@ -101,6 +103,39 @@ fn a_risk_names_its_mitigations_and_milestone() {
     assert!(
         !fields_of("risk").contains(&"invariants".to_string()),
         "the old failure mode's invariant link has one home, mitigated_by"
+    );
+}
+
+#[test]
+fn the_risk_status_and_blocking_are_computed() {
+    let status = field_of("risk", "status");
+    assert_eq!(status["writer"], "computed", "{status}");
+    assert_eq!(
+        status["enum_values"],
+        serde_json::json!(["open", "mitigating", "mitigated"]),
+        "{status}"
+    );
+    let blocking = field_of("risk", "blocking");
+    assert_eq!(blocking["writer"], "computed", "{blocking}");
+    assert_eq!(blocking["field_type"], "bool", "{blocking}");
+}
+
+#[test]
+fn the_risk_threshold_is_an_integer_setting_from_1_to_1000_defaulting_to_100() {
+    let settings = describe("settings");
+    let setting = settings["items"]
+        .as_array()
+        .and_then(|s| s.iter().find(|s| s["name"] == "specforge.risk_block_on"))
+        .unwrap_or_else(|| panic!("no specforge.risk_block_on in {settings}"));
+    assert_eq!(setting["field_type"], "integer", "{setting}");
+    assert_eq!(setting["default"], 100, "{setting}");
+    assert_eq!(setting["minimum"], 1, "{setting}");
+    assert_eq!(setting["maximum"], 1000, "{setting}");
+    assert!(
+        setting["gates"]
+            .as_array()
+            .is_none_or(|gates| gates.is_empty()),
+        "{setting}"
     );
 }
 

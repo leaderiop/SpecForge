@@ -10853,6 +10853,33 @@
             "required": false,
             "target_kind": null,
             "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "open while it names no mitigation, mitigated once every one it names is done, else mitigating",
+            "edge": null,
+            "enum_values": [
+              "open",
+              "mitigating",
+              "mitigated"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "its current rpn (post_rpn once mitigated, else rpn) is at or above specforge.risk_block_on",
+            "edge": null,
+            "field_type": "bool",
+            "inverse_of": null,
+            "name": "blocking",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,

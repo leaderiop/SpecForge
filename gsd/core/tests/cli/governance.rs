@@ -90,3 +90,79 @@ fn a_risk_is_created_with_new_and_set_refuses_its_rpn() {
     assert!(set.all().contains("computed"), "{}", set.all());
     assert_eq!(p.read("spec/risks.spec"), before, "nothing is written");
 }
+
+/// `status` and `blocking` of `id`, as `specforge query` answers them.
+fn state(p: &Project, id: &str) -> (String, bool) {
+    let fields = p.fields_of(id);
+    (
+        fields["status"].as_str().unwrap_or_default().to_string(),
+        fields["blocking"]
+            .as_bool()
+            .unwrap_or_else(|| panic!("{id}: no blocking in {fields}")),
+    )
+}
+
+/// Plan 01-01's summary, `status complete`: its tasks are done.
+const SUMMARY: &str = r#"
+summary 01-01-SUMMARY "Encrypted store" {
+  plan                   v1.0/01/01-01
+  status                 complete
+  one_liner              "Keys are encrypted at rest and rotate"
+  subsystem              "store"
+  requirements_completed [GOV-01, GOV-02]
+}
+"#;
+
+#[test]
+fn a_risk_is_open_mitigating_or_mitigated() {
+    let p = project("governance");
+    let state_of = |id: &str| state(&p, id);
+    assert_eq!(state_of("RK1"), ("mitigating".into(), true));
+    assert_eq!(state_of("RK2"), ("open".into(), false));
+    assert_eq!(state_of("RK3"), ("open".into(), true));
+    assert_eq!(state_of("RK4"), ("mitigating".into(), true));
+    let plans = p.read("spec/plans.spec");
+    p.write("spec/plans.spec", &format!("{plans}{SUMMARY}"));
+    assert_eq!(state(&p, "RK1"), ("mitigated".into(), false), "current 35");
+    assert_eq!(
+        state(&p, "RK4"),
+        ("mitigating".into(), true),
+        "a truth is not done by its plan"
+    );
+}
+
+#[test]
+fn a_verified_truth_mitigates_its_risk() {
+    let p = project("governance");
+    p.write(
+        "spec/verify.spec",
+        "verification 01-VERIFICATION \"Store\" {\n  phase v1.0/01\n}\n",
+    );
+    assert_eq!(state(&p, "RK4"), ("mitigating".into(), true));
+    let run = p.record("v1.0/01/01-01/TR1", "E501", "verified", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(state(&p, "RK4"), ("mitigated".into(), false), "current 30");
+}
+
+#[test]
+fn the_threshold_follows_specforge_risk_block_on() {
+    let p = project("governance");
+    p.settings(serde_json::json!({ "specforge.risk_block_on": 400 }));
+    assert_eq!(state(&p, "RK3"), ("open".into(), false), "350 is under 400");
+    assert_eq!(
+        state(&p, "RK1"),
+        ("mitigating".into(), false),
+        "175 is under 400"
+    );
+    p.settings(serde_json::json!({ "specforge.risk_block_on": 175 }));
+    assert_eq!(
+        state(&p, "RK1"),
+        ("mitigating".into(), true),
+        "at the threshold"
+    );
+    assert_eq!(
+        state(&p, "RK4"),
+        ("mitigating".into(), false),
+        "125 is under 175"
+    );
+}

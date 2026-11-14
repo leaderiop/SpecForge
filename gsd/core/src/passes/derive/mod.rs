@@ -9,7 +9,8 @@
 //! phase's `complete` and `needs_review`, `completed`, a requirement's `gaps_found` and `project.windows_*`. `estimate`
 //! answers a plan's slices under the smart-zone budget. `review` answers a review concern's status, a round's open
 //! counts and a revision conflict's status, `batch` a quick batch's status and eligible items, `learning` a
-//! lesson's status, and `risk` a risk's rpn and post_rpn.
+//! lesson's status, and `risk` a risk's rpn, post_rpn, status and blocking (against `specforge.risk_block_on`, read
+//! once here).
 //!
 //! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection) and `retrospective.sessions` (no harness).
 
@@ -72,10 +73,16 @@ fn derive(input: &PassInput) -> PassOutput {
     values.extend(branch::values(input));
     values.extend(estimate::values(input));
     values.extend(review::values(input));
-    values.extend(risk::values(input));
+    let block_on = Settings::current()
+        .integer(crate::settings::RISK_BLOCK_ON)
+        .unwrap_or(crate::settings::RISK_BLOCK_ON_DEFAULT);
+    let (risks, findings) = risk::values_and_findings(input, &commits, &statuses, block_on);
+    values.extend(risks);
+    let mut diagnostics = branch::diagnostics(input);
+    diagnostics.extend(findings);
     PassOutput {
         values,
-        diagnostics: branch::diagnostics(input),
+        diagnostics,
         ..Default::default()
     }
 }

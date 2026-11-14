@@ -162,6 +162,19 @@ fn check_statuses(input: &PassInput, deliverable: &PassEntity) -> Vec<PassValue>
         .collect()
 }
 
+/// A task is done when a recorded commit names it or its plan is `complete`; `pending` otherwise. The one place the
+/// rule is written: a task's `status` and a risk's mitigation read it.
+pub fn task_done(
+    task: &PassEntity,
+    commits: &[Commit],
+    statuses: &BTreeMap<&str, &'static str>,
+) -> bool {
+    commits
+        .iter()
+        .any(|c| c.task.as_deref() == Some(task.id.as_str()))
+        || statuses.get(scope_of(&task.id)) == Some(&"complete")
+}
+
 pub fn values(
     input: &PassInput,
     commits: &[Commit],
@@ -184,10 +197,7 @@ pub fn values(
         }
     }
     for task in of_kind(input, "task") {
-        let named = commits
-            .iter()
-            .any(|c| c.task.as_deref() == Some(task.id.as_str()));
-        let done = named || statuses.get(scope_of(&task.id)) == Some(&"complete");
+        let done = task_done(task, commits, statuses);
         out.push(value(
             &task.id,
             "status",

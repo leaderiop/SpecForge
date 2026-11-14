@@ -15,6 +15,7 @@ const POST: &[Field] = &[
 
 /// What can control a risk: a task, done; a truth, verified.
 const MITIGATIONS: &[&str] = &["task", "truth"];
+const RISK_STATUS: &[&str] = &["open", "mitigating", "mitigated"];
 
 /// A risk of the project. Unscoped: a risk outlives a phase, and moving it to another milestone does not rename it.
 pub const RISK: Kind = Kind::new(
@@ -57,5 +58,11 @@ pub const RISK: Kind = Kind::new(
         int("post_rpn")
             .c()
             .doc("the post ratings' product; the rpn without a post block"),
+        en("status", RISK_STATUS).c().doc(
+            "open while it names no mitigation, mitigated once every one it names is done, else mitigating",
+        ),
+        bool("blocking").c().doc(
+            "its current rpn (post_rpn once mitigated, else rpn) is at or above specforge.risk_block_on",
+        ),
     ],
 );
