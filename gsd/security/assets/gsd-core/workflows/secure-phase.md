@@ -1,6 +1,6 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/workflows/secure-phase.md, MIT, Copyright (c) 2026 Open GSD; see gsd/security/LICENSE-GSD -->
 <purpose>
-Verify threat mitigations for a completed phase. Confirm the plans' threat dispositions are resolved. Update the phase's SECURITY.md, the security audit.
+Verify threat mitigations for a completed phase. Confirm the plans' threat dispositions are resolved. Record the phase's `security_audit`.
 </purpose>
 
 <required_reading>
@@ -18,12 +18,8 @@ Valid GSD subagent types (use exact names — do not fall back to 'general-purpo
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
-
 
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
@@ -32,7 +28,7 @@ AGENT_SKILLS_AUDITOR=""   # the host install carries the skills of gsd-security-
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
-Parse: `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`.
+The phase is `$PHASE_ID`: its number is the id's last segment, and its name the phase entity's `name` in `INIT`.
 
 ```bash
 AUDITOR_MODEL=""   # resolve-model is not part of @gsd/security: the host picks the model
@@ -81,7 +77,7 @@ Classify each threat:
 
 | Status | Criteria |
 |--------|----------|
-| CLOSED | mitigation found OR accepted risk documented in SECURITY.md OR transfer documented |
+| CLOSED | mitigation found OR an `accepted_risk` recorded OR transfer documented |
 | OPEN | none of the above |
 
 Build: `{ threat_id, category, component, severity, disposition, status, evidence }`
@@ -89,7 +85,7 @@ Build: `{ threat_id, category, component, severity, disposition, status, evidenc
 **Short-circuit rule:**
 - If `threats_open: 0 AND register_authored_at_plan_time: true AND asvs_level == 1` → skip to Step 6 directly. No open threats at or above the block threshold remain (threats_open: 0); below-threshold open threats may remain and are non-blocking. L1 grep-depth is sufficient; no deeper verification required.
 - If `threats_open: 0 AND register_authored_at_plan_time: true AND asvs_level >= 2` → **do NOT skip**. The preliminary threat classification is grep-level (L1 depth) and is insufficient for L2/L3. Proceed to Step 5 (spawn the auditor) so that L2 boundary-placement checks and L3 end-to-end trace checks are performed. Skipping the auditor here would defeat ASVS level scaling for "clean" phases.
-- If `threats_open: 0 AND register_authored_at_plan_time: false` → **do NOT skip**. Empty-by-no-planning must not rubber-stamp a clean SECURITY.md. Proceed to Step 5 in **retroactive-STRIDE mode** — the auditor builds a register from implementation files first, then verifies mitigations.
+- If `threats_open: 0 AND register_authored_at_plan_time: false` → **do NOT skip**. An audit with no planned threats proves nothing on its own. Proceed to Step 5 in **retroactive-STRIDE mode** — the auditor builds a register from implementation files first, then verifies mitigations.
 - If `threats_open > 0` → proceed to Step 4 (present threat plan to user).
 
 ## 4. Present Threat Plan
@@ -122,10 +118,10 @@ Print: `◆ Spawning security auditor... (runs in a subagent — no output until
 ```
 Agent(
   prompt="Read ~/.claude/agents/gsd-security-auditor.md for instructions.\n\n" +
-    "<required_reading>{PLAN, SUMMARY, impl files, SECURITY.md}</required_reading>" +
+    "<required_reading>{the phase's plans, summaries and security_audit, impl files}</required_reading>" +
     "<threat_register>{threat register}</threat_register>" +
     "<config>asvs_level: {SECURITY_ASVS}, block_on: {SECURITY_BLOCK_ON}</config>" +
-    "<constraints>Never modify implementation files. Verify mitigations exist — do not scan for new threats. Escalate implementation gaps. Return a structured verdict only — do NOT write SECURITY.md (the orchestrator owns the file write).</constraints>" +
+    "<constraints>Never modify implementation files. Verify mitigations exist — do not scan for new threats. Escalate implementation gaps. Return a structured verdict only — the orchestrator records it with specforge gsd record-security-audit.</constraints>" +
     "${AGENT_SKILLS_AUDITOR}",
   subagent_type="gsd-security-auditor",
   model="{AUDITOR_MODEL}",
@@ -140,21 +136,22 @@ Handle return:
 - `## OPEN_THREATS` → record closed + open, present user with accept/block choice → Step 6
 - `## ESCALATE` → present to user → Step 6
 
-## 6. Write/Update SECURITY.md
+## 6. Record the Security Audit
 
 **State B (create):**
-1. Create the audit with `record_security_audit` (below) when the phase has none; the template's columns are the fields of the `security_audit`, `threat`, `accepted_risk` and `audit_run` entities (the template ends this text)
-2. Fill: frontmatter, threat register, accepted risks, audit trail
+1. Create the audit with `record_security_audit` (below) when the phase has none; the template (it ends this text) names the `security_audit`, `threat`, `accepted_risk` and `audit_run` entities, whose fields `specforge schema --kind <kind>` lists
+2. The verdict names every threat of the register with its status and evidence
 3. The command writes the audit, the threats' statuses and the audit trail
 
 **State A (update):**
 1. Update threat register statuses.
-2. Append to the audit trail through the owning command, `record_security_audit` — it compares against the LAST `## Security Audit` block and skips the write entirely when nothing material changed (#5105 R3; #4887 Defect 2: an unchanged register no longer grows a new identical row on every re-run). A verdict id is a threat's ID; `T-{N}-SC` sets the supply-chain threat of every plan of the phase, and `<plan>/T-{N}-02` (the plan's name, then the ID) names one of two plans' threats that claim the same ID:
+2. Append to the audit trail through the owning command, `record_security_audit` — it compares against the last `audit_run` and skips the write entirely when nothing material changed (#5105 R3; #4887 Defect 2: an unchanged register no longer grows a new identical row on every re-run). A verdict id is a threat's ID; `T-{N}-SC` sets the supply-chain threat of every plan of the phase, and `<plan>/T-{N}-02` (the plan's name, then the ID) names one of two plans' threats that claim the same ID:
 
 ```bash
-specforge gsd record-security-audit "$PHASE_ID" \
-  --verdict '{"threats": [{"id": "T-{N}-01", "status": "closed", "evidence": "{file}"}]}' \
-  --run-by "gsd-security-auditor"
+IFS= read -rd '' VERDICT <<'TEXT' || true; VERDICT=${VERDICT%$'\n'}
+{"threats": [{"id": "T-{N}-01", "status": "closed", "evidence": "{file}"}]}
+TEXT
+specforge gsd record-security-audit "$PHASE_ID" --verdict "$VERDICT" --run-by "gsd-security-auditor" || exit 1
 ```
 
 **ENFORCING GATE:** If `threats_open > 0` after all options exhausted (user did not accept, not all verified closed):
@@ -192,15 +189,15 @@ Display `/clear` reminder.
 <success_criteria>
 - [ ] Security enforcement checked — exit if false
 - [ ] Input state detected (A/B/C) — state C exits cleanly
-- [ ] PLAN.md threat model parsed, register built
-- [ ] SUMMARY.md threat flags incorporated
+- [ ] The plans' threat model read, register built
+- [ ] The summaries' threat flags incorporated
 - [ ] threats_open: 0 AND register_authored_at_plan_time: true AND asvs_level == 1 → skip directly to Step 6 (L1 grep-depth sufficient)
 - [ ] threats_open: 0 AND register_authored_at_plan_time: true AND asvs_level >= 2 → do NOT skip; auditor spawned for L2/L3 deep verification
 - [ ] threats_open: 0 AND register_authored_at_plan_time: false → retroactive-STRIDE mode (Step 5), not skipped
 - [ ] User gate with threat table presented
 - [ ] Auditor spawned with complete context
 - [ ] All three return formats (SECURED/OPEN_THREATS/ESCALATE) handled
-- [ ] SECURITY.md created or updated
+- [ ] The phase's `security_audit` recorded
 - [ ] threats_open > 0 BLOCKS advancement (no next-phase routing emitted)
 - [ ] Results with routing presented on success
 </success_criteria>

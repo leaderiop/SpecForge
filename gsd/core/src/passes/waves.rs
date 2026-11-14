@@ -14,7 +14,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use specforge_extension_sdk::prelude::*;
 
 use super::plans::of_kind;
-use crate::digest::scope_of;
+use crate::scope::scope_of;
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("waves", |p| {

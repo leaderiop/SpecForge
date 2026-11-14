@@ -87,3 +87,151 @@ fn quick_init_mints_a_fresh_free_id_per_call() {
         counted.all()
     );
 }
+
+/// Two quick plans of the twin, as `/gsd-quick-batch` leaves them before it records the batch.
+fn quick_plans(p: &crate::harness::Project) {
+    super::commands_support::plant(
+        p,
+        "spec/quick.spec",
+        "plan 261112-abc \"Trim titles\" {\n  type           execute\n  files_modified []\n  objective      \"Trim titles\"\n}\n\nplan 261112-def \"Sort tasks\" {\n  type           execute\n  files_modified []\n  objective      \"Sort tasks\"\n}\n",
+    );
+}
+
+const BASE: &str = "0123456789abcdef0123456789abcdef01234567";
+
+#[test]
+fn a_batch_is_recorded_with_its_items() {
+    let p = super::commands_support::twin();
+    quick_plans(&p);
+    let batch_id = || {
+        let run = gsd(
+            &p,
+            "quick-init",
+            &[
+                "--batch",
+                "--tasks=- a
+- b",
+                "--pick",
+                ".items[0].batch",
+            ],
+        );
+        assert_eq!(run.code, 0, "{}", run.all());
+        run.stdout.trim_end().to_string()
+    };
+    let id = batch_id();
+    assert!(id.ends_with("-batch"), "{id}");
+    let run = gsd(
+        &p,
+        "start-batch",
+        &[
+            &id,
+            "--items",
+            r#"["261112-abc", "261112-def"]"#,
+            "--base",
+            BASE,
+            "--format",
+            "json",
+        ],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(json(&run)["output"]["batch"], id.as_str());
+    let batch = p.fields_of(&id);
+    assert_eq!(
+        batch["items"],
+        serde_json::json!(["261112-abc", "261112-def"])
+    );
+    assert_eq!(batch["base"], BASE);
+    assert_eq!(batch["status"], "open");
+    assert_eq!(
+        batch["eligible"],
+        serde_json::json!(["261112-abc", "261112-def"])
+    );
+    assert!(
+        batch["created"].as_str().is_some_and(|t| t.ends_with('Z')),
+        "{batch}"
+    );
+    // the day's id is taken now: quick-init answers the next one
+    assert_eq!(batch_id(), format!("{id}-2"));
+}
+
+#[test]
+fn a_taken_batch_id_or_a_phase_plan_is_refused() {
+    let p = super::commands_support::twin();
+    quick_plans(&p);
+    let items = r#"["261112-abc", "261112-def"]"#;
+    assert_eq!(
+        gsd(
+            &p,
+            "start-batch",
+            &["261112-batch", "--items", items, "--base", BASE]
+        )
+        .code,
+        0
+    );
+    let before = super::commands_support::bytes(&p);
+    let refused = super::commands_support::refused;
+    refused(
+        &gsd(
+            &p,
+            "start-batch",
+            &["261112-batch", "--items", items, "--base", BASE],
+        ),
+        "invalid_input",
+        &["261112-batch", "taken"],
+    );
+    refused(
+        &gsd(
+            &p,
+            "start-batch",
+            &[
+                "261112-batch-2",
+                "--items",
+                r#"["261112-abc", "01-01"]"#,
+                "--base",
+                BASE,
+            ],
+        ),
+        "invalid_input",
+        &["01-01", "phase"],
+    );
+    refused(
+        &gsd(
+            &p,
+            "start-batch",
+            &[
+                "261112-batch-2",
+                "--items",
+                r#"["261112-abc", "261112-abc"]"#,
+                "--base",
+                BASE,
+            ],
+        ),
+        "invalid_input",
+        &["twice"],
+    );
+    refused(
+        &gsd(
+            &p,
+            "start-batch",
+            &["261112-batch-2", "--items", items, "--base", "HEAD"],
+        ),
+        "invalid_input",
+        &["HEAD", "40"],
+    );
+    refused(
+        &gsd(
+            &p,
+            "start-batch",
+            &[
+                "261112-batch-2",
+                "--items",
+                r#"["261112-abc"]"#,
+                "--base",
+                BASE,
+            ],
+        ),
+        "invalid_input",
+        &["at least 2"],
+    );
+    super::commands_support::unchanged(&p, &before);
+}

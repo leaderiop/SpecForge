@@ -404,10 +404,10 @@ fn answer(p: &Project, name: &str, criterion: u8, result: &str) {
 fn uat_totals_match_audit_uat_golden() {
     let p = verify();
     let totals = |p: &Project| p.fields_of(SESSION)["totals"].clone();
-    // The Summary of `templates/UAT.md`: total, passed, issues, pending, skipped, blocked.
+    // The Summary of `templates/UAT.md`: total, passed, issues, pending, skipped, blocked; and the deferred follow-ups.
     assert_eq!(
         totals(&p),
-        serde_json::json!({ "total": 2, "passed": 0, "issues": 0, "pending": 2, "skipped": 0, "blocked": 0 })
+        serde_json::json!({ "total": 2, "passed": 0, "issues": 0, "pending": 2, "skipped": 0, "blocked": 0, "follow_ups": 0 })
     );
     assert_eq!(p.fields_of(SESSION)["status"], "testing");
     answer(&p, "U1", 1, "pass");
@@ -415,7 +415,7 @@ fn uat_totals_match_audit_uat_golden() {
     assert_eq!(p.report(), Vec::new(), "{:?}", p.report());
     assert_eq!(
         totals(&p),
-        serde_json::json!({ "total": 2, "passed": 1, "issues": 1, "pending": 0, "skipped": 0, "blocked": 0 })
+        serde_json::json!({ "total": 2, "passed": 1, "issues": 1, "pending": 0, "skipped": 0, "blocked": 0, "follow_ups": 0 })
     );
     // The issue has an open gap with a root cause.
     assert_eq!(p.fields_of(SESSION)["status"], "diagnosed");

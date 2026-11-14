@@ -4,6 +4,11 @@
 [ADR 0325](0325-pick-prints-one-value-of-a-json-answer.md) (`--pick` and its shapes) and
 [ADR 0339](0339-a-verb-the-user-types-reaches-the-ports-under-the-ceiling.md) (the verbs `files`, `run`, `http`, `git`).
 D7–D9 say how prose names a tool, how an optional integration routes and where a person's own chores go.
+D4's second paragraph is amended by
+[ADR 0332](0332-the-gsd-port-is-span-by-span-and-its-kept-spans-are-locked.md) (D5). D10 added in place (2026-11-12;
+see ADR 0332 D8–D10). D3's guards widened 2026-11-12. D2's glue example amended by
+[ADR 0333](0333-gsds-engines-are-ported-commands-and-a-specs-probe-rows-are-entities.md) (the requirements heredoc
+is gone; the regression gate's run step stays the example).
 
 ## Context
 
@@ -32,7 +37,7 @@ the shell's own word splitting (`$(printf '%s' "$LIST")`), never by a parser.
 One write is glue too: text the model wrote, held in a variable (a quoted heredoc read among them), moved as is with
 `printf '%s'` (or `'%s\n'`) and a redirect into a file a `specforge files temp` answer named, the file or a path under
 its directory (`printf '%s' "$REQS" > "$REQS_JSON"`). The shell parses none of it; the answer that reads it
-(`gsd edge-probe-requirements`, the regression gate's run step) is the one that checks it. There is no `files write`
+(`gsd edge-probe-requirements` (removed, ADR 0333), the regression gate's run step) is the one that checks it. There is no `files write`
 verb: it would carry the same bytes through an argument or standard input and check nothing the redirect does not. A
 redirect of such text into any other path is not glue.
 
@@ -47,7 +52,10 @@ upstream init-bundle key or a phase directory. A variable that named a file name
 `specforge query "$ID" --format context`.
 
 The tests `port_tools::every_graph_read_picks_nodes_or_edges` and `port_tools::no_shell_line_reads_a_phase_directory`
-hold it.
+hold it. No `specforge files` run, in a fence or an inline run, names a GSD state file (a `PLANNING_FILES` pattern):
+`port_tools::no_files_verb_reads_a_gsd_file` holds it. A pick of a `specforge gsd` command's answer names a member the
+command prints: `ported_text::every_command_pick_names_a_member_of_its_answer` holds it, over the table in
+`tests/common/answers.rs` that the CLI tests check against every JSON answer they read.
 
 ## D4. Dead code is deleted, not ported
 
@@ -100,6 +108,18 @@ No block asks `command -v` or `specforge run --which` whether an integration exi
   never by a block: no `specforge files` verb reaches it and a block would pass the ceiling.
 - A heuristic about the user's environment (a variable set, a value that is a placeholder) is prose the agent applies.
 
+## D10. A write is a typed edit; no asset names a GSD file to write
+
+- An asset that records state does it with `specforge new|set|unset|link|unlink|delete`, `specforge.edit` or a
+  `specforge gsd` writer.
+- A template is not filled into a file: the step reads the kind's fields (`specforge schema --kind <kind>`) and writes
+  the entity.
+- A computed value (the project's progress and position) is written by nothing.
+- A kept upstream sentence that only reads a GSD file's name may stay. One that tells the agent to write one is
+  rewritten; until then it is a row of the write ledger (ADR 0332 D9).
+- A translation notice ("wherever the text above says X.md is written, read …") is not a rewrite. It goes with the
+  sentence it translates.
+
 ## Rejected
 
 - Keeping parsers "until the extension lands": dead code the ledger counts as debt.
@@ -108,6 +128,8 @@ No block asks `command -v` or `specforge run --which` whether an integration exi
 - Probing PATH for an optional integration, or a setting that turns one on: agents render no settings, and a probe is
   a rule in the shell.
 - `${!VAR+x}` for an environment check: zsh has no `${!…}`, and the placeholder test is a judgement, not glue.
+- A `files write` verb for state (D2): the state is the graph (D3).
+- Translation notices in place of rewrites: the model reads the wrong sentence first.
 
 ## Consequences
 

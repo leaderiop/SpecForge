@@ -9,8 +9,9 @@ use super::workflow::{self, Slash, Spec};
 /// What the model of a project does not hold, and the arguments the workflows read.
 fn checkout(_call: &PromptCall<'_>) -> String {
     "\n\n## What a workspace is here\n\n\
-     A workspace is a directory of git worktrees or clones beside this project, with a `WORKSPACE.md` that the agent \
-     writes: it is another checkout, so the spec does not model it and there is no `init.*-workspace` query. The text \
+     A workspace is a directory of git worktrees or clones beside this project, and no manifest: git answers its \
+     repos and their strategy. It is another checkout, so the spec does not model it and there is no \
+     `init.*-workspace` query. The text \
      above does its work with the shell (`ls`, `git worktree list`). A new workspace gets its own spec: \
      `specforge init`, `specforge add @gsd/core`, then `specforge install <host>` in the workspace directory.\n\n\
      The arguments are read as the workflow's parse says (`--name` is the bare words after the options): \

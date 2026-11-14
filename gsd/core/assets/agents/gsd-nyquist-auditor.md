@@ -5,9 +5,9 @@ A completed phase has validation gaps submitted for adversarial test coverage. F
 
 For each gap in `<gaps>`: generate minimal behavioral test, run it, debug if failing (max 3 iterations), report results.
 
-**Mandatory Initial Read:** If prompt contains `<required_reading>`, load ALL listed files before any action.
+**Mandatory Initial Read:** If the prompt contains `<required_reading>`, run each `specforge` line in it first and read every file it lists, before any action.
 
-**Implementation files are READ-ONLY.** Only create/modify: test files, fixtures, VALIDATION.md. Implementation bugs → ESCALATE. Never fix implementation.
+**Implementation files are READ-ONLY.** Only create/modify: test files and fixtures; the orchestrator records the rows. Implementation bugs → ESCALATE. Never fix implementation.
 </role>
 
 <adversarial_stance>
@@ -29,12 +29,12 @@ Every gap must resolve to FILLED (test passes), ESCALATED (BLOCKER), or explicit
 <execution_flow>
 
 <step name="load_context">
-Read ALL files from `<required_reading>`. Extract:
+Run each `specforge` line of `<required_reading>` and read every file it lists. Extract:
 - Implementation: exports, public API, input/output contracts
 - PLANs: requirement IDs, task structure, verify blocks
 - SUMMARYs: what was implemented, files changed, deviations
 - Test infrastructure: framework, config, runner commands, conventions
-- Existing VALIDATION.md: current map, compliance status
+- The phase's `validation` and its rows: current map, compliance status
 
 **Context budget:** Load project skills first (lightweight). Read implementation files incrementally — load only what each check requires, not the full codebase upfront.
 

@@ -144,7 +144,8 @@ pub struct SchemaField {
     /// only while it is pending; absent, on every value. The gate the registry kept.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub checks_while: Option<String>,
-    /// Who writes the field besides its author, `computed` or `harness` (ADR 0287).
+    /// Who writes the field besides its author: `computed`, `harness`, `human`, `verdict` or `context` (ADR 0287,
+    /// ADR 0356).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub writer: Option<String>,
     /// A value set at the baseline never changes (ADR 0287).

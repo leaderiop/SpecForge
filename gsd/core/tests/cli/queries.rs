@@ -27,6 +27,67 @@ fn assets() -> Vec<(String, String)> {
         .collect()
 }
 
+/// The kinds `golden` (a declaration golden, under the extension's `tests/golden`) declares.
+fn declared(golden: &Path) -> BTreeSet<String> {
+    let text = std::fs::read_to_string(golden).expect("a declaration golden");
+    let value: serde_json::Value = serde_json::from_str(&text).expect("JSON");
+    let items = value["entities"]["items"]
+        .as_array()
+        .or_else(|| value["items"].as_array())
+        .expect("its kinds");
+    items
+        .iter()
+        .map(|k| k["name"].as_str().expect("a name").to_string())
+        .collect()
+}
+
+/// A query for a kind no extension declares answers nothing, with exit 0: every `--kinds` of an asset or a prompt is
+/// a kind of `@gsd/core` or `@gsd/security`, or one of a planned extension the line names (`@gsd/ui's: empty when it
+/// is not loaded`).
+#[test]
+fn every_kind_a_query_names_is_declared() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut kinds = declared(&root.join("tests/golden/kinds.json"));
+    kinds.extend(declared(
+        &root.join("../security/tests/golden/declaration.json"),
+    ));
+    assert!(kinds.contains("deferred_idea") && kinds.contains("threat"));
+    let rx = Regex::new(r"--kinds[ =]+'?([a-z0-9_]+(?:,[a-z0-9_]+)*)").expect("a regex");
+    let planned = Regex::new(r"@gsd/[a-z]+'s: empty when it is not loaded").expect("a regex");
+    let (mut seen, mut unknown) = (0, Vec::new());
+    for dir in [
+        "assets",
+        "src",
+        "../security/assets",
+        "../security/src",
+        "../kit/src",
+    ] {
+        for path in files::under(&root.join(dir))
+            .into_iter()
+            .filter(|p| p.extension().is_some_and(|e| e == "md" || e == "rs"))
+            .filter(|p| !p.to_string_lossy().contains("/tests"))
+        {
+            let text = std::fs::read_to_string(&path).expect("a file");
+            for (n, line) in text.lines().enumerate() {
+                for cap in rx.captures_iter(line) {
+                    for kind in cap[1].split(',') {
+                        seen += 1;
+                        if !kinds.contains(kind) && !planned.is_match(line) {
+                            unknown.push(format!("{}:{}: {kind}", path.display(), n + 1));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert!(seen > 100, "only {seen} kinds queried");
+    assert!(
+        unknown.is_empty(),
+        "kinds no extension declares:\n{}",
+        unknown.join("\n")
+    );
+}
+
 #[test]
 fn no_query_lacks_its_entity() {
     let rx = Regex::new(r"specforge query +--").expect("a regex");
@@ -51,7 +112,9 @@ fn bound(subject: &str) -> Option<&'static str> {
         | "${UNDO_MILESTONE:-${PHASE_DIR%%/*}}"
         | "v${VERSION}"
         | "v{version}"
-        | "${milestone_version}" => "v1.0",
+        | "${milestone_version}"
+        | "{MILESTONE}"
+        | "<milestone>" => "v1.0",
         "$PHASE_ID"
         | "${PHASE_ID}"
         | "${PHASE}"
@@ -75,6 +138,10 @@ fn bound(subject: &str) -> Option<&'static str> {
         | "$UNDO_MILESTONE/${N}" => "v1.0/01",
         "$PLAN_ID" | "$PLAN_ENTITY" | "$PLAN_FULL_ID" | "${TARGET_PLAN_ID}" | "$plan_id"
         | "$plan" => "v1.0/01/01-01",
+        "$UAT_SESSION" => "v1.0/01/01-UAT",
+        "$VERIFICATION" => "v1.0/01/01-VERIFICATION",
+        "$TEST" => "v1.0/01/01-UAT/U2",
+        "{GAP}" => "v1.0/01/01-UAT/U2/G1",
         // facts: `the_verifiers_fact_spot_checks_print_what_they_promise` collects them first
         "$TEST_ID" => TWIN_TEST,
         "js:$PACKAGE/$MODULE_FILE::$FUNCTION_NAME" => TWIN_FUNCTION,
@@ -94,6 +161,14 @@ const UNBOUND: &[&str] = &[
     "${quick_id}",
     "${quick_id}-RESEARCH",
     "${quick_id}/${quick_id}-SUMMARY",
+    // a quick batch: the twin holds none; `assets_shell::batch` records one and runs these
+    "$BATCH_ID",
+    "$RESUME_BATCH_ID",
+    // the milestone's audit, which step 1 creates: `assets_shell::milestone_edits` creates one and runs these
+    "$AUDIT",
+    // a milestone's retrospective, which the close creates: `assets_shell::milestone_edits` closes one and runs this
+    "$RETRO",
+    "$QB_ITEM",
     "$summary",
     "$s",
     "$_ID",
@@ -104,10 +179,22 @@ const UNBOUND: &[&str] = &[
     "$p",
     "$m",
     "$TASK_ID",
+    // a gate blocker the line above found: `assets_shell::execute_edits` trips one and runs the clearing fence
+    "$BLOCKER",
+    // the phase's log the line above found: `assets_shell::discuss` writes one twice and runs this
+    "$LOG",
     "$SPEC_ID",
+    "$SPEC_FILE",
     "$SUMMARY_FILE",
     "$SUMMARY_ID",
     "$RESEARCH_ID",
+    // the context the PRD path just recorded and the research the researcher returned (`assets_shell::plan_edits`)
+    "$CONTEXT_ID",
+    "<research>",
+    "{REVIEW_ID}",
+    // the latest review round, read by the line above it: `assets_shell::plan_edits` records one and runs them
+    "$REVIEW_ID",
+    "<review>",
     "$uat_path",
     // entity ids a prompt hands its agent, each read with `--format context`
     "{roadmap_path}",
@@ -138,6 +225,9 @@ const UNBOUND: &[&str] = &[
     "<entity>",
     "<id>",
     "<truth>",
+    // the truth a verdict judges, filled in the record fence: `assets_shell::verify_edits` records one
+    "$TRUTH",
+    "<requirement>",
     "<verification>",
     "<package_audit>",
     "<capability-keyword>",

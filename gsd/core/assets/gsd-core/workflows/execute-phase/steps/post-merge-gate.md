@@ -20,51 +20,6 @@ fi
 BUILD_WORDS=$(specforge gsd gate-command build --xcode-project="$XCODEPROJ" --xcode-list="$XCODE_LIST" --simulators="$XCODE_SIMS" --pick '.argv[]') || exit 1
 BUILD_ARGV=(); while IFS= read -r _w; do [ -z "$_w" ] || BUILD_ARGV+=("$_w"); done <<<"$BUILD_WORDS"
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Run build with 5-minute timeout
 BUILD_EXIT=0
 if [ ${#BUILD_ARGV[@]} -gt 0 ]; then
@@ -102,41 +57,6 @@ if [ -n "$XCODEPROJ" ]; then   # machine facts a command cannot read (ADR 0335 D
 fi
 TEST_WORDS=$(specforge gsd gate-command test --xcode-project="$XCODEPROJ" --xcode-list="$XCODE_LIST" --simulators="$XCODE_SIMS" --pick '.argv[]') || exit 1
 TEST_ARGV=(); while IFS= read -r _w; do [ -z "$_w" ] || TEST_ARGV+=("$_w"); done <<<"$TEST_WORDS"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # #1857: normalize to a one-shot form (defeat vitest/jest watch mode) via the
 # same shared normalize-test-command helper the regression gate uses, then bound

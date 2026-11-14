@@ -1,21 +1,24 @@
-//! The ported agent bodies against the vendored upstream files (gsd-core v1.19.0): line for line, a line may differ
-//! only where upstream's names `.planning/`, `gsd-tools`, `gsd_run` or `gsd-sdk`.
+//! The port against the vendored upstream files (gsd-core v1.19.0): every `@gsd/core` and `@gsd/security` asset is
+//! mapped span by span, and `port.lock` is the map (ADR 0332); the agents' frontmatter and the commands their bodies
+//! name.
 
 use std::path::{Path, PathBuf};
 
 use gsd_core::agents::roster::AGENTS;
 use regex::Regex;
 
-#[path = "common/agent_rewrites.rs"]
-mod agent_rewrites;
-#[path = "common/port.rs"]
-mod rule;
-#[path = "common/thread_rewrites.rs"]
-mod thread_rewrites;
-use rule::check_lines;
-
-#[path = "common/pending.rs"]
-mod pending;
+#[path = "common/asset_code.rs"]
+mod asset_code;
+#[path = "common/command_word.rs"]
+mod command_word;
+#[path = "common/files.rs"]
+mod files;
+#[path = "common/ledger.rs"]
+mod ledger;
+#[path = "common/port_map.rs"]
+mod port_map;
+#[path = "common/specforge_only.rs"]
+mod specforge_only;
 
 pub fn upstream_dir() -> PathBuf {
     PathBuf::from(gsd_kit::snapshot!("agents"))
@@ -46,64 +49,272 @@ fn upstream(file: &str) -> (Vec<String>, Vec<String>) {
     (lines[1..end].to_vec(), lines[end + 1..].to_vec())
 }
 
-/// Checks one asset against its upstream file: the header, then every line.
-fn check_body(file: &str) -> usize {
-    let (_, body) = upstream(file);
-    check_lines(
-        file,
-        &format!("agents/{file}"),
-        &read(&assets_dir().join(file)),
-        &body,
-        &ported(),
-        &|n| {
-            agent_rewrites::REWRITTEN.contains(&(file, n))
-                || agent_rewrites::ROWS.contains(&(file, n))
-                || rule::in_spans(thread_rewrites::SPANS, &format!("agents/{file}"), n)
-        },
-    )
-}
-
-#[test]
-fn bodies_diff_only_in_ported_passages() {
-    assert_eq!(AGENTS.len(), 15);
-    let mut total = 0;
-    for agent in AGENTS {
-        let file = format!("{}.md", agent.id);
-        let path = format!("agents/{file}");
-        if pending::is_pending(&path) {
-            pending::assert_still_pending(&path, || {
-                check_body(&file);
-            });
-            continue;
-        }
-        total += check_body(&file);
-    }
-    assert!(total > 100, "only {total} lines were ported");
-}
-
-#[test]
-fn the_compact_bodies_are_upstreams_too() {
-    let mut seen = 0;
-    for agent in AGENTS.iter().filter(|a| a.compact.is_some()) {
-        check_body(&format!("{}.compact.md", agent.id));
-        seen += 1;
-    }
-    assert_eq!(seen, 10);
-}
-
 #[test]
 fn no_asset_names_planning_or_gsd_tools() {
-    let rx = ported();
+    let rx = Regex::new(port_map::PORTED).expect("a regex");
     let mut seen = 0;
-    for entry in std::fs::read_dir(assets_dir()).expect("assets") {
-        let path = entry.expect("an entry").path();
-        let text = read(&path);
+    for asset in port_map::assets() {
         seen += 1;
-        for (n, line) in text.lines().enumerate() {
-            assert!(!rx.is_match(line), "{}:{}: {line}", path.display(), n + 1);
+        for (n, line) in port_map::asset_body(&asset).iter().enumerate() {
+            assert!(!rx.is_match(line), "{asset}:{}: {line}", n + 2);
         }
     }
-    assert!(seen >= 15, "{seen} assets");
+    assert!(seen >= 300, "{seen} assets");
+}
+
+/// Every asset is mapped span by span against its upstream copy, and `port.lock` is that map (ADR 0332).
+#[test]
+fn the_port_lock_maps_every_asset() {
+    port_map::check_lock();
+}
+
+/// No span waits for its re-port. Ignored only between a snapshot move and its last re-port, never on main.
+#[test]
+fn no_span_waits_for_resync() {
+    let waiting: Vec<String> = port_map::lock_rows()
+        .into_iter()
+        .filter(|r| r.group == "resync")
+        .map(|r| format!("{}:{}+{}", r.asset, r.up, r.n))
+        .collect();
+    assert!(waiting.is_empty(), "spans to re-port: {waiting:#?}");
+}
+
+/// Deleted upstream text leaves no padding: in an own span whose own side has fewer non-blank lines than upstream's,
+/// no two blank lines follow each other; a deletion keeps at most a paragraph break (ADR 0332 D5).
+#[test]
+fn no_deleted_span_keeps_blank_padding() {
+    let blank = |l: &String| l.trim().is_empty();
+    let mut padded = Vec::new();
+    for asset in port_map::assets() {
+        let (up, _) = port_map::upstream_body(port_map::upstream_path(&asset));
+        let own = port_map::asset_body(&asset);
+        for span in port_map::map(&asset) {
+            let port_map::Span::Own {
+                asset: a, up: u, ..
+            } = span
+            else {
+                continue;
+            };
+            let (mine, theirs) = (&own[a.clone()], &up[u]);
+            let filled = |lines: &[String]| lines.iter().filter(|l| !blank(l)).count();
+            if filled(mine) < filled(theirs)
+                && mine.windows(2).any(|w| blank(&w[0]) && blank(&w[1]))
+            {
+                padded.push(format!("{asset}: body lines {}..{}", a.start, a.end));
+            }
+        }
+    }
+    assert!(padded.is_empty(), "blank padding: {padded:#?}");
+}
+
+#[test]
+fn a_span_map_tiles_both_bodies() {
+    use port_map::Span;
+    let up = ["a", "b", "", "```", "c", "d"];
+    let own = ["a", "B", "", "```", "C", "d"];
+    let spans = port_map::spans(&up, &own);
+    let ranges: Vec<_> = spans
+        .iter()
+        .map(|s| match s {
+            Span::Kept { asset, up, .. } => (true, up.clone(), asset.clone()),
+            Span::Own { asset, up, .. } => (false, up.clone(), asset.clone()),
+        })
+        .collect();
+    // the blank and fence-mark lines between two own spans fold into one
+    assert_eq!(
+        ranges,
+        [(true, 0..1, 0..1), (false, 1..5, 1..5), (true, 5..6, 5..6)]
+    );
+    let up = ["x", "y", "z", "q"];
+    let own = ["x", "z", "w", "q", "v"];
+    let spans = port_map::spans(&up, &own);
+    let (mut u, mut a) = (0, 0);
+    for span in &spans {
+        let (su, sa) = match span {
+            Span::Kept {
+                asset, up: range, ..
+            } => {
+                assert_eq!(up[range.clone()], own[asset.clone()], "{span:?}");
+                (range.clone(), asset.clone())
+            }
+            Span::Own {
+                asset, up: range, ..
+            } => (range.clone(), asset.clone()),
+        };
+        assert_eq!(
+            (su.start, sa.start),
+            (u, a),
+            "spans tile both sides in order"
+        );
+        (u, a) = (su.end, sa.end);
+    }
+    assert_eq!((u, a), (up.len(), own.len()));
+    assert_eq!(
+        spans
+            .iter()
+            .filter(|s| matches!(s, Span::Own { .. }))
+            .count(),
+        3
+    );
+}
+
+#[test]
+fn words_ignore_blank_lines_and_fence_width_but_keep_indentation() {
+    assert_eq!(
+        port_map::words(&["  ````bash", "", "   x  ", "~~~~", "\t", "``a``"]),
+        "```bash\n   x  \n~~~\n``a``"
+    );
+    assert_eq!(port_map::words(&["", "  "]), "");
+    // a re-indented heredoc end changes the code, so it changes the words
+    assert_ne!(port_map::words(&["EOF"]), port_map::words(&["  EOF"]));
+}
+
+#[test]
+fn the_computed_groups_judge_both_sides() {
+    use port_map::computed;
+    // a ported name wins over a served call
+    assert_eq!(
+        computed(&["X=$(gsd-tools init x)"], &["X=$(specforge gsd init x)"]),
+        Some("ported-name")
+    );
+    assert_eq!(
+        computed(
+            &["jq -r .phase \"$INIT\""],
+            &["specforge gsd init --pick .phase"]
+        ),
+        Some("served")
+    );
+    // a program upstream's span does not run is not served
+    assert_eq!(computed(&["jq -r .a f"], &["specforge x | sed 1d"]), None);
+    assert_eq!(
+        computed(&["```", "  x", ""], &["  ````", "  x", "````"][..2]),
+        Some("markdown")
+    );
+    // a re-indented code line is a code edit, not layout
+    assert_eq!(computed(&["  EOF"], &["EOF"]), None);
+    assert_eq!(computed(&["Read the file."], &["Read the entity."]), None);
+}
+
+#[test]
+fn a_write_sentence_rewritten_as_a_typed_edit_is_typed_edit() {
+    use port_map::computed;
+    let up = ["Write `03-CONTEXT.md` using the template."];
+    assert_eq!(
+        computed(
+            &up,
+            &["Record it as the phase's `context` entity (`specforge new context …`)."]
+        ),
+        Some("typed-edit")
+    );
+    // the own side still writes the file
+    assert_eq!(
+        computed(
+            &up,
+            &["Then write CONTEXT.md with `specforge new context …`."]
+        ),
+        None
+    );
+    // a read records nothing
+    assert_eq!(
+        computed(&up, &["Read it with `specforge query --kind context`."]),
+        None
+    );
+    // a writer of `WRITERS`, dashed
+    assert_eq!(
+        computed(
+            &up,
+            &["```bash", "specforge gsd complete-plan \"$PLAN\"", "```"]
+        ),
+        Some("typed-edit")
+    );
+    assert_eq!(
+        computed(
+            &up,
+            &[
+                "Record it through `specforge.edit`:",
+                "```json",
+                "{\"op\": \"set\", \"field\": \"decisions\"}",
+                "```"
+            ]
+        ),
+        Some("typed-edit")
+    );
+}
+
+#[test]
+fn a_bless_carries_a_reviewed_group_and_marks_a_new_span() {
+    use port_map::{Bless, Row, carry};
+    let row = |sha_own: &str, group: &str| Row {
+        asset: "gsd-core/workflows/x.md".to_string(),
+        kept: false,
+        up: 3,
+        n: 1,
+        m: 1,
+        sha_up: "aaaaaaaaaaaa".to_string(),
+        sha_own: sha_own.to_string(),
+        group: group.to_string(),
+    };
+    let old = [row("bbbbbbbbbbbb", "relic"), row("cccccccccccc", "jq")];
+    let new = vec![
+        row("bbbbbbbbbbbb", ""),
+        row("bbbbbbbbbbbb", ""),
+        row("dddddddddddd", "markdown"),
+    ];
+    let groups: Vec<String> = carry(&old, new, Bless::Review)
+        .into_iter()
+        .map(|r| r.group)
+        .collect();
+    // one old row carries once; a computed group stays
+    assert_eq!(groups, ["relic", "unreviewed", "markdown"]);
+    // after an upstream move, a span no old row carries waits for its re-port
+    let new = vec![row("bbbbbbbbbbbb", ""), row("eeeeeeeeeeee", "")];
+    let groups: Vec<String> = carry(&old, new, Bless::Resync)
+        .into_iter()
+        .map(|r| r.group)
+        .collect();
+    assert_eq!(groups, ["relic", "resync"]);
+}
+
+/// After an upstream move, a span with a computed group whose upstream text changed waits for review as `resync`; one
+/// over unchanged upstream text keeps its computed group, and a review bless never marks it.
+#[test]
+fn a_resync_marks_a_computed_span_whose_upstream_moved() {
+    use port_map::{Bless, Row, carry};
+    let row = |sha_up: &str, group: &str| Row {
+        asset: "gsd-core/workflows/x.md".to_string(),
+        kept: false,
+        up: 3,
+        n: 1,
+        m: 1,
+        sha_up: sha_up.to_string(),
+        sha_own: "bbbbbbbbbbbb".to_string(),
+        group: group.to_string(),
+    };
+    let old = [row("aaaaaaaaaaaa", "ported-name")];
+    let new = || {
+        vec![
+            row("aaaaaaaaaaaa", "ported-name"),
+            row("cccccccccccc", "served"),
+        ]
+    };
+    let groups = |mode| -> Vec<String> {
+        carry(&old, new(), mode)
+            .into_iter()
+            .map(|r| r.group)
+            .collect()
+    };
+    assert_eq!(groups(Bless::Resync), ["ported-name", "resync"]);
+    assert_eq!(groups(Bless::Review), ["ported-name", "served"]);
+}
+
+#[test]
+fn the_lock_round_trips() {
+    let lock = std::fs::read_to_string(port_map::lock_path()).expect("port.lock");
+    assert!(lock.starts_with(&port_map::header()));
+    let rows = port_map::rows(&lock);
+    assert!(rows.iter().any(|r| r.kept) && rows.iter().any(|r| !r.kept));
+    assert_eq!(port_map::rows(&port_map::render(&rows)), rows);
+    assert_eq!(port_map::render(&rows), lock);
 }
 
 fn class(tool: &str) -> String {
@@ -265,11 +476,30 @@ fn invocations(file: &str, verb: &str) -> Vec<(usize, Vec<String>)> {
             rx.captures_iter(&line)
                 .map(|c| {
                     let words = c.get(1).map_or("", |m| m.as_str());
-                    (n, words.split_whitespace().map(String::from).collect())
+                    (n, field_flags(words.split_whitespace().map(String::from)))
                 })
                 .collect::<Vec<(usize, Vec<String>)>>()
         })
         .collect()
+}
+
+/// `words` with each `--field <name>=<value>` (the CLI's way to set a field named like one of its options) as
+/// `--<name> <value>`.
+fn field_flags(words: impl Iterator<Item = String>) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut field = false;
+    for word in words {
+        match word.split_once('=').filter(|_| field) {
+            Some((name, value)) => {
+                out.push(format!("--{name}"));
+                out.push(value.to_string());
+            }
+            None if word == "--field" => {}
+            None => out.push(word.clone()),
+        }
+        field = word == "--field";
+    }
+    out
 }
 
 /// The `--flag` names among `words`, with `_` as `-` and without `=value`.
@@ -438,11 +668,10 @@ fn threat_model_lines_name_the_security_kinds() {
     }
     let planner = read(&assets_dir().join("gsd-planner.md"));
     let lines: Vec<&str> = planner.lines().collect();
-    let close = lines
+    let named = lines
         .iter()
-        .position(|l| *l == "</threat_model>")
-        .expect("the template");
-    let named = lines[close + 1];
+        .find(|l| l.starts_with("With `@gsd/security` loaded, each trust boundary"))
+        .expect("the threat model's line");
     for word in ["`trust_boundary`", "`threat`", "`specforge new threat"] {
         assert!(named.contains(word), "{word} is not in: {named}");
     }

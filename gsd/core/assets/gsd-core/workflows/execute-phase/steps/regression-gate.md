@@ -21,7 +21,7 @@ specforge files remove --force "$_GSD_HANDOFF/regression-files" >/dev/null  # a 
 For each VERIFICATION.md found, look for test file references:
 - Lines containing `test`, `spec`, or `__tests__` paths
 - The "Test Suite" or "Automated Checks" section
-- File patterns from `key-files.created` in corresponding SUMMARY.md files that match `*.test.*` or `*.spec.*`
+- The test files (`*.test.*` or `*.spec.*`) among the files its phase's summaries list as new
 
 Write all unique test file paths to the handoff file, one path per line (#4915). Each fenced
 `bash` block is dispatched as its own shell, so a shell variable assigned here would never reach

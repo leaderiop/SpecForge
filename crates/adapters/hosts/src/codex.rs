@@ -11,7 +11,7 @@ use specforge_ops::host::{
 use specforge_protocol_types::{Attribution, HookEvent};
 
 use crate::markdown::{document, field, notice, short};
-use crate::tools::{codex_class, codex_names, unique};
+use crate::tools::{MCP_SERVER, codex_class, codex_names, unique};
 use crate::{hook_json, json_merge, toml_merge, trampoline};
 
 const HOOKS: &str = ".codex/hooks.json";
@@ -193,7 +193,7 @@ impl HostRenderer for Codex {
         }
         config.push(MergedEntry {
             keys: vec!["mcp_servers".into()],
-            name: Some("specforge".into()),
+            name: Some(MCP_SERVER.into()),
             value: json!({"command": "specforge", "args": ["mcp", "."]}),
         });
         tree.merged.push(MergedFile {
@@ -222,7 +222,7 @@ impl HostRenderer for Codex {
             toml_merge::merge(
                 existing,
                 entries,
-                &[(&["mcp_servers"], "specforge"), (&["features"], "hooks")],
+                &[(&["mcp_servers"], MCP_SERVER), (&["features"], "hooks")],
                 made,
             )
         } else {

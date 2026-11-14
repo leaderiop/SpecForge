@@ -5,21 +5,17 @@
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 # Prose and routing probes are reworded per ADR 0343 (D7, D8), never listed: H and K stay at 0 rows.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines. 19 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines. 17 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-phase-researcher.md	head	docker info 2>/dev/null | head -3
 agents/gsd-verifier.md	grep	node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBCOMMAND"
-gsd-core/references/specless-probe-fallback.md	grep	EDGE_ABSENT=1;   node "$SPEC_SECTION_JS" "$SPEC_FILE" edges       2>/dev/null | grep -q '"supplied":true' && EDGE_ABSENT=0
-gsd-core/references/specless-probe-fallback.md	grep	PROHIB_ABSENT=1; node "$SPEC_SECTION_JS" "$SPEC_FILE" prohibitions 2>/dev/null | grep -q '"supplied":true' && PROHIB_ABSENT=0
 gsd-core/references/verification-patterns.md	grep	npx prisma migrate status 2>/dev/null | grep -v "pending"
 gsd-core/references/worktree-path-safety.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
-gsd-core/workflows/plan-review-convergence.md	awk	if OPEN_CONFLICTS=$(awk '
 gsd-core/workflows/resume-project.md	grep	for plan in $(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -vxF -f <(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=summary].fields.plan')); do   # each plan no summary names
 gsd-core/workflows/ultraplan-phase.md	grep	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 gsd-core/workflows/ultraplan-phase.md	head	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 gsd-core/workflows/ultraplan-phase.md	head	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 gsd-core/workflows/ultraplan-phase.md	sort	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
-prompt:plan_review_convergence	awk	if OPEN_CONFLICTS=$(awk '
 prompt:resume_work	grep	for plan in $(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -vxF -f <(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=summary].fields.plan')); do   # each plan no summary names
 prompt:ultraplan_phase	grep	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 prompt:ultraplan_phase	head	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
@@ -48,7 +44,7 @@ prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shippi
 
 # E network: the host HTTP service and a GitHub provider. 0 rows.
 
-# F toolchain: @javascript/* and @rust/* run the project's own toolchain. 47 rows.
+# F toolchain: @javascript/* and @rust/* run the project's own toolchain. 38 rows.
 agents/gsd-nyquist-auditor.compact.md	pytest	pytest {file} -v
 agents/gsd-nyquist-auditor.md	pytest	pytest {file} -v
 agents/gsd-phase-researcher.md	cargo	cargo search <pkg>
@@ -76,22 +72,13 @@ gsd-core/references/planner-antipatterns.md	vercel	vercel --yes
 gsd-core/references/planner-verify-command-grounding.md	npm	npm --prefix
 gsd-core/references/planner-verify-command-grounding.md	npm	npm --prefix <dir> run <script>
 gsd-core/references/prohibition-probe.md	eslint	eslint --format json
-gsd-core/references/specless-probe-fallback.md	node	EDGE_ABSENT=1;   node "$SPEC_SECTION_JS" "$SPEC_FILE" edges       2>/dev/null | grep -q '"supplied":true' && EDGE_ABSENT=0
-gsd-core/references/specless-probe-fallback.md	node	PROHIB_ABSENT=1; node "$SPEC_SECTION_JS" "$SPEC_FILE" prohibitions 2>/dev/null | grep -q '"supplied":true' && PROHIB_ABSENT=0
-gsd-core/references/specless-probe-fallback.md	node	if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
-gsd-core/references/specless-probe-fallback.md	npm	npm --prefix "$_GSD_RT" run build:lib 2>/dev/null || true; SPEC_SECTION_JS=$(_gsd_lib spec-section.cjs)
-gsd-core/references/specless-probe-fallback.md	npm	npm --prefix "$_GSD_RT" run build:lib 2>/dev/null || true
 gsd-core/references/tdd.md	go	go test ./...  # Go
 gsd-core/references/tdd.md	pytest	pytest    # Python
 gsd-core/references/verification-patterns.md	npx	npx prisma migrate status 2>/dev/null | grep -v "pending"
 gsd-core/references/verification-patterns.md	npx	npx prisma db execute --stdin <<< "SELECT COUNT(*) FROM $table_name"
 gsd-core/references/verify-command-path-resolvability.md	npm	npm --prefix <literal>
 gsd-core/workflows/execute-plan.md	vercel	vercel --yes
-gsd-core/workflows/spec-phase.md	node	if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
-gsd-core/workflows/spec-phase.md	npm	npm --prefix "$_GSD_RT" run build:lib 2>/dev/null || true
 prompt:execute_plan	vercel	vercel --yes
-prompt:spec_phase	node	if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
-prompt:spec_phase	npm	npm --prefix "$_GSD_RT" run build:lib 2>/dev/null || true
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	xcodebuild	XCODE_LIST=$(xcodebuild -list -json -project "$XCODEPROJ" 2>/dev/null)
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	xcodebuild	XCODE_LIST=$(xcodebuild -list -json -project "$XCODEPROJ" 2>/dev/null)
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	xcrun	XCODE_SIMS=$(xcrun simctl list devices available -j 2>/dev/null)

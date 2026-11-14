@@ -59,38 +59,43 @@ fn shell_segments_name_the_operator_before_each_command() {
 
 #[test]
 fn a_redirect_ends_the_word_before_it_and_is_no_part_of_the_command() {
-    // (line, the command's words, the file targets)
+    use RedirectOp::*;
+    // (line, the command's words, each redirect's descriptor, operator and target)
     for (line, words, redirects) in [
-        ("a b>c", vec!["a", "b"], vec!["c"]),
-        ("a b >c", vec!["a", "b"], vec!["c"]),
-        ("a b > c d", vec!["a", "b", "d"], vec!["c"]),
-        ("a>>c b", vec!["a", "b"], vec!["c"]),
-        ("a<c b", vec!["a", "b"], vec!["c"]),
-        ("a&>c b", vec!["a", "b"], vec!["c"]),
-        ("a&>>c b", vec!["a", "b"], vec!["c"]),
-        ("a >|c b", vec!["a", "b"], vec!["c"]),
-        ("a <>c b", vec!["a", "b"], vec!["c"]),
-        ("a 2>c b", vec!["a", "b"], vec!["c"]),
-        ("a 2>>c b", vec!["a", "b"], vec!["c"]),
-        ("a 2>&1 b", vec!["a", "b"], vec!["1"]),
-        ("a >&2 b", vec!["a", "b"], vec!["2"]),
-        ("a 2>&- b", vec!["a", "b"], vec!["-"]),
-        ("a <&3 b", vec!["a", "b"], vec!["3"]),
-        ("a {fd}>c b", vec!["a", "b"], vec!["c"]),
-        (">c a b", vec!["a", "b"], vec!["c"]),
-        ("2>c a b", vec!["a", "b"], vec!["c"]),
-        ("&>c a b", vec!["a", "b"], vec!["c"]),
-        ("a>c 2>&1 b<d", vec!["a", "b"], vec!["c", "1", "d"]),
+        ("a b>c", vec!["a", "b"], vec![(None, Out, "c")]),
+        ("a b >c", vec!["a", "b"], vec![(None, Out, "c")]),
+        ("a b > c d", vec!["a", "b", "d"], vec![(None, Out, "c")]),
+        ("a>>c b", vec!["a", "b"], vec![(None, Append, "c")]),
+        ("a<c b", vec!["a", "b"], vec![(None, In, "c")]),
+        ("a&>c b", vec!["a", "b"], vec![(None, Both, "c")]),
+        ("a&>>c b", vec!["a", "b"], vec![(None, BothAppend, "c")]),
+        ("a >|c b", vec!["a", "b"], vec![(None, Clobber, "c")]),
+        ("a <>c b", vec!["a", "b"], vec![(None, ReadWrite, "c")]),
+        ("a 2>c b", vec!["a", "b"], vec![(Some("2"), Out, "c")]),
+        ("a 2>>c b", vec!["a", "b"], vec![(Some("2"), Append, "c")]),
+        ("a 2>&1 b", vec!["a", "b"], vec![(Some("2"), DupOut, "1")]),
+        ("a >&2 b", vec!["a", "b"], vec![(None, DupOut, "2")]),
+        ("a 2>&- b", vec!["a", "b"], vec![(Some("2"), DupOut, "-")]),
+        ("a <&3 b", vec!["a", "b"], vec![(None, DupIn, "3")]),
+        ("a {fd}>c b", vec!["a", "b"], vec![(Some("{fd}"), Out, "c")]),
+        (">c a b", vec!["a", "b"], vec![(None, Out, "c")]),
+        ("2>c a b", vec!["a", "b"], vec![(Some("2"), Out, "c")]),
+        ("&>c a b", vec!["a", "b"], vec![(None, Both, "c")]),
+        (
+            "a>c 2>&1 b<d",
+            vec!["a", "b"],
+            vec![(None, Out, "c"), (Some("2"), DupOut, "1"), (None, In, "d")],
+        ),
         ("a '>' b", vec!["a", ">", "b"], vec![]),
         (r"a \> b", vec!["a", ">", "b"], vec![]),
-        ("a '>'>c", vec!["a", ">"], vec!["c"]),
-        (">'c d' a", vec!["a"], vec!["c d"]),
+        ("a '>'>c", vec!["a", ">"], vec![(None, Out, "c")]),
+        (">'c d' a", vec!["a"], vec![(None, Out, "c d")]),
         // Digits are a descriptor only as a word of their own.
-        ("a2>c", vec!["a2"], vec!["c"]),
-        ("a '2'>c", vec!["a", "2"], vec!["c"]),
-        (r"a \2>c", vec!["a", "2"], vec!["c"]),
-        ("a 2 >c", vec!["a", "2"], vec!["c"]),
-        ("a 2&>c", vec!["a", "2"], vec!["c"]),
+        ("a2>c", vec!["a2"], vec![(None, Out, "c")]),
+        ("a '2'>c", vec!["a", "2"], vec![(None, Out, "c")]),
+        (r"a \2>c", vec!["a", "2"], vec![(None, Out, "c")]),
+        ("a 2 >c", vec!["a", "2"], vec![(None, Out, "c")]),
+        ("a 2&>c", vec!["a", "2"], vec![(None, Both, "c")]),
         // A heredoc's tag and a here-string's text are no file.
         ("a <<T b", vec!["a", "b"], vec![]),
         ("a <<-T b", vec!["a", "b"], vec![]),
@@ -99,7 +104,12 @@ fn a_redirect_ends_the_word_before_it_and_is_no_part_of_the_command() {
         let read = segments(line).unwrap();
         assert_eq!(read.len(), 1, "{line}: {read:?}");
         assert_eq!(read[0].words, words, "{line}");
-        assert_eq!(read[0].redirects, redirects, "{line}");
+        let read_redirects: Vec<(Option<&str>, RedirectOp, &str)> = read[0]
+            .redirects
+            .iter()
+            .map(|r| (r.fd.as_deref(), r.op, r.target.as_str()))
+            .collect();
+        assert_eq!(read_redirects, redirects, "{line}");
         assert_eq!(read[0].after, None, "{line}");
     }
 }
@@ -235,4 +245,52 @@ fn a_hostile_nest_or_a_long_line_stays_bounded() {
     let started = std::time::Instant::now();
     assert!(commands(&open).is_ok());
     assert!(started.elapsed().as_secs() < 30, "{:?}", started.elapsed());
+}
+
+#[test]
+fn a_redirect_keeps_its_operator_and_descriptor() {
+    use RedirectOp::*;
+    for (line, redirects) in [
+        ("a <x", vec![(None, In, "x")]),
+        ("a >x", vec![(None, Out, "x")]),
+        ("a 2>>x", vec![(Some("2"), Append, "x")]),
+        ("a >|x", vec![(None, Clobber, "x")]),
+        ("a 2>&1", vec![(Some("2"), DupOut, "1")]),
+        ("a >&log", vec![(None, Both, "log")]),
+        ("a &>>x", vec![(None, BothAppend, "x")]),
+        ("a <>x", vec![(None, ReadWrite, "x")]),
+        ("a {fd}<x", vec![(Some("{fd}"), In, "x")]),
+        ("a <<T", vec![]),
+    ] {
+        let read = segments(line).unwrap();
+        let got: Vec<(Option<&str>, RedirectOp, &str)> = read[0]
+            .redirects
+            .iter()
+            .map(|r| (r.fd.as_deref(), r.op, r.target.as_str()))
+            .collect();
+        assert_eq!(got, redirects, "{line}");
+    }
+    let read = segments(r#"while read l; do :; done < "$P/03-CONTEXT.md""#).unwrap();
+    let redirects: Vec<&Redirect> = read.iter().flat_map(|s| &s.redirects).collect();
+    assert_eq!(redirects.len(), 1, "{read:?}");
+    assert_eq!(redirects[0].op, In);
+    assert_eq!(redirects[0].target, "$P/03-CONTEXT.md");
+}
+
+#[test]
+fn only_an_output_redirect_writes() {
+    use RedirectOp::*;
+    for (op, writes) in [
+        (In, false),
+        (DupIn, false),
+        (DupOut, false),
+        (ReadWrite, true),
+        (Out, true),
+        (Append, true),
+        (Clobber, true),
+        (Both, true),
+        (BothAppend, true),
+    ] {
+        assert_eq!(op.writes(), writes, "{op:?}");
+    }
 }

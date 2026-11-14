@@ -15,7 +15,8 @@ mod ask;
 mod route;
 
 pub use ask::{
-    Ask, ENTITY_WITH_PLAN, PLAN_WITH_ROUTE, ROUTE_OF_ANOTHER_KIND, TraceField, UNKNOWN_ROUTE,
+    Ask, ENTITY_WITH_IN, ENTITY_WITH_PLAN, PLAN_WITH_IN, PLAN_WITH_ROUTE, ROUTE_OF_ANOTHER_KIND,
+    TraceField, TraceRequest, UNKNOWN_ROUTE,
 };
 pub use route::{Annotated, Partial, RouteMatch, RouteTrace, StepTrace, route_traces};
 
@@ -74,6 +75,7 @@ pub struct TraceLink {
 /// kind to have, which it writes no reference in and no edge of carries (ADR 0232). Always has
 /// status `missing`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
+#[shape(define)]
 pub struct MissingLink {
     /// The entity that lacks the edge.
     pub from: String,
@@ -182,6 +184,9 @@ impl TraceExpectations {
 pub enum Target<'t> {
     /// One entity's trace.
     Entity(&'t str),
+    /// The traces of every entity within one, ordered by entity id: it, every entity its scope holds at any depth,
+    /// and every entity one reference away from one of those, either way (ADR 0355).
+    Within(&'t str),
     /// Every entity's trace, ordered by entity id.
     Every,
 }
@@ -206,8 +211,9 @@ pub enum Trace {
 }
 
 /// Some entities' traces, ordered by entity id: the document `specforge
-/// trace --format json` writes with no entity, `{schema_version, traces}`.
-#[derive(Debug, Serialize)]
+/// trace --format json` writes with no entity or within one,
+/// `{schema_version, traces}`, and `specforge.trace` answers for `in`.
+#[derive(Debug, Serialize, Shape)]
 pub struct Traces {
     pub schema_version: String,
     pub traces: Vec<Trace>,
@@ -243,24 +249,45 @@ pub struct TraceDocument<T> {
 }
 
 /// Trace `target` in the view's graph, following `follow`: one entity's
-/// trace, or every entity's (with [`Follow::Route`], every entity of the
-/// route's start kind). Its notices are what versioning the schema reported
+/// trace, or every entity's within one ([`Target::Within`]) or in the graph (with
+/// [`Follow::Route`], each of those of the route's start kind). Its notices are what versioning the schema reported
 /// (I016, W053; ADR 0111) and each step or annotation the followed routes
 /// skip (I210). An entity the graph lacks is `view::not_found` (E003, with
-/// its did-you-mean); a route no loaded extension declares, or one of
-/// another kind, is invalid input about the route.
+/// its did-you-mean), about `in` for [`Target::Within`]; a route no loaded
+/// extension declares, or one of another kind than a traced entity's, is
+/// invalid input about the route.
 pub fn trace(
     view: &ProjectView,
     target: Target,
     follow: Follow,
 ) -> Result<Noticed<TraceOutcome>, Refusal<TraceField>> {
-    if let Target::Entity(entity_id) = target {
-        return Ok(trace_one(view, entity_id, follow)?.map(TraceOutcome::One));
+    match target {
+        Target::Entity(entity_id) => Ok(trace_one(view, entity_id, follow)?.map(TraceOutcome::One)),
+        Target::Within(entity_id) => {
+            Ok(trace_within(view, entity_id, follow)?.map(TraceOutcome::Every))
+        }
+        Target::Every => {
+            let tracer = Tracer::new(view, follow)?;
+            Ok(traces(view, tracer, view.graph().nodes()).map(TraceOutcome::Every))
+        }
     }
-    let mut tracer = Tracer::new(view, follow)?;
-    let mut nodes: Vec<&Node> = view
-        .graph()
-        .nodes()
+}
+
+/// Every entity within `entity_id` traced ([`within`]): the document of a trace of every entity, bounded by the
+/// entity's scope and one reference away. An entity the graph lacks is not found about `in`.
+pub fn trace_within(
+    view: &ProjectView,
+    entity_id: &str,
+    follow: Follow,
+) -> Result<Noticed<Traces>, Refusal<TraceField>> {
+    let tracer = Tracer::new(view, follow)?;
+    let node = view.entity(entity_id, TraceField::In)?.node;
+    Ok(traces(view, tracer, within(view.graph(), node)))
+}
+
+/// `nodes` traced in id order, those of a named route's start kind only.
+fn traces<'a>(view: &ProjectView, mut tracer: Tracer<'a>, nodes: Vec<&Node>) -> Noticed<Traces> {
+    let mut nodes: Vec<&Node> = nodes
         .into_iter()
         .filter(|node| {
             tracer
@@ -270,10 +297,39 @@ pub fn trace(
         .collect();
     nodes.sort_by(|a, b| a.id.raw.as_str().cmp(b.id.raw.as_str()));
     let traces = nodes.into_iter().map(|node| tracer.trace(node)).collect();
-    Ok(tracer.noticed(TraceOutcome::Every(Traces {
+    tracer.noticed(Traces {
         schema_version: view.versioned_schema().version().to_string(),
         traces,
-    })))
+    })
+}
+
+/// The entities a trace within `node` follows: `node`, every entity its scope holds at any depth, and every entity
+/// one edge away from one of those, either way, each once. A named route keeps those of its start kind ([`trace`]);
+/// the one hop reaches an unscoped entity a member references (a requirement a phase names) without leaving the
+/// scope's neighbourhood.
+fn within<'g>(graph: &'g Graph, node: &'g Node) -> Vec<&'g Node> {
+    let id = node.id.raw;
+    let mut members = graph.scopes().within(id.as_str());
+    members.push(id);
+    let mut traced: BTreeSet<Sym> = members.iter().copied().collect();
+    for member in &members {
+        traced.extend(
+            graph
+                .edges_from(member.as_str())
+                .into_iter()
+                .map(|e| e.target),
+        );
+        traced.extend(
+            graph
+                .edges_to(member.as_str())
+                .into_iter()
+                .map(|e| e.source),
+        );
+    }
+    traced
+        .into_iter()
+        .filter_map(|id| graph.node(id.as_str()))
+        .collect()
 }
 
 /// [`trace`] of [`Target::Entity`]: one entity's trace, as its document.

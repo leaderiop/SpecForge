@@ -4,9 +4,12 @@
 //! Naming is one rule for core and extension resources (ADR 0049 D7): a
 //! template names every URI that starts with its text before the first
 //! placeholder. Reading is a core template's (ADR 0103 D2): each
-//! `{placeholder}` is one non-empty, percent-decoded path segment, and any
-//! other value is [`Malformed`], naming the placeholder. A query is the
-//! reader's to read or refuse (ADR 0024 D4).
+//! `{placeholder}` is one non-empty, percent-decoded path segment, a
+//! reserved `{+placeholder}` (RFC 6570 reserved expansion, always the
+//! template's last part: `specforge://graph/{+entity_id}`) the rest of the
+//! path, decoded whole, with no empty segment (ADR 0355 D4), and any other
+//! value is [`Malformed`], naming the placeholder. A query is the reader's to
+//! read or refuse (ADR 0024 D4).
 
 use crate::tool::{ErrorCode, McpError};
 
@@ -35,8 +38,9 @@ pub struct Matched<'u> {
 }
 
 impl<'u> Matched<'u> {
-    /// The value of `placeholder`: one non-empty, percent-decoded segment.
-    /// None for a name the template does not have.
+    /// The value of `placeholder`: one non-empty, percent-decoded segment,
+    /// or a reserved placeholder's path. None for a name the template does
+    /// not have.
     pub fn value(&self, placeholder: &str) -> Option<&str> {
         self.values
             .iter()
@@ -69,7 +73,8 @@ impl Malformed {
 /// Read `uri` over `template`: each `{placeholder}` is the characters up to
 /// the next `/` (or the end of the path), which must be non-empty, valid
 /// percent-encoded UTF-8, and followed by what the template says (no more
-/// segments). Precondition: `names(template, uri)`.
+/// segments). A `{+placeholder}` is the rest of the path, every
+/// `/`-separated segment of it non-empty. Precondition: `names(template, uri)`.
 pub fn read<'u>(template: &'static str, uri: &'u str) -> Result<Matched<'u>, Malformed> {
     let (path, query) = uri.split_once('?').unwrap_or((uri, ""));
     let mut values: Vec<(&'static str, String)> = Vec::new();
@@ -80,14 +85,29 @@ pub fn read<'u>(template: &'static str, uri: &'u str) -> Result<Matched<'u>, Mal
     let mut last: Option<(&'static str, &str)> = None;
     while let Some((literal, after)) = tail.split_once('{') {
         let (name, after) = after.split_once('}').unwrap_or((after, ""));
+        let (reserved, name) = match name.strip_prefix('+') {
+            Some(name) => (true, name),
+            None => (false, name),
+        };
         let Some(here) = rest.strip_prefix(literal) else {
             return Err(spans_segments(last, rest));
         };
-        let (raw, after_raw) = here.split_at(here.find('/').unwrap_or(here.len()));
+        let end = if reserved {
+            here.len()
+        } else {
+            here.find('/').unwrap_or(here.len())
+        };
+        let (raw, after_raw) = here.split_at(end);
         if raw.is_empty() {
             return Err(Malformed {
                 placeholder: name,
                 message: format!("Malformed {name}: must not be empty"),
+            });
+        }
+        if raw.split('/').any(str::is_empty) {
+            return Err(Malformed {
+                placeholder: name,
+                message: format!("Malformed {name}: \"{raw}\" has an empty path segment"),
             });
         }
         let Some(value) = decode(raw) else {
@@ -263,5 +283,67 @@ mod tests {
         assert_eq!(matched.value("c"), Some("y"));
         let err = read(template, "acme://x/c/y").unwrap_err();
         assert_eq!(err.placeholder, "a");
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "list_mcp_resources",
+        verify = "a core template's reserved placeholder reads the rest of the path, decoded whole, with no empty segment, and is the template's last part"
+    )]
+    fn a_reserved_placeholder_reads_the_rest_of_the_path() {
+        let graph = "specforge://graph/{+entity_id}";
+        let written = read(graph, "specforge://graph/v1.0/03/D-01?depth=2").unwrap();
+        assert_eq!(written.value("entity_id"), Some("v1.0/03/D-01"));
+        assert_eq!(written.query(), "depth=2");
+        let encoded = read(graph, "specforge://graph/v1.0%2F03%2FD-01").unwrap();
+        assert_eq!(encoded.value("entity_id"), Some("v1.0/03/D-01"));
+        let one = read(graph, "specforge://graph/alpha").unwrap();
+        assert_eq!(one.value("entity_id"), Some("alpha"));
+        assert_eq!(probe(graph), "specforge://graph/x");
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "list_mcp_resources",
+        verify = "a core template's reserved placeholder reads the rest of the path, decoded whole, with no empty segment, and is the template's last part"
+    )]
+    fn a_reserved_placeholder_refuses_an_empty_segment() {
+        let graph = "specforge://graph/{+entity_id}";
+        for uri in [
+            "specforge://graph/",
+            "specforge://graph/a//b",
+            "specforge://graph/a/",
+            "specforge://graph//a",
+        ] {
+            let err = read(graph, uri).unwrap_err();
+            assert_eq!(err.placeholder, "entity_id", "{uri}");
+        }
+        let err = read(graph, "specforge://graph/a//b").unwrap_err();
+        assert_eq!(
+            err.message,
+            "Malformed entity_id: \"a//b\" has an empty path segment"
+        );
+        let err = read(graph, "specforge://graph/a/%ZZ").unwrap_err();
+        assert!(err.message.contains("percent-encoded"), "{}", err.message);
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "list_mcp_resources",
+        verify = "a core template's reserved placeholder reads the rest of the path, decoded whole, with no empty segment, and is the template's last part"
+    )]
+    fn a_reserved_placeholder_is_the_last_part_of_every_core_template() {
+        let mut reserved = Vec::new();
+        for resource in crate::resources::CORE_RESOURCES {
+            let uri = resource.uri();
+            if let Some((_, after)) = uri.split_once("{+") {
+                assert!(after.ends_with('}') && !after.contains('{'), "{uri}");
+                reserved.push(uri);
+            }
+        }
+        assert_eq!(
+            reserved,
+            [
+                "specforge://context/{+entity_id}",
+                "specforge://graph/{+entity_id}"
+            ]
+        );
     }
 }

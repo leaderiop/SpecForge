@@ -1,6 +1,6 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/workflows/add-tests.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <purpose>
-Generate unit and E2E tests for a completed phase based on its SUMMARY.md, CONTEXT.md, and implementation. Classifies each changed file into TDD (unit), E2E (browser), or Skip categories, presents a test plan for user approval, then generates tests following RED-GREEN conventions.
+Once a phase is complete, this workflow derives unit and E2E tests from its summaries, its context and the code it shipped. Classifies each changed file into TDD (unit), E2E (browser), or Skip categories, presents a test plan for user approval, then generates tests following RED-GREEN conventions.
 
 Users currently hand-craft `/gsd:quick` prompts for test generation after each phase. This workflow standardizes the process with proper classification, quality gates, and gap reporting.
 </purpose>
@@ -35,9 +35,6 @@ Load phase operation context:
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
 
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
@@ -62,7 +59,7 @@ Read the phase artifacts (in order of priority):
 
 If no SUMMARY.md exists:
 ```
-ERROR: No SUMMARY.md found for phase ${PHASE_ID}
+ERROR: No summary found for phase ${PHASE_ID}
 This command works on completed phases. Run /gsd:execute-phase first.
 ```
 Exit.
@@ -256,7 +253,7 @@ For each approved E2E test:
    ```
    If found, extend rather than duplicate.
 
-2. **Create test file** targeting the user scenario from CONTEXT.md/VERIFICATION.md
+2. **Create test file** targeting the user scenario from the phase's `context` and `verification` entities
 
 3. **Run the E2E test**:
    ```bash

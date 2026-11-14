@@ -49,14 +49,14 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 **Input:**
 
 ```json
-{ "host_version": "2.0.0" }
+{ "host_version": "2.1.0" }
 ```
 
 **Output** (`specforge_protocol_types::HandshakeResponse`):
 
 ```json
 {
-  "protocol_version": "2.0.0",
+  "protocol_version": "2.1.0",
   "name": "@specforge/software",
   "version": "1.0.0",
   "peer_dependencies": [
@@ -88,7 +88,7 @@ The host checks `protocol_version`: a major version other than its own fails the
 
 ### Describe
 
-After the handshake, the host calls `__describe(category)` once for each category it reads, always, in this order: `entities`, `edges`, `shared_fields`, `enhancements`, `validation_rules`, `surfaces`, `collectors`, `passes`, `feature_flags`, `codes`, `settings`, `routes`, `capabilities`, `checkers` (`specforge_protocol_types::DECLARED_CATEGORIES`). Together with the handshake they are the extension's **declaration** (`specforge_protocol_types::ExtensionDeclaration`, ADR 0012): the host loads it once per environment load (`specforge_wasm::protocol::load_declaration`) and nothing describes a category again. A guest whose handshake `protocol_version` is older than 1.7 is not asked for `codes`, and one older than 1.8 is not asked for `settings` (the host compares `(major, minor)` as numbers); each loads with none. An extension answers every supported category, `[]` when it contributes nothing to it; the SDK does.
+After the handshake, the host calls `__describe(category)` once for each category it reads, always, in this order: `entities`, `edges`, `shared_fields`, `enhancements`, `validation_rules`, `surfaces`, `collectors`, `passes`, `feature_flags`, `codes`, `settings`, `routes`, `capabilities`, `checkers`, `contexts` (`specforge_protocol_types::DECLARED_CATEGORIES`). Together with the handshake they are the extension's **declaration** (`specforge_protocol_types::ExtensionDeclaration`, ADR 0012): the host loads it once per environment load (`specforge_wasm::protocol::load_declaration`) and nothing describes a category again. A guest whose handshake `protocol_version` is older than 1.7 is not asked for `codes`, and one older than 1.8 is not asked for `settings` (the host compares `(major, minor)` as numbers); each loads with none. An extension answers every supported category, `[]` when it contributes nothing to it; the SDK does.
 
 A category whose answer fails or doesn't parse as its descriptors fails the extension's load (E028), naming the category. An item key a descriptor doesn't define is ignored and reported (W138), naming the extension, the category, the item and the key.
 
@@ -244,7 +244,7 @@ which passes when one branch yields no error. A bare name is the extension's own
 `@acme/x:<name>`, and that extension must be a declared peer (W019). A check of an optional peer that is not loaded is
 inert: the schema and the hover say so. The value stays plain in its field type's form: nothing about a check is written
 in a `.spec` file. A `.spec` path may name its root, `"<root>/rest"` (`spec`, `project` or a root `specforge.json` names).
-A field of 1.8.0 may also declare who writes it (ADR 0287): `writer`, `"computed"` (a compute pass gives the value; a value written by hand is E082) or `"harness"` (a command's plan sets it and the host records it in `specforge-harness`; a value with no line there is E083); `immutable` (a value that differs from its git baseline is E084; unset at the baseline, it may be set once); and `append_only` (a list that rewrites its baseline's items is E085). A kind may declare `append_only` too: an entity of it that the baseline holds and the project does not is E085. A field nested under `members` declares the same. A `computed` or `harness` field is never completed or offered by an editor, and a computed value is shown marked `computed`. `lifecycle_field` on a kind is read and ignored. A field, a block member or a kind of 1.9.0 may declare `writer: "human"` (ADR 0289): only a person writes it, and an extension's plan, the MCP tools and a non-interactive CLI are refused `human_only`; a `required` field of a kind that is not human-only is W021, since an agent could then create no entity. A set, unset or link of an existing human-only entity is refused the same way, and so is an agent's delete of an entity holding a value a person wrote (a human-only field, or a block member declared human); computed and harness values are not checked on delete (ADR 0298).
+A field of 1.8.0 may also declare who writes it (ADR 0287): `writer`, `"computed"` (a compute pass gives the value; a value written by hand is E082) or `"harness"` (a command's plan sets it and the host records it in `specforge-harness`; a value with no line there is E083); `immutable` (a value that differs from its git baseline is E084; unset at the baseline, it may be set once); and `append_only` (a list that rewrites its baseline's items is E085). A kind may declare `append_only` too: an entity of it that the baseline holds and the project does not is E085. A field nested under `members` declares the same. A `computed` or `harness` field is never completed or offered by an editor, and a computed value is shown marked `computed`. `lifecycle_field` on a kind is read and ignored. A field of 2.1.0 may declare `writer: "context"` (ADR 0356 D9): only the host's record of a context route's pack writes it, a block of exactly `route` (string), `digest` (string) and `max_tokens` (integer) (any other shape, or one on a member, is W021 and the writer dropped); a typed edit of it from any origin is refused `context_field`, the ledger records it as a harness value (E083 without its line), and no entity, judged input or pack section digest reads it. A field, a block member or a kind of 1.9.0 may declare `writer: "human"` (ADR 0289): only a person writes it, and an extension's plan, the MCP tools and a non-interactive CLI are refused `human_only`; a `required` field of a kind that is not human-only is W021, since an agent could then create no entity. A set, unset or link of an existing human-only entity is refused the same way, and so is an agent's delete of an entity holding a value a person wrote (a human-only field, or a block member declared human); computed and harness values are not checked on delete (ADR 0298).
 
 A field of 2.0.0 that declares `checks` may also declare `checks_while` (ADR 0350): `"complete"`, its checks wait
 until its holder's owner is complete (`complete_when`, its kind's or its nearest scope ancestor's; a **planned** value,
@@ -383,7 +383,8 @@ anything. The `judge` is a word naming an agent of the extension or of a declare
 `prompt:<id>`, a prompt of **the rule's own extension** (a prompt of a peer is not a judge); any other judge is W112.
 A rendered prompt then lists the rules it judges under `judged` in its payload. Its `judged` descriptor is `{judge, outcomes, passing, targets: [{kind, inputs: [{name, selector}], unless_set}],
 values, outcome_fields}`; selectors are `self`, `Kind`, `.field`, `<Kind.field`, `file(..)` and `test(..)`
-([guide](guides/judged-rules.md)). The host evaluates it after the graph build and before the compute passes: a
+([guide](guides/judged-rules.md)); since 2.1.0 a kind may carry a field filter, `Kind[field=value|…]`, keeping only
+the entities whose authored string, enum, bool or integer field holds one of the values (ADR 0356 D13). The host evaluates it after the graph build and before the compute passes: a
 `PassEntity` then carries its `judgements` (`{rule, state, passed, outcome?, at?, changed?, files?}`, gated rules
 absent), a graph node and a baseline entity (`PassBaselineEntity`) the same, and a `V` field (`writer: "verdict"`)
 takes the outcome or a `values` member of a fresh verdict. `verdict <rule> <outcome> { judge model at cited
@@ -547,7 +548,13 @@ describe files written into an agent host's project directory by `specforge inst
 
 A `tools` item is a class, not a host's tool name: `read`, `write`, `edit`, `shell`, `search`, `web_fetch`,
 `web_search`, `ask_user`, `agent`, `skill`, `todo`, or `mcp:<server>/<glob>`. Each host's adapter maps a class to its
-own names. `model` is `heavy`, `standard`, `light` or `inherit`, or `setting:<name>` whose value is one of them (or,
+own names. An agent, skill or slash command names SpecForge's own tools as engine tool classes (2.1.0, ADR 0334):
+`specforge:<tool>` (a row of `specforge_protocol_types::engine_tools::ENGINE_TOOLS`), `specforge:<group>` (`reads`,
+`navigation`, `edits`, `output`, `setup`) or `specforge:<short>.<command>` (a command of a loaded extension that is
+neither human-attested nor refused). Install resolves them; one that names no `specforge:` class gets the read and
+navigation tools, the edit and output tools when it holds `write` or `edit`, and its extension's own commands, and a
+slash command also gets the tool its trampoline calls. Each installed agent and skill body lists its tools in a
+generated `## SpecForge tools` section. `model` is `heavy`, `standard`, `light` or `inherit`, or `setting:<name>` whose value is one of them (or,
 for Codex, a model id); `effort` is `minimal`, `low`, `medium`, `high`, `max` or `inherit`, or `setting:<name>`. A
 `when` names a bool setting of the extension, or a list of them (1.13.0, ADR 0317): while any is false the agent, skill, slash command or hook is not
 rendered, and a hook is a no-op. A hook `event` is `pre_tool`, `post_tool`, `pre_commit`, `user_prompt`,
@@ -556,8 +563,9 @@ rendered, and a hook is a no-op. A hook `event` is `pre_tool`, `post_tool`, `pre
 
 A host name is one namespace per project: an agent id, a skill id and a slash command's `<short>-<route>` claimed
 twice are E039, and the later claimant is not rendered. A contribution the registry refuses (an unknown tool class,
-`tools` on an event that takes none, a `timeout_ms` over the sandbox ceiling, a `when` that is no bool setting) is
-W021 and dropped; the rest of the declaration is kept.
+a `specforge:` class naming no engine tool, group or command an agent may run, `mcp:specforge/<glob>`, a `specforge:`
+class on a hook, `tools` on an event that takes none, a `timeout_ms` over the sandbox ceiling, a `when` that is no
+bool setting) is W021 and dropped; the rest of the declaration is kept.
 
 `render__` is called once per agent and skill and host with a `RenderInput` (`kind`, `id`, `host`, `variant`,
 `today`) and answers a `RenderOutput` (`body`): the body without the host's frontmatter or marker.
@@ -1086,6 +1094,71 @@ shows `SchemaField.checks` and `specforge extensions` each extension's checkers.
 
 SDK: `c.checker("url", |k| { .. })`, `f.check("url")`.
 
+### Category: contexts
+
+Returns the context routes a role reads (protocol 2.1.0, ADR 0356). A context route serves one entity of its `subject`
+kind as a pack: its sections in declared order, cut to a token budget, with a digest (`specforge context <route>
+<entity>`, the MCP tool `specforge.context`, `specforge://context/{+entity_id}?role=<route>`).
+
+```json
+{
+  "category": "contexts",
+  "items": [
+    {
+      "name": "executor",
+      "description": "What an executor reads of the plan it runs",
+      "subject": "plan",
+      "agent": "gsd-executor",
+      "budget": 6000,
+      "sections": [
+        {"name": "plan", "selector": "self", "tier": "core"},
+        {"name": "body", "selector": "self<task|truth.plan", "tier": "core"},
+        {"name": "decisions", "selector": "self.phase<decision.phase", "tier": "enrich"},
+        {"name": "instructions", "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")", "tier": "enrich"}
+      ],
+      "settings": ["plan_check"],
+      "records": [{"field": "plan.context_pack", "subject": "self", "suggestion": "gsd start-plan {entity}"}],
+      "stale": "W900"
+    }
+  ]
+}
+```
+
+- `name` is kebab case, unique among the extension's context routes; the host qualifies it by the extension's short
+  name (`gsd/executor`). Context routes and trace routes are separate namespaces.
+- `budget` is the token budget a read takes when it names none, positive. `agent` is an agent of the extension's own:
+  the host appends a `## Context` section to its body on every host.
+- A section's `name` is a word, unique in the route and never `settings`. `selector` is the judged rules' grammar with
+  its head: an entity chain (`self<task.plan`, `decision`), `file(..)` or `test(..)`. `tier` is `core` (absent: core)
+  or `enrich`. At least one section is core.
+- `settings` names settings of the extension's own; the pack carries their values. A secret is not a setting.
+- `records` (ADR 0356 D10) names the fields the route's pack is recorded in: `field` is `kind.field`, a field of the
+  extension's own written `context`; `subject` is an entity chain from `self` that reaches exactly the route's subject
+  kind from the recording kind; `suggestion` is an optional help line, `{entity}` replaced by the record's entity.
+  `stale` is a code the extension catalogues, which a record whose pack has moved raises. A route declares both or
+  neither.
+
+A pack keeps the subject and every core section whatever the budget (below them the read is E062 naming the route),
+serves enrich sections whole in declared order, keeps the most connected entities of the first that does not fit, and
+lists what it cut. Its digest covers the sections served, each digested as a judged input of the same selector.
+
+The host checks each route once, when the extension loads. One that cannot be served (a name not kebab case or taken,
+no core section, a section name not a word, repeated or `settings`, a selector that does not parse, leaves the
+project or does not type-check from the subject kind, a subject kind not loaded, a setting the extension does not
+declare, a budget of 0, a record or stale code that cannot hold) is E123 and is not registered. A context-written
+field needs no check for its owner gate (`checks_while`): its staleness is its check.
+
+A record is written by the host (`record_context`, below; `specforge context <route> <subject> --record <entity>`).
+On each check, every record of a route that names `stale`, when its field's owner gate admits the owner's state, is
+evaluated again at its recorded budget, in the context format: a pack whose digest moved, a record that reaches no
+subject or several, or a core above the budget is one finding of the route's stale code at the field, its severity by
+its letter, with the record's `suggestion` (`{entity}`, `{subject}` and `{route}` filled in). The extension's settings
+raise and gate it as any of its codes. A project that holds no record evaluates no pack. A subject kind of an optional peer the project does not load
+drops the route without a diagnostic; a section that reaches one is skipped and listed in the pack's `skipped`. An
+`agent` the extension does not declare, or one an earlier route binds, is E124: the binding is dropped, the route kept.
+
+SDK: `c.context("executor", |r| { r.subject("plan").agent("gsd-executor").budget(6000).core("plan", "self").enrich("decisions", "self.phase<decision.phase"); })`.
+
 ## Operate
 
 Once the declaration is loaded, the host calls an extension's exports on
@@ -1178,6 +1251,7 @@ sources, and every `graph` node carries its `file`. A writing collector is sent 
 | `delete` | `entity`, `unlink_references`? |
 | `rename` | `entity`, `to` (the move record is written with the ledger) |
 | `set_verdict` | `entity`, `rule`, `outcome`, `judge`, `model`, `findings`?, `cited`? (`{"entity"}`, `{"file"}` or `{"test"}`), `values`?, `basis`? |
+| `record_context` | `entity`, `route`, `max_tokens`? (2.1.0, ADR 0356 D11): the host derives the route's subject from the entity by its record, computes the pack at the budget (absent: the route's) over the project the plan is applied to, and writes the route, the digest and the budget in the record's field with its ledger line. A command, collector or hook of the route's extension (or of one naming it a peer) may ask |
 
 Ops apply in order, each over the texts the ones before it left. An op's `revision` is the revision of the file it
 writes, as the call received it (`absent` for a file that is not there yet); an op with none is `invalid_plan`. If the
@@ -1195,8 +1269,10 @@ the code in `data.code`):
 | `human_only` | writes a kind, field or member declared `writer: "human"` |
 | `computed_field` | writes a `computed` value |
 | `harness_field` | sets a `harness` value its origin may not set |
+| `context_field` | sets a `context` value: only the host's record of its route writes one (ADR 0356) |
 | `stale_revision` | names a file revision that is not the file's now |
 | `not_judged`, `verdict_refused` | writes a verdict for a rule the host does not judge, or one it refuses (`reason`: `kind`, `outcome`, `origin`, `judge`, `value`, `cite`) |
+| `record_refused` | records a context pack the host refuses (`reason`: `unknown_route`, `not_recorded`, `origin`, `no_subject`, `several_subjects`, `budget`; the CLI's `--record` adds `subject_mismatch`) |
 | `E080` | would leave the project with an error it does not have now (a guard pass counts; a judged rule's finding does not, ADR 0297) |
 
 The host adds `--dry-run` to a writing command (it prints the diff and writes nothing), so a writing command declares
@@ -1281,7 +1357,7 @@ specforge at least as new. A guest of an older major is E088 too, with the remed
 host's major (ADR 0326 D1b). Since 2.0.0 (ADR 0337) every 1.x guest is such an older major: it declared its inputs
 as the `reads*` keys, which a 2.0.0 host no longer reads, so it is refused with E088 rather than loaded with its
 inputs unserved. `specforge --version` names the protocol a binary speaks
-(`specforge 0.3.0 (9229143f5, protocol 2.0.0)`). A guest built with the SDK declares the SDK's version in
+(`specforge 0.3.0 (9229143f5, protocol 2.1.0)`). A guest built with the SDK declares the SDK's version in
 its handshake and its registry manifest.
 
 The minor moves when a payload changes in a way every older guest survives: a field added, removed or
@@ -1307,6 +1383,7 @@ or answered.
 | `1.14.0` | A hook may declare `hosts`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings`, its input carries `commands`, `git`, `change`, `other_settings`, each path's `real` (and `toplevel`, `in_git_dir`), a commit's `cleanup`, and the event `file_changed` (ADR 0320-0324). A 1.13 host reports each new key as W138 (it installs a `hosts`-limited hook everywhere), and refuses the whole `surfaces` category of a guest that declares a `file_changed` hook (`HookEvent` is a closed enum there: `DescribeFailed`), so such a guest needs a 1.14.0 host. `HookEvent` decodes an unknown event as `Unknown` from 1.14.0 on, so a newer guest's new event costs a 1.14 host that one hook (W021), not the category. |
 | `1.15.0` | A collector answers `facts`, the entities it observed (ADR 0327): each a `Fact` (`kind`, `id`, optional `title`, `fields`) of a kind that declares `writer: "collector"` and its `schemes`, the prefixes of its ids; a field that declares `writer: "collector"` is W021. Every collector's input carries `cwd`, the project root (a writing collector's only before). A collector may declare `reads` and its input then carries `files` (ports plan 00). A guest of another major is E088, saying which side is behind, and so is a component importing a host port this specforge does not provide (ADR 0326 D1a/D1b). A pass is sent `fact_stores`, the fact stores the session served. A reference in a fact scheme that names no fact is unheld, not E003: a `PassEntity` lists it under `unheld`. A kind may declare `complete_when`, a pass entity carries `pending`, and an unheld reference its `span` (ADR 0329). A collector-written kind may name its facts' `result` field (ADR 0329). An extension may declare `routes`, the steps `specforge trace` follows from a kind (ADR 0330). A 1.14 host ignores `facts` and `schemes` (W138) and reads a `collector` kind writer as nobody's; a guest older than 1.15 is not asked for `routes`. |
 | `2.0.0` | ADR 0337 (the ports round). A command, MCP tool or resource and a collector may call the five `specforge:host@0.1.0` ports (see [Host ports](#host-ports)), `syntax` parsing source with a tags query (ADR 0344, ADR 0345 D1). A pass, command, prompt, hook or collector declares what the host serves it as one tagged list, `inputs`: `files` (a `FileRead`), `tests`, `state`, `graph`, `slash_commands`, `git` (`status`, `when`) and `setting` (`extension`, `name`), replacing `reads`, `reads_tests`, `reads_state`, `reads_graph`, `reads_slash_commands`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings` (see [Inputs](#inputs-200-adr-0337)); an input its call kind is not served, or a second one of a kind served once, is W021 and served empty. A hook's `git.status` is a typed `GitStatus` (`branch` with `oid`, `head`, `upstream`, `ahead`, `behind`; `entries` with `kind`, `path`, `orig_path`, `index`, `worktree`), not porcelain text. A `codes` entry may declare `machine` (`CodeDescriptor.machine`, see [codes](#category-codes)): its finding is this machine's, never promoted by `--strict` nor counted by the gate's warning baseline. A 1.x guest is E088 (older): its keys would be W138 and its inputs unserved. An extension declares `capabilities` (a describe category, see [capabilities](#category-capabilities)): what it may make the host do, each on one port under a scope name (ADR 0335 D2), and a collector names the process `capability` it runs instead of carrying `run`. An extension declares `checkers` (a describe category, see [checkers](#category-checkers)), a field its `checks`, and the host calls `__check_values` in a values phase that runs first (ADR 0336); `CollectInput` gains `check_outcomes`, for a collector declaring that input, and `facts`, for a collector declaring a `facts` input (`kinds`); a collector declares `answers`, the collected kinds whose facts it answers, which order the collect (E119 for a cycle) and admit its facts (E116 otherwise); a collector with no `capability` and no `report` reads through its ports (ADR 0345). A `Fact` carries `at` (a list of `FactLocation`: where it is written, a project-relative file, 1-based lines, 1-based byte columns, end exclusive) and `named_at` (field → id → places: where each name it holds is written); a `PassEntity` carries `dangling` (`DanglingReference`: `field`, `id`, `span`, `reason` `unresolved` \| `ambiguous` \| `mistyped`, `actual`, `did_you_mean`, `candidates`), a fact's references that name no entity, the wrong kind or several: sent to every pass, judged by the extension declaring the holder's kind (ADR 0346). An `UnheldReference` carries `kinds`, the collected kinds of its scheme its field admits, and a `FactStore` carries `held` (scheme → the kinds of its facts), replacing `schemes` (ADR 0347 D9). `CommandInput` gains `nonce`, 32 lowercase hex digits of the host's entropy, fresh per call (ADR 0341); a pass, prompt, hook or collector is not told one. A field may declare `checks_while`, `complete` or `pending` (ADR 0350), and a check row's status (`CheckOutcome.status`) may be `planned` or `closed`. The source scanners' describe category and their operation (and its request and response types) are gone: source code reaches the graph as the `item` facts a source pack collects (ADR 0199). A `process` capability may declare one `config` (`ProcessConfig`: `name`, `template`): the host writes it to `.specforge/reports/<collector>.<name>` before the run, `{report}` expanded and escaped for a quoted string, and `{config}` in the argv names it; a `CollectorDescriptor` may declare `install`, the line said when its program is not found (ADR 0348). The git port answers `log` (a `log-query` of commit ids and paths from the repository's top: typed commits, their trailers and each signature's `name` and `seconds` (never an email address nor the signer's offset), as many as the answer holds, `truncated` past it or past the host's counted walk, which leaves no `count`; a pickaxe never reads a withheld file and is refused a withheld path) and `diff` (a `diff-query` from a commit or the empty tree to a commit, the index or the worktree, with `hunks`, a file's changed line ranges, and `renames`, searched by the host's rules: a file past the bytes the host reads for one diff says `truncated` and counts no lines; each `file-change` says `withheld` and then carries no `patch` nor `hunks`: a withheld name, or, against the worktree, a file the call's fs grant does not read) (ADR 0352). A collector's `auto_detect` may declare `repository`: it is detected when the git port locates the project root in a repository, git's ceilings kept, so a project in a subdirectory of its repository is (ADR 0352 D4). An `UnheldReference` carries `history` when its field is one the harness writes once (`writer: "harness"` and `immutable`): a pass reads it as what held then, never a missing fact (ADR 0352 D2). |
+| `2.1.0` | A contribution's `tools` may name the engine's tools (ADR 0334): `specforge:<tool>` (`specforge:trace`), `specforge:<group>` (`specforge:reads`, `navigation`, `edits`, `output`, `setup`) and `specforge:<short>.<command>`, an extension command run as `specforge <short> <command>`. An unknown one, a human-attested or refused command, `mcp:specforge/…` and any `specforge:` class on a hook are W021. `specforge_protocol_types::engine_tools` is the catalogue they name. An extension declares `contexts`, the fifteenth describe category, read last: for one entity of a subject kind, the ordered sections a role reads, each a named selector, core or enrich (ADR 0356). A selector kind may carry a field filter, `kind[field=value|…]` (ADR 0356 D13). A context route may record its pack in a `context` field (`records`) and name the code a stale record raises (`stale`, ADR 0356 D10); an edit plan's `record_context` asks the host to record it (D11). A 2.0.0 guest still loads. |
 
 A host of `1.1.x` still loads a `1.0.0` guest and hands it the `1.1.0` values it knows; a host of
 `1.0.x` refuses a `1.1.0` guest (E088), and every host refuses a guest of another major (E088). A newer patch of the

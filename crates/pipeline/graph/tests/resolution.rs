@@ -85,7 +85,7 @@ fn a_missing_id_of_an_absent_kind_with_no_provider_suggests_a_search() {
     assert_eq!(
         diagnostics[0].suggestion.as_deref(),
         Some(
-            "find an extension that declares 'feature' with `specforge search feature`, or drop the field"
+            "find an extension that declares 'feature' with `specforge extensions search feature`, or drop the field"
         )
     );
 }
@@ -238,7 +238,7 @@ fn a_wrong_kind_id_of_an_absent_kind_is_e022_naming_its_provider() {
     assert_eq!(
         diagnostics[0].suggestion.as_deref(),
         Some(
-            "name a feature here (find an extension that declares it with `specforge search feature`), or drop the reference"
+            "name a feature here (find an extension that declares it with `specforge extensions search feature`), or drop the reference"
         )
     );
 }

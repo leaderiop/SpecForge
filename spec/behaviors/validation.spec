@@ -379,6 +379,11 @@ behavior record_harness_values "Record Harness Values" {
   produces []
   verify unit "the value digest reads the target of a reference, not its spelling"
   verify unit "a harness value with no matching line in specforge-harness is E083"
+  verify unit "a context value with no matching line in specforge-harness is E083"
+  verify unit "a context writer round trips on the wire"
+  verify unit "the SDK declares a context field as the block of a context record"
+  verify unit "a context-written field is a block of route, digest and max_tokens, or it is W021 and its writer dropped"
+  verify unit "an entity digest leaves out a context-written value as it leaves out computed and verdict values"
   verify unit "a malformed ledger line is W163 and ignored, and a bad header makes every harness value E083"
   verify unit "a union-merged ledger reads, and is I203 once"
   verify unit "a rename records its move and re-keys its lines"
@@ -484,6 +489,7 @@ behavior check_values_by_owner_state "Check a Value When Its Owner Allows" {
     absolute path or a climb out of its root E094, a backslash W175.
   """
   verify unit "an owner gate needs a check and a complete_when on its kind or a scope ancestor, else W199"
+  verify unit "a gate on a context-written field is kept with no declared check"
   verify unit "a planned value's checks wait while its owner is pending, and its row says planned"
   verify unit "a planned value is checked once its owner is complete, its computed state deciding"
   verify unit "a kind with no complete_when follows its nearest scope ancestor's owner state"

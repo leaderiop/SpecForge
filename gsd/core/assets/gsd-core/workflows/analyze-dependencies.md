@@ -2,14 +2,14 @@
 @~/.claude/gsd-core/references/response-language-directive.md
 
 <purpose>
-Analyze ROADMAP.md phases for dependency relationships before execution. Detect file overlap between phases, semantic API/data-flow dependencies, and suggest `Depends on` entries to prevent merge conflicts during parallel execution by `/gsd:manager`.
+Analyze the milestone's phases for dependency relationships before execution. Detect file overlap between phases, semantic API/data-flow dependencies, and suggest `Depends on` entries to prevent merge conflicts during parallel execution by `/gsd:manager`.
 </purpose>
 
 <process>
 
-## 1. Load ROADMAP.md
+## 1. Load the Phases
 
-Read the `milestone` and `phase` entities. If it does not exist, error: "No ROADMAP.md found — run `/gsd:new-project` first."
+Read the `milestone` and `phase` entities (`specforge query "$MILESTONE" --depth 1 --kinds phase --format json`). If there are none, error: "No roadmap found — run `/gsd:new-project` first."
 
 Extract all phases. For each phase capture:
 - Phase number and name
@@ -72,10 +72,10 @@ For phase pairs with no detected dependency, state: "No dependency detected betw
 
 ## 5. Summarize Suggested Changes
 
-Show a consolidated diff of proposed ROADMAP.md `Depends on` changes:
+Show a consolidated list of the proposed `depends_on` changes:
 
 ```
-Suggested ROADMAP.md updates:
+Suggested phase dependencies:
   Phase 3: add "Depends on: 1, 2"   (file overlap: database schema)
   Phase 5: add "Depends on: 3"      (semantic: uses auth API from Phase 3)
   Phase 4: no change needed         (independent scope)
@@ -83,17 +83,21 @@ Suggested ROADMAP.md updates:
 
 ## 6. Confirm and Apply
 
-Ask the user: "Apply these `Depends on` suggestions to ROADMAP.md? (yes / no / edit)"
+Ask the user: "Apply these dependency suggestions to the phases? (yes / no / edit)"
 
-- **yes** — Write all suggested `Depends on` entries to ROADMAP.md. Confirm each write.
+- **yes** — Record every suggested dependency. Confirm each write.
 - **no** — Print the suggestions as text only. User updates manually.
 - **edit** — Present each suggestion individually with yes/no/skip per suggestion.
 
-When writing to ROADMAP.md:
-- Locate the phase entry and add or update the `Depends on:` field
-- Preserve all other phase content unchanged
-- Do not reorder phases
+Each accepted phase's dependencies are recorded in one edit, its whole list (the ones it had plus the accepted ones),
+which leaves its other fields and the phase order as they are:
 
-After applying: "ROADMAP.md updated. Run `/gsd:manager` to execute phases in the correct order."
+```bash
+PHASE="{the phase number, e.g. 03}"
+DEPENDS_ON='{the phase numbers it depends on, as a JSON list, e.g. ["01", "02"]}'
+specforge gsd phase --edit "$PHASE" --depends-on "$DEPENDS_ON" || exit 1
+```
+
+After applying: "Phase dependencies recorded. Run `/gsd:manager` to execute phases in the correct order."
 
 </process>

@@ -1,106 +1,52 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/templates/user-setup.compact.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # User Setup Template
 
-Template for the phase `XX-name` ({phase}-USER-SETUP.md) - human-required configuration that Claude cannot automate.
+Template for the `user_setup` entities of a plan - human-required configuration that Claude cannot automate.
 
-**Purpose:** Document setup tasks that literally require human action - account creation, dashboard configuration, secret retrieval. Claude automates everything possible; this file captures only what remains.
+**Purpose:** Document setup tasks that literally require human action - account creation, dashboard configuration, secret retrieval. Claude automates everything possible; a `user_setup` entity captures only what remains.
 
 ---
 
-## File Template
+## The User Setup's Typed Edits
 
-```markdown
-# Phase {X}: User Setup Required
-
-**Generated:** [YYYY-MM-DD]
-**Phase:** {phase-name}
-**Status:** Incomplete
-
-Complete these items for the integration to function. Claude automated everything possible; these items require human access to external dashboards/accounts.
-
-## Environment Variables
-
-| Status | Variable | Source | Add to |
-|--------|----------|--------|--------|
-| [ ] | `ENV_VAR_NAME` | [Service Dashboard → Path → To → Value] | `.env.local` |
-| [ ] | `ANOTHER_VAR` | [Service Dashboard → Path → To → Value] | `.env.local` |
-
-## Account Setup
-
-[Only if new account creation is required]
-
-- [ ] **Create [Service] account**
-  - URL: [signup URL]
-  - Skip if: Already have account
-
-## Dashboard Configuration
-
-[Only if dashboard configuration is required]
-
-- [ ] **[Configuration task]**
-  - Location: [Service Dashboard → Path → To → Setting]
-  - Set to: [Required value or configuration]
-  - Notes: [Any important details]
-
-## Verification
-
-After completing setup, verify with:
+A plan's setup step is one `user_setup` entity per external service, written with `specforge new` in the plan's file
+(`specforge schema --kind user_setup`; `specforge new user_setup --help` prints the fields as flags). A block list is
+JSON (`--env_vars '<json>'`, `--dashboard '<json>'`), and a list of texts takes its flag once per item
+(`--local_dev "<step>"`). Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment, leave out a flag you have no value for, and repeat the line per
+service with the next id (`US2`). Never write `done`: a person confirms a step with `specforge gsd confirm-setup`,
+which records who and when. A refusal names its code: read it with `specforge explain <code>`.
 
 ```bash
-# [Verification commands]
+PLAN_ID="{the plan's id, e.g. v1.0/02/02-01}"
+SETUP_ID="{the plan's next setup id, e.g. US1}"
+IFS= read -rd '' SERVICE <<'TEXT' || true; SERVICE=${SERVICE%$'\n'}
+{the external service, e.g. stripe}
+TEXT
+IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\n'}
+{why the plan needs it}
+TEXT
+IFS= read -rd '' ENV_VARS <<'TEXT' || true; ENV_VARS=${ENV_VARS%$'\n'}
+[{"name": "{ENV_VAR_NAME}", "source": "{Service Dashboard → Path → To → Value}"}]
+TEXT
+IFS= read -rd '' DASHBOARD <<'TEXT' || true; DASHBOARD=${DASHBOARD%$'\n'}
+[{"task": "{the configuration task}", "location": "{Service Dashboard → Path → To → Setting}", "details": "{the required value and any important detail}"}]
+TEXT
+IFS= read -rd '' LOCAL_DEV <<'TEXT' || true; LOCAL_DEV=${LOCAL_DEV%$'\n'}
+{a local development step: one --local_dev per step}
+TEXT
+PLAN_FILE=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].file') || exit 1
+specforge new user_setup "$SETUP_ID" "$SERVICE" --in "$PLAN_FILE" --plan "$PLAN_ID" --service "$SERVICE" --why "$WHY" --env_vars "$ENV_VARS" --dashboard "$DASHBOARD" --local_dev "$LOCAL_DEV" || exit 1
 ```
 
-Expected results:
-- [What success looks like]
-
----
-
-**Once all items complete:** Mark status as "Complete" at top of file.
-```
-
----
-
-## When to Generate
-
-Generate `{phase}-USER-SETUP.md` when plan frontmatter contains `user_setup` field.
-
-**Trigger:** `user_setup` exists in PLAN.md frontmatter and has items.
-
-**Location:** Same directory as PLAN.md and SUMMARY.md.
-
-**Timing:** Generated during execute-plan.md after tasks complete, before SUMMARY.md creation.
-
----
-
-## Frontmatter Schema
-
-In PLAN.md, `user_setup` declares human-required configuration:
-
-```yaml
-user_setup:
-  - service: stripe
-    why: "Payment processing requires API keys"
-    env_vars:
-      - name: STRIPE_SECRET_KEY
-        source: "Stripe Dashboard → Developers → API keys → Secret key"
-      - name: STRIPE_WEBHOOK_SECRET
-        source: "Stripe Dashboard → Developers → Webhooks → Signing secret"
-    dashboard_config:
-      - task: "Create webhook endpoint"
-        location: "Stripe Dashboard → Developers → Webhooks → Add endpoint"
-        details: "URL: https://[your-domain]/api/webhooks/stripe, Events: checkout.session.completed, customer.subscription.*"
-    local_dev:
-      - "Run: stripe listen --forward-to localhost:3000/api/webhooks/stripe"
-      - "Use the webhook secret from CLI output for local testing"
-```
+A plan's setup steps are shown with `specforge query "$PLAN_ID" --depth 1 --kinds user_setup --format context`.
 
 ---
 
 ## The Automation-First Rule
 
-**USER-SETUP.md contains ONLY what Claude literally cannot do.**
+**A `user_setup` entity contains ONLY what Claude literally cannot do.**
 
-| Claude CAN Do (not in USER-SETUP) | Claude CANNOT Do (→ USER-SETUP) |
+| Claude CAN Do (no setup step) | Claude CANNOT Do (→ a setup step) |
 |-----------------------------------|--------------------------------|
 | `npm install stripe` | Create Stripe account |
 | Write webhook handler code | Get API keys from dashboard |
@@ -110,84 +56,8 @@ user_setup:
 | Write any code | Retrieve secrets from third-party systems |
 
 **The test:** "Does this require a human in a browser, accessing an account Claude doesn't have credentials for?"
-- Yes → USER-SETUP.md
+- Yes → a `user_setup` entity
 - No → Claude does it automatically
-
----
-
-## Service-Specific Example
-
-<stripe_example>
-```markdown
-# Phase 10: User Setup Required
-
-**Generated:** 2025-01-14
-**Phase:** 10-monetization
-**Status:** Incomplete
-
-Complete these items for Stripe integration to function.
-
-## Environment Variables
-
-| Status | Variable | Source | Add to |
-|--------|----------|--------|--------|
-| [ ] | `STRIPE_SECRET_KEY` | Stripe Dashboard → Developers → API keys → Secret key | `.env.local` |
-| [ ] | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe Dashboard → Developers → API keys → Publishable key | `.env.local` |
-| [ ] | `STRIPE_WEBHOOK_SECRET` | Stripe Dashboard → Developers → Webhooks → [endpoint] → Signing secret | `.env.local` |
-
-## Account Setup
-
-- [ ] **Create Stripe account** (if needed)
-  - URL: https://dashboard.stripe.com/register
-  - Skip if: Already have Stripe account
-
-## Dashboard Configuration
-
-- [ ] **Create webhook endpoint**
-  - Location: Stripe Dashboard → Developers → Webhooks → Add endpoint
-  - Endpoint URL: `https://[your-domain]/api/webhooks/stripe`
-  - Events to send:
-    - `checkout.session.completed`
-    - `customer.subscription.created`
-    - `customer.subscription.updated`
-    - `customer.subscription.deleted`
-
-- [ ] **Create products and prices** (if using subscription tiers)
-  - Location: Stripe Dashboard → Products → Add product
-  - Create each subscription tier
-  - Copy Price IDs to:
-    - `STRIPE_STARTER_PRICE_ID`
-    - `STRIPE_PRO_PRICE_ID`
-
-## Local Development
-
-For local webhook testing:
-```bash
-stripe listen --forward-to localhost:3000/api/webhooks/stripe
-```
-Use the webhook signing secret from CLI output (starts with `whsec_`).
-
-## Verification
-
-After completing setup:
-
-```bash
-# Verify build passes
-npm run build
-
-# Test webhook endpoint (should return 400 bad signature, not 500 crash)
-curl -X POST http://localhost:3000/api/webhooks/stripe \
-  -H "Content-Type: application/json" \
-  -d '{}'
-```
-
-Expected: Build passes, webhook returns 400 (signature validation working).
-
----
-
-**Once all items complete:** Mark status as "Complete" at top of file.
-```
-</stripe_example>
 
 ---
 
@@ -195,6 +65,5 @@ Expected: Build passes, webhook returns 400 (signature validation working).
 
 **Never include:** Actual secret values. Steps Claude can automate (package installs, code changes).
 
-**Naming:** `{phase}-USER-SETUP.md` matches the phase number pattern.
-**Status tracking:** User marks checkboxes and updates status line when complete.
+**Status tracking:** a person confirms each step with `specforge gsd confirm-setup`, which writes its `done`.
 **Searchability:** `specforge export --kinds user_setup` finds every phase's user requirements.

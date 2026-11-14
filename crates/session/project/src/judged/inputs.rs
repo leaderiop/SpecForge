@@ -87,6 +87,8 @@ pub struct InputReport {
     pub kind: &'static str,
     /// The entities (by path) or files (from the project root) it picked.
     pub members: Vec<String>,
+    /// The files it read, with their digests: empty unless it is a `files` input.
+    pub files: Vec<JudgedFile>,
     pub digest: String,
 }
 
@@ -122,7 +124,7 @@ pub fn inputs(
 }
 
 /// One evaluation's reads: the report once, each entity's digest once.
-pub(super) struct Cx<'a> {
+pub(crate) struct Cx<'a> {
     pub env: &'a Environment,
     pub graph: &'a Graph,
     entities: &'a EntitySnapshot,
@@ -156,7 +158,7 @@ enum Read {
     Unrecorded,
 }
 
-pub(super) fn hash(value: &Value) -> String {
+pub(crate) fn hash(value: &Value) -> String {
     let bytes = serde_json::to_vec(value).expect("a JSON value serializes");
     format!("sha256:{}", Sha256::of(&bytes))
 }
@@ -200,7 +202,11 @@ impl<'a> Cx<'a> {
     /// The digest of an `entities` input: `[digest, id]` per entity, as before checked values (ADR 0290), or
     /// `[digest, id, {"checks": [[field, item, checker, class], ...]}]` for an entity whose values were checked (ADR
     /// 0337 §6). When a value was observed is never digested. `true` with it when a check was not performed (`unknown`).
-    fn entity_set(&self, selector: &str, ids: impl IntoIterator<Item = String>) -> (Value, bool) {
+    pub(crate) fn entity_set(
+        &self,
+        selector: &str,
+        ids: impl IntoIterator<Item = String>,
+    ) -> (Value, bool) {
         let mut unknown = false;
         let members: Vec<Value> = ids
             .into_iter()
@@ -445,13 +451,21 @@ impl<'a> Cx<'a> {
     }
 
     pub fn inputs(&self, node: &Node, rule: &JudgedRule, cited: &Cited) -> Inputs {
-        let id = node.id.raw.as_str();
-        let mut out = Inputs::default();
         let Some(target) = rule.target(node.kind.raw.as_str()) else {
-            return out;
+            return Inputs::default();
         };
+        let mut out = self.named(node.id.raw.as_str(), &target.inputs);
+        self.cite(node, cited, &mut out);
+        out
+    }
+
+    /// Each of `inputs` read from `this`, in order: its digest, what it picked and the files it read. A judged rule's
+    /// inputs and a context route's sections are read here, so a section digests as the input of its selector does.
+    pub(crate) fn named(&self, this: &str, inputs: &[(String, Selector)]) -> Inputs {
+        let id = this;
+        let mut out = Inputs::default();
         let select = &self.selection;
-        for (name, selector) in &target.inputs {
+        for (name, selector) in inputs {
             let shown = selector.to_string();
             let read = out.files.len();
             // `None`: the input could not be judged.
@@ -505,75 +519,79 @@ impl<'a> Cx<'a> {
                 selector: shown,
                 kind,
                 members,
+                files: out.files[read..].to_vec(),
                 digest: digest.clone(),
             });
             out.digests.push((name.clone(), digest));
         }
-        {
-            let entities: Vec<Value> = {
-                let mut found: Vec<String> = cited
-                    .entities
-                    .iter()
-                    .map(|text| wire::cited(self.graph, node.id.raw, text))
-                    .collect();
-                found.sort();
-                found.iter().map(|p| json!([self.entity(p), p])).collect()
-            };
-            let paths = cited
-                .files
+        out
+    }
+
+    /// What the verdict on `node` cites, digested and appended to `out`: `cited`, then `cited_tests` when it cites
+    /// tests.
+    fn cite(&self, node: &Node, cited: &Cited, out: &mut Inputs) {
+        let entities: Vec<Value> = {
+            let mut found: Vec<String> = cited
+                .entities
                 .iter()
-                .map(|path| FileRef {
-                    root: Root::Project,
-                    path: path.clone(),
-                })
+                .map(|text| wire::cited(self.graph, node.id.raw, text))
                 .collect();
-            let cited_from = out.files.len();
-            let files = self.files("cited", &paths, &mut out.files);
-            // The entities and files are digested whatever the report holds; the cited tests are an input of their
-            // own, so a missing report hides nothing else.
-            let digest = hash(&json!({"entities": entities, "files": files}));
-            out.cited = CitedReport {
-                entities: entities
-                    .iter()
-                    .filter_map(|e| e[1].as_str().map(str::to_string))
-                    .collect(),
-                files: out.files[cited_from..]
-                    .iter()
-                    .map(|f| f.path.clone())
-                    .collect(),
-                tests: cited.tests.clone(),
-                digest: digest.clone(),
-            };
-            out.digests.push((CITED.to_string(), digest));
-            // shortcut: a cited test is a test name looked up across every entity's recorded tests; name a
-            // test by entity when a project reuses names.
-            match self.report() {
-                _ if cited.tests.is_empty() => {}
-                ReportRead::Read(results) => {
-                    let mut seen: Vec<Value> = Vec::new();
-                    for name in &cited.tests {
-                        for (entity, recorded) in &results.results {
-                            for test in recorded.tests.iter().filter(|t| &t.name == name) {
-                                seen.push(json!([
-                                    entity,
-                                    name,
-                                    serde_json::to_value(test.status).unwrap_or(Value::Null)
-                                ]));
-                            }
+            found.sort();
+            found.iter().map(|p| json!([self.entity(p), p])).collect()
+        };
+        let paths = cited
+            .files
+            .iter()
+            .map(|path| FileRef {
+                root: Root::Project,
+                path: path.clone(),
+            })
+            .collect();
+        let cited_from = out.files.len();
+        let files = self.files("cited", &paths, &mut out.files);
+        // The entities and files are digested whatever the report holds; the cited tests are an input of their
+        // own, so a missing report hides nothing else.
+        let digest = hash(&json!({"entities": entities, "files": files}));
+        out.cited = CitedReport {
+            entities: entities
+                .iter()
+                .filter_map(|e| e[1].as_str().map(str::to_string))
+                .collect(),
+            files: out.files[cited_from..]
+                .iter()
+                .map(|f| f.path.clone())
+                .collect(),
+            tests: cited.tests.clone(),
+            digest: digest.clone(),
+        };
+        out.digests.push((CITED.to_string(), digest));
+        // shortcut: a cited test is a test name looked up across every entity's recorded tests; name a
+        // test by entity when a project reuses names.
+        match self.report() {
+            _ if cited.tests.is_empty() => {}
+            ReportRead::Read(results) => {
+                let mut seen: Vec<Value> = Vec::new();
+                for name in &cited.tests {
+                    for (entity, recorded) in &results.results {
+                        for test in recorded.tests.iter().filter(|t| &t.name == name) {
+                            seen.push(json!([
+                                entity,
+                                name,
+                                serde_json::to_value(test.status).unwrap_or(Value::Null)
+                            ]));
                         }
                     }
-                    seen.sort_by_key(Value::to_string);
-                    out.digests
-                        .push((CITED_TESTS.to_string(), hash(&Value::Array(seen))));
                 }
-                _ => {
-                    out.unjudged.push(CITED_TESTS.to_string());
-                    out.digests
-                        .push((CITED_TESTS.to_string(), NONE.to_string()));
-                }
+                seen.sort_by_key(Value::to_string);
+                out.digests
+                    .push((CITED_TESTS.to_string(), hash(&Value::Array(seen))));
+            }
+            _ => {
+                out.unjudged.push(CITED_TESTS.to_string());
+                out.digests
+                    .push((CITED_TESTS.to_string(), NONE.to_string()));
             }
         }
-        out
     }
 }
 

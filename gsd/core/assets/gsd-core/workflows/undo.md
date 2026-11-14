@@ -116,8 +116,8 @@ fails closed.
 
 **Two archive layouts exist, and `find-phase` searches only one of them.** The phase locator
 (`listArchiveVersionDirs`, `src/phase-locator.cts`) enumerates both the flat
-`milestones/v<X.Y>-phases/<phase>/` archive and the workstream archive
-`milestones/ws-<name>-<date>/phases/<phase>/` that `workstream complete` writes. `cmdFindPhase`
+phase archive of a milestone and the archive of a workstream that
+`workstream complete` closed. `cmdFindPhase`
 builds its own search list and admits only the first (`/^v\d+.*-phases$/`), so a phase that lives
 *only* in a `ws-*` archive resolves to nothing today and the not-found rule above fails closed.
 The refusal below still names both layouts, so it keeps holding if `find-phase` is ever taught the
@@ -130,43 +130,15 @@ MILESTONE_STATE=$(specforge query "${UNDO_MILESTONE:-${PHASE_DIR%%/*}}" --depth 
 PHASE_DIR_ARCHIVED=""; case "$MILESTONE_STATE" in shipped|abandoned) PHASE_DIR_ARCHIVED="$PHASE_DIR";; esac
 # (no archive directory to match)
 
-
-
-
-
-
-
 # The recorded commits are this repository's own: there is no other repository to refuse.
-
-
-
-
 
 PHASE_DIR_FOREIGN=""
 # (nothing to compare)
 
-
-
-
-
-
 # (a phase entity has no path that a previous occupant could have used)
-
-
-
-
-
-
-
-
 
 PHASE_DIR_REUSED=""; PHASE_DIR_LIVE=""
 # (nothing to check)
-
-
-
-
-
 
 ```
 
@@ -274,26 +246,14 @@ MILESTONE_STATE=$(specforge query "${UNDO_MILESTONE:-${PHASE_DIR%%/*}}" --depth 
 PHASE_DIR_ARCHIVED=""; case "$MILESTONE_STATE" in shipped|abandoned) PHASE_DIR_ARCHIVED="$PHASE_DIR";; esac
 # (no archive directory to match)
 
-
 # Same-repository refusal as MODE=phase: a phase planned in another repository cannot anchor here.
 PHASE_DIR_FOREIGN=""
 # (the recorded commits are this repository's own)
 
-
-
-
-
-
 # (a plan entity has no path that a previous occupant could have used)
-
 
 PHASE_DIR_REUSED=""; PHASE_DIR_LIVE=""
 # (nothing to check)
-
-
-
-
-
 
 PHASE_START=$(specforge git rev --sorted --reverse $(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash') --pick '.revs[0].sha' 2>/dev/null)
 # As in MODE=phase: an anchor outside HEAD's own history never reaches the root-commit arm.
@@ -381,7 +341,7 @@ makes the oldest add at that path the **previous occupant's**. The archived refu
 cannot reach it — `find-phase` returns the **live** directory, so nothing is under
 `milestones/` to refuse. Driven before the guard: two milestones both using
 a directory path `phases/03-auth` anchored on the v1 plan commit and selected all four v1+v2 phase-03
-commits; a workstream completed into `milestones/ws-feat-<date>/` and then re-created as `feat`
+commits; one workstream, closed by `workstream complete`, archived, then opened anew as `feat`
 with the same `03-auth` did the same across the two workstream generations. The collision check
 closes both without a phase identity a directory name does not carry, and without restating any
 archive layout: a path that went empty in `HEAD`'s history and came back has had a previous
@@ -552,7 +512,7 @@ If any revert fails (merge conflict or error):
    specforge git restore . --pick .restored 2>/dev/null
    ```
 3. Display:
-   ```
+```
 ### ERROR
 
    Revert failed on commit ${HASH}.
@@ -560,7 +520,7 @@ If any revert fails (merge conflict or error):
 
    **To fix:** Resolve the conflict manually or revert commits individually.
    All pending reverts have been aborted — working tree is clean.
-   ```
+```
 4. Exit with error.
 
 After all reverts are staged successfully, create a single commit:

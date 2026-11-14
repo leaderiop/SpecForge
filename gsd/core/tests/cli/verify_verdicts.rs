@@ -352,7 +352,11 @@ fn covered_digest_changes_with_a_covered_file() {
         .as_str()
         .expect("a digest")
         .to_string();
-    assert!(digest.starts_with("fnv1a64:"), "{before}");
+    let hex = digest.strip_prefix("sha256:").expect("a sha256 digest");
+    assert!(
+        hex.len() == 64 && hex.bytes().all(|b| b.is_ascii_hexdigit()),
+        "{before}"
+    );
     assert_eq!(
         before["covered_files"],
         serde_json::json!(["src/tasks.js", "test/tasks.test.js"])
@@ -421,4 +425,38 @@ fn a_passed_integration_sets_the_field() {
         ),
     );
     assert!(p.codes().contains(&"E082".to_string()), "{:?}", p.codes());
+}
+
+/// Every judge's "Recording a verdict" section reads the rule's inputs naming what the verdict will cite
+/// (`--cite-file`, `--cite-test`), since the citations are part of the basis: a read that names the cited file gives
+/// the basis the citing record is accepted over, and an uncited read's basis is still refused (`stale_revision`).
+#[test]
+fn the_recording_sections_loop_names_what_the_verdict_will_cite() {
+    let section = gsd_core::agents::recording("gsd-verifier");
+    for flag in [
+        "--cite-file <file>",
+        "--cite-test <test fact id>",
+        "--cited",
+    ] {
+        assert!(section.contains(flag), "{flag}: {section}");
+    }
+    let p = bare();
+    let cited = ["--cited", r#"[{"file": "src/tasks.js"}]"#];
+    let uncited = p.inputs(TRUTH, "E501")["basis"].to_string();
+    let run = p.record_over(TRUTH, "E501", "verified", &uncited, &cited);
+    assert!(run.stderr.contains("stale_revision"), "{}", run.all());
+    let read = p.run(&[
+        "query",
+        TRUTH,
+        "--inputs",
+        "gsd/E501",
+        "--cite-file",
+        "src/tasks.js",
+        "--format",
+        "json",
+    ]);
+    let basis = serde_json::from_str::<serde_json::Value>(&read.stdout).expect("inputs")["basis"]
+        .to_string();
+    let run = p.record_over(TRUTH, "E501", "verified", &basis, &cited);
+    assert_eq!(run.code, 0, "{}", run.all());
 }

@@ -1497,7 +1497,7 @@ fn trace_refuses_a_plan_that_is_not_an_agent_plan() {
 
 #[specforge_test(
     behavior = "provide_mcp_trace_tool",
-    verify = "trace without entity_id or plan returns error"
+    verify = "trace without entity_id, in or plan returns error"
 )]
 fn trace_without_entity_or_plan_errors() {
     let mut server = test_server();
@@ -1505,7 +1505,7 @@ fn trace_without_entity_or_plan_errors() {
     let error = crate::tool_errors::mcp_error(&resp);
     assert_eq!(error["code"], "invalid_input", "{error}");
     let message = error["message"].as_str().unwrap();
-    assert!(message.contains("entity_id or plan"), "{message}");
+    assert!(message.contains("entity_id, in or plan"), "{message}");
 }
 
 #[specforge_test(

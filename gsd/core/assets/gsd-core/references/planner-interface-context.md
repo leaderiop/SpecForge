@@ -15,7 +15,7 @@ specforge files search 'export|interface|type|class|function' {relevant_source_f
 
 Embed these in the plan's `<context>` section as an `<interfaces>` block:
 
-```xml
+````xml
 <interfaces>
 <!-- Key types and contracts the executor needs. Extracted from codebase. -->
 <!-- Executor should use these directly — no codebase exploration needed. -->
@@ -36,7 +36,7 @@ export function validateToken(token: string): Promise<User | null>;
 export function createSession(user: User): Promise<SessionToken>;
 ```
 </interfaces>
-```
+````
 
 ## For plans that CREATE new interfaces:
 If this plan creates types/interfaces that later plans depend on, include a "Wave 0" skeleton step:

@@ -3,15 +3,14 @@
 //! options; its required fields are declarative, `rules.rs`), `gsd/W308` (a one-way door) and `gsd/W309` (its
 //! must-haves). Each reads what GSD's `verify plan-structure` and the plan checker's dimensions read.
 //!
-//! Also ports gsd-core bin/lib modules: edge-probe.cjs, gate-prohibition-enforcement.cjs, probe-core.cjs,
-//! prohibition-enforcement.cjs.
+//! Also ports gsd-core bin/lib modules: gate-prohibition-enforcement.cjs, prohibition-enforcement.cjs.
 
 mod checkpoint;
 
 use specforge_extension_sdk::prelude::*;
 
-use crate::digest::scope_of;
 use crate::quick_id::QuickId;
+use crate::scope::scope_of;
 
 use super::plans::{block, children, name_of, of_kind, phase_of, strings, text};
 

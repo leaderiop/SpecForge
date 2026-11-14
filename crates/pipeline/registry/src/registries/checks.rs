@@ -258,7 +258,10 @@ impl Resolving<'_> {
         let on = format!("field '{path}' on kind '{kind}' declares checks_while '{word}'");
         let why = match OwnerState::parse(word) {
             None => "which is no owner state (expected 'complete' or 'pending')".to_string(),
-            Some(_) if field.checks.is_empty() => "but declares no check".to_string(),
+            // A context record's check is its staleness (ADR 0356 D12).
+            Some(_) if field.checks.is_empty() && !is_context(field) => {
+                "but declares no check".to_string()
+            }
             Some(_) if not_authored(field, collected).is_some() => return,
             Some(_) if !kinds.owner_declared(kind, fields) => format!(
                 "but neither kind '{kind}' nor a kind along its scoped_by chain declares complete_when, so no owner \
@@ -560,6 +563,11 @@ impl Resolving<'_> {
 }
 
 /// Why `field`'s values are not authored, so no check runs on them.
+/// Whether `field` is written by the host's record of a context route's pack (ADR 0356).
+fn is_context(field: &FieldDescriptor) -> bool {
+    field.writer.as_deref() == Some(FieldWriter::Context.as_str())
+}
+
 fn not_authored(field: &FieldDescriptor, collected: bool) -> Option<String> {
     if collected {
         return Some("is a field of a kind a collector writes".to_string());

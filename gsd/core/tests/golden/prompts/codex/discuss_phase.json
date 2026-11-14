@@ -15,9 +15,9 @@
     "3. Analyze phase — skip gray areas already decided in prior phases",
     "4. Present remaining gray areas — user selects which to discuss",
     "5. Deep-dive each selected area until satisfied",
-    "6. Create CONTEXT.md with decisions that guide research and planning",
+    "6. Record the phase context: decisions that guide research and planning",
     "",
-    "**Output:** `{phase_num}-CONTEXT.md` — decisions clear enough that downstream agents can act without asking the user again",
+    "**Output:** the phase context (`context`, `decision` and `deferred_idea` entities), its decisions clear enough that downstream agents act without asking the user again",
     "</objective>",
     "",
     "<execution_context>",
@@ -61,7 +61,7 @@
     "- User chose which areas to discuss",
     "- Each selected area explored until satisfied"
   ],
-  "bytes": 20001,
+  "bytes": 20397,
   "end": [
     "",
     "Context files are resolved in-workflow using `init phase-op` and roadmap/state tool calls.",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 365,
+  "lines": 367,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:064f745aefd9522285eed18a347ab81d4b91b72b66d43f9ff188607dd45a84e2",
+    "digest": "sha256:fd6df09a78ef9488d4e474e4cf10028a8a4543036a77e39a423d00d4b7a45b60",
     "prompt": "@gsd/core@VERSION:discuss_phase",
     "steps": [
       {
@@ -216,5 +216,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "064f745aefd9522285eed18a347ab81d4b91b72b66d43f9ff188607dd45a84e2"
+  "sha256": "fd6df09a78ef9488d4e474e4cf10028a8a4543036a77e39a423d00d4b7a45b60"
 }

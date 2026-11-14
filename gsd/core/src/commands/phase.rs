@@ -1,7 +1,7 @@
 //! `phase` (D-r41-8): the roadmap's phase CRUD behind `/gsd-phase`. The action is chosen by flag, as upstream's
 //! `[--insert X|--remove N|--edit N]`: none adds, `--insert` makes a decimal phase, `--remove` deletes a phase and
 //! renumbers the later ones in one plan, `--edit` sets fields, `--promote` moves a backlog phase (999.x) into the
-//! numbered phases.
+//! numbered phases, and `--backlog` adds a phase to the backlog at the first free 999.x number.
 //!
 //! Also ports gsd-core bin/lib modules: phase-estimation.cjs, phase-id-card.cjs, phase-id-display.cjs, phase-
 //! id.cjs, phase-lifecycle.cjs, phase-locator.cjs, phase-status.cjs.
@@ -200,6 +200,26 @@ fn add(call: &CommandCall<'_>, ms: &GraphNode, all: &[Phase<'_>]) -> Result<Comm
     )
 }
 
+/// Adds a backlog phase at the least `999.n` (n ≥ 1) no phase of the milestone holds, depending on nothing: upstream
+/// scans the roadmap's `999.x` headings for that number.
+fn backlog(
+    call: &CommandCall<'_>,
+    ms: &GraphNode,
+    all: &[Phase<'_>],
+) -> Result<CommandOutput, String> {
+    let taken = |k: u32| {
+        all.iter()
+            .any(|p| p.number.backlog() && p.number.decimal == Some(k))
+    };
+    let k = (1..).find(|k| !taken(*k)).unwrap_or(1);
+    let number = Number {
+        whole: 999,
+        decimal: Some(k),
+        width: 3,
+    };
+    create(call, ms, number, None, TO_BE_PLANNED)
+}
+
 fn insert(
     call: &CommandCall<'_>,
     ms: &GraphNode,
@@ -271,6 +291,15 @@ fn phase(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         .into_iter()
         .filter(|a| call.str(a).is_some())
         .collect();
+    if call.flag("backlog") {
+        return match chosen.as_slice() {
+            [] => backlog(call, ms, &all),
+            many => Err(format!(
+                "--backlog adds a phase: it takes no --{}",
+                many.join(", --")
+            )),
+        };
+    }
     match chosen.as_slice() {
         [] => add(call, ms, &all),
         ["insert"] => insert(call, ms, &all, required(call, "insert")?),
@@ -299,6 +328,9 @@ pub fn declare(c: &mut ContributionsBuilder) {
             })
             .arg("promote", |a| {
                 a.description("promote this backlog phase (999.1) to the next number of the milestone, children included");
+            })
+            .arg("backlog", |a| {
+                a.flag().description("add the phase to the backlog at the first free 999.x number");
             })
             .arg("name", |a| {
                 a.description("the phase's name (required to add or insert)");

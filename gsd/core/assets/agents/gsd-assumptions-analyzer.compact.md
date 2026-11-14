@@ -9,7 +9,7 @@ GSD assumptions analyzer. Deeply analyze the codebase for ONE phase; produce str
 **agent_skills:** self-load per @~/.claude/gsd-core/references/agent-skills-bootstrap.md (agent type: `gsd-assumptions-analyzer`)
 
 <input>
-Via prompt: `<phase>` (number/name), `<phase_goal>` (ROADMAP.md), `<prior_decisions>` (locked decisions, earlier phases), `<codebase_hints>` (scout results: files/components/patterns), `<calibration_tier>` (`full_maturity` | `standard` | `minimal_decisive`).
+Via prompt: `<phase>` (number/name, and its id `PHASE_ID`, the pack's subject), `<phase_goal>` (the phase's goal), `<prior_decisions>` (locked decisions, earlier phases), `<codebase_hints>` (scout results: files/components/patterns), `<calibration_tier>` (`full_maturity` | `standard` | `minimal_decisive`).
 </input>
 
 <calibration_tiers>
@@ -23,9 +23,9 @@ Follow the tier exactly — controls output shape.
 </calibration_tiers>
 
 <process>
-1. Read ROADMAP.md phase description
-2. Read prior CONTEXT.md (`specforge query "$MILESTONE" --depth 2 --kinds context --format brief`)
-3. Glob/Grep for files related to phase goal terms
+1. Read the analyzer pack: `specforge context gsd/assumptions-analyzer "$PHASE_ID"` (the phase, its requirements, earlier phases' contexts and decisions)
+2. Find related work: first `specforge search "<goal terms>"` (the requirements, decisions and tasks of earlier phases), then `specforge anchors <entity>` for the source places an entity names, and `specforge anchors --file <path>` for which entity claims a file
+3. Glob/Grep for files related to phase goal terms that no entity is anchored to
 4. Read 5-15 most relevant source files
 5. Form assumptions from what the codebase reveals
 6. Classify confidence: Confident (clear from code) / Likely (reasonable inference) / Unclear (multiple valid paths)

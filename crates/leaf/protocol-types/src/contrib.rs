@@ -41,7 +41,9 @@ pub mod when_names {
 }
 
 /// A host-neutral tool class, mapped per host by its adapter: `read`, `write`, `edit`, `shell`, `search`,
-/// `web_fetch`, `web_search`, `ask_user`, `agent`, `skill`, `todo`, or `mcp:<server>/<glob>`.
+/// `web_fetch`, `web_search`, `ask_user`, `agent`, `skill`, `todo`, or `mcp:<server>/<glob>`; or one of SpecForge's
+/// engine tools (ADR 0334, [`crate::engine_tools`]): `specforge:<tool>`, `specforge:<group>` or
+/// `specforge:<short>.<command>`, which install resolves, never on a hook.
 pub type ToolClass = String;
 
 /// An agent an extension contributes: a host file named `id`, its body written by the `render__` export.

@@ -140,8 +140,8 @@ AskUserQuestion([
     question: "Which optional PRD-style sections should /gsd:ship include in PR bodies?",
     multiSelect: true,
     options: [
-      { label: "User Stories & Acceptance Criteria", description: "Append user-facing stories and acceptance checks from REQUIREMENTS.md" },
-      { label: "Risks & Dependencies", description: "Append rollout risks, dependencies, and rollback notes from PLAN.md" },
+      { label: "User Stories & Acceptance Criteria", description: "Append user-facing stories and acceptance checks from the requirement entities" },
+      { label: "Risks & Dependencies", description: "The plans' rollout risks, dependencies and rollback notes, added at the end" },
       { label: "Success Metrics & Release Criteria", description: "Append measurable Definition of Done and release checks for stakeholder review" },
       { label: "Stakeholder Review & Approval", description: "Append approval checklist for projects that need sign-off traceability" }
     ]

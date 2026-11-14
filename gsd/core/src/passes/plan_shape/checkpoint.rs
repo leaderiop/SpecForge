@@ -7,8 +7,8 @@ use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
 
-use crate::digest::scope_of;
 use crate::passes::plans::{block, of_kind, rows};
+use crate::scope::scope_of;
 
 pub fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     of_kind(input, "checkpoint")

@@ -12,7 +12,6 @@ use crate::hooks::facts::PathFact;
 use crate::hooks::{accounting, corpus};
 
 mod links;
-mod oracle;
 
 const PATTERNS_JS: &str = include_str!(gsd_kit::snapshot!("hooks/lib/injection-patterns.js"));
 const SCANNER_JS: &str = include_str!(gsd_kit::snapshot!("hooks/gsd-read-injection-scanner.js"));
@@ -616,9 +615,9 @@ fn hostile(n: usize, word: &str) -> [(&'static str, String); 9] {
 }
 
 fn steps(re: &Regex, text: &str) -> usize {
-    super::regex::STEPS.with(|s| s.set(0));
+    crate::js_regex::STEPS.with(|s| s.set(0));
     re.find(&chars(text));
-    super::regex::STEPS.with(std::cell::Cell::get)
+    crate::js_regex::STEPS.with(std::cell::Cell::get)
 }
 
 #[test]
@@ -669,8 +668,8 @@ impl Lcg {
 }
 
 /// A text the pattern `n` matches, or nearly: alternatives and repeat counts drawn at random, cases mixed.
-fn sample(n: &super::regex::Node, rng: &mut Lcg, alphabet: &[char], out: &mut Vec<char>) {
-    use super::regex::{Item, Node};
+fn sample(n: &crate::js_regex::Node, rng: &mut Lcg, alphabet: &[char], out: &mut Vec<char>) {
+    use crate::js_regex::{Item, Node};
     match n {
         Node::Char(c) if rng.below(2) == 0 => out.push(c.to_ascii_uppercase()),
         Node::Char(c) => out.push(*c),
@@ -683,7 +682,7 @@ fn sample(n: &super::regex::Node, rng: &mut Lcg, alphabet: &[char], out: &mut Ve
         }
         Node::Class { .. } => out.push(alphabet[rng.below(alphabet.len())]),
         Node::Look { neg: false, node } if rng.below(2) == 0 => sample(node, rng, alphabet, out),
-        Node::Start | Node::Look { .. } => {}
+        Node::Start | Node::Boundary { .. } | Node::Look { .. } => {}
         Node::Seq(v) => v.iter().for_each(|x| sample(x, rng, alphabet, out)),
         Node::Alt(v) => sample(&v[rng.below(v.len())], rng, alphabet, out),
         Node::Rep { node, min, max } => {
@@ -729,7 +728,7 @@ fn the_matcher_agrees_with_the_oracle() {
     let fixed = upstream_texts();
     let (mut rng, mut mismatches) = (Lcg(0x6732_2026_1101), Vec::new());
     for p in all {
-        let (re, node) = (Regex::new(p), super::regex::parse(p));
+        let (re, node) = (Regex::new(p), crate::js_regex::parse(p));
         let mut alphabet: Vec<char> = p
             .chars()
             .flat_map(|c| [c.to_ascii_lowercase(), c.to_ascii_uppercase()])
@@ -763,7 +762,7 @@ fn the_matcher_agrees_with_the_oracle() {
         }
         let mut hits = 0;
         for t in &texts {
-            let (got, want) = (re.find(t), oracle::find(&node, t));
+            let (got, want) = (re.find(t), crate::js_regex::oracle::find(&node, t));
             hits += usize::from(want.is_some());
             if got != want {
                 let text: String = t.iter().collect();

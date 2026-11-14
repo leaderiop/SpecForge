@@ -8,35 +8,26 @@ names.
 
 ## § 1 — reconcile_gaps
 
-**Reconcile diagnosed gaps against completed gap-closure plans (#1921):**
+**Gap-closure state is computed (#1921):**
 
-When verify-work resumes after `/gsd:execute-phase --gaps-only`, the UAT `## Gaps` entries still read `status: failed` even though their fix plans have executed. Without reconciliation verify-work re-diagnoses them as fresh blockers and spawns new gap plans — losing the verification state. This step closes the loop.
+When verify-work resumes after `/gsd:execute-phase --gaps-only`, a gap whose fix plan has executed already reads resolved: no step re-diagnoses it as a fresh blocker or spawns a new gap plan for it, and the verification state is kept. For each `uat_gap` of the phase:
+1. A plan whose `gap_closure` names the gap, once complete, resolves it: the gap's computed `status` reads `resolved`, `resolved_by` names that plan and `resolved_at` its summary's completion. Edit nothing.
+2. A gap no plan names, or whose plan has not completed, reads `status: open` (still open).
 
-Read the UAT `## Gaps` section and the phase dir `*-PLAN.md` frontmatter. For each gap with `status: failed`:
-1. Find a `*-PLAN.md` whose frontmatter `gap_ids` includes the gap's `gap_id` (`G-{phase}-{N}`).
-2. If such a plan exists AND has a matching `*-SUMMARY.md` in the phase dir (the plan was executed by `--gaps-only`), the gap is **resolved** — update its YAML in place:
-   ```yaml
-   - gap_id: G-{phase}-{N}
-     status: resolved        # was: failed
-     resolved_by: {plan basename}
-     resolved_at: {today}
-   ```
-3. If no plan references the `gap_id`, or the plan has no SUMMARY, leave the gap `status: failed` (still open).
-
-Read plan frontmatter directly in-context — do not pipe it through a shell parser. After reconciliation, announce:
+`reconcile_gaps`' line prints the open gaps; the resolved ones are the phase's other gaps. Announce:
 ```
 Reconciled gap-closure state: {resolved_count} gap(s) resolved by executed plans, {open_count} still open.
 ```
 
-Resolved gaps are NOT re-diagnosed and do NOT spawn new gap plans. If the user later reports the same behavior as still broken, treat it as a new issue (a regression) with a fresh `gap_id`.
+Resolved gaps are NOT re-diagnosed and do NOT spawn new gap plans. The same behavior reported broken again later is a regression: record it as a new issue with its own `uat_gap`.
 
 ## § 2 — resume_from_file
 
-**Resume testing from UAT file:**
+**Resume testing from the session:**
 
-**First run `reconcile_gaps`** (above) so gaps already fixed by `/gsd:execute-phase --gaps-only` are marked `resolved` before testing resumes (#1921).
+**First run `reconcile_gaps`** (above): gaps already fixed by `/gsd:execute-phase --gaps-only` read `resolved` before testing resumes (#1921).
 
-Read the full UAT file.
+Read the session's tests with `present_test`'s lines.
 
 (The find-pending / zero-pending guard clause is stated verbatim in the spine — a pre-existing
 drift guard, `tests/verify-work-auto-transition.test.cjs` bug #1716, requires the two sentences
@@ -51,7 +42,7 @@ Issues found so far: {issues count}
 Continuing from Test {N}...
 ```
 
-Update the `## Current Test` section with the pending test IN MEMORY ONLY (#5105 C2) — do not write the UAT file here. The next batched write (`process_response`'s `update_rules`) persists it alongside the test's actual result, so a resume that finds a pending row and stops without answering it performs zero writes.
+The pending test is not recorded anywhere (#5105 C2): only its answer is, so a resume that finds a pending test and stops without its answer writes nothing.
 Then continue to `present_test` with it.
 
 ## § 3 — diagnose_issues, plan_gap_closure, verify_gap_plans, revision_loop (the gap-closure sub-flow)
@@ -77,7 +68,7 @@ Spawning parallel debug agents to investigate each issue.
 - Follow @~/.claude/gsd-core/workflows/diagnose-issues.md
 - Spawn parallel debug agents for each issue
 - Collect root causes
-- Update UAT.md with root causes
+- Record each root cause on its `uat_gap` (diagnose-issues' fence)
 - Proceed to `plan_gap_closure`
 
 Diagnosis runs automatically - no user prompt. Parallel agents investigate simultaneously, so overhead is minimal and fixes are more accurate.
@@ -108,9 +99,9 @@ Agent(
 **Mode:** gap_closure
 
 <required_reading>
-- {phase_dir}/{phase_num}-UAT.md (UAT with diagnoses)
-- {state_path} (Project State)
-- {roadmap_path} (Roadmap)
+specforge context gsd/planner "{PHASE_ID}"
+specforge query {PHASE_ID} --depth 3 --kinds uat_session,uat_test,uat_gap --format context
+Run the lines above first: the planner pack, with the project state and the roadmap among its sections, then the UAT with its diagnoses.
 </required_reading>
 
 ${AGENT_SKILLS_PLANNER}
@@ -125,14 +116,7 @@ Plans must be executable prompts.
 
 > **Runtime-aware dispatch (#2508 Phase 4).** GSD workflows dispatch specialized subagents by role. Before dispatching on a built-in-only runtime (kimi-code — three built-ins only), resolve the role to a built-in via the dispatch table (not part of @gsd/core: use the role unchanged). On named-dispatch runtimes (Claude/OpenCode/…) the role is returned unchanged; on kimi-code it maps to `coder`/`explore`/`plan` by role-suffix. The persona rides `${AGENT_SKILLS_<ROLE>}` (Phase 3) regardless. See @gsd-core/references/runtime-aware-dispatch.md.
 
-**Gap linkage (#1921):** each created `*-PLAN.md` MUST list the UAT gap ids it addresses in its frontmatter:
-```yaml
----
-gap_closure: true
-gap_ids: [G-{phase}-{N}, ...]   # the ## Gaps gap_id values this plan fixes
----
-```
-This lets `/gsd:verify-work` reconcile resolved gaps on resume (a gap whose plan has a matching `*-SUMMARY.md` is marked `status: resolved`, not re-diagnosed as a fresh blocker).
+**Gap linkage (#1921):** each created plan MUST name the `uat_gap` entities it addresses in its `gap_closure` field. A gap is then resolved once that plan completes: its `status` is computed, so `/gsd:verify-work` never re-diagnoses it as a fresh blocker.
 </downstream_consumer>
 """,
   subagent_type="gsd-planner",
@@ -171,7 +155,7 @@ Agent(
 **Phase Goal:** Close diagnosed gaps from UAT
 
 <required_reading>
-- {phase_dir}/*-PLAN.md (Plans to verify)
+- `specforge context gsd/plan-checker <id>` for each fix plan the planner created (each plan's check pack: the plan, its tasks and must-haves, its phase, requirements and decisions)
 </required_reading>
 
 ${AGENT_SKILLS_CHECKER}
@@ -211,7 +195,7 @@ Agent(
 **Mode:** revision
 
 <required_reading>
-- {phase_dir}/*-PLAN.md (Existing plans)
+- `specforge context gsd/planner "{PHASE_ID}"` (the planner pack: the existing plans among its sections)
 </required_reading>
 
 ${AGENT_SKILLS_PLANNER}
@@ -222,7 +206,7 @@ ${AGENT_SKILLS_PLANNER}
 </revision_context>
 
 <instructions>
-Read existing PLAN.md files. Make targeted updates to address checker issues. (See the spine for
+The plans are in the planner pack. Make targeted updates to address checker issues. (See the spine for
 the binding/non-binding contract and REVISION_CONFLICT handling stated above this point.)
 </instructions>
 """,
@@ -234,38 +218,8 @@ the binding/non-binding contract and REVISION_CONFLICT handling stated above thi
 
 ## § 4 — complete_session's `unresolved_issues` count (#4983)
 
-**Why this exists:** `reconcile_gaps` (§ 1) updates a resolved gap's YAML in the UAT file's
-`## Gaps` section, but it never touches the matching `### N.` test block's `result: issue` line —
-by design, that line is the historical record of what the user reported. Before #4983,
-`complete_session` counted raw `result: issue` tests and routed into `diagnose_issues` whenever
-that count was nonzero, so a resumed session whose issues had ALL been verified-resolved by an
-executed gap-closure plan still fell straight back into diagnosis — the terminal sub-flow (§ 3)
-has no path back to promotion. This is the sibling of #4546 (which fixed the same
-misroute-forever shape for a deliberately deferred `skipped` test) for the `issue`-plus-resolved
-case.
+**Why this exists:** a test's `result: issue` is the historical record of what the person reported, and it stays `issue` after an executed gap-closure plan resolves the test's gap. Counting raw `result: issue` tests would route a resumed session whose issues are ALL resolved straight back into diagnosis, and the gap-closure sub-flow (§ 3) has no path back to promotion: the sibling of #4546 (a deliberately deferred `skipped` test) for the `issue`-plus-resolved case.
 
-**`unresolved_issues` definition:** a test counts toward `unresolved_issues` when its
-`result: issue` AND it is NOT a verified resolution. A `result: issue` test is a verified
-resolution only when its `## Gaps` entry (matched by `test:`) has ALL of:
-- `status: resolved` (case-insensitive);
-- a non-empty `resolved_by`;
-- `resolved_by`, as a bare basename (no path separators), names a `*-PLAN.md` file that exists in
-  this phase directory;
-- that plan has a matching `*-SUMMARY.md` sibling in the same directory (proof it actually ran).
+**`unresolved_issues` definition:** a test counts toward `unresolved_issues` when its `result` is `issue` and it is still open: it has no `uat_gap`, or one of its gaps reads `status: open`. A gap reads `resolved` only when a plan whose `gap_closure` names it has completed (its `resolved_by` and `resolved_at` are computed from that plan and its summary), so a gap cannot be marked resolved by hand. It is the rule `specforge gsd verification-debt` applies: the `blockers` it lists for the phase are its open tests, and the open ones whose `result` is `issue` are the `unresolved_issues`. A test with a later regression (a second `uat_gap`, per § 1) counts as resolved only when EVERY gap of the test is resolved: one open regression is enough to keep the test unresolved.
 
-This is the EXACT criterion `phase uat-passed` uses (`src/uat-predicate.cts`'s
-`isTestGapResolved`) — apply it the same way here, by reading the phase directory's files
-directly, not by trusting the Gaps entry's own text alone. A `status: resolved` entry whose
-`resolved_by` names no such plan (missing, wrong suffix, or no matching SUMMARY) does NOT count as
-a verified resolution — the test stays in `unresolved_issues` and still routes to
-`diagnose_issues`, exactly as an unresolved issue always has. If a test has more than one `## Gaps`
-entry (a later regression re-opens the same test number with a fresh `gap_id`, per § 1), it only
-counts as resolved when EVERY entry for that test number is a verified resolution — one open
-regression is enough to keep the test unresolved.
-
-**Where this plugs in:** `complete_session`'s "Count results" step computes `unresolved_issues`
-alongside `pending_count`/`blocked_count`/`skipped_no_reason`, and its issues-routing decision
-(`diagnose_issues` vs. proceeding toward promotion) reads `unresolved_issues`, not the raw
-`issues` count from `## Summary`. The raw `issues` count is unchanged and still drives the
-presented summary numbers.
-```
+**Where this plugs in:** `complete_session`'s "Count results" step computes `unresolved_issues` alongside `pending_count` and `blocked_count`, and its issues-routing decision (`diagnose_issues` vs. proceeding toward promotion) reads `unresolved_issues`, not the raw `issues` count of the session's `totals`. The raw `issues` count is unchanged and still drives the presented summary numbers.

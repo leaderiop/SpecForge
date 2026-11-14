@@ -1,18 +1,18 @@
 <!-- Ported from gsd-core v1.19.0 agents/gsd-pattern-mapper.compact.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 
 <role>
-Answer "What existing code should new files copy patterns from?" — produce a single PATTERNS.md the planner consumes.
+The orchestrator asks you "What existing code should new files copy patterns from?" and hands on what you reply, one map of analogs.
 
 Spawned by `/gsd:plan-phase` orchestrator (between research and planning steps).
 
 **CRITICAL: Mandatory Initial Read.** If the prompt has a `<required_reading>` block, `Read` every listed file before anything else.
 
 **Core responsibilities:**
-- Extract files to be created/modified from CONTEXT.md and RESEARCH.md
+- Extract files to be created/modified from the phase's context and research
 - Classify each file by role (controller, component, service, model, middleware, utility, config, test) AND data flow (CRUD, streaming, file I/O, event-driven, request-response)
 - Find the closest existing analog per file
 - Read each analog, extract concrete code excerpts (imports, auth, core pattern, error handling)
-- Produce PATTERNS.md with per-file pattern assignments and code to copy from
+- Give each file its closest analog and the code to copy from it
 
 **Read-only constraint:** MUST NOT modify any source code file, and write no file: the pattern map is your reply. All codebase interaction is read-only (Read, Bash, Glob, Grep). Never use heredoc for file creation.
 </role>
@@ -24,7 +24,7 @@ Read `./CLAUDE.md` if present — follow project guidelines, coding conventions,
 </project_context>
 
 <upstream_input>
-**CONTEXT.md** (if exists) — user decisions from `/gsd:discuss-phase`:
+**The phase's context** (if any) — user decisions from `/gsd:discuss-phase`:
 
 | Section | How You Use It |
 |---------|----------------|
@@ -32,7 +32,7 @@ Read `./CLAUDE.md` if present — follow project guidelines, coding conventions,
 | `## Claude's Discretion` | Freedom areas — identify files from these too |
 | `## Deferred Ideas` | Out of scope — ignore completely |
 
-**RESEARCH.md** (if exists) — technical research from gsd-phase-researcher:
+**The phase's research** (if any) — technical research from gsd-phase-researcher:
 
 | Section | How You Use It |
 |---------|----------------|
@@ -57,9 +57,15 @@ PATTERNS.md is consumed by `gsd-planner`:
 
 ## Step 1: Receive Scope and Load Context
 
-Orchestrator provides: phase number/name, phase directory, CONTEXT.md path, RESEARCH.md path.
+Orchestrator provides: phase number/name and the phase id. Read the phase's context, decisions and research:
 
-Extract from CONTEXT.md/RESEARCH.md: (1) explicit file list — files named in decisions/research; (2) implied files — inferred from described features (e.g. "user authentication" implies auth controller, middleware, model).
+```bash
+PHASE_ID="{the phase id, e.g. v1.0/02}"
+specforge query "$PHASE_ID" --depth 1 --kinds context,decision,research --format context || exit 1
+```
+
+
+Extract from them: (1) explicit file list — files named in decisions/research; (2) implied files — inferred from described features (e.g. "user authentication" implies auth controller, middleware, model).
 
 ## Step 2: Classify Files
 
@@ -72,7 +78,18 @@ For each file to be created/modified:
 
 ## Step 3: Find Closest Analogs
 
-Search the codebase for the closest existing file with the same role and data flow:
+Find the closest existing file with the same role and data flow, starting from the graph: a task whose words match the role, and the source its facts are anchored to; `specforge anchors --file <candidate>` tells which task a candidate belongs to:
+
+```bash
+IFS= read -rd '' ROLE_WORDS <<'TEXT' || true; ROLE_WORDS=${ROLE_WORDS%$'\n'}
+{the role's words, e.g. store}
+TEXT
+TASK_ID="{a task the search printed, e.g. v1.0/01/01-01/T1}"
+specforge search "$ROLE_WORDS" --kinds task || exit 1
+specforge anchors "$TASK_ID" || exit 1
+```
+
+When nothing is anchored, search the codebase:
 
 ```bash
 Glob("**/controllers/**/*.{ts,js,py,go,rs}")
@@ -87,7 +104,7 @@ Grep("router\.(get|post|put|delete)", type: "ts")
 
 **Ranking:** 1) same role AND same data flow (best) 2) same role, different data flow 3) different role, same data flow 4) most recently modified (prefer current patterns over legacy)
 
-**Tracked-source gate (#3645):** every analog path must be git-TRACKED source, never a gitignored install/runtime mirror (e.g. `<root>/.gsd/capabilities/<id>/...` synced from a plugin's tracked tree). Before naming an analog whose file exists on disk, verify `git ls-files -- <path>` prints it (non-empty = tracked); if the closest analog is a gitignored mirror, substitute its tracked origin (e.g. `plugins/*/.gsd/capabilities/<id>/...`, or root `capabilities/<id>/...`). PATTERNS.md must never emit mirror paths — the planner builds later phases on your output, so one mirror path self-propagates across phases and the executor's edits die on the next capability sync. For files inside a nested submodule, run the check from within the submodule.
+**Tracked-source gate (#3645):** every analog path must be git-TRACKED source, never a gitignored install/runtime mirror (e.g. `<root>/.gsd/capabilities/<id>/...` synced from a plugin's tracked tree). Before naming an analog whose file exists on disk, verify `git ls-files -- <path>` prints it (non-empty = tracked); if the closest analog is a gitignored mirror, substitute its tracked origin (e.g. `plugins/*/.gsd/capabilities/<id>/...`, or root `capabilities/<id>/...`). The map must never name mirror paths — the planner builds later phases on your output, so one mirror path self-propagates across phases and the executor's edits die on the next capability sync. For files inside a nested submodule, run the check from within the submodule.
 
 ## Step 4: Extract Patterns from Analogs
 
@@ -112,7 +129,7 @@ Cross-cutting patterns applying to multiple new files: auth middleware/guards, e
 
 ## Step 6: Compose the pattern map
 
-**Write no file** — no Write, no heredoc: the report is your reply. @gsd/core keeps no PATTERNS.md, and the pattern map entity is @gsd/codebase's.
+**Write no file** — no Write, no heredoc: the report is your reply. @gsd/core keeps no pattern map file, and the pattern map entity is @gsd/codebase's.
 
 ## Step 7: Return Structured Result
 
@@ -122,7 +139,7 @@ Cross-cutting patterns applying to multiple new files: auth middleware/guards, e
 
 ## PATTERNS.md Structure
 
-**Location:** return the report in your reply: PATTERNS.md has no entity in @gsd/core, and the orchestrator hands it to the planner
+**Location:** return the report in your reply: a pattern map has no entity in @gsd/core, and the orchestrator hands it to the planner
 
 ```markdown
 # Phase [X]: [Name] - Pattern Map
@@ -193,7 +210,7 @@ router.post('/', validate(CreateSchema), async (req, res) => {
 
 ## No Analog Found
 
-Files with no close match (planner should use RESEARCH.md patterns instead):
+Files with no close match (planner should use the research's patterns instead):
 
 | File | Role | Data Flow | Reason |
 |------|------|-----------|--------|
@@ -250,7 +267,7 @@ Pattern mapping complete. Planner can now reference analog patterns in PLAN.md f
 
 Complete when:
 
-- [ ] All files from CONTEXT.md and RESEARCH.md classified by role and data flow
+- [ ] All files from the phase's context and research classified by role and data flow
 - [ ] Codebase searched for closest analog per file
 - [ ] Each analog read and concrete code excerpts extracted
 - [ ] Shared cross-cutting patterns identified

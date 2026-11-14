@@ -9,16 +9,22 @@ use gsd_kit::prompt::args::Values;
 use regex::Regex;
 use roster::ROSTER;
 
+#[path = "common/answers.rs"]
+mod answers;
 #[path = "common/asset_code.rs"]
 mod asset_code;
 #[path = "common/command_word.rs"]
 mod command_word;
 #[path = "common/files.rs"]
 mod files;
+#[path = "common/ledger.rs"]
+mod ledger;
 #[path = "common/roster.rs"]
 mod roster;
 #[path = "common/specforge_only.rs"]
 mod specforge_only;
+#[path = "common/tool_names.rs"]
+mod tool_names;
 
 const FORBIDDEN: [&str; 9] = [
     ".planning",
@@ -46,10 +52,7 @@ const NOT_COMMANDS: &[&str] = &[
 ];
 
 /// Files of upstream's tree that no ticket of r34-r44 ports: a rendered text names them as "not part of @gsd/core".
-const NOT_PORTED: &[&str] = &[
-    "gsd-core/templates/research-project/",
-    "gsd-core/workflows/node-repair.md",
-];
+const NOT_PORTED: &[&str] = &["gsd-core/workflows/node-repair.md"];
 
 /// One render's input: the argument text and every declared name with its placeholder value (`args::values`).
 type Combo = (String, Values);
@@ -598,4 +601,156 @@ fn every_dispatch_forwards_only_options_its_prompt_declares() {
     }
     assert!(seen > 30, "{seen} dispatches");
     assert!(offenders.is_empty(), "{offenders:#?}");
+}
+
+/// `(command, member)` for each `specforge gsd <command> … --pick <path>` of the shell `line`, read before its comment
+/// (`specforge_only::commands_before_comment`): the member `<path>` reads first (each `--fields` key's first segment
+/// when `<path>` is `.`, nothing when it starts with `[`). A line the reader refuses is an `Err` naming it.
+fn picked_members(line: &str) -> Result<Vec<(String, String)>, String> {
+    let commands = specforge_only::commands_before_comment(line)?;
+    let mut out = Vec::new();
+    for words in commands {
+        let [specforge, gsd, command, rest @ ..] = words.as_slice() else {
+            continue;
+        };
+        let literal = command.starts_with(|c: char| c.is_ascii_lowercase())
+            && command
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+        if specforge != "specforge" || gsd != "gsd" || !literal {
+            continue;
+        }
+        let value = |option: &str| {
+            rest.iter()
+                .enumerate()
+                .find_map(|(i, w)| match w.strip_prefix(option) {
+                    Some("") => rest.get(i + 1).cloned(),
+                    Some(v) => v.strip_prefix('=').map(String::from),
+                    None => None,
+                })
+        };
+        let Some(path) = value("--pick") else {
+            continue;
+        };
+        let first = |step: &str| -> String {
+            step.split(['.', '['])
+                .next()
+                .unwrap_or_default()
+                .to_string()
+        };
+        let members: Vec<String> = if path == "." {
+            value("--fields")
+                .unwrap_or_default()
+                .split(',')
+                .map(first)
+                .collect()
+        } else if let Some(step) = path.strip_prefix('.') {
+            vec![first(step)]
+        } else {
+            Vec::new()
+        };
+        out.extend(
+            members
+                .into_iter()
+                .filter(|m| !m.is_empty())
+                .map(|m| (command.clone(), m)),
+        );
+    }
+    Ok(out)
+}
+
+/// The code lines of the Markdown `text`: each line of its shell fences (a `\`-continued line joined to the next) and
+/// each inline code run.
+fn code_lines(text: &str) -> Vec<String> {
+    let lines = lines_of(text);
+    let mut out: Vec<String> = specforge_only::shell_blocks(&lines)
+        .into_iter()
+        .flat_map(|block| tool_names::shell_lines(&block.join("\n")))
+        .collect();
+    out.extend(
+        specforge_only::inline_runs(&lines)
+            .into_iter()
+            .map(|(_, run)| run),
+    );
+    out
+}
+
+/// A pick of a `specforge gsd` command's answer names a member the answer prints (ADR 0343 D3). `--pick` of a member
+/// the answer lacks prints nothing and exits 0 (ADR 0325 D2), so such a pick reads "none" on every run; the members
+/// are `tests/common/answers.rs`'s, which the cli harness holds to every JSON answer it reads. The corpus is every
+/// asset's shell fences and inline runs, and every prompt rendered once for claude-code, which adds the lines a prompt
+/// module writes in Rust.
+#[test]
+fn every_command_pick_names_a_member_of_its_answer() {
+    assert_eq!(
+        picked_members("specforge gsd progress-report --pick '.archive_dir'   # it's gone"),
+        Ok(vec![(
+            "progress-report".to_string(),
+            "archive_dir".to_string()
+        )]),
+        "the detector reads a quoted path and cuts the comment"
+    );
+    let mut sources: Vec<(String, String)> = asset_files();
+    for (command, combos) in prompts() {
+        let (arguments, values) = &combos[0];
+        let text = render_text(&command, "claude-code", arguments, values)
+            .unwrap_or_else(|e| panic!("{command}: {e}"));
+        sources.push((format!("prompt:{command}"), text));
+    }
+    let mut bad = BTreeSet::new();
+    let mut picks = 0;
+    for (path, text) in &sources {
+        for line in code_lines(text) {
+            if !line.contains("specforge gsd") || !line.contains("--pick") {
+                continue;
+            }
+            for (command, member) in picked_members(&line).unwrap_or_else(|e| panic!("{path}: {e}"))
+            {
+                picks += 1;
+                let Some(row) = answers::members(&command) else {
+                    bad.insert(format!("{path}: `specforge gsd {command}` has no row: add its row to tests/common/answers.rs"));
+                    continue;
+                };
+                if !row.contains(&member.as_str()) {
+                    bad.insert(format!("{path}: `specforge gsd {command}` picks '{member}', which its answer never prints: {}", line.trim()));
+                }
+            }
+        }
+    }
+    assert!(picks > 80, "only {picks} picks read");
+    assert!(
+        bad.is_empty(),
+        "{}",
+        bad.into_iter().collect::<Vec<_>>().join("\n")
+    );
+}
+
+/// Upstream's install, runtime and host claims: its package (`npx @opengsd/gsd-core@latest --global`, `npx -y
+/// @opengsd/…`), its `node` runtime and its claim that a subagent sees only a user-scoped `mcp.json` (a subagent has
+/// the MCP tools of the conversation that spawned it, narrowed by its own tool list). Agents are project files
+/// `specforge install <host>` writes.
+const UPSTREAM_RELICS: [&str; 3] = ["@opengsd/", "use `node` to invoke", "mcp.json"];
+
+/// No asset, and no prompt rendered once for claude-code (which adds the lines a prompt module writes in Rust), tells
+/// the user or an agent to run upstream's package or runtime, or repeats its false MCP claim.
+#[test]
+fn no_asset_names_an_upstream_installer_or_runtime() {
+    let mut sources: Vec<(String, String)> = asset_files();
+    for (command, combos) in prompts() {
+        let (arguments, values) = &combos[0];
+        let text = render_text(&command, "claude-code", arguments, values)
+            .unwrap_or_else(|e| panic!("{command}: {e}"));
+        sources.push((format!("prompt:{command}"), text));
+    }
+    let hits: Vec<(String, &str)> = sources
+        .into_iter()
+        .flat_map(|(path, text)| {
+            UPSTREAM_RELICS
+                .into_iter()
+                .filter(|relic| text.contains(relic))
+                .map(|relic| (path.clone(), relic))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert!(hits.is_empty(), "{hits:?}");
 }

@@ -147,4 +147,13 @@ pub enum PlanOp {
         #[serde(default)]
         basis: BTreeMap<String, String>,
     },
+    /// Record a context route's pack on `entity` (ADR 0356 D11): the host derives the subject by the route's record of
+    /// the entity's kind, computes the pack at `max_tokens` (absent: the route's budget) and writes the route, the
+    /// digest and the budget with its ledger line. It has no file revision: the host computes what it writes.
+    RecordContext {
+        entity: String,
+        route: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max_tokens: Option<u32>,
+    },
 }

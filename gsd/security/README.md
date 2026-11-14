@@ -26,10 +26,9 @@ Named in ACCEPTANCE under Known divergences, by tag: `[blocking-needs-security]`
 `[injection-key-explicit]`, `[surface-peer-setting]`, `[gate-parity-plus]`, `[audit-counts-per-entity]`,
 `[response-language-own]`.
 
-Two need a word here. `verify:post` keeps upstream's `produces: ["SECURITY.md"]` although plan 16's table said
-`security_audit`: the hook text is upstream's and agents read the artifact name from it. `--after-fingerprint <phase>` is upstream's
-(#5105): it moves that step to `skippedHooks` once the phase's `security_audit` exists, so `SECURITY.md` in `produces`
-stands for the audit.
+Two need a word here. `verify:post` answers `produces: ["security_audit"]` and `consumes: ["summary"]` where upstream's
+hook names the files `SECURITY.md` and `SUMMARY.md`: agents read kinds. `--after-fingerprint <phase>` is upstream's
+(#5105): it moves that step to `skippedHooks` once the phase's `security_audit` exists.
 
 ## What stays open
 

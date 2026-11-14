@@ -53,18 +53,14 @@ pub fn hooks() -> Counts {
 }
 
 pub fn capabilities() -> Counts {
-    let section = README
-        .split("## GSD capabilities, one by one")
-        .nth(1)
-        .and_then(|s| s.split("\n## ").next())
-        .expect("the capabilities section");
+    let table = gsd_kit::markdown::tables(README)
+        .into_iter()
+        .find(|t| t.heading == "GSD capabilities, one by one")
+        .expect("the capabilities table");
     let (mut built, mut owned, mut open) = (0, 0, 0);
-    for line in section.lines().filter(|l| {
-        l.starts_with("| ") && !l.starts_with("| GSD capability") && !l.starts_with("|---")
-    }) {
-        let cells: Vec<&str> = line.split('|').map(str::trim).collect();
-        let n = cells[1].split(',').count();
-        let lands = cells[3];
+    for cells in &table.rows {
+        let n = cells[0].split(',').count();
+        let lands = cells[2].as_str();
         // The `specforged` harness is not built: its two capabilities have their settings keys and nothing else.
         if lands.starts_with("`@gsd/core` harness") || lands.starts_with("install renderers, later")
         {
@@ -123,8 +119,12 @@ pub fn cli_modules() -> Counts {
     counts(built, owned, na, 0)
 }
 
-fn backticked(cell: &str) -> Vec<&str> {
-    cell.split('`').skip(1).step_by(2).collect()
+/// The code spans of a table cell.
+fn backticked(cell: &str) -> Vec<String> {
+    gsd_kit::markdown::inline_code(cell)
+        .into_iter()
+        .map(|(_, code)| code)
+        .collect()
 }
 
 fn names(token: &str, key: &str) -> bool {
@@ -151,26 +151,23 @@ pub fn config_keys() -> Counts {
             .keys()
             .map(String::as_str),
     );
-    let owners: Vec<Vec<&str>> = SETTINGS_MD
-        .lines()
-        .filter(|l| l.starts_with("| `@gsd/") && !l.starts_with("| `@gsd/core`"))
-        .map(|l| {
-            backticked(
-                l.trim()
-                    .trim_matches('|')
-                    .split('|')
-                    .nth(1)
-                    .unwrap_or_default(),
-            )
-        })
+    let settings = gsd_kit::markdown::tables(SETTINGS_MD);
+    let table = |pick: &dyn Fn(&gsd_kit::markdown::Table) -> bool| {
+        settings
+            .iter()
+            .find(|t| pick(t))
+            .expect("a settings.md table")
+    };
+    let owners: Vec<Vec<String>> = table(&|t| t.header[0] == "Owner")
+        .rows
+        .iter()
+        .filter(|cells| cells[0].starts_with("`@gsd/") && cells[0] != "`@gsd/core`")
+        .map(|cells| backticked(&cells[1]))
         .collect();
-    let na: Vec<&str> = SETTINGS_MD
-        .split("\n## ")
-        .find(|s| s.starts_with("Not applicable"))
-        .expect("a Not applicable section")
-        .lines()
-        .filter(|l| l.starts_with("| ") && !l.starts_with("| GSD key") && !l.starts_with("|---"))
-        .filter_map(|l| l.trim().trim_matches('|').split('|').next())
+    let na: Vec<String> = table(&|t| t.heading == "Not applicable")
+        .rows
+        .iter()
+        .map(|cells| cells[0].as_str())
         .filter(|cell| !cell.contains("API key half"))
         .flat_map(backticked)
         .collect();
@@ -214,16 +211,18 @@ pub fn codes() -> Counts {
 
 /// The row of `family` in the checklist table of the file, as numbers.
 pub fn row(file: &str, family: &str) -> Counts {
-    let line = file
-        .lines()
-        .skip_while(|l| !l.starts_with("| Family | Total"))
-        .skip(2)
-        .take_while(|l| l.starts_with('|'))
-        .find(|l| l.split('|').nth(1).is_some_and(|c| c.trim() == family))
+    let table = gsd_kit::markdown::tables(file)
+        .into_iter()
+        .find(|t| t.header[..2] == ["Family", "Total"])
+        .expect("the family table");
+    let line = table
+        .rows
+        .iter()
+        .find(|cells| cells[0] == family)
         .unwrap_or_else(|| panic!("no row for {family}"));
     let cells: Vec<usize> = line
-        .split('|')
-        .skip(2)
+        .iter()
+        .skip(1)
         .take(5)
         .map(|c| {
             c.trim()

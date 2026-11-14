@@ -20,7 +20,7 @@ const MILESTONE_STEPS: &[Step] = &[
     },
     Step {
         id: "record_verdict",
-        title: "Record the integration checker's verdicts (specforge gsd record-verdict <phase> E518 <outcome> <model> '<basis>')",
+        title: "Record the integration checker's verdict once, on the milestone's audit (specforge gsd record-verdict <milestone>/A1 E518 <outcome> <model> '<basis>')",
         does: Do::Command("record_verdict"),
     },
     Step {
@@ -32,8 +32,9 @@ const MILESTONE_STEPS: &[Step] = &[
 
 /// The integration check is a judged rule: the checker records its verdict, and the text says which.
 fn integration(_: &PromptCall<'_>) -> String {
-    "\n\nThe integration checker's finding is the judged rule E518: record its verdict with `specforge gsd record-verdict \
-     <phase> E518 <outcome> <model> '<basis>'` once per phase it checked.\n"
+    "\n\nThe integration checker's finding is the judged rule E518, which judges the milestone's audit: record its \
+     verdict with `specforge gsd record-verdict <milestone>/A1 E518 <outcome> <model> '<basis>'` once, on the \
+     milestone's audit.\n"
         .to_string()
 }
 

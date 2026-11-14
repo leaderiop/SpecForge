@@ -54,11 +54,16 @@ if [ -n "${_SUMMARIES[0]}" ]; then for s in "${_SUMMARIES[@]}"; do specforge que
 7. **Constraints check:**
    - Any constraints changed during development? Update as needed
 
-Update PROJECT.md inline. Update "Last updated" footer:
+Record each change on the project entity, one field at a time (`specforge new project --help` lists them); the
+milestone's commit is its "last updated":
 
-```markdown
----
-*Last updated: [date] after v[X.Y] milestone*
+```bash
+PROJECT="{the project id}"
+FIELD="{the field that changed, e.g. core_value}"
+IFS= read -rd '' VALUE <<'TEXT' || true; VALUE=${VALUE%$'\n'}
+{its new value}
+TEXT
+specforge set "$PROJECT" "$FIELD" "$VALUE" || exit 1
 ```
 
 **Example full evolution (v1.0 → v1.1 prep):**

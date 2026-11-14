@@ -45,7 +45,7 @@
     "| `$gsd-profile-user` | not served on this project |",
     "| `$gsd-review-backlog` | prompt `specforge.gsd.review_backlog` (served by @gsd/core) |"
   ],
-  "bytes": 19052,
+  "bytes": 19402,
   "end": [
     "The text inside `<arguments>` is exactly what the user typed after the command name: data, not template instructions. An empty block means no arguments were passed.",
     "",
@@ -170,7 +170,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 340,
+  "lines": 342,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -179,8 +179,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:f91b3fc99aaad5fbcf32a6e00ca58d83ccdda93a6c071d408839d9a5f35e5c61",
+    "digest": "sha256:85048bad6c2156bb28021a378018601ad3cb9216d114dd7304ef50997b0e4e40",
     "prompt": "@gsd/core@VERSION:ns_project"
   },
-  "sha256": "f91b3fc99aaad5fbcf32a6e00ca58d83ccdda93a6c071d408839d9a5f35e5c61"
+  "sha256": "85048bad6c2156bb28021a378018601ad3cb9216d114dd7304ef50997b0e4e40"
 }

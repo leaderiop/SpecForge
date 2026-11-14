@@ -62,7 +62,7 @@ These ship inside the binary as examples of what an extension can declare. They 
 
 Shipped: the compiler and validator; the extension SDK and WASM runtime (`specforge extension init|build|validate`);
 the builtin extensions; the CLI; the MCP server; the LSP and the VS Code extension; the package registry
-(`add`, `search`, `publish`); typed edits (`new`, `set`, `unset`, `link`, `unlink`, `delete`); `collect` (runs the test
+(`add`, `extensions search`, `publish`); typed edits (`new`, `set`, `unset`, `link`, `unlink`, `delete`); `collect` (runs the test
 runners that extensions declare, after approval, and the source collectors of the code packs); anchors (the edges
 between entities and the facts placed in source: `specforge anchors`, MCP `find_implementation` /
 `find_spec_for_source`, and in the editor Go to Implementation and the lenses, hover, references and rename in Rust,
@@ -129,7 +129,8 @@ specforge anchors <id> | --file <path>           # the code anchored to an entit
 specforge watch / mcp                            # incremental rebuild; MCP server over stdio
 specforge-lsp                                    # the language server: a separate binary (the VS Code extension starts it)
 specforge extension init|build|validate          # author an extension
-specforge search / publish / login / update      # registry
+specforge search <text>                          # entities by id, title or text
+specforge extensions search / publish / login / update  # registry
 specforge <extension> <command>                  # an extension's own commands, e.g. specforge product features
 ```
 

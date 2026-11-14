@@ -650,3 +650,121 @@ fn an_extension_declares_a_capability() {
     };
     assert_eq!(process.argv, ["cargo", "test"]);
 }
+
+#[specforge_test_macros::test(
+    behavior = "declare_context_route",
+    verify = "an SDK context route builds the descriptor the host reads"
+)]
+fn a_context_builds_the_descriptor_the_host_reads() {
+    use specforge_protocol_types::{ContextDescriptor, ContextSectionDescriptor, ContextTier};
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/work", "1.0.0"));
+    c.context("executor", |r| {
+        r.subject("plan")
+            .description("What an executor reads")
+            .agent("work-executor")
+            .budget(6000)
+            .core("plan", "self")
+            .enrich("decisions", "self.phase<decision.phase")
+            .settings(&["plan_check"]);
+    });
+    let declared = c.declaration();
+    let section = |name: &str, selector: &str, tier| ContextSectionDescriptor {
+        name: name.to_string(),
+        selector: selector.to_string(),
+        tier,
+    };
+    assert_eq!(
+        declared.contexts,
+        [ContextDescriptor {
+            name: "executor".to_string(),
+            description: Some("What an executor reads".to_string()),
+            subject: "plan".to_string(),
+            agent: Some("work-executor".to_string()),
+            budget: 6000,
+            sections: vec![
+                section("plan", "self", ContextTier::Core),
+                section(
+                    "decisions",
+                    "self.phase<decision.phase",
+                    ContextTier::Enrich
+                ),
+            ],
+            settings: vec!["plan_check".to_string()],
+            records: Vec::new(),
+            stale: None,
+        }]
+    );
+    assert!(declared.declares(DeclaredCategory::Contexts));
+    let answer: DescribeResponse =
+        serde_json::from_str(&declared.describe_json(DeclaredCategory::Contexts)).unwrap();
+    assert_eq!(
+        answer.items,
+        serde_json::to_value(&declared.contexts).unwrap()
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "record_harness_values",
+    verify = "the SDK declares a context field as the block of a context record"
+)]
+fn a_context_field_declares_writer_context() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/plans", "0.1.0"));
+    b.kind("plan", |k| {
+        k.field("context_pack", |f| {
+            f.context();
+        });
+    });
+    let field = &b.declaration().entities[0].fields[0];
+
+    assert_eq!(field.writer.as_deref(), Some("context"));
+    assert_eq!(field.field_type, "block");
+    let members: Vec<(&str, &str)> = field
+        .members
+        .iter()
+        .map(|m| (m.name.as_str(), m.field_type.as_str()))
+        .collect();
+    assert_eq!(
+        members,
+        [
+            ("route", "string"),
+            ("digest", "string"),
+            ("max_tokens", "integer")
+        ]
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "declare_context_route",
+    verify = "an SDK route records context fields and names its stale code"
+)]
+fn a_context_route_records_fields_and_names_its_stale_code() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/plans", "0.1.0"));
+    b.context("executor", |r| {
+        r.subject("plan")
+            .budget(10)
+            .core("plan", "self")
+            .record("plan.context_pack", "self")
+            .record_suggesting("research.context_pack", "self.plan", "redo {entity}")
+            .stale("W524");
+    });
+    let route = &b.declaration().contexts[0];
+    let records: Vec<(&str, &str, Option<&str>)> = route
+        .records
+        .iter()
+        .map(|r| {
+            (
+                r.field.as_str(),
+                r.subject.as_str(),
+                r.suggestion.as_deref(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        records,
+        [
+            ("plan.context_pack", "self", None),
+            ("research.context_pack", "self.plan", Some("redo {entity}")),
+        ]
+    );
+    assert_eq!(route.stale.as_deref(), Some("W524"));
+}

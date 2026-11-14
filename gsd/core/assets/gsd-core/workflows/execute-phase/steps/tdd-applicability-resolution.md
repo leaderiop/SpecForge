@@ -21,6 +21,6 @@ TDD_APPLICABLE="$TDD_APPLICABLE_RAW"
 ## Pre-dispatch check (MANDATORY)
 
 Before calling Agent(), confirm every `${...}` conditional in the prompt below
-(`TDD_APPLICABLE`, `CONTEXT_WINDOW`, `AGENT_SKILLS`) was resolved to concrete
+(`TDD_APPLICABLE`, `AGENT_SKILLS`) was resolved to concrete
 text for THIS plan. If any marker's value was not computed, HALT — do not
 dispatch a prompt containing literal `${...}` template syntax (#4266).

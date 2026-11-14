@@ -15,38 +15,13 @@ use crate::settings;
 
 /// What a template becomes: `(file name or folder, kinds)`; no kinds means the template has no entity.
 const TEMPLATES: &[(&str, &[&str])] = &[
-    ("project.md", &["project"]),
-    ("requirements.md", &["requirement"]),
-    ("roadmap.md", &["milestone", "phase"]),
-    ("milestone.md", &["milestone", "phase"]),
-    ("context.md", &["context"]),
-    ("spec.md", &["phase_spec"]),
     ("summary.md", &["summary"]),
-    ("UAT.md", &["uat_session"]),
-    ("VALIDATION.md", &["validation"]),
-    ("verification-report.md", &["verification"]),
-    ("retrospective.md", &["retrospective"]),
     ("user-setup.md", &["user_setup"]),
-    ("research-project/", &["research"]),
 ];
 
 /// The line a template answer starts with, when SpecForge keeps its content somewhere else.
 fn kind_line(path: &str) -> Option<String> {
     let rest = path.strip_prefix("gsd-core/templates/")?;
-    match rest {
-        "state.md" => {
-            return Some(
-                "SpecForge computes this: there is no entity to write (read it with `specforge query`).".to_string(),
-            );
-        }
-        "milestone-archive.md" => {
-            return Some(
-                "SpecForge never archives a milestone: it stays a `milestone` entity (`specforge gsd close-milestone` closes it)."
-                    .to_string(),
-            );
-        }
-        _ => {}
-    }
     let (_, kinds) = TEMPLATES
         .iter()
         .find(|(name, _)| rest == *name || (name.ends_with('/') && rest.starts_with(name)))?;

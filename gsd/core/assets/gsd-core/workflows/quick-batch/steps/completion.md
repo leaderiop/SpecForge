@@ -2,29 +2,15 @@
 **Step 9: Completion**
 
 For every item that merged successfully in Step 7 AND (NOT `$VALIDATE_MODE`,
-OR Step 8 routed it to `complete`): call `completeQuickItem` via its CLI verb
-— this is the ONLY writer of a "Quick Tasks Completed" STATE.md row and the
-item's `complete` status; both happen inside ONE lock transaction, exactly
-once per item (idempotent — re-running this step for an already-complete
-item is a no-op, same guarantee `/gsd:quick` relies on):
-
-```bash
-# the commands below are specforge commands: there is no launcher to define
-: "quick-batch complete: the batch router is not part of @gsd/core, so nothing records the item here; its quick plan and summary are the record" \
-  --batch "$BATCH_ID" \
-  --quick-id "$quick_id" \
-  --description "$description" \
-  --date "$date" \
-  --commit "$commit_hash" \
-  --directory "$ITEM_DIR" \
-  --raw
-```
+OR Step 8 routed it to `complete`): its quick plan and its summary are the
+record. The item is `complete` once its plan's summary is (the plan's computed
+status), and the batch's `status` is `complete` once every item is: nothing
+else is written, and re-running this step changes nothing.
 
 Items NOT reaching this call — `human_needed`, `failed` (planner/checker/
 merge/verification failure), or still `blocked`/`pending` (a dependency
 failed, row 32) — are left exactly as their respective routing step set
 them. No STATE row, no `complete` status.
-
 
 **Final commit.** Stage every artifact produced this run (PLAN.md, SUMMARY.md,
 `--research` RESEARCH.md, `--validate` VERIFICATION.md, per item, plus
@@ -40,9 +26,13 @@ if [ "$COMMIT_DOCS" != "false" ]; then
 fi
 ```
 
-**Final report.** Re-load the batch (your notes of the batch (`--batch
-"$BATCH_ID" --raw` — read-only in effect when nothing changed) and summarize
+**Final report.** Re-load the batch and its items' statuses, and summarize
 by status:
+
+```bash
+QB_STATUS=$(specforge query "$BATCH_ID" --depth 0 --kinds quick_batch --pick '.nodes[0].fields.status') || exit 1   # open or complete
+QB_ITEM_STATUSES=$(specforge query "$BATCH_ID" --depth 1 --kinds plan --pick '.nodes[kind=plan]' --fields id,fields.status) || exit 1   # one quick id and plan status row per item
+```
 
 ```
 ---

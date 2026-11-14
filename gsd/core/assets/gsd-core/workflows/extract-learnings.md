@@ -10,7 +10,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 </required_reading>
 
 <objective>
-Analyze completed phase artifacts (PLAN.md, SUMMARY.md, VERIFICATION.md, UAT.md, STATE.md) and extract structured learnings into 4 categories: decisions, lessons, patterns, and surprises. Each extracted item includes source attribution. The output is one `lesson` entity per item, with its `kind` set to the category.
+Read what a finished phase left in the graph (its plans, summaries, verification, UAT sessions and the computed state) and sort what it teaches into 4 categories: decisions, lessons, patterns, and surprises. Each extracted item includes source attribution. The output is one `lesson` entity per item, with its `kind` set to the category.
 </objective>
 
 <process>
@@ -20,11 +20,7 @@ Parse arguments and load project state:
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
-
 
 INIT=$(specforge query "$PHASE_ID" --depth 2 --format json)
 PHASE_NUMBER="${PHASE_ID##*/}"   # the phase number is the last segment of its id
@@ -60,7 +56,7 @@ Technical and architectural decisions made during the phase. Look for:
 - Explicit decisions documented in PLAN.md or SUMMARY.md
 - Technology choices and their rationale
 - Trade-offs that were evaluated
-- Design decisions recorded in STATE.md
+- The phase's `decision` entities
 
 Each decision entry must include:
 - **What** was decided
@@ -207,11 +203,6 @@ to rebuild and no `factor`, `sample_count` or `confidence` to report.
 Skip this step, and leave it out of the report.
 
 
-
-
-
-
-
 Phases missing either side are skipped rather than guessed: a fabricated sample would
 steer every future estimate.
 </step>
@@ -225,6 +216,7 @@ The project state is computed from the entities, so there is nothing to update:
 </step>
 
 <step name="report">
+
 ```
 ---------------------------------------------------------------
 

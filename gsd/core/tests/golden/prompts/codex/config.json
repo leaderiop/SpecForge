@@ -49,19 +49,19 @@
     "INIT=$(specforge gsd progress-report --format json)",
     "",
     "# the settings live in specforge.json: there is no config path to resolve, and no active workstream (#2282).",
-    "if [[ -z \"${GSD_CONFIG_PATH:-}\" ]]; then",
-    "  if false; then   # there is no active-workstream file: the settings are one file, specforge.json",
-    "    WS=\"\"",
-    "    GSD_CONFIG_PATH=\"specforge.json\"",
-    "  else",
-    "    GSD_CONFIG_PATH=\"specforge.json\"",
-    "  fi",
-    "fi",
     "```",
     "",
-    "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated."
+    "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.",
+    "",
+    "Settings are written with `specforge settings set`; nothing creates a file, and every setting has its default. `INIT` holds the computed progress for any step that needs it.",
+    "</step>",
+    "",
+    "<step name=\"read_current\">",
+    "```bash",
+    "specforge settings --format json --extension @gsd/core",
+    "```"
   ],
-  "bytes": 106680,
+  "bytes": 106635,
   "end": [
     "- [ ] `agent_skills.<agent-type>` slugs validated against `[a-zA-Z0-9_-]+` before write; `review.models.<cli>` slugs accepted only from the registry-derived settable set; skill lists written as JSON arrays (never comma-joined strings)",
     "- [ ] Config merge preserves all keys outside the three sections this workflow owns",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 2226,
+  "lines": 2159,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:5fb33b1bbff3898ffca999bbb237d119364242da400bbdfbb9750bdf95905780",
+    "digest": "sha256:e4dfb3e7b0e45c54247a9b0dd36eac2fadc05f3b3409f194a45e83a317fcd4ee",
     "prompt": "@gsd/core@VERSION:config"
   },
-  "sha256": "5fb33b1bbff3898ffca999bbb237d119364242da400bbdfbb9750bdf95905780"
+  "sha256": "e4dfb3e7b0e45c54247a9b0dd36eac2fadc05f3b3409f194a45e83a317fcd4ee"
 }

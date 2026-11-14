@@ -792,9 +792,9 @@ Level: error
 ```
 E063: No registry configured
 
-`specforge add @scope/name@version`, `update`, `search`, `publish` and `login`
-(and the MCP `add_extension` tool) talk to an extension registry, and SpecForge
-has no built-in one: the only registries are those the project's
+`specforge add @scope/name@version`, `update`, `extensions search`, `publish`
+and `login` (and the MCP `add_extension` tool) talk to an extension registry,
+and SpecForge has no built-in one: the only registries are those the project's
 `specforge.json` lists. None is listed, so the command stopped before making any
 network call. Add a `registries` array, for example `"registries": [{"alias":
 "main", "url": "<registry URL>", "default_registry": true}]`; an entry with
@@ -1689,6 +1689,49 @@ the whole `word:rest`, and no word of it is kept in the value: nothing links as
 `js`. The file still counts as unparsed and cannot be rewritten until it is
 fixed. Write it quoted: `notes ["js:p1"]`. A provider ref in a list
 (`[jira.issue:PROJ-1]`, `scheme.kind:id`) is read as one and is not this.
+
+Owner: core
+Level: error
+```
+
+## E123
+
+```
+E123: Context route cannot be served
+
+An extension declares a context route (`contexts`, protocol 2.1, ADR 0356) the
+host cannot serve: its name is not kebab case, repeats one of its extension's,
+or its qualified name (`<short>/<name>`) is an earlier extension's; its budget
+is 0; it has no core section; a section's name is not a word, repeats one, or is
+`settings`; a section's selector does not parse, its `file("…")` path leaves
+the project, holds a glob or names a `.spec` source, or it does not type-check
+from the subject kind (a kind or field it names is not loaded or declared, or it
+crosses a field that is not a reference or that is computed or written by a
+verdict: such a reference makes no edge); its subject kind is not loaded; or a
+setting it names is not a setting of its extension (a secret is not one). The
+message names the extension, the route, the section and why. The route is not
+registered: `specforge context` and `specforge.context` refuse it as unknown,
+and its agent gets no Context section. A subject kind of an optional peer the
+project does not load drops the route without a diagnostic, and a section that
+reaches one is skipped and listed in the pack. Fix the route's declaration in
+the extension.
+
+Owner: core
+Level: error
+```
+
+## E124
+
+```
+E124: Context route's agent cannot be bound
+
+A context route (ADR 0356) names an `agent` its extension does not declare, or
+one an earlier context route (in load order) already binds. The message names
+the extension, the route and the agent. The route stays registered and serves on
+the CLI and MCP, but the binding is dropped: the agent's body carries no Context
+section for it. An agent reads one route, written by its own extension. Name an
+agent of the route's extension that no other context route names, or leave
+`agent` out.
 
 Owner: core
 Level: error
@@ -3240,23 +3283,28 @@ skill, slash command or hook the registry refuses and drops, alone — an agent
 or skill id that is not kebab-case or is declared twice, a hook id that is not
 snake_case, a tool class outside the host-neutral vocabulary (`read`, `write`,
 `edit`, `shell`, `search`, `web_fetch`, `web_search`, `ask_user`, `agent`,
-`skill`, `todo`, `mcp:<server>/<glob>`), a `model` or `effort` outside its tiers
-that is not a `setting:` naming a string or enum setting of the extension,
-variants without a `variant_setting` (or the reverse), a `when` that is not a
-bool setting of the extension, a slash command that names no single prompt or
-command the extension declares, `tools` or `paths` on a hook of an event that
-takes none, a `timeout_ms` of 0 or above the ceiling (30 s, or the sandbox's),
-`writes` on a `statusline` hook, a hook export that is not `hook__<id>`, an
-attribution with an empty field, and a prompt step whose `agent` is no agent of
-the extension or of a declared peer. An input the host would serve empty is W021
-too (ADR 0293, ADR 0337), the call being kept: an input its call kind is not
-served, a collector's included, or a second one of a kind served once (`tests`,
-`state`, `graph`, `slash_commands`, `git`), a `setting` input naming the call's
-own extension or no extension and setting, and a `files` input whose name is no
-word or is repeated, that names neither or both of `field` and `glob`, a `field`
-that is not `kind.field` or that no loaded extension declares, a `root` on a
-glob or that is no root's name, and a glob that is empty, absolute, climbs with
-`..`, or has more than four `**` segments.
+`skill`, `todo`, `mcp:<server>/<glob>`, or a `specforge:<tool>`,
+`specforge:<group>` or `specforge:<short>.<command>` naming an engine tool,
+engine group or a command an agent may run (ADR 0334), but never on a hook),
+`mcp:specforge/<glob>` (SpecForge's whole server, which the `specforge:` classes
+name tool by tool), a `specforge:` class naming a human-attested or refused
+command, a `model` or `effort` outside its tiers that is not a `setting:` naming
+a string or enum setting of the extension, variants without a `variant_setting`
+(or the reverse), a `when` that is not a bool setting of the extension, a slash
+command that names no single prompt or command the extension declares, `tools`
+or `paths` on a hook of an event that takes none, a `timeout_ms` of 0 or above
+the ceiling (30 s, or the sandbox's), `writes` on a `statusline` hook, a hook
+export that is not `hook__<id>`, an attribution with an empty field, and a
+prompt step whose `agent` is no agent of the extension or of a declared peer. An
+input the host would serve empty is W021 too (ADR 0293, ADR 0337), the call
+being kept: an input its call kind is not served, a collector's included, or a
+second one of a kind served once (`tests`, `state`, `graph`, `slash_commands`,
+`git`), a `setting` input naming the call's own extension or no extension and
+setting, and a `files` input whose name is no word or is repeated, that names
+neither or both of `field` and `glob`, a `field` that is not `kind.field` or
+that no loaded extension declares, a `root` on a glob or that is no root's name,
+and a glob that is empty, absolute, climbs with `..`, or has more than four `**`
+segments.
 
 Owner: core
 Level: warning

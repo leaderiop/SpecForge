@@ -578,54 +578,6 @@ fn the_pull_request_state_is_read_from_github_s_rest_api() {
     }
 }
 
-/// The edge probe's requirements guard is `specforge gsd edge-probe-requirements`, upstream's rule: a non-empty array
-/// whose every item has a string `text`, not blank, holding no `<replace:` placeholder (two `grep`s let all of those by).
-#[test]
-fn the_requirements_guard_refuses_a_placeholder_or_an_empty_list() {
-    let Some(sh) = shell() else { return };
-    let p = taskboard();
-    let dir = tempfile::tempdir().expect("a dir");
-    let reqs = dir.path().join("reqs.json");
-    for path in [
-        "gsd-core/workflows/spec-phase.md",
-        "gsd-core/references/specless-probe-fallback.md",
-    ] {
-        let text = asset(path);
-        let guard = text
-            .lines()
-            .find(|l| l.starts_with("if ") && l.contains("$REQS_JSON") && !l.contains("COVERAGE"))
-            .expect("the guard");
-        for (json, want) in [
-            (r#"[{"id":"R1","text":"a user signs in"}]"#, "ok"),
-            (
-                r#"[{"id":"R1","text":"a user signs in"},{"id":"R2","text":"they sign out"}]"#,
-                "ok",
-            ),
-            ("[]", "bad"),
-            (
-                r#"[{"id":"R1","text":"<replace: requirement text from the SPEC>"}]"#,
-                "bad",
-            ),
-            (r#"[{"text":"  "}]"#, "bad"),
-            (r#"{"text":"a user signs in"}"#, "bad"),
-            (r#"[null]"#, "bad"),
-            (r#"[{"text":1}]"#, "bad"),
-            (r#"[{"id":"R1","text":"a"},{"id":"R2"}]"#, "bad"),
-            ("not json", "bad"),
-        ] {
-            std::fs::write(&reqs, json).expect("the requirements");
-            let (out, err, _) = sh.run_in(
-                p.root(),
-                &format!(
-                    "REQS_JSON={}\n{guard} echo bad; else echo ok; fi",
-                    q(&reqs.display().to_string())
-                ),
-            );
-            assert_eq!(out, format!("{want}\n"), "{path}: {json}: {err}");
-        }
-    }
-}
-
 /// R2: the text scans read one `id<0x1f>text` row per entity (`--fields`) and match in a `case`: a deferred goal and a
 /// placeholder one-liner are named by their entity's id, the others not.
 #[test]

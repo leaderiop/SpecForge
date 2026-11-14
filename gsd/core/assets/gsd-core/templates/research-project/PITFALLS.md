@@ -1,201 +1,42 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/templates/research-project/PITFALLS.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Pitfalls Research Template
 
-Template for the `research` entity for PITFALLS — common mistakes to avoid in the project domain.
-
-<template>
-
-```markdown
-# Pitfalls Research
-
-**Domain:** [domain type]
-**Researched:** [date]
-**Confidence:** [HIGH/MEDIUM/LOW]
-
-## Critical Pitfalls
-
-### Pitfall 1: [Name]
-
-**What goes wrong:**
-[Description of the failure mode]
-
-**Why it happens:**
-[Root cause — why developers make this mistake]
-
-**How to avoid:**
-[Specific prevention strategy]
-
-**Warning signs:**
-[How to detect this early before it becomes a problem]
-
-**Phase to address:**
-[Which roadmap phase should prevent this]
+Template for the pitfalls dimension of the project research: common mistakes to avoid in the project domain.
 
 ---
 
-### Pitfall 2: [Name]
+## The Pitfalls' Typed Edits
 
-**What goes wrong:**
-[Description of the failure mode]
+The pitfalls are `pitfall` items of the project research `RESEARCH` in `spec/research.spec`, written with `specforge new` and scoped by `--research RESEARCH`: nothing writes a research file by hand. The orchestrator recorded `RESEARCH` before spawning the researchers; the synthesizer sets its summary. `specforge schema --kind pitfall` lists the fields. Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment; leave out a flag you have no value for, and repeat the lines per item with the next free id (`specforge query RESEARCH --depth 1 --format context` lists the items already recorded). A refusal names its code: read it with `specforge explain <code>`.
 
-**Why it happens:**
-[Root cause — why developers make this mistake]
-
-**How to avoid:**
-[Specific prevention strategy]
-
-**Warning signs:**
-[How to detect this early before it becomes a problem]
-
-**Phase to address:**
-[Which roadmap phase should prevent this]
-
----
-
-### Pitfall 3: [Name]
-
-**What goes wrong:**
-[Description of the failure mode]
-
-**Why it happens:**
-[Root cause — why developers make this mistake]
-
-**How to avoid:**
-[Specific prevention strategy]
-
-**Warning signs:**
-[How to detect this early before it becomes a problem]
-
-**Phase to address:**
-[Which roadmap phase should prevent this]
-
----
-
-[Continue for all critical pitfalls...]
-
-## Technical Debt Patterns
-
-Shortcuts that seem reasonable but create long-term problems.
-
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| [shortcut] | [benefit] | [cost] | [conditions, or "never"] |
-| [shortcut] | [benefit] | [cost] | [conditions, or "never"] |
-| [shortcut] | [benefit] | [cost] | [conditions, or "never"] |
-
-## Integration Gotchas
-
-Common mistakes when connecting to external services.
-
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| [service] | [what people do wrong] | [what to do instead] |
-| [service] | [what people do wrong] | [what to do instead] |
-| [service] | [what people do wrong] | [what to do instead] |
-
-## Performance Traps
-
-Patterns that work at small scale but fail as usage grows.
-
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| [trap] | [how you notice] | [how to avoid] | [scale threshold] |
-| [trap] | [how you notice] | [how to avoid] | [scale threshold] |
-| [trap] | [how you notice] | [how to avoid] | [scale threshold] |
-
-## Security Mistakes
-
-Domain-specific security issues beyond general web security.
-
-| Mistake | Risk | Prevention |
-|---------|------|------------|
-| [mistake] | [what could happen] | [how to avoid] |
-| [mistake] | [what could happen] | [how to avoid] |
-| [mistake] | [what could happen] | [how to avoid] |
-
-## UX Pitfalls
-
-Common user experience mistakes in this domain.
-
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| [pitfall] | [how users suffer] | [what to do instead] |
-| [pitfall] | [how users suffer] | [what to do instead] |
-| [pitfall] | [how users suffer] | [what to do instead] |
-
-## "Looks Done But Isn't" Checklist
-
-Things that appear complete but are missing critical pieces.
-
-- [ ] **[Feature]:** Often missing [thing] — verify [check]
-- [ ] **[Feature]:** Often missing [thing] — verify [check]
-- [ ] **[Feature]:** Often missing [thing] — verify [check]
-- [ ] **[Feature]:** Often missing [thing] — verify [check]
-
-## Recovery Strategies
-
-When pitfalls occur despite prevention, how to recover.
-
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| [pitfall] | LOW/MEDIUM/HIGH | [what to do] |
-| [pitfall] | LOW/MEDIUM/HIGH | [what to do] |
-| [pitfall] | LOW/MEDIUM/HIGH | [what to do] |
-
-## Pitfall-to-Phase Mapping
-
-How roadmap phases should address these pitfalls.
-
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| [pitfall] | Phase [X] | [how to verify prevention worked] |
-| [pitfall] | Phase [X] | [how to verify prevention worked] |
-| [pitfall] | Phase [X] | [how to verify prevention worked] |
-
-## Sources
-
-- [Post-mortems referenced]
-- [Community discussions]
-- [Official "gotchas" documentation]
-- [Personal experience / known issues]
-
----
-*Pitfalls research for: [domain]*
-*Researched: [date]*
+```bash
+IFS= read -rd '' NAME <<'TEXT' || true; NAME=${NAME%$'\n'}
+{the pitfall}
+TEXT
+IFS= read -rd '' GOES_WRONG <<'TEXT' || true; GOES_WRONG=${GOES_WRONG%$'\n'}
+{what goes wrong}
+TEXT
+IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\n'}
+{why it happens}
+TEXT
+IFS= read -rd '' AVOID <<'TEXT' || true; AVOID=${AVOID%$'\n'}
+{how to avoid it, and the phase that should prevent it}
+TEXT
+IFS= read -rd '' WARNING_SIGNS <<'TEXT' || true; WARNING_SIGNS=${WARNING_SIGNS%$'\n'}
+{the early signs that it is happening}
+TEXT
+specforge new pitfall PF1 "$NAME" --in spec/research.spec --research RESEARCH --name "$NAME" --goes_wrong "$GOES_WRONG" --why "$WHY" --avoid "$AVOID" --warning_signs "$WARNING_SIGNS" || exit 1
 ```
 
-</template>
+**What goes where:** one pitfall per mistake:
 
-<guidelines>
-
-**Critical Pitfalls:**
-- Focus on domain-specific issues, not generic mistakes
-- Include warning signs — early detection prevents disasters
-- Link to specific phases — makes pitfalls actionable
-
-**Technical Debt:**
-- Be realistic — some shortcuts are acceptable
-- Note when shortcuts are "never acceptable" vs. "only in MVP"
-- Include the long-term cost to inform tradeoff decisions
-
-**Performance Traps:**
-- Include scale thresholds ("breaks at 10k users")
-- Focus on what's relevant for this project's expected scale
-- Don't over-engineer for hypothetical scale
-
-**Security Mistakes:**
-- Beyond OWASP basics — domain-specific issues
-- Example: Community platforms have different security concerns than e-commerce
-- Include risk level to prioritize
-
-**"Looks Done But Isn't":**
-- Checklist format for verification during execution
-- Common in demos vs. production
-- Prevents "it works on my machine" issues
-
-**Pitfall-to-Phase Mapping:**
-- Critical for roadmap creation
-- Each pitfall should map to a phase that prevents it
-- Informs phase ordering and success criteria
-
-</guidelines>
+- Critical pitfalls: domain-specific issues, not generic mistakes. Include warning signs (early detection prevents
+  disasters) and name the phase that prevents it in `avoid`: it makes the pitfall actionable and informs phase ordering
+  and success criteria.
+- Technical debt: be realistic, some shortcuts are acceptable. Note when a shortcut is never acceptable or only in MVP,
+  and the long-term cost.
+- Performance traps: the scale at which each one breaks ("breaks at 10k users"), weighed against the scale this
+  project expects, with no design for load it will never see.
+- Security mistakes: beyond OWASP basics, the domain-specific issues (a community platform has other concerns than
+  e-commerce), with their risk level.
+- "Looks done but isn't": what to verify during execution, common in demos versus production.

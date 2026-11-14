@@ -14,10 +14,10 @@ disagrees. Every row but Capabilities is computed from tables of code; Capabilit
 | Hooks | 29 | 16 | 0 | 11 | 2 | `core/src/hooks/roster.rs` |
 | Capabilities | 45 | 17 | 10 | 0 | 18 | `core/README.md` capability table |
 | Workflows and references | 297 | 234 | 53 | 10 | 0 | `core/tests/parity_roster/assets.rs` |
-| CLI modules | 288 | 169 | 21 | 98 | 0 | `core/tests/parity_roster/modules.rs` |
+| CLI modules | 288 | 170 | 21 | 97 | 0 | `core/tests/parity_roster/modules.rs` |
 | Config keys | 212 | 161 | 35 | 16 | 0 | `core/spec/settings.md` |
-| Gate-cutover verdicts | 171 | 92 | 51 | 14 | 14 | `core/tests/parity_rules/cutover.rs` |
-| Codes | 68 | 68 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
+| Gate-cutover verdicts | 171 | 93 | 51 | 14 | 13 | `core/tests/parity_rules/cutover.rs` |
+| Codes | 70 | 70 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
 
 Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, verification) are the kinds of
 `core/spec/*.md`; they have no inventory family, so no count. They are exercised by every row above.
@@ -39,16 +39,16 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   `specforged` harness (only their settings keys exist).
 - Workflows and references: 234 are embedded or replaced by a typed command, 53 are owned, 10 do not apply; each of the
   78 not embedded names why in `assets.rs`.
-- CLI modules: 169 are ported or are the host half of a `specforge` command, 21 are owned, 98 do not apply (the argv
+- CLI modules: 170 are ported or are the host half of a `specforge` command, 21 are owned, 97 do not apply (the argv
   router, the capability loader, the runtimes SpecForge does not install for, `security.cjs`, the per-repository release
   tags, the argument-heredoc terminator).
 - Config keys: of 212, 161 are declared in `@gsd/core`, 35 are owned by an extension and 16 do not apply, in
   `core/spec/settings.md`.
-- Gate-cutover verdicts: 92 of the 171 are reproduced by a test or by construction (the typed commands refuse the
-  argument shape); 51 belong to an extension, 14 are the gate engine, and 14 are core codes whose verdict is not reproduced: 11
+- Gate-cutover verdicts: 93 of the 171 are reproduced by a test or by construction (the typed commands refuse the
+  argument shape); 51 belong to an extension, 14 are the gate engine, and 13 are core codes whose verdict is not reproduced: 10
   that no twin reaches, and 3 that a twin reaches and answers differently (`Diverges`, below). Each is named, with its
   reason, in `core/tests/parity_rules/cutover.rs`.
-- Codes: 68 of the 68 codes fire and stay silent in a named test.
+- Codes: 70 of the 70 codes fire and stay silent in a named test.
 
 ## `@gsd/security` 1.0.0 against gsd-core 1.19.0
 
@@ -144,12 +144,13 @@ Not verified:
   - `[retro-threat-in-plan]` a retroactive threat is written into a plan of the phase with `retroactive: true`, not held in SECURITY.md only.
   - `[threats-open-live]` `threats_open` is computed from the threats and the current `block_on`, not frozen at audit time.
   - `[security-absent-off]` without `@gsd/security` loaded there is no threat model, where upstream's agents read an absent `security_enforcement` as enabled.
-  - `[verify-post-produces]` the `verify:post` step keeps upstream's `produces: ["SECURITY.md"]`, although plan 16's parity
-    table said `security_audit`: the hook text is upstream's and agents read the name from it. `SECURITY.md` there
-    stands for the phase's `security_audit`: `security-hooks verify:post --after-fingerprint <phase>` moves the step to
-    `skippedHooks` (`reason: produces-present`) once the audit exists, as upstream's `producesEntryPresent` does for the
-    file (#5105), so verify-work and autonomous do not run the auditor a second time. Without the flag `skippedHooks` is
-    `[]` where upstream omits the key; core's jq fold absorbs both (REVIEW-security-part2 M3).
+  - `[verify-post-produces]` the `verify:post` step answers `produces: ["security_audit"]` and `consumes: ["summary"]`
+    where upstream's names the files `SECURITY.md` and `SUMMARY.md`: agents read kinds, not state files.
+    `security-hooks verify:post --after-fingerprint <phase>` moves the step to `skippedHooks` (`reason:
+    produces-present`, `artifacts: ["security_audit"]`) once the phase's `security_audit` exists, as upstream's
+    `producesEntryPresent` does for the file (#5105), so verify-work and autonomous do not run the auditor a second
+    time. Without the flag `skippedHooks` is `[]` where upstream omits the key; core's jq fold absorbs both
+    (REVIEW-security-part2 M3).
   - `[injection-key-explicit]` the vault fixture sets `security.injection_blocking: false` explicitly, because gsd-tools' `config-get`
     errors on an unset key where `specforge settings` answers the default: a recording choice, not a product divergence.
   - `[surface-peer-setting]` the slash `/gsd-secure-phase` is hidden by `@gsd/security`'s own `specforge.surface.audit_review`
@@ -207,8 +208,8 @@ Not verified:
   (upstream blocks a TDD plan with a RED and no GREEN, or no RED and GREEN commit; W403 judges a recorded GREEN with no
   RED before it and is silent otherwise) and `prohibition-enforcement-request-file-judgment-mode` (upstream flags a
   judgment-tier prohibition without evidence; E319 judges the test tier only).
-- The 11 other unreached verdicts are named in `cutover.rs`.
-- The "silent" evidence of 38 of the 68 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
+- The 10 other unreached verdicts are named in `cutover.rs`.
+- The "silent" evidence of 38 of the 70 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
   raised there, not that the rule judged a clean case.
 - `[agent-namespace-one-rule]` `workflow_guard` reads the agent namespace as `worktree_path_guard` does, with `worktree-wf_` and the charset; upstream's workflow guard has the two prefixes `agent-` and `worktree-agent-`.
 - `[protected-set]` `branch_check` protects `main`, `master`, `develop`, `trunk`, `release/…`, `git.protected_branches` and `git.base_branch`, and `git.allow_default_branch_commits` changes `blocks_commit`, not `protected`, so ship's and the `none` strategy's warnings still show on `main`. Upstream also reads the real default branch; the git port answers no remotes, so `origin/HEAD` is not read here.

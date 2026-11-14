@@ -16,9 +16,8 @@ Rule-application, not generation. Apply the taxonomy/precedence rules directly t
 source actually contains — do not infer, embellish, or add content not present. When the source
 is silent on a field, mark it absent rather than guessing.
 
-Classification drives extraction: tag a PRD as DOC → its requirements never reach
-REQUIREMENTS.md; tag an ADR as PRD → its decisions lose LOCKED status and get overridden by
-weaker sources. Fidelity here is load-bearing for the entire ingest pipeline.
+What the ingest extracts follows the type you give: a PRD typed DOC yields no `requirement` entities,
+and an ADR typed PRD loses its LOCKED decisions to weaker sources. Fidelity here is load-bearing for the entire ingest pipeline.
 </extraction_discipline>
 
 <taxonomy>

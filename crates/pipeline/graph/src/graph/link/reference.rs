@@ -256,7 +256,7 @@ impl Resolution<'_> {
                         ),
                         (Some(kind), _, None) => format!(
                             "name a {expected} here (find an extension that declares it with `{}`), or drop the reference",
-                            specforge_common::remedy::command("specforge search {}", &[kind])
+                            specforge_common::remedy::command("specforge extensions search {}", &[kind])
                         ),
                     }),
                 )
@@ -315,7 +315,10 @@ impl Resolution<'_> {
                     ),
                     None => format!(
                         "find an extension that declares '{kind}' with `{}`",
-                        specforge_common::remedy::command("specforge search {}", &[kind])
+                        specforge_common::remedy::command(
+                            "specforge extensions search {}",
+                            &[kind]
+                        )
                     ),
                 };
                 Some(

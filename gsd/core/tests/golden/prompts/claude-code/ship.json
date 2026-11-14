@@ -41,14 +41,11 @@
     "",
     "```bash",
     "",
-    "",
-    "",
-    "",
     "# the commands below are specforge commands: there is no launcher to define",
     "RESPONSE_LANGUAGE=\"\"   # response_language (the settings)",
     "",
-    "",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)",
+    "PHASE_NUMBER=\"${PHASE_ID##*/}\"   # the phase number is the last segment of its id",
     "",
     "```",
     "",
@@ -59,10 +56,14 @@
     "Also load config for branching strategy:",
     "```bash",
     "CONFIG=$(specforge settings)",
-    "```"
+    "```",
+    "",
+    "The strategy is `git.branching_strategy` in these settings; the branch is the phase's computed `branch`.",
+    ""
   ],
-  "bytes": 45930,
+  "bytes": 46089,
   "end": [
+    "Branch: {branch} → ${BASE_BRANCH}",
     "Commits: {count}",
     "Verification: ✓ Passed",
     "Requirements: {N} REQ-IDs addressed",
@@ -91,7 +92,6 @@
     "- [ ] Preflight checks passed (verification, clean tree, branch, remote, gh)",
     "- [ ] Branch pushed to remote",
     "- [ ] PR created with rich auto-generated body",
-    "- [ ] STATE.md updated with shipping status",
     "- [ ] User knows PR number and next steps",
     "</success_criteria>",
     "</file>",
@@ -115,19 +115,21 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
-    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -182,11 +184,9 @@
     "  \"external_job.submit_timeout_ms\": 30000,",
     "  \"fast_mode.enabled\": false,",
     "  \"features.global_learnings\": false,",
-    "  \"features.thinking_partner\": false,",
-    "  \"gates.confirm_milestone_scope\": true,",
-    "  \"gates.confirm_transition\": true,"
+    "  \"features.thinking_partner\": false,"
   ],
-  "lines": 820,
+  "lines": 813,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:1be4d693787d60a431f0a37864d5bb61152082fc32f4844a65a7933274ff8def",
+    "digest": "sha256:21b96a6d0354290f2fd1c918c940b0171d80cae1a281c6bfe9b8d3e9bfb0d2fa",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "1be4d693787d60a431f0a37864d5bb61152082fc32f4844a65a7933274ff8def"
+  "sha256": "21b96a6d0354290f2fd1c918c940b0171d80cae1a281c6bfe9b8d3e9bfb0d2fa"
 }

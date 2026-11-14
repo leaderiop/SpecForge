@@ -1,6 +1,7 @@
-//! `record_research`, `record_spec` and `record_validation` (D-r41-16, ADR 0299): each copies the computed `digest` of
-//! its phase's (a quick research: its quick plan's) context into its own `context_digest`, the value `gsd/W406` compares. The digest is the compute pass's:
-//! the graph a command receives carries it, so no command hashes anything itself.
+//! `record_research`, `record_spec` and `record_validation` (ADR 0356): each asks the host to record, in the entity's
+//! `context_pack`, the pack of `gsd/phase-context` (a quick plan's research: `gsd/quick-context`) it was written
+//! against. The host computes the pack and its digest, so no command hashes anything, and reports the record
+//! `gsd/W406` when that pack moves.
 //!
 //! Also ports gsd-core bin/lib modules: context-composer.cjs, init.cjs.
 
@@ -8,68 +9,43 @@ use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
 use super::support::{answer, node, required, run};
-use crate::digest::scope_of;
 
-/// The quick plan `id` names in `plan`, through its resolved edge.
-fn quick_plan<'a>(graph: &'a CommandGraph, id: &str) -> Option<&'a str> {
-    graph
-        .edges_from(id)
-        .into_iter()
-        .find(|e| e.label == "plan")
-        .map(|e| e.target.as_str())
+/// Whether `id` names an entity through its edge `label`.
+fn names(graph: &CommandGraph, id: &str, label: &str) -> bool {
+    graph.edges_from(id).into_iter().any(|e| e.label == label)
 }
 
-/// The first context of the owner of `artifact` (its quick plan, else its phase scope; by id, as the drift pass picks
-/// it) and its computed digest.
-fn context_digest<'a>(
-    graph: &'a CommandGraph,
-    artifact: &GraphNode,
-) -> Result<(&'a str, &'a str), String> {
-    let quick = quick_plan(graph, &artifact.id);
-    let scope = scope_of(&artifact.id);
-    if quick.is_none() && scope.is_empty() {
-        return Err(format!(
+/// The route whose pack `artifact` records: a quick plan's research reads its quick plan's context, any other its
+/// phase's; the project's research has none.
+fn route(graph: &CommandGraph, artifact: &GraphNode) -> Result<&'static str, String> {
+    if names(graph, &artifact.id, "plan") {
+        Ok("gsd/quick-context")
+    } else if names(graph, &artifact.id, "phase") {
+        Ok("gsd/phase-context")
+    } else {
+        Err(format!(
             "a project {} has no context",
             artifact.kind.replace('_', " ")
-        ));
+        ))
     }
-    let context = graph
-        .nodes_of_kind("context")
-        .filter(|c| match quick {
-            Some(plan) => quick_plan(graph, &c.id) == Some(plan),
-            None => scope_of(&c.id) == scope,
-        })
-        .min_by(|a, b| a.id.cmp(&b.id))
-        .ok_or(if quick.is_some() {
-            "the quick plan has no context; run /gsd-quick --discuss first"
-        } else {
-            "the phase has no context; run /gsd-discuss-phase first"
-        })?;
-    let digest = context.text("digest").ok_or_else(|| {
-        format!(
-            "the graph carries no computed digest for {}; run `specforge check`",
-            context.id
-        )
-    })?;
-    Ok((&context.id, digest))
 }
 
 fn record(call: &CommandCall<'_>, kind: &str) -> Result<CommandOutput, String> {
     let artifact = node(call, kind, required(call, "entity")?)?;
-    let (context, digest) = context_digest(call.graph(), artifact)?;
+    let route = route(call.graph(), artifact)?;
     let mut plan = call.plan();
-    plan.set(&artifact.id, "context_digest", json!(digest));
+    plan.record_context(&artifact.id, route, None);
     Ok(answer(
         call,
-        json!({ "wrote": [artifact.id], "context": context, "context_digest": digest }),
-        format!("{} recorded against {context}: {digest}\n", artifact.id),
+        json!({ "recorded": artifact.id, "route": route }),
+        format!("{} records the pack of {route}\n", artifact.id),
         Some(&plan),
     ))
 }
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.command("record_research", |cmd| {
-        cmd.description("Record the digest of the phase's or quick plan's context in a research (context_digest), so a later change of the context is gsd/W406")
+        cmd.description("Record the pack of gsd/phase-context (gsd/quick-context for a quick plan's research) on a research, so a later change of its context is gsd/W406")
             .writes()
             .arg("entity", |a| {
                 a.required().description("the research (its path, or a short form that is not ambiguous)");
@@ -77,7 +53,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
             .handler(|call| run(call, |c| record(c, "research")));
     });
     c.command("record_spec", |cmd| {
-        cmd.description("Record the digest of the phase's context in a phase spec (context_digest), so a later change of the context is gsd/W406")
+        cmd.description("Record the pack of gsd/phase-context on a phase spec, so a later change of its context is gsd/W406")
             .writes()
             .arg("entity", |a| {
                 a.required().description("the phase spec (its path, or a short form that is not ambiguous)");
@@ -85,7 +61,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
             .handler(|call| run(call, |c| record(c, "phase_spec")));
     });
     c.command("record_validation", |cmd| {
-        cmd.description("Record the digest of the phase's context in a validation (context_digest), so a later change of the context is gsd/W406")
+        cmd.description("Record the pack of gsd/phase-context on a validation, so a later change of its context is gsd/W406")
             .writes()
             .arg("entity", |a| {
                 a.required().description("the validation (its path, or a short form that is not ambiguous)");
@@ -98,82 +74,44 @@ pub fn declare(c: &mut ContributionsBuilder) {
 mod tests {
     use super::*;
 
-    fn node(id: &str, kind: &str, digest: Option<&str>) -> GraphNode {
-        let mut node = GraphNode {
+    fn node(id: &str, kind: &str) -> GraphNode {
+        GraphNode {
             id: id.to_string(),
             kind: kind.to_string(),
             ..Default::default()
-        };
-        if let Some(digest) = digest {
-            node.fields.insert("digest".into(), json!(digest));
         }
-        node
     }
 
-    #[test]
-    fn an_uncomputed_digest_is_refused() {
-        let research = node("v1.0/02/02-RESEARCH", "research", None);
-        let graph = CommandGraph::new(
-            vec![
-                node("v1.0/02/02-CONTEXT", "context", None),
-                research.clone(),
-            ],
-            Vec::new(),
-        );
-        let why = context_digest(&graph, &research).unwrap_err();
-        assert!(
-            why.contains("no computed digest for v1.0/02/02-CONTEXT"),
-            "{why}"
-        );
-        assert!(why.contains("specforge check"), "{why}");
-    }
-
-    #[test]
-    fn the_digest_is_the_contexts_in_the_same_phase() {
-        let research = node("v1.0/02/02-RESEARCH", "research", None);
-        let graph = CommandGraph::new(
-            vec![
-                node("v1.0/01/01-CONTEXT", "context", Some("fnv1a64:1")),
-                node("v1.0/02/02-CONTEXT", "context", Some("fnv1a64:2")),
-                research.clone(),
-            ],
-            Vec::new(),
-        );
-        assert_eq!(
-            context_digest(&graph, &research),
-            Ok(("v1.0/02/02-CONTEXT", "fnv1a64:2"))
-        );
-    }
-
-    #[test]
-    fn a_quick_research_records_its_own_quick_plans_context() {
-        let edge = |source: &str, plan: &str| GraphEdge {
+    fn edge(source: &str, target: &str, label: &str) -> GraphEdge {
+        GraphEdge {
             source: source.into(),
-            target: plan.into(),
-            label: "plan".into(),
-        };
-        let research = node("251101-abc-RESEARCH", "research", None);
+            target: target.into(),
+            label: label.into(),
+        }
+    }
+
+    #[test]
+    fn a_phase_research_records_the_phase_context_and_a_quick_one_the_quick_context() {
+        let phase = node("v1.0/02/02-RESEARCH", "research");
+        let quick = node("251101-abc-RESEARCH", "research");
         let graph = CommandGraph::new(
+            vec![phase.clone(), quick.clone()],
             vec![
-                node("251101-aaa-CONTEXT", "context", Some("fnv1a64:1")),
-                node("251101-abc-CONTEXT", "context", Some("fnv1a64:2")),
-                research.clone(),
-            ],
-            vec![
-                edge("251101-aaa-CONTEXT", "251101-aaa"),
-                edge("251101-abc-CONTEXT", "251101-abc"),
-                edge("251101-abc-RESEARCH", "251101-abc"),
+                edge(&phase.id, "v1.0/02", "phase"),
+                edge(&quick.id, "251101-abc", "plan"),
             ],
         );
+        assert_eq!(route(&graph, &phase), Ok("gsd/phase-context"));
+        assert_eq!(route(&graph, &quick), Ok("gsd/quick-context"));
+    }
+
+    #[test]
+    fn a_project_research_has_no_context() {
+        let research = node("RESEARCH", "research");
+        let graph = CommandGraph::new(vec![research.clone()], Vec::new());
         assert_eq!(
-            context_digest(&graph, &research),
-            Ok(("251101-abc-CONTEXT", "fnv1a64:2"))
+            route(&graph, &research),
+            Err("a project research has no context".to_string())
         );
-        let lone = CommandGraph::new(
-            vec![research.clone()],
-            vec![edge("251101-abc-RESEARCH", "251101-abc")],
-        );
-        let why = context_digest(&lone, &research).unwrap_err();
-        assert!(why.contains("/gsd-quick --discuss"), "{why}");
     }
 }

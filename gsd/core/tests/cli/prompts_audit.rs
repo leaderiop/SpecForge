@@ -57,3 +57,52 @@ fn audit_milestone_gate_refuses_a_stale_verdict_under_plus() {
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(run.all().contains("E516"), "{}", run.all());
 }
+
+/// The milestone audit records the integration checker's `gsd/E518` verdict once, on the milestone's audit
+/// `<milestone>/A1`, the entity the rule judges: the rendered prompt names it, and on a taskboard copy holding the
+/// audit the record with the basis its inputs give is accepted and read back as the audit's `integration`.
+#[test]
+fn the_integration_verdict_is_recorded_on_the_milestones_audit() {
+    let p = twin();
+    let text = text_of(&payload(&prompt(
+        &p,
+        "audit_milestone",
+        &[MILESTONE],
+        "claude-code",
+    )));
+    assert!(
+        text.contains("record-verdict <milestone>/A1 E518"),
+        "{text}"
+    );
+    assert!(!text.contains("record-verdict <phase> E518"), "{text}");
+    let tb = crate::harness::taskboard();
+    let run = tb.run(&[
+        "new",
+        "milestone_audit",
+        "A1",
+        "v1.0 audit",
+        "--in",
+        "spec/v1.0.spec",
+        "--milestone",
+        "v1.0",
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let inputs = tb.run(&[
+        "query", "v1.0/A1", "--inputs", "gsd/E518", "--format", "json",
+    ]);
+    let inputs: serde_json::Value = serde_json::from_str(&inputs.stdout).expect("the inputs");
+    let basis = inputs["basis"].to_string();
+    let run = super::commands_support::gsd(
+        &tb,
+        "record-verdict",
+        &[
+            "v1.0/A1",
+            "E518",
+            "passed",
+            "gsd-integration-checker",
+            &basis,
+        ],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(tb.fields_of("v1.0/A1")["integration"], "passed");
+}

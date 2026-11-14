@@ -61,7 +61,7 @@
     "Set:",
     "- `TEXT_MODE=true` if `--text` is present or `text_mode` is true. When `TEXT_MODE` is active, replace every `AskUserQuestion` call below with a plain-text numbered list and ask the user to type their choice number — required for non-Claude runtimes (OpenAI Codex, Antigravity, etc.) where `AskUserQuestion` is not available."
   ],
-  "bytes": 30322,
+  "bytes": 30593,
   "end": [
     "- options: Quick (3-5 phases, skip research) | Standard (5-8 phases, default) | Comprehensive (8-12 phases, deep research)",
     "",
@@ -102,7 +102,7 @@
     "",
     "## What onboarding does here",
     "",
-    "`/gsd-map-codebase` is served by `@gsd/codebase`, which is not installed here: the route always takes upstream's \"Skip mapping\" path. The onboarding summary is shown, not written, and the project state is computed, so there is no `STATE.md` to be present or missing."
+    "`/gsd-map-codebase` is served by `@gsd/codebase`, which is not installed here: the route always takes upstream's \"Skip mapping\" path. The onboarding summary is shown, not written, and the project state is computed."
   ],
   "head": [
     "<specforge_gsd_preamble>",
@@ -115,19 +115,21 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
-    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -182,11 +184,9 @@
     "  \"external_job.submit_timeout_ms\": 30000,",
     "  \"fast_mode.enabled\": false,",
     "  \"features.global_learnings\": false,",
-    "  \"features.thinking_partner\": false,",
-    "  \"gates.confirm_milestone_scope\": true,",
-    "  \"gates.confirm_transition\": true,"
+    "  \"features.thinking_partner\": false,"
   ],
-  "lines": 815,
+  "lines": 790,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:3c299a56ce93ea7dab2e84c129d2cead8f6cb173b23ab14691eb1214af90d9b8",
+    "digest": "sha256:3225fba387f5ee0b332b9319ae034a0489d12bd489dfd28d5b4fd7c91868009f",
     "prompt": "@gsd/core@VERSION:onboard",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "3c299a56ce93ea7dab2e84c129d2cead8f6cb173b23ab14691eb1214af90d9b8"
+  "sha256": "3225fba387f5ee0b332b9319ae034a0489d12bd489dfd28d5b4fd7c91868009f"
 }

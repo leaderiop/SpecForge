@@ -5,7 +5,7 @@ Skip this step entirely if NOT `$RESEARCH_MODE`.
 
 Dispatched BEFORE planning, for every not-yet-researched item in the batch —
 row 16 of the design's behavior table. Research is not worktree-isolated (it
-only writes `${item_dir}/${quick_id}-RESEARCH.md`, never touches git), so the
+only records the research `${quick_id}-RESEARCH`, never touches git), so the
 `isolation == none` concurrency cap (row 6) does NOT apply here (row 12) —
 compute concurrency with `mutating=false`:
 
@@ -57,7 +57,6 @@ DATA_END
 **Output:** the `research` entity `${quick_id}-RESEARCH`, with `plan ${quick_id}` (that plan exists: batch-init wrote it, so never `specforge new plan`)
 
 <required_reading>
-
 
 - ./CLAUDE.md or ./.claude/CLAUDE.md (if exists — project-specific guidelines)
 </required_reading>

@@ -2,7 +2,7 @@
 @~/.claude/gsd-core/references/response-language-directive.md
 
 <purpose>
-Power user mode for discuss-phase. Generates ALL questions upfront into a JSON state file and an HTML companion UI, then waits for the user to answer at their own pace. When the user signals readiness, processes all answers in one pass and generates CONTEXT.md.
+Power user mode for discuss-phase. Generates ALL questions upfront into a JSON state file and an HTML companion UI, then waits for the user to answer at their own pace. Once the user says they are ready, it reads every answer in one pass and records the phase's context.
 
 **When to use:** Large phases with many gray areas, or when users prefer to answer questions offline / asynchronously rather than interactively in the chat session.
 </purpose>
@@ -18,14 +18,14 @@ Begin at **Step 1** immediately.
 </trigger>
 
 <step name="check_spec">
-Check whether the phase has a SPEC.md (from the spec-phase workflow). SPEC.md locks requirements before implementation decisions. Here the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' --first 1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the SPEC.md file at `spec_path` is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
+Check whether the phase has a spec (from the spec-phase workflow): it locks requirements before implementation decisions. The phase spec is the phase's `phase_spec` entity in the graph (an AI spec or a UI spec is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' --first 1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC`, and the spec is the entity `$SPEC_ID`.
 
 **If `has_spec` is true:**
-1. Read the SPEC.md file at `spec_path`.
-2. Count requirements (numbered items in `## Requirements`).
-3. Display: `Found SPEC.md — {N} requirements locked. Focusing on implementation decisions.`
+1. Read the spec and its locked requirements: `specforge query "$SPEC_ID" --depth 1 --format context`.
+2. Count its `locked_req` entities: `specforge query "$SPEC_ID" --depth 1 --pick '.nodes[kind=locked_req].id' --count`.
+3. Display: `{N} requirements are locked by the phase spec; this discussion covers implementation decisions only.`
 4. Set `spec_loaded = true`.
-5. Store requirements, boundaries, and acceptance criteria as `<locked_requirements>` — these flow directly into CONTEXT.md without re-asking.
+5. Hold the requirements, boundaries and acceptance criteria as `<locked_requirements>`: the context names the spec, and they are not asked again.
 
 **If `has_spec` is false:** Continue with `spec_loaded = false`.
 
@@ -199,7 +199,7 @@ Open the HTML file, answer the questions at your own pace, then save.
 
 When ready, tell me:
   "refresh"   — process your answers and update the file
-  "finalize"  — generate CONTEXT.md from all answered questions
+  "finalize"  — record the phase context from every answered question
   "explain Q-05"   — elaborate on a specific question
   "exit power mode" — return to standard one-by-one discussion (answers carry over)
 ```
@@ -250,7 +250,7 @@ Proceed to the **finalize** step.
 1. Read all currently answered questions from JSON
 2. Load answers into the internal accumulator as if they were answered interactively
 3. Continue with standard `discuss_areas` step from discuss-phase.md for any unanswered questions
-4. Generate CONTEXT.md as normal
+4. Record the phase context the standard way (`write_context`)
 
 ---
 
@@ -262,7 +262,7 @@ Respond helpfully, then remind the user of available commands:
 </step>
 
 <step name="finalize">
-Process all answered questions from the JSON file and generate CONTEXT.md.
+Every answered question in the JSON file goes into the phase context, recorded through the context template's fence.
 
 1. Read `{phase_dir}/{padded_phase}-QUESTIONS.json`
 2. Filter to questions where `answer` is not null/empty
@@ -272,25 +272,26 @@ Process all answered questions from the JSON file and generate CONTEXT.md.
    - Rationale: the option description, plus `chat_more` content if present
    - Status: "Decided" if fully answered, "Needs clarification" if only chat_more with no option selected
 
-5. Write CONTEXT.md using the standard context template format:
-   - `<spec_lock>` section immediately after `<domain>` when `spec_loaded = true` (template: `discuss-phase/templates/context.md`); do NOT copy SPEC.md requirements into `<decisions>`
-   - the SPEC.md file in `<canonical_refs>` with the note "Locked requirements — MUST read before planning" when `spec_loaded = true`
-   - `<decisions>` section with all answered questions grouped by section
-   - `<deferred_ideas>` section for unanswered questions (carry forward for future discussion)
-   - `<specifics>` section for any chat_more content that adds nuance
-   - `<code_context>` section with reusable assets found during analysis
-   - `<canonical_refs>` section (MANDATORY — paths to relevant specs/docs)
+5. Record the context: read the context template with `specforge gsd reference gsd-core/templates/context.md` and
+   run its fence, as standard discuss-phase does:
+   - one `decision` per answered question, its `area` the question's section and its `rationale` the option
+     description plus any `chat_more` content;
+   - one `deferred_idea` per unanswered question (carried forward for future discussion);
+   - `specifics` for any chat_more content that adds nuance, and the code insights found during analysis;
+   - `canonical_refs` (MANDATORY — paths to relevant specs/docs), with a row naming the spec entity ("Locked
+     requirements — MUST read before planning") when `spec_loaded = true`; its requirements are not copied into
+     decisions.
 
 6. If fewer than 50% of questions were answered, warn the user:
 ```
 Warning: Only {answered}/{total} questions answered ({pct}%).
-CONTEXT.md generated with available decisions. Unanswered questions listed as deferred.
+The phase context holds the decisions answered so far; the unanswered questions are its deferred ideas.
 Consider running /gsd:discuss-phase {N} again to refine before planning.
 ```
 
 7. Print completion message:
 ```
-CONTEXT.md written: {phase_dir}/{padded_phase}-CONTEXT.md
+Context recorded: ${PHASE_ID}/${PADDED_PHASE}-CONTEXT
 
   Decisions captured: {answered}
   Deferred:          {remaining}
@@ -304,7 +305,7 @@ Next step: /gsd:plan-phase {N}
 - HTML companion file is self-contained and usable without a server
 - Stats bar accurately reflects answered/remaining counts after each refresh
 - Answered questions highlighted green in HTML
-- CONTEXT.md generated in the same format as standard discuss-phase output
+- The phase context recorded as the same entities a standard discussion records
 - Unanswered questions preserved as deferred items (not silently dropped)
 - `canonical_refs` section always present in CONTEXT.md (MANDATORY)
 - User knows how to refresh, finalize, explain, or exit power mode

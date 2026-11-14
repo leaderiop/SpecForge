@@ -6,11 +6,11 @@ The text inside `<arguments>` is exactly what the user typed after the command n
 
 <objective>
 Audit Nyquist validation coverage for a completed phase. Three states:
-- (A) VALIDATION.md exists — audit and fill gaps
-- (B) No VALIDATION.md, SUMMARY.md exists — reconstruct from artifacts
+- (A) The phase has a `validation` — audit and fill gaps
+- (B) No `validation`, a summary exists — reconstruct from artifacts
 - (C) Phase not executed — exit with guidance
 
-Output: updated VALIDATION.md + generated test files.
+Output: the `validation` and its `validation_row` entities + generated test files.
 </objective>
 
 <execution_context>

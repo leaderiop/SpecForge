@@ -89,7 +89,7 @@ fn secure_phase_renders_for_three_hosts() {
         assert!(text.contains("<purpose>"), "{host}");
         assert_clean(&text);
         assert!(text.contains("`$PHASE_ID` is `v1.0/01`"), "{host}");
-        // the template ends the text, whose columns are the kinds' fields
+        // the template, which names the kinds, ends the text
         assert!(
             text.contains("<file path=\"gsd-core/templates/SECURITY.md\">"),
             "{host}"
@@ -243,4 +243,68 @@ fn the_prompt_honours_core_response_language() {
     p.settings_of("@gsd/security", json!({"response_language": "French"}));
     let text = text_of(&render(&p, &[PHASE], "claude-code"));
     assert!(text.contains("RESPONSE_LANGUAGE=\"French\""), "{text}");
+}
+
+/// What `secure_phase`'s Rust side writes names no GSD file (ADR 0332 D8): no rendered line that is no asset line
+/// and no row of a preamble table names one.
+#[test]
+fn the_rendered_tail_names_no_gsd_file() {
+    let text = text_of(&render(&model(), &[PHASE], "claude-code"));
+    let assets: std::collections::HashSet<String> = gsd_security::prompts::ASSETS
+        .iter()
+        .flat_map(|(_, text)| {
+            gsd_kit::prompt::render::without_notice(text)
+                .lines()
+                .map(|line| {
+                    let line = gsd_kit::prompt::repoint::repoint(line, "claude-code", &|_| true);
+                    gsd_kit::prompt::host::convert("claude-code", &line)
+                        .trim()
+                        .to_string()
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let preamble = text.find("</specforge_gsd_preamble>").unwrap_or(0);
+    let lines: Vec<&str> = text.split('\n').collect();
+    let mut at = 0;
+    let starts: Vec<usize> = lines
+        .iter()
+        .map(|l| {
+            let start = at;
+            at += l.len() + 1;
+            start
+        })
+        .collect();
+    let hits = super::planning_names::hits("security-prompt:secure_phase", &text, |n| {
+        let line = lines[n].trim();
+        !(line.starts_with('|') && starts[n] < preamble) && !assets.contains(line)
+    });
+    super::planning_names::assert_none(&hits);
+}
+
+/// No rendered line of `secure_phase` tells an agent to edit a state file or a part of one, or to generate one: core's
+/// detectors over the text as rendered, the preamble's file table (a read list) skipped.
+#[test]
+fn no_rendered_line_tells_an_agent_to_write_a_gsd_file() {
+    use super::markdown_writes::{generates, section_edits};
+    let text = text_of(&render(&model(), &[PHASE], "claude-code"));
+    let preamble = text.find("</specforge_gsd_preamble>").unwrap_or(0);
+    let preamble_lines = text[..preamble].matches('\n').count();
+    let lines: Vec<&str> = text.split('\n').collect();
+    let hits: Vec<String> = section_edits(&text)
+        .union(&generates(&text))
+        .filter(|n| !(lines[**n].trim().starts_with('|') && **n <= preamble_lines))
+        .map(|n| {
+            format!(
+                "security-prompt:secure_phase:{} {}",
+                n + 1,
+                lines[*n].trim()
+            )
+        })
+        .collect();
+    assert!(
+        hits.is_empty(),
+        "a write is a typed edit (ADR 0343 D10):\n{}",
+        hits.join("\n")
+    );
 }

@@ -155,7 +155,7 @@ fn task_commits(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic> {
     of_kind(input, "task")
         .filter(|task| text(task, "type") != Some("manual"))
         .filter(|task| {
-            let plan = crate::digest::scope_of(&task.id);
+            let plan = crate::scope::scope_of(&task.id);
             let executed = of_kind(input, "plan")
                 .find(|p| p.id == plan)
                 .and_then(|p| text(p, "status"))

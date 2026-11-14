@@ -4,7 +4,7 @@
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, fields, next_id, node, now, ops_file, required, run, title};
+use super::support::{answer, fields, next_id, node, now, ops_file, required, run, target, title};
 
 /// `pause <reason> [--phase] [--plan] [--handoff] [--by]`: a pause, `PSn` in its phase (or the project).
 fn pause(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
@@ -75,7 +75,29 @@ fn resume(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     ))
 }
 
-/// `raise_blocker <text> [--phase] [--plan]`: a blocker, `BLn` in the project.
+/// The task `--gate` names, under `plan`: `T1` resolves under the plan, a full id must be one of its tasks.
+fn gate<'a>(
+    call: &CommandCall<'a>,
+    plan: Option<&GraphNode>,
+) -> Result<Option<&'a GraphNode>, String> {
+    let Some(task) = call.str("gate") else {
+        return Ok(None);
+    };
+    let plan = plan.ok_or("--gate needs --plan: the gate is a task of the plan")?;
+    let id = if task.contains('/') {
+        task.to_string()
+    } else {
+        format!("{}/{task}", plan.id)
+    };
+    let found = node(call, "task", &id)?;
+    if target(call.graph(), &found.id, "plan") != Some(plan.id.as_str()) {
+        return Err(format!("task '{task}' is not a task of plan '{}'", plan.id));
+    }
+    Ok(Some(found))
+}
+
+/// `raise_blocker <text> [--phase] [--plan] [--gate <task>]`: a blocker, `BLn` in the project. A gate trip reuses the
+/// open blocker of the same gate.
 fn raise_blocker(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     // a heredoc read with `read -rd ''` keeps its last newline: the blocker is the words alone
     let words = required(call, "text")?.trim_end();
@@ -87,6 +109,21 @@ fn raise_blocker(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         .str("plan")
         .map(|p| node(call, "plan", p))
         .transpose()?;
+    let gate = gate(call, plan)?;
+    let graph = call.graph();
+    if let Some(task) = gate {
+        let open = graph.nodes_of_kind("blocker").find(|b| {
+            !b.has_field("resolved") && target(graph, &b.id, "gate") == Some(task.id.as_str())
+        });
+        if let Some(open) = open {
+            return Ok(answer(
+                call,
+                json!({ "reused": open.id, "wrote": [] }),
+                format!("blocker {} is already open for {}\n", open.id, task.id),
+                None,
+            ));
+        }
+    }
     let raised = now(call)?;
     let name = next_id(call.graph(), "blocker", "", "BL");
     let anchor = plan.or(phase).map(|n| n.id.as_str());
@@ -100,6 +137,7 @@ fn raise_blocker(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
             ("text", json!(words)),
             ("phase", phase.map_or(Value::Null, |p| json!(p.id))),
             ("plan", plan.map_or(Value::Null, |p| json!(p.id))),
+            ("gate", gate.map_or(Value::Null, |t| json!(t.id))),
             ("raised", json!(raised)),
         ]),
         Vec::new(),
@@ -171,6 +209,9 @@ pub fn declare(c: &mut ContributionsBuilder) {
             })
             .arg("plan", |a| {
                 a.description("the plan it blocks");
+            })
+            .arg("gate", |a| {
+                a.description("the task whose TDD gate tripped (`T1` under --plan, or its full id): an open blocker of the same gate is reused");
             })
             .handler(|call| run(call, raise_blocker));
     });

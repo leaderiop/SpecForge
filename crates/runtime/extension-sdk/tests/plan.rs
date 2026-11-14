@@ -155,6 +155,31 @@ fn a_verdict_op_has_no_file_revision() {
     assert_eq!(value["ops"][0]["cited"], json!([]));
 }
 
+#[specforge_test(
+    behavior = "record_context_pack",
+    verify = "a record_context op names the entity, the route and the budget, and no revision"
+)]
+fn a_record_context_op_names_the_entity_route_and_budget() {
+    let mut plan = PlanBuilder::new(Default::default(), Default::default());
+    plan.record_context("02-01", "gsd/executor", Some(4000))
+        .record_context("02-02", "gsd/executor", None);
+    let value = serde_json::to_value(plan.finish()).unwrap();
+    assert_eq!(
+        value["ops"],
+        json!([
+            {"op": "record_context", "entity": "02-01", "route": "gsd/executor", "max_tokens": 4000},
+            {"op": "record_context", "entity": "02-02", "route": "gsd/executor"},
+        ])
+    );
+    assert!(matches!(
+        &plan.finish().ops[1],
+        PlanOp::RecordContext {
+            max_tokens: None,
+            ..
+        }
+    ));
+}
+
 #[specforge_test(behavior = "refuse_human_only_write", verify = "human sets writes")]
 fn human_sets_writes() {
     let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/h", "1.0.0"));

@@ -175,7 +175,8 @@ fn the_workflow_cases() {
             // the capability check: the hooks of every capability extension at `verify:post`
             "-hooks\" verify:post",
             "ref.skill == \"secure-phase\"",
-            "SECURITY.md",
+            // the template is appended to the prompt, so the workflow names it, not its path
+            "the template (it ends this text)",
             "<success_criteria>",
             "</success_criteria>",
         ],
@@ -186,31 +187,22 @@ fn the_workflow_cases() {
 #[test]
 fn the_template_cases() {
     let t = template();
-    let front = t.split("---").nth(1).expect("frontmatter");
-    for field in [
-        "phase",
-        "slug",
-        "status",
-        "threats_open",
-        "asvs_level",
-        "created",
-    ] {
-        assert!(front.contains(&format!("{field}:")), "{field}");
-    }
+    // the register is entities now: the template names the kinds and the commands, no frontmatter, no tables
+    assert!(!t.contains("\n---\n"), "frontmatter");
     has_all(
         t,
         &[
-            "## Trust Boundaries",
-            "## Threat Register",
-            "Threat ID",
-            "Category",
-            "Component",
+            "`security_audit`",
+            "`trust_boundary`",
+            "`threat`",
+            "`accepted_risk`",
+            "`audit_run`",
+            "specforge schema --kind security_audit",
+            "specforge gsd record-security-audit",
+            "specforge gsd accept-risk",
+            "`threats_open`",
             "Severity",
             "Disposition",
-            "Mitigation",
-            "Status",
-            "## Accepted Risks Log",
-            "## Security Audit Trail",
             "## Sign-Off",
             "- [ ]",
         ],
@@ -237,12 +229,12 @@ fn the_config_cases() {
 #[test]
 fn the_validation_cases() {
     let v = core_asset("gsd-core/templates/VALIDATION.md");
-    let header = v
+    let line = v
         .lines()
         .find(|l| l.contains("Threat Ref") && l.contains("Secure Behavior"))
-        .expect("both columns in one header");
-    assert!(header.starts_with('|'));
-    assert!(v.find("Threat Ref") > v.find("## Per-Task Verification Map"));
+        .expect("both columns in one line");
+    assert!(line.contains("`--threat <threat id>`") && line.contains("`--secure_behavior`"));
+    assert!(v.find("Threat Ref") < v.find("new validation_row"));
     // and the model: the row gains the two fields (`declaration.rs` pins them)
     let json = described("enhancements").to_string();
     assert!(json.contains("secure_behavior") && json.contains("\"threat\""));
@@ -259,7 +251,7 @@ fn the_severity_gate_cases() {
     has_all(
         planner,
         &[
-            "| Threat ID | Category | Component | Severity | Disposition | Mitigation Plan |",
+            "--severity <s>",
             "critical|high|medium|low",
             "Every threat has a Severity (critical|high|medium|low)",
         ],
@@ -431,23 +423,24 @@ const SECURE_PORTED: &[(&str, &str, &str)] = &[
     (
         "contains SECURITY.md template reference",
         "the_workflow_cases",
-        "\"SECURITY.md\"",
+        "\"the template (it ends this text)\"",
     ),
     (
         "has success_criteria section",
         "the_workflow_cases",
         "\"</success_criteria>\"",
     ),
+    // the template's frontmatter and sections are kinds here: each case names the kind that replaced it
     ("template exists", "the_template_cases", "template()"),
     (
         "has YAML frontmatter with required fields",
         "the_template_cases",
-        "\"asvs_level\"",
+        "\"`security_audit`\"",
     ),
     (
         "has ## Trust Boundaries section",
         "the_template_cases",
-        "\"## Trust Boundaries\"",
+        "\"`trust_boundary`\"",
     ),
     (
         "has ## Threat Register table with required columns",
@@ -457,18 +450,18 @@ const SECURE_PORTED: &[(&str, &str, &str)] = &[
     (
         "has ## Accepted Risks Log section",
         "the_template_cases",
-        "\"## Accepted Risks Log\"",
+        "\"`accepted_risk`\"",
     ),
     (
         "has ## Security Audit Trail section",
         "the_template_cases",
-        "\"## Security Audit Trail\"",
+        "\"`audit_run`\"",
     ),
     ("has sign-off checklist", "the_template_cases", "\"- [ ]\""),
     (
         "threats_open field is present (terminal condition field)",
         "the_template_cases",
-        "\"threats_open\"",
+        "\"`threats_open`\"",
     ),
     (
         "config template exists",
@@ -508,12 +501,12 @@ const SECURE_PORTED: &[(&str, &str, &str)] = &[
     (
         "both columns appear in the Per-Task Verification Map table",
         "the_validation_cases",
-        "\"## Per-Task Verification Map\"",
+        "\"new validation_row\"",
     ),
     (
         "gsd-planner.md threat_model register header has Severity column",
         "the_severity_gate_cases",
-        "\"| Threat ID | Category | Component | Severity | Disposition | Mitigation Plan |\"",
+        "\"--severity <s>\"",
     ),
     (
         "gsd-planner.md security instruction assigns severity to each threat",

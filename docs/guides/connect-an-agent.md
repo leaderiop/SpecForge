@@ -51,15 +51,15 @@ also serves 2026-07-28 (stateless) requests (ADR 0004, D4-c).
 
 ### Tools
 
-The server exposes 39 core tools, plus the commands of the extensions your project enables.
+The server exposes 40 core tools, plus the commands of the extensions your project enables.
 
 | Job | Tools |
 |---|---|
-| **Read the graph** | `specforge.query` (an entity and its neighbours, to a depth), `specforge.inspect` (one entity in full), `specforge.list` (entities by kind and field values), `specforge.search` (by id, title or text), `specforge.trace` (what an entity traces to; or check an agent's plan for gaps), `specforge.export`, `specforge.stats`, `specforge.outline` (a file's entities) |
+| **Read the graph** | `specforge.query` (an entity and its neighbours, to a depth), `specforge.inspect` (one entity in full), `specforge.list` (entities by kind and field values), `specforge.search` (by id, title or text; `specforge search` on the command line), `specforge.trace` (what an entity traces to, or every entity within one with `in`; or check an agent's plan for gaps), `specforge.export`, `specforge.context` (the context a route of an extension declares for one entity, cut to its budget, with a digest; `specforge context` on the command line), `specforge.stats`, `specforge.outline` (a file's entities) |
 | **Learn the vocabulary** | `specforge.schema` (every kind the loaded extensions declare, with its fields and edges), `specforge.model`, `specforge.extensions`, `specforge.outline_extensions`, `specforge.explain` (a diagnostic code) |
 | **Change the graph** | `specforge.edit` (typed edits: create, set, unset, append, remove, retitle, link, unlink, add_verify, remove_verify, delete — all or nothing), `specforge.rename` (an entity, across every file), `specforge.format`, `specforge.migrate`, `specforge.suggest_fixes` (the fixes the LSP offers, with their edits) |
 | **Check it** | `specforge.validate` (recompile and report diagnostics), `specforge.analyze` (analysis passes, coverage among them; the SMT `--prove` pass is CLI-only), `specforge.coverage`, `specforge.doctor` |
-| **Navigate to the source** | `specforge.find_definition`, `specforge.find_references`, `specforge.find_implementation` (the code anchored to an entity, by file and line), `specforge.find_spec_for_source` (the entities anchored in a source file) |
+| **Navigate to the source** | `specforge.find_definition`, `specforge.find_references` (`specforge refs` on the command line), `specforge.find_implementation` (the code anchored to an entity, by file and line), `specforge.find_spec_for_source` (the entities anchored in a source file) |
 | **Set up the project** | `specforge.init`, `specforge.add_extension`, `specforge.remove_extension`, `specforge.settings_set` (write or remove one setting of `specforge.json`; never a secret), `specforge.providers` |
 | **Proof and inference** | `specforge.collect` (record what the project's tests prove; it runs a test runner only with `run: true` and your prior approval), `specforge.infer_session`, `specforge.infer_progress`, `specforge.infer_gaps` (guides for writing specs from existing code) |
 
@@ -79,8 +79,8 @@ moment it is installed ([Extending SpecForge](extending-specforge.md#a-command))
 ### Resources and prompts
 
 - **Resources:** `specforge://graph`, `specforge://schema`, `specforge://context`, `specforge://brief` and
-  `specforge://diagnostics`, plus templates for one entity (`specforge://graph/{entity_id}`,
-  `specforge://context/{entity_id}`) and one kind (`specforge://entities/{kind}`). A client that subscribes
+  `specforge://diagnostics`, plus templates for one entity (`specforge://graph/{+entity_id}`,
+  `specforge://context/{+entity_id}`, which with `?role=<route>` answers the pack that context route declares for the entity; an id is written as is, `/` included) and one kind (`specforge://entities/{kind}`). A client that subscribes
   hears when they change.
 - **Prompts:** `specforge://prompts/context`, `review`, `trace`, `explore` and `infer`: ready-made
   instructions for common jobs (load the context of an entity, review coverage gaps, explore the graph,

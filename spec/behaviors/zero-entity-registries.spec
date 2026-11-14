@@ -158,7 +158,7 @@ behavior suggest_missing_extensions "Suggest Missing Extensions" {
     e024_diagnostic_emitted "An E024 (unknown entity kind) diagnostic has been emitted and requires help text enrichment"
   }
   ensures {
-    suggestion_provided "Help text includes extension suggestion from the candidate vocabulary or fallback to specforge search"
+    suggestion_provided "Help text includes extension suggestion from the candidate vocabulary or fallback to specforge extensions search"
     no_network          "The vocabulary is data the host embeds, never fetched"
   }
   contract   """
@@ -167,14 +167,14 @@ behavior suggest_missing_extensions "Suggest Missing Extensions" {
     The suggestion MUST use the candidate vocabulary the registry build is
     handed (not compiler source or data). The vocabulary maps keywords to
     their providing extensions. If no mapping exists for the unknown keyword,
-    the help text MUST suggest running specforge search. A build handed no
-    vocabulary suggests specforge search. If the vocabulary's text is
+    the help text MUST suggest running specforge extensions search. A build handed no
+    vocabulary suggests specforge extensions search. If the vocabulary's text is
     malformed, the behavior MUST silently fall back to suggesting specforge
     search for all unknown keywords. The vocabulary changes only
     suggestions, never which diagnostics are reported.
   """
   verify unit "E024 for keyword in index suggests the providing extension"
-  verify unit "E024 for keyword not in index suggests specforge search"
+  verify unit "E024 for keyword not in index suggests specforge extensions search"
   verify unit "the candidate vocabulary changes only suggestions, never which diagnostics a check reports"
   verify unit "the builtin vocabulary is what the builtins' pinned declarations declare"
   verify contract "Suggest Missing Extensions: missing extension suggestions holds — e024_diagnostic_emitted, suggestion_provided, no_network"

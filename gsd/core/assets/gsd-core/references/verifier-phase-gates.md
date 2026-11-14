@@ -45,15 +45,13 @@ caller error about the phase directory (`reason` is `'phase directory not found'
 `'phase path is not a directory'`, `'phase directory unreadable'` or
 `'phase directory holds no plans'`), `total` and `honored` are `null` and
 `not_honored` is `[]`; nothing was checked, so there is no count to report.
-A non-zero `DECISION_EXIT` (`69` `UNAVAILABLE`: the gate
-could not read CONTEXT.md or the phase artifacts, #5170) is **not** "no decisions": record
-`Decision coverage: not evaluated (the gate could not read its evidence)` in VERIFICATION.md
-and do not report counts.
+Exit `69` (`UNAVAILABLE`, #5170) from the gate, or any other non-zero `DECISION_EXIT`, tells you
+it never got to read the phase's context or its plans. That is **not** "no decisions", so the
+report you return says `Decision coverage: not evaluated (the gate could not read its evidence)` as it stands, and no count goes with it, because the gate has checked nothing at all.
 
-**Reporting:** Append the handler's `message` (a `### Decision Coverage`
-section) to VERIFICATION.md regardless of outcome — even when all
-decisions are honored, recording the count helps reviewers spot drift over
-time. Set `decision_coverage` in the verification result to
+**Reporting:** Whatever the outcome, the report you return quotes the handler's `message`,
+headed `### Decision Coverage`. The count is worth having even when every decision
+holds, since it lets reviewers see drift from one phase to the next. Set `decision_coverage` in the verification result to
 `{honored, total, not_honored: [...]}` so downstream tooling can read it.
 On a caller error that is `{honored: null, total: null, not_honored: []}`;
 pass the nulls through rather than coercing them to `0`.
@@ -137,7 +135,7 @@ If a requirement demands value-level or behavioral-level proof and the test only
 
 If a requirement specifies a quantity of test cases (e.g., "30 calculations"), check if the actual number of active (non-skipped) test cases meets the requirement.
 
-**Reporting — add to VERIFICATION.md:**
+**Reporting — in the report you return:**
 
 ```markdown
 ### Test Quality Audit

@@ -194,23 +194,27 @@ fn select<'g>(graph: &'g Graph, options: &EmitOptions<'_>) -> Cow<'g, Graph> {
 
 /// How one export is written: its format, its schema and how it is attached,
 /// and the field registry the context format reads.
-struct Shape<'a> {
+pub(crate) struct Shape<'a> {
     /// Never DOT: it is rendered before a `Shape` exists.
-    format: EmitFormat,
-    schema: &'a GraphProtocolSchema,
+    pub(crate) format: EmitFormat,
+    pub(crate) schema: &'a GraphProtocolSchema,
     /// How the schema is carried; `None`: not at all.
-    attach: Option<SchemaAttachment>,
-    fields: &'a FieldRegistry,
-    coverage: Option<&'a BTreeMap<String, Status>>,
-    computed: Option<&'a Computed>,
-    judgements: Option<&'a BTreeMap<String, Vec<Judgement>>>,
-    checks: Option<&'a BTreeMap<String, Vec<crate::json::ValueCheckJson>>>,
+    pub(crate) attach: Option<SchemaAttachment>,
+    pub(crate) fields: &'a FieldRegistry,
+    pub(crate) coverage: Option<&'a BTreeMap<String, Status>>,
+    pub(crate) computed: Option<&'a Computed>,
+    pub(crate) judgements: Option<&'a BTreeMap<String, Vec<Judgement>>>,
+    pub(crate) checks: Option<&'a BTreeMap<String, Vec<crate::json::ValueCheckJson>>>,
 }
 
 impl Shape<'_> {
     /// `graph` in this shape, with `budget` as its `token_budget` block when
     /// given: the one format x schema table.
-    fn render(&self, graph: &Graph, budget: Option<&TokenBudget>) -> Result<String, EmitterError> {
+    pub(crate) fn render(
+        &self,
+        graph: &Graph,
+        budget: Option<&TokenBudget>,
+    ) -> Result<String, EmitterError> {
         match self.format {
             EmitFormat::Json => self
                 .envelope(
@@ -278,7 +282,7 @@ impl Shape<'_> {
         match self.attach {
             Some(SchemaAttachment::Embedded) => serde_json::to_string(self.schema)
                 .ok()
-                .map(|json| crate::budget::estimate_tokens(&json)),
+                .map(|json| specforge_protocol_types::tokens::estimate_tokens(&json)),
             _ => None,
         }
     }

@@ -71,6 +71,9 @@ pub const PLAN: Kind = Kind::new(
             "how many plans `estimate.tokens` makes under `workflow.smart_zone_tokens`, rounded up: over 1 is a \
              re-slice to recommend, never a block; absent without an estimate",
         ),
+        context_record("context_pack")
+            .o()
+            .doc("the `gsd/executor` pack `start-plan` recorded (gsd/W524)"),
     ],
 )
 .scoped_by("phase")
@@ -170,6 +173,9 @@ pub const DISPOSITION: Kind = Kind::new(
         str("feedback").r().i().doc("the finding"),
         en("outcome", OUTCOME).r().i().doc("addressed or deferred"),
         str("reason").i().doc("why it was deferred"),
+        rf("concern", "review_concern")
+            .i()
+            .doc("the review concern it rules on; the concern's status reads the highest round"),
     ],
 )
 .append_only()

@@ -10,7 +10,7 @@ Canonical domain terms for the concepts named below live in [CONTEXT.md](https:/
 | File | Purpose | Loaded by |
 |---|---|---|
 | `gsd-core/references/planner-mvp-mode.md` | **Rules.** Vertical-slice planning rules, slice ordering, Walking Skeleton constraints. | `gsd-planner` agent when `MVP_MODE=true` |
-| `gsd-core/references/skeleton-template.md` | **Template.** Shape of `SKELETON.md` for new-project Phase 1 under `--mvp`. | `gsd-planner` agent when the Walking Skeleton gate fires |
+| `gsd-core/references/skeleton-template.md` | **Template.** The fence a Phase-1 walking skeleton of a brand-new project runs under `--mvp`, to turn each of its architectural choices into a project decision. | `gsd-planner` agent when the Walking Skeleton gate fires |
 | `gsd-core/references/user-story-template.md` | **Template.** Format and slot definitions for `As a / I want to / So that`. | `gsd-mvp-phase` workflow during interactive prompting; `gsd-planner` when emitting the `## Phase Goal` header |
 | `gsd-core/references/spidr-splitting.md` | **Splitting discipline.** Five-axis decomposition (Spike, Paths, Interfaces, Data, Rules) for stories too large for one phase. | `gsd-mvp-phase` workflow when the user story exceeds size threshold |
 | `gsd-core/references/execute-mvp-tdd.md` | **Gate.** TDD runtime gate semantics: when it fires, what it checks, halt-and-report protocol, end-of-phase blocking escalation, Behavior-Adding Task definition. | `gsd-executor` agent when `TDD_MODE=true` (#4011) |
@@ -24,15 +24,15 @@ If you're looking for the canonical statement of a concept, this is where to fin
 - **`**Mode:** mvp` parser** — `gsd-core/bin/lib/roadmap.cjs` (`searchPhaseInContent` + `cmdRoadmapAnalyze`). Workflows compare against the parser output, never re-parse.
 - **User Story regex** — `/^As a .+, I want to .+, so that .+\.$/` — applied at runtime by `gsd-verifier` (the user-story-format guard) and `gsd-mvp-phase` (interactive validation).
 - **Behavior-Adding Task predicate** — `gsd-core/references/execute-mvp-tdd.md` (the canonical three-check definition). Applied at runtime by `gsd-executor`.
-- **Walking Skeleton gate condition** — `workflows/plan-phase.md` (Phase 1 + new project + `--mvp` + no prior summaries → emit `SKELETON.md`).
+- **Walking Skeleton gate condition** — decided in `workflows/plan-phase.md`: a brand-new project on its Phase 1, planned under `--mvp` and with no summary recorded yet, gets a skeleton whose choices become project decisions.
 - **MVP+TDD Gate** (RED→GREEN enforcement) — `gsd-core/references/execute-mvp-tdd.md`.
 - **MVP-mode UAT framing** (user-flow first, technical deferred) — `gsd-core/references/verify-mvp-mode.md`.
-- **Per-phase mode authoring** — `workflows/mvp-phase.md` (writes `**Mode:** mvp` to ROADMAP.md after collecting the user story).
+- **Per-phase mode authoring** — `workflows/mvp-phase.md` (sets the phase's `mode` to `mvp` after collecting the user story).
 - **Project-wide mode prompt at init** — `workflows/new-project.md` (Vertical MVP vs Horizontal Layers question).
 
 ## Interactions worth knowing
 
-- **`--mvp` and `--prd <file>` together on Phase 1.** Both paths converge at the planner spawn. The PRD express path creates `CONTEXT.md` from the PRD file and continues to the research step; the Walking Skeleton gate fires independently when Phase 1 + new project + `--mvp`. The planner therefore receives both `WALKING_SKELETON=true` and PRD-derived context. This is intentional: the PRD informs what the skeleton should prove.
+- **`--mvp` and `--prd <file>` together on Phase 1.** Both paths converge at the planner spawn. The PRD express path records the phase's `context` entity from the PRD file and continues to the research step; the Walking Skeleton gate fires independently when Phase 1 + new project + `--mvp`. The planner therefore receives both `WALKING_SKELETON=true` and PRD-derived context. This is intentional: the PRD informs what the skeleton should prove.
 - **`MVP_MODE` is all-or-nothing per phase, not per task.** A phase is either MVP-mode or standard. Mixed-mode phases are not supported (PRD #2826 Q1).
 - **`TDD_MODE` is independent of `MVP_MODE`.** TDD can be on without MVP, MVP can be on without TDD. The TDD runtime gate activates on `TDD_MODE` alone (#4011); MVP mode remains free to imply TDD without being required by it.
 - **The `gsd-roadmapper` agent makes the MVP/standard decision once at project init** based on `PROJECT_MODE`. Per-phase opt-in/out happens later via `/gsd:mvp-phase` or `/gsd-edit-phase`.

@@ -1,54 +1,25 @@
 //! The ported workflows, references, templates and command files against the vendored upstream files (gsd-core
-//! v1.19.0, D-r42-4): line for line, a line may differ only where upstream's names `.planning`, `gsd-tools`,
-//! `gsd_run` or `gsd-sdk`, or where a link left the tree (`REWRITTEN`).
+//! v1.19.0): the vendored tree lists every asset, nothing waits for a re-port, and the hook stubs ask the capability
+//! extensions. `port::the_port_lock_maps_every_asset` maps each span by span (ADR 0332).
 
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
-#[path = "common/port.rs"]
-mod rule;
-use rule::check_lines;
-
+#[path = "common/asset_code.rs"]
+mod asset_code;
+#[path = "common/command_word.rs"]
+mod command_word;
+#[path = "common/files.rs"]
+mod files;
+#[path = "common/ledger.rs"]
+mod ledger;
 #[path = "common/pending.rs"]
 mod pending;
-
-#[path = "common/jq_rewrites.rs"]
-mod jq_rewrites;
-
-#[path = "common/quick_rewrites.rs"]
-mod quick_rewrites;
-
-#[path = "common/git_rewrites.rs"]
-mod git_rewrites;
-
-#[path = "common/review_rewrites.rs"]
-mod review_rewrites;
-
-#[path = "common/relic_rewrites.rs"]
-mod relic_rewrites;
-
-#[path = "common/args_rewrites.rs"]
-mod args_rewrites;
-
-#[path = "common/files_rewrites.rs"]
-mod files_rewrites;
-
-#[path = "common/answer_rewrites.rs"]
-mod answer_rewrites;
-
-#[path = "common/wait_rewrites.rs"]
-mod wait_rewrites;
-
-#[path = "common/prose_rewrites.rs"]
-mod prose_rewrites;
-
-#[path = "common/thread_rewrites.rs"]
-mod thread_rewrites;
-
-#[path = "common/workflow_rewrites.rs"]
-mod workflow_rewrites;
-use workflow_rewrites::{REWRITTEN, REWRITTEN_SPANS};
+#[path = "common/port_map.rs"]
+mod port_map;
+#[path = "common/specforge_only.rs"]
+mod specforge_only;
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
@@ -84,81 +55,21 @@ pub fn assets() -> Vec<String> {
     all
 }
 
-/// The vendored copy of an asset: upstream's own name, or `<name>.txt` for a file whose links leave the tree.
-fn vendored(path: &str) -> PathBuf {
-    let plain = vendored_root().join(path);
-    if plain.is_file() {
-        plain
-    } else {
-        vendored_root().join(format!("{path}.txt"))
-    }
-}
-
-/// The body of an upstream file: a command file loses its frontmatter, which the slash binding carries.
-fn body(path: &str) -> Vec<String> {
-    let file = vendored(path);
-    let text = std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{}: {e}", file.display()));
-    let mut lines: Vec<String> = text.split('\n').map(String::from).collect();
-    if path.starts_with("commands/") {
-        assert_eq!(lines[0], "---", "{path} has no frontmatter");
-        let end = lines[1..]
-            .iter()
-            .position(|l| l == "---")
-            .expect("a closing ---")
-            + 1;
-        lines.drain(..=end);
-    }
-    lines
-}
-
-#[test]
-fn workflow_assets_diff_only_in_ported_passages() {
-    let rx = Regex::new(r"\.planning|gsd-tools|gsd_run|gsd-sdk").expect("a regex");
-    let mut checked = 0;
-    for path in assets().into_iter().filter(|p| p.ends_with(".md")) {
-        let asset = std::fs::read_to_string(root().join("assets").join(&path)).expect("an asset");
-        let theirs = body(&path);
-        relic_rewrites::assert_blanked(&path, &asset);
-        let check = || {
-            check_lines(&path, &path, &asset, &theirs, &rx, &|n| {
-                REWRITTEN.contains(&(path.as_str(), n))
-                    || jq_rewrites::LINES.contains(&(path.as_str(), n))
-                    || review_rewrites::LINES.contains(&(path.as_str(), n))
-                    || relic_rewrites::LINES.contains(&(path.as_str(), n))
-                    || rule::in_spans(
-                        REWRITTEN_SPANS
-                            .iter()
-                            .chain(jq_rewrites::SPANS)
-                            .chain(quick_rewrites::SPANS)
-                            .chain(git_rewrites::SPANS)
-                            .chain(relic_rewrites::SPANS)
-                            .chain(args_rewrites::SPANS)
-                            .chain(files_rewrites::SPANS)
-                            .chain(answer_rewrites::SPANS)
-                            .chain(wait_rewrites::SPANS)
-                            .chain(prose_rewrites::SPANS)
-                            .chain(thread_rewrites::SPANS),
-                        &path,
-                        n,
-                    )
-                    || relic_rewrites::blanked(&path, n, &theirs[n])
-            });
-        };
-        if pending::is_pending(&path) {
-            pending::assert_still_pending(&path, check);
-            continue;
-        }
-        check();
-        checked += 1;
-    }
-    assert!(checked > 0, "no workflow asset was checked");
-}
-
-/// Every path waiting for its re-port is a file of the snapshot (a misspelt path would skip nothing).
+/// Every path waiting for its re-port is a file of the snapshot (a misspelt path would skip nothing), and none is an
+/// asset's: an asset re-ports by span (ADR 0332 D6).
 #[test]
 fn every_pending_path_is_vendored() {
+    let assets = port_map::assets();
     for path in pending::PENDING_RESYNC {
-        assert!(vendored(path).is_file(), "{path} is not in the snapshot");
+        let plain = vendored_root().join(path);
+        assert!(
+            plain.is_file() || vendored_root().join(format!("{path}.txt")).is_file(),
+            "{path} is not in the snapshot"
+        );
+        assert!(
+            !assets.iter().any(|a| port_map::upstream_path(a) == *path),
+            "{path} is an asset: its spans resync in port.lock, not here"
+        );
     }
 }
 
@@ -179,8 +90,12 @@ fn security_assets() -> Vec<String> {
     all
 }
 
-/// Vendored for its metadata alone: the prompt renders text of ours (D-r43-16), so the file is not an asset.
-const VENDORED_ONLY: &[&str] = &["commands/gsd/update.md"];
+/// Vendored, not assets: `update.md` for its metadata alone, since the prompt renders text of ours (D-r43-16), and
+/// discuss-phase's `checkpoint.json` shape, which the `discussion` entity's `checkpoint` field replaced.
+const VENDORED_ONLY: &[&str] = &[
+    "commands/gsd/update.md",
+    "gsd-core/workflows/discuss-phase/templates/checkpoint.json",
+];
 
 #[test]
 fn the_vendored_tree_lists_every_asset() {
@@ -233,10 +148,10 @@ fn every_hook_stub_asks_the_capability_extensions() {
             !asset.contains("no hooks to render"),
             "{path}: a stub is left"
         );
-        let mine: Vec<&str> = asset.split('\n').skip(1).collect();
-        // a file waiting for its re-port has moved its lines: it must still hold each call, somewhere
-        let pending = pending::is_pending(&path);
-        for (n, theirs) in body(&path).iter().enumerate() {
+        let mine = port_map::asset_body(&path);
+        let (theirs_body, _) = port_map::upstream_body(&path);
+        let spans = port_map::map(&path);
+        for (n, theirs) in theirs_body.iter().enumerate() {
             let Some(c) = twin.captures(theirs) else {
                 continue;
             };
@@ -265,14 +180,19 @@ fn every_hook_stub_asks_the_capability_extensions() {
                 Some(open) => format!("{}{}={}{call}}}{NOTE}", &c[1], &c[2], open.as_str()),
                 None => format!("{}{}={call}{NOTE}", &c[1], &c[2]),
             };
-            if pending {
-                // upstream's identical lines (one hook point asked twice) each need their own call
-                let sites = body(&path).iter().filter(|l| *l == theirs).count();
-                let calls = mine.iter().filter(|l| **l == want).count();
-                assert!(calls >= sites, "{path}:{n}: the call is gone");
-            } else {
-                assert_eq!(mine[n], want, "{path}:{n}");
-            }
+            // the own span over upstream's line holds the call, once for each identical upstream line it covers
+            let (own, up) = spans
+                .iter()
+                .find_map(|s| match s {
+                    port_map::Span::Own { asset, up, .. } if up.contains(&n) => {
+                        Some((asset.clone(), up.clone()))
+                    }
+                    _ => None,
+                })
+                .unwrap_or_else(|| panic!("{path}:{n}: upstream's hook line is kept as it was"));
+            let sites = theirs_body[up].iter().filter(|l| *l == theirs).count();
+            let calls = mine[own].iter().filter(|l| **l == want).count();
+            assert!(calls >= sites, "{path}:{n}: the call is gone");
             asked += 1;
         }
     }

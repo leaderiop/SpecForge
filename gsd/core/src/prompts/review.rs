@@ -28,10 +28,7 @@ const REVIEW_ARGS: &[Arg] = &[
 
 /// Where the reviews go: nowhere on disk.
 fn shown(_call: &PromptCall<'_>) -> String {
-    "\n\n## Where the reviews go\n\n\
-     The reviews are shown to the user, not stored: wherever the text above says `REVIEWS.md` is written or \
-     committed, read that the combined review is shown in the conversation. `/gsd-plan-phase <phase> --reviews` \
-     reads it from there, and its dispositions are recorded as `disposition` rows.\n\n\
+    "\n\n## The reviewers\n\n\
      The reviewers are the CLIs of the flags (`claude`, `codex`, `coderabbit`, `opencode`, `qwen`, `cursor`, `agy`, \
      `kimi`) and the local servers (`ollama`, `lm-studio`, `llama-cpp`), run through the shell. Their invocation is \
      the CLI's own: there is no lane manifest, no prompt budget and no lane runner here, so read each CLI's `--help` \

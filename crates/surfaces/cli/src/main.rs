@@ -15,6 +15,7 @@ mod build_commit;
 mod caller;
 mod check;
 mod collect;
+mod context;
 mod doctor;
 mod edit;
 mod effects;
@@ -49,6 +50,7 @@ mod prompt;
 mod providers;
 mod publish;
 mod query;
+mod refs;
 mod remove;
 mod review;
 mod scaffold;
@@ -113,6 +115,9 @@ enum Commands {
     Query(query::Args),
     /// Show an entity's thread along its kind's route, its traceability chain, or every entity's
     Trace(trace::Args),
+    /// Read the context a route of an extension declares for one entity: its sections fitted to a token budget in
+    /// declared order, with a digest
+    Context(context::Args),
     /// Format .spec files
     Format(format::Args),
     /// Show project statistics
@@ -121,6 +126,8 @@ enum Commands {
     Explore(explore::Args),
     /// The source places an entity is anchored to, or the entities a source file's facts are anchored to
     Anchors(anchors::Args),
+    /// List the references to an entity: where other entities name it, or where it names them
+    Refs(refs::Args),
     /// Coverage gaps around an entity, or of the whole project
     Review(review::Args),
     /// What to look for in code to write a kind's entities
@@ -136,7 +143,7 @@ enum Commands {
     /// Publish an extension to the registry that serves its name: its binary,
     /// and the declaration read from it as the package's manifest
     Publish(publish::Args),
-    /// Search for extensions in registries
+    /// Search the project's entities by text, kind, field or reference
     Search(search::Args),
     /// Run static analysis passes over the compiled project
     Analyze(analyze::Args),
@@ -325,10 +332,12 @@ fn run(command: Commands, terminal: &Terminal, ports: &Ports) -> Exit {
         Commands::Outline(args) => args.run(terminal, ports),
         Commands::Query(args) => args.run(terminal, ports),
         Commands::Trace(args) => args.run(terminal, ports),
+        Commands::Context(args) => args.run(terminal, ports),
         Commands::Format(args) => args.run(terminal),
         Commands::Stats(args) => args.run(terminal, ports),
         Commands::Explore(args) => args.run(terminal, ports),
         Commands::Anchors(args) => args.run(terminal, ports),
+        Commands::Refs(args) => args.run(terminal, ports),
         Commands::Review(args) => args.run(terminal, ports),
         Commands::InferGuide(args) => args.run(terminal, ports),
         Commands::Prompt(args) => args.run(terminal, ports),
@@ -424,6 +433,45 @@ mod tests {
         assert_eq!(tree, listed);
     }
 
+    /// The problem with the CLI twin `line`, if it is not a declared command with its flags: its plain words name
+    /// nested subcommands of `root`, and each `--flag` is a long argument of the last one.
+    fn twin_problem(root: &clap::Command, line: &str) -> Option<String> {
+        let mut command = root;
+        let (flags, plain): (Vec<&str>, Vec<&str>) =
+            line.split(' ').partition(|w| w.starts_with("--"));
+        for word in plain {
+            match command.find_subcommand(word) {
+                Some(sub) => command = sub,
+                None => return Some(format!("`specforge {line}`: no command `{word}`")),
+            }
+        }
+        flags
+            .into_iter()
+            .find(|flag| {
+                !command
+                    .get_arguments()
+                    .any(|a| a.get_long().is_some_and(|long| flag[2..] == *long))
+            })
+            .map(|flag| format!("`specforge {line}`: no flag `{flag}`"))
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "list_mcp_tools",
+        verify = "every CLI twin the engine-tool catalogue names is a declared command with its flags"
+    )]
+    fn every_engine_twin_is_a_declared_command() {
+        let mut root = declared();
+        root.build();
+        let problems: Vec<String> = specforge_protocol_types::engine_tools::ENGINE_TOOLS
+            .iter()
+            .flat_map(|tool| tool.cli.iter())
+            .filter_map(|line| twin_problem(&root, line))
+            .collect();
+        assert!(problems.is_empty(), "{problems:#?}");
+        assert!(twin_problem(&root, "query --nope").is_some());
+        assert!(twin_problem(&root, "nope").is_some());
+    }
+
     /// The commands that read no project: they take no `--path`.
     const NO_PROJECT: [&str; 7] = [
         "init",
@@ -489,9 +537,11 @@ mod tests {
                 );
                 continue;
             }
-            // A command with subcommands only dispatches; its leaves read. `settings` and `grants` also list, and
-            // take --path for the listing (their subcommands conflict with the listing's flags).
-            if command.has_subcommands() && name != "settings" && name != "grants" {
+            // A command with subcommands only dispatches; its leaves read. `settings`, `grants` and `extensions` also
+            // list, and take --path for the listing (their subcommands conflict with the listing's flags).
+            if command.has_subcommands()
+                && !["settings", "grants", "extensions"].contains(&name.as_str())
+            {
                 assert!(
                     paths.is_empty(),
                     "`specforge {name}` dispatches but takes --path"

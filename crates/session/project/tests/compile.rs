@@ -680,8 +680,8 @@ mod declared_in_process {
         assert!(!env.registries().kinds().contains("report"));
         let e088: Vec<_> = env.diagnostics().filter(|d| d.code == "E088").collect();
         assert_eq!(e088.len(), 1, "{e088:?}");
-        assert!(e088[0].message.contains("@acme/reports"), "{e088:?}");
-        assert!(e088[0].message.contains("2.0.0"), "{e088:?}");
+        let (m, host) = (&e088[0].message, specforge_protocol_types::PROTOCOL_VERSION);
+        assert!(m.contains("@acme/reports") && m.contains(host), "{m}");
     }
 
     #[specforge_test_macros::test(

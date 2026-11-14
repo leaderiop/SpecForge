@@ -48,9 +48,10 @@ decision D-03 "A title is stored as typed" {
 }
 
 deferred_idea DI1 "Keep two machines in step" {
-  phase v1.0/02
-  text  "Keeping the file in step across two machines"
-  why   "v2, SYNC-01"
+  phase  v1.0/02
+  origin discussion
+  text   "Keeping the file in step across two machines"
+  why    "v2, SYNC-01"
 }
 
 discussion 02-DISCUSSION-LOG "Persistence discussion" {
@@ -73,7 +74,6 @@ discussion 02-DISCUSSION-LOG "Persistence discussion" {
 
 research 02-RESEARCH "Persistence research" {
   phase              v1.0/02
-  context_digest     "fnv1a64:4312322ac67d01d2"
   domain             "File-backed storage for a small Node 20 command line tool"
   researched         2026-03-04
   confidence         high
@@ -82,6 +82,11 @@ research 02-RESEARCH "Persistence research" {
   responsibility_map [
     { capability "Persist the board" tier "Database/Storage" }
   ]
+  context_pack {
+    route      "gsd/phase-context"
+    digest     "sha256:6b581dc0ec29be698b84ebe813ad16dc1241d5b16d86cce89be01fdddbd469a2"
+    max_tokens 50000
+  }
 }
 
 source SRC1 "Node 20 fs documentation" {

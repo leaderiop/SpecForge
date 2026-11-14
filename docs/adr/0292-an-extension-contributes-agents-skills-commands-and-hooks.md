@@ -9,6 +9,7 @@ namespace), [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-ap
 journaled write) and [ADR 0291](0291-an-extension-contributes-mcp-prompts.md) (a slash command is the host binding of a
 prompt). Takes extension protocol 1.10.0, shared with K8. Extended by [ADR 0306](0306-install-refuses-an-unusable-specforge-json-and-uninstall-removes-only-what-install-created.md) (install refuses an unusable specforge.json; uninstall removes only what install created). Extended by [ADR 0317](0317-when-names-several-settings.md) (`when` names several settings; a command is told its host). Extended by [ADR 0320](0320-a-hook-is-told-git-facts-and-the-real-path-of-what-its-tool-names.md)-[0324](0324-a-hook-runs-without-a-compile-and-a-deny-hook-fails-closed-without-the-binary.md) (K20c: a hook's git facts, real paths, `file_changed`, hosts, other extensions' settings, no compile, a fail-closed line).
 Amended by [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md): the keys a command, prompt or hook declared to be served are `Input` variants (`inputs`).
+Extended by [ADR 0334](0334-engine-tools-are-one-catalogue-below-the-surfaces.md) (`specforge:` tool classes, resolution, the generated SpecForge tools section).
 
 ## Context
 
@@ -96,8 +97,8 @@ reader on both sides keeps a hook's facts and a command's judgement from disagre
 nothing to the wire.
 
 It holds what a word is and what ends one: a redirect ends the word before it and is no part of a command's words
-(`Segment::redirects` holds its target), and a command substitution stays in its word and is read beside it
-(`Segment::substitutions`), to a bound. It has no dependency, and its tests sit out of line.
+(`Segment::redirects` holds each redirect's descriptor, operator and target), and a command substitution stays in its
+word and is read beside it (`Segment::substitutions`), to a bound. It has no dependency, and its tests sit out of line.
 
 An edit to it stales every builtin blob (ADR 0050): the reader is an input of each one, so the change re-vendors
 ([docs/agents/revendor.md](../agents/revendor.md)).

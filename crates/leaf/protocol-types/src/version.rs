@@ -36,7 +36,19 @@
 ///   run, `{report}` expanded, and `{config}` in the argv names it; a collector may declare an `install` line, said
 ///   when its program is not found (ADR 0348).
 ///
-/// A change that adds to 2.0.0 (grants, host imports, value checks) adds its item here and to the 2.0.0 row of
-/// `docs/extension-protocol.md` ("Protocol Versions"), which also keeps the 1.x history, 1.15.0 included; it does
-/// not bump. A 2.0.0 describe category goes after `routes`.
-pub const PROTOCOL_VERSION: &str = "2.0.0";
+/// 2.1.0 adds: a contribution's `tools` may name `specforge:<tool>`, `specforge:<group>` and
+/// `specforge:<short>.<command>` (ADR 0334); `specforge_protocol_types::engine_tools` is the catalogue they name.
+/// An extension declares `contexts`, the fifteenth describe category, read last: for one entity of a subject kind,
+/// the ordered sections a role reads, each a named selector, core or enrich (ADR 0356).
+/// A selector kind may carry a field filter, `kind[field=value|…]`, in judged inputs, context sections and route
+/// steps: only entities whose authored scalar field holds one of the values (ADR 0356 D13).
+/// A field may declare writer `context`: only the host's record of a context route's pack writes it, ledgered and left
+/// out of every digest (ADR 0356 D9). A context route may declare `records` (its `context` fields a pack is recorded
+/// in, each with a subject chain and a suggestion) and `stale`, the code a record whose pack moved raises (D10).
+/// An edit plan may `record_context` a route's pack on an entity; the host computes and writes it (D11).
+/// A 2.0.0 guest still loads, being an older minor.
+///
+/// A change that adds to the current minor (grants, host imports, value checks) adds its item here and to that
+/// minor's row of `docs/extension-protocol.md` ("Protocol Versions"), which also keeps the 1.x history, 1.15.0
+/// included; it does not bump. A new describe category goes last.
+pub const PROTOCOL_VERSION: &str = "2.1.0";

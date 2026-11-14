@@ -64,12 +64,8 @@ Phase number from argument (required).
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
-
 
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
@@ -97,21 +93,21 @@ Exit workflow.
 
 **Auto mode** — If `--auto` is present in ARGUMENTS:
 - In `check_existing`: auto-select "Update it" (if context exists) or continue without prompting
-- In `present_assumptions`: skip confirmation gate, proceed directly to write CONTEXT.md
+- In `present_assumptions`: no confirmation gate; go straight on to `write_context`
 - In `correct_assumptions`: auto-select recommended option for each correction
 - Log each auto-selected choice inline
 - After completion, auto-advance to plan-phase
 </step>
 
 <step name="check_spec">
-Check whether the phase has a SPEC.md (from the spec-phase workflow). SPEC.md locks requirements before implementation decisions. Here the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' --first 1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the SPEC.md file at `spec_path` is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
+Check whether the phase has a spec (from the spec-phase workflow): it locks requirements before implementation decisions. The phase spec is the phase's `phase_spec` entity in the graph (an AI spec or a UI spec is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' --first 1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC`, and the spec is the entity `$SPEC_ID`.
 
 **If `has_spec` is true:**
-1. Read the SPEC.md file at `spec_path`.
-2. Count requirements (numbered items in `## Requirements`).
-3. Display: `Found SPEC.md — {N} requirements locked. Focusing on implementation decisions.`
+1. Read the spec and its locked requirements: `specforge query "$SPEC_ID" --depth 1 --format context`.
+2. Count its `locked_req` entities: `specforge query "$SPEC_ID" --depth 1 --pick '.nodes[kind=locked_req].id' --count`.
+3. Display: `{N} requirements are locked by the phase spec; this discussion covers implementation decisions only.`
 4. Set `spec_loaded = true`.
-5. Store requirements, boundaries, and acceptance criteria as `<locked_requirements>` — these flow directly into CONTEXT.md without re-asking.
+5. Hold the requirements, boundaries and acceptance criteria as `<locked_requirements>`: the context names the spec, and they are not asked again.
 
 **If `has_spec` is false:** Continue with `spec_loaded = false`.
 
@@ -138,7 +134,7 @@ specforge query "$PHASE_ID" --depth 1 --kinds context --format brief
   - "Skip" — Use existing context as-is
 
 If "Update": Load existing, continue to load_prior_context
-If "View": Display CONTEXT.md, then offer update/skip
+If "View": show it with `specforge query "$PHASE_ID" --depth 1 --format context`, then offer update/skip
 If "Skip": Exit workflow
 
 **If doesn't exist:**
@@ -207,8 +203,8 @@ Parse JSON for: `todo_count`, `matches[]`.
 
 **If matches found:** Present matched todos, use AskUserQuestion (multiSelect) to fold relevant ones into scope.
 
-**For selected (folded) todos:** Store as `<folded_todos>` for CONTEXT.md `<decisions>` section.
-**For unselected:** Store as `<reviewed_todos>` for CONTEXT.md `<deferred>` section.
+**For selected (folded) todos:** carry them along as `<folded_todos>` until the context of the phase is recorded, where each turns into one `decision`.
+**For unselected:** carry them as `<reviewed_todos>` until then; the phase records each one as a `deferred_idea`, to be taken up later.
 
 **Auto mode (`--auto`):** Fold all todos with score >= 0.4 automatically. Log the selection.
 </step>
@@ -225,7 +221,7 @@ specforge export --kinds methodology --format context 2>/dev/null || true
 - Parse each named lens: its diagnoses, recommendations, and triggering conditions
 - Store as internal `<active_lenses>` for use in deep_codebase_analysis and present_assumptions
 - When spawning the gsd-assumptions-analyzer, pass the lens list so it can flag which lenses apply
-- When presenting assumptions, append a "Methodology" section showing which lenses were applied
+- When presenting assumptions, end with the lenses applied, under a "Methodology" heading
   and what they flagged (if anything)
 
 **If METHODOLOGY.md does not exist:** Skip silently. This artifact is optional.
@@ -267,7 +263,7 @@ PROFILE_PATH="$HOME/.claude/gsd-core/USER-PROFILE.md"
 ```
 
 If file exists at PROFILE_PATH:
-- Priority 1: Read config.json > preferences.vendor_philosophy (project-level override)
+- Priority 1: a project override of `preferences.vendor_philosophy` (not a `@gsd/core` setting: skip to priority 2)
 - Priority 2: Read USER-PROFILE.md Vendor Choices/Philosophy rating (global)
 - Priority 3: Default to "standard"
 
@@ -290,18 +286,22 @@ If no USER-PROFILE.md: calibration_tier = "standard"
 
 ```
 Agent(subagent_type="gsd-assumptions-analyzer", model="{ANALYZER_MODEL}", prompt="""
-Analyze the codebase for Phase {PHASE}: {phase_name}.
+Analyze the codebase for Phase {PHASE}: {phase_name} (PHASE_ID {PHASE_ID}).
+
+<required_reading>
+- specforge context gsd/assumptions-analyzer {PHASE_ID} (the analyzer pack: the phase, its requirements, the earlier phases' contexts and decisions)
+</required_reading>
 
 Phase goal: {roadmap_description}
 Prior decisions: {prior_decisions_summary}
 Codebase scout hints: {codebase_context_summary}
 Calibration: {calibration_tier}
-Locked requirements (already answered by SPEC.md; omit this line when spec_loaded = false): {locked_requirements}
+Settled by the phase spec (leave this line out when spec_loaded = false): {locked_requirements}
 
 Your job:
-1. Read ROADMAP.md phase {PHASE} description
-2. Read any prior CONTEXT.md files from earlier phases
-3. Glob/Grep for files related to: {phase_relevant_terms}
+1. Read the analyzer pack (`<required_reading>`)
+2. Find related work: `specforge search` for the goal terms, then `specforge anchors` for the source places an entity names (`--file <path>`: which entity claims a file)
+3. Glob/Grep for files related to: {phase_relevant_terms} that no entity is anchored to
 4. Read 5-15 most relevant source files
 5. Return structured assumptions
 6. When locked requirements are given, treat them as decided: form assumptions about HOW to implement them only, never about WHAT to build or WHY
@@ -370,7 +370,7 @@ Use WebSearch for ecosystem/best-practice questions.
 Merge findings back into assumptions:
 - Update confidence levels where research resolves ambiguity
 - Add source attribution to affected assumptions
-- Store research findings for DISCUSSION-LOG.md
+- Keep the research findings for the phase's discussion log
 
 **If no gaps flagged:** Skip entirely. Most phases will skip this step.
 </step>
@@ -409,7 +409,7 @@ Based on codebase analysis, here's what I'd go with:
 - header: "Assumptions"
 - question: "These all look right?"
 - options:
-  - "Yes, proceed" — Write CONTEXT.md with these assumptions as decisions
+  - "Yes, proceed" — Record the context with these assumptions as decisions
   - "Let me correct some" — Select which assumptions to change
 
 **If "Yes, proceed":** Skip to write_context.
@@ -445,158 +445,29 @@ After all corrections processed, continue to write_context with updated assumpti
 </step>
 
 <step name="write_context">
-Create phase directory if needed. Write CONTEXT.md using the standard 6-section format.
+Record the context: read the context template with `specforge gsd reference gsd-core/templates/context.md` and run
+its fence, the same entities discuss mode records.
 
-**File:** `${phase_dir}/${padded_phase}-CONTEXT.md`
-
-Map assumptions to CONTEXT.md sections:
-- Assumptions → `<decisions>` (each assumption becomes a locked decision: D-01, D-02, etc.)
-- Corrections → override the original assumption in `<decisions>`
-- Areas where all assumptions were Confident → marked as locked decisions
-- Areas with corrections → include user's chosen alternative as the decision
-- Folded todos → included in `<decisions>` under "### Folded Todos"
-- When `spec_loaded = true`: add `<spec_lock>` immediately after `<domain>`, add the SPEC.md file to `<canonical_refs>` with the note "Locked requirements — MUST read before planning", and do NOT copy SPEC.md requirements into `<decisions>` (agents read SPEC.md directly); `<decisions>` holds only the HOW decisions from this discussion
-
-```markdown
-# Phase {PHASE}: {phase_name} - Context
-
-**Gathered:** {date} (assumptions mode)
-**Status:** Ready for planning
-
-<domain>
-## Phase Boundary
-
-{Domain boundary from ROADMAP.md — clear statement of scope anchor}
-</domain>
-
-[If spec_loaded = true, insert this section:]
-<spec_lock>
-## Requirements (locked via SPEC.md)
-
-**{N} requirements are locked.** See `{padded_phase}-SPEC.md` for full requirements, boundaries, and acceptance criteria.
-
-Downstream agents MUST read `{padded_phase}-SPEC.md` before planning or implementing. Requirements are not duplicated here.
-
-**In scope (from SPEC.md):** [copy the "In scope" bullet list from SPEC.md Boundaries]
-**Out of scope (from SPEC.md):** [copy the "Out of scope" bullet list from SPEC.md Boundaries]
-
-</spec_lock>
-
-<decisions>
-## Implementation Decisions
-
-### {Area Name 1}
-- **D-01:** {Decision — from assumption or correction}
-- **D-02:** {Decision}
-
-### {Area Name 2}
-- **D-03:** {Decision}
-
-### Claude's Discretion
-{Any assumptions where the user confirmed "you decide" or left as-is with Likely confidence}
-
-### Folded Todos
-{If any todos were folded into scope}
-</decisions>
-
-<canonical_refs>
-## Canonical References
-
-**Downstream agents MUST read these before planning or implementing.**
-
-{Accumulated canonical refs from analyze step — full relative paths}
-
-[If no external specs: "No external specs — requirements fully captured in decisions above"]
-</canonical_refs>
-
-<code_context>
-## Existing Code Insights
-
-### Reusable Assets
-{From codebase scout + Explore subagent findings}
-
-### Established Patterns
-{Patterns that constrain/enable this phase}
-
-### Integration Points
-{Where new code connects to existing system}
-</code_context>
-
-<specifics>
-## Specific Ideas
-
-{Any particular references from corrections or user input}
-
-[If none: "No specific requirements — open to standard approaches"]
-</specifics>
-
-<deferred>
-## Deferred Ideas
-
-{Ideas mentioned during corrections that are out of scope}
-
-### Reviewed Todos (not folded)
-{Todos reviewed but not folded — with reason}
-
-[If none: "None — analysis stayed within phase scope"]
-</deferred>
-```
-
-Write file.
+Map assumptions to the context's entities:
+- Each assumption becomes a `decision` (D-01, D-02, …), its `area` the assumption's area
+- A correction overrides the original assumption: the decision holds the user's chosen alternative
+- Areas where all assumptions were Confident are decisions like any other
+- When `spec_loaded = true`: one `canonical_refs` row names the spec entity with the note "Locked requirements — MUST
+  read before planning", and its requirements are not copied into decisions (agents read the spec itself); the
+  decisions hold only the HOW decisions from this discussion
+- Folded todos are the todo capability's, not the context's
 </step>
 
 <step name="write_discussion_log">
-Write audit trail of assumptions and corrections.
+Record the audit trail of assumptions and corrections: read the log template with `specforge gsd reference
+workflows/discuss-phase/templates/discussion-log.md` and run its fence, every entry's `mode` `assumptions`:
 
-**File:** `${phase_dir}/${padded_phase}-DISCUSSION-LOG.md`
-
-```markdown
-# Phase {PHASE}: {phase_name} - Discussion Log (Assumptions Mode)
-
-> **Audit trail only.** Do not use as input to planning, research, or execution agents.
-> Decisions captured in CONTEXT.md — this log preserves the analysis.
-
-**Date:** {ISO date}
-**Phase:** {padded_phase}-{phase_name}
-**Mode:** assumptions
-**Areas analyzed:** {comma-separated area names}
-
-## Assumptions Presented
-
-### {Area Name}
-| Assumption | Confidence | Evidence |
-|------------|-----------|----------|
-| {Statement} | {Confident/Likely/Unclear} | {file paths} |
-
-{Repeat for each area}
-
-## Corrections Made
-
-{If corrections were made:}
-
-### {Area Name}
-- **Original assumption:** {what Claude assumed}
-- **User correction:** {what the user chose instead}
-- **Reason:** {user's rationale, if provided}
-
-{If no corrections: "No corrections — all assumptions confirmed."}
-
-## Auto-Resolved
-
-{If --auto and Unclear items existed:}
-- {Assumption}: auto-selected {recommended option}
-
-{If not applicable: omit this section}
-
-## External Research
-
-{If research was performed:}
-- {Topic}: {Finding} (Source: {URL})
-
-{If no research: omit this section}
-```
-
-Write file.
+- each assumption presented is an entry: its area, the assumption as `question` and `chosen`, its `confidence`
+  (`confident`, `likely` or `unclear`) and its `evidence` (the file paths);
+- each correction is an entry: the original assumption as `question`, the alternatives as `options`, the user's choice
+  as `chosen`, and the user's rationale, if provided, as `notes`;
+- with `--auto`, an Unclear item auto-resolved is an entry whose `notes` say which recommended option was auto-selected;
+- external research findings go in the `notes` of the entry they informed, with their source URL.
 </step>
 
 <step name="git_commit">
@@ -607,22 +478,6 @@ specforge git commit --add spec -m "docs(${padded_phase}): capture phase context
 ```
 
 Confirm: "Committed: docs(${padded_phase}): capture phase context (assumptions mode)"
-</step>
-
-<step name="update_state">
-Update STATE.md with session info:
-
-```bash
-printf '%s\n' "STATE is computed; record a stop with specforge gsd pause <reason> --by <who>. The session ended with" \
-  --stopped-at "Phase ${PHASE} context gathered (assumptions mode)" \
-  --resume-file "$(specforge query "$PHASE_ID" --depth 1 --kinds context --pick '.nodes[kind=context].id')"
-```
-
-Commit STATE.md:
-
-```bash
-# STATE is computed: no state commit is needed
-```
 </step>
 
 <step name="confirm_creation">
@@ -661,7 +516,7 @@ Created: the `context` entity of phase ${PADDED_PHASE}-${SLUG}
 **Also available:**
 - `/gsd:plan-phase ${PHASE} --skip-research` — plan without research
 - `/gsd:ui-phase ${PHASE}` — generate UI design contract (if frontend work)
-- Review/edit CONTEXT.md before continuing
+- Read the context back with `specforge query "$PHASE_ID" --depth 1 --format context` before continuing
 
 ---
 ```
@@ -673,12 +528,6 @@ Check for auto-advance trigger:
 1. Parse `--auto` flag from $ARGUMENTS
 2. Sync chain flag:
    ```bash
-
-
-
-
-
-
 
    ```
 3. Read consolidated auto-mode (`active` = chain flag OR user preference):
@@ -709,10 +558,9 @@ End here — `confirm_creation` already ran; do not route back to it.
 - Assumptions surfaced with evidence and confidence levels
 - User confirmed or corrected assumptions (~2-4 interactions max)
 - Scope creep redirected to deferred ideas
-- CONTEXT.md captures actual decisions (identical format to discuss mode)
-- CONTEXT.md includes canonical_refs with full file paths (MANDATORY)
-- CONTEXT.md includes code_context from codebase analysis
-- DISCUSSION-LOG.md records assumptions and corrections as audit trail
-- STATE.md updated with session info
+- The phase context records actual decisions, as the same entities discuss mode records
+- The context's `canonical_refs` give full file paths (MANDATORY)
+- The context's `reusable_assets`, `patterns` and `integration_points` hold what the codebase analysis found
+- The discussion log's entries keep the assumptions and corrections as the audit trail
 - User knows next steps
 </success_criteria>

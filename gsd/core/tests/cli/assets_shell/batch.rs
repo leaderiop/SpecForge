@@ -1,7 +1,7 @@
 //! The quick batch's list is rows of one `quick-init` answer (`quick_id`, `slug`, `description`), its merge-eligible
 //! prefix a bash array and its verification route a `case`: no jq on the `PATH`.
 
-use super::{Shell, asset, block, line, q};
+use super::{Shell, asset, block, fence_after, fence_from, line, q};
 use crate::commands_support::{is_quick_id, rows, twin};
 
 #[test]
@@ -23,14 +23,14 @@ fn a_task_list_becomes_one_line_per_quick_task() {
             p.root(),
             &format!(
                 "INLINE_TASK_LIST={}\n{lines}\n\
-                 printf '%s|%s|%s\\n' \"$QB_CREATE_RC\" \"$ITEM_COUNT\" \"$BATCH_ID\"; printf '%s\\n' \"$BATCH_MANIFEST_JSON\"",
+                 printf '%s\\t%s\\t%s\\n' \"$QB_CREATE_RC\" \"$ITEM_COUNT\" \"$BATCH_ID\"; printf '%s\\n' \"$BATCH_MANIFEST_JSON\"",
                 q(list)
             ),
         )
     };
     let (out, err, _) = run("- Add a task\n\n2. Remove a task\n* List tasks\n");
     let lines: Vec<&str> = out.lines().collect();
-    let head: Vec<&str> = lines[0].split('|').collect();
+    let head: Vec<&str> = lines[0].split('\t').collect();
     assert_eq!(&head[..2], ["0", "3"], "{out}{err}");
     assert!(
         head[2].len() == 12 && head[2].ends_with("-batch"),
@@ -311,4 +311,176 @@ fn one_call_of_quick_init_reads_everything() {
     let read = line(&text, "IFS=$'\\x1f' read -r _ _ _ BATCH_ID");
     let (out, err, code) = sh.run_in(p.root(), &format!("QB_CREATE_LIST=\n{read}\necho after"));
     assert_eq!((out.as_str(), code), ("", 1), "{err}");
+}
+
+/// Resume refuses closed: a batch id nothing recorded, and a batch whose base is no longer an ancestor of `HEAD`.
+#[test]
+fn resuming_an_unknown_or_diverged_batch_stops() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = twin();
+    p.commit();
+    let resume = fence_after(
+        &asset("gsd-core/workflows/quick-batch/steps/resume-mode.md"),
+        "**Step 2a",
+    );
+    let rc = |id: &str| {
+        sh.run_in(
+            p.root(),
+            &format!("RESUME_BATCH_ID={id}\n{resume}\nprintf '%s' \"$QB_RESUME_RC\""),
+        )
+    };
+    let (out, err, _) = rc("261112-batch");
+    assert_ne!(out, "0", "an unknown batch resumes: {err}");
+    // a base no commit of this history holds
+    quick_plans(&p);
+    // an id the graph holds that is no quick batch
+    let (out, err, _) = rc("261112-abc");
+    assert_eq!(out, "1", "{err}");
+    assert!(err.contains("no quick batch 261112-abc"), "{err}");
+    assert!(!err.contains("diverged"), "{err}");
+    let base = "0123456789abcdef0123456789abcdef01234567";
+    let items = r#"["261112-abc", "261112-def"]"#;
+    let run = p.run(&[
+        "gsd",
+        "start-batch",
+        "261112-batch",
+        "--items",
+        items,
+        "--base",
+        base,
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let (out, err, _) = rc("261112-batch");
+    assert_eq!(out, "1", "{err}");
+    assert!(err.contains("diverged"), "{err}");
+}
+
+#[test]
+fn a_batch_resumes_after_head_moves_forward_and_stops_once_its_base_is_left() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = twin();
+    p.commit();
+    quick_plans(&p);
+    let resume = fence_after(
+        &asset("gsd-core/workflows/quick-batch/steps/resume-mode.md"),
+        "**Step 2a",
+    );
+    let rc = |id: &str| {
+        sh.run_in(
+            p.root(),
+            &format!("RESUME_BATCH_ID={id}\n{resume}\nprintf '%s' \"$QB_RESUME_RC\""),
+        )
+    };
+    let start = |id: &str, base: &str| {
+        let items = r#"["261112-abc", "261112-def"]"#;
+        let run = p.run(&["gsd", "start-batch", id, "--items", items, "--base", base]);
+        assert_eq!(run.code, 0, "{}", run.all());
+    };
+    // a commit away from the history: made, then reset away, and another commit in its place
+    let away = p.git_commit(
+        "feat: away",
+        &[("away.txt", "away")],
+        "2026-11-12T10:00:00Z",
+    );
+    p.git(&["reset", "-q", "--hard", "HEAD~1"], "2026-11-12T10:01:00Z");
+    let base = p.git_commit(
+        "feat: kept",
+        &[("kept.txt", "kept")],
+        "2026-11-12T10:02:00Z",
+    );
+    start("261112-fwd", &base);
+    start("261112-away", &away);
+    // HEAD moves forward past the base: the batch still resumes
+    p.git_commit(
+        "feat: later",
+        &[("later.txt", "later")],
+        "2026-11-12T10:03:00Z",
+    );
+    let (out, err, _) = rc("261112-fwd");
+    assert_eq!(
+        out, "0",
+        "a batch whose base HEAD descends from is refused: {err}"
+    );
+    // a real commit that is no ancestor of HEAD: refused
+    let common = p.run(&["git", "merge-base", &away, "HEAD", "--pick", ".sha"]);
+    assert_eq!(
+        common.code,
+        0,
+        "the reset-away commit is still known: {}",
+        common.all()
+    );
+    assert_ne!(common.stdout.trim_end(), away);
+    let (out, err, _) = rc("261112-away");
+    assert_eq!(out, "1", "{err}");
+    assert!(err.contains("diverged"), "{err}");
+}
+
+/// Two quick plans of the twin, as batch-init leaves them before it records the batch.
+fn quick_plans(p: &crate::harness::Project) {
+    crate::commands_support::plant(
+        p,
+        "spec/quick.spec",
+        "plan 261112-abc \"Trim titles\" {\n  type           execute\n  files_modified []\n  objective      \"Trim titles\"\n  slug           \"trim-titles\"\n}\n\nplan 261112-def \"Sort tasks\" {\n  type           execute\n  files_modified []\n  objective      \"Sort tasks\"\n  slug           \"sort-tasks\"\n}\n",
+    );
+}
+
+/// batch-init records the batch on the commit it starts from, and resume reads it back from the graph: its fields,
+/// its manifest and its eligible items.
+#[test]
+fn a_batch_is_recorded_and_resumed_from_the_graph() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = twin();
+    p.commit();
+    let init = asset("gsd-core/workflows/quick-batch/steps/batch-init.md");
+    let create = block(&init, "QB_CREATE_LIST=", "specforge new --in");
+    let record = fence_after(&init, "**Otherwise:** `$QB_CREATE_LIST` holds");
+    let (id, err, code) = sh.run_in(
+        p.root(),
+        &format!(
+            "QB_TASKS=$(printf '%b' '- Trim titles\\n- Sort tasks')\n{create}\n{record}\nprintf '%s' \"$BATCH_ID\""
+        ),
+    );
+    assert_eq!(code, 0, "{id}{err}");
+    let batch = p.fields_of(&id);
+    let items = batch["items"].as_array().expect("items").clone();
+    assert_eq!(items.len(), 2, "{batch}");
+    assert_eq!(batch["status"], "open");
+    let head = p.run(&["git", "head", "--pick", ".sha"]);
+    assert_eq!(batch["base"], head.stdout.trim_end(), "{}", head.all());
+
+    let resume_text = asset("gsd-core/workflows/quick-batch/steps/resume-mode.md");
+    let resume = fence_after(&resume_text, "**Step 2a");
+    let manifest = fence_after(&resume_text, "**Otherwise:**");
+    let (out, err, _) = sh.run_in(
+        p.root(),
+        &format!(
+            "RESUME_BATCH_ID={id}\n{resume}\n[ \"$QB_RESUME_RC\" -eq 0 ] || exit 9\n{manifest}\nprintf '%s' \"$BATCH_MANIFEST_JSON\""
+        ),
+    );
+    let rows: Vec<&str> = out.lines().collect();
+    assert_eq!(rows.len(), 2, "{out}{err}");
+    let ids: Vec<&str> = rows
+        .iter()
+        .filter_map(|row| row.split('\u{1f}').next())
+        .collect();
+    let order: Vec<&str> = items.iter().filter_map(|item| item.as_str()).collect();
+    assert_eq!(ids, order, "the manifest keeps the batch's order: {out}");
+    let dispatch = fence_from(
+        &asset("gsd-core/workflows/quick-batch/steps/worktree-dispatch.md"),
+        "QB_ELIGIBLE=",
+    );
+    let (out, err, code) = sh.run_in(
+        p.root(),
+        &format!("BATCH_ID={id}\n{dispatch}\nprintf '%s' \"$QB_ELIGIBLE\""),
+    );
+    assert_eq!(code, 0, "{out}{err}");
+    let eligible: Vec<&str> = out.lines().collect();
+    let expected: Vec<&str> = items.iter().filter_map(|i| i.as_str()).collect();
+    assert_eq!(eligible, expected, "{err}");
 }

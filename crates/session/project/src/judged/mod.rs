@@ -16,6 +16,7 @@ use std::collections::BTreeMap;
 pub use describe::{Described, InputsRefusal, describe};
 pub use digest::{entity_digest, file_digest};
 pub use inputs::{Cited, CitedReport, InputReport, Inputs, inputs};
+pub(crate) use inputs::{Cx, hash};
 pub use memo::DigestMemo;
 pub use state::{Evaluated, evaluate};
 

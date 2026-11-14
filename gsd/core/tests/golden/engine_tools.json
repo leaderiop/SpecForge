@@ -1,0 +1,142 @@
+{
+  "c3": 14,
+  "graph_tools": {
+    "collect": 20,
+    "context": 12,
+    "edit": 51,
+    "explain": 11,
+    "export": 10,
+    "find_implementation": 2,
+    "find_references": 1,
+    "find_spec_for_source": 5,
+    "query": 53,
+    "schema": 11,
+    "search": 4,
+    "trace": 7,
+    "validate": 51,
+    "verdict_inputs": 5
+  },
+  "unprompted": {
+    "gsd-advisor-researcher": [
+      "explain",
+      "find_implementation",
+      "find_spec_for_source",
+      "inspect",
+      "query",
+      "schema",
+      "search",
+      "trace"
+    ],
+    "gsd-assumptions-analyzer": [
+      "explain",
+      "inspect",
+      "query",
+      "schema",
+      "trace"
+    ],
+    "gsd-doc-classifier": [
+      "collect",
+      "context",
+      "edit",
+      "explain",
+      "find_implementation",
+      "find_spec_for_source",
+      "inspect",
+      "query",
+      "schema",
+      "search",
+      "trace"
+    ],
+    "gsd-doc-synthesizer": [
+      "collect",
+      "context",
+      "edit",
+      "explain",
+      "find_implementation",
+      "find_spec_for_source",
+      "inspect",
+      "schema",
+      "search",
+      "trace"
+    ],
+    "gsd-executor": [
+      "find_implementation"
+    ],
+    "gsd-integration-checker": [
+      "context",
+      "explain",
+      "find_implementation",
+      "find_references",
+      "search"
+    ],
+    "gsd-nyquist-auditor": [
+      "collect",
+      "context",
+      "explain",
+      "find_implementation",
+      "find_references",
+      "find_spec_for_source",
+      "query",
+      "trace",
+      "validate"
+    ],
+    "gsd-pattern-mapper": [
+      "collect",
+      "context",
+      "edit",
+      "explain",
+      "inspect",
+      "schema",
+      "trace"
+    ],
+    "gsd-phase-researcher": [
+      "collect",
+      "context",
+      "explain",
+      "find_implementation",
+      "find_spec_for_source",
+      "inspect",
+      "search"
+    ],
+    "gsd-plan-checker": [
+      "find_implementation",
+      "find_references"
+    ],
+    "gsd-planner": [
+      "find_implementation"
+    ],
+    "gsd-project-researcher": [
+      "collect",
+      "context",
+      "find_implementation",
+      "find_spec_for_source",
+      "inspect",
+      "search",
+      "trace"
+    ],
+    "gsd-research-synthesizer": [
+      "explain",
+      "find_implementation",
+      "find_spec_for_source",
+      "inspect",
+      "query",
+      "schema",
+      "search",
+      "trace"
+    ],
+    "gsd-roadmapper": [
+      "collect",
+      "export",
+      "find_implementation",
+      "find_references",
+      "find_spec_for_source",
+      "query",
+      "search",
+      "trace"
+    ],
+    "gsd-verifier": [
+      "find_implementation",
+      "find_references"
+    ]
+  }
+}

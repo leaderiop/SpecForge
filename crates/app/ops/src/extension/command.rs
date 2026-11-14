@@ -237,6 +237,15 @@ impl ExtensionCommand {
         &self.declaration.description
     }
 
+    /// The one line help lists it by: its title, else its description (ADR 0355 D7).
+    pub fn summary(&self) -> &str {
+        if self.title().is_empty() {
+            self.description()
+        } else {
+            self.title()
+        }
+    }
+
     /// The command as declared.
     pub fn declaration(&self) -> &CommandDescriptor {
         &self.declaration

@@ -391,10 +391,17 @@ fn a_quick_plan_is_found_by_its_slug() {
     }
     let (out, err) = found("trim-it");
     assert_eq!(out, "[251031-aaa\n251031-zzz]", "{err}");
-    for at in text.match_indices("dir=$(") {
-        let rest = &text[at.0..];
-        let after = &rest[rest.find("```").expect("the fence ends")..];
-        let prose = after.lines().take(4).collect::<Vec<_>>().join("\n");
+    for fence in gsd_kit::markdown::fences(&text) {
+        if !fence.text.contains("dir=$(") {
+            continue;
+        }
+        // the closing mark's line and the three after it
+        let prose = text
+            .lines()
+            .skip(fence.code.end)
+            .take(4)
+            .collect::<Vec<_>>()
+            .join("\n");
         assert!(
             prose.contains("more than one") && prose.contains("ask which"),
             "{prose}"

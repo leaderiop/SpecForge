@@ -42,7 +42,8 @@ pub use find::{
     within_fuzzy_threshold,
 };
 pub use occurrences::{
-    DIRECTION, Definition, Direction, Occurrence, Precision, ReferenceQuery, Role, Token,
+    DIRECTION, Definition, Direction, Occurrence, Precision, ReferenceLocation, ReferenceLocations,
+    ReferenceQuery, Role, Token,
 };
 pub use references::{Reference, References};
 

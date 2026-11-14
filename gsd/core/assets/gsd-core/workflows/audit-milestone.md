@@ -2,7 +2,7 @@
 @~/.claude/gsd-core/references/response-language-directive.md
 
 <purpose>
-Verify milestone achieved its definition of done by aggregating phase verifications, checking cross-phase integration, and assessing requirements coverage. Reads existing VERIFICATION.md files (phases already verified during execute-phase), aggregates tech debt and deferred gaps, then spawns integration checker for cross-phase wiring.
+Verify the milestone achieved its definition of done: read its requirements along their threads (requirement → plans → tasks → commits → tests → truths) and the phases' verifications, record the cross-phase integration verdict on the milestone's audit, and record its tech debt. The audit's gaps, Nyquist counts and status are computed from the graph.
 </purpose>
 
 <required_reading>
@@ -19,9 +19,6 @@ Valid GSD subagent types (use exact names — do not fall back to 'general-purpo
 ## 0. Initialize Milestone Context
 
 ```bash
-
-
-
 
 # the commands below are specforge commands: there is no launcher to define
 
@@ -44,36 +41,46 @@ integration_checker_model=""   # resolve-model is not part of @gsd/core: the hos
 specforge query "$MILESTONE" --kinds phase --format json
 ```
 
-- Parse version from arguments or detect current from ROADMAP.md
-- Identify all phase directories in scope
-- Extract milestone definition of done from ROADMAP.md
-- Extract requirements mapped to this milestone from REQUIREMENTS.md
+The version is `$MILESTONE`. Its phases are the answer's `phase` nodes, its definition of done is the milestone's `goal` and the phases' `success_criteria`, and its requirements are the phases' `requirements`.
 
-## 2. Read All Phase Verifications
-
-For each phase directory, read the VERIFICATION.md:
+Resolve the milestone's audit, the `milestone_audit` entity this workflow records into. A re-audit reuses it; the first audit creates `<milestone>/A1`, before the integration checker is spawned, since its verdict is recorded on it:
 
 ```bash
-# For each phase, use find-phase to resolve the directory (handles archived phases)
-PHASE_INFO=$(specforge query "$MILESTONE/01" --depth 0 --pick '.nodes[0]')   # the phase node, compact
-# Extract directory from JSON, then read VERIFICATION.md from that directory
-# Repeat for each phase number from ROADMAP.md
+AUDIT=$(specforge query "$MILESTONE" --depth 1 --kinds milestone_audit --pick '.nodes[kind=milestone_audit].id' --last 1) || exit 1
+if [ -z "$AUDIT" ]; then
+  MILESTONE_FILE=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].file') || exit 1
+  [ -n "$MILESTONE_FILE" ] || { echo "no milestone $MILESTONE" >&2; exit 1; }
+  specforge new milestone_audit A1 "$MILESTONE audit" --in "$MILESTONE_FILE" --milestone "$MILESTONE" || exit 1
+  AUDIT="$MILESTONE/A1"
+fi
+echo "AUDIT=$AUDIT"
 ```
 
-From each VERIFICATION.md, extract:
+The audit's fields are listed by `specforge schema --kind milestone_audit`: `gaps`, `nyquist` and `status` are computed, `integration` is the checker's verdict, `tech_debt` is written in step 6, and `debt_accepted` is the person's.
+
+## 2. Read the Requirement Threads
+
+Trace every requirement of the milestone's phases along its thread, and read the phases' verifications. A thread that falls short prints a `no <step>` marker where it stops; a truth prints its verdict state:
+
+```bash
+specforge trace --route gsd/requirement-thread --in "$MILESTONE" --partial
+specforge query "$MILESTONE" --depth 2 --kinds verification --format context
+```
+
+From each phase's verification and the threads of its requirements, note:
 - **Status:** passed | gaps_found
 - **Critical gaps:** (if any — these are blockers)
 - **Non-critical gaps:** tech debt, deferred items, warnings
 - **Anti-patterns found:** TODOs, stubs, placeholders
 - **Requirements coverage:** which requirements satisfied/blocked
 
-If a phase is missing VERIFICATION.md, flag it as "unverified phase" — this is a blocker.
+A phase with no verification is an "unverified phase": a blocker.
 
 ## 3. Spawn Integration Checker
 
 With phase context collected:
 
-Extract `MILESTONE_REQ_IDS` from REQUIREMENTS.md traceability table — all REQ-IDs assigned to phases in this milestone.
+The checker reads its pack, the audit's `gsd/integration-checker` route: the audit, the milestone's phases, their verifications and the requirements they map.
 
 Print: "Spawning integration checker (runs in a subagent — no output until it returns, ~1–5 min; expected, not a freeze)"
 
@@ -85,12 +92,10 @@ Print: "Spawning integration checker (runs in a subagent — no output until it 
 Agent(
   prompt="Check cross-phase integration and E2E flows.
 
-Phases: {phase_dirs}
-Phase exports: {from SUMMARYs}
-API routes: {routes created}
-
-Milestone Requirements:
-{MILESTONE_REQ_IDS — list each REQ-ID with description and assigned phase}
+<required_reading>
+specforge context gsd/integration-checker "{AUDIT}"
+Run the line above first. Its pack is the audit, the milestone's phases, their verifications and the requirements they map, at the integration-checker route's budget.
+</required_reading>
 
 MUST map each integration finding to affected requirement IDs where applicable.
 
@@ -107,6 +112,32 @@ ${AGENT_SKILLS_CHECKER}",
 
 > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
+### 3b. Record the Integration Verdict
+
+The checker's finding is the judged rule `gsd/E518`, and the rule judges the milestone's audit. Once the checker returns, read the rule's inputs, then record the verdict once, on the audit (unless the checker's return says it recorded it there itself): the outcome is `passed` or `issues`, the basis is the `basis` object of the inputs' answer copied verbatim, and each integration gap the checker found is a finding.
+
+```bash
+AUDIT=$(specforge query "$MILESTONE" --depth 1 --kinds milestone_audit --pick '.nodes[kind=milestone_audit].id' --last 1) || exit 1
+[ -n "$AUDIT" ] || { echo "the milestone has no audit: run step 1 first" >&2; exit 1; }
+specforge query "$AUDIT" --inputs gsd/E518 --format json
+```
+
+```bash
+AUDIT=$(specforge query "$MILESTONE" --depth 1 --kinds milestone_audit --pick '.nodes[kind=milestone_audit].id' --last 1) || exit 1
+[ -n "$AUDIT" ] || { echo "the milestone has no audit: run step 1 first" >&2; exit 1; }
+OUTCOME="{passed or issues}"
+IFS= read -rd '' BASIS <<'TEXT' || true; BASIS=${BASIS%$'\n'}
+{the basis object of the inputs' answer, verbatim}
+TEXT
+IFS= read -rd '' FINDINGS <<'TEXT' || true; FINDINGS=${FINDINGS%$'\n'}
+[{"severity": "{error or warning}", "message": "{an integration gap the checker found; [] when it found none}"}]
+TEXT
+[ -n "$BASIS" ] || { echo "no basis: read the rule's inputs first" >&2; exit 1; }
+specforge gsd record-verdict "$AUDIT" E518 "$OUTCOME" gsd-integration-checker "$BASIS" --findings "$FINDINGS" || exit 1
+```
+
+A refusal names its code: read it with `specforge explain <code>`. A `stale_revision` refusal means the inputs changed since they were read: read them again.
+
 ## 4. Collect Results
 
 Combine:
@@ -117,48 +148,45 @@ Combine:
 
 MUST cross-reference three independent sources for each requirement:
 
-### 5a. Parse REQUIREMENTS.md Traceability Table
+### 5a. The Requirements and Their Phases
 
-Extract all REQ-IDs mapped to milestone phases from the traceability table:
-- Requirement ID, description, assigned phase, current status, checked-off state (`[x]` vs `[ ]`)
+The milestone's requirements are its phases' `requirements`: each with its id, text (`specforge query <requirement> --depth 0 --format context`), assigned phase and computed `status` (`pending` or `complete`).
 
-### 5b. Parse Phase VERIFICATION.md Requirements Tables
+### 5b. The Threads' Verification State
 
-For each phase's VERIFICATION.md, extract the expanded requirements table:
-- Requirement | Source Plan | Description | Status | Evidence
-- Map each entry back to its REQ-ID
+For each requirement, its thread (step 2) names the plans that claim it, their tests, and the truths with their verdict state; its phase's verification gives the phase's `status`. The audit's computed `gaps` already name each requirement that is `unsatisfied`, `partial` or `orphaned`:
+
+```bash
+AUDIT=$(specforge query "$MILESTONE" --depth 1 --kinds milestone_audit --pick '.nodes[kind=milestone_audit].id' --last 1) || exit 1
+[ -n "$AUDIT" ] || { echo "the milestone has no audit: run step 1 first" >&2; exit 1; }
+specforge query "$AUDIT" --depth 0 --pick '.nodes[0].fields.gaps'
+```
 
 ### 5c. Extract SUMMARY.md Frontmatter Cross-Check
 
 For each phase's SUMMARY.md, extract `requirements-completed` from YAML frontmatter:
 ```bash
-# #2962: zsh aborts the block on an unmatched for-list glob (nomatch); bash passes it through. nullglob both.
-shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
-
-for summary in $(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id'); do
-  [ -e "$summary" ] || continue
-  specforge query "$summary" --depth 0 --pick '.nodes[0].fields.requirements_completed'
-done
+specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary]' --fields id,fields.requirements_completed   # a row per summary: its id, then its requirement ids as a JSON list (cells split at 0x1f)
 ```
 
 ### 5d. Status Determination Matrix
 
 For each REQ-ID, determine status using all three sources:
 
-| VERIFICATION.md Status | SUMMARY Frontmatter | REQUIREMENTS.md | → Final Status |
-|------------------------|---------------------|-----------------|----------------|
-| passed                 | listed              | `[x]`           | **satisfied**  |
-| passed                 | listed              | `[ ]`           | **satisfied** (update checkbox) |
-| passed                 | missing             | any             | **partial** (verify manually) |
-| gaps_found             | any                 | any             | **unsatisfied** |
-| missing                | listed              | any             | **partial** (verification gap) |
-| missing                | missing             | any             | **unsatisfied** |
+| Phase verification `status` | Summary `requirements_completed` | Requirement `status` | → Final Status |
+|-----------------------------|----------------------------------|----------------------|----------------|
+| passed                      | listed                           | complete             | **satisfied**  |
+| passed                      | listed                           | pending              | **satisfied** (its status follows once the thread closes) |
+| passed                      | missing                          | any                  | **partial** (verify manually) |
+| gaps_found                  | any                              | any                  | **unsatisfied** |
+| no verification             | listed                           | any                  | **partial** (verification gap) |
+| no verification             | missing                          | any                  | **unsatisfied** |
 
 ### 5e. FAIL Gate and Orphan Detection
 
-**REQUIRED:** Any `unsatisfied` requirement MUST force `gaps_found` status on the milestone audit.
+The audit's `status` is computed: an `unsatisfied` or `orphaned` requirement among its `gaps` makes it `gaps_found`, whatever the matrix's other rows say.
 
-**Orphan detection:** Requirements present in REQUIREMENTS.md traceability table but absent from ALL phase VERIFICATION.md files MUST be flagged as orphaned. Orphaned requirements are treated as `unsatisfied` — they were assigned but never verified by any phase.
+**Orphan detection:** a requirement a phase maps but no plan claims (its thread stops at `no plan`) is `orphaned` in the audit's `gaps`, and counts as `unsatisfied`: it was assigned but never planned, so no phase verified it.
 
 ## 5.5. Nyquist Compliance Discovery
 
@@ -172,60 +200,39 @@ Resolve active step hooks from `VERIFY_POST_HOOKS_JSON` where `kind == "step"` a
 
 If no active validate-phase step hook exists: skip entirely.
 
-For each phase directory, check `*-VALIDATION.md`. If exists, parse frontmatter (`status`, `nyquist_compliant`, `wave_0_complete`).
+The audit counts the phases by their Nyquist state in its computed `nyquist`, from each phase's `validation` entity:
 
-Classify per phase:
+```bash
+AUDIT=$(specforge query "$MILESTONE" --depth 1 --kinds milestone_audit --pick '.nodes[kind=milestone_audit].id' --last 1) || exit 1
+[ -n "$AUDIT" ] || { echo "the milestone has no audit: run step 1 first" >&2; exit 1; }
+specforge query "$AUDIT" --depth 0 --pick '.nodes[0].fields.nyquist'
+specforge query "$MILESTONE" --depth 2 --kinds validation --format context
+```
 
 | Status | Condition |
 |--------|-----------|
-| COMPLIANT | `status: validated` and `nyquist_compliant: true` and all tasks green |
-| PARTIAL | `status: validated` and (`nyquist_compliant: false` or red/pending) |
-| NOT-VALIDATED | `status: draft` (or absent) — validate-phase has not yet reconciled this file (#2117) |
-| MISSING | No VALIDATION.md |
-
-> **NOT-VALIDATED vs PARTIAL (#2117):** A phase reads `status: draft` when it was seeded by plan-phase but never reconciled by validate-phase, OR when its `VALIDATION.md` predates the `status` field (files written before #2117 stay `draft` whether or not validation ran). In both cases `nyquist_compliant` is not authoritative, so this is a coverage TODO ("run validate-phase") — not a compliance failure. Re-running validate-phase promotes the file to `status: validated` and yields the real COMPLIANT/PARTIAL verdict. Only `status: validated` + `nyquist_compliant: false` is a genuine PARTIAL.
-
-Add to audit YAML: `nyquist: { compliant_phases, partial_phases, not_validated_phases, missing_phases, overall }`
+| COMPLIANT (`compliant`) | the phase's validation is approved and its rows cover every task |
+| PARTIAL (`partial`) | approved, with tasks its rows leave uncovered or red |
+| NOT-VALIDATED (`not_validated`) | a validation no one approved yet: validate-phase has not reconciled it, a coverage TODO, not a compliance failure |
+| MISSING (`missing`) | the phase has no validation |
 
 Discovery only — never auto-calls `/gsd:validate-phase`.
 
-## 6. Aggregate into v{version}-MILESTONE-AUDIT.md
+## 6. Record the Tech Debt
 
-Create the spec with:
+The audit's `gaps`, `nyquist` and `status` are computed, and its `integration` is the verdict of step 3b; what this step writes is the tech debt: one `{phase, item}` object per non-critical, deferred item of steps 2 and 4, as one JSON list (`[]` when there is none). Accepting the debt is the person's (`debt_accepted`), never this workflow's.
 
-```yaml
----
-milestone: {version}
-audited: {timestamp}
-status: passed | gaps_found | tech_debt
-scores:
-  requirements: N/M
-  phases: N/M
-  integration: N/M
-  flows: N/M
-gaps:  # Critical blockers
-  requirements:
-    - id: "{REQ-ID}"
-      status: "unsatisfied | partial | orphaned"
-      phase: "{assigned phase}"
-      claimed_by_plans: ["{plan files that reference this requirement}"]
-      completed_by_plans: ["{plan files whose SUMMARY marks it complete}"]
-      verification_status: "passed | gaps_found | missing | orphaned"
-      evidence: "{specific evidence or lack thereof}"
-  integration: [...]
-  flows: [...]
-tech_debt:  # Non-critical, deferred
-  - phase: 01-auth
-    items:
-      - "TODO: add rate limiting"
-      - "Warning: no password strength validation"
-  - phase: 03-dashboard
-    items:
-      - "Deferred: mobile responsive layout"
----
+```bash
+AUDIT=$(specforge query "$MILESTONE" --depth 1 --kinds milestone_audit --pick '.nodes[kind=milestone_audit].id' --last 1) || exit 1
+[ -n "$AUDIT" ] || { echo "the milestone has no audit: run step 1 first" >&2; exit 1; }
+IFS= read -rd '' TECH_DEBT <<'TEXT' || true; TECH_DEBT=${TECH_DEBT%$'\n'}
+[{"phase": "{the phase's id, e.g. v1.0/01}", "item": "{one deferred item, e.g. TODO: add rate limiting}"}]
+TEXT
+specforge set "$AUDIT" tech_debt "$TECH_DEBT" || exit 1
+specforge query "$AUDIT" --depth 0 --pick '.nodes[0].fields.status'
 ```
 
-Plus full markdown report with tables for requirements, phases, integration, tech debt.
+The report presented in step 7 is read from the audit (`specforge query "$AUDIT" --depth 0 --format context`): its requirements, phases, integration and tech debt.
 
 **Status values:**
 - `passed` — all requirements met, no critical gaps, minimal tech debt
@@ -377,16 +384,16 @@ or `5.2` if `5.1` exists), never `<after-phase>`.
 
 <success_criteria>
 - [ ] Milestone scope identified
-- [ ] All phase VERIFICATION.md files read
-- [ ] SUMMARY.md `requirements-completed` frontmatter extracted for each phase
-- [ ] REQUIREMENTS.md traceability table parsed for all milestone REQ-IDs
-- [ ] 3-source cross-reference completed (VERIFICATION + SUMMARY + traceability)
-- [ ] Orphaned requirements detected (in traceability but absent from all VERIFICATIONs)
+- [ ] The milestone's audit resolved, or created as `<milestone>/A1`, before the checker's spawn
+- [ ] Every requirement traced along its thread, and every phase's verification read
+- [ ] The summaries' `requirements_completed` read for each phase
+- [ ] 3-source cross-reference completed (threads and verifications, summaries, requirement status)
+- [ ] Orphaned requirements read from the audit's computed `gaps`
 - [ ] Tech debt and deferred gaps aggregated
-- [ ] Integration checker spawned with milestone requirement IDs
-- [ ] v{version}-MILESTONE-AUDIT.md created with structured requirement gap objects
-- [ ] FAIL gate enforced — any unsatisfied requirement forces gaps_found status
-- [ ] Nyquist compliance scanned for all milestone phases (if enabled)
-- [ ] Missing VALIDATION.md phases flagged with validate-phase suggestion
+- [ ] Integration checker spawned with the audit's context line (`specforge context gsd/integration-checker`)
+- [ ] The integration verdict (`gsd/E518`) recorded once, on the audit
+- [ ] The audit's `tech_debt` recorded; its `status` read (an unsatisfied requirement makes it `gaps_found`)
+- [ ] Nyquist compliance read from the audit's `nyquist` (if enabled)
+- [ ] Phases with no validation flagged with validate-phase suggestion
 - [ ] Results presented with actionable next steps
 </success_criteria>

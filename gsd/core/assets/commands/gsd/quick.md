@@ -10,7 +10,7 @@ Execute small, ad-hoc tasks with GSD guarantees (atomic commits, STATE.md tracki
 Quick mode is the same system with a shorter path:
 - Spawns gsd-planner (quick mode) + gsd-executor(s)
 - Quick tasks live in `spec/quick.spec`, separate from planned phases
-- Updates STATE.md "Quick Tasks Completed" table (NOT ROADMAP.md)
+- Closes each task on its summary entity: the computed project state lists it (the roadmap has no row for it)
 
 **Default:** Skips research, discussion, plan-checker, verifier. Use when you know exactly what to do.
 
@@ -62,9 +62,9 @@ specforge export --kinds plan --pick '.nodes[fields.quick=true]' --fields id,fie
 For each row found (a quick plan is an entity, so it exists):
 - Its computed status says how it stands: `complete` and `halted` come from its summary
 - If it has a summary, read that summary's `status` via:
-  ```bash
+```bash
 specforge query "{dir}" --depth 1 --kinds summary --pick '.nodes[kind=summary].fields.status' --first 1
-  ```
+```
 - Determine the creation date: the id's `YYMMDD` prefix (a quick id is `YYMMDD-xxx`)
 - Derive display status:
   - computed status `complete` → `complete ✓`
@@ -124,24 +124,24 @@ No agent spawn. STOP after printing.
 When SUBCMD=resume and SLUG is set (already sanitized):
 
 1. Find the directory matching `*-{SLUG}` pattern:
-   ```bash
+```bash
 dir=$(specforge export --kinds plan --pick '.nodes[fields.slug={SLUG}].id')   # a quick plan is named by its id and writes its slug; a slug run twice gives one line per run
-   ```
+```
 2. If no directory found, print `No quick task found with slug: {SLUG}` and stop. If it holds more than one id, the slug was run more than once: list them all and ask which.
 
 3. Read PLAN.md to extract description and SUMMARY.md (if exists) to extract status.
 
 4. Print before spawning:
-   ```
+```
 [quick] Resuming: {dir}
    [quick] Plan: {description from PLAN.md}
    [quick] Status: {status from SUMMARY.md, or "in-progress"}
-   ```
+```
 
 5. Load context via:
-   ```bash
+```bash
 specforge gsd progress-report
-   ```
+```
 
 6. Proceed to execute the quick workflow with resume context, passing the slug and plan directory so the executor picks up where it left off.
 
@@ -155,9 +155,9 @@ Preserve all workflow gates (validation, task description, planning, execution, 
 </process>
 
 <notes>
-- Quick tasks live in `spec/quick.spec` — separate from phases, not tracked in ROADMAP.md
-- Each quick task gets a `YYYYMMDD-{slug}/` directory with PLAN.md and eventually SUMMARY.md
-- STATE.md "Quick Tasks Completed" table is updated on completion
+- Quick tasks live in `spec/quick.spec` — separate from phases, not tracked in the roadmap
+- Each quick task is a plan named by its quick id, with its tasks and eventually its summary
+- The computed project state lists a quick task once its plan is closed
 - Use `list` to audit accumulated tasks; use `resume` to continue in-progress work
 </notes>
 

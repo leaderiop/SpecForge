@@ -16,11 +16,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
-
 
 INIT=$(specforge gsd progress-report --format json)
 
@@ -34,7 +30,7 @@ DISCUSS_MODE="{{setting:workflow.discuss_mode|}}"   # workflow.discuss_mode (the
 
 **If `init_incomplete` is true (#4040 — interrupted bootstrap):**
 
-the spec exists but the core initialization artifacts are missing (one or more of `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md` were never created — a bootstrap that stopped partway, e.g. after PROJECT.md). This is NOT a new project, NOT a missing STATE.md, and NOT a between-milestones state — do not fall through to any of those routes. Route to initialization recovery:
+the spec exists but the core initialization entities are missing (one or more of the requirement, milestone and phase entities were never created — a bootstrap that stopped partway, e.g. after the `project` entity). This is NOT a new project, NOT a missing project state, and NOT a between-milestones state — do not fall through to any of those routes. Route to initialization recovery:
 
 ```
 ---
@@ -45,7 +41,7 @@ A partial spec was found: project initialization started but stopped before crea
 
 `/clear` then:
 
-`/gsd:new-project` — resumes initialization from the first missing artifact; existing PROJECT.md (and any already-created artifacts) are kept, not regenerated.
+`/gsd:new-project` — resumes initialization from the first missing entity; the existing `project` entity (and any already-created entities) are kept, not regenerated.
 
 ---
 ```
@@ -318,13 +314,12 @@ The unparsed row comes from the UAT diagnostics of `specforge check` (`parse_gap
 
 **Step 1.7: Check verification status for the current phase**
 
-A phase whose verification is anything but `passed` is NOT complete, even when every PLAN.md has a matching SUMMARY.md. The count-based status (`roadmap.analyze`) only sees plans/summaries, so without this check such a phase is reported complete and routing skips straight to the next phase. When the phase appears count-complete (`summaries = plans AND plans > 0`), consult the verification report (the same `verification.status` gate `ship` and `execute-phase` use, from #651), on the phase directory the locator resolved (a workstream project does not keep its phases under the `phase` entities):
+A phase whose verification is anything but `passed` is NOT complete, even when every plan has a summary. The count-based status (`roadmap.analyze`) only sees plans/summaries, so without this check such a phase is reported complete and routing skips straight to the next phase. When the phase appears count-complete (`summaries = plans AND plans > 0`), consult the verification report (the same `verification.status` gate `ship` and `execute-phase` use, from #651), on the phase directory the locator resolved (a workstream project does not keep its phases under the `phase` entities):
 
 ```bash
 PHASE_DIR="${CURRENT_PHASE}"   # a phase is addressed by its id, not a directory
 VERIFICATION=$(specforge query "${PHASE_DIR}" --kinds verification --format json) || { echo "the verification of phase ${CURRENT_PHASE} was refused — see the error above." >&2; exit 1; }
 VERIFICATION_STATUS=$(specforge query "${PHASE_DIR}" --kinds verification --pick '.nodes[kind=verification].fields.status'); VERIFICATION_STATUS=${VERIFICATION_STATUS%%$'\n'*}
-
 
 ```
 
@@ -517,14 +512,14 @@ All plans have summaries, but canonical verification has not passed (`missing`, 
 
 **Route V.gaps: verification found gaps (gaps_found)**
 
-VERIFICATION.md exists with `status: gaps_found` — verification identified gaps that need fix plans. The phase is NOT complete.
+The phase's verification reports `gaps_found`: it identified gaps that need fix plans. The phase is NOT complete.
 
 ```
 ---
 
 ## ⚠ Verification Gaps Found
 
-**{phase_num}-VERIFICATION.md** reports `gaps_found`. Plan the gap fixes, then execute them.
+**Phase {phase_num}'s verification** reports `gaps_found`. Plan the gap fixes, then execute them.
 
 `/clear` then:
 
@@ -537,14 +532,14 @@ VERIFICATION.md exists with `status: gaps_found` — verification identified gap
 
 **Route V.human: human verification required (human_needed)**
 
-VERIFICATION.md exists with `status: human_needed` — automated checks passed but manual verification items remain. The phase is NOT complete until they are resolved.
+The phase's verification reports `human_needed`: automated checks passed but manual verification items remain. The phase is NOT complete until they are resolved.
 
 ```
 ---
 
 ## Human Verification Required
 
-**{phase_num}-VERIFICATION.md** reports `human_needed`. Resolve the remaining manual checks.
+**Phase {phase_num}'s verification** reports `human_needed`. Resolve the remaining manual checks.
 
 `/clear` then:
 

@@ -4,11 +4,11 @@
 
 the current phase's mode is its `mode` field (progress has no `--mvp` CLI flag — mode is inherited from the planned phase), and no init bundle prints a section manifest, so this step is read on every progress run: read the mode here, from a depth-0 query of the current phase, and when it is not `mvp` skip the rest of this step; when it is, it holds for the remainder of this step.
 
-The per-phase progress block adds a **user-flow status** sub-block sourced from the phase's PLAN.md task names. Each task whose name reads like a user-visible capability (e.g., "Register flow", "Login flow", "Password reset") is rendered as a status line:
+Progress adds a **user-flow status** sub-block to every phase, one line per task whose name reads as something a user can do. Each task whose name reads like a user-visible capability (e.g., "Register flow", "Login flow", "Password reset") is rendered as a status line:
 
 ```
 Phase 1 — User Auth MVP
-  ✅ Walking Skeleton complete           ← from SKELETON.md existence
+  ✅ Walking Skeleton complete           ← phase 1's first plan has a summary recorded in the graph
   ✅ Register flow working               ← from PLAN.md task with summary
   ✅ Login flow working                  ← from PLAN.md task with summary
   🔄 Password reset (in progress)        ← from PLAN.md task without summary

@@ -3,7 +3,7 @@ use crate::outcome::{Exit, OutputFormat, Refusal};
 use crate::terminal::{Terminal, out};
 use specforge_ops::read::plan::{AgentPlan, PlanOutcome};
 use specforge_ops::read::trace::{
-    Ask, Partial, RouteTrace, Trace, TraceChain, TraceLink, TraceOutcome,
+    Ask, Partial, RouteTrace, Trace, TraceChain, TraceLink, TraceOutcome, TraceRequest,
 };
 use specforge_ops::view::ProjectView;
 
@@ -12,6 +12,11 @@ use specforge_ops::view::ProjectView;
 pub(crate) struct Args {
     /// Entity ID to trace (omit to trace every entity)
     entity: Option<String>,
+
+    /// Trace every entity within this entity: it, its scope at any depth, and the entities one reference away (with
+    /// --route, those of its start kind)
+    #[arg(long = "in", value_name = "ENTITY", conflicts_with_all = ["entity", "plan"])]
+    within: Option<String>,
 
     /// An agent plan file (an AgentPlan's JSON) to check against the graph instead of tracing
     #[arg(long, value_name = "FILE", value_parser = plan_file, conflicts_with = "entity")]
@@ -61,12 +66,13 @@ impl Args {
         };
         let view = ProjectView::of(&project);
         // clap refuses an entity with --plan first; the reading is the operation's all the same.
-        let (target, follow) = match Ask::of(
-            self.entity.as_deref(),
-            self.plan.as_ref(),
-            self.route.as_deref(),
-            self.reach,
-        ) {
+        let (target, follow) = match Ask::of(TraceRequest {
+            entity: self.entity.as_deref(),
+            within: self.within.as_deref(),
+            plan: self.plan.as_ref(),
+            route: self.route.as_deref(),
+            reach: self.reach,
+        }) {
             Err(refusal) => {
                 return Refusal::of(self.asked_or_json()).report(terminal, &refusal.into_error());
             }
@@ -103,7 +109,8 @@ impl Args {
     }
 
     /// The format `outcome` prints in: the one asked for, else human for a route's thread (one routed entity, or every
-    /// entity of a route `--route` names) and json for any other trace (ADR 0330 D7, amending ADR 0029 D5b).
+    /// entity of a route `--route` names, in the graph or within an entity) and json for any other trace (ADR 0330 D7,
+    /// amending ADR 0029 D5b).
     fn format_of(&self, outcome: &TraceOutcome) -> OutputFormat {
         let thread = match outcome {
             TraceOutcome::One(document) => matches!(document.trace, Trace::Route(_)),

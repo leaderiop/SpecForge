@@ -2,12 +2,13 @@
 @~/.claude/gsd-core/references/response-language-directive.md
 <purpose>
 Batch several `/gsd:quick`-shaped tasks together (#3676, epic #3344, ADR-1239
-"Quick-batch binding"). ONE coordinator (this workflow) owns every shared
-write — `BATCH.json`, STATE.md, each executor's dispatch — and never
-delegates them to a leaf. Leaves (planner/researcher/checker/executor/
-verifier) return structured results only; they never invoke `/gsd:quick`,
-never touch `BATCH.json`, and never write STATE.md/ROADMAP.md themselves
-(single-writer invariant).
+"Quick-batch binding"). ONE coordinator (this workflow) records the batch and
+each executor's dispatch, and never delegates them to a leaf: the batch is a
+`quick_batch` entity — `specforge gsd start-batch` records its items and base,
+and resume reads its computed `eligible`. Leaves (planner/researcher/checker/
+executor/verifier) return structured results only; they never invoke
+`/gsd:quick`, never write the batch entity, and record only their own item's
+entities (single-writer invariant).
 
 Dispatch decisions (effective concurrency, deterministic merge order, spawn
 backpressure, failure/verification routing) are computed by the pure
@@ -24,7 +25,7 @@ Valid GSD subagent types (use exact names — do not fall back to 'general-purpo
 - gsd-phase-researcher — Researches technical approaches for an item
 - gsd-planner — Creates a plan for one item (`quick-batch` mode)
 - gsd-plan-checker — Reviews one item's plan before execution
-- gsd-executor — Executes one item's plan, commits, creates SUMMARY.md
+- gsd-executor — Executes one item's plan, commits, writes the item's summary entity
 - gsd-verifier — Verifies one item's goal achievement
 </available_agent_types>
 
@@ -49,9 +50,6 @@ TASK_FILE="{{arg:file|}}"
 TASKS="{{arg:tasks|}}"
 # a --jobs that is not auto or a positive integer is refused before this text renders
 
-
-
-
 ```
 
 `$JOBS` is `auto` or a number, `$VALIDATE_MODE` and `$RESEARCH_MODE` are `true` or `false`, and `$RESUME_BATCH_ID` is the batch to resume (empty unless `--resume <id>`).
@@ -59,9 +57,6 @@ TASKS="{{arg:tasks|}}"
 The task list is `$TASK_FILE` (`--file <path>`), else `$TASKS` (the words after the options).
 
 ```bash
-
-
-
 
 VALIDATE_PARAM=""; if [ "$VALIDATE_MODE" = true ]; then VALIDATE_PARAM="--validate"; fi
 RESEARCH_PARAM=""; if [ "$RESEARCH_MODE" = true ]; then RESEARCH_PARAM="--research"; fi
@@ -82,7 +77,6 @@ Nothing here answers a model: an installed agent carries its own model, so every
 > **Model omission (#2517).** Every `Agent()` dispatch below (planner, researcher, plan-checker, executor, verifier) MUST omit the `model` parameter entirely when the value it would carry (`planner_model`, `checker_model`, `executor_model`, `verifier_model`, `researcher_model`) is `"inherit"` or empty. An empty value 404s on runtimes without native tier aliases — the default on non-Claude runtimes, where the installer writes `resolve_model_ids:"omit"`. Omitting it inherits the orchestrator's model. See @gsd-core/references/model-profile-resolution.md.
 
 ```bash
-
 
 # @gsd/core has no worktree isolation: workflow.use_worktrees is ignored
 RUNTIME="{{setting:runtime|}}"   # runtime (the settings)
@@ -109,18 +103,6 @@ CAPACITY=1   # dispatch-capacity: one at a time, no background dispatch is part 
 ```
 
 **No isolation to resolve.** `@gsd/core` runs no worktree isolation: every executor runs in sequential mode on the working tree (no isolation gate, no harness flag, no orphan sweep).
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 Display banner:
@@ -170,15 +152,12 @@ before advancing to the next layer.
 Read and execute `gsd-core/workflows/quick-batch/steps/worktree-dispatch.md`.
 Executors run one item at a time on the working tree (sequential mode).
 
-
-
 ---
 
 **Step 7: Deterministic merge**
 
 Nothing to merge: every executor committed on the working tree in Step 6, so
 `gsd-core/workflows/quick-batch/steps/merge-wave.md` is not reached.
-
 
 ---
 
@@ -192,7 +171,7 @@ If `section_manifest` is `null` or `"verification-wave"` is in its `included` li
 
 Read and execute `gsd-core/workflows/quick-batch/steps/completion.md`. Calls
 `completeQuickItem` (via `quick-batch complete`) only for a genuinely
-complete item, updates STATE.md, and prints the final batch report.
+complete item (the computed state lists it), and prints the final batch report.
 
 </process>
 
@@ -209,5 +188,5 @@ complete item, updates STATE.md, and prints the final batch report.
 
 - [ ] (--validate) Verifier dispatched per item post-merge; `human_needed` never completes the item, `gaps_found` fails it without rollback or retry
 
-- [ ] `completeQuickItem` called only for genuinely complete items; STATE.md updated; artifacts committed
+- [ ] `completeQuickItem` called only for genuinely complete items; the batch's computed status follows; artifacts committed
 </success_criteria>

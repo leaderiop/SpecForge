@@ -115,10 +115,8 @@ fn complete_milestone_skips_the_project_review_under_an_active_workstream() {
         &["gsd-core/workflows/complete-milestone.md"],
     );
     assert_eq!(served.code, 0, "{}", served.all());
-    let gate = served
-        .stdout
-        .split("```bash\n")
-        .filter_map(|b| b.split("\n```").next())
+    let gate = super::rendered_lines::bash_fences(&served.stdout)
+        .into_iter()
         .find(|b| b.contains("PROJECT_MD_REVIEW"))
         .expect("the review gate");
     let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
@@ -129,7 +127,7 @@ fn complete_milestone_skips_the_project_review_under_an_active_workstream() {
     );
     let review = || {
         let out = std::process::Command::new("bash")
-            .args(["-c", gate])
+            .args(["-c", &gate])
             .env("PATH", &path)
             .current_dir(p.root())
             .output()

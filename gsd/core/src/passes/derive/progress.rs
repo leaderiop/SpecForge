@@ -124,7 +124,7 @@ fn stats(
     phases: usize,
 ) -> Value {
     let tasks = of_kind(input, "task")
-        .filter(|t| plans.contains(&crate::digest::scope_of(&t.id)))
+        .filter(|t| plans.contains(&crate::scope::scope_of(&t.id)))
         .count();
     let mut out = json!({ "phases": phases, "plans": plans.len(), "tasks": tasks });
     if commits.is_empty() {

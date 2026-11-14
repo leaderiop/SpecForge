@@ -1,7 +1,7 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/workflows/spec-phase.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <purpose>
 Clarify WHAT a phase delivers through a Socratic interview loop with quantitative ambiguity scoring.
-Produces a SPEC.md with falsifiable requirements that discuss-phase treats as locked decisions.
+Records the phase spec: falsifiable requirements that discuss-phase treats as locked decisions.
 
 This workflow handles "what" and "why" — discuss-phase handles "how".
 </purpose>
@@ -18,7 +18,7 @@ Score each dimension 0.0 (completely unclear) to 1.0 (crystal clear):
 
 **Ambiguity score** = 1.0 − (0.35×goal + 0.25×boundary + 0.20×constraint + 0.20×acceptance)
 
-**Gate:** ambiguity ≤ 0.20 AND all dimensions ≥ their minimums → ready to write SPEC.md.
+**Gate:** the spec is recorded once ambiguity is ≤ 0.20 and every dimension meets its minimum.
 
 A score of 0.20 means 80% weighted clarity — enough precision that the planner won't silently make wrong assumptions.
 </ambiguity_model>
@@ -73,27 +73,27 @@ Use /gsd:progress to see available phases.
 ```
 Exit.
 
-**Check for existing SPEC.md:** the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' --first 1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the existing SPEC.md is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
+**Check for an existing spec:** the phase spec is the phase's `phase_spec` entity in the graph (an AI spec or a UI spec is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' --first 1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the existing spec is the entity `$SPEC_ID`.
 
 If `has_spec` is true:
 
-**If `--auto`:** Auto-select "Skip" — leave the existing SPEC.md unchanged and exit with the same
-message the interactive "Skip" prints. Log: `[auto] SPEC.md exists — reusing as-is.` An unattended
+**If `--auto`:** Take "Skip": the spec stays as it is, and the run ends with the message an
+interactive "Skip" prints. Log: `[auto] Spec found: kept unchanged.` An unattended
 run reuses an existing artifact rather than regenerating it (#4776): "Update it" re-scores and
 rewrites the spec, discarding answers a person already recorded in it, and nobody is present to
 notice.
 
 **Otherwise:** Use AskUserQuestion:
 - header: "Spec"
-- question: "Phase [X] already has a SPEC.md. What do you want to do?"
+- question: "A spec of Phase [X] is recorded already: what now?"
 - options:
   - "Update it" — Revise and re-score
   - "View it" — Show current spec
   - "Skip" — Exit (use existing spec as-is)
 
-If "View": Display SPEC.md, then offer Update/Skip.
-If "Skip": Exit with message: "Existing SPEC.md unchanged. Run /gsd:discuss-phase [X] to continue."
-If "Update": Load existing SPEC.md, continue to Step 3.
+If "View": show it with `specforge query "$SPEC_ID" --depth 1 --format context`, then offer Update/Skip.
+If "Skip": Exit with message: "Existing spec unchanged. Run /gsd:discuss-phase [X] to continue."
+If "Update": Load the existing spec the same way, continue to Step 3; its fields change with `specforge set` / `specforge link`, and an interview answer once written is never rewritten.
 
 ## Step 2: Scout Codebase
 
@@ -128,7 +128,7 @@ Acceptance Criteria:[score 0.0–1.0]
 Ambiguity: [score] ([calculate])
 ```
 
-**If `--auto` and initial ambiguity already ≤ 0.20 with all minimums met:** Skip interview — derive SPEC.md directly from roadmap + requirements. Log: `[auto] Phase requirements are already sufficiently clear — generating SPEC.md from existing context.` Jump to Step 5.5.
+**If `--auto` and initial ambiguity already ≤ 0.20 with all minimums met:** No interview: the spec is drawn straight from the phase and its requirements. Log: `[auto] Requirements already clear: recording the spec from the existing context.` Jump to Step 5.5.
 
 **Otherwise:** Continue to Step 4.
 
@@ -165,23 +165,23 @@ If gate passes (ambiguity ≤ 0.20 AND all minimums met):
 
 **Otherwise:** AskUserQuestion:
 - header: "Spec Gate Passed"
-- question: "Ambiguity is [score] — requirements are clear enough to write SPEC.md. Proceed?"
+- question: "At ambiguity [score] the requirements can be recorded as the spec. Proceed?"
 - options:
-  - "Yes — write SPEC.md" → Jump to Step 5.5
+  - "Yes — record the spec" → Jump to Step 5.5
   - "One more round" → Continue interview
-  - "Done talking — write it" → Jump to Step 5.5
+  - "Stop here and record" → Jump to Step 5.5
 
 **If max rounds reached (6) and gate not passed:**
 
-**If `--auto`:** Write SPEC.md anyway — flag unresolved dimensions. Log: `[auto] Max rounds reached. Writing SPEC.md with [N] dimensions below minimum. Planner will need to treat these as assumptions.`
+**If `--auto`:** Record the spec anyway — the judged verdict flags the dimensions below their minimum. Log: `[auto] Max rounds reached. Recording the spec with [N] dimensions below minimum. Planner will need to treat these as assumptions.`
 
 **Otherwise:** AskUserQuestion:
 - header: "Max Rounds"
 - question: "After 6 rounds, ambiguity is [score]. [List dimensions still below minimum.] What would you like to do?"
 - options:
-  - "Write SPEC.md anyway — flag gaps" → Write SPEC.md, mark unresolved dimensions in Ambiguity Report
+  - "Record the spec anyway — flag gaps" → Jump to Step 5.5; the judged verdict's scores carry the dimensions below their minimum
   - "Keep talking" → Continue (no round limit from here)
-  - "Abandon" → Exit without writing
+  - "Abandon" → Exit without recording anything
 
 **If `--auto` mode throughout:** Replace all AskUserQuestion calls above with Claude's recommended choice. Log decisions inline. Apply the same logic as `--auto` in discuss-phase.
 
@@ -198,11 +198,11 @@ ones). Reference: @~/.claude/gsd-core/references/edge-probe.md.
 not.** The shape cues the classifier matches are **English** word-boundary patterns, so
 requirement prose written in another language matches nothing, classifies to zero shapes, and
 lands every row in `unclassified` (#1110) — the taxonomy contributes nothing and `--auto`
-leaves it all `unresolved`. When this project has `response_language` set, add an optional
-`text_en` key to each `$REQS_JSON` entry: a faithful **English** translation of that
-requirement's `text`. `text_en` is **engine input, never user-facing output**, so the
-`response_language` rule at the top of this workflow does not govern it — but `text` itself is
-NOT translated: write it as the requirement's own text, exactly as it appears in the SPEC.
+leaves it all `unresolved`. When this project has `response_language` set, set the optional
+`text_en` field of each `locked_req`: a faithful **English** translation of that
+requirement (`specforge set <LR> text_en "<English>"`). `text_en` is **engine input, never
+user-facing output**, so the `response_language` rule at the top of this workflow does not govern it — but the locked
+requirement's own fields are NOT translated: keep them as the SPEC states them.
 The SPEC keeps the original language — only `text_en` is translated, and requirement
 `id`s are never translated or renumbered (coverage rows join back on `id`, and any Acceptance
 Criteria you write from the resolved edges go into the SPEC in `response_language`). Populate
@@ -216,89 +216,37 @@ classifier learned nothing about ANY requirement. When `response_language` is un
 falls back to it automatically (`text_en ?? text`).
 If a requirement still classifies to zero shapes with `text_en` populated, it carries no cue in
 any language (the recorded recall gap — ADR-857 §98 / ADR-550 D7b, not a translation failure);
-author an explicit `shapes` array on that requirement instead of relying on the prose
-classifier.
+set that requirement's `shapes` instead of relying on the prose classifier (`specforge set <LR>
+shapes collection text`, any of `numeric_range`, `collection`, `text`, `stateful`, `io`).
 
-**Runtime coverage compute — resolve and invoke edge-probe.cjs:**
+Before the probe, the spec and its requirements are entities: when `$SPEC_ID` is empty, read the spec template with
+`specforge gsd reference gsd-core/templates/spec.md` and run its fence (the `phase_spec`, one `locked_req` per
+requirement gathered and one `interview` per question asked), then set `SPEC_ID="$PHASE_ID/${PADDED_PHASE}-SPEC"`.
+The probe is always given the spec, never the phase.
+
+**Runtime coverage compute — `specforge gsd edge-probe`:**
 
 ```bash
-# Resolve the compiled edge-probe.cjs against the GSD install dir via RUNTIME_DIR (#448)
-# — NOT the consuming project's git root — falling back to git toplevel / $HOME/.claude.
-# Mirrors the ui-safety-gate.cjs resolution idiom at autonomous.md:290 / plan-phase.md:631.
-_GSD_RT="${RUNTIME_DIR:-$(specforge git repo --pick .top 2>/dev/null || pwd)}"
-EDGE_PROBE_JS=$(for _c in \
-  "$_GSD_RT/gsd-core/bin/lib/edge-probe.cjs" \
-  "$_GSD_RT/bin/lib/edge-probe.cjs" \
-  "$_GSD_RT/.claude/bin/lib/edge-probe.cjs" \
-  "$HOME/.claude/gsd-core/bin/lib/edge-probe.cjs" \
-  "$HOME/.claude/bin/lib/edge-probe.cjs"; do
-  [ -f "$_c" ] && { echo "$_c"; break; }
-done)
-
-# Graceful degradation — never silent skip (RR-04). Build ONLY when $_GSD_RT is a verified
-# GSD source checkout (has tsconfig.build.json + src/edge-probe.cts), and pin npm to it with
-# --prefix so we never trigger the CONSUMING project's own build:lib (its cwd package scripts:
-# codegen/migrations/writes) during a spec workflow. Real installs ship the compiled .cjs via
-# prepublishOnly, so this build path only matters in a GSD dev checkout (review High).
-if [ -z "$EDGE_PROBE_JS" ]; then
-  if [ -f "$_GSD_RT/tsconfig.build.json" ] && [ -f "$_GSD_RT/src/edge-probe.cts" ]; then
-    npm --prefix "$_GSD_RT" run build:lib 2>/dev/null || true
-    EDGE_PROBE_JS=$(for _c in \
-      "$_GSD_RT/gsd-core/bin/lib/edge-probe.cjs" \
-      "$_GSD_RT/bin/lib/edge-probe.cjs" \
-      "$_GSD_RT/.claude/bin/lib/edge-probe.cjs" \
-      "$HOME/.claude/gsd-core/bin/lib/edge-probe.cjs" \
-      "$HOME/.claude/bin/lib/edge-probe.cjs"; do
-      [ -f "$_c" ] && { echo "$_c"; break; }
-    done)
-  fi
-  if [ -z "$EDGE_PROBE_JS" ]; then
-    echo "ERROR: edge-probe.cjs not found — reinstall GSD or run \`npm run build:lib\` in your GSD checkout." >&2
-    exit 1
-  fi
-fi
-
-# Write the Requirements gathered in THIS spec session to a temp JSON, then invoke the
-# canonical coverage compute. Populate the heredoc from the SPEC's Requirements — one object
-# per requirement: {"id","text","text_en"?,"shapes"?}. This is the load-bearing step: an empty
-# file makes the probe a no-op, so the guard below fails loud rather than silently skipping
-# (RR-04). When `response_language` is set, ALSO add `text_en` — a faithful ENGLISH
-# translation of `text` (see above) — the shape cues are English-only, so original-language
-# `text` alone classifies to zero shapes; `text` itself stays the SPEC's own requirement text
-# and is never translated. Keep every `id` exactly as it appears in the SPEC.
-# BSD/macOS mktemp only randomizes XXXXXX when it is the final path component, so make a
-# suffixless temp then append the extension — portable across BSD + GNU (#1520).
-REQS_JSON=$(specforge files temp --prefix edge-probe-reqs- --suffix .json --pick .path) || exit 1
-IFS= read -rd '' REQS <<'JSON' || true
-[
-  { "id": "R1", "text": "<replace: requirement text from the SPEC>" }
-]
-JSON
-printf '%s' "$REQS" > "$REQS_JSON"   # Guard — never invoke on an empty/invalid array, OR one still holding the heredoc
-# `<replace: …>` placeholder (a forgotten substitution would otherwise yield a
-# meaningful-looking but bogus coverage report). Fail loud, not silent no-op.
-if [ "$(specforge gsd edge-probe-requirements --requirements "$(< "$REQS_JSON")" --pick .valid)" != true ]; then
-  specforge files remove --force "$REQS_JSON" >/dev/null
-  echo "ERROR: edge-probe requirements JSON is empty/invalid or still holds the <replace: …> placeholder — populate \$REQS_JSON from the SPEC Requirements before Step 5.5 runs." >&2   # also when the JSON is over the command line's limit (32,767 characters on Windows): it is passed as an argument
+SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' --first 1)
+if [ -z "$SPEC_ID" ]; then
+  echo "ERROR: record the phase spec and its locked requirements before the edge probe — it reads them from the graph." >&2
   exit 1
 fi
-# Invoke the compiled engine and CAPTURE its report — it computes which categories apply per
+# Invoke the engine and CAPTURE its report — it computes which categories apply per
 # requirement. The report is RENDERED into context below (#3102); its resolved/dismissed/
 # unresolved rows (resolved items carry verification: explicit|backstop) are the deterministic
 # FLOOR the resolution loop consumes and unions with its own classification — the loop no longer
 # re-derives the taxonomy from prose unaided. Floor, never ceiling: the classifier has a measured
 # recall gap (ADR-857 §98 / ADR-550 D7b), so the model still ADDS any category the engine missed.
-# The engine FAILS CLOSED (exit 2) on an invalid authored shape or bad input — so the capture
-# MUST be exit-checked. A bare `COVERAGE=$(node …)` swallows that exit code, leaves $COVERAGE
+# The engine FAILS CLOSED (exit 1) on an invalid authored shape or bad input — so the capture
+# MUST be exit-checked. A bare capture swallows that exit code, leaves $COVERAGE
 # empty, and lets the workflow fall through to prose re-derivation: fail-OPEN at the boundary
 # the engine validation exists to protect. Make the run fatal, then validate the captured
 # report is well-formed JSON before the resolution loop consumes it.
-if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
-  specforge files remove --force "$REQS_JSON" >/dev/null
+if ! COVERAGE=$(specforge gsd edge-probe "$SPEC_ID" --format json); then
   echo "ERROR: edge-probe engine failed (invalid shapes or bad input) — fix the requirement(s) and re-run; never proceed with empty coverage." >&2
   exit 1
 fi
-specforge files remove --force "$REQS_JSON" >/dev/null
 # Exit-0-but-garbage guard: the report must parse as JSON with the expected { items[], coverage{} } shape.
 if [ -z "$COVERAGE" ]; then
   echo "ERROR: edge-probe produced an unparseable or malformed coverage report — refusing to proceed with the resolution loop." >&2
@@ -324,8 +272,6 @@ echo "### (end edge-probe coverage report)"
 # #4656: all-unclassified is the accidental-miss case the applicable:0 guard could never
 # reach — #1110's soft-signal rows make applicable non-zero by construction there.
 
-
-
 ```
 
 If the report's `coverage.applicable` is `0`, or every requirement is unclassified (`coverage.unclassified` equals it, #4656), do NOT proceed silently: ask the author to confirm via AskUserQuestion
@@ -345,25 +291,50 @@ For each Requirement gathered so far:
 2. For each raised category, propose a CONCRETE candidate edge (not "consider
    boundaries" — e.g. "R2 merges intervals; what about `[[1,2],[2,3]]` that only touch?").
 3. Resolve each with the user (AskUserQuestion; text mode → numbered list):
-   - **Specify it** → write a new pass/fail line into Acceptance Criteria AND mark the
-     edge `resolved` with `verification: explicit`.
+   - **Specify it** → the edge is `resolved` with `verification: explicit`, and its pass/fail line joins the spec's
+     acceptance criteria.
    - **Dismiss (reason)** → mark `dismissed` with a required non-empty reason.
-   - **Backstop with a test** → mark `resolved` with `verification: backstop`; note
-     "held-out edge test" for plan-phase.
+   - **Backstop with a test** → `resolved` with `verification: backstop`; note "held-out edge test" for plan-phase.
    - **Defer** → leave `unresolved`.
+
+   Record each row as it is resolved, one call per row: `resolve-edge` keeps one row per `(requirement, category)`,
+   creating or updating it, so a row is never written with `specforge new edge`. Leave out a flag the outcome has no
+   value for (`--resolution` for a dismissal or a deferral, `--reason` unless dismissed, `--verification` unless
+   resolved); the acceptance line runs only for **Specify it**:
+
+   ```bash
+   LR_ID="{the locked requirement, e.g. $SPEC_ID/LR1}"
+   CATEGORY="{boundary, adjacency, empty, encoding, ordering, precision, idempotency, concurrency or unclassified}"
+   STATUS="{resolved, dismissed or unresolved}"
+   VERIFICATION="{explicit or backstop}"
+   IFS= read -rd '' RESOLUTION <<'TEXT' || true; RESOLUTION=${RESOLUTION%$'\n'}
+   {the pass/fail line, or the backstop note}
+   TEXT
+   IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
+   {why the edge is dismissed}
+   TEXT
+   specforge gsd resolve-edge "$LR_ID" "$CATEGORY" "$STATUS" --verification "$VERIFICATION" --resolution "$RESOLUTION" --reason "$REASON" || exit 1
+   specforge link "$SPEC_ID" acceptance "$RESOLUTION" || exit 1
+   ```
    - An `unclassified` row (probe `unclassified — review manually`) means the requirement's
      prose matched no shape cue (#1110) — treat it like any other candidate (**Specify**,
      **Dismiss (reason)**, or **Defer**). A manual-review nudge, not a hard block.
 
-**Soft gate (after resolving):**
+**Soft gate (after resolving):** the probe counts what is left; a proposal never recorded counts as unresolved, so
+`--auto` records nothing for a row it leaves:
+
+```bash
+UNRESOLVED=$(specforge gsd edge-probe "$SPEC_ID" --pick .coverage.unresolved) || exit 1
+```
+
 - All applicable edges resolved → proceed to Step 5.6.
 - Any `unresolved` → AskUserQuestion:
   - header: "Edge Coverage"
   - question: "[N] edge(s) are unresolved: [list]. What do you want to do?"
-  - options: "Resolve now" (loop back) / "Write SPEC.md anyway — flag unresolved" /
+  - options: "Resolve now" (loop back) / "Record the spec anyway — flag unresolved" /
     "Keep probing"
-  - On "anyway": write SPEC.md with those rows marked `⚠ Edge unresolved — planner must
-    treat as assumption`.
+  - On "anyway": the rows stay `unresolved`, which flags each
+    for the planner as an assumption (`⚠ Edge unresolved`).
 
 **`--auto` mode:** resolve over the **same rendered floor** (#3102) — every engine-proposed row
 from Step 5.5's report (step 1) plus any category the classifier missed, never a narrower set.
@@ -380,7 +351,7 @@ risks a vacuous edge test. Leaving it `unresolved` keeps the zero-cue requiremen
 (never a silent drop) without fabricating an edge — which is exactly #1110's purpose: surface
 it for review, do not auto-handle it.
 
-Populate the `## Edge Coverage` section of SPEC.md from the resolved edges.
+The edge rows recorded above are the spec's edge coverage: nothing else is written.
 
 ## Step 5.6: Prohibition-Completeness Probe (must-NOT)
 
@@ -411,15 +382,13 @@ For each Requirement gathered so far, run the two-stage recall→precision pass:
    /gsd:secure-phase + eslint; not minted here"*) and DROP it. Minting canon items duplicates
    /gsd:secure-phase and drowns the bespoke signal.
 4. **Resolve each surfaced (non-canon) prohibition** (AskUserQuestion; text mode → numbered list):
-   - **Keep it** → write a NEGATIVE acceptance criterion (a must-NOT line) into Acceptance
-     Criteria AND mark the prohibition `resolved` with a verification tier: `test` (a
-     mechanical negative test/lint/assertion exists) or `judgment` (real but not mechanically
-     checkable — routes to judgment review).
+   - **Keep it** → the prohibition is `resolved` with a verification tier: `test` (a mechanical negative
+     test/lint/assertion exists) or `judgment` (real but not mechanically checkable — routes to judgment review),
+     and its NEGATIVE acceptance criterion (a must-NOT line) joins the spec's acceptance criteria.
      - **Capture the wired-check descriptor on `test`-tier (#1278, SOFT).** When a prohibition is
        resolved `verification: test`, ALSO capture the descriptor of the wired check so
        `verify-phase` can LOCATE it deterministically (no verifier invention at verify time).
-       Capture the flat scalars — persisted into SPEC and projected onto the
-       `must_haves.prohibitions` item by `projectProhibitions`:
+       Capture the flat scalars, the `check_*` fields of the `spec_prohibition`:
        - `check_kind` — `node-test` | `lint-rule`.
        - `check_target` — the negative-test file path (for `node-test`), or the path to lint
          (for `lint-rule`).
@@ -446,14 +415,47 @@ For each Requirement gathered so far, run the two-stage recall→precision pass:
      reason string is the audit trail; silence is not a valid dismissal.
    - **Defer** → leave `unresolved`.
 
-**Soft gate (after resolving) — PROB-06:**
+   Record each prohibition as it is resolved, one `spec_prohibition` per row (the next id each time: `SP2`, …),
+   leaving out a flag the outcome has no value for (`--reason` unless dismissed, `--verification` and the `check_*`
+   descriptor unless resolved; the descriptor only for `test`). The acceptance line runs only for **Keep it**. A later
+   change of a row's status is `specforge gsd resolve-prohibition <id> <status>`:
+
+   ```bash
+   LR_ID="{the locked requirement it guards, e.g. $SPEC_ID/LR1}"
+   IFS= read -rd '' STATEMENT <<'TEXT' || true; STATEMENT=${STATEMENT%$'\n'}
+   {the must-NOT, e.g. The export must not include raw email addresses}
+   TEXT
+   STATUS="{resolved, dismissed or unresolved}"
+   VERIFICATION="{test or judgment}"
+   IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
+   {why it is dismissed}
+   TEXT
+   CHECK_KIND="{node_test or lint_rule}"
+   CHECK_TARGET="{the negative test file, or the path to lint}"
+   CHECK_RULE="{the lint rule id; lint_rule only}"
+   IFS= read -rd '' CHECK_VIOLATION_FIXTURE <<'TEXT' || true; CHECK_VIOLATION_FIXTURE=${CHECK_VIOLATION_FIXTURE%$'\n'}
+   {a known-bad subject}
+   TEXT
+   IFS= read -rd '' CHECK_CLEAN_FIXTURE <<'TEXT' || true; CHECK_CLEAN_FIXTURE=${CHECK_CLEAN_FIXTURE%$'\n'}
+   {a known-clean subject; required for node_test}
+   TEXT
+   specforge new spec_prohibition SP1 "$STATEMENT" --in spec/discuss.spec --spec "$SPEC_ID" --requirement "$LR_ID" --statement "$STATEMENT" --status "$STATUS" --verification "$VERIFICATION" --reason "$REASON" --check_kind "$CHECK_KIND" --check_target "$CHECK_TARGET" --check_rule "$CHECK_RULE" --check_violation_fixture "$CHECK_VIOLATION_FIXTURE" --check_clean_fixture "$CHECK_CLEAN_FIXTURE" || exit 1
+   specforge link "$SPEC_ID" acceptance "Must not: $STATEMENT" || exit 1
+   ```
+
+**Soft gate (after resolving) — PROB-06:** read the rows, and the `unresolved` ones among them:
+
+```bash
+specforge query "$SPEC_ID" --depth 1 --kinds spec_prohibition --format context
+```
+
 - All applicable prohibitions resolved → proceed to Step 6.
 - Any `unresolved` → AskUserQuestion:
   - header: "Prohibitions"
   - question: "[N] prohibition(s) are unresolved: [list]. What do you want to do?"
-  - options: "Resolve now" (loop back) / "Write SPEC.md anyway — flag unresolved" /
+  - options: "Resolve now" (loop back) / "Record the spec anyway — flag unresolved" /
     "Keep probing"
-  - On "anyway": write SPEC.md with those rows marked `⚠ Prohibition unresolved — planner
+  - On "anyway": the rows stay `unresolved`, which marks them `⚠ Prohibition unresolved — planner
     must treat as assumption`. This is a soft gate (write-anyway-with-flags), never a silent
     skip — the soft gate IS the control.
 
@@ -470,20 +472,21 @@ fails closed at the producer, but a fabricated path is still noise to avoid). Lo
 with plain-text numbered lists — there is NO hard AskUserQuestion dependency, so the probe
 runs identically for non-Claude / text-mode hosts.
 
-Populate the `## Prohibitions` section of SPEC.md from the resolved prohibitions (each
-`resolved`/`test` row is a checkable negative acceptance criterion; `resolved`/`judgment`
-rows route to judgment review; `⚠ UNRESOLVED` rows are flagged as assumptions). A
-`resolved`/`test` row ALSO carries its captured `check_kind` / `check_target` / `check_rule` /
-`check_violation_fixture` / `check_clean_fixture` descriptor when present (so the projection feeds `verify-phase`'s deterministic locate + machine-proof + causation control, #1278 + #1279 + #1346);
-a `test` row with no captured descriptor is still valid — it stays fail-closed/flagged
-downstream rather than blocking authoring.
+The prohibition rows recorded above are the spec's must-NOT axis: a `resolved`/`test` row is a checkable negative
+acceptance criterion (with its `check_*` descriptor when captured), a `resolved`/`judgment` row routes to judgment
+review, and an `unresolved` row is flagged as an assumption.
 
-## Step 6: Generate SPEC.md
+## Step 6: Check the spec
 
-Use the SPEC.md template from @~/.claude/gsd-core/templates/spec.md.
+The spec, its requirements, interviews, edges and prohibitions are recorded. Check them against the rules below; a
+fix is a `specforge set` / `specforge link` on the entity. The check prints the codes of `spec/discuss.spec`, which
+also holds other phases' contexts, specs and logs: a code of theirs is not this step's to fix, and of this spec's own
+entities none should print but the judged ones that wait for the verdict the prompt's `record_spec` step asks for
+(`gsd/E202`, `gsd/W203`):
 
-- Populate the **Edge Coverage** section from Step 5.5 (resolved/dismissed/unresolved rows; resolved items carry `verification: explicit|backstop`).
-- Populate the **Prohibitions** section from Step 5.6 (resolved/dismissed/unresolved rows with the test|judgment tier).
+```bash
+specforge check --format json --pick '.[file=spec/discuss.spec].code'
+```
 
 **Requirements for every requirement entry:**
 - One specific, testable statement
@@ -497,7 +500,11 @@ Use the SPEC.md template from @~/.claude/gsd-core/templates/spec.md.
 - ✓ "API endpoint responds in < 200ms at p95 under 100 concurrent requests"
 - ✓ "CLI command exits with code 1 and prints to stderr on invalid input"
 
-**Count requirements.** The display in discuss-phase reads: "Found SPEC.md — {N} requirements locked."
+**Count requirements:** the {N} that discuss-phase shows as the spec's locked requirements:
+
+```bash
+specforge query "$SPEC_ID" --depth 1 --pick '.nodes[kind=locked_req].id' --count
+```
 
 **Boundaries must be explicit lists:**
 - "In scope" — what this phase produces
@@ -505,30 +512,28 @@ Use the SPEC.md template from @~/.claude/gsd-core/templates/spec.md.
 
 **Acceptance criteria must be pass/fail checkboxes** — no "should feel good" or "looks reasonable."
 
-**If any dimensions are below minimum**, mark them in the Ambiguity Report with: `⚠ Below minimum — planner must treat as assumption`.
-
-Write to: `{phase_dir}/{padded_phase}-SPEC.md`
+**If any dimensions are below minimum**, the judged verdict's `scores` carry them: `⚠ Below minimum — planner must treat as assumption`.
 
 ## Step 7: Commit
 
 ```bash
-specforge git commit --add spec -m "spec(phase-${phase_number}): add SPEC.md for ${phase_name} — ${requirement_count} requirements (#2213)" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "spec(phase-${phase_number}): lock ${requirement_count} requirements for ${phase_name} (#2213)" && specforge collect --runner gsd-git --yes
 ```
 
-If `commit_docs` is false the CLI returns `skipped`; SPEC.md is written, not committed.
+If `commit_docs` is false the CLI returns `skipped`; the spec is recorded, not committed.
 
 ## Step 8: Wrap Up
 
 Display:
 
 ```
-SPEC.md written — {N} requirements locked.
+Spec recorded — {N} requirements locked.
 
   Phase {X}: {name}
   Ambiguity: {final_score} (gate: ≤ 0.20)
 
 Next: /gsd:discuss-phase {X}
-  discuss-phase will detect SPEC.md and focus on implementation decisions only.
+  discuss-phase will read the spec and focus on implementation decisions only.
 ```
 
 </process>
@@ -538,7 +543,7 @@ Next: /gsd:discuss-phase {X}
 - Boundaries section is MANDATORY — cannot be empty
 - "In scope" and "Out of scope" must be explicit lists, not narrative prose
 - Acceptance criteria must be pass/fail — no subjective criteria
-- SPEC.md is NEVER written if the user selects "Abandon"
+- Nothing is recorded if the user selects "Abandon"
 - Do NOT ask about HOW to implement — that is discuss-phase territory
 - Scout the codebase BEFORE the first question — grounded questions only
 - Max 2–3 questions per round — do not frontload all questions at once
@@ -555,6 +560,6 @@ Next: /gsd:discuss-phase {X}
 - Acceptance criteria are pass/fail checkboxes
 - SPEC.md committed atomically (when commit_docs is true)
 - User directed to /gsd:discuss-phase as next step
-- Edge-completeness probe run; Edge Coverage section populated; unresolved edges flagged as assumptions
-- Prohibition-completeness probe run; Prohibitions section populated; unresolved prohibitions flagged as assumptions
+- Edge-completeness probe run; each edge row recorded; unresolved edges flagged as assumptions
+- The prohibition probe ran, every prohibition is recorded, and the unresolved ones are flagged as assumptions
 </success_criteria>

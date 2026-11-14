@@ -4,6 +4,8 @@
 
 ```
  phase ─1──*─ plan ─1──*─ task
+   ├──*─ review ─1──*─ review_concern   (a cross-AI review round)
+   ├──*─ revision_conflict              (a conflict a replan reported)
                 │   ├──*─ checkpoint         (options are a block of it)
                 │   ├──*─ truth          ┐
                 │   ├──*─ artifact       │ must_haves
@@ -50,6 +52,7 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 | quick | bool | C | no phase: a quick task |
 | files_touched | strs | C | the sorted, distinct files of its recorded commits; absent without one, as a summary's `files_created` |
 | estimate_slices | int | C | `estimate.tokens` over `workflow.smart_zone_tokens`, rounded up (at least 1): over 1 is a re-slice the plan checker recommends, never a block; absent without an estimate or a budget |
+| context_pack | {route str, digest str, max_tokens int} | P O | the `gsd/executor` pack `start_plan` recorded, on every call (ADR 0356); it moves no digest, so no plan check goes stale, and while the plan is open a pack that moved since is gsd/W524 |
 
 ## task
 
@@ -101,7 +104,7 @@ GSD: the `must_haves:` block. Each item is an entity, so a verifier's verdict ca
 
 | Kind | Fields |
 |---|---|
-| truth | `plan R I`, `text str R` (user-observable), `requirement ref requirement` (the requirement it proves; read back as `requirement.truths`), `proof refs test` (the `@code/core` test facts that prove it, quoted ids such as `"js:pkg/a.test.js#adds"`; with no `@code/core` loaded a written proof is I004), `verification enum{explicit, backstop} U` (a person's to write), `criterion int` (the phase success criterion it proves). Name `TR1`. |
+| truth | `plan R I`, `text str R` (user-observable), `requirement ref requirement` (the requirement it proves; read back as `requirement.truths`), `proof refs test` (the `@code/core` test facts that prove it, quoted ids such as `"js:pkg/a.test.js#adds"`; with no `@code/core` loaded a written proof is I004), `verification enum{explicit, backstop} U` (a person's to write), `proposed_verification enum{explicit, backstop} I` (the tier the planner proposes, `backstop` for a lifted backstop edge; a person confirms it in `verification`, and a verifier abstains on a proposed backstop with no `verification`), `criterion int` (the phase success criterion it proves). Name `TR1`. |
 | artifact | `plan R I`, `path path<planned> R` (a path the plan creates: checked once the plan is complete, E016), `provides str R`, `min_lines int`, `exports strs`, `contains str`. Name `AR1`. |
 | key_link | `plan R I`, `from path<planned> R`, `to path<planned> R` (paths the plan creates: checked once the plan is complete, E016), `via str R`, `pattern str`. Name `KL1`. |
 | prohibition | `plan R I`, `statement str R`, `verification enum{test, judgment} R`, `test str` (the test it names when `verification test`, gsd/E319). Name `PR1`. |
@@ -109,13 +112,75 @@ GSD: the `must_haves:` block. Each item is an entity, so a verifier's verdict ca
 ## disposition
 
 GSD: the plan's `## Review Dispositions Ledger`, written by `/gsd-plan-review-convergence`. Append-only. Name `DSP1`.
-`plan → plan R`, `round int R`, `reviewer str R`, `feedback str R`, `outcome enum{addressed, deferred} R`, `reason str`.
+`plan → plan R`, `round int R`, `reviewer str R`, `feedback str R`, `outcome enum{addressed, deferred} R`, `reason str`, `concern → review_concern` (the review concern it rules on: its status reads the disposition with the highest round).
 
 ## user_setup
 
 GSD: `user_setup:` and `NN-USER-SETUP.md`. Name `US1`. `plan → plan R I`, `service str R`, `why str R`,
 `env_vars` (a list of `{name str R, source str}`), `dashboard` (a list of `{task str, location str, details str}`, GSD's `dashboard_config`), `local_dev strs`;
 `done {at ts, by str}` is `H`, written when the human confirms (`confirm_setup`). Both it and a checkpoint's `answer` are inputs of the plan check, so recording one stales the plan's W311-W316 verdicts; once the plan has a summary with `completed` that is history and the gates W318 and E516 skip it (a summary merely created does not count).
+
+## Reviews and revision conflicts
+
+GSD: `NN-REVIEWS.md`, the cross-AI review `/gsd-review` writes and `/gsd-plan-review-convergence` reads. A round is a
+`review` with one `review_concern` per concern, written in one call by `specforge gsd record-review <phase> --review
+'<json>'`, in the phase's file. Neither is a plan-check input: a new round stales no plan check; the replan it causes
+does. The frontmatter maps to fields (`reviewers`, `models` and `model_sources` are the `reviewers` rows,
+`plans_reviewed` is `plans`, `plan_coverage` is `coverage`, `reviewed` is `reviewed_at`); `### Agreed Concerns` are
+the concerns two or more reviewers raised, derived, not stored. The port never trims a reviewer lane, so there is no
+`trimmed_reviewers`, and convergence records one round per cycle, so the latest round is the highest `RV<n>`.
+
+### review
+
+Name `RV1`, scoped by its phase.
+
+| Field | Type | Flags | GSD |
+|---|---|---|---|
+| phase | → phase | R I | `phase:` |
+| plans | →* plan | R I | `plans_reviewed:`: plans of the phase |
+| reviewers | {name str R, model str R, source str R}* | I | `reviewers:`, `models:`, `model_sources:`; names unique |
+| lanes | {reviewer str R, summary str R, strengths strs, suggestions strs, risk enum{low, medium, high}}* | I | each reviewer's section |
+| coverage | {reviewer str R, total int, missing strs}* | I | `plan_coverage:` |
+| consensus | str | I | `## Consensus Summary` |
+| strengths | strs | I | `### Agreed Strengths` |
+| divergent | strs | I | `### Divergent Views` |
+| reviewed_at | ts | H | `reviewed:`: when `record-review` wrote the round |
+| unchecked | {symbol str R, why str R}* | + | the symbols a convergence cycle could not check (`record-review --round`) |
+| open | {high int, actionable int} | C | its open concerns that are not drift (a drift finding counts in neither): `high` ones not marked `actionable` false (a single-reviewer, unconfirmed HIGH), and `actionable` ones that are not high |
+
+### review_concern
+
+Name `RC1`, scoped by its review. Append-only, every authored field immutable.
+
+| Field | Type | Flags | GSD |
+|---|---|---|---|
+| review | → review | R I | the round |
+| plan | → plan | I | the plan it is about: one the round reviewed |
+| reviewers | strs | I | who raised it; empty only for a drift finding |
+| severity | enum{high, medium, low} | R I | HIGH, MEDIUM, LOW |
+| text | str | R I | the concern |
+| actionable | bool | I | the planner can act on it; false on a single-reviewer, unconfirmed HIGH, which keeps its severity and leaves the high count |
+| drift | bool | I | a drift finding: advisory, never a blocker |
+| evidence | strs | I | what the reviewers cited |
+| status | enum{open, addressed, deferred} | C | the `outcome` of the disposition naming it (`disposition.concern`) with the highest `round`, else open |
+
+### revision_conflict
+
+GSD: a `REVISION_CONFLICT` line a planner returns when a reviewer's ask would break a property the plan must keep.
+Name `CF1`, scoped by its phase, in the phase's file. `specforge gsd record-conflict <plan>` raises it (each field on
+one line; the same open conflict twice is one entity), `specforge gsd resolve-conflict` closes it.
+
+| Field | Type | Flags | GSD |
+|---|---|---|---|
+| phase | → phase | R I | parent |
+| plan | → plan | R I | the plan whose revision reported it (a quick plan has no channel) |
+| dimension | str | R I | the checker dimension or review lane that asked |
+| property | str | R I | what the ask would change |
+| conflicts_with | str | R I | the decision, requirement or must-have it would break |
+| alternatives | str | I | the ways out the planner named |
+| raised | ts | H | when `record_conflict` raised it |
+| resolved | {at ts, how str} | H | when and how `resolve_conflict` closed it |
+| status | enum{open, resolved} | C | resolved once `resolved` is set, open while only `raised` is, else none |
 
 ## The plan check
 

@@ -14,12 +14,13 @@ crate-type = ["cdylib", "rlib"]
 specforge-extension-sdk = "0.3.0"
 serde_json = "1.0"
 gsd-kit = { path = "../kit" }
+sha2 = "0.10"
 
 [dev-dependencies]
 specforge-extension-sdk = { version = "0.3.0", features = ["testing"] }
 tempfile = "3"
 regex = "1"
-sha2 = "0.10"
+similar = "2.7"
 # A pty for stdin: a command that records what a person says runs only at a terminal (ADR 0301).
 rustix = { version = "1", features = ["pty", "fs"] }
 

@@ -11,6 +11,9 @@ Arguments:
           Entity ID to trace (omit to trace every entity)
 
 Options:
+      --in <ENTITY>
+          Trace every entity within this entity: it, its scope at any depth, and the entities one reference away (with --route, those of its start kind)
+
       --plan <FILE>
           An agent plan file (an AgentPlan's JSON) to check against the graph instead of tracing
 

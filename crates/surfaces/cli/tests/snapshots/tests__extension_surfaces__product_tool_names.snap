@@ -8,6 +8,7 @@ expression: names
   "specforge.analyze",
   "specforge.export",
   "specforge.trace",
+  "specforge.context",
   "specforge.search",
   "specforge.explain",
   "specforge.schema",

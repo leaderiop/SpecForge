@@ -98,7 +98,7 @@ This catches the common failure mode where a session died mid-execution (hang, t
 
 **Why Route 0 runs here (after Gates 1-3, before the prior-phase defer prompt):** This step is a hard invariant independent of `current_phase`'s value — it must run before any routing rule that reads `current_phase`. Gates 1-3 are cheap repo/state validity checks that must always run — skipping them on the resume path would risk advancing into a broken-state project. The prior-phase completeness-scan DEFER PROMPT, however, must NOT run in the default (no-flag) case when Route 0 is about to resume the phase automatically: that would force a double-decision (prompt first, then resume anyway), overriding the user's choice. Route 0 placed here means: default = resume silently (no defer prompt); `--no-resume` = skip Route 0 and fall through to the prior-phase defer prompt in `prior_phase_completeness`; `--force` = jump straight to `determine_next_action` at `safety_gates` (never reaches Route 0 or `prior_phase_completeness` at all).
 
-Scan ALL phases in ROADMAP order (lowest-numbered to highest) for incomplete-execution state. Use `specforge gsd progress-report --format json` to get the phase list, then for each phase number `N` query `specforge query "$PHASE_ID" --depth 2 --kinds plan,summary --format json` and inspect its `plans` and `summaries` arrays. A phase is **incomplete-execution** when `plans.length > summaries.length` (at least one PLAN.md has no matching SUMMARY.md).
+Scan ALL phases in ROADMAP order (lowest-numbered to highest) for incomplete-execution state. Use `specforge gsd progress-report --format json` to get the phase list, then for each phase number `N` query `specforge query "$PHASE_ID" --depth 2 --kinds plan,summary --format json` and inspect its `plans` and `summaries` arrays. A phase is **incomplete-execution** when it has more plans than summaries (at least one plan has no summary).
 
 Stop at the first such phase. Record its phase number as `INCOMPLETE_PHASE`. This is the lowest-numbered phase that needs continued execution.
 
@@ -189,15 +189,14 @@ Choice [S]:
 **If the user chooses "Stop" (S or Enter/default):** Exit without routing.
 
 **If the user chooses "Continue and defer" (C):**
-1. For each incomplete item, create a backlog entry in `ROADMAP.md` under `## Backlog` using the existing `999.x` numbering scheme:
-```markdown
-### Phase 999.{N}: Follow-up — Phase {src} incomplete plans (BACKLOG)
-
-**Goal:** Resolve plans that ran without producing summaries during Phase {src} execution
-**Source phase:** {src}
-**Deferred at:** {date} during /gsd:progress --next advancement to Phase {dest}
-**Plans:**
-- [ ] {N}-{M}: {slug} (ran, no SUMMARY.md)
+1. Add the incomplete items as one backlog phase: `specforge gsd phase --backlog` takes the first free `999.x` number of the milestone, and its success criteria list the plans that ran without a summary:
+```bash
+SRC="{the source phase's number, e.g. 02}"
+DEST="{the phase this advancement routes to, e.g. 03}"
+IFS= read -rd '' CRITERIA <<'TEXT' || true; CRITERIA=${CRITERIA%$'\n'}
+{a JSON list: one item per plan that ran without a summary, e.g. ["02-01: login form (ran, no summary)"]}
+TEXT
+specforge gsd phase --backlog --name "Follow-up — Phase $SRC incomplete plans" --goal "Resolve plans that ran without producing summaries during Phase $SRC execution (deferred during /gsd:progress --next advancement to Phase $DEST)" --criteria "$CRITERIA" || exit 1
 ```
 2. Commit the deferral record:
 ```bash
@@ -273,27 +272,9 @@ Parse the arguments passed to this workflow to detect the plan strategy and buil
 
 ```bash
 
-
-
-
 PLAN_STRATEGY=local; [ "{{arg:converge|false}}" = true ] && PLAN_STRATEGY=converge
 
-
-
-
 CONVERGENCE_ARGS=""
-
-
-
-
-
-
-
-
-
-
-
-
 
 ```
 

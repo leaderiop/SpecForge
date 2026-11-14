@@ -37,6 +37,7 @@ nothing is kept as Markdown.
 | `+` | append-only list: the baseline list is a prefix of the new one, items compared by value. On a kind (deviation, disposition, interview): no entity of the baseline is removed, and their fields are immutable | K4 |
 | `C` | **computed**: derived by a compute pass (a collector files a report the pass reads), held in the compiled graph only, never in `.spec`; writing it is an error. A value that compares with the past (`re_verification`) compares with the git baseline | K4 |
 | `H` | set only by a command's or a collector's plan; its digest goes in `specforge-harness`; any other value is an error | K4 |
+| `P` | a context route's record of its pack (`route`, `digest`, `max_tokens`), written only by the host's `record_context` (ADR 0356); its digest goes in `specforge-harness`, it moves no entity digest, and a pack that moved since is the route's stale code. `O`: checked only while its owner is open | ADR 0356 |
 | `V` | its value comes from the fresh, recorded verdict of the judged rule that binds it (its outcome or a value it records); absent otherwise; written by hand it is an error (K4 E082) | K7 |
 | `U` | human-only: refused in every extension's plan and every MCP write when it is created, deleted or retitled (an agent also cannot set, unset or link an existing one, nor delete an entity holding a person's value: ADR 0298); the CLI writes it only from an interactive terminal; hand edits stay free (a field the host must also refuse an agent's direct edit of is `H`, written by a command that takes a reason) | K5 |
 
@@ -78,15 +79,15 @@ takes GSD's own file stem; every other kind takes a letter prefix and a number, 
 | Name | Kinds |
 |---|---|
 | any word | project (by convention the slug of its name) |
-| the GSD id | requirement `AUTH-01`, milestone `v1.0`, phase `03`, workstream `auth-rework`, plan `03-02` (a quick plan: its quick id, `260321-a1b`), decision `D-01`, uat_gap `G-03-1` |
+| the GSD id | requirement `AUTH-01`, milestone `v1.0`, phase `03`, workstream `auth-rework`, plan `03-02` (a quick plan: its quick id, `260321-a1b`), quick_batch `260321-batch`, decision `D-01`, uat_gap `G-03-1` |
 | the GSD file stem | context `03-CONTEXT`, phase_spec `03-SPEC`, discussion `03-DISCUSSION-LOG`, research `03-RESEARCH` (project research: `RESEARCH`), summary `03-02-SUMMARY`, verification `03-VERIFICATION`, uat_session `03-UAT`, validation `03-VALIDATION`, retrospective `v1.0-RETROSPECTIVE` |
-| a letter prefix and a number | task `T1`, checkpoint `C1`, truth `TR1`, artifact `AR1`, key_link `KL1`, prohibition `PR1`, disposition `DSP1`, user_setup `US1`, deliverable `D1`, deviation `DV1`, pause `PS1`, handoff `HO1`, blocker `BL1`, deferred_idea `DI1`, locked_req `LR1`, interview `IV1`, finding `F1`, stack_choice `SC1`, pattern `P1`, pitfall `PF1`, dont_hand_roll `DH1`, open_question `OQ1`, source `SRC1`, package_audit `PA1`, verify_gap `VG1`, override `OV1`, human_item `HI1`, uat_test `U1`, validation_row `VR1`, wave0_item `W0-1`, manual_check `MC1`, milestone_audit `A1`, broken_window `BW1`, refactor_proposal `RP1`, lesson `L1`, methodology `M1` |
+| a letter prefix and a number | task `T1`, checkpoint `C1`, truth `TR1`, artifact `AR1`, key_link `KL1`, prohibition `PR1`, disposition `DSP1`, review `RV1`, review_concern `RC1`, revision_conflict `CF1`, user_setup `US1`, deliverable `D1`, deviation `DV1`, pause `PS1`, handoff `HO1`, blocker `BL1`, deferred_idea `DI1`, locked_req `LR1`, interview `IV1`, edge `EC1`, spec_prohibition `SP1`, finding `F1`, stack_choice `SC1`, pattern `P1`, pitfall `PF1`, dont_hand_roll `DH1`, open_question `OQ1`, source `SRC1`, package_audit `PA1`, verify_gap `VG1`, override `OV1`, human_item `HI1`, uat_test `U1`, validation_row `VR1`, wave0_item `W0-1`, manual_check `MC1`, milestone_audit `A1`, broken_window `BW1`, refactor_proposal `RP1`, lesson `L1`, methodology `M1` |
 | the first 12 hex digits of the hash | commit |
 
 Each prefix-numbered kind is scoped (`scoped_by`) by its parent reference: plan for task, checkpoint, truth, artifact,
 key_link, prohibition, disposition, user_setup and summary; summary for deliverable and deviation; phase for decision,
-deferred_idea, the one-per-phase kinds, refactor_proposal and (optionally) pause and handoff; research for its items;
-phase_spec for locked_req and interview; verification for verify_gap, override and human_item; uat_session for
+deferred_idea, the one-per-phase kinds, review, revision_conflict, refactor_proposal and (optionally) pause and handoff; research for its items;
+phase_spec for locked_req, interview, edge and spec_prohibition; verification for verify_gap, override and human_item; review for review_concern; uat_session for
 uat_test; uat_test for uat_gap; validation for validation_row, wave0_item and manual_check; retrospective for lesson;
 milestone for milestone_audit and retrospective. A blocker, a broken_window, a methodology and a commit are in the
 project scope. A one-per-parent kind's name is unique within its parent, so `03-CONTEXT` of phase `03` and of phase `04` coexist
@@ -181,19 +182,21 @@ TASK-01
 | GSD file | Kinds | Extension |
 |---|---|---|
 | `PROJECT.md` | project, requirement, decision | core |
+| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) | core |
 | `REQUIREMENTS.md` | requirement | core |
 | `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase | core |
-| `STATE.md` | computed (progress, position) + pause, blocker + session state | core |
+| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state | core |
 | `config.json` | settings | core |
-| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology | core |
-| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion | core |
-| `NN-SPEC.md` | phase_spec, locked_req, interview | core |
+| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology | core |
+| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion | core |
+| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition | core |
 | `NN-RESEARCH.md`, `research/*.md` | research and its items | core |
 | `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup | core |
+| `NN-REVIEWS.md` | review, review_concern, revision_conflict | core |
 | `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision | core |
 | `.continue-here.md` | handoff | core |
 | `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts | core |
-| `NN-UAT.md` | uat_session, uat_test, uat_gap | core |
+| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap | core |
 | `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check | core |
 | `v<version>-MILESTONE-AUDIT.md` | milestone_audit | core |
 | git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity | core |
@@ -207,14 +210,16 @@ TASK-01
 | `codebase/*`, `intel/*`, `NN-PATTERNS.md` | codebase kinds, pattern_map | codebase |
 | `debug/*`, `NN-REVIEW.md`, `todos/*`, `seeds/*`, `threads/*`, `BACKLOG.md`, `USER-PROFILE.md` | ops kinds | ops |
 
+`gsd_kit::files::PLANNING_FILES` holds these names and the names upstream's text keeps under `.planning/` that the table lacks; its tests hold it equal to this table and complete against the vendored release.
+
 `/gsd-extract-learnings` writes `lesson` entities (`L-<phase>-<n>` in `spec/lessons.spec`; a lesson has no phase field, its id carries it).
 
 Written nowhere, on purpose: a prompt shows these to the user and stores no file, because no kind holds them (a later model round may add one):
 
-- cross-AI reviews (`REVIEWS.md`), the session report and the milestone summary (`reports/*.md`), and the onboarding summary (`onboarding/SUMMARY.md`);
+- the session report and the milestone summary (`reports/*.md`), and the onboarding summary (`onboarding/SUMMARY.md`);
 - the ingest staging (`intel/*`) and the conflict report (`INGEST-CONFLICTS.md`): the classifier and the synthesizer write scratch files outside the project, and the conflicts are reported to the user;
 - `estimation-calibration.json`: `/gsd-extract-learnings` skips that step;
-- a workspace's `WORKSPACE.md` stays a file the agent writes in the workspace directory, beside the worktrees it lists; the workspace gets its own spec with `specforge init`, `specforge add @gsd/core` and `specforge install <host>`.
+- a workspace's `WORKSPACE.md`: no agent writes it; `specforge git repos <workspace>` answers what it listed (each repo, whether it is a linked worktree and whether it is clean), and the workspace gets its own spec with `specforge init`, `specforge add @gsd/core` and `specforge install <host>`.
 
 Not modelled, on purpose: GSD's `references/*` and `workflows/*` are GSD's own rules and procedures, so they become
 [rules](rules.md) and ported prompts ([contributions](../contributions/)), not data; the text a prompt does not inline

@@ -290,6 +290,7 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 | `c.secret(name, env, description)` | a secret read from an environment variable | `settings` |
 | `c.code(code, \|d\| ..)` | a diagnostic code the extension reports: `title(..)`, `explanation(..)`, `docs(..)` (an `http(s)` URL) | `codes` |
 | `c.route(name, \|r\| ..)` | a route `specforge trace` follows from a kind: `start(..)`, `step(name, via, \|s\| ..)`, annotations | `routes` |
+| `c.context(name, \|r\| ..)` | a context route a role reads one entity through: `subject(..)`, `agent(..)`, `budget(..)`, `core(name, selector)`, `enrich(name, selector)`, `settings(..)`, `record(field, subject)`, `record_suggesting(field, subject, help)`, `stale(code)` | `contexts` |
 | `c.peer(name, range)`, `c.optional_peer(name, range)` | a peer requirement | handshake |
 | `c.providers()` | it implements configured providers | handshake |
 
@@ -461,6 +462,13 @@ c.hook("write_guard", HookEvent::PreTool, |h| {
 c.render(|call| Ok(format!("# {}\n", call.id())));
 ```
 
+A `tools` list names SpecForge's own tools as engine tool classes (ADR 0334): `specforge:trace`, a group such as
+`specforge:navigation`, or a command as `specforge:<short>.<command>`. The catalogue they name is
+`specforge_extension_sdk::engine_tools` (`ENGINE_TOOLS`, `parse_class`). An agent that names no `specforge:` class gets
+the read and navigation tools, the edit and output tools when it holds `write` or `edit`, and the extension's own
+commands. An extension whose agents play roles keeps its own table of the classes each role needs and builds each
+agent's `tools` from it; the host knows no role. A hook takes no `specforge:` class.
+
 `agent`, `skill` and `hook` panic on a name already declared, so the extension's first test finds it. A hook builder
 has `tools`, `paths`, `timeout_ms`, `on_failure_deny`, `input` (`Graph`, `State`, `git()`, `setting(..)`), `writes`
 and `when`; its handler
@@ -526,13 +534,16 @@ c.command("record", |cmd| {
 ```
 
 A judged rule is declared with `r.judged("judge", |j| { j.outcomes(..).passing(..); j.target("kind", |t| { t.input("name", "selector"); }) })` inside `c.rule(..)`
-and a field a verdict sets with `field.verdict()` (ADR 0290, [guide](guides/judged-rules.md)); a command's `GraphNode`
+and a field a verdict sets with `field.verdict()` (ADR 0290, [guide](guides/judged-rules.md)); a field the host's
+record of a context route's pack sets is declared with `field.context()`, which also declares its block of `route`,
+`digest` and `max_tokens` (ADR 0356); a command's `GraphNode`
 lists its `judgements`, and `set_verdict` takes the `basis` the command read through `specforge query --inputs`. The judge is an agent
 of the extension or a declared peer, or `"prompt:<id>"`, a prompt of the extension itself (protocol 1.11.0, ADR 0295);
 the prompt's rendered payload lists the rules it judges under `judged`.
 
 `PlanBuilder` has one method per op: `create`, `set`, `unset`, `append`, `remove`, `link`, `unlink`, `retitle`,
-`add_verify`, `remove_verify`, `delete`, `rename` and `set_verdict(Verdict { .. })`. A collector declares `k.writes()`
+`add_verify`, `remove_verify`, `delete`, `rename`, `set_verdict(Verdict { .. })` and `record_context(entity, route,
+max_tokens)` (the host computes the pack and writes the record, ADR 0356). A collector declares `k.writes()`
 and builds with `PlanBuilder::for_collect(input)`, answering `CollectOutput.plan`. If the files changed since the
 call read them, the host refuses the plan `stale_revision` and writes nothing; the caller runs the command again. The
 plan is the call's whole write: a handler that also touches the disk itself is outside the host's checks, its lock

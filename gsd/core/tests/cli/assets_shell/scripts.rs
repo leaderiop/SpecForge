@@ -3,7 +3,7 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-use super::{Shell, asset, block, line};
+use super::{Shell, asset, block, fence_after, fence_from, line};
 
 /// T3, end to end: the commit lines' producer (`specforge query … --kinds commit`) and reader, in a project whose plan
 /// 01-01 has a commit, with `specforge` on a `PATH` that holds no node and no jq. It confirms the field paths the lines
@@ -137,12 +137,7 @@ fn the_pr_filter_keeps_the_code_whatever_the_spec_root() {
     };
     let text = asset("gsd-core/workflows/pr-branch.md");
     let declare = block(&text, "TRANSIENT_DIRS=", "SPEC_PATHSPEC=$(");
-    let derive = block(
-        &text,
-        "Derive the mode's projection",
-        "FILTER_PATHS=$(printf",
-    );
-    let (_, derive) = derive.split_once("```bash\n").expect("the derive block");
+    let derive = fence_after(&text, "Derive the mode's projection");
     let filter = block(&text, "while IFS= read -r P; do", "done <<FILTER_PATHS_EOF");
     for (root, spec_files) in [
         (".", ["a.spec", "sub/b.spec"]),
@@ -206,11 +201,7 @@ fn the_pin_compares_both_roots_with_one_reader() {
         return;
     };
     let text = asset("gsd-core/references/worktree-path-safety.md");
-    let at = text
-        .find("# gsd:guard=supplied-root-pin")
-        .expect("the guard");
-    let end = at + text[at..].find("\n```").expect("its fence");
-    let guard = &text[at..end];
+    let guard = &fence_from(&text, "# gsd:guard=supplied-root-pin");
     let run = |cwd: &Path, pin: &str| {
         let script = guard.replacen("{PINNED_ROOT}", pin, 1);
         sh.run_in(cwd, &format!("{script}\necho passed"))

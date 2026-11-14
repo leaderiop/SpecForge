@@ -4,6 +4,8 @@
 pub mod agent;
 pub mod capability;
 pub mod dsl;
+pub mod files;
+pub mod markdown;
 pub mod prompt;
 
 /// The gsd-core release the `@gsd` extensions track, the one place it is written: `TRACKS`, every attribution and

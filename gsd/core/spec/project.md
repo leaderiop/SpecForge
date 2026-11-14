@@ -43,6 +43,8 @@ GSD: one bullet of `REQUIREMENTS.md`. Name: `AUTH-01`. A requirement id is uniqu
 | reason | str | | Out of Scope `Reason` (required when `out_of_scope`) |
 | defined | date | I | `**Defined:**` |
 | status | enum{pending, in_progress, complete, blocked, gaps_found} | C | Traceability `Status`: complete when a plan naming it is complete (GSD marks it when the plan's summary is written, `gsd-executor.md:801-813`); blocked when it is not and every plan naming it is halted or blocked; in_progress when one is executing; else pending. `gaps_found` when the requirement would be complete and a phase it traces to has a `gaps_found` verification (`milestone.cts:453-514`) |
+| shapes | enum{numeric_range, collection, text, stateful, io}* | | the spec-less edge probe's authored shapes (an empty list proposes no edge) |
+| text_en | str | | an English translation the spec-less edge probe classifies instead |
 
 The requirement's phase (Traceability `Phase`) is the inverse of `phase.requirements`, read back as `phase`: a relation
 is written from one side, never both (W162).
@@ -57,6 +59,8 @@ GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. N
 | delivered | str | | `**Delivered:**` |
 | accomplishments | strs | | `**Key accomplishments:**` |
 | whats_next | str | | `**What's next:**` |
+| goal | str | | the Current Milestone's `**Goal:**` (PROJECT.md), recorded by `/gsd-new-milestone` |
+| target_features | strs | | the Current Milestone's `**Target features:**` (PROJECT.md) |
 | abandoned | {reason str R, ruled_by str R, at date R} | | gsd-path's abandon ruling |
 | workstream | → workstream | I | the workstream it belongs to (K2: it scopes the milestone, `auth-rework/v1.0`); absent outside one, and the milestone keeps its short id |
 | completion | {at date, audit → milestone_audit} | H | written by `close_milestone` (`/gsd-complete-milestone`) once its audit passes: `audit` is the latest audit it closed on |
@@ -117,6 +121,13 @@ Which workstream is active is session state, not a field ([execute.md](execute.m
 `/gsd-extract-learnings` writes, which is in the project scope), `text str R`, `milestone → milestone`, `top bool`.
 Also holds what `/gsd-extract-learnings` writes (`LEARNINGS.md`), with `kind enum{decision, lesson, pattern, surprise}`:
 those lessons are named `L-<phase>-<n>` (the phase is in the id, not a field), live in `spec/lessons.spec`, and have no counts (they are the lessons of each kind).
+`graduated {disposition enum{promoted, deferred, dismissed} R, target → decision, until → phase, at ts R} H`: what
+`/gsd-graduation` chose for the lesson's cluster (upstream's `**Graduated:**` mark and `graduation_backlog` row),
+written by `specforge gsd graduate-lessons '<json list>' --disposition <d>`: a promotion names its decision
+(`--target`), a deferral its phase (`--until`), a dismissal neither; a promoted or dismissed lesson is not graduated
+again. `status enum{open, deferred, promoted, dismissed} C`: open with no graduation, and open again once a deferral's
+phase is complete. Known difference: the state is per lesson, not per cluster. Upstream keys its backlog by a sha256 of
+a lexical cluster the next run recomputes; the lesson is what persists, so each lesson of the cluster records it.
 
 ## methodology
 

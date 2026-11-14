@@ -52,7 +52,7 @@ Ensure config exists and resolve the active config path (flat vs workstream, #22
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
 : # config-ensure-section: every setting has its default, so there is no section to create
 if [[ -z "${GSD_CONFIG_PATH:-}" ]]; then
-  if false; then   # there is no active-workstream file: the settings are one file, specforge.json
+  if false; then   # the settings are one file, specforge.json, whichever workstream is active
     WS=""
     GSD_CONFIG_PATH="specforge.json"
   else
@@ -145,10 +145,6 @@ For "Clear", the user removes the variable from that same place. To force a sour
 ```bash
 specforge settings set @gsd/core brave_search false   # firecrawl and exa_search likewise
 ```
-
-
-
-
 
 </step>
 

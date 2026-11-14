@@ -30,7 +30,8 @@ struct ProbeArgs {
 struct ReadProbe;
 
 impl CoreTool for ReadProbe {
-    const NAME: &'static str = "specforge.probe";
+    // A navigation read, as the catalogue row of the name it borrows is.
+    const NAME: &'static str = "specforge.inspect";
     const DESCRIPTION: &'static str = "A probe";
     const EFFECT: Effect = Effect::Reads {
         group: ToolGroup::Navigation,
@@ -70,7 +71,8 @@ impl MutationReply for MutationProbeReply {
 struct MutationProbe;
 
 impl CoreTool for MutationProbe {
-    const NAME: &'static str = "specforge.probe_mutation";
+    // A mutation, as the catalogue row of the name it borrows is.
+    const NAME: &'static str = "specforge.rename";
     const DESCRIPTION: &'static str = "A mutation probe";
     const EFFECT: Effect = Effect::Mutates {
         hints: WriteHints {
@@ -98,7 +100,7 @@ impl CoreTool for MutationProbe {
 )]
 fn a_core_tool_spec_is_derived_from_its_module() {
     let tool = spec(&ReadProbe);
-    assert_eq!(tool.name(), "specforge.probe");
+    assert_eq!(tool.name(), "specforge.inspect");
     assert_eq!(tool.description(), "A probe");
     assert_eq!(tool.category(), Category::Navigation);
     assert_eq!(tool.annotations(), read_only_annotations());
@@ -229,4 +231,15 @@ fn a_refused_mutation_reports_a_failed_mutation() {
     };
     assert_eq!(reply, json!({"ok": true}));
     assert!(log.is_empty());
+}
+
+#[specforge_test_macros::test(
+    behavior = "list_mcp_tools",
+    verify = "every core MCP tool is a row of the engine-tool catalogue, in its order, with its effect and group"
+)]
+fn the_core_tools_are_the_engine_catalogue() {
+    use specforge_protocol_types::engine_tools::ENGINE_TOOLS;
+    let core: Vec<&str> = crate::tools::CORE_TOOLS.iter().map(|t| t.name()).collect();
+    let rows: Vec<String> = ENGINE_TOOLS.iter().map(|t| t.mcp_name()).collect();
+    assert_eq!(core, rows);
 }

@@ -50,6 +50,7 @@ For each item in "Testable Now", use Grep/Read to check if the underlying featur
 </step>
 
 <step name="present">
+
 If `summary.parse_gap_files` is greater than 0, render this section FIRST (before the `## UAT Audit Report` below, or standalone if `total_items` is also 0). Filter `results` for entries with `parse_gap: true`:
 ```
 ## Unparsed UAT Files ({parse_gap_files} files)

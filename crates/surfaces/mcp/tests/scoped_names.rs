@@ -1,4 +1,4 @@
-//! An MCP resource names an entity by its path, percent-encoded in the one `{entity_id}` segment (ADR 0284).
+//! An MCP resource names an entity by its path, as written or percent-encoded, in `{+entity_id}` (ADR 0284, ADR 0355).
 
 use crate::support::*;
 use serde_json::{Value, json};
@@ -25,7 +25,7 @@ fn node_ids(entity: &Value) -> Vec<&str> {
 
 #[specforge_test(
     behavior = "expose_entity_as_mcp_resource",
-    verify = "an entity resource names an entity by its percent-encoded path, a rooted path or a unique short form"
+    verify = "an entity resource names an entity by its path as written, its percent-encoded path, a rooted path or a unique short form"
 )]
 fn an_mcp_uri_names_an_entity_by_its_encoded_path() {
     let mut server = serving(SCOPED);
@@ -55,4 +55,22 @@ fn an_mcp_uri_names_an_entity_by_its_encoded_path() {
         message.contains("v1.0/03/D-01") && message.contains("v1.0/04/D-01"),
         "{refused}"
     );
+}
+
+#[specforge_test(
+    behavior = "expose_entity_as_mcp_resource",
+    verify = "an entity resource names an entity by its path as written, its percent-encoded path, a rooted path or a unique short form"
+)]
+fn a_path_id_is_read_as_written_in_both_entity_templates() {
+    let mut server = serving(SCOPED);
+    let (content, entity) = resource(&mut server, "specforge://graph/v1.0/03/D-01");
+    assert_eq!(content["uri"], "specforge://graph/v1.0/03/D-01");
+    assert!(node_ids(&entity).contains(&"v1.0/03/D-01"), "{entity}");
+    let context = call(
+        &mut server,
+        "resources/read",
+        json!({"uri": "specforge://context/v1.0/03/D-01"}),
+    );
+    let text = context["result"]["contents"][0]["text"].as_str();
+    assert!(text.is_some_and(|t| t.contains("D-01")), "{context}");
 }

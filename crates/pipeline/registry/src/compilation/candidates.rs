@@ -1,9 +1,9 @@
 //! The candidate vocabulary: what extensions a host could enable declare (ADR 0122). It names, for
 //! each kind keyword and each field an enhancement adds to another extension's kind, the extension
 //! that declares it. It decides no ownership (ADR 0096): a name it does not know suggests
-//! `specforge search`. Beside the checks' suggestions it decides one thing: whether a kind a judged
-//! chain or a route part reaches is an unloaded optional peer's ([`UnloadedPeers`], ADR 0331 D7),
-//! which makes the part inert instead of a mistake.
+//! `specforge extensions search`. Beside the checks' suggestions it decides one thing: whether a
+//! kind a judged chain or a route part reaches is an unloaded optional peer's ([`UnloadedPeers`],
+//! ADR 0331 D7), which makes the part inert instead of a mistake.
 
 use super::populate::keyword;
 use serde::{Deserialize, Serialize};
@@ -77,7 +77,7 @@ impl CandidateVocabulary {
     }
 
     /// The vocabulary a written form says (`to_json`); unreadable text is the empty vocabulary,
-    /// so every suggestion falls back to `specforge search` (the spec's fallback). Unknown keys
+    /// so every suggestion falls back to `specforge extensions search` (the spec's fallback). Unknown keys
     /// are ignored.
     pub fn from_json(text: &str) -> Self {
         match serde_json::from_str::<Written>(text) {
@@ -118,7 +118,7 @@ impl CandidateVocabulary {
             ),
             None => format!(
                 "search for an extension that provides it with: {}",
-                specforge_common::remedy::command("specforge search {}", &[keyword])
+                specforge_common::remedy::command("specforge extensions search {}", &[keyword])
             ),
         }
     }

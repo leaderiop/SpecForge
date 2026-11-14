@@ -168,6 +168,15 @@ pub fn node<'a>(call: &CommandCall<'a>, kind: &str, id: &str) -> Result<&'a Grap
     }
 }
 
+/// The resolved target of `id`'s reference field `label`.
+pub fn target<'a>(graph: &'a CommandGraph, id: &str, label: &str) -> Option<&'a str> {
+    graph
+        .edges_from(id)
+        .into_iter()
+        .find(|e| e.label == label)
+        .map(|e| e.target.as_str())
+}
+
 /// The next free number of `prefix` among the entities of `kind` under `scope` (a path prefix, `""` for none):
 /// `PS` with `PS1` and `PS3` there gives `PS4`.
 pub fn next_id(graph: &CommandGraph, kind: &str, scope: &str, prefix: &str) -> String {

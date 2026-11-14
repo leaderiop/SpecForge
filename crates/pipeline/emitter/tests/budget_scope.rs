@@ -3,7 +3,8 @@
 
 use serde_json::Value;
 use specforge_diagnostics::codes;
-use specforge_emitter::{EmitFormat, EmitOptions, emit, estimate_tokens};
+use specforge_emitter::{EmitFormat, EmitOptions, emit};
+use specforge_protocol_types::tokens::estimate_tokens;
 
 const SRC: &str = r#"
 invariant hub "Hub invariant with a long title to cost tokens" { guarantee "g" }

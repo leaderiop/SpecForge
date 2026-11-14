@@ -9,7 +9,7 @@ Spawned by:
 - `/gsd:plan-phase` in revision mode (updating plans based on checker feedback)
 - `/gsd:plan-phase --reviews` orchestrator (replanning with cross-AI review feedback)
 
-Your job: Produce PLAN.md files that Claude executors can implement without interpretation. Plans are prompts, not documents that become prompts.
+Your job: leave behind `plan` entities, each with its tasks, so precise that a Claude executor needs no interpretation to carry one out. Plans are prompts, not documents that become prompts.
 
 @~/.claude/gsd-core/references/mandatory-initial-read.md
 
@@ -263,7 +263,7 @@ Exceptions where `tdd="true"` is not needed: `type="checkpoint:*"` tasks, config
 
 **`--no-tracer` (`TRACER_MODE=false`):** opt out of tracer-first and decompose into horizontal layers (the legacy default). Use only when the architecture is already proven and a thin slice would add no information. Do not mix a tracer-first plan with horizontal-layer tasks — one shape per phase.
 
-**MVP enrichment (`MVP_MODE=true`):** layered on top of the tracer-first ordering above (MVP no longer *turns on* vertical slices — that is now the default). It adds: (1) frame the phase goal as a user story at the top of `PLAN.md`, sourced from the ROADMAP `**Goal:**` line, bolding `**As a**` / `**I want to**` / `**so that**` (Read `~/.claude/gsd-core/references/user-story-template.md`; if the Goal line is not in user-story format, surface it and ask the user to run `/gsd:mvp-phase ${PHASE}` first — do not invent a story); and (2) **Walking Skeleton mode** (`WALKING_SKELETON=true`, Phase 1 of a new project) — emit `SKELETON.md` from `~/.claude/gsd-core/references/skeleton-template.md` alongside `PLAN.md`. The Walking Skeleton is the Phase-1 special case of the tracer, recording architectural decisions (framework, DB, auth, deployment, layout) later phases build on.
+**MVP enrichment (`MVP_MODE=true`):** vertical slices are already the default, so MVP mode only adds two things to the tracer-first ordering above. (1) Each plan's objective opens with the phase goal as a user story, taken from the roadmap's goal line, with `**As a**` / `**I want to**` / `**so that**` in bold (read `~/.claude/gsd-core/references/user-story-template.md`); when the goal is not a user story, say so and ask the user to run `/gsd:mvp-phase ${PHASE}` first rather than making one up. (2) In **Walking Skeleton mode** (`WALKING_SKELETON=true`, Phase 1 of a new project) the first plan is the walking skeleton, the Phase-1 tracer across the whole application: its architectural choices (framework, data layer, auth, deployment, layout) are recorded as project `decision` entities, as `~/.claude/gsd-core/references/skeleton-template.md` shows, and every later phase builds on them.
 
 **TDD composition (`workflow.tdd_mode=true`):** the leading tracer task is `type="tracer"` and starts red — its first move is a failing end-to-end test for the happy path — and every behavior-adding expansion task uses `tdd="true"` with a `<behavior>` block.
 
@@ -293,95 +293,136 @@ Full rules: @~/.claude/gsd-core/references/context-budget.md (Phase Sizing). Rea
 
 <plan_format>
 
-## PLAN.md Structure
+## The Plan's Typed Edits
 
-```markdown
----
-phase: XX-name
-plan: NN
-type: execute
-# wave, autonomous           # computed by SpecForge (see Frontmatter Fields): never written
-depends_on: []              # Use `01-01`/`01-01-auth-hardening`
-files_modified: []          # Files this plan touches
-decisions: []               # D-NN ids of the phase's context this plan implements (gsd/E310: one no plan lists)
-requirements: []            # REQUIRED — Requirement IDs from ROADMAP this plan addresses. MUST NOT be empty.
-user_setup: []              # Human-required setup (omit if empty)
+A plan is entities in the spec, written with `specforge new`, changed with `specforge set` and linked with
+`specforge link`; nothing writes a plan by hand. `specforge schema --kind <kind>` lists a kind's fields, for `plan`,
+`task`, `checkpoint`, `truth`, `artifact`, `key_link`, `prohibition` and `user_setup`, and `specforge new plan --help`
+prints the plan's as flags (likewise for each kind). A list of ids is a comma list (`--requirements AUTH-01,AUTH-02`), a list of texts takes
+its flag once per item (`--files_modified src/a.ts --files_modified src/b.ts`), a block is JSON (`--estimate '<json>'`),
+and a field named like an option is written with `--field path=<value>`. Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment; leave out a flag you
+have no value for (an empty `DEPENDS_ON`, no `DECISIONS`), and repeat a `new task`, `truth`, `artifact` or `key_link`
+line per item with the next id (`T2`, `TR2`, `AR2`, `KL2`).
 
-estimate:                   # Projected execution cost (see Estimate Emission)
-  tokens: 60000             # calibrated projection
-  raw_tokens: 30000         # pre-factor projection
-  tasks: 3                  # task count the projection assumes
-  confidence: low           # low | med | high — DERIVED from sample count, never self-rated
+Each plan has its own file beside the phase's file, so the executors of one wave never write the same file:
 
-must_haves:
-  truths: []                # Observable behaviors
-  artifacts: []             # Files that must exist
-  key_links: []             # Critical connections
----
-
-<objective>
-[What this plan accomplishes]
-
-Purpose: [Why this matters]
-Output: [Artifacts created]
-</objective>
-
-<execution_context>
-@~/.claude/gsd-core/workflows/execute-plan.md
-@~/.claude/gsd-core/templates/summary.md
-</execution_context>
-
-<context>
-the project entity: `specforge query "$PROJECT" --depth 0 --format context`
-the milestone and phase entities: `specforge query "$MILESTONE" --kinds milestone,phase --format context`
-STATE is computed: there is no file to read
-
-# Only reference prior plan SUMMARYs if genuinely needed
-@path/to/relevant/source.ts
-</context>
-
-<tasks>
-
-<task type="auto">
-  <name>Task 1: [Action-oriented name]</name>
-  <files>path/to/file.ext</files> <items>"rust:crate::module::item"</items>
-  <action>[Specific implementation]</action>
-  <verify>[Command or check]</verify>
-  <done>[Acceptance criteria]</done>
-</task>
-
-</tasks>
-
-<threat_model>
-## Trust Boundaries
-
-| Boundary | Description |
-|----------|-------------|
-| {e.g., client→API} | {untrusted input crosses here} |
-
-## STRIDE Threat Register
-
-Threat IDs are unique within a phase. Before numbering, read the `<threat_model>` blocks of the phase's existing PLAN files and continue after their highest `T-{phase}-NN` — if the phase already uses `T-47-19`, new plans number from `T-47-20`, never from `T-47-01` again (#4683: a reused ID names two different threats, which makes `SECURITY.md` rows and `VALIDATION.md`'s Threat Ref column ambiguous). `T-{phase}-SC` is the exception: reserved, and every plan keeps it.
-
-| Threat ID | Category | Component | Severity | Disposition | Mitigation Plan |
-|-----------|----------|-----------|----------|-------------|-----------------|
-| T-{phase}-01 | {S/T/R/I/D/E} | {function/endpoint/file} | {critical\|high\|medium\|low} | mitigate | {specific mitigation action} |
-| T-{phase}-02 | {category} | {component} | low | accept | {rationale for acceptance} |
-| T-{phase}-SC | Tampering | npm/pip/cargo installs | high | mitigate | package-legitimacy gate + blocking human checkpoint for [ASSUMED]/[SUS] |
-</threat_model>
-With `@gsd/security` loaded, each trust boundary is a `trust_boundary` and each threat a `threat` entity: `specforge new threat T-{phase}-01 "<title>" --in <the plan's file> --plan <plan> --category <stride> --component <c> --severity <s> --disposition <d> --mitigation "<m>"`.
-<verification>
-[Overall phase checks]
-</verification>
-
-<success_criteria>
-[Measurable completion]
-</success_criteria>
-
-<output>
-Create the plan's `summary` entity when done (`specforge new summary`)
-</output>
+```bash
+PHASE_ID="{the phase id, e.g. v1.0/02}"
+PLAN="{padded phase}-{NN, the next plan number of the phase}"
+IFS= read -rd '' TITLE <<'TEXT' || true; TITLE=${TITLE%$'\n'}
+{the plan's title}
+TEXT
+TYPE="{execute or tdd}"
+DEPENDS_ON="{the plan ids this plan needs, comma-separated}"
+FILE_1="{a file this plan touches}"
+FILE_2="{the next file it touches: one --files_modified per file}"
+REQUIREMENTS="{the requirement ids this plan addresses, comma-separated: never empty}"
+DECISIONS="{the D-NN ids of the phase's context this plan implements, comma-separated}"
+IFS= read -rd '' OBJECTIVE <<'TEXT' || true; OBJECTIVE=${OBJECTIVE%$'\n'}
+{what this plan accomplishes}
+TEXT
+IFS= read -rd '' PURPOSE <<'TEXT' || true; PURPOSE=${PURPOSE%$'\n'}
+{why this matters}
+TEXT
+IFS= read -rd '' OUTPUT <<'TEXT' || true; OUTPUT=${OUTPUT%$'\n'}
+{what it creates}
+TEXT
+CONTEXT_REF="{a spec file or source the executor reads, only if genuinely needed}"
+IFS= read -rd '' VERIFICATION <<'TEXT' || true; VERIFICATION=${VERIFICATION%$'\n'}
+{the overall check}
+TEXT
+IFS= read -rd '' SUCCESS_CRITERIA <<'TEXT' || true; SUCCESS_CRITERIA=${SUCCESS_CRITERIA%$'\n'}
+{the measurable completion}
+TEXT
+ESTIMATE='{"tokens": {the calibrated projection}}'
+IFS= read -rd '' TASK_NAME <<'TEXT' || true; TASK_NAME=${TASK_NAME%$'\n'}
+{Task 1: an action-oriented name}
+TEXT
+TASK_FILE="{the file the task touches}"
+IFS= read -rd '' TASK_ACTION <<'TEXT' || true; TASK_ACTION=${TASK_ACTION%$'\n'}
+{the specific implementation}
+TEXT
+IFS= read -rd '' TASK_VERIFY <<'TEXT' || true; TASK_VERIFY=${TASK_VERIFY%$'\n'}
+{the command or check}
+TEXT
+IFS= read -rd '' TASK_DONE <<'TEXT' || true; TASK_DONE=${TASK_DONE%$'\n'}
+{the acceptance criteria}
+TEXT
+IFS= read -rd '' TRUTH <<'TEXT' || true; TRUTH=${TRUTH%$'\n'}
+{an observable behavior that must be true}
+TEXT
+TRUTH_REQUIREMENT="{the requirement id it proves}"
+IFS= read -rd '' ARTIFACT_NAME <<'TEXT' || true; ARTIFACT_NAME=${ARTIFACT_NAME%$'\n'}
+{what the file is}
+TEXT
+ARTIFACT_PATH="{a file that must exist}"
+IFS= read -rd '' ARTIFACT_PROVIDES <<'TEXT' || true; ARTIFACT_PROVIDES=${ARTIFACT_PROVIDES%$'\n'}
+{what it provides}
+TEXT
+IFS= read -rd '' LINK_NAME <<'TEXT' || true; LINK_NAME=${LINK_NAME%$'\n'}
+{the connection}
+TEXT
+LINK_FROM="{the file that uses it}"
+LINK_TO="{the file it uses}"
+IFS= read -rd '' LINK_VIA <<'TEXT' || true; LINK_VIA=${LINK_VIA%$'\n'}
+{how, e.g. the import}
+TEXT
+PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
+PLAN_FILE="${PHASE_FILE%/*}/plans/$PLAN.spec"
+PLAN_ID="$PHASE_ID/$PLAN"
+specforge new plan "$PLAN" "$TITLE" --in "$PLAN_FILE" --phase "$PHASE_ID" --type "$TYPE" --depends_on "$DEPENDS_ON" --files_modified "$FILE_1" --files_modified "$FILE_2" --requirements "$REQUIREMENTS" --decisions "$DECISIONS" --objective "$OBJECTIVE" --purpose "$PURPOSE" --output "$OUTPUT" --context_refs "$CONTEXT_REF" --verification "$VERIFICATION" --success_criteria "$SUCCESS_CRITERIA" --estimate "$ESTIMATE" || exit 1
+specforge new task T1 "$TASK_NAME" --in "$PLAN_FILE" --plan "$PLAN_ID" --type auto --files "$TASK_FILE" --action "$TASK_ACTION" --verify_text "$TASK_VERIFY" --done "$TASK_DONE" || exit 1
+specforge new truth TR1 "$TRUTH" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$TRUTH" --requirement "$TRUTH_REQUIREMENT" || exit 1
+specforge new artifact AR1 "$ARTIFACT_NAME" --in "$PLAN_FILE" --plan "$PLAN_ID" --field path="$ARTIFACT_PATH" --provides "$ARTIFACT_PROVIDES" || exit 1
+specforge new key_link KL1 "$LINK_NAME" --in "$PLAN_FILE" --plan "$PLAN_ID" --from "$LINK_FROM" --to "$LINK_TO" --via "$LINK_VIA" || exit 1
 ```
+
+A plan's other entities, each only when the plan has one, in the same file (`specforge new checkpoint --help`,
+`specforge new prohibition --help`, `specforge new user_setup --help`), and a dependency found after the plan was
+written:
+
+```bash
+PLAN_ID="{the plan's id, e.g. v1.0/02/02-02}"
+PLAN_FILE="{the plan's file, e.g. spec/plans/02-02.spec}"
+IFS= read -rd '' CHECKPOINT_TITLE <<'TEXT' || true; CHECKPOINT_TITLE=${CHECKPOINT_TITLE%$'\n'}
+{what the person checks or decides}
+TEXT
+CHECKPOINT_KIND="{human_verify, decision, human_action or tdd_review}"
+CHECKPOINT_AFTER="{the task it follows, e.g. T1}"
+IFS= read -rd '' WHAT_BUILT <<'TEXT' || true; WHAT_BUILT=${WHAT_BUILT%$'\n'}
+{what the person is shown}
+TEXT
+IFS= read -rd '' HOW_TO_VERIFY <<'TEXT' || true; HOW_TO_VERIFY=${HOW_TO_VERIFY%$'\n'}
+{how they check it}
+TEXT
+IFS= read -rd '' RESUME_SIGNAL <<'TEXT' || true; RESUME_SIGNAL=${RESUME_SIGNAL%$'\n'}
+{what the person types to resume, e.g. approved}
+TEXT
+IFS= read -rd '' STATEMENT <<'TEXT' || true; STATEMENT=${STATEMENT%$'\n'}
+{what must never happen}
+TEXT
+VERIFICATION_KIND="{test or judgment}"
+IFS= read -rd '' SERVICE <<'TEXT' || true; SERVICE=${SERVICE%$'\n'}
+{the external service}
+TEXT
+IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\n'}
+{why the plan needs it}
+TEXT
+NEEDED_PLAN="{a plan id this plan turned out to need}"
+specforge new checkpoint CP1 "$CHECKPOINT_TITLE" --in "$PLAN_FILE" --plan "$PLAN_ID" --kind "$CHECKPOINT_KIND" --after "$PLAN_ID/$CHECKPOINT_AFTER" --what_built "$WHAT_BUILT" --how_to_verify "$HOW_TO_VERIFY" --resume_signal "$RESUME_SIGNAL" || exit 1
+specforge new prohibition PR1 "$STATEMENT" --in "$PLAN_FILE" --plan "$PLAN_ID" --statement "$STATEMENT" --verification "$VERIFICATION_KIND" || exit 1
+specforge new user_setup US1 "$SERVICE" --in "$PLAN_FILE" --plan "$PLAN_ID" --service "$SERVICE" --why "$WHY" || exit 1
+specforge link "$PLAN_ID" depends_on "$NEEDED_PLAN" || exit 1
+```
+
+The executor closes the plan with the summary template's typed edits
+(@~/.claude/gsd-core/templates/summary.md): the plan names no summary of its own.
+
+With `@gsd/security` loaded, each trust boundary is a `trust_boundary` and each threat a `threat` entity: `specforge new threat T-{phase}-01 "<title>" --in <the plan's file> --plan <plan> --category <stride> --component <c> --severity <s> --disposition <d> --mitigation "<m>"`.
+
+Threat ids are unique within a phase: before numbering, read the phase's threat ids
+(`specforge query "$PHASE_ID" --depth 2 --kinds threat --pick '.nodes[kind=threat].id'`) and continue after their
+highest `T-{phase}-NN`, never from `T-{phase}-01` again. `T-{phase}-SC` is reserved, and every plan keeps it.
 
 ## Frontmatter Fields
 
@@ -415,17 +456,8 @@ Only include prior plan SUMMARY references if genuinely needed (uses types/expor
 
 When external services involved:
 
-```yaml
-user_setup:
-  - service: stripe
-    why: "Payment processing"
-    env_vars:
-      - name: STRIPE_SECRET_KEY
-        source: "Stripe Dashboard -> Developers -> API keys"
-    dashboard_config:
-      - task: "Create webhook endpoint"
-        location: "Stripe Dashboard -> Developers -> Webhooks"
-```
+one `specforge new user_setup` line per service (the optional fence above): `--service`, `--why`, and
+`--env_vars '<json>'`, `--dashboard '<json>'` and `--local_dev` as `specforge new user_setup --help` lists them.
 
 Only include what Claude literally cannot do.
 
@@ -443,7 +475,7 @@ Only include what Claude literally cannot do.
 **Step 0: Extract Requirement IDs**
 Read ROADMAP.md `**Requirements:**` line for this phase. Strip brackets if present (e.g., `[AUTH-01, AUTH-02]` → `AUTH-01, AUTH-02`). Distribute requirement IDs across plans — each plan's `requirements` frontmatter field MUST list the IDs its tasks address. **CRITICAL:** Every requirement ID MUST appear in at least one plan. Plans with an empty `requirements` field are invalid.
 
-**Security (when `@gsd/security` is loaded and `workflow.security_enforcement` is on):** Identify trust boundaries in this phase's scope. Map STRIDE categories to applicable tech stack from RESEARCH.md security domain. For each threat: assign a **severity** (critical|high|medium|low) based on impact × likelihood, and a disposition (`mitigate`/`accept`/`transfer`) per the configured OWASP ASVS level — see @~/.claude/gsd-core/references/security-asvs-levels.md. Every plan MUST include `<threat_model>` when `@gsd/security` is loaded and `workflow.security_enforcement` is on.
+**Security (when `@gsd/security` is loaded and `workflow.security_enforcement` is on):** Identify trust boundaries in this phase's scope. Map STRIDE categories to applicable tech stack from the phase research's security domain (its `research` entity). For each threat: assign a **severity** (critical|high|medium|low) based on impact × likelihood, and a disposition (`mitigate`/`accept`/`transfer`) per the configured OWASP ASVS level — see @~/.claude/gsd-core/references/security-asvs-levels.md. Every plan MUST include `<threat_model>` when `@gsd/security` is loaded and `workflow.security_enforcement` is on.
 
 **Package legitimacy gate (npm/pip/cargo only):**
 - Require RESEARCH.md `## Package Legitimacy Audit` before package-manager install tasks.
@@ -560,16 +592,17 @@ Load planning context:
 @~/.claude/gsd-core/references/gsd-run-resolver.md
 
 ```bash
-INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-
+PHASE_ID="{the phase id, e.g. v1.0/02}"
+specforge context gsd/planner "$PHASE_ID" || exit 1
 ```
 
-Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id), and its `research` and `context` entities, when it has them, are among the other nodes. `commit_docs` and `workflow.research` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model.
+That is the planner pack: the phase, its requirements, context, decisions, research and its items, plans, milestone,
+gaps and UAT gaps, the summaries of the plans it depends on, the project and its decisions, `CLAUDE.md` / `AGENTS.md`
+and the settings. Over MCP it is the resource `specforge://context/{+entity_id}?role=gsd/planner`; a host that
+generates this agent's `## Context` section already holds it there. `--pick .budget` lists what the budget cut: read a
+cut entity with `specforge query <id> --format context`. `commit_docs` and `workflow.research` are settings:
+`specforge settings --format json --extension @gsd/core`; an installed agent carries its own model.
 
-Also load planning state (position, decisions, blockers) via the SDK — **use `node` to invoke the CLI** (not `npx`):
-```bash
-specforge query "$MILESTONE" --depth 2 --kinds milestone,phase,decision --format context 2>/dev/null
-```
 If the spec has no project entity yet, offer to create one with `/gsd-new-project` or continue without.
 </step>
 
@@ -683,7 +716,7 @@ Read the most recent milestone retrospective and cross-milestone trends. Extract
 </step>
 
 <step name="inject_global_learnings">
-If `features.global_learnings` is `true`: global learnings are not part of @gsd/core, so skip this step silently; where a project keeps its own, search them once per tag from PLAN.md frontmatter `tags` (or use the single most specific keyword). Prefix matches with `[Prior learning from <project>]` as weak priors. Project-local decisions take precedence. Skip silently if disabled or no matches.
+If `features.global_learnings` is `true`: global learnings are not part of @gsd/core, so skip this step silently; where a project keeps its own, search them once per subsystem the plan touches (or use the single most specific keyword). Prefix matches with `[Prior learning from <project>]` as weak priors. Project-local decisions take precedence. Skip silently if disabled or no matches.
 </step>
 
 <step name="gather_phase_context">
@@ -718,6 +751,10 @@ For each task:
 2. What does it CREATE? (files, types, APIs others might need)
 3. Can it run independently? (no dependencies = Wave 1 candidate)
 
+Before writing a task, `specforge search "<the task's words>" --kinds decision,task` finds prior decisions and
+similar tasks. For each file it lists in `files_modified`, `specforge anchors --file <path>` and
+`specforge refs <the entity it names>` show which entity already claims the file.
+
 Apply TDD detection heuristic. Apply user setup detection.
 </step>
 
@@ -730,6 +767,7 @@ Prefer vertical slices over horizontal layers.
 </step>
 
 <step name="assign_waves">
+
 ```
 waves = {}
 for each plan in plan_order:
@@ -789,99 +827,53 @@ Present breakdown with wave structure. Wait for confirmation in interactive mode
 </step>
 
 <step name="write_phase_prompt">
-Use template structure for each PLAN.md.
+Write each plan with the typed edits of `<plan_format>`, one plan per file: `--in "$PLAN_FILE"`, where `PLAN_FILE` is
+`plans/{padded phase}-{NN}.spec` beside the phase's file (`specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file'`).
+A plan id is `{padded phase}-{NN}`: `{padded phase}` is the zero-padded phase number (`01`, `02.1`) and `{NN}` the
+zero-padded plan number within the phase (`01`, `02`).
 
-**ALWAYS use the Write tool to create files** — never use `Bash(cat << 'EOF')` or heredoc commands for file creation.
+The orchestrator reads each plan entity (`specforge query "$PHASE_ID" --kinds plan`) after you return, so your return
+message is a brief confirmation (see `<structured_returns>`), never the plan's content.
 
-**Write contract (hard rules — must follow):**
-
-These PLAN.md files are the canonical output of this agent. The orchestrator reads each plan entity (`specforge query "$PHASE_ID" --kinds plan`) after you return; it does NOT read your return message for the file content.
-
-**Write is for net-new PLAN.md only.** For any existing file (`ROADMAP.md`, the spec files) use `Edit` (scoped replacement), never `Write`. See `update_roadmap`.
-
-1. **Default: write each PLAN.md in a single `Write` call.** On most runtimes this is correct and reliable — do this unless rule 4 applies.
-2. **Do NOT return the PLAN.md content in your response.** Your return message is a brief confirmation (see `<structured_returns>`); the content lives on disk.
-3. **Do NOT use `Bash(cat << 'EOF')` or heredoc** for file creation. Use the `Write` tool.
-4. **Large-file / truncation fallback.** Some runtimes (e.g. OpenCode) cap tool-call output, and a single oversized `Write` is truncated mid-payload — surfacing a tool error such as `JSON Parse error: Expected '}'`. If a `Write` fails with a truncation / invalid-tool error, **do NOT retry the same oversized call** (that loops forever). Instead build the file incrementally so no single tool call carries the whole payload:
-   - `Write` the file with only the first section, ending with the sentinel line `<!-- gsd:write-continue -->`.
-   - `Read` the file, then `Edit` it, replacing `<!-- gsd:write-continue -->` with the next section followed by the sentinel again. Repeat, one section per `Edit`.
-   - On the final section, replace the sentinel with the closing content and no trailing sentinel.
-5. **Verify the write landed (#4927).** A `Write` that returns success can still have stored a truncated payload. After writing each PLAN.md, run `verify.plan-structure` on it (see below) and read the file's last lines with your Read tool: it must end with the closing `</output>` (or the last closing tag of the template) and must not contain `<!-- gsd:write-continue -->`. If it ends mid-tag, rewrite it with the incremental method in rule 4.
-6. **If writing still fails, surface the actual error in your return message.** **Do NOT silently fall back to returning content** — that hides the failure from the orchestrator and truncates identically.
-
-**CRITICAL — File naming convention (enforced):**
-
-The filename MUST follow the exact pattern: `{padded_phase}-{NN}-PLAN.md`
-
-- `{padded_phase}` = zero-padded phase number received from the orchestrator (e.g. `01`, `02`, `03`, `02.1`)
-- `{NN}` = zero-padded sequential plan number within the phase (e.g. `01`, `02`, `03`)
-- The suffix is always `-PLAN.md` — NEVER `PLAN-NN.md`, `NN-PLAN.md`, or any other variation
-
-**Correct examples:**
-- Phase 1, Plan 1 → `01-01-PLAN.md`
-- Phase 3, Plan 2 → `03-02-PLAN.md`
-- Phase 2.1, Plan 1 → `02.1-01-PLAN.md`
-
-**Incorrect (will break GSD plan filename conventions / tooling detection):**
-- ❌ `PLAN-01-auth.md`
-- ❌ `01-PLAN-01.md`
-- ❌ `plan-01.md`
-- ❌ `01-01-plan.md` (lowercase)
-
-Full write path: the plan entity `{padded_phase}-{NN}-PLAN` (`specforge new plan`; an artifact goes through the MCP tool `specforge.edit`)
-
-Include all frontmatter fields.
+A typed edit is checked before it writes: a refusal names its code (E080 carries the error), and
+`specforge explain <code>` says what the code means and how to fix it. Fix the value and run the line again; a
+refusal writes nothing, so nothing is left half-written. Never hand-edit a spec file instead.
 </step>
 
 <step name="validate_plan">
-`$SCHEMA`: `plan-gap-closure` in gap_closure mode, else `plan`. `gap_closure` must be literal lowercase `true`.
+Check what you wrote: `check` prints a JSON array of diagnostics, each with its `code`, `severity` and `message`.
 
 ```bash
-VALID=$(specforge check --format json)   # the kinds check the plan's required fields
+ERRORS=$(specforge check --format json --pick '[severity=Error].code')   # the error codes, one per line
+printf '%s\n' "$ERRORS"
 ```
 
-Returns JSON: `{ valid, missing, present, invalidValue, schema }`
-
-**If `valid=false`:** `missing` = absent fields, `invalidValue` = present but wrong-valued. Fix either before proceeding.
-
-Also validate plan structure:
+An error code whose rule is not a judged one (`gsd/E501` is the verifier's) is yours: read it with
+`specforge explain <code>`, fix the entity it names with `specforge set`, and check again. A plan with no truth and no
+artifact is `gsd/W309` (`specforge check --format json --pick '[code=gsd/W309]'`): add them. Before returning, check the
+phase's requirement coverage with the trace the checker runs: a thread that says `no plan` is uncovered.
 
 ```bash
-STRUCTURE=$(specforge check --format json) && STRUCTURE_EXIT=0 || STRUCTURE_EXIT=$?
+PHASE_ID="{the phase id, e.g. v1.0/02}"
+specforge trace --route gsd/requirement-thread --in "$PHASE_ID" --partial || exit 1
 ```
-
-Returns JSON: `{ valid, errors, warnings, task_count, tasks }`. The exit status follows the verdict (#5170): `0` = `valid: true`, `1` = `valid: false` (read `errors` from the JSON); any other status (`69`: the plan file is missing or unreadable) means the structure was not evaluated — do not commit the plan as validated.
-
-**If errors exist:** Fix before committing:
-- Missing `<name>` in task → add name element
-- Missing `<action>` → add action element
-- Checkpoint/autonomous mismatch → none: SpecForge computes `autonomous` from the checkpoints
+ The plan-check warnings
+(`gsd/W311`, `gsd/W313`, `gsd/W315`, `gsd/W316`: no verdict yet) are the checker's to record, not yours.
 </step>
 
 <step name="update_roadmap">
-Update ROADMAP.md to finalize phase placeholders:
+The roadmap is the milestone's `phase` entities: their plan lists and counts are computed from the plans you wrote.
+Only a placeholder goal is yours to fill, derived from the phase's context, then its research, then its description:
 
-**CRITICAL — use `Edit` (scoped), NOT `Write`, for ROADMAP.md.** A whole-file `Write` destroys all phase entries outside your diff window. Use `Edit` to replace only the target section; use multiple `Edit` calls if needed. NEVER pass the entire ROADMAP.md content to `Write`.
-
-1. Read the `phase` entities (`specforge query "$MILESTONE" --kinds phase --format context`)
-2. Find phase entry (`### Phase {N}:`)
-3. Update placeholders using `Edit` (scoped replacement only):
-
-**Goal** (only if placeholder):
-- `[To be planned]` → derive from CONTEXT.md > RESEARCH.md > phase description
-- If Goal already has real content → leave it
-
-**Plans** (always update):
-- Update count: `**Plans:** {N} plans`
-
-**Plan list** (always update):
-```
-Plans:
-- [ ] {phase}-01-PLAN.md — {brief objective}
-- [ ] {phase}-02-PLAN.md — {brief objective}
+```bash
+PHASE_NUMBER="{the phase number, e.g. 02}"
+IFS= read -rd '' GOAL <<'TEXT' || true; GOAL=${GOAL%$'\n'}
+{the phase's outcome-shaped goal}
+TEXT
+specforge gsd phase --edit "$PHASE_NUMBER" --goal "$GOAL" || exit 1
 ```
 
-4. Apply changes with `Edit` (scoped) — use the `gsd roadmap` subcommands (run by the orchestrator) for structural ROADMAP mutations; reserve direct `Edit` for placeholder fills only.
+A goal with real content stays as it is.
 </step>
 
 <step name="git_commit">
@@ -910,7 +902,7 @@ See @~/.claude/gsd-core/references/planner-chunked.md for `## OUTLINE COMPLETE` 
 - **No re-reads:** Never re-read a range already in context. For small files (≤ 2,000 lines), one Read call is enough — extract everything needed in that pass. For large files, use Grep to find the relevant line range first, then Read with `offset`/`limit` for each distinct section. Duplicate range reads are forbidden.
 - **Codebase pattern reads (Level 1+):** Read each source file once. After reading, extract all relevant patterns (types, conventions, imports, function signatures) in a single pass. Do not re-read the same file to "check one more thing" — if you need more detail, use Grep with a specific pattern instead.
 - **Stop on sufficient evidence:** Once you have enough pattern examples to write deterministic task descriptions, stop reading. There is no benefit to reading more analogs of the same pattern.
-- **No heredoc writes:** Always use the Write or Edit tool, never `Bash(cat << 'EOF')`.
+- **No hand-written spec:** a plan is written with `specforge new|set|link`, never with Write, Edit or a heredoc.
 
 </critical_rules>
 
@@ -967,8 +959,8 @@ Phase planning complete when:
 - [ ] Prior decisions, issues, concerns synthesized
 - [ ] Dependency graph built (needs/creates for each task)
 - [ ] Tasks grouped into plans by wave, not by sequence
-- [ ] PLAN file(s) exist with XML structure
-- [ ] Each plan: depends_on, files_modified, decisions (each context decision it implements), must_haves in frontmatter
+- [ ] Plan entities written, each with its tasks
+- [ ] Each plan: depends_on, files_modified, decisions (each context decision it implements), truths, artifacts and key links
 - [ ] Each plan: user_setup declared if external services involved
 - [ ] Each plan: Objective, context, tasks, verification, success criteria, output
 - [ ] Each plan: 2-3 tasks (~50% context)
@@ -989,7 +981,7 @@ Planning complete when:
 - [ ] Existing SUMMARYs read for context
 - [ ] Gaps clustered into focused plans
 - [ ] Plan numbers sequential after existing
-- [ ] PLAN file(s) exist with gap_closure: true
+- [ ] Plan entities written with `--gap_closure` naming their gaps
 - [ ] Each plan: tasks derived from gap.missing items
 - [ ] PLAN file(s) committed to git
 - [ ] User knows to run `/gsd:execute-phase {X}` next

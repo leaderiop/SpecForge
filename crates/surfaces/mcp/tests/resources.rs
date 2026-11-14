@@ -251,7 +251,7 @@ const UNRESOLVED_GHOST: &str = "unresolved reference 'ghost' in entity 'broken'"
 // B:expose_entity_as_mcp_resource — verify unit "returns entity subgraph"
 #[specforge_test(
     behavior = "expose_entity_as_mcp_resource",
-    verify = "specforge://graph/{entity_id} returns entity and its neighbors"
+    verify = "specforge://graph/{+entity_id} returns entity and its neighbors"
 )]
 fn entity_resource_returns_subgraph() {
     let mut server = test_server();
@@ -649,7 +649,10 @@ fn graph_resource_max_tokens_budgets() {
     let text = resource_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert!(parsed.get("schema").is_none(), "{parsed}");
-    assert!(specforge_emitter::estimate_tokens(&text) <= 200, "{text}");
+    assert!(
+        specforge_protocol_types::tokens::estimate_tokens(&text) <= 200,
+        "{text}"
+    );
 }
 
 // `root` is what the resource has always read: it stays an alias of `scope`.
@@ -744,8 +747,8 @@ fn context_entity_template_registered() {
         .map(|r| r["uriTemplate"].as_str().unwrap())
         .collect();
     assert!(
-        uris.contains(&"specforge://context/{entity_id}"),
-        "specforge://context/{{entity_id}} must be advertised: {uris:?}"
+        uris.contains(&"specforge://context/{+entity_id}"),
+        "specforge://context/{{+entity_id}} must be advertised: {uris:?}"
     );
 }
 

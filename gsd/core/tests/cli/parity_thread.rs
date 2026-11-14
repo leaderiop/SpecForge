@@ -212,3 +212,44 @@ fn the_twins_items_of_a_plan_with_no_requirement_are_w522() {
         p.report_all()
     );
 }
+
+/// The ids `specforge trace --route gsd/requirement-thread --in <scope>` traces, in its order.
+fn traced_within(p: &Project, scope: &str) -> Vec<String> {
+    let run = p.run(&[
+        "trace",
+        "--route",
+        "gsd/requirement-thread",
+        "--in",
+        scope,
+        "--partial",
+        "--format",
+        "json",
+    ]);
+    succeeds(&run);
+    let document: serde_json::Value =
+        serde_json::from_str(&run.stdout).expect("trace --format json writes JSON");
+    document["traces"]
+        .as_array()
+        .expect("a list of traces")
+        .iter()
+        .map(|trace| {
+            trace["entity_id"]
+                .as_str()
+                .expect("an entity id")
+                .to_string()
+        })
+        .collect()
+}
+
+#[test]
+fn trace_within_a_milestone_follows_its_phases_requirements() {
+    let p = taskboard();
+    // v1.0 holds no requirement itself: its phases name them, and v2's SYNC-01 and SHARE-01 stay out.
+    assert_eq!(
+        traced_within(&p, "v1.0"),
+        [
+            "LIST-01", "STORE-01", "STORE-02", "TASK-01", "TASK-02", "TASK-03"
+        ]
+    );
+    assert_eq!(traced_within(&p, "01"), ["TASK-01", "TASK-02"]);
+}

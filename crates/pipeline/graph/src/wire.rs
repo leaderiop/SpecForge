@@ -104,8 +104,9 @@ pub fn bytes(value: &FieldJson) -> Vec<u8> {
 }
 
 /// The bytes an entity's digest is taken over (ADR 0290): its id, kind and title, its fields as [`resolved`] writes
-/// them, its `verify` statements and its method signatures. A field a compute pass or a verdict gives is left out, and
-/// so are the entity's own verdict statements, positions and comments: what a judge read is what its author wrote.
+/// them, its `verify` statements and its method signatures. A field a compute pass, a verdict or a context record
+/// (ADR 0356) gives is left out, and so are the entity's own verdict statements, positions and comments: what a judge
+/// read is what its author wrote.
 pub fn entity_bytes(graph: &Graph, forms: &FieldForms, node: &Node) -> Vec<u8> {
     let kind = node.kind.raw.as_str();
     let mut fields = Map::new();
@@ -114,7 +115,10 @@ pub fn entity_bytes(graph: &Graph, forms: &FieldForms, node: &Node) -> Vec<u8> {
         let given = matches!(
             forms.reading(kind, name),
             Reading::Declared(form)
-                if matches!(form.writer(), Some(FieldWriter::Computed | FieldWriter::Verdict))
+                if matches!(
+                    form.writer(),
+                    Some(FieldWriter::Computed | FieldWriter::Verdict | FieldWriter::Context)
+                )
         );
         if given || fields.contains_key(name) {
             continue;

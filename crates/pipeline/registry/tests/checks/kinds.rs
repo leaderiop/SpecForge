@@ -96,7 +96,7 @@ fn suggest_missing_ext_known_keyword() {
 
 #[spec(
     behavior = "suggest_missing_extensions",
-    verify = "E024 for keyword not in index suggests specforge search"
+    verify = "E024 for keyword not in index suggests specforge extensions search"
 )]
 fn suggest_missing_ext_unknown_keyword() {
     let diags = checked(
@@ -109,7 +109,7 @@ fn suggest_missing_ext_unknown_keyword() {
             .suggestion
             .as_deref()
             .unwrap()
-            .contains("specforge search xyzzy"),
+            .contains("specforge extensions search xyzzy"),
         "{diags:?}"
     );
 }
@@ -136,7 +136,7 @@ fn suggest_missing_ext_contract() {
             .suggestion
             .as_ref()
             .unwrap()
-            .contains("specforge search")
+            .contains("specforge extensions search")
     );
 }
 
@@ -302,7 +302,9 @@ fn kindless_extensions_report_one_w151() {
     );
     assert_eq!(
         one[0].suggestion.as_deref(),
-        Some("enable the extension that declares them; search with: specforge search xyzzy")
+        Some(
+            "enable the extension that declares them; search with: specforge extensions search xyzzy"
+        )
     );
 
     // Seven kinds: five named, then "…".

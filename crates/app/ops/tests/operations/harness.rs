@@ -297,3 +297,54 @@ fn every_write_takes_the_lock_only_where_a_ledger_can_exist() {
     );
     assert!(!plain.root().join(".specforge/write.lock").exists());
 }
+
+#[specforge_test(
+    behavior = "apply_edit_plan",
+    verify = "a typed edit of a context-written field is refused context_field, whatever its origin"
+)]
+fn a_typed_edit_of_a_context_field_is_refused_context_field() {
+    use specforge_ops::authoring::apply::{CONTEXT_FIELD, Origin};
+    use specforge_project::testing::{
+        CONTEXT_PACK, CONTEXT_PLAN, gsd_context_project, gsd_context_runtime,
+    };
+    let compiled = gsd_context_project().compile_in(Arc::new(gsd_context_runtime()));
+    let view = ProjectView::of(&compiled);
+    let record = Input::Block(
+        [
+            ("route".to_string(), Input::One("gsd/executor".into())),
+            ("digest".to_string(), Input::One("sha256:1".into())),
+            ("max_tokens".to_string(), Input::Number(6000.into())),
+        ]
+        .into_iter()
+        .collect(),
+    );
+    let origins = [
+        Origin::cli(true),
+        Origin::cli(false),
+        Origin::mcp(),
+        Origin::Command {
+            extension: specforge_project::testing::GSD_JUDGED.to_string(),
+        },
+    ];
+    for origin in &origins {
+        for edit in [
+            crate::edit::set(CONTEXT_PLAN, CONTEXT_PACK, record.clone()),
+            crate::edit::set(
+                CONTEXT_PLAN,
+                &format!("{CONTEXT_PACK}.digest"),
+                Input::One("sha256:2".into()),
+            ),
+        ] {
+            let refused = edit::run(
+                &view,
+                &[edit],
+                true,
+                origin,
+                specforge_ops::testing::caller(),
+            )
+            .err()
+            .map(|e| e.error.code.to_string());
+            assert_eq!(refused.as_deref(), Some(CONTEXT_FIELD), "{origin:?}");
+        }
+    }
+}

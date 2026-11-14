@@ -280,3 +280,74 @@ fn a_persons_command_refuses_source_automated_and_names_the_agents() {
     refused(&run, "invalid_input", &["record-automated-uat"]);
     assert_eq!(bytes(&p), before);
 }
+
+/// A deferred follow-up is a skip whose reason is upstream's text and an entry on its session, counted in its totals;
+/// the same answer again adds nothing.
+#[test]
+fn a_deferred_follow_up_is_kept_on_its_session() {
+    let p = unanswered();
+    let test = format!("{SESSION}/U3");
+    let defer = || {
+        gsd_as_person(
+            &p,
+            "set-uat-result",
+            &[&test, "skipped", "--by", "ana", "--follow-up", "dark mode"],
+        )
+    };
+    let run = defer();
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(
+        p.fields_of(&test)["reason"],
+        "Deferred follow-up: dark mode"
+    );
+    let session = p.fields_of(SESSION);
+    let entries = session["follow_ups"]
+        .as_array()
+        .expect("follow_ups")
+        .clone();
+    assert_eq!(entries.len(), 1, "{session}");
+    assert_eq!(entries[0]["test"], "U3");
+    assert_eq!(entries[0]["idea"], "dark mode");
+    assert!(
+        entries[0]["deferred_at"]
+            .as_str()
+            .is_some_and(|d| d.len() == 10),
+        "{session}"
+    );
+    assert_eq!(session["totals"]["follow_ups"], 1);
+    let run = defer();
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(
+        p.fields_of(SESSION)["follow_ups"].as_array().map(Vec::len),
+        Some(1)
+    );
+}
+
+#[test]
+fn a_follow_up_needs_skipped_and_no_reason() {
+    let p = unanswered();
+    let test = format!("{SESSION}/U3");
+    let before = bytes(&p);
+    let run = gsd_as_person(
+        &p,
+        "set-uat-result",
+        &[&test, "pass", "--by", "ana", "--follow-up", "dark mode"],
+    );
+    refused(&run, "invalid_input", &["--follow-up", "skipped"]);
+    let run = gsd_as_person(
+        &p,
+        "set-uat-result",
+        &[
+            &test,
+            "skipped",
+            "--by",
+            "ana",
+            "--follow-up",
+            "dark mode",
+            "--reason",
+            "later",
+        ],
+    );
+    refused(&run, "invalid_input", &["--follow-up", "--reason"]);
+    unchanged(&p, &before);
+}

@@ -113,9 +113,9 @@ fn a_research_of_a_quick_plan_named_research_is_e206() {
 fn planned_checks(p: &Project) -> Vec<String> {
     let mut found = Vec::new();
     for file in ["quick.md", "quick-batch/steps/planner-wave.md"] {
-        for code in served(p, file).split('`').skip(1).step_by(2) {
-            if !code.contains('\n') && code.contains("specforge query \"${quick_id}\" --kinds") {
-                found.push(code.to_string());
+        for (_, code) in gsd_kit::markdown::inline_code(&served(p, file)) {
+            if code.contains("specforge query \"${quick_id}\" --kinds") {
+                found.push(code);
             }
         }
     }
@@ -213,17 +213,27 @@ fn served(p: &Project, file: &str) -> String {
     run.stdout
 }
 
-/// The commands of `text` that contain `needle`: a backticked span, or a whole line outside backticks (a bash block).
+/// The commands of `text` that contain `needle`, in line order: a code span, or a fence's code line (trimmed), or
+/// a code span of the Markdown a fence's code line builds (a prompt template's string).
 fn commands(text: &str, needle: &str) -> Vec<String> {
-    let mut found = Vec::new();
-    for line in text.lines().filter(|l| l.contains(needle)) {
-        let spans: Vec<&str> = line.split('`').collect();
-        match spans.iter().skip(1).step_by(2).find(|s| s.contains(needle)) {
-            Some(span) => found.push(span.to_string()),
-            None => found.push(line.trim().to_string()),
+    use gsd_kit::markdown::{fences, inline_code};
+    let mut found: Vec<(usize, String)> = inline_code(text)
+        .into_iter()
+        .filter(|(_, span)| span.contains(needle))
+        .collect();
+    for fence in fences(text) {
+        for (n, line) in fence.text.lines().enumerate() {
+            if line.contains(needle) {
+                let span = inline_code(line)
+                    .into_iter()
+                    .find(|(_, s)| s.contains(needle));
+                let command = span.map_or_else(|| line.trim().to_string(), |(_, s)| s);
+                found.push((fence.code.start + n, command));
+            }
         }
     }
-    found
+    found.sort_by_key(|(n, _)| *n);
+    found.into_iter().map(|(_, command)| command).collect()
 }
 
 /// The plan exists before any step that names it (the fence that mints its id wrote it), so a research step writes no
@@ -260,24 +270,27 @@ fn a_research_step_finds_the_plan_the_init_step_wrote() {
     }
 }
 
-/// With `--discuss` and `--research`, quick records the research's digest of the context once both exist, as
-/// `/gsd-plan-phase` does for a phase's: the served command, run for the fixture's quick plan, copies the context's
-/// digest into its research.
+/// With `--discuss` and `--research`, quick records the research's context pack once both exist, as
+/// `/gsd-plan-phase` does for a phase's: the served command, run for the fixture's quick plan, records the pack of
+/// `gsd/quick-context` on its research.
 #[test]
-fn quick_records_its_researchs_context_digest() {
+fn quick_records_its_researchs_context_pack() {
     let p = project("quick-context");
     let text = served(&p, "quick.md");
     let record = commands(&text, "specforge gsd record-research");
     assert_eq!(record.len(), 1, "{record:#?}");
     assert!(holds(&p, &record[0], "251101-abc"), "{}", record[0]);
-    assert_eq!(
-        p.fields_of("251101-abc-RESEARCH")["context_digest"],
-        p.fields_of("251101-abc-CONTEXT")["digest"]
-    );
+    let pack = p.run(&["context", "gsd/quick-context", "251101-abc"]);
+    assert_eq!(pack.code, 0, "{}", pack.all());
+    let pack: serde_json::Value = serde_json::from_str(&pack.stdout).expect("a pack");
+    let recorded = &p.fields_of("251101-abc-RESEARCH")["context_pack"];
+    assert_eq!(recorded["route"], "gsd/quick-context", "{recorded}");
+    assert_eq!(recorded["digest"], pack["digest"], "{recorded}");
 }
 
 /// The reading-list queries the quick prompts build from `quick_id` (`'... ' + quick_id + '...'`), as served: each
-/// hands the sub-agent what it names. The context's reaches the plan's decisions (they name the context's plan, not
+/// hands the sub-agent what it names, and the quick executor's route line serves the context, its decisions and the
+/// research. The context's reaches the plan's decisions (they name the context's plan, not
 /// the context, so depth 1 would miss them) and the research's its findings.
 #[test]
 fn a_quick_reading_list_query_reaches_the_context_decisions_and_findings() {
@@ -307,7 +320,25 @@ fn a_quick_reading_list_query_reaches_the_context_decisions_and_findings() {
             ran += 1;
         }
     }
-    assert_eq!(ran, 6, "the reading-list queries");
+    assert_eq!(ran, 4, "the reading-list queries");
+    // the quick executor reads the executor route, whose quick section serves the plan's context and research
+    let routes = commands(&served(&p, "quick.md"), "specforge context gsd/executor");
+    assert_eq!(routes.len(), 1, "{routes:?}");
+    let out = bash(&p, &routes[0], "251101-abc", &[]);
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(out.status.success(), "{}: {text}", routes[0]);
+    for want in [
+        "251101-abc-CONTEXT",
+        "251101-abc-D-01",
+        "251101-abc-RESEARCH",
+        "251101-abc-RESEARCH/F1",
+    ] {
+        assert!(
+            text.contains(want),
+            "`{}` misses {want}:\n{text}",
+            routes[0]
+        );
+    }
 }
 
 /// A batch item's executor writes its summary on the working tree (`@gsd/core` runs no worktree isolation): the crash-

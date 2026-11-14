@@ -70,5 +70,9 @@ pub const REQUIREMENT: Kind = Kind::new(
         en("status", REQUIREMENT_STATUS)
             .c()
             .doc("Traceability status, from plans, summaries and verifications"),
+        ens("shapes", super::spec::SHAPES)
+            .doc("upstream's authored shapes override; an empty list proposes no edge"),
+        str("text_en")
+            .doc("an English translation the edge probe classifies instead (response_language)"),
     ],
 );

@@ -108,7 +108,7 @@ Output (note: one `## Decision` section inherited from ADR does NOT override str
 </few_shot_exemplars>
 
 <why_this_matters>
-Your classification drives extraction. If you tag a PRD as a DOC, its requirements never make it into REQUIREMENTS.md. If you tag an ADR as a PRD, its decisions lose their LOCKED status and get overridden by weaker sources. Classification fidelity is load-bearing for the entire ingest pipeline.
+Your classification drives extraction. A PRD typed as a DOC yields no `requirement` entities at all. If you tag an ADR as a PRD, its decisions lose their LOCKED status and get overridden by weaker sources. Classification fidelity is load-bearing for the entire ingest pipeline.
 </why_this_matters>
 
 <taxonomy>

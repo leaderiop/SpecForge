@@ -126,6 +126,19 @@ fn deferring_to(to: &str) -> Vec<PassValue> {
         "deferred".into(),
         json!([{ "truth": "v1.0/01/01-01/TR2", "addressed_in": to, "evidence": "later" }]),
     );
+    // the graph draws an edge to each reference that resolves
+    let known: Vec<String> = input.entities.iter().map(|e| e.id.clone()).collect();
+    for (target, label) in [
+        ("v1.0/01/01-01/TR2", "deferred.truth"),
+        (to, "deferred.addressed_in"),
+    ] {
+        if known.iter().any(|id| id == target) {
+            input.edges.push(
+                serde_json::from_value(json!({ "source": V, "target": target, "label": label }))
+                    .expect("an edge"),
+            );
+        }
+    }
     run(&input)
 }
 
@@ -144,6 +157,43 @@ fn a_deferral_to_the_same_an_earlier_or_a_missing_phase_does_not_count() {
         assert_eq!(of(&out, "status"), Some(json!("gaps_found")), "{to}");
         assert_eq!(of(&out, "score"), Some(json!("1/2")), "{to}");
     }
+}
+
+/// Phase 01's verification deferring TR2 to phase 02 as the writer stores it: each row's reference spelled relative
+/// to the verification's scope, the graph's `deferred.*` edges naming the full ids.
+fn deferring_as_written() -> Vec<PassValue> {
+    let phases = ["v1.0/01", "v1.0/02"]
+        .map(|id| json!({ "id": id, "kind": "phase" }))
+        .to_vec();
+    let mut input = input(
+        vec![
+            truth(1, vec![judgement("verified", "fresh", true)]),
+            truth(2, vec![judgement("failed", "fresh", false)]),
+        ],
+        phases,
+    );
+    input.entities[0].values.insert(
+        "deferred".into(),
+        json!([{ "truth": "01-01/TR2", "addressed_in": "02", "evidence": "later" }]),
+    );
+    for (target, label) in [
+        ("v1.0/01/01-01/TR2", "deferred.truth"),
+        ("v1.0/02", "deferred.addressed_in"),
+    ] {
+        input.edges.push(
+            serde_json::from_value(json!({ "source": V, "target": target, "label": label }))
+                .expect("an edge"),
+        );
+    }
+    run(&input)
+}
+
+/// A deferral counts through its edges: the rows' references are spelled relative to the scope.
+#[test]
+fn a_deferral_as_written_counts_through_its_edges() {
+    let out = deferring_as_written();
+    assert_eq!(of(&out, "status"), Some(json!("passed")));
+    assert_eq!(of(&out, "score"), Some(json!("1/1")));
 }
 
 #[test]
@@ -538,4 +588,27 @@ fn a_backstop_or_unreported_or_overridden_truth_stays_verified() {
         assert_eq!(of(&out, "status"), Some(json!("passed")));
         assert_eq!(of(&out, "score"), Some(json!("1/1")));
     }
+}
+
+#[test]
+fn a_files_digest_is_a_sha256_that_ignores_order_and_repeats_and_follows_a_digest() {
+    let a = files_digest([("a.js", "sha256:1"), ("b.js", "sha256:2")]);
+    let hex = a.strip_prefix("sha256:").expect("the prefix");
+    assert_eq!(hex.len(), 64, "{a}");
+    assert!(
+        hex.bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+    );
+    assert_eq!(
+        a,
+        files_digest([
+            ("b.js", "sha256:2"),
+            ("a.js", "sha256:1"),
+            ("a.js", "sha256:1")
+        ])
+    );
+    assert_ne!(
+        a,
+        files_digest([("a.js", "sha256:1"), ("b.js", "sha256:3")])
+    );
 }

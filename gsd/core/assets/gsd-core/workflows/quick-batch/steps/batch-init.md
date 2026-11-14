@@ -22,9 +22,6 @@ security posture, through `specforge files read`).
 ```bash
 QB_TASKS=$INLINE_TASK_LIST
 
-
-
-
 ```
 
 ```bash
@@ -43,14 +40,16 @@ space note).
 
 ```bash
 IFS=$'\x1f' read -r _ _ _ BATCH_ID ITEM_COUNT <<< "$QB_CREATE_LIST" && [ -n "$BATCH_ID" ] || exit 1   # every row names the batch and its count: the first is read
-BATCH_MANIFEST_JSON=$QB_CREATE_LIST   # the manifest's items, one quick_id, slug, description, batch, count row each (read: IFS=$'\x1f' read -r quick_id slug description _): keep each item's status (pending) and wave (0) in your notes beside it
+BATCH_MANIFEST_JSON=$QB_CREATE_LIST   # the manifest's items, one quick_id, slug, description, batch, count row each (read: IFS=$'\x1f' read -r quick_id slug description _): keep each item's wave (0) in your notes beside it; its status is its plan's
+QB_ITEMS=$(printf '['; SEP=; while IFS=$'\x1f' read -r quick_id _; do printf '%s"%s"' "$SEP" "$quick_id"; SEP=,; done <<< "$QB_CREATE_LIST"; printf ']')   # the items' quick ids, as the JSON list start-batch takes
+specforge gsd start-batch "$BATCH_ID" --items "$QB_ITEMS" --base "$(specforge git head --pick .sha)" >/dev/null || exit 1   # the batch entity: its items, the commit it starts from and the time
 
 ```
 
 Report to user:
 ```
 Creating quick batch ${BATCH_ID}: ${ITEM_COUNT} item(s).
-Manifest: kept in this conversation (the batch router is not part of @gsd/core: no BATCH.json)
+Manifest: the quick_batch entity ${BATCH_ID} (its items, base and time; each item's status is its plan's)
 ```
 
 Continue to Step 3 in `quick-batch.md`.

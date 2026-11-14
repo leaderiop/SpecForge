@@ -573,9 +573,7 @@ pub const GATE_CUTOVER: [(&str, Class); 171] = [
     ),
     (
         "verify-context-drift-no-context-md",
-        Class::NotReproduced(
-            "a phase with research and no CONTEXT.md; SpecForge's W406 compares a recorded digest against a context entity, and a phase without a context has none to compare, so the twin has no such phase",
-        ),
+        Class::Reproduced("a_phase_with_research_and_no_context_raises_no_w406"),
     ),
     (
         "verify-context-drift-no-phases-dir",

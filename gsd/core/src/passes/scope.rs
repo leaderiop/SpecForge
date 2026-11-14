@@ -73,7 +73,7 @@ fn without_versions(action: &str) -> String {
 /// A decision the task's plan lists in `decisions` says `phrase` itself, by the rule of the hit: then the task
 /// delivers what was decided.
 fn decided(input: &PassInput, task: &PassEntity, phrase: &str) -> bool {
-    listed_decisions(input, [crate::digest::scope_of(&task.id)])
+    listed_decisions(input, [crate::scope::scope_of(&task.id)])
         .into_iter()
         .filter_map(|id| input.entities.iter().find(|d| d.id == id))
         .filter_map(|d| text(d, "text"))

@@ -68,14 +68,21 @@ fn reference_names_a_templates_kind() {
     let p = twin();
     let run = gsd(&p, "reference", &["templates/roadmap.md"]);
     assert_eq!(run.code, 0, "{}", run.all());
-    let first = run.stdout.lines().next().unwrap_or_default();
+    let kinds = run
+        .stdout
+        .lines()
+        .find(|l| l.starts_with("Template for"))
+        .unwrap_or_default();
     assert!(
-        first.starts_with("SpecForge keeps this as `milestone` and `phase` entities"),
-        "{first}"
+        kinds.contains("`milestone` and its `phase` entities"),
+        "{kinds}"
     );
     let state = gsd(&p, "reference", &["templates/state.md"]);
     assert!(
-        state.stdout.starts_with("SpecForge computes this"),
+        state
+            .stdout
+            .lines()
+            .any(|l| l.starts_with("SpecForge computes this")),
         "{}",
         state.stdout
     );
@@ -147,4 +154,112 @@ fn reference_converts_the_text_for_the_host() {
         &["workflows/smart-entry.md", "--host", "vim"],
     );
     assert_ne!(run.code, 0, "{}", run.all());
+}
+
+/// The templates whose Markdown file form became the typed edits of their kinds: `(path, kinds)`.
+const CONVERTED: &[(&str, &[&str])] = &[
+    (
+        "gsd-core/templates/context.md",
+        &["context", "decision", "deferred_idea"],
+    ),
+    (
+        "gsd-core/workflows/discuss-phase/templates/context.md",
+        &["context", "decision", "deferred_idea"],
+    ),
+    (
+        "gsd-core/workflows/discuss-phase/templates/discussion-log.md",
+        &["discussion"],
+    ),
+    (
+        "gsd-core/templates/spec.md",
+        &[
+            "phase_spec",
+            "locked_req",
+            "interview",
+            "edge",
+            "spec_prohibition",
+        ],
+    ),
+    ("gsd-core/templates/project.md", &["project", "decision"]),
+    (
+        "gsd-core/templates/verification-report.md",
+        &["verification", "truth"],
+    ),
+    ("gsd-core/templates/requirements.md", &["requirement"]),
+    (
+        "gsd-core/templates/VALIDATION.md",
+        &["validation", "validation_row", "wave0_item"],
+    ),
+    ("gsd-core/templates/milestone.md", &["milestone", "phase"]),
+    ("gsd-core/templates/milestone-archive.md", &["milestone"]),
+    (
+        "gsd-core/templates/retrospective.md",
+        &["retrospective", "lesson"],
+    ),
+    (
+        "gsd-core/templates/UAT.md",
+        &["uat_session", "uat_test", "uat_gap"],
+    ),
+    (
+        "gsd-core/templates/research-project/STACK.md",
+        &["stack_choice", "finding"],
+    ),
+    (
+        "gsd-core/templates/research-project/FEATURES.md",
+        &["finding"],
+    ),
+    (
+        "gsd-core/templates/research-project/ARCHITECTURE.md",
+        &["pattern", "finding"],
+    ),
+    (
+        "gsd-core/templates/research-project/PITFALLS.md",
+        &["pitfall"],
+    ),
+    (
+        "gsd-core/templates/research-project/SUMMARY.md",
+        &["research"],
+    ),
+    (
+        "gsd-core/templates/roadmap.md",
+        &["milestone", "phase", "requirement"],
+    ),
+    (
+        "gsd-core/templates/state.md",
+        &["phase", "milestone", "decision"],
+    ),
+];
+
+/// A converted template's answer names its kinds and how to read their fields (`specforge schema --kind`), each kind
+/// one `specforge schema` declares, starts with no line about where SpecForge keeps the file, and holds no Markdown
+/// file form. No line of it names a GSD file or tells an agent to write one: the asset tests hold every asset to that.
+#[test]
+fn a_converted_template_names_its_kinds_and_no_file_layout() {
+    let p = twin();
+    let schema = p.run(&["schema"]);
+    assert_eq!(schema.code, 0, "{}", schema.all());
+    let declared: Vec<String> = json(&schema)["entity_kinds"]
+        .as_array()
+        .expect("entity_kinds")
+        .iter()
+        .map(|k| k["name"].as_str().expect("a name").to_string())
+        .collect();
+    for (path, kinds) in CONVERTED {
+        let run = gsd(&p, "reference", &[path]);
+        assert_eq!(run.code, 0, "{path}: {}", run.all());
+        let text = &run.stdout;
+        assert!(text.contains("specforge schema --kind"), "{path}: {text}");
+        assert!(!text.starts_with("SpecForge keeps this"), "{path}");
+        assert!(
+            !text.contains("```markdown"),
+            "{path}: a Markdown file form"
+        );
+        for kind in *kinds {
+            assert!(declared.iter().any(|k| k == kind), "{path}: no kind {kind}");
+            assert!(
+                text.contains(&format!("`{kind}`")) || text.contains(&format!("--kind {kind}")),
+                "{path}: {kind}"
+            );
+        }
+    }
 }

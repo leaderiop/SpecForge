@@ -75,6 +75,5 @@ An item this step marks `human_needed` or `failed` is NOT reverted — its
 commits stay on the working tree, where its executor made them in Step 6
 (sequential mode: there is no merge to undo).
 
-
 Continue to Step 9 once every merged item has been verified (or explicitly
 routed to `human_needed`/`failed`).

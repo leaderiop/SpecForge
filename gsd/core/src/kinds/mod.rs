@@ -11,6 +11,7 @@ mod must_haves;
 mod plan;
 mod project;
 mod research;
+mod review;
 mod roadmap;
 mod spec;
 mod uat;
@@ -37,6 +38,8 @@ const KINDS: &[&Kind] = &[
     &spec::PHASE_SPEC,
     &spec::LOCKED_REQ,
     &spec::INTERVIEW,
+    &spec::EDGE,
+    &spec::SPEC_PROHIBITION,
     &discuss::DISCUSSION,
     &research::RESEARCH,
     &research::FINDING,
@@ -55,6 +58,9 @@ const KINDS: &[&Kind] = &[
     &must_haves::KEY_LINK,
     &must_haves::PROHIBITION,
     &plan::DISPOSITION,
+    &review::REVIEW,
+    &review::REVIEW_CONCERN,
+    &review::REVISION_CONFLICT,
     &plan::USER_SETUP,
     &execute::PLAN_START,
     &execute::SUMMARY,
@@ -64,6 +70,7 @@ const KINDS: &[&Kind] = &[
     &execute::PAUSE,
     &execute::HANDOFF,
     &execute::BLOCKER,
+    &execute::QUICK_BATCH,
     &verify::VERIFICATION,
     &verify::VERIFY_GAP,
     &verify::OVERRIDE,
@@ -82,11 +89,6 @@ const KINDS: &[&Kind] = &[
 
 pub fn declare(c: &mut ContributionsBuilder) {
     dsl::declare(c, KINDS);
-}
-
-/// `kind.field` of every field whose structured value the digest reads (see `dsl::structured`).
-pub fn structured() -> Vec<String> {
-    dsl::structured(KINDS)
 }
 
 /// Every path field and block member path, with the mode its file check follows and its writer (see

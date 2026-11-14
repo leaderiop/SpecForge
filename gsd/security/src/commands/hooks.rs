@@ -7,7 +7,8 @@ use specforge_extension_sdk::prelude::*;
 
 use super::support::{answer, node, required, run, target};
 
-/// The capability file, byte for byte upstream's; only the `plan:pre` fragment is rewritten ([`FRAGMENT`]).
+/// The capability file, byte for byte upstream's; only the `plan:pre` fragment ([`FRAGMENT`]) and the step's artifact
+/// names ([`ARTIFACTS`]) are rewritten.
 const CAPABILITY: &str = include_str!("../../assets/capabilities/security/capability.json");
 
 /// The fragment upstream injects into the planner at `plan:pre`.
@@ -16,12 +17,28 @@ pub const UPSTREAM_FRAGMENT: &str = "Each PLAN.md must include a <threat_model> 
 /// `[fragment-repointed]`: here the threat model is entities of the plan, not a `<threat_model>` block of a PLAN.md.
 pub const FRAGMENT: &str = "Each plan must record its threat model as `trust_boundary` and `threat` entities when security enforcement is active: a `threat` has a STRIDE category, a component, a severity, a disposition and a mitigation, and every plan keeps a `T-<phase>-SC` threat for its supply chain. Use the configured ASVS level and blocking threshold from workflow.security_asvs_level and workflow.security_block_on.";
 
-/// The capability with the repointed fragment.
+/// `[verify-post-produces]`: a step's `produces` and `consumes` name kinds here, not files: `(key, upstream's file,
+/// the kind)`. The `verify:post` step produces the phase's `security_audit` and reads its summaries.
+pub const ARTIFACTS: [(&str, &str, &str); 2] = [
+    ("produces", "SECURITY.md", "security_audit"),
+    ("consumes", "SUMMARY.md", "summary"),
+];
+
+/// The capability with the repointed fragment and the steps' artifacts named by kind.
 fn capability() -> Value {
     let mut cap: Value = serde_json::from_str(CAPABILITY).expect("capability.json is JSON");
     for hook in cap["contributions"].as_array_mut().into_iter().flatten() {
         if hook["fragment"]["inline"] == UPSTREAM_FRAGMENT {
             hook["fragment"]["inline"] = FRAGMENT.into();
+        }
+    }
+    for step in cap["steps"].as_array_mut().into_iter().flatten() {
+        for (key, file, kind) in ARTIFACTS {
+            for name in step[key].as_array_mut().into_iter().flatten() {
+                if *name == file {
+                    *name = kind.into();
+                }
+            }
         }
     }
     cap
@@ -51,8 +68,8 @@ fn fingerprint_phase<'a>(call: &CommandCall<'a>, value: &str) -> Result<&'a Grap
 }
 
 /// Upstream's `partitionHooksByFingerprint` (#5105 R2): a `step` whose every `produces` artifact exists moves from
-/// `activeHooks` to `skippedHooks`; execute-phase already dispatched it. `SECURITY.md` is the phase's `security_audit`
-/// (`[verify-post-produces]`); any other artifact name is never present here.
+/// `activeHooks` to `skippedHooks`; execute-phase already dispatched it. The one artifact present here is the phase's
+/// `security_audit` (`[verify-post-produces]`); any other name is never present.
 fn skip_produced(found: &mut Value, audit_exists: bool) {
     let hooks = found["activeHooks"].as_array().cloned().unwrap_or_default();
     let (mut kept, mut skipped) = (Vec::new(), Vec::new());
@@ -65,7 +82,9 @@ fn skip_produced(found: &mut Value, audit_exists: bool) {
             .collect();
         if hook["kind"] == "step"
             && !produces.is_empty()
-            && produces.iter().all(|p| audit_exists && *p == "SECURITY.md")
+            && produces
+                .iter()
+                .all(|p| audit_exists && *p == "security_audit")
         {
             skipped.push(serde_json::json!({
                 "capId": hook["capId"], "kind": "step", "ref": hook["ref"],
@@ -120,7 +139,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_capability_file_is_upstreams_but_for_the_fragment() {
+    fn the_capability_file_is_upstreams_but_for_the_fragment_and_the_artifacts() {
         let upstream: Value = serde_json::from_str(CAPABILITY).expect("JSON");
         assert_eq!(
             upstream["contributions"][0]["fragment"]["inline"],
@@ -129,6 +148,10 @@ mod tests {
         let mut ours = capability();
         assert_eq!(ours["contributions"][0]["fragment"]["inline"], FRAGMENT);
         ours["contributions"][0]["fragment"]["inline"] = UPSTREAM_FRAGMENT.into();
+        for (key, file, kind) in ARTIFACTS {
+            assert_eq!(ours["steps"][0][key], serde_json::json!([kind]));
+            ours["steps"][0][key] = serde_json::json!([file]);
+        }
         assert_eq!(ours, upstream);
     }
 }

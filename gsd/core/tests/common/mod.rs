@@ -18,35 +18,28 @@ const NOT_CODE_TABLES: &[&str] = &[
     "Retired and kernel-provided",
 ];
 
-/// The rows of the tables that list the codes (six cells, the first `gsd/` and a letter and three digits).
+/// The rows of the tables that list the codes (six cells, the first `gsd/` and a letter and three digits), read
+/// through gsd-kit's Markdown reader.
 pub fn rules_md() -> Vec<RuleRow> {
-    let mut section = String::new();
     let mut rows = Vec::new();
-    for line in include_str!("../../spec/rules.md").lines() {
-        if let Some(title) = line.strip_prefix("## ") {
-            section = title.to_string();
-        }
-        if NOT_CODE_TABLES.contains(&section.as_str()) {
+    for table in gsd_kit::markdown::tables(include_str!("../../spec/rules.md")) {
+        if NOT_CODE_TABLES.contains(&table.heading.as_str()) {
             continue;
         }
-        let cells: Vec<&str> = line
-            .trim()
-            .trim_matches('|')
-            .split('|')
-            .map(str::trim)
-            .collect();
-        let [code, _, _, compat, strict, _] = cells[..] else {
-            continue;
-        };
-        let Some(local) = code.strip_prefix("gsd/") else {
-            continue;
-        };
-        if local.len() == 4 && local[1..].bytes().all(|b| b.is_ascii_digit()) {
-            rows.push(RuleRow {
-                code: local.to_string(),
-                compat: compat.to_string(),
-                strict: strict.to_string(),
-            });
+        for cells in &table.rows {
+            let [code, _, _, compat, strict, _] = &cells[..] else {
+                continue;
+            };
+            let Some(local) = code.strip_prefix("gsd/") else {
+                continue;
+            };
+            if local.len() == 4 && local[1..].bytes().all(|b| b.is_ascii_digit()) {
+                rows.push(RuleRow {
+                    code: local.to_string(),
+                    compat: compat.clone(),
+                    strict: strict.clone(),
+                });
+            }
         }
     }
     rows
@@ -147,7 +140,7 @@ pub struct JudgedRow {
 fn input_of(piece: &str) -> (String, String) {
     let rest = piece.trim().strip_prefix('`').expect("a quoted input name");
     let (name, rest) = rest.split_once('`').expect("a closing quote");
-    let rest = rest.trim().replace("\\|", "|");
+    let rest = rest.trim();
     let end = [" (", ";"]
         .iter()
         .filter_map(|cut| rest.find(cut))
@@ -161,17 +154,14 @@ fn input_of(piece: &str) -> (String, String) {
     reason = "each test crate that includes this module uses some of it"
 )]
 pub fn judged_rows() -> Vec<JudgedRow> {
-    let text = include_str!("../../spec/rules.md");
-    let section = text
-        .split("## Judged rules' inputs")
-        .nth(1)
-        .and_then(|rest| rest.split("\n## ").next())
-        .expect("the judged inputs section");
+    let table = gsd_kit::markdown::tables(include_str!("../../spec/rules.md"))
+        .into_iter()
+        .find(|t| t.heading == "Judged rules' inputs")
+        .expect("the judged inputs table");
     let mut rows = Vec::new();
-    for line in section.lines().filter(|l| l.starts_with("| gsd/")) {
-        let cells: Vec<&str> = line.trim().trim_matches('|').split(" | ").collect();
-        let [rules, target, inputs, binds] = cells[..] else {
-            panic!("a judged row has four cells: {line}");
+    for cells in table.rows.iter().filter(|r| r[0].starts_with("gsd/")) {
+        let [rules, target, inputs, binds] = &cells[..] else {
+            panic!("a judged row has four cells: {cells:?}");
         };
         let head = rules.split(" (").next().unwrap_or(rules);
         let codes = head
@@ -188,7 +178,7 @@ pub fn judged_rows() -> Vec<JudgedRow> {
             target: target.trim_matches('`').to_string(),
             inputs: inputs.split(" · ").map(input_of).collect(),
             unless_set,
-            binds: binds.to_string(),
+            binds: binds.clone(),
         });
     }
     rows

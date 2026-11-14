@@ -67,3 +67,42 @@ fn the_value_digest_reads_the_target_not_the_spelling() {
     ));
     assert_eq!(bytes_of(&list, "peers"), b"[\"v1.0/03\",\"ghost\"]");
 }
+
+#[specforge_test(
+    behavior = "record_harness_values",
+    verify = "an entity digest leaves out a context-written value as it leaves out computed and verdict values"
+)]
+fn a_context_written_value_is_not_in_the_entity_bytes() {
+    use specforge_graph::wire::entity_bytes;
+    use specforge_protocol_types::FieldWriter;
+    let written = |writer: FieldWriter| {
+        FieldForms::new(
+            [(
+                ("uat".to_string(), "pack".to_string()),
+                FieldForm::new(FieldType::Block, Vec::new()).written_by(Some(writer)),
+            )]
+            .into_iter()
+            .collect(),
+            BTreeSet::new(),
+            ["milestone", "phase", "uat"].map(String::from).into(),
+        )
+    };
+    let bytes = |source: &str, writer: FieldWriter| {
+        let graph = graph(source);
+        let node = graph.node("v1.0/03/U1").expect("the uat is in the graph");
+        entity_bytes(&graph, &written(writer), node)
+    };
+    let bare = format!("{BASE}uat U1 \"U\" {{\n  phase 03\n}}\n");
+    let recorded = format!(
+        "{BASE}uat U1 \"U\" {{\n  phase 03\n  pack {{ route \"x/y\" digest \"sha256:1\" max_tokens 10 }}\n}}\n"
+    );
+    assert_eq!(
+        bytes(&bare, FieldWriter::Context),
+        bytes(&recorded, FieldWriter::Context)
+    );
+    assert_ne!(
+        bytes(&bare, FieldWriter::Harness),
+        bytes(&recorded, FieldWriter::Harness),
+        "a harness value is in the entity bytes"
+    );
+}

@@ -19,20 +19,27 @@ fn passes(script: &str) -> String {
 }
 
 /// The scorer's self-test passes: it reads its synthetic runs back as files and pairs all of them, refuses an
-/// unpaired run, and refuses exactly eleven bad run files.
+/// unpaired run, refuses exactly fourteen bad run files, and reports H3.
 #[test]
-fn the_scorer_passes_its_self_test_pairing_twelve_runs_and_refusing_eleven_run_files() {
+fn the_scorer_passes_its_self_test_pairing_twelve_runs_and_refusing_fourteen_run_files() {
     let stdout = passes("score.py");
     assert!(
         stdout.lines().any(|l| l == "B - A: 12 pairs over 4 tasks"),
         "{stdout}"
     );
+    assert!(
+        stdout
+            .lines()
+            .any(|l| l == "B - Bv1: 12 pairs over 4 tasks"),
+        "{stdout}"
+    );
     let count = |prefix: &str| stdout.lines().filter(|l| l.starts_with(prefix)).count();
     assert_eq!(
         (count("refused: "), count("refused run file: ")),
-        (1, 11),
+        (1, 14),
         "{stdout}"
     );
+    assert!(count("H3: ") > 0, "{stdout}");
 }
 
 /// Every acceptance row is a command to run or a rubric to judge by, never both, never a bare string.
@@ -51,9 +58,126 @@ fn every_acceptance_row_is_run_or_judged() {
     }
 }
 
+/// `seed.py --self-test` passes, its `spawns` cases among them, and it reports how many of the shell forms the typed
+/// edits take (a heredoc, a command substitution, a keyword, a subshell, a global flag, a line after an unclosed
+/// quote) it counts as state writes: all of them.
 #[test]
 fn the_seeding_script_passes_its_self_test() {
-    passes("seed.py");
+    let stdout = passes("seed.py");
+    assert!(
+        stdout.lines().any(|l| l.starts_with("spawns: ")),
+        "{stdout}"
+    );
+    assert!(
+        stdout
+            .lines()
+            .any(|l| l == "forms: 7 of 7 shell forms counted as state writes"),
+        "{stdout}"
+    );
+}
+
+/// Claude Code's name for an MCP tool: `mcp__specforge__` and the name with every character outside
+/// `[A-Za-z0-9_-]` as `_`.
+fn claude_name(mcp: &str) -> String {
+    let safe: String = mcp
+        .chars()
+        .map(|c| match c {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-' => c,
+            _ => '_',
+        })
+        .collect();
+    format!("mcp__specforge__{safe}")
+}
+
+/// The writing commands of `@gsd/core` and `@gsd/security` as the host serves them: the `specforge.gsd.*` MCP tools of a
+/// copy that loads both whose annotations say they write, each with its CLI name. Core's are its `gsd help` writers.
+fn writing_commands() -> Vec<(String, String)> {
+    let p = super::harness::ab::seeded("vault-execute-01-02", "B", &["--unseeded"])
+        .expect("a vault copy");
+    let messages = [
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"0"}}}"#,
+        r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+    ];
+    let run = p.run_stdin(&["mcp", "."], &(messages.join("\n") + "\n"));
+    let listed = run
+        .stdout
+        .lines()
+        .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+        .find(|m| m["id"] == 2)
+        .unwrap_or_else(|| panic!("no tools/list answer: {}", run.all()));
+    let mut out: Vec<(String, String)> = listed["result"]["tools"]
+        .as_array()
+        .expect("tools")
+        .iter()
+        .filter(|t| t["annotations"]["readOnlyHint"] == false)
+        .filter_map(|t| {
+            t["name"]
+                .as_str()?
+                .strip_prefix("specforge.gsd.")
+                .map(String::from)
+        })
+        .map(|name| (format!("specforge.gsd.{name}"), name.replace('_', "-")))
+        .collect();
+    out.sort();
+    let help = p.run(&["gsd", "help", "--format", "json"]);
+    let help: serde_json::Value = serde_json::from_str(&help.stdout).expect("help answers JSON");
+    for command in help["commands"].as_array().expect("commands") {
+        let name = command["command"].as_str().expect("a name");
+        assert_eq!(
+            command["writes"] == true,
+            out.iter().any(|(_, cli)| cli == name),
+            "{name}: core's writers are the MCP tools that write"
+        );
+    }
+    assert!(
+        out.iter().any(|(_, cli)| cli == "record-security-audit"),
+        "security's writers are served: {out:?}"
+    );
+    out
+}
+
+/// `tasks.json#state_writes`, the state changes M7 stops at, is a checked copy: its MCP names and CLI lines are the
+/// catalogue's mutating engine tools and the extensions' writing commands, and its files the host's file tools.
+#[test]
+fn the_state_writes_are_the_mutating_tools_and_the_writing_commands() {
+    use specforge_extension_sdk::engine_tools::{ENGINE_TOOLS, EngineEffect};
+    let tasks = ab_tasks();
+    let listed = |key: &str| -> Vec<String> {
+        let mut all: Vec<String> = tasks["state_writes"][key]
+            .as_array()
+            .unwrap_or_else(|| panic!("state_writes.{key}"))
+            .iter()
+            .map(|v| v.as_str().expect("a name").to_string())
+            .collect();
+        all.sort();
+        all
+    };
+    let mutating: Vec<_> = ENGINE_TOOLS
+        .iter()
+        .filter(|t| t.effect == EngineEffect::Mutates)
+        .collect();
+    let commands = writing_commands();
+    let mut mcp: Vec<String> = mutating
+        .iter()
+        .map(|t| claude_name(&t.mcp_name()))
+        .chain(commands.iter().map(|(name, _)| claude_name(name)))
+        .collect();
+    mcp.sort();
+    let mut cli: Vec<String> = mutating
+        .iter()
+        .flat_map(|t| t.cli.iter().map(|l| l.to_string()))
+        .collect();
+    cli.sort();
+    let mut gsd: Vec<String> = commands.iter().map(|(_, c)| format!("gsd {c}")).collect();
+    gsd.sort();
+    assert_eq!(listed("mcp"), mcp);
+    assert_eq!(listed("cli"), cli);
+    assert_eq!(listed("commands"), gsd);
+    assert_eq!(
+        listed("files"),
+        ["Edit", "MultiEdit", "NotebookEdit", "Write"]
+    );
 }
 
 /// `git check-ignore`'s exit code for a run file: 0 when it is ignored.
@@ -73,12 +197,21 @@ fn run_files_are_ignored() {
     assert_eq!(run_files_ignored(), 0);
 }
 
-/// The corpus is frozen as v1: three ready fixtures whose paths exist, twelve tasks, each listed defect seeded in arm A
+/// The corpus is version 2: arms A, B, B0 and Bv1, where Bv1 is arm B as the tag `gsd-ab-v1` froze it (B's tools,
+/// configuration and drops); three ready fixtures whose paths exist, twelve tasks, each listed defect seeded in arm A
 /// and arm B with at least one `b_signals` row, each row about a seeded defect, and no status `pending` left in it.
 #[test]
-fn the_corpus_is_frozen_as_v1() {
+fn the_corpus_is_version_2() {
     let tasks = ab_tasks();
-    assert_eq!(tasks["version"], "gsd-ab-v1");
+    assert_eq!(tasks["version"], "gsd-ab-v2");
+    let arms = tasks["arms"].as_array().expect("arms");
+    let ids: Vec<&str> = arms.iter().filter_map(|a| a["id"].as_str()).collect();
+    assert_eq!(ids, ["A", "B", "B0", "Bv1"]);
+    let (b, v1) = (&arms[1], &arms[3]);
+    assert_eq!(v1["tag"], "gsd-ab-v1");
+    for key in ["config", "tools", "drop"] {
+        assert_eq!(v1[key], b[key], "Bv1's {key} is B's");
+    }
     let fixtures = tasks["fixtures"].as_array().expect("fixtures");
     assert_eq!(fixtures.len(), 3);
     for fixture in fixtures {
@@ -318,8 +451,8 @@ fn prompt(arm: &str) -> (String, String) {
     (format!("{before}{after}"), commands.to_string())
 }
 
-/// Every arm of `tasks.json` has a prompt; the prompts differ only in their commands block, B0's is B's, and each
-/// holds the task's prompt once and ends with the same RESULT instruction.
+/// Every arm of `tasks.json` has a prompt; the prompts differ only in their commands block, B0's is B's, Bv1's file is
+/// B's byte for byte, and each holds the task's prompt once and ends with the same RESULT instruction.
 #[test]
 fn the_arms_prompts_differ_only_in_their_commands() {
     let tasks = ab_tasks();
@@ -329,15 +462,21 @@ fn the_arms_prompts_differ_only_in_their_commands() {
         .iter()
         .map(|a| a["id"].as_str().expect("an arm id"))
         .collect();
-    assert_eq!(arms, ["A", "B", "B0"]);
+    assert_eq!(arms, ["A", "B", "B0", "Bv1"]);
     let (shared, a) = prompt("A");
     let (b_shared, b) = prompt("B");
     let (b0_shared, b0) = prompt("B0");
+    let (v1_shared, v1) = prompt("Bv1");
     assert_eq!(
-        (&b_shared, &b0_shared),
-        (&shared, &shared),
+        (&b_shared, &b0_shared, &v1_shared),
+        (&shared, &shared, &shared),
         "every arm's prompt is A's outside its commands"
     );
+    let read = |arm: &str| {
+        std::fs::read(ab_dir().join("prompts").join(format!("{arm}.md"))).expect("a prompt")
+    };
+    assert_eq!(read("Bv1"), read("B"), "Bv1's prompt is B's, byte for byte");
+    assert_eq!(v1, b, "Bv1 has B's tools");
     assert_ne!(a, b, "A and B name their own tools");
     assert_eq!(
         b0, b,
@@ -355,7 +494,7 @@ fn the_arms_prompts_differ_only_in_their_commands() {
     files.sort();
     assert_eq!(
         files,
-        ["A.md", "B.md", "B0.md"],
+        ["A.md", "B.md", "B0.md", "Bv1.md"],
         "one prompt per arm, nothing else"
     );
 }

@@ -21,6 +21,7 @@
 
 pub mod assembled;
 pub mod collected;
+pub mod contexts;
 pub mod gsd;
 pub mod gsd_facts;
 pub mod gsd_hosts;
@@ -38,6 +39,11 @@ pub use assembled::Assembled;
 pub use collected::{
     CODE, COLLECTED_EXTENSIONS, Collected, NODE, NODE_REPORT, SPEC, UNIT_REPORT, collected_answer,
     collected_wire, stored, stored_with,
+};
+pub use contexts::{
+    CONTEXT_INSTRUCTIONS, CONTEXT_PACK, CONTEXT_PLAN, CONTEXT_STALE, GSD_CONTEXT_SPEC,
+    declare_gsd_contexts, gsd_context_builder, gsd_context_project, gsd_context_runtime,
+    gsd_context_wire, recording,
 };
 pub use gsd::{
     GSD_EXTENSION, gsd_history_extension, gsd_history_kinds, gsd_history_runtime,

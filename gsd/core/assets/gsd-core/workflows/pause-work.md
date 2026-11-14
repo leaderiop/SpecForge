@@ -80,39 +80,6 @@ Report any summaries with placeholder content as incomplete items.
 ```bash
 specforge new handoff HO1 "{context-name} paused at {X}/{Y}" --in spec/handoff.spec --phase "$MILESTONE/{phase_number}" --state in_progress --current_state "{where exactly are we}" --next_action "{specific first action when resuming}" --context "{mental state, approach, what you were thinking}"
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ```
 
 The `completed_work` blocks, `remaining_work`, `decisions_made` (references to `decision` entities) and `blockers` (references to `blocker` entities) of the handoff are authored through the MCP tool `specforge.edit`. The `pause` that follows names the handoff, so `/gsd:resume-work` finds both.
@@ -129,7 +96,7 @@ UNCOMMITTED=$(specforge git status --format human)
 </step>
 
 <step name="write">
-**The sections below are the shape of the handoff's `current_state` and `context` text** (the `handoff` entity holds them: there is no `.continue-here.md`):
+**The sections below are the shape of the handoff's `current_state` and `context` text** (the `handoff` entity holds them, and nothing else does):
 
 ```markdown
 ---
@@ -195,7 +162,7 @@ Completed Tasks:
 ## Required Reading (in order)
 <!-- List documents the resuming agent must read before acting -->
 1. [document] — [why it matters]
-1. `METHODOLOGY.md` (if it exists) — project analytical lenses; apply before any assumption analysis
+1. Any `methodology` entities the project holds — lenses to look through before you analyse an assumption
 
 ## Critical Anti-Patterns (do NOT repeat these)
 <!-- Mistakes discovered this session that must be structurally avoided -->
@@ -235,6 +202,7 @@ specforge gsd pause "[reason]" --by "[who]" --phase "$MILESTONE/[phase]" --hando
 </step>
 
 <step name="confirm">
+
 ```
 ✓ Handoff created:
   - the `handoff` entity HO1 (structured and human-readable)

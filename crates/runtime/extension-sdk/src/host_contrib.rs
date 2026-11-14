@@ -50,7 +50,9 @@ impl AgentBuilder {
         self.0.description = description.to_string();
         self
     }
-    /// Host-neutral tool classes, or `mcp:<server>/<glob>`.
+    /// Host-neutral tool classes, `mcp:<server>/<glob>`, or SpecForge's own tools as `specforge:<tool>`,
+    /// `specforge:<group>` or `specforge:<short>.<command>` (ADR 0334). With no `specforge:` class, install grants the
+    /// read and navigation tools, the edit and output tools when a class writes, and the extension's own commands.
     pub fn tools(&mut self, tools: &[&str]) -> &mut Self {
         self.0.tools = classes(tools);
         self
@@ -98,6 +100,7 @@ impl SkillBuilder {
         self.0.description = description.to_string();
         self
     }
+    /// The tool classes, as an agent's ([`AgentBuilder::tools`]).
     pub fn tools(&mut self, tools: &[&str]) -> &mut Self {
         self.0.tools = classes(tools);
         self
@@ -124,6 +127,7 @@ impl SlashBuilder {
         self.0.argument_hint = Some(hint.to_string());
         self
     }
+    /// The tool classes, as an agent's ([`AgentBuilder::tools`]); install adds the SpecForge tool the trampoline calls.
     pub fn tools(&mut self, tools: &[&str]) -> &mut Self {
         self.0.tools = classes(tools);
         self
@@ -207,7 +211,8 @@ impl HookBuilder {
         self.descriptor.description = description.to_string();
         self
     }
-    /// The tool classes a `pre_tool`, `post_tool` or `pre_commit` hook fires on.
+    /// The tool classes a `pre_tool`, `post_tool` or `pre_commit` hook fires on: the host's own, never a `specforge:`
+    /// class (W021).
     pub fn tools(&mut self, tools: &[&str]) -> &mut Self {
         self.descriptor.tools = classes(tools);
         self

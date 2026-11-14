@@ -2,7 +2,7 @@
 
 **Status:** accepted (2026-10-15, round 10, plan 12). Amends ADR 0049 D7 (who reads a placeholder's value) and ADR 0077
 D3 (where `follow_root` is called). Applies ADR 0049 D1 and ADR 0058 D6 to resources. Amended by ADR 0111 (D4: a read
-also carries notices). Amended by round 14, plan 12 (D2: what a malformed `entity_id` is). Extended by [ADR 0284](0284-a-name-is-unique-within-its-scope.md) (an `entity_id` segment may encode a path).
+also carries notices). Amended by round 14, plan 12 (D2: what a malformed `entity_id` is). Extended by [ADR 0284](0284-a-name-is-unique-within-its-scope.md) (an `entity_id` segment may encode a path). Amended by [ADR 0355](0355-a-read-a-prompt-needs-has-a-cli-twin-and-takes-a-path-id-as-written.md) (D2 and the round-14 amendment: a reserved `{+entity_id}` reads a path, `/` included).
 
 A core tool and a core prompt are each one module implementing a trait, but a core resource was a row of a closure
 table (`CORE_RESOURCES`). Each templated resource wrote its URI prefix twice (the row's `uri` and the reader's

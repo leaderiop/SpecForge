@@ -1643,9 +1643,9 @@ fn contract_list_resources() {
     assert_eq!(
         uri_templates,
         [
-            "specforge://context/{entity_id}",
+            "specforge://context/{+entity_id}",
             "specforge://entities/{kind}",
-            "specforge://graph/{entity_id}",
+            "specforge://graph/{+entity_id}",
         ]
     );
 

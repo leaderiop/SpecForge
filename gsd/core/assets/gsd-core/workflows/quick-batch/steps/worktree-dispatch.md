@@ -7,19 +7,6 @@ unlike planning/research above.
 
 No fork base to check: no worktree is created, so nothing degrades to sequential mode.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 **Effective concurrency for this MUTATING wave** (sequential mode runs
 one item at a time regardless of `--jobs`/capacity — row 6):
 ```bash
@@ -32,19 +19,18 @@ EXEC_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is no
 
 1. Re-derive eligibility (also reconciles crash-window/blocked-propagation —
    safe to call repeatedly, idempotent when nothing changed):
-   ```bash
-QB_ELIG_JSON='{"eligible":[]}'   # quick-batch resume: the batch router is not part of @gsd/core; the eligible items are those of your notes whose dependencies are complete
-   ```
-   Parse `eligible` (quick ids ready to execute — every dependency already
-   `complete`); `$BATCH_MANIFEST_JSON` keeps its `quick_id`, `slug`, `description` rows.
+```bash
+QB_ELIGIBLE=$(specforge query "$BATCH_ID" --depth 0 --kinds quick_batch --pick '.nodes[0].fields.eligible[]') || exit 1   # the batch's computed eligible items, one quick id per line
+```
+   `$QB_ELIGIBLE` holds the quick ids ready to execute (every dependency already
+   `complete`), one per line; `$BATCH_MANIFEST_JSON` keeps its `quick_id`, `slug`, `description` rows.
 
-   **Crash-window guard (mirrors `planner-wave.md`'s PLAN.md-existence
-   check one layer earlier — #3677):** `quick-batch resume`'s `eligible` is
+   **Crash-window guard (mirrors `planner-wave.md`'s plan check one layer
+   earlier — #3677):** `quick-batch resume`'s `eligible` is
    purely status/dependency-derived; it does NOT know an item already
    finished executing. A coordinator crash between this step returning
-   (executor committed, `SUMMARY.md` written) and Step 9's completion leaves
-   `BATCH.json` at `pending` with no STATE.md row yet (that row is written
-   only in Step 9) — so on `--resume`, such an item still comes back
+   (executor committed, its summary entity recorded) and Step 9's completion
+   leaves the item `pending` in the batch (only Step 9 completes it) — so on `--resume`, such an item still comes back
    `eligible` here. Before computing `spawn-plan`, determine which eligible
    items already have a summary `${quick_id}/${quick_id}-SUMMARY` (`specforge query "${quick_id}/${quick_id}-SUMMARY" --depth 0`, on the working tree, where its executor wrote it; same
    `item_dir` derivation via `generate-slug` every other step uses), then
@@ -66,14 +52,12 @@ QB_FILTER_JSON='{"spawnEligible":[],"alreadyExecuted":[]}'   # quick-batch filte
    independent of this eligible/spawn list — dropping it here only prevents
    the duplicate dispatch, it does not remove it from the batch.
 
-
-
 2. **Backpressure.** Not every eligible item necessarily spawns this round —
    cap fan-out at `$EXEC_CONCURRENCY` minus current in-flight count (row
    27/39):
-   ```bash
+```bash
 QB_SPAWN_JSON='{"spawn":[],"pending":[]}'   # quick-batch spawn-plan: the batch router is not part of @gsd/core; spawn up to $EXEC_CONCURRENCY eligible items
-   ```
+```
    Parse `spawn` (dispatch these now) and `pending` (leave `pending` in
    `BATCH.json` — already the case, no write needed; NEVER mark these
    `failed`, NEVER increase fan-out to compensate).
@@ -116,8 +100,8 @@ QB_SPAWN_JSON='{"spawn":[],"pending":[]}'   # quick-batch spawn-plan: the batch 
    - Record the summary `${quick_id}/${quick_id}-SUMMARY` with `status complete`
    - NEVER invoke /gsd:quick or any other GSD command — you are a leaf, not a coordinator
    - NEVER write the batch notes
-   - Do NOT update STATE.md or ROADMAP.md — the orchestrator owns those writes after every item in this dispatch round completes (ADR-1239 single-writer invariant)
-   - Do NOT commit docs artifacts (SUMMARY.md, STATE.md, PLAN.md) — the orchestrator commits them at completion
+   - Record nothing for the batch — the orchestrator owns the batch entity after every item in this dispatch round completes (ADR-1239 single-writer invariant)
+   - Do NOT commit `spec` — the orchestrator commits the item's plan and summary at completion
    </constraints>
    ",
      subagent_type="gsd-executor",
@@ -127,37 +111,6 @@ QB_SPAWN_JSON='{"spawn":[],"pending":[]}'   # quick-batch spawn-plan: the batch 
    )
    ```
    No worktree is created or recorded: the executor commits on the working tree, so Step 7 has nothing to merge.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
    > **ORCHESTRATOR RULE — CODEX RUNTIME**: after each `Agent()` call above, wait for it to return before dispatching the next item.
 

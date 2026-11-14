@@ -18,8 +18,10 @@ use super::port::{
     ModelChoice, Rendered, RenderedAgent, RenderedHook, RenderedSkill, RenderedSlash, SlashCall,
     Source,
 };
+use super::{engine, sections};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
+use specforge_protocol_types::engine_tools::CLASS_PREFIX;
 
 /// `name` as the extension's setting reads now (`None`: unset, or no such setting).
 pub(crate) fn setting(view: &ProjectView<'_>, extension: &str, name: &str) -> Option<Value> {
@@ -209,6 +211,8 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
         id: id.to_string(),
     };
 
+    let served = engine::served_commands(build);
+
     let mut agents = Vec::new();
     for agent in build.agents() {
         let (ext, a) = (agent.extension, agent.item);
@@ -220,13 +224,14 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
             .as_deref()
             .and_then(|s| word(view, ext, &format!("setting:{s}")))
             .filter(|v| a.variants.contains(v));
+        let resolved = engine::resolve(&a.tools, ext, &served, None);
         let mut body = render(ext, RenderKind::Agent, &a.id, variant)?;
-        body.push_str(&judged_section(view, &a.id));
+        body.push_str(&sections::agent_sections(view, &a.id, &resolved.lines));
         agents.push(RenderedAgent {
             source: source(ext, "agent", &a.id),
             id: a.id.clone(),
             description: a.description.clone(),
-            tools: a.tools.clone(),
+            tools: resolved.classes,
             model: model(view, ext, a.model.as_ref()),
             effort: effort(view, ext, a.effort.as_ref()),
             color: a.color.clone(),
@@ -241,13 +246,16 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
         if !on(view, ext, &s.when) {
             continue;
         }
+        let resolved = engine::resolve(&s.tools, ext, &served, None);
+        let body = render(ext, RenderKind::Skill, &s.id, None)?
+            + &sections::tools_section(&resolved.lines);
         skills.push(RenderedSkill {
             source: source(ext, "skill", &s.id),
             id: s.id.clone(),
             description: s.description.clone(),
-            tools: s.tools.clone(),
+            tools: resolved.classes,
             argument_hint: s.argument_hint.clone(),
-            body: render(ext, RenderKind::Skill, &s.id, None)?,
+            body,
             attribution: s.attribution.clone(),
         });
     }
@@ -265,12 +273,23 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
         else {
             continue;
         };
+        // The trampoline's own call is granted besides what the slash command declares.
+        let target = match &call {
+            SlashCall::Prompt { .. } => format!("{CLASS_PREFIX}prompt"),
+            SlashCall::Command { mcp_tool, .. } => {
+                format!(
+                    "{CLASS_PREFIX}{}",
+                    mcp_tool.strip_prefix("specforge.").unwrap_or(mcp_tool)
+                )
+            }
+        };
+        let resolved = engine::resolve(&s.tools, ext, &served, Some(&target));
         slashes.push(RenderedSlash {
             source: source(ext, "slash", &id),
             name: slash.name(),
             description,
             argument_hint: s.argument_hint.clone().or(derived),
-            tools: s.tools.clone(),
+            tools: resolved.classes,
             effort: effort(view, ext, s.effort.as_ref()),
             call,
             attribution: s.attribution.clone(),
@@ -369,25 +388,6 @@ pub(crate) fn spec_root_spelled(view: &ProjectView<'_>, glob: &str) -> String {
     } else {
         glob.replace("{spec_root}", root)
     }
-}
-
-/// The section a host adds after the body of an agent that judges rules (K7): each rule, the tool that reads its
-/// inputs and the outcomes it may answer.
-fn judged_section(view: &ProjectView<'_>, agent: &str) -> String {
-    let rules = view.registries().judged_rules_of(agent);
-    if rules.is_empty() {
-        return String::new();
-    }
-    let mut out = String::from("\n## Judged rules\n\n");
-    for rule in rules {
-        out.push_str(&format!(
-            "- `{}`: read the inputs with `specforge.verdict_inputs`; the outcomes are {} (passing: {}).\n",
-            rule.code,
-            rule.outcomes.join(", "),
-            rule.passing.join(", ")
-        ));
-    }
-    out
 }
 
 #[cfg(test)]

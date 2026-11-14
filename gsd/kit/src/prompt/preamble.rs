@@ -10,6 +10,10 @@ const END: &str = "</specforge_gsd_preamble>";
 /// own rows to [`text`] (`@gsd/security`: `NN-SECURITY.md` and the threat model).
 pub const FILES: &[(&str, &str)] = &[
     ("`PROJECT.md`", "project, requirement, decision"),
+    (
+        "`SKELETON.md`",
+        "decision (the walking skeleton's architectural choices, as project decisions)",
+    ),
     ("`REQUIREMENTS.md`", "requirement"),
     (
         "`ROADMAP.md`, `MILESTONES.md`, `milestones/*`",
@@ -17,18 +21,21 @@ pub const FILES: &[(&str, &str)] = &[
     ),
     (
         "`STATE.md`",
-        "computed (progress, position) + pause, blocker + session state",
+        "computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state",
     ),
     ("`config.json`", "settings"),
     (
         "`RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md`",
-        "retrospective, lesson, methodology",
+        "retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology",
     ),
     (
-        "`NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`",
+        "`NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json`",
         "context, decision, deferred_idea, discussion",
     ),
-    ("`NN-SPEC.md`", "phase_spec, locked_req, interview"),
+    (
+        "`NN-SPEC.md`",
+        "phase_spec, locked_req, interview, edge, spec_prohibition",
+    ),
     (
         "`NN-RESEARCH.md`, `research/*.md`",
         "research and its items",
@@ -36,6 +43,10 @@ pub const FILES: &[(&str, &str)] = &[
     (
         "`NN-MM-PLAN.md`",
         "plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup",
+    ),
+    (
+        "`NN-REVIEWS.md`",
+        "review, review_concern, revision_conflict",
     ),
     (
         "`NN-MM-SUMMARY.md`",
@@ -46,7 +57,10 @@ pub const FILES: &[(&str, &str)] = &[
         "`NN-VERIFICATION.md`",
         "verification, verify_gap, override, human_item, and verdicts",
     ),
-    ("`NN-UAT.md`", "uat_session, uat_test, uat_gap"),
+    (
+        "`NN-UAT.md`",
+        "uat_session (and its deferred follow-ups), uat_test, uat_gap",
+    ),
     (
         "`NN-VALIDATION.md`",
         "validation, validation_row, wave0_item, manual_check",

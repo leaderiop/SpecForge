@@ -92,7 +92,7 @@ fn validation_values(input: &PassInput) -> Vec<PassValue> {
             };
             out.push(value(&row.id, "status", row_status(input, task)));
             let wave = of_kind(input, "plan")
-                .find(|p| p.id == crate::digest::scope_of(task))
+                .find(|p| p.id == crate::scope::scope_of(task))
                 .and_then(|p| text(p, "wave"))
                 .and_then(|w| w.parse::<i64>().ok());
             if let Some(wave) = wave {

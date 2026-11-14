@@ -121,7 +121,7 @@ pub const MODULES: &[(&str, Module)] = &[
     ("decisions.cjs", Ported("src/passes/decision_coverage.rs")),
     ("docs.cjs", Owned("@gsd/codebase")),
     ("drift.cjs", Owned("@gsd/codebase")),
-    ("edge-probe.cjs", Ported("src/passes/plan_shape.rs")),
+    ("edge-probe.cjs", Ported("src/probe/edge.rs")),
     ("embedding-adapter.cjs", Owned("@gsd/codebase")),
     ("estimate-cli.cjs", Ported("src/commands/complexity/mod.rs")),
     ("eval-command-router.cjs", NotApplicable(ROUTER)),
@@ -145,7 +145,7 @@ pub const MODULES: &[(&str, Module)] = &[
     ("gap-checker.cjs", Ported("src/passes/roadmap.rs")),
     ("gate-api-coverage-verify-pre.cjs", Owned("@gsd/ai")),
     ("gate-codebase-drift.cjs", Owned("@gsd/codebase")),
-    ("gate-context-drift.cjs", Ported("src/passes/drift.rs")),
+    ("gate-context-drift.cjs", Ported("src/contexts.rs")),
     (
         "gate-decision-coverage-*",
         Ported("src/passes/decision_coverage.rs"),
@@ -249,7 +249,7 @@ pub const MODULES: &[(&str, Module)] = &[
     ("planning-workspace.cjs", NotApplicable(PLANNING_DIR)),
     ("pr-branch-patterns.cjs", Ported("src/prompts/git.rs")),
     ("pristine-baseline.cjs", Host("specforge install")),
-    ("probe-core.cjs", Ported("src/passes/plan_shape.rs")),
+    ("probe-core.cjs", Ported("src/probe/mod.rs")),
     ("profile-output.cjs", Owned("@gsd/ops")),
     ("profile-pipeline*", Owned("@gsd/ops")),
     (
@@ -299,7 +299,7 @@ pub const MODULES: &[(&str, Module)] = &[
     ),
     ("shell-command-projection.cjs", Host("specforge install")),
     ("smart-entry.cjs", Ported("src/commands/smart_entry.rs")),
-    ("spec-section.cjs", NotApplicable(DOCUMENT)),
+    ("spec-section.cjs", Host("specforge query")),
     (
         "stale-bake-guard.cjs",
         NotApplicable(

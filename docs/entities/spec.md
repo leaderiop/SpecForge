@@ -34,7 +34,7 @@ check reads.
 | `exclude` | Files under the spec root that are not sources |
 | `extensions` | The extensions to load: a builtin or installed `@scope/name`, or a `.wasm` file. **This list decides which entity kinds exist** |
 | `providers` | Ref schemes and their settings (registered only; no provider reads external data yet) |
-| `registries` | Package registries for `add`, `update`, `search`, `publish` |
+| `registries` | Package registries for `add`, `update`, `extensions search`, `publish` |
 | `inference` | Hints for `specforge infer` |
 
 The editor schema is [schema/specforge.schema.json](../../schema/specforge.schema.json). Change the extension

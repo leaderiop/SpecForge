@@ -1,7 +1,9 @@
-//! Upstream paths of the tracked gsd-core release whose SpecForge port has not been redone yet. Each port test skips a
-//! listed path (and fails if its port already matches); `pending_resync_is_empty` requires the list to be empty. The
-//! commit that moves the snapshot to a newer release lists the changed assets here and ignores that test; each re-port
-//! takes its paths off, and the last one un-ignores it (`gsd/parity/README.md`, "To track a newer release").
+//! Upstream test suites of the tracked gsd-core release whose ported cases have not been redone yet (an asset re-ports
+//! by span: `port::no_span_waits_for_resync`, ADR 0332 D6). A suite's port skips its listed path (and fails if its
+//! cases already match); `pending_resync_is_empty` requires the list to be empty, and an asset path here fails
+//! `every_pending_path_is_vendored`. The commit that moves the snapshot to a newer release lists the changed suites here
+//! and ignores that test; each re-port takes its path off, and the last one un-ignores it (`gsd/parity/README.md`, "To
+//! track a newer release").
 #![allow(
     dead_code,
     reason = "each test crate that includes this module uses some of it"

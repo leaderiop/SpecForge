@@ -58,7 +58,7 @@ GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
 | score | str `N/M` | C | `score:` as `verified / total`, upstream's: every truth that is not deferred is in `M`; a behavior-unverified truth is in `M` and not in `N` |
 | verified | ts | C | `verified:`: the latest verdict's time |
 | covered_files | paths<present> | C | the files the phase's verifier verdicts' `file()` inputs and `cited` name. |
-| covered_digest | str | C | one digest (`fnv1a64:` and 16 hex digits) over the `(path, digest)` of every file the phase's E501 judgements cover, sorted and de-duplicated: it changes when a covered file does. Absent while no verdict cites a file |
+| covered_digest | str | C | one digest (`sha256:` and 64 hex digits) over the `(path, digest)` of every file the phase's E501 judgements cover, sorted and de-duplicated: it changes when a covered file does. Absent while no verdict cites a file |
 | re_verification | {previous_status enum{pending, passed, gaps_found, human_needed}, previous_score str, gaps_closed →* truth \| artifact \| key_link, gaps_remaining →* truth \| artifact \| key_link, regressions →* truth \| artifact \| key_link} | C | `re_verification:`, against the git baseline (K4): items failing there and passing now, failing there and not passing now, passing there and failing now (a stale verdict is not a failure), by verdict (truths, artifacts, key links) and by status (verify gaps). `previous_status`/`previous_score` are the baseline verification's computed `status`/`score`, derived at that commit over its files (ADR 0300); items are compared by scan state and verdict: an item failing there and with no verdict now stays in `gaps_remaining`, an item the scan fails now that was never verified there is not a `regression` (a deleted unverified artifact shows in `status` only), and an override counts as a pass on the side it holds (`override` is a baseline kind, and its `accepts` is checked against the truth's text at that commit): one added since closes the gap, one removed or lapsed is a `regression`. A link at the commit is unreadable, so a phase that reads one is `pending` there (ADR 0300 Limits). Absent when the baseline has no verification of the phase; items absent from it are not compared. The baseline's verdicts are judged at that commit, over its files; its test inputs are not judged (results are per machine). `gaps_*` are ids as text (`strs`), and also name verify gaps |
 | anti_patterns | {file str, line int, text str, severity enum{blocker, warning, info}} | C | the anti-pattern scan, a pass; it lists what it read |
 | scan_partial | bool | C | set when a file of the phase's plans was not served (the host's text budget, a cap, a truncated read): the scan may have missed an anti-pattern, so the phase is not `passed`. Unset when every file was read. There is no information code for it |
@@ -82,7 +82,10 @@ a phase warns.
 GSD: `NN-UAT.md`, written by `/gsd-verify-work`.
 
 **uat_session** (name `03-UAT`): `phase → phase R I`, `source →* summary R I`, `started ts I`;
-`status enum{testing, partial, complete, diagnosed}` and `totals {total int, passed int, issues int, pending int, skipped int, blocked int}` are `C`.
+`follow_ups {test → uat_test R, idea str R, deferred_at date R}* H +` (`## Deferred Follow-Ups`: a skipped test's
+idea in the person's words, written by `set_uat_result <test> skipped --follow-up <words>`, which also writes the
+test's reason `Deferred follow-up: <words>`, upstream's text; the same test and idea twice is one entry);
+`status enum{testing, partial, complete, diagnosed}` and `totals {total int, passed int, issues int, pending int, skipped int, blocked int, follow_ups int}` are `C`.
 The test being asked now is session state.
 
 **uat_test**: `### N. [Test Name]`. Name `U1`, scoped by its session.
@@ -110,7 +113,7 @@ enhancement declared by `@gsd/ops` on this kind: core depends on no other `@gsd/
 
 GSD: `NN-VALIDATION.md`, seeded by `/gsd-plan-phase` and reconciled by `/gsd-validate-phase`.
 
-**validation** (name `03-VALIDATION`): `phase → phase R I`, `context_digest str H` (as on the spec and research; gsd/W406), `framework str`, `config_file path<planned>` (checked once the phase is executed, E016), `quick_cmd str`, `full_cmd str`,
+**validation** (name `03-VALIDATION`): `phase → phase R I`, `context_pack P` (as on the spec and research; gsd/W406), `framework str`, `config_file path<planned>` (checked once the phase is executed, E016), `quick_cmd str`, `full_cmd str`,
 `max_latency_s int`; `approval {by str, at ts}` is `H`, written by `approve_validation`; `status enum{draft, validated}`, `nyquist_compliant bool` and
 `wave_0_complete bool` are `C`.
 

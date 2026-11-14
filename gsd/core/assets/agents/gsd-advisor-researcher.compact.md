@@ -19,8 +19,7 @@ grounded in project context.
 <input>
 Prompt provides:
 - `<gray_area>` — area name and description
-- `<phase_context>` — phase description from roadmap
-- `<project_context>` — brief project info
+- `<required_reading>` — the advisor pack's line (`specforge context gsd/advisor-researcher <phase>`): run each listed `specforge` line first; the pack holds the phase, its goal, context and decisions, the milestone and its other phases
 - `<calibration_tier>` — one of: `full_maturity`, `standard`, `minimal_decisive`
 </input>
 

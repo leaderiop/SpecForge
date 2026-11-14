@@ -15,10 +15,12 @@ Commands:
   outline       Render the extension architecture (dependencies, enhancements, contributions)
   query         Query the graph at multiple resolutions
   trace         Show an entity's thread along its kind's route, its traceability chain, or every entity's
+  context       Read the context a route of an extension declares for one entity: its sections fitted to a token budget in declared order, with a digest
   format        Format .spec files
   stats         Show project statistics
   explore       Where to start reading the graph: starting points, hubs and unconnected entities
   anchors       The source places an entity is anchored to, or the entities a source file's facts are anchored to
+  refs          List the references to an entity: where other entities name it, or where it names them
   review        Coverage gaps around an entity, or of the whole project
   infer-guide   What to look for in code to write a kind's entities
   prompt        Render an extension's prompt: `specforge prompt <extension>.<prompt> [arguments]`
@@ -26,7 +28,7 @@ Commands:
   remove        Remove an installed extension
   extensions    List the project's extensions: enabled, locked or loaded
   publish       Publish an extension to the registry that serves its name: its binary, and the declaration read from it as the package's manifest
-  search        Search for extensions in registries
+  search        Search the project's entities by text, kind, field or reference
   analyze       Run static analysis passes over the compiled project
   watch         Watch a project and rebuild incrementally on changes
   new           Create an entity

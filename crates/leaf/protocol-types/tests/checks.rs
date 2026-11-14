@@ -49,11 +49,11 @@ fn a_checker_and_a_field_check_round_trip() {
 }
 
 #[test]
-fn checkers_are_the_last_describe_category_and_an_unknown_key_in_one_is_reported() {
+fn contexts_are_the_last_describe_category_and_an_unknown_key_in_checkers_is_reported() {
     use specforge_protocol_types::{DeclaredCategory, DescribeResponse, ExtensionDeclaration};
     assert_eq!(
-        DeclaredCategory::ALL.last(),
-        Some(&DeclaredCategory::Checkers)
+        DeclaredCategory::ALL[DeclaredCategory::ALL.len() - 2..],
+        [DeclaredCategory::Checkers, DeclaredCategory::Contexts]
     );
     let mut unknown = Vec::new();
     let handshake = specforge_protocol_types::HandshakeResponse {

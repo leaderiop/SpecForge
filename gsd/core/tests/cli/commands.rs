@@ -272,7 +272,7 @@ fn a_failing_gate_refuses_and_an_off_setting_allows() {
 
 #[test]
 fn every_command_refuses_an_unknown_entity_with_its_name() {
-    let unknown: [(&str, Vec<&str>); 15] = [
+    let unknown: [(&str, Vec<&str>); 23] = [
         ("start-plan", vec!["NOPE"]),
         ("complete-plan", vec!["NOPE"]),
         (
@@ -291,6 +291,37 @@ fn every_command_refuses_an_unknown_entity_with_its_name() {
         ("approve-validation", vec!["NOPE", "ada"]),
         ("workstreams", vec!["switch", "--name", "NOPE"]),
         ("phase", vec!["--edit", "NOPE", "--goal", "x"]),
+        ("edge-probe", vec!["NOPE"]),
+        ("resolve-edge", vec!["NOPE", "boundary", "unresolved"]),
+        ("resolve-prohibition", vec!["NOPE", "unresolved"]),
+        ("record-review", vec!["NOPE", "--review", "{}"]),
+        (
+            "record-conflict",
+            vec![
+                "NOPE",
+                "--dimension",
+                "d",
+                "--property",
+                "p",
+                "--conflicts-with",
+                "c",
+            ],
+        ),
+        ("resolve-conflict", vec!["x", "--conflict", "NOPE"]),
+        (
+            "graduate-lessons",
+            vec!["[\"NOPE\"]", "--disposition", "dismissed"],
+        ),
+        (
+            "start-batch",
+            vec![
+                "261112-batch",
+                "--items",
+                "[\"NOPE\", \"NOPE2\"]",
+                "--base",
+                "0123456789abcdef0123456789abcdef01234567",
+            ],
+        ),
     ];
     for (command, args) in unknown {
         let p = twin();

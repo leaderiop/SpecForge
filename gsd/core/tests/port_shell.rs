@@ -9,10 +9,18 @@ use std::process::{Command, Stdio};
 
 use regex::Regex;
 
+#[path = "common/asset_code.rs"]
+mod asset_code;
+#[path = "common/command_word.rs"]
+mod command_word;
 #[path = "common/files.rs"]
 mod files;
-#[path = "common/pending.rs"]
-mod pending;
+#[path = "common/ledger.rs"]
+mod ledger;
+#[path = "common/port_map.rs"]
+mod port_map;
+#[path = "common/specforge_only.rs"]
+mod specforge_only;
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
@@ -26,65 +34,94 @@ fn with_extension(dir: &Path, ext: &str) -> Vec<PathBuf> {
         .collect()
 }
 
-/// `(label, ours, upstream's)` as body lines of every asset that has an upstream file of the same line count.
-fn pairs() -> Vec<(String, Vec<String>, Vec<String>)> {
-    let base = root().join("assets");
-    let vendored = Path::new(gsd_kit::snapshot!());
-    let mut out = Vec::new();
-    for p in with_extension(&base, "md") {
-        let rel = p
-            .strip_prefix(&base)
-            .expect("under assets")
-            .display()
-            .to_string();
-        // a file waiting for its re-port is checked once it is re-ported
-        if rel.ends_with(".compact.md") || pending::is_pending(&rel) {
-            continue;
-        }
-        let plain = vendored.join(&rel);
-        let up = if plain.is_file() {
-            plain
-        } else {
-            vendored.join(format!("{rel}.txt"))
-        };
-        let split = |text: &str| -> Vec<String> { text.split('\n').map(String::from).collect() };
-        let mine = split(&std::fs::read_to_string(&p).expect("an asset"))[1..].to_vec();
-        let mut theirs = split(
-            &std::fs::read_to_string(&up).unwrap_or_else(|e| panic!("{}: {e}", up.display())),
-        );
-        if rel.starts_with("commands/") || rel.starts_with("agents/") {
-            let end = theirs[1..]
-                .iter()
-                .position(|l| l == "---")
-                .expect("frontmatter")
-                + 2;
-            theirs.drain(..end);
-        }
-        assert_eq!(mine.len(), theirs.len(), "{rel}: line count");
-        out.push((rel, mine, theirs));
-    }
-    out
+/// An asset's port: its label (the lock key), its body lines, upstream's body lines and its spans (ADR 0332).
+struct Pair {
+    label: String,
+    mine: Vec<String>,
+    theirs: Vec<String>,
+    spans: Vec<port_map::Span>,
+    /// Whether each upstream line is a fence's code line.
+    theirs_code: Vec<bool>,
 }
 
-/// The bash and sh fences of `lines` as `(first code line, end)` (0-based, end exclusive).
-fn fences(lines: &[String]) -> Vec<(usize, usize)> {
-    let open = Regex::new(r"^\s*```(bash|sh)\s*$").expect("a regex");
-    let mut out = Vec::new();
-    let mut start: Option<usize> = None;
-    for (i, line) in lines.iter().enumerate() {
-        if let Some(s) = start {
-            if line.trim_start().starts_with("```") {
-                out.push((s, i));
-                start = None;
-            }
-        } else if open.is_match(line) {
-            start = Some(i + 1);
-        } else if line.trim_start().starts_with("```") {
-            // another fence: skip to its end
-            start = None;
+impl Pair {
+    fn new(
+        label: String,
+        mine: Vec<String>,
+        theirs: Vec<String>,
+        spans: Vec<port_map::Span>,
+    ) -> Self {
+        let mut theirs_code = vec![false; theirs.len()];
+        for f in gsd_kit::markdown::fences(&theirs.join("\n")) {
+            theirs_code[f.code].fill(true);
+        }
+        Pair {
+            label,
+            mine,
+            theirs,
+            spans,
+            theirs_code,
         }
     }
-    out
+
+    /// Whether line `n` of ours lies in an own span: text that is not upstream's.
+    fn own(&self, n: usize) -> bool {
+        self.spans
+            .iter()
+            .any(|s| matches!(s, port_map::Span::Own { asset, .. } if asset.contains(&n)))
+    }
+
+    /// The fence code lines of upstream that ours `s..e` stands for: the upstream range of the spans over it, without
+    /// the marks and prose an own span's range also holds.
+    fn upstream_of(&self, s: usize, e: usize) -> Vec<&str> {
+        let (mut from, mut to) = (usize::MAX, 0);
+        for span in &self.spans {
+            let (asset, up) = match span {
+                port_map::Span::Kept { asset, up, .. } | port_map::Span::Own { asset, up, .. } => {
+                    (asset, up)
+                }
+            };
+            if asset.start < e && s < asset.end.max(asset.start + 1) {
+                // a kept span maps line for line; an own span stands whole for its upstream range
+                let (a, b) = match span {
+                    port_map::Span::Kept { .. } => (
+                        up.start + s.max(asset.start) - asset.start,
+                        up.start + e.min(asset.end) - asset.start,
+                    ),
+                    port_map::Span::Own { .. } => (up.start, up.end),
+                };
+                from = from.min(a);
+                to = to.max(b);
+            }
+        }
+        (from..to)
+            .filter(|&n| self.theirs_code[n])
+            .map(|n| self.theirs[n].as_str())
+            .collect()
+    }
+}
+
+/// Every asset of `@gsd/core` but the compact bodies, with its port.
+fn pairs() -> Vec<Pair> {
+    port_map::assets()
+        .into_iter()
+        .filter(|a| !a.starts_with("../") && !a.ends_with(".compact.md"))
+        .map(|label| {
+            let (theirs, _) = port_map::upstream_body(&label);
+            let (mine, spans) = (port_map::asset_body(&label), port_map::map(&label));
+            Pair::new(label, mine, theirs, spans)
+        })
+        .collect()
+}
+
+/// The bash and sh fences of `lines` as `(first code line, end)` (0-based, end exclusive), as gsd-kit's Markdown
+/// reader reads the lines joined with `\n`.
+fn fences(lines: &[String]) -> Vec<(usize, usize)> {
+    gsd_kit::markdown::fences(&lines.join("\n"))
+        .into_iter()
+        .filter(|f| matches!(f.language.as_str(), "bash" | "sh"))
+        .map(|f| (f.code.start, f.code.end))
+        .collect()
 }
 
 /// The shells a block must parse in: `bash` on the `PATH`, and `/bin/bash` where it exists (macOS's is bash 3.2, which
@@ -114,22 +151,48 @@ fn parses(bash: &str, code: &str) -> bool {
     child.wait().expect("bash -n").success()
 }
 
+/// The bash fences of `pair` that hold an own line, and those of them that no longer parse where upstream's code did.
+fn changed_blocks(pair: &Pair) -> (usize, Vec<String>) {
+    let (mut checked, mut broken) = (0, Vec::new());
+    for (s, e) in fences(&pair.mine) {
+        if !(s..e).any(|n| pair.own(n)) {
+            continue;
+        }
+        checked += 1;
+        let theirs = pair.upstream_of(s, e).join("\n");
+        let mine = pair.mine[s..e].join("\n");
+        for bash in shells() {
+            if parses(bash, &theirs) && !parses(bash, &mine) {
+                broken.push(format!("{}:{} ({bash})", pair.label, s + 2));
+            }
+        }
+    }
+    (checked, broken)
+}
+
+#[test]
+fn a_broken_own_fence_over_a_parsing_one_is_found() {
+    let lines = |text: &str| text.split('\n').map(String::from).collect::<Vec<_>>();
+    // the own span folds the closing mark and the prose after it in: upstream's side must still be code only
+    let theirs = lines("Run it:\n\n```bash\necho one\n```\nThen read the answer.");
+    let mine = lines("Run it:\n\n```bash\nif then\n```\nThen read the answer twice.");
+    let spans = port_map::spans(&theirs, &mine);
+    assert!(
+        matches!(&spans[1], port_map::Span::Own { asset, .. } if *asset == (3..6)),
+        "{spans:?}"
+    );
+    let (checked, broken) = changed_blocks(&Pair::new("x.md".into(), mine, theirs, spans));
+    assert_eq!((checked, broken.len()), (1, shells().len()), "{broken:?}");
+}
+
 #[test]
 fn a_changed_bash_block_still_parses() {
     let mut checked = 0;
     let mut broken = Vec::new();
-    for (label, mine, theirs) in pairs() {
-        for (s, e) in fences(&mine) {
-            if mine[s..e] == theirs[s..e] {
-                continue;
-            }
-            checked += 1;
-            for bash in shells() {
-                if parses(bash, &theirs[s..e].join("\n")) && !parses(bash, &mine[s..e].join("\n")) {
-                    broken.push(format!("{label}:{} ({bash})", s + 2));
-                }
-            }
-        }
+    for pair in pairs() {
+        let (c, b) = changed_blocks(&pair);
+        checked += c;
+        broken.extend(b);
     }
     assert!(checked > 100, "{checked} changed blocks");
     assert!(
@@ -146,12 +209,13 @@ fn no_bash_code_line_carries_prose_for_a_path() {
     )
     .expect("a regex");
     let mut found = Vec::new();
-    for (label, mine, theirs) in pairs() {
-        for (s, e) in fences(&mine) {
-            for n in s..e {
-                let code = mine[n].trim_start();
+    for pair in pairs() {
+        let (label, mine) = (&pair.label, &pair.mine);
+        for (s, e) in fences(mine) {
+            for (n, line) in mine.iter().enumerate().take(e).skip(s) {
+                let code = line.trim_start();
                 // a `#` or `: #` line is a comment: it may say why there is nothing to run
-                if mine[n] != theirs[n]
+                if pair.own(n)
                     && !code.starts_with('#')
                     && !code.starts_with(": #")
                     && prose.is_match(code)
@@ -178,10 +242,10 @@ fn no_text_joins_the_spec_to_a_path() {
     )
     .expect("a regex");
     let mut found = Vec::new();
-    for (label, mine, _) in pairs() {
-        for (n, line) in mine.iter().enumerate() {
+    for pair in pairs() {
+        for (n, line) in pair.mine.iter().enumerate() {
             if joined.is_match(line) {
-                found.push(format!("{label}:{}: {line}", n + 2));
+                found.push(format!("{}:{}: {line}", pair.label, n + 2));
             }
         }
     }
@@ -232,10 +296,7 @@ fn a_heredoc_is_redirected_only_into_a_temp_file() {
             }
         }
     }
-    assert!(
-        checked >= 3,
-        "spec-phase, specless-probe-fallback and regression-gate redirect a heredoc"
-    );
+    assert!(checked >= 1, "regression-gate redirects a heredoc");
     assert!(
         wrong.is_empty(),
         "a heredoc redirected outside a temp file: {wrong:#?}"
@@ -308,5 +369,56 @@ fn the_decision_step_runs_no_prose() {
     assert!(
         !step.lines().any(|l| l.trim_start().starts_with(": \"")),
         "{step}"
+    );
+}
+
+/// Every asset fence reads as written to the gsd family's Markdown reader (ADR 0332 D7): each fence is closed, no
+/// code line opens with a run of its fence's mark as long as the fence's, and no line opening with three backticks or
+/// three tildes lies outside every fence.
+#[test]
+fn every_fence_is_read_as_written() {
+    let mut offences = Vec::new();
+    for asset in port_map::assets() {
+        let lines = port_map::asset_body(&asset);
+        let fences = gsd_kit::markdown::fences(&lines.join("\n"));
+        let mut covered = vec![false; lines.len()];
+        for f in &fences {
+            let end = if f.closed { f.code.end + 1 } else { f.code.end };
+            covered[f.open..end.min(lines.len())].fill(true);
+            if !f.closed {
+                offences.push(format!(
+                    "{asset}:{}: not closed (code ends at {})",
+                    f.open + 2,
+                    f.code.end + 1
+                ));
+            }
+            for n in f.code.clone() {
+                let run = lines[n]
+                    .trim_start()
+                    .chars()
+                    .take_while(|c| *c == f.mark)
+                    .count();
+                if run >= f.width {
+                    offences.push(format!(
+                        "{asset}:{}: a mark as long as its fence's (opened at {})",
+                        n + 2,
+                        f.open + 2
+                    ));
+                }
+            }
+        }
+        // the raw lines are what the reader is checked against
+        for (n, line) in lines.iter().enumerate() {
+            let t = line.trim_start();
+            if ["```", "~~~"].iter().any(|m| t.starts_with(m)) && !covered[n] {
+                offences.push(format!("{asset}:{}: a mark outside every fence", n + 2));
+            }
+        }
+    }
+    assert!(
+        offences.is_empty(),
+        "{} fence offences:\n{}",
+        offences.len(),
+        offences.join("\n")
     );
 }

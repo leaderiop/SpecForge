@@ -35,7 +35,7 @@ this file under the discuss-phase byte budget (32000 bytes, #717; mirrors the ag
 | no flags above | `workflows/discuss-phase/modes/default.md` |
 | in `write_context` step | `workflows/discuss-phase/templates/context.md` |
 | in `git_commit` step | `workflows/discuss-phase/templates/discussion-log.md` |
-| writing checkpoints | `workflows/discuss-phase/templates/checkpoint.json` |
+| writing checkpoints | the checkpoint fence under `discuss_areas` (`specforge schema --kind discussion`, its `checkpoint`) |
 
 Do not Read mode files unless the corresponding flag/condition is set.
 </progressive_disclosure>
@@ -117,9 +117,6 @@ Phase number from argument (required).
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
 
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
@@ -165,33 +162,33 @@ fi
 <step name="check_blocking_antipatterns" priority="first">
 **MANDATORY — Check for blocking anti-patterns before any other work.**
 
-Read the phase's handoff (the entity that holds `.continue-here.md`):
+Read the phase's handoff entity:
 
 ```bash
 specforge query "$PHASE_ID" --kinds handoff --format context 2>/dev/null || true
 ```
 
-If `.continue-here.md` exists, parse its "Critical Anti-Patterns" table for rows with `severity` = `blocking`.
+If the phase has a handoff, read its critical anti-patterns for rows with `severity` = `blocking`.
 
 **If one or more `blocking` anti-patterns are found:** the agent must demonstrate understanding of each by answering all three questions for each one:
 1. **What is this anti-pattern?** — Describe it in your own words.
 2. **How did it manifest?** — Explain the specific failure that caused it to be recorded.
 3. **What structural mechanism (not acknowledgment) prevents it?** — Name the concrete step or enforcement mechanism that stops recurrence.
 
-Write these answers inline before continuing. If a blocking anti-pattern cannot be answered from the context in `.continue-here.md`, stop and ask the user for clarification.
+Answer them inline before continuing. If a blocking anti-pattern cannot be answered from the handoff's context, stop and ask the user for clarification.
 
-**If no `.continue-here.md` exists, or no `blocking` rows are found:** Proceed directly to `check_spec`.
+**If the phase has no handoff, or no `blocking` rows are found:** Proceed directly to `check_spec`.
 </step>
 
 <step name="check_spec">
-Check whether the phase has a SPEC.md (from the spec-phase workflow). SPEC.md locks requirements before implementation decisions. Here the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' --first 1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the SPEC.md file at `spec_path` is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
+Check whether the phase has a spec (from the spec-phase workflow): it locks requirements before implementation decisions. The phase spec is the phase's `phase_spec` entity in the graph (an AI spec or a UI spec is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' --first 1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC`, and the spec is the entity `$SPEC_ID`.
 
 **If `has_spec` is true:**
-1. Read the SPEC.md file at `spec_path`.
-2. Count requirements (numbered items in `## Requirements`).
-3. Display: `Found SPEC.md — {N} requirements locked. Focusing on implementation decisions.`
+1. Read the spec and its locked requirements: `specforge query "$SPEC_ID" --depth 1 --format context`.
+2. Count its `locked_req` entities: `specforge query "$SPEC_ID" --depth 1 --pick '.nodes[kind=locked_req].id' --count`.
+3. Display: `{N} requirements are locked by the phase spec; this discussion covers implementation decisions only.`
 4. Set `spec_loaded = true`.
-5. Store requirements, boundaries, and acceptance criteria as `<locked_requirements>` — these flow directly into CONTEXT.md without re-asking.
+5. Hold the requirements, boundaries and acceptance criteria as `<locked_requirements>`: the context names the spec, and they are not asked again.
 
 **If `has_spec` is false:** Continue with `spec_loaded = false`.
 
@@ -213,16 +210,17 @@ specforge query "$PHASE_ID" --depth 1 --kinds context --format brief
 
 **If doesn't exist:**
 
-Check for an interrupted discussion checkpoint:
+Check for an interrupted discussion: its checkpoint is on the phase's discussion log, which this prints when the
+phase has one:
 ```bash
-MILESTONE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.milestone') && [ -n "$MILESTONE" ] || exit 1; CHECKPOINT=$(specforge files temp --name "gsd-discuss-${MILESTONE}-${PHASE_ID##*/}.json" --pick .path) || exit 1; echo "CHECKPOINT=$CHECKPOINT"; specforge files read "$CHECKPOINT" --pick .text
+specforge query "$PHASE_ID" --depth 1 --kinds discussion --format context
 ```
 
-If the checkpoint file holds anything (an interrupted discussion wrote it):
+If the discussion log holds a `checkpoint` (an interrupted discussion set it):
 
 **If `--auto`:** Auto-select "Resume" — load checkpoint and continue from last completed area.
 
-**Otherwise:** AskUserQuestion (header: "Resume"; question: "Found interrupted discussion checkpoint ({N} areas completed out of {M}). Resume from where you left off?"; options: "Resume" / "Start fresh"). On "Resume", parse the checkpoint JSON, load `decisions` into the internal accumulator, set `areas_completed` to skip those areas, continue to `present_gray_areas` with only the remaining areas. On "Start fresh", delete the checkpoint and continue.
+**Otherwise:** AskUserQuestion (header: "Resume"; question: "Found interrupted discussion checkpoint ({N} areas completed out of {M}). Resume from where you left off?"; options: "Resume" / "Start fresh"). On "Resume", load the checkpoint's `decisions` into the internal accumulator, skip its `areas_completed`, and continue to `present_gray_areas` with only the remaining areas. On "Start fresh", clear it with `specforge unset "$PHASE_ID/${PADDED_PHASE}-DISCUSSION-LOG" checkpoint` and continue.
 
 Check `has_plans` and `plan_count` from init. **If `has_plans` is true:**
 
@@ -242,13 +240,13 @@ specforge query "$MILESTONE" --depth 2 --kinds requirement --format context 2>/d
 specforge query "$MILESTONE" --kinds milestone,phase --format context 2>/dev/null || true
 ```
 
-Read at most **3** prior CONTEXT.md files (most recent 3 phases before current). If the project keeps a decisions index, read that instead — it is a bounded rolling summary that supersedes per-phase reads.
+Read at most **3** prior contexts (the most recent 3 phases before the current one), with their decisions:
 
 ```bash
 specforge query "$MILESTONE" --depth 2 --kinds context --format brief
 ```
 
-For each CONTEXT.md read: extract `<decisions>` (locked preferences), `<specifics>` (particular references), and patterns (e.g., "user prefers minimal UI", "user rejected single-key shortcuts").
+For each context read: extract its decisions (locked preferences), `<specifics>` (particular references), and patterns (e.g., "user prefers minimal UI", "user rejected single-key shortcuts").
 
 **Spike/sketch findings:** Check for project-local skills:
 ```bash
@@ -377,40 +375,43 @@ All modes preserve the universal rules below.
 
 - **Canonical ref accumulation** — when the user references a doc/spec/ADR during any answer, immediately Read it (or confirm it exists) and add it to the canonical refs accumulator with full relative path. Use what you learned to inform subsequent questions. These docs are often MORE important than ROADMAP.md refs because the user specifically wants downstream agents to follow them.
 - **Scope creep** — if user mentions something outside the phase domain, capture as deferred idea and redirect.
-- **Incremental checkpoint** — after each area completes, write the `CHECKPOINT` path the check for an interrupted discussion printed. Read `workflows/discuss-phase/templates/checkpoint.json` for the schema. The checkpoint is structured state, not the canonical CONTEXT.md (`write_context` produces the canonical output). On session resume, the parent's `check_existing` step detects the checkpoint and offers to resume.
-- **Discussion log accumulation** — for each question asked, accumulate area name, options presented, user's selection, follow-up notes. Used by `git_commit` to write DISCUSSION-LOG.md.
+- **Incremental checkpoint** — after each area completes, record where the discussion stands as the `checkpoint` of
+  the phase's discussion log: the first area creates the log, a later one sets its checkpoint. The checkpoint is
+  structured state, not the context (`write_context` records that). On session resume, `check_existing` reads it and
+  offers to resume. The decisions so far are a list, each with its `area`; the phase is the log's own.
+
+  ```bash
+  PHASE_ID="{the phase's id, e.g. v1.0/03}"
+  PADDED_PHASE="{the phase number, zero-padded, e.g. 03}"
+  IFS= read -rd '' NAME <<'TEXT' || true; NAME=${NAME%$'\n'}
+  {the phase name}
+  TEXT
+  IFS= read -rd '' CHECKPOINT <<'TEXT' || true; CHECKPOINT=${CHECKPOINT%$'\n'}
+  {"timestamp": "{now, e.g. 2026-11-13T10:00:00Z}", "areas_completed": ["{an area discussed}"], "areas_remaining": ["{an area still to discuss}"], "decisions": [{"area": "{its area}", "question": "{the question}", "answer": "{the answer}", "options_presented": ["{an option}"]}], "deferred_ideas": ["{a deferred idea}"], "canonical_refs": ["{a path the user referenced}"]}
+  TEXT
+  LOG=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=discussion].id') || exit 1
+  if [ -n "$LOG" ]; then
+    specforge set "$LOG" checkpoint "$CHECKPOINT" || exit 1
+  else
+    specforge new discussion "${PADDED_PHASE}-DISCUSSION-LOG" "$NAME discussion" --in spec/discuss.spec --phase "$PHASE_ID" --checkpoint "$CHECKPOINT" || exit 1
+  fi
+  ```
+- **Discussion log accumulation** — for each question asked, accumulate area name, options presented, user's selection, follow-up notes. `git_commit` records them as the discussion log.
 </step>
 
 <step name="write_context">
-Create CONTEXT.md and DISCUSSION-LOG.md.
+Record the phase context now and the discussion log at `git_commit`.
 
 DISCUSSION-LOG.md is for human reference only (audits, retrospectives) and is NOT consumed by downstream agents (researcher, planner, executor).
 
-**Find or create phase directory:**
+**Read the context template now (lazy-loaded):** `specforge gsd reference gsd-core/templates/context.md`. Run its
+fence with the discussion's values: the `context` (boundary, canonical references, specific ideas, Claude's
+discretion areas and the code insights), one `decision` per decision captured and one `deferred_idea` per deferred
+idea.
 
-Use values from init: `phase_dir`, `expected_phase_dir`, `phase_slug`, `padded_phase`. If `phase_dir` is null:
-```bash
-specforge files mkdir "${expected_phase_dir}" >/dev/null
-```
-
-Set `phase_dir="${expected_phase_dir}"` after creation.
-
-**File location:** `${phase_dir}/${padded_phase}-CONTEXT.md`
-
-**Read the CONTEXT.md template now (lazy-loaded):**
-```
-Read(workflows/discuss-phase/templates/context.md)
-```
-
-The template documents variable substitutions and conditional sections. Substitute live values for `[X]`, `[Name]`, `[date]`, `${padded_phase}`, `{N}`. Include `<spec_lock>` only when `spec_loaded = true`. Include "Folded Todos" / "Reviewed Todos" subsections only when the `cross_reference_todos` step folded or reviewed todos.
-
-**SPEC.md integration** — If `spec_loaded = true`:
-- Add the `<spec_lock>` section immediately after `<domain>`.
-- Add the SPEC.md file to `<canonical_refs>` with note "Locked requirements — MUST read before planning".
-- Do NOT duplicate requirements text from SPEC.md into `<decisions>` — agents read SPEC.md directly.
-- The `<decisions>` section contains only implementation decisions from this discussion.
-
-Write the file.
+**Spec integration** — If `spec_loaded = true`: one `canonical_refs` row names the spec entity (`$SPEC_ID`) with the
+note "Locked requirements — MUST read before planning". Do not copy its requirements into decisions: agents read the
+spec itself, and the decisions hold only the implementation decisions of this discussion.
 </step>
 
 <step name="dispatch_discuss_post_hooks">
@@ -446,25 +447,19 @@ Created: the `context` entity of phase ${PADDED_PHASE}-${SLUG}
 
 ---
 
-**Also available:** `--chain` for auto plan+execute after; `/gsd:plan-phase ${PHASE} --skip-research` to plan without research; `/gsd:ui-phase ${PHASE}` for UI design contracts; review/edit CONTEXT.md before continuing.
+**Also available:** `--chain` for auto plan+execute after; `/gsd:plan-phase ${PHASE} --skip-research` to plan without research; `/gsd:ui-phase ${PHASE}` for UI design contracts; read the context back with `specforge query "$PHASE_ID" --depth 1 --format context` before continuing.
 ```
 </step>
 
 <step name="git_commit">
-**Write DISCUSSION-LOG.md before committing.**
+**Record the discussion log before committing.** Read the log template with `specforge gsd reference
+workflows/discuss-phase/templates/discussion-log.md` and run its fence with the discussion log accumulator: one entry
+per question asked (area, the options presented with their descriptions, the user's selection and notes). Claude's
+discretion areas and the deferred ideas are on the context already.
 
-**File location:** `${phase_dir}/${padded_phase}-DISCUSSION-LOG.md`
-
-**Read the DISCUSSION-LOG.md template now (lazy-loaded):**
-```
-Read(workflows/discuss-phase/templates/discussion-log.md)
-```
-
-Substitute live values from the discussion log accumulator (area names, options presented, user selections, notes, deferred ideas, Claude's discretion items). Write the file.
-
-**Clean up checkpoint file** — CONTEXT.md is now the canonical record:
+**Clear the checkpoint** — the context is now the canonical record:
 ```bash
-MILESTONE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.milestone') && [ -n "$MILESTONE" ] || exit 1; specforge files remove --force "$(specforge files temp --name "gsd-discuss-${MILESTONE}-${PHASE_ID##*/}.json" --pick .path)" >/dev/null
+specforge unset "$PHASE_ID/${PADDED_PHASE}-DISCUSSION-LOG" checkpoint || exit 1
 ```
 
 Commit phase context and discussion log:
@@ -473,18 +468,6 @@ specforge git commit --add spec -m "docs(${padded_phase}): capture phase context
 ```
 
 Confirm: "Committed: docs(${padded_phase}): capture phase context"
-</step>
-
-<step name="update_state">
-Update STATE.md with session info:
-
-```bash
-printf '%s\n' "STATE is computed; record a stop with specforge gsd pause <reason> --by <who>. The session ended with" \
-  --stopped-at "Phase ${PHASE} context gathered" \
-  --resume-file "$(specforge query "$PHASE_ID" --depth 1 --kinds context --pick '.nodes[kind=context].id')"
-
-# STATE is computed: no state commit is needed
-```
 </step>
 
 <step name="auto_advance">
@@ -506,15 +489,14 @@ Otherwise, end here — `confirm_creation` already ran; do not route back to it.
 - User selected which areas to discuss (or `--all`/`--auto` auto-selected)
 - Each selected area explored under the active mode's rules until satisfied
 - Scope creep redirected to deferred ideas
-- CONTEXT.md captures actual decisions, not vague vision
-- CONTEXT.md includes canonical_refs section with full file paths to every spec/ADR/doc downstream agents need (MANDATORY)
-- CONTEXT.md includes code_context section with reusable assets and patterns
+- The phase context records actual decisions, not a vague vision
+- The context's `canonical_refs` give the full path of every spec, ADR or doc downstream agents need (MANDATORY)
+- The context's `reusable_assets` and `patterns` hold what the codebase scout found
 - Deferred ideas preserved for future phases
-- STATE.md updated with session info
 - User knows next steps
-- Checkpoint file written after each area completes (incremental save)
+- Checkpoint recorded on the discussion log after each area completes (incremental save)
 - Interrupted sessions can be resumed from checkpoint
-- Checkpoint file cleaned up after successful CONTEXT.md write
+- Checkpoint cleared once the context is recorded
 - `--chain` triggers interactive discuss followed by auto plan+execute (no auto-answering)
 - `--chain` and `--auto` both persist chain flag and auto-advance to plan-phase
 - Per-mode bodies, templates, and advisor flow are lazy-loaded — parent stays under the workflow size budget enforced by `tests/workflow-size-budget.test.cjs`

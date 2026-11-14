@@ -32,9 +32,6 @@ If `section_manifest` is `null` or `"auto-mode-detection"` is in its `included` 
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
 
 INIT=$(specforge check --format json)
@@ -66,9 +63,9 @@ Skill payloads only provide prompt context. Named subagent spawns still require 
 definitions to be installed for this runtime.
 
 Subagent spawns (gsd-project-researcher, gsd-research-synthesizer, gsd-roadmapper) will fail
-with "agent type not found" if `required_agents_installed` is false. Run the installer with --global to make agents available:
+with "agent type not found" if `required_agents_installed` is false. Install them for this host (they are project files) to make them available:
 
-  npx @opengsd/gsd-core@latest --global
+  specforge install <host>   (claude-code, codex or cursor)
 
 Proceeding without research subagents — roadmap will be generated inline.
 ```
@@ -99,7 +96,7 @@ INSTRUCTION_FILE=""   # the host install writes the instruction file; leave it e
 
 All subsequent references to the project instruction file use `$INSTRUCTION_FILE`.
 
-**If `project_exists` is true and `init_incomplete` is true (#4040 — interrupted bootstrap):** Resume initialization instead of erroring. the spec exists but initialization stopped before all core artifacts landed. Keep the existing `PROJECT.md` and any already-created artifacts (`REQUIREMENTS.md` if present, `config.json`); skip the steps that would recreate them and continue the flow from the first missing artifact in init order — `REQUIREMENTS.md` → `ROADMAP.md` + `STATE.md` — until all exist. Do not error and do not bounce the user back to `/gsd:progress` (that routing loop is the #4040 bug).
+**If `project_exists` is true and `init_incomplete` is true (#4040 — interrupted bootstrap):** Resume initialization instead of erroring. the spec exists but initialization stopped before all core artifacts landed. Keep the `project` entity and whatever is already recorded (its requirements, `config.json`); skip the steps that would record them again and continue the flow from the first missing piece in init order (the requirements, then the roadmap) until all exist. Do not error and do not bounce the user back to `/gsd:progress` (that routing loop is the #4040 bug).
 
 **If `project_exists` is true and `init_incomplete` is false:** Error — project already initialized. Use `/gsd:progress`.
 
@@ -111,7 +108,7 @@ All subsequent references to the project instruction file use `$INSTRUCTION_FILE
 
 ## 2. Brownfield Offer
 
-**If auto mode:** Skip to Step 4 (assume greenfield, synthesize PROJECT.md from provided document).
+**If auto mode:** Go on to Step 4: the project is taken as greenfield and drawn from the provided document.
 
 <!-- gsd:section id="codebase-map-offer" when="state:needs-codebase-map" -->
 If `section_manifest` is `null` or `"codebase-map-offer"` is in its `included` list: read and execute `gsd-core/workflows/new-project/steps/codebase-map-offer.md`. Otherwise skip — do not read the file.
@@ -125,7 +122,7 @@ If `section_manifest` is `null` or `"auto-mode-config"` is in its `included` lis
 
 ## 2b. Prior Spike/Sketch Detection
 
-Check for a spike/sketch findings skill or raw spike or sketch manifests (they are not part of @gsd/core). If any exist, surface them before questioning (which findings-skill, if any, and any raw un-wrapped spikes/sketches worth `/gsd:spike --wrap-up` / `/gsd:sketch --wrap-up`), and if a findings skill exists, read its SKILL.md to inform the questioning phase — it carries validated patterns, constraints, and design decisions that should shape the project definition.
+Check for a spike or sketch findings skill, or raw spike or sketch manifests (they are not part of @gsd/core). If any exist, surface them before questioning (which findings-skill, if any, and any raw un-wrapped spikes or sketches worth `/gsd:spike --wrap-up` / `/gsd:sketch --wrap-up`), and if a findings skill exists, read its SKILL.md to inform the questioning phase — it carries validated patterns, constraints, and design decisions that should shape the project definition.
 
 Exact detection commands and the surfaced-findings banner: `gsd-core/workflows/new-project/detail/elaboration.md` § 1.
 
@@ -181,122 +178,29 @@ As you go, mentally check the context checklist from `questioning.md`. If gaps r
 
 **Decision gate:**
 
-When you could write a clear PROJECT.md, use AskUserQuestion:
+When you could record a clear project, use AskUserQuestion:
 
 - header: "Ready?"
-- question: "I think I understand what you're after. Ready to create PROJECT.md?"
+- question: "I have what I need to record the project. Go ahead?"
 - options:
-  - "Create PROJECT.md" — Let's move forward
+  - "Record the project" — Let's move forward
   - "Keep exploring" — I want to share more / ask me more
 
 If "Keep exploring" — ask what they want to add, or identify gaps and probe naturally.
 
-Loop until "Create PROJECT.md" selected.
+Loop until "Record the project" selected.
 
-## 4. Write PROJECT.md
+## 4. Record the project
 
 **If auto mode:** Synthesize from provided document. No "Ready?" gate was shown — proceed directly to commit.
 
-Synthesize all context into the `project` entity using the template from `templates/project.md`.
+Synthesize all context into the `project` entity and its key decisions: run **the project fence** in `templates/project.md` (`specforge gsd reference templates/project.md`), its values filled from what was gathered, one `new decision` and `link` per decision made during questioning (outcome `pending`). Do not compress. Capture everything gathered.
 
-**For greenfield projects:**
+The requirements are not part of the project: Step 7 records them as `requirement` entities, and each starts active, its status computed as phases cover and verify it. For a brownfield project the `@gsd/codebase` map (`/gsd:map-codebase`) records what the code already does; read it and write the current state into `context`. The project evolves through typed edits at phase transitions and milestone boundaries (`workflows/transition.md`, `workflows/complete-milestone.md`): nothing is appended to it.
 
-Initialize requirements as hypotheses:
-
-```markdown
-## Requirements
-
-### Validated
-
-(None yet — ship to validate)
-
-### Active
-
-- [ ] [Requirement 1]
-- [ ] [Requirement 2]
-- [ ] [Requirement 3]
-
-### Out of Scope
-
-- [Exclusion 1] — [why]
-- [Exclusion 2] — [why]
-```
-
-All Active requirements are hypotheses until shipped and validated.
-
-**For brownfield projects (codebase map exists):**
-
-Infer Validated requirements from existing code:
-
-1. Read the codebase map's architecture and `STACK.md` documents
-2. Identify what the codebase already does
-3. These become the initial Validated set
-
-```markdown
-## Requirements
-
-### Validated
-
-- ✓ [Existing capability 1] — existing
-- ✓ [Existing capability 2] — existing
-- ✓ [Existing capability 3] — existing
-
-### Active
-
-- [ ] [New requirement 1]
-- [ ] [New requirement 2]
-
-### Out of Scope
-
-- [Exclusion 1] — [why]
-```
-
-**Key Decisions:**
-
-Initialize with any decisions made during questioning:
-
-```markdown
-## Key Decisions
-
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| [Choice from questioning] | [Why] | — Pending |
-```
-
-**Last updated footer:**
-
-```markdown
----
-*Last updated: [date] after initialization*
-```
-
-**Evolution section** (include at the end of PROJECT.md, before the footer):
-
-```markdown
-## Evolution
-
-This document evolves at phase transitions and milestone boundaries.
-
-**After each phase transition** (via `/gsd-transition`):
-1. Requirements invalidated? → Move to Out of Scope with reason
-2. Requirements validated? → Move to Validated with phase reference
-3. New requirements emerged? → Add to Active
-4. Decisions to log? → Add to Key Decisions
-5. "What This Is" still accurate? → Update if drifted
-
-**After each milestone** (via `/gsd:complete-milestone`):
-1. Full review of all sections
-2. Core Value check — still the right priority?
-3. Audit Out of Scope — reasons still valid?
-4. Update Context with current state
-```
-
-Do not compress. Capture everything gathered.
-
-**Commit PROJECT.md:**
+**Commit the project:**
 
 ```bash
-# no folder to create: the entities live in the spec
 specforge git commit --add spec -m "docs: initialize project" && specforge collect --runner gsd-git --yes
 ```
 
@@ -305,9 +209,6 @@ specforge git commit --add spec -m "docs: initialize project" && specforge colle
 **If auto mode:** Skip — config was collected in Step 2a. Proceed to Step 5.5.
 
 **Check for global defaults** at `${GSD_HOME:-$HOME}/.gsd/defaults.json` (`~/.gsd/defaults.json` unless `GSD_HOME` is set). If the file exists, read it with your Read tool (it is the user's, outside the project's roots, which no block reaches) and display its contents before asking.
-
-
-
 
 
 Format the JSON into human-readable bullets using these label mappings:
@@ -673,7 +574,6 @@ Use AskUserQuestion:
 - Write nothing here: `planning.sub_repos` is not a setting of the port, and this project's commits never reach a sub-repository
 - Suggest running `/gsd:new-project` inside each selected directory, so its own spec tracks its work
 
-
 The spec stays committed like code: `commit_docs` is not a setting here.
 
 **If no sub-repos found or user selects none:** Continue with no changes to config.
@@ -704,18 +604,27 @@ Display stage banner:
 Researching [domain] ecosystem...
 ```
 
-Create research directory:
+**Record the project research:** the four researchers record their items in the project research `RESEARCH`, and the synthesizer sets its summary. Record it first; a later milestone's research takes the same entity back, its summary pending again:
 
 ```bash
-# no folder to create: the entities live in the spec
+IFS= read -rd '' DOMAIN <<'TEXT' || true; DOMAIN=${DOMAIN%$'\n'}
+{the domain researched}
+TEXT
+RESEARCHED="{today, YYYY-MM-DD}"
+PENDING="Pending: the research synthesizer sets the summary"
+if specforge query RESEARCH --depth 0 --format json >/dev/null 2>&1; then
+  specforge set RESEARCH summary "$PENDING" || exit 1
+else
+  specforge new research RESEARCH "Project research" --in spec/research.spec --domain "$DOMAIN" --researched "$RESEARCHED" --confidence low --summary "$PENDING" || exit 1
+fi
 ```
 
 **Determine milestone context:**
 
 Check if this is greenfield or subsequent milestone:
 
-- If no "Validated" requirements in PROJECT.md → Greenfield (building from scratch)
-- If "Validated" requirements exist → Subsequent milestone (adding to existing app)
+- If the project's computed `validated` list is empty (`specforge export --kinds project --format context`) → Greenfield (building from scratch)
+- If it lists requirements → Subsequent milestone (adding to existing app)
 
 Display spawning indicator:
 
@@ -727,34 +636,30 @@ Display spawning indicator:
   → Pitfalls research
 ```
 
-Spawn 4 parallel gsd-project-researcher agents — one per dimension (Stack, Features, Architecture, Pitfalls) — each given the domain and greenfield/subsequent milestone context, a dimension-specific question, a downstream-consumer note (what the next stage needs from this file), and a quality gate; each writes its own file (STACK.md / FEATURES.md / ARCHITECTURE.md / PITFALLS.md) under `{research_dir}/` from its template.
+Spawn 4 parallel gsd-project-researcher agents — one per dimension (Stack, Features, Architecture, Pitfalls) — each given the domain and greenfield/subsequent milestone context, a dimension-specific question, a downstream-consumer note (what the next stage needs from this file), and a quality gate; each records its dimension's items in `RESEARCH` with its template's fence (~/.claude/gsd-core/templates/research-project/STACK.md, likewise FEATURES.md, ARCHITECTURE.md and PITFALLS.md): stack → `stack_choice`, features → `finding` (topic `features`), architecture → `pattern` and `finding` (topic `architecture`), pitfalls → `pitfall`.
 
 <!-- gsd:protected -->
 > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling all 4 researcher Agent() calls above, do NOT read research files or synthesize content independently while the subagents are active. Wait for all 4 researchers to complete before spawning the synthesizer. This prevents duplicate work and wasted context.
 
 **Model omission (#2517) applies to every one of these 5 spawns** (4 researchers + synthesizer): omit the `model=` parameter entirely when the value it would carry (`researcher_model`, `synthesizer_model`) is `"inherit"` or empty — passing it literally 404s on runtimes without native tier aliases (the default on non-Claude runtimes). Omitting `model=` inherits the orchestrator's model.
 
-After all 4 agents complete, spawn synthesizer to create SUMMARY.md:
+After all 4 agents complete, spawn the synthesizer to set the research summary:
 
 ```text
 Agent(prompt="
 <task>
-Synthesize research outputs into SUMMARY.md.
+Synthesize the project research into its summary.
 </task>
 
 <required_reading>
-- {research_dir}/STACK.md
-- {research_dir}/FEATURES.md
-- {research_dir}/ARCHITECTURE.md
-- {research_dir}/PITFALLS.md
+- specforge context gsd/research-synthesizer {project} (the synthesizer pack: the project, `RESEARCH` with its stack choices, findings, patterns and pitfalls, and the requirements)
 </required_reading>
 
 ${AGENT_SKILLS_SYNTHESIZER}
 
 <output>
-Write to: {research_dir}/SUMMARY.md
-Use template: ~/.claude/gsd-core/templates/research-project/SUMMARY.md
-Commit after writing.
+Set the summary of `RESEARCH` with the fence of ~/.claude/gsd-core/templates/research-project/SUMMARY.md.
+Commit after setting it (`specforge git commit --add spec`).
 </output>
 ", subagent_type="gsd-research-synthesizer", model="{synthesizer_model}", description="Synthesize research")
 ```
@@ -762,28 +667,47 @@ Commit after writing.
 <!-- gsd:protected -->
 > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
-**Synthesizer output self-heal (#222) — verify SUMMARY.md materialized:** The synthesizer's canonical output is the `research` entity for SUMMARY on disk; its brief structured return (`## SYNTHESIS COMPLETE` plus a few `###` confirmation lines) is NOT the file content. The restriction is not always fabricated: Claude Code refuses a subagent's `Write` to a few exact basenames — `SUMMARY.md` among them — with `Subagents should return findings as text, not write report files` (observed on Claude Code 2.1.301), and the synthesizer is told to return the full document inline when its `Write` hits that error; the refusal is real, not fabricated. It depends on the exact basename (`SUMMARY.md`, `REPORT.md`, `FINDINGS.md`, `ANALYSIS.md`, case-insensitive; a prefixed name such as `01-01-SUMMARY.md` and other agents' files write fine), so do not tell other agents to avoid `Write`. Either cause lands in step 2. A known LLM false-refusal (issue #222) sometimes makes the agent return the full SUMMARY.md document inline — fabricating a write restriction (e.g. "the runtime is blocking file writes") — instead of writing the file. Prompt hardening alone does not fully eliminate it, so the orchestrator MUST absorb either cause deterministically before spawning `gsd-roadmapper`:
+**Synthesizer output self-heal (#222): verify the summary is set.** The synthesizer's canonical output is the `summary` of `RESEARCH`; its brief structured return (`## SYNTHESIS COMPLETE` plus a few `###` confirmation lines) is NOT the summary. A known LLM false-refusal (issue #222) sometimes makes the agent return the full summary inline, fabricating a restriction (e.g. "the runtime is blocking writes"), instead of setting it, and a runtime may refuse a subagent's tool call for real. Prompt hardening alone does not fully eliminate it, so the orchestrator MUST absorb either cause deterministically before spawning `gsd-roadmapper`:
 
-1. Verify the `research` entity for SUMMARY exists AND is substantive — non-empty, and free of any leftover `<!-- gsd:write-continue -->` continuation sentinel (which marks a truncated/incomplete write). You may validate with `specforge check`: a missing or invalid research entity is a finding. If it passes, continue normally.
-2. If it is MISSING or invalid AND the synthesizer's return message contains the FULL SUMMARY.md document — recognizable by the template's top-level markers `# Project Research Summary`, `## Key Findings`, `## Implications for Roadmap`, and `## Sources`, not merely the brief `## SYNTHESIS COMPLETE` confirmation — the synthesizer returned the document inline (the #222 false-refusal, or the runtime's real refusal of the name `SUMMARY.md`): write that returned document to the `research` entity for SUMMARY with the Write tool, then commit ALL research artifacts the synthesizer owns (it commits on behalf of the four researchers) with `git commit -m "docs: complete project research"`, then `specforge collect --runner gsd-git --yes` unless they are already committed. Log `⚠ #222 self-heal: synthesizer returned SUMMARY.md inline without writing it; orchestrator persisted the file.`
-3. If it is MISSING or invalid AND the return is only a brief confirmation (no full SUMMARY document to recover), the synthesizer genuinely failed — surface the error and stop; do NOT spawn `gsd-roadmapper` against a missing or incomplete SUMMARY.md.
+1. Check that the summary is set: until the synthesizer sets it, it reads the pending text the research was recorded with.
 
-This guarantees `gsd-roadmapper` (which lists SUMMARY.md as required reading) never runs against a missing or truncated SUMMARY.md.
+   ```bash
+   PENDING="Pending: the research synthesizer sets the summary"
+   NOW=$(specforge query RESEARCH --depth 0 --format json --pick '.nodes[0].fields.summary') || exit 1
+   if [ -n "$NOW" ] && [ "$NOW" != "$PENDING" ]; then echo "summary: recorded"; else echo "summary: pending"; fi
+   ```
+
+   On `summary: recorded`, continue normally.
+2. On `summary: pending`, if the synthesizer's return holds the FULL summary (recognizable by its sections `## Executive Summary`, `## Key Findings`, `## Implications for Roadmap` and `## Sources`, not merely the brief `## SYNTHESIS COMPLETE` confirmation), the synthesizer returned it inline: set it from the return, the text in the quoted heredoc as it is.
+
+   ```bash
+   CONFIDENCE="{high, medium or low: the overall confidence the return states}"
+   IFS= read -r -d '' SUMMARY <<'SUMMARY_EOF'
+   {the summary the synthesizer returned}
+   SUMMARY_EOF
+   specforge set RESEARCH summary "$SUMMARY" || exit 1
+   specforge set RESEARCH confidence "$CONFIDENCE" || exit 1
+   ```
+
+   Then commit the research (the synthesizer commits on behalf of the four researchers): `specforge git commit --add spec -m "docs: complete project research" && specforge collect --runner gsd-git --yes`. Log `⚠ #222 self-heal: synthesizer returned the summary inline without setting it; orchestrator set it.`
+3. On `summary: pending` with only a brief confirmation (no full summary to recover), the synthesizer genuinely failed: surface the error and stop; do NOT spawn `gsd-roadmapper` against a pending summary.
+
+This guarantees `gsd-roadmapper` (whose pack holds the research) never runs against a pending summary.
 
 Exact agent prompts (all four researcher dimensions): `gsd-core/workflows/new-project/detail/elaboration.md` § 2.
 
-Display research complete banner and key findings:
+Display research complete banner and the key findings of the summary:
 
 ```
 ### GSD ► RESEARCH COMPLETE ✓
 
 ## Key Findings
 
-**Stack:** [from SUMMARY.md]
-**Table Stakes:** [from SUMMARY.md]
-**Watch Out For:** [from SUMMARY.md]
+**Stack:** [from the summary]
+**Table Stakes:** [from the summary]
+**Watch Out For:** [from the summary]
 
-Files: the `research` entities
+Research: RESEARCH (specforge query RESEARCH --depth 1 --format context)
 ```
 
 **If "Skip research":** Continue to Step 7.
@@ -798,7 +722,7 @@ Display stage banner:
 
 **Load context:**
 
-Read PROJECT.md and extract:
+Read the `project` entity (`specforge export --kinds project --format context`) and extract:
 
 - Core value (the ONE thing that must work)
 - Stated constraints (budget, timeline, tech limitations)
@@ -814,7 +738,7 @@ Read PROJECT.md and extract:
 - Skip per-category AskUserQuestion loops
 - Skip "Any additions?" question
 - Skip requirements approval gate
-- Generate REQUIREMENTS.md and commit directly
+- Record the requirements and commit directly
 
 **Present features by category (interactive mode only):**
 
@@ -882,16 +806,11 @@ Use AskUserQuestion:
 
 **Validate core value:**
 
-Cross-check requirements against Core Value from PROJECT.md. If gaps detected, surface them.
+Cross-check requirements against the project's core value. If gaps detected, surface them.
 
-**Generate REQUIREMENTS.md:**
+**Record the requirements:**
 
-Create the `requirement` entities with:
-
-- v1 Requirements grouped by category (checkboxes, REQ-IDs)
-- v2 Requirements (deferred)
-- Out of Scope (explicit exclusions with reasoning)
-- Traceability section (empty, filled by roadmap)
+Run **the requirement fence** in `templates/requirements.md` (`specforge gsd reference templates/requirements.md`) once per requirement, grouped by category: the v1 requirements (tier `v1`), the deferred ones (`v2`) and the explicit exclusions (`out_of_scope`, with their `reason`). There is no traceability to fill: the roadmapper maps each v1 requirement to a phase, and `gsd/E101` binds once the project has a phase.
 
 **REQ-ID format:** `[CATEGORY]-[NUMBER]` (AUTH-01, CONTENT-02)
 
@@ -965,20 +884,7 @@ Display stage banner:
 ◆ Spawning roadmapper... (runs in a subagent — no output until it returns, ~1–5 min; expected, not a freeze)
 ```
 
-**ROADMAP.md template — mode-aware emit.** When generating the initial ROADMAP.md:
-
-- If `PROJECT_MODE=mvp`: under each `### Phase N:` header, emit `**Mode:** mvp` on the line immediately following `**Goal:**`. This sets every initial phase to MVP mode (per Phase-4-Persistence decision: per-phase mode, not project-wide config).
-- If `PROJECT_MODE=standard`: emit the standard ROADMAP.md template with no `**Mode:**` lines (Horizontal Layers standard template — no behavioral change for users who pick Horizontal Layers).
-
-Example MVP-mode emit for Phase 1:
-
-```markdown
-### Phase 1: [Name]
-**Goal:** [Goal]
-**Mode:** mvp
-**Success Criteria**:
-1. [Criterion]
-```
+**The phases' mode.** The mode is each phase's `mode` field, which the roadmapper writes: with `PROJECT_MODE=mvp` every initial phase gets `mode mvp` (per-phase mode, not project-wide config); with `PROJECT_MODE=standard` the field is left out (Horizontal Layers, no behavioral change).
 
 Pass `PROJECT_MODE` to the roadmapper so it applies the correct template.
 
@@ -989,9 +895,7 @@ Agent(prompt="
 <planning_context>
 
 <required_reading>
-- {project_path} (Project context)
-- {requirements_path} (v1 Requirements)
-- {research_dir}/SUMMARY.md (Research findings - if exists)
+- specforge context gsd/roadmapper {project} (the roadmapper pack: the project, its decisions, the requirements, the project research and its summary if any, the milestones)
 - {config_path} (Granularity and mode settings)
 </required_reading>
 
@@ -1005,10 +909,10 @@ Create roadmap:
 2. Map every v1 requirement to exactly one phase
 3. Derive 2-5 success criteria per phase (observable user behaviors)
 4. Validate 100% coverage
-5. Write files immediately (ROADMAP.md, STATE.md, update REQUIREMENTS.md traceability)
+5. Write the roadmap edit immediately: the milestone and every phase in one `specforge.edit` call (each phase's `requirements` is the traceability; STATE is computed)
 6. Return ROADMAP CREATED with summary
 
-Write files first, then return. This ensures artifacts persist even if context is lost.
+Write the roadmap first, then return. This ensures the entities persist even if context is lost.
 </instructions>
 ", subagent_type="gsd-roadmapper", model="{roadmapper_model}", description="Create roadmap")
 ```
@@ -1025,7 +929,7 @@ Write files first, then return. This ensures artifacts persist even if context i
 
 **If `## ROADMAP CREATED`:**
 
-Read the created ROADMAP.md and present it nicely inline:
+Read the written roadmap (`specforge export --kinds milestone,phase --format context`) and present it nicely inline:
 
 ```
 ---
@@ -1074,7 +978,7 @@ Use AskUserQuestion:
 - options:
   - "Approve" — Commit and continue
   - "Adjust phases" — Tell me what to change
-  - "Review full file" — Show raw ROADMAP.md
+  - "Review full roadmap" — Show the milestone and its phases in full
 
 **If "Approve":** Continue to commit.
 
@@ -1090,12 +994,12 @@ Use AskUserQuestion:
   [user's notes]
 
   <required_reading>
-  - {roadmap_path} (Current roadmap to revise)
+  - specforge context gsd/roadmapper {project} (the roadmapper pack: the current phases among its milestones)
   </required_reading>
 
   ${AGENT_SKILLS_ROADMAPPER}
 
-  Update the roadmap based on feedback. Edit files in place.
+  Update the roadmap based on feedback. Change the phases in place, all in one `specforge.edit` call.
   Return ROADMAP REVISED with changes made.
   </revision>
   ", subagent_type="gsd-roadmapper", model="{roadmapper_model}", description="Revise roadmap")
@@ -1106,7 +1010,7 @@ Use AskUserQuestion:
 - Present revised roadmap
 - Loop until user approves
 
-**If "Review full file":** Display the `milestone` and `phase` entities in full (`specforge query "$MILESTONE" --kinds phase --format context`), then re-ask.
+**If "Review full roadmap":** Display the `milestone` and `phase` entities in full (`specforge query "$MILESTONE" --kinds phase --format context`), then re-ask.
 
 **Generate or refresh project instruction file before final commit:**
 
@@ -1167,7 +1071,7 @@ PHASE1_HAS_UI=${PHASE1_HAS_UI:-false}   # @gsd/ui computes frontend: false when 
 
 ## ▶ Next Up — [${PROJECT_CODE}] ${PROJECT_TITLE}
 
-**Phase 1: [Phase Name]** — [Goal from ROADMAP.md]
+**Phase 1: [Phase Name]** — [Goal of the phase]
 
 /clear then:
 
@@ -1189,7 +1093,7 @@ PHASE1_HAS_UI=${PHASE1_HAS_UI:-false}   # @gsd/ui computes frontend: false when 
 
 ## ▶ Next Up — [${PROJECT_CODE}] ${PROJECT_TITLE}
 
-**Phase 1: [Phase Name]** — [Goal from ROADMAP.md]
+**Phase 1: [Phase Name]** — [Goal of the phase]
 
 /clear then:
 
@@ -1228,18 +1132,16 @@ PHASE1_HAS_UI=${PHASE1_HAS_UI:-false}   # @gsd/ui computes frontend: false when 
 - [ ] Git repo initialized
 - [ ] Brownfield detection completed
 - [ ] Deep questioning completed (threads followed, not rushed)
-- [ ] PROJECT.md captures full context → **committed**
+- [ ] The `project` entity and its key decisions capture full context → **committed**
 - [ ] config.json has workflow mode, granularity, parallelization → **committed**
 - [ ] Research completed (if selected) — 4 parallel agents spawned → **committed**
 - [ ] Requirements gathered (from research or conversation)
 - [ ] User scoped each category (v1/v2/out of scope)
-- [ ] REQUIREMENTS.md created with REQ-IDs → **committed**
+- [ ] `requirement` entities recorded with REQ-IDs and tiers → **committed**
 - [ ] gsd-roadmapper spawned with context
 - [ ] Roadmap files written immediately (not draft)
 - [ ] User feedback incorporated (if any)
-- [ ] ROADMAP.md created with phases, requirement mappings, success criteria
-- [ ] STATE.md initialized
-- [ ] REQUIREMENTS.md traceability updated
+- [ ] Milestone and `phase` entities recorded, each v1 requirement in exactly one phase, with success criteria
 - [ ] `$INSTRUCTION_FILE` generated with GSD workflow guidance (runtime-derived via the shared `getProjectInstructionFile` policy — `AGENTS.md` for codex/opencode/kilo/kimi, `.github/copilot-instructions.md` for copilot, `GEMINI.md` for antigravity, `.claude/CLAUDE.md` for claude; an existing hand-crafted file without GSD markers is left untouched unless `--force`)
 - [ ] User knows next step is `/gsd:discuss-phase 1`
 

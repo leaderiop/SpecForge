@@ -30,7 +30,11 @@ breaks it.
 5. Preflight, arm A: in an unseeded A copy of each fixture, with gsd-core 1.19.0 installed as in "One run", its own
    health check, `gsd-tools validate health` (the `/gsd-health` command), reports the project healthy. Arm A has no
    recorded baseline: its state is the Markdown the fixture holds, which the B baseline's fixture tree pins.
-6. Print the run order: `python3 -I evaluation/gsd-ab/seed.py schedule`. Each line is a task, a seed and its arms in
+6. Arm Bv1: build its `specforge` and components the same two ways from a clean checkout of the tag `gsd-ab-v1`, and
+   run its preflight with them: `python3 -I evaluation/gsd-ab/seed.py preflight --arm Bv1 --specforge <its specforge>
+   --gsd-core <its gsd_core.wasm> --gsd-security <its gsd_security.wasm>`. It copies the tag's fixture trees and
+   compares with the baselines of the tag's own `tasks.json`.
+7. Print the run order: `python3 -I evaluation/gsd-ab/seed.py schedule`. Each line is a task, a seed and its arms in
    the order to run them; runs follow the lines, so drift in the model's service reaches every arm alike.
 
 ## One run
@@ -43,7 +47,8 @@ For each `(task, seed, arm)` in the schedule's order:
    every seed number of one (task, arm). Keep the `commit` it prints for the run file's `protocol`.
 2. **The arm's tools, in the copy only.** Arm A: gsd-core 1.19.0's own installer, local to the copy
    (`npx @opengsd/gsd-core@1.19.0 --claude --local`, or the flag of the agent the host names). Arms B and B0:
-   `specforge install claude-code` (or the host's name) from the tagged commit, then `specforge collect --yes`. Agents
+   `specforge install claude-code` (or the host's name) from the tagged commit, then `specforge collect --yes`. Arm
+   Bv1: the same with the binary built from the tag `gsd-ab-v1`, and its components in `seed.py seed`'s flags. Agents
    and skills are each arm's release's, unchanged.
 3. **The prompt.** A fresh agent session in the copy, no memory of another run. One message, exactly what
    `python3 -I evaluation/gsd-ab/seed.py prompt --task <task> --arm <arm>` prints: `prompts/<arm>.md` with the task's
@@ -51,8 +56,10 @@ For each `(task, seed, arm)` in the schedule's order:
 4. **During the run** the operator says nothing but an intervention (below).
 5. **The end.** The run ends when the agent's turn ends with a `RESULT:` line, after a second stop without one, or
    when the budget is reached. Stop the clock (`wall_seconds`).
-6. **The run file**, `evaluation/gsd-ab/runs/<arm>/<task>/<seed>.json` (git-ignored; the transcript under
-   `runs/transcripts/<arm>/<task>/<seed>.jsonl`, outside what `score.py` reads), with the fields of README section 7:
+6. **The run file**, `evaluation/gsd-ab/runs/<arm>/<task>/<seed>.json` (git-ignored), with the fields of README
+   section 7. First copy the transcript to `runs/transcripts/<arm>/<task>/<seed>/`, outside what `score.py` reads:
+   the session's file as `session.jsonl` and its `<session>/subagents/` folder beside it, from the host
+   (`~/.claude/projects/<project>/` for Claude Code). `seed.py spawns` reads Claude Code's layout only.
    - `final_report`: the value of the agent's last `RESULT:` line, one of the task's workflow's in
      `tasks.json#results`, or `none` when the run ended without one or with another value.
    - `acceptance`: one entry per acceptance row of the task, keyed by its `text`. A row with `run` is that command, run
@@ -71,8 +78,11 @@ For each `(task, seed, arm)` in the schedule's order:
    - `rework_commits`: `python3 -I evaluation/gsd-ab/seed.py rework --arm <arm> --dir <copy>`, computed, never typed:
      the run's commits after its first one that writes verification state (A: a `.planning/phases/*/*-VERIFICATION.md`;
      B and B0: a `verdict:` line of `specforge-harness`), or 0 when none does.
-   - `protocol`: `commit`, the value `seed.py seed` printed for the copy, and `specforge`, what `specforge --version`
-     prints; the same for every run of the study (`score.py` refuses a set that mixes them).
+   - `protocol`: `commit`, the value `seed.py seed` printed for the copy, the same for every run of the study; and
+     `specforge`, what the arm's binary's `specforge --version` prints: one for A, B and B0, Bv1's its own
+     (`score.py` refuses a set that mixes them, or whose Bv1 runs record B's).
+   - `spawns`: `python3 -I evaluation/gsd-ab/seed.py spawns --transcript <the run's transcript directory>`,
+     computed, never typed: per subagent its type, `context_tokens` (the context tokens a gsd-executor spawn holds at its first state change: a file tool, a mutating engine tool or a writing command, by MCP or by CLI (`tasks.json#state_writes`); its last request's when it changes none) and `total_tokens`.
    - `interventions` and `intervention_log` (below), and the fixed fields of "Before the first run".
 
 ## Interventions

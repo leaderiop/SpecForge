@@ -9,7 +9,7 @@
     "<objective>",
     "Start a new milestone: questioning → research (optional) → requirements → roadmap.",
     "",
-    "Brownfield equivalent of new-project. Project exists, PROJECT.md has history. Gathers \"what's next\", updates PROJECT.md, then runs requirements → roadmap cycle.",
+    "Brownfield equivalent of new-project. The project exists and has history. Gathers \"what's next\", records the milestone and the project's changes, then runs requirements → roadmap cycle.",
     "",
     "**Creates/Updates:**",
     "- the `project` entity — updated with new milestone goals",
@@ -25,7 +25,7 @@
     "<file path=\"gsd-core/workflows/new-milestone.md\">",
     "<purpose>",
     "",
-    "Start a new milestone cycle for an existing project. Loads project context, gathers milestone goals (from MILESTONE-CONTEXT.md or conversation), updates PROJECT.md and STATE.md, optionally runs parallel research, defines scoped requirements with REQ-IDs, spawns the roadmapper to create phased execution plan, and commits all artifacts. Brownfield equivalent of new-project.",
+    "Start a new milestone cycle for an existing project. Loads project context, gathers milestone goals from the conversation (SpecForge keeps no milestone context file), records the milestone and the project's changes, optionally runs parallel research, defines scoped requirements with REQ-IDs, spawns the roadmapper to create phased execution plan, and commits all artifacts. Brownfield equivalent of new-project.",
     "",
     "</purpose>",
     "",
@@ -56,33 +56,33 @@
     "",
     "```bash",
     "",
+    "# the commands below are specforge commands: there is no launcher to define",
+    "WS=\"\"",
     "",
-    "",
-    "",
-    "# the commands below are specforge commands: there is no launcher to define"
+    "MILESTONE_NAME=\"Next\""
   ],
-  "bytes": 76032,
+  "bytes": 70876,
   "end": [
-    "| CONT-03 | Phase 3 | Pending |",
-    "| CONT-04 | Phase 3 | Pending |",
-    "| CONT-05 | Phase 3 | Pending |",
-    "| SOCL-01 | Phase 4 | Pending |",
-    "| SOCL-02 | Phase 4 | Pending |",
-    "| SOCL-03 | Phase 4 | Pending |",
-    "| SOCL-04 | Phase 4 | Pending |",
-    "| SOCL-05 | Phase 4 | Pending |",
+    "the roadmap wait for it, and the roadmapper maps each `v1` requirement to exactly one phase (the phase's",
+    "`requirements`). Coverage, traceability and status are computed from the phases, plans and verifications that cover a",
+    "requirement: `specforge query <id> --depth 1 --format context` reads them back.",
     "",
-    "**Coverage:**",
-    "- v1 requirements: 18 total",
-    "- Mapped to phases: 18",
-    "- Unmapped: 0 ✓",
+    "**What goes where:**",
     "",
-    "---",
-    "*Requirements defined: 2025-01-14*",
-    "*Last updated: 2025-01-14 after initial definition*",
-    "```",
+    "- `id`: `CATEGORY-NN` (AUTH-01, CONTENT-02, SOCIAL-03).",
+    "- `text`: user-centric, testable, atomic (\"User can reset password via email link\").",
+    "- `category`: a feature category from the research, in the words the domain itself uses (an auth, content or",
+    "  payments area, say).",
+    "- `tier`:",
+    "  - `v1`: committed scope, mapped to roadmap phases;",
+    "  - `v2`: acknowledged but deferred, not in the current roadmap; moving one to `v1` needs a roadmap update;",
+    "  - `out_of_scope`: explicitly excluded, with its `reason`: it prevents \"why didn't you include X?\" later.",
+    "    The research's anti-features land here as well, each keeping its warning.",
     "",
-    "</example>",
+    "**Evolution.** After a phase completes its verification marks the covered requirements complete; after a roadmap",
+    "update, every `v1` requirement is still mapped, new requirements are recorded if scope expanded, and descoped ones move",
+    "to `v2` or `out_of_scope` (`specforge set <id> tier …`). A requirement is complete when its feature is implemented,",
+    "verified and committed.",
     "</file>",
     "</execution_context>",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1872,
+  "lines": 1485,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:faea402a15bc23d0786f2a411c85d629fbd90dc7e9679d3d2fc5cc161aac9f72",
+    "digest": "sha256:3b1bc3696442231bbd71abcd9f733650dde66bed47bde8dbdf81b68b576090cb",
     "prompt": "@gsd/core@VERSION:new_milestone",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "faea402a15bc23d0786f2a411c85d629fbd90dc7e9679d3d2fc5cc161aac9f72"
+  "sha256": "3b1bc3696442231bbd71abcd9f733650dde66bed47bde8dbdf81b68b576090cb"
 }

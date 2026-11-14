@@ -9,6 +9,7 @@ C (the build cache and `lifecycle_field`). Extends [ADR 0014](0014-the-session-k
 [ADR 0184](0184-a-typed-edit-and-a-rename-write-one-planned-change.md) and
 [ADR 0282](0282-an-unknown-type-name-is-the-hosts-e004-and-a-project-has-one-spec-block.md). Takes extension protocol 1.8.0. Extended by [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (a `verdict` writer, the `verdict:<rule>` ledger key, baseline judgements) and by [ADR 0299](0299-the-graph-a-call-receives-carries-what-every-surface-shows.md) (the graph a call receives carries them) and by [ADR 0300](0300-a-compute-pass-at-the-baseline-reads-the-files-the-commit-holds.md) (a compute pass at the baseline reads the commit's files).
 Amended by [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md) (D6: History is the `Git` port the caller passes; no process default).
+Extended by [ADR 0356](0356-an-extension-declares-the-context-a-role-reads.md) (a fifth writer, `context`: the host's record of a context pack, ledgered and in no digest).
 
 ## Context
 

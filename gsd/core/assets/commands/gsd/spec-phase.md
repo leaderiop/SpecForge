@@ -14,10 +14,10 @@ Clarify phase requirements through structured Socratic questioning with quantita
 2. Scout the codebase — understand current state before asking questions
 3. Run Socratic interview loop (up to 6 rounds, rotating perspectives)
 4. Score ambiguity across 4 weighted dimensions after each round
-5. Gate: ambiguity ≤ 0.20 AND all dimensions meet minimums → write SPEC.md
-6. Commit SPEC.md — discuss-phase picks it up automatically on next run
+5. Gate: the spec is recorded once ambiguity is ≤ 0.20 and every dimension meets its minimum
+6. Commit the spec, which discuss-phase reads on its next run
 
-**Output:** `{phase_dir}/{padded_phase}-SPEC.md` — falsifiable requirements that lock "what/why" before discuss-phase handles "how"
+**Output:** the phase's `phase_spec` entity and its locked requirements — falsifiable requirements that lock "what/why" before discuss-phase handles "how"
 </objective>
 
 <execution_context>
@@ -33,7 +33,7 @@ Clarify phase requirements through structured Socratic questioning with quantita
 Phase number: the `<arguments>` block (required)
 
 **Flags:**
-- `--auto` — Skip interactive questions; Claude selects recommended defaults and writes SPEC.md
+- `--auto` — No questions asked: Claude takes the recommended defaults and records the spec itself
 - `--text` — Use plain-text numbered lists instead of TUI menus (required for `/rc` remote sessions)
 
 Context files are resolved in-workflow using `init phase-op`.
@@ -49,7 +49,7 @@ Execute end-to-end.
 - Codebase scouted for current state before questioning begins
 - All 4 ambiguity dimensions scored after each interview round
 - Gate passed: ambiguity ≤ 0.20 AND all dimension minimums met
-- SPEC.md written with falsifiable requirements, explicit boundaries, and acceptance criteria
-- SPEC.md committed atomically
-- User knows they can now run /gsd:discuss-phase which will load SPEC.md automatically
+- The spec recorded: every requirement falsifiable, the boundaries explicit, the acceptance criteria set
+- The spec committed atomically
+- User told that /gsd:discuss-phase comes next, and that it reads the spec on its own
 </success_criteria>

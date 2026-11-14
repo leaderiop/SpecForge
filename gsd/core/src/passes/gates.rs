@@ -16,7 +16,7 @@ use specforge_extension_sdk::prelude::*;
 use super::derive::{ladder::window_status, verify::by_phase};
 use super::plans::{link, links, of_kind, phase_of, text};
 use super::thread::{Evidence, Thread};
-use crate::digest::scope_of;
+use crate::scope::scope_of;
 
 type Check = fn(&PassInput) -> Vec<PassDiagnostic>;
 

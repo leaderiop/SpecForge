@@ -48,8 +48,8 @@ Display:
 ◆ Chunked mode: spawning outline planner... (runs in a subagent — no output until it returns, ~1–5 min; expected, not a freeze)
 ```
 
-Spawn the planner in **outline-only** mode — it must write only the outline manifest, not any
-PLAN.md files:
+Spawn the planner in **outline-only** mode — it must write only the outline manifest, and no plan
+entity:
 
 **Dispatch/wait gate — `PLANNER_STALL_DETECTION_ENABLED` (config key `planner.stall_detection_enabled`, resolved in `plan-phase/steps/stall-detection-helpers.md`):**
 - **`true` (default):** use `run_in_background=true` in the Agent() call below, then run the outline watch cycle after it (it watches the outline, the one file this planner writes).
@@ -59,7 +59,7 @@ Agent(
   prompt="{same planning_context as step 8, plus:}
 
   **Chunked mode: outline-only.**
-  Do NOT write any PLAN.md files in this Task.
+  Write no plan entity in this Task.
   Write only: {OUTLINE_FILE}
 
   The outline must be a markdown table with columns:
@@ -94,10 +94,9 @@ path regardless of `CHUNKED_PARALLEL` — there is nothing to batch.
 
 **For each Wave, in order:**
 
-1. **Build the batch's plan-ID list** from the outline rows sharing this Wave value, in outline
-   row order, deduplicated defensively — a malformed outline naming the same Plan ID twice must
-   never produce two concurrent Agent() calls targeting the same `{plan_id}-PLAN.md` output path
-   (mirrors `review.md`'s `DISPATCH_SLUGS` dedup, #3034):
+1. **Collect this wave's Plan IDs**: walk the outline in its order and keep the Plan ID of each
+   row whose Wave is this one, the first time it appears. A Plan ID the outline repeats would
+   otherwise start two Agent() calls on one plan at once (`review.md` guards `DISPATCH_SLUGS` the same way, #3034):
    ```bash
    # Rewrapped through unquoted command substitution, not consumed as a bare
    # `$WAVE_PLAN_IDS`: bash word-splits an unquoted scalar on IFS by default,
@@ -124,9 +123,6 @@ path regardless of `CHUNKED_PARALLEL` — there is nothing to batch.
    before dispatch rather than immediately before each individual spawn:
    ```bash
 
-
-
-
    PLAN_ENTITY="${PHASE_ID}/${plan_id}"   # the plan entity: an unknown id is refused (exit 1)
    if specforge query "$PLAN_ENTITY" --depth 0 --pick '.nodes[0].id' >/dev/null 2>&1 && [ "${REVIEWS:-false}" != true ]; then
      : # resume safety — skip this plan, remove from the batch's runnable set — NOT under --reviews (replan)
@@ -144,7 +140,7 @@ path regardless of `CHUNKED_PARALLEL` — there is nothing to batch.
    Concurrent dispatch: print one line per plan in the runnable set, immediately before issuing
    the batch's Agent() calls together.
 
-4. Spawn the planner in **single-plan** mode — it must write exactly one PLAN.md file. The prompt
+4. Spawn the planner in **single-plan** mode — it must write exactly one plan entity. The prompt
    is unchanged per plan; what changes is whether the runnable set's Agent() calls are issued one
    at a time (serial) or together in one message (concurrent, every call still carrying
    `run_in_background=true` exactly as today when `PLANNER_STALL_DETECTION_ENABLED` (config key `planner.stall_detection_enabled`) is `true`

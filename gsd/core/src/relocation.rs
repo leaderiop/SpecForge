@@ -168,7 +168,7 @@ fn read(line: &str, depth: usize, out: &mut Vec<Event>) -> Result<(), String> {
         segment
             .redirects
             .iter()
-            .for_each(|word| absolute(word, out));
+            .for_each(|redirect| absolute(&redirect.target, out));
         if segment.words.is_empty() {
             continue;
         }

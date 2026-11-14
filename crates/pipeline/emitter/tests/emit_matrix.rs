@@ -2,9 +2,8 @@
 //! as one snapshot: a change to the emitter's envelope or budget changes only
 //! the cells it names.
 
-use specforge_emitter::{
-    EmitFormat, EmitOptions, GraphProtocolSchema, estimate_tokens, generate_schema,
-};
+use specforge_emitter::{EmitFormat, EmitOptions, GraphProtocolSchema, generate_schema};
+use specforge_protocol_types::tokens::estimate_tokens;
 use specforge_protocol_types::{
     EdgeTypeDescriptor, EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor,
 };

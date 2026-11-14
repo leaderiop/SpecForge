@@ -5,5 +5,5 @@
 
 **If `--prd <filepath>` provided:**
 
-Read and execute `gsd-core/workflows/plan-phase/steps/prd-express-path.md` — it reads the PRD (`$PRD_FILE`), generates `CONTEXT.md` (every PRD requirement/story/criterion → locked decision, uncovered areas → "Claude's Discretion", canonical refs extracted from ROADMAP.md + PRD-referenced specs), commits it, sets `context_content`, and bypasses step 4 (Load CONTEXT.md). The rest of the workflow proceeds normally with the PRD-derived context.
+Follow `gsd-core/workflows/plan-phase/steps/prd-express-path.md`. That step takes the PRD (`$PRD_FILE`) and turns it into the phase's context: each requirement, story or criterion becomes a locked decision, whatever the PRD leaves open falls under "Claude's Discretion", and the canonical refs come from the roadmap and the specs the PRD cites; it then commits, sets `context_content` and skips step 4, as there is no context left to load. The rest of the workflow proceeds normally with the PRD-derived context.
 

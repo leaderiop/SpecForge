@@ -14,6 +14,10 @@ mod collect;
 #[path = "harness_ab.rs"]
 pub mod ab;
 
+#[path = "harness_answers.rs"]
+pub mod answer_check;
+use answer_check::answers_listed;
+
 pub(crate) const HOW_TO_BUILD: &str = "build it: (cd <repo> && cargo build --profile test -p specforge-cli) and (cd gsd && cargo build -p gsd-core -p gsd-security --release --target wasm32-wasip2), then set SPECFORGE_BIN, GSD_CORE_WASM and GSD_SECURITY_WASM to the artifacts";
 
 fn required(var: &str) -> PathBuf {
@@ -394,11 +398,13 @@ impl Project {
             .write_all(stdin.as_bytes())
             .expect("write stdin");
         let output = child.wait_with_output().expect("wait for specforge");
-        Run {
+        let run = Run {
             code: output.status.code().unwrap_or(-1),
             stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
-        }
+        };
+        answers_listed(args, &run.stdout);
+        run
     }
 
     /// Runs `specforge <args>` as a person at a terminal would: stdin is the slave side of a pty, so the host sees an

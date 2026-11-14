@@ -9,6 +9,8 @@ use crate::coverage_corpus::project;
 use crate::support::pairing::{Outcome, cli_outcome, mcp_calls, mcp_outcome, served};
 use crate::support::{Cli, TestProject};
 
+mod twins;
+
 struct Pair {
     label: &'static str,
     project: fn() -> TestProject,
@@ -556,6 +558,7 @@ fn fx1_with_plan() -> TestProject {
 fn pair(label: &str) -> (Outcome, Outcome) {
     let row = PAIRS
         .iter()
+        .chain(twins::TWIN_PAIRS)
         .find(|row| row.label == label)
         .unwrap_or_else(|| panic!("no row {label}"));
     let mut served = served((row.project)());
@@ -604,7 +607,8 @@ fn add_reads_one_string_with_commas_as_one_specifier() {
 
 #[test]
 fn every_row_has_a_unique_label() {
-    let mut labels: Vec<&str> = PAIRS.iter().map(|row| row.label).collect();
+    let rows = PAIRS.iter().chain(twins::TWIN_PAIRS);
+    let mut labels: Vec<&str> = rows.map(|row| row.label).collect();
     labels.sort_unstable();
     let rows = labels.len();
     labels.dedup();

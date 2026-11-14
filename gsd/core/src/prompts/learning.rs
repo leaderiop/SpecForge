@@ -10,10 +10,9 @@ use super::workflow::{self, Do, Slash, Spec, Step};
 fn shown(_call: &PromptCall<'_>) -> String {
     "\n\n## Where the summary goes\n\n\
      The summary is shown to the user, never written: wherever the text above says it is written to a file or \
-     committed, read that it is shown in the conversation. The files it names (`PROJECT.md`, `ROADMAP.md`, \
-     `REQUIREMENTS.md`, and the `SUMMARY.md`, `VERIFICATION.md`, `CONTEXT.md` and `RESEARCH.md` of each phase) are the \
-     `project`, `milestone`, `phase`, `requirement`, `summary`, `verification`, `context` and `research` entities, read \
-     with the queries above.\n"
+     committed, read that it is shown in the conversation. The files it names (the project, roadmap and requirements files, and \
+     each phase's summary, verification, context and research files) are the `project`, `milestone`, `phase`, \
+     `requirement`, `summary`, `verification`, `context` and `research` entities, read with the queries above.\n"
         .to_string()
 }
 
@@ -23,7 +22,7 @@ fn recorded(_call: &PromptCall<'_>) -> String {
      Each learning is a `lesson` entity in `spec/lessons.spec`, written with `specforge new lesson`; its `kind` is the \
      category (`decision`, `lesson`, `pattern` or `surprise`), and `specforge check` checks it like any entity. A \
      `lesson` has no phase field and no counts: its id (`L-<phase>-<n>`) carries the phase, and the counts are the \
-     lessons of each kind. `LEARNINGS.md` is not written. Nothing here removes a lesson: if an earlier run of the \
+     lessons of each kind. No learnings file is kept. Nothing here removes a lesson: if an earlier run of the \
      phase recorded more lessons than this one, name the extra ids to the user.\n"
         .to_string()
 }

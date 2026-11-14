@@ -789,7 +789,7 @@ fn budget_truncates_context_and_brief() {
             },
         )
         .unwrap();
-        let budget = specforge_emitter::estimate_tokens(&full) / 2;
+        let budget = specforge_protocol_types::tokens::estimate_tokens(&full) / 2;
         let truncated = specforge_emitter::emit(
             &graph,
             &specforge_emitter::EmitOptions {
@@ -800,7 +800,7 @@ fn budget_truncates_context_and_brief() {
         )
         .unwrap();
         assert!(
-            specforge_emitter::estimate_tokens(&truncated) <= budget,
+            specforge_protocol_types::tokens::estimate_tokens(&truncated) <= budget,
             "{format:?}: over the budget of {budget}: {truncated}"
         );
         assert!(

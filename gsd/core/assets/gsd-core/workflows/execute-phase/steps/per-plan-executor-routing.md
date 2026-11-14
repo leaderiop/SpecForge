@@ -35,10 +35,6 @@ fi
 
 # every plan dispatches through Agent() (sequential mode): a resolved hint is always routed
 
-
-
-
-
 ```
 
 Resolving a plan's `agent_hint` (not part of @gsd/core) would consult the **active runtime's agent directory**

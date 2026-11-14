@@ -4,7 +4,7 @@
 <purpose>
 Orchestrate parallel debug agents to investigate UAT gaps and find root causes.
 
-After UAT finds gaps, spawn one debug agent per gap. Each agent investigates autonomously with symptoms pre-filled from UAT. Collect root causes, update UAT.md gaps with diagnosis, then hand off to plan-phase --gaps with actual diagnoses.
+After UAT finds gaps, spawn one debug agent per gap. Each agent investigates autonomously with symptoms pre-filled from UAT. Collect root causes, record each one on its `uat_gap`, then hand off to plan-phase --gaps with actual diagnoses.
 
 Orchestrator stays lean: parse gaps, spawn agents, collect results, update UAT.
 </purpose>
@@ -32,26 +32,21 @@ With diagnosis: "Comment doesn't refresh" → "useEffect missing dependency" →
 <process>
 
 <step name="parse_gaps">
-**Extract gaps from UAT.md:**
+**Read the open gaps from the graph:**
 
-Read the "Gaps" section (YAML format):
-```yaml
-- truth: "Comment appears immediately after submission"
-  status: failed
-  reason: "User reported: works but doesn't show until I refresh the page"
-  severity: major
-  test: 2
-  artifacts: []
-  missing: []
+`PHASE_ID` is the phase verify-work tests. Its gaps are `uat_gap` entities, each on the `uat_test` that found it:
+
+```bash
+specforge query "$PHASE_ID" --depth 3 --kinds uat_test,uat_gap --format context || exit 1
 ```
 
-For each gap, also read the corresponding test from "Tests" section to get full context.
+The gaps to diagnose are those whose computed `status` is `open`. For each gap, its `test` gives the full context: the test's `expected` and the person's `reported` words.
 
 Build gap list:
 ```
 gaps = [
-  {truth: "Comment appears immediately...", severity: "major", test_num: 2, reason: "..."},
-  {truth: "Reply button positioned correctly...", severity: "minor", test_num: 5, reason: "..."},
+  {id: "v1.0/04/04-UAT/U2/G1", truth: "Comment appears immediately...", severity: "major", reason: "..."},
+  {id: "v1.0/04/04-UAT/U5/G1", truth: "Reply button positioned correctly...", severity: "minor", reason: "..."},
   ...
 ]
 ```
@@ -98,10 +93,6 @@ This runs in parallel - all gaps investigated simultaneously.
 **Load agent skills:**
 
 ```bash
-
-
-
-
 
 AGENT_SKILLS_DEBUGGER=""   # the host install carries the skills of gsd-debugger
 EXPECTED_BASE=$(specforge git head --pick .sha)
@@ -199,7 +190,7 @@ placeholder, not a shell variable.
 
 ```
 Agent(
-  prompt=filled_debug_prompt + "\n\n" + WORKTREE_GUARD + "\n\n<required_reading>\n- {phase_dir}/{phase_num}-UAT.md\n- {state_path}\n</required_reading>\n${AGENT_SKILLS_DEBUGGER}",
+  prompt=filled_debug_prompt + "\n\n" + WORKTREE_GUARD + "\n\n<required_reading>\nspecforge query {GAP} --depth 1 --format context\nRun the line above first. It prints the gap and the UAT test that found it.\n</required_reading>\n${AGENT_SKILLS_DEBUGGER}",
   subagent_type="gsd-debugger",
   model="{DEBUGGER_MODEL}",
   {harnessFlag}
@@ -216,7 +207,8 @@ Template placeholders:
 - `{expected}`: From UAT test
 - `{actual}`: Verbatim user description from reason field
 - `{errors}`: Any error messages from UAT (or "None reported")
-- `{reproduction}`: "Test {test_num} in UAT"
+- `{reproduction}`: "UAT test {the gap's `test`}"
+- `{GAP}`: the gap's id
 - `{timeline}`: "Discovered during UAT"
 - `{slug}`: Generated from truth
 </step>
@@ -259,29 +251,28 @@ If agent returns `## INVESTIGATION INCONCLUSIVE`:
 </step>
 
 <step name="update_uat">
-**Update UAT.md gaps with diagnosis:**
+**Record each gap's diagnosis on its `uat_gap`:**
 
-For each gap in the Gaps section, add artifacts and missing fields:
+For each gap, set its `root_cause`, `artifacts` and `missing` (one `missing` item per line); the session's `status` is computed, never written:
 
-```yaml
-- truth: "Comment appears immediately after submission"
-  status: failed
-  reason: "User reported: works but doesn't show until I refresh the page"
-  severity: major
-  test: 2
-  root_cause: "useEffect in CommentList.tsx missing commentCount dependency"
-  artifacts:
-    - path: "src/components/CommentList.tsx"
-      issue: "useEffect missing dependency"
-  missing:
-    - "Add commentCount to useEffect dependency array"
-    - "Trigger re-render when new comment added"
-  debug_session: the spec
+```bash
+GAP="{the gap's id, e.g. v1.0/01/01-UAT/U2/G1}"
+IFS= read -rd '' ROOT_CAUSE <<'TEXT' || true; ROOT_CAUSE=${ROOT_CAUSE%$'\n'}
+{the root cause the debug agent returned}
+TEXT
+IFS= read -rd '' ARTIFACTS <<'TEXT' || true; ARTIFACTS=${ARTIFACTS%$'\n'}
+[{"path": "{a file the cause sits in, ROOT-relative}", "issue": "{what is wrong there}"}]
+TEXT
+IFS= read -rd '' MISSING <<'TEXT' || true; MISSING=${MISSING%$'\n'}
+{what the fix must add or change}
+TEXT
+IFS=$'\n' read -rd '' -a MISSING_ITEMS <<<"$MISSING" || true
+specforge set "$GAP" root_cause "$ROOT_CAUSE" || exit 1
+specforge set "$GAP" artifacts "$ARTIFACTS" || exit 1
+specforge set "$GAP" missing "${MISSING_ITEMS[@]}" || exit 1
 ```
 
-Update status in frontmatter to "diagnosed".
-
-Commit the updated UAT.md:
+Commit the diagnoses:
 ```bash
 specforge git commit --add spec -m "docs({phase_num}): add root causes from diagnosis" && specforge collect --runner gsd-git --yes
 ```
@@ -333,10 +324,10 @@ Agents only diagnose—plan-phase --gaps handles fixes (no fix application).
 </failure_handling>
 
 <success_criteria>
-- [ ] Gaps parsed from UAT.md
+- [ ] Open gaps read from the graph
 - [ ] Debug agents spawned in parallel
 - [ ] Root causes collected from all agents
-- [ ] UAT.md gaps updated with artifacts and missing
+- [ ] Each `uat_gap` holds its `root_cause`, `artifacts` and `missing`
 - [ ] Debug sessions saved to ${DEBUG_DIR}/
 - [ ] Hand off to verify-work for automatic planning
 </success_criteria>

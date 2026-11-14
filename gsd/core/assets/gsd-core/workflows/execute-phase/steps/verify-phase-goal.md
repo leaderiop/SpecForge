@@ -23,16 +23,12 @@ value for both callers, never left for the model to resolve. Resolve the rest th
 
 ```bash
 
-
-
-
 PHASE_NUMBER="${PHASE_ID##*/}"; PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]')   # the phase's inputs; the commands below are specforge commands: there is no launcher to define
 TDD_MODE=${TDD_MODE:-false}   # the loop capability is not part of @gsd/core: --tdd is read from the arguments
 
-
 VERIFIER_SKILLS=""; RESPONSE_LANGUAGE=$(specforge settings --extension @gsd/core --pick '.extensions[0].settings[name=response_language].value' 2>/dev/null)   # the host install carries the skills of gsd-verifier; the language is a setting
-CONTEXT_WINDOW="{{setting:context_window|200000}}"   # context_window (the settings)
 PHASE_GOAL=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')
+MILESTONE="${PHASE_ID%/*}"   # the phase's milestone, whose earlier verifications the verifier reads
 ```
 </step>
 
@@ -84,10 +80,6 @@ Skill(skill="gsd-${ref.skill}", args="${PHASE_NUMBER}")
 
 **Report the review, and record what happened to each finding.** The disposition ledger is `@gsd/ops`'s: its code-review hook records each finding as an entity, and with `@gsd/core` alone this step reports the review and stops (`gsd-core/workflows/execute-phase/steps/code-review-disposition.md`).
 
-
-
-
-
 **Error handling:** If the Skill invocation fails or throws, catch the error, display "Code review encountered an error (non-blocking): {error}" and proceed to gate dispatch. Review failures must never block execution.
 
 **Execute:post gate hook dispatch.** After code review, dispatch all active gate hooks from `EXECUTE_POST_HOOKS_JSON` where `kind == "gate"`. ⚠ **Validate `check` before shell use** (third-party manifest input; wherever `${hook.check.query}` appears, write the dot-normalized query, each `.` as `-`, and validate and pass that same value) — `loop-hook-dispatch.md` § `gate`. For each, run the form below, or — for a `predicate` gate (ADR-2008 / #2008) — `specforge check --format json`:
@@ -137,19 +129,14 @@ Phase: {PHASE_ID} (its plans, summaries and requirements are entities: read them
 Phase goal: {PHASE_GOAL}
 Phase requirement IDs: {PHASE_REQ_IDS}
 Check must_haves against actual codebase.
-Cross-reference requirement IDs from PLAN frontmatter against REQUIREMENTS.md — every ID MUST be accounted for.
-Create VERIFICATION.md.
-Use response_language {RESPONSE_LANGUAGE} for all user-facing prose — narration between tool calls, status updates, progress notes, and findings included; preserve code and paths.
+Every requirement of the phase's threads (`specforge trace --route gsd/requirement-thread --in {PHASE_ID} --partial`) MUST be accounted for.
+Record your verdicts; the verification is computed from them.
+Write all user-facing prose (narration between tool calls, status updates, progress notes, findings) in {RESPONSE_LANGUAGE}; keep code and paths as they are.
 
 <required_reading>
-Read these files before verification:
-- `specforge query {PHASE_ID} --kinds plan --format context` (All plans — understand intent, check must_haves)
-- `specforge query {PHASE_ID} --depth 2 --kinds summary --format context` (All summaries — cross-reference claimed vs actual)
-- `specforge query <id> --depth 0 --format context` for each id of {PHASE_REQ_IDS} (Requirement traceability)
-${CONTEXT_WINDOW >= 500000 ? `- specforge query {PHASE_ID} --depth 1 --kinds context --format context (User decisions — verify they were honored)
-- specforge query {PHASE_ID} --depth 1 --kinds research --format context (Known pitfalls — check for traps)
-- Prior VERIFICATION.md files from earlier phases (regression check)
-` : ''}
+specforge context gsd/verifier "{PHASE_ID}"
+Run the line above first. Its pack is the phase with its goal and success criteria, its requirements, its plans with their truths, artifacts and key links, and its summaries; the files they name, the phase's context (the user's decisions: verify they were honored) and the research's pitfalls join it as the verifier route's budget allows.
+- `specforge query {MILESTONE} --depth 2 --kinds verification --format context` (the earlier phases' verifications, which the pack does not serve: a regression check)
 </required_reading>
 
 ${VERIFIER_SKILLS}",

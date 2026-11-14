@@ -66,6 +66,27 @@ pub fn context_decisions<'a>(input: &'a PassInput, phase: &str) -> Vec<&'a PassE
         .collect()
 }
 
+/// The targets of the `label` edges of `source`.
+pub fn targets<'a>(input: &'a PassInput, source: &str, label: &str) -> BTreeSet<&'a str> {
+    input
+        .edges
+        .iter()
+        .filter(|e| e.source == source && e.label == label)
+        .map(|e| e.target.as_str())
+        .collect()
+}
+
+/// The target among `targets` that a row's reference `raw` names: the writer spells a reference relative to the
+/// entity's scope (ADR 0284) and the graph resolves it into an edge, so the target is `raw` itself or ends with `/raw`.
+pub fn resolve<'a>(targets: &BTreeSet<&'a str>, raw: &str) -> Option<&'a str> {
+    let tail = format!("/{raw}");
+    targets
+        .iter()
+        .find(|t| **t == raw)
+        .or_else(|| targets.iter().find(|t| t.ends_with(&tail)))
+        .copied()
+}
+
 /// The last `/`-segment of an id: its name.
 pub fn name_of(id: &str) -> &str {
     id.rsplit('/').next().unwrap_or(id)
@@ -74,7 +95,7 @@ pub fn name_of(id: &str) -> &str {
 /// The entities of `kind` scoped by `plan` (a task, a checkpoint or a must-have of it), in id order.
 pub fn children<'a>(input: &'a PassInput, plan: &str, kind: &'a str) -> Vec<&'a PassEntity> {
     let mut found: Vec<&PassEntity> = of_kind(input, kind)
-        .filter(|e| crate::digest::scope_of(&e.id) == plan)
+        .filter(|e| crate::scope::scope_of(&e.id) == plan)
         .collect();
     found.sort_by(|a, b| a.id.cmp(&b.id));
     found

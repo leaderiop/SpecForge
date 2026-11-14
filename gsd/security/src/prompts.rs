@@ -1,6 +1,6 @@
 //! `/gsd-secure-phase` as the prompt `secure_phase`, ported from upstream's command and workflow. The pipeline is
-//! `gsd_kit::prompt`; the text is `assets/`. The workflow's `SECURITY.md` is the phase's `security_audit`
-//! entity: the tail of the prompt says so and ends with upstream's template, whose columns are the kinds' fields.
+//! `gsd_kit::prompt`; the text is `assets/`. The phase's security audit is its `security_audit` entity: the tail of
+//! the prompt names its ids and commands and ends with the template, which names the kinds.
 
 use gsd_kit::prompt::args::{self, Arg};
 use gsd_kit::prompt::{render, repoint};
@@ -86,8 +86,8 @@ fn latest_complete(call: &PromptCall<'_>) -> Option<String> {
         .map(|n| n.id.clone())
 }
 
-/// The closing section: the ids the shell blocks use, what `SECURITY.md` is here, the commands that write it, and the
-/// template whose columns are the kinds' fields.
+/// The closing section: the ids the shell blocks use, the security audit's entities, the commands that write them,
+/// and the template that names the kinds.
 fn tail(phase: &str) -> String {
     let template = asset(TEMPLATE)
         .map(render::without_notice)
@@ -97,7 +97,7 @@ fn tail(phase: &str) -> String {
 
 ## The security audit here (@gsd/security)
 
-`SECURITY.md` is the phase's `security_audit` entity (`<phase>/NN-SECURITY`): its `threat` and `trust_boundary` \
+The phase's security audit is its `security_audit` entity (`<phase>/NN-SECURITY`): its `threat` and `trust_boundary` \
 entities are in the phase's plans, its accepted risks log is the `accepted_risk` entities and its audit trail the \
 `audit_run` entities. `threats_open` and `status` are computed from the threats: never written. Nothing is written \
 by hand; two commands write it:
@@ -113,7 +113,7 @@ threat of a phase planned without a register is recorded with `\"retroactive\": 
 
 `workflow.security_*` are `@gsd/security`'s settings: `specforge settings set @gsd/security <name> <value>`.
 
-The template, whose columns are fields of those entities:
+The template of those entities:
 
 <file path=\"{TEMPLATE}\">
 {}

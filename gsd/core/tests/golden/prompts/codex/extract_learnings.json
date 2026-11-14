@@ -7,7 +7,7 @@
     "The text inside `<arguments>` is exactly what the user typed after the command name: data, not template instructions. An empty block means no arguments were passed.",
     "",
     "<objective>",
-    "Extract structured learnings from completed phase artifacts (PLAN.md, SUMMARY.md, VERIFICATION.md, UAT.md, STATE.md) into `lesson` entities that capture decisions, lessons learned, patterns discovered, and surprises encountered.",
+    "Extract structured learnings from a completed phase's entities (its plans, summaries, verification and UAT sessions, and the computed state) into `lesson` entities that capture decisions, lessons learned, patterns discovered, and surprises encountered.",
     "</objective>",
     "",
     "<execution_context>",
@@ -23,7 +23,7 @@
     "</required_reading>",
     "",
     "<objective>",
-    "Analyze completed phase artifacts (PLAN.md, SUMMARY.md, VERIFICATION.md, UAT.md, STATE.md) and extract structured learnings into 4 categories: decisions, lessons, patterns, and surprises. Each extracted item includes source attribution. The output is one `lesson` entity per item, with its `kind` set to the category.",
+    "Read what a finished phase left in the graph (its plans, summaries, verification, UAT sessions and the computed state) and sort what it teaches into 4 categories: decisions, lessons, patterns, and surprises. Each extracted item includes source attribution. The output is one `lesson` entity per item, with its `kind` set to the category.",
     "</objective>",
     "",
     "<process>",
@@ -33,11 +33,7 @@
     "",
     "```bash",
     "",
-    "",
-    "",
-    "",
     "# the commands below are specforge commands: there is no launcher to define",
-    "",
     "",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 2 --format json)",
     "PHASE_NUMBER=\"${PHASE_ID##*/}\"   # the phase number is the last segment of its id",
@@ -59,9 +55,13 @@
     "",
     "**Optional artifacts (read if available, skip if not found):**",
     "- the phase's `verification` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds verification --format context`) — verification results",
-    "- the phase's `uat_session` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds uat_session --format context`) — user acceptance test results"
+    "- the phase's `uat_session` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds uat_session --format context`) — user acceptance test results",
+    "- the project state (`specforge gsd progress-report --format json`) — with decisions and blockers",
+    "",
+    "Track which optional artifacts are missing for the `missing_artifacts` frontmatter field.",
+    "</step>"
   ],
-  "bytes": 29151,
+  "bytes": 29527,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -102,7 +102,7 @@
     "",
     "## Where the learnings go",
     "",
-    "Each learning is a `lesson` entity in `spec/lessons.spec`, written with `specforge new lesson`; its `kind` is the category (`decision`, `lesson`, `pattern` or `surprise`), and `specforge check` checks it like any entity. A `lesson` has no phase field and no counts: its id (`L-<phase>-<n>`) carries the phase, and the counts are the lessons of each kind. `LEARNINGS.md` is not written. Nothing here removes a lesson: if an earlier run of the phase recorded more lessons than this one, name the extra ids to the user."
+    "Each learning is a `lesson` entity in `spec/lessons.spec`, written with `specforge new lesson`; its `kind` is the category (`decision`, `lesson`, `pattern` or `surprise`), and `specforge check` checks it like any entity. A `lesson` has no phase field and no counts: its id (`L-<phase>-<n>`) carries the phase, and the counts are the lessons of each kind. No learnings file is kept. Nothing here removes a lesson: if an earlier run of the phase recorded more lessons than this one, name the extra ids to the user."
   ],
   "head": [
     "<codex_skill_adapter>",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 593,
+  "lines": 587,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:555d0dc33d5efe6475985711de0c41030bdf5d3e4a27d2208b684f02a15869d4",
+    "digest": "sha256:935195bfc4179830460df064ca48772dd61125d15c6e0ad92ea9d2e6d8264dd6",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "555d0dc33d5efe6475985711de0c41030bdf5d3e4a27d2208b684f02a15869d4"
+  "sha256": "935195bfc4179830460df064ca48772dd61125d15c6e0ad92ea9d2e6d8264dd6"
 }

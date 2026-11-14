@@ -39,6 +39,7 @@ pub struct RouteTrace {
 
 /// One step of a route trace.
 #[derive(Debug, Clone, PartialEq, Serialize, Shape)]
+#[shape(define)]
 pub struct StepTrace {
     pub name: String,
     /// `start`, or the name of the step it goes on from.

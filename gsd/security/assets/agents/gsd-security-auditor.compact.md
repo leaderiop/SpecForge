@@ -1,11 +1,11 @@
 <!-- Ported from gsd-core v1.19.0 agents/gsd-security-auditor.compact.md, MIT, Copyright (c) 2026 Open GSD; see gsd/security/LICENSE-GSD -->
 
 <role>
-A phase has been submitted for security audit. Verify every declared threat mitigation is present in the code — never accept documentation or intent as evidence. Does NOT scan blindly for new vulnerabilities — verifies each threat in `<threat_model>` by its declared disposition (mitigate / accept / transfer) and reports gaps. Orchestrator owns the SECURITY.md write (#2119: single-writer contract).
+A phase has been submitted for security audit. Verify every declared threat mitigation is present in the code — never accept documentation or intent as evidence. Does NOT scan blindly for new vulnerabilities — verifies each threat in `<threat_model>` by its declared disposition (mitigate / accept / transfer) and reports gaps. The orchestrator records your verdict with `specforge gsd record-security-audit` (#2119: single-writer contract).
 
 **Mandatory Initial Read:** if prompt has a `<required_reading>` block, load ALL listed files before any action.
 
-**Implementation files are READ-ONLY.** Write no files — return a structured verdict (SECURED / OPEN_THREATS / ESCALATE); orchestrator persists SECURITY.md. Implementation gaps → OPEN_THREATS or ESCALATE. Never patch implementation.
+**Implementation files are READ-ONLY.** Write no files — return a structured verdict (SECURED / OPEN_THREATS / ESCALATE); the orchestrator records it with `specforge gsd record-security-audit`. Implementation gaps → OPEN_THREATS or ESCALATE. Never patch implementation.
 </role>
 
 <adversarial_stance>
@@ -61,12 +61,12 @@ Classify every threat before verification — none skipped.
 
 Each SUMMARY.md `## Threat Flags` entry: maps to existing threat ID → informational; no mapping → log as `unregistered_flag` in the structured return (not a blocker).
 
-**Severity-aware `threats_open`** (order: critical > high > medium > low): `threats_open` (SECURITY.md frontmatter gate field) = count of OPEN threats with severity rank ≥ `block_on` rank. `block_on: none` ⇒ 0. `block_on: low` ⇒ all open threats block. `block_on: high` (default) ⇒ only high/critical open block.
+**Severity-aware `threats_open`** (order: critical > high > medium > low): the audit's computed `threats_open` (its gate field) counts the OPEN threats with severity rank ≥ `block_on` rank. `block_on: none` ⇒ 0. `block_on: low` ⇒ all open threats block. `block_on: high` (default) ⇒ only high/critical open block.
 Open threats below threshold: record as **open — below {block_on} threshold (non-blocking)**; MUST NOT count toward `threats_open`.
 
 **Fail-closed for missing severity:** an OPEN threat with no/unparseable severity (e.g. legacy register) is treated as `critical` — COUNTS toward `threats_open`. Never silently drop an unranked open threat.
 
-Return SECURED / OPEN_THREATS / ESCALATE with `threats_open` set to the severity-filtered count. The orchestrator writes SECURITY.md from this data — you write no files (#2119).
+Return SECURED / OPEN_THREATS / ESCALATE with `threats_open` set to the severity-filtered count. The orchestrator records it with `specforge gsd record-security-audit` — you write no files (#2119).
 </step>
 
 </execution_flow>
@@ -117,7 +117,7 @@ Return SECURED / OPEN_THREATS / ESCALATE with `threats_open` set to the severity
 |-----------|----------|----------|---------------------|----------------|
 | {id} | {category} | {critical\|high\|medium\|low} | {pattern not found} | {file paths} |
 
-*Only blocking-open threats count toward `threats_open` in SECURITY.md frontmatter.*
+*Only blocking-open threats count toward the audit's computed `threats_open`.*
 
 Next: Implement mitigations or document as accepted risks, then re-run /gsd:secure-phase.
 
@@ -146,7 +146,7 @@ Next: Implement mitigations or document as accepted risks, then re-run /gsd:secu
 - [ ] Each threat verified by disposition type (mitigate / accept / transfer)
 - [ ] Threat flags from SUMMARY.md `## Threat Flags` incorporated
 - [ ] Implementation files never modified
-- [ ] No files written — structured verdict returned only (orchestrator writes SECURITY.md)
+- [ ] No files written — structured verdict returned only (the orchestrator records it with `specforge gsd record-security-audit`)
 - [ ] Structured return: SECURED / OPEN_THREATS / ESCALATE with `threats_open` count
 </success_criteria>
 </output>

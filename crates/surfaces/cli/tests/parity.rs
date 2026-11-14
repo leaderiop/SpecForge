@@ -649,7 +649,7 @@ fn graph_resource_under_a_budget_is_the_budgeted_export() {
 
     // The schema alone is thousands of tokens: a budgeted graph leaves it out.
     assert!(resource.get("schema").is_none(), "{resource}");
-    let estimate = specforge_emitter::estimate_tokens(&resource.to_string());
+    let estimate = specforge_protocol_types::tokens::estimate_tokens(&resource.to_string());
     assert!(
         estimate <= budget,
         "{estimate} tokens > {budget}: {resource}"

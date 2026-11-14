@@ -22,7 +22,7 @@ LINKED_REPOS=$(specforge git repos "$WORKSPACE_PATH" --pick '.repos[linked=true]
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
-The fields above are shell variables: `workspace_name`, `workspace_path`, `linked_repos` and `dirty_repos` are `WORKSPACE_NAME`, `WORKSPACE_PATH`, `LINKED_REPOS` and `DIRTY_REPOS`; `has_manifest` is whether `WORKSPACE.md` exists, `repos` are the directories of the workspace with a `.git` entry (`repo_count` their number), and `has_dirty_repos` is whether `DIRTY_REPOS` is not empty.
+The fields above are shell variables: `workspace_name`, `workspace_path`, `linked_repos` and `dirty_repos` are `WORKSPACE_NAME`, `WORKSPACE_PATH`, `LINKED_REPOS` and `DIRTY_REPOS`; `repos` are the directories of the workspace with a `.git` entry (`repo_count` their number), and `has_dirty_repos` is whether `DIRTY_REPOS` is not empty.
 
 **If no workspace name provided:**
 

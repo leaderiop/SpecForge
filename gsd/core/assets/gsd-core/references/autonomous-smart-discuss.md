@@ -1,7 +1,7 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/references/autonomous-smart-discuss.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Smart Discuss — Autonomous Mode
 
-Smart discuss is the autonomous-optimized variant of `gsd-discuss-phase`. It proposes grey area answers in batch tables — the user accepts or overrides per area — then writes an identical CONTEXT.md to what discuss-phase produces.
+Smart discuss is the autonomous-optimized variant of `gsd-discuss-phase`. It proposes grey area answers in batch tables — the user accepts or overrides per area — then records the same phase context entities discuss-phase records.
 
 **Inputs:** `PHASE_NUM` from execute_phase. Run init to get phase paths:
 
@@ -108,7 +108,7 @@ A phase is pure infrastructure when ALL of these are true:
 2. AND success criteria are all technical: "file exists", "test passes", "config valid", "command runs"
 3. AND no user-facing behavior is described (no "users can", "displays", "shows", "presents")
 
-**If infrastructure-only:** Skip Sub-step 4. Jump directly to Sub-step 5 with minimal CONTEXT.md. Display:
+**If infrastructure-only:** Skip Sub-step 4. Jump directly to Sub-step 5, which records a minimal phase context. Display:
 
 ```
 Phase ${PHASE_NUM}: Infrastructure phase — skipping discuss, writing minimal context.
@@ -188,82 +188,22 @@ I'll note it as a deferred idea.
 Back to {current area}: {return to current question}"
 ```
 
-Track deferred ideas internally for inclusion in CONTEXT.md.
+Keep the deferred ideas in mind: each becomes a `deferred_idea` of the phase when its context is recorded.
 
 ---
 
-## Sub-step 5: Write CONTEXT.md
+## Sub-step 5: Record the context
 
-After all areas are resolved (or infrastructure skip), write the CONTEXT.md file.
+After all areas are resolved (or infrastructure skip), record the context: the same entities discuss-phase records.
+Read the context template with `specforge gsd reference gsd-core/templates/context.md` and run its fence:
 
-**File path:** `${phase_dir}/${padded_phase}-CONTEXT.md`
-
-Use **exactly** this structure (identical to discuss-phase output):
-
-```markdown
-# Phase {PHASE_NUM}: {Phase Name} - Context
-
-**Gathered:** {date}
-**Status:** Ready for planning
-
-<domain>
-## Phase Boundary
-
-{Domain boundary statement from analysis — what this phase delivers}
-
-</domain>
-
-<decisions>
-## Implementation Decisions
-
-### {Area 1 Name}
-- {Accepted/chosen answer for Q1}
-- {Accepted/chosen answer for Q2}
-- {Accepted/chosen answer for Q3}
-- {Accepted/chosen answer for Q4}
-
-### {Area 2 Name}
-- {Accepted/chosen answer for Q1}
-- {Accepted/chosen answer for Q2}
-...
-
-### Claude's Discretion
-{Any "You decide" answers collected — note Claude has flexibility here}
-
-</decisions>
-
-<code_context>
-## Existing Code Insights
-
-### Reusable Assets
-- {From codebase scout — components, hooks, utilities}
-
-### Established Patterns
-- {From codebase scout — state management, styling, data fetching}
-
-### Integration Points
-- {From codebase scout — where new code connects}
-
-</code_context>
-
-<specifics>
-## Specific Ideas
-
-{Any specific references or "I want it like X" from discussion}
-{If none: "No specific requirements — open to standard approaches"}
-
-</specifics>
-
-<deferred>
-## Deferred Ideas
-
-{Ideas captured but out of scope for this phase}
-{If none: "None — discussion stayed within phase scope"}
-
-</deferred>
-```
-
-Write the file.
+- `boundary`: the domain boundary statement from the analysis (what this phase delivers);
+- one `decision` per accepted or chosen answer, its `area` the grey area's name;
+- `discretion`: any "You decide" answers;
+- `reusable_assets`, `patterns`, `integration_points`: from the codebase scout;
+- `specifics`: any specific references or "I want it like X" from the discussion;
+- one `deferred_idea` per idea captured but out of scope for this phase;
+- `canonical_refs`: the specs and docs the phase names, or the one row that says there are none.
 
 **Commit:**
 
@@ -274,6 +214,6 @@ specforge git commit --add spec -m "docs(${PADDED_PHASE}): smart discuss context
 Display confirmation:
 
 ```
-Created: {path}
+Created: ${PHASE_ID}/${PADDED_PHASE}-CONTEXT
 Decisions captured: {count} across {area_count} areas
 ```

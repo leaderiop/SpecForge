@@ -1,7 +1,7 @@
 //! Graph export: the one function behind `specforge export`, the MCP
 //! `specforge.export` tool, `specforge.render` and the `specforge://graph`,
 //! `context` and `brief` resources with their scoped forms and
-//! `specforge://graph/{entity_id}` (ADR 0004 D3-a, ADR 0024 D4). `specforge.render` also
+//! `specforge://graph/{+entity_id}` (ADR 0004 D3-a, ADR 0024 D4). `specforge.render` also
 //! writes it into a directory of the project ([`write_into`]).
 //!
 //! Every caller gets the same Graph Protocol document for the same request,
@@ -54,19 +54,19 @@ impl Format {
     }
 }
 
-const GRAPH: Choice<Format> = Choice {
+pub(crate) const GRAPH: Choice<Format> = Choice {
     name: "graph",
     aliases: &["json"],
     help: "every entity with its fields, file and line (Graph Protocol)",
     value: Format::Graph,
 };
-const CONTEXT: Choice<Format> = Choice {
+pub(crate) const CONTEXT: Choice<Format> = Choice {
     name: "context",
     aliases: &[],
     help: "every entity's fields, annotations, methods and verify, its headline on top, without file and line, for an agent",
     value: Format::Context,
 };
-const BRIEF: Choice<Format> = Choice {
+pub(crate) const BRIEF: Choice<Format> = Choice {
     name: "brief",
     aliases: &[],
     help: "id, kind and title",

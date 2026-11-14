@@ -516,3 +516,53 @@ fn promote_names_the_milestone_when_two_backlogs_share_a_number() {
     assert_ne!(before, bytes(&p));
     assert!(ids(&p, "phase").contains(&"v1.1/999.1".to_string()));
 }
+
+/// `--backlog` adds a phase at the least free `999.n`, depending on nothing: `999.1` on a milestone with no backlog,
+/// then `999.2` beside `999.1` and `999.3`. The phase's computed `backlog` reads `true`, `check` adds no finding (a
+/// backlog phase is exempt from gsd/W103's 2 to 5 criteria), and `--backlog` with another action is refused.
+#[test]
+fn a_backlog_phase_takes_the_first_free_999_number() {
+    let p = twin();
+    let before = p.codes();
+    let run = gsd(
+        &p,
+        "phase",
+        &[
+            "--backlog",
+            "--name",
+            "Later",
+            "--goal",
+            "Someday",
+            "--criteria",
+            r#"["it is done"]"#,
+        ],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(run.stdout.contains("999.1"), "{}", run.all());
+    let fields = p.fields_of("v1.0/999.1");
+    assert_eq!(fields["goal"], "Someday");
+    assert_eq!(fields["success_criteria"], json!(["it is done"]));
+    assert_eq!(fields["backlog"], true);
+    assert!(
+        fields.get("depends_on").is_none_or(|d| d.is_null()),
+        "{fields}"
+    );
+    assert_eq!(p.codes(), before);
+    for (name, at) in [("Second", "999.2"), ("Third", "999.3")] {
+        let run = gsd(&p, "phase", &["--backlog", "--name", name]);
+        assert_eq!(run.code, 0, "{}", run.all());
+        assert!(run.stdout.contains(at), "{}", run.all());
+        assert_eq!(p.fields_of(&format!("v1.0/{at}"))["name"], name);
+    }
+    assert_eq!(p.codes(), before);
+    let run = gsd(&p, "phase", &["--remove", "999.2"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let run = gsd(&p, "phase", &["--backlog", "--name", "Again"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(run.stdout.contains("999.2"), "{}", run.all());
+    assert_eq!(p.fields_of("v1.0/999.2")["name"], "Again");
+    let before = bytes(&p);
+    let run = gsd(&p, "phase", &["--backlog", "--insert", "01", "--name", "X"]);
+    refused(&run, "invalid_input", &["--backlog", "--insert"]);
+    unchanged(&p, &before);
+}

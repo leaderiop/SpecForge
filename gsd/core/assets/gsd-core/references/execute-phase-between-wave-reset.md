@@ -11,39 +11,3 @@
 
 7c. **No between-wave worktree reset:** `@gsd/core` runs no worktree isolation (no wave manifest to unset, no fork base to refresh).
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

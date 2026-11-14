@@ -20,6 +20,7 @@ mod model;
 mod outline;
 mod outline_codes;
 mod outline_owner;
+mod pack;
 mod schema;
 mod schema_checks;
 mod scope;

@@ -7,16 +7,19 @@ mod branch;
 pub mod codes;
 mod collectors;
 pub mod commands;
-mod digest;
+pub mod contexts;
 pub mod hooks;
+mod js_regex;
 pub mod judged;
 mod kinds;
 mod passes;
+mod probe;
 pub mod prompts;
 mod quick_id;
 mod relocation;
 mod route;
 mod rules;
+mod scope;
 pub mod settings;
 mod slash;
 mod time;
@@ -56,6 +59,7 @@ impl Contributions for GsdCore {
         settings::declare(c);
         hooks::declare(c);
         route::declare(c);
+        contexts::declare(c);
         codes::declare(c);
     }
 }

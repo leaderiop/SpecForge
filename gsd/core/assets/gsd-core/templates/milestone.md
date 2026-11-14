@@ -1,116 +1,59 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/templates/milestone.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Milestone Entry Template
 
-Add this entry to the `milestone` entities when completing a milestone:
+## The Milestone's Typed Edits
 
-```markdown
-## v[X.Y] [Name] (Shipped: YYYY-MM-DD)
+A milestone is its `milestone` entity and its phases are `phase` entities. Its `completion` is written by `specforge gsd close-milestone`; its `state`, `shipped`, `stats` (files, loc, phases, plans, tasks, days), `git_range` and `progress` are computed, never written. `specforge schema --kind milestone` (likewise `phase`) lists the fields. Fill the values: free text in its quoted heredoc, as written, and an id or version in its assignment. A refusal names its code: read it with `specforge explain <code>`.
 
-**Delivered:** [One sentence describing what shipped]
+Create the milestone and its first phase (`specforge gsd phase` adds each phase at the next number):
 
-**Phases completed:** [X-Y] ([Z] plans total)
+```bash
+VERSION="{the milestone's version, e.g. v1.1}"
+IFS= read -rd '' NAME <<'TEXT' || true; NAME=${NAME%$'\n'}
+{the milestone's name}
+TEXT
+IFS= read -rd '' GOAL <<'TEXT' || true; GOAL=${GOAL%$'\n'}
+{one sentence: what the milestone delivers}
+TEXT
+IFS= read -rd '' PHASE_NAME <<'TEXT' || true; PHASE_NAME=${PHASE_NAME%$'\n'}
+{the first phase's name}
+TEXT
+IFS= read -rd '' PHASE_GOAL <<'TEXT' || true; PHASE_GOAL=${PHASE_GOAL%$'\n'}
+{the first phase's goal}
+TEXT
+IFS= read -rd '' PHASE_CRITERIA <<'TEXT' || true; PHASE_CRITERIA=${PHASE_CRITERIA%$'\n'}
+{a JSON list of 2 to 5 observable behaviours that show the phase is done, e.g. ["A board has a share link", "The link opens the board read-only"]}
+TEXT
+specforge new milestone "$VERSION" "$NAME" --in "spec/$VERSION.spec" --name "$NAME" --goal "$GOAL" || exit 1
+specforge gsd phase --milestone "$VERSION" --name "$PHASE_NAME" --goal "$PHASE_GOAL" --criteria "$PHASE_CRITERIA" || exit 1
+```
 
-**Key accomplishments:**
-- [Major achievement 1]
-- [Major achievement 2]
-- [Major achievement 3]
-- [Major achievement 4]
+When it ships, record what was delivered and what comes next (the close records the completion):
 
-**Stats:**
-- [X] files created/modified
-- [Y] lines of code (primary language)
-- [Z] phases, [N] plans, [M] tasks
-- [D] days from start to ship (or milestone to milestone)
+```bash
+MILESTONE="{the milestone's version, e.g. v1.0}"
+IFS= read -rd '' DELIVERED <<'TEXT' || true; DELIVERED=${DELIVERED%$'\n'}
+{one sentence describing what shipped}
+TEXT
+IFS= read -rd '' WHATS_NEXT <<'TEXT' || true; WHATS_NEXT=${WHATS_NEXT%$'\n'}
+{the next milestone's goals, or "Project complete"}
+TEXT
+specforge set "$MILESTONE" delivered "$DELIVERED" || exit 1
+specforge set "$MILESTONE" whats_next "$WHATS_NEXT" || exit 1
+```
 
-**Git range:** `feat(XX-XX)` → `feat(YY-YY)`
-
-**What's next:** [Brief description of next milestone goals, or "Project complete"]
+`specforge query <milestone> --depth 1 --format context` reads the milestone and its phases back, with the computed stats.
 
 ---
-```
-
-<structure>
-If MILESTONES.md doesn't exist, create it with header:
-
-```markdown
-# Project Milestones: [Project Name]
-
-[Entries in reverse chronological order - newest first]
-```
-</structure>
 
 <guidelines>
 **When to create milestones:**
 - Initial v1.0 MVP shipped
 - Major version releases (v2.0, v3.0)
 - Significant feature milestones (v1.1, v1.2)
-- Before archiving planning (capture what was shipped)
 
 **Don't create milestones for:**
 - Individual phase completions (normal workflow)
 - Work in progress (wait until shipped)
 - Minor bug fixes that don't constitute a release
-
-**Stats to include:**
-- Count files and lines changed: the milestone's `stats` (`specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.stats'`)
-
-- Phase/plan/task counts from ROADMAP
-- Timeline from first phase commit to last phase commit
-
-**Git range format:**
-- First commit of milestone → last commit of milestone
-- Example: `feat(01-01)` → `feat(04-01)` for phases 1-4
 </guidelines>
-
-<example>
-```markdown
-# Project Milestones: WeatherBar
-
-## v1.1 Security & Polish (Shipped: 2025-12-10)
-
-**Delivered:** Security hardening with Keychain integration and comprehensive error handling
-
-**Phases completed:** 5-6 (3 plans total)
-
-**Key accomplishments:**
-- Migrated API key storage from plaintext to macOS Keychain
-- Implemented comprehensive error handling for network failures
-- Added Sentry crash reporting integration
-- Fixed memory leak in auto-refresh timer
-
-**Stats:**
-- 23 files modified
-- 650 lines of Swift added
-- 2 phases, 3 plans, 12 tasks
-- 8 days from v1.0 to v1.1
-
-**Git range:** `feat(05-01)` → `feat(06-02)`
-
-**What's next:** v2.0 SwiftUI redesign with widget support
-
----
-
-## v1.0 MVP (Shipped: 2025-11-25)
-
-**Delivered:** Menu bar weather app with current conditions and 3-day forecast
-
-**Phases completed:** 1-4 (7 plans total)
-
-**Key accomplishments:**
-- Menu bar app with popover UI (AppKit)
-- OpenWeather API integration with auto-refresh
-- Current weather display with conditions icon
-- 3-day forecast list with high/low temperatures
-- Code signed and notarized for distribution
-
-**Stats:**
-- 47 files created
-- 2,450 lines of Swift
-- 4 phases, 7 plans, 28 tasks
-- 12 days from start to ship
-
-**Git range:** `feat(01-01)` → `feat(04-01)`
-
-**What's next:** Security audit and hardening for v1.1
-```
-</example>

@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 use super::harness::{
     Project, is_judged, judged, planning_truths_and_summaries, taskboard, unjudged, vault,
 };
-use gsd_security::commands::hooks::FRAGMENT;
+use gsd_security::commands::hooks::{ARTIFACTS, FRAGMENT};
 
 fn project() -> Project {
     vault().with_extension("@gsd/security", "GSD_SECURITY_WASM")
@@ -62,6 +62,12 @@ fn the_hooks_are_the_security_entries_of_render_hooks() {
         if let Some(inline) = theirs[0]["fragment"]["inline"].as_str() {
             assert!(inline.contains("<threat_model>"), "{inline}");
             theirs[0]["fragment"]["inline"] = FRAGMENT.into();
+        }
+        // [verify-post-produces]: the step names kinds here, not upstream's files
+        for (key, file, kind) in ARTIFACTS {
+            if theirs[0][key] == json!([file]) {
+                theirs[0][key] = json!([kind]);
+            }
         }
         let ours = gsd(&p, &["security-hooks", point]);
         assert_eq!(ours["activeHooks"], theirs, "{point}");

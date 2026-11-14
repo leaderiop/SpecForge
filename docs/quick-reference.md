@@ -34,7 +34,14 @@ specforge trace <id>                 # its thread along its kind's route (human 
 specforge trace <id> --partial       # a route's thread even when incomplete, `no <step>` where it falls short
 specforge trace <id> --route <name>  # along the named route (`<extension>/<route>`); no <id>: its start kind's
 specforge trace <id> --reach         # the traceability chain, whatever route starts at its kind
+specforge trace --in <id> --route <name>  # every start entity within <id>: its scope and one reference away
 specforge trace --plan plan.json     # check an agent plan (AgentPlan JSON) against the graph
+specforge context <route> <id>       # the pack a context route declares for <id>: sections fitted to its budget
+specforge context <route> <id> --pick .digest  # the pack's digest, recomputable from what it served
+specforge context <route> <id> --record <entity>  # record the pack on <entity>; a moved pack is its route's stale code
+# MCP: specforge.context { route, subject, max_tokens?, format? }; the resource specforge://context/<id>?role=<route>
+specforge search <text> [--kinds k,..]  # entities by id, title or text (specforge.search)
+specforge refs <id> [--direction both]  # what references it (specforge.find_references)
 specforge schema                     # emit the Graph Protocol schema
 specforge model                      # render the logical data model
 specforge outline                    # render the extension architecture
@@ -119,10 +126,10 @@ specforge extensions                 # list enabled builtins and installed exten
 specforge add @specforge/product     # enable a builtin, or install @scope/name@version from a registry
 specforge add <spec> <spec>...       # several at once: one change, all or nothing
 specforge remove <name>              # disable a builtin, drop an entry, or uninstall an extension
-specforge search <query>             # search registries
+specforge extensions search <query>  # search registries
 specforge publish                    # publish an extension to a registry
 # There is no built-in registry: list yours under "registries" in specforge.json
-# (see registry-trust.md); without one, add/update/search/publish fail with E063.
+# (see registry-trust.md); without one, add/update/extensions search/publish fail with E063.
 
 # Writing your own extension (your own kinds, fields, edges, rules, commands)
 specforge extension init             # scaffold an extension crate written with the SDK

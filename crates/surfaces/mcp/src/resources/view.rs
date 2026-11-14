@@ -1,9 +1,10 @@
 //! The graph views the core resources serve (ADR 0024 D4): `graph`,
-//! `context`, `brief` (whole or scoped) and `graph/{entity_id}` are
+//! `context`, `brief` (whole or scoped) and `graph/{+entity_id}` are
 //! `specforge export` over the call's project view, through the same
 //! function. The resource modules read their query through this one.
 //! Nothing here reads the server's state.
 
+use specforge_ops::read::context::ContextField;
 use specforge_ops::read::export::{ExportField, Format, Request};
 
 use crate::resource::{ReadOutcome, ResourceText};
@@ -13,6 +14,9 @@ use specforge_ops::view::ProjectView;
 
 /// The query keys a graph view reads.
 const KEYS: &str = "scope (or root), depth, kinds and max_tokens";
+
+/// The query keys the context view of one entity reads (ADR 0356).
+const ROLE_KEYS: &str = "depth, kinds, max_tokens and role";
 
 /// What a graph-view resource URI asks `ops::read::export` for: the template's
 /// placeholder (or `?scope=`, alias `?root=`, on an untemplated URI) as the
@@ -29,12 +33,44 @@ pub(crate) struct ViewQuery {
     pub depth: Option<usize>,
     pub kinds: Vec<String>,
     pub max_tokens: Option<usize>,
+    /// The context route whose pack the read answers (ADR 0356): read only by the context view of one entity.
+    pub role: Option<String>,
 }
 
 impl ViewQuery {
     /// The query of `uri`; `scope` names the template's placeholder whose
     /// value is the scope (`"entity_id"`), or is None on an untemplated URI.
     pub fn parse(uri: &Matched<'_>, scope: Option<&'static str>) -> Result<Self, Box<McpError>> {
+        Self::parse_keys(uri, scope, false)
+    }
+
+    /// The query of the context view of one entity (`specforge://context/{+entity_id}`): [`Self::parse`]'s keys and
+    /// `role`, a context route's qualified name. With `role`, the route's sections decide what the read covers, so
+    /// `depth` and `kinds` are refused naming the key.
+    pub fn parse_with_role(uri: &Matched<'_>) -> Result<Self, Box<McpError>> {
+        let parsed = Self::parse_keys(uri, Some("entity_id"), true)?;
+        if parsed.role.is_some() {
+            let given = [
+                ("depth", parsed.depth.is_some()),
+                ("kinds", !parsed.kinds.is_empty()),
+            ];
+            if let Some((key, _)) = given.into_iter().find(|(_, given)| *given) {
+                return Err(refuse(
+                    key,
+                    format!(
+                        "with role, the route's sections decide what the read covers: '{key}' is not read"
+                    ),
+                ));
+            }
+        }
+        Ok(parsed)
+    }
+
+    fn parse_keys(
+        uri: &Matched<'_>,
+        scope: Option<&'static str>,
+        role: bool,
+    ) -> Result<Self, Box<McpError>> {
         let query = uri.query();
         // An untemplated view names `scope` until a query gives the scope under another key.
         let mut parsed = ViewQuery {
@@ -100,10 +136,17 @@ impl ViewQuery {
                         .map(str::to_string)
                         .collect();
                 }
+                "role" if role => {
+                    if value.is_empty() {
+                        return Err(refuse(&key, "'role' must name a context route".to_string()));
+                    }
+                    parsed.role = Some(value);
+                }
                 other => {
+                    let keys = if role { ROLE_KEYS } else { KEYS };
                     return Err(refuse(
                         other,
-                        format!("unknown query key '{other}': this resource reads {KEYS}"),
+                        format!("unknown query key '{other}': this resource reads {keys}"),
                     ));
                 }
             }
@@ -119,6 +162,16 @@ impl ViewQuery {
             ExportField::Scope => Some(self.scope_key),
             ExportField::MaxTokens => Some("max_tokens"),
             ExportField::SchemaVersion | ExportField::Schema | ExportField::Directory => None,
+        }
+    }
+
+    /// The query key a context read's refusal about `field` is about: `role` names the route, the entity_id the
+    /// subject.
+    pub fn context_argument(field: ContextField) -> Option<&'static str> {
+        match field {
+            ContextField::Route => Some("role"),
+            ContextField::Subject => Some("entity_id"),
+            ContextField::MaxTokens => Some("max_tokens"),
         }
     }
 
@@ -226,7 +279,7 @@ mod tests {
         );
         assert_eq!(
             key(
-                "specforge://graph/{entity_id}",
+                "specforge://graph/{+entity_id}",
                 "specforge://graph/ghost",
                 Some("entity_id")
             ),

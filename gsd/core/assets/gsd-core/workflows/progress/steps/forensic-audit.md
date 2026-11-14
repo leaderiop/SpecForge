@@ -26,7 +26,7 @@ Check for existence of:
 ```bash
 specforge export --kinds pause,handoff --pick '.nodes[].id' || true   # by kind: a pause or handoff outside a phase is linked to nothing
 ```
-A `pause` entity is the handoff marker (`.continue-here.md` is not a file here).
+A `pause` entity is the handoff marker: there is no marker file.
 
 Emit:
 - ✓ `No orphaned handoff files` — if none found
@@ -34,7 +34,7 @@ Emit:
 
 **Check 3 — Deferred scope drift**
 
-Search phase artifacts (CONTEXT.md, DISCUSSION-LOG.md, BUG-BRIEF.md, VERIFICATION.md, SUMMARY.md, HANDOFF.md files under the `phase` entities) for patterns:
+Search the phases' `context`, `discussion`, `summary`, `verification` and `handoff` entities for the patterns below with `specforge search "<pattern>" --kinds context,discussion,summary,verification,handoff`, and the phases' goals with:
 ```bash
 while IFS= read -r ph; do goal=$(specforge query "$ph" --depth 0 --pick '.nodes[0].fields.goal'); case "$goal" in (*"defer to Phase"*|*"future phase"*|*"out of scope Phase"*|*"deferred to Phase"*) echo "$ph" ;; esac; done < <(specforge query "$MILESTONE" --depth 3 --kinds phase --pick '.nodes[kind=phase].id') || true
 ```
@@ -47,7 +47,7 @@ Emit:
 
 **Check 4 — Memory-flagged pending work**
 
-Check whether a `lesson` entity records pending work (there is no MEMORY.md here):
+Check whether a `lesson` entity records pending work:
 ```bash
 specforge export --kinds lesson --pick '.nodes[].id' || true
 ```
@@ -85,16 +85,19 @@ Emit:
 
 **Check 7 — Unresolved deferred items**
 
-Glob every phase directory's SCOPE BOUNDARY log (executor writes out-of-scope discoveries here per `agents/gsd-executor.md`):
+The milestone's executor discoveries, with their status: the deferred ideas whose `origin` is `execution` (`agents/gsd-executor.md`
+has an executor turn every out-of-scope discovery into such an idea). An idea deferred while a phase's context
+was set (`origin` `discussion`) is parked for a later phase on purpose and is not listed:
 ```bash
-specforge query "$MILESTONE" --depth 3 --kinds deferred_item --pick '.nodes[kind=deferred_item].id' || true
+specforge query "$MILESTONE" --depth 3 --kinds deferred_idea --pick '.nodes[fields.origin=execution]' --fields id,fields.status,fields.text || true
 ```
 
-For each `deferred-items.md` found, read its entries (bullet list, one entry per top-level list item — `-`, `*`, `+` or an ordered marker of one to nine digits terminated by a DOT, where an ordered list counts when it starts at `0.` or `1.` or continues a list already open at its level; `1)` is not a marker and neither is a ten-digit ordinal (`999999999.` counts, `1234567890.` does not) — with continuation lines indented beneath it; fenced code blocks at ANY indent, including deeper than CommonMark's three-space cap, and `* * *`-style separators are not entries; an unclosed fence ends with its own entry and never hides the entries after it; a closed pair of delimiters is a fence whatever sits between them). An entry is RESOLVED only if it carries an explicit `status: resolved` field on one of its lines — the bare key lower-case only, or the bolded `**Status:**` form in any case; the VALUE is case-insensitive in both; every other entry — including one with no `status:` field at all — is UNRESOLVED and must be surfaced (fail-safe: never silently drop a possibly-open item).
+An idea is RESOLVED only when its `status` is `resolved`; every other one — including one with no `status` at all —
+is UNRESOLVED and must be surfaced (fail-safe: never silently drop a possibly-open item).
 
 Emit:
-- ✓ `No unresolved deferred items` — if no `deferred-items.md` files exist, or every entry in every file is `status: resolved`
-- ⚠ `Unresolved deferred items found` — list each file's phase directory and its unresolved entry text (max 5 per file, truncated at 80 chars)
+- ✓ `No unresolved deferred items` — when the milestone holds no such idea, or each one it holds reads `resolved`
+- ⚠ `Unresolved deferred items found` — then show the open ideas grouped by phase, at most 5 a phase, each by id with its text cut after 80 characters
 
 ---
 
@@ -116,11 +119,11 @@ Review the flagged items above before acting on the routing suggestion.
 ```
 
 Then for each failed check, add a concrete next action:
-- Check 2 (orphaned handoff): `Read the handoff file(s) and resume from where work was paused: /gsd:resume-work`
-- Check 3 (deferred scope): `Add the missing phases to ROADMAP.md or update the deferred references`
+- Check 2 (orphaned handoff): `Pick the paused work up with /gsd:resume-work, which reads the handoff`
+- Check 3 (deferred scope): `Create each missing phase with /gsd:phase, or drop the reference that defers to it`
 - Check 4 (memory pending): `Review the flagged memory entries and resolve or clear them`
 - Check 5 (blocking todos): `Complete the operational steps in the pending todos before continuing`
 - Check 6 (uncommitted code): `Commit or stash the uncommitted changes before advancing`
-- Check 7 (unresolved deferred items): `Address each deferred item and mark it status: resolved in its deferred-items.md, or fold it into the roadmap`
-- Check 1 (STATE inconsistency): `Run /gsd:verify-work ${PHASE} to reconcile state`
+- Check 7 (unresolved deferred items): `Address each deferred item, or fold it into the roadmap as a phase`
+- Check 1 (STATE inconsistency): `Reconcile the phase with /gsd:verify-work ${PHASE}`
 </step>

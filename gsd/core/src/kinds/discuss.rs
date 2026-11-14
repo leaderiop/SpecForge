@@ -29,9 +29,6 @@ pub const CONTEXT: Kind = Kind::new(
         en("status", CONTEXT_STATUS)
             .c()
             .doc("**Status:** ready once canonical_refs and boundary are present and no interview is open"),
-        str("digest").c().doc(
-            "the digest of the context, its origin-context decisions and deferred ideas, that a research or spec records (gsd/W406)",
-        ),
     ],
 )
 .scoped_by("phase");
@@ -65,13 +62,26 @@ pub const DECISION: Kind = Kind::new(
 )
 .scoped_by("phase");
 
-/// `<deferred>`: excluded from every coverage rule. Named `DI1`.
+const IDEA_ORIGIN: &[&str] = &["discussion", "execution"];
+
+/// `<deferred>`: excluded from every coverage rule. Named `DI1`. Only a `discussion` idea is part of the phase's
+/// context, so an executor's discovery stales no pack written against that context.
 pub const DEFERRED_IDEA: Kind = Kind::new(
     "deferred_idea",
     "An idea deferred out of a phase (GSD CONTEXT.md <deferred>)",
-    &[str("text").r(), rf("phase", "phase").r(), str("why")],
+    &[
+        str("text").r(),
+        rf("phase", "phase").r(),
+        str("why"),
+        en("origin", IDEA_ORIGIN).r().i().doc(
+            "`discussion`: deferred while the phase's context was set (discuss, the PRD path, the source audit), and served with that context; `execution`: an executor's out-of-scope discovery, which no context serves and the forensic audit lists",
+        ),
+        en("status", &["open", "resolved"])
+            .doc("an execution idea: open until resolved; absent is open"),
+    ],
 )
-.scoped_by("phase");
+.scoped_by("phase")
+.complete_when("status", &["resolved"]);
 
 const DISCUSSION_MODES: &[&str] = &["interactive", "assumptions", "advisor"];
 const ENTRY: &[Field] = &[
@@ -80,6 +90,24 @@ const ENTRY: &[Field] = &[
     strs("options"),
     str("chosen"),
     en("mode", DISCUSSION_MODES),
+    str("notes").doc("the user's follow-up notes, or the reason for a correction"),
+    en("confidence", &["confident", "likely", "unclear"])
+        .doc("assumptions mode: how sure the assumption is"),
+    strs("evidence").doc("assumptions mode: the file paths behind the assumption"),
+];
+const CHECKPOINT_DECISION: &[Field] = &[
+    str("area").r(),
+    str("question").r(),
+    str("answer"),
+    strs("options_presented"),
+];
+const CHECKPOINT: &[Field] = &[
+    ts("timestamp"),
+    strs("areas_completed"),
+    strs("areas_remaining"),
+    blocks("decisions", CHECKPOINT_DECISION),
+    strs("deferred_ideas"),
+    strs("canonical_refs"),
 ];
 
 /// `NN-DISCUSSION-LOG.md`, named `02-DISCUSSION-LOG`: an audit record no agent context is built from.
@@ -91,6 +119,9 @@ pub const DISCUSSION: Kind = Kind::new(
         blocks("entries", ENTRY)
             .append()
             .doc("one entry per question asked"),
+        block("checkpoint", CHECKPOINT).doc(
+            "`NN-DISCUSS-CHECKPOINT.json`: where an interrupted discussion stands; set with `specforge set`, cleared with `specforge unset`",
+        ),
     ],
 )
 .scoped_by("phase");

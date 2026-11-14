@@ -7,6 +7,7 @@
 use crate::support::{Serve, Served, TestProject, call_tool};
 use serde_json::{Value, json};
 use specforge_ops::options::OptionTable;
+use specforge_ops::read::context::PACK_FORMAT;
 use specforge_ops::read::coverage::STATUS;
 use specforge_ops::read::export::{AGENT_FORMAT, FORMAT};
 use specforge_ops::read::infer::{END_STATUS, SESSION_ACTION};
@@ -55,6 +56,7 @@ fn enumerated() -> Vec<Advertised> {
     vec![
         advertised("specforge.query", "format", &AGENT_FORMAT),
         advertised("specforge.export", "format", &FORMAT),
+        advertised("specforge.context", "format", &PACK_FORMAT),
         required("specforge.render", "format", &FORMAT),
         advertised("specforge.model", "format", &MODEL_FORMAT),
         advertised("specforge.model", "group_by", &GROUP_BY),

@@ -93,6 +93,7 @@ pub fn values(input: &PassInput, statuses: &Statuses) -> Vec<PassValue> {
                 "pending": count("pending"),
                 "skipped": count("skipped"),
                 "blocked": count("blocked"),
+                "follow_ups": session.values.get("follow_ups").and_then(|f| f.as_array()).map_or(0, Vec::len),
             }),
         ));
         let gaps_of = |test: &PassEntity| -> Vec<&PassEntity> {

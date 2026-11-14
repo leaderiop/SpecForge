@@ -134,6 +134,44 @@ impl Occurrence {
     }
 }
 
+/// The references of an entity as one document: what `specforge refs --format json` prints and
+/// `specforge.find_references` replies (`McpReferenceResult`), the entity as asked, the direction asked for, and each
+/// occurrence [`Navigator::references`] answers.
+#[derive(Debug, Serialize, Shape)]
+pub struct ReferenceLocations {
+    pub entity_id: String,
+    #[shape(names = DIRECTION)]
+    pub direction: String,
+    pub locations: Vec<ReferenceLocation>,
+}
+
+/// One occurrence of the entity's ID (`McpReferenceLocation`).
+#[derive(Debug, Serialize, Shape)]
+pub struct ReferenceLocation {
+    pub referencing_entity_id: String,
+    pub referenced_entity_id: String,
+    /// The field naming the referenced entity; none for its declaration.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
+    pub role: Role,
+    pub precision: Precision,
+    pub source_span: SourceSpan,
+}
+
+impl ReferenceLocation {
+    /// One occurrence as a location.
+    pub fn of(occurrence: &Occurrence) -> Self {
+        ReferenceLocation {
+            referencing_entity_id: occurrence.holder.to_string(),
+            referenced_entity_id: occurrence.target.to_string(),
+            field: occurrence.field.as_ref().map(ToString::to_string),
+            role: occurrence.role,
+            precision: occurrence.precision,
+            source_span: occurrence.span.clone(),
+        }
+    }
+}
+
 /// Sort occurrences by (file, line, column) and drop repeats.
 fn sorted(mut occurrences: Vec<Occurrence>) -> Vec<Occurrence> {
     occurrences.sort_by_key(Occurrence::key);
@@ -244,6 +282,21 @@ impl Navigator<'_> {
             occurrences.push(self.declaration(node));
         }
         Ok(sorted(occurrences))
+    }
+
+    /// [`Self::references`] of `id` as its document, for every surface: the entity as asked, the direction's name,
+    /// and a location per occurrence. An entity the graph lacks is `view::not_found` (E003).
+    pub fn reference_locations(
+        &self,
+        id: &str,
+        query: ReferenceQuery,
+    ) -> Result<ReferenceLocations, Refusal<EntityField>> {
+        let occurrences = self.references(id, query)?;
+        Ok(ReferenceLocations {
+            entity_id: id.to_string(),
+            direction: DIRECTION.name_of(query.direction).to_string(),
+            locations: occurrences.iter().map(ReferenceLocation::of).collect(),
+        })
     }
 
     /// Every written token that names `id`, once each, sorted by (file, line, column): each reference the graph's

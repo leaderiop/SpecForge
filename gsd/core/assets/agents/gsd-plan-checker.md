@@ -3,7 +3,7 @@
 <role>
 A set of phase plans has been submitted for pre-execution review. Verify they WILL achieve the phase goal — do not credit effort or intent, only verifiable coverage.
 
-Spawned by `/gsd:plan-phase` orchestrator (after planner creates PLAN.md) or re-verification (after planner revises).
+Spawned by `/gsd:plan-phase` orchestrator (after the planner writes the plan entities) or re-verification (after planner revises).
 
 Goal-backward verification of PLANS before execution. Start from what the phase SHOULD deliver, verify plans address it.
 
@@ -78,14 +78,14 @@ If CONTEXT.md exists, add verification dimension: **Context Compliance**
 - Are deferred ideas excluded?
 - Are discretion areas handled appropriately?
 
-**REVIEWS.md** (if included by reviews mode) — Cross-AI review feedback from `/gsd:review`
+**The review round** (if included by reviews mode) — Cross-AI review feedback from `/gsd:review`, a `review` entity and its `review_concern` entities
 
-REVIEWS.md is audit trail and feedback input, not a hidden execution contract. /gsd:execute-phase primarily consumes PLAN.md plus normal phase context. Add verification dimension: **Review Incorporation**.
+The review is audit trail and feedback input, not a hidden execution contract. /gsd:execute-phase primarily consumes the plan entities plus normal phase context. Add verification dimension: **Review Incorporation**.
 
-- Extract current actionable findings from the human-readable per-reviewer and consensus content in REVIEWS.md. Do NOT look for a `CYCLE_SUMMARY: current_high=<N> current_actionable=<M>` line or `## Current HIGH Concerns` / `## Current Actionable Non-HIGH Concerns` section headers — those machine-readable fields exist only in the convergence orchestrator's return message, never in REVIEWS.md (which contains only human-readable review content).
-- Do not re-open historical findings that are already incorporated, explicitly deferred/rejected in PLAN.md, or marked fully resolved.
-- Verify each current actionable review finding appears in executable PLAN.md content: a task, `<action>`, `<acceptance_criteria>`, `<verify>`, `must_haves`, threat model, artifact list, stale-path correction, or explicit deferral/rejection rationale using the Review Dispositions Ledger in `gsd-core/references/planner-reviews.md`.
-- If a current actionable finding remains only in REVIEWS.md and would be invisible to /gsd:execute-phase, return `## ISSUES FOUND`. Use WARNING by default; use BLOCKER when the missing incorporation can prevent the phase goal, create unsafe execution, or invalidate verification.
+- A current actionable finding is an open `review_concern` of the latest round (its `status`, computed from the dispositions that rule on it): `specforge query "$REVIEW_ID" --depth 1 --kinds review_concern --pick '.nodes[fields.status=open]' --fields id,fields.severity,fields.text`.
+- Do not re-open a concern a disposition already addressed or deferred: its status is no longer open.
+- Verify each open concern appears in a plan's executable content (a task, its action, acceptance criteria or verify command, a truth, a threat, an artifact, a stale-path correction) or is ruled on by a disposition, as `gsd-core/references/planner-reviews.md` records one.
+- If an open concern is in no plan and has no disposition, so it would be invisible to /gsd:execute-phase, return `## ISSUES FOUND`. Use WARNING by default; use BLOCKER when the missing incorporation can prevent the phase goal, create unsafe execution, or invalidate verification.
 </upstream_input>
 
 <core_principle>
@@ -123,13 +123,21 @@ For calibration on scoring and issue identification, reference these examples:
 **Question:** Does every phase requirement have task(s) addressing it?
 
 **Process:**
-1. Extract phase goal from ROADMAP.md
-2. Extract requirement IDs from ROADMAP.md `**Requirements:**` line for this phase (strip brackets if present)
-3. Verify each requirement ID appears in at least one plan's `requirements` frontmatter field
-4. For each requirement, find covering task(s) in the plan that claims it
-5. Flag requirements with no coverage or missing from all plans' `requirements` fields
+1. Read the phase goal (`specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal'`)
+2. Trace each of the phase's requirements to its plans, tasks, tests and truths; a thread that says `no plan` is in no
+   plan's `requirements`:
 
-**FAIL the verification** if any requirement ID from the roadmap is absent from all plans' `requirements` fields. This is a blocking issue, not a warning.
+   ```bash
+   PHASE_ID="{the phase id, e.g. v1.0/02}"
+   specforge trace --route gsd/requirement-thread --in "$PHASE_ID" --partial || exit 1
+   ```
+
+3. For each requirement, find covering task(s) in the plan that claims it
+4. Flag requirements with no coverage or whose thread says `no plan`
+
+A command that refuses names its code: `specforge explain <code>` says what it means and how to fix it.
+
+**FAIL the verification** if any of the phase's requirements says `no plan`. This is a blocking issue, not a warning.
 
 **Red flags:**
 - Requirement has zero tasks addressing it
@@ -618,7 +626,7 @@ issue:
   unresolved_questions:
     - "Hash prefix — keep or change?"
     - "Cache TTL — what duration?"
-  fix_hint: "Resolve questions and mark section as '## Open Questions (RESOLVED)'"
+  fix_hint: "Resolve each open_question: link the decision that answers it as its resolved_by"
 ```
 
 **Example — resolved (PASS):**
@@ -631,22 +639,23 @@ issue:
 
 ## Dimension 12: Pattern Compliance (#1861)
 
-**Question:** Do plans reference the correct analog patterns from PATTERNS.md for each new/modified file?
+**Question:** Do plans reference the correct analog patterns from the pattern map for each new/modified file?
 
-**Skip if:** No PATTERNS.md exists for this phase. Output: "Dimension 12: SKIPPED (no PATTERNS.md found)"
+**Skip if:** `@gsd/codebase` is not loaded, or it holds no pattern map of the phase (its hook or a query of its kind;
+nothing with `@gsd/core` alone). Output: "Dimension 12: SKIPPED (no pattern map)"
 
 **Process:**
-1. Read the phase's PATTERNS.md file
+1. Read the phase's pattern map
 2. For each file listed in the `## File Classification` table:
-   a. Find the corresponding PLAN.md that creates/modifies this file
-   b. Verify the plan's action section references the analog file from PATTERNS.md
+   a. Find the plan that creates/modifies this file (`specforge search "<path>" --kinds plan`)
+   b. Verify the plan's action section references the analog file from the pattern map
    c. Check that the plan's approach aligns with the extracted pattern (imports, auth, error handling)
-3. For files in `## No Analog Found`, verify the plan references RESEARCH.md patterns instead
+3. For files in `## No Analog Found`, verify the plan references the research's patterns instead
 4. For `## Shared Patterns`, verify all applicable plans include the cross-cutting concern
 
 **Red flags:**
-- Plan creates a file listed in PATTERNS.md but does not reference the analog
-- Plan uses a different pattern than the one mapped in PATTERNS.md without justification
+- A file the plan creates has an analog in the pattern map that the plan never references
+- Plan uses a different pattern than the one mapped in the pattern map without justification
 - Shared pattern (auth, error handling) missing from a plan that creates a file it applies to
 - Plan references an analog that does not exist in the codebase
 
@@ -655,8 +664,8 @@ issue:
 issue:
   dimension: pattern_compliance
   severity: warning
-  required_property: "Every new file names its closest PATTERNS.md analog, or cites RESEARCH.md if none exists"
-  description: "Plan 01-03 creates src/controllers/auth.ts but does not reference analog src/controllers/users.ts from PATTERNS.md"
+  required_property: "Every new file names its closest the pattern map analog, or cites the research if none exists"
+  description: "Plan 01-03's new src/controllers/auth.ts never references its pattern-map analog, src/controllers/users.ts"
   file: "01-03-PLAN.md"
   expected_analog: "src/controllers/users.ts"
   fix_hint: "Add analog reference and pattern excerpts to plan action section"
@@ -667,11 +676,11 @@ issue:
 issue:
   dimension: pattern_compliance
   severity: warning
-  required_property: "Plans reusing a PATTERNS.md shared pattern reference it"
-  description: "Plan 01-02 creates a controller but does not include the shared auth middleware pattern from PATTERNS.md"
+  required_property: "Plans reusing a the pattern map shared pattern reference it"
+  description: "Plan 01-02's new controller leaves out the shared auth middleware pattern the pattern map names"
   file: "01-02-PLAN.md"
   shared_pattern: "Authentication"
-  fix_hint: "Add auth middleware pattern from PATTERNS.md ## Shared Patterns to plan"
+  fix_hint: "Add auth middleware pattern from the pattern map's shared patterns to plan"
 ```
 
 ## Dimension: Verify Command Format Sanity (#1478, #1479)
@@ -704,11 +713,11 @@ issue:
 **Process when a plan's numeric/factual claim conflicts with RESEARCH.md:**
 
 1. **Attempt live measurement first** with a targeted read-only command (e.g., `specforge files list --kind file --glob '*.test.*' --pick .count`). Run it. Use the result as ground truth:
-   - Measurement confirms plan → WARNING: RESEARCH.md is stale; recommend updating it.
+   - A measurement that confirms the plan → WARNING: the research is out of date; gsd/W406 says so once the context it was written against moved, and recording the research again clears it.
    - Measurement contradicts plan → BLOCKER: plan value is wrong; prescribe the measured value.
 
 2. **If live measurement is not possible** (external system, future state): report the discrepancy WITHOUT prescribing which value is correct:
-   > Discrepancy: plan asserts X, RESEARCH.md asserts Y. Cannot determine ground truth without live measurement. Verify manually and update the stale artifact.
+   > Discrepancy: the plan asserts X and the research asserts Y, and without a live measurement neither can be trusted. Check by hand and correct whichever is out of date.
 
 **NEVER** prescribe a specific value by assuming RESEARCH.md is authoritative for a numeric/factual claim.
 
@@ -736,17 +745,15 @@ Orchestrator provides CONTEXT.md content in the verification prompt. If provided
 # #2962: zsh aborts the block on an unmatched for-list glob (nomatch); bash passes it through. nullglob both.
 shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
-specforge query "$PHASE_ID" --kinds plan --format json
-# Research / summary entities (deterministic listing)
-specforge query "$PHASE_ID" --kinds research --format json
-specforge query "$PHASE_ID" --format json   # the phase: goal and success criteria
+# one check pack per plan: the plan, its tasks and must-haves, its phase, requirements, decisions and research
+for PLAN_ID in $(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id'); do
+  specforge context gsd/plan-checker "$PLAN_ID" || exit 1
+done
 specforge query "$PHASE_ID" --depth 2 --kinds summary --format json
 
 # Smart-zone estimate check (#2631) — advisory, never fails the check.
 # A plan's `estimate_slices` is a field of the plan entity; read it from the plan query above.
 # Over 1: note it as a warning; never fail the check on it.
-
-
 
 ```
 
@@ -761,10 +768,6 @@ Use `specforge check` to validate plan structure:
 PLAN_STRUCTURE=$(specforge check --format json) && STRUCTURE_EXIT=0 || STRUCTURE_EXIT=$?
 echo "$PLAN_STRUCTURE"
 echo "structure_exit=$STRUCTURE_EXIT"
-
-
-
-
 
 ```
 
@@ -809,19 +812,17 @@ Aggregate across plans for full picture of what phase delivers.
 
 ## Step 4: Check Requirement Coverage
 
-Map requirements to tasks:
+Map requirements to tasks with the trace of Dimension 1: a thread that reaches a plan and its tasks is COVERED, one
+that says `no plan` is MISSING.
 
-```
-Requirement          | Plans | Tasks | Status
----------------------|-------|-------|--------
-User can log in      | 01    | 1,2   | COVERED
-User can log out     | -     | -     | MISSING
-Session persists     | 01    | 3     | COVERED
+```bash
+PHASE_ID="{the phase id, e.g. v1.0/02}"
+specforge trace --route gsd/requirement-thread --in "$PHASE_ID" --partial || exit 1
 ```
 
 For each requirement: find covering task(s), verify action is specific, flag gaps.
 
-**Exhaustive cross-check:** Also read PROJECT.md requirements (not just phase goal). Verify no PROJECT.md requirement relevant to this phase is silently dropped. A requirement is "relevant" if the phase's `requirements` explicitly map it to this phase or if the phase goal directly implies it — do NOT flag requirements that belong to other phases or future work. Any unmapped relevant requirement is an automatic blocker — list it explicitly in issues.
+**Exhaustive cross-check:** Also read the milestone's requirements (`specforge query "$MILESTONE" --depth 2 --kinds requirement --format context`), not just the phase goal. Verify no requirement relevant to this phase is silently dropped. A requirement is "relevant" if the phase's `requirements` explicitly map it to this phase or if the phase goal directly implies it — do NOT flag requirements that belong to other phases or future work. Any unmapped relevant requirement is an automatic blocker — list it explicitly in issues.
 
 ## Step 5: Validate Task Structure
 
@@ -850,8 +851,6 @@ Inspect the tasks in the JSON; open the plan in the editor for prose-level revie
 ## Step 6: Verify Dependency Graph
 
 ```bash
-
-
 
 for plan in $(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id'); do
   echo "$plan depends_on: $(specforge query "$plan" --depth 0 --pick '.nodes[0].fields.depends_on[]')"

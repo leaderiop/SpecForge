@@ -66,9 +66,6 @@ Load GSD phase context:
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
 
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
@@ -130,7 +127,7 @@ Plan phase {phase_number}: {phase_name}
 
 ## Output Format
 
-Produce a GSD PLAN.md with the following YAML frontmatter:
+Write the plan as one Markdown document with the YAML frontmatter below; `/gsd:import` turns it into plan entities:
 
 ---
 phase: "{padded_phase}-{phase_slug}"
@@ -176,7 +173,7 @@ When ◆ ultraplan ready appears in your terminal:
   7. Run: /gsd:import --from <the file path>
 
 /gsd:import will run conflict detection, convert to GSD format,
-validate via plan-checker, update ROADMAP.md, and commit.
+validate via plan-checker, record the phase's plans, and commit.
 
 ### Launching ultraplan for Phase {N}: {phase_name}...
 ```

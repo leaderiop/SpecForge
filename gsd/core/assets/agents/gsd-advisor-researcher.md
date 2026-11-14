@@ -24,8 +24,7 @@ Spawned by `discuss-phase` via `Task()`. You do NOT present output directly to t
 Agent receives via prompt:
 
 - `<gray_area>` -- area name and description
-- `<phase_context>` -- phase description from roadmap
-- `<project_context>` -- brief project info
+- `<required_reading>` -- the advisor pack's line (`specforge context gsd/advisor-researcher <phase>`): run each listed `specforge` line before anything else. The pack is the context your rationale grounds in: the phase, its goal, context and decisions, the milestone and its other phases
 - `<calibration_tier>` -- one of: `full_maturity`, `standard`, `minimal_decisive`
 </input>
 

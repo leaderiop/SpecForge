@@ -100,7 +100,7 @@ fn names_code(fns: &[(String, String)], name: &str, code: &str) -> bool {
 fn every_code_fires_and_stays_silent() {
     let fns = test_fns();
     let book = codes();
-    assert_eq!(book.len(), 68, "the code book has 68 codes");
+    assert_eq!(book.len(), 70, "the code book has 70 codes");
     let listed: Vec<&str> = RULE_EVIDENCE.iter().map(|(c, _)| *c).collect();
     assert_eq!(listed, book, "RULE_EVIDENCE lists the code book, in order");
     let mut bad = Vec::new();
@@ -197,5 +197,5 @@ fn the_divergences_and_the_unreached_verdicts_are_counted_apart() {
             "tdd-review-checkpoint-red-only"
         ]
     );
-    assert_eq!(names(|c| matches!(c, Class::NotReproduced(_))).len(), 11);
+    assert_eq!(names(|c| matches!(c, Class::NotReproduced(_))).len(), 10);
 }

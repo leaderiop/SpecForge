@@ -592,7 +592,7 @@ fn command_line(ext: &str, commands: &[&ExtensionCommand]) -> Command {
         .disable_help_subcommand(true)
         .arg_required_else_help(true);
     for command in commands.iter().filter(|c| c.refusal().is_none()) {
-        let mut sub = Command::new(command.cli_name()).about(command.title().to_string());
+        let mut sub = Command::new(command.cli_name()).about(command.summary().to_string());
         if !command.description().is_empty() {
             sub = sub.long_about(command.description().to_string());
         }

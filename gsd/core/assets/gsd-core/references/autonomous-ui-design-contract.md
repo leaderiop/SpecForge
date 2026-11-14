@@ -1,7 +1,7 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/references/autonomous-ui-design-contract.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # UI Design Contract (Frontend Phases) — Autonomous Mode
 
-Step 3a.5 of `/gsd:autonomous`: resolve whether the current phase needs a UI-SPEC.md generated before planning, and generate one via active `plan:pre` step hooks if so. Non-blocking for every answer it gets — proceeds to step 3b (Plan) — except a gate that could not look (below), which is surfaced and stops.
+Step 3a.5 of `/gsd:autonomous`: before the planner runs, ask the active `plan:pre` step hooks whether this phase calls for a UI design contract (`@gsd/ui`'s `ui_spec`); when it does, those hooks make it. Non-blocking for every answer it gets — proceeds to step 3b (Plan) — except a gate that could not look (below), which is surfaced and stops.
 
 **Inputs:** `PHASE_NUM`, `PHASE_DIR` from execute_phase.
 

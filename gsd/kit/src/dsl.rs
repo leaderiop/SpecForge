@@ -54,6 +54,8 @@ pub enum Writer {
     Harness,
     /// `V`: the outcome or a value of a fresh verdict of a judged rule.
     Verdict,
+    /// `P`: the host's record of a context route's pack (ADR 0356), never an edit plan's.
+    Context,
 }
 
 #[derive(Clone, Copy)]
@@ -67,6 +69,8 @@ pub struct Field {
     pub human: bool,
     /// `+`: the baseline's list is a prefix of the current one.
     pub append: bool,
+    /// `O`: a context record checked only while its owner is open.
+    pub open: bool,
     /// The inclusive bounds of an `int`.
     pub range: Option<(i64, i64)>,
     /// The name the target kind reads this reference by (`lessons` for `lesson.retrospective`).
@@ -84,6 +88,7 @@ impl Field {
             immutable: false,
             human: false,
             append: false,
+            open: false,
             range: None,
             inverse: "",
             doc: "",
@@ -112,6 +117,16 @@ impl Field {
     /// `V`
     pub const fn v(mut self) -> Self {
         self.writer = Writer::Verdict;
+        self
+    }
+    /// `P`
+    pub const fn p(mut self) -> Self {
+        self.writer = Writer::Context;
+        self
+    }
+    /// `O`: checked while the owner is open; only a context record has an owner gate of its own.
+    pub const fn o(mut self) -> Self {
+        self.open = true;
         self
     }
     /// `U`
@@ -182,6 +197,13 @@ pub const fn rfs_any(name: &'static str, kinds: &'static [&'static str]) -> Fiel
 }
 pub const fn block(name: &'static str, members: &'static [Field]) -> Field {
     Field::new(name, Ty::Block(members))
+}
+/// The members a context record holds: the route that recorded it, its pack's digest and its budget.
+const CONTEXT_RECORD: &[Field] = &[str("route"), str("digest"), int("max_tokens")];
+
+/// A context route's record of its pack (ADR 0356): `route`, `digest` and `max_tokens`, written by the host.
+pub const fn context_record(name: &'static str) -> Field {
+    block(name, CONTEXT_RECORD).p()
 }
 pub const fn blocks(name: &'static str, members: &'static [Field]) -> Field {
     Field::new(name, Ty::Blocks(members))
@@ -278,7 +300,12 @@ fn path_check(f: &mut FieldBuilder, field: &Field, ty: FieldType, mode: Mode) {
 }
 
 fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
-    match field.ty {
+    // A context record's block and members are the SDK's (`FieldBuilder::context`).
+    let ty = match field.writer {
+        Writer::Context => Ty::Block(&[]),
+        _ => field.ty,
+    };
+    match ty {
         Ty::Str | Ty::Ts => {
             f.field_type(FieldType::String);
         }
@@ -353,6 +380,17 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
         Writer::Verdict => {
             f.verdict();
         }
+        Writer::Context => {
+            f.context();
+        }
+    }
+    if field.open {
+        assert!(
+            field.writer == Writer::Context,
+            "{kind}.{}: only a context record is checked while its owner is open",
+            field.name
+        );
+        f.while_open();
     }
     if !field.inverse.is_empty() {
         f.inverse_of(field.inverse);
@@ -541,30 +579,6 @@ pub fn path_fields(kinds: &[&Kind]) -> Vec<PathField> {
         }
     }
     found
-}
-
-/// The `kind.field` names of every top-level field of `kinds` whose type the kernel hands a pass as structured
-/// `values` today (lists and blocks): the only fields the context digest reads from `values`.
-pub fn structured(kinds: &[&Kind]) -> Vec<String> {
-    kinds
-        .iter()
-        .flat_map(|kind| {
-            kind.fields
-                .iter()
-                .filter(|f| {
-                    matches!(
-                        f.ty,
-                        Ty::Block(_)
-                            | Ty::Blocks(_)
-                            | Ty::Strs
-                            | Ty::Paths(_)
-                            | Ty::Refs(_)
-                            | Ty::RefsAny(_)
-                    )
-                })
-                .map(move |f| format!("{}.{}", kind.name, f.name))
-        })
-        .collect()
 }
 
 #[cfg(test)]

@@ -30,8 +30,8 @@ pace before processing all answers in a single pass.
    command
 4. On "refresh": read the JSON, process answered questions, update stats
    and HTML
-5. On "finalize": read all answers from JSON, generate CONTEXT.md in the
-   standard format
+5. On "finalize": every answer in the JSON is recorded as the phase
+   context, the same entities a standard discussion records
 
 ## When to use
 
@@ -43,5 +43,5 @@ session.
 
 - `--power --auto`: power wins. Power mode is incompatible with
   autonomous selection — its purpose is offline answering.
-- `--power --chain`: after the power-mode finalize step writes
-  CONTEXT.md, the chain auto-advance still applies (Read `chain.md`).
+- `--power --chain`: the chain's auto-advance still runs once power
+  mode's finalize step has recorded the context (Read `chain.md`).

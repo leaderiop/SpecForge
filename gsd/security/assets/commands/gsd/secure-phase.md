@@ -6,11 +6,11 @@ The text inside `<arguments>` is exactly what the user typed after the command n
 
 <objective>
 Verify threat mitigations for a completed phase. Three states:
-- (A) SECURITY.md exists — audit and verify mitigations
-- (B) No SECURITY.md, PLAN.md with threat model exists — run from artifacts
+- (A) The phase's `security_audit` exists — audit and verify mitigations
+- (B) No `security_audit`, and the phase's plans hold a threat model — run from artifacts
 - (C) Phase not executed — exit with guidance
 
-Output: updated SECURITY.md.
+Output: the phase's `security_audit`, recorded.
 </objective>
 
 <execution_context>

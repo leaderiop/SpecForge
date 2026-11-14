@@ -18,7 +18,7 @@ fn kinds() -> Vec<serde_json::Value> {
 
 #[test]
 fn the_model_has_its_kinds() {
-    assert_eq!(kinds().len(), 55);
+    assert_eq!(kinds().len(), 61);
 }
 
 #[test]
@@ -69,6 +69,9 @@ fn the_verification_kinds_declare_the_fields_of_the_model() {
     assert_eq!(field_of("override", "by")["required"], false);
     assert_eq!(field_of("override", "accepts")["required"], false);
     assert_eq!(field_of("override", "accepts")["writer"], "human");
+    let follow_ups = field_of("uat_session", "follow_ups");
+    assert_eq!(follow_ups["writer"], "harness");
+    assert_eq!(follow_ups["append_only"], true);
 }
 
 #[test]

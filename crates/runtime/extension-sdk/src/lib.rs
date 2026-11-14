@@ -16,8 +16,12 @@
 //! bindings.
 
 pub use specforge_extension_sdk_macros::extension;
+/// The engine's tools a contribution names by a `specforge:` class: the catalogue every surface agrees with (ADR 0334).
+pub use specforge_protocol_types::engine_tools;
 /// A command line as the shell's words: the host's reader (ADR 0292), for a guest that holds a command as text.
 pub use specforge_protocol_types::shell;
+/// The token estimate the host fits a context budget with, for a guest that declares or measures one.
+pub use specforge_protocol_types::tokens;
 
 /// The bindings generator [`component_guest!`] expands through.
 #[doc(hidden)]
@@ -77,6 +81,7 @@ mod builders;
 mod capability;
 mod checker;
 mod command_graph;
+mod context;
 mod contrib;
 mod guest;
 pub mod host;
@@ -94,6 +99,7 @@ pub use builders::{
 pub use capability::Capability;
 pub use checker::{CheckerBuilder, Judged};
 pub use command_graph::{CommandGraph, CommandInput};
+pub use context::ContextBuilder;
 pub use guest::{ExportHandler, Served, answer_export, no_other_exports};
 pub use host_contrib::{
     AgentBuilder, HookBuilder, HookCall, RenderCall, SkillBuilder, SlashBuilder, hook_export,
@@ -610,9 +616,9 @@ pub mod prelude {
     pub use crate::{AgentBuilder, HookBuilder, HookCall, RenderCall, SkillBuilder, SlashBuilder};
     pub use crate::{
         Annotates, ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence,
-        CommandFormat, CommandGraph, CommandInput, CommandOutput, EntityEvidence, GraphEdge,
-        GraphNode, McpResourceBuilder, McpToolBuilder, PromptArgBuilder, PromptBuilder, PromptCall,
-        PromptStepBuilder, RouteAnnotationBuilder, RouteBuilder, RouteStepBuilder,
+        CommandFormat, CommandGraph, CommandInput, CommandOutput, ContextBuilder, EntityEvidence,
+        GraphEdge, GraphNode, McpResourceBuilder, McpToolBuilder, PromptArgBuilder, PromptBuilder,
+        PromptCall, PromptStepBuilder, RouteAnnotationBuilder, RouteBuilder, RouteStepBuilder,
     };
     pub use crate::{
         ByteRange, CheckFinding, CheckItem, CheckRef, CheckerBuilder, Judged, MAX_PROBE_ROUNDS,

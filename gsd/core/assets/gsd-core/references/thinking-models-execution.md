@@ -37,7 +37,7 @@ Before adding an abstraction layer, generic type parameter, factory pattern, or 
 
 **Counters:** Removing or modifying existing code without understanding why it was written that way.
 
-Before removing, replacing, or significantly modifying existing code that the plan touches, determine WHY it exists. Check: git blame for the commit that introduced it, comments explaining the rationale, test cases that exercise it, the PLAN.md or SUMMARY.md that created it. If the purpose is unclear, keep it and add a comment noting the uncertainty -- do NOT remove code whose purpose you don't understand. If the plan explicitly says to remove it, still document what it did in the deviation notes.
+Before removing, replacing, or significantly modifying existing code that the plan touches, determine WHY it exists. Look for the reason in the commit that added it (git blame), in the comments that explain it, in the tests that exercise it, and in the plan or summary it came from (`specforge anchors --file <path>`). If the purpose is unclear, keep it and add a comment noting the uncertainty -- do NOT remove code whose purpose you don't understand. If the plan explicitly says to remove it, still document what it did in the deviation notes.
 
 ---
 

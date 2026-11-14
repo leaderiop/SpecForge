@@ -57,14 +57,13 @@ INIT=$(specforge export --kinds project,requirement,decision --format brief 2>/d
 if [ -n "$(specforge export --kinds project --pick '.nodes[].id' 2>/dev/null)" ]; then PROJECT_EXISTS=1; else PROJECT_EXISTS=0; fi   # 1 when the project already exists
 : # model resolution: the installed agents carry their model
 
-
 ```
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
 Work out `project_exists` (`PROJECT_EXISTS` above), `has_git`, `git_worktree_root` and `in_nested_subdir` (from `git rev-parse`).
 
-**Absolute paths (#2376):** a spawned subagent's own cwd may differ from the orchestrator's, so the staging directory is absolute: `INTEL_DIR` (made in the classify step, a scratch directory in the project's temp root, outside its specs) is `{intel_dir}` below, and `{conflicts_path}` is `$INTEL_DIR/INGEST-CONFLICTS.md`. The intel files are staging only; nothing in them is part of the spec.
+**Absolute paths (#2376):** a spawned subagent's own cwd may differ from the orchestrator's, so the staging directory is absolute: `INTEL_DIR` (made in the classify step, a scratch directory in the project's temp root, outside its specs) is `{intel_dir}` below, and `{conflicts_path}` is `$INTEL_DIR/conflicts.md`. The intel files are staging only; nothing in them is part of the spec.
 
 **Auto-detect MODE** if not set:
 - `project_exists: true` → `MODE=merge`
@@ -226,7 +225,7 @@ Agent({
 The synthesizer writes its staging files outside the spec:
 - `{intel_dir}/decisions.md`, `{intel_dir}/requirements.md`, `{intel_dir}/constraints.md`, `{intel_dir}/context.md`
 - `{intel_dir}/SYNTHESIS.md`
-- `{conflicts_path}` (`INGEST-CONFLICTS.md`, which is reported to the user)
+- `{conflicts_path}` (the conflict report, shown to the user)
 
 </step>
 
@@ -305,7 +304,7 @@ Agent({
     Per-type intel: {intel_dir}/decisions.md, {intel_dir}/requirements.md, {intel_dir}/constraints.md, {intel_dir}/context.md
     User-supplied fields: {collected in previous step}
 
-    Produce:
+    Produce, in one `specforge.edit` call (the roadmap edit, with the project, its decisions and the requirements as create ops ahead of the milestone and phases):
     - the `project` entity
     - the `requirement` entities
     - the `milestone` and `phase` entities (the roadmap)
@@ -316,7 +315,7 @@ Agent({
 })
 ```
 
-> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more intel files, write planning artifacts, or create ROADMAP.md independently while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
+> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more intel files, or write the roadmap entities yourself, while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
 </step>
 
@@ -329,9 +328,9 @@ Load the existing roadmap (`specforge export --kinds milestone,phase,context --f
 The synthesizer has already hard-blocked on any LOCKED-in-ingest vs LOCKED-in-existing contradiction; if we reach this step, no such blockers remain.
 
 Plan the merge:
-- **New requirements** from synthesized `{intel_dir}/requirements.md` that do not overlap existing requirement entities → add them as `requirement` entities
+- **New requirements** from synthesized `{intel_dir}/requirements.md` that do not overlap existing requirement entities → v2 and out-of-scope ones are recorded on their own (`specforge gsd reference templates/requirements.md`); a v1 one goes into the roadmap edit below, with the phase that holds it
 - **New decisions** from synthesized `{intel_dir}/decisions.md` that do not overlap existing `context` entities' `<decisions>` blocks → write to a new phase's `context` entity or append to the next milestone's requirements
-- **New scope** → derive phase additions following the `new-milestone.md` pattern; add the phases to the roadmap (`specforge new phase`)
+- **New scope** → derive phase additions following the `new-milestone.md` pattern, and write them with the new v1 requirements in one `specforge.edit` call (the roadmap edit, `specforge gsd reference templates/roadmap.md`, without its milestone op when the milestone exists): a phase or a v1 requirement written alone leaves a v1 requirement in no phase, and `gsd/E101` refuses it
 
 Preview the merge diff to the user and gate via approve-revise-abort before writing.
 
@@ -344,11 +343,6 @@ The entities are written through `specforge new` and `specforge set`, so there i
 ```bash
 : # no commit: the entities are written by the roadmapper, the staged intel is not committed
 [ -n "$INTEL_DIR" ] && specforge files remove --recursive "$INTEL_DIR" >/dev/null   # it holds the documents' text; the conflict report was shown at the gate
-
-
-
-
-
 
 ```
 

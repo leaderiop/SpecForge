@@ -191,17 +191,17 @@ fn the_shipped_capability_is_the_snapshots() {
 
 /// The cells of the row of ACCEPTANCE's security table named `family`.
 fn row(family: &str) -> Vec<usize> {
-    let table = ACCEPTANCE
-        .split("| Security family |")
-        .nth(1)
-        .and_then(|t| t.split("\n\n").next())
+    let table = gsd_kit::markdown::tables(ACCEPTANCE)
+        .into_iter()
+        .find(|t| t.header[0] == "Security family")
         .expect("the security table");
     let line = table
-        .lines()
-        .find(|l| l.starts_with(&format!("| {family} |")))
+        .rows
+        .iter()
+        .find(|cells| cells[0] == family)
         .unwrap_or_else(|| panic!("no row {family}"));
-    line.split('|')
-        .skip(2)
+    line.iter()
+        .skip(1)
         .take(5)
         .map(|c| {
             c.trim()

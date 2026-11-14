@@ -1,6 +1,6 @@
 # A read selection decides what the read covers
 
-**Status:** accepted (2026-10-21, architecture round 20, plan 07). Amends [ADR 0007](0007-emitter-is-export-formats.md) (`emit` exports the entities a selection covers; it no longer resolves a scope), [ADR 0015](0015-read-views-are-operations-over-the-project-view.md) (Q2: the kind filter keeps the queried entity because the root frames a drawn subgraph; Q4: `ScopeNotFound` is gone) and [ADR 0177](0177-a-reads-selection-is-checked-by-the-project-view.md) (S1: the selection also answers its entities, `Selection::selected`; `Selection::reach` is gone).
+**Status:** accepted (2026-10-21, architecture round 20, plan 07). Amends [ADR 0007](0007-emitter-is-export-formats.md) (`emit` exports the entities a selection covers; it no longer resolves a scope), [ADR 0015](0015-read-views-are-operations-over-the-project-view.md) (Q2: the kind filter keeps the queried entity because the root frames a drawn subgraph; Q4: `ScopeNotFound` is gone) and [ADR 0177](0177-a-reads-selection-is-checked-by-the-project-view.md) (S1: the selection also answers its entities, `Selection::selected`; `Selection::reach` is gone). Reopened through its clause by [ADR 0356](0356-an-extension-declares-the-context-a-role-reads.md): a pack's budget ranks by declared section order; R4 holds.
 
 ## Context
 

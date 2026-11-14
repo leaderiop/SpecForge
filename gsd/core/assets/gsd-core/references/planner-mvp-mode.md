@@ -38,9 +38,9 @@ When the orchestrator sets `WALKING_SKELETON=true` (Phase 1 of a new project und
   - One real DB read/write
   - One real UI interaction wired to the API
   - Deployment to a dev environment (or a documented local-run command that exercises the full stack)
-- The plan **must produce** `SKELETON.md` in the phase directory alongside `PLAN.md`. Use the template at `@~/.claude/gsd-core/references/skeleton-template.md`. `SKELETON.md` records the architectural decisions that subsequent phases will build on (chosen framework, DB, deployment target, auth approach, directory layout).
+- The planner **must record** the skeleton's architectural choices (framework, data layer, deployment target, auth, directory layout) as project `decision` entities, as `@~/.claude/gsd-core/references/skeleton-template.md` shows; every later phase builds on them.
 
-`SKELETON.md` is the architectural backbone for every later vertical slice; treat it as a contract, not a scratchpad.
+Each later vertical slice stands on these decisions, so treat them as binding, never as notes to revise at will.
 
 ## Anti-Patterns to Reject
 

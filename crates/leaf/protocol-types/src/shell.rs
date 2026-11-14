@@ -2,7 +2,8 @@
 //! literal, double quotes keep their text but for `\"`, `\\`, `\$` and `` \` ``, a backslash escapes the next
 //! character, and an unquoted `;`, `&`, `|`, `(`, `)` or newline ends a command. An unquoted redirect (`>`, `>>`, `<`,
 //! `<<`, `<<<`, `2>&1`, `>&2`, `&>`, `&>>`, `>|`, `<>`) ends the word before it and is no part of the command's words:
-//! a file target is kept beside them, and digits are its file descriptor only as a word of their own (`2>x`, not `a2>x`).
+//! it is kept beside them with its operator, its target and its file descriptor, which digits are only as a word of
+//! their own (`2>x`, not `a2>x`).
 //! No expansion is done (`$VAR` stays as written); a hook reads what was typed, not what the shell would run. A command
 //! substitution (`$(…)`, `` `…` ``, bare or in double quotes) stays in its word as written, and runs, so its text is kept
 //! beside the word and [`commands`] reads it.
@@ -25,15 +26,63 @@ pub enum Op {
     Close,
 }
 
+/// A redirect's operator: which way it moves data, so a reader tells a write from a read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RedirectOp {
+    /// `<`: reads the target.
+    In,
+    /// `<>`: opens the target to read and write.
+    ReadWrite,
+    /// `<&`: duplicates (or with `-` closes) an input descriptor.
+    DupIn,
+    /// `>`: writes the target, truncating it.
+    Out,
+    /// `>>`: appends to the target.
+    Append,
+    /// `>|`: writes the target even under `noclobber`.
+    Clobber,
+    /// `>&` before digits or `-`: duplicates (or closes) an output descriptor.
+    DupOut,
+    /// `&>`, or `>&` before a file: writes standard output and error to the target.
+    Both,
+    /// `&>>`: appends standard output and error to the target.
+    BothAppend,
+}
+
+impl RedirectOp {
+    /// Whether it writes its target: every output operator but a duplication, and `<>`.
+    pub const fn writes(self) -> bool {
+        matches!(
+            self,
+            RedirectOp::Out
+                | RedirectOp::Append
+                | RedirectOp::Clobber
+                | RedirectOp::Both
+                | RedirectOp::BothAppend
+                | RedirectOp::ReadWrite
+        )
+    }
+}
+
+/// One redirect of a command, as written.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Redirect {
+    /// The descriptor written right before the operator: the `2` of `2>x`, the `{name}` of `{name}>x`.
+    pub fd: Option<String>,
+    pub op: RedirectOp,
+    /// The word after the operator: a file, or the descriptor of `2>&1`.
+    pub target: String,
+}
+
 /// One command of a line, and the operator before it. Two operators in a row (`(a) && b`) leave a segment with no words
 /// between them, so none is lost.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Segment {
     /// The command's words, without its redirects, wherever they stood.
     pub words: Vec<String>,
-    /// Where it redirects to or from, as written: the target of `>x` or `<x`, the `1` of `2>&1`. A heredoc's tag and a
-    /// here-string's text name no file and are not kept.
-    pub redirects: Vec<String>,
+    /// Its redirects in line order, each with its descriptor, operator and target. A heredoc's tag and a here-string's
+    /// text name no file and are not kept.
+    pub redirects: Vec<Redirect>,
     /// The text of each `$(…)` and `` `…` `` in this command's words: they run before it.
     pub substitutions: Vec<String>,
     pub after: Option<Op>,
@@ -57,7 +106,9 @@ struct Reading {
     segments: Vec<Segment>,
     after: Option<Op>,
     words: Vec<String>,
-    redirects: Vec<String>,
+    redirects: Vec<Redirect>,
+    /// The descriptor and operator of the redirect whose target is being read.
+    redirect: Option<(Option<String>, RedirectOp)>,
     substitutions: Vec<String>,
     /// A `$(` found no `)` to the end of the line: the later ones read as text, so a long line takes one such scan.
     unclosed: bool,
@@ -118,14 +169,29 @@ impl Reading {
             let word = std::mem::take(&mut self.word);
             match std::mem::replace(&mut self.next, Next::Word) {
                 Next::Word => self.words.push(word),
-                Next::Redirect => self.redirects.push(word),
+                Next::Redirect => {
+                    if let Some((fd, op)) = self.redirect.take() {
+                        // `>&file` writes both streams; `>&2` and `>&-` duplicate or close a descriptor
+                        let descriptor = word == "-" || word.bytes().all(|b| b.is_ascii_digit());
+                        let op = match op {
+                            RedirectOp::DupOut if !descriptor => RedirectOp::Both,
+                            op => op,
+                        };
+                        self.redirects.push(Redirect {
+                            fd,
+                            op,
+                            target: word,
+                        });
+                    }
+                }
                 Next::Text => {}
             }
         }
     }
 
-    /// A redirect's `>` or `<` was read: bare digits, or bash's `{name}`, right before it are its file descriptor.
-    fn end_word_before_redirect(&mut self) {
+    /// A redirect's `>` or `<` was read: bare digits, or bash's `{name}`, right before it are its file descriptor,
+    /// returned; any other word before it ends.
+    fn end_word_before_redirect(&mut self) -> Option<String> {
         let fd = self.started
             && self.bare
             && (self.word.bytes().all(|b| b.is_ascii_digit())
@@ -138,16 +204,24 @@ impl Reading {
                             && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
                     }));
         if fd {
-            self.word.clear();
             self.started = false;
+            Some(std::mem::take(&mut self.word))
         } else {
             self.end_word();
+            None
         }
+    }
+
+    /// The operator `op` with the descriptor `fd` was read: the next word is its target.
+    fn begin_redirect(&mut self, fd: Option<String>, op: RedirectOp) {
+        self.redirect = Some((fd, op));
+        self.next = Next::Redirect;
     }
 
     fn end_command(&mut self) {
         self.end_word();
         self.next = Next::Word;
+        self.redirect = None;
         if !self.words.is_empty()
             || !self.redirects.is_empty()
             || !self.substitutions.is_empty()
@@ -261,6 +335,7 @@ pub fn segments(line: &str) -> Result<Vec<Segment>, String> {
         after: None,
         words: Vec::new(),
         redirects: Vec::new(),
+        redirect: None,
         substitutions: Vec::new(),
         unclosed: false,
         word: String::new(),
@@ -316,24 +391,42 @@ pub fn segments(line: &str) -> Result<Vec<Segment>, String> {
             '&' if chars.peek() == Some(&'>') => {
                 reading.end_word();
                 chars.next();
-                chars.next_if_eq(&'>');
-                reading.next = Next::Redirect;
+                let op = if chars.next_if_eq(&'>').is_some() {
+                    RedirectOp::BothAppend
+                } else {
+                    RedirectOp::Both
+                };
+                reading.begin_redirect(None, op);
             }
             '>' => {
-                reading.end_word_before_redirect();
-                chars.next_if_eq(&'>');
-                let _ = chars.next_if_eq(&'&').or_else(|| chars.next_if_eq(&'|'));
-                reading.next = Next::Redirect;
+                let fd = reading.end_word_before_redirect();
+                let append = chars.next_if_eq(&'>').is_some();
+                let op = match (
+                    append,
+                    chars.next_if_eq(&'&').or_else(|| chars.next_if_eq(&'|')),
+                ) {
+                    (false, None) => RedirectOp::Out,
+                    (false, Some('&')) => RedirectOp::DupOut,
+                    (false, Some(_)) => RedirectOp::Clobber,
+                    // zsh's `>>&` appends both streams; its `>>|` appends under `noclobber`
+                    (true, Some('&')) => RedirectOp::BothAppend,
+                    (true, _) => RedirectOp::Append,
+                };
+                reading.begin_redirect(fd, op);
             }
             '<' => {
-                reading.end_word_before_redirect();
-                reading.next = if chars.next_if_eq(&'<').is_some() {
+                let fd = reading.end_word_before_redirect();
+                if chars.next_if_eq(&'<').is_some() {
                     let _ = chars.next_if_eq(&'<').or_else(|| chars.next_if_eq(&'-'));
-                    Next::Text
+                    reading.next = Next::Text;
                 } else {
-                    let _ = chars.next_if_eq(&'&').or_else(|| chars.next_if_eq(&'>'));
-                    Next::Redirect
-                };
+                    let op = match chars.next_if_eq(&'&').or_else(|| chars.next_if_eq(&'>')) {
+                        Some('&') => RedirectOp::DupIn,
+                        Some(_) => RedirectOp::ReadWrite,
+                        None => RedirectOp::In,
+                    };
+                    reading.begin_redirect(fd, op);
+                }
             }
             ';' | '&' | '|' | '(' | ')' | '\n' => {
                 reading.end_command();

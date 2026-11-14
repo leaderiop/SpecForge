@@ -6,6 +6,7 @@ only; gated values are checked after the compute passes) and D5 (a gated value i
 [ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) D4 (the values phase reads owner state too, on the
 merged snapshot), and [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) D7 (the baseline runs
 the ungated checks at the commit, D9). Protocol 2.0.0, unreleased: its additions go into the 2.0.0 row, no bump.
+Amended by [ADR 0356](0356-an-extension-declares-the-context-a-role-reads.md): a gate on a `context` field is kept with no declared check; its record's staleness is its check.
 
 ## Context
 

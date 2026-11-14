@@ -1,6 +1,6 @@
 //! E206: a phase has at most one context, phase spec, discussion log and research, a quick plan at most one context
 //! and research, and the project at most one research. GSD keeps one such file in a phase (or quick task) directory;
-//! the kernel's scopes would allow two entities of a kind in a phase, and the drift pass needs "the phase's context".
+//! the kernel's scopes would allow two entities of a kind in a phase, and a context route reads "the phase's context".
 //!
 //! A context, a decision and a research name their owner: a context exactly one of `phase` and `plan`, a decision and a
 //! research at most one, and a `plan` must be a quick plan (one with no phase). A quick plan's research is not named
@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use specforge_extension_sdk::prelude::*;
 
-use crate::digest::{owner, quick_plan, scope_of};
+use crate::scope::{owner, quick_plan, scope_of};
 
 /// The kinds a phase (or, for `context` and `research`, a quick plan; for `research`, the project) holds one of.
 const ONE_PER_SCOPE: &[&str] = &["context", "phase_spec", "discussion", "research"];

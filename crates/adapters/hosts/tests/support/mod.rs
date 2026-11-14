@@ -1,6 +1,8 @@
 //! The fixture the goldens render: the `@t/core` and `@t/ui` contributions of `GsdHosts` (settings: `ui_phase` on,
 //! everything else default), as the operations hand them to an adapter.
 
+use specforge_ops::host::engine::{EngineLine, Resolved, ServedCommand, resolve};
+use specforge_ops::host::sections::tools_section;
 use specforge_ops::host::{
     Host, ModelChoice, Rendered, RenderedAgent, RenderedHook, RenderedSkill, RenderedSlash,
     SlashCall, Source,
@@ -18,6 +20,24 @@ fn source(extension: &str, version: &str, kind: &'static str, id: &str) -> Sourc
 
 fn body(id: &str, host: Host) -> String {
     format!("# {id}\n\nHost: {}\n\nDo the {id} work.\n", host.as_str())
+}
+
+/// The commands the fixture serves an agent: `@t/core`'s `stats` (its `approve` is human-attested).
+fn served() -> Vec<ServedCommand> {
+    vec![ServedCommand {
+        extension: "@t/core".into(),
+        line: EngineLine {
+            mcp: "specforge.t.stats".into(),
+            cli: vec!["specforge t stats".into()],
+            use_when: "Show the project's statistics.".into(),
+        },
+    }]
+}
+
+/// What the operations resolve for a contribution of `extension` declaring `tools` (and a slash command's `target`).
+fn resolved(extension: &str, tools: &[&str], target: Option<&str>) -> Resolved {
+    let declared: Vec<String> = tools.iter().map(|t| (*t).to_string()).collect();
+    resolve(&declared, extension, &served(), target)
 }
 
 fn attribution() -> Attribution {
@@ -49,19 +69,21 @@ fn hook(id: &str, event: HookEvent, tools: &[&str], paths: &[&str]) -> RenderedH
 }
 
 pub fn fixture(host: Host) -> Rendered {
-    let classes = |c: &[&str]| c.iter().map(|t| (*t).to_string()).collect::<Vec<_>>();
-    let agent =
-        |ext: &str, version: &str, id: &str, description: &str, tools: &[&str]| RenderedAgent {
+    let agent = |ext: &str, version: &str, id: &str, description: &str, tools: &[&str]| {
+        let r = resolved(ext, tools, None);
+        RenderedAgent {
             source: source(ext, version, "agent", id),
             id: id.into(),
             description: description.into(),
-            tools: classes(tools),
+            tools: r.classes,
             model: ModelChoice::Inherit,
             effort: None,
             color: None,
-            body: body(id, host),
+            body: body(id, host) + &tools_section(&r.lines),
             attribution: None,
-        };
+        }
+    };
+    let skill = resolved("@t/core", &["read", "skill"], None);
     let planner = RenderedAgent {
         model: ModelChoice::Tier("standard"),
         effort: Some("high".into()),
@@ -84,7 +106,13 @@ pub fn fixture(host: Host) -> Rendered {
                 "0.4.0",
                 "t-plan-checker",
                 "Checks a plan",
-                &["read", "search"],
+                &[
+                    "read",
+                    "search",
+                    "specforge:trace",
+                    "specforge:navigation",
+                    "specforge:t.stats",
+                ],
             ),
             agent("@t/ui", "1.0.0", "t-ui-checker", "Checks a UI", &["read"]),
         ],
@@ -92,9 +120,9 @@ pub fn fixture(host: Host) -> Rendered {
             source: source("@t/core", "0.4.0", "skill", "t-ns-context"),
             id: "t-ns-context".into(),
             description: "Routes a request about the codebase".into(),
-            tools: classes(&["read", "skill"]),
+            tools: skill.classes,
             argument_hint: None,
-            body: body("t-ns-context", host),
+            body: body("t-ns-context", host) + &tools_section(&skill.lines),
             attribution: None,
         }],
         slashes: vec![
@@ -103,7 +131,7 @@ pub fn fixture(host: Host) -> Rendered {
                 name: "t-plan-phase".into(),
                 description: "Plan the phase, then check the plans".into(),
                 argument_hint: Some("<phase>".into()),
-                tools: classes(&["read", "agent"]),
+                tools: resolved("@t/core", &["read", "agent"], Some("specforge:prompt")).classes,
                 effort: Some("max".into()),
                 call: SlashCall::Prompt {
                     mcp_name: "specforge.t.plan_phase".into(),
@@ -116,7 +144,7 @@ pub fn fixture(host: Host) -> Rendered {
                 name: "t-stats".into(),
                 description: "Show the project's statistics".into(),
                 argument_hint: None,
-                tools: classes(&["read"]),
+                tools: resolved("@t/core", &["read"], Some("specforge:t.stats")).classes,
                 effort: None,
                 call: SlashCall::Command {
                     mcp_tool: "specforge.t.stats".into(),

@@ -47,8 +47,9 @@ fn project() -> Assembled {
 /// The ids `request` finds, in rank order.
 fn ids(project: &Assembled, request: &SearchRequest) -> Vec<String> {
     answered(search(&project.view(), request))
-        .iter()
-        .map(|hit| hit.found.node.id.raw.to_string())
+        .results
+        .into_iter()
+        .map(|hit| hit.entity_id)
         .collect()
 }
 
@@ -153,19 +154,14 @@ fn the_text_search_reads_every_field_by_the_field_text_rule() {
         &[("a.spec", SHAPES)],
     );
     let view = specforge_ops::view::ProjectView::of(&p.project);
-    let hits = |t| answered(search(&view, &text(t)));
-    let ids = |t| {
-        hits(t)
-            .iter()
-            .map(|h| h.found.node.id.raw.to_string())
-            .collect::<Vec<_>>()
-    };
+    let hits = |t| answered(search(&view, &text(t))).results;
+    let ids = |t| hits(t).into_iter().map(|h| h.entity_id).collect::<Vec<_>>();
     assert_eq!(ids("2026-10"), ["dated"]);
     assert_eq!(ids("widget"), ["bare"]);
     let latency = hits("latency");
     assert_eq!(latency.len(), 1);
-    assert_eq!(latency[0].found.on.field_name(), Some("contract"));
-    assert_eq!(latency[0].snippet.as_deref(), Some("latency < 10ms"));
+    assert_eq!(latency[0].match_field.as_deref(), Some("contract"));
+    assert_eq!(latency[0].match_snippet.as_deref(), Some("latency < 10ms"));
     // A list is read by its items: `bare` produces logged_in.
     assert_eq!(ids("logged"), ["logged_in", "bare"]);
 }

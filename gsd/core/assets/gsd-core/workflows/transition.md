@@ -24,8 +24,8 @@ verification. Users should never be told to run `/gsd-transition`.
 1. the computed project state
 2. the `project` entity
 3. the `milestone` and `phase` entities
-4. Current phase's plan files (`*-PLAN.md`)
-5. Current phase's summary files (`*-SUMMARY.md`)
+4. the current phase's `plan` entities
+5. the current phase's `summary` entities
 
 </required_reading>
 
@@ -49,14 +49,12 @@ Mark current phase complete and advance to next. This is the natural point where
    post-processing.
 
 2. **Post-completion delegation** (invoked by `execute-phase` after its auto-chain
-   completion — #1526): `phase.complete` was already called by execute-phase's
-   `update_roadmap` step and verification already passed in execute-phase's
-   `verify_phase_goal`. SKIP `verify_completion` and `update_roadmap_and_state`
-   (re-running `phase.complete` would double-write STATE.md/ROADMAP.md). Run
-   `cleanup_handoff` (stale `.continue-here` handoffs are still cleared post-completion),
-   then BEGIN at `evolve_project` and run every step from there through
-   `offer_next_phase` (this is the post-processing parity set: graduation scan,
-   session-continuity, project-reference, accumulated-context, current-position/progress).
+   completion — #1526): verification already passed in execute-phase's
+   `verify_phase_goal`, and the phase's status is computed from it, so there is nothing
+   to re-run. SKIP `verify_completion`. Run `cleanup_handoff` (stale handoffs are still
+   cleared post-completion) and `update_roadmap_and_state` (a read of the phases), then
+   BEGIN at `evolve_project` and run every step from there through `offer_next_phase`
+   (the post-processing parity set: graduation scan, accumulated context).
    `archive_prompts` is a documented no-op in either mode.
 
 Detect post-completion mode when the caller states that phase completion and
@@ -189,20 +187,15 @@ If found, delete them — phase is complete, handoffs are stale.
 
 <step name="update_roadmap_and_state">
 
-**Delegate ROADMAP.md and STATE.md updates to the computed phase status:**
+There is nothing to write: the phase's status is computed (complete once its verification passed), and the roadmap's checkboxes, plan counts and progress follow from it. Read the milestone's phases:
 
 ```bash
-TRANSITION='{}'   # phase.complete: the phase status is computed (complete once its verification passed); STATE and the roadmap follow
+specforge gsd progress-report --format json
 ```
 
-The CLI handles:
-- Marking the phase checkbox as `[x]` complete with today's date
-- Updating plan count to final (e.g., "3/3 plans complete")
-- Updating the Progress table (Status → Complete, adding date)
-- Advancing STATE.md to next phase (Current Phase, Status → Ready to plan, Current Plan → Not started)
-- Detecting if this is the last phase in the milestone
+Extract from result: `phases[].number`, `phases[].name`, `phases[].status`.
 
-Extract from result: `completed_phase`, `plans_executed`, `next_phase`, `next_phase_name`, `is_last_phase`.
+The next phase is the first phase after this one whose `status` is not `Complete`. When there is none, this was the last phase of the milestone.
 
 </step>
 
@@ -215,7 +208,7 @@ The `completed/` subfolder pattern from create-meta-prompts handles archival.
 
 <step name="evolve_project">
 
-Evolve PROJECT.md to reflect learnings from completed phase.
+Evolve the project to reflect learnings from the completed phase: the `project` entity, its `requirement` entities and its `key_decisions`. Each change is a typed edit (`specforge schema --kind requirement`, likewise `project` and `decision`, lists the fields; `specforge new requirement --help` prints them as flags); the transition's commit is the project's "last updated". A refusal names its code: read it with `specforge explain <code>`.
 
 **Read phase summaries:**
 
@@ -228,76 +221,78 @@ if [ -n "${_SUMMARIES[0]}" ]; then for s in "${_SUMMARIES[@]}"; do specforge que
 
 1. **Requirements validated?**
    - Any Active requirements shipped in this phase?
-   - Move to Validated with phase reference: `- ✓ [Requirement] — Phase X`
+   - Nothing to write: a requirement's `status` is computed from the phases and verifications that cover it, so one this phase verified reads validated.
 
 2. **Requirements invalidated?**
    - Any Active requirements discovered to be unnecessary or wrong?
-   - Move to Out of Scope with reason: `- [Requirement] — [why invalidated]`
+   - Move it out of scope with its reason, once per requirement:
+
+   ```bash
+   REQ_ID="{the requirement's id, e.g. AUTH-02}"
+   IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
+   {why it was invalidated}
+   TEXT
+   specforge set "$REQ_ID" reason "$REASON" || exit 1
+   specforge set "$REQ_ID" tier out_of_scope || exit 1
+   ```
 
 3. **Requirements emerged?**
    - Any new requirements discovered during building?
-   - Add to Active: `- [ ] [New requirement]`
+   - Record each as a `v1` requirement of the phase that will build it. A `v1` requirement must be in a phase (`gsd/E101`), so it is recorded `v2`, mapped into the phase, then made `v1`:
+
+   ```bash
+   REQ_ID="{CATEGORY-NN: the next free id of its category}"
+   IFS= read -rd '' TEXT <<'TEXT' || true; TEXT=${TEXT%$'\n'}
+   {the requirement: user-centric, testable, atomic}
+   TEXT
+   IFS= read -rd '' CATEGORY <<'TEXT' || true; CATEGORY=${CATEGORY%$'\n'}
+   {its category, e.g. Authentication}
+   TEXT
+   BUILT_BY="{the phase that will build it, e.g. v1.0/03}"
+   specforge new requirement "$REQ_ID" "$TEXT" --in spec/requirements.spec --text "$TEXT" --category "$CATEGORY" --tier v2 || exit 1
+   specforge link "$BUILT_BY" requirements "$REQ_ID" || exit 1
+   specforge set "$REQ_ID" tier v1 || exit 1
+   ```
 
 4. **Decisions to log?**
-   - Extract decisions from SUMMARY.md files
-   - Add to Key Decisions table with outcome if known
+   - Read the decisions of the phase: `specforge query "$PHASE_ID" --depth 2 --kinds decision --format context`.
+   - Record one that holds for the whole project as a project decision, linked into the project's `key_decisions`:
+
+   ```bash
+   DECISION_ID="{the next free project decision id, e.g. D-07}"
+   IFS= read -rd '' DECISION <<'TEXT' || true; DECISION=${DECISION%$'\n'}
+   {the decision}
+   TEXT
+   IFS= read -rd '' RATIONALE <<'TEXT' || true; RATIONALE=${RATIONALE%$'\n'}
+   {why it was chosen, and its outcome if known}
+   TEXT
+   PROJECT=$(specforge export --kinds project --pick '.nodes[0].id') || exit 1
+   [ -n "$PROJECT" ] || { echo "no project entity: run /gsd:new-project first" >&2; exit 1; }
+   PROJECT_FILE=$(specforge query "$PROJECT" --depth 0 --pick '.nodes[0].file') || exit 1
+   specforge new decision "$DECISION_ID" "$DECISION" --in "$PROJECT_FILE" --origin project --text "$DECISION" --rationale "$RATIONALE" --outcome pending || exit 1
+   specforge link "$PROJECT" key_decisions "$DECISION_ID" || exit 1
+   ```
 
 5. **"What This Is" still accurate?**
    - If the product has meaningfully changed, update the description
    - Keep it current and accurate
 
-**Update PROJECT.md:**
-
-Make the edits inline. Update "Last updated" footer:
-
-```markdown
----
-*Last updated: [date] after Phase [X]*
-```
-
-**Example evolution:**
-
-Before:
-
-```markdown
-### Active
-
-- [ ] JWT authentication
-- [ ] Real-time sync < 500ms
-- [ ] Offline mode
-
-### Out of Scope
-
-- OAuth2 — complexity not needed for v1
-```
-
-After (Phase 2 shipped JWT auth, discovered rate limiting needed):
-
-```markdown
-### Validated
-
-- ✓ JWT authentication — Phase 2
-
-### Active
-
-- [ ] Real-time sync < 500ms
-- [ ] Offline mode
-- [ ] Rate limiting on sync endpoint
-
-### Out of Scope
-
-- OAuth2 — complexity not needed for v1
-```
+   ```bash
+   IFS= read -rd '' WHAT <<'TEXT' || true; WHAT=${WHAT%$'\n'}
+   {what this is now: 2-3 sentences on what it does and who it is for, in the user's words}
+   TEXT
+   PROJECT=$(specforge export --kinds project --pick '.nodes[0].id') || exit 1
+   [ -n "$PROJECT" ] || { echo "no project entity: run /gsd:new-project first" >&2; exit 1; }
+   specforge set "$PROJECT" what "$WHAT" || exit 1
+   ```
 
 **Step complete when:**
 
 - [ ] Phase summaries reviewed for learnings
-- [ ] Validated requirements moved from Active
-- [ ] Invalidated requirements moved to Out of Scope with reason
-- [ ] Emerged requirements added to Active
+- [ ] Each invalidated requirement is out of scope, its reason recorded
+- [ ] Emerged requirements recorded in the phase that builds them
 - [ ] New decisions logged with rationale
 - [ ] "What This Is" updated if product changed
-- [ ] "Last updated" footer reflects this transition
 
 </step>
 
@@ -311,7 +306,7 @@ Scan LEARNINGS.md files from recent phases for recurring patterns and surface pr
 @~/.claude/gsd-core/workflows/graduation.md
 ```
 
-This step is fully delegated to `graduation.md`. It handles guard checks (feature flag, window size, threshold), clustering, backlog filtering, HITL prompting, promotion writes, and STATE.md updates.
+This step is fully delegated to `graduation.md`. It handles guard checks (feature flag, window size, threshold), clustering, filtering on each lesson's status, HITL prompting, promotion as project decisions, and each lesson's disposition.
 
 **This step is always non-blocking:** graduation candidates are surfaced for the developer's decision; no action is required to continue the transition. If the graduation scan produces no qualifying clusters, it prints a single `[graduation: no qualifying clusters]` line and returns.
 
@@ -323,105 +318,27 @@ This step is fully delegated to `graduation.md`. It handles guard checks (featur
 
 </step>
 
-<step name="update_current_position_after_transition">
-
-**Note:** Basic position updates (Current Phase, Status, Current Plan, Last Activity) were already handled by the computed phase status in the update_roadmap_and_state step.
-
-Verify the updates are correct by reading STATE.md. If the progress bar needs updating, use:
-
-```bash
-PROGRESS=$(specforge gsd progress-report)
-```
-
-Update the progress bar line in STATE.md with the result.
-
-**Step complete when:**
-
-- [ ] Phase number incremented to next phase (done by phase complete)
-- [ ] Plan status reset to "Not started" (done by phase complete)
-- [ ] Status shows "Ready to plan" (done by phase complete)
-- [ ] Progress bar reflects total completed plans
-
-</step>
-
-<step name="update_project_reference">
-
-Update Project Reference section in STATE.md.
-
-```markdown
-## Project Reference
-
-See: the `project` entity (updated [today])
-
-**Core value:** [Current core value from PROJECT.md]
-**Current focus:** [Next phase name]
-```
-
-Update the date and current focus to reflect the transition.
-
-</step>
-
 <step name="review_accumulated_context">
 
-Review and update Accumulated Context section in STATE.md.
+Review the accumulated context: the open blockers and this phase's decisions, `specforge query "$MILESTONE" --depth 2 --kinds blocker,decision --format context`.
 
 **Decisions:**
 
 - Note recent decisions from this phase (3-5 max)
-- Full log lives in PROJECT.md Key Decisions table
+- One that holds for the whole project is recorded as a project decision in `evolve_project` (item 4)
 
 **Blockers/Concerns:**
 
 - Review blockers from completed phase
-- If addressed in this phase: Remove from list
-- If still relevant for future: Keep with "Phase X" prefix
-- Add any new concerns from completed phase's summaries
-
-**Example:**
-
-Before:
-
-```markdown
-### Blockers/Concerns
-
-- ⚠️ [Phase 1] Database schema not indexed for common queries
-- ⚠️ [Phase 2] WebSocket reconnection behavior on flaky networks unknown
-```
-
-After (if database indexing was addressed in Phase 2):
-
-```markdown
-### Blockers/Concerns
-
-- ⚠️ [Phase 2] WebSocket reconnection behavior on flaky networks unknown
-```
+- One this phase addressed is resolved: `specforge gsd resolve-blocker <blocker> "<how it was resolved>"`
+- One still relevant for the future stays open: its `phase` names where it came from
+- A new concern from the completed phase's summaries is raised: `specforge gsd raise-blocker "<the concern>" --phase "$PHASE_ID"`
 
 **Step complete when:**
 
-- [ ] Recent decisions noted (full log in PROJECT.md)
-- [ ] Resolved blockers removed from list
-- [ ] Unresolved blockers kept with phase prefix
-- [ ] New concerns from completed phase added
-
-</step>
-
-<step name="update_session_continuity_after_transition">
-
-Update Session Continuity section in STATE.md to reflect transition completion.
-
-**Format:**
-
-```markdown
-Last session: [today]
-Stopped at: Phase [X] complete, ready to plan Phase [X+1]
-Resume file: None
-```
-
-**Step complete when:**
-
-- [ ] Last session timestamp updated to current date and time
-- [ ] Stopped at describes phase completion and next phase
-- [ ] Resume file confirmed as None (transitions don't use resume files)
+- [ ] Recent decisions noted (project-wide ones recorded as project decisions)
+- [ ] Addressed blockers resolved
+- [ ] New concerns from completed phase raised as blockers
 
 </step>
 
@@ -429,13 +346,12 @@ Resume file: None
 
 **MANDATORY: Verify milestone status before presenting next steps.**
 
-**Use the transition result from the computed phase status:**
+**Use the phases read in `update_roadmap_and_state`:**
 
-The `is_last_phase` field from the phase complete result tells you directly:
-- `is_last_phase: false` → More phases remain → Go to **Route A**
-- `is_last_phase: true` → Last phase done → **Check for workstream collisions first**
+- a phase after this one whose `status` is not `Complete` → More phases remain → Go to **Route A**
+- none → Last phase done → **Check for workstream collisions first**
 
-The `next_phase` and `next_phase_name` fields give you the next phase details.
+The next phase's `number` and `name` give you the next phase details.
 
 If you need additional context, use:
 ```bash
@@ -447,10 +363,6 @@ This returns all phases with goals, disk status, and completion info.
 **Section-manifest gate (#2994):** `specforge` needs no setup — fetch the dedicated `init.transition` bundle for the workstream-collision-check gate below:
 
 ```bash
-
-
-
-
 
 INIT_TRANSITION=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
@@ -468,12 +380,13 @@ If `section_manifest` (from `INIT_TRANSITION`) is `null` or `"workstream-collisi
 
 **Route A: More phases remain in milestone**
 
-Read ROADMAP.md to get the next phase's name and goal.
+The next phase's name is in the phases read above; its goal is the phase entity's `goal`.
 
 **Check if next phase has CONTEXT.md:**
 
 ```bash
-specforge files list --kind file --no-ignore --glob '*-CONTEXT.md' --format human 2>/dev/null || true  # the next phase's
+NEXT_PHASE="{next_phase}"   # the next phase's number as its id writes it (02, 02.1), from the phases read above
+NEXT_CONTEXT=$(specforge query "$MILESTONE/$NEXT_PHASE" --depth 1 --kinds context --pick '.nodes[kind=context].id' --first 1)   # its context entity; empty when it has none
 ```
 
 **If next phase exists:**
@@ -563,7 +476,7 @@ Exit skill and invoke SlashCommand("/gsd:discuss-phase [X+1] --auto")
 
 **Route B1: Workstream done, other workstreams still active**
 
-This route is reached when `is_last_phase: true` AND the collision check found
+This route is reached when this was the last phase AND the collision check found
 other active workstreams. Do NOT suggest completing the milestone or advancing
 to the next milestone — other workstreams are still working.
 
@@ -619,7 +532,7 @@ Do NOT auto-invoke any further slash commands.
 **Route B: All phases complete (milestone ready to close)**
 
 **This route is only reached when:**
-- `is_last_phase: true` AND no other active workstreams exist (or flat mode)
+- this was the last phase AND no other active workstreams exist (or flat mode)
 
 **Clear auto-advance chain flag** — milestone boundary is the natural stopping point:
 
@@ -695,7 +608,7 @@ Respect user judgment — they know if work matters.
 
 **If marking complete with incomplete plans:**
 
-- Update ROADMAP: "2/3 plans complete" (not "3/3")
+- Nothing to update: the roadmap's plan count is computed, so it reads "2/3 plans complete" (not "3/3")
 - Note in transition message which plans were skipped
 
 </partial_completion>
@@ -706,10 +619,9 @@ Transition is complete when:
 
 - [ ] Current phase plan summaries verified (all exist or user chose to skip)
 - [ ] Any stale handoffs deleted
-- [ ] ROADMAP.md updated with completion status and plan count
-- [ ] PROJECT.md evolved (requirements, decisions, description if needed)
-- [ ] STATE.md updated (position, project reference, context, session)
-- [ ] Progress table updated
+- [ ] The next phase read from the milestone's phases
+- [ ] The project evolved with typed edits (requirements, decisions, description if needed)
+- [ ] Blockers resolved or raised
 - [ ] User knows next steps
 
 </success_criteria>

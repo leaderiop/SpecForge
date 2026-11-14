@@ -213,7 +213,7 @@ fn search_without_registry_makes_no_network_call() {
     let dir = project_without_registry();
     let output = spy
         .on(&dir)
-        .command(&["search", "widget", "--format", "json"])
+        .command(&["extensions", "search", "widget", "--format", "json"])
         .output()
         .unwrap();
     assert_no_registry(&output);
@@ -242,7 +242,8 @@ fn search_and_login_refuse_an_unusable_config_as_add_does() {
 
     // (`publish` builds its declaration first; its registry read is the same
     // `configured`, covered in specforge-ops-registry.)
-    for args in [&["search", "widget"][..], &["login", "--token", "t"]] {
+    let search = ["extensions", "search", "widget"];
+    for args in [&search[..], &["login", "--token", "t"]] {
         let (ok, json) = refusal(args);
         assert!(!ok, "{args:?}");
         assert_eq!(json["code"], added["code"], "{args:?}: {json}");
@@ -463,7 +464,7 @@ fn search_shows_a_duplicate_registry_alias() {
         {"alias": "main", "url": UNREACHABLE, "default_registry": true},
         {"alias": "main", "url": UNREACHABLE},
     ]));
-    let stderr = stderr_of(&run_spied(&["search", "widget"], &dir));
+    let stderr = stderr_of(&run_spied(&["extensions", "search", "widget"], &dir));
     assert!(
         stderr.contains("warning[W140]: Duplicate registry alias \"main\""),
         "{stderr}"
@@ -500,7 +501,7 @@ fn search_shows_that_no_registry_is_the_default() {
     let dir = project_with_registries(serde_json::json!([
         {"alias": "main", "url": UNREACHABLE},
     ]));
-    let stderr = stderr_of(&run_spied(&["search", "widget"], &dir));
+    let stderr = stderr_of(&run_spied(&["extensions", "search", "widget"], &dir));
     assert!(stderr.contains("info[I003]"), "{stderr}");
 }
 
@@ -537,11 +538,8 @@ fn login_refuses_a_configuration_with_an_unreadable_entry_before_any_request() {
 #[test]
 fn search_with_no_readable_registry_entry_fails_with_e067() {
     let dir = project_with_registries(serde_json::json!([{"alias": "broken"}]));
-    let output = run_spied(&["search", "widget", "--format", "json"], &dir);
-    assert!(!output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value =
-        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("not JSON ({e}): {stdout}"));
+    let (ok, json, _) = json_run(&["extensions", "search", "widget"], &dir);
+    assert!(!ok);
     assert_eq!(json["code"], "E067", "{json}");
     assert!(
         json["error"]
@@ -992,7 +990,8 @@ fn a_failed_registry_is_reported_once_and_search_fails_when_all_did() {
         {"alias": "down", "url": "http://127.0.0.1:9", "default_registry": true}
     ]));
 
-    let output = Cli::on(&dir).command(&["search", "x"]).output().unwrap();
+    let search = ["extensions", "search", "x"];
+    let output = Cli::on(&dir).command(&search).output().unwrap();
 
     assert_eq!(output.status.code(), Some(1));
     let stderr = stderr_of(&output);
@@ -1011,7 +1010,7 @@ fn search_names_the_registry_of_each_hit() {
     let dir = project_on(&registry);
 
     let output = Cli::on(&dir)
-        .command(&["search", "greet", "--format", "json"])
+        .command(&["extensions", "search", "greet", "--format", "json"])
         .output()
         .unwrap();
 
@@ -1029,7 +1028,7 @@ fn an_unknown_category_is_refused_before_any_request() {
     let dir = project_on(&registry);
 
     let output = Cli::on(&dir)
-        .command(&["search", "x", "--contributes", "widgets"])
+        .command(&["extensions", "search", "x", "--contributes", "widgets"])
         .output()
         .unwrap();
 
@@ -1568,7 +1567,7 @@ fn a_registry_named_by_its_root_is_searched() {
         serde_json::json!([{"alias": "local", "url": registry.root().as_str(), "default_registry": true}]),
     );
 
-    let (ok, json, _) = json_run(&["search", "greet"], &dir);
+    let (ok, json, _) = json_run(&["extensions", "search", "greet"], &dir);
 
     assert!(ok, "{json}");
     assert!(json.to_string().contains("@sdk/greet"), "{json}");
@@ -1604,7 +1603,7 @@ fn a_registry_url_with_the_version_prefix_is_refused_before_any_request() {
     ]));
     let output = spy
         .on(&dir)
-        .command(&["search", "greet", "--format", "json"])
+        .command(&["extensions", "search", "greet", "--format", "json"])
         .output()
         .unwrap();
     assert!(!output.status.success());

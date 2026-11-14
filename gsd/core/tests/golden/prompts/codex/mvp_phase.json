@@ -11,8 +11,8 @@
     "",
     "1. Prompts for an \"As a / I want to / So that\" user story (three structured questions)",
     "2. Runs SPIDR splitting check — if the story is too large, walks through Spike/Paths/Interfaces/Data/Rules and offers to split into multiple phases",
-    "3. Writes `**Mode:** mvp` and the reformatted `**Goal:**` to the phase's ROADMAP.md section",
-    "4. Delegates to `$gsd-plan-phase <N>` which auto-detects MVP mode via the roadmap field",
+    "3. Records `mode mvp` and the reformatted goal on the phase entity",
+    "4. Delegates to `$gsd-plan-phase <N>` which auto-detects MVP mode via the phase's `mode` field",
     "",
     "Phase 1 of the vertical-mvp-slice PRD shipped the planner-side machinery; this command is the user entry point for it.",
     "</objective>",
@@ -20,7 +20,7 @@
     "<execution_context>",
     "<file path=\"gsd-core/workflows/mvp-phase.md\">",
     "<purpose>",
-    "Guide the user through MVP-mode planning for a phase. Prompts for an \"As a / I want to / So that\" user story, runs SPIDR splitting check on the story, writes the result to ROADMAP.md, and delegates to `$gsd-plan-phase` (which auto-detects MVP via the roadmap mode field shipped in PRD Phase 1).",
+    "Guide the user through MVP-mode planning for a phase. Prompts for an \"As a / I want to / So that\" user story, runs SPIDR splitting check on the story, records the result on the phase entity (its `mode` and `goal`), and delegates to `$gsd-plan-phase` (which auto-detects MVP via the phase's `mode` field).",
     "</purpose>",
     "",
     "<required_reading>",
@@ -61,14 +61,14 @@
     "PHASE_GOAL=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.goal' 2>/dev/null)",
     "PHASE_MODE=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.mode' 2>/dev/null)"
   ],
-  "bytes": 34599,
+  "bytes": 34841,
   "end": [
     "1. The `**Goal:**` line stays on a single line (no line breaks inside the story). If the story is longer than ~120 chars, it should be split into multiple phases via SPIDR (see `spidr-splitting.md`).",
     "2. The `**Mode:** mvp` line is added immediately below `**Goal:**`. If `**Mode:**` already exists, it is replaced (not duplicated).",
     "",
     "## How it lands in PLAN.md",
     "",
-    "The `gsd-planner` agent (with MVP_MODE=true) emits the user story as the first content under the phase header in `PLAN.md`:",
+    "With MVP_MODE=true, each plan's objective opens with the user story, as the `gsd-planner` agent writes it:",
     "",
     "```markdown",
     "## Phase Goal",
@@ -82,7 +82,7 @@
     "...",
     "```",
     "",
-    "Note the bold-keyword formatting (`**As a**`, `**I want to**`, `**so that**`) is for the PLAN.md emit only. The ROADMAP.md `**Goal:**` line uses prose form (the keywords are not bolded inside the goal line, since the goal is itself a single bolded label).",
+    "Inside a plan, and in no other place, the three keywords stand in bold: `**As a**`, `**I want to**`, `**so that**`. The phase's goal in the roadmap keeps them plain, since that goal is already shown as one bold label.",
     "</file>",
     "</execution_context>",
     "",
@@ -91,12 +91,12 @@
     "<context>",
     "Phase number: the `<arguments>` block (required — integer or decimal like `2.1`)",
     "",
-    "The phase must already exist in ROADMAP.md (created via `$gsd-new-project`, `$gsd-phase`, or `$gsd-phase --insert`). This command does not create new phases — it converts an existing phase to MVP mode.",
+    "The phase entity must already exist (created via `$gsd-new-project`, `$gsd-phase`, or `$gsd-phase --insert`). This command does not create new phases — it converts an existing phase to MVP mode.",
     "</context>",
     "",
     "<process>",
     "Execute the mvp-phase workflow from `specforge gsd reference gsd-core/workflows/mvp-phase.md --host codex` end-to-end.",
-    "Preserve all gates: phase existence, status guard (refuse in_progress/completed), user-story format validation, SPIDR splitting check, ROADMAP write confirmation, plan-phase delegation.",
+    "Preserve all gates: phase existence, status guard (refuse in_progress/completed), user-story format validation, SPIDR splitting check, phase write confirmation, plan-phase delegation.",
     "</process>",
     "",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 692,
+  "lines": 690,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:9fba6d62e184c6bb5100ea57a902653a7b5b8d3eb562ea5ad396d18050095c9e",
+    "digest": "sha256:a4ea4d88114d1e100f413fca797ef95cfc841a664fe66c478421c4a30a44201b",
     "prompt": "@gsd/core@VERSION:mvp_phase",
     "steps": [
       {
@@ -206,5 +206,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "9fba6d62e184c6bb5100ea57a902653a7b5b8d3eb562ea5ad396d18050095c9e"
+  "sha256": "a4ea4d88114d1e100f413fca797ef95cfc841a664fe66c478421c4a30a44201b"
 }

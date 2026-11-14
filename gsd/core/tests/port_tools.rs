@@ -16,90 +16,48 @@ mod command_word;
 mod files;
 #[path = "common/host_options.rs"]
 mod host_options;
+#[path = "common/ledger.rs"]
+mod ledger;
+#[path = "common/port_map.rs"]
+mod port_map;
 #[path = "common/specforge_only.rs"]
 mod specforge_only;
+#[path = "port_tools/state_files.rs"]
+mod state_files;
+#[path = "port_tools/writes.rs"]
+mod writes;
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
 }
 
-/// Body lines of an upstream file; a command or agent file loses its frontmatter.
-fn upstream_body(relative: &str) -> Vec<String> {
-    let base = Path::new(gsd_kit::snapshot!());
-    let plain = base.join(relative);
-    let file = if plain.is_file() {
-        plain
-    } else {
-        base.join(format!("{relative}.txt"))
-    };
-    let text = std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{}: {e}", file.display()));
-    let mut lines: Vec<String> = text.split('\n').map(String::from).collect();
-    if relative.starts_with("commands/") || relative.starts_with("agents/") {
-        let end = lines[1..]
-            .iter()
-            .position(|l| l == "---")
-            .expect("a closing ---")
-            + 1;
-        lines.drain(..=end);
-    }
-    lines
-}
-
-/// Every asset as `(path under assets/, its lines after the header, upstream's body)`.
-fn every_asset() -> Vec<(String, Vec<String>, Vec<String>)> {
+/// Every asset as `(path under assets/, its lines after the header)`.
+fn every_asset() -> Vec<(String, Vec<String>)> {
     asset_code::assets_under("assets")
-        .into_iter()
-        .map(|(relative, lines)| {
-            let body = upstream_body(&relative);
-            (relative, lines, body)
-        })
-        .collect()
 }
-
-/// The verbs of the `specforge` CLI that ported lines name.
-const VERBS: &[&str] = &[
-    "add", "check", "collect", "export", "files", "format", "git", "grants", "gsd", "http", "init",
-    "install", "new", "query", "run", "schema", "set", "settings", "wait",
-];
-
-/// Commands of `@gsd/security` that core's text asks for when it is loaded (`security-hooks` for the security gate).
-const EXTENSION_COMMANDS: &[&str] = &["security-gate", "security-hooks", "threat-ids"];
 
 #[test]
 fn a_ported_line_names_only_declared_tools() {
-    let declaration = gsd_core::build().declaration();
-    let commands: Vec<String> = declaration
-        .surfaces
-        .commands
-        .iter()
-        .map(|c| c.id.replace('_', "-"))
-        .collect();
     let verb = Regex::new(r"specforge ([a-z][a-z0-9-]*)(?: ([a-z][a-z0-9-]*))?").expect("a regex");
     let mut seen = 0;
-    for (path, lines, body) in every_asset() {
-        for (n, (mine, theirs)) in lines.iter().zip(&body).enumerate() {
-            if mine == theirs {
-                continue;
-            }
+    for (path, lines) in every_asset() {
+        let own = port_map::map(&path).into_iter().filter_map(|s| match s {
+            port_map::Span::Own { asset, .. } => Some(asset),
+            port_map::Span::Kept { .. } => None,
+        });
+        for n in own.flatten() {
+            let mine = &lines[n];
             // the one prose phrase every shell block opens with
             let mine = mine.replace("are specforge commands", "");
             for cap in verb.captures_iter(&mine) {
                 seen += 1;
+                let words: Vec<&str> = cap.iter().skip(1).flatten().map(|m| m.as_str()).collect();
+                // a bare `specforge gsd` names the namespace
                 assert!(
-                    VERBS.contains(&&cap[1]),
-                    "{path}:{n}: `specforge {}` is not a verb the CLI has",
-                    &cap[1]
+                    words == ["gsd"] || port_map::tool_names::is_cli_verb(&words),
+                    "{path}:{n}: `specforge {}` is not a command the CLI has",
+                    words.join(" ")
                 );
-                if &cap[1] == "gsd" {
-                    // a bare `specforge gsd` names the namespace
-                    let name = cap.get(2).map_or("", |m| m.as_str());
-                    assert!(
-                        name.is_empty()
-                            || EXTENSION_COMMANDS.contains(&name)
-                            || commands.iter().any(|c| c == name),
-                        "{path}:{n}: `specforge gsd {name}` is not a declared command"
-                    );
-                }
             }
         }
     }
@@ -110,7 +68,7 @@ fn a_ported_line_names_only_declared_tools() {
 fn no_body_names_spec_gsd_or_gsd_cjs() {
     let rx = Regex::new(r"specforge gsd query|specforge gsd\.cjs|spec/gsd/").expect("a regex");
     let mut checked = 0;
-    for (path, lines, _) in every_asset() {
+    for (path, lines) in every_asset() {
         for (n, line) in lines.iter().enumerate() {
             assert!(!rx.is_match(line), "{path}:{n}: {line}");
         }
@@ -124,6 +82,7 @@ fn the_recording_section_matches_k17() {
     let text = gsd_core::agents::recording("gsd-verifier");
     assert!(!text.contains("E080"), "{text}");
     assert!(text.contains("replaces an earlier pass"), "{text}");
+    assert!(text.contains(r#"{"test": "<test fact id>"}"#), "{text}");
 }
 
 /// The `node` lines a shell block keeps, as `(asset, trimmed line)`. Each runs the user's own
@@ -136,38 +95,12 @@ const KEEP: &[(&str, &str)] = &[
     ),
 ];
 
-/// The `node` lines still to port, as `(asset, trimmed line)`, each with its reason. Each must match exactly one line,
-/// as a KEEP row must, so the list cannot go stale. None reads SpecForge's JSON. They run upstream code that @gsd/core
-/// does not install, and the step that holds them is optional; gsd/core/README.md names them.
-const PENDING_NODE: &[(&str, &str)] = &[
-    // upstream's runtime library spec-section.cjs (found under `$_GSD_RT`, built with npm): it parses a SPEC.md's
-    // sections, which no `specforge` command answers
-    (
-        "gsd-core/references/specless-probe-fallback.md",
-        r#"EDGE_ABSENT=1;   node "$SPEC_SECTION_JS" "$SPEC_FILE" edges       2>/dev/null | grep -q '"supplied":true' && EDGE_ABSENT=0"#,
-    ),
-    (
-        "gsd-core/references/specless-probe-fallback.md",
-        r#"PROHIB_ABSENT=1; node "$SPEC_SECTION_JS" "$SPEC_FILE" prohibitions 2>/dev/null | grep -q '"supplied":true' && PROHIB_ABSENT=0"#,
-    ),
-    // upstream's edge-probe library (found by the candidates loop above it): it derives the edge-coverage answer
-    // from the requirements JSON, which no `specforge` command answers
-    (
-        "gsd-core/references/specless-probe-fallback.md",
-        r#"if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then"#,
-    ),
-    (
-        "gsd-core/workflows/spec-phase.md",
-        r#"if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then"#,
-    ),
-];
-
 /// A shell block runs no node: a project that uses SpecForge may have no node at all. Only code counts:
 /// a line inside a fence that is not a `#` comment. Prose about a node script is not code.
 #[test]
 fn a_shell_block_runs_no_node() {
     let mut found = Vec::new();
-    let listed: Vec<&(&str, &str)> = KEEP.iter().chain(PENDING_NODE).collect();
+    let listed: Vec<&(&str, &str)> = KEEP.iter().collect();
     let mut matched = vec![0; listed.len()];
     // a node invocation: `node -e|-p|--eval|--print`, `node "<file>"` / `node '<file>'` / `node $X`, `node <<`, or
     // `node \` continued on the next line
@@ -189,7 +122,7 @@ fn a_shell_block_runs_no_node() {
     ] {
         assert_eq!(node.is_match(line), is_node, "{line}");
     }
-    for (path, lines, _) in every_asset() {
+    for (path, lines) in every_asset() {
         for (n, code) in fenced_code(&lines) {
             if !node.is_match(code) {
                 continue;
@@ -208,10 +141,7 @@ fn a_shell_block_runs_no_node() {
         found.join("\n")
     );
     for ((path, line), count) in listed.iter().zip(&matched) {
-        assert_eq!(
-            *count, 1,
-            "KEEP/PENDING_NODE ({path}, {line}) matches {count} lines"
-        );
+        assert_eq!(*count, 1, "KEEP ({path}, {line}) matches {count} lines");
     }
 }
 
@@ -229,7 +159,7 @@ fn no_shell_line_runs_jq() {
             }
         }
         for (n, run) in specforge_only::inline_runs(&lines) {
-            if command_word::runs_in_prose(run, "jq") {
+            if command_word::runs_in_prose(&run, "jq") {
                 found.push(format!("{path}:{}: `{run}`", n + 2));
             }
         }
@@ -329,16 +259,31 @@ fn shapes() -> std::collections::BTreeMap<String, Shape> {
     out
 }
 
-/// The words of a shell-ish tail, up to the end of the command: quotes (and `$( )` inside them) are one word.
+/// The words of a shell-ish tail, up to the end of the command: quotes (and `$( )` inside them) and a `${ }`
+/// expansion are one word.
 fn words(rest: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut word = String::new();
     let mut chars = rest.chars().peekable();
     let mut quote: Option<char> = None;
     let mut depth = 0;
+    let mut brace = 0;
+    // a quote inside `${...}`: a brace it holds neither opens nor closes the expansion
+    let mut inner: Option<char> = None;
     let mut angle = false;
     while let Some(c) = chars.next() {
         match (quote, c) {
+            (_, _) if brace > 0 => {
+                match (inner, c) {
+                    (Some(q), _) if c == q => inner = None,
+                    (Some(_), _) => {}
+                    (None, '"' | '\'') => inner = Some(c),
+                    (None, '{') => brace += 1,
+                    (None, '}') => brace -= 1,
+                    _ => {}
+                }
+                word.push(c);
+            }
             (Some(_), '$') if chars.peek() == Some(&'(') => {
                 depth += 1;
                 word.push_str("$(");
@@ -349,6 +294,11 @@ fn words(rest: &str) -> Vec<String> {
                 word.push(c);
             }
             (_, _) if depth > 0 => word.push(c),
+            (_, '$') if chars.peek() == Some(&'{') => {
+                brace = 1;
+                word.push_str("${");
+                chars.next();
+            }
             (Some(q), _) if c == q => {
                 quote = None;
                 word.push(c);
@@ -389,6 +339,15 @@ fn words(rest: &str) -> Vec<String> {
     out
 }
 
+#[test]
+fn a_brace_quoted_inside_an_expansion_stays_in_its_word() {
+    assert_eq!(
+        words(r#"${X:-"}"} --phase 2"#),
+        [r#"${X:-"}"}"#, "--phase", "2"]
+    );
+    assert_eq!(words("${X:-'{'} --to 3"), ["${X:-'{'}", "--to", "3"]);
+}
+
 /// Why `specforge gsd <command> <words>` is not a call the CLI accepts, if it is not.
 fn refusal(
     shapes: &std::collections::BTreeMap<String, Shape>,
@@ -397,11 +356,23 @@ fn refusal(
 ) -> Option<String> {
     // a bare mention names the command
     let shape = shapes.get(command).filter(|_| !words.is_empty())?;
+    // `${NAME:+--flag "$NAME"}` is its options when NAME is set and nothing otherwise: only options belong in it
+    let group = Regex::new(r"^\$\{[A-Za-z_][A-Za-z0-9_]*:\+(.*)\}$").expect("a regex");
+    let words: Vec<(String, bool)> = words
+        .iter()
+        .flat_map(|w| match group.captures(w) {
+            Some(inner) => self::words(&inner[1])
+                .into_iter()
+                .map(|w| (w, true))
+                .collect(),
+            None => vec![(w.clone(), false)],
+        })
+        .collect();
     let mut positionals: Vec<&str> = Vec::new();
     let mut open = false;
     let mut i = 0;
     while i < words.len() {
-        let w = words[i].as_str();
+        let (w, optional) = (words[i].0.as_str(), words[i].1);
         if w == "..." || w.starts_with('[') {
             open = true;
         } else if let Some(long) = w.strip_prefix("--") {
@@ -425,6 +396,8 @@ fn refusal(
                 Some((_, true)) if !w.contains('=') => i += 1,
                 _ => {}
             }
+        } else if optional {
+            return Some(format!("'{w}' in a `${{NAME:+...}}` group is no option"));
         } else {
             positionals.push(w);
         }
@@ -482,6 +455,35 @@ fn refused_invocations(text: &str) -> Vec<String> {
         }
     }
     found
+}
+
+#[test]
+fn an_optional_flag_group_is_options_the_command_declares() {
+    let refused = |line: &str| refused_invocations(line).len();
+    // the group expands to `--plan "$PLAN"` or to nothing: the call fits either way
+    assert_eq!(
+        refused(r#"specforge gsd raise-blocker "$WHY" ${PLAN:+--plan "$PLAN"} || exit 1"#),
+        0
+    );
+    assert_eq!(
+        refused(r#"specforge gsd raise-blocker "$WHY" ${PLAN:+--plan "$PLAN"} ${G:+--gate "$G"}"#),
+        0
+    );
+    // an option the command lacks, a positional in a group, a required positional only a group could give
+    assert_eq!(
+        refused(r#"specforge gsd raise-blocker "$WHY" ${P:+--nope "$P"}"#),
+        1
+    );
+    assert_eq!(
+        refused(r#"specforge gsd raise-blocker "$WHY" ${P:+"$P"}"#),
+        1
+    );
+    assert_eq!(
+        refused(r#"specforge gsd raise-blocker ${P:+--plan "$P"}"#),
+        1
+    );
+    // a plain expansion is one word: here the one positional
+    assert_eq!(refused(r#"specforge gsd raise-blocker ${WHY:-why}"#), 0);
 }
 
 #[test]

@@ -5,7 +5,8 @@ use std::collections::BTreeSet;
 
 use gsd_core::commands::WRITERS;
 
-fn harness_fields() -> BTreeSet<(String, String)> {
+/// The `(kind, field)` of every field of `writer` in the kinds golden.
+fn fields_written(writer: &str) -> BTreeSet<(String, String)> {
     let text = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/golden/kinds.json"
@@ -22,7 +23,7 @@ fn harness_fields() -> BTreeSet<(String, String)> {
                 .as_array()
                 .into_iter()
                 .flatten()
-                .filter(|f| f["writer"] == "harness")
+                .filter(|f| f["writer"] == writer)
                 .map(move |f| {
                     (
                         name.clone(),
@@ -35,8 +36,8 @@ fn harness_fields() -> BTreeSet<(String, String)> {
 
 #[test]
 fn every_h_field_has_one_writer() {
-    let declared = harness_fields();
-    assert_eq!(declared.len(), 38, "the 38 harness fields of the model");
+    let declared = fields_written("harness");
+    assert_eq!(declared.len(), 43, "the 43 harness fields of the model");
     let rows: Vec<(String, String)> = WRITERS
         .iter()
         .map(|(k, f, _)| (k.to_string(), f.to_string()))
@@ -44,7 +45,41 @@ fn every_h_field_has_one_writer() {
     let listed: BTreeSet<(String, String)> = rows.iter().cloned().collect();
     assert_eq!(listed.len(), rows.len(), "a field has two writer rows");
     assert_eq!(listed, declared, "the rows and the H fields differ");
-    assert_eq!(WRITERS.len(), 38, "every H field has a writer");
+    assert_eq!(WRITERS.len(), 43, "every H field has a writer");
+}
+
+/// Every context field (ADR 0356) is a row of `RECORDS`, and the row's route records it: a field no route records could
+/// never be written.
+#[test]
+fn every_context_field_is_recorded_by_one_route_row() {
+    use gsd_core::contexts::RECORDS;
+    let declared = fields_written("context");
+    let listed: BTreeSet<(String, String)> = RECORDS
+        .iter()
+        .map(|r| {
+            let (kind, field) = r.field.split_once('.').expect("kind.field");
+            (kind.to_string(), field.to_string())
+        })
+        .collect();
+    assert_eq!(listed, declared, "the rows and the context fields differ");
+    let declaration = gsd_core::build().declaration();
+    for row in RECORDS {
+        let route = declaration
+            .contexts
+            .iter()
+            .find(|c| c.name == row.route)
+            .unwrap_or_else(|| panic!("no route {}", row.route));
+        assert!(
+            route
+                .records
+                .iter()
+                .any(|r| r.field == row.field && r.subject == row.subject),
+            "{} does not record {}",
+            row.route,
+            row.field
+        );
+        assert!(route.stale.is_some(), "{} names no stale code", row.route);
+    }
 }
 
 #[test]

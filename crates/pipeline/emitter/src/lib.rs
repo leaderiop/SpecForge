@@ -8,7 +8,6 @@
 
 mod brief;
 mod budget;
-pub use budget::estimate_tokens;
 pub mod context;
 mod diagram;
 pub mod dot;
@@ -18,6 +17,7 @@ pub mod json;
 pub mod markdown;
 pub mod model;
 pub mod outline;
+pub mod pack;
 mod publish;
 pub mod schema;
 mod text;

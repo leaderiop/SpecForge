@@ -102,7 +102,7 @@ Every `/gsd-*` command of v1.19.0 has one owner and one round (`tests/roster.rs`
 | `/gsd-pr-branch` | r43 | prompt `pr_branch` |
 | `/gsd-profile-user` | after r44 | @gsd/ops |
 | `/gsd-progress` | r43 | prompt `progress` over the command `progress_report` |
-| `/gsd-quick-batch` | r43 | prompt `quick_batch` |
+| `/gsd-quick-batch` | r43 | prompt `quick_batch` over `quick_init` and `start_batch` |
 | `/gsd-quick` | r43 | prompt `quick` |
 | `/gsd-resume-work` | r43 | prompt `resume_work` over the command `resume` |
 | `/gsd-review-backlog` | r43 | prompt `review_backlog` over `phase --promote` |
@@ -138,12 +138,12 @@ templates a prompt does not inline (`specforge gsd reference gsd-core/references
 | `discuss_phase` | none | assumptions analyzer, advisor researcher; `plan_phase` |
 | `spec_phase` | none | `record_spec`; `discuss_phase` |
 | `mvp_phase` | E516 | `plan_phase` |
-| `plan_phase` | E201, W204, E206, W406, E516 | phase researcher, pattern mapper, planner, plan checker; `record_research`, `record_verdict`; `execute_phase` |
+| `plan_phase` | E201, W204, E206, W406, E516 | phase researcher, pattern mapper, planner, plan checker; `record_research`, `record_verdict`, `record_conflict`, `resolve_conflict`; `execute_phase` |
 | `plan_review_convergence` | E201, W204, E206, W406, E516 | `plan_phase`; plan checker |
 | `ultraplan_phase` | E201, W204, E206, W406, E516 | plan checker; `record_verdict` |
-| `execute_phase` | W311, W313, W315, W318, E516 | `execute_plan`; verifier; `record_verdict`, `record_window`; `verify_work` |
+| `execute_phase` | W311, W313, W315, W318, E516 | `execute_plan`; verifier; `record_verdict`, `record_window`, `raise_blocker` (a tripped TDD gate); `verify_work` |
 | `execute_plan` (no slash command) | W318, E516 | `start_plan`, `answer_checkpoint`, `confirm_setup`, `raise_blocker`, `complete_plan`; executor |
-| `verify_work` | E516 | `set_uat_result`, `record_automated_uat`; planner, plan checker |
+| `verify_work` | E516 | `set_uat_result` (`--follow-up` keeps a deferred follow-up), `record_automated_uat`; planner, plan checker |
 | `validate_phase` | E516 | nyquist auditor; `record_validation`, `approve_validation` |
 | `add_tests` | E516 | none |
 | `audit_uat` | none | `set_uat_result` |
@@ -176,9 +176,9 @@ The assets are upstream's text; where the spec has no counterpart a line was def
   (plans 03 and 05, F9 and G4; `tests/port_tools.rs` forbids a `jq` command word, `tests/cli/assets_shell/` runs each
   rewritten line with no jq and no node). node stays where the user's own JavaScript project runs (`KEEP` in
   `tests/port_tools.rs`); `code-review-disposition.md`'s ledger builder is gone, the ledger being `@gsd/ops`'s. The
-  edge-probe steps of `spec-phase` and `specless-probe-fallback` still run upstream's
-  `edge-probe.cjs` / `spec-section.cjs` with `node <file>` (also `PENDING_NODE`, each line pinned): `@gsd/core` installs
-  no runtime library (#5640), so the steps stop at "not found" unless an upstream GSD install provides one.
+  edge-probe steps of `spec-phase` and `specless-probe-fallback` run `specforge gsd edge-probe` and read the
+  graph's counts of a spec's `edge` and `spec_prohibition` rows (ADR 0333), where upstream ran its runtime
+  libraries `edge-probe.cjs` / `spec-section.cjs` with node.
 - `gsd/W506` reads what a complete plan lists in `decisions` (ADR 0351): a decision cited only in prose covers nothing,
   where upstream reads the plans' text, the modified files and the commit bodies.
 - The ledger scope in `ship` (`ship.md`, the broken-window step) is the milestone's (`"$MILESTONE" --depth 2`: every phase of it), not upstream's project-wide file: the graph links a window to its phase, not to the project. The `windows_enforce` gate (E512) still refuses on an open window anywhere in the project.
@@ -247,15 +247,19 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `complete_plan` | summary `started`, `completed` |
 | `answer_checkpoint` | checkpoint `answer` |
 | `confirm_setup` | user_setup `done` |
-| `set_uat_result` | uat_test `result`, `source` (a person's answer) |
+| `set_uat_result` | uat_test `result`, `source` (a person's answer); with `skipped --follow-up <words>`, uat_session `follow_ups` (the reason becomes `Deferred follow-up: <words>`) |
 | `record_automated_uat` | uat_test `result`, `source: automated` (an agent's or CI's call; the same fields, so the roster lists `set_uat_result`) |
 | `approve_validation` | validation `approval` |
 | `close_milestone` | milestone `completion` (gated by gsd/E106, E511, E516), its retrospective |
 | `pause`, `resume` | pause `at`, `by`; removes the pause |
-| `raise_blocker`, `resolve_blocker` | blocker `raised`, `resolved` |
+| `raise_blocker`, `resolve_blocker` | blocker `raised` (and `gate`, the task whose TDD gate tripped, with `--plan <plan> --gate <task>`: the open blocker of the same gate is reused), `resolved` |
 | `record_window`, `waive_window`, `fix_window` | broken_window `recorded_at`; `waiver`; `fixed_at` |
+| `record_review <phase> --review <json> [--round <review>]` (`specforge gsd record-review`; upstream wrote NN-REVIEWS.md) | a `review` round (`RV<n>`, scoped by its phase, in the phase's file) with its reviewers, lanes, coverage, consensus and unchecked symbols, and `reviewed_at`, and one `review_concern` (`RC<n>`) per concern, in one plan; every plan, reviewer and enum is checked first, naming where it stands. `--round` adds unchecked symbols and concerns to a recorded round, nothing else |
+| `record_conflict <plan> --dimension D --property P --conflicts-with C [--alternatives A]`, `resolve_conflict <how> (--conflict <id> \| --plan <plan>)` (`specforge gsd record-conflict`, `resolve-conflict`; upstream kept REVISION_CONFLICT lines in the planner's return) | revision_conflict `raised` (`CF<n>` in the plan's phase, each field on one line, the open one that says the same reused); `resolved` `{at, how}` of one open conflict, or of every open one of a plan. A quick plan has no conflict channel |
+| `start_batch <batch> --items <json list> --base <sha>` (`specforge gsd start-batch`; upstream wrote `BATCH.json`) | a `quick_batch` named by the batch id `quick_init --batch` answered: its quick plans in item order (at least 2, none of a phase, none twice), `base` (40 lowercase hex digits) and `created`, once; its `status` and `eligible` items are computed from the plans |
+| `graduate_lessons <json list of lessons> --disposition <promoted\|deferred\|dismissed> [--target <decision>] [--until <phase>]` (`specforge gsd graduate-lessons`; upstream's `**Graduated:**` mark and `graduation_backlog` row) | lesson `graduated` `{disposition, target?, until?, at}` on each lesson of the cluster: a promotion names its decision, a deferral its phase, a dismissal neither; a promoted or dismissed lesson is refused. Its `status` is computed: a deferral is open again once its phase is complete |
 | `propose_refactor`, `dispose_refactor` | refactor_proposal `score`, `baseline`, `delta`, `reasons`, `candidates`; `disposition` |
-| `record_research`, `record_spec`, `record_validation` | research, phase_spec, validation `context_digest` (the computed `digest` of the phase's context) |
+| `record_research`, `record_spec`, `record_validation` | research, phase_spec, validation `context_pack`, recorded by the host: the pack of `gsd/phase-context` (a quick plan's research: `gsd/quick-context`) |
 | `health`, `stats`, `progress_report` (`/gsd-health`, `/gsd-stats`) | nothing: they report from the computed values of the graph |
 | `smart_entry` (`/gsd-next`) | nothing: it is read-only, and classifies the project from its computed `status`, `backlog` and `verification.status` fields |
 | `quick_init [--description <text>\|--tasks <text>] [--batch] [--template <text>]` (`specforge gsd quick-init`; upstream's `init quick`) | nothing: it is read-only, no gate, no subject, and answers `{items[{id, date, count, batch?, description, title, slug, branch_name?}]}`: one quick id per task, with the host's date on each, so one row of one call reads everything, drawn from the host's nonce (ADR 0341) and free in the graph. `--tasks` strips list markers and blank lines, and `--batch` needs 2 entries of it. A task whose text gives no slug takes its id as one |
@@ -267,7 +271,9 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `user_story_validate --story <text>` (`specforge gsd user-story-validate`; gsd-tools' `user-story validate`) | nothing: it is read-only, and answers whether the text is the canonical `As a <role>, I want to <capability>, so that <outcome>.` on one line, with upstream's per-clause errors, for `/gsd-mvp-phase`, the verifier and the MVP UAT framing. Divergence: the slots are flat fields `role`, `capability`, `outcome` (upstream nests them in `slots`), so a prompt picks `.role` |
 | `verification_debt [--milestone M] [--phase P]` (`specforge gsd verification-debt`; gsd-tools' `audit-uat` and `phase uat-passed`) | nothing: it is read-only, and counts the UAT tests still open by the uat_test kind's rule (pending or no result, blocked, an issue with an unresolved or no gap, a skip without a `Deferred follow-up` reason), for `/gsd-progress`'s debt lines and `/gsd-verify-work`'s gates: `{milestone, current, archived: [{milestone, open}], archived_total, blockers}`. Divergence: one answer of counts and ids, not upstream's audit report (`summary.total_items`, `parse_gap_files`) or its exit-code verdict; an archived milestone is a shipped one |
 | `plan_coverage <phase> --review <text>` (`specforge gsd plan-coverage`; review.md's inline node script, no gsd-tools verb) | nothing: it is read-only, and answers `{complete, missing_ids, total}`: whether a reviewer's text names each of the phase's plans (`phase` names it), an id standing alone with no word character or `-` beside it. The text is an argument (a command reads no runtime path), so a report over the platform's argument size cannot be checked |
-| `edge_probe_requirements --requirements <json>` (`specforge gsd edge-probe-requirements`; spec-phase.md's inline node guard, no gsd-tools verb) | nothing: it is read-only, and answers `{valid, errors, count}`: whether the requirements an agent wrote for the edge probe are a non-empty JSON array whose every item has a string `text`, not blank and with no `<replace:` placeholder, for `/gsd-spec-phase` and the specless probe fallback. Divergence: each failure is named (upstream's node only exits 1); the JSON is an argument, so a list over the platform's argument size cannot be checked |
+| `edge_probe <subject>` (`specforge gsd edge-probe`; edge-probe.cjs's CLI, `runProbeCli`, ADR 0333) | nothing: it is read-only, and answers upstream's coverage report of a phase spec (its locked requirements and its recorded `edge` rows) or of a phase (its requirements; it records none): `{subject, kind, items, coverage}`, each item with its `edge` id (or null) and whether the engine `proposed` it. Divergence: the requirements and resolutions are the graph's, not two JSON files; an edge the engine did not propose (the agent raised it) is an unresolved item of the report before the roll-up, where upstream refuses it as an orphan |
+| `resolve_edge <requirement> <category> <status> [--verification V] [--resolution TEXT] [--reason TEXT]` (`specforge gsd resolve-edge`; ADR 0333, no gsd-tools verb: upstream's agent edited a resolutions JSON file) | an `edge` of the requirement's spec, created when no edge holds the pair: its `status`, `verification`, `resolution` and `reason`, set or unset in one plan so the row holds exactly the resolution given, judged by the probe engine first (gsd/E523 refuses a half-written row) |
+| `resolve_prohibition <prohibition> <status> [--verification V] [--reason TEXT]` (`specforge gsd resolve-prohibition`; ADR 0333) | a `spec_prohibition`'s `status`, `verification` and `reason` in one plan, its `check_*` descriptor cleared unless the row is resolved with the `test` tier (upstream's descriptor rides only a resolved/test row) |
 | `phase`, `workstreams` (the slash commands `/gsd-phase`, `/gsd-workstreams`) | phase and workstream entities: add, insert, remove (renumbering), edit; create, complete, switch |
 | `record_verdict` (built, r40: `specforge gsd record-verdict`, MCP `specforge.gsd.record_verdict`) | a verdict (`V` fields), through `set_verdict` |
 | the `gsd-git` collector (built, r38): `specforge collect --runner gsd-git --yes` | commit (every field) |
@@ -319,7 +325,7 @@ GSD's `hooks/` become 15 typed hook contributions (K9, r44). `specforge install 
 | gsd-secret-read-guard | `secret_read_guard` (`pre_tool`): fails closed (`on_failure` deny), where upstream fails open |
 | gsd-read-injection-scanner | `injection_scanner` (`post_tool`): scans what was read; advisory only, and a block would land after the read (see below) |
 | gsd-prompt-guard | `prompt_guard` (`pre_tool`): scans content written to spec files |
-| hooks/lib/injection-patterns.js (the matcher) | `injection_scanner`'s and `prompt_guard`'s matcher (`src/hooks/injection/regex.rs`) is linear in the text: each pattern runs as a compiled program with a visited set (G2), so no text runs them past the hook budget. Upstream's V8 regex backtracks and is quadratic on `MD-LINK-USERINFO`: `](http://` + `a:` x 2 000 / 8 000 / 32 000 takes 5 / 76 / 1 139 ms in node 25 (16x per 4x), and the hook has no size cap. Here 32 000 take 1 ms natively, and a 1 MiB line about 0.5 s in the guest, process start included (divergence: linear here) |
+| hooks/lib/injection-patterns.js (the matcher) | `injection_scanner`'s and `prompt_guard`'s matcher (`src/js_regex.rs`) is linear in the text: each pattern runs as a compiled program with a visited set (G2), so no text runs them past the hook budget. Upstream's V8 regex backtracks and is quadratic on `MD-LINK-USERINFO`: `](http://` + `a:` x 2 000 / 8 000 / 32 000 takes 5 / 76 / 1 139 ms in node 25 (16x per 4x), and the hook has no size cap. Here 32 000 take 1 ms natively, and a 1 MiB line about 0.5 s in the guest, process start included (divergence: linear here) |
 | gsd-agent-isolation-guard | none: dropped in the roster, because `@gsd/core` runs its executors sequentially in the checkout and the guard would always allow (r44 post-fix N7; ACCEPTANCE's divergences) |
 | gsd-worktree-path-guard | `worktree_path_guard` (`pre_tool`): path based; refuses a path whose git toplevel is not the worktree's, so also through a symlink into the main checkout, and a relative path that climbs into it (stricter than upstream, which allows every relative path; see ACCEPTANCE's divergences) |
 | gsd-workflow-guard | `workflow_marker` (`user_prompt`: a `/gsd-...` prompt sets the marker, which lasts the session) and `workflow_guard` (`pre_tool`, `hooks.workflow_guard`; it also refuses `git add -f` on an `agent-*` branch) |

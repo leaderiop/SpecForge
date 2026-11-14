@@ -61,7 +61,7 @@
     "| `$gsd-surface` | command `specforge gsd surface` (served by @gsd/core) |",
     "| `$gsd-help` | command `specforge gsd help` (served by @gsd/core) |"
   ],
-  "bytes": 19929,
+  "bytes": 20279,
   "end": [
     "| Process inbox items | gsd-inbox |",
     "| Create a clean PR branch | gsd-pr-branch |",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 356,
+  "lines": 358,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:daa243b50a7cbab7f153ff155e4dc1277397c3ed36343f1496dec3c4e966d0aa",
+    "digest": "sha256:bd5f2655708c97a6915be7982314f1e5f8866ba22d80c7668825c27a65d6dbcc",
     "prompt": "@gsd/core@VERSION:ns_manage"
   },
-  "sha256": "daa243b50a7cbab7f153ff155e4dc1277397c3ed36343f1496dec3c4e966d0aa"
+  "sha256": "bd5f2655708c97a6915be7982314f1e5f8866ba22d80c7668825c27a65d6dbcc"
 }

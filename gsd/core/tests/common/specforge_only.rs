@@ -12,6 +12,7 @@ use regex::Regex;
 
 use super::asset_code::{At, assets_under, walk};
 use super::command_word;
+use super::ledger;
 
 /// What a block may run besides `specforge`: the shell's own keywords and builtins.
 pub const SHELL_WORDS: &[&str] = &[
@@ -29,17 +30,11 @@ pub const PENDING_TOOLS: &str = include_str!("pending_tools.txt");
 
 /// The rows of [`PENDING_TOOLS`] whose file `keep` takes.
 pub fn pending(keep: impl Fn(&str) -> bool) -> Vec<Row> {
-    PENDING_TOOLS
-        .lines()
-        .filter(|l| !l.is_empty() && !l.starts_with('#'))
-        .map(|l| {
-            let mut cells = l.splitn(3, '\t').map(String::from);
-            let mut cell = || {
-                cells
-                    .next()
-                    .unwrap_or_else(|| panic!("a row of three cells: {l}"))
-            };
-            (cell(), cell(), cell())
+    ledger::rows(PENDING_TOOLS, 3)
+        .into_iter()
+        .map(|row| {
+            let [file, tool, line]: [String; 3] = row.try_into().expect("three cells");
+            (file, tool, line)
         })
         .filter(|(file, _, _)| keep(file))
         .collect()
@@ -47,24 +42,12 @@ pub fn pending(keep: impl Fn(&str) -> bool) -> Vec<Row> {
 
 /// Fails with the hits not listed and the listed rows not hit, each as a row to add or take off.
 pub fn assert_pending(hits: &[Row], listed: Vec<Row>) {
-    let mut left = listed;
-    let mut new = Vec::new();
-    for hit in hits {
-        match left.iter().position(|row| row == hit) {
-            Some(k) => {
-                left.swap_remove(k);
-            }
-            None => new.push(hit),
-        }
-    }
-    let row = |(f, t, l): &Row| format!("{f}\t{t}\t{l}");
-    assert!(
-        new.is_empty() && left.is_empty(),
-        "{} hits not in pending_tools.txt (ask specforge instead):\n{}\n{} rows no longer hit (take them off):\n{}",
-        new.len(),
-        new.iter().map(|h| row(h)).collect::<Vec<_>>().join("\n"),
-        left.len(),
-        left.iter().map(row).collect::<Vec<_>>().join("\n")
+    let cells = |(f, t, l): &Row| vec![f.clone(), t.clone(), l.clone()];
+    ledger::assert_rows(
+        "pending_tools.txt",
+        "ask specforge instead",
+        &hits.iter().map(cells).collect::<Vec<_>>(),
+        listed.iter().map(cells).collect(),
     );
 }
 
@@ -108,19 +91,24 @@ pub fn shell_fences(lines: &[String]) -> Vec<(&str, Vec<&str>)> {
         .collect()
 }
 
-/// The inline-code runs (`` `…` ``) of the lines outside a fence, with their line index.
-pub fn inline_runs(lines: &[String]) -> Vec<(usize, &str)> {
-    walk(lines)
-        .into_iter()
-        .filter(|(_, _, at)| *at == At::Prose)
-        .flat_map(|(n, line, _)| {
-            line.trim()
-                .split('`')
-                .skip(1)
-                .step_by(2)
-                .map(move |run| (n, run))
-        })
-        .collect()
+/// The inline-code runs (`` `…` ``) outside a fence, with the line each starts on, as gsd-kit's Markdown reader reads
+/// them: a run may cross lines, and a line break in it reads as a space.
+pub fn inline_runs(lines: &[String]) -> Vec<(usize, String)> {
+    gsd_kit::markdown::inline_code(&lines.join("\n"))
+}
+
+/// The commands of the shell `line`, each its words, as the SDK shell reader reads the original text before the
+/// line's comment. The comment starts where [`command_word::mask`] ends the line (it keeps the line char for char up to
+/// an unquoted `#` that starts a word); the masked text itself is never read, as it turns quoted text into `_`. So a
+/// quoted word is read as itself and an apostrophe in a comment cannot unbalance the reader. A line the reader
+/// refuses (an unclosed quote) is an `Err` naming it.
+pub fn commands_before_comment(line: &str) -> Result<Vec<Vec<String>>, String> {
+    let n = command_word::mask(line).chars().count();
+    let code = line
+        .char_indices()
+        .nth(n)
+        .map_or(line, |(at, _)| &line[..at]);
+    specforge_extension_sdk::shell::commands(code).map_err(|e| format!("{e}: {line}"))
 }
 
 /// The functions the shell fences of `texts` define (`name() {`, `function name() {`): the shell's own words too.
@@ -157,8 +145,8 @@ pub fn hits(file: &str, lines: &[String], functions: &[String]) -> Vec<Row> {
         }
     }
     for (_, run) in inline_runs(lines) {
-        for tool in command_word::commands_in_prose(run) {
-            add(tool, run);
+        for tool in command_word::commands_in_prose(&run) {
+            add(tool, &run);
         }
     }
     out

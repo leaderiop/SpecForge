@@ -12,9 +12,6 @@ Designed for team onboarding — a new contributor can read the output and under
 
 ```bash
 
-
-
-
 VERSION="{{arg:milestone|$MILESTONE}}"; VERSION=${VERSION#v}   # --milestone, else the milestone the run is about
 ```
 
@@ -61,9 +58,6 @@ Find all phases of the milestone:
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
 
 specforge gsd progress-report --format json
@@ -102,8 +96,6 @@ FIRST=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge quer
 
 **Method 3 — Earliest recorded commit** (if no date was recorded):
 `first_commit` is the milestone's first recorded commit, so Method 2 has already read it.
-
-
 
 An empty `first_commit` means no commit is recorded.
 
@@ -161,14 +153,14 @@ Present as a bulleted list of decisions with brief rationale:
 
 ## 5. Key Decisions Log
 
-{Aggregate from all CONTEXT.md <decisions> sections}
+{The decisions, read with `specforge query "v${VERSION}" --depth 3 --kinds decision,deferred_idea --format context`}
 {Each decision with: ID, description, phase, rationale}
 
 ## 6. Tech Debt & Deferred Items
 
-{From VERIFICATION.md files: gaps found, anti-patterns noted}
+{From the phases' `verification` entities: the gaps and anti-patterns their findings name}
 {From RETROSPECTIVE.md: lessons learned, what to improve}
-{From CONTEXT.md <deferred> sections: ideas parked for later}
+{The `deferred_idea` entities of that read: ideas parked for later}
 
 ## 7. Getting Started
 
@@ -192,8 +184,6 @@ Present as a bulleted list of decisions with brief rationale:
 ## Step 6: Show, never write
 
 **Nothing is written:** the summary is shown and not stored, so there is no earlier summary to overwrite and no reports directory to create.
-
-
 
 There is no commit either: the summary is not a file.
 ```bash
@@ -231,6 +221,5 @@ If the user is done:
 
 ```bash
 : # state.record-session: the project state is computed from the entities, so there is nothing to record
-
 
 ```

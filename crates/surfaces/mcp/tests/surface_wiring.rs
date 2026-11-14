@@ -1564,7 +1564,7 @@ fn a_resource_template_a_core_resource_serves_is_not_served() {
     assert_eq!(
         i017,
         [
-            "MCP resource 'graph-ext' (specforge://graph/ext/{id}) of '@test/cmds' not served: the core resource 'specforge://graph/{entity_id}' serves its URIs"
+            "MCP resource 'graph-ext' (specforge://graph/ext/{id}) of '@test/cmds' not served: the core resource 'specforge://graph/{+entity_id}' serves its URIs"
         ]
     );
     // Its URIs are the core entity resource's: the export never runs.

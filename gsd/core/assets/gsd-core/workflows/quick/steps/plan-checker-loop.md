@@ -25,7 +25,7 @@ Branch on `VERIFY_PATHS_EXIT` (#5170): `0` — the probe looked. `69` (`UNAVAILA
 
 Checker prompt:
 
-```markdown
+````markdown
 <verification_context>
 **Mode:** quick-full
 **Task Description:** ${DESCRIPTION}
@@ -77,7 +77,7 @@ Agent(
   model="{checker_model}",
   description="Check quick plan: ${DESCRIPTION}"
 )
-```
+````
 
 > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
@@ -98,7 +98,7 @@ Revision prompt:
 
 Reuse the `PLAN_PRE_HOOKS_JSON` snapshot captured by Quick Step 5; do not render hooks again.
 
-```markdown
+````markdown
 <revision_context>
 **Mode:** quick-full (revision)
 
@@ -137,7 +137,7 @@ Agent(
   model="{planner_model}",
   description="Revise quick plan: ${DESCRIPTION}"
 )
-```
+````
 
 > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 

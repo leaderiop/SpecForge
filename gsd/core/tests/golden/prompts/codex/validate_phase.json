@@ -8,17 +8,17 @@
     "",
     "<objective>",
     "Audit Nyquist validation coverage for a completed phase. Three states:",
-    "- (A) VALIDATION.md exists — audit and fill gaps",
-    "- (B) No VALIDATION.md, SUMMARY.md exists — reconstruct from artifacts",
+    "- (A) The phase has a `validation` — audit and fill gaps",
+    "- (B) No `validation`, a summary exists — reconstruct from artifacts",
     "- (C) Phase not executed — exit with guidance",
     "",
-    "Output: updated VALIDATION.md + generated test files.",
+    "Output: the `validation` and its `validation_row` entities + generated test files.",
     "</objective>",
     "",
     "<execution_context>",
     "<file path=\"gsd-core/workflows/validate-phase.md\">",
     "<purpose>",
-    "Audit Nyquist validation gaps for a completed phase. Generate missing tests. Update VALIDATION.md.",
+    "Audit Nyquist validation gaps for a completed phase. Generate missing tests. Record the validation rows.",
     "</purpose>",
     "",
     "<required_reading>",
@@ -36,12 +36,8 @@
     "",
     "```bash",
     "",
-    "",
-    "",
-    "",
     "# the commands below are specforge commands: there is no launcher to define",
     "RESPONSE_LANGUAGE=\"\"   # response_language (the settings)",
-    "",
     "",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)",
     "",
@@ -59,9 +55,13 @@
     "",
     "Resolve active step hooks from `VERIFY_POST_HOOKS_JSON` where `kind == \"step\"` and `ref.skill == \"validate-phase\"`.",
     "",
-    "If no active validate-phase step hook exists: exit with \"Nyquist validation is disabled. Enable via $gsd-settings.\""
+    "If no active validate-phase step hook exists: exit with \"Nyquist validation is disabled. Enable via $gsd-settings.\"",
+    "",
+    "Display banner: `GSD > VALIDATE PHASE {N}: {name}`",
+    "",
+    "## 1. Detect Input State"
   ],
-  "bytes": 26824,
+  "bytes": 28928,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
@@ -83,7 +83,7 @@
     "- [ ] User gate with gap table",
     "- [ ] Auditor spawned with complete context",
     "- [ ] All three return formats handled",
-    "- [ ] VALIDATION.md created or updated",
+    "- [ ] `validation` and its `validation_row` entities recorded",
     "- [ ] Test files committed separately",
     "- [ ] Results with routing presented",
     "</success_criteria>",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 526,
+  "lines": 547,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:3fe753e09c676cb22ab4e5890d5e4e7fad0f00e5d697864e74e746a29cc1d3e8",
+    "digest": "sha256:98735f38f030d4b4258ebdeaa6c54d0eec2e21891e6196b4f0c443e1881f6b46",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "3fe753e09c676cb22ab4e5890d5e4e7fad0f00e5d697864e74e746a29cc1d3e8"
+  "sha256": "98735f38f030d4b4258ebdeaa6c54d0eec2e21891e6196b4f0c443e1881f6b46"
 }

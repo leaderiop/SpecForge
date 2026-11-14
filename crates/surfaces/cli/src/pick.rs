@@ -80,6 +80,14 @@ pub(crate) const ANSWER_LONG_HELP: &str = concat!(
      is the command's."
 );
 
+/// `context --pick`'s long help: the pack is JSON whatever `--format` picks for its graph.
+pub(crate) const CONTEXT_LONG_HELP: &str = concat!(
+    "Print only the values at this path of the pack, one per line, e.g. '.digest' or \
+     '.budget.truncated_sections[]'. ",
+    rules!(),
+    " Errors print as JSON, and the exit code is the command's."
+);
+
 /// The long help of `--pick` on a verb (`files`, `http`, `git`), whose answer is JSON by default.
 pub(crate) const VERB_LONG_HELP: &str = concat!(
     "Print only the values at this path of the verb's JSON answer, one per line, e.g. '.entries[].path' on files \

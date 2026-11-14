@@ -61,7 +61,7 @@
     "  test -f \"{MANIFEST_PATH}\" || echo \"MANIFEST_NOT_FOUND\"",
     "fi"
   ],
-  "bytes": 44353,
+  "bytes": 44921,
   "end": [
     "1. **Its own check list per bucket** — which conditions are BLOCKER vs WARNING vs INFO. These are domain-specific (plan ingestion checks are not doc ingestion checks).",
     "2. **The loaded context** — what it reads (ROADMAP.md, PROJECT.md, REQUIREMENTS.md, CONTEXT.md, intel files) before running checks.",
@@ -102,7 +102,7 @@
     "",
     "## Where the ingest goes",
     "",
-    "The documents are scanned under the directory the first positional word names (`[path]`, default the project). The classifier and the synthesizer write their staging files to a scratch directory outside the project: the intel files and the conflict report are not part of the spec, and the report is shown to the user. Wherever the text above says `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md` or `STATE.md` is written, read that the roadmapper writes the `project`, `requirement`, `milestone` and `phase` entities (`specforge new`, `specforge set`), and that the project state is computed. `--resolve interactive` is reserved, as upstream's."
+    "The documents are scanned under the directory the first positional word names (`[path]`, default the project). The classifier and the synthesizer write their staging files to a scratch directory outside the project: the intel files and the conflict report are not part of the spec, and the report is shown to the user. `--resolve interactive` is reserved, as upstream's."
   ],
   "head": [
     "<cursor_skill_adapter>",
@@ -134,19 +134,21 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
-    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -182,11 +184,9 @@
     "",
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
-    "",
-    "```json",
-    "{"
+    ""
   ],
-  "lines": 1026,
+  "lines": 1022,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:26cfc4115f67ee87152aabb81157114c3c12ec82f8bc6430fea7ebab76e9e8f1",
+    "digest": "sha256:8390bbfbb36119ac7a0a38b9a0b30f2fbb618f49f6c20f0a5f96aea0bbef6978",
     "prompt": "@gsd/core@VERSION:ingest_docs",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "26cfc4115f67ee87152aabb81157114c3c12ec82f8bc6430fea7ebab76e9e8f1"
+  "sha256": "8390bbfbb36119ac7a0a38b9a0b30f2fbb618f49f6c20f0a5f96aea0bbef6978"
 }

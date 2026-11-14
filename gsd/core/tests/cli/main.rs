@@ -3,6 +3,7 @@
 mod ab_protocol;
 mod ab_seeds;
 mod agents;
+mod answer_members;
 // The extension's own UTC clock text, to build times relative to now.
 #[path = "../../src/time.rs"]
 #[allow(dead_code, reason = "only utc is used here")]
@@ -20,13 +21,16 @@ mod cmd_attest;
 mod cmd_automated_guard;
 mod cmd_branch_check;
 mod cmd_digest;
+mod cmd_edge_probe;
 mod cmd_execute;
 mod cmd_gate;
+mod cmd_learning;
 mod cmd_milestone;
 mod cmd_phase;
 mod cmd_quick;
 mod cmd_refactor;
 mod cmd_reports;
+mod cmd_review;
 mod cmd_smart_entry;
 mod cmd_state;
 mod cmd_surface;
@@ -38,9 +42,12 @@ mod collect;
 mod command_word;
 mod commands;
 mod commands_support;
+mod context_proxy;
+mod contexts;
 mod decision_coverage;
 mod discuss;
 mod e502_probe;
+mod engine_tools;
 mod execute;
 mod execute_rules;
 mod execute_status;
@@ -68,6 +75,10 @@ mod judged;
 mod judged_flow;
 mod judged_refusals;
 mod ladder;
+#[path = "../common/ledger.rs"]
+mod ledger;
+#[path = "../common/markdown_writes.rs"]
+mod markdown_writes;
 #[path = "../common/node.rs"]
 mod node;
 mod node_test;
@@ -83,6 +94,8 @@ mod parity_verify;
 mod plan;
 mod plan_rules;
 mod planned_paths;
+#[path = "../common/planning_names.rs"]
+mod planning_names;
 mod progress;
 mod prompts_audit;
 mod prompts_autonomous;
@@ -121,6 +134,8 @@ mod settings;
 mod source_items;
 #[path = "../common/specforge_only.rs"]
 mod specforge_only;
+#[path = "../common/tool_names.rs"]
+mod tool_names;
 mod verify_paths;
 mod verify_rules;
 mod verify_status;

@@ -1,5 +1,5 @@
-//! The code of an asset's markdown: what a shell runs, as the scans over the assets read it. One walk reads the fences
-//! for every scan.
+//! The code of an asset's markdown: what a shell runs, as the scans over the assets read it. gsd-kit's Markdown
+//! reader finds the fences and code spans for every scan.
 #![allow(
     dead_code,
     reason = "each test crate that includes this module uses some of it"
@@ -14,36 +14,33 @@ pub enum At<'a> {
     Fence { n: usize, language: &'a str },
 }
 
-/// Each line of `lines` that is no fence mark, as `(index, line, where it stands)`. A ``` fence is closed by ```, a
-/// ~~~ fence by ~~~.
+/// Each line of `lines` that is no fence mark, as `(index, line, where it stands)`, as gsd-kit's Markdown reader
+/// reads the lines joined with `\n`.
 pub fn walk(lines: &[String]) -> Vec<(usize, &str, At<'_>)> {
-    let mut out = Vec::new();
-    let mut open: Option<(char, &str)> = None;
-    let mut fences = 0;
-    for (n, line) in lines.iter().enumerate() {
-        let code = line.trim();
-        if code.starts_with("```") || code.starts_with("~~~") {
-            let mark = code.chars().next().unwrap_or('`');
-            open = match open {
-                None => {
-                    fences += 1;
-                    Some((mark, code[3..].trim()))
-                }
-                Some((was, _)) if was == mark => None,
-                open => open,
-            };
-            continue;
+    let mut at = vec![Some(At::Prose); lines.len()];
+    for (n, fence) in gsd_kit::markdown::fences(&lines.join("\n"))
+        .iter()
+        .enumerate()
+    {
+        let open = lines[fence.open].as_str();
+        // the info string's first word, as the opening line spells it
+        let language = open
+            .find(fence.language.as_str())
+            .map_or("", |i| &open[i..i + fence.language.len()]);
+        at[fence.open] = None;
+        if fence.closed {
+            at[fence.code.end] = None;
         }
-        let at = match open {
-            None => At::Prose,
-            Some((_, language)) => At::Fence {
-                n: fences - 1,
-                language,
-            },
-        };
-        out.push((n, line.as_str(), at));
+        for line in fence.code.clone() {
+            at[line] = Some(At::Fence { n, language });
+        }
     }
-    out
+    lines
+        .iter()
+        .zip(at)
+        .enumerate()
+        .filter_map(|(n, (line, at))| Some((n, line.as_str(), at?)))
+        .collect()
 }
 
 /// The code lines of `lines` (an asset's lines after its header) as `(index, trimmed line)`: the lines inside a fence
@@ -58,18 +55,24 @@ pub fn fenced_code(lines: &[String]) -> Vec<(usize, &str)> {
 }
 
 /// The code of `lines` (an asset's lines after its header) as `(index, text)`: each line inside a fence, and the
-/// inline code spans of a line outside one.
+/// inline code spans that start on a line outside one, joined with a space. A span may cross lines.
 pub fn code_of(lines: &[String]) -> Vec<(usize, String)> {
-    walk(lines)
+    let mut out: Vec<(usize, String)> = walk(lines)
         .into_iter()
-        .filter_map(|(n, line, at)| match at {
-            At::Fence { .. } => Some((n, line.to_string())),
-            At::Prose => {
-                let spans: Vec<&str> = line.split('`').skip(1).step_by(2).collect();
-                (!spans.is_empty()).then(|| (n, spans.join(" ")))
+        .filter(|(_, _, at)| *at != At::Prose)
+        .map(|(n, line, _)| (n, line.to_string()))
+        .collect();
+    for (n, span) in gsd_kit::markdown::inline_code(&lines.join("\n")) {
+        match out.iter_mut().find(|(at, _)| *at == n) {
+            Some((_, spans)) => {
+                spans.push(' ');
+                spans.push_str(&span);
             }
-        })
-        .collect()
+            None => out.push((n, span)),
+        }
+    }
+    out.sort_by_key(|(n, _)| *n);
+    out
 }
 
 /// Every markdown asset under `dir` (from the crate's root), as `(its path under `dir`, its lines after the header)`.

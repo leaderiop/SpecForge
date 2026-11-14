@@ -343,7 +343,7 @@ pub struct Searched {
     pub asked: usize,
 }
 
-/// What `specforge search --format json` prints (CLI-only, ADR 0052 D5).
+/// What `specforge extensions search --format json` prints (CLI-only, ADR 0052 D5).
 #[derive(Debug, Clone, PartialEq, Serialize, Shape)]
 pub struct SearchDocument {
     pub query: String,
@@ -356,7 +356,7 @@ pub struct SearchDocument {
 }
 
 impl Searched {
-    /// The document `specforge search` prints for `query`.
+    /// The document `specforge extensions search` prints for `query`.
     pub fn document(&self, query: &str, contributes: Option<DeclaredCategory>) -> SearchDocument {
         SearchDocument {
             query: query.to_string(),
@@ -385,7 +385,7 @@ const fn category(
     }
 }
 
-/// `specforge search --contributes`: a declared category. A filter, so no default.
+/// `specforge extensions search --contributes`: a declared category. A filter, so no default.
 pub const CONTRIBUTES: OptionTable<DeclaredCategory> = OptionTable {
     argument: "contribution",
     choices: &[
@@ -435,6 +435,7 @@ pub const CONTRIBUTES: OptionTable<DeclaredCategory> = OptionTable {
             DeclaredCategory::Capabilities,
         ),
         category("checkers", "value checkers", DeclaredCategory::Checkers),
+        category("contexts", "context routes", DeclaredCategory::Contexts),
     ],
     default: None,
 };

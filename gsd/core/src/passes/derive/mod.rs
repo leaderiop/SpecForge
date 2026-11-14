@@ -1,5 +1,5 @@
 //! The compute pass: every `C` field of the model is listed in `computes`, as the kernel needs a compute pass for
-//! each computed field it declares (W021 otherwise). It answers `context.digest` and the values of execution
+//! each computed field it declares (W021 otherwise). It answers the values of execution
 //! (`execute`: plan (`draft`, `checked`, `ready` from the plan-check verdicts, then execution) and task status, a summary's duration, actuals and key files, a deliverable check's status). A
 //! check's status reads the test facts its `ref` names (`passes::thread`). `progress` answers the requirement, phase,
 //! milestone, project, workstream, context and retrospective values.
@@ -7,17 +7,22 @@
 //! `verify` answers a verification's status, score and re-verification, `uat` a session's totals and status and a
 //! gap's resolution, `audit` a validation's coverage, a milestone audit and the windows and proposals, and `ladder` the
 //! phase's `complete` and `needs_review`, `completed`, a requirement's `gaps_found` and `project.windows_*`. `estimate`
-//! answers a plan's slices under the smart-zone budget.
+//! answers a plan's slices under the smart-zone budget. `review` answers a review concern's status, a round's open
+//! counts and a revision conflict's status, `batch` a quick batch's status and eligible items, and `learning` a
+//! lesson's status.
 //!
 //! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection) and `retrospective.sessions` (no harness).
 
 mod audit;
+mod batch;
 mod branch;
 mod estimate;
 mod execute;
 mod halt;
 pub mod ladder;
+mod learning;
 mod progress;
+mod review;
 pub(crate) mod uat;
 pub mod verify;
 
@@ -46,18 +51,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
 }
 
 fn derive(input: &PassInput) -> PassOutput {
-    let mut values: Vec<PassValue> = input
-        .entities
-        .iter()
-        .filter(|e| e.kind == "context")
-        .filter_map(|e| {
-            Some(PassValue {
-                entity: e.id.clone(),
-                field: "digest".into(),
-                value: crate::digest::context(input, &e.id)?.into(),
-            })
-        })
-        .collect();
+    let mut values: Vec<PassValue> = Vec::new();
     let commits = crate::passes::commits::commits(input);
     let statuses = execute::plan_statuses(input, &commits);
     values.extend(execute::values(input, &commits, &statuses));
@@ -65,6 +59,8 @@ fn derive(input: &PassInput) -> PassOutput {
     let verified = verify::by_phase(input);
     values.extend(progress::values(input, &commits, &statuses, &verified));
     values.extend(uat::values(input, &statuses));
+    values.extend(learning::values(input, &verified));
+    values.extend(batch::values(input, &statuses));
     let failing = verified
         .iter()
         .filter(|(_, v)| v.status == "gaps_found")
@@ -74,46 +70,10 @@ fn derive(input: &PassInput) -> PassOutput {
     values.extend(audit::values(input, &requirements, &verified));
     values.extend(branch::values(input));
     values.extend(estimate::values(input));
+    values.extend(review::values(input));
     PassOutput {
         values,
         diagnostics: branch::diagnostics(input),
         ..Default::default()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_derive_pass_gives_each_context_its_digest() {
-        let entity = |id: &str, kind: &str| PassEntity {
-            id: id.into(),
-            kind: kind.into(),
-            ..Default::default()
-        };
-        let input = PassInput {
-            entities: vec![
-                entity("v1.0/01/01-CONTEXT", "context"),
-                entity("v1.0/02/02-CONTEXT", "context"),
-                entity("v1.0/02/02-RESEARCH", "research"),
-            ],
-            ..Default::default()
-        };
-        let output = derive(&input);
-        let given: Vec<(&str, &str)> = output
-            .values
-            .iter()
-            .filter(|v| v.field == "digest")
-            .map(|v| (v.entity.as_str(), v.field.as_str()))
-            .collect();
-        assert_eq!(
-            given,
-            [
-                ("v1.0/01/01-CONTEXT", "digest"),
-                ("v1.0/02/02-CONTEXT", "digest")
-            ]
-        );
-        assert_ne!(output.values[0].value, output.values[1].value);
     }
 }

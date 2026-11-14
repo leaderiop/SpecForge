@@ -86,13 +86,13 @@ fn defined_requirements() -> BTreeMap<String, &'static str> {
 /// The `Out of Scope` table of `REQUIREMENTS.md`: the reason of each row (a row has no id in GSD).
 fn out_of_scope_reasons() -> Vec<String> {
     let text = parity("fixtures/taskboard/.planning/REQUIREMENTS.md");
-    let section = text.split("## Out of Scope").nth(1).unwrap_or_default();
-    let section = section.split("\n## ").next().unwrap_or_default();
-    let mut reasons: Vec<String> = section
-        .lines()
-        .filter(|l| l.starts_with('|') && !l.contains("---") && !l.contains("| Feature |"))
-        .filter_map(|l| l.trim_matches('|').split('|').nth(1))
-        .map(|reason| reason.trim().to_string())
+    let mut reasons: Vec<String> = gsd_kit::markdown::tables(&text)
+        .into_iter()
+        .find(|t| t.heading == "Out of Scope")
+        .map(|t| t.rows)
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|cells| cells.get(1).cloned())
         .collect();
     reasons.sort();
     reasons

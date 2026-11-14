@@ -95,7 +95,7 @@ fn search_reports_a_failed_registry_once() {
         {"alias": "down", "url": "http://127.0.0.1:9", "default_registry": true}
     ]));
 
-    let run = Cli::on(&p).run(&["search", "x", "--format", "json"]);
+    let run = Cli::on(&p).run(&["extensions", "search", "x", "--format", "json"]);
 
     assert_eq!(run.code, 1, "{}", run.stderr);
     let json = run.json();
@@ -117,7 +117,7 @@ fn search_keeps_the_registry_configuration_beside_its_document() {
         {"alias": "main", "url": "http://127.0.0.1:9"}
     ]));
 
-    let run = Cli::on(&p).run(&["search", "x", "--format", "json"]);
+    let run = Cli::on(&p).run(&["extensions", "search", "x", "--format", "json"]);
 
     assert!(
         run.stderr

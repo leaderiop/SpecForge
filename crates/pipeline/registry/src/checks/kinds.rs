@@ -86,7 +86,7 @@ pub(super) fn unchecked(
         ),
         None => format!(
             "enable the extension that declares them; search with: {}",
-            specforge_common::remedy::command("specforge search {}", &[first])
+            specforge_common::remedy::command("specforge extensions search {}", &[first])
         ),
     };
     vec![

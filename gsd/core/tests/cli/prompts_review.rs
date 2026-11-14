@@ -1,4 +1,4 @@
-//! `review` and `review_backlog` (T5): the reviewers are shell commands and the reviews are shown; a backlog phase is
+//! `review` and `review_backlog` (T5): the reviewers are shell commands and each review round is recorded; a backlog phase is
 //! promoted or removed through `phase`.
 
 use super::commands_support::twin;
@@ -14,7 +14,7 @@ fn review_renders() {
         assert_eq!(rendered["payload"]["subject"], PHASE, "{host}");
         assert!(rendered["payload"]["steps"].is_null(), "{host}: a step");
         let text = text_of(&rendered);
-        for word in ["--codex", "coderabbit", "cursor-agent", "not stored"] {
+        for word in ["--codex", "coderabbit", "cursor-agent", "gsd record-review"] {
             assert!(text.contains(word), "{host}: no '{word}'");
         }
         assert!(text.contains("specforge query \"$PHASE_ID\""), "{host}");

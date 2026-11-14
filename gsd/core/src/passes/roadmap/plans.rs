@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use specforge_extension_sdk::prelude::*;
 
 use super::on_a_cycle;
-use crate::digest::scope_of;
+use crate::scope::scope_of;
 
 pub fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     let plans: BTreeMap<&str, &str> = input

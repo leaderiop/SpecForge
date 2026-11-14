@@ -860,7 +860,7 @@ behavior search_registry "Search Registry" {
     partial_failure_resilience "Error from one registry does not abort search of remaining registries"
   }
   contract   """
-    When specforge search is invoked, the system MUST query all configured
+    When specforge extensions search is invoked, the system MUST query all configured
     registries with the search term. A search matches a package when the
     query is an ASCII case-insensitive substring of its name, its
     description or one of its keywords; % and _ in the query are text. The

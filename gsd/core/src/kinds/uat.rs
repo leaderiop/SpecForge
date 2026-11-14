@@ -23,6 +23,12 @@ const TOTALS: &[Field] = &[
     int("pending"),
     int("skipped"),
     int("blocked"),
+    int("follow_ups"),
+];
+const FOLLOW_UP: &[Field] = &[
+    rf("test", "uat_test").r(),
+    str("idea").r(),
+    date("deferred_at").r(),
 ];
 const GAP_ARTIFACTS: &[Field] = &[path("path", Mode::Present), str("issue")];
 
@@ -38,7 +44,13 @@ pub const UAT_SESSION: Kind = Kind::new(
             .doc("`source:`; the summaries tested"),
         ts("started").i().doc("`started:`"),
         en("status", UAT_STATUS).c().doc("`status:`"),
-        block("totals", TOTALS).c().doc("`## Summary`"),
+        blocks("follow_ups", FOLLOW_UP)
+            .h()
+            .append()
+            .doc("`## Deferred Follow-Ups`: each skipped test's idea, verbatim, written by `set_uat_result --follow-up`"),
+        block("totals", TOTALS)
+            .c()
+            .doc("`## Summary`; `follow_ups` counts the deferred follow-ups"),
     ],
 )
 .scoped_by("phase");

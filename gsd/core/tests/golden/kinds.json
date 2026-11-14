@@ -106,6 +106,24 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "LessonGraduatedTarget",
+        "source_kind": "lesson",
+        "target_kind": "decision"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "LessonGraduatedUntil",
+        "source_kind": "lesson",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "MethodologySupersededBy",
         "source_kind": "methodology",
         "target_kind": "methodology"
@@ -199,6 +217,42 @@
         "label": "InterviewSpec",
         "source_kind": "interview",
         "target_kind": "phase_spec"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "EdgeSpec",
+        "source_kind": "edge",
+        "target_kind": "phase_spec"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "EdgeRequirement",
+        "source_kind": "edge",
+        "target_kind": "locked_req"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "SpecProhibitionSpec",
+        "source_kind": "spec_prohibition",
+        "target_kind": "phase_spec"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "SpecProhibitionRequirement",
+        "source_kind": "spec_prohibition",
+        "target_kind": "locked_req"
       },
       {
         "description": null,
@@ -493,6 +547,69 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "DispositionConcern",
+        "source_kind": "disposition",
+        "target_kind": "review_concern"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ReviewPhase",
+        "source_kind": "review",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ReviewPlans",
+        "source_kind": "review",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ReviewConcernReview",
+        "source_kind": "review_concern",
+        "target_kind": "review"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ReviewConcernPlan",
+        "source_kind": "review_concern",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "RevisionConflictPhase",
+        "source_kind": "revision_conflict",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "RevisionConflictPlan",
+        "source_kind": "revision_conflict",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "UserSetupPlan",
         "source_kind": "user_setup",
         "target_kind": "plan"
@@ -700,6 +817,24 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "BlockerGate",
+        "source_kind": "blocker",
+        "target_kind": "task"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "QuickBatchItems",
+        "source_kind": "quick_batch",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "VerificationPhase",
         "source_kind": "verification",
         "target_kind": "phase"
@@ -802,6 +937,15 @@
         "label": "UatSessionSource",
         "source_kind": "uat_session",
         "target_kind": "summary"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "UatSessionFollowUpsTest",
+        "source_kind": "uat_session",
+        "target_kind": "uat_test"
       },
       {
         "description": null,
@@ -1329,6 +1473,33 @@
             "required": false,
             "target_kind": null,
             "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "upstream's authored shapes override; an empty list proposes no edge",
+            "edge": null,
+            "enum_values": [
+              "numeric_range",
+              "collection",
+              "text",
+              "stateful",
+              "io"
+            ],
+            "field_type": "enum_list",
+            "inverse_of": null,
+            "name": "shapes",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "an English translation the edge probe classifies instead (response_language)",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "text_en",
+            "required": false,
+            "target_kind": null
           }
         ],
         "has_body_parser": false,
@@ -1387,6 +1558,26 @@
             "field_type": "string",
             "inverse_of": null,
             "name": "whats_next",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "**Goal:** of the Current Milestone in PROJECT.md",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "goal",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "**Target features:** of the Current Milestone in PROJECT.md",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "target_features",
             "required": false,
             "target_kind": null
           },
@@ -2151,6 +2342,81 @@
             "name": "kind",
             "required": false,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`**Graduated:**` and `graduation_backlog`: promoted into a decision (`target`), deferred until a phase (`until`) or dismissed, written by `graduate_lessons`",
+            "edge": null,
+            "field_type": "block",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "promoted",
+                  "deferred",
+                  "dismissed"
+                ],
+                "field_type": "enum",
+                "inverse_of": null,
+                "name": "disposition",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "LessonGraduatedTarget",
+                "field_type": "reference",
+                "inverse_of": null,
+                "name": "target",
+                "required": false,
+                "target_kind": "decision"
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "LessonGraduatedUntil",
+                "field_type": "reference",
+                "inverse_of": null,
+                "name": "until",
+                "required": false,
+                "target_kind": "phase"
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "at",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "graduated",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "open unless graduated; a deferral is open again once its phase is complete",
+            "edge": null,
+            "enum_values": [
+              "open",
+              "deferred",
+              "promoted",
+              "dismissed"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,
@@ -2404,17 +2670,6 @@
             "required": false,
             "target_kind": null,
             "writer": "computed"
-          },
-          {
-            "default_value": null,
-            "description": "the digest of the context, its origin-context decisions and deferred ideas, that a research or spec records (gsd/W406)",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "digest",
-            "required": false,
-            "target_kind": null,
-            "writer": "computed"
           }
         ],
         "has_body_parser": false,
@@ -2572,6 +2827,12 @@
         "verify_kinds": []
       },
       {
+        "complete_when": {
+          "field": "status",
+          "values": [
+            "resolved"
+          ]
+        },
         "description": "An idea deferred out of a phase (GSD CONTEXT.md <deferred>)",
         "dot_color": null,
         "dot_fillcolor": null,
@@ -2604,6 +2865,35 @@
             "field_type": "string",
             "inverse_of": null,
             "name": "why",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`discussion`: deferred while the phase's context was set (discuss, the PRD path, the source audit), and served with that context; `execution`: an executor's out-of-scope discovery, which no context serves and the forensic audit lists",
+            "edge": null,
+            "enum_values": [
+              "discussion",
+              "execution"
+            ],
+            "field_type": "enum",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "origin",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "an execution idea: open until resolved; absent is open",
+            "edge": null,
+            "enum_values": [
+              "open",
+              "resolved"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "status",
             "required": false,
             "target_kind": null
           }
@@ -2641,14 +2931,46 @@
           },
           {
             "default_value": null,
-            "description": "the digest of the phase's context when the spec was recorded (gsd/W406)",
+            "description": "the gsd/phase-context pack it was written against (gsd/W406)",
             "edge": null,
-            "field_type": "string",
+            "field_type": "block",
             "inverse_of": null,
-            "name": "context_digest",
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "route",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "digest",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "max_tokens",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "context_pack",
             "required": false,
             "target_kind": null,
-            "writer": "harness"
+            "writer": "context"
           },
           {
             "default_value": null,
@@ -2874,6 +3196,33 @@
             "name": "traces",
             "required": false,
             "target_kind": "requirement"
+          },
+          {
+            "default_value": null,
+            "description": "upstream's authored shapes override; an empty list proposes no edge",
+            "edge": null,
+            "enum_values": [
+              "numeric_range",
+              "collection",
+              "text",
+              "stateful",
+              "io"
+            ],
+            "field_type": "enum_list",
+            "inverse_of": null,
+            "name": "shapes",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "an English translation the edge probe classifies instead (response_language)",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "text_en",
+            "required": false,
+            "target_kind": null
           }
         ],
         "has_body_parser": false,
@@ -2985,6 +3334,263 @@
         "verify_kinds": []
       },
       {
+        "description": "One edge-coverage row of a phase spec (GSD NN-SPEC.md ## Edge Coverage)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "EdgeSpec",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "spec",
+            "required": true,
+            "target_kind": "phase_spec"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "EdgeRequirement",
+            "field_type": "reference",
+            "inverse_of": null,
+            "name": "requirement",
+            "required": true,
+            "target_kind": "locked_req"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "boundary",
+              "adjacency",
+              "empty",
+              "encoding",
+              "ordering",
+              "precision",
+              "idempotency",
+              "concurrency",
+              "unclassified"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "category",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "resolved",
+              "dismissed",
+              "unresolved"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "status",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "explicit",
+              "backstop"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "verification",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the acceptance criterion or backstop test note",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "resolution",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "why it is dismissed",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "reason",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "edge",
+        "open_fields": false,
+        "scoped_by": "spec",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "One must-NOT row of a phase spec (GSD NN-SPEC.md ## Prohibitions)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "SpecProhibitionSpec",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "spec",
+            "required": true,
+            "target_kind": "phase_spec"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "SpecProhibitionRequirement",
+            "field_type": "reference",
+            "inverse_of": null,
+            "name": "requirement",
+            "required": true,
+            "target_kind": "locked_req"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "statement",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "resolved",
+              "dismissed",
+              "unresolved"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "status",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "test",
+              "judgment"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "verification",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "reason",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "node_test",
+              "lint_rule"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "check_kind",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "check_target",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "check_rule",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "check_violation_fixture",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "check_clean_fixture",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "spec_prohibition",
+        "open_fields": false,
+        "scoped_by": "spec",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
         "description": "A phase's discussion log: the options weighed and the choices made (GSD NN-DISCUSSION-LOG.md)",
         "dot_color": null,
         "dot_fillcolor": null,
@@ -3063,9 +3669,158 @@
                 "name": "mode",
                 "required": false,
                 "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": "the user's follow-up notes, or the reason for a correction",
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "notes",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": "assumptions mode: how sure the assumption is",
+                "edge": null,
+                "enum_values": [
+                  "confident",
+                  "likely",
+                  "unclear"
+                ],
+                "field_type": "enum",
+                "inverse_of": null,
+                "name": "confidence",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": "assumptions mode: the file paths behind the assumption",
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "evidence",
+                "required": false,
+                "target_kind": null
               }
             ],
             "name": "entries",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`NN-DISCUSS-CHECKPOINT.json`: where an interrupted discussion stands; set with `specforge set`, cleared with `specforge unset`",
+            "edge": null,
+            "field_type": "block",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "timestamp",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "areas_completed",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "areas_remaining",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "block_list",
+                "inverse_of": null,
+                "members": [
+                  {
+                    "default_value": null,
+                    "description": null,
+                    "edge": null,
+                    "field_type": "string",
+                    "inverse_of": null,
+                    "name": "area",
+                    "required": true,
+                    "target_kind": null
+                  },
+                  {
+                    "default_value": null,
+                    "description": null,
+                    "edge": null,
+                    "field_type": "string",
+                    "inverse_of": null,
+                    "name": "question",
+                    "required": true,
+                    "target_kind": null
+                  },
+                  {
+                    "default_value": null,
+                    "description": null,
+                    "edge": null,
+                    "field_type": "string",
+                    "inverse_of": null,
+                    "name": "answer",
+                    "required": false,
+                    "target_kind": null
+                  },
+                  {
+                    "default_value": null,
+                    "description": null,
+                    "edge": null,
+                    "field_type": "string_list",
+                    "inverse_of": null,
+                    "name": "options_presented",
+                    "required": false,
+                    "target_kind": null
+                  }
+                ],
+                "name": "decisions",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "deferred_ideas",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "canonical_refs",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "checkpoint",
             "required": false,
             "target_kind": null
           }
@@ -3114,14 +3869,46 @@
           },
           {
             "default_value": null,
-            "description": "the digest of the phase's (or quick plan's) context when the research was recorded (gsd/W406)",
+            "description": "the gsd/phase-context pack (a quick plan's research: gsd/quick-context) it was written against (gsd/W406)",
             "edge": null,
-            "field_type": "string",
+            "field_type": "block",
             "inverse_of": null,
-            "name": "context_digest",
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "route",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "digest",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "max_tokens",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "context_pack",
             "required": false,
             "target_kind": null,
-            "writer": "harness"
+            "writer": "context"
           },
           {
             "default_value": null,
@@ -4177,6 +4964,50 @@
             "required": false,
             "target_kind": null,
             "writer": "computed"
+          },
+          {
+            "checks_while": "pending",
+            "default_value": null,
+            "description": "the `gsd/executor` pack `start-plan` recorded (gsd/W524)",
+            "edge": null,
+            "field_type": "block",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "route",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "digest",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "max_tokens",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "context_pack",
+            "required": false,
+            "target_kind": null,
+            "writer": "context"
           }
         ],
         "has_body_parser": false,
@@ -4772,6 +5603,21 @@
           },
           {
             "default_value": null,
+            "description": "the tier the planner proposes (backstop for a lifted backstop edge); a person confirms it by setting `verification`, and a verifier abstains on a proposed backstop with no `verification`",
+            "edge": null,
+            "enum_values": [
+              "explicit",
+              "backstop"
+            ],
+            "field_type": "enum",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "proposed_verification",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
             "description": "the phase success criterion it proves",
             "edge": null,
             "field_type": "integer",
@@ -5153,6 +5999,17 @@
             "name": "reason",
             "required": false,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the review concern it rules on; the concern's status reads the highest round",
+            "edge": "DispositionConcern",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "concern",
+            "required": false,
+            "target_kind": "review_concern"
           }
         ],
         "has_body_parser": false,
@@ -5163,6 +6020,590 @@
         "name": "disposition",
         "open_fields": false,
         "scoped_by": "plan",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A cross-AI review round of a phase's plans (GSD NN-REVIEWS.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "`phase:`; parent",
+            "edge": "ReviewPhase",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": true,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "`plans_reviewed:`: the phase's plans the round read",
+            "edge": "ReviewPlans",
+            "field_type": "reference_list",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plans",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "`reviewers:`, `models:` and `model_sources:`: one row per reviewer, names unique",
+            "edge": null,
+            "field_type": "block_list",
+            "immutable": true,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "name",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "model",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "source",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "reviewers",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "each reviewer's section: summary, strengths, suggestions and risk",
+            "edge": null,
+            "field_type": "block_list",
+            "immutable": true,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "reviewer",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "summary",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "strengths",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "suggestions",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "field_type": "enum",
+                "inverse_of": null,
+                "name": "risk",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "lanes",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`plan_coverage:`: the plans each reviewer read of the total, and the ones it missed",
+            "edge": null,
+            "field_type": "block_list",
+            "immutable": true,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "reviewer",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "total",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "missing",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "coverage",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`## Consensus Summary`",
+            "edge": null,
+            "field_type": "string",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "consensus",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`### Agreed Strengths`",
+            "edge": null,
+            "field_type": "string_list",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "strengths",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`### Divergent Views`",
+            "edge": null,
+            "field_type": "string_list",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "divergent",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`reviewed:`: when `record_review` wrote the round",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "reviewed_at",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "append_only": true,
+            "default_value": null,
+            "description": "the symbols a convergence cycle could not check, and why",
+            "edge": null,
+            "field_type": "block_list",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "symbol",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "why",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "unchecked",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "its open concerns that are not drift (a drift finding counts in neither): `high` ones not marked `actionable` false (a single-reviewer, unconfirmed HIGH), and `actionable` ones that are not high",
+            "edge": null,
+            "field_type": "block",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "high",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "actionable",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "open",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "review",
+        "open_fields": false,
+        "scoped_by": "phase",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "append_only": true,
+        "description": "A concern a review round raised about a plan (GSD NN-REVIEWS.md concerns)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "ReviewConcernReview",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "review",
+            "required": true,
+            "target_kind": "review"
+          },
+          {
+            "default_value": null,
+            "description": "the plan it is about",
+            "edge": "ReviewConcernPlan",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": false,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "the reviewers who raised it",
+            "edge": null,
+            "field_type": "string_list",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "reviewers",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "HIGH, MEDIUM or LOW",
+            "edge": null,
+            "enum_values": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "field_type": "enum",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "severity",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the concern",
+            "edge": null,
+            "field_type": "string",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "text",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "a concern the planner can act on (convergence counts it); false on a single-reviewer, unconfirmed HIGH, which keeps its severity and leaves the high count",
+            "edge": null,
+            "field_type": "bool",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "actionable",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "a drift finding: advisory, never a blocker",
+            "edge": null,
+            "field_type": "bool",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "drift",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "what the reviewers cited",
+            "edge": null,
+            "field_type": "string_list",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "evidence",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the outcome of the disposition naming it with the highest round, else open",
+            "edge": null,
+            "enum_values": [
+              "open",
+              "addressed",
+              "deferred"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "review_concern",
+        "open_fields": false,
+        "scoped_by": "review",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A conflict a plan revision reported (GSD REVISION_CONFLICT lines)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "RevisionConflictPhase",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": true,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "the plan whose revision reported it",
+            "edge": "RevisionConflictPlan",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "the checker dimension or review lane that asked",
+            "edge": null,
+            "field_type": "string",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "dimension",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "what the ask would change",
+            "edge": null,
+            "field_type": "string",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "property",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the decision, requirement or must-have it would break",
+            "edge": null,
+            "field_type": "string",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "conflicts_with",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the ways out the planner named",
+            "edge": null,
+            "field_type": "string",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "alternatives",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "when `record_conflict` raised it",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "raised",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "when and how `resolve_conflict` closed it",
+            "edge": null,
+            "field_type": "block",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "at",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "how",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "resolved",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "resolved once `resolved` is set, open while only `raised` is, else none",
+            "edge": null,
+            "enum_values": [
+              "open",
+              "resolved"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "revision_conflict",
+        "open_fields": false,
+        "scoped_by": "phase",
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,
@@ -6342,6 +7783,17 @@
           },
           {
             "default_value": null,
+            "description": "the task whose TDD gate tripped (STATE.md's `last_gate_trip`), written by `raise_blocker --gate`",
+            "edge": "BlockerGate",
+            "field_type": "reference",
+            "inverse_of": null,
+            "name": "gate",
+            "required": false,
+            "target_kind": "task",
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
             "description": "written by the command that raises it, with the host's clock",
             "edge": null,
             "field_type": "string",
@@ -6390,6 +7842,85 @@
         "keyword": null,
         "lsp_icon": null,
         "name": "blocker",
+        "open_fields": false,
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A batch of quick tasks run together (GSD BATCH.json)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "the batch's quick plans, in item order",
+            "edge": "QuickBatchItems",
+            "field_type": "reference_list",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "items",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "the commit the batch started from, written once by `start_batch`",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "base",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "written by `start_batch`, with the host's clock",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "created",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "complete once every item's plan is, else open",
+            "edge": null,
+            "enum_values": [
+              "open",
+              "complete"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the items whose plan has not started, halted or blocked and whose `depends_on` are all complete, in item order; empty, never absent",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "eligible",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "quick_batch",
         "open_fields": false,
         "semantic_token": null,
         "singleton": false,
@@ -7015,8 +8546,52 @@
             "writer": "computed"
           },
           {
+            "append_only": true,
             "default_value": null,
-            "description": "`## Summary`",
+            "description": "`## Deferred Follow-Ups`: each skipped test's idea, verbatim, written by `set_uat_result --follow-up`",
+            "edge": null,
+            "field_type": "block_list",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "UatSessionFollowUpsTest",
+                "field_type": "reference",
+                "inverse_of": null,
+                "name": "test",
+                "required": true,
+                "target_kind": "uat_test"
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "idea",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "date",
+                "inverse_of": null,
+                "name": "deferred_at",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "follow_ups",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "`## Summary`; `follow_ups` counts the deferred follow-ups",
             "edge": null,
             "field_type": "block",
             "inverse_of": null,
@@ -7078,6 +8653,16 @@
                 "field_type": "integer",
                 "inverse_of": null,
                 "name": "blocked",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "follow_ups",
                 "required": false,
                 "target_kind": null
               }
@@ -7434,14 +9019,46 @@
           },
           {
             "default_value": null,
-            "description": "the digest of the phase's context when it was recorded (gsd/W406)",
+            "description": "the gsd/phase-context pack it was written against (gsd/W406)",
             "edge": null,
-            "field_type": "string",
+            "field_type": "block",
             "inverse_of": null,
-            "name": "context_digest",
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "route",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "digest",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "max_tokens",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "context_pack",
             "required": false,
             "target_kind": null,
-            "writer": "harness"
+            "writer": "context"
           },
           {
             "default_value": null,

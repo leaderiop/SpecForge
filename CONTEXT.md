@@ -294,7 +294,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Probe**: an effect a **checker** asks the host to perform on a value (`specforge_protocol_types::Probe`: `fs.*`,
   `http.*`, `dns.resolve`, `git.*`), inside the scopes it declares (E090). The host contains its path, deduplicates it,
   performs it through the effect plane and answers a `ProbeOutcome`; a guest never performs one, and never hears about a
-  path outside its root.
+  path outside its root. _Not_ GSD's edge probe (`specforge gsd edge-probe`, ADR 0333).
 - **Input (of a call)**: one thing a call declares the host serves it before the call, one variant of
   `inputs: Vec<Input>` on a pass, command, prompt, hook or collector: `files` (a `FileRead`), `tests`, `state`,
   `graph`, `slash_commands`, `git { status, when }` (its status a typed `GitStatus`), `setting { extension, name }`,
@@ -917,12 +917,15 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `default_registry`; with neither, none does, and the operation refuses with R-OPS-001 before any
   request (`specforge_ops_registry::Configured::registry_for`, ADR 0045); a `registries` entry that can't be
   read refuses every registry operation with E067 first, so a scope it claims never falls to the default. `add`, `update` and
-  `publish` ask that one registry; `search` asks every entry. A registry credential is kept under
+  `publish` ask that one registry; `extensions search` asks every entry. A registry credential is kept under
   the registry's root (`login --registry <alias>`, else the default registry's; `logout --url <root>` needs no project).
-- **Search hit**: one package a registry search lists: a package name, the SemVer version `latest` picks among its
+- **Search hit**: one package a registry search (`specforge extensions search`) lists: a package name, the SemVer version `latest` picks among its
   stored versions, its declaration's description (printable) and, once merged, the registry it was found in
   (`specforge_registry_wire::SearchHit`, `specforge_ops::registry::Found`, ADR 0231). A reply holding a hit that is
   neither is that registry's failure (R009); a registry serves no stored package whose name is no package name.
+- **Entity hit**: one entity an entity search finds (`specforge search`, `specforge.search`): its id, kind, title, file
+  and line, its rank's score, and for a match in a field's text the field and the text around it
+  (`specforge_ops::read::query::EntityHit`, ADR 0355).
 - **Printable text**: text another program supplies (a registry's reply or error, an extension's answer), as SpecForge
   writes it into a message or a listing: each control character and bidirectional control as its `\u{..}` escape
   (`specforge_common::remedy::printable`, ADR 0231). Applied where the text enters, and by a registry error's writer as a
@@ -1436,7 +1439,19 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   that sends each field (`ArgumentOf<F>`, one exhaustive map, ADR 0072). Its category, annotations, call target, descriptor (input and output schemas
   included) and dispatch derive from it; the core tool table lists each once (`CORE_TOOLS`, each seen
   as a `ToolSpec`), and a declaration that contradicts its handler does not build. A prompt names a
-  tool by its typed name (ADR 0024, ADR 0049).
+  tool by its typed name (ADR 0024, ADR 0049). It is asserted equal to its engine-tool row (ADR 0334).
+- **Engine tool**: a row of `specforge_protocol_types::engine_tools::ENGINE_TOOLS`, one per tool below the surfaces:
+  its name, effect, engine group, CLI twins and a "use when" sentence. The core MCP tool of that name and its CLI twins
+  are asserted to be it (ADR 0334).
+- **Engine group**: the group an engine tool is in: `reads`, `navigation`, `edits`, `output` or `setup`; the graph
+  tools are every group but `setup` (ADR 0334).
+- **Engine tool class**: a contribution's tool class naming SpecForge's own tools: `specforge:<tool>`,
+  `specforge:<group>` or `specforge:<short>.<command>`. Install resolves it, with a default for a contribution that
+  names none; a hook takes none (ADR 0334).
+- **CLI twin**: a CLI command line that does what an engine tool does (`anchors` is `specforge.find_implementation`),
+  listed on its row (ADR 0334).
+- **SpecForge tools section**: the `## SpecForge tools` section install appends to every agent and skill body: each
+  resolved engine tool's MCP name, CLI twin (or "MCP only") and when to use it (ADR 0334).
 - **Tool effect**: what a tool does to its environment, declared once on its tool spec
   (`specforge_mcp::tool::Effect`): reads, writes output artifacts (collect, render), or mutates the
   target's project files (a mutation, ADR 0022), with how a writing tool writes (destructive,
@@ -1496,12 +1511,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Resource spec**: the single definition of a core MCP resource: one module under `specforge_mcp::resources`
   implementing `CoreResource` once (its URI or template, name, description, MIME type, what it changes with and its
   read of the project view); `CORE_RESOURCES` lists each once, seen as a `ResourceSpec` (ADR 0103). A graph view
-  (`graph`, `context`, `brief`, scoped or not, and `graph/{entity_id}`) is `specforge export` over the call's project
+  (`graph`, `context`, `brief`, scoped or not, and `graph/{+entity_id}`) is `specforge export` over the call's project
   view; the entity list and the diagnostics read what `specforge.list` and `specforge.validate` read. A URI names a
   resource, core or extension, by one rule (`specforge_mcp`'s `uri_template::names`): a template names every URI that
   starts with its text before the first placeholder, a URI without one names itself, alone or with a query. A core
-  template reads each placeholder as one non-empty, percent-decoded path segment and refuses any other value as
-  `invalid_input` naming it (`uri_template::read`); a query is the reader's to read or refuse (ADR 0049, ADR 0103).
+  template reads each placeholder as one non-empty, percent-decoded path segment, and a reserved one (`{+entity_id}`,
+  always last) as the rest of the path, each segment non-empty, and refuses any other value as `invalid_input` naming
+  it (`uri_template::read`); a query is the reader's to read or refuse (ADR 0049, ADR 0103, ADR 0355).
 - **Stateless request**: an MCP request whose `_meta` names its protocol version (MCP 2026-07-28),
   answered on its own without `initialize`; every other request follows the revision `initialize`
   negotiated (`specforge_mcp::modern`). Every request is served under its revision, which travels
@@ -1634,7 +1650,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Scope**: the entity a kind's `scoped_by` reference field names (a phase for a decision); a name is unique within
   its scope and kind (E002, W060), and the project is the scope of an entity with none (ADR 0284).
 - **Path**: an entity's ID, its scope's path and its name joined by `/` (`v1.0/03/D-01`); an unscoped entity's path is its
-  name. A reference writes a path one name at a time, relative to its holder or rooted by a leading `/`.
+  name. A reference writes a path one name at a time, relative to its holder or rooted by a leading `/`. The entity
+  templates take it as written, `/` included (`specforge://graph/{+entity_id}`, ADR 0355).
 - **Shortest spelling**: the fewest trailing names of a path that still resolve to the entity from a given holder
   (`D-01`, `03/D-01`, `/D-01`); what an edit, completion or a fix writes (`Scopes::spell`), never what a report shows.
 - **Bare word**: the one word a field value, a list item, an entity header's name or a selective `use` binding is
@@ -1848,6 +1865,25 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Thread**: what `trace` prints along a route: the start and each step's matches, joined by ` → ` on one line when no
   step has more than one, else a tree. It is complete when one path reaches every step; only a complete thread prints
   by default, a partial one with `--partial` (ADR 0330).
+- **Within**: the entities a trace within an entity follows (`trace --in`, MCP `in`): the entity, every entity its
+  scope holds at any depth, and every entity one reference away from one of those, either way; a named route keeps
+  those of its start kind (ADR 0355).
+- **Context route**: what an extension declares (the `contexts` category) for a role to read one entity of a subject
+  kind: ordered sections of named selectors, each core or enrich, the settings it carries, a default budget and an
+  optional agent. One the registry can't serve is E123; an agent binding that can't hold is E124 (ADR 0356).
+- **Context pack**: one context route served for one entity: its sections as served, the subject and the served
+  entities as an export, the budget and what was cut, and the pack digest; `specforge context`, `specforge.context`
+  and `specforge://context/{+entity_id}?role=` answer the same bytes (ADR 0356).
+- **Core section** / **Enrich section**: a context route's section a budget never cuts (core; below them the read is
+  E062), or one served whole in declared order while it fits, the first that does not fit keeping its most connected
+  entities and every later one dropped (enrich) (ADR 0356).
+- **Pack digest**: the sha256 of a pack's route, subject and served sections, each section's digest the judged input
+  digest of its selector over the members it served; the budget is recorded beside it, not in it (ADR 0356).
+- **Context record**: a `context`-written block `{route, digest, max_tokens}` the host writes when it records a
+  route's pack on an entity (ADR 0356).
+- **Stale record**: a record whose pack, evaluated again at its budget, has another digest or no subject; reported
+  with the route's stale code (ADR 0356).
+- **Field filter**: `kind[field=value|…]` in a selector: only entities whose field holds one of the values (ADR 0356).
 - **Result field**: the enum field of a collector-written kind that holds a fact's result, its values `TestStatus`
   names (`KindBuilder::result`, ADR 0329 D3); what a judged `test(..)` input and a reader of a reference to the fact
   take as its result (ADR 0331 D6).
@@ -1860,6 +1896,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (ADR 0352 D2).
 - **Decision coverage**: a planned phase's context decisions each listed in the `decisions` of one of its plans:
   typed references resolved in the phase, never a match on the plan's text (gsd/E310, W317, W506; ADR 0351).
+- **Port lock**: `gsd/core/tests/port.lock`, which splits every `@gsd/core` and `@gsd/security` asset into kept spans
+  and own spans against the tracked gsd-core release. Kept spans are upstream's text byte for byte, and are the
+  quotes. Each own span holds a group that says why it differs. A test recomputes the lock and `GSD_BLESS=1` rewrites
+  it (ADR 0332).
+- **Port ledger**: a shrink-only list a port test of `@gsd/core` reads. Each row is a hit the test still allows. A hit
+  with no row and a row with no hit both fail. The ledgers are `pending_tools.txt` (a program a block runs, ADR 0343
+  D1), `planning_names.txt` (a GSD file named outside an upstream quote) and `markdown_writes.txt` (a line that tells
+  an agent to write a GSD file) (ADR 0332 D8, D9).
 - **Human-only value**: a kind, field or member declared `writer: "human"`; an extension's plan, the MCP tools and a
   non-interactive CLI are refused `human_only` (ADR 0289), also when they edit an existing entity of a human-only kind or
   delete an entity holding a person's value (ADR 0298).
@@ -1888,7 +1932,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Host (agent)**: Claude Code, Codex or Cursor: a file format `specforge install` writes an extension's contributions
   into, through the `HostRenderer` port; it knows no extension's domain (ADR 0292).
 - **Contribution (host)**: an agent, skill, slash command or hook an extension declares in its surfaces; agents and
-  skills are written by the `render__` export (ADR 0292).
+  skills are written by the `render__` export (ADR 0292). Its `tools` may name engine tool classes (ADR 0334).
 - **Trampoline**: a slash command's host file: it calls the prompt or command it binds through that target's own
   surface (ADR 0292).
 - **Marker**: the `# generated by specforge install (<host>) from <extension>@<version> <kind> <id>; edits are

@@ -3,7 +3,7 @@
 **Status:** accepted (2026-11-01, GSD follow-ups G4, plan 03; amended by plan 05: `check`, `settings` and `export`
 take it, D6; the selector takes any key and `.` is the whole answer, D1; a dotted key and a scalar that is not a
 string, D1a; `--fields` rows on `query` and `export`, D7; amended 2026-11-05 by the S1 round: the shapes `--count`,
-`--first`, `--last` and `--join`, D8). Extends [ADR 0318](0318-a-command-is-told-its-host.md) (a host option added
+`--first`, `--last` and `--join`, D8; D2 reaffirmed 2026-11-12; amended by [ADR 0355](0355-a-read-a-prompt-needs-has-a-cli-twin-and-takes-a-path-id-as-written.md): `search` and `refs` take it, D6). Extends [ADR 0318](0318-a-command-is-told-its-host.md) (a host option added
 unless a command declares the name). No wire change.
 
 ## Context
@@ -31,7 +31,10 @@ a `| jq -r` pipe without it leaves the variable empty. Upstream GSD added `--pic
   an object or array, or a missing field, is never selected.
 - **D2. The output.** One line per value reached: a string bare (a newline in it printed as is), a boolean as JSON,
   an object or array as compact JSON, `null` or a missing value as no line. A missing path is not an error; the exit
-  code is the command's.
+  code is the command's. A missing member stays silent because an answer says "none" by leaving a member out: D6's
+  unset setting `value`, an entity's unset field, `http`'s `json` for a body that is not JSON (a JSON `null` body
+  prints `"json": null`), `wait`'s `changed`. A run cannot tell a member it lacks this time from one it never prints;
+  whoever writes a path checks it against the answer's shape in its own tests.
 - **D2a. Numbers.** A number prints as serde_json writes it without `arbitrary_precision` (a workspace-wide
   feature): an integer that fits an i64 or a u64 as is, any other number as an f64, so `1.0` is `1.0`, `-0` is
   `-0.0` and `1e3` is `1000.0`; a number past the f64 range (`1e400`) is refused as not JSON.

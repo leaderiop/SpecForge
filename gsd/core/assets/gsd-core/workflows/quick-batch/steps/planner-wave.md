@@ -23,10 +23,10 @@ in wave 0 before any signal exists).
    current layer, `$LAYER_ITEMS`.
 
 3. **Capability gate** (mirrors `/gsd:quick`'s own):
-   ```bash
+```bash
 # the commands below are specforge commands: there is no launcher to define
    PLAN_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
-   ```
+```
    In registry order, inject only active entries with `kind == "contribution"`
    and `into == "planner"` into each planner prompt below, using
    `fragment.inline` verbatim plus resolved `configValues`. Reuse this
@@ -35,10 +35,10 @@ in wave 0 before any signal exists).
 4. **Concurrency.** Planning is not worktree-isolated — compute with
    `mutating=false` (row 12's rule applies to any non-mutating wave, not just
    research):
-   ```bash
+```bash
 PLAN_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is not part of @gsd/core; one at a time
 
-   ```
+```
 
 5. **Dispatch one `Agent()` per message, `run_in_background: true`, up to
    `$PLAN_CONCURRENCY` in flight — never simultaneous Agent() calls** (row
@@ -113,8 +113,9 @@ PLAN_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is no
    </constraints>
 
    <output>
-   Write plan to: ${item_dir}/${quick_id}-PLAN.md
-   Return: ## PLANNING COMPLETE with plan path
+   Fill the item's plan, which exists (`${quick_id}`): its fields with `specforge set`, one
+   `specforge new task` per task (the typed edits of the planner's `<plan_format>`)
+   Return: ## PLANNING COMPLETE with the plan id
    </output>
    ",
      subagent_type="gsd-planner",
@@ -138,13 +139,13 @@ PLAN_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is no
 
 8. **Persist parsed frontmatter and recompute waves in ONE call** (row 15 —
    this is the single, additive `quick-batch update` verb, never a second
-   writer): for each item that produced a PLAN.md this round, read its
+   writer): for each item whose plan got its tasks this round, read its
    `depends_on`/`files_modified` via
    `specforge query "${quick_id}" --depth 0 --format json` (the `depends_on` field)
    and `... files_modified`, then:
-   ```bash
+```bash
 QB_UPDATE_JSON="{\"updated\":${LAYER_UPDATES_JSON:-[]}}"   # quick-batch update: the batch router is not part of @gsd/core; keep the plan data in your notes
-   ```
+```
    `$LAYER_UPDATES_JSON` is a JSON array of `{quickId, dependsOn, plannedFiles}`
    objects, one per item planned this round. **If this call fails** (an
    unknown dependency reference, or a cycle a planner's declared `depends_on`

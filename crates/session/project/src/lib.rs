@@ -27,6 +27,7 @@ mod check_passes;
 mod checked;
 mod compiled;
 mod compute;
+pub mod context;
 pub mod coverage;
 mod diagnostics_delta;
 pub mod effects;

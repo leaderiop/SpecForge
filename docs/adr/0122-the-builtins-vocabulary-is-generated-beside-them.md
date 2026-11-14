@@ -3,7 +3,7 @@
 **Status:** accepted (2026-10-16, architecture round 12, plan 11). Amends [ADR 0070](0070-every-committed-blob-is-listed-once-and-built-one-way.md)
 D2 (`revendor` also writes the builtin vocabulary) and [ADR 0031](0031-the-registry-build-checks-the-entities.md) (the build carries
 a candidate vocabulary its checks read for suggestions). Keeps [ADR 0096](0096-an-enhancements-fields-are-credited-to-its-declarer.md)'s
-rejection of the index as an owner.
+rejection of the index as an owner. Amended by [ADR 0355](0355-a-read-a-prompt-needs-has-a-cli-twin-and-takes-a-path-id-as-written.md) (the suggestion names `specforge extensions search`).
 
 ## Context
 

@@ -1,7 +1,7 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/references/user-story-template.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # User Story Template (MVP Mode)
 
-> Used by `mvp-phase` workflow and `gsd-planner` agent when `MVP_MODE=true`. Defines the canonical "As a / I want to / So that" format and the rules for converting it into the `**Goal:**` line in ROADMAP.md.
+> Used by `mvp-phase` workflow and `gsd-planner` agent when `MVP_MODE=true`. Defines the canonical "As a / I want to / So that" format and the rules for converting it into the phase's `goal` field.
 
 ## Canonical format
 
@@ -42,7 +42,7 @@ Two structural rules:
 
 ## How it lands in PLAN.md
 
-The `gsd-planner` agent (with MVP_MODE=true) emits the user story as the first content under the phase header in `PLAN.md`:
+With MVP_MODE=true, each plan's objective opens with the user story, as the `gsd-planner` agent writes it:
 
 ```markdown
 ## Phase Goal
@@ -56,4 +56,4 @@ The `gsd-planner` agent (with MVP_MODE=true) emits the user story as the first c
 ...
 ```
 
-Note the bold-keyword formatting (`**As a**`, `**I want to**`, `**so that**`) is for the PLAN.md emit only. The ROADMAP.md `**Goal:**` line uses prose form (the keywords are not bolded inside the goal line, since the goal is itself a single bolded label).
+Inside a plan, and in no other place, the three keywords stand in bold: `**As a**`, `**I want to**`, `**so that**`. The phase's goal in the roadmap keeps them plain, since that goal is already shown as one bold label.

@@ -123,16 +123,12 @@ Track deferred ideas internally.
 
 **Incremental checkpoint — save after each area completes:**
 
-After each area is resolved (user says "Next area"), immediately write a checkpoint file with all decisions captured so far. This prevents data loss if the session is interrupted mid-discussion.
+After each area is resolved (user says "Next area"), immediately record a checkpoint with all decisions captured so
+far: the checkpoint fence of the parent's `discuss_areas` step. This prevents data loss if the session is interrupted
+mid-discussion.
 
-**Checkpoint file:** the `CHECKPOINT` path the check for an interrupted discussion printed
-
-Schema: read `workflows/discuss-phase/templates/checkpoint.json` for the
-canonical structure — copy it and substitute the live values.
-
-**On session resume:** Handled in the parent's `check_existing` step. After
-`write_context` completes successfully, the parent's `git_commit` step
-deletes the checkpoint.
+**On session resume:** Handled in the parent's `check_existing` step. After the context is recorded, the parent's
+`git_commit` step clears the checkpoint.
 
 **Track discussion log data internally:**
 For each question asked, accumulate:
@@ -141,4 +137,4 @@ For each question asked, accumulate:
 - Which option the user selected (or their free-text response)
 - Any follow-up notes or clarifications the user provided
 
-This data is used to generate DISCUSSION-LOG.md in the parent's `git_commit` step.
+The parent's `git_commit` step records this data as the discussion log.

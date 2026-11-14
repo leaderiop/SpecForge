@@ -162,7 +162,7 @@ fn the_code_book_matches_rules_md() {
         from_book, from_md,
         "the code book and rules.md list different codes"
     );
-    assert_eq!(book.len(), 68);
+    assert_eq!(book.len(), 70);
     for row in &rows {
         let code = book
             .iter()
@@ -205,6 +205,18 @@ fn the_code_book_golden() {
     common::golden("codebook.json", &describe("codes"));
 }
 
+/// ADR 0356: the context route of each role `@gsd/core` spawns, and the two that bound a written context.
+#[test]
+fn the_contexts_golden() {
+    let contexts = describe("contexts");
+    assert_eq!(
+        contexts["items"].as_array().map(Vec::len),
+        Some(14),
+        "{contexts}"
+    );
+    common::golden("contexts.json", &contexts);
+}
+
 #[test]
 fn project_and_requirement_declare_the_fields_of_the_model() {
     // `spec/project.md`; a requirement reads its phase back from `phase.requirements`.
@@ -233,7 +245,9 @@ fn project_and_requirement_declare_the_fields_of_the_model() {
     );
     assert_eq!(
         fields_of("requirement"),
-        ["text", "category", "tier", "reason", "defined", "status"]
+        [
+            "text", "category", "tier", "reason", "defined", "status", "shapes", "text_en"
+        ]
     );
 }
 
@@ -247,25 +261,10 @@ fn the_kinds_golden() {
 
 #[test]
 fn milestone_and_phase_declare_the_fields_of_the_model() {
-    assert_eq!(
-        fields_of("milestone"),
-        [
-            "name",
-            "delivered",
-            "accomplishments",
-            "whats_next",
-            "abandoned",
-            "workstream",
-            "completion",
-            "state",
-            "first_commit",
-            "shipped",
-            "stats",
-            "git_range",
-            "progress",
-            "branch"
-        ]
-    );
+    let milestone = "name delivered accomplishments whats_next goal target_features abandoned workstream completion \
+        state first_commit shipped stats git_range progress branch";
+    let milestone: Vec<&str> = milestone.split_whitespace().collect();
+    assert_eq!(fields_of("milestone"), milestone);
     assert_eq!(
         fields_of("phase"),
         [
@@ -318,7 +317,15 @@ fn the_learning_kinds_declare_the_fields_of_the_model() {
     );
     assert_eq!(
         fields_of("lesson"),
-        ["retrospective", "text", "milestone", "top", "kind"]
+        [
+            "retrospective",
+            "text",
+            "milestone",
+            "top",
+            "kind",
+            "graduated",
+            "status"
+        ]
     );
     assert_eq!(
         fields_of("methodology"),
@@ -349,7 +356,9 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
         "methodology",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 72 + 3 - 2 + 1 + 2, "the kinds' fields");
+    // + 2: the requirement's `shapes` and `text_en`, which the spec-less edge probe reads (ADR 0333).
+    // + 2: the lesson's `graduated` and `status`; + 2: the milestone's `goal` and `target_features`.
+    assert_eq!(total, 72 + 3 - 2 + 1 + 2 + 2 + 2 + 2, "the kinds' fields");
 }
 
 #[test]
@@ -367,8 +376,7 @@ fn context_decision_and_deferred_idea_declare_the_fields_of_the_model() {
             "reusable_assets",
             "patterns",
             "integration_points",
-            "status",
-            "digest"
+            "status"
         ]
     );
     assert_eq!(
@@ -386,7 +394,10 @@ fn context_decision_and_deferred_idea_declare_the_fields_of_the_model() {
             "superseded_by"
         ]
     );
-    assert_eq!(fields_of("deferred_idea"), ["text", "phase", "why"]);
+    assert_eq!(
+        fields_of("deferred_idea"),
+        ["text", "phase", "why", "origin", "status"]
+    );
 }
 
 /// `name` of the field `field` of `kind`, with its described properties.
@@ -433,7 +444,7 @@ fn the_spec_kinds_declare_the_fields_of_the_model() {
         fields_of("phase_spec"),
         [
             "phase",
-            "context_digest",
+            "context_pack",
             "created",
             "goal",
             "background",
@@ -446,7 +457,16 @@ fn the_spec_kinds_declare_the_fields_of_the_model() {
     );
     assert_eq!(
         fields_of("locked_req"),
-        ["spec", "title", "current", "target", "acceptance", "traces"]
+        [
+            "spec",
+            "title",
+            "current",
+            "target",
+            "acceptance",
+            "traces",
+            "shapes",
+            "text_en"
+        ]
     );
     let scores = field_of("phase_spec", "scores");
     let members: Vec<(&str, i64, i64)> = scores["members"]
@@ -473,6 +493,96 @@ fn the_spec_kinds_declare_the_fields_of_the_model() {
     );
 }
 
+/// The edge probe's rows of a phase spec (ADR 0333): each scoped by its spec, which it never changes.
+#[test]
+fn the_probe_kinds_declare_the_fields_of_the_model() {
+    assert_eq!(
+        fields_of("edge"),
+        [
+            "spec",
+            "requirement",
+            "category",
+            "status",
+            "verification",
+            "resolution",
+            "reason"
+        ]
+    );
+    assert_eq!(
+        fields_of("spec_prohibition"),
+        [
+            "spec",
+            "requirement",
+            "statement",
+            "status",
+            "verification",
+            "reason",
+            "check_kind",
+            "check_target",
+            "check_rule",
+            "check_violation_fixture",
+            "check_clean_fixture"
+        ]
+    );
+    let entities = describe("entities");
+    for kind in ["edge", "spec_prohibition"] {
+        let entity = entities["items"]
+            .as_array()
+            .and_then(|k| k.iter().find(|k| k["name"] == kind))
+            .expect(kind);
+        assert_eq!(entity["scoped_by"], "spec", "{kind}");
+        assert_eq!(field_of(kind, "spec")["immutable"], true, "{kind}");
+        assert_eq!(
+            field_of(kind, "spec")["target_kind"],
+            "phase_spec",
+            "{kind}"
+        );
+        assert_eq!(
+            field_of(kind, "requirement")["target_kind"],
+            "locked_req",
+            "{kind}"
+        );
+        assert_eq!(
+            field_of(kind, "status")["enum_values"],
+            serde_json::json!(["resolved", "dismissed", "unresolved"]),
+            "{kind}"
+        );
+    }
+    assert_eq!(
+        field_of("edge", "category")["enum_values"],
+        serde_json::json!([
+            "boundary",
+            "adjacency",
+            "empty",
+            "encoding",
+            "ordering",
+            "precision",
+            "idempotency",
+            "concurrency",
+            "unclassified"
+        ])
+    );
+    assert_eq!(
+        field_of("edge", "verification")["enum_values"],
+        serde_json::json!(["explicit", "backstop"])
+    );
+    assert_eq!(
+        field_of("spec_prohibition", "verification")["enum_values"],
+        serde_json::json!(["test", "judgment"])
+    );
+    assert_eq!(
+        field_of("spec_prohibition", "check_kind")["enum_values"],
+        serde_json::json!(["node_test", "lint_rule"])
+    );
+    for kind in ["locked_req", "requirement"] {
+        assert_eq!(
+            field_of(kind, "shapes")["enum_values"],
+            serde_json::json!(["numeric_range", "collection", "text", "stateful", "io"]),
+            "{kind}"
+        );
+    }
+}
+
 /// The description lists the kind as append-only (a removed interview is E085, proven black-box too).
 #[test]
 fn every_field_of_an_interview_is_immutable() {
@@ -492,7 +602,9 @@ fn every_field_of_an_interview_is_immutable() {
 
 #[test]
 fn the_discussion_entries_are_append_only() {
-    assert_eq!(fields_of("discussion"), ["phase", "entries"]);
+    assert_eq!(fields_of("discussion"), ["phase", "entries", "checkpoint"]);
+    // the checkpoint is set and cleared as the discussion goes: not append-only
+    assert_ne!(field_of("discussion", "checkpoint")["append_only"], true);
     let entries = field_of("discussion", "entries");
     assert_eq!(entries["field_type"], "block_list");
     assert_eq!(entries["append_only"], true);
@@ -502,12 +614,13 @@ fn the_discussion_entries_are_append_only() {
         .iter()
         .map(|m| m["name"].as_str().expect("a name"))
         .collect();
-    assert_eq!(members, ["area", "question", "options", "chosen", "mode"]);
+    let entry = "area question options chosen mode notes confidence evidence";
+    assert_eq!(members.join(" "), entry);
 }
 
-/// `discuss.md` listed 95 fields over its 16 kinds before r36 added two rows (`context.digest`, `source.research`). The model fixes: the decision's `from_summary` waits for `summary`
-/// (r38) and `source` gains `research` (the model says every item has one); the context gains its computed `digest`
-/// (the fix of round r36): 95 - 1 + 1 + 1 = 96, the research's and the spec's `context_digest` included.
+/// `discuss.md` listed 95 fields over its 16 kinds before `source.research` was added. The model fixes: the decision's
+/// `from_summary` waits for `summary` and `source` gains `research` (the model says every item has one): 95 - 1 + 1 =
+/// 95, the research's and the spec's `context_pack` included.
 #[test]
 fn the_discuss_kinds_declare_every_field_of_discuss_md() {
     let kinds = [
@@ -517,6 +630,8 @@ fn the_discuss_kinds_declare_every_field_of_discuss_md() {
         "phase_spec",
         "locked_req",
         "interview",
+        "edge",
+        "spec_prohibition",
         "discussion",
         "research",
         "finding",
@@ -529,8 +644,16 @@ fn the_discuss_kinds_declare_every_field_of_discuss_md() {
         "package_audit",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    // + 3: the quick plan's `plan` on context, decision and research.
-    assert_eq!(total, 95 - 1 + 1 + 1 + 3, "the kinds' fields");
+    // + 3: the quick plan's `plan` on context, decision and research. + 2 + 7 + 11: the edge probe's `shapes` and
+    // `text_en` on locked_req, and its two row kinds, edge (7 fields) and spec_prohibition (11) (ADR 0333).
+    // + 1: the discussion's `checkpoint` (a block's members are not counted). + 1: the deferred idea's `status`, open
+    // until an executor's out-of-scope discovery is resolved. + 1: its `origin`, discussion or execution, so only a
+    // discussion idea is part of the phase's context.
+    assert_eq!(
+        total,
+        95 - 1 + 1 + 3 + 2 + 7 + 11 + 1 + 1 + 1,
+        "the kinds' fields"
+    );
 }
 
 #[test]
@@ -555,13 +678,24 @@ fn every_research_item_is_scoped_by_its_research() {
     }
 }
 
+/// ADR 0356: the pack a research, a spec or a validation was written against is the host's record, a block of the
+/// route, its digest and its budget; the context holds no digest of its own.
 #[test]
-fn the_context_digest_is_computed_and_the_recorded_copies_are_harness_values() {
-    assert_eq!(field_of("context", "digest")["writer"], "computed");
-    for kind in ["research", "phase_spec"] {
-        assert_eq!(
-            field_of(kind, "context_digest")["writer"],
-            "harness",
+fn the_recorded_context_packs_are_context_values() {
+    assert!(fields_of("context").iter().all(|f| f != "digest"));
+    for kind in ["research", "phase_spec", "validation"] {
+        let field = field_of(kind, "context_pack");
+        assert_eq!(field["writer"], "context", "{kind}");
+        assert_eq!(field["field_type"], "block", "{kind}");
+        let members: Vec<&str> = field["members"]
+            .as_array()
+            .expect("members")
+            .iter()
+            .map(|m| m["name"].as_str().expect("a name"))
+            .collect();
+        assert_eq!(members, ["route", "digest", "max_tokens"], "{kind}");
+        assert!(
+            fields_of(kind).iter().all(|f| f != "context_digest"),
             "{kind}"
         );
     }

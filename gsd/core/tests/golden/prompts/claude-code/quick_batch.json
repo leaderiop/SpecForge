@@ -9,8 +9,9 @@
     "<objective>",
     "Batch several `/gsd-quick`-shaped tasks together: one coordinator parses the",
     "task list, dispatches per-item planner/researcher/checker/executor/verifier",
-    "leaves, and owns every shared write (`BATCH.json`, STATE.md, worktree",
-    "create/merge/cleanup) so leaves never race each other (ADR-1239 \"Quick-batch",
+    "leaves, and owns every shared write — the batch is a `quick_batch` entity:",
+    "`specforge gsd start-batch` records its items and base, and resume reads its",
+    "computed `eligible` — so leaves never race each other (ADR-1239 \"Quick-batch",
     "binding\").",
     "",
     "**Task list:** either an inline bulleted/numbered list (≥2 items — the same",
@@ -42,12 +43,13 @@
     "`specforge gsd reference gsd-core/references/response-language-directive.md`",
     "<purpose>",
     "Batch several `/gsd-quick`-shaped tasks together (#3676, epic #3344, ADR-1239",
-    "\"Quick-batch binding\"). ONE coordinator (this workflow) owns every shared",
-    "write — `BATCH.json`, STATE.md, each executor's dispatch — and never",
-    "delegates them to a leaf. Leaves (planner/researcher/checker/executor/",
-    "verifier) return structured results only; they never invoke `/gsd-quick`,",
-    "never touch `BATCH.json`, and never write STATE.md/ROADMAP.md themselves",
-    "(single-writer invariant).",
+    "\"Quick-batch binding\"). ONE coordinator (this workflow) records the batch and",
+    "each executor's dispatch, and never delegates them to a leaf: the batch is a",
+    "`quick_batch` entity — `specforge gsd start-batch` records its items and base,",
+    "and resume reads its computed `eligible`. Leaves (planner/researcher/checker/",
+    "executor/verifier) return structured results only; they never invoke",
+    "`/gsd-quick`, never write the batch entity, and record only their own item's",
+    "entities (single-writer invariant).",
     "",
     "Dispatch decisions (effective concurrency, deterministic merge order, spawn",
     "backpressure, failure/verification routing) are computed by the pure",
@@ -57,11 +59,9 @@
     "",
     "<required_reading>",
     "Read all files referenced by the invoking prompt's execution_context before starting.",
-    "</required_reading>",
-    "",
-    "<available_agent_types>"
+    "</required_reading>"
   ],
-  "bytes": 23374,
+  "bytes": 23919,
   "end": [
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
     "capacity/isolation, and dispatch wave-by-wave.",
@@ -96,7 +96,7 @@
     "specforge set \"$quick_id\" objective \"<objective>\"",
     "specforge set \"$quick_id\" files_modified <paths>",
     "specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"",
-    "# an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`",
+    "specforge new artifact AR1 \"<name>\" --in spec/quick.spec --plan \"$quick_id\" --field path=<file> --provides \"<what it provides>\"",
     "specforge gsd start-plan \"$quick_id\" --head \"$(specforge git head --pick .sha)\"",
     "specforge new summary \"$quick_id-SUMMARY\" \"<title>\" --in spec/quick.spec --plan \"$quick_id\" --status complete --one_liner \"<one line>\" --subsystem <area> --requirements_completed \"\"",
     "specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\"",
@@ -115,19 +115,21 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
-    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -182,11 +184,9 @@
     "  \"external_job.submit_timeout_ms\": 30000,",
     "  \"fast_mode.enabled\": false,",
     "  \"features.global_learnings\": false,",
-    "  \"features.thinking_partner\": false,",
-    "  \"gates.confirm_milestone_scope\": true,",
-    "  \"gates.confirm_transition\": true,"
+    "  \"features.thinking_partner\": false,"
   ],
-  "lines": 513,
+  "lines": 473,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:4b66159b3c6c34075594791cd3c2149a90b6a1d3c05e1423448008e885036fa0",
+    "digest": "sha256:4cb6105bf5094dc949ed17cac00fd303dd14862e10229c713f557a7f8ab0ca08",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "4b66159b3c6c34075594791cd3c2149a90b6a1d3c05e1423448008e885036fa0"
+  "sha256": "4cb6105bf5094dc949ed17cac00fd303dd14862e10229c713f557a7f8ab0ca08"
 }

@@ -69,7 +69,7 @@ Use AskUserQuestion with these 3 options.
 
 **If "Split":** Use `/gsd:phase --insert` to create the sub-phases, then replan each.
 **If "Proceed":** Return to planner with instruction to attempt all items at full fidelity, accepting more plans/tasks.
-**If "Prioritize":** Use AskUserQuestion (multiSelect) to let user pick which items are "now" vs "later". Create CONTEXT.md for each sub-phase with the selected items.
+**If "Prioritize":** Use AskUserQuestion (multiSelect) to let user pick which items are "now" vs "later". Record one `context` entity for each sub-phase with the selected items, as the PRD express path does.
 
 ## § 9c — Handle Source Audit Gaps
 
@@ -97,7 +97,21 @@ Use AskUserQuestion for each gap (or batch if multiple gaps).
 
 **If "Add plan":** Return to planner (step 8) with instruction to add plans covering the missing items, preserving existing plans.
 **If "Split":** Use `/gsd:phase --insert` for overflow items, then replan.
-**If "Defer":** Record in CONTEXT.md `## Deferred Ideas` with developer's confirmation. Proceed to step 10.
+**If "Defer":** once the developer confirms, record each deferred item as a `deferred_idea` of the phase, then go on to
+step 10:
+
+```bash
+PHASE_ID="{the phase id, e.g. v1.0/02}"
+IDEA_ID="{the phase's next deferred idea id, e.g. DI2}"
+IFS= read -rd '' DEFERRED <<'TEXT' || true; DEFERRED=${DEFERRED%$'\n'}
+{the unplanned item, in the developer's words}
+TEXT
+IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\n'}
+{why it waits, e.g. the developer deferred it at the source audit}
+TEXT
+PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
+specforge new deferred_idea "$IDEA_ID" "$DEFERRED" --in "$PHASE_FILE" --phase "$PHASE_ID" --origin discussion --text "$DEFERRED" --why "$WHY" || exit 1
+```
 
 ## § 11a — Filesystem Fallback (Checker)
 

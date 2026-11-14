@@ -186,3 +186,62 @@ fn a_kind_and_a_field_may_be_human_and_a_pass_a_guard() {
         );
     }
 }
+
+#[spec(
+    behavior = "record_harness_values",
+    verify = "a context-written field is a block of route, digest and max_tokens, or it is W021 and its writer dropped"
+)]
+fn a_context_field_must_be_a_route_digest_budget_block() {
+    let record = |members: Value| json!({"name": "pack", "field_type": "block", "writer": "context", "members": members});
+    let shape = json!([
+        {"name": "route", "field_type": "string"},
+        {"name": "digest", "field_type": "string"},
+        {"name": "max_tokens", "field_type": "integer"},
+    ]);
+    let good = build([wire(thing(json!([record(shape)])), json!([]))]);
+    assert!(diagnostics(&good).is_empty(), "{:?}", diagnostics(&good));
+    let pack = good.fields().get("thing", "pack").unwrap();
+    assert_eq!(
+        pack.writer(),
+        Some(specforge_protocol_types::FieldWriter::Context)
+    );
+
+    for field in [
+        json!({"name": "pack", "field_type": "string", "writer": "context"}),
+        record(json!([
+            {"name": "route", "field_type": "string"},
+            {"name": "digest", "field_type": "string"},
+        ])),
+        record(json!([
+            {"name": "route", "field_type": "string"},
+            {"name": "digest", "field_type": "string"},
+            {"name": "max_tokens", "field_type": "string"},
+        ])),
+        record(json!([
+            {"name": "route", "field_type": "string"},
+            {"name": "digest", "field_type": "string"},
+            {"name": "max_tokens", "field_type": "integer"},
+            {"name": "at", "field_type": "string"},
+        ])),
+        json!({"name": "pack", "field_type": "block", "writer": "context", "required": true, "members": [
+            {"name": "route", "field_type": "string"},
+            {"name": "digest", "field_type": "string"},
+            {"name": "max_tokens", "field_type": "integer"},
+        ]}),
+        json!({"name": "pack", "field_type": "block", "members": [
+            {"name": "route", "field_type": "string", "writer": "context"},
+        ]}),
+    ] {
+        let build = build([wire(thing(json!([field.clone()])), json!([]))]);
+        assert_eq!(
+            coded(&build, "W021").len(),
+            1,
+            "{field}: {:?}",
+            diagnostics(&build)
+        );
+        let kept = build.fields().get("thing", "pack").unwrap();
+        if field.get("required").is_none() {
+            assert_eq!(kept.writer(), None, "{field}: the writer is dropped");
+        }
+    }
+}

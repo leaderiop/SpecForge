@@ -15,8 +15,8 @@ The git log should read like a changelog of what shipped, not a diary of plannin
 | Event                   | Commit? | Why                                              |
 | ----------------------- | ------- | ------------------------------------------------ |
 | BRIEF + ROADMAP created | YES     | Project initialization                           |
-| PLAN.md created         | NO      | Intermediate - commit with plan completion       |
-| RESEARCH.md created     | NO      | Intermediate                                     |
+| A plan is recorded      | NO      | Goes into the commit that ends the plan          |
+| Research is recorded    | NO      | Not a stopping point of its own                  |
 | DISCOVERY.md created    | NO      | Intermediate                                     |
 | **Task completed**      | YES     | Atomic unit of work (1 commit per task)         |
 | **Plan completed**      | YES     | Metadata commit (SUMMARY + STATE + ROADMAP)     |

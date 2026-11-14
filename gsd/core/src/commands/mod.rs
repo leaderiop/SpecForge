@@ -8,13 +8,16 @@ mod digest;
 mod execute;
 mod gate;
 mod help;
+mod learning;
 mod milestone;
 mod milestone_branches;
 mod phase;
+mod probe_rows;
 mod quick;
 mod refactor;
 mod reference;
 pub(crate) mod reports;
+mod review;
 pub mod smart_entry;
 mod state;
 pub(crate) mod support;
@@ -46,8 +49,13 @@ pub const WRITERS: &[(&str, &str, &str)] = &[
     ("pause", "at", "pause"),
     ("pause", "by", "pause"),
     ("blocker", "raised", "raise_blocker"),
+    ("lesson", "graduated", "graduate_lessons"),
+    ("quick_batch", "base", "start_batch"),
+    ("quick_batch", "created", "start_batch"),
+    ("blocker", "gate", "raise_blocker"),
     ("uat_test", "result", "set_uat_result"),
     ("uat_test", "source", "set_uat_result"),
+    ("uat_session", "follow_ups", "set_uat_result"),
     ("validation", "approval", "approve_validation"),
     ("broken_window", "waiver", "waive_window"),
     ("broken_window", "fixed_at", "fix_window"),
@@ -58,9 +66,9 @@ pub const WRITERS: &[(&str, &str, &str)] = &[
     ("refactor_proposal", "reasons", "propose_refactor"),
     ("refactor_proposal", "candidates", "propose_refactor"),
     ("refactor_proposal", "disposition", "dispose_refactor"),
-    ("phase_spec", "context_digest", "record_spec"),
-    ("research", "context_digest", "record_research"),
-    ("validation", "context_digest", "record_validation"),
+    ("review", "reviewed_at", "record_review"),
+    ("revision_conflict", "raised", "record_conflict"),
+    ("revision_conflict", "resolved", "resolve_conflict"),
     ("commit", "hash", "gsd-git"),
     ("commit", "task", "gsd-git"),
     ("commit", "plan", "gsd-git"),
@@ -90,8 +98,10 @@ pub fn declare(c: &mut ContributionsBuilder) {
     help::declare(c);
     reports::declare(c);
     reference::declare(c);
+    review::declare(c);
     user_story::declare(c);
     edge_probe::declare(c);
+    probe_rows::declare(c);
     plan_coverage::declare(c);
     verification_debt::declare(c);
     gate::declare(c);
@@ -100,5 +110,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
     milestone_branches::declare(c);
     smart_entry::declare(c);
     quick::declare(c);
+    learning::declare(c);
     surface::declare(c);
 }

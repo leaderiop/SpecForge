@@ -17,7 +17,7 @@
     "|---|---|",
     "| Gather context before planning | gsd-discuss-phase |",
     "| Clarify what a phase delivers | gsd-spec-phase |",
-    "| Create a PLAN.md | gsd-plan-phase |",
+    "| Create a plan | gsd-plan-phase |",
     "| Execute plans in a phase | gsd-execute-phase |",
     "| Verify built features through UAT | gsd-verify-work |",
     "| Add / insert / remove / edit a phase | gsd-phase |",
@@ -61,7 +61,7 @@
     "| `$gsd-mvp-phase` | prompt `specforge.gsd.mvp_phase` (served by @gsd/core) |",
     "| `$gsd-quick` | prompt `specforge.gsd.quick` (served by @gsd/core) |"
   ],
-  "bytes": 20223,
+  "bytes": 20570,
   "end": [
     "| Advance to the next logical step | gsd-progress |",
     "| Open the state-aware smart-entry launcher | gsd-next |",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 357,
+  "lines": 359,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:82149c52335a41a2e95e43177779f1ae2a9991f5b4b2aa2c3da5c2f92e9ed066",
+    "digest": "sha256:072ded0f7de66ee87544857443856d70b119b50fc699d9b1c56dfc9db4ca567e",
     "prompt": "@gsd/core@VERSION:ns_workflow"
   },
-  "sha256": "82149c52335a41a2e95e43177779f1ae2a9991f5b4b2aa2c3da5c2f92e9ed066"
+  "sha256": "072ded0f7de66ee87544857443856d70b119b50fc699d9b1c56dfc9db4ca567e"
 }

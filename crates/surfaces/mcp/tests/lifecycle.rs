@@ -752,11 +752,11 @@ fn list_resources_core_only() {
         vec![
             "specforge://brief",
             "specforge://context",
-            "specforge://context/{entity_id}",
+            "specforge://context/{+entity_id}",
             "specforge://diagnostics",
             "specforge://entities/{kind}",
             "specforge://graph",
-            "specforge://graph/{entity_id}",
+            "specforge://graph/{+entity_id}",
             "specforge://schema",
         ]
     );
@@ -771,7 +771,7 @@ fn list_tools_core_only() {
     let mut server = init_server();
     let resp = call(&mut server, "tools/list", json!({}));
     let tools = resp["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 39, "the 39 core tools");
+    assert_eq!(tools.len(), 40, "the 40 core tools");
     for tool in tools {
         let name = tool["name"].as_str().unwrap();
         assert!(name.starts_with("specforge."), "{name} is not core");

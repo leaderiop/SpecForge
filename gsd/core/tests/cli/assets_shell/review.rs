@@ -2,7 +2,7 @@
 //! under bash with no jq on the `PATH`. The taskboard fixture: phase 02 depends on phase 01, so a query of phase 01
 //! at depth 2 also reaches 02's plan 02-01.
 
-use super::{Shell, asset};
+use super::{Shell, asset, fence_after, fence_from};
 use crate::harness::taskboard;
 
 /// The inline code run of `line` that starts with `start`, without its backticks.
@@ -147,8 +147,7 @@ fn the_review_block_keeps_only_lane_evidence() {
     };
     let p = taskboard();
     let text = asset("gsd-core/workflows/review.md");
-    let tail = &text[text.rfind("shopt -s nullglob").expect("the last block")..];
-    let script = &tail[..tail.find("\n```").expect("the end of the fence")];
+    let script = &fence_from(&text, "shopt -s nullglob");
     let run_dir = p.root().join(".specforge/tmp/gsd-review-run");
     let block = script.replace("{run_dir}", &run_dir.display().to_string());
     let fill = |files: &[(&str, &str)]| {
@@ -197,8 +196,7 @@ fn the_review_block_keeps_only_lane_evidence() {
 #[test]
 fn the_review_cleanup_holds_no_rule() {
     let text = asset("gsd-core/workflows/review.md");
-    let tail = &text[text.rfind("shopt -s nullglob").expect("the last block")..];
-    let script = &tail[..tail.find("\n```").expect("the end of the fence")];
+    let script = &fence_from(&text, "shopt -s nullglob");
     for rule in ["case ", "$((", "[ -s "] {
         assert!(!script.contains(rule), "the cleanup decides with {rule:?}");
     }
@@ -229,18 +227,11 @@ fn filled_assignment(text: &str, placeholder: &str) -> Vec<String> {
 #[test]
 fn a_model_filled_list_runs_nothing() {
     let p = crate::harness::project("empty");
-    for (path, placeholder, var) in [
-        (
-            "gsd-core/workflows/review.md",
-            "{selected_reviewers}",
-            "SELECTED_REVIEWERS",
-        ),
-        (
-            "gsd-core/references/specless-probe-fallback.md",
-            "{phase_req_ids}",
-            "SPECLESS_REQ_IDS",
-        ),
-    ] {
+    for (path, placeholder, var) in [(
+        "gsd-core/workflows/review.md",
+        "{selected_reviewers}",
+        "SELECTED_REVIEWERS",
+    )] {
         let text = asset(path);
         let holders = filled_assignment(&text, placeholder);
         assert!(!holders.is_empty(), "{path}: no {placeholder}");
@@ -316,4 +307,65 @@ fn the_environment_audit_runs_the_tool_or_says_it_is_missing() {
         out.starts_with("specforge: specforge ") && out.lines().count() == 1,
         "{out}{err}"
     );
+}
+
+/// plan-phase's conflict channel, run as served with convergence on: with a review round on the phase, the record
+/// fence raises one open conflict however often it runs, and the close fence resolves it once the replan holds; with
+/// no round the channel is shut and nothing is written.
+#[test]
+fn a_revision_conflict_is_recorded_once_and_closed_by_the_replan() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = taskboard();
+    p.settings(serde_json::json!({ "workflow.plan_review_convergence": true }));
+    let served = p.run(&["gsd", "reference", "gsd-core/workflows/plan-phase.md"]);
+    assert_eq!(served.code, 0, "{}", served.all());
+    let record = fence_after(&served.stdout, "with this workflow's bindings:")
+        .replace("<the conflict's plan id, verbatim>", "02-01")
+        .replace("<its dimension, verbatim>", "task_completeness\nacross lines")
+        .replace("<its required_property, verbatim>", "titles survive a reload")
+        .replace(
+            "<what it conflicts with (locked decision D-nn / CLAUDE.md rule / plan constraint), verbatim>",
+            "D-02",
+        )
+        .replace("<the agent's alternatives, verbatim; empty when it gave none>", "");
+    let close = fence_after(
+        &served.stdout,
+        "**Otherwise (revised plans, not `## REVISION_CONFLICT`):**",
+    );
+    let open = "specforge query v1.0/02 --depth 1 --kinds revision_conflict --pick '.nodes[fields.status=open].id' --count";
+    let script = |fence: &str| format!("PHASE_ID=v1.0/02\n{fence}");
+    // no round: the channel is shut
+    let (out, err, code) = sh.run_in(p.root(), &script(&record));
+    assert_eq!((out.as_str(), code), ("", 0), "{err}");
+    assert!(p.nodes_of("revision_conflict").is_empty());
+    let round = serde_json::json!({
+        "plans": ["02-01"],
+        "reviewers": [{ "name": "codex", "model": "gpt", "source": "cli" }],
+        "concerns": [{ "plan": "02-01", "reviewers": ["codex"], "severity": "high", "text": "Reload loses titles" }]
+    });
+    let run = p.run(&[
+        "gsd",
+        "record-review",
+        "v1.0/02",
+        "--review",
+        &round.to_string(),
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    for _ in 0..2 {
+        let (out, err, code) = sh.run_in(p.root(), &script(&record));
+        assert_eq!((out.trim(), code), ("v1.0/02/CF1", 0), "{err}");
+    }
+    assert_eq!(p.nodes_of("revision_conflict").len(), 1);
+    let conflict = p.fields_of("v1.0/02/CF1");
+    assert_eq!(conflict["dimension"], "task_completeness across lines");
+    assert!(conflict.get("alternatives").is_none(), "{conflict}");
+    let (out, err, code) = sh.run_in(p.root(), open);
+    assert_eq!((out.trim(), code), ("1", 0), "{err}");
+    let (out, err, code) = sh.run_in(p.root(), &script(&close));
+    assert_eq!(code, 0, "{out}{err}");
+    assert_eq!(p.fields_of("v1.0/02/CF1")["status"], "resolved");
+    let (out, err, code) = sh.run_in(p.root(), open);
+    assert_eq!((out.trim(), code), ("0", 0), "{err}");
 }

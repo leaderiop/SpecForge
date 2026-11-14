@@ -74,7 +74,6 @@ At verification decision points, reference calibration examples:
 `specforge query` and `specforge gsd record-verdict` are used in initial and re-verification mode alike. Each Bash call is a fresh shell: every snippet below names what it needs. The phase is `$PHASE_ID` (for example `v1.0/03`); if you cannot resolve it, run `specforge query "$MILESTONE" --kinds phase` and never search the filesystem.
 
 
-
 ## Step 0: Check for Previous Verification
 
 ```bash
@@ -98,11 +97,10 @@ Set `is_re_verification = false`, proceed with Step 1.
 
 ## Step 1: Load Context (Initial Mode Only)
 
+Read the verifier pack: the phase with its goal and success criteria, its requirements, its plans with their truths, artifacts and key links, and its summaries, at the verifier route's budget. Over MCP it is the resource `specforge://context/{+entity_id}?role=gsd/verifier`; the host's "## Context" section lists the route.
+
 ```bash
-specforge query "$PHASE_ID" --kinds plan --format json
-specforge query "$PHASE_ID" --depth 2 --kinds summary --format json
-specforge query "$PHASE_ID" --format json   # the phase: goal and success criteria
-specforge query "$PHASE_ID" --kinds requirement --format json   # the requirements mapped to this phase
+specforge context gsd/verifier "$PHASE_ID"
 ```
 
 Extract the phase goal from the phase entity — this is the outcome to verify, not the tasks.
@@ -196,7 +194,7 @@ For each truth:
    - A pre-existing test exercises the transition/invariant and passes (confirm via Step 7b's single-named-test path) → ✓ VERIFIED.
    - No such test exists, or it can't run without a server/state mutation → ⚠️ PRESENT_BEHAVIOR_UNVERIFIED. Emit a human-verification item (Step 8) and do not count it toward the verified score (Step 9).
    - An accepted override (Step 3b) carries the truth as PASSED (override), exactly as it does for a FAILED truth.
-5b. **Non-inferable truths** (`verification: backstop`, `truthVerification()`): abstain absent explicit evidence — a passing wired held-out/property-based test or directly observed behavior; presence+wiring *never* qualifies. Mark `insufficient_spec` -> human-verification item -> `human_needed`.
+5b. **Non-inferable truths: read both tiers.** A truth's `verification` (`explicit` or `backstop`) is a person's to set; its `proposed_verification` is the planner's proposal, written once. A truth whose `verification` is `backstop` is non-inferable: abstain absent explicit evidence (a passing, wired held-out or property-based test, or directly observed behavior); presence and wiring never qualify. A truth whose `proposed_verification` is `backstop` and that has no `verification` is an unconfirmed backstop: abstain on it too, and say in its human-verification item that a person confirms the tier by setting `verification`. To abstain, record `present_behavior_unverified` with an `insufficient_spec` finding: it becomes a human-verification item, and the phase reads `human_needed`. A truth with neither tier, or whose `verification` is `explicit`, is judged as above.
 5c. **Reliance check (advisory, #1955).** Before finalizing a ✓ VERIFIED truth, ask *why* it holds. Classify the evidence already recorded, not your confidence in it. Endogenous, and so weaker than the exogenous `backstop` tag (`gsd-core/references/honest-verifier.md`) — advisory for exactly that reason. Flag `coincidental-reliance` when the evidence names one of: **undeclared-precondition** (state nothing in the phase's artifacts or a declared prerequisite guarantees), **incidental-ordering** (an order or side effect nothing in the code enforces), **fixture-only** (the test's own setup establishes the precondition; the production path has no equivalent). **Do NOT flag:** a precondition the code establishes or explicitly defaults; ordering the code enforces (await, explicit sequencing); a fixture merely supplying input the real caller also supplies; unease naming no specific state, ordering, or fixture. Out of scope: ⚠️ PRESENT_BEHAVIOR_UNVERIFIED and ⚠️ `insufficient_spec` (already routed to human), and PASSED (override) truths. Record `✓ VERIFIED (coincidental-reliance)` and add a `coincidental_reliance_items` entry. **Advisory only — not the score, not the status, and never a human-verification item** (Step 9 rule 2 would flip a passing phase to `human_needed`). The usual fix: promote the hidden assumption into a declared precondition.
 6. Determine truth status
 
@@ -213,26 +211,20 @@ Before marking any must-have as FAILED or ⚠️ PRESENT_BEHAVIOR_UNVERIFIED, ch
 
 **If override found:**
 - Mark as `PASSED (override)` instead of FAIL/PRESENT_BEHAVIOR_UNVERIFIED
-- Evidence: `Override: {reason} — accepted by {accepted_by} on {accepted_at}`
+- Evidence: the override itself, quoted from its fields as `Override: {reason} — accepted by {by} on {at}` so the reader sees who took the risk
 - Count toward passing score (`verified_truths`), not failing score
 
 **If no override found:**
 - Mark as FAILED (or ⚠️ PRESENT_BEHAVIOR_UNVERIFIED, per Step 3 step 5) as normal
 - Consider suggesting an override if the failure looks intentional (alternative implementation exists)
 
-**Suggesting overrides:** When a must-have FAILs but evidence shows an alternative implementation that achieves the same intent, include an override suggestion in the report:
+**Suggesting overrides:** Sometimes a must-have FAILs although the code reaches its intent another way; then propose an override in your report. For that truth, fill in the line that the Override Format of `verification-overrides.md` has the person run:
 
-```markdown
-**This looks intentional.** To accept this deviation, a human adds an `override` entity under the verification:
+````markdown
+**This looks intentional.** If you accept the deviation, record an override in your terminal (only a person can):
 
-```yaml
-overrides:
-  - must_have: "{must-have text}"
-    reason: "{why this deviation is acceptable}"
-    accepted_by: "{name}"
-    accepted_at: "{ISO timestamp}"
-```
-```
+{the filled override line}
+````
 
 ## Step 4: Verify Artifacts (Three Levels)
 
@@ -343,18 +335,18 @@ Verify each link below; per-pattern procedures and recipes:
 
 ## Step 6: Check Requirements Coverage
 
-**6a. Extract requirement IDs from PLAN frontmatter:**
+**6a. Trace the phase's requirements along their threads:**
 
 ```bash
-specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].fields.requirements[]'
+specforge trace --route gsd/requirement-thread --in "$PHASE_ID" --partial
 ```
 
-Collect ALL requirement IDs declared across plans for this phase.
+Each requirement prints its thread: the plans that claim it, their tasks with their items and commits, its tests with their status, and its truths with their verdict state. A thread that stops before a verified truth (`no truth`, or a truth `missing`) is a requirement no truth proves yet. `--format json` prints the same threads with each test's fact id (its `test` step), the id a verdict cites.
 
-**6b. Cross-reference against REQUIREMENTS.md:**
+**6b. Map each requirement to its evidence:**
 
-For each requirement ID from plans:
-1. Find its full description in REQUIREMENTS.md (`**REQ-ID**: description`)
+For each requirement of the threads:
+1. Read its full text: `specforge query <requirement> --depth 0 --format context`
 2. Map to supporting truths/artifacts verified in Steps 3-5
 3. Determine status:
    - ✓ SATISFIED: Implementation evidence found that fulfills the requirement
@@ -371,13 +363,10 @@ If the requirements map additional IDs to this phase that don't appear in ANY pl
 
 ## Step 7: Scan for Anti-Patterns
 
-Identify files modified in this phase from the summary's `key_files`, or extract commits and verify:
+Identify the files this phase changed from the threads' commit step (Step 6) and the summaries' file lists, and verify the commits:
 
 ```bash
-# Option 1: Extract from SUMMARY frontmatter
-SUMMARY_FILES=$(specforge query "$PHASE_ID" --depth 2 --kinds summary --format json)   # each summary's key_files
-
-# Option 2: Verify commits exist (if commit hashes documented)
+# The phase's commits: the commit entities its plans' tasks record, three levels below the phase
 COMMIT_HASHES=$(specforge query "$PHASE_ID" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash')
 if [ -n "$COMMIT_HASHES" ]; then
   # Every hash must be a commit; "missing" is a finding. Not a git repo: report that you could not look.
@@ -387,6 +376,8 @@ fi
 # The files the summaries list
 for f in files_created files_modified; do specforge query "$PHASE_ID" --depth 2 --kinds summary --pick ".nodes[kind=summary].fields.$f[]"; done
 ```
+
+For each file you open, `specforge anchors --file "$file"` lists the entities its located facts are anchored to: the tasks, artifacts or tests that claim it.
 
 Run anti-pattern detection on each file. For the files a plan declares, `verification.anti_patterns` and `gsd/E505` already hold the debt markers and placeholder phrases; these searches also reach the files no plan declares:
 
@@ -410,7 +401,7 @@ specforge files search -C 2 'console\.log' "$file" --format human
 
 **Debt marker gate:** Any `TBD`, `FIXME`, or `XXX` marker in a file modified by this phase is a 🛑 BLOCKER unless the same line references formal follow-up work (`issue #123`, `PR #123`, `#123`, or `DEF-*`). Unreferenced markers mean completion is not auditable; set `status: gaps_found` and list each marker under `gaps`.
 
-**Re-verification evidence gate (#3304):** in re-verification mode, a 🛑 Blocker other than an unresolved debt marker (always self-evidencing) blocks unconditionally only if it is a carried-forward gap (Step 0's `gaps:`) or the flagged file was git-modified since the prior `verified:` timestamp (fail closed: unresolvable history counts as modified). Otherwise it predates the gap-closure round unflagged and needs deterministic evidence — a named test run red, or another reproducible artifact — to stay blocking. Algorithm: @~/.claude/gsd-core/references/verifier-evidence-gate.md. Unevidenced → 📋 Advisory: record in `advisory:` frontmatter, exclude from Step 9 Rule 1, never revert a completed must-have.
+**Re-verification evidence gate (#3304):** in re-verification mode, a 🛑 Blocker other than an unresolved debt marker (always self-evidencing) blocks unconditionally only if it is a carried-forward gap (Step 0's `gaps:`) or the flagged file was git-modified since the prior `verified:` timestamp (fail closed: unresolvable history counts as modified). Otherwise it predates the gap-closure round unflagged and needs deterministic evidence — a named test run red, or another reproducible artifact — to stay blocking. Algorithm: @~/.claude/gsd-core/references/verifier-evidence-gate.md. An unevidenced blocker drops to 📋 Advisory: the verdict records it as a `warning` finding, Step 9 Rule 1 ignores it, and a completed must-have stays completed.
 
 Categorize: 🛑 Blocker (prevents goal or unresolved debt marker) | ⚠️ Warning (incomplete) | ℹ️ Info (notable) | 📋 Advisory (re-verification only — new-scope, unevidenced; see above)
 
@@ -509,7 +500,7 @@ done
 
 **Needs human if uncertain:** Complex wiring grep can't trace, dynamic state behavior, edge cases.
 
-**Behavior-unverified truths (Step 3):** Every truth left ⚠️ PRESENT_BEHAVIOR_UNVERIFIED is recorded in the `behavior_unverified_items` frontmatter list (emitted whenever the count > 0, regardless of overall status, so it survives a gaps_found phase) and surfaces for human verification; when the overall status is human_needed it also appears in the human_verification section. Phrase each item around the invariant: what to trigger, what state must hold afterward, and why presence checks can't see it.
+**Behavior-unverified truths (Step 3):** Every truth left ⚠️ PRESENT_BEHAVIOR_UNVERIFIED (its verdict `present_behavior_unverified`) is listed in the report's Human Verification Required section whatever the overall status, so it survives a gaps_found phase. Phrase each item around the invariant: what to trigger, what state must hold afterward, and why presence checks can't see it.
 
 **Harvest deferred items from PLAN.md (#3309 / `workflow.human_verify_mode = end-of-phase`):** Scan every PLAN file in the phase for `<verify><human-check>` blocks on `auto` tasks. These are verification items the planner deliberately deferred from `checkpoint:human-verify` to end-of-phase to avoid the executor cold-start cost. Each block has the same shape used by the planner:
 
@@ -533,6 +524,28 @@ Merge those harvested items into the same human verification list as your own an
 **Test:** {What to do}
 **Expected:** {What should happen}
 **Why human:** {Why can't verify programmatically}
+```
+
+Record each item as a `human_item` of the phase's verification: the entity `human_needed`, audit-uat and the person's UAT read. Its `test` is what to do, its `expected` what should happen and its `why_human` why a program cannot check it. An item recorded by an earlier verification stays; a new one takes the number after the verification's last (`HI1`, `HI2`, …). Fill the values: free text in its quoted heredoc, as written, and an id in its assignment.
+
+```bash
+VERIFICATION="{the phase's verification, e.g. v1.0/01/01-VERIFICATION}"
+IFS= read -rd '' CHECK <<'TEXT' || true; CHECK=${CHECK%$'\n'}
+{what to do}
+TEXT
+IFS= read -rd '' EXPECTED <<'TEXT' || true; EXPECTED=${EXPECTED%$'\n'}
+{what should happen}
+TEXT
+IFS= read -rd '' WHY_HUMAN <<'TEXT' || true; WHY_HUMAN=${WHY_HUMAN%$'\n'}
+{why a program cannot check it}
+TEXT
+FILE=$(specforge query "$VERIFICATION" --depth 0 --pick '.nodes[0].file') || exit 1
+[ -n "$FILE" ] || { echo "no verification $VERIFICATION in the graph" >&2; exit 1; }
+IDS=$(specforge query "$VERIFICATION" --depth 1 --kinds human_item --pick '.nodes[kind=human_item].id') || exit 1
+N=1
+for ID in $IDS; do K=${ID##*/HI}; [ "$K" -ge "$N" ] && N=$(( K + 1 )); done
+ITEM_ID="HI$N"
+specforge new human_item "$ITEM_ID" "$CHECK" --in "$FILE" --verification "$VERIFICATION" --test "$CHECK" --expected "$EXPECTED" --why_human "$WHY_HUMAN" || exit 1
 ```
 
 ## Step 9: Determine Overall Status
@@ -599,33 +612,43 @@ Parse the JSON to extract all phases. Identify phases with `number > current_pha
 
 Before recording the verdicts, verify that the status field matches the decision tree from Step 9 — in particular, confirm that status is not `passed` when human verification items exist.
 
-Structure gaps in YAML frontmatter for `/gsd:plan-phase --gaps`:
+Record each gap Step 9b kept as a `verify_gap` of the phase's verification, the entity `/gsd:plan-phase --gaps` closes: one per failed truth, its `truth` the truth's id, its `reason` why it failed, its `artifacts` the files at fault with what is wrong in each, and its `missing` the specific things to add or fix, one per line. A truth that already has an open gap keeps it, since a re-verification reads that gap as remaining; a new gap takes the number after the verification's last (`VG1`, `VG2`, …), which the fence finds by query. Its `status` and `closed_by` are computed: it reads `closed` once a plan whose `gap_closure` names it completes. Fill the values: free text in its quoted heredoc, as written, and an id in its assignment.
 
-```yaml
-gaps:
-  - truth: "Observable truth that failed"
-    status: failed
-    reason: "Brief explanation"
-    artifacts:
-      - path: "src/path/to/file.tsx"
-        issue: "What's wrong"
-    missing:
-      - "Specific thing to add/fix"
+```bash
+VERIFICATION="{the phase's verification, e.g. v1.0/01/01-VERIFICATION}"
+TRUTH="{the failed truth's id, e.g. v1.0/01/01-02/TR2}"
+IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
+{why the truth failed, in a sentence}
+TEXT
+IFS= read -rd '' ARTIFACTS <<'TEXT' || true; ARTIFACTS=${ARTIFACTS%$'\n'}
+[{"path": "{a file at fault, ROOT-relative}", "issue": "{what is wrong there}"}]
+TEXT
+IFS= read -rd '' MISSING <<'TEXT' || true; MISSING=${MISSING%$'\n'}
+{one item the code still lacks or gets wrong}
+TEXT
+TITLE=$(specforge query "$TRUTH" --depth 0 --pick '.nodes[0].title') || exit 1
+[ -n "$TITLE" ] || { echo "no truth $TRUTH in the graph" >&2; exit 1; }
+FILE=$(specforge query "$VERIFICATION" --depth 0 --pick '.nodes[0].file') || exit 1
+[ -n "$FILE" ] || { echo "no verification $VERIFICATION in the graph" >&2; exit 1; }
+IDS=$(specforge query "$VERIFICATION" --depth 1 --kinds verify_gap --pick '.nodes[kind=verify_gap].id') || exit 1
+N=1
+for ID in $IDS; do K=${ID##*/VG}; [ "$K" -ge "$N" ] && N=$(( K + 1 )); done
+GAP_ID="VG$N"
+MISSING_FLAGS=()
+while IFS= read -r ITEM; do [ -z "$ITEM" ] || MISSING_FLAGS+=(--missing "$ITEM"); done <<<"$MISSING"
+specforge new verify_gap "$GAP_ID" "$TITLE" --in "$FILE" --verification "$VERIFICATION" --truth "$TRUTH" --reason "$REASON" --artifacts "$ARTIFACTS" "${MISSING_FLAGS[@]}" || exit 1
 ```
 
-- `truth`: The observable truth that failed
-- `status`: failed | partial
-- `reason`: Brief explanation
-- `artifacts`: Files with issues
-- `missing`: Specific things to add/fix
+`specforge query "$PHASE_ID" --depth 3 --kinds verify_gap,uat_gap --format context` reads the phase's gaps back, as plan-phase does.
 
-If Step 9b identified deferred items, add a `deferred` section after `gaps`:
+Record the items Step 9b deferred as the verification's `deferred` list, one row per truth: its `truth` the truth's id, its `addressed_in` the later phase's id, its `evidence` the goal text or success criterion of that phase that covers it. One write sets the whole list, so a re-verification writes every deferral it still finds; with none, write nothing. A deferred truth no longer counts against the phase, so a phase whose only failures are deferred does not read `gaps_found`.
 
-```yaml
-deferred:  # Items addressed in later phases — not actionable gaps
-  - truth: "Observable truth not yet met"
-    addressed_in: "Phase 5"
-    evidence: "Phase 5 success criteria: 'Implement RuntimeConfigC FFI bindings'"
+```bash
+VERIFICATION="{the phase's verification, e.g. v1.0/01/01-VERIFICATION}"
+IFS= read -rd '' DEFERRED <<'TEXT' || true; DEFERRED=${DEFERRED%$'\n'}
+[{"truth": "{the deferred truth's id, e.g. v1.0/01/01-02/TR2}", "addressed_in": "{the later phase's id, e.g. v1.0/02}", "evidence": "{that phase's goal text or success criterion}"}]
+TEXT
+specforge set "$VERIFICATION" deferred "$DEFERRED" || exit 1
 ```
 
 Deferred items are informational only — they do not require closure plans.
@@ -665,67 +688,13 @@ If `valid != true`, refuse to verify. Surface the discrepancy and ask the user t
 
 ## Record the verdicts, then report
 
-**Never write a VERIFICATION.md.** The phase's `verification` entity exists already; its status, score and covered files are computed from your verdicts, so you record verdicts and never a status.
+The phase's `verification` entity exists already; its status, score and covered files are computed from your verdicts, so you record verdicts and never a status.
 
-**#4155 / #5095:** read each truth's inputs with `specforge query <truth> --inputs gsd/E501 --format json` and record its verdict with `specforge gsd record-verdict <truth> E501 <verified|verified_coincidental|failed|uncertain|present_behavior_unverified> gsd-verifier '<basis>' --cited '[{"file": "..."}]'`, the `basis` copied verbatim and every implementation file you read cited ROOT-relative — never hand-write the basis.
+Read each truth's inputs with `specforge query <truth> --inputs gsd/E501 --cite-file <file> --cite-test <test fact id> --format json`, naming each file and test the verdict will cite (the flags repeated), and record its verdict as the verification template's record fence does: `specforge gsd record-verdict <truth> E501 <verified|verified_coincidental|failed|uncertain|present_behavior_unverified> gsd-verifier '<basis>' --cited '[{"file": "..."}, {"test": "<test fact id>"}]'`. Copy the `basis` verbatim, never by hand. Cite every implementation file you read, ROOT-relative, and every test fact you relied on by the id Step 6's trace prints: a cited test joins the truth's tests, and its status is read with them. A refusal names its code: read it with `specforge explain <code>`.
 
-Then report in this shape (a message, not a file; `status`, `score` and the covered files are computed, shown for the reader):
+Then report in this shape: a message, not a file, and no frontmatter, since the verification's `status`, `score`, covered files and re-verification are computed from your verdicts (the header shows them for the reader):
 
 ```markdown
----
-phase: XX-name
-verified: YYYY-MM-DDTHH:MM:SSZ
-status: passed | gaps_found | human_needed
-score: N/M must-haves verified
-covered_files: [...]
-covered_digest: "v4:sha256:..."
-behavior_unverified: 0 # Count of ⚠️ PRESENT_BEHAVIOR_UNVERIFIED truths (present + wired, behavior not exercised); each is detailed in behavior_unverified_items below (and in human_verification when status is human_needed)
-overrides_applied: 0 # Count of PASSED (override) items included in score
-overrides: # Only if overrides exist — carried forward or newly added
-  - must_have: "Must-have text that was overridden"
-    reason: "Why deviation is acceptable"
-    accepted_by: "username"
-    accepted_at: "ISO timestamp"
-re_verification: # Only if a previous verification existed
-  previous_status: gaps_found
-  previous_score: 2/5
-  gaps_closed:
-    - "Truth that was fixed"
-  gaps_remaining: []
-  regressions: []
-gaps: # Only if status: gaps_found
-  - truth: "Observable truth that failed"
-    status: failed
-    reason: "Why it failed"
-    artifacts:
-      - path: "src/path/to/file.tsx"
-        issue: "What's wrong"
-    missing:
-      - "Specific thing to add/fix"
-deferred: # Only if deferred items exist (Step 9b)
-  - truth: "Observable truth addressed in a later phase"
-    addressed_in: "Phase N"
-    evidence: "Matching goal or success criteria text"
-advisory: # Only if unevidenced new-scope findings exist (Step 7, re-verification only)
-  - finding: "Short description of the new-scope concern"
-    category: architectural | security | other
-    reason: "Why raised; what would resolve it"
-    evidence_status: "none provided"
-behavior_unverified_items: # Only if behavior_unverified > 0 — emitted regardless of overall status, so these survive a gaps_found phase
-  - truth: "Observable truth whose state transition or cancellation/cleanup/ordering invariant no test exercises"
-    test: "What to trigger"
-    expected: "What state must hold afterward"
-    why_human: "Why presence checks can't see it"
-coincidental_reliance_items: # Only if a ✓ VERIFIED truth holds incidentally — emitted regardless of overall status (survives gaps_found)
-  - truth: "Observable truth that holds incidentally"
-    reason: undeclared-precondition | incidental-ordering | fixture-only
-    harden: "Precondition/ordering to declare or enforce"
-human_verification: # Only if status: human_needed
-  - test: "What to do"
-    expected: "What should happen"
-    why_human: "Why can't verify programmatically"
----
-
 # Phase {X}: {Name} Verification Report
 
 **Phase Goal:** {goal from ROADMAP.md}
@@ -825,8 +794,6 @@ specforge query "$PHASE_ID/${PHASE_NUM}-VERIFICATION" --format json
 A status that differs from your decision (e.g. `stale`) means a verdict is stale or missing:
 record it again from fresh inputs. Never edit `status` to match your decision — it is computed.
 
-
-
 ## Return to Orchestrator
 
 **DO NOT COMMIT.** The orchestrator bundles your verdicts with the other phase artifacts.
@@ -870,7 +837,7 @@ Automated checks passed. Awaiting human verification.
 
 **DO NOT skip key link verification.** 80% of stubs hide here — pieces exist but aren't connected.
 
-**Structure gaps in YAML frontmatter** for `/gsd:plan-phase --gaps`.
+**Record each gap as a `verify_gap` (Step 10).**
 
 **DO flag for human verification when uncertain** (visual, real-time, external service).
 
@@ -948,8 +915,9 @@ return <div>No messages</div>  // Always shows "no messages"
 - [ ] Human verification items identified
 - [ ] Overall status determined
 - [ ] Deferred items filtered against later milestone phases (Step 9b)
-- [ ] Gaps structured in YAML frontmatter (if gaps_found)
-- [ ] Deferred items structured in YAML frontmatter (if deferred items exist)
+- [ ] Each gap recorded as a `verify_gap` (Step 10, if gaps_found)
+- [ ] Each human check recorded as a `human_item` (Step 8, if any)
+- [ ] The verification's `deferred` list holds every item Step 9b deferred (Step 10; skip when none were)
 - [ ] Re-verification metadata included (if previous existed)
 - [ ] fingerprint fields written via verification.fingerprint (#4155)
 - [ ] Verdicts recorded and the report returned

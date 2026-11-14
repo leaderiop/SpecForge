@@ -1,12 +1,12 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/workflows/quick.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <purpose>
-Execute small, ad-hoc tasks with GSD guarantees (atomic commits, STATE.md tracking). Quick mode spawns gsd-planner (quick mode) + gsd-executor(s), tracks each task as a plan of `spec/quick.spec`, and updates STATE.md's "Quick Tasks Completed" table.
+Execute small, ad-hoc tasks with GSD guarantees (atomic commits, a typed record). Quick mode spawns gsd-planner (quick mode) + gsd-executor(s), tracks each task as a plan of `spec/quick.spec`, and closes it on its summary entity: the computed project state lists it.
 
 With `--full` flag: enables the complete quality pipeline — discussion + research + plan-checking + verification. One flag for everything.
 
 With `--validate` flag: enables plan-checking (max 2 iterations) and post-execution verification only. Use when you want quality guarantees without discussion or research.
 
-With `--discuss` flag: lightweight discussion phase before planning. Surfaces assumptions, clarifies gray areas, captures decisions in CONTEXT.md so the planner treats them as locked.
+With `--discuss` flag: lightweight discussion phase before planning. Surfaces assumptions, clarifies gray areas, captures decisions as the quick plan's `context` and `decision` entities so the planner treats them as locked.
 
 With `--research` flag: spawns a focused research agent before planning. Investigates implementation approaches, library options, and pitfalls. Use when you're unsure how to approach a task.
 
@@ -22,7 +22,7 @@ Valid GSD subagent types (use exact names — do not fall back to 'general-purpo
 - gsd-phase-researcher — Researches technical approaches for a phase
 - gsd-planner — Creates detailed plans from phase scope
 - gsd-plan-checker — Reviews plan quality before execution
-- gsd-executor — Executes plan tasks, commits, creates SUMMARY.md
+- gsd-executor — Executes plan tasks, commits, writes the summary entity and closes the plan
 - gsd-verifier — Verifies phase completion, checks quality gates
 - gsd-code-reviewer — Reviews source files for bugs, security issues, and code quality
 </available_agent_types>
@@ -119,14 +119,6 @@ If `$VALIDATE_MODE` only:
 
 ```bash
 
-
-
-
-
-
-
-
-
 IFS=$'\x1f' read -r quick_id slug branch_name title date < <(specforge gsd quick-init --description="$DESCRIPTION" --template="{{setting:git.quick_branch_template|}}" --pick '.items[0]' --fields id,slug,branch_name,title,date) && [ -n "$quick_id" ] && [ -n "$slug" ] || exit 1; specforge new --in spec/quick.spec --field type=execute --field files_modified= --field "objective=$DESCRIPTION" --field "slug=$slug" -- plan "$quick_id" "$title" >/dev/null || exit 1; task_dir="$quick_id"; quick_dir="$quick_id"; INIT=""; echo "quick_id=$quick_id slug=$slug branch_name=$branch_name date=$date"   # one call answers the id (<yymmdd>-<3 base-36>, free in the graph), its slug, branch and title, and this fence writes the plan from them: a later fence may be another shell, so the slug never crosses one, and a later fence with no $quick_id takes the printed one; the second call is read for its date, its id discarded
 
 AGENT_SKILLS_PLANNER=""   # the host install carries the skills of gsd-planner
@@ -138,9 +130,8 @@ AGENT_SKILLS_RESEARCHER=""   # the host install carries the skills of gsd-phase-
 
 The fence above printed `quick_id`, `slug`, `branch_name`, `title` and `date`; `quick_dir` and `task_dir` are `$quick_id`. Nothing here answers a model: an installed agent carries its own model, so every `Agent()` below omits `model`. `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`.
 
-The project state and the project are no files, so there is no path to hand a subagent: it reads them with `specforge` (#2376):
+The project is no file, so there is no path to hand a subagent: it reads it with `specforge` (#2376):
 ```bash
-STATE_PATH=""   # the project state is computed: specforge gsd progress-report
 PROJECT_PATH=""   # the project is an entity: specforge query "$PROJECT" --depth 0
 ```
 
@@ -283,7 +274,7 @@ Store `$QUICK_DIR` for use in orchestration.
 
 ---
 
-**Step 4 ordering (#3894):** Check whether `workflow.research_before_questions` is enabled in the settings (or the config from init context) — the same check `/gsd:discuss-phase` and `/gsd:new-project` already make. When **enabled**, execute the research-phase section BELOW BEFORE the discussion-phase section: a gray-area answer given without research is written to `<quick_id>-CONTEXT.md` as a locked decision downstream agents are told not to revisit, so the evidence must come first. When **false or unset**, keep the written order (discussion, then research) — behavior unchanged. With both `--discuss` and `--research`, once both sections have run (in either order), record the digest of the context the research was made against: `specforge gsd record-research "${quick_id}-RESEARCH"`.
+**Step 4 ordering (#3894):** Check whether `workflow.research_before_questions` is enabled in the settings (or the config from init context) — the same check `/gsd:discuss-phase` and `/gsd:new-project` already make. When **enabled**, execute the research-phase section BELOW BEFORE the discussion-phase section: a gray-area answer given without research becomes a locked `decision` of the context `<quick_id>-CONTEXT`, which downstream agents do not revisit, so the evidence comes first. When **false or unset**, keep the written order (discussion, then research) — behavior unchanged. With both `--discuss` and `--research`, once both sections have run (in either order), record the digest of the context the research was made against: `specforge gsd record-research "${quick_id}-RESEARCH"`.
 
 <!-- gsd:section id="discussion-phase" when="flag:--discuss" -->
 If `section_manifest` is `null` or `"discussion-phase"` is in its `included` list: read and execute `gsd-core/workflows/quick/steps/discussion-phase.md`. Otherwise skip — do not read the file.
@@ -322,7 +313,6 @@ Agent(
 **Description:** ${DESCRIPTION}
 
 <required_reading>
-- ${STATE_PATH} (Project State)
 - ./CLAUDE.md or ./.claude/CLAUDE.md (if exists — follow project-specific guidelines)
 ${DISCUSS_MODE ? '- `specforge query ' + quick_id + '-CONTEXT --depth 2 --kinds context,decision --format context` (User decisions — locked, do not revisit)' : ''}
 ${RESEARCH_MODE ? '- `specforge query ' + quick_id + '-RESEARCH --depth 1 --format context` (Research findings — use to inform implementation choices)' : ''}
@@ -340,7 +330,7 @@ ${AGENT_SKILLS_PLANNER}
 - Create a SINGLE plan with 1-3 focused tasks — plan ${quick_id} already exists (the init step wrote it): fill it with `specforge set ${quick_id} <field> <value>`, add its tasks with `specforge new task <id> "<title>" --in spec/quick.spec --plan ${quick_id}`, never `specforge new plan`
 - Quick tasks should be atomic and self-contained
 - PATH FORM (#4767): every path in the plan BODY — `files`, `verify`, `<automated>`, task actions — is repo-root-relative, and every `<automated>` command assumes cwd at the checkout root. Only the `<required_reading>` inputs above are absolute (#2376). An absolute path copied from this context into `<automated>` pins the command to THIS checkout; a worktree-isolated executor then runs it against the main tree and it passes on unchanged code.
-- MUTABLE-SCOPE AUTHORITY (#3786): when concrete edit or verification scope depends on mutable external state (a merge index, PR/base diffs, the working tree), authorize scope ONLY from a live observation made at planning time — for conflict resolution that is the fresh merge index via `git diff --name-only --diff-filter=U` — or keep `files`/`verify` CONDITIONAL on that observation. Historical STATE.md entries, recovery notes, and cached PR/base diff paths may guide investigation only; they are never edit or verification authority, and a plan must not enumerate them as authorized files "pending replacement".
+- MUTABLE-SCOPE AUTHORITY (#3786): when concrete edit or verification scope depends on mutable external state (a merge index, PR/base diffs, the working tree), authorize scope ONLY from a live observation made at planning time — for conflict resolution that is the fresh merge index via `git diff --name-only --diff-filter=U` — or keep `files`/`verify` CONDITIONAL on that observation. Historical blockers and handoffs, recovery notes, and cached PR/base diff paths may guide investigation only; they are never edit or verification authority, and a plan must not enumerate them as authorized files "pending replacement".
 ${RESEARCH_MODE ? '- Research findings are available — use them to inform library/pattern choices' : '- No research phase'}
 ${VALIDATE_MODE ? '- Target ~40% context usage (structured for verification)' : '- Target ~30% context usage (simple, focused)'}
 ${VALIDATE_MODE ? '- MUST generate `must_haves` in plan frontmatter (truths, artifacts, key_links)' : ''}
@@ -348,8 +338,8 @@ ${VALIDATE_MODE ? '- Each task MUST have `files`, `action`, `verify`, `done` fie
 </constraints>
 
 <output>
-Write plan to: ${QUICK_DIR}/${quick_id}-PLAN.md
-Return: ## PLANNING COMPLETE with plan path
+Fill plan ${quick_id} (it exists: the init step wrote it) and add its tasks.
+Return: ## PLANNING COMPLETE with the plan id ${quick_id}
 </output>
 ",
   subagent_type="gsd-planner",
@@ -452,7 +442,7 @@ QUICK_PLAN_DECL="^plan ${quick_id} "
 # worktree's own copy. A worktree forked from QUICK_PLAN_COMMIT has it already. One
 # forked from the alternate base QUICK_PLAN_PARENT (a stale origin/HEAD, #1265)
 # predates the pre-dispatch commit: restore spec/ from QUICK_PLAN_COMMIT, which brings
-# exactly that commit's spec delta, as upstream materializes its PLAN.md from the
+# exactly that commit's spec delta, the way upstream restores its plan file from the
 # shared object store (#4996). The anchored pattern matches the declaration only,
 # not another entity's "plan ${quick_id}" reference.
 if ! grep -q "$QUICK_PLAN_DECL" spec/quick.spec 2>/dev/null; then
@@ -467,9 +457,9 @@ fi
 echo "plan ${quick_id}: $(git rev-parse --show-toplevel)/spec/quick.spec"
 # From here on, read the plan at that worktree-rooted path (or specforge query), never
 # through a path into the main checkout (CC #36182 path-resolution drift).
-${DISCUSS_MODE ? `# --discuss: the locked decisions are entities under spec/ (there is no CONTEXT.md),
+${DISCUSS_MODE ? `# --discuss: the locked decisions are entities under spec/ (no context file),
 # committed with the plan: this worktree has them, or the restore above brought them.
-` : ''}${RESEARCH_MODE ? `# --research: the findings are entities under spec/ (there is no RESEARCH.md),
+` : ''}${RESEARCH_MODE ? `# --research: the findings are entities under spec/ (no research file),
 # committed with the plan: this worktree has them, or the restore above brought them.
 ` : ''}\`\`\`
 ` : `
@@ -479,11 +469,7 @@ You are running as a SEQUENTIAL executor agent on the main working tree (set SEQ
 `}
 
 <required_reading>
-- `specforge query ${quick_id} --depth 1 --format context` (Plan)
-${DISCUSS_MODE ? '- `specforge query ' + quick_id + '-CONTEXT --depth 2 --kinds context,decision --format context` (User decisions — locked, do not revisit)' : ''}
-${RESEARCH_MODE ? '- `specforge query ' + quick_id + '-RESEARCH --depth 1 --format context` (Research findings — use to inform implementation choices)' : ''}
-- ${STATE_PATH} (Project state)
-- ./CLAUDE.md or ./.claude/CLAUDE.md (Project instructions, if exists)
+- `specforge context gsd/executor "${quick_id}"` (the executor's context pack: the quick plan, its --discuss decisions and --research findings, the project, `CLAUDE.md` / `AGENTS.md` and the settings; a quick plan has no phase sections)
 - .claude/skills/ or .agents/skills/ (Project skills, if either exists — list skills, read SKILL.md for each, follow relevant rules during implementation)
 </required_reading>
 
@@ -520,17 +506,16 @@ fi
 
 If the guard aborts, do NOT attempt the commit, do NOT remove the staged files,
 and do NOT continue subsequent tasks. Surface the abort message in your
-SUMMARY.md and stop — the user must rerun with worktrees disabled.
+final message and stop — the user must rerun with worktrees disabled.
 </submodule_commit_guard>
 
 <constraints>
 - Execute all tasks in the plan
 - Commit each task atomically (code changes only)
 - Run the <submodule_commit_guard> bash block before every \`git commit\` if SUBMODULE_PATHS is non-empty
-- Create summary at: ${ISOLATION === "harness-worktree" ? QUICK_DIR_REL : QUICK_DIR}/${quick_id}-SUMMARY.md with `status: complete` in SUMMARY frontmatter (required so the audit-open milestone-close scanner recognises the task as done, not [unknown])
-- Do NOT commit docs artifacts (SUMMARY.md, STATE.md, PLAN.md) — the orchestrator handles the docs commit in Step 8
+- Write the quick plan's summary with the summary template's typed edits (`~/.claude/gsd-core/templates/summary.md`), `status complete`, which closes the plan with `specforge gsd complete-plan`: the milestone-close audit reads the closed plan as done
+- Do NOT commit `spec` — the orchestrator commits the quick plan, its summary and the spec changes in Step 8
 - If a Write/Edit is denied by gsd-worktree-path-guard, stop and report the denial in your final message — do not work around it by copying or moving the file with Bash (cp, mv, redirects)
-- Do NOT update ROADMAP.md (quick tasks are separate from planned phases)
 </constraints>
 ",
   subagent_type="gsd-executor",
@@ -546,7 +531,7 @@ If the executor ran isolated (`ISOLATION = "harness-worktree"` at dispatch), app
 
 After executor returns:
 1. **Worktree cleanup:** If the executor ran isolated (`ISOLATION = "harness-worktree"` at dispatch), merge the worktree branch back and clean up:
-   ```bash
+```bash
    QUICK_WORKTREE_MANIFEST=${QUICK_WORKTREE_MANIFEST:-$WAVE_WORKTREE_MANIFEST}
    [ -n "${QUICK_WORKTREE_MANIFEST:-}" ] && [ -f "$QUICK_WORKTREE_MANIFEST" ] || {
      echo "BLOCKED: missing QUICK_WORKTREE_MANIFEST; refusing broad worktree cleanup (#3384)." >&2
@@ -558,7 +543,7 @@ After executor returns:
    # deletion. If it blocks, resolve the reported manifest entry and rerun.
    # Fail closed: SDK refusal (safety guard #3174/#3384) must surface — do not swallow exit 1.
 : # worktree.cleanup-wave: worktree isolation is not part of @gsd/core, so there is nothing to clean up
-   ```
+```
    If `ISOLATION` was not `"harness-worktree"` at dispatch (including a #1941 base-check degrade — that is *this* file's degrade; #2649 is the `diagnose-issues.md` / `execute-plan.md` one), skip this step.
 
    > **ISOLATED-RUN RECOVERY — FAIL SAFE (#1292):** When an isolated (worktree) run is *rejected* — the user declines to merge it, the orchestrator surfaces recovery guidance for a blocked/halted plan, or the run over-reached the requested scope — the worktree-isolation contract MUST hold through recovery. Do **NOT** propose continuing on `main`/the primary checkout as the default or recommended recovery path. Default to a **safe halt** and offer: (a) re-attempt in a **fresh, narrowly-scoped worktree**, or (b) inspect or discard the rejected worktree without merging. Any path that edits the primary checkout requires an **explicit, clearly-labeled confirmation** from the user first — editing `main` directly is never the proposed or default option for a run the user configured to be isolated.
@@ -602,7 +587,6 @@ If no active code-review step hook exists, skip with message "Code review skippe
 QUICK_SCOPE_RC=0
 CHANGED_FILES=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${quick_id}" --depth 0 --pick '.nodes[0].fields.files_touched[]') || QUICK_SCOPE_RC=$?
 
-
 if [ -z "$CHANGED_FILES" ]; then
   # Say WHY the scope is empty: no commit names this task, or its commits could not be read.
   QUICK_SCOPE_WHY=$([ "$QUICK_SCOPE_RC" -eq 0 ] && echo 'no commit names this task' || echo "its commits could not be read (exit $QUICK_SCOPE_RC)")
@@ -641,67 +625,6 @@ If `section_manifest` is `null` or `"quick-verification"` is in its `included` l
 A quick plan with its summary is the record of the task, and the computed project state lists it: nothing is written to a state file. Continue with Step 8.
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ---
 
 **Step 8: Final commit and completion**
@@ -709,22 +632,12 @@ A quick plan with its summary is the record of the task, and the computed projec
 Stage and commit quick task artifacts. This step MUST always run — even if the executor already committed some files (e.g. when running without worktree isolation). The `git commit` and `specforge collect` commands handle already-committed files gracefully.
 
 Build file list:
-- `${QUICK_DIR}/${quick_id}-PLAN.md`
-- `${QUICK_DIR}/${quick_id}-SUMMARY.md`
-- `spec` (the quick plan and its summary, truths and artifacts)
-- If `$DISCUSS_MODE` and context file exists: `${QUICK_DIR}/${quick_id}-CONTEXT.md`
-- If `$RESEARCH_MODE` and research file exists: `${QUICK_DIR}/${quick_id}-RESEARCH.md`
-- If `$VALIDATE_MODE` and verification file exists: `${QUICK_DIR}/${quick_id}-VERIFICATION.md`
-- If `${QUICK_DIR}/${quick_id}-deferred-items.md` exists: `${QUICK_DIR}/${quick_id}-deferred-items.md`
+- `spec` (the quick plan with its summary, truths and artifacts, and the --discuss context, the --research findings and the --validate verification)
 
 ```bash
 # every spec change is committed with the work: stage the files the task touched, and spec
 
 # the quick plan, its summary and the spec changes are committed with the work (#1783)
-
-
-
-
 
 ADDS=(); for f in ${file_list}; do [ -e "$f" ] || [ -n "$(specforge git show "HEAD:$f" --pick .sha 2>/dev/null)" ] && ADDS+=(--add "$f"); done
 
@@ -746,9 +659,9 @@ GSD > QUICK TASK COMPLETE (VALIDATED)
 
 Quick Task ${quick_id}: ${DESCRIPTION}
 
-${RESEARCH_MODE ? 'Research: ' + QUICK_DIR + '/' + quick_id + '-RESEARCH.md' : ''}
-Summary: ${QUICK_DIR}/${quick_id}-SUMMARY.md
-Verification: ${QUICK_DIR}/${quick_id}-VERIFICATION.md (${VERIFICATION_STATUS})
+${RESEARCH_MODE ? 'Research: ' + quick_id + '-RESEARCH' : ''}
+Summary: ${quick_id}/${quick_id}-SUMMARY
+Verification: ${VERIFICATION_STATUS}
 Commit: ${commit_hash}
 
 ---
@@ -764,8 +677,8 @@ GSD > QUICK TASK COMPLETE
 
 Quick Task ${quick_id}: ${DESCRIPTION}
 
-${RESEARCH_MODE ? 'Research: ' + QUICK_DIR + '/' + quick_id + '-RESEARCH.md' : ''}
-Summary: ${QUICK_DIR}/${quick_id}-SUMMARY.md
+${RESEARCH_MODE ? 'Research: ' + quick_id + '-RESEARCH' : ''}
+Summary: ${quick_id}/${quick_id}-SUMMARY
 Commit: ${commit_hash}
 
 ---
@@ -783,12 +696,12 @@ Ready for next task: /gsd:quick
 - [ ] Slug generated (lowercase, hyphens, max 40 chars)
 - [ ] Quick ID generated (YYMMDD-xxx format, 2s Base36 precision)
 - [ ] Plan `${quick_id}` created in `spec/quick.spec`
-- [ ] (--discuss) Gray areas identified and presented, decisions captured in `${quick_id}-CONTEXT.md`
-- [ ] (--research) Research agent spawned, `${quick_id}-RESEARCH.md` created
-- [ ] `${quick_id}-PLAN.md` created by planner (honors CONTEXT.md decisions when --discuss, uses RESEARCH.md findings when --research)
+- [ ] (--discuss) Gray areas identified and presented, decisions recorded on the context `${quick_id}-CONTEXT`
+- [ ] (--research) Research agent spawned, the research `${quick_id}-RESEARCH` recorded
+- [ ] Plan `${quick_id}` filled by the planner (honors the context's decisions when --discuss, uses the research findings when --research)
 - [ ] (--validate) Plan checker validates plan, revision loop capped at 2
-- [ ] `${quick_id}-SUMMARY.md` created by executor
-- [ ] (--validate) `${quick_id}-VERIFICATION.md` created by verifier
+- [ ] The summary `${quick_id}/${quick_id}-SUMMARY` written by the executor, and the plan closed
+- [ ] (--validate) The verifier's verdicts on the plan's truths recorded
 - [ ] The project state is computed: no task row is written
 - [ ] Artifacts committed
 </success_criteria>

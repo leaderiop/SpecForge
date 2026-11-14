@@ -215,3 +215,13 @@ fn an_id_of_the_graph_is_not_minted() {
     let answer: Value = serde_json::from_str(&out.stdout).unwrap();
     assert_ne!(answer["items"][0]["id"], first.as_str());
 }
+
+#[test]
+fn the_batch_id_skips_a_taken_one() {
+    assert_eq!(batch_id("261112", |_| false), "261112-batch");
+    let taken = ["261112-batch", "261112-batch-2"];
+    assert_eq!(
+        batch_id("261112", |id| taken.contains(&id)),
+        "261112-batch-3"
+    );
+}

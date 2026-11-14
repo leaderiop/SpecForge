@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 use specforge_common::Severity;
 use specforge_protocol_types::{FieldType, FieldWriter, JudgedDescriptor};
 
-use super::selector::{Chain, Head, Selector, Step};
+use super::selector::{Chain, Head, Kinds, Selector, Step};
 use crate::compilation::UnloadedPeers;
 use crate::rules::Registries;
 
@@ -134,7 +134,7 @@ pub(crate) fn shape(
 }
 
 /// The paths of a `file("…")` selector: from the project root, inside it, no glob, no spec source.
-fn check_paths(selector: &Selector) -> Result<(), String> {
+pub(crate) fn check_paths(selector: &Selector) -> Result<(), String> {
     let Selector::Files(paths) = selector else {
         return Ok(());
     };
@@ -165,12 +165,13 @@ fn check_paths(selector: &Selector) -> Result<(), String> {
     Ok(())
 }
 
-/// Who reads a chain the registry checks: a judged rule's verdict, or a trace route (ADR 0330). It picks the reason a
-/// computed or verdict-written reference is refused.
+/// Who reads a chain the registry checks: a judged rule's verdict, a trace route (ADR 0330) or a context route's
+/// section (ADR 0356). It picks the reason a computed or verdict-written reference is refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Reader {
     Verdict,
     Route,
+    Context,
 }
 
 /// Why a chain cannot be walked.
@@ -246,6 +247,7 @@ pub(crate) fn walk(
         Head::This => this.clone(),
         Head::Kinds(kinds) => {
             kinds.iter().try_for_each(loaded)?;
+            check_filters(registries, kinds)?;
             kinds.iter().cloned().collect()
         }
     };
@@ -257,6 +259,7 @@ pub(crate) fn walk(
                 path,
             } => {
                 sources.iter().try_for_each(loaded)?;
+                check_filters(registries, sources)?;
                 let words: Vec<&str> = path.split('.').collect();
                 // The path may go on past its reference (ADR 0304): the prefix finds the referrers, the rest is a
                 // forward path from each.
@@ -289,6 +292,49 @@ pub(crate) fn walk(
         };
     }
     Ok(kinds)
+}
+
+/// Every filter of `kinds` names an authored scalar field of its kind (ADR 0356 D13): a string, enum, bool or integer
+/// field that no compute pass or verdict writes, and an enum filter's values are declared.
+fn check_filters(registries: Registries<'_>, kinds: &Kinds) -> Result<(), WalkError> {
+    for filter in &kinds.filters {
+        let (kind, field) = (&filter.kind, &filter.field);
+        let entry = registries.fields.get(kind, field).ok_or_else(|| {
+            format!("filter '{kind}[{field}=…]': kind '{kind}' declares no field '{field}'")
+        })?;
+        if matches!(
+            entry.writer(),
+            Some(FieldWriter::Computed | FieldWriter::Verdict | FieldWriter::Context)
+        ) {
+            return Err(format!(
+                "filter '{kind}[{field}=…]': '{kind}.{field}' is computed or written by a verdict or a context record, not authored"
+            )
+            .into());
+        }
+        let ty = entry.field_type();
+        if !matches!(
+            ty,
+            FieldType::String | FieldType::Enum | FieldType::Bool | FieldType::Integer
+        ) {
+            return Err(format!(
+                "filter '{kind}[{field}=…]': '{kind}.{field}' is a {}, not a string, enum, bool or integer",
+                ty.as_str()
+            )
+            .into());
+        }
+        if ty == FieldType::Enum
+            && let Some(value) = filter
+                .values
+                .iter()
+                .find(|value| !entry.enum_values().contains(value))
+        {
+            return Err(format!(
+                "filter '{kind}[{field}=…]': '{value}' is no value of the enum '{kind}.{field}'"
+            )
+            .into());
+        }
+    }
+    Ok(())
 }
 
 /// One hop from `kinds` along the reference the first words of `words` end at: the words it took and the kinds it
@@ -347,6 +393,7 @@ fn ends_at_file(
     registries: Registries<'_>,
     mut kinds: BTreeSet<String>,
     path: &str,
+    reader: Reader,
 ) -> Result<(), String> {
     let words: Vec<&str> = path.split('.').collect();
     let mut at = 0;
@@ -368,7 +415,7 @@ fn ends_at_file(
             return Err(format!("'{path}' is not a file field"));
         }
         let (taken, reached) =
-            hop(registries, &kinds, &words[at..], Reader::Verdict).map_err(WalkError::why)?;
+            hop(registries, &kinds, &words[at..], reader).map_err(WalkError::why)?;
         at += taken;
         kinds = reached;
     }
@@ -404,7 +451,78 @@ fn forbid_written(
         (Some(FieldWriter::Computed | FieldWriter::Verdict), Reader::Route) => Err(format!(
             "'{kind}.{path}' is computed or written by a verdict: it makes no edge, so a route cannot follow it"
         )),
+        (Some(FieldWriter::Computed | FieldWriter::Verdict), Reader::Context) => Err(format!(
+            "'{kind}.{path}' is computed or written by a verdict: it makes no edge, so a context section cannot \
+             follow it"
+        )),
         _ => Ok(()),
+    }
+}
+
+/// Whether `selector` can be read from entities of the kinds `this` by `reader`: every kind and field it names loaded and
+/// declared, every reference it crosses one that makes an edge, a `file()` of a chain ending at a file field.
+/// `Ok(Some(kind))` when it is inert: an entity chain, or every chain of a `test(..)`, reaches only a kind of an
+/// optional peer the project does not load (`inert` says which kinds are), so it selects nothing.
+pub(crate) fn check_selector(
+    selector: &Selector,
+    this: &BTreeSet<String>,
+    registries: Registries<'_>,
+    reader: Reader,
+    inert: impl Fn(&str) -> bool,
+) -> Result<Option<String>, WalkError> {
+    let walked = |steps: usize, chain: &Chain| walk(chain, steps, this, registries, reader);
+    let selects = |chain: &Chain| match walked(chain.steps.len(), chain) {
+        Err(WalkError::Unloaded { kind, .. }) if inert(&kind) => Ok(Some(kind)),
+        walked => walked
+            .map(|_| None)
+            .map_err(|e| WalkError::Invalid(e.why())),
+    };
+    match selector {
+        Selector::Entities(chain) => selects(chain),
+        Selector::Tests(chains) => {
+            let mut inert_kinds = Vec::new();
+            for chain in chains {
+                inert_kinds.push(selects(chain)?);
+            }
+            Ok(match inert_kinds.iter().all(Option::is_some) {
+                true => inert_kinds.into_iter().flatten().next(),
+                false => None,
+            })
+        }
+        Selector::FilesOf(chain) => {
+            let invalid = |why: String| WalkError::Invalid(why);
+            let (last, steps) = chain.steps.split_last().ok_or_else(|| {
+                invalid("file() of a chain needs a step ending at a file field".into())
+            })?;
+            match last {
+                Step::Path(path) => {
+                    let kinds = walked(steps.len(), chain).map_err(|e| invalid(e.why()))?;
+                    ends_at_file(registries, kinds, path, reader).map_err(invalid)?;
+                }
+                // The referrers are found by the path's reference prefix, as a check reads it (ADR 0304); the rest
+                // is a forward path from them that ends at a file field.
+                Step::Referrers { kinds, path } => {
+                    let words: Vec<&str> = path.split('.').collect();
+                    let first = kinds.names.first().map_or("", String::as_str);
+                    let end = reference_end(registries, first, &words, reader).map_err(invalid)?;
+                    if end == words.len() {
+                        return Err(invalid(format!(
+                            "file() of '{path}' ends at a reference, not a file field"
+                        )));
+                    }
+                    let mut prefix = chain.clone();
+                    if let Some(Step::Referrers { path, .. }) = prefix.steps.last_mut() {
+                        *path = words[..end].join(".");
+                    }
+                    let reached =
+                        walked(prefix.steps.len(), &prefix).map_err(|e| invalid(e.why()))?;
+                    ends_at_file(registries, reached, &words[end..].join("."), reader)
+                        .map_err(invalid)?;
+                }
+            }
+            Ok(None)
+        }
+        Selector::Files(_) => Ok(None),
     }
 }
 
@@ -425,32 +543,10 @@ pub(crate) fn resolve(
         }
         let this = BTreeSet::from([target.kind.clone()]);
         for (name, selector) in &target.inputs {
-            let why = |why: String| format!("target '{}': input '{name}': {why}", target.kind);
-            let walked = |steps: usize, chain: &Chain| {
-                walk(chain, steps, &this, registries, Reader::Verdict)
-            };
-            let selects = |chain: &Chain| match walked(chain.steps.len(), chain) {
-                Err(WalkError::Unloaded { kind, .. }) if unloaded.declare(&kind) => Ok(()),
-                walked => walked.map(drop).map_err(|e| why(e.why())),
-            };
-            match selector {
-                Selector::Entities(chain) => selects(chain)?,
-                Selector::Tests(chains) => chains.iter().try_for_each(selects)?,
-                Selector::FilesOf(chain) => {
-                    let (last, steps) = chain.steps.split_last().ok_or_else(|| {
-                        why("file() of a chain needs a step ending at a file field".into())
-                    })?;
-                    let kinds = walked(steps.len(), chain).map_err(|e| why(e.why()))?;
-                    match last {
-                        Step::Path(path) => ends_at_file(registries, kinds, path).map_err(why)?,
-                        Step::Referrers { kinds, path } => {
-                            ends_at_file(registries, kinds.iter().cloned().collect(), path)
-                                .map_err(why)?;
-                        }
-                    }
-                }
-                Selector::Files(_) => {}
-            }
+            check_selector(selector, &this, registries, Reader::Verdict, |kind| {
+                unloaded.declare(kind)
+            })
+            .map_err(|e| format!("target '{}': input '{name}': {}", target.kind, e.why()))?;
         }
         for field in &target.unless_set {
             if registries.fields.get_path(&target.kind, field).is_none() {

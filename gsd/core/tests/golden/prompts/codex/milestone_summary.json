@@ -28,9 +28,6 @@
     "",
     "```bash",
     "",
-    "",
-    "",
-    "",
     "VERSION=\"v1.0\"; VERSION=${VERSION#v}   # --milestone, else the milestone the run is about",
     "```",
     "",
@@ -59,9 +56,12 @@
     "REQUIREMENTS_QUERY='specforge query \"v${VERSION}\" --depth 3 --kinds requirement --format context'",
     "AUDIT_QUERY='specforge query \"v${VERSION}\" --depth 1 --kinds milestone_audit --format context'",
     "```",
-    ""
+    "",
+    "Note: nothing moves when a milestone closes: the audit is the `milestone_audit` entity of the milestone in both cases, so there is no second location to check.",
+    "",
+    "**Always available:**"
   ],
-  "bytes": 27918,
+  "bytes": 28335,
   "end": [
     "```",
     "</file>",
@@ -102,7 +102,7 @@
     "",
     "## Where the summary goes",
     "",
-    "The summary is shown to the user, never written: wherever the text above says it is written to a file or committed, read that it is shown in the conversation. The files it names (`PROJECT.md`, `ROADMAP.md`, `REQUIREMENTS.md`, and the `SUMMARY.md`, `VERIFICATION.md`, `CONTEXT.md` and `RESEARCH.md` of each phase) are the `project`, `milestone`, `phase`, `requirement`, `summary`, `verification`, `context` and `research` entities, read with the queries above."
+    "The summary is shown to the user, never written: wherever the text above says it is written to a file or committed, read that it is shown in the conversation. The files it names (the project, roadmap and requirements files, and each phase's summary, verification, context and research files) are the `project`, `milestone`, `phase`, `requirement`, `summary`, `verification`, `context` and `research` entities, read with the queries above."
   ],
   "head": [
     "<codex_skill_adapter>",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 585,
+  "lines": 576,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:7cfaeab8d120a82932df40afb5d055a5d206e53b8b35482d74eecdaf4623385b",
+    "digest": "sha256:ff1e5c3b542d2c9e80d19d94280deccb85430f2ab29e4994e4bc0f3513947b53",
     "prompt": "@gsd/core@VERSION:milestone_summary",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "7cfaeab8d120a82932df40afb5d055a5d206e53b8b35482d74eecdaf4623385b"
+  "sha256": "ff1e5c3b542d2c9e80d19d94280deccb85430f2ab29e4994e4bc0f3513947b53"
 }

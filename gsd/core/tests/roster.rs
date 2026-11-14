@@ -10,6 +10,9 @@ use roster::{Owner, ROSTER};
 #[path = "common/roster.rs"]
 mod roster;
 
+#[path = "roster/agent_tools.rs"]
+mod agent_tools;
+
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
 }
@@ -55,24 +58,21 @@ fn the_roster_matches_upstreams_commands() {
 /// The owner label of each row of the README's Commands table, with the stems it lists.
 fn readme_rows() -> BTreeMap<String, BTreeSet<String>> {
     let text = std::fs::read_to_string(root().join("contributions/README.md")).expect("README");
-    let start = text.find("## Commands").expect("the Commands table");
-    let table: Vec<&str> = text[start..]
-        .lines()
-        .skip(1)
-        .skip_while(|l| !l.starts_with('|'))
-        .take_while(|l| l.starts_with('|'))
-        .collect();
+    let table = gsd_kit::markdown::tables(&text)
+        .into_iter()
+        .find(|t| t.heading == "Commands")
+        .expect("the Commands table");
     let stem = Regex::new(r"`/gsd-([a-z0-9-]+)`").expect("a regex");
     table
+        .rows
         .iter()
-        .filter(|l| l.contains("`/gsd-"))
-        .map(|l| {
-            let cells: Vec<&str> = l.split('|').map(str::trim).collect();
+        .filter(|cells| cells[1].contains("`/gsd-"))
+        .map(|cells| {
             let names = stem
-                .captures_iter(cells[2])
+                .captures_iter(&cells[1])
                 .map(|c| c[1].to_string())
                 .collect();
-            (cells[1].to_string(), names)
+            (cells[0].clone(), names)
         })
         .collect()
 }
@@ -153,4 +153,33 @@ fn a_core_command_and_an_extension_command_are_told_apart() {
     assert_eq!(roster::owner("debug"), Some(Owner::Extension("@gsd/ops")));
     assert!(roster::owner("plan-phase").is_some_and(Owner::is_core));
     assert_eq!(roster::owner("no-such-command"), None);
+}
+
+/// Each core agent is granted the SpecForge engine tools of the role its work needs (ADR 0334).
+#[test]
+fn every_agent_takes_the_role_its_work_needs() {
+    let want: BTreeMap<&str, &str> = [
+        ("gsd-advisor-researcher", "researcher"),
+        ("gsd-assumptions-analyzer", "researcher"),
+        ("gsd-doc-classifier", "researcher"),
+        ("gsd-doc-synthesizer", "researcher"),
+        ("gsd-executor", "executor"),
+        ("gsd-integration-checker", "checker"),
+        ("gsd-nyquist-auditor", "verifier"),
+        ("gsd-pattern-mapper", "researcher"),
+        ("gsd-phase-researcher", "researcher"),
+        ("gsd-plan-checker", "checker"),
+        ("gsd-planner", "planner"),
+        ("gsd-project-researcher", "researcher"),
+        ("gsd-research-synthesizer", "researcher"),
+        ("gsd-roadmapper", "planner"),
+        ("gsd-verifier", "verifier"),
+    ]
+    .into_iter()
+    .collect();
+    let have: BTreeMap<&str, &str> = gsd_core::agents::roster::AGENTS
+        .iter()
+        .map(|a| (a.id, a.role.id))
+        .collect();
+    assert_eq!(have, want);
 }

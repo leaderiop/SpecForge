@@ -6,6 +6,8 @@ use specforge_graph::{Graph, Node};
 
 use crate::error::EmitterError;
 
+use specforge_protocol_types::tokens::estimate_tokens;
+
 /// The `token_budget` block of an export that did not fit its budget whole:
 /// what was dropped to make it fit.
 #[derive(Serialize, Shape)]
@@ -16,33 +18,6 @@ pub(crate) struct TokenBudget {
     estimated_tokens: usize,
     /// The IDs of the entities dropped, least central first.
     truncated_entities: Vec<String>,
-}
-
-/// The token cost a `--max-tokens` budget measures: each word-like run
-/// counts one token, each JSON structural character (`{ } [ ] : , "`) half.
-pub fn estimate_tokens(s: &str) -> usize {
-    // Count word-like sequences (alphanumeric runs) as ~1 token each,
-    // plus JSON structural characters ({, }, [, ], :, ,) as ~0.5 tokens each.
-    let mut words = 0usize;
-    let mut structural = 0usize;
-    let mut in_word = false;
-
-    for ch in s.chars() {
-        if ch.is_alphanumeric() || ch == '_' {
-            if !in_word {
-                words += 1;
-                in_word = true;
-            }
-        } else {
-            in_word = false;
-            if matches!(ch, '{' | '}' | '[' | ']' | ':' | ',' | '"') {
-                structural += 1;
-            }
-        }
-    }
-
-    // Each word ≈ 1 token, structural chars ≈ 0.5 tokens each (round up)
-    words + structural.div_ceil(2)
 }
 
 /// The graph's nodes in truncation order: least connected first (`Graph::degree`), ties by ID.
@@ -131,14 +106,24 @@ pub(crate) fn fit(
             ),
         });
     }
-    let (mut lo, mut hi) = (1, n);
+    let cut = fewest(1, n, |cut| Ok(with_cut(cut)?.1 <= max_tokens))?;
+    Ok(with_cut(cut)?.0)
+}
+
+/// The smallest `k` in `lo..=hi` for which `fits(k)`, by bisection: `fits` holds for every `k` above one that fits,
+/// and the caller has seen it hold at `hi`.
+pub(crate) fn fewest(
+    mut lo: usize,
+    mut hi: usize,
+    mut fits: impl FnMut(usize) -> Result<bool, EmitterError>,
+) -> Result<usize, EmitterError> {
     while lo < hi {
         let mid = lo + (hi - lo) / 2;
-        if with_cut(mid)?.1 <= max_tokens {
+        if fits(mid)? {
             hi = mid;
         } else {
             lo = mid + 1;
         }
     }
-    Ok(with_cut(lo)?.0)
+    Ok(lo)
 }

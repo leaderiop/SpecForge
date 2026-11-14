@@ -2,7 +2,9 @@
 
 ```
  phase | plan(quick) ─1──0..1─ context ─1──*─ decision     phase ─1──0..1─ phase_spec ─1──*─ locked_req
-                                  ├──*─ deferred_idea (a phase's only)            └──*─ interview
+                                  ├──*─ deferred_idea (a phase's only)            ├──*─ interview
+                                  │                                               ├──*─ edge
+                                  │                                               └──*─ spec_prohibition
                                   └──*─ canonical_refs (a block of the context)
  phase ─1──0..1─ discussion (audit log, append-only)
  phase | project | plan(quick) ─1──0..1─ research ─1──*─ finding | stack_choice | pattern | pitfall
@@ -32,7 +34,6 @@ name `251101-abc-CONTEXT`.
 | canonical_refs | {topic str, paths paths<present>} | | `<canonical_refs>` (mandatory: not `R`, so gsd/E201 is the one diagnostic of its absence, whether the field is missing or `[]`; a context with no external spec writes one ref whose `topic` is GSD's sentence, "No external specs — requirements are fully captured in decisions above", and whose `paths` is empty) |
 | reusable_assets, patterns, integration_points | strs | | `<code_context>` |
 | status | enum{gathering, ready_for_planning} | C | `**Status:**`: ready once `boundary` is written and `canonical_refs` has an item. GSD's "no interview is open" is not computable: an interview belongs to a `phase_spec` and has no state |
-| digest | str | C | (new: the digest of the context, its `origin context` decisions and its deferred ideas, `fnv1a64:` and 16 hex digits; a research or spec records it as its `context_digest`, and `gsd/W406` compares; a list or block field is hashed as the structured value the kernel sends, every other field as its text, so a protocol change that sends structured values for more types must not change what is hashed, or every recorded digest goes stale at once) |
 
 ## decision
 
@@ -55,30 +56,73 @@ in `plan`, and is named `<quick_id>-D-01` so it cannot collide with a project de
 
 ## deferred_idea
 
-GSD: `<deferred>`. `text str R`, `phase → phase R`, `why str`. Excluded from every coverage rule.
+GSD: `<deferred>`. `text str R`, `phase → phase R`, `why str`, `origin discussion|execution R I`, `status open|resolved`.
+Excluded from every coverage rule. A `discussion` idea was deferred while the phase's context was set (discuss, the
+PRD path, the source audit) and the context routes serve it; an `execution` idea is an executor's out-of-scope
+discovery, which no route serves (recording one stales no pack, gsd/W406) and the forensic audit's Check 7 lists
+until its `status` is `resolved`. The idea is complete when resolved; an absent status is open.
 
-## phase_spec, locked_req, interview
+## phase_spec, locked_req, interview, edge, spec_prohibition
 
-GSD: `NN-SPEC.md`, written by `/gsd-spec-phase`. Names `03-SPEC`, `LR1`, `IV1`.
+GSD: `NN-SPEC.md`, written by `/gsd-spec-phase`. Names `03-SPEC`, `LR1`, `IV1`, `EC1`, `SP1`.
 
-**phase_spec**: `phase → phase R I`, `context_digest str H` (the digest of the phase's context, written by the command that records the spec; gsd/W406), `created date I`, `goal str R` (X changes from A to B), `background text`,
+**phase_spec**: `phase → phase R I`, `context_pack {route str, digest str, max_tokens int} P` (the `gsd/phase-context` pack the spec was written against, recorded by the host for `record-spec`; gsd/W406), `created date I`, `goal str R` (X changes from A to B), `background text`,
 `in_scope strs`, `out_of_scope strs`, `constraints strs`, `acceptance strs`;
 `scores {goal int{0..100}, boundary int{0..100}, constraint int{0..100}, acceptance int{0..100}, ambiguity int{0..100}}`
 is `V`: the judged verdict of the `spec_phase` prompt (a `prompt:spec_phase` judge, K15), in percent (GSD's 0–1 score × 100), gated at
 goal ≥ 75, boundary ≥ 70, constraint ≥ 65, acceptance ≥ 70, ambiguity ≤ 20. It is `V`: the `values` of the `spec_phase` prompt's verdict on `gsd/E202` (bounds 0..100 enforced), so a hand-written `scores` is E082. `record_verdict` refuses a `passed` on `gsd/E202` whose `scores` are missing, outside 0..100 or outside the gates above.
 
 **locked_req**: a numbered SPEC requirement. `spec → phase_spec R`, `title str R`, `current str R`, `target str R`,
-`acceptance str R` (falsifiable), `traces →* requirement`.
+`acceptance str R` (falsifiable), `traces →* requirement`, `shapes enum{numeric_range, collection, text, stateful, io}*`
+(upstream's authored shapes, `-` written `_`: they override the edge probe's classifier, and an empty list proposes no
+edge), `text_en str` (an English translation the edge probe classifies instead, when `response_language` is set).
 
 **interview**: one `## Interview Log` row, append-only. `spec → phase_spec R`, `round int R`,
 `perspective enum{researcher, simplifier, boundary_keeper, failure_analyst} R`, `question str R`, `answer str`,
 `locked str`.
 
+**edge**: one `## Edge Coverage` row: the edge probe's category of a locked requirement and its resolution (ADR 0333).
+Written whole by `specforge gsd resolve-edge`, which keys a row by its requirement and category.
+
+| Field | Type | Flags | GSD |
+|---|---|---|---|
+| spec | → phase_spec | R I | the SPEC the table is in |
+| requirement | → locked_req | R | `Requirement` (a locked requirement of the same spec, gsd/E523) |
+| category | enum{boundary, adjacency, empty, encoding, ordering, precision, idempotency, concurrency, unclassified} | R | `Category` |
+| status | enum{resolved, dismissed, unresolved} | R | `Status` |
+| verification | enum{explicit, backstop} | | `Verification`: a resolved row's tier, absent otherwise (gsd/E523) |
+| resolution | str | | `Resolution`: the acceptance criterion or backstop note a resolved row requires |
+| reason | str | | the reason a dismissed row requires |
+
+**spec_prohibition**: one `## Prohibitions` row: a must-NOT statement of a locked requirement and its resolution. The
+plan's `prohibition` is lifted from it. The `check_*` scalars are a resolved `test` row's check descriptor, read
+fail-closed where it is used, not judged here.
+
+| Field | Type | Flags | GSD |
+|---|---|---|---|
+| spec | → phase_spec | R I | the SPEC the table is in |
+| requirement | → locked_req | R | `Requirement` |
+| statement | str | R | `Statement` (the must-NOT sentence) |
+| status | enum{resolved, dismissed, unresolved} | R | `Status` |
+| verification | enum{test, judgment} | | `Verification`: a resolved row's tier, absent otherwise (gsd/E523) |
+| reason | str | | the reason a dismissed row requires |
+| check_kind | enum{node_test, lint_rule} | | `check_kind` (`node-test`, `lint-rule`) |
+| check_target | str | | `check_target` |
+| check_rule | str | | `check_rule` (a lint rule's) |
+| check_violation_fixture | str | | `check_violation_fixture` |
+| check_clean_fixture | str | | `check_clean_fixture` |
+
 ## discussion
 
 GSD: `NN-DISCUSSION-LOG.md`. Name `03-DISCUSSION-LOG`. `phase → phase R I`;
-`entries {area str, question str, options strs, chosen str, mode enum{interactive, assumptions, advisor}}` `+`.
-An audit record: no agent context is built from it.
+`entries {area str, question str, options strs, chosen str, mode enum{interactive, assumptions, advisor}, notes str,
+confidence enum{confident, likely, unclear}, evidence strs}` `+`: `notes` is the user's follow-up notes (upstream's
+"**Notes:**") or a correction's reason; `confidence` and `evidence` are assumptions mode's Confidence and Evidence columns.
+An audit record: no agent context is built from it. `checkpoint {timestamp ts, areas_completed strs, areas_remaining
+strs, decisions {area str R, question str R, answer str, options_presented strs}*, deferred_ideas strs, canonical_refs
+strs}`: GSD's `NN-DISCUSS-CHECKPOINT.json` (`templates/checkpoint.json`'s members), where an interrupted discussion
+stands. The agent sets it with `specforge set` after each area and clears it with `specforge unset` once the context is
+written; it is not append-only.
 
 ## research and its items
 
@@ -88,8 +132,8 @@ Markdown sections become typed items, so a pitfall or an open question can be re
 **research**: name `03-RESEARCH` (project research: `RESEARCH`; a quick plan's: `251101-abc-RESEARCH`, though any name
 is allowed); each item kind below is scoped by its `research` and named `F1`, `SC1`, `P1`, `PF1`, `DH1`, `OQ1`, `SRC1`, `PA1`.
 `phase → phase` (absent for project research and a quick plan's), `plan → plan I` (a quick plan's research,
-`/gsd-quick --research`; at most one of `phase` and `plan`, gsd/E206), `context_digest str H` (as on the spec, against
-the quick plan's context for a quick research; gsd/W406), `domain str`, `researched date I`,
+`/gsd-quick --research`; at most one of `phase` and `plan`, gsd/E206), `context_pack P` (as on the spec; a quick
+research records `gsd/quick-context`; gsd/W406), `domain str`, `researched date I`,
 `confidence enum{high, medium, low} R`, `summary text R`, `user_constraints →* decision`,
 `responsibility_map {capability str, tier str}`.
 

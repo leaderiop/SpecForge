@@ -7,7 +7,7 @@ produces: PLAN.md
 consumes: CONTEXT.md
 -->
 <purpose>
-Create executable phase prompts (PLAN.md files) for a roadmap phase with integrated research and verification. Default flow: Research (if needed) -> Plan -> Verify -> Done. Orchestrates gsd-phase-researcher, gsd-planner, and gsd-plan-checker agents with a revision loop (max 3 iterations).
+Create executable phase plans (plan entities) for a roadmap phase with integrated research and verification. Default flow: Research (if needed) -> Plan -> Verify -> Done. Orchestrates gsd-phase-researcher, gsd-planner, and gsd-plan-checker agents with a revision loop (max 3 iterations).
 </purpose>
 
 <required_reading>
@@ -23,7 +23,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 <available_agent_types>
 Valid GSD subagent types (use exact names — do not fall back to 'general-purpose'):
 - gsd-phase-researcher — Researches technical approaches for a phase
-- gsd-pattern-mapper — Analyzes codebase for existing patterns, produces PATTERNS.md
+- gsd-pattern-mapper — Finds the existing code new files should copy, and replies with its map of analogs
 - gsd-planner — Creates detailed plans from phase scope
 - gsd-plan-checker — Reviews plan quality before execution
 </available_agent_types>
@@ -72,13 +72,7 @@ Load all context in one call (paths only to minimize orchestrator context):
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
-
-
-
 
 REVIEWS="{{arg:reviews|false}}"   # closed-phase-gate.md and chunked-planning-mode.md read it
 
@@ -96,15 +90,14 @@ INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 AGENT_SKILLS_RESEARCHER=""   # the host install carries the skills of gsd-phase-researcher
 AGENT_SKILLS_PLANNER=""   # the host install carries the skills of gsd-planner
 AGENT_SKILLS_CHECKER=""   # the host install carries the skills of gsd-plan-checker
-CONTEXT_WINDOW="{{setting:context_window|200000}}"   # context_window (the settings)
 MVP_MODE_CFG="{{setting:workflow.mvp_mode|false}}"   # workflow.mvp_mode (the settings)
 ```
 
 When the tdd capability's `workflow.tdd_mode` is active (resolved via the plan:pre render-hooks), the planner agent is instructed to apply `type: tdd` to eligible tasks using heuristics from `gsd-core/references/tdd.md`. The TDD guidance is injected via the tdd capability's contribution hook at §5.6; no inline config-get is needed.
 
-When `CONTEXT_WINDOW >= 500000`, the planner prompt includes the 3 most recent prior-phase CONTEXT.md/SUMMARY.md files plus any phases in the current phase's `Depends on:` field (explicit deps load regardless of recency).
+The planner reads the planner pack (`specforge context gsd/planner`) at the route's budget: the summaries of the plans its phase depends on are among its sections, whatever the context window.
 
-**#2401 — `prior_verify_commands` is NOT part of that enrichment and is never gated on `CONTEXT_WINDOW`.** It is a handful of one-line `<automated>` commands harvested from the nearest prior phase that had any; the payload is tiny and its absence at 200k is exactly what made the planner re-invent a verify command and author an unrunnable path. Surface it at every context window.
+**#2401 — `prior_verify_commands` is NOT part of that pack and is never gated on the context window.** It is a handful of one-line `<automated>` commands harvested from the nearest prior phase that had any; the payload is tiny and its absence at 200k is exactly what made the planner re-invent a verify command and author an unrunnable path. Surface it at every context window.
 
 Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name`, `slug`, `goal`, `status` and `requirements` are its fields; a phase not in the graph is an E003 error), and the other nodes are what links to it or from it: its milestone, its requirements, its `plan` entities and its `context`, `research`, `verification` and `uat_session` when it has them. `phase_status` (#3569) is the phase's `status`, `phase_req_ids` its `requirements`, `plan_count` the number of its plans, and `has_research`, `has_context` and `has_plans` whether one is there. `commit_docs`, `workflow.research`, `workflow.plan_check`, `workflow.nyquist_validation`, `workflow.text_mode`, `response_language` and `granularity` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model. `prior_verify_commands` (#2401) are the `verification` of each plan of the nearest earlier phase that has plans, read with a depth-1 query of that phase.
 
@@ -112,7 +105,7 @@ Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its numbe
 
 **If `response_language` is set:** All user-facing orchestrator output — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be in `{response_language}`; technical terms, code, paths, and subagent prompts stay in English. Pass `response_language: {value}` into every spawned subagent prompt.
 
-**Entity ids (for <required_reading> blocks):** `roadmap_path`, `context_path`, `research_path`, `verification_path`, `uat_path` each name an entity, and `requirements_path` holds the phase's requirement ids, one per line: each is read with `specforge query <id> --format context`. These are empty if the phase has no such entity. The project state is computed (`specforge gsd progress-report`), and REVIEWS.md is no entity: neither has a value here.
+**Entity ids (for <required_reading> blocks):** `roadmap_path`, `context_path`, `research_path`, `verification_path`, `uat_path` each name an entity, and `requirements_path` holds the phase's requirement ids, one per line: each is read with `specforge query <id> --format context`. These are empty if the phase has no such entity. The project state is computed (`specforge gsd progress-report`) and has no value here; the phase's reviews are `review` entities.
 
 **If `planning_exists` is false:** Error — run `/gsd:new-project` first.
 
@@ -128,13 +121,10 @@ Extract from $ARGUMENTS: phase number (integer or decimal like `2.1`), flags (`-
 
 In research-only mode, two modifiers control behavior when `RESEARCH.md` already exists:
 
-- **`--research`** — force-refresh re-research without prompting. Re-spawns the researcher unconditionally and overwrites the existing RESEARCH.md. (This is the existing `--research` flag's standard "force re-research" semantics, reused here.)
+- **`--research`** — force-refresh re-research without prompting. Re-spawns the researcher unconditionally, which records the phase's research again. (This is the existing `--research` flag's standard "force re-research" semantics, reused here.)
 - **`--view`** — view-only: print existing `RESEARCH.md` to stdout, do **not** spawn the researcher. Sets `VIEW_ONLY=true`. Cheapest mode for the correction-without-replanning loop. If `RESEARCH.md` does not exist, error with a hint to drop `--view`.
 
 ```bash
-
-
-
 
 RESEARCH_PHASE="{{arg:research_phase|}}"
 RESEARCH_ONLY=false; VIEW_ONLY=false
@@ -154,9 +144,6 @@ Set `TEXT_MODE=true` if `--text` is present in $ARGUMENTS OR `text_mode` from in
 **MVP_MODE resolution.** Resolve `MVP_MODE` once via the centralized `phase.mvp-mode` query verb. Precedence (first hit wins): CLI flag → ROADMAP.md `**Mode:** mvp` → `workflow.mvp_mode` config → false. The verb is the single source of truth — do not re-implement the chain.
 
 ```bash
-
-
-
 
 MVP_FLAG_ARG=""
 [ "{{arg:mvp|false}}" = true ] && MVP_FLAG_ARG="--cli-flag"
@@ -185,17 +172,17 @@ fi
 ```
 
 When `WALKING_SKELETON=true`:
-- Planner is instructed to produce `SKELETON.md` in the phase directory alongside `PLAN.md`. The template lives at `~/.claude/gsd-core/references/skeleton-template.md` — the planner reads it when producing SKELETON.md (lazy; not loaded on non-skeleton runs).
+- The planner's first plan is the walking skeleton, and it records the skeleton's architectural choices as project `decision` entities. Only a skeleton run loads `~/.claude/gsd-core/references/skeleton-template.md`, where the planner finds how to record them.
 - The plan must scaffold project + routing + one real DB read/write + one real UI interaction + dev deployment — the thinnest possible end-to-end working slice.
 
-**Interaction with `--prd <filepath>`.** `--mvp` and `--prd` compose. The PRD express path (Step 3.5) creates `CONTEXT.md` from the PRD file and continues to research; the Walking Skeleton gate fires independently from the conditions above. When both are active on Phase 1 of a new project, the planner receives `WALKING_SKELETON=true` and PRD-derived context simultaneously — the PRD informs *what the skeleton should prove*. No precedence is needed; the two signals are orthogonal. See [`gsd-core/references/mvp-concepts.md`](../references/mvp-concepts.md) for the broader interaction map.
+**Interaction with `--prd <filepath>`.** `--mvp` and `--prd` compose. The PRD express path (Step 3.5) records the phase's `context` entity from the PRD file and continues to research; the Walking Skeleton gate fires independently from the conditions above. When both are active on Phase 1 of a new project, the planner receives `WALKING_SKELETON=true` and PRD-derived context simultaneously — the PRD informs *what the skeleton should prove*. No precedence is needed; the two signals are orthogonal. See [`gsd-core/references/mvp-concepts.md`](../references/mvp-concepts.md) for the broader interaction map.
 
 Extract express-path args from $ARGUMENTS: `PRD_FILE` (`--prd <filepath>`), `INGEST_PATH` (`--ingest <path-or-glob>`), and optional `INGEST_FORMAT` (`--ingest-format <auto|nygard|madr|narrative>`, default `auto`).
 
 `--prd` and `--ingest` are mutually exclusive. If both are present, error and exit:
 `Invalid arguments: cannot combine \`--prd\` with \`--ingest\`.`
 
-**If no phase number:** Auto-detect it — `query init.plan-phase` and `query roadmap.get-phase` require an explicit number, so this is an orchestrator step. Run `specforge query "$MILESTONE" --kinds phase --format json` and read the first phase that is not yet planned (`next_phase`) (first phase with `disk_status` of `no_directory`, `empty`, `discussed`, or `researched`). If `next_phase` is `null`, read ROADMAP.md's `### Phase N:` headers and ask the user which phase to plan. Set `PHASE` to the result before step 1's `query init.plan-phase "$PHASE"` call.
+**If no phase number:** Auto-detect it — `query init.plan-phase` and `query roadmap.get-phase` require an explicit number, so this is an orchestrator step. Run `specforge query "$MILESTONE" --kinds phase --format json` and read the first phase that is not yet planned (`next_phase`) (first phase with `disk_status` of `no_directory`, `empty`, `discussed`, or `researched`). If `next_phase` is `null`, list the milestone's phases (`specforge query "$MILESTONE" --kinds phase --format brief`) and ask the user which phase to plan. Set `PHASE` to the result before step 1's `query init.plan-phase "$PHASE"` call.
 
 **If `phase_found` is false:** Validate phase exists in ROADMAP.md. If valid, create the directory using `expected_phase_dir` from init (includes `project_code` prefix when set):
 ```bash
@@ -208,9 +195,6 @@ Set `phase_dir="${expected_phase_dir}"` after creation.
 
 Set `CHUNKED_MODE` from flag or config:
 ```bash
-
-
-
 
 CHUNKED_CFG="{{setting:workflow.plan_chunked|false}}"   # workflow.plan_chunked (the settings)
 CHUNKED_MODE=false
@@ -246,13 +230,13 @@ If `section_manifest` is `null` or `"adr-ingest-express-path"` is in its `includ
 
 ## 4. Load CONTEXT.md
 
-**Skip if:** PRD express path or ADR ingest express path was used (CONTEXT.md already created in step 3.5/3.6).
+**Skip if:** PRD express path or ADR ingest express path was used (the phase's context was recorded in step 3.5/3.6).
 
 Check whether the phase has a `context` entity among `INIT`'s nodes.
 
 If it has one, display: `Using phase context from: <its id>`
 
-**If it has none (no CONTEXT.md exists):**
+**If it has none (the phase has no context entity):**
 
 Read discuss mode for context gate label:
 ```bash
@@ -301,9 +285,6 @@ AI integration activation is owned by the `ai-integration` capability's `plan:pr
 ```bash
 AI_SPEC_FILE=$(specforge query "$PHASE_ID" --depth 1 --kinds ai_spec --pick '.nodes[kind=ai_spec].id' 2>/dev/null)   # @gsd/ai's: empty when it is not loaded
 AI_SPEC_PATH="${AI_SPEC_FILE}"
-
-
-
 
 ```
 
@@ -438,7 +419,13 @@ Agent(
 
 ### Handle Researcher Return
 
-- **`## RESEARCH COMPLETE`:** Display confirmation, continue to step 6
+- **`## RESEARCH COMPLETE`:** Display confirmation, record the pack the research read, so a later change of the
+  phase's context reports it stale (gsd/W406), and continue to step 6:
+
+  ```bash
+  RESEARCH_ID="{the research id the researcher returned, e.g. v1.0/02/02-RESEARCH}"
+  specforge gsd record-research "$RESEARCH_ID" || exit 1
+  ```
 - **`## RESEARCH BLOCKED`:** Display blocker, offer: 1) Provide context, 2) Skip research, 3) Abort
 
 <!-- gsd:section id="research-only-early-exit" when="flag:--research-phase" -->
@@ -449,29 +436,27 @@ If `section_manifest` is `null` or `"research-only-early-exit"` is in its `inclu
 
 Skip if `nyquist_validation_enabled` is false OR `research_enabled` is false.
 
-If `research_enabled` is false and `nyquist_validation_enabled` is true: warn "Nyquist validation enabled but research disabled — VALIDATION.md cannot be created without RESEARCH.md. Plans will lack validation requirements (Dimension 8)." Continue to step 6.
+If `research_enabled` is false and `nyquist_validation_enabled` is true: warn "Nyquist validation enabled but research disabled — a validation strategy cannot be recorded without the phase's research. Plans will lack validation requirements (Dimension 8)." Continue to step 6.
 
 **But Nyquist is not applicable for this run** when all of the following are true:
 - `research_enabled` is false
 - `has_research` is false
 - no `--research` flag was provided
 
-In that case: **skip validation-strategy creation entirely**. Do **not** expect `RESEARCH.md` or `VALIDATION.md` for this run, and continue to Step 6.
+In that case: **skip validation-strategy creation entirely**. Neither a `research` entity nor a `validation` entity is due from this run; go on to Step 6.
 
 ```bash
 specforge query "$PHASE_ID" --depth 1 --kinds research --pick '.nodes[kind=research].id'
 ```
 
 **If the phase has research:**
-1. Read template: `~/.claude/gsd-core/templates/VALIDATION.md`
-2. Record it as the phase's `validation` entity `${PHASE_ID##*/}-VALIDATION` (`specforge new validation … --phase "$PHASE_ID"`), its map rows as `validation_row` entities
-3. Fill frontmatter: `{N}` → phase number, `{phase-slug}` → slug, `{date}` → current date
-4. Verify:
+1. Run the typed-edit fence of `~/.claude/gsd-core/templates/VALIDATION.md` ("The Validation's Typed Edits") once per row of the Per-Task Verification Map: it records the phase's `validation` entity `${PHASE_ID##*/}-VALIDATION` with its first row, and each row as a `validation_row`
+2. Verify:
 ```bash
 [ -n "$(specforge query "$PHASE_ID" --depth 1 --kinds validation --pick '.nodes[kind=validation].id')" ] && echo "VALIDATION_CREATED=true" || echo "VALIDATION_CREATED=false"
 ```
-5. If `VALIDATION_CREATED=false`: STOP — do not proceed to Step 6
-6. If `commit_docs`: `specforge git commit --add spec -m "docs(phase-${PHASE}): add validation strategy"`
+3. If `VALIDATION_CREATED=false`: STOP — do not proceed to Step 6
+4. When `commit_docs` is set, the strategy goes into a commit of its own, made with `specforge git commit --add spec -m "docs(phase-${PHASE}): add validation strategy"`.
 
 **If not found:** Warn and continue — plans may fail Dimension 8.
 
@@ -619,14 +604,13 @@ Extract from INIT JSON:
 
 ```bash
 # the phase's state is entities: each value is an entity id, read with `specforge query <id> --format context`; empty when the phase has none
-STATE_PATH=""   # the project state is computed: specforge gsd progress-report
 ROADMAP_PATH=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.milestone')
 REQUIREMENTS_PATH=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]')
 RESEARCH_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds research --pick '.nodes[kind=research].id')
 VERIFICATION_PATH=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id')
 UAT_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds uat_session --pick '.nodes[kind=uat_session].id')
 CONTEXT_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds context --pick '.nodes[kind=context].id')
-REVIEWS_PATH=""   # REVIEWS.md is written by /gsd:review, not an entity
+REVIEWS_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds review --pick '.nodes[kind=review].id' --last 1)   # the latest round /gsd:review recorded
 PATTERNS_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds pattern_map --pick '.nodes[kind=pattern_map].id' 2>/dev/null)   # @gsd/codebase's: empty when it is not loaded
 
 # Detect spike/sketch findings skills (project-local)
@@ -725,8 +709,7 @@ Read the active intel step hook from `PLAN_PRE_HOOKS_JSON` where `kind == "step"
 **If an active intel step hook exists:**
 ```bash
 # the intel capability is not part of @gsd/core: there is no API surface to regenerate
-API_SURFACE_PATH="${STATE_PATH%/*}/intel/API-SURFACE.md"
-echo "✓ API surface regenerated: ${API_SURFACE_PATH}"  # injected into step 8 as HINT
+API_SURFACE_PATH=""
 ```
 
 Continue to step 8.
@@ -739,7 +722,8 @@ and authors the predicates into PLAN.md `must_haves` (ADR-857 Phase 6 — the *e
 after `$SPEC_FILE` (Step 7), before the gsd-planner spawn (Step 8).
 
 **Read and run** the gate + edge probe in `~/.claude/gsd-core/references/specless-probe-fallback.md`
-(§0 default-ON toggle + per-section absence via the `spec-section` helper, visibly skipping when
+(§0 default-ON toggle + per-section absence read from the spec's `edge` and `spec_prohibition`
+entities, visibly skipping when
 disabled or no requirement IDs; §A deterministic edge probe → `$COVERAGE` when `EDGE_ABSENT`; §B
 prohibition recall in the planner). Pass `$COVERAGE` and `$SPECLESS_FALLBACK_DISABLED` into Step 8.
 
@@ -760,20 +744,15 @@ Display banner:
 
 Planner prompt:
 
-```markdown
+````markdown
 <planning_context>
 **Phase:** {phase_number}
 **Mode:** {standard | gap_closure | reviews}
 **Graph context:** {the `/gsd-graphify` line of "Graph context on this install" at the end of the plan-phase prompt}
 <required_reading>
-- `specforge gsd progress-report` (Project State, computed)
-- `specforge query {roadmap_path} --format context` (Roadmap: the milestone)
-- `specforge query <id> --format context` for each id of {requirements_path} (Requirements)
-- `specforge query {context_path} --format context` (USER DECISIONS from /gsd:discuss-phase)
-- `specforge query {research_path} --format context` (Technical Research)
-- `specforge query {PATTERNS_PATH} --format context` (Pattern Map — analog files and code excerpts, if set)
-- `specforge query {verification_path} --format context` (Verification Gaps - if --gaps)
-- `specforge query {uat_path} --format context` (UAT Gaps - if --gaps)
+- `specforge context gsd/planner {PHASE_ID}` (the planner pack: the phase, its requirements, USER DECISIONS from /gsd:discuss-phase, the research and its items, the plans, the milestone, verification and UAT gaps, the summaries of the plans it depends on, the project and its decisions, `CLAUDE.md` / `AGENTS.md` and the settings; `--pick .budget` lists what the budget cut, read with `specforge query <id> --format context`)
+- `specforge export --kinds lesson --format context` (Lessons, which the pack does not select)
+- When `@gsd/codebase` is loaded, its pattern map of the phase: `specforge query {PATTERNS_PATH} --format context` (analog files and code excerpts; nothing with `@gsd/core` alone)
 
 - `specforge query {AI_SPEC_PATH} --format context` (AI Design Contract — framework and evaluation strategy, if set)
 - `specforge query {UI_SPEC_PATH} --format context` (UI Design Contract — visual/interaction specs, if set)
@@ -781,14 +760,6 @@ Planner prompt:
 - {SPIKE_FINDINGS_PATH} (Spike Findings — validated patterns, constraints, landmines from experiments, if exists)
 - {SKETCH_FINDINGS_PATH} (Sketch Findings — validated design decisions, CSS patterns, visual direction, if exists)
 - {API_SURFACE_PATH} (API Surface — HINT ONLY, when intel capability is active; see <intel_surface_hint> below)
-${CONTEXT_WINDOW >= 500000 ? `
-**Cross-phase context (1M model enrichment):**
-- CONTEXT.md files from the 3 most recent completed phases (locked decisions — maintain consistency)
-- SUMMARY.md files from the 3 most recent completed phases (what was built — reuse patterns, avoid duplication)
-- LEARNINGS.md files from the 3 most recent completed phases (structured decisions, patterns, lessons, surprises — skip silently if a phase has no LEARNINGS.md; prefix each block with \`[from Phase N LEARNINGS]\` for source attribution; if total size exceeds 15% of context budget, drop oldest first)
-- CONTEXT.md, SUMMARY.md, and LEARNINGS.md from any phases listed in the current phase's "Depends on:" field in ROADMAP.md (regardless of recency — explicit dependencies always load, deduplicated against the 3 most recent)
-- Skip all other prior phases to stay within context budget
-` : ''}
 </required_reading>
 ${prior_verify_commands.length > 0 ? `
 <proven_verify_commands>
@@ -796,7 +767,7 @@ ${prior_verify_commands.length > 0 ? `
 are the `<automated>` commands from the nearest prior phase that had any. They resolved from
 the executor's cwd in a real run, so a path here is grounded evidence, not a guess. When this
 phase's build/test story is the same, **copy the command verbatim**; do not re-derive a
-directory. Surfaced at every context window — not part of the 1M enrichment above.
+directory. Surfaced at every context window.
 
 {For each entry in \`prior_verify_commands\`: \`- Phase {phase} · {task}: \\\`{command}\\\`\`}
 </proven_verify_commands>
@@ -809,24 +780,22 @@ ${API_SURFACE_PATH ? `
 ${AGENT_SKILLS_PLANNER}
 
 <review_incorporation_contract>
-**If Mode is reviews:** REVIEWS.md is feedback input, not a hidden execution contract. /gsd:execute-phase primarily consumes PLAN.md plus the normal phase context, so every current actionable review finding must become visible in the relevant PLAN.md before planning can pass.
+**If Mode is reviews:** the review round is feedback input, not a hidden execution contract. /gsd:execute-phase primarily consumes the plan entities plus the normal phase context, so every current actionable review finding must become visible in the relevant plan before planning can pass.
 
-For each current actionable finding in REVIEWS.md, the planner MUST either:
-- incorporate it into a PLAN.md task, `<action>`, `<acceptance_criteria>`, `<verify>`, `must_haves`, threat model, or artifact list; or
-- explicitly document a deferral/rejection rationale in the relevant PLAN.md, using the Review Dispositions Ledger in `gsd-core/references/planner-reviews.md`.
+A current actionable finding is an open `review_concern` of the latest round (`REVIEWS_PATH`, step 7; its status is computed from its dispositions). For each, the planner MUST either:
+- incorporate it into a plan's task, action, acceptance criteria, verify command, truth, threat, or artifact, and record a disposition `--outcome addressed`; or
+- record a disposition `--outcome deferred` with its reason, as `gsd-core/references/planner-reviews.md` writes it.
 
-Historical findings already incorporated, explicitly deferred/rejected in PLAN.md, or marked fully resolved do not require new plan changes.
+A concern a disposition already addressed or deferred is no longer open and requires no new plan change.
 </review_incorporation_contract>
 
 **Phase requirement IDs (every ID MUST appear in a plan's `requirements` field):** {phase_req_ids}
 
 <tracked_source_paths>
-**Tracked-source paths (#3645):** Every path you write into PLAN.md —
-`files_modified`, `must_haves.artifacts`, action paths, and paths inherited
-from `{PATTERNS_PATH}` or prior-phase plans — must name git-tracked source,
-never a gitignored install/runtime mirror (e.g. `<root>/.gsd/capabilities/<id>/...`
-synced from a plugin's tracked tree; executor edits to a mirror die on the
-next capability sync). Verify existing-file paths with `git ls-files -- <path>`
+**Tracked-source paths (#3645):** Every path a plan names — its `files_modified`, its artifacts' paths, its
+actions' paths, and paths taken from `{PATTERNS_PATH}` or an earlier phase's plans — is git-tracked source, never a
+gitignored install or runtime mirror such as `<root>/.gsd/capabilities/<id>/...`, which a capability sync overwrites
+along with the executor's edits. Verify existing-file paths with `git ls-files -- <path>`
 (non-empty = tracked); resolve a gitignored hit to its tracked origin
 (`plugins/*/.gsd/capabilities/<id>/...`, root `capabilities/<id>/...`). A
 not-yet-existing path is a new file — keep the intended path. Re-verify
@@ -869,7 +838,7 @@ Rules + worked examples: @gsd-core/references/planner-failing-direction.md
 **TRACER_MODE:** ${TRACER_MODE} (false = horizontal layers instead of a leading `type="tracer"` slice; see `planner-mvp-mode.md`.)
 **REVERSIBILITY_GATES:** ${REVERSIBILITY_GATES} (false = rate but do not gate; see `planner-reversibility.md`.)
 **MVP_MODE:** ${MVP_MODE} (when true, follow vertical-slice rules from `~/.claude/gsd-core/references/planner-mvp-mode.md`; when false, ignore MVP guidance entirely.)
-**WALKING_SKELETON:** ${WALKING_SKELETON} (when true, the first deliverable must be a Walking Skeleton — Read the template at `~/.claude/gsd-core/references/skeleton-template.md` and produce SKELETON.md alongside PLAN.md.)
+**WALKING_SKELETON:** ${WALKING_SKELETON} (if true, plan 1 builds the Walking Skeleton; `~/.claude/gsd-core/references/skeleton-template.md` shows how its architectural choices become project decisions.)
 **Granularity:** {granularity}
 
 ${MVP_MODE === 'true' ? `
@@ -880,9 +849,10 @@ ${MVP_MODE === 'true' ? `
 
 <specless_probe_fallback>
 **Spec-less probe fallback** (only when step 7.95 set `EDGE_ABSENT` and/or `PROHIB_ABSENT`). The SPEC
-omitted that section — author its predicates into `must_haves` via the `<downstream_consumer>`
-else-branch below, per §A/§B/§C of `~/.claude/gsd-core/references/specless-probe-fallback.md`
-(descriptor-less prohibitions, never auto-dismiss, no silent drops).
+omitted that section — write its predicates as the plan's `truth` and `prohibition` entities via the
+`<downstream_consumer>` else-branch below, per §A/§B/§C of
+`~/.claude/gsd-core/references/specless-probe-fallback.md` (prohibitions with no test, never
+auto-dismiss, no silent drops).
 
 Edge coverage report (`$COVERAGE`, present when `EDGE_ABSENT`):
 
@@ -898,14 +868,14 @@ ${SPECLESS_FALLBACK_DISABLED ? `
 <!-- gsd:protected:start -->
 <downstream_consumer>
 Output consumed by /gsd:execute-phase. Plans need:
-- Frontmatter (wave, depends_on, files_modified, autonomous)
-- Tasks in XML format with read_first and acceptance_criteria fields (MANDATORY on every task)
+- The plan entity's fields (depends_on, files_modified; wave and autonomous are computed)
+- `task` entities with `read_first` and `acceptance` (MANDATORY on every task)
 - Verification criteria
-- must_haves for goal-backward verification
-- If the SPEC has an `## Edge Coverage` section, lift every resolved (verification: explicit) edge's acceptance criterion into `must_haves.truths` as a plain string, and every resolved (verification: backstop) edge **as a structured flat-scalar marker** — an object item `{ statement: <the check>, verification: backstop }`, NOT a prose note (the verifier branches deterministically on the `verification: backstop` field; a parenthetical is unparseable — the #1110 fragility). Use a flat scalar `verification:` continuation key, never a nested object (ADR-550 #1278). At verify time a `backstop` truth the verifier cannot confirm with explicit evidence abstains → `human_needed` (reason `insufficient_spec`), never a silent pass (#1154; see `gsd-core/references/honest-verifier.md`). `unresolved` edges are explicit assumptions — surface them in the plan, do not silently drop them. **Otherwise** (`EDGE_ABSENT`): apply the SAME lift to the fallback report `{COVERAGE}` (per §C of `gsd-core/references/specless-probe-fallback.md`); a SPEC-supplied section is never re-run.
-- If the SPEC has a `## Prohibitions` section, lift every resolved prohibition into the `must_haves.prohibitions:` sibling block (NOT `truths` — ADR-550 D3) with `statement`+`status`+`verification`, via the single `projectProhibitions` serializer (Hyrum — no second serializer); unresolved -> flagged assumptions, don't drop; never put a must-NOT under `truths`. **Otherwise** (`PROHIB_ABSENT`), author the recalled prohibitions into the SAME block via the SAME `projectProhibitions` contract but **descriptor-less** (no `check_*`) so each disposes flagged-unverified; never auto-dismiss. Section-level precedence + no-silent-drop equality apply (§C).
-- If a `-UI-SPEC.md` exists (resolved above as `UI_SPEC_PATH`) with a `## UI Considerations` section, lift it by the **identical rule** as `## Edge Coverage` above — resolved (explicit) → `must_haves.truths` string, resolved (backstop) → flat scalar `{ statement, verification: backstop }`, `unresolved` → explicit planner assumption (no new verb — ADR-550 #1278/#1154; #1867). Read it from `UI_SPEC_PATH` (the SPEC glob excludes `-UI-SPEC.md`).
-- **"Artifacts this phase produces" section (MANDATORY)** — list every symbol this phase creates: decorators, classes, functions, CLI flags, struct/dataclass fields, new file paths. The plan-review-convergence source-grounding pass reads this section to exclude newly-created symbols from drift verification; omitting it causes new symbols to be flagged for acknowledgement.
+- `truth`, `artifact` and `key_link` entities for goal-backward verification
+- If the SPEC has an `## Edge Coverage` section, read its edges with `specforge gsd edge-probe "$SPEC_ID" --format json` (resolutions merged) and lift every resolved (verification: explicit) edge's acceptance criterion into a `truth` entity of the plan, and every resolved (verification: backstop) edge into a `truth` too, never a prose note, whose id your return lists as backstop: the tier (`verification backstop`) is the person's to set. At verify time a `backstop` truth the verifier cannot confirm with explicit evidence abstains → `human_needed` (reason `insufficient_spec`), never a silent pass (#1154; see `gsd-core/references/honest-verifier.md`). `unresolved` edges are explicit assumptions — surface them in the plan, do not silently drop them. **Otherwise** (`EDGE_ABSENT`): apply the SAME lift to the fallback report `{COVERAGE}` (per §C of `gsd-core/references/specless-probe-fallback.md`); a SPEC-supplied section is never re-run.
+- If the SPEC has a `## Prohibitions` section, read them with `specforge query "$SPEC_ID" --depth 1 --kinds spec_prohibition --format json` and lift every resolved prohibition into a `prohibition` entity of the plan (never a `truth`) with its `statement` and `verification`, and its `test` when the verification is `test`; the wired check stays on the spec prohibition. Unresolved -> flagged assumptions, don't drop. **Otherwise** (`PROHIB_ABSENT`), write the recalled prohibitions by the SAME lift with `verification judgment` and no `test`, so each is judged; never auto-dismiss. Section-level precedence + no-silent-drop equality apply (§C).
+- When `@gsd/ui` is loaded, its hook or a query of its kind lifts a UI spec's considerations by the **identical rule** as the edges above; nothing with `@gsd/core` alone.
+- **Artifacts this phase produces (MANDATORY)** — one `artifact` entity per thing this phase creates: decorators, classes, functions, CLI flags, struct/dataclass fields, new file paths. The plan-review-convergence source-grounding pass reads them to exclude newly-created symbols from drift verification; omitting one causes a new symbol to be flagged for acknowledgement.
 </downstream_consumer>
 <!-- gsd:protected:end -->
 
@@ -942,7 +912,7 @@ Every task MUST include these fields — they are NOT optional:
 
 <!-- gsd:protected:start -->
 <quality_gate>
-- [ ] PLAN.md files created in phase directory
+- [ ] Plan entities written for the phase
 - [ ] Each plan has valid frontmatter
 - [ ] Tasks are specific and actionable
 - [ ] Every task has `<read_first>` with at least the file being modified
@@ -951,13 +921,13 @@ Every task MUST include these fields — they are NOT optional:
 - [ ] Dependencies correctly identified
 - [ ] Waves assigned for parallel execution
 - [ ] must_haves derived from phase goal
-- [ ] Every PLAN.md includes an "Artifacts this phase produces" section listing symbols created by this phase (decorators, classes, functions, CLI flags, struct/dataclass fields, new file paths)
+- [ ] Every plan lists the artifacts this phase produces as `artifact` entities, naming the symbols created by this phase (decorators, classes, functions, CLI flags, struct/dataclass fields, new file paths)
 - [ ] Every SPEC ## Edge Coverage resolved edge is represented in a plan's must_haves (no silent drops)
 - [ ] Every UI-SPEC ## UI Considerations resolved consideration is represented in a plan's must_haves (no silent drops)
 - [ ] Every SPEC ## Prohibitions resolved item is represented in a plan's must_haves.prohibitions (no silent drops)
 </quality_gate>
 <!-- gsd:protected:end -->
-```
+````
 
 **If `CHUNKED_MODE` is `false` (default):** Spawn the planner as a single long-lived Agent:
 
@@ -1005,11 +975,11 @@ If `DISK_PLANS` is greater than 0 (a known Windows stdio hang pattern — the pl
 
 ## 9b. Handle Phase Split Recommendation
 
-When the planner returns `## PHASE SPLIT RECOMMENDED`, the phase's source items exceed the context budget for full-fidelity implementation. Extract the planner's proposed sub-phase groupings and present the user three options via AskUserQuestion: Split into sub-phases (use `/gsd:phase --insert`, then replan each), Proceed anyway (return to planner accepting degraded quality), or Prioritize (AskUserQuestion multiSelect to choose now vs. later, create CONTEXT.md per sub-phase). Full banner text: `gsd-core/workflows/plan-phase/detail/elaboration.md` § 9b.
+When the planner returns `## PHASE SPLIT RECOMMENDED`, the phase's source items exceed the context budget for full-fidelity implementation. Extract the planner's proposed sub-phase groupings and present the user three options via AskUserQuestion: Split into sub-phases (use `/gsd:phase --insert`, then replan each), Proceed anyway (return to planner accepting degraded quality), or Prioritize (AskUserQuestion multiSelect to choose now vs. later, one `context` entity per sub-phase). Full banner text: `gsd-core/workflows/plan-phase/detail/elaboration.md` § 9b.
 
 ## 9c. Handle Source Audit Gaps
 
-When the planner returns `## ⚠ Source Audit: Unplanned Items Found`, items from REQUIREMENTS.md, RESEARCH.md, ROADMAP goal, or CONTEXT.md decisions have no corresponding plan. Present each gap to the user with three options: Add a plan (return to planner, step 8), Split phase (`/gsd:phase --insert`, then replan), or Defer (record in CONTEXT.md `## Deferred Ideas` with developer confirmation, proceed to step 10). Full banner text: `gsd-core/workflows/plan-phase/detail/elaboration.md` § 9c.
+When the planner returns `## ⚠ Source Audit: Unplanned Items Found`, some of the phase's requirements, research findings, roadmap goal or context decisions have no plan. Each gap goes to the user with three choices: add a plan (back to the planner, step 8), split the phase (`/gsd:phase --insert`, then replan), or defer it, which records the item as a `deferred_idea` of the phase once the developer confirms (the fence in § 9c) and goes on to step 10. Full banner text: `gsd-core/workflows/plan-phase/detail/elaboration.md` § 9c.
 
 ## 10. Spawn gsd-plan-checker Agent
 
@@ -1040,18 +1010,14 @@ failure: stop and surface it, and do not hand the checker an empty value.
 
 Checker prompt:
 
-```markdown
+````markdown
 <verification_context>
 **Phase:** {phase_number}
 **Phase Goal:** {goal from ROADMAP}
 **Mode:** {standard | gap_closure | reviews}
 
 <required_reading>
-- `specforge query {PHASE_ID} --kinds plan --format context` (Plans to verify)
-- `specforge query {roadmap_path} --format context` (Roadmap: the milestone)
-- `specforge query <id> --format context` for each id of {requirements_path} (Requirements)
-- `specforge query {context_path} --format context` (USER DECISIONS from /gsd:discuss-phase)
-- `specforge query {research_path} --format context` (Technical Research — includes Validation Architecture)
+- `specforge context gsd/plan-checker <id>` for each id of `specforge query {PHASE_ID} --kinds plan --pick '.nodes[kind=plan].id'` (each plan's check pack: the plan, its tasks and must-haves, its phase, requirements, decisions and research — what the judged plan-check rules digest)
 
 </required_reading>
 
@@ -1083,9 +1049,9 @@ Quote the command that has no stated failure mode; never author the statement fo
 </failing_direction_probe>
 
 <review_incorporation_verification>
-**If Mode is reviews:** Read REVIEWS.md and verify each current actionable review finding is visible in executable PLAN.md content or explicitly deferred/rejected in the relevant PLAN.md. A finding remains actionable if it requires a concrete plan task, `<action>`, `<acceptance_criteria>`, `<verify>`, `must_haves`, threat-model item, stale-path correction, or execution contract change before /gsd:execute-phase runs.
+**If Mode is reviews:** Read the open `review_concern` entities of the latest round and verify each is visible in a plan's executable content or ruled on by a disposition. A finding remains actionable if it requires a concrete plan task, `<action>`, `<acceptance_criteria>`, `<verify>`, `must_haves`, threat-model item, stale-path correction, or execution contract change before /gsd:execute-phase runs.
 
-If an actionable finding remains only in REVIEWS.md and would be invisible to /gsd:execute-phase, return `## ISSUES FOUND`. Use WARNING by default; use BLOCKER when the missing incorporation can prevent the phase goal, create unsafe execution, or invalidate verification.
+If an open concern is in no plan and has no disposition, so it would be invisible to /gsd:execute-phase, return `## ISSUES FOUND`. Use WARNING by default; use BLOCKER when the missing incorporation can prevent the phase goal, create unsafe execution, or invalidate verification.
 </review_incorporation_verification>
 
 **Phase requirement IDs (MUST ALL be covered):** {phase_req_ids}
@@ -1108,7 +1074,7 @@ Agent(
   description="Verify Phase {phase} plans",
   run_in_background=true
 )
-```
+````
 
 **Dispatch/wait gate — `PLANNER_STALL_DETECTION_ENABLED` (config key `planner.stall_detection_enabled`, resolved in `plan-phase/steps/stall-detection-helpers.md`):**
 - **`true` (default):** use `run_in_background=true` in the Agent() call above, then run the watch cycle below.
@@ -1176,8 +1142,7 @@ Revision prompt:
 **Mode:** revision
 
 <required_reading>
-- `specforge query {PHASE_ID} --kinds plan --format context` (Existing plans)
-- `specforge query {context_path} --format context` (USER DECISIONS from /gsd:discuss-phase)
+- `specforge context gsd/planner {PHASE_ID}` (the planner pack, as the planner spawn reads it: the existing plans and USER DECISIONS from /gsd:discuss-phase among its sections)
 </required_reading>
 
 ${AGENT_SKILLS_PLANNER}
@@ -1222,68 +1187,59 @@ if ! CONVERGENCE_ENABLED=$(echo "{{setting:workflow.plan_review_convergence|fals
   echo "BLOCKED: cannot read workflow.plan_review_convergence." >&2
   exit 1
 fi
-REVIEWS_FILE="${REVIEWS_PATH}"
-if [ "${CONVERGENCE_ENABLED}" = "true" ] && [ -n "${REVIEWS_FILE}" ] && [ ! -f "${REVIEWS_FILE}" ]; then
-  echo "BLOCKED: cannot persist plan-revision conflict -- REVIEWS_PATH not a regular file: ${REVIEWS_FILE}" >&2
+if ! REVIEW_ROUNDS=$(specforge query "$PHASE_ID" --depth 1 --kinds review --pick '.nodes[kind=review].id' --count); then
+  echo "BLOCKED: cannot read the phase's review rounds" >&2
   exit 1
+fi
+if [ "${CONVERGENCE_ENABLED}" = "true" ] && [ "${REVIEW_ROUNDS}" -gt 0 ]; then   # the channel: convergence on and the phase holds a review round
+IFS= read -rd '' CONFLICT_PLAN <<'GSD_CONFLICT_END' || true
+<the conflict's plan id, verbatim>
+GSD_CONFLICT_END
+CONFLICT_PLAN=${CONFLICT_PLAN%$'\n'}   # the heredoc's line break is no part of the id
+IFS= read -rd '' DIMENSION <<'GSD_CONFLICT_END' || true
+<its dimension, verbatim>
+GSD_CONFLICT_END
+IFS= read -rd '' PROPERTY <<'GSD_CONFLICT_END' || true
+<its required_property, verbatim>
+GSD_CONFLICT_END
+IFS= read -rd '' CONFLICTS_WITH <<'GSD_CONFLICT_END' || true
+<what it conflicts with (locked decision D-nn / CLAUDE.md rule / plan constraint), verbatim>
+GSD_CONFLICT_END
+IFS= read -rd '' ALTERNATIVES <<'GSD_CONFLICT_END' || true
+<the agent's alternatives, verbatim; empty when it gave none>
+GSD_CONFLICT_END
+  specforge gsd record-conflict "$CONFLICT_PLAN" --dimension "$DIMENSION" --property "$PROPERTY" --conflicts-with "$CONFLICTS_WITH" --alternatives "$ALTERNATIVES" --pick .conflict || exit 1
 fi
 ```
 
 - Counter not spent: `iteration_count`.
-- Record channel: none here. The port keeps no REVIEWS.md (`REVIEWS_PATH` is empty), so plan-phase
-  writes and closes no conflict line: name the conflict and its resolution in your reply.
+- Record channel: the phase's `revision_conflict` entities, open while convergence is on and the phase holds a
+  review round. The fence above records the conflict (`specforge gsd record-conflict`); fill its five values from the
+  planner's return.
 - After re-spawning, return to this step, not the checker.
 - Escalates via the iteration cap on repeated `required_property`, and on the THIRD conflict
   return of this loop whatever property it names.
-- No conflict line is written (see the record channel above), so nothing is sanitized or inserted.
+- The command collapses every newline and tab run of a value to one space, and reuses the plan's open conflict
+  that says the same instead of raising a second one.
 
+**Otherwise (revised plans, not `## REVISION_CONFLICT`):** the replan holds, so close the phase's open conflicts:
 
-
-<!-- the conflict insert ran only on a REVIEWS.md, which this port never has (REVIEWS_PATH is empty) -->
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-**Otherwise (revised plans, not `## REVISION_CONFLICT`):** there is no conflict record to close.
-
-
-
-
-<!-- the conflict close ran only on a REVIEWS.md, which this port never has (REVIEWS_PATH is empty) -->
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+```bash
+if ! CONVERGENCE_ENABLED=$(echo "{{setting:workflow.plan_review_convergence|false}}"); then   # workflow.plan_review_convergence (the settings)
+  echo "BLOCKED: cannot read workflow.plan_review_convergence." >&2
+  exit 1
+fi
+if ! REVIEW_ROUNDS=$(specforge query "$PHASE_ID" --depth 1 --kinds review --pick '.nodes[kind=review].id' --count); then
+  echo "BLOCKED: cannot read the phase's review rounds" >&2
+  exit 1
+fi
+if [ "${CONVERGENCE_ENABLED}" = "true" ] && [ "${REVIEW_ROUNDS}" -gt 0 ]; then
+  OPEN_CONFLICTS=$(specforge query "$PHASE_ID" --depth 1 --kinds revision_conflict --pick '.nodes[fields.status=open].id') || exit 1
+  for CONFLICT in $OPEN_CONFLICTS; do
+    specforge gsd resolve-conflict "the revised plans satisfy the required property" --conflict "$CONFLICT" >/dev/null || exit 1
+  done
+fi
+```
 
 Spawn checker again (step 10), then increment `iteration_count`.
 
@@ -1307,21 +1263,20 @@ After plans pass the checker (or checker is skipped), verify that all phase requ
 
 **Skip if:** `phase_req_ids` is null or TBD (no requirements mapped to this phase).
 
-**Step 1: Extract requirement IDs claimed by plans**
+**Step 1: Trace the phase's requirements**
 ```bash
-# Collect all requirement IDs from plan frontmatter
-PLAN_REQS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].fields.requirements[]')
+specforge trace --route gsd/requirement-thread --in "$PHASE_ID" --partial || exit 1
 ```
 
-**Step 2: Compare against phase requirements from ROADMAP**
+**Step 2: Read the threads**
 
-For each REQ-ID in `phase_req_ids`:
-- If REQ-ID appears in `PLAN_REQS` → covered ✓
-- If REQ-ID does NOT appear in any plan → uncovered ✗
+A requirement whose thread says `no plan` is uncovered ✗; every other reaches a plan and is covered ✓.
 
-**Step 3: Check CONTEXT.md features against plan objectives**
+**Step 3: Check the phase's decisions against the plans**
 
-Read CONTEXT.md `<decisions>` section. Extract feature/capability names. Check each against plan `<objective>` blocks. Features not mentioned in any plan objective → potentially dropped.
+Each `decision` of the phase is referenced by a plan's `decisions`: the decision-coverage rule prints one line per
+decision no plan lists (`specforge check --format json --pick '[code=gsd/E310].message'`). A decision it names is
+potentially dropped.
 
 **Step 4: Report**
 
@@ -1339,10 +1294,10 @@ If gaps found:
 
 | REQ-ID | Description | Plans |
 |--------|-------------|-------|
-| {id} | {from REQUIREMENTS.md} | None |
+| {id} | {the requirement's text} | None |
 
-{K} CONTEXT.md features not found in plan objectives:
-- {feature_name} — described in CONTEXT.md but no plan covers it
+{K} decisions of the phase in no plan's `decisions`:
+- {decision} — recorded in the phase's context but no plan covers it
 
 Options:
 1. Re-plan to include missing requirements (recommended)
@@ -1369,7 +1324,7 @@ if [ "$GATE_CFG" != "false" ]; then
   # empty arg, so an unguarded empty glob would halt a context-less phase).
   CONTEXT_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds context --pick '.nodes[kind=context].id')
   if [ -n "$CONTEXT_PATH" ]; then
-    GATE_RESULT=$(specforge check --pick '.[code=gsd/E310].message') && GATE_EXIT=0 || GATE_EXIT=$?   # E310 (decision coverage of the plans): one line per uncovered decision
+    GATE_RESULT=$(specforge check --format json --pick '[code=gsd/E310].message') && GATE_EXIT=0 || GATE_EXIT=$?   # E310 (decision coverage of the plans): one line per uncovered decision
     # 69 UNAVAILABLE (#5170) = the gate could not look: surface it and stop.
     [ "$GATE_EXIT" -le 1 ] || { echo "Decision coverage gate could not run (exit ${GATE_EXIT}): $GATE_RESULT"; exit 1; }   # 1 is a finding of the check
     # BLOCKING: refuse to mark phase planned when a trackable decision is uncovered.
@@ -1407,52 +1362,44 @@ if it should not be tracked. Then offer:
 ```text
 Options:
 1. Re-plan to cover missing decisions (recommended)
-2. Edit CONTEXT.md to mark dropped decisions as [informational] / Discretion
+2. Move each dropped decision into the context's discretion: write the context's `discretion` with the decision's text added (`specforge set <context> discretion <each item>…`, one value per item), then delete the decision (`specforge delete <decision>`: a refusal names what still cites it, such as a research's `user_constraints`, which is set without it first); E310 tracks only the decisions a context records, and `settled` plays no part
 3. Proceed anyway — accept the coverage gap
 ```
 
 If `TEXT_MODE` is true, present as a plain-text numbered list. Otherwise use
 AskUserQuestion. Selecting "Proceed anyway" continues to step 13b but
-records the override in STATE.md so verify-phase can re-surface it.
+records nothing: `gsd/E310` reports each decision no plan implements until one does.
 
 **Why this gate blocks:** failing here is cheap. The plans are the contract
 between discuss-phase and execute-phase; if a decision isn't visible in any
 plan, no executor will implement it. Catching that now beats discovering it
 after thousands of dollars of execution.
 
-## 13b. Record Planning Completion in STATE.md
+## 13b. Planning Completion
 
-After plans pass all gates, record that planning is complete so STATE.md reflects the new phase status:
+Nothing to record: the plan entities are the record that the phase is planned, and its status, plan count and
+last activity are computed from them.
 
-```bash
-# STATE is computed: the plan entities are the record that the phase is planned
-```
+## 13c. Record Phase Dependencies
 
-This updates STATUS to "Ready to execute", sets the correct plan count, and timestamps Last Activity.
-
-## 13c. Annotate ROADMAP with Wave Dependencies and Cross-cutting Constraints
-
-After plans are finalized, annotate the ROADMAP.md plan list for this phase with:
-- **Wave dependency notes** — a bold header before each wave group ("Wave 2 *(blocked on Wave 1 completion)*")
-- **Cross-cutting constraints** — a "Cross-cutting constraints:" subsection listing `must_haves.truths` entries that appear in 2 or more plans
-
-This step is derived entirely from existing PLAN frontmatter — no extra LLM pass is required.
+The waves and the cross-cutting truths of the phase's plans are computed from their `depends_on` and truths: there
+is nothing to annotate. Only a dependency on another phase that the plans revealed is recorded:
 
 ```bash
 specforge gsd phase --edit "${PHASE_NUMBER}" --depends-on '<json of the phase numbers it depends on>'
 ```
 
-This operation is idempotent: if wave headers or cross-cutting constraints already exist in the ROADMAP phase section, the command returns without modifying the file. Skip this step if `plan_count` is 0.
+Skip this step if the phase has no plan, or its dependencies did not change.
 
 ## 13d. Commit Plans if commit_docs is true
 
-If `commit_docs` is true (from the init JSON parsed in step 1), commit the generated plan artifacts (including any ROADMAP.md annotations from step 13c):
+If `commit_docs` is true (from the init JSON parsed in step 1), commit the plan entities and the phase's recorded dependencies (step 13c):
 
 ```bash
 specforge git commit --add spec -m "docs(${PADDED_PHASE}): create phase plan" && specforge collect --runner gsd-git --yes
 ```
 
-This commits all PLAN.md files for the phase plus the updated STATE.md and ROADMAP.md to version-control the planning artifacts. Skip this step if `commit_docs` is false.
+This commits the spec, which holds the phase's plans. Skip this step if `commit_docs` is false.
 
 ## 13e. Post-Planning Gap Analysis (plan:post capability gate dispatch)
 
@@ -1462,9 +1409,6 @@ Proactive, non-blocking coverage report gated on `workflow.post_planning_gaps`
 `<decisions>` and cross-references each REQ-ID / D-ID against the phase's plan entities.
 
 ```bash
-
-
-
 
 PLAN_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 

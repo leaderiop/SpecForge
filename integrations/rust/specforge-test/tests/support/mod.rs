@@ -3,15 +3,29 @@
 
 use std::path::{Path, PathBuf};
 
-/// The newest `ignore_fixture-<hash>` binary in this binary's directory.
+/// The newest `ignore_fixture-<hash>` binary built beside this one: in this
+/// binary's directory (`<profile>/deps/`), or, under cargo's build-dir
+/// layout, where each test binary has its own `build/<pkg>/<hash>/out/`, in
+/// a sibling `<hash>/out/`.
 pub fn fixture() -> PathBuf {
     let dir = std::env::current_exe()
         .unwrap()
         .parent()
         .unwrap()
         .to_path_buf();
-    std::fs::read_dir(&dir)
-        .unwrap()
+    let mut dirs = vec![dir.clone()];
+    if dir.ends_with("out") {
+        let package = dir.parent().and_then(Path::parent).unwrap();
+        dirs.extend(
+            std::fs::read_dir(package)
+                .unwrap()
+                .filter_map(Result::ok)
+                .map(|e| e.path().join("out")),
+        );
+    }
+    dirs.iter()
+        .filter_map(|d| std::fs::read_dir(d).ok())
+        .flatten()
         .filter_map(Result::ok)
         .map(|e| e.path())
         .filter(|p| {
@@ -22,7 +36,7 @@ pub fn fixture() -> PathBuf {
         .max_by_key(|p| p.metadata().and_then(|m| m.modified()).ok())
         .unwrap_or_else(|| {
             panic!(
-                "no ignore_fixture binary in {}: run the whole suite (cargo test), not one --test",
+                "no ignore_fixture binary in or beside {}: run the whole suite (cargo test), not one --test",
                 dir.display()
             )
         })

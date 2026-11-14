@@ -144,7 +144,7 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     // Once per plan, not per task: a plan's tasks all read the same list, and building it walks the plan's tasks.
     let mut declared_by_plan: BTreeMap<&str, Vec<String>> = BTreeMap::new();
     for task in of_kind(input, "task") {
-        let plan = crate::digest::scope_of(&task.id);
+        let plan = crate::scope::scope_of(&task.id);
         // A done task's directory is not pending creation: what its plan planned is there now, or it is E320.
         let declared: &[String] = if task.pending {
             declared_by_plan

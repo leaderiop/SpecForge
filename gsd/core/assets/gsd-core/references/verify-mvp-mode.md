@@ -68,7 +68,7 @@ The "show expected, ask if reality matches" model is preserved. The user still t
 
 ## Output: VERIFICATION.md changes under MVP mode
 
-The `gsd-verifier` agent produces `VERIFICATION.md`. Under MVP mode, the report adds a top-level "User Flow Coverage" section that maps each step of the user story to evidence in the codebase:
+The `gsd-verifier` agent records the phase's `verification` and returns its report. Under MVP mode, the report adds a top-level "User Flow Coverage" section that maps each step of the user story to evidence in the codebase:
 
 ```markdown
 ## User Flow Coverage
@@ -83,4 +83,4 @@ User story: «As a new user, I want to register and log in, so that I can access
 | Outcome | "Access my dashboard" — user lands on a populated page | dashboard route + greeting both verified above | ✓ |
 ```
 
-Standard technical-check sections of VERIFICATION.md remain (API verification, error handling, etc.) but are appended below "User Flow Coverage", not above.
+The verification's standard technical checks remain (API verification, error handling, etc.) but are listed below "User Flow Coverage", not above.

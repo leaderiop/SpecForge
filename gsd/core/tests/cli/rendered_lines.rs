@@ -55,23 +55,16 @@ pub fn parses(code: &str) -> bool {
     child.wait().expect("bash -n").success()
 }
 
-/// The bash and sh fences of `text`, as the code between the marks.
+/// The bash and sh fences of `text`, as the code between the marks, as gsd-kit's Markdown reader reads them.
 pub fn bash_fences(text: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut open: Option<Vec<&str>> = None;
-    for line in text.lines() {
-        let mark = line.trim_start();
-        match &mut open {
-            Some(code) if mark.starts_with("```") => {
-                out.push(code.join("\n"));
-                open = None;
-            }
-            Some(code) => code.push(line),
-            None if mark == "```bash" || mark == "```sh" => open = Some(Vec::new()),
-            None => {}
-        }
-    }
-    out
+    gsd_kit::markdown::fences(text)
+        .into_iter()
+        .filter(|f| matches!(f.language.as_str(), "bash" | "sh"))
+        .map(|f| match f.text.strip_suffix('\n') {
+            Some(code) => code.to_string(),
+            None => f.text,
+        })
+        .collect()
 }
 
 /// The text a prompt's Rust side appends (`In the shell blocks above, ...` to the end).
@@ -509,5 +502,214 @@ fn a_rendered_prompt_calls_only_specforge() {
     super::specforge_only::assert_pending(
         &hits,
         super::specforge_only::pending(|f| f.starts_with("prompt:")),
+    );
+}
+
+/// The distinct graph tools of the engine-tool catalogue (every group but setup) that the 44 claude-code renders and
+/// the installed claude-code agent bodies name, by `tool_names::named`: the port's tool measure (ADR 0332). The count
+/// may not fall below it, and a rise raises it in the commit that names the new tool.
+const AT_LEAST: usize = 14;
+
+// the round's floor: the prompts name at least twelve graph tools
+const _: () = assert!(AT_LEAST >= 12);
+
+/// The counter, and the golden `engine_tools.json`: `c3`, how many prompts and agent bodies name each graph tool, and
+/// for each agent the graph tools its role grants that its body never names.
+#[test]
+fn the_graph_tools_the_prompts_name_are_a_ratchet() {
+    use std::collections::BTreeMap;
+
+    use gsd_core::agents::roster::AGENTS;
+    use specforge_extension_sdk::engine_tools::{ENGINE_TOOLS, EngineClass, parse_class};
+
+    let p = super::harness::project("empty");
+    super::agents::installed(&p, "claude-code");
+    // the generated tools section is the catalogue rendered, not a body using it
+    let bodies: Vec<(&'static str, String)> = AGENTS
+        .iter()
+        .map(|agent| {
+            let (_, body) = super::agents::split(&super::agents::claude_agent(&p, agent.id));
+            let cut = body.find("\n## SpecForge tools").unwrap_or(body.len());
+            (agent.id, body[..cut].to_string())
+        })
+        .collect();
+    let corpus = rendered()
+        .iter()
+        .map(|(id, text)| (format!("prompt:{id}"), text.as_str()))
+        .chain(
+            bodies
+                .iter()
+                .map(|(id, body)| (format!("agent:{id}"), body.as_str())),
+        );
+    let mut counted: Vec<(&'static str, String)> = Vec::new();
+    let mut texts: BTreeMap<&'static str, usize> = BTreeMap::new();
+    for (source, text) in corpus {
+        for tool in super::tool_names::named(text) {
+            if !tool.group.graph() {
+                continue;
+            }
+            *texts.entry(tool.name).or_default() += 1;
+            if !counted.iter().any(|(name, _)| *name == tool.name) {
+                counted.push((tool.name, source.clone()));
+            }
+        }
+    }
+    counted.sort_by_key(|(name, _)| ENGINE_TOOLS.iter().position(|t| t.name == *name));
+    let set: Vec<String> = counted
+        .iter()
+        .map(|(name, source)| format!("  {name} (first in {source})"))
+        .collect();
+    let n = counted.len();
+    assert!(
+        n >= AT_LEAST,
+        "{n} graph tools named, below AT_LEAST = {AT_LEAST}: a tool was lost. Named now:\n{}",
+        set.join("\n")
+    );
+    assert!(
+        n <= AT_LEAST,
+        "{n} graph tools named: raise AT_LEAST to {n} in this commit. Named now:\n{}",
+        set.join("\n")
+    );
+
+    let unprompted: BTreeMap<&'static str, Vec<&'static str>> = AGENTS
+        .iter()
+        .zip(&bodies)
+        .map(|(agent, (_, body))| {
+            let judges = gsd_core::judged::JUDGED.iter().any(|j| j.judge == agent.id);
+            let named = super::tool_names::named(body);
+            let mut grants: Vec<&'static str> =
+                gsd_kit::agent::tools(agent.tools, agent.role, judges)
+                    .into_iter()
+                    .filter_map(|class| match parse_class(class) {
+                        Some(EngineClass::Tool(tool))
+                            if tool.group.graph() && !named.iter().any(|t| t.name == tool.name) =>
+                        {
+                            Some(tool.name)
+                        }
+                        _ => None,
+                    })
+                    .collect();
+            grants.sort_unstable();
+            grants.dedup();
+            (agent.id, grants)
+        })
+        .collect();
+    let golden = serde_json::json!({
+        "c3": n,
+        "graph_tools": texts,
+        "unprompted": unprompted,
+    });
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden/engine_tools.json");
+    let text = serde_json::to_string_pretty(&golden).expect("a JSON value prints") + "\n";
+    if std::env::var_os("GSD_BLESS").is_some() {
+        std::fs::write(&path, &text).expect("write the golden");
+        return;
+    }
+    let expected = std::fs::read_to_string(&path).unwrap_or_else(|_| {
+        panic!(
+            "{} is missing: GSD_BLESS=1 cargo test writes it",
+            path.display()
+        )
+    });
+    assert!(
+        expected == text,
+        "engine_tools.json differs: review the change, then GSD_BLESS=1 cargo test\n--- expected\n{expected}\n--- actual\n{text}"
+    );
+}
+
+/// The counter's rule: an MCP name counts anywhere, a CLI line only as a command in code.
+#[test]
+fn a_tool_is_named_by_its_mcp_name_or_a_cli_line_in_code() {
+    let names = |text: &str| -> Vec<&str> {
+        super::tool_names::named(text)
+            .iter()
+            .map(|t| t.name)
+            .collect()
+    };
+    assert_eq!(names("Call `specforge.trace` on it."), ["trace"]);
+    assert_eq!(names("Then call specforge.edit."), ["edit"]);
+    assert!(names("Then run specforge check on the project.").is_empty());
+    assert_eq!(names("Then run `specforge check`."), ["validate"]);
+    assert_eq!(
+        names("```bash\nspecforge query X --inputs gsd/E501\n```\n"),
+        ["verdict_inputs"]
+    );
+    assert_eq!(
+        names("```bash\nP=$(specforge query X \\\n  --depth 1)\n# specforge check\n```\n"),
+        ["query"]
+    );
+    assert!(names("Edit `specforge.json` by hand.").is_empty());
+}
+
+/// Each line of every asset as the claude-code render shows it: re-pointed and converted, trimmed. The names ledger
+/// judges asset lines by their spans; a rendered line outside this set is the prompt's own Rust-authored text.
+// shortcut: an asset line with a {{setting:}} or {{arg:}} token renders filled and is not matched; strip the tokens
+// from both sides if one starts naming a GSD file
+fn asset_lines() -> std::collections::HashSet<String> {
+    gsd_core::prompts::asset_paths()
+        .flat_map(|path| {
+            let text = gsd_core::prompts::asset(path).unwrap_or_default();
+            gsd_core::prompts::without_notice(text)
+                .lines()
+                .map(|line| {
+                    gsd_kit::prompt::host::convert("claude-code", &gsd_core::prompts::repoint(line))
+                        .trim()
+                        .to_string()
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+/// What a prompt's Rust side writes names no GSD file (ADR 0332 D8): no rendered line that is no asset line and no row
+/// of the preamble's file table (held equal to the README) names one.
+#[test]
+fn no_rendered_tail_names_a_gsd_file() {
+    let assets = asset_lines();
+    let mut hits = Vec::new();
+    for (id, text) in rendered() {
+        let preamble = text.find("</specforge_gsd_preamble>").unwrap_or(0);
+        let lines: Vec<&str> = text.split('\n').collect();
+        let mut at = 0;
+        let starts: Vec<usize> = lines
+            .iter()
+            .map(|l| {
+                let start = at;
+                at += l.len() + 1;
+                start
+            })
+            .collect();
+        let source = format!("prompt:{id}");
+        hits.extend(super::planning_names::hits(&source, text, |n| {
+            let line = lines[n].trim();
+            !(line.starts_with('|') && starts[n] < preamble) && !assets.contains(line)
+        }));
+    }
+    super::planning_names::assert_none(&hits);
+}
+
+/// No line of a rendered claude-code prompt tells an agent to write a GSD file, to edit a state file or a part of one,
+/// or to generate one: the asset test's detectors over the text as rendered, so what a prompt's Rust side writes (its
+/// tail, the preamble) is held too. The preamble's file table is a read list and is skipped.
+#[test]
+fn no_rendered_line_tells_an_agent_to_write_a_gsd_file() {
+    use super::markdown_writes::{generates, section_edits};
+    let mut hits = Vec::new();
+    for (id, text) in rendered() {
+        let preamble = text.find("</specforge_gsd_preamble>").unwrap_or(0);
+        let preamble_lines = text[..preamble].matches('\n').count();
+        let lines: Vec<&str> = text.split('\n').collect();
+        for n in section_edits(text).union(&generates(text)) {
+            let line = lines[*n].trim();
+            if !(line.starts_with('|') && *n <= preamble_lines) {
+                hits.push(format!("prompt:{id}:{} {line}", n + 1));
+            }
+        }
+    }
+    assert!(
+        hits.is_empty(),
+        "a write is a typed edit (ADR 0343 D10):\n{}",
+        hits.join("\n")
     );
 }

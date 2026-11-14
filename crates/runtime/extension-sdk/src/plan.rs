@@ -246,6 +246,21 @@ impl PlanBuilder {
         })
     }
 
+    /// Record `route`'s pack on `entity` (ADR 0356): the host derives the subject, computes the pack at `max_tokens`
+    /// (`None`: the route's budget) and writes it. The route must record the entity's kind.
+    pub fn record_context(
+        &mut self,
+        entity: &str,
+        route: &str,
+        max_tokens: Option<u32>,
+    ) -> &mut Self {
+        self.push(PlanOp::RecordContext {
+            entity: entity.to_string(),
+            route: route.to_string(),
+            max_tokens,
+        })
+    }
+
     /// The plan, to answer with [`crate::CommandOutput::with_plan`].
     pub fn finish(&self) -> EditPlan {
         self.plan.clone()

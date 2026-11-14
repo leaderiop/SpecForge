@@ -20,7 +20,7 @@ description: "Write the spec block, the project's root entity (one of the five s
 | `extensions` | The extensions to load: a builtin or installed `@scope/name`, or a `.wasm` component file. **This list decides which entity kinds exist.** |
 | `exclude` | `.spec` files under the spec root that are not sources. |
 | `providers` | Ref schemes (registered only: no host reader yet). |
-| `registries` | Package registries for `add`, `update`, `search`, `publish`. |
+| `registries` | Package registries for `add`, `update`, `extensions search`, `publish`. |
 | `strict` | Treat warnings as errors. |
 
 Change the extension list with commands, not by hand:

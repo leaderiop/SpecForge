@@ -350,6 +350,7 @@ behavior apply_edit_plan "Apply an Edit Plan" {
   verify unit "a writing command's plan and the file it writes agree on the command line and over MCP"
   verify unit "a cite naming more than one thing is not a cite"
   verify unit "an edit naming a revision for an entity the compile does not hold is refused"
+  verify unit "a typed edit of a context-written field is refused context_field, whatever its origin"
   verify unit "a writing collector's plan is previewed with dry_run over MCP"
   verify unit "set_verdict is refused without a judged rule"
   verify unit "set_verdict checks the rule and its basis"

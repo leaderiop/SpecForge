@@ -1,6 +1,6 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/workflows/mvp-phase.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <purpose>
-Guide the user through MVP-mode planning for a phase. Prompts for an "As a / I want to / So that" user story, runs SPIDR splitting check on the story, writes the result to ROADMAP.md, and delegates to `/gsd:plan-phase` (which auto-detects MVP via the roadmap mode field shipped in PRD Phase 1).
+Guide the user through MVP-mode planning for a phase. Prompts for an "As a / I want to / So that" user story, runs SPIDR splitting check on the story, records the result on the phase entity (its `mode` and `goal`), and delegates to `/gsd:plan-phase` (which auto-detects MVP via the phase's `mode` field).
 </purpose>
 
 <required_reading>
@@ -42,7 +42,6 @@ PHASE_FOUND=true; specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].id' >/
 PHASE_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.name' 2>/dev/null)
 PHASE_GOAL=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal' 2>/dev/null)
 PHASE_MODE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.mode' 2>/dev/null)
-
 
 DISK_STATUS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.status' 2>/dev/null)
 # ADR-3180 §7.4 (issue #3186, disk-strict, #2957): DISK_STATUS alone decides
@@ -115,7 +114,7 @@ if [ "$USER_STORY_RESULT" != "true" ]; then
 fi
 ```
 
-This guarantees the goal stored in ROADMAP.md will satisfy the same guard the verifier applies later.
+This guarantees the goal recorded on the phase will satisfy the same guard the verifier applies later.
 If `RE_PROMPT_USER_STORY=true`, re-run only the offending prompt field(s), rebuild `USER_STORY`, and validate again before continuing.
 
 ## 4. SPIDR splitting check
@@ -166,27 +165,24 @@ Use `AskUserQuestion` [Accept / Modify / Reject].
 - **Modify**: re-prompt the splits one more time, then accept or reject.
 - **Reject**: revert `USER_STORY` to the original, proceed without splitting.
 
-## 5. Update ROADMAP.md
+## 5. Record the MVP Mode and Goal
 
-Read `ROADMAP.md`. Find the section for "Phase ${PHASE}". Apply two edits:
+Show the user the phase's current goal and mode (`PHASE_GOAL`, `PHASE_MODE` from step 2) beside the new ones, and ask:
 
-**Edit 1 — Update Goal line.**
+> "Apply these changes to the phase?"
 
-Find: `**Goal:** ${OLD_GOAL_TEXT}`
-Replace with: `**Goal:** ${USER_STORY}`
+Use `AskUserQuestion` [Apply / Cancel]. On Cancel, exit without writing. On Apply, fill the values and run (a re-run
+replaces the mode and the goal):
 
-**Edit 2 — Insert Mode line.**
-
-If `**Mode:**` already exists in the section (replacing or re-running), update it to `**Mode:** mvp`.
-If `**Mode:**` does not exist, insert `**Mode:** mvp` on the line immediately after `**Goal:**`.
-
-Show the user a unified diff (lines being changed) and ask:
-
-> "Apply these changes to ROADMAP.md?"
-
-Use `AskUserQuestion` [Apply / Cancel]. On Cancel, exit without writing.
-
-On Apply, write the updated `ROADMAP.md` atomically (read-edit-write).
+```bash
+PHASE_ID="{the phase id, e.g. v1.0/03}"
+PHASE="{the zero-padded phase number, e.g. 03}"
+IFS= read -rd '' USER_STORY <<'TEXT' || true; USER_STORY=${USER_STORY%$'\n'}
+{the assembled user story}
+TEXT
+specforge set "$PHASE_ID" mode mvp || exit 1
+specforge gsd phase --edit "$PHASE" --goal "$USER_STORY" || exit 1
+```
 
 ## 6. Verify the write
 
@@ -203,7 +199,7 @@ If either assertion fails, surface the discrepancy to the user and exit. Do not 
 
 ## 7. Delegate to /gsd:plan-phase
 
-Invoke `/gsd:plan-phase ${PHASE}` (no flags). Phase 1's MVP_MODE resolution chain (CLI flag → roadmap mode → config → false) will detect the new `**Mode:** mvp` line and run plan-phase in vertical-slice mode automatically.
+Invoke `/gsd:plan-phase ${PHASE}` (no flags). Phase 1's MVP_MODE resolution chain (CLI flag → the phase's mode → config → false) will detect the phase's `mode mvp` and run plan-phase in vertical-slice mode automatically.
 
 The Walking Skeleton gate (also from Phase 1) will fire automatically if `${PHASE} == "01"` and there are zero prior phase summaries.
 

@@ -231,12 +231,16 @@ fn an_artifact_the_plan_creates_is_not_e016() {
 #[test]
 fn the_readme_example_checks_clean() {
     let readme = include_str!("../../spec/README.md");
-    let block = readme
-        .split("## What it looks like")
-        .nth(1)
-        .and_then(|rest| rest.split("```spec\n").nth(1))
-        .and_then(|rest| rest.split("\n```").next())
-        .expect("the example block");
+    let at = readme
+        .lines()
+        .position(|l| l == "## What it looks like")
+        .expect("the section");
+    let block = gsd_kit::markdown::fences(readme)
+        .into_iter()
+        .find(|f| f.language == "spec" && f.open > at)
+        .expect("the example block")
+        .text;
+    let block = block.trim_end();
     let p = project("plan");
     p.write(
         "spec/auth.spec",

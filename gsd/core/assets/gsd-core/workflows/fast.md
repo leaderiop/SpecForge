@@ -77,20 +77,9 @@ Use conventional commit format: `fix:`, `feat:`, `docs:`, `chore:`, `refactor:` 
 <step name="log_to_state">
 A fast task writes nothing to the project state: it is computed. Skip silently.
 
-
-
-
-
-
-
 ```bash
 # a fast task leaves no record: the project state is computed
 true   # nothing to log: the project state is computed
-
-
-
-
-
 
 ```
 </step>
@@ -111,7 +100,7 @@ No next-step suggestions. No workflow routing. Just done.
 
 <guardrails>
 - NEVER spawn a Task/subagent — this runs inline
-- NEVER create PLAN.md or SUMMARY.md files
+- NEVER write a plan or summary entity
 - NEVER run research or plan-checking
 - If the task takes more than 3 file edits, STOP and redirect to /gsd:quick
 - If you're unsure how to implement it, STOP and redirect to /gsd:quick
@@ -120,6 +109,5 @@ No next-step suggestions. No workflow routing. Just done.
 <success_criteria>
 - [ ] Task completed in current context (no subagents)
 - [ ] Atomic git commit with conventional message
-- [ ] STATE.md updated if it exists
 - [ ] Total operation under 2 minutes wall time
 </success_criteria>

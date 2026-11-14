@@ -1,4 +1,4 @@
-use super::{CORE_SOURCE, Category, Effect, McpError, ReplySpec, ToolOutcome};
+use super::{CORE_SOURCE, Category, Effect, McpError, ReplySpec, ToolGroup, ToolOutcome};
 use crate::args::{Argument, Arguments};
 use crate::events::EventSink;
 use crate::lifecycle::Revision;
@@ -8,6 +8,7 @@ use crate::reply::{Answered, Object, Source, Text};
 use crate::target::{Call, Input, TargetSpec};
 use serde::Serialize;
 use serde_json::Value;
+use specforge_protocol_types::engine_tools::{self, EngineEffect, EngineGroup};
 use std::marker::PhantomData;
 
 /// One core MCP tool, stated once in its own module under `tools/`
@@ -282,6 +283,43 @@ impl<T: CoreTool> Agrees<T> {
         assert!(
             T::SPEC.is_text() != <T::Returns as Handled>::TYPED,
             "a core tool names a spec type exactly when it answers a typed reply"
+        );
+        // The instantiation the compiler names with a failure is the core tool that disagrees (ADR 0334).
+        let Some(row) = engine_tools::by_mcp_name(T::NAME) else {
+            panic!(
+                "a core tool is a row of the engine-tool catalogue (specforge_protocol_types::engine_tools)"
+            );
+        };
+        assert!(
+            matches!(
+                (row.effect, T::EFFECT),
+                (EngineEffect::Reads, Effect::Reads { .. })
+                    | (EngineEffect::WritesOutput, Effect::WritesOutput { .. })
+                    | (EngineEffect::Mutates, Effect::Mutates { .. })
+            ),
+            "a core tool's effect is its engine-tool row's"
+        );
+        assert!(
+            matches!(
+                (row.group, T::EFFECT),
+                (
+                    EngineGroup::Reads,
+                    Effect::Reads {
+                        group: ToolGroup::Core
+                    }
+                ) | (
+                    EngineGroup::Navigation,
+                    Effect::Reads {
+                        group: ToolGroup::Navigation
+                    }
+                ) | (EngineGroup::Edits, Effect::Mutates { .. })
+                    | (EngineGroup::Output, Effect::WritesOutput { .. })
+                    | (
+                        EngineGroup::Setup,
+                        Effect::Reads { .. } | Effect::Mutates { .. }
+                    )
+            ),
+            "a core tool's MCP group agrees with its engine-tool row's group"
         );
     };
 }

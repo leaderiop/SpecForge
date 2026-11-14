@@ -97,27 +97,19 @@ fn profiles_match_rules_md() {
 
 /// `(setting, [compat, strict, plus])` of the "A profile presets these settings" table of `settings.md`.
 fn md_presets() -> Vec<(String, [bool; 3])> {
-    let md = include_str!("../spec/settings.md");
-    let table = md
-        .split("A profile presets these settings:")
-        .nth(1)
+    let table = gsd_kit::markdown::tables(include_str!("../spec/settings.md"))
+        .into_iter()
+        .find(|t| t.heading == "Profiles" && t.header[..2] == ["Setting", "gsd-compat"])
         .expect("the presets table");
+    let on = |c: &str| c == "true";
     table
-        .lines()
-        .skip_while(|l| !l.starts_with('|'))
-        .take_while(|l| l.starts_with('|'))
-        .filter(|l| l.starts_with("| `"))
-        .map(|l| {
-            let cells: Vec<&str> = l
-                .trim()
-                .trim_matches('|')
-                .split('|')
-                .map(str::trim)
-                .collect();
-            let on = |c: &str| c == "true";
+        .rows
+        .iter()
+        .filter(|cells| cells[0].starts_with('`'))
+        .map(|cells| {
             (
                 cells[0].trim_matches('`').to_string(),
-                [on(cells[1]), on(cells[2]), on(cells[3])],
+                [on(&cells[1]), on(&cells[2]), on(&cells[3])],
             )
         })
         .collect()
@@ -142,19 +134,12 @@ fn the_profile_presets_are_the_settings_md_table() {
 
 #[test]
 fn the_gates_are_the_setting_gated_rules_table() {
-    let md = include_str!("../spec/rules.md");
-    let section = md
-        .split("\n## ")
-        .find(|s| s.starts_with("Setting-gated rules"))
-        .expect("the section");
+    let table = gsd_kit::markdown::tables(include_str!("../spec/rules.md"))
+        .into_iter()
+        .find(|t| t.heading == "Setting-gated rules")
+        .expect("the setting-gated rules table");
     let mut from_md: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for line in section.lines().filter(|l| l.starts_with("| `")) {
-        let cells: Vec<&str> = line
-            .trim()
-            .trim_matches('|')
-            .split('|')
-            .map(str::trim)
-            .collect();
+    for cells in table.rows.iter().filter(|c| c[0].starts_with('`')) {
         let codes = cells[3]
             .split(", ")
             .map(|c| c.trim_start_matches("gsd/").to_string())

@@ -375,6 +375,12 @@ fn one_criterion_is_w103() {
 }
 
 #[test]
+fn a_backlog_phase_with_one_criterion_is_clean() {
+    let found = check(&input(vec![phase_with_criteria("v1.0/999.1", 1)], vec![]));
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
 fn two_and_five_criteria_are_clean() {
     let found = check(&input(
         vec![

@@ -35,7 +35,7 @@ Reference: `gsd-core/references/questioning.md` for the full anti-pattern list.
 
 ## State Management Anti-Patterns
 
-15. **No direct Write/Edit to STATE.md or ROADMAP.md for mutations.** STATE and ROADMAP are computed from the entities: change the entities with `specforge set` and the `specforge gsd` commands (e.g. `start-plan`, `complete-plan`), never by writing a file. Direct Write tool usage bypasses safe update logic and is unsafe in multi-session environments. Exception: first-time creation of STATE.md from template is allowed.
+15. **Never write a `.spec` file directly for a state change.** The project state and the roadmap are computed from the entities: change the entities with `specforge set` and the `specforge gsd` commands (e.g. `start-plan`, `complete-plan`). A direct Write bypasses the typed edit's checks and is unsafe in multi-session environments.
 
 ## Behavioral Rules
 
@@ -55,8 +55,8 @@ Reference: `gsd-core/references/questioning.md` for the full anti-pattern list.
 
 24. **Do not** check for `mode === 'auto'` or `mode === 'autonomous'` -- GSD uses `yolo` config flag. Check `yolo: true` for autonomous mode, absence or `false` for interactive mode.
 25. **Prefer `specforge query`** for orchestration when a command exists. Every command in these workflows is a `specforge` command on PATH, so there is no launcher to name and no shim file to search the filesystem for.
-26. **Plan files MUST follow `{padded_phase}-{NN}-PLAN.md` pattern** (e.g., `01-01-PLAN.md`). Never use `PLAN-01.md`, `plan-01.md`, or any other variation -- the plan's id depends on this exact pattern.
-27. **Do not start executing the next plan before writing the SUMMARY.md for the current plan** -- downstream plans may reference it via `@` includes.
+26. **A plan's id is `<phase>/<padded phase>-<NN>`** (e.g., `v1.0/01/01-01`), in its own file `plans/<padded phase>-<NN>.spec`. Never use another id form: the phase's plans are found by it.
+27. **Do not start executing the next plan before closing the current plan with `specforge gsd complete-plan`** -- downstream plans read its summary.
 
 ## iOS / Apple Platform Rules
 

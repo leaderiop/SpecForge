@@ -38,7 +38,7 @@ fn search_writes_its_diagnostics_as_check_does() {
         ]);
     });
 
-    let document = Cli::on(&dir).document(&["search", "x"]);
+    let document = Cli::on(&dir).document(&["extensions", "search", "x"]);
 
     assert_eq!(document.code, 1);
     assert!(

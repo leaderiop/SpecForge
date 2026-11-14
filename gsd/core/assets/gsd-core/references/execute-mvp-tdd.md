@@ -37,7 +37,7 @@ The executor MUST:
 1. Halt before running the task's implementation step.
 2. Emit a structured halt report:
 
-   ```
+```
 ### TDD GATE TRIPPED — Plan {plan_id}, Task {task_id}
 
    Reason: {missing_red_commit | red_commit_not_failing | feat_before_test | invalid_red}
@@ -49,10 +49,32 @@ The executor MUST:
    1. Write a failing test for the behavior above.
    2. Commit it as: test({phase}-{plan}): {short description}
    3. Re-run /gsd:execute-phase
-   ```
+```
 
 3. Exit the current execution wave cleanly. Do NOT roll back any prior commits in the same wave.
-4. Update `STATE.md` with `last_gate_trip: {plan_id}/{task_id}` so the user can resume after writing the test.
+4. Record the trip as an open blocker on its task, so the user can resume after writing the test (the blocker's `gate` names the task):
+   ```bash
+   IFS= read -rd '' HALT_REASON <<'TEXT' || true; HALT_REASON=${HALT_REASON%$'\n'}
+   {the halt report's reason code and the task it names}
+   TEXT
+   PLAN_ID="{the plan's id, e.g. v1.0/02/02-01}"
+   TASK_ID="{the tripped task's id, e.g. v1.0/02/02-01/T1}"
+   specforge gsd raise-blocker "$HALT_REASON" --plan "$PLAN_ID" --gate "$TASK_ID" || exit 1
+   ```
+5. The gate clears: when a re-run finds the task's gate met (its failing test is committed first), resolve the task's
+   open gate blocker before the implementation step, so the project is no longer blocked:
+   ```bash
+   TASK_ID="{the task's id, e.g. v1.0/02/02-01/T1}"
+   IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
+   {how the gate was met, e.g. the failing test was committed first}
+   TEXT
+   BLOCKERS=$(specforge query "$TASK_ID" --depth 1 --kinds blocker --pick ".nodes[fields.gate=$TASK_ID].id") || exit 1
+   for BLOCKER in $BLOCKERS; do
+     # a resolved blocker prints its `resolved` object: only an open one is resolved
+     RESOLVED=$(specforge query "$BLOCKER" --depth 0 --pick '.nodes[0].fields.resolved') || exit 1
+     [ -n "$RESOLVED" ] || specforge gsd resolve-blocker "$BLOCKER" "$REASON" || exit 1
+   done
+   ```
 
 ## Escalation: end-of-phase TDD review under TDD
 
@@ -60,6 +82,8 @@ The existing end-of-phase TDD review (in `workflows/execute-phase.md`'s `tdd_rev
 
 Under TDD mode, escalate this to **blocking**:
 - If any TDD plan is missing a RED or GREEN commit, the executor MUST refuse to mark the phase complete.
+  The phase's status is computed, so the refusal is an open phase blocker:
+  `specforge gsd raise-blocker "<N> TDD plan(s) violate the RED→GREEN gate sequence" --phase "$PHASE_ID"`.
 - The user is shown the same review table, but the verdict line reads:
   > "Phase blocked: {N} TDD plan(s) violate the RED→GREEN gate sequence under TDD. Resolve and re-run /gsd:execute-phase, or override with `/gsd:execute-phase {phase} --force-mvp-gate` to ship anyway."
 

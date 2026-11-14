@@ -12,7 +12,7 @@
     "Quick mode is the same system with a shorter path:",
     "- Spawns gsd-planner (quick mode) + gsd-executor(s)",
     "- Quick tasks live in `spec/quick.spec`, separate from planned phases",
-    "- Updates STATE.md \"Quick Tasks Completed\" table (NOT ROADMAP.md)",
+    "- Closes each task on its summary entity: the computed project state lists it (the roadmap has no row for it)",
     "",
     "**Default:** Skips research, discussion, plan-checker, verifier. Use when you know exactly what to do.",
     "",
@@ -35,13 +35,13 @@
     "<execution_context>",
     "<file path=\"gsd-core/workflows/quick.md\">",
     "<purpose>",
-    "Execute small, ad-hoc tasks with GSD guarantees (atomic commits, STATE.md tracking). Quick mode spawns gsd-planner (quick mode) + gsd-executor(s), tracks each task as a plan of `spec/quick.spec`, and updates STATE.md's \"Quick Tasks Completed\" table.",
+    "Execute small, ad-hoc tasks with GSD guarantees (atomic commits, a typed record). Quick mode spawns gsd-planner (quick mode) + gsd-executor(s), tracks each task as a plan of `spec/quick.spec`, and closes it on its summary entity: the computed project state lists it.",
     "",
     "With `--full` flag: enables the complete quality pipeline — discussion + research + plan-checking + verification. One flag for everything.",
     "",
     "With `--validate` flag: enables plan-checking (max 2 iterations) and post-execution verification only. Use when you want quality guarantees without discussion or research.",
     "",
-    "With `--discuss` flag: lightweight discussion phase before planning. Surfaces assumptions, clarifies gray areas, captures decisions in CONTEXT.md so the planner treats them as locked.",
+    "With `--discuss` flag: lightweight discussion phase before planning. Surfaces assumptions, clarifies gray areas, captures decisions as the quick plan's `context` and `decision` entities so the planner treats them as locked.",
     "",
     "With `--research` flag: spawns a focused research agent before planning. Investigates implementation approaches, library options, and pitfalls. Use when you're unsure how to approach a task.",
     "",
@@ -57,11 +57,11 @@
     "- gsd-phase-researcher — Researches technical approaches for a phase",
     "- gsd-planner — Creates detailed plans from phase scope",
     "- gsd-plan-checker — Reviews plan quality before execution",
-    "- gsd-executor — Executes plan tasks, commits, creates SUMMARY.md",
+    "- gsd-executor — Executes plan tasks, commits, writes the summary entity and closes the plan",
     "- gsd-verifier — Verifies phase completion, checks quality gates",
     "- gsd-code-reviewer — Reviews source files for bugs, security issues, and code quality"
   ],
-  "bytes": 66325,
+  "bytes": 65923,
   "end": [
     "Execute end-to-end.",
     "Preserve all workflow gates (validation, task description, planning, execution, state updates, commits).",
@@ -69,9 +69,9 @@
     "</process>",
     "",
     "<notes>",
-    "- Quick tasks live in `spec/quick.spec` — separate from phases, not tracked in ROADMAP.md",
-    "- Each quick task gets a `YYYYMMDD-{slug}/` directory with PLAN.md and eventually SUMMARY.md",
-    "- STATE.md \"Quick Tasks Completed\" table is updated on completion",
+    "- Quick tasks live in `spec/quick.spec` — separate from phases, not tracked in the roadmap",
+    "- Each quick task is a plan named by its quick id, with its tasks and eventually its summary",
+    "- The computed project state lists a quick task once its plan is closed",
     "- Use `list` to audit accumulated tasks; use `resume` to continue in-progress work",
     "</notes>",
     "",
@@ -96,7 +96,7 @@
     "specforge set \"$quick_id\" objective \"<objective>\"",
     "specforge set \"$quick_id\" files_modified <paths>",
     "specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"",
-    "# an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`",
+    "specforge new artifact AR1 \"<name>\" --in spec/quick.spec --plan \"$quick_id\" --field path=<file> --provides \"<what it provides>\"",
     "specforge gsd start-plan \"$quick_id\" --head \"$(specforge git head --pick .sha)\"",
     "specforge new summary \"$quick_id-SUMMARY\" \"<title>\" --in spec/quick.spec --plan \"$quick_id\" --status complete --one_liner \"<one line>\" --subsystem <area> --requirements_completed \"\"",
     "specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\"",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1271,
+  "lines": 1186,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:19e697c731321ad2d1f33a10898468786b94b8b0c4c354dc981407b1a1c7ebea",
+    "digest": "sha256:ec580d6a31f16e6b823b0d95e9a8225e9b03234fb5836e5e138343b6837157f2",
     "prompt": "@gsd/core@VERSION:quick",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "19e697c731321ad2d1f33a10898468786b94b8b0c4c354dc981407b1a1c7ebea"
+  "sha256": "ec580d6a31f16e6b823b0d95e9a8225e9b03234fb5836e5e138343b6837157f2"
 }

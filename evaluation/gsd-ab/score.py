@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Score the GSD A/B (evaluation/gsd-ab/README.md): M1-M6 per run, paired B - A and B - B0
-differences with bootstrap intervals, and the gate B verdict.
+"""Score the GSD A/B (evaluation/gsd-ab/README.md): M1-M7 per run, paired B - A, B - B0 and B - Bv1
+differences with bootstrap intervals, the gate B verdict, and H3 (B's executors on at most 0.70 of Bv1's context).
 
 Usage:
     python3 -I evaluation/gsd-ab/score.py --runs evaluation/gsd-ab/runs
@@ -10,7 +10,8 @@ Usage:
 another file there (a note) is skipped and named, and transcripts live under `transcripts/`, outside the
 pattern. It refuses a run file that lacks a field, has one of the wrong type, or logs an intervention the
 operator's script (OPERATOR.md) does not list. Runs pair by (task, seed); a run whose partner is missing is
-refused.
+refused. A run set is one protocol commit and one `specforge` per build: A, B and B0 share one, and Bv1 (arm B as the
+tag gsd-ab-v1 froze it) records its own.
 Standard library only, Python 3.11+.
 """
 
@@ -36,11 +37,19 @@ FIELDS = {
     "arm": str, "task": str, "seed": int, "model": str, "temperature": (int, float), "host": dict, "budget": dict,
     "permission_mode": str, "acceptance": dict, "claims": dict, "final_report": str, "defects_present": list,
     "tokens": int, "plans_completed": int, "wall_seconds": (int, float), "interventions": int,
-    "intervention_log": list, "rework_commits": int, "protocol": dict,
+    "intervention_log": list, "rework_commits": int, "protocol": dict, "spawns": list,
 }
+# The subagent whose spawns M7 counts.
+EXECUTOR = "gsd-executor"
+# H3's bound on the ratio M7(B) / M7(Bv1).
+H3_BOUND = 0.70
 HOST = ("agent", "version", "machine")
-# The protocol a run was made under: the commit `seed.py seed` reports, and `specforge --version`. One per run set.
+# The protocol a run was made under: the commit `seed.py seed` reports, and `specforge --version`. One commit per run
+# set, one `specforge` per build.
 PROTOCOL = ("commit", "specforge")
+ARMS = ("A", "B", "B0", "Bv1")
+# The arm that runs the build the tag gsd-ab-v1 froze; every other arm runs this commit's.
+TAGGED = "Bv1"
 BUDGET = ("max_turns", "max_tokens")
 # The operator's only reasons to step in (OPERATOR.md); `operator` logs the operator's own error.
 REASONS = {"question", "stopped", "budget", "operator"}
@@ -64,7 +73,7 @@ def kind_of(corpus: dict, key: str) -> dict | None:
 
 
 def measures(run: dict, task: dict, corpus: dict) -> dict:
-    """M1-M6 of one run (README section 6), `corpus` the tasks.json it belongs to. M4 is per arm, so it is the run's
+    """M1-M7 of one run (README section 6), `corpus` the tasks.json it belongs to. M4 is per arm, so it is the run's
     tokens and plans. M3 counts only the defects a run can remove: one marked `"fixable": false` (a seeded commit
     stays in history) is judged by an acceptance row instead."""
     defects = {defect["id"]: defect for defect in corpus.get("defects", [])}
@@ -86,7 +95,14 @@ def measures(run: dict, task: dict, corpus: dict) -> dict:
         "M5_wall": float(run.get("wall_seconds", 0)),
         "M5_interventions": float(run.get("interventions", 0)),
         "M6": float(run.get("rework_commits", 0)),
+        "M7": m7(run),
     }
+
+
+def m7(run: dict) -> float | None:
+    """M7 of one run: the mean context tokens of its gsd-executor spawns, or None when it spawned none."""
+    tokens = [spawn["context_tokens"] for spawn in run.get("spawns", []) if spawn["agent"] == EXECUTOR]
+    return sum(tokens) / len(tokens) if tokens else None
 
 
 def pair(runs: list[dict], tasks: dict, treated: str, control: str) -> dict:
@@ -141,16 +157,16 @@ def tokens_per_plan(pairs: dict, side: int) -> float | None:
     return sum(run["tokens"] for run in runs) / plans if plans else None
 
 
-def report(pairs: dict, label: str) -> dict:
+def report(pairs: dict, treated: str, control: str) -> dict:
     """Print each measure's paired difference and interval; return {measure: (diff, low, high)}."""
     rng = random.Random(RNG_SEED)
     out = {}
-    print(f"{label}: {sum(len(s) for s in pairs.values())} pairs over {len(pairs)} tasks")
+    print(f"{treated} - {control}: {sum(len(s) for s in pairs.values())} pairs over {len(pairs)} tasks")
     for measure in MEASURES:
         low, high = interval(pairs, measure, rng)
         out[measure] = (difference(pairs, measure), low, high)
         print(f"  {measure:<17} {out[measure][0]:+8.3f}  [{low:+.3f}, {high:+.3f}]")
-    for side, arm in ((0, label[0:2].strip()), (1, label[-2:].strip())):
+    for side, arm in ((0, treated), (1, control)):
         m4 = tokens_per_plan(pairs, side)
         print(f"  M4 {arm:<14} " + ("no completed plan" if m4 is None else f"{m4:8.0f} tokens per completed plan"))
     return out
@@ -176,13 +192,51 @@ def h2(runs: list[dict], tasks: dict) -> bool:
     return holds
 
 
-def score(runs: list[dict], tasks: dict) -> tuple[bool, bool | None]:
-    """The gate B verdict, and H2's (None without B0 runs)."""
+def h3(runs: list[dict], tasks: dict) -> bool | None:
+    """H3 (README section 1): over the (task, seed) pairs where B and Bv1 both have M7, the mean ratio M7(B) / M7(Bv1)
+    with its bootstrap interval; True when the interval's upper bound is at most 0.70, None without such a pair.
+    Reported, gates nothing."""
+    held = {(run["arm"], run["task"], run["seed"]): m7(run) for run in runs if run["arm"] in ("B", TAGGED)}
+    ratios: dict[str, dict[int, tuple[dict, dict]]] = {}
+    for (arm, task, seed), value in sorted(held.items()):
+        other = held.get((TAGGED, task, seed))
+        if arm == "B" and value is not None and other:
+            ratios.setdefault(task, {})[seed] = ({"ratio": value / other}, {"ratio": 0.0})
+    if not ratios:
+        print(f"H3: no pair with a {EXECUTOR} spawn in both arms")
+        return None
+    low, high = interval(ratios, "ratio", random.Random(RNG_SEED))
+    holds = high <= H3_BOUND
+    verdict = f"B starts its executors on at most {H3_BOUND:.2f} of Bv1's context" if holds else "not shown"
+    print(f"H3: B / Bv1 on M7 {difference(ratios, 'ratio'):.3f} [{low:.3f}, {high:.3f}]: {verdict}")
+    return holds
+
+
+def score(runs: list[dict], tasks: dict) -> tuple[bool, bool | None, bool | None]:
+    """The gate B verdict, H2's (None without B0 runs) and H3's (None without a B and Bv1 pair with M7). B - Bv1 is
+    reported when Bv1 runs exist and gates nothing."""
+    for arm in ARMS:
+        values = [(m7(run), run) for run in runs if run["arm"] == arm]
+        if not values:
+            continue
+        spawned = [spawn for _, run in values for spawn in run["spawns"] if spawn["agent"] == EXECUTOR]
+        if spawned:
+            # H3 pairs the runs' own M7 (the mean of each run's spawns); the pooled mean weighs a run by its spawns
+            per_run = [m for m, _ in values if m is not None]
+            mean_tokens = sum(spawn["context_tokens"] for spawn in spawned) / len(spawned)
+            print(f"M7 {arm}: {sum(per_run) / len(per_run):.0f} context tokens per run over {len(per_run)} runs "
+                  f"(H3 reads these); {mean_tokens:.0f} per {EXECUTOR} spawn pooled over {len(spawned)} spawns")
+        else:
+            print(f"M7 {arm}: no {EXECUTOR} spawn")
     ab = pair(runs, tasks, "B", "A")
-    passed = gate_b(ab, report(ab, "B - A"))
+    passed = gate_b(ab, report(ab, "B", "A"))
     thread = h2(runs, tasks) if any(run["arm"] == "B0" for run in runs) else None
+    held = None
+    if any(run["arm"] == TAGGED for run in runs):
+        report(pair(runs, tasks, "B", TAGGED), "B", TAGGED)
+        held = h3(runs, tasks)
     print(f"gate B: {'pass' if passed else 'fail'}")
-    return passed, thread
+    return passed, thread, held
 
 
 def check_run(run: dict, tasks: dict, where: str) -> None:
@@ -194,8 +248,8 @@ def check_run(run: dict, tasks: dict, where: str) -> None:
             raise ValueError(f"{where}: no `{key}`")
         if isinstance(run[key], bool) or not isinstance(run[key], kind):
             raise ValueError(f"{where}: `{key}` is {type(run[key]).__name__}, not {kind}")
-    if run["arm"] not in ("A", "B", "B0"):
-        raise ValueError(f"{where}: arm {run['arm']!r} is none of A, B and B0")
+    if run["arm"] not in ARMS:
+        raise ValueError(f"{where}: arm {run['arm']!r} is none of {', '.join(ARMS)}")
     for block, keys in (("host", HOST), ("budget", BUDGET), ("protocol", PROTOCOL)):
         missing = [key for key in keys if key not in run[block]]
         if missing:
@@ -233,6 +287,13 @@ def check_run(run: dict, tasks: dict, where: str) -> None:
     for defect in run["defects_present"]:
         if not isinstance(defect, str) or defect not in task["seeded"]:
             raise ValueError(f"{where}: defects_present holds {defect!r}, not one of the task's seeds {task['seeded']}")
+    count = lambda value: isinstance(value, int) and not isinstance(value, bool) and value >= 0  # noqa: E731
+    for spawn in run["spawns"]:
+        if not (isinstance(spawn, dict) and isinstance(spawn.get("agent"), str) and count(spawn.get("context_tokens"))
+                and count(spawn.get("total_tokens"))):
+            raise ValueError(f"{where}: a spawn is {{agent, context_tokens, total_tokens}} with counts, not {spawn!r}")
+        if spawn["total_tokens"] < spawn["context_tokens"]:
+            raise ValueError(f"{where}: a spawn's total_tokens is below its context_tokens: {spawn!r}")
 
 
 def read_runs(root: Path, tasks: dict) -> list[dict]:
@@ -249,9 +310,18 @@ def read_runs(root: Path, tasks: dict) -> list[dict]:
         if (run["arm"], run["task"], str(run["seed"])) != (arm, task, seed):
             raise ValueError(f"{path}: arm, task and seed differ from the file's path")
         runs.append(run)
-    protocols = sorted({json.dumps(run["protocol"], sort_keys=True) for run in runs})
-    if len(protocols) > 1:
-        raise ValueError(f"the runs mix protocols, one study is one protocol: {', '.join(protocols)}")
+    commits = sorted({str(run["protocol"]["commit"]) for run in runs})
+    if len(commits) > 1:
+        raise ValueError(f"the runs mix protocol commits, one study is one commit: {', '.join(commits)}")
+    builds: dict[str, set[str]] = {}
+    for run in runs:
+        builds.setdefault(TAGGED if run["arm"] == TAGGED else "B", set()).add(str(run["protocol"]["specforge"]))
+    for build, seen in sorted(builds.items()):
+        if len(seen) > 1:
+            versions = ", ".join(sorted(seen))
+            raise ValueError(f"the {build} build's runs mix specforge versions, one build is one: {versions}")
+    if TAGGED in builds and builds[TAGGED] == builds.get("B"):
+        raise ValueError(f"arm {TAGGED} ran B's build ({', '.join(sorted(builds[TAGGED]))}): it runs the tag's")
     return runs
 
 
@@ -284,33 +354,39 @@ VOCABULARY = {
 
 
 def synthetic(b_wins: bool, b_tokens: float = 1.0, a_plans: int = 1) -> tuple[list[dict], dict]:
-    """Four tasks seeded with S1 (a thread defect) and S2 (not one), three seeds, arms A, B and B0. A leaves both
+    """Four tasks seeded with S1 (a thread defect) and S2 (not one), three seeds, arms A, B, B0 and Bv1. A leaves both
     defects and drifts. B leaves none and no drift when it wins, and repeats A when it doesn't. B0 always leaves S1
-    but not S2, so B beats B0 on the thread's defects exactly when B wins. B spends `b_tokens` times A's tokens, and A
-    completes `a_plans` plans a run (every other arm one)."""
+    but not S2, so B beats B0 on the thread's defects exactly when B wins. Bv1 leaves S1, on its own build. B spends
+    `b_tokens` times A's tokens, and A completes `a_plans` plans a run (every other arm one). Every task but t3 spawns
+    one gsd-executor: A's starts on 12,000 context tokens, Bv1's on 10,000, B's on 6,000 when B wins and 9,500 when
+    it doesn't; t3 spawns a gsd-verifier only."""
     tasks = {**VOCABULARY, "tasks": [
         {"id": f"t{i}", "workflow": "verify", "seeded": ["S1", "S2"], "ground_truth": {"p": "complete"},
          "acceptance": [{"text": "tests", "run": "true"}]}
         for i in range(4)
     ]}
+    executor = {"A": 12_000, "Bv1": 10_000, "B0": 10_000, "B": 6_000 if b_wins else 9_500}
     runs = []
     for i in range(4):
         for seed in range(1, 4):
             bad = {"claims": {"p": "planned"}, "defects_present": ["S1", "S2"]}
             good = {"claims": {"p": "complete"}, "defects_present": []}
             thread_off = {"claims": {"p": "complete"}, "defects_present": ["S1"]}
-            arms = (("A", bad), ("B", good if b_wins else bad), ("B0", thread_off))
+            arms = (("A", bad), ("B", good if b_wins else bad), ("B0", thread_off), ("Bv1", thread_off))
             for arm, state in arms:
                 runs.append({
                     "arm": arm, "task": f"t{i}", "seed": seed, "model": "synthetic", "temperature": 0,
                     "host": {"agent": "synthetic", "version": "0", "machine": "none"},
                     "budget": {"max_turns": 200, "max_tokens": 400_000}, "permission_mode": "auto in the copy",
                     "final_report": "verified",
-                    "protocol": {"commit": "0" * 40, "specforge": "specforge 0.0.0"},
+                    "protocol": {"commit": "0" * 40,
+                                 "specforge": "specforge 0.0.0-v1" if arm == "Bv1" else "specforge 0.0.0"},
                     "acceptance": {"tests": arm == "B" and b_wins},
                     "tokens": round((100_000 + seed) * (b_tokens if arm == "B" else 1.0)),
                     "plans_completed": a_plans if arm == "A" else 1, "wall_seconds": 600, "interventions": 0,
                     "intervention_log": [], "rework_commits": 0, **state,
+                    "spawns": [{"agent": "gsd-verifier", "context_tokens": 4_000, "total_tokens": 9_000}] if i == 3
+                    else [{"agent": EXECUTOR, "context_tokens": executor[arm], "total_tokens": 50_000}],
                 })
     return runs, tasks
 
@@ -333,9 +409,10 @@ def self_test() -> None:
         (Path(tmp) / "A" / "t0" / "1.notes.json").write_text("{}")
         read = read_runs(Path(tmp), tasks)
     assert len(read) == len(runs), "every written run file reads back, and the stray file is skipped"
-    assert score(read, tasks) == (True, True), "a set B clearly wins must pass gate B and show H2"
+    assert score(read, tasks) == (True, True, True), "a set B clearly wins must pass gate B and show H2 and H3"
     runs, tasks = synthetic(b_wins=False)
-    assert score(runs, tasks) == (False, False), "a set B does not win must fail gate B and not show H2"
+    assert score(runs, tasks) == (False, False, False), "a set B does not win must fail gate B, not show H2 or H3"
+    assert m7(runs[-1]) is None and runs[-1]["task"] == "t3", "no gsd-executor spawn, no M7"
     # B wins on M2 and M3 but spends 20% more tokens per plan, or A completes no plan, so there is no M4 to hold B
     # to: gate B fails either way.
     for costly in (synthetic(b_wins=True, b_tokens=1.2), synthetic(b_wins=True, a_plans=0)):
@@ -361,7 +438,7 @@ def self_test() -> None:
     assert measured["M3"] == 1.0, measured
     runs, tasks = synthetic(b_wins=True)
     try:
-        score([run for run in runs if run["arm"] != "B0"][:-1], tasks)
+        score([run for run in runs if run["arm"] not in ("B0", "Bv1")][:-1], tasks)
     except Unpaired as refusal:
         print(f"refused: {refusal}")
     else:
@@ -371,20 +448,24 @@ def self_test() -> None:
         said = io.StringIO()
         with contextlib.redirect_stderr(said):
             empty = status(Path(tmp), tasks)
-            write_runs(Path(tmp), [run for run in runs if run["arm"] != "B0"][:-1])
+            write_runs(Path(tmp), [run for run in runs if run["arm"] not in ("B0", "Bv1")][:-1])
             unpaired = status(Path(tmp), tasks)
         assert (empty, unpaired) == (2, 2), (empty, unpaired)
         assert said.getvalue().count("score.py: ") == 2 and "no B run" in said.getvalue(), said.getvalue()
-    # A run set made under two protocols (another commit, another specforge) is refused as a whole.
-    with tempfile.TemporaryDirectory() as tmp:
-        mixed = [dict(run) for run in runs]
-        mixed[0]["protocol"] = {"commit": "1" * 40, "specforge": "specforge 0.0.0"}
-        write_runs(Path(tmp), mixed)
-        said = io.StringIO()
-        with contextlib.redirect_stderr(said):
-            assert status(Path(tmp), tasks) == 2
-        assert "mix protocols" in said.getvalue(), said.getvalue()
-    # The run files' own refusals, counted: exactly these eleven.
+    # A run set made under two protocol commits, or whose arm Bv1 ran B's build, is refused as a whole.
+    for change, why in (
+        (lambda run: {**run, "protocol": {**run["protocol"], "commit": "1" * 40}} if run is runs[0] else run,
+         "mix protocol commits"),
+        (lambda run: {**run, "protocol": {**run["protocol"], "specforge": "specforge 0.0.0"}}, "arm Bv1 ran B's build"),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            write_runs(Path(tmp), [change(run) for run in runs])
+            said = io.StringIO()
+            with contextlib.redirect_stderr(said):
+                assert status(Path(tmp), tasks) == 2
+            assert why in said.getvalue(), said.getvalue()
+            print(f"refused set: {said.getvalue().strip()}")
+    # The run files' own refusals, counted: exactly these fourteen.
     run = runs[0]
     for what, bad in (
         ("a run file without its host", {key: value for key, value in run.items() if key != "host"}),
@@ -399,6 +480,11 @@ def self_test() -> None:
         ("a claim outside its key's vocabulary", {**run, "claims": {"p": "done"}}),
         ("a RESULT the task's workflow does not have", {**run, "final_report": "complete"}),
         ("a copy of the working tree", {**run, "protocol": {**run["protocol"], "commit": "0" * 40 + "+worktree"}}),
+        ("a run file without its spawns", {key: value for key, value in run.items() if key != "spawns"}),
+        ("a spawn whose context is not a count",
+         {**run, "spawns": [{"agent": EXECUTOR, "context_tokens": True, "total_tokens": 9}]}),
+        ("a spawn whose total is below its context",
+         {**run, "spawns": [{"agent": EXECUTOR, "context_tokens": 9, "total_tokens": 8}]}),
     ):
         refused_file(what, bad, tasks)
     print("self-test: ok")

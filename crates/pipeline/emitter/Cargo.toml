@@ -22,7 +22,7 @@ specforge-common = { path = "../../kernel/common" }
 # A node's coverage status (`specforge_coverage::Status`): pure, no I/O (ADR 0004 D1-d).
 specforge-coverage = { path = "../../leaf/coverage" }
 serde.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["raw_value"] }
 sha2.workspace = true
 
 [dev-dependencies]

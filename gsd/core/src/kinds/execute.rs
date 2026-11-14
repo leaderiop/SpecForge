@@ -132,7 +132,7 @@ pub const DEVIATION: Kind = Kind::new(
 const HANDOFF_STATE: &[&str] = &["in_progress", "blocked", "almost_done"];
 const WORK_STATE: &[&str] = &["done", "in_progress", "not_started"];
 const COMPLETED_WORK: &[Field] = &[rf("task", "task"), en("state", WORK_STATE)];
-const RESOLVED: &[Field] = &[ts("at"), str("how")];
+pub(crate) const RESOLVED: &[Field] = &[ts("at"), str("how")];
 
 /// `/gsd-pause-work`'s record, named `PS1`: what a teammate who pulls the repository must see. Removed on resume.
 pub const PAUSE: Kind = Kind::new(
@@ -182,10 +182,41 @@ pub const BLOCKER: Kind = Kind::new(
         str("text").r().doc("the blocker"),
         rf("phase", "phase").doc("the phase it blocks"),
         rf("plan", "plan").doc("the plan it blocks"),
+        rf("gate", "task")
+            .h()
+            .doc("the task whose TDD gate tripped (STATE.md's `last_gate_trip`), written by `raise_blocker --gate`"),
         ts("raised")
             .h()
             .doc("written by the command that raises it, with the host's clock"),
         block("resolved", RESOLVED)
             .doc("how and when it was resolved (an authored time: gsd/E107)"),
+    ],
+);
+
+const BATCH_STATUS: &[&str] = &["open", "complete"];
+
+/// `quick-batches/<id>/BATCH.json`: a `/gsd-quick-batch` run, named by its batch id (`261112-batch`), in the project
+/// scope beside its quick plans. Each item's state is its plan's computed status; the batch records only what resume
+/// needs.
+pub const QUICK_BATCH: Kind = Kind::new(
+    "quick_batch",
+    "A batch of quick tasks run together (GSD BATCH.json)",
+    &[
+        rfs("items", "plan")
+            .r()
+            .i()
+            .doc("the batch's quick plans, in item order"),
+        str("base")
+            .h()
+            .doc("the commit the batch started from, written once by `start_batch`"),
+        ts("created")
+            .h()
+            .doc("written by `start_batch`, with the host's clock"),
+        en("status", BATCH_STATUS)
+            .c()
+            .doc("complete once every item's plan is, else open"),
+        strs("eligible").c().doc(
+            "the items whose plan has not started, halted or blocked and whose `depends_on` are all complete, in item order; empty, never absent",
+        ),
     ],
 );

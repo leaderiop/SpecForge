@@ -19,20 +19,11 @@ RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the se
 INIT=$(specforge gsd progress-report --format json)
 
 # the settings live in specforge.json: there is no config path to resolve, and no active workstream (#2282).
-if [[ -z "${GSD_CONFIG_PATH:-}" ]]; then
-  if false; then   # there is no active-workstream file: the settings are one file, specforge.json
-    WS=""
-    GSD_CONFIG_PATH="specforge.json"
-  else
-    GSD_CONFIG_PATH="specforge.json"
-  fi
-fi
 ```
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
-Creates `config.json` (at the resolved path) with defaults if missing. `INIT` still holds `state.load` output for any step that needs STATE fields.
-Store `$GSD_CONFIG_PATH` — all subsequent reads and writes use this path, not a hardcoded path, so active-workstream installs target the correct file (#2282).
+Settings are written with `specforge settings set`; nothing creates a file, and every setting has its default. `INIT` holds the computed progress for any step that needs it.
 </step>
 
 <step name="read_current">
@@ -47,7 +38,7 @@ Parse current values (default to `true` if not present):
 - `plan_review.source_grounding` — verify plan symbols against live source during plan review (default: true if absent; set `plan_review.source_grounding_authority` to select the resolver adapter: `grep` (default), `intel`, `treesitter`, `lsp`, or `scip`)
 - `workflow.nyquist_validation` — validation architecture research during plan-phase (default: true if absent)
 - `workflow.pattern_mapper` — run gsd-pattern-mapper between research and planning (default: true if absent)
-- `workflow.ui_phase` — generate UI-SPEC.md design contracts for frontend phases (default: true if absent)
+- `workflow.ui_phase` — when on, every frontend phase gets its interface spelled out by `@gsd/ui` as a `ui_spec` entity before anyone plans it (default: true if absent)
 - `workflow.ui_safety_gate` — prompt to run /gsd:ui-phase before planning frontend phases (default: true if absent)
 - `workflow.ai_integration_phase` — framework selection + eval strategy for AI phases (default: true if absent)
 - `workflow.tdd_mode` — enforce RED/GREEN/REFACTOR gate sequence during execute-phase (default: false if absent)
@@ -331,7 +322,7 @@ AskUserQuestion([
   // Note: Nyquist validation depends on research output. If research is disabled,
   // plan-phase automatically skips Nyquist steps (no RESEARCH.md to extract from).
   {
-    question: "Enable UI Phase? (generates UI-SPEC.md design contracts for frontend phases)",
+    question: "Enable UI Phase? (@gsd/ui drafts each frontend phase's interface contract)",
     header: "UI Phase",
     multiSelect: false,
     options: [
@@ -557,62 +548,6 @@ There are no global defaults here: skip this step, and do not ask the question. 
 GSD's own defaults store: writing it would change that tool's defaults, and no setting of `@gsd/core` follows it, so a
 new project would not start from these settings. The settings are this project's `specforge.json`; a new project is set
 up with the same `specforge settings set @gsd/core <key> <value>` lines. Tell the user so if they ask for defaults.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 </step>
 

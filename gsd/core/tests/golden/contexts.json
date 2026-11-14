@@ -1,0 +1,644 @@
+{
+  "category": "contexts",
+  "items": [
+    {
+      "agent": "gsd-executor",
+      "budget": 6000,
+      "name": "executor",
+      "records": [
+        {
+          "field": "plan.context_pack",
+          "subject": "self",
+          "suggestion": "read the pack again (`specforge context {route} {subject}`), then run `specforge gsd start-plan {entity}`; the continuation does"
+        }
+      ],
+      "sections": [
+        {
+          "name": "plan",
+          "selector": "self",
+          "tier": "core"
+        },
+        {
+          "name": "body",
+          "selector": "self<task|checkpoint|truth|artifact|key_link|prohibition|user_setup.plan",
+          "tier": "core"
+        },
+        {
+          "name": "phase",
+          "selector": "self.phase",
+          "tier": "core"
+        },
+        {
+          "name": "requirements",
+          "selector": "self.requirements",
+          "tier": "core"
+        },
+        {
+          "name": "decisions",
+          "selector": "self.decisions",
+          "tier": "core"
+        },
+        {
+          "name": "context",
+          "selector": "self.phase<context|decision[origin=context]|deferred_idea[origin=discussion].phase",
+          "tier": "enrich"
+        },
+        {
+          "name": "quick",
+          "selector": "self<context|decision[origin=context]|research.plan",
+          "tier": "enrich"
+        },
+        {
+          "name": "quick_research",
+          "selector": "self<research.plan<finding|stack_choice|pattern|pitfall|dont_hand_roll|open_question.research",
+          "tier": "enrich"
+        },
+        {
+          "name": "prior",
+          "selector": "self.depends_on<summary.plan",
+          "tier": "enrich"
+        },
+        {
+          "name": "research",
+          "selector": "self.phase<research.phase<pitfall|pattern|dont_hand_roll.research",
+          "tier": "enrich"
+        },
+        {
+          "name": "project",
+          "selector": "project",
+          "tier": "enrich"
+        },
+        {
+          "name": "instructions",
+          "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")",
+          "tier": "enrich"
+        }
+      ],
+      "settings": [
+        "workflow.auto_advance",
+        "workflow.human_verify_mode",
+        "workflow.tdd_mode",
+        "git.allow_default_branch_commits"
+      ],
+      "stale": "W524",
+      "subject": "plan"
+    },
+    {
+      "agent": "gsd-plan-checker",
+      "budget": 8000,
+      "name": "plan-checker",
+      "sections": [
+        {
+          "name": "plan",
+          "selector": "self",
+          "tier": "core"
+        },
+        {
+          "name": "body",
+          "selector": "self<task|checkpoint|truth|artifact|key_link|prohibition|user_setup.plan",
+          "tier": "core"
+        },
+        {
+          "name": "phase",
+          "selector": "self.phase",
+          "tier": "core"
+        },
+        {
+          "name": "requirements",
+          "selector": "self.requirements",
+          "tier": "core"
+        },
+        {
+          "name": "decisions",
+          "selector": "self.decisions",
+          "tier": "core"
+        },
+        {
+          "name": "phase_decisions",
+          "selector": "self.phase<decision.phase",
+          "tier": "core"
+        },
+        {
+          "name": "all_decisions",
+          "selector": "decision",
+          "tier": "core"
+        },
+        {
+          "name": "context",
+          "selector": "self.phase<context|deferred_idea[origin=discussion].phase",
+          "tier": "core"
+        },
+        {
+          "name": "research",
+          "selector": "self.phase<research.phase",
+          "tier": "core"
+        },
+        {
+          "name": "research_items",
+          "selector": "self.phase<research.phase<finding|stack_choice|pattern|pitfall|dont_hand_roll|open_question.research",
+          "tier": "core"
+        },
+        {
+          "name": "siblings",
+          "selector": "self.phase<plan.phase",
+          "tier": "core"
+        },
+        {
+          "name": "instructions",
+          "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")",
+          "tier": "core"
+        }
+      ],
+      "subject": "plan"
+    },
+    {
+      "agent": "gsd-integration-checker",
+      "budget": 8000,
+      "name": "integration-checker",
+      "sections": [
+        {
+          "name": "audit",
+          "selector": "self",
+          "tier": "core"
+        },
+        {
+          "name": "phases",
+          "selector": "self.milestone<phase.milestone",
+          "tier": "core"
+        },
+        {
+          "name": "verifications",
+          "selector": "self.milestone<phase.milestone<verification.phase",
+          "tier": "core"
+        },
+        {
+          "name": "requirements",
+          "selector": "self.milestone<phase.milestone.requirements",
+          "tier": "core"
+        }
+      ],
+      "subject": "milestone_audit"
+    },
+    {
+      "agent": "gsd-planner",
+      "budget": 8000,
+      "name": "planner",
+      "sections": [
+        {
+          "name": "phase",
+          "selector": "self",
+          "tier": "core"
+        },
+        {
+          "name": "requirements",
+          "selector": "self.requirements",
+          "tier": "core"
+        },
+        {
+          "name": "context",
+          "selector": "self<context|deferred_idea[origin=discussion].phase",
+          "tier": "core"
+        },
+        {
+          "name": "decisions",
+          "selector": "self<decision[origin=context].phase",
+          "tier": "core"
+        },
+        {
+          "name": "research",
+          "selector": "self<research.phase",
+          "tier": "enrich"
+        },
+        {
+          "name": "research_items",
+          "selector": "self<research.phase<finding|stack_choice|pattern|pitfall|dont_hand_roll|open_question.research",
+          "tier": "enrich"
+        },
+        {
+          "name": "plans",
+          "selector": "self<plan.phase",
+          "tier": "enrich"
+        },
+        {
+          "name": "milestone",
+          "selector": "self.milestone",
+          "tier": "enrich"
+        },
+        {
+          "name": "gaps",
+          "selector": "self<verification.phase<verify_gap.verification",
+          "tier": "enrich"
+        },
+        {
+          "name": "uat_gaps",
+          "selector": "self<uat_session.phase<uat_test.session<uat_gap.test",
+          "tier": "enrich"
+        },
+        {
+          "name": "prior",
+          "selector": "self.depends_on<plan.phase<summary.plan",
+          "tier": "enrich"
+        },
+        {
+          "name": "project_decisions",
+          "selector": "decision[origin=project]",
+          "tier": "enrich"
+        },
+        {
+          "name": "project",
+          "selector": "project",
+          "tier": "enrich"
+        },
+        {
+          "name": "instructions",
+          "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")",
+          "tier": "enrich"
+        }
+      ],
+      "settings": [
+        "workflow.tdd_mode",
+        "workflow.human_verify_mode"
+      ],
+      "subject": "phase"
+    },
+    {
+      "agent": "gsd-verifier",
+      "budget": 8000,
+      "name": "verifier",
+      "sections": [
+        {
+          "name": "phase",
+          "selector": "self",
+          "tier": "core"
+        },
+        {
+          "name": "requirements",
+          "selector": "self.requirements",
+          "tier": "core"
+        },
+        {
+          "name": "must_haves",
+          "selector": "self<plan.phase<truth|artifact|key_link.plan",
+          "tier": "core"
+        },
+        {
+          "name": "plans",
+          "selector": "self<plan.phase",
+          "tier": "core"
+        },
+        {
+          "name": "summaries",
+          "selector": "self<plan.phase<summary.plan",
+          "tier": "core"
+        },
+        {
+          "name": "files",
+          "selector": "file(self<plan.phase.files_modified)",
+          "tier": "enrich"
+        },
+        {
+          "name": "context",
+          "selector": "self<context|decision[origin=context]|deferred_idea[origin=discussion].phase",
+          "tier": "enrich"
+        },
+        {
+          "name": "pitfalls",
+          "selector": "self<research.phase<pitfall.research",
+          "tier": "enrich"
+        }
+      ],
+      "subject": "phase"
+    },
+    {
+      "agent": "gsd-phase-researcher",
+      "budget": 6000,
+      "name": "phase-researcher",
+      "sections": [
+        {
+          "name": "phase",
+          "selector": "self",
+          "tier": "core"
+        },
+        {
+          "name": "requirements",
+          "selector": "self.requirements",
+          "tier": "core"
+        },
+        {
+          "name": "context",
+          "selector": "self<context|deferred_idea[origin=discussion].phase",
+          "tier": "core"
+        },
+        {
+          "name": "decisions",
+          "selector": "self<decision[origin=context].phase",
+          "tier": "core"
+        },
+        {
+          "name": "milestone",
+          "selector": "self.milestone",
+          "tier": "enrich"
+        },
+        {
+          "name": "siblings",
+          "selector": "self.milestone<phase.milestone",
+          "tier": "enrich"
+        },
+        {
+          "name": "project",
+          "selector": "project",
+          "tier": "enrich"
+        },
+        {
+          "name": "instructions",
+          "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")",
+          "tier": "enrich"
+        }
+      ],
+      "subject": "phase"
+    },
+    {
+      "agent": "gsd-advisor-researcher",
+      "budget": 6000,
+      "name": "advisor-researcher",
+      "sections": [
+        {
+          "name": "phase",
+          "selector": "self",
+          "tier": "core"
+        },
+        {
+          "name": "requirements",
+          "selector": "self.requirements",
+          "tier": "core"
+        },
+        {
+          "name": "context",
+          "selector": "self<context|deferred_idea[origin=discussion].phase",
+          "tier": "core"
+        },
+        {
+          "name": "decisions",
+          "selector": "self<decision[origin=context].phase",
+          "tier": "core"
+        },
+        {
+          "name": "milestone",
+          "selector": "self.milestone",
+          "tier": "enrich"
+        },
+        {
+          "name": "siblings",
+          "selector": "self.milestone<phase.milestone",
+          "tier": "enrich"
+        }
+      ],
+      "subject": "phase"
+    },
+    {
+      "agent": "gsd-assumptions-analyzer",
+      "budget": 6000,
+      "name": "assumptions-analyzer",
+      "sections": [
+        {
+          "name": "phase",
+          "selector": "self",
+          "tier": "core"
+        },
+        {
+          "name": "requirements",
+          "selector": "self.requirements",
+          "tier": "core"
+        },
+        {
+          "name": "context",
+          "selector": "self<context|deferred_idea[origin=discussion].phase",
+          "tier": "core"
+        },
+        {
+          "name": "decisions",
+          "selector": "self<decision[origin=context].phase",
+          "tier": "core"
+        },
+        {
+          "name": "milestone",
+          "selector": "self.milestone",
+          "tier": "enrich"
+        },
+        {
+          "name": "siblings",
+          "selector": "self.milestone<phase.milestone",
+          "tier": "enrich"
+        }
+      ],
+      "subject": "phase"
+    },
+    {
+      "agent": "gsd-nyquist-auditor",
+      "budget": 8000,
+      "name": "nyquist-auditor",
+      "sections": [
+        {
+          "name": "phase",
+          "selector": "self",
+          "tier": "core"
+        },
+        {
+          "name": "plans",
+          "selector": "self<plan.phase",
+          "tier": "core"
+        },
+        {
+          "name": "tasks",
+          "selector": "self<plan.phase<task.plan",
+          "tier": "core"
+        },
+        {
+          "name": "validation",
+          "selector": "self<validation.phase",
+          "tier": "core"
+        },
+        {
+          "name": "rows",
+          "selector": "self<validation.phase<validation_row.validation",
+          "tier": "core"
+        },
+        {
+          "name": "requirements",
+          "selector": "self.requirements",
+          "tier": "enrich"
+        },
+        {
+          "name": "research",
+          "selector": "self<research.phase",
+          "tier": "enrich"
+        },
+        {
+          "name": "summaries",
+          "selector": "self<plan.phase<summary.plan",
+          "tier": "enrich"
+        }
+      ],
+      "subject": "phase"
+    },
+    {
+      "agent": "gsd-project-researcher",
+      "budget": 8000,
+      "name": "project-researcher",
+      "sections": [
+        {
+          "name": "project",
+          "selector": "self",
+          "tier": "core"
+        },
+        {
+          "name": "requirements",
+          "selector": "requirement",
+          "tier": "core"
+        },
+        {
+          "name": "decisions",
+          "selector": "decision[origin=project]",
+          "tier": "core"
+        },
+        {
+          "name": "milestones",
+          "selector": "milestone",
+          "tier": "enrich"
+        }
+      ],
+      "subject": "project"
+    },
+    {
+      "agent": "gsd-research-synthesizer",
+      "budget": 8000,
+      "name": "research-synthesizer",
+      "sections": [
+        {
+          "name": "project",
+          "selector": "self",
+          "tier": "core"
+        },
+        {
+          "name": "research",
+          "selector": "research",
+          "tier": "core"
+        },
+        {
+          "name": "research_items",
+          "selector": "research<finding|stack_choice|pattern|pitfall|dont_hand_roll|open_question.research",
+          "tier": "core"
+        },
+        {
+          "name": "requirements",
+          "selector": "requirement",
+          "tier": "enrich"
+        }
+      ],
+      "subject": "project"
+    },
+    {
+      "agent": "gsd-roadmapper",
+      "budget": 8000,
+      "name": "roadmapper",
+      "sections": [
+        {
+          "name": "project",
+          "selector": "self",
+          "tier": "core"
+        },
+        {
+          "name": "requirements",
+          "selector": "requirement",
+          "tier": "core"
+        },
+        {
+          "name": "decisions",
+          "selector": "decision[origin=project]",
+          "tier": "core"
+        },
+        {
+          "name": "research",
+          "selector": "research",
+          "tier": "enrich"
+        },
+        {
+          "name": "research_items",
+          "selector": "research<finding|stack_choice|pattern|pitfall|dont_hand_roll|open_question.research",
+          "tier": "enrich"
+        },
+        {
+          "name": "milestones",
+          "selector": "milestone",
+          "tier": "enrich"
+        }
+      ],
+      "subject": "project"
+    },
+    {
+      "budget": 50000,
+      "name": "phase-context",
+      "records": [
+        {
+          "field": "research.context_pack",
+          "subject": "self.phase",
+          "suggestion": "regenerate the research of {subject} (/gsd-plan-phase --research), then run `specforge gsd record-research {entity}`; do not hand-inject the newer decisions into a prompt"
+        },
+        {
+          "field": "phase_spec.context_pack",
+          "subject": "self.phase",
+          "suggestion": "regenerate or reconcile the spec against the current decisions, then run `specforge gsd record-spec {entity}`; do not hand-inject the newer decisions into a prompt"
+        },
+        {
+          "field": "validation.context_pack",
+          "subject": "self.phase",
+          "suggestion": "regenerate or reconcile the validation against the current decisions, then run `specforge gsd record-validation {entity}`; do not hand-inject the newer decisions into a prompt"
+        }
+      ],
+      "sections": [
+        {
+          "name": "context",
+          "selector": "self<context.phase",
+          "tier": "core"
+        },
+        {
+          "name": "decisions",
+          "selector": "self<decision[origin=context].phase",
+          "tier": "core"
+        },
+        {
+          "name": "deferred",
+          "selector": "self<deferred_idea[origin=discussion].phase",
+          "tier": "core"
+        }
+      ],
+      "stale": "W406",
+      "subject": "phase"
+    },
+    {
+      "budget": 50000,
+      "name": "quick-context",
+      "records": [
+        {
+          "field": "research.context_pack",
+          "subject": "self.plan",
+          "suggestion": "regenerate the research of quick task {subject} (/gsd-quick --research), then run `specforge gsd record-research {entity}`; do not hand-inject the newer decisions into a prompt"
+        }
+      ],
+      "sections": [
+        {
+          "name": "context",
+          "selector": "self<context.plan",
+          "tier": "core"
+        },
+        {
+          "name": "decisions",
+          "selector": "self<decision[origin=context].plan",
+          "tier": "core"
+        }
+      ],
+      "stale": "W406",
+      "subject": "plan"
+    }
+  ]
+}

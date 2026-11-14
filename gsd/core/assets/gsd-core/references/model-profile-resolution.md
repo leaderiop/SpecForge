@@ -10,7 +10,6 @@ No init answer carries a model: an installed agent carries its own, so a spawn n
 agent and omits the `model` parameter. A workflow's parse line names no model key, since
 no answer prints one; the spawn itself states the binding:
 
-
 ```
 Agent(subagent_type="gsd-codebase-mapper", …)   # no model parameter: the installed agent's own
 ```

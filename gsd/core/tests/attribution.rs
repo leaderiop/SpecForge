@@ -82,6 +82,15 @@ fn every_ported_source_is_attributed() {
             )
         )
     }));
+    // the JavaScript regex reader (moved out of the injection hook) and its test oracle
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    all.extend([
+        root.join("src/js_regex.rs"),
+        root.join("src/js_regex/oracle.rs"),
+        root.join("src/commands/edge_probe.rs"),
+    ]);
+    // the probe engine ports probe-core and edge-probe, and its tests their unit suites
+    files(&root.join("src/probe"), &mut all);
     for path in all {
         let text = std::fs::read_to_string(&path).expect("a source");
         let first = text.lines().next().unwrap_or_default();
@@ -121,6 +130,23 @@ fn the_vendored_router_is_the_file_the_port_names() {
             "tests/smart-entry.unit.test.cjs",
             "smart-entry: situation coverage",
         ),
+    ] {
+        let text = std::fs::read_to_string(upstream.join(file)).expect("a vendored file");
+        assert!(text.contains(word), "{file}");
+    }
+}
+
+/// The vendored edge probe, its probe core, the SPEC section reader and their suites are the files the port names.
+#[test]
+fn the_vendored_probe_is_the_file_the_port_names() {
+    let upstream = Path::new(gsd_kit::snapshot!());
+    for (file, word) in [
+        ("src/edge-probe.cts", "SHAPE_CUES"),
+        ("src/probe-core.cts", "validateResolution"),
+        ("src/spec-section.cts", "countSectionDataRows"),
+        ("tests/edge-probe.test.cjs", "edge-probe: classifyShape"),
+        ("tests/probe-core.test.cjs", "probe-core: VALID_STATUS"),
+        ("tests/spec-section.test.cjs", "spec-section"),
     ] {
         let text = std::fs::read_to_string(upstream.join(file)).expect("a vendored file");
         assert!(text.contains(word), "{file}");

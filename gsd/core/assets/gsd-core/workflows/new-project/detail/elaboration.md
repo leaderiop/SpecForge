@@ -61,13 +61,13 @@ What's the standard 2025 stack for [domain]?
 </question>
 
 <required_reading>
-- {project_path} (Project context and goals)
+- specforge context gsd/project-researcher {project} (the researcher pack: the project, its requirements, decisions and milestones)
 </required_reading>
 
 ${AGENT_SKILLS_RESEARCHER}
 
 <downstream_consumer>
-Your STACK.md feeds into roadmap creation. Be prescriptive:
+Your stack choices feed into roadmap creation. Be prescriptive:
 - Specific libraries with versions
 - Clear rationale for each choice
 - What NOT to use and why
@@ -84,8 +84,7 @@ Your STACK.md feeds into roadmap creation. Be prescriptive:
 > **Runtime-aware dispatch (#2508 Phase 4).** GSD workflows dispatch specialized subagents by role. Before dispatching on a built-in-only runtime (kimi-code — three built-ins only), resolve the role to a built-in via the role name as it is installed. On named-dispatch runtimes (Claude/OpenCode/…) the role is returned unchanged; on kimi-code it maps to `coder`/`explore`/`plan` by role-suffix. The persona rides `${AGENT_SKILLS_<ROLE>}` (Phase 3) regardless. See @gsd-core/references/runtime-aware-dispatch.md.
 
 <output>
-Write to: {research_dir}/STACK.md
-Use template: ~/.claude/gsd-core/templates/research-project/STACK.md
+Record: `stack_choice` items of `RESEARCH`, with the fence of ~/.claude/gsd-core/templates/research-project/STACK.md
 </output>
 ", subagent_type="gsd-project-researcher", model="{researcher_model}", description="Stack research")
 
@@ -105,13 +104,13 @@ What features do [domain] products have? What's table stakes vs differentiating?
 </question>
 
 <required_reading>
-- {project_path} (Project context, for the Features researcher)
+- specforge context gsd/project-researcher {project} (the researcher pack: the project, its requirements, decisions and milestones)
 </required_reading>
 
 ${AGENT_SKILLS_RESEARCHER}
 
 <downstream_consumer>
-Your FEATURES.md feeds into requirements definition. Categorize clearly:
+Your feature findings feed into requirements definition. Categorize clearly:
 - Table stakes (must have or users leave)
 - Differentiators (competitive advantage)
 - Anti-features (things to deliberately NOT build)
@@ -124,8 +123,7 @@ Your FEATURES.md feeds into requirements definition. Categorize clearly:
 </quality_gate>
 
 <output>
-Write to: {research_dir}/FEATURES.md
-Use template: ~/.claude/gsd-core/templates/research-project/FEATURES.md
+Record: `finding` items (topic `features`) of `RESEARCH`, with the fence of ~/.claude/gsd-core/templates/research-project/FEATURES.md
 </output>
 ", subagent_type="gsd-project-researcher", model="{researcher_model}", description="Features research")
 
@@ -145,13 +143,13 @@ How are [domain] systems typically structured? What are major components?
 </question>
 
 <required_reading>
-- {project_path} (Project context, for the Architecture researcher)
+- specforge context gsd/project-researcher {project} (the researcher pack: the project, its requirements, decisions and milestones)
 </required_reading>
 
 ${AGENT_SKILLS_RESEARCHER}
 
 <downstream_consumer>
-Your ARCHITECTURE.md informs phase structure in roadmap. Include:
+Your architecture items inform phase structure in roadmap. Include:
 - Component boundaries (what talks to what)
 - Data flow (how information moves)
 - Suggested build order (dependencies between components)
@@ -164,8 +162,7 @@ Your ARCHITECTURE.md informs phase structure in roadmap. Include:
 </quality_gate>
 
 <output>
-Write to: {research_dir}/ARCHITECTURE.md
-Use template: ~/.claude/gsd-core/templates/research-project/ARCHITECTURE.md
+Record: `pattern` and `finding` items (topic `architecture`) of `RESEARCH`, with the fence of ~/.claude/gsd-core/templates/research-project/ARCHITECTURE.md
 </output>
 ", subagent_type="gsd-project-researcher", model="{researcher_model}", description="Architecture research")
 
@@ -185,13 +182,13 @@ What do [domain] projects commonly get wrong? Critical mistakes?
 </question>
 
 <required_reading>
-- {project_path} (Project context, for the Pitfalls researcher)
+- specforge context gsd/project-researcher {project} (the researcher pack: the project, its requirements, decisions and milestones)
 </required_reading>
 
 ${AGENT_SKILLS_RESEARCHER}
 
 <downstream_consumer>
-Your PITFALLS.md prevents mistakes in roadmap/planning. For each pitfall:
+Your pitfalls prevent mistakes in roadmap/planning. For each pitfall:
 - Warning signs (how to detect early)
 - Prevention strategy (how to avoid)
 - Which phase should address it
@@ -204,8 +201,7 @@ Your PITFALLS.md prevents mistakes in roadmap/planning. For each pitfall:
 </quality_gate>
 
 <output>
-Write to: {research_dir}/PITFALLS.md
-Use template: ~/.claude/gsd-core/templates/research-project/PITFALLS.md
+Record: `pitfall` items of `RESEARCH`, with the fence of ~/.claude/gsd-core/templates/research-project/PITFALLS.md
 </output>
 ", subagent_type="gsd-project-researcher", model="{researcher_model}", description="Pitfalls research")
 ```

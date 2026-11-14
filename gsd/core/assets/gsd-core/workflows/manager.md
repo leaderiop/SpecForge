@@ -21,9 +21,6 @@ Bootstrap via manager init:
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
 
 INIT=$(specforge gsd progress-report --format json)
@@ -68,10 +65,6 @@ Proceed to dashboard step.
 **Every time this step is reached**, re-read state from disk to pick up changes from background agents:
 
 ```bash
-
-
-
-
 
 INIT=$(specforge gsd progress-report --format json)
 
@@ -281,7 +274,7 @@ Skill(skill=\"gsd-plan-phase\", args=\"{N} --auto {manager_flags.plan}\")
 
 This delegates to the full plan-phase pipeline including local patches, research, plan-checker, and all quality gates.
 
-Important: You are running in the background. Do NOT use AskUserQuestion — make autonomous decisions based on project context. If you hit a blocker, write it to STATE.md as a blocker and stop. Do NOT silently work around permission or file access errors — let them fail so the manager can surface them with resolution hints. Do NOT use --no-verify on git commits."
+Important: You are running in the background. Do NOT use AskUserQuestion — make autonomous decisions based on project context. If you hit a blocker, record it with `specforge gsd raise-blocker \"<the blocker>\" --phase \"{milestone_version}/{N}\"` and stop. Do NOT silently work around permission or file access errors — let them fail so the manager can surface them with resolution hints. Do NOT use --no-verify on git commits."
 )
 ```
 
@@ -335,7 +328,7 @@ Skill(skill=\"gsd-execute-phase\", args=\"{N} {manager_flags.execute}\")
 
 This delegates to the full execute-phase pipeline including local patches, branching, wave-based execution, verification, and all quality gates.
 
-Important: You are running in the background. Do NOT use AskUserQuestion — make autonomous decisions. Do NOT use --no-verify on git commits — let pre-commit hooks run normally. If you hit a permission error, file lock, or any access issue, do NOT work around it — let it fail and write the error to STATE.md as a blocker so the manager can surface it with resolution guidance."
+Important: You are running in the background. Do NOT use AskUserQuestion — make autonomous decisions. Do NOT use --no-verify on git commits — let pre-commit hooks run normally. If you hit a permission error, file lock, or any access issue, do NOT work around it — let it fail and record the error with `specforge gsd raise-blocker \"<the error>\" --phase \"{milestone_version}/{N}\"` so the manager can surface it with resolution guidance."
 )
 ```
 

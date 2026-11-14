@@ -7,6 +7,7 @@ served specforge.validate => invalid_input argument=specforge_bogus data= | even
 served specforge.analyze => invalid_input argument=specforge_bogus data= | events: mcp_tool_invoked:core
 served specforge.export => invalid_input argument=specforge_bogus data= | events: mcp_tool_invoked:core
 served specforge.trace => invalid_input argument=specforge_bogus data= | events: mcp_tool_invoked:core
+served specforge.context => invalid_input argument=specforge_bogus data= | events: mcp_tool_invoked:core
 served specforge.search => invalid_input argument=specforge_bogus data= | events: mcp_tool_invoked:core
 served specforge.explain => invalid_input argument=specforge_bogus data= | events: mcp_tool_invoked:core
 served specforge.schema => invalid_input argument=specforge_bogus data= | events: mcp_tool_invoked:core
@@ -46,6 +47,7 @@ nothing specforge.validate => precondition_failed argument=path data= | events: 
 nothing specforge.analyze => precondition_failed argument=path data= | events: mcp_tool_invoked:core
 nothing specforge.export => ok | events: mcp_tool_invoked:core
 nothing specforge.trace => invalid_input argument=entity_id data= | events: mcp_tool_invoked:core
+nothing specforge.context => invalid_input argument=route data= | events: mcp_tool_invoked:core
 nothing specforge.search => invalid_input argument=query data= | events: mcp_tool_invoked:core
 nothing specforge.explain => invalid_input argument=code data= | events: mcp_tool_invoked:core
 nothing specforge.schema => ok | events: mcp_tool_invoked:core

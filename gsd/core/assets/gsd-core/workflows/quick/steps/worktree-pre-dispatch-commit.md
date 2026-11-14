@@ -19,8 +19,8 @@ QUICK_PLAN_COMMIT=""
 if [ "${USE_WORKTREES}" != "false" ]; then
   COMMIT_DOCS="{{setting:commit_docs|true}}"   # commit_docs (the settings)
   if [ "$COMMIT_DOCS" != "false" ]; then
-    # pre-dispatch plan commit. SpecForge writes no ${QUICK_DIR}/${quick_id}-PLAN.md,
-    # -CONTEXT.md or -RESEARCH.md file: the plan is the entity `plan ${quick_id}` in
+    # pre-dispatch plan commit. SpecForge writes no plan, context or research
+    # file: the plan is the entity `plan ${quick_id}` in
     # spec/quick.spec, and what --discuss / --research found is entities under spec/
     # as well. So the one path is `spec`, as Step 8 commits it (`git add spec`), and
     # no mode flag adds or drops one.

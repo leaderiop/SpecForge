@@ -184,6 +184,9 @@ vocabulary! {
         /// Only the outcome or a value of a fresh verdict of a judged rule sets it (ADR 0290); a value written by
         /// hand is E082.
         Verdict = "verdict",
+        /// Only the host's record of a context route's pack (ADR 0356) gives it, recorded by a line of
+        /// `specforge-harness` (E083); no digest reads it. A block of exactly `route`, `digest` and `max_tokens`.
+        Context = "context",
         /// A collector gives the whole entity (ADR 0327): a kind's writer only; declared on a field it is W021.
         Collector = "collector",
     }

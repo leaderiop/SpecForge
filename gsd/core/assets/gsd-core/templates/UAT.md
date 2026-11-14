@@ -5,199 +5,96 @@ Template for the `uat_session` entity of phase XX-name — persistent UAT sessio
 
 ---
 
-## File Template
+## The UAT's Typed Edits
 
-```markdown
----
-status: testing | partial | complete | diagnosed
-phase: XX-name
-source: [list of SUMMARY.md files tested]
-started: [ISO timestamp]
-updated: [ISO timestamp]
----
+A phase's UAT is its `uat_session` entity, with one `uat_test` per test and one `uat_gap` per issue a test found. The session's `status` and `totals`, and a gap's `status`, `resolved_by` and `resolved_at`, are computed, never written. A test's `result` is the person's answer: the person records it with `specforge gsd set-uat-result`, and a result a test run produced is recorded with `specforge gsd record-automated-uat`. `specforge schema --kind uat_session` (likewise `uat_test` and `uat_gap`) lists the fields. Fill the values: free text in its quoted heredoc, as written, and an id, enum or path in its assignment. A refusal names its code: read it with `specforge explain <code>`.
 
-## Current Test
-<!-- OVERWRITE each test - shows where we are -->
+Create the session; its `source` is every summary of the phase:
 
-number: [N]
-name: [test name]
-expected: |
-  [what user should observe]
-awaiting: user response
-
-## Tests
-
-### 1. [Test Name]
-expected: [observable behavior - what user should see]
-result: [pending]
-
-### 2. [Test Name]
-expected: [observable behavior]
-result: pass
-
-### 3. [Test Name]
-expected: [observable behavior]
-result: issue
-reported: "[verbatim user response]"
-severity: major
-
-### 4. [Test Name]
-expected: [observable behavior]
-result: skipped
-reason: [why skipped]
-
-### 5. [Test Name]
-expected: [observable behavior]
-result: blocked
-blocked_by: server | physical-device | release-build | third-party | prior-phase
-reason: [why blocked]
-
-...
-
-## Summary
-
-total: [N]
-passed: [N]
-issues: [N]
-pending: [N]
-skipped: [N]
-blocked: [N]
-
-## Gaps
-
-<!-- YAML format for plan-phase --gaps consumption -->
-- truth: "[expected behavior from test]"
-  status: failed | resolved
-  reason: "User reported: [verbatim response]"
-  severity: blocker | major | minor | cosmetic
-  test: [N]
-  root_cause: ""     # Filled by diagnosis
-  artifacts: []      # Filled by diagnosis
-  missing: []        # Filled by diagnosis
-  debug_session: ""  # Filled by diagnosis
-  resolved_by: ""    # Written by verify-work's reconcile_gaps (#1921) when
-                      # an executed gap-closure plan resolves this gap —
-                      # never author this directly. Plan basename.
-  resolved_at: ""     # Written alongside resolved_by (#1921).
+```bash
+PHASE_ID="{the phase's id, e.g. v1.0/01}"
+SESSION="${PHASE_ID##*/}-UAT"
+PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
+[ -n "$PHASE_FILE" ] || { echo "no phase $PHASE_ID in the graph" >&2; exit 1; }
+SUMMARIES=$(specforge query "$PHASE_ID" --depth 2 --kinds summary --pick '.nodes[kind=summary].id') || exit 1
+[ -n "$SUMMARIES" ] || { echo "$PHASE_ID has no summary to test" >&2; exit 1; }
+SOURCES=()
+while IFS= read -r SUMMARY; do SOURCES+=(--source "$SUMMARY"); done <<<"$SUMMARIES"
+specforge new uat_session "$SESSION" "Phase ${PHASE_ID##*/} acceptance" --in "$PHASE_FILE" --phase "$PHASE_ID" "${SOURCES[@]}" || exit 1
+echo "UAT_SESSION=$PHASE_ID/$SESSION"
 ```
+
+Add a test to the session, once per test:
+
+```bash
+UAT_SESSION="{the session's id, e.g. v1.0/01/01-UAT}"
+TEST_ID="{U and the test's number, e.g. U1}"
+IFS= read -rd '' NAME <<'TEXT' || true; NAME=${NAME%$'\n'}
+{the test's name}
+TEXT
+IFS= read -rd '' EXPECTED <<'TEXT' || true; EXPECTED=${EXPECTED%$'\n'}
+{what the person should observe}
+TEXT
+SESSION_FILE=$(specforge query "$UAT_SESSION" --depth 0 --pick '.nodes[0].file') || exit 1
+[ -n "$SESSION_FILE" ] || { echo "no UAT session $UAT_SESSION in the graph" >&2; exit 1; }
+specforge new uat_test "$TEST_ID" "$NAME" --in "$SESSION_FILE" --session "$UAT_SESSION" --expected "$EXPECTED" || exit 1
+```
+
+Record a gap when a test's answer is an issue:
+
+```bash
+TEST="{the test's id, e.g. v1.0/01/01-UAT/U2}"
+GAP_ID="{G and the gap's number, e.g. G1}"
+SEVERITY="{blocker, major, minor or cosmetic}"
+IFS= read -rd '' TRUTH <<'TEXT' || true; TRUTH=${TRUTH%$'\n'}
+{the expected behaviour the test found missing}
+TEXT
+IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
+User reported: {the person's words, verbatim}
+TEXT
+TEST_FILE=$(specforge query "$TEST" --depth 0 --pick '.nodes[0].file') || exit 1
+[ -n "$TEST_FILE" ] || { echo "no UAT test $TEST in the graph" >&2; exit 1; }
+specforge new uat_gap "$GAP_ID" "$TRUTH" --in "$TEST_FILE" --test "$TEST" --truth "$TRUTH" --reason "$REASON" --severity "$SEVERITY" || exit 1
+```
+
+Record a gap's diagnosis (one `missing` item per line):
+
+```bash
+GAP="{the gap's id, e.g. v1.0/01/01-UAT/U2/G1}"
+IFS= read -rd '' ROOT_CAUSE <<'TEXT' || true; ROOT_CAUSE=${ROOT_CAUSE%$'\n'}
+{the root cause the diagnosis found}
+TEXT
+IFS= read -rd '' ARTIFACTS <<'TEXT' || true; ARTIFACTS=${ARTIFACTS%$'\n'}
+[{"path": "{a file the cause sits in, ROOT-relative}", "issue": "{what is wrong there}"}]
+TEXT
+IFS= read -rd '' MISSING <<'TEXT' || true; MISSING=${MISSING%$'\n'}
+{what the fix must add or change}
+TEXT
+IFS=$'\n' read -rd '' -a MISSING_ITEMS <<<"$MISSING" || true
+specforge set "$GAP" root_cause "$ROOT_CAUSE" || exit 1
+specforge set "$GAP" artifacts "$ARTIFACTS" || exit 1
+specforge set "$GAP" missing "${MISSING_ITEMS[@]}" || exit 1
+```
+
+`specforge query <phase> --depth 3 --kinds uat_session,uat_test,uat_gap --format context` reads the session back. The rules below say what a test's result carries, when a gap is recorded and how severity is inferred.
 
 ---
 
 <section_rules>
 
-**Frontmatter:**
-- `status`: OVERWRITE - "testing", "partial", or "complete"
-- `phase`: IMMUTABLE - set on creation
-- `source`: IMMUTABLE - SUMMARY files being tested
-- `started`: IMMUTABLE - set on creation
-- `updated`: OVERWRITE - update on every change
-
-**Current Test:**
-- OVERWRITE entirely on each test transition
-- Shows which test is active and what's awaited
-- On completion: "[testing complete]"
-
 **Tests:**
-- Each test: OVERWRITE result field when user responds
 - `result` values: [pending], pass, issue, skipped, blocked
 - If issue: add `reported` (verbatim) and `severity` (inferred)
 - If skipped: add `reason` if provided
 - If blocked: add `blocked_by` (tag) and `reason` (if provided)
 
-**Summary:**
-- OVERWRITE counts after each response
-- Tracks: total, passed, issues, pending, skipped
-
 **Gaps:**
-- APPEND only when issue found (YAML format)
-- After diagnosis: fill `root_cause`, `artifacts`, `missing`, `debug_session`
-- This section feeds directly into /gsd:plan-phase --gaps
-- `status: resolved` (#1921, #4983): when `/gsd:verify-work`'s `reconcile_gaps`
-  step finds an executed gap-closure plan (a `*-PLAN.md` naming this entry's
-  `gap_id` with a matching `*-SUMMARY.md`), it updates the entry IN PLACE —
-  `status: failed` → `status: resolved` — and adds `resolved_by` (the
-  resolving plan's basename) and `resolved_at` (the date). A resolved entry
-  is no longer surfaced as an open gap, and its matching `### N.` test's
-  `result: issue` no longer blocks `phase uat-passed` — but only when
-  `resolved_by` names a plan that actually exists in the phase directory with
-  a matching SUMMARY; a hand-written `status: resolved` with no valid
-  `resolved_by` still blocks (src/uat-predicate.cts's `isTestGapResolved`).
-  A later regression against the same test gets a fresh `gap_id`, never a
-  reopened resolved one.
+- A `uat_gap` is recorded only when a test's answer is an issue.
+- After diagnosis: set `root_cause`, `artifacts` and `missing`.
+- The gaps feed directly into /gsd:plan-phase --gaps.
+- A gap's `status` is computed: it is resolved once a plan whose `gap_closure` names it completes, and `resolved_by` and `resolved_at` name that plan and its summary's completion. A later regression against the same test is a new `uat_gap`, never a resolved one reopened.
 
 </section_rules>
-
-<diagnosis_lifecycle>
-
-**After testing complete (status: complete), if gaps exist:**
-
-1. User runs diagnosis (from verify-work offer or manually)
-2. diagnose-issues workflow spawns parallel debug agents
-3. Each agent investigates one gap, returns root cause
-4. UAT.md Gaps section updated with diagnosis:
-   - Each gap gets `root_cause`, `artifacts`, `missing`, `debug_session` filled
-5. status → "diagnosed"
-6. Ready for /gsd:plan-phase --gaps with root causes
-
-**After diagnosis:**
-```yaml
-## Gaps
-
-- truth: "Comment appears immediately after submission"
-  status: failed
-  reason: "User reported: works but doesn't show until I refresh the page"
-  severity: major
-  test: 2
-  root_cause: "useEffect in CommentList.tsx missing commentCount dependency"
-  artifacts:
-    - path: "src/components/CommentList.tsx"
-      issue: "useEffect missing dependency"
-  missing:
-    - "Add commentCount to useEffect dependency array"
-  debug_session: "the spec"
-```
-
-</diagnosis_lifecycle>
-
-<lifecycle>
-
-**Creation:** When /gsd:verify-work starts new session
-- Extract tests from SUMMARY.md files
-- Set status to "testing"
-- Current Test points to test 1
-- All tests have result: [pending]
-
-**During testing:**
-- Present test from Current Test section
-- User responds with pass confirmation or issue description
-- Update test result (pass/issue/skipped)
-- Update Summary counts
-- If issue: append to Gaps section (YAML format), infer severity
-- Move Current Test to next pending test
-
-**On completion:**
-- status → "complete"
-- Current Test → "[testing complete]"
-- Commit file
-- Present summary with next steps
-
-**Partial completion:**
-- status → "partial" (if pending, blocked, or unresolved skipped tests remain)
-- Current Test → "[testing paused — {N} items outstanding]"
-- Commit file
-- Present summary with outstanding items highlighted
-
-**Resuming partial session:**
-- `/gsd:verify-work {phase}` picks up from first pending/blocked test
-- When all items resolved, status advances to "complete"
-
-**Resume after /clear:**
-1. Read frontmatter → know phase and status
-2. Read Current Test → know where we are
-3. Find first [pending] result → continue from there
-4. Summary shows progress so far
-
-</lifecycle>
 
 <severity_guide>
 
@@ -213,70 +110,3 @@ Severity is INFERRED from user's natural language, never asked.
 Default: **major** (safe default, user can clarify if wrong)
 
 </severity_guide>
-
-<good_example>
-```markdown
----
-status: diagnosed
-phase: 04-comments
-source: 04-01-SUMMARY.md, 04-02-SUMMARY.md
-started: 2025-01-15T10:30:00Z
-updated: 2025-01-15T10:45:00Z
----
-
-## Current Test
-
-[testing complete]
-
-## Tests
-
-### 1. View Comments on Post
-expected: Comments section expands, shows count and comment list
-result: pass
-
-### 2. Create Top-Level Comment
-expected: Submit comment via rich text editor, appears in list with author info
-result: issue
-reported: "works but doesn't show until I refresh the page"
-severity: major
-
-### 3. Reply to a Comment
-expected: Click Reply, inline composer appears, submit shows nested reply
-result: pass
-
-### 4. Visual Nesting
-expected: 3+ level thread shows indentation, left borders, caps at reasonable depth
-result: pass
-
-### 5. Delete Own Comment
-expected: Click delete on own comment, removed or shows [deleted] if has replies
-result: pass
-
-### 6. Comment Count
-expected: Post shows accurate count, increments when adding comment
-result: pass
-
-## Summary
-
-total: 6
-passed: 5
-issues: 1
-pending: 0
-skipped: 0
-
-## Gaps
-
-- truth: "Comment appears immediately after submission in list"
-  status: failed
-  reason: "User reported: works but doesn't show until I refresh the page"
-  severity: major
-  test: 2
-  root_cause: "useEffect in CommentList.tsx missing commentCount dependency"
-  artifacts:
-    - path: "src/components/CommentList.tsx"
-      issue: "useEffect missing dependency"
-  missing:
-    - "Add commentCount to useEffect dependency array"
-  debug_session: "the spec"
-```
-</good_example>

@@ -71,6 +71,18 @@ fn a_backstop_or_unreported_truth_is_never_contradicted() {
     assert!(e502(&input("explicit", &[], None)).is_empty());
 }
 
+/// A lifted backstop edge carries only `proposed_verification`: with no `verification` it is never contradicted,
+/// exactly as an untiered truth.
+#[test]
+fn a_proposed_backstop_is_never_contradicted() {
+    let failing = report(&[("linked", TestStatus::Failed)], &[]);
+    let mut proposed = input("explicit", &[], Some(failing));
+    let fields = &mut proposed.entities[0].fields;
+    fields.remove("verification");
+    fields.insert("proposed_verification".into(), "backstop".into());
+    assert!(e502(&proposed).is_empty());
+}
+
 #[test]
 fn a_report_with_no_result_is_no_run_for_e502() {
     // What `collect --runner gsd-git` leaves: no test fact.

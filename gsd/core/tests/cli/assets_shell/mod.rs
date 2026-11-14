@@ -4,19 +4,34 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use serde_json::{Value, json};
+
+use crate::harness::Project;
+
 mod answers;
 mod batch;
 mod commits;
 mod counts;
+mod discuss;
+mod execute_edits;
 mod gates;
+mod milestone_edits;
+mod new_milestone;
 mod new_project;
 mod pick;
+mod plan_edits;
+mod probe;
 mod relics;
+mod researchers;
 mod review;
+mod roadmap;
 mod scripts;
 mod search;
 mod shapes;
+mod spec;
 mod stall;
+mod typed;
+mod verify_edits;
 
 /// The tools the `--pick` lines call besides `specforge`: no jq.
 const PICK_TOOLS: &[&str] = &[
@@ -87,7 +102,7 @@ impl Shell {
 }
 
 /// The asset `path` (under `assets/`) as text.
-fn asset(path: &str) -> String {
+pub(super) fn asset(path: &str) -> String {
     std::fs::read_to_string(format!("{}/assets/{path}", env!("CARGO_MANIFEST_DIR")))
         .unwrap_or_else(|e| panic!("{path}: {e}"))
 }
@@ -100,20 +115,33 @@ fn line<'a>(text: &'a str, start: &str) -> &'a str {
         .unwrap_or_else(|| panic!("no line starts with {start}"))
 }
 
-/// The first shell fence of `text` after the first line holding `mark`.
+/// The code of the first bash fence of `text` that opens after the first line holding `mark`, as gsd-kit's Markdown
+/// reader reads it (an indented fence loses its indentation).
 fn fence_after(text: &str, mark: &str) -> String {
-    let after = text
-        .split_once(mark)
-        .unwrap_or_else(|| panic!("no {mark}"))
-        .1;
-    let body = after
-        .split_once("```bash\n")
-        .unwrap_or_else(|| panic!("no fence after {mark}"))
-        .1;
-    body.split_once("\n```")
-        .unwrap_or_else(|| panic!("the fence after {mark} ends"))
-        .0
-        .to_string()
+    let at = text
+        .lines()
+        .position(|l| l.contains(mark))
+        .unwrap_or_else(|| panic!("no {mark}"));
+    let fence = gsd_kit::markdown::fences(text)
+        .into_iter()
+        .find(|f| f.language == "bash" && f.open > at)
+        .unwrap_or_else(|| panic!("no fence after {mark}"));
+    code(&fence.text).to_string()
+}
+
+/// The code of the last fence of `text` holding `mark`, from the last `mark` to the fence's end.
+fn fence_from(text: &str, mark: &str) -> String {
+    let fence = gsd_kit::markdown::fences(text)
+        .into_iter()
+        .rfind(|f| f.text.contains(mark))
+        .unwrap_or_else(|| panic!("no fence holds {mark}"));
+    let at = fence.text.rfind(mark).expect("the fence holds it");
+    code(&fence.text[at..]).to_string()
+}
+
+/// A fence's code without the line break that ends its last line.
+pub(super) fn code(text: &str) -> &str {
+    text.strip_suffix('\n').unwrap_or(text)
 }
 
 /// Single-quotes `s` for bash.
@@ -123,7 +151,7 @@ fn q(s: &str) -> String {
 
 /// The lines of `text` from the first that starts (after its indent) with `start` through the first that contains
 /// `end`.
-fn block(text: &str, start: &str, end: &str) -> String {
+pub(super) fn block(text: &str, start: &str, end: &str) -> String {
     let lines: Vec<&str> = text.lines().collect();
     let a = lines
         .iter()
@@ -134,4 +162,33 @@ fn block(text: &str, start: &str, end: &str) -> String {
         .position(|l| l.contains(end))
         .unwrap_or_else(|| panic!("no line after {start} contains {end}"));
     lines[a..=b].join("\n")
+}
+
+/// The code span of `text` that starts with `prefix`, read as text: a span inside a Markdown fence counts too.
+pub(super) fn span(text: &str, prefix: &str) -> String {
+    let at = text
+        .find(&format!("`{prefix}"))
+        .unwrap_or_else(|| panic!("no code span starts with {prefix}"))
+        + 1;
+    let end = text[at..].find('`').expect("the span's closing backtick");
+    text[at..at + end].to_string()
+}
+
+/// Sends `edits` to `specforge mcp .` in `p` as one `specforge.edit` call: the call's result.
+pub(super) fn mcp_edit(p: &Project, edits: &Value) -> Value {
+    let messages = [
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+            "protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test", "version": "0"}}}),
+        json!({"jsonrpc": "2.0", "method": "notifications/initialized"}),
+        json!({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {
+            "name": "specforge.edit", "arguments": {"edits": edits}}}),
+    ];
+    let input: String = messages.iter().map(|m| format!("{m}\n")).collect();
+    let run = p.run_stdin(&["mcp", "."], &input);
+    run.stdout
+        .lines()
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+        .find(|m| m["id"] == 2)
+        .unwrap_or_else(|| panic!("no answer to the call: {}", run.all()))["result"]
+        .clone()
 }

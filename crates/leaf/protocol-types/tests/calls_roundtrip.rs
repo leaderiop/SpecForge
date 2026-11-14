@@ -496,3 +496,23 @@ fn a_pass_entity_carries_its_dangling_references_and_omits_them_when_absent() {
     let plain = serde_json::to_value(PassEntity::default()).unwrap();
     assert!(plain.get("dangling").is_none(), "{plain}");
 }
+
+#[specforge_test_macros::test(
+    behavior = "record_context_pack",
+    verify = "a record_context op round trips, its budget optional"
+)]
+fn a_record_context_op_round_trips() {
+    use specforge_protocol_types::{EditPlan, PlanOp};
+    let plan: EditPlan = round_trips(&json!({"ops": [
+        {"op": "record_context", "entity": "02-01", "route": "gsd/executor", "max_tokens": 4000},
+        {"op": "record_context", "entity": "02-01", "route": "gsd/executor"},
+    ]}));
+    assert_eq!(
+        plan.ops[1],
+        PlanOp::RecordContext {
+            entity: "02-01".into(),
+            route: "gsd/executor".into(),
+            max_tokens: None,
+        }
+    );
+}

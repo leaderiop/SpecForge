@@ -13,9 +13,9 @@ Extract implementation decisions that downstream agents need — researcher and 
 3. Analyze phase — skip gray areas already decided in prior phases
 4. Present remaining gray areas — user selects which to discuss
 5. Deep-dive each selected area until satisfied
-6. Create CONTEXT.md with decisions that guide research and planning
+6. Record the phase context: decisions that guide research and planning
 
-**Output:** `{phase_num}-CONTEXT.md` — decisions clear enough that downstream agents can act without asking the user again
+**Output:** the phase context (`context`, `decision` and `deferred_idea` entities), its decisions clear enough that downstream agents act without asking the user again
 </objective>
 
 <execution_context>

@@ -21,32 +21,18 @@ fn is_marker(line: &str) -> bool {
             && t.matches("-->").count() == 1)
 }
 
-/// `text` without its marker lines (a line and its terminator). A marker inside a code fence or another HTML comment
-/// is text, not structure.
+/// `text` without its marker lines (a line and its terminator): a marker line on which an HTML block starts, as the
+/// gsd family's Markdown reader reads it. A marker in a fence is code, and one inside a comment is text.
 fn strip_markers(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut fence: Option<String> = None;
-    let mut comment = false;
-    for line in text.split_inclusive('\n') {
-        let t = line.trim_start();
-        if let Some(open) = &fence {
-            if t.starts_with(open.as_str()) && t.trim_end().chars().all(|c| c == '`' || c == '~') {
-                fence = None;
-            }
-        } else if comment {
-            comment = !line.contains("-->");
-        } else if is_marker(line) {
-            continue;
-        } else if t.starts_with("```") || t.starts_with("~~~") {
-            let ch = &t[..1];
-            let run = t.chars().take_while(|c| c.to_string() == ch).count();
-            fence = Some(ch.repeat(run));
-        } else if t.starts_with("<!--") && !line.contains("-->") {
-            comment = true;
-        }
-        out.push_str(line);
-    }
-    out
+    let starts: Vec<usize> = crate::markdown::html_blocks(text)
+        .into_iter()
+        .map(|block| block.start)
+        .collect();
+    text.split_inclusive('\n')
+        .enumerate()
+        .filter(|(l, line)| !(is_marker(line) && starts.contains(l)))
+        .map(|(_, line)| line)
+        .collect()
 }
 
 #[cfg(test)]
@@ -64,6 +50,15 @@ mod tests {
     fn a_marker_in_a_fence_or_a_comment_is_text() {
         let text = "```\n<!-- /gsd:section -->\n```\n<!--\n<!-- /gsd:section -->\n-->\n";
         assert_eq!(strip_markers(text), text);
+    }
+
+    #[test]
+    fn a_marker_under_a_section_tag_goes() {
+        let text = "<step name=\"x\">\n<!-- gsd:section id=\"a\" when=\"flag:--w\" -->\nbody\n```\n<!-- /gsd:section -->\n```\n<!-- /gsd:section -->\n</step>\n";
+        assert_eq!(
+            strip_markers(text),
+            "<step name=\"x\">\nbody\n```\n<!-- /gsd:section -->\n```\n</step>\n"
+        );
     }
 
     #[test]

@@ -44,6 +44,7 @@ behavior declare_trace_route "Declare a Trace Route" {
   verify unit "a route that cannot be followed is E118 and is not registered"
   verify unit "a route step of an optional peer the project does not load is skipped, not reported"
   verify unit "several routes from one kind without one default are W195, and the first in load order is followed"
+  verify unit "a trace route step with a kind filter follows only the entities whose field holds one of the values"
 }
 
 behavior follow_trace_route "Follow a Trace Route" {
@@ -65,6 +66,27 @@ behavior follow_trace_route "Follow a Trace Route" {
   verify unit "a named route, the reach, and every entity are traced as asked, and a wrong route is refused"
   verify unit "a step skipped for an unloaded optional peer is an I210 notice"
   verify unit "a route step reaches collector-written facts through a scheme reference, and an unheld one is no match"
+}
+
+behavior trace_within_entity "Trace Within an Entity" {
+  invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
+  category   query
+  contract   """
+    A trace within an entity (ADR 0355) MUST trace every entity within it: the entity, every entity its scope holds
+    at any depth, and every entity one reference away from one of those, either way, each once, in id order, as a
+    trace of every entity traces each. A named route MUST keep the entities of its start kind; the declared route and
+    the reach keep all. The answer is the document of a trace of every entity. An entity the graph lacks is not found
+    about in. An entity, in and a plan are three exclusive targets: in beside an entity or a plan is invalid input
+    about in.
+  """
+  verify unit "in beside an entity or a plan is refused about in"
+  verify unit "a trace within a milestone traces the requirements its phases name, and none of another milestone"
+  verify unit "a trace within an entity with no route traces it, its scope's entities and those one reference away"
+  verify unit "a trace within an entity the graph lacks is not found about in"
+  verify unit "the trace tool's in answers the traces of every entity within the entity"
+  verify unit "specforge trace --in prints the thread of each route start within the entity"
+  verify integration "specforge trace --in and specforge.trace's in answer the same document"
+  verify integration "specforge trace and specforge.trace both refuse an entity with in"
 }
 
 behavior render_trace_thread "Render a Trace Thread" {

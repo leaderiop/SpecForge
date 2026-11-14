@@ -56,20 +56,14 @@ fn quick_creates_a_quick_plan() {
         "specforge set \"$quick_id\" objective",
         "specforge set \"$quick_id\" files_modified",
         "specforge new truth",
+        "specforge new artifact",
     ] {
         let args = command(&text, prefix, &id, &fill);
         let made = run(&p, &args);
         assert_eq!(made.code, 0, "{args:?}: {}", made.all());
     }
     assert_eq!(p.fields_of(&id)["slug"], "trim-titles");
-    // The artifact goes through `specforge.edit`; the file is what that tool writes.
-    let quick = p.read("spec/quick.spec");
-    p.write(
-        "spec/quick.spec",
-        &format!(
-            "{quick}\nartifact AR1 \"Task store\" {{\n  plan     {id}\n  path     \"src/tasks.js\"\n  provides \"add() that trims\"\n}}\n"
-        ),
-    );
+    assert_eq!(p.fields_of(&format!("{id}/AR1"))["path"], "src/tasks.js");
     let codes = p.codes();
     for code in ["W323", "E302", "E401"] {
         assert!(!codes.contains(&code.to_string()), "{code}: {codes:?}");
@@ -352,10 +346,15 @@ fn the_quick_id_is_made_once_and_the_branch_template_is_expanded() {
     let (said, err, _) = sh.run_in(
         p.root(),
         &format!(
-            "DESCRIPTION='Trim titles'\n{line}\nprintf '%s|%s|%s|%s|%s\\n' \"$quick_id\" \"$slug\" \"$branch_name\" \"$date\" \"$task_dir\""
+            "DESCRIPTION='Trim titles'\n{line}\nprintf '%s\\t%s\\t%s\\t%s\\t%s\\n' \"$quick_id\" \"$slug\" \"$branch_name\" \"$date\" \"$task_dir\""
         ),
     );
-    let cells: Vec<&str> = said.lines().last().unwrap_or_default().split('|').collect();
+    let cells: Vec<&str> = said
+        .lines()
+        .last()
+        .unwrap_or_default()
+        .split('\t')
+        .collect();
     let [id, slug, branch, date, task_dir] = cells[..] else {
         panic!("{said}: {err}");
     };
@@ -458,13 +457,10 @@ mod worktree {
             &["gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md"],
         );
         assert_eq!(served.code, 0, "{}", served.all());
-        served
-            .stdout
-            .split("```bash\n")
-            .nth(1)
-            .and_then(|b| b.split("\n```").next())
+        crate::rendered_lines::bash_fences(&served.stdout)
+            .into_iter()
+            .next()
             .expect("the pre-dispatch block")
-            .to_string()
     }
 
     /// Runs the pre-dispatch block in `p` and answers `(QUICK_PLAN_COMMIT, QUICK_PLAN_PARENT)`.

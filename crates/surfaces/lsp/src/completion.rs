@@ -44,8 +44,14 @@ pub fn items(
             fields
                 .into_iter()
                 .filter(|field| starts_with(&field.declared().name, prefix))
-                // A computed field is given by its pass, never written (ADR 0287).
-                .filter(|field| field.writer() != Some(FieldWriter::Computed))
+                // A computed field is given by its pass and a context record by the host, never written (ADR 0287,
+                // ADR 0356).
+                .filter(|field| {
+                    !matches!(
+                        field.writer(),
+                        Some(FieldWriter::Computed | FieldWriter::Context)
+                    )
+                })
                 .filter(|field| !written.contains(&field.declared().name.as_str()))
                 .map(|field| {
                     let name = &field.declared().name;

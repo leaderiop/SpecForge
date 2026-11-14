@@ -1,204 +1,82 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/templates/project.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
-# PROJECT.md Template
+# Project Template
 
-Template for the `project` entity — the living project context document.
-
-<template>
-
-```markdown
-# [Project Name]
-
-## What This Is
-
-[Current accurate description — 2-3 sentences. What does this product do and who is it for?
-Use the user's language and framing. Update whenever reality drifts from this description.]
-
-## Core Value
-
-[The ONE thing that matters most. If everything else fails, this must work.
-One sentence that drives prioritization when tradeoffs arise.]
-
-## Business Context
-
-<!-- OPTIONAL — only for monetized or customer-facing projects. Delete this section otherwise. -->
-
-- **Customer**: [Who pays / who uses — one line]
-- **Revenue model**: [How it makes money — one line]
-- **Success metric**: [The number that matters — one line]
-- **Strategy notes**: [Link to external strategy doc, if any]
-
-## Requirements
-
-### Validated
-
-<!-- Shipped and confirmed valuable. -->
-
-(None yet — ship to validate)
-
-### Active
-
-<!-- Current scope. Building toward these. -->
-
-- [ ] [Requirement 1]
-- [ ] [Requirement 2]
-- [ ] [Requirement 3]
-
-### Out of Scope
-
-<!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
-
-- [Exclusion 1] — [why]
-- [Exclusion 2] — [why]
-
-## Context
-
-[Background information that informs implementation:
-- Technical environment or ecosystem
-- Relevant prior work or experience
-- User research or feedback themes
-- Known issues to address]
-
-## Constraints
-
-- **[Type]**: [What] — [Why]
-- **[Type]**: [What] — [Why]
-
-Common types: Tech stack, Timeline, Budget, Dependencies, Compatibility, Performance, Security
-
-## Key Decisions
-
-<!-- Decisions that constrain future work. Add throughout project lifecycle. -->
-
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| [Choice] | [Why] | [✓ Good / ⚠️ Revisit / — Pending] |
+Template for the `project` entity: the living project context, with its key decisions.
 
 ---
-*Last updated: [date] after [trigger]*
+
+## The Project's Typed Edits
+
+A project is entities in `spec/project.spec`: one `project` and one `decision` (origin `project`) per key decision,
+written with `specforge new` and tied to the project with `specforge link`; nothing writes a project by hand.
+`specforge schema --kind project` (likewise `decision`) lists the fields, and `specforge new project --help` prints them
+as flags. `constraints` and `out_of_scope` are JSON lists. Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment; leave out a flag you have no value
+for, and repeat the `new decision` and `link` lines per decision with the next id (`D-02`). A project that already exists
+takes `specforge set` / `specforge link` on its fields instead of `new`. A refusal names its code: read it with
+`specforge explain <code>`.
+
+```bash
+SLUG="{the project's id: its name in kebab-case}"
+IFS= read -rd '' NAME <<'TEXT' || true; NAME=${NAME%$'\n'}
+{the project's name}
+TEXT
+IFS= read -rd '' WHAT <<'TEXT' || true; WHAT=${WHAT%$'\n'}
+{what this is: 2-3 sentences on what it does and who it is for, in the user's words}
+TEXT
+IFS= read -rd '' CORE_VALUE <<'TEXT' || true; CORE_VALUE=${CORE_VALUE%$'\n'}
+{the one thing that must work if everything else fails}
+TEXT
+IFS= read -rd '' CONTEXT <<'TEXT' || true; CONTEXT=${CONTEXT%$'\n'}
+{background that informs implementation: environment, prior work, user feedback, known issues}
+TEXT
+IFS= read -rd '' CONSTRAINTS <<'TEXT' || true; CONSTRAINTS=${CONSTRAINTS%$'\n'}
+[{"kind": "{tech_stack, timeline, budget, dependencies, compatibility, performance or security}", "what": "{the limit}", "why": "{why it holds}"}]
+TEXT
+IFS= read -rd '' OUT_OF_SCOPE <<'TEXT' || true; OUT_OF_SCOPE=${OUT_OF_SCOPE%$'\n'}
+[{"item": "{what is not built}", "why": "{why it is excluded}"}]
+TEXT
+DECISION_ID="{D-NN: D-01 for a new project, else the next free decision id}"
+IFS= read -rd '' DECISION <<'TEXT' || true; DECISION=${DECISION%$'\n'}
+{a choice made during questioning}
+TEXT
+IFS= read -rd '' RATIONALE <<'TEXT' || true; RATIONALE=${RATIONALE%$'\n'}
+{why it was chosen}
+TEXT
+specforge new project "$SLUG" "$NAME" --in spec/project.spec --name "$NAME" --what "$WHAT" --core_value "$CORE_VALUE" --context "$CONTEXT" --constraints "$CONSTRAINTS" --out_of_scope "$OUT_OF_SCOPE" || exit 1
+specforge new decision "$DECISION_ID" "$DECISION" --in spec/project.spec --origin project --text "$DECISION" --rationale "$RATIONALE" --outcome pending || exit 1
+specforge link "$SLUG" key_decisions "$DECISION_ID" || exit 1
 ```
 
-</template>
+The project's requirements are `requirement` entities (`templates/requirements.md`), not fields of the project: their
+status (active, validated) is computed from the phases and verifications that cover them. `specforge export --kinds
+project,decision --format context` reads the project and its decisions back.
 
-<guidelines>
+**What goes where:**
 
-**What This Is:**
-- Current accurate description of the product
-- 2-3 sentences capturing what it does and who it's for
-- Use the user's words and framing
-- Update when the product evolves beyond this description
+- `what`: the current, accurate description of the product, 2-3 sentences on what it does and who it is for. Use the
+  user's words and framing; update it when the product evolves beyond it.
+- `core_value`: the single most important thing. Everything else can fail; this cannot. It drives prioritization when
+  tradeoffs arise and rarely changes: when it does, it is a significant pivot.
+- `customer`, `revenue_model`, `success_metric`: optional, only for monetized or customer-facing projects, one line
+  each (`--customer`, `--revenue_model`, `--success_metric`). A constraint reference, not a business plan; they inform
+  requirement prioritization (features serving the customer or revenue model come first). Leave them out for internal
+  tools, experiments or meta workspaces.
+- `context`: background that informs implementation decisions: technical environment, prior work, user feedback, known
+  issues or technical debt. Update it as new context emerges.
+- `constraints`: hard limits on implementation choices, each with its `kind`, `what` and `why`. Include the why:
+  constraints without rationale get questioned.
+- `out_of_scope`: explicit boundaries on what is not built, each with its reason (it prevents re-adding later):
+  considered and rejected, deferred, or explicitly excluded.
+- `decision`: one per significant choice that affects future work, added as it is made throughout the project. Its
+  `outcome` tracks what became of it: `good` (proved correct), `revisit` (may need reconsideration) or `pending` (too
+  early to evaluate).
 
-**Core Value:**
-- The single most important thing
-- Everything else can fail; this cannot
-- Drives prioritization when tradeoffs arise
-- Rarely changes; if it does, it's a significant pivot
+**Evolution.** The project changes at phase transitions and milestone boundaries, through typed edits on its fields
+(`workflows/transition.md`, `workflows/complete-milestone.md`): after a phase, log new decisions and check `what` still
+holds; after a milestone, review every field, check the core value is still the right priority, audit `out_of_scope`'s
+reasons and update `context` with the current state.
 
-**Business Context:**
-- Optional — only for monetized or customer-facing projects
-- Delete the entire section for internal tools, experiments, or meta workspaces
-- 4 fields max, one line each — a constraint reference, not a business plan
-- Use **Strategy notes** to link out to a dedicated strategy doc rather than duplicating it here
-- Informs requirement prioritization: features serving the customer/revenue model come first
-
-**Requirements — Validated:**
-- Requirements that shipped and proved valuable
-- Format: `- ✓ [Requirement] — [version/phase]`
-- These are locked — changing them requires explicit discussion
-
-**Requirements — Active:**
-- Current scope being built toward
-- These are hypotheses until shipped and validated
-- Move to Validated when shipped, Out of Scope if invalidated
-
-**Requirements — Out of Scope:**
-- Explicit boundaries on what we're not building
-- Always include reasoning (prevents re-adding later)
-- Includes: considered and rejected, deferred to future, explicitly excluded
-
-**Context:**
-- Background that informs implementation decisions
-- Technical environment, prior work, user feedback
-- Known issues or technical debt to address
-- Update as new context emerges
-
-**Constraints:**
-- Hard limits on implementation choices
-- Tech stack, timeline, budget, compatibility, dependencies
-- Include the "why" — constraints without rationale get questioned
-
-**Key Decisions:**
-- Significant choices that affect future work
-- Add decisions as they're made throughout the project
-- Track outcome when known:
-  - ✓ Good — decision proved correct
-  - ⚠️ Revisit — decision may need reconsideration
-  - — Pending — too early to evaluate
-
-**Last Updated:**
-- Always note when and why the document was updated
-- Format: `after Phase 2` or `after v1.0 milestone`
-- Triggers review of whether content is still accurate
-
-</guidelines>
-
-<evolution>
-
-PROJECT.md evolves throughout the project lifecycle.
-These rules are embedded in the generated PROJECT.md (## Evolution section)
-and implemented by workflows/transition.md and workflows/complete-milestone.md.
-
-**After each phase transition:**
-1. Requirements invalidated? → Move to Out of Scope with reason
-2. Requirements validated? → Move to Validated with phase reference
-3. New requirements emerged? → Add to Active
-4. Decisions to log? → Add to Key Decisions
-5. "What This Is" still accurate? → Update if drifted
-
-**After each milestone:**
-1. Full review of all sections
-2. Core Value check — still the right priority?
-3. Business Context check (if present) — customer, revenue model, success metric still accurate?
-4. Audit Out of Scope — reasons still valid?
-5. Update Context with current state (users, feedback, metrics)
-
-</evolution>
-
-<brownfield>
-
-For existing codebases:
-
-1. **Onboard or map codebase first** via `/gsd:onboard` (recommended first-time path) or `/gsd:map-codebase`
-
-2. **Infer Validated requirements** from existing code:
-   - What does the codebase actually do?
-   - What patterns are established?
-   - What's clearly working and relied upon?
-
-3. **Gather Active requirements** from user:
-   - Present inferred current state
-   - Ask what they want to build next
-
-4. **Initialize:**
-   - Validated = inferred from existing code
-   - Active = user's goals for this work
-   - Out of Scope = boundaries user specifies
-   - Context = includes current codebase state
-
-</brownfield>
-
-<state_reference>
-
-STATE.md references PROJECT.md:
-
-```markdown
-## Project Reference
-
-See: the `project` entity (updated [date])
-
-**Core value:** [One-liner from Core Value section]
-**Current focus:** [Current phase name]
-```
-
-This ensures Claude reads current PROJECT.md context.
-
-</state_reference>
+**Brownfield.** For an existing codebase, onboard or map it first (`/gsd:onboard`, `/gsd:map-codebase`): the
+`@gsd/codebase` map records what the code already does, and its requirements are recorded as `requirement` entities
+like any other. Present the inferred current state, ask what the user wants to build next, and write `context` to
+include the current codebase state.

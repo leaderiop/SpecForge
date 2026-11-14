@@ -10,7 +10,7 @@ use std::rc::Rc;
 use serde_json::Value;
 use specforge_graph::{FieldForms, Graph, Node, Unheld, wire};
 use specforge_protocol_types::{FieldType, Root};
-use specforge_registry::judged::{Chain, Head, Step};
+use specforge_registry::judged::{Chain, Head, Kinds, Step};
 use specforge_registry::{CheckRegistry, FieldRegistry, RegistryBuild};
 
 /// A file a chain names as written, and the root a bare path starts at: a `<root>/` prefix in `path` overrides it.
@@ -82,6 +82,7 @@ impl<'a> Selection<'a> {
                 .iter()
                 .flat_map(|k| self.graph.nodes_by_kind(k))
                 .filter(|n| self.graph.scopes().scope(n.id.raw.as_str()).is_none())
+                .filter(|n| self.keeps(kinds, n))
                 .map(|n| n.id.raw.to_string())
                 .collect(),
         };
@@ -99,6 +100,7 @@ impl<'a> Selection<'a> {
                     // is a forward path from each.
                     let words: Vec<&str> = path.split('.').collect();
                     let end = kinds
+                        .names
                         .first()
                         .and_then(|k| self.reference_end(k, &words))
                         .unwrap_or(words.len());
@@ -112,6 +114,7 @@ impl<'a> Selection<'a> {
                                 .flatten()
                                 .collect::<Vec<_>>()
                         })
+                        .filter(|id| self.graph.node(id).is_some_and(|n| self.keeps(kinds, n)))
                         .collect();
                     if end < words.len() {
                         let (next, found) =
@@ -180,6 +183,21 @@ impl<'a> Selection<'a> {
             set = next;
         }
         (set, BTreeSet::new())
+    }
+
+    /// Whether `node` passes the filter `kinds` puts on its kind (ADR 0356 D13): its field's text is one of the
+    /// values; an entity without the field is dropped. A kind with no filter keeps every entity.
+    fn keeps(&self, kinds: &Kinds, node: &Node) -> bool {
+        let Some(filter) = kinds.filter(node.kind.raw.as_str()) else {
+            return true;
+        };
+        wire::resolved(self.graph, self.forms, node, &filter.field).is_some_and(|value| {
+            let text = match value.as_value() {
+                Value::String(text) => text.clone(),
+                other => other.to_string(),
+            };
+            filter.values.contains(&text)
+        })
     }
 
     /// How many of `words` end the first reference of `kind` (a block field takes the member words after it).

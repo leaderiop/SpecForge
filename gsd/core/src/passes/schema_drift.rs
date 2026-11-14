@@ -148,7 +148,7 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     for (phase, plans) in phases {
         let ids: Vec<&str> = plans.iter().map(|p| p.id.as_str()).collect();
         let summaries: Vec<&PassEntity> = of_kind(input, "summary")
-            .filter(|s| ids.contains(&crate::digest::scope_of(&s.id)))
+            .filter(|s| ids.contains(&crate::scope::scope_of(&s.id)))
             .collect();
         let subjects: Vec<&str> = commits
             .iter()

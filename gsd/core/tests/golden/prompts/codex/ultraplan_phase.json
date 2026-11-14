@@ -61,7 +61,7 @@
     "fi",
     "```"
   ],
-  "bytes": 28524,
+  "bytes": 28935,
   "end": [
     "| Phase | Status | Plans | Progress |",
     "|-------|--------|-------|----------|",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 733,
+  "lines": 732,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:726e8594601d0c87cdd897081c1b2073450c0e83ddd6c7d769f0bf0f2d2672e9",
+    "digest": "sha256:02e2fd5286b5a45de14439a159208d8eb9414c7720c357c161f4b261f7be8a06",
     "prompt": "@gsd/core@VERSION:ultraplan_phase",
     "steps": [
       {
@@ -213,5 +213,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "726e8594601d0c87cdd897081c1b2073450c0e83ddd6c7d769f0bf0f2d2672e9"
+  "sha256": "02e2fd5286b5a45de14439a159208d8eb9414c7720c357c161f4b261f7be8a06"
 }

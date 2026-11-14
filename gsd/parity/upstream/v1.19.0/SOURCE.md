@@ -38,9 +38,9 @@ the tests in `tests/cli/parity_plans.rs` and the passes' native tests reproduce 
 
 The 15 `@gsd/core` agents of `gsd/core/contributions/README.md` (the Agents table), copied unchanged by `git -C
 <gsd-core> show v1.19.0:agents/<file>`: `gsd-<name>.md` for each, and `gsd-<name>.compact.md` for the ten that have one
-(all but executor, phase-researcher, plan-checker, planner and verifier). `gsd/core/tests/port.rs` compares each with
-the port under `gsd/core/assets/agents/` line for line: a line may differ only where upstream's names `.planning/`,
-`gsd-tools`, `gsd_run` or `gsd-sdk`. Both copies are MIT, Copyright (c) 2026 Open GSD (`gsd/core/LICENSE-GSD`).
+(all but executor, phase-researcher, plan-checker, planner and verifier). `gsd/core/tests/port.rs` maps the port under
+`gsd/core/assets/agents/` against each copy here span by span (`gsd/core/tests/port.lock`, ADR 0332): text that is not
+upstream's is an own span with a group. Both copies are MIT, Copyright (c) 2026 Open GSD (`gsd/core/LICENSE-GSD`).
 
 ## `src/complexity-trigger.cts` and `tests/complexity-trigger.test.cjs`: the complexity scorer
 
@@ -59,14 +59,31 @@ ports `CLUSTERS` (names, order and members) and declares one `specforge.surface.
 `tests/cli/cmd_surface.rs` pins the port against the vendored file. Both files are MIT, Copyright (c) 2026 Open GSD
 (`gsd/core/LICENSE-GSD`).
 
+## The edge probe: `src/edge-probe.cts`, `src/probe-core.cts`, `src/spec-section.cts` and their unit suites
+
+The spec-phase edge probe's engine (the edge adapter and the generic probe core) and the SPEC section reader, with
+their own unit suites, copied unchanged by `git -C <gsd-core> show v1.19.0:<path>`. `gsd/core/src/probe/` ports the
+first two and their suites' cases (`probe/tests.rs` names each case it ports and each it leaves out), and `specforge
+query` answers the third: a section is supplied when the spec holds an `edge` or `spec_prohibition` entity. All six
+are MIT, Copyright (c) 2026 Open GSD (`gsd/core/LICENSE-GSD`).
+
+| File | sha256 |
+|---|---|
+| `src/edge-probe.cts` | `db6733c3a54533536cf745cade784f0b3229f04f743aa09485adba52d1c7a092` |
+| `src/probe-core.cts` | `67c43d89356ceab957cda803569ace8512c0b3be861d0e095da728928f3dca75` |
+| `src/spec-section.cts` | `dc597185394651f0cb270dceefb8c86fde91b7ec3fac921e760ed635a4afa8dc` |
+| `tests/edge-probe.test.cjs` | `208d6e3b70c5e1b38decdfeb0a9b85755dc085ecf245037aec71e18c371e9b54` |
+| `tests/probe-core.test.cjs` | `88bd7a08aeca554962d3169a023bb22fb1ec09a8e71a25a729bf449f54fed348` |
+| `tests/spec-section.test.cjs` | `2066e0a4d60c3bb9a89222ecb97f1c96337ecc32b7362f91962388fc68ff1c38` |
+
 <!-- r42 workflows begin -->
 ## `gsd-core/`, `commands/gsd/`: the lifecycle workflows (r42)
 
 The workflows, references, templates and command files the 16 lifecycle prompts of `@gsd/core` port, copied unchanged
 by `git -C <gsd-core> show v1.19.0:<path>`, at the path they have in the tag. `gsd/core/assets/<path>` is the port
-(`gsd/core/tests/port_workflows.rs` compares each with its copy here, line for line: a line may differ only where
-upstream's names `.planning`, `gsd-tools`, `gsd_run` or `gsd-sdk`, or where a relative link left the tree and became the
-absolute URL of the file at the tag). A file whose relative links leave this tree, or reach one that does, is kept as
+(`gsd/core/tests/port.rs` maps each against its copy here span by span, `gsd/core/tests/port.lock`, ADR 0332: text
+that is not upstream's is an own span with a group, such as a relative link that left the tree and became the absolute
+URL of the file at the tag). A file whose relative links leave this tree, or reach one that does, is kept as
 `<name>.md.txt`, so the repository's link check does not read it. The command files keep their frontmatter here; the
 port drops it, because the slash binding carries it. All files are MIT, Copyright (c) 2026 Open GSD
 (`gsd/core/LICENSE-GSD`).

@@ -52,7 +52,7 @@ Read STATE.md before any operation to load project context.
 These are the valid GSD subagent types registered in .claude/agents/ (or equivalent for your runtime).
 Always use the exact name from this list — do not fall back to 'general-purpose' or other built-in types:
 
-- gsd-executor — Executes plan tasks, commits, creates SUMMARY.md
+- gsd-executor — Executes plan tasks, commits, writes the summary entity
 - gsd-verifier — Verifies phase completion, checks quality gates
 - gsd-planner — Creates detailed plans from phase scope
 - gsd-phase-researcher — Researches technical approaches for a phase
@@ -89,11 +89,6 @@ Load all context in one call:
 
 ```bash
 
-
-
-
-
-
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 AGENT_SKILLS=""   # the host install carries the skills of gsd-executor
@@ -128,47 +123,10 @@ EXECUTOR_STALL_THRESHOLD_MINUTES="{{setting:executor.stall_threshold_minutes|10}
 
 # every plan dispatches in sequential mode: there is no isolation to resolve
 
-
-
-
 ```
 
 Executors run in sequential mode on the working tree: `@gsd/core` has no worktree isolation (no submodule check, no base-check degrade).
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Read context window size for adaptive prompt enrichment:
-
-```bash
-CONTEXT_WINDOW="{{setting:context_window|200000}}"   # context_window (the settings)
-```
-
-When `CONTEXT_WINDOW >= 500000` (1M-class models), subagent prompts include richer context:
-- Executor agents receive prior wave SUMMARY.md files and the phase CONTEXT.md/RESEARCH.md
-- Verifier agents receive all PLAN.md, SUMMARY.md, CONTEXT.md files plus REQUIREMENTS.md
-- This enables cross-phase awareness and history-aware verification
-
-When `CONTEXT_WINDOW < 200000` (sub-200K models), subagent prompts are thinned to reduce static overhead:
-- Executor agents omit extended deviation rule examples and checkpoint examples from inline prompt — load on-demand via @~/.claude/gsd-core/references/executor-examples.md
-- Planner agents omit extended anti-pattern lists and specificity examples from inline prompt — load on-demand via @~/.claude/gsd-core/references/planner-antipatterns.md
-- Core rules and decision logic remain inline; only verbose examples and edge-case lists are extracted
-- This reduces executor static overhead by ~40% while preserving behavioral correctness
 
 **If `phase_found` is false:** Error — phase directory not found.
 **If `plan_count` is 0:** Error — no plans found in phase.
@@ -187,22 +145,10 @@ inline path for each plan.
 **REQUIRED — Sync chain flag with intent.** If user invoked manually (no `--auto`), clear the ephemeral chain flag from any previous interrupted `--auto` chain. This prevents stale `_auto_chain_active: true` from causing unwanted auto-advance. This does NOT touch `workflow.auto_advance` (the user's persistent settings preference). You MUST execute this bash block before any config reads:
 ```bash
 
-
-
-
-
-
-
-
 ```
 
 Resolve `MVP_MODE` once via the centralized `phase.mvp-mode` query verb (precedence chain: CLI flag → ROADMAP `**Mode:** mvp` → `workflow.mvp_mode` config → false):
 ```bash
-
-
-
-
-
 
 MVP_MODE=$([ "$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.mode')" = mvp ] && echo true || echo false)
 EXECUTE_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
@@ -215,7 +161,6 @@ A `contribution` hook at this point with `into: code-reviewer` (#4790) is not di
 Before trusting `STATE.md` or dispatching any executor, derive `CURRENT_PLAN_ID`
 from the active incomplete plan in `INIT`, then search recent history:
 ```bash
-SUMMARY_PATH="{phase_dir}/{plan_padded}-SUMMARY.md"
 # #5164: the plan's commits come from the evaluation-scope resolver (ADR-5057 §4): anchored
 # on the commit SUBJECT, zero-pad tolerant (#4003) and tolerant of a decimal / N-segment /
 # letter-suffixed phase number (#4619, #4748), reachable from THIS branch only, bounded to
@@ -226,10 +171,11 @@ PLAN_ROWS=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge 
 if [ "$PLAN_SCOPE_RC" -ne 0 ]; then echo "SAFE-RESUME GATE: could not resolve the plan's commits (evaluation-scope exit ${PLAN_SCOPE_RC}); not dispatching an executor on an unknown resume state." >&2; exit 1; fi
 PLAN_COMMITS=$(printf '%s\n' "$PLAN_ROWS" | while IFS=$'\x1f' read -r h s; do [ -n "$h" ] && printf '%s %s\n' "${h:0:10}" "$s"; done)   # one <hash><0x1f><subject> row per commit
 ```
-If production commits exist and `SUMMARY.md is missing` (no the spec manifest matches it: a match is a legal `external_job_waiting` deferral - reconcile per `docs/reference/planning-artifacts.md`, never re-dispatch), stop before spawning a
-new executor; continuing risks duplicate work and stale `STATE.md`/ROADMAP progress.
+If production commits exist and the plan has no `summary` entity (and no spec manifest matches it: a match is a legal
+`external_job_waiting` deferral - reconcile per `docs/reference/planning-artifacts.md`, never re-dispatch), stop
+before spawning a new executor; continuing risks duplicate work.
 Offer these recovery options:
-- `close out manually` — inspect commits, write SUMMARY.md, then update STATE/ROADMAP.
+- `close out manually` — inspect commits, write the plan's summary with the summary template's typed edits, then close it with `specforge gsd complete-plan`.
 - `re-execute from scratch` — revert or supersede partial commits before dispatch.
 - `mark-and-skip` — record the anomaly and move on only with explicit confirmation.
 </step>
@@ -254,7 +200,7 @@ if [ "$TDD_MODE" = "true" ]; then
     if [ "$RED_SCOPE_RC" -ne 0 ]; then echo "TDD GATE UNAVAILABLE: could not resolve the plan's commits for ${PLAN_ID}/${TASK_ID} (evaluation-scope exit ${RED_SCOPE_RC})"; exit 1; fi
     RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | specforge files search -q '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' - && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
     if [ -z "$RED_COMMIT" ]; then
-      : # the last gate trip is not recorded: STATE is computed
+      specforge gsd raise-blocker "TDD gate tripped: missing RED commit for ${PLAN_ID}/${TASK_ID}" --plan "$PLAN_ID" --gate "$TASK_ID" >/dev/null || echo "TDD GATE: the trip could not be recorded" >&2   # one open blocker per tripped gate: a second trip reuses it
       echo "TDD GATE TRIPPED: missing RED commit for ${PLAN_ID}/${TASK_ID}"
       exit 1
     fi
@@ -267,13 +213,13 @@ Pure doc-only / config-only / test-only tasks return `is_behavior_adding=false` 
 <step name="check_blocking_antipatterns" priority="first">
 **MANDATORY — Check for blocking anti-patterns before any other work.**
 
-Read the phase's handoff (the entity that holds `.continue-here.md`):
+Read the phase's handoff entity:
 
 ```bash
 specforge query "$PHASE_ID" --kinds handoff --format context 2>/dev/null || true
 ```
 
-If `.continue-here.md` exists, parse its "Critical Anti-Patterns" table for rows with `severity` = `blocking`.
+If the phase has a handoff, read the anti-patterns it records (its `context` and `remaining_work`) for those marked `blocking`.
 
 **If one or more `blocking` anti-patterns are found:**
 
@@ -283,9 +229,9 @@ This step cannot be skipped. Before proceeding to `check_interactive_mode` or an
 2. **How did it manifest?** — Explain the specific failure that caused it to be recorded.
 3. **What structural mechanism (not acknowledgment) prevents it?** — Name the concrete step, checklist item, or enforcement mechanism that stops recurrence.
 
-Write these answers inline before continuing. If a blocking anti-pattern cannot be answered from the context in `.continue-here.md`, stop and ask the user for clarification.
+Write these answers inline before continuing. If a blocking anti-pattern cannot be answered from the handoff's context, stop and ask the user for clarification.
 
-**If no `.continue-here.md` exists, or no `blocking` rows are found:** Proceed directly to `check_interactive_mode`.
+**If the phase has no handoff, or no `blocking` anti-pattern is found:** Proceed directly to `check_interactive_mode`.
 </step>
 
 <step name="check_interactive_mode">
@@ -337,11 +283,7 @@ From `INIT`: the phase's `plan` entities (`plan_count` is their number) and thos
 
 Report: "Found {plan_count} plans in phase $PHASE_ID ({incomplete_count} incomplete)"
 
-**Update STATE.md for phase start:**
-```bash
-: # STATE is computed: the phase is executing once a commit names one of its plans
-```
-This updates Status, Last Activity, Current focus, Current Position, and plan counts in STATE.md so frontmatter and body text reflect the active phase immediately.
+The phase is executing once a commit names one of its plans: its status is computed, so nothing is written here.
 </step>
 
 <step name="discover_and_group_plans">
@@ -358,9 +300,9 @@ Parse JSON for: `phase`, `plans[]`, `waves`, `incomplete`, `runnable`, `ready_pl
 **Wave safety check:** If `WAVE_FILTER` is set and there are still incomplete plans in any lower wave that match the current execution mode, STOP and tell the user to finish earlier waves first. Do not let Wave 2+ execute while prerequisite earlier-wave plans remain incomplete.
 
 **If all filtered — do NOT exit unconditionally (#2868).** "No plan work left" and "phase fully
-done" are different conditions: a run can be interrupted between the final wave's SUMMARY and
-`verify_phase_goal` (most commonly by a checkpoint plan that is retired but still writes a SUMMARY),
-leaving a phase that looks complete from every index yet never produced `*-VERIFICATION.md`. A
+done" are different conditions: a run can be interrupted between the final wave's summary and
+`verify_phase_goal` (most commonly by a checkpoint plan that is retired but still has a summary),
+leaving a phase that looks complete from every index yet has no `verification` entity. A
 third condition looks identical to the first two by plan_count alone but is neither: some filtered
 plans were filtered because they are **blocked** (non-empty `blocked_by`, #2830), not because they
 are done. Blocked-and-incomplete must never be reported as finished.
@@ -438,7 +380,7 @@ Report:
 <step name="cross_ai_delegation">
 **Optional step 2.5 — Delegate plans to an external AI runtime.** Runs after plan discovery, before wave execution. Activates when a plan's `cross_ai: true` frontmatter agrees with the `workflow.cross_ai_execution` config. **Only `ready` plans are eligible (#4628) — a not-ready plan is never delegated over incomplete predecessors.** If no plan is marked, skip to execute_waves; if marked but `workflow.cross_ai_command` is unset, error and tell the user to set it.
 
-For each marked plan: build a self-contained prompt from the plan's `<objective>`/`<tasks>` plus PROJECT.md context, warn on a dirty working tree, then run the configured command **wrapped in `specforge run --deadline "${CROSS_AI_TIMEOUT}"` (config `workflow.cross_ai_timeout`, default 300s) — never run it unbounded** — with the prompt piped to **stdin, never shell-interpolated, to prevent injection**. On success (exit 0): validate the captured SUMMARY output is non-empty and structurally valid before writing it as the plan's SUMMARY.md, update STATE/ROADMAP, mark handled. On failure (non-zero exit, or the summary fails that validation): show the error, warn about possible partial edits, and offer **retry** / **skip** (falls back to the normal executor) / **abort**. Successfully handled plans are removed from execute_waves' list; skipped-to-fallback plans remain in it.
+For each marked plan: build a self-contained prompt from the plan's `<objective>`/`<tasks>` plus the plan's context pack (`specforge context gsd/executor <plan>`), warn on a dirty working tree, then run the configured command **wrapped in `specforge run --deadline "${CROSS_AI_TIMEOUT}"` (config `workflow.cross_ai_timeout`, default 300s) — never run it unbounded** — with the prompt piped to **stdin, never shell-interpolated, to prevent injection**. On success (exit 0): validate the captured output is non-empty and names the summary's required fields, then record it as the plan's `summary` entity with the summary template's typed edits, close the plan with `specforge gsd complete-plan`, and mark it handled. On failure (non-zero exit, or the summary fails that validation): show the error, warn about possible partial edits, and offer **retry** / **skip** (falls back to the normal executor) / **abort**. Successfully handled plans are removed from execute_waves' list; skipped-to-fallback plans remain in it.
 
 Exact bash and per-branch wording: `gsd-core/workflows/execute-phase/detail/elaboration.md` § 2.
 </step>
@@ -606,14 +548,6 @@ increases monotonically across waves. `{status}` is `complete` (success),
    - Bad: "Executing terrain generation plan"
    - Good: "Procedural terrain generator using Perlin noise — creates height maps and biome zones. Required before vehicle physics."
 
-
-
-
-
-
-
-
-
 2.75. **Execute:wave:pre capability dispatch:**
 
    ```bash
@@ -631,10 +565,9 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
    `[checkpoint] phase {PHASE_NUMBER} wave {N}/{M} plan {plan_id} starting ({P}/{Q} plans done)`
 
-   Pass paths only — executors read files themselves.
+   Pass the plan id only — the executor reads its context pack with `specforge context gsd/executor`.
 
    **Substitute `{plan_id}` in the prompt below with this plan's `id` field** from the `phase-plan-index` JSON loaded in step 1 (the same field referred to elsewhere in this workflow as `plan.id`) — unmodified and un-truncated, never a paraphrase.
-
 
 
    **Executor routing (#1689/#3370).** Per plan, run `gsd-core/workflows/execute-phase/steps/per-plan-executor-routing.md` to set `EXECUTOR_TYPE` for `subagent_type="{EXECUTOR_TYPE}"` below.
@@ -647,29 +580,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
    ```bash
    EXPECTED_BASE=$(specforge git head --pick .sha)
 
-
-
-
-
-
-
-
-
-
-
-
    ```
-
-
-
-
-
-
-
-
-
-
-
 
 
    ```text
@@ -681,41 +592,25 @@ increases monotonically across waves. `{status}` is `complete` (success),
      # Claude Code inherits the orchestrator model automatically.
      model="{executor_model}",  # omit this line when executor_model == "inherit"
 
-
-
-
      prompt="
        <objective>
        Execute plan {plan_number} of phase {phase_number}-{phase_name}.
        [gsd:dispatch phase="{phase_number}" plan="{plan_id}"]
-       Commit each task atomically. Create SUMMARY.md.
-       Do NOT update STATE.md or ROADMAP.md — the orchestrator owns those writes after every plan in the wave completes (sequential mode).
+       Commit each task atomically. Write the summary entity and close the plan with `specforge gsd complete-plan`.
+       Progress and the roadmap are computed from the closed plan: there is nothing else to update.
        </objective>
 
 
+       <sequential_execution>
+       You are running as a SEQUENTIAL executor agent on the main working tree (set SEQUENTIAL=true in your Step 0 commit guard; a linked phase worktree on the configured branch is allowed, #4799).
+       Use normal git commits (with hooks). Do NOT use --no-verify.
+       Run the `<project_root_pin>` guard before your first Edit/Write and before every commit (#4254).
+       REQUIRED ORDER: write the summary entity → `complete-plan` → final commit → only then any narration. No text between the summary and the commit (truncation risk; #2070 rescue is not primary defense).
+       </sequential_execution>
 
-
-
-
-       <parallel_execution>
-       You are running as a PARALLEL executor agent in a git worktree. Worktree path safety (cwd-drift, absolute-path guards) is in `worktree-path-safety.md` (loaded below).
-       Run `git commit` normally — hooks run by default. Do NOT pass `--no-verify`
-       unless the orchestrator surfaces `workflow.worktree_skip_hooks=true` in this
-       prompt; silent bypass violates project CLAUDE.md guidance (#2924).
-
-       IMPORTANT: Do NOT modify STATE.md or ROADMAP.md. execute-plan.md
-       auto-detects worktree mode (`.git` is a file, not a directory) and skips
-       shared file updates automatically. The orchestrator updates them centrally
-       after merge.
-
-       REQUIRED: SUMMARY.md MUST be committed before you return. In worktree mode the
-       git_commit_metadata step in execute-plan.md commits SUMMARY.md and REQUIREMENTS.md
-       only (STATE.md and ROADMAP.md are excluded automatically). Do NOT skip or defer
-       this commit — the orchestrator force-removes the worktree after you return, and
-       any uncommitted SUMMARY.md will be permanently lost (#2070).
-       REQUIRED ORDER: Write SUMMARY.md → commit → only then any narration. No text between Write and commit (truncation risk; #2070 rescue is not primary defense).
-
-       </parallel_execution>
+       <project_root_pin>
+       {ORCHESTRATOR build-time embed: bound step-0p guard per sequential-root-pin.md — never this note}
+       </project_root_pin>
 
        <execution_context>
        ORCHESTRATOR build-time embed (NOT a sub-agent runtime step): before this dispatch, read each file listed below and replace this note with those files' contents, inlined verbatim in this block in the listed order. Never leave `@`-include lines in the dispatched prompt — `@path` never expands inside an Agent() `prompt="..."` string (#3324), so an include arrives as literal text the executor never sees.
@@ -723,25 +618,12 @@ increases monotonically across waves. `{status}` is `complete` (success),
        - `~/.claude/gsd-core/templates/summary.md`
        - `~/.claude/gsd-core/references/checkpoints.md`
        ${TDD_APPLICABLE ? '- `~/.claude/gsd-core/references/tdd.md`' : ''}  # #3990/#4265: type: tdd, tdd="true", or workflow.tdd_mode
-
-       ${CONTEXT_WINDOW < 200000 ? '' : '- `~/.claude/gsd-core/references/executor-examples.md`'}
        </execution_context>
 
        <required_reading>
-       Read these files at execution start using the Read tool.
-       First resolve repo root so every path is anchored:
-       \`PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)\`
-       - ${PROJECT_ROOT}/{phase_dir}/{plan_file} (Plan)
-       - ${PROJECT_ROOT}/the `project` entity (Project context — core value, requirements, evolution rules)
-       - ${PROJECT_ROOT}/the computed project state (State)
-       - ${PROJECT_ROOT}/the settings (`specforge settings`) (Config, if exists)
-       ${CONTEXT_WINDOW >= 500000 ? `
-       - ${PROJECT_ROOT}/${phase_dir}/*-CONTEXT.md (User decisions from discuss-phase — honors locked choices)
-       - ${PROJECT_ROOT}/${phase_dir}/*-RESEARCH.md (Technical research — pitfalls and patterns to follow)
-       - ${PROJECT_ROOT}/${prior_wave_summaries} (SUMMARY.md files from earlier waves in this phase — what was already built)
-       ` : ''}
-       - ${PROJECT_ROOT}/CLAUDE.md (Project instructions, if exists — follow project-specific guidelines and coding conventions)
-       - ${PROJECT_ROOT}/.claude/skills/ or ${PROJECT_ROOT}/.agents/skills/ (Project skills, if either exists — list skills, read SKILL.md for each, follow relevant rules during implementation)
+       specforge context gsd/executor "{plan_id}"
+       Run the line above first. Its pack is the plan with its tasks, truths, artifacts, key links, setup steps and checkpoints, the phase and its requirements, the plan's decisions, the phase's context and research, the summaries of the plans it depends on, the project, `CLAUDE.md` / `AGENTS.md` and the settings, at the executor route's budget.
+       - .claude/skills/ or .agents/skills/ (Project skills, if either exists — list skills, read SKILL.md for each, follow relevant rules during implementation)
        </required_reading>
 
        ${AGENT_SKILLS}
@@ -756,8 +638,8 @@ increases monotonically across waves. `{status}` is `complete` (success),
        <success_criteria>
        - [ ] All tasks executed
        - [ ] Each task committed individually
-       - [ ] SUMMARY.md created in plan directory
-       - [ ] No modifications to shared orchestrator artifacts (the orchestrator handles all post-wave shared-file writes)
+       - [ ] The summary entity written, then the plan closed with `specforge gsd complete-plan`
+       - [ ] The final commit made, and only then any narration
        </success_criteria>
      "
    )
@@ -765,44 +647,14 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
 
 
-
-
    > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above to spawn executor agent(s), stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available. While waiting, run the step-4 completion surveillance; if the child's session ends abnormally — including `turn_aborted` — reconcile artifacts per `execute-phase/steps/completion-reconciliation.md` before classifying the plan (#4217).
-
 
 
    **Sequential mode** (every plan):
 
    Omit `isolation="worktree"` from the Agent call. Before composing the prompt, read and execute
-   `execute-phase/steps/sequential-root-pin.md` (#4254) — it owns the sequential root-pin build-time
-   embed and the wave serialization rules.
-
-   Replace the `<parallel_execution>` block with:
-
-   ```
-       <sequential_execution>
-       You are running as a SEQUENTIAL executor agent on the main working tree (set SEQUENTIAL=true in your Step 0 commit guard; a linked phase worktree on the configured branch is allowed, #4799).
-       Use normal git commits (with hooks). Do NOT use --no-verify.
-       Run the `<project_root_pin>` guard before your first Edit/Write and before every commit (#4254).
-       REQUIRED ORDER: Write SUMMARY.md → commit → only then any narration. No text between Write and commit (truncation risk; #2070 rescue is not primary defense).
-       </sequential_execution>
-
-       <project_root_pin>
-       {ORCHESTRATOR build-time embed: bound step-0p guard per sequential-root-pin.md — never this note}
-       </project_root_pin>
-   ```
-
-   The sequential mode Agent prompt uses the same structure as worktree mode but with these differences in success_criteria — since there is only one agent writing at a time, there are no shared-file conflicts:
-
-   ```
-       <success_criteria>
-       - [ ] All tasks executed
-       - [ ] Each task committed individually
-       - [ ] SUMMARY.md created in plan directory
-       - [ ] STATE.md updated with position and decisions
-       - [ ] ROADMAP.md updated with plan progress (via `roadmap update-plan-progress`)
-       </success_criteria>
-   ```
+   `execute-phase/steps/sequential-root-pin.md` (#4254) — it owns the `<project_root_pin>` build-time embed above
+   and the wave serialization rules.
 
 4. **Wait for all agents in wave to complete.**
 
@@ -849,89 +701,6 @@ increases monotonically across waves. `{status}` is `complete` (success),
    No worktree was created: there is nothing to merge back or clean up.
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 5.6. **Post-merge build & test gate:**
 
    After merging all worktrees in a wave (parallel mode), or after the last plan completes
@@ -945,37 +714,8 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
    Read and execute `gsd-core/workflows/execute-phase/steps/post-merge-gate.md`.
 
-5.7. **Post-wave shared artifact update (when at least one plan used worktrees, skip if tests failed):**
-
-   When **any** executor agent in this wave ran with `isolation="worktree"`, that agent skipped STATE.md and ROADMAP.md updates to avoid last-merge-wins overwrites. The orchestrator is the single writer for these files. After worktrees are merged back, update shared artifacts once for every completed plan in the wave (worktree-mode plans **and** sequential plans that ran on the main tree but deferred to the orchestrator for tracking writes).
-
-   **Only update tracking when tests passed (TEST_EXIT=0).**
-   If tests failed or timed out, skip the tracking update — plans should
-   not be marked as complete when integration tests are failing or inconclusive.
-
-   ```bash
-   # Guard: only update tracking if post-merge tests passed
-   # Timeout (124) is treated as inconclusive — do NOT mark plans complete
-   if [ "${TEST_EXIT}" -eq 0 ]; then
-     # Update ROADMAP plan progress for each completed plan in this wave
-     for plan_id in {completed_plan_ids}; do
-       : # plan progress is computed: a plan is complete when its summary is
-     done
-
-     # Only commit tracking files if they actually changed
-     if [ "$(specforge git diff --pick .count -- spec/ 2>/dev/null)" != 0 ]; then
-       specforge git commit --add spec -m "docs(phase-${PHASE_NUMBER}): update tracking after wave ${N}" && specforge collect --runner gsd-git --yes
-     fi
-   elif [ "${TEST_EXIT}" -eq 124 ]; then
-     echo "⚠ Skipping tracking update — test suite timed out. Plans remain in-progress. Run tests manually to confirm."
-   else
-     echo "⚠ Skipping tracking update — post-merge tests failed (exit ${TEST_EXIT}). Plans remain in-progress until tests pass."
-   fi
-   ```
-
-   Where `WAVE_PLAN_IDS` is the space-separated list of plan IDs that completed in this wave.
-
-   **Every plan ran in sequential mode** (`@gsd/core` runs no worktree isolation): sequential agents already updated STATE.md and ROADMAP.md themselves — skip this step.
+5.7. **Progress is computed:** a plan is complete when its summary is, so no post-wave tracking write exists (every
+   plan ran in sequential mode).
 
 5.75. **Execute:wave:post capability dispatch:**
 
@@ -1043,10 +783,10 @@ increases monotonically across waves. `{status}` is `complete` (success),
    [checkpoint] phase {PHASE_NUMBER} wave {N}/{M} complete, {P}/{Q} plans done ({wave_success}/{wave_plan_count} ok)
    ```
 
-   For each SUMMARY.md:
-   - Verify first 2 files from `key-files.created` exist on disk
+   For each plan of the wave:
+   - Check the plan has its summary entity and no artifact whose `state` is `missing`
+     (`specforge query "{phase}-{plan}" --depth 1 --kinds summary,artifact --format json`)
    - Check `specforge query "{phase}-{plan}" --kinds commit --format json` (after `specforge collect --runner gsd-git --yes`) lists `commits` with ≥1 entry (commits on THIS branch only — #5164; a commit that lives only on another branch does not satisfy the check; exit `69` means the scope could not be resolved, which fails the spot-check, never "no commits yet")
-   - Check for `## Self-Check: FAILED` marker
 
    If ANY spot-check fails: report which plan failed, route to failure handler — ask "Retry plan?" or "Continue with remaining waves?"
 
@@ -1089,6 +829,16 @@ increases monotonically across waves. `{status}` is `complete` (success),
 </step>
 <step name="checkpoint_handling">
 Plans with `autonomous: false` require user interaction.
+**Before every continuation spawn, re-record the executor pack.** The person's answer (`specforge gsd
+answer-checkpoint` writes `checkpoint.answer`) or confirmed setup (`specforge gsd confirm-setup` writes
+`user_setup.done`) moved the plan's executor pack, and neither command records it again; without this line gsd/W524
+fires on the running plan. `start-plan` serves and records the pack; the plan keeps its first start and head, so the
+re-run moves nothing else:
+```bash
+PLAN_ID="{plan_id}"
+specforge gsd start-plan "$PLAN_ID" --head "$(specforge git head --pick .sha)" || exit 1
+```
+
 **Auto-mode checkpoint handling:**
 Read auto-advance config (chain flag OR user preference — same boolean as `check.auto-mode`):
 ```bash
@@ -1096,8 +846,8 @@ AUTO_MODE="{{setting:workflow._auto_chain_active|}}"   # workflow._auto_chain_ac
 ```
 
 When executor returns a checkpoint AND `AUTO_MODE` is `true`:
-- **human-verify** → Auto-spawn continuation agent with `{user_response}` = `"approved"`. Log `⚡ Auto-approved checkpoint`. **Except `blocking-human`.**
-- **decision** → `auto_select` present: auto-spawn with `{user_response}` = that option, log `⚡ Auto-selected: [option]`. Absent: present to user (#4095). **Except `blocking-human`.**
+- **human-verify** → Re-record the executor pack (above), then auto-spawn continuation agent with `{user_response}` = `"approved"`. Log `⚡ Auto-approved checkpoint`. **Except `blocking-human`.**
+- **decision** → `auto_select` present: re-record the executor pack (above), then auto-spawn with `{user_response}` = that option, log `⚡ Auto-selected: [option]`. Absent: present to user (#4095). **Except `blocking-human`.**
 - **human-action** → Present to user (existing behavior below). Auth gates cannot be automated.
 
 <!-- gsd:protected -->
@@ -1119,7 +869,7 @@ When executor returns a checkpoint AND `AUTO_MODE` is `true`:
    [Awaiting section from agent return]
    ```
 5. User responds: "approved"/"done" | issue description | decision selection
-6. **Spawn continuation agent (NOT resume)** with a prompt built from these placeholders (there is no separate template file; this list is the contract):
+6. **Re-record the executor pack** (the fence above), then **spawn continuation agent (NOT resume)** with a prompt built from these placeholders (there is no separate template file; this list is the contract); its `<required_reading>` opens with the same `specforge context gsd/executor "{plan_id}"` line:
    - `{completed_tasks_table}`: From checkpoint return, wrapped in a `<completed_tasks>` tag (the executor's continuation handling keys on it)
    - `{resume_task_number}` + `{resume_task_name}`: Current task
    - `{user_response}`: What user provided
@@ -1147,11 +897,11 @@ After all waves:
 | 2 | plan-04 | ✓ Complete |
 
 ### Plan Details
-1. **03-01**: [one-liner from SUMMARY.md]
-2. **03-02**: [one-liner from SUMMARY.md]
+1. **03-01**: [its summary's one_liner]
+2. **03-02**: [its summary's one_liner]
 
 ### Issues Encountered
-[Aggregate from SUMMARYs, or "None"]
+[the summaries' `issue` deviations, or "None"]
 ```
 
 The `verify:post` hook dispatch and the SECURITY threats-open gate are the first step of the shared
@@ -1183,48 +933,31 @@ Route on `$STATUS`: if `passed`, proceed to update_roadmap. Otherwise keep the p
 
 **If human_needed:**
 
-**Step A: Persist human verification items as UAT file.**
+**Step A: Persist human verification items as a UAT session.**
 
-Create `{phase_dir}/{phase_num}-UAT.md` using UAT template format:
+One `uat_session` of the phase, sourced from the summaries the items come from, and one `uat_test` per
+human_verification item of the phase's verification (`specforge query "$PHASE_ID" --kinds verification --format context`),
+written with `specforge new` (`specforge schema --kind uat_session`, `--kind uat_test`). Repeat the `new uat_test` line
+per item with the next id (`U2`). A test's `result` is the person's, recorded by `/gsd:verify-work`; never write it.
 
-```markdown
----
-status: testing
-phase: {phase_num}-{phase_name}
-source: [{phase_num}-VERIFICATION.md]
-started: [now ISO]
-updated: [now ISO]
----
-
-## Current Test
-
-number: 1
-name: {first human_verification item description}
-expected: |
-  {expected behavior from VERIFICATION.md}
-awaiting: user response
-
-## Tests
-
-{For each human_verification item from VERIFICATION.md:}
-
-### {N}. {item description}
-expected: {expected behavior from VERIFICATION.md}
-result: [pending]
-
-## Summary
-
-total: {count}
-passed: 0
-issues: 0
-pending: {count}
-skipped: 0
-blocked: 0
-
-## Gaps
+```bash
+PHASE_ID="{the phase id, e.g. v1.0/01}"
+SESSION_ID="{the phase number}-UAT"
+TITLE="Phase {X}: human verification"
+SOURCE="{the summary ids the items come from, comma-separated}"
+STARTED="{now, ISO 8601}"
+IFS= read -rd '' TEST_TITLE <<'TEXT' || true; TEST_TITLE=${TEST_TITLE%$'\n'}
+{the first human_verification item, in a few words}
+TEXT
+IFS= read -rd '' EXPECTED <<'TEXT' || true; EXPECTED=${EXPECTED%$'\n'}
+{its expected behavior, from the verification}
+TEXT
+PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
+specforge new uat_session "$SESSION_ID" "$TITLE" --in "$PHASE_FILE" --phase "$PHASE_ID" --source "$SOURCE" --started "$STARTED" || exit 1
+specforge new uat_test U1 "$TEST_TITLE" --in "$PHASE_FILE" --session "$PHASE_ID/$SESSION_ID" --expected "$EXPECTED" || exit 1
 ```
 
-Commit the file:
+Commit the session:
 ```bash
 specforge git commit --add spec -m "test({phase_num}): persist human verification items as UAT" && specforge collect --runner gsd-git --yes
 ```
@@ -1236,9 +969,9 @@ specforge git commit --add spec -m "test({phase_num}): persist human verificatio
 
 All automated checks passed. {N} item(s) require human testing before this phase can be marked complete:
 
-{From VERIFICATION.md human_verification section}
+{The verification's human_verification items}
 
-Tests saved to `{phase_num}-UAT.md`.
+Tests recorded as the UAT session `{phase_num}-UAT`.
 
 When ready to run the tests:
 
@@ -1259,10 +992,10 @@ Verify-work will walk you through each item and mark the phase complete when all
 ## ⚠ Phase {X}: {Name} — Gaps Found
 
 **Score:** {N}/{M} must-haves verified
-**Report:** {phase_dir}/{phase_num}-VERIFICATION.md
+**Report:** `specforge query "$PHASE_ID" --kinds verification --format context`
 
 ### What's Missing
-{Gap summaries from VERIFICATION.md}
+{The verification's gap summaries}
 
 ---
 ## ▶ Next Up — [${PROJECT_CODE}] ${PROJECT_TITLE}
@@ -1271,11 +1004,11 @@ Verify-work will walk you through each item and mark the phase complete when all
 
 `/gsd:plan-phase {X} --gaps`
 
-Also: `cat {phase_dir}/{phase_num}-VERIFICATION.md` — full report
+Also: `specforge query "$PHASE_ID" --depth 2 --kinds verification,verify_gap --format context` — full report
 Also: `/gsd:verify-work {X}` — manual testing first
 ```
 
-Gap closure cycle: `/gsd:plan-phase {X} --gaps` reads VERIFICATION.md → creates gap plans with `gap_closure: true` → user runs `/gsd:execute-phase {X} --gaps-only` → verifier re-runs.
+Gap closure cycle: `/gsd:plan-phase {X} --gaps` reads the verification's `verify_gap` entities → writes gap plans with `gap_closure: true` → user runs `/gsd:execute-phase {X} --gaps-only` → verifier re-runs.
 </step>
 
 <!-- gsd:section id="gap-closure-artifacts" when="state:gap-closure-phase" -->
@@ -1296,13 +1029,9 @@ above), which gates it on this id exactly as every section here is gated (#5118)
 COMPLETION='{}'   # phase.complete: the phase status is computed (complete once its verification passed); STATE and the roadmap follow
 ```
 
-The CLI handles:
-- Marking phase checkbox `[x]` with completion date
-- Updating Progress table (Status → Complete, date)
-- Updating plan count to final
-- Advancing STATE.md to next phase
-- Updating REQUIREMENTS.md traceability
-- Scanning for verification debt (returns `warnings` array)
+Nothing is written: the phase's status is computed (complete once its verification passed), and with it the
+roadmap's checkbox, progress and plan count, the next phase and requirement traceability; verification debt is
+`specforge check`'s warnings.
 
 Extract from result: `next_phase`, `next_phase_name`, `is_last_phase`, `warnings`, `has_warnings`.
 
@@ -1323,8 +1052,8 @@ specforge git commit --add spec -m "docs(phase-{X}): complete phase execution" &
 <step name="auto_copy_learnings">
 **Auto-extract and copy phase learnings to global store (when enabled).**
 
-This step runs AFTER phase completion and SUMMARY.md is written. It produces the phase's
-learnings artifact (the sole producer is otherwise the user-invoked
+This step runs AFTER phase completion, once every plan has its summary. It produces the phase's
+`lesson` entities (the sole producer is otherwise the user-invoked
 `/gsd:extract-learnings`) and copies it to the global learnings store at
 `~/.gsd/knowledge/`.
 
@@ -1337,8 +1066,8 @@ GL_ENABLED="{{setting:features.global_learnings|false}}"   # features.global_lea
 
 **If enabled:**
 
-1. Run the `extract-learnings` workflow for the JUST-COMPLETED phase (its
-   `write_learnings` step writes `{phase_dir}/{PADDED_PHASE}-LEARNINGS.md`). Extraction
+1. Run the `extract-learnings` workflow for the JUST-COMPLETED phase (it records the phase's
+   `lesson` entities). Extraction
    failure must NOT block phase completion — report the failure and continue.
 2. Copy the phase artifact to the global store:
 ```bash
@@ -1352,29 +1081,6 @@ Copy failure must NOT block phase completion.
 
 ```bash
 : # todos are @gsd/ops entities: with @gsd/core alone there is none to close
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 ```
 
@@ -1406,15 +1112,15 @@ For 1M+ context models, consider:
 
 <failure_handling>
 - **Quota / rate-limit (any runtime — #3095):** Agent return body contains a sentinel like `usage limit`, `rate limit`, `429`, `too many requests`, `RESOURCE_EXHAUSTED`, `usage_limit_reached`. Route via the failure classification (not part of @gsd/core: match the sentinel in the return body) → `class: "quota-exceeded"`. Do not offer retry-now; the right action is wait-for-reset and resume.
-- **classifyHandoffIfNeeded false failure:** Agent reports "failed" but error is `classifyHandoffIfNeeded is not defined` → Claude Code bug, not GSD. Spot-check (SUMMARY exists, commits present) → if pass, treat as success
-- **Agent fails mid-plan:** Missing SUMMARY.md → report, ask user how to proceed
+- **classifyHandoffIfNeeded false failure:** Agent reports "failed" but error is `classifyHandoffIfNeeded is not defined` → Claude Code bug, not GSD. Spot-check (the plan has its summary entity, commits present) → if pass, treat as success
+- **Agent fails mid-plan:** No summary entity → report, ask user how to proceed
 - **Dependency chain breaks:** Wave 1 fails → Wave 2 dependents likely fail → user chooses attempt or skip
 - **All agents in wave fail:** Systemic issue → stop, report for investigation
-- **Checkpoint unresolvable:** "Skip this plan?" or "Abort phase execution?" → record partial progress in STATE.md
+- **Checkpoint unresolvable:** "Skip this plan?" or "Abort phase execution?" → record a pause (`specforge gsd pause`)
 </failure_handling>
 
 <resumption>
 Re-run `/gsd:execute-phase {phase}` → discover_plans finds completed SUMMARYs → skips them → resumes from first incomplete plan → continues wave execution.
 
-STATE.md tracks: last completed plan, current wave, pending checkpoints.
+Progress (the last completed plan, the current wave) is computed from the plans' summaries; pauses and checkpoints are entities.
 </resumption>

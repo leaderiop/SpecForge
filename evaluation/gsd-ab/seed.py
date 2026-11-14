@@ -2,13 +2,15 @@
 """Make each arm's copy of a GSD A/B task's fixture (evaluation/gsd-ab/README.md), with its seeded defects.
 
 Usage:
-    python3 -I evaluation/gsd-ab/seed.py seed --task <id> --arm A|B|B0 --out <dir>
+    python3 -I evaluation/gsd-ab/seed.py seed --task <id> --arm A|B|B0|Bv1 --out <dir>
         [--gsd-core <wasm>] [--gsd-security <wasm>] [--state complete] [--unseeded] [--worktree]
-    python3 -I evaluation/gsd-ab/seed.py present --task <id> --arm A|B|B0 --dir <dir>
-    python3 -I evaluation/gsd-ab/seed.py rework --arm A|B|B0 --dir <dir>
-    python3 -I evaluation/gsd-ab/seed.py prompt --task <id> --arm A|B|B0
+    python3 -I evaluation/gsd-ab/seed.py present --task <id> --arm A|B|B0|Bv1 --dir <dir>
+    python3 -I evaluation/gsd-ab/seed.py rework --arm A|B|B0|Bv1 --dir <dir>
+    python3 -I evaluation/gsd-ab/seed.py prompt --task <id> --arm A|B|B0|Bv1
     python3 -I evaluation/gsd-ab/seed.py schedule
-    python3 -I evaluation/gsd-ab/seed.py preflight --specforge <bin> --gsd-core <wasm> --gsd-security <wasm> [--record]
+    python3 -I evaluation/gsd-ab/seed.py spawns --transcript <dir>
+    python3 -I evaluation/gsd-ab/seed.py preflight [--arm B|Bv1] --specforge <bin> --gsd-core <wasm>
+        --gsd-security <wasm> [--record]
     python3 -I evaluation/gsd-ab/seed.py --self-test
 
 `seed` copies the fixture as committed (`git archive` of the tree `tasks.json` pins for it, which must be the fixture's
@@ -19,7 +21,9 @@ arm's `specforge.json` (B and B0; the component paths of the `@gsd/*` extensions
 file edits in `tasks.json` order, makes the copy a git repository with one base commit whose subject names no plan (it
 holds the seeded files, so the copy starts clean), then makes each seed's commits. `--state complete` then applies the
 task's `completion` (what a correct run leaves; the tests only). `--unseeded` applies no seed: the control copy the
-tests compare a seeded one with. Two seedings of one (task, arm) with the same flags have one HEAD.
+tests compare a seeded one with. Two seedings of one (task, arm) with the same flags have one HEAD. An arm with a `tag`
+(Bv1: arm B as the tag `gsd-ab-v1` froze it) copies each fixture's tree from that tag instead of HEAD, and takes B's
+seeds; it refuses a repository without the tag, a fixture path the tag lacks, and `--worktree`.
 
 `present` names the seeded defects still in a copy after a run (the run file's `defects_present`): a defect is present
 while any of its edits holds (a text it inserted is still in its file, a text or file it deleted is still gone, a commit
@@ -33,7 +37,14 @@ seed) once, its arms in an order drawn with a fixed RNG seed, no arm first twice
 unseeded B copy of each fixture, runs a real `specforge collect --yes` in it (the fixture's own tests run) and then
 `specforge check --format json`, and compares the diagnostics with the fixture's `baseline` in `tasks.json`: a
 difference (another build, another node or cargo) refuses the study before its first run. `--record` prints the
-baselines instead.
+baselines instead. `--arm Bv1` makes Bv1's copies from the tag's trees and compares them with the baselines of the
+tag's own `tasks.json`, with Bv1's binary and components (built from the tag). `spawns` reads a run's transcript
+directory as Claude Code writes it (`session.jsonl` and `subagents/agent-<id>.jsonl` with its `agent-<id>.meta.json`)
+and prints, per subagent, its type and its context and
+total tokens (the run file's `spawns`, README section 6's M7): `context_tokens` is the input (cache included) of the
+spawn's first request that changes state (a file tool, a mutating engine tool or a writing command, by MCP or by
+CLI: `tasks.json#state_writes`), or of its last request when it changes none, and `total_tokens` the sum of every
+request's input and output. It refuses a layout it does not read, never answering an empty list for it.
 
 Standard library and the `git` program only (arm A's gsd-core needs git too), Python 3.11+.
 """
@@ -46,6 +57,8 @@ import io
 import json
 import os
 import random
+import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -56,7 +69,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 TASKS = HERE / "tasks.json"
 REPO = HERE.parent.parent
-ARMS = ("A", "B", "B0")
+ARMS = ("A", "B", "B0", "Bv1")
 SEEDS = 3
 RNG_SEED = 20261102
 IDENTITY = ("gsd-ab", "gsd-ab@example.com")
@@ -104,18 +117,46 @@ def tracked(source: Path) -> dict[str, bytes]:
     return {path: (source / path).read_bytes() for path in paths}
 
 
-def committed(root: Path, fixture: dict) -> dict[str, bytes]:
+def has_tag(root: Path, tag: str) -> bool:
+    """Whether the repository at `root` has the tag `tag`."""
+    try:
+        git(root, "rev-parse", "-q", "--verify", f"refs/tags/{tag}")
+    except RuntimeError:
+        return False
+    return True
+
+
+def tag_tree(root: Path, tag: str, path: str, arm_id: str) -> str:
+    """The tree of `path` in the tag `tag`; refused, naming what is missing, without the tag or the path."""
+    if not has_tag(root, tag):
+        raise Refused(
+            f"arm {arm_id} copies the fixtures the tag {tag} froze; this repository has no such tag (the owner sets "
+            "it, README section 10)"
+        )
+    try:
+        return git(root, "rev-parse", f"{tag}:{path}").strip()
+    except RuntimeError:
+        raise Refused(f"the tag {tag} has no {path}") from None
+
+
+def committed(root: Path, fixture: dict, arm: dict | None = None) -> dict[str, bytes]:
     """The fixture's files as committed: the tree `tasks.json` pins for it, which must be its tree at HEAD, while
-    neither it nor `evaluation/gsd-ab/` has uncommitted changes."""
-    paths = [fixture["path"]] + ([HERE.relative_to(root).as_posix()] if HERE.is_relative_to(root) else [])
-    dirty = git(root, "status", "--porcelain", "--untracked-files=no", "--", *paths)
+    neither it nor `evaluation/gsd-ab/` has uncommitted changes. With `tag`, the fixture's tree in that tag, while
+    `evaluation/gsd-ab/` (whose seeds are HEAD's) has no uncommitted changes."""
+    tag = (arm or {}).get("tag")
+    here = [HERE.relative_to(root).as_posix()] if HERE.is_relative_to(root) else []
+    paths = here if tag else [fixture["path"]] + here
+    dirty = git(root, "status", "--porcelain", "--untracked-files=no", "--", *paths) if paths else ""
     if dirty.strip():
         raise Refused(
             f"uncommitted changes under {' and '.join(paths)}: a study copy is made from a commit (commit them; "
             "--worktree is for the tests)"
         )
-    tree = git(root, "rev-parse", f"HEAD:{fixture['path']}").strip()
-    if fixture.get("tree", tree) != tree:
+    if tag:
+        tree = tag_tree(root, tag, fixture["path"], arm["id"])
+    else:
+        tree = git(root, "rev-parse", f"HEAD:{fixture['path']}").strip()
+    if not tag and fixture.get("tree", tree) != tree:
         raise Refused(
             f"fixture {fixture['id']} is tree {tree} at HEAD, but tasks.json pins {fixture['tree']}: a changed fixture "
             "is a new protocol version"
@@ -206,8 +247,8 @@ def apply(out: Path, edit: dict, label: str) -> None:
 
 
 def edits_of(task: dict, defect: str, arm: str) -> list[dict]:
-    """A defect's edits in an arm: B0 takes B's."""
-    return task["seeds"][defect]["B" if arm == "B0" else arm]
+    """A defect's edits in an arm: B0 and Bv1 take B's."""
+    return task["seeds"][defect]["B" if arm in ("B0", "Bv1") else arm]
 
 
 def seed(
@@ -224,10 +265,12 @@ def seed(
         raise Refused(f"fixture {fixture['id']} is not ready: {fixture['status']}")
     if complete and arm_id == "A":
         raise Refused("--state complete is the B edits a correct run leaves; arm A has none")
+    if arm.get("tag") and worktree:
+        raise Refused(f"arm {arm_id} copies its tag's trees: a tagged arm has no --worktree copy")
     if out.exists() and (not out.is_dir() or any(out.iterdir())):
         raise Refused(f"{out} is not empty")
     config = None if arm["config"] is None else manifest(tasks, fixture, arm, components or {})
-    files = tracked(root / fixture["path"]) if worktree else committed(root, fixture)
+    files = tracked(root / fixture["path"]) if worktree else committed(root, fixture, arm)
     out.parent.mkdir(parents=True, exist_ok=True)
     building = Path(tempfile.mkdtemp(prefix=f".{out.name}.", dir=out.parent))
     try:
@@ -367,20 +410,32 @@ def diagnostics(specforge: str, copy: Path, *args: str) -> list[str]:
     return sorted(f"{item['code']} {item.get('file') or '-'}:{item.get('line') or 0}" for item in found)
 
 
-def preflight(tasks: dict, root: Path, specforge: str, components: dict, record: bool = False) -> dict:
-    """Each fixture's diagnostics on an unseeded B copy after a real collect, by fixture id; refused, naming each
-    difference, unless they are the fixture's `baseline` (or `record`)."""
+def preflight(
+    tasks: dict, root: Path, specforge: str, components: dict, record: bool = False, arm_id: str = "B",
+    folder: str | None = None,
+) -> dict:
+    """Each fixture's diagnostics on an unseeded copy of arm `arm_id` (B or Bv1) after a real collect, by fixture id;
+    refused, naming each difference, unless they are the fixture's `baseline` (or `record`). A tagged arm's baselines
+    are those of the tag's own `tasks.json`, in `folder` (this directory, relative to `root`)."""
+    if arm_id not in ("B", "Bv1"):
+        raise Refused(f"the preflight runs arm B or Bv1, not {arm_id}")
+    tag = find(tasks["arms"], arm_id, "arm").get("tag")
     found = {}
     with tempfile.TemporaryDirectory() as scratch:
         for fixture in tasks["fixtures"]:
             task = next(task for task in tasks["tasks"] if task["fixture"] == fixture["id"])
             copy = Path(scratch) / fixture["id"]
-            seed(tasks, root, task["id"], "B", copy, components, unseeded=True)
+            seed(tasks, root, task["id"], arm_id, copy, components, unseeded=True)
             found[fixture["id"]] = diagnostics(specforge, copy, "collect", "--yes", "--format", "json")
+    baselines = {fixture["id"]: fixture.get("baseline", []) for fixture in tasks["fixtures"]}
+    if tag:
+        folder = folder if folder is not None else HERE.relative_to(root).as_posix()
+        frozen = json.loads(git(root, "show", f"{tag}:{folder}/tasks.json"))
+        baselines = {fixture["id"]: fixture.get("baseline", []) for fixture in frozen["fixtures"]}
     if not record:
         differ = []
         for fixture in tasks["fixtures"]:
-            want, got = fixture.get("baseline", []), found[fixture["id"]]
+            want, got = baselines.get(fixture["id"], []), found[fixture["id"]]
             differ += [f"{fixture['id']}: - {line}" for line in want if line not in got]
             differ += [f"{fixture['id']}: + {line}" for line in got if line not in want]
         if differ:
@@ -404,12 +459,157 @@ def schedule(tasks: dict, seeds: int = SEEDS) -> list[tuple[str, int, list[str]]
     return order
 
 
+# What cuts a command line into segments: the shell's control operators, a subshell's or a command substitution's
+# parentheses, a backtick and a line break.
+BREAKS = set(";|&()`\n")
+
+# The words a command may follow in its segment: shell keywords and the `!` that negates it.
+KEYWORDS = {"if", "then", "elif", "else", "while", "until", "do", "!", "time", "{"}
+
+# A heredoc's start, `<<WORD`, `<<'WORD'`, `<<"WORD"` or `<<-WORD`, but not a here-string `<<<`.
+HEREDOC = re.compile(r"(?<!<)<<(-?)\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2")
+
+
+def unheredoc(command: str) -> str:
+    """`command` without its heredoc bodies: the lines after a line that starts one, up to its delimiter's line."""
+    out, ends = [], []
+    for line in command.split("\n"):
+        if ends:
+            dash, word = ends[0]
+            if (line.lstrip("\t") if dash else line) == word:
+                ends.pop(0)
+            continue
+        out.append(line)
+        ends = [(m.group(1), m.group(3)) for m in HEREDOC.finditer(line)]
+    return "\n".join(out)
+
+
+def lexed(text: str) -> list[str]:
+    """The words of `text` by the standard library's shell reader, each run of breaks one word; a `ValueError` when a
+    quote does not close."""
+    lexer = shlex.shlex(text, posix=True, punctuation_chars="();<>|&\n`")
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
+    return list(lexer)
+
+
+def segments(command: str) -> list[list[str]]:
+    """The words of each segment of the shell text `command`, its heredoc bodies dropped, cut at `&&`, `||`, `;`, `|`,
+    `&`, `(`, `)`, backticks and line breaks. A command substitution inside a quoted word is a segment of its own. A
+    line the shell reader cannot split (an unclosed quote) is cut at those characters and split on whitespace alone."""
+    out = []
+    for line in unheredoc(command).split("\n"):
+        try:
+            words = lexed(line)
+        except ValueError:
+            words = [w.strip("'\"") for part in re.split(r"([;|&()`])", line) for w in part.split()]
+        current = []
+        for word in words:
+            if word and all(c in BREAKS for c in word):
+                out.append(current)
+                current = []
+                continue
+            current.append(word)
+            if "$(" in word or "`" in word:
+                out.extend(segments(word[min(i for i in (word.find("$("), word.find("`")) if i >= 0) + 1:]))
+        out.append(current)
+    return [segment for segment in out if segment]
+
+
+def changes_state(call: dict, writes: dict) -> bool:
+    """Whether the tool call `call` (a `tool_use` block) changes state, by `tasks.json#state_writes`: a file tool, a
+    mutating MCP tool, or a Bash command with a `specforge` segment whose leading words are a mutating CLI line or a
+    writing command. A segment's leading assignments (`X=...`) and keywords (`if`, `then`, `!`) are skipped, and so are
+    the global flags before the verb, each with its value unless a verb follows it."""
+    name = call.get("name", "")
+    if name in writes["files"] or name in writes["mcp"]:
+        return True
+    if name != "Bash":
+        return False
+    lines = [line.split() for line in writes["cli"] + writes["commands"]]
+    verbs = {line[0] for line in lines}
+    for words in segments(str((call.get("input") or {}).get("command", ""))):
+        while words and (words[0] in KEYWORDS or ("=" in words[0] and not words[0].startswith("-"))):
+            words = words[1:]
+        if not words or Path(words[0]).name != "specforge":
+            continue
+        rest = words[1:]
+        while rest and rest[0].startswith("-"):
+            rest = rest[1:] if "=" in rest[0] or rest[1:2] and rest[1] in verbs else rest[2:]
+        if any(rest[:len(line)] == line for line in lines):
+            return True
+    return False
+
+
+def spawns(tasks: dict, transcript: Path) -> list[dict]:
+    """Each subagent of the run whose transcript directory is `transcript`, as `{agent, context_tokens, total_tokens}`,
+    ordered by its file's first record's timestamp, then by file name (README section 6, M7)."""
+    if not transcript.is_dir():
+        raise Refused(f"{transcript} is not a directory: a run's transcript is session.jsonl and subagents/")
+    subagents = transcript / "subagents"
+    if not subagents.is_dir():
+        for session in sorted(transcript.glob("*.jsonl")):
+            for line in session.read_text().splitlines():
+                if line.strip() and json.loads(line).get("isSidechain") is True:
+                    raise Refused(
+                        f"{session}: a sidechain record and no subagents/: an older layout that keeps subagents "
+                        "inline, which spawns does not read"
+                    )
+        return []
+    logs = {path.name[: -len(".jsonl")] for path in subagents.glob("agent-*.jsonl")}
+    metas = {path.name[: -len(".meta.json")] for path in subagents.glob("agent-*.meta.json")}
+    for name in sorted(logs ^ metas):
+        has, lacks = (".jsonl", ".meta.json") if name in logs else (".meta.json", ".jsonl")
+        raise Refused(f"{subagents / (name + has)} has no {name}{lacks} beside it")
+    found = []
+    for name in sorted(logs):
+        meta = json.loads((subagents / f"{name}.meta.json").read_text())
+        if not isinstance(meta.get("agentType"), str):
+            raise Refused(f"{subagents / (name + '.meta.json')}: no agentType")
+        requests: dict[str, dict] = {}
+        first = None
+        for number, line in enumerate((subagents / f"{name}.jsonl").read_text().splitlines(), 1):
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            first = record.get("timestamp", "") if first is None else first
+            if record.get("type") != "assistant":
+                continue
+            where = f"{subagents / (name + '.jsonl')}:{number}"
+            message = record.get("message") or {}
+            usage = message.get("usage")
+            if not isinstance(usage, dict):
+                raise Refused(f"{where}: an assistant record without usage")
+            # a message split over several records repeats its input usage; its output grows
+            request = requests.setdefault(message.get("id") or where, {
+                "input": sum(int(usage.get(key, 0)) for key in (
+                    "input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")),
+                "output": 0, "writes": False,
+            })
+            request["output"] = max(request["output"], int(usage.get("output_tokens", 0)))
+            calls = [block for block in message.get("content") or [] if isinstance(block, dict)
+                     and block.get("type") == "tool_use"]
+            if any(changes_state(call, tasks["state_writes"]) for call in calls):
+                request["writes"] = True
+        if not requests:
+            continue
+        ordered = list(requests.values())
+        start = next((request for request in ordered if request["writes"]), ordered[-1])
+        found.append(((first or "", name), {
+            "agent": meta["agentType"], "context_tokens": start["input"],
+            "total_tokens": sum(request["input"] + request["output"] for request in ordered),
+        }))
+    return [spawn for _, spawn in sorted(found, key=lambda item: item[0])]
+
+
 SYNTHETIC = {
     "arms": [
         {"id": "A", "config": None, "drop": ["spec/", "specforge-harness", "README.md"]},
         {"id": "B", "config": {"extensions": ["@gsd/core"], "thread": True, "settings": {}},
          "drop": [".planning/", "README.md"]},
         {"id": "B0", "config": {"extensions": ["@gsd/core"], "thread": False, "settings": {}},
+         "drop": [".planning/", "README.md"]},
+        {"id": "Bv1", "tag": "gsd-ab-v1", "config": {"extensions": ["@gsd/core"], "thread": True, "settings": {}},
          "drop": [".planning/", "README.md"]},
     ],
     "fixtures": [{"id": "fx", "path": "fx", "status": "ready", "thread": ["@code/core"]}],
@@ -447,20 +647,141 @@ SYNTHETIC = {
 }
 
 
-def corpus(tasks: dict, root: Path, scratch: Path) -> int:
+def corpus(tasks: dict, root: Path, scratch: Path) -> tuple[int, list[str]]:
     """Seeds every task of `tasks` in every arm, seeded and unseeded: `present` names exactly the task's seeded defects
-    on the seeded copy and none on the unseeded one. Answers the number of copies made."""
+    on the seeded copy and none on the unseeded one. A tagged arm is seeded from its tag's trees, and skipped, saying
+    so, where the tag does not resolve. Answers the number of copies made and the arms seeded."""
     components = {name: str(scratch / "component.wasm") for name in ("@gsd/core", "@gsd/security")}
+    arms = []
+    for arm in ARMS:
+        tag = find(tasks["arms"], arm, "arm").get("tag")
+        if tag and not has_tag(root, tag):
+            print(f"corpus: arm {arm} skipped, no tag {tag} here")
+        else:
+            arms.append(arm)
     made = 0
     for task in tasks["tasks"]:
-        for arm in ARMS:
+        for arm in arms:
+            tagged = bool(find(tasks["arms"], arm, "arm").get("tag"))
             for unseeded in (False, True):
                 copy = scratch / f"{task['id']}-{arm}-{'unseeded' if unseeded else 'seeded'}"
-                seed(tasks, root, task["id"], arm, copy, components, unseeded=unseeded, worktree=True)
+                seed(tasks, root, task["id"], arm, copy, components, unseeded=unseeded, worktree=not tagged)
                 got, want = present(tasks, task["id"], arm, copy), [] if unseeded else task["seeded"]
                 assert got == want, f"{copy.name}: present {got}, want {want}"
                 made += 1
-    return made
+    return made, arms
+
+
+def spawns_self_test(run: Path) -> None:
+    """`spawns` over a synthetic transcript directory: each spawn's first state change, the tokens it counts, and what
+    it refuses."""
+    writes = json.loads(TASKS.read_text())["state_writes"]
+    tasks = {"state_writes": writes}
+
+    def use(name: str, **arguments: str) -> dict:
+        return {"type": "tool_use", "name": name, "input": arguments}
+
+    def turn(at: str, id_: str, tokens: tuple[int, int, int, int], *calls: dict) -> dict:
+        usage = dict(zip(("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "output_tokens"),
+                         tokens))
+        return {"type": "assistant", "timestamp": at, "message": {"id": id_, "usage": usage, "content": list(calls)}}
+
+    def agent(name: str, kind: str | None, records: list[dict]) -> None:
+        (run / "subagents").mkdir(parents=True, exist_ok=True)
+        (run / "subagents" / f"agent-{name}.jsonl").write_text("".join(json.dumps(r) + "\n" for r in records))
+        if kind is not None:
+            (run / "subagents" / f"agent-{name}.meta.json").write_text(json.dumps({"agentType": kind}))
+
+    run.mkdir()
+    (run / "session.jsonl").write_text(json.dumps({"type": "user", "message": {"content": "go"}}) + "\n")
+    assert spawns(tasks, run) == [], "no subagents/, no sidechain: no spawns"
+    agent("a", "gsd-executor", [
+        {"type": "user", "timestamp": "2026-11-12T10:00:00Z"},
+        turn("t", "m1", (10, 100, 0, 5)),
+        turn("t", "m2", (20, 0, 110, 1), use("Read", file_path="x")),
+        turn("t", "m2", (20, 0, 110, 7), use("Edit", file_path="x")),
+        turn("t", "m3", (30, 0, 140, 9)),
+    ])
+    agent("b", "gsd-executor", [
+        {"type": "user", "timestamp": "2026-11-12T10:01:00Z"},
+        turn("t", "m1", (50, 0, 0, 1), use("Bash", command="specforge query X")),
+        turn("t", "m2", (60, 0, 0, 1), use("Bash", command="specforge query X && specforge set X status done")),
+    ])
+    agent("c", "gsd-executor", [
+        {"type": "user", "timestamp": "2026-11-12T10:02:00Z"},
+        turn("t", "m1", (70, 0, 0, 1), use("mcp__specforge__specforge_edit", edits="[]")),
+        turn("t", "m2", (80, 0, 0, 1), use("Write", file_path="x")),
+    ])
+    agent("d", "gsd-executor", [
+        {"type": "user", "timestamp": "2026-11-12T10:03:00Z"},
+        turn("t", "m1", (90, 0, 0, 1), use("Bash", command="cd /tmp\nspecforge gsd complete-plan v1.0/01/01-01")),
+    ])
+    agent("e", "gsd-verifier", [
+        {"type": "user", "timestamp": "2026-11-12T10:04:00Z"},
+        turn("t", "m1", (5, 0, 0, 1), use("Read", file_path="x")),
+        turn("t", "m2", (7, 0, 0, 1), use("Bash", command="specforge check")),
+    ])
+    agent("f", "gsd-planner", [{"type": "user", "timestamp": "2026-11-12T10:05:00Z"}])
+    got = spawns(tasks, run)
+    assert got == [
+        {"agent": "gsd-executor", "context_tokens": 130, "total_tokens": 110 + 5 + 130 + 7 + 170 + 9},
+        {"agent": "gsd-executor", "context_tokens": 60, "total_tokens": 51 + 61},
+        {"agent": "gsd-executor", "context_tokens": 70, "total_tokens": 71 + 81},
+        {"agent": "gsd-executor", "context_tokens": 90, "total_tokens": 91},
+        {"agent": "gsd-verifier", "context_tokens": 7, "total_tokens": 6 + 8},
+    ], got
+    print(f"spawns: {len(got)} spawns, the first state change of each, a subagent with no request left out")
+    refusals = 0
+    for setup, why in (
+        (lambda: agent("g", None, [turn("t", "m1", (1, 0, 0, 1))]), "has no agent-g.meta.json"),
+        (lambda: (run / "subagents/agent-g.meta.json").write_text("{}"), "no agentType"),
+        (lambda: agent("g", "x", [{"type": "assistant", "message": {"id": "m1"}}]), "without usage"),
+    ):
+        setup()
+        try:
+            spawns(tasks, run)
+        except Refused as refused:
+            assert why in str(refused), refused
+            refusals += 1
+    for path in (run / "subagents").glob("agent-g*"):
+        path.unlink()
+    inline = run.parent / "inline"
+    inline.mkdir()
+    (inline / "session.jsonl").write_text(json.dumps({"type": "assistant", "isSidechain": True}) + "\n")
+    for where, why in ((inline, "older layout"), (run / "session.jsonl", "not a directory")):
+        try:
+            spawns(tasks, where)
+        except Refused as refused:
+            assert why in str(refused), refused
+            refusals += 1
+    assert refusals == 5, f"five layouts refused: {refusals}"
+
+
+# The shell forms the typed-edit fences take, each a state write: a heredoc whose body holds an apostrophe, a
+# command substitution bare and quoted, a keyword, a subshell, a global flag before the verb, and a line after one
+# whose quote does not close.
+FORMS = {
+    "heredoc": "IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\\n'}\nthe check isn't wired\nTEXT\n"
+               'specforge set X why "$WHY" || exit 1',
+    "substitution": 'X=$(specforge new deferred_idea DI1 "$T" --in a.spec) || exit 1',
+    "quoted substitution": 'X="$(specforge new deferred_idea DI1 "$T" --in a.spec)" || exit 1',
+    "keyword": "if specforge set X status done; then echo ok; fi",
+    "subshell": "( specforge set X status done )",
+    "global flag": "specforge --format json set X status done",
+    "unclosed quote": "echo 'an unclosed quote\nspecforge set X status done",
+}
+
+
+def forms_self_test() -> dict:
+    """Whether `changes_state` sees the write of each of [`FORMS`]: true, false, or `refused`."""
+    writes = json.loads(TASKS.read_text())["state_writes"]
+    seen = {}
+    for name, command in FORMS.items():
+        try:
+            seen[name] = changes_state({"name": "Bash", "input": {"command": command}}, writes)
+        except Refused:
+            seen[name] = "refused"
+    return seen
 
 
 def self_test() -> None:
@@ -604,6 +925,42 @@ def self_test() -> None:
         (t4 / "test/t.js").unlink()
         assert present(SYNTHETIC, "t4", "A", t4) == ["D5"], "the file gone: the deleted text is still gone"
 
+        # Arm Bv1 copies the fixture as the tag gsd-ab-v1 froze it, with B's seeds; arm B copies HEAD's. The tag's own
+        # tasks.json holds the baselines Bv1's preflight compares with.
+        (fixture / "src/v.js").write_text("v1\n")
+        (root / "ab").mkdir()
+        frozen = {"fixtures": [{"id": "fx", "baseline": ["W1 a.spec:3"]}]}
+        (root / "ab/tasks.json").write_text(json.dumps(frozen))
+        git(root, "add", "fx", "ab")
+        git(root, "commit", "-q", "-m", "the frozen protocol")
+        git(root, "tag", "gsd-ab-v1")
+        (fixture / "src/v.js").write_text("v2\n")
+        git(root, "add", "fx")
+        git(root, "commit", "-q", "-m", "the fixture moves on")
+        v1, now = root / "bv1", root / "b-now"
+        assert seed(SYNTHETIC, root, "t1", "Bv1", v1, components) == 3, "Bv1 applies B's three edits"
+        seed(SYNTHETIC, root, "t1", "B", now, components)
+        assert ((v1 / "src/v.js").read_text(), (now / "src/v.js").read_text()) == ("v1\n", "v2\n")
+        assert present(SYNTHETIC, "t1", "Bv1", v1) == ["D1", "D2"], "Bv1's seeds are B's"
+        untagged = {**SYNTHETIC, "arms": [*SYNTHETIC["arms"], {**SYNTHETIC["arms"][3], "id": "Bx", "tag": "gsd-ab-v0"}]}
+        for args, kw, why in (
+            ((SYNTHETIC, root, "t1", "Bv1", root / "bv1-worktree", components), {"worktree": True}, "tag's trees"),
+            ((untagged, root, "t1", "Bx", root / "bx", components), {}, "tag gsd-ab-v0 froze; this repository has no"),
+        ):
+            try:
+                seed(*args, **kw)
+            except Refused as refused:
+                assert why in str(refused), refused
+            else:
+                raise AssertionError(f"{why}: must be refused")
+        assert preflight(SYNTHETIC, root, str(stand_in), components, arm_id="Bv1", folder="ab") == {
+            "fx": ["W1 a.spec:3"]}, "Bv1's preflight compares with the tag's baselines"
+
+        spawns_self_test(root / "transcript")
+        seen = forms_self_test()
+        assert seen == {name: True for name in FORMS}, seen
+        print(f"forms: {sum(v is True for v in seen.values())} of {len(FORMS)} shell forms counted as state writes")
+
         order = schedule(SYNTHETIC)
         assert len(order) == len(SYNTHETIC["tasks"]) * SEEDS
         assert len({(task, number) for task, number, _ in order}) == len(order), "each (task, seed) once"
@@ -618,8 +975,8 @@ def self_test() -> None:
                 values = [result["value"] for result in tasks["results"][task["workflow"]]]
                 assert "{task." not in message and task["prompt"] in message, (task["id"], arm)
                 assert all(f"`RESULT: {value}`" in message.splitlines()[-1] for value in values), (task["id"], arm)
-        made = corpus(tasks, REPO, root / "corpus")
-        assert made == len(tasks["tasks"]) * len(ARMS) * 2
+        made, arms = corpus(tasks, REPO, root / "corpus")
+        assert made == len(tasks["tasks"]) * len(arms) * 2
         print(f"corpus: {made} copies, each seeded one naming its seeds and each unseeded one none")
     print("self-test: ok")
 
@@ -648,11 +1005,14 @@ def main() -> None:
     said.add_argument("--task", required=True)
     said.add_argument("--arm", required=True)
     verbs.add_parser("schedule", help="the run order")
+    spawned = verbs.add_parser("spawns", help="each subagent's context and total tokens, from a run's transcript")
+    spawned.add_argument("--transcript", required=True, type=Path, help="session.jsonl and subagents/, as written")
     checked = verbs.add_parser("preflight", help="each fixture's diagnostics against its baseline")
     checked.add_argument("--specforge", required=True, help="the specforge binary built from the tag")
     checked.add_argument("--gsd-core", required=True)
     checked.add_argument("--gsd-security", required=True)
     checked.add_argument("--record", action="store_true", help="print the baselines instead of comparing")
+    checked.add_argument("--arm", choices=["B", "Bv1"], default="B", help="the arm whose copies run (Bv1: the tag's)")
     args = parser.parse_args()
     if args.self_test:
         if args.verb:
@@ -660,7 +1020,7 @@ def main() -> None:
         self_test()
         return
     if not args.verb:
-        parser.error("a verb (seed, present, rework, prompt, schedule) or --self-test")
+        parser.error("a verb (seed, present, rework, prompt, schedule, spawns, preflight) or --self-test")
     tasks = json.loads(TASKS.read_text())
     try:
         if args.verb == "seed":
@@ -676,9 +1036,11 @@ def main() -> None:
             print(rework(args.arm, args.dir))
         elif args.verb == "prompt":
             print(prompt(tasks, args.task, args.arm), end="")
+        elif args.verb == "spawns":
+            print(json.dumps(spawns(tasks, args.transcript)))
         elif args.verb == "preflight":
             components = {"@gsd/core": args.gsd_core, "@gsd/security": args.gsd_security}
-            found = preflight(tasks, REPO, args.specforge, components, args.record)
+            found = preflight(tasks, REPO, args.specforge, components, args.record, args.arm)
             print(json.dumps(found, indent=2) if args.record else f"preflight: {len(found)} fixtures at their baseline")
         else:
             for task, number, arms in schedule(tasks):

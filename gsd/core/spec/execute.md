@@ -164,9 +164,21 @@ optional: a pause with no phase is in the project scope). `plan → plan`, `at t
 `completed_work {task → task, state enum{done, in_progress, not_started}}`, `remaining_work strs`,
 `decisions_made →* decision`, `blockers →* blocker`, `context str`, `next_action str R`.
 
-**blocker**: GSD `### Blockers/Concerns`. Name `BL1`, project scope. `text str R`, `phase → phase`, `plan → plan`, `raised ts H`,
-`resolved {at ts, how str}`. `resolved` is authored, so a person writes `resolved.at` and `gsd/E107` refuses a time that
+**blocker**: GSD `### Blockers/Concerns`. Name `BL1`, project scope. `text str R`, `phase → phase`, `plan → plan`, `gate → task H`,
+`raised ts H`, `resolved {at ts, how str}`. `gate` is the task whose TDD gate tripped (STATE.md's `last_gate_trip`):
+`raise_blocker --plan <plan> --gate <task>` writes it, and reuses the open blocker of the same gate. `resolved` is authored, so a person writes `resolved.at` and `gsd/E107` refuses a time that
 is not RFC 3339 UTC (`2026-10-29T10:00:00Z`).
+
+## quick_batch
+
+GSD: `quick-batches/<id>/BATCH.json`, the record of a `/gsd-quick-batch` run, which resume reads. Named by its batch id
+(`261112-batch`, then `261112-batch-2` when the day's id is taken: `quick_init --batch` answers the first free one),
+project scope, beside its quick plans. `items →* plan R I` (the quick plans, in item order), `base str H` (the commit
+the batch started from), `created ts H`; both written once by `specforge gsd start-batch <batch> --items <json>
+--base <sha>`. An item's state is its plan's computed status, so upstream's item transitions need no record.
+`status enum{open, complete} C`: complete once every item's plan is. `eligible strs C`: the items whose plan is not
+`executing`, `complete`, `halted` or `blocked` and whose `depends_on` are all complete, in item order; `[]` when none,
+never absent.
 
 ## Session state
 

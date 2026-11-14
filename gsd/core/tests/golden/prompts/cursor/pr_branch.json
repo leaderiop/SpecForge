@@ -61,17 +61,17 @@
     "fi",
     ""
   ],
-  "bytes": 23402,
+  "bytes": 23478,
   "end": [
+    "Planning paths in diff: {FORBIDDEN} — must be 0",
+    "Planning deletions: {PLANNING_DELETIONS} (must be 0 — #3679)",
+    "",
+    "Next steps:",
+    "  git push origin {PR_BRANCH}",
+    "  gh pr create --base {TARGET} --head {PR_BRANCH}",
     "",
     "Or use /gsd-ship to create the PR automatically.",
     "```",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
     "",
     "</step>",
     "",
@@ -134,19 +134,21 @@
     "| GSD file | Kinds |",
     "|---|---|",
     "| `PROJECT.md` | project, requirement, decision |",
+    "| `SKELETON.md` | decision (the walking skeleton's architectural choices, as project decisions) |",
     "| `REQUIREMENTS.md` | requirement |",
     "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
+    "| `STATE.md` | computed (progress, position) + pause, blocker (its `gate` is `last_gate_trip`) + session state |",
     "| `config.json` | settings |",
-    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (its graduation marks and `graduation_backlog` are `lesson.graduated`), methodology |",
+    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`, `NN-DISCUSS-CHECKPOINT.json` | context, decision, deferred_idea, discussion |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
+    "| `NN-REVIEWS.md` | review, review_concern, revision_conflict |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
     "| `.continue-here.md` | handoff |",
     "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
+    "| `NN-UAT.md` | uat_session (and its deferred follow-ups), uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
@@ -182,11 +184,9 @@
     "",
     "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
     "<name> <value>`.",
-    "",
-    "```json",
-    "{"
+    ""
   ],
-  "lines": 799,
+  "lines": 527,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:c629b65f5d12c55bf6f8c8125f4b53f9c3e994c0bd226012f72940361911ca6d",
+    "digest": "sha256:782cb2f7291d687001e16389641bb5e02984f42624363f1c1773c1f4cff434c8",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "c629b65f5d12c55bf6f8c8125f4b53f9c3e994c0bd226012f72940361911ca6d"
+  "sha256": "782cb2f7291d687001e16389641bb5e02984f42624363f1c1773c1f4cff434c8"
 }
