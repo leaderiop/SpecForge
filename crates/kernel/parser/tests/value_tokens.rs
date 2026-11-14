@@ -31,6 +31,8 @@ fn a_value_token_reads_as_the_parse_stores_it() {
         "k bare",
         "k 7",
         "k -3",
+        "k 1.5",
+        "k -0.25",
         "k true",
         "k 2026-03-01",
         "k [\" a \", b, gh.issue:1, true, 3]",
@@ -74,6 +76,12 @@ fn a_value_token_reads_as_the_parse_stores_it() {
                 assert_eq!(
                     value_token(node, piece.text()),
                     Some((Written::Literal, n.to_string()))
+                );
+            }
+            FieldValue::Number(d) => {
+                assert_eq!(
+                    value_token(node, piece.text()),
+                    Some((Written::Literal, d.to_string()))
                 );
             }
             FieldValue::Boolean(b) => {

@@ -266,9 +266,9 @@ impl FieldForm {
     ///   ([`Decimal::parse`], ADR 0361).
     /// - `bool`: a quoted or bare `true` / `false` becomes the boolean.
     /// - `date`: a quoted calendar day becomes the date.
-    /// - `string`, `enum`: an integer or boolean becomes its text.
-    /// - `reference`: a number, date or boolean written bare becomes the name it is written as (`10`, `2026-10-26`);
-    ///   a negative number stays, for E061.
+    /// - `string`, `enum`: an integer, a decimal or a boolean becomes its text.
+    /// - `reference`: a number, date or boolean written bare becomes the name it is written as (`10`, `3.1`,
+    ///   `2026-10-26`); a negative number stays, for E061.
     /// - `enum_list`: as the other lists.
     /// - `block`, `block_list`: each member of a typed block is stored as its own form coerces it, a single block
     ///   on a `block_list` is its one item and `[]` is no item ([`members::coerce_members`]); an open block is
@@ -304,6 +304,9 @@ impl FieldForm {
             (FieldType::Reference, FieldValue::Integer(n)) if *n >= 0 => {
                 Some(FieldValue::Identifier(n.to_string()))
             }
+            (FieldType::Reference, FieldValue::Number(d)) if !d.is_negative() => {
+                Some(FieldValue::Identifier(d.to_string()))
+            }
             (FieldType::Reference, FieldValue::Date(s)) => Some(FieldValue::Identifier(s.clone())),
             (FieldType::Reference, FieldValue::Boolean(b)) => {
                 Some(FieldValue::Identifier(b.to_string()))
@@ -322,6 +325,10 @@ impl FieldForm {
                 FieldType::String | FieldType::Enum | FieldType::Identifier,
                 FieldValue::Integer(n),
             ) => Some(FieldValue::String(n.to_string())),
+            (
+                FieldType::String | FieldType::Enum | FieldType::Identifier,
+                FieldValue::Number(d),
+            ) => Some(FieldValue::String(d.to_string())),
             (
                 FieldType::String | FieldType::Enum | FieldType::Identifier,
                 FieldValue::Boolean(b),
@@ -724,6 +731,7 @@ fn coerce_list(value: &FieldValue, span: Option<&SourceSpan>) -> Option<FieldVal
         FieldValue::Identifier(id) => (id.clone(), Written::Bare),
         FieldValue::Date(s) => (s.clone(), Written::Literal),
         FieldValue::Integer(n) => (n.to_string(), Written::Literal),
+        FieldValue::Number(d) => (d.to_string(), Written::Literal),
         FieldValue::Boolean(b) => (b.to_string(), Written::Literal),
         _ => return None,
     };

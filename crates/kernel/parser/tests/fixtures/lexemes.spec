@@ -50,6 +50,8 @@ phase 10 "A number as a name" {
   points 2-1
   padded 007
   fraction 1.5
+  ratio -0.25
+  scaled 1.5e3
   signed -5
   day 2026-10-26
   flag true

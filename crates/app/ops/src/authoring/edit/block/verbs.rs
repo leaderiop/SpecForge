@@ -310,12 +310,13 @@ pub fn link(
         };
         let Some(mut items) = current else {
             // A single `reference` field: unlink removes it when it names the target.
-            // A name written as a number or a date (`parent 10`) names its text (ADR 0283).
+            // A name written as a number or a date (`parent 10`, `plan 3.1`) names its text (ADR 0283, ADR 0361).
             return Ok(match held.entry().map(|e| &e.value) {
                 Some(
                     value @ (FieldValue::Identifier(_)
                     | FieldValue::String(_)
                     | FieldValue::Integer(_)
+                    | FieldValue::Number(_)
                     | FieldValue::Date(_)
                     | FieldValue::Boolean(_)),
                 ) if names_target(&specforge_registry::snapshot::field_text(value)) => {

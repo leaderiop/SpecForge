@@ -35,6 +35,8 @@
 //! operators joined), and what `parse_expression` reads from an `expr { }`
 //! group's text is what the grammar read.
 
+use specforge_protocol_types::Decimal;
+
 mod slots;
 
 /// What a lexeme is.
@@ -51,8 +53,8 @@ pub enum LexemeKind {
     RefId,
     /// A word starting with a digit, with an optional `.digits` part:
     /// `42`, `10ms`, `1.5`; a leading `-` is its own `Punct`. In a value or list item
-    /// slot (ADR 0283) it is a bare word with the shape of an integer or a date
-    /// (`42`, `-5`, `007`, `2026-10-26`, [`is_number_word`]), whole, sign included.
+    /// slot (ADR 0283) it is a bare word with the shape of an integer, a plain decimal or a date
+    /// (`42`, `-5`, `007`, `1.5`, `03.1`, `2026-10-26`, [`is_number_word`]), whole, sign included.
     Number,
     /// `"…"` (with `\` escapes) or `"""…"""`, quotes included, read as the
     /// grammar's `string` and `triple_quoted_string` tokens read it: across
@@ -411,11 +413,14 @@ pub fn type_spelling(text: &str) -> (String, Vec<Lexeme>) {
 pub enum LiteralShape {
     /// A canonical integer, `-?(0|[1-9][0-9]*)` within `i64`, not `-0`.
     Integer(i64),
+    /// A canonical decimal, `-?(0|[1-9][0-9]*)\.[0-9]*[1-9]` of at most 15 significant digits (ADR 0361): exactly
+    /// the decimal's text, so the tag loses nothing. `1.50`, `03.1` and `1.5e3` are [`LiteralShape::Other`].
+    Number(Decimal),
     /// `true` or `false`.
     Boolean(bool),
     /// `YYYY-MM-DD` as written; whether the day exists is a `date` field's to say.
     Date,
-    /// Any other word: `007`, `2-1`, `v1.0`, `AUTH-01`, `1.5`, an integer too large for `i64`.
+    /// Any other word: `007`, `2-1`, `v1.0`, `AUTH-01`, `1.50`, `1.5e3`, an integer too large for `i64`.
     Other,
 }
 
@@ -447,15 +452,29 @@ pub fn literal_shape(word: &str) -> LiteralShape {
     {
         return LiteralShape::Integer(n);
     }
+    if let Some((whole, fraction)) = magnitude.split_once('.')
+        && digits(whole.as_bytes())
+        && (whole == "0" || !whole.starts_with('0'))
+        && digits(fraction.as_bytes())
+        && !fraction.ends_with('0')
+        && let Ok(d) = Decimal::parse(word)
+    {
+        return LiteralShape::Number(d);
+    }
     LiteralShape::Other
 }
 
-/// Whether `word` has the shape of a number or a date (`-?[0-9]+`, or `YYYY-MM-DD`): what the lexer reads as a
-/// `Number` where a bare word is expected, and what a list item writes as a literal.
+/// Whether `word` has the shape of a number or a date (`-?[0-9]+(\.[0-9]+)?`, or `YYYY-MM-DD`): what the lexer reads
+/// as a `Number` where a bare word is expected, and what a list item writes as a literal. Every word
+/// [`literal_shape`] tags an integer, a decimal or a date is one.
 pub fn is_number_word(word: &str) -> bool {
     let magnitude = word.strip_prefix('-').unwrap_or(word);
-    (!magnitude.is_empty() && magnitude.bytes().all(|b| b.is_ascii_digit()))
-        || literal_shape(word) == LiteralShape::Date
+    let digits = |part: &str| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit());
+    let plain = match magnitude.split_once('.') {
+        Some((whole, fraction)) => digits(whole) && digits(fraction),
+        None => digits(magnitude),
+    };
+    plain || literal_shape(word) == LiteralShape::Date
 }
 
 /// The number of lexemes from `lexemes[at]` that spell one entity name: a run of adjacent lexemes whose bytes are

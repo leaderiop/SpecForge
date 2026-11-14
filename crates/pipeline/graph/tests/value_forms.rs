@@ -464,3 +464,61 @@ fn a_number_field_reads_a_decimal_word() {
         Some("an integer has no fraction")
     );
 }
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a decimal word on a text field is its text and on a reference field the name it spells"
+)]
+fn a_decimal_word_on_a_text_or_reference_field_keeps_its_text() {
+    let tagged = |text: &str| FieldValue::Number(Decimal::parse(text).unwrap());
+    for field_type in [FieldType::String, FieldType::Identifier] {
+        let form = FieldForm::new(field_type, Vec::new());
+        assert_eq!(
+            form.coerce(&tagged("1.5"), None),
+            Some(FieldValue::String("1.5".into())),
+            "{field_type:?}"
+        );
+    }
+    let text = FieldForm::new(FieldType::String, Vec::new());
+    assert_eq!(
+        read(&text, tagged("-0.25")),
+        Ok(FieldValue::String("-0.25".into()))
+    );
+    let enumerated = FieldForm::new(FieldType::Enum, vec!["1.5".into(), "2".into()]);
+    assert_eq!(
+        read(&enumerated, tagged("1.5")),
+        Ok(FieldValue::String("1.5".into()))
+    );
+    let reference = FieldForm::new(FieldType::Reference, Vec::new());
+    assert_eq!(read(&reference, tagged("3.1")), Ok(word("3.1")));
+    assert_eq!(
+        read(&reference, tagged("-0.5")),
+        Err(Some("a name never starts with '-'".to_string()))
+    );
+    let number = FieldForm::new(FieldType::Number, Vec::new());
+    assert_eq!(read(&number, tagged("1.5")), Ok(tagged("1.5")));
+    let integer = FieldForm::new(FieldType::Integer, Vec::new());
+    assert_eq!(
+        read(&integer, tagged("1.5")),
+        Err(Some("an integer has no fraction".to_string()))
+    );
+    // On a list field a tagged decimal is one literal item, as an integer is.
+    let list = FieldForm::new(FieldType::ReferenceList, Vec::new());
+    let span = specforge_common::SourceSpan {
+        file: specforge_common::Sym::new("a.spec"),
+        start_line: 1,
+        start_col: 1,
+        end_line: 1,
+        end_col: 4,
+    };
+    match list.coerce(&tagged("3.1"), Some(&span)) {
+        Some(FieldValue::List(items)) => {
+            assert_eq!(items.len(), 1);
+            assert_eq!(
+                (items[0].text.as_str(), items[0].written),
+                ("3.1", Written::Literal)
+            );
+        }
+        other => panic!("{other:?}"),
+    }
+}

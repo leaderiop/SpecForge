@@ -411,7 +411,8 @@ pub enum FieldValue {
     /// layout; a quoted member as written.
     TypeUnion(Vec<TypeMember>),
     Integer(i64),
-    /// An exact decimal (ADR 0361): the decimal a `number` field read from its word.
+    /// An exact decimal (ADR 0361): a canonical decimal word the parser tags (`1.5`, `-0.25`), or the decimal a
+    /// `number` field read from its word (`1.50`, `1.5e3`).
     Number(specforge_protocol_types::Decimal),
     Boolean(bool),
     Date(String),
