@@ -617,13 +617,14 @@ specforge new verify_gap "$GAP_ID" "$TITLE" --in "$FILE" --verification "$VERIFI
 
 `specforge query "$PHASE_ID" --depth 3 --kinds verify_gap,uat_gap --format context` reads the phase's gaps back, as plan-phase does.
 
-If Step 9b identified deferred items, give them in the report you return in this shape:
+Record the items Step 9b deferred as the verification's `deferred` list, one row per truth: its `truth` the truth's id, its `addressed_in` the later phase's id, its `evidence` the goal text or success criterion of that phase that covers it. One write sets the whole list, so a re-verification writes every deferral it still finds; with none, write nothing. A deferred truth no longer counts against the phase, so a phase whose only failures are deferred does not read `gaps_found`.
 
-```yaml
-deferred:  # Items addressed in later phases — not actionable gaps
-  - truth: "Observable truth not yet met"
-    addressed_in: "Phase 5"
-    evidence: "Phase 5 success criteria: 'Implement RuntimeConfigC FFI bindings'"
+```bash
+VERIFICATION="{the phase's verification, e.g. v1.0/01/01-VERIFICATION}"
+IFS= read -rd '' DEFERRED <<'TEXT' || true; DEFERRED=${DEFERRED%$'\n'}
+[{"truth": "{the deferred truth's id, e.g. v1.0/01/01-02/TR2}", "addressed_in": "{the later phase's id, e.g. v1.0/02}", "evidence": "{that phase's goal text or success criterion}"}]
+TEXT
+specforge set "$VERIFICATION" deferred "$DEFERRED" || exit 1
 ```
 
 Deferred items are informational only — they do not require closure plans.
@@ -891,7 +892,7 @@ return <div>No messages</div>  // Always shows "no messages"
 - [ ] Overall status determined
 - [ ] Deferred items filtered against later milestone phases (Step 9b)
 - [ ] Each gap recorded as a `verify_gap` (Step 10, if gaps_found)
-- [ ] Deferred items given in Step 10's shape in the report (if deferred items exist)
+- [ ] Deferred items recorded as the verification's `deferred` list (Step 10, if deferred items exist)
 - [ ] Re-verification metadata included (if previous existed)
 - [ ] fingerprint fields written via verification.fingerprint (#4155)
 - [ ] Verdicts recorded and the report returned

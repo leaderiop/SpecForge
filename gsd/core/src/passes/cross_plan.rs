@@ -10,7 +10,9 @@ use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
 
-use super::plans::{children, context_decisions, listed_decisions, name_of, of_kind, rows};
+use super::plans::{
+    children, context_decisions, listed_decisions, name_of, of_kind, resolve, rows, targets,
+};
 use crate::scope::scope_of;
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -30,16 +32,6 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     }
     found.extend(couplings(input));
     found
-}
-
-/// The targets of the `label` edges of `source`.
-fn targets<'a>(input: &'a PassInput, source: &str, label: &str) -> BTreeSet<&'a str> {
-    input
-        .edges
-        .iter()
-        .filter(|e| e.source == source && e.label == label)
-        .map(|e| e.target.as_str())
-        .collect()
 }
 
 /// E301: each requirement a phase names is in the `requirements` of at least one of its plans (D1).
@@ -119,9 +111,7 @@ fn couplings(input: &PassInput) -> Vec<PassDiagnostic> {
                 .into_iter()
                 .filter_map(|row| {
                     let named = row.get("peer")?;
-                    let peer = peers
-                        .iter()
-                        .find(|p| *p == named || p.ends_with(&format!("/{named}")))?;
+                    let peer = resolve(&peers, named)?;
                     let reason = row.get("reason").map_or("", String::as_str);
                     let here = wave_of(&plan.id);
                     let same = scope_of(&plan.id) == scope_of(peer)

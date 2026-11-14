@@ -56,8 +56,8 @@
     "sha256": "108b991418aff5b7e4683bb91290836a9641887ef8e2c32c1f0cc7dc918c0d26"
   },
   ".cursor/agents/gsd-verifier.md": {
-    "bytes": 54926,
-    "sha256": "165bb127c1d32fe06ecf097f6fc77c234d955d7836ef2ec51d2ccae6eb9f87d2"
+    "bytes": 55507,
+    "sha256": "c9bcb67d8972c9cd6f91c245453f56c58478b18acab5d013d6f88a741008991e"
   },
   ".cursor/hooks.json": {
     "bytes": 2050,

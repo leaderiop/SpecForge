@@ -126,6 +126,19 @@ fn deferring_to(to: &str) -> Vec<PassValue> {
         "deferred".into(),
         json!([{ "truth": "v1.0/01/01-01/TR2", "addressed_in": to, "evidence": "later" }]),
     );
+    // the graph draws an edge to each reference that resolves
+    let known: Vec<String> = input.entities.iter().map(|e| e.id.clone()).collect();
+    for (target, label) in [
+        ("v1.0/01/01-01/TR2", "deferred.truth"),
+        (to, "deferred.addressed_in"),
+    ] {
+        if known.iter().any(|id| id == target) {
+            input.edges.push(
+                serde_json::from_value(json!({ "source": V, "target": target, "label": label }))
+                    .expect("an edge"),
+            );
+        }
+    }
     run(&input)
 }
 
@@ -175,12 +188,12 @@ fn deferring_as_written() -> Vec<PassValue> {
     run(&input)
 }
 
-/// Pinned: the derive pass compares the rows' spelled references with full ids, so a written deferral never counts.
+/// A deferral counts through its edges: the rows' references are spelled relative to the scope.
 #[test]
 fn a_deferral_as_written_counts_through_its_edges() {
     let out = deferring_as_written();
-    assert_eq!(of(&out, "status"), Some(json!("gaps_found")));
-    assert_eq!(of(&out, "score"), Some(json!("1/2")));
+    assert_eq!(of(&out, "status"), Some(json!("passed")));
+    assert_eq!(of(&out, "score"), Some(json!("1/1")));
 }
 
 #[test]

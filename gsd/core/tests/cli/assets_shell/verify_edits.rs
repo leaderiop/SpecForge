@@ -616,3 +616,73 @@ fn the_verifier_records_each_human_check_as_a_human_item() {
         .collect();
     assert!(creating.is_empty(), "{creating:?}");
 }
+
+/// A phase whose only failure is deferred has no gap left to close: on a taskboard copy, a failed verdict on `01-02`'s
+/// TR2, then Step 10's deferral fence, filled to defer it to `v1.0/02`, takes the truth out of the score and leaves
+/// the verification off `gaps_found`.
+#[test]
+fn a_phase_whose_only_failure_is_deferred_has_no_gaps() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let truth = "v1.0/01/01-02/TR2";
+    let inputs = p.run(&[
+        "query",
+        truth,
+        "--inputs",
+        "gsd/E501",
+        "--cite-file",
+        "src/cli.js",
+        "--format",
+        "json",
+    ]);
+    let inputs: serde_json::Value = serde_json::from_str(&inputs.stdout).expect("the inputs");
+    let verdict = typed::filled(
+        &fence_holding(
+            &asset("gsd-core/templates/verification-report.md"),
+            "record-verdict",
+        ),
+        &[
+            ("TRUTH", truth),
+            ("OUTCOME", "failed"),
+            ("BASIS", &inputs["basis"].to_string()),
+            ("CITED", r#"[{"file": "src/cli.js"}]"#),
+            (
+                "FINDINGS",
+                r#"[{"severity": "error", "message": "src/cli.js rethrows the lookup error"}]"#,
+            ),
+        ],
+    );
+    let done = typed::apply(&sh, &p, &verdict);
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    let verification = "v1.0/01/01-VERIFICATION";
+    let failed = p.fields_of(verification);
+    assert_eq!(failed["status"], "gaps_found", "{failed}");
+    let defer = typed::filled(
+        &fence_holding(&asset("agents/gsd-verifier.md"), "deferred \"$DEFERRED\""),
+        &[
+            ("VERIFICATION", verification),
+            (
+                "DEFERRED",
+                &serde_json::json!([{
+                    "truth": truth,
+                    "addressed_in": "v1.0/02",
+                    "evidence": "Phase 2's goal: errors print one line"
+                }])
+                .to_string(),
+            ),
+        ],
+    );
+    let done = typed::apply(&sh, &p, &defer);
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    let fields = p.fields_of(verification);
+    assert_ne!(fields["status"], "gaps_found", "{fields}");
+    let total = |f: &serde_json::Value| -> u32 {
+        f["score"]
+            .as_str()
+            .and_then(|s| s.split('/').nth(1)?.parse().ok())
+            .unwrap_or_else(|| panic!("a score: {f}"))
+    };
+    assert_eq!(total(&fields), total(&failed) - 1, "{failed} -> {fields}");
+}
