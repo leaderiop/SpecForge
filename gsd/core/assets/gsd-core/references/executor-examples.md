@@ -68,7 +68,7 @@
 **Decision heuristic:** "Does this affect correctness, security, or ability to complete the current task?"
 - YES → Rules 1-3 (fix automatically)
 - MAYBE → Rule 4 (ask the user)
-- NO → Out of scope (record it as a deferred idea, below)
+- NO → Out of scope: it becomes a deferred idea, as the next section shows
 
 ### Recording an out-of-scope discovery
 

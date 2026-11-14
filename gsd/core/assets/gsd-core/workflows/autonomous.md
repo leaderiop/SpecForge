@@ -274,7 +274,7 @@ After discuss completes (either mode), verify context was written:
 PHASE_STATE=$(specforge query "$MILESTONE/${PHASE_NUM}" --depth 1 --format json)
 ```
 
-Check `has_context`. If false → go to handle_blocker: "Discuss for phase ${PHASE_NUM} recorded no context."
+Check `has_context`. If false → go to handle_blocker with the message "No context exists yet for phase ${PHASE_NUM}, although its discussion ran to the end."
 
 **3a.5. UI Design Contract (Frontend Phases)**
 

@@ -109,7 +109,7 @@ assumption — never a silent drop.
 ## C. Authoring (the `<downstream_consumer>` else-branch)
 
 Record the fallback report as the plan's truths and prohibitions, lifted as the SPEC path lifts them;
-only the source differs (the fallback report, not the SPEC). Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment (`specforge new truth --help`,
+the fallback report takes the place the SPEC has on that path. Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment (`specforge new truth --help`,
 `specforge new prohibition --help`): one `new truth` or `new prohibition` line per item, each with the
 plan's next free id, and no line for a kind the report has none of:
 

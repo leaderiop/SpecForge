@@ -56,4 +56,4 @@ With MVP_MODE=true, each plan's objective opens with the user story, as the `gsd
 ...
 ```
 
-Only the plan bolds the keywords (`**As a**`, `**I want to**`, `**so that**`). The phase's goal in the roadmap keeps them plain, since that goal is already shown as one bold label.
+Inside a plan, and in no other place, the three keywords stand in bold: `**As a**`, `**I want to**`, `**so that**`. The phase's goal in the roadmap keeps them plain, since that goal is already shown as one bold label.

@@ -40,7 +40,7 @@ When the orchestrator sets `WALKING_SKELETON=true` (Phase 1 of a new project und
   - Deployment to a dev environment (or a documented local-run command that exercises the full stack)
 - The planner **must record** the skeleton's architectural choices (framework, data layer, deployment target, auth, directory layout) as project `decision` entities, as `@~/.claude/gsd-core/references/skeleton-template.md` shows; every later phase builds on them.
 
-Those decisions are the backbone of every later vertical slice: a contract, not a scratchpad.
+Each later vertical slice stands on these decisions, so treat them as binding, never as notes to revise at will.
 
 ## Anti-Patterns to Reject
 

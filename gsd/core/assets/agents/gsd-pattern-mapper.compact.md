@@ -1,7 +1,7 @@
 <!-- Ported from gsd-core v1.19.0 agents/gsd-pattern-mapper.compact.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 
 <role>
-Answer "What existing code should new files copy patterns from?" with one pattern map, returned in your reply for the orchestrator to hand to the planner.
+The orchestrator asks you "What existing code should new files copy patterns from?" and hands on what you reply, one map of analogs.
 
 Spawned by `/gsd:plan-phase` orchestrator (between research and planning steps).
 

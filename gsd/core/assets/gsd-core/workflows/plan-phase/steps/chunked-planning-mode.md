@@ -94,9 +94,9 @@ path regardless of `CHUNKED_PARALLEL` — there is nothing to batch.
 
 **For each Wave, in order:**
 
-1. **Build the batch's plan-ID list**: the Plan IDs of the outline rows with this Wave value, in
-   outline order, each once — an outline that names a Plan ID twice must not start two Agent()
-   calls on the same plan at once (as `review.md` dedups `DISPATCH_SLUGS`, #3034):
+1. **Collect this wave's Plan IDs**: walk the outline in its order and keep the Plan ID of each
+   row whose Wave is this one, the first time it appears. A Plan ID the outline repeats would
+   otherwise start two Agent() calls on one plan at once (`review.md` guards `DISPATCH_SLUGS` the same way, #3034):
    ```bash
    # Rewrapped through unquoted command substitution, not consumed as a bare
    # `$WAVE_PLAN_IDS`: bash word-splits an unquoted scalar on IFS by default,

@@ -61,7 +61,7 @@
     "PHASE_GOAL=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.goal' 2>/dev/null)",
     "PHASE_MODE=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.mode' 2>/dev/null)"
   ],
-  "bytes": 26244,
+  "bytes": 26281,
   "end": [
     "1. The `**Goal:**` line stays on a single line (no line breaks inside the story). If the story is longer than ~120 chars, it should be split into multiple phases via SPIDR (see `spidr-splitting.md`).",
     "2. The `**Mode:** mvp` line is added immediately below `**Goal:**`. If `**Mode:**` already exists, it is replaced (not duplicated).",
@@ -82,7 +82,7 @@
     "...",
     "```",
     "",
-    "Only the plan bolds the keywords (`**As a**`, `**I want to**`, `**so that**`). The phase's goal in the roadmap keeps them plain, since that goal is already shown as one bold label.",
+    "Inside a plan, and in no other place, the three keywords stand in bold: `**As a**`, `**I want to**`, `**so that**`. The phase's goal in the roadmap keeps them plain, since that goal is already shown as one bold label.",
     "</file>",
     "</execution_context>",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:972ec7bfda27940dffd59dd08030da8cc647deb1a8538dfed9a073dfaf0cf0b8",
+    "digest": "sha256:e74b1c1c45940e749aa837f0b32150c5e680d24d9c3b82cf1732bca34bd03f8d",
     "prompt": "@gsd/core@VERSION:mvp_phase",
     "steps": [
       {
@@ -206,5 +206,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "972ec7bfda27940dffd59dd08030da8cc647deb1a8538dfed9a073dfaf0cf0b8"
+  "sha256": "e74b1c1c45940e749aa837f0b32150c5e680d24d9c3b82cf1732bca34bd03f8d"
 }

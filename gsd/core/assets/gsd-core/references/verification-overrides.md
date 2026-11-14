@@ -16,13 +16,13 @@ specforge new override OV<n> "<the truth's title>" --in <the verification's file
 
 The verifier reads them with `specforge query "$VERIFICATION" --depth 1 --kinds override --format context`.
 
-### Fields
+### What an override records
 
-| Field | Description |
-|-------|-------------|
+| Field | Meaning |
+|---|---|
 | `truth` | The truth the person accepts. |
 | `accepts` | The truth's text as the person accepted it: the override counts only while the truth still says this. |
-| `reason` | Why the deviation is acceptable. It must be specific, not just "not needed". |
+| `reason` | What makes the deviation acceptable, said precisely: "not needed" is no reason. |
 | `by` | Who accepted it (gsd/E503 when absent). |
 | `at` | When (gsd/E503 when absent). |
 
@@ -111,7 +111,7 @@ The `PASSED (override)` status must be visually distinct from both `VERIFIED` an
 - A phase with all items either VERIFIED or PASSED (override) can have status `passed`
 - Overrides do NOT suppress `human_needed` items — those still require human testing
 
-### Score
+### How an override counts
 
 The verification's computed `score` counts each truth an override accepts as verified.
 
@@ -131,7 +131,7 @@ When the verifier marks a must-have as FAIL and the failure looks intentional (e
 **Status:** FAILED
 **Evidence:** No PKCE implementation found. Session-based auth used instead.
 
-**This looks intentional.** The codebase reaches the same goal with session-based authentication. If you accept
+**This looks intentional.** Your code gets there another way, through sessions rather than the flow this truth names. If you accept
 the deviation, record an override in your terminal, then re-run verification:
 
 ```

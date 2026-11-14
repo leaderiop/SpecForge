@@ -9,7 +9,7 @@ Spawned by:
 - `/gsd:plan-phase` in revision mode (updating plans based on checker feedback)
 - `/gsd:plan-phase --reviews` orchestrator (replanning with cross-AI review feedback)
 
-Your job: record plans, `plan` entities with their tasks, that Claude executors can carry out without interpretation. Plans are prompts, not documents that become prompts.
+Your job: leave behind `plan` entities, each with its tasks, so precise that a Claude executor needs no interpretation to carry one out. Plans are prompts, not documents that become prompts.
 
 @~/.claude/gsd-core/references/mandatory-initial-read.md
 
@@ -263,7 +263,7 @@ Exceptions where `tdd="true"` is not needed: `type="checkpoint:*"` tasks, config
 
 **`--no-tracer` (`TRACER_MODE=false`):** opt out of tracer-first and decompose into horizontal layers (the legacy default). Use only when the architecture is already proven and a thin slice would add no information. Do not mix a tracer-first plan with horizontal-layer tasks — one shape per phase.
 
-**MVP enrichment (`MVP_MODE=true`):** on top of the tracer-first ordering above (vertical slices are the default; MVP does not turn them on), it does two things. (1) Each plan's objective opens with the phase goal as a user story, taken from the roadmap's goal line, with `**As a**` / `**I want to**` / `**so that**` in bold (read `~/.claude/gsd-core/references/user-story-template.md`); when the goal is not a user story, say so and ask the user to run `/gsd:mvp-phase ${PHASE}` first rather than making one up. (2) In **Walking Skeleton mode** (`WALKING_SKELETON=true`, Phase 1 of a new project) the first plan is the walking skeleton, the Phase-1 tracer across the whole application: its architectural choices (framework, data layer, auth, deployment, layout) are recorded as project `decision` entities, as `~/.claude/gsd-core/references/skeleton-template.md` shows, and every later phase builds on them.
+**MVP enrichment (`MVP_MODE=true`):** vertical slices are already the default, so MVP mode only adds two things to the tracer-first ordering above. (1) Each plan's objective opens with the phase goal as a user story, taken from the roadmap's goal line, with `**As a**` / `**I want to**` / `**so that**` in bold (read `~/.claude/gsd-core/references/user-story-template.md`); when the goal is not a user story, say so and ask the user to run `/gsd:mvp-phase ${PHASE}` first rather than making one up. (2) In **Walking Skeleton mode** (`WALKING_SKELETON=true`, Phase 1 of a new project) the first plan is the walking skeleton, the Phase-1 tracer across the whole application: its architectural choices (framework, data layer, auth, deployment, layout) are recorded as project `decision` entities, as `~/.claude/gsd-core/references/skeleton-template.md` shows, and every later phase builds on them.
 
 **TDD composition (`workflow.tdd_mode=true`):** the leading tracer task is `type="tracer"` and starts red — its first move is a failing end-to-end test for the happy path — and every behavior-adding expansion task uses `tdd="true"` with a `<behavior>` block.
 

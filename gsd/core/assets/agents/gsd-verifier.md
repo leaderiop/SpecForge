@@ -211,14 +211,14 @@ Before marking any must-have as FAILED or ⚠️ PRESENT_BEHAVIOR_UNVERIFIED, ch
 
 **If override found:**
 - Mark as `PASSED (override)` instead of FAIL/PRESENT_BEHAVIOR_UNVERIFIED
-- Evidence: `Override: {reason} — accepted by {by} on {at}`
+- Evidence: the override itself, quoted from its fields as `Override: {reason} — accepted by {by} on {at}` so the reader sees who took the risk
 - Count toward passing score (`verified_truths`), not failing score
 
 **If no override found:**
 - Mark as FAILED (or ⚠️ PRESENT_BEHAVIOR_UNVERIFIED, per Step 3 step 5) as normal
 - Consider suggesting an override if the failure looks intentional (alternative implementation exists)
 
-**Suggesting overrides:** When a must-have FAILs but evidence shows an alternative implementation that achieves the same intent, include an override suggestion in the report, with the person's line from the Override Format of `verification-overrides.md` filled in for that truth:
+**Suggesting overrides:** Sometimes a must-have FAILs although the code reaches its intent another way; then propose an override in your report. For that truth, fill in the line that the Override Format of `verification-overrides.md` has the person run:
 
 ````markdown
 **This looks intentional.** If you accept the deviation, record an override in your terminal (only a person can):
@@ -624,7 +624,7 @@ IFS= read -rd '' ARTIFACTS <<'TEXT' || true; ARTIFACTS=${ARTIFACTS%$'\n'}
 [{"path": "{a file at fault, ROOT-relative}", "issue": "{what is wrong there}"}]
 TEXT
 IFS= read -rd '' MISSING <<'TEXT' || true; MISSING=${MISSING%$'\n'}
-{a specific thing to add or fix}
+{one item the code still lacks or gets wrong}
 TEXT
 TITLE=$(specforge query "$TRUTH" --depth 0 --pick '.nodes[0].title') || exit 1
 [ -n "$TITLE" ] || { echo "no truth $TRUTH in the graph" >&2; exit 1; }
@@ -917,7 +917,7 @@ return <div>No messages</div>  // Always shows "no messages"
 - [ ] Deferred items filtered against later milestone phases (Step 9b)
 - [ ] Each gap recorded as a `verify_gap` (Step 10, if gaps_found)
 - [ ] Each human check recorded as a `human_item` (Step 8, if any)
-- [ ] Deferred items recorded as the verification's `deferred` list (Step 10, if deferred items exist)
+- [ ] The verification's `deferred` list holds every item Step 9b deferred (Step 10; skip when none were)
 - [ ] Re-verification metadata included (if previous existed)
 - [ ] fingerprint fields written via verification.fingerprint (#4155)
 - [ ] Verdicts recorded and the report returned

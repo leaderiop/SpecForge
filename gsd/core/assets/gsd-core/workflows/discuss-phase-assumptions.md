@@ -203,8 +203,8 @@ Parse JSON for: `todo_count`, `matches[]`.
 
 **If matches found:** Present matched todos, use AskUserQuestion (multiSelect) to fold relevant ones into scope.
 
-**For selected (folded) todos:** keep them as `<folded_todos>`; each becomes a `decision` of the phase's context.
-**For unselected:** keep them as `<reviewed_todos>`; each becomes a `deferred_idea` of the phase.
+**For selected (folded) todos:** carry them along as `<folded_todos>` until the context of the phase is recorded, where each turns into one `decision`.
+**For unselected:** carry them as `<reviewed_todos>` until then; the phase records each one as a `deferred_idea`, to be taken up later.
 
 **Auto mode (`--auto`):** Fold all todos with score >= 0.4 automatically. Log the selection.
 </step>
