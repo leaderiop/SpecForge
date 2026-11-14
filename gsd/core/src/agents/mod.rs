@@ -59,7 +59,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
         c.agent(agent.id, |a| {
             let judges = crate::judged::JUDGED.iter().any(|j| j.judge == agent.id);
             a.description(agent.description)
-                .tools(&gsd_kit::agent::tools(agent.tools, agent.role, judges))
+                .tools(&agent.granted(judges))
                 .color(agent.color)
                 .model(&format!(
                     "setting:{}",

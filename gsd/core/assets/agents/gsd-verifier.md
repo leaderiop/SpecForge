@@ -526,6 +526,28 @@ Merge those harvested items into the same human verification list as your own an
 **Why human:** {Why can't verify programmatically}
 ```
 
+Record each item as a `human_item` of the phase's verification: the entity `human_needed`, audit-uat and the person's UAT read. Its `test` is what to do, its `expected` what should happen and its `why_human` why a program cannot check it. An item recorded by an earlier verification stays; a new one takes the number after the verification's last (`HI1`, `HI2`, …). Fill the values: free text in its quoted heredoc, as written, and an id in its assignment.
+
+```bash
+VERIFICATION="{the phase's verification, e.g. v1.0/01/01-VERIFICATION}"
+IFS= read -rd '' CHECK <<'TEXT' || true; CHECK=${CHECK%$'\n'}
+{what to do}
+TEXT
+IFS= read -rd '' EXPECTED <<'TEXT' || true; EXPECTED=${EXPECTED%$'\n'}
+{what should happen}
+TEXT
+IFS= read -rd '' WHY_HUMAN <<'TEXT' || true; WHY_HUMAN=${WHY_HUMAN%$'\n'}
+{why a program cannot check it}
+TEXT
+FILE=$(specforge query "$VERIFICATION" --depth 0 --pick '.nodes[0].file') || exit 1
+[ -n "$FILE" ] || { echo "no verification $VERIFICATION in the graph" >&2; exit 1; }
+IDS=$(specforge query "$VERIFICATION" --depth 1 --kinds human_item --pick '.nodes[kind=human_item].id') || exit 1
+N=1
+for ID in $IDS; do K=${ID##*/HI}; [ "$K" -ge "$N" ] && N=$(( K + 1 )); done
+ITEM_ID="HI$N"
+specforge new human_item "$ITEM_ID" "$CHECK" --in "$FILE" --verification "$VERIFICATION" --test "$CHECK" --expected "$EXPECTED" --why_human "$WHY_HUMAN" || exit 1
+```
+
 ## Step 9: Determine Overall Status
 
 Classify status using this decision tree IN ORDER (most restrictive first):
@@ -590,11 +612,10 @@ Parse the JSON to extract all phases. Identify phases with `number > current_pha
 
 Before recording the verdicts, verify that the status field matches the decision tree from Step 9 — in particular, confirm that status is not `passed` when human verification items exist.
 
-Record each gap Step 9b kept as a `verify_gap` of the phase's verification, the entity `/gsd:plan-phase --gaps` closes: one per failed truth, its `truth` the truth's id, its `reason` why it failed, its `artifacts` the files at fault with what is wrong in each, and its `missing` the specific things to add or fix, one per line. A truth that already has an open gap keeps it, since a re-verification reads that gap as remaining; a new gap takes the number after the verification's last (`VG1`, `VG2`, …). Its `status` and `closed_by` are computed: it reads `closed` once a plan whose `gap_closure` names it completes. Fill the values: free text in its quoted heredoc, as written, and an id in its assignment.
+Record each gap Step 9b kept as a `verify_gap` of the phase's verification, the entity `/gsd:plan-phase --gaps` closes: one per failed truth, its `truth` the truth's id, its `reason` why it failed, its `artifacts` the files at fault with what is wrong in each, and its `missing` the specific things to add or fix, one per line. A truth that already has an open gap keeps it, since a re-verification reads that gap as remaining; a new gap takes the number after the verification's last (`VG1`, `VG2`, …), which the fence finds by query. Its `status` and `closed_by` are computed: it reads `closed` once a plan whose `gap_closure` names it completes. Fill the values: free text in its quoted heredoc, as written, and an id in its assignment.
 
 ```bash
 VERIFICATION="{the phase's verification, e.g. v1.0/01/01-VERIFICATION}"
-GAP_ID="{VG and the gap's number in the verification, e.g. VG1}"
 TRUTH="{the failed truth's id, e.g. v1.0/01/01-02/TR2}"
 IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
 {why the truth failed, in a sentence}
@@ -605,13 +626,16 @@ TEXT
 IFS= read -rd '' MISSING <<'TEXT' || true; MISSING=${MISSING%$'\n'}
 {a specific thing to add or fix}
 TEXT
-IFS=$'\n' read -rd '' -a MISSING_ITEMS <<<"$MISSING" || true
 TITLE=$(specforge query "$TRUTH" --depth 0 --pick '.nodes[0].title') || exit 1
 [ -n "$TITLE" ] || { echo "no truth $TRUTH in the graph" >&2; exit 1; }
 FILE=$(specforge query "$VERIFICATION" --depth 0 --pick '.nodes[0].file') || exit 1
 [ -n "$FILE" ] || { echo "no verification $VERIFICATION in the graph" >&2; exit 1; }
+IDS=$(specforge query "$VERIFICATION" --depth 1 --kinds verify_gap --pick '.nodes[kind=verify_gap].id') || exit 1
+N=1
+for ID in $IDS; do K=${ID##*/VG}; [ "$K" -ge "$N" ] && N=$(( K + 1 )); done
+GAP_ID="VG$N"
 MISSING_FLAGS=()
-for ITEM in "${MISSING_ITEMS[@]}"; do MISSING_FLAGS+=(--missing "$ITEM"); done
+while IFS= read -r ITEM; do [ -z "$ITEM" ] || MISSING_FLAGS+=(--missing "$ITEM"); done <<<"$MISSING"
 specforge new verify_gap "$GAP_ID" "$TITLE" --in "$FILE" --verification "$VERIFICATION" --truth "$TRUTH" --reason "$REASON" --artifacts "$ARTIFACTS" "${MISSING_FLAGS[@]}" || exit 1
 ```
 
@@ -892,6 +916,7 @@ return <div>No messages</div>  // Always shows "no messages"
 - [ ] Overall status determined
 - [ ] Deferred items filtered against later milestone phases (Step 9b)
 - [ ] Each gap recorded as a `verify_gap` (Step 10, if gaps_found)
+- [ ] Each human check recorded as a `human_item` (Step 8, if any)
 - [ ] Deferred items recorded as the verification's `deferred` list (Step 10, if deferred items exist)
 - [ ] Re-verification metadata included (if previous existed)
 - [ ] fingerprint fields written via verification.fingerprint (#4155)

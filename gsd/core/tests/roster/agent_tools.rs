@@ -58,7 +58,7 @@ fn every_specforge_command_an_agent_runs_is_a_tool_its_role_grants() {
     let mut missing = Vec::new();
     for agent in AGENTS {
         let judges = gsd_core::judged::JUDGED.iter().any(|j| j.judge == agent.id);
-        let granted = gsd_kit::agent::tools(agent.tools, agent.role, judges);
+        let granted = agent.granted(judges);
         let bodies = std::iter::once(agent.full).chain(agent.compact);
         for words in bodies.flat_map(invocations) {
             match class(&words) {
@@ -72,10 +72,22 @@ fn every_specforge_command_an_agent_runs_is_a_tool_its_role_grants() {
     }
     assert!(missing.is_empty(), "{missing:#?}");
     // Counted work: a scan that lost commands would pass vacuously, so the count is pinned to the bodies'.
-    assert_eq!(checked, 219, "commands checked");
+    assert_eq!(checked, 223, "commands checked");
     assert_eq!(
         cli_only.into_iter().collect::<Vec<_>>(),
         ["files", "git", "http", "run", "settings"],
         "a CLI-only command an agent runs: grant its tool, or list it here"
     );
+}
+
+/// The verifier role reads and records test results; of its agents only gsd-verifier, which records the verification,
+/// its gaps and its human checks, edits the graph.
+#[test]
+fn of_the_verifier_role_only_gsd_verifier_edits_the_graph() {
+    let editors: Vec<&str> = AGENTS
+        .iter()
+        .filter(|a| a.role.id == "verifier" && a.granted(false).contains(&"specforge:edit"))
+        .map(|a| a.id)
+        .collect();
+    assert_eq!(editors, ["gsd-verifier"]);
 }

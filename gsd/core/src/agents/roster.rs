@@ -10,11 +10,26 @@ pub struct Agent {
     pub role: &'static Role,
     pub description: &'static str,
     pub tools: &'static [&'static str],
+    /// The engine tools it is granted beside its role's, when its upstream tools write: what this agent alone of its
+    /// role needs.
+    pub grants: &'static [&'static str],
     pub color: &'static str,
     /// The upstream path of its full body, under `agents/`.
     pub full: &'static str,
     /// The compact body, for the agents upstream ships one for.
     pub compact: Option<&'static str>,
+}
+
+impl Agent {
+    /// The tools it declares: its upstream classes, its role's reads, its role's writes and its own grants when an
+    /// upstream class writes, and the judge's tools when `judges`.
+    pub fn granted(&self, judges: bool) -> Vec<&'static str> {
+        let mut out = gsd_kit::agent::tools(self.tools, self.role, judges);
+        if self.tools.iter().any(|c| matches!(*c, "write" | "edit")) {
+            out.extend(self.grants);
+        }
+        out
+    }
 }
 
 pub const AGENTS: &[Agent] = &[
@@ -32,6 +47,7 @@ pub const AGENTS: &[Agent] = &[
             "mcp:context7/*",
             "mcp:plugin_context7_context7/*",
         ],
+        grants: &[],
         color: "cyan",
         full: include_str!("../../assets/agents/gsd-advisor-researcher.md"),
         compact: Some(include_str!(
@@ -43,6 +59,7 @@ pub const AGENTS: &[Agent] = &[
         role: &RESEARCHER,
         description: "Deeply analyzes codebase for a phase and returns structured assumptions with evidence. Spawned by discuss-phase assumptions mode.",
         tools: &["read", "shell", "search", "skill"],
+        grants: &[],
         color: "cyan",
         full: include_str!("../../assets/agents/gsd-assumptions-analyzer.md"),
         compact: Some(include_str!(
@@ -54,6 +71,7 @@ pub const AGENTS: &[Agent] = &[
         role: &RESEARCHER,
         description: "Classifies a single planning document as ADR, PRD, SPEC, DOC, or UNKNOWN. Extracts title, scope summary, and cross-references. Spawned in parallel by /gsd:ingest-docs. Writes a JSON classification file and returns a one-line confirmation.",
         tools: &["read", "write", "search"],
+        grants: &[],
         color: "yellow",
         full: include_str!("../../assets/agents/gsd-doc-classifier.md"),
         compact: Some(include_str!(
@@ -65,6 +83,7 @@ pub const AGENTS: &[Agent] = &[
         role: &RESEARCHER,
         description: "Synthesizes classified planning docs into a single consolidated context. Applies precedence rules, detects cross-ref cycles, enforces LOCKED-vs-LOCKED hard-blocks, and writes INGEST-CONFLICTS.md with three buckets (auto-resolved, competing-variants, unresolved-blockers). Spawned by /gsd:ingest-docs.",
         tools: &["read", "write", "search", "shell"],
+        grants: &[],
         color: "orange",
         full: include_str!("../../assets/agents/gsd-doc-synthesizer.md"),
         compact: Some(include_str!(
@@ -85,6 +104,7 @@ pub const AGENTS: &[Agent] = &[
             "mcp:context7/*",
             "mcp:plugin_context7_context7/*",
         ],
+        grants: &[],
         color: "yellow",
         full: include_str!("../../assets/agents/gsd-executor.md"),
         compact: None,
@@ -94,6 +114,7 @@ pub const AGENTS: &[Agent] = &[
         role: &CHECKER,
         description: "Verifies cross-phase integration and E2E flows. Checks that phases connect properly and user workflows complete end-to-end.",
         tools: &["read", "shell", "search", "skill"],
+        grants: &[],
         color: "blue",
         full: include_str!("../../assets/agents/gsd-integration-checker.md"),
         compact: Some(include_str!(
@@ -105,6 +126,7 @@ pub const AGENTS: &[Agent] = &[
         role: &VERIFIER,
         description: "Fills Nyquist validation gaps by generating tests and verifying coverage for phase requirements",
         tools: &["read", "write", "edit", "shell", "search", "skill"],
+        grants: &[],
         color: "purple",
         full: include_str!("../../assets/agents/gsd-nyquist-auditor.md"),
         compact: Some(include_str!(
@@ -116,6 +138,7 @@ pub const AGENTS: &[Agent] = &[
         role: &RESEARCHER,
         description: "Analyzes codebase for existing patterns and produces PATTERNS.md mapping new files to closest analogs. Read-only codebase analysis spawned by /gsd:plan-phase orchestrator before planning.",
         tools: &["read", "shell", "search", "write"],
+        grants: &[],
         color: "purple",
         full: include_str!("../../assets/agents/gsd-pattern-mapper.md"),
         compact: Some(include_str!(
@@ -144,6 +167,7 @@ pub const AGENTS: &[Agent] = &[
             "mcp:jina/*",
             "mcp:perplexity/*",
         ],
+        grants: &[],
         color: "cyan",
         full: include_str!("../../assets/agents/gsd-phase-researcher.md"),
         compact: None,
@@ -153,6 +177,7 @@ pub const AGENTS: &[Agent] = &[
         role: &CHECKER,
         description: "Verifies plans will achieve phase goal before execution. Goal-backward analysis of plan quality. Spawned by /gsd:plan-phase orchestrator.",
         tools: &["read", "shell", "search", "skill"],
+        grants: &[],
         color: "green",
         full: include_str!("../../assets/agents/gsd-plan-checker.md"),
         compact: None,
@@ -172,6 +197,7 @@ pub const AGENTS: &[Agent] = &[
             "mcp:context7/*",
             "mcp:plugin_context7_context7/*",
         ],
+        grants: &[],
         color: "green",
         full: include_str!("../../assets/agents/gsd-planner.md"),
         compact: None,
@@ -197,6 +223,7 @@ pub const AGENTS: &[Agent] = &[
             "mcp:jina/*",
             "mcp:perplexity/*",
         ],
+        grants: &[],
         color: "cyan",
         full: include_str!("../../assets/agents/gsd-project-researcher.md"),
         compact: Some(include_str!(
@@ -208,6 +235,7 @@ pub const AGENTS: &[Agent] = &[
         role: &RESEARCHER,
         description: "Synthesizes research outputs from parallel researcher agents into SUMMARY.md. Spawned by /gsd:new-project after 4 researcher agents complete.",
         tools: &["read", "write", "shell", "skill"],
+        grants: &[],
         color: "purple",
         full: include_str!("../../assets/agents/gsd-research-synthesizer.md"),
         compact: Some(include_str!(
@@ -219,6 +247,7 @@ pub const AGENTS: &[Agent] = &[
         role: &PLANNER,
         description: "Creates project roadmaps with phase breakdown, requirement mapping, success criteria derivation, and coverage validation. Spawned by /gsd:new-project orchestrator.",
         tools: &["read", "write", "shell", "search", "skill"],
+        grants: &[],
         color: "purple",
         full: include_str!("../../assets/agents/gsd-roadmapper.md"),
         compact: Some(include_str!(
@@ -230,6 +259,7 @@ pub const AGENTS: &[Agent] = &[
         role: &VERIFIER,
         description: "Verifies phase goal achievement through goal-backward analysis. Checks codebase delivers what phase promised, not just that tasks completed. Creates VERIFICATION.md report.",
         tools: &["read", "write", "shell", "search", "skill"],
+        grants: &["specforge:edit"],
         color: "green",
         full: include_str!("../../assets/agents/gsd-verifier.md"),
         compact: None,

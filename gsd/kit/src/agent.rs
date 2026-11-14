@@ -101,7 +101,9 @@ pub const EXECUTOR: Role = Role {
     ],
 };
 
-/// Checks that what was built is what the graph asks, records the tests' results and each gap it finds.
+/// Checks that what was built is what the graph asks and records the tests' results; the agent that records the
+/// verification and its gaps is granted `specforge:edit` on its own (gsd-verifier's `grants`), so no other agent of the
+/// role can edit the graph.
 pub const VERIFIER: Role = Role {
     id: "verifier",
     reads: &[
@@ -115,7 +117,7 @@ pub const VERIFIER: Role = Role {
         "specforge:context",
         "specforge:find_spec_for_source",
     ],
-    writes: &["specforge:edit", "specforge:collect"],
+    writes: &["specforge:collect"],
 };
 
 /// Every role.

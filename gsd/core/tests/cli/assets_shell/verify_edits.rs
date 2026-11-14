@@ -520,7 +520,8 @@ fn the_uat_loop_records_a_pass_and_a_gap_the_diagnosis_reads() {
 
 /// The verifier records each gap Step 9b keeps as a `verify_gap` of the phase's verification: on a taskboard copy, a
 /// failed verdict on `01-02`'s TR2, recorded with the verification template's fence, then Step 10's gap fence, filled;
-/// the planner's gap read finds the gap open with its reason, and the verification reads `gaps_found`.
+/// the planner's gap read finds the gap open with its reason, and the verification reads `gaps_found`. The fence takes
+/// the verification's next gap number itself: run again, it records `VG2`.
 #[test]
 fn the_verifier_records_each_gap_as_a_verify_gap() {
     let Some(sh) = Shell::only(&[]) else {
@@ -562,7 +563,6 @@ fn the_verifier_records_each_gap_as_a_verify_gap() {
         &fence_holding(&asset("agents/gsd-verifier.md"), "new verify_gap"),
         &[
             ("VERIFICATION", "v1.0/01/01-VERIFICATION"),
-            ("GAP_ID", "VG1"),
             ("TRUTH", truth),
             ("REASON", reason),
             (
@@ -600,21 +600,44 @@ fn the_verifier_records_each_gap_as_a_verify_gap() {
         out.contains("v1.0/01/01-VERIFICATION/VG1") && out.contains(reason),
         "{out}"
     );
+    // the fence numbers the next gap after the verification's last
+    let again = typed::apply(&sh, &p, &gap);
+    assert_eq!(again.code, 0, "{}{}", again.out, again.err);
+    assert_eq!(p.fields_of("v1.0/01/01-VERIFICATION/VG2")["truth"], truth);
 }
 
-/// The verifier lists the checks only a person can make (Step 8), which `human_needed`, audit-uat and the derive pass
-/// read as `human_item` entities, yet no fence of its body, nor of any other asset, creates one: human verification
-/// never reaches the graph.
+/// The verifier records each check only a person can make (Step 8) as a `human_item` of the phase's verification: on a
+/// taskboard copy, Step 8's fence, filled, creates `HI1` with its test, expectation and reason, and a second run
+/// takes `HI2`.
 #[test]
 fn the_verifier_records_each_human_check_as_a_human_item() {
-    let verifier = asset("agents/gsd-verifier.md");
-    assert!(verifier.contains("**Why human:** {Why can't verify programmatically}"));
-    let creating: Vec<String> = crate::asset_code::assets_under("assets")
-        .into_iter()
-        .filter(|(_, lines)| lines.iter().any(|l| l.contains("specforge new human_item")))
-        .map(|(path, _)| path)
-        .collect();
-    assert!(creating.is_empty(), "{creating:?}");
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let fence = fence_holding(&asset("agents/gsd-verifier.md"), "new human_item");
+    for (id, check) in [
+        ("HI1", "Run `node src/cli.js list` in a narrow terminal"),
+        ("HI2", "Read the error after `node src/cli.js done 99`"),
+    ] {
+        let filled = typed::filled(
+            &fence,
+            &[
+                ("VERIFICATION", "v1.0/01/01-VERIFICATION"),
+                ("CHECK", check),
+                ("EXPECTED", "the line wraps without breaking a word"),
+                ("WHY_HUMAN", "how it reads is a judgement no test makes"),
+            ],
+        );
+        let done = typed::apply(&sh, &p, &filled);
+        assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+        let fields = p.fields_of(&format!("v1.0/01/01-VERIFICATION/{id}"));
+        assert_eq!(fields["test"], check, "{fields}");
+        assert_eq!(
+            fields["why_human"],
+            "how it reads is a judgement no test makes"
+        );
+    }
 }
 
 /// A phase whose only failure is deferred has no gap left to close: on a taskboard copy, a failed verdict on `01-02`'s

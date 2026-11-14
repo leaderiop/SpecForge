@@ -72,7 +72,6 @@
     "gsd-nyquist-auditor": [
       "collect",
       "context",
-      "edit",
       "explain",
       "find_implementation",
       "find_references",
