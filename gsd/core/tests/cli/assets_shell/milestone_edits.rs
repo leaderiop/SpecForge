@@ -36,23 +36,82 @@ fn extracted(text: &str) -> Vec<String> {
         .collect()
 }
 
-/// The transition's roadmap step sets `TRANSITION` to an empty object, then reads the next phase and whether this was
-/// the last one from it: the keys it names are in no answer.
+/// The transition's roadmap step reads the milestone's phases from `progress-report`: on a taskboard its fence prints
+/// JSON whose every `phases` item carries each key the step's "Extract from result" line names.
 #[test]
-fn the_transition_extracts_keys_its_step_never_prints() {
-    let Some(sh) = Shell::without_jq() else {
+fn the_transition_reads_the_next_phase_from_progress() {
+    let Some(sh) = Shell::only(&[]) else {
         return;
     };
     let text = asset("gsd-core/workflows/transition.md");
     let step = block(&text, "<step name=\"update_roadmap_and_state\">", "</step>");
     let code = fence_after(&step, "update_roadmap_and_state");
     let p = crate::harness::taskboard();
-    let (out, err, _) = sh.run_in(p.root(), &format!("{code}\nprintf '%s' \"$TRANSITION\""));
-    assert_eq!(out, "{}", "{err}");
+    let (out, err, status) = sh.run_in(p.root(), &code);
+    assert_eq!(status, 0, "{err}");
+    let answer: serde_json::Value = serde_json::from_str(&out).expect("a JSON answer");
+    let phases = answer["phases"].as_array().expect("the phases");
+    assert!(phases.len() > 1, "{answer}");
     let keys = extracted(&step);
-    assert!(
-        keys.iter().any(|k| k == "next_phase") && keys.iter().any(|k| k == "is_last_phase"),
-        "{keys:?}"
+    assert_eq!(keys.len(), 3, "{keys:?}");
+    for key in &keys {
+        let key = key.strip_prefix("phases[].").expect("a phases key");
+        for phase in phases {
+            assert!(phase.get(key).is_some(), "{key}: {phase}");
+        }
+    }
+}
+
+/// The transition's `evolve_project` fences, filled, on a taskboard: an invalidated requirement moves out of scope
+/// with its reason, an emerged one is recorded in the phase that builds it, and the project's `what` is rewritten;
+/// the check gains no finding.
+#[test]
+fn the_project_evolution_is_typed_edits() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let text = asset("gsd-core/workflows/transition.md");
+    let step = block(&text, "<step name=\"evolve_project\">", "</step>");
+    let fences = [
+        typed::filled(
+            &fence_holding(&step, "tier out_of_scope"),
+            &[
+                ("REQ_ID", "LIST-01"),
+                ("REASON", "Search replaces the filter"),
+            ],
+        ),
+        typed::filled(
+            &fence_holding(&step, "specforge new requirement"),
+            &[
+                ("REQ_ID", "LIST-02"),
+                ("TEXT", "A user can search every board by a word"),
+                ("CATEGORY", "Listing"),
+                ("BUILT_BY", "v1.0/03"),
+            ],
+        ),
+        typed::filled(
+            &fence_holding(&step, "what \"$WHAT\""),
+            &[(
+                "WHAT",
+                "A task board for small teams, searchable across boards.",
+            )],
+        ),
+    ];
+    for fence in &fences {
+        let done = typed::apply(&sh, &p, fence);
+        assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+        assert!(done.added.is_empty(), "{:?}\n{fence}", done.added);
+    }
+    let list = p.fields_of("LIST-01");
+    assert_eq!(list["tier"], "out_of_scope", "{list}");
+    assert_eq!(list["reason"], "Search replaces the filter", "{list}");
+    assert_eq!(p.fields_of("LIST-02")["tier"], "v1");
+    let built = p.fields_of("v1.0/03")["requirements"].to_string();
+    assert!(built.contains("LIST-02"), "{built}");
+    assert_eq!(
+        p.fields_of("taskboard")["what"],
+        "A task board for small teams, searchable across boards."
     );
 }
 

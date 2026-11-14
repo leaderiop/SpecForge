@@ -37,16 +37,6 @@ gsd-core/workflows/settings.md	Store `$GSD_CONFIG_PATH` — all subsequent reads
 gsd-core/workflows/ship.md	{key-files.created and key-files.modified from SUMMARY.md frontmatter}
 gsd-core/workflows/ship.md	Update STATE.md to reflect the shipping action. Write the activity line only, with its description; do not write `Status`. At ship time the Current Position block already describes the next phase, and `Status` feeds the frontmatter `status` field, so a free-text value such as "Phase N shipped" does not belong there (#5165).
 gsd-core/workflows/ship.md	- [ ] STATE.md updated with shipping status
-gsd-core/workflows/transition.md	(re-running `phase.complete` would double-write STATE.md/ROADMAP.md). Run
-gsd-core/workflows/transition.md	**Delegate ROADMAP.md and STATE.md updates to the computed phase status:**
-gsd-core/workflows/transition.md	**Update PROJECT.md:**
-gsd-core/workflows/transition.md	Verify the updates are correct by reading STATE.md. If the progress bar needs updating, use:
-gsd-core/workflows/transition.md	Update the progress bar line in STATE.md with the result.
-gsd-core/workflows/transition.md	Update Project Reference section in STATE.md.
-gsd-core/workflows/transition.md	Review and update Accumulated Context section in STATE.md.
-gsd-core/workflows/transition.md	Update Session Continuity section in STATE.md to reflect transition completion.
-gsd-core/workflows/transition.md	- [ ] ROADMAP.md updated with completion status and plan count
-gsd-core/workflows/transition.md	- [ ] STATE.md updated (position, project reference, context, session)
 gsd-core/workflows/undo.md	`milestones/v<X.Y>-phases/<phase>/` archive and the workstream archive
 gsd-core/workflows/undo.md	commits; a workstream completed into `milestones/ws-feat-<date>/` and then re-created as `feat`
 ../security/assets/agents/gsd-security-auditor.compact.md	A phase has been submitted for security audit. Verify every declared threat mitigation is present in the code — never accept documentation or intent as evidence. Does NOT scan blindly for new vulnerabilities — verifies each threat in `<threat_model>` by its declared disposition (mitigate / accept / transfer) and reports gaps. Orchestrator owns the SECURITY.md write (#2119: single-writer contract).
