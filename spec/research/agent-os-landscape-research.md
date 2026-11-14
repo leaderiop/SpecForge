@@ -633,7 +633,7 @@ Streaming supported with `start`/`end` delimiters for agent transitions.
 **URL:** https://github.com/microsoft/semantic-kernel
 
 #### Agent Orchestration
-Multi-agent framework with `ChatCompletionAgent` classes. "Complex workflows with collaborating specialist agents" - example: billing, refunds, triage agents.
+Multi-agent framework with `ChatCompletionAgent` classes. "Complex workflows with collaborating specialist agents" - example: billing and triage agents.
 
 #### Specification Handling
 - OpenAPI integration (connect to services via OpenAPI specs)
