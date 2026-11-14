@@ -47,6 +47,7 @@ mod contexts;
 mod decision_coverage;
 mod discuss;
 mod e502_probe;
+mod engine_tools;
 mod execute;
 mod execute_rules;
 mod execute_status;

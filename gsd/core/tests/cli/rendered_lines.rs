@@ -510,30 +510,51 @@ fn a_rendered_prompt_calls_only_specforge() {
 /// may not fall below it, and a rise raises it in the commit that names the new tool.
 const AT_LEAST: usize = 14;
 
+// the round's floor: the prompts name at least twelve graph tools
+const _: () = assert!(AT_LEAST >= 12);
+
+/// The counter, and the golden `engine_tools.json`: `c3`, how many prompts and agent bodies name each graph tool, and
+/// for each agent the graph tools its role grants that its body never names.
 #[test]
 fn the_graph_tools_the_prompts_name_are_a_ratchet() {
+    use std::collections::BTreeMap;
+
+    use gsd_core::agents::roster::AGENTS;
+    use specforge_extension_sdk::engine_tools::{ENGINE_TOOLS, EngineClass, parse_class};
+
     let p = super::harness::project("empty");
     super::agents::installed(&p, "claude-code");
     // the generated tools section is the catalogue rendered, not a body using it
-    let agents = gsd_core::agents::roster::AGENTS.iter().map(|agent| {
-        let (_, body) = super::agents::split(&super::agents::claude_agent(&p, agent.id));
-        let cut = body.find("\n## SpecForge tools").unwrap_or(body.len());
-        (format!("agent:{}", agent.id), body[..cut].to_string())
-    });
+    let bodies: Vec<(&'static str, String)> = AGENTS
+        .iter()
+        .map(|agent| {
+            let (_, body) = super::agents::split(&super::agents::claude_agent(&p, agent.id));
+            let cut = body.find("\n## SpecForge tools").unwrap_or(body.len());
+            (agent.id, body[..cut].to_string())
+        })
+        .collect();
     let corpus = rendered()
         .iter()
-        .map(|(id, text)| (format!("prompt:{id}"), text.clone()))
-        .chain(agents);
+        .map(|(id, text)| (format!("prompt:{id}"), text.as_str()))
+        .chain(
+            bodies
+                .iter()
+                .map(|(id, body)| (format!("agent:{id}"), body.as_str())),
+        );
     let mut counted: Vec<(&'static str, String)> = Vec::new();
+    let mut texts: BTreeMap<&'static str, usize> = BTreeMap::new();
     for (source, text) in corpus {
-        for tool in super::tool_names::named(&text) {
-            if tool.group.graph() && !counted.iter().any(|(name, _)| *name == tool.name) {
+        for tool in super::tool_names::named(text) {
+            if !tool.group.graph() {
+                continue;
+            }
+            *texts.entry(tool.name).or_default() += 1;
+            if !counted.iter().any(|(name, _)| *name == tool.name) {
                 counted.push((tool.name, source.clone()));
             }
         }
     }
-    let catalogue = specforge_extension_sdk::engine_tools::ENGINE_TOOLS;
-    counted.sort_by_key(|(name, _)| catalogue.iter().position(|t| t.name == *name));
+    counted.sort_by_key(|(name, _)| ENGINE_TOOLS.iter().position(|t| t.name == *name));
     let set: Vec<String> = counted
         .iter()
         .map(|(name, source)| format!("  {name} (first in {source})"))
@@ -548,6 +569,52 @@ fn the_graph_tools_the_prompts_name_are_a_ratchet() {
         n <= AT_LEAST,
         "{n} graph tools named: raise AT_LEAST to {n} in this commit. Named now:\n{}",
         set.join("\n")
+    );
+
+    let unprompted: BTreeMap<&'static str, Vec<&'static str>> = AGENTS
+        .iter()
+        .zip(&bodies)
+        .map(|(agent, (_, body))| {
+            let judges = gsd_core::judged::JUDGED.iter().any(|j| j.judge == agent.id);
+            let named = super::tool_names::named(body);
+            let mut grants: Vec<&'static str> =
+                gsd_kit::agent::tools(agent.tools, agent.role, judges)
+                    .into_iter()
+                    .filter_map(|class| match parse_class(class) {
+                        Some(EngineClass::Tool(tool))
+                            if tool.group.graph() && !named.iter().any(|t| t.name == tool.name) =>
+                        {
+                            Some(tool.name)
+                        }
+                        _ => None,
+                    })
+                    .collect();
+            grants.sort_unstable();
+            grants.dedup();
+            (agent.id, grants)
+        })
+        .collect();
+    let golden = serde_json::json!({
+        "c3": n,
+        "graph_tools": texts,
+        "unprompted": unprompted,
+    });
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden/engine_tools.json");
+    let text = serde_json::to_string_pretty(&golden).expect("a JSON value prints") + "\n";
+    if std::env::var_os("GSD_BLESS").is_some() {
+        std::fs::write(&path, &text).expect("write the golden");
+        return;
+    }
+    let expected = std::fs::read_to_string(&path).unwrap_or_else(|_| {
+        panic!(
+            "{} is missing: GSD_BLESS=1 cargo test writes it",
+            path.display()
+        )
+    });
+    assert!(
+        expected == text,
+        "engine_tools.json differs: review the change, then GSD_BLESS=1 cargo test\n--- expected\n{expected}\n--- actual\n{text}"
     );
 }
 

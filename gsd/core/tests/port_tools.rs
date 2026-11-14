@@ -36,25 +36,8 @@ fn every_asset() -> Vec<(String, Vec<String>)> {
     asset_code::assets_under("assets")
 }
 
-/// The verbs of the `specforge` CLI that ported lines name.
-const VERBS: &[&str] = &[
-    "add", "anchors", "check", "collect", "context", "delete", "explain", "export", "files",
-    "format", "git", "grants", "gsd", "http", "init", "install", "link", "new", "query", "refs",
-    "run", "schema", "search", "set", "settings", "trace", "unset", "wait",
-];
-
-/// Commands of `@gsd/security` that core's text asks for when it is loaded (`security-hooks` for the security gate).
-const EXTENSION_COMMANDS: &[&str] = &["security-gate", "security-hooks", "threat-ids"];
-
 #[test]
 fn a_ported_line_names_only_declared_tools() {
-    let declaration = gsd_core::build().declaration();
-    let commands: Vec<String> = declaration
-        .surfaces
-        .commands
-        .iter()
-        .map(|c| c.id.replace('_', "-"))
-        .collect();
     let verb = Regex::new(r"specforge ([a-z][a-z0-9-]*)(?: ([a-z][a-z0-9-]*))?").expect("a regex");
     let mut seen = 0;
     for (path, lines) in every_asset() {
@@ -68,21 +51,13 @@ fn a_ported_line_names_only_declared_tools() {
             let mine = mine.replace("are specforge commands", "");
             for cap in verb.captures_iter(&mine) {
                 seen += 1;
+                let words: Vec<&str> = cap.iter().skip(1).flatten().map(|m| m.as_str()).collect();
+                // a bare `specforge gsd` names the namespace
                 assert!(
-                    VERBS.contains(&&cap[1]),
-                    "{path}:{n}: `specforge {}` is not a verb the CLI has",
-                    &cap[1]
+                    words == ["gsd"] || port_map::tool_names::is_cli_verb(&words),
+                    "{path}:{n}: `specforge {}` is not a command the CLI has",
+                    words.join(" ")
                 );
-                if &cap[1] == "gsd" {
-                    // a bare `specforge gsd` names the namespace
-                    let name = cap.get(2).map_or("", |m| m.as_str());
-                    assert!(
-                        name.is_empty()
-                            || EXTENSION_COMMANDS.contains(&name)
-                            || commands.iter().any(|c| c == name),
-                        "{path}:{n}: `specforge gsd {name}` is not a declared command"
-                    );
-                }
             }
         }
     }

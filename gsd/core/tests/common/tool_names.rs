@@ -7,11 +7,109 @@
     reason = "each test crate that includes this module uses some of it"
 )]
 
-use specforge_extension_sdk::engine_tools::{ENGINE_TOOLS, EngineTool, by_cli};
+use std::collections::BTreeSet;
+use std::sync::OnceLock;
+
+use specforge_extension_sdk::SettingsItem;
+use specforge_extension_sdk::engine_tools::{ENGINE_TOOLS, EngineTool, by_cli, by_mcp_name};
 use specforge_extension_sdk::shell;
 
 /// The fence languages read as shell.
 const SHELL: &[&str] = &["bash", "sh", "shell", "zsh"];
+
+/// The CLI verbs no engine tool twins: the ports' (files, git, http, run, wait) and the host's own (install, extension
+/// updates, grants, hooks, the harness).
+pub const PORT_AND_HOST_VERBS: &[&str] = &[
+    "files",
+    "git",
+    "http",
+    "run",
+    "wait",
+    "install",
+    "uninstall",
+    "update",
+    "grants",
+    "hook",
+    "harness",
+];
+
+/// Commands of `@gsd/security`, whose short name is also `gsd`, that core's text asks for when it is loaded
+/// (`security-hooks` for the security gate). Core's tests do not build its declaration.
+pub const SECURITY_COMMANDS: &[&str] = &["security-gate", "security-hooks", "threat-ids"];
+
+/// `@gsd/core`'s setting keys, and the ids of the commands, MCP tools and prompts served as `specforge.gsd.<id>`.
+fn declared() -> &'static (BTreeSet<String>, BTreeSet<String>) {
+    static DECLARED: OnceLock<(BTreeSet<String>, BTreeSet<String>)> = OnceLock::new();
+    DECLARED.get_or_init(|| {
+        let declaration = gsd_core::build().declaration();
+        let keys = declaration
+            .settings
+            .iter()
+            .filter_map(|item| match item {
+                SettingsItem::Setting(s) => Some(s.name.clone()),
+                _ => None,
+            })
+            .collect();
+        let surfaces = &declaration.surfaces;
+        let ids = surfaces
+            .commands
+            .iter()
+            .map(|c| c.id.clone())
+            .chain(surfaces.mcp_tools.iter().map(|t| t.name.clone()))
+            .chain(surfaces.prompts.iter().map(|p| p.id.clone()))
+            .chain(SECURITY_COMMANDS.iter().map(|c| c.replace('-', "_")))
+            .collect();
+        (keys, ids)
+    })
+}
+
+/// Whether `words`, the words after `specforge`, run a command the CLI has: an engine tool's CLI twin of any group, a
+/// port or host verb, or `gsd` and a command `@gsd/core` or `@gsd/security` declares.
+pub fn is_cli_verb(words: &[&str]) -> bool {
+    match words {
+        ["gsd", command, ..] => {
+            SECURITY_COMMANDS.contains(command) || declared().1.contains(&command.replace('-', "_"))
+        }
+        [first, ..] if PORT_AND_HOST_VERBS.contains(first) => true,
+        _ => by_cli(words).is_some(),
+    }
+}
+
+/// Whether `name`, a `specforge.<x>` word, is one the engine knows: the manifest `specforge.json`, a setting key
+/// `@gsd/core` declares, an extension tool `specforge.gsd.<id>` it serves, or an engine tool of the catalogue.
+pub fn mcp_name_is_known(name: &str) -> bool {
+    let Some(x) = name.strip_prefix("specforge.") else {
+        return false;
+    };
+    x == "json"
+        || declared().0.contains(name)
+        || x.strip_prefix("gsd.")
+            .is_some_and(|id| declared().1.contains(id))
+        || by_mcp_name(name).is_some()
+}
+
+/// Whether `name`, an `mcp__specforge__<n>` word, is Claude Code's name of a known MCP tool: each engine tool and
+/// extension tool mapped forward by the host's rule (a character outside `[A-Za-z0-9_-]` is `_`), never parsed back.
+pub fn claude_name_is_known(name: &str) -> bool {
+    let claude = |mcp: &str| -> String {
+        let n: String = mcp
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .collect();
+        format!("mcp__specforge__{n}")
+    };
+    ENGINE_TOOLS
+        .iter()
+        .map(EngineTool::mcp_name)
+        .chain(declared().1.iter().map(|id| format!("specforge.gsd.{id}")))
+        .any(|mcp| claude(&mcp) == name)
+}
 
 /// The distinct catalogue rows `text` names, in catalogue order.
 pub fn named(text: &str) -> Vec<&'static EngineTool> {
