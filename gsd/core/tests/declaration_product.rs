@@ -1,5 +1,6 @@
 //! What `@gsd/core` declares for the product kinds (`spec/product.md`), pinned through the SDK's runtime-free
-//! `MockHost`. The model doc's tables are read here, so the doc cannot drift from the declaration.
+//! `MockHost`. The model doc's tables are read here, each row's field, type and flags, so the doc cannot drift from the
+//! declaration.
 
 #[allow(
     dead_code,
@@ -11,8 +12,8 @@ use common::{describe, field_of, fields_of};
 
 const PRODUCT_MD: &str = include_str!("../spec/product.md");
 
-/// The first column of the field table under `## <kind>` in `spec/product.md`.
-fn documented(kind: &str) -> Vec<String> {
+/// The rows of the field table under `## <kind>` in `spec/product.md`: field, type, flags, meaning.
+fn documented(kind: &str) -> Vec<Vec<String>> {
     let table = gsd_kit::markdown::tables(PRODUCT_MD)
         .into_iter()
         .find(|t| t.heading == kind)
@@ -22,7 +23,57 @@ fn documented(kind: &str) -> Vec<String> {
         ["Field", "Type", "Flags", "Meaning"],
         "{kind}"
     );
-    table.rows.into_iter().map(|row| row[0].clone()).collect()
+    table.rows
+}
+
+/// A declared field (or block member) as the Type column of `spec/product.md` writes it: `str`, `strs`, `→ kind`,
+/// `→* kind`, `enum{a, b}`, and a block list `{member type [R], …}`.
+fn written_type(field: &serde_json::Value) -> String {
+    let target = || field["target_kind"].as_str().expect("a target kind");
+    match field["field_type"].as_str().expect("a field type") {
+        "string" => "str".to_string(),
+        "string_list" => "strs".to_string(),
+        "reference" => format!("→ {}", target()),
+        "reference_list" => format!("→* {}", target()),
+        "enum" => {
+            let words: Vec<&str> = field["enum_values"]
+                .as_array()
+                .expect("enum values")
+                .iter()
+                .map(|w| w.as_str().expect("a word"))
+                .collect();
+            format!("enum{{{}}}", words.join(", "))
+        }
+        "block_list" => {
+            let members: Vec<String> = field["members"]
+                .as_array()
+                .expect("members")
+                .iter()
+                .map(|m| {
+                    let flags = written_flags(m);
+                    let name = m["name"].as_str().expect("a name");
+                    let written = format!("{name} {}", written_type(m));
+                    if flags.is_empty() {
+                        written
+                    } else {
+                        format!("{written} {flags}")
+                    }
+                })
+                .collect();
+            format!("{{{}}}", members.join(", "))
+        }
+        other => panic!("spec/product.md writes no `{other}` field yet: give it its notation here"),
+    }
+}
+
+/// The Flags column: `R` for a required field, `C` for a computed one, empty for neither.
+fn written_flags(field: &serde_json::Value) -> String {
+    match (field["required"] == true, field["writer"] == "computed") {
+        (true, true) => panic!("a field is required or computed, never both: {field}"),
+        (true, false) => "R".to_string(),
+        (false, true) => "C".to_string(),
+        (false, false) => String::new(),
+    }
 }
 
 fn kind_of(kind: &str) -> serde_json::Value {
@@ -44,7 +95,14 @@ fn member_of(field: &serde_json::Value, member: &str) -> serde_json::Value {
 #[test]
 fn the_product_kinds_declare_the_fields_of_product_md() {
     for kind in ["persona", "journey", "term"] {
-        assert_eq!(fields_of(kind), documented(kind), "{kind}");
+        let rows = documented(kind);
+        let names: Vec<String> = rows.iter().map(|row| row[0].clone()).collect();
+        assert_eq!(fields_of(kind), names, "{kind}");
+        for row in &rows {
+            let field = field_of(kind, &row[0]);
+            assert_eq!(written_type(&field), row[1], "{kind}.{}: Type", row[0]);
+            assert_eq!(written_flags(&field), row[2], "{kind}.{}: Flags", row[0]);
+        }
     }
 }
 
