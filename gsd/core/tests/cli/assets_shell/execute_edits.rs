@@ -456,3 +456,60 @@ fn the_execute_reads_run_as_written() {
         assert!(out.contains("\"kind\":\"verification\""), "{line}: {out}");
     }
 }
+
+/// An out-of-scope discovery recorded as `executor-examples.md` shows is a deferred idea of the plan's phase, which
+/// the forensic audit's Check 7 lists open until its `status` reads resolved: Check 7 once queried a kind no extension
+/// declares, and a log file no command reads.
+#[test]
+fn an_out_of_scope_discovery_stays_open_in_the_forensic_audit_until_resolved() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let record = typed::filled(
+        &typed::typed_fence(
+            &asset("gsd-core/references/executor-examples.md"),
+            "### Recording an out-of-scope discovery",
+        ),
+        &[
+            ("PLAN_ID", "v1.0/02/02-01"),
+            ("IDEA_ID", "DI9"),
+            (
+                "FOUND",
+                "The retry budget is hardcoded at 3 in src/store.js",
+            ),
+            ("WHY", "Pre-existing: no task of this plan touches retries"),
+        ],
+    );
+    let applied = typed::apply(&sh, &p, &record);
+    assert_eq!(applied.code, 0, "{}{}", applied.out, applied.err);
+    // the phase's context gained the idea: the research written against it reports the drift
+    assert_eq!(applied.added, ["gsd/W406"], "new codes");
+    let check = format!(
+        "MILESTONE=v1.0\n{}",
+        typed::typed_fence(
+            &asset("gsd-core/workflows/progress/steps/forensic-audit.md"),
+            "**Check 7"
+        )
+    );
+    let (out, err, code) = sh.run_in(p.root(), &check);
+    assert_eq!(code, 0, "{out}{err}");
+    let row = out
+        .lines()
+        .find(|l| l.contains("DI9"))
+        .unwrap_or_else(|| panic!("Check 7 lists no DI9: {out}"));
+    assert!(
+        row.contains("open") && row.contains("hardcoded at 3"),
+        "{row}"
+    );
+    let id = row.split('\x1f').next().unwrap_or(row).trim().to_string();
+    let resolved = p.run(&["set", &id, "status", "resolved"]);
+    assert_eq!(resolved.code, 0, "{}", resolved.all());
+    let (out, err, code) = sh.run_in(p.root(), &check);
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(
+        out.lines()
+            .any(|l| l.contains("DI9") && l.contains("resolved")),
+        "{out}"
+    );
+}

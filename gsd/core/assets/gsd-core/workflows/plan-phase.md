@@ -443,22 +443,20 @@ If `research_enabled` is false and `nyquist_validation_enabled` is true: warn "N
 - `has_research` is false
 - no `--research` flag was provided
 
-In that case: **skip validation-strategy creation entirely**. Do **not** expect `RESEARCH.md` or `VALIDATION.md` for this run, and continue to Step 6.
+In that case: **skip validation-strategy creation entirely**. Do **not** expect a `research` or a `validation` entity for this run, and continue to Step 6.
 
 ```bash
 specforge query "$PHASE_ID" --depth 1 --kinds research --pick '.nodes[kind=research].id'
 ```
 
 **If the phase has research:**
-1. Read template: `~/.claude/gsd-core/templates/VALIDATION.md`
-2. Record it as the phase's `validation` entity `${PHASE_ID##*/}-VALIDATION` (`specforge new validation … --phase "$PHASE_ID"`), its map rows as `validation_row` entities
-3. Fill frontmatter: `{N}` → phase number, `{phase-slug}` → slug, `{date}` → current date
-4. Verify:
+1. Run the typed-edit fence of `~/.claude/gsd-core/templates/VALIDATION.md` ("The Validation's Typed Edits") once per row of the Per-Task Verification Map: it records the phase's `validation` entity `${PHASE_ID##*/}-VALIDATION` with its first row, and each row as a `validation_row`
+2. Verify:
 ```bash
 [ -n "$(specforge query "$PHASE_ID" --depth 1 --kinds validation --pick '.nodes[kind=validation].id')" ] && echo "VALIDATION_CREATED=true" || echo "VALIDATION_CREATED=false"
 ```
-5. If `VALIDATION_CREATED=false`: STOP — do not proceed to Step 6
-6. If `commit_docs`: `specforge git commit --add spec -m "docs(phase-${PHASE}): add validation strategy"`
+3. If `VALIDATION_CREATED=false`: STOP — do not proceed to Step 6
+4. If `commit_docs`: `specforge git commit --add spec -m "docs(phase-${PHASE}): add validation strategy"`
 
 **If not found:** Warn and continue — plans may fail Dimension 8.
 
@@ -1369,8 +1367,8 @@ Options:
 ```
 
 If `TEXT_MODE` is true, present as a plain-text numbered list. Otherwise use
-AskUserQuestion. Selecting "Proceed anyway" continues to step 13b but
-records the override in STATE.md so verify-phase can re-surface it.
+AskUserQuestion. Selecting "Proceed anyway" continues to step 13b,
+and nothing is recorded: `gsd/E310` reports each decision no plan implements until one does.
 
 **Why this gate blocks:** failing here is cheap. The plans are the contract
 between discuss-phase and execute-phase; if a decision isn't visible in any

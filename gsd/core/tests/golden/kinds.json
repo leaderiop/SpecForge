@@ -2827,6 +2827,12 @@
         "verify_kinds": []
       },
       {
+        "complete_when": {
+          "field": "status",
+          "values": [
+            "resolved"
+          ]
+        },
         "description": "An idea deferred out of a phase (GSD CONTEXT.md <deferred>)",
         "dot_color": null,
         "dot_fillcolor": null,
@@ -2859,6 +2865,20 @@
             "field_type": "string",
             "inverse_of": null,
             "name": "why",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "an executor's out-of-scope discovery: open until resolved; absent is open",
+            "edge": null,
+            "enum_values": [
+              "open",
+              "resolved"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "status",
             "required": false,
             "target_kind": null
           }

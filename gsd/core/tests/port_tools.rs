@@ -284,16 +284,26 @@ fn shapes() -> std::collections::BTreeMap<String, Shape> {
     out
 }
 
-/// The words of a shell-ish tail, up to the end of the command: quotes (and `$( )` inside them) are one word.
+/// The words of a shell-ish tail, up to the end of the command: quotes (and `$( )` inside them) and a `${ }`
+/// expansion are one word.
 fn words(rest: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut word = String::new();
     let mut chars = rest.chars().peekable();
     let mut quote: Option<char> = None;
     let mut depth = 0;
+    let mut brace = 0;
     let mut angle = false;
     while let Some(c) = chars.next() {
         match (quote, c) {
+            (_, _) if brace > 0 => {
+                match c {
+                    '{' => brace += 1,
+                    '}' => brace -= 1,
+                    _ => {}
+                }
+                word.push(c);
+            }
             (Some(_), '$') if chars.peek() == Some(&'(') => {
                 depth += 1;
                 word.push_str("$(");
@@ -304,6 +314,11 @@ fn words(rest: &str) -> Vec<String> {
                 word.push(c);
             }
             (_, _) if depth > 0 => word.push(c),
+            (_, '$') if chars.peek() == Some(&'{') => {
+                brace = 1;
+                word.push_str("${");
+                chars.next();
+            }
             (Some(q), _) if c == q => {
                 quote = None;
                 word.push(c);
@@ -352,11 +367,23 @@ fn refusal(
 ) -> Option<String> {
     // a bare mention names the command
     let shape = shapes.get(command).filter(|_| !words.is_empty())?;
+    // `${NAME:+--flag "$NAME"}` is its options when NAME is set and nothing otherwise: only options belong in it
+    let group = Regex::new(r"^\$\{[A-Za-z_][A-Za-z0-9_]*:\+(.*)\}$").expect("a regex");
+    let words: Vec<(String, bool)> = words
+        .iter()
+        .flat_map(|w| match group.captures(w) {
+            Some(inner) => self::words(&inner[1])
+                .into_iter()
+                .map(|w| (w, true))
+                .collect(),
+            None => vec![(w.clone(), false)],
+        })
+        .collect();
     let mut positionals: Vec<&str> = Vec::new();
     let mut open = false;
     let mut i = 0;
     while i < words.len() {
-        let w = words[i].as_str();
+        let (w, optional) = (words[i].0.as_str(), words[i].1);
         if w == "..." || w.starts_with('[') {
             open = true;
         } else if let Some(long) = w.strip_prefix("--") {
@@ -380,6 +407,8 @@ fn refusal(
                 Some((_, true)) if !w.contains('=') => i += 1,
                 _ => {}
             }
+        } else if optional {
+            return Some(format!("'{w}' in a `${{NAME:+...}}` group is no option"));
         } else {
             positionals.push(w);
         }
@@ -437,6 +466,35 @@ fn refused_invocations(text: &str) -> Vec<String> {
         }
     }
     found
+}
+
+#[test]
+fn an_optional_flag_group_is_options_the_command_declares() {
+    let refused = |line: &str| refused_invocations(line).len();
+    // the group expands to `--plan "$PLAN"` or to nothing: the call fits either way
+    assert_eq!(
+        refused(r#"specforge gsd raise-blocker "$WHY" ${PLAN:+--plan "$PLAN"} || exit 1"#),
+        0
+    );
+    assert_eq!(
+        refused(r#"specforge gsd raise-blocker "$WHY" ${PLAN:+--plan "$PLAN"} ${G:+--gate "$G"}"#),
+        0
+    );
+    // an option the command lacks, a positional in a group, a required positional only a group could give
+    assert_eq!(
+        refused(r#"specforge gsd raise-blocker "$WHY" ${P:+--nope "$P"}"#),
+        1
+    );
+    assert_eq!(
+        refused(r#"specforge gsd raise-blocker "$WHY" ${P:+"$P"}"#),
+        1
+    );
+    assert_eq!(
+        refused(r#"specforge gsd raise-blocker ${P:+--plan "$P"}"#),
+        1
+    );
+    // a plain expansion is one word: here the one positional
+    assert_eq!(refused(r#"specforge gsd raise-blocker ${WHY:-why}"#), 0);
 }
 
 #[test]

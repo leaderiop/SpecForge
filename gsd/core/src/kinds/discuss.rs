@@ -66,9 +66,16 @@ pub const DECISION: Kind = Kind::new(
 pub const DEFERRED_IDEA: Kind = Kind::new(
     "deferred_idea",
     "An idea deferred out of a phase (GSD CONTEXT.md <deferred>)",
-    &[str("text").r(), rf("phase", "phase").r(), str("why")],
+    &[
+        str("text").r(),
+        rf("phase", "phase").r(),
+        str("why"),
+        en("status", &["open", "resolved"])
+            .doc("an executor's out-of-scope discovery: open until resolved; absent is open"),
+    ],
 )
-.scoped_by("phase");
+.scoped_by("phase")
+.complete_when("status", &["resolved"]);
 
 const DISCUSSION_MODES: &[&str] = &["interactive", "assumptions", "advisor"];
 const ENTRY: &[Field] = &[

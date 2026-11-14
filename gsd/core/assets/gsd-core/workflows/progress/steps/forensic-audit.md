@@ -85,16 +85,18 @@ Emit:
 
 **Check 7 — Unresolved deferred items**
 
-Glob every phase directory's SCOPE BOUNDARY log (executor writes out-of-scope discoveries here per `agents/gsd-executor.md`):
+The milestone's deferred ideas, with their status (an executor records each out-of-scope discovery as one, per
+`agents/gsd-executor.md`):
 ```bash
-specforge query "$MILESTONE" --depth 3 --kinds deferred_item --pick '.nodes[kind=deferred_item].id' || true
+specforge query "$MILESTONE" --depth 3 --kinds deferred_idea --pick '.nodes[kind=deferred_idea]' --fields id,fields.status,fields.text || true
 ```
 
-For each `deferred-items.md` found, read its entries (bullet list, one entry per top-level list item — `-`, `*`, `+` or an ordered marker of one to nine digits terminated by a DOT, where an ordered list counts when it starts at `0.` or `1.` or continues a list already open at its level; `1)` is not a marker and neither is a ten-digit ordinal (`999999999.` counts, `1234567890.` does not) — with continuation lines indented beneath it; fenced code blocks at ANY indent, including deeper than CommonMark's three-space cap, and `* * *`-style separators are not entries; an unclosed fence ends with its own entry and never hides the entries after it; a closed pair of delimiters is a fence whatever sits between them). An entry is RESOLVED only if it carries an explicit `status: resolved` field on one of its lines — the bare key lower-case only, or the bolded `**Status:**` form in any case; the VALUE is case-insensitive in both; every other entry — including one with no `status:` field at all — is UNRESOLVED and must be surfaced (fail-safe: never silently drop a possibly-open item).
+An idea is RESOLVED only when its `status` is `resolved`; every other one — including one with no `status` at all —
+is UNRESOLVED and must be surfaced (fail-safe: never silently drop a possibly-open item).
 
 Emit:
-- ✓ `No unresolved deferred items` — if no `deferred-items.md` files exist, or every entry in every file is `status: resolved`
-- ⚠ `Unresolved deferred items found` — list each file's phase directory and its unresolved entry text (max 5 per file, truncated at 80 chars)
+- ✓ `No unresolved deferred items` — if the milestone has no deferred idea, or every one is `resolved`
+- ⚠ `Unresolved deferred items found` — list each unresolved idea's phase, id and text (max 5 per phase, truncated at 80 chars)
 
 ---
 

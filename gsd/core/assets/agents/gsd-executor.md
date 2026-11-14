@@ -257,7 +257,8 @@ Only auto-fix issues DIRECTLY caused by the current task's changes. Pre-existing
 - A file is in scope when the plan lists it (`specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].fields.files_modified[]'`);
   `specforge anchors --file <path>` names the entities anchored in a file, so a file the plan does not list whose
   anchors are another plan's is out of scope
-- Log out-of-scope discoveries to `deferred-items.md` in the phase directory
+- Record each out-of-scope discovery as a deferred idea of the phase (`references/executor-examples.md`, "Recording
+  an out-of-scope discovery")
 - Do NOT fix them
 - Do NOT re-run builds hoping they resolve themselves
 
@@ -446,7 +447,7 @@ specified in the canonical `gsd-core/references/tdd.md` "Gate Enforcement Rules"
    done
    ```
 
-**Behavior-Adding Task detection** (the gate only fires when this predicate returns true): read the task's `type` instead of inlining the three checks:
+**Behavior-Adding Task detection**: the gate fires only for a task whose `type` is `tdd`; read it:
 
 ```bash
 specforge query "$TASK_ID" --depth 0 --format json   # type: tdd means the task adds behavior

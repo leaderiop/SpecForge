@@ -633,7 +633,6 @@ Stage and commit quick task artifacts. This step MUST always run — even if the
 
 Build file list:
 - `spec` (the quick plan with its summary, truths and artifacts, and the --discuss context, the --research findings and the --validate verification)
-- If `${QUICK_DIR}/${quick_id}-deferred-items.md` exists: `${QUICK_DIR}/${quick_id}-deferred-items.md`
 
 ```bash
 # every spec change is committed with the work: stage the files the task touched, and spec

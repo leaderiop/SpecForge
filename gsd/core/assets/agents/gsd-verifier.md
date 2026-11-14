@@ -506,7 +506,7 @@ done
 
 **Needs human if uncertain:** Complex wiring grep can't trace, dynamic state behavior, edge cases.
 
-**Behavior-unverified truths (Step 3):** Every truth left ⚠️ PRESENT_BEHAVIOR_UNVERIFIED is recorded in the `behavior_unverified_items` frontmatter list (emitted whenever the count > 0, regardless of overall status, so it survives a gaps_found phase) and surfaces for human verification; when the overall status is human_needed it also appears in the human_verification section. Phrase each item around the invariant: what to trigger, what state must hold afterward, and why presence checks can't see it.
+**Behavior-unverified truths (Step 3):** Every truth left ⚠️ PRESENT_BEHAVIOR_UNVERIFIED (its verdict `present_behavior_unverified`) is listed in the report's Human Verification Required section whatever the overall status, so it survives a gaps_found phase. Phrase each item around the invariant: what to trigger, what state must hold afterward, and why presence checks can't see it.
 
 **Harvest deferred items from PLAN.md (#3309 / `workflow.human_verify_mode = end-of-phase`):** Scan every PLAN file in the phase for `<verify><human-check>` blocks on `auto` tasks. These are verification items the planner deliberately deferred from `checkpoint:human-verify` to end-of-phase to avoid the executor cold-start cost. Each block has the same shape used by the planner:
 
@@ -596,7 +596,7 @@ Parse the JSON to extract all phases. Identify phases with `number > current_pha
 
 Before recording the verdicts, verify that the status field matches the decision tree from Step 9 — in particular, confirm that status is not `passed` when human verification items exist.
 
-Structure gaps in YAML frontmatter for `/gsd:plan-phase --gaps`:
+Give each gap of the report you return in this shape:
 
 ```yaml
 gaps:
@@ -666,63 +666,9 @@ The phase's `verification` entity exists already; its status, score and covered 
 
 Read each truth's inputs with `specforge query <truth> --inputs gsd/E501 --cite-file <file> --cite-test <test fact id> --format json`, naming each file and test the verdict will cite (the flags repeated), and record its verdict as the verification template's record fence does: `specforge gsd record-verdict <truth> E501 <verified|verified_coincidental|failed|uncertain|present_behavior_unverified> gsd-verifier '<basis>' --cited '[{"file": "..."}, {"test": "<test fact id>"}]'`. Copy the `basis` verbatim, never by hand. Cite every implementation file you read, ROOT-relative, and every test fact you relied on by the id Step 6's trace prints: a cited test joins the truth's tests, and its status is read with them. A refusal names its code: read it with `specforge explain <code>`.
 
-Then report in this shape (a message, not a file; `status`, `score` and the covered files are computed, shown for the reader):
+Then report in this shape: a message, not a file, and no frontmatter, since the verification's `status`, `score`, covered files and re-verification are computed from your verdicts (the header shows them for the reader):
 
 ```markdown
----
-phase: XX-name
-verified: YYYY-MM-DDTHH:MM:SSZ
-status: passed | gaps_found | human_needed
-score: N/M must-haves verified
-covered_files: [...]
-covered_digest: "v4:sha256:..."
-behavior_unverified: 0 # Count of ⚠️ PRESENT_BEHAVIOR_UNVERIFIED truths (present + wired, behavior not exercised); each is detailed in behavior_unverified_items below (and in human_verification when status is human_needed)
-overrides_applied: 0 # Count of PASSED (override) items included in score
-overrides: # Only if overrides exist — carried forward or newly added
-  - must_have: "Must-have text that was overridden"
-    reason: "Why deviation is acceptable"
-    accepted_by: "username"
-    accepted_at: "ISO timestamp"
-re_verification: # Only if a previous verification existed
-  previous_status: gaps_found
-  previous_score: 2/5
-  gaps_closed:
-    - "Truth that was fixed"
-  gaps_remaining: []
-  regressions: []
-gaps: # Only if status: gaps_found
-  - truth: "Observable truth that failed"
-    status: failed
-    reason: "Why it failed"
-    artifacts:
-      - path: "src/path/to/file.tsx"
-        issue: "What's wrong"
-    missing:
-      - "Specific thing to add/fix"
-deferred: # Only if deferred items exist (Step 9b)
-  - truth: "Observable truth addressed in a later phase"
-    addressed_in: "Phase N"
-    evidence: "Matching goal or success criteria text"
-advisory: # Only if unevidenced new-scope findings exist (Step 7, re-verification only)
-  - finding: "Short description of the new-scope concern"
-    category: architectural | security | other
-    reason: "Why raised; what would resolve it"
-    evidence_status: "none provided"
-behavior_unverified_items: # Only if behavior_unverified > 0 — emitted regardless of overall status, so these survive a gaps_found phase
-  - truth: "Observable truth whose state transition or cancellation/cleanup/ordering invariant no test exercises"
-    test: "What to trigger"
-    expected: "What state must hold afterward"
-    why_human: "Why presence checks can't see it"
-coincidental_reliance_items: # Only if a ✓ VERIFIED truth holds incidentally — emitted regardless of overall status (survives gaps_found)
-  - truth: "Observable truth that holds incidentally"
-    reason: undeclared-precondition | incidental-ordering | fixture-only
-    harden: "Precondition/ordering to declare or enforce"
-human_verification: # Only if status: human_needed
-  - test: "What to do"
-    expected: "What should happen"
-    why_human: "Why can't verify programmatically"
----
-
 # Phase {X}: {Name} Verification Report
 
 **Phase Goal:** {goal from ROADMAP.md}
@@ -865,7 +811,7 @@ Automated checks passed. Awaiting human verification.
 
 **DO NOT skip key link verification.** 80% of stubs hide here — pieces exist but aren't connected.
 
-**Structure gaps in YAML frontmatter** for `/gsd:plan-phase --gaps`.
+**Give each gap of the report in Step 10's shape.**
 
 **DO flag for human verification when uncertain** (visual, real-time, external service).
 
@@ -943,8 +889,8 @@ return <div>No messages</div>  // Always shows "no messages"
 - [ ] Human verification items identified
 - [ ] Overall status determined
 - [ ] Deferred items filtered against later milestone phases (Step 9b)
-- [ ] Gaps structured in YAML frontmatter (if gaps_found)
-- [ ] Deferred items structured in YAML frontmatter (if deferred items exist)
+- [ ] Gaps given in Step 10's shape in the report (if gaps_found)
+- [ ] Deferred items given in Step 10's shape in the report (if deferred items exist)
 - [ ] Re-verification metadata included (if previous existed)
 - [ ] fingerprint fields written via verification.fingerprint (#4155)
 - [ ] Verdicts recorded and the report returned

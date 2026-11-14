@@ -27,6 +27,67 @@ fn assets() -> Vec<(String, String)> {
         .collect()
 }
 
+/// The kinds `golden` (a declaration golden, under the extension's `tests/golden`) declares.
+fn declared(golden: &Path) -> BTreeSet<String> {
+    let text = std::fs::read_to_string(golden).expect("a declaration golden");
+    let value: serde_json::Value = serde_json::from_str(&text).expect("JSON");
+    let items = value["entities"]["items"]
+        .as_array()
+        .or_else(|| value["items"].as_array())
+        .expect("its kinds");
+    items
+        .iter()
+        .map(|k| k["name"].as_str().expect("a name").to_string())
+        .collect()
+}
+
+/// A query for a kind no extension declares answers nothing, with exit 0: every `--kinds` of an asset or a prompt is
+/// a kind of `@gsd/core` or `@gsd/security`, or one of a planned extension the line names (`@gsd/ui's: empty when it
+/// is not loaded`).
+#[test]
+fn every_kind_a_query_names_is_declared() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut kinds = declared(&root.join("tests/golden/kinds.json"));
+    kinds.extend(declared(
+        &root.join("../security/tests/golden/declaration.json"),
+    ));
+    assert!(kinds.contains("deferred_idea") && kinds.contains("threat"));
+    let rx = Regex::new(r"--kinds[ =]+'?([a-z0-9_]+(?:,[a-z0-9_]+)*)").expect("a regex");
+    let planned = Regex::new(r"@gsd/[a-z]+'s: empty when it is not loaded").expect("a regex");
+    let (mut seen, mut unknown) = (0, Vec::new());
+    for dir in [
+        "assets",
+        "src",
+        "../security/assets",
+        "../security/src",
+        "../kit/src",
+    ] {
+        for path in files::under(&root.join(dir))
+            .into_iter()
+            .filter(|p| p.extension().is_some_and(|e| e == "md" || e == "rs"))
+            .filter(|p| !p.to_string_lossy().contains("/tests"))
+        {
+            let text = std::fs::read_to_string(&path).expect("a file");
+            for (n, line) in text.lines().enumerate() {
+                for cap in rx.captures_iter(line) {
+                    for kind in cap[1].split(',') {
+                        seen += 1;
+                        if !kinds.contains(kind) && !planned.is_match(line) {
+                            unknown.push(format!("{}:{}: {kind}", path.display(), n + 1));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert!(seen > 100, "only {seen} kinds queried");
+    assert!(
+        unknown.is_empty(),
+        "kinds no extension declares:\n{}",
+        unknown.join("\n")
+    );
+}
+
 #[test]
 fn no_query_lacks_its_entity() {
     let rx = Regex::new(r"specforge query +--").expect("a regex");
