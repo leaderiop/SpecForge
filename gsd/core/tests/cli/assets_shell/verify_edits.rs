@@ -119,44 +119,48 @@ fn the_verifier_spawn_reads_one_context_line() {
     assert!(out.contains("v1.0/01/01-01/TR1"), "{out}");
 }
 
-/// The UAT template's fences, filled, create a session on `v1.0/02` with one test, then a gap on that test.
+/// The UAT template's fences, filled, create a session on `v1.0/01` (its own taken out) with one test, then a gap on
+/// that test.
 #[test]
 fn the_uat_template_records_a_session_a_test_and_a_gap() {
     let Some(sh) = Shell::only(&[]) else {
         return;
     };
-    let p = taskboard();
+    let p = without_a_session();
     let template = asset("gsd-core/templates/UAT.md");
     let session = typed::filled(
         &fence_holding(&template, "new uat_session"),
-        &[
-            ("PHASE_ID", "v1.0/02"),
-            ("SOURCE", "v1.0/01/01-02/01-02-SUMMARY"),
-            ("TEST_ID", "U1"),
-            ("NAME", "Undo the last add"),
-            (
-                "EXPECTED",
-                "`node src/cli.js undo` removes the task added last",
-            ),
-        ],
+        &[("PHASE_ID", "v1.0/01")],
     );
     let done = typed::apply(&sh, &p, &session);
     assert_eq!(done.code, 0, "{}{}", done.out, done.err);
-    assert_eq!(p.fields_of("v1.0/02/02-UAT")["phase"], "v1.0/02");
+    assert_eq!(p.fields_of("v1.0/01/01-UAT")["phase"], "v1.0/01");
+    let test = typed::filled(
+        &fence_holding(&template, "new uat_test"),
+        &[
+            ("UAT_SESSION", "v1.0/01/01-UAT"),
+            ("TEST_ID", "U1"),
+            ("NAME", "Complete a task"),
+            ("EXPECTED", "`node src/cli.js done 1` marks task 1 done"),
+        ],
+    );
+    let done = typed::apply(&sh, &p, &test);
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
     let gap = typed::filled(
         &fence_holding(&template, "new uat_gap"),
         &[
-            ("TEST", "v1.0/02/02-UAT/U1"),
+            ("TEST", "v1.0/01/01-UAT/U1"),
             ("GAP_ID", "G1"),
             ("SEVERITY", "major"),
-            ("TRUTH", "Undo removes the task added last"),
+            ("TRUTH", "Completing a task marks it done"),
             ("REASON", "User reported: nothing happens"),
         ],
     );
     let done = typed::apply(&sh, &p, &gap);
     assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert!(done.added.is_empty(), "{:?}", done.added);
     assert_eq!(
-        p.fields_of("v1.0/02/02-UAT/U1/G1")["reason"],
+        p.fields_of("v1.0/01/01-UAT/U1/G1")["reason"],
         "User reported: nothing happens"
     );
 }
@@ -328,45 +332,181 @@ fn without_a_session() -> crate::harness::Project {
     p
 }
 
-/// The UAT loop as the assets hold it, on `v1.0/01` with no session: the template's fence creates the session, but the
-/// step that presents a test reads a `$uat_path` nothing binds and fails; the step that processes an answer edits the
-/// Tests and Gaps sections of a UAT file, with no line that records a result or a gap; and diagnosis parses the Gaps
-/// section of that file, so no gap is ever read back.
+/// The words of the line a step shows the person, the code span of `text` that starts with `start`, after its
+/// `specforge`: a double-quoted word is one word, and each placeholder of `values` is filled.
+fn person_line(text: &str, start: &str, values: &[(&str, &str)]) -> Vec<String> {
+    let line = super::span(text, start);
+    let (mut words, mut word, mut quoted) = (Vec::new(), String::new(), false);
+    for c in line.chars() {
+        match c {
+            '"' => quoted = !quoted,
+            ' ' if !quoted => words.extend((!word.is_empty()).then(|| std::mem::take(&mut word))),
+            _ => word.push(c),
+        }
+    }
+    words.extend((!word.is_empty()).then_some(word));
+    let words: Vec<String> = words
+        .into_iter()
+        .map(|w| values.iter().fold(w, |w, (k, v)| w.replace(k, v)))
+        .collect();
+    assert!(
+        words.iter().all(|w| !w.contains('<')),
+        "unfilled: {words:?}"
+    );
+    assert_eq!(words[0], "specforge", "{line}");
+    words[1..].to_vec()
+}
+
+/// The UAT loop as the assets hold it, on `v1.0/01` with no session: the template's fences create the session and two
+/// tests, and the present step's lines print them. The person's pass line records `U1`; on `U2` the person's issue
+/// line records the result and the answer step's gap fence records `G1`. The counts step lists `U2` alone as open;
+/// diagnosis reads `G1` back, the debug spawn's line prints it with its test, and the recorded diagnosis leaves the
+/// session `diagnosed`.
 #[test]
-fn the_uat_loop_stops_at_a_uat_file_no_step_writes() {
+fn the_uat_loop_records_a_pass_and_a_gap_the_diagnosis_reads() {
     let Some(sh) = Shell::only(&[]) else {
         return;
     };
     let p = without_a_session();
+    let template = asset("gsd-core/templates/UAT.md");
     let session = typed::filled(
-        &fence_holding(&asset("gsd-core/templates/UAT.md"), "new uat_session"),
-        &[
-            ("PHASE_ID", "v1.0/01"),
-            ("SOURCE", "v1.0/01/01-01/01-01-SUMMARY"),
-            ("TEST_ID", "U1"),
-            ("NAME", "Add a task"),
-            ("EXPECTED", "`node src/cli.js add x` prints `added 1: x`"),
-        ],
+        &fence_holding(&template, "new uat_session"),
+        &[("PHASE_ID", "v1.0/01")],
     );
     let done = typed::apply(&sh, &p, &session);
     assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert!(done.added.is_empty(), "{:?}", done.added);
+    assert!(
+        done.out.contains("UAT_SESSION=v1.0/01/01-UAT"),
+        "{}",
+        done.out
+    );
+    let sources = p.fields_of("v1.0/01/01-UAT")["source"].clone();
+    assert_eq!(sources.as_array().map(Vec::len), Some(2), "{sources}");
+    let test = fence_holding(&template, "new uat_test");
+    for (id, name, expected) in [
+        (
+            "U1",
+            "Add a task",
+            "`node src/cli.js add x` prints `added 1: x`",
+        ),
+        (
+            "U2",
+            "Complete a task that does not exist",
+            "`node src/cli.js done 7` fails and names the id 7",
+        ),
+    ] {
+        let filled = typed::filled(
+            &test,
+            &[
+                ("UAT_SESSION", "v1.0/01/01-UAT"),
+                ("TEST_ID", id),
+                ("NAME", name),
+                ("EXPECTED", expected),
+            ],
+        );
+        let done = typed::apply(&sh, &p, &filled);
+        assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+        assert!(done.added.is_empty(), "{:?}", done.added);
+    }
     let work = asset("gsd-core/workflows/verify-work.md");
-    let present = fence_holding(&work, "CHECKPOINT=");
-    let (_, _, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{present}"));
-    assert_ne!(code, 0, "the present step's query ran");
-    let process = super::block(&work, "<step name=\"process_response\">", "</step>");
-    assert!(process.contains("Update Tests section"), "{process}");
-    assert!(process.contains("Append to Gaps section"), "{process}");
+    let present = fence_holding(&work, "--kinds uat_test --format context");
+    let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{present}"));
+    assert_eq!(code, 0, "{err}");
     assert!(
-        !process.contains("set-uat-result <uat_test> pass"),
-        "{process}"
+        out.contains("v1.0/01/01-UAT/U1") && out.contains("v1.0/01/01-UAT/U2"),
+        "{out}"
     );
-    assert!(!process.contains("new uat_gap"), "{process}");
+    let pass = person_line(
+        &work,
+        "specforge gsd set-uat-result <uat_test> pass",
+        &[("<uat_test>", "v1.0/01/01-UAT/U1"), ("<who>", "Sam")],
+    );
+    let pass: Vec<&str> = pass.iter().map(String::as_str).collect();
+    let run = p.run_as_person(&pass);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let words = "it prints a stack trace before the message";
+    let issue = person_line(
+        &work,
+        "specforge gsd set-uat-result <uat_test> issue",
+        &[
+            ("<uat_test>", "v1.0/01/01-UAT/U2"),
+            ("<who>", "Sam"),
+            ("<their words>", words),
+            ("<severity>", "cosmetic"),
+        ],
+    );
+    let issue: Vec<&str> = issue.iter().map(String::as_str).collect();
+    let run = p.run_as_person(&issue);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let gap = typed::filled(
+        &fence_holding(&work, "new uat_gap"),
+        &[
+            ("TEST", "v1.0/01/01-UAT/U2"),
+            ("GAP_ID", "G1"),
+            ("SEVERITY", "cosmetic"),
+            (
+                "TRUTH",
+                "Completing an unknown id fails with a one-line message",
+            ),
+            ("REASON", &format!("User reported: {words}")),
+        ],
+    );
+    let done = typed::apply(&sh, &p, &gap);
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert!(done.added.is_empty(), "{:?}", done.added);
+    assert_eq!(p.fields_of("v1.0/01/01-UAT/U1")["result"], "pass");
+    assert_eq!(p.fields_of("v1.0/01/01-UAT/U2")["reported"], words);
+    let counts = fence_holding(&work, "OPEN_TESTS=");
+    let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{counts}"));
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("open tests: v1.0/01/01-UAT/U2"), "{out}");
+    assert!(!out.contains("v1.0/01/01-UAT/U1"), "{out}");
+    assert!(
+        out.contains(r#""issues":1"#) && out.contains(r#""passed":1"#),
+        "{out}"
+    );
+    let open = fence_holding(&work, "fields.status=open");
+    let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{open}"));
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(out.trim(), "v1.0/01/01-UAT/U2/G1");
     let diagnose = asset("gsd-core/workflows/diagnose-issues.md");
-    let parse = super::block(&diagnose, "<step name=\"parse_gaps\">", "</step>");
-    assert!(parse.contains("Read the \"Gaps\" section"), "{parse}");
+    let read = fence_holding(&diagnose, "--kinds uat_test,uat_gap");
+    let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{read}"));
+    assert_eq!(code, 0, "{err}");
     assert!(
-        diagnose.contains("{phase_num}-UAT.md"),
-        "the debug spawn's reading"
+        out.contains("v1.0/01/01-UAT/U2/G1") && out.contains(words),
+        "{out}"
     );
+    let spawn = diagnose
+        .lines()
+        .find(|l| l.contains("specforge query {GAP}"))
+        .expect("the debug spawn's reading");
+    let start = spawn.find("specforge query").expect("the line");
+    let end = spawn[start..].find("\\n").expect("its end") + start;
+    let line = spawn[start..end].replace("{GAP}", "v1.0/01/01-UAT/U2/G1");
+    let (out, err, code) = sh.run_in(p.root(), &line);
+    assert_eq!(code, 0, "{err}");
+    assert!(
+        out.contains("User reported: ") && out.contains("names the id 7"),
+        "{out}"
+    );
+    let diagnosis = typed::filled(
+        &fence_holding(&diagnose, "root_cause"),
+        &[
+            ("GAP", "v1.0/01/01-UAT/U2/G1"),
+            (
+                "ROOT_CAUSE",
+                "done() rethrows the lookup error before printing",
+            ),
+            (
+                "ARTIFACTS",
+                r#"[{"path": "src/cli.js", "issue": "the catch rethrows"}]"#,
+            ),
+            ("MISSING", "Print the message without the stack"),
+        ],
+    );
+    let done = typed::apply(&sh, &p, &diagnosis);
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert_eq!(p.fields_of("v1.0/01/01-UAT")["status"], "diagnosed");
 }

@@ -9,11 +9,25 @@ Template for the `uat_session` entity of phase XX-name — persistent UAT sessio
 
 A phase's UAT is its `uat_session` entity, with one `uat_test` per test and one `uat_gap` per issue a test found. The session's `status` and `totals`, and a gap's `status`, `resolved_by` and `resolved_at`, are computed, never written. A test's `result` is the person's answer: the person records it with `specforge gsd set-uat-result`, and a result a test run produced is recorded with `specforge gsd record-automated-uat`. `specforge schema --kind uat_session` (likewise `uat_test` and `uat_gap`) lists the fields. Fill the values: free text in its quoted heredoc, as written, and an id, enum or path in its assignment. A refusal names its code: read it with `specforge explain <code>`.
 
-Create the session and its tests (one `uat_test` line per test; `--source` takes every summary the session tests):
+Create the session; its `source` is every summary of the phase:
 
 ```bash
 PHASE_ID="{the phase's id, e.g. v1.0/01}"
-SOURCE="{a summary the session tests, e.g. v1.0/01/01-01/01-01-SUMMARY}"
+SESSION="${PHASE_ID##*/}-UAT"
+PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
+[ -n "$PHASE_FILE" ] || { echo "no phase $PHASE_ID in the graph" >&2; exit 1; }
+SUMMARIES=$(specforge query "$PHASE_ID" --depth 2 --kinds summary --pick '.nodes[kind=summary].id') || exit 1
+[ -n "$SUMMARIES" ] || { echo "$PHASE_ID has no summary to test" >&2; exit 1; }
+SOURCES=()
+while IFS= read -r SUMMARY; do SOURCES+=(--source "$SUMMARY"); done <<<"$SUMMARIES"
+specforge new uat_session "$SESSION" "Phase ${PHASE_ID##*/} acceptance" --in "$PHASE_FILE" --phase "$PHASE_ID" "${SOURCES[@]}" || exit 1
+echo "UAT_SESSION=$PHASE_ID/$SESSION"
+```
+
+Add a test to the session, once per test:
+
+```bash
+UAT_SESSION="{the session's id, e.g. v1.0/01/01-UAT}"
 TEST_ID="{U and the test's number, e.g. U1}"
 IFS= read -rd '' NAME <<'TEXT' || true; NAME=${NAME%$'\n'}
 {the test's name}
@@ -21,10 +35,9 @@ TEXT
 IFS= read -rd '' EXPECTED <<'TEXT' || true; EXPECTED=${EXPECTED%$'\n'}
 {what the person should observe}
 TEXT
-SESSION="${PHASE_ID##*/}-UAT"
-PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
-specforge new uat_session "$SESSION" "Phase ${PHASE_ID##*/} acceptance" --in "$PHASE_FILE" --phase "$PHASE_ID" --source "$SOURCE" || exit 1
-specforge new uat_test "$TEST_ID" "$NAME" --in "$PHASE_FILE" --session "$PHASE_ID/$SESSION" --expected "$EXPECTED" || exit 1
+SESSION_FILE=$(specforge query "$UAT_SESSION" --depth 0 --pick '.nodes[0].file') || exit 1
+[ -n "$SESSION_FILE" ] || { echo "no UAT session $UAT_SESSION in the graph" >&2; exit 1; }
+specforge new uat_test "$TEST_ID" "$NAME" --in "$SESSION_FILE" --session "$UAT_SESSION" --expected "$EXPECTED" || exit 1
 ```
 
 Record a gap when a test's answer is an issue:
@@ -40,6 +53,7 @@ IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
 User reported: {the person's words, verbatim}
 TEXT
 TEST_FILE=$(specforge query "$TEST" --depth 0 --pick '.nodes[0].file') || exit 1
+[ -n "$TEST_FILE" ] || { echo "no UAT test $TEST in the graph" >&2; exit 1; }
 specforge new uat_gap "$GAP_ID" "$TRUTH" --in "$TEST_FILE" --test "$TEST" --truth "$TRUTH" --reason "$REASON" --severity "$SEVERITY" || exit 1
 ```
 
@@ -78,9 +92,7 @@ specforge set "$GAP" missing "${MISSING_ITEMS[@]}" || exit 1
 - A `uat_gap` is recorded only when a test's answer is an issue.
 - After diagnosis: set `root_cause`, `artifacts` and `missing`.
 - The gaps feed directly into /gsd:plan-phase --gaps.
-- A gap's `status` is computed: it is resolved once a plan whose `gap_closure` names it completes, and `resolved_by` and `resolved_at` name that plan and its summary's completion.
-  A later regression against the same test gets a fresh `gap_id`, never a
-  reopened resolved one.
+- A gap's `status` is computed: it is resolved once a plan whose `gap_closure` names it completes, and `resolved_by` and `resolved_at` name that plan and its summary's completion. A later regression against the same test is a new `uat_gap`, never a resolved one reopened.
 
 </section_rules>
 

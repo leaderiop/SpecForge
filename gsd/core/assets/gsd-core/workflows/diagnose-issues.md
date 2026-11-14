@@ -32,26 +32,21 @@ With diagnosis: "Comment doesn't refresh" → "useEffect missing dependency" →
 <process>
 
 <step name="parse_gaps">
-**Extract gaps from UAT.md:**
+**Read the open gaps from the graph:**
 
-Read the "Gaps" section (YAML format):
-```yaml
-- truth: "Comment appears immediately after submission"
-  status: failed
-  reason: "User reported: works but doesn't show until I refresh the page"
-  severity: major
-  test: 2
-  artifacts: []
-  missing: []
+`PHASE_ID` is the phase verify-work tests. Its gaps are `uat_gap` entities, each on the `uat_test` that found it:
+
+```bash
+specforge query "$PHASE_ID" --depth 3 --kinds uat_test,uat_gap --format context || exit 1
 ```
 
-For each gap, also read the corresponding test from "Tests" section to get full context.
+The gaps to diagnose are those whose computed `status` is `open`. For each gap, its `test` gives the full context: the test's `expected` and the person's `reported` words.
 
 Build gap list:
 ```
 gaps = [
-  {truth: "Comment appears immediately...", severity: "major", test_num: 2, reason: "..."},
-  {truth: "Reply button positioned correctly...", severity: "minor", test_num: 5, reason: "..."},
+  {id: "v1.0/04/04-UAT/U2/G1", truth: "Comment appears immediately...", severity: "major", reason: "..."},
+  {id: "v1.0/04/04-UAT/U5/G1", truth: "Reply button positioned correctly...", severity: "minor", reason: "..."},
   ...
 ]
 ```
@@ -195,7 +190,7 @@ placeholder, not a shell variable.
 
 ```
 Agent(
-  prompt=filled_debug_prompt + "\n\n" + WORKTREE_GUARD + "\n\n<required_reading>\n- {phase_dir}/{phase_num}-UAT.md\n- {state_path}\n</required_reading>\n${AGENT_SKILLS_DEBUGGER}",
+  prompt=filled_debug_prompt + "\n\n" + WORKTREE_GUARD + "\n\n<required_reading>\nspecforge query {GAP} --depth 1 --format context\nRun the line above first. It prints the gap and the UAT test that found it.\n</required_reading>\n${AGENT_SKILLS_DEBUGGER}",
   subagent_type="gsd-debugger",
   model="{DEBUGGER_MODEL}",
   {harnessFlag}
@@ -212,7 +207,8 @@ Template placeholders:
 - `{expected}`: From UAT test
 - `{actual}`: Verbatim user description from reason field
 - `{errors}`: Any error messages from UAT (or "None reported")
-- `{reproduction}`: "Test {test_num} in UAT"
+- `{reproduction}`: "UAT test {the gap's `test`}"
+- `{GAP}`: the gap's id
 - `{timeline}`: "Discovered during UAT"
 - `{slug}`: Generated from truth
 </step>
@@ -328,7 +324,7 @@ Agents only diagnose—plan-phase --gaps handles fixes (no fix application).
 </failure_handling>
 
 <success_criteria>
-- [ ] Gaps parsed from UAT.md
+- [ ] Open gaps read from the graph
 - [ ] Debug agents spawned in parallel
 - [ ] Root causes collected from all agents
 - [ ] Each `uat_gap` holds its `root_cause`, `artifacts` and `missing`

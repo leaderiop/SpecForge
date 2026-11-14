@@ -117,12 +117,16 @@ point the user at producing COVERAGE.md before re-running verification.
 **First: Check for active UAT sessions**
 
 ```bash
-(specforge query "$MILESTONE" --depth 2 --kinds uat_session --format brief 2>/dev/null || true)
+MILESTONE=$(specforge gsd progress-report --pick .milestone_version) || exit 1
+[ -n "$MILESTONE" ] || { echo "the project has no milestone" >&2; exit 1; }
+specforge query "$MILESTONE" --depth 3 --kinds uat_session,uat_test --format context || exit 1
 ```
+
+A session is active while its computed `status` is not `complete`.
 
 **If active sessions exist AND no $ARGUMENTS provided:**
 
-Read each file's frontmatter (status, phase) and Current Test section.
+Read each active session's `phase`, `status` and `totals`, and its first test with no `result`.
 
 Display inline:
 
@@ -139,7 +143,7 @@ Reply with a number to resume, or provide a phase number to start new.
 
 Wait for user response.
 
-- If user replies with number (1, 2) → Load that file, go to `resume_from_file`
+- If user replies with number (1, 2) → Take that session's `phase` as `PHASE_ID`, go to `resume_from_file`
 - If user replies with phase number → Treat as new session, go to `create_uat_file`
 
 **If active sessions exist AND $ARGUMENTS provided:**
@@ -280,14 +284,25 @@ Proceed to `present_test`.
 <step name="present_test">
 **Present current test to user:**
 
-Render the checkpoint from the structured UAT file instead of composing it freehand:
+Read the session's tests:
 
 ```bash
-CHECKPOINT=$(specforge query "$uat_path" --depth 1 --format context)
-
+UAT_SESSION=$(specforge query "$PHASE_ID" --depth 1 --kinds uat_session --pick '.nodes[kind=uat_session].id' --last 1) || exit 1
+[ -n "$UAT_SESSION" ] || { echo "$PHASE_ID has no UAT session: create it first (create_uat_file)" >&2; exit 1; }
+specforge query "$UAT_SESSION" --depth 1 --kinds uat_test --format context || exit 1
 ```
 
-Display the returned checkpoint EXACTLY as-is:
+The current test is the first, by number, with no `result` (or `pending`); a test whose answer the person has not recorded yet is presented again. Build the checkpoint from its number, `title` and `expected`, in this shape, as `{CHECKPOINT}`:
+
+```
+**Test {N}: {title}**
+
+{expected}
+
+Type `pass`, or describe what is different.
+```
+
+Display the checkpoint EXACTLY as built:
 
 ```
 {CHECKPOINT}
@@ -303,51 +318,35 @@ Wait for user response (plain text, no AskUserQuestion).
 </step>
 
 <step name="process_response">
-**Process user response and update file:**
+**Process user response and record it:**
+
+A test's `result` is the person's answer, so the person records it: for each answer, show them the line below to run in their terminal, with the test's id (`$UAT_SESSION/U{N}`) and their name, and run nothing yourself (an agent's call is refused: it records what a person says).
 
 **If response indicates pass:**
 - Empty response, "yes", "y", "ok", "pass", "next", "approved", "✓"
 
-Update Tests section:
-```
-### {N}. {name}
-expected: {expected}
-result: pass
-```
+The person runs `specforge gsd set-uat-result <uat_test> pass --by <who>`.
 
 **If response indicates skip:**
 - "skip", "can't test", "n/a"
 
-Update Tests section:
-```
-### {N}. {name}
-expected: {expected}
-result: skipped
-reason: [user's reason if provided]
-```
+The person runs `specforge gsd set-uat-result <uat_test> skipped --by <who> --reason "<their reason>"`.
 
 **If response indicates blocked:**
 - "blocked", "can't test - server not running", "need physical device", "need release build"
 - Or any response containing: "server", "blocked", "not running", "physical device", "release build"
 
-Infer blocked_by tag from response:
-- Contains: server, not running, gateway, API → `server`
-- Contains: physical, device, hardware, real phone → `physical-device`
-- Contains: release, preview, build, EAS → `release-build`
-- Contains: stripe, twilio, third-party, configure → `third-party`
-- Contains: depends on, prior phase, prerequisite → `prior-phase`
-- Default: `other`
+Infer the `blocked_by` tag from the response, one of the five the field takes:
+- server, not running, gateway, API → `server`
+- physical, device, hardware, real phone → `physical_device`
+- release, preview, build, EAS → `release_build`
+- stripe, twilio, third-party, configure → `third_party`
+- depends on, prior phase, prerequisite → `prior_phase`
+- None of these: ask the person which of the five blocks the test.
 
-Update Tests section:
-```
-### {N}. {name}
-expected: {expected}
-result: blocked
-blocked_by: {inferred tag}
-reason: "{verbatim user response}"
-```
+The person runs `specforge gsd set-uat-result <uat_test> blocked --by <who> --blocked-by <tag>`.
 
-Note: Blocked tests do NOT go into the Gaps section (they aren't code issues — they're prerequisite gates).
+A blocked test gets no `uat_gap`: it is not a code issue but a prerequisite gate.
 
 **If response indicates a deferred follow-up (NOT a current-phase blocker):**
 - "later", "future", "follow-up", "next version", "out of scope", "nice to have", "not now", "defer", "down the road", "separate phase", "phase 2"
@@ -368,47 +367,50 @@ Infer severity from description:
 - Contains: color, font, spacing, alignment, visual → cosmetic
 - Default if unclear: major
 
-Update Tests section:
-```
-### {N}. {name}
-expected: {expected}
-result: issue
-reported: "{verbatim user response}"
-severity: {inferred}
+The person runs `specforge gsd set-uat-result <uat_test> issue --by <who> --reported "<their words>" --severity <severity>`.
+
+Then record the issue's gap yourself, for plan-phase --gaps: one `uat_gap` on the test, numbered after the test's other gaps (a gap-closure plan names it in its `gap_closure`, and the gap reads resolved once that plan completes, #1921):
+
+```bash
+TEST="{the test's id, e.g. v1.0/01/01-UAT/U2}"
+GAP_ID="{G and the gap's number on that test, e.g. G1}"
+SEVERITY="{the inferred severity: blocker, major, minor or cosmetic}"
+IFS= read -rd '' TRUTH <<'TEXT' || true; TRUTH=${TRUTH%$'\n'}
+{the expected behaviour from the test}
+TEXT
+IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
+User reported: {the person's words, verbatim}
+TEXT
+TEST_FILE=$(specforge query "$TEST" --depth 0 --pick '.nodes[0].file') || exit 1
+[ -n "$TEST_FILE" ] || { echo "no UAT test $TEST in the graph" >&2; exit 1; }
+specforge new uat_gap "$GAP_ID" "$TRUTH" --in "$TEST_FILE" --test "$TEST" --truth "$TRUTH" --reason "$REASON" --severity "$SEVERITY" || exit 1
 ```
 
-Append to Gaps section (structured YAML for plan-phase --gaps):
-```yaml
-- gap_id: G-{phase}-{N}        # Stable id (phase + test number) — gap-closure plans tag it in their frontmatter so verify-work can reconcile resolved gaps on resume (#1921).
-  truth: "{expected behavior from test}"
-  status: failed
-  reason: "User reported: {verbatim user response}"
-  severity: {inferred}
-  test: {N}
-  artifacts: []  # Filled by diagnosis
-  missing: []    # Filled by diagnosis
-```
+Its `root_cause`, `artifacts` and `missing` are filled by diagnosis.
 
 **After any response:**
 
-Update Summary counts.
-Update frontmatter.updated timestamp.
+The session's `totals` and `status` are computed from its tests: nothing else is written.
 
-If more tests remain → Update Current Test, go to `present_test`
+If more tests remain → go to `present_test`, which reads the next test with no result
 If no more tests → Go to `complete_session`
 </step>
 
 <step name="reconcile_gaps">
-**Reconcile diagnosed gaps against completed gap-closure plans (#1921):** when verify-work resumes after `/gsd:execute-phase --gaps-only`, UAT `## Gaps` entries still read `status: failed` even though their fix plans already executed — without reconciliation they'd be re-diagnosed as fresh blockers. For each `status: failed` gap with a `*-PLAN.md` whose `gap_ids` names it AND a matching `*-SUMMARY.md`, mark it `resolved` (with `resolved_by`/`resolved_at`) in place; otherwise leave it `failed`. Resolved gaps are never re-diagnosed or re-planned; a later regression gets a fresh `gap_id`, not a reopened old one.
+**Gap-closure state is computed (#1921):** a gap reads `status: resolved`, with `resolved_by` and `resolved_at`, once a plan whose `gap_closure` names it completes, so a gap that `/gsd:execute-phase --gaps-only` fixed is never re-diagnosed as a fresh blocker, and nothing is marked here. Read the gaps still open:
 
-Exact YAML shape and the announcement line: `gsd-core/workflows/verify-work/detail/elaboration.md` § 1.
+```bash
+specforge query "$PHASE_ID" --depth 3 --kinds uat_gap --pick '.nodes[fields.status=open].id' || exit 1
+```
+
+Resolved gaps are never re-diagnosed or re-planned; a later regression is a new `uat_gap`, never a resolved one reopened. The announcement line: `gsd-core/workflows/verify-work/detail/elaboration.md` § 1.
 </step>
 
 <step name="resume_from_file">
-**Resume testing from UAT file:** first run `reconcile_gaps` (above), then read the full UAT file.
+**Resume testing from the session:** first run `reconcile_gaps` (above), then read the session's tests with `present_test`'s lines.
 
-Find first test with `result: [pending]`.
-If no `[pending]` test found → go to `complete_session`.
+Find the first test with no `result` (or `pending`).
+If none is found → go to `complete_session`.
 
 Otherwise announce progress and continue from that test at `present_test`.
 
@@ -418,21 +420,26 @@ Exact resume-announcement wording: `gsd-core/workflows/verify-work/detail/elabor
 <step name="complete_session">
 **Complete testing:**
 
-**Count results** (for routing below — the completion verb computes the persisted `status` itself, #5105 R1):
-- `pending_count`: tests with `result: [pending]`
-- `blocked_count`: tests with `result: blocked`
-- `skipped_no_reason`: tests with `result: skipped` and no `reason` field
-- `unresolved_issues`: tests with `result: issue` that are NOT a verified gap resolution (#4983) —
-  same criterion `phase uat-passed` uses (`src/uat-predicate.cts`). Exact definition:
+**Count results** (for routing below; the session's `totals` and `status` are computed from the same tests, never written):
+
+```bash
+UAT_SESSION=$(specforge query "$PHASE_ID" --depth 1 --kinds uat_session --pick '.nodes[kind=uat_session].id' --last 1) || exit 1
+[ -n "$UAT_SESSION" ] || { echo "$PHASE_ID has no UAT session" >&2; exit 1; }
+TOTALS=$(specforge query "$UAT_SESSION" --depth 0 --pick '.nodes[0].fields.totals') || exit 1
+echo "totals: $TOTALS"
+OPEN_TESTS=$(specforge gsd verification-debt --phase "$PHASE_ID" --pick '.blockers[]') || exit 1
+echo "open tests: ${OPEN_TESTS:-none}"
+```
+
+- `pending_count` and `blocked_count`: the totals' `pending` and `blocked`;
+- `unresolved_issues` (#4983): the open tests the second line lists whose `result` is `issue`, by the rule of
   `gsd-core/workflows/verify-work/detail/elaboration.md` § 4.
 
-Run the completion verb — it independently computes the final status (`complete`/`partial`) from the same rows, clears `## Current Test`, and writes + commits ONLY when something material changed (a session whose UAT was already complete and covered must leave the report fresh, #4981):
+Commit the recorded results when the person's lines or the gaps changed the spec:
 
 ```bash
 specforge git commit --add spec -m "test({phase_num}): complete UAT - {passed} passed, {issues} issues" && specforge collect --runner gsd-git --yes
 ```
-
-`changed: false` → announce that the session was already complete and nothing was written or committed. `changed: true` → the UAT file (frontmatter `status`, `updated`, `## Current Test`) was written and committed in one step.
 
 **If the session holds deferred follow-ups,** offer to promote them to backlog phases so they stay visible at the project level (#4546). Count them:
 
@@ -488,7 +495,7 @@ Present summary:
 [If unresolved_issues > 0:]
 ### Issues Found
 
-[List from Issues section]
+[Each open issue test, with the person's `reported` words]
 ```
 
 **If issues > 0:** (reads `unresolved_issues` from "Count results" above, #4983 — not the raw
@@ -779,23 +786,9 @@ Plans verified and ready for execution.
 </process>
 
 <update_rules>
-**Batched writes for efficiency:**
+**Each answer is recorded when it is given:** the person's `set-uat-result` line sets the test's `result`, and an issue's `uat_gap` is recorded at once; the session's `totals` and `status` are computed. Nothing is batched and nothing is kept in memory.
 
-Keep results in memory. Write to file only when:
-1. **Issue found** — Preserve the problem immediately
-2. **Session complete** — Final write before commit
-3. **Checkpoint** — Every 5 passed tests (safety net)
-
-| Section | Rule | When Written |
-|---------|------|--------------|
-| Frontmatter.status | OVERWRITE | Start, complete |
-| Frontmatter.updated | OVERWRITE | On any file write |
-| Current Test | OVERWRITE | On any file write |
-| Tests.{N}.result | OVERWRITE | On any file write |
-| Summary | OVERWRITE | On any file write |
-| Gaps | APPEND | When issue found |
-
-On context reset: File shows last checkpoint. Resume from there.
+On context reset: the session's tests hold every recorded result. Resume at the first test with none.
 </update_rules>
 
 <severity_inference>
@@ -818,7 +811,7 @@ Default to **major** if unclear. User can correct if needed.
 - [ ] Tests presented one at a time with expected behavior
 - [ ] User responses processed as pass/issue/skip
 - [ ] Severity inferred from description (never asked)
-- [ ] Batched writes: on issue, every 5 passes, or completion
+- [ ] Each answer recorded by the person's `set-uat-result` line, and each issue's `uat_gap` by the gap fence
 - [ ] Committed on completion
 - [ ] If issues: parallel debug agents diagnose root causes
 - [ ] If issues: gsd-planner creates fix plans (gap_closure mode)
