@@ -311,7 +311,7 @@ Scan LEARNINGS.md files from recent phases for recurring patterns and surface pr
 @~/.claude/gsd-core/workflows/graduation.md
 ```
 
-This step is fully delegated to `graduation.md`. It handles guard checks (feature flag, window size, threshold), clustering, backlog filtering, HITL prompting, promotion writes, and STATE.md updates.
+This step is fully delegated to `graduation.md`. It handles guard checks (feature flag, window size, threshold), clustering, filtering on each lesson's status, HITL prompting, promotion as project decisions, and each lesson's disposition.
 
 **This step is always non-blocking:** graduation candidates are surfaced for the developer's decision; no action is required to continue the transition. If the graduation scan produces no qualifying clusters, it prints a single `[graduation: no qualifying clusters]` line and returns.
 

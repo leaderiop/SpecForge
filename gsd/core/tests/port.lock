@@ -3119,13 +3119,19 @@ gsd-core/workflows/graduation.md	kept	1+23	462e5212fa23
 gsd-core/workflows/graduation.md	own	24+5	5	68f253332476	a4ff526619e5	ported-name
 gsd-core/workflows/graduation.md	kept	29+17	df4a14e0467b
 gsd-core/workflows/graduation.md	own	46+1	1	666c27ae0fc0	da84b2877305	ported-name
-gsd-core/workflows/graduation.md	kept	47+25	6fe2e95d83e7
-gsd-core/workflows/graduation.md	own	72+1	1	7b528314426d	fa2add1cbf0d	ported-name
-gsd-core/workflows/graduation.md	kept	73+73	80613a417d80
-gsd-core/workflows/graduation.md	own	146+1	1	4a064b099491	a9d9d4e4890b	ported-name
-gsd-core/workflows/graduation.md	kept	147+9	d5a8f90d167a
-gsd-core/workflows/graduation.md	own	156+1	1	4a064b099491	a9d9d4e4890b	ported-name
-gsd-core/workflows/graduation.md	kept	157+44	396ece8a7044
+gsd-core/workflows/graduation.md	kept	47+3	826e23583b3c
+gsd-core/workflows/graduation.md	own	50+1	1	16db276b2889	3408db22b22f	prose
+gsd-core/workflows/graduation.md	kept	51+1	b61856b047b6
+gsd-core/workflows/graduation.md	own	52+1	1	553e6e08a697	3c9fece9bf6a	prose
+gsd-core/workflows/graduation.md	kept	53+17	d3feafb27bd7
+gsd-core/workflows/graduation.md	own	70+15	9	0a25758d08b6	9ed2a1e2e7ed	ported-name
+gsd-core/workflows/graduation.md	kept	85+9	45566b79b087
+gsd-core/workflows/graduation.md	own	94+3	3	203f1658add8	674bb610d54c	prose
+gsd-core/workflows/graduation.md	kept	97+34	1f29c35a74aa
+gsd-core/workflows/graduation.md	own	131+30	38	29cb8d533c85	0355987fc1fe	ported-name
+gsd-core/workflows/graduation.md	kept	161+38	1ee9f9471700
+gsd-core/workflows/graduation.md	own	199+1	1	5f685fe818f8	ae2f1a5a21a8	served
+gsd-core/workflows/graduation.md	kept	200+1	e3b0c44298fc
 gsd-core/workflows/ingest-docs.md	kept	1+2	56ad1e481a15
 gsd-core/workflows/ingest-docs.md	own	3+1	1	d043d0f9edf4	eae2023408da	ported-name
 gsd-core/workflows/ingest-docs.md	kept	4+2	a283eb053fa9
@@ -5303,7 +5309,9 @@ gsd-core/workflows/transition.md	kept	192+2	5f046190424d
 gsd-core/workflows/transition.md	own	194+1	1	9e41248536a4	2806db628509	ported-name
 gsd-core/workflows/transition.md	kept	195+27	10dba94e47bd
 gsd-core/workflows/transition.md	own	222+2	2	5bba9faec829	1d08a3d0e0d8	ported-name
-gsd-core/workflows/transition.md	kept	224+103	d11ed075e66b
+gsd-core/workflows/transition.md	kept	224+89	cd6b56006a25
+gsd-core/workflows/transition.md	own	313+1	1	b6eae8bde7c0	78841987a956	prose
+gsd-core/workflows/transition.md	kept	314+13	46ffbd894a2f
 gsd-core/workflows/transition.md	own	327+1	1	cde8273958de	6613c22a007c	ported-name
 gsd-core/workflows/transition.md	kept	328+4	c7654971fb74
 gsd-core/workflows/transition.md	own	332+1	1	24dc78acb3e7	ea72ba1aa8af	ported-name

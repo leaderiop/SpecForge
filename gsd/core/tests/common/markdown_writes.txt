@@ -48,10 +48,6 @@ gsd-core/workflows/complete-milestone.md	- [ ] Safety commit made (archive files
 gsd-core/workflows/complete-milestone.md	- [ ] STATE.md updated with fresh project reference
 gsd-core/workflows/complete-milestone.md	- [ ] RETROSPECTIVE.md updated with milestone section
 gsd-core/workflows/execute-phase/steps/regression-gate.md	- File patterns from `key-files.created` in corresponding SUMMARY.md files that match `*.test.*` or `*.spec.*`
-gsd-core/workflows/graduation.md	| `decisions` | `PROJECT.md` — append under `## Validated Decisions` (create section if absent) |
-gsd-core/workflows/graduation.md	| `patterns` | `PATTERNS.md` — append under the appropriate category section (create file if absent) |
-gsd-core/workflows/graduation.md	| `lessons` | `PROJECT.md` — append under `## Invariants` (create section if absent) |
-gsd-core/workflows/graduation.md	3. For each source LEARNINGS.md item in the cluster, append `**Graduated:** {target-file}:{ISO_DATE}` after its last existing field
 gsd-core/workflows/list-phase-assumptions.md	If "Discuss context": Note that CONTEXT.md will incorporate any corrections discussed here
 gsd-core/workflows/new-workspace.md	## 7. Write WORKSPACE.md
 gsd-core/workflows/new-workspace.md	Write the workspace manifest at `$TARGET_PATH/WORKSPACE.md`:
@@ -70,7 +66,6 @@ gsd-core/workflows/ship.md	- [ ] STATE.md updated with shipping status
 gsd-core/workflows/transition.md	(re-running `phase.complete` would double-write STATE.md/ROADMAP.md). Run
 gsd-core/workflows/transition.md	**Delegate ROADMAP.md and STATE.md updates to the computed phase status:**
 gsd-core/workflows/transition.md	**Update PROJECT.md:**
-gsd-core/workflows/transition.md	This step is fully delegated to `graduation.md`. It handles guard checks (feature flag, window size, threshold), clustering, backlog filtering, HITL prompting, promotion writes, and STATE.md updates.
 gsd-core/workflows/transition.md	Verify the updates are correct by reading STATE.md. If the progress bar needs updating, use:
 gsd-core/workflows/transition.md	Update the progress bar line in STATE.md with the result.
 gsd-core/workflows/transition.md	Update Project Reference section in STATE.md.

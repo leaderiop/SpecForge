@@ -48,9 +48,9 @@ specforge query "$MILESTONE" --depth 2 --kinds lesson --pick '.nodes[kind=lesson
 ```
 
 For each file found:
-1. Parse the four category sections: `## Decisions`, `## Lessons`, `## Patterns`, `## Surprises`
+1. Read each lesson's `kind` (decision, lesson, pattern or surprise) and `text`: `specforge query "$MILESTONE" --depth 2 --kinds lesson --format context`
 2. Extract each `### Item Title` + body as a single item record: `{ category, title, body, source_phase, source_file }`
-3. **Skip items that already contain `**Graduated:**`** — they have been promoted and must not re-surface
+3. **Skip lessons Step 4 does not list** — they have been promoted, dismissed or deferred and must not re-surface
 
 ---
 
@@ -68,21 +68,15 @@ For each category independently, cluster items using Jaccard similarity on token
 
 ---
 
-## Step 4: Check graduation_backlog in STATE.md
+## Step 4: Keep the Open Lessons
 
-Read the computed project state `graduation_backlog` section (if present). Format:
+A lesson's `status` is computed from its recorded disposition: `open` unless it was graduated, and a deferred lesson is open again once the phase it waits for is complete. List the open lessons:
 
-```yaml
-graduation_backlog:
-  - cluster_id: "{sha256-of-cluster-title}"
-    status: "dismissed"   # or "deferred"
-    deferred_until: "phase-N"  # only for deferred entries
-    cluster_title: "{representative title}"
+```bash
+specforge query "$MILESTONE" --depth 2 --kinds lesson --pick '.nodes[fields.status=open].id'
 ```
 
-**Skip any cluster whose `cluster_id` matches a `dismissed` entry.**
-
-**Skip any cluster whose `cluster_id` matches a `deferred` entry where `deferred_until` phase has not yet completed.**
+**Skip any window lesson this list does not hold** (dismissed, promoted, or deferred until a phase not yet complete).
 
 ---
 
@@ -92,9 +86,9 @@ For each qualifying cluster, determine the suggested target file:
 
 | Category | Suggested Target |
 |----------|-----------------|
-| `decisions` | `PROJECT.md` — append under `## Validated Decisions` (create section if absent) |
-| `patterns` | `PATTERNS.md` — append under the appropriate category section (create file if absent) |
-| `lessons` | `PROJECT.md` — append under `## Invariants` (create section if absent) |
+| `decisions` | a project `decision`, area "Validated Decisions", linked into the project's `key_decisions` |
+| `patterns` | Surfaced only: with `@gsd/core` alone no kind holds a pattern, so a capability extension that declares one promotes it |
+| `lessons` | a project `decision`, area "Invariants", linked into the project's `key_decisions` |
 | `surprises` | Flag for human review — if genuinely surprising 3+ times, something structural is wrong |
 
 Print the graduation report:
@@ -129,36 +123,44 @@ Use `AskUserQuestion` (or equivalent HITL primitive for the current runtime). If
 
 **On `P` (Promote now):**
 
-1. Read the target file (or create it with a standard header if absent)
-2. Append the cluster entry under the suggested section:
-   ```markdown
-   ### {Cluster representative title}
-   {Merged body — combine unique sentences across cluster items}
+Before a promotion, look for an existing decision it would duplicate: `specforge search "{cluster title}" --kinds decision`. A hit is offered as the target: then only link it and record the disposition (the last two lines below), with `DECISION_ID` the hit's id. Otherwise record the cluster as a project decision, link it into the project's `key_decisions`, and record each lesson's disposition (`graduated` is written by `graduate-lessons`, never by `specforge set`):
 
-   **Sources:** Phase {A}, Phase {B}, Phase {C}
-   **Promoted:** {ISO_DATE}
-   ```
-3. For each source LEARNINGS.md item in the cluster, append `**Graduated:** {target-file}:{ISO_DATE}` after its last existing field
-4. Commit both the target file and all annotated LEARNINGS.md files in a single atomic commit:
-   `docs(learnings): graduate "{cluster title}" to {target-file}`
-
-**On `D` (Defer):**
-
-Write to the computed project state under `graduation_backlog`:
-```yaml
-- cluster_id: "{sha256}"
-  status: "deferred"
-  deferred_until: "phase-{NEXT_PHASE_NUMBER}"
-  cluster_title: "{title}"
+```bash
+DECISION_ID="{the next free project decision id, e.g. D-07}"
+AREA="{Validated Decisions for decisions, Invariants for lessons}"
+LESSONS='{the lesson ids of the cluster, as a JSON list, e.g. ["v1.0/v1.0-RETROSPECTIVE/L1"]}'
+IFS= read -rd '' TITLE <<'TEXT' || true; TITLE=${TITLE%$'\n'}
+{the cluster's representative title}
+TEXT
+IFS= read -rd '' BODY <<'TEXT' || true; BODY=${BODY%$'\n'}
+{the merged body: the unique sentences across the cluster's lessons}
+TEXT
+IFS= read -rd '' SOURCES <<'TEXT' || true; SOURCES=${SOURCES%$'\n'}
+Sources: {Phase A, Phase B, Phase C}
+TEXT
+PROJECT=$(specforge export --kinds project --pick '.nodes[0].id') || exit 1
+[ -n "$PROJECT" ] || { echo "no project entity: run /gsd:new-project first" >&2; exit 1; }
+PROJECT_FILE=$(specforge query "$PROJECT" --depth 0 --pick '.nodes[0].file') || exit 1
+specforge new decision "$DECISION_ID" "$TITLE" --in "$PROJECT_FILE" --origin project --area "$AREA" --text "$BODY" --rationale "$SOURCES" || exit 1
+specforge link "$PROJECT" key_decisions "$DECISION_ID" || exit 1
+specforge gsd graduate-lessons "$LESSONS" --disposition promoted --target "$DECISION_ID" || exit 1
 ```
 
-**On `X` (Dismiss):**
+Then commit the spec in one atomic commit: `specforge git commit --add spec -m 'docs(learnings): graduate "{cluster title}" to a project decision'`.
 
-Write to the computed project state under `graduation_backlog`:
-```yaml
-- cluster_id: "{sha256}"
-  status: "dismissed"
-  cluster_title: "{title}"
+**On `D` (Defer):** the cluster's lessons are open again once the next phase is complete:
+
+```bash
+LESSONS='{the lesson ids of the cluster, as a JSON list}'
+NEXT_PHASE="{the next phase's id, e.g. v1.0/03}"
+specforge gsd graduate-lessons "$LESSONS" --disposition deferred --until "$NEXT_PHASE" || exit 1
+```
+
+**On `X` (Dismiss):** the cluster's lessons never re-surface:
+
+```bash
+LESSONS='{the lesson ids of the cluster, as a JSON list}'
+specforge gsd graduate-lessons "$LESSONS" --disposition dismissed || exit 1
 ```
 
 **On `A` (Defer all):**
@@ -197,4 +199,4 @@ On the first transition after upgrading to a version that includes this workflow
 - `features.graduation = false`
 - Fewer than `graduation_threshold` prior phases with LEARNINGS.md
 - Total items < 5 across the window
-- All qualifying clusters are in `graduation_backlog` as dismissed
+- Every qualifying cluster's lessons are dismissed, promoted or deferred (none is listed by Step 4)

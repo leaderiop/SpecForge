@@ -100,27 +100,90 @@ fn a_deferred_verification_is_kept_where_progress_never_prints_it() {
     assert!(text.contains("Append/update this STATE.md section"));
 }
 
-/// Graduation keeps defer and dismiss under `graduation_backlog`, a field no kind declares: a dismissed cluster is
-/// offered again on every transition.
-#[test]
-fn a_graduation_disposition_is_kept_in_a_field_no_kind_declares() {
-    let p = crate::harness::taskboard();
-    let run = p.run(&["schema"]);
-    assert_eq!(run.code, 0, "{}", run.all());
-    let schema: serde_json::Value = serde_json::from_str(&run.stdout).expect("a JSON schema");
-    let fields: Vec<&str> = schema["entity_kinds"]
-        .as_array()
-        .expect("kinds")
-        .iter()
-        .flat_map(|k| k["fields"].as_array().into_iter().flatten())
-        .filter_map(|f| f["name"].as_str())
-        .collect();
-    assert!(
-        fields.contains(&"graduated"),
-        "the lesson's fields are listed"
+/// The two lessons graduation reads in `review.rs`'s window test, on a taskboard copy.
+fn with_lessons() -> crate::harness::Project {
+    let p = taskboard();
+    p.write(
+        "spec/learning.spec",
+        concat!(
+            "retrospective v1.0-RETROSPECTIVE \"Taskboard 1.0 retrospective\" {\n  milestone v1.0\n}\n\n",
+            "lesson L2 \"Test the reload\" {\n  retrospective v1.0-RETROSPECTIVE\n  text \"Reload loses ids\"\n}\n\n",
+            "lesson L1 \"Plan the reload first\" {\n  retrospective v1.0-RETROSPECTIVE\n  text \"Persistence decides\"\n}\n",
+        ),
     );
-    assert!(!fields.contains(&"graduation_backlog"));
-    assert!(asset("gsd-core/workflows/graduation.md").contains("under `graduation_backlog`"));
+    p
+}
+
+const LESSONS: &str = r#"["v1.0/v1.0-RETROSPECTIVE/L1", "v1.0/v1.0-RETROSPECTIVE/L2"]"#;
+
+/// graduation's X fence, filled for both lessons, dismisses them: Step 4's open filter lists neither on the next run,
+/// both read `status` `dismissed`, and the workflow no longer names `graduation_backlog`.
+#[test]
+fn a_dismissed_cluster_stays_dismissed_on_the_next_run() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = with_lessons();
+    let text = asset("gsd-core/workflows/graduation.md");
+    assert!(!text.contains("graduation_backlog"));
+    let open = fence_holding(&text, "fields.status=open");
+    let (out, err, code) = sh.run_in(p.root(), &format!("MILESTONE=v1.0\n{open}"));
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(out.lines().count(), 2, "{out}");
+    let dismiss = typed::filled(
+        &fence_holding(&text, "--disposition dismissed"),
+        &[("LESSONS", LESSONS)],
+    );
+    let done = typed::apply(&sh, &p, &dismiss);
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    let (out, err, code) = sh.run_in(p.root(), &format!("MILESTONE=v1.0\n{open}"));
+    assert_eq!(code, 0, "{err}");
+    assert!(out.trim().is_empty(), "{out}");
+    for n in [1, 2] {
+        let status = &p.fields_of(&format!("v1.0/v1.0-RETROSPECTIVE/L{n}"))["status"];
+        assert_eq!(status, "dismissed");
+    }
+}
+
+/// graduation's P fence, filled, records the cluster as a project decision (origin project, area "Validated
+/// Decisions") linked into the project's `key_decisions`, and both lessons read `promoted` with the decision as their
+/// target; the check gains no finding.
+#[test]
+fn a_promoted_cluster_becomes_a_project_decision() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = with_lessons();
+    let promote = typed::filled(
+        &fence_holding(
+            &asset("gsd-core/workflows/graduation.md"),
+            "--disposition promoted",
+        ),
+        &[
+            ("DECISION_ID", "D-07"),
+            ("AREA", "Validated Decisions"),
+            ("LESSONS", LESSONS),
+            ("TITLE", "Plan the reload first"),
+            (
+                "BODY",
+                "Persistence decides the data model; reload loses ids unless it is planned.",
+            ),
+            ("SOURCES", "Sources: Phase 01, Phase 02"),
+        ],
+    );
+    let done = typed::apply(&sh, &p, &promote);
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert!(done.added.is_empty(), "{:?}", done.added);
+    let decision = p.fields_of("D-07");
+    assert_eq!(decision["origin"], "project", "{decision}");
+    assert_eq!(decision["area"], "Validated Decisions", "{decision}");
+    let keys = p.fields_of("taskboard")["key_decisions"].to_string();
+    assert!(keys.contains("D-07"), "{keys}");
+    for n in [1, 2] {
+        let lesson = p.fields_of(&format!("v1.0/v1.0-RETROSPECTIVE/L{n}"));
+        assert_eq!(lesson["status"], "promoted", "{lesson}");
+        assert!(lesson["graduated"].to_string().contains("D-07"), "{lesson}");
+    }
 }
 
 /// The audit's step 2 traces the milestone's requirements along their threads: the trace names each requirement and
