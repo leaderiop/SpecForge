@@ -206,15 +206,19 @@ fn milestone_cycles(input: &PassInput) -> Vec<PassDiagnostic> {
         .collect()
 }
 
-/// E537 (beyond GSD, ADR 0357): a milestone whose `targets` day is before its `starts` day, a contradiction. The kernel
-/// admits a `date` only as `YYYY-MM-DD`, so text order is day order; the same day, or a milestone missing either date,
-/// is clean.
+/// E537 (beyond GSD, ADR 0357): a milestone whose `targets` day is before its `starts` day, a contradiction. The two
+/// compare as calendar days. A text that is no `YYYY-MM-DD` day reaches the pass as written (the kernel reports it as
+/// E061 and passes it on), so it is E061's alone; the same day, or a milestone missing either date, is clean.
 fn milestone_dates(input: &PassInput) -> Vec<PassDiagnostic> {
+    fn day<'a>(milestone: &'a PassEntity, field: &str) -> Option<(i64, &'a str)> {
+        let text = milestone.fields.get(field)?;
+        Some((crate::time::day(text)?, text))
+    }
     of_kind(input, "milestone")
         .filter_map(|milestone| {
-            let starts = milestone.fields.get("starts")?;
-            let targets = milestone.fields.get("targets")?;
-            (targets < starts).then(|| {
+            let (starts_at, starts) = day(milestone, "starts")?;
+            let (targets_at, targets) = day(milestone, "targets")?;
+            (targets_at < starts_at).then(|| {
                 PassDiagnostic::new(
                     "E537",
                     PassSeverity::Error,

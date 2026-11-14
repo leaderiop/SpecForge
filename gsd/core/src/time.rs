@@ -63,6 +63,17 @@ pub fn seconds(time: &str) -> Option<i64> {
     Some(days(year, month, day) * 86_400 + hour * 3600 + minute * 60 + second)
 }
 
+/// Seconds since the epoch of the calendar day `YYYY-MM-DD` at midnight UTC, the one text a `date` field holds;
+/// `None` for any other spelling (the kernel reports those as E061 and still passes their text on).
+pub fn day(text: &str) -> Option<i64> {
+    let shaped = text.len() == 10
+        && text.bytes().enumerate().all(|(at, b)| match at {
+            4 | 7 => b == b'-',
+            _ => b.is_ascii_digit(),
+        });
+    shaped.then(|| seconds(&format!("{text}T00:00:00Z")))?
+}
+
 fn days_in(year: i64, month: i64) -> i64 {
     match month {
         2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
@@ -82,6 +93,24 @@ mod tests {
         assert_eq!(seconds("2026-04-31T00:00:00Z"), None);
         assert_eq!(seconds("2100-02-29T00:00:00Z"), None);
         assert!(seconds("2024-02-29T00:00:00Z").is_some());
+    }
+
+    #[test]
+    fn a_day_is_a_calendar_day_written_yyyy_mm_dd() {
+        assert_eq!(day("1970-01-02"), Some(86_400));
+        assert_eq!(day("2024-02-29"), seconds("2024-02-29T00:00:00Z"));
+        for refused in [
+            "2026-3-1",
+            "2026-03-1",
+            "+2026-03-01",
+            "2026-03-01T09:00:00Z",
+            "2026-02-30",
+            "2026-13-01",
+            "2026/03/01",
+            "",
+        ] {
+            assert_eq!(day(refused), None, "{refused}");
+        }
     }
 
     #[test]

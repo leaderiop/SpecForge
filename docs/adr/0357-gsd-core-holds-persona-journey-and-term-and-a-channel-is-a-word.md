@@ -85,8 +85,9 @@ D1 (open words). No kernel, SDK or protocol change.
 - **D14. A milestone's dates are in order.** A milestone that writes both `starts` and `targets`, with `targets`
   before `starts`, is `gsd/E537` ("milestone '<id>' targets <day> before it starts <day>").
   - It is an error under every profile, because it is a contradiction.
-  - The same day is clean, and so is a milestone missing either date. The dates compare as text: the kernel admits a
-    `date` only as `YYYY-MM-DD`, so text order is day order.
+  - The same day is clean, and so is a milestone missing either date. The dates compare as calendar days.
+  - A text that is no `YYYY-MM-DD` day is the kernel's E061 alone. The kernel reports it but still passes its text to
+    the pass, so `gsd/E537` judges only two calendar days and adds no second error, false or misleading, to the first.
   - The old milestone had no such rule. A converted milestone whose dates are out of order is reported, not altered.
 
 ### The carry-over table

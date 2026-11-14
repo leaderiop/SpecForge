@@ -304,3 +304,26 @@ fn a_milestone_targeting_before_it_starts_is_e537() {
         assert_eq!(p.findings(), [], "{profile}: the same day is clean");
     }
 }
+
+/// A milestone date that is no calendar day is the kernel's E061 alone: the text still reaches the pass, and
+/// `gsd/E537` never judges it, so no second error, false or misleading, rides on the first.
+#[test]
+fn a_milestone_date_that_is_no_calendar_day_is_e061_and_never_e537() {
+    let p = project("roadmap");
+    for (starts, targets) in [
+        ("\"2026-3-1\"", "2026-10-01"),
+        ("\"2026-3-1\"", "2026-02-01"),
+        ("\"2026-03-01T09:00:00Z\"", "2026-03-01"),
+        ("\"\"", "2026-01-01"),
+    ] {
+        p.write("spec/v1.1.spec", &milestone_v1_1(starts, targets));
+        // The I204 note ("not judged") is every project's, not this one's.
+        let codes: Vec<String> = p
+            .checked()
+            .into_iter()
+            .map(|(code, _)| code)
+            .filter(|code| code != "I204")
+            .collect();
+        assert_eq!(codes, ["E061"], "starts {starts}, targets {targets}");
+    }
+}

@@ -665,3 +665,23 @@ fn a_milestone_targeting_on_or_after_its_start_is_not_e537() {
         assert!(found.is_empty(), "{dates:?}: {found:?}");
     }
 }
+
+#[test]
+fn a_milestone_date_that_is_no_calendar_day_is_left_to_e061() {
+    // The kernel reports each of these texts as E061 and still passes it on; E537 judges two calendar days only.
+    for (starts, targets) in [
+        ("2026-3-1", "2026-10-01"),
+        ("2026-3-1", "2026-02-01"),
+        ("2026-03-01T09:00:00Z", "2026-03-01"),
+        ("2026-03-01T09:00:00Z", "2026-02-01"),
+        ("", "2026-01-01"),
+        ("2026-03-01", ""),
+        ("2026-02-30", "2026-02-01"),
+        ("+2026-03-01", "2026-02-01"),
+        ("2026-03-01", "soon"),
+    ] {
+        let dates = [("starts", starts), ("targets", targets)];
+        let found = check(&input(vec![dated("v1.1", &dates)], vec![]));
+        assert!(found.is_empty(), "{dates:?}: {found:?}");
+    }
+}
