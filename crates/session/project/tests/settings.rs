@@ -527,6 +527,43 @@ fn a_number_setting_of_more_than_fifteen_significant_digits_is_refused() {
     }
 }
 
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a number setting, its default and a preset's value are held in their one JSON form"
+)]
+fn a_number_setting_is_held_in_its_one_json_form() {
+    let items = json!([
+        {"kind": "setting", "name": "x.mode", "field_type": "enum", "enum_values": ["lax", "strict"]},
+        {"kind": "setting", "name": "x.ratio", "field_type": "number", "default": 50.0},
+        {"kind": "setting", "name": "x.limit", "field_type": "number"},
+        {"kind": "preset", "source": "x.mode", "values": {"strict": {"settings": {"x.ratio": 40.0}}}},
+    ]);
+    let held = |settings: Value, name: &str| {
+        let (resolved, found) = resolve_raw(items.clone(), json!({ "@t/s": settings }));
+        assert!(found.is_empty(), "{found:?}");
+        let value = resolved
+            .of("@t/s")
+            .unwrap()
+            .get(name)
+            .unwrap()
+            .value
+            .clone();
+        serde_json::to_string(&value).unwrap()
+    };
+    assert_eq!(held(json!({}), "x.ratio"), "50", "the default");
+    assert_eq!(
+        held(json!({"x.mode": "strict"}), "x.ratio"),
+        "40",
+        "the preset's"
+    );
+    assert_eq!(
+        held(json!({"x.limit": 30.0}), "x.limit"),
+        "30",
+        "the explicit"
+    );
+    assert_eq!(held(json!({"x.limit": 2.50}), "x.limit"), "2.5");
+}
+
 mod attached_checks {
     use super::*;
 

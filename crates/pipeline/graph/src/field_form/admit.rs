@@ -11,22 +11,25 @@ impl FieldForm {
     /// `reference` and `date` a string; `integer` an integer and `number` a number, within their bounds; `bool` a
     /// boolean), a list an array of strings, a `block` an object and a `block_list` an array of objects, each entry
     /// admitted by its member's form; a member the block does not declare is refused. The same rules `admit` and
-    /// `refuse_item` apply to a written value.
+    /// `refuse_item` apply to a written value. A `number`, a typed block's number member included, is held in its one
+    /// JSON form ([`Decimal::to_json`]: `100.0` and `1e2` are `100`), as the same value written in `.spec` is (ADR 0361
+    /// D7); any other value is held as given.
     pub fn admit_json(&self, value: &Value) -> Result<FieldJson, Refusal> {
-        self.admitted(value)?;
-        Ok(FieldJson::of(value.clone()))
+        self.admitted(value).map(FieldJson::of)
     }
 
-    fn admitted(&self, value: &Value) -> Result<(), Refusal> {
+    /// `value` as this form holds it, or why it is refused.
+    fn admitted(&self, value: &Value) -> Result<Value, Refusal> {
         let wrong = || Refusal::with(&format!("give a {}", self.field_type().as_str()));
-        match (self.field_type(), value) {
+        let checked = match (self.field_type(), value) {
             (FieldType::Integer, Value::Number(n)) => {
                 let n = n.as_i64().ok_or_else(wrong)?;
                 self.admit(ValueShape::Integer, &n.to_string())
             }
             (FieldType::Number, Value::Number(n)) => {
                 let value = Decimal::from_json(n).map_err(|e| Refusal::with(&e.to_string()))?;
-                self.in_decimal_bounds(value)
+                self.in_decimal_bounds(value)?;
+                return Ok(Value::Number(value.to_json()));
             }
             (FieldType::Bool, Value::Bool(_)) => Ok(()),
             (FieldType::Date, Value::String(s)) => self.admit(ValueShape::Date, s),
@@ -47,25 +50,37 @@ impl FieldForm {
                     None => Ok(()),
                 }
             }
-            (FieldType::Block, Value::Object(entries)) => self.admit_entries(entries),
+            (FieldType::Block, Value::Object(entries)) => {
+                return self.admit_entries(entries).map(Value::Object);
+            }
             (FieldType::BlockList, Value::Array(items)) => {
-                items.iter().try_for_each(|item| match item {
-                    Value::Object(entries) => self.admit_entries(entries),
-                    _ => Err(Refusal::with("give each item as an object")),
-                })
+                return items
+                    .iter()
+                    .map(|item| match item {
+                        Value::Object(entries) => self.admit_entries(entries).map(Value::Object),
+                        _ => Err(Refusal::with("give each item as an object")),
+                    })
+                    .collect::<Result<_, _>>()
+                    .map(Value::Array);
             }
             _ => Err(wrong()),
-        }
+        };
+        checked.map(|()| value.clone())
     }
 
-    fn admit_entries(&self, entries: &serde_json::Map<String, Value>) -> Result<(), Refusal> {
+    /// A block's entries as the block holds them: an open block's as given, a typed block's each as its member's
+    /// form holds it.
+    fn admit_entries(
+        &self,
+        entries: &serde_json::Map<String, Value>,
+    ) -> Result<serde_json::Map<String, Value>, Refusal> {
         let Some(members) = self.members().filter(|m| !m.is_empty()) else {
             // An open block: named entries, each a field value.
             return match entries
                 .iter()
                 .find_map(|(name, v)| not_field_json(v).map(|why| (name, why)))
             {
-                None => Ok(()),
+                None => Ok(entries.clone()),
                 Some((name, NotFieldJson::Number(error))) => {
                     Err(Refusal::with(&format!("'{name}': {error}")))
                 }
@@ -74,19 +89,22 @@ impl FieldForm {
                 ))),
             };
         };
-        for (name, member) in entries {
-            members
-                .get(name)
-                .ok_or_else(|| Refusal::with(&format!("'{name}' is no member of this block")))?
-                .admitted(member)?;
-        }
+        let held = entries
+            .iter()
+            .map(|(name, member)| {
+                let form = members.get(name).ok_or_else(|| {
+                    Refusal::with(&format!("'{name}' is no member of this block"))
+                })?;
+                Ok((name.clone(), form.admitted(member)?))
+            })
+            .collect::<Result<serde_json::Map<_, _>, Refusal>>()?;
         if let Some(missing) = members
             .iter()
             .find(|(name, form)| form.required() && !entries.contains_key(*name))
         {
             return Err(Refusal::with(&format!("give the member '{}'", missing.0)));
         }
-        Ok(())
+        Ok(held)
     }
 }
 

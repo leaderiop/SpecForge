@@ -349,8 +349,9 @@ fn check(
             None => Ok(None),
         };
     }
+    // The value as its form holds it: a number in its one JSON form (`30.0` is `30`, ADR 0361 D7).
     match setting.form.admit_json(value) {
-        Ok(_) => Ok(Some(value.clone())),
+        Ok(held) => Ok(Some(held.into())),
         Err(refusal) => {
             let expected = expected(&setting.form);
             let message = if kind_fits(&setting.form, value) {

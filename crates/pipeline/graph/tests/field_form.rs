@@ -403,6 +403,50 @@ fn a_number_form_compares_its_decimal_bounds_exactly() {
 
 #[specforge_test(
     behavior = "check_field_value_types",
+    verify = "a JSON number a number form admits is held in its one JSON form, as a block member too"
+)]
+fn an_admitted_number_is_held_in_its_one_json_form() {
+    let number = FieldForm::new(FieldType::Number, Vec::new());
+    let held = |form: &FieldForm, value: serde_json::Value| -> serde_json::Value {
+        form.admit_json(&value).expect("admitted").into()
+    };
+    for (given, one) in [
+        (json!(100.0), json!(100)),
+        (json!(1e2), json!(100)),
+        (json!(-0.0), json!(0)),
+        (json!(0.5), json!(0.5)),
+        (json!(1e20), json!(1e20)),
+    ] {
+        let one_text = serde_json::to_string(&one).unwrap();
+        assert_eq!(held(&number, given.clone()), one, "{given}");
+        assert_eq!(
+            serde_json::to_string(&held(&number, given.clone())).unwrap(),
+            one_text,
+            "{given}"
+        );
+    }
+    let ratio = || FieldForm::new(FieldType::Number, Vec::new());
+    let block = FieldForm::new(FieldType::Block, Vec::new()).with_members(BlockMembers::new(vec![
+        ("ratio".to_string(), ratio()),
+        (
+            "note".to_string(),
+            FieldForm::new(FieldType::String, Vec::new()),
+        ),
+    ]));
+    assert_eq!(
+        held(&block, json!({"ratio": 95.0, "note": "n"})),
+        json!({"ratio": 95, "note": "n"})
+    );
+    let list = FieldForm::new(FieldType::BlockList, Vec::new())
+        .with_members(BlockMembers::new(vec![("ratio".to_string(), ratio())]));
+    assert_eq!(
+        held(&list, json!([{"ratio": 2.50}, {"ratio": 3.0}])),
+        json!([{"ratio": 2.5}, {"ratio": 3}])
+    );
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
     verify = "an open block admits a whole JSON number of any length and a fraction a decimal holds"
 )]
 fn an_open_block_admits_every_integer_and_a_decimal_fraction() {
