@@ -451,14 +451,16 @@ behavior check_field_value_types "Check Field Value Types" {
     declared type (ADR 0283): on a reference field a number, a date or `true` / `false` is the name it is
     written as (`10`, `2026-10-26`), a negative number none; on an integer field `-?N(-N)*` is an integer
     difference in checked 64-bit arithmetic (`2-1` is 1, `007` is 7) and a date is its difference
-    (`2026-10-26` is 1990), quoted or bare.
+    (`2026-10-26` is 1990), quoted or bare; on a number field a decimal word (`0.75`, `-0.25`, `007.5`,
+    `1.5e3`) or an integer is its exact decimal of at most 15 significant digits (ADR 0361), quoted or bare.
     Coercion MUST NOT produce a diagnostic.
 
     A stored value its declared type does not take MUST produce an E061
     error at the value's source span naming the field, the declared type
     and the value given (a string quoted as a .spec string writes it). A string field takes text, a bare word, a date, a
     type union or an expression group; an enum one of its declared values
-    (suggesting the closest); an integer field an integer, a difference or a date (E061 names the operand that is no number); a bool field
+    (suggesting the closest); an integer field an integer, a difference or a date (E061 names the operand that is no number); a number field one decimal of
+    at most 15 significant digits within the range a binary64 holds and within its bounds; a bool field
     true or false; a date field one calendar day, `YYYY-MM-DD`, that exists; an identifier field one word (letters, digits and `_`,
     starting with a letter or `_`), bare or quoted; a reference field one id;
     a string_list or reference_list field a list; a block field a block. Fields no
@@ -490,6 +492,9 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "no authored kind of a builtin or pinned example declares a member, a target union, a bound, an enum list or a block list"
   verify unit "a reference field reads a bare word as the name it spells, whether or not the word could be a number or a date"
   verify unit "a bare word is read by its field's declared type: a reference its name, an integer its difference, a date its day"
+  verify unit "a number field reads a decimal word with a sign, a fraction, an exponent and leading zeros, and refuses any other word"
+  verify integration "a number field reads its decimal word and exports the exact decimal as a JSON number"
+  verify integration "a number that is no decimal, has more than 15 significant digits or lies outside its bounds is E061"
   verify unit "a list on a field declared as a single value is an error"
   verify unit "an enum value suggests the closest declared value"
   verify unit "an export with a coerced string_list validates against the published schema"

@@ -5,7 +5,7 @@
 use specforge_common::Severity;
 use specforge_extension_sdk::Vocabulary;
 use specforge_graph::Bounds;
-use specforge_protocol_types::ExtensionDeclaration;
+use specforge_protocol_types::{Decimal, ExtensionDeclaration};
 use specforge_registry::{
     FieldDescriptor, FieldRegistryEntry, FieldType, ProofRole, UnknownFieldType,
 };
@@ -560,27 +560,41 @@ fn a_bound_its_type_cannot_read_is_w021() {
 
 #[spec(
     behavior = "registry_build_fields",
-    verify = "a kind field of type number is W021 and dropped, since the .spec grammar has no decimal literal"
+    verify = "a kind field or block member of type number is registered with its bounds"
 )]
-fn a_kind_field_of_type_number_is_w021() {
+fn a_kind_field_of_type_number_is_registered() {
+    let decimal = |text: &str| Decimal::parse(text).unwrap();
     let build = build([declare("@test/ext", |c| {
         c.kind("Task", |k| {
             k.keyword("task");
             k.field("ratio", |f| {
-                f.field_type(FieldType::Number);
+                f.field_type(FieldType::Number)
+                    .minimum(decimal("0.05"))
+                    .maximum(decimal("0.95"));
+            });
+            k.field("metric", |f| {
+                f.field_type(FieldType::Block).member("threshold", |m| {
+                    m.field_type(FieldType::Number);
+                });
             });
             k.field("estimate", |f| {
                 f.field_type(FieldType::Integer);
             });
         });
     })]);
-    let refused = coded(&build, "W021");
-    assert_eq!(refused.len(), 1, "{:?}", diagnostics(&build));
     assert!(
-        refused[0].message.contains("'ratio'") && refused[0].message.contains("decimal literal"),
-        "{}",
-        refused[0].message
+        coded(&build, "W021").is_empty(),
+        "{:?}",
+        diagnostics(&build)
     );
-    assert!(!build.fields().contains("task", "ratio"));
-    assert!(build.fields().contains("task", "estimate"));
+    let fields = build.fields();
+    let ratio = fields.get("task", "ratio").expect("ratio is registered");
+    assert_eq!(ratio.field_type(), FieldType::Number);
+    assert_eq!(
+        ratio.form().bounds(),
+        &Bounds::Number(Some(decimal("0.05")), Some(decimal("0.95")))
+    );
+    let (_, threshold) = fields.get_path("task", "metric.threshold").unwrap();
+    assert_eq!(threshold.field_type(), FieldType::Number);
+    assert!(fields.contains("task", "estimate"));
 }

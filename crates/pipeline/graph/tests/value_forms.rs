@@ -4,7 +4,7 @@ use std::collections::{BTreeSet, HashMap};
 
 use specforge_graph::field_form::{FieldForm, FieldForms, Place, ValueShape};
 use specforge_graph::{FieldValue, Written};
-use specforge_protocol_types::FieldType;
+use specforge_protocol_types::{Decimal, FieldType};
 use specforge_test_macros::test as specforge_test;
 
 #[specforge_test(
@@ -297,6 +297,7 @@ fn read(form: &FieldForm, value: FieldValue) -> Result<FieldValue, Option<String
     let text = match &stored {
         FieldValue::Identifier(t) | FieldValue::String(t) | FieldValue::Date(t) => t.clone(),
         FieldValue::Integer(n) => n.to_string(),
+        FieldValue::Number(d) => d.to_string(),
         FieldValue::Boolean(b) => b.to_string(),
         other => panic!("{other:?}"),
     };
@@ -356,10 +357,7 @@ fn a_declared_type_reads_a_bare_word() {
         Ok(FieldValue::Integer(1990))
     );
     for (text, remedy) in [
-        (
-            "1.5",
-            "an integer has no fraction (there is no decimal type)",
-        ),
+        ("1.5", "an integer has no fraction"),
         ("AUTH-01", "'AUTH' is no number"),
         (
             "99999999999999999999",
@@ -392,4 +390,77 @@ fn a_declared_type_reads_a_bare_word() {
 
     let identifier = FieldForm::new(FieldType::Identifier, Vec::new());
     assert!(read(&identifier, word("a-b")).is_err());
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a number field reads a decimal word with a sign, a fraction, an exponent and leading zeros, and refuses any other word"
+)]
+fn a_number_field_reads_a_decimal_word() {
+    let decimal = |text: &str| FieldValue::Number(Decimal::parse(text).unwrap());
+    let number = FieldForm::new(FieldType::Number, Vec::new());
+    for (written, value) in [
+        ("0.75", "0.75"),
+        ("-0.25", "-0.25"),
+        ("007.5", "7.5"),
+        ("1.50", "1.5"),
+        ("1.5e3", "1500"),
+        ("2E-4", "0.0002"),
+        ("100", "100"),
+    ] {
+        assert_eq!(
+            read(&number, word(written)),
+            Ok(decimal(value)),
+            "{written}"
+        );
+    }
+    assert_eq!(read(&number, FieldValue::Integer(-5)), Ok(decimal("-5")));
+    assert_eq!(
+        read(&number, FieldValue::String(" 1.50 ".into())),
+        Ok(decimal("1.5"))
+    );
+    for (written, remedy) in [
+        ("abc", "'abc' is no decimal number"),
+        ("1.2.3", "'1.2.3' is no decimal number"),
+        ("2-1", "'2-1' is no decimal number"),
+        (
+            "0.1234567890123456",
+            "a number keeps at most 15 significant digits",
+        ),
+        ("1e308", "'1e308' is outside the range a number holds"),
+    ] {
+        assert_eq!(
+            read(&number, word(written)),
+            Err(Some(remedy.to_string())),
+            "{written}"
+        );
+    }
+    assert_eq!(
+        read(&number, FieldValue::Date("2026-10-26".into())),
+        Err(Some("'2026-10-26' is no decimal number".to_string()))
+    );
+    assert_eq!(
+        read(&number, FieldValue::Integer(1234567890123456)),
+        Err(Some(
+            "a number keeps at most 15 significant digits".to_string()
+        ))
+    );
+    assert_eq!(
+        number
+            .admit(ValueShape::List, "a, b")
+            .unwrap_err()
+            .suggestion
+            .as_deref(),
+        Some("give a single value, not a list")
+    );
+    // An integer field refuses a decimal: a fraction is a number's.
+    let integer = FieldForm::new(FieldType::Integer, Vec::new());
+    assert_eq!(
+        integer
+            .admit(ValueShape::Number, "1.5")
+            .unwrap_err()
+            .suggestion
+            .as_deref(),
+        Some("an integer has no fraction")
+    );
 }

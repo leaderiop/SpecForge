@@ -13,7 +13,7 @@ use specforge_common::SourceSpan;
 use specforge_common::find_close_match;
 use specforge_common::shape::{Definitions, Shape};
 use specforge_parser::{FieldEntry, FieldValue, ListItem, Written};
-use specforge_protocol_types::{FieldType, FieldWriter};
+use specforge_protocol_types::{Decimal, FieldType, FieldWriter};
 
 use crate::Graph;
 
@@ -45,6 +45,8 @@ pub enum ValueShape {
     Identifier,
     Date,
     Integer,
+    /// An exact decimal (ADR 0361).
+    Number,
     Boolean,
     /// `[a, "b", 1]`: a list, however its items were written.
     List,
@@ -67,6 +69,7 @@ impl ValueShape {
             FieldValue::Identifier(_) => Self::Identifier,
             FieldValue::Date(_) => Self::Date,
             FieldValue::Integer(_) => Self::Integer,
+            FieldValue::Number(_) => Self::Number,
             FieldValue::Boolean(_) => Self::Boolean,
             FieldValue::List(_) => Self::List,
             FieldValue::VariantList(_) => Self::Variants,
@@ -259,6 +262,8 @@ impl FieldForm {
     ///   list `field [value]` parses to.
     /// - `integer`: a quoted integer, a bare word that is an integer difference (`2-1`, `007`) or a date
     ///   (`2026-10-26`, the difference `1990`) becomes the integer ([`integer_difference`]).
+    /// - `number`: a quoted or bare decimal word (`0.75`, `1.5e3`, `007.5`) or an integer becomes the exact decimal
+    ///   ([`Decimal::parse`], ADR 0361).
     /// - `bool`: a quoted or bare `true` / `false` becomes the boolean.
     /// - `date`: a quoted calendar day becomes the date.
     /// - `string`, `enum`: an integer or boolean becomes its text.
@@ -289,6 +294,12 @@ impl FieldForm {
                 .map(FieldValue::Integer),
             (FieldType::Integer, FieldValue::Identifier(s) | FieldValue::Date(s)) => {
                 integer_difference(s).ok().map(FieldValue::Integer)
+            }
+            (FieldType::Number, FieldValue::String(s) | FieldValue::Identifier(s)) => {
+                Decimal::parse(s.trim()).ok().map(FieldValue::Number)
+            }
+            (FieldType::Number, FieldValue::Integer(n)) => {
+                Decimal::try_from(*n).ok().map(FieldValue::Number)
             }
             (FieldType::Reference, FieldValue::Integer(n)) if *n >= 0 => {
                 Some(FieldValue::Identifier(n.to_string()))
@@ -328,6 +339,7 @@ impl FieldForm {
     /// | `enum` | a string or bare word that is a declared value |
     /// | `identifier` | one word (letters, digits and `_`, starting with a letter or `_`), bare or quoted |
     /// | `integer` | an integer, a bare integer difference (`2-1`) or a date (a quoted one is unquoted) |
+    /// | `number` | one decimal of at most 15 significant digits within its bounds, `0.75`, `-0.25`, `1.5e3` |
     /// | `bool` | `true` or `false` |
     /// | `date` | one calendar day, `YYYY-MM-DD`, that exists |
     /// | `reference` | a bare word, a number or a date written as a name, or a string; never one starting with `-` |
@@ -341,10 +353,21 @@ impl FieldForm {
                 ValueShape::Identifier => {
                     Err(integer_difference(text).err().unwrap_or_else(Refusal::none))
                 }
+                ValueShape::Number => Err(Refusal::with(word::NO_FRACTION)),
                 _ => Err(Refusal::none()),
             },
-            // A number is a setting's, read from JSON: the `.spec` grammar has no decimal literal.
-            FieldType::Number => Err(Refusal::none()),
+            FieldType::Number => match shape {
+                ValueShape::Number
+                | ValueShape::Integer
+                | ValueShape::Identifier
+                | ValueShape::String
+                | ValueShape::Date => match Decimal::parse(text.trim()) {
+                    Ok(value) => self.in_decimal_bounds(value),
+                    Err(refused) => Err(Refusal::with(&refused.to_string())),
+                },
+                s if s.is_list() => Err(single_value()),
+                _ => Err(Refusal::none()),
+            },
             FieldType::Bool => match shape {
                 ValueShape::Boolean => Ok(()),
                 _ => Err(Refusal::with("use true or false")),

@@ -751,20 +751,23 @@ or an `expr { }` group; an enum one of its declared values (the suggestion names
 the closest one; the closed vocabularies the builtins declare, a feature's
 `status`, a failure mode's `severity`, a property's `property_type`, and the
 like, are enum fields); an integer field an integer, an integer difference like
-`2-1` or a date (the message names the operand that is no number); a bool field
-true or false; a date field one calendar day, `YYYY-MM-DD`, that exists
+`2-1` or a date (the message names the operand that is no number, and a fraction
+is a number field's); a number field one decimal, `0.75`, `-0.25`, `1.5e3` (at
+most 15 significant digits, within the range a binary64 holds, ADR 0361); a bool
+field true or false; a date field one calendar day, `YYYY-MM-DD`, that exists
 (`2026-02-30` is none); a reference field one name, a number or a date written
 as one (`10`, `2026-10-26`) included, never one starting with `-`; a
 string_list, reference_list or enum_list field a list (an enum_list's words are
 each one of its declared values and appear once); a block field a block, whose
 members, when it declares them, are each read by their own type, and a
 block_list field a list of blocks, `[ { a 1 } { a 2 } ]`; a reference field with
-`target_kinds` names an entity of any of the listed kinds; an integer field with
-a `minimum` or `maximum` an integer inside them. Values that can be read as the
-declared type are converted without a diagnostic: a single string, id, integer,
-boolean or date on a list field becomes a one-item list, a list is stored as
-written, a quoted integer, boolean or calendar day the number, boolean or date.
-Fix the value, or check the field's type with `specforge schema --kind <kind>`.
+`target_kinds` names an entity of any of the listed kinds; an integer or number
+field with a `minimum` or `maximum` a value inside them. Values that can be read
+as the declared type are converted without a diagnostic: a single string, id,
+integer, boolean or date on a list field becomes a one-item list, a list is
+stored as written, a quoted integer, decimal, boolean or calendar day the
+number, boolean or date. Fix the value, or check the field's type with
+`specforge schema --kind <kind>`.
 
 Owner: core
 Level: error
@@ -3236,38 +3239,37 @@ twice or not one identifier, a member that declares `derived_from`,
 `reference_list`, or naming one kind, a `minimum` or `maximum` on a type other
 than `integer` or `number`, a fraction or a value beyond `i64` on an `integer`,
 more than 15 significant digits on a `number`, or a `minimum` above the
-`maximum` (ADR 0361), and a field of type `number` on a kind (the `.spec`
-grammar has no decimal literal, ADR 0305); a `scoped_by` field with
-`target_kinds` scopes nothing. Who writes a field is checked too (ADR 0287): a
-`writer` other than `computed`, `harness`, `human` or `verdict`, `harness` or
-`verdict` on a member, a computed or verdict field that is also `required`,
-`immutable`, `append_only` or `derived_from`, `append_only` on a field that is
-not a list, a computed field no compute pass lists in `computes`, a `computes`
-entry that is not a computed field of the extension or that two passes list or
-whose pass is not in the `compute` phase, and a `baseline` naming a kind no
-loaded extension declares. Who writes a kind is checked as well (ADR 0289): a
-kind `writer` other than `human`, a `human` field marked `required` on a kind
-that is not human-only (an agent could then create no entity of the kind), a
-`guard` pass that declares `computes`, and a `guard` pass that reports the code
-of a judged rule of its extension (ADR 0302). A kind's `result` is checked too
-(ADR 0329): on a kind no collector writes, naming a field the kind does not
-declare or one that is no `enum`, or an enum whose values are not all test
-statuses (`passed`, `failed`, `skipped`), it is dropped. So is a kind's
-`complete_when` (ADR 0329): naming a field the kind does not declare or one that
-is no `enum`, no value, or a value the enum does not take, it is dropped and the
-kind's entities follow their scope's owner state. The `settings` category is
-checked too (ADR 0288): a setting named twice or not a dotted name or a family
-(`*` segments), of a type the field forms do not have, with a default its type
-refuses, with `gates` or `gates_when_on` (ADR 0305) on a type other than `bool`
-or on a family (only a setting named whole gates codes), naming a code the
-extension does not catalog, or gating one code both ways, or with `keys` that do
-not match its `*`s; a preset whose source is not an enum or bool setting of the
-extension or of a loaded peer, that names a value its source does not take, that
-sets a setting the extension does not declare to a value its type refuses, or
-that raises a code the extension does not catalog; a secret named twice or whose
-environment variable is not a name; and an item of a kind the host does not
-know. The `surfaces` category is checked too (ADR 0291): a prompt whose id is
-not snake_case or whose export is not `prompt__<id>`, that declares an argument
+`maximum` (ADR 0361); a `scoped_by` field with `target_kinds` scopes nothing.
+Who writes a field is checked too (ADR 0287): a `writer` other than `computed`,
+`harness`, `human` or `verdict`, `harness` or `verdict` on a member, a computed
+or verdict field that is also `required`, `immutable`, `append_only` or
+`derived_from`, `append_only` on a field that is not a list, a computed field no
+compute pass lists in `computes`, a `computes` entry that is not a computed
+field of the extension or that two passes list or whose pass is not in the
+`compute` phase, and a `baseline` naming a kind no loaded extension declares.
+Who writes a kind is checked as well (ADR 0289): a kind `writer` other than
+`human`, a `human` field marked `required` on a kind that is not human-only (an
+agent could then create no entity of the kind), a `guard` pass that declares
+`computes`, and a `guard` pass that reports the code of a judged rule of its
+extension (ADR 0302). A kind's `result` is checked too (ADR 0329): on a kind no
+collector writes, naming a field the kind does not declare or one that is no
+`enum`, or an enum whose values are not all test statuses (`passed`, `failed`,
+`skipped`), it is dropped. So is a kind's `complete_when` (ADR 0329): naming a
+field the kind does not declare or one that is no `enum`, no value, or a value
+the enum does not take, it is dropped and the kind's entities follow their
+scope's owner state. The `settings` category is checked too (ADR 0288): a
+setting named twice or not a dotted name or a family (`*` segments), of a type
+the field forms do not have, with a default its type refuses, with `gates` or
+`gates_when_on` (ADR 0305) on a type other than `bool` or on a family (only a
+setting named whole gates codes), naming a code the extension does not catalog,
+or gating one code both ways, or with `keys` that do not match its `*`s; a
+preset whose source is not an enum or bool setting of the extension or of a
+loaded peer, that names a value its source does not take, that sets a setting
+the extension does not declare to a value its type refuses, or that raises a
+code the extension does not catalog; a secret named twice or whose environment
+variable is not a name; and an item of a kind the host does not know. The
+`surfaces` category is checked too (ADR 0291): a prompt whose id is not
+snake_case or whose export is not `prompt__<id>`, that declares an argument
 twice or named for something the host owns (`path`, `format`, `help`,
 `settings`, `secrets`, `host`, `argv`), of a type an argument does not take, a
 reference argument naming no loaded kind, bounds on an argument that is no

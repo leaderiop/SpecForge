@@ -40,6 +40,7 @@ fn named<'r>(record: &'r EntityRecord, field: &str) -> Vec<(&'r str, Option<Sour
                 | ValueShape::Identifier
                 | ValueShape::Date
                 | ValueShape::Integer
+                | ValueShape::Number
                 | ValueShape::Boolean => vec![written.text.as_str()],
                 ValueShape::List => written.items.iter().flatten().map(String::as_str).collect(),
                 ValueShape::Block

@@ -187,14 +187,17 @@ type DerivedReferenceSource "Where a derived reference field takes its targets f
 
 type FieldType "FieldType: how the host reads a field's value (FieldType in specforge-protocol-types). Every output names a field type by these names: the declaration, the Graph Protocol schema and exports, the published JSON Schema, the model, the hover and E061 (ADR 0034). The host also reads the older spellings — each name with a `_type` suffix, and \"boolean\" — and never writes them. verify is NOT a field type — it is a grammar-level construct parsed by a dedicated rule (parse_verify_statements). Whether an entity kind supports verify is declared via the supports_verify flag on EntityKindDescriptor, not via field type registration." = "string"
   | "integer"
+  | "number"
   | "bool"
   | "date"
   | "enum"
   | "identifier"
+  | "enum_list"
   | "string_list"
   | "reference"
   | "reference_list"
   | "block"
+  | "block_list"
 
 type ValidationRulePattern "A validation rule as an extension declares it (the protocol's ValidationRuleDescriptor). The registry build turns it into a typed rule (specforge_registry::rules::Rule) carrying only what its check reads; constraint.pattern is a regex for field_value_constraint/matches and the condition field's name for conditional_field_required." {
   code             string          @readonly

@@ -8,7 +8,7 @@
 use specforge_common::SourceSpan;
 use specforge_parser::lex::is_entity_id;
 use specforge_parser::{FieldEntry, FieldMap, FieldValue, Written};
-use specforge_protocol_types::FieldType;
+use specforge_protocol_types::{Decimal, FieldType};
 
 use super::{FieldForm, FieldForms, Reading, is_word};
 
@@ -109,6 +109,7 @@ pub fn is_date(text: &str) -> bool {
 /// | declared | written |
 /// |---|---|
 /// | `integer` | a literal when `text` is an integer or an integer difference (`2-1`); else quoted (E061 reports it) |
+/// | `number` | a literal when `text` is a decimal ([`Decimal::parse`], ADR 0361); else quoted (E061 reports it) |
 /// | `bool` | a literal when `true` / `false`; else quoted (E061) |
 /// | `date` | a literal when [`is_date`]; else quoted (E061) |
 /// | `string_list` item | a scheme ref id as a scheme ref (it then names an entity, ADR 0093); else quoted |
@@ -123,6 +124,7 @@ pub fn form(form: &FieldForm, text: &str) -> Written {
         {
             Written::Literal
         }
+        FieldType::Number if Decimal::parse(text.trim()).is_ok() => Written::Literal,
         FieldType::Bool if matches!(text, "true" | "false") => Written::Literal,
         FieldType::Date if is_date(text) => Written::Literal,
         FieldType::StringList if text.contains(':') && is_entity_id(text) => Written::SchemeRef,
@@ -296,6 +298,9 @@ impl FieldForms {
                 scalar(Written::Bare, text.clone()).into_iter().collect()
             }
             FieldValue::Integer(n) => scalar(Written::Literal, n.to_string())
+                .into_iter()
+                .collect(),
+            FieldValue::Number(d) => scalar(Written::Literal, d.to_string())
                 .into_iter()
                 .collect(),
             FieldValue::Boolean(b) => scalar(Written::Literal, b.to_string())

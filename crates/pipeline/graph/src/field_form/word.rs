@@ -2,6 +2,9 @@
 
 use super::Refusal;
 
+/// E061's remedy for a fraction on an integer field: a decimal is a `number` field's (ADR 0361).
+pub(super) const NO_FRACTION: &str = "an integer has no fraction";
+
 pub(super) fn dashed_name() -> Refusal {
     Refusal::with("a name never starts with '-'")
 }
@@ -25,9 +28,7 @@ pub fn integer_difference(word: &str) -> Result<i64, Refusal> {
                 .split('.')
                 .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
         {
-            return Err(Refusal::with(
-                "an integer has no fraction (there is no decimal type)",
-            ));
+            return Err(Refusal::with(NO_FRACTION));
         } else {
             return Err(Refusal::with(&format!("'{term}' is no number")));
         };

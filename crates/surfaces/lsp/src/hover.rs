@@ -514,6 +514,7 @@ fn format_field_value(fv: &FieldValue) -> String {
             }
         }
         FieldValue::Integer(n) => n.to_string(),
+        FieldValue::Number(d) => d.to_string(),
         FieldValue::Boolean(b) => b.to_string(),
         FieldValue::Date(d) => d.clone(),
         FieldValue::List(items) => {

@@ -86,8 +86,8 @@ vocabulary! {
         String = "string",
         /// A whole number.
         Integer = "integer",
-        /// A whole or decimal number (protocol 1.12.0, ADR 0305). A setting may be one; a kind's field may not, since
-        /// the `.spec` grammar has no decimal literal (W021).
+        /// A whole or decimal number, an exact decimal of at most 15 significant digits ([`crate::Decimal`], ADR
+        /// 0361), written as one word (`0.75`, `1.5e3`): a setting's (protocol 1.12.0, ADR 0305) or a kind field's.
         Number = "number",
         /// `true` or `false`.
         Bool = "bool",

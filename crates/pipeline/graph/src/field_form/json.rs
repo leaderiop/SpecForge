@@ -62,7 +62,9 @@ impl Shape for FieldJson {
 /// string, an identifier, a date) as a string; a type union as its members
 /// joined by `" | "`; an expression group as its conjuncts, each in its
 /// display form, joined by `"\n"` (the string form the prove pass reads, one
-/// comparison per line, ADR 0009); an integer and a boolean as JSON scalars;
+/// comparison per line, ADR 0009); an integer, a number (its exact decimal,
+/// [`specforge_protocol_types::Decimal::to_json`], ADR 0361) and a
+/// boolean as JSON scalars;
 /// a list or variant list as an array of its items' text; a block
 /// as an object of its entries, each written by this function. Never the
 /// parser's tree, never a position. The field text of the same value
@@ -87,6 +89,7 @@ pub fn write(value: &FieldValue) -> FieldJson {
                 .join("\n"),
         ),
         FieldValue::Integer(n) => Value::Number((*n).into()),
+        FieldValue::Number(d) => Value::Number(d.to_json()),
         FieldValue::Boolean(b) => Value::Bool(*b),
         FieldValue::List(items) => Value::Array(
             items

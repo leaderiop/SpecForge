@@ -19,6 +19,7 @@ fn texts(source: &str) -> Vec<(String, &'static str, String)> {
                 FieldValue::Identifier(_) => "Identifier",
                 FieldValue::Date(_) => "Date",
                 FieldValue::Integer(_) => "Integer",
+                FieldValue::Number(_) => "Number",
                 FieldValue::Boolean(_) => "Boolean",
                 FieldValue::List(_) => "List",
                 FieldValue::VariantList(_) => "VariantList",

@@ -411,6 +411,8 @@ pub enum FieldValue {
     /// layout; a quoted member as written.
     TypeUnion(Vec<TypeMember>),
     Integer(i64),
+    /// An exact decimal (ADR 0361): the decimal a `number` field read from its word.
+    Number(specforge_protocol_types::Decimal),
     Boolean(bool),
     Date(String),
     /// A bare word, a reference path, or an array type (`Result<A, B>[]`) in its one spelling

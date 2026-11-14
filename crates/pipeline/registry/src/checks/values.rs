@@ -93,6 +93,7 @@ fn describe(field: &FieldRecord) -> String {
         ValueShape::Identifier
         | ValueShape::Date
         | ValueShape::Integer
+        | ValueShape::Number
         | ValueShape::Boolean
         | ValueShape::TypeUnion => field.text.clone(),
         ValueShape::List | ValueShape::Variants => "a list".to_string(),

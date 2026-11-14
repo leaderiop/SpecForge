@@ -4,7 +4,7 @@
 use serde_json::Value;
 use specforge_graph::field_form::{declared_path, json::set_path};
 use specforge_graph::{Computed, ValueShape};
-use specforge_protocol_types::{FieldType, FieldWriter};
+use specforge_protocol_types::{Decimal, FieldType, FieldWriter};
 
 use super::EntitySnapshot;
 use crate::FieldRegistry;
@@ -74,7 +74,13 @@ fn of_json(key: &str, declared: &str, value: &Value, date: bool) -> FieldRecord 
     let (shape, text, items) = match value {
         Value::String(s) if date => (ValueShape::Date, s.clone(), None),
         Value::String(s) => (ValueShape::String, s.clone(), None),
-        Value::Number(n) => (ValueShape::Integer, n.to_string(), None),
+        Value::Number(n) if n.is_i64() || n.is_u64() => (ValueShape::Integer, n.to_string(), None),
+        // A fraction is a number, in its canonical text; one no decimal holds keeps its JSON text for E061 (ADR 0361).
+        Value::Number(n) => (
+            ValueShape::Number,
+            Decimal::from_json(n).map_or_else(|_| n.to_string(), |d| d.to_string()),
+            None,
+        ),
         Value::Bool(b) => (ValueShape::Boolean, b.to_string(), None),
         Value::Array(entries) if entries.iter().all(Value::is_object) && !entries.is_empty() => {
             let items: Vec<String> = entries.iter().map(keys).collect();
