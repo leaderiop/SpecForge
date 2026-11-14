@@ -23,7 +23,7 @@ use specforge_parser::{
     CURRENT_FORMAT_VERSION, Entity, EntityId, EntityKind, FieldEntry, FieldMap, FieldValue,
     ListItem, SpecFile, Written,
 };
-use specforge_protocol_types::{Fact, FactLocation, FactStore};
+use specforge_protocol_types::{Decimal, Fact, FactLocation, FactStore};
 use specforge_registry::{Disk, EntitySnapshot, KindRegistry};
 
 use crate::Environment;
@@ -674,7 +674,8 @@ pub fn source_span(place: &FactLocation) -> SourceSpan {
 }
 
 /// A fact's JSON value as a field value of `form` (none for an undeclared field: text, items quoted), each list item
-/// spanned at `place` of its text; `None` for a form no field holds (an object, a fraction, a null).
+/// spanned at `place` of its text; `None` for a form no field holds (an object, a null, a number of more than 15
+/// significant digits, ADR 0361). A whole number within `i64` is an integer, any other number its exact decimal.
 fn field_value(
     value: serde_json::Value,
     form: Option<&FieldForm>,
@@ -686,7 +687,10 @@ fn field_value(
         Value::String(text) if written(&text) == Written::Bare => FieldValue::Identifier(text),
         Value::String(text) => FieldValue::String(text),
         Value::Bool(b) => FieldValue::Boolean(b),
-        Value::Number(n) => FieldValue::Integer(n.as_i64()?),
+        Value::Number(n) => match n.as_i64() {
+            Some(whole) => FieldValue::Integer(whole),
+            None => FieldValue::Number(Decimal::from_json(&n).ok()?),
+        },
         Value::Array(items) => FieldValue::List(
             items
                 .into_iter()

@@ -369,7 +369,34 @@ fn a_facts_field_values_become_field_values_by_their_form() {
         tags,
         [("slow", Written::Quoted), ("js:a#c", Written::Quoted)]
     );
-    assert_eq!((fields.get("meta"), fields.get("ratio")), (None, None));
+    assert_eq!(fields.get("meta"), None);
+    assert_eq!(
+        fields.get("ratio"),
+        Some(&FieldValue::Number(Decimal::parse("0.5").unwrap()))
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "build_in_memory_graph",
+    verify = "a fact's fraction is a number value, and one of more than 15 significant digits is none"
+)]
+fn a_fraction_is_a_number_value() {
+    let fact = Fact::new("test", "js:a#b")
+        .field("ratio", 0.25)
+        .field("big", 1e20)
+        .field("drift", 0.1 + 0.2);
+    let text = String::from_utf8(
+        Store::new("node", "@t/node", "abc", vec![fact], BTreeMap::new()).bytes(),
+    )
+    .unwrap();
+
+    let (file, _) = served(KEY, &text, &FieldForms::default()).unwrap();
+
+    let fields = &file.entities[0].fields;
+    let number = |text: &str| Some(FieldValue::Number(Decimal::parse(text).unwrap()));
+    assert_eq!(fields.get("ratio").cloned(), number("0.25"));
+    assert_eq!(fields.get("big").cloned(), number("1e20"));
+    assert_eq!(fields.get("drift"), None);
 }
 
 #[specforge_test_macros::test(

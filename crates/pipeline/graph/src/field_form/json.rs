@@ -9,8 +9,9 @@ use specforge_parser::{FieldMap, FieldValue};
 
 /// A field value as every output writes it: the Graph Protocol's field
 /// value. Made only by [`write`]. Its shape (named `FieldJson`) is the schema
-/// of every value `write` can produce, declared or not: a string, an
-/// integer, a boolean, an array of strings, integers, booleans and objects, or an object whose values are `FieldJson`.
+/// of every value `write` can produce, declared or not: a string, a
+/// number (an integer or an exact decimal, ADR 0361), a boolean, an array of strings, numbers, booleans and objects, or
+/// an object whose values are `FieldJson`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(transparent)]
 pub struct FieldJson(Value);
@@ -45,11 +46,11 @@ impl Shape for FieldJson {
         let this = defs.reference::<FieldJson>("FieldJson");
         json!({"anyOf": [
             {"type": "string"},
-            {"type": "integer"},
+            {"type": "number"},
             {"type": "boolean"},
             {"type": "array", "items": {"anyOf": [
                 {"type": "string"},
-                {"type": "integer"},
+                {"type": "number"},
                 {"type": "boolean"},
                 {"type": "object", "additionalProperties": this},
             ]}},

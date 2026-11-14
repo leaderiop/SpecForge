@@ -12,6 +12,7 @@ pub(super) fn forms() -> FieldForms {
         ("behavior", "category", FieldType::Identifier),
         ("behavior", "contract", FieldType::String),
         ("behavior", "points", FieldType::Integer),
+        ("behavior", "value", FieldType::Number),
         ("behavior", "urgent", FieldType::Bool),
         ("behavior", "due", FieldType::Date),
         ("behavior", "types", FieldType::ReferenceList),
@@ -48,6 +49,27 @@ fn a_value_is_written_in_its_fields_form() {
         fmt_forms("behavior b \"B\" {\n  types [\"a\", b]\n  tags [x, \"y\"]\n}\n"),
         "behavior b \"B\" {\n  types [a, b]\n  tags  [\"x\", \"y\"]\n}\n"
     );
+}
+
+#[specforge_test(
+    behavior = "apply_format_rules",
+    verify = "format keeps a number's word as written and writes a quoted one bare"
+)]
+fn a_number_keeps_its_word_and_a_quoted_one_is_written_bare_as_given() {
+    for kept in ["1.50", "1.5e3", "007.5", "-0.25", "100"] {
+        let text = format!("behavior b \"B\" {{\n  value {kept}\n}}\n");
+        assert_eq!(fmt_forms(&text), text, "{kept}");
+    }
+    for (quoted, bare) in [("1.50", "1.50"), ("+1.5", "1.5"), ("1e+3", "1000")] {
+        assert_eq!(
+            fmt_forms(&format!("behavior b \"B\" {{\n  value \"{quoted}\"\n}}\n")),
+            format!("behavior b \"B\" {{\n  value {bare}\n}}\n"),
+            "{quoted}"
+        );
+    }
+    // A text that is no decimal is E061's: format leaves it quoted.
+    let refused = "behavior b \"B\" {\n  value \"abc\"\n}\n";
+    assert_eq!(fmt_forms(refused), refused);
 }
 
 #[specforge_test(

@@ -6,7 +6,7 @@
 //! ([`id_span`]).
 
 use specforge_common::SourceSpan;
-use specforge_parser::lex::is_entity_id;
+use specforge_parser::lex::{is_bare_word, is_entity_id};
 use specforge_parser::{FieldEntry, FieldMap, FieldValue, Written};
 use specforge_protocol_types::{Decimal, FieldType};
 
@@ -148,10 +148,19 @@ pub fn value(form: &FieldForm, text: &str) -> String {
 }
 
 /// `text` written `to` on one line as a field of `form` writes it: an integer field's literal as the number its text
-/// reads to (`" 5"`, `"+5"`, `"007"` are `5`, `5`, `7`), every other value through [`spelled`].
+/// reads to (`" 5"`, `"+5"`, `"007"` are `5`, `5`, `7`); a number field's literal as given when that is one bare word
+/// (`"1.50"` is `1.50`), else as its decimal's canonical text (`"+1.5"` is `1.5`, `"1e+3"` is `1000`, ADR 0361);
+/// every other value through [`spelled`].
 fn spelled_in(form: &FieldForm, text: &str, to: Written) -> String {
-    match (form.field_type(), to, text.trim().parse::<i64>()) {
-        (FieldType::Integer, Written::Literal, Ok(n)) => n.to_string(),
+    match (form.field_type(), to) {
+        (FieldType::Integer, Written::Literal) if let Ok(n) = text.trim().parse::<i64>() => {
+            n.to_string()
+        }
+        (FieldType::Number, Written::Literal) => match Decimal::parse(text.trim()) {
+            Ok(_) if is_bare_word(text.trim()) => text.trim().to_string(),
+            Ok(d) => d.to_string(),
+            Err(_) => spelled(text, to),
+        },
         _ => spelled(text, to),
     }
 }
@@ -169,7 +178,8 @@ pub enum Place {
 pub struct Respell {
     pub to: Written,
     pub listed: bool,
-    /// The value written `to` on one line (without `[…]`): an integer as the number it reads to, else [`spelled`].
+    /// The value written `to` on one line (without `[…]`): an integer as the number it reads to, a number as given
+    /// when that is one bare word or else its canonical text, else [`spelled`].
     /// What format writes and W159's message prints; [`value`] writes the same.
     pub spelling: String,
 }
@@ -220,14 +230,14 @@ impl FieldForms {
         };
         let refused = matches!(
             field_type,
-            FieldType::Integer | FieldType::Bool | FieldType::Date
+            FieldType::Integer | FieldType::Number | FieldType::Bool | FieldType::Date
         ) && to == Written::Quoted;
         // A list on a number, boolean or date field is E061's: its items keep their text (a date literal is no
         // list item, and `"+3"` respelled `3` would change what the item stores).
         let unlistable = place == Place::Item
             && matches!(
                 field_type,
-                FieldType::Integer | FieldType::Bool | FieldType::Date
+                FieldType::Integer | FieldType::Number | FieldType::Bool | FieldType::Date
             );
         let same = (written == Written::Quoted) == (to == Written::Quoted);
         if refused || unlistable || (same && !listed) {

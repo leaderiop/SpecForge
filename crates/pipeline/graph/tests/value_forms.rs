@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeSet, HashMap};
 
-use specforge_graph::field_form::{FieldForm, FieldForms, Place, ValueShape};
+use specforge_graph::field_form::{self, FieldForm, FieldForms, Place, Reading, ValueShape};
 use specforge_graph::{FieldValue, Written};
 use specforge_protocol_types::{Decimal, FieldType};
 use specforge_test_macros::test as specforge_test;
@@ -46,6 +46,7 @@ fn forms() -> FieldForms {
         ("text", FieldType::String),
         ("texts", FieldType::StringList),
         ("num", FieldType::Integer),
+        ("dec", FieldType::Number),
         ("due", FieldType::Date),
         ("flag", FieldType::Bool),
     ] {
@@ -521,4 +522,49 @@ fn a_decimal_word_on_a_text_or_reference_field_keeps_its_text() {
         }
         other => panic!("{other:?}"),
     }
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a quoted number on a number field is W159 and written bare as given, or in its canonical text"
+)]
+fn a_quoted_number_is_w159_and_respelled_bare() {
+    let forms = forms();
+    let respell = |written, text: &str, place| {
+        forms
+            .rewrite("k", "dec", written, text, place)
+            .map(|r| (r.to, r.spelling))
+    };
+    let literal = |text: &str| Some((Written::Literal, text.to_string()));
+    assert_eq!(
+        respell(Written::Quoted, "1.50", Place::Whole),
+        literal("1.50")
+    );
+    assert_eq!(
+        respell(Written::Quoted, "1.5e3", Place::Whole),
+        literal("1.5e3")
+    );
+    assert_eq!(
+        respell(Written::Quoted, "+1.5", Place::Whole),
+        literal("1.5")
+    );
+    assert_eq!(
+        respell(Written::Quoted, "1e+3", Place::Whole),
+        literal("1000")
+    );
+    assert_eq!(
+        respell(Written::Quoted, " 0.25 ", Place::Whole),
+        literal("0.25")
+    );
+    // A bare decimal is in its form; a text that is no decimal is E061's; a list's items keep their text.
+    assert_eq!(respell(Written::Bare, "1.50", Place::Whole), None);
+    assert_eq!(respell(Written::Literal, "1.5", Place::Whole), None);
+    assert_eq!(respell(Written::Quoted, "abc", Place::Whole), None);
+    assert_eq!(respell(Written::Quoted, "1.5", Place::Item), None);
+    let number = forms.reading("k", "dec");
+    let Reading::Declared(form) = number else {
+        panic!("a declared number");
+    };
+    assert_eq!(field_form::spell::value(form, "+1.5"), "1.5");
+    assert_eq!(field_form::spell::value(form, "007.5"), "007.5");
 }

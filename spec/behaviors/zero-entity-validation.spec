@@ -494,6 +494,7 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "a bare word is read by its field's declared type: a reference its name, an integer its difference, a date its day"
   verify unit "a number field reads a decimal word with a sign, a fraction, an exponent and leading zeros, and refuses any other word"
   verify unit "a decimal word on a text field is its text and on a reference field the name it spells"
+  verify unit "a quoted number on a number field is W159 and written bare as given, or in its canonical text"
   verify integration "a number field reads its decimal word and exports the exact decimal as a JSON number"
   verify integration "a number that is no decimal, has more than 15 significant digits or lies outside its bounds is E061"
   verify unit "a list on a field declared as a single value is an error"

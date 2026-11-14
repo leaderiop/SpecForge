@@ -84,12 +84,13 @@ impl FieldForm {
     }
 }
 
-/// Whether `value` is a field value as every output writes one (`FieldJson`'s shape): a string, an integer, a
-/// boolean, an array of strings, integers, booleans and objects, or an object of field values.
+/// Whether `value` is a field value as every output writes one (`FieldJson`'s shape): a string, a number a
+/// [`Decimal`] holds (at most 15 significant digits, ADR 0361), a boolean, an array of strings, numbers, booleans and
+/// objects, or an object of field values.
 fn is_field_json(value: &Value) -> bool {
     let scalar = |v: &Value| match v {
         Value::String(_) | Value::Bool(_) => true,
-        Value::Number(n) => n.is_i64() || n.is_u64(),
+        Value::Number(n) => Decimal::from_json(n).is_ok(),
         _ => false,
     };
     match value {

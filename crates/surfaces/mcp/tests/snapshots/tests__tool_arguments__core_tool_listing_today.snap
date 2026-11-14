@@ -91,7 +91,7 @@ expression: listing
               "type": "string"
             },
             {
-              "type": "integer"
+              "type": "number"
             },
             {
               "type": "boolean"
@@ -103,7 +103,7 @@ expression: listing
                     "type": "string"
                   },
                   {
-                    "type": "integer"
+                    "type": "number"
                   },
                   {
                     "type": "boolean"
@@ -3228,7 +3228,7 @@ expression: listing
               "type": "string"
             },
             {
-              "type": "integer"
+              "type": "number"
             },
             {
               "type": "boolean"
@@ -3240,7 +3240,7 @@ expression: listing
                     "type": "string"
                   },
                   {
-                    "type": "integer"
+                    "type": "number"
                   },
                   {
                     "type": "boolean"
