@@ -26,7 +26,7 @@ nothing is kept as Markdown.
  {..}    repeatable typed block, its own fields inside
 ```
 
-`enums{}`, `{..}`, `→ A|B`, `int{a..b}` and `num` are kernel field types proposed in K3.
+`enums{}`, `{..}`, `→ A|B`, `int{a..b}` and `num` are kernel field types (ADRs 0285 and 0361).
 
 ## Who writes a field
 
