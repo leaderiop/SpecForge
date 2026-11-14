@@ -31,6 +31,7 @@ mod shapes;
 mod spec;
 mod stall;
 mod typed;
+mod verify_edits;
 
 /// The tools the `--pick` lines call besides `specforge`: no jq.
 const PICK_TOOLS: &[&str] = &[

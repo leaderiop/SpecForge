@@ -107,6 +107,7 @@ fn the_recording_section_matches_k17() {
     let text = gsd_core::agents::recording("gsd-verifier");
     assert!(!text.contains("E080"), "{text}");
     assert!(text.contains("replaces an earlier pass"), "{text}");
+    assert!(text.contains(r#"{"test": "<test fact id>"}"#), "{text}");
 }
 
 /// The `node` lines a shell block keeps, as `(asset, trimmed line)`. Each runs the user's own

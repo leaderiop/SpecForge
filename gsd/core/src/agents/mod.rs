@@ -29,13 +29,17 @@ pub fn recording(agent: &str) -> String {
          You judge {}. Where the ported text above says to write a report or a status, record a verdict instead: only a \
          verdict makes the rule's result count, and a status is computed from the verdicts, never written.\n\n\
          1. Read the rule's inputs: `specforge query <entity> --inputs gsd/<code> --format json` (the MCP tool \
-         `specforge.verdict_inputs`). Its `basis` object is the exact state you judged.\n\
+         `specforge.verdict_inputs`), naming what the verdict will cite: `--cite-file <file>` for each file, \
+         `--cite-test <test fact id>` for each test and `--cite <entity>` for each entity, the flag repeated. Its \
+         `basis` object is the exact state you judged, citations included.\n\
          2. Judge what the inputs show.\n\
          3. Record it with the command `record_verdict` of `@gsd/core`: `specforge gsd record-verdict <entity> <code> \
          <outcome> <model> '<basis>'`, where `<code>` is the local code (`E501`), `<outcome>` is one of the rule's \
-         outcomes (listed below), `<model>` names you and `<basis>` is the `basis` object of step 1, as JSON. Options: \
-         `--findings '[{{\"severity\": \"error\", \"message\": \"...\"}}]'`, `--cited '[{{\"file\": \"src/a.js\"}}]'` (cite \
-         every file you read: a verdict goes stale when a cited file changes, and not otherwise) and `--values '{{...}}'` \
+         outcomes (listed below), `<model>` names you and `<basis>` is the `basis` object of step 1, as JSON, and `--cited` lists exactly what step 1 named. Options: \
+         `--findings '[{{\"severity\": \"error\", \"message\": \"...\"}}]'`, `--cited '[{{\"file\": \"src/a.js\"}}, {{\"test\": \"<test fact id>\"}}]'` \
+         (cite every file you read: a verdict goes stale when a cited file changes, and not otherwise; cite a test fact \
+         you relied on by its id, as `specforge trace --format json` prints it: a cited test joins the entity's tests, \
+         and its status is read with them) and `--values '{{...}}'` \
          for the fields the rule binds.\n\n\
          A verdict recorded over a `basis` that has since changed is refused (`stale_revision`): read the inputs again. \
          A failing outcome is recorded, whatever the rule's severity, and replaces an earlier pass: `specforge check` \

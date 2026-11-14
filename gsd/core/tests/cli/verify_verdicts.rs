@@ -427,26 +427,36 @@ fn a_passed_integration_sets_the_field() {
     assert!(p.codes().contains(&"E082".to_string()), "{:?}", p.codes());
 }
 
-/// Every judge's "Recording a verdict" section reads the rule's inputs with no citation, then records with
-/// `--cited`: the basis of an uncited read is not the basis of a citing verdict, so the record it teaches is refused
-/// (`stale_revision`) as soon as it cites a file, and the section names no `--cite-file` to read the inputs with.
+/// Every judge's "Recording a verdict" section reads the rule's inputs naming what the verdict will cite
+/// (`--cite-file`, `--cite-test`), since the citations are part of the basis: a read that names the cited file gives
+/// the basis the citing record is accepted over, and an uncited read's basis is still refused (`stale_revision`).
 #[test]
-fn the_recording_sections_loop_is_refused_once_it_cites_a_file() {
+fn the_recording_sections_loop_names_what_the_verdict_will_cite() {
     let section = gsd_core::agents::recording("gsd-verifier");
-    assert!(
-        section.contains("--inputs gsd/<code> --format json") && section.contains("--cited"),
-        "{section}"
-    );
-    assert!(!section.contains("--cite-file"), "{section}");
+    for flag in [
+        "--cite-file <file>",
+        "--cite-test <test fact id>",
+        "--cited",
+    ] {
+        assert!(section.contains(flag), "{flag}: {section}");
+    }
     let p = bare();
-    let basis = p.inputs(TRUTH, "E501")["basis"].to_string();
-    let run = p.record_over(
-        TRUTH,
-        "E501",
-        "verified",
-        &basis,
-        &["--cited", r#"[{"file": "src/tasks.js"}]"#],
-    );
-    assert_ne!(run.code, 0, "{}", run.all());
+    let cited = ["--cited", r#"[{"file": "src/tasks.js"}]"#];
+    let uncited = p.inputs(TRUTH, "E501")["basis"].to_string();
+    let run = p.record_over(TRUTH, "E501", "verified", &uncited, &cited);
     assert!(run.stderr.contains("stale_revision"), "{}", run.all());
+    let read = p.run(&[
+        "query",
+        TRUTH,
+        "--inputs",
+        "gsd/E501",
+        "--cite-file",
+        "src/tasks.js",
+        "--format",
+        "json",
+    ]);
+    let basis = serde_json::from_str::<serde_json::Value>(&read.stdout).expect("inputs")["basis"]
+        .to_string();
+    let run = p.record_over(TRUTH, "E501", "verified", &basis, &cited);
+    assert_eq!(run.code, 0, "{}", run.all());
 }

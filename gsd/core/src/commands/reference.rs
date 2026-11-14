@@ -19,7 +19,6 @@ const TEMPLATES: &[(&str, &[&str])] = &[
     ("summary.md", &["summary"]),
     ("UAT.md", &["uat_session"]),
     ("VALIDATION.md", &["validation"]),
-    ("verification-report.md", &["verification"]),
     ("retrospective.md", &["retrospective"]),
     ("user-setup.md", &["user_setup"]),
 ];

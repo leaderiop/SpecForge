@@ -181,6 +181,10 @@ const CONVERTED: &[(&str, &[&str])] = &[
         ],
     ),
     ("gsd-core/templates/project.md", &["project", "decision"]),
+    (
+        "gsd-core/templates/verification-report.md",
+        &["verification", "truth"],
+    ),
     ("gsd-core/templates/requirements.md", &["requirement"]),
     (
         "gsd-core/templates/research-project/STACK.md",

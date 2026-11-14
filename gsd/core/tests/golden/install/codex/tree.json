@@ -20,24 +20,24 @@
     "sha256": "89473637a9732b2ec70a27fac2013bcba90244bb2d4850f0a90f63024e60c847"
   },
   ".codex/agents/gsd-integration-checker.toml": {
-    "bytes": 20452,
-    "sha256": "fe50030e8e248e0627518a64cb23e22f3b2e3501e9b447bcb5c0b24b7ac6db2e"
+    "bytes": 20880,
+    "sha256": "0829a31ec7cbc3ee05919f2d1c1dddf1262119f1366e0696a900fe9fb4244626"
   },
   ".codex/agents/gsd-nyquist-auditor.toml": {
-    "bytes": 9583,
-    "sha256": "5bf6546313681779d919ee0799259fbf308237c5499a6b0594e51b02436b01dd"
+    "bytes": 9813,
+    "sha256": "eaa4e4de3d78848e949365cfe6cffb7e1e2fb75f5709de10327d8f67cc134144"
   },
   ".codex/agents/gsd-pattern-mapper.toml": {
     "bytes": 15820,
     "sha256": "a64f578074f94579d3607c7424ff08f1abb4fdf12b0f2938254fd43122602142"
   },
   ".codex/agents/gsd-phase-researcher.toml": {
-    "bytes": 48306,
-    "sha256": "942907e8ee926659b2688eb8528f42811d434f58664daee33ae723e124ac3791"
+    "bytes": 48734,
+    "sha256": "7ea3976355444b1247028c03fae47699482535fd9ff5a4e2494e918f6bed2344"
   },
   ".codex/agents/gsd-plan-checker.toml": {
-    "bytes": 52097,
-    "sha256": "3bad7860b2cbc89fa5e2de44e846a736b3a1611c7a8df541cb2478bf8fe4b460"
+    "bytes": 52525,
+    "sha256": "ce8c6173d42257574aa79861918f47a7d8420e83f65278d1e98aa805e21ec783"
   },
   ".codex/agents/gsd-planner.toml": {
     "bytes": 53830,
@@ -56,8 +56,8 @@
     "sha256": "1e88813603a572bac3be1ea8cacbe3c6b8d5d3196e3438ea954593af55145ba3"
   },
   ".codex/agents/gsd-verifier.toml": {
-    "bytes": 53681,
-    "sha256": "c1e02e633be167337a546d0d55e19448db0bda5cf72474b9ff4ae42393ed0601"
+    "bytes": 55651,
+    "sha256": "e14abf6fc54f48dd67c33c35f11cd4f2a9ef21b1954962a478284f4e2a40e74c"
   },
   ".codex/config.toml": {
     "bytes": 124,

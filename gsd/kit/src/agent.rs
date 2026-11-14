@@ -112,6 +112,8 @@ pub const VERIFIER: Role = Role {
         "specforge:validate",
         "specforge:explain",
         "specforge:gsd.user_story_validate",
+        "specforge:context",
+        "specforge:find_spec_for_source",
     ],
     writes: &["specforge:collect"],
 };

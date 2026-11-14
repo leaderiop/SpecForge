@@ -97,11 +97,10 @@ Set `is_re_verification = false`, proceed with Step 1.
 
 ## Step 1: Load Context (Initial Mode Only)
 
+Read the verifier pack: the phase with its goal and success criteria, its requirements, its plans with their truths, artifacts and key links, and its summaries, at the verifier route's budget. Over MCP it is the resource `specforge://context/{+entity_id}?role=gsd/verifier`; the host's "## Context" section lists the route.
+
 ```bash
-specforge query "$PHASE_ID" --kinds plan --format json
-specforge query "$PHASE_ID" --depth 2 --kinds summary --format json
-specforge query "$PHASE_ID" --format json   # the phase: goal and success criteria
-specforge query "$PHASE_ID" --kinds requirement --format json   # the requirements mapped to this phase
+specforge context gsd/verifier "$PHASE_ID"
 ```
 
 Extract the phase goal from the phase entity — this is the outcome to verify, not the tasks.
@@ -195,7 +194,7 @@ For each truth:
    - A pre-existing test exercises the transition/invariant and passes (confirm via Step 7b's single-named-test path) → ✓ VERIFIED.
    - No such test exists, or it can't run without a server/state mutation → ⚠️ PRESENT_BEHAVIOR_UNVERIFIED. Emit a human-verification item (Step 8) and do not count it toward the verified score (Step 9).
    - An accepted override (Step 3b) carries the truth as PASSED (override), exactly as it does for a FAILED truth.
-5b. **Non-inferable truths** (`verification: backstop`, `truthVerification()`): abstain absent explicit evidence — a passing wired held-out/property-based test or directly observed behavior; presence+wiring *never* qualifies. Mark `insufficient_spec` -> human-verification item -> `human_needed`.
+5b. **Non-inferable truths: read both tiers.** A truth's `verification` (`explicit` or `backstop`) is a person's to set; its `proposed_verification` is the planner's proposal, written once. A truth whose `verification` is `backstop` is non-inferable: abstain absent explicit evidence (a passing, wired held-out or property-based test, or directly observed behavior); presence and wiring never qualify. A truth whose `proposed_verification` is `backstop` and that has no `verification` is an unconfirmed backstop: abstain on it too, and say in its human-verification item that a person confirms the tier by setting `verification`. To abstain, record `present_behavior_unverified` with an `insufficient_spec` finding: it becomes a human-verification item, and the phase reads `human_needed`. A truth with neither tier, or whose `verification` is `explicit`, is judged as above.
 5c. **Reliance check (advisory, #1955).** Before finalizing a ✓ VERIFIED truth, ask *why* it holds. Classify the evidence already recorded, not your confidence in it. Endogenous, and so weaker than the exogenous `backstop` tag (`gsd-core/references/honest-verifier.md`) — advisory for exactly that reason. Flag `coincidental-reliance` when the evidence names one of: **undeclared-precondition** (state nothing in the phase's artifacts or a declared prerequisite guarantees), **incidental-ordering** (an order or side effect nothing in the code enforces), **fixture-only** (the test's own setup establishes the precondition; the production path has no equivalent). **Do NOT flag:** a precondition the code establishes or explicitly defaults; ordering the code enforces (await, explicit sequencing); a fixture merely supplying input the real caller also supplies; unease naming no specific state, ordering, or fixture. Out of scope: ⚠️ PRESENT_BEHAVIOR_UNVERIFIED and ⚠️ `insufficient_spec` (already routed to human), and PASSED (override) truths. Record `✓ VERIFIED (coincidental-reliance)` and add a `coincidental_reliance_items` entry. **Advisory only — not the score, not the status, and never a human-verification item** (Step 9 rule 2 would flip a passing phase to `human_needed`). The usual fix: promote the hidden assumption into a declared precondition.
 6. Determine truth status
 
@@ -342,18 +341,18 @@ Verify each link below; per-pattern procedures and recipes:
 
 ## Step 6: Check Requirements Coverage
 
-**6a. Extract requirement IDs from PLAN frontmatter:**
+**6a. Trace the phase's requirements along their threads:**
 
 ```bash
-specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].fields.requirements[]'
+specforge trace --route gsd/requirement-thread --in "$PHASE_ID" --partial
 ```
 
-Collect ALL requirement IDs declared across plans for this phase.
+Each requirement prints its thread: the plans that claim it, their tasks with their items and commits, its tests with their status, and its truths with their verdict state. A thread that stops before a verified truth (`no truth`, or a truth `missing`) is a requirement no truth proves yet. `--format json` prints the same threads with each test's fact id (its `test` step), the id a verdict cites.
 
-**6b. Cross-reference against REQUIREMENTS.md:**
+**6b. Map each requirement to its evidence:**
 
-For each requirement ID from plans:
-1. Find its full description in REQUIREMENTS.md (`**REQ-ID**: description`)
+For each requirement of the threads:
+1. Read its full text: `specforge query <requirement> --depth 0 --format context`
 2. Map to supporting truths/artifacts verified in Steps 3-5
 3. Determine status:
    - ✓ SATISFIED: Implementation evidence found that fulfills the requirement
@@ -370,13 +369,10 @@ If the requirements map additional IDs to this phase that don't appear in ANY pl
 
 ## Step 7: Scan for Anti-Patterns
 
-Identify files modified in this phase from the summary's `key_files`, or extract commits and verify:
+Identify the files this phase changed from the threads' commit step (Step 6) and the summaries' file lists, and verify the commits:
 
 ```bash
-# Option 1: Extract from SUMMARY frontmatter
-SUMMARY_FILES=$(specforge query "$PHASE_ID" --depth 2 --kinds summary --format json)   # each summary's key_files
-
-# Option 2: Verify commits exist (if commit hashes documented)
+# The phase's commits, as the threads' commit step reaches them
 COMMIT_HASHES=$(specforge query "$PHASE_ID" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash')
 if [ -n "$COMMIT_HASHES" ]; then
   # Every hash must be a commit; "missing" is a finding. Not a git repo: report that you could not look.
@@ -386,6 +382,8 @@ fi
 # The files the summaries list
 for f in files_created files_modified; do specforge query "$PHASE_ID" --depth 2 --kinds summary --pick ".nodes[kind=summary].fields.$f[]"; done
 ```
+
+For each file you open, `specforge anchors --file "$file"` lists the entities its located facts are anchored to: the tasks, artifacts or tests that claim it.
 
 Run anti-pattern detection on each file. For the files a plan declares, `verification.anti_patterns` and `gsd/E505` already hold the debt markers and placeholder phrases; these searches also reach the files no plan declares:
 
@@ -664,9 +662,9 @@ If `valid != true`, refuse to verify. Surface the discrepancy and ask the user t
 
 ## Record the verdicts, then report
 
-**Never write a VERIFICATION.md.** The phase's `verification` entity exists already; its status, score and covered files are computed from your verdicts, so you record verdicts and never a status.
+The phase's `verification` entity exists already; its status, score and covered files are computed from your verdicts, so you record verdicts and never a status.
 
-**#4155 / #5095:** read each truth's inputs with `specforge query <truth> --inputs gsd/E501 --format json` and record its verdict with `specforge gsd record-verdict <truth> E501 <verified|verified_coincidental|failed|uncertain|present_behavior_unverified> gsd-verifier '<basis>' --cited '[{"file": "..."}]'`, the `basis` copied verbatim and every implementation file you read cited ROOT-relative — never hand-write the basis.
+Read each truth's inputs with `specforge query <truth> --inputs gsd/E501 --cite-file <file> --cite-test <test fact id> --format json`, naming each file and test the verdict will cite (the flags repeated), and record its verdict as the verification template's record fence does: `specforge gsd record-verdict <truth> E501 <verified|verified_coincidental|failed|uncertain|present_behavior_unverified> gsd-verifier '<basis>' --cited '[{"file": "..."}, {"test": "<test fact id>"}]'`. Copy the `basis` verbatim, never by hand. Cite every implementation file you read, ROOT-relative, and every test fact you relied on by the id Step 6's trace prints: a cited test joins the truth's tests, and its status is read with them. A refusal names its code: read it with `specforge explain <code>`.
 
 Then report in this shape (a message, not a file; `status`, `score` and the covered files are computed, shown for the reader):
 

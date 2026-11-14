@@ -2,7 +2,6 @@
 # kept and own text alike: a write verb and a GSD file name in one sentence of prose, or an output redirect or `tee`
 # into one in a shell fence. Its row count is the port's write measure. A row with no hit fails, and so does a hit
 # with no row: take a row off in the commit that rewrites its line; never add a row.
-agents/gsd-verifier.md	**Never write a VERIFICATION.md.** The phase's `verification` entity exists already; its status, score and covered files are computed from your verdicts, so you record verdicts and never a status.
 commands/gsd/complete-milestone.md	Mark milestone {{version}} complete, archive to milestones/, and update ROADMAP.md and REQUIREMENTS.md.
 commands/gsd/complete-milestone.md	- Update ROADMAP.md to one-line summary with link
 commands/gsd/complete-milestone.md	6. **Update PROJECT.md:**
@@ -33,7 +32,6 @@ gsd-core/templates/UAT.md	4. UAT.md Gaps section updated with diagnosis:
 gsd-core/templates/milestone-archive.md	- Update ROADMAP.md to collapse completed milestone in `<details>` tag
 gsd-core/templates/milestone-archive.md	- Update PROJECT.md to brownfield format with Current State section
 gsd-core/templates/milestone.md	If MILESTONES.md doesn't exist, create it with header:
-gsd-core/templates/verification-report.md	covered_files: # #4155 — see agents/gsd-verifier.md's "Create VERIFICATION.md" step for what belongs here and how to compute it
 gsd-core/workflows/add-tests.md	2. **Create test file** targeting the user scenario from CONTEXT.md/VERIFICATION.md
 gsd-core/workflows/autonomous.md	Write a minimal CONTEXT.md so downstream plan-phase has valid input. Get phase details:
 gsd-core/workflows/complete-milestone.md	Mark a shipped version (v1.0, v1.1, v2.0) as complete. Creates historical record in MILESTONES.md, performs the full PROJECT.md evolution review (flat mode only; skipped under `--ws`, because PROJECT.md is shared across workstreams), reorganizes ROADMAP.md with milestone groupings, and tags the release in git.

@@ -156,6 +156,8 @@ const UNBOUND: &[&str] = &[
     "<entity>",
     "<id>",
     "<truth>",
+    // the truth a verdict judges, filled in the record fence: `assets_shell::verify_edits` records one
+    "$TRUTH",
     "<requirement>",
     "<verification>",
     "<package_audit>",
