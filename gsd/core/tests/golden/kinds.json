@@ -34,6 +34,33 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "JourneyPersona",
+        "source_kind": "journey",
+        "target_kind": "persona"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "JourneyStepsRequirement",
+        "source_kind": "journey",
+        "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "JourneyMilestones",
+        "source_kind": "journey",
+        "target_kind": "milestone"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "MilestoneWorkstream",
         "source_kind": "milestone",
         "target_kind": "workstream"
@@ -1508,6 +1535,204 @@
         "keyword": null,
         "lsp_icon": null,
         "name": "requirement",
+        "open_fields": false,
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A persona: who the product serves and what they want from it (beyond GSD)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "what the persona wants to achieve",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "goals",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "who they are and the situation they work in",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "context",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "what gets in their way today",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "pain_points",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "technical proficiency, most technical first",
+            "edge": null,
+            "enum_values": [
+              "expert",
+              "advanced",
+              "intermediate",
+              "beginner",
+              "non_technical"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "technical_level",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "deprecated when the product no longer serves them; absent means active",
+            "edge": null,
+            "enum_values": [
+              "active",
+              "deprecated"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "free words that group personas",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "tags",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "persona",
+        "open_fields": false,
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A persona's path through the product, step by step (beyond GSD)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "who takes the journey; the persona reads it back as `journeys`",
+            "edge": "JourneyPersona",
+            "field_type": "reference",
+            "inverse_of": "journeys",
+            "name": "persona",
+            "required": true,
+            "target_kind": "persona"
+          },
+          {
+            "default_value": null,
+            "description": "the surfaces it goes through, as words (cli, web): a channel is no kind",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "channels",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the ordered steps; a step names the requirement it exercises once known",
+            "edge": null,
+            "field_type": "block_list",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": "what the persona does at this step",
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "action",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": "the requirement the step exercises, once known",
+                "edge": "JourneyStepsRequirement",
+                "field_type": "reference",
+                "inverse_of": null,
+                "name": "requirement",
+                "required": false,
+                "target_kind": "requirement"
+              }
+            ],
+            "name": "steps",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "every milestone it ships in; each milestone reads it back as `journeys`",
+            "edge": "JourneyMilestones",
+            "field_type": "reference_list",
+            "inverse_of": "journeys",
+            "name": "milestones",
+            "required": false,
+            "target_kind": "milestone"
+          },
+          {
+            "default_value": null,
+            "description": "MoSCoW; a journey nobody wants is not written",
+            "edge": null,
+            "enum_values": [
+              "must",
+              "should",
+              "could"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "priority",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "free words",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "tags",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "journey",
         "open_fields": false,
         "semantic_token": null,
         "singleton": false,

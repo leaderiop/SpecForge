@@ -9,6 +9,7 @@ mod execute;
 mod learning;
 mod must_haves;
 mod plan;
+mod product;
 mod project;
 mod research;
 mod review;
@@ -26,6 +27,8 @@ use specforge_extension_sdk::prelude::*;
 const KINDS: &[&Kind] = &[
     &project::PROJECT,
     &project::REQUIREMENT,
+    &product::PERSONA,
+    &product::JOURNEY,
     &roadmap::MILESTONE,
     &roadmap::PHASE,
     &roadmap::WORKSTREAM,
