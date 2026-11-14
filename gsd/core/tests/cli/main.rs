@@ -42,6 +42,7 @@ mod collect;
 mod command_word;
 mod commands;
 mod commands_support;
+mod context_proxy;
 mod contexts;
 mod decision_coverage;
 mod discuss;
