@@ -741,7 +741,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Decimal**: `specforge_protocol_types::Decimal`, the value of a `number`: an exact decimal of at most 15 significant
   digits, read from one word by `Decimal::parse` (`0.75`, `-0.25`, `1.5e3`, `007.5`). Its canonical text is plain, with
   no exponent and no trailing fraction zero (`1.50` is `1.5`, `1.5e3` is `1500`); two decimals compare by value. It
-  travels as a JSON number (`Decimal::to_json`/`from_json`), an integer when whole, and within the cap a binary64
+  travels as a JSON number (`Decimal::to_json`/`from_json`), an integer when whole and within `u64`, and within the cap a binary64
   holds it exactly (ADR 0361).
 - **Value form**: how a field's value is written: bare for an `enum`, `identifier`, `reference` and each
   `reference_list` item, quoted for a `string` and each `string_list` item; an integer, a `number` (a literal), true/false and a calendar day bare; a `string_list` / `reference_list` field's value is a list `[…]`, however many items (ADR 0147, ADR 0234). `specforge format` writes it;

@@ -70,11 +70,13 @@ AFTER   measure m1 { ratio 0.75 }     the number 0.75; graph JSON 0.75, field te
 - **D6. One rule everywhere.** Every `number` is a `Decimal`: a kind field, a block member, a setting, a computed
   value and a fact. What `Decimal::parse` or `Decimal::from_json` refuses is refused on each path, and the refusal
   names the cap.
-- **D7. The wire.** The graph JSON holds a JSON number, an integer when the value is whole (`100`, never `100.0`),
-  otherwise the binary64 whose shortest text is the decimal (`Decimal::to_json`; `from_json` is the way back). A
-  pass's field text is the canonical text. The JSON Schema publishes `{"type":"number", minimum, maximum}`. The Graph
-  Protocol's `FieldJson` allows a decimal number. DBML writes `decimal`. A guest reads a number field with
-  `GraphNode::number` or `PassEntity::number`.
+- **D7. The wire.** The graph JSON holds a JSON number, an integer when the value is whole and an `i64` or `u64`
+  holds it (`100`, never `100.0`), otherwise the binary64 whose shortest text is the decimal (`1e20`, `0.75`;
+  `Decimal::to_json`; `from_json` is the way back). A JSON number a compute pass, the harness ledger or a setting
+  gives a `number` is held in that one form. A pass's field text is the canonical text, and a number member of a
+  typed block is a JSON number in the pass entity's `values`. The JSON Schema publishes
+  `{"type":"number", minimum, maximum}`. The Graph Protocol's `FieldJson` allows a decimal number. DBML writes
+  `decimal`. A guest reads a number field with `GraphNode::number` or `PassEntity::number`.
 - **D8. Writing.** `specforge format` keeps the word as written (`1.50` stays `1.50`). W159 writes a quoted number bare
   as given (`"1.50"` → `1.50`), or in its canonical text when the given text cannot be a bare word (`"+1.5"` → `1.5`).
   `specforge new`, `specforge set` and edit plans write a text input as given once it parses, and a JSON number in its
