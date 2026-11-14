@@ -48,7 +48,12 @@
 /// An edit plan may `record_context` a route's pack on an entity; the host computes and writes it (D11).
 /// A 2.0.0 guest still loads, being an older minor.
 ///
+/// 2.2.0 adds: a kind field or a block member may be `number`, an exact decimal of at most 15 significant digits
+/// (ADR 0361), written as one decimal word and carried as a JSON number; a `number` field's `minimum` and `maximum`
+/// are decimals. [`Decimal`](crate::Decimal), `GraphNode::number` and `PassEntity::number` read one. A 2.1.0 guest
+/// still loads; a 2.2.0 guest is refused by a 2.1 host (E088, newer).
+///
 /// A change that adds to the current minor (grants, host imports, value checks) adds its item here and to that
 /// minor's row of `docs/extension-protocol.md` ("Protocol Versions"), which also keeps the 1.x history, 1.15.0
 /// included; it does not bump. A new describe category goes last.
-pub const PROTOCOL_VERSION: &str = "2.1.0";
+pub const PROTOCOL_VERSION: &str = "2.2.0";
