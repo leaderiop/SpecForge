@@ -281,6 +281,7 @@ behavior load_extension_declaration "Load Extension Declaration" {
   verify unit "every text a declaration holds is read printable, a starter template keeping its newlines and tabs"
   verify unit "a key a load warning quotes is printable"
   verify integration "every committed blob's declaration loads unchanged by the printable read"
+  verify unit "a guest declares a number field with number() and its decimal bounds"
 }
 
 behavior build_registries_from_declarations "Build Registries From Declarations" {

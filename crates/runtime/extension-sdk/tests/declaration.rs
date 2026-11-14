@@ -768,3 +768,28 @@ fn a_context_route_records_fields_and_names_its_stale_code() {
     );
     assert_eq!(route.stale.as_deref(), Some("W524"));
 }
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "a guest declares a number field with number() and its decimal bounds"
+)]
+fn a_number_field_is_declared_with_its_bounds() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/measures", "0.1.0"));
+    b.kind("measure", |k| {
+        k.field("ratio", |f| {
+            f.number()
+                .minimum(Decimal::parse("0.05").unwrap())
+                .maximum(1);
+        });
+    });
+    let wire = b.declaration().describe_items(DeclaredCategory::Entities);
+    let ratio = &wire[0]["fields"][0];
+    assert_eq!(ratio["field_type"], "number");
+    assert_eq!(ratio["minimum"], serde_json::json!(0.05));
+    assert_eq!(ratio["maximum"], serde_json::json!(1));
+    assert_eq!(
+        serde_json::to_string(&ratio["minimum"]).unwrap(),
+        "0.05",
+        "a decimal bound is the JSON number of its decimal"
+    );
+}

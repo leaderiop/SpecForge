@@ -169,6 +169,11 @@ impl FieldBuilder {
         self.0.field_type = t.as_str().to_string();
         self
     }
+    /// A `number` field: an exact decimal of at most 15 significant digits (ADR 0361), `field_type(FieldType::Number)`.
+    /// A pass reads its value with [`PassEntity::number`](crate::PassEntity::number).
+    pub fn number(&mut self) -> &mut Self {
+        self.field_type(FieldType::Number)
+    }
     pub fn required(&mut self) -> &mut Self {
         self.0.required = true;
         self
@@ -276,13 +281,14 @@ impl FieldBuilder {
         self.0.target_kinds = kinds.iter().map(|k| k.to_string()).collect();
         self
     }
-    /// An `integer` field's least value, inclusive (ADR 0285): a whole number; a `number` field's is an exact
-    /// decimal (ADR 0361). Any bound its type cannot read is W021 and dropped.
+    /// The field's least value, inclusive: an `integer` field's whole bound (ADR 0285) or a `number` field's decimal
+    /// one, a [`Decimal`](crate::prelude::Decimal) (ADR 0361). A bound its type cannot read is W021 and dropped.
     pub fn minimum(&mut self, n: impl Into<serde_json::Number>) -> &mut Self {
         self.0.minimum = Some(n.into());
         self
     }
-    /// An `integer` field's greatest value, inclusive, read as [`Self::minimum`] is.
+    /// The field's greatest value, inclusive: an `integer` field's whole bound or a `number` field's decimal one, read
+    /// as [`Self::minimum`] is.
     pub fn maximum(&mut self, n: impl Into<serde_json::Number>) -> &mut Self {
         self.0.maximum = Some(n.into());
         self
