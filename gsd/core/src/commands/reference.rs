@@ -15,21 +15,13 @@ use crate::settings;
 
 /// What a template becomes: `(file name or folder, kinds)`; no kinds means the template has no entity.
 const TEMPLATES: &[(&str, &[&str])] = &[
-    ("milestone.md", &["milestone", "phase"]),
     ("summary.md", &["summary"]),
-    ("retrospective.md", &["retrospective"]),
     ("user-setup.md", &["user_setup"]),
 ];
 
 /// The line a template answer starts with, when SpecForge keeps its content somewhere else.
 fn kind_line(path: &str) -> Option<String> {
     let rest = path.strip_prefix("gsd-core/templates/")?;
-    if rest == "milestone-archive.md" {
-        return Some(
-            "SpecForge never archives a milestone: it stays a `milestone` entity (`specforge gsd close-milestone` closes it)."
-                .to_string(),
-        );
-    }
     let (_, kinds) = TEMPLATES
         .iter()
         .find(|(name, _)| rest == *name || (name.ends_with('/') && rest.starts_with(name)))?;

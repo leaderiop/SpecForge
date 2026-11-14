@@ -56,30 +56,129 @@ fn the_transition_extracts_keys_its_step_never_prints() {
     );
 }
 
-/// The close step reads the milestone's version, date, counts and accomplishments from `close-milestone`'s answer,
-/// whose output holds only what it wrote, the completion and `archived`.
+/// The close step reads `close-milestone`'s answer and the milestone's computed stats: every key its "Extract from
+/// result" line names is in the answer, and its stats fence prints an object with `phases` and `plans` and the state
+/// `shipped`.
 #[test]
-fn the_close_extracts_keys_close_milestone_never_prints() {
+fn the_close_reads_the_answer_and_the_milestones_stats() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
     let p = crate::cmd_milestone::ready();
     let run = p.run(&["gsd", "close-milestone", "v1.0", "--format", "json"]);
     assert_eq!(run.code, 0, "{}", run.all());
     let answer: serde_json::Value = serde_json::from_str(&run.stdout).expect("a JSON answer");
     let answer = &answer["output"];
-    for key in ["wrote", "completion", "archived"] {
+    let text = asset("gsd-core/workflows/complete-milestone.md");
+    let keys = extracted(&text);
+    assert!(!keys.is_empty());
+    for key in &keys {
         assert!(answer.get(key).is_some(), "{key}: {answer}");
     }
-    let keys = extracted(&asset("gsd-core/workflows/complete-milestone.md"));
-    for key in [
-        "version",
-        "date",
-        "phases",
-        "plans",
-        "tasks",
-        "accomplishments",
-    ] {
-        assert!(keys.iter().any(|k| k == key), "{key}: {keys:?}");
-        assert!(answer.get(key).is_none(), "{key}: {answer}");
-    }
+    let stats = fence_holding(&text, "STATS=$(");
+    let (out, err, code) = sh.run_in(p.root(), &format!("MILESTONE=v1.0\n{stats}"));
+    assert_eq!(code, 0, "{err}");
+    let line = out
+        .lines()
+        .find(|l| l.starts_with("stats: "))
+        .expect("the stats");
+    let stats: serde_json::Value =
+        serde_json::from_str(&line["stats: ".len()..]).expect("a stats object");
+    assert!(
+        stats.get("phases").is_some() && stats.get("plans").is_some(),
+        "{stats}"
+    );
+    assert!(out.contains("state: shipped"), "{out}");
+}
+
+/// The milestone summary's decisions line, run on a taskboard, prints the phase decision `v1.0/02/D-01`.
+#[test]
+fn the_milestone_summary_reads_decisions_from_the_graph() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let text = asset("gsd-core/workflows/milestone-summary.md");
+    let line = text
+        .lines()
+        .find(|l| l.contains("--kinds decision,deferred_idea"))
+        .expect("the decisions line");
+    let start = line.find("specforge query").expect("the query");
+    let end = line[start..].find('`').expect("its end") + start;
+    let (out, err, code) = sh.run_in(p.root(), &format!("VERSION=1.0\n{}", &line[start..end]));
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("v1.0/02/D-01"), "{out}");
+}
+
+/// The milestone template's fences create `v1.1` with its first phase on a taskboard and record what it delivered;
+/// the retrospective template's fences close a ready milestone with its lists and record a lesson of it.
+#[test]
+fn the_milestone_templates_record_a_milestone_its_close_and_a_lesson() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let template = asset("gsd-core/templates/milestone.md");
+    let create = typed::filled(
+        &fence_holding(&template, "specforge new milestone"),
+        &[
+            ("VERSION", "v1.1"),
+            ("NAME", "Sharing"),
+            ("GOAL", "Share a board with a link"),
+            ("PHASE_NAME", "Links"),
+            ("PHASE_GOAL", "A board has a share link"),
+        ],
+    );
+    let done = typed::apply(&sh, &p, &create);
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert_eq!(p.fields_of("v1.1")["goal"], "Share a board with a link");
+    assert_eq!(p.fields_of("v1.1/01")["name"], "Links");
+    let shipped = typed::filled(
+        &fence_holding(&template, "whats_next"),
+        &[
+            ("MILESTONE", "v1.1"),
+            ("DELIVERED", "Boards shared by link"),
+            ("WHATS_NEXT", "Project complete"),
+        ],
+    );
+    let done = typed::apply(&sh, &p, &shipped);
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert_eq!(p.fields_of("v1.1")["delivered"], "Boards shared by link");
+
+    let p = crate::cmd_milestone::ready();
+    let retro = asset("gsd-core/templates/retrospective.md");
+    let close = typed::filled(
+        &fence_holding(&retro, "close-milestone"),
+        &[
+            ("MILESTONE", "v1.0"),
+            ("BUILT", r#"["Core"]"#),
+            ("WORKED", r#"["Small plans"]"#),
+            ("INEFFICIENT", r#"["Late tests"]"#),
+            ("PATTERNS", r#"["One fence per edit"]"#),
+        ],
+    );
+    let done = typed::apply(&sh, &p, &close);
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert_eq!(
+        p.fields_of("v1.0/v1.0-RETROSPECTIVE")["worked"][0],
+        "Small plans"
+    );
+    let lesson = typed::filled(
+        &fence_holding(&retro, "new lesson"),
+        &[
+            ("MILESTONE", "v1.0"),
+            ("LESSON_ID", "L1"),
+            ("KIND", "lesson"),
+            ("TITLE", "Test first"),
+            ("LESSON", "Write the failing test before the fix"),
+        ],
+    );
+    let done = typed::apply(&sh, &p, &lesson);
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert_eq!(
+        p.fields_of("v1.0/v1.0-RETROSPECTIVE/L1")["text"],
+        "Write the failing test before the fix"
+    );
 }
 
 /// Autonomous keeps a deferred verification in a `## Deferred Verification` section of STATE.md and, on re-entry,

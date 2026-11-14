@@ -190,6 +190,12 @@ const CONVERTED: &[(&str, &[&str])] = &[
         "gsd-core/templates/VALIDATION.md",
         &["validation", "validation_row", "wave0_item"],
     ),
+    ("gsd-core/templates/milestone.md", &["milestone", "phase"]),
+    ("gsd-core/templates/milestone-archive.md", &["milestone"]),
+    (
+        "gsd-core/templates/retrospective.md",
+        &["retrospective", "lesson"],
+    ),
     (
         "gsd-core/templates/UAT.md",
         &["uat_session", "uat_test", "uat_gap"],

@@ -1,7 +1,7 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/workflows/complete-milestone.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <purpose>
 
-Mark a shipped version (v1.0, v1.1, v2.0) as complete. Creates historical record in MILESTONES.md, performs the full PROJECT.md evolution review (flat mode only; skipped under `--ws`, because PROJECT.md is shared across workstreams), reorganizes ROADMAP.md with milestone groupings, and tags the release in git.
+Mark a shipped version (v1.0, v1.1, v2.0) as complete. `specforge gsd close-milestone` records the milestone's completion and its retrospective, the full project evolution review runs (flat mode only; skipped under `--ws`, because the project is shared across workstreams), and the release is tagged in git.
 
 </purpose>
 
@@ -21,18 +21,14 @@ When a milestone completes:
 
 1. Extract full milestone details (the `milestone` entity and its phases stay as they are)
 2. Keep the requirements: the `requirement` entities stay with the completed milestone, so nothing is archived or deleted
-3. Update ROADMAP.md — overwrite in place with milestone grouping (preserve Backlog section)
-4. Safety commit archive files + updated ROADMAP.md, then nothing is removed: the `requirement` entities stay with the completed milestone (new ones are added for the next)
-5. Perform full PROJECT.md evolution review (flat mode only — skipped under an active workstream, #5195)
+3. Close it with `specforge gsd close-milestone`: the milestone records its `completion`, and its `stats`, `shipped` and `state` are computed; nothing is moved or rewritten
+4. Commit the spec as a safety checkpoint
+5. Perform the full project evolution review (flat mode only — skipped under an active workstream, #5195)
 6. Offer to create next milestone inline
 7. Archive UI artifacts (`*-UI-SPEC.md`, `*-UI-REVIEW.md`) alongside other phase documents
 8. Clean up the spec screenshot files (binary assets, never archived)
 
-**Context Efficiency:** Archives keep ROADMAP.md constant-size and REQUIREMENTS.md milestone-scoped.
-
-**ROADMAP archive** uses `templates/milestone-archive.md` — includes milestone header (status, phases, date), full phase details, milestone summary (decisions, issues, tech debt).
-
-**REQUIREMENTS archive** contains all requirements marked complete with outcomes, traceability table with final status, notes on changed requirements.
+The roadmap and the requirements stay entities of the closed milestone, so nothing is archived: `templates/milestone-archive.md` says the same, and `templates/milestone.md` names the milestone's fields.
 
 </archival_behavior>
 
@@ -230,13 +226,11 @@ Key accomplishments for this milestone:
 
 <step name="create_milestone_entry">
 
-**Note:** MILESTONES.md entry is now created automatically by `specforge gsd close-milestone` in the archive_milestone step. The entry includes version, date, phase/plan/task counts, and accomplishments extracted from SUMMARY.md files.
-
-If additional details are needed (e.g., user-provided "Delivered" summary, git range, LOC stats), add them manually after the CLI creates the base entry.
+The milestone's record is the `milestone` entity itself: `close-milestone` writes its `completion`, and its `stats` (files, loc, phases, plans, tasks, days), `shipped` and `git_range` are computed. A user-provided "Delivered" sentence or "What's next" goes in with `specforge set "$MILESTONE" delivered …` and `whats_next` (the milestone template's fence).
 
 </step>
 
-**Resolve the PROJECT.md review gate first.** PROJECT.md is shared across workstreams, so the review runs in flat mode only: no `--ws` in the arguments and no active workstream (`specforge gsd workstreams progress` answers the one `specforge gsd workstreams switch` made active as `active`). SpecForge's INIT carries no `section_manifest`, so the gate reads the workstream itself; when it cannot be read, the review is skipped rather than rewrite the shared PROJECT.md under a workstream (#5195).
+**Resolve the project review gate first.** The project is shared across workstreams, so the review runs in flat mode only: no `--ws` in the arguments and no active workstream (`specforge gsd workstreams progress` answers the one `specforge gsd workstreams switch` made active as `active`). SpecForge's INIT carries no `section_manifest`, so the gate reads the workstream itself; when it cannot be read, the review is skipped rather than edit the shared project under a workstream (#5195).
 
 ```bash
 
@@ -246,104 +240,51 @@ GSD_ACTIVE_WS=$(specforge gsd workstreams progress --pick .active) || GSD_ACTIVE
 ```
 
 <!-- gsd:section id="project-md-evolution-review" when="state:flat-mode" -->
-If the line above printed `PROJECT_MD_REVIEW=run` (no `--ws` and no active workstream): read and execute `gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md`. If it printed `PROJECT_MD_REVIEW=skip` (a workstream is active, or it could not be read) — do not read the file; PROJECT.md is shared across workstreams, so a workstream's milestone close never rewrites it (#2308, #5195); proceed to `archive_milestone`.
+If the line above printed `PROJECT_MD_REVIEW=run` (no `--ws` and no active workstream): read and execute `gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md`. If it printed `PROJECT_MD_REVIEW=skip` (a workstream is active, or it could not be read) — do not read the file; the project is shared across workstreams, so a workstream's milestone close never edits it (#2308, #5195); proceed to `archive_milestone`.
 <!-- /gsd:section -->
 
 <step name="archive_milestone">
 
 **Text mode (`workflow.text_mode: true` in config or `--text` flag):** Set `TEXT_MODE=true` if `--text` is present in `$ARGUMENTS` OR `text_mode` from init JSON is `true`. When TEXT_MODE is active, replace every `AskUserQuestion` call with a plain-text numbered list and ask the user to type their choice number. This is required for non-Claude runtimes (OpenAI Codex, Antigravity, etc.) where `AskUserQuestion` is not available.
 
-**Quick-task archival (opt-in — NOT symmetrical with phase archival below, #2142):** unlike phase archival, quick-task archival is **opt-in, default OFF**. Doing nothing leaves the quick plans untouched, exactly like today's behavior. Decide this BEFORE calling `milestone complete` below, so the flag can be folded into that single invocation rather than issuing a second, redundant call.
+Quick plans stay entities of the project: there is nothing to archive with the milestone.
 
-If the quick plans contains at least one directory, ask:
-
-AskUserQuestion: "Archive completed quick tasks into this milestone too?" with options: "Yes — archive quick tasks into v[X.Y]" | "Skip"
-
-If "Yes": set `ARCHIVE_QUICK_FLAG="--archive-quick"`. If "Skip" (or the quick plans is empty): set `ARCHIVE_QUICK_FLAG=""`.
-
-**Per-repository release mapping (#3628): not part of @gsd/core.** A SpecForge project has no sub-repositories (`git.repo_tagging` is not applicable, as `planning.sub_repos` is not), so `PER_REPO_TAGGING` is always `false` and nothing is appended to the `milestone complete` calls below. A GSD milestone version may differ from every repository's release version.
-
-**Delegate archival to `specforge gsd close-milestone`:**
+**Close the milestone with `specforge gsd close-milestone`:**
 
 ```bash
 ARCHIVE=$(specforge gsd close-milestone "v[X.Y]" --built '["[Milestone Name]"]')
 ```
 
-`--confirm` is required (#3726): the archive is irreversible (ROADMAP/REQUIREMENTS archived, phase
-directories MOVED, STATE.md rewritten), so `milestone complete` refuses to mutate without it. This
-workflow has already gathered the user's explicit intent by this step, so passing the flag here is
-correct; `--dry-run` previews the exact move list without mutating if a preview is ever needed first.
+`close-milestone` closes a milestone whose latest audit passes and whose phases are verified: it is refused without the audit `/gsd-audit-milestone` created. It records the milestone's `completion` (`at`, `audit`) with the host's clock, and creates `<version>-RETROSPECTIVE` from `--built`, `--worked`, `--inefficient` and `--patterns` when the milestone has none. Nothing is moved, archived or rewritten: the phases, plans and requirements stay entities of the milestone.
 
-The CLI handles:
-- Creating the spec directory
-- Archiving ROADMAP.md to `milestones/v[X.Y]-ROADMAP.md`
-- Archiving REQUIREMENTS.md to `milestones/v[X.Y]-REQUIREMENTS.md` with archive header
-- Moving audit file to milestones if it exists
-- Creating/appending MILESTONES.md entry with accomplishments from SUMMARY.md files
-- Updating STATE.md (status, last activity)
-- When `ARCHIVE_QUICK_FLAG` is `--archive-quick`: moving every directory under the quick plans into the milestone's quick archive, writing a `README.md` index into that archive directory (generated by scanning the archive directory itself), and clearing the data rows of STATE.md's `### Quick Tasks Completed` table — preserving the table's header and whichever column variant (with/without a Status column) was detected
+Extract from result: `wrote`, `completion`, `archived`.
 
-Extract from result: `version`, `date`, `phases`, `plans`, `tasks`, `accomplishments`, `archived`.
-
-Verify: `✅ Milestone archived to the spec
-
-**Known limit (quick-task archival):** there is no on-disk provenance recording which milestone a given quick task belonged to. Archival buckets **all** remaining the quick plans into the completing milestone — a quick task that predates an earlier, unarchived milestone lands in the current bucket regardless.
-
-Verify after `--archive-quick` was passed: `✅ Quick tasks archived with the milestone`
-
-**Phase archival (default-on):** `milestone complete` archives phase directories to `milestones/v[X.Y]-phases/` by default (#1871), so the next `/gsd:new-milestone` never inherits un-archived dirs. No manual `mkdir`/`mv` or `--archive-phases` flag is needed.
-
-If the user explicitly wants to keep phase directories in place as raw execution history, invoke `milestone complete` with `--no-archive-phases`:
+The stats are the milestone's, computed; `state` reads `shipped` once the close wrote `completion`, and the accomplishments are the `--built` list this step passed:
 
 ```bash
-: # the phases stay in the spec: there is nothing to archive
+STATS=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.stats') || exit 1
+[ -n "$STATS" ] || { echo "no computed stats for $MILESTONE: is it in the graph?" >&2; exit 1; }
+echo "stats: $STATS"
+echo "state: $(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.state')"
 ```
 
-(No release map applies to this form either: `PER_REPO_TAGGING` is always `false` in @gsd/core.)
+Verify: `✅ Milestone v[X.Y] closed`
 
-Verify after a default (archived) completion: `✅ Phases kept with the milestone`
-
-After archival, the AI still handles:
-- Reorganizing ROADMAP.md with milestone grouping (requires judgment) — overwrite in place after extracting Backlog section, with the write-guard's single-use sentinel armed first (a per-step env var cannot reach a hook — see the reorganize step for the sentinel mechanics)
-- Full PROJECT.md evolution review (requires understanding; flat mode only — skipped under `--ws`)
-- Safety commit of archive files + updated ROADMAP.md, then continue (the `requirement` entities stay as they are)
-- These are NOT fully delegated because they require AI interpretation of content
+After the close, the AI still handles the full project evolution review (requires understanding; flat mode only — skipped under `--ws`) and the safety commit.
 
 </step>
 
 <step name="reorganize_roadmap_and_delete_originals">
 
-After `milestone complete` has archived, reorganize ROADMAP.md with milestone groupings, then commit archives as a safety checkpoint before removing originals.
+The roadmap is the `milestone` and `phase` entities: there is nothing to reorganize, no sentinel to arm and no Backlog section to extract (backlog phases stay entities of the milestone).
 
-**Backlog preservation:** backlog phases (`phase.backlog`) are entities of the milestone, so nothing is extracted or re-appended.
-
-
-```bash
-
-# the roadmap is the milestone's phase entities: backlog phases stay entities, nothing to extract
-
-```
-
-**Reorganize ROADMAP.md**: the roadmap is the `milestone` and `phase` entities: there is no ROADMAP.md to reorganize, no sentinel to arm and no Backlog section to re-append (backlog phases stay entities of the milestone).
-
+**Safety commit:**
 
 ```bash
-
-```
-
-
-**Safety commit — commit archive files BEFORE deleting any originals:**
-
-```bash
-
-# the commit stages spec: the archive is entities, with no state, roadmap or project file to name
-
 specforge git commit --add spec -m "chore: archive v[X.Y] milestone files" && specforge collect --runner gsd-git --yes
 ```
 
 This creates a durable checkpoint in git history. If anything fails after this point, the working tree can be reconstructed from git.
-
-MILESTONES.md is workstream-scoped the same way STATE.md/ROADMAP.md are (the milestone is a `.spec` file) — under an active workstream this commits the actual files `milestone complete` wrote, not the root copies. PROJECT.md is NOT: it is shared across workstreams, so under an active workstream it is neither reviewed nor staged here (#5195).
 
 **The `requirement` entities stay** (they are the milestone's history; no file is archived or cleared):
 
@@ -365,50 +306,15 @@ Check for existing retrospective:
 : "${MILESTONE:?MILESTONE is not set: the milestone being completed}"; specforge query "$MILESTONE" --kinds retrospective --format brief 2>/dev/null || true
 ```
 
-**If exists:** Read the file, append new milestone section before the "## Cross-Milestone Trends" section.
-
-**If doesn't exist:** Create from template at `~/.claude/gsd-core/templates/retrospective.md`.
+**If it exists** (the close created it from its `--worked`, `--inefficient` and `--patterns` lists), add what the close did not record: each key lesson is a `lesson` of the retrospective, with the retrospective template's lesson fence.
 
 **Gather retrospective data:**
 
-1. From SUMMARY.md files: Extract key deliverables, one-liners, tech decisions
-2. From VERIFICATION.md files: Extract verification scores, gaps found
-3. From UAT.md files: Extract test results, issues found
-4. From git log: Count commits, calculate timeline
+1. From the milestone's `summary` entities: key deliverables, one-liners, tech decisions
+2. From its `verification` entities: verification scores, gaps found
+3. From its `uat_session` entities: test results, issues found
+4. From the milestone's computed `stats` and `git_range`: commits and timeline
 5. From the milestone work: Reflect on what worked and what didn't
-
-**Write the milestone section:**
-
-```markdown
-## Milestone: v{version} — {name}
-
-**Shipped:** {date}
-**Phases:** {phase_count} | **Plans:** {plan_count}
-
-### What Was Built
-{Extract from SUMMARY.md one-liners}
-
-### What Worked
-{Patterns that led to smooth execution}
-
-### What Was Inefficient
-{Missed opportunities, rework, bottlenecks}
-
-### Patterns Established
-{New conventions discovered during this milestone}
-
-### Key Lessons
-{Specific, actionable takeaways}
-
-### Cost Observations
-- Model mix: {X}% opus, {Y}% sonnet, {Z}% haiku
-- Sessions: {count}
-- Notable: {efficiency observation}
-```
-
-**Update cross-milestone trends:**
-
-If the "## Cross-Milestone Trends" section exists, update the tables with new data from this milestone.
 
 **Commit:**
 ```bash
@@ -419,23 +325,7 @@ specforge git commit --add spec -m "docs: update retrospective for v${VERSION}" 
 
 <step name="update_state">
 
-Most STATE.md updates were handled by `milestone complete`, but verify and update remaining fields:
-
-**Project Reference:**
-
-```markdown
-## Project Reference
-
-See: the `project` entity (updated [today])
-
-**Core value:** [Current core value from PROJECT.md]
-**Current focus:** [Next milestone or "Planning next milestone"]
-```
-
-**Accumulated Context:**
-- Clear decisions summary (full log in PROJECT.md)
-- Clear resolved blockers
-- Keep open blockers for next milestone
+The project state is computed from the closed milestone: there is nothing to update. Open blockers stay open for the next milestone; resolve the ones the milestone settled with `specforge gsd resolve-blocker`.
 
 </step>
 
@@ -464,7 +354,7 @@ Exact bash for each of the four options (squash, history-preserving merge, delet
 
 <step name="git_commit_milestone">
 
-Commit what is left (archive files and ROADMAP.md were already committed in the safety commit in `reorganize_roadmap_and_delete_originals`).
+Commit what is left (the close was already committed in the safety commit of `reorganize_roadmap_and_delete_originals`).
 
 ```bash
 specforge git commit -m "chore: complete v[X.Y] milestone"
@@ -538,24 +428,18 @@ Milestone completion is successful when:
 - [ ] The audit's tech debt accepted by a person (`debt_accepted`) if they chose [A]
 - [ ] Known deferred items count noted in MILESTONES.md entry
 
-- [ ] MILESTONES.md entry created with stats and accomplishments
-- [ ] PROJECT.md full evolution review completed (flat mode only; skipped under `--ws`)
-- [ ] All shipped requirements moved to Validated in PROJECT.md (flat mode only; skipped under `--ws`)
+- [ ] Milestone closed by `close-milestone`, its computed stats shown
+- [ ] Project full evolution review completed (flat mode only; skipped under `--ws`)
 - [ ] Key Decisions updated with outcomes
-- [ ] ROADMAP.md Backlog section extracted before rewrite, re-appended after (skipped if absent)
-- [ ] ROADMAP.md reorganized with milestone grouping (overwritten in place, not deleted)
-- [ ] Roadmap archive created (milestones/v[X.Y]-ROADMAP.md)
-- [ ] Requirements archive created (milestones/v[X.Y]-REQUIREMENTS.md)
-- [ ] Safety commit made (archive files + updated ROADMAP.md) BEFORE the final commit
+- [ ] Safety commit made BEFORE the final commit
 - [ ] `requirement` entities kept with the completed milestone (none deleted)
-- [ ] STATE.md updated with fresh project reference
 - [ ] Git tag created (v[X.Y]) (if `git.create_tag` enabled and `PER_REPO_TAGGING` is not `true`)
 - [ ] Release map archived and per-repository tags created (if `PER_REPO_TAGGING` is `true`); no tag pushed without a per-repository confirmation
 - [ ] Milestone commit made (includes archive files and deletion)
 - [ ] Requirements completion checked against REQUIREMENTS.md traceability table
 - [ ] Incomplete requirements surfaced with proceed/audit/abort options
 - [ ] Known gaps recorded in MILESTONES.md if user proceeded with incomplete requirements
-- [ ] RETROSPECTIVE.md updated with milestone section
+- [ ] The retrospective recorded, with its lessons
 - [ ] Cross-milestone trends updated
 - [ ] User knows next step (/gsd:new-milestone)
 

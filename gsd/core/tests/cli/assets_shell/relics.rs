@@ -167,7 +167,11 @@ fn the_milestone_close_writes_no_scratch_file() {
         return;
     };
     let text = asset("gsd-core/workflows/complete-milestone.md");
-    let step = block(&text, "**Reorganize ROADMAP.md**", "**Safety commit");
+    let step = block(
+        &text,
+        "<step name=\"reorganize_roadmap_and_delete_originals\">",
+        "**Safety commit",
+    );
     let code: Vec<String> = gsd_kit::markdown::fences(&step)
         .into_iter()
         .filter(|f| f.language == "bash")

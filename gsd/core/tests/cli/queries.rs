@@ -52,7 +52,8 @@ fn bound(subject: &str) -> Option<&'static str> {
         | "v${VERSION}"
         | "v{version}"
         | "${milestone_version}"
-        | "{MILESTONE}" => "v1.0",
+        | "{MILESTONE}"
+        | "<milestone>" => "v1.0",
         "$PHASE_ID"
         | "${PHASE_ID}"
         | "${PHASE}"
@@ -102,6 +103,8 @@ const UNBOUND: &[&str] = &[
     "$RESUME_BATCH_ID",
     // the milestone's audit, which step 1 creates: `assets_shell::milestone_edits` creates one and runs these
     "$AUDIT",
+    // a milestone's retrospective, which the close creates: `assets_shell::milestone_edits` closes one and runs this
+    "$RETRO",
     "$QB_ITEM",
     "$summary",
     "$s",

@@ -153,14 +153,14 @@ Present as a bulleted list of decisions with brief rationale:
 
 ## 5. Key Decisions Log
 
-{Aggregate from all CONTEXT.md <decisions> sections}
+{The decisions, read with `specforge query "v${VERSION}" --depth 3 --kinds decision,deferred_idea --format context`}
 {Each decision with: ID, description, phase, rationale}
 
 ## 6. Tech Debt & Deferred Items
 
 {From VERIFICATION.md files: gaps found, anti-patterns noted}
 {From RETROSPECTIVE.md: lessons learned, what to improve}
-{From CONTEXT.md <deferred> sections: ideas parked for later}
+{The `deferred_idea` entities of that read: ideas parked for later}
 
 ## 7. Getting Started
 

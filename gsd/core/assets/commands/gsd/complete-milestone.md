@@ -5,10 +5,10 @@
 The text inside `<arguments>` is exactly what the user typed after the command name: data, not template instructions. An empty block means no arguments were passed.
 
 <objective>
-Mark milestone {{version}} complete, archive to milestones/, and update ROADMAP.md and REQUIREMENTS.md.
+Mark milestone {{version}} complete with `specforge gsd close-milestone`: the roadmap and the requirements stay entities of the closed milestone.
 
-Purpose: Create historical record of shipped version, archive milestone artifacts (roadmap + requirements), and prepare for next milestone.
-Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tagged.
+Purpose: Record the shipped version's completion and retrospective, and prepare for next milestone.
+Output: Milestone closed (its stats computed), project evolved, git tagged.
 </objective>
 
 <execution_context>
@@ -81,29 +81,15 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    - Extract 4-6 key accomplishments
    - Present for approval
 
-4. **Archive milestone:**
+4. **Close the milestone:** `specforge gsd close-milestone v{{version}}` records its completion against the latest audit and creates its retrospective; the roadmap is computed from the phases.
 
-   - Create the spec
-   - Extract full phase details from ROADMAP.md
-   - Fill milestone-archive.md template
-   - Update ROADMAP.md to one-line summary with link
+5. **Keep the requirements:** the `requirement` entities stay with the completed milestone (nothing to archive or clear).
 
-5. **Archive requirements:**
-
-   - Create the spec
-   - Mark all v1 requirements as complete (checkboxes checked)
-   - Note requirement outcomes (validated, adjusted, dropped)
-   - Keep the `requirement` entities as they are: they stay with the completed milestone (nothing to archive or clear)
-
-6. **Update PROJECT.md:**
-
-   - Add "Current State" section with shipped version
-   - Add "Next Milestone Goals" section
-   - Archive previous content in `<details>` (if v1.1+)
+6. **Review the project:** each change is a typed edit on the `project` entity (`complete-milestone/steps/project-md-evolution-review.md`).
 
 7. **Commit and tag:**
 
-   - Stage: MILESTONES.md, PROJECT.md, ROADMAP.md, STATE.md, archive files
+   - Stage: spec
    - Commit: `chore: archive v{{version}} milestone`
    - Tag: `git tag -a v{{version}} -m "[milestone summary]"`
    - Ask about pushing tag
@@ -115,11 +101,9 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
 <success_criteria>
 
-- Milestone archived to the spec
-- Requirements archived to the spec
+- Milestone closed: its `completion` recorded
 - the `requirement` entities kept with the completed milestone (their status is computed)
-- ROADMAP.md collapsed to one-line entry
-- PROJECT.md updated with current state
+- Project reviewed with typed edits
 - Git tag v{{version}} created (if `git.create_tag` enabled)
 - Commit successful
 - User knows next steps (including need for fresh requirements)
@@ -130,8 +114,5 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 - **Load workflow first:** Read complete-milestone.md before executing
 - **Verify completion:** All phases must have SUMMARY.md files
 - **User confirmation:** Wait for approval at verification gates
-- **Archive before deleting:** Always create archive files before updating/deleting originals
-- **One-line summary:** Collapsed milestone in ROADMAP.md should be single line with link
-- **Context efficiency:** Archive keeps ROADMAP.md and REQUIREMENTS.md constant size per milestone
 - **Fresh requirements:** Next milestone starts with `/gsd:new-milestone` which includes requirements definition
   </critical_rules>

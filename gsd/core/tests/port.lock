@@ -915,19 +915,21 @@ commands/gsd/autonomous.md	own	27+2	2	de952efa483c	2204e1626cbb	ported-name
 commands/gsd/autonomous.md	kept	29+17	8d8d374c48d4
 commands/gsd/autonomous.md	own	46+5	5	5770a88fc3c3	3197f1053489	ported-name
 commands/gsd/autonomous.md	kept	51+7	8aaae1aab614
-commands/gsd/complete-milestone.md	kept	13+21	bd394c802ebe
+commands/gsd/complete-milestone.md	kept	13+6	76ce7f72a8b8
+commands/gsd/complete-milestone.md	own	19+4	4	5d93e8b3d451	ba3cc748ad45	typed-edit
+commands/gsd/complete-milestone.md	kept	23+11	197d1c78cf74
 commands/gsd/complete-milestone.md	own	34+4	4	ac6a6492b45c	6f5a2cefb53a	ported-name
 commands/gsd/complete-milestone.md	kept	38+12	8e48b725b31e
 commands/gsd/complete-milestone.md	own	50+1	1	5e7e8a8498a1	2a5e835fbf0b	ported-name
-commands/gsd/complete-milestone.md	kept	51+46	9e5eb8d99bc1
-commands/gsd/complete-milestone.md	own	97+1	1	8199d77f006a	ebb148543e1b	ported-name
-commands/gsd/complete-milestone.md	kept	98+6	1e5aed1ebfd3
-commands/gsd/complete-milestone.md	own	104+1	1	8810a45bd5cd	ebb148543e1b	ported-name
-commands/gsd/complete-milestone.md	kept	105+2	040d49159752
-commands/gsd/complete-milestone.md	own	107+1	1	8907a9e0707f	386ba1780a2b	ported-name
-commands/gsd/complete-milestone.md	kept	108+21	020d83126da3
-commands/gsd/complete-milestone.md	own	129+3	3	be89a14d208e	5643e674226f	ported-name
-commands/gsd/complete-milestone.md	kept	132+18	2f434d32f5b5
+commands/gsd/complete-milestone.md	kept	51+44	e8fc5af63858
+commands/gsd/complete-milestone.md	own	95+19	5	d457fe73b824	18f197c35ba0	ported-name
+commands/gsd/complete-milestone.md	kept	114+3	653ca80bab7d
+commands/gsd/complete-milestone.md	own	117+1	1	0285d34f695f	dd50c93631cf	prose
+commands/gsd/complete-milestone.md	kept	118+11	656faae3c9c2
+commands/gsd/complete-milestone.md	own	129+5	3	ddd7d7c3e292	07dbd6bd2e41	ported-name
+commands/gsd/complete-milestone.md	kept	134+10	aa9164f19159
+commands/gsd/complete-milestone.md	own	144+3	0	89f3f34cfdd3	e3b0c44298fc	prose
+commands/gsd/complete-milestone.md	kept	147+3	b7c18623e1a3
 commands/gsd/config.md	kept	13+22	034e4d973fb4
 commands/gsd/config.md	own	35+1	1	298b05baece9	6eee2a995bc2	ported-name
 commands/gsd/config.md	kept	36+16	b33ff0ecde58
@@ -1886,19 +1888,14 @@ gsd-core/templates/context.md	kept	322+19	e7bec95f8b04
 gsd-core/templates/context.md	own	341+1	1	699b15e65d93	6818cdcef62c	ported-name
 gsd-core/templates/context.md	kept	342+12	0ced15df2f94
 gsd-core/templates/milestone-archive.md	kept	1+2	48f5dd45e5a6
-gsd-core/templates/milestone-archive.md	own	3+1	1	bfd61cd76c26	a5698dae13b2	ported-name
-gsd-core/templates/milestone-archive.md	kept	4+88	df1ae295b1b6
-gsd-core/templates/milestone-archive.md	own	92+1	1	3534a39334d8	a3cac1d3435a	ported-name
-gsd-core/templates/milestone-archive.md	kept	93+22	60df275ee61a
-gsd-core/templates/milestone-archive.md	own	115+2	2	30f0d241dfb5	81701694be2c	ported-name
-gsd-core/templates/milestone-archive.md	kept	117+8	941dcd00913d
+gsd-core/templates/milestone-archive.md	own	3+121	1	a0925a81c63b	23c7361abbc5	ported-name
+gsd-core/templates/milestone-archive.md	kept	124+1	e3b0c44298fc
 gsd-core/templates/milestone.md	kept	1+2	d23da2973a8f
-gsd-core/templates/milestone.md	own	3+1	1	70c381d32e96	802ded0137d0	ported-name
-gsd-core/templates/milestone.md	kept	4+50	9356a209b7aa
-gsd-core/templates/milestone.md	own	54+2	2	ef5742fa15f5	8cc65a5a4195	served
-gsd-core/templates/milestone.md	kept	56+9	0bb98df7d5c1
-gsd-core/templates/milestone.md	own	65+0	1	e3b0c44298fc	e3b0c44298fc	markdown
-gsd-core/templates/milestone.md	kept	65+52	932bdd15811e
+gsd-core/templates/milestone.md	own	3+37	41	7fb4b027e05f	cc15ecab6fa5	ported-name
+gsd-core/templates/milestone.md	kept	40+12	b93fb2e7444d
+gsd-core/templates/milestone.md	own	52+10	0	e23b54f2dfc0	e3b0c44298fc	served
+gsd-core/templates/milestone.md	kept	62+2	b6e6d30cd912
+gsd-core/templates/milestone.md	own	64+53	0	16c37c9690ab	e3b0c44298fc	served
 gsd-core/templates/project.md	own	1+73	3	dddb4707a8c9	b361118235d4	ported-name
 gsd-core/templates/project.md	kept	74+2	3d0b188170e8
 gsd-core/templates/project.md	own	76+128	76	1c862e91d0b8	597335126bad	ported-name
@@ -1933,7 +1930,9 @@ gsd-core/templates/research-project/SUMMARY.md	own	3+129	1	5f9745f95833	43396fcd
 gsd-core/templates/research-project/SUMMARY.md	kept	132+2	3d0b188170e8
 gsd-core/templates/research-project/SUMMARY.md	own	134+37	32	5d02ac9fab46	039bec0fa80a	prose
 gsd-core/templates/research-project/SUMMARY.md	kept	171+1	e3b0c44298fc
-gsd-core/templates/retrospective.md	kept	1+55	03981e30dd76
+gsd-core/templates/retrospective.md	kept	1+4	2dfb907e79b5
+gsd-core/templates/retrospective.md	own	5+50	41	8753001e61a7	0c6da6871b8a	prose
+gsd-core/templates/retrospective.md	kept	55+1	e3b0c44298fc
 gsd-core/templates/roadmap.md	kept	1+2	f712c1693da0
 gsd-core/templates/roadmap.md	own	3+200	44	a553c27b2f6f	a5de38a6aa0c	ported-name
 gsd-core/templates/roadmap.md	kept	203+1	e3b0c44298fc
@@ -2203,15 +2202,15 @@ gsd-core/workflows/autonomous/steps/converge-fail-fast.md	own	3+2	2	9d70281af334
 gsd-core/workflows/autonomous/steps/converge-fail-fast.md	kept	5+9	a65d811b019a
 gsd-core/workflows/autonomous/steps/converge-loop.md	kept	1+8	2e7236809b83
 gsd-core/workflows/autonomous/templates/minimal-context.md	kept	1+42	5b5a283dbfca
-gsd-core/workflows/complete-milestone.md	kept	1+10	91a083f8a1f3
+gsd-core/workflows/complete-milestone.md	kept	1+2	b1623ed95a76
+gsd-core/workflows/complete-milestone.md	own	3+1	1	9fc419417525	3ebfa310bc90	typed-edit
+gsd-core/workflows/complete-milestone.md	kept	4+7	9b96f40a849c
 gsd-core/workflows/complete-milestone.md	own	11+3	3	090861df7530	dd7440901af6	ported-name
 gsd-core/workflows/complete-milestone.md	kept	14+7	0127fef26853
-gsd-core/workflows/complete-milestone.md	own	21+2	2	8fbfa28f3176	2cb704458abf	ported-name
-gsd-core/workflows/complete-milestone.md	kept	23+1	1890fbd37485
-gsd-core/workflows/complete-milestone.md	own	24+1	1	df05f270cef0	5d15858bcd53	workflow
-gsd-core/workflows/complete-milestone.md	kept	25+3	edd98624957d
-gsd-core/workflows/complete-milestone.md	own	28+1	1	4c837e52e211	6df055d09072	ported-name
-gsd-core/workflows/complete-milestone.md	kept	29+17	3a387ab88c39
+gsd-core/workflows/complete-milestone.md	own	21+5	5	2e61f0a2cead	1ab2ba3a3147	ported-name
+gsd-core/workflows/complete-milestone.md	kept	26+2	2765fed41cda
+gsd-core/workflows/complete-milestone.md	own	28+7	3	675f44b0758e	82919cb4c90a	ported-name
+gsd-core/workflows/complete-milestone.md	kept	35+11	3d722e00ba51
 gsd-core/workflows/complete-milestone.md	own	46+3	3	a01dd0c4f6b0	099c9aa598ee	ported-name
 gsd-core/workflows/complete-milestone.md	kept	49+12	06f6928b1eda
 gsd-core/workflows/complete-milestone.md	own	61+1	1	9ed72da09648	a3e5342b200e	prose
@@ -2234,48 +2233,38 @@ gsd-core/workflows/complete-milestone.md	own	217+1	1	f330a7f4ee6e	433c7db04f3c	a
 gsd-core/workflows/complete-milestone.md	kept	218+2	d592032f0d39
 gsd-core/workflows/complete-milestone.md	own	220+3	3	fd16897600c2	d8f1e8e9872e	ported-name
 gsd-core/workflows/complete-milestone.md	kept	223+18	14c1b70440e8
-gsd-core/workflows/complete-milestone.md	own	241+1	1	53976d51a655	0e440333cffe	ported-name
-gsd-core/workflows/complete-milestone.md	kept	242+5	25f046b48fdd
-gsd-core/workflows/complete-milestone.md	own	247+1	1	1353d0483c56	f7da6365349f	workflow
+gsd-core/workflows/complete-milestone.md	own	241+3	1	39e682b82b20	897cd0595bef	ported-name
+gsd-core/workflows/complete-milestone.md	kept	244+3	d498704c2b04
+gsd-core/workflows/complete-milestone.md	own	247+1	1	1353d0483c56	9b875b90b0c6	workflow
 gsd-core/workflows/complete-milestone.md	kept	248+2	5f046190424d
 gsd-core/workflows/complete-milestone.md	own	250+8	4	a0cf113a677a	a6109f60737a	ported-name
 gsd-core/workflows/complete-milestone.md	kept	258+3	bab71b8eec63
-gsd-core/workflows/complete-milestone.md	own	261+1	1	a6daff37666e	99d8715c7bf4	workflow
+gsd-core/workflows/complete-milestone.md	own	261+1	1	a6daff37666e	ccdeb9f2b61c	workflow
 gsd-core/workflows/complete-milestone.md	kept	262+6	23562e902744
-gsd-core/workflows/complete-milestone.md	own	268+3	3	e863303396e7	cf8b8e40a47b	ported-name
-gsd-core/workflows/complete-milestone.md	kept	271+3	db3a27c223cf
-gsd-core/workflows/complete-milestone.md	own	274+5	5	a5d7547749a1	b5837c6cecfe	ported-name
-gsd-core/workflows/complete-milestone.md	kept	279+2	5f046190424d
-gsd-core/workflows/complete-milestone.md	own	281+1	1	152eef87220f	da2a9f76031d	ported-name
-gsd-core/workflows/complete-milestone.md	kept	282+8	20738bdde474
-gsd-core/workflows/complete-milestone.md	own	290+1	1	d3a942d57f2a	cb2a13b8800f	ported-name
-gsd-core/workflows/complete-milestone.md	kept	291+5	11997548effd
-gsd-core/workflows/complete-milestone.md	own	296+1	1	fc435ffaffb9	98653aa2430d	ported-name
-gsd-core/workflows/complete-milestone.md	kept	297+3	616f7cba732c
-gsd-core/workflows/complete-milestone.md	own	300+5	5	84a03e3c8088	a746ffc8dab9	ported-name
-gsd-core/workflows/complete-milestone.md	kept	305+6	dd4ee7e0fd6c
-gsd-core/workflows/complete-milestone.md	own	311+6	6	a5d00ccfa518	97e837e24117	ported-name
-gsd-core/workflows/complete-milestone.md	kept	317+4	a55727212ec8
-gsd-core/workflows/complete-milestone.md	own	321+1	1	2a2b10b9e3cb	c49742db335c	ported-name
-gsd-core/workflows/complete-milestone.md	kept	322+8	e2f85315d08e
-gsd-core/workflows/complete-milestone.md	own	330+3	2	0275dcf7dbfd	c938a15d2843	relic
-gsd-core/workflows/complete-milestone.md	kept	333+2	5f046190424d
-gsd-core/workflows/complete-milestone.md	own	335+20	7	f08ca653d830	0b4e7d6a0490	ported-name
-gsd-core/workflows/complete-milestone.md	kept	355+2	5f046190424d
-gsd-core/workflows/complete-milestone.md	own	357+39	3	b9e6c4be689c	f1b901847390	ported-name
-gsd-core/workflows/complete-milestone.md	kept	396+4	be89e6e26e5f
-gsd-core/workflows/complete-milestone.md	own	400+17	4	b95233700a4a	2f856c6baec7	ported-name
+gsd-core/workflows/complete-milestone.md	own	268+12	4	8987732fa0a5	0452b1af8544	ported-name
+gsd-core/workflows/complete-milestone.md	kept	280+1	ad332335cfaa
+gsd-core/workflows/complete-milestone.md	own	281+29	9	5802520c1c55	60f679730b4f	ported-name
+gsd-core/workflows/complete-milestone.md	kept	310+1	ad332335cfaa
+gsd-core/workflows/complete-milestone.md	own	311+12	9	1d6b070547f6	5777e41bbf14	ported-name
+gsd-core/workflows/complete-milestone.md	kept	323+5	a67f04dbf61d
+gsd-core/workflows/complete-milestone.md	own	328+71	4	3faf5c34f572	861c58784270	ported-name
+gsd-core/workflows/complete-milestone.md	kept	399+1	ad332335cfaa
+gsd-core/workflows/complete-milestone.md	own	400+17	1	b95233700a4a	981d77f56493	ported-name
 gsd-core/workflows/complete-milestone.md	kept	417+4	560dbc01f626
-gsd-core/workflows/complete-milestone.md	own	421+3	3	bce849fd2e75	828bb68a7ff2	ported-name
+gsd-core/workflows/complete-milestone.md	own	421+3	1	bce849fd2e75	7f85e5a8f08a	ported-name
 gsd-core/workflows/complete-milestone.md	kept	424+2	5f046190424d
 gsd-core/workflows/complete-milestone.md	own	426+10	4	dbb7012d95e9	896f59b75106	ported-name
 gsd-core/workflows/complete-milestone.md	kept	436+10	61ca65d87968
-gsd-core/workflows/complete-milestone.md	own	446+1	1	4c99b89d78c0	eef2d58a822f	ported-name
-gsd-core/workflows/complete-milestone.md	kept	447+49	a1885b443f68
+gsd-core/workflows/complete-milestone.md	own	446+6	4	1eca7689d192	87faf026d6f8	ported-name
+gsd-core/workflows/complete-milestone.md	kept	452+3	a7c8daec3a8a
+gsd-core/workflows/complete-milestone.md	own	455+4	4	8f6610cdef8e	ee6bad6beafd	prose
+gsd-core/workflows/complete-milestone.md	kept	459+2	92924951fc32
+gsd-core/workflows/complete-milestone.md	own	461+33	0	2fc78678dabb	e3b0c44298fc	served
+gsd-core/workflows/complete-milestone.md	kept	494+2	c694e0c89317
 gsd-core/workflows/complete-milestone.md	own	496+1	1	22d74755c9f8	5e4049f0a0bd	ported-name
-gsd-core/workflows/complete-milestone.md	kept	497+13	71b3fba166a6
-gsd-core/workflows/complete-milestone.md	own	510+1	1	5abf37828f09	77fe43db6a8c	ported-name
-gsd-core/workflows/complete-milestone.md	kept	511+14	347cd0918b2f
+gsd-core/workflows/complete-milestone.md	kept	497+6	4d454b80f2a5
+gsd-core/workflows/complete-milestone.md	own	503+17	1	635abc2056c8	e0808ade5e31	ported-name
+gsd-core/workflows/complete-milestone.md	kept	520+5	845c7c8d0efc
 gsd-core/workflows/complete-milestone.md	own	525+1	1	7465dc85e59c	4271851e1cc5	answer
 gsd-core/workflows/complete-milestone.md	kept	526+1	ad332335cfaa
 gsd-core/workflows/complete-milestone.md	own	527+4	4	76489f4b2857	5ce46ae2705a	ported-name
@@ -2284,16 +2273,20 @@ gsd-core/workflows/complete-milestone.md	own	537+1	1	5ce1c04d769f	ee8fa0ab191b	w
 gsd-core/workflows/complete-milestone.md	kept	538+4	6e3cfcd0d153
 gsd-core/workflows/complete-milestone.md	own	542+1	1	007bdef54952	db9332a9ac85	served
 gsd-core/workflows/complete-milestone.md	kept	543+5	34023add4d05
-gsd-core/workflows/complete-milestone.md	own	548+1	1	ce9fba6b7abe	3bb76e3b84c8	workflow
+gsd-core/workflows/complete-milestone.md	own	548+1	1	ce9fba6b7abe	a0c00f596594	workflow
 gsd-core/workflows/complete-milestone.md	kept	549+2	5f046190424d
 gsd-core/workflows/complete-milestone.md	own	551+6	6	f14af0f39403	915b2a3b5e9b	ported-name
 gsd-core/workflows/complete-milestone.md	kept	557+16	be791341167a
 gsd-core/workflows/complete-milestone.md	own	573+1	1	25f685789b87	0bf93dc99ace	ported-name
 gsd-core/workflows/complete-milestone.md	kept	574+45	c6863245c5be
 gsd-core/workflows/complete-milestone.md	own	619+1	1	7aa891d12bef	8257320251ec	served
-gsd-core/workflows/complete-milestone.md	kept	620+10	39e123d328ef
-gsd-core/workflows/complete-milestone.md	own	630+2	2	450c412475b6	116e1969789b	workflow
-gsd-core/workflows/complete-milestone.md	kept	632+13	f163ce807362
+gsd-core/workflows/complete-milestone.md	kept	620+2	1e0054c3194c
+gsd-core/workflows/complete-milestone.md	own	622+3	2	10c254e04053	44d1bf2b52d4	prose
+gsd-core/workflows/complete-milestone.md	kept	625+1	8234b70baad3
+gsd-core/workflows/complete-milestone.md	own	626+7	2	ca31ae77e479	a2d1b24015d2	workflow
+gsd-core/workflows/complete-milestone.md	kept	633+6	6f13b6ce6eaf
+gsd-core/workflows/complete-milestone.md	own	639+1	1	ea3bcccf3445	6bab27a60763	prose
+gsd-core/workflows/complete-milestone.md	kept	640+5	2a328612a480
 gsd-core/workflows/complete-milestone/detail/elaboration.md	kept	1+9	f11312356871
 gsd-core/workflows/complete-milestone/detail/elaboration.md	own	10+131	11	55c4aabce7c0	714a4bf300e2	ported-name
 gsd-core/workflows/complete-milestone/detail/elaboration.md	kept	141+8	6258f4cf20a3
@@ -3246,7 +3239,11 @@ gsd-core/workflows/milestone-summary.md	kept	98+1	ad332335cfaa
 gsd-core/workflows/milestone-summary.md	own	99+9	7	9d62d4d1fd7a	7a014b13f7ef	ported-name
 gsd-core/workflows/milestone-summary.md	kept	108+12	b4e6c9590eeb
 gsd-core/workflows/milestone-summary.md	own	120+1	1	d2546662762f	c04d5a5616bf	ported-name
-gsd-core/workflows/milestone-summary.md	kept	121+70	0f0bdfc22c05
+gsd-core/workflows/milestone-summary.md	kept	121+42	4b53ae9afb8f
+gsd-core/workflows/milestone-summary.md	own	163+1	1	d21207fa86ea	a2bce1aba9bd	prose
+gsd-core/workflows/milestone-summary.md	kept	164+6	c0a5fb0e8c32
+gsd-core/workflows/milestone-summary.md	own	170+1	1	c6cda7049e19	45046a0a4ef3	prose
+gsd-core/workflows/milestone-summary.md	kept	171+20	7503409a9107
 gsd-core/workflows/milestone-summary.md	own	191+7	5	8d944e99c42a	edaa4553150a	ported-name
 gsd-core/workflows/milestone-summary.md	kept	198+1	ad332335cfaa
 gsd-core/workflows/milestone-summary.md	own	199+4	4	5febd35386b6	f9d346e8ef2a	ported-name

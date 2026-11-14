@@ -61,7 +61,7 @@
     "",
     "**Always available:**"
   ],
-  "bytes": 28159,
+  "bytes": 28208,
   "end": [
     "```",
     "</file>",
@@ -102,7 +102,7 @@
     "",
     "## Where the summary goes",
     "",
-    "The summary is shown to the user, never written: wherever the text above says it is written to a file or committed, read that it is shown in the conversation. The files it names (`PROJECT.md`, `ROADMAP.md`, `REQUIREMENTS.md`, and the `SUMMARY.md`, `VERIFICATION.md`, `CONTEXT.md` and `RESEARCH.md` of each phase) are the `project`, `milestone`, `phase`, `requirement`, `summary`, `verification`, `context` and `research` entities, read with the queries above."
+    "The summary is shown to the user, never written: wherever the text above says it is written to a file or committed, read that it is shown in the conversation. The files it names (the project, roadmap and requirements files, and each phase's summary, verification, context and research files) are the `project`, `milestone`, `phase`, `requirement`, `summary`, `verification`, `context` and `research` entities, read with the queries above."
   ],
   "head": [
     "<codex_skill_adapter>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:10241c3265f2f632ce3662c9834b99755f80ba5b6630af8aa9f408e408b162ae",
+    "digest": "sha256:d5d10a7095fcc72690d013ba93e665e9f36d728f6a63aef217a02e4feda45fd5",
     "prompt": "@gsd/core@VERSION:milestone_summary",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "10241c3265f2f632ce3662c9834b99755f80ba5b6630af8aa9f408e408b162ae"
+  "sha256": "d5d10a7095fcc72690d013ba93e665e9f36d728f6a63aef217a02e4feda45fd5"
 }
