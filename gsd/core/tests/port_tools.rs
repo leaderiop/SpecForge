@@ -268,13 +268,18 @@ fn words(rest: &str) -> Vec<String> {
     let mut quote: Option<char> = None;
     let mut depth = 0;
     let mut brace = 0;
+    // a quote inside `${...}`: a brace it holds neither opens nor closes the expansion
+    let mut inner: Option<char> = None;
     let mut angle = false;
     while let Some(c) = chars.next() {
         match (quote, c) {
             (_, _) if brace > 0 => {
-                match c {
-                    '{' => brace += 1,
-                    '}' => brace -= 1,
+                match (inner, c) {
+                    (Some(q), _) if c == q => inner = None,
+                    (Some(_), _) => {}
+                    (None, '"' | '\'') => inner = Some(c),
+                    (None, '{') => brace += 1,
+                    (None, '}') => brace -= 1,
                     _ => {}
                 }
                 word.push(c);
@@ -332,6 +337,15 @@ fn words(rest: &str) -> Vec<String> {
         out.push(word);
     }
     out
+}
+
+#[test]
+fn a_brace_quoted_inside_an_expansion_stays_in_its_word() {
+    assert_eq!(
+        words(r#"${X:-"}"} --phase 2"#),
+        [r#"${X:-"}"}"#, "--phase", "2"]
+    );
+    assert_eq!(words("${X:-'{'} --to 3"), ["${X:-'{'}", "--to", "3"]);
 }
 
 /// Why `specforge gsd <command> <words>` is not a call the CLI accepts, if it is not.

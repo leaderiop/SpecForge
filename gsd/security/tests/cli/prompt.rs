@@ -281,3 +281,30 @@ fn the_rendered_tail_names_no_gsd_file() {
     });
     super::planning_names::assert_none(&hits);
 }
+
+/// No rendered line of `secure_phase` tells an agent to edit a state file or a part of one, or to generate one: core's
+/// detectors over the text as rendered, the preamble's file table (a read list) skipped.
+#[test]
+fn no_rendered_line_tells_an_agent_to_write_a_gsd_file() {
+    use super::markdown_writes::{generates, section_edits};
+    let text = text_of(&render(&model(), &[PHASE], "claude-code"));
+    let preamble = text.find("</specforge_gsd_preamble>").unwrap_or(0);
+    let preamble_lines = text[..preamble].matches('\n').count();
+    let lines: Vec<&str> = text.split('\n').collect();
+    let hits: Vec<String> = section_edits(&text)
+        .union(&generates(&text))
+        .filter(|n| !(lines[**n].trim().starts_with('|') && **n <= preamble_lines))
+        .map(|n| {
+            format!(
+                "security-prompt:secure_phase:{} {}",
+                n + 1,
+                lines[*n].trim()
+            )
+        })
+        .collect();
+    assert!(
+        hits.is_empty(),
+        "a write is a typed edit (ADR 0343 D10):\n{}",
+        hits.join("\n")
+    );
+}

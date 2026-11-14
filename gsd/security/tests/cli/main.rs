@@ -17,6 +17,8 @@ mod hooks_support;
 
 #[path = "../../../core/tests/common/ledger.rs"]
 mod ledger;
+#[path = "../../../core/tests/common/markdown_writes.rs"]
+mod markdown_writes;
 #[path = "../../../core/tests/common/planning_names.rs"]
 mod planning_names;
 
