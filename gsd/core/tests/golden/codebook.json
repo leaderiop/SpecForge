@@ -432,6 +432,12 @@
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#product",
       "explanation": "A term's avoid lists no word the glossary accepts: its own name or aliases, or another term's. It is a warning.",
       "title": "Term avoids a word the glossary accepts"
+    },
+    {
+      "code": "W532",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#governance",
+      "explanation": "A risk whose rpn is at or above specforge.risk_block_on names a mitigation in mitigated_by. It is a warning.",
+      "title": "Risk at the threshold with no mitigation"
     }
   ]
 }

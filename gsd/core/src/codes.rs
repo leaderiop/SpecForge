@@ -82,7 +82,7 @@ const fn code(
     }
 }
 
-/// The 72 codes of `spec/rules.md`.
+/// Every code of `spec/rules.md`, each new one appended.
 pub static CODES: &[Code] = &[
     code(
         "E101",
@@ -657,6 +657,14 @@ pub static CODES: &[Code] = &[
         "Term avoids a word the glossary accepts",
         "A term's avoid lists no word the glossary accepts: its own name or aliases, or another term's",
         "product",
+        Severity::Warning,
+        Severity::Warning,
+    ),
+    code(
+        "W532",
+        "Risk at the threshold with no mitigation",
+        "A risk whose rpn is at or above specforge.risk_block_on names a mitigation in mitigated_by",
+        "governance",
         Severity::Warning,
         Severity::Warning,
     ),

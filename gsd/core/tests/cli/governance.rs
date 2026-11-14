@@ -9,6 +9,9 @@ fn rpns(p: &Project, id: &str) -> (serde_json::Value, serde_json::Value) {
     (fields["rpn"].clone(), fields["post_rpn"].clone())
 }
 
+/// The one gsd/W532 the fixture says: RK3, rated 350 and naming no mitigation.
+const RK3_W532: &str = "risk 'RK3' has rpn 350, at or above specforge.risk_block_on (100), and names nothing in mitigated_by";
+
 #[test]
 fn a_risk_rates_its_rpn_end_to_end() {
     let p = project("governance");
@@ -20,7 +23,11 @@ fn a_risk_rates_its_rpn_end_to_end() {
     ] {
         assert_eq!(rpns(&p, id), (rpn.into(), post_rpn.into()), "{id}");
     }
-    assert_eq!(p.report(), Vec::new());
+    assert_eq!(
+        p.report(),
+        [("gsd/W532".to_string(), RK3_W532.to_string())],
+        "the fixture's one finding"
+    );
 }
 
 #[test]
@@ -165,4 +172,50 @@ fn the_threshold_follows_specforge_risk_block_on() {
         ("mitigating".into(), false),
         "125 is under 175"
     );
+}
+
+#[test]
+fn a_risk_at_the_threshold_with_no_mitigation_is_w532() {
+    let p = project("governance");
+    let w532: Vec<(String, String)> = p
+        .findings()
+        .into_iter()
+        .filter(|(code, _)| code == "gsd/W532")
+        .collect();
+    assert_eq!(w532, [("gsd/W532".to_string(), RK3_W532.to_string())]);
+    let checked = p.run(&["check", "--format", "json"]);
+    let found: serde_json::Value =
+        serde_json::from_str(&checked.stdout).expect("check prints JSON");
+    let on: Vec<&serde_json::Value> = found
+        .as_array()
+        .expect("a list")
+        .iter()
+        .filter(|d| d["code"] == "gsd/W532")
+        .collect();
+    assert_eq!(on.len(), 1, "{found:#}");
+    assert_eq!(on[0]["severity"], "Warning", "{}", on[0]);
+    assert_eq!(on[0]["data"]["entity"], "RK3", "on the risk: {}", on[0]);
+}
+
+/// RK1 and RK4 name a mitigation (not yet done), RK2 rates 6: none is W532, and RK3 is not once the threshold is
+/// above its 350. The prose `mitigation` is no evidence: RK3 writing one is still W532.
+#[test]
+fn a_mitigated_or_low_risk_is_not_w532() {
+    let w532 = |p: &Project| -> Vec<String> {
+        p.findings()
+            .into_iter()
+            .filter(|(code, _)| code == "gsd/W532")
+            .map(|(_, message)| message)
+            .collect()
+    };
+    let p = project("governance");
+    assert_eq!(w532(&p), [RK3_W532], "RK1, RK2 and RK4 are not W532");
+    p.edit(
+        "spec/risks.spec",
+        "  milestone  v1.0\n",
+        "  milestone  v1.0\n  mitigation \"finish a rotation before it starts the next\"\n",
+    );
+    assert_eq!(w532(&p), [RK3_W532], "prose is no mitigation");
+    p.settings(serde_json::json!({ "specforge.risk_block_on": 400 }));
+    assert_eq!(w532(&p), Vec::<String>::new(), "350 is under 400");
 }

@@ -120,7 +120,8 @@ below are bool, default false, and each gates rules ([rules.md](rules.md#setting
 a compact variant (codex and cursor; Claude Code always renders the full body, as upstream installs no compact agent for
 it). It is an enum because the host takes a variant setting only as a string or enum; `workflow.compact_content`
 presets it. `specforge.risk_block_on` is an integer from 1 to 1000, 100 by default: the rpn at or above which a risk
-blocks until it is mitigated ([governance.md](governance.md#blocking)). No profile presets it.
+blocks until it is mitigated ([governance.md](governance.md#blocking)), and gsd/W532 warns on one that names no
+mitigation. No profile presets it.
 
 | Setting | Switches on |
 |---|---|

@@ -123,6 +123,14 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 |---|---|---|---|---|---|
 | gsd/W538 | a term's `avoid` lists no word the glossary accepts: one warning per term and avoided word, on the avoiding term, when the word is its own `name` or one of its `aliases`, or another term's, compared with each run of whitespace as one space and Unicode lowercase (`str::to_lowercase`); the message names every term and field that accepts it | pass | W | W | (new: GSD keeps no glossary, [ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)) |
 
+## Governance
+
+Risks: what can go wrong, how it is rated, and what controls it ([governance.md](governance.md)).
+
+| Code | Rule | Kind | compat | strict | GSD source |
+|---|---|---|---|---|---|
+| gsd/W532 | a risk whose rpn is at or above `specforge.risk_block_on` names a mitigation in `mitigated_by`: one warning on the risk, naming its rpn and the threshold. The prose `mitigation` is no evidence. Emitted by the derive pass that rates the risk. On under every profile | pass | W | W | (new: an FMEA action threshold) |
+
 ## Retired and kernel-provided
 
 - `gsd/E508` (what a verdict cites exists when it is recorded) is retired: the host already refuses it. `set_verdict`
@@ -224,7 +232,7 @@ no agent; they bound the context a research, a spec or a validation is written a
 These are computed fields, not checks; they are listed so the parity suite can compare them with GSD's own values:
 phase status (`complete` once its verification is `passed`), plan wave, `autonomous`, plan and task status (blocked by halt propagation), a summary's duration, actuals and key files, a deliverable check's status, requirement status, milestone state,
 verification status, score and re-verification, UAT totals and status, validation status, audit status, broken-window status and the
-project's window counts, refactor proposal status, a review concern's status, a review round's open counts, a revision conflict's status, a quick batch's status and eligible items, a UAT session's follow-up count, a lesson's status, `STATE.md` progress.
+project's window counts, refactor proposal status, a review concern's status, a review round's open counts, a revision conflict's status, a quick batch's status and eligible items, a UAT session's follow-up count, a lesson's status, a risk's rpn, post_rpn, status and blocking, `STATE.md` progress.
 
 ## Elsewhere
 

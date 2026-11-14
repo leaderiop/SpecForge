@@ -8,6 +8,9 @@
 //! A mitigation is done when a task is done (a recorded commit names it, or its plan is complete: `execute::task_done`)
 //! or a truth is verified (its phase's verification verifies it: `verify::items`). A name that does not resolve is
 //! never done, and the prose `mitigation` is no evidence.
+//!
+//! gsd/W532 warns on a risk whose rpn is at or above the threshold and that names nothing in `mitigated_by`: this pass
+//! holds the product, the threshold and the finding, so nothing reads a computed value back.
 
 use std::collections::BTreeMap;
 
@@ -190,7 +193,22 @@ fn rated<'a>(
         .collect()
 }
 
-/// The values of each rated risk (`rpn`, `post_rpn`, `status`, `blocking`), and its findings.
+/// gsd/W532 on `risk`, rated `rated` under `block_on`.
+fn unmitigated(risk: &PassEntity, rated: &Rating, block_on: i64) -> PassDiagnostic {
+    PassDiagnostic::new(
+        "W532",
+        PassSeverity::Warning,
+        format!(
+            "risk '{}' has rpn {}, at or above specforge.risk_block_on ({block_on}), and names nothing in mitigated_by",
+            risk.id, rated.rpn
+        ),
+    )
+    .with_suggestion("name the task or truth that controls it in mitigated_by, or rate it again")
+    .with_entity(&risk.id)
+}
+
+/// The values of each rated risk (`rpn`, `post_rpn`, `status`, `blocking`), and gsd/W532 on each one at or above the
+/// threshold that names no mitigation.
 pub fn values_and_findings(
     input: &PassInput,
     commits: &[Commit],
@@ -198,7 +216,11 @@ pub fn values_and_findings(
     block_on: i64,
 ) -> (Vec<PassValue>, Vec<PassDiagnostic>) {
     let mut values = Vec::new();
+    let mut findings = Vec::new();
     for (risk, rated) in rated(input, commits, statuses, block_on) {
+        if rated.unmitigated {
+            findings.push(unmitigated(risk, &rated, block_on));
+        }
         values.extend([
             value(&risk.id, "rpn", rated.rpn),
             value(&risk.id, "post_rpn", rated.post_rpn),
@@ -206,7 +228,7 @@ pub fn values_and_findings(
             value(&risk.id, "blocking", rated.blocking),
         ]);
     }
-    (values, Vec::new())
+    (values, findings)
 }
 
 #[cfg(test)]

@@ -332,3 +332,58 @@ fn a_truth_mitigation_is_done_once_its_verification_verifies_it() {
         "post_rpn 35"
     );
 }
+
+/// A risk rated `ratings`, naming `mitigated_by` (full ids).
+fn rated_risk(id: &str, ratings: [&str; 3], mitigated_by: &[&str]) -> serde_json::Value {
+    json!({ "id": id, "kind": "risk",
+            "fields": { "severity": ratings[0], "occurrence": ratings[1], "detection": ratings[2],
+                        "mitigated_by": mitigated_by.join(", ") },
+            "values": { "mitigated_by": mitigated_by } })
+}
+
+/// `(code, entity)` of each finding over `risks` under `block_on`.
+fn w532_on(risks: Vec<serde_json::Value>, block_on: i64) -> Vec<(String, String)> {
+    let (_, findings) =
+        values_and_findings(&project(risks, Vec::new()), &[], &BTreeMap::new(), block_on);
+    findings
+        .into_iter()
+        .map(|d| (d.code, d.entity.unwrap_or_default()))
+        .collect()
+}
+
+fn w532(entity: &str) -> (String, String) {
+    ("W532".to_string(), entity.to_string())
+}
+
+#[test]
+fn w532_fires_at_the_threshold_with_nothing_named_and_not_one_below() {
+    let task = format!("{PLAN}/T1");
+    let risks = || {
+        vec![
+            rated_risk("AT", ["4", "5", "5"], &[]),
+            rated_risk("BELOW", ["7", "7", "2"], &[]),
+            rated_risk("NAMED", ["10", "10", "10"], &[&task]),
+            rated_risk("UNRESOLVED", ["10", "10", "10"], &["v1.0/01/01-01/T9"]),
+            rated_risk("UNRATED", ["10", "10", "11"], &[]),
+        ]
+    };
+    assert_eq!(
+        w532_on(risks(), 100),
+        [w532("AT")],
+        "rpn 100 at 100; 98 below it"
+    );
+    assert_eq!(
+        w532_on(risks(), 98),
+        [w532("AT"), w532("BELOW")],
+        "rpn 98 at 98"
+    );
+    assert_eq!(w532_on(risks(), 99), [w532("AT")], "rpn 98 one below 99");
+    assert_eq!(w532_on(risks(), 101), Vec::new(), "rpn 100 one below 101");
+    let (_, findings) =
+        values_and_findings(&project(risks(), Vec::new()), &[], &BTreeMap::new(), 100);
+    assert_eq!(
+        findings[0].message,
+        "risk 'AT' has rpn 100, at or above specforge.risk_block_on (100), and names nothing in mitigated_by"
+    );
+    assert_eq!(findings[0].severity, PassSeverity::Warning);
+}

@@ -59,6 +59,10 @@ is still at or above the threshold keeps blocking, and an optimistic post block 
 are done. The threshold is `specforge.risk_block_on` ([settings.md](settings.md#specforge-only-settings)), an
 integer from 1 to 1000, 100 by default.
 
+gsd/W532 ([rules.md](rules.md#governance)) warns on a risk whose `rpn` is at or above the threshold and that names
+nothing in `mitigated_by`: rate it again, or name what controls it. It is silent below the threshold and once anything
+is named, done or not (`blocking` says whether it still blocks).
+
 `mitigated_by` names no reverse: the kernel reads a reverse name through a field's one target kind, and this field
 has two.
 
