@@ -1,6 +1,6 @@
 {
-  "version": "gsd-ab-v1",
-  "description": "The GSD A/B corpus (README.md): arms, fixtures, seeded defects and 12 tasks. v1, ready for review at gate A, then tagged gsd-ab-v1. seed.py makes each arm's copy of a task's fixture from it.",
+  "version": "gsd-ab-v2",
+  "description": "The GSD A/B corpus (README.md): arms, fixtures, seeded defects and 12 tasks. v2, a draft over v1, which the tag gsd-ab-v1 freezes: it adds arm Bv1, arm B as that tag froze it. seed.py makes each arm's copy of a task's fixture from it.",
   "arms": [
     {
       "id": "A", "state": "gsd-core 1.19.0 .planning/ Markdown", "tools": ["gsd-tools"],
@@ -15,6 +15,11 @@
     {
       "id": "B0", "state": "B without the test facts: no @code/core and no pack that writes its facts; the requirement route stays, its item and test steps skipped", "tools": ["specforge", "specforge mcp", "specforge collect", "specforge trace"],
       "config": { "extensions": ["@gsd/core", "@specforge/checks"], "thread": false, "settings": { "@gsd/core": { "profile": "gsd-strict", "specforge.task_trailers": true } } },
+      "drop": [".planning/", "README.md"]
+    },
+    {
+      "id": "Bv1", "tag": "gsd-ab-v1", "state": "arm B as the tag gsd-ab-v1 froze it: the fixtures' trees, the @gsd components and the specforge binary of the tag", "tools": ["specforge", "specforge mcp", "specforge collect", "specforge trace"],
+      "config": { "extensions": ["@gsd/core", "@specforge/checks"], "thread": true, "settings": { "@gsd/core": { "profile": "gsd-strict", "specforge.task_trailers": true } } },
       "drop": [".planning/", "README.md"]
     }
   ],

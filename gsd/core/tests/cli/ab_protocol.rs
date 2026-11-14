@@ -27,6 +27,12 @@ fn the_scorer_passes_its_self_test_pairing_twelve_runs_and_refusing_eleven_run_f
         stdout.lines().any(|l| l == "B - A: 12 pairs over 4 tasks"),
         "{stdout}"
     );
+    assert!(
+        stdout
+            .lines()
+            .any(|l| l == "B - Bv1: 12 pairs over 4 tasks"),
+        "{stdout}"
+    );
     let count = |prefix: &str| stdout.lines().filter(|l| l.starts_with(prefix)).count();
     assert_eq!(
         (count("refused: "), count("refused run file: ")),
@@ -73,12 +79,21 @@ fn run_files_are_ignored() {
     assert_eq!(run_files_ignored(), 0);
 }
 
-/// The corpus is frozen as v1: three ready fixtures whose paths exist, twelve tasks, each listed defect seeded in arm A
+/// The corpus is version 2: arms A, B, B0 and Bv1, where Bv1 is arm B as the tag `gsd-ab-v1` froze it (B's tools,
+/// configuration and drops); three ready fixtures whose paths exist, twelve tasks, each listed defect seeded in arm A
 /// and arm B with at least one `b_signals` row, each row about a seeded defect, and no status `pending` left in it.
 #[test]
-fn the_corpus_is_frozen_as_v1() {
+fn the_corpus_is_version_2() {
     let tasks = ab_tasks();
-    assert_eq!(tasks["version"], "gsd-ab-v1");
+    assert_eq!(tasks["version"], "gsd-ab-v2");
+    let arms = tasks["arms"].as_array().expect("arms");
+    let ids: Vec<&str> = arms.iter().filter_map(|a| a["id"].as_str()).collect();
+    assert_eq!(ids, ["A", "B", "B0", "Bv1"]);
+    let (b, v1) = (&arms[1], &arms[3]);
+    assert_eq!(v1["tag"], "gsd-ab-v1");
+    for key in ["config", "tools", "drop"] {
+        assert_eq!(v1[key], b[key], "Bv1's {key} is B's");
+    }
     let fixtures = tasks["fixtures"].as_array().expect("fixtures");
     assert_eq!(fixtures.len(), 3);
     for fixture in fixtures {
@@ -318,8 +333,8 @@ fn prompt(arm: &str) -> (String, String) {
     (format!("{before}{after}"), commands.to_string())
 }
 
-/// Every arm of `tasks.json` has a prompt; the prompts differ only in their commands block, B0's is B's, and each
-/// holds the task's prompt once and ends with the same RESULT instruction.
+/// Every arm of `tasks.json` has a prompt; the prompts differ only in their commands block, B0's is B's, Bv1's file is
+/// B's byte for byte, and each holds the task's prompt once and ends with the same RESULT instruction.
 #[test]
 fn the_arms_prompts_differ_only_in_their_commands() {
     let tasks = ab_tasks();
@@ -329,15 +344,21 @@ fn the_arms_prompts_differ_only_in_their_commands() {
         .iter()
         .map(|a| a["id"].as_str().expect("an arm id"))
         .collect();
-    assert_eq!(arms, ["A", "B", "B0"]);
+    assert_eq!(arms, ["A", "B", "B0", "Bv1"]);
     let (shared, a) = prompt("A");
     let (b_shared, b) = prompt("B");
     let (b0_shared, b0) = prompt("B0");
+    let (v1_shared, v1) = prompt("Bv1");
     assert_eq!(
-        (&b_shared, &b0_shared),
-        (&shared, &shared),
+        (&b_shared, &b0_shared, &v1_shared),
+        (&shared, &shared, &shared),
         "every arm's prompt is A's outside its commands"
     );
+    let read = |arm: &str| {
+        std::fs::read(ab_dir().join("prompts").join(format!("{arm}.md"))).expect("a prompt")
+    };
+    assert_eq!(read("Bv1"), read("B"), "Bv1's prompt is B's, byte for byte");
+    assert_eq!(v1, b, "Bv1 has B's tools");
     assert_ne!(a, b, "A and B name their own tools");
     assert_eq!(
         b0, b,
@@ -355,7 +376,7 @@ fn the_arms_prompts_differ_only_in_their_commands() {
     files.sort();
     assert_eq!(
         files,
-        ["A.md", "B.md", "B0.md"],
+        ["A.md", "B.md", "B0.md", "Bv1.md"],
         "one prompt per arm, nothing else"
     );
 }

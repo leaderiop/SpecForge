@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Score the GSD A/B (evaluation/gsd-ab/README.md): M1-M6 per run, paired B - A and B - B0
+"""Score the GSD A/B (evaluation/gsd-ab/README.md): M1-M6 per run, paired B - A, B - B0 and B - Bv1
 differences with bootstrap intervals, and the gate B verdict.
 
 Usage:
@@ -10,7 +10,8 @@ Usage:
 another file there (a note) is skipped and named, and transcripts live under `transcripts/`, outside the
 pattern. It refuses a run file that lacks a field, has one of the wrong type, or logs an intervention the
 operator's script (OPERATOR.md) does not list. Runs pair by (task, seed); a run whose partner is missing is
-refused.
+refused. A run set is one protocol commit and one `specforge` per build: A, B and B0 share one, and Bv1 (arm B as the
+tag gsd-ab-v1 froze it) records its own.
 Standard library only, Python 3.11+.
 """
 
@@ -39,8 +40,12 @@ FIELDS = {
     "intervention_log": list, "rework_commits": int, "protocol": dict,
 }
 HOST = ("agent", "version", "machine")
-# The protocol a run was made under: the commit `seed.py seed` reports, and `specforge --version`. One per run set.
+# The protocol a run was made under: the commit `seed.py seed` reports, and `specforge --version`. One commit per run
+# set, one `specforge` per build.
 PROTOCOL = ("commit", "specforge")
+ARMS = ("A", "B", "B0", "Bv1")
+# The arm that runs the build the tag gsd-ab-v1 froze; every other arm runs this commit's.
+TAGGED = "Bv1"
 BUDGET = ("max_turns", "max_tokens")
 # The operator's only reasons to step in (OPERATOR.md); `operator` logs the operator's own error.
 REASONS = {"question", "stopped", "budget", "operator"}
@@ -141,16 +146,16 @@ def tokens_per_plan(pairs: dict, side: int) -> float | None:
     return sum(run["tokens"] for run in runs) / plans if plans else None
 
 
-def report(pairs: dict, label: str) -> dict:
+def report(pairs: dict, treated: str, control: str) -> dict:
     """Print each measure's paired difference and interval; return {measure: (diff, low, high)}."""
     rng = random.Random(RNG_SEED)
     out = {}
-    print(f"{label}: {sum(len(s) for s in pairs.values())} pairs over {len(pairs)} tasks")
+    print(f"{treated} - {control}: {sum(len(s) for s in pairs.values())} pairs over {len(pairs)} tasks")
     for measure in MEASURES:
         low, high = interval(pairs, measure, rng)
         out[measure] = (difference(pairs, measure), low, high)
         print(f"  {measure:<17} {out[measure][0]:+8.3f}  [{low:+.3f}, {high:+.3f}]")
-    for side, arm in ((0, label[0:2].strip()), (1, label[-2:].strip())):
+    for side, arm in ((0, treated), (1, control)):
         m4 = tokens_per_plan(pairs, side)
         print(f"  M4 {arm:<14} " + ("no completed plan" if m4 is None else f"{m4:8.0f} tokens per completed plan"))
     return out
@@ -177,10 +182,13 @@ def h2(runs: list[dict], tasks: dict) -> bool:
 
 
 def score(runs: list[dict], tasks: dict) -> tuple[bool, bool | None]:
-    """The gate B verdict, and H2's (None without B0 runs)."""
+    """The gate B verdict, and H2's (None without B0 runs). B - Bv1 is reported when Bv1 runs exist and gates
+    nothing."""
     ab = pair(runs, tasks, "B", "A")
-    passed = gate_b(ab, report(ab, "B - A"))
+    passed = gate_b(ab, report(ab, "B", "A"))
     thread = h2(runs, tasks) if any(run["arm"] == "B0" for run in runs) else None
+    if any(run["arm"] == TAGGED for run in runs):
+        report(pair(runs, tasks, "B", TAGGED), "B", TAGGED)
     print(f"gate B: {'pass' if passed else 'fail'}")
     return passed, thread
 
@@ -194,8 +202,8 @@ def check_run(run: dict, tasks: dict, where: str) -> None:
             raise ValueError(f"{where}: no `{key}`")
         if isinstance(run[key], bool) or not isinstance(run[key], kind):
             raise ValueError(f"{where}: `{key}` is {type(run[key]).__name__}, not {kind}")
-    if run["arm"] not in ("A", "B", "B0"):
-        raise ValueError(f"{where}: arm {run['arm']!r} is none of A, B and B0")
+    if run["arm"] not in ARMS:
+        raise ValueError(f"{where}: arm {run['arm']!r} is none of {', '.join(ARMS)}")
     for block, keys in (("host", HOST), ("budget", BUDGET), ("protocol", PROTOCOL)):
         missing = [key for key in keys if key not in run[block]]
         if missing:
@@ -249,9 +257,18 @@ def read_runs(root: Path, tasks: dict) -> list[dict]:
         if (run["arm"], run["task"], str(run["seed"])) != (arm, task, seed):
             raise ValueError(f"{path}: arm, task and seed differ from the file's path")
         runs.append(run)
-    protocols = sorted({json.dumps(run["protocol"], sort_keys=True) for run in runs})
-    if len(protocols) > 1:
-        raise ValueError(f"the runs mix protocols, one study is one protocol: {', '.join(protocols)}")
+    commits = sorted({str(run["protocol"]["commit"]) for run in runs})
+    if len(commits) > 1:
+        raise ValueError(f"the runs mix protocol commits, one study is one commit: {', '.join(commits)}")
+    builds: dict[str, set[str]] = {}
+    for run in runs:
+        builds.setdefault(TAGGED if run["arm"] == TAGGED else "B", set()).add(str(run["protocol"]["specforge"]))
+    for build, seen in sorted(builds.items()):
+        if len(seen) > 1:
+            versions = ", ".join(sorted(seen))
+            raise ValueError(f"the {build} build's runs mix specforge versions, one build is one: {versions}")
+    if TAGGED in builds and builds[TAGGED] == builds.get("B"):
+        raise ValueError(f"arm {TAGGED} ran B's build ({', '.join(sorted(builds[TAGGED]))}): it runs the tag's")
     return runs
 
 
@@ -284,10 +301,10 @@ VOCABULARY = {
 
 
 def synthetic(b_wins: bool, b_tokens: float = 1.0, a_plans: int = 1) -> tuple[list[dict], dict]:
-    """Four tasks seeded with S1 (a thread defect) and S2 (not one), three seeds, arms A, B and B0. A leaves both
+    """Four tasks seeded with S1 (a thread defect) and S2 (not one), three seeds, arms A, B, B0 and Bv1. A leaves both
     defects and drifts. B leaves none and no drift when it wins, and repeats A when it doesn't. B0 always leaves S1
-    but not S2, so B beats B0 on the thread's defects exactly when B wins. B spends `b_tokens` times A's tokens, and A
-    completes `a_plans` plans a run (every other arm one)."""
+    but not S2, so B beats B0 on the thread's defects exactly when B wins. Bv1 leaves S1, on its own build. B spends
+    `b_tokens` times A's tokens, and A completes `a_plans` plans a run (every other arm one)."""
     tasks = {**VOCABULARY, "tasks": [
         {"id": f"t{i}", "workflow": "verify", "seeded": ["S1", "S2"], "ground_truth": {"p": "complete"},
          "acceptance": [{"text": "tests", "run": "true"}]}
@@ -299,14 +316,15 @@ def synthetic(b_wins: bool, b_tokens: float = 1.0, a_plans: int = 1) -> tuple[li
             bad = {"claims": {"p": "planned"}, "defects_present": ["S1", "S2"]}
             good = {"claims": {"p": "complete"}, "defects_present": []}
             thread_off = {"claims": {"p": "complete"}, "defects_present": ["S1"]}
-            arms = (("A", bad), ("B", good if b_wins else bad), ("B0", thread_off))
+            arms = (("A", bad), ("B", good if b_wins else bad), ("B0", thread_off), ("Bv1", thread_off))
             for arm, state in arms:
                 runs.append({
                     "arm": arm, "task": f"t{i}", "seed": seed, "model": "synthetic", "temperature": 0,
                     "host": {"agent": "synthetic", "version": "0", "machine": "none"},
                     "budget": {"max_turns": 200, "max_tokens": 400_000}, "permission_mode": "auto in the copy",
                     "final_report": "verified",
-                    "protocol": {"commit": "0" * 40, "specforge": "specforge 0.0.0"},
+                    "protocol": {"commit": "0" * 40,
+                                 "specforge": "specforge 0.0.0-v1" if arm == "Bv1" else "specforge 0.0.0"},
                     "acceptance": {"tests": arm == "B" and b_wins},
                     "tokens": round((100_000 + seed) * (b_tokens if arm == "B" else 1.0)),
                     "plans_completed": a_plans if arm == "A" else 1, "wall_seconds": 600, "interventions": 0,
@@ -361,7 +379,7 @@ def self_test() -> None:
     assert measured["M3"] == 1.0, measured
     runs, tasks = synthetic(b_wins=True)
     try:
-        score([run for run in runs if run["arm"] != "B0"][:-1], tasks)
+        score([run for run in runs if run["arm"] not in ("B0", "Bv1")][:-1], tasks)
     except Unpaired as refusal:
         print(f"refused: {refusal}")
     else:
@@ -371,19 +389,23 @@ def self_test() -> None:
         said = io.StringIO()
         with contextlib.redirect_stderr(said):
             empty = status(Path(tmp), tasks)
-            write_runs(Path(tmp), [run for run in runs if run["arm"] != "B0"][:-1])
+            write_runs(Path(tmp), [run for run in runs if run["arm"] not in ("B0", "Bv1")][:-1])
             unpaired = status(Path(tmp), tasks)
         assert (empty, unpaired) == (2, 2), (empty, unpaired)
         assert said.getvalue().count("score.py: ") == 2 and "no B run" in said.getvalue(), said.getvalue()
-    # A run set made under two protocols (another commit, another specforge) is refused as a whole.
-    with tempfile.TemporaryDirectory() as tmp:
-        mixed = [dict(run) for run in runs]
-        mixed[0]["protocol"] = {"commit": "1" * 40, "specforge": "specforge 0.0.0"}
-        write_runs(Path(tmp), mixed)
-        said = io.StringIO()
-        with contextlib.redirect_stderr(said):
-            assert status(Path(tmp), tasks) == 2
-        assert "mix protocols" in said.getvalue(), said.getvalue()
+    # A run set made under two protocol commits, or whose arm Bv1 ran B's build, is refused as a whole.
+    for change, why in (
+        (lambda run: {**run, "protocol": {**run["protocol"], "commit": "1" * 40}} if run is runs[0] else run,
+         "mix protocol commits"),
+        (lambda run: {**run, "protocol": {**run["protocol"], "specforge": "specforge 0.0.0"}}, "arm Bv1 ran B's build"),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            write_runs(Path(tmp), [change(run) for run in runs])
+            said = io.StringIO()
+            with contextlib.redirect_stderr(said):
+                assert status(Path(tmp), tasks) == 2
+            assert why in said.getvalue(), said.getvalue()
+            print(f"refused set: {said.getvalue().strip()}")
     # The run files' own refusals, counted: exactly these eleven.
     run = runs[0]
     for what, bad in (

@@ -1,7 +1,9 @@
 # GSD A/B protocol (proof lane)
 
-**Status:** v1, ready for review (`tasks.json` version `gsd-ab-v1`). It is reviewed at gate A ([REVIEW.md](REVIEW.md)),
-then tagged `gsd-ab-v1` by the owner before any run. A change after the tag is a new version, and the report says so.
+**Status:** v2, a draft (`tasks.json` version `gsd-ab-v2`). v1 is frozen by the tag `gsd-ab-v1`, which the owner sets
+at v1's gate A on a commit before this version. v2 adds arm Bv1, arm B as that tag froze it, and the measure M7 of the
+context an executor starts on. It is reviewed at its own gate A ([REVIEW.md](REVIEW.md)), then tagged `gsd-ab-v2`
+(section 10). A change after a tag is a new version, and the report says so.
 
 This is the pre-registered protocol of the A/B the build plan's gate B reads: does an agent that keeps its project
 state in a checked graph do better than one that keeps it in Markdown? The files beside this one are the corpus
@@ -23,8 +25,8 @@ committed.
 
 Same model, same temperature, same tool budget, same task prompts. The prompt is `prompts/<arm>.md` with the task's
 `prompt` in place of `{task.prompt}` and its workflow's `RESULT:` values in place of `{task.results}`, as `seed.py
-prompt` prints it: the three files are one text except their commands block (between `<!-- commands -->` and
-`<!-- /commands -->`), which names the arm's tools (B0's is B's), and all end asking for one `RESULT:` line, whose
+prompt` prints it: the four files are one text except their commands block (between `<!-- commands -->` and
+`<!-- /commands -->`), which names the arm's tools (B0's is B's, and Bv1's file is B's byte for byte), and all end asking for one `RESULT:` line, whose
 value is the run's `final_report`. `tasks.json#results` gives each workflow's values, what each means, and whether it
 claims the work done (`complete` for execute, `verified` for verify, `passed` for progress/resume and ship). Each arm's configuration is frozen in `tasks.json#arms`
 (`config`: the extensions by name, whether the fixture's thread packs load, the settings; `drop`: the fixture's paths
@@ -39,6 +41,7 @@ alike: it is no signal of a seed.
 |---|---|---|
 | **A** | gsd-core 1.19.0: `.planning/` Markdown | `gsd-tools` |
 | **B** | SpecForge `@gsd/core` with the gsd-strict profile and `specforge.task_trailers` on (E521: a task commit links its task by a `Gsd-Task:` trailer): the `.spec` graph | `specforge` CLI and MCP, `collect`, `trace <requirement>` |
+| **Bv1** | arm B as the tag `gsd-ab-v1` froze it: the fixtures' trees, the `@gsd/*` components and the `specforge` binary built from the tag, with v2's tasks, seeds, prompt (B's) and measures | as B, with its own binary |
 | **B0** | B without the test facts: no `@code/core` and no pack that writes its facts (the fixture's `thread` in `tasks.json`), so no test or item facts and no `proof` links. The requirement route is `@gsd/core`'s and stays: `trace` follows it with its `item` and `test` steps skipped (`I210`) | as B |
 
 ## 3. Fixtures
@@ -53,7 +56,8 @@ alike: it is no signal of a seed.
   is false there before any seed, on a path GSD really takes (a quick task does not re-verify the phase it changes);
   it is a second language, so the thread's packs are not only Node's; and it is small enough to read whole.
 
-Each arm starts from the same commit of the fixture, in its own format. The importer may not be used to make arm A's
+Each arm starts from the same commit of the fixture, in its own format; Bv1 starts from the tree the tag `gsd-ab-v1`
+holds for it (`git rev-parse gsd-ab-v1:<fixture path>`), and `seed.py` refuses Bv1 where the tag is missing. The importer may not be used to make arm A's
 input: arm A's `.planning/` is the recorded one, not a conversion of the twin.
 
 ## 4. Tasks
@@ -101,7 +105,7 @@ seeded entity, so a row still checks the truth it names; the other stale verdict
 ## 6. Measures
 
 Per arm, per (task, seed) run. The operator's scripts write a run file (section 7); `score.py` computes M1 to M6, the
-measure set fixed for v1 (measures of autonomy wait for `gsd-ab-v2`):
+measure set fixed for v1 and kept by v2 (measures of autonomy may join v2 before its tag, section 10):
 
 | Id | Measure | From the run file |
 |---|---|---|
@@ -178,23 +182,27 @@ An arm that completed no plan has no M4, and the M4 clause then fails: no eviden
 
 ## 10. Pre-registration
 
-The tag `gsd-ab-v1` is set at gate A, before any run, on the commit the review read. It freezes:
+The tag `gsd-ab-v1` is set at v1's gate A, before any run, on the commit the review read; v2's tag `gsd-ab-v2` is set at
+v2's gate A, after `gsd-ab-v1` exists. Each freezes:
 
-- `evaluation/gsd-ab/`: this README, `tasks.json`, `seed.py`, `score.py`, `prompts/` (A.md, B.md, B0.md),
+- `evaluation/gsd-ab/`: this README, `tasks.json`, `seed.py`, `score.py`, `prompts/` (A.md, B.md, B0.md, Bv1.md),
   [OPERATOR.md](OPERATOR.md) and [REVIEW.md](REVIEW.md);
 - the three fixtures, `gsd/parity/fixtures/{taskboard,vault,ledger}`, each pinned in `tasks.json` by its git tree
   (`tree`): `seed.py` copies that tree, refuses while the fixture or this directory has uncommitted changes, and
   refuses a fixture whose tree at HEAD is not the pinned one; `ab_protocol` fails on a fixture edited after its pin;
 - the components arm B and B0 load, `@gsd/core` and `@gsd/security`, and the `specforge` binary, all built from the
   tagged commit (OPERATOR.md), and gsd-core 1.19.0 for arm A;
-- the measures, M1 to M6 (section 6), with gate B's rule (section 9). Measures of autonomy are not in v1; they are
-  `gsd-ab-v2`'s.
+- the measures, M1 to M6 (section 6), with gate B's rule (section 9);
+- for v2, the reference to the tag Bv1 reads (`tasks.json#arms`, `"tag": "gsd-ab-v1"`).
 
 Every run file records its `protocol`: the commit `seed.py seed` reports and `specforge --version`. `score.py`
-refuses a run set that mixes two protocols, and a run whose copy came from a working tree (`seed.py --worktree`,
-for the tests). A change after the tag, a fixture's included, is a new version, and the report names it.
+refuses a run set that mixes two protocol commits or two `specforge` versions of one build (A, B and B0 share one,
+Bv1 records the tag's), a set whose Bv1 runs record B's, and a run whose copy came from a working tree
+(`seed.py --worktree`, for the tests). A change after the tag, a fixture's included, is a new version, and the report names it.
 
-Open before the tag, each needing gsd-core 1.19.0 installed (`gsd-tools`, node 24):
+Open before v2's tag: `gsd-ab-v1` set; Bv1's preflight run on the tag's build (`seed.py preflight --arm Bv1`); the
+autonomy measures and a project from outside may join v2 before its tag, or come in a later version. Open before
+v1's tag, each needing gsd-core 1.19.0 installed (`gsd-tools`, node 24):
 
 - the ledger's JSON goldens, recorded by `gsd/parity/record-ledger.sh`, and the comparison of the statuses gsd-tools
   reads from its `.planning/` with the ledger's `.spec` twin;
@@ -208,8 +216,9 @@ Open before the tag, each needing gsd-core 1.19.0 installed (`gsd-tools`, node 2
 | Threat | Mitigation |
 |---|---|
 | One model | name it; a second model's run is a new version, not a retry |
-| Fixtures written by the authors: all three are | every fixture, seed, completion, acceptance row and prompt is in the tagged commit; each `.planning/` is hand-written from gsd-core's templates; taskboard's and vault's are read by gsd-tools 1.19.0 (the `record*.sh` scripts fail on a verb that errors), the ledger's not yet (its goldens are open, section 10); one fixture (ledger) is red from the start, so a "verified" is false there with no seed. A project from outside, replayed through `@gsd/import`, cannot be in v1: the importer is built after the tag, and arm B's input would come from code the tag does not hold (section 10). It is the threat a `gsd-ab-v2` closes |
+| Fixtures written by the authors: all three are | every fixture, seed, completion, acceptance row and prompt is in the tagged commit; each `.planning/` is hand-written from gsd-core's templates; taskboard's and vault's are read by gsd-tools 1.19.0 (the `record*.sh` scripts fail on a verb that errors), the ledger's not yet (its goldens are open, section 10); one fixture (ledger) is red from the start, so a "verified" is false there with no seed. A project from outside, replayed through `@gsd/import`, cannot be in v1: the importer is built after the tag, and arm B's input would come from code the tag does not hold (section 10). It is a threat a later version may close (section 10) |
 | Arm B's prompts are newer than arm A's | both arms' prompts are frozen at gate A (`prompts/`), and each arm's agents and skills come from its release unchanged (gsd-core 1.19.0, `@gsd/core` at the tag) |
+| B and Bv1 start from different fixture trees when v2 moved a pin | Bv1 runs the trees its own build reads (a digest the newer build records would not match the older), so each arm meets the fixture its build was made for; the tag names the trees |
 | The operator's hand in interventions | [OPERATOR.md](OPERATOR.md): four reasons, each with its text, logged with its turn and counted in M5; `score.py` refuses any other |
 
 ## Score
@@ -222,11 +231,12 @@ python3 -I evaluation/gsd-ab/score.py --self-test
 `--runs` exits 0 when gate B passes, 1 when it fails, and 2 when the run set is refused (a bad or unpaired run file,
 or none), with the reason on standard error.
 
-`--self-test` writes an embedded synthetic set (4 tasks, 3 seeds, 3 arms) as run files and reads it back, scores it
+`--self-test` writes an embedded synthetic set (4 tasks, 3 seeds, 4 arms) as run files and reads it back, scores it
 where B clearly wins and where it doesn't, checks the gate B verdict of each and that an unpaired run is refused, and
 refuses exactly eleven bad run files: one without its host, one whose interventions are not logged, one whose
 intervention has a reason outside the list, one whose acceptance value is not a boolean, one with an acceptance row
 its task does not have, one with a claim on a key outside the task's ground truth, two whose `defects_present` holds
 what the task does not seed (an unknown id, a number), one whose claim is outside its key's vocabulary, one whose
 `final_report` is not a `RESULT:` value of its task's workflow, and one whose copy was a working tree's
-(`protocol.commit` ending in `+worktree`). It also refuses a set whose runs record two protocols.
+(`protocol.commit` ending in `+worktree`). It also refuses a set whose runs record two protocol commits, and one whose
+Bv1 runs record B's build.

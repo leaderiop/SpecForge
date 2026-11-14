@@ -2,13 +2,14 @@
 """Make each arm's copy of a GSD A/B task's fixture (evaluation/gsd-ab/README.md), with its seeded defects.
 
 Usage:
-    python3 -I evaluation/gsd-ab/seed.py seed --task <id> --arm A|B|B0 --out <dir>
+    python3 -I evaluation/gsd-ab/seed.py seed --task <id> --arm A|B|B0|Bv1 --out <dir>
         [--gsd-core <wasm>] [--gsd-security <wasm>] [--state complete] [--unseeded] [--worktree]
-    python3 -I evaluation/gsd-ab/seed.py present --task <id> --arm A|B|B0 --dir <dir>
-    python3 -I evaluation/gsd-ab/seed.py rework --arm A|B|B0 --dir <dir>
-    python3 -I evaluation/gsd-ab/seed.py prompt --task <id> --arm A|B|B0
+    python3 -I evaluation/gsd-ab/seed.py present --task <id> --arm A|B|B0|Bv1 --dir <dir>
+    python3 -I evaluation/gsd-ab/seed.py rework --arm A|B|B0|Bv1 --dir <dir>
+    python3 -I evaluation/gsd-ab/seed.py prompt --task <id> --arm A|B|B0|Bv1
     python3 -I evaluation/gsd-ab/seed.py schedule
-    python3 -I evaluation/gsd-ab/seed.py preflight --specforge <bin> --gsd-core <wasm> --gsd-security <wasm> [--record]
+    python3 -I evaluation/gsd-ab/seed.py preflight [--arm B|Bv1] --specforge <bin> --gsd-core <wasm>
+        --gsd-security <wasm> [--record]
     python3 -I evaluation/gsd-ab/seed.py --self-test
 
 `seed` copies the fixture as committed (`git archive` of the tree `tasks.json` pins for it, which must be the fixture's
@@ -19,7 +20,9 @@ arm's `specforge.json` (B and B0; the component paths of the `@gsd/*` extensions
 file edits in `tasks.json` order, makes the copy a git repository with one base commit whose subject names no plan (it
 holds the seeded files, so the copy starts clean), then makes each seed's commits. `--state complete` then applies the
 task's `completion` (what a correct run leaves; the tests only). `--unseeded` applies no seed: the control copy the
-tests compare a seeded one with. Two seedings of one (task, arm) with the same flags have one HEAD.
+tests compare a seeded one with. Two seedings of one (task, arm) with the same flags have one HEAD. An arm with a `tag`
+(Bv1: arm B as the tag `gsd-ab-v1` froze it) copies each fixture's tree from that tag instead of HEAD, and takes B's
+seeds; it refuses a repository without the tag, a fixture path the tag lacks, and `--worktree`.
 
 `present` names the seeded defects still in a copy after a run (the run file's `defects_present`): a defect is present
 while any of its edits holds (a text it inserted is still in its file, a text or file it deleted is still gone, a commit
@@ -33,7 +36,8 @@ seed) once, its arms in an order drawn with a fixed RNG seed, no arm first twice
 unseeded B copy of each fixture, runs a real `specforge collect --yes` in it (the fixture's own tests run) and then
 `specforge check --format json`, and compares the diagnostics with the fixture's `baseline` in `tasks.json`: a
 difference (another build, another node or cargo) refuses the study before its first run. `--record` prints the
-baselines instead.
+baselines instead. `--arm Bv1` makes Bv1's copies from the tag's trees and compares them with the baselines of the
+tag's own `tasks.json`, with Bv1's binary and components (built from the tag).
 
 Standard library and the `git` program only (arm A's gsd-core needs git too), Python 3.11+.
 """
@@ -56,7 +60,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 TASKS = HERE / "tasks.json"
 REPO = HERE.parent.parent
-ARMS = ("A", "B", "B0")
+ARMS = ("A", "B", "B0", "Bv1")
 SEEDS = 3
 RNG_SEED = 20261102
 IDENTITY = ("gsd-ab", "gsd-ab@example.com")
@@ -104,18 +108,46 @@ def tracked(source: Path) -> dict[str, bytes]:
     return {path: (source / path).read_bytes() for path in paths}
 
 
-def committed(root: Path, fixture: dict) -> dict[str, bytes]:
+def has_tag(root: Path, tag: str) -> bool:
+    """Whether the repository at `root` has the tag `tag`."""
+    try:
+        git(root, "rev-parse", "-q", "--verify", f"refs/tags/{tag}")
+    except RuntimeError:
+        return False
+    return True
+
+
+def tag_tree(root: Path, tag: str, path: str, arm_id: str) -> str:
+    """The tree of `path` in the tag `tag`; refused, naming what is missing, without the tag or the path."""
+    if not has_tag(root, tag):
+        raise Refused(
+            f"arm {arm_id} copies the fixtures the tag {tag} froze; this repository has no such tag (the owner sets "
+            "it, README section 10)"
+        )
+    try:
+        return git(root, "rev-parse", f"{tag}:{path}").strip()
+    except RuntimeError:
+        raise Refused(f"the tag {tag} has no {path}") from None
+
+
+def committed(root: Path, fixture: dict, arm: dict | None = None) -> dict[str, bytes]:
     """The fixture's files as committed: the tree `tasks.json` pins for it, which must be its tree at HEAD, while
-    neither it nor `evaluation/gsd-ab/` has uncommitted changes."""
-    paths = [fixture["path"]] + ([HERE.relative_to(root).as_posix()] if HERE.is_relative_to(root) else [])
-    dirty = git(root, "status", "--porcelain", "--untracked-files=no", "--", *paths)
+    neither it nor `evaluation/gsd-ab/` has uncommitted changes. With `tag`, the fixture's tree in that tag, while
+    `evaluation/gsd-ab/` (whose seeds are HEAD's) has no uncommitted changes."""
+    tag = (arm or {}).get("tag")
+    here = [HERE.relative_to(root).as_posix()] if HERE.is_relative_to(root) else []
+    paths = here if tag else [fixture["path"]] + here
+    dirty = git(root, "status", "--porcelain", "--untracked-files=no", "--", *paths) if paths else ""
     if dirty.strip():
         raise Refused(
             f"uncommitted changes under {' and '.join(paths)}: a study copy is made from a commit (commit them; "
             "--worktree is for the tests)"
         )
-    tree = git(root, "rev-parse", f"HEAD:{fixture['path']}").strip()
-    if fixture.get("tree", tree) != tree:
+    if tag:
+        tree = tag_tree(root, tag, fixture["path"], arm["id"])
+    else:
+        tree = git(root, "rev-parse", f"HEAD:{fixture['path']}").strip()
+    if not tag and fixture.get("tree", tree) != tree:
         raise Refused(
             f"fixture {fixture['id']} is tree {tree} at HEAD, but tasks.json pins {fixture['tree']}: a changed fixture "
             "is a new protocol version"
@@ -206,8 +238,8 @@ def apply(out: Path, edit: dict, label: str) -> None:
 
 
 def edits_of(task: dict, defect: str, arm: str) -> list[dict]:
-    """A defect's edits in an arm: B0 takes B's."""
-    return task["seeds"][defect]["B" if arm == "B0" else arm]
+    """A defect's edits in an arm: B0 and Bv1 take B's."""
+    return task["seeds"][defect]["B" if arm in ("B0", "Bv1") else arm]
 
 
 def seed(
@@ -224,10 +256,12 @@ def seed(
         raise Refused(f"fixture {fixture['id']} is not ready: {fixture['status']}")
     if complete and arm_id == "A":
         raise Refused("--state complete is the B edits a correct run leaves; arm A has none")
+    if arm.get("tag") and worktree:
+        raise Refused(f"arm {arm_id} copies its tag's trees: a tagged arm has no --worktree copy")
     if out.exists() and (not out.is_dir() or any(out.iterdir())):
         raise Refused(f"{out} is not empty")
     config = None if arm["config"] is None else manifest(tasks, fixture, arm, components or {})
-    files = tracked(root / fixture["path"]) if worktree else committed(root, fixture)
+    files = tracked(root / fixture["path"]) if worktree else committed(root, fixture, arm)
     out.parent.mkdir(parents=True, exist_ok=True)
     building = Path(tempfile.mkdtemp(prefix=f".{out.name}.", dir=out.parent))
     try:
@@ -367,20 +401,32 @@ def diagnostics(specforge: str, copy: Path, *args: str) -> list[str]:
     return sorted(f"{item['code']} {item.get('file') or '-'}:{item.get('line') or 0}" for item in found)
 
 
-def preflight(tasks: dict, root: Path, specforge: str, components: dict, record: bool = False) -> dict:
-    """Each fixture's diagnostics on an unseeded B copy after a real collect, by fixture id; refused, naming each
-    difference, unless they are the fixture's `baseline` (or `record`)."""
+def preflight(
+    tasks: dict, root: Path, specforge: str, components: dict, record: bool = False, arm_id: str = "B",
+    folder: str | None = None,
+) -> dict:
+    """Each fixture's diagnostics on an unseeded copy of arm `arm_id` (B or Bv1) after a real collect, by fixture id;
+    refused, naming each difference, unless they are the fixture's `baseline` (or `record`). A tagged arm's baselines
+    are those of the tag's own `tasks.json`, in `folder` (this directory, relative to `root`)."""
+    if arm_id not in ("B", "Bv1"):
+        raise Refused(f"the preflight runs arm B or Bv1, not {arm_id}")
+    tag = find(tasks["arms"], arm_id, "arm").get("tag")
     found = {}
     with tempfile.TemporaryDirectory() as scratch:
         for fixture in tasks["fixtures"]:
             task = next(task for task in tasks["tasks"] if task["fixture"] == fixture["id"])
             copy = Path(scratch) / fixture["id"]
-            seed(tasks, root, task["id"], "B", copy, components, unseeded=True)
+            seed(tasks, root, task["id"], arm_id, copy, components, unseeded=True)
             found[fixture["id"]] = diagnostics(specforge, copy, "collect", "--yes", "--format", "json")
+    baselines = {fixture["id"]: fixture.get("baseline", []) for fixture in tasks["fixtures"]}
+    if tag:
+        folder = folder if folder is not None else HERE.relative_to(root).as_posix()
+        frozen = json.loads(git(root, "show", f"{tag}:{folder}/tasks.json"))
+        baselines = {fixture["id"]: fixture.get("baseline", []) for fixture in frozen["fixtures"]}
     if not record:
         differ = []
         for fixture in tasks["fixtures"]:
-            want, got = fixture.get("baseline", []), found[fixture["id"]]
+            want, got = baselines.get(fixture["id"], []), found[fixture["id"]]
             differ += [f"{fixture['id']}: - {line}" for line in want if line not in got]
             differ += [f"{fixture['id']}: + {line}" for line in got if line not in want]
         if differ:
@@ -410,6 +456,8 @@ SYNTHETIC = {
         {"id": "B", "config": {"extensions": ["@gsd/core"], "thread": True, "settings": {}},
          "drop": [".planning/", "README.md"]},
         {"id": "B0", "config": {"extensions": ["@gsd/core"], "thread": False, "settings": {}},
+         "drop": [".planning/", "README.md"]},
+        {"id": "Bv1", "tag": "gsd-ab-v1", "config": {"extensions": ["@gsd/core"], "thread": True, "settings": {}},
          "drop": [".planning/", "README.md"]},
     ],
     "fixtures": [{"id": "fx", "path": "fx", "status": "ready", "thread": ["@code/core"]}],
@@ -447,20 +495,29 @@ SYNTHETIC = {
 }
 
 
-def corpus(tasks: dict, root: Path, scratch: Path) -> int:
+def corpus(tasks: dict, root: Path, scratch: Path) -> tuple[int, list[str]]:
     """Seeds every task of `tasks` in every arm, seeded and unseeded: `present` names exactly the task's seeded defects
-    on the seeded copy and none on the unseeded one. Answers the number of copies made."""
+    on the seeded copy and none on the unseeded one. A tagged arm is seeded from its tag's trees, and skipped, saying
+    so, where the tag does not resolve. Answers the number of copies made and the arms seeded."""
     components = {name: str(scratch / "component.wasm") for name in ("@gsd/core", "@gsd/security")}
+    arms = []
+    for arm in ARMS:
+        tag = find(tasks["arms"], arm, "arm").get("tag")
+        if tag and not has_tag(root, tag):
+            print(f"corpus: arm {arm} skipped, no tag {tag} here")
+        else:
+            arms.append(arm)
     made = 0
     for task in tasks["tasks"]:
-        for arm in ARMS:
+        for arm in arms:
+            tagged = bool(find(tasks["arms"], arm, "arm").get("tag"))
             for unseeded in (False, True):
                 copy = scratch / f"{task['id']}-{arm}-{'unseeded' if unseeded else 'seeded'}"
-                seed(tasks, root, task["id"], arm, copy, components, unseeded=unseeded, worktree=True)
+                seed(tasks, root, task["id"], arm, copy, components, unseeded=unseeded, worktree=not tagged)
                 got, want = present(tasks, task["id"], arm, copy), [] if unseeded else task["seeded"]
                 assert got == want, f"{copy.name}: present {got}, want {want}"
                 made += 1
-    return made
+    return made, arms
 
 
 def self_test() -> None:
@@ -604,6 +661,37 @@ def self_test() -> None:
         (t4 / "test/t.js").unlink()
         assert present(SYNTHETIC, "t4", "A", t4) == ["D5"], "the file gone: the deleted text is still gone"
 
+        # Arm Bv1 copies the fixture as the tag gsd-ab-v1 froze it, with B's seeds; arm B copies HEAD's. The tag's own
+        # tasks.json holds the baselines Bv1's preflight compares with.
+        (fixture / "src/v.js").write_text("v1\n")
+        (root / "ab").mkdir()
+        frozen = {"fixtures": [{"id": "fx", "baseline": ["W1 a.spec:3"]}]}
+        (root / "ab/tasks.json").write_text(json.dumps(frozen))
+        git(root, "add", "fx", "ab")
+        git(root, "commit", "-q", "-m", "the frozen protocol")
+        git(root, "tag", "gsd-ab-v1")
+        (fixture / "src/v.js").write_text("v2\n")
+        git(root, "add", "fx")
+        git(root, "commit", "-q", "-m", "the fixture moves on")
+        v1, now = root / "bv1", root / "b-now"
+        assert seed(SYNTHETIC, root, "t1", "Bv1", v1, components) == 3, "Bv1 applies B's three edits"
+        seed(SYNTHETIC, root, "t1", "B", now, components)
+        assert ((v1 / "src/v.js").read_text(), (now / "src/v.js").read_text()) == ("v1\n", "v2\n")
+        assert present(SYNTHETIC, "t1", "Bv1", v1) == ["D1", "D2"], "Bv1's seeds are B's"
+        untagged = {**SYNTHETIC, "arms": [*SYNTHETIC["arms"], {**SYNTHETIC["arms"][3], "id": "Bx", "tag": "gsd-ab-v0"}]}
+        for args, kw, why in (
+            ((SYNTHETIC, root, "t1", "Bv1", root / "bv1-worktree", components), {"worktree": True}, "tag's trees"),
+            ((untagged, root, "t1", "Bx", root / "bx", components), {}, "tag gsd-ab-v0 froze; this repository has no"),
+        ):
+            try:
+                seed(*args, **kw)
+            except Refused as refused:
+                assert why in str(refused), refused
+            else:
+                raise AssertionError(f"{why}: must be refused")
+        assert preflight(SYNTHETIC, root, str(stand_in), components, arm_id="Bv1", folder="ab") == {
+            "fx": ["W1 a.spec:3"]}, "Bv1's preflight compares with the tag's baselines"
+
         order = schedule(SYNTHETIC)
         assert len(order) == len(SYNTHETIC["tasks"]) * SEEDS
         assert len({(task, number) for task, number, _ in order}) == len(order), "each (task, seed) once"
@@ -618,8 +706,8 @@ def self_test() -> None:
                 values = [result["value"] for result in tasks["results"][task["workflow"]]]
                 assert "{task." not in message and task["prompt"] in message, (task["id"], arm)
                 assert all(f"`RESULT: {value}`" in message.splitlines()[-1] for value in values), (task["id"], arm)
-        made = corpus(tasks, REPO, root / "corpus")
-        assert made == len(tasks["tasks"]) * len(ARMS) * 2
+        made, arms = corpus(tasks, REPO, root / "corpus")
+        assert made == len(tasks["tasks"]) * len(arms) * 2
         print(f"corpus: {made} copies, each seeded one naming its seeds and each unseeded one none")
     print("self-test: ok")
 
@@ -653,6 +741,7 @@ def main() -> None:
     checked.add_argument("--gsd-core", required=True)
     checked.add_argument("--gsd-security", required=True)
     checked.add_argument("--record", action="store_true", help="print the baselines instead of comparing")
+    checked.add_argument("--arm", choices=["B", "Bv1"], default="B", help="the arm whose copies run (Bv1: the tag's)")
     args = parser.parse_args()
     if args.self_test:
         if args.verb:
@@ -678,7 +767,7 @@ def main() -> None:
             print(prompt(tasks, args.task, args.arm), end="")
         elif args.verb == "preflight":
             components = {"@gsd/core": args.gsd_core, "@gsd/security": args.gsd_security}
-            found = preflight(tasks, REPO, args.specforge, components, args.record)
+            found = preflight(tasks, REPO, args.specforge, components, args.record, args.arm)
             print(json.dumps(found, indent=2) if args.record else f"preflight: {len(found)} fixtures at their baseline")
         else:
             for task, number, arms in schedule(tasks):
