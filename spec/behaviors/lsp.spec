@@ -1011,6 +1011,7 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
   verify unit "a union and an inline ref after an unclosed body are classified as top-level forms"
   verify unit "the forms after an unclosed triple-quoted string are classified as the parser reads them"
   verify unit "the document resumes at every top-level form of the repository's spec after an unclosed body"
+  verify unit "a number field's word is a number token"
 }
 
 behavior complete_field_names "Complete Field Names" {

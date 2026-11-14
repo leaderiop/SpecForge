@@ -186,9 +186,13 @@ pub fn entity(
             let annotations = facts.members.annotations.get(key).into_iter().flatten();
             let noted: String = annotations.map(|a| format!(" {}", a.spelled())).collect();
             let value = format_field_value(&entry.value);
-            // An integer read from another word (`2-1`, `007`) shows the word beside its value (ADR 0283).
+            // An integer or a number read from another word (`2-1`, `007`, `1.50`, `1.5e3`) shows the word beside
+            // its value (ADRs 0283, 0361).
             let value = match (&entry.value, entry.value_span.as_ref().and_then(written)) {
                 (FieldValue::Integer(n), Some(word)) if word != n.to_string() => {
+                    format!("{value} (written {word})")
+                }
+                (FieldValue::Number(d), Some(word)) if word != d.to_string() => {
                     format!("{value} (written {word})")
                 }
                 _ => value,
