@@ -19,9 +19,9 @@ fn passes(script: &str) -> String {
 }
 
 /// The scorer's self-test passes: it reads its synthetic runs back as files and pairs all of them, refuses an
-/// unpaired run, and refuses exactly eleven bad run files.
+/// unpaired run, refuses exactly fourteen bad run files, and reports H3.
 #[test]
-fn the_scorer_passes_its_self_test_pairing_twelve_runs_and_refusing_eleven_run_files() {
+fn the_scorer_passes_its_self_test_pairing_twelve_runs_and_refusing_fourteen_run_files() {
     let stdout = passes("score.py");
     assert!(
         stdout.lines().any(|l| l == "B - A: 12 pairs over 4 tasks"),
@@ -36,9 +36,10 @@ fn the_scorer_passes_its_self_test_pairing_twelve_runs_and_refusing_eleven_run_f
     let count = |prefix: &str| stdout.lines().filter(|l| l.starts_with(prefix)).count();
     assert_eq!(
         (count("refused: "), count("refused run file: ")),
-        (1, 11),
+        (1, 14),
         "{stdout}"
     );
+    assert!(count("H3: ") > 0, "{stdout}");
 }
 
 /// Every acceptance row is a command to run or a rubric to judge by, never both, never a bare string.

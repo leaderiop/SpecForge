@@ -81,6 +81,8 @@ For each `(task, seed, arm)` in the schedule's order:
    - `protocol`: `commit`, the value `seed.py seed` printed for the copy, the same for every run of the study; and
      `specforge`, what the arm's binary's `specforge --version` prints: one for A, B and B0, Bv1's its own
      (`score.py` refuses a set that mixes them, or whose Bv1 runs record B's).
+   - `spawns`: `python3 -I evaluation/gsd-ab/seed.py spawns --transcript <the run's transcript directory>`,
+     computed, never typed: per subagent its type, `context_tokens` (the context tokens a gsd-executor spawn holds at its first state change: a file tool, a mutating engine tool or a writing command, by MCP or by CLI (`tasks.json#state_writes`); its last request's when it changes none) and `total_tokens`.
    - `interventions` and `intervention_log` (below), and the fixed fields of "Before the first run".
 
 ## Interventions

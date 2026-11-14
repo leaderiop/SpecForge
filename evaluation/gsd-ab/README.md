@@ -20,6 +20,8 @@ committed.
   `"thread": true` in `tasks.json#defects`: S1, S5 and S6, whose signals read the test facts B0 lacks. H2 is reported
   and gates nothing. S4 is not a thread defect: B0 keeps `gsd/E521` (it reads commits, not test facts) and reports
   it as B does.
+- **H3 (the context compiler's hypothesis).** 30% fewer context tokens per executor spawn: arm B's `gsd-executor`
+  spawns start on at most 0.70 of arm Bv1's context (M7). H3 is reported and gates nothing.
 
 ## 2. Arms
 
@@ -105,7 +107,7 @@ seeded entity, so a row still checks the truth it names; the other stale verdict
 ## 6. Measures
 
 Per arm, per (task, seed) run. The operator's scripts write a run file (section 7); `score.py` computes M1 to M6, the
-measure set fixed for v1 and kept by v2 (measures of autonomy may join v2 before its tag, section 10):
+measure set fixed for v1, which v2 keeps and adds M7 to (measures of autonomy may join v2 before its tag, section 10):
 
 | Id | Measure | From the run file |
 |---|---|---|
@@ -115,6 +117,7 @@ measure set fixed for v1 and kept by v2 (measures of autonomy may join v2 before
 | M4 | tokens per completed plan | total tokens over plans completed, per arm |
 | M5 | wall time and human interventions | `wall_seconds`, `interventions` |
 | M6 | rework commits after verify | `rework_commits`: the run's commits after its first one that writes verification state (A: a `VERIFICATION.md`; B: a verdict, a `verdict:` line of `specforge-harness`), 0 when none does; `seed.py rework` counts them |
+| M7 | context tokens per gsd-executor spawn | `spawns`: the context tokens a gsd-executor spawn holds at its first state change: a file tool, a mutating engine tool or a writing command, by MCP or by CLI (`tasks.json#state_writes`); its last request's when it changes none; `seed.py spawns` reads them from the run's transcript, and M7 is the mean over the run's `gsd-executor` spawns (none: no M7) |
 
 M2 is mechanical. A ground truth key's kind (`tasks.json#states.kinds`) is the one whose `id` pattern it matches; its
 value and the run's claim on it are words of that kind's `values`, and `score.py` refuses any other. Each kind says,
@@ -156,14 +159,16 @@ A run file:
   "defects_present": ["S4"],
   "tokens": 182000, "plans_completed": 1,
   "wall_seconds": 840, "rework_commits": 0,
-  "interventions": 1, "intervention_log": [{ "reason": "question", "turn": 7 }]
+  "interventions": 1, "intervention_log": [{ "reason": "question", "turn": 7 }],
+  "spawns": [{ "agent": "gsd-executor", "context_tokens": 21400, "total_tokens": 96300 }]
 }
 ```
 
 Every field is required. `final_report` is the value of the run's last `RESULT:` line, or `none`; an intervention's
 `reason` is one of OPERATOR.md's (`question`, `stopped`, `budget`, `operator`) and `interventions` is the log's
 length. `acceptance` holds one boolean per acceptance row of the task, keyed by its text; `claims` one entry per key
-of the task's `ground_truth`; `defects_present` only ids the task seeds. `score.py` refuses a run file that breaks
+of the task's `ground_truth`; `defects_present` only ids the task seeds; `spawns` one `{agent, context_tokens,
+total_tokens}` per subagent, counts, the total never below the context. `score.py` refuses a run file that breaks
 any of this, or whose path is not its arm, task and seed.
 
 ## 8. Analysis
@@ -174,6 +179,8 @@ any of this, or whose path is not its arm, task and seed.
   over seeds within each resampled task, with a fixed RNG seed so a report reproduces.
 - H2 is reported the same way: B − B0 on `M3_thread` (false "verified" counting only the thread's defects, S1, S5 and S6), with its
   interval and whether its upper bound is below 0. It gates nothing.
+- H3 pairs B and Bv1 by (task, seed) where both have M7, takes each pair's ratio M7(B) / M7(Bv1), and bootstraps the
+  mean ratio the same way; it is shown when the interval's upper bound is at most 0.70. It gates nothing.
 - The seeds of a task are replicates only when the model samples: the operator fixes `temperature` above 0 for the
   study. At 0 the three seeds differ only by the host's own nondeterminism, and the interval over them is optimistic.
 
@@ -195,7 +202,7 @@ v2's gate A, after `gsd-ab-v1` exists. Each freezes:
   refuses a fixture whose tree at HEAD is not the pinned one; `ab_protocol` fails on a fixture edited after its pin;
 - the components arm B and B0 load, `@gsd/core` and `@gsd/security`, and the `specforge` binary, all built from the
   tagged commit (OPERATOR.md), and gsd-core 1.19.0 for arm A;
-- the measures, M1 to M6 (section 6), with gate B's rule (section 9);
+- the measures, M1 to M6 for v1 and M1 to M7 for v2 (section 6), with gate B's rule (section 9);
 - for v2, the reference to the tag Bv1 reads (`tasks.json#arms`, `"tag": "gsd-ab-v1"`).
 
 Every run file records its `protocol`: the commit `seed.py seed` reports and `specforge --version`. `score.py`
@@ -236,7 +243,8 @@ or none), with the reason on standard error.
 
 `--self-test` writes an embedded synthetic set (4 tasks, 3 seeds, 4 arms) as run files and reads it back, scores it
 where B clearly wins and where it doesn't, checks the gate B verdict of each and that an unpaired run is refused, and
-refuses exactly eleven bad run files: one without its host, one whose interventions are not logged, one whose
+refuses exactly fourteen bad run files: one without its host, one without its spawns, one whose spawn's context is
+not a count, one whose spawn's total is below its context, one whose interventions are not logged, one whose
 intervention has a reason outside the list, one whose acceptance value is not a boolean, one with an acceptance row
 its task does not have, one with a claim on a key outside the task's ground truth, two whose `defects_present` holds
 what the task does not seed (an unknown id, a number), one whose claim is outside its key's vocabulary, one whose
