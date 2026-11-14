@@ -349,3 +349,40 @@ fn within_on_a_field_that_is_no_num_is_refused_at_declare_time() {
     );
     declared_in(&BAD, "count");
 }
+
+const GLOSSED: Kind = Kind::new(
+    "glossed",
+    "a kind with a computed reference list to two kinds",
+    &[rfs_any("used_in", &["a", "b"]).c()],
+);
+
+/// A computed union is declared like an authored one: the kinds it may name, no single target kind, and one edge
+/// that names no target kind; the derive pass lists it among the fields it computes.
+#[test]
+fn a_computed_union_declares_its_kinds_and_one_edge() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@gsd/test", "0.0.0"));
+    declare(&mut c, &[&GLOSSED]);
+    let host = MockHost::new(c);
+    let read = |category: &str| -> serde_json::Value {
+        serde_json::from_str(&host.describe_json(category).expect(category)).expect("JSON")
+    };
+    let entities = read("entities");
+    let field = &entities["items"][0]["fields"][0];
+    assert_eq!(field["name"], "used_in", "{field}");
+    assert_eq!(field["writer"], "computed", "{field}");
+    assert_eq!(field["field_type"], "reference_list", "{field}");
+    assert_eq!(
+        field["target_kinds"],
+        serde_json::json!(["a", "b"]),
+        "{field}"
+    );
+    assert!(field["target_kind"].is_null(), "{field}");
+    assert_eq!(field["edge"], "GlossedUsedIn", "{field}");
+    let edges = read("edges");
+    let items = edges["items"].as_array().expect("edges");
+    assert_eq!(items.len(), 1, "{edges}");
+    assert_eq!(items[0]["label"], "GlossedUsedIn");
+    assert_eq!(items[0]["source_kind"], "glossed");
+    assert!(items[0]["target_kind"].is_null(), "{edges}");
+    assert_eq!(computed(&[&GLOSSED]), ["glossed.used_in"]);
+}
