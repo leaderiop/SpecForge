@@ -1774,6 +1774,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Risk grading**: the coverage owner's policy for one kind: its entities' risk is tallied, and
   one with no obligations is A002, an error at the grading's error level
   (`specforge_coverage::RiskGrading`, supplied by `@specforge/testing`; ADR 0009).
+- **Risk** (`@gsd/core`): what can go wrong in a GSD project, rated 1 to 10 for severity, occurrence and detection;
+  its rpn, post_rpn, status and blocking are computed (`specforge.risk_block_on`), never written (ADR 0358). Not the
+  coverage owner's Risk grading.
 - **Computed value**: the value of a `computed` field, given by a compute pass and held beside the graph (`Computed`),
   never written to a file; written by hand it is E082 (ADR 0287). Shown by every surface, the graph a call receives included (ADR 0299).
 - **Harness value**: the value of a `harness` field, which only a command's plan sets; the **Harness ledger**

@@ -8,9 +8,10 @@
 
 Files: `spec/gsd/governance/risks.spec`.
 
-GSD keeps no risk file: this kind is beyond parity, and no `gsd-compat` rule needs it. A risk is rated as FMEA rates a
-failure mode, severity, occurrence and detection each from 1 to 10, and SpecForge computes what the ratings give: an
-rpn is never written by hand.
+GSD keeps no risk file: this kind is beyond parity
+([ADR 0358](../../../docs/adr/0358-a-risk-is-rated-and-an-invariant-is-judged.md)), and no `gsd-compat` rule needs it.
+A risk is rated as FMEA rates a failure mode, severity, occurrence and detection each from 1 to 10, and SpecForge
+computes what the ratings give: an rpn is never written by hand.
 
 ## risk
 

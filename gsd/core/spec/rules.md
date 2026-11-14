@@ -129,7 +129,7 @@ Risks: what can go wrong, how it is rated, and what controls it ([governance.md]
 
 | Code | Rule | Kind | compat | strict | GSD source |
 |---|---|---|---|---|---|
-| gsd/W532 | a risk whose rpn is at or above `specforge.risk_block_on` names a mitigation in `mitigated_by`: one warning on the risk, naming its rpn and the threshold. The prose `mitigation` is no evidence. Emitted by the derive pass that rates the risk. On under every profile | pass | W | W | (new: an FMEA action threshold) |
+| gsd/W532 | a risk whose rpn is at or above `specforge.risk_block_on` names a mitigation in `mitigated_by`: one warning on the risk, naming its rpn and the threshold. The prose `mitigation` is no evidence. Emitted by the derive pass that rates the risk. On under every profile | pass | W | W | (new: an FMEA action threshold, [ADR 0358](../../../docs/adr/0358-a-risk-is-rated-and-an-invariant-is-judged.md)) |
 
 ## Retired and kernel-provided
 
