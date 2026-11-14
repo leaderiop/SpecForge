@@ -30,7 +30,9 @@ mod value_comments;
 use crate::navigate::{Compiled, SOFTWARE, compile};
 use specforge_ops::Refusal;
 use specforge_ops::authoring::edit::{self, Edit, EditField, Input, Obligation};
+use specforge_ops::testing::Viewed;
 use specforge_ops::view::ProjectView;
+use specforge_project::testing::Assembled;
 use std::collections::BTreeMap;
 
 pub const TASKS: &str = r#"// The tasks.
@@ -161,4 +163,30 @@ pub fn is_canonical(c: &Compiled, text: &str) -> bool {
         forms,
     );
     formatted.formatted == text
+}
+
+/// The typed fixture project (`specforge_project::testing::typed_extension`) with `a.spec` holding `source`.
+pub fn typed(source: &str) -> Assembled {
+    Assembled::typed().sources(&[("a.spec", source)])
+}
+
+/// `a.spec` after `edits` over [`typed`]`(source)`, checked to compile with nothing reported but the fixture's own
+/// W162 (its kinds link `audit` and `milestone` both ways); or the refusal's code and message.
+pub fn typed_after(source: &str, edits: &[Edit]) -> Result<String, (String, String)> {
+    let project = typed(source);
+    let planned = edit::plan(&project.view(), edits)
+        .map_err(|refused| (refused.error.code.to_string(), refused.error.message))?;
+    let after = planned
+        .change()
+        .after()
+        .remove("a.spec")
+        .expect("the edit writes a.spec");
+    let reported: Vec<_> = typed(&after)
+        .compiled()
+        .diagnostics()
+        .into_iter()
+        .filter(|d| d.code != "W162")
+        .collect();
+    assert!(reported.is_empty(), "{after}\n{reported:#?}");
+    Ok(after)
 }

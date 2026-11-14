@@ -194,6 +194,41 @@ fn a_json_number_or_boolean_is_a_leaf_of_an_integer_or_bool_member() {
 
 #[specforge_test(
     behavior = "edit_entity_field",
+    verify = "a JSON number given to a number member is written as its decimal"
+)]
+fn a_json_number_is_a_leaf_of_a_number_member_written_as_its_decimal() {
+    let squeezed = |text: String| text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let set = run(json!({"op": "set", "entity_id": "d1", "field": "scores", "value": {"goal": 10, "weight": 0.25}}))
+        .unwrap();
+    assert!(
+        squeezed(set.clone()).contains("scores { goal 10 weight 0.25 }"),
+        "{set}"
+    );
+    let member =
+        run(json!({"op": "set", "entity_id": "d1", "field": "scores.weight", "value": 1e-7}))
+            .unwrap();
+    assert!(
+        squeezed(member.clone()).contains("weight 0.0000001"),
+        "{member}"
+    );
+    // A boolean, and a number of more than 15 significant digits, are refused by name before writing.
+    for (value, fragment) in [
+        (json!(true), "'scores.weight' is a number, not a boolean"),
+        (
+            json!(0.1 + 0.2),
+            "'scores.weight' takes a number: a number keeps at most 15 significant digits",
+        ),
+    ] {
+        let (code, message) =
+            run(json!({"op": "set", "entity_id": "d1", "field": "scores.weight", "value": value}))
+                .unwrap_err();
+        assert_eq!(code, "not_editable", "{message}");
+        assert!(message.contains(fragment), "{value}: {message}");
+    }
+}
+
+#[specforge_test(
+    behavior = "edit_entity_field",
     verify = "set reads a JSON object or an array of objects as a typed block or a block list, and any other text as one value"
 )]
 fn a_value_is_json_exactly_where_the_declaration_is_a_block() {

@@ -68,6 +68,7 @@ behavior create_entity "Create an Entity" {
   verify unit "a create that would shadow a target or make a short scope field ambiguous respells the tokens to keep their targets"
   verify unit "a skeleton writes a block list and a typed block empty, and a list of words with a slot"
   verify unit "a collected entity is never created, edited or deleted by an edit, whoever asks"
+  verify unit "new writes a number flag as given, and a skeleton fills a required number with zero"
 }
 
 behavior edit_entity_field "Edit an Entity Field" {
@@ -144,6 +145,8 @@ behavior edit_entity_field "Edit an Entity Field" {
   verify unit "a typed edit finds its block by its declared path, so an E002 duplicate never shifts the target"
   verify unit "a typed edit sets a block member, appends and removes a block-list item, and refuses the other ways to change one"
   verify unit "set reads a JSON object or an array of objects as a typed block or a block list, and any other text as one value"
+  verify unit "a JSON number given to a number member is written as its decimal"
+  verify unit "set writes a number field's word as given, and a JSON number as its decimal"
 }
 
 behavior edit_entity_link "Edit an Entity Reference List" {

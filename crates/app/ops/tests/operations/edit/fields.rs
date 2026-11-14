@@ -435,3 +435,29 @@ fn a_number_on_a_text_field_is_still_refused() {
     let (_, message) = refused(&c, &[set("slow_disk", "cause", Input::Number(7.into()))]);
     assert!(message.contains("takes text; give a string"), "{message}");
 }
+
+#[specforge_test_macros::test(
+    behavior = "edit_entity_field",
+    verify = "set writes a number field's word as given, and a JSON number as its decimal"
+)]
+fn a_number_field_keeps_the_word_it_is_given() {
+    const MEASURE: &str = "measure m1 \"M\" {\n  value 1\n}\n";
+    let written = |value: Input| typed_after(MEASURE, &[set("m1", "value", value)]);
+    assert!(written(one("1.50")).unwrap().contains("  value 1.50\n"));
+    let json = |text: &str| Input::Number(serde_json::from_str(text).unwrap());
+    assert!(written(json("0.5")).unwrap().contains("  value 0.5\n"));
+    assert!(
+        written(json("1e-7"))
+            .unwrap()
+            .contains("  value 0.0000001\n")
+    );
+    // A word that is no decimal is E061 and a JSON number of more than 15 digits is no number: nothing is written.
+    let (_, message) = written(one("abc")).unwrap_err();
+    assert!(message.contains("E061"), "{message}");
+    let (code, message) = written(json("0.30000000000000004")).unwrap_err();
+    assert_eq!(code, "not_editable", "{message}");
+    assert!(
+        message.contains("'value' takes a number: a number keeps at most 15 significant digits"),
+        "{message}"
+    );
+}

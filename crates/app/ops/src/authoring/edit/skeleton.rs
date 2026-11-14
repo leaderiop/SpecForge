@@ -158,7 +158,7 @@ fn sample(reading: Reading<'_>, marker: &str) -> Option<(Input, Fill)> {
         Reading::Undeclared => None,
         Reading::Member => Some((one(), Fill::Marker)),
         Reading::Declared(form) => Some(match form.field_type() {
-            FieldType::Integer => (Input::One("0".into()), Fill::Literal),
+            FieldType::Integer | FieldType::Number => (Input::One("0".into()), Fill::Literal),
             FieldType::Bool => (Input::One("false".into()), Fill::Literal),
             FieldType::ReferenceList | FieldType::StringList | FieldType::EnumList => {
                 (Input::Many(vec![marker.to_string()]), Fill::Marker)
