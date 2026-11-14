@@ -59,7 +59,7 @@ Read the phase artifacts (in order of priority):
 
 If no SUMMARY.md exists:
 ```
-ERROR: No SUMMARY.md found for phase ${PHASE_ID}
+ERROR: No summary found for phase ${PHASE_ID}
 This command works on completed phases. Run /gsd:execute-phase first.
 ```
 Exit.
@@ -253,7 +253,7 @@ For each approved E2E test:
    ```
    If found, extend rather than duplicate.
 
-2. **Create test file** targeting the user scenario from CONTEXT.md/VERIFICATION.md
+2. **Create test file** targeting the user scenario from the phase's `context` and `verification` entities
 
 3. **Run the E2E test**:
    ```bash

@@ -16,7 +16,6 @@ gsd-core/references/workstream-flag.md	The shared active-workstream marker is fu
 gsd-core/references/workstream-flag.md	A session that has never set its own pointer inherits the active-workstream marker
 gsd-core/references/workstream-flag.md	back directly to the legacy shared active-workstream marker.
 gsd-core/references/workstream-flag.md	to **inheriting** the active-workstream marker (if one exists there), not
-gsd-core/workflows/add-tests.md	ERROR: No SUMMARY.md found for phase ${PHASE_ID}
 gsd-core/workflows/autonomous.md	Drive milestone phases autonomously — all remaining phases, a range via `--from N`/`--to N`, or a single phase via `--only N`. For each incomplete phase: discuss → plan → execute using Skill() flat invocations. When `--converge` is set, route the planning step through plan-review convergence before execution. Pauses only for explicit user decisions (grey area acceptance, blockers, validation requests). Re-reads ROADMAP.md after each phase to catch dynamically inserted phases.
 gsd-core/workflows/autonomous.md	Append/update this STATE.md section, display "Phase ${PHASE_NUM} ⏭ verification_deferred_human — resume with /gsd:verify-work ${PHASE_NUM}", then handle_blocker: "Human verification deferred for phase ${PHASE_NUM}."
 gsd-core/workflows/autonomous.md	Append/update this STATE.md section, display "Phase ${PHASE_NUM} ⏭ verification_deferred_gaps — resume with /gsd:plan-phase ${PHASE_NUM} --gaps", then handle_blocker: "Verification gaps deferred for phase ${PHASE_NUM}."

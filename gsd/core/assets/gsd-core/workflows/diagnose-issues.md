@@ -4,7 +4,7 @@
 <purpose>
 Orchestrate parallel debug agents to investigate UAT gaps and find root causes.
 
-After UAT finds gaps, spawn one debug agent per gap. Each agent investigates autonomously with symptoms pre-filled from UAT. Collect root causes, update UAT.md gaps with diagnosis, then hand off to plan-phase --gaps with actual diagnoses.
+After UAT finds gaps, spawn one debug agent per gap. Each agent investigates autonomously with symptoms pre-filled from UAT. Collect root causes, record each one on its `uat_gap`, then hand off to plan-phase --gaps with actual diagnoses.
 
 Orchestrator stays lean: parse gaps, spawn agents, collect results, update UAT.
 </purpose>
@@ -255,29 +255,28 @@ If agent returns `## INVESTIGATION INCONCLUSIVE`:
 </step>
 
 <step name="update_uat">
-**Update UAT.md gaps with diagnosis:**
+**Record each gap's diagnosis on its `uat_gap`:**
 
-For each gap in the Gaps section, add artifacts and missing fields:
+For each gap, set its `root_cause`, `artifacts` and `missing` (one `missing` item per line); the session's `status` is computed, never written:
 
-```yaml
-- truth: "Comment appears immediately after submission"
-  status: failed
-  reason: "User reported: works but doesn't show until I refresh the page"
-  severity: major
-  test: 2
-  root_cause: "useEffect in CommentList.tsx missing commentCount dependency"
-  artifacts:
-    - path: "src/components/CommentList.tsx"
-      issue: "useEffect missing dependency"
-  missing:
-    - "Add commentCount to useEffect dependency array"
-    - "Trigger re-render when new comment added"
-  debug_session: the spec
+```bash
+GAP="{the gap's id, e.g. v1.0/01/01-UAT/U2/G1}"
+IFS= read -rd '' ROOT_CAUSE <<'TEXT' || true; ROOT_CAUSE=${ROOT_CAUSE%$'\n'}
+{the root cause the debug agent returned}
+TEXT
+IFS= read -rd '' ARTIFACTS <<'TEXT' || true; ARTIFACTS=${ARTIFACTS%$'\n'}
+[{"path": "{a file the cause sits in, ROOT-relative}", "issue": "{what is wrong there}"}]
+TEXT
+IFS= read -rd '' MISSING <<'TEXT' || true; MISSING=${MISSING%$'\n'}
+{what the fix must add or change}
+TEXT
+IFS=$'\n' read -rd '' -a MISSING_ITEMS <<<"$MISSING" || true
+specforge set "$GAP" root_cause "$ROOT_CAUSE" || exit 1
+specforge set "$GAP" artifacts "$ARTIFACTS" || exit 1
+specforge set "$GAP" missing "${MISSING_ITEMS[@]}" || exit 1
 ```
 
-Update status in frontmatter to "diagnosed".
-
-Commit the updated UAT.md:
+Commit the diagnoses:
 ```bash
 specforge git commit --add spec -m "docs({phase_num}): add root causes from diagnosis" && specforge collect --runner gsd-git --yes
 ```
@@ -332,7 +331,7 @@ Agents only diagnose—plan-phase --gaps handles fixes (no fix application).
 - [ ] Gaps parsed from UAT.md
 - [ ] Debug agents spawned in parallel
 - [ ] Root causes collected from all agents
-- [ ] UAT.md gaps updated with artifacts and missing
+- [ ] Each `uat_gap` holds its `root_cause`, `artifacts` and `missing`
 - [ ] Debug sessions saved to ${DEBUG_DIR}/
 - [ ] Hand off to verify-work for automatic planning
 </success_criteria>

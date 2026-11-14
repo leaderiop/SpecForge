@@ -83,4 +83,4 @@ User story: «As a new user, I want to register and log in, so that I can access
 | Outcome | "Access my dashboard" — user lands on a populated page | dashboard route + greeting both verified above | ✓ |
 ```
 
-Standard technical-check sections of VERIFICATION.md remain (API verification, error handling, etc.) but are appended below "User Flow Coverage", not above.
+The verification's standard technical checks remain (API verification, error handling, etc.) but are listed below "User Flow Coverage", not above.

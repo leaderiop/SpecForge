@@ -1616,7 +1616,9 @@ gsd-core/references/tdd.md	kept	346+22	34138d48bd65
 gsd-core/references/thinking-models-execution.md	kept	1+51	dcc650a8b5f3
 gsd-core/references/thinking-models-planning.md	kept	1+81	7cc8aeaa6934
 gsd-core/references/thinking-models-research.md	kept	1+51	5f6bf3f3b889
-gsd-core/references/thinking-models-verification.md	kept	1+56	a71a933d51ca
+gsd-core/references/thinking-models-verification.md	kept	1+25	260094cc6fc2
+gsd-core/references/thinking-models-verification.md	own	26+1	1	b2fde6d86e43	10cd1339cb21	prose
+gsd-core/references/thinking-models-verification.md	kept	27+30	271a58d10323
 gsd-core/references/thinking-partner.md	kept	1+2	b5826fce1191
 gsd-core/references/thinking-partner.md	own	3+1	1	8399c9eba31a	87341108983a	ported-name
 gsd-core/references/thinking-partner.md	kept	4+94	f3d75468da1d
@@ -1774,7 +1776,9 @@ gsd-core/references/verify-command-path-resolvability.md	own	18+1	1	11ba369ab99c
 gsd-core/references/verify-command-path-resolvability.md	kept	19+33	04ec26497f6b
 gsd-core/references/verify-mvp-mode.md	kept	1+16	272bc635e0b9
 gsd-core/references/verify-mvp-mode.md	own	17+1	1	c4e7ee91058c	2d42cad74296	ported-name
-gsd-core/references/verify-mvp-mode.md	kept	18+69	85f58f4ff612
+gsd-core/references/verify-mvp-mode.md	kept	18+67	9ba4ffb0c689
+gsd-core/references/verify-mvp-mode.md	own	85+1	1	3bc1758c751e	64eef9739540	prose
+gsd-core/references/verify-mvp-mode.md	kept	86+1	e3b0c44298fc
 gsd-core/references/workstream-flag.md	kept	1+13	e28e08b0bb04
 gsd-core/references/workstream-flag.md	own	14+1	1	2f06f0b64087	f15cceb2851b	ported-name
 gsd-core/references/workstream-flag.md	kept	15+7	174c9293b699
@@ -1842,11 +1846,20 @@ gsd-core/references/worktree-path-safety.md	own	428+71	20	7462084e81ba	b7d4be8f8
 gsd-core/references/worktree-path-safety.md	kept	499+1	e3b0c44298fc
 gsd-core/templates/UAT.md	kept	1+2	b24329e0ee8e
 gsd-core/templates/UAT.md	own	3+1	1	e35a79976fcd	8b2cc137d0d3	ported-name
-gsd-core/templates/UAT.md	kept	4+152	937c9b0b7d11
-gsd-core/templates/UAT.md	own	156+1	1	ce97ce33884d	a95659ca3d62	ported-name
-gsd-core/templates/UAT.md	kept	157+122	a5d563c6d5b1
-gsd-core/templates/UAT.md	own	279+1	1	ce97ce33884d	a95659ca3d62	ported-name
-gsd-core/templates/UAT.md	kept	280+3	0d1b6fe03758
+gsd-core/templates/UAT.md	kept	4+3	316deeb28892
+gsd-core/templates/UAT.md	own	7+76	59	dcc4d317dbd4	b2f8b5f4769c	prose
+gsd-core/templates/UAT.md	kept	83+4	44e8df795026
+gsd-core/templates/UAT.md	own	87+12	0	dccd3aafd265	e3b0c44298fc	served
+gsd-core/templates/UAT.md	kept	99+1	d16ee0f6677d
+gsd-core/templates/UAT.md	own	100+1	0	6cbbf1fd16a2	e3b0c44298fc	prose
+gsd-core/templates/UAT.md	kept	101+5	f03ab92ab680
+gsd-core/templates/UAT.md	own	106+4	0	3b2f98ce8116	e3b0c44298fc	prose
+gsd-core/templates/UAT.md	kept	110+1	3943c49a2a4c
+gsd-core/templates/UAT.md	own	111+13	4	b5aea5c80831	0653acfb5bbe	prose
+gsd-core/templates/UAT.md	kept	124+5	c8e7604e476f
+gsd-core/templates/UAT.md	own	129+72	0	0b168422ad99	e3b0c44298fc	ported-name
+gsd-core/templates/UAT.md	kept	201+15	a8a5bce73598
+gsd-core/templates/UAT.md	own	216+67	0	7f7af96c279d	e3b0c44298fc	ported-name
 gsd-core/templates/VALIDATION.md	kept	1+79	e2281534271f
 gsd-core/templates/context.md	kept	1+2	718fbb0bae6e
 gsd-core/templates/context.md	own	3+1	1	53588d1181eb	f205e613ef57	ported-name
@@ -1983,7 +1996,7 @@ gsd-core/workflows/add-tests.md	own	36+11	8	5dac36310490	8668cbbb7f04	ported-nam
 gsd-core/workflows/add-tests.md	kept	47+5	91ef51d89790
 gsd-core/workflows/add-tests.md	own	52+2	2	83a77dc32c46	fc8f8c84b2d1	ported-name
 gsd-core/workflows/add-tests.md	kept	54+10	bf4766100a2b
-gsd-core/workflows/add-tests.md	own	64+1	1	ec9317a6cd33	a8e9d0a687c9	args
+gsd-core/workflows/add-tests.md	own	64+1	1	ec9317a6cd33	c91c21357145	args
 gsd-core/workflows/add-tests.md	kept	65+88	833dd63a5dd4
 gsd-core/workflows/add-tests.md	own	153+1	1	8943a039cfbc	246e71f5b6c0	served
 gsd-core/workflows/add-tests.md	kept	154+1	93ccd84c5a2c
@@ -1992,7 +2005,9 @@ gsd-core/workflows/add-tests.md	kept	156+1	bf6449d34684
 gsd-core/workflows/add-tests.md	own	157+1	1	5a207112f5f4	37ddeec42c86	served
 gsd-core/workflows/add-tests.md	kept	158+96	a90e74ade66a
 gsd-core/workflows/add-tests.md	own	254+1	1	0432dbb9abfd	8a3f2c9d255e	served
-gsd-core/workflows/add-tests.md	kept	255+51	78cc984e57bc
+gsd-core/workflows/add-tests.md	kept	255+3	65b1f8b06b9b
+gsd-core/workflows/add-tests.md	own	258+1	1	b969a8dedaeb	7bc832ef772c	prose
+gsd-core/workflows/add-tests.md	kept	259+47	d6f04e105788
 gsd-core/workflows/add-tests.md	own	306+1	1	0b900e042d0e	ccf2c3bc60e1	ported-name
 gsd-core/workflows/add-tests.md	kept	307+5	de20a7150a55
 gsd-core/workflows/add-tests.md	own	312+2	2	699cc3d7e125	bae41d7ab7d6	served
@@ -2297,7 +2312,9 @@ gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md	own	3
 gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md	kept	35+21	84fde3dfff19
 gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md	own	56+5	10	7100d0f06a64	dd020c760337	typed-edit
 gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md	kept	61+86	784af0f87e2c
-gsd-core/workflows/diagnose-issues.md	kept	1+16	836b1d4426a1
+gsd-core/workflows/diagnose-issues.md	kept	1+5	2258dbd939b7
+gsd-core/workflows/diagnose-issues.md	own	6+1	1	4b0c1680f9ef	4c927ca6b060	prose
+gsd-core/workflows/diagnose-issues.md	kept	7+10	7643d8f2cbf6
 gsd-core/workflows/diagnose-issues.md	own	17+3	3	d85ba0fa9663	08eb05b68f78	ported-name
 gsd-core/workflows/diagnose-issues.md	kept	20+43	5809993761b7
 gsd-core/workflows/diagnose-issues.md	own	63+3	3	4cbe97d82e8e	9bcf5f005c52	ported-name
@@ -2319,13 +2336,15 @@ gsd-core/workflows/diagnose-issues.md	kept	137+36	60a7752db82f
 gsd-core/workflows/diagnose-issues.md	own	173+1	1	4d4e057bb707	a498037bcccd	ported-name
 gsd-core/workflows/diagnose-issues.md	kept	174+19	ad97738e9f87
 gsd-core/workflows/diagnose-issues.md	own	193+1	1	98fd755a54b7	5ddccb406252	ported-name
-gsd-core/workflows/diagnose-issues.md	kept	194+84	55147f547ba5
-gsd-core/workflows/diagnose-issues.md	own	278+1	1	42c7439b6ee5	6ca467b0a36d	ported-name
-gsd-core/workflows/diagnose-issues.md	kept	279+6	bf484fe45c67
+gsd-core/workflows/diagnose-issues.md	kept	194+67	8fefb7e6c828
+gsd-core/workflows/diagnose-issues.md	own	261+23	22	2d3f6730bfd9	c55ecb281ada	ported-name
+gsd-core/workflows/diagnose-issues.md	kept	284+1	ad332335cfaa
 gsd-core/workflows/diagnose-issues.md	own	285+1	1	669d8271dbea	0d2cfc77eeca	ported-name
 gsd-core/workflows/diagnose-issues.md	kept	286+39	cb3589f167e2
 gsd-core/workflows/diagnose-issues.md	own	325+1	1	47b4bdb46929	dc3132f29b13	ported-name
-gsd-core/workflows/diagnose-issues.md	kept	326+17	feb0ea5505cb
+gsd-core/workflows/diagnose-issues.md	kept	326+12	9fa2d4fc0330
+gsd-core/workflows/diagnose-issues.md	own	338+1	1	6be03ff58e18	a973219e5548	prose
+gsd-core/workflows/diagnose-issues.md	kept	339+4	5b0d854b4ac6
 gsd-core/workflows/discuss-phase-assumptions.md	kept	1+64	79b850e8843d
 gsd-core/workflows/discuss-phase-assumptions.md	own	65+11	7	9e57b64dfd3a	e6f47ef2384b	ported-name
 gsd-core/workflows/discuss-phase-assumptions.md	kept	76+2	7cba6c91b260
@@ -5410,7 +5429,9 @@ gsd-core/workflows/validate-phase.md	own	170+1	1	e5d889e2ab75	eaf3074bcd6a	args
 gsd-core/workflows/validate-phase.md	kept	171+6	ac3ff5a3f26c
 gsd-core/workflows/validate-phase.md	own	177+1	1	36aad90b8240	5c951ab89afa	args
 gsd-core/workflows/validate-phase.md	kept	178+21	86894f999c31
-gsd-core/workflows/verify-work.md	kept	1+41	b34967469ade
+gsd-core/workflows/verify-work.md	kept	1+8	7a474580d009
+gsd-core/workflows/verify-work.md	own	9+1	1	4c712f8249f0	0476151d60be	prose
+gsd-core/workflows/verify-work.md	kept	10+32	16cb499fc020
 gsd-core/workflows/verify-work.md	own	42+16	9	2ee1f61e4143	223c43a42f6c	ported-name
 gsd-core/workflows/verify-work.md	kept	58+7	d31c7c934987
 gsd-core/workflows/verify-work.md	own	65+1	1	982b4b840871	05c0330f3d18	ported-name
@@ -5430,19 +5451,25 @@ gsd-core/workflows/verify-work.md	kept	176+2	5f046190424d
 gsd-core/workflows/verify-work.md	own	178+38	5	84ea0eeda44b	c2da791e773d	served
 gsd-core/workflows/verify-work.md	kept	216+12	0191f47e5f48
 gsd-core/workflows/verify-work.md	own	228+1	1	7721d5c0b84b	844de3d18ec8	ported-name
-gsd-core/workflows/verify-work.md	kept	229+81	cf7f458b56d6
-gsd-core/workflows/verify-work.md	own	310+1	1	4a696c579b74	8766cacbd68b	served
-gsd-core/workflows/verify-work.md	kept	311+61	025552fb7d0f
-gsd-core/workflows/verify-work.md	own	372+1	1	85726e32b158	5ac32e0d0ecf	ported-name
+gsd-core/workflows/verify-work.md	kept	229+6	ef75cf9a18a9
+gsd-core/workflows/verify-work.md	own	235+1	1	2c252634b3f2	67372f65fda1	prose
+gsd-core/workflows/verify-work.md	kept	236+71	4207ba72516a
+gsd-core/workflows/verify-work.md	own	307+66	5	1485b959151d	461a7edfd4b2	ported-name
 gsd-core/workflows/verify-work.md	kept	373+10	df825626b494
 gsd-core/workflows/verify-work.md	own	383+2	2	e4b36d78d68c	a748f5105905	ported-name
-gsd-core/workflows/verify-work.md	kept	385+157	68d4ee2f8f94
+gsd-core/workflows/verify-work.md	kept	385+69	9cbc6a3a4f1b
+gsd-core/workflows/verify-work.md	own	454+16	3	d4f93397a9da	f982dcd26267	typed-edit
+gsd-core/workflows/verify-work.md	kept	470+72	5170ec5090b5
 gsd-core/workflows/verify-work.md	own	542+1	1	1b16ed40ca28	2186642e975e	ported-name
-gsd-core/workflows/verify-work.md	kept	543+20	19af7c8daa9d
-gsd-core/workflows/verify-work.md	own	563+1	1	671bce499b77	d79b6b2f1947	ported-name
-gsd-core/workflows/verify-work.md	kept	564+14	d3900166ecaa
-gsd-core/workflows/verify-work.md	own	578+1	1	a3c9802fc67e	f7652805203f	ported-name
-gsd-core/workflows/verify-work.md	kept	579+27	f3b20cc8e112
+gsd-core/workflows/verify-work.md	kept	543+4	dac3c7786985
+gsd-core/workflows/verify-work.md	own	547+1	10	53a638bdf468	877e82c9e702	prose
+gsd-core/workflows/verify-work.md	kept	548+4	e174f3432d93
+gsd-core/workflows/verify-work.md	own	552+4	4	1be593657b56	94bb8a8f7c54	prose
+gsd-core/workflows/verify-work.md	kept	556+6	8edc848a277b
+gsd-core/workflows/verify-work.md	own	562+15	11	94a7f7be94ba	5483854fe943	ported-name
+gsd-core/workflows/verify-work.md	kept	577+1	ad332335cfaa
+gsd-core/workflows/verify-work.md	own	578+4	4	682f3eb6f9cf	166f89acaf4d	ported-name
+gsd-core/workflows/verify-work.md	kept	582+24	6f26f7db03f7
 gsd-core/workflows/verify-work.md	own	606+9	9	3c3c95547710	e6798ca0ed22	ported-name
 gsd-core/workflows/verify-work.md	kept	615+5	99abf6b09431
 gsd-core/workflows/verify-work.md	own	620+1	1	f96a4a1a7056	8f7f9a48637e	workflow
@@ -5464,8 +5491,8 @@ gsd-core/workflows/verify-work.md	kept	664+1	370eb9146903
 gsd-core/workflows/verify-work.md	own	665+1	1	97b30b538d57	c76bc886e65c	ported-name
 gsd-core/workflows/verify-work.md	kept	666+1	421185ca32f0
 gsd-core/workflows/verify-work.md	own	667+1	1	135e0213c9b1	25f2aa9466c0	served
-gsd-core/workflows/verify-work.md	kept	668+15	4ba228d2e893
-gsd-core/workflows/verify-work.md	own	683+1	1	0837b8e928cf	4d8870840e2c	relic
+gsd-core/workflows/verify-work.md	kept	668+13	7428aed12b3e
+gsd-core/workflows/verify-work.md	own	681+3	3	44fc4653bb2c	4f97db7b08d1	relic
 gsd-core/workflows/verify-work.md	kept	684+2	5f046190424d
 gsd-core/workflows/verify-work.md	own	686+11	1	387c66eb2992	e3b0c44298fc	ported-name
 gsd-core/workflows/verify-work.md	kept	697+7	40efdbfee007
@@ -5476,16 +5503,32 @@ gsd-core/workflows/verify-work.md	kept	719+35	0879a41effc0
 gsd-core/workflows/verify-work.md	own	754+1	1	4c7b8f2727c0	98fe1b4bbdeb	ported-name
 gsd-core/workflows/verify-work.md	kept	755+2	5f046190424d
 gsd-core/workflows/verify-work.md	own	757+1	1	5cd2d458f836	8191e0369a85	ported-name
-gsd-core/workflows/verify-work.md	kept	758+46	406a8d5ab406
+gsd-core/workflows/verify-work.md	kept	758+26	297d7f240a78
+gsd-core/workflows/verify-work.md	own	784+1	1	635c4d49a5db	7e546d8a69ee	prose
+gsd-core/workflows/verify-work.md	kept	785+3	6f9120fb3eca
+gsd-core/workflows/verify-work.md	own	788+1	1	4508fdc0f3da	ddee13e12ca5	prose
+gsd-core/workflows/verify-work.md	kept	789+15	94a8148e6f54
 gsd-core/workflows/verify-work.md	own	804+1	1	e24405e45b54	04c0fb23c84b	served
 gsd-core/workflows/verify-work.md	kept	805+9	0495f1ac2561
 gsd-core/workflows/verify-work.md	own	814+1	1	ab6037b6d33c	38776fcbc223	served
-gsd-core/workflows/verify-work.md	kept	815+39	24342f3ba202
+gsd-core/workflows/verify-work.md	kept	815+3	111a24488523
+gsd-core/workflows/verify-work.md	own	818+1	1	4d9aae727500	d395184b110f	prose
+gsd-core/workflows/verify-work.md	kept	819+35	fb62a938a0d0
 gsd-core/workflows/verify-work.md	own	854+1	1	100142d583e1	b65b11d10768	served
-gsd-core/workflows/verify-work.md	kept	855+90	ddf0c2c69729
-gsd-core/workflows/verify-work/detail/elaboration.md	kept	1+124	0483efcc5084
-gsd-core/workflows/verify-work/detail/elaboration.md	own	125+1	1	98fd755a54b7	5ddccb406252	ported-name
-gsd-core/workflows/verify-work/detail/elaboration.md	kept	126+144	0636320a816e
+gsd-core/workflows/verify-work.md	kept	855+77	53f74f0b9c57
+gsd-core/workflows/verify-work.md	own	932+1	1	aa6862e5c0d9	5dcaad6969d3	prose
+gsd-core/workflows/verify-work.md	kept	933+12	8139d892dc07
+gsd-core/workflows/verify-work/detail/elaboration.md	kept	1+15	f952fa0321eb
+gsd-core/workflows/verify-work/detail/elaboration.md	own	16+7	1	b45afdd01105	35c10601fced	prose
+gsd-core/workflows/verify-work/detail/elaboration.md	kept	23+56	8c4ced4d13ca
+gsd-core/workflows/verify-work/detail/elaboration.md	own	79+1	1	840635717c5c	b166e8cfd604	prose
+gsd-core/workflows/verify-work/detail/elaboration.md	kept	80+45	0038f9c21b36
+gsd-core/workflows/verify-work/detail/elaboration.md	own	125+10	3	b9b723191c5a	5c95d5e098b4	ported-name
+gsd-core/workflows/verify-work/detail/elaboration.md	kept	135+78	e609e80f51bf
+gsd-core/workflows/verify-work/detail/elaboration.md	own	213+1	1	c927a7d3d1d8	8bdbc1924c9d	prose
+gsd-core/workflows/verify-work/detail/elaboration.md	kept	214+10	6396064cc232
+gsd-core/workflows/verify-work/detail/elaboration.md	own	224+1	1	4737bdcbab51	7645c83c2dcb	prose
+gsd-core/workflows/verify-work/detail/elaboration.md	kept	225+45	51d23dae5b03
 gsd-core/workflows/verify-work/detail/elaboration.md	own	270+1	1	f1b901847390	e3b0c44298fc	workflow
 gsd-core/workflows/verify-work/steps/automated-ui-verification.md	kept	1+9	d80652d8a5ad
 gsd-core/workflows/verify-work/steps/automated-ui-verification.md	own	10+1	1	fc02fcfae6ff	d68e2b546b07	served

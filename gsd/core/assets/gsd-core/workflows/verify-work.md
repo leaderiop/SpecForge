@@ -7,7 +7,7 @@ produces: UAT.md
 consumes: SUMMARY.md
 -->
 <purpose>
-Validate built features through conversational testing with persistent state. Creates UAT.md that tracks test progress, survives /clear, and feeds gaps into /gsd:plan-phase --gaps.
+Validate built features through conversational testing with persistent state. The phase's `uat_session`, its `uat_test` entities and their `uat_gap` entities track the test progress, survive /clear, and feed gaps into /gsd:plan-phase --gaps.
 
 User tests, Claude records. One test at a time. Plain text responses.
 </purpose>
@@ -196,7 +196,7 @@ Read the JSON result (`mode`, `total`, `all_auto_covered`, `auto_passed[]`, `pre
 
 - **`mode: legacy`** (no `coverage:` block, OR a malformed block that could not be parsed) → **fall through** to the prose-based extraction below. Behavior is byte-identical to pre-#1602 for un-migrated SUMMARYs; do NOT auto-pass anything. If `errors[]` is non-empty (a `malformed_block`), note the broken coverage block to the user before proceeding so the SUMMARY can be fixed.
 - **`mode: coverage`** →
-  - Each `auto_passed[]` entry is recorded in UAT.md as `result: pass`, `source: automated` (see `create_uat_file`) — **do not present it as a checkpoint.** It is deterministically covered by the passing tests in its `verification` refs.
+  - Each `auto_passed[]` entry is recorded on its `uat_test` with `specforge gsd record-automated-uat <uat_test> pass --by coverage`, never presented as a checkpoint. It is deterministically covered by the passing tests in its `verification` refs.
   - Each `present[]` entry becomes a human UAT checkpoint: use its `description` as the test and carry its `rationale` into the checkpoint context. The `reason` (`human_judgment` / `no_verification` / `verification_not_passing` / `validation_failed`) explains why a human is needed.
   - If `all_auto_covered` is `true` (every entry auto-passed, including the `coverage: []` case) → do NOT generate zero checkpoints; present a **single confirmation summary** listing the auto-covered deliverables with their covering tests and ask the user to confirm.
   - Surface any `errors[]` to the user (malformed coverage block) but still treat their entries as human checkpoints — **never drop a deliverable** (fail-safe).
@@ -268,72 +268,11 @@ This catches bugs that only manifest on fresh start — race conditions in start
 </step>
 
 <step name="create_uat_file">
-**Create UAT file with all tests:**
+**Create the session with all tests:**
 
-```bash
-: # the UAT is uat_session entities: no directory to create
-```
+Build the test list from the extracted deliverables, then create the phase's `uat_session` and one `uat_test` per test with the first fence of the UAT template this workflow reads; every test starts with no `result`, which reads as pending.
 
-Build test list from extracted deliverables.
-
-Create file:
-
-```markdown
----
-status: testing
-phase: XX-name
-source: [list of SUMMARY.md files]
-started: [ISO timestamp]
-updated: [ISO timestamp]
----
-
-## Current Test
-<!-- OVERWRITE each test - shows where we are -->
-
-number: 1
-name: [first test name]
-expected: |
-  [what user should observe]
-awaiting: user response
-
-## Tests
-
-### 1. [Test Name]
-expected: [observable behavior]
-result: [pending]
-
-### 2. [Test Name]
-expected: [observable behavior]
-result: [pending]
-
-...
-
-**Coverage auto-passed entries (#1602):** for each `auto_passed[]` entry from `uat classify-coverage`, write a Tests entry pre-resolved as automated — these are NOT presented to the user:
-
-```
-### N. [coverage description]
-expected: [coverage description]
-result: pass
-source: automated
-coverage_id: [D-id]
-```
-
-The `source: automated` marker is additive — existing consumers that read only `result:` are unaffected.
-
-## Summary
-
-total: [N]
-passed: 0
-issues: 0
-pending: [N]
-skipped: 0
-
-## Gaps
-
-[none yet]
-```
-
-Write to the `uat_session` entity of phase XX-name
+**Coverage auto-passed entries (#1602):** create a `uat_test` for each `auto_passed[]` entry from `uat classify-coverage` too, its coverage description as both name and `expected`, then record it with `specforge gsd record-automated-uat <uat_test> pass --by coverage`: these are NOT presented to the user.
 
 Proceed to `present_test`.
 </step>
@@ -415,22 +354,9 @@ Note: Blocked tests do NOT go into the Gaps section (they aren't code issues —
 
 These are future-work ideas, not code issues for the current phase. Capture them WITHOUT creating a gap plan (#1921 — a deferred follow-up must never become a blocking gap or spawn a fix plan):
 
-Update Tests section:
-```
-### {N}. {name}
-expected: {expected}
-result: skipped
-reason: "Deferred follow-up: {verbatim user response}"
-```
+A deferred follow-up is the person's answer, so the person records it: show them the line to run in their terminal, with the test's id and their words, `specforge gsd set-uat-result <uat_test> skipped --by <who> --follow-up "<their words>"`. It writes the skip reason `Deferred follow-up: <their words>` and appends the idea to the session's `follow_ups`; run nothing here yourself.
 
-Append to UAT.md `## Deferred Follow-Ups` (create the section if absent):
-```yaml
-- test: {N}
-  idea: "{verbatim user response}"
-  deferred_at: {today}
-```
-
-Do NOT append to `## Gaps` — deferred follow-ups are not blocking gaps. Continue to the next test.
+Do NOT record a `uat_gap` — deferred follow-ups are not blocking gaps. Continue to the next test.
 
 **If response is anything else:**
 - Treat as issue description
@@ -508,41 +434,46 @@ specforge git commit --add spec -m "test({phase_num}): complete UAT - {passed} p
 
 `changed: false` → announce that the session was already complete and nothing was written or committed. `changed: true` → the UAT file (frontmatter `status`, `updated`, `## Current Test`) was written and committed in one step.
 
-**If the UAT file has a non-empty `## Deferred Follow-Ups` section,** those items are currently visible only inside this phase's `*-UAT.md` — offer to promote them to the roadmap backlog so they stay visible at the project level (#4546; reuses the exact entry mechanism `next.md`'s `prior_phase_completeness` step uses for plans-without-summaries):
+**If the session holds deferred follow-ups,** offer to promote them to backlog phases so they stay visible at the project level (#4546). Count them:
+
+```bash
+UAT_SESSION=$(specforge query "$PHASE_ID" --depth 1 --kinds uat_session --pick '.nodes[kind=uat_session].id' --last 1) || exit 1
+FOLLOW_UPS=0
+[ -z "$UAT_SESSION" ] || FOLLOW_UPS=$(specforge query "$UAT_SESSION" --depth 0 --pick '.nodes[0].fields.totals.follow_ups') || exit 1
+echo "deferred follow-ups: ${FOLLOW_UPS:-0}"
+```
+
+When the count is above 0, read them with `specforge query "$UAT_SESSION" --depth 0 --format context` and ask:
 
 ```
 Deferred follow-ups recorded: {N}
 
-They currently live only in {phase_num}-UAT.md. Promote them to the ROADMAP.md backlog?
+They currently live only on the session {phase_num}-UAT. Promote them to backlog phases?
 
-  [P] Promote to ROADMAP.md 999.x backlog
-  [K] Keep them in the UAT file only
+  [P] Promote to 999.x backlog phases
+  [K] Keep them on the session only
 
 Choice [K]:
 ```
 
 (TEXT_MODE: present this as a plain-text numbered list per the text-mode convention and wait for the typed choice.)
 
-**If the user chooses [P]:**
-1. Compute the next backlog number: `{backlog_number}` = the smallest positive integer not already used by an existing `### Phase 999.{n}` heading in the `milestone` and `phase` entities — scan the headings rather than counting them, since numbering may be non-contiguous. If the `milestone` and `phase` entities does not exist, create it containing only a `## Backlog` section and use `1`.
-2. Append to that `## Backlog` section one backlog entry per deferred follow-up (each with its own `999.{backlog_number}` heading, incrementing per entry), with `test`/`idea`/`deferred_at` verbatim from the section's YAML and `{idea}` flattened to a single line (newlines → spaces — a multi-line response would corrupt the single-line entry; this mirrors `next.md`'s use of a slug for the same reason):
+**If the user chooses [P]:** add one backlog phase per follow-up, at the first free `999.x` number, with the follow-up's test number and its idea verbatim:
 
-```markdown
-### Phase 999.{backlog_number}: Follow-up — Phase {phase_num} deferred UAT follow-up: Test {test} (BACKLOG)
-
-**Goal:** Resolve the UAT checkpoint deferred during Phase {phase_num} verification
-**Source phase:** {phase_num}
-**Deferred at:** {date} during /gsd:verify-work {phase} session completion
-**Follow-ups:**
-- [ ] Test {test}: {idea} (deferred {deferred_at})
+```bash
+TEST="{the follow-up's test number, e.g. 3}"
+IFS= read -rd '' IDEA <<'TEXT' || true; IDEA=${IDEA%$'\n'}
+{the follow-up's idea, verbatim}
+TEXT
+specforge gsd phase --backlog --name "Follow-up — Phase ${PHASE_ID##*/} deferred UAT follow-up: Test $TEST" --goal "$IDEA" || exit 1
 ```
 
-3. Commit the deferral record:
+Then commit the deferral record:
 ```bash
 specforge git commit --add spec -m "docs: defer Phase {phase_num} UAT follow-ups to backlog" && specforge collect --runner gsd-git --yes
 ```
 
-**If the user chooses [K]:** continue to the summary unchanged — the deferred items remain in the UAT file's `## Deferred Follow-Ups` section.
+**If the user chooses [K]:** continue to the summary unchanged — the deferred items stay in the session's `follow_ups`.
 
 Present summary:
 ```
@@ -642,8 +573,8 @@ SUMMARY.md, so execute-phase would resume straight at the verification gates —
 never ran on an executed phase). A `missing` report on a phase that is NOT fully executed does NOT
 dispatch the step: the code review, regression gate and verifier have nothing complete to verify
 there, so fall through to the completion predicate below, which blocks with the owner's own
-`NEXT_COMMAND` (execute-phase) exactly as before #5118. This workflow never rewrites VERIFICATION.md
-itself (its only write is the canonicalization, #4663).
+`NEXT_COMMAND` (execute-phase) exactly as before #5118. This workflow never records a
+verification verdict itself: the verifier does.
 The step reads its own inputs (the phase's number and requirement ids from the graph, the response language from the settings); include it with `PHASE_ID` set:
 
 ```bash
@@ -735,11 +666,11 @@ SECURITY: File paths in output are constructed from validated path components on
 </step>
 
 <step name="diagnose_issues">
-When UAT testing found issues, this sub-flow (diagnose_issues -> plan_gap_closure -> verify_gap_plans -> revision_loop) runs before present_ready; a session with zero issues never reaches it. Spawn parallel debug agents (one per issue, via diagnose-issues.md) to find root causes with no user prompt, then update UAT.md and proceed to plan_gap_closure.
+When UAT testing found issues, this sub-flow (diagnose_issues -> plan_gap_closure -> verify_gap_plans -> revision_loop) runs before present_ready; a session with zero issues never reaches it. Spawn parallel debug agents (one per issue, via diagnose-issues.md) to find root causes with no user prompt; diagnose-issues records each root cause on its `uat_gap`. Then proceed to plan_gap_closure.
 </step>
 
 <step name="plan_gap_closure">
-Spawn gsd-planner in --gaps mode against the UAT (with diagnoses), `{state_path}` (Project State), and `{roadmap_path}` (Roadmap). Each created PLAN.md MUST carry `gap_closure: true` and `gap_ids: [...]` in its frontmatter (#1921) so a later verify-work resume can reconcile it.
+Spawn gsd-planner in --gaps mode with `specforge context gsd/planner "$PHASE_ID"` and the diagnosed gaps, `specforge query "$PHASE_ID" --depth 3 --kinds uat_gap --format context`. Each created plan MUST name the gaps it closes in its `gap_closure` field (#1921): a gap is resolved once a plan naming it completes.
 
 <!-- gsd:protected -->
 > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
@@ -769,7 +700,7 @@ Display: "Sending back to planner for revision... (iteration {N}/3)"
 
 Spawn gsd-planner with revision context:
 
-Read existing PLAN.md files. Make targeted updates to address checker issues.
+The planner reads the existing plans with `specforge context gsd/planner "$PHASE_ID"`. Make targeted updates to address checker issues.
 
 `required_property` + evidence + severity BIND. `fix_hint` is ONE non-binding example route: a
 smaller or different mechanism reaching the same property addresses the issue in full — say which
@@ -883,7 +814,7 @@ Default to **major** if unclear. User can correct if needed.
 </severity_inference>
 
 <success_criteria>
-- [ ] UAT file created with all tests from SUMMARY.md
+- [ ] `uat_session` created with a `uat_test` for every test the summaries yield
 - [ ] Tests presented one at a time with expected behavior
 - [ ] User responses processed as pass/issue/skip
 - [ ] Severity inferred from description (never asked)

@@ -24,7 +24,7 @@
     "consumes: SUMMARY.md",
     "-->",
     "<purpose>",
-    "Validate built features through conversational testing with persistent state. Creates UAT.md that tracks test progress, survives /clear, and feeds gaps into /gsd-plan-phase --gaps.",
+    "Validate built features through conversational testing with persistent state. The phase's `uat_session`, its `uat_test` entities and their `uat_gap` entities track the test progress, survive /clear, and feed gaps into /gsd-plan-phase --gaps.",
     "",
     "User tests, Claude records. One test at a time. Plain text responses.",
     "</purpose>",
@@ -61,24 +61,24 @@
     "# the commands below are specforge commands: there is no launcher to define",
     ""
   ],
-  "bytes": 65212,
+  "bytes": 60948,
   "end": [
-    "## Gaps",
+    "</section_rules>",
     "",
-    "- truth: \"Comment appears immediately after submission in list\"",
-    "  status: failed",
-    "  reason: \"User reported: works but doesn't show until I refresh the page\"",
-    "  severity: major",
-    "  test: 2",
-    "  root_cause: \"useEffect in CommentList.tsx missing commentCount dependency\"",
-    "  artifacts:",
-    "    - path: \"src/components/CommentList.tsx\"",
-    "      issue: \"useEffect missing dependency\"",
-    "  missing:",
-    "    - \"Add commentCount to useEffect dependency array\"",
-    "  debug_session: \"the spec\"",
-    "```",
-    "</good_example>",
+    "<severity_guide>",
+    "",
+    "Severity is INFERRED from user's natural language, never asked.",
+    "",
+    "| User describes | Infer |",
+    "|----------------|-------|",
+    "| Crash, error, exception, fails completely, unusable | blocker |",
+    "| Doesn't work, nothing happens, wrong behavior, missing | major |",
+    "| Works but..., slow, weird, minor, small issue | minor |",
+    "| Color, font, spacing, alignment, visual, looks off | cosmetic |",
+    "",
+    "Default: **major** (safe default, user can clarify if wrong)",
+    "",
+    "</severity_guide>",
     "</file>",
     "</execution_context>",
     "",
@@ -186,7 +186,7 @@
     "  \"features.thinking_partner\": false,",
     "  \"gates.confirm_milestone_scope\": true,"
   ],
-  "lines": 1394,
+  "lines": 1143,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:e903038a42be38a1bc37b355d76b95ad257684b727ec0f05e464d9437f01c16d",
+    "digest": "sha256:50dfebc4140b1eb890e91621313a34b2ac8fe611b40a9071f275d31ce8a16a02",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "e903038a42be38a1bc37b355d76b95ad257684b727ec0f05e464d9437f01c16d"
+  "sha256": "50dfebc4140b1eb890e91621313a34b2ac8fe611b40a9071f275d31ce8a16a02"
 }

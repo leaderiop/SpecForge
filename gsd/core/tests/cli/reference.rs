@@ -187,6 +187,10 @@ const CONVERTED: &[(&str, &[&str])] = &[
     ),
     ("gsd-core/templates/requirements.md", &["requirement"]),
     (
+        "gsd-core/templates/UAT.md",
+        &["uat_session", "uat_test", "uat_gap"],
+    ),
+    (
         "gsd-core/templates/research-project/STACK.md",
         &["stack_choice", "finding"],
     ),

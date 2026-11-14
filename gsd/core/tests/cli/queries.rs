@@ -76,6 +76,8 @@ fn bound(subject: &str) -> Option<&'static str> {
         | "$UNDO_MILESTONE/${N}" => "v1.0/01",
         "$PLAN_ID" | "$PLAN_ENTITY" | "$PLAN_FULL_ID" | "${TARGET_PLAN_ID}" | "$plan_id"
         | "$plan" => "v1.0/01/01-01",
+        "$UAT_SESSION" => "v1.0/01/01-UAT",
+        "$TEST" => "v1.0/01/01-UAT/U2",
         // facts: `the_verifiers_fact_spot_checks_print_what_they_promise` collects them first
         "$TEST_ID" => TWIN_TEST,
         "js:$PACKAGE/$MODULE_FILE::$FUNCTION_NAME" => TWIN_FUNCTION,

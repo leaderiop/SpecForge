@@ -14,13 +14,7 @@ When verify-work resumes after `/gsd:execute-phase --gaps-only`, the UAT `## Gap
 
 Read the UAT `## Gaps` section and the phase dir `*-PLAN.md` frontmatter. For each gap with `status: failed`:
 1. Find a `*-PLAN.md` whose frontmatter `gap_ids` includes the gap's `gap_id` (`G-{phase}-{N}`).
-2. If such a plan exists AND has a matching `*-SUMMARY.md` in the phase dir (the plan was executed by `--gaps-only`), the gap is **resolved** — update its YAML in place:
-   ```yaml
-   - gap_id: G-{phase}-{N}
-     status: resolved        # was: failed
-     resolved_by: {plan basename}
-     resolved_at: {today}
-   ```
+2. A gap whose `gap_closure` plan has completed is resolved by its computed `status`, `resolved_by` and `resolved_at`: edit nothing.
 3. If no plan references the `gap_id`, or the plan has no SUMMARY, leave the gap `status: failed` (still open).
 
 Read plan frontmatter directly in-context — do not pipe it through a shell parser. After reconciliation, announce:
@@ -77,7 +71,7 @@ Spawning parallel debug agents to investigate each issue.
 - Follow @~/.claude/gsd-core/workflows/diagnose-issues.md
 - Spawn parallel debug agents for each issue
 - Collect root causes
-- Update UAT.md with root causes
+- Record each root cause on its `uat_gap` (diagnose-issues' fence)
 - Proceed to `plan_gap_closure`
 
 Diagnosis runs automatically - no user prompt. Parallel agents investigate simultaneously, so overhead is minimal and fixes are more accurate.
@@ -125,14 +119,7 @@ Plans must be executable prompts.
 
 > **Runtime-aware dispatch (#2508 Phase 4).** GSD workflows dispatch specialized subagents by role. Before dispatching on a built-in-only runtime (kimi-code — three built-ins only), resolve the role to a built-in via the dispatch table (not part of @gsd/core: use the role unchanged). On named-dispatch runtimes (Claude/OpenCode/…) the role is returned unchanged; on kimi-code it maps to `coder`/`explore`/`plan` by role-suffix. The persona rides `${AGENT_SKILLS_<ROLE>}` (Phase 3) regardless. See @gsd-core/references/runtime-aware-dispatch.md.
 
-**Gap linkage (#1921):** each created `*-PLAN.md` MUST list the UAT gap ids it addresses in its frontmatter:
-```yaml
----
-gap_closure: true
-gap_ids: [G-{phase}-{N}, ...]   # the ## Gaps gap_id values this plan fixes
----
-```
-This lets `/gsd:verify-work` reconcile resolved gaps on resume (a gap whose plan has a matching `*-SUMMARY.md` is marked `status: resolved`, not re-diagnosed as a fresh blocker).
+**Gap linkage (#1921):** each created plan MUST name the `uat_gap` entities it addresses in its `gap_closure` field. A gap is then resolved once that plan completes: its `status` is computed, so `/gsd:verify-work` never re-diagnoses it as a fresh blocker.
 </downstream_consumer>
 """,
   subagent_type="gsd-planner",
@@ -211,7 +198,7 @@ Agent(
 **Mode:** revision
 
 <required_reading>
-- {phase_dir}/*-PLAN.md (Existing plans)
+- `specforge context gsd/planner "{PHASE_ID}"` (the planner pack: the existing plans among its sections)
 </required_reading>
 
 ${AGENT_SKILLS_PLANNER}
@@ -222,7 +209,7 @@ ${AGENT_SKILLS_PLANNER}
 </revision_context>
 
 <instructions>
-Read existing PLAN.md files. Make targeted updates to address checker issues. (See the spine for
+The plans are in the planner pack. Make targeted updates to address checker issues. (See the spine for
 the binding/non-binding contract and REVISION_CONFLICT handling stated above this point.)
 </instructions>
 """,

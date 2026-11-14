@@ -22,17 +22,12 @@ gsd-core/references/mvp-concepts.md	- **Per-phase mode authoring** — `workflow
 gsd-core/references/mvp-concepts.md	- **`--mvp` and `--prd <file>` together on Phase 1.** Both paths converge at the planner spawn. The PRD express path creates `CONTEXT.md` from the PRD file and continues to the research step; the Walking Skeleton gate fires independently when Phase 1 + new project + `--mvp`. The planner therefore receives both `WALKING_SKELETON=true` and PRD-derived context. This is intentional: the PRD informs what the skeleton should prove.
 gsd-core/references/revision-loop.md	and the phase `*-REVIEWS.md` already exists, `plan-phase` appends one line per conflict under
 gsd-core/references/thinking-models-execution.md	Before removing, replacing, or significantly modifying existing code that the plan touches, determine WHY it exists. Check: git blame for the commit that introduced it, comments explaining the rationale, test cases that exercise it, the PLAN.md or SUMMARY.md that created it. If the purpose is unclear, keep it and add a comment noting the uncertainty -- do NOT remove code whose purpose you don't understand. If the plan explicitly says to remove it, still document what it did in the deviation notes.
-gsd-core/references/thinking-models-verification.md	Before flagging any existing code as dead, redundant, or overcomplicated, determine WHY it was written that way. Check git blame, comments, test cases, and the PLAN.md that created it. If the reason is unclear, flag as "purpose unknown -- recommend keeping with WARNING, not removing" and include the git blame hash for the commit that introduced it.
 gsd-core/references/universal-anti-patterns.md	27. **Do not start executing the next plan before writing the SUMMARY.md for the current plan** -- downstream plans may reference it via `@` includes.
 gsd-core/references/verification-overrides.md	- A requirement changed after planning but ROADMAP.md hasn't been updated yet
 gsd-core/references/verifier-phase-gates.md	section) to VERIFICATION.md regardless of outcome — even when all
-gsd-core/references/verify-mvp-mode.md	Standard technical-check sections of VERIFICATION.md remain (API verification, error handling, etc.) but are appended below "User Flow Coverage", not above.
-gsd-core/templates/UAT.md	step finds an executed gap-closure plan (a `*-PLAN.md` naming this entry's
-gsd-core/templates/UAT.md	4. UAT.md Gaps section updated with diagnosis:
 gsd-core/templates/milestone-archive.md	- Update ROADMAP.md to collapse completed milestone in `<details>` tag
 gsd-core/templates/milestone-archive.md	- Update PROJECT.md to brownfield format with Current State section
 gsd-core/templates/milestone.md	If MILESTONES.md doesn't exist, create it with header:
-gsd-core/workflows/add-tests.md	2. **Create test file** targeting the user scenario from CONTEXT.md/VERIFICATION.md
 gsd-core/workflows/autonomous.md	Write a minimal CONTEXT.md so downstream plan-phase has valid input. Get phase details:
 gsd-core/workflows/complete-milestone.md	Mark a shipped version (v1.0, v1.1, v2.0) as complete. Creates historical record in MILESTONES.md, performs the full PROJECT.md evolution review (flat mode only; skipped under `--ws`, because PROJECT.md is shared across workstreams), reorganizes ROADMAP.md with milestone groupings, and tags the release in git.
 gsd-core/workflows/complete-milestone.md	3. Update ROADMAP.md — overwrite in place with milestone grouping (preserve Backlog section)
@@ -53,10 +48,6 @@ gsd-core/workflows/complete-milestone.md	- [ ] Requirements archive created (mil
 gsd-core/workflows/complete-milestone.md	- [ ] Safety commit made (archive files + updated ROADMAP.md) BEFORE the final commit
 gsd-core/workflows/complete-milestone.md	- [ ] STATE.md updated with fresh project reference
 gsd-core/workflows/complete-milestone.md	- [ ] RETROSPECTIVE.md updated with milestone section
-gsd-core/workflows/diagnose-issues.md	After UAT finds gaps, spawn one debug agent per gap. Each agent investigates autonomously with symptoms pre-filled from UAT. Collect root causes, update UAT.md gaps with diagnosis, then hand off to plan-phase --gaps with actual diagnoses.
-gsd-core/workflows/diagnose-issues.md	**Update UAT.md gaps with diagnosis:**
-gsd-core/workflows/diagnose-issues.md	Commit the updated UAT.md:
-gsd-core/workflows/diagnose-issues.md	- [ ] UAT.md gaps updated with artifacts and missing
 gsd-core/workflows/execute-phase/steps/regression-gate.md	- File patterns from `key-files.created` in corresponding SUMMARY.md files that match `*.test.*` or `*.spec.*`
 gsd-core/workflows/graduation.md	| `decisions` | `PROJECT.md` — append under `## Validated Decisions` (create section if absent) |
 gsd-core/workflows/graduation.md	| `patterns` | `PATTERNS.md` — append under the appropriate category section (create file if absent) |
@@ -92,15 +83,6 @@ gsd-core/workflows/undo.md	`milestones/v<X.Y>-phases/<phase>/` archive and the w
 gsd-core/workflows/undo.md	commits; a workstream completed into `milestones/ws-feat-<date>/` and then re-created as `feat`
 gsd-core/workflows/validate-phase.md	Audit Nyquist validation gaps for a completed phase. Generate missing tests. Update VALIDATION.md.
 gsd-core/workflows/validate-phase.md	- [ ] VALIDATION.md created or updated
-gsd-core/workflows/verify-work/detail/elaboration.md	2. If such a plan exists AND has a matching `*-SUMMARY.md` in the phase dir (the plan was executed by `--gaps-only`), the gap is **resolved** — update its YAML in place:
-gsd-core/workflows/verify-work/detail/elaboration.md	- Update UAT.md with root causes
-gsd-core/workflows/verify-work/detail/elaboration.md	**Gap linkage (#1921):** each created `*-PLAN.md` MUST list the UAT gap ids it addresses in its frontmatter:
-gsd-core/workflows/verify-work.md	Validate built features through conversational testing with persistent state. Creates UAT.md that tracks test progress, survives /clear, and feeds gaps into /gsd:plan-phase --gaps.
-gsd-core/workflows/verify-work.md	- Each `auto_passed[]` entry is recorded in UAT.md as `result: pass`, `source: automated` (see `create_uat_file`) — **do not present it as a checkpoint.** It is deterministically covered by the passing tests in its `verification` refs.
-gsd-core/workflows/verify-work.md	Append to UAT.md `## Deferred Follow-Ups` (create the section if absent):
-gsd-core/workflows/verify-work.md	`NEXT_COMMAND` (execute-phase) exactly as before #5118. This workflow never rewrites VERIFICATION.md
-gsd-core/workflows/verify-work.md	Spawn gsd-planner in --gaps mode against the UAT (with diagnoses), `{state_path}` (Project State), and `{roadmap_path}` (Roadmap). Each created PLAN.md MUST carry `gap_closure: true` and `gap_ids: [...]` in its frontmatter (#1921) so a later verify-work resume can reconcile it.
-gsd-core/workflows/verify-work.md	- [ ] UAT file created with all tests from SUMMARY.md
 ../security/assets/agents/gsd-security-auditor.compact.md	A phase has been submitted for security audit. Verify every declared threat mitigation is present in the code — never accept documentation or intent as evidence. Does NOT scan blindly for new vulnerabilities — verifies each threat in `<threat_model>` by its declared disposition (mitigate / accept / transfer) and reports gaps. Orchestrator owns the SECURITY.md write (#2119: single-writer contract).
 ../security/assets/agents/gsd-security-auditor.compact.md	**Implementation files are READ-ONLY.** Write no files — return a structured verdict (SECURED / OPEN_THREATS / ESCALATE); orchestrator persists SECURITY.md. Implementation gaps → OPEN_THREATS or ESCALATE. Never patch implementation.
 ../security/assets/agents/gsd-security-auditor.compact.md	Return SECURED / OPEN_THREATS / ESCALATE with `threats_open` set to the severity-filtered count. The orchestrator writes SECURITY.md from this data — you write no files (#2119).
