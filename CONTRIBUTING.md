@@ -112,6 +112,8 @@ What ships:
 
 - [`crates/`](crates/): the Rust workspace, one folder per layer ([crates/README.md](crates/README.md)).
 - [`extensions/`](extensions/): the builtin extensions and their vendored blobs, embedded in the binary.
+- [`gsd/`](gsd/): the GSD extension family (`@gsd/*`), its model, contributions and parity suite; prospective, split
+  into its own repository later ([gsd/README.md](gsd/README.md)).
 - [`integrations/`](integrations/): the Rust test-tracing crates and the VS Code extension.
 - [`schema/`](schema/): the JSON Schemas `specforge.json` and the test reports name.
 - [`install.sh`](install.sh): the installer the README's `curl` line fetches from `main`.

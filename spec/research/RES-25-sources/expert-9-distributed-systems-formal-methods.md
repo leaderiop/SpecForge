@@ -153,10 +153,10 @@ service order_service "Order Service" {
 }
 
 service billing_service "Billing Service" {
-  behaviors [charge_payment, refund_payment]
+  behaviors [charge_payment]
   libraries [billing_lib, payment_gateway_lib]
   produces  [payment_processed, payment_failed]
-  consumes  [order_placed, order_cancelled]
+  consumes  [order_placed]
   ports     [PaymentRepository, PaymentGateway]
 }
 ```
@@ -172,10 +172,9 @@ ORDER_SERVICE =
 
 BILLING_SERVICE =
   orders_placed?event → charge_payment!cmd → payment_processed!event → BILLING_SERVICE
-  [] orders_cancelled?event → refund_payment!cmd → BILLING_SERVICE
 
 -- System-level composition
-DISTRIBUTED_SYSTEM = ORDER_SERVICE [| {orders_placed, orders_cancelled, payment_processed} |] BILLING_SERVICE
+DISTRIBUTED_SYSTEM = ORDER_SERVICE [| {orders_placed, payment_processed} |] BILLING_SERVICE
 ```
 
 ---
@@ -200,8 +199,6 @@ The compiler can detect deadlock scenarios by analyzing the event consumption gr
 order_placed → charge_payment → payment_processed → complete_order → order_completed
                     ↓
             payment_failed → cancel_order → order_cancelled
-                                  ↓
-                            refund_payment → refund_processed
 ```
 
 **Deadlock Detection Algorithm:**
@@ -814,15 +811,13 @@ saga order_checkout_saga "Order Checkout Saga" {
   steps {
     1. place_order       compensate_with cancel_order
     2. reserve_inventory compensate_with release_inventory
-    3. charge_payment    compensate_with refund_payment
-    4. begin_fulfillment compensate_with cancel_fulfillment
+    3. begin_fulfillment compensate_with cancel_fulfillment
   }
 
   # Events in saga flow
   produces [
     order_placed,
     inventory_reserved,
-    payment_processed,
     fulfillment_started,
     order_completed,
     order_checkout_failed
