@@ -311,7 +311,7 @@ scalar!(json!({"type": "string"}) => String, str, Cow<'_, str>, PathBuf, Path);
 scalar!(json!({"type": "boolean"}) => bool);
 scalar!(json!({"type": "integer", "minimum": 0}) => u8, u16, u32, u64, usize);
 scalar!(json!({"type": "integer"}) => i8, i16, i32, i64, isize);
-scalar!(json!({"type": "number"}) => f32, f64);
+scalar!(json!({"type": "number"}) => f32, f64, serde_json::Number);
 
 impl<T: Shape> Shape for Option<T> {
     fn body(defs: &mut Definitions) -> Value {

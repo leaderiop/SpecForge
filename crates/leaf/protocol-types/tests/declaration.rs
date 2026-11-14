@@ -494,7 +494,10 @@ fn a_field_declares_members_a_union_and_bounds() {
         panic!("two members: {:?}", field.members);
     };
     assert_eq!(phase.target_kinds, ["phase", "milestone"]);
-    assert_eq!((score.minimum, score.maximum), (Some(0), Some(100)));
+    assert_eq!(
+        (&score.minimum, &score.maximum),
+        (&Some(0.into()), &Some(100.into()))
+    );
     let written = serde_json::to_value(&field).unwrap();
     let again: FieldDescriptor = serde_json::from_value(written).unwrap();
     assert_eq!(again, field, "the attributes survive the wire");

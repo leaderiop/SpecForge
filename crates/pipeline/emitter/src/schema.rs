@@ -132,11 +132,12 @@ pub struct SchemaField {
     /// The kinds a reference may name when it names a union of them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub target_kinds: Vec<String>,
-    /// An integer's least and greatest value, inclusive.
+    /// An integer's or a number's least and greatest value, inclusive, as declared: whole numbers for an `integer`,
+    /// exact decimals for a `number` (ADR 0361).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub minimum: Option<i64>,
+    pub minimum: Option<serde_json::Number>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub maximum: Option<i64>,
+    pub maximum: Option<serde_json::Number>,
     /// The checks its values pass (ADR 0336), each resolved to `<extension>:<checker>`, declared ones first.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub checks: Vec<SchemaCheck>,
@@ -221,7 +222,7 @@ impl SchemaField {
             self.field_type,
             self.enum_values.clone().unwrap_or_default(),
         )
-        .bounded(self.minimum, self.maximum)
+        .bounded(self.minimum.clone(), self.maximum.clone())
         .requiring(self.required);
         if !self.target_kinds.is_empty() {
             form = form.targeting_any(&self.target_kinds);
@@ -278,8 +279,8 @@ impl SchemaField {
                 })
                 .collect(),
             target_kinds: declared.target_kinds.clone(),
-            minimum: declared.minimum,
-            maximum: declared.maximum,
+            minimum: declared.minimum.clone(),
+            maximum: declared.maximum.clone(),
             checks: checks.on(kind, path).iter().map(SchemaCheck::of).collect(),
             checks_while: checks
                 .gate(kind, path)

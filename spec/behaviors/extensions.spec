@@ -202,6 +202,8 @@ behavior load_extension_settings "Load Extension Settings" {
   verify integration "a code gated by a false bool setting is reported by no source"
   verify unit "a bool setting gates codes while it is on"
   verify unit "a number setting takes a decimal within its bounds"
+  verify unit "a number setting's bounds are exact decimals"
+  verify unit "a number setting of more than 15 significant digits is refused"
   verify integration "a preset raises a code upward only and the surface's strict applies after"
   verify integration "analyze findings are gated and raised as the project's report is"
   verify integration "a command and a tool see whether a secret is set and never its value"

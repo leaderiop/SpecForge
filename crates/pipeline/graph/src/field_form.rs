@@ -18,10 +18,12 @@ use specforge_protocol_types::{FieldType, FieldWriter};
 use crate::Graph;
 
 mod admit;
+mod bounds;
 pub mod json;
 pub mod members;
 pub mod targets;
 pub mod word;
+pub use bounds::Bounds;
 pub(crate) use json::write_fields;
 pub use json::{FieldJson, write};
 pub use targets::Targets;
@@ -99,8 +101,8 @@ pub struct FieldForm {
     targets: Vec<String>,
     /// A typed `block` or `block_list`'s members; `None` for an open block and every other type.
     members: Option<Arc<BlockMembers>>,
-    /// An integer's least and greatest value, inclusive.
-    bounds: (Option<i64>, Option<i64>),
+    /// An integer's or a number's least and greatest value, inclusive.
+    bounds: Bounds,
     /// A member's `required`: present in each written item. The top level keeps E006's host rule.
     required: bool,
     /// Who writes it besides its author (ADR 0287).
@@ -139,7 +141,7 @@ impl FieldForm {
             enum_values,
             targets: Vec::new(),
             members: None,
-            bounds: (None, None),
+            bounds: Bounds::of(field_type, None, None),
             required: false,
             writer: None,
             history: (false, false),
@@ -163,9 +165,15 @@ impl FieldForm {
         self
     }
 
-    /// The same form, whose integers lie within `minimum` and `maximum`, inclusive.
-    pub fn bounded(mut self, minimum: Option<i64>, maximum: Option<i64>) -> Self {
-        self.bounds = (minimum, maximum);
+    /// The same form, whose values lie within `minimum` and `maximum`, inclusive, read by the form's type
+    /// ([`Bounds::of`]): whole numbers for an `integer`, exact decimals for a `number`.
+    pub fn bounded<N: Into<serde_json::Number>>(
+        mut self,
+        minimum: Option<N>,
+        maximum: Option<N>,
+    ) -> Self {
+        let (minimum, maximum) = (minimum.map(Into::into), maximum.map(Into::into));
+        self.bounds = Bounds::of(self.field_type, minimum.as_ref(), maximum.as_ref());
         self
     }
 
@@ -222,9 +230,9 @@ impl FieldForm {
         self.members.as_deref()
     }
 
-    /// An integer's least and greatest value, inclusive.
-    pub fn bounds(&self) -> (Option<i64>, Option<i64>) {
-        self.bounds
+    /// An integer's or a number's least and greatest value, inclusive.
+    pub fn bounds(&self) -> &Bounds {
+        &self.bounds
     }
 
     /// Whether a member is required in each written item.
@@ -439,29 +447,12 @@ impl FieldForm {
         }
     }
 
-    /// `Ok` when the integer `text` lies within the declared bounds; E061's remedy names them.
-    fn in_bounds(&self, text: &str) -> Result<(), Refusal> {
-        let (minimum, maximum) = self.bounds;
-        let Ok(n) = text.trim().parse::<i64>() else {
-            return Ok(());
-        };
-        if minimum.is_some_and(|m| n < m) || maximum.is_some_and(|m| n > m) {
-            return Err(Refusal::with(&match (minimum, maximum) {
-                (Some(low), Some(high)) => format!("write a whole number from {low} to {high}"),
-                (Some(low), None) => format!("write a whole number of at least {low}"),
-                (None, Some(high)) => format!("write a whole number of at most {high}"),
-                (None, None) => unreachable!("an unbounded integer is in bounds"),
-            }));
-        }
-        Ok(())
-    }
-
     /// The JSON Schema of what [`write`] writes for every value
     /// [`Self::admit`] takes: `{"type":"string"}` for `string`, `reference`
     /// and a valueless `enum`; `{"type":"string","enum":[…]}` for an `enum`;
-    /// `{"type":"integer"}`; `{"type":"boolean"}`; `{"type":"string","format":"date"}` for a `date`;
+    /// `{"type":"integer"}`; `{"type":"number"}`; `{"type":"boolean"}`; `{"type":"string","format":"date"}` for a `date`;
     /// `{"type":"array","items":{"type":"string"}}` for both lists; an `enum_list` adds its `enum` and
-    /// `uniqueItems`; an `integer` its `minimum` and `maximum`;
+    /// `uniqueItems`; an `integer` or a `number` its `minimum` and `maximum`, the JSON numbers declared;
     /// `{"type":"object","additionalProperties":<FieldJson>}` for an open `block`
     /// (its entries are undeclared values), `FieldJson` defined in `defs`; a typed `block` an object closed to its
     /// members; a `block_list` an array of those (ADR 0285).
@@ -473,23 +464,19 @@ impl FieldForm {
             }
             FieldType::Enum if self.enum_values.is_empty() => json!({"type": "string"}),
             FieldType::Enum => json!({"type": "string", "enum": self.enum_values}),
-            FieldType::Integer => {
-                let mut schema = json!({"type": "integer"});
-                if let Some(minimum) = self.bounds.0 {
-                    schema["minimum"] = json!(minimum);
+            FieldType::Integer | FieldType::Number => {
+                let name = if self.field_type == FieldType::Integer {
+                    "integer"
+                } else {
+                    "number"
+                };
+                let mut schema = json!({"type": name});
+                let (minimum, maximum) = self.bounds.json();
+                if let Some(minimum) = minimum {
+                    schema["minimum"] = Value::Number(minimum);
                 }
-                if let Some(maximum) = self.bounds.1 {
-                    schema["maximum"] = json!(maximum);
-                }
-                schema
-            }
-            FieldType::Number => {
-                let mut schema = json!({"type": "number"});
-                if let Some(minimum) = self.bounds.0 {
-                    schema["minimum"] = json!(minimum);
-                }
-                if let Some(maximum) = self.bounds.1 {
-                    schema["maximum"] = json!(maximum);
+                if let Some(maximum) = maximum {
+                    schema["maximum"] = Value::Number(maximum);
                 }
                 schema
             }

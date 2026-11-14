@@ -2,7 +2,7 @@
 //! admitted by the form of the field it is for, as a written value is by [`FieldForm::admit`].
 
 use serde_json::Value;
-use specforge_protocol_types::FieldType;
+use specforge_protocol_types::{Decimal, FieldType};
 
 use super::{FieldForm, FieldJson, Refusal, ValueShape};
 
@@ -17,20 +17,6 @@ impl FieldForm {
         Ok(FieldJson::of(value.clone()))
     }
 
-    /// `Ok` when the number `x` lies within the declared bounds (a `number` setting's).
-    fn in_number_bounds(&self, x: f64) -> Result<(), Refusal> {
-        let (minimum, maximum) = self.bounds;
-        if minimum.is_some_and(|m| x < m as f64) || maximum.is_some_and(|m| x > m as f64) {
-            return Err(Refusal::with(&match (minimum, maximum) {
-                (Some(low), Some(high)) => format!("write a number from {low} to {high}"),
-                (Some(low), None) => format!("write a number of at least {low}"),
-                (None, Some(high)) => format!("write a number of at most {high}"),
-                (None, None) => unreachable!("an unbounded number is in bounds"),
-            }));
-        }
-        Ok(())
-    }
-
     fn admitted(&self, value: &Value) -> Result<(), Refusal> {
         let wrong = || Refusal::with(&format!("give a {}", self.field_type().as_str()));
         match (self.field_type(), value) {
@@ -39,8 +25,8 @@ impl FieldForm {
                 self.admit(ValueShape::Integer, &n.to_string())
             }
             (FieldType::Number, Value::Number(n)) => {
-                let x = n.as_f64().ok_or_else(wrong)?;
-                self.in_number_bounds(x)
+                let value = Decimal::from_json(n).map_err(|e| Refusal::with(&e.to_string()))?;
+                self.in_decimal_bounds(value)
             }
             (FieldType::Bool, Value::Bool(_)) => Ok(()),
             (FieldType::Date, Value::String(s)) => self.admit(ValueShape::Date, s),

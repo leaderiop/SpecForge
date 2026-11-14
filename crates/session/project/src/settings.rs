@@ -419,21 +419,9 @@ fn unknown(
 
 /// What a form takes, for a message: `a whole number from 1 to 3`.
 fn expected(form: &FieldForm) -> String {
-    let (minimum, maximum) = form.bounds();
     match form.field_type() {
         FieldType::Bool => "true or false".to_string(),
-        FieldType::Integer => match (minimum, maximum) {
-            (Some(lo), Some(hi)) => format!("a whole number from {lo} to {hi}"),
-            (Some(lo), None) => format!("a whole number of at least {lo}"),
-            (None, Some(hi)) => format!("a whole number of at most {hi}"),
-            (None, None) => "a whole number".to_string(),
-        },
-        FieldType::Number => match (minimum, maximum) {
-            (Some(lo), Some(hi)) => format!("a number from {lo} to {hi}"),
-            (Some(lo), None) => format!("a number of at least {lo}"),
-            (None, Some(hi)) => format!("a number of at most {hi}"),
-            (None, None) => "a number".to_string(),
-        },
+        FieldType::Integer | FieldType::Number => form.bounds().describe(),
         FieldType::Enum if !form.enum_values().is_empty() => {
             format!("one of {}", form.enum_values().join(", "))
         }
@@ -485,7 +473,8 @@ fn found_kind(value: &Value) -> &'static str {
     }
 }
 
-/// Whether `value` is of the JSON kind `form` reads, so the fault is in its content, not its kind.
+/// Whether `value` is of the JSON kind `form` reads, so the fault is in its content, not its kind. Any JSON number
+/// fits a `number`: one of more than 15 significant digits is a content fault, whose remedy names the cap (ADR 0361).
 fn kind_fits(form: &FieldForm, value: &Value) -> bool {
     match form.field_type() {
         FieldType::Bool => value.is_boolean(),

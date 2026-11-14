@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use specforge_graph::FieldForm;
 use specforge_graph::field_form::BlockMembers;
-use specforge_protocol_types::{FieldDescriptor, FieldType, FieldWriter, ProofRole};
+use specforge_graph::{Bounds, FieldForm};
+use specforge_protocol_types::{Decimal, FieldDescriptor, FieldType, FieldWriter, ProofRole};
 
 /// A declared field type this host does not read. The registry build
 /// reports it as W019 and registers nothing.
@@ -398,13 +398,42 @@ fn read(
         );
         (declared.minimum, declared.maximum) = (None, None);
     }
-    if let (Some(minimum), Some(maximum)) = (declared.minimum, declared.maximum)
-        && minimum > maximum
-    {
+    for (name, bound) in [
+        ("minimum", &mut declared.minimum),
+        ("maximum", &mut declared.maximum),
+    ] {
+        let Some(n) = bound.as_ref() else { continue };
+        let unread = match field_type {
+            FieldType::Integer if n.as_i64().is_none() => {
+                Some("an integer's bound is a whole number within i64".to_string())
+            }
+            FieldType::Number => Decimal::from_json(n).err().map(|e| e.to_string()),
+            _ => None,
+        };
+        if let Some(why) = unread {
+            refuse(
+                problems,
+                path,
+                format!("declares {name} {n}, which its type '{ty}' cannot read: {why}"),
+            );
+            *bound = None;
+        }
+    }
+    let bounds = Bounds::of(
+        field_type,
+        declared.minimum.as_ref(),
+        declared.maximum.as_ref(),
+    );
+    if bounds.is_inverted() {
+        let (minimum, maximum) = bounds.texts();
         refuse(
             problems,
             path,
-            format!("declares minimum {minimum} above maximum {maximum}"),
+            format!(
+                "declares minimum {} above maximum {}",
+                minimum.unwrap_or_default(),
+                maximum.unwrap_or_default()
+            ),
         );
         (declared.minimum, declared.maximum) = (None, None);
     }
@@ -461,7 +490,7 @@ fn read(
     }
 
     let mut form = FieldForm::new(field_type, declared.enum_values.clone())
-        .bounded(declared.minimum, declared.maximum)
+        .bounded(declared.minimum.clone(), declared.maximum.clone())
         .requiring(is_member && declared.required)
         .written_by(writer)
         .historied(declared.immutable, declared.append_only);

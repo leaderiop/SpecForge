@@ -411,7 +411,7 @@ expression: listing
               "type": "boolean"
             },
             "maximum": {
-              "type": "integer"
+              "type": "number"
             },
             "members": {
               "items": {
@@ -420,7 +420,7 @@ expression: listing
               "type": "array"
             },
             "minimum": {
-              "type": "integer"
+              "type": "number"
             },
             "name": {
               "type": "string"
@@ -2391,7 +2391,7 @@ expression: listing
               "type": "boolean"
             },
             "maximum": {
-              "type": "integer"
+              "type": "number"
             },
             "members": {
               "items": {
@@ -2400,7 +2400,7 @@ expression: listing
               "type": "array"
             },
             "minimum": {
-              "type": "integer"
+              "type": "number"
             },
             "name": {
               "type": "string"

@@ -88,10 +88,13 @@ pub struct SettingDescriptor {
     pub field_type: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub enum_values: Vec<String>,
+    /// The least value, inclusive: a whole number on an `integer`, an exact decimal of at most 15 significant digits
+    /// on a `number` (ADR 0361).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub minimum: Option<i64>,
+    pub minimum: Option<serde_json::Number>,
+    /// The greatest value, inclusive, read as [`Self::minimum`] is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub maximum: Option<i64>,
+    pub maximum: Option<serde_json::Number>,
     /// A block's members, each a field of the block (ADR 0285).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub members: Vec<FieldDescriptor>,

@@ -680,13 +680,13 @@ fn diff_field(
     attributes.extend(members(Members::TargetKinds, &old_set, new_target_kinds));
     attributes.extend(scalar(
         Scalar::Minimum,
-        old_minimum.map(|n| n.to_string()),
-        new_minimum.map(|n| n.to_string()),
+        old_minimum.as_ref().map(|n| n.to_string()),
+        new_minimum.as_ref().map(|n| n.to_string()),
     ));
     attributes.extend(scalar(
         Scalar::Maximum,
-        old_maximum.map(|n| n.to_string()),
-        new_maximum.map(|n| n.to_string()),
+        old_maximum.as_ref().map(|n| n.to_string()),
+        new_maximum.as_ref().map(|n| n.to_string()),
     ));
     let checks = |checks: &Vec<SchemaCheck>| {
         (!checks.is_empty()).then(|| serde_json::to_string(checks).expect("JSON values"))

@@ -4,6 +4,7 @@
 
 use specforge_common::Severity;
 use specforge_extension_sdk::Vocabulary;
+use specforge_graph::Bounds;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
     FieldDescriptor, FieldRegistryEntry, FieldType, ProofRole, UnknownFieldType,
@@ -495,7 +496,7 @@ fn a_blocks_members_register_by_path() {
     assert_eq!(phase.target_kinds(), ["phase", "milestone"]);
     assert!(phase.required());
     let (_, score) = fields.get_path("thing", "requires.score").unwrap();
-    assert_eq!(score.bounds(), (Some(0), Some(100)));
+    assert_eq!(score.bounds(), &Bounds::Integer(Some(0), Some(100)));
     assert!(fields.get_path("thing", "requires.path").is_some());
     assert!(fields.get_path("thing", "requires").is_some());
     assert!(fields.get_path("thing", "requires.nope").is_none());
@@ -509,6 +510,52 @@ fn a_blocks_members_register_by_path() {
         .map(|(name, _)| name)
         .collect();
     assert_eq!(names, ["phase", "score", "path"], "in declared order");
+}
+
+#[spec(
+    behavior = "registry_build_fields",
+    verify = "a fractional bound on an integer field is W021 and dropped"
+)]
+fn a_bound_its_type_cannot_read_is_w021() {
+    let half = serde_json::Number::from_f64(0.5).expect("finite");
+    let build = build([declare("@test/ext", |c| {
+        c.kind("Task", |k| {
+            k.keyword("task");
+            k.field("estimate", |f| {
+                f.field_type(FieldType::Integer)
+                    .minimum(half.clone())
+                    .maximum(10);
+            });
+            k.field("huge", |f| {
+                f.field_type(FieldType::Integer).maximum(u64::MAX);
+            });
+            k.field("inverted", |f| {
+                f.field_type(FieldType::Integer).minimum(5).maximum(1);
+            });
+        });
+    })]);
+    let refused: Vec<String> = coded(&build, "W021")
+        .iter()
+        .map(|d| d.message.clone())
+        .collect();
+    assert_eq!(refused.len(), 3, "{refused:?}");
+    assert!(
+        refused[0].contains("'estimate'")
+            && refused[0].contains("declares minimum 0.5, which its type 'integer' cannot read"),
+        "{}",
+        refused[0]
+    );
+    assert!(refused[1].contains("'huge'"), "{}", refused[1]);
+    assert!(
+        refused[2].contains("declares minimum 5 above maximum 1"),
+        "{}",
+        refused[2]
+    );
+    let fields = build.fields();
+    let bounds = |name: &str| *fields.get("task", name).unwrap().form().bounds();
+    assert_eq!(bounds("estimate"), Bounds::Integer(None, Some(10)));
+    assert_eq!(bounds("huge"), Bounds::Integer(None, None));
+    assert_eq!(bounds("inverted"), Bounds::Integer(None, None));
 }
 
 #[spec(

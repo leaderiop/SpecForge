@@ -276,14 +276,15 @@ impl FieldBuilder {
         self.0.target_kinds = kinds.iter().map(|k| k.to_string()).collect();
         self
     }
-    /// An integer field's least value, inclusive (ADR 0285).
-    pub fn minimum(&mut self, n: i64) -> &mut Self {
-        self.0.minimum = Some(n);
+    /// An `integer` field's least value, inclusive (ADR 0285): a whole number; a `number` field's is an exact
+    /// decimal (ADR 0361). Any bound its type cannot read is W021 and dropped.
+    pub fn minimum(&mut self, n: impl Into<serde_json::Number>) -> &mut Self {
+        self.0.minimum = Some(n.into());
         self
     }
-    /// An integer field's greatest value, inclusive (ADR 0285).
-    pub fn maximum(&mut self, n: i64) -> &mut Self {
-        self.0.maximum = Some(n);
+    /// An `integer` field's greatest value, inclusive, read as [`Self::minimum`] is.
+    pub fn maximum(&mut self, n: impl Into<serde_json::Number>) -> &mut Self {
+        self.0.maximum = Some(n.into());
         self
     }
     /// A member of a `block` or `block_list` field, declared as a field is (ADR 0285).

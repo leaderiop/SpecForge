@@ -212,8 +212,8 @@ fn register(mut setting: SettingDescriptor, out: &mut ExtensionSettings, found: 
         name: name.clone(),
         field_type: setting.field_type.clone(),
         enum_values: setting.enum_values.clone(),
-        minimum: setting.minimum,
-        maximum: setting.maximum,
+        minimum: setting.minimum.clone(),
+        maximum: setting.maximum.clone(),
         members: setting.members.clone(),
         ..Default::default()
     };
@@ -249,8 +249,8 @@ fn register(mut setting: SettingDescriptor, out: &mut ExtensionSettings, found: 
     let kept = entry.declared();
     setting.field_type = kept.field_type.clone();
     setting.enum_values = kept.enum_values.clone();
-    setting.minimum = kept.minimum;
-    setting.maximum = kept.maximum;
+    setting.minimum = kept.minimum.clone();
+    setting.maximum = kept.maximum.clone();
     setting.members = kept.members.clone();
     let form = entry.form().clone();
 
