@@ -517,3 +517,18 @@ fn the_uat_loop_records_a_pass_and_a_gap_the_diagnosis_reads() {
     assert_eq!(done.code, 0, "{}{}", done.out, done.err);
     assert_eq!(p.fields_of("v1.0/01/01-UAT")["status"], "diagnosed");
 }
+
+/// The verifier hands its gaps to `/gsd:plan-phase --gaps` as `verify_gap` entities, which the derive pass closes and
+/// the planner and execute-phase read, yet no fence of its body, nor of any other asset, creates one: a phase's gaps
+/// never reach the graph.
+#[test]
+fn the_verifier_records_each_gap_as_a_verify_gap() {
+    let verifier = asset("agents/gsd-verifier.md");
+    assert!(verifier.contains("Structured gaps (`verify_gap` entities)"));
+    let creating: Vec<String> = crate::asset_code::assets_under("assets")
+        .into_iter()
+        .filter(|(_, lines)| lines.iter().any(|l| l.contains("specforge new verify_gap")))
+        .map(|(path, _)| path)
+        .collect();
+    assert!(creating.is_empty(), "{creating:?}");
+}
