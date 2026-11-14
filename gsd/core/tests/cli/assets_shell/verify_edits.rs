@@ -601,3 +601,18 @@ fn the_verifier_records_each_gap_as_a_verify_gap() {
         "{out}"
     );
 }
+
+/// The verifier lists the checks only a person can make (Step 8), which `human_needed`, audit-uat and the derive pass
+/// read as `human_item` entities, yet no fence of its body, nor of any other asset, creates one: human verification
+/// never reaches the graph.
+#[test]
+fn the_verifier_records_each_human_check_as_a_human_item() {
+    let verifier = asset("agents/gsd-verifier.md");
+    assert!(verifier.contains("**Why human:** {Why can't verify programmatically}"));
+    let creating: Vec<String> = crate::asset_code::assets_under("assets")
+        .into_iter()
+        .filter(|(_, lines)| lines.iter().any(|l| l.contains("specforge new human_item")))
+        .map(|(path, _)| path)
+        .collect();
+    assert!(creating.is_empty(), "{creating:?}");
+}

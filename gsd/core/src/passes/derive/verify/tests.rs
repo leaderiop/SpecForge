@@ -146,6 +146,43 @@ fn a_deferral_to_the_same_an_earlier_or_a_missing_phase_does_not_count() {
     }
 }
 
+/// Phase 01's verification deferring TR2 to phase 02 as the writer stores it: each row's reference spelled relative
+/// to the verification's scope, the graph's `deferred.*` edges naming the full ids.
+fn deferring_as_written() -> Vec<PassValue> {
+    let phases = ["v1.0/01", "v1.0/02"]
+        .map(|id| json!({ "id": id, "kind": "phase" }))
+        .to_vec();
+    let mut input = input(
+        vec![
+            truth(1, vec![judgement("verified", "fresh", true)]),
+            truth(2, vec![judgement("failed", "fresh", false)]),
+        ],
+        phases,
+    );
+    input.entities[0].values.insert(
+        "deferred".into(),
+        json!([{ "truth": "01-01/TR2", "addressed_in": "02", "evidence": "later" }]),
+    );
+    for (target, label) in [
+        ("v1.0/01/01-01/TR2", "deferred.truth"),
+        ("v1.0/02", "deferred.addressed_in"),
+    ] {
+        input.edges.push(
+            serde_json::from_value(json!({ "source": V, "target": target, "label": label }))
+                .expect("an edge"),
+        );
+    }
+    run(&input)
+}
+
+/// Pinned: the derive pass compares the rows' spelled references with full ids, so a written deferral never counts.
+#[test]
+fn a_deferral_as_written_counts_through_its_edges() {
+    let out = deferring_as_written();
+    assert_eq!(of(&out, "status"), Some(json!("gaps_found")));
+    assert_eq!(of(&out, "score"), Some(json!("1/2")));
+}
+
 #[test]
 fn a_stale_judgement_is_not_a_pass() {
     let out = run(&input(

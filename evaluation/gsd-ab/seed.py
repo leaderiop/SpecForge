@@ -718,6 +718,31 @@ def spawns_self_test(run: Path) -> None:
     assert refusals == 6, f"six layouts refused: {refusals}"
 
 
+# The shell forms the typed-edit fences take, each a state write: a heredoc whose body holds an apostrophe, a
+# command substitution bare and quoted, a keyword, a subshell, and a global flag before the verb.
+FORMS = {
+    "heredoc": "IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\\n'}\nthe check isn't wired\nTEXT\n"
+               'specforge set X why "$WHY" || exit 1',
+    "substitution": 'X=$(specforge new deferred_idea DI1 "$T" --in a.spec) || exit 1',
+    "quoted substitution": 'X="$(specforge new deferred_idea DI1 "$T" --in a.spec)" || exit 1',
+    "keyword": "if specforge set X status done; then echo ok; fi",
+    "subshell": "( specforge set X status done )",
+    "global flag": "specforge --format json set X status done",
+}
+
+
+def forms_self_test() -> dict:
+    """Whether `changes_state` sees the write of each of [`FORMS`]: true, false, or `refused`."""
+    writes = json.loads(TASKS.read_text())["state_writes"]
+    seen = {}
+    for name, command in FORMS.items():
+        try:
+            seen[name] = changes_state({"name": "Bash", "input": {"command": command}}, writes, name)
+        except Refused:
+            seen[name] = "refused"
+    return seen
+
+
 def self_test() -> None:
     with tempfile.TemporaryDirectory() as scratch:
         root = Path(scratch)
@@ -891,6 +916,10 @@ def self_test() -> None:
             "fx": ["W1 a.spec:3"]}, "Bv1's preflight compares with the tag's baselines"
 
         spawns_self_test(root / "transcript")
+        seen = forms_self_test()
+        # pinned: the shell reader refuses a heredoc body and misses every other form
+        assert seen == {**{name: False for name in FORMS}, "heredoc": "refused"}, seen
+        print(f"forms: {sum(v is True for v in seen.values())} of {len(FORMS)} shell forms counted as state writes")
 
         order = schedule(SYNTHETIC)
         assert len(order) == len(SYNTHETIC["tasks"]) * SEEDS
