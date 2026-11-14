@@ -26,7 +26,7 @@ Check for existence of:
 ```bash
 specforge export --kinds pause,handoff --pick '.nodes[].id' || true   # by kind: a pause or handoff outside a phase is linked to nothing
 ```
-A `pause` entity is the handoff marker (`.continue-here.md` is not a file here).
+A `pause` entity is the handoff marker: there is no marker file.
 
 Emit:
 - ✓ `No orphaned handoff files` — if none found
@@ -34,7 +34,7 @@ Emit:
 
 **Check 3 — Deferred scope drift**
 
-Search phase artifacts (CONTEXT.md, DISCUSSION-LOG.md, BUG-BRIEF.md, VERIFICATION.md, SUMMARY.md, HANDOFF.md files under the `phase` entities) for patterns:
+Search the phases' `context`, `discussion`, `summary`, `verification` and `handoff` entities for the patterns below with `specforge search "<pattern>" --kinds context,discussion,summary,verification,handoff`, and the phases' goals with:
 ```bash
 while IFS= read -r ph; do goal=$(specforge query "$ph" --depth 0 --pick '.nodes[0].fields.goal'); case "$goal" in (*"defer to Phase"*|*"future phase"*|*"out of scope Phase"*|*"deferred to Phase"*) echo "$ph" ;; esac; done < <(specforge query "$MILESTONE" --depth 3 --kinds phase --pick '.nodes[kind=phase].id') || true
 ```
@@ -47,7 +47,7 @@ Emit:
 
 **Check 4 — Memory-flagged pending work**
 
-Check whether a `lesson` entity records pending work (there is no MEMORY.md here):
+Check whether a `lesson` entity records pending work:
 ```bash
 specforge export --kinds lesson --pick '.nodes[].id' || true
 ```
@@ -117,7 +117,7 @@ Review the flagged items above before acting on the routing suggestion.
 
 Then for each failed check, add a concrete next action:
 - Check 2 (orphaned handoff): `Read the handoff file(s) and resume from where work was paused: /gsd:resume-work`
-- Check 3 (deferred scope): `Add the missing phases to ROADMAP.md or update the deferred references`
+- Check 3 (deferred scope): `Add the missing phases with /gsd:phase, or update the deferred references`
 - Check 4 (memory pending): `Review the flagged memory entries and resolve or clear them`
 - Check 5 (blocking todos): `Complete the operational steps in the pending todos before continuing`
 - Check 6 (uncommitted code): `Commit or stash the uncommitted changes before advancing`

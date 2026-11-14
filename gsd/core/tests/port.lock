@@ -3604,7 +3604,7 @@ gsd-core/workflows/next.md	own	50+1	1	edddb800d94f	ce73d81e3525	ported-name
 gsd-core/workflows/next.md	kept	51+5	fd65975b4979
 gsd-core/workflows/next.md	own	56+1	1	20e004166ca9	72cb35a849d1	ported-name
 gsd-core/workflows/next.md	kept	57+43	c3d6403fd407
-gsd-core/workflows/next.md	own	100+1	1	bc24d20dcaf9	c00927fe1200	ported-name
+gsd-core/workflows/next.md	own	100+1	1	bc24d20dcaf9	6049ce9c814f	ported-name
 gsd-core/workflows/next.md	kept	101+7	2aa348f5ba24
 gsd-core/workflows/next.md	own	108+2	2	1e9d4a0f8ca7	414a7cb14d70	ported-name
 gsd-core/workflows/next.md	kept	110+16	d30b24b5143e
@@ -3613,7 +3613,9 @@ gsd-core/workflows/next.md	kept	128+4	235aa695abf1
 gsd-core/workflows/next.md	own	132+2	2	4d4094622459	55608c5f4d1c	served
 gsd-core/workflows/next.md	kept	134+25	02a8fe46c206
 gsd-core/workflows/next.md	own	159+1	1	f21dae1469c8	779a37c9a517	ported-name
-gsd-core/workflows/next.md	kept	160+43	99bc5efa2608
+gsd-core/workflows/next.md	kept	160+31	41a094824f6d
+gsd-core/workflows/next.md	own	191+9	6	94d13432b340	265cef7f3362	prose
+gsd-core/workflows/next.md	kept	200+3	7be0ef1ca419
 gsd-core/workflows/next.md	own	203+2	2	714713978050	c428f416f76a	ported-name
 gsd-core/workflows/next.md	kept	205+11	9339c02a7ed1
 gsd-core/workflows/next.md	own	216+1	1	1af4d2301eb4	b655f52a8396	ported-name
@@ -4254,10 +4256,12 @@ gsd-core/workflows/progress.md	own	17+12	8	3fdefb186bbd	17d8d8cbd840	ported-name
 gsd-core/workflows/progress.md	kept	29+2	5f046190424d
 gsd-core/workflows/progress.md	own	31+1	1	d5b0f53121d9	883ca6799d4b	ported-name
 gsd-core/workflows/progress.md	kept	32+4	bee41e798250
-gsd-core/workflows/progress.md	own	36+1	1	61c39aa2decc	cd9bb58dc7c4	ported-name
+gsd-core/workflows/progress.md	own	36+1	1	61c39aa2decc	d20ef600470d	ported-name
 gsd-core/workflows/progress.md	kept	37+6	5b6a43b1f5de
 gsd-core/workflows/progress.md	own	43+1	1	83d5cd98ddc3	f4707973b944	ported-name
-gsd-core/workflows/progress.md	kept	44+10	bb931d21ce50
+gsd-core/workflows/progress.md	kept	44+3	95255f50bc07
+gsd-core/workflows/progress.md	own	47+1	1	3a22683b16ce	ddc3ed4454dc	prose
+gsd-core/workflows/progress.md	kept	48+6	3ea15c34f745
 gsd-core/workflows/progress.md	own	54+1	1	a57484bf8f10	0179f6afe831	ported-name
 gsd-core/workflows/progress.md	kept	55+19	b271cd8d3708
 gsd-core/workflows/progress.md	own	74+1	1	377553d1c640	56b535f19a02	ported-name
@@ -4302,7 +4306,7 @@ gsd-core/workflows/progress.md	own	298+3	3	1d20e502915d	7ed52a5dc6a0	review
 gsd-core/workflows/progress.md	kept	301+11	c989696f165d
 gsd-core/workflows/progress.md	own	312+5	5	2e394a554343	57359e09ed68	args
 gsd-core/workflows/progress.md	kept	317+3	d06481e2c943
-gsd-core/workflows/progress.md	own	320+1	1	bcdf43b33dcd	2d2ce57fb875	ported-name
+gsd-core/workflows/progress.md	own	320+1	1	bcdf43b33dcd	008c24890de2	ported-name
 gsd-core/workflows/progress.md	kept	321+2	5f046190424d
 gsd-core/workflows/progress.md	own	323+8	7	f079648edf11	90f0401152c5	ported-name
 gsd-core/workflows/progress.md	kept	331+32	09407f8aea1f
@@ -4327,12 +4331,16 @@ gsd-core/workflows/progress.md	kept	491+15	587dc6717cfe
 gsd-core/workflows/progress.md	own	506+1	1	7af173a55613	5b2dadce0c06	relic
 gsd-core/workflows/progress.md	kept	507+3	95255f50bc07
 gsd-core/workflows/progress.md	own	510+1	1	163a6b43bffc	ba1c11d26e3b	served
-gsd-core/workflows/progress.md	kept	511+15	5d64e550ecfa
-gsd-core/workflows/progress.md	own	526+1	1	0edb0b4c664d	09d171cc8518	relic
+gsd-core/workflows/progress.md	kept	511+8	4f02d549ef40
+gsd-core/workflows/progress.md	own	519+1	1	c770b18ba6e0	8218deb434a5	prose
+gsd-core/workflows/progress.md	kept	520+6	0a35076c6af2
+gsd-core/workflows/progress.md	own	526+1	1	0edb0b4c664d	771a3fb8e419	served
 gsd-core/workflows/progress.md	kept	527+3	95255f50bc07
 gsd-core/workflows/progress.md	own	530+1	1	9026ccd7c505	99b6f58b9fe9	served
-gsd-core/workflows/progress.md	kept	531+15	a1baa6f656af
-gsd-core/workflows/progress.md	own	546+1	1	8e29ec51b003	52d16e80b078	relic
+gsd-core/workflows/progress.md	kept	531+8	e8d07b983e1d
+gsd-core/workflows/progress.md	own	539+1	1	116a859ca3d7	4e42c53fe2f3	prose
+gsd-core/workflows/progress.md	kept	540+6	11bc44f30712
+gsd-core/workflows/progress.md	own	546+1	1	8e29ec51b003	97588672f4fb	served
 gsd-core/workflows/progress.md	kept	547+3	95255f50bc07
 gsd-core/workflows/progress.md	own	550+1	1	b17da974c94b	de68031b5771	served
 gsd-core/workflows/progress.md	kept	551+32	7fd9c6373876
@@ -4353,13 +4361,13 @@ gsd-core/workflows/progress.md	kept	695+2	5fc0b50caa0d
 gsd-core/workflows/progress.md	own	697+1	1	fd93d0b2f729	9359e7b5eec7	args
 gsd-core/workflows/progress.md	kept	698+18	a0b367d6cfa8
 gsd-core/workflows/progress/steps/forensic-audit.md	kept	1+25	2308dfc3c24c
-gsd-core/workflows/progress/steps/forensic-audit.md	own	26+3	3	9995a5e47199	bce932d9b58c	ported-name
+gsd-core/workflows/progress/steps/forensic-audit.md	own	26+3	3	9995a5e47199	6dcf692c1b2e	ported-name
 gsd-core/workflows/progress/steps/forensic-audit.md	kept	29+7	1453020a41ad
-gsd-core/workflows/progress/steps/forensic-audit.md	own	36+1	1	a936ed36fbfc	d96f0d726cb9	ported-name
+gsd-core/workflows/progress/steps/forensic-audit.md	own	36+1	1	a936ed36fbfc	9b6126c54676	ported-name
 gsd-core/workflows/progress/steps/forensic-audit.md	kept	37+1	ad332335cfaa
 gsd-core/workflows/progress/steps/forensic-audit.md	own	38+1	1	c5621ed6ee32	c20f5d17d173	ported-name
 gsd-core/workflows/progress/steps/forensic-audit.md	kept	39+10	8b023cbec6ed
-gsd-core/workflows/progress/steps/forensic-audit.md	own	49+1	1	117be108aed8	12ef7a5f0243	ported-name
+gsd-core/workflows/progress/steps/forensic-audit.md	own	49+1	1	117be108aed8	a9fa4a2d0beb	ported-name
 gsd-core/workflows/progress/steps/forensic-audit.md	kept	50+1	ad332335cfaa
 gsd-core/workflows/progress/steps/forensic-audit.md	own	51+1	1	9e35c04453b8	44b592cd2f57	ported-name
 gsd-core/workflows/progress/steps/forensic-audit.md	kept	52+12	e16bed840cac
@@ -4371,8 +4379,8 @@ gsd-core/workflows/progress/steps/forensic-audit.md	own	82+1	1	c093c142897b	072d
 gsd-core/workflows/progress/steps/forensic-audit.md	kept	83+6	5bf3c6ae8338
 gsd-core/workflows/progress/steps/forensic-audit.md	own	89+1	1	e46061be66a0	bb80dc616029	ported-name
 gsd-core/workflows/progress/steps/forensic-audit.md	kept	90+28	1ee4ed6ff10c
-gsd-core/workflows/progress/steps/forensic-audit.md	own	118+1	1	9564315cf51f	c4c8e70bc1cb	args
-gsd-core/workflows/progress/steps/forensic-audit.md	kept	119+2	a9bd98984785
+gsd-core/workflows/progress/steps/forensic-audit.md	own	118+2	2	459a2f3321c5	7960be02ffe2	args
+gsd-core/workflows/progress/steps/forensic-audit.md	kept	120+1	c61784daa314
 gsd-core/workflows/progress/steps/forensic-audit.md	own	121+1	1	1709e6a2f542	4b5e4ed9d973	ported-name
 gsd-core/workflows/progress/steps/forensic-audit.md	kept	122+2	07cbda85daa7
 gsd-core/workflows/progress/steps/forensic-audit.md	own	124+1	1	d84e045cd467	bc23c847b320	args
@@ -5127,7 +5135,9 @@ gsd-core/workflows/ship.md	kept	175+3	2f2de1b8a348
 gsd-core/workflows/ship.md	own	178+1	1	520f24c7f081	0e90272043c0	workflow
 gsd-core/workflows/ship.md	kept	179+38	a05fc6bc9d56
 gsd-core/workflows/ship.md	own	217+1	1	10063a274aa1	1713ec5ca926	served
-gsd-core/workflows/ship.md	kept	218+52	cf584b2e0c03
+gsd-core/workflows/ship.md	kept	218+23	e8fcc13c7d93
+gsd-core/workflows/ship.md	own	241+1	1	f6b5e6cb2efe	ddd5c89f381d	prose
+gsd-core/workflows/ship.md	kept	242+28	7992f37b5f6c
 gsd-core/workflows/ship.md	own	270+1	1	76d3cdbefee4	aa92559c661b	ported-name
 gsd-core/workflows/ship.md	kept	271+50	233932e46f90
 gsd-core/workflows/ship.md	own	321+6	6	876051c5ebf7	8cfca008d105	git
@@ -5153,9 +5163,9 @@ gsd-core/workflows/ship.md	kept	430+6	f8c2575f6b53
 gsd-core/workflows/ship.md	own	436+7	4	76effb2799cd	4bdce3fdb8f2	served
 gsd-core/workflows/ship.md	kept	443+29	61935a5cba9f
 gsd-core/workflows/ship.md	own	472+1	1	f03446229ecb	13ba1c1fd38f	served
-gsd-core/workflows/ship.md	kept	473+10	4f2461e85c5a
-gsd-core/workflows/ship.md	own	483+1	1	fc808d41b396	eb7710800289	ported-name
-gsd-core/workflows/ship.md	kept	484+9	82deae8af74b
+gsd-core/workflows/ship.md	kept	473+7	0b5574dfddbb
+gsd-core/workflows/ship.md	own	480+5	1	80813b78052e	ab5cadd46ffb	ported-name
+gsd-core/workflows/ship.md	kept	485+8	f758827f3cb5
 gsd-core/workflows/ship.md	own	493+2	2	9a6caead9f5b	d0d1c80cdf7d	ported-name
 gsd-core/workflows/ship.md	kept	495+9	ce49aba6612b
 gsd-core/workflows/ship.md	own	504+1	1	d3224220f422	c0a486518eaf	workflow
@@ -5187,7 +5197,9 @@ gsd-core/workflows/ship.md	kept	572+3	7c9f5263999a
 gsd-core/workflows/ship.md	own	575+2	2	437877ccb238	c723a9cdda28	relic
 gsd-core/workflows/ship.md	kept	577+5	0da7f070b330
 gsd-core/workflows/ship.md	own	582+0	1	e3b0c44298fc	e3b0c44298fc	markdown
-gsd-core/workflows/ship.md	kept	582+39	1b24e6bbb0fb
+gsd-core/workflows/ship.md	kept	582+35	3d5dcf7e1b26
+gsd-core/workflows/ship.md	own	617+1	0	ce6512471ffc	e3b0c44298fc	prose
+gsd-core/workflows/ship.md	kept	618+3	42aa931b8015
 gsd-core/workflows/smart-entry.md	kept	1+1	67c8626203ca
 gsd-core/workflows/smart-entry.md	own	2+1	1	c25fed02394f	b5e45664afb9	ported-name
 gsd-core/workflows/smart-entry.md	kept	3+17	24c653140b4d

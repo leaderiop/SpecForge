@@ -274,6 +274,41 @@ fn a_deferred_verification_is_a_blocker_the_reentry_lists() {
     assert!(out.trim().is_empty(), "{out}");
 }
 
+/// `/gsd-next`'s "continue and defer" fence, filled, on a taskboard adds the backlog phase `v1.0/999.1` with the
+/// plans it was given as its success criteria; the check gains no finding.
+#[test]
+fn a_deferred_plan_becomes_a_backlog_phase() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let defer = typed::filled(
+        &fence_holding(&asset("gsd-core/workflows/next.md"), "phase --backlog"),
+        &[
+            ("SRC", "02"),
+            ("DEST", "03"),
+            (
+                "CRITERIA",
+                r#"["02-01: save the board (ran, no summary)", "Every plan above has a summary"]"#,
+            ),
+        ],
+    );
+    let done = typed::apply(&sh, &p, &format!("MILESTONE=v1.0\n{defer}"));
+    assert_eq!(done.code, 0, "{}{}", done.out, done.err);
+    assert!(done.added.is_empty(), "{:?}", done.added);
+    let phase = p.fields_of("v1.0/999.1");
+    assert_eq!(
+        phase["success_criteria"][0], "02-01: save the board (ran, no summary)",
+        "{phase}"
+    );
+    assert!(
+        phase["goal"]
+            .to_string()
+            .contains("during Phase 02 execution"),
+        "{phase}"
+    );
+}
+
 /// The two lessons graduation reads in `review.rs`'s window test, on a taskboard copy.
 fn with_lessons() -> crate::harness::Project {
     let p = taskboard();

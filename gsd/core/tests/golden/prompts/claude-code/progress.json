@@ -58,10 +58,10 @@
     "",
     "**If `init_incomplete` is true (#4040 — interrupted bootstrap):**",
     "",
-    "the spec exists but the core initialization artifacts are missing (one or more of `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md` were never created — a bootstrap that stopped partway, e.g. after PROJECT.md). This is NOT a new project, NOT a missing STATE.md, and NOT a between-milestones state — do not fall through to any of those routes. Route to initialization recovery:",
+    "the spec exists but the core initialization entities are missing (one or more of the requirement, milestone and phase entities were never created — a bootstrap that stopped partway, e.g. after the `project` entity). This is NOT a new project, NOT a missing project state, and NOT a between-milestones state — do not fall through to any of those routes. Route to initialization recovery:",
     ""
   ],
-  "bytes": 68766,
+  "bytes": 69092,
   "end": [
     "| 3     | ○      | 0/2   | 0%       |",
     "```",
@@ -186,7 +186,7 @@
     "  \"features.thinking_partner\": false,",
     "  \"gates.confirm_milestone_scope\": true,"
   ],
-  "lines": 1637,
+  "lines": 1634,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:a63c066bfeab98933929d5dbbd96a56ff9a43976a37e36d228503442afc981e5",
+    "digest": "sha256:142be34b68139ff16280b5e97f90ce0000e201342b8d6a85fe9068990085bbdc",
     "prompt": "@gsd/core@VERSION:progress",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "a63c066bfeab98933929d5dbbd96a56ff9a43976a37e36d228503442afc981e5"
+  "sha256": "142be34b68139ff16280b5e97f90ce0000e201342b8d6a85fe9068990085bbdc"
 }

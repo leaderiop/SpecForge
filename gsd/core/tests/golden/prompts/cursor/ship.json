@@ -61,8 +61,9 @@
     "The strategy is `git.branching_strategy` in these settings; the branch is the phase's computed `branch`.",
     ""
   ],
-  "bytes": 47103,
+  "bytes": 46763,
   "end": [
+    "Branch: {branch} → ${BASE_BRANCH}",
     "Commits: {count}",
     "Verification: ✓ Passed",
     "Requirements: {N} REQ-IDs addressed",
@@ -91,7 +92,6 @@
     "- [ ] Preflight checks passed (verification, clean tree, branch, remote, gh)",
     "- [ ] Branch pushed to remote",
     "- [ ] PR created with rich auto-generated body",
-    "- [ ] STATE.md updated with shipping status",
     "- [ ] User knows PR number and next steps",
     "</success_criteria>",
     "</file>",
@@ -186,7 +186,7 @@
     "",
     "```json"
   ],
-  "lines": 836,
+  "lines": 831,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:97da127a271c9642de0d260373966be224499eeac426dd4555f95383fada1e05",
+    "digest": "sha256:9085c28ce9742c13bfab8aeffa25371028f582fd5ef511e207d6d5833baf08c2",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "97da127a271c9642de0d260373966be224499eeac426dd4555f95383fada1e05"
+  "sha256": "9085c28ce9742c13bfab8aeffa25371028f582fd5ef511e207d6d5833baf08c2"
 }

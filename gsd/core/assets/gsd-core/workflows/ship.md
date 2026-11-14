@@ -236,7 +236,7 @@ For each SUMMARY.md in the phase directory:
 {one_liner from SUMMARY.md frontmatter}
 
 **Key files:**
-{key-files.created and key-files.modified from SUMMARY.md frontmatter}
+{the summary's computed `files_created` and `files_modified`}
 ```
 
 **4. Requirements section:**
@@ -472,11 +472,7 @@ Report the PR URL and suggest: "Review the diff at {url}/files"
 </step>
 
 <step name="track_shipping">
-Update STATE.md to reflect the shipping action. Write the activity line only, with its description; do not write `Status`. At ship time the Current Position block already describes the next phase, and `Status` feeds the frontmatter `status` field, so a free-text value such as "Phase N shipped" does not belong there (#5165).
-
-```bash
-: # Last Activity: STATE is computed; the PR number is in the PR itself
-```
+There is no project state to update: the last activity is computed from the commits, and the PR number is in the PR itself.
 
 If `commit_docs` is true, commit the ship-note AND push it onto the PR branch so
 it reaches the default branch when the PR merges. Without this push the ship-note
@@ -611,6 +607,5 @@ After shipping:
 - [ ] Preflight checks passed (verification, clean tree, branch, remote, gh)
 - [ ] Branch pushed to remote
 - [ ] PR created with rich auto-generated body
-- [ ] STATE.md updated with shipping status
 - [ ] User knows PR number and next steps
 </success_criteria>
