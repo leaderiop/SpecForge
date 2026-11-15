@@ -273,6 +273,12 @@ pub fn build(ctx: &Ctx, _: &Selection) -> Result<(), String> {
             &archive,
         ]));
     }
+    compile_tests(ctx)
+}
+
+/// Compile every test of the workspace without running one: the test build `tests` and any check that runs tests
+/// later find fresh.
+pub(crate) fn compile_tests(ctx: &Ctx) -> Result<(), String> {
     ctx.sh(ctx
         .cmd("cargo")
         .args(["nextest", "run", "--workspace", "--no-run", "--cargo-quiet"]))

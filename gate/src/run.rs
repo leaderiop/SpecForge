@@ -128,29 +128,31 @@ impl Ctx<'_> {
     /// `cargo build`'s own artifact message (`judge::executable_of`).
     pub fn specforge(&self) -> Result<&Path, String> {
         self.specforge
-            .get_or_init(|| self.build_specforge())
+            .get_or_init(|| self.build("specforge-cli", "specforge"))
             .as_ref()
             .map(PathBuf::as_path)
             .map_err(Clone::clone)
     }
 
-    fn build_specforge(&self) -> Result<PathBuf, String> {
+    /// Build the binary `bin` of `package` in the test profile and return where cargo put it, from `cargo build`'s own
+    /// artifact message (`judge::executable_of`).
+    pub fn build(&self, package: &str, bin: &str) -> Result<PathBuf, String> {
         let mut cmd = self.cmd("cargo");
         // The test profile: dependencies at opt-level 3 (wasmtime above all). The gsd suite runs this binary on every
         // test; with a dev build it took 704s and missed the hook latency budget, with this one 188s.
         cmd.args(["build", "-q", "--profile", "test"]);
         match self.mode {
             // The workspace's own feature set: after the workspace build this finds everything fresh.
-            Mode::Full | Mode::Ci => cmd.args(["--workspace", "--bin", "specforge"]),
-            _ => cmd.args(["-p", "specforge-cli"]),
+            Mode::Full | Mode::Ci => cmd.args(["--workspace", "--bin", bin]),
+            _ => cmd.args(["-p", package, "--bin", bin]),
         };
         cmd.args(["--message-format", "json-render-diagnostics"]);
         let (built, messages) = self.capture(&mut cmd)?;
         if !built {
-            return Err("building the specforge binary failed".into());
+            return Err(format!("building the {bin} binary failed"));
         }
-        judge::executable_of(&messages, "specforge")
-            .ok_or_else(|| "cargo reported no `specforge` executable".to_string())
+        judge::executable_of(&messages, bin)
+            .ok_or_else(|| format!("cargo reported no `{bin}` executable"))
     }
 
     /// `<target_dir>/specforge`: where every test of the run reports (`SPECFORGE_REPORT`) and the dogfood reads.

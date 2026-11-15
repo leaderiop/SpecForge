@@ -2,6 +2,9 @@
 //! `wasm32-wasip2` and passes its tests against the `specforge` binary (ADR gsd/0001 D6, ADR gsd/0002). The workspace
 //! patches the in-tree SDK, so a kernel change that breaks an `@gsd` extension fails in the pull request that made it.
 
+use std::path::PathBuf;
+use std::process::Command;
+
 use crate::checks::Selection;
 use crate::run::Ctx;
 
@@ -24,17 +27,7 @@ pub const TRIGGER: &[&str] = &[
 /// `SPECFORGE_BIN`, `GSD_CORE_WASM` and `GSD_SECURITY_WASM` set to the three artifacts. Cargo runs in `gsd/`: it reads
 /// `.cargo/config.toml` (the SDK patch) from its working directory, not from `--manifest-path`.
 pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
-    let target = ctx.repo.target_dir.join("gsd");
-    let wasm = |name: &str| target.join("wasm32-wasip2/release").join(name);
-    let cargo = |args: &[&str]| {
-        let mut cmd = ctx.cmd("cargo");
-        // An incremental guest is another blob than CI's, and the suite's work budget was calibrated on CI's.
-        cmd.current_dir(ctx.repo.root.join("gsd"))
-            .env("CARGO_TARGET_DIR", &target)
-            .env_remove("CARGO_INCREMENTAL")
-            .args(args);
-        cmd
-    };
+    let cargo = |args: &[&str]| cargo(ctx, args);
     ctx.sh(&mut cargo(&[
         "clippy",
         "--locked",
@@ -53,22 +46,57 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
         "-D",
         "warnings",
     ]))?;
-    ctx.sh(&mut cargo(&[
-        "build",
-        "--locked",
-        "-p",
-        "gsd-core",
-        "-p",
-        "gsd-security",
-        "--release",
-        "--target",
-        "wasm32-wasip2",
-    ]))?;
+    let wasm = build_wasm(ctx)?;
     let specforge = ctx.specforge()?;
     ctx.sh(cargo(&["nextest", "run", "--locked", "--no-fail-fast"])
         .env("SPECFORGE_BIN", specforge)
-        .env("GSD_CORE_WASM", wasm("gsd_core.wasm"))
-        .env("GSD_SECURITY_WASM", wasm("gsd_security.wasm")))
+        .env("GSD_CORE_WASM", wasm.core)
+        .env("GSD_SECURITY_WASM", wasm.security))
+}
+
+/// The two `@gsd` extensions, built for `wasm32-wasip2` in release.
+pub(crate) struct GsdWasm {
+    pub core: PathBuf,
+    pub security: PathBuf,
+}
+
+/// Build both `@gsd` extensions in release, the blobs the suite and any check that loads `@gsd/core` read.
+pub(crate) fn build_wasm(ctx: &Ctx) -> Result<GsdWasm, String> {
+    ctx.sh(&mut cargo(
+        ctx,
+        &[
+            "build",
+            "--locked",
+            "-p",
+            "gsd-core",
+            "-p",
+            "gsd-security",
+            "--release",
+            "--target",
+            "wasm32-wasip2",
+        ],
+    ))?;
+    let release = target(ctx).join("wasm32-wasip2/release");
+    Ok(GsdWasm {
+        core: release.join("gsd_core.wasm"),
+        security: release.join("gsd_security.wasm"),
+    })
+}
+
+/// `<target_dir>/gsd`: the workspace's own target directory.
+fn target(ctx: &Ctx) -> PathBuf {
+    ctx.repo.target_dir.join("gsd")
+}
+
+/// Cargo in `gsd/`, on the workspace's target directory.
+fn cargo(ctx: &Ctx, args: &[&str]) -> Command {
+    let mut cmd = ctx.cmd("cargo");
+    // An incremental guest is another blob than CI's, and the suite's work budget was calibrated on CI's.
+    cmd.current_dir(ctx.repo.root.join("gsd"))
+        .env("CARGO_TARGET_DIR", target(ctx))
+        .env_remove("CARGO_INCREMENTAL")
+        .args(args);
+    cmd
 }
 
 #[cfg(test)]
