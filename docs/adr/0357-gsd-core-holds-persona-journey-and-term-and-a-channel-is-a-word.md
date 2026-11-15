@@ -218,6 +218,11 @@ features' requirements, a channel as a term, the artifact word, the journey memb
     spacing as written), the word as the avoid list spells it, every term that avoids it and the word each asks for
     (its `name`).
   - It is a warning under every profile: vocabulary is advice.
+  - It never reads a field the author cannot change once it is committed, since rewriting it is E084: a field the
+    kind declares immutable (`I`), a field of an append-only kind (a deviation, a disposition, an interview), an
+    append-only list (`+`, a discussion's entries), or anything inside such a block. The vocabulary derives this from
+    the kind declarations (`Prose::fixed`), not from a list. Such a field still counts for `term.used_in` (D17): it
+    uses the term, whether or not it may still be reworded.
   - The term side is `gsd/W538` (D6). An avoided word the glossary also accepts is W538's alone and never W534: the
     glossary contradicts itself, so it cannot say which word the prose should write. A term is no prose.
   - An avoided word the prose writes inside a name or alias the glossary accepts is that name, never W534: "the

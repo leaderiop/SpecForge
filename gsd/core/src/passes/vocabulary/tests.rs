@@ -51,6 +51,7 @@ fn the_table_reads_the_kinds_marks() {
         name,
         list,
         alone: false,
+        fixed: false,
     };
     assert_eq!(
         fields("requirement"),
@@ -62,7 +63,8 @@ fn the_table_reads_the_kinds_marks() {
             blocks: vec![("steps", true)],
             name: "action",
             list: false,
-            alone: true
+            alone: true,
+            fixed: false,
         }]
     );
     let decision = fields("decision");
@@ -71,13 +73,15 @@ fn the_table_reads_the_kinds_marks() {
         blocks: vec![("alternatives", true)],
         name: "why_not",
         list: false,
-        alone: false
+        alone: false,
+        fixed: false,
     }));
     assert!(fields("discussion").contains(&Prose {
         blocks: vec![("checkpoint", false), ("decisions", true)],
         name: "question",
         list: false,
-        alone: false
+        alone: false,
+        fixed: false,
     }));
     assert!(fields("term").is_empty());
     assert!(fields("commit").is_empty(), "a harness-written kind");
@@ -381,4 +385,36 @@ fn a_nested_block_member_reads_with_its_places() {
         ]
         .map(|(place, said)| (place.to_string(), said.to_string()))
     );
+}
+
+/// A deviation is a log: its text cannot change once committed (rewriting it is E084), so W534 does not ask for it,
+/// while a requirement beside it still gets one. The table says which prose is fixed: an immutable field, an
+/// append-only kind's, and a row of an append-only list (a discussion's entries).
+#[test]
+fn w534_skips_prose_the_author_cannot_change() {
+    let found = found(&input(json!([
+        term("customer", "customer", &["client"]),
+        { "id": "v1.0/01/01-01/01-01-SUMMARY/DV1", "kind": "deviation",
+          "fields": { "kind": "deviation", "text": "list() returns the client tasks" } },
+        { "id": "R1", "kind": "requirement", "fields": { "text": "A client signs in" } },
+    ])));
+    let on: Vec<&str> = found
+        .iter()
+        .map(|(_, entity, _, _)| entity.as_str())
+        .collect();
+    assert_eq!(on, ["R1"], "{found:#?}");
+    assert!(fields("deviation").iter().all(|p| p.fixed));
+    let discussion = fields("discussion");
+    let fixed = |block: &str| {
+        discussion
+            .iter()
+            .find(|p| p.blocks[0].0 == block && p.name == "question")
+            .map(|p| p.fixed)
+    };
+    // A row of an append-only list is fixed; the checkpoint, set and cleared while the discussion runs, is not.
+    assert_eq!(
+        (fixed("entries"), fixed("checkpoint")),
+        (Some(true), Some(false))
+    );
+    assert!(fields("requirement").iter().all(|p| !p.fixed));
 }

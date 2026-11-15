@@ -449,3 +449,20 @@ fn a_tagged_test_does_not_cover_a_journey() {
     );
     assert_eq!(of(&values, "j", "covered"), Some(&json!(false)));
 }
+
+/// Prose W534 skips because it cannot change (a committed deviation's text) still uses a term: `used_in` lists it.
+#[test]
+fn a_term_is_used_in_prose_the_author_cannot_change() {
+    let values = computed(&input(
+        json!([
+            { "id": "customer", "kind": "term", "fields": { "name": "customer", "definition": "who pays" } },
+            { "id": "v1.0/01/01-01/01-01-SUMMARY/DV1", "kind": "deviation",
+              "fields": { "kind": "deviation", "text": "list() returns the customer tasks" } },
+        ]),
+        &[],
+    ));
+    assert_eq!(
+        of(&values, "customer", "used_in"),
+        Some(&json!(["v1.0/01/01-01/01-01-SUMMARY/DV1"]))
+    );
+}

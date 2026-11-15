@@ -27,6 +27,9 @@ pub(crate) struct Prose {
     pub list: bool,
     /// The one prose member of its block, so a row's place need not name it (`step 2`, not `step 2 action`).
     pub alone: bool,
+    /// The author cannot change it once it is committed: the field, a block on its way or its kind is immutable or
+    /// append-only (K4). It counts for `term.used_in`, and W534 skips it (ADR 0357 D18).
+    pub fixed: bool,
 }
 
 /// The prose of each kind of `kinds` that writes some, in their order: a field or member another writer fills
@@ -36,27 +39,35 @@ pub(crate) fn table(kinds: &[&Kind]) -> Vec<(&'static str, Vec<Prose>)> {
         .iter()
         .filter_map(|kind| {
             let mut prose = Vec::new();
-            collect(kind.fields, &mut Vec::new(), &mut prose);
+            collect(kind.fields, &mut Vec::new(), kind.append_only, &mut prose);
             (!prose.is_empty()).then_some((kind.name, prose))
         })
         .collect()
 }
 
-/// Pushes the prose of `fields`, the members of `blocks`' innermost block (or a kind's fields), in their order.
-fn collect(fields: &[Field], blocks: &mut Vec<(&'static str, bool)>, out: &mut Vec<Prose>) {
+/// Pushes the prose of `fields`, the members of `blocks`' innermost block (or a kind's fields), in their order; `fixed`
+/// when the block on their way, or their kind, cannot change once committed.
+fn collect(
+    fields: &[Field],
+    blocks: &mut Vec<(&'static str, bool)>,
+    fixed: bool,
+    out: &mut Vec<Prose>,
+) {
     let authored = || fields.iter().filter(|f| f.writer == Writer::Author);
     let alone = !blocks.is_empty() && authored().filter(|f| f.prose).count() == 1;
     for field in authored() {
+        let fixed = fixed || field.immutable || field.append;
         match field.ty {
             Ty::Str | Ty::Strs if field.prose => out.push(Prose {
                 blocks: blocks.clone(),
                 name: field.name,
                 list: matches!(field.ty, Ty::Strs),
                 alone,
+                fixed,
             }),
             Ty::Block(members) | Ty::Blocks(members) => {
                 blocks.push((field.name, matches!(field.ty, Ty::Blocks(_))));
-                collect(members, blocks, out);
+                collect(members, blocks, fixed, out);
                 blocks.pop();
             }
             _ => {}
@@ -101,8 +112,18 @@ fn texts_of(value: Option<&Value>) -> Vec<&str> {
 /// inside a block, the block's name, or for a row of a block list its place (`step 2`: the list's name made singular
 /// and the row's 1-based number), then the member's name unless it is the one prose member of a row.
 pub(crate) fn prose(entity: &PassEntity) -> Vec<(String, String)> {
+    read(entity, |_| true)
+}
+
+/// [`prose`] without what the author cannot change once committed ([`Prose::fixed`]): what W534 reads, since
+/// rewriting a committed immutable value is E084.
+fn changeable(entity: &PassEntity) -> Vec<(String, String)> {
+    read(entity, |path| !path.fixed)
+}
+
+fn read(entity: &PassEntity, keep: impl Fn(&Prose) -> bool) -> Vec<(String, String)> {
     let mut out = Vec::new();
-    for path in fields(&entity.kind) {
+    for path in fields(&entity.kind).iter().filter(|path| keep(path)) {
         match path.blocks.first() {
             None if path.list => out.extend(
                 strings(entity, path.name)
@@ -294,7 +315,7 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     entities.sort_by(|a, b| a.id.cmp(&b.id));
     let mut found = Vec::new();
     for entity in entities {
-        let prose = prose(entity);
+        let prose = changeable(entity);
         let places: Vec<Place> = prose
             .iter()
             .map(|(place, said)| Place::read(place, said, &accepted))
