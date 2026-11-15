@@ -451,6 +451,12 @@
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#governance",
       "explanation": "An invariant holds while a fresh verdict of the verify_invariant prompt says so. It is information.",
       "title": "Invariant without a fresh holds verdict"
+    },
+    {
+      "code": "W534",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#product",
+      "explanation": "The prose of a requirement, decision, truth, journey step, risk or invariant writes no word a term lists in avoid. It is a warning.",
+      "title": "Prose uses an avoided synonym"
     }
   ]
 }

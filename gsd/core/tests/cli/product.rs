@@ -357,3 +357,35 @@ fn the_host_admits_a_terms_used_in() {
         serde_json::json!(["SHARE-01", "add_and_finish", "share_board"])
     );
 }
+
+/// The fixture's prose writes no word a term avoids; a requirement that writes "ticket", which `work_item` avoids, is
+/// one gsd/W534 on it naming the term and its word, a warning under every profile.
+#[test]
+fn a_requirement_that_writes_an_avoided_word_is_w534() {
+    let p = product();
+    assert!(
+        !p.codes().iter().any(|code| code == "gsd/W534"),
+        "{:#?}",
+        p.report()
+    );
+    p.edit(
+        "spec/project.spec",
+        "A user can add a task with a title",
+        "A user can add a ticket with a title",
+    );
+    for profile in ["gsd-compat", "gsd-strict", "gsd-plus"] {
+        p.settings(serde_json::json!({ "profile": profile }));
+        let found = p.findings();
+        assert_eq!(
+            found,
+            [(
+                "gsd/W534".to_string(),
+                "requirement 'TASK-01' writes \"ticket\" in text, a word avoided by term 'work_item'"
+                    .to_string()
+            )],
+            "{profile}"
+        );
+        let check = p.run(&["check"]);
+        assert_eq!(check.code, 0, "{profile}: a warning: {}", check.all());
+    }
+}

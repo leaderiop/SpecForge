@@ -3,7 +3,7 @@
 //! - [`Boundary::Js`] is JavaScript's ASCII `\b`, as upstream's planner rule reads its phrases: `gsd/E312`
 //!   (`passes::scope`) reads a task's action and a decision's text so.
 //! - [`Boundary::Unicode`] is the vocabulary's reading of the author's prose, in any language: `term.used_in`
-//!   (`passes::vocabulary`) reads it so.
+//!   and `gsd/W534` (`passes::vocabulary`) read it so.
 //!
 //! [`folded`] is the one reading of a word the glossary compares: `gsd/W538` compares the terms' words with it, and
 //! the Unicode boundary folds both sides with it. No stemming, no accent stripping, no normalisation.

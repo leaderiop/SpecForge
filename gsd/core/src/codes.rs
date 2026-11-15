@@ -698,6 +698,15 @@ pub static CODES: &[Code] = &[
         Severity::Info,
         Severity::Info,
     ),
+    code(
+        "W534",
+        "Prose uses an avoided synonym",
+        "The prose of a requirement, decision, truth, journey step, risk or invariant writes no word a term lists \
+         in avoid",
+        "product",
+        Severity::Warning,
+        Severity::Warning,
+    ),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

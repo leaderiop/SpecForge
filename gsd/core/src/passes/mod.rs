@@ -74,4 +74,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     workstreams::declare(c);
     gates::declare(c);
     traceability::declare(c);
+    vocabulary::declare(c);
 }

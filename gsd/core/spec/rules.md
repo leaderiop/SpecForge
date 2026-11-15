@@ -122,6 +122,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | Code | Rule | Kind | compat | strict | GSD source |
 |---|---|---|---|---|---|
 | gsd/W538 | a term's `avoid` lists no word the glossary accepts: one warning per term and avoided word, on the avoiding term, when the word is its own `name` or one of its `aliases`, or another term's, compared with each run of whitespace as one space and Unicode lowercase (`str::to_lowercase`); the message names every term and field that accepts it | pass | W | W | (new: GSD keeps no glossary, [ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)) |
+| gsd/W534 | the authored prose (a requirement's `text`; a decision's `text`, `rationale` and `context`; a truth's `text`; each journey step's `action`; a risk's `cause` and `effect`; an invariant's `statement`; never `text_en`) writes no word or phrase a term lists in `avoid`: one warning per entity and avoided word, on the entity, the word matched whole (Unicode letters, numbers, `_` and combining marks are word characters; on both sides each run of whitespace is one space, then Unicode lowercase; no stemming), naming the first field that holds it, every term that avoids it and the word each asks for (its `name`). An avoided word the glossary also accepts is gsd/W538's alone | pass | W | W | (new: GSD keeps no glossary, [ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)) |
 
 ## Governance
 
