@@ -34,12 +34,14 @@ fn context_decision_and_deferred_idea_declare_the_fields_of_the_model() {
             "plan",
             "area",
             "text",
+            "alternatives",
             "rationale",
             "outcome",
             "reversibility",
             "settled",
             "origin",
-            "supersedes"
+            "supersedes",
+            "affects"
         ]
     );
     assert_eq!(
@@ -57,6 +59,55 @@ fn a_decision_names_what_it_supersedes_with_an_inverse() {
     assert_eq!(supersedes["inverse_of"], "superseded_by", "{supersedes}");
     assert_ne!(supersedes["required"], true, "{supersedes}");
     assert!(!fields_of("decision").contains(&"superseded_by".to_string()));
+}
+
+/// The names of the members of a block field, in order, with whether each is required.
+fn members(kind: &str, field: &str) -> Vec<(String, bool)> {
+    field_of(kind, field)["members"]
+        .as_array()
+        .expect("members")
+        .iter()
+        .map(|m| {
+            (
+                m["name"].as_str().expect("a name").to_string(),
+                m["required"] == true,
+            )
+        })
+        .collect()
+}
+
+/// A decision's alternative is the checkpoint's option record plus why it lost; the checkpoint's option keeps its
+/// three members, since an option offered before the choice has not lost yet.
+#[test]
+fn a_decisions_alternatives_are_a_checkpoints_options_and_why_not() {
+    assert_eq!(
+        field_of("decision", "alternatives")["field_type"],
+        "block_list"
+    );
+    let required = |name: &str| (name.to_string(), name == "name");
+    assert_eq!(
+        members("decision", "alternatives"),
+        ["name", "pros", "cons", "why_not"].map(required)
+    );
+    assert_eq!(
+        members("checkpoint", "options"),
+        ["name", "pros", "cons"].map(required)
+    );
+}
+
+/// The union rule (ADR 0359): a kind joins `affects` only in the change that declares the kind, because a member no
+/// loaded extension declares turns every unresolved id of the union into I004. The list is pinned here, and the change
+/// that declares a new member moves this pin.
+#[test]
+fn a_decision_affects_requirements_invariants_and_items() {
+    let affects = field_of("decision", "affects");
+    assert_eq!(affects["field_type"], "reference_list", "{affects}");
+    assert_eq!(
+        affects["target_kinds"],
+        serde_json::json!(["requirement", "invariant", "item"]),
+        "{affects}"
+    );
+    assert_eq!(affects["inverse_of"], "affected_by", "{affects}");
 }
 
 /// `name` of the field `field` of `kind`, with its described properties.
@@ -307,10 +358,11 @@ fn the_discuss_kinds_declare_every_field_of_discuss_md() {
     // `text_en` on locked_req, and its two row kinds, edge (7 fields) and spec_prohibition (11) (ADR 0333).
     // + 1: the discussion's `checkpoint` (a block's members are not counted). + 1: the deferred idea's `status`, open
     // until an executor's out-of-scope discovery is resolved. + 1: its `origin`, discussion or execution, so only a
-    // discussion idea is part of the phase's context.
+    // discussion idea is part of the phase's context. + 2: the decision's `alternatives` and `affects` (ADR 0359;
+    // `supersedes` took the place of `superseded_by`).
     assert_eq!(
         total,
-        95 - 1 + 1 + 3 + 2 + 7 + 11 + 1 + 1 + 1,
+        95 - 1 + 1 + 3 + 2 + 7 + 11 + 1 + 1 + 1 + 2,
         "the kinds' fields"
     );
 }

@@ -130,7 +130,6 @@ pub const TASK: Kind = Kind::new(
 
 const CHECKPOINT_KIND: &[&str] = &["human_verify", "decision", "human_action", "tdd_review"];
 const GATE: &[&str] = &["blocking", "blocking_human", "advisory"];
-const OPTION: &[Field] = &[str("name").r(), strs("pros"), strs("cons")];
 const ANSWER: &[Field] = &[str("option"), str("text"), str("by"), ts("at")];
 
 /// `<task type="checkpoint:*">`, named `C1` within its plan.
@@ -145,7 +144,7 @@ pub const CHECKPOINT: Kind = Kind::new(
         str("what_built").doc("`<what-built>`: required for `human_verify` (gsd/E307)"),
         str("how_to_verify").doc("`<how-to-verify>`: required for `human_verify` (gsd/E307)"),
         str("decision").doc("`<decision>`: required for `decision` (gsd/E307)"),
-        blocks("options", OPTION)
+        blocks("options", super::OPTION)
             .doc("`<options>`: required for `decision`; names unique within the checkpoint (gsd/E307)"),
         str("auto_select").doc("`auto_select=`: names one of `options` (gsd/E307)"),
         str("instructions").doc("`<instructions>`: required for `human_action` (gsd/E307)"),

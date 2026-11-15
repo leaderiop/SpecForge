@@ -63,7 +63,7 @@ is written from one side, never both (W162). Its own relations name their revers
 a persona reads `personas` back as `requirements`, a requirement reads `constrains` back as `constrained_by` (a
 self-relation's named reverse, [ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)),
 and an invariant reads `protects` back as `protected_by`: that name written on the other side is E079, naming the
-owning field.
+owning field. A requirement also reads a decision's `affects` back as `affected_by`, and a risk's `affects` as `risks`.
 
 Why each field beyond GSD has its shape, and why `proof` is the one reading of the requirement's thread:
 [ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md).

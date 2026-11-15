@@ -268,6 +268,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "DecisionAffects",
+        "source_kind": "decision",
+        "target_kind": null
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "DeferredIdeaPhase",
         "source_kind": "deferred_idea",
         "target_kind": "phase"
@@ -3471,6 +3480,58 @@
           },
           {
             "default_value": null,
+            "description": "the options weighed and not chosen, each with why it lost",
+            "edge": null,
+            "field_type": "block_list",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "name",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "pros",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "inverse_of": null,
+                "name": "cons",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": "why it was not chosen",
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "why_not",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "alternatives",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
             "description": "Key Decisions Rationale",
             "edge": null,
             "field_type": "string",
@@ -3545,6 +3606,21 @@
             "name": "supersedes",
             "required": false,
             "target_kind": "decision"
+          },
+          {
+            "default_value": null,
+            "description": "what it shapes: requirements, invariants, code items (`@code/core`); each reads it back as `affected_by`",
+            "edge": "DecisionAffects",
+            "field_type": "reference_list",
+            "inverse_of": "affected_by",
+            "name": "affects",
+            "required": false,
+            "target_kind": null,
+            "target_kinds": [
+              "requirement",
+              "invariant",
+              "item"
+            ]
           }
         ],
         "has_body_parser": false,

@@ -47,6 +47,7 @@ in `plan`, and is named `<quick_id>-D-01` so it cannot collide with a project de
 | plan | → plan | I | owning quick CONTEXT: the quick plan whose context recorded it (a quick context's digest covers its `origin context` decisions; at most one of `phase` and `plan`, gsd/E206) |
 | area | str | | `### [Area]` |
 | text | str | R | the decision |
+| alternatives | {name str R, pros strs, cons strs, why_not str}* | | beyond GSD: the options weighed and not chosen, each a checkpoint's option record (`name`, `pros`, `cons`) and why it lost (`why_not`) |
 | rationale | str | | Key Decisions `Rationale` |
 | outcome | enum{good, revisit, pending} | | `✓ Good` / `⚠️ Revisit` / `— Pending` |
 | reversibility | enum{reversible, costly, one_way} | | planner reversibility rating |
@@ -54,6 +55,12 @@ in `plan`, and is named `<quick_id>-D-01` so it cannot collide with a project de
 | origin | enum{context, project, summary, checkpoint} | R I | where it was recorded |
 | supersedes | →* decision | | beyond GSD: the earlier decisions this one reverses, written on the later decision; each reads it back as `superseded_by` |
 | superseded_by | ←* decision | | read, not written: the inverse of `supersedes`, the later decisions that reverse it; writing it is E079 ([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)) |
+| affects | →* requirement \| invariant \| item | | beyond GSD: what it shapes: requirements, invariants and `@code/core` code items; each reads it back as `affected_by` |
+
+A requirement, an invariant and a code item read `affects` back as `affected_by`, never written: writing it is E079,
+naming `decision.affects`. A kind joins the union only in the change that declares the kind, since a union member no
+loaded extension declares turns every unresolved id of the union into I004, not E003; `item` is `@code/core`'s, an
+optional peer, as in `task.items` ([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)).
 
 ## deferred_idea
 

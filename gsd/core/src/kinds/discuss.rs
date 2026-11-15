@@ -36,6 +36,9 @@ pub const CONTEXT: Kind = Kind::new(
 const OUTCOME: &[&str] = &["good", "revisit", "pending"];
 const REVERSIBILITY: &[&str] = &["reversible", "costly", "one_way"];
 const ORIGIN: &[&str] = &["context", "project", "summary", "checkpoint"];
+/// What a decision shapes. A kind joins this union only in the change that declares the kind: an absent member turns
+/// every unresolved id of the union into I004 (ADR 0359).
+const AFFECTED: &[&str] = &["requirement", "invariant", "item"];
 
 /// `- **D-NN:**` of a CONTEXT, a Key Decisions row; scoped by its phase, or by the project when it has none.
 // A decision of `origin summary` names its summary by the other side: `summary.key_decisions` (a relation is written
@@ -52,6 +55,8 @@ pub const DECISION: Kind = Kind::new(
             .doc("owning quick CONTEXT: the quick plan whose context recorded it"),
         str("area").doc("### [Area]"),
         str("text").r().doc("the decision"),
+        blocks("alternatives", super::ALTERNATIVE)
+            .doc("the options weighed and not chosen, each with why it lost"),
         str("rationale").doc("Key Decisions Rationale"),
         en("outcome", OUTCOME).doc("Good, Revisit or Pending"),
         en("reversibility", REVERSIBILITY).doc("planner reversibility rating"),
@@ -60,6 +65,12 @@ pub const DECISION: Kind = Kind::new(
         rfs("supersedes", "decision")
             .inverse("superseded_by")
             .doc("the earlier decisions this one reverses; each reads it back as `superseded_by`"),
+        rfs_any("affects", AFFECTED)
+            .inverse("affected_by")
+            .doc(
+                "what it shapes: requirements, invariants, code items (`@code/core`); each reads it back as \
+                 `affected_by`",
+            ),
     ],
 )
 .scoped_by("phase");
