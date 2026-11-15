@@ -77,9 +77,9 @@ kernel change: the converter is a repository task in `xtask`, and every value it
   and line. The run lists every cited test id, so a gate can run just those. A proof keeps only the test ids, so each
   proved obligation's kind and text are a `collapsed` ledger entry into `invariant.proof`, naming its tests: two
   obligations one test proves stay two statements. An obligation no test item states is an `unproven` ledger entry
-  naming the attributes that state it. A written proof is held once the target collects that
-  test's facts; until then it is `code/W102`, as any proof of an uncollected test is. A source that loads
-  `@rust/source` and holds no recorded item is refused, so proofs are never silently empty.
+  naming the attributes that state it. A written proof is held once the target collects that test's facts; until then
+  it is `code/W102`, as any proof of an uncollected test is. A source that loads `@rust/source` and holds no recorded
+  item is refused, so proofs are never silently empty.
 - **D7. A metric is the bound line the prove pass reads.** The old constraint's `metric` lines are read with the
   prove pass's expression reader (`parse_expression`), the one reader of that format. Exactly one line of the form
   `<name> <op> <number><unit>` becomes the requirement's `metric` record; its threshold keeps the number as written
@@ -87,9 +87,9 @@ kernel change: the converter is a repository task in `xtask`, and every value it
   `at_least` and ledgered as collapsed; no such line, several, or `!=` writes no metric and ledgers it unconverted.
 - **D8. What Later waits for.** Release values wait for a release kind of `@gsd/core`; package values (module
   references, a module's own fields) for `@code/core` packages once modules move there; truth values (a feature's
-  acceptance, a constraint's and failure mode's obligations, `enforced_by`, a formal expression) and behavior values
-  (a constraint's `constrains`, a milestone's behaviors) for the truth and behavior kinds. The table names each, and a
-  later change that lands one gives its rows homes.
+  acceptance and tests, a constraint's and failure mode's obligations, `enforced_by`, a formal expression) and
+  behavior values (a constraint's `constrains`, a milestone's behaviors) for the truth and behavior kinds. The table
+  names each, and a later change that lands one gives its rows homes.
 - **D9. The root project keeps its old builtins until its spec is swapped**, and the swap chooses how it loads
   `@gsd/core`, among:
   - (a) vendor it as a committed builtin: a `BUILTINS` row, re-vendored with the others. Every check loads it with
