@@ -668,6 +668,14 @@ pub static CODES: &[Code] = &[
         Severity::Warning,
         Severity::Warning,
     ),
+    code(
+        "I536",
+        "Invariant without a fresh holds verdict",
+        "An invariant holds while a fresh verdict of the verify_invariant prompt says so",
+        "governance",
+        Severity::Info,
+        Severity::Info,
+    ),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

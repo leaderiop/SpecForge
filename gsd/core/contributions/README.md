@@ -310,6 +310,7 @@ how the judge records its verdict; its body also ends with a section that names 
 | `gsd-phase-researcher` | `gsd/W205` (a package audit) |
 | `gsd-integration-checker` | `gsd/E518` (a milestone audit) |
 | prompt `spec_phase` | `gsd/E202` (a phase spec), `gsd/W203` (a locked requirement) |
+| prompt `verify_invariant` | `gsd/I536` (an invariant) |
 | `gsd-verifier` | `gsd/E501` (a truth, an artifact, a key link without a `pattern`) |
 
 Every other core agent judges nothing.

@@ -125,11 +125,13 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 
 ## Governance
 
-Risks: what can go wrong, how it is rated, and what controls it ([governance.md](governance.md)).
+Risks: what can go wrong, how it is rated, and what controls it; invariants: what must hold, and whether it does
+([governance.md](governance.md)).
 
 | Code | Rule | Kind | compat | strict | GSD source |
 |---|---|---|---|---|---|
 | gsd/W532 | a risk whose rpn is at or above `specforge.risk_block_on` names a mitigation in `mitigated_by`: one warning on the risk, naming its rpn and the threshold. The prose `mitigation` is no evidence. Emitted by the derive pass that rates the risk. On under every profile | pass | W | W | (new: an FMEA action threshold, [ADR 0358](../../../docs/adr/0358-a-risk-is-rated-and-an-invariant-is-judged.md)) |
+| gsd/I536 | an invariant has a fresh verdict that it holds: one information on each invariant without one, judged by the prompt `verify_invariant` over the invariant and its tests ([Judged rules' inputs](#judged-rules-inputs)). A fresh `violated` or `uncertain` stays information and shows in the invariant's `status`. The rule reads no status, so a pending invariant reports it too. Information under every profile | judged (prompt `verify_invariant`) | I | I | (new: GSD has no invariant, [ADR 0358](../../../docs/adr/0358-a-risk-is-rated-and-an-invariant-is-judged.md)) |
 
 ## Retired and kernel-provided
 
@@ -149,7 +151,7 @@ Risks: what can go wrong, how it is rated, and what controls it ([governance.md]
   is built as a guard. `gsd/W403` reads the recorded commits.
 - Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` (r36), `gsd/W305` and `gsd/W306` (r37) are built;
   `gsd/E517` is built (r41) and reads the items in `values`.
-- A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is built (r40): `prompt:spec_phase`, a short judging prompt that names the two rules and how to record; r42 ports GSD's spec-phase workflow into the same id.
+- A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is built (r40): `prompt:spec_phase`, a short judging prompt that names the two rules and how to record; r42 ports GSD's spec-phase workflow into the same id. `gsd/I536`'s judge, `prompt:verify_invariant`, is a text of ours: GSD has no invariant.
 
 - **Kernel behaviour the rules rely on.** The host's E080 no longer counts a judged rule's finding as an error a write adds (K17, ADR 0297), and pairs an extension's finding by its subject (ADR 0302); a collector's plan is judged for host errors only (ADR 0303). The human-only guarantee holds for every existing entity of a human-only kind and against deleting a person's value (K17, ADR 0298): an agent cannot change an `override` or delete a `milestone_audit` that carries a `debt_accepted`.
 
@@ -196,6 +198,7 @@ is neither fresh nor stale.
 | gsd/W203 | locked_req | `req` self · `traces` self.traces | — |
 | gsd/W205 | package_audit | `audit` self | `legitimacy` (its outcome: legitimate \| suspicious \| unknown, passing legitimate) |
 | gsd/E518 | milestone_audit | `audit` self · `phases` self.milestone<phase.milestone · `verifications` self.milestone<phase.milestone<verification.phase · `requirements` self.milestone<phase.milestone.requirements | `integration` (its outcome: passed \| issues, passing passed) |
+| gsd/I536 | invariant | `invariant` self · `tests` test(self.proof, self<test.names) (its proof's results and the tests whose name tags it, as a truth's); no input reads its `items` or a `file()`: an item selects nothing on a clone without a fact store, and the judge cites each source file it read | — (the derive pass reads the verdict into `status` and `last_verified`) |
 
 gsd/E501 reads the files a truth's plan (`files_modified`), an artifact (`path`) and a key link (`from`, `to`) name (ADR 0304: a `file()` input may end at a string or string-list field; a missing file digests `absent`), so a code edit stales the verdict, and `covered_files` lists them. The plan checks read no file: they judge the plan before its files exist, and a code edit must not stale an in-flight check.
 

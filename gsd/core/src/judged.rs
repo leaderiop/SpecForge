@@ -218,6 +218,23 @@ pub const JUDGED: &[Judged] = &[
         values: &[],
         outcome_fields: &["package_audit.legitimacy"],
     },
+    Judged {
+        code: "I536",
+        message: "invariant '{id}' has no fresh verdict that it holds",
+        judge: "prompt:verify_invariant",
+        outcomes: crate::passes::derive::invariant::OUTCOMES,
+        passing: &["holds"],
+        targets: &[Target {
+            kind: "invariant",
+            inputs: &[
+                ("invariant", "self"),
+                ("tests", "test(self.proof, self<test.names)"),
+            ],
+            unless_set: &[],
+        }],
+        values: &[],
+        outcome_fields: &[],
+    },
 ];
 
 /// The judged rule with this local code.

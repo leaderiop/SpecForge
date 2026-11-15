@@ -1,7 +1,11 @@
 //! The invariant kind, end to end (`spec/governance.md`): an invariant authored over the taskboard twin, its proof and
-//! items read through `@code/core`'s facts, and the prompt that judges whether it holds.
+//! items read through `@code/core`'s facts, and its verdict, `gsd/I536`, with the prompt that judges it.
 
-use crate::harness::{Project, taskboard};
+use serde_json::json;
+use specforge_extension_sdk::prelude::TestStatus;
+
+use crate::commands_support::plus;
+use crate::harness::{Project, is_judged, project, taskboard};
 use crate::judged::TWIN_TESTS;
 use crate::prompts_support::{payload, prompt, render_three_hosts, text_of};
 
@@ -31,21 +35,48 @@ pub(super) fn collect_facts(p: &Project) {
     }
 }
 
-/// `(code, message)` of every diagnostic `specforge check` reports on the entity `id`, in report order.
-pub(super) fn on(p: &Project, id: &str) -> Vec<(String, String)> {
+/// `(code, severity, message)` of every diagnostic `specforge check` reports on the entity `id`, the severity
+/// lower-cased, in report order. A check names it in `data.entity`; a judged rule's finding carries no data, and names
+/// it as the quoted id of its message.
+pub(super) fn on(p: &Project, id: &str) -> Vec<(String, String, String)> {
     let run = p.run(&["check", "--format", "json"]);
     let found: serde_json::Value = serde_json::from_str(&run.stdout)
         .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
+    let text = |d: &serde_json::Value, key: &str| d[key].as_str().unwrap_or_default().to_string();
     found
         .as_array()
         .expect("a list")
         .iter()
-        .filter(|d| d["data"]["entity"] == id)
+        .filter(|d| {
+            d["data"]["entity"] == id
+                || (is_judged(&text(d, "code"))
+                    && text(d, "message").split('\'').nth(1) == Some(id))
+        })
         .map(|d| {
-            let text = |key: &str| d[key].as_str().unwrap_or_default().to_string();
-            (text("code"), text("message"))
+            (
+                text(d, "code"),
+                text(d, "severity").to_lowercase(),
+                text(d, "message"),
+            )
         })
         .collect()
+}
+
+/// The diagnostic [`on`] reports on `ids_are_sequential` before any verdict: `gsd/I536` at Info.
+fn no_verdict() -> (String, String, String) {
+    (
+        "gsd/I536".to_string(),
+        "info".to_string(),
+        "invariant 'ids_are_sequential' has no fresh verdict that it holds: no verdict".to_string(),
+    )
+}
+
+/// [`on`] without the invariant's own verdict (`gsd/I536`, asserted once): what the checks of its fields report.
+fn checks_on(p: &Project, id: &str) -> Vec<(String, String, String)> {
+    let (verdict, checks): (Vec<_>, Vec<_>) =
+        on(p, id).into_iter().partition(|d| d.0 == "gsd/I536");
+    assert_eq!(verdict.len(), 1, "{verdict:#?}");
+    checks
 }
 
 #[test]
@@ -54,7 +85,7 @@ fn an_invariant_is_authored_with_its_proof_and_items() {
     author(&p, TWIN_INVARIANT);
     p.check_exact(&[]);
     collect_facts(&p);
-    assert_eq!(on(&p, "ids_are_sequential"), Vec::new());
+    assert_eq!(on(&p, "ids_are_sequential"), [no_verdict()]);
     let fields = p.fields_of("ids_are_sequential");
     assert_eq!(
         fields["statement"], "A new task takes the next id",
@@ -82,10 +113,10 @@ fn an_in_force_invariants_missing_test_is_code_e101() {
         &TWIN_INVARIANT.replace("#a task is added with the next id", "#no such test"),
     );
     collect_facts(&p);
-    let found = on(&p, "ids_are_sequential");
+    let found = checks_on(&p, "ids_are_sequential");
     assert_eq!(found.len(), 1, "{found:#?}");
     assert_eq!(found[0].0, "code/E101", "{found:#?}");
-    assert!(found[0].1.contains("#no such test"), "{found:#?}");
+    assert!(found[0].2.contains("#no such test"), "{found:#?}");
 }
 
 /// The status of an entity, as `specforge query` answers it.
@@ -108,7 +139,8 @@ fn a_pending_invariants_proof_is_not_checked() {
         "phase 02 is not complete: {phase}"
     );
     assert_eq!(status(&p, "ids_are_sequential"), "pending");
-    assert_eq!(on(&p, "ids_are_sequential"), Vec::new());
+    // its verdict is still owed: the rule reads no status
+    assert_eq!(on(&p, "ids_are_sequential"), [no_verdict()]);
     let phase = status(&p, "v1.0/01");
     assert!(
         ["executed", "needs_review", "complete"].contains(&phase.as_str()),
@@ -116,7 +148,7 @@ fn a_pending_invariants_proof_is_not_checked() {
     );
     author(&p, &missing);
     assert_eq!(status(&p, "ids_are_sequential"), "unverified");
-    let found = on(&p, "ids_are_sequential");
+    let found = checks_on(&p, "ids_are_sequential");
     assert_eq!(found.len(), 1, "{found:#?}");
     assert_eq!(found[0].0, "code/E101", "{found:#?}");
 }
@@ -176,4 +208,133 @@ fn the_verify_invariant_prompt_lists_the_invariants_awaiting_a_verdict() {
     )));
     assert!(text.contains("No invariant awaits a verdict."), "{text}");
     assert!(!text.contains(heading), "{text}");
+}
+
+/// The twin with [`TWIN_INVARIANT`] and its facts collected: in force, no verdict yet.
+fn authored() -> Project {
+    let p = taskboard();
+    author(&p, TWIN_INVARIANT);
+    collect_facts(&p);
+    p
+}
+
+#[test]
+fn an_invariant_without_a_fresh_holds_verdict_is_i536() {
+    for profile in ["gsd-compat", "gsd-strict", "gsd-plus"] {
+        let p = authored();
+        p.settings(json!({ "profile": profile }));
+        assert_eq!(on(&p, "ids_are_sequential"), [no_verdict()], "{profile}");
+    }
+}
+
+#[test]
+fn a_holds_verdict_sets_status_and_last_verified() {
+    let p = authored();
+    assert_eq!(status(&p, "ids_are_sequential"), "unverified");
+    let run = p.record("ids_are_sequential", "I536", "holds", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(status(&p, "ids_are_sequential"), "holds");
+    let at = p.inputs("ids_are_sequential", "I536")["verdict"]["at"].clone();
+    assert!(at.is_string(), "{at}");
+    assert_eq!(p.fields_of("ids_are_sequential")["last_verified"], at);
+    assert_eq!(on(&p, "ids_are_sequential"), Vec::new());
+}
+
+#[test]
+fn a_violated_verdict_stays_info() {
+    let p = authored();
+    let run = p.record("ids_are_sequential", "I536", "violated", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(status(&p, "ids_are_sequential"), "violated");
+    assert!(p.fields_of("ids_are_sequential")["last_verified"].is_null());
+    let found = on(&p, "ids_are_sequential");
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(
+        (found[0].0.as_str(), found[0].1.as_str()),
+        ("gsd/I536", "info")
+    );
+}
+
+/// A test whose name tags the invariant is one of its `tests`: its new result stales the verdict.
+#[test]
+fn a_new_test_result_stales_the_verdict() {
+    let p = authored();
+    let tagged = (
+        "test/tasks.test.js",
+        "ids stay sequential [gsd:ids_are_sequential]",
+        TestStatus::Passed,
+    );
+    let mut cases = TWIN_TESTS.to_vec();
+    cases.push(tagged);
+    let run = p.node_tests(&cases);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let run = p.record("ids_are_sequential", "I536", "holds", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(status(&p, "ids_are_sequential"), "holds");
+    *cases.last_mut().expect("the tagged test") = (tagged.0, tagged.1, TestStatus::Failed);
+    let run = p.node_tests(&cases);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let inputs = p.inputs("ids_are_sequential", "I536");
+    assert_eq!(inputs["verdict"]["state"], "stale", "{inputs}");
+    assert!(
+        inputs["verdict"]["changed"].to_string().contains("tests"),
+        "{inputs}"
+    );
+    assert_eq!(status(&p, "ids_are_sequential"), "stale");
+    assert!(p.fields_of("ids_are_sequential")["last_verified"].is_null());
+}
+
+/// Under `gsd-plus` a stale verdict anywhere refuses a scoped gate (gsd/E516): a stale I536 refuses `plan_phase`.
+#[test]
+fn a_stale_i536_refuses_a_gate_under_gsd_plus() {
+    let p = authored();
+    let tagged = (
+        "test/tasks.test.js",
+        "ids stay sequential [gsd:ids_are_sequential]",
+    );
+    let mut cases = TWIN_TESTS.to_vec();
+    cases.push((tagged.0, tagged.1, TestStatus::Passed));
+    assert_eq!(p.node_tests(&cases).code, 0);
+    assert_eq!(p.record("ids_are_sequential", "I536", "holds", &[]).code, 0);
+    *cases.last_mut().expect("the tagged test") = (tagged.0, tagged.1, TestStatus::Failed);
+    assert_eq!(p.node_tests(&cases).code, 0);
+    assert_eq!(status(&p, "ids_are_sequential"), "stale");
+    plus(&p);
+    let run = prompt(&p, "plan_phase", &["v1.0/02"], "claude-code");
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("E516"), "{}", run.all());
+    // a fresh verdict over the new result lifts it
+    assert_eq!(p.record("ids_are_sequential", "I536", "holds", &[]).code, 0);
+    let rendered = payload(&prompt(&p, "plan_phase", &["v1.0/02"], "claude-code"));
+    assert!(
+        rendered["payload"]["prompt"]
+            .as_str()
+            .is_some_and(|s| s.ends_with(":plan_phase")),
+        "{rendered}"
+    );
+}
+
+/// Without `@code/core` the `test` kind is not loaded: both chains of I536's `tests` input are inert, the rule is
+/// registered (no W112) and a verdict is recorded fresh.
+#[test]
+fn i536_without_code_core_says_no_w112() {
+    let p = project("execute");
+    author(
+        &p,
+        r#"invariant ids_are_sequential "Task ids are sequential" {
+  statement "A new task takes the next id"
+  proof     ["js:taskboard/test/tasks.test.js#a task is added with the next id"]
+}
+"#,
+    );
+    let codes: Vec<String> = p.checked().into_iter().map(|(code, _)| code).collect();
+    assert!(!codes.iter().any(|c| c == "W112"), "{codes:?}");
+    assert!(codes.iter().any(|c| c == "gsd/I536"), "{codes:?}");
+    let run = p.record("ids_are_sequential", "I536", "holds", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(
+        p.inputs("ids_are_sequential", "I536")["verdict"]["state"],
+        "fresh"
+    );
+    assert_eq!(status(&p, "ids_are_sequential"), "holds");
 }

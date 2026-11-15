@@ -142,6 +142,15 @@ or an item the phase has yet to write is no finding. In force, its `status` read
 `last_verified` is the `at` of the verdict while `status` is `holds`, and absent otherwise. `scope` changes no
 status.
 
+### Its verdict
+
+The verdict is the judged rule `gsd/I536` ([rules.md](rules.md#governance)): outcomes `holds` (passing), `violated`
+and `uncertain`, judged by the prompt `verify_invariant`, over two inputs, the invariant itself and its tests (its
+proof's results and the tests whose name tags it, as a truth's). An invariant without a fresh `holds` reports it at
+Info under every profile, a pending one too: the rule reads no status. The prompt lists the invariants in force that
+do not hold, reads each one's code items, and records with `specforge gsd record-verdict <invariant> I536 <outcome>`,
+citing the source files it read, so an edit to one stales the verdict.
+
 ### The old invariant's fields
 
 `@specforge/governance` declared an `invariant` too; loading it beside `@gsd/core` is E026, as for `risk`. Each of its

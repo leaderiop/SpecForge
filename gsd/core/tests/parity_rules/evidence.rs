@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 73] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 74] = [
     (
         "E101",
         Evidence::Tests {
@@ -519,6 +519,13 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 73] = [
         Evidence::Tests {
             fires: "a_risk_at_the_threshold_with_no_mitigation_is_w532",
             silent: "a_mitigated_or_low_risk_is_not_w532",
+        },
+    ),
+    (
+        "I536",
+        Evidence::Tests {
+            fires: "an_invariant_without_a_fresh_holds_verdict_is_i536",
+            silent: "a_passing_verdict_silences_each_judged_code",
         },
     ),
 ];

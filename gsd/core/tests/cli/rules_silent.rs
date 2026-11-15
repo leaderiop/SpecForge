@@ -5,6 +5,7 @@
 use serde_json::json;
 
 use super::harness::{judged, project, taskboard};
+use super::invariants::{TWIN_INVARIANT, author};
 
 #[test]
 fn the_clean_twin_is_silent_for_the_unjudged_codes() {
@@ -85,4 +86,13 @@ fn a_passing_verdict_silences_each_judged_code() {
     let run = p.record(audit, "E518", "passed", &[]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert!(!owed(&p, "E518", audit));
+
+    // The invariant's verdict (I536), on the twin with its invariant in force.
+    let p = taskboard();
+    author(&p, TWIN_INVARIANT);
+    let invariant = "ids_are_sequential";
+    assert!(owed(&p, "I536", invariant));
+    let run = p.record(invariant, "I536", "holds", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(!owed(&p, "I536", invariant));
 }

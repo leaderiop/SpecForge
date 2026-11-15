@@ -153,6 +153,19 @@
   "lines": 223,
   "payload": {
     "digest": "sha256:fbc42575c71d99a71018f70daa12084b6136a64157210e1b7cddb94af05ceeb7",
+    "judged": [
+      {
+        "outcomes": [
+          "holds",
+          "violated",
+          "uncertain"
+        ],
+        "passing": [
+          "holds"
+        ],
+        "rule": "gsd/I536"
+      }
+    ],
     "prompt": "@gsd/core@VERSION:verify_invariant"
   },
   "sha256": "fbc42575c71d99a71018f70daa12084b6136a64157210e1b7cddb94af05ceeb7"

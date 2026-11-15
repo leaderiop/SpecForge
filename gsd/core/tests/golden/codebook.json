@@ -438,6 +438,12 @@
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#governance",
       "explanation": "A risk whose rpn is at or above specforge.risk_block_on names a mitigation in mitigated_by. It is a warning.",
       "title": "Risk at the threshold with no mitigation"
+    },
+    {
+      "code": "I536",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#governance",
+      "explanation": "An invariant holds while a fresh verdict of the verify_invariant prompt says so. It is information.",
+      "title": "Invariant without a fresh holds verdict"
     }
   ]
 }
