@@ -17,7 +17,8 @@ pub(super) struct Applied {
 /// `fence` with the model's values filled in. A key `NAME` gives the quoted heredoc `IFS= read -rd '' NAME <<'TEXT'`
 /// its body, or the assignment `NAME="…"` (or `NAME='…'`) its value; a key `{placeholder}` replaces that text wherever
 /// it stands. A key that fills nothing panics, and so does a heredoc body or an assignment that still holds a `{…}`
-/// placeholder afterwards: the test must fill every value the model writes.
+/// placeholder afterwards: the test must fill every value the model writes. A value holding `'` panics in a
+/// single-quoted assignment, where bash would read it as the quote's end.
 pub(super) fn filled(fence: &str, values: &[(&str, &str)]) -> String {
     let mut text = fence.to_string();
     for (key, value) in values {
@@ -50,6 +51,11 @@ pub(super) fn filled(fence: &str, values: &[(&str, &str)]) -> String {
             };
             match rest.chars().next().filter(|q| *q == '"' || *q == '\'') {
                 Some(q) => {
+                    // A `'` in a single-quoted value ends the quote: such a value belongs in a quoted heredoc.
+                    assert!(
+                        q != '\'' || !value.contains('\''),
+                        "{key} single-quotes a value that holds a quote: {value}"
+                    );
                     hit = true;
                     lines.push(format!("{key}={q}{value}{q}"));
                 }

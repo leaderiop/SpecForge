@@ -125,7 +125,7 @@ fn requirement_fence(id: &str, text: &str, tier: &str) -> String {
 
 /// The requirements template's fence, filled for one requirement of `tier`, keeping of [`OPTIONAL`] only the flags
 /// `kept` names. Every variable is filled, so a flag the fence keeps reads its value: the persona `board_reader`,
-/// a metric with a decimal threshold and the source `gh.issue:42`.
+/// a metric whose name holds an apostrophe, with a decimal threshold, and the source `gh.issue:42`.
 fn requirement_line(id: &str, text: &str, tier: &str, kept: &[&str]) -> String {
     let mut fence = typed::typed_fence(
         &asset("gsd-core/templates/requirements.md"),
@@ -153,7 +153,7 @@ fn requirement_line(id: &str, text: &str, tier: &str, kept: &[&str]) -> String {
             ("PERSONA", "board_reader"),
             (
                 "METRIC",
-                r#"{"name": "notes lost per sync", "threshold": 0.25, "direction": "at_most"}"#,
+                r#"{"name": "a note's sync lag", "threshold": 0.25, "direction": "at_most"}"#,
             ),
             ("SOURCE", "gh.issue:42"),
             ("REASON", "One machine is enough for now"),
@@ -221,8 +221,8 @@ fn the_project_fence_records_the_project_and_its_requirements() {
 }
 
 /// On a taskboard copy holding the persona `board_reader` and the ref `gh.issue:42`, the requirement fence with every
-/// flag it names kept records NOTE-04 with its area, quality category, priority, persona, metric and source. The
-/// check reports nothing new.
+/// flag it names kept records NOTE-04 with its area, quality category, priority, persona, metric and source; the
+/// metric's name keeps its apostrophe, read from its quoted heredoc. The check reports nothing new.
 #[test]
 fn the_requirement_fence_takes_every_field_it_names() {
     let Some(sh) = Shell::only(&[]) else {
@@ -257,7 +257,7 @@ fn the_requirement_fence_takes_every_field_it_names() {
     );
     assert_eq!(
         note["metric"],
-        serde_json::json!({"name": "notes lost per sync", "threshold": 0.25, "direction": "at_most"}),
+        serde_json::json!({"name": "a note's sync lag", "threshold": 0.25, "direction": "at_most"}),
         "{note}"
     );
     assert_eq!(note["source"], serde_json::json!(["gh.issue:42"]), "{note}");

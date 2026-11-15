@@ -9,8 +9,8 @@ Template for the `requirement` entities: checkable requirements that define "don
 
 Requirements are entities in `spec/requirements.spec`, one `requirement` per requirement, written with `specforge new`;
 nothing writes a requirements list by hand. `specforge schema --kind requirement` lists the fields, and `specforge new
-requirement --help` prints them as flags. Fill the values: free text in its quoted heredoc, as written, and an id, enum,
-JSON record or date in its assignment, and repeat the line per requirement. Leave out the flag of a value it does not
+requirement --help` prints them as flags. Fill the values: free text, and the metric's JSON record (its name is free
+text), in its quoted heredoc, as written, and an id, enum or date in its assignment, and repeat the line per requirement. Leave out the flag of a value it does not
 have: `--reason` is for an `out_of_scope` requirement only, and a requirement with no persona, metric or source yet
 drops `--personas`, `--metric` or `--source`. A list flag (`--personas`, `--source`) takes one item: repeat it per
 item. A refusal names its code: read it with `specforge explain <code>`.
@@ -27,7 +27,9 @@ TIER="{v1, v2 or out_of_scope}"
 CATEGORY="{its quality category, e.g. security}"
 PRIORITY="{must, should or could}"
 PERSONA="{the id of a recorded persona it serves}"
-METRIC='{the measure it is held to, as JSON, e.g. {"name": "p95 sign-in", "threshold": 0.5, "unit": "s", "direction": "at_most"}}'
+IFS= read -rd '' METRIC <<'TEXT' || true; METRIC=${METRIC%$'\n'}
+{the measure it is held to, one JSON record, e.g. {"name": "p95 sign-in", "threshold": 0.5, "unit": "s", "direction": "at_most"}}
+TEXT
 IFS= read -rd '' SOURCE <<'TEXT' || true; SOURCE=${SOURCE%$'\n'}
 {where it came from: a person's name, or a declared ref such as gh.issue:42}
 TEXT
