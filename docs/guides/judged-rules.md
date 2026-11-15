@@ -30,11 +30,11 @@ plan 03-02 "Session tokens" {
 
 `verdict <rule> <outcome> { ... }` names the rule (qualified code, or the local code when unique) and one of its
 outcomes. `inputs` holds the digest of each input the judge read, `cited` always last; `cited` and `cited_tests` list
-what the judge looked at besides. `at` is when the host recorded it, UTC to the second (a reader takes a day written
-by hand as its last second). Every verdict also has a line in `specforge-harness`
-(key `verdict:<rule>`): a verdict with no line was written by hand, which is **E083**, and the rule counts it as not
-recorded. A field that a rule binds to the verdict (`writer: "verdict"`) is set only by a fresh verdict; writing it by
-hand is **E082**.
+what the judge looked at besides. `at` is when the host recorded it, UTC to the second (a verdict recorded by an older
+host carries a day, which a reader takes as its last second; editing `at` by hand breaks its ledger line). Every
+verdict also has a line in `specforge-harness` (key `verdict:<rule>`): a verdict with no line was written by hand,
+which is **E083**, and the rule counts it as not recorded. A field that a rule binds to the verdict (`writer:
+"verdict"`) is set only by a fresh verdict; writing it by hand is **E082**.
 
 ## Where a rule stands
 

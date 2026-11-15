@@ -75,7 +75,8 @@ pub fn day(text: &str) -> Option<i64> {
 }
 
 /// The last second a verdict's `at` covers: the time the host records, `YYYY-MM-DDTHH:MM:SSZ`, itself; a day,
-/// `YYYY-MM-DD` (written by hand), to its end. `None` for any other spelling.
+/// `YYYY-MM-DD` (as a host recorded it before verdicts carried their second), to its end. `None` for any other
+/// spelling. An `at` edited by hand never reaches here: its verdict is unrecorded (E083).
 pub fn verdict_time(at: &str) -> Option<i64> {
     seconds(at).or_else(|| Some(day(at)? + 86_399))
 }

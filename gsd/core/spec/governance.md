@@ -198,8 +198,10 @@ The phase lists it in its computed `invariants_due` ([project.md](project.md#pha
   it, until that time has passed; a quick plan's commit is in no phase and is not judged.
 - **Covered.** Any `gsd/I536` verdict recorded at or after the commit, fresh or stale, whatever its outcome: recording
   a verdict only clears a phase; editing the invariant changes which commits can make it due (what it guards, its
-  window), never the verdict that covers one. A verdict records the second it was
-  given, so a commit authored later the same day is due; an `at` written as a day covers that whole day.
+  window), never the verdict that covers one. A verdict records the second it was given, so a commit authored later
+  the same day is due; a verdict recorded with a day for its `at` (by a host before verdicts carried their second)
+  covers that whole day. An `at` edited by hand leaves the verdict unrecorded (gsd/I536 reads it as such, E083) and it
+  covers nothing.
 - **Owed in force, once judged.** A pending invariant owes nothing, as it owes no verdict ([Its verdict](#its-verdict)),
   and an invariant in force never judged owes nothing either: `gsd/I536` reports its missing verdict. `gsd/E531`
   waits for the invariant to be in force (its code's `reported_while`, [ADR 0363](../../../docs/adr/0363-a-codes-findings-may-wait-for-its-owner-state-and-a-write-that-reveals-one-adds-no-error.md)),

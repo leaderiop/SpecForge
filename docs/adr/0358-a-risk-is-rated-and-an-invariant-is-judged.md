@@ -219,9 +219,11 @@ Decisions:
 - **D19. What covers a commit.** Any I536 verdict recorded at or after it, fresh or stale, whatever its outcome. E531
   owes a judgement and I536 says what it found: recording a verdict only removes E531 rows, and editing the invariant
   changes which commits a row may name (its guard and window), never the verdict that covers one. A verdict records
-  the second it was given (`at`, D24), so a commit authored later the same day is due; a verdict whose `at` is a day
-  (written by hand) covers that whole day. A commit merged after a verdict but authored before it reads as covered
-  (D18). A `violated` verdict shows in `status` and in the risks it mitigates (D14); a gate on it is not this rule's.
+  the second it was given (`at`, D24), so a commit authored later the same day is due; a verdict recorded with a day
+  for its `at` (its ledger line records that day, as a host before D24 wrote it) covers that whole day. Editing `at`
+  by hand changes the verdict its ledger line records: the verdict is unrecorded (E083) and covers nothing. A commit
+  merged after a verdict but authored before it reads as covered (D18). A `violated` verdict shows in `status` and in
+  the risks it mitigates (D14); a gate on it is not this rule's.
 - **D20. Owed in force, once judged.** An invariant not in force (D10) owes nothing: E531 reads the owner state I536's
   `judged_while: complete` reads (D12), so the two agree on which invariants owe a verdict, and its code declares it
   (`reported_while: complete`,
@@ -250,13 +252,13 @@ Decisions:
   being due.
 - **D24. A verdict records its time, to the second.** `set_verdict` writes `at` as the host's UTC time,
   `YYYY-MM-DDTHH:MM:SSZ` (the rendering a command is told as `now`, ADR 0294 D2), no longer its date: a day cannot
-  order a verdict against a commit of the same day, and an agent runs several phases a day. `at` stays a free string on
-  the wire (`Judgement.at`), so no protocol changes and nothing is re-vendored. Every reader of a verdict's `at` reads
-  either spelling through one function (`gsd-core`'s `time::verdict_time`): a time is itself, a day (a verdict written
-  by hand, or recorded before) is its last second. `phase.completed` stays the date of that time; a verification's
-  `verified` and an invariant's `last_verified` carry the `at` as recorded. Amends ADR 0294 D3 (`set_verdict`'s `at`
-  stayed a date) and ADR 0289 D6 (the clock `at` is written from).
-
+  order a verdict against a commit of the same day, and an agent runs several phases a day. `at` stays a free string
+  on the wire (`Judgement.at`), so no protocol changes and nothing is re-vendored. Every reader of a verdict's `at`
+  reads either spelling through one function (`gsd-core`'s `time::verdict_time`): a time is itself, a day (a verdict
+  recorded before this decision, its ledger line recording that day) is its last second. An `at` edited by hand leaves
+  the verdict unrecorded (E083), and no reader takes its time. `phase.completed` stays the date of that time; a
+  verification's `verified` and an invariant's `last_verified` carry the `at` as recorded. Amends ADR 0294 D3
+  (`set_verdict`'s `at` stayed a date) and ADR 0289 D6 (the clock `at` is written from).
 Rejected:
 
 - E531 as a judged rule: it would report every invariant in force with no verdict, before any change.
