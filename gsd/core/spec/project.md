@@ -63,6 +63,9 @@ is written from one side, never both (W162). Its own relations name their revers
 a persona reads `personas` back as `requirements`, a requirement reads `constrains` back as `constrained_by`, and an
 invariant reads `protects` back as `protected_by`.
 
+Why each field beyond GSD has its shape, and why `proof` is the one reading of the requirement's thread:
+[ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md).
+
 ## milestone
 
 GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. Name: `v1.0`.
