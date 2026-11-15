@@ -457,6 +457,12 @@
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#product",
       "explanation": "The prose of a requirement, decision, truth, journey step, risk or invariant writes no word a term lists in avoid. It is a warning.",
       "title": "Prose uses an avoided synonym"
+    },
+    {
+      "code": "W530",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#product",
+      "explanation": "Each requirement a journey names is listed by a phase of every milestone the journey lists. It is a warning, and an error under gsd-strict.",
+      "title": "Journey requirement outside a listed milestone"
     }
   ]
 }

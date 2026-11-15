@@ -27,7 +27,7 @@ mod halt;
 pub mod invariant;
 pub mod ladder;
 mod learning;
-mod product;
+pub(crate) mod product;
 mod progress;
 mod requirement;
 mod review;

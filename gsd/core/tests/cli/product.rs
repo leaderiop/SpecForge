@@ -112,7 +112,18 @@ fn a_journey_lists_every_milestone_it_ships_in() {
         "milestones [v1.0]",
         "milestones [v1.0, v2.0]",
     );
-    assert_eq!(p.codes(), Vec::<String>::new());
+    // No phase of v2.0 lists TASK-01 or TASK-02: one gsd/W530 each (ADR 0357 D24).
+    let check = p.run(&["check"]);
+    assert_eq!(p.codes(), ["gsd/W530", "gsd/W530"], "{}", check.all());
+    for requirement in ["TASK-01", "TASK-02"] {
+        assert!(
+            check.all().contains(&format!(
+                "lists milestone 'v2.0', but no phase of it lists {requirement}"
+            )),
+            "{requirement}: {}",
+            check.all()
+        );
+    }
     let mut shipped: Vec<String> = edges_from(&p, "add_and_finish")
         .into_iter()
         .filter(|(label, _, _)| label == "milestones")
@@ -467,4 +478,37 @@ fn the_milestone_counts_its_covered_journey() {
         p.fields_of("v1.0")["journeys_covered"],
         serde_json::json!({ "journeys": 1, "covered": 1 })
     );
+}
+
+/// `add_and_finish` lists v1.0, whose phase 01 holds TASK-01 and TASK-02: no gsd/W530, nor for `share_board`, which
+/// lists no milestone. Once `share_board` lists v1.0, SHARE-01 (in no phase) is one W530 on it, a warning under
+/// gsd-compat and an error under gsd-strict and gsd-plus.
+#[test]
+fn a_step_outside_the_milestone_is_w530() {
+    let p = product();
+    assert!(
+        !p.codes().iter().any(|code| code == "gsd/W530"),
+        "{:#?}",
+        p.report()
+    );
+    p.edit(
+        "spec/product.spec",
+        "  requirements [SHARE-01]\n",
+        "  requirements [SHARE-01]\n  milestones   [v1.0]\n",
+    );
+    for (profile, exit) in [("gsd-compat", 0), ("gsd-strict", 1), ("gsd-plus", 1)] {
+        p.settings(serde_json::json!({ "profile": profile }));
+        assert_eq!(
+            p.findings(),
+            [(
+                "gsd/W530".to_string(),
+                "journey 'share_board' lists milestone 'v1.0', but no phase of it lists SHARE-01, named by \
+                 step 1 and the journey's requirements"
+                    .to_string()
+            )],
+            "{profile}"
+        );
+        let check = p.run(&["check"]);
+        assert_eq!(check.code, exit, "{profile}: {}", check.all());
+    }
 }

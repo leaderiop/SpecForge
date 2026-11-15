@@ -11,6 +11,7 @@ mod file_scope;
 mod gates;
 mod glossary;
 mod invariants;
+mod journeys;
 mod nyquist;
 mod plan_shape;
 mod plans;
@@ -75,4 +76,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     gates::declare(c);
     traceability::declare(c);
     vocabulary::declare(c);
+    journeys::declare(c);
 }

@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 76] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 77] = [
     (
         "E101",
         Evidence::Tests {
@@ -540,6 +540,13 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 76] = [
         Evidence::Tests {
             fires: "an_avoided_synonym_in_a_requirement_is_w534",
             silent: "prose_without_an_avoided_word_is_not_w534",
+        },
+    ),
+    (
+        "W530",
+        Evidence::Tests {
+            fires: "a_step_whose_requirement_no_phase_of_the_milestone_holds_is_w530",
+            silent: "a_journey_with_no_milestone_is_not_w530",
         },
     ),
 ];
