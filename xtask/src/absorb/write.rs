@@ -45,16 +45,16 @@ pub fn check_to(to: &Path, spec_root: Option<&str>) -> Result<Scaffold, String> 
         made: BTreeSet::new(),
         appended_before: Vec::new(),
     };
-    let Ok(meta) = std::fs::symlink_metadata(to) else {
-        scaffold.made_root = true;
-        return Ok(scaffold);
-    };
-    if meta.file_type().is_symlink() {
+    if is_link(to) {
         return Err(format!(
             "--to {} is a symbolic link: name the directory it points to",
             to.display()
         ));
     }
+    let Ok(meta) = std::fs::symlink_metadata(to) else {
+        scaffold.made_root = true;
+        return Ok(scaffold);
+    };
     if !meta.is_dir() {
         return Err(format!("--to {} is not a directory", to.display()));
     }
@@ -138,9 +138,35 @@ fn spec_dir(spec_root: Option<&str>) -> Result<Option<PathBuf>, String> {
     Ok((!dir.as_os_str().is_empty()).then_some(dir))
 }
 
-/// `path` is a symbolic link, dangling or not.
+/// `path` is a symbolic link, dangling or not: the one test of every path absorb writes (`--to`, the scaffold's paths,
+/// what init appends to, the ledger), so a run never writes through a link, nor a roll back removes one.
 fn is_link(path: &Path) -> bool {
     std::fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink())
+}
+
+/// The ledger's path, `<to>/absorb-ledger.json` or `--ledger`'s, as [`ledger`] will write it: refused when it is a
+/// symbolic link or there and no file. A ledger already there is replaced; the directories above it are the user's.
+pub fn check_ledger(path: &Path) -> Result<(), String> {
+    if is_link(path) {
+        return Err(format!(
+            "the ledger {} is a symbolic link: absorb never writes through one; remove it, or name another --ledger",
+            path.display()
+        ));
+    }
+    match std::fs::symlink_metadata(path) {
+        Ok(meta) if !meta.is_file() => Err(format!("the ledger {} is no file", path.display())),
+        _ => Ok(()),
+    }
+}
+
+/// Write the ledger `text` at `path`, checked again as [`check_ledger`] does, so a link made since is not written
+/// through either; the directories above it are made.
+pub fn ledger(path: &Path, text: &str) -> Result<(), String> {
+    check_ledger(path)?;
+    if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
+    }
+    std::fs::write(path, text).map_err(|e| format!("{}: {e}", path.display()))
 }
 
 /// What a run may write in `--to`, and what a roll back undoes: whether the run creates the directory, every path
@@ -167,12 +193,13 @@ impl Scaffold {
             let parts: Vec<Component> = path.components().collect();
             for (n, part) in parts.iter().enumerate() {
                 at.push(part);
+                if is_link(&self.root.join(&at)) {
+                    links.insert(at.display().to_string());
+                    continue;
+                }
                 match std::fs::symlink_metadata(self.root.join(&at)) {
                     Err(_) => {
                         self.made.insert(at.clone());
-                    }
-                    Ok(meta) if meta.file_type().is_symlink() => {
-                        links.insert(at.display().to_string());
                     }
                     Ok(meta) if meta.is_dir() && n + 1 < parts.len() => {}
                     Ok(_) => {

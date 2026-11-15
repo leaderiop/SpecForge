@@ -521,6 +521,48 @@ fn a_stop_leaves_a_directory_it_did_not_make_byte_for_byte() {
     assert_eq!(tree_bytes(&to), before);
 }
 
+/// A symbolic link at the ledger path, the default one in `--to` or `--ledger`'s, is refused before any write: the file
+/// it points to, outside `--to`, is never written through, and `--to` is left as it was.
+#[cfg(unix)]
+#[test]
+#[ignore = "needs GSD_CORE_WASM"]
+fn a_symbolic_link_at_the_ledger_path_is_refused_before_any_write() {
+    let dir = tempfile::tempdir().unwrap();
+    let outside = dir.path().join("outside.json");
+    std::fs::write(&outside, "mine\n").unwrap();
+    let to = dir.path().join("tree");
+    std::fs::create_dir_all(&to).unwrap();
+    std::os::unix::fs::symlink(&outside, to.join("absorb-ledger.json")).unwrap();
+    let before = tree_bytes(&to);
+    let run = absorb(&["--from", OLD, "--to", path(&to)]);
+    assert_eq!(run.code, 2, "{}", run.stderr);
+    assert!(
+        run.stderr
+            .contains("is a symbolic link: absorb never writes through one"),
+        "{}",
+        run.stderr
+    );
+    assert_eq!(tree_bytes(&to), before);
+    let given = dir.path().join("given.json");
+    std::os::unix::fs::symlink(&outside, &given).unwrap();
+    let fresh = dir.path().join("fresh");
+    let run = absorb(&[
+        "--from",
+        OLD,
+        "--to",
+        path(&fresh),
+        "--ledger",
+        path(&given),
+    ]);
+    assert_eq!(run.code, 2, "{}", run.stderr);
+    assert!(!fresh.exists(), "a --to it would make is not made");
+    assert_eq!(
+        std::fs::read_to_string(&outside).unwrap(),
+        "mine\n",
+        "never written through"
+    );
+}
+
 /// A ledger that cannot be written is a stop before any write: the ledger is written before the edit plan applies, so
 /// the record of what does not convert is never lost behind a written target, and the tree is left as it was.
 #[test]

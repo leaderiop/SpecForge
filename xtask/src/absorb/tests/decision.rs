@@ -315,6 +315,38 @@ fn a_symbolic_link_where_absorb_writes_is_refused_and_kept() {
     );
 }
 
+/// The ledger is a path absorb writes like any other: a symbolic link there is refused, dangling or not, and kept, and
+/// a write made after the check refuses it too; a ledger already there, a file, is replaced.
+#[cfg(unix)]
+#[test]
+fn a_symbolic_link_at_the_ledger_path_is_refused_and_never_written_through() {
+    let dir = tempfile::tempdir().unwrap();
+    let outside = dir.path().join("outside.json");
+    std::fs::write(&outside, "mine\n").unwrap();
+    for target in [outside.clone(), dir.path().join("nowhere")] {
+        let link = dir.path().join("absorb-ledger.json");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        let refused = write::check_ledger(&link).unwrap_err();
+        assert!(
+            refused.ends_with("is a symbolic link: absorb never writes through one; remove it, or name another --ledger"),
+            "{refused}"
+        );
+        assert!(write::ledger(&link, "{}").is_err());
+        assert!(std::fs::symlink_metadata(&link).is_ok(), "the link is kept");
+        std::fs::remove_file(&link).unwrap();
+    }
+    assert_eq!(std::fs::read_to_string(&outside).unwrap(), "mine\n");
+    let held = dir.path().join("held.json");
+    std::fs::write(&held, "old").unwrap();
+    write::ledger(&held, "new").unwrap();
+    assert_eq!(std::fs::read_to_string(&held).unwrap(), "new");
+    assert!(
+        write::check_ledger(dir.path())
+            .unwrap_err()
+            .ends_with("is no file")
+    );
+}
+
 /// A source whose spec root is its project's root keeps it: a target that already holds a spec file would read it as
 /// its own, so it is refused; a spec root that leaves the project is refused; a file a create would write is claimed
 /// only when it is not there.

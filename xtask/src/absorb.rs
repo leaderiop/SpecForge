@@ -49,7 +49,7 @@ mod tests;
 
 use serde_json::json;
 use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use proof::Proofs;
 use read::{OldEntity, Project};
@@ -118,6 +118,14 @@ fn run(args: &[String]) -> i32 {
         None => return refuse(&format!("GSD_CORE_WASM is not set; {BUILD_GSD_CORE}")),
     };
     let source = Project::read(&args.from);
+    // The ledger is a path absorb writes like the scaffold's, checked the same way before any write.
+    let ledger_path = args
+        .ledger
+        .clone()
+        .unwrap_or_else(|| args.to.join(LEDGER_FILE));
+    if let Err(why) = write::check_ledger(&ledger_path) {
+        return refuse(&why);
+    }
     let mut scaffold = match write::check_to(&args.to, source.spec_root.as_deref()) {
         Ok(scaffold) => scaffold,
         Err(why) => return refuse(&why),
@@ -178,7 +186,6 @@ fn run(args: &[String]) -> i32 {
         &old.name,
         &mut planned.ledger,
     );
-    let ledger_path = args.ledger.unwrap_or_else(|| args.to.join(LEDGER_FILE));
     let (mut lacked, mut left_out) = (Vec::new(), Vec::new());
     for (kind, id, field) in target.missing(&planned.creates) {
         match planned.left_out.get(&(id.clone(), field.clone())) {
@@ -204,7 +211,7 @@ fn run(args: &[String]) -> i32 {
                 left_out.join("\n  ")
             ));
             // The ledger says what else the selection left out.
-            if let Err(io) = write_ledger(&ledger_path, &planned.ledger.to_json(&old.name)) {
+            if let Err(io) = write::ledger(&ledger_path, &planned.ledger.to_json(&old.name)) {
                 why.push(format!("the ledger: {io}"));
             }
         }
@@ -226,7 +233,7 @@ fn run(args: &[String]) -> i32 {
     }
     // The ledger as the plan has it, before the plan writes: a place it cannot be written stops the run here, the
     // scaffold rolled back, so the record of what does not convert is never lost behind a written target.
-    if let Err(io) = write_ledger(&ledger_path, &planned.ledger.to_json(&old.name)) {
+    if let Err(io) = write::ledger(&ledger_path, &planned.ledger.to_json(&old.name)) {
         target.roll_back();
         return refuse(&format!("the ledger: {io}; nothing was written"));
     }
@@ -234,14 +241,14 @@ fn run(args: &[String]) -> i32 {
         target.roll_back();
         eprintln!("absorb: {why}");
         // A roll back of a directory the run made removes a ledger written inside it.
-        if let Err(io) = write_ledger(&ledger_path, &planned.ledger.to_json(&old.name)) {
+        if let Err(io) = write::ledger(&ledger_path, &planned.ledger.to_json(&old.name)) {
             eprintln!("absorb: the ledger: {io}");
         }
         return 1;
     }
     planned.compare(|id, field| target.computed(id, field));
     let ledger = planned.ledger.to_json(&old.name);
-    if let Err(io) = write_ledger(&ledger_path, &ledger) {
+    if let Err(io) = write::ledger(&ledger_path, &ledger) {
         // Written once already, the ledger cannot be completed: the target is rolled back, so a rerun converts it
         // again, and the whole ledger goes to stderr, never lost.
         target.roll_back();
@@ -266,11 +273,4 @@ fn run(args: &[String]) -> i32 {
 fn refuse(why: &str) -> i32 {
     eprintln!("absorb: {why}");
     2
-}
-
-fn write_ledger(path: &Path, text: &str) -> Result<(), String> {
-    if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
-        std::fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
-    }
-    std::fs::write(path, text).map_err(|e| format!("{}: {e}", path.display()))
 }

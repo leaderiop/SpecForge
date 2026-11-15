@@ -33,8 +33,10 @@ kernel change: the converter is a repository task in `xtask`, and every value it
   root (none: the sources sit at the project's root), so every kept file path lies inside it. Whatever else the
   source's `specforge.json` or `spec` block holds that the target's do not is ledgered (D3): an old extension the
   target does not load, a setting, the block's own version. `--to` is absent or holds no project; a stop or a refused
-  plan leaves it as it was, byte for byte, and a symbolic link where absorb writes is refused. It is a one-time
-  migration, deleted with the old builtins once the root project has moved.
+  plan leaves it as it was, byte for byte, and a symbolic link where absorb writes is refused, before any write:
+  `--to`, a scaffold path, a file init appends to, and the ledger, at `<to>/absorb-ledger.json` or `--ledger`'s path
+  alike, all through one test. It is a one-time migration, deleted with the old builtins once the root project has
+  moved.
 - **D2. The table is the measure.** `xtask/src/absorb/table.rs` holds one row per old (kind, field) as the old
   builtins' registry holds it, shared fields and other builtins' enhancements included, plus one obligation row per
   old kind that takes `verify`. Each row has one or more homes:
