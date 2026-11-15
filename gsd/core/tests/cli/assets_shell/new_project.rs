@@ -121,7 +121,7 @@ fn requirement_fence(id: &str, text: &str, tier: &str) -> String {
         &[
             ("REQ_ID", id),
             ("TEXT", text),
-            ("CATEGORY", "Notes"),
+            ("AREA", "Notes"),
             ("TIER", tier),
             ("REASON", "One machine is enough for now"),
         ],

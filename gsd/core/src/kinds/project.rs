@@ -72,7 +72,7 @@ pub const REQUIREMENT: Kind = Kind::new(
     "A requirement, named by its GSD id such as AUTH-01 (GSD REQUIREMENTS.md)",
     &[
         str("text").r().doc("the description after the ID"),
-        str("category").r().doc("### [Category]"),
+        str("area").r().doc("### [Category]"),
         en("tier", TIERS).r().doc("v1, v2 or Out of Scope"),
         str("reason").doc("Out of Scope reason: required when out_of_scope (gsd/E105)"),
         date("defined").i().doc("Defined"),

@@ -9,13 +9,13 @@ project keystore "Keystore" {
 }
 
 requirement GOV-01 "Keys at rest" {
-  text     "A key is encrypted before it is written"
-  category "Secrets"
-  tier     v1
+  text "A key is encrypted before it is written"
+  area "Secrets"
+  tier v1
 }
 
 requirement GOV-02 "Keys rotate" {
-  text     "A key can be rotated without losing what it encrypted"
-  category "Secrets"
-  tier     v1
+  text "A key can be rotated without losing what it encrypted"
+  area "Secrets"
+  tier v1
 }

@@ -409,18 +409,18 @@ Track: Selected → this milestone. Unselected table stakes → future. Unselect
 - **Future and out-of-scope requirements** (tier `v2` or `out_of_scope`): record them now, one line per requirement, the requirement fence of `templates/requirements.md`. `--reason` is for an out-of-scope requirement: leave it out for a `v2` one.
 
   ```bash
-  REQ_ID="{CATEGORY-NN, continuing the numbering}"
+  REQ_ID="{AREA-NN, continuing the numbering}"
   IFS= read -rd '' TEXT <<'TEXT' || true; TEXT=${TEXT%$'\n'}
   {the requirement: user-centric, testable, atomic}
   TEXT
-  IFS= read -rd '' CATEGORY <<'TEXT' || true; CATEGORY=${CATEGORY%$'\n'}
-  {its category}
+  IFS= read -rd '' AREA <<'TEXT' || true; AREA=${AREA%$'\n'}
+  {its area}
   TEXT
   TIER="{v2 or out_of_scope}"
   IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
   {why it is out of scope}
   TEXT
-  specforge new requirement "$REQ_ID" "$TEXT" --in spec/requirements.spec --text "$TEXT" --category "$CATEGORY" --tier "$TIER" --reason "$REASON" || exit 1
+  specforge new requirement "$REQ_ID" "$TEXT" --in spec/requirements.spec --text "$TEXT" --area "$AREA" --tier "$TIER" --reason "$REASON" || exit 1
   ```
 
 - **This milestone's v1 requirements:** hold them. A v1 requirement must be in a phase (`gsd/E101`), and the project has phases, so one recorded alone is refused. Show them for approval below, then hand them to the roadmapper in the spawn's `<requirements>` block (Step 10): it writes them with the phases in its one roadmap edit.

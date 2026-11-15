@@ -27,7 +27,7 @@ fn requirement(id: &str, text: &str, tier: &str) -> String {
         &[
             ("REQ_ID", id),
             ("TEXT", text),
-            ("CATEGORY", "Sync"),
+            ("AREA", "Sync"),
             ("TIER", tier),
             ("REASON", "Accounts are out of scope"),
         ],

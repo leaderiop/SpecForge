@@ -113,7 +113,7 @@ list fields as items, **K14** a writing call knows the time (`now`), **K15** a j
 ```
 spec/gsd/
 ├── project.spec                      project, settings that are not flags
-├── requirements/<category>.spec      AUTH-01, AUTH-02 …
+├── requirements/<area>.spec          AUTH-01, AUTH-02 …
 ├── product/                          personas, journeys, glossary (beyond GSD)
 ├── milestones/<v>/
 │   ├── milestone.spec

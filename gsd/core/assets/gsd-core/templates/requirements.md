@@ -14,18 +14,18 @@ an `out_of_scope` requirement, and is left out otherwise. A refusal names its co
 <code>`.
 
 ```bash
-REQ_ID="{CATEGORY-NN, e.g. AUTH-01}"
+REQ_ID="{AREA-NN, e.g. AUTH-01}"
 IFS= read -rd '' TEXT <<'TEXT' || true; TEXT=${TEXT%$'\n'}
 {the requirement: user-centric, testable, atomic}
 TEXT
-IFS= read -rd '' CATEGORY <<'TEXT' || true; CATEGORY=${CATEGORY%$'\n'}
-{its category, e.g. Authentication}
+IFS= read -rd '' AREA <<'TEXT' || true; AREA=${AREA%$'\n'}
+{its area, e.g. Authentication}
 TEXT
 TIER="{v1, v2 or out_of_scope}"
 IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
 {why it is out of scope}
 TEXT
-specforge new requirement "$REQ_ID" "$TEXT" --in spec/requirements.spec --text "$TEXT" --category "$CATEGORY" --tier "$TIER" --reason "$REASON" || exit 1
+specforge new requirement "$REQ_ID" "$TEXT" --in spec/requirements.spec --text "$TEXT" --area "$AREA" --tier "$TIER" --reason "$REASON" || exit 1
 ```
 
 A `v1` requirement must be in a phase: `gsd/E101` binds once the project has a phase, so requirements recorded before
@@ -35,10 +35,10 @@ requirement: `specforge query <id> --depth 1 --format context` reads them back.
 
 **What goes where:**
 
-- `id`: `CATEGORY-NN` (AUTH-01, CONTENT-02, SOCIAL-03).
+- `id`: `AREA-NN` (AUTH-01, CONTENT-02, SOCIAL-03), upstream's `[CATEGORY]-[NUMBER]`.
 - `text`: user-centric, testable, atomic ("User can reset password via email link").
-- `category`: a feature category from the research, in the words the domain itself uses (an auth, content or
-  payments area, say).
+- `area`: upstream's `### [Category]` heading: a feature area from the research, in the words the domain uses
+  (an auth, content or payments area, say).
 - `tier`:
   - `v1`: committed scope, mapped to roadmap phases;
   - `v2`: acknowledged but deferred, not in the current roadmap; moving one to `v1` needs a roadmap update;

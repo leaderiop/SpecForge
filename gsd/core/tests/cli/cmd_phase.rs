@@ -101,7 +101,7 @@ fn started_twelve() -> Project {
     plant(
         &p,
         "spec/m.spec",
-        "requirement R1 \"One\" {\n  text \"t\"\n  category \"c\"\n  tier v1\n}\n\nplan 05.1-01 \"Plan 5.1\" {\n  phase v1.0/05.1\n  type execute\n  files_modified [\"a\"]\n  objective \"o\"\n}\n",
+        "requirement R1 \"One\" {\n  text \"t\"\n  area \"c\"\n  tier v1\n}\n\nplan 05.1-01 \"Plan 5.1\" {\n  phase v1.0/05.1\n  type execute\n  files_modified [\"a\"]\n  objective \"o\"\n}\n",
     );
     for (phase, plan) in [("05", "05-01"), ("05.1", "05.1-01")] {
         plant(
