@@ -276,3 +276,14 @@ fn a_superseded_decision_is_no_gap_row() {
         "⚠ 1 of 4 items not covered by any plan: D-01"
     );
 }
+
+/// What the word matcher answers today: JavaScript's ASCII `\b`, folding ASCII letters only. The first two are what a
+/// Unicode reading of prose must answer the other way ("caf" is no word of "café", "élève" is a word of "l'Élève");
+/// E312 keeps them, as upstream's planner rule reads its phrases so.
+#[test]
+fn the_word_matcher_reads_words_as_javascript_does() {
+    assert!(has_word("le café est servi", "caf", true));
+    assert!(!has_word("Gérer l'Élève", "élève", true));
+    assert!(has_word("the user-id", "user", true));
+    assert!(!has_word("Users sign in", "user", true));
+}
