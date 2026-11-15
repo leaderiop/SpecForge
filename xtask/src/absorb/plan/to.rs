@@ -55,6 +55,15 @@ impl Planner<'_> {
                 match self.proofs.of(&e.id, text) {
                     Proved::Tests(tests) => {
                         self.cited.extend(tests.iter().cloned());
+                        // Written as the tests that prove it: its kind and its text are the ledger's, so a proof
+                        // shared by two obligations still says which statements it stands for.
+                        let kind = table::new_kind(&e.kind).unwrap_or_default();
+                        let why = Why::Collapsed {
+                            field: format!("{kind}.{field}"),
+                            into: json!(tests),
+                        };
+                        self.ledger
+                            .record(&e.kind, &e.id, VERIFY, value.clone(), why);
                         if let Some(draft) = self.own(e) {
                             draft.append(field, tests);
                         }

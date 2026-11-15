@@ -45,6 +45,7 @@ fn planned_with(entities: &[OldEntity], proofs: &Proofs) -> Planned {
     plan::plan(entities, &index(entities), proofs)
 }
 
+/// The ledger's whys for the invariant's obligations.
 fn unproven(planned: &Planned) -> Vec<Why> {
     ledgered(planned, DURABLE)
         .into_iter()
@@ -68,7 +69,51 @@ fn an_obligation_a_test_item_states_becomes_its_test_id() {
         field(&planned, DURABLE, "proof"),
         Some(&many(&["rust:store::tests::survives"]))
     );
-    assert_eq!(unproven(&planned), []);
+    assert_eq!(
+        unproven(&planned),
+        [Why::Collapsed {
+            field: "invariant.proof".to_string(),
+            into: json!(["rust:store::tests::survives"]),
+        }],
+        "the obligation's kind and text are ledgered, written as the test that proves it"
+    );
+}
+
+/// Two obligations one test proves: the proof names the test once, and the ledger keeps each obligation's kind and
+/// text beside it, so the target's one proof still says which statements it stands for.
+#[test]
+fn two_obligations_one_test_proves_are_each_ledgered() {
+    let proofs = Proofs {
+        links: vec![
+            link(4, 5, Some("survives a crash")),
+            link(4, 5, Some("never reads half an entry")),
+        ],
+        items: vec![item("rust:store::tests::survives", 5)],
+    };
+    let planned = planned_with(
+        &[invariant(&[
+            "survives a crash",
+            "never reads half an entry",
+        ])],
+        &proofs,
+    );
+    assert_eq!(
+        field(&planned, DURABLE, "proof"),
+        Some(&many(&["rust:store::tests::survives"]))
+    );
+    let values: Vec<serde_json::Value> = planned
+        .ledger
+        .entries()
+        .filter(|e| e.id == DURABLE && e.field == "verify")
+        .map(|e| e.value.clone())
+        .collect();
+    assert_eq!(
+        values,
+        [
+            json!({"kind": "unit", "text": "never reads half an entry"}),
+            json!({"kind": "unit", "text": "survives a crash"}),
+        ]
+    );
 }
 
 #[test]
@@ -151,5 +196,14 @@ fn the_summary_lists_the_cited_tests() {
         cited,
         ["rust:store::tests::on_disk", "rust:store::tests::survives"]
     );
-    assert_eq!(unproven(&planned).len(), 1);
+    let whys = unproven(&planned);
+    let unproven = whys
+        .iter()
+        .filter(|why| matches!(why, Why::Unproven { .. }))
+        .count();
+    assert_eq!(
+        (whys.len(), unproven),
+        (3, 1),
+        "two collapsed into their tests, one unproven"
+    );
 }

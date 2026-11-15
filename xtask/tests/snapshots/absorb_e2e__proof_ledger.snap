@@ -12,6 +12,40 @@ expression: ledger
       "field": "verify",
       "value": {
         "kind": "unit",
+        "text": "a killed writer leaves the old entry"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:absorb-proof#tests::a_killed_writer_leaves_the_old_entry"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "writes_are_durable",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "an acknowledged write is on disk"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:absorb-proof#tests::an_acknowledged_write_is_on_disk"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "writes_are_durable",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
         "text": "the store never reads half an entry"
       },
       "why": {

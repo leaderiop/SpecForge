@@ -54,11 +54,11 @@ kernel change: the converter is a repository task in `xtask`, and every value it
   a conversion.
 - **D3. The absorb ledger** is the converter's record of every old value not written as itself, with why: a Later
   value, a reference that leaves the run or reaches a kind not absorbed, a computed value that differs from the old
-  one, a filled required field, a collapsed word, an unconverted metric, an unproven obligation, an entity the
-  converter created, a project-block value the target does not hold (its kind `specforge.json` or `spec`). Format 1
-  is a JSON object (`format`, `from`, `entries`) whose entries are sorted by (kind, id, field, the value's canonical
-  JSON, why), each value in the one wire form every output writes (ADR 0064); it holds no time and no absolute path,
-  so two runs on one input write the same bytes.
+  one, a filled required field, a collapsed word or proved obligation, an unconverted metric, an unproven
+  obligation, an entity the converter created, a project-block value the target does not hold (its kind
+  `specforge.json` or `spec`). Format 1 is a JSON object (`format`, `from`, `entries`) whose entries are sorted by
+  (kind, id, field, the value's canonical JSON, why), each value in the one wire form every output writes (ADR
+  0064); it holds no time and no absolute path, so two runs on one input write the same bytes.
 - **D4. A reference that leaves the run is ledgered, never stubbed.** A reference to an entity this run does not
   convert is `out_of_selection`; to a kind with no home yet it is `target_later`, naming what it waits for. An inverse
   write (a deliverable's journeys, a persona's key features, a decision's successor) onto an entity not converted is
@@ -74,8 +74,10 @@ kernel change: the converter is a repository task in `xtask`, and every value it
 - **D6. Proofs are the tests that state them.** An old invariant's `verify` obligation becomes a `proof` reference to
   the test id of each recorded `@rust/source` test item whose spec-link attribute states it: the attribute is read
   with `syn` (one reader, shared with check-links), and joined to the item that names the invariant at the same file
-  and line. The run lists every cited test id, so a gate can run just those. An obligation no test item states is an
-  `unproven` ledger entry naming the attributes that state it. A written proof is held once the target collects that
+  and line. The run lists every cited test id, so a gate can run just those. A proof keeps only the test ids, so each
+  proved obligation's kind and text are a `collapsed` ledger entry into `invariant.proof`, naming its tests: two
+  obligations one test proves stay two statements. An obligation no test item states is an `unproven` ledger entry
+  naming the attributes that state it. A written proof is held once the target collects that
   test's facts; until then it is `code/W102`, as any proof of an uncollected test is. A source that loads
   `@rust/source` and holds no recorded item is refused, so proofs are never silently empty.
 - **D7. A metric is the bound line the prove pass reads.** The old constraint's `metric` lines are read with the

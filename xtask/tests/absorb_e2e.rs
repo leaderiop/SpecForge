@@ -279,8 +279,9 @@ fn invariant_obligations_become_proofs_of_the_collected_items() {
     let ledger = std::fs::read_to_string(to.join("absorb-ledger.json")).unwrap();
     assert_eq!(
         run.summary["ledger"],
-        json!({"unconverted": 5, "unproven": 1}),
-        "the five old extensions the target does not load, and the obligation no test item states: {ledger}"
+        json!({"collapsed": 2, "unconverted": 5, "unproven": 1}),
+        "the two proved obligations' kind and text, the five old extensions the target does not load, and the \
+         obligation no test item states: {ledger}"
     );
     insta::assert_snapshot!("proof_ledger", ledger);
 }
