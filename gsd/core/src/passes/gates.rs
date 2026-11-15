@@ -15,32 +15,27 @@ use specforge_extension_sdk::prelude::*;
 
 use super::derive::{ladder::window_status, verify::by_phase};
 use super::plans::{link, links, of_kind, phase_of, text};
-use super::thread::{Evidence, Thread};
+use super::thread::{Proof, requirement_proven};
 use crate::scope::scope_of;
 
 type Check = fn(&PassInput) -> Vec<PassDiagnostic>;
 
-/// The facts a guard that reads the requirement thread is sent (ADR 0353).
-const THREAD: &[&str] = &[super::thread::TEST];
-
-/// Each guard: its pass, the code it reports, the facts kinds it reads and its check.
-const GUARDS: &[(&str, &str, &[&str], Check)] = &[
-    ("gate_e106", "E106", &[], e106),
-    ("gate_e511", "E511", &[], e511),
-    ("gate_e512", "E512", &[], e512),
-    ("gate_w318", "W318", &[], w318),
-    ("gate_w404", "W404", &[], w404),
-    ("gate_e515", "E515", THREAD, e515),
-    ("gate_e516", "E516", &[], e516),
+/// Each guard: its pass, the code it reports and its check. A guard reads the graph and its computed values alone: no
+/// facts (ADR 0353).
+const GUARDS: &[(&str, &str, Check)] = &[
+    ("gate_e106", "E106", e106),
+    ("gate_e511", "E511", e511),
+    ("gate_e512", "E512", e512),
+    ("gate_w318", "W318", w318),
+    ("gate_w404", "W404", w404),
+    ("gate_e515", "E515", e515),
+    ("gate_e516", "E516", e516),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
-    for (name, code, facts, check) in GUARDS {
+    for (name, code, check) in GUARDS {
         c.pass(name, |p| {
             p.guard().reports(&[code]);
-            if !facts.is_empty() {
-                p.input(Input::facts(facts));
-            }
             p.run(*check);
         });
     }
@@ -267,61 +262,33 @@ fn w404(input: &PassInput) -> Vec<PassDiagnostic> {
         .collect()
 }
 
-/// E515: each complete requirement of a phase in scope traces to a task, a commit and a passing test (gsd-plus).
-/// A task traces it when its plan names the requirement, it is not `manual`, a recorded commit names it, and the
-/// test facts linked to the task or the requirement, with the proofs of the truths that name the requirement (ADR 0331
-/// D5), hold a passed one and no failed one. Like a window, a requirement is outside a phase's path, so the diagnostic
-/// names the gate's subject.
+/// E515: each complete requirement of a phase in scope traces to a task, a commit and a passing test (gsd-plus): its
+/// computed `proof` is `proven` (`thread::requirement_proven`). The gate's graph carries the computed values, so the
+/// guard reads the thread's state the derive pass wrote and names its first missing link. Like a window, a requirement
+/// is outside a phase's path, so the diagnostic names the gate's subject.
 fn e515(input: &PassInput) -> Vec<PassDiagnostic> {
     let Some(subject) = gate(input) else {
         return Vec::new();
     };
-    let commits = crate::passes::commits::commits(input);
-    let thread = Thread::of(input);
     let mut seen = BTreeSet::new();
     let mut found = Vec::new();
     for phase in phases(input, subject) {
         for requirement in links(input, phase, "requirements") {
-            let complete = of_kind(input, "requirement")
-                .any(|r| r.id == requirement && text(r, "status") == Some("complete"));
-            if !complete || !seen.insert(requirement) {
+            let Some(entity) = of_kind(input, "requirement").find(|r| r.id == requirement) else {
+                continue;
+            };
+            let status = text(entity, "status");
+            // The derive pass writes a proof for every requirement: an absent one is a thread with no task.
+            let proof = text(entity, "proof")
+                .and_then(Proof::parse)
+                .unwrap_or(Proof::NoTask);
+            if status != Some("complete")
+                || requirement_proven(status, proof)
+                || !seen.insert(requirement)
+            {
                 continue;
             }
-            let tasks: Vec<&PassEntity> = of_kind(input, "task")
-                .filter(|t| text(t, "type") != Some("manual"))
-                .filter(|t| {
-                    link(input, t, "plan")
-                        .and_then(|plan| of_kind(input, "plan").find(|p| p.id == plan))
-                        .is_some_and(|plan| {
-                            links(input, plan, "requirements").contains(&requirement)
-                        })
-                })
-                .collect();
-            let committed: Vec<&&PassEntity> = tasks
-                .iter()
-                .filter(|t| {
-                    commits
-                        .iter()
-                        .any(|c| c.task.as_deref() == Some(t.id.as_str()))
-                })
-                .collect();
-            let proofs = thread.requirement_proofs(requirement);
-            let passing = |task: &PassEntity| {
-                let linked = thread.linked(&task.id).into_iter();
-                let linked = linked
-                    .chain(thread.linked(requirement))
-                    .chain(proofs.iter().copied());
-                thread.evidence(linked.map(|(_, s)| s)) == Evidence::Passed
-            };
-            let missing = if tasks.is_empty() {
-                "no task of its plans"
-            } else if committed.is_empty() {
-                "no commit of its tasks"
-            } else if !committed.iter().any(|t| passing(t)) {
-                "no passing test of its tasks"
-            } else {
-                continue;
-            };
+            let missing = proof.missing().unwrap_or_default();
             found.push(refuse(
                 "E515",
                 PassSeverity::Error,

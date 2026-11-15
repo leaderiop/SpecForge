@@ -112,24 +112,7 @@ fn the_thread_of_task_01_prints_from_a_live_node_run() {
 #[test]
 fn the_thread_shows_a_failing_proof_and_stales_its_truth() {
     let (p, sha) = collected_thread();
-    // The twin's recorded tests again, the first failing.
-    succeeds(&p.node_tests(&[
-        (
-            "test/tasks.test.js",
-            "a task is added with the next id",
-            TestStatus::Failed,
-        ),
-        (
-            "test/tasks.test.js",
-            "a task is completed by its id",
-            TestStatus::Passed,
-        ),
-        (
-            "test/tasks.test.js",
-            "completing an unknown id throws",
-            TestStatus::Passed,
-        ),
-    ]));
+    fail_the_first_test(&p);
 
     let line = traced(&p, &sha);
     assert!(
@@ -252,4 +235,42 @@ fn trace_within_a_milestone_follows_its_phases_requirements() {
         ]
     );
     assert_eq!(traced_within(&p, "01"), ["TASK-01", "TASK-02"]);
+}
+
+/// The twin's tests as recorded, the first failing: the one that proves TASK-01's truth.
+fn fail_the_first_test(p: &Project) {
+    succeeds(&p.node_tests(&[
+        (
+            "test/tasks.test.js",
+            "a task is added with the next id",
+            TestStatus::Failed,
+        ),
+        (
+            "test/tasks.test.js",
+            "a task is completed by its id",
+            TestStatus::Passed,
+        ),
+        (
+            "test/tasks.test.js",
+            "completing an unknown id throws",
+            TestStatus::Passed,
+        ),
+    ]));
+}
+
+#[test]
+fn the_requirements_proof_follows_its_thread() {
+    let proof = |p: &Project, id: &str| p.fields_of(id)["proof"].clone();
+    let p = taskboard();
+    assert_eq!(proof(&p, "TASK-01"), "no_commit");
+    // v2's SYNC-01 is listed by no plan.
+    assert_eq!(proof(&p, "SYNC-01"), "no_task");
+    let (p, _) = thread_twin();
+    succeeds(&p.collect(&["--runner", "gsd-git"]));
+    assert_eq!(proof(&p, "TASK-01"), "not_run");
+    let (p, _) = collected_thread();
+    assert_eq!(proof(&p, "TASK-01"), "proven");
+    assert_eq!(proof(&p, "TASK-02"), "no_commit");
+    fail_the_first_test(&p);
+    assert_eq!(proof(&p, "TASK-01"), "failed");
 }

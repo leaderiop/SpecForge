@@ -22,6 +22,7 @@ mod verify;
 mod windows;
 
 use gsd_kit::dsl::{self, Kind};
+pub use project::PROOF_STATES;
 pub use roadmap::PHASE_COMPLETE;
 use specforge_extension_sdk::prelude::*;
 

@@ -1584,6 +1584,25 @@
           },
           {
             "default_value": null,
+            "description": "how far its thread reaches: a task of its plans, a commit of one, a passing test; `proven` when whole",
+            "edge": null,
+            "enum_values": [
+              "no_task",
+              "no_commit",
+              "not_run",
+              "no_test",
+              "failed",
+              "proven"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "proof",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
             "description": "upstream's authored shapes override; an empty list proposes no edge",
             "edge": null,
             "enum_values": [

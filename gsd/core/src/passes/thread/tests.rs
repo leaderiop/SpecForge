@@ -293,9 +293,9 @@ fn a_named_test_and_a_proof_both_link_a_truth() {
     assert_eq!(thread.of_entity("TR1"), Evidence::Failed);
 }
 
-/// The passes whose handler reads the thread (`Thread::of`): `grep -rn 'Thread::of' gsd/core/src/passes` keeps this
-/// list whole.
-const READ_THE_THREAD: [&str; 4] = ["derive", "gate_e515", "scan", "verify_rules"];
+/// The passes whose handler reads the thread: `grep -rn 'Thread::of' gsd/core/src/passes` keeps this list whole, with
+/// the callers of `requirement_proof` (the derive pass), which reads it inside.
+const READ_THE_THREAD: [&str; 3] = ["derive", "scan", "verify_rules"];
 
 #[test]
 fn every_pass_that_reads_the_thread_declares_test_facts() {
@@ -319,4 +319,180 @@ fn every_pass_that_reads_the_thread_declares_test_facts() {
     }
     reading.sort();
     assert_eq!(reading, READ_THE_THREAD);
+}
+
+const TASK: &str = "v1.0/01/01-01/T1";
+
+/// A requirement R1 its plan lists, the plan's task of `task_type`, a commit naming the task when `commit`, and `tests`
+/// as test facts `(entity it names, status)`. Answers the input and its commits.
+fn traced(task_type: &str, commit: bool, tests: &[(&str, TestStatus)]) -> (PassInput, Vec<Commit>) {
+    let mut entities = vec![
+        json!({ "id": "R1", "kind": "requirement", "fields": { "text": "a task is added" } }),
+        json!({ "id": "v1.0/01/01-01", "kind": "plan", "fields": { "phase": "v1.0/01" },
+                "values": { "requirements": ["R1"] } }),
+        json!({ "id": TASK, "kind": "task", "fields": { "plan": "v1.0/01/01-01", "type": task_type } }),
+    ];
+    if commit {
+        entities.push(json!({ "id": "abcdef123456", "kind": "commit",
+                              "fields": { "task": TASK, "at": "2026-10-29T10:00:00Z" } }));
+    }
+    let value = json!({ "entities": entities, "edges": [] });
+    let mut input: PassInput =
+        serde_json::from_value(crate::passes::plans::with_field_edges(value))
+            .expect("a pass input");
+    for (n, (entity, status)) in tests.iter().enumerate() {
+        let id = format!("js:app/test/t.test.js#t{n}");
+        add_test(
+            &mut input,
+            &id,
+            &format!("t{n}"),
+            "test/t.test.js",
+            *status,
+            &[entity],
+        );
+    }
+    let commits = crate::passes::commits::commits(&input);
+    (input, commits)
+}
+
+fn proof_of((input, commits): &(PassInput, Vec<Commit>)) -> Proof {
+    requirement_proof(input, commits, "R1")
+}
+
+/// [`traced`] with a committed task and a truth of the plan that names `requirement` and proves it by a test fact of
+/// `status`.
+fn proved(requirement: &str, status: TestStatus) -> (PassInput, Vec<Commit>) {
+    let (mut input, commits) = traced("auto", true, &[]);
+    let truth = "v1.0/01/01-01/TR1";
+    input.entities.push(
+        serde_json::from_value(
+            json!({ "id": truth, "kind": "truth", "fields": { "requirement": requirement } }),
+        )
+        .expect("a truth"),
+    );
+    input.edges.push(PassEdge {
+        source: truth.to_string(),
+        target: requirement.to_string(),
+        label: "requirement".to_string(),
+    });
+    add_test(&mut input, ADDS, "adds", FILE, status, &[]);
+    input.edges.push(PassEdge {
+        source: truth.to_string(),
+        target: ADDS.to_string(),
+        label: "proof".to_string(),
+    });
+    (input, commits)
+}
+
+#[test]
+fn a_requirement_no_plan_names_has_no_task() {
+    let (mut input, commits) = traced("auto", true, &[(TASK, TestStatus::Passed)]);
+    input.edges.retain(|e| e.label != "requirements");
+    assert_eq!(requirement_proof(&input, &commits, "R1"), Proof::NoTask);
+    // A phase or a journey that lists the requirement is no task's plan.
+    input.edges.push(PassEdge {
+        source: "v1.0/01".to_string(),
+        target: "R1".to_string(),
+        label: "requirements".to_string(),
+    });
+    assert_eq!(requirement_proof(&input, &commits, "R1"), Proof::NoTask);
+    assert!(requirement_tasks(&input, "R1").is_empty());
+}
+
+#[test]
+fn a_manual_task_does_not_trace() {
+    let manual = traced("manual", true, &[(TASK, TestStatus::Passed)]);
+    assert_eq!(proof_of(&manual), Proof::NoTask);
+    // It is still a task of the requirement's plans.
+    assert_eq!(
+        requirement_tasks(&manual.0, "R1")
+            .iter()
+            .map(|t| t.id.as_str())
+            .collect::<Vec<_>>(),
+        [TASK]
+    );
+}
+
+#[test]
+fn a_task_without_a_commit_is_no_commit() {
+    assert_eq!(
+        proof_of(&traced("auto", false, &[(TASK, TestStatus::Passed)])),
+        Proof::NoCommit
+    );
+}
+
+#[test]
+fn a_committed_task_without_test_facts_is_not_run() {
+    assert_eq!(proof_of(&traced("auto", true, &[])), Proof::NotRun);
+}
+
+#[test]
+fn a_committed_task_with_nothing_linked_is_no_test() {
+    // A test fact is collected, and it names another task.
+    let other = traced("auto", true, &[("v1.0/01/01-01/T2", TestStatus::Passed)]);
+    assert_eq!(proof_of(&other), Proof::NoTest);
+}
+
+#[test]
+fn a_passing_test_naming_the_task_proves_it() {
+    assert_eq!(
+        proof_of(&traced("auto", true, &[(TASK, TestStatus::Passed)])),
+        Proof::Proven
+    );
+}
+
+#[test]
+fn a_passing_test_naming_the_requirement_proves_it() {
+    assert_eq!(
+        proof_of(&traced("tdd", true, &[("R1", TestStatus::Passed)])),
+        Proof::Proven
+    );
+}
+
+#[test]
+fn a_failing_linked_test_is_failed() {
+    let tests = [(TASK, TestStatus::Passed), (TASK, TestStatus::Failed)];
+    assert_eq!(proof_of(&traced("auto", true, &tests)), Proof::Failed);
+    assert_eq!(
+        proof_of(&traced("auto", true, &[("R1", TestStatus::Failed)])),
+        Proof::Failed
+    );
+}
+
+#[test]
+fn a_passing_proof_of_a_truth_that_names_the_requirement_proves_it() {
+    assert_eq!(proof_of(&proved("R1", TestStatus::Passed)), Proof::Proven);
+    assert_eq!(proof_of(&proved("R1", TestStatus::Failed)), Proof::Failed);
+}
+
+#[test]
+fn a_passing_proof_of_a_truth_that_names_another_requirement_proves_nothing() {
+    assert_eq!(proof_of(&proved("R2", TestStatus::Passed)), Proof::NoTest);
+}
+
+#[test]
+fn the_proof_states_are_the_kinds_values() {
+    assert_eq!(Proof::ALL.map(Proof::as_str), crate::kinds::PROOF_STATES);
+    for proof in Proof::ALL {
+        assert_eq!(Proof::parse(proof.as_str()), Some(proof));
+    }
+    assert_eq!(Proof::parse("passed"), None);
+}
+
+#[test]
+fn requirement_proven_needs_complete_and_proven() {
+    assert!(requirement_proven(Some("complete"), Proof::Proven));
+    for proof in Proof::ALL.into_iter().filter(|p| *p != Proof::Proven) {
+        assert!(!requirement_proven(Some("complete"), proof), "{proof:?}");
+        assert!(proof.missing().is_some(), "{proof:?}");
+    }
+    for status in [
+        None,
+        Some("pending"),
+        Some("in_progress"),
+        Some("gaps_found"),
+    ] {
+        assert!(!requirement_proven(status, Proof::Proven), "{status:?}");
+    }
+    assert_eq!(Proof::Proven.missing(), None);
 }

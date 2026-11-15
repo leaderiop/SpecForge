@@ -56,6 +56,15 @@ const REQUIREMENT_STATUS: &[&str] = &[
     "blocked",
     "gaps_found",
 ];
+/// How far a requirement's thread reaches (`passes::thread::Proof`, in its order).
+pub const PROOF_STATES: &[&str] = &[
+    "no_task",
+    "no_commit",
+    "not_run",
+    "no_test",
+    "failed",
+    "proven",
+];
 
 /// One bullet of `REQUIREMENTS.md`, named `AUTH-01`.
 pub const REQUIREMENT: Kind = Kind::new(
@@ -70,6 +79,9 @@ pub const REQUIREMENT: Kind = Kind::new(
         en("status", REQUIREMENT_STATUS)
             .c()
             .doc("Traceability status, from plans, summaries and verifications"),
+        en("proof", PROOF_STATES).c().doc(
+            "how far its thread reaches: a task of its plans, a commit of one, a passing test; `proven` when whole",
+        ),
         ens("shapes", super::spec::SHAPES)
             .doc("upstream's authored shapes override; an empty list proposes no edge"),
         str("text_en")
