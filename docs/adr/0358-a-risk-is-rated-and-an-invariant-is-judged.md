@@ -227,8 +227,11 @@ Decisions:
   (which items a test exercises) adds a source to what an invariant guards, and E531 and `phase.invariants_due` follow
   without change.
 - **D23. One E531 per invariant and phase.** An Error under every profile, on the invariant. Its message names the
-  invariant and the phase only; its suggestion names each commit and item. One judgement clears the phase, and E080's
-  key moves only when a phase becomes due or stops being due.
+  invariant and the phase only; its suggestion names the prompt to run, `verify_invariant --invariant <id>`, then each
+  commit and item. A due invariant usually still `holds` (I536 reads no code its judge did not cite), so the prompt run
+  bare lists every invariant a phase owes a judgement (`phase.invariants_due`) beside those that do not hold, saying
+  which phases owe it. One judgement clears the phase, and E080's key moves only when a phase becomes due or stops
+  being due.
 - **D24. A verdict records its time, to the second.** `set_verdict` writes `at` as the host's UTC time,
   `YYYY-MM-DDTHH:MM:SSZ` (the rendering a command is told as `now`, ADR 0294 D2), no longer its date: a day cannot
   order a verdict against a commit of the same day, and an agent runs several phases a day. `at` stays a free string on

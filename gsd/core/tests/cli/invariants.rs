@@ -666,11 +666,33 @@ fn a_change_after_the_last_judgement_makes_the_invariant_due() {
     assert_eq!(
         suggestion,
         format!(
-            "judge it again (the verify_invariant prompt records its gsd/I536 verdict): commit {} changed \
+            "judge it again (verify_invariant --invariant ids_are_sequential records its gsd/I536 verdict): \
+             commit {} changed \
              js:taskboard/src/tasks.js::addTask",
             &sha[..12]
         )
     );
+}
+
+/// A due invariant usually still `holds` (its verdict reads no code it did not cite): the prompt E531 sends the agent
+/// to lists it all the same, with the phases that owe it, and judging it again clears them.
+#[test]
+fn the_verify_invariant_prompt_lists_a_due_invariant_that_holds() {
+    let rendered =
+        |p: &Project| text_of(&payload(&prompt(p, "verify_invariant", &[], "claude-code")));
+    let (p, _) = judged_then_changed("v1.0/01");
+    assert_eq!(status(&p, "ids_are_sequential"), "holds");
+    let text = rendered(&p);
+    assert!(text.contains("- `ids_are_sequential`"), "{text}");
+    assert!(
+        text.contains(
+            "`ids_are_sequential` is due (gsd/E531): `v1.0/01` changed what it guards after its last verdict."
+        ),
+        "{text}"
+    );
+    assert_eq!(p.record("ids_are_sequential", "I536", "holds", &[]).code, 0);
+    let text = rendered(&p);
+    assert!(text.contains("No invariant awaits a verdict."), "{text}");
 }
 
 /// A verification of phase 02, which has not run: recorded, it puts an invariant holding from phase 02 in force.

@@ -339,7 +339,7 @@ fn e531(rows: &[Due]) -> Vec<PassDiagnostic> {
                 ),
             )
             .with_suggestion(format!(
-                "judge it again (the verify_invariant prompt records its gsd/I536 verdict): {}",
+                "judge it again (verify_invariant --invariant {invariant} records its gsd/I536 verdict): {}",
                 what.join("; ")
             ))
             .with_entity(invariant)

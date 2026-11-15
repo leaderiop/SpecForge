@@ -515,8 +515,7 @@ fn reported(f: &Fixture) -> Vec<Reported> {
         .collect()
 }
 
-const JUDGE_IT: &str =
-    "judge it again (the verify_invariant prompt records its gsd/I536 verdict): ";
+const JUDGE_IT: &str = "judge it again (verify_invariant --invariant ids_are_sequential records its gsd/I536 verdict): ";
 
 fn due_message(phase: &str) -> String {
     format!(

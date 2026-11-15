@@ -1,6 +1,8 @@
 //! `verify_invariant`: the judge of whether an invariant holds. The text is ours, English, not a port: GSD has no
 //! invariant. No slash command binds it (no upstream command row exists for one); a host runs it as a prompt.
 
+use std::collections::BTreeMap;
+
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
@@ -35,22 +37,28 @@ const AWAITING: &[&str] = &["unverified", "stale", "violated", "uncertain"];
 /// The status of an invariant not in force: `gsd/I536` waits for it, so it owes no verdict yet.
 const PENDING: &str = "pending";
 
-/// The invariants to judge: the one given, else every invariant in force whose status is not `holds`. With none, it
-/// says whether invariants are pending; a pending one given is judged early, and says so. No shell-ids line comes
-/// before it, so it opens with no blank line: the render puts one after [`TEXT`].
+/// The invariants to judge: the one given, else every invariant in force whose status is not `holds` and every one a
+/// phase owes a judgement (its computed `invariants_due`, `gsd/E531`), whatever its status. With none, it says whether
+/// invariants are pending; a pending one given is judged early, and says so; a due one says which phases changed it.
+/// No shell-ids line comes before it, so it opens with no blank line: the render puts one after [`TEXT`].
 fn awaiting(call: &PromptCall<'_>) -> String {
-    let invariants: Vec<&GraphNode> = call
-        .graph()
-        .map_or(&[][..], |g| &g.nodes)
-        .iter()
-        .filter(|n| n.kind == "invariant")
-        .collect();
+    let nodes = call.graph().map_or(&[][..], |g| &g.nodes);
+    let invariants: Vec<&GraphNode> = nodes.iter().filter(|n| n.kind == "invariant").collect();
+    let mut due: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for phase in nodes.iter().filter(|n| n.kind == "phase") {
+        for invariant in phase.list("invariants_due") {
+            due.entry(invariant).or_default().push(&phase.id);
+        }
+    }
     let pending = |n: &&&GraphNode| n.text("status") == Some(PENDING);
     let named: Vec<String> = match call.str("invariant") {
         Some(id) => vec![id.to_string()],
         None => invariants
             .iter()
-            .filter(|n| n.text("status").is_some_and(|s| AWAITING.contains(&s)))
+            .filter(|n| {
+                n.text("status").is_some_and(|s| AWAITING.contains(&s))
+                    || due.contains_key(n.id.as_str())
+            })
             .map(|n| n.id.clone())
             .collect(),
     };
@@ -68,6 +76,13 @@ fn awaiting(call: &PromptCall<'_>) -> String {
     }
     let list: Vec<String> = named.iter().map(|id| format!("- `{id}`")).collect();
     let mut text = format!("## The invariants to judge\n\n{}\n", list.join("\n"));
+    for (id, phases) in due.iter().filter(|(id, _)| named.iter().any(|n| n == *id)) {
+        let phases: Vec<String> = phases.iter().map(|p| format!("`{p}`")).collect();
+        text.push_str(&format!(
+            "\n`{id}` is due (gsd/E531): {} changed what it guards after its last verdict.\n",
+            phases.join(", ")
+        ));
+    }
     for early in invariants
         .iter()
         .filter(pending)

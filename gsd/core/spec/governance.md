@@ -167,9 +167,10 @@ due](#when-an-invariant-is-due)).
 The verdict is the judged rule `gsd/I536` ([rules.md](rules.md#governance)): outcomes `holds` (passing), `violated`
 and `uncertain`, judged by the prompt `verify_invariant`, over two inputs, the invariant itself and its tests (its
 proof's results and the tests whose name tags it, as a truth's). An invariant in force without a fresh `holds`
-reports it at Info under every profile. The prompt lists the invariants in force that do not hold, reads each one's
-code items, and records with `specforge gsd record-verdict <invariant> I536 <outcome>`, citing the source files it
-read, so an edit to one stales the verdict.
+reports it at Info under every profile. The prompt lists the invariants in force that do not hold and those a phase
+owes a judgement ([When an invariant is due](#when-an-invariant-is-due)), reads each one's code items, and records
+with `specforge gsd record-verdict <invariant> I536 <outcome>`, citing the source files it read, so an edit to one
+stales the verdict.
 
 A pending invariant owes no verdict: the rule waits for it to be in force (`judged_while complete`: the kind's
 `complete_when`, read after the compute passes). It is not reported, no gate reads a verdict of it (gsd/E516), and the
@@ -202,9 +203,11 @@ The phase lists it in its computed `invariants_due` ([project.md](project.md#pha
 
 One function, `passes::invariants::due`, joins the recorded commits with the guarded code; `invariants_due` and
 `gsd/E531` ([rules.md](rules.md#governance)) read its rows. E531 is an Error under every profile, one per invariant and
-phase, on the invariant: its message names the phase, its suggestion each commit and what it changed or touched. Judge
-the invariant again (`verify_invariant` records its I536 verdict) and the phase is no longer due. A reader of which items a test exercises (coverage) would add one source to what an invariant guards, and
-every reader of those rows would follow unchanged.
+phase, on the invariant: its message names the phase, its suggestion the prompt to run (`verify_invariant --invariant
+<id>`), each commit and what it changed or touched. A due invariant usually still `holds` (its verdict reads no code it
+did not cite), so the prompt run bare lists every invariant a phase owes a judgement too, whatever its status, with the
+phases that owe it. Judge it again and the phase is no longer due. A reader of which items a test exercises (coverage)
+would add one source to what an invariant guards, and every reader of those rows would follow unchanged.
 
 ### The old invariant's fields
 
