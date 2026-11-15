@@ -1,7 +1,8 @@
 # Requirement and decision fields absorb feature, constraint and decision
 
 **Status:** accepted (2026-11-15). Amends [ADR 0331](0331-the-gsd-requirement-thread.md) D5 (a requirement's thread
-state is its computed `proof`, which `gsd/E515` reads). Builds on
+state is its computed `proof`, which `gsd/E515` reads) and [ADR 0353](0353-a-pass-reads-the-facts-it-declares.md)
+D6 (`gate_e515` declares no facts any more: it reads that `proof`). Builds on
 [ADR 0285](0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md) (an enum, a block),
 [ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md) (a field that names its reverse),
 [ADR 0093](0093-a-fields-declared-type-decides-what-its-value-references.md) (a scheme ref in a string list),

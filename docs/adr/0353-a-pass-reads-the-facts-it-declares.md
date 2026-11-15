@@ -10,7 +10,9 @@ judges what a spec writes, `proof` what the facts say) and [ADR 0019](0019-one-e
 pass input's entities). Builds on
 [ADR 0345](0345-the-syntax-import-and-collectors-that-read-answer-and-are-served-facts.md) (the `facts { kinds }`
 input, the syntax cache and its `SyntaxWork`). Protocol 2.0.0, unreleased: the change goes into its 2.0.0 row, no
-bump. Codes W200 and I214.
+bump. Codes W200 and I214. D6 amended by
+[ADR 0359](0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md): `gate_e515` declares no
+facts since a requirement's thread state became its computed `proof`, which E515 reads.
 
 ## Context
 
@@ -58,8 +60,10 @@ A test may not time anything: a wall-clock assertion fails on a loaded machine a
   the closest held test or run, so it declares `["test", "test_run"]`; `proof` judges what the facts say: a linked test
   that failed (W401), a `names` entry that is no entity (I402), and a fact's own reference that answers nothing (E101,
   ADR 0346 D4, moved here from `refs`), so it declares all four kinds. Item facts cross into one guest, not two.
-  `@gsd/core`'s passes that read the requirement thread (`verify_rules`, `scan`, `gate_e515`, `derive`) declare
-  `["test"]`.
+  `@gsd/core`'s passes that read the requirement thread (`verify_rules`, `scan`, `derive`) declare `["test"]`.
+  `gate_e515` declared it too until the requirement fields of ADR 0359 (2026-11-15): the derive pass now writes each
+  requirement's thread state as its computed `proof`, and E515 reads that value from the gate's graph, so the gate
+  pass declares no facts.
 - **D7. A collect says its syntax work.** Each collector's result carries `syntax: { parsed, cached, bytes,
   unwritten, unwritable? }`, the reader's own `SyntaxWork` (`RunnerResult.syntax`, absent for a collector that parsed
   nothing; `unwritable` is the first cache write error, when one failed), read from its call's port session after the
