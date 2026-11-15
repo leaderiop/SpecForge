@@ -135,6 +135,13 @@ impl CompiledProject {
         })
     }
 
+    /// This project as an update that skipped the checks leaves it (the typing fast path, ADR 0136 D4).
+    #[cfg(feature = "testing")]
+    pub fn skipping_checks(mut self) -> Self {
+        self.skip_checks();
+        self
+    }
+
     /// This project as its checks run with `values` as the values phase's (tests: a project with no checker keeps them).
     #[cfg(feature = "testing")]
     pub fn with_checked_values(mut self, values: CheckedValues) -> Self {

@@ -31,6 +31,9 @@ pub struct PlannedChange {
     /// The entities the change moves, old path → new, in the order they were made: E080 pairs an extension's finding
     /// through them.
     moved: Vec<(String, String)>,
+    /// The entities the change creates or deletes, as its plan names them: with [`Self::moved`], what
+    /// [`Self::renews`] reads.
+    renewed: BTreeSet<String>,
     /// Files outside the sources the change writes whatever they hold then, by path from the root: a collect's fact
     /// stores (ADR 0327).
     root_files: BTreeMap<String, Vec<u8>>,
@@ -106,6 +109,7 @@ impl PlannedChange {
             ledger: None,
             locked: false,
             moved: Vec::new(),
+            renewed: BTreeSet::new(),
             root_files: BTreeMap::new(),
             superseded: Vec::new(),
             rewritten: BTreeMap::new(),
@@ -157,6 +161,26 @@ impl PlannedChange {
     /// The entities this change moves, old path → new.
     pub(crate) fn moved(&self) -> &[(String, String)] {
         &self.moved
+    }
+
+    /// This change creating or deleting `ids`, as its plan names them.
+    pub(crate) fn renewing(mut self, ids: impl IntoIterator<Item = String>) -> Self {
+        self.renewed.extend(ids);
+        self
+    }
+
+    /// Whether the change gives the entity `id` a new identity (ADR 0363): it creates, deletes or moves it (at
+    /// either id), or an entity `id` is under. An entity the project held before at that id, if any, is another.
+    pub(crate) fn renews(&self, id: &str) -> bool {
+        let mut path = Some(id);
+        while let Some(at) = path {
+            let moved = self.moved.iter().any(|(old, new)| old == at || new == at);
+            if moved || self.renewed.contains(at) {
+                return true;
+            }
+            path = at.rsplit_once('/').map(|(scope, _)| scope);
+        }
+        false
     }
 
     /// This change keeping the harness ledger true to the project `before` (ADR 0287): the ledger as the host would
@@ -493,6 +517,19 @@ mod tests {
                 .into_iter()
                 .map(|(k, b, a)| (k.to_string(), b, a.to_string())),
         )
+    }
+
+    #[test]
+    fn a_change_renews_what_it_creates_deletes_or_moves_and_what_is_under_it() {
+        let change = change(Vec::new())
+            .moving(vec![("v1/a".into(), "v1/b".into())])
+            .renewing(["P".to_string()]);
+        for id in ["P", "P/T1", "v1/a", "v1/b", "v1/b/T1"] {
+            assert!(change.renews(id), "{id}");
+        }
+        for id in ["Q", "v1", "v1/c", "PP"] {
+            assert!(!change.renews(id), "{id}");
+        }
     }
 
     #[test]

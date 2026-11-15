@@ -51,6 +51,11 @@ impl Declared {
         self.whole.insert(new.to_string());
     }
 
+    /// The entities a create, a delete or a move names, at either id of a move.
+    pub(crate) fn whole(&self) -> impl Iterator<Item = &String> {
+        self.whole.iter()
+    }
+
     /// A rename of the plan rewrites `files`.
     pub(crate) fn renamed<'a>(&mut self, files: impl IntoIterator<Item = &'a str>) {
         self.renamed.extend(files.into_iter().map(String::from));

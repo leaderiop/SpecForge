@@ -367,7 +367,8 @@ pub fn judge(
     verdict.compared = true;
     verdict.graph_delta = beyond_steps(compute_graph_delta(pre.graph(), post.graph()), pre.graph());
     verdict.post_diagnostics = post.diagnostics();
-    let judged = not_added(pre, &post);
+    // No plan says which entities a migration's texts create or delete: it reveals nothing (ADR 0363).
+    let judged = not_added(pre, &post, |_: &str| true);
     verdict.added_errors = added(
         &pre.checked_diagnostics(),
         verdict.post_diagnostics.clone(),

@@ -60,23 +60,35 @@ pub(crate) fn judged_finding(post: &CompiledProject) -> impl Fn(&Diagnostic) -> 
 }
 
 /// Whether a diagnostic of `post`, the project a write leaves `before` as, is no error the write adds whatever its
-/// key: a judged rule's finding ([`judged_finding`]), or one the write revealed ([`revealed`]).
-pub(crate) fn not_added<'a>(
+/// key: a judged rule's finding ([`judged_finding`]), or one the write revealed ([`revealed`]). `renewed` names the
+/// entities the write gives a new identity, as its plan says.
+pub(crate) fn not_added<'a, R: Fn(&str) -> bool + 'a>(
     before: &'a CompiledProject,
     post: &'a CompiledProject,
+    renewed: R,
 ) -> impl Fn(&Diagnostic) -> bool + 'a {
     let judged = judged_finding(post);
-    move |d| judged(d) || revealed(before, post, d)
+    move |d| judged(d) || revealed(before, post, &renewed, d)
 }
 
 /// Whether the write from `before` to `post` revealed `d` (ADR 0363): an extension's finding on an entity, whose code
 /// waits for an owner state (`Codebook::waits`), and the write moved that entity from the other state into it.
-/// `before` could not report it there, so the write did not add it: the owner's state moved. Both states must be
-/// known (`CompiledProject::owner_pending`); a new entity, a moved one or an unchecked project reveals nothing.
-fn revealed(before: &CompiledProject, post: &CompiledProject, d: &Diagnostic) -> bool {
+/// `before` could not report it there, so the write did not add it: the owner's state moved. The entity must be the
+/// one `before` held: never one the write's plan creates, deletes or moves, or is under one that it does (`renewed`),
+/// whatever id `before` held; and both states must be known (`CompiledProject::owner_pending`: none after an update
+/// that skipped the checks).
+fn revealed(
+    before: &CompiledProject,
+    post: &CompiledProject,
+    renewed: &dyn Fn(&str) -> bool,
+    d: &Diagnostic,
+) -> bool {
     let (Some(extension), Some(subject)) = (d.origin(), d.subject()) else {
         return false;
     };
+    if renewed(subject) {
+        return false;
+    }
     let codes = post.environment().registries().codes();
     let local = CodeRef::parse(&d.code).local;
     if !codes.waits(extension, local) {
@@ -130,12 +142,13 @@ pub(crate) fn refuse_new_errors(
     after: &CompiledProject,
     registries: &RegistryBuild,
     moved: &Moves,
+    renewed: &dyn Fn(&str) -> bool,
     host_only: bool,
 ) -> Result<(), Refusal<EditField>> {
     let (errors, _) = added(
         &before.judged_diagnostics(),
         after.diagnostics(),
-        not_added(before, after),
+        not_added(before, after, renewed),
         moved,
         host_only,
     );
@@ -146,8 +159,8 @@ pub(crate) fn refuse_new_errors(
     }
 }
 
-/// What the project reports once `texts` are written that its checked report does not have now: the warnings and
-/// infos; or E080 naming each new error; or, when the edited graph changes what `declared` does not name,
+/// What the project reports once `texts` are written that its checked report does not have now (`renewed`: the
+/// entities the plan creates, deletes or moves, [`not_added`]): the warnings and infos; or E080 naming each new error; or, when the edited graph changes what `declared` does not name,
 /// `undeclared_change` (ADR 0198) naming the remainder.
 pub fn check(
     view: &ProjectView<'_>,
@@ -155,6 +168,7 @@ pub fn check(
     declared: &Declared,
     ledger: Option<&[u8]>,
     moved: &Moves,
+    renewed: &dyn Fn(&str) -> bool,
     host_only: bool,
 ) -> Result<Vec<Diagnostic>, Refusal<EditField>> {
     let before = view.project().judged_diagnostics();
@@ -166,7 +180,7 @@ pub fn check(
     let (errors, rest) = added(
         &before,
         post.diagnostics(),
-        not_added(view.project(), &post),
+        not_added(view.project(), &post, renewed),
         moved,
         host_only,
     );

@@ -1,11 +1,13 @@
 //! A code whose findings wait for an owner state (ADR 0363): the host keeps such a finding only on an entity in that
 //! state, read where a computed status decides it, and the write that moves the entity into it reveals the finding,
-//! which is no error the write adds (E080). Any other write that leaves one is refused as before.
+//! which is no error the write adds (E080). Any other write that leaves one is refused as before, among them a write
+//! whose plan creates, deletes or renames the entity, whatever id the project held, and a write over a project whose
+//! checks were skipped.
 
 use std::sync::Arc;
 
 use specforge_extension_sdk::prelude::*;
-use specforge_ops::authoring::edit::{self, Input};
+use specforge_ops::authoring::edit::{self, Edit, Input, Step};
 use specforge_ops::view::ProjectView;
 use specforge_project::CompiledProject;
 use specforge_project::testing::TestProject;
@@ -68,7 +70,8 @@ fn progress(input: &PassInput) -> PassOutput {
                     PassDiagnostic::new(
                         code,
                         PassSeverity::Error,
-                        format!("plan '{}' is flagged", e.id),
+                        // No id: a renamed plan's finding pairs by its subject alone.
+                        "the plan is flagged",
                     )
                     .with_entity(&e.id)
                 })
@@ -104,6 +107,78 @@ fn refused(project: &CompiledProject, field: &str) -> Option<String> {
     )
     .err()
     .map(|e| e.error.code.to_string())
+}
+
+/// The added errors `steps` are refused with, planned over `project`: their codes, or `None` when it is not refused.
+fn refused_steps(project: &CompiledProject, steps: &[Step]) -> Option<Vec<String>> {
+    let refusal = edit::plan_steps(&ProjectView::of(project), steps, false).err()?;
+    assert_eq!(
+        refusal.error.code.to_string(),
+        "E080",
+        "{}",
+        refusal.error.message
+    );
+    // E080's message lists each added error, `  error[<code>]: <message>`.
+    let codes = refusal.error.message.lines().filter_map(|line| {
+        let rest = line.trim_start().strip_prefix("error[")?;
+        Some(rest.split_once(']')?.0.to_string())
+    });
+    Some(codes.collect())
+}
+
+/// The create of a flagged, done plan `id`.
+fn create(id: &str) -> Step {
+    Step::Edit(Edit::Create {
+        kind: "plan".into(),
+        id: id.into(),
+        title: id.into(),
+        file: "a.spec".into(),
+        fields: [("flag", "true"), ("done", "true")]
+            .into_iter()
+            .map(|(f, v)| (f.to_string(), Input::One(v.into())))
+            .collect(),
+        verify: Vec::new(),
+    })
+}
+
+/// A plan the write completes reveals a waiting finding only when it is the plan the project held: never one the
+/// write creates, deletes and creates again, or renames, and never over a project whose checks were skipped.
+#[specforge_test(
+    behavior = "validate_typed_edit",
+    verify = "a finding on an entity the write creates, deletes or renames, or over skipped checks, is an error it adds"
+)]
+fn only_the_entity_the_project_held_reveals_a_finding() {
+    let pending = compiled("plan PA \"PA\" {\n  flag true\n}\n");
+    let complete = |id: &str| Step::Edit(crate::edit::set(id, "done", Input::One("true".into())));
+    // the positive case, through the same planner
+    assert_eq!(refused_steps(&pending, &[complete("PA")]), None);
+    // (a) created already complete
+    let created = refused_steps(&pending, &[create("QA")]).expect("refused");
+    assert!(created.contains(&ONCE_COMPLETE.to_string()), "{created:?}");
+    // (b) deleted and created again under the same id in one edit: another entity
+    let delete = Step::Edit(Edit::Delete {
+        entity_id: "PA".into(),
+        unlink_references: false,
+    });
+    assert_eq!(
+        refused_steps(&pending, &[delete, create("PA")]),
+        Some(vec![ONCE_COMPLETE.to_string()])
+    );
+    // (c) renamed, then completed
+    let rename = Step::Rename {
+        entity: "PA".into(),
+        to: "RA".into(),
+    };
+    assert_eq!(
+        refused_steps(&pending, &[rename, complete("RA")]),
+        Some(vec![ONCE_COMPLETE.to_string()])
+    );
+    // (d) the checks were skipped: no owner state is known before the write
+    let skipped = compiled("plan PA \"PA\" {\n  flag true\n}\n").skipping_checks();
+    assert_eq!(
+        refused_steps(&skipped, &[complete("PA")]),
+        Some(vec![ONCE_COMPLETE.to_string()])
+    );
 }
 
 #[specforge_test(

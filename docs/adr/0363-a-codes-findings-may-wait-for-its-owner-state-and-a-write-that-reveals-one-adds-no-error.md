@@ -42,15 +42,17 @@ compute the owner state the kernel already computes.
 
 ## D3. E080: a finding the write revealed is no error it adds
 
-A typed edit, the under-lock re-judge and a migration (every caller of the rule behind E080) count an unmatched
-finding as no added error when the write revealed it: its code waits for an owner state, and the write moved its
-entity from the other state into it. Both states must be known: an entity the write creates, renames or deletes, or a
-project whose checks were skipped (the typing fast path, no computed value says its state), reveals nothing. Every
-other unmatched error is counted as before, the waiting code's included: on an entity whose state the write did not
-move, a finding the write makes appear is added (a widening of what a judged invariant in force guards, for one), and
-on a pending entity a code that waits for nothing is added. The finding is not hidden: it is reported with the write's
-other findings, `check` and every gate read it, and it stays until what it names is settled (for E531, judging the
-invariant again).
+A typed edit and the under-lock re-judge count an unmatched finding as no added error when the write revealed it: its
+code waits for an owner state, and the write moved its entity from the other state into it. The entity must be the one
+the project held, judged from the write's plan and not from the ids the project held: an entity the plan creates,
+deletes or moves (at either id), or one under such an entity, reveals nothing, so a delete and a create of the same id
+in one write make another entity, not a revealed one. A migration, the rule's other caller, has no such plan and
+reveals nothing. Both states must also be known: a project whose checks were skipped (the typing fast path, no
+computed value says its state) reveals nothing. Every other unmatched error is counted as before, the waiting code's
+included: on an entity whose state the write did not move, a finding the write makes appear is added (a widening of
+what a judged invariant in force guards, for one), and on a pending entity a code that waits for nothing is added. The
+finding is not hidden: it is reported with the write's other findings, `check` and every gate read it, and it stays
+until what it names is settled (for E531, judging the invariant again).
 
 ## Rejected
 

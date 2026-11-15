@@ -291,6 +291,7 @@ behavior validate_typed_edit "Validate a Typed Edit" {
   verify unit "an edit that adds an error is E080 and writes nothing"
   verify unit "a judged rules finding is no error a write adds"
   verify unit "a finding a write reveals by moving its entity into the owner state its code waits for is no error the write adds"
+  verify unit "a finding on an entity the write creates, deletes or renames, or over skipped checks, is an error it adds"
   verify unit "a diagnostic with a judged rules code from another origin is no judged finding"
   verify unit "an extension's finding is paired by its subject, through the plan's moves"
   verify unit "only a finding the judged rules made is exempt"

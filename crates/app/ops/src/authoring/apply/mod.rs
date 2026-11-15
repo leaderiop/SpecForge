@@ -360,6 +360,7 @@ fn rejudge(
         &after,
         project.environment().registries(),
         change.moved(),
+        &|id| change.renews(id),
         host_only,
     )
     .map_err(|refusal| refusal.error)
