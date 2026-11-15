@@ -72,8 +72,9 @@ pub const DECISION: Kind = Kind::new(
             .inverse("superseded_by")
             .doc("the earlier decisions this one reverses; each reads it back as `superseded_by`"),
         bool("in_force").c().doc(
-            "false once a decision supersedes it with force (a settled one only by a decision of origin context or \
-             project, and none round a cycle): it no longer holds, so no plan lists it and no prompt holds it locked",
+            "false once a decision supersedes it with force (one of origin context or project, or a settled one, \
+             only by a decision of origin context or project, and none round a cycle): it no longer holds, so no \
+             plan lists it and no prompt holds it locked",
         ),
         rfs_any("affects", AFFECTED)
             .inverse("affected_by")

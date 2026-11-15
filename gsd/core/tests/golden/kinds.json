@@ -3650,7 +3650,7 @@
           },
           {
             "default_value": null,
-            "description": "false once a decision supersedes it with force (a settled one only by a decision of origin context or project, and none round a cycle): it no longer holds, so no plan lists it and no prompt holds it locked",
+            "description": "false once a decision supersedes it with force (one of origin context or project, or a settled one, only by a decision of origin context or project, and none round a cycle): it no longer holds, so no plan lists it and no prompt holds it locked",
             "edge": null,
             "field_type": "bool",
             "inverse_of": null,

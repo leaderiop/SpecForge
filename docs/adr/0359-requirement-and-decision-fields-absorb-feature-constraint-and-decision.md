@@ -126,10 +126,12 @@ no kernel crate, no re-vendor): the ADR 0150 D2 amendment above.
   output on every GSD project is unchanged; upstream's own escape (`[informational]`, "if it should not be tracked")
   is the author's act, and here superseding a decision is that act. A plan that still lists a superseded decision
   stays silent: that needs a code of its own. Two edges have no force:
-  - **One that would retire a settled decision from an agent.** A `settled` decision is locked with the user, so it
-    leaves force only through a decision taken with the user too: `origin` `context` or `project`. A `summary` or
-    `checkpoint` decision, which an agent records, does not retire it; it still retires an unsettled one. The
-    executor's summary-decision line offers `--supersedes` and says so: reversing a settled decision is a deviation
+  - **One from an agent onto a decision the user took or locked.** A decision of `origin` `context` or `project` is
+    taken with the user, settled or not (a phase context's `D-NN` never sets `settled`, and the planner holds it
+    locked all the same), and a `settled` one is locked by the user: either leaves force only through a decision of
+    `origin` `context` or `project`. A `summary` or `checkpoint` decision, which an agent records, retires only an
+    unsettled decision of those two origins; a decision taken with the user retires any. The executor's
+    summary-decision line offers `--supersedes` and says so: reversing a decision taken with the user is a deviation
     for the user.
   - **One inside a supersedes cycle.** A decision that supersedes itself, directly or round a cycle, is reversed by
     nothing outside it, so an edge between two decisions of one cycle retires neither, and every decision of the
@@ -203,7 +205,9 @@ The one-time conversion of an `@specforge/governance` decision reads this table;
   severity or turns a rule off, never narrows what a rule judges, and compat would demand that a plan list a decision
   its author reversed, whose only way out is deleting the record `supersedes` keeps.
 - Dropping `--supersedes` from the executor's summary-decision line: an executor's decision may still reverse an
-  unsettled one, and the rule belongs in the one function every pass reads, not in one prompt.
+  agent's unsettled one, and the rule belongs in the one function every pass reads, not in one prompt.
+- Protecting only a `settled` decision from an agent: a phase context's decisions never set `settled`, yet the
+  planner holds every one of them locked, so an executor's summary decision could still retire them.
 - Untracking a supersedes cycle: a self-reference would turn E310, an Error, into W061, a Warning `check` passes.
 - Leaving superseded decisions out of the prompt sections by selector: the field filter reads authored scalar fields
   only (a judged digest is taken before the compute passes), and `superseded_by` is an incoming edge, no field; a new
@@ -223,7 +227,8 @@ The one-time conversion of an `@specforge/governance` decision reads this table;
   list.
 - A supersedes cycle keeps every decision of it tracked, and W061 reports it; a plan that lists a superseded decision
   is silent, which needs a code of its own.
-- An agent cannot take a user-locked decision out of the coverage gates by superseding it.
+- An agent cannot take a decision taken with the user, or a settled one, out of the coverage gates by superseding
+  it; it can still reverse an agent's unsettled decision.
 
 ## Would reopen it
 

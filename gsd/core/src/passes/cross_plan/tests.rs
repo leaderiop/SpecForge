@@ -361,32 +361,29 @@ fn a_supersedes_cycle_retires_none_of_its_decisions() {
     );
 }
 
-/// A settled decision, locked with the user, leaves force only through a decision taken with the user: an agent's
-/// `summary` or `checkpoint` decision that supersedes it leaves it E310, a `context` or `project` one retires it. An
-/// agent's decision still retires an unsettled one.
+/// A context decision, taken with the user, leaves force only through a decision taken with the user: an agent's
+/// `summary` or `checkpoint` decision that supersedes it leaves it E310, settled or not, while a `context` or
+/// `project` one retires it.
 #[test]
-fn only_a_decision_taken_with_the_user_retires_a_settled_one() {
+fn only_a_decision_taken_with_the_user_retires_a_context_decision() {
     let settled: &[(&str, &str)] = &[("settled", "true")];
-    for (origin, retired) in [
-        ("summary", false),
-        ("checkpoint", false),
-        ("context", true),
-        ("project", true),
-    ] {
-        let later: &[(&str, &str)] = &[("origin", origin)];
-        let found = uncited(&[("D-01", settled), ("D-02", later)], &[("D-02", "D-01")]);
-        let mut expected = Vec::new();
-        if !retired {
-            expected.push("D-01");
+    for earlier in [&[][..], settled] {
+        for (origin, retired) in [
+            ("summary", false),
+            ("checkpoint", false),
+            ("context", true),
+            ("project", true),
+        ] {
+            let later: &[(&str, &str)] = &[("origin", origin)];
+            let found = uncited(&[("D-01", earlier), ("D-02", later)], &[("D-02", "D-01")]);
+            let mut expected = Vec::new();
+            if !retired {
+                expected.push("D-01");
+            }
+            if origin == "context" {
+                expected.push("D-02");
+            }
+            assert_eq!(found, expected, "{origin} over {earlier:?}");
         }
-        if origin == "context" {
-            expected.push("D-02");
-        }
-        assert_eq!(found, expected, "{origin}");
     }
-    let agent: &[(&str, &str)] = &[("origin", "summary")];
-    assert_eq!(
-        uncited(&[("D-01", &[]), ("D-02", agent)], &[("D-02", "D-01")]),
-        Vec::<String>::new()
-    );
 }

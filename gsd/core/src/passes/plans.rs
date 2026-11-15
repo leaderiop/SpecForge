@@ -59,14 +59,17 @@ pub fn listed_decisions<'a, 'b>(
 }
 
 /// The decisions no longer in force, so no plan must list them: each one a decision lists in `supersedes` with force.
-/// - A settled decision, locked with the user, leaves force only through a decision taken with the user too (`origin`
-///   `context` or `project`); an agent's `summary` or `checkpoint` decision cannot retire it.
+/// - A decision taken with the user (`origin` `context` or `project`) leaves force only through another taken with
+///   the user. An agent's decision (`summary` or `checkpoint`) retires only an agent's decision, and never a settled
+///   one, which the user locked.
 /// - A decision that supersedes itself, directly or round a cycle of such edges, is reversed by nothing outside the
 ///   cycle: an edge between two decisions of one cycle retires neither (the graph's W061 reports the cycle).
 pub fn superseded(input: &PassInput) -> BTreeSet<&str> {
     let decisions: BTreeMap<&str, &PassEntity> = of_kind(input, "decision")
         .map(|d| (d.id.as_str(), d))
         .collect();
+    let with_the_user = |d: &PassEntity| matches!(text(d, "origin"), Some("context" | "project"));
+    let locked = |d: &PassEntity| with_the_user(d) || text(d, "settled") == Some("true");
     let mut graph: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
     for edge in input.edges.iter().filter(|e| e.label == "supersedes") {
         let (Some(by), Some(earlier)) = (
@@ -75,8 +78,7 @@ pub fn superseded(input: &PassInput) -> BTreeSet<&str> {
         ) else {
             continue;
         };
-        let with_the_user = matches!(text(by, "origin"), Some("context" | "project"));
-        if text(earlier, "settled") != Some("true") || with_the_user {
+        if with_the_user(by) || !locked(earlier) {
             graph.entry(&by.id).or_default().push(&earlier.id);
         }
     }
