@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use super::super::how;
 use super::super::ledger::Why;
 use super::super::table::{Pending, Scale};
-use super::{field, ledgered, many, old, one, planned, stops};
+use super::{field, ledgered, many, old, one, planned};
 
 fn number(n: u64) -> Input {
     Input::Number(n.into())
@@ -439,7 +439,7 @@ fn a_reference_to_a_behavior_is_ledgered_with_what_it_waits_for() {
         .0
         .insert("write_entry".to_string(), "behavior".to_string());
     super::super::plan::prechecks(&entities).unwrap();
-    let planned = super::super::plan::plan(&entities, &index);
+    let planned = super::super::plan::plan(&entities, &index, &Default::default());
     assert_eq!(field(&planned, "f", "affects"), None, "no empty list");
     assert_eq!(
         why_of(&planned, "f", "affected_behaviors"),
@@ -458,12 +458,12 @@ fn a_later_field_is_ledgered_with_what_it_waits_for() {
         json!({"description": "D", "enforced_by": ["write_entry"]}),
     );
     c.obligations = vec![(Some("load".to_string()), "benchmark it".to_string())];
-    let mut i = old(
+    let i = old(
         "invariant",
         "i",
         json!({"guarantee": "G", "expression": "a <= b"}),
     );
-    let planned = planned(&[c, i.clone()]);
+    let planned = planned(&[c, i]);
     assert_eq!(
         why_of(&planned, "c", "enforced_by"),
         [Why::Later(Pending::Truth)]
@@ -475,15 +475,6 @@ fn a_later_field_is_ledgered_with_what_it_waits_for() {
     assert_eq!(
         why_of(&planned, "i", "expression"),
         [Why::Later(Pending::Truth)]
-    );
-    i.obligations = vec![(None, "it holds".to_string())];
-    assert_eq!(
-        stops(&[i])
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>(),
-        ["invariant 'i' verify: no row for invariant.verify"],
-        "an obligation with no home is never dropped"
     );
 }
 

@@ -1,0 +1,8 @@
+# A crate whose tests state an invariant's obligations; its own workspace, so the repository's ignores it.
+[package]
+name = "absorb-proof"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]

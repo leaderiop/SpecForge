@@ -2,10 +2,13 @@
 //! project by one typed-edit plan (ADR 0360).
 //!
 //!   GSD_CORE_WASM=<gsd_core.wasm> cargo run -p xtask --bin absorb -- --from <project> --to <dir>
-//!       [--only ids:<file>] [--ledger <file>]
+//!       [--only ids:<file>] [--extension <name>]... [--ledger <file>]
 //!
-//! The old project is compiled in-process with its own builtins, and must report no error. `--only` converts just the
-//! old ids a JSON array names; a reference leaving them is ledgered. `--to` is absent or a
+//! The old project is compiled in-process with its own builtins, and must report no error; one that loads
+//! `@rust/source` must hold its recorded items, since an invariant's obligation becomes a proof naming the tests whose
+//! spec-link attributes state it (their ids are the summary's `cited_tests`). `--only` converts just the old ids a
+//! JSON array names; a reference leaving them is ledgered. `--extension` adds an extension to the target. `--to` is
+//! absent or a
 //! directory with no project; it is scaffolded with `@specforge/checks`, `@code/core` and the `@gsd/core` component
 //! `GSD_CORE_WASM` names, and written by one edit plan, all or nothing. The absorb ledger (default
 //! `<to>/absorb-ledger.json`) lists every old value not written as itself. Prints one JSON summary.
@@ -24,6 +27,8 @@ mod how;
 mod ledger;
 #[path = "absorb/plan.rs"]
 mod plan;
+#[path = "absorb/proof.rs"]
+mod proof;
 #[path = "absorb/read.rs"]
 mod read;
 #[path = "absorb/scope.rs"]
@@ -40,11 +45,12 @@ mod tests;
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
+use proof::Proofs;
 use scope::Scope;
 use write::{Target, Work};
 
-const USAGE: &str = "usage: absorb --from <project> --to <dir> [--only ids:<file>] [--ledger <file>]  \
-                     (GSD_CORE_WASM names gsd_core.wasm)";
+const USAGE: &str = "usage: absorb --from <project> --to <dir> [--only ids:<file>] [--extension <name>]... \
+                     [--ledger <file>]  (GSD_CORE_WASM names gsd_core.wasm)";
 const BUILD_GSD_CORE: &str =
     "build it: (cd gsd && cargo build --locked -p gsd-core --release --target wasm32-wasip2)";
 /// The ledger's file in the target when `--ledger` is not given.
@@ -57,10 +63,12 @@ struct Args {
     to: PathBuf,
     ledger: Option<PathBuf>,
     scope: Scope,
+    extensions: Vec<String>,
 }
 
 fn parse(args: &[String]) -> Result<Args, String> {
     let (mut from, mut to, mut ledger, mut scope) = (None, None, None, Scope::All);
+    let mut extensions = Vec::new();
     let mut args = args.iter();
     while let Some(flag) = args.next() {
         let value = || format!("{flag} takes a value");
@@ -69,6 +77,7 @@ fn parse(args: &[String]) -> Result<Args, String> {
             "--to" => to = Some(PathBuf::from(args.next().ok_or_else(value)?)),
             "--ledger" => ledger = Some(PathBuf::from(args.next().ok_or_else(value)?)),
             "--only" => scope = Scope::from_arg(args.next().ok_or_else(value)?)?,
+            "--extension" => extensions.push(args.next().ok_or_else(value)?.clone()),
             other => return Err(format!("unknown argument '{other}'")),
         }
     }
@@ -77,6 +86,7 @@ fn parse(args: &[String]) -> Result<Args, String> {
         to: to.ok_or("--to is required")?,
         ledger,
         scope,
+        extensions,
     })
 }
 
@@ -121,11 +131,24 @@ fn run(args: &[String]) -> i32 {
             lines.join("\n")
         ));
     }
-    let mut planned = plan::plan(&entities, &old.index());
-    let mut target = match Target::create(&args.to, &old.name, &gsd_core, &[], &mut work) {
-        Ok(target) => target,
-        Err(why) => return refuse(&why),
+    let proved = entities
+        .iter()
+        .any(|e| e.kind == "invariant" && !e.obligations.is_empty());
+    let proofs = Proofs {
+        // Every `.rs` file under the source root: a test anywhere may state an obligation.
+        links: if proved {
+            xtask::links::read(&args.from, &[String::new()], &[])
+        } else {
+            Vec::new()
+        },
+        items: old.items.clone(),
     };
+    let mut planned = plan::plan(&entities, &old.index(), &proofs);
+    let mut target =
+        match Target::create(&args.to, &old.name, &gsd_core, &args.extensions, &mut work) {
+            Ok(target) => target,
+            Err(why) => return refuse(&why),
+        };
     let missing = target.missing(&planned.creates);
     if !missing.is_empty() {
         target.roll_back();
@@ -153,6 +176,7 @@ fn run(args: &[String]) -> i32 {
         "converted": planned.converted,
         "created": planned.created,
         "creates": planned.creates.len(),
+        "cited_tests": planned.cited,
         "ledger": planned.ledger.counts(),
         "work": work,
         "target": {"errors": errors, "warnings": warnings, "infos": infos, "findings": findings},

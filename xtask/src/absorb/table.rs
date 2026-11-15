@@ -66,6 +66,8 @@ pub enum How {
     Solution,
     /// A feature status as a tier: proposed and deferred v2, deprecated out_of_scope (with a reason), else v1.
     FeatureTier,
+    /// An invariant's obligation as the test ids of the items whose spec-link attributes state it.
+    Proof,
     /// Written on each entity the value names (the home's field is of that entity's kind), naming this one.
     InvertOnto,
     /// A decision status as `outcome`: proposed → pending, deprecated → revisit.
@@ -262,6 +264,7 @@ pub const TABLE: &[Row] = rows! {
         "description" => [to(INVARIANT, "description", As)],
         "refs" => [to(INVARIANT, "refs", As)],
         "expression" => [later(Truth)],
+        "verify" => [to(INVARIANT, "proof", Proof)],
     ]
     // ADR 0359 D7-D11: a feature is a requirement of area "Feature".
     "feature": [

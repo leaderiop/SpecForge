@@ -73,12 +73,23 @@ fn every_old_governance_and_product_field_has_exactly_one_row() {
             (Pending::Behavior, 2)
         ])
     );
-    let obligations: Vec<&str> = TABLE
+}
+
+#[test]
+fn every_kind_that_takes_verify_has_one_obligation_row() {
+    let old = fixture();
+    let view = ProjectView::of(&old.project);
+    let taking: Vec<&str> = OLD_KINDS
+        .into_iter()
+        .filter(|kind| !edit::verify_kinds_of(&view, kind).is_empty())
+        .collect();
+    let rows: Vec<&str> = TABLE
         .iter()
         .filter(|r| r.field == VERIFY)
         .map(|r| r.kind)
         .collect();
-    assert_eq!(obligations, ["constraint", "failure_mode"]);
+    assert_eq!(rows, taking);
+    assert_eq!(rows, ["constraint", "failure_mode", "invariant"]);
 }
 
 #[test]

@@ -14,6 +14,8 @@ mod governance;
 mod measure;
 #[path = "tests/product.rs"]
 mod product;
+#[path = "tests/proof.rs"]
+mod proof;
 #[path = "tests/scope.rs"]
 mod scope;
 
@@ -23,6 +25,7 @@ use std::collections::BTreeMap;
 
 use super::ledger::Why;
 use super::plan::{self, Planned, Stop};
+use super::proof::Proofs;
 use super::read::{self, Index, OldEntity};
 
 /// The old fixture project: the five old builtins and one file per old kind.
@@ -59,7 +62,7 @@ pub(super) fn index(entities: &[OldEntity]) -> Index {
 /// `entities` planned, once their pre-checks pass.
 pub(super) fn planned(entities: &[OldEntity]) -> Planned {
     plan::prechecks(entities).expect("the pre-checks pass");
-    plan::plan(entities, &index(entities))
+    plan::plan(entities, &index(entities), &Proofs::default())
 }
 
 /// The pre-checks' stops for `entities`.

@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::how;
 use super::ledger::{Ledger, Why};
+use super::proof::{Proofs, Proved};
 use super::read::{Index, OldEntity};
 use super::table::{self, Home, Row, VERIFY};
 
@@ -59,6 +60,8 @@ pub struct Planned {
     pub converted: usize,
     /// Entities the converter created that the old project did not hold.
     pub created: usize,
+    /// The test ids the written proofs name: what a gate runs to hold them.
+    pub cited: BTreeSet<String>,
 }
 
 impl Planned {
@@ -228,6 +231,8 @@ impl Draft {
 /// The plan as it is being made.
 struct Planner<'a> {
     index: &'a Index,
+    proofs: &'a Proofs,
+    cited: BTreeSet<String>,
     /// The old ids this run converts into an entity of their own.
     converted: BTreeSet<String>,
     drafts: BTreeMap<String, Draft>,
@@ -237,10 +242,13 @@ struct Planner<'a> {
     created: usize,
 }
 
-/// Convert `entities` (each passed [`prechecks`]); `index` names every old entity's kind.
-pub fn plan(entities: &[OldEntity], index: &Index) -> Planned {
+/// Convert `entities` (each passed [`prechecks`]); `index` names every old entity's kind, `proofs` what an
+/// invariant's obligations are proved by.
+pub fn plan(entities: &[OldEntity], index: &Index, proofs: &Proofs) -> Planned {
     let mut planner = Planner {
         index,
+        proofs,
+        cited: BTreeSet::new(),
         converted: entities
             .iter()
             .filter(|e| table::new_kind(&e.kind).is_some())
@@ -403,6 +411,22 @@ impl Planner<'_> {
                 }
             }
             How::Solution => self.solution(e, field, value),
+            How::Proof => {
+                let text = value["text"].as_str().unwrap_or_default();
+                match self.proofs.of(&e.id, text) {
+                    Proved::Tests(tests) => {
+                        self.cited.extend(tests.iter().cloned());
+                        if let Some(draft) = self.own(e) {
+                            draft.append(field, tests);
+                        }
+                    }
+                    Proved::Unproven(tests) => {
+                        let why = Why::Unproven { tests };
+                        self.ledger
+                            .record(&e.kind, &e.id, VERIFY, value.clone(), why);
+                    }
+                }
+            }
             How::FeatureTier => {
                 let status = value.as_str().unwrap_or(how::FEATURE_DEFAULT);
                 self.tier(e, field, status);
@@ -695,6 +719,7 @@ impl Planner<'_> {
             ledger,
             checks,
             created,
+            cited,
             ..
         } = self;
         let converted = order.len() - created;
@@ -723,6 +748,7 @@ impl Planner<'_> {
             checks,
             converted,
             created,
+            cited,
         }
     }
 }

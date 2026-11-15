@@ -6,11 +6,16 @@ use specforge_common::{ProjectRoot, Severity};
 use specforge_component::ComponentRuntime;
 use specforge_graph::field_form;
 use specforge_project::CompiledProject;
+use specforge_registry::PlainDisk;
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
+use super::proof::{self, Item};
 use super::table::OLD_KINDS;
+
+/// The extension whose recorded `item` facts are the test items a proof names.
+const RUST_SOURCE: &str = "@rust/source";
 
 /// How many of a refused source's errors are printed.
 const ERRORS_SHOWN: usize = 10;
@@ -20,6 +25,8 @@ pub struct Old {
     /// Its name (`specforge.json`'s `name`, else its directory's).
     pub name: String,
     pub project: CompiledProject,
+    /// Its recorded test items, when it loads `@rust/source`.
+    pub items: Vec<Item>,
 }
 
 /// One old entity of an absorbed kind.
@@ -47,7 +54,8 @@ impl Index {
     }
 }
 
-/// Compile the project at `from` with the builtins it names; refused when it reports an error, naming the first.
+/// Compile the project at `from` with the builtins it names; refused when it reports an error, naming the first, or
+/// when it loads `@rust/source` and holds no recorded item, so a proof is never silently missing.
 pub fn compile(from: &Path) -> Result<Old, String> {
     let root = ProjectRoot::of(from).map_err(|e| format!("{}: {e:?}", from.display()))?;
     let project =
@@ -89,7 +97,29 @@ pub fn compile(from: &Path) -> Result<Old, String> {
                 .map(|n| n.to_string_lossy().into_owned())
         })
         .unwrap_or_default();
-    Ok(Old { name, project })
+    let items = if project
+        .environment()
+        .config()
+        .extensions
+        .iter()
+        .any(|e| e == RUST_SOURCE)
+    {
+        let facts = specforge_project::facts::recorded_facts(&PlainDisk, root.dir(), &["item"]);
+        if facts.is_empty() {
+            return Err(format!(
+                "it loads {RUST_SOURCE} and holds no recorded item: collect the source first \
+                 (`specforge collect`), so its invariants' proofs can name their tests"
+            ));
+        }
+        proof::items(&facts)
+    } else {
+        Vec::new()
+    };
+    Ok(Old {
+        name,
+        project,
+        items,
+    })
 }
 
 impl Old {

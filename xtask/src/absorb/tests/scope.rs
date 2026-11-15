@@ -19,7 +19,7 @@ fn selected(all: &[OldEntity], ids: &[&str]) -> Planned {
         .select(all.to_vec())
         .expect("the selection converts");
     plan::prechecks(&entities).expect("the pre-checks pass");
-    plan::plan(&entities, &index(all))
+    plan::plan(&entities, &index(all), &Default::default())
 }
 
 fn created(planned: &Planned) -> Vec<&str> {

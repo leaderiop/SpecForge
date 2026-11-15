@@ -1,0 +1,24 @@
+---
+source: xtask/tests/absorb_e2e.rs
+expression: ledger
+---
+{
+  "format": 1,
+  "from": "absorb-proof",
+  "entries": [
+    {
+      "kind": "invariant",
+      "id": "writes_are_durable",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "the store never reads half an entry"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    }
+  ]
+}

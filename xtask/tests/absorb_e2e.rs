@@ -1,5 +1,6 @@
 //! `absorb` end to end: the old fixture project into a fresh `@gsd/core` project, which checks clean. Needs the built
-//! component: `GSD_CORE_WASM=<gsd_core.wasm> cargo nextest run -p xtask --run-ignored all -E 'binary_id(xtask::absorb_e2e)'`.
+//! component: `GSD_CORE_WASM=<gsd_core.wasm> cargo nextest run -p xtask --run-ignored all -E 'binary_id(xtask::absorb_e2e)'`;
+//! the proof test also needs `SPECFORGE_BIN`, the built `specforge` binary that collects its fixture.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -12,6 +13,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 const OLD: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/absorb/old");
+const PROOF: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/absorb/proof");
 const SELECTION: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/tests/fixtures/absorb/selection.json"
@@ -144,4 +146,80 @@ fn a_selection_converts_only_its_entities_and_checks_clean() {
         "{ledger}"
     );
     insta::assert_snapshot!("selection_ledger", ledger);
+}
+
+/// `from`'s files copied under `to`.
+fn copy_tree(from: &Path, to: &Path) {
+    for entry in walkdir::WalkDir::new(from)
+        .into_iter()
+        .filter_map(Result::ok)
+    {
+        let target = to.join(entry.path().strip_prefix(from).unwrap());
+        if entry.file_type().is_dir() {
+            std::fs::create_dir_all(&target).unwrap();
+        } else {
+            std::fs::copy(entry.path(), &target).unwrap();
+        }
+    }
+}
+
+#[test]
+#[ignore = "needs GSD_CORE_WASM and SPECFORGE_BIN"]
+fn invariant_obligations_become_proofs_of_the_collected_items() {
+    let specforge = std::env::var_os("SPECFORGE_BIN").expect(
+        "SPECFORGE_BIN names the built specforge: cargo build -p specforge-cli --bin specforge",
+    );
+    let dir = tempfile::tempdir().unwrap();
+    let (source, home, to) = (
+        dir.path().join("source"),
+        dir.path().join("home"),
+        dir.path().join("target"),
+    );
+    copy_tree(Path::new(PROOF), &source);
+    std::fs::create_dir(&home).unwrap();
+    let collect = Command::new(specforge)
+        .arg("collect")
+        .current_dir(&source)
+        .env("HOME", &home)
+        .output()
+        .expect("specforge collect runs");
+    assert!(
+        source.join(".specforge/facts").is_dir(),
+        "the source's items are recorded: {}",
+        String::from_utf8_lossy(&collect.stderr)
+    );
+
+    let run = absorb(&[
+        "--from",
+        path(&source),
+        "--to",
+        path(&to),
+        "--extension",
+        "@rust/cargo",
+        "--extension",
+        "@rust/source",
+    ]);
+    assert_eq!(run.code, 0, "{}", run.stderr);
+    let cited = [
+        "rust:absorb-proof#tests::a_killed_writer_leaves_the_old_entry",
+        "rust:absorb-proof#tests::an_acknowledged_write_is_on_disk",
+    ];
+    assert_eq!(run.summary["cited_tests"], json!(cited), "{}", run.summary);
+    let invariants = std::fs::read_to_string(to.join("spec/invariants.spec")).unwrap();
+    for test in cited {
+        assert!(invariants.contains(&format!("\"{test}\"")), "{invariants}");
+    }
+    assert_eq!(run.summary["target"]["errors"], 0, "{}", run.summary);
+    let findings = run.summary["target"]["findings"].as_array().unwrap();
+    assert_eq!(findings.len(), 2, "{}", run.summary);
+    assert!(
+        findings
+            .iter()
+            .all(|f| f.as_str().unwrap().starts_with("code/W102 ")),
+        "until the target collects its test facts, a written proof is code/W102, and nothing else warns: {}",
+        run.summary
+    );
+    let ledger = std::fs::read_to_string(to.join("absorb-ledger.json")).unwrap();
+    assert_eq!(run.summary["ledger"], json!({"unproven": 1}), "{ledger}");
+    insta::assert_snapshot!("proof_ledger", ledger);
 }
