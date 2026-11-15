@@ -30,6 +30,7 @@ fn init_at(dir: &Path) -> Result<init::Outcome, Refusal<InitField>> {
             dir,
             name: Some("nested"),
             version: init::DEFAULT_VERSION,
+            spec_root: Some(init::SPEC_ROOT),
             extensions: &[],
             caller: specforge_ops::testing::caller(),
         },

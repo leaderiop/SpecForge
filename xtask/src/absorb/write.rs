@@ -3,7 +3,7 @@
 //! computed values back (ADR 0360 D1, D5).
 
 use serde_json::Value;
-use specforge_common::{PROJECT_FILE, ProjectRoot, Severity};
+use specforge_common::{PROJECT_FILE, ProjectConfig, ProjectRoot, Severity};
 use specforge_component::ComponentRuntime;
 use specforge_ops::asking::Asking;
 use specforge_ops::authoring::apply::Origin;
@@ -13,16 +13,15 @@ use specforge_ops::authoring::init;
 use specforge_ops::view::ProjectView;
 use specforge_ops::{Caller, Containment};
 use specforge_project::CompiledProject;
-use std::path::{Path, PathBuf};
+
+use super::read::Project;
+use std::collections::BTreeSet;
+use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
-/// What a target holds before the converter may scaffold it: none of these.
-const SCAFFOLD: [&str; 4] = [
-    PROJECT_FILE,
-    init::SPEC_ROOT,
-    "specforge.lock",
-    ".specforge",
-];
+/// What a scaffold puts in `--to` beside the spec root (or, when that is the project's root, the starter) and the
+/// files init appends to: none of these may be there.
+const SCAFFOLD: [&str; 3] = [PROJECT_FILE, "specforge.lock", ".specforge"];
 /// The files init adds entries to: a roll back gives each the bytes it held before, or removes it.
 const APPENDED: [&str; 2] = [".gitignore", ".gitattributes"];
 
@@ -34,16 +33,21 @@ pub struct Work {
 }
 
 /// `to` is absent, or a directory that holds no project yet (it may hold other files: the tree whose tests the
-/// proofs cite); what it holds is read without following a symbolic link. Refused when `to`, a path of [`SCAFFOLD`]
-/// or one of [`APPENDED`] is a symbolic link (absorb would write through it, or a roll back remove it), or when one of
-/// [`APPENDED`] is no file. The answer is what a roll back restores: the bytes of each of [`APPENDED`] there now.
-pub fn check_to(to: &Path) -> Result<Scaffold, String> {
+/// proofs cite), read without following a symbolic link. `spec_root` is the source's, which the target keeps: it must
+/// not be there yet, or, when it is the project's root, `to` must hold no source the target would read. Refused when
+/// `to`, or a path absorb writes, is a symbolic link (absorb would write through it, or a roll back remove it), when
+/// one of [`APPENDED`] is no file, or when the spec root leaves `to`. The answer is what a roll back undoes.
+pub fn check_to(to: &Path, spec_root: Option<&str>) -> Result<Scaffold, String> {
+    let spec_dir = spec_dir(spec_root)?;
+    let mut scaffold = Scaffold {
+        root: to.to_path_buf(),
+        made_root: false,
+        made: BTreeSet::new(),
+        appended_before: Vec::new(),
+    };
     let Ok(meta) = std::fs::symlink_metadata(to) else {
-        return Ok(Scaffold {
-            root: to.to_path_buf(),
-            made_root: true,
-            appended_before: Vec::new(),
-        });
+        scaffold.made_root = true;
+        return Ok(scaffold);
     };
     if meta.file_type().is_symlink() {
         return Err(format!(
@@ -54,9 +58,8 @@ pub fn check_to(to: &Path) -> Result<Scaffold, String> {
     if !meta.is_dir() {
         return Err(format!("--to {} is not a directory", to.display()));
     }
-    let links: Vec<&str> = SCAFFOLD
+    let links: Vec<&str> = APPENDED
         .into_iter()
-        .chain(APPENDED)
         .filter(|name| is_link(&to.join(name)))
         .collect();
     if !links.is_empty() {
@@ -66,25 +69,37 @@ pub fn check_to(to: &Path) -> Result<Scaffold, String> {
             links.join(", ")
         ));
     }
-    let held: Vec<&str> = SCAFFOLD
-        .into_iter()
-        .filter(|name| std::fs::symlink_metadata(to.join(name)).is_ok())
-        .collect();
-    if !held.is_empty() {
-        return Err(format!(
-            "--to {} already holds {}: convert into a directory with no project",
-            to.display(),
-            held.join(", ")
-        ));
+    let mut paths: Vec<PathBuf> = SCAFFOLD.into_iter().map(PathBuf::from).collect();
+    paths.push(
+        spec_dir
+            .clone()
+            .unwrap_or_else(|| PathBuf::from(init::STARTER_NAME)),
+    );
+    scaffold.claim(&paths)?;
+    if spec_dir.is_none() {
+        let sources = ProjectConfig::default().sources(to).files();
+        if !sources.is_empty() {
+            let shown: Vec<String> = sources
+                .iter()
+                .take(SHOWN)
+                .map(|file| file.strip_prefix(to).unwrap_or(file).display().to_string())
+                .collect();
+            return Err(format!(
+                "--to {} holds {} spec file(s) the target would read as its own (the source's spec root is the \
+                 project's root): {}",
+                to.display(),
+                sources.len(),
+                shown.join(", ")
+            ));
+        }
     }
-    let mut appended_before = Vec::new();
     for name in APPENDED {
         let path = to.join(name);
         match std::fs::symlink_metadata(&path) {
-            Err(_) => appended_before.push((name, None)),
+            Err(_) => scaffold.appended_before.push((name, None)),
             Ok(meta) if meta.is_file() => {
                 let bytes = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-                appended_before.push((name, Some(bytes)));
+                scaffold.appended_before.push((name, Some(bytes)));
             }
             Ok(_) => {
                 return Err(format!(
@@ -94,11 +109,33 @@ pub fn check_to(to: &Path) -> Result<Scaffold, String> {
             }
         }
     }
-    Ok(Scaffold {
-        root: to.to_path_buf(),
-        made_root: false,
-        appended_before,
-    })
+    Ok(scaffold)
+}
+
+/// How many of the files a refusal names.
+const SHOWN: usize = 5;
+
+/// The directory `spec_root` names, relative to the project's root; `None` when it is that root (unset, empty, `.`).
+/// Refused when it is absolute or leaves the root.
+fn spec_dir(spec_root: Option<&str>) -> Result<Option<PathBuf>, String> {
+    let mut dir = PathBuf::new();
+    for part in spec_root
+        .map(Path::new)
+        .into_iter()
+        .flat_map(Path::components)
+    {
+        match part {
+            Component::Normal(part) => dir.push(part),
+            Component::CurDir => {}
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err(format!(
+                    "the source's spec_root '{}' leaves its project's directory: absorb keeps it in the target",
+                    spec_root.unwrap_or_default()
+                ));
+            }
+        }
+    }
+    Ok((!dir.as_os_str().is_empty()).then_some(dir))
 }
 
 /// `path` is a symbolic link, dangling or not.
@@ -106,13 +143,61 @@ fn is_link(path: &Path) -> bool {
     std::fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink())
 }
 
-/// What a run may scaffold in `--to`, and what a roll back restores: whether the run creates the directory, and the
-/// bytes each of [`APPENDED`] held before (`None`: it was not there).
+/// What a run may write in `--to`, and what a roll back undoes: whether the run creates the directory, every path
+/// below it the run creates (none was there), and the bytes each of [`APPENDED`] held before (`None`: not there).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Scaffold {
     root: PathBuf,
     made_root: bool,
+    made: BTreeSet<PathBuf>,
     appended_before: Vec<(&'static str, Option<Vec<u8>>)>,
+}
+
+impl Scaffold {
+    /// Claim `paths` (relative to the root) for the run: each, and each directory above it, that is not there yet is
+    /// the run's to remove on a roll back. Refused, naming every one, when one is there already (a directory above
+    /// one may be) or a symbolic link is among them. A directory the run makes claims nothing.
+    pub fn claim(&mut self, paths: &[PathBuf]) -> Result<(), String> {
+        if self.made_root {
+            return Ok(());
+        }
+        let (mut held, mut links) = (BTreeSet::new(), BTreeSet::new());
+        for path in paths {
+            let mut at = PathBuf::new();
+            let parts: Vec<Component> = path.components().collect();
+            for (n, part) in parts.iter().enumerate() {
+                at.push(part);
+                match std::fs::symlink_metadata(self.root.join(&at)) {
+                    Err(_) => {
+                        self.made.insert(at.clone());
+                    }
+                    Ok(meta) if meta.file_type().is_symlink() => {
+                        links.insert(at.display().to_string());
+                    }
+                    Ok(meta) if meta.is_dir() && n + 1 < parts.len() => {}
+                    Ok(_) => {
+                        held.insert(at.display().to_string());
+                    }
+                }
+            }
+        }
+        let list = |set: BTreeSet<String>| set.into_iter().collect::<Vec<_>>().join(", ");
+        if !links.is_empty() {
+            return Err(format!(
+                "--to {} holds a symbolic link where absorb writes: {}; remove it, or convert elsewhere",
+                self.root.display(),
+                list(links)
+            ));
+        }
+        if !held.is_empty() {
+            return Err(format!(
+                "--to {} already holds {}: convert into a directory with no project",
+                self.root.display(),
+                list(held)
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// The scaffolded target and its last compile.
@@ -122,11 +207,12 @@ pub struct Target {
 }
 
 impl Target {
-    /// `ops init` in `scaffold`'s directory (what [`check_to`] answered) named `name`, loading `@specforge/checks`,
-    /// `@code/core`, `gsd_core` and `extra`, then compiled. On a failure, the directory is as it was.
+    /// `ops init` in `scaffold`'s directory (what [`check_to`] answered and the plan claimed) as `project` says
+    /// (the source's name, version and spec root), loading `@specforge/checks`, `@code/core`, `gsd_core` and `extra`,
+    /// then compiled. On a failure, the directory is as it was.
     pub fn create(
         scaffold: Scaffold,
-        name: &str,
+        project: &Project,
         gsd_core: &Path,
         extra: &[String],
         work: &mut Work,
@@ -146,8 +232,9 @@ impl Target {
         let outcome = init::init(
             &init::Request {
                 dir: to,
-                name: Some(name),
-                version: init::DEFAULT_VERSION,
+                name: Some(&project.name),
+                version: project.version.as_deref().unwrap_or(init::DEFAULT_VERSION),
+                spec_root: project.spec_root.as_deref(),
                 extensions: &extensions,
                 caller: Caller::new(&containment, Asking::Nobody),
             },
@@ -235,6 +322,11 @@ impl Target {
         Ok(())
     }
 
+    /// Its last compile.
+    pub fn project(&self) -> &CompiledProject {
+        &self.project
+    }
+
     /// The computed value of `path` on the entity `id` (`null`: none).
     pub fn computed(&self, id: &str, path: &str) -> Value {
         self.project
@@ -285,16 +377,18 @@ fn compile(root: &Path, work: &mut Work) -> Result<CompiledProject, String> {
 }
 
 impl Scaffold {
-    /// `--to` as [`check_to`] found it: the directory removed when the run made it; else each path of [`SCAFFOLD`]
-    /// removed (none was there, so whatever is there the run made) and each of [`APPENDED`] given back its bytes, or
-    /// removed when it was not there. Nothing is followed through a symbolic link.
+    /// `--to` as [`check_to`] found it: the directory removed when the run made it; else each path the run claimed
+    /// removed, deepest first (none was there, so whatever is there the run made), and each of [`APPENDED`] given back
+    /// its bytes, or removed when it was not there. Nothing is followed through a symbolic link.
     fn roll_back(self) {
         if self.made_root {
             let _ = std::fs::remove_dir_all(&self.root);
             return;
         }
-        for name in SCAFFOLD {
-            let path = self.root.join(name);
+        let mut made: Vec<&PathBuf> = self.made.iter().collect();
+        made.sort_by_key(|path| std::cmp::Reverse(path.components().count()));
+        for path in made {
+            let path = self.root.join(path);
             match std::fs::symlink_metadata(&path) {
                 Ok(meta) if meta.is_dir() => {
                     let _ = std::fs::remove_dir_all(&path);

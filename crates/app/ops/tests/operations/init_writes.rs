@@ -25,6 +25,7 @@ fn init(dir: &Path, extensions: &[String]) -> specforge_ops::authoring::init::Ou
         dir,
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
+        spec_root: Some(init::SPEC_ROOT),
         extensions,
         caller: specforge_ops::testing::caller(),
     };
@@ -89,6 +90,7 @@ fn the_starter_states_the_project_version() {
             dir: &dir,
             name: Some("demo"),
             version,
+            spec_root: Some(init::SPEC_ROOT),
             extensions,
             caller: specforge_ops::testing::caller(),
         };
@@ -157,6 +159,7 @@ fn init_refuses_a_directory_whose_starter_file_exists() {
         dir: &dir,
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
+        spec_root: Some(init::SPEC_ROOT),
         extensions: &[],
         caller: specforge_ops::testing::caller(),
     };
@@ -185,6 +188,7 @@ fn init_refuses_local_extensions_over_an_unreadable_lock_before_writing() {
         dir: &dir,
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
+        spec_root: Some(init::SPEC_ROOT),
         extensions: &extensions,
         caller: specforge_ops::testing::caller(),
     };
@@ -215,6 +219,7 @@ fn a_failed_init_puts_back_what_was_there() {
         dir: &dir,
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
+        spec_root: Some(init::SPEC_ROOT),
         extensions: &extensions,
         caller: specforge_ops::testing::caller(),
     };
@@ -257,6 +262,7 @@ fn a_failed_init_leaves_an_empty_directory_empty() {
         dir: &dir,
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
+        spec_root: Some(init::SPEC_ROOT),
         extensions: &extensions,
         caller: specforge_ops::testing::caller(),
     };
@@ -288,6 +294,7 @@ fn init_enables_a_builtin_after_the_builtins_it_requires() {
         dir: &scratch.path().join("cargo-test"),
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
+        spec_root: Some(init::SPEC_ROOT),
         extensions: &extensions,
         caller: specforge_ops::testing::caller(),
     };
@@ -315,6 +322,7 @@ fn init_enables_the_code_packs_of_a_cargo_project() {
             dir: scratch.path(),
             name: Some("demo"),
             version: init::DEFAULT_VERSION,
+            spec_root: Some(init::SPEC_ROOT),
             extensions: &extensions,
             caller: specforge_ops::testing::caller(),
         };
@@ -348,6 +356,7 @@ fn init_enables_each_builtin_after_the_builtins_it_requires() {
             dir: &scratch.path().join(format!("p{i}")),
             name: Some("demo"),
             version: init::DEFAULT_VERSION,
+            spec_root: Some(init::SPEC_ROOT),
             extensions: &extensions,
             caller: specforge_ops::testing::caller(),
         };
@@ -394,6 +403,7 @@ fn init_refuses_a_local_binary_that_claims_a_builtins_name_before_writing() {
         dir: &dir,
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
+        spec_root: Some(init::SPEC_ROOT),
         extensions: &extensions,
         caller: specforge_ops::testing::caller(),
     };
@@ -423,6 +433,7 @@ fn init_reads_a_local_file_once() {
         dir: &dir,
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
+        spec_root: Some(init::SPEC_ROOT),
         extensions: &extensions,
         caller: specforge_ops::testing::caller(),
     };
@@ -484,6 +495,7 @@ fn init_refuses_a_local_file_the_embedded_builtin_does_not_satisfy() {
         dir: &dir,
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
+        spec_root: Some(init::SPEC_ROOT),
         extensions: &extensions,
         caller: specforge_ops::testing::caller(),
     };
@@ -517,6 +529,7 @@ fn init_enables_the_builtins_a_local_file_requires() {
         dir: &dir,
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
+        spec_root: Some(init::SPEC_ROOT),
         extensions: &extensions,
         caller: specforge_ops::testing::caller(),
     };
@@ -556,6 +569,7 @@ fn init_writes_no_file_through_a_gitignore_that_leaves_its_directory() {
             dir,
             name: Some("demo"),
             version: init::DEFAULT_VERSION,
+            spec_root: Some(init::SPEC_ROOT),
             extensions: &[],
             caller: specforge_ops::testing::bounded(containment),
         };
@@ -599,6 +613,7 @@ fn init_writes_nothing_outside_its_directory_whatever_bound_its_caller_lends() {
         dir: &dir,
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
+        spec_root: Some(init::SPEC_ROOT),
         extensions: &[],
         caller: specforge_ops::testing::bounded(&within),
     };
@@ -627,6 +642,7 @@ fn init_writes_the_entries_its_plan_judged() {
         dir: &dir,
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
+        spec_root: Some(init::SPEC_ROOT),
         extensions: &extensions,
         caller: specforge_ops::testing::caller(),
     };
@@ -672,6 +688,7 @@ fn an_init_that_cannot_read_gitignore_is_unreadable() {
         dir: &dir,
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
+        spec_root: Some(init::SPEC_ROOT),
         extensions: &[],
         caller: specforge_ops::testing::caller(),
     };
@@ -712,6 +729,7 @@ fn starter_with_a_linked_configuration(
         dir: &dir,
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
+        spec_root: Some(init::SPEC_ROOT),
         extensions: &[],
         caller: specforge_ops::testing::bounded(containment),
     };

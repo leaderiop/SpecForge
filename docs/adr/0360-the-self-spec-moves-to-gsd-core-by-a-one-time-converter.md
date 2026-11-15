@@ -29,7 +29,12 @@ kernel change: the converter is a repository task in `xtask`, and every value it
   scaffolds a fresh target with `ops init` (`@specforge/checks`, `@code/core` and the `@gsd/core` component
   `GSD_CORE_WASM` names, plus each `--extension`), and writes the whole conversion as one typed-edit plan of creates
   (`edit::run`): forward references resolve inside it, and it writes all or nothing, judged by E080. Ids, titles and
-  file paths are kept. It is a one-time migration, deleted with the old builtins once the root project has moved.
+  file paths are kept, and so are the project's name, version and spec root: init scaffolds into the source's spec
+  root (none: the sources sit at the project's root), so every kept file path lies inside it. Whatever else the
+  source's `specforge.json` or `spec` block holds that the target's do not is ledgered (D3): an old extension the
+  target does not load, a setting, the block's own version. `--to` is absent or holds no project; a stop or a refused
+  plan leaves it as it was, byte for byte, and a symbolic link where absorb writes is refused. It is a one-time
+  migration, deleted with the old builtins once the root project has moved.
 - **D2. The table is the measure.** `xtask/src/absorb/table.rs` holds one row per old (kind, field) as the old
   builtins' registry holds it, shared fields and other builtins' enhancements included, plus one obligation row per
   old kind that takes `verify`. Each row has one or more homes:
@@ -50,9 +55,10 @@ kernel change: the converter is a repository task in `xtask`, and every value it
 - **D3. The absorb ledger** is the converter's record of every old value not written as itself, with why: a Later
   value, a reference that leaves the run or reaches a kind not absorbed, a computed value that differs from the old
   one, a filled required field, a collapsed word, an unconverted metric, an unproven obligation, an entity the
-  converter created. Format 1 is a JSON object (`format`, `from`, `entries`) whose entries are sorted by (kind, id,
-  field, the value's canonical JSON, why), each value in the one wire form every output writes (ADR 0064); it holds
-  no time and no absolute path, so two runs on one input write the same bytes.
+  converter created, a project-block value the target does not hold (its kind `specforge.json` or `spec`). Format 1
+  is a JSON object (`format`, `from`, `entries`) whose entries are sorted by (kind, id, field, the value's canonical
+  JSON, why), each value in the one wire form every output writes (ADR 0064); it holds no time and no absolute path,
+  so two runs on one input write the same bytes.
 - **D4. A reference that leaves the run is ledgered, never stubbed.** A reference to an entity this run does not
   convert is `out_of_selection`; to a kind with no home yet it is `target_later`, naming what it waits for. An inverse
   write (a deliverable's journeys, a persona's key features, a decision's successor) onto an entity not converted is

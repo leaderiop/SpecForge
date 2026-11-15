@@ -36,6 +36,7 @@ fn init_with(
             dir,
             name: Some("demo"),
             version: init::DEFAULT_VERSION,
+            spec_root: Some(init::SPEC_ROOT),
             extensions,
             caller: specforge_ops::testing::caller(),
         },
@@ -138,6 +139,7 @@ fn init_reads_its_specifiers_as_add_reads_them() {
             dir: &dir,
             name: Some("demo"),
             version: init::DEFAULT_VERSION,
+            spec_root: Some(init::SPEC_ROOT),
             extensions: &extensions,
             caller: specforge_ops::testing::caller(),
         };

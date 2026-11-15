@@ -46,6 +46,8 @@ impl ArgumentOf<InitField> for Tool {
             InitField::Dir => Some(TargetArgument::Path.name()),
             InitField::Name => Some("name"),
             InitField::Extensions => Some("extensions"),
+            // The tool asks for no spec root: it scaffolds `init::SPEC_ROOT`, which is never refused.
+            InitField::SpecRoot => None,
         }
     }
 }
@@ -79,6 +81,7 @@ impl CoreTool for Tool {
             dir: path,
             name: args.name.as_deref(),
             version: &args.version,
+            spec_root: Some(init::SPEC_ROOT),
             extensions,
             // A local file installs only from inside the request's bound: the served project, or
             // the server's root while none is served (ADR 0092 D7, ADR 0104).
@@ -92,7 +95,7 @@ impl CoreTool for Tool {
         let event = MutationEvent::ProjectInitialized(ProjectInitialized {
             project_name: outcome.name.clone(),
             extension_count: outcome.extensions.len(),
-            spec_file_path: init::STARTER_FILE.to_string(),
+            spec_file_path: outcome.starter.clone(),
         });
         Ok(Mutated::new(
             reply,

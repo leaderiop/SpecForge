@@ -2,7 +2,7 @@
 //! each value in the one wire form every output writes (ADR 0064).
 
 use serde_json::Value;
-use specforge_common::{ProjectRoot, Severity};
+use specforge_common::{ProjectConfig, ProjectRoot, Severity, read_project_config};
 use specforge_component::ComponentRuntime;
 use specforge_graph::field_form;
 use specforge_project::CompiledProject;
@@ -27,6 +27,41 @@ pub struct Old {
     pub project: CompiledProject,
     /// Its recorded test items, when it loads `@rust/source`.
     pub items: Vec<Item>,
+}
+
+/// The source's project block as the target keeps it: its name (`specforge.json`'s, else its directory's), its
+/// version and its spec root (`None`: unset, the sources are read from the project's root).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Project {
+    pub name: String,
+    pub version: Option<String>,
+    pub spec_root: Option<String>,
+}
+
+impl Project {
+    /// The project at `from` as `config` (its `specforge.json`) says.
+    fn of(from: &Path, config: &ProjectConfig) -> Project {
+        let name = config
+            .name
+            .clone()
+            .or_else(|| {
+                from.canonicalize()
+                    .ok()?
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+            })
+            .unwrap_or_default();
+        Project {
+            name,
+            version: config.version.clone(),
+            spec_root: config.spec_root.clone(),
+        }
+    }
+
+    /// The project at `from`, its `specforge.json` read as a compile reads it, before anything is compiled.
+    pub fn read(from: &Path) -> Project {
+        Project::of(from, &read_project_config(from).config)
+    }
 }
 
 /// One old entity of an absorbed kind.
@@ -85,18 +120,7 @@ pub fn compile(from: &Path) -> Result<Old, String> {
             shown.join("\n  ")
         ));
     }
-    let name = project
-        .environment()
-        .config()
-        .name
-        .clone()
-        .or_else(|| {
-            from.canonicalize()
-                .ok()?
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-        })
-        .unwrap_or_default();
+    let name = Project::of(from, project.environment().config()).name;
     let items = if project
         .environment()
         .config()

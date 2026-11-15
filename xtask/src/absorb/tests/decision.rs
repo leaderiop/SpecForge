@@ -260,26 +260,29 @@ fn the_ledger_is_sorted_and_identical_across_runs() {
     assert!(text.ends_with("}\n"));
 }
 
+/// The spec root most sources keep.
+const SPEC: Option<&str> = Some("spec");
+
 #[test]
 fn a_target_holding_a_project_is_refused() {
     let dir = tempfile::tempdir().unwrap();
-    assert!(write::check_to(&dir.path().join("absent")).is_ok());
-    assert!(write::check_to(dir.path()).is_ok());
+    assert!(write::check_to(&dir.path().join("absent"), SPEC).is_ok());
+    assert!(write::check_to(dir.path(), SPEC).is_ok());
     std::fs::write(dir.path().join("Cargo.toml"), "[workspace]\n").unwrap();
     assert!(
-        write::check_to(dir.path()).is_ok(),
+        write::check_to(dir.path(), SPEC).is_ok(),
         "a tree without a project"
     );
     std::fs::create_dir(dir.path().join("spec")).unwrap();
-    let held = write::check_to(dir.path()).unwrap_err();
+    let held = write::check_to(dir.path(), SPEC).unwrap_err();
     assert!(
         held.ends_with("already holds spec: convert into a directory with no project"),
         "{held}"
     );
     std::fs::write(dir.path().join("specforge.json"), "{}").unwrap();
-    let held = write::check_to(dir.path()).unwrap_err();
+    let held = write::check_to(dir.path(), SPEC).unwrap_err();
     assert!(
-        held.contains("already holds specforge.json, spec:"),
+        held.contains("already holds spec, specforge.json:"),
         "{held}"
     );
 }
@@ -293,7 +296,7 @@ fn a_symbolic_link_where_absorb_writes_is_refused_and_kept() {
         let dir = tempfile::tempdir().unwrap();
         let link = dir.path().join(name);
         std::os::unix::fs::symlink(dir.path().join("nowhere"), &link).unwrap();
-        let refused = write::check_to(dir.path()).unwrap_err();
+        let refused = write::check_to(dir.path(), SPEC).unwrap_err();
         assert!(
             refused.ends_with(&format!(
                 "holds a symbolic link where absorb writes: {name}; remove it, or convert elsewhere"
@@ -306,8 +309,47 @@ fn a_symbolic_link_where_absorb_writes_is_refused_and_kept() {
     let to = dir.path().join("to");
     std::os::unix::fs::symlink(dir.path(), &to).unwrap();
     assert!(
-        write::check_to(&to)
+        write::check_to(&to, SPEC)
             .unwrap_err()
             .ends_with("is a symbolic link: name the directory it points to")
+    );
+}
+
+/// A source whose spec root is its project's root keeps it: a target that already holds a spec file would read it as
+/// its own, so it is refused; a spec root that leaves the project is refused; a file a create would write is claimed
+/// only when it is not there.
+#[test]
+fn the_source_spec_root_decides_what_the_target_may_hold() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("crates/a")).unwrap();
+    std::fs::write(dir.path().join("Cargo.toml"), "[workspace]\n").unwrap();
+    assert!(write::check_to(dir.path(), None).is_ok());
+    assert!(write::check_to(dir.path(), Some("specs/main")).is_ok());
+    std::fs::write(dir.path().join("crates/a/old.spec"), "").unwrap();
+    let held = write::check_to(dir.path(), None).unwrap_err();
+    assert!(
+        held.ends_with(
+            "holds 1 spec file(s) the target would read as its own (the source's spec root is the \
+                        project's root): crates/a/old.spec"
+        ),
+        "{held}"
+    );
+    assert!(write::check_to(dir.path(), Some("specs")).is_ok());
+    let leaves = write::check_to(dir.path(), Some("../up")).unwrap_err();
+    assert!(
+        leaves.contains("leaves its project's directory"),
+        "{leaves}"
+    );
+
+    let mut scaffold = write::check_to(dir.path(), Some("specs")).unwrap();
+    assert!(scaffold.claim(&["specs/new.spec".into()]).is_ok());
+    let held = scaffold
+        .claim(&["Cargo.toml".into(), "crates/a/old.spec".into()])
+        .unwrap_err();
+    assert!(
+        held.ends_with(
+            "already holds Cargo.toml, crates/a/old.spec: convert into a directory with no project"
+        ),
+        "{held}"
     );
 }

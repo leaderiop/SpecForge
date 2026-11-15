@@ -8,9 +8,9 @@
 //! `@rust/source` must hold its recorded items, since an invariant's obligation becomes a proof naming the tests whose
 //! spec-link attributes state it (their ids are the summary's `cited_tests`). `--only` converts just the old ids a
 //! JSON array names; a reference leaving them is ledgered. `--extension` adds an extension to the target. `--to` is
-//! absent or a
-//! directory with no project; it is scaffolded with `@specforge/checks`, `@code/core` and the `@gsd/core` component
-//! `GSD_CORE_WASM` names, and written by one edit plan, all or nothing. The absorb ledger (default
+//! absent or a directory with no project; it is scaffolded with `@specforge/checks`, `@code/core` and the `@gsd/core`
+//! component `GSD_CORE_WASM` names, keeping the source's name, version and spec root, and written by one edit plan,
+//! all or nothing; a stop leaves it as it was. The absorb ledger (default
 //! `<to>/absorb-ledger.json`) lists every old value not written as itself. Prints one JSON summary.
 //!
 //! Exit 0: written. 1: the edit plan was refused (the refusal printed, the ledger written, the scaffold removed).
@@ -27,6 +27,8 @@ mod how;
 mod ledger;
 #[path = "absorb/plan.rs"]
 mod plan;
+#[path = "absorb/project.rs"]
+mod project;
 #[path = "absorb/proof.rs"]
 mod proof;
 #[path = "absorb/read.rs"]
@@ -46,6 +48,7 @@ use serde_json::json;
 use std::path::{Path, PathBuf};
 
 use proof::Proofs;
+use read::Project;
 use scope::Scope;
 use write::{Target, Work};
 
@@ -110,7 +113,8 @@ fn run(args: &[String]) -> i32 {
         }
         None => return refuse(&format!("GSD_CORE_WASM is not set; {BUILD_GSD_CORE}")),
     };
-    let scaffold = match write::check_to(&args.to) {
+    let source = Project::read(&args.from);
+    let mut scaffold = match write::check_to(&args.to, source.spec_root.as_deref()) {
         Ok(scaffold) => scaffold,
         Err(why) => return refuse(&why),
     };
@@ -145,11 +149,20 @@ fn run(args: &[String]) -> i32 {
         items: old.items.clone(),
     };
     let mut planned = plan::plan(&entities, &old.index(), &proofs);
-    let mut target =
-        match Target::create(scaffold, &old.name, &gsd_core, &args.extensions, &mut work) {
-            Ok(target) => target,
-            Err(why) => return refuse(&why),
-        };
+    if let Err(why) = scaffold.claim(&planned.files()) {
+        return refuse(&why);
+    }
+    let mut target = match Target::create(scaffold, &source, &gsd_core, &args.extensions, &mut work)
+    {
+        Ok(target) => target,
+        Err(why) => return refuse(&why),
+    };
+    project::ledger(
+        &old.project,
+        target.project(),
+        &old.name,
+        &mut planned.ledger,
+    );
     let missing = target.missing(&planned.creates);
     let refused = target.refused_ids(&planned.creates);
     if !missing.is_empty() || !refused.is_empty() {

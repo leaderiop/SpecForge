@@ -40,16 +40,18 @@ pub const STARTER_UNPARSED: &str = "starter_unparsed";
 pub const INSIDE_PROJECT_SOURCES: &str = "inside_project_sources";
 /// The code for a project name init can't use.
 pub const INVALID_NAME: &str = "invalid_name";
+/// The code for a spec root init can't use: absolute, or leaving the project's directory.
+pub const INVALID_SPEC_ROOT: &str = "invalid_spec_root";
 
 /// The version a new project gets when none is given: what `specforge init
 /// --version` and `specforge.init`'s `version` default to, and what the
 /// starter spec's `spec` block states.
 pub const DEFAULT_VERSION: &str = "0.1.0";
 
-/// Where the spec files go, relative to the project root.
+/// Where the spec files go, relative to the project root, unless a request names another spec root.
 pub const SPEC_ROOT: &str = "spec";
-/// The starter file, relative to the project root.
-pub const STARTER_FILE: &str = "spec/hello.spec";
+/// The starter file's name, in the spec root.
+pub const STARTER_NAME: &str = "hello.spec";
 /// The starter when no extension contributes one: structural syntax only, a template filled as an extension's is.
 const STRUCTURAL_STARTER: &str = r#"// {project} — starter spec file
 //
@@ -83,6 +85,8 @@ pub enum InitField {
     Name,
     /// `Request::extensions`: the extension specifiers.
     Extensions,
+    /// `Request::spec_root`: where the project reads its sources.
+    SpecRoot,
 }
 
 /// What to scaffold.
@@ -95,6 +99,11 @@ pub struct Request<'a> {
     /// The project version (`specforge init --version`; [`DEFAULT_VERSION`]
     /// unless given).
     pub version: &'a str,
+    /// Where the project reads its sources, relative to `dir`: `specforge.json`'s `spec_root`, and the directory the
+    /// starter is written in. [`SPEC_ROOT`] for both surfaces; `None` writes no `spec_root`, so the project reads its
+    /// sources from its root, as a configuration without one does. Refused (`invalid_spec_root`) when absolute or
+    /// when it leaves `dir`.
+    pub spec_root: Option<&'a str>,
     /// Extension specifiers, one per string (nothing splits a string); a relative local path is
     /// read from `dir`.
     pub extensions: &'a [String],
@@ -110,6 +119,8 @@ pub struct Outcome {
     pub name: String,
     pub version: String,
     pub extensions: Vec<String>,
+    /// The starter file, relative to `root`: [`STARTER_NAME`] in the spec root.
+    pub starter: String,
     /// The files init wrote: `specforge.json`, the starter, `.gitignore`
     /// when it lacked an entry, and each local install's module and lock.
     pub writes: Writes,
@@ -125,7 +136,7 @@ impl Outcome {
             name: self.name.clone(),
             version: self.version.clone(),
             config_file: crate::config::CONFIG_FILE.to_string(),
-            starter_file: STARTER_FILE.to_string(),
+            starter_file: self.starter.clone(),
             extensions_installed: self.extensions.clone(),
         }
     }
@@ -141,7 +152,7 @@ pub struct InitDocument {
     pub version: String,
     /// `specforge.json`, relative to `project_root`.
     pub config_file: String,
-    /// [`STARTER_FILE`], relative to `project_root`.
+    /// The starter ([`STARTER_NAME`] in the spec root), relative to `project_root`.
     pub starter_file: String,
     /// The extensions enabled: builtins by name, local installs by the name
     /// they declare.
@@ -173,10 +184,12 @@ pub fn init(req: &Request, runtime: &dyn WasmRuntime) -> Result<Outcome, Refusal
         .about(InitField::Dir));
     }
 
-    if req.dir.join(STARTER_FILE).exists() {
-        return Err(starter_exists(req.dir).about(InitField::Dir));
+    let starter_file = starter_in(req.spec_root)
+        .map_err(|why| invalid_spec_root(req.spec_root.unwrap_or_default(), why))?;
+    if req.dir.join(&starter_file).exists() {
+        return Err(starter_exists(req.dir, &starter_file).about(InitField::Dir));
     }
-    let enclosing = enclosing::judged(&specforge_effects::RealFs::landing(req.dir))
+    let enclosing = enclosing::judged(&specforge_effects::RealFs::landing(req.dir), &starter_file)
         .map_err(|e| e.about(InitField::Dir))?;
 
     let name = match req.name {
@@ -214,12 +227,14 @@ pub fn init(req: &Request, runtime: &dyn WasmRuntime) -> Result<Outcome, Refusal
     // The lock plan the installs will be, `add`'s; `names` refuses a lock it cannot write before it reads a file
     // (E033), and the project's peer set is judged before anything is written.
     let installed = Installed::at(req.dir);
-    let document = json!({
+    let mut document = json!({
         "$schema": "https://specforge.dev/schema/specforge.json",
         "name": name,
         "version": version,
-        "spec_root": SPEC_ROOT,
     });
+    if let Some(spec_root) = req.spec_root {
+        document["spec_root"] = json!(spec_root);
+    }
     let mut plan = LockPlan::initializing(&installed, runtime, req.caller, document);
     // Test obligations (`verify`) on software kinds come from @specforge/testing (ADR 0002), so
     // enabling software enables it too; the project's test runners get the extensions that
@@ -307,7 +322,7 @@ pub fn init(req: &Request, runtime: &dyn WasmRuntime) -> Result<Outcome, Refusal
     );
     // What `check` starts with, asked before anything is written (ADR 0226): a template's text is the
     // extension's, so a starter that does not parse is refused about the extensions.
-    let parsed = specforge_parser::parse(&starter, STARTER_FILE);
+    let parsed = specforge_parser::parse(&starter, &starter_file);
     if let Some(first) = parsed.errors.first() {
         return Err(
             starter_unparsed(origin, first, parsed.errors.len()).about(InitField::Extensions)
@@ -317,6 +332,7 @@ pub fn init(req: &Request, runtime: &dyn WasmRuntime) -> Result<Outcome, Refusal
     // The union merge attribute is for the ledger: a project whose extensions declare no harness field has none, and
     // the first ledger write adds the attribute if one ever does.
     let harness = !specforge_project::harness::Harness::of(&build).is_empty();
+    let starter_key = starter_file.clone();
     let files = vec![
         Also {
             path: dir.join(".gitignore"),
@@ -345,13 +361,13 @@ pub fn init(req: &Request, runtime: &dyn WasmRuntime) -> Result<Outcome, Refusal
             }),
         },
         Also {
-            path: dir.join(STARTER_FILE),
+            path: dir.join(&starter_file),
             stage: Box::new(move |file, change| {
                 let there = file
                     .read_if_there()
-                    .map_err(|e| change::unreadable(Path::new(STARTER_FILE), &e))?;
+                    .map_err(|e| change::unreadable(Path::new(&starter_key), &e))?;
                 if there.is_some() {
-                    return Err(starter_exists(dir));
+                    return Err(starter_exists(dir, &starter_key));
                 }
                 change.stage(file, None, starter.into_bytes());
                 Ok(())
@@ -365,6 +381,7 @@ pub fn init(req: &Request, runtime: &dyn WasmRuntime) -> Result<Outcome, Refusal
         name,
         version,
         extensions,
+        starter: starter_file,
         writes: done.writes,
         enclosing,
     })
@@ -382,15 +399,45 @@ fn no_registry(specifier: &str) -> OpError {
 }
 
 /// The refusal of a directory whose starter file is already there.
-fn starter_exists(dir: &Path) -> OpError {
+fn starter_exists(dir: &Path, starter: &str) -> OpError {
     OpError::new(
         OpErrorKind::Conflict,
         STARTER_EXISTS,
         format!(
-            "{STARTER_FILE} already exists in {}; init would overwrite it",
+            "{starter} already exists in {}; init would overwrite it",
             dir.display()
         ),
     )
+}
+
+/// The starter file of a project whose sources are read from `spec_root` (`None`, empty or `.`: the root), relative to
+/// the project's root; refused, with why, for a spec root that is absolute or leaves the root.
+fn starter_in(spec_root: Option<&str>) -> Result<String, &'static str> {
+    let Some(spec_root) = spec_root else {
+        return Ok(STARTER_NAME.to_string());
+    };
+    let mut parts = Vec::new();
+    for part in Path::new(spec_root).components() {
+        match part {
+            std::path::Component::Normal(part) => parts.push(part.to_string_lossy()),
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => return Err("it leaves the project's directory"),
+            std::path::Component::RootDir | std::path::Component::Prefix(_) => {
+                return Err("it is absolute; a spec root is relative to the project's directory");
+            }
+        }
+    }
+    parts.push(STARTER_NAME.into());
+    Ok(parts.join("/"))
+}
+
+fn invalid_spec_root(spec_root: &str, why: &str) -> Refusal<InitField> {
+    OpError::new(
+        OpErrorKind::InvalidInput,
+        INVALID_SPEC_ROOT,
+        format!("invalid spec root '{spec_root}': {why}"),
+    )
+    .about(InitField::SpecRoot)
 }
 
 /// The refusal of a starter that does not parse: `origin` is the extension whose template it is.
@@ -576,6 +623,7 @@ mod tests {
             dir,
             name: Some("demo"),
             version: DEFAULT_VERSION,
+            spec_root: Some(SPEC_ROOT),
             extensions,
             caller: crate::testing::caller(),
         }
@@ -652,6 +700,7 @@ mod tests {
                 dir: &dir,
                 name,
                 version: DEFAULT_VERSION,
+                spec_root: Some(SPEC_ROOT),
                 extensions,
                 caller: crate::testing::caller(),
             };

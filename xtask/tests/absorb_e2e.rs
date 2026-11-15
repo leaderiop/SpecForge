@@ -235,8 +235,102 @@ fn invariant_obligations_become_proofs_of_the_collected_items() {
         run.summary
     );
     let ledger = std::fs::read_to_string(to.join("absorb-ledger.json")).unwrap();
-    assert_eq!(run.summary["ledger"], json!({"unproven": 1}), "{ledger}");
+    assert_eq!(
+        run.summary["ledger"],
+        json!({"unconverted": 5, "unproven": 1}),
+        "the five old extensions the target does not load, and the obligation no test item states: {ledger}"
+    );
     insta::assert_snapshot!("proof_ledger", ledger);
+}
+
+/// A governance source at `old` holding one decision in `<file>`, its `specforge.json` the members `config` (a JSON
+/// object's inside) beside its name and extension.
+fn decision_source(old: &Path, config: &str, file: &str) {
+    std::fs::create_dir_all(old.join(file).parent().unwrap()).unwrap();
+    std::fs::write(
+        old.join("specforge.json"),
+        format!(r#"{{"name": "carried", {config} "extensions": ["@specforge/governance"]}}"#),
+    )
+    .unwrap();
+    std::fs::write(
+        old.join(file),
+        "decision one_parser \"One Parser\" {\n  status   accepted\n  context  \"Readers drift.\"\n  \
+         decision \"Read with one parser.\"\n}\n",
+    )
+    .unwrap();
+}
+
+/// The target keeps the source's spec root and version: a nested one, and none (the sources at the project's root,
+/// converted into a tree that already holds other files). What the source's project block holds beyond them is
+/// ledgered: its extensions, and the spec block's own version and extensions.
+#[test]
+#[ignore = "needs GSD_CORE_WASM"]
+fn the_target_keeps_the_source_spec_root_and_version() {
+    let dir = tempfile::tempdir().unwrap();
+    let (old, to) = (dir.path().join("old"), dir.path().join("new"));
+    decision_source(
+        &old,
+        r#""version": "2.3.0", "spec_root": "specs/main","#,
+        "specs/main/governance/decisions.spec",
+    );
+    std::fs::write(
+        old.join("specs/main/carried.spec"),
+        "spec \"carried\" {\n  version    \"9.9\"\n  extensions [\"@specforge/governance\"]\n}\n",
+    )
+    .unwrap();
+    let run = absorb(&["--from", path(&old), "--to", path(&to)]);
+    assert_eq!(run.code, 0, "{}", run.stderr);
+    assert_eq!(run.summary["target"]["errors"], 0, "{}", run.summary);
+    let config: Value =
+        serde_json::from_str(&std::fs::read_to_string(to.join("specforge.json")).unwrap()).unwrap();
+    assert_eq!(
+        (&config["spec_root"], &config["version"]),
+        (&json!("specs/main"), &json!("2.3.0"))
+    );
+    assert!(to.join("specs/main/governance/decisions.spec").is_file());
+    assert!(to.join("specs/main/hello.spec").is_file());
+    assert!(!to.join("spec").exists());
+    let ledger: Value =
+        serde_json::from_str(&std::fs::read_to_string(to.join("absorb-ledger.json")).unwrap())
+            .unwrap();
+    let kept: Vec<(&str, &str, &str)> = ledger["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| e["kind"] == "specforge.json" || e["kind"] == "spec")
+        .map(|e| {
+            let text = |key: &str| e[key].as_str().unwrap();
+            (text("kind"), text("id"), text("field"))
+        })
+        .collect();
+    assert_eq!(
+        kept,
+        [
+            ("spec", "carried", "extensions"),
+            ("spec", "carried", "version"),
+            ("specforge.json", "carried", "extensions"),
+        ],
+        "{ledger:#}"
+    );
+
+    let (old, to) = (dir.path().join("rooted"), dir.path().join("tree"));
+    decision_source(&old, "", "governance/decisions.spec");
+    std::fs::create_dir_all(to.join("governance")).unwrap();
+    std::fs::write(to.join("governance/README.md"), "notes\n").unwrap();
+    let run = absorb(&["--from", path(&old), "--to", path(&to)]);
+    assert_eq!(run.code, 0, "{}", run.stderr);
+    assert_eq!(run.summary["target"]["errors"], 0, "{}", run.summary);
+    let config: Value =
+        serde_json::from_str(&std::fs::read_to_string(to.join("specforge.json")).unwrap()).unwrap();
+    assert_eq!(config.get("spec_root"), None, "{config}");
+    assert_eq!(config["version"], "0.1.0");
+    assert!(to.join("governance/decisions.spec").is_file());
+    assert!(to.join("hello.spec").is_file());
+    let ledger = std::fs::read_to_string(to.join("absorb-ledger.json")).unwrap();
+    assert!(
+        ledger.contains("\"field\": \"specforge.json.version\""),
+        "a version the source lacks is filled: {ledger}"
+    );
 }
 
 /// A source at `old` whose one term is `blocker`, an id the target reserves (gsd declares a `blocker` kind).

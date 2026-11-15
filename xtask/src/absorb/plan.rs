@@ -68,6 +68,19 @@ pub struct Planned {
 }
 
 impl Planned {
+    /// The files the creates write, relative to the project's root, each once.
+    pub fn files(&self) -> Vec<std::path::PathBuf> {
+        let files: BTreeSet<&str> = self
+            .creates
+            .iter()
+            .filter_map(|edit| match edit {
+                Edit::Create { file, .. } => Some(file.as_str()),
+                _ => None,
+            })
+            .collect();
+        files.into_iter().map(std::path::PathBuf::from).collect()
+    }
+
     /// Ledger each computed value `computed(new id, field)` gives that differs from what its old value means.
     pub fn compare(&mut self, computed: impl Fn(&str, &str) -> Value) {
         for check in &self.checks {
