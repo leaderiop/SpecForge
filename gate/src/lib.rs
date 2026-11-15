@@ -16,6 +16,7 @@ pub mod objects;
 mod repo;
 mod root_layout;
 mod run;
+pub mod self_spec_sample;
 mod size_cap;
 mod steps;
 
