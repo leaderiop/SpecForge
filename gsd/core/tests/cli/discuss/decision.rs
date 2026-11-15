@@ -32,38 +32,44 @@ decision D-03 \"Save after every change\" {
 }
 ";
 
-/// The later decision names the one it reverses, in its phase or from the project: `supersedes [D-01]` resolves in
+/// The later decision names the one it reverses, in its phase or from the project: D-01 reverses D-02 (written on
+/// D-01 as ADR 0359's conversion row writes a `superseded_by D-01` held on D-02), and `supersedes [D-02]` resolves in
 /// the phase's scope, `[/D-01]` from the project root.
 #[test]
 fn a_superseded_decision_resolves_in_its_phase_and_from_the_project() {
     let p = project("discuss");
-    let own = edges(&p, "v1.0/02/D-02");
+    let own = edges(&p, "v1.0/02/D-01");
     assert!(
-        has_edge(&own, "v1.0/02/D-02", "v1.0/02/D-01", "supersedes"),
+        has_edge(&own, "v1.0/02/D-01", "v1.0/02/D-02", "supersedes"),
         "{own:?}"
     );
     checks_clean(&p);
     let spec = fixture("discuss.spec");
     p.write(
         "spec/discuss.spec",
-        &spec.replace("supersedes [D-01]", "supersedes [/D-01]"),
+        &spec.replace("supersedes [D-02]", "supersedes [/D-01]"),
     );
     checks_clean(&p);
-    let rooted = edges(&p, "v1.0/02/D-02");
+    let rooted = edges(&p, "v1.0/02/D-01");
     assert!(
-        has_edge(&rooted, "v1.0/02/D-02", "D-01", "supersedes"),
+        has_edge(&rooted, "v1.0/02/D-01", "D-01", "supersedes"),
         "{rooted:?}"
     );
 }
 
-/// `superseded_by` is read back, never written: on a decision it is E079 naming `decision.supersedes`, with the edit.
+/// `superseded_by` is read back, never written: the fixture's relation written the old way, on D-02, is E079 naming
+/// `decision.supersedes`, with the edit.
 #[test]
 fn an_authored_superseded_by_is_e079_naming_supersedes() {
     let p = project("discuss");
-    p.edit(
+    let written = "  text   \"The file is written to a temp name, then renamed\"\n";
+    let spec = fixture("discuss.spec");
+    assert!(spec.contains(written), "{spec}");
+    p.write(
         "spec/discuss.spec",
-        "  supersedes [D-01]\n",
-        "  superseded_by D-01\n",
+        &spec
+            .replace("  supersedes [D-02]\n", "")
+            .replace(written, &format!("{written}  superseded_by D-01\n")),
     );
     let check = p.run(&["check"]);
     assert_eq!(check.code, 1, "{}", check.all());
@@ -83,7 +89,7 @@ fn an_authored_superseded_by_is_e079_naming_supersedes() {
 fn a_typed_edit_of_superseded_by_names_supersedes() {
     let p = project("discuss");
     for verb in ["set", "link"] {
-        let refused = p.run(&[verb, "v1.0/02/D-01", "superseded_by", "v1.0/02/D-02"]);
+        let refused = p.run(&[verb, "v1.0/02/D-02", "superseded_by", "v1.0/02/D-01"]);
         assert_ne!(refused.code, 0, "{verb}: {}", refused.all());
         assert!(
             refused.all().contains("other_side") && refused.all().contains("supersedes"),
@@ -91,13 +97,15 @@ fn a_typed_edit_of_superseded_by_names_supersedes() {
             refused.all()
         );
     }
-    let linked = p.run(&["link", "v1.0/02/D-02", "supersedes", "/D-01"]);
+    let linked = p.run(&["link", "v1.0/02/D-01", "supersedes", "/D-01"]);
     assert_eq!(linked.code, 0, "{}", linked.all());
-    let own = edges(&p, "v1.0/02/D-02");
-    assert!(
-        has_edge(&own, "v1.0/02/D-02", "D-01", "supersedes"),
-        "{own:?}"
-    );
+    let own = edges(&p, "v1.0/02/D-01");
+    for target in ["v1.0/02/D-02", "D-01"] {
+        assert!(
+            has_edge(&own, "v1.0/02/D-01", target, "supersedes"),
+            "{target}: {own:?}"
+        );
+    }
     checks_clean(&p);
 }
 

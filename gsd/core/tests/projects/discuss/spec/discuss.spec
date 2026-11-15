@@ -13,18 +13,18 @@ context 02-CONTEXT "Persistence context" {
 }
 
 decision D-01 "Store tasks in one JSON file" {
-  phase  v1.0/02
-  area   "Storage"
-  text   "Tasks are kept in a single JSON file"
-  origin context
+  phase      v1.0/02
+  area       "Storage"
+  text       "Tasks are kept in a single JSON file"
+  origin     context
+  supersedes [D-02]
 }
 
 decision D-02 "Write the file atomically" {
-  phase      v1.0/02
-  area       "Storage"
-  text       "The file is written to a temp name, then renamed"
-  origin     context
-  supersedes [D-01]
+  phase  v1.0/02
+  area   "Storage"
+  text   "The file is written to a temp name, then renamed"
+  origin context
 }
 
 deferred_idea DI1 "Sync between machines" {
