@@ -110,9 +110,10 @@ fn run(args: &[String]) -> i32 {
         }
         None => return refuse(&format!("GSD_CORE_WASM is not set; {BUILD_GSD_CORE}")),
     };
-    if let Err(why) = write::check_to(&args.to) {
-        return refuse(&why);
-    }
+    let scaffold = match write::check_to(&args.to) {
+        Ok(scaffold) => scaffold,
+        Err(why) => return refuse(&why),
+    };
     let mut work = Work::default();
     let old = match read::compile(&args.from) {
         Ok(old) => old,
@@ -145,7 +146,7 @@ fn run(args: &[String]) -> i32 {
     };
     let mut planned = plan::plan(&entities, &old.index(), &proofs);
     let mut target =
-        match Target::create(&args.to, &old.name, &gsd_core, &args.extensions, &mut work) {
+        match Target::create(scaffold, &old.name, &gsd_core, &args.extensions, &mut work) {
             Ok(target) => target,
             Err(why) => return refuse(&why),
         };

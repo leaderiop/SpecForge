@@ -263,12 +263,11 @@ fn the_ledger_is_sorted_and_identical_across_runs() {
 #[test]
 fn a_target_holding_a_project_is_refused() {
     let dir = tempfile::tempdir().unwrap();
-    assert_eq!(write::check_to(&dir.path().join("absent")), Ok(()));
-    assert_eq!(write::check_to(dir.path()), Ok(()));
+    assert!(write::check_to(&dir.path().join("absent")).is_ok());
+    assert!(write::check_to(dir.path()).is_ok());
     std::fs::write(dir.path().join("Cargo.toml"), "[workspace]\n").unwrap();
-    assert_eq!(
-        write::check_to(dir.path()),
-        Ok(()),
+    assert!(
+        write::check_to(dir.path()).is_ok(),
         "a tree without a project"
     );
     std::fs::create_dir(dir.path().join("spec")).unwrap();
@@ -282,5 +281,33 @@ fn a_target_holding_a_project_is_refused() {
     assert!(
         held.contains("already holds specforge.json, spec:"),
         "{held}"
+    );
+}
+
+/// A symbolic link where absorb writes is refused, dangling or not, and left where it is: init would write through
+/// it, and a roll back would remove it.
+#[cfg(unix)]
+#[test]
+fn a_symbolic_link_where_absorb_writes_is_refused_and_kept() {
+    for name in ["spec", ".specforge", ".gitignore"] {
+        let dir = tempfile::tempdir().unwrap();
+        let link = dir.path().join(name);
+        std::os::unix::fs::symlink(dir.path().join("nowhere"), &link).unwrap();
+        let refused = write::check_to(dir.path()).unwrap_err();
+        assert!(
+            refused.ends_with(&format!(
+                "holds a symbolic link where absorb writes: {name}; remove it, or convert elsewhere"
+            )),
+            "{name}: {refused}"
+        );
+        assert!(std::fs::symlink_metadata(&link).is_ok(), "{name} is kept");
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let to = dir.path().join("to");
+    std::os::unix::fs::symlink(dir.path(), &to).unwrap();
+    assert!(
+        write::check_to(&to)
+            .unwrap_err()
+            .ends_with("is a symbolic link: name the directory it points to")
     );
 }

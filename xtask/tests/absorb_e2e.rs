@@ -239,11 +239,8 @@ fn invariant_obligations_become_proofs_of_the_collected_items() {
     insta::assert_snapshot!("proof_ledger", ledger);
 }
 
-#[test]
-#[ignore = "needs GSD_CORE_WASM"]
-fn an_old_id_the_target_reserves_stops_the_run_before_any_write() {
-    let dir = tempfile::tempdir().unwrap();
-    let (old, to) = (dir.path().join("old"), dir.path().join("new"));
+/// A source at `old` whose one term is `blocker`, an id the target reserves (gsd declares a `blocker` kind).
+fn reserved_source(old: &Path) {
     std::fs::create_dir_all(old.join("spec")).unwrap();
     std::fs::write(
         old.join("specforge.json"),
@@ -255,6 +252,56 @@ fn an_old_id_the_target_reserves_stops_the_run_before_any_write() {
         "term blocker \"Blocker\" {\n  definition \"What stops work.\"\n}\n",
     )
     .unwrap();
+}
+
+/// Every entry under `root` (symbolic links not followed), by its path from `root`, with a file's bytes.
+fn tree_bytes(root: &Path) -> BTreeMap<String, Option<Vec<u8>>> {
+    walkdir::WalkDir::new(root)
+        .min_depth(1)
+        .sort_by_file_name()
+        .into_iter()
+        .filter_map(Result::ok)
+        .map(|e| {
+            let key = e.path().strip_prefix(root).unwrap().display().to_string();
+            let bytes = e
+                .file_type()
+                .is_file()
+                .then(|| std::fs::read(e.path()).unwrap());
+            (key, bytes)
+        })
+        .collect()
+}
+
+/// A stop in a directory the run did not make leaves it byte for byte as it was: init appended to its `.gitignore`
+/// and `.gitattributes`, and the roll back gives them back their bytes.
+#[test]
+#[ignore = "needs GSD_CORE_WASM"]
+fn a_stop_leaves_a_directory_it_did_not_make_byte_for_byte() {
+    let dir = tempfile::tempdir().unwrap();
+    let (old, to) = (dir.path().join("old"), dir.path().join("tree"));
+    reserved_source(&old);
+    std::fs::create_dir_all(to.join("src")).unwrap();
+    std::fs::write(to.join(".gitignore"), "/target").unwrap();
+    std::fs::write(to.join(".gitattributes"), "*.rs text\n").unwrap();
+    std::fs::write(to.join("Cargo.toml"), "[workspace]\n").unwrap();
+    std::fs::write(to.join("src/lib.rs"), "").unwrap();
+    let before = tree_bytes(&to);
+    let run = absorb(&["--from", path(&old), "--to", path(&to)]);
+    assert_eq!(run.code, 2, "{}", run.stderr);
+    assert!(
+        run.stderr.contains("1 id(s) the target refuses"),
+        "{}",
+        run.stderr
+    );
+    assert_eq!(tree_bytes(&to), before);
+}
+
+#[test]
+#[ignore = "needs GSD_CORE_WASM"]
+fn an_old_id_the_target_reserves_stops_the_run_before_any_write() {
+    let dir = tempfile::tempdir().unwrap();
+    let (old, to) = (dir.path().join("old"), dir.path().join("new"));
+    reserved_source(&old);
     let run = absorb(&["--from", path(&old), "--to", path(&to)]);
     assert_eq!(run.code, 2, "{}", run.stderr);
     assert!(
