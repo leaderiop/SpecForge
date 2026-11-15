@@ -1575,6 +1575,120 @@
           },
           {
             "default_value": null,
+            "description": "its quality characteristic (ISO/IEC 25010:2023) or regulatory",
+            "edge": null,
+            "enum_values": [
+              "functional",
+              "performance",
+              "compatibility",
+              "usability",
+              "reliability",
+              "security",
+              "maintainability",
+              "portability",
+              "safety",
+              "regulatory"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "category",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "must, should or could (won't is `tier out_of_scope`)",
+            "edge": null,
+            "enum_values": [
+              "must",
+              "should",
+              "could"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "priority",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the measure it is held to: `name`, a `threshold` number, its `unit` when it has one, a `direction`",
+            "edge": null,
+            "field_type": "block",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": "what is measured",
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "name",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": "the value it is held to",
+                "edge": null,
+                "field_type": "number",
+                "inverse_of": null,
+                "name": "threshold",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": "its unit (ms, s, %); none for a count",
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "unit",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": "at_most, at_least or exactly the threshold",
+                "edge": null,
+                "enum_values": [
+                  "at_most",
+                  "at_least",
+                  "exactly"
+                ],
+                "field_type": "enum",
+                "inverse_of": null,
+                "name": "direction",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "metric",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "where it came from: a person, quoted, or a declared `ref` (`gh.issue:42`), bare",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "source",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "words to group it by",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "tags",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
             "description": "Traceability status, from plans, summaries and verifications",
             "edge": null,
             "enum_values": [

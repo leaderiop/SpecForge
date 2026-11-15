@@ -43,6 +43,11 @@ fn project_and_requirement_declare_the_fields_of_the_model() {
             "tier",
             "reason",
             "defined",
+            "category",
+            "priority",
+            "metric",
+            "source",
+            "tags",
             "status",
             "satisfied_by",
             "proof",
@@ -155,9 +160,10 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
     // + 2: the lesson's `graduated` and `status`; + 2: the milestone's `goal` and `target_features`.
     // + 8: the milestone's fields beyond GSD (ADR 0357); + 2: the milestone's and the phase's `risk_level`.
     // + 2: the requirement's computed `proof` (its thread's state) and `satisfied_by` (the items its tasks name).
+    // + 5: the requirement's quality `category`, `priority`, `metric`, `source` and `tags` (beyond GSD).
     assert_eq!(
         total,
-        72 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 8 + 2 + 2,
+        72 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 8 + 2 + 2 + 5,
         "the kinds' fields"
     );
 }

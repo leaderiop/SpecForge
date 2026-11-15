@@ -144,7 +144,7 @@ mod verify_rules;
 mod verify_status;
 mod verify_verdicts;
 
-use harness::project;
+use harness::{Project, project};
 
 #[test]
 fn an_empty_project_loads_gsd_core_and_checks_clean() {
@@ -312,5 +312,200 @@ fn a_lesson_is_named_within_its_retrospective() {
         ["v1.0/v1.0-RETROSPECTIVE/L1"],
         "{}",
         query.all()
+    );
+}
+
+/// The ref a requirement's `source` names in these tests.
+const BOARD_EXPORT: &str = "ref gh.issue:42 \"Board export\"\n";
+
+/// The `roadmap` project with `spec/quality.spec` holding `blocks`, and [`BOARD_EXPORT`] declared when they name an
+/// issue (a ref nothing names is W012).
+fn with_quality(blocks: &str) -> Project {
+    let p = project("roadmap");
+    if blocks.contains("gh.issue:") {
+        p.write("spec/refs.spec", BOARD_EXPORT);
+    }
+    p.write("spec/quality.spec", blocks);
+    p
+}
+
+/// `check`'s exit code and its whole output.
+fn checked(p: &Project) -> (i32, String) {
+    let check = p.run(&["check"]);
+    (check.code, check.all())
+}
+
+fn assert_clean(p: &Project) {
+    let (code, all) = checked(p);
+    assert_eq!(code, 0, "check: {all}");
+    assert!(all.contains("0 errors, 0 warnings"), "check: {all}");
+}
+
+const PERF_01: &str = "requirement PERF-01 \"Incremental diagnostics\" {
+  text     \"A file change shows its diagnostics within 100 ms for 500 spec files\"
+  area     \"Compiler\"
+  tier     v2
+  category performance
+  priority must
+  metric   { name \"file change to diagnostics\" threshold 100 unit \"ms\" direction at_most }
+  source   [\"Alice Martin\", gh.issue:42]
+  tags     [\"latency\"]
+}
+";
+
+#[test]
+fn a_requirement_takes_its_quality_fields() {
+    let p = with_quality(&format!(
+        "{PERF_01}\nrequirement PERF-02 \"Drift\" {{\n  text     \"A clock drifts little\"\n  area     \
+         \"Compiler\"\n  tier     v2\n  metric   {{ name \"drift\" threshold 0.25 unit \"s\" direction at_most }}\n}}\n"
+    ));
+    assert_clean(&p);
+    let perf = p.fields_of("PERF-01");
+    assert_eq!(perf["category"], "performance", "{perf:#}");
+    assert_eq!(perf["priority"], "must", "{perf:#}");
+    assert_eq!(
+        perf["metric"]["threshold"],
+        serde_json::json!(100),
+        "{perf:#}"
+    );
+    assert!(perf["metric"]["threshold"].is_number(), "{perf:#}");
+    assert_eq!(perf["metric"]["unit"], "ms", "{perf:#}");
+    assert_eq!(perf["metric"]["direction"], "at_most", "{perf:#}");
+    assert_eq!(
+        perf["source"],
+        serde_json::json!(["Alice Martin", "gh.issue:42"]),
+        "{perf:#}"
+    );
+    assert_eq!(perf["tags"], serde_json::json!(["latency"]), "{perf:#}");
+    let drift = p.fields_of("PERF-02");
+    assert_eq!(
+        drift["metric"]["threshold"],
+        serde_json::json!(0.25),
+        "{drift:#}"
+    );
+}
+
+#[test]
+fn a_requirement_with_an_unknown_category_priority_or_direction_is_refused() {
+    for (from, to, named) in [
+        (
+            "category performance",
+            "category latency",
+            "functional, performance, compatibility, usability, reliability, security, maintainability, \
+             portability, safety, regulatory",
+        ),
+        ("priority must", "priority high", "must, should, could"),
+        (
+            "direction at_most",
+            "direction below",
+            "at_most, at_least, exactly",
+        ),
+    ] {
+        let p = with_quality(&PERF_01.replace(from, to));
+        let (code, all) = checked(&p);
+        assert_eq!(code, 1, "{to}: {all}");
+        assert!(all.contains("E061") && all.contains(named), "{to}: {all}");
+    }
+}
+
+#[test]
+fn a_requirement_written_with_category_as_its_heading_is_refused() {
+    let p = with_quality(
+        "requirement TASK-09 \"Old\" {\n  text     \"x\"\n  area     \"Tasks\"\n  category \"Tasks\"\n  tier     \
+         v2\n}\n",
+    );
+    let (code, all) = checked(&p);
+    assert_eq!(code, 1, "{all}");
+    assert!(all.contains("E061") && all.contains("functional"), "{all}");
+}
+
+#[test]
+fn a_requirement_source_names_only_a_declared_ref() {
+    let p = with_quality(&PERF_01.replace("gh.issue:42]", "gh.issue:43]"));
+    let (code, all) = checked(&p);
+    assert_eq!(code, 1, "{all}");
+    assert!(all.contains("E003") && all.contains("gh.issue:43"), "{all}");
+}
+
+#[test]
+fn a_requirement_metric_without_its_direction_is_refused() {
+    let p = with_quality(&PERF_01.replace(" direction at_most", ""));
+    let (code, all) = checked(&p);
+    assert_eq!(code, 1, "{all}");
+    assert!(all.contains("direction"), "{all}");
+}
+
+#[test]
+fn a_requirement_metric_that_counts_needs_no_unit() {
+    let p = with_quality(
+        "requirement GATE-01 \"No blocker\" {\n  text   \"A release ships with no open blocker\"\n  area   \
+         \"Release\"\n  tier   v2\n  metric { name \"open blockers\" threshold 0 direction at_most }\n}\n",
+    );
+    assert_clean(&p);
+    let gate = p.fields_of("GATE-01");
+    assert_eq!(
+        gate["metric"]["threshold"],
+        serde_json::json!(0),
+        "{gate:#}"
+    );
+    assert!(gate["metric"].get("unit").is_none(), "{gate:#}");
+}
+
+#[test]
+fn a_requirement_takes_its_quality_fields_as_flags() {
+    let p = with_quality("");
+    p.write("spec/refs.spec", BOARD_EXPORT);
+    let args = |dry_run: bool| {
+        let mut args = vec![
+            "new",
+            "requirement",
+            "P95-01",
+            "Fast enough",
+            "--in",
+            "spec/quality.spec",
+            "--text",
+            "A request answers fast",
+            "--area",
+            "Serving",
+            "--tier",
+            "v2",
+            "--metric",
+            r#"{"name": "p95", "threshold": 0.5, "unit": "s", "direction": "at_most"}"#,
+            "--source",
+            "Alice Martin",
+            "--source",
+            "gh.issue:42",
+            "--category",
+            "security",
+            "--priority",
+            "should",
+        ];
+        if dry_run {
+            args.push("--dry-run");
+        }
+        args
+    };
+    let dry = p.run(&args(true));
+    assert_eq!(dry.code, 0, "{}", dry.all());
+    assert!(dry.stdout.contains("+requirement P95-01"), "{}", dry.all());
+    assert!(!p.read("spec/quality.spec").contains("P95-01"));
+    let written = p.run(&args(false));
+    assert_eq!(written.code, 0, "{}", written.all());
+    assert_clean(&p);
+    let fields = p.fields_of("P95-01");
+    assert_eq!(
+        fields["metric"]["threshold"],
+        serde_json::json!(0.5),
+        "{fields:#}"
+    );
+    assert_eq!(
+        fields["source"],
+        serde_json::json!(["Alice Martin", "gh.issue:42"]),
+        "{fields:#}"
+    );
+    assert_eq!(
+        (&fields["category"], &fields["priority"]),
+        (&"security".into(), &"should".into()),
+        "{fields:#}"
     );
 }

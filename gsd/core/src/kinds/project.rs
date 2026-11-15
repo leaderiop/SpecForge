@@ -56,6 +56,32 @@ const REQUIREMENT_STATUS: &[&str] = &[
     "blocked",
     "gaps_found",
 ];
+/// A requirement's quality class: ISO/IEC 25010:2023's nine product quality characteristics by their short names
+/// (interoperability is compatibility), and `regulatory`.
+pub const REQUIREMENT_CATEGORY: &[&str] = &[
+    "functional",
+    "performance",
+    "compatibility",
+    "usability",
+    "reliability",
+    "security",
+    "maintainability",
+    "portability",
+    "safety",
+    "regulatory",
+];
+/// The sense a metric's threshold holds in.
+pub const DIRECTION: &[&str] = &["at_most", "at_least", "exactly"];
+/// A measure: no bound on the threshold (a latency is positive, a drift may be negative: `direction` carries the
+/// sense), and no unit for a plain count.
+pub const METRIC: &[Field] = &[
+    str("name").r().doc("what is measured"),
+    num("threshold").r().doc("the value it is held to"),
+    str("unit").doc("its unit (ms, s, %); none for a count"),
+    en("direction", DIRECTION)
+        .r()
+        .doc("at_most, at_least or exactly the threshold"),
+];
 /// How far a requirement's thread reaches (`passes::thread::Proof`, in its order).
 pub const PROOF_STATES: &[&str] = &[
     "no_task",
@@ -66,7 +92,8 @@ pub const PROOF_STATES: &[&str] = &[
     "proven",
 ];
 
-/// One bullet of `REQUIREMENTS.md`, named `AUTH-01`.
+/// One bullet of `REQUIREMENTS.md`, named `AUTH-01`, and the fields of the product feature and the governance
+/// constraint it absorbs (quality category, priority, metric, sources, tags).
 pub const REQUIREMENT: Kind = Kind::new(
     "requirement",
     "A requirement, named by its GSD id such as AUTH-01 (GSD REQUIREMENTS.md)",
@@ -76,6 +103,17 @@ pub const REQUIREMENT: Kind = Kind::new(
         en("tier", TIERS).r().doc("v1, v2 or Out of Scope"),
         str("reason").doc("Out of Scope reason: required when out_of_scope (gsd/E105)"),
         date("defined").i().doc("Defined"),
+        en("category", REQUIREMENT_CATEGORY)
+            .doc("its quality characteristic (ISO/IEC 25010:2023) or regulatory"),
+        en("priority", super::product::PRIORITY)
+            .doc("must, should or could (won't is `tier out_of_scope`)"),
+        block("metric", METRIC).doc(
+            "the measure it is held to: `name`, a `threshold` number, its `unit` when it has one, a `direction`",
+        ),
+        strs("source").doc(
+            "where it came from: a person, quoted, or a declared `ref` (`gh.issue:42`), bare",
+        ),
+        strs("tags").doc("words to group it by"),
         en("status", REQUIREMENT_STATUS)
             .c()
             .doc("Traceability status, from plans, summaries and verifications"),
