@@ -5,13 +5,22 @@ use super::{Shell, asset, typed};
 use crate::harness::taskboard;
 
 /// A persona and the journey `complete_a_task`, one step on TASK-02, written on the taskboard as `spec/product.spec`.
-const COMPLETE_A_TASK: &str = "persona owner \"Board owner\" {
+pub(super) const COMPLETE_A_TASK: &str = "persona owner \"Board owner\" {
   context \"Runs a small team's board\"
 }
 
 journey complete_a_task \"Complete a task\" {
   persona owner
   steps   [ { action \"marks a task done\" requirement TASK-02 } ]
+}
+";
+
+/// A journey that ships in milestone `v1.0` and names no requirement.
+pub(super) const OPEN_THE_BOARD: &str = "
+journey open_the_board \"Open the board\" {
+  persona    owner
+  milestones [v1.0]
+  steps      [ { action \"opens the board\" } ]
 }
 ";
 
@@ -360,6 +369,32 @@ fn the_test_list_step_finds_the_journeys_of_the_phase() {
         "specforge query \"$PHASE_ID\" --depth 2 --kinds journey",
     );
     for (phase, want) in [("v1.0/01", "complete_a_task"), ("v1.0/02", "")] {
+        let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID={phase}\n{query}"));
+        assert_eq!(code, 0, "{phase}: {err}");
+        assert_eq!(out.trim(), want, "{phase}: {out}");
+    }
+}
+
+/// The step's query also finds a journey that lists the phase's milestone and names none of its requirements: each
+/// phase of `v1.0` lists it, beside a journey that names a requirement of `v1.0/01` only.
+#[test]
+fn the_test_list_step_finds_a_journey_that_lists_the_milestone() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    p.write(
+        "spec/product.spec",
+        &format!("{COMPLETE_A_TASK}{OPEN_THE_BOARD}"),
+    );
+    let query = super::span(
+        &asset("gsd-core/workflows/verify-work.md"),
+        "specforge query \"$PHASE_ID\" --depth 2 --kinds journey",
+    );
+    for (phase, want) in [
+        ("v1.0/01", "complete_a_task\nopen_the_board"),
+        ("v1.0/02", "open_the_board"),
+    ] {
         let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID={phase}\n{query}"));
         assert_eq!(code, 0, "{phase}: {err}");
         assert_eq!(out.trim(), want, "{phase}: {out}");

@@ -250,7 +250,8 @@ features' requirements, a channel as a term, the artifact word, the journey memb
   - Both writers of a `uat_test` write it: the UAT template's fence, which `/gsd-verify-work` runs, and
     execute-phase's human-verification fence. Each sets a `JOURNEY` variable and passes
     `${JOURNEY:+--journey "$JOURNEY"}`, so a test with no journey writes the same command as before. The test-list step
-    of `/gsd-verify-work` says how to find the journeys of a phase.
+    of `/gsd-verify-work` and execute-phase's human-verification step give the one query that finds the journeys of
+    a phase: those that name a requirement of it or list its milestone.
 - **D23. `milestone.journeys_covered` is computed:** a block `{journeys, covered}` holding the journeys whose
   `milestones` list the milestone and how many of them are covered (D20). It is absent when no journey lists it.
 - **D24. `gsd/W530`: a journey's requirement is outside a milestone it lists.** For each milestone a journey lists in

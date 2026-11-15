@@ -937,7 +937,7 @@ Route on `$STATUS`: if `passed`, proceed to update_roadmap. Otherwise keep the p
 
 One `uat_session` of the phase, sourced from the summaries the items come from, and one `uat_test` per
 human_verification item of the phase's verification (`specforge query "$PHASE_ID" --kinds verification --format context`),
-with the journey an item walks when it walks one, written with `specforge new` (`specforge schema --kind uat_session`, `--kind uat_test`). Repeat the `new uat_test` line
+with the journey an item walks when it walks one (`specforge query "$PHASE_ID" --depth 2 --kinds journey --pick '.nodes[kind=journey].id'` lists the journeys that name a requirement of the phase or list its milestone; read one with `specforge query <journey> --depth 0 --format context`), written with `specforge new` (`specforge schema --kind uat_session`, `--kind uat_test`). Repeat the `new uat_test` line
 per item with the next id (`U2`). A test's `result` is the person's, recorded by `/gsd:verify-work`; never write it.
 
 ```bash
