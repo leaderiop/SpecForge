@@ -67,15 +67,44 @@ const NEEDED_ON_WINDOWS: &[&str] = &[
     "OS",
 ];
 
+/// What a declared prefix never passes (ADR 0288): registry tokens, credential providers and index URLs, and the proxy,
+/// whose URL may carry credentials. A capability that needs one declares it by its exact name, which a person
+/// approves. Beside [`NEEDED`], not in [`secret`]: a host build, whose ceiling keeps secrets, runs that one too.
+const NEVER_THROUGH_A_PATTERN: &[&str] = &[
+    "CARGO_REGISTRY_*",
+    "CARGO_REGISTRIES_*",
+    "CARGO_CREDENTIAL_*",
+    "CARGO_HTTP_PROXY",
+];
+
+/// Whether the declared entry `known` names the variable `name`: the same name, or, for an entry ending `*`, a name it
+/// starts. In any case on Windows.
+fn names(known: &str, name: &str) -> bool {
+    match known.strip_suffix('*') {
+        Some(prefix) => name
+            .get(..prefix.len())
+            .is_some_and(|head| same_variable(prefix, head)),
+        None => same_variable(known, name),
+    }
+}
+
 /// Whether a program a guest runs inherits the variable `name`: what any program needs to work (the locale's `LC_*`
-/// among it), or one its capability `declared`. In any case on Windows.
+/// among it), or one its capability `declared`, by name or through a declared prefix (`CARGO_*`). A name matched only
+/// through a prefix is refused when it is a registry credential or the proxy ([`NEVER_THROUGH_A_PATTERN`]). In any
+/// case on Windows.
 pub fn inherited(name: &OsStr, declared: &[String]) -> bool {
     let name = name.to_string_lossy();
     let is = |known: &&str| same_variable(known, &name);
+    let (patterns, exact): (Vec<&String>, Vec<&String>) =
+        declared.iter().partition(|known| known.ends_with('*'));
     name.starts_with("LC_")
         || NEEDED.iter().any(is)
         || (cfg!(windows) && NEEDED_ON_WINDOWS.iter().any(is))
-        || declared.iter().any(|known| same_variable(known, &name))
+        || exact.iter().any(|known| same_variable(known, &name))
+        || (patterns.iter().any(|known| names(known, &name))
+            && !NEVER_THROUGH_A_PATTERN
+                .iter()
+                .any(|never| names(never, &name)))
 }
 
 /// The extensions Windows tries when `PATHEXT` is not set.

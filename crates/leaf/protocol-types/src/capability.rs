@@ -323,7 +323,9 @@ pub struct ProcessScope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deadline_ms: Option<u32>,
     /// The environment variables, by name, the program inherits or a guest may set beside what any program needs to
-    /// work. A person approves them with the command: another name asks again.
+    /// work. A person approves them with the command: another name asks again. An entry ending `_*` after a namespace
+    /// ([`is_env_prefix`]) passes every variable it starts, inherit-only: never the registry credentials a host
+    /// withholds from a pattern, and no guest sets a variable through it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub env: Vec<String>,
     /// The one file the host writes before a collector's run, which its argv names as `{config}` (ADR 0348 D1): part
@@ -376,6 +378,20 @@ pub fn filter_problem(text: &str) -> Option<String> {
     } else {
         None
     }
+}
+
+/// Whether a declared `env` entry is a namespace prefix a program inherits every variable of (`CARGO_*`): it ends in
+/// its only `*`, and what precedes it starts with an ASCII letter, holds only `[A-Za-z0-9_]`, is at least 4
+/// characters long and ends in `_`. Inherit-only: no guest sets a variable through it.
+pub fn is_env_prefix(name: &str) -> bool {
+    name.strip_suffix('*').is_some_and(|prefix| {
+        prefix.len() >= 4
+            && prefix.ends_with('_')
+            && prefix.starts_with(|c: char| c.is_ascii_alphabetic())
+            && prefix
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_')
+    })
 }
 
 /// Whether `name` is a config file's name: one segment `[a-z0-9][a-z0-9._-]*` ending `.toml` or `.json`.
@@ -561,6 +577,16 @@ pub fn capability_problems(declaration: &ExtensionDeclaration) -> Vec<Capability
                     .filter(|name| name.is_empty() || name.contains(['=', '\0']))
                 {
                     problem(format!("its `env` name '{name}' is no variable's name"));
+                }
+                for name in process
+                    .env
+                    .iter()
+                    .filter(|name| name.contains('*') && !is_env_prefix(name))
+                {
+                    problem(format!(
+                        "its `env` pattern '{name}' is not a namespace prefix: a letter, then letters, digits or \
+                         `_`, at least 4 characters ending `_`, then one `*`"
+                    ));
                 }
                 for why in config_problems(capability, process) {
                     problem(why);

@@ -184,6 +184,76 @@ fn what_any_program_inherits_is_a_short_list() {
 }
 
 #[test]
+fn a_declared_prefix_passes_every_variable_it_starts() {
+    let declared = ["CARGO_*".to_string(), "RUSTUP_*".to_string()];
+    for passed in [
+        "CARGO_TARGET_DIR",
+        "CARGO_PROFILE_DEV_DEBUG",
+        "CARGO_HOME",
+        "RUSTUP_TOOLCHAIN",
+    ] {
+        assert!(inherited(passed.as_ref(), &declared), "{passed}");
+    }
+    for kept in [
+        "CARGO",
+        "CARGOX_DIR",
+        "RUST_LOG",
+        "RUSTC_WRAPPER",
+        "BASH_ENV",
+    ] {
+        assert!(!inherited(kept.as_ref(), &declared), "{kept}");
+    }
+    assert_eq!(inherited("cargo_home".as_ref(), &declared), cfg!(windows));
+}
+
+#[cfg(unix)]
+#[test]
+#[expect(
+    unsafe_code,
+    reason = "set_var before any thread of this test reads the environment; the test runs in its own process under nextest"
+)]
+fn a_secret_under_a_declared_prefix_is_never_passed() {
+    let withheld = [
+        "CARGO_REGISTRY_TOKEN",
+        "CARGO_REGISTRIES_X_TOKEN",
+        "CARGO_REGISTRY_CREDENTIAL_PROVIDER",
+        "CARGO_REGISTRIES_X_CREDENTIAL_PROVIDER",
+        "CARGO_HTTP_PROXY",
+        "CARGO_REGISTRIES_X_INDEX",
+        "RUSTUP_X_SECRET",
+    ];
+    // SAFETY: no other thread of this test reads the environment.
+    unsafe {
+        for name in withheld {
+            std::env::set_var(name, "withheld");
+        }
+        std::env::set_var("CARGO_SPECFORGE_PROBE", "passed");
+    }
+    let env = |declared: &[&str]| {
+        let mut asked = request(["env"], Duration::from_secs(10));
+        asked.inherit = Some(declared.iter().map(ToString::to_string).collect());
+        let outcome = run(&asked);
+        assert_eq!(outcome.class, ProcessClass::Exited(0), "{outcome:?}");
+        outcome.text()
+    };
+    let through_patterns = env(&["CARGO_*", "RUSTUP_*"]);
+    assert!(
+        through_patterns.contains("CARGO_SPECFORGE_PROBE=passed"),
+        "{through_patterns}"
+    );
+    for name in withheld {
+        assert!(
+            !through_patterns.contains(&format!("{name}=")),
+            "{name}: {through_patterns}"
+        );
+    }
+    // Declared by its exact name, which a person approves, the proxy passes; a secret's name never does.
+    let exact = env(&["CARGO_*", "CARGO_HTTP_PROXY", "CARGO_REGISTRY_TOKEN"]);
+    assert!(exact.contains("CARGO_HTTP_PROXY=withheld"), "{exact}");
+    assert!(!exact.contains("CARGO_REGISTRY_TOKEN="), "{exact}");
+}
+
+#[test]
 fn a_secret_is_named_like_one() {
     assert!(secret("aws_region".as_ref()) && secret("GH_API_KEY".as_ref()));
     assert!(secret("SIGNING_KEY".as_ref()) && secret("AZURE_CREDENTIALS".as_ref()));

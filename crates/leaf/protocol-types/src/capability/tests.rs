@@ -224,3 +224,39 @@ fn a_filter_text_empty_long_dashed_or_with_a_control_character_is_refused() {
         assert!(problem.contains(why), "{text:?}: {problem}");
     }
 }
+
+#[test]
+fn a_star_not_last_or_a_prefix_that_is_not_a_namespace_is_a_problem() {
+    let declared = |name: &str| {
+        let capability: CapabilityDescriptor = serde_json::from_value(json!({
+            "name": "tests", "why": "run the tests", "port": "process", "argv": ["t"], "env": [name],
+        }))
+        .unwrap();
+        whys(&ExtensionDeclaration {
+            capabilities: vec![capability],
+            ..Default::default()
+        })
+    };
+    for refused in [
+        "*", "A*", "C*", "CARG*", "RUST*", "_ABC_*", "CARGO_*X", "CAR-GO_*", "CARGO_**", "1ABC_*",
+    ] {
+        let problems = declared(refused);
+        assert!(
+            problems
+                .iter()
+                .any(|p| p.contains("not a namespace prefix")),
+            "{refused}: {problems:?}"
+        );
+        assert!(!is_env_prefix(refused), "{refused}");
+    }
+    for admitted in [
+        "CARGO_*",
+        "RUSTC_*",
+        "RUSTUP_*",
+        "ABC_*",
+        "RUSTFLAGS",
+        "CARGO_HOME",
+    ] {
+        assert_eq!(declared(admitted), Vec::<String>::new(), "{admitted}");
+    }
+}

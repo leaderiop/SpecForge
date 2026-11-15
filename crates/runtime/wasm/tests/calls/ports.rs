@@ -109,7 +109,7 @@ fn extension() -> ContributionsBuilder {
     c.capability(
         Capability::process("tests")
             .argv(&["cargo"])
-            .env(&["MODE", "ACME_API_VALUE"])
+            .env(&["MODE", "ACME_API_VALUE", "CARGO_*"])
             .why("run the tests"),
     );
     c
@@ -557,7 +557,14 @@ fn a_program_a_guest_runs_inherits_no_declared_secret_and_cannot_set_its_path_or
     assert_eq!(env.last(), Some(&EnvVar::removed("ACME_API_VALUE")));
     assert_eq!(
         fakes.process.requests()[0].inherit.as_deref(),
-        Some(["MODE".to_string(), "ACME_API_VALUE".to_string()].as_slice()),
+        Some(
+            [
+                "MODE".to_string(),
+                "ACME_API_VALUE".to_string(),
+                "CARGO_*".to_string()
+            ]
+            .as_slice()
+        ),
         "the host says what it inherits"
     );
 
@@ -576,6 +583,23 @@ fn a_program_a_guest_runs_inherits_no_declared_secret_and_cannot_set_its_path_or
         );
     }
     assert_eq!(fakes.process.requests().len(), 1, "no other program ran");
+}
+
+#[test]
+fn a_guest_never_sets_a_variable_through_a_prefix() {
+    let fakes = lent();
+    for name in ["CARGO_TARGET_DIR", "CARGO_HOME", "CARGO_*", "cargo_home"] {
+        let refused = session(&fakes, Operation::Collect).process_run(ProcessRequest {
+            argv: vec!["cargo".to_string()],
+            env: vec![EnvVar::set(name, "/tmp/evil")],
+            ..ProcessRequest::default()
+        });
+        assert!(
+            matches!(refused, Err(HostError::Denied(host::Denial::Scope(_)))),
+            "{name}: {refused:?}"
+        );
+    }
+    assert!(fakes.process.requests().is_empty(), "no program ran");
 }
 
 #[specforge_test_macros::test(

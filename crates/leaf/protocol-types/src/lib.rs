@@ -69,7 +69,8 @@ pub use capability::{
     CapabilityDescriptor, CapabilityProblem, FILTER_MAX, FILTER_PLACEHOLDER, FsAccess, FsScope,
     GitOp, GitScope, Hosts, HttpMethod, HttpScope, MAX_CAPABILITY_BYTES, Owner, PortScope,
     ProcessConfig, ProcessScope, REPORT_PLACEHOLDER, SecretHeader, WRITING_KINDS,
-    capability_problems, filter_problem, is_config_name, is_host_pattern, is_scope_name,
+    capability_problems, filter_problem, is_config_name, is_env_prefix, is_host_pattern,
+    is_scope_name,
 };
 pub use checks::{
     ByteRange, CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan,
