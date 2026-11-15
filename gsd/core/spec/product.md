@@ -45,6 +45,7 @@ A persona's path through the product, step by step. Name: a word, `sign_in`.
 | tags | strs | | free words |
 | last_uat | → uat_session | C | the session of a UAT test that names it (`uat_test.journey`): the latest `started`, an undated session older than every dated one, then the greatest id; absent when no test names it |
 | covered | bool | C | it names a requirement, each one it names is proven by the requirement thread (complete, and its thread whole: the predicate gsd/E515 reads), and each step names one or the journey lists `requirements`; a reference that does not resolve is unproven |
+| tests | →* test | C | the `@code/core` test facts tagged with it (`[gsd:<journey>]`), by id, sorted; `[]` when none. Evidence beside `covered`, which reads the requirement thread only |
 
 A step's requirement is the journey's edge `steps.requirement`, resolved from the journey outward (ADR 0285 D4). A
 journey lists every milestone it ships in rather than being scoped by one: a scope is one reference (ADR 0284 D1).

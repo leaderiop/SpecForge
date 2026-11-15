@@ -115,6 +115,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "JourneyTests",
+        "source_kind": "journey",
+        "target_kind": "test"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "TermRelated",
         "source_kind": "term",
         "target_kind": "term"
@@ -2109,6 +2118,17 @@
             "name": "covered",
             "required": false,
             "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the `@code/core` test facts tagged with it (`[gsd:<journey>]`): evidence beside `covered`, which reads the requirement thread only; `[]` when none (ADR 0357 D21)",
+            "edge": "JourneyTests",
+            "field_type": "reference_list",
+            "inverse_of": null,
+            "name": "tests",
+            "required": false,
+            "target_kind": "test",
             "writer": "computed"
           }
         ],

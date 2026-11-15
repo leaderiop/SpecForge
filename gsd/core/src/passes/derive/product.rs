@@ -1,7 +1,8 @@
 //! The computed values of the product kinds (`spec/product.md`, ADR 0357): a term's `used_in`, the entities whose
 //! prose holds its name or one of its aliases (`passes::vocabulary`); a journey's `last_uat`, the latest session of a
 //! UAT test that names it, and `covered`, read from the requirements it names ([`Names`]) and the requirement thread;
-//! a milestone's `journeys_covered`, its journeys and the covered ones.
+//! a milestone's `journeys_covered`, its journeys and the covered ones; and a journey's `tests`, the test facts
+//! tagged with it, evidence that `covered` never reads.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -9,7 +10,7 @@ use specforge_extension_sdk::prelude::*;
 
 use super::execute::value;
 use crate::passes::plans::{link, of_kind, rows, strings, targets, text, written_target};
-use crate::passes::thread::{Proof, requirement_proven};
+use crate::passes::thread::{Proof, Thread, requirement_proven};
 use crate::passes::vocabulary::{prose, uses, writers};
 
 /// The product kinds' computed values. `requirements` and `proofs` are derive's requirement states and thread proofs,
@@ -28,6 +29,7 @@ pub(crate) fn values(
             .map(|(journey, covered)| value(journey, "covered", *covered)),
     );
     out.extend(journeys_covered(input, &covered));
+    out.extend(tests(input));
     out
 }
 
@@ -184,6 +186,22 @@ fn journeys_covered(input: &PassInput, covered: &BTreeMap<&str, bool>) -> Vec<Pa
                 "journeys_covered",
                 serde_json::json!({ "journeys": journeys, "covered": covered }),
             )
+        })
+        .collect()
+}
+
+/// Each journey's `tests`: the test facts whose name tags it (`Thread::naming`), by id, sorted, and `[]` when none.
+/// Their status is read on the facts; `covered` never reads them (ADR 0357 D21).
+fn tests(input: &PassInput) -> Vec<PassValue> {
+    let thread = Thread::of(input);
+    of_kind(input, "journey")
+        .map(|journey| {
+            let ids: BTreeSet<&str> = thread
+                .naming(&journey.id)
+                .into_iter()
+                .map(|(id, _)| id)
+                .collect();
+            value(&journey.id, "tests", Vec::from_iter(ids))
         })
         .collect()
 }

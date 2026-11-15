@@ -354,3 +354,72 @@ fn a_milestone_with_no_journey_has_no_count() {
     assert_eq!(of(&values, "v3.0", "journeys_covered"), None);
     assert_eq!(of(&values, "v2.0", "journeys_covered"), None);
 }
+
+/// The journey `j` of [`journey`] with the test facts `facts` `(id, status, the entities its name tags)`.
+fn tagged(steps: &[&str], facts: &[(&str, TestStatus, &[&str])]) -> PassInput {
+    let mut input = journey(steps, &[]);
+    for (id, status, names) in facts {
+        crate::passes::thread::fixture::add_test(
+            &mut input,
+            id,
+            id,
+            "test/j.test.js",
+            *status,
+            names,
+        );
+    }
+    input
+}
+
+#[test]
+fn a_journey_lists_the_tests_tagged_with_it() {
+    let input = tagged(
+        &["R1"],
+        &[
+            ("js:app/test/j.test.js#walks", TestStatus::Passed, &["j"]),
+            (
+                "js:app/test/j.test.js#adds",
+                TestStatus::Failed,
+                &["j", "R1"],
+            ),
+            ("js:app/test/j.test.js#other", TestStatus::Passed, &["R1"]),
+        ],
+    );
+    assert_eq!(
+        of(&computed(&input), "j", "tests"),
+        Some(&json!([
+            "js:app/test/j.test.js#adds",
+            "js:app/test/j.test.js#walks"
+        ]))
+    );
+}
+
+#[test]
+fn a_journey_no_test_names_lists_none() {
+    assert_eq!(
+        of(&computed(&tagged(&["R1"], &[])), "j", "tests"),
+        Some(&json!([]))
+    );
+    let other = tagged(
+        &["R1"],
+        &[("js:app/test/j.test.js#other", TestStatus::Passed, &["R1"])],
+    );
+    assert_eq!(of(&computed(&other), "j", "tests"), Some(&json!([])));
+}
+
+/// A passing test tagged with the journey is listed and leaves `covered` alone: R1 is unproven, so the journey is not
+/// covered.
+#[test]
+fn a_tagged_test_does_not_cover_a_journey() {
+    let input = tagged(
+        &["R1"],
+        &[("js:app/test/j.test.js#walks", TestStatus::Passed, &["j"])],
+    );
+    let (states, proofs) = maps(&[]);
+    let values = values(&input, &states, &proofs);
+    assert_eq!(
+        of(&values, "j", "tests"),
+        Some(&json!(["js:app/test/j.test.js#walks"]))
+    );
+    assert_eq!(of(&values, "j", "covered"), Some(&json!(false)));
+}

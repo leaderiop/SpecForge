@@ -512,3 +512,19 @@ fn a_step_outside_the_milestone_is_w530() {
         assert_eq!(check.code, exit, "{profile}: {}", check.all());
     }
 }
+
+/// A test whose name tags the journey is listed in its `tests`, and the journey stays uncovered: TASK-01's thread has
+/// no commit, and a tagged test is evidence beside the thread, never part of it.
+#[test]
+fn a_journey_lists_its_tagged_test() {
+    let p = execute_with_a_journey();
+    crate::execute_rules::collect_tests(&p, &[("[gsd:add_a_task] adds a task", true)]);
+    let tests = p.fields_of("add_a_task")["tests"].clone();
+    let ids = tests
+        .as_array()
+        .unwrap_or_else(|| panic!("a list: {tests}"));
+    assert_eq!(ids.len(), 1, "{tests}");
+    let fact = p.fields_of(ids[0].as_str().expect("an id"));
+    assert_eq!(fact["status"], "passed", "{fact}");
+    assert_eq!(p.fields_of("add_a_task")["covered"], false);
+}
