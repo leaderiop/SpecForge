@@ -145,7 +145,11 @@ fn run(args: &[String]) -> i32 {
     let proofs = Proofs {
         // Every `.rs` file under the source root: a test anywhere may state an obligation.
         links: if proved {
-            xtask::links::read(&args.from, &[String::new()], &[])
+            let read = xtask::links::read(&args.from, &[String::new()], &[]);
+            for path in &read.unparsed {
+                eprintln!("absorb: skipped {}: does not parse", path.display());
+            }
+            read.links
         } else {
             Vec::new()
         },

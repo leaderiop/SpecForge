@@ -3,7 +3,7 @@
 //! check-links, which compares each `verify` text with what its entity declares, and absorb, which turns an
 //! invariant's obligations into proofs of the tests that state them.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use syn::ext::IdentExt;
 use syn::visit::Visit;
 use syn::{Attribute, Ident, LitStr, Token};
@@ -24,10 +24,19 @@ pub struct Link {
     pub verify: Option<String>,
 }
 
-/// Every link in the `.rs` files under each of `scan` (directories relative to `root`), in file order; a file
-/// whose path from `root` starts with one of `skip` is not read.
-pub fn read(root: &Path, scan: &[String], skip: &[&str]) -> Vec<Link> {
-    let mut links = Vec::new();
+/// What [`read`] found: the links, and each `.rs` file that does not parse (its path as walked, under `root`), which a
+/// caller reports under its own name.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Read {
+    pub links: Vec<Link>,
+    pub unparsed: Vec<PathBuf>,
+}
+
+/// Every link in the `.rs` files under each of `scan` (directories relative to `root`), in file order. A file that
+/// does not parse is in [`Read::unparsed`] wherever it is; one that does, whose path from `root` starts with one of
+/// `skip`, gives no link.
+pub fn read(root: &Path, scan: &[String], skip: &[&str]) -> Read {
+    let mut read = Read::default();
     for dir in scan {
         let walk = walkdir::WalkDir::new(root.join(dir))
             .sort_by_file_name()
@@ -41,25 +50,25 @@ pub fn read(root: &Path, scan: &[String], skip: &[&str]) -> Vec<Link> {
             if path.extension().is_none_or(|e| e != "rs") {
                 continue;
             }
-            let relative = path.strip_prefix(root).unwrap_or(path);
-            if skip.iter().any(|prefix| relative.starts_with(prefix)) {
-                continue;
-            }
             let Ok(source) = std::fs::read_to_string(path) else {
                 continue;
             };
             let Ok(file) = syn::parse_file(&source) else {
-                eprintln!("links: skipped {}: does not parse", path.display());
+                read.unparsed.push(path.to_path_buf());
                 continue;
             };
+            let relative = path.strip_prefix(root).unwrap_or(path);
+            if skip.iter().any(|prefix| relative.starts_with(prefix)) {
+                continue;
+            }
             let mut visitor = Links {
                 file: relative.display().to_string(),
-                links: &mut links,
+                links: &mut read.links,
             };
             visitor.visit_file(&file);
         }
     }
-    links
+    read
 }
 
 struct Links<'a> {
@@ -151,13 +160,19 @@ mod tests {
                       fn writes() {}\n";
         std::fs::write(dir.path().join("src/lib.rs"), source).unwrap();
         std::fs::write(dir.path().join("skipped/lib.rs"), source).unwrap();
-        let links = read(
+        std::fs::write(dir.path().join("skipped/broken.rs"), "fn (").unwrap();
+        let read = read(
             dir.path(),
             &["src".to_string(), "skipped".to_string()],
             &["skipped"],
         );
         assert_eq!(
-            links,
+            read.unparsed,
+            [dir.path().join("skipped/broken.rs")],
+            "a file that does not parse is answered, skipped or not"
+        );
+        assert_eq!(
+            read.links,
             [
                 Link {
                     file: "src/lib.rs".to_string(),

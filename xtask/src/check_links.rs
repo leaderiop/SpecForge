@@ -55,7 +55,11 @@ fn main() {
 }
 
 fn check(root: &Path, scan: &[String]) -> Result<Vec<String>, String> {
-    let links = links::read(root, scan, &[SELF_TEST_DIR]);
+    let read = links::read(root, scan, &[SELF_TEST_DIR]);
+    for path in &read.unparsed {
+        eprintln!("check-links: skipped {}: does not parse", path.display());
+    }
+    let links = read.links;
     let project_root = ProjectRoot::of(root).map_err(|e| format!("{}: {e:?}", root.display()))?;
     let project = CompiledProject::compile(
         &project_root,
