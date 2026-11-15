@@ -50,6 +50,9 @@ use specforge_extension_sdk::host::{
 use specforge_extension_sdk::prelude::*;
 
 use super::graph::find_kind;
+// A task title is compared as GSD compares a task description (trimmed, case-folded, whitespace runs collapsed):
+// the glossary's fold, the one reading of a word or phrase.
+use crate::passes::words::folded;
 use crate::time::utc;
 
 const NAME: &str = "gsd-git";
@@ -355,14 +358,6 @@ fn task_named<'n>(
         let (plan, task) = value.split_once('/')?;
         find_kind(nodes, &format!("{}/{task}", uncoded(plan, code)?), "task")
     })
-}
-
-/// `title` compared as GSD compares a task description: trimmed, case-folded, whitespace runs collapsed.
-fn folded(text: &str) -> String {
-    text.split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .to_lowercase()
 }
 
 /// A task description as the executor words it (`gsd-executor.md:565`, `git-integration.md`): without a squash-merge's

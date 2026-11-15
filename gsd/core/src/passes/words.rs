@@ -6,8 +6,9 @@
 //!   apostrophe splitting a word as French elision does ([`Segments`]). `term.used_in` and `gsd/W534`
 //!   (`passes::vocabulary`) read it so.
 //!
-//! [`folded`] is the one reading of a word the glossary compares: `gsd/W538` compares the terms' words with it, and
-//! the Unicode boundary folds each segment the same way. No stemming, no accent stripping, no normalisation.
+//! [`folded`] is the one reading of a word the glossary compares: `gsd/W538` compares the terms' words with it, the
+//! Unicode boundary folds each segment the same way, and the git collector compares a task's title with a commit's
+//! task description through it. No stemming, no accent stripping, no normalisation.
 
 use std::ops::Range;
 

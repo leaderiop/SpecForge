@@ -28,7 +28,7 @@ mod verify_rules;
 mod vocabulary;
 mod waves;
 mod windows;
-mod words;
+pub(crate) mod words;
 mod workstreams;
 
 use specforge_extension_sdk::prelude::*;
