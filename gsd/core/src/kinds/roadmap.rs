@@ -132,8 +132,8 @@ pub const PHASE: Kind = Kind::new(
             .c()
             .inverse("due_in")
             .doc(
-                "the invariants a commit of the phase changed after their last gsd/I536 verdict; each reads it back \
-                 as `due_in` (beyond GSD)",
+                "the invariants a commit of the phase changed after their last gsd/I536 verdict (gsd/E531); each \
+                 reads it back as `due_in` (beyond GSD)",
             ),
     ],
 )

@@ -51,7 +51,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     waves::declare(c);
     scan::declare(c);
     derive::declare(c);
-    // `invariants` reads the invariant's `status`, which derive computes.
+    // `invariants` reads the invariant's `status`, which derive computes; it reports gsd/E531.
     invariants::declare(c);
     roadmap::declare(c);
     glossary::declare(c);

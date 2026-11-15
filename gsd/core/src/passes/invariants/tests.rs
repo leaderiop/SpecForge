@@ -482,3 +482,88 @@ fn invariants_due_names_each_due_invariant_once_per_phase() {
         ]
     );
 }
+
+/// `(code, severity, entity, message, suggestion)` of a diagnostic.
+type Reported = (String, PassSeverity, Option<String>, String, Option<String>);
+
+/// Each diagnostic the pass reports, as [`Reported`].
+fn reported(f: &Fixture) -> Vec<Reported> {
+    compute(&f.input())
+        .diagnostics
+        .into_iter()
+        .map(|d| (d.code, d.severity, d.entity, d.message, d.suggestion))
+        .collect()
+}
+
+const JUDGE_IT: &str =
+    "judge it again (the verify_invariant prompt records its gsd/I536 verdict): ";
+
+fn due_message(phase: &str) -> String {
+    format!(
+        "invariant '{X}' is due in phase '{phase}': the phase changed what it guards after it was last judged"
+    )
+}
+
+#[test]
+fn e531_is_one_error_per_invariant_and_phase_naming_its_commits_and_items() {
+    let mut f = Fixture::new();
+    f.invariant(X, &[ITEM_A, ITEM_B]);
+    judge(
+        f.entities.last_mut().expect("X"),
+        "fresh",
+        Some("holds"),
+        Some(JUDGED),
+    );
+    f.entities
+        .push(json!({ "id": ITEM_A, "kind": "item", "fields": { "file": "src/a.js" } }));
+    f.in_phase("c1", "v1.0/01", AFTER, &[ITEM_B, ITEM_A]);
+    f.commit(
+        "c2",
+        "v1.0/01/p",
+        "2026-11-03T00:00:00Z",
+        None,
+        &["src/a.js"],
+    );
+    f.in_phase("c3", "v1.0/03", "2026-11-04T00:00:00Z", &[ITEM_B]);
+    let error = |phase: &str, suggestion: String| {
+        (
+            "E531".to_string(),
+            PassSeverity::Error,
+            Some(X.to_string()),
+            due_message(phase),
+            Some(format!("{JUDGE_IT}{suggestion}")),
+        )
+    };
+    assert_eq!(
+        reported(&f),
+        [
+            error(
+                "v1.0/01",
+                format!(
+                    "commit c1 changed {ITEM_A}, {ITEM_B}; commit c2 touched src/a.js ({ITEM_A})"
+                )
+            ),
+            error("v1.0/03", format!("commit c3 changed {ITEM_B}")),
+        ]
+    );
+}
+
+/// The message names the invariant and the phase only: one more row in a phase already due lengthens the suggestion
+/// and leaves the message, which E080 compares, as it was.
+#[test]
+fn the_e531_message_stays_put_when_its_rows_change() {
+    let mut f = Fixture::new();
+    f.judged();
+    f.in_phase("c1", "v1.0/01", AFTER, &[ITEM_A]);
+    let before = reported(&f);
+    f.in_phase("c2", "v1.0/01", "2026-11-03T00:00:00Z", &[ITEM_A]);
+    let after = reported(&f);
+    assert_eq!((before.len(), after.len()), (1, 1));
+    assert_eq!(before[0].3, due_message("v1.0/01"));
+    assert_eq!(after[0].3, before[0].3);
+    assert_eq!(
+        after[0].4.as_deref(),
+        Some(format!("{JUDGE_IT}commit c1 changed {ITEM_A}; commit c2 changed {ITEM_A}").as_str())
+    );
+    assert!(after[0].4.as_ref().map(String::len) > before[0].4.as_ref().map(String::len));
+}

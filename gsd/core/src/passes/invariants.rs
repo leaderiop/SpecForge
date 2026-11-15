@@ -14,7 +14,7 @@
 //! nothing; I536 reports its missing verdict.
 //!
 //! [`due`] is the one join of recorded commits with guarded code. The `invariants` compute pass answers
-//! `phase.invariants_due` from its rows. A reader of which items a test exercises (coverage) adds a source to what
+//! `phase.invariants_due` from its rows and reports `gsd/E531` from the same rows, one error per invariant and phase. A reader of which items a test exercises (coverage) adds a source to what
 //! an invariant guards, inside [`due`], and every reader of its rows follows unchanged.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -51,6 +51,7 @@ fn compute(input: &PassInput) -> PassOutput {
     let rows = due(input);
     PassOutput {
         values: invariants_due(&rows),
+        diagnostics: e531(&rows),
         ..Default::default()
     }
 }
@@ -289,6 +290,63 @@ fn invariants_due(rows: &[Due]) -> Vec<PassValue> {
             entity: phase.to_string(),
             field: "invariants_due".to_string(),
             value: invariants.into_iter().collect::<Vec<_>>().into(),
+        })
+        .collect()
+}
+
+/// `gsd/E531`: one Error per invariant and phase with a row, in row order, on the invariant. The message names the
+/// invariant and the phase only, so a write that adds a row to a phase already due changes no error (E080 compares
+/// messages); the suggestion names each commit, in order, and what it changed or touched.
+fn e531(rows: &[Due]) -> Vec<PassDiagnostic> {
+    let mut due: Vec<((&str, &str), Vec<&Due>)> = Vec::new();
+    for row in rows {
+        let key = (row.invariant.as_str(), row.phase.as_str());
+        match due.iter_mut().find(|(k, _)| *k == key) {
+            Some((_, found)) => found.push(row),
+            None => due.push((key, vec![row])),
+        }
+    }
+    due.into_iter()
+        .map(|((invariant, phase), rows)| {
+            let mut commits: Vec<&str> = Vec::new();
+            for row in &rows {
+                if !commits.contains(&row.commit.as_str()) {
+                    commits.push(&row.commit);
+                }
+            }
+            let what: Vec<String> = commits
+                .into_iter()
+                .flat_map(|commit| {
+                    let of: Vec<&&Due> = rows.iter().filter(|r| r.commit == commit).collect();
+                    let changed: Vec<&str> = of
+                        .iter()
+                        .filter(|r| r.file.is_none())
+                        .map(|r| r.item.as_str())
+                        .collect();
+                    let mut said = Vec::new();
+                    if !changed.is_empty() {
+                        said.push(format!("commit {commit} changed {}", changed.join(", ")));
+                    }
+                    said.extend(of.iter().filter_map(|r| {
+                        let path = r.file.as_deref()?;
+                        Some(format!("commit {commit} touched {path} ({})", r.item))
+                    }));
+                    said
+                })
+                .collect();
+            PassDiagnostic::new(
+                "E531",
+                PassSeverity::Error,
+                format!(
+                    "invariant '{invariant}' is due in phase '{phase}': the phase changed what it guards after it \
+                     was last judged"
+                ),
+            )
+            .with_suggestion(format!(
+                "judge it again (the verify_invariant prompt records its gsd/I536 verdict): {}",
+                what.join("; ")
+            ))
+            .with_entity(invariant)
         })
         .collect()
 }

@@ -558,6 +558,32 @@ fn judge_then_change(p: Project, holds_from: &str) -> (Project, String) {
     (p, sha)
 }
 
+/// `(code, message)` of each `gsd/E531` `specforge check` reports.
+fn e531(p: &Project) -> Vec<(String, String)> {
+    p.report_all()
+        .into_iter()
+        .filter(|(code, _)| code == "gsd/E531")
+        .collect()
+}
+
+/// The suggestion of the one `gsd/E531` of `specforge check --format json`.
+fn e531_suggestion(p: &Project) -> String {
+    let run = p.run(&["check", "--format", "json"]);
+    let found: serde_json::Value = serde_json::from_str(&run.stdout)
+        .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
+    let e531: Vec<&serde_json::Value> = found
+        .as_array()
+        .expect("a list")
+        .iter()
+        .filter(|d| d["code"] == "gsd/E531")
+        .collect();
+    assert_eq!(e531.len(), 1, "{e531:#?}");
+    e531[0]["suggestion"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string()
+}
+
 /// The invariants a phase owes a judgement, as `specforge query` answers `invariants_due`; none when it is absent.
 fn due_in(p: &Project, phase: &str) -> Vec<String> {
     let fields = p.fields_of(phase);
@@ -578,6 +604,24 @@ fn a_change_after_the_last_judgement_makes_the_invariant_due() {
     );
     assert_eq!(due_in(&p, "v1.0/01"), ["ids_are_sequential"]);
     assert_eq!(due_in(&p, "v1.0/02"), Vec::<String>::new());
+    assert_eq!(
+        e531(&p),
+        [(
+            "gsd/E531".to_string(),
+            "invariant 'ids_are_sequential' is due in phase 'v1.0/01': the phase changed what it guards after it \
+             was last judged"
+                .to_string()
+        )]
+    );
+    let suggestion = e531_suggestion(&p);
+    assert_eq!(
+        suggestion,
+        format!(
+            "judge it again (the verify_invariant prompt records its gsd/I536 verdict): commit {} changed \
+             js:taskboard/src/tasks.js::addTask",
+            &sha[..12]
+        )
+    );
 }
 
 /// A verification of phase 02, which has not run: recorded, it puts an invariant holding from phase 02 in force.
@@ -596,17 +640,20 @@ fn a_change_before_holds_from_makes_nothing_due() {
     for phase in ["v1.0/01", "v1.0/02"] {
         assert_eq!(due_in(&p, phase), Vec::<String>::new(), "{phase}");
     }
+    assert_eq!(e531(&p), Vec::new());
 }
 
 #[test]
 fn a_change_judged_since_makes_nothing_due() {
     let (p, _) = collected_thread();
     author(&p, TWIN_INVARIANT);
-    // never judged: the thread's commit changed addTask, and nothing is owed
+    // never judged: the thread's commit changed addTask, and nothing is owed (no gsd/E531)
     assert_eq!(due_in(&p, "v1.0/01"), Vec::<String>::new());
+    assert_eq!(e531(&p), Vec::new());
     assert_eq!(p.record("ids_are_sequential", "I536", "holds", &[]).code, 0);
     // the thread's commit (2026-10-28) is older than the verdict
     assert_eq!(due_in(&p, "v1.0/01"), Vec::<String>::new());
+    assert_eq!(e531(&p), Vec::new());
 }
 
 /// A change to what a pending invariant guards owes it nothing, as it owes `gsd/I536` no verdict yet.
@@ -617,4 +664,5 @@ fn a_change_to_a_pending_invariant_makes_nothing_due() {
     for phase in ["v1.0/01", "v1.0/02"] {
         assert_eq!(due_in(&p, phase), Vec::<String>::new(), "{phase}");
     }
+    assert_eq!(e531(&p), Vec::new());
 }

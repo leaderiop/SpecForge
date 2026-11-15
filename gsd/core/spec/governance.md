@@ -200,8 +200,10 @@ The phase lists it in its computed `invariants_due` ([project.md](project.md#pha
   were unknown) is matched by the files it touched, against the files of the guarded items and tests. A written empty
   `items_changed` changed nothing.
 
-One function, `passes::invariants::due`, joins the recorded commits with the guarded code, and `invariants_due` reads
-its rows. A reader of which items a test exercises (coverage) would add one source to what an invariant guards, and
+One function, `passes::invariants::due`, joins the recorded commits with the guarded code; `invariants_due` and
+`gsd/E531` ([rules.md](rules.md#governance)) read its rows. E531 is an Error under every profile, one per invariant and
+phase, on the invariant: its message names the phase, its suggestion each commit and what it changed or touched. Judge
+the invariant again (`verify_invariant` records its I536 verdict) and the phase is no longer due. A reader of which items a test exercises (coverage) would add one source to what an invariant guards, and
 every reader of those rows would follow unchanged.
 
 ### The old invariant's fields

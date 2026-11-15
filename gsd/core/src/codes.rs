@@ -645,6 +645,14 @@ pub static CODES: &[Code] = &[
         Severity::Warning,
     ),
     code(
+        "E531",
+        "Invariant changed since it was last judged",
+        "A phase that changes code an invariant guards has the invariant judged again",
+        "governance",
+        Severity::Error,
+        Severity::Error,
+    ),
+    code(
         "E537",
         "Milestone targets a day before it starts",
         "A milestone's targets day is on or after its starts day",
