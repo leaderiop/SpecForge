@@ -439,7 +439,7 @@ fn a_reference_to_a_behavior_is_ledgered_with_what_it_waits_for() {
         .0
         .insert("write_entry".to_string(), "behavior".to_string());
     super::super::plan::prechecks(&entities).unwrap();
-    let planned = super::super::plan::plan(&entities, &index, &Default::default());
+    let planned = super::super::plan::plan(&entities, &[], &index, &Default::default());
     assert_eq!(field(&planned, "f", "affects"), None, "no empty list");
     assert_eq!(
         why_of(&planned, "f", "affected_behaviors"),

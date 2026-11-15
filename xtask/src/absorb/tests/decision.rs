@@ -16,7 +16,7 @@ fn a_decision_becomes_one_create_keeping_its_id_title_and_file() {
     let old = fixture();
     let entities = old.entities();
     plan::prechecks(&entities).expect("the fixture converts");
-    let planned = plan::plan(&entities, &old.index(), &Default::default());
+    let planned = plan::plan(&entities, &[], &old.index(), &Default::default());
     let headers: Vec<(&str, &str, &str, &str)> = planned
         .creates
         .iter()

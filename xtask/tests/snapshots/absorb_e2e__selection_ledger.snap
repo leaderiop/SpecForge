@@ -219,6 +219,15 @@ expression: ledger
       }
     },
     {
+      "kind": "journey",
+      "id": "record_an_entry",
+      "field": "milestones",
+      "value": "store_cli",
+      "why": {
+        "out_of_selection": "store_cli"
+      }
+    },
+    {
       "kind": "specforge.json",
       "id": "absorb-fixture",
       "field": "extensions",

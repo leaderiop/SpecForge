@@ -160,7 +160,54 @@ fn a_selection_converts_only_its_entities_and_checks_clean() {
         ledger.contains("\"out_of_selection\": \"second_store\""),
         "{ledger}"
     );
+    assert!(
+        left_out(&ledger, "record_an_entry", "milestones", "store_cli"),
+        "the deliverable left out took its milestone off the selected journey: {ledger}"
+    );
     insta::assert_snapshot!("selection_ledger", ledger);
+}
+
+/// Whether `ledger` holds the row for the item `left` that the selected `id` loses from `field` because `left` is out of
+/// the selection.
+fn left_out(ledger: &str, id: &str, field: &str, left: &str) -> bool {
+    let ledger: serde_json::Value = serde_json::from_str(ledger).unwrap();
+    ledger["entries"].as_array().unwrap().iter().any(|e| {
+        e["id"] == id
+            && e["field"] == field
+            && e["value"] == left
+            && e["why"]["out_of_selection"] == left
+    })
+}
+
+/// An inverse write from an entity the selection leaves out is a value the selected entity loses: the decision that
+/// `first_store` says supersedes it converts with no `supersedes`, and the ledger says why, naming `first_store`.
+#[test]
+#[ignore = "needs GSD_CORE_WASM"]
+fn a_selected_entity_losing_an_inverse_write_to_the_selection_is_ledgered() {
+    let dir = tempfile::tempdir().unwrap();
+    let (only, to) = (dir.path().join("only.json"), dir.path().join("t"));
+    std::fs::write(&only, r#"["second_store"]"#).unwrap();
+    let run = absorb(&[
+        "--from",
+        OLD,
+        "--to",
+        path(&to),
+        "--only",
+        &format!("ids:{}", path(&only)),
+    ]);
+    assert_eq!(run.code, 0, "{}", run.stderr);
+    assert_eq!(run.summary["target"]["errors"], 0, "{}", run.summary);
+    assert!(
+        !spec_tree(&to)
+            .values()
+            .any(|text| text.contains("first_store")),
+        "never stubbed"
+    );
+    let ledger = std::fs::read_to_string(to.join("absorb-ledger.json")).unwrap();
+    assert!(
+        left_out(&ledger, "second_store", "supersedes", "first_store"),
+        "{ledger}"
+    );
 }
 
 /// A selection that leaves out what a selected entity requires (a journey without its persona) stops before any write,

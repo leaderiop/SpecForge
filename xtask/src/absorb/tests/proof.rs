@@ -42,7 +42,7 @@ fn invariant(texts: &[&str]) -> OldEntity {
 
 fn planned_with(entities: &[OldEntity], proofs: &Proofs) -> Planned {
     plan::prechecks(entities).expect("the pre-checks pass");
-    plan::plan(entities, &index(entities), proofs)
+    plan::plan(entities, &[], &index(entities), proofs)
 }
 
 /// The ledger's whys for the invariant's obligations.

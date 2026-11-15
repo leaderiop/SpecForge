@@ -1,5 +1,6 @@
 //! Which old entities a run converts (ADR 0360 D4): every one of the absorbed kinds, or the ids `--only ids:<file>`
-//! names. A reference or an inverse write onto an entity outside the scope is ledgered, never stubbed.
+//! names. A reference or an inverse write onto an entity outside the scope is ledgered, never stubbed, and so is an
+//! inverse write from one outside it onto one inside.
 
 use std::collections::BTreeSet;
 use std::path::Path;

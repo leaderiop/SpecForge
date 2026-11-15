@@ -65,8 +65,9 @@ pub struct Planned {
     pub created: usize,
     /// The test ids the written proofs name: what a gate runs to hold them.
     pub cited: BTreeSet<String>,
-    /// For each (new id, new field) a reference was to be written in, the old ids it named that the selection leaves
-    /// out (ledgered `out_of_selection`): what a required field lacks because of `--only`, not the old project.
+    /// For each (new id, new field) a reference was to be written in, the old ids the selection leaves out that it
+    /// would have held, its own references and the inverse writes of entities left out alike (each ledgered
+    /// `out_of_selection`): what a required field lacks because of `--only`, not the old project.
     pub left_out: BTreeMap<(String, String), BTreeSet<String>>,
 }
 
@@ -288,9 +289,10 @@ struct Planner<'a> {
     left_out: BTreeMap<(String, String), BTreeSet<String>>,
 }
 
-/// Convert `entities` (each passed [`prechecks`]); `index` names every old entity's kind, `proofs` what an
-/// invariant's obligations are proved by.
-pub fn plan(entities: &[OldEntity], index: &Index, proofs: &Proofs) -> Planned {
+/// Convert `entities` (each passed [`prechecks`]); `left` is every old entity the selection leaves out (none for a
+/// whole run), read only for the inverse writes it makes onto `entities`; `index` names every old entity's kind,
+/// `proofs` what an invariant's obligations are proved by.
+pub fn plan(entities: &[OldEntity], left: &[OldEntity], index: &Index, proofs: &Proofs) -> Planned {
     let mut planner = Planner {
         index,
         proofs,
@@ -327,6 +329,9 @@ pub fn plan(entities: &[OldEntity], index: &Index, proofs: &Proofs) -> Planned {
             }
         }
         planner.fill(e);
+    }
+    for e in left {
+        planner.inverses_left_out(e);
     }
     planner.finish()
 }
@@ -467,6 +472,38 @@ impl Planner<'_> {
         };
         self.ledger.record(&e.kind, &e.id, field, json!(id), why);
         None
+    }
+
+    /// The inverse writes `e`, an entity the selection leaves out, would make onto one it converts: each item the
+    /// converted entity loses is ledgered on it, `out_of_selection` naming `e`, under the new field it would have been
+    /// written in, and recorded there, so a required field it empties stops the run naming the selection.
+    fn inverses_left_out(&mut self, e: &OldEntity) {
+        for row in table::rows_of(&e.kind) {
+            let Some(value) = e.fields.get(row.field) else {
+                continue;
+            };
+            for home in row.homes {
+                let Home::To {
+                    field,
+                    how: table::How::InvertOnto,
+                    ..
+                } = *home
+                else {
+                    continue;
+                };
+                let index = self.index;
+                for id in how::items(value) {
+                    let Some(kind) = index.kind(&id).filter(|_| self.converted.contains(&id))
+                    else {
+                        continue;
+                    };
+                    let why = Why::OutOfSelection(e.id.clone());
+                    self.ledger.record(kind, &id, field, json!(e.id), why);
+                    let at = (id, field.to_string());
+                    self.left_out.entry(at).or_default().insert(e.id.clone());
+                }
+            }
+        }
     }
 
     /// The required values the old entity lacks, filled and ledgered.

@@ -62,7 +62,7 @@ pub(super) fn index(entities: &[OldEntity]) -> Index {
 /// `entities` planned, once their pre-checks pass.
 pub(super) fn planned(entities: &[OldEntity]) -> Planned {
     plan::prechecks(entities).expect("the pre-checks pass");
-    plan::plan(entities, &index(entities), &Proofs::default())
+    plan::plan(entities, &[], &index(entities), &Proofs::default())
 }
 
 /// The pre-checks' stops for `entities`.

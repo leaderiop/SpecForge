@@ -48,10 +48,11 @@ mod write;
 mod tests;
 
 use serde_json::json;
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use proof::Proofs;
-use read::Project;
+use read::{OldEntity, Project};
 use scope::Scope;
 use write::{Target, Work};
 
@@ -127,10 +128,17 @@ fn run(args: &[String]) -> i32 {
         Err(why) => return refuse(&format!("--from {}: {why}", args.from.display())),
     };
     work.compiles += 1;
-    let entities = match args.scope.select(old.entities()) {
+    let all = old.entities();
+    let entities = match args.scope.select(all.clone()) {
         Ok(entities) => entities,
         Err(why) => return refuse(&why),
     };
+    let selected: BTreeSet<&str> = entities.iter().map(|e| e.id.as_str()).collect();
+    let left: Vec<OldEntity> = all
+        .iter()
+        .filter(|e| !selected.contains(e.id.as_str()))
+        .cloned()
+        .collect();
     if let Err(stops) = plan::prechecks(&entities) {
         let lines: Vec<String> = stops.iter().map(|s| format!("  {s}")).collect();
         return refuse(&format!(
@@ -155,7 +163,7 @@ fn run(args: &[String]) -> i32 {
         },
         items: old.items.clone(),
     };
-    let mut planned = plan::plan(&entities, &old.index(), &proofs);
+    let mut planned = plan::plan(&entities, &left, &old.index(), &proofs);
     if let Err(why) = scaffold.claim(&planned.files()) {
         return refuse(&why);
     }

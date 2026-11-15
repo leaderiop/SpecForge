@@ -60,12 +60,17 @@ kernel change: the converter is a repository task in `xtask`, and every value it
   (kind, id, field, the value's canonical JSON, why), each value in the one wire form every output writes (ADR
   0064); it holds no time and no absolute path, so two runs on one input write the same bytes.
 - **D4. A reference that leaves the run is ledgered, never stubbed.** A reference to an entity this run does not
-  convert is `out_of_selection`; to a kind with no home yet it is `target_later`, naming what it waits for. An inverse
-  write (a deliverable's journeys, a persona's key features, a decision's successor) onto an entity not converted is
-  ledgered the same way. No placeholder entity is ever created. A scheme reference in a list of texts (a feature's
-  or a failure mode's `refs`, `gh.issue:42`) is ledgered `unconverted`: written bare it names a `ref`
-  ([ADR 0093](0093-a-fields-declared-type-decides-what-its-value-references.md)), which no typed edit creates, so it
-  would be E003 in the target.
+  convert is `out_of_selection`; to a kind with no home yet it is `target_later`, naming what it waits for. An
+  inverse write (a deliverable's journeys, a persona's key features, a decision's successor) onto an entity not
+  converted is ledgered the same way. The other direction too: an inverse write from an entity the run does not
+  convert, onto one it does (a `superseded_by` onto the selected successor, a left-out deliverable's journeys), is a
+  value the converted entity loses, ledgered on it under the new field it would have been written in, one row per
+  item, `out_of_selection` naming the entity left out. Either way, a required field the selection empties stops the
+  run before any write, naming the selected entity, the field and the ids to add to `--only`, and the ledger is
+  written; an optional one converts empty. No placeholder entity is ever created. A scheme reference in a list of
+  texts (a feature's or a failure mode's `refs`, `gh.issue:42`) is ledgered `unconverted`: written bare it names a
+  `ref` ([ADR 0093](0093-a-fields-declared-type-decides-what-its-value-references.md)), which no typed edit creates,
+  so it would be E003 in the target.
 - **D5. Computed values are recomputed, then compared.** A risk's `severity`, `occurrence` and `detection` words take
   ADR 0358 D8's numbers, and its `rpn` and `post_rpn` are the new kind's; a feature's status becomes the
   requirement's tier and is compared with its computed `status`; a milestone's or deliverable's status is compared

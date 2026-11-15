@@ -20,7 +20,12 @@ fn selected(all: &[OldEntity], ids: &[&str]) -> Planned {
         .select(all.to_vec())
         .expect("the selection converts");
     plan::prechecks(&entities).expect("the pre-checks pass");
-    plan::plan(&entities, &index(all), &Default::default())
+    let left: Vec<OldEntity> = all
+        .iter()
+        .filter(|e| !ids.contains(&e.id.as_str()))
+        .cloned()
+        .collect();
+    plan::plan(&entities, &left, &index(all), &Default::default())
 }
 
 fn created(planned: &Planned) -> Vec<&str> {
@@ -73,6 +78,32 @@ fn a_reference_leaving_the_scope_is_ledgered_not_stubbed() {
         [(
             "invariants".to_string(),
             Why::OutOfSelection("left".to_string())
+        )]
+    );
+}
+
+/// The other direction: an inverse write from an entity the selection leaves out, onto one it converts. The value the
+/// converted entity loses is ledgered on it, one row per item, naming the entity left out.
+#[test]
+fn an_inverse_write_from_an_unselected_entity_is_ledgered_on_the_selected_one() {
+    let all = [
+        decision(
+            "old",
+            json!({"status": "superseded", "superseded_by": "new"}),
+        ),
+        decision("new", json!({})),
+    ];
+    let planned = selected(&all, &["new"]);
+    assert_eq!(created(&planned), ["new"]);
+    assert_eq!(field(&planned, "new", "supersedes"), None);
+    assert_eq!(
+        ledgered(&planned, "new")
+            .into_iter()
+            .filter(|(f, _)| f == "supersedes")
+            .collect::<Vec<_>>(),
+        [(
+            "supersedes".to_string(),
+            Why::OutOfSelection("old".to_string())
         )]
     );
 }
@@ -154,7 +185,8 @@ fn a_refused_value_outside_the_scope_does_not_stop_the_run() {
 }
 
 /// A reference the selection leaves out is recorded where it was to be written (the new entity and field), so a
-/// required one is a stop that names the selection; an inverse write onto an entity left out records nothing there.
+/// required one is a stop that names the selection: a selected entity's own reference, and an inverse write from an
+/// entity left out onto it. An inverse write onto an entity left out records nothing there.
 #[test]
 fn a_reference_the_selection_leaves_out_is_recorded_where_it_was_to_be_written() {
     let all = [
@@ -178,4 +210,17 @@ fn a_reference_the_selection_leaves_out_is_recorded_where_it_was_to_be_written()
         BTreeMap::new(),
         "a deliverable's journeys are written on the journey"
     );
+    let planned = selected(&all, &["record", "writer"]);
+    assert_eq!(
+        planned.left_out,
+        BTreeMap::from([(
+            ("record".to_string(), "milestones".to_string()),
+            BTreeSet::from(["store_cli".to_string()])
+        )]),
+        "a deliverable left out takes its milestone off the journey"
+    );
+    assert!(ledgered(&planned, "record").contains(&(
+        "milestones".to_string(),
+        Why::OutOfSelection("store_cli".to_string())
+    )));
 }
