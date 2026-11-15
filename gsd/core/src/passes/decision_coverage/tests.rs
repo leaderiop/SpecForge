@@ -104,3 +104,31 @@ fn a_superseded_decision_is_not_w506() {
     });
     assert!(check(&superseded).is_empty());
 }
+
+/// An executor's `summary` decision that supersedes a settled decision does not retire it: W506 still asks whether it
+/// shipped. A decision taken with the user (`origin context`) does retire it.
+#[test]
+fn a_summary_decision_does_not_retire_a_settled_one_for_w506() {
+    let mut locked = input("passed", false, "complete");
+    for decision in &mut locked.entities {
+        if decision.id == "v/1/D-03" {
+            decision.fields.insert("settled".into(), "true".into());
+        }
+    }
+    locked.edges.push(PassEdge {
+        source: "v/1/D-04".into(),
+        target: "v/1/D-03".into(),
+        label: "supersedes".into(),
+    });
+    let found = check(&locked);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].entity.as_deref(), Some("v/1/D-03"));
+    for decision in &mut locked.entities {
+        if decision.id == "v/1/D-04" {
+            decision.fields.insert("origin".into(), "context".into());
+        }
+    }
+    let found = check(&locked);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].entity.as_deref(), Some("v/1/D-04"));
+}

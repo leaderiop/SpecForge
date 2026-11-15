@@ -701,7 +701,7 @@ DECISION_ID="{the phase's next decision id, e.g. D-04}"
 IFS= read -rd '' DECISION <<'TEXT' || true; DECISION=${DECISION%$'\n'}
 {the decision and its rationale, in one line}
 TEXT
-SUPERSEDES="{the earlier decisions it reverses, comma-separated ids such as v1.0/02/D-01, or nothing}"
+SUPERSEDES="{the earlier decisions it reverses, comma-separated ids such as v1.0/02/D-01, or nothing; it cannot retire a settled (user-locked) decision: reversing one is a deviation for the user (Rule 4)}"
 AFFECTS="{the requirements, invariants or code items it shapes, comma-separated ids such as AUTH-01, or nothing}"
 IFS= read -rd '' ALTERNATIVES <<'TEXT' || true; ALTERNATIVES=${ALTERNATIVES%$'\n'}
 {the options weighed and not chosen, one JSON list: [{"name": "…", "pros": ["…"], "cons": ["…"], "why_not": "…"}], or nothing}

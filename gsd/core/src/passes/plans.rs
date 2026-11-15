@@ -58,18 +58,47 @@ pub fn listed_decisions<'a, 'b>(
         .collect()
 }
 
-/// The decisions some decision lists in `supersedes`: no longer in force, so no plan must list them.
+/// The decisions no longer in force, so no plan must list them: each one a decision lists in `supersedes` with force.
+/// - A settled decision, locked with the user, leaves force only through a decision taken with the user too (`origin`
+///   `context` or `project`); an agent's `summary` or `checkpoint` decision cannot retire it.
+/// - A decision that supersedes itself, directly or round a cycle of such edges, is reversed by nothing outside the
+///   cycle: an edge between two decisions of one cycle retires neither (the graph's W061 reports the cycle).
 pub fn superseded(input: &PassInput) -> BTreeSet<&str> {
-    input
-        .edges
+    let decisions: BTreeMap<&str, &PassEntity> = of_kind(input, "decision")
+        .map(|d| (d.id.as_str(), d))
+        .collect();
+    let mut graph: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for edge in input.edges.iter().filter(|e| e.label == "supersedes") {
+        let (Some(by), Some(earlier)) = (
+            decisions.get(edge.source.as_str()),
+            decisions.get(edge.target.as_str()),
+        ) else {
+            continue;
+        };
+        let with_the_user = matches!(text(by, "origin"), Some("context" | "project"));
+        if text(earlier, "settled") != Some("true") || with_the_user {
+            graph.entry(&by.id).or_default().push(&earlier.id);
+        }
+    }
+    let cycle_of: BTreeMap<&str, usize> = super::cycles::cycles(&graph)
+        .into_iter()
+        .enumerate()
+        .flat_map(|(n, members)| members.into_iter().map(move |m| (m, n)))
+        .collect();
+    graph
         .iter()
-        .filter(|e| e.label == "supersedes")
-        .map(|e| e.target.as_str())
+        .flat_map(|(by, earlier)| earlier.iter().map(move |e| (*by, *e)))
+        .filter(|(by, earlier)| {
+            cycle_of
+                .get(by)
+                .is_none_or(|n| cycle_of.get(earlier) != Some(n))
+        })
+        .map(|(_, earlier)| earlier)
         .collect()
 }
 
-/// The trackable decisions of a phase's context (`origin context`) that no decision supersedes, in id order: the ones
-/// its plans must list.
+/// The trackable decisions of a phase's context (`origin context`) still in force (none [`superseded`]), in id order:
+/// the ones its plans must list.
 pub fn context_decisions<'a>(input: &'a PassInput, phase: &str) -> Vec<&'a PassEntity> {
     let superseded = superseded(input);
     children(input, phase, "decision")

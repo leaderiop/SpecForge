@@ -121,11 +121,20 @@ no kernel crate, no re-vendor): the ADR 0150 D2 amendment above.
   `deciders` (strs) and `tags` (strs). All are optional and authored. `deciders` records who decided, not an attested
   sign-off, so it is not human-only: a human-only field would refuse a one-time conversion's write.
 - **D16. A superseded context decision is not trackable, under every profile.** `passes::plans::context_decisions`,
-  the one set `gsd/E310`, `gsd/W317` and `gsd/W506` read, leaves out every decision a `supersedes` edge targets
-  (`passes::plans::superseded`). GSD has no supersedes, so no GSD-written project holds one and compat's output on
-  every GSD project is unchanged; upstream's own escape (`[informational]`, "if it should not be tracked") is the
-  author's act, and here superseding a decision is that act. A plan that still lists a superseded decision stays
-  silent, and so does a supersedes cycle (each decision of it untracked): either needs a code of its own.
+  the one set `gsd/E310`, `gsd/W317` and `gsd/W506` read, leaves out every decision a `supersedes` edge with force
+  targets (`passes::plans::superseded`). GSD has no supersedes, so no GSD-written project holds one and compat's
+  output on every GSD project is unchanged; upstream's own escape (`[informational]`, "if it should not be tracked")
+  is the author's act, and here superseding a decision is that act. A plan that still lists a superseded decision
+  stays silent: that needs a code of its own. Two edges have no force:
+  - **One that would retire a settled decision from an agent.** A `settled` decision is locked with the user, so it
+    leaves force only through a decision taken with the user too: `origin` `context` or `project`. A `summary` or
+    `checkpoint` decision, which an agent records, does not retire it; it still retires an unsettled one. The
+    executor's summary-decision line offers `--supersedes` and says so: reversing a settled decision is a deviation
+    for the user.
+  - **One inside a supersedes cycle.** A decision that supersedes itself, directly or round a cycle, is reversed by
+    nothing outside it, so an edge between two decisions of one cycle retires neither, and every decision of the
+    cycle stays tracked; the graph's W061 reports the cycle. An edge from a cycle to a decision outside it still
+    retires that decision. The cycles are read after the settled rule, over the edges with force.
 - **D17. The asset lines offer the relations.** Every asset line that writes a decision (the context, project and
   walking-skeleton templates, the PRD express path, the quick discussion step, the executor's summary decisions, the
   transition and the graduation) gives `--supersedes` and `--affects` (comma-separated ids) and `--alternatives` (one
@@ -187,6 +196,9 @@ The one-time conversion of an `@specforge/governance` decision reads this table;
 - Counting a superseded decision under gsd-compat and exempting it under gsd-strict and gsd-plus: a profile raises a
   severity or turns a rule off, never narrows what a rule judges, and compat would demand that a plan list a decision
   its author reversed, whose only way out is deleting the record `supersedes` keeps.
+- Dropping `--supersedes` from the executor's summary-decision line: an executor's decision may still reverse an
+  unsettled one, and the rule belongs in the one function every pass reads, not in one prompt.
+- Untracking a supersedes cycle: a self-reference would turn E310, an Error, into W061, a Warning `check` passes.
 - `risks` as `mitigated_by`'s reverse: `risk.affects` and `risk.milestone` already name it, and on a task it would not
   say whether the task creates the risk or controls it.
 
@@ -200,8 +212,9 @@ The one-time conversion of an `@specforge/governance` decision reads this table;
   project writes; the 10 superseded decisions of SpecForge's spec that name no successor are the conversion's ledger.
 - A kind added to `decision.affects` waits for its declaration (the union rule), and moves the pin that holds the
   list.
-- A supersedes cycle untracks every decision in it, and a plan that lists a superseded decision is silent: each needs
-  a code of its own.
+- A supersedes cycle keeps every decision of it tracked, and W061 reports it; a plan that lists a superseded decision
+  is silent, which needs a code of its own.
+- An agent cannot take a user-locked decision out of the coverage gates by superseding it.
 
 ## Would reopen it
 

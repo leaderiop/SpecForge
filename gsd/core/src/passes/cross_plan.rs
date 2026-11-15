@@ -64,10 +64,11 @@ fn uncovered_requirements(
         .collect()
 }
 
-/// E310: every trackable decision of the phase's context, a `decision` with `origin context` that no decision
-/// supersedes, is listed in the `decisions` of one of its plans: a typed reference resolved in the plan's phase, so
-/// another phase's namesake covers nothing and a name in prose is no claim. `settled` plays no part; discretion items
-/// are not decisions, and a superseded decision no longer holds.
+/// E310: every trackable decision of the phase's context, a `decision` with `origin context` still in force
+/// ([`super::plans::superseded`]), is listed in the `decisions` of one of its plans: a typed reference resolved in the
+/// plan's phase, so another phase's namesake covers nothing and a name in prose is no claim. `settled` plays no part
+/// but in which decision may supersede one; discretion items are not decisions, and a superseded decision no longer
+/// holds.
 fn uncited_decisions(
     input: &PassInput,
     phase: &PassEntity,

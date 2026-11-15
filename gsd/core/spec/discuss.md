@@ -53,7 +53,7 @@ in `plan`, and is named `<quick_id>-D-01` so it cannot collide with a project de
 | consequences | strs | | beyond GSD: what follows from it, good and bad, an ADR's Consequences |
 | outcome | enum{good, revisit, pending} | | `✓ Good` / `⚠️ Revisit` / `— Pending` |
 | reversibility | enum{reversible, costly, one_way} | | planner reversibility rating |
-| settled | bool | | locked: a plan contradicting it is refused (judged, [rules](rules.md)); read by gsd/W311, not by gsd/E310, which counts every trackable decision as GSD does (one no decision supersedes) and reads the plans' `decisions` lists |
+| settled | bool | | locked: a plan contradicting it is refused (judged, [rules](rules.md)); read by gsd/W311, not by gsd/E310, which counts every trackable decision as GSD does (one no decision supersedes with force) and reads the plans' `decisions` lists; a settled decision is superseded only by one of `origin` `context` or `project` |
 | origin | enum{context, project, summary, checkpoint} | R I | where it was recorded |
 | decided | date | I | beyond GSD: the day it was taken; a change is a new decision that supersedes it |
 | deciders | strs | | beyond GSD: who took it |

@@ -2,6 +2,7 @@
 
 mod commits;
 mod cross_plan;
+mod cycles;
 mod decision_coverage;
 pub(crate) mod derive;
 mod execute;
