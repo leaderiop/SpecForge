@@ -206,7 +206,8 @@ Decisions:
   judged, as gsd/W522 and gsd/E519 leave quick plans out.
 - **D19. What covers a commit.** Any I536 verdict recorded at or after it, fresh or stale, whatever its outcome. E531
   owes a judgement and I536 says what it found: recording a verdict only removes E531 rows, and editing the invariant
-  never adds one. A `violated` verdict shows in `status` and in the risks it mitigates (D14); a gate on it is not this
+  never adds one. A verdict records the day it was given (`at`), so it covers every commit of that day: one authored
+  later that day reads as covered, as one merged after it does (D18). A `violated` verdict shows in `status` and in the risks it mitigates (D14); a gate on it is not this
   rule's.
 - **D20. Owed in force, once judged.** An invariant not in force (D10) owes nothing: E531 reads the owner state I536's
   `judged_while: complete` reads (D12), so the two agree on which invariants owe a verdict. An invariant in force never

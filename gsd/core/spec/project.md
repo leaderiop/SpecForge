@@ -133,6 +133,7 @@ Scoped by milestone.
 | plans_complete | str `N/M` | C | Progress `Plans Complete`: plans with a summary over plans |
 | completed | date | C | Progress `Completed` |
 | risk_level | int | C | the highest current rpn of the risks a plan of the phase mitigates, through a task or a truth ([governance.md](governance.md#risk-on-phases-and-milestones)); absent with none (beyond GSD) |
+| invariants_due | →* invariant | C | the invariants a commit of the phase changed after their last gsd/I536 verdict ([governance.md](governance.md#when-an-invariant-is-due)); absent with none; inverse `due_in` (beyond GSD) |
 
 ## workstream
 

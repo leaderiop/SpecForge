@@ -10,6 +10,7 @@ mod fails_when;
 mod file_scope;
 mod gates;
 mod glossary;
+mod invariants;
 mod nyquist;
 mod plan_shape;
 mod plans;
@@ -41,6 +42,7 @@ pub const CLAIMED: &[&str] = &[
     "verification.scan_partial",
     "validation_row.file_exists",
     "wave0_item.done",
+    "phase.invariants_due",
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -49,6 +51,8 @@ pub fn declare(c: &mut ContributionsBuilder) {
     waves::declare(c);
     scan::declare(c);
     derive::declare(c);
+    // `invariants` reads the invariant's `status`, which derive computes.
+    invariants::declare(c);
     roadmap::declare(c);
     glossary::declare(c);
     research::declare(c);

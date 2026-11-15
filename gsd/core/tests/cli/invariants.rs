@@ -1,12 +1,16 @@
 //! The invariant kind, end to end (`spec/governance.md`): an invariant authored over the taskboard twin, its proof and
 //! items read through `@code/core`'s facts, and its verdict, `gsd/I536`, with the prompt that judges it.
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use serde_json::json;
 use specforge_extension_sdk::prelude::TestStatus;
 
+use crate::clock::utc;
 use crate::commands_support::plus;
 use crate::harness::{Project, is_judged, project, taskboard};
 use crate::judged::TWIN_TESTS;
+use crate::parity_thread::{collected_thread, succeeds};
 use crate::prompts_support::{payload, prompt, render_three_hosts, text_of};
 
 /// One invariant over the taskboard twin, in force from phase 01 (executed): what `addTask` keeps, the test that
@@ -508,4 +512,109 @@ fn a_risk_mitigated_by_an_invariant_counts_it_while_it_holds() {
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(status(&pending, "ids_are_sequential"), "pending");
     assert_eq!(risk(&pending), ("mitigating".into(), true), "pending");
+}
+
+/// [`TWIN_INVARIANT`] with its one `holds_from` line naming `holds_from` instead, its indentation kept.
+fn invariant_from(holds_from: &str) -> String {
+    let lines: Vec<&str> = TWIN_INVARIANT.lines().collect();
+    let at: Vec<usize> = (0..lines.len())
+        .filter(|&n| lines[n].split_whitespace().next() == Some("holds_from"))
+        .collect();
+    assert_eq!(at.len(), 1, "one holds_from line in {TWIN_INVARIANT}");
+    let line = lines[at[0]];
+    let indent = &line[..line.len() - line.trim_start().len()];
+    let mut text: Vec<String> = lines.iter().map(|l| l.to_string()).collect();
+    text[at[0]] = format!("{indent}holds_from {holds_from}");
+    text.join("\n") + "\n"
+}
+
+/// The twin's thread collected, [`TWIN_INVARIANT`] in force from `holds_from` and judged `holds`; then a commit of
+/// phase 01's plan 01-02 that changes `addTask`, dated a day after now so it follows the verdict (it orders, nothing is
+/// timed), collected. Answers the project and the commit's full sha.
+fn judged_then_changed(holds_from: &str) -> (Project, String) {
+    judge_then_change(collected_thread().0, holds_from)
+}
+
+/// [`judged_then_changed`] on `p`, a collected thread.
+fn judge_then_change(p: Project, holds_from: &str) -> (Project, String) {
+    author(&p, &invariant_from(holds_from));
+    let run = p.record("ids_are_sequential", "I536", "holds", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let source = p.read("src/tasks.js");
+    let changed = source.replace("board.nextId += 1;", "board.nextId = task.id + 1;");
+    assert_ne!(changed, source, "the twin's addTask moved");
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("a clock after 1970")
+        .as_secs();
+    let tomorrow = utc(i64::try_from(now).expect("seconds fit") + 86_400);
+    let sha = p.git_commit(
+        "fix: the next id follows the task\n\nGsd-Task: 01-02/T1",
+        &[("src/tasks.js", &changed)],
+        &tomorrow,
+    );
+    succeeds(&p.collect(&["--runner", "javascript-source"]));
+    succeeds(&p.collect(&["--runner", "gsd-git"]));
+    (p, sha)
+}
+
+/// The invariants a phase owes a judgement, as `specforge query` answers `invariants_due`; none when it is absent.
+fn due_in(p: &Project, phase: &str) -> Vec<String> {
+    let fields = p.fields_of(phase);
+    fields["invariants_due"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|id| id.as_str().expect("an id").to_string())
+        .collect()
+}
+
+#[test]
+fn a_change_after_the_last_judgement_makes_the_invariant_due() {
+    let (p, sha) = judged_then_changed("v1.0/01");
+    assert_eq!(
+        p.fields_of(&sha[..12])["items_changed"],
+        json!(["js:taskboard/src/tasks.js::addTask"])
+    );
+    assert_eq!(due_in(&p, "v1.0/01"), ["ids_are_sequential"]);
+    assert_eq!(due_in(&p, "v1.0/02"), Vec::<String>::new());
+}
+
+/// A verification of phase 02, which has not run: recorded, it puts an invariant holding from phase 02 in force.
+const PHASE_02_VERIFIED: &str = r#"verification 02-VERIFICATION "Phase 02 verification" {
+  phase v1.0/02
+}
+"#;
+
+/// Phase 02 verified, so an invariant holding from it is in force: the commit of phase 01 is before its window.
+#[test]
+fn a_change_before_holds_from_makes_nothing_due() {
+    let (p, _) = collected_thread();
+    p.write("spec/verify-02.spec", PHASE_02_VERIFIED);
+    let (p, _) = judge_then_change(p, "v1.0/02");
+    assert_eq!(status(&p, "ids_are_sequential"), "holds");
+    for phase in ["v1.0/01", "v1.0/02"] {
+        assert_eq!(due_in(&p, phase), Vec::<String>::new(), "{phase}");
+    }
+}
+
+#[test]
+fn a_change_judged_since_makes_nothing_due() {
+    let (p, _) = collected_thread();
+    author(&p, TWIN_INVARIANT);
+    // never judged: the thread's commit changed addTask, and nothing is owed
+    assert_eq!(due_in(&p, "v1.0/01"), Vec::<String>::new());
+    assert_eq!(p.record("ids_are_sequential", "I536", "holds", &[]).code, 0);
+    // the thread's commit (2026-10-28) is older than the verdict
+    assert_eq!(due_in(&p, "v1.0/01"), Vec::<String>::new());
+}
+
+/// A change to what a pending invariant guards owes it nothing, as it owes `gsd/I536` no verdict yet.
+#[test]
+fn a_change_to_a_pending_invariant_makes_nothing_due() {
+    let (p, _) = judged_then_changed("v1.0/02");
+    assert_eq!(status(&p, "ids_are_sequential"), "pending");
+    for phase in ["v1.0/01", "v1.0/02"] {
+        assert_eq!(due_in(&p, phase), Vec::<String>::new(), "{phase}");
+    }
 }

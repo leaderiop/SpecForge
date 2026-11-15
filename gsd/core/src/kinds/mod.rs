@@ -21,6 +21,7 @@ mod validation;
 mod verify;
 mod windows;
 
+pub use governance::INVARIANT_IN_FORCE;
 use gsd_kit::dsl::{self, Kind};
 pub use project::PROOF_STATES;
 pub use roadmap::PHASE_COMPLETE;

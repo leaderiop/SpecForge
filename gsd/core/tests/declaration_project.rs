@@ -87,7 +87,8 @@ fn milestone_and_phase_declare_the_fields_of_the_model() {
             "status",
             "plans_complete",
             "completed",
-            "risk_level"
+            "risk_level",
+            "invariants_due"
         ]
     );
 }
@@ -167,9 +168,10 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
     // + 5: the requirement's quality `category`, `priority`, `metric`, `source` and `tags` (beyond GSD).
     // + 3: the requirement's `personas`, `constrains` and `protects`, each naming its reverse (ADR 0354).
     // + 1: the requirement's `effort`, a T-shirt size (beyond GSD).
+    // + 1: the phase's `invariants_due`.
     assert_eq!(
         total,
-        72 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 8 + 2 + 2 + 5 + 3 + 1,
+        72 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 8 + 2 + 2 + 5 + 3 + 1 + 1,
         "the kinds' fields"
     );
 }

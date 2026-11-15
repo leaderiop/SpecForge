@@ -127,6 +127,14 @@ pub const PHASE: Kind = Kind::new(
         int("risk_level")
             .c()
             .doc("the highest current rpn of the risks its plans mitigate (beyond GSD)"),
+        // Its own relation beside `invariant.holds_from`, so it names its reverse (W162 otherwise, ADR 0354).
+        rfs("invariants_due", "invariant")
+            .c()
+            .inverse("due_in")
+            .doc(
+                "the invariants a commit of the phase changed after their last gsd/I536 verdict; each reads it back \
+                 as `due_in` (beyond GSD)",
+            ),
     ],
 )
 .scoped_by("milestone")

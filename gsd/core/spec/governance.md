@@ -8,6 +8,8 @@
  invariant ─*──0..1─ phase             (holds_from: the phase it holds from)
    ├─*──*─ test                        (proof: the `@code/core` tests that prove it)
    └─*──*─ item                        (items: the `@code/core` code items it holds over)
+
+ phase ─*──*─ invariant                (invariants_due, computed: the invariants it owes a judgement)
 ```
 
 Files: `spec/gsd/governance/risks.spec`, `spec/gsd/governance/invariants.spec`.
@@ -115,7 +117,7 @@ outlives the phase it starts at.
 |---|---|---|---|
 | statement | str | R | what must always hold |
 | description | str | | a summary beside the statement |
-| scope | enum{project, milestone} | | how far it reaches: the project (absent), or the milestone of its `holds_from` phase |
+| scope | enum{project, milestone} | | how far it reaches: the project (absent), or the milestone of its `holds_from` phase ([the window](#when-an-invariant-is-due)) |
 | holds_from | → phase | | in force once this phase has been complete (executed or after) or verified, and for good; absent: from the start |
 | proof | →* test | | the tests that prove it: `@code/core` test facts, quoted (`"js:pkg/a.test.js#adds"`) |
 | items | →* item | | the code items it holds over: `@code/core` item facts, quoted (`"js:pkg/src/a.js::add"`) |
@@ -128,8 +130,9 @@ outlives the phase it starts at.
 `proof` and `items` read `@code/core`'s facts as a truth's `proof` and a task's `items` do: a name no served store
 holds is `code/E101`, and with no `@code/core` loaded a written one is I004.
 
-An invariant reads back the risks that name it in `risk.mitigated_by` as `mitigates`, and the decisions that name it
-in `decision.affects` as `affected_by`, names it never writes: writing either is E079 ([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)).
+An invariant reads back the risks that name it in `risk.mitigated_by` as `mitigates`, the decisions that name it in
+`decision.affects` as `affected_by`, and the phases that owe it a judgement (`phase.invariants_due`, computed) as
+`due_in`, names it never writes: writing any is E079 ([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)).
 
 ### In force, and its status
 
@@ -156,7 +159,8 @@ or an item the phase has yet to write is no finding. In force, its `status` read
 | fresh | its outcome: holds, violated or uncertain |
 
 `last_verified` is the `at` of the verdict while `status` is `holds`, and absent otherwise. `scope` changes no
-status.
+status: it bounds the window of the commits that can make the invariant due ([When an invariant is
+due](#when-an-invariant-is-due)).
 
 ### Its verdict
 
@@ -171,6 +175,34 @@ A pending invariant owes no verdict: the rule waits for it to be in force (`judg
 `complete_when`, read after the compute passes). It is not reported, no gate reads a verdict of it (gsd/E516), and the
 prompt does not list it; with only pending invariants the prompt says how many wait. A verdict recorded early, with
 `verify_invariant --invariant <id>`, is kept and read once the invariant is in force.
+
+### When an invariant is due
+
+A phase owes an invariant a judgement once one of its commits changed code the invariant guards after the invariant
+was last judged ([ADR 0358](../../../docs/adr/0358-a-risk-is-rated-and-an-invariant-is-judged.md#e531-is-a-pass-over-the-verdict)).
+The phase lists it in its computed `invariants_due` ([project.md](project.md#phase)).
+
+- **What it guards.** Its `items`; the items its tests run as (`@code/core`'s `runs_as`, from an item to the test it
+  is the function of), its tests being those its `proof` names and those whose name tags it, run or not; and the
+  items whose name tags it.
+- **The window.** With no `holds_from`, every phase's commits. Otherwise the `holds_from` phase, a later-numbered
+  phase of its milestone and, where numbers do not order two phases (another milestone, a custom-named or a backlog
+  `999.x` phase), a commit no older than the first commit recorded for the `holds_from` phase (none while it has
+  none). `scope milestone` keeps only the `holds_from` phase's milestone; with no `holds_from` it reads as `project`.
+  A commit is placed by its author time and its phase by its plan's; a quick plan's commit is in no phase and is not
+  judged.
+- **Covered.** Any `gsd/I536` verdict recorded at or after the commit, fresh or stale, whatever its outcome: recording
+  a verdict only clears a phase, and editing the invariant never makes one due. A verdict records its day, and covers
+  every commit of that day.
+- **Owed in force, once judged.** A pending invariant owes nothing, as it owes no verdict ([Its verdict](#its-verdict)),
+  and an invariant in force never judged owes nothing either: `gsd/I536` reports its missing verdict.
+- **The fallback.** A commit whose `items_changed` is unwritten (no item facts were served then, or a file's lines
+  were unknown) is matched by the files it touched, against the files of the guarded items and tests. A written empty
+  `items_changed` changed nothing.
+
+One function, `passes::invariants::due`, joins the recorded commits with the guarded code, and `invariants_due` reads
+its rows. A reader of which items a test exercises (coverage) would add one source to what an invariant guards, and
+every reader of those rows would follow unchanged.
 
 ### The old invariant's fields
 

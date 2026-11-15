@@ -31,7 +31,7 @@ fn thread_twin() -> (Project, String) {
 
 /// [`thread_twin`] with its tests collected from the recorded JUnit report and its commits from git, as a plain
 /// `collect` does where node does not run.
-fn collected_thread() -> (Project, String) {
+pub(super) fn collected_thread() -> (Project, String) {
     let (p, sha) = thread_twin();
     succeeds(&p.collect_node_test_golden());
     succeeds(&p.collect(&["--runner", "javascript-source"]));
@@ -39,7 +39,7 @@ fn collected_thread() -> (Project, String) {
     (p, sha)
 }
 
-fn succeeds(run: &Run) {
+pub(super) fn succeeds(run: &Run) {
     assert_eq!(run.code, 0, "{}", run.all());
 }
 

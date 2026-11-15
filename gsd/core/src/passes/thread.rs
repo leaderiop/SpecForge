@@ -48,9 +48,9 @@ const STATUS: &str = "status";
 /// A truth's fields the thread reads (`kinds/must_haves.rs`): the requirement it proves and the tests it cites.
 const TRUTH: &str = "truth";
 const REQUIREMENT: &str = "requirement";
-const PROOF: &str = "proof";
+pub(crate) const PROOF: &str = "proof";
 /// The label of the edge from a test fact to each entity its `names` holds (`@code/core`).
-const NAMES: &str = "names";
+pub(crate) const NAMES: &str = "names";
 
 /// Whether `reference` names the test fact `fact`: it is the fact's id, or `[file#]name`, where the first `#` ends
 /// the file (a test name may hold one) and the fact's `name` is `name` and, when `file` is not empty, its `file` is
@@ -107,6 +107,27 @@ impl<'a> Thread<'a> {
     /// `(fact id, status)` of each test fact whose `names` holds `id`.
     pub fn naming(&self, id: &str) -> Vec<(&'a str, TestStatus)> {
         self.facts_at_ends(|e| e.target == id && e.label == NAMES, |e| &e.source)
+    }
+
+    /// Every test fact linked to `id`, run or not: those whose `names` holds it and those its `proof` names. What an
+    /// invariant guards reads its tests so (`passes::invariants`): a proof test's function is guarded before it runs.
+    pub fn tests(&self, id: &str) -> BTreeSet<&'a str> {
+        let linked: BTreeSet<&str> = self
+            .input
+            .edges
+            .iter()
+            .filter_map(|e| match e.label.as_str() {
+                NAMES if e.target == id => Some(e.source.as_str()),
+                PROOF if e.source == id => Some(e.target.as_str()),
+                _ => None,
+            })
+            .collect();
+        self.input
+            .entities
+            .iter()
+            .filter(|e| e.kind == TEST && linked.contains(e.id.as_str()))
+            .map(|e| e.id.as_str())
+            .collect()
     }
 
     /// `(fact id, status)` of the test fact at the chosen end of each edge `edge` keeps.

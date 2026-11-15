@@ -42,7 +42,7 @@ pub fn status(in_force: bool, verdict: Option<Verdict<'_>>) -> &'static str {
 }
 
 /// The judgement of [`RULE`] on `invariant`, when the host reports one.
-fn verdict(invariant: &PassEntity) -> Option<Verdict<'_>> {
+pub fn verdict(invariant: &PassEntity) -> Option<Verdict<'_>> {
     invariant
         .judgements
         .iter()
