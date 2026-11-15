@@ -9076,6 +9076,10 @@ expression: listing
           ],
           "type": "string"
         },
+        "filter": {
+          "description": "With run: true, the tests the one collector's command runs, in its own filter syntax (rust-test: a nextest filterset)",
+          "type": "string"
+        },
         "path": {
           "description": "Project root path (the served project if omitted)",
           "type": "string"

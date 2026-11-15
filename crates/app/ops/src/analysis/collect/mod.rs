@@ -72,6 +72,10 @@ pub struct Request<'a> {
     pub mode: Mode<'a>,
     /// Told just before a collector's command runs.
     pub announce: &'a mut dyn FnMut(&Collector, &[String]),
+    /// The caller's filter (ADR 0360): the one selected collector's run appends its declared filter arguments with
+    /// this text, in that collector's own syntax. Refused before any command for a mode that runs nothing, more than
+    /// one collector, a collector declaring no filter, or a text `filter_problem` refuses.
+    pub filter: Option<&'a str>,
     /// What the collect may reach and who can be asked. Every file it reads or writes must land
     /// inside `caller.containment()` (ADR 0104 D3, ADR 0112 D2): the report, a collector's
     /// report files and its captured output; a name that lands outside is refused before any
@@ -228,6 +232,7 @@ pub fn collect(
         runner,
         mode,
         announce,
+        filter,
         caller,
     } = request;
     let (asking, containment) = (caller.asking(), caller.containment());
@@ -258,6 +263,9 @@ pub fn collect(
 
     // Ordered, and a cycle refused, before anything runs (ADR 0345 D3).
     let selected = order::ordered(selected)?;
+    if let Some(text) = filter {
+        filterable(&selected, mode, text)?;
+    }
 
     // Held before anything runs: what is read and what is written is the file checked here.
     let report_file = containment
@@ -282,7 +290,8 @@ pub fn collect(
     let planned = selected
         .into_iter()
         .map(|collector| {
-            Source::plan(collector, mode, root, containment).map(|source| (collector, source))
+            Source::plan(collector, mode, filter, root, containment)
+                .map(|source| (collector, source))
         })
         .collect::<Result<Vec<_>, OpError>>()?;
     approval::settle_runs(view, &planned, asking, consent, &mut unsaved_approvals)?;
@@ -432,6 +441,45 @@ pub fn collect(
     })
 }
 
+/// Whether a caller's filter `text` can narrow this collect (ADR 0360): it runs (no `--no-run`, no `--report`), one
+/// collector is selected, that collector declares filter arguments, and `filter_problem` finds nothing in the text.
+/// Each refusal is E058, about the filter, before any command runs.
+fn filterable(
+    selected: &[&Collector],
+    mode: Mode<'_>,
+    text: &str,
+) -> Result<(), Refusal<CollectField>> {
+    let refused = |message: String| -> Refusal<CollectField> {
+        fail(OpErrorKind::InvalidInput, codes::E058, message).about(CollectField::Filter)
+    };
+    if !matches!(mode, Mode::Run(_)) {
+        return Err(refused(
+            "a filter narrows the tests a collector's command runs, and this collect reads a report without running \
+             one; drop the filter or let the command run"
+                .to_string(),
+        ));
+    }
+    let [collector] = selected else {
+        let names: Vec<&str> = selected.iter().map(|c| c.name.as_str()).collect();
+        return Err(refused(format!(
+            "a filter is in one collector's syntax, but {} apply here; name the runner it is for",
+            names.join(", ")
+        )));
+    };
+    if collector.filter.is_empty() {
+        return Err(refused(format!(
+            "collector '{}' of {} declares no filter, so its command cannot be narrowed",
+            collector.name, collector.extension
+        )));
+    }
+    if let Some(problem) = specforge_protocol_types::filter_problem(text) {
+        return Err(refused(format!(
+            "{problem}; give the collector's own filter syntax"
+        )));
+    }
+    Ok(())
+}
+
 /// I214: what `collector`'s syntax requests read (ADR 0353 D7).
 fn read_syntax(collector: &Collector, work: &SyntaxWork) -> Diagnostic {
     Diagnostic::new(
@@ -464,6 +512,8 @@ fn unwritable_cache(unwritten: usize, why: &str) -> Diagnostic {
 pub enum CollectField {
     /// `Request::runner`: the collector asked for.
     Runner,
+    /// `Request::filter`: the tests the collector's command runs.
+    Filter,
 }
 
 /// How [`select`] chose the collectors.

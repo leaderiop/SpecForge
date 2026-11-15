@@ -93,6 +93,7 @@ fn collected(
             runner,
             mode,
             announce: &mut |_, _| {},
+            filter: None,
             caller: caller(),
         },
         machine,

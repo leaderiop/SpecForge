@@ -81,6 +81,7 @@ fn collect_in(
             runner,
             mode: Mode::Run(RunnerOutput::Discard),
             announce: &mut |_, _| {},
+            filter: None,
             caller: Caller::new(&containment, Asking::Nobody).lending(
                 &ports,
                 &consent,

@@ -79,6 +79,7 @@ impl<'m> Source<'m> {
     pub(super) fn plan(
         collector: &Collector,
         mode: Mode<'m>,
+        filter: Option<&str>,
         root: &Path,
         containment: &Containment,
     ) -> Result<Self, OpError> {
@@ -95,6 +96,7 @@ impl<'m> Source<'m> {
                     collector,
                     &declared.report.at,
                     config.as_ref().map(|config| config.held.at.as_path()),
+                    filter,
                 );
                 if argv.is_empty() {
                     return Err(fail(

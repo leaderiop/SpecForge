@@ -80,6 +80,7 @@ fn collector() -> Collector {
         capability: None,
         answers: Vec::new(),
         config: None,
+        filter: Vec::new(),
         install: None,
     }
 }

@@ -67,3 +67,25 @@ fn collect_asks_nobody_and_runs_nothing_unapproved() {
     let error = crate::tool_errors::mcp_error(&resp);
     assert_eq!(error["diagnostic"]["code"], "E059", "{error}");
 }
+
+#[test]
+fn a_filter_for_a_collector_declaring_none_names_the_filter_argument() {
+    let machine = Arc::new(ScriptedMachine::new());
+    let server = McpServer::new()
+        .with_collector_machine(Arc::clone(&machine) as Arc<dyn CollectorMachine>)
+        .with_consent(Arc::new(
+            specforge_effects::testing::MemoryConsent::approving_everything(),
+        ));
+    let mut served = Served::over(project(), server);
+
+    let resp = call_tool(
+        &mut served,
+        "specforge.collect",
+        json!({"run": true, "filter": "api"}),
+    );
+
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["diagnostic"]["code"], "E058", "{error}");
+    assert_eq!(error["argument"], "filter", "{error}");
+    assert!(machine.runs().is_empty());
+}

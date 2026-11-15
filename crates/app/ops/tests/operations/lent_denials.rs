@@ -120,6 +120,7 @@ fn a_collector_that_traps_says_what_it_was_refused() {
             runner: Some("boom"),
             mode: Mode::NoRun,
             announce: &mut |_, _| {},
+            filter: None,
             caller: Caller::new(&containment, Asking::Nobody).lending(
                 &ports,
                 &consent,

@@ -100,6 +100,7 @@ fn collected(
             runner,
             mode: Mode::NoRun,
             announce: &mut |_, _| {},
+            filter: None,
             caller: caller(),
         },
         &ScriptedMachine::new(),

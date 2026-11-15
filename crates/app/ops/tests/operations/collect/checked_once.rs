@@ -67,6 +67,7 @@ fn storing_a_collects_facts_checks_the_project_once() {
             runner: Some("node"),
             mode: Mode::NoRun,
             announce: &mut |_, _| {},
+            filter: None,
             caller: caller(),
         },
         &ScriptedMachine::new(),

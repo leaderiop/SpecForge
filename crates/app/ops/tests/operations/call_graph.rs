@@ -156,6 +156,7 @@ fn a_writing_collectors_graph_carries_the_computed_values() {
             runner: Some("git"),
             mode: Mode::NoRun,
             announce: &mut |_, _| {},
+            filter: None,
             caller: caller(),
         },
         &ScriptedMachine::new(),

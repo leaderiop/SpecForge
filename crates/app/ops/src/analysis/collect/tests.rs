@@ -21,6 +21,7 @@ fn collector(report: &str) -> Collector {
         capability: None,
         answers: Vec::new(),
         config: None,
+        filter: Vec::new(),
         install: None,
     }
 }
@@ -286,6 +287,7 @@ fn collect_without_a_root_is_no_project() {
             runner: None,
             mode: Mode::NoRun,
             announce: &mut |_, _| {},
+            filter: None,
             caller: crate::testing::caller(),
         },
         &crate::testing::ScriptedMachine::new(),
@@ -533,7 +535,8 @@ fn the_command_line_expands_the_config_placeholder() {
         command_line(
             &nextest,
             Path::new("/p/out/r.xml"),
-            Some(Path::new("/p/.specforge/reports/acme.nextest.toml"))
+            Some(Path::new("/p/.specforge/reports/acme.nextest.toml")),
+            None
         ),
         [
             "cargo-nextest",

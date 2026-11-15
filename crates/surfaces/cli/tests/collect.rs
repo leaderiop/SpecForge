@@ -284,3 +284,27 @@ fn collect_takes_an_effects_mode() {
         .failure()
         .stderr(predicate::str::contains("sometimes"));
 }
+
+#[test]
+fn collect_help_names_the_filter() {
+    Cli::on(&scratch())
+        .bare_command(&["collect", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--filter <TEXT>"))
+        .stdout(predicate::str::contains("a nextest filterset"));
+}
+
+#[test]
+fn a_filter_for_a_runner_declaring_none_is_refused_before_it_runs() {
+    let fx = Fixture::new();
+    for text in ["api", "-x"] {
+        fx.cmd(&["collect", "--yes", "--filter", text])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("error[E058]"))
+            .stderr(predicate::str::contains("declares no filter"));
+    }
+    assert!(!fx.ran(), "nothing runs");
+    assert!(!fx.root().join("specforge-report.json").exists());
+}

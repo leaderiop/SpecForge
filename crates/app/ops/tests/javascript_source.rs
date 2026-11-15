@@ -76,6 +76,7 @@ fn collected_with(
             runner,
             mode: Mode::Run(RunnerOutput::Discard),
             announce: &mut |_, _| {},
+            filter: None,
             caller: Caller::new(&containment, Asking::Nobody).lending(
                 &ports,
                 consent,
