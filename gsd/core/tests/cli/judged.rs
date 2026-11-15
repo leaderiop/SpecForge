@@ -411,7 +411,7 @@ fn an_artifacts_file_change_makes_e501_stale() {
 }
 
 /// The twin's tests: the three its truths' proofs name, as its recorded JUnit report holds them.
-const TWIN_TESTS: [(&str, &str, TestStatus); 3] = [
+pub(super) const TWIN_TESTS: [(&str, &str, TestStatus); 3] = [
     (
         "test/tasks.test.js",
         "a task is added with the next id",

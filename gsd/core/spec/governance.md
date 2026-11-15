@@ -1,12 +1,16 @@
-# Risks
+# Risks and invariants
 
 ```
  risk ─*──*─ task | truth          (mitigated_by: what controls it)
    ├─*──*─ requirement             (affects: what it threatens; the requirement reads `risks`)
    └─*──0..1─ milestone            (milestone: where it must be settled; the milestone reads `risks`)
+
+ invariant ─*──0..1─ phase         (holds_from: the phase it holds from)
+   ├─*──*─ test                    (proof: the `@code/core` tests that prove it)
+   └─*──*─ item                    (items: the `@code/core` code items it holds over)
 ```
 
-Files: `spec/gsd/governance/risks.spec`.
+Files: `spec/gsd/governance/risks.spec`, `spec/gsd/governance/invariants.spec`.
 
 GSD keeps no risk file: this kind is beyond parity
 ([ADR 0358](../../../docs/adr/0358-a-risk-is-rated-and-an-invariant-is-judged.md)), and no `gsd-compat` rule needs it.
@@ -94,3 +98,39 @@ A phase and a milestone carry a computed `risk_level` ([project.md](project.md))
 - A milestone's `risk_level` is the highest of its phases' levels and of the current rpn of each risk whose
   `milestone` names it: a risk no phase's plan mitigates is settled there.
 - Each is absent when no risk reaches it.
+
+## invariant
+
+What must always hold in the code, from a phase on: the statement, the tests that prove it and the code items it
+holds over. Name: a word, unique in the project (`entity_id_uniqueness`). Unscoped, like `risk`: an invariant
+outlives the phase it starts at.
+
+| Field | Type | Flags | Meaning |
+|---|---|---|---|
+| statement | str | R | what must always hold |
+| description | str | | a summary beside the statement |
+| scope | enum{project, milestone} | | how far it reaches: the project (absent), or the milestone of its `holds_from` phase |
+| holds_from | → phase | | the phase it holds from; absent: from the start |
+| proof | →* test | | the tests that prove it: `@code/core` test facts, quoted (`"js:pkg/a.test.js#adds"`) |
+| items | →* item | | the code items it holds over: `@code/core` item facts, quoted (`"js:pkg/src/a.js::add"`) |
+| criticality | enum{critical, high, medium, low} | | what a violation costs, highest first |
+| tags | strs | | words to group it |
+| refs | strs | | external references: issue or document URIs |
+
+`proof` and `items` read `@code/core`'s facts as a truth's `proof` and a task's `items` do: a name no served store
+holds is `code/E101`, and with no `@code/core` loaded a written one is I004.
+
+### The old invariant's fields
+
+`@specforge/governance` declared an `invariant` too; loading it beside `@gsd/core` is E026, as for `risk`. Each of its
+fields has a home here:
+
+| Old field | Here |
+|---|---|
+| guarantee | statement |
+| risk (critical, high, medium, low) | criticality, the same words in the same order |
+| description | description |
+| refs | refs |
+| verify (`@specforge/testing`) | proof |
+
+Its presentation (icon, colours, inference guide) has no home: `@gsd/core` declares none for any kind.

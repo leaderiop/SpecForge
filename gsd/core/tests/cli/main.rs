@@ -72,6 +72,7 @@ mod host_options;
 mod install_agents;
 mod install_hosts;
 mod install_skills;
+mod invariants;
 mod judged;
 mod judged_flow;
 mod judged_refusals;

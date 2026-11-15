@@ -91,6 +91,7 @@ const KINDS: &[&Kind] = &[
     &windows::BROKEN_WINDOW,
     &windows::REFACTOR_PROPOSAL,
     &governance::RISK,
+    &governance::INVARIANT,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
