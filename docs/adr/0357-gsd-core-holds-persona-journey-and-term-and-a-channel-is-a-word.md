@@ -215,6 +215,11 @@ features' requirements, a channel as a term, the artifact word, the journey memb
     a block, at any depth (a verification's `re_verification`, a broken window's `waiver`): a record two kinds share
     (`resolved`) is read where it is authored (a blocker's) and not where a command writes it (a revision conflict's).
     A test walks every mark through nested and computed blocks and fails on one the table never reads.
+  - Paths and code inside prose are not words. Before segmentation (D15) the vocabulary masks each code span (a run of
+    backticks to the next run of as many) and each whitespace-delimited token that holds a `/` or a `\` (a path, a
+    URL), for `term.used_in` and `gsd/W534` alike (`Segments::of_prose` in `passes/words.rs`): each reads as one
+    opaque segment, so no word is found in it and no phrase across it. "Write src/todo-list.js" writes no "todo", "the
+    todo list" does. The limit: a word written with a slash ("CI/CD", "and/or") reads as a path too.
   - A term's own fields are not prose: they are the glossary (D18).
 - **D17. `term.used_in` is computed.** It lists the entities whose prose (D16) holds the term's `name` or one of its
   `aliases` as a whole word or phrase (D15, `Unicode`), by id, sorted, and `[]` when the term is unused, so "none" is

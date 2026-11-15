@@ -139,3 +139,37 @@ fn an_occurrence_reads_back_as_written() {
         .collect();
     assert_eq!(found, ["Élève"]);
 }
+
+/// A path, a URL and a code span in prose are no words: "todo" is not written in `src/todo-list.js`, in `C:\todo` or
+/// between backticks, and no phrase runs across one. Plain prose still holds the word; an unclosed backtick masks
+/// nothing. A word written with a slash reads as a path too.
+#[test]
+fn a_path_or_a_code_span_in_prose_is_no_word() {
+    let reads = |text| has_word(text, "todo", Boundary::Unicode);
+    assert!(!reads("Write src/todo-list.js"));
+    assert!(!reads("open C:\\todo\\list.txt"));
+    assert!(!reads("see https://example.org/todo first"));
+    assert!(!reads("run `todo add` now"));
+    assert!(!reads("run ``a ` todo`` now"));
+    assert!(!reads("todo/done"), "the documented limit");
+    assert!(reads("the todo list"));
+    assert!(reads("a ` todo"));
+    assert!(reads("`add` the todo"));
+    assert!(!has_word(
+        "todo src/a.js list",
+        "todo list",
+        Boundary::Unicode
+    ));
+    let text = Segments::of_prose("  write `x` then the Todo, see a/b ");
+    let found: Vec<&str> = text
+        .find(&Segments::of("todo"))
+        .map(|at| text.written(&at))
+        .collect();
+    assert_eq!(found, ["Todo"]);
+    assert_eq!(not_words("a `b` c/d"), [2..5, 6..9]);
+    assert_eq!(
+        not_words("`a/b` c c/d"),
+        [0..5, 8..11],
+        "a token over a code span merges"
+    );
+}

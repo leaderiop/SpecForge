@@ -466,3 +466,18 @@ fn a_term_is_used_in_prose_the_author_cannot_change() {
         Some(&json!(["v1.0/01/01-01/01-01-SUMMARY/DV1"]))
     );
 }
+
+/// A path or a code span in prose is no use of a term: `used_in` lists the plain prose only.
+#[test]
+fn a_path_in_prose_is_no_use_of_a_term() {
+    let values = computed(&input(
+        json!([
+            { "id": "todo", "kind": "term", "fields": { "name": "todo", "definition": "a task to do" } },
+            { "id": "R1", "kind": "requirement", "fields": { "text": "Write src/todo-list.js" } },
+            { "id": "R2", "kind": "requirement", "fields": { "text": "Call `todo.add()` once" } },
+            { "id": "R3", "kind": "requirement", "fields": { "text": "Show the todo list" } },
+        ]),
+        &[],
+    ));
+    assert_eq!(of(&values, "todo", "used_in"), Some(&json!(["R3"])));
+}

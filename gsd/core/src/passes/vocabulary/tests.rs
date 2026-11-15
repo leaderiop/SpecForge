@@ -348,6 +348,23 @@ fn an_avoided_phrase_that_holds_an_accepted_word_is_w534() {
     );
 }
 
+/// A path or a code span in prose names a file or code, not the domain: "todo" in `src/todo-list.js` asks for no
+/// rewrite, while the same word in plain prose does.
+#[test]
+fn w534_reads_no_word_in_a_path_or_a_code_span() {
+    let found = found(&input(json!([
+        term("task", "task", &["todo"]),
+        { "id": "R1", "kind": "requirement", "fields": { "text": "Write src/todo-list.js" } },
+        { "id": "R2", "kind": "requirement", "fields": { "text": "Call `todo.add()` once" } },
+        { "id": "R3", "kind": "requirement", "fields": { "text": "Show the todo list" } },
+    ])));
+    let on: Vec<&str> = found
+        .iter()
+        .map(|(_, entity, _, _)| entity.as_str())
+        .collect();
+    assert_eq!(on, ["R3"], "{found:#?}");
+}
+
 /// The message quotes the prose as it writes the word, case and line break included.
 #[test]
 fn w534_quotes_the_prose_as_written() {

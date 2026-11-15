@@ -78,8 +78,9 @@ recorded answer, a copy of another field, a command or code, the name of a thing
 harness block, `text_en` or a term's own fields. A word matches whole, case-insensitively and accents as written, at
 Unicode word boundaries (UAX #29, an apostrophe splitting a word), with no stemming: "Tasks" is no use of "task". In
 Han and kana prose a word is found wherever its characters run; in Thai, Lao, Khmer and Myanmar, also inside a longer
-word (ADR 0357 D15). A computed reference makes no edge, so `specforge query <term>` shows it and `specforge refs`
-does not.
+word (ADR 0357 D15). A code span between backticks and a token that holds a `/` or a `\` (a path, a URL) hold no word:
+"Write src/todo-list.js" is no use of "todo", and a word written with a slash ("CI/CD") reads as a path too. A
+computed reference makes no edge, so `specforge query <term>` shows it and `specforge refs` does not.
 
 ## What the old product kinds became
 

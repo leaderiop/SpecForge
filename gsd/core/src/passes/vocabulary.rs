@@ -276,7 +276,7 @@ struct Place<'p> {
 
 impl<'p> Place<'p> {
     fn read(place: &'p str, said: &'p str, accepted: &[Segments]) -> Self {
-        let text = Segments::of(said);
+        let text = Segments::of_prose(said);
         let names = accepted.iter().flat_map(|name| text.find(name)).collect();
         Place { place, text, names }
     }
