@@ -53,7 +53,9 @@ A risk is `mitigated` once every item of its `mitigated_by` is done:
 - a truth, when its phase's verification verifies it (an override, or a fresh passing `gsd/E501` verdict that no
   recorded test contradicts). A truth no verification assesses is not verified.
 
-A name that does not resolve is never done (the kernel reports it, E003), so a risk naming one stays `mitigating`. The
+A risk is unscoped, so an item names a task or a truth by its full path, rooted or not (`v1.0/01/01-01/T1` or
+`/v1.0/01/01-01/T1`). A name that does not resolve is never done (the kernel reports it, E003), even when another
+item's path ends with it (`T1` beside `v1.0/01/01-01/T1`), so a risk naming one stays `mitigating`. The
 prose `mitigation` is no evidence: a risk that names nothing in `mitigated_by` stays `open` whatever its prose says.
 
 ### Blocking

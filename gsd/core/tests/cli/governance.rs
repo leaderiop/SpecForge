@@ -138,6 +138,42 @@ fn a_risk_is_open_mitigating_or_mitigated() {
     );
 }
 
+/// RK1's task, once plan 01-01 is complete, spelled as the kernel reads a reference from an unscoped risk: a short
+/// `T1` beside the full path is E003 and keeps RK1 mitigating; the rooted full path is the task.
+#[test]
+fn a_mitigation_counts_as_the_kernel_resolves_it() {
+    let full = "  mitigated_by [v1.0/01/01-01/T1]\n";
+    let p = project("governance");
+    let plans = p.read("spec/plans.spec");
+    p.write("spec/plans.spec", &format!("{plans}{SUMMARY}"));
+    p.edit(
+        "spec/risks.spec",
+        full,
+        "  mitigated_by [v1.0/01/01-01/T1, T1]\n",
+    );
+    assert!(p.codes().contains(&"E003".to_string()), "{:#?}", p.report());
+    assert_eq!(
+        state(&p, "RK1"),
+        ("mitigating".into(), true),
+        "T1 resolves to nothing"
+    );
+    p.edit(
+        "spec/risks.spec",
+        "  mitigated_by [v1.0/01/01-01/T1, T1]\n",
+        "  mitigated_by [/v1.0/01/01-01/T1]\n",
+    );
+    assert!(
+        !p.codes().contains(&"E003".to_string()),
+        "{:#?}",
+        p.report()
+    );
+    assert_eq!(
+        state(&p, "RK1"),
+        ("mitigated".into(), false),
+        "the rooted path is the task"
+    );
+}
+
 #[test]
 fn a_verified_truth_mitigates_its_risk() {
     let p = project("governance");

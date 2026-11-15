@@ -23,7 +23,7 @@ use super::execute::{task_done, value};
 use super::verify::{self, Item};
 use crate::passes::commits::Commit;
 use crate::passes::plans::{
-    block, link, links, of_kind, phase_of, resolve, strings, targets, text,
+    block, link, links, of_kind, phase_of, strings, targets, text, written_target,
 };
 
 /// A risk's three ratings, each 1 to 10.
@@ -165,12 +165,16 @@ fn mitigation_done(id: &str, done: &Done) -> bool {
     task || done.items.get(&("truth", id)) == Some(&Item::Verified)
 }
 
-/// One entry per item `risk` writes in `mitigated_by`: whether it is done; `false` for one that does not resolve.
+/// One entry per item `risk` writes in `mitigated_by`: whether it is done; `false` for one that does not resolve. A
+/// risk is unscoped, so an item names a target only as its full path, rooted or not: a short name that ends another
+/// item's target is E003 and names nothing.
 fn mitigations(input: &PassInput, risk: &PassEntity, done: &Done) -> Vec<bool> {
     let resolved = targets(input, &risk.id, "mitigated_by");
     strings(risk, "mitigated_by")
         .iter()
-        .map(|written| resolve(&resolved, written).is_some_and(|id| mitigation_done(id, done)))
+        .map(|written| {
+            written_target(&resolved, &risk.id, written).is_some_and(|id| mitigation_done(id, done))
+        })
         .collect()
 }
 

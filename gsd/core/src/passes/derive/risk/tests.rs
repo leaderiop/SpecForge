@@ -150,7 +150,8 @@ fn rate_7_5_5(done: &[bool]) -> Rating {
 }
 
 /// A phase with plan 01-01, its task T1 and truth TR1, the phase's verification, and `risks`; each risk's
-/// `mitigated_by` resolves to the full ids it lists that exist, as the host's edges would.
+/// `mitigated_by` resolves to the full ids it lists that exist, rooted or not, as the host's edges would: a risk is
+/// unscoped, so the kernel reads its references from the project alone.
 fn project(risks: Vec<serde_json::Value>, truth_judgements: Vec<serde_json::Value>) -> PassInput {
     let mut entities = vec![
         json!({ "id": "v1.0/01", "kind": "phase" }),
@@ -171,7 +172,8 @@ fn project(risks: Vec<serde_json::Value>, truth_judgements: Vec<serde_json::Valu
             .into_iter()
             .flatten()
         {
-            let target = target.as_str().expect("an id");
+            let written = target.as_str().expect("an id");
+            let target = written.strip_prefix('/').unwrap_or(written);
             if ids.iter().any(|id| id == target) {
                 edges.push(
                     json!({ "source": risk["id"], "target": target, "label": "mitigated_by" }),
@@ -245,6 +247,32 @@ fn an_unresolved_mitigation_is_never_done() {
     let commits = [commit];
     assert_eq!(status_of(&input, &commits, &[], "RK1"), "mitigated");
     assert_eq!(status_of(&input, &commits, &[], "RK2"), "mitigating");
+}
+
+/// A risk is unscoped, so the kernel resolves a `mitigated_by` item from the project alone: its full path, rooted or
+/// not. A short name is E003 and names nothing, though a target the risk names elsewhere ends with it.
+#[test]
+fn a_mitigation_is_the_target_the_kernel_resolves_it_to() {
+    let task = format!("{PLAN}/T1");
+    let rooted = format!("/{task}");
+    let commits = [Commit {
+        task: Some(task.clone()),
+        ..Default::default()
+    }];
+    let input = project(
+        vec![named("SHORT", &[&task, "T1"]), named("ROOTED", &[&rooted])],
+        Vec::new(),
+    );
+    assert_eq!(
+        status_of(&input, &commits, &[], "SHORT"),
+        "mitigating",
+        "T1 resolves to nothing"
+    );
+    assert_eq!(
+        status_of(&input, &commits, &[], "ROOTED"),
+        "mitigated",
+        "the rooted path is the task"
+    );
 }
 
 #[test]

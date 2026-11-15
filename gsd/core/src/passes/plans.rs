@@ -87,6 +87,36 @@ pub fn resolve<'a>(targets: &BTreeSet<&'a str>, raw: &str) -> Option<&'a str> {
         .copied()
 }
 
+/// The target among `targets`, the edges of one field of `holder`, that `written`, an item of that field as written,
+/// names. The graph resolves a reference by its holder's scope chain alone (ADR 0284 D4): in the holder itself, each
+/// enclosing scope, then the project, and a rooted `/path` in the project only; never by a suffix. So the target is
+/// the first spelling of that chain among `targets`: a nearer entity the field admits would have answered the item.
+/// An item the graph did not resolve (E003) names none, whatever target ends with it.
+pub fn written_target<'a>(
+    targets: &BTreeSet<&'a str>,
+    holder: &str,
+    written: &str,
+) -> Option<&'a str> {
+    let (path, levels): (&str, Vec<&str>) = match written.strip_prefix('/') {
+        Some(path) => (path, vec![""]),
+        None => (
+            written,
+            std::iter::successors(Some(holder), |scope| {
+                (!scope.is_empty()).then(|| crate::scope::scope_of(scope))
+            })
+            .collect(),
+        ),
+    };
+    levels.into_iter().find_map(|level| {
+        let id = if level.is_empty() {
+            path.to_string()
+        } else {
+            format!("{level}/{path}")
+        };
+        targets.get(id.as_str()).copied()
+    })
+}
+
 /// The last `/`-segment of an id: its name.
 pub fn name_of(id: &str) -> &str {
     id.rsplit('/').next().unwrap_or(id)
@@ -273,3 +303,6 @@ pub fn with_field_edges(mut input: serde_json::Value) -> serde_json::Value {
     input["edges"] = edges.into();
     input
 }
+
+#[cfg(test)]
+mod tests;
