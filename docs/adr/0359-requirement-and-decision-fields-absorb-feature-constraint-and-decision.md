@@ -28,6 +28,15 @@ no kernel crate, no re-vendor): the ADR 0150 D2 amendment above.
   `metric` 63 times each, `constrains` 63 times and `protects` 44 times. Their categories are reliability (34),
   performance (17), usability (5), portability (3), compatibility (2), interoperability (1) and security (1).
 - The heading collides with the quality class: both want the word `category`.
+- A `@gsd/core` decision is GSD's `D-NN` and a Key Decisions row. The old `@specforge/governance` decision is an
+  ADR record: SpecForge's own spec holds 117, each with a `context`, a `decision` and its `consequences`, 105 with a
+  `date`, 42 naming the invariants they shape, 12 with `tags`, 10 with `alternatives`, and 11 `superseded`. A
+  `@gsd/core` decision held none of these but its text and its rationale, and it said what reversed it on the old
+  record (`superseded_by`), where an ADR writes it on the new one.
+- The field registry recognised the other side of a relation by name only through a field of another kind with one
+  target kind ([ADR 0150](0150-a-relation-is-written-on-one-side.md) D2), so a reverse named on a self-relation
+  (`requirement.constrains`, a decision that supersedes another) or on a union (`risk.mitigated_by`) was an unknown
+  field when written: W020, the relation dropped silently.
 - Whether a requirement's thread is whole (a task of its plans, a commit of one, a passing test) was read in one place,
   `gsd/E515`'s private loop at a gate, from the test facts the guard was sent. No surface could show it, and a second
   reader (a journey's coverage) would have copied the loop.
@@ -85,6 +94,75 @@ no kernel crate, no re-vendor): the ADR 0150 D2 amendment above.
   was).
 - **D10. `effort` is a T-shirt size**: `xs`, `s`, `m`, `l` or `xl`, optional, the old feature's estimate.
 
+### The decision
+
+- **D11. The later decision names the ones it reverses.** `decision.supersedes` (→* decision) is written on the
+  new record, as an ADR's "Supersedes" line is, and names `superseded_by` its reverse: each superseded decision reads
+  it back as the incoming edge `query` shows. No decision declares a `superseded_by` field: written by hand it is E079
+  naming `decision.supersedes`, with the edit, and `specforge set` or `link` of it is refused `other_side`.
+- **D12. A self-relation's and a union's named reverse is the other side by name** (amends ADR 0150 D2).
+  `FieldRegistry::owning_fields`, which answers both E079 and the typed edit's `other_side`, finds every reference
+  field, of any kind (the entity's own kind included), whose target kinds (one, or a union's) hold the entity's kind
+  and whose `inverse_of` is the name written. Recognition by values is unchanged: a self-relation or a union is never
+  guessed from ids alone, so an unknown field that merely lists ids of its own kind stays W020. W162's rule (a) reads
+  each kind of a union, so a union cannot name a reverse one of its kinds declares. The amendment also makes D6's
+  `constrained_by` real.
+- **D13. `alternatives` is the checkpoint's option record plus `why_not`.** `kinds::OPTION` (`name` required,
+  `pros`, `cons`) is the checkpoint's `options` record; `kinds::ALTERNATIVE` is its three fields and an optional
+  `why_not`, so the two cannot drift. A checkpoint's options keep exactly three members: they are offered before the
+  choice, and none has lost yet. `why_not` is optional, since an old governance alternative is a bare name.
+- **D14. `affects` names what a decision shapes**: `requirement`, `invariant` and `@code/core`'s `item` (an optional
+  peer, as in `task.items`), each reading it back as `affected_by`. **The union rule:** a kind joins `affects` only in
+  the change that declares the kind, because a union member no loaded extension declares turns every unresolved id of
+  the union into I004 rather than E003. A test pins the list; the change that declares a new member moves that pin.
+  `risk`, `phase` and `milestone` are not members: no old value maps there.
+- **D15. The ADR record's fields**: `context` (str, what prompted it), `consequences` (strs, what follows, good and
+  bad), `decided` (date, immutable, like `context.gathered`: a change is a new decision that supersedes it),
+  `deciders` (strs) and `tags` (strs). All are optional and authored. `deciders` records who decided, not an attested
+  sign-off, so it is not human-only: a human-only field would refuse a one-time conversion's write.
+- **D16. A superseded context decision is not trackable, under every profile.** `passes::plans::context_decisions`,
+  the one set `gsd/E310`, `gsd/W317` and `gsd/W506` read, leaves out every decision a `supersedes` edge targets
+  (`passes::plans::superseded`). GSD has no supersedes, so no GSD-written project holds one and compat's output on
+  every GSD project is unchanged; upstream's own escape (`[informational]`, "if it should not be tracked") is the
+  author's act, and here superseding a decision is that act. A plan that still lists a superseded decision stays
+  silent, and so does a supersedes cycle (each decision of it untracked): either needs a code of its own.
+- **D17. The asset lines offer the relations.** Every asset line that writes a decision (the context, project and
+  walking-skeleton templates, the PRD express path, the quick discussion step, the executor's summary decisions, the
+  transition and the graduation) gives `--supersedes` and `--affects` (comma-separated ids) and `--alternatives` (one
+  JSON list, read from a quoted heredoc so an apostrophe is text), each only when it holds something
+  (`${VAR:+--flag "$VAR"}`). The ADR-shaped fields are not on asset lines: no GSD step holds their values; the
+  conversion and `specforge set` write them.
+- **D18. A risk's controls read it back as `mitigates`** (amends ADR 0358 D7). `risk.mitigated_by` (→* task | truth |
+  invariant) names `mitigates`, now that a union's named reverse is read on each of its kinds: a task, a truth or an
+  invariant reads back the risks it controls, and `mitigates` written on one is E079 naming `risk.mitigated_by`. The
+  word is not `risks`, which `affects` and `milestone` already name and which on a task would not say whether the task
+  creates the risk or controls it.
+
+### Converting the old governance decision
+
+The one-time conversion of an `@specforge/governance` decision reads this table; its measure counts it.
+
+| Old | New | Note |
+|---|---|---|
+| (kind) decision | decision, `origin project` | no phase: a project decision, named by its old id |
+| decision | text | |
+| context | context | |
+| consequences | consequences | |
+| date | decided | |
+| deciders | deciders | |
+| tags | tags | |
+| reason | rationale | |
+| alternatives (strings) | alternatives `[{name: <string>}]` | |
+| invariants | affects | the converted invariant; a reference that leaves the converted set is the conversion's ledger |
+| affects_features | affects | the requirement the feature becomes |
+| constraints | affects | the requirement the constraint becomes |
+| superseded_by X on D | `supersedes [D]` on X | the direction flips |
+| status accepted | settled true | |
+| status proposed | outcome pending | |
+| status deprecated | outcome revisit | |
+| status superseded | computed | read back as `superseded_by` from the successor's `supersedes`; one that names no successor has no field to land in, so the conversion ledgers it |
+| refs, description, authors | no field | unused in every tracked project |
+
 ## Rejected
 
 - `category` kept as the heading, with the quality class named `quality`: the heading is `decision.area`'s notion,
@@ -95,6 +173,22 @@ no kernel crate, no re-vendor): the ADR 0150 D2 amendment above.
 - E515 recomputing the thread at the gate: two readings of one fact, and the gate's would be invisible elsewhere.
 - `satisfied_by` read from resolved item edges: the derive pass would declare every item fact for no gain, and a
   pending task's planned item would not count.
+- A computed `superseded_by` field beside `supersedes`: a field and an `inverse_of` of one name on one kind is W162,
+  and two stores of one fact is what ADR 0150 removed.
+- Keeping the authored `superseded_by`: it writes on the old record, and ADR practice writes the new one.
+- Leaving a self-relation's or a union's written reverse at W020: ADR 0150 rejected E079 as a warning because the
+  relation written there is lost silently, and this is that case. A gsd-only check instead: a host rule in a guest,
+  and it would miss the typed edit's `other_side`.
+- Widening recognition by values to a self-relation or a union: unrelated unknown fields would become errors.
+- `why_not` on the checkpoint's option record: a checkpoint's options are offered before the choice, and none has
+  lost yet.
+- `deciders` as a human-only field: it records who decided, not an attested sign-off, and would refuse the one-time
+  conversion's write.
+- Counting a superseded decision under gsd-compat and exempting it under gsd-strict and gsd-plus: a profile raises a
+  severity or turns a rule off, never narrows what a rule judges, and compat would demand that a plan list a decision
+  its author reversed, whose only way out is deleting the record `supersedes` keeps.
+- `risks` as `mitigated_by`'s reverse: `risk.affects` and `risk.milestone` already name it, and on a task it would not
+  say whether the task creates the risk or controls it.
 
 ## Consequences
 
@@ -102,8 +196,16 @@ no kernel crate, no re-vendor): the ADR 0150 D2 amendment above.
 - `gsd/E515` sheds its test facts; it and the requirement's `proof` agree by construction, on every surface.
 - A later reader of the thread (a journey's coverage, say) reads the computed `proof` and the one predicate, not
   the tests.
+- An old governance decision converts with no value lost but `refs`, `description` and `authors`, which no tracked
+  project writes; the 10 superseded decisions of SpecForge's spec that name no successor are the conversion's ledger.
+- A kind added to `decision.affects` waits for its declaration (the union rule), and moves the pin that holds the
+  list.
+- A supersedes cycle untracks every decision in it, and a plan that lists a superseded decision is silent: each needs
+  a code of its own.
 
 ## Would reopen it
 
 - A requirement satisfied by code no task names: a coverage reading over the requirement's items would have to say
   which tests exercise them.
+- A decision that reverses only part of another: `supersedes` untracks the whole of the earlier one, so a partial
+  reversal would need its own relation.
