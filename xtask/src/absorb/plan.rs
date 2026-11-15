@@ -89,8 +89,9 @@ impl Planned {
 }
 
 /// Every reason the run cannot convert `entities`, all at once: an entity of a kind no row converts, a field with no
-/// row, a value in a refused field, a word a default field does not imply, an obligation with no row, two creates
-/// with one id.
+/// row, a value in a refused field, a word a default field does not imply, an obligation with no row, a milestone
+/// that targets a day before it starts (which the target refuses, so the converted project would not check clean),
+/// two creates with one id.
 pub fn prechecks(entities: &[OldEntity]) -> Result<(), Vec<Stop>> {
     let mut stops = Vec::new();
     let stop = |e: &OldEntity, field: &str, why: String| Stop {
@@ -131,6 +132,19 @@ pub fn prechecks(entities: &[OldEntity]) -> Result<(), Vec<Stop>> {
         if !e.obligations.is_empty() && table::row_of(&e.kind, VERIFY).is_none() {
             stops.push(stop(e, VERIFY, format!("no row for {}.{VERIFY}", e.kind)));
         }
+        if table::new_kind(&e.kind) == Some("milestone")
+            && let (Some(starts), Some(targets)) = (day(e, "start_date"), day(e, "target_date"))
+            && targets < starts
+        {
+            stops.push(stop(
+                e,
+                "target_date",
+                format!(
+                    "{targets} is before its start_date {starts}: the target refuses a milestone that ships \
+                     before it starts (gsd/E537)"
+                ),
+            ));
+        }
     }
     let mut by_id: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for e in entities {
@@ -148,6 +162,18 @@ pub fn prechecks(entities: &[OldEntity]) -> Result<(), Vec<Stop>> {
     }
     stops.sort();
     if stops.is_empty() { Ok(()) } else { Err(stops) }
+}
+
+/// The `YYYY-MM-DD` day `e` writes in `field`. Two such days compare as calendar days by their text; any other
+/// spelling is the source's own date error, never one the target adds.
+fn day<'e>(e: &'e OldEntity, field: &str) -> Option<&'e str> {
+    let text = e.fields.get(field)?.as_str()?;
+    let shaped = text.len() == 10
+        && text.bytes().enumerate().all(|(at, b)| match at {
+            4 | 7 => b == b'-',
+            _ => b.is_ascii_digit(),
+        });
+    shaped.then_some(text)
 }
 
 /// The ids `e` creates, each with the entity that makes it.

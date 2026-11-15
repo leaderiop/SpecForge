@@ -342,6 +342,31 @@ fn a_milestone_keeps_its_exit_criteria_dates_owner_and_dependencies() {
     );
 }
 
+/// The target refuses a milestone that ships before it starts (gsd/E537), so the run stops on one before any write;
+/// the same day, or a date that is no day, is no stop.
+#[test]
+fn a_milestone_that_targets_a_day_before_it_starts_stops_the_run() {
+    let dated = |id: &str, starts: &str, targets: &str| {
+        old(
+            "milestone",
+            id,
+            json!({"start_date": starts, "target_date": targets}),
+        )
+    };
+    let stopped = stops(&[
+        dated("late", "2026-10-15", "2026-09-01"),
+        dated("same_day", "2026-10-15", "2026-10-15"),
+    ]);
+    assert_eq!(
+        stopped.iter().map(ToString::to_string).collect::<Vec<_>>(),
+        [
+            "milestone 'late' target_date: 2026-09-01 is before its start_date 2026-10-15: the target refuses a \
+             milestone that ships before it starts (gsd/E537)"
+        ]
+    );
+    planned(&[dated("on_time", "2026-09-01", "2026-10-15")]);
+}
+
 #[test]
 fn persona_status_and_key_features_are_kept() {
     let planned = planned(&[

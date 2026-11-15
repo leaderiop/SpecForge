@@ -94,6 +94,21 @@ fn all_thirteen_kinds_convert_with_no_error_and_no_warning() {
         journeys.contains("milestones [store_cli, store_web]"),
         "a journey lists every deliverable that listed it: {journeys}"
     );
+    assert!(
+        journeys
+            .lines()
+            .any(|l| l.split_whitespace().eq(["milestones", "[store_cli]"])),
+        "the journey with features lists the milestone its deliverable became: {journeys}"
+    );
+    assert!(
+        !run.summary["target"]["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f.as_str().unwrap().starts_with("gsd/W530 ")),
+        "a milestone with no phase asks no journey for its requirements (gsd/W530): {}",
+        run.summary
+    );
     let features = std::fs::read_to_string(a.join("spec/product/features.spec")).unwrap();
     assert!(
         features.contains("decision store_entries_solution \"Store Entries\""),
