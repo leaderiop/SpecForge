@@ -191,10 +191,10 @@ The phase lists it in its computed `invariants_due` ([project.md](project.md#pha
   items whose name tags it.
 - **The window.** With no `holds_from`, every phase's commits. Otherwise the `holds_from` phase, a later-numbered
   phase of its milestone and, where numbers do not order two phases (another milestone, a custom-named or a backlog
-  `999.x` phase), a commit no older than the first commit recorded for the `holds_from` phase (none while it has
-  none). `scope milestone` keeps only the `holds_from` phase's milestone; with no `holds_from` it reads as `project`.
-  A commit is placed by its author time and its phase by its plan's; a quick plan's commit is in no phase and is not
-  judged.
+  `999.x` phase), a commit no older than the first commit recorded for the `holds_from` phase (until it has one, any
+  commit: the verdict alone bounds it). `scope milestone` keeps only the `holds_from` phase's milestone; with no
+  `holds_from` it reads as `project`. A commit is placed by its author time and its phase by its plan's; a quick
+  plan's commit is in no phase and is not judged.
 - **Covered.** Any `gsd/I536` verdict recorded at or after the commit, fresh or stale, whatever its outcome: recording
   a verdict only clears a phase; editing the invariant changes which commits can make it due (what it guards, its
   window), never the verdict that covers one. A verdict records the second it was

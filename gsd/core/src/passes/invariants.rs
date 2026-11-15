@@ -241,14 +241,16 @@ fn guarded(input: &PassInput, code: &Code<'_>, invariant: &PassEntity) -> Guarde
 
 /// The phases whose commits can owe an invariant a judgement: every phase with no `holds_from`; else its `holds_from`
 /// phase, a later-numbered phase of its milestone and, where numbers do not order two phases (another milestone, a
-/// custom-named or backlog phase), a commit no older than the `holds_from` phase's first recorded commit. Under
-/// `scope milestone`, only the `holds_from` phase's milestone.
+/// custom-named or backlog phase), a commit no older than the `holds_from` phase's first recorded commit, or, while it
+/// has none, any commit (the verdict bounds it: only a commit after it is due). Under `scope milestone`, only the
+/// `holds_from` phase's milestone.
 enum Window<'a> {
     Every,
     From {
         phase: &'a str,
         number: Option<Number>,
-        /// The time of the `holds_from` phase's first recorded commit; `None` while it has none.
+        /// The time of the `holds_from` phase's first recorded commit; `None` while it has none, and then the
+        /// verdict alone bounds a commit numbers do not order.
         start: Option<i64>,
         /// `scope milestone`: no other milestone's commit counts.
         one_milestone: bool,
@@ -292,7 +294,12 @@ impl<'a> Window<'a> {
         if phase == *from {
             return true;
         }
-        let by_time = || matches!((start, at), (Some(start), Some(at)) if at >= *start);
+        let by_time = || match (start, at) {
+            (Some(start), Some(at)) => at >= *start,
+            // No recorded commit of the phase to order by: the verdict bounds it, as for every commit.
+            (None, _) => true,
+            (Some(_), None) => false,
+        };
         if scope_of(phase) != scope_of(from) {
             return !one_milestone && by_time();
         }

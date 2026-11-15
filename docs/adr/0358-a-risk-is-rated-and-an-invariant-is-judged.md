@@ -206,11 +206,13 @@ Decisions:
 - **D18. The window.** With no `holds_from`, every phase's commits. Otherwise the `holds_from` phase; a later-numbered
   phase of its milestone; and, where numbers do not order two phases (another milestone, a custom-named or a backlog
   phase: no roadmap order runs across milestones, and `999.x` sits outside the numbering), a commit no older than the
-  first commit recorded for the `holds_from` phase, none while it has none, so workstreams running side by side are
-  judged by time. `scope milestone` keeps only the `holds_from` phase's milestone; with no `holds_from` it has no
-  milestone to keep and reads as `project`: a guard errs toward guarding. A commit is placed by its author time
-  (`commit.at`), the only time it carries, and its phase by its plan's; a quick plan's commit is in no phase and is not
-  judged, as gsd/W522 and gsd/E519 leave quick plans out.
+  first commit recorded for the `holds_from` phase, so workstreams running side by side are judged by time. A phase
+  can be in force with no recorded commit (a research phase, one run before `gsd-git`, commits with no `Gsd-Task`
+  trailer): until it has one, every such commit is in the window, and the verdict bounds it (only a commit after it is
+  due). `scope milestone` keeps only the `holds_from` phase's milestone; with no `holds_from` it has no milestone to
+  keep and reads as `project`: a guard errs toward guarding. A commit is placed by its author time (`commit.at`), the
+  only time it carries, and its phase by its plan's; a quick plan's commit is in no phase and is not judged, as
+  gsd/W522 and gsd/E519 leave quick plans out.
 - **D19. What covers a commit.** Any I536 verdict recorded at or after it, fresh or stale, whatever its outcome. E531
   owes a judgement and I536 says what it found: recording a verdict only removes E531 rows, and editing the invariant
   changes which commits a row may name (its guard and window), never the verdict that covers one. A verdict records

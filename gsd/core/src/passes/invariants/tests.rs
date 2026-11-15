@@ -477,12 +477,37 @@ fn scope_project_counts_another_milestones_commit_from_holds_froms_first_commit(
     f.in_phase("equal", "v2.0/01", start, &[ITEM_A]);
     f.in_phase("newer", "v2.0/01", "2026-11-04T00:00:00Z", &[ITEM_A]);
     assert_eq!(commits_due(&f), ["equal", "newer"]);
-    // the holds_from phase has no recorded commit: no other milestone's commit is placed after it
+    // the holds_from phase has no recorded commit: the verdict alone bounds another milestone's commit
     let mut none = Fixture::new();
     none.judged();
     none.holds_from("v1.0/02", None);
     none.in_phase("newer", "v2.0/01", "2026-11-04T00:00:00Z", &[ITEM_A]);
-    assert_eq!(commits_due(&none), Vec::<String>::new());
+    assert_eq!(commits_due(&none), ["newer"]);
+}
+
+/// A phase can be in force with no recorded commit (a research phase, one run before `gsd-git`, commits without a
+/// `Gsd-Task` trailer): then the verdict bounds every phase numbers do not order, another milestone's, a custom-named
+/// or a backlog one, and only a commit after it is due. `scope milestone` still keeps the other milestone out.
+#[test]
+fn a_holds_from_phase_with_no_recorded_commit_leaves_the_verdict_to_bound_the_window() {
+    for scope in [None, Some("milestone")] {
+        let mut f = Fixture::new();
+        f.judged();
+        f.holds_from("v1.0/02", scope);
+        for (commit, phase) in [
+            ("v2", "v2.0/01"),
+            ("polish", "v1.0/polish"),
+            ("backlog", "v1.0/999.1"),
+        ] {
+            f.in_phase(&format!("{commit}-before"), phase, BEFORE, &[ITEM_A]);
+            f.in_phase(commit, phase, AFTER, &[ITEM_A]);
+        }
+        let expected: &[&str] = match scope {
+            None => &["v2", "polish", "backlog"],
+            Some(_) => &["polish", "backlog"],
+        };
+        assert_eq!(commits_due(&f), expected, "{scope:?}");
+    }
 }
 
 /// A custom-named phase and a backlog `999.x` have no number the roadmap orders: a commit of either counts from the
