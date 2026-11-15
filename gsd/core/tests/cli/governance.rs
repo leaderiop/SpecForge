@@ -187,6 +187,31 @@ fn a_verified_truth_mitigates_its_risk() {
     assert_eq!(state(&p, "RK4"), ("mitigated".into(), false), "current 30");
 }
 
+/// Phase 01 with two verifications and an override accepting TR1 on one of them: RK4 is mitigated whichever holds
+/// it, so the override is not lost to the other.
+#[test]
+fn an_override_on_either_verification_of_a_phase_mitigates() {
+    let verifications = "verification 01-VERIFICATION \"Store\" {\n  phase v1.0/01\n}\n\n\
+        verification 01-VERIFICATION-2 \"Store again\" {\n  phase v1.0/01\n}\n";
+    let mut seen = Vec::new();
+    for on in ["01-VERIFICATION", "01-VERIFICATION-2"] {
+        let p = project("governance");
+        p.write(
+            "spec/verify.spec",
+            &format!(
+                "{verifications}\noverride OV1 \"Accepted\" {{\n  verification v1.0/01/{on}\n  \
+                 truth        01-01/TR1\n  reason       \"checked by hand\"\n}}\n"
+            ),
+        );
+        seen.push(state(&p, "RK4"));
+    }
+    assert_eq!(
+        seen,
+        [("mitigated".into(), false), ("mitigated".into(), false)],
+        "current 30 either way"
+    );
+}
+
 #[test]
 fn the_threshold_follows_specforge_risk_block_on() {
     let p = project("governance");

@@ -51,7 +51,8 @@ A risk is `mitigated` once every item of its `mitigated_by` is done:
 
 - a task, when a recorded commit names it or its plan is `complete` (the rule that gives the task its `done`);
 - a truth, when its phase's verification verifies it (an override, or a fresh passing `gsd/E501` verdict that no
-  recorded test contradicts). A truth no verification assesses is not verified.
+  recorded test contradicts); a phase's verifications are read as one, so an override on any of them counts. A truth
+  no verification assesses is not verified.
 
 A risk is unscoped, so an item names a task or a truth by its full path, rooted or not (`v1.0/01/01-01/T1` or
 `/v1.0/01/01-01/T1`). A name that does not resolve is never done (the kernel reports it, E003), even when another

@@ -256,9 +256,9 @@ fn covered(group: &Group) -> Vec<String> {
     files.into_iter().map(String::from).collect()
 }
 
-/// The truths of one verification that an override accepted at the baseline: `override` is a baseline kind, and the
-/// acceptance lapsed there as it does now (`still_accepts`, over the baseline's own truth text).
-fn then_overridden<'a>(input: &'a PassInput, verification: &str) -> BTreeSet<&'a str> {
+/// The truths an override of one of `verifications` (a phase's, read as one) accepted at the baseline: `override` is a
+/// baseline kind, and the acceptance lapsed there as it does now (`still_accepts`, over the baseline's own truth text).
+fn then_overridden<'a>(input: &'a PassInput, verifications: &BTreeSet<&str>) -> BTreeSet<&'a str> {
     let Some(previous) = input.previous.as_ref() else {
         return BTreeSet::new();
     };
@@ -266,7 +266,10 @@ fn then_overridden<'a>(input: &'a PassInput, verification: &str) -> BTreeSet<&'a
     previous
         .entities
         .values()
-        .filter(|o| o.kind == "override" && field(o, "verification") == Some(verification))
+        .filter(|o| {
+            o.kind == "override"
+                && field(o, "verification").is_some_and(|v| verifications.contains(v))
+        })
         .filter_map(|o| {
             let truth = field(o, "truth")?;
             let accepted = field(o, "accepts").map(str::trim).filter(|t| !t.is_empty());
@@ -303,12 +306,12 @@ fn then_state(input: &PassInput, id: &str, overridden: &BTreeSet<&str>) -> Optio
 /// verdict yet (a file that came back still needs one); an item the scan only now fails and that was never verified
 /// there is no regression (it shows in `status`). Items are the phase's truths, artifacts and key links (by scan state
 /// and verdict, ADR 0300) and its verify gaps (by status: open there, closed now). `previous_status` and
-/// `previous_score` are the baseline verification's own computed values.
+/// `previous_score` are the baseline verification's own computed values. The overrides held then are those of the
+/// phase's verifications, read as one as they are now.
 fn re_verification(
     input: &PassInput,
     v: &PassEntity,
-    group: &Group,
-    now: &[Item],
+    a: &Assessment,
     statuses: &Statuses,
 ) -> Option<Value> {
     let previous = input.previous.as_ref()?;
@@ -316,8 +319,9 @@ fn re_verification(
     let mut closed = Vec::new();
     let mut remaining = Vec::new();
     let mut regressions = Vec::new();
-    let held = then_overridden(input, &v.id);
-    for (e, state) in group.entities.iter().zip(now) {
+    let ids: BTreeSet<&str> = a.verifications.iter().map(|v| v.id.as_str()).collect();
+    let held = then_overridden(input, &ids);
+    for (e, state) in a.group.entities.iter().zip(&a.now) {
         let Some(then) = then_state(input, &e.id, &held) else {
             continue;
         };
@@ -361,23 +365,40 @@ fn re_verification(
     (!block.is_empty()).then_some(Value::Object(block))
 }
 
-/// What is known of one verification.
+/// What is known of one phase's verifications. A phase has one; any more are read with it as one, so nothing depends
+/// on their order and nothing recorded on one is lost: an override, a deferral, an anti-pattern blocker, a human
+/// item and a partial scan of any of them count for the phase, and each carries its status and score.
 struct Assessment<'a> {
-    verification: &'a PassEntity,
+    /// The phase's verifications, in id order.
+    verifications: Vec<&'a PassEntity>,
+    phase: &'a str,
     group: Group<'a>,
     now: Vec<Item>,
+    /// The states of the group's truths, in its order.
+    truths: Vec<Item>,
     status: &'static str,
 }
 
 fn assess(input: &PassInput) -> Vec<Assessment<'_>> {
-    let mut found = Vec::new();
+    let mut phases: BTreeMap<&str, Vec<&PassEntity>> = BTreeMap::new();
     for v in of_kind(input, "verification") {
-        let Some(phase) = link(input, v, "phase") else {
-            continue;
-        };
-        let group = group(input, phase, &deferred(input, v, phase));
+        if let Some(phase) = link(input, v, "phase") {
+            phases.entry(phase).or_default().push(v);
+        }
+    }
+    let mut found = Vec::new();
+    for (phase, mut verifications) in phases {
+        verifications.sort_by(|a, b| a.id.cmp(&b.id));
+        let ids: BTreeSet<&str> = verifications.iter().map(|v| v.id.as_str()).collect();
+        let of_phase =
+            |e: &PassEntity| link(input, e, "verification").is_some_and(|v| ids.contains(v));
+        let deferred: BTreeSet<String> = verifications
+            .iter()
+            .flat_map(|v| deferred(input, v, phase))
+            .collect();
+        let group = group(input, phase, &deferred);
         let overridden: BTreeSet<&str> = of_kind(input, "override")
-            .filter(|o| link(input, o, "verification") == Some(v.id.as_str()))
+            .filter(|o| of_phase(o))
             .filter(|o| still_accepts(input, o))
             .filter_map(|o| link(input, o, "truth"))
             .collect();
@@ -394,13 +415,17 @@ fn assess(input: &PassInput) -> Vec<Assessment<'_>> {
             .map(|(_, i)| *i)
             .collect();
         let human_open = of_kind(input, "human_item")
-            .filter(|h| link(input, h, "verification") == Some(v.id.as_str()))
+            .filter(|h| of_phase(h))
             .any(|h| !passed_in_uat(input, h));
-        let status = status(&now, &truths, blocker(v), human_open, partial(v));
+        let blocker = verifications.iter().any(|v| blocker(v));
+        let partial = verifications.iter().any(|v| partial(v));
+        let status = status(&now, &truths, blocker, human_open, partial);
         found.push(Assessment {
-            verification: v,
+            verifications,
+            phase,
             group,
             now,
+            truths,
             status,
         });
     }
@@ -413,26 +438,26 @@ pub struct Verified {
     pub at: Option<String>,
 }
 
-/// The verification of each phase, by phase id.
+/// The verification of each phase, by phase id: its verifications read as one.
 pub fn by_phase(input: &PassInput) -> BTreeMap<String, Verified> {
     assess(input)
         .into_iter()
-        .filter_map(|a| {
-            let phase = link(input, a.verification, "phase")?.to_string();
-            Some((
-                phase,
+        .map(|a| {
+            let at = latest(&a.group);
+            (
+                a.phase.to_string(),
                 Verified {
                     status: a.status,
-                    at: latest(&a.group),
+                    at,
                 },
-            ))
+            )
         })
         .collect()
 }
 
-/// The state of each truth, artifact and key link a verification assesses, by id: an id names one entity whatever its
-/// kind (ADR 0284 D3: a declaration of another kind at the same path is W060 and is not placed). An item no
-/// verification assesses (its phase has none, or defers it) is not here, so it is not verified.
+/// The state of each truth, artifact and key link its phase's verifications assess, read as one, by id: an id names
+/// one entity whatever its kind (ADR 0284 D3: a declaration of another kind at the same path is W060 and is not
+/// placed). An item no verification assesses (its phase has none, or defers it) is not here, so it is not verified.
 pub fn items(input: &PassInput) -> BTreeMap<&str, Item> {
     assess(input)
         .into_iter()
@@ -444,29 +469,26 @@ pub fn items(input: &PassInput) -> BTreeMap<&str, Item> {
 pub fn values(input: &PassInput, statuses: &Statuses) -> Vec<PassValue> {
     let mut found = Vec::new();
     for a in assess(input) {
-        let v = a.verification;
-        let truths: Vec<Item> = a
-            .group
-            .entities
-            .iter()
-            .zip(&a.now)
-            .filter(|(e, _)| e.kind == "truth")
-            .map(|(_, i)| *i)
-            .collect();
-        found.push(value(&v.id, "status", a.status));
-        found.push(value(&v.id, "score", score(&truths)));
-        if let Some(at) = latest(&a.group) {
-            found.push(value(&v.id, "verified", at));
-        }
-        let files = covered(&a.group);
-        if !files.is_empty() {
-            found.push(value(&v.id, "covered_files", json!(files)));
-        }
-        if let Some(digest) = covered_digest(&a.group) {
-            found.push(value(&v.id, "covered_digest", digest));
-        }
-        if let Some(block) = re_verification(input, v, &a.group, &a.now, statuses) {
-            found.push(value(&v.id, "re_verification", block));
+        let (at, files, digest) = (
+            latest(&a.group),
+            covered(&a.group),
+            covered_digest(&a.group),
+        );
+        for v in &a.verifications {
+            found.push(value(&v.id, "status", a.status));
+            found.push(value(&v.id, "score", score(&a.truths)));
+            if let Some(at) = &at {
+                found.push(value(&v.id, "verified", at.clone()));
+            }
+            if !files.is_empty() {
+                found.push(value(&v.id, "covered_files", json!(files)));
+            }
+            if let Some(digest) = &digest {
+                found.push(value(&v.id, "covered_digest", digest.clone()));
+            }
+            if let Some(block) = re_verification(input, v, &a, statuses) {
+                found.push(value(&v.id, "re_verification", block));
+            }
         }
     }
     found.extend(gaps(input, statuses));

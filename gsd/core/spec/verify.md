@@ -48,7 +48,9 @@ files themselves are not read.
 
 ## verification
 
-GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
+GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`. A phase written with more than one has them read as
+one: an override, a deferral, a blocker anti-pattern, a human item or a partial scan recorded on any counts for the
+phase, each carries the phase's status and score, and nothing depends on their order.
 
 | Field | Type | Flags | GSD |
 |---|---|---|---|

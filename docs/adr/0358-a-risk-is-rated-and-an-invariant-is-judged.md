@@ -39,7 +39,8 @@ lands, so the title names both.
   between.
   - A task is done when a recorded commit names it or its plan is complete (the rule that gives the task its `done`).
   - A truth is done when its phase's verification verifies it: an override, or a fresh passing `gsd/E501` verdict
-    that no recorded test contradicts. A truth no verification assesses is not verified.
+    that no recorded test contradicts. A phase's verifications are read as one, so an override on any of them counts.
+    A truth no verification assesses is not verified.
   - A risk is unscoped, so it names a mitigation by its full path, rooted or not. A name that does not resolve is
     never done, even when another item's path ends with it. The prose `mitigation` is no evidence.
   - A mitigation is read by its id: an id names one entity whatever its kind
