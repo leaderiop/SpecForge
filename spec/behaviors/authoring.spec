@@ -105,7 +105,7 @@ behavior edit_entity_field "Edit an Entity Field" {
     refused not_editable. A field the kind does not declare is refused. A spec
     block's fields are declared by no kind: a set, unset, link or unlink of one is refused not_editable, naming the
     file to edit, as its retitle is. A field that is the other
-    side of a relation another kind owns is refused naming the owning field (ADR 0157).
+    side of a relation a reference field owns, its own kind's included, is refused naming the owning field (ADR 0157).
     A set, unset, link or unlink of a field the block writes twice first removes its later entries, which the
     graph does not hold (E081, ADR 0215). A union (`kind name = a | b`) holds only its variants: a set,
     unset, link, unlink, add-verify or remove-verify of it is refused not_editable before its field is

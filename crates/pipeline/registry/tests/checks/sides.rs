@@ -1,5 +1,5 @@
-//! E079: a field written on the other side of a relation another kind owns (ADR 0150). Every test
-//! starts from `.spec` text (ADR 0115).
+//! E079: a field written on the other side of a relation a reference field owns, its own kind's
+//! included (ADR 0150, ADR 0359). Every test starts from `.spec` text (ADR 0115).
 
 use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::ExtensionDeclaration;

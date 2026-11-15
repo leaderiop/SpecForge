@@ -1075,17 +1075,20 @@ Level: error
 E079: Relation written on its other side
 
 An entity writes a field its kind does not declare, and that field is the other
-side of a relation another kind owns. A relation is written on its owning field
-only (ADR 0150): the one reference field an extension declares for it. The other
-side is derived, never written: `query` shows it as the incoming edges and
-`trace` as the upstream. The field is recognised in two ways: an owning field
-names it in its `inverse_of` (so a documented reverse such as `behaviors` on a
-feature is refused even when its ids do not resolve), or every id it lists is
-one other kind's entity and that kind owns a reference field into this one
-(`journeys [..]` on a feature). A self-relation's other side is not recognised,
-and a kind that accepts any field is not checked. The graph still carries the
-field's untyped edge, and `check` fails. Remove the field and write the owning
-field on each entity it listed; the suggestion names both.
+side of a relation a reference field owns, its own kind's included. A relation
+is written on its owning field only (ADR 0150): the one reference field an
+extension declares for it. The other side is derived, never written: `query`
+shows it as the incoming edges and `trace` as the upstream. The field is
+recognised in two ways: a reference field whose targets hold this kind names it
+in its `inverse_of`, a self-relation's and a union's included (so a documented
+reverse such as `behaviors` on a feature, or `superseded_by` on a decision, is
+refused even when its ids do not resolve), or every id it lists is one other
+kind's entity and that kind owns a single-kind reference field into this one
+(`journeys [..]` on a feature). By its values alone a self-relation's or a
+union's other side is not recognised, and a kind that accepts any field is not
+checked. The graph still carries the field's untyped edge, and `check` fails.
+Remove the field and write the owning field on each entity it listed; the
+suggestion names both.
 
 Owner: core
 Level: error
@@ -4250,15 +4253,16 @@ Level: warning
 W162: Relation declared from both sides
 
 A relation has two fields: one extension declares it from both of its ends.
-Either a reference field's `inverse_of` names a field its target kind registers
-(`milestone.behaviors` naming `features`, when `behavior` has its own
-`features`), or two different kinds each register a reference field targeting
-the other (`parent.children` and `child.parent`) and neither names its reverse.
-A relation is written from one side (ADR 0150): the other side is derived, so
-`query` and `trace` already show it. Both fields still register, and an entity
-can write either. Remove one field, or drop the `inverse_of` or name a word the
-target kind does not use; two relations between the same kinds are told apart by
-giving one an `inverse_of` (ADR 0354). The builtin extensions declare none.
+Either a reference field's `inverse_of` names a field its target kind, or any
+kind of its union, registers (`milestone.behaviors` naming `features`, when
+`behavior` has its own `features`), or two different kinds each register a
+reference field targeting the other (`parent.children` and `child.parent`) and
+neither names its reverse. A relation is written from one side (ADR 0150): the
+other side is derived, so `query` and `trace` already show it. Both fields still
+register, and an entity can write either. Remove one field, or drop the
+`inverse_of` or name a word the target kind does not use; two relations between
+the same kinds are told apart by giving one an `inverse_of` (ADR 0354). The
+builtin extensions declare none.
 
 Owner: core
 Level: warning
