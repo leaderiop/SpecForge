@@ -90,7 +90,8 @@ fn awaiting(call: &PromptCall<'_>) -> String {
     {
         text.push_str(&format!(
             "\n`{}` is pending until its `holds_from` phase has run: it owes no verdict yet, and the one you record is \
-             read once it is in force.\n",
+             read once it is in force. A later commit of its window that changes what it guards makes it due then \
+             (gsd/E531): judge it again.\n",
             early.id
         ));
     }

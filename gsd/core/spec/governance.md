@@ -175,7 +175,10 @@ stales the verdict.
 A pending invariant owes no verdict: the rule waits for it to be in force (`judged_while complete`: the kind's
 `complete_when`, read after the compute passes). It is not reported, no gate reads a verdict of it (gsd/E516), and the
 prompt does not list it; with only pending invariants the prompt says how many wait. A verdict recorded early, with
-`verify_invariant --invariant <id>`, is kept and read once the invariant is in force.
+`verify_invariant --invariant <id>`, is kept and read once the invariant is in force. If a commit of its window
+changed what it guards after that verdict, it is due the moment it is in force: the write that brings it into force
+(its `holds_from` phase's verification, say) is not refused for that `gsd/E531`, which is reported once the write
+lands, and judging it again clears it.
 
 ### When an invariant is due
 
@@ -193,10 +196,14 @@ The phase lists it in its computed `invariants_due` ([project.md](project.md#pha
   A commit is placed by its author time and its phase by its plan's; a quick plan's commit is in no phase and is not
   judged.
 - **Covered.** Any `gsd/I536` verdict recorded at or after the commit, fresh or stale, whatever its outcome: recording
-  a verdict only clears a phase, and editing the invariant never makes one due. A verdict records the second it was
+  a verdict only clears a phase; editing the invariant changes which commits can make it due (what it guards, its
+  window), never the verdict that covers one. A verdict records the second it was
   given, so a commit authored later the same day is due; an `at` written as a day covers that whole day.
 - **Owed in force, once judged.** A pending invariant owes nothing, as it owes no verdict ([Its verdict](#its-verdict)),
-  and an invariant in force never judged owes nothing either: `gsd/I536` reports its missing verdict.
+  and an invariant in force never judged owes nothing either: `gsd/I536` reports its missing verdict. `gsd/E531`
+  waits for the invariant to be in force (its code's `reported_while`, [ADR 0363](../../../docs/adr/0363-a-codes-findings-may-wait-for-its-owner-state-and-a-write-that-reveals-one-adds-no-error.md)),
+  so the write that brings a due invariant into force reveals it rather than adding it, and is accepted; a write that
+  widens what an invariant in force guards over a changed phase adds it, and is refused (E080).
 - **The fallback.** A commit whose `items_changed` is unwritten (no item facts were served then, or a file's lines
   were unknown) is matched by the files it touched, against the files of the guarded items and tests. A written empty
   `items_changed` changed nothing.

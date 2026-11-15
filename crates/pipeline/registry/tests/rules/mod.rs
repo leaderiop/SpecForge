@@ -88,6 +88,7 @@ fn catalog_of(rules: &[ValidationRuleDescriptor]) -> Vec<specforge_protocol_type
             explanation: "A test rule's finding.".to_string(),
             docs: None,
             machine: false,
+            reported_while: None,
         })
         .collect()
 }

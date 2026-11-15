@@ -425,6 +425,7 @@
       "code": "E531",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#governance",
       "explanation": "A phase that changes code an invariant guards has the invariant judged again. It is an error.",
+      "reported_while": "complete",
       "title": "Invariant changed since it was last judged"
     },
     {

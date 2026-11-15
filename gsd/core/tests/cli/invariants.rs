@@ -540,7 +540,7 @@ fn judge_then_change(p: Project, holds_from: &str) -> (Project, String) {
     let run = p.record("ids_are_sequential", "I536", "holds", &[]);
     assert_eq!(run.code, 0, "{}", run.all());
     let judged = verdict_at(&p);
-    let sha = change_add_task(&p, &after(&judged));
+    let sha = change_add_task(&p, "01-02/T1", &after(&judged));
     (p, sha)
 }
 
@@ -574,14 +574,14 @@ fn after(at: &str) -> String {
     }
 }
 
-/// Commits, authored at `at`, a change of phase 01's plan 01-02 to `addTask`, then collects the items and the commit.
-/// Answers the commit's full sha.
-fn change_add_task(p: &Project, at: &str) -> String {
+/// Commits, authored at `at`, a change of `task` (`01-02/T1`, its `Gsd-Task` trailer) to `addTask`, then collects the
+/// items and the commit. Answers the commit's full sha.
+fn change_add_task(p: &Project, task: &str, at: &str) -> String {
     let source = p.read("src/tasks.js");
     let changed = source.replace("board.nextId += 1;", "board.nextId = task.id + 1;");
     assert_ne!(changed, source, "the twin's addTask moved");
     let sha = p.git_commit(
-        "fix: the next id follows the task\n\nGsd-Task: 01-02/T1",
+        &format!("fix: the next id follows the task\n\nGsd-Task: {task}"),
         &[("src/tasks.js", &changed)],
         at,
     );
@@ -736,4 +736,65 @@ fn a_change_to_a_pending_invariant_makes_nothing_due() {
         assert_eq!(due_in(&p, phase), Vec::<String>::new(), "{phase}");
     }
     assert_eq!(e531(&p), Vec::new());
+}
+
+/// Judged early, while it is pending (`verify_invariant --invariant`); then phase 02, its `holds_from`, changes what it
+/// guards; then the write that brings it into force, phase 02's verification created by `specforge new`, is not
+/// refused for the E531 it reveals. E531 then fires, and judging again clears it.
+#[test]
+fn the_write_that_brings_an_early_judged_invariant_into_force_reveals_its_e531() {
+    let (p, _) = collected_thread();
+    author(&p, &invariant_from("v1.0/02"));
+    assert_eq!(status(&p, "ids_are_sequential"), "pending");
+    assert_eq!(p.record("ids_are_sequential", "I536", "holds", &[]).code, 0);
+    let judged = verdict_at(&p);
+    change_add_task(&p, "02-01/T1", &after(&judged));
+    assert_eq!(due_in(&p, "v1.0/02"), Vec::<String>::new());
+    assert_eq!(e531(&p), Vec::new());
+    let run = p.run(&[
+        "new",
+        "verification",
+        "02-VERIFICATION",
+        "Phase 02 verification",
+        "--in",
+        "spec/verify-02.spec",
+        "--phase",
+        "v1.0/02",
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(!run.all().contains("E080"), "{}", run.all());
+    assert_eq!(status(&p, "ids_are_sequential"), "holds");
+    assert_eq!(due_in(&p, "v1.0/02"), ["ids_are_sequential"]);
+    assert_eq!(e531(&p).len(), 1);
+    assert_eq!(p.record("ids_are_sequential", "I536", "holds", &[]).code, 0);
+    assert_eq!(due_in(&p, "v1.0/02"), Vec::<String>::new());
+    assert_eq!(e531(&p), Vec::new());
+}
+
+/// In force, a write that makes an invariant due is refused (E080): widening a judged invariant's `items` over code a
+/// phase changed since its verdict.
+#[test]
+fn widening_a_judged_invariant_over_changed_code_is_e080() {
+    let (p, _) = collected_thread();
+    author(
+        &p,
+        &TWIN_INVARIANT.replace("src/tasks.js::addTask", "src/tasks.js::completeTask"),
+    );
+    assert_eq!(p.record("ids_are_sequential", "I536", "holds", &[]).code, 0);
+    let judged = verdict_at(&p);
+    change_add_task(&p, "01-02/T1", &after(&judged));
+    assert_eq!(e531(&p), Vec::new());
+    let run = p.run(&[
+        "set",
+        "ids_are_sequential",
+        "items",
+        "js:taskboard/src/tasks.js::completeTask",
+        "js:taskboard/src/tasks.js::addTask",
+    ]);
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(
+        run.all().contains("E080") && run.all().contains("gsd/E531"),
+        "{}",
+        run.all()
+    );
 }

@@ -7,7 +7,7 @@ use crate::{
 };
 use specforge_protocol_types::{
     AutoDetectConfig, CodeDescriptor, CollectorDescriptor, CompilerPassDescriptor, GUARD_PHASE,
-    JudgedDescriptor, ProcessConfig,
+    JudgedDescriptor, OwnerState, ProcessConfig,
 };
 
 /// Builder for [`EntityKindDescriptor`].
@@ -417,6 +417,19 @@ impl CodeBuilder {
     /// journal), not the project: `--strict` never promotes it and the gate's warning baseline never counts it.
     pub fn machine(&mut self) -> &mut Self {
         self.0.machine = true;
+        self
+    }
+    /// A finding of this code speaks only once its entity's owner is complete (ADR 0363, the owner state of ADR 0329
+    /// D4, read after the compute passes): the host drops one on a pending entity, and the write that completes the
+    /// owner reveals it rather than adding it (E080).
+    pub fn once_complete(&mut self) -> &mut Self {
+        self.0.reported_while = Some(OwnerState::Complete.as_str().to_string());
+        self
+    }
+    /// A finding of this code speaks only while its entity's owner is pending (ADR 0363): the host drops one on a
+    /// complete entity, and the write that reopens the owner reveals it rather than adding it (E080).
+    pub fn while_open(&mut self) -> &mut Self {
+        self.0.reported_while = Some(OwnerState::Pending.as_str().to_string());
         self
     }
 }

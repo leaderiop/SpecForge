@@ -4,7 +4,8 @@
 (a target may wait for an owner state, beside `unless_set`) and builds on the owner state of
 [ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) D4, which [ADR 0350](0350-a-fields-checks-may-wait-for-its-owner.md)
 already lets a field's checks wait for. Protocol 2.2.0, unreleased: the addition goes into the 2.2.0 row, no bump. The
-wire and the SDK change, so the builtins are re-vendored.
+wire and the SDK change, so the builtins are re-vendored. Extended by [ADR 0363](0363-a-codes-findings-may-wait-for-its-owner-state-and-a-write-that-reveals-one-adds-no-error.md) to a code: its findings may wait for
+an owner state, and the write that reveals one adds no error (E080).
 
 ## Context
 

@@ -97,6 +97,19 @@ impl CompiledProject {
         &self.checked_values
     }
 
+    /// Whether `entity`'s owner is pending (ADR 0329 D4) on [`Self::entities`], where the last check merged the
+    /// compute passes' values, so a computed status decides it; `None` when the project holds no such entity, or
+    /// after an update that skipped the checks (no computed value says it then).
+    pub fn owner_pending(&self, entity: &str) -> Option<bool> {
+        if self.checks_skipped {
+            return None;
+        }
+        let entities = self.entities();
+        entities
+            .get(entity)
+            .map(|(record, _)| entities.is_pending(record))
+    }
+
     /// What the value checks found at the last run of the checks (ADR 0336), by entity.
     pub fn value_checks(&self) -> &crate::values::ValueChecks {
         &self.value_checks

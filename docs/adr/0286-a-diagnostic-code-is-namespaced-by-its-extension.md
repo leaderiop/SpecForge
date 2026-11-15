@@ -5,6 +5,7 @@ D3 and D4. Supersedes [ADR 0278](0278-a-code-is-explained-by-the-catalog-else-by
 amends its D1 to D3. Extended by [ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md): a raise applies in the project's report.
 D2 and D3 amended by [ADR 0328](0328-a-builtin-is-embedded-and-a-non-specforge-builtin-catalogues-its-codes.md): "first party" is the
 `@specforge/` scope; a builtin outside it catalogues its codes and prints them namespaced.
+Extended by [ADR 0363](0363-a-codes-findings-may-wait-for-its-owner-state-and-a-write-that-reveals-one-adds-no-error.md): a `codes` entry may declare `reported_while`, the owner state its findings wait for.
 
 ## Context
 

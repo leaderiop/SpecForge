@@ -420,12 +420,13 @@ declared: its name or version is empty, its `ext_short` isn't lowercase kebab
 case (`[a-z][a-z0-9-]*`; it names the extension's CLI subcommand and MCP tool
 prefix), or a `codes` entry is malformed: a code that is not `E`, `W` or `I` and
 three digits (a `/` included: the host adds the namespace), a code catalogued
-twice, an empty title or explanation, or a `docs` that is not an absolute
-`http(s)` URL; a first-party extension declares no `codes`, its codes are in
-this catalog. The registry build reports it on every load, and `specforge
-publish` refuses such a binary before any network call. Fix the declaration in
-the extension's source (with the SDK: `#[extension(name, version, short)]` and
-the builders) and rebuild it.
+twice, an empty title or explanation, a `docs` that is not an absolute `http(s)`
+URL, or a `reported_while` that is neither `complete` nor `pending` (ADR 0363);
+a first-party extension declares no `codes`, its codes are in this catalog. The
+registry build reports it on every load, and `specforge publish` refuses such a
+binary before any network call. Fix the declaration in the extension's source
+(with the SDK: `#[extension(name, version, short)]` and the builders) and
+rebuild it.
 
 Owner: core
 Level: error
@@ -1109,8 +1110,11 @@ what they name first: create the referenced entity, give the required field, or
 make both changes in one `specforge.edit` call. `delete --unlink-references`
 removes the references a delete would leave dangling. A judged rule's finding
 (no verdict, a stale or a failing verdict) is never one of them: its judge
-settles it, not the edit (ADR 0297). A writing collector's plan is compared with
-the project as its collect left it, and is refused for host errors only: an
+settles it, not the edit (ADR 0297). Nor is an extension's finding whose code
+waits for an owner state (`reported_while`) and that the edit revealed by moving
+its entity into that state: the edit is accepted and the finding is reported
+once it is written (ADR 0363). A writing collector's plan is compared with the
+project as its collect left it, and is refused for host errors only: an
 extension's error refuses no collected fact (ADR 0303).
 
 Owner: core

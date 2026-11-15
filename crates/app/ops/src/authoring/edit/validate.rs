@@ -4,7 +4,8 @@
 //! span nor the digits of a message are in the key, since a message may name a position (E002, E078) and an inserted
 //! block moves every later one. An extension's finding is also keyed by its subject entity, relocated through the
 //! plan's moves, so a finding on another entity is another error (ADR 0302). A judged rule's finding is never such an
-//! error (ADR 0297): its judge settles it, not the edit; only a finding the judged evaluation made is one.
+//! error (ADR 0297): its judge settles it, not the edit; only a finding the judged evaluation made is one. Nor is a
+//! finding the write revealed by moving its entity into the owner state its code waits for (ADR 0363).
 
 use super::EditField;
 use super::declared::Declared;
@@ -12,6 +13,7 @@ use super::steps::relocated;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Refusal};
 use specforge_common::{Diagnostic, DiagnosticList, Severity, codes};
+use specforge_diagnostics::CodeRef;
 use specforge_graph::{GraphDelta, compute_graph_delta_over};
 use specforge_project::CompiledProject;
 use specforge_registry::RegistryBuild;
@@ -57,6 +59,37 @@ pub(crate) fn judged_finding(post: &CompiledProject) -> impl Fn(&Diagnostic) -> 
     |d| post.judgements().is_finding(d)
 }
 
+/// Whether a diagnostic of `post`, the project a write leaves `before` as, is no error the write adds whatever its
+/// key: a judged rule's finding ([`judged_finding`]), or one the write revealed ([`revealed`]).
+pub(crate) fn not_added<'a>(
+    before: &'a CompiledProject,
+    post: &'a CompiledProject,
+) -> impl Fn(&Diagnostic) -> bool + 'a {
+    let judged = judged_finding(post);
+    move |d| judged(d) || revealed(before, post, d)
+}
+
+/// Whether the write from `before` to `post` revealed `d` (ADR 0363): an extension's finding on an entity, whose code
+/// waits for an owner state (`Codebook::waits`), and the write moved that entity from the other state into it.
+/// `before` could not report it there, so the write did not add it: the owner's state moved. Both states must be
+/// known (`CompiledProject::owner_pending`); a new entity, a moved one or an unchecked project reveals nothing.
+fn revealed(before: &CompiledProject, post: &CompiledProject, d: &Diagnostic) -> bool {
+    let (Some(extension), Some(subject)) = (d.origin(), d.subject()) else {
+        return false;
+    };
+    let codes = post.environment().registries().codes();
+    let local = CodeRef::parse(&d.code).local;
+    if !codes.waits(extension, local) {
+        return false;
+    }
+    match (before.owner_pending(subject), post.owner_pending(subject)) {
+        (Some(was), Some(is)) => {
+            !codes.speaks(extension, local, was) && codes.speaks(extension, local, is)
+        }
+        _ => false,
+    }
+}
+
 /// The diagnostics of `after` that `before` does not have, one by one: (errors, warnings and infos). A diagnostic
 /// `judged` names is never an error here, whatever its severity. `moved` relocates the subjects of `before`.
 /// `host_only`: an extension's diagnostic is never an error here either (ADR 0303).
@@ -93,16 +126,16 @@ pub(crate) fn added(
 
 /// Refuse (E080) when `after` has an error `before` does not.
 pub(crate) fn refuse_new_errors(
-    before: &[Diagnostic],
+    before: &CompiledProject,
     after: &CompiledProject,
     registries: &RegistryBuild,
     moved: &Moves,
     host_only: bool,
 ) -> Result<(), Refusal<EditField>> {
     let (errors, _) = added(
-        before,
+        &before.judged_diagnostics(),
         after.diagnostics(),
-        judged_finding(after),
+        not_added(before, after),
         moved,
         host_only,
     );
@@ -133,7 +166,7 @@ pub fn check(
     let (errors, rest) = added(
         &before,
         post.diagnostics(),
-        judged_finding(&post),
+        not_added(view.project(), &post),
         moved,
         host_only,
     );

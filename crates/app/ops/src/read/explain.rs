@@ -136,6 +136,7 @@ mod tests {
                     explanation: "Fix the audit.".into(),
                     docs: None,
                     machine: false,
+                    reported_while: None,
                 })
                 .collect();
             book.add(extension, entries).unwrap();

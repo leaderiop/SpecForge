@@ -356,7 +356,7 @@ fn rejudge(
         .edited_over_disk(&change.after(), ledger.as_deref())
         .judged_against(&before);
     crate::authoring::edit::validate::refuse_new_errors(
-        &before.judged_diagnostics(),
+        &before,
         &after,
         project.environment().registries(),
         change.moved(),

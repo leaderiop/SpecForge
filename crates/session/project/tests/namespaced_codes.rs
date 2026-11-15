@@ -18,6 +18,7 @@ fn findings(
             explanation: "e".to_string(),
             docs: None,
             machine: false,
+            reported_while: None,
         }],
     )
     .unwrap();

@@ -2,6 +2,7 @@
 //! checks and rules and the check passes over the snapshot with their values merged, and the harness ledger.
 
 use specforge_common::Diagnostic;
+use specforge_diagnostics::{CodeRef, Codebook};
 use specforge_graph::{Computed, GraphBuild};
 use specforge_registry::rules::{CustomVerdicts, NoVerdicts};
 use specforge_registry::{Disk, EntitySnapshot};
@@ -167,6 +168,10 @@ impl Environment {
             }
             _ => {}
         }
+        // A finding whose code waits for an owner state speaks only on an entity in that state, read where a
+        // computed status decides it (ADR 0363).
+        let owners = merged.as_ref().unwrap_or(entities);
+        diagnostics.retain(|d| speaks(self.registries.codes(), owners, d));
         Checked {
             diagnostics,
             entities: merged,
@@ -174,4 +179,20 @@ impl Environment {
             judgements,
         }
     }
+}
+
+/// Whether `d` speaks on its entity as `entities` holds it (`Codebook::speaks`, ADR 0363): a host finding, one that
+/// names no entity, one whose entity `entities` does not hold, and one whose code waits for no owner state always do;
+/// another only in the owner state its code waits for.
+pub(crate) fn speaks(codes: &Codebook, entities: &EntitySnapshot, d: &Diagnostic) -> bool {
+    let (Some(extension), Some(subject)) = (d.origin(), d.subject()) else {
+        return true;
+    };
+    let local = CodeRef::parse(&d.code).local;
+    if !codes.waits(extension, local) {
+        return true;
+    }
+    entities
+        .get(subject)
+        .is_none_or(|(record, _)| codes.speaks(extension, local, entities.is_pending(record)))
 }

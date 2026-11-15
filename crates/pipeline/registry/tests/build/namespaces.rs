@@ -70,16 +70,29 @@ fn a_malformed_code_entry_is_e030() {
         entry(c, "E102", "Twice", None);
         entry(c, "E103", "", None);
         entry(c, "E104", "Docs", Some("ftp:x"));
+        entry(c, "E105", "Waits", None);
+        c.code("E106", |d| {
+            d.title("Waits").explanation("Fix it.").once_complete();
+        });
     });
+    let mut bad = bad;
+    let waits = bad
+        .codes
+        .iter_mut()
+        .find(|e| e.code == "E105")
+        .expect("E105");
+    waits.reported_while = Some("later".into());
     let first_party = declare("@specforge/product", |c| entry(c, "W900", "Not mine", None));
     let build = build([bad, first_party]);
-    // One per bad entry: the code shape (2), the duplicate, the empty title, the docs, first party.
-    assert_eq!(coded(&build, "E030").len(), 6, "{:?}", codes(&build));
+    // One per bad entry: the code shape (2), the duplicate, the empty title, the docs, the owner state, first party.
+    assert_eq!(coded(&build, "E030").len(), 7, "{:?}", codes(&build));
     // None of them reaches the code book but the first of the duplicates.
     let book = build.codes();
-    for refused in ["E1", "E103", "E104"] {
+    for refused in ["E1", "E103", "E104", "E105"] {
         assert!(!book.catalogued("@acme/lint", refused), "{refused}");
     }
+    assert!(book.waits("@acme/lint", "E106"));
+    assert!(!book.speaks("@acme/lint", "E106", true));
     assert!(book.describes("acme.lint/E101", None).is_none());
     assert_eq!(
         book.describes("acme.lint/E102", None).unwrap().title,

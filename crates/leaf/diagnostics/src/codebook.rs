@@ -19,6 +19,9 @@ pub struct ExtensionCode {
     pub docs: Option<String>,
     /// This machine decides a finding of it, not the project (`CodeDescriptor.machine`, ADR 0337 D7).
     pub machine: bool,
+    /// The owner state a finding of it speaks in, `complete` or `pending` (`CodeDescriptor.reported_while`, ADR
+    /// 0363), as the registry admitted it; `None` in either state.
+    pub reported_while: Option<String>,
 }
 
 /// Two loaded extensions share one code namespace.
@@ -181,6 +184,30 @@ impl Codebook {
             .is_some_and(|entry| entry.machine)
     }
 
+    /// Whether a finding of `code` that `extension` reports speaks on an entity whose owner is `pending` (ADR 0363):
+    /// always, unless the extension's own catalog entry names the owner state its findings wait for, then only in
+    /// that state. A first-party extension's code waits for none.
+    pub fn speaks(&self, extension: &str, code: &str, pending: bool) -> bool {
+        match self.reported_while(extension, code) {
+            Some("complete") => !pending,
+            Some("pending") => pending,
+            _ => true,
+        }
+    }
+
+    /// Whether a finding of `code` that `extension` reports waits for an owner state (ADR 0363).
+    pub fn waits(&self, extension: &str, code: &str) -> bool {
+        self.reported_while(extension, code).is_some()
+    }
+
+    fn reported_while(&self, extension: &str, code: &str) -> Option<&str> {
+        self.owned_by(extension)?
+            .codes
+            .get(&code.to_uppercase())?
+            .reported_while
+            .as_deref()
+    }
+
     /// Whether `extension`'s own catalog lists `local`. False for a
     /// first-party extension (it declares no `codes`) and for an extension
     /// that does not own its namespace.
@@ -263,6 +290,7 @@ mod tests {
                 explanation: "e".into(),
                 docs: None,
                 machine: false,
+                reported_while: None,
             })
             .collect();
         book.add(extension, entries).unwrap();
@@ -443,6 +471,7 @@ mod tests {
                 explanation: "e".into(),
                 docs: None,
                 machine: true,
+                reported_while: None,
             }],
         )
         .unwrap();
@@ -457,6 +486,36 @@ mod tests {
         );
         // A first-party extension reads the static catalog, and only its own entries.
         assert!(!book.machine("@specforge/checks", "I206"), "I206 is core's");
+    }
+
+    #[test]
+    fn a_code_that_waits_speaks_only_in_its_owner_state() {
+        let mut book = book("@acme/links", &["W900"]);
+        let waiting = |local: &str, state: &str| ExtensionCode {
+            local: local.into(),
+            title: "t".into(),
+            explanation: "e".into(),
+            docs: None,
+            machine: false,
+            reported_while: Some(state.into()),
+        };
+        book.add(
+            "@acme/links",
+            vec![waiting("E901", "complete"), waiting("E902", "pending")],
+        )
+        .unwrap();
+        for pending in [false, true] {
+            assert!(book.speaks("@acme/links", "W900", pending), "{pending}");
+        }
+        assert!(book.speaks("@acme/links", "e901", false));
+        assert!(!book.speaks("@acme/links", "E901", true));
+        assert!(book.speaks("@acme/links", "E902", true));
+        assert!(!book.speaks("@acme/links", "E902", false));
+        assert!(book.waits("@acme/links", "E901") && !book.waits("@acme/links", "W900"));
+        assert!(
+            !book.waits("@acme/other", "E901"),
+            "another extension's entry"
+        );
     }
 
     #[test]

@@ -16,7 +16,11 @@ rule's or a context route's `file()` selector. D24 (`set_verdict`, `crates/app/o
 [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md) D6: a verdict's `at` is the host's time
 to the second. D7 amended by
 [ADR 0359](0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md) (`mitigated_by` reads back as
-`mitigates` on task, truth and invariant, now that a union's named reverse is read on each of its kinds).
+`mitigates` on task, truth and invariant, now that a union's named reverse is read on each of its kinds). D20 and the
+consequences amended by
+[ADR 0363](0363-a-codes-findings-may-wait-for-its-owner-state-and-a-write-that-reveals-one-adds-no-error.md):
+gsd/E531 waits for the invariant to be in force, and the write that brings a due invariant into force is accepted,
+its E531 reported once written.
 
 ## Context
 
@@ -148,7 +152,7 @@ to the second. D7 amended by
     holds on every status but `pending` (D10), read on the merged snapshot after the compute passes. So the rule, its
     prompt and the gates agree: a pending invariant is not reported, lists no judgement a gate reads, and the prompt
     does not list it; with only pending invariants it says so. A verdict recorded early (`--invariant <id>`) is kept
-    and read once the invariant is in force.
+    and read once the invariant is in force; a commit of its window authored after it makes it due then (D20).
   - The judge is the prompt `verify_invariant`, our own text (GSD has no invariant), rendered for each host, with no
     slash command: no upstream command row exists for one, as none exists for `execute_plan`. It reads the inputs,
     reads the code the items name, judges, and records with `specforge gsd record-verdict <invariant> I536 …`.
@@ -209,14 +213,18 @@ Decisions:
   judged, as gsd/W522 and gsd/E519 leave quick plans out.
 - **D19. What covers a commit.** Any I536 verdict recorded at or after it, fresh or stale, whatever its outcome. E531
   owes a judgement and I536 says what it found: recording a verdict only removes E531 rows, and editing the invariant
-  never adds one. A verdict records the second it was given (`at`, D24), so a commit authored later the same day is
-  due; a verdict whose `at` is a day (written by hand) covers that whole day. A commit merged after a verdict but
-  authored before it reads as covered (D18). A `violated` verdict shows in `status` and in the risks it mitigates
-  (D14); a gate on it is not this rule's.
+  changes which commits a row may name (its guard and window), never the verdict that covers one. A verdict records
+  the second it was given (`at`, D24), so a commit authored later the same day is due; a verdict whose `at` is a day
+  (written by hand) covers that whole day. A commit merged after a verdict but authored before it reads as covered
+  (D18). A `violated` verdict shows in `status` and in the risks it mitigates (D14); a gate on it is not this rule's.
 - **D20. Owed in force, once judged.** An invariant not in force (D10) owes nothing: E531 reads the owner state I536's
-  `judged_while: complete` reads (D12), so the two agree on which invariants owe a verdict. An invariant in force never
-  judged owes nothing either: there is nothing to re-verify, and I536 reports its missing verdict. Creating an
-  invariant is never refused.
+  `judged_while: complete` reads (D12), so the two agree on which invariants owe a verdict, and its code declares it
+  (`reported_while: complete`,
+  [ADR 0363](0363-a-codes-findings-may-wait-for-its-owner-state-and-a-write-that-reveals-one-adds-no-error.md)).
+  An invariant judged early, whose window then changed what it guards, is due the moment it is in force: the write
+  that brings it into force reveals its E531, which is no error that write adds (E080 accepts it), and judging it
+  again clears it. An invariant in force never judged owes nothing either: there is nothing to re-verify, and I536
+  reports its missing verdict. Creating an invariant is never refused.
 - **D21. The fallback.** A commit whose `items_changed` is unwritten (no item facts were served, or a file's lines were
   unknown, ADR 0352 D1) is matched by the files it touched, against the files holding the guarded items and the guarded
   tests; such a row says it was a file it touched, never an item it changed. A written empty list changed nothing.
@@ -255,9 +263,12 @@ Rejected:
 
 Consequences:
 
-- The writes that can add an E531, so E080 refuses them: widening a judged invariant's `items`, `proof`, `holds_from` or
-  `scope` over code a phase changed since its last verdict. Judge it first, or write the line by hand.
-- The writes that never add one: creating an invariant, recording any verdict, editing its statement, a collect (a
+- The writes that can add an E531, so E080 refuses them: widening the `items`, `proof`, `holds_from` or `scope` of a
+  judged invariant in force over code a phase changed since its last verdict. Judge it first, or write the line by hand.
+- The writes that reveal one, which E080 accepts (ADR 0363): any write that brings a judged invariant into force while
+  a commit of its window postdates its verdict (its `holds_from` phase's verification or status, a `holds_from` moved
+  to a phase already run). Its E531 is reported once written; judge it again.
+- The writes that never add one: creating an invariant, recording a verdict, editing its statement, a collect (a
   collector's plan is checked for host errors only, ADR 0303).
 - Breaking: a judged invariant whose guarded code a later phase commit changed fails `check` until it is judged again.
 

@@ -48,8 +48,9 @@ pub(crate) fn shape(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
 
 /// E030 for each `codes` entry the host cannot use as declared: a code that is not a local code
 /// (`E`, `W` or `I` and three digits; the host adds the namespace, so a `/` is refused), a code
-/// catalogued twice, an empty title or explanation, a `docs` that is not an absolute `http(s)` URL;
-/// and, once, a first-party extension declaring any (its codes are in the host catalog, ADR 0286).
+/// catalogued twice, an empty title or explanation, a `docs` that is not an absolute `http(s)` URL, a
+/// `reported_while` that is no owner state (ADR 0363); and, once, a first-party extension declaring any (its
+/// codes are in the host catalog, ADR 0286).
 fn code_entries(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
     let name = declaration.name();
     let mut diagnostics = Vec::new();
@@ -79,6 +80,15 @@ fn code_entries(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
             .is_some_and(|docs| !super::codes::is_http_url(docs))
         {
             diagnostics.push(about("has a `docs` that is not an absolute http(s) URL"));
+        }
+        if let Some(word) = entry
+            .reported_while
+            .as_deref()
+            .filter(|word| !super::codes::is_owner_state(word))
+        {
+            diagnostics.push(about(&format!(
+                "has a `reported_while` '{word}' that is neither 'complete' nor 'pending'"
+            )));
         }
     }
     diagnostics

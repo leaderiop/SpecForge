@@ -59,6 +59,7 @@ fn code(local: &str) -> ExtensionCode {
         explanation: "A plan holds at most four tasks.".into(),
         docs: Some("https://gsd.dev/codes#w304".into()),
         machine: false,
+        reported_while: None,
     }
 }
 
