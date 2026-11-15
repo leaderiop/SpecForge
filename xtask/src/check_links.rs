@@ -26,23 +26,11 @@ use specforge_protocol_types::{TestResult, TestResults, TestStatus};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use syn::ext::IdentExt;
-use syn::visit::Visit;
-use syn::{Attribute, Ident, LitStr, Token};
+use xtask::links;
 
 const DEFAULT_SCAN: [&str; 3] = ["crates", "extensions", "integrations/rust"];
 /// The macro's own self-tests link to entities invented for them.
 const SELF_TEST_DIR: &str = "integrations/rust/specforge-test";
-const SKIPPED_DIRS: [&str; 3] = ["target", ".git", "node_modules"];
-
-/// One test attribute: `<kind> = "<entity id>"` and its `verify` text.
-#[derive(Debug)]
-struct Link {
-    file: String,
-    line: usize,
-    id: String,
-    verify: Option<String>,
-}
 
 fn main() {
     let mut args = std::env::args().skip(1);
@@ -67,7 +55,7 @@ fn main() {
 }
 
 fn check(root: &Path, scan: &[String]) -> Result<Vec<String>, String> {
-    let links = read_links(root, scan);
+    let links = links::read(root, scan, &[SELF_TEST_DIR]);
     let project_root = ProjectRoot::of(root).map_err(|e| format!("{}: {e:?}", root.display()))?;
     let project = CompiledProject::compile(
         &project_root,
@@ -127,105 +115,4 @@ fn closest<'a>(text: &str, declared: &'a [String]) -> Option<&'a String> {
         .filter(|(score, _)| *score >= 0.5)
         .max_by(|a, b| a.0.total_cmp(&b.0))
         .map(|(_, d)| d)
-}
-
-fn read_links(root: &Path, scan: &[String]) -> Vec<Link> {
-    let mut links = Vec::new();
-    for dir in scan {
-        let walk = walkdir::WalkDir::new(root.join(dir))
-            .sort_by_file_name()
-            .into_iter()
-            .filter_entry(|e| {
-                !e.file_type().is_dir()
-                    || !SKIPPED_DIRS.contains(&e.file_name().to_string_lossy().as_ref())
-            });
-        for entry in walk.filter_map(Result::ok) {
-            let path = entry.path();
-            if path.extension().is_none_or(|e| e != "rs") {
-                continue;
-            }
-            let Ok(source) = std::fs::read_to_string(path) else {
-                continue;
-            };
-            let Ok(file) = syn::parse_file(&source) else {
-                eprintln!("check-links: skipped {}: does not parse", path.display());
-                continue;
-            };
-            let relative = path.strip_prefix(root).unwrap_or(path);
-            if relative.starts_with(SELF_TEST_DIR) {
-                continue;
-            }
-            let mut visitor = Links {
-                file: relative.display().to_string(),
-                links: &mut links,
-            };
-            visitor.visit_file(&file);
-        }
-    }
-    links
-}
-
-struct Links<'a> {
-    file: String,
-    links: &'a mut Vec<Link>,
-}
-
-impl<'ast> Visit<'ast> for Links<'_> {
-    fn visit_attribute(&mut self, attr: &'ast Attribute) {
-        if !is_test_attribute(attr) {
-            return;
-        }
-        let Ok(parsed) = attr.parse_args_with(parse_args) else {
-            return;
-        };
-        let line = attr.pound_token.spans[0].start().line;
-        self.links.push(Link {
-            file: self.file.clone(),
-            line,
-            id: parsed.0,
-            verify: parsed.1,
-        });
-    }
-}
-
-/// The names the test attribute goes by (the macro's own `registration`).
-fn is_test_attribute(attr: &Attribute) -> bool {
-    let names: Vec<String> = attr
-        .path()
-        .segments
-        .iter()
-        .map(|s| s.ident.to_string())
-        .collect();
-    let names: Vec<&str> = names.iter().map(String::as_str).collect();
-    matches!(
-        names.as_slice(),
-        ["spec"]
-            | ["specforge_test"]
-            | [
-                ..,
-                "specforge_test_macros" | "specforge_test" | "specforge",
-                "test"
-            ]
-    )
-}
-
-/// `<kind> = "<id>" [, verify = "<text>"] [, __guard_only]`.
-fn parse_args(input: syn::parse::ParseStream) -> syn::Result<(String, Option<String>)> {
-    let _kind = Ident::parse_any(input)?;
-    let _eq: Token![=] = input.parse()?;
-    let id: LitStr = input.parse()?;
-    let mut verify = None;
-    while !input.is_empty() {
-        let _comma: Token![,] = input.parse()?;
-        if input.is_empty() {
-            break;
-        }
-        let key: Ident = input.parse()?;
-        if key == "verify" {
-            let _eq: Token![=] = input.parse()?;
-            let text: LitStr = input.parse()?;
-            verify = Some(text.value());
-        }
-    }
-    Ok((id.value(), verify))
 }
