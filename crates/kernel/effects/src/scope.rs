@@ -278,6 +278,9 @@ impl ScopeRules for ProcessScope {
                 &digest[..12]
             ));
         }
+        if !self.filter.is_empty() {
+            line.push_str(&format!(", takes a filter as {}", self.filter.join(" ")));
+        }
         line
     }
 
@@ -285,9 +288,12 @@ impl ScopeRules for ProcessScope {
         let EffectRequest::Process(request) = request else {
             return false;
         };
-        // A placeholder is the host's to fill with its own paths (ADR 0348 D3): no request fills one, so a capability
-        // whose argv names one admits none; the host's own run is `Grant::permits_command`.
-        !templated(&self.argv) && ((user && self.argv.is_empty()) || self.argv == request.argv)
+        // A placeholder is the host's to fill with its own paths (ADR 0348 D3), and a filter is the host's to append
+        // with a caller's text: no request fills either, so a capability whose argv names a placeholder, or that
+        // declares a filter, admits none; the host's own run is `Grant::permits_command`.
+        !templated(&self.argv)
+            && self.filter.is_empty()
+            && ((user && self.argv.is_empty()) || self.argv == request.argv)
     }
 }
 

@@ -613,6 +613,7 @@ mod tests {
                         name: format!("t.toml{HOSTILE}"),
                         template: format!("x{HOSTILE}"),
                     }),
+                    filter: vec![format!("{{filter}}{HOSTILE}")],
                 }),
                 call_kinds: Vec::new(),
                 secret_env: None,

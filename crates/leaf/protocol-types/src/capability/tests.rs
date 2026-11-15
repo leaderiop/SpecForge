@@ -124,3 +124,103 @@ fn a_process_capability_carries_its_config_on_the_wire() {
         "an absent config is not serialised"
     );
 }
+
+/// A collector's process capability running `argv`, appending `filter` when a caller passes one.
+fn filtered(argv: &[&str], filter: &[&str]) -> ExtensionDeclaration {
+    let capability: CapabilityDescriptor = serde_json::from_value(json!({
+        "name": "tests", "why": "run the tests", "call_kinds": ["collect"], "port": "process",
+        "argv": argv, "filter": filter,
+    }))
+    .unwrap();
+    ExtensionDeclaration {
+        capabilities: vec![capability],
+        ..Default::default()
+    }
+}
+
+/// The problems of `declaration`'s capabilities, their reasons only.
+fn whys(declaration: &ExtensionDeclaration) -> Vec<String> {
+    capability_problems(declaration)
+        .into_iter()
+        .map(|p| p.why)
+        .collect()
+}
+
+#[test]
+fn a_filter_holds_the_filter_placeholder_in_exactly_one_element() {
+    let sound = filtered(&["cargo-nextest", "nextest", "run"], &["-E", "{filter}"]);
+    assert_eq!(whys(&sound), Vec::<String>::new());
+    let PortScope::Process(process) = &sound.capabilities[0].port else {
+        panic!("a process capability");
+    };
+    assert_eq!(process.filter, ["-E", "{filter}"]);
+    let wire = serde_json::to_value(&sound.capabilities[0]).unwrap();
+    assert_eq!(wire["filter"], json!(["-E", "{filter}"]));
+    let bare = filtered(&["cargo", "test"], &[]);
+    assert!(
+        serde_json::to_value(&bare.capabilities[0])
+            .unwrap()
+            .get("filter")
+            .is_none(),
+        "an empty filter is not serialised"
+    );
+    for wrong in [
+        &["-E"][..],
+        &["{filter}", "{filter}"],
+        &["--expr={filter}{filter}"],
+    ] {
+        let problems = whys(&filtered(&["t"], wrong));
+        assert!(
+            problems
+                .iter()
+                .any(|p| p.contains("one argument holds it once")),
+            "{wrong:?}: {problems:?}"
+        );
+    }
+    let mut command = filtered(&["t"], &["{filter}"]);
+    command.capabilities[0].call_kinds = vec![Operation::Command];
+    assert!(
+        whys(&command)
+            .iter()
+            .any(|p| p.contains("call_kinds must be exactly collect"))
+    );
+}
+
+#[test]
+fn the_filter_placeholder_in_argv_or_another_placeholder_in_the_filter_is_a_problem() {
+    let in_argv = whys(&filtered(&["t", "{filter}"], &[]));
+    assert!(
+        in_argv.iter().any(|p| p.contains("only its `filter`")),
+        "{in_argv:?}"
+    );
+    for host in ["--out={report}", "{config}"] {
+        let problems = whys(&filtered(&["t"], &["{filter}", host]));
+        assert!(
+            problems
+                .iter()
+                .any(|p| p.contains("names a placeholder only the host fills")),
+            "{host}: {problems:?}"
+        );
+    }
+}
+
+#[test]
+fn a_filter_text_empty_long_dashed_or_with_a_control_character_is_refused() {
+    assert_eq!(filter_problem("binary_id(=toy::api)"), None);
+    assert_eq!(filter_problem("test(=a) | test(=b)"), None);
+    assert_eq!(filter_problem("élève"), None);
+    assert_eq!(filter_problem(&"t".repeat(FILTER_MAX)), None);
+    for (text, why) in [
+        ("", "empty"),
+        ("  ", "empty"),
+        (&"t".repeat(FILTER_MAX + 1)[..], "over"),
+        ("-x", "starts with '-'"),
+        ("--workspace", "starts with '-'"),
+        ("test(=a)\n", "control character"),
+        ("a\u{0}b", "control character"),
+        ("a\u{1b}[31m", "control character"),
+    ] {
+        let problem = filter_problem(text).unwrap_or_default();
+        assert!(problem.contains(why), "{text:?}: {problem}");
+    }
+}

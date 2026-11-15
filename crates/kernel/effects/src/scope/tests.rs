@@ -94,3 +94,54 @@ fn the_summary_names_the_config_file() {
         "process cargo test"
     );
 }
+
+/// The process scope of `argv` with a caller's `filter` arguments and inherited `env` names.
+fn filtered(argv: &[&str], filter: &[&str], env: &[&str]) -> PortScope {
+    PortScope::Process(ProcessScope {
+        argv: argv.iter().map(|a| a.to_string()).collect(),
+        filter: filter.iter().map(|a| a.to_string()).collect(),
+        env: env.iter().map(|a| a.to_string()).collect(),
+        ..ProcessScope::default()
+    })
+}
+
+#[test]
+fn a_process_summary_names_its_filter() {
+    let scope = filtered(
+        &["cargo-nextest", "nextest", "run"],
+        &["-E", "{filter}"],
+        &["CARGO_*", "RUSTFLAGS"],
+    );
+    assert_eq!(
+        rules(&scope).summary(),
+        "process cargo-nextest nextest run, inherits or sets CARGO_*,RUSTFLAGS, takes a filter as -E {filter}"
+    );
+    // The filter is part of the approved scope: another fragment asks again.
+    let other = filtered(
+        &["cargo-nextest", "nextest", "run"],
+        &["--filterset", "{filter}"],
+        &["CARGO_*", "RUSTFLAGS"],
+    );
+    assert!(rules(&scope).covers(&scope));
+    assert!(!rules(&scope).covers(&other));
+    assert!(!rules(&scope).covers(&filtered(
+        &["cargo-nextest", "nextest", "run"],
+        &[],
+        &["CARGO_*", "RUSTFLAGS"]
+    )));
+}
+
+#[test]
+fn a_guest_request_on_a_scope_with_a_filter_is_refused() {
+    let scope = filtered(&["cargo", "test"], &["--", "{filter}"], &[]);
+    for asked in [
+        &["cargo", "test"][..],
+        &["cargo", "test", "--", "api"],
+        &["cargo", "test", "--", "{filter}"],
+    ] {
+        for user in [false, true] {
+            assert!(!rules(&scope).admits(&run(asked), user), "{asked:?}");
+        }
+    }
+    assert!(rules(&filtered(&["cargo", "test"], &[], &[])).admits(&run(&["cargo", "test"]), false));
+}

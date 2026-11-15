@@ -631,6 +631,10 @@ pub struct CollectorBuilder {
     pub(crate) run: Option<Vec<String>>,
     /// The config file [`CollectorBuilder::config`] gave, declared on that capability.
     pub(crate) config: Option<ProcessConfig>,
+    /// The arguments [`CollectorBuilder::filter`] gave, declared on that capability.
+    pub(crate) filter: Vec<String>,
+    /// The variable names [`CollectorBuilder::env`] gave, declared on that capability.
+    pub(crate) env: Vec<String>,
 }
 
 impl CollectorBuilder {
@@ -652,6 +656,8 @@ impl CollectorBuilder {
             collect: None,
             run: None,
             config: None,
+            filter: Vec::new(),
+            env: Vec::new(),
         }
     }
     /// What the collector does: `handler` receives the report files
@@ -713,6 +719,20 @@ impl CollectorBuilder {
             name: name.to_string(),
             template: template.to_string(),
         });
+        self
+    }
+    /// The arguments the host appends after [`CollectorBuilder::run`]'s command when a caller passes a filter
+    /// (`specforge collect --filter`): `{filter}` in exactly one of them is the caller's text, one argument, in the
+    /// program's own filter syntax. A person approves them with the command; without a filter they are not passed.
+    pub fn filter(&mut self, args: &[&str]) -> &mut Self {
+        self.filter = args.iter().map(|a| a.to_string()).collect();
+        self
+    }
+    /// The environment variables [`CollectorBuilder::run`]'s program inherits beside what any program needs: a name,
+    /// or a namespace prefix ending `_*` (`CARGO_*`), which never passes registry credentials. A person approves them
+    /// with the command.
+    pub fn env(&mut self, names: &[&str]) -> &mut Self {
+        self.env = names.iter().map(|n| n.to_string()).collect();
         self
     }
     /// What to run to install the command's program, said when it is not found on PATH (ADR 0348 D4).

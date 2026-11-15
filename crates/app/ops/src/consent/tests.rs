@@ -14,6 +14,7 @@ fn approval(scope: &str) -> Approval {
             deadline_ms: None,
             env: Vec::new(),
             config: None,
+            filter: Vec::new(),
         }),
         call_kinds: Vec::new(),
         secret_env: None,

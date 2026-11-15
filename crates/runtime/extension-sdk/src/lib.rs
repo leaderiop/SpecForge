@@ -288,7 +288,7 @@ impl ContributionsBuilder {
     ///
     /// # Panics
     ///
-    /// When the collector declares no handler, or a config without a command.
+    /// When the collector declares no handler, or a config, a filter or variables without a command.
     pub fn collector(&mut self, name: &str, f: impl FnOnce(&mut CollectorBuilder)) -> &mut Self {
         let mut b = CollectorBuilder::new(name);
         f(&mut b);
@@ -301,8 +301,18 @@ impl ContributionsBuilder {
             collect,
         );
         self.decl.collectors.push(b.descriptor);
-        if b.config.is_some() && b.run.is_none() {
-            panic!("collector '{name}' declares a config but no command: give it `k.run(...)`");
+        if b.run.is_none() {
+            for (declares, what) in [
+                (b.config.is_some(), "a config"),
+                (!b.filter.is_empty(), "a filter"),
+                (!b.env.is_empty(), "variables"),
+            ] {
+                if declares {
+                    panic!(
+                        "collector '{name}' declares {what} but no command: give it `k.run(...)`"
+                    );
+                }
+            }
         }
         if let Some(argv) = b.run {
             let argv: Vec<&str> = argv.iter().map(String::as_str).collect();
@@ -314,6 +324,14 @@ impl ContributionsBuilder {
                 ));
             if let Some(config) = &b.config {
                 capability = capability.config(&config.name, &config.template);
+            }
+            if !b.filter.is_empty() {
+                let filter: Vec<&str> = b.filter.iter().map(String::as_str).collect();
+                capability = capability.filter(&filter);
+            }
+            if !b.env.is_empty() {
+                let env: Vec<&str> = b.env.iter().map(String::as_str).collect();
+                capability = capability.env(&env);
             }
             self.capability(capability);
         }
