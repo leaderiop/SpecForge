@@ -62,7 +62,8 @@ pub const RISK: Kind = Kind::new(
             "open while it names no mitigation, mitigated once every one it names is done, else mitigating",
         ),
         bool("blocking").c().doc(
-            "its current rpn (post_rpn once mitigated, else rpn) is at or above specforge.risk_block_on",
+            "its current rpn (post_rpn once mitigated, else rpn) is at or above specforge.risk_block_on; without a \
+             post block post_rpn is the rpn, so a mitigated risk stops blocking once post ratings bring it under",
         ),
     ],
 );

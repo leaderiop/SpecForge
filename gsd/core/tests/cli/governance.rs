@@ -138,6 +138,35 @@ fn a_risk_is_open_mitigating_or_mitigated() {
     );
 }
 
+/// RK1 without its post block, its task done: mitigated and still blocking at its rpn, and not gsd/W532 (it names its
+/// mitigation); writing the post rating its done mitigation earns clears it.
+#[test]
+fn a_mitigated_risk_without_a_post_block_blocks_until_it_is_rated_again() {
+    let post = "  post {\n    occurrence 1\n  }\n  mitigated_by [v1.0/01/01-01/T1]\n";
+    let p = project("governance");
+    let plans = p.read("spec/plans.spec");
+    p.write("spec/plans.spec", &format!("{plans}{SUMMARY}"));
+    p.edit(
+        "spec/risks.spec",
+        post,
+        "  mitigated_by [v1.0/01/01-01/T1]\n",
+    );
+    assert_eq!(state(&p, "RK1"), ("mitigated".into(), true), "current 175");
+    let w532: Vec<String> = p
+        .findings()
+        .into_iter()
+        .filter(|(code, _)| code == "gsd/W532")
+        .map(|(_, message)| message)
+        .collect();
+    assert_eq!(w532, [RK3_W532], "RK3's alone: RK1 names its mitigation");
+    p.edit(
+        "spec/risks.spec",
+        "  mitigated_by [v1.0/01/01-01/T1]\n",
+        post,
+    );
+    assert_eq!(state(&p, "RK1"), ("mitigated".into(), false), "current 35");
+}
+
 /// RK1's task, once plan 01-01 is complete, spelled as the kernel reads a reference from an unscoped risk: a short
 /// `T1` beside the full path is E003 and keeps RK1 mitigating; the rooted full path is the task.
 #[test]

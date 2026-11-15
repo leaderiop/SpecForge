@@ -10894,7 +10894,7 @@
           },
           {
             "default_value": null,
-            "description": "its current rpn (post_rpn once mitigated, else rpn) is at or above specforge.risk_block_on",
+            "description": "its current rpn (post_rpn once mitigated, else rpn) is at or above specforge.risk_block_on; without a post block post_rpn is the rpn, so a mitigated risk stops blocking once post ratings bring it under",
             "edge": null,
             "field_type": "bool",
             "inverse_of": null,

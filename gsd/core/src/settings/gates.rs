@@ -62,8 +62,9 @@ pub const SPECFORGE: &[(&str, &str, &str)] = &[
     ),
 ];
 
-/// The rpn at or above which a risk blocks until it is mitigated (`risk.blocking`), and gsd/W532 warns on one that
-/// names no mitigation: an integer, so it gates no code, and no profile presets it.
+/// The rpn at or above which a risk blocks (`risk.blocking`: its rpn until it is mitigated, then its post_rpn, the rpn
+/// again without a post block), and gsd/W532 warns on one that names no mitigation: an integer, so it gates no code,
+/// and no profile presets it.
 pub const RISK_BLOCK_ON: &str = "specforge.risk_block_on";
 pub const RISK_BLOCK_ON_DEFAULT: i64 = 100;
 
@@ -92,8 +93,8 @@ pub fn declare(c: &mut ContributionsBuilder) {
             .maximum(1000)
             .default(RISK_BLOCK_ON_DEFAULT)
             .describe(
-                "The rpn at or above which a risk blocks until it is mitigated, and gsd/W532 warns when it names no \
-                 mitigation.",
+                "The rpn at or above which a risk blocks: its rpn until it is mitigated, then its post_rpn, which is \
+                 the rpn again without a post block. gsd/W532 warns on one at or above it that names no mitigation.",
             );
     });
 }

@@ -49,7 +49,10 @@ lands, so the title names both.
 - **D4. Blocking and the setting.** `blocking` is true while the risk's current rpn is at or above
   `specforge.risk_block_on`, an integer setting from 1 to 1000, 100 by default, that no profile presets. The current
   rpn is `rpn` until the risk is mitigated and `post_rpn` after: a mitigated risk whose residual is still at or above
-  the threshold keeps blocking, and an optimistic post block lowers nothing before its mitigations are done.
+  the threshold keeps blocking, and an optimistic post block lowers nothing before its mitigations are done. Without a
+  post block `post_rpn` is the `rpn`, so a risk whose every mitigation is done keeps blocking until its `post` ratings
+  are written: no number is guessed, no diagnostic is added, and `status` `mitigated` beside `blocking` `true` says
+  it, as the field's description does.
 - **D5. `gsd/W532`** warns on a risk whose `rpn` is at or above the threshold and that names nothing in `mitigated_by`,
   naming its rpn and the threshold. It is a warning under every profile: it is no GSD rule, and `gsd-strict` raises
   only what GSD warns about. The derive pass that rates the risk emits it, as it emits `gsd/W409`: one module holds

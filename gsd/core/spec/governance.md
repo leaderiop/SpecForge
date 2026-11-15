@@ -36,7 +36,7 @@ a phase, and moving it to another milestone does not rename it.
 | rpn | int | C | severity × occurrence × detection, 1 to 1000 |
 | post_rpn | int | C | the same product over the post ratings; `rpn` without a post block |
 | status | enum{open, mitigating, mitigated} | C | `open` while it names no mitigation; `mitigated` once every one it names is done; else `mitigating` |
-| blocking | bool | C | its current rpn (`post_rpn` once mitigated, else `rpn`) is at or above `specforge.risk_block_on` |
+| blocking | bool | C | its current rpn (`post_rpn` once mitigated, else `rpn`) is at or above `specforge.risk_block_on`; without a `post` block `post_rpn` is the `rpn`, so a mitigated risk stops blocking once post ratings bring it under |
 
 Each computed value is absent while a required rating is missing or one is outside 1 to 10: the kernel reports that
 (a missing required field, E061 out of bounds, in the post block too), and no number is guessed. Writing a computed
@@ -63,7 +63,9 @@ prose `mitigation` is no evidence: a risk that names nothing in `mitigated_by` s
 
 `blocking` reads the risk's current rpn: `rpn` until it is mitigated, `post_rpn` after. A mitigated risk whose residual
 is still at or above the threshold keeps blocking, and an optimistic post block lowers nothing before its mitigations
-are done. The threshold is `specforge.risk_block_on` ([settings.md](settings.md#specforge-only-settings)), an
+are done. Without a `post` block `post_rpn` is the `rpn`, so a risk whose every mitigation is done still blocks at the
+same number: write the `post` ratings the done mitigations earn to record the residual. Nothing guesses them, and no
+diagnostic is raised: `status` `mitigated` beside `blocking` `true` says it. The threshold is `specforge.risk_block_on` ([settings.md](settings.md#specforge-only-settings)), an
 integer from 1 to 1000, 100 by default.
 
 gsd/W532 ([rules.md](rules.md#governance)) warns on a risk whose `rpn` is at or above the threshold and that names
