@@ -12,7 +12,7 @@
 //! counts and a revision conflict's status, `batch` a quick batch's status and eligible items, `learning` a
 //! lesson's status, `decision` a decision's `in_force` (the superseded set E310 reads), `risk` a risk's rpn, post_rpn,
 //! status and blocking (against `specforge.risk_block_on`, read once here), and `invariant` an invariant's status and
-//! last_verified (from each phase's status on the ladder and its verification).
+//! last_verified (from each phase's status on the ladder and its verification), and `product` a term's `used_in`.
 //!
 //! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection) and `retrospective.sessions` (no harness).
 
@@ -26,6 +26,7 @@ mod halt;
 pub mod invariant;
 pub mod ladder;
 mod learning;
+mod product;
 mod progress;
 mod requirement;
 mod review;
@@ -90,6 +91,7 @@ fn derive(input: &PassInput) -> PassOutput {
     let (risks, findings) =
         risk::values_and_findings(input, &commits, &statuses, &invariants, block_on);
     values.extend(risks);
+    values.extend(product::values(input));
     let mut diagnostics = branch::diagnostics(input);
     diagnostics.extend(findings);
     PassOutput {

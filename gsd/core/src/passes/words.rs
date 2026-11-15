@@ -2,7 +2,8 @@
 //!
 //! - [`Boundary::Js`] is JavaScript's ASCII `\b`, as upstream's planner rule reads its phrases: `gsd/E312`
 //!   (`passes::scope`) reads a task's action and a decision's text so.
-//! - [`Boundary::Unicode`] is the vocabulary's reading of the author's prose, in any language.
+//! - [`Boundary::Unicode`] is the vocabulary's reading of the author's prose, in any language: `term.used_in`
+//!   (`passes::vocabulary`) reads it so.
 //!
 //! [`folded`] is the one reading of a word the glossary compares: `gsd/W538` compares the terms' words with it, and
 //! the Unicode boundary folds both sides with it. No stemming, no accent stripping, no normalisation.
@@ -13,10 +14,6 @@ pub enum Boundary {
     /// JavaScript's `\b`, on bytes: a word character is an ASCII letter, digit or `_`, and ASCII letters fold.
     Js,
     /// A word character is a letter, a number, `_` or a combining mark, and both sides are [`folded`].
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "no reader of prose is declared yet")
-    )]
     Unicode,
 }
 

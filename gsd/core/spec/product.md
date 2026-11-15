@@ -61,8 +61,15 @@ A glossary entry: a word of the project and what it means. Name: a word, `spec_r
 | related | →* term | | related terms |
 | context | str | | where or how it is used |
 | tags | strs | | free words |
+| used_in | →* requirement \| decision \| truth \| journey \| risk \| invariant | C | the entities whose prose holds its `name` or one of its `aliases` as a whole word or phrase, by id, sorted; `[]` when none |
 
 `related` relates terms with themselves, so it has no reverse to read: a term names the terms it relates to.
+
+`used_in` reads the authored prose in the author's language (ADR 0357 D16, D17): a requirement's `text`, a decision's
+`text`, `rationale` and `context`, a truth's `text`, each journey step's `action`, a risk's `cause` and `effect` and an
+invariant's `statement` (`text_en` is not read). A word matches whole, case-insensitively and accents as written
+(Unicode letters, numbers, `_` and combining marks are word characters), with no stemming: "Tasks" is no use of "task".
+A computed reference makes no edge, so `specforge query <term>` shows it and `specforge refs` does not.
 
 ## What the old product kinds became
 

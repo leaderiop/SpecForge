@@ -40,7 +40,7 @@ const ALTERNATIVE: &[dsl::Field] = &[
 ];
 
 /// Every kind declared so far, in the order of the model's files.
-const KINDS: &[&Kind] = &[
+pub(crate) const KINDS: &[&Kind] = &[
     &project::PROJECT,
     &project::REQUIREMENT,
     &product::PERSONA,

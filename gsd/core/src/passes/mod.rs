@@ -24,6 +24,7 @@ mod thread;
 mod traceability;
 mod verify_paths;
 mod verify_rules;
+mod vocabulary;
 mod waves;
 mod windows;
 mod words;

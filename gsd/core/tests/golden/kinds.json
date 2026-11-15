@@ -115,6 +115,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "TermUsedIn",
+        "source_kind": "term",
+        "target_kind": null
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "MilestoneDependsOn",
         "source_kind": "milestone",
         "target_kind": "milestone"
@@ -2151,6 +2160,25 @@
             "name": "tags",
             "required": false,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the entities whose prose holds its `name` or one of its `aliases` as a whole word or phrase, by id; `[]` when none (ADR 0357 D17)",
+            "edge": "TermUsedIn",
+            "field_type": "reference_list",
+            "inverse_of": null,
+            "name": "used_in",
+            "required": false,
+            "target_kind": null,
+            "target_kinds": [
+              "requirement",
+              "decision",
+              "truth",
+              "journey",
+              "risk",
+              "invariant"
+            ],
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,

@@ -13,6 +13,15 @@ const TECHNICAL_LEVEL: &[&str] = &[
     "non_technical",
 ];
 const PERSONA_STATUS: &[&str] = &["active", "deprecated"];
+/// The kinds whose prose `term.used_in` reads: `passes::vocabulary::PROSE`'s, in its order.
+const USED_IN: &[&str] = &[
+    "requirement",
+    "decision",
+    "truth",
+    "journey",
+    "risk",
+    "invariant",
+];
 const STEP: &[Field] = &[
     str("action").r().doc("what the persona does at this step"),
     rf("requirement", "requirement").doc("the requirement the step exercises, once known"),
@@ -78,5 +87,9 @@ pub const TERM: Kind = Kind::new(
         rfs("related", "term").doc("related terms"),
         str("context").doc("where or how it is used"),
         strs("tags").doc("free words"),
+        rfs_any("used_in", USED_IN).c().doc(
+            "the entities whose prose holds its `name` or one of its `aliases` as a whole word or phrase, by id; `[]` \
+             when none (ADR 0357 D17)",
+        ),
     ],
 );
