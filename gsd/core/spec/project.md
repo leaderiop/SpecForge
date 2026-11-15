@@ -99,6 +99,7 @@ GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. N
 | progress | {phases int, phases_complete int, plans int, plans_complete int, percent int} | C | `STATE.md`'s `progress`, per milestone: `percent` is the smaller of plans_complete/plans and phases_complete/phases (a side with nothing counts 1, `state-document.cts:861-878`); `phases_complete` counts the phases whose verification passed, which needs r40's verdicts. `plans_complete` counts every plan with a summary, a halted one too (#2830), and the sentinel `999.x` backlog phases are left out (#3167) |
 | branch | str | C | the branch it is executed on, from `git.branching_strategy` and its template (`{milestone}`, `{slug}`); under the `milestone` strategy, else absent |
 | risk_level | int | C | the highest current rpn of the risks it carries: its phases' `risk_level`, and each risk whose `milestone` names it ([governance.md](governance.md#risk-on-phases-and-milestones)); absent with none (beyond GSD) |
+| journeys_covered | {journeys int, covered int} | C | the journeys whose `milestones` list it ([product.md](product.md#journey)), and how many of them are `covered`; absent when no journey lists it (beyond GSD, [ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md) D23) |
 
 Upstream GSD's milestone has none of the fields marked beyond GSD ([ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)): they are optional, no GSD file renders them and no
 ported prompt asks for them.

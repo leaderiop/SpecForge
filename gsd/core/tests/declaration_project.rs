@@ -65,7 +65,7 @@ fn project_and_requirement_declare_the_fields_of_the_model() {
 fn milestone_and_phase_declare_the_fields_of_the_model() {
     let milestone = "name delivered accomplishments whats_next goal target_features exit_criteria starts targets \
         depends_on owner contributors artifact_types tags abandoned workstream completion state first_commit shipped \
-        stats git_range progress branch risk_level";
+        stats git_range progress branch risk_level journeys_covered";
     let milestone: Vec<&str> = milestone.split_whitespace().collect();
     assert_eq!(fields_of("milestone"), milestone);
     assert_eq!(
@@ -168,10 +168,10 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
     // + 5: the requirement's quality `category`, `priority`, `metric`, `source` and `tags` (beyond GSD).
     // + 3: the requirement's `personas`, `constrains` and `protects`, each naming its reverse (ADR 0354).
     // + 1: the requirement's `effort`, a T-shirt size (beyond GSD).
-    // + 1: the phase's `invariants_due`.
+    // + 1: the phase's `invariants_due`; + 1: the milestone's `journeys_covered` (ADR 0357).
     assert_eq!(
         total,
-        72 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 8 + 2 + 2 + 5 + 3 + 1 + 1,
+        72 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 8 + 2 + 2 + 5 + 3 + 1 + 1 + 1,
         "the kinds' fields"
     );
 }

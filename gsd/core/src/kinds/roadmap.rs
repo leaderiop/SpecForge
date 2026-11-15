@@ -19,6 +19,7 @@ const PROGRESS: &[Field] = &[
     int("plans_complete"),
     int("percent"),
 ];
+const JOURNEYS_COVERED: &[Field] = &[int("journeys"), int("covered")];
 const MILESTONE_STATE: &[&str] = &["planned", "in_progress", "shipped", "abandoned"];
 
 /// A milestone section of `ROADMAP.md`, named `v1.0` and scoped by its workstream when it has one.
@@ -72,6 +73,10 @@ pub const MILESTONE: Kind = Kind::new(
             .doc("the branch it is executed on: git.branching_strategy and its template"),
         int("risk_level").c().doc(
             "the highest current rpn of the risks it carries: its phases' and those that name it (beyond GSD)",
+        ),
+        block("journeys_covered", JOURNEYS_COVERED).c().doc(
+            "the journeys whose `milestones` list it, and how many of them are `covered`; absent with none (beyond \
+             GSD, ADR 0357 D23)",
         ),
     ],
 )

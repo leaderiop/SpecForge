@@ -1,6 +1,7 @@
 //! The computed values of the product kinds (`spec/product.md`, ADR 0357): a term's `used_in`, the entities whose
 //! prose holds its name or one of its aliases (`passes::vocabulary`); a journey's `last_uat`, the latest session of a
-//! UAT test that names it, and `covered`, read from the requirements it names ([`Names`]) and the requirement thread.
+//! UAT test that names it, and `covered`, read from the requirements it names ([`Names`]) and the requirement thread;
+//! a milestone's `journeys_covered`, its journeys and the covered ones.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -26,6 +27,7 @@ pub(crate) fn values(
             .iter()
             .map(|(journey, covered)| value(journey, "covered", *covered)),
     );
+    out.extend(journeys_covered(input, &covered));
     out
 }
 
@@ -159,6 +161,29 @@ fn covered<'a>(
             let covered =
                 !named.is_empty() && resolved && carried && named.iter().all(|r| proven(r));
             (journey.id.as_str(), covered)
+        })
+        .collect()
+}
+
+/// Each milestone a journey lists in `milestones`: its `journeys_covered`, how many journeys list it and how many of
+/// those are `covered` (this pass's own values, not the input's). A milestone no journey lists has none.
+fn journeys_covered(input: &PassInput, covered: &BTreeMap<&str, bool>) -> Vec<PassValue> {
+    let mut counts: BTreeMap<&str, (i64, i64)> = BTreeMap::new();
+    for (journey, covered) in covered {
+        for milestone in targets(input, journey, "milestones") {
+            let (journeys, covered_ones) = counts.entry(milestone).or_default();
+            *journeys += 1;
+            *covered_ones += i64::from(*covered);
+        }
+    }
+    counts
+        .into_iter()
+        .map(|(milestone, (journeys, covered))| {
+            value(
+                milestone,
+                "journeys_covered",
+                serde_json::json!({ "journeys": journeys, "covered": covered }),
+            )
         })
         .collect()
 }

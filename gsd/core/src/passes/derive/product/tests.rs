@@ -289,3 +289,68 @@ fn an_incomplete_requirement_is_not_proven() {
         Some(&json!(false))
     );
 }
+
+/// Milestones v1.0, v2.0 and v3.0, R1 and R2, and `journeys` `(id, step requirement, milestones)`, each step's
+/// requirement resolving to itself.
+fn shipped(journeys: &[(&str, &str, &[&str])]) -> PassInput {
+    let mut entities = vec![
+        json!({ "id": "v1.0", "kind": "milestone", "fields": { "name": "1.0" } }),
+        json!({ "id": "v2.0", "kind": "milestone", "fields": { "name": "2.0" } }),
+        json!({ "id": "v3.0", "kind": "milestone", "fields": { "name": "3.0" } }),
+        json!({ "id": "R1", "kind": "requirement", "fields": { "text": "one" } }),
+        json!({ "id": "R2", "kind": "requirement", "fields": { "text": "two" } }),
+    ];
+    let mut edges = Vec::new();
+    for (id, requirement, milestones) in journeys {
+        entities.push(json!({ "id": id, "kind": "journey", "fields": { "persona": "owner" },
+            "values": { "steps": [ { "action": "does", "requirement": requirement } ], "milestones": milestones } }));
+        edges.push((*id, "steps.requirement", *requirement));
+        for milestone in *milestones {
+            edges.push((*id, "milestones", *milestone));
+        }
+    }
+    input(Value::Array(entities), &edges)
+}
+
+/// The values of `input` where R1 is complete and proven, and R2 complete with no test.
+fn with_r1_proven(input: &PassInput) -> Vec<PassValue> {
+    let states = BTreeMap::from([("R1", "complete"), ("R2", "complete")]);
+    let proofs = BTreeMap::from([("R1", Proof::Proven), ("R2", Proof::NoTest)]);
+    values(input, &states, &proofs)
+}
+
+#[test]
+fn a_milestone_counts_its_journeys_and_the_covered_ones() {
+    let values = with_r1_proven(&shipped(&[
+        ("add", "R1", &["v1.0"]),
+        ("share", "R2", &["v1.0"]),
+        ("find", "R2", &["v2.0"]),
+    ]));
+    assert_eq!(
+        of(&values, "v1.0", "journeys_covered"),
+        Some(&json!({ "journeys": 2, "covered": 1 }))
+    );
+    assert_eq!(
+        of(&values, "v2.0", "journeys_covered"),
+        Some(&json!({ "journeys": 1, "covered": 0 }))
+    );
+}
+
+#[test]
+fn a_journey_listing_two_milestones_counts_in_both() {
+    let values = with_r1_proven(&shipped(&[("add", "R1", &["v1.0", "v2.0"])]));
+    for milestone in ["v1.0", "v2.0"] {
+        assert_eq!(
+            of(&values, milestone, "journeys_covered"),
+            Some(&json!({ "journeys": 1, "covered": 1 })),
+            "{milestone}"
+        );
+    }
+}
+
+#[test]
+fn a_milestone_with_no_journey_has_no_count() {
+    let values = with_r1_proven(&shipped(&[("add", "R1", &["v1.0"]), ("share", "R2", &[])]));
+    assert_eq!(of(&values, "v3.0", "journeys_covered"), None);
+    assert_eq!(of(&values, "v2.0", "journeys_covered"), None);
+}

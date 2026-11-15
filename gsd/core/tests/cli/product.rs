@@ -453,3 +453,18 @@ fn a_journey_is_covered_once_its_requirement_traces() {
     assert_eq!(p.fields_of("TASK-01")["proof"], "proven");
     assert_eq!(p.fields_of("add_a_task")["covered"], true);
 }
+
+/// The milestone a journey lists counts it, and counts it covered once its requirement traces.
+#[test]
+fn the_milestone_counts_its_covered_journey() {
+    let p = execute_with_a_journey();
+    assert_eq!(
+        p.fields_of("v1.0")["journeys_covered"],
+        serde_json::json!({ "journeys": 1, "covered": 0 })
+    );
+    trace_task_01(&p);
+    assert_eq!(
+        p.fields_of("v1.0")["journeys_covered"],
+        serde_json::json!({ "journeys": 1, "covered": 1 })
+    );
+}

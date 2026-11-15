@@ -2673,6 +2673,39 @@
             "required": false,
             "target_kind": null,
             "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the journeys whose `milestones` list it, and how many of them are `covered`; absent with none (beyond GSD, ADR 0357 D23)",
+            "edge": null,
+            "field_type": "block",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "journeys",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "covered",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "journeys_covered",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,
