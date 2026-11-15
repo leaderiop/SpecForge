@@ -6,9 +6,10 @@
 [ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md) (a field that names its reverse).
 D1 to D8 hold the risk's decisions; D9 to D15, the invariant's, were added when that kind landed (2026-11-15), so the
 title names both. No SDK or protocol change of its own: D12 waits for an invariant in force with a judged target's
-`judged_while` ([ADR 0362](0362-a-judged-target-may-wait-for-its-owner-state.md)). One kernel change, D15, amends
-[ADR 0331](0331-the-gsd-requirement-thread.md) D7: the registry's check of a judged rule's or a context route's
-`file()` selector.
+`judged_while` ([ADR 0362](0362-a-judged-target-may-wait-for-its-owner-state.md)), a protocol and SDK addition that
+re-vendored the builtins. One host change, D15 (the registry, `crates/pipeline/registry`; no kernel crate, no
+re-vendor), amends [ADR 0331](0331-the-gsd-requirement-thread.md) D7: the registry's check of a judged rule's or a
+context route's `file()` selector.
 
 ## Context
 
