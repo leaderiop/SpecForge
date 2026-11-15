@@ -26,6 +26,7 @@ mod verify_paths;
 mod verify_rules;
 mod waves;
 mod windows;
+mod words;
 mod workstreams;
 
 use specforge_extension_sdk::prelude::*;

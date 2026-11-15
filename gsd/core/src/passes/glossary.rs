@@ -7,20 +7,12 @@ use std::collections::BTreeMap;
 use specforge_extension_sdk::prelude::*;
 
 use super::plans::strings;
+use super::words::folded;
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("glossary", |p| {
         p.phase("check").run(check);
     });
-}
-
-/// A word as the glossary compares it: each run of whitespace one space, then Unicode lowercase (`str::to_lowercase`,
-/// not full case folding).
-fn folded(word: &str) -> String {
-    word.split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .to_lowercase()
 }
 
 /// W538: a term whose `avoid` lists a word the glossary accepts, its own `name` or one of its `aliases` or another

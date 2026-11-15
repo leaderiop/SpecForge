@@ -222,26 +222,6 @@ pub fn text<'a>(entity: &'a PassEntity, field: &str) -> Option<&'a str> {
         .filter(|t| !t.is_empty())
 }
 
-fn is_word(byte: u8) -> bool {
-    byte.is_ascii_alphanumeric() || byte == b'_'
-}
-
-/// `\b<needle>\b` in `haystack` (JavaScript's ASCII word boundary), case-insensitively for ASCII letters when `fold`.
-/// The needle starts and ends with a word character (an id, a phrase).
-pub fn has_word(haystack: &str, needle: &str, fold: bool) -> bool {
-    let (haystack, needle) = if fold {
-        (haystack.to_ascii_lowercase(), needle.to_ascii_lowercase())
-    } else {
-        (haystack.to_string(), needle.to_string())
-    };
-    let bytes = haystack.as_bytes();
-    haystack.match_indices(&needle).any(|(at, found)| {
-        let before = at.checked_sub(1).map(|i| bytes[i]);
-        let after = bytes.get(at + found.len()).copied();
-        !before.is_some_and(is_word) && !after.is_some_and(is_word)
-    })
-}
-
 /// What a JSON value holds, for [`texts`]: a string, children, or nothing to read.
 enum Shape<'a, V> {
     Text(&'a str),

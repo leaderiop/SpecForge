@@ -17,9 +17,8 @@ use specforge_extension_sdk::prelude::*;
 
 use std::collections::BTreeSet;
 
-use super::plans::{
-    children, context_decisions, has_word, links, listed_decisions, name_of, of_kind, text,
-};
+use super::plans::{children, context_decisions, links, listed_decisions, name_of, of_kind, text};
+use super::words::{Boundary, has_word};
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("scope", |p| {
@@ -77,7 +76,7 @@ fn decided(input: &PassInput, task: &PassEntity, phrase: &str) -> bool {
         .into_iter()
         .filter_map(|id| input.entities.iter().find(|d| d.id == id))
         .filter_map(|d| text(d, "text"))
-        .any(|said| has_word(&without_versions(said), phrase, true))
+        .any(|said| has_word(&without_versions(said), phrase, Boundary::Js))
 }
 
 fn scope_reduction(input: &PassInput) -> Vec<PassDiagnostic> {
@@ -88,7 +87,7 @@ fn scope_reduction(input: &PassInput) -> Vec<PassDiagnostic> {
             // Each hit is excused on its own: a decided "v1" does not excuse a "future enhancement" beside it.
             let phrase = SCOPE_REDUCTION
                 .iter()
-                .find(|phrase| has_word(&plain, phrase, true) && !decided(input, task, phrase))?;
+                .find(|phrase| has_word(&plain, phrase, Boundary::Js) && !decided(input, task, phrase))?;
             Some(
                 PassDiagnostic::new(
                     "E312",
