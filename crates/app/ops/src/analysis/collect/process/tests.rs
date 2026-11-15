@@ -221,3 +221,34 @@ fn a_cmd_shim_on_path_runs() {
     .unwrap();
     assert_eq!(ran.exit_code, Some(3));
 }
+
+#[cfg(unix)]
+#[test]
+#[expect(
+    unsafe_code,
+    reason = "set_var before any thread of this test reads the environment; the test runs in its own process under nextest"
+)]
+fn a_collector_command_never_receives_a_cargo_registry_token() {
+    // SAFETY: no other thread of this test reads the environment.
+    unsafe {
+        std::env::set_var("CARGO_REGISTRY_TOKEN", "withheld");
+        std::env::set_var("CARGO_REGISTRIES_X_TOKEN", "withheld");
+        std::env::set_var("CARGO_SPECFORGE_PROBE", "passed");
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let mut capture = Vec::new();
+    let ran = run(
+        &["env".to_string()],
+        dir.path(),
+        &dir.path().join("r.json"),
+        Some(&mut capture),
+        RunnerOutput::Discard,
+    )
+    .unwrap();
+    assert_eq!(ran.exit_code, Some(0));
+    let env = String::from_utf8(capture).unwrap();
+    assert!(env.contains("CARGO_SPECFORGE_PROBE=passed"), "{env}");
+    for withheld in ["CARGO_REGISTRY_TOKEN=", "CARGO_REGISTRIES_X_TOKEN="] {
+        assert!(!env.contains(withheld), "{withheld}: {env}");
+    }
+}
