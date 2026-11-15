@@ -351,3 +351,54 @@ fn a_phase_that_writes_risk_level_is_e082() {
         "the computed value stands"
     );
 }
+
+/// A task, a truth or an invariant reads back the risks that name it as `mitigates`: written by hand it is E079 naming
+/// `risk.mitigated_by` with the edit, and a typed edit of it is refused `other_side`; the owning side writes.
+#[test]
+fn a_mitigates_written_on_a_task_is_e079_naming_mitigated_by() {
+    let p = project("governance");
+    p.edit(
+        "spec/plans.spec",
+        "  done   \"A key is encrypted at rest\"\n",
+        "  done   \"A key is encrypted at rest\"\n  mitigates [RK2]\n",
+    );
+    let check = p.run(&["check"]);
+    assert_eq!(check.code, 1, "{}", check.all());
+    let report = p.report();
+    assert!(
+        report
+            .iter()
+            .any(|(code, message)| code == "E079" && message.contains("risk.mitigated_by")),
+        "{report:#?}"
+    );
+    assert!(check.all().contains("mitigated_by ["), "{}", check.all());
+
+    let p = project("governance");
+    let refused = p.run(&["link", "v1.0/01/01-01/TR1", "mitigates", "RK2"]);
+    assert_ne!(refused.code, 0, "{}", refused.all());
+    assert!(
+        refused.all().contains("other_side") && refused.all().contains("mitigated_by"),
+        "{}",
+        refused.all()
+    );
+    let linked = p.run(&["link", "RK2", "mitigated_by", "v1.0/01/01-01/TR1"]);
+    assert_eq!(linked.code, 0, "{}", linked.all());
+    assert_eq!(
+        p.report(),
+        [("gsd/W532".to_string(), RK3_W532.to_string())],
+        "the fixture's one finding, and nothing more"
+    );
+    let query = p.run(&[
+        "query",
+        "v1.0/01/01-01/TR1",
+        "--depth",
+        "1",
+        "--format",
+        "json",
+    ]);
+    assert!(
+        query.stdout.contains("\"RK2\"") && query.stdout.contains("\"RK4\""),
+        "the truth reads back both risks it mitigates: {}",
+        query.all()
+    );
+}

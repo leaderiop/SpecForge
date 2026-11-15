@@ -9,7 +9,9 @@ title names both. No SDK or protocol change of its own: D12 waits for an invaria
 `judged_while` ([ADR 0362](0362-a-judged-target-may-wait-for-its-owner-state.md)), a protocol and SDK addition that
 re-vendored the builtins. One host change, D15 (the registry, `crates/pipeline/registry`; no kernel crate, no
 re-vendor), amends [ADR 0331](0331-the-gsd-requirement-thread.md) D7: the registry's check of a judged rule's or a
-context route's `file()` selector.
+context route's `file()` selector. D7 amended by
+[ADR 0359](0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md) (`mitigated_by` reads back as
+`mitigates` on task, truth and invariant, now that a union's named reverse is read on each of its kinds).
 
 ## Context
 

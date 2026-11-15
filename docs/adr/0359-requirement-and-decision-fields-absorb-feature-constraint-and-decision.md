@@ -1,10 +1,12 @@
 # Requirement and decision fields absorb feature, constraint and decision
 
 **Status:** accepted (2026-11-15). Amends [ADR 0331](0331-the-gsd-requirement-thread.md) D5 (a requirement's thread
-state is its computed `proof`, which `gsd/E515` reads) and [ADR 0353](0353-a-pass-reads-the-facts-it-declares.md)
-D6 (`gate_e515` declares no facts any more: it reads that `proof`), and
+state is its computed `proof`, which `gsd/E515` reads), [ADR 0353](0353-a-pass-reads-the-facts-it-declares.md)
+D6 (`gate_e515` declares no facts any more: it reads that `proof`),
 [ADR 0150](0150-a-relation-is-written-on-one-side.md) D2 (a reverse an `inverse_of` names is the other side by name
-on the field's own kind, a self-relation, and on each kind of a union). Builds on
+on the field's own kind, a self-relation, and on each kind of a union) and
+[ADR 0358](0358-a-risk-is-rated-and-an-invariant-is-judged.md) D7 (`risk.mitigated_by` reads back as `mitigates` on
+task, truth and invariant). Builds on
 [ADR 0285](0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md) (an enum, a block),
 [ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md) (a field that names its reverse),
 [ADR 0093](0093-a-fields-declared-type-decides-what-its-value-references.md) (a scheme ref in a string list),

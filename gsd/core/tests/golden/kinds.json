@@ -11036,10 +11036,10 @@
           },
           {
             "default_value": null,
-            "description": "what controls it: a task done, a truth verified, an invariant that holds",
+            "description": "what controls it: a task done, a truth verified, an invariant that holds; each reads it back as `mitigates`",
             "edge": "RiskMitigatedBy",
             "field_type": "reference_list",
-            "inverse_of": null,
+            "inverse_of": "mitigates",
             "name": "mitigated_by",
             "required": false,
             "target_kind": null,

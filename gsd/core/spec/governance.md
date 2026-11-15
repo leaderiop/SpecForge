@@ -30,7 +30,7 @@ a phase, and moving it to another milestone does not rename it.
 | occurrence | int{1..10} | R | 1 remote … 10 almost certain |
 | detection | int{1..10} | R | 1 almost certainly caught before harm … 10 cannot be caught |
 | post | {severity int{1..10}, occurrence int{1..10}, detection int{1..10}} | | the ratings once every mitigation is done; a member left out keeps its pre rating |
-| mitigated_by | →* task \| truth \| invariant | | what controls it: a task done, a truth verified, an invariant that holds |
+| mitigated_by | →* task \| truth \| invariant | | what controls it: a task done, a truth verified, an invariant that holds; inverse `mitigates` |
 | mitigation | str | | the planned control as prose; no evidence |
 | affects | →* requirement | | the requirements it threatens; each reads it back as `risks` |
 | milestone | → milestone | | where it must be settled when no phase's plan mitigates it; the milestone reads it back as `risks` |
@@ -46,8 +46,11 @@ Each computed value is absent while a required rating is missing or one is outsi
 (a missing required field, E061 out of bounds, in the post block too), and no number is guessed. Writing a computed
 field is E082.
 
-`mitigated_by` names no reverse: the kernel reads a reverse name through a field's one target kind, and this field
-has three.
+`mitigated_by` names its reverse, `mitigates`, on each of its three kinds: a task, a truth or an invariant reads back
+the risks it controls, and `mitigates` written on one is E079, naming `risk.mitigated_by`
+([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)). It is
+not `risks`, the reverse `affects` and `milestone` name: on a task that word would not say whether the task creates
+the risk or controls it.
 
 ### What mitigates a risk
 
@@ -124,6 +127,9 @@ outlives the phase it starts at.
 
 `proof` and `items` read `@code/core`'s facts as a truth's `proof` and a task's `items` do: a name no served store
 holds is `code/E101`, and with no `@code/core` loaded a written one is I004.
+
+An invariant reads back the risks that name it in `risk.mitigated_by` as `mitigates`, a name it never writes: writing
+it is E079 ([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)).
 
 ### In force, and its status
 

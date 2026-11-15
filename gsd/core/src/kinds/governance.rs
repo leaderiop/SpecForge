@@ -41,7 +41,11 @@ pub const RISK: Kind = Kind::new(
             "the ratings once every mitigation is done; a member left out keeps its pre rating",
         ),
         rfs_any("mitigated_by", MITIGATIONS)
-            .doc("what controls it: a task done, a truth verified, an invariant that holds"),
+            .inverse("mitigates")
+            .doc(
+                "what controls it: a task done, a truth verified, an invariant that holds; each reads it back as \
+                 `mitigates`",
+            ),
         str("mitigation").doc("the planned control as prose; no evidence"),
         rfs("affects", "requirement")
             .inverse("risks")

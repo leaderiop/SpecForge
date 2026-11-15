@@ -79,7 +79,8 @@ fn a_risk_rates_severity_occurrence_and_detection_one_to_ten() {
     }
 }
 
-/// `mitigated_by` names no reverse: the kernel reads a reverse name through one target kind, and it has three.
+/// `mitigated_by` names its reverse, `mitigates`, read back on each of its three kinds: none of them declares a field
+/// of that name (W162 would say so), and `risks` stays the word of `affects` and `milestone`.
 #[test]
 fn a_risk_names_its_mitigations_and_milestone() {
     let mitigated_by = field_of("risk", "mitigated_by");
@@ -92,7 +93,13 @@ fn a_risk_names_its_mitigations_and_milestone() {
         serde_json::json!(["task", "truth", "invariant"]),
         "{mitigated_by}"
     );
-    assert!(mitigated_by["inverse_of"].is_null(), "{mitigated_by}");
+    assert_eq!(mitigated_by["inverse_of"], "mitigates", "{mitigated_by}");
+    for kind in ["task", "truth", "invariant"] {
+        assert!(
+            !fields_of(kind).contains(&"mitigates".to_string()),
+            "{kind} declares mitigates"
+        );
+    }
     let affects = field_of("risk", "affects");
     assert_eq!(affects["target_kind"], "requirement", "{affects}");
     assert_eq!(affects["inverse_of"], "risks", "{affects}");

@@ -75,6 +75,7 @@ GSD: `<task type="auto|tdd">`. Name `T1`, scoped by its plan; the order is the n
 | done | str | R | `<done>` |
 | verify_paths | strs | C | the directory and the manifest (`package.json`, `Makefile`) each `automated` command runs in, from its `cd` or `--prefix`, project-relative; the host reads them (K11) for gsd/E320 |
 | commits | ←* commit | | read, not written: the inverse of `commit.task`, the commits whose subject names the task (`plan.commits` reads `commit.plan` the same way). The git collector records them |
+| mitigates | ←* risk | | read, not written: the inverse of `risk.mitigated_by`, the risks the task controls; writing it is E079 ([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)) |
 | status | enum{pending, done} | C | done when a recorded commit names it or its plan's summary is complete; pending otherwise. The task is complete (`complete_when`) while `done` |
 
 ## checkpoint
@@ -101,6 +102,9 @@ An option is a block, not an entity: nothing outside its checkpoint names it, so
 ## must-haves
 
 GSD: the `must_haves:` block. Each item is an entity, so a verifier's verdict can name it.
+
+A truth reads back the risks that name it in `risk.mitigated_by` as `mitigates`, never written: writing it is E079
+([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)).
 
 | Kind | Fields |
 |---|---|
