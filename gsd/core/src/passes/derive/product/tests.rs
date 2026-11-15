@@ -394,6 +394,32 @@ fn a_journey_lists_the_tests_tagged_with_it() {
     );
 }
 
+/// A test fact records no status before it runs: one that tags the journey is listed all the same.
+#[test]
+fn a_journey_lists_a_tagged_test_that_has_no_status() {
+    let mut input = tagged(
+        &["R1"],
+        &[
+            ("js:app/test/j.test.js#pays", TestStatus::Passed, &["j"]),
+            ("js:app/test/j.test.js#walks", TestStatus::Passed, &["j"]),
+        ],
+    );
+    for fact in input
+        .entities
+        .iter_mut()
+        .filter(|e| e.id == "js:app/test/j.test.js#pays")
+    {
+        fact.fields.remove("status");
+    }
+    assert_eq!(
+        of(&computed(&input), "j", "tests"),
+        Some(&json!([
+            "js:app/test/j.test.js#pays",
+            "js:app/test/j.test.js#walks"
+        ]))
+    );
+}
+
 #[test]
 fn a_journey_no_test_names_lists_none() {
     assert_eq!(

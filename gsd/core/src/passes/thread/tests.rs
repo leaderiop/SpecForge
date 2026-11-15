@@ -497,3 +497,30 @@ fn requirement_proven_needs_complete_and_proven() {
     }
     assert_eq!(Proof::Proven.missing(), None);
 }
+
+/// `named_by` reads the `names` edges alone, and keeps a test fact whatever its status, or none.
+#[test]
+fn named_by_lists_the_facts_that_name_an_entity_run_or_not() {
+    let mut input = input();
+    add_test(&mut input, ADDS, "adds", FILE, TestStatus::Failed, &["J1"]);
+    add_test(
+        &mut input,
+        LISTS,
+        "lists",
+        FILE,
+        TestStatus::Passed,
+        &["J1"],
+    );
+    for fact in input.entities.iter_mut().filter(|e| e.id == LISTS) {
+        fact.fields.remove("status");
+    }
+    input.edges.push(PassEdge {
+        source: "J1".to_string(),
+        target: ADDS.to_string(),
+        label: PROOF.to_string(),
+    });
+    let thread = Thread::of(&input);
+    assert_eq!(Vec::from_iter(thread.named_by("J1")), [ADDS, LISTS]);
+    assert_eq!(thread.naming("J1"), [(ADDS, TestStatus::Failed)]);
+    assert!(thread.named_by("J2").is_empty());
+}

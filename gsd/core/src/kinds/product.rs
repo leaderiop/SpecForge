@@ -76,8 +76,8 @@ pub const JOURNEY: Kind = Kind::new(
              reads), and each step names one or the journey lists `requirements` (ADR 0357 D20)",
         ),
         rfs("tests", "test").c().doc(
-            "the `@code/core` test facts tagged with it (`[gsd:<journey>]`): evidence beside `covered`, which reads \
-             the requirement thread only; `[]` when none (ADR 0357 D21)",
+            "the `@code/core` test facts tagged with it (`[gsd:<journey>]`), run or not: evidence beside `covered`, \
+             which reads the requirement thread only; `[]` when none (ADR 0357 D21)",
         ),
     ],
 );

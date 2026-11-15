@@ -190,17 +190,13 @@ fn journeys_covered(input: &PassInput, covered: &BTreeMap<&str, bool>) -> Vec<Pa
         .collect()
 }
 
-/// Each journey's `tests`: the test facts whose name tags it (`Thread::naming`), by id, sorted, and `[]` when none.
-/// Their status is read on the facts; `covered` never reads them (ADR 0357 D21).
+/// Each journey's `tests`: the test facts whose name tags it (`Thread::named_by`), run or not, by id, sorted, and
+/// `[]` when none. Their status is read on the facts; `covered` never reads them (ADR 0357 D21).
 fn tests(input: &PassInput) -> Vec<PassValue> {
     let thread = Thread::of(input);
     of_kind(input, "journey")
         .map(|journey| {
-            let ids: BTreeSet<&str> = thread
-                .naming(&journey.id)
-                .into_iter()
-                .map(|(id, _)| id)
-                .collect();
+            let ids = thread.named_by(&journey.id);
             value(&journey.id, "tests", Vec::from_iter(ids))
         })
         .collect()

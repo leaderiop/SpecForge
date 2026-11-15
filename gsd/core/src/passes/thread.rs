@@ -112,16 +112,22 @@ impl<'a> Thread<'a> {
     /// Every test fact linked to `id`, run or not: those whose `names` holds it and those its `proof` names. What an
     /// invariant guards reads its tests so (`passes::invariants`): a proof test's function is guarded before it runs.
     pub fn tests(&self, id: &str) -> BTreeSet<&'a str> {
-        let linked: BTreeSet<&str> = self
-            .input
-            .edges
-            .iter()
-            .filter_map(|e| match e.label.as_str() {
-                NAMES if e.target == id => Some(e.source.as_str()),
-                PROOF if e.source == id => Some(e.target.as_str()),
-                _ => None,
-            })
-            .collect();
+        self.facts_any_status(|e| match e.label.as_str() {
+            NAMES if e.target == id => Some(e.source.as_str()),
+            PROOF if e.source == id => Some(e.target.as_str()),
+            _ => None,
+        })
+    }
+
+    /// Every test fact whose `names` holds `id`, run or not: the `names` half of [`Thread::tests`]. A journey lists
+    /// its tagged tests so (`journey.tests`): a fact with no recorded status is still tagged.
+    pub fn named_by(&self, id: &str) -> BTreeSet<&'a str> {
+        self.facts_any_status(|e| (e.label == NAMES && e.target == id).then_some(e.source.as_str()))
+    }
+
+    /// The test facts, run or not, at the end `end` reads of each edge it keeps.
+    fn facts_any_status(&self, end: impl Fn(&'a PassEdge) -> Option<&'a str>) -> BTreeSet<&'a str> {
+        let linked: BTreeSet<&str> = self.input.edges.iter().filter_map(end).collect();
         self.input
             .entities
             .iter()

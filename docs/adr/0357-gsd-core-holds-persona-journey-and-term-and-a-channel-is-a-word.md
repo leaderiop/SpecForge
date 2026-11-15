@@ -227,7 +227,8 @@ features' requirements, a channel as a term, the artifact word, the journey memb
   - A reference that does not resolve (the host reports it) counts as unproven.
 - **D21. `journey.tests` is computed.** It lists the `@code/core` test facts tagged with the journey
   (`[gsd:<journey>]`, an edge `names`), by id, sorted, and `[]` when none. They are evidence beside `covered`, never
-  read by it: one reading of coverage, `gsd/E515`'s. A fact's status is read on the fact.
+  read by it: one reading of coverage, `gsd/E515`'s. A fact's status is read on the fact, and a fact with no
+  recorded status (one not run yet) is listed all the same.
 - **D22. A UAT test names the journey it walks.** `uat_test.journey` is authored and optional, read back as
   `journey.uat_tests` ([ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md)).
   - `journey.last_uat` is computed: the session of a test that names the journey, the latest `started` first, a
