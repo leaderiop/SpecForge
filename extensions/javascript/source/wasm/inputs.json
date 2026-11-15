@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_javascript_source.wasm",
-  "artifact_sha256": "995536567bdc22896764955736e3d987bc35401270cd5d7b6decb1eb45974d7b",
+  "artifact_sha256": "3b72830b4ebd219f88a2a9f053a7507f52ae23c9bd3ca1e4ffc8aee3b66698f3",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9e0489b27be2c7fd7820cd1d3b2e145c1a7793b4d2dca8320df80d1c29c0e984",
@@ -11,7 +11,7 @@
     "crates/leaf/protocol-types/src/calls/facts.rs": "9aa11df0902f2393c0f758d2ddb0e8747cc4d4afda5a0faff8b20e31ec6d710e",
     "crates/leaf/protocol-types/src/capability.rs": "eecacee42f99ed589242166328fe6e4fc2c6e93322b3503f5b3507dcd2d445a5",
     "crates/leaf/protocol-types/src/checks.rs": "ee4ed29565dc59dcfd60d7b024f2353c0786cee4bbadb444fbe3a9ef42fbfe66",
-    "crates/leaf/protocol-types/src/code_catalog.rs": "b5a5d364bbf8060febd7d343e2ea1472eedbd2df10ede660dffbda03ca55a737",
+    "crates/leaf/protocol-types/src/code_catalog.rs": "de6900b40ec736a8dbcc88073914de8db54c1d80a35ad482b4a092c2b19d5ea4",
     "crates/leaf/protocol-types/src/command_args.rs": "ec81e38e7b000cc15b4b7c26e9fe5de602f0d98764c3af4f466e6225c41866b1",
     "crates/leaf/protocol-types/src/context.rs": "8a46bafc21c692caa5f1513672cdc6dd65de6ea4af48d09076f47e7953522130",
     "crates/leaf/protocol-types/src/contrib.rs": "85269d1993bdfdfda5aae190f5702a645e8a570cc0deb91941b30600f00e9c50",
@@ -42,7 +42,7 @@
     "crates/runtime/extension-sdk-macros/Cargo.toml": "2845656f0847efeddb37aecc91031adc3396747949aa0e090cdad31644824544",
     "crates/runtime/extension-sdk-macros/src/lib.rs": "05b9dfd092444a55acc0993f35172ee3d0e4db9b6b1bed77682ce912ba54f67a",
     "crates/runtime/extension-sdk/Cargo.toml": "41c03d21f457d3e7394d86a625742a525700ac1ddcb92b49487e0fc5dcaa2797",
-    "crates/runtime/extension-sdk/src/builders.rs": "c043d2aa33274bd780aa99325d3f73419a84aeabbe4d4de0209aecd9a995703f",
+    "crates/runtime/extension-sdk/src/builders.rs": "3cc1488a6aef289e24531519bf5271199ff1446b192bb6af47de353123642fa5",
     "crates/runtime/extension-sdk/src/capability.rs": "8c3323b3e8eaea0413910c416abb6ef551cf8f26a3f570b19d0b217cf03680a6",
     "crates/runtime/extension-sdk/src/checker.rs": "4d89b64155c3a6fce020c07e432eb9f6d38320e14b3d4623fd89a3f7ae7ea3e7",
     "crates/runtime/extension-sdk/src/command_graph.rs": "e88d26d3134c7591aa1afeee1f432ecdf0437a191c23b5d2eb50a50a0b7e5562",
