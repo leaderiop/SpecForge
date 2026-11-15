@@ -389,9 +389,16 @@ fn an_invariant_stays_in_force_when_its_phase_gains_a_gap_closure_plan() {
     assert_eq!(status(&p, "ids_are_sequential"), "holds");
     p.write("spec/gaps.spec", GAP_CLOSURE_PLAN);
     assert_eq!(status(&p, "v1.0/01"), "in_progress");
-    // pinned: the invariant falls back to pending and the risk it mitigates blocks again
-    assert_eq!(status(&p, "ids_are_sequential"), "pending");
-    assert_eq!(risk(&p), ("mitigating".into(), true));
+    assert_eq!(status(&p, "ids_are_sequential"), "holds");
+    assert_eq!(risk(&p), ("mitigated".into(), false));
+    // in force, its proof is still checked
+    p.write(
+        "spec/invariants.spec",
+        &TWIN_INVARIANT.replace("#a task is added with the next id", "#no such test"),
+    );
+    let found = checks_on(&p, "ids_are_sequential");
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(found[0].0, "code/E101", "{found:#?}");
 }
 
 /// An invariant mitigates a risk while its status is `holds`: not before a verdict, not once violated, and not while

@@ -10,7 +10,8 @@
 //! answers a plan's slices under the smart-zone budget. `review` answers a review concern's status, a round's open
 //! counts and a revision conflict's status, `batch` a quick batch's status and eligible items, `learning` a
 //! lesson's status, `risk` a risk's rpn, post_rpn, status and blocking (against `specforge.risk_block_on`, read
-//! once here), and `invariant` an invariant's status and last_verified (from each phase's status on the ladder).
+//! once here), and `invariant` an invariant's status and last_verified (from each phase's status on the ladder and its
+//! verification).
 //!
 //! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection) and `retrospective.sessions` (no harness).
 
@@ -62,7 +63,7 @@ fn derive(input: &PassInput) -> PassOutput {
     let verified = verify::by_phase(input);
     values.extend(progress::values(input, &commits, &statuses, &verified));
     let phases = progress::phase_statuses(input, &verified);
-    let invariants = invariant::statuses(input, &phases);
+    let invariants = invariant::statuses(input, &phases, &verified);
     values.extend(invariant::values(input, &invariants));
     values.extend(uat::values(input, &statuses));
     values.extend(learning::values(input, &verified));

@@ -113,13 +113,13 @@ outlives the phase it starts at.
 | statement | str | R | what must always hold |
 | description | str | | a summary beside the statement |
 | scope | enum{project, milestone} | | how far it reaches: the project (absent), or the milestone of its `holds_from` phase |
-| holds_from | → phase | | in force once this phase is complete (executed or after); absent: from the start |
+| holds_from | → phase | | in force once this phase has been complete (executed or after) or verified, and for good; absent: from the start |
 | proof | →* test | | the tests that prove it: `@code/core` test facts, quoted (`"js:pkg/a.test.js#adds"`) |
 | items | →* item | | the code items it holds over: `@code/core` item facts, quoted (`"js:pkg/src/a.js::add"`) |
 | criticality | enum{critical, high, medium, low} | | what a violation costs, highest first |
 | tags | strs | | words to group it |
 | refs | strs | | external references: issue or document URIs |
-| status | enum{pending, unverified, stale, holds, violated, uncertain} | C | `pending` until its `holds_from` phase is complete; then `unverified` with no usable verdict, `stale` once an input moved since, or the fresh verdict's outcome |
+| status | enum{pending, unverified, stale, holds, violated, uncertain} | C | `pending` until its `holds_from` phase has been complete or verified; then `unverified` with no usable verdict, `stale` once an input moved since, or the fresh verdict's outcome |
 | last_verified | ts | C | the time of the fresh verdict that it holds; absent otherwise |
 
 `proof` and `items` read `@code/core`'s facts as a truth's `proof` and a task's `items` do: a name no served store
@@ -127,10 +127,17 @@ holds is `code/E101`, and with no `@code/core` loaded a written one is I004.
 
 ### In force, and its status
 
-An invariant is in force from the start when it names no `holds_from`, else once that phase is complete in the
-phase's own sense: `executed`, `needs_review` or `complete`, the values of the phase's `complete_when`. Executed is
+An invariant is in force from the start when it names no `holds_from`, else once that phase has been complete in
+the phase's own sense: `executed`, `needs_review` or `complete`, the values of the phase's `complete_when`. Executed is
 enough; its verification is not awaited. A `holds_from` that names no phase (the kernel reports it) keeps the
 invariant pending.
+
+In force is reached once and stays. GSD's gap closure (`plan-phase N --gaps`) adds a plan to a phase whose
+verification found gaps, and the phase is `in_progress` again until that plan has a summary: the invariant stays in
+force, so its verdict still shows, the risks it mitigates still count it and its `proof` is still checked, while the
+gaps are open. The status is computed and keeps no history, so the latch is read from what outlives the slide: a phase
+with a recorded verification has run, whatever the verification found. A phase that gains a plan before any
+verification is still being executed, and its invariant waits for it.
 
 While it is not in force its `status` is `pending`, whatever a verdict says, and the invariant is pending in the
 kernel's sense (its `complete_when` holds on every other status): its `proof` and `items` are not checked, so a test

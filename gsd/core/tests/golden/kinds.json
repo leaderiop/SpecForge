@@ -10997,7 +10997,7 @@
           },
           {
             "default_value": null,
-            "description": "in force once this phase is complete (executed or after); absent: from the start",
+            "description": "in force once this phase has been complete (executed or after) or verified, and for good; absent: from the start",
             "edge": "InvariantHoldsFrom",
             "field_type": "reference",
             "inverse_of": null,
@@ -11063,7 +11063,7 @@
           },
           {
             "default_value": null,
-            "description": "pending until its holds_from phase is complete; then unverified (no usable verdict), stale, or the fresh verdict's outcome",
+            "description": "pending until its holds_from phase has been complete or verified; then unverified (no usable verdict), stale, or the fresh verdict's outcome",
             "edge": null,
             "enum_values": [
               "pending",

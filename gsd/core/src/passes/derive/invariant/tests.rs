@@ -40,6 +40,11 @@ fn phases() -> BTreeMap<String, &'static str> {
     ])
 }
 
+/// No phase has a verification.
+fn unverified() -> BTreeMap<String, Verified> {
+    BTreeMap::new()
+}
+
 fn found(values: &[PassValue], entity: &str, field: &str) -> Option<serde_json::Value> {
     values
         .iter()
@@ -83,7 +88,7 @@ fn an_invariant_is_in_force_from_the_start_or_once_its_phase_is_complete() {
         ("from_planned", Some("v1.0/02"), fresh.clone()),
         ("from_nowhere", Some("nowhere"), fresh),
     ]);
-    let statuses = statuses(&input, &phases());
+    let statuses = statuses(&input, &phases(), &unverified());
     assert_eq!(statuses["always"], "holds");
     assert_eq!(statuses["from_executed"], "holds");
     assert_eq!(statuses["from_planned"], "pending");
@@ -102,7 +107,41 @@ fn an_invariant_is_in_force_from_the_start_or_once_its_phase_is_complete() {
 }
 
 fn statuses_of(input: &PassInput, phases: &BTreeMap<String, &'static str>, id: &str) -> String {
-    statuses(input, phases)[id].to_string()
+    statuses(input, phases, &unverified())[id].to_string()
+}
+
+/// A phase with a recorded verification has run: its invariant stays in force when a gap-closure plan moves the phase
+/// back to `in_progress`, whatever the verification found.
+#[test]
+fn an_invariant_stays_in_force_once_its_phase_has_a_verification() {
+    let fresh = json!([judged("fresh", Some("holds"))]);
+    let input = project(&[("from_02", Some("v1.0/02"), fresh)]);
+    for (phase, verification) in [
+        ("in_progress", Some("gaps_found")),
+        ("in_progress", Some("human_needed")),
+        ("planned", Some("passed")),
+        ("in_progress", None),
+        ("not_started", None),
+    ] {
+        let phases = BTreeMap::from([("v1.0/02".to_string(), phase)]);
+        let verified: BTreeMap<String, Verified> = verification
+            .map(|status| {
+                let at = Some(AT.to_string());
+                ("v1.0/02".to_string(), Verified { status, at })
+            })
+            .into_iter()
+            .collect();
+        let expected = if verification.is_some() {
+            "holds"
+        } else {
+            "pending"
+        };
+        assert_eq!(
+            statuses(&input, &phases, &verified)["from_02"],
+            expected,
+            "{phase}, {verification:?}"
+        );
+    }
 }
 
 #[test]
@@ -118,7 +157,7 @@ fn last_verified_is_a_fresh_holds_verdicts_time() {
         ),
         ("unjudged", None, json!([])),
     ]);
-    let values = values(&input, &statuses(&input, &phases()));
+    let values = values(&input, &statuses(&input, &phases(), &unverified()));
     assert_eq!(found(&values, "holds", "last_verified"), Some(json!(AT)));
     for id in ["stale", "violated", "pending", "unjudged"] {
         assert_eq!(found(&values, id, "last_verified"), None, "{id}");

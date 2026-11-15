@@ -110,10 +110,17 @@ title names both. No SDK or protocol change. One kernel change, D15, amends
     (the same four words in the same order, so no scale is needed), `description` → `description`, `refs` → `refs`,
     and `@specforge/testing`'s `verify` → `proof`. Its presentation (icon, colours, inference guide) has none: no
     `@gsd/core` kind declares one. Loading both extensions is E026, as for `risk`.
-- **D10. In force from a complete phase.** An invariant with no `holds_from` is in force from the start; with one, once
-  that phase is complete in the phase's own sense, `executed`, `needs_review` or `complete`: the values of the
-  phase's `complete_when`, one constant (`roadmap::PHASE_COMPLETE`) for both kinds. Executed is enough; verification
-  is not awaited. A `holds_from` that resolves to no phase (the kernel reports it) keeps the invariant pending.
+- **D10. In force from a complete phase, for good.** An invariant with no `holds_from` is in force from the start;
+  with one, once that phase has been complete in the phase's own sense, `executed`, `needs_review` or `complete`: the
+  values of the phase's `complete_when`, one constant (`roadmap::PHASE_COMPLETE`) for both kinds. Executed is enough;
+  verification is not awaited. A `holds_from` that resolves to no phase (the kernel reports it) keeps the invariant
+  pending.
+  - In force is reached once and stays. GSD's gap closure adds a plan to a phase whose verification found gaps, which
+    moves the phase back to `in_progress`; the invariant stays in force, so its verdict still shows, the risks it
+    mitigates still count it (D14) and its proof is still checked, when a violation matters most.
+  - The status is computed and keeps no history, so the latch is read from what outlives the slide: the phase is
+    complete now, or it has a recorded verification, which is written only once the phase ran and which gap closure
+    keeps. A phase that gains a plan before any verification is still being executed, and its invariant waits.
   While an invariant is not in force its `status` is `pending`, and its own `complete_when` holds on every other
   status, so the kernel treats it as pending ([ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) D4, D5):
   its `proof` and `items` are not checked, and a test or an item its phase has yet to write is no finding. In

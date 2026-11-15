@@ -97,7 +97,8 @@ pub const INVARIANT: Kind = Kind::new(
         en("scope", INVARIANT_SCOPE)
             .doc("how far it reaches: the project (absent), or the milestone of its `holds_from` phase"),
         rf("holds_from", "phase")
-            .doc("in force once this phase is complete (executed or after); absent: from the start"),
+            .doc("in force once this phase has been complete (executed or after) or verified, and for good; absent: \
+                  from the start"),
         rfs("proof", "test").doc(
             "the tests that prove it: `@code/core` test facts, quoted (`\"js:pkg/a.test.js#adds\"`)",
         ),
@@ -108,8 +109,8 @@ pub const INVARIANT: Kind = Kind::new(
         strs("tags").doc("words to group it"),
         strs("refs").doc("external references: issue or document URIs"),
         en("status", INVARIANT_STATUS).c().doc(
-            "pending until its holds_from phase is complete; then unverified (no usable verdict), stale, or the fresh \
-             verdict's outcome",
+            "pending until its holds_from phase has been complete or verified; then unverified (no usable verdict), \
+             stale, or the fresh verdict's outcome",
         ),
         ts("last_verified")
             .c()
