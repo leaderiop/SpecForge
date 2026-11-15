@@ -186,9 +186,9 @@ A phase owes an invariant a judgement once one of its commits changed code the i
 was last judged ([ADR 0358](../../../docs/adr/0358-a-risk-is-rated-and-an-invariant-is-judged.md#e531-is-a-pass-over-the-verdict)).
 The phase lists it in its computed `invariants_due` ([project.md](project.md#phase)).
 
-- **What it guards.** Its `items`; the items its tests run as (`@code/core`'s `runs_as`, from an item to the test it
-  is the function of), its tests being those its `proof` names and those whose name tags it, run or not; and the
-  items whose name tags it.
+- **What it guards.** Its `items`, as each reference resolves (a rooted `/…` spelling is the item) and as written; the
+  items its tests run as (`@code/core`'s `runs_as`, from an item to the test it is the function of), its tests being
+  those its `proof` names and those whose name tags it, run or not; and the items whose name tags it.
 - **The window.** With no `holds_from`, every phase's commits. Otherwise the `holds_from` phase, a later-numbered
   phase of its milestone and, where numbers do not order two phases (another milestone, a custom-named or a backlog
   `999.x` phase), a commit no older than the first commit recorded for the `holds_from` phase (until it has one, any

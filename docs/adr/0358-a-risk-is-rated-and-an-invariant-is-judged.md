@@ -199,10 +199,11 @@ Decisions:
 - **D16. I536 judges; E531 reads when it judged.** E531 is no judged rule. The compute pass `invariants` reports it
   from the `at` of the invariant's I536 judgement, the time the verdict was recorded, not `last_verified`, which is
   when it last held.
-- **D17. What an invariant guards.** Its `items`; the items its proof's tests and the tests whose name tags it run as
-  (`@code/core`'s `runs_as` edge, from an item to the test it is the function of); and the items whose name tags it
-  (`names`). Its tests are read whether or not they have run: a proof test's function is guarded before its first
-  result.
+- **D17. What an invariant guards.** Its `items`, read as each reference resolves (another spelling of an item, a
+  rooted `/…`, is the item) and as written (an item still guarded when no item facts are served, or once it has gone,
+  since a commit may name it); the items its proof's tests and the tests whose name tags it run as (`@code/core`'s
+  `runs_as` edge, from an item to the test it is the function of); and the items whose name tags it (`names`). Its
+  tests are read whether or not they have run: a proof test's function is guarded before its first result.
 - **D18. The window.** With no `holds_from`, every phase's commits. Otherwise the `holds_from` phase; a later-numbered
   phase of its milestone; and, where numbers do not order two phases (another milestone, a custom-named or a backlog
   phase: no roadmap order runs across milestones, and `999.x` sits outside the numbering), a commit no older than the

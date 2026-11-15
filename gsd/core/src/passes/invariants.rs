@@ -1,7 +1,7 @@
 //! When an invariant is due (`spec/governance.md`, "When an invariant is due"): a phase owes an invariant a judgement
 //! once one of its commits changed code the invariant guards after the invariant was last judged (`gsd/I536`).
 //!
-//! What an invariant guards: its `items`; the items its proof's tests and the tests naming it run as
+//! What an invariant guards: its `items`, as resolved and as written; the items its proof's tests and the tests naming it run as
 //! (`@code/core`'s `runs_as` edge, from an item to the test it is the function of), whether or not those tests ran;
 //! and the items whose name tags it. A commit whose `items_changed` is unwritten is matched by the files it touched,
 //! against the files those items and tests are in. A guarded test no item runs as (a source pack that writes no
@@ -24,7 +24,7 @@ use specforge_extension_sdk::prelude::*;
 
 use super::commits::{Commit, commits};
 use super::derive::invariant::verdict;
-use super::plans::{link, of_kind, phase_of, strings, text};
+use super::plans::{link, links, of_kind, phase_of, strings, text};
 use super::roadmap::numbering::Number;
 use super::thread::{NAMES, TEST, Thread};
 use crate::kinds::INVARIANT_IN_FORCE;
@@ -194,11 +194,18 @@ fn first_in(files: &mut BTreeMap<String, String>, path: &str, id: &str) {
     }
 }
 
-/// What `invariant` guards: its `items` (as written, as W522 reads `task.items`), the items its tests run as (its
-/// tests, run or not: [`Thread::tests`]) and the items whose name tags it.
+/// What `invariant` guards: its `items`, the items its tests run as (its tests, run or not: [`Thread::tests`]) and
+/// the items whose name tags it. Its `items` are read both as the references resolve, so another spelling of an item
+/// (a rooted `/…`) is the item, and as written, so an item is still guarded when no item facts are served or the item
+/// has gone: a commit's `items_changed` may still name it.
 fn guarded(input: &PassInput, code: &Code<'_>, invariant: &PassEntity) -> Guarded {
     let tests = Thread::of(input).tests(&invariant.id);
     let mut items: BTreeSet<String> = strings(invariant, "items").into_iter().collect();
+    items.extend(
+        links(input, invariant, "items")
+            .into_iter()
+            .map(String::from),
+    );
     items.extend(
         input
             .edges

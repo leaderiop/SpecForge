@@ -380,6 +380,20 @@ fn a_guarded_test_no_item_runs_as_is_matched_by_its_file_whatever_the_commit_wro
     assert_eq!(on_x(&due(&input)), []);
 }
 
+/// An item is guarded as its reference resolves, so a rooted `/…` spelling is the item a commit changed; as written,
+/// that spelling names no item id.
+#[test]
+fn a_listed_item_is_guarded_as_its_reference_resolves() {
+    let rooted = format!("/{ITEM_A}");
+    let mut f = Fixture::new();
+    let x = f.invariant(X, &[rooted.as_str()]);
+    judge(x, "fresh", Some("holds"), Some(JUDGED));
+    f.in_phase("c1", "v1.0/01", AFTER, &[ITEM_A]);
+    assert_eq!(f.rows(), [], "the written spelling alone");
+    f.edge(X, ITEM_A, "items");
+    assert_eq!(on_x(&f.rows()), [("v1.0/01", "c1", ITEM_A, None)]);
+}
+
 #[test]
 fn a_commit_whose_items_changed_is_unwritten_is_matched_by_the_files_it_touched() {
     let mut f = Fixture::new();

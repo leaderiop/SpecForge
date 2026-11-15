@@ -155,6 +155,25 @@ fn a_change_to_its_proof_test_on_a_javascript_project_is_due() {
     );
 }
 
+/// An item listed by its rooted path (`/js:…`) is the item its reference resolves to: a commit that changes it is due.
+#[test]
+fn a_change_to_an_item_listed_by_its_rooted_path_is_due() {
+    let (p, _) = collected_thread();
+    let listed = "\"js:taskboard/src/tasks.js::addTask\"";
+    let rooted = TWIN_INVARIANT.replace(listed, "\"/js:taskboard/src/tasks.js::addTask\"");
+    assert_ne!(rooted, TWIN_INVARIANT, "the twin's invariant lists addTask");
+    author(&p, &rooted);
+    let found = p.report_all();
+    assert!(
+        !found.iter().any(|(code, _)| code == "code/E101"),
+        "{found:?}"
+    );
+    assert_eq!(p.record("ids_are_sequential", "I536", "holds", &[]).code, 0);
+    let judged = verdict_at(&p);
+    change_add_task(&p, "01-02/T1", &after(&judged));
+    assert_eq!(due_in(&p, "v1.0/01"), ["ids_are_sequential"]);
+}
+
 /// Judged, then changed the same day: the commit follows the verdict by its second, so the phase owes a judgement; a
 /// verdict recorded after the commit covers it, and the phase owes nothing.
 #[test]
