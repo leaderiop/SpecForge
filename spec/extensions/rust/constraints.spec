@@ -15,6 +15,7 @@ constraint test_coverage_accuracy "Test Coverage Accuracy" {
   category    reliability
   priority    critical
   metric      """
+    coverage_ratio_error <= 0
     coverage percentage matches actual verified/total ratio;
     merge produces correct deduplicated results
   """
