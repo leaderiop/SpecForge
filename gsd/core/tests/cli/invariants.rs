@@ -362,6 +362,38 @@ fn risk(p: &Project) -> (String, bool) {
     )
 }
 
+/// GSD's gap closure (`plan-phase N --gaps`): a plan added to a phase its verification found gaps in, not run yet.
+const GAP_CLOSURE_PLAN: &str = r#"plan 01-03 "Close the gaps of phase 01" {
+  phase     v1.0/01
+  type      execute
+  objective "Completing an unknown id fails with a one-line message."
+}
+"#;
+
+/// Once its phase was executed and verified, an invariant stays in force: a gap-closure plan that moves the phase
+/// back to `in_progress` hides no verdict and unmitigates no risk.
+#[test]
+fn an_invariant_stays_in_force_when_its_phase_gains_a_gap_closure_plan() {
+    let p = authored();
+    p.write("spec/risks.spec", RISK_ON_THE_INVARIANT);
+    assert_eq!(p.record("ids_are_sequential", "I536", "holds", &[]).code, 0);
+    assert_eq!(status(&p, "ids_are_sequential"), "holds");
+    assert_eq!(risk(&p), ("mitigated".into(), false));
+    let run = p.record("v1.0/01/01-02/TR2", "E501", "failed", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(
+        p.fields_of("v1.0/01/01-VERIFICATION")["status"],
+        "gaps_found"
+    );
+    assert_eq!(status(&p, "v1.0/01"), "executed");
+    assert_eq!(status(&p, "ids_are_sequential"), "holds");
+    p.write("spec/gaps.spec", GAP_CLOSURE_PLAN);
+    assert_eq!(status(&p, "v1.0/01"), "in_progress");
+    // pinned: the invariant falls back to pending and the risk it mitigates blocks again
+    assert_eq!(status(&p, "ids_are_sequential"), "pending");
+    assert_eq!(risk(&p), ("mitigating".into(), true));
+}
+
 /// An invariant mitigates a risk while its status is `holds`: not before a verdict, not once violated, and not while
 /// it is pending, whatever its verdict says.
 #[test]
