@@ -647,9 +647,14 @@ pub(crate) fn now_of(at: chrono::DateTime<chrono::Utc>) -> String {
     at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
 }
 
-/// Today's date in UTC, `YYYY-MM-DD`: the clock of a prompt and of `set_verdict`'s `at`, which stay dates.
+/// Today's date in UTC, `YYYY-MM-DD`: the clock of a prompt, which stays a date.
 pub(crate) fn today() -> String {
     today_of(instant())
+}
+
+/// Now in UTC, `YYYY-MM-DDTHH:MM:SSZ`: the time `set_verdict` records as a verdict's `at`.
+pub(crate) fn now() -> String {
+    now_of(instant())
 }
 
 /// `root` absolute and canonical, else as given.

@@ -9,9 +9,8 @@
 //! Only an invariant in force and judged can be due. In force is its computed `status` (the `derive` pass answers it
 //! before this pass runs) in the kind's `complete_when`, the owner state `gsd/I536`'s `judged_while: complete` reads,
 //! so a pending invariant owes nothing here as it owes no verdict there. Judged is an I536 verdict, fresh or stale,
-//! whatever its outcome, with a time: it covers every commit authored at or before it (to the end of its day, the
-//! time a verdict records). An invariant never judged owes
-//! nothing; I536 reports its missing verdict.
+//! whatever its outcome, with a time: it covers every commit authored at or before it (the second the host recorded
+//! it). An invariant never judged owes nothing; I536 reports its missing verdict.
 //!
 //! [`due`] is the one join of recorded commits with guarded code. The `invariants` compute pass answers
 //! `phase.invariants_due` from its rows and reports `gsd/E531` from the same rows, one error per invariant and phase. A reader of which items a test exercises (coverage) adds a source to what
@@ -28,15 +27,13 @@ use super::roadmap::numbering::Number;
 use super::thread::{NAMES, TEST, Thread};
 use crate::kinds::INVARIANT_IN_FORCE;
 use crate::scope::scope_of;
-use crate::time::{day, seconds};
+use crate::time::{seconds, verdict_time};
 
 /// The kind of `@code/core`'s item facts: the code an invariant guards, and the files they are in.
 const ITEM: &str = "item";
 /// The label of the edge from an item fact to the test fact it runs as (its `test_id`, `@code/core`).
 const RUNS_AS: &str = "runs_as";
 const INVARIANT: &str = "invariant";
-/// Seconds in a day.
-const DAY: i64 = 86_400;
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("invariants", |p| {
@@ -131,12 +128,11 @@ fn in_force(invariant: &PassEntity) -> bool {
 }
 
 /// Until when `invariant`'s last judgement covers a commit: the time of its `gsd/I536` verdict, fresh or stale,
-/// whatever its outcome; `None` with no verdict recorded (missing), one the host cannot read (unrecorded, unreadable)
-/// or a time it cannot read. A verdict's `at` is the day it was recorded: it covers that whole day, so recording a
-/// verdict clears every commit of its day.
+/// whatever its outcome ([`verdict_time`]: the second the host recorded it); `None` with no verdict recorded
+/// (missing), one the host cannot read (unrecorded, unreadable) or a time it cannot read.
 fn judged_at(invariant: &PassEntity) -> Option<i64> {
     match verdict(invariant)? {
-        ("fresh" | "stale", _, Some(at)) => seconds(at).or_else(|| Some(day(at)? + DAY - 1)),
+        ("fresh" | "stale", _, Some(at)) => verdict_time(at),
         _ => None,
     }
 }

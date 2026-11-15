@@ -13,6 +13,7 @@ use specforge_extension_sdk::prelude::*;
 use super::execute::value;
 use super::verify::Verified;
 use crate::passes::plans::{link, of_kind};
+use crate::time::{utc, verdict_time};
 
 pub fn status(plans: usize, summarised: usize, verification: Option<&Verified>) -> &'static str {
     let verified = verification.map(|v| v.status);
@@ -26,10 +27,10 @@ pub fn status(plans: usize, summarised: usize, verification: Option<&Verified>) 
     }
 }
 
-/// `phase.completed`: the date of the latest verdict, once the phase is complete.
+/// `phase.completed`: the UTC date of the latest verdict, once the phase is complete.
 pub fn completed(phase_status: &str, verification: Option<&Verified>) -> Option<String> {
-    let at = verification?.at.as_deref()?;
-    (phase_status == "complete").then(|| at.chars().take(10).collect())
+    let at = verdict_time(verification?.at.as_deref()?)?;
+    (phase_status == "complete").then(|| utc(at)[..10].to_string())
 }
 
 /// The phases a requirement traces to whose verification found gaps.

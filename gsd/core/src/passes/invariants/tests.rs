@@ -206,7 +206,27 @@ fn a_judgement_at_or_after_the_commit_covers_it_whatever_its_outcome_or_freshnes
     }
 }
 
-/// A verdict records the day it was given: it covers every commit of that day, and none of the next.
+/// A verdict records the second it was given: a commit authored a second later the same day is due.
+#[test]
+fn a_judgement_covers_no_later_commit_of_its_day() {
+    let mut f = Fixture::new();
+    judge(
+        f.judged(),
+        "fresh",
+        Some("holds"),
+        Some("2026-11-01T09:00:00Z"),
+    );
+    f.in_phase("that_second", "v1.0/01", "2026-11-01T09:00:00Z", &[ITEM_A]);
+    f.in_phase(
+        "a_second_later",
+        "v1.0/01",
+        "2026-11-01T09:00:01Z",
+        &[ITEM_A],
+    );
+    assert_eq!(commits_due(&f), ["a_second_later"]);
+}
+
+/// A verdict whose `at` is a day (written by hand) covers every commit of that day, and none of the next.
 #[test]
 fn a_judgement_of_a_day_covers_that_whole_day() {
     let mut f = Fixture::new();

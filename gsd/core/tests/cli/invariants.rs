@@ -1,7 +1,7 @@
 //! The invariant kind, end to end (`spec/governance.md`): an invariant authored over the taskboard twin, its proof and
 //! items read through `@code/core`'s facts, and its verdict, `gsd/I536`, with the prompt that judges it.
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde_json::json;
 use specforge_extension_sdk::prelude::TestStatus;
@@ -242,8 +242,7 @@ fn a_holds_verdict_sets_status_and_last_verified() {
     let run = p.record("ids_are_sequential", "I536", "holds", &[]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(status(&p, "ids_are_sequential"), "holds");
-    let at = p.inputs("ids_are_sequential", "I536")["verdict"]["at"].clone();
-    assert!(at.is_string(), "{at}");
+    let at = verdict_at(&p);
     assert_eq!(p.fields_of("ids_are_sequential")["last_verified"], at);
     assert_eq!(on(&p, "ids_are_sequential"), Vec::new());
 }
@@ -528,9 +527,9 @@ fn invariant_from(holds_from: &str) -> String {
     text.join("\n") + "\n"
 }
 
-/// The twin's thread collected, [`TWIN_INVARIANT`] in force from `holds_from` and judged `holds`; then a commit of
-/// phase 01's plan 01-02 that changes `addTask`, dated a day after now so it follows the verdict (it orders, nothing is
-/// timed), collected. Answers the project and the commit's full sha.
+/// The twin's thread collected, [`TWIN_INVARIANT`] in force from `holds_from` and judged `holds`; then, the same day,
+/// a commit of phase 01's plan 01-02 that changes `addTask`, authored once the clock has passed the verdict's second,
+/// collected. Answers the project and the commit's full sha.
 fn judged_then_changed(holds_from: &str) -> (Project, String) {
     judge_then_change(collected_thread().0, holds_from)
 }
@@ -540,22 +539,55 @@ fn judge_then_change(p: Project, holds_from: &str) -> (Project, String) {
     author(&p, &invariant_from(holds_from));
     let run = p.record("ids_are_sequential", "I536", "holds", &[]);
     assert_eq!(run.code, 0, "{}", run.all());
+    let judged = verdict_at(&p);
+    let sha = change_add_task(&p, &after(&judged));
+    (p, sha)
+}
+
+/// The `at` of the invariant's `gsd/I536` verdict as written in `spec/invariants.spec`, read there because the rule
+/// reports no judgement on a pending invariant: the second the host recorded it, `YYYY-MM-DDTHH:MM:SSZ`.
+fn verdict_at(p: &Project) -> String {
+    let text = p.read("spec/invariants.spec");
+    let at: Vec<&str> = text
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("at "))
+        .map(|at| at.trim().trim_matches('"'))
+        .collect();
+    assert_eq!(at.len(), 1, "one verdict in {text}");
+    assert_eq!(at[0].len(), "2026-11-15T09:00:00Z".len(), "{text}");
+    at[0].to_string()
+}
+
+/// The time now, `YYYY-MM-DDTHH:MM:SSZ`, once the clock has passed `at`, a second the host recorded: a commit
+/// authored then follows it. The wait is the rest of that one second.
+fn after(at: &str) -> String {
+    loop {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("a clock after 1970")
+            .as_secs();
+        let now = utc(i64::try_from(now).expect("seconds fit"));
+        if now.as_str() > at {
+            return now;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+/// Commits, authored at `at`, a change of phase 01's plan 01-02 to `addTask`, then collects the items and the commit.
+/// Answers the commit's full sha.
+fn change_add_task(p: &Project, at: &str) -> String {
     let source = p.read("src/tasks.js");
     let changed = source.replace("board.nextId += 1;", "board.nextId = task.id + 1;");
     assert_ne!(changed, source, "the twin's addTask moved");
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("a clock after 1970")
-        .as_secs();
-    let tomorrow = utc(i64::try_from(now).expect("seconds fit") + 86_400);
     let sha = p.git_commit(
         "fix: the next id follows the task\n\nGsd-Task: 01-02/T1",
         &[("src/tasks.js", &changed)],
-        &tomorrow,
+        at,
     );
     succeeds(&p.collect(&["--runner", "javascript-source"]));
     succeeds(&p.collect(&["--runner", "gsd-git"]));
-    (p, sha)
+    sha
 }
 
 /// `(code, message)` of each `gsd/E531` `specforge check` reports.
@@ -593,6 +625,23 @@ fn due_in(p: &Project, phase: &str) -> Vec<String> {
         .flatten()
         .map(|id| id.as_str().expect("an id").to_string())
         .collect()
+}
+
+/// Judged, then changed the same day: the commit follows the verdict by its second, so the phase owes a judgement; a
+/// verdict recorded after the commit covers it, and the phase owes nothing.
+#[test]
+fn a_change_the_same_day_is_due_until_the_invariant_is_judged_again() {
+    let (p, _) = judged_then_changed("v1.0/01");
+    let judged = verdict_at(&p);
+    assert_eq!(due_in(&p, "v1.0/01"), ["ids_are_sequential"]);
+    assert_eq!(e531(&p).len(), 1);
+    let run = p.record("ids_are_sequential", "I536", "holds", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let again = verdict_at(&p);
+    assert!(again > judged, "{again} after {judged}");
+    assert_eq!(&again[..10], &judged[..10], "the same day");
+    assert_eq!(due_in(&p, "v1.0/01"), Vec::<String>::new());
+    assert_eq!(e531(&p), Vec::new());
 }
 
 #[test]

@@ -52,6 +52,36 @@ fn all_truths_verified_is_passed() {
     assert_eq!(of(&out, "covered_files"), Some(json!(["src/a.js"])));
 }
 
+/// `verified` is the latest verdict by the time it records: a day written by hand is its last second, so it follows a
+/// verdict recorded earlier that day.
+#[test]
+fn verified_is_the_latest_verdict_by_its_time() {
+    let at = |at: &str| {
+        let mut j = judgement("verified", "fresh", true);
+        j["at"] = at.into();
+        j
+    };
+    for (first, second, latest) in [
+        (
+            "2026-10-29T10:00:00Z",
+            "2026-10-29T09:00:00Z",
+            "2026-10-29T10:00:00Z",
+        ),
+        ("2026-10-29T10:00:00Z", "2026-10-29", "2026-10-29"),
+        ("2026-10-30T00:00:00Z", "2026-10-29", "2026-10-30T00:00:00Z"),
+    ] {
+        let out = run(&input(
+            vec![truth(1, vec![at(first)]), truth(2, vec![at(second)])],
+            vec![],
+        ));
+        assert_eq!(
+            of(&out, "verified"),
+            Some(json!(latest)),
+            "{first} {second}"
+        );
+    }
+}
+
 #[test]
 fn a_failed_truth_is_gaps_found() {
     let out = run(&input(

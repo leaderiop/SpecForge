@@ -16,7 +16,7 @@ plan 03-02 "Session tokens" {
   verdict gsd/W311 passed {
     judge "gsd-plan-checker@0.1.0"
     model "claude-sonnet-5-5"
-    at "2026-10-28"
+    at "2026-10-28T09:14:03Z"
     cited [AUTH-07, "docs/design.md"]
     inputs {
       plan "sha256:..."
@@ -30,7 +30,8 @@ plan 03-02 "Session tokens" {
 
 `verdict <rule> <outcome> { ... }` names the rule (qualified code, or the local code when unique) and one of its
 outcomes. `inputs` holds the digest of each input the judge read, `cited` always last; `cited` and `cited_tests` list
-what the judge looked at besides. Every verdict also has a line in `specforge-harness`
+what the judge looked at besides. `at` is when the host recorded it, UTC to the second (a reader takes a day written
+by hand as its last second). Every verdict also has a line in `specforge-harness`
 (key `verdict:<rule>`): a verdict with no line was written by hand, which is **E083**, and the rule counts it as not
 recorded. A field that a rule binds to the verdict (`writer: "verdict"`) is set only by a fresh verdict; writing it by
 hand is **E082**.

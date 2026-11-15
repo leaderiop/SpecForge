@@ -18,6 +18,7 @@ use crate::passes::plans::{
     children, link, links, of_kind, phase_of, targets, text, written_target,
 };
 use crate::passes::roadmap::numbering::Number;
+use crate::time::verdict_time;
 
 type Statuses<'a> = BTreeMap<&'a str, &'static str>;
 
@@ -207,14 +208,16 @@ fn partial(v: &PassEntity) -> bool {
     v.values.get("scan_partial").and_then(Value::as_bool) == Some(true)
 }
 
+/// The `at` of the latest `gsd/E501` verdict, by the time it records ([`verdict_time`]).
 fn latest(group: &Group) -> Option<String> {
     group
         .entities
         .iter()
         .flat_map(|e| &e.judgements)
         .filter(|j| j.rule.ends_with("E501"))
-        .filter_map(|j| j.at.clone())
+        .filter_map(|j| Some((verdict_time(j.at.as_deref()?)?, j.at.clone()?)))
         .max()
+        .map(|(_, at)| at)
 }
 
 /// One digest over the `(path, digest)` of every file the phase's verdicts covered (`sha256:`).

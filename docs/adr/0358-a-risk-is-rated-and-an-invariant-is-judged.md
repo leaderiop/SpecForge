@@ -5,13 +5,16 @@
 [ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md) (a typed setting) and
 [ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md) (a field that names its reverse).
 D1 to D8 hold the risk's decisions; D9 to D15, the invariant's, were added when that kind landed (2026-11-15), so the
-title names both; D16 to D23, [E531 is a pass over the verdict](#e531-is-a-pass-over-the-verdict), were added when a
+title names both; D16 to D24, [E531 is a pass over the verdict](#e531-is-a-pass-over-the-verdict), were added when a
 phase's change began to owe an invariant a judgement (2026-11-15). No SDK or protocol change of its own: D12 waits
 for an invariant in force with a judged target's `judged_while`
 ([ADR 0362](0362-a-judged-target-may-wait-for-its-owner-state.md)), a protocol and SDK addition that
-re-vendored the builtins. One host change, D15 (the registry, `crates/pipeline/registry`; no kernel crate, no
-re-vendor), amends [ADR 0331](0331-the-gsd-requirement-thread.md) D7: the registry's check of a judged rule's or a
-context route's `file()` selector. D7 amended by
+re-vendored the builtins. Two host changes, neither in a kernel crate nor re-vendored. D15 (the registry,
+`crates/pipeline/registry`) amends [ADR 0331](0331-the-gsd-requirement-thread.md) D7: the registry's check of a judged
+rule's or a context route's `file()` selector. D24 (`set_verdict`, `crates/app/ops`) amends
+[ADR 0294](0294-a-pass-sees-a-list-field-as-its-items-and-a-writing-call-is-told-the-time.md) D3 and
+[ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md) D6: a verdict's `at` is the host's time
+to the second. D7 amended by
 [ADR 0359](0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md) (`mitigated_by` reads back as
 `mitigates` on task, truth and invariant, now that a union's named reverse is read on each of its kinds).
 
@@ -206,9 +209,10 @@ Decisions:
   judged, as gsd/W522 and gsd/E519 leave quick plans out.
 - **D19. What covers a commit.** Any I536 verdict recorded at or after it, fresh or stale, whatever its outcome. E531
   owes a judgement and I536 says what it found: recording a verdict only removes E531 rows, and editing the invariant
-  never adds one. A verdict records the day it was given (`at`), so it covers every commit of that day: one authored
-  later that day reads as covered, as one merged after it does (D18). A `violated` verdict shows in `status` and in the risks it mitigates (D14); a gate on it is not this
-  rule's.
+  never adds one. A verdict records the second it was given (`at`, D24), so a commit authored later the same day is
+  due; a verdict whose `at` is a day (written by hand) covers that whole day. A commit merged after a verdict but
+  authored before it reads as covered (D18). A `violated` verdict shows in `status` and in the risks it mitigates
+  (D14); a gate on it is not this rule's.
 - **D20. Owed in force, once judged.** An invariant not in force (D10) owes nothing: E531 reads the owner state I536's
   `judged_while: complete` reads (D12), so the two agree on which invariants owe a verdict. An invariant in force never
   judged owes nothing either: there is nothing to re-verify, and I536 reports its missing verdict. Creating an
@@ -225,6 +229,14 @@ Decisions:
 - **D23. One E531 per invariant and phase.** An Error under every profile, on the invariant. Its message names the
   invariant and the phase only; its suggestion names each commit and item. One judgement clears the phase, and E080's
   key moves only when a phase becomes due or stops being due.
+- **D24. A verdict records its time, to the second.** `set_verdict` writes `at` as the host's UTC time,
+  `YYYY-MM-DDTHH:MM:SSZ` (the rendering a command is told as `now`, ADR 0294 D2), no longer its date: a day cannot
+  order a verdict against a commit of the same day, and an agent runs several phases a day. `at` stays a free string on
+  the wire (`Judgement.at`), so no protocol changes and nothing is re-vendored. Every reader of a verdict's `at` reads
+  either spelling through one function (`gsd-core`'s `time::verdict_time`): a time is itself, a day (a verdict written
+  by hand, or recorded before) is its last second. `phase.completed` stays the date of that time; a verification's
+  `verified` and an invariant's `last_verified` carry the `at` as recorded. Amends ADR 0294 D3 (`set_verdict`'s `at`
+  stayed a date) and ADR 0289 D6 (the clock `at` is written from).
 
 Rejected:
 

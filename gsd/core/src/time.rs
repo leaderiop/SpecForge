@@ -74,6 +74,12 @@ pub fn day(text: &str) -> Option<i64> {
     shaped.then(|| seconds(&format!("{text}T00:00:00Z")))?
 }
 
+/// The last second a verdict's `at` covers: the time the host records, `YYYY-MM-DDTHH:MM:SSZ`, itself; a day,
+/// `YYYY-MM-DD` (written by hand), to its end. `None` for any other spelling.
+pub fn verdict_time(at: &str) -> Option<i64> {
+    seconds(at).or_else(|| Some(day(at)? + 86_399))
+}
+
 fn days_in(year: i64, month: i64) -> i64 {
     match month {
         2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
@@ -110,6 +116,18 @@ mod tests {
             "",
         ] {
             assert_eq!(day(refused), None, "{refused}");
+        }
+    }
+
+    #[test]
+    fn a_verdicts_time_is_its_second_and_a_day_is_its_end() {
+        assert_eq!(
+            verdict_time("2026-11-15T09:00:00Z"),
+            seconds("2026-11-15T09:00:00Z")
+        );
+        assert_eq!(verdict_time("2026-11-15"), seconds("2026-11-15T23:59:59Z"));
+        for refused in ["", "2026-11-15T09:00", "yesterday", "2026-02-30"] {
+            assert_eq!(verdict_time(refused), None, "{refused}");
         }
     }
 

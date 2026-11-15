@@ -4,7 +4,8 @@
 (the snapshot a pass reads), [ADR 0285](0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md) (list
 field types and `values`), [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md) (writing calls,
 `set_verdict`'s clock) and [ADR 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md) (a hook's input).
-Takes extension protocol 1.11.0.
+Takes extension protocol 1.11.0. D3 amended by [ADR 0358](0358-a-risk-is-rated-and-an-invariant-is-judged.md) (D24):
+`set_verdict`'s `at` is the host's time to the second, as `now`, no longer a date.
 
 ## Context
 

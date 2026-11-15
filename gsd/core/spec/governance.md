@@ -192,8 +192,8 @@ The phase lists it in its computed `invariants_due` ([project.md](project.md#pha
   A commit is placed by its author time and its phase by its plan's; a quick plan's commit is in no phase and is not
   judged.
 - **Covered.** Any `gsd/I536` verdict recorded at or after the commit, fresh or stale, whatever its outcome: recording
-  a verdict only clears a phase, and editing the invariant never makes one due. A verdict records its day, and covers
-  every commit of that day.
+  a verdict only clears a phase, and editing the invariant never makes one due. A verdict records the second it was
+  given, so a commit authored later the same day is due; an `at` written as a day covers that whole day.
 - **Owed in force, once judged.** A pending invariant owes nothing, as it owes no verdict ([Its verdict](#its-verdict)),
   and an invariant in force never judged owes nothing either: `gsd/I536` reports its missing verdict.
 - **The fallback.** A commit whose `items_changed` is unwritten (no item facts were served then, or a file's lines
