@@ -166,7 +166,7 @@ The one-time conversion of an `@specforge/governance` decision reads this table;
 | context | context | |
 | consequences | consequences | |
 | date | decided | |
-| deciders | deciders | |
+| authors, deciders | deciders | both name people who decided; the lists join |
 | tags | tags | |
 | reason | rationale | |
 | alternatives (strings) | alternatives `[{name: <string>}]` | |
@@ -178,7 +178,7 @@ The one-time conversion of an `@specforge/governance` decision reads this table;
 | status proposed | outcome pending | |
 | status deprecated | outcome revisit | |
 | status superseded | computed | read back as `superseded_by` from the successor's `supersedes`, and `in_force` false; one that names no successor has no field to land in, so the conversion ledgers it |
-| refs, description, authors | no field | unused in every tracked project |
+| refs, description | no field | unused in every tracked project; a value stops the conversion, naming it |
 
 ## Rejected
 
@@ -221,8 +221,9 @@ The one-time conversion of an `@specforge/governance` decision reads this table;
 - `gsd/E515` sheds its test facts; it and the requirement's `proof` agree by construction, on every surface.
 - A later reader of the thread (a journey's coverage, say) reads the computed `proof` and the one predicate, not
   the tests.
-- An old governance decision converts with no value lost but `refs`, `description` and `authors`, which no tracked
-  project writes; the 10 superseded decisions of SpecForge's spec that name no successor are the conversion's ledger.
+- An old governance decision converts with no value lost: `refs` and `description`, which no tracked project
+  writes and no field holds, stop the conversion on a value rather than drop it; the 10 superseded decisions of
+  SpecForge's spec that name no successor are the conversion's ledger.
 - A kind added to `decision.affects` waits for its declaration (the union rule), and moves the pin that holds the
   list.
 - A supersedes cycle keeps every decision of it tracked, and W061 reports it; a plan that lists a superseded decision

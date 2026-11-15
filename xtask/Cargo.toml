@@ -29,6 +29,10 @@ path = "src/check_modules.rs"
 name = "perf-report"
 path = "src/perf_report.rs"
 
+[[bin]]
+name = "absorb"
+path = "src/absorb.rs"
+
 [dependencies]
 specforge-repo-root = { path = "../crates/leaf/repo-root" }
 specforge-common = { workspace = true }
@@ -44,7 +48,14 @@ specforge-installed = { path = "../crates/runtime/installed" }
 specforge-wasm = { path = "../crates/runtime/wasm" }
 specforge-protocol-types = { path = "../crates/leaf/protocol-types" }
 serde_json = "1.0"
+serde = { workspace = true }
 gate = { path = "../gate" }
+specforge-ops = { workspace = true }
+specforge-graph = { path = "../crates/pipeline/graph" }
+
+[dev-dependencies]
+insta = { workspace = true }
+tempfile = { workspace = true }
 
 [lints]
 workspace = true

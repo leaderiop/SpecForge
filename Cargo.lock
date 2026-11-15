@@ -6935,12 +6935,16 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "gate",
+ "insta",
  "proc-macro2",
+ "serde",
  "serde_json",
  "specforge-common",
  "specforge-component",
  "specforge-coverage",
+ "specforge-graph",
  "specforge-installed",
+ "specforge-ops",
  "specforge-project",
  "specforge-protocol-types",
  "specforge-registry",
@@ -6948,6 +6952,7 @@ dependencies = [
  "specforge-wasm",
  "strsim",
  "syn 2.0.117",
+ "tempfile",
  "walkdir",
 ]
 

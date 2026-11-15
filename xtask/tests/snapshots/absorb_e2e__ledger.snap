@@ -1,0 +1,94 @@
+---
+source: xtask/tests/absorb_e2e.rs
+expression: ledger
+---
+{
+  "format": 1,
+  "from": "absorb-fixture",
+  "entries": [
+    {
+      "kind": "decision",
+      "id": "first_store",
+      "field": "origin",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "decision.origin",
+          "value": "project"
+        }
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "lazy_cache",
+      "field": "origin",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "decision.origin",
+          "value": "project"
+        }
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "old_format",
+      "field": "origin",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "decision.origin",
+          "value": "project"
+        }
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "old_format",
+      "field": "status",
+      "value": "superseded",
+      "why": {
+        "computed": {
+          "field": "decision.in_force",
+          "new": true
+        }
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "one_parser",
+      "field": "origin",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "decision.origin",
+          "value": "project"
+        }
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "second_store",
+      "field": "origin",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "decision.origin",
+          "value": "project"
+        }
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "sync_writes",
+      "field": "origin",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "decision.origin",
+          "value": "project"
+        }
+      }
+    }
+  ]
+}
