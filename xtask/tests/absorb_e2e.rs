@@ -390,6 +390,29 @@ fn a_stop_leaves_a_directory_it_did_not_make_byte_for_byte() {
     assert_eq!(tree_bytes(&to), before);
 }
 
+/// A ledger that cannot be written is a stop before any write: the ledger is written before the edit plan applies, so
+/// the record of what does not convert is never lost behind a written target, and the tree is left as it was.
+#[test]
+#[ignore = "needs GSD_CORE_WASM"]
+fn a_ledger_that_cannot_be_written_stops_before_any_write() {
+    let dir = tempfile::tempdir().unwrap();
+    let to = dir.path().join("tree");
+    std::fs::create_dir_all(&to).unwrap();
+    std::fs::write(to.join("README.md"), "notes\n").unwrap();
+    let not_a_dir = dir.path().join("a-file");
+    std::fs::write(&not_a_dir, "").unwrap();
+    let ledger = not_a_dir.join("ledger.json");
+    let before = tree_bytes(&to);
+    let run = absorb(&["--from", OLD, "--to", path(&to), "--ledger", path(&ledger)]);
+    assert_eq!(run.code, 2, "{}", run.stderr);
+    assert!(
+        run.stderr.contains("the ledger: ") && run.stderr.contains("nothing was written"),
+        "{}",
+        run.stderr
+    );
+    assert_eq!(tree_bytes(&to), before);
+}
+
 #[test]
 #[ignore = "needs GSD_CORE_WASM"]
 fn an_old_id_the_target_reserves_stops_the_run_before_any_write() {

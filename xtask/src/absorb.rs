@@ -13,8 +13,10 @@
 //! all or nothing; a stop leaves it as it was. The absorb ledger (default
 //! `<to>/absorb-ledger.json`) lists every old value not written as itself. Prints one JSON summary.
 //!
-//! Exit 0: written. 1: the edit plan was refused (the refusal printed, the ledger written, the scaffold removed).
-//! 2: usage, I/O, a source with errors, or a stop before any write (every stop printed).
+//! Exit 0: written. 1: the edit plan was refused (the refusal printed, the ledger written, the scaffold removed), or
+//! the ledger could not be completed once the plan wrote (the target rolled back, the ledger printed to stderr).
+//! 2: usage, I/O, a source with errors, or a stop before any write (every stop printed); the ledger is written before
+//! the plan applies, so a ledger that cannot be written is such a stop.
 #![expect(
     clippy::print_stdout,
     clippy::print_stderr,
@@ -184,18 +186,31 @@ fn run(args: &[String]) -> i32 {
         }
         return refuse(&why.join("\n"));
     }
+    // The ledger as the plan has it, before the plan writes: a place it cannot be written stops the run here, the
+    // scaffold rolled back, so the record of what does not convert is never lost behind a written target.
     let ledger_path = args.ledger.unwrap_or_else(|| args.to.join(LEDGER_FILE));
+    if let Err(io) = write_ledger(&ledger_path, &planned.ledger.to_json(&old.name)) {
+        target.roll_back();
+        return refuse(&format!("the ledger: {io}; nothing was written"));
+    }
     if let Err(why) = target.apply(&planned.creates, &mut work) {
         target.roll_back();
         eprintln!("absorb: {why}");
+        // A roll back of a directory the run made removes a ledger written inside it.
         if let Err(io) = write_ledger(&ledger_path, &planned.ledger.to_json(&old.name)) {
-            eprintln!("absorb: {io}");
+            eprintln!("absorb: the ledger: {io}");
         }
         return 1;
     }
     planned.compare(|id, field| target.computed(id, field));
-    if let Err(io) = write_ledger(&ledger_path, &planned.ledger.to_json(&old.name)) {
-        return refuse(&io);
+    let ledger = planned.ledger.to_json(&old.name);
+    if let Err(io) = write_ledger(&ledger_path, &ledger) {
+        // Written once already, the ledger cannot be completed: the target is rolled back, so a rerun converts it
+        // again, and the whole ledger goes to stderr, never lost.
+        target.roll_back();
+        eprintln!("absorb: the ledger: {io}; the target is rolled back, and the ledger follows");
+        eprint!("{ledger}");
+        return 1;
     }
     let ([errors, warnings, infos], findings) = target.report();
     let summary = json!({
