@@ -2,18 +2,21 @@
 //!
 //! - [`Boundary::Js`] is JavaScript's ASCII `\b`, as upstream's planner rule reads its phrases: `gsd/E312`
 //!   (`passes::scope`) reads a task's action and a decision's text so.
-//! - [`Boundary::Unicode`] is the vocabulary's reading of the author's prose, in any language: `term.used_in`
-//!   and `gsd/W534` (`passes::vocabulary`) read it so.
+//! - [`Boundary::Unicode`] is the vocabulary's reading of the author's prose: Unicode word segmentation (UAX #29), an
+//!   apostrophe splitting a word as French elision does ([`Segments`]). `term.used_in` and `gsd/W534`
+//!   (`passes::vocabulary`) read it so.
 //!
 //! [`folded`] is the one reading of a word the glossary compares: `gsd/W538` compares the terms' words with it, and
-//! the Unicode boundary folds both sides with it. No stemming, no accent stripping, no normalisation.
+//! the Unicode boundary folds each segment the same way. No stemming, no accent stripping, no normalisation.
+
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Where a word starts and ends.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Boundary {
     /// JavaScript's `\b`, on bytes: a word character is an ASCII letter, digit or `_`, and ASCII letters fold.
     Js,
-    /// A word character is a letter, a number, `_` or a combining mark, and both sides are [`folded`].
+    /// Unicode word segmentation, an apostrophe splitting a word, each segment [`folded`]: see [`Segments`].
     Unicode,
 }
 
@@ -30,7 +33,10 @@ pub fn folded(text: &str) -> String {
 pub fn has_word(haystack: &str, needle: &str, boundary: Boundary) -> bool {
     match boundary {
         Boundary::Js => js(haystack, needle),
-        Boundary::Unicode => unicode(haystack, needle),
+        Boundary::Unicode => Segments::of(haystack)
+            .find(&Segments::of(needle))
+            .next()
+            .is_some(),
     }
 }
 
@@ -53,37 +59,68 @@ fn js(haystack: &str, needle: &str) -> bool {
     })
 }
 
-/// A letter or a number, `_`, or a combining mark, which stays in the word of the letter it marks.
-fn is_word(c: char) -> bool {
-    c.is_alphanumeric()
-        || c == '_'
-        || matches!(
-            c,
-            '\u{0300}'..='\u{036F}'
-                | '\u{1AB0}'..='\u{1AFF}'
-                | '\u{1DC0}'..='\u{1DFF}'
-                | '\u{20D0}'..='\u{20FF}'
-                | '\u{FE20}'..='\u{FE2F}'
-        )
+/// The apostrophes that split a word, so an elided article is a word of its own ("l'Élève" reads "l", "'",
+/// "Élève"): UAX #29 joins two letters across them, and allows this tailoring for languages that elide.
+const APOSTROPHES: [char; 2] = ['\'', '\u{2019}'];
+
+/// A text as [`Boundary::Unicode`] reads it: its word-boundary segments (UAX #29, `split_word_bounds`), each split
+/// at its apostrophes and [`folded`], a run of whitespace one segment `" "`, the text's edges trimmed.
+///
+/// A word is one segment, so a combining mark, a joiner (U+200C, U+200D), a virama or a vowel sign stays in the word
+/// it marks, in every script, and a full stop or a colon between two letters joins them (`e.g.`, `example.com`).
+/// Punctuation is a segment of its own. A run of Katakana is one word; each Han ideograph and each Hiragana letter is
+/// a segment, so a word of them is found wherever its characters run in the text. Thai, Lao, Khmer and Myanmar, which
+/// UAX #29 splits into words only with a dictionary, read as one segment per letter and its marks: a word of them is
+/// also found inside a longer word.
+pub struct Segments {
+    folded: Vec<String>,
 }
 
-/// Every occurrence of the folded needle, overlapping ones too. A boundary is needed only on an edge where the
-/// needle's own character is a word character, so "C++" is found before a full stop.
-fn unicode(haystack: &str, needle: &str) -> bool {
-    let needle: Vec<char> = folded(needle).chars().collect();
-    let (Some(&first), Some(&last)) = (needle.first(), needle.last()) else {
-        return false;
-    };
-    let haystack: Vec<char> = folded(haystack).chars().collect();
-    let (opens, closes) = (is_word(first), is_word(last));
-    haystack
-        .windows(needle.len())
-        .enumerate()
-        .any(|(at, window)| {
-            window == needle.as_slice()
-                && !(opens && at.checked_sub(1).is_some_and(|i| is_word(haystack[i])))
-                && !(closes && haystack.get(at + needle.len()).is_some_and(|&c| is_word(c)))
-        })
+impl Segments {
+    pub fn of(text: &str) -> Self {
+        let mut segments = Segments { folded: Vec::new() };
+        for segment in text.trim().split_word_bounds() {
+            if segment.chars().all(char::is_whitespace) {
+                segments.push(" ".to_string());
+                continue;
+            }
+            let mut from = 0;
+            for (at, apostrophe) in segment.match_indices(APOSTROPHES) {
+                if at > from {
+                    segments.push(segment[from..at].to_lowercase());
+                }
+                segments.push(apostrophe.to_string());
+                from = at + apostrophe.len();
+            }
+            if from < segment.len() {
+                segments.push(segment[from..].to_lowercase());
+            }
+        }
+        segments
+    }
+
+    /// Adds a segment; whitespace beside whitespace (a line break and the indent after it) is one space.
+    fn push(&mut self, folded: String) {
+        if folded == " " && self.folded.last().is_some_and(|last| last == " ") {
+            return;
+        }
+        self.folded.push(folded);
+    }
+
+    /// Every occurrence of `needle`'s segments as a run of these, overlapping ones too, as a range of segment indices;
+    /// none for an empty needle. Each window is compared once: linear in the text for a given needle, and no pattern
+    /// is compiled.
+    pub fn find<'s>(
+        &'s self,
+        needle: &'s Segments,
+    ) -> impl Iterator<Item = std::ops::Range<usize>> + 's {
+        let width = needle.folded.len();
+        self.folded
+            .windows(width.max(1))
+            .enumerate()
+            .filter(move |(_, window)| width > 0 && *window == needle.folded.as_slice())
+            .map(move |(at, _)| at..at + width)
+    }
 }
 
 #[cfg(test)]

@@ -173,12 +173,21 @@ features' requirements, a channel as a term, the artifact word, the journey memb
   test of a word or phrase in prose, and `folded`, the one reading of a word the glossary compares.
   - `Boundary::Js` is JavaScript's ASCII `\b`: bytes, a word character is an ASCII letter, digit or `_`, and both
     sides are ASCII-lowercased. `gsd/E312` reads its phrases so, as upstream's planner rule does.
-  - `Boundary::Unicode` is the vocabulary's reading. Both sides are folded as `gsd/W538` folds a word: each run of
-    whitespace is one space, then `str::to_lowercase`. A word character is a letter or a number
-    (`char::is_alphanumeric`), `_`, or a combining mark (U+0300–036F, U+1AB0–1AFF, U+1DC0–1DFF, U+20D0–20FF,
-    U+FE20–FE2F), so a decomposed "é" never splits its word. A boundary is needed only on an edge where the needle's
-    own character is a word character, so `C++` is found before a space or a full stop. Every occurrence counts,
-    overlapping ones too.
+  - `Boundary::Unicode` is the vocabulary's reading: Unicode word segmentation (UAX #29, the `unicode-segmentation`
+    crate), with one tailoring the annex allows: an apostrophe (U+0027, U+2019) splits a word, so French elision
+    reads "l'Élève" as "l", "'", "Élève". Each segment is folded as `gsd/W538` folds a word (`str::to_lowercase`),
+    and a run of whitespace is one segment. A needle matches where its segments occur as a run of the haystack's,
+    every occurrence counted, overlapping ones too; the scan compares fixed windows, compiles no pattern, and is
+    linear in the text for a given needle.
+    - A word is one segment, so a combining mark, a virama, a vowel sign or a joiner (U+200C, U+200D) never splits
+      its word, in any script. Punctuation is a segment of its own, so `C++` is found before a full stop, but a full
+      stop or a colon between two letters joins them (`e.g.`, `example.com`).
+    - A run of Katakana is one word. Each Han ideograph and each Hiragana letter is a segment of its own, so a word
+      written in them is found wherever its characters run in the text: "用户" in "用户登录系统", "ユーザー" in
+      "ユーザーがログインする".
+    - Thai, Lao, Khmer and Myanmar are split into words only with a dictionary, which UAX #29 leaves to a tailoring
+      and this matcher does not carry: they read as one segment per letter and its marks, so a word written in them
+      is also found inside a longer word.
   - Under both, an empty needle matches nothing. There is no stemming, no accent stripping and no normalisation: a
     word in NFC does not match the same word in NFD. Lowercase mapping is not full case folding: "STRASSE" does not
     match "straße", and Turkish dotted and dotless i stay distinct letters.
@@ -246,7 +255,10 @@ features' requirements, a channel as a term, the artifact word, the journey memb
 - Artifact types as a closed enum, a tag or a package (D8).
 - A new code for milestone cycles: `gsd/E102` already says "dependency cycle".
 - `targets` before `starts` as a warning: it is a contradiction, so it is an error (`gsd/E537`, D14).
-- UAX #29 word segmentation (D15): it keeps "l'Élève" one word, so French elision misses, and it adds a dependency.
+- A word character as a letter, a number, `_` or a Latin combining mark (D15): every other script's marks and
+  joiners split their words, and a word in Han or kana prose was never found. A hand-kept table of marks beside a
+  real segmenter would be a second reading of the same standard.
+- A dictionary for Thai, Lao, Khmer and Myanmar (D15): a large table per language, for a warning.
 - Stemming or lemmatising (D15): each is language-specific. An inflection goes in `aliases` or `avoid`.
 - Reading `text_en` (D16): the vocabulary is the author's language.
 - One `used_in_<kind>` field per kind (D17): the host admits a computed union list.
@@ -262,3 +274,4 @@ features' requirements, a channel as a term, the artifact word, the journey memb
 
 - A domain whose channels are entities with behaviour of their own.
 - A GSD release whose milestone gains fields of the same names.
+- A project written in Thai, Lao, Khmer or Myanmar that needs a term found only as a whole word (D15).

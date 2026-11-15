@@ -73,8 +73,10 @@ A glossary entry: a word of the project and what it means. Name: a word, `spec_r
 
 `used_in` reads the authored prose in the author's language (ADR 0357 D16, D17): a requirement's `text`, a decision's
 `text`, `rationale` and `context`, a truth's `text`, each journey step's `action`, a risk's `cause` and `effect` and an
-invariant's `statement` (`text_en` is not read). A word matches whole, case-insensitively and accents as written
-(Unicode letters, numbers, `_` and combining marks are word characters), with no stemming: "Tasks" is no use of "task".
+invariant's `statement` (`text_en` is not read). A word matches whole, case-insensitively and accents as written, at
+Unicode word boundaries (UAX #29, an apostrophe splitting a word), with no stemming: "Tasks" is no use of "task". In
+Han and kana prose a word is found wherever its characters run; in Thai, Lao, Khmer and Myanmar, also inside a longer
+word (ADR 0357 D15).
 A computed reference makes no edge, so `specforge query <term>` shows it and `specforge refs` does not.
 
 ## What the old product kinds became
