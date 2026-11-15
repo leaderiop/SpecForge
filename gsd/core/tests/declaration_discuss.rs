@@ -45,6 +45,7 @@ fn context_decision_and_deferred_idea_declare_the_fields_of_the_model() {
             "decided",
             "deciders",
             "supersedes",
+            "in_force",
             "affects",
             "tags"
         ]
@@ -55,7 +56,8 @@ fn context_decision_and_deferred_idea_declare_the_fields_of_the_model() {
     );
 }
 
-/// The later decision names the ones it reverses; each reads it back as `superseded_by`, which is no field of its own.
+/// The later decision names the ones it reverses; each reads it back as `superseded_by`, which is no field of its own,
+/// and says whether it still holds in its computed `in_force`.
 #[test]
 fn a_decision_names_what_it_supersedes_with_an_inverse() {
     let supersedes = field_of("decision", "supersedes");
@@ -64,6 +66,9 @@ fn a_decision_names_what_it_supersedes_with_an_inverse() {
     assert_eq!(supersedes["inverse_of"], "superseded_by", "{supersedes}");
     assert_ne!(supersedes["required"], true, "{supersedes}");
     assert!(!fields_of("decision").contains(&"superseded_by".to_string()));
+    let in_force = field_of("decision", "in_force");
+    assert_eq!(in_force["field_type"], "bool", "{in_force}");
+    assert_eq!(in_force["writer"], "computed", "{in_force}");
 }
 
 /// The names of the members of a block field, in order, with whether each is required.
@@ -387,10 +392,10 @@ fn the_discuss_kinds_declare_every_field_of_discuss_md() {
     // until an executor's out-of-scope discovery is resolved. + 1: its `origin`, discussion or execution, so only a
     // discussion idea is part of the phase's context. + 2: the decision's `alternatives` and `affects` (ADR 0359;
     // `supersedes` took the place of `superseded_by`). + 5: its record fields `context`, `consequences`, `decided`,
-    // `deciders` and `tags`.
+    // `deciders` and `tags`. + 1: its computed `in_force`.
     assert_eq!(
         total,
-        95 - 1 + 1 + 3 + 2 + 7 + 11 + 1 + 1 + 1 + 2 + 5,
+        95 - 1 + 1 + 3 + 2 + 7 + 11 + 1 + 1 + 1 + 2 + 5 + 1,
         "the kinds' fields"
     );
 }

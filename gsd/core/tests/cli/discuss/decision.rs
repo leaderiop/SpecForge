@@ -57,6 +57,26 @@ fn a_superseded_decision_resolves_in_its_phase_and_from_the_project() {
     );
 }
 
+/// A decision superseded with force no longer holds: its computed `in_force` is false and its successor's true, and
+/// the planner's pack serves both with it, as gsd/E310 counts them (no selector filters on a computed field).
+#[test]
+fn a_superseded_decision_is_not_in_force_in_the_planners_pack() {
+    let p = project("discuss");
+    assert_eq!(p.fields_of("v1.0/02/D-02")["in_force"], false);
+    assert_eq!(p.fields_of("v1.0/02/D-01")["in_force"], true);
+    let run = p.run(&["context", "gsd/planner", "v1.0/02"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let pack: serde_json::Value = serde_json::from_str(&run.stdout).expect("a pack");
+    let in_force = |id: &str| {
+        pack["graph"]["nodes"]
+            .as_array()
+            .and_then(|nodes| nodes.iter().find(|n| n["id"] == id))
+            .map(|n| n["fields"]["in_force"].clone())
+    };
+    assert_eq!(in_force("v1.0/02/D-02"), Some(false.into()), "{pack}");
+    assert_eq!(in_force("v1.0/02/D-01"), Some(true.into()), "{pack}");
+}
+
 /// `superseded_by` is read back, never written: the fixture's relation written the old way, on D-02, is E079 naming
 /// `decision.supersedes`, with the edit.
 #[test]

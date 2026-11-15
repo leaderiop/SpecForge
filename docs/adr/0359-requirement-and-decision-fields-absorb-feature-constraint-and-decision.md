@@ -135,6 +135,12 @@ no kernel crate, no re-vendor): the ADR 0150 D2 amendment above.
     nothing outside it, so an edge between two decisions of one cycle retires neither, and every decision of the
     cycle stays tracked; the graph's W061 reports the cycle. An edge from a cycle to a decision outside it still
     retires that decision. The cycles are read after the settled rule, over the edges with force.
+
+  The same function answers `decision.in_force` (computed, bool: false for a superseded decision), so every surface
+  reads one answer. A prompt section that serves decisions (the planner's `decisions`, the plan checks'
+  `phase_decisions` and `all_decisions`) cannot leave a superseded one out, since a selector filters on no computed
+  field and on no incoming edge (ADR 0356 D13); it serves each decision with its `in_force`, and the planner's and
+  plan checker's prompts hold locked only the decisions in force.
 - **D17. The asset lines offer the relations.** Every asset line that writes a decision (the context, project and
   walking-skeleton templates, the PRD express path, the quick discussion step, the executor's summary decisions, the
   transition and the graduation) gives `--supersedes` and `--affects` (comma-separated ids) and `--alternatives` (one
@@ -169,7 +175,7 @@ The one-time conversion of an `@specforge/governance` decision reads this table;
 | status accepted | settled true | |
 | status proposed | outcome pending | |
 | status deprecated | outcome revisit | |
-| status superseded | computed | read back as `superseded_by` from the successor's `supersedes`; one that names no successor has no field to land in, so the conversion ledgers it |
+| status superseded | computed | read back as `superseded_by` from the successor's `supersedes`, and `in_force` false; one that names no successor has no field to land in, so the conversion ledgers it |
 | refs, description, authors | no field | unused in every tracked project |
 
 ## Rejected
@@ -199,6 +205,9 @@ The one-time conversion of an `@specforge/governance` decision reads this table;
 - Dropping `--supersedes` from the executor's summary-decision line: an executor's decision may still reverse an
   unsettled one, and the rule belongs in the one function every pass reads, not in one prompt.
 - Untracking a supersedes cycle: a self-reference would turn E310, an Error, into W061, a Warning `check` passes.
+- Leaving superseded decisions out of the prompt sections by selector: the field filter reads authored scalar fields
+  only (a judged digest is taken before the compute passes), and `superseded_by` is an incoming edge, no field; a new
+  selector form for it would restate the settled and cycle rules in the kernel, which knows neither.
 - `risks` as `mitigated_by`'s reverse: `risk.affects` and `risk.milestone` already name it, and on a task it would not
   say whether the task creates the risk or controls it.
 

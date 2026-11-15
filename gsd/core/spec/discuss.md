@@ -59,6 +59,7 @@ in `plan`, and is named `<quick_id>-D-01` so it cannot collide with a project de
 | deciders | strs | | beyond GSD: who took it |
 | supersedes | →* decision | | beyond GSD: the earlier decisions this one reverses, written on the later decision; each reads it back as `superseded_by` |
 | superseded_by | ←* decision | | read, not written: the inverse of `supersedes`, the later decisions that reverse it; writing it is E079 ([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)) |
+| in_force | bool | C | beyond GSD: false once a decision supersedes it with force (`passes::plans::superseded`, the set gsd/E310, W317 and W506 leave out: a settled decision only by one of `origin` `context` or `project`, and none round a supersedes cycle); every pack that serves a decision shows it, since no selector filters on a computed field |
 | affects | →* requirement \| invariant \| item | | beyond GSD: what it shapes: requirements, invariants and `@code/core` code items; each reads it back as `affected_by` |
 | tags | strs | | beyond GSD: words to group decisions by |
 
