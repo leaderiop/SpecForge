@@ -541,6 +541,32 @@ fn a_coupling_peer_in_another_wave_is_i321() {
     assert!(message(&p, "gsd/I321").contains("is not in its wave: the exemption covers nothing"));
 }
 
+/// A peer is the plan the kernel resolves it to from the plan: the rooted path is 01-01, and `02-01` beside
+/// `02/02-01` is E003 and names nothing, though the other row's peer ends with it.
+#[test]
+fn a_coupling_peer_counts_as_the_kernel_resolves_it() {
+    let rooted = with(&third_plan(
+        "  coupling_justified [{ peer /v1.0/01/01-01 reason \"both read the task list\" }]\n",
+        "\"src/third.js\"",
+        "",
+    ));
+    assert_eq!(rooted.codes(), ["gsd/I321"], "the rooted peer");
+    assert_eq!(
+        message(&rooted, "gsd/I321"),
+        "coupling between 'v1.0/01/01-03' and 'v1.0/01/01-01' is justified: both read the task list"
+    );
+    let short = with(&third_plan(
+        "  coupling_justified [\n    { peer 02/02-01 reason \"a\" }\n    { peer 02-01 reason \"b\" }\n  ]\n",
+        "\"src/third.js\"",
+        "",
+    ));
+    assert_eq!(
+        short.codes(),
+        ["E003", "gsd/I321"],
+        "02-01 resolves to nothing"
+    );
+}
+
 #[test]
 fn truth_without_requirement_is_e519_only_when_truth_requirements_is_on() {
     // The phase plans' truths name no requirement; the quick plan's truth is not judged.

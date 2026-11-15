@@ -11,7 +11,7 @@ use std::collections::BTreeSet;
 use specforge_extension_sdk::prelude::*;
 
 use super::plans::{
-    children, context_decisions, listed_decisions, name_of, of_kind, resolve, rows, targets,
+    children, context_decisions, listed_decisions, name_of, of_kind, rows, targets, written_target,
 };
 use crate::scope::scope_of;
 
@@ -95,7 +95,8 @@ fn uncited_decisions(
 }
 
 /// I321: a `coupling_justified` item names the peer it exempts. The exemption holds for two plans of one phase and
-/// one wave; GSD reports the applied exemption as its own info advisory (`agents/gsd-plan-checker.md`, D3b).
+/// one wave; GSD reports the applied exemption as its own info advisory (`agents/gsd-plan-checker.md`, D3b). A peer is
+/// the plan the kernel resolved the item to from its plan; one it did not resolve (E003) is reported by the kernel.
 fn couplings(input: &PassInput) -> Vec<PassDiagnostic> {
     let wave_of = |id: &str| {
         input
@@ -111,7 +112,7 @@ fn couplings(input: &PassInput) -> Vec<PassDiagnostic> {
                 .into_iter()
                 .filter_map(|row| {
                     let named = row.get("peer")?;
-                    let peer = resolve(&peers, named)?;
+                    let peer = written_target(&peers, &plan.id, named)?;
                     let reason = row.get("reason").map_or("", String::as_str);
                     let here = wave_of(&plan.id);
                     let same = scope_of(&plan.id) == scope_of(peer)

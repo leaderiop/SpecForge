@@ -76,17 +76,6 @@ pub fn targets<'a>(input: &'a PassInput, source: &str, label: &str) -> BTreeSet<
         .collect()
 }
 
-/// The target among `targets` that a row's reference `raw` names: the writer spells a reference relative to the
-/// entity's scope (ADR 0284) and the graph resolves it into an edge, so the target is `raw` itself or ends with `/raw`.
-pub fn resolve<'a>(targets: &BTreeSet<&'a str>, raw: &str) -> Option<&'a str> {
-    let tail = format!("/{raw}");
-    targets
-        .iter()
-        .find(|t| **t == raw)
-        .or_else(|| targets.iter().find(|t| t.ends_with(&tail)))
-        .copied()
-}
-
 /// The target among `targets`, the edges of one field of `holder`, that `written`, an item of that field as written,
 /// names. The graph resolves a reference by its holder's scope chain alone (ADR 0284 D4): in the holder itself, each
 /// enclosing scope, then the project, and a rooted `/path` in the project only; never by a suffix. So the target is
