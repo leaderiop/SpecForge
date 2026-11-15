@@ -199,3 +199,48 @@ fn prose_without_an_avoided_word_is_not_w534() {
     ])));
     assert_eq!(found, []);
 }
+
+/// An avoided word the prose writes inside an accepted name is that name: "the ticket system" names term 'helpdesk',
+/// so only a "ticket" outside it is W534.
+#[test]
+fn an_avoided_word_inside_an_accepted_name_is_not_w534() {
+    let found = found(&input(json!([
+        term("work_item", "task", &["ticket"]),
+        term("helpdesk", "ticket system", &[]),
+        { "id": "TASK-01", "kind": "requirement",
+          "fields": { "text": "Tasks are imported from the ticket system" } },
+        { "id": "TASK-02", "kind": "requirement",
+          "fields": { "text": "A ticket in the Ticket\n System becomes a task" } },
+    ])));
+    let on: Vec<&str> = found
+        .iter()
+        .map(|(_, entity, _, _)| entity.as_str())
+        .collect();
+    assert_eq!(on, ["TASK-02"], "{found:#?}");
+}
+
+/// An avoided phrase that holds an accepted word is still the avoided phrase; an avoided word inside an alias the
+/// prose writes is that alias.
+#[test]
+fn an_avoided_phrase_that_holds_an_accepted_word_is_w534() {
+    let mut helpdesk = term("helpdesk", "support desk", &["ticket system"]);
+    helpdesk["values"]["aliases"] = json!(["help desk"]);
+    let found = found(&input(json!([
+        helpdesk,
+        term("ticket", "ticket", &["desk"]),
+        { "id": "R1", "kind": "requirement", "fields": { "text": "The ticket system routes a ticket" } },
+        { "id": "R2", "kind": "requirement", "fields": { "text": "The help desk answers a ticket" } },
+    ])));
+    let on: Vec<(&str, &str)> = found
+        .iter()
+        .map(|(_, entity, message, _)| (entity.as_str(), message.as_str()))
+        .collect();
+    assert_eq!(
+        on,
+        [(
+            "R1",
+            "requirement 'R1' writes \"ticket system\" in text, a word avoided by term 'helpdesk'"
+        )],
+        "{found:#?}"
+    );
+}

@@ -207,6 +207,11 @@ features' requirements, a channel as a term, the artifact word, the journey memb
   - It is a warning under every profile: vocabulary is advice.
   - The term side is `gsd/W538` (D6). An avoided word the glossary also accepts is W538's alone and never W534: the
     glossary contradicts itself, so it cannot say which word the prose should write. A term is no prose.
+  - An avoided word the prose writes inside a name or alias the glossary accepts is that name, never W534: "the
+    ticket system", term `helpdesk`'s name, does not write "ticket", which term `work_item` avoids. The pass finds
+    each accepted name and alias in a place first, and an avoided occurrence that lies within one is not reported.
+    An avoided phrase that holds an accepted word is still the avoided phrase: "ticket system" avoided beside an
+    accepted "ticket" is W534.
 
 ## Journey coverage
 

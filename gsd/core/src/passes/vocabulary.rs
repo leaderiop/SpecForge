@@ -3,11 +3,12 @@
 //! reads the same table; the terms' own words are gsd/W538's (`passes::glossary`).
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::ops::Range;
 
 use specforge_extension_sdk::prelude::*;
 
 use super::plans::{of_kind, rows, strings, text};
-use super::words::{Boundary, folded, has_word};
+use super::words::{Boundary, Segments, folded, has_word};
 
 /// The authored prose fields, by kind, read in the author's language (`text_en` is not): a field's name, or
 /// `<list>.<member>` for a member of each row of a block list.
@@ -81,9 +82,15 @@ struct Avoided<'a> {
     terms: Vec<(&'a str, &'a str)>,
 }
 
-/// The words the terms avoid, by their folded spelling, each with every term that avoids it; a word the glossary also
-/// accepts (a term's `name` or alias) is gsd/W538's, never W534's, and is left out.
-fn avoided(input: &PassInput) -> BTreeMap<String, Avoided<'_>> {
+/// The glossary as W534 reads it: every name and alias the terms accept, and the words they avoid.
+struct Glossary<'a> {
+    accepted: Vec<Segments>,
+    /// By folded spelling, each with every term that avoids it; a word the glossary also accepts (a term's `name` or
+    /// alias) is gsd/W538's, never W534's, and is left out.
+    avoided: BTreeMap<String, Avoided<'a>>,
+}
+
+fn glossary(input: &PassInput) -> Glossary<'_> {
     let mut terms: Vec<&PassEntity> = of_kind(input, "term").collect();
     terms.sort_by(|a, b| a.id.cmp(&b.id));
     let accepted: BTreeSet<String> = terms
@@ -95,6 +102,7 @@ fn avoided(input: &PassInput) -> BTreeMap<String, Avoided<'_>> {
                 .chain(strings(t, "aliases"))
         })
         .map(|word| folded(&word))
+        .filter(|word| !word.is_empty())
         .collect();
     let mut avoided: BTreeMap<String, Avoided> = BTreeMap::new();
     for term in terms {
@@ -113,24 +121,63 @@ fn avoided(input: &PassInput) -> BTreeMap<String, Avoided<'_>> {
             }
         }
     }
-    avoided
+    Glossary {
+        accepted: accepted.iter().map(|word| Segments::of(word)).collect(),
+        avoided,
+    }
 }
 
-/// W534: prose (`PROSE`) that holds a word or phrase a term avoids, read at the Unicode boundary. One warning per
-/// entity and avoided word, on the entity, naming the first place that holds it, every term that avoids it and the
-/// word each asks for.
+/// A place of an entity's prose, read for W534: the place, its text's segments, and where in them it writes an
+/// accepted name or alias.
+struct Place<'p> {
+    place: &'p str,
+    text: Segments,
+    names: Vec<Range<usize>>,
+}
+
+impl<'p> Place<'p> {
+    fn read(place: &'p str, said: &str, accepted: &[Segments]) -> Self {
+        let text = Segments::of(said);
+        let names = accepted.iter().flat_map(|name| text.find(name)).collect();
+        Place { place, text, names }
+    }
+
+    /// Whether the place writes `word` outside every accepted name it writes: a "ticket" inside "the ticket system",
+    /// a term's name, is that name.
+    fn writes(&self, word: &Segments) -> bool {
+        self.text.find(word).any(|at| {
+            !self
+                .names
+                .iter()
+                .any(|name| name.start <= at.start && at.end <= name.end)
+        })
+    }
+}
+
+/// W534: prose (`PROSE`) that holds a word or phrase a term avoids, read at the Unicode boundary, outside every
+/// accepted name or alias it writes. One warning per entity and avoided word, on the entity, naming the first place
+/// that holds it, every term that avoids it and the word each asks for.
 fn check(input: &PassInput) -> Vec<PassDiagnostic> {
-    let avoided = avoided(input);
-    if avoided.is_empty() {
+    let glossary = glossary(input);
+    if glossary.avoided.is_empty() {
         return Vec::new();
     }
+    let needles: Vec<(&Avoided, Segments)> = glossary
+        .avoided
+        .values()
+        .map(|avoided| (avoided, Segments::of(&avoided.word)))
+        .collect();
     let mut entities: Vec<&PassEntity> = writers(input).collect();
     entities.sort_by(|a, b| a.id.cmp(&b.id));
     let mut found = Vec::new();
     for entity in entities {
-        let places = prose(entity);
-        for (key, avoided) in &avoided {
-            let Some(place) = uses(&places, key) else {
+        let prose = prose(entity);
+        let places: Vec<Place> = prose
+            .iter()
+            .map(|(place, said)| Place::read(place, said, &glossary.accepted))
+            .collect();
+        for (avoided, needle) in &needles {
+            let Some(place) = places.iter().find(|p| p.writes(needle)).map(|p| p.place) else {
                 continue;
             };
             let terms: Vec<String> = avoided
