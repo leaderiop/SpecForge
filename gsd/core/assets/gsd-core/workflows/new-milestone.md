@@ -379,24 +379,24 @@ Display the key findings of the summary:
 
 Read the project and the milestone (`specforge export --kinds project,milestone --format context`): core value, the milestone's goal and target features, the validated requirements (what exists).
 
-**If `$SELECTED_SEEDS` is non-empty (from step 2.5):** Include selected seed ideas and their "Why This Matters" sections as additional input when defining requirements. Seeds provide user-validated feature ideas that should be incorporated into the requirement categories alongside research findings or conversation-gathered features.
+**If `$SELECTED_SEEDS` is non-empty (from step 2.5):** Include selected seed ideas and their "Why This Matters" sections as additional input when defining requirements. Seeds provide user-validated feature ideas that should be incorporated into the requirement areas alongside research findings or conversation-gathered features.
 
-**If research exists:** read the feature findings of `RESEARCH` (`specforge query RESEARCH --depth 1 --format context`), extract feature categories.
+**If research exists:** read the feature findings of `RESEARCH` (`specforge query RESEARCH --depth 1 --format context`), extract the feature areas (each becomes its requirements' `area`).
 
-Present features by category:
+Present features by area:
 ```
-## [Category 1]
+## [Area 1]
 **Table stakes:** Feature A, Feature B
 **Differentiators:** Feature C, Feature D
 **Research notes:** [any relevant notes]
 ```
 
-**If no research:** Gather requirements through conversation. Ask: "What are the main things users need to do with [new features]?" Clarify, probe for related capabilities, group into categories.
+**If no research:** Gather requirements through conversation. Ask: "What are the main things users need to do with [new features]?" Clarify, probe for related capabilities, group into areas.
 
-**Scope each category** via AskUserQuestion (multiSelect: true, header max 12 chars):
+**Scope each area** via AskUserQuestion (multiSelect: true, header max 12 chars):
 - "[Feature 1]" — [brief description]
 - "[Feature 2]" — [brief description]
-- "None for this milestone" — Defer entire category
+- "None for this milestone" — Defer entire area
 
 Track: Selected → this milestone. Unselected table stakes → future. Unselected differentiators → out of scope.
 
@@ -427,7 +427,7 @@ Track: Selected → this milestone. Unselected table stakes → future. Unselect
 
 - **This milestone's v1 requirements:** hold them. A v1 requirement must be in a phase (`gsd/E101`), and the project has phases, so one recorded alone is refused. Show them for approval below, then hand them to the roadmapper in the spawn's `<requirements>` block (Step 10): it writes them with the phases in its one roadmap edit.
 
-**REQ-ID format:** `[CATEGORY]-[NUMBER]` (AUTH-01, NOTIF-02). Continue numbering from existing.
+**REQ-ID format:** `[AREA]-[NUMBER]` (AUTH-01, NOTIF-02). Continue numbering from existing.
 
 **Requirement quality criteria:**
 
@@ -442,12 +442,12 @@ Present FULL requirements list for confirmation:
 ```
 ## Milestone v[X.Y] Requirements
 
-### [Category 1]
-- [ ] **CAT1-01**: User can do X
-- [ ] **CAT1-02**: User can do Y
+### [Area 1]
+- [ ] **AREA1-01**: User can do X
+- [ ] **AREA1-02**: User can do Y
 
-### [Category 2]
-- [ ] **CAT2-01**: User can do Z
+### [Area 2]
+- [ ] **AREA2-01**: User can do Z
 
 Does this capture what you're building? (yes / adjust)
 ```
@@ -486,8 +486,8 @@ ${AGENT_SKILLS_ROADMAPPER}
 
 <requirements>
 Milestone [its id: v[X.Y], or [WS]/v[X.Y] in a workstream] [Name] (recorded): [its goal]
-New v1 requirements, to record with the phases in the roadmap edit:
-- [CAT-NN]: [text] ([Category])
+New v1 requirements, to record with the phases in the roadmap edit, each value in the field it names: the heading in `area`, and `category` and `priority` only when known, each one of the words the kind takes (`specforge schema --kind requirement`), else left out:
+- [AREA-NN]: [text] (area: [its area]; category: [its quality category, when known]; priority: [must, should or could, when known])
 </requirements>
 
 <instructions>
@@ -633,7 +633,7 @@ Also: `/gsd:plan-phase [N]` — skip discussion, plan directly
 <success_criteria>
 - [ ] The milestone recorded with its goal and target features (scoped by the workstream when one is active); the project's changes recorded
 - [ ] Research completed (if selected) — 4 parallel agents, milestone-aware
-- [ ] Requirements gathered and scoped per category
+- [ ] Requirements gathered and scoped per area
 - [ ] Future and out-of-scope requirements recorded; this milestone's v1 requirements handed to the roadmapper with REQ-IDs
 - [ ] gsd-roadmapper spawned with phase numbering context
 - [ ] Roadmap written immediately, in one edit (not draft)

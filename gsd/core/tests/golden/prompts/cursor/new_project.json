@@ -61,7 +61,7 @@
     "```bash",
     ""
   ],
-  "bytes": 79625,
+  "bytes": 79730,
   "end": [
     "- `text`: user-centric, testable, atomic (\"User can reset password via email link\").",
     "- `area`: upstream's `### [Category]` heading: a feature area from the research, in the words the domain uses",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2893a479f3f706e5eb8e0c612892244605c06788a3d7bce71bfb003d19a6ae16",
+    "digest": "sha256:4d374fb0ac23b79fa15bf28f9f0dd0c0d7701d0bb00fd4f54de4589baadd5765",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "2893a479f3f706e5eb8e0c612892244605c06788a3d7bce71bfb003d19a6ae16"
+  "sha256": "4d374fb0ac23b79fa15bf28f9f0dd0c0d7701d0bb00fd4f54de4589baadd5765"
 }

@@ -61,7 +61,7 @@
     "",
     "MILESTONE_NAME=\"Next\""
   ],
-  "bytes": 73235,
+  "bytes": 73532,
   "end": [
     "- `category` (optional): its quality class, one of `functional`, `performance`, `compatibility`, `usability`,",
     "  `reliability`, `security`, `maintainability`, `portability`, `safety` (ISO/IEC 25010's characteristics) or",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:324a38b1486327b9c38d29d36321cde85d12ff388aab7bb36c59d001b72073f5",
+    "digest": "sha256:f0450c6a121f649b682b7757d27d9fc64301f844742b621a5734667597a15af7",
     "prompt": "@gsd/core@VERSION:new_milestone",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "324a38b1486327b9c38d29d36321cde85d12ff388aab7bb36c59d001b72073f5"
+  "sha256": "f0450c6a121f649b682b7757d27d9fc64301f844742b621a5734667597a15af7"
 }

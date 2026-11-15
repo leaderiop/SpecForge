@@ -32,7 +32,10 @@ SDK, protocol or host change: every field is a `@gsd/core` declaration, and ever
 
 - **D1. `area` is the heading.** Upstream's `### [Category]` heading is the required string `area`, the word
   `decision.area` uses for the same notion. Every site that writes a requirement writes `area "…"` and
-  `specforge new requirement --area`; upstream's own kept text (`[CATEGORY]-[NUMBER]`) stays as upstream wrote it.
+  `specforge new requirement --area`, and every asset line that names the heading calls it an area, upstream's kept
+  text included (`[AREA]-[NUMBER]`, "scope each area", the roadmapper's "group by area"): an agent told `[Category]`
+  writes the heading into `category`, the quality class, where it is E061. The new-milestone hand-off to the
+  roadmapper labels each value with the field it fills (`area:`, `category:`, `priority:`).
 - **D2. `category` is the quality class**, an optional enum of ten words: ISO/IEC 25010:2023's nine product quality
   characteristics by their short names (`functional`, `performance`, `compatibility`, `usability`, `reliability`,
   `security`, `maintainability`, `portability`, `safety`) and `regulatory`. Interoperability is part of

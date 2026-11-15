@@ -773,7 +773,9 @@ agents/gsd-roadmapper.compact.md	kept	40+3	8473e99c5839
 agents/gsd-roadmapper.compact.md	own	43+1	1	1e631f7b76bc	9d79d999cbe6	agent
 agents/gsd-roadmapper.compact.md	kept	44+43	84eec30dc276
 agents/gsd-roadmapper.compact.md	own	87+1	1	90fa7010120d	6d29ad040e3c	agent
-agents/gsd-roadmapper.compact.md	kept	88+33	7a5c9567acf7
+agents/gsd-roadmapper.compact.md	kept	88+21	f69a27eab6ea
+agents/gsd-roadmapper.compact.md	own	109+5	5	4734a7864a71	da0d561fc9ac	review
+agents/gsd-roadmapper.compact.md	kept	114+7	646fafe22c7a
 agents/gsd-roadmapper.compact.md	own	121+3	3	a82fd5518fa6	297368d7810d	agent
 agents/gsd-roadmapper.compact.md	kept	124+1	23cca02b74f3
 agents/gsd-roadmapper.compact.md	own	125+6	6	f904fe28a062	4e930cdd67b5	agent
@@ -792,8 +794,8 @@ agents/gsd-roadmapper.compact.md	own	249+3	3	426171a3cd19	1007376e0ce8	ported-na
 agents/gsd-roadmapper.compact.md	kept	252+33	8167d3d7e7c2
 agents/gsd-roadmapper.compact.md	own	285+1	1	6a30be6ab1b8	30f6e3dce06e	agent
 agents/gsd-roadmapper.compact.md	kept	286+2	740be59686db
-agents/gsd-roadmapper.compact.md	own	288+1	1	10363fd4955e	817aa431a431	agent
-agents/gsd-roadmapper.compact.md	kept	289+10	3103440ae63b
+agents/gsd-roadmapper.compact.md	own	288+3	3	c9ded601df27	36473fc6a710	agent
+agents/gsd-roadmapper.compact.md	kept	291+8	6da4d4e74502
 agents/gsd-roadmapper.compact.md	own	299+1	1	80c1a65a5593	2d59e7565e2f	served
 agents/gsd-roadmapper.compact.md	kept	300+6	8b1603ec56ae
 agents/gsd-roadmapper.compact.md	own	306+1	1	9666d26e0e4a	8e85b6b6c194	agent
@@ -822,7 +824,13 @@ agents/gsd-roadmapper.md	kept	46+3	8473e99c5839
 agents/gsd-roadmapper.md	own	49+1	1	ac86829bb7ec	e321aae9d64c	agent
 agents/gsd-roadmapper.md	kept	50+90	8b978738dc46
 agents/gsd-roadmapper.md	own	140+1	1	477d7295e188	34fba0157397	agent
-agents/gsd-roadmapper.md	kept	141+75	67e9424a0478
+agents/gsd-roadmapper.md	kept	141+34	c88dd3935976
+agents/gsd-roadmapper.md	own	175+2	2	aa4e44bbbd04	ce7b3c155f90	review
+agents/gsd-roadmapper.md	kept	177+3	127c575fffee
+agents/gsd-roadmapper.md	own	180+1	1	05502c554bdb	0f4892b6117c	review
+agents/gsd-roadmapper.md	kept	181+8	aac303979979
+agents/gsd-roadmapper.md	own	189+1	1	c25805278677	29466166742c	review
+agents/gsd-roadmapper.md	kept	190+26	4bcdc5f22e79
 agents/gsd-roadmapper.md	own	216+4	4	51fc8e7911e8	842cca5b0db1	agent
 agents/gsd-roadmapper.md	kept	220+1	23cca02b74f3
 agents/gsd-roadmapper.md	own	221+2	2	b7f0a1d3c7c5	8d1a36c00c02	agent
@@ -846,7 +854,11 @@ agents/gsd-roadmapper.md	kept	472+44	c2cb7a08f21f
 agents/gsd-roadmapper.md	own	516+3	2	604464763f58	b46249e31ea8	agent
 agents/gsd-roadmapper.md	kept	519+6	a1c8370f09b2
 agents/gsd-roadmapper.md	own	525+1	1	c1a2e15c0e74	64ac8262f0cb	agent
-agents/gsd-roadmapper.md	kept	526+16	a8acea32bf6e
+agents/gsd-roadmapper.md	kept	526+1	4db31fa84234
+agents/gsd-roadmapper.md	own	527+1	1	d893a33b2078	04b2e26eb227	review
+agents/gsd-roadmapper.md	kept	528+3	33ad81bfc6c4
+agents/gsd-roadmapper.md	own	531+1	1	a402b3963283	65b6dd018717	review
+agents/gsd-roadmapper.md	kept	532+10	911e54e42254
 agents/gsd-roadmapper.md	own	542+1	1	0f0adb13204f	e185e959c520	agent
 agents/gsd-roadmapper.md	kept	543+14	3464c8b4357e
 agents/gsd-roadmapper.md	own	557+1	1	eccacb2648a0	7e8de2391792	agent
@@ -3547,12 +3559,16 @@ gsd-core/workflows/new-milestone.md	own	446+9	28	8d806a02b004	1cc2c6722e0d	porte
 gsd-core/workflows/new-milestone.md	kept	455+3	7ab0e91f12bd
 gsd-core/workflows/new-milestone.md	own	458+3	3	a72a0582f1aa	fe8a6abb6a12	prose
 gsd-core/workflows/new-milestone.md	kept	461+10	ce646c501f7e
-gsd-core/workflows/new-milestone.md	own	471+1	1	bb8e75de6874	99d330d74576	served
-gsd-core/workflows/new-milestone.md	kept	472+3	dd251aa69b5a
-gsd-core/workflows/new-milestone.md	own	475+1	1	95176c8a84f3	1897aedd373d	prose
-gsd-core/workflows/new-milestone.md	kept	476+22	4b89b79e2fc3
-gsd-core/workflows/new-milestone.md	own	498+5	22	5e8187cce177	c309281cfc43	prose
-gsd-core/workflows/new-milestone.md	kept	503+28	46903341b7f7
+gsd-core/workflows/new-milestone.md	own	471+9	9	dddc27f927fc	1e28e7d7f909	prose
+gsd-core/workflows/new-milestone.md	kept	480+5	b7ee47d5cebd
+gsd-core/workflows/new-milestone.md	own	485+3	3	d5cd6ab16c07	111fa87f0091	review
+gsd-core/workflows/new-milestone.md	kept	488+2	93df044b2993
+gsd-core/workflows/new-milestone.md	own	490+1	1	8e3d99472847	3e633a5275d7	review
+gsd-core/workflows/new-milestone.md	kept	491+7	b0ef7e0ee026
+gsd-core/workflows/new-milestone.md	own	498+7	24	c07cdf8567d5	30fb65109a08	prose
+gsd-core/workflows/new-milestone.md	kept	505+14	08331f0f65f7
+gsd-core/workflows/new-milestone.md	own	519+6	6	61b8a80116ff	a9b0ff90ae22	review
+gsd-core/workflows/new-milestone.md	kept	525+6	1cb83fda2ccb
 gsd-core/workflows/new-milestone.md	own	531+1	1	b6e4f4a5d69e	1fe7fc04a55d	prose
 gsd-core/workflows/new-milestone.md	kept	532+1	ad332335cfaa
 gsd-core/workflows/new-milestone.md	own	533+6	2	21bcbb8c953a	ae35fad68917	ported-name
@@ -3561,7 +3577,7 @@ gsd-core/workflows/new-milestone.md	own	557+3	1	31abf20ab6d7	60aebbff1837	prose
 gsd-core/workflows/new-milestone.md	kept	560+1	529dc1906004
 gsd-core/workflows/new-milestone.md	own	561+1	0	4b709662eadf	e3b0c44298fc	relic
 gsd-core/workflows/new-milestone.md	kept	562+6	790576ffbd92
-gsd-core/workflows/new-milestone.md	own	568+0	6	e3b0c44298fc	3b57e54c2f5a	prose
+gsd-core/workflows/new-milestone.md	own	568+0	6	e3b0c44298fc	6530a84f9175	prose
 gsd-core/workflows/new-milestone.md	kept	568+5	6d9547d9083b
 gsd-core/workflows/new-milestone.md	own	573+2	2	13c6978b7fee	28bea94b34ff	prose
 gsd-core/workflows/new-milestone.md	kept	575+2	765a1ed21e3c
@@ -3586,8 +3602,8 @@ gsd-core/workflows/new-milestone.md	kept	698+9	c1a7487a6273
 gsd-core/workflows/new-milestone.md	own	707+3	3	9f23d4bb4e70	d986fbbb87ab	args
 gsd-core/workflows/new-milestone.md	kept	710+5	f0ec6d197aef
 gsd-core/workflows/new-milestone.md	own	715+3	1	6ec510a305ae	62738005b32a	prose
-gsd-core/workflows/new-milestone.md	kept	718+2	002a89624e2b
-gsd-core/workflows/new-milestone.md	own	720+1	1	ca71f0c559ed	6b64dd2d64e8	prose
+gsd-core/workflows/new-milestone.md	kept	718+1	bd143214bcf6
+gsd-core/workflows/new-milestone.md	own	719+2	2	5af730d853b0	04e6c221b826	prose
 gsd-core/workflows/new-milestone.md	kept	721+1	f868a8715a36
 gsd-core/workflows/new-milestone.md	own	722+1	1	9880b518a52d	e1c4cb6af828	prose
 gsd-core/workflows/new-milestone.md	kept	723+4	a56776e8de2f
@@ -3670,11 +3686,21 @@ gsd-core/workflows/new-project.md	kept	775+6	f6405e580aaa
 gsd-core/workflows/new-project.md	own	781+5	5	bd8337fb9afa	227af6b7f38d	ported-name
 gsd-core/workflows/new-project.md	kept	786+14	8598945f194d
 gsd-core/workflows/new-project.md	own	800+1	1	11b565cf9d6c	be0d889c78db	prose
-gsd-core/workflows/new-project.md	kept	801+15	e78dbef7472e
-gsd-core/workflows/new-project.md	own	816+1	1	bc754ec3fa69	80789cc2bcaa	prose
-gsd-core/workflows/new-project.md	kept	817+67	65bcb383cd2d
-gsd-core/workflows/new-project.md	own	884+10	5	f2d80a05a124	50fc8a8fd782	ported-name
-gsd-core/workflows/new-project.md	kept	894+45	69e85676622d
+gsd-core/workflows/new-project.md	kept	801+5	a47c89dd569f
+gsd-core/workflows/new-project.md	own	806+1	1	d531c35cc9d6	966be35d1c74	review
+gsd-core/workflows/new-project.md	kept	807+6	9c20db66985e
+gsd-core/workflows/new-project.md	own	813+1	1	7bd3602dc34e	fa2f3e4323df	review
+gsd-core/workflows/new-project.md	kept	814+2	5bd336563f85
+gsd-core/workflows/new-project.md	own	816+3	3	cad45e35da47	6181592b0a49	prose
+gsd-core/workflows/new-project.md	kept	819+20	99ac67bcdb87
+gsd-core/workflows/new-project.md	own	839+1	1	533d2ff7bac5	ea7e67fb83c8	review
+gsd-core/workflows/new-project.md	kept	840+11	4a258290de4a
+gsd-core/workflows/new-project.md	own	851+8	8	2121e97c1228	6dda6abe9525	review
+gsd-core/workflows/new-project.md	kept	859+5	7298a9643fac
+gsd-core/workflows/new-project.md	own	864+1	1	a27ae0533450	6972ed4d5363	review
+gsd-core/workflows/new-project.md	kept	865+19	98af194a7cdb
+gsd-core/workflows/new-project.md	own	884+12	7	f741be50652e	8f11fc2dbe2a	ported-name
+gsd-core/workflows/new-project.md	kept	896+43	31bb77385f59
 gsd-core/workflows/new-project.md	own	939+1	1	f205299fd140	41869ca30766	ported-name
 gsd-core/workflows/new-project.md	kept	940+27	7d58a082cb05
 gsd-core/workflows/new-project.md	own	967+14	1	d033ab21fa63	5448dd3dfa91	prose
@@ -3716,8 +3742,8 @@ gsd-core/workflows/new-project.md	kept	1220+6	866249c20b58
 gsd-core/workflows/new-project.md	own	1226+1	1	3846db6e5151	dcd1fadb0b9c	ported-name
 gsd-core/workflows/new-project.md	kept	1227+3	d0e4d7b0d01a
 gsd-core/workflows/new-project.md	own	1230+1	1	82e27d12d1ca	77720581481b	prose
-gsd-core/workflows/new-project.md	kept	1231+4	d2791f16f93a
-gsd-core/workflows/new-project.md	own	1235+1	1	9a77ed4e145a	4cd160282195	prose
+gsd-core/workflows/new-project.md	kept	1231+3	398b19cb8953
+gsd-core/workflows/new-project.md	own	1234+2	2	dd23ecfd2c4f	1ac42ea287a1	prose
 gsd-core/workflows/new-project.md	kept	1236+3	88e384bd021e
 gsd-core/workflows/new-project.md	own	1239+3	1	442d7ddb3f5e	a983e8d47934	prose
 gsd-core/workflows/new-project.md	kept	1242+7	f9c79ad5bf02

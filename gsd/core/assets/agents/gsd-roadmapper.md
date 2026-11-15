@@ -162,12 +162,12 @@ Options:
 
 ## Deriving Phases from Requirements
 
-**Step 1: Group by Category**
-Requirements already have categories (AUTH, CONTENT, SOCIAL, etc.).
+**Step 1: Group by Area**
+Requirements already have areas (their `area`, which their ids name: AUTH, CONTENT, SOCIAL, etc.).
 Start by examining these natural groupings.
 
 **Step 2: Identify Dependencies**
-Which categories depend on others?
+Which areas depend on others?
 - SOCIAL needs CONTENT (can't share what doesn't exist)
 - CONTENT needs AUTH (can't own content without users)
 - Everything needs SETUP (foundation)
@@ -176,7 +176,7 @@ Which categories depend on others?
 Each phase delivers a coherent, verifiable capability.
 
 Good boundaries:
-- Complete a requirement category
+- Complete a requirement area
 - Enable a user workflow end-to-end
 - Unblock the next phase
 
@@ -392,11 +392,11 @@ Parse and confirm understanding before proceeding.
 
 From the pack's requirements (and the handed-over ones):
 - Count total v1 requirements
-- Extract categories (AUTH, CONTENT, etc.)
+- Extract areas (AUTH, CONTENT, etc.)
 - Build requirement list with IDs
 
 ```
-Categories: 4
+Areas: 4
 - Authentication: 3 requirements (AUTH-01, AUTH-02, AUTH-03)
 - Profiles: 2 requirements (PROF-01, PROF-02)
 - Content: 4 requirements (CONT-01, CONT-02, CONT-03, CONT-04)

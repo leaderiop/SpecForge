@@ -168,3 +168,58 @@ fn a_workstream_milestone_is_recorded() {
     }
     assert!(after.is_empty(), "added: {after:?}");
 }
+
+/// Step 10 hands the roadmapper each new requirement's heading as `area`, and its quality category and priority by
+/// their field names, left out when unknown: a heading labelled `Category` lands in `category`, where it is E061, and
+/// the roadmap edit is refused whole.
+#[test]
+fn the_roadmapper_hand_off_names_the_field_of_each_value() {
+    let step = block(
+        &asset("gsd-core/workflows/new-milestone.md"),
+        "## 10. Create Roadmap",
+        "## 10.5.",
+    );
+    let handed = block(&step, "<requirements>", "</requirements>");
+    let item = handed
+        .lines()
+        .find(|l| l.starts_with("- [AREA-NN]: [text] ("))
+        .unwrap_or_else(|| panic!("no requirement line:\n{handed}"));
+    for named in ["area: [", "category: [", "priority: ["] {
+        assert!(item.contains(named), "{item}");
+    }
+    assert!(handed.contains("else left out"), "{handed}");
+}
+
+/// The steps that gather requirements and the roadmapper that groups them call the heading what the requirement
+/// names it, `area`: `category` is the quality class.
+#[test]
+fn the_requirement_heading_is_called_area() {
+    let heading_as_category = [
+        "[CATEGORY]-[NUMBER]",
+        "CAT-NN",
+        "[Category",
+        "[category]",
+        "by category",
+        "per category",
+        "per-category",
+        "each category",
+        "entire category",
+        "into categories",
+        "requirement categor",
+        "Group by Category",
+        "extract categories",
+        "feature categories",
+    ];
+    for path in [
+        "gsd-core/workflows/new-milestone.md",
+        "gsd-core/workflows/new-project.md",
+        "agents/gsd-roadmapper.md",
+        "agents/gsd-roadmapper.compact.md",
+    ] {
+        for (n, line) in asset(path).lines().enumerate() {
+            for word in heading_as_category {
+                assert!(!line.contains(word), "{path}:{}: {line}", n + 1);
+            }
+        }
+    }
+}
