@@ -8,6 +8,7 @@ use specforge_component::ComponentRuntime;
 use specforge_ops::asking::Asking;
 use specforge_ops::authoring::apply::Origin;
 use specforge_ops::authoring::edit::{self, Edit};
+use specforge_ops::authoring::entity_id;
 use specforge_ops::authoring::init;
 use specforge_ops::view::ProjectView;
 use specforge_ops::{Caller, Containment};
@@ -144,6 +145,23 @@ impl Target {
             }
         }
         missing
+    }
+
+    /// Each create whose id the target refuses (E013, E014): an old id that is the keyword of a kind the target
+    /// declares (`blocker`, `phase`, `item`) keeps no id there, so it is named before any write.
+    pub fn refused_ids(&self, creates: &[Edit]) -> Vec<String> {
+        let view = ProjectView::of(&self.project);
+        creates
+            .iter()
+            .filter_map(|create| match create {
+                Edit::Create { kind, id, .. } => {
+                    entity_id::validate_id(id, view.registries().kinds())
+                        .err()
+                        .map(|refused| format!("{kind} '{id}': {}", refused.message))
+                }
+                _ => None,
+            })
+            .collect()
     }
 
     /// The creates, written as one plan, then the target compiled again.

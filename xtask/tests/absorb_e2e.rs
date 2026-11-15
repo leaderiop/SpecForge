@@ -223,3 +223,32 @@ fn invariant_obligations_become_proofs_of_the_collected_items() {
     assert_eq!(run.summary["ledger"], json!({"unproven": 1}), "{ledger}");
     insta::assert_snapshot!("proof_ledger", ledger);
 }
+
+#[test]
+#[ignore = "needs GSD_CORE_WASM"]
+fn an_old_id_the_target_reserves_stops_the_run_before_any_write() {
+    let dir = tempfile::tempdir().unwrap();
+    let (old, to) = (dir.path().join("old"), dir.path().join("new"));
+    std::fs::create_dir_all(old.join("spec")).unwrap();
+    std::fs::write(
+        old.join("specforge.json"),
+        r#"{"name": "reserved", "spec_root": "spec", "extensions": ["@specforge/product"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        old.join("spec/terms.spec"),
+        "term blocker \"Blocker\" {\n  definition \"What stops work.\"\n}\n",
+    )
+    .unwrap();
+    let run = absorb(&["--from", path(&old), "--to", path(&to)]);
+    assert_eq!(run.code, 2, "{}", run.stderr);
+    assert!(
+        run.stderr.contains("1 id(s) the target refuses")
+            && run
+                .stderr
+                .contains("term 'blocker': invalid entity ID 'blocker'"),
+        "{}",
+        run.stderr
+    );
+    assert!(!to.exists(), "the scaffold is removed");
+}

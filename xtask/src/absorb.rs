@@ -150,13 +150,25 @@ fn run(args: &[String]) -> i32 {
             Err(why) => return refuse(&why),
         };
     let missing = target.missing(&planned.creates);
-    if !missing.is_empty() {
+    let refused = target.refused_ids(&planned.creates);
+    if !missing.is_empty() || !refused.is_empty() {
         target.roll_back();
-        return refuse(&format!(
-            "{} required value(s) the old project lacks and no rule fills:\n  {}",
-            missing.len(),
-            missing.join("\n  ")
-        ));
+        let mut why = Vec::new();
+        if !missing.is_empty() {
+            why.push(format!(
+                "{} required value(s) the old project lacks and no rule fills:\n  {}",
+                missing.len(),
+                missing.join("\n  ")
+            ));
+        }
+        if !refused.is_empty() {
+            why.push(format!(
+                "{} id(s) the target refuses; rename them in the source first:\n  {}",
+                refused.len(),
+                refused.join("\n  ")
+            ));
+        }
+        return refuse(&why.join("\n"));
     }
     let ledger_path = args.ledger.unwrap_or_else(|| args.to.join(LEDGER_FILE));
     if let Err(why) = target.apply(&planned.creates, &mut work) {
