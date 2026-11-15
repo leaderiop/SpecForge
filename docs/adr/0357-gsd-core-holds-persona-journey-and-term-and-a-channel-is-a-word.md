@@ -3,7 +3,9 @@
 **Status:** accepted (2026-11-14). Extends [ADR 0285](0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md)
 D4 (a reference inside a block), [ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md)
 (a field that names its reverse) and [ADR 0279](0279-a-builtin-closes-a-fields-words-only-when-they-fit-any-domain.md)
-D1 (open words). No kernel, SDK or protocol change.
+D1 (open words). No kernel, SDK or protocol change. Extends
+[ADR 0287](0287-who-writes-a-field-is-declared.md) (a computed reference list, held beside the graph, D17) and
+[ADR 0331](0331-the-gsd-requirement-thread.md) (a journey's coverage reads the requirement thread, D20).
 
 ## Context
 
@@ -165,6 +167,74 @@ Of the 54 field rows: 37 have a home, 10 of them through a mapping (the channel 
 features' requirements, a channel as a term, the artifact word, the journey memberships, the target features);
 2 become computed values; 3 wait for packages; 11 are refused; 1 is `Default(active)`.
 
+## Words
+
+- **D15. One word matcher, two boundaries.** `passes/words.rs` holds `has_word(haystack, needle, Boundary)`, the one
+  test of a word or phrase in prose, and `folded`, the one reading of a word the glossary compares.
+  - `Boundary::Js` is JavaScript's ASCII `\b`: bytes, a word character is an ASCII letter, digit or `_`, and both
+    sides are ASCII-lowercased. `gsd/E312` reads its phrases so, as upstream's planner rule does.
+  - `Boundary::Unicode` is the vocabulary's reading. Both sides are folded as `gsd/W538` folds a word: each run of
+    whitespace is one space, then `str::to_lowercase`. A word character is a letter or a number
+    (`char::is_alphanumeric`), `_`, or a combining mark (U+0300–036F, U+1AB0–1AFF, U+1DC0–1DFF, U+20D0–20FF,
+    U+FE20–FE2F), so a decomposed "é" never splits its word. A boundary is needed only on an edge where the needle's
+    own character is a word character, so `C++` is found before a space or a full stop. Every occurrence counts,
+    overlapping ones too.
+  - Under both, an empty needle matches nothing. There is no stemming, no accent stripping and no normalisation: a
+    word in NFC does not match the same word in NFD. Lowercase mapping is not full case folding: "STRASSE" does not
+    match "straße", and Turkish dotted and dotless i stay distinct letters.
+- **D16. The prose fields.** One table, `passes/vocabulary.rs`'s `PROSE`, names what the vocabulary reads: a
+  requirement's `text`; a decision's `text`, `rationale` and `context`; a truth's `text`; each journey step's
+  `action`; a risk's `cause` and `effect`; an invariant's `statement`. They are read in the author's language:
+  `text_en` is not read, nor a term's `definition`, a persona's goals or a milestone's goal.
+- **D17. `term.used_in` is computed.** It lists the entities whose prose (D16) holds the term's `name` or one of its
+  `aliases` as a whole word or phrase (D15, `Unicode`), by id, sorted, and `[]` when the term is unused, so "none" is
+  never "unknown". An `avoid` word is never a use.
+  - It is a reference list to the six prose kinds. A computed value is held beside the graph and makes no edge
+    (ADR 0287), so `specforge query <term>` shows it and `specforge refs` or `trace` do not.
+- **D18. `gsd/W534`: prose writes a word a term avoids.** A prose field (D16) that holds a word or phrase a term lists
+  in `avoid` (D15, `Unicode`) is one warning per entity and avoided word, the word compared as `gsd/W538` compares it.
+  - It sits on the entity, and names the first field that holds the word, every term that avoids it and the word each
+    asks for (its `name`).
+  - It is a warning under every profile: vocabulary is advice.
+  - The term side is `gsd/W538` (D6). An avoided word the glossary also accepts is W538's alone and never W534: the
+    glossary contradicts itself, so it cannot say which word the prose should write. A term is no prose.
+
+## Journey coverage
+
+- **D19. The requirements a journey names** are each step's `requirement` (the edge `steps.requirement`) and the
+  journey's own `requirements`, each once.
+- **D20. `journey.covered` is computed.** It is true when the journey names a requirement, each one it names is proven
+  by the requirement thread ([ADR 0331](0331-the-gsd-requirement-thread.md): complete and its thread whole,
+  `thread::requirement_proven`, the predicate `gsd/E515` reads), and each step names a requirement or the journey
+  lists `requirements`.
+  - A journey that names none is not covered: no vacuous truth.
+  - A step with no requirement of its own is carried by the journey-level list only; without one, it leaves the
+    journey uncovered.
+  - A reference that does not resolve (the host reports it) counts as unproven.
+- **D21. `journey.tests` is computed.** It lists the `@code/core` test facts tagged with the journey
+  (`[gsd:<journey>]`, an edge `names`), by id, sorted, and `[]` when none. They are evidence beside `covered`, never
+  read by it: one reading of coverage, `gsd/E515`'s. A fact's status is read on the fact.
+- **D22. A UAT test names the journey it walks.** `uat_test.journey` is authored and optional, read back as
+  `journey.uat_tests` ([ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md)).
+  - `journey.last_uat` is computed: the session of a test that names the journey, the latest `started` first, a
+    session with no `started` older than every dated one, then the greatest id. Any result counts; the session's own
+    `status` says how it went.
+  - Both writers of a `uat_test` write it: the UAT template's fence, which `/gsd-verify-work` runs, and
+    execute-phase's human-verification fence. Each sets a `JOURNEY` variable and passes
+    `${JOURNEY:+--journey "$JOURNEY"}`, so a test with no journey writes the same command as before. The test-list step
+    of `/gsd-verify-work` says how to find the journeys of a phase.
+- **D23. `milestone.journeys_covered` is computed:** a block `{journeys, covered}` holding the journeys whose
+  `milestones` list the milestone and how many of them are covered (D20). It is absent when no journey lists it.
+- **D24. `gsd/W530`: a journey's requirement is outside a milestone it lists.** For each milestone a journey lists in
+  `milestones`, each requirement it names (D19) that no phase of that milestone lists in `requirements` is one warning
+  on the journey. It names the requirement, the steps that need it (or "the journey's requirements") and the milestone.
+  - An unphased requirement is outside every milestone.
+  - Each listed milestone is a promise of its own, so a requirement outside two of them is two warnings, and two
+    steps on one requirement are one.
+  - A journey that lists no milestone is silent, and so is a step with no requirement (`covered` says it).
+  - It is a warning under `gsd-compat` and an error under `gsd-strict` and `gsd-plus`: the milestone cannot deliver
+    the journey.
+
 ## Rejected
 
 - A channel kind: a channel has no behaviour of its own in any project tracked, and its text is a term's.
@@ -176,6 +246,13 @@ features' requirements, a channel as a term, the artifact word, the journey memb
 - Artifact types as a closed enum, a tag or a package (D8).
 - A new code for milestone cycles: `gsd/E102` already says "dependency cycle".
 - `targets` before `starts` as a warning: it is a contradiction, so it is an error (`gsd/E537`, D14).
+- UAX #29 word segmentation (D15): it keeps "l'Élève" one word, so French elision misses, and it adds a dependency.
+- Stemming or lemmatising (D15): each is language-specific. An inflection goes in `aliases` or `avoid`.
+- Reading `text_en` (D16): the vocabulary is the author's language.
+- One `used_in_<kind>` field per kind (D17): the host admits a computed union list.
+- `covered` as requirement `status complete` (D20): that says only that a plan finished.
+- A journey-tagged test making a journey covered (D21): two readings of coverage.
+- A required `milestones` list (D24): an imported journey has none.
 
 ## Breaking
 
