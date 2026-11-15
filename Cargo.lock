@@ -6937,6 +6937,7 @@ dependencies = [
  "gate",
  "insta",
  "proc-macro2",
+ "regex",
  "serde",
  "serde_json",
  "specforge-common",

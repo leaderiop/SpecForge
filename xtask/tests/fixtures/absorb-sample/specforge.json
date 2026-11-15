@@ -1,0 +1,10 @@
+{
+  "name": "absorb-sample-fixture",
+  "version": "0.1.0",
+  "spec_root": "spec",
+  "extensions": [
+    "@specforge/product",
+    "@specforge/governance",
+    "@specforge/software"
+  ]
+}

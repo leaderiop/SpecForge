@@ -34,6 +34,7 @@ name = "absorb"
 path = "src/absorb.rs"
 
 [dependencies]
+regex = { workspace = true }
 specforge-repo-root = { path = "../crates/leaf/repo-root" }
 specforge-common = { workspace = true }
 specforge-coverage = { path = "../crates/leaf/coverage" }

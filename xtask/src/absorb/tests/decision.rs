@@ -326,22 +326,22 @@ fn a_symbolic_link_at_the_ledger_path_is_refused_and_never_written_through() {
     for target in [outside.clone(), dir.path().join("nowhere")] {
         let link = dir.path().join("absorb-ledger.json");
         std::os::unix::fs::symlink(&target, &link).unwrap();
-        let refused = write::check_ledger(&link).unwrap_err();
+        let refused = write::check_output("ledger", &link).unwrap_err();
         assert!(
             refused.ends_with("is a symbolic link: absorb never writes through one; remove it, or name another --ledger"),
             "{refused}"
         );
-        assert!(write::ledger(&link, "{}").is_err());
+        assert!(write::output("ledger", &link, "{}").is_err());
         assert!(std::fs::symlink_metadata(&link).is_ok(), "the link is kept");
         std::fs::remove_file(&link).unwrap();
     }
     assert_eq!(std::fs::read_to_string(&outside).unwrap(), "mine\n");
     let held = dir.path().join("held.json");
     std::fs::write(&held, "old").unwrap();
-    write::ledger(&held, "new").unwrap();
+    write::output("ledger", &held, "new").unwrap();
     assert_eq!(std::fs::read_to_string(&held).unwrap(), "new");
     assert!(
-        write::check_ledger(dir.path())
+        write::check_output("ledger", dir.path())
             .unwrap_err()
             .ends_with("is no file")
     );

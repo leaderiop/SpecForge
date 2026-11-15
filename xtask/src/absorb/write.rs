@@ -144,25 +144,26 @@ fn is_link(path: &Path) -> bool {
     std::fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink())
 }
 
-/// The ledger's path, `<to>/absorb-ledger.json` or `--ledger`'s, as [`ledger`] will write it: refused when it is a
-/// symbolic link or there and no file. A ledger already there is replaced; the directories above it are the user's.
-pub fn check_ledger(path: &Path) -> Result<(), String> {
+/// A file absorb writes outside the scaffold, the ledger (`<to>/absorb-ledger.json` or `--ledger`'s) or the selection
+/// (`--selection`'s), as [`output`] will write it, `flag` naming it: refused when it is a symbolic link or there and no
+/// file. A file already there is replaced; the directories above it are the user's.
+pub fn check_output(flag: &str, path: &Path) -> Result<(), String> {
     if is_link(path) {
         return Err(format!(
-            "the ledger {} is a symbolic link: absorb never writes through one; remove it, or name another --ledger",
+            "the {flag} {} is a symbolic link: absorb never writes through one; remove it, or name another --{flag}",
             path.display()
         ));
     }
     match std::fs::symlink_metadata(path) {
-        Ok(meta) if !meta.is_file() => Err(format!("the ledger {} is no file", path.display())),
+        Ok(meta) if !meta.is_file() => Err(format!("the {flag} {} is no file", path.display())),
         _ => Ok(()),
     }
 }
 
-/// Write the ledger `text` at `path`, checked again as [`check_ledger`] does, so a link made since is not written
-/// through either; the directories above it are made.
-pub fn ledger(path: &Path, text: &str) -> Result<(), String> {
-    check_ledger(path)?;
+/// Write `text` at `path`, checked again as [`check_output`] does, so a link made since is not written through either;
+/// the directories above it are made.
+pub fn output(flag: &str, path: &Path, text: &str) -> Result<(), String> {
+    check_output(flag, path)?;
     if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
         std::fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
     }
