@@ -7,7 +7,7 @@
 )]
 mod common;
 
-use common::field_of;
+use common::{field_of, fields_of};
 
 fn member_of(field: &serde_json::Value, member: &str) -> serde_json::Value {
     field["members"]
@@ -91,5 +91,36 @@ fn the_requirement_quality_fields_are_optional() {
     assert_eq!(
         field_of("requirement", "priority")["enum_values"],
         serde_json::json!(["must", "should", "could"])
+    );
+}
+
+/// Each relation names its reverse (ADR 0354), so the other side reads it back by that name and W162 stays silent; no
+/// field or reverse here takes `risks`, the reverse of `risk.affects` on a requirement.
+#[test]
+fn the_requirement_relations_name_their_reverse() {
+    for (field, target, reverse) in [
+        ("personas", "persona", "requirements"),
+        ("constrains", "requirement", "constrained_by"),
+        ("protects", "invariant", "protected_by"),
+    ] {
+        let declared = field_of("requirement", field);
+        assert_eq!(declared["field_type"], "reference_list", "{declared}");
+        assert_eq!(declared["target_kind"], target, "{declared}");
+        assert_eq!(declared["inverse_of"], reverse, "{declared}");
+        assert_ne!(declared["required"], true, "{declared}");
+        // The target declares no field of the reverse's name: the reverse is read back, never written.
+        assert!(
+            !fields_of(target).contains(&reverse.to_string()),
+            "{target}: {reverse}"
+        );
+    }
+    assert!(!fields_of("requirement").contains(&"risks".to_string()));
+    let reverses: Vec<serde_json::Value> = fields_of("requirement")
+        .iter()
+        .map(|f| field_of("requirement", f)["inverse_of"].clone())
+        .collect();
+    assert!(
+        !reverses.contains(&serde_json::json!("risks")),
+        "{reverses:?}"
     );
 }

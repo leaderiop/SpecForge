@@ -93,7 +93,7 @@ pub const PROOF_STATES: &[&str] = &[
 ];
 
 /// One bullet of `REQUIREMENTS.md`, named `AUTH-01`, and the fields of the product feature and the governance
-/// constraint it absorbs (quality category, priority, metric, sources, tags).
+/// constraint it absorbs (quality category, priority, metric, sources, relations, tags).
 pub const REQUIREMENT: Kind = Kind::new(
     "requirement",
     "A requirement, named by its GSD id such as AUTH-01 (GSD REQUIREMENTS.md)",
@@ -113,6 +113,15 @@ pub const REQUIREMENT: Kind = Kind::new(
         strs("source").doc(
             "where it came from: a person, quoted, or a declared `ref` (`gh.issue:42`), bare",
         ),
+        rfs("personas", "persona")
+            .inverse("requirements")
+            .doc("the personas it serves; a persona reads them back as `requirements`"),
+        rfs("constrains", "requirement")
+            .inverse("constrained_by")
+            .doc("the requirements it limits; each reads it back as `constrained_by`"),
+        rfs("protects", "invariant")
+            .inverse("protected_by")
+            .doc("the invariants it guards; each reads it back as `protected_by`"),
         strs("tags").doc("words to group it by"),
         en("status", REQUIREMENT_STATUS)
             .c()

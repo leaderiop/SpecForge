@@ -47,6 +47,9 @@ GSD: one bullet of `REQUIREMENTS.md`. Name: `AUTH-01`. A requirement id is uniqu
 | priority | enum{must, should, could} | | beyond GSD: MoSCoW, the journey's list ([product.md](product.md#journey)); "won't" is `tier out_of_scope` |
 | metric | {name str R, threshold num R, unit str, direction enum{at_most, at_least, exactly} R} | | beyond GSD: the measure it is held to; the threshold is a decimal with no bounds (`direction` carries the sense), and a count has no `unit` |
 | source | strs | | beyond GSD: where it came from: a person, quoted (`"Alice Martin"`), or a declared `ref`, bare (`gh.issue:42`; E003 when undeclared) |
+| personas | →* persona | | beyond GSD: the personas it serves ([product.md](product.md#persona)) |
+| constrains | →* requirement | | beyond GSD: the requirements it limits |
+| protects | →* invariant | | beyond GSD: the invariants it guards ([governance.md](governance.md#invariant)) |
 | tags | strs | | beyond GSD: words to group it by |
 | status | enum{pending, in_progress, complete, blocked, gaps_found} | C | Traceability `Status`: complete when a plan naming it is complete (GSD marks it when the plan's summary is written, `gsd-executor.md:801-813`); blocked when it is not and every plan naming it is halted or blocked; in_progress when one is executing; else pending. `gaps_found` when the requirement would be complete and a phase it traces to has a `gaps_found` verification (`milestone.cts:453-514`) |
 | satisfied_by | →* item | C | beyond GSD: the code items the tasks of its plans name in `items`, as written (held by a collect or not, a `manual` task's too), sorted, each once; absent when none. The items `specforge trace <id>` reaches through its plans |
@@ -55,7 +58,9 @@ GSD: one bullet of `REQUIREMENTS.md`. Name: `AUTH-01`. A requirement id is uniqu
 | text_en | str | | an English translation the spec-less edge probe classifies instead |
 
 The requirement's phase (Traceability `Phase`) is the inverse of `phase.requirements`, read back as `phase`: a relation
-is written from one side, never both (W162).
+is written from one side, never both (W162). Its own relations name their reverse ([ADR 0354](../../../docs/adr/0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md)):
+a persona reads `personas` back as `requirements`, a requirement reads `constrains` back as `constrained_by`, and an
+invariant reads `protects` back as `protected_by`.
 
 ## milestone
 

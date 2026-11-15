@@ -509,3 +509,75 @@ fn a_requirement_takes_its_quality_fields_as_flags() {
         "{fields:#}"
     );
 }
+
+/// A persona, an invariant and two requirements: PERF-01 serves the persona, constrains PERF-02 and protects the
+/// invariant.
+const RELATED: &str = "persona spec_author \"Spec author\" {
+  context \"Writes the spec files of a project\"
+}
+
+invariant diagnostic_determinism \"Diagnostics are deterministic\" {
+  statement \"The same files give the same diagnostics\"
+}
+
+requirement PERF-01 \"Incremental diagnostics\" {
+  text       \"A file change shows its diagnostics within 100 ms\"
+  area       \"Compiler\"
+  tier       v2
+  personas   [spec_author]
+  constrains [PERF-02]
+  protects   [diagnostic_determinism]
+}
+
+requirement PERF-02 \"Full check\" {
+  text \"A whole check of 500 files ends within 2 s\"
+  area \"Compiler\"
+  tier v2
+}
+";
+
+/// The ids of the nodes `specforge query <id> --depth 1 --format json` answers.
+fn neighbours(p: &Project, id: &str) -> Vec<String> {
+    node_ids(&p.run(&["query", id, "--depth", "1", "--format", "json"]))
+}
+
+#[test]
+fn a_requirement_links_its_personas_requirements_and_invariants() {
+    let p = with_quality(RELATED);
+    assert_clean(&p);
+    assert!(neighbours(&p, "spec_author").contains(&"PERF-01".to_string()));
+    assert!(neighbours(&p, "diagnostic_determinism").contains(&"PERF-01".to_string()));
+    assert!(neighbours(&p, "PERF-02").contains(&"PERF-01".to_string()));
+    let link = p.run(&["link", "PERF-02", "personas", "spec_author"]);
+    assert_eq!(link.code, 0, "{}", link.all());
+    assert!(
+        p.read("spec/quality.spec")
+            .contains("personas [spec_author]"),
+        "{}",
+        p.read("spec/quality.spec")
+    );
+    assert_clean(&p);
+    // The reverse is read back, never written: on the persona or the invariant it is E079 (ADR 0354).
+    for (anchor, reverse) in [
+        (
+            "  context \"Writes the spec files of a project\"\n",
+            "  requirements [PERF-01]\n",
+        ),
+        (
+            "  statement \"The same files give the same diagnostics\"\n",
+            "  protected_by [PERF-01]\n",
+        ),
+    ] {
+        let p = with_quality(&RELATED.replace(anchor, &format!("{anchor}{reverse}")));
+        // Both sides written also make a cycle (W061): the E079 is what names the reverse.
+        assert!(
+            p.codes().contains(&"E079".to_string()),
+            "{reverse}: {:#?}",
+            p.report()
+        );
+    }
+    let p = with_quality(&RELATED.replace("[diagnostic_determinism]", "[nope]"));
+    let (code, all) = checked(&p);
+    assert_eq!(code, 1, "{all}");
+    assert!(all.contains("E003") && all.contains("nope"), "{all}");
+}

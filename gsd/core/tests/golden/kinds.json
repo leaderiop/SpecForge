@@ -34,6 +34,33 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "RequirementPersonas",
+        "source_kind": "requirement",
+        "target_kind": "persona"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "RequirementConstrains",
+        "source_kind": "requirement",
+        "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "RequirementProtects",
+        "source_kind": "requirement",
+        "target_kind": "invariant"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "RequirementSatisfiedBy",
         "source_kind": "requirement",
         "target_kind": "item"
@@ -1676,6 +1703,36 @@
             "name": "source",
             "required": false,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the personas it serves; a persona reads them back as `requirements`",
+            "edge": "RequirementPersonas",
+            "field_type": "reference_list",
+            "inverse_of": "requirements",
+            "name": "personas",
+            "required": false,
+            "target_kind": "persona"
+          },
+          {
+            "default_value": null,
+            "description": "the requirements it limits; each reads it back as `constrained_by`",
+            "edge": "RequirementConstrains",
+            "field_type": "reference_list",
+            "inverse_of": "constrained_by",
+            "name": "constrains",
+            "required": false,
+            "target_kind": "requirement"
+          },
+          {
+            "default_value": null,
+            "description": "the invariants it guards; each reads it back as `protected_by`",
+            "edge": "RequirementProtects",
+            "field_type": "reference_list",
+            "inverse_of": "protected_by",
+            "name": "protects",
+            "required": false,
+            "target_kind": "invariant"
           },
           {
             "default_value": null,

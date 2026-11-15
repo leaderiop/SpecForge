@@ -47,6 +47,9 @@ fn project_and_requirement_declare_the_fields_of_the_model() {
             "priority",
             "metric",
             "source",
+            "personas",
+            "constrains",
+            "protects",
             "tags",
             "status",
             "satisfied_by",
@@ -161,9 +164,10 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
     // + 8: the milestone's fields beyond GSD (ADR 0357); + 2: the milestone's and the phase's `risk_level`.
     // + 2: the requirement's computed `proof` (its thread's state) and `satisfied_by` (the items its tasks name).
     // + 5: the requirement's quality `category`, `priority`, `metric`, `source` and `tags` (beyond GSD).
+    // + 3: the requirement's `personas`, `constrains` and `protects`, each naming its reverse (ADR 0354).
     assert_eq!(
         total,
-        72 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 8 + 2 + 2 + 5,
+        72 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 8 + 2 + 2 + 5 + 3,
         "the kinds' fields"
     );
 }
