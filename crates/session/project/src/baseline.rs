@@ -651,11 +651,16 @@ impl Baseline {
         };
         let incomplete = short || unread;
         let consulted = journaled.log().consulted;
+        // Owed at the commit as at a compile: settled on its snapshot with what its compute passes gave (ADR 0362).
+        let (judgements, _) = judged.settle(
+            env,
+            &snapshot.with_computed(&computed, env.registries().fields()),
+        );
         let entities = entities_of(
             built.graph.graph(),
             env.registries().field_forms(),
             &computed,
-            &judged.judgements,
+            &judgements,
         );
         Baseline {
             revision,

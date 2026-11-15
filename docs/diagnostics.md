@@ -3720,11 +3720,14 @@ does not resolve (a field the kind does not declare, one that is not a
 reference, a computed or verdict field, a `file(...)` of a path that leaves the
 project, holds a glob or is a `.spec` source, or of a field that is not a file
 field, a string or a string list), an `unless_set` field the kind does not
-declare, a `values` or `outcome_fields` entry that is not a `verdict`-written
-field of a target kind of the extension, its judge is no agent of its extension
-or of a declared peer (ADR 0292), is `prompt:<id>` of a prompt its extension
-does not declare (a peer's prompt is not a judge, ADR 0295), or the code is
-another judged rule's. Fix or remove the rule in the extension's manifest.
+declare, a `judged_while` that is neither `complete` nor `pending`, names a kind
+whose scope chain keeps no `complete_when`, or sits on a kind the rule's
+`values` or `outcome_fields` bind (ADR 0362), a `values` or `outcome_fields`
+entry that is not a `verdict`-written field of a target kind of the extension,
+its judge is no agent of its extension or of a declared peer (ADR 0292), is
+`prompt:<id>` of a prompt its extension does not declare (a peer's prompt is not
+a judge, ADR 0295), or the code is another judged rule's. Fix or remove the rule
+in the extension's manifest.
 
 Owner: core
 Level: warning

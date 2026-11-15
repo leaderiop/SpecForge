@@ -50,8 +50,10 @@
 ///
 /// 2.2.0 adds: a kind field or a block member may be `number`, an exact decimal of at most 15 significant digits
 /// (ADR 0361), written as one decimal word and carried as a JSON number; a `number` field's `minimum` and `maximum`
-/// are decimals. [`Decimal`](crate::Decimal), `GraphNode::number` and `PassEntity::number` read one. A 2.1.0 guest
-/// still loads; a 2.2.0 guest is refused by a 2.1 host (E088, newer).
+/// are decimals. [`Decimal`](crate::Decimal), `GraphNode::number` and `PassEntity::number` read one. A judged target
+/// may declare `judged_while`, the owner state its entities are judged in (ADR 0362): an entity in the other state
+/// owes no verdict, decided after the compute passes. A 2.1.0 guest still loads; a 2.2.0 guest is refused by a 2.1
+/// host (E088, newer).
 ///
 /// A change that adds to the current minor (grants, host imports, value checks) adds its item here and to that
 /// minor's row of `docs/extension-protocol.md` ("Protocol Versions"), which also keeps the 1.x history, 1.15.0

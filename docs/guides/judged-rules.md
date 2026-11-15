@@ -49,6 +49,20 @@ A stale or missing verdict never counts as a pass. A rule gated off by its setti
 not asked for. **I205** says once per run that test inputs were not judged because no test report exists; **E045** is an
 unusable report.
 
+## Which entities owe a verdict
+
+Every entity of a target kind owes one, except:
+
+- an entity that writes a field the target names in `unless_set` (a key link with a `pattern`, which a pass searches);
+- with `judged_while` (ADR 0362), an entity whose owner state is the other one: `complete` judges an entity once its
+  owner is complete, `pending` only while it is open. The owner state is the one the kernel reads to check a planned
+  value (ADR 0329 D4): the kind's `complete_when`, else its nearest scope ancestor's, on the snapshot with the compute
+  passes' values, so a computed status decides.
+
+An entity that owes none is not reported, lists no judgement and stops no gate; `query --inputs` still answers its
+inputs (state `exempt`), and a verdict recorded early is read once it is owed. The compute passes read every
+judgement, owed or not, since a status they compute may follow a verdict.
+
 ## Writing around a judged rule
 
 A judged rule's finding is never an error a write adds (ADR 0297): E080 does not count it. Creating an entity a rule
@@ -112,6 +126,7 @@ c.rule("<code>", |r| {
         j.target("plan", |t| {
             t.input("plan", "self").input("decisions", "self.phase<decision.phase");
         });
+        // or, judged only once a plan is complete: t.input("plan", "self").once_complete();
     });
 });
 ```

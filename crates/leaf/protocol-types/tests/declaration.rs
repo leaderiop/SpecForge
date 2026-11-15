@@ -706,7 +706,9 @@ fn a_judged_rule_is_declared_with_selectors() {
         "judged": {
             "judge": "checker", "outcomes": ["passed", "issues"], "passing": ["passed"],
             "targets": [{"kind": "plan", "unless_set": ["pattern"],
-                "inputs": [{"name": "plan", "selector": "self"}]}],
+                "inputs": [{"name": "plan", "selector": "self"}]},
+                {"kind": "task", "judged_while": "complete",
+                "inputs": [{"name": "task", "selector": "self"}]}],
             "values": ["phase_spec.scores"], "outcome_fields": ["plan.verdict"],
         },
     });

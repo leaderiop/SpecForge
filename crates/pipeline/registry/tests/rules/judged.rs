@@ -3,7 +3,7 @@
 //! declared is W112 and is not registered.
 
 use serde_json::{Value, json};
-use specforge_extension_sdk::prelude::FieldType;
+use specforge_extension_sdk::prelude::{FieldType, Vocabulary};
 use specforge_protocol_types::ValidationRuleDescriptor;
 use specforge_test_macros::test as spec;
 
@@ -137,6 +137,96 @@ fn a_malformed_judged_rule_is_w112() {
     }))
     .unwrap();
     assert_eq!(built(bare).coded("W112").len(), 1);
+}
+
+/// `@test` declaring a `plan` that keeps `complete_when` on its computed `status` and binds a verdict field, a `task`
+/// scoped by it and a `phase` with no owner state, and one judged rule over `targets` binding `outcome_fields`.
+fn owner_built(targets: Value, outcome_fields: Value) -> Built {
+    let mut declaration = declare("@test", |c| {
+        c.agent("checker", |a| {
+            a.description("Judges");
+        });
+        c.kind("phase", |k| {
+            k.keyword("phase");
+        });
+        c.kind("plan", |k| {
+            k.keyword("plan")
+                .complete_when("status", &["done"])
+                .field("status", |f| {
+                    f.vocabulary(&Vocabulary::new(&["draft", "done"]))
+                        .computed();
+                })
+                .field("check", |f| {
+                    f.vocabulary(&Vocabulary::new(&["passed", "issues"]))
+                        .verdict();
+                });
+        });
+        c.kind("task", |k| {
+            k.keyword("task").scoped_by("plan").field("plan", |f| {
+                f.field_type(FieldType::Reference).target_kind("plan");
+            });
+        });
+    });
+    let mut judged = json!({"judge": "checker", "outcomes": ["passed", "issues"], "passing": ["passed"],
+                            "targets": targets});
+    judged["outcome_fields"] = outcome_fields;
+    declaration.validation_rules = vec![descriptor(judged)];
+    rules_of(vec![declaration])
+}
+
+/// A judged target of `kind` reading itself, judged in `judged_while`.
+fn waiting(kind: &str, judged_while: &str) -> Value {
+    json!({"kind": kind, "judged_while": judged_while, "inputs": [{"name": "it", "selector": "self"}]})
+}
+
+#[spec(
+    behavior = "declare_judged_rule",
+    verify = "a judged target waits for an owner state its kind has, and binds no verdict value of that kind"
+)]
+fn a_judged_target_waits_for_an_owner_state_its_kind_has() {
+    let built = owner_built(
+        json!([waiting("plan", "complete"), waiting("task", "pending")]),
+        json!([]),
+    );
+    assert!(built.diagnostics.is_empty(), "{:?}", built.diagnostics);
+    let rule = built.rules.iter().next().expect("registered");
+    let targets = rule.describe()["judged"]["targets"].clone();
+    assert_eq!(targets[0]["judged_while"], "complete", "{targets}");
+    assert_eq!(targets[1]["judged_while"], "pending", "{targets}");
+    for (targets, outcome_fields, why) in [
+        (
+            json!([waiting("plan", "later")]),
+            json!([]),
+            "neither 'complete' nor 'pending'",
+        ),
+        (
+            json!([waiting("phase", "complete")]),
+            json!([]),
+            "declares complete_when",
+        ),
+        (
+            json!([waiting("plan", "complete")]),
+            json!(["plan.check"]),
+            "'plan.check' is given before them",
+        ),
+    ] {
+        let built = owner_built(targets.clone(), outcome_fields);
+        let w112 = built.coded("W112");
+        assert_eq!(w112.len(), 1, "{targets}: {:?}", built.diagnostics);
+        assert!(
+            w112[0].message.contains(why),
+            "{targets}: {}",
+            w112[0].message
+        );
+        assert!(built.rules.is_empty(), "{targets}");
+    }
+    // a verdict field of a kind no target waits on stays bound
+    let plain = json!({"kind": "plan", "inputs": [{"name": "it", "selector": "self"}]});
+    let built = owner_built(
+        json!([waiting("task", "complete"), plain]),
+        json!(["plan.check"]),
+    );
+    assert!(built.diagnostics.is_empty(), "{:?}", built.diagnostics);
 }
 
 #[spec(

@@ -3,7 +3,10 @@
 //! (`specforge_registry::judged`).
 //!
 //! A judged rule fires on an entity of a target kind while its verdict is missing, unreadable, not recorded in the
-//! harness ledger, stale (an input digests differently from when it was recorded) or failing.
+//! harness ledger, stale (an input digests differently from when it was recorded) or failing. An entity that writes a
+//! field its target names in `unless_set` is not judged. A target that waits for an owner state (`judged_while`, ADR
+//! 0362) is evaluated on every entity, as the compute passes read every judgement, and settled once the owner states
+//! are known: an entity in the other state owes no verdict, and nothing after the compute passes sees its judgement.
 
 mod describe;
 mod digest;
@@ -64,6 +67,11 @@ impl Judgements {
     pub(crate) fn insert(&mut self, entity: &str, judgement: Judgement) {
         self.states
             .insert((entity.to_string(), judgement.rule.clone()), judgement);
+    }
+
+    /// Keeps the states `keep` answers true for, by entity path and the rule's qualified code.
+    pub(crate) fn retain(&mut self, keep: impl Fn(&str, &str) -> bool) {
+        self.states.retain(|(entity, rule), _| keep(entity, rule));
     }
 
     pub(crate) fn found(&mut self, finding: Diagnostic) {

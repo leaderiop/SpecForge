@@ -87,11 +87,9 @@ impl Environment {
         let mut found = judged::Evaluated::default();
         if let (Some(build), Some(bytes)) = (build, &ledger_bytes) {
             found = judged::evaluate(self, build.graph(), entities, disk, digests, checked, bytes);
-            diagnostics.append(&mut found.diagnostics);
         }
         // The `V` fields the fresh verdicts give are values before any compute pass runs (ADR 0290).
         let mut values = std::mem::take(&mut found.values);
-        let judgements = found.judgements;
         if let Some(runtime) = runtime
             && self.registries.compute_passes().next().is_some()
         {
@@ -101,7 +99,7 @@ impl Environment {
                 runtime,
                 translated.as_ref(),
                 &values,
-                &judgements,
+                &found.judgements,
                 compute::Reads { disk, tests },
             );
             values = computed_values;
@@ -111,6 +109,10 @@ impl Environment {
             merged = Some(entities.with_computed(&values, self.registries.fields()));
             computed = values;
         }
+        // The judgements owed once each owner state is known on the merged snapshot (ADR 0362); what the judged
+        // rules say comes first, as it did before the compute passes ran.
+        let (judgements, said) = found.settle(self, merged.as_ref().unwrap_or(entities));
+        diagnostics.splice(0..0, said);
         {
             let entities = merged.as_ref().unwrap_or(entities);
             let verdicts: Box<dyn CustomVerdicts + '_> = match runtime {

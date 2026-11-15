@@ -86,6 +86,7 @@ mod contrib;
 mod guest;
 pub mod host;
 pub mod host_contrib;
+mod judged;
 mod plan;
 pub mod prompt;
 mod reads;
@@ -93,8 +94,7 @@ mod route;
 mod settings;
 pub use builders::{
     CodeBuilder, CollectorBuilder, EdgeBuilder, EnhancementBuilder, FieldBuilder,
-    FieldConstraintBuilder, JudgedBuilder, JudgedTargetBuilder, KindBuilder, PassBuilder,
-    RuleBuilder,
+    FieldConstraintBuilder, KindBuilder, PassBuilder, RuleBuilder,
 };
 pub use capability::Capability;
 pub use checker::{CheckerBuilder, Judged};
@@ -104,6 +104,7 @@ pub use guest::{ExportHandler, Served, answer_export, no_other_exports};
 pub use host_contrib::{
     AgentBuilder, HookBuilder, HookCall, RenderCall, SkillBuilder, SlashBuilder, hook_export,
 };
+pub use judged::{JudgedBuilder, JudgedTargetBuilder};
 pub use plan::{PlanBuilder, Verdict};
 pub use prompt::{PromptArgBuilder, PromptBuilder, PromptCall, PromptStepBuilder};
 pub use reads::FileReadSpec;
