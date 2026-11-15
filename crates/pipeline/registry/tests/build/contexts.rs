@@ -401,6 +401,27 @@ fn a_section_of_an_unloaded_optional_peer_is_skipped_and_recorded() {
     );
 }
 
+#[test]
+fn a_file_section_through_an_unloaded_optional_peers_kind_refuses_the_route() {
+    let declare_routes = |c: &mut ContributionsBuilder| {
+        c.context("results", |r| {
+            r.subject("plan")
+                .budget(10)
+                .core("plan", "self")
+                .enrich("results", "file(self.need.checks.result)");
+        });
+    };
+    // `@acme/proof`, which declares `check`, is a candidate the host could enable.
+    let built = build_with(
+        [work_with_proof_peer(declare_routes)],
+        candidates(&[proof()]),
+    );
+    let e123 = coded(&built, "E123");
+    assert_eq!(e123.len(), 1, "{e123:?}");
+    assert!(e123[0].message.contains("'results'"), "{}", e123[0].message);
+    assert!(built.contexts().named("work/results").is_none());
+}
+
 #[spec(
     behavior = "declare_context_route",
     verify = "a context route's agent its extension does not declare, or another route binds, is E124 and the route stays"

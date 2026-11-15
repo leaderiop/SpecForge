@@ -348,6 +348,41 @@ fn a_chain_into_an_unloaded_optional_peers_kind_is_inert() {
     }
 }
 
+#[test]
+fn a_file_of_a_chain_into_an_unloaded_optional_peers_kind_is_w112() {
+    // `@ghosts`, which the host could enable, declares `ghost`.
+    let ghosts = crate::support::candidates(&[declare("@ghosts", |c| {
+        c.kind("ghost", |_| {});
+    })]);
+    for selector in ["file(self.proof.file)", "file(self<ghost.plan.file)"] {
+        let judged = json!({
+            "judge": "checker", "outcomes": ["passed", "issues"], "passing": ["passed"],
+            "targets": [{"kind": "plan", "inputs": [{"name": "files", "selector": selector}]}],
+        });
+        let mut declaration = declare("@test", |c| {
+            c.optional_peer("@ghosts", "^1.0");
+            c.agent("checker", |a| {
+                a.description("Judges");
+            });
+            c.kind("plan", |k| {
+                k.keyword("plan");
+                k.field("proof", |f| {
+                    f.field_type(FieldType::ReferenceList).target_kind("ghost");
+                });
+            });
+        });
+        declaration.validation_rules = vec![descriptor(judged)];
+        let refused = rules_with(vec![declaration], ghosts.clone());
+        assert_eq!(
+            refused.coded("W112").len(),
+            1,
+            "{selector}: {:?}",
+            refused.diagnostics
+        );
+        assert_eq!(refused.rules.iter().count(), 0, "{selector}");
+    }
+}
+
 /// `@test` declaring a phase and a decision of a phase with an `origin` enum, a computed `status` and a `related`
 /// reference list, and a rule over the phase whose input is `selector`.
 fn filter_built(selector: &str) -> Built {
