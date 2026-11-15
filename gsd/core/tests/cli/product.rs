@@ -421,3 +421,35 @@ fn a_journey_reads_the_uat_session_that_tested_it() {
         "{found:#?}"
     );
 }
+
+/// The `execute` project, committed, with [`ADD_A_TASK`]: TASK-01 is complete, its task has no commit and no test.
+fn execute_with_a_journey() -> Project {
+    let p = crate::execute_rules::repository();
+    p.write("spec/product.spec", ADD_A_TASK);
+    p
+}
+
+/// TASK-01 traces: a commit names its task, the git collector records it, and a passing test tagged with the task is
+/// collected.
+fn trace_task_01(p: &Project) {
+    p.git_commit(
+        "feat(01-01): Store module",
+        &[("src/tasks.js", "a\n")],
+        crate::execute_rules::T0,
+    );
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    crate::execute_rules::collect_tests(p, &[("[gsd:v1.0/01/01-01/T1] adds a task", true)]);
+}
+
+/// A journey is covered once each requirement it names is proven by the requirement thread: TASK-01 is complete
+/// before it traces, and the journey is not covered until a commit and a passing test prove it.
+#[test]
+fn a_journey_is_covered_once_its_requirement_traces() {
+    let p = execute_with_a_journey();
+    assert_eq!(p.fields_of("TASK-01")["status"], "complete");
+    assert_eq!(p.fields_of("add_a_task")["covered"], false);
+    trace_task_01(&p);
+    assert_eq!(p.fields_of("TASK-01")["proof"], "proven");
+    assert_eq!(p.fields_of("add_a_task")["covered"], true);
+}

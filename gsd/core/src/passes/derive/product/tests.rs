@@ -13,6 +13,11 @@ fn input(entities: Value, edges: &[(&str, &str, &str)]) -> PassInput {
     serde_json::from_value(json!({ "entities": entities, "edges": edges })).expect("a pass input")
 }
 
+/// The values of `input` with no requirement state or proof.
+fn computed(input: &PassInput) -> Vec<PassValue> {
+    values(input, &BTreeMap::new(), &BTreeMap::new())
+}
+
 /// `field` of `entity` among `values`.
 fn of<'v>(values: &'v [PassValue], entity: &str, field: &str) -> Option<&'v Value> {
     values
@@ -40,7 +45,7 @@ fn glossary() -> Value {
 /// action); an avoided word is none, and a task's action is no prose.
 #[test]
 fn a_term_is_used_where_its_name_or_an_alias_is_a_whole_word() {
-    let values = values(&input(glossary(), &[]));
+    let values = computed(&input(glossary(), &[]));
     assert_eq!(
         of(&values, "work_item", "used_in"),
         Some(&json!(["D1", "R1", "R2", "add"]))
@@ -49,7 +54,7 @@ fn a_term_is_used_where_its_name_or_an_alias_is_a_whole_word() {
 
 #[test]
 fn a_term_inside_a_longer_word_is_unused() {
-    let values = values(&input(
+    let values = computed(&input(
         json!([
             { "id": "work_item", "kind": "term", "fields": { "name": "task", "definition": "a unit" } },
             { "id": "R1", "kind": "requirement", "fields": { "text": "Tasks are saved; multitasking is not" } },
@@ -61,7 +66,7 @@ fn a_term_inside_a_longer_word_is_unused() {
 
 #[test]
 fn an_unused_term_reads_an_empty_list() {
-    let values = values(&input(
+    let values = computed(&input(
         json!([
             { "id": "board", "kind": "term", "fields": { "name": "board", "definition": "the tasks" } },
             { "id": "R1", "kind": "requirement", "fields": { "text": "A user can add a task" } },
@@ -100,7 +105,7 @@ fn sessions(of: &[(&str, Option<&str>, &str)]) -> PassInput {
 
 #[test]
 fn the_last_uat_is_the_latest_session_whose_test_names_the_journey() {
-    let values = values(&sessions(&[
+    let values = computed(&sessions(&[
         ("v1.0/01/01-UAT", Some("2026-10-29T10:00:00Z"), "add"),
         ("v1.0/01/02-UAT", Some("2026-10-30T10:00:00Z"), "add"),
         ("v1.0/01/03-UAT", Some("2026-10-31T10:00:00Z"), "share"),
@@ -118,7 +123,7 @@ fn the_last_uat_is_the_latest_session_whose_test_names_the_journey() {
 
 #[test]
 fn a_journey_no_test_names_has_no_last_uat() {
-    let values = values(&sessions(&[(
+    let values = computed(&sessions(&[(
         "v1.0/01/01-UAT",
         Some("2026-10-29T10:00:00Z"),
         "share",
@@ -128,7 +133,7 @@ fn a_journey_no_test_names_has_no_last_uat() {
 
 #[test]
 fn sessions_started_at_once_are_ordered_by_id() {
-    let values = values(&sessions(&[
+    let values = computed(&sessions(&[
         ("v1.0/01/02-UAT", Some("2026-10-29T10:00:00Z"), "add"),
         ("v1.0/01/01-UAT", Some("2026-10-29T10:00:00Z"), "add"),
     ]));
@@ -140,12 +145,147 @@ fn sessions_started_at_once_are_ordered_by_id() {
 
 #[test]
 fn an_undated_session_is_older_than_a_dated_one() {
-    let values = values(&sessions(&[
+    let values = computed(&sessions(&[
         ("v1.0/01/01-UAT", Some("2026-10-29T10:00:00Z"), "add"),
         ("v1.0/01/09-UAT", None, "add"),
     ]));
     assert_eq!(
         of(&values, "add", "last_uat"),
         Some(&json!("v1.0/01/01-UAT"))
+    );
+}
+
+/// Requirements R1 to R3, a journey `j` whose steps name `steps` (an empty one names none) and whose own
+/// `requirements` are `whole`, each written id resolving to itself unless it is `R9`.
+fn journey(steps: &[&str], whole: &[&str]) -> PassInput {
+    let rows: Vec<Value> = steps
+        .iter()
+        .map(|r| {
+            if r.is_empty() {
+                json!({ "action": "looks" })
+            } else {
+                json!({ "action": "does", "requirement": r })
+            }
+        })
+        .collect();
+    let entities = json!([
+        { "id": "R1", "kind": "requirement", "fields": { "text": "one" } },
+        { "id": "R2", "kind": "requirement", "fields": { "text": "two" } },
+        { "id": "R3", "kind": "requirement", "fields": { "text": "three" } },
+        { "id": "j", "kind": "journey", "fields": { "persona": "owner" },
+          "values": { "steps": rows, "requirements": whole } },
+    ]);
+    let mut edges: Vec<(&str, &str, &str)> = Vec::new();
+    for r in steps.iter().filter(|r| !r.is_empty() && **r != "R9") {
+        edges.push(("j", "steps.requirement", r));
+    }
+    for r in whole.iter().filter(|r| **r != "R9") {
+        edges.push(("j", "requirements", r));
+    }
+    input(entities, &edges)
+}
+
+/// The requirement states and proofs derive holds, built directly: each of `proven` complete and proven, every other
+/// requirement complete with no test.
+fn maps(
+    proven: &[&'static str],
+) -> (
+    BTreeMap<&'static str, &'static str>,
+    BTreeMap<&'static str, Proof>,
+) {
+    let all = ["R1", "R2", "R3"];
+    let states = all.iter().map(|r| (*r, "complete")).collect();
+    let proofs = all
+        .iter()
+        .map(|r| {
+            (
+                *r,
+                if proven.contains(r) {
+                    Proof::Proven
+                } else {
+                    Proof::NoTest
+                },
+            )
+        })
+        .collect();
+    (states, proofs)
+}
+
+fn covered_of(input: &PassInput, proven: &[&'static str]) -> Option<Value> {
+    let (states, proofs) = maps(proven);
+    of(&values(input, &states, &proofs), "j", "covered").cloned()
+}
+
+#[test]
+fn a_journey_whose_steps_are_all_proven_is_covered() {
+    assert_eq!(
+        covered_of(&journey(&["R1", "R2", "R1"], &[]), &["R1", "R2"]),
+        Some(json!(true))
+    );
+}
+
+#[test]
+fn a_step_without_a_requirement_leaves_the_journey_uncovered() {
+    assert_eq!(
+        covered_of(&journey(&["R1", ""], &[]), &["R1"]),
+        Some(json!(false))
+    );
+}
+
+#[test]
+fn an_unproven_step_leaves_the_journey_uncovered() {
+    assert_eq!(
+        covered_of(&journey(&["R1", "R2"], &[]), &["R1"]),
+        Some(json!(false))
+    );
+}
+
+#[test]
+fn a_journey_naming_no_requirement_is_not_covered() {
+    assert_eq!(
+        covered_of(&journey(&["", ""], &[]), &["R1"]),
+        Some(json!(false))
+    );
+    assert_eq!(covered_of(&journey(&[], &[]), &["R1"]), Some(json!(false)));
+}
+
+#[test]
+fn a_journey_level_requirement_carries_a_bare_step() {
+    assert_eq!(
+        covered_of(&journey(&["R1", ""], &["R2"]), &["R1", "R2"]),
+        Some(json!(true))
+    );
+}
+
+#[test]
+fn an_unproven_journey_level_requirement_leaves_the_journey_uncovered() {
+    assert_eq!(
+        covered_of(&journey(&["R1"], &["R2"]), &["R1"]),
+        Some(json!(false))
+    );
+}
+
+/// A reference that does not resolve is unproven, whatever the others say.
+#[test]
+fn an_unresolved_reference_leaves_the_journey_uncovered() {
+    assert_eq!(
+        covered_of(&journey(&["R1", "R9"], &[]), &["R1"]),
+        Some(json!(false))
+    );
+    assert_eq!(
+        covered_of(&journey(&["R1"], &["R9"]), &["R1"]),
+        Some(json!(false))
+    );
+}
+
+/// A `Proven` thread is not enough: the requirement is complete too, as gsd/E515 reads it.
+#[test]
+fn an_incomplete_requirement_is_not_proven() {
+    let input = journey(&["R1"], &[]);
+    let states = BTreeMap::from([("R1", "in_progress")]);
+    let proofs = BTreeMap::from([("R1", Proof::Proven)]);
+    assert_eq!(
+        of(&values(&input, &states, &proofs), "j", "covered"),
+        Some(&json!(false))
     );
 }

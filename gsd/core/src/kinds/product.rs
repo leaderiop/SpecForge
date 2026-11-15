@@ -71,6 +71,10 @@ pub const JOURNEY: Kind = Kind::new(
             "the session of a UAT test that names it (`uat_test.journey`): the latest `started`, an undated session \
              older than every dated one, then the greatest id; absent when no test names it (ADR 0357 D22)",
         ),
+        bool("covered").c().doc(
+            "it names a requirement, each one it names is proven by the requirement thread (the predicate gsd/E515 \
+             reads), and each step names one or the journey lists `requirements` (ADR 0357 D20)",
+        ),
     ],
 );
 

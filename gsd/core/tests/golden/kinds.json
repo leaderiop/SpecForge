@@ -2099,6 +2099,17 @@
             "required": false,
             "target_kind": "uat_session",
             "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "it names a requirement, each one it names is proven by the requirement thread (the predicate gsd/E515 reads), and each step names one or the journey lists `requirements` (ADR 0357 D20)",
+            "edge": null,
+            "field_type": "bool",
+            "inverse_of": null,
+            "name": "covered",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,
