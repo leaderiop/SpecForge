@@ -5,8 +5,10 @@
 [ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md) (a typed setting) and
 [ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md) (a field that names its reverse).
 D1 to D8 hold the risk's decisions; D9 to D15, the invariant's, were added when that kind landed (2026-11-15), so the
-title names both. No SDK or protocol change of its own: D12 waits for an invariant in force with a judged target's
-`judged_while` ([ADR 0362](0362-a-judged-target-may-wait-for-its-owner-state.md)), a protocol and SDK addition that
+title names both; D16 to D23, [E531 is a pass over the verdict](#e531-is-a-pass-over-the-verdict), were added when a
+phase's change began to owe an invariant a judgement (2026-11-15). No SDK or protocol change of its own: D12 waits
+for an invariant in force with a judged target's `judged_while`
+([ADR 0362](0362-a-judged-target-may-wait-for-its-owner-state.md)), a protocol and SDK addition that
 re-vendored the builtins. One host change, D15 (the registry, `crates/pipeline/registry`; no kernel crate, no
 re-vendor), amends [ADR 0331](0331-the-gsd-requirement-thread.md) D7: the registry's check of a judged rule's or a
 context route's `file()` selector. D7 amended by
@@ -154,12 +156,9 @@ context route's `file()` selector. D7 amended by
     recorded on one machine would be stale on the next. The judge cites each source file it read (`--cited`), which
     stales the verdict when one is edited, and a clone has those files.
   - Under `gsd-plus` a stale I536 on an invariant in force, as any stale verdict, refuses a scoped gate (gsd/E516).
-- **D13. `scope` bounds where it reaches, not its status.** `scope` changes no `status`. It decides which phases a
-  check of an invariant's code reads, when one is built: with no `holds_from`, every phase; else the `holds_from`
-  phase, the later-numbered phases of its milestone and, where numbers do not order two phases (no roadmap order
-  runs across milestones), any phase with a recorded commit no older than the first commit recorded for the
-  `holds_from` phase. `scope milestone` keeps only the `holds_from` phase's milestone; with no `holds_from` it has
-  no milestone and reads as `project`. That shape is accepted, not refused.
+- **D13. `scope` bounds where it reaches, not its status.** `scope` changes no `status`. With `holds_from` it decides
+  which phases' commits can owe the invariant a judgement: the window, stated once in D18. `scope milestone` with no
+  `holds_from` is accepted, not refused.
 - **D14. An invariant that holds mitigates a risk.** `mitigated_by` (D1, D3) may name an invariant beside a task and a
   truth; it is done only while the invariant's `status` is `holds`. Violated, stale, uncertain, unverified and
   pending are not done, so the risk stays `mitigating` and blocks on its rpn until the invariant holds again. An
@@ -170,6 +169,81 @@ context route's `file()` selector. D7 amended by
   rule is registered, and the context section is skipped and listed, as an entity or `test()` chain already is. Any
   other unloaded kind stays W112 for a rule and E123 for a context route. Before, the `file()` form dropped the rule
   (W112, and E118 on each route that annotated it).
+
+## E531 is a pass over the verdict
+
+A verdict says an invariant held when it was judged; nothing said when the code it guards changed after. Every
+recorded commit names the code items its diff changed (`commit.items_changed`,
+[ADR 0352](0352-gsd-git-reads-the-host-git-port-and-commits-name-their-items.md) D1), and the invariant names the code
+it holds over and the tests that prove it (D9). `gsd/E531` joins the two: a phase that changes what an invariant
+guards after its last verdict owes it a judgement.
+
+Two facts shape it:
+
+- A judged rule speaks on every target it owes a verdict, pending in GSD's sense or not: with no verdict it reports
+  `missing`. As a judged rule, E531 would be an Error on every invariant in force without a verdict, 149 of them in a
+  converted SpecForge spec, before any phase changed a line.
+- A typed write is refused when it leaves an error the project did not have (E080); only a judged rule's finding is
+  exempt ([ADR 0297](0297-a-judged-rules-finding-is-not-an-error-a-write-adds.md) D1), and a pass that reports an Error
+  is not one. So whatever makes E531 appear is a write E080 refuses.
+
+Decisions:
+
+- **D16. I536 judges; E531 reads when it judged.** E531 is no judged rule. The compute pass `invariants` reports it
+  from the `at` of the invariant's I536 judgement, the time the verdict was recorded, not `last_verified`, which is
+  when it last held.
+- **D17. What an invariant guards.** Its `items`; the items its proof's tests and the tests whose name tags it run as
+  (`@code/core`'s `runs_as` edge, from an item to the test it is the function of); and the items whose name tags it
+  (`names`). Its tests are read whether or not they have run: a proof test's function is guarded before its first
+  result.
+- **D18. The window.** With no `holds_from`, every phase's commits. Otherwise the `holds_from` phase; a later-numbered
+  phase of its milestone; and, where numbers do not order two phases (another milestone, a custom-named or a backlog
+  phase: no roadmap order runs across milestones, and `999.x` sits outside the numbering), a commit no older than the
+  first commit recorded for the `holds_from` phase, none while it has none, so workstreams running side by side are
+  judged by time. `scope milestone` keeps only the `holds_from` phase's milestone; with no `holds_from` it has no
+  milestone to keep and reads as `project`: a guard errs toward guarding. A commit is placed by its author time
+  (`commit.at`), the only time it carries, and its phase by its plan's; a quick plan's commit is in no phase and is not
+  judged, as gsd/W522 and gsd/E519 leave quick plans out.
+- **D19. What covers a commit.** Any I536 verdict recorded at or after it, fresh or stale, whatever its outcome. E531
+  owes a judgement and I536 says what it found: recording a verdict only removes E531 rows, and editing the invariant
+  never adds one. A `violated` verdict shows in `status` and in the risks it mitigates (D14); a gate on it is not this
+  rule's.
+- **D20. Owed in force, once judged.** An invariant not in force (D10) owes nothing: E531 reads the owner state I536's
+  `judged_while: complete` reads (D12), so the two agree on which invariants owe a verdict. An invariant in force never
+  judged owes nothing either: there is nothing to re-verify, and I536 reports its missing verdict. Creating an
+  invariant is never refused.
+- **D21. The fallback.** A commit whose `items_changed` is unwritten (no item facts were served, or a file's lines were
+  unknown, ADR 0352 D1) is matched by the files it touched, against the files holding the guarded items and the guarded
+  tests; such a row says it was a file it touched, never an item it changed. A written empty list changed nothing.
+- **D22. One join, two adapters.** `invariants::due()` is the one join of recorded commits with guarded code: one row
+  per invariant, phase, commit and item. The `invariants` compute pass, declared after `derive` (it reads the
+  invariant's computed `status`), answers `phase.invariants_due` (→* invariant, the invariants a phase owes) and
+  reports E531 from the same rows, so the item facts are decoded once per compile. This is the seam: a coverage reader
+  (which items a test exercises) adds a source to what an invariant guards, and E531 and `phase.invariants_due` follow
+  without change.
+- **D23. One E531 per invariant and phase.** An Error under every profile, on the invariant. Its message names the
+  invariant and the phase only; its suggestion names each commit and item. One judgement clears the phase, and E080's
+  key moves only when a phase becomes due or stops being due.
+
+Rejected:
+
+- E531 as a judged rule: it would report every invariant in force with no verdict, before any change.
+- A fresh passing verdict only: recording `violated`, editing the invariant or a new proof result would make every
+  older commit of the window due at once, and E080 would refuse each of those writes, the verifier's included.
+- The value in `derive`: its payload, which has a baseline and runs in more places, would carry every item fact.
+- A check pass beside the compute pass: the item facts decoded twice per compile.
+- One E531 per row: a flood, and any new row a new error. The rows in the message: an edit that widens the guard over a
+  phase already due would change the message and be refused.
+- Ordering milestones, by name (`v1.10` before `v1.9`) or by first commit: both wrong for workstreams running side by
+  side.
+
+Consequences:
+
+- The writes that can add an E531, so E080 refuses them: widening a judged invariant's `items`, `proof`, `holds_from` or
+  `scope` over code a phase changed since its last verdict. Judge it first, or write the line by hand.
+- The writes that never add one: creating an invariant, recording any verdict, editing its statement, a collect (a
+  collector's plan is checked for host errors only, ADR 0303).
+- Breaking: a judged invariant whose guarded code a later phase commit changed fails `check` until it is judged again.
 
 ## Rejected
 
@@ -195,4 +269,6 @@ context route's `file()` selector. D7 amended by
 - A project that needs Action Priority beside, or in place of, the rpn.
 - A project that needs a threshold per milestone.
 - A fact store on every clone: a verdict could then read an invariant's items (D12).
-- A check of an invariant's code across the phases it reaches: D13's window is its scope.
+- An authored milestone order: the window could then order phases across milestones by number (D18).
+- A verdict that records the commit it judged: a commit authored before the verdict and merged after it, now read as
+  covered (D18, D19), could be told by ancestry.
