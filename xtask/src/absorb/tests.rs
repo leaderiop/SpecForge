@@ -8,6 +8,8 @@
 
 #[path = "tests/decision.rs"]
 mod decision;
+#[path = "tests/governance.rs"]
+mod governance;
 
 use serde_json::Value;
 use specforge_ops::authoring::edit::{Edit, Input};

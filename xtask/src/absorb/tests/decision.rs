@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 
 use super::super::ledger::Why;
 use super::super::plan;
+use super::super::table;
 use super::super::write;
 use super::{create, field, fixture, ledgered, many, old, one, planned, stops};
 
@@ -34,7 +35,7 @@ fn a_decision_becomes_one_create_keeping_its_id_title_and_file() {
         .iter()
         .map(|e| {
             (
-                "decision",
+                table::new_kind(&e.kind).unwrap(),
                 e.id.as_str(),
                 e.title.as_deref().unwrap(),
                 e.file.as_str(),
@@ -42,9 +43,10 @@ fn a_decision_becomes_one_create_keeping_its_id_title_and_file() {
         })
         .collect();
     assert_eq!(headers, expected);
-    assert_eq!(headers.len(), 6, "every fixture decision, once");
-    assert_eq!(headers[0].3, "spec/governance/decisions.spec");
-    assert_eq!((planned.converted, planned.created), (6, 0));
+    let decisions: Vec<_> = headers.iter().filter(|h| h.0 == "decision").collect();
+    assert_eq!(decisions.len(), 6, "every fixture decision, once");
+    assert_eq!(decisions[0].3, "spec/governance/decisions.spec");
+    assert_eq!((planned.converted, planned.created), (entities.len(), 0));
 }
 
 #[test]

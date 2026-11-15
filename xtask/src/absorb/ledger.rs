@@ -13,8 +13,12 @@ use super::table::Pending;
 pub enum Why {
     /// A reference, or an inverse write, onto an old entity this run does not convert.
     OutOfSelection(String),
+    /// A value whose home is a kind `@gsd/core` does not hold yet.
+    Later(Pending),
     /// A reference to an entity of a kind with no home yet.
     TargetLater { target: String, pending: Pending },
+    /// A word written as a coarser one: the new field and what it holds.
+    Collapsed { field: String, into: Value },
     /// A computed value the new kind gives that differs from the old one (`null`: none).
     Computed { field: String, new: Value },
     /// A required field the old entity had no value for, filled.

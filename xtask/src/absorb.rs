@@ -36,7 +36,6 @@ mod tests;
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
-use ledger::Why;
 use write::{Target, Work};
 
 const USAGE: &str = "usage: absorb --from <project> --to <dir> [--ledger <file>]  (GSD_CORE_WASM names gsd_core.wasm)";
@@ -133,21 +132,7 @@ fn run(args: &[String]) -> i32 {
         }
         return 1;
     }
-    for check in &planned.checks {
-        let new = target.computed(&check.new_id, check.new_field);
-        if check.expected.as_ref() != Some(&new) {
-            planned.ledger.record(
-                &check.kind,
-                &check.id,
-                &check.field,
-                check.value.clone(),
-                Why::Computed {
-                    field: format!("{}.{}", check.new_kind, check.new_field),
-                    new,
-                },
-            );
-        }
-    }
+    planned.compare(|id, field| target.computed(id, field));
     if let Err(io) = write_ledger(&ledger_path, &planned.ledger.to_json(&old.name)) {
         return refuse(&io);
     }

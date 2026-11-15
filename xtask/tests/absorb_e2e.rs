@@ -60,12 +60,18 @@ fn spec_tree(root: &Path) -> BTreeMap<String, String> {
 
 #[test]
 #[ignore = "needs GSD_CORE_WASM"]
-fn decisions_convert_into_a_project_that_checks_with_no_error() {
+fn governance_kinds_convert_with_no_error_and_no_warning() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = (dir.path().join("a"), dir.path().join("b"));
     let run = absorb(&["--from", OLD, "--to", path(&a)]);
     assert_eq!(run.code, 0, "{}", run.stderr);
     assert_eq!(run.summary["target"]["errors"], 0, "{}", run.summary);
+    assert_eq!(run.summary["target"]["warnings"], 0, "{}", run.summary);
+    let constraints = std::fs::read_to_string(a.join("spec/governance/constraints.spec")).unwrap();
+    assert!(
+        constraints.contains("threshold 95.0\n"),
+        "a threshold keeps its written text: {constraints}"
+    );
     assert_eq!(
         run.summary["work"],
         json!({"compiles": 3, "edit_plans": 1}),

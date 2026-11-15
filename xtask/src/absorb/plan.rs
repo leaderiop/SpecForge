@@ -61,6 +61,27 @@ pub struct Planned {
     pub created: usize,
 }
 
+impl Planned {
+    /// Ledger each computed value `computed(new id, field)` gives that differs from what its old value means.
+    pub fn compare(&mut self, computed: impl Fn(&str, &str) -> Value) {
+        for check in &self.checks {
+            let new = computed(&check.new_id, check.new_field);
+            if check.expected.as_ref() != Some(&new) {
+                self.ledger.record(
+                    &check.kind,
+                    &check.id,
+                    &check.field,
+                    check.value.clone(),
+                    Why::Computed {
+                        field: format!("{}.{}", check.new_kind, check.new_field),
+                        new,
+                    },
+                );
+            }
+        }
+    }
+}
+
 /// Every reason the run cannot convert `entities`, all at once: an entity of a kind no row converts, a field with no
 /// row, a value in a refused field, a word a default field does not imply, an obligation with no row, two creates
 /// with one id.
@@ -123,6 +144,9 @@ fn new_ids(e: &OldEntity) -> Vec<(String, String)> {
     ids
 }
 
+/// The rating a missing occurrence or detection is filled with: the worst, so an unrated risk is never read as low.
+const UNRATED: u64 = 10;
+
 /// One entity being written: its create's parts.
 #[derive(Debug, Clone)]
 struct Draft {
@@ -140,8 +164,33 @@ impl Draft {
         self.fields.insert(field.to_string(), value);
     }
 
-    /// `items` after the list `field` holds, each once.
+    /// `text` after the text `field` holds, a blank line between.
+    fn join(&mut self, field: &str, text: String) {
+        match self.fields.get_mut(field) {
+            Some(Input::One(held)) if !held.is_empty() => {
+                held.push_str("\n\n");
+                held.push_str(&text);
+            }
+            _ => self.set(field, Input::One(text)),
+        }
+    }
+
+    /// `value` as the member `member` of the block `field`, unless the block holds it already.
+    fn member(&mut self, field: &str, member: &str, value: Input) {
+        let entry = self
+            .fields
+            .entry(field.to_string())
+            .or_insert_with(|| Input::Block(BTreeMap::new()));
+        if let Input::Block(block) = entry {
+            block.entry(member.to_string()).or_insert(value);
+        }
+    }
+
+    /// `items` after the list `field` holds, each once; no items write nothing.
     fn append(&mut self, field: &str, items: Vec<String>) {
+        if items.is_empty() {
+            return;
+        }
         let entry = self
             .fields
             .entry(field.to_string())
@@ -188,7 +237,15 @@ pub fn plan(entities: &[OldEntity], index: &Index) -> Planned {
     }
     for e in entities {
         for row in table::rows_of(&e.kind) {
-            if let Some(value) = e.fields.get(row.field) {
+            let values: Vec<Value> = if row.field == VERIFY {
+                e.obligations
+                    .iter()
+                    .map(|(kind, text)| json!({"kind": kind, "text": text}))
+                    .collect()
+            } else {
+                e.fields.get(row.field).cloned().into_iter().collect()
+            };
+            for value in &values {
                 for home in row.homes {
                     planner.home(e, row, home, value);
                 }
@@ -248,7 +305,11 @@ impl Planner<'_> {
                 field,
                 compare,
             } => {
-                let expected = how::expected(compare, value);
+                let expected = match how::expected(compare, value) {
+                    how::Expect::Value(expected) => Some(expected),
+                    how::Expect::Never => None,
+                    how::Expect::Nothing => return,
+                };
                 self.checks.push(Check {
                     kind: e.kind.clone(),
                     id: e.id.clone(),
@@ -260,6 +321,15 @@ impl Planner<'_> {
                     expected,
                 });
             }
+            Home::Later(pending) => {
+                self.ledger.record(
+                    &e.kind,
+                    &e.id,
+                    row.field,
+                    value.clone(),
+                    Why::Later(pending),
+                );
+            }
             // A refused value stopped the run before planning.
             Home::Refused => {}
         }
@@ -268,13 +338,26 @@ impl Planner<'_> {
     fn to(&mut self, e: &OldEntity, row: &Row, field: &str, how: table::How, value: &Value) {
         use table::How;
         match how {
-            How::As => {
-                let input = how::as_written(value);
-                if let Some(draft) = self.own(e) {
-                    match input {
-                        Input::Many(items) => draft.append(field, items),
-                        other => draft.set(field, other),
+            How::As => match how::as_written(value) {
+                Input::Many(items) => {
+                    let (refs, items): (Vec<String>, Vec<String>) =
+                        items.into_iter().partition(|item| how::is_scheme_ref(item));
+                    for item in refs {
+                        self.unconverted(e, row.field, json!(item), how::SCHEME_REF);
                     }
+                    if let Some(draft) = self.own(e) {
+                        draft.append(field, items);
+                    }
+                }
+                other => {
+                    if let Some(draft) = self.own(e) {
+                        draft.set(field, other);
+                    }
+                }
+            },
+            How::Text => {
+                if let (Some(text), Some(draft)) = (value.as_str(), self.drafts.get_mut(&e.id)) {
+                    draft.join(field, text.to_string());
                 }
             }
             How::Refs => {
@@ -303,7 +386,133 @@ impl Planner<'_> {
                     draft.set(field, input);
                 }
             }
+            How::Category | How::Priority => {
+                let word = value.as_str().unwrap_or_default();
+                let mapped = if how == How::Category {
+                    how::category(word)
+                } else {
+                    how::priority(word)
+                };
+                let written = match mapped {
+                    how::Mapped::Same(word) => word,
+                    how::Mapped::Collapsed(word) => {
+                        self.collapsed(e, row.field, value, field, word);
+                        word
+                    }
+                    how::Mapped::Unknown(why) => {
+                        return self.unconverted(e, row.field, value.clone(), &why);
+                    }
+                };
+                if let Some(draft) = self.own(e) {
+                    draft.set(field, Input::One(written.to_string()));
+                }
+            }
+            How::Sod(scale) => match how::rating(scale, value) {
+                Ok(n) => {
+                    if let Some(draft) = self.own(e) {
+                        draft.set(field, how::number(n));
+                    }
+                }
+                Err(why) => self.unconverted(e, row.field, value.clone(), &why),
+            },
+            How::Post => {
+                for (member, rated) in value.as_object().into_iter().flatten() {
+                    let scale = table::Scale::ALL.into_iter().find(|s| s.member() == member);
+                    match scale.map(|scale| how::rating(scale, rated)) {
+                        Some(Ok(n)) => {
+                            if let Some(draft) = self.own(e) {
+                                draft.member(field, member, how::number(n));
+                            }
+                        }
+                        Some(Err(why)) => self.unconverted(e, row.field, value.clone(), &why),
+                        // Its rpn is compared with the computed post_rpn.
+                        None if member == "rpn" => {}
+                        None => self.unconverted(
+                            e,
+                            row.field,
+                            value.clone(),
+                            &format!("the {member} member has no home in the post block"),
+                        ),
+                    }
+                }
+            }
+            How::PostWord(scale) => {
+                let member = scale.member();
+                let block = e.fields.get("post_mitigation");
+                if block.is_some_and(|block| block.get(member).is_some()) {
+                    let why = format!("post_mitigation's {member} is written in its place");
+                    return self.unconverted(e, row.field, value.clone(), &why);
+                }
+                match how::rating(scale, value) {
+                    Ok(n) => {
+                        if let Some(draft) = self.own(e) {
+                            draft.member(field, member, how::number(n));
+                        }
+                    }
+                    Err(why) => self.unconverted(e, row.field, value.clone(), &why),
+                }
+            }
+            How::Bound => self.metric(e, field),
+            // Read with the metric; alone, it joins the text.
+            How::Threshold if e.fields.contains_key("metric") => {}
+            How::Threshold => self.metric(e, field),
         }
+    }
+
+    /// The old metric and threshold as the `field` record and lines of the entity's `text`.
+    fn metric(&mut self, e: &OldEntity, field: &str) {
+        let metric = e.fields.get("metric");
+        let threshold = e.fields.get("threshold");
+        let read = how::metric(
+            metric.and_then(Value::as_str).unwrap_or_default(),
+            threshold.and_then(Value::as_str),
+        );
+        if let Some(value) = metric {
+            if let Some(why) = &read.unconverted {
+                self.unconverted(e, "metric", value.clone(), why);
+            }
+            if let Some(direction) = read.strict {
+                let path = format!("{field}.direction");
+                self.collapsed(e, "metric", value, &path, direction);
+            }
+        }
+        if let (Some(value), false) = (threshold, read.threshold_taken) {
+            let why = "no one-name metric it completes; it joins the text";
+            self.unconverted(e, "threshold", value.clone(), why);
+        }
+        if let Some(draft) = self.drafts.get_mut(&e.id) {
+            if let Some(record) = read.record {
+                draft.set(field, Input::Entries(record));
+            }
+            for text in read.text {
+                draft.join("text", text);
+            }
+        }
+    }
+
+    fn unconverted(&mut self, e: &OldEntity, field: &str, value: Value, why: &str) {
+        self.ledger.record(
+            &e.kind,
+            &e.id,
+            field,
+            value,
+            Why::Unconverted(why.to_string()),
+        );
+    }
+
+    /// `value` of the old `field` written as the coarser `word` in the new `path` (a field of the entity's kind).
+    fn collapsed(&mut self, e: &OldEntity, field: &str, value: &Value, path: &str, word: &str) {
+        let kind = table::new_kind(&e.kind).unwrap_or_default();
+        self.ledger.record(
+            &e.kind,
+            &e.id,
+            field,
+            value.clone(),
+            Why::Collapsed {
+                field: format!("{kind}.{path}"),
+                into: json!(word),
+            },
+        );
     }
 
     /// The new id a reference to `id` is written as, when this run converts it; otherwise ledgered and none.
@@ -330,6 +539,14 @@ impl Planner<'_> {
         };
         let fills: Vec<(&str, Input)> = match kind {
             "decision" => vec![("origin", Input::One("project".to_string()))],
+            "requirement" => vec![
+                ("area", Input::One("Constraint".to_string())),
+                ("tier", Input::One("v1".to_string())),
+            ],
+            "risk" => vec![
+                ("occurrence", how::number(UNRATED)),
+                ("detection", how::number(UNRATED)),
+            ],
             _ => Vec::new(),
         };
         for (field, value) in fills {

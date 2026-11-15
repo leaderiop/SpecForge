@@ -7,6 +7,217 @@ expression: ledger
   "from": "absorb-fixture",
   "entries": [
     {
+      "kind": "constraint",
+      "id": "bounded_retries",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Constraint"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "bounded_retries",
+      "field": "category",
+      "value": "interoperability",
+      "why": {
+        "collapsed": {
+          "field": "requirement.category",
+          "into": "compatibility"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "bounded_retries",
+      "field": "tier",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v1"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "calm_wait",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Constraint"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "calm_wait",
+      "field": "metric",
+      "value": "Fast enough that nobody reaches for the button twice.",
+      "why": {
+        "unconverted": "no line is one bound `<name> <op> <number>`; every line joins the text"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "calm_wait",
+      "field": "priority",
+      "value": "low",
+      "why": {
+        "collapsed": {
+          "field": "requirement.priority",
+          "into": "could"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "calm_wait",
+      "field": "tier",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v1"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "retry_window",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Constraint"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "retry_window",
+      "field": "metric",
+      "value": "wait < 30s",
+      "why": {
+        "collapsed": {
+          "field": "requirement.metric.direction",
+          "into": "at_most"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "retry_window",
+      "field": "priority",
+      "value": "medium",
+      "why": {
+        "collapsed": {
+          "field": "requirement.priority",
+          "into": "could"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "retry_window",
+      "field": "tier",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v1"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "write_latency",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Constraint"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "write_latency",
+      "field": "constrains",
+      "value": [
+        "write_entry"
+      ],
+      "why": {
+        "later": "behavior"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "write_latency",
+      "field": "enforced_by",
+      "value": [
+        "write_entry"
+      ],
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "write_latency",
+      "field": "tier",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v1"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "write_latency",
+      "field": "verify",
+      "value": {
+        "kind": "load",
+        "text": "benchmark a thousand writes, assert the 99th percentile"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "write_throughput",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Constraint"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "write_throughput",
+      "field": "tier",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v1"
+        }
+      }
+    },
+    {
       "kind": "decision",
       "id": "first_store",
       "field": "origin",
@@ -88,6 +299,83 @@ expression: ledger
           "field": "decision.origin",
           "value": "project"
         }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "slow_disk",
+      "field": "detection",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "risk.detection",
+          "value": 10
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "slow_disk",
+      "field": "occurrence",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "risk.occurrence",
+          "value": 10
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "affected_behaviors",
+      "value": "write_entry",
+      "why": {
+        "target_later": {
+          "target": "write_entry",
+          "pending": "behavior"
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "post_mitigation",
+      "value": {
+        "detection": "likely",
+        "occurrence": "rare",
+        "rpn": 12,
+        "severity": "high"
+      },
+      "why": {
+        "computed": {
+          "field": "risk.post_rpn",
+          "new": 21
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "risk",
+      "value": "high",
+      "why": {
+        "computed": {
+          "field": "risk.rpn",
+          "new": 350
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "a killed writer leaves the old entry"
+      },
+      "why": {
+        "later": "truth"
       }
     }
   ]
