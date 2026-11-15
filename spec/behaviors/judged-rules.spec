@@ -44,6 +44,7 @@ behavior declare_judged_rule "Declare a Judged Rule" {
   verify unit "every input of the model's judged rules parses and resolves"
   verify unit "a chain to a kind of an unloaded optional peer is inert, not W112"
   verify unit "a chain into an unloaded optional peer's kind is inert, and into any other unloaded kind W112"
+  verify unit "a file() of a chain into an unloaded optional peer's kind is inert, and of any other unloaded kind W112"
   verify unit "a selector prints back to its canonical text"
   verify unit "a selector's kind filter prints its values sorted and parses back"
   verify unit "a verdict-written field is set by exactly one judged rule, and is never required"

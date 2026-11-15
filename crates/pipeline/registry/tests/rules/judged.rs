@@ -348,31 +348,55 @@ fn a_chain_into_an_unloaded_optional_peers_kind_is_inert() {
     }
 }
 
-#[test]
-fn a_file_of_a_chain_into_an_unloaded_optional_peers_kind_is_w112() {
+#[spec(
+    behavior = "declare_judged_rule",
+    verify = "a file() of a chain into an unloaded optional peer's kind is inert, and of any other unloaded kind W112"
+)]
+fn a_file_of_a_chain_into_an_unloaded_optional_peers_kind_is_inert() {
     // `@ghosts`, which the host could enable, declares `ghost`.
     let ghosts = crate::support::candidates(&[declare("@ghosts", |c| {
         c.kind("ghost", |_| {});
     })]);
-    for selector in ["file(self.proof.file)", "file(self<ghost.plan.file)"] {
+    let built = |selector: &str, peer: bool, target: &str| {
         let judged = json!({
             "judge": "checker", "outcomes": ["passed", "issues"], "passing": ["passed"],
             "targets": [{"kind": "plan", "inputs": [{"name": "files", "selector": selector}]}],
         });
         let mut declaration = declare("@test", |c| {
-            c.optional_peer("@ghosts", "^1.0");
+            if peer {
+                c.optional_peer("@ghosts", "^1.0");
+            }
             c.agent("checker", |a| {
                 a.description("Judges");
             });
             c.kind("plan", |k| {
                 k.keyword("plan");
                 k.field("proof", |f| {
-                    f.field_type(FieldType::ReferenceList).target_kind("ghost");
+                    f.field_type(FieldType::ReferenceList).target_kind(target);
                 });
             });
         });
         declaration.validation_rules = vec![descriptor(judged)];
-        let refused = rules_with(vec![declaration], ghosts.clone());
+        rules_with(vec![declaration], ghosts.clone())
+    };
+    // Through the reference into `ghost`, and from `ghost` referrers.
+    for selector in ["file(self.proof.file)", "file(self<ghost.plan.file)"] {
+        let inert = built(selector, true, "ghost");
+        assert!(
+            inert.coded("W112").is_empty(),
+            "{selector}: {:?}",
+            inert.diagnostics
+        );
+        assert_eq!(inert.rules.iter().count(), 1, "{selector}");
+    }
+    // No optional peer, or a kind the peer does not declare (a typo): the rule can never work.
+    for (selector, peer, target) in [
+        ("file(self.proof.file)", false, "ghost"),
+        ("file(self.proof.file)", true, "gost"),
+        ("file(self<ghost.plan.file)", false, "ghost"),
+        ("file(self<gost.plan.file)", true, "ghost"),
+    ] {
+        let refused = built(selector, peer, target);
         assert_eq!(
             refused.coded("W112").len(),
             1,

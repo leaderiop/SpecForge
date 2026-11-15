@@ -401,8 +401,11 @@ fn a_section_of_an_unloaded_optional_peer_is_skipped_and_recorded() {
     );
 }
 
-#[test]
-fn a_file_section_through_an_unloaded_optional_peers_kind_refuses_the_route() {
+#[spec(
+    behavior = "declare_context_route",
+    verify = "a context section whose file() goes through an unloaded optional peer's kind is skipped and listed"
+)]
+fn a_file_section_through_an_unloaded_optional_peers_kind_is_skipped_and_recorded() {
     let declare_routes = |c: &mut ContributionsBuilder| {
         c.context("results", |r| {
             r.subject("plan")
@@ -416,10 +419,27 @@ fn a_file_section_through_an_unloaded_optional_peers_kind_refuses_the_route() {
         [work_with_proof_peer(declare_routes)],
         candidates(&[proof()]),
     );
-    let e123 = coded(&built, "E123");
+    assert!(
+        coded(&built, "E123").is_empty(),
+        "{:?}",
+        coded(&built, "E123")
+    );
+    let route = built.contexts().named("work/results").expect("registered");
+    let names: Vec<&str> = route.sections.iter().map(|s| s.name.as_str()).collect();
+    assert_eq!(names, ["plan"]);
+    assert_eq!(
+        route.skipped,
+        [SkippedSection {
+            section: "results".to_string(),
+            kind: "check".to_string(),
+        }]
+    );
+    // Without the optional peer, `check` is no kind the project could load: the route cannot be served.
+    let refused = build_with([work(declare_routes)], candidates(&[proof()]));
+    let e123 = coded(&refused, "E123");
     assert_eq!(e123.len(), 1, "{e123:?}");
     assert!(e123[0].message.contains("'results'"), "{}", e123[0].message);
-    assert!(built.contexts().named("work/results").is_none());
+    assert!(refused.contexts().named("work/results").is_none());
 }
 
 #[spec(
