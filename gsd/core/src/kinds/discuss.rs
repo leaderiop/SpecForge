@@ -57,7 +57,9 @@ pub const DECISION: Kind = Kind::new(
         en("reversibility", REVERSIBILITY).doc("planner reversibility rating"),
         bool("settled").doc("locked: a plan contradicting it is refused (judged)"),
         en("origin", ORIGIN).r().i().doc("where it was recorded"),
-        rf("superseded_by", "decision").doc("a later decision that reverses it"),
+        rfs("supersedes", "decision")
+            .inverse("superseded_by")
+            .doc("the earlier decisions this one reverses; each reads it back as `superseded_by`"),
     ],
 )
 .scoped_by("phase");

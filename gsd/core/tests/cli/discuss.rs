@@ -2,6 +2,7 @@
 
 use crate::harness::{Project, project};
 
+mod decision;
 mod log;
 mod probe;
 
@@ -39,27 +40,6 @@ fn checks_clean(p: &Project) {
 #[test]
 fn the_discuss_project_checks_clean() {
     checks_clean(&project("discuss"));
-}
-
-#[test]
-fn a_decision_resolves_in_its_phase_and_from_the_project() {
-    let p = project("discuss");
-    let own = edges(&p, "v1.0/02/D-02");
-    assert!(
-        has_edge(&own, "v1.0/02/D-02", "v1.0/02/D-01", "superseded_by"),
-        "{own:?}"
-    );
-    let spec = fixture("discuss.spec");
-    p.write(
-        "spec/discuss.spec",
-        &spec.replace("superseded_by D-01", "superseded_by /D-01"),
-    );
-    checks_clean(&p);
-    let rooted = edges(&p, "v1.0/02/D-02");
-    assert!(
-        has_edge(&rooted, "v1.0/02/D-02", "D-01", "superseded_by"),
-        "{rooted:?}"
-    );
 }
 
 #[test]

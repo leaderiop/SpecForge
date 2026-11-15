@@ -20,11 +20,11 @@ decision D-01 "Store tasks in one JSON file" {
 }
 
 decision D-02 "Write the file atomically" {
-  phase         v1.0/02
-  area          "Storage"
-  text          "The file is written to a temp name, then renamed"
-  origin        context
-  superseded_by D-01
+  phase      v1.0/02
+  area       "Storage"
+  text       "The file is written to a temp name, then renamed"
+  origin     context
+  supersedes [D-01]
 }
 
 deferred_idea DI1 "Sync between machines" {

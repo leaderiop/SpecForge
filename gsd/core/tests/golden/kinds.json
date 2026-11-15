@@ -259,7 +259,7 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
-        "label": "DecisionSupersededBy",
+        "label": "DecisionSupersedes",
         "source_kind": "decision",
         "target_kind": "decision"
       },
@@ -3538,11 +3538,11 @@
           },
           {
             "default_value": null,
-            "description": "a later decision that reverses it",
-            "edge": "DecisionSupersededBy",
-            "field_type": "reference",
-            "inverse_of": null,
-            "name": "superseded_by",
+            "description": "the earlier decisions this one reverses; each reads it back as `superseded_by`",
+            "edge": "DecisionSupersedes",
+            "field_type": "reference_list",
+            "inverse_of": "superseded_by",
+            "name": "supersedes",
             "required": false,
             "target_kind": "decision"
           }

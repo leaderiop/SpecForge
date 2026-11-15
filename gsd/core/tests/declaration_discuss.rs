@@ -39,13 +39,24 @@ fn context_decision_and_deferred_idea_declare_the_fields_of_the_model() {
             "reversibility",
             "settled",
             "origin",
-            "superseded_by"
+            "supersedes"
         ]
     );
     assert_eq!(
         fields_of("deferred_idea"),
         ["text", "phase", "why", "origin", "status"]
     );
+}
+
+/// The later decision names the ones it reverses; each reads it back as `superseded_by`, which is no field of its own.
+#[test]
+fn a_decision_names_what_it_supersedes_with_an_inverse() {
+    let supersedes = field_of("decision", "supersedes");
+    assert_eq!(supersedes["field_type"], "reference_list", "{supersedes}");
+    assert_eq!(supersedes["target_kind"], "decision", "{supersedes}");
+    assert_eq!(supersedes["inverse_of"], "superseded_by", "{supersedes}");
+    assert_ne!(supersedes["required"], true, "{supersedes}");
+    assert!(!fields_of("decision").contains(&"superseded_by".to_string()));
 }
 
 /// `name` of the field `field` of `kind`, with its described properties.

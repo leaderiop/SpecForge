@@ -52,7 +52,8 @@ in `plan`, and is named `<quick_id>-D-01` so it cannot collide with a project de
 | reversibility | enum{reversible, costly, one_way} | | planner reversibility rating |
 | settled | bool | | locked: a plan contradicting it is refused (judged, [rules](rules.md)); read by gsd/W311, not by gsd/E310, which counts every trackable decision as GSD does and reads the plans' `decisions` lists |
 | origin | enum{context, project, summary, checkpoint} | R I | where it was recorded |
-| superseded_by | → decision | | a later decision that reverses it |
+| supersedes | →* decision | | beyond GSD: the earlier decisions this one reverses, written on the later decision; each reads it back as `superseded_by` |
+| superseded_by | ←* decision | | read, not written: the inverse of `supersedes`, the later decisions that reverse it; writing it is E079 ([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)) |
 
 ## deferred_idea
 
