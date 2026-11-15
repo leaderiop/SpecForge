@@ -30,23 +30,31 @@ fn a_decision_becomes_one_create_keeping_its_id_title_and_file() {
             } => (kind.as_str(), id.as_str(), title.as_str(), file.as_str()),
             other => panic!("only creates: {other:?}"),
         })
+        .filter(|header| header.1 != "store_entries_solution")
         .collect();
     let expected: Vec<(&str, &str, &str, &str)> = entities
         .iter()
-        .map(|e| {
-            (
-                table::new_kind(&e.kind).unwrap(),
+        .filter_map(|e| {
+            Some((
+                table::new_kind(&e.kind)?,
                 e.id.as_str(),
                 e.title.as_deref().unwrap(),
                 e.file.as_str(),
-            )
+            ))
         })
         .collect();
-    assert_eq!(headers, expected);
+    assert_eq!(
+        headers, expected,
+        "every converted entity, once, in the old order"
+    );
     let decisions: Vec<_> = headers.iter().filter(|h| h.0 == "decision").collect();
     assert_eq!(decisions.len(), 6, "every fixture decision, once");
     assert_eq!(decisions[0].3, "spec/governance/decisions.spec");
-    assert_eq!((planned.converted, planned.created), (entities.len(), 0));
+    assert_eq!(
+        (planned.converted, planned.created),
+        (expected.len(), 1),
+        "the module and the release create nothing; one feature's solution is created"
+    );
 }
 
 #[test]

@@ -302,6 +302,29 @@ expression: ledger
       }
     },
     {
+      "kind": "deliverable",
+      "id": "store_cli",
+      "field": "modules",
+      "value": [
+        "store_module"
+      ],
+      "why": {
+        "later": "package"
+      }
+    },
+    {
+      "kind": "deliverable",
+      "id": "store_cli",
+      "field": "status",
+      "value": "shipped",
+      "why": {
+        "computed": {
+          "field": "milestone.state",
+          "new": "planned"
+        }
+      }
+    },
+    {
       "kind": "failure_mode",
       "id": "slow_disk",
       "field": "detection",
@@ -376,6 +399,231 @@ expression: ledger
       },
       "why": {
         "later": "truth"
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "old_export",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Feature"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "old_export",
+      "field": "reason",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.reason",
+          "value": "deprecated"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "old_export",
+      "field": "status",
+      "value": "deprecated",
+      "why": {
+        "computed": {
+          "field": "requirement.status",
+          "new": "pending"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "store_entries",
+      "field": "acceptance",
+      "value": [
+        "A saved entry is on disk after a crash"
+      ],
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "store_entries",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Feature"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "store_entries",
+      "field": "refs",
+      "value": "gh.issue:42",
+      "why": {
+        "unconverted": "a scheme reference is written bare and names a `ref`, which a typed edit cannot create"
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "store_entries",
+      "field": "solution",
+      "value": "Write each entry to the store as it is saved.",
+      "why": {
+        "created": {
+          "kind": "decision",
+          "id": "store_entries_solution"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "store_entries",
+      "field": "status",
+      "value": "done",
+      "why": {
+        "computed": {
+          "field": "requirement.status",
+          "new": "pending"
+        }
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "first_cut",
+      "field": "modules",
+      "value": [
+        "store_module"
+      ],
+      "why": {
+        "later": "package"
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "first_cut",
+      "field": "status",
+      "value": "completed",
+      "why": {
+        "computed": {
+          "field": "milestone.state",
+          "new": "planned"
+        }
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "groundwork",
+      "field": "status",
+      "value": "in_progress",
+      "why": {
+        "computed": {
+          "field": "milestone.state",
+          "new": "planned"
+        }
+      }
+    },
+    {
+      "kind": "module",
+      "id": "store_module",
+      "field": "description",
+      "value": "The code that reads and writes entries.",
+      "why": {
+        "later": "package"
+      }
+    },
+    {
+      "kind": "module",
+      "id": "store_module",
+      "field": "family",
+      "value": "core",
+      "why": {
+        "later": "package"
+      }
+    },
+    {
+      "kind": "module",
+      "id": "store_module",
+      "field": "features",
+      "value": [
+        "store_entries"
+      ],
+      "why": {
+        "later": "package"
+      }
+    },
+    {
+      "kind": "module",
+      "id": "store_module",
+      "field": "tags",
+      "value": [
+        "leaf"
+      ],
+      "why": {
+        "later": "package"
+      }
+    },
+    {
+      "kind": "release",
+      "id": "first_release",
+      "field": "deliverables",
+      "value": [
+        "store_cli"
+      ],
+      "why": {
+        "later": "release"
+      }
+    },
+    {
+      "kind": "release",
+      "id": "first_release",
+      "field": "description",
+      "value": "The store, usable every day.",
+      "why": {
+        "later": "release"
+      }
+    },
+    {
+      "kind": "release",
+      "id": "first_release",
+      "field": "milestones",
+      "value": [
+        "first_cut"
+      ],
+      "why": {
+        "later": "release"
+      }
+    },
+    {
+      "kind": "release",
+      "id": "first_release",
+      "field": "status",
+      "value": "planned",
+      "why": {
+        "later": "release"
+      }
+    },
+    {
+      "kind": "release",
+      "id": "first_release",
+      "field": "target_date",
+      "value": "2026-12-01",
+      "why": {
+        "later": "release"
+      }
+    },
+    {
+      "kind": "release",
+      "id": "first_release",
+      "field": "version",
+      "value": "0.1.0",
+      "why": {
+        "later": "release"
       }
     }
   ]

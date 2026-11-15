@@ -60,7 +60,7 @@ fn spec_tree(root: &Path) -> BTreeMap<String, String> {
 
 #[test]
 #[ignore = "needs GSD_CORE_WASM"]
-fn governance_kinds_convert_with_no_error_and_no_warning() {
+fn all_thirteen_kinds_convert_with_no_error_and_no_warning() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = (dir.path().join("a"), dir.path().join("b"));
     let run = absorb(&["--from", OLD, "--to", path(&a)]);
@@ -76,6 +76,22 @@ fn governance_kinds_convert_with_no_error_and_no_warning() {
         run.summary["work"],
         json!({"compiles": 3, "edit_plans": 1}),
         "three compiles and one edit plan, whatever the size"
+    );
+    assert_eq!(
+        (&run.summary["converted"], &run.summary["created"]),
+        (&json!(28), &json!(1)),
+        "every entity but the module and the release, and one feature's solution: {}",
+        run.summary
+    );
+    let journeys = std::fs::read_to_string(a.join("spec/product/journeys.spec")).unwrap();
+    assert!(
+        journeys.contains("milestones [store_cli, store_web]"),
+        "a journey lists every deliverable that listed it: {journeys}"
+    );
+    let features = std::fs::read_to_string(a.join("spec/product/features.spec")).unwrap();
+    assert!(
+        features.contains("decision store_entries_solution \"Store Entries\""),
+        "{features}"
     );
     let ledger = std::fs::read_to_string(a.join("absorb-ledger.json")).unwrap();
     assert!(

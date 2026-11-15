@@ -56,7 +56,10 @@ kernel change: the converter is a repository task in `xtask`, and every value it
 - **D4. A reference that leaves the run is ledgered, never stubbed.** A reference to an entity this run does not
   convert is `out_of_selection`; to a kind with no home yet it is `target_later`, naming what it waits for. An inverse
   write (a deliverable's journeys, a persona's key features, a decision's successor) onto an entity not converted is
-  ledgered the same way. No placeholder entity is ever created.
+  ledgered the same way. No placeholder entity is ever created. A scheme reference in a list of texts (a feature's
+  or a failure mode's `refs`, `gh.issue:42`) is ledgered `unconverted`: written bare it names a `ref`
+  ([ADR 0093](0093-a-fields-declared-type-decides-what-its-value-references.md)), which no typed edit creates, so it
+  would be E003 in the target.
 - **D5. Computed values are recomputed, then compared.** A risk's `severity`, `occurrence` and `detection` words take
   ADR 0358 D8's numbers, and its `rpn` and `post_rpn` are the new kind's; a feature's status becomes the
   requirement's tier and is compared with its computed `status`; a milestone's or deliverable's status is compared

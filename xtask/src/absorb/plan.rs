@@ -104,12 +104,21 @@ pub fn prechecks(entities: &[OldEntity]) -> Result<(), Vec<Stop>> {
                 continue;
             };
             for home in row.homes {
-                if *home == Home::Refused {
-                    stops.push(stop(
+                match *home {
+                    Home::Refused => stops.push(stop(
                         e,
                         field,
                         format!("refused: no kind holds it (value {value})"),
-                    ));
+                    )),
+                    Home::Default(implied) if value.as_str() != Some(implied) => {
+                        let kind = table::new_kind(&e.kind).unwrap_or_default();
+                        stops.push(stop(
+                            e,
+                            field,
+                            format!("no home for {value}: a {kind} implies only \"{implied}\""),
+                        ));
+                    }
+                    _ => {}
                 }
             }
         }
@@ -141,7 +150,18 @@ fn new_ids(e: &OldEntity) -> Vec<(String, String)> {
     if table::new_kind(&e.kind).is_some() {
         ids.push((e.id.clone(), format!("{} '{}'", e.kind, e.id)));
     }
+    if e.fields.contains_key("solution") {
+        ids.push((
+            solution_id(&e.id),
+            format!("{} '{}' (its solution)", e.kind, e.id),
+        ));
+    }
     ids
+}
+
+/// The id of the decision a feature's solution becomes.
+fn solution_id(id: &str) -> String {
+    format!("{id}_solution")
 }
 
 /// The rating a missing occurrence or detection is filled with: the worst, so an unrated risk is never read as low.
@@ -278,12 +298,16 @@ impl Planner<'_> {
                 e.id.clone()
             }
         };
+        let mut fields = BTreeMap::new();
+        if matches!(kind, "milestone" | "term") {
+            fields.insert("name".to_string(), Input::One(title.clone()));
+        }
         self.add(Draft {
             kind,
             id: e.id.clone(),
             title,
             file: e.file.clone(),
-            fields: BTreeMap::new(),
+            fields,
             inverted: BTreeSet::new(),
         });
     }
@@ -291,6 +315,18 @@ impl Planner<'_> {
     fn add(&mut self, draft: Draft) {
         self.order.push(draft.id.clone());
         self.drafts.insert(draft.id.clone(), draft);
+    }
+
+    /// `draft`, created from the entity `from`, written right after it.
+    fn add_after(&mut self, from: &str, draft: Draft) {
+        let at = self
+            .order
+            .iter()
+            .position(|id| id == from)
+            .map_or(self.order.len(), |at| at + 1);
+        self.order.insert(at, draft.id.clone());
+        self.drafts.insert(draft.id.clone(), draft);
+        self.created += 1;
     }
 
     fn own(&mut self, e: &OldEntity) -> Option<&mut Draft> {
@@ -321,6 +357,8 @@ impl Planner<'_> {
                     expected,
                 });
             }
+            // The value the new kind implies: the pre-checks stopped on any other.
+            Home::Default(_) => {}
             Home::Later(pending) => {
                 self.ledger.record(
                     &e.kind,
@@ -339,22 +377,36 @@ impl Planner<'_> {
         use table::How;
         match how {
             How::As => match how::as_written(value) {
-                Input::Many(items) => {
-                    let (refs, items): (Vec<String>, Vec<String>) =
-                        items.into_iter().partition(|item| how::is_scheme_ref(item));
-                    for item in refs {
-                        self.unconverted(e, row.field, json!(item), how::SCHEME_REF);
-                    }
-                    if let Some(draft) = self.own(e) {
-                        draft.append(field, items);
-                    }
-                }
+                Input::Many(items) => self.list(e, row.field, field, items),
                 other => {
                     if let Some(draft) = self.own(e) {
                         draft.set(field, other);
                     }
                 }
             },
+            How::Words => self.list(e, row.field, field, how::items(value)),
+            How::Ref => {
+                if let Some(id) = value.as_str()
+                    && let Some(id) = self.resolve(e, row.field, id)
+                    && let Some(draft) = self.own(e)
+                {
+                    draft.set(field, Input::One(id));
+                }
+            }
+            How::Steps => {
+                let steps: Vec<BTreeMap<String, Input>> = how::items(value)
+                    .into_iter()
+                    .map(|action| BTreeMap::from([("action".to_string(), Input::One(action))]))
+                    .collect();
+                if let (false, Some(draft)) = (steps.is_empty(), self.drafts.get_mut(&e.id)) {
+                    draft.set(field, Input::Blocks(steps));
+                }
+            }
+            How::Solution => self.solution(e, field, value),
+            How::FeatureTier => {
+                let status = value.as_str().unwrap_or(how::FEATURE_DEFAULT);
+                self.tier(e, field, status);
+            }
             How::Text => {
                 if let (Some(text), Some(draft)) = (value.as_str(), self.drafts.get_mut(&e.id)) {
                     draft.join(field, text.to_string());
@@ -459,6 +511,64 @@ impl Planner<'_> {
         }
     }
 
+    /// `items` appended to the list `field`; a scheme reference among them is ledgered (see [`how::SCHEME_REF`]).
+    fn list(&mut self, e: &OldEntity, old_field: &str, field: &str, items: Vec<String>) {
+        let (refs, items): (Vec<String>, Vec<String>) =
+            items.into_iter().partition(|item| how::is_scheme_ref(item));
+        for item in refs {
+            self.unconverted(e, old_field, json!(item), how::SCHEME_REF);
+        }
+        if let Some(draft) = self.own(e) {
+            draft.append(field, items);
+        }
+    }
+
+    /// A feature's solution as a decision of its own, affecting the feature's requirement.
+    fn solution(&mut self, e: &OldEntity, field: &str, value: &Value) {
+        let Some(own) = self.drafts.get(&e.id) else {
+            return;
+        };
+        let id = solution_id(&e.id);
+        let draft = Draft {
+            kind: "decision",
+            id: id.clone(),
+            title: own.title.clone(),
+            file: own.file.clone(),
+            fields: BTreeMap::from([
+                (field.to_string(), how::as_written(value)),
+                ("origin".to_string(), Input::One("project".to_string())),
+                ("affects".to_string(), Input::Many(vec![e.id.clone()])),
+            ]),
+            inverted: BTreeSet::new(),
+        };
+        self.add_after(&e.id, draft);
+        let why = Why::Created {
+            kind: "decision".to_string(),
+            id,
+        };
+        self.ledger
+            .record(&e.kind, &e.id, "solution", value.clone(), why);
+    }
+
+    /// A feature's tier from its status; a deprecated feature with no reason is given one.
+    fn tier(&mut self, e: &OldEntity, field: &str, status: &str) {
+        let tier = how::feature_tier(status);
+        let unexplained = tier == "out_of_scope" && !e.fields.contains_key("reason");
+        let Some(draft) = self.own(e) else {
+            return;
+        };
+        draft.set(field, Input::One(tier.to_string()));
+        if unexplained {
+            draft.set("reason", Input::One(status.to_string()));
+            let why = Why::Filled {
+                field: "requirement.reason".to_string(),
+                value: json!(status),
+            };
+            self.ledger
+                .record(&e.kind, &e.id, "reason", Value::Null, why);
+        }
+    }
+
     /// The old metric and threshold as the `field` record and lines of the entity's `text`.
     fn metric(&mut self, e: &OldEntity, field: &str) {
         let metric = e.fields.get("metric");
@@ -539,9 +649,16 @@ impl Planner<'_> {
         };
         let fills: Vec<(&str, Input)> = match kind {
             "decision" => vec![("origin", Input::One("project".to_string()))],
-            "requirement" => vec![
+            "requirement" if e.kind == "constraint" => vec![
                 ("area", Input::One("Constraint".to_string())),
                 ("tier", Input::One("v1".to_string())),
+            ],
+            "requirement" => vec![
+                ("area", Input::One("Feature".to_string())),
+                (
+                    "tier",
+                    Input::One(how::feature_tier(how::FEATURE_DEFAULT).to_string()),
+                ),
             ],
             "risk" => vec![
                 ("occurrence", how::number(UNRATED)),

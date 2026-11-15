@@ -295,8 +295,24 @@ pub fn expected(compare: Compare, value: &Value) -> Expect {
             .cloned()
             .map_or(Expect::Nothing, Expect::Value),
         Compare::Assessment => Expect::Never,
+        Compare::Means(words) => words
+            .iter()
+            .find(|(old, _)| value.as_str() == Some(old))
+            .map_or(Expect::Never, |(_, new)| Expect::Value(json!(new))),
     }
 }
+
+/// The tier a feature status gives its requirement.
+pub fn feature_tier(status: &str) -> &'static str {
+    match status {
+        "proposed" | "deferred" => "v2",
+        "deprecated" => "out_of_scope",
+        _ => "v1",
+    }
+}
+
+/// The old default status of a feature, which a feature that writes none has.
+pub const FEATURE_DEFAULT: &str = "proposed";
 
 /// An input as JSON, for the ledger.
 pub fn input_json(input: &Input) -> Value {

@@ -31,6 +31,8 @@ pub enum Home {
     },
     /// Waits for a kind not absorbed yet: ledgered.
     Later(Pending),
+    /// The old default, which the new kind implies: nothing is written; any other value stops the run.
+    Default(&'static str),
     /// No tracked project writes it and nothing holds it: a value stops the run (ADR 0357's refused class).
     Refused,
 }
@@ -53,6 +55,17 @@ pub enum How {
     Text,
     /// References to converted entities, appended to a list; one that leaves the run is ledgered.
     Refs,
+    /// One reference to a converted entity.
+    Ref,
+    /// Ids or words as a list of texts, appended (one word is a one-word list).
+    Words,
+    /// Each text a step record `{action}`, in order.
+    Steps,
+    /// A decision `<id>_solution` created beside the entity, with the same title and file, the value as its text,
+    /// affecting the entity.
+    Solution,
+    /// A feature status as a tier: proposed and deferred v2, deprecated out_of_scope (with a reason), else v1.
+    FeatureTier,
     /// Written on each entity the value names (the home's field is of that entity's kind), naming this one.
     InvertOnto,
     /// A decision status as `outcome`: proposed → pending, deprecated → revisit.
@@ -89,6 +102,8 @@ pub enum Compare {
     PostRpn,
     /// An assessment in words: no number equals it, so it is always ledgered with the new value.
     Assessment,
+    /// An old word and the computed word it means; a word not listed has no equal, so it is always ledgered.
+    Means(&'static [(&'static str, &'static str)]),
 }
 
 /// One old field and its homes.
@@ -123,6 +138,32 @@ const DECISION: &str = "decision";
 const REQUIREMENT: &str = "requirement";
 const RISK: &str = "risk";
 const INVARIANT: &str = "invariant";
+const JOURNEY: &str = "journey";
+const PERSONA: &str = "persona";
+const TERM: &str = "term";
+const MILESTONE: &str = "milestone";
+
+/// A feature status as the computed requirement status it means.
+const FEATURE_STATUS: Compare = Compare::Means(&[
+    ("done", "complete"),
+    ("in_progress", "in_progress"),
+    ("proposed", "pending"),
+    ("accepted", "pending"),
+    ("deferred", "pending"),
+]);
+/// A milestone status as the computed milestone state; blocked has no equal.
+const MILESTONE_STATE: Compare = Compare::Means(&[
+    ("planned", "planned"),
+    ("in_progress", "in_progress"),
+    ("completed", "shipped"),
+]);
+/// A deliverable status as the computed milestone state.
+const DELIVERABLE_STATE: Compare = Compare::Means(&[
+    ("draft", "planned"),
+    ("in_progress", "in_progress"),
+    ("shipped", "shipped"),
+    ("deprecated", "abandoned"),
+]);
 
 const fn to(kind: &'static str, field: &'static str, how: How) -> Home {
     Home::To { kind, field, how }
@@ -222,16 +263,137 @@ pub const TABLE: &[Row] = rows! {
         "refs" => [to(INVARIANT, "refs", As)],
         "expression" => [later(Truth)],
     ]
+    // ADR 0359 D7-D11: a feature is a requirement of area "Feature".
+    "feature": [
+        "problem" => [to(REQUIREMENT, "text", Text)],
+        "description" => [to(REQUIREMENT, "text", Text)],
+        "solution" => [to(DECISION, "text", Solution)],
+        "status" => [
+            to(REQUIREMENT, "tier", FeatureTier),
+            computed(REQUIREMENT, "status", FEATURE_STATUS),
+        ],
+        "priority" => [to(REQUIREMENT, "priority", Priority)],
+        "tags" => [to(REQUIREMENT, "tags", As)],
+        "effort" => [to(REQUIREMENT, "effort", As)],
+        "owner" => [to(REQUIREMENT, "source", Words)],
+        "contributors" => [to(REQUIREMENT, "source", Words)],
+        "refs" => [to(REQUIREMENT, "source", Words)],
+        "reason" => [to(REQUIREMENT, "reason", As)],
+        "acceptance" => [later(Truth)],
+        "tests" => [later(Truth)],
+        "depends_on" => [REFUSED],
+        "features" => [REFUSED],
+    ]
+    // ADR 0357.
+    "journey": [
+        "persona" => [to(JOURNEY, "persona", Ref)],
+        "flow" => [to(JOURNEY, "steps", Steps)],
+        "channels" => [to(JOURNEY, "channels", Words)],
+        "priority" => [to(JOURNEY, "priority", Priority)],
+        "tags" => [to(JOURNEY, "tags", As)],
+        "features" => [to(JOURNEY, "requirements", Refs)],
+        "description" => [REFUSED],
+    ]
+    "deliverable": [
+        "description" => [to(MILESTONE, "goal", As)],
+        "journeys" => [to(JOURNEY, "milestones", InvertOnto)],
+        "artifact_type" => [to(MILESTONE, "artifact_types", Words)],
+        "depends_on" => [to(MILESTONE, "depends_on", Refs)],
+        "owner" => [to(MILESTONE, "owner", As)],
+        "contributors" => [to(MILESTONE, "contributors", As)],
+        "tags" => [to(MILESTONE, "tags", As)],
+        "status" => [computed(MILESTONE, "state", DELIVERABLE_STATE)],
+        "modules" => [later(Package)],
+        "version" => [REFUSED],
+        "milestones" => [REFUSED],
+        "reason" => [REFUSED],
+    ]
+    "milestone": [
+        "description" => [to(MILESTONE, "goal", As)],
+        "features" => [to(MILESTONE, "target_features", Words)],
+        "exit_criteria" => [to(MILESTONE, "exit_criteria", As)],
+        "start_date" => [to(MILESTONE, "starts", As)],
+        "target_date" => [to(MILESTONE, "targets", As)],
+        "depends_on" => [to(MILESTONE, "depends_on", Refs)],
+        "owner" => [to(MILESTONE, "owner", As)],
+        "contributors" => [to(MILESTONE, "contributors", As)],
+        "tags" => [to(MILESTONE, "tags", As)],
+        "status" => [computed(MILESTONE, "state", MILESTONE_STATE)],
+        "modules" => [later(Package)],
+        "behaviors" => [later(Behavior)],
+        "blockers" => [REFUSED],
+        "priority" => [REFUSED],
+        "reason" => [REFUSED],
+        "refs" => [REFUSED],
+    ]
+    "term": [
+        "definition" => [to(TERM, "definition", As)],
+        "context" => [to(TERM, "context", As)],
+        "aliases" => [to(TERM, "aliases", As)],
+        "see_also" => [to(TERM, "related", Refs)],
+        "tags" => [to(TERM, "tags", As)],
+        "module" => [later(Package)],
+    ]
+    "persona": [
+        "description" => [to(PERSONA, "context", As)],
+        "technical_level" => [to(PERSONA, "technical_level", As)],
+        "goals" => [to(PERSONA, "goals", As)],
+        "pain_points" => [to(PERSONA, "pain_points", As)],
+        "tags" => [to(PERSONA, "tags", As)],
+        "status" => [to(PERSONA, "status", As)],
+        "key_features" => [to(REQUIREMENT, "personas", InvertOnto)],
+        "reason" => [REFUSED],
+    ]
+    // ADR 0357: a channel is a word; its entity is a term of its id.
+    "channel": [
+        "description" => [to(TERM, "definition", As)],
+        "interaction_model" => [to(TERM, "tags", Words)],
+        "tags" => [to(TERM, "tags", As)],
+        "status" => [Home::Default("active")],
+        "url" => [REFUSED],
+        "reason" => [REFUSED],
+    ]
+    // No kind holds a module or a release yet: each value waits, and no entity is created.
+    "module": [
+        "family" => [later(Package)],
+        "description" => [later(Package)],
+        "features" => [later(Package)],
+        "depends_on" => [later(Package)],
+        "reason" => [later(Package)],
+        "tags" => [later(Package)],
+        "ports" => [later(Package)],
+        "ports_defined" => [later(Package)],
+    ]
+    "release": [
+        "description" => [later(Release)],
+        "version" => [later(Release)],
+        "status" => [later(Release)],
+        "deliverables" => [later(Release)],
+        "milestones" => [later(Release)],
+        "target_date" => [later(Release)],
+        "release_date" => [later(Release)],
+        "changelog" => [later(Release)],
+        "depends_on" => [later(Release)],
+        "owner" => [later(Release)],
+        "contributors" => [later(Release)],
+        "reason" => [later(Release)],
+        "refs" => [later(Release)],
+        "tags" => [later(Release)],
+    ]
 };
 
-/// The `@gsd/core` kind an old kind's entity becomes; none for a kind whose rows create no entity, or that has no
-/// rows yet.
+/// The `@gsd/core` kind an old kind's entity becomes, keeping its id; none for module and release, whose rows create
+/// no entity.
 pub fn new_kind(old: &str) -> Option<&'static str> {
     match old {
         "decision" => Some(DECISION),
-        "constraint" => Some(REQUIREMENT),
+        "constraint" | "feature" => Some(REQUIREMENT),
         "failure_mode" => Some(RISK),
         "invariant" => Some(INVARIANT),
+        "journey" => Some(JOURNEY),
+        "persona" => Some(PERSONA),
+        "term" | "channel" => Some(TERM),
+        "milestone" | "deliverable" => Some(MILESTONE),
         _ => None,
     }
 }

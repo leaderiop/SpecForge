@@ -10,6 +10,10 @@
 mod decision;
 #[path = "tests/governance.rs"]
 mod governance;
+#[path = "tests/measure.rs"]
+mod measure;
+#[path = "tests/product.rs"]
+mod product;
 
 use serde_json::Value;
 use specforge_ops::authoring::edit::{Edit, Input};

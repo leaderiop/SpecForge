@@ -25,6 +25,8 @@ pub enum Why {
     Filled { field: String, value: Value },
     /// A value the converter could not map, with why; it stays where the row's fallback put it.
     Unconverted(String),
+    /// An entity the converter created from this value, that the old project did not hold.
+    Created { kind: String, id: String },
 }
 
 /// One ledger row: the old entity, the old field (`title` for its header, `verify` for an obligation), its value as
