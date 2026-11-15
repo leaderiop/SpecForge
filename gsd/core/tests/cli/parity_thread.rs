@@ -274,3 +274,22 @@ fn the_requirements_proof_follows_its_thread() {
     fail_the_first_test(&p);
     assert_eq!(proof(&p, "TASK-01"), "failed");
 }
+
+#[test]
+fn satisfied_by_is_the_items_its_thread_reaches() {
+    let items = serde_json::json!([
+        "js:taskboard/src/tasks.js::addTask",
+        "js:taskboard/src/tasks.js::createBoard"
+    ]);
+    // Before any collect: the items T1 names are written, though no fact holds them yet.
+    assert_eq!(taskboard().fields_of("TASK-01")["satisfied_by"], items);
+    let (p, sha) = collected_thread();
+    assert_eq!(p.fields_of("TASK-01")["satisfied_by"], items);
+    let traced: Vec<String> = traced(&p, &sha)
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("→ "))
+        .filter(|target| target.starts_with("js:taskboard/src/"))
+        .map(str::to_string)
+        .collect();
+    assert_eq!(serde_json::json!(traced), items);
+}

@@ -79,6 +79,9 @@ pub const REQUIREMENT: Kind = Kind::new(
         en("status", REQUIREMENT_STATUS)
             .c()
             .doc("Traceability status, from plans, summaries and verifications"),
+        rfs("satisfied_by", "item").c().doc(
+            "the code items the tasks of its plans name, held or not: sorted, each once; absent when none",
+        ),
         en("proof", PROOF_STATES).c().doc(
             "how far its thread reaches: a task of its plans, a commit of one, a passing test; `proven` when whole",
         ),

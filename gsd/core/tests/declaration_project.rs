@@ -38,7 +38,16 @@ fn project_and_requirement_declare_the_fields_of_the_model() {
     assert_eq!(
         fields_of("requirement"),
         [
-            "text", "category", "tier", "reason", "defined", "status", "proof", "shapes", "text_en"
+            "text",
+            "category",
+            "tier",
+            "reason",
+            "defined",
+            "status",
+            "satisfied_by",
+            "proof",
+            "shapes",
+            "text_en"
         ]
     );
 }
@@ -145,10 +154,10 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
     // + 2: the requirement's `shapes` and `text_en`, which the spec-less edge probe reads (ADR 0333).
     // + 2: the lesson's `graduated` and `status`; + 2: the milestone's `goal` and `target_features`.
     // + 8: the milestone's fields beyond GSD (ADR 0357); + 2: the milestone's and the phase's `risk_level`.
-    // + 1: the requirement's computed `proof`, its thread's state.
+    // + 2: the requirement's computed `proof` (its thread's state) and `satisfied_by` (the items its tasks name).
     assert_eq!(
         total,
-        72 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 8 + 2 + 1,
+        72 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 8 + 2 + 2,
         "the kinds' fields"
     );
 }

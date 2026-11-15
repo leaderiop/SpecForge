@@ -34,6 +34,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "RequirementSatisfiedBy",
+        "source_kind": "requirement",
+        "target_kind": "item"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "JourneyPersona",
         "source_kind": "journey",
         "target_kind": "persona"
@@ -1580,6 +1589,17 @@
             "name": "status",
             "required": false,
             "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the code items the tasks of its plans name, held or not: sorted, each once; absent when none",
+            "edge": "RequirementSatisfiedBy",
+            "field_type": "reference_list",
+            "inverse_of": null,
+            "name": "satisfied_by",
+            "required": false,
+            "target_kind": "item",
             "writer": "computed"
           },
           {
