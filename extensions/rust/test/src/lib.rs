@@ -7,6 +7,13 @@
 //! nextest writes JUnit only through a config's `[profile.<name>.junit] path`. The program is `cargo-nextest`, so a
 //! missing nextest is "not found on PATH" with its install line, never a failed build.
 //!
+//! A caller narrows the run with a filter (`specforge collect --runner rust-test --filter <TEXT>`, ADR 0360): the
+//! host appends `-E <TEXT>`, so the text is a nextest filterset (`binary_id(=toy::api) & test(=adds)`). The run reads
+//! the cargo environment its caller builds with (`CARGO_*`, `RUSTUP_*`, `RUSTC`, `RUSTC_*`, `RUSTFLAGS`: the target
+//! directory, the profile settings, the toolchain), which the capability declares, so the approval names it and the
+//! run builds where the caller builds instead of a second cold build in `<project>/target`; a registry credential
+//! never passes.
+//!
 //! Each case sits in exactly one `<testsuite>`, named by its binary id (`toy`, `toy::bin/toy`, `toy::api`): the test
 //! is `rust:<binary id>#<name>`. It is served `@rust/source`'s items; a test whose id an item's `test_id` holds takes
 //! the item's places, file and names. nextest omits an ignored test from its report, so every item marked `test` and
@@ -60,6 +67,8 @@ impl Contributions for RustTest {
                     "specforge",
                 ])
                 .config(CONFIG, TEMPLATE)
+                .filter(&["-E", "{filter}"])
+                .env(&["CARGO_*", "RUSTUP_*", "RUSTC", "RUSTC_*", "RUSTFLAGS"])
                 .install("cargo install cargo-nextest --locked")
                 .report(REPORT)
                 .input(Input::facts(&["item"]))

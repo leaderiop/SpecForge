@@ -104,6 +104,11 @@ fn rust_test_declares_nextest_its_config_its_install_line_and_its_peers() {
         capabilities[0]["config"],
         json!({"name": CONFIG, "template": TEMPLATE})
     );
+    assert_eq!(capabilities[0]["filter"], json!(["-E", "{filter}"]));
+    assert_eq!(
+        capabilities[0]["env"],
+        json!(["CARGO_*", "RUSTUP_*", "RUSTC", "RUSTC_*", "RUSTFLAGS"])
+    );
 }
 
 #[specforge_test(
