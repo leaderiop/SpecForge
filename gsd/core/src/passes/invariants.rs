@@ -4,7 +4,9 @@
 //! What an invariant guards: its `items`; the items its proof's tests and the tests naming it run as
 //! (`@code/core`'s `runs_as` edge, from an item to the test it is the function of), whether or not those tests ran;
 //! and the items whose name tags it. A commit whose `items_changed` is unwritten is matched by the files it touched,
-//! against the files those items and tests are in.
+//! against the files those items and tests are in. A guarded test no item runs as (a source pack that writes no
+//! `test_id`, JavaScript's) has no item id a written `items_changed` could name, so its file is matched whatever
+//! the commit wrote.
 //!
 //! Only an invariant in force and judged can be due. In force is its computed `status` (the `derive` pass answers it
 //! before this pass runs) in the kind's `complete_when`, the owner state `gsd/I536`'s `judged_while: complete` reads,
@@ -95,7 +97,7 @@ pub fn due(input: &PassInput) -> Vec<Due> {
                 item: item.to_string(),
                 file: file.map(String::from),
             };
-            match &commit.items_changed {
+            let by_file = match &commit.items_changed {
                 Some(changed) => {
                     let hit: BTreeSet<&str> = changed
                         .iter()
@@ -103,23 +105,30 @@ pub fn due(input: &PassInput) -> Vec<Due> {
                         .filter(|item| guard.items.contains(*item))
                         .collect();
                     rows.extend(hit.into_iter().map(|item| row(item, None)));
+                    touched(commit, &guard.unrun)
                 }
-                None => {
-                    let mut hit: Vec<(&str, &str)> = commit
-                        .files
-                        .iter()
-                        .filter_map(|path| {
-                            Some((guard.files.get(path.as_str())?.as_str(), path.as_str()))
-                        })
-                        .collect();
-                    hit.sort();
-                    hit.dedup();
-                    rows.extend(hit.into_iter().map(|(item, path)| row(item, Some(path))));
-                }
-            }
+                None => touched(commit, &guard.files),
+            };
+            rows.extend(
+                by_file
+                    .into_iter()
+                    .map(|(item, path)| row(item, Some(path))),
+            );
         }
     }
     rows
+}
+
+/// The guarded ids of `files` (path → id) that `commit` touched, each with its path, once each, in id order.
+fn touched<'a>(commit: &'a Commit, files: &'a BTreeMap<String, String>) -> Vec<(&'a str, &'a str)> {
+    let mut hit: Vec<(&str, &str)> = commit
+        .files
+        .iter()
+        .filter_map(|path| Some((files.get(path.as_str())?.as_str(), path.as_str())))
+        .collect();
+    hit.sort();
+    hit.dedup();
+    hit
 }
 
 /// Whether `invariant` is in force: its computed `status` is one its kind's `complete_when` holds on.
@@ -170,6 +179,19 @@ impl<'a> Code<'a> {
 struct Guarded {
     items: BTreeSet<String>,
     files: BTreeMap<String, String>,
+    /// The files of its tests no item runs as, each with the first such test (by id order): matched by path even
+    /// when a commit's `items_changed` is written, since no item id names them.
+    unrun: BTreeMap<String, String>,
+}
+
+/// Records `id` as `path`'s guarded id in `files` when it is the first (by id order) of the ids `path` holds.
+fn first_in(files: &mut BTreeMap<String, String>, path: &str, id: &str) {
+    let first = files
+        .entry(path.to_string())
+        .or_insert_with(|| id.to_string());
+    if id < first.as_str() {
+        *first = id.to_string();
+    }
 }
 
 /// What `invariant` guards: its `items` (as written, as W522 reads `task.items`), the items its tests run as (its
@@ -189,22 +211,32 @@ fn guarded(input: &PassInput, code: &Code<'_>, invariant: &PassEntity) -> Guarde
             .filter(|e| code.items.contains(e.source.as_str()))
             .map(|e| e.source.clone()),
     );
-    let mut files: BTreeMap<String, String> = BTreeMap::new();
+    let run: BTreeSet<&str> = input
+        .edges
+        .iter()
+        .filter(|e| e.label == RUNS_AS && code.items.contains(e.source.as_str()))
+        .map(|e| e.target.as_str())
+        .collect();
+    let (mut files, mut unrun) = (BTreeMap::new(), BTreeMap::new());
     let ids = items
         .iter()
         .map(String::as_str)
         .chain(tests.iter().copied());
     for id in ids {
         if let Some(path) = code.files.get(id) {
-            let first = files
-                .entry(path.to_string())
-                .or_insert_with(|| id.to_string());
-            if id < first.as_str() {
-                *first = id.to_string();
-            }
+            first_in(&mut files, path, id);
         }
     }
-    Guarded { items, files }
+    for id in tests.iter().copied().filter(|t| !run.contains(t)) {
+        if let Some(path) = code.files.get(id) {
+            first_in(&mut unrun, path, id);
+        }
+    }
+    Guarded {
+        items,
+        files,
+        unrun,
+    }
 }
 
 /// The phases whose commits can owe an invariant a judgement: every phase with no `holds_from`; else its `holds_from`

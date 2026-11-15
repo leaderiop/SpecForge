@@ -206,7 +206,8 @@ The phase lists it in its computed `invariants_due` ([project.md](project.md#pha
   widens what an invariant in force guards over a changed phase adds it, and is refused (E080).
 - **The fallback.** A commit whose `items_changed` is unwritten (no item facts were served then, or a file's lines
   were unknown) is matched by the files it touched, against the files of the guarded items and tests. A written empty
-  `items_changed` changed nothing.
+  `items_changed` changed nothing. A guarded test no item runs as (a JavaScript project's: its source pack writes no
+  `test_id`) is matched by its file whatever the commit wrote, so a commit that changes only a proof test is due.
 
 One function, `passes::invariants::due`, joins the recorded commits with the guarded code; `invariants_due` and
 `gsd/E531` ([rules.md](rules.md#governance)) read its rows. E531 is an Error under every profile, one per invariant and

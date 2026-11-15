@@ -227,7 +227,10 @@ Decisions:
   reports its missing verdict. Creating an invariant is never refused.
 - **D21. The fallback.** A commit whose `items_changed` is unwritten (no item facts were served, or a file's lines were
   unknown, ADR 0352 D1) is matched by the files it touched, against the files holding the guarded items and the guarded
-  tests; such a row says it was a file it touched, never an item it changed. A written empty list changed nothing.
+  tests; such a row says it was a file it touched, never an item it changed. A written empty list changed nothing. A
+  guarded test no item runs as (a source pack that writes no `test_id`, JavaScript's) has no id a written
+  `items_changed` could hold, so its file is matched whatever the commit wrote: whether a change to it is due does not
+  depend on when the commit was collected.
 - **D22. One join, two adapters.** `invariants::due()` is the one join of recorded commits with guarded code: one row
   per invariant, phase, commit and item. The `invariants` compute pass, declared after `derive` (it reads the
   invariant's computed `status`), answers `phase.invariants_due` (→* invariant, the invariants a phase owes) and

@@ -332,6 +332,52 @@ fn the_items_its_proof_and_naming_tests_run_as_and_the_items_naming_it_are_guard
             ),
         ])
     );
+    assert_eq!(guard.unrun, BTreeMap::new(), "each test runs as an item");
+}
+
+/// A JavaScript source pack writes no `test_id`, so no item runs as a test: a commit whose `items_changed` is written
+/// and touches the proof test's file is due by that file; one whose test runs as an item is matched by the item only.
+#[test]
+fn a_guarded_test_no_item_runs_as_is_matched_by_its_file_whatever_the_commit_wrote() {
+    let proves = "js:app/test/a.test.js#proves";
+    let mut f = Fixture::new();
+    f.judged();
+    f.edge(X, proves, "proof");
+    f.entities
+        .push(json!({ "id": ITEM_B, "kind": "item", "fields": { "file": "src/b.js" } }));
+    f.commit(
+        "c1",
+        "v1.0/01/p",
+        AFTER,
+        Some(&[ITEM_B]),
+        &["src/b.js", "test/a.test.js"],
+    );
+    let mut input = f.input();
+    add_test(
+        &mut input,
+        proves,
+        "proves",
+        "test/a.test.js",
+        TestStatus::Passed,
+        &[],
+    );
+    assert_eq!(
+        on_x(&due(&input)),
+        [("v1.0/01", "c1", proves, Some("test/a.test.js"))]
+    );
+    // Rust-shaped: the test runs as an item the commit did not change, so touching its file is not enough
+    let function = "js:app/test/a.test.js::proves";
+    input.entities.push(
+        serde_json::from_value(
+            json!({ "id": function, "kind": "item", "fields": { "file": "test/a.test.js" } }),
+        )
+        .expect("an item fact"),
+    );
+    input.edges.push(
+        serde_json::from_value(json!({ "source": function, "target": proves, "label": RUNS_AS }))
+            .expect("an edge"),
+    );
+    assert_eq!(on_x(&due(&input)), []);
 }
 
 #[test]
