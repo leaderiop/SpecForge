@@ -9,9 +9,12 @@ fn main() {
     let told = std::env::var("SPECFORGE_COMMIT").unwrap_or_default();
     let told = told.trim();
     let short = if told.is_empty() {
-        // The workspace root holds `.git`: crates/surfaces/cli is three levels below it.
+        // The workspace root holds `.git`: crates/surfaces/cli is three levels below it. Canonical, so each watched
+        // path is absolute and outside the package: cargo keeps a path under the package relative to it, and a copy
+        // of the workspace without `.git` (the gate's sample) would find it missing and rebuild the binary.
         let dir = std::env::var_os("CARGO_MANIFEST_DIR").unwrap_or_default();
-        let found = commit::of(&std::path::Path::new(&dir).join("../../.."));
+        let root = std::path::Path::new(&dir).join("../../..");
+        let found = commit::of(&root.canonicalize().unwrap_or(root));
         for path in &found.watched {
             println!("cargo:rerun-if-changed={}", path.display());
         }
