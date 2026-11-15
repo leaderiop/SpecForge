@@ -61,9 +61,8 @@
     "```bash",
     ""
   ],
-  "bytes": 79730,
+  "bytes": 79920,
   "end": [
-    "- `text`: user-centric, testable, atomic (\"User can reset password via email link\").",
     "- `area`: upstream's `### [Category]` heading: a feature area from the research, in the words the domain uses",
     "  (an auth, content or payments area, say).",
     "- `tier`:",
@@ -72,8 +71,9 @@
     "  - `out_of_scope`: explicitly excluded, with its `reason`: it prevents \"why didn't you include X?\" later.",
     "    The research's anti-features land here as well, each keeping its warning.",
     "- `category` (optional): its quality class, one of `functional`, `performance`, `compatibility`, `usability`,",
-    "  `reliability`, `security`, `maintainability`, `portability`, `safety` (ISO/IEC 25010's characteristics) or",
-    "  `regulatory`.",
+    "  `reliability`, `security`, `maintainability`, `portability`, `safety` or `regulatory` (the first eight are ISO/IEC",
+    "  25010:2011's product quality characteristics by their short names; `safety` comes from its 2023 revision, which",
+    "  also renamed usability to interaction capability and portability to flexibility).",
     "- `priority` (optional): `must`, `should` or `could`; a requirement nobody wants is `out_of_scope`, not \"won't\".",
     "- `personas` (optional, `--personas <id>` per persona): the ids of recorded personas it serves (`specforge search \"\"",
     "  --kinds persona` lists them).",
@@ -186,7 +186,7 @@
     "<name> <value>`.",
     ""
   ],
-  "lines": 1914,
+  "lines": 1915,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:4d374fb0ac23b79fa15bf28f9f0dd0c0d7701d0bb00fd4f54de4589baadd5765",
+    "digest": "sha256:be78173497094bc330c482b9ccc79c5287e239e81310aef9538b4be69e21ee31",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "4d374fb0ac23b79fa15bf28f9f0dd0c0d7701d0bb00fd4f54de4589baadd5765"
+  "sha256": "be78173497094bc330c482b9ccc79c5287e239e81310aef9538b4be69e21ee31"
 }

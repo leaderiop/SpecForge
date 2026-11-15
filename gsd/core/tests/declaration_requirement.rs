@@ -94,6 +94,35 @@ fn the_requirement_quality_fields_are_optional() {
     );
 }
 
+/// The templates that write a requirement list the words its `category` and `priority` take as the kind declares
+/// them, every word in its order (`a`, `b` … or `z`): a word the kind does not take is E061, and in the roadmap edit
+/// it refuses the whole call.
+#[test]
+fn the_templates_list_the_words_the_kind_takes() {
+    let listed = |field: &str| {
+        let words: Vec<String> = field_of("requirement", field)["enum_values"]
+            .as_array()
+            .expect("enum values")
+            .iter()
+            .map(|w| format!("`{}`", w.as_str().expect("a word")))
+            .collect();
+        let (last, rest) = words.split_last().expect("a word");
+        format!("{} or {last}", rest.join(", "))
+    };
+    for path in [
+        "gsd-core/templates/requirements.md",
+        "gsd-core/templates/roadmap.md",
+    ] {
+        let text = std::fs::read_to_string(format!("{}/assets/{path}", env!("CARGO_MANIFEST_DIR")))
+            .unwrap_or_else(|e| panic!("{path}: {e}"));
+        let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        for field in ["category", "priority"] {
+            let words = listed(field);
+            assert!(text.contains(&words), "{path} does not list {words}");
+        }
+    }
+}
+
 /// Each relation names its reverse (ADR 0354), so the other side reads it back by that name and W162 stays silent; no
 /// field or reverse here takes `risks`, the reverse of `risk.affects` on a requirement.
 #[test]

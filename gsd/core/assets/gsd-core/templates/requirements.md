@@ -54,8 +54,9 @@ requirement: `specforge query <id> --depth 1 --format context` reads them back.
   - `out_of_scope`: explicitly excluded, with its `reason`: it prevents "why didn't you include X?" later.
     The research's anti-features land here as well, each keeping its warning.
 - `category` (optional): its quality class, one of `functional`, `performance`, `compatibility`, `usability`,
-  `reliability`, `security`, `maintainability`, `portability`, `safety` (ISO/IEC 25010's characteristics) or
-  `regulatory`.
+  `reliability`, `security`, `maintainability`, `portability`, `safety` or `regulatory` (the first eight are ISO/IEC
+  25010:2011's product quality characteristics by their short names; `safety` comes from its 2023 revision, which
+  also renamed usability to interaction capability and portability to flexibility).
 - `priority` (optional): `must`, `should` or `could`; a requirement nobody wants is `out_of_scope`, not "won't".
 - `personas` (optional, `--personas <id>` per persona): the ids of recorded personas it serves (`specforge search ""
   --kinds persona` lists them).

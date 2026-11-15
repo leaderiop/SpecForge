@@ -11,7 +11,11 @@ The roadmap is written with one MCP `specforge.edit` call whose `edits` list is 
 none of it. A v1 requirement must be in exactly one phase of the project (`gsd/E101`), and that binds from the first
 phase on, so the phases are never written one by one: a phase written alone would leave the other v1 requirements in no
 phase, and the edit is refused whole. Fill the quoted values and repeat a `phase` op per phase (a `requirement` op per
-new requirement); `specforge schema --kind phase` (likewise `milestone`, `requirement`) lists the fields. Leave out the
+new requirement); `specforge schema --kind phase` (likewise `milestone`, `requirement`) lists the fields. A requirement's
+`category` and `priority` are optional: leave a key out when its value is not known, never guess one, and write only one
+of the kind's words (any other word is `E061`, and the whole edit is refused): `category` is one of `functional`,
+`performance`, `compatibility`, `usability`, `reliability`, `security`, `maintainability`, `portability`, `safety` or
+`regulatory`, and `priority` is `must`, `should` or `could`. Leave out the
 `milestone` op when the milestone exists (`/gsd-new-milestone` records it first), and the `requirement` ops when the
 requirements exist (`/gsd-new-project` records them at its step 7). In `/gsd-ingest-docs` the list also carries the `project`, its decisions and the requirements as
 create ops ahead of the milestone (their fields: `templates/project.md`, `templates/requirements.md`). A refusal names its codes: read one with
@@ -20,8 +24,8 @@ create ops ahead of the milestone (their fields: `templates/project.md`, `templa
 ```json
 [
   {"op": "create", "kind": "milestone", "id": "{the milestone version, e.g. v1.1}", "title": "{the milestone name}", "file": "spec/{the milestone version, e.g. v1.1}.spec", "fields": {"name": "{the milestone name}", "goal": "{the milestone goal}"}},
-  {"op": "create", "kind": "requirement", "id": "{the first phase's requirement, e.g. SYNC-02}", "title": "{the first requirement's text}", "file": "spec/requirements.spec", "fields": {"text": "{the first requirement's text}", "area": "{the requirements' area}", "category": "{its quality category}", "priority": "{must, should or could}", "tier": "v1"}},
-  {"op": "create", "kind": "requirement", "id": "{the second phase's requirement, e.g. SYNC-03}", "title": "{the second requirement's text}", "file": "spec/requirements.spec", "fields": {"text": "{the second requirement's text}", "area": "{the requirements' area}", "category": "{its quality category}", "priority": "{must, should or could}", "tier": "v1"}},
+  {"op": "create", "kind": "requirement", "id": "{the first phase's requirement, e.g. SYNC-02}", "title": "{the first requirement's text}", "file": "spec/requirements.spec", "fields": {"text": "{the first requirement's text}", "area": "{the requirements' area}", "category": "{its quality category, or leave the key out}", "priority": "{must, should or could, or leave the key out}", "tier": "v1"}},
+  {"op": "create", "kind": "requirement", "id": "{the second phase's requirement, e.g. SYNC-03}", "title": "{the second requirement's text}", "file": "spec/requirements.spec", "fields": {"text": "{the second requirement's text}", "area": "{the requirements' area}", "category": "{its quality category, or leave the key out}", "priority": "{must, should or could, or leave the key out}", "tier": "v1"}},
   {"op": "create", "kind": "phase", "id": "{the first phase's number, e.g. 04}", "title": "{the first phase's name}", "file": "spec/{the milestone version, e.g. v1.1}.spec", "fields": {"milestone": "{the milestone version, e.g. v1.1}", "name": "{the first phase's name}", "slug": "{the first phase's slug}", "goal": "{the first phase's goal}", "success_criteria": ["{an observable behavior the first phase makes true}", "{another observable behavior of the first phase}"], "requirements": ["{the first phase's requirement, e.g. SYNC-02}"], "mode": "{standard or mvp}"}},
   {"op": "create", "kind": "phase", "id": "{the second phase's number, e.g. 05}", "title": "{the second phase's name}", "file": "spec/{the milestone version, e.g. v1.1}.spec", "fields": {"milestone": "{the milestone version, e.g. v1.1}", "name": "{the second phase's name}", "slug": "{the second phase's slug}", "goal": "{the second phase's goal}", "success_criteria": ["{an observable behavior the second phase makes true}", "{another observable behavior of the second phase}"], "depends_on": ["{the first phase's number, e.g. 04}"], "requirements": ["{the second phase's requirement, e.g. SYNC-03}"], "mode": "{standard or mvp}"}}
 ]

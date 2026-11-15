@@ -61,11 +61,11 @@
     "",
     "MILESTONE_NAME=\"Next\""
   ],
-  "bytes": 73532,
+  "bytes": 73722,
   "end": [
-    "- `category` (optional): its quality class, one of `functional`, `performance`, `compatibility`, `usability`,",
-    "  `reliability`, `security`, `maintainability`, `portability`, `safety` (ISO/IEC 25010's characteristics) or",
-    "  `regulatory`.",
+    "  `reliability`, `security`, `maintainability`, `portability`, `safety` or `regulatory` (the first eight are ISO/IEC",
+    "  25010:2011's product quality characteristics by their short names; `safety` comes from its 2023 revision, which",
+    "  also renamed usability to interaction capability and portability to flexibility).",
     "- `priority` (optional): `must`, `should` or `could`; a requirement nobody wants is `out_of_scope`, not \"won't\".",
     "- `personas` (optional, `--personas <id>` per persona): the ids of recorded personas it serves (`specforge search \"\"",
     "  --kinds persona` lists them).",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1511,
+  "lines": 1512,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:f0450c6a121f649b682b7757d27d9fc64301f844742b621a5734667597a15af7",
+    "digest": "sha256:a14a076e27b55064e2ff71b633a2f348900274842bf7c3e2204c4894d69b6fd7",
     "prompt": "@gsd/core@VERSION:new_milestone",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "f0450c6a121f649b682b7757d27d9fc64301f844742b621a5734667597a15af7"
+  "sha256": "a14a076e27b55064e2ff71b633a2f348900274842bf7c3e2204c4894d69b6fd7"
 }

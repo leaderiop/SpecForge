@@ -2075,9 +2075,7 @@ gsd-core/templates/project.md	kept	74+2	3d0b188170e8
 gsd-core/templates/project.md	own	76+128	76	1c862e91d0b8	597335126bad	ported-name
 gsd-core/templates/project.md	kept	204+1	e3b0c44298fc
 gsd-core/templates/requirements.md	kept	1+2	4e4770dc4777
-gsd-core/templates/requirements.md	own	3+66	1	ae2b68e6d8e9	e745623c2698	ported-name
-gsd-core/templates/requirements.md	kept	69+2	3d0b188170e8
-gsd-core/templates/requirements.md	own	71+161	69	e639292d8ec4	faf3d237d6c6	prose
+gsd-core/templates/requirements.md	own	3+229	73	a1274e32edcd	405151bb178d	ported-name
 gsd-core/templates/requirements.md	kept	232+1	e3b0c44298fc
 gsd-core/templates/research-project/ARCHITECTURE.md	kept	1+2	9c4f4a864fdf
 gsd-core/templates/research-project/ARCHITECTURE.md	own	3+166	1	a36531c494aa	4a25967ea73b	ported-name
@@ -2108,7 +2106,7 @@ gsd-core/templates/retrospective.md	kept	1+2	627fd13feaee
 gsd-core/templates/retrospective.md	own	3+52	43	e4bd471ac6b8	603736446b1b	prose
 gsd-core/templates/retrospective.md	kept	55+1	e3b0c44298fc
 gsd-core/templates/roadmap.md	kept	1+2	f712c1693da0
-gsd-core/templates/roadmap.md	own	3+200	44	a553c27b2f6f	18fb5fa4f11d	ported-name
+gsd-core/templates/roadmap.md	own	3+200	48	a553c27b2f6f	6efeb272ed9f	ported-name
 gsd-core/templates/roadmap.md	kept	203+1	e3b0c44298fc
 gsd-core/templates/spec.md	kept	1+2	f714433f3c7b
 gsd-core/templates/spec.md	own	3+3	3	15286ccbd93e	d0cbbd0f6b94	ported-name
