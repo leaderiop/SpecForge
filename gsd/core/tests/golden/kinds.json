@@ -1746,6 +1746,23 @@
           },
           {
             "default_value": null,
+            "description": "how large it is to build, a T-shirt size",
+            "edge": null,
+            "enum_values": [
+              "xs",
+              "s",
+              "m",
+              "l",
+              "xl"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "effort",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
             "description": "Traceability status, from plans, summaries and verifications",
             "edge": null,
             "enum_values": [

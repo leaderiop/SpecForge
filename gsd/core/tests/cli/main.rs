@@ -581,3 +581,21 @@ fn a_requirement_links_its_personas_requirements_and_invariants() {
     assert_eq!(code, 1, "{all}");
     assert!(all.contains("E003") && all.contains("nope"), "{all}");
 }
+
+#[test]
+fn a_requirement_effort_is_a_t_shirt_size() {
+    let sized = |effort: &str| {
+        with_quality(&format!(
+            "requirement SIZE-01 \"Sized\" {{\n  text   \"x\"\n  area   \"Tasks\"\n  tier   v2\n  effort {effort}\n}}\n"
+        ))
+    };
+    let p = sized("m");
+    assert_clean(&p);
+    assert_eq!(p.fields_of("SIZE-01")["effort"], "m");
+    let (code, all) = checked(&sized("huge"));
+    assert_eq!(code, 1, "{all}");
+    assert!(
+        all.contains("E061") && all.contains("xs, s, m, l, xl"),
+        "{all}"
+    );
+}

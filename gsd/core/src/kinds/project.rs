@@ -72,6 +72,8 @@ pub const REQUIREMENT_CATEGORY: &[&str] = &[
 ];
 /// The sense a metric's threshold holds in.
 pub const DIRECTION: &[&str] = &["at_most", "at_least", "exactly"];
+/// A requirement's effort, a T-shirt size.
+pub const EFFORT: &[&str] = &["xs", "s", "m", "l", "xl"];
 /// A measure: no bound on the threshold (a latency is positive, a drift may be negative: `direction` carries the
 /// sense), and no unit for a plain count.
 pub const METRIC: &[Field] = &[
@@ -123,6 +125,7 @@ pub const REQUIREMENT: Kind = Kind::new(
             .inverse("protected_by")
             .doc("the invariants it guards; each reads it back as `protected_by`"),
         strs("tags").doc("words to group it by"),
+        en("effort", EFFORT).doc("how large it is to build, a T-shirt size"),
         en("status", REQUIREMENT_STATUS)
             .c()
             .doc("Traceability status, from plans, summaries and verifications"),
