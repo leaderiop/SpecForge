@@ -14,6 +14,8 @@ mod governance;
 mod measure;
 #[path = "tests/product.rs"]
 mod product;
+#[path = "tests/scope.rs"]
+mod scope;
 
 use serde_json::Value;
 use specforge_ops::authoring::edit::{Edit, Input};

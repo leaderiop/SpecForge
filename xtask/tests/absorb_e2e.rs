@@ -12,6 +12,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 const OLD: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/absorb/old");
+const SELECTION: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/fixtures/absorb/selection.json"
+);
 
 fn gsd_core() -> PathBuf {
     PathBuf::from(std::env::var_os("GSD_CORE_WASM").expect(
@@ -111,4 +115,33 @@ fn all_thirteen_kinds_convert_with_no_error_and_no_warning() {
         std::fs::read_to_string(b.join("absorb-ledger.json")).unwrap()
     );
     insta::assert_snapshot!("ledger", ledger);
+}
+
+#[test]
+#[ignore = "needs GSD_CORE_WASM"]
+fn a_selection_converts_only_its_entities_and_checks_clean() {
+    let dir = tempfile::tempdir().unwrap();
+    let to = dir.path().join("t");
+    let only = format!("ids:{SELECTION}");
+    let run = absorb(&["--from", OLD, "--to", path(&to), "--only", &only]);
+    assert_eq!(run.code, 0, "{}", run.stderr);
+    assert_eq!(run.summary["target"]["errors"], 0, "{}", run.summary);
+    assert_eq!(run.summary["target"]["warnings"], 0, "{}", run.summary);
+    assert_eq!(
+        (&run.summary["converted"], &run.summary["created"]),
+        (&json!(9), &json!(1)),
+        "the nine selected ids and the selected feature's solution: {}",
+        run.summary
+    );
+    let tree = spec_tree(&to);
+    assert!(
+        !tree.values().any(|text| text.contains("second_store")),
+        "a reference leaving the selection is never stubbed"
+    );
+    let ledger = std::fs::read_to_string(to.join("absorb-ledger.json")).unwrap();
+    assert!(
+        ledger.contains("\"out_of_selection\": \"second_store\""),
+        "{ledger}"
+    );
+    insta::assert_snapshot!("selection_ledger", ledger);
 }

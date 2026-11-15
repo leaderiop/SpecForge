@@ -1,9 +1,11 @@
 //! Converts an old project's `@specforge/governance` and `@specforge/product` entities into a fresh `@gsd/core`
 //! project by one typed-edit plan (ADR 0360).
 //!
-//!   GSD_CORE_WASM=<gsd_core.wasm> cargo run -p xtask --bin absorb -- --from <project> --to <dir> [--ledger <file>]
+//!   GSD_CORE_WASM=<gsd_core.wasm> cargo run -p xtask --bin absorb -- --from <project> --to <dir>
+//!       [--only ids:<file>] [--ledger <file>]
 //!
-//! The old project is compiled in-process with its own builtins, and must report no error. `--to` is absent or a
+//! The old project is compiled in-process with its own builtins, and must report no error. `--only` converts just the
+//! old ids a JSON array names; a reference leaving them is ledgered. `--to` is absent or a
 //! directory with no project; it is scaffolded with `@specforge/checks`, `@code/core` and the `@gsd/core` component
 //! `GSD_CORE_WASM` names, and written by one edit plan, all or nothing. The absorb ledger (default
 //! `<to>/absorb-ledger.json`) lists every old value not written as itself. Prints one JSON summary.
@@ -24,6 +26,8 @@ mod ledger;
 mod plan;
 #[path = "absorb/read.rs"]
 mod read;
+#[path = "absorb/scope.rs"]
+mod scope;
 #[path = "absorb/table.rs"]
 mod table;
 #[path = "absorb/write.rs"]
@@ -36,9 +40,11 @@ mod tests;
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
+use scope::Scope;
 use write::{Target, Work};
 
-const USAGE: &str = "usage: absorb --from <project> --to <dir> [--ledger <file>]  (GSD_CORE_WASM names gsd_core.wasm)";
+const USAGE: &str = "usage: absorb --from <project> --to <dir> [--only ids:<file>] [--ledger <file>]  \
+                     (GSD_CORE_WASM names gsd_core.wasm)";
 const BUILD_GSD_CORE: &str =
     "build it: (cd gsd && cargo build --locked -p gsd-core --release --target wasm32-wasip2)";
 /// The ledger's file in the target when `--ledger` is not given.
@@ -50,10 +56,11 @@ struct Args {
     from: PathBuf,
     to: PathBuf,
     ledger: Option<PathBuf>,
+    scope: Scope,
 }
 
 fn parse(args: &[String]) -> Result<Args, String> {
-    let (mut from, mut to, mut ledger) = (None, None, None);
+    let (mut from, mut to, mut ledger, mut scope) = (None, None, None, Scope::All);
     let mut args = args.iter();
     while let Some(flag) = args.next() {
         let value = || format!("{flag} takes a value");
@@ -61,6 +68,7 @@ fn parse(args: &[String]) -> Result<Args, String> {
             "--from" => from = Some(PathBuf::from(args.next().ok_or_else(value)?)),
             "--to" => to = Some(PathBuf::from(args.next().ok_or_else(value)?)),
             "--ledger" => ledger = Some(PathBuf::from(args.next().ok_or_else(value)?)),
+            "--only" => scope = Scope::from_arg(args.next().ok_or_else(value)?)?,
             other => return Err(format!("unknown argument '{other}'")),
         }
     }
@@ -68,6 +76,7 @@ fn parse(args: &[String]) -> Result<Args, String> {
         from: from.ok_or("--from is required")?,
         to: to.ok_or("--to is required")?,
         ledger,
+        scope,
     })
 }
 
@@ -100,7 +109,10 @@ fn run(args: &[String]) -> i32 {
         Err(why) => return refuse(&format!("--from {}: {why}", args.from.display())),
     };
     work.compiles += 1;
-    let entities = old.entities();
+    let entities = match args.scope.select(old.entities()) {
+        Ok(entities) => entities,
+        Err(why) => return refuse(&why),
+    };
     if let Err(stops) = plan::prechecks(&entities) {
         let lines: Vec<String> = stops.iter().map(|s| format!("  {s}")).collect();
         return refuse(&format!(
