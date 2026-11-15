@@ -60,8 +60,11 @@ GSD: one bullet of `REQUIREMENTS.md`. Name: `AUTH-01`. A requirement id is uniqu
 
 The requirement's phase (Traceability `Phase`) is the inverse of `phase.requirements`, read back as `phase`: a relation
 is written from one side, never both (W162). Its own relations name their reverse ([ADR 0354](../../../docs/adr/0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md)):
-a persona reads `personas` back as `requirements`, a requirement reads `constrains` back as `constrained_by`, and an
-invariant reads `protects` back as `protected_by`.
+a persona reads `personas` back as `requirements` and an invariant reads `protects` back as `protected_by`: that name
+written on the other side is E079, naming the owning field. `constrains` names its reverse `constrained_by` too, so W162
+stays silent, but it is a self-relation, whose other side the field registry does not yet recognise by name
+([ADR 0150](../../../docs/adr/0150-a-relation-is-written-on-one-side.md) D2): a `constrained_by` written on a requirement
+is still an unknown field (W020).
 
 Why each field beyond GSD has its shape, and why `proof` is the one reading of the requirement's thread:
 [ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md).

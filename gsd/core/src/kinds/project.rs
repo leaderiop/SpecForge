@@ -120,7 +120,10 @@ pub const REQUIREMENT: Kind = Kind::new(
             .doc("the personas it serves; a persona reads them back as `requirements`"),
         rfs("constrains", "requirement")
             .inverse("constrained_by")
-            .doc("the requirements it limits; each reads it back as `constrained_by`"),
+            .doc(
+                "the requirements it limits; its reverse is named `constrained_by`, but a `constrained_by` written on \
+                 a requirement is still an unknown field (W020), not refused by name",
+            ),
         rfs("protects", "invariant")
             .inverse("protected_by")
             .doc("the invariants it guards; each reads it back as `protected_by`"),

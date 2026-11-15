@@ -576,6 +576,17 @@ fn a_requirement_links_its_personas_requirements_and_invariants() {
             p.report()
         );
     }
+    // `constrains` is a self-relation: the registry does not recognise its named reverse yet (ADR 0150 D2), so a
+    // `constrained_by` written on PERF-02 is an unknown field, W020, not E079.
+    let anchor = "  text \"A whole check of 500 files ends within 2 s\"\n";
+    let p =
+        with_quality(&RELATED.replace(anchor, &format!("{anchor}  constrained_by [PERF-01]\n")));
+    let codes = p.codes();
+    assert!(
+        codes.contains(&"W020".to_string()) && !codes.contains(&"E079".to_string()),
+        "{:#?}",
+        p.report()
+    );
     let p = with_quality(&RELATED.replace("[diagnostic_determinism]", "[nope]"));
     let (code, all) = checked(&p);
     assert_eq!(code, 1, "{all}");

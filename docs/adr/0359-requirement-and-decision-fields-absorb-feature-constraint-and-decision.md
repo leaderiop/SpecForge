@@ -52,10 +52,13 @@ SDK, protocol or host change: every field is a `@gsd/core` declaration, and ever
 - **D5. `source` is a string list** of where the requirement came from: a person, quoted (`"Alice Martin"`), or a
   declared `ref` written bare (`gh.issue:42`), which names that entity (ADR 0093) and is E003 when undeclared. People
   (the old `owner` and `contributors`) are quoted names: no person scheme.
-- **D6. Three relations name their reverse** (ADR 0354), so the other side reads them back and W162 stays silent:
-  `personas` (→* persona, read back as `requirements`), `constrains` (→* requirement, read back as `constrained_by`)
-  and `protects` (→* invariant, read back as `protected_by`). None is named `risks`, the reverse `risk.affects`
-  declares on a requirement.
+- **D6. Three relations name their reverse** (ADR 0354), so W162 stays silent: `personas` (→* persona, read back as
+  `requirements`), `constrains` (→* requirement, its reverse named `constrained_by`) and `protects` (→* invariant,
+  read back as `protected_by`). Read back means the name written on the other side is E079, naming the owning field:
+  that holds on a persona and an invariant. `constrains` is a self-relation, whose other side the field registry
+  does not recognise by name ([ADR 0150](0150-a-relation-is-written-on-one-side.md) D2), so a `constrained_by`
+  written on a requirement is still an unknown field (W020) until the registry reads a self-relation's named reverse.
+  None is named `risks`, the reverse `risk.affects` declares on a requirement.
 - **D7. `tags`**: free words to group it by, as on the other kinds that had them.
 - **D8. `satisfied_by` is computed from the written `task.items`** of every task of the plans that list the
   requirement, any task type (a `manual` task's item too): sorted, each once, absent when none. It reads the items
