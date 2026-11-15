@@ -376,6 +376,47 @@ fn the_target_keeps_the_source_spec_root_and_version() {
     );
 }
 
+/// A failure mode that names no invariant and rates neither its occurrence nor its detection converts: both are filled
+/// at 10, the worst (ledgered), so its rpn is at or above `risk_block_on`, and a risk that high that nothing mitigates
+/// is gsd/W532 in the target. That is the warning an unrated, unmitigated risk should give, not a converter gap.
+#[test]
+#[ignore = "needs GSD_CORE_WASM"]
+fn an_unrated_failure_mode_with_no_invariant_is_w532_in_the_target() {
+    let dir = tempfile::tempdir().unwrap();
+    let (old, to) = (dir.path().join("old"), dir.path().join("new"));
+    std::fs::create_dir_all(old.join("spec")).unwrap();
+    std::fs::write(
+        old.join("specforge.json"),
+        r#"{"name": "risky", "spec_root": "spec", "extensions": ["@specforge/governance"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        old.join("spec/failure-modes.spec"),
+        "failure_mode lost_power \"Lost Power\" {\n  severity high\n  cause    \"The machine loses power mid-write.\"\n  \
+         effect   \"The last entry is gone.\"\n}\n",
+    )
+    .unwrap();
+    let run = absorb(&["--from", path(&old), "--to", path(&to)]);
+    assert_eq!(run.code, 0, "{}", run.stderr);
+    assert_eq!(run.summary["target"]["errors"], 0, "{}", run.summary);
+    let findings: Vec<&str> = run.summary["target"]["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f.as_str().unwrap())
+        .collect();
+    assert_eq!(findings.len(), 1, "{findings:#?}");
+    assert!(findings[0].starts_with("gsd/W532 "), "{findings:#?}");
+    assert!(findings[0].contains("lost_power"), "{findings:#?}");
+    let ledger = std::fs::read_to_string(to.join("absorb-ledger.json")).unwrap();
+    for filled in ["risk.occurrence", "risk.detection"] {
+        assert!(
+            ledger.contains(&format!("\"field\": \"{filled}\"")),
+            "{ledger}"
+        );
+    }
+}
+
 /// A source at `old` whose one term is `blocker`, an id the target reserves (gsd declares a `blocker` kind).
 fn reserved_source(old: &Path) {
     std::fs::create_dir_all(old.join("spec")).unwrap();

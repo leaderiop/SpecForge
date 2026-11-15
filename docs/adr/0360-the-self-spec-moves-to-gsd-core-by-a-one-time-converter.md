@@ -115,14 +115,17 @@ kernel change: the converter is a repository task in `xtask`, and every value it
 ## Consequences
 
 - The conversion is a command with a test per row, and its ledger is what a reviewer reads instead of the old spec.
-- A converted project checks with no error by construction, under `gsd-compat`, `gsd-strict` and `gsd-plus` alike:
-  a required value the old spec lacks is filled and ledgered (an area, a tier, an origin, a reason, an occurrence or
+- A converted project checks with no error by construction, under `gsd-compat`, `gsd-strict` and `gsd-plus` alike: a
+  required value the old spec lacks is filled and ledgered (an area, a tier, an origin, a reason, an occurrence or
   detection of 10), and a value nothing can hold stops the run before any write, as does a milestone dated to ship
   before it starts, which the target refuses (`gsd/E537`). No old kind becomes a phase, so the milestones a
   deliverable became have none, and `gsd/W530`, an error under the strict profiles, waits for the target's first
-  phase of each ([ADR 0357](0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md) D24). What
-  the target may still report is a warning under every profile: a proof of a test it has not collected yet
-  (`code/W102`), and the glossary and risk warnings on the converted values (`gsd/W534`, `gsd/W538`, `gsd/W532`).
+  phase of each ([ADR 0357](0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md) D24). What the
+  target may still report is a warning under every profile: a proof of a test it has not collected yet (`code/W102`),
+  and the glossary and risk warnings on the converted values (`gsd/W534`, `gsd/W538`, `gsd/W532`). A failure mode
+  that rates neither its occurrence nor its detection has both filled at 10, the worst, so its `rpn` is a hundred
+  times its severity, at or above the default `risk_block_on` (100) whatever the severity; with no invariant to
+  mitigate it, that is `gsd/W532`: the warning an unrated, unmitigated risk should give, not a gap in the conversion.
 - The root project does not move here: its swap is its own change, with D9's choice.
 - The engine's plan is superlinear in the number of creates (about a second for a hundred, minutes for thousands),
   so a whole-spec run is a deliberate, measured step.
