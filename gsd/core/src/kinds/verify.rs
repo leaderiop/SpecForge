@@ -10,15 +10,15 @@ const GAP_STATUS: &[&str] = &["open", "closed"];
 const DEFERRED: &[Field] = &[
     rf("truth", "truth").r(),
     rf("addressed_in", "phase").r(),
-    str("evidence").prose().r(),
+    str("evidence").r(),
 ];
 // The ids are `str`: a re-verification names truths, artifacts and key links, and a reference has one target kind.
 const RE_VERIFICATION: &[Field] = &[
     en("previous_status", VERIFICATION_STATUS),
     str("previous_score"),
-    strs("gaps_closed").prose(),
-    strs("gaps_remaining").prose(),
-    strs("regressions").prose(),
+    strs("gaps_closed"),
+    strs("gaps_remaining"),
+    strs("regressions"),
 ];
 const ANTI_PATTERNS: &[Field] = &[
     str("file"),

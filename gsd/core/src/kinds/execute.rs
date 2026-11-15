@@ -3,7 +3,7 @@
 use gsd_kit::dsl::*;
 
 const SUMMARY_STATUS: &[&str] = &["complete", "halted"];
-const REQUIRES: &[Field] = &[rf("phase", "phase").r(), str("provides").prose().r()];
+const REQUIRES: &[Field] = &[rf("phase", "phase").r(), str("provides").r()];
 const ACTUALS: &[Field] = &[int("tasks"), int("commits")];
 
 /// When a plan was opened (upstream's `PLAN_START_TIME`, there a shell variable), named `START` and scoped by its plan,
@@ -42,7 +42,7 @@ pub const SUMMARY: Kind = Kind::new(
         strs("provides").prose().doc("`provides:`"),
         strs("affects").doc("`affects:`"),
         strs("tech_added").doc("`tech-stack: added`"),
-        strs("tech_patterns").prose().doc("`tech-stack: patterns`"),
+        strs("tech_patterns").doc("`tech-stack: patterns`"),
         rfs("key_decisions", "decision").doc("`key-decisions:`"),
         strs("patterns_established")
             .prose()

@@ -197,14 +197,24 @@ features' requirements, a channel as a term, the artifact word, the journey memb
   journey step's `action`, an alternative's `why_not`, a discussion checkpoint's decision `question`).
   `passes/vocabulary.rs` derives the one table the vocabulary reads from those marks (`PROSE`, `table`), so a field a
   kind gains is read once its table marks it, and no second list names the fields.
-  - The rule: a field is prose when an author writes it as sentences or phrases in the project's language. A name, a
-    title or a slug is not, nor a word to group by (an area, a tag, a subsystem, a channel, an artifact type), a
-    person, a command, a pattern, a path, a URL, a version, a symbol, a copy or a quote of other words
-    (`uat_test.reported`, `override.accepts`, `requirement.source`, a checkpoint's recorded answer), code context
-    (`context.reusable_assets`), or `text_en`, which is not the author's language.
-  - A field another writer fills (computed, harness, verdict, context record) is never prose, nor anything inside
-    such a block: a record two kinds share (`resolved`) is read where it is authored (a blocker's) and not where a
-    command writes it (a revision conflict's).
+  - The rule: a field is prose when it is free text an author writes now, as sentences or phrases in the project's
+    language. These classes are not, wherever they sit:
+    - a name, a title or a slug; a word to group by (an area, a tag, a subsystem, a channel, an artifact type); a
+      person; an option label (a discussion entry's `options`, a checkpoint decision's `options_presented`);
+    - an id, or a reference written as text (a `requires` row's `provides`, a deferred truth's `evidence`, a review
+      coverage's `missing`);
+    - a quote, a verbatim reply or a recorded answer (`uat_test.reported`, a UAT gap's `reason`, `override.accepts`,
+      a checkpoint decision's and an interview's `answer`, a discussion entry's `notes`, a review lane's `summary`,
+      `strengths` and `suggestions`, a deferred follow-up's `idea`);
+    - a copy of another field (`requirement.source`, a UAT gap's `truth`, a disposition's `feedback`);
+    - a command, a pattern, a path, a URL, a version, a symbol, code, or the name of a thing outside the project
+      (`summary.tech_patterns`, `dont_hand_roll.instead`, `user_setup.local_dev`, `key_link.via`,
+      `context.reusable_assets`);
+    - `text_en`, which is not the author's language.
+  - A field another writer fills (computed, harness, verdict, context record) is never prose, nor anything inside such
+    a block, at any depth (a verification's `re_verification`, a broken window's `waiver`): a record two kinds share
+    (`resolved`) is read where it is authored (a blocker's) and not where a command writes it (a revision conflict's).
+    A test walks every mark through nested and computed blocks and fails on one the table never reads.
   - A term's own fields are not prose: they are the glossary (D18).
 - **D17. `term.used_in` is computed.** It lists the entities whose prose (D16) holds the term's `name` or one of its
   `aliases` as a whole word or phrase (D15, `Unicode`), by id, sorted, and `[]` when the term is unused, so "none" is

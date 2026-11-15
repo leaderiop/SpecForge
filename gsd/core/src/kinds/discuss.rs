@@ -112,12 +112,10 @@ const DISCUSSION_MODES: &[&str] = &["interactive", "assumptions", "advisor"];
 const ENTRY: &[Field] = &[
     str("area"),
     str("question").prose(),
-    strs("options").prose(),
+    strs("options"),
     str("chosen"),
     en("mode", DISCUSSION_MODES),
-    str("notes")
-        .prose()
-        .doc("the user's follow-up notes, or the reason for a correction"),
+    str("notes").doc("the user's follow-up notes, or the reason for a correction"),
     en("confidence", &["confident", "likely", "unclear"])
         .doc("assumptions mode: how sure the assumption is"),
     strs("evidence").doc("assumptions mode: the file paths behind the assumption"),
@@ -125,8 +123,8 @@ const ENTRY: &[Field] = &[
 const CHECKPOINT_DECISION: &[Field] = &[
     str("area").r(),
     str("question").prose().r(),
-    str("answer").prose(),
-    strs("options_presented").prose(),
+    str("answer"),
+    strs("options_presented"),
 ];
 const CHECKPOINT: &[Field] = &[
     ts("timestamp"),

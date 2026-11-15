@@ -10,36 +10,73 @@ fn declared(kind: &str) -> &'static Kind {
         .unwrap_or_else(|| panic!("{kind} is declared"))
 }
 
-/// Every prose mark sits on a text or a list of texts, and one on a kind's own field on an authored one: a mark the
-/// table cannot read fails here rather than leave the vocabulary reading nothing. A record two kinds share (a
-/// `resolved` block) may sit under another writer's block in one of them, where the table does not read it.
-#[test]
-fn every_prose_mark_is_on_a_text_the_table_reads() {
-    fn walk(kind: &str, fields: &[Field], top: bool) {
-        for field in fields {
-            if field.prose {
-                assert!(
-                    matches!(field.ty, Ty::Str | Ty::Strs),
-                    "{kind}.{}: prose is a str or strs",
-                    field.name
-                );
-                assert!(
-                    !top || field.writer == Writer::Author,
-                    "{kind}.{}: prose is authored",
-                    field.name
-                );
-            }
-            if let Ty::Block(members) | Ty::Blocks(members) = field.ty {
-                walk(kind, members, false);
-            }
+/// A prose mark, where it sits, whether the table reads it (every field on its way is authored), and the names of
+/// the record that holds it.
+type Mark = (String, bool, Vec<&'static str>);
+
+/// Every prose mark of `fields`, at any depth, through computed and harness blocks too.
+fn marks(path: &str, fields: &'static [Field], read: bool, out: &mut Vec<Mark>) {
+    let record: Vec<_> = fields.iter().map(|f| f.name).collect();
+    for field in fields {
+        let path = format!("{path}.{}", field.name);
+        let read = read && field.writer == Writer::Author;
+        if field.prose {
+            assert!(
+                matches!(field.ty, Ty::Str | Ty::Strs),
+                "{path}: prose is a str or strs"
+            );
+            out.push((path.clone(), read, record.clone()));
+        }
+        if let Ty::Block(members) | Ty::Blocks(members) = field.ty {
+            marks(&path, members, read, out);
         }
     }
+}
+
+/// Every prose mark, at any depth, sits on a text or a list of texts the table reads: a mark the table cannot read
+/// fails here rather than leave the vocabulary reading nothing. A record two kinds share (a `resolved` block) may
+/// sit under another writer's block in one of them, as long as the table reads it in the other.
+#[test]
+fn every_prose_mark_is_on_a_text_the_table_reads() {
+    let mut all = Vec::new();
     for kind in crate::kinds::KINDS {
-        walk(kind.name, kind.fields, true);
+        marks(kind.name, kind.fields, true, &mut all);
     }
+    let read: Vec<_> = all.iter().filter(|m| m.1).map(|m| &m.2).collect();
+    let unread: Vec<_> = all
+        .iter()
+        .filter(|(_, is_read, record)| !is_read && !read.contains(&record))
+        .map(|m| &m.0)
+        .collect();
+    assert!(
+        unread.is_empty(),
+        "prose marks the table never reads: {unread:?}"
+    );
     // The blocker's `resolved` is authored and read; the revision conflict's is the planner's record and is not.
     assert!(fields("blocker").iter().any(|p| p.name == "how"));
     assert!(!fields("revision_conflict").iter().any(|p| p.name == "how"));
+}
+
+/// A computed block is the engine's text, never the author's: no member of one, at any depth, is marked prose.
+#[test]
+fn a_computed_block_carries_no_prose_mark() {
+    fn computed(path: &str, fields: &'static [Field], out: &mut Vec<Mark>) {
+        for field in fields {
+            let path = format!("{path}.{}", field.name);
+            if let Ty::Block(members) | Ty::Blocks(members) = field.ty {
+                if field.writer == Writer::Computed {
+                    marks(&path, members, false, out);
+                } else {
+                    computed(&path, members, out);
+                }
+            }
+        }
+    }
+    let mut found = Vec::new();
+    for kind in crate::kinds::KINDS {
+        computed(kind.name, kind.fields, &mut found);
+    }
+    assert!(found.is_empty(), "prose in a computed block: {found:?}");
 }
 
 /// The table is what the kinds mark: a kind's prose fields, a block list's prose member, and nothing of a term (the
@@ -80,7 +117,7 @@ fn the_table_reads_the_kinds_marks() {
         blocks: vec![("checkpoint", false), ("decisions", true)],
         name: "question",
         list: false,
-        alone: false,
+        alone: true,
         fixed: false,
     }));
     assert!(fields("term").is_empty());
@@ -379,8 +416,8 @@ fn a_nested_block_member_reads_with_its_places() {
     assert_eq!(
         prose(&discussion),
         [
-            ("entry 1 question", "Where do tasks live?"),
-            ("checkpoint decision 1 question", "One board or many?"),
+            ("entry 1", "Where do tasks live?"),
+            ("checkpoint decision 1", "One board or many?"),
             ("checkpoint deferred_ideas", "sharing"),
         ]
         .map(|(place, said)| (place.to_string(), said.to_string()))

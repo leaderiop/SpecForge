@@ -98,7 +98,7 @@ pub const DONT_HAND_ROLL: Kind = Kind::new(
     &[
         rf("research", "research").r(),
         str("problem").prose().r(),
-        str("instead").prose().r(),
+        str("instead").r(),
         str("why").prose().r(),
     ],
 )

@@ -10,12 +10,12 @@ const REVIEWER: &[Field] = &[str("name").r(), str("model").r(), str("source").r(
 const RISK: &[&str] = &["low", "medium", "high"];
 const LANE: &[Field] = &[
     str("reviewer").r(),
-    str("summary").prose().r(),
-    strs("strengths").prose(),
-    strs("suggestions").prose(),
+    str("summary").r(),
+    strs("strengths"),
+    strs("suggestions"),
     en("risk", RISK),
 ];
-const COVERAGE: &[Field] = &[str("reviewer").r(), int("total"), strs("missing").prose()];
+const COVERAGE: &[Field] = &[str("reviewer").r(), int("total"), strs("missing")];
 const UNCHECKED: &[Field] = &[str("symbol").r(), str("why").prose().r()];
 const OPEN: &[Field] = &[int("high"), int("actionable")];
 

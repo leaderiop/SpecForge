@@ -59,7 +59,6 @@ const USED_IN: &[&str] = &[
     "pause",
     "handoff",
     "blocker",
-    "verification",
     "verify_gap",
     "override",
     "human_item",

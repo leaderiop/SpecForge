@@ -73,7 +73,7 @@ pub const INTERVIEW: Kind = Kind::new(
         int("round").r().i(),
         en("perspective", PERSPECTIVES).r().i(),
         str("question").prose().r().i(),
-        str("answer").prose().i(),
+        str("answer").i(),
         str("locked").prose().i(),
     ],
 )

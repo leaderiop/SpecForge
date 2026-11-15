@@ -27,7 +27,7 @@ const TOTALS: &[Field] = &[
 ];
 const FOLLOW_UP: &[Field] = &[
     rf("test", "uat_test").r(),
-    str("idea").prose().r(),
+    str("idea").r(),
     date("deferred_at").r(),
 ];
 const GAP_ARTIFACTS: &[Field] = &[path("path", Mode::Present), str("issue").prose()];
@@ -87,8 +87,8 @@ pub const UAT_GAP: Kind = Kind::new(
     "What a UAT test found wrong (GSD UAT gap)",
     &[
         rf("test", "uat_test").r().i().doc("parent"),
-        str("truth").prose().r().doc("`truth:`"),
-        str("reason").prose().doc("`reason:`"),
+        str("truth").r().doc("`truth:`"),
+        str("reason").doc("`reason:`"),
         en("severity", SEVERITY).doc("`severity:`"),
         str("root_cause").prose().doc("`root_cause:`"),
         blocks("artifacts", GAP_ARTIFACTS).doc("`artifacts:`"),
