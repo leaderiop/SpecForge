@@ -259,3 +259,25 @@ fn a_coupling_peer_in_another_wave_or_phase_covers_nothing() {
         );
     }
 }
+
+/// A context decision another decision supersedes no longer holds: no plan must list it, under every profile (the pass
+/// reads no setting). The one that supersedes it is tracked.
+#[test]
+fn a_superseded_context_decision_needs_no_plan() {
+    let input = |listed: &[&str]| {
+        let mut edges = vec![edge("v/1/D-05", "v/1/D-03", "supersedes")];
+        edges.extend(listed.iter().map(|d| edge("v/1/1-01", d, "decisions")));
+        PassInput {
+            entities: vec![
+                entity("v/1", "phase", &[]),
+                entity("v/1/1-01", "plan", &[]),
+                entity("v/1/D-03", "decision", &[("origin", "context")]),
+                entity("v/1/D-05", "decision", &[("origin", "context")]),
+            ],
+            edges,
+            ..Default::default()
+        }
+    };
+    assert!(check(&input(&["v/1/D-05"])).is_empty());
+    assert_eq!(codes_of(&check(&input(&[]))), [("E310", Some("v/1/D-05"))]);
+}

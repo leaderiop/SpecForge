@@ -58,11 +58,23 @@ pub fn listed_decisions<'a, 'b>(
         .collect()
 }
 
-/// The decisions of a phase's context (`origin context`), in id order: the ones its plans must list.
+/// The decisions some decision lists in `supersedes`: no longer in force, so no plan must list them.
+pub fn superseded(input: &PassInput) -> BTreeSet<&str> {
+    input
+        .edges
+        .iter()
+        .filter(|e| e.label == "supersedes")
+        .map(|e| e.target.as_str())
+        .collect()
+}
+
+/// The trackable decisions of a phase's context (`origin context`) that no decision supersedes, in id order: the ones
+/// its plans must list.
 pub fn context_decisions<'a>(input: &'a PassInput, phase: &str) -> Vec<&'a PassEntity> {
+    let superseded = superseded(input);
     children(input, phase, "decision")
         .into_iter()
-        .filter(|d| text(d, "origin") == Some("context"))
+        .filter(|d| text(d, "origin") == Some("context") && !superseded.contains(d.id.as_str()))
         .collect()
 }
 
