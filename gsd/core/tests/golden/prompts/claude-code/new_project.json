@@ -61,7 +61,7 @@
     "```bash",
     ""
   ],
-  "bytes": 79055,
+  "bytes": 79618,
   "end": [
     "- `area`: upstream's `### [Category]` heading: a feature area from the research, in the words the domain uses",
     "  (an auth, content or payments area, say).",
@@ -186,7 +186,7 @@
     "  \"features.global_learnings\": false,",
     "  \"features.thinking_partner\": false,"
   ],
-  "lines": 1898,
+  "lines": 1903,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:1feac0132994a840d9b491e3034f81c682fcec12b9300e9727691329b25148c6",
+    "digest": "sha256:1382e3f0346b1d85bdf6950e3e148889c1ffe3c8ee1008839407ba32516221e4",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "1feac0132994a840d9b491e3034f81c682fcec12b9300e9727691329b25148c6"
+  "sha256": "1382e3f0346b1d85bdf6950e3e148889c1ffe3c8ee1008839407ba32516221e4"
 }

@@ -82,6 +82,9 @@ fn the_summary_template_closes_a_plan() {
             ("PLAN_ID", "v1.0/02/02-01"),
             ("DECISION_ID", "D-04"),
             ("DECISION", "The store syncs the file before the rename"),
+            ("SUPERSEDES", ""),
+            ("AFFECTS", ""),
+            ("ALTERNATIVES", ""),
         ],
     );
     let summary = typed::filled(

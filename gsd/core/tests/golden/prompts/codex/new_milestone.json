@@ -61,7 +61,7 @@
     "",
     "MILESTONE_NAME=\"Next\""
   ],
-  "bytes": 73833,
+  "bytes": 74396,
   "end": [
     "  `reliability`, `security`, `maintainability`, `portability`, `safety` or `regulatory` (the first eight are ISO/IEC",
     "  25010:2011's product quality characteristics by their short names; `safety` comes from its 2023 revision, which",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1514,
+  "lines": 1519,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:18e6e303f842340bf5d2ce785356831ad0ff0008f8ca403d743bd9df9ec3a880",
+    "digest": "sha256:03aeddbd19771a785ccf8a4e4e9d214567b2cab14d95d0040001ce8b0b6b2ba1",
     "prompt": "@gsd/core@VERSION:new_milestone",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "18e6e303f842340bf5d2ce785356831ad0ff0008f8ca403d743bd9df9ec3a880"
+  "sha256": "03aeddbd19771a785ccf8a4e4e9d214567b2cab14d95d0040001ce8b0b6b2ba1"
 }

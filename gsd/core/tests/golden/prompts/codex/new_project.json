@@ -61,7 +61,7 @@
     "```bash",
     ""
   ],
-  "bytes": 87534,
+  "bytes": 88097,
   "end": [
     "- `area`: upstream's `### [Category]` heading: a feature area from the research, in the words the domain uses",
     "  (an auth, content or payments area, say).",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 2010,
+  "lines": 2015,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:cd3b3dccbcfe0424fe38377913ec4f2785691caff706d64e5a1c086c6d1533ef",
+    "digest": "sha256:7cf96a26acde25c48719be25858e098720937234fd12d0fcac0eb0d1af01f0ea",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "cd3b3dccbcfe0424fe38377913ec4f2785691caff706d64e5a1c086c6d1533ef"
+  "sha256": "7cf96a26acde25c48719be25858e098720937234fd12d0fcac0eb0d1af01f0ea"
 }
