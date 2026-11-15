@@ -22,7 +22,8 @@ behavior create_entity "Create an Entity" {
     invalid_title before the project is read; ADR 0225), and the file MUST be a project source.
     Each field is written as a set of it writes it, a reference spelled from the new entity's own scope chain, so a field that holds what its file's default holds, as the graph stores both,
     is not written, and each verify obligation as an add-verify writes it, its --verify prefix read by the kind's verify kinds, so an equal one given twice is written
-    once. The field flags of `specforge new` are the kind's fields in the project
+    once. A list field's flag takes its items as set takes its values: each value one item, a reference list's
+    also split at its commas; the flag repeated gives several, and its help says so. The field flags of `specforge new` are the kind's fields in the project
     the command acts on. Its command line is one command read once with the kind's fields: an option may stand anywhere
     and one given twice is refused, --help with a kind is that kind's help, its help and its usage errors name the program as specforge new, and an unknown kind is refused as unknown_kind,
     and a line whose --path a field's value spells is refused; a field named like one of its options is no flag of it, and
@@ -35,6 +36,7 @@ behavior create_entity "Create an Entity" {
   verify unit "new creates a missing source file"
   verify unit "new refuses a blank title"
   verify unit "new's help names a date field's value as YYYY-MM-DD"
+  verify unit "new takes a list field's items as set takes them, and its help says how"
   verify unit "new refuses a file that is not a project source"
   verify unit "new reads every spelling of a file under the project root as that file"
   verify unit "two spellings of one new file in one list are one file"

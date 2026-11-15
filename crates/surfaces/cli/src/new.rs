@@ -156,11 +156,21 @@ pub(crate) fn command(kind: Option<(&str, &[FieldInfo])>) -> Command {
         ));
     }
     for field in flagged {
+        // A list takes its items as `set` takes them: each value one item, a reference list's split at commas too.
+        let list = match field.field_type {
+            FieldType::ReferenceList => {
+                " (a list: repeat the flag for several items, or separate them with commas)"
+            }
+            FieldType::StringList | FieldType::EnumList => {
+                " (a list: repeat the flag for several items; each value is one item, commas and all)"
+            }
+            _ => "",
+        };
         let mut arg = Arg::new(field.name.clone())
             .long(field.name.clone())
             .allow_hyphen_values(true)
             .action(ArgAction::Append)
-            .help(field.description.clone());
+            .help(format!("{}{list}", field.description));
         arg = match field.field_type {
             FieldType::ReferenceList => arg.value_name("ID,…"),
             FieldType::Block if field.typed => arg.value_name("JSON"),
