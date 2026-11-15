@@ -352,20 +352,34 @@ fn specforge_product_beside_gsd_core_is_e026_on_five_kinds() {
     assert_eq!(kinds, kinds_the_readme_names());
 }
 
-/// `term.used_in` is a computed reference list to the six prose kinds: the host admits it (no W165, nothing reported)
-/// and `specforge query` shows it. `work_item`'s word "task" is in TASK-01's and TASK-02's text and in
-/// `add_and_finish`'s first step; "board" in SHARE-01's text and a step of each journey ("the board's link").
+/// `term.used_in` is a computed reference list to every kind that writes prose: the host admits it (no W165, nothing
+/// reported) and `specforge query` shows it. `work_item`'s word "task" is in TASK-01's and TASK-02's text, in
+/// `add_and_finish`'s first step, in the persona's, the project's and phase `v1.0/01`'s prose; "board" in SHARE-01's
+/// text, a step of each journey ("the board's link"), the persona's and the project's prose.
 #[test]
 fn the_host_admits_a_terms_used_in() {
     let p = product();
     assert_eq!(p.codes(), Vec::<String>::new(), "{:#?}", p.report());
     assert_eq!(
         p.fields_of("work_item")["used_in"],
-        serde_json::json!(["TASK-01", "TASK-02", "add_and_finish"])
+        serde_json::json!([
+            "TASK-01",
+            "TASK-02",
+            "add_and_finish",
+            "owner",
+            "taskboard",
+            "v1.0/01"
+        ])
     );
     assert_eq!(
         p.fields_of("board")["used_in"],
-        serde_json::json!(["SHARE-01", "add_and_finish", "share_board"])
+        serde_json::json!([
+            "SHARE-01",
+            "add_and_finish",
+            "owner",
+            "share_board",
+            "taskboard"
+        ])
     );
 }
 

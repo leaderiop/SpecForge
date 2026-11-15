@@ -18,7 +18,7 @@ const REASONS: &[&str] = &["threshold", "jump"];
 const PROPOSAL_STATUS: &[&str] = &["proposed", "accepted", "declined"];
 const OUTCOME: &[&str] = &["accepted", "declined"];
 
-const WAIVER: &[Field] = &[str("reason").r(), str("by").r(), ts("at").r()];
+const WAIVER: &[Field] = &[str("reason").prose().r(), str("by").r(), ts("at").r()];
 const CANDIDATES: &[Field] = &[
     str("file"),
     str("function"),
@@ -29,7 +29,7 @@ const CANDIDATES: &[Field] = &[
 ];
 const DISPOSITION: &[Field] = &[
     en("outcome", OUTCOME).r(),
-    str("reason"),
+    str("reason").prose(),
     str("by").r(),
     ts("at").r(),
 ];
@@ -45,7 +45,7 @@ pub const BROKEN_WINDOW: Kind = Kind::new(
             "`file`: checked while the window is open (E016); a fixed one's may since be gone",
         ),
         int("line").doc("`line`"),
-        str("description").r().doc("`description`"),
+        str("description").prose().r().doc("`description`"),
         block("waiver", WAIVER)
             .h()
             .i()

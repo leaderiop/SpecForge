@@ -13,17 +13,69 @@ const TECHNICAL_LEVEL: &[&str] = &[
     "non_technical",
 ];
 const PERSONA_STATUS: &[&str] = &["active", "deprecated"];
-/// The kinds whose prose `term.used_in` reads: `passes::vocabulary::PROSE`'s, in its order.
+/// The kinds whose prose `term.used_in` reads: every kind with a field its table marks prose
+/// (`passes::vocabulary::PROSE`'s kinds), in the kinds' order.
 const USED_IN: &[&str] = &[
+    "project",
     "requirement",
-    "decision",
-    "truth",
+    "persona",
     "journey",
+    "milestone",
+    "phase",
+    "workstream",
+    "retrospective",
+    "lesson",
+    "methodology",
+    "context",
+    "decision",
+    "deferred_idea",
+    "phase_spec",
+    "locked_req",
+    "interview",
+    "edge",
+    "spec_prohibition",
+    "discussion",
+    "research",
+    "finding",
+    "stack_choice",
+    "pattern",
+    "pitfall",
+    "dont_hand_roll",
+    "open_question",
+    "plan",
+    "task",
+    "checkpoint",
+    "truth",
+    "artifact",
+    "prohibition",
+    "disposition",
+    "review",
+    "review_concern",
+    "revision_conflict",
+    "user_setup",
+    "summary",
+    "deliverable",
+    "deviation",
+    "pause",
+    "handoff",
+    "blocker",
+    "verification",
+    "verify_gap",
+    "override",
+    "human_item",
+    "uat_test",
+    "uat_gap",
+    "manual_check",
+    "milestone_audit",
+    "broken_window",
     "risk",
     "invariant",
 ];
 const STEP: &[Field] = &[
-    str("action").r().doc("what the persona does at this step"),
+    str("action")
+        .prose()
+        .r()
+        .doc("what the persona does at this step"),
     rf("requirement", "requirement").doc("the requirement the step exercises, once known"),
 ];
 
@@ -32,11 +84,16 @@ pub const PERSONA: Kind = Kind::new(
     "persona",
     "A persona: who the product serves and what they want from it (beyond GSD)",
     &[
-        strs("goals").doc("what the persona wants to achieve"),
+        strs("goals")
+            .prose()
+            .doc("what the persona wants to achieve"),
         str("context")
+            .prose()
             .r()
             .doc("who they are and the situation they work in"),
-        strs("pain_points").doc("what gets in their way today"),
+        strs("pain_points")
+            .prose()
+            .doc("what gets in their way today"),
         en("technical_level", TECHNICAL_LEVEL).doc("technical proficiency, most technical first"),
         en("status", PERSONA_STATUS)
             .doc("deprecated when the product no longer serves them; absent means active"),

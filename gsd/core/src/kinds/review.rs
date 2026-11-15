@@ -10,13 +10,13 @@ const REVIEWER: &[Field] = &[str("name").r(), str("model").r(), str("source").r(
 const RISK: &[&str] = &["low", "medium", "high"];
 const LANE: &[Field] = &[
     str("reviewer").r(),
-    str("summary").r(),
-    strs("strengths"),
-    strs("suggestions"),
+    str("summary").prose().r(),
+    strs("strengths").prose(),
+    strs("suggestions").prose(),
     en("risk", RISK),
 ];
-const COVERAGE: &[Field] = &[str("reviewer").r(), int("total"), strs("missing")];
-const UNCHECKED: &[Field] = &[str("symbol").r(), str("why").r()];
+const COVERAGE: &[Field] = &[str("reviewer").r(), int("total"), strs("missing").prose()];
+const UNCHECKED: &[Field] = &[str("symbol").r(), str("why").prose().r()];
 const OPEN: &[Field] = &[int("high"), int("actionable")];
 
 /// `NN-REVIEWS.md`: one round of `/gsd-review`, named `RV1` and scoped by its phase, in the phase's file.
@@ -38,9 +38,9 @@ pub const REVIEW: Kind = Kind::new(
         blocks("coverage", COVERAGE).i().doc(
             "`plan_coverage:`: the plans each reviewer read of the total, and the ones it missed",
         ),
-        str("consensus").i().doc("`## Consensus Summary`"),
-        strs("strengths").i().doc("`### Agreed Strengths`"),
-        strs("divergent").i().doc("`### Divergent Views`"),
+        str("consensus").prose().i().doc("`## Consensus Summary`"),
+        strs("strengths").prose().i().doc("`### Agreed Strengths`"),
+        strs("divergent").prose().i().doc("`### Divergent Views`"),
         ts("reviewed_at")
             .h()
             .doc("`reviewed:`: when `record_review` wrote the round"),
@@ -67,7 +67,7 @@ pub const REVIEW_CONCERN: Kind = Kind::new(
         rf("plan", "plan").i().doc("the plan it is about"),
         strs("reviewers").i().doc("the reviewers who raised it"),
         en("severity", SEVERITY).r().i().doc("HIGH, MEDIUM or LOW"),
-        str("text").r().i().doc("the concern"),
+        str("text").prose().r().i().doc("the concern"),
         bool("actionable")
             .i()
             .doc("a concern the planner can act on (convergence counts it); false on a single-reviewer, unconfirmed HIGH, which keeps its severity and leaves the high count"),
@@ -100,12 +100,17 @@ pub const REVISION_CONFLICT: Kind = Kind::new(
             .r()
             .i()
             .doc("the checker dimension or review lane that asked"),
-        str("property").r().i().doc("what the ask would change"),
+        str("property")
+            .prose()
+            .r()
+            .i()
+            .doc("what the ask would change"),
         str("conflicts_with")
             .r()
             .i()
             .doc("the decision, requirement or must-have it would break"),
         str("alternatives")
+            .prose()
             .i()
             .doc("the ways out the planner named"),
         ts("raised").h().doc("when `record_conflict` raised it"),

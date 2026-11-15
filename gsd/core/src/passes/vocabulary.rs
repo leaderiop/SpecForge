@@ -1,32 +1,79 @@
-//! The vocabulary of the author's prose (ADR 0357 D16-D18): the one table of prose fields the vocabulary reads, where
-//! an entity's prose holds a word, and the `vocabulary` pass, gsd/W534. `term.used_in` (`passes::derive::product`)
-//! reads the same table; the terms' own words are gsd/W538's (`passes::glossary`).
+//! The vocabulary of the author's prose (ADR 0357 D16-D18): the one table of prose fields the vocabulary reads,
+//! derived from the kinds' tables, where an entity's prose holds a word, and the `vocabulary` pass, gsd/W534.
+//! `term.used_in` (`passes::derive::product`) reads the same table; the terms' own words are gsd/W538's
+//! (`passes::glossary`).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
+use std::sync::LazyLock;
 
+use gsd_kit::dsl::{Field, Kind, Ty, Writer};
+use serde_json::Value;
 use specforge_extension_sdk::prelude::*;
 
-use super::plans::{of_kind, rows, strings, text};
+use super::plans::{of_kind, strings, text};
 use super::words::{Boundary, Segments, folded, has_word};
 
-/// The authored prose fields, by kind, read in the author's language (`text_en` is not): a field's name, or
-/// `<list>.<member>` for a member of each row of a block list.
-pub(crate) const PROSE: &[(&str, &[&str])] = &[
-    ("requirement", &["text"]),
-    ("decision", &["text", "rationale", "context"]),
-    ("truth", &["text"]),
-    ("journey", &["steps.action"]),
-    ("risk", &["cause", "effect"]),
-    ("invariant", &["statement"]),
-];
+/// Where a kind writes prose (ADR 0357 D16): an authored field its table marks prose (`Field::prose`), or such a
+/// member of an authored block or block list, at any depth.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Prose {
+    /// The blocks down to the text, outermost first: each block's name, and whether it is a block list (each of its
+    /// rows holds the next). Empty for a field of the kind.
+    pub blocks: Vec<(&'static str, bool)>,
+    /// The text's field or member name.
+    pub name: &'static str,
+    /// A list of texts (`strs`), not one text.
+    pub list: bool,
+    /// The one prose member of its block, so a row's place need not name it (`step 2`, not `step 2 action`).
+    pub alone: bool,
+}
 
-/// The prose fields of `kind`; none for a kind that writes no prose.
-fn fields(kind: &str) -> &'static [&'static str] {
+/// The prose of each kind of `kinds` that writes some, in their order: a field or member another writer fills
+/// (computed, harness, verdict, context), or one inside such a block, is never prose.
+pub(crate) fn table(kinds: &[&Kind]) -> Vec<(&'static str, Vec<Prose>)> {
+    kinds
+        .iter()
+        .filter_map(|kind| {
+            let mut prose = Vec::new();
+            collect(kind.fields, &mut Vec::new(), &mut prose);
+            (!prose.is_empty()).then_some((kind.name, prose))
+        })
+        .collect()
+}
+
+/// Pushes the prose of `fields`, the members of `blocks`' innermost block (or a kind's fields), in their order.
+fn collect(fields: &[Field], blocks: &mut Vec<(&'static str, bool)>, out: &mut Vec<Prose>) {
+    let authored = || fields.iter().filter(|f| f.writer == Writer::Author);
+    let alone = !blocks.is_empty() && authored().filter(|f| f.prose).count() == 1;
+    for field in authored() {
+        match field.ty {
+            Ty::Str | Ty::Strs if field.prose => out.push(Prose {
+                blocks: blocks.clone(),
+                name: field.name,
+                list: matches!(field.ty, Ty::Strs),
+                alone,
+            }),
+            Ty::Block(members) | Ty::Blocks(members) => {
+                blocks.push((field.name, matches!(field.ty, Ty::Blocks(_))));
+                collect(members, blocks, out);
+                blocks.pop();
+            }
+            _ => {}
+        }
+    }
+}
+
+/// The vocabulary's table: [`table`] of `@gsd/core`'s kinds, derived once.
+static PROSE: LazyLock<Vec<(&'static str, Vec<Prose>)>> =
+    LazyLock::new(|| table(crate::kinds::KINDS));
+
+/// The prose of `kind`; none for a kind that writes no prose.
+fn fields(kind: &str) -> &'static [Prose] {
     PROSE
         .iter()
         .find(|(k, _)| *k == kind)
-        .map_or(&[], |(_, fields)| fields)
+        .map_or(&[], |(_, prose)| prose.as_slice())
 }
 
 /// The entities of the input that write prose, in input order.
@@ -37,28 +84,99 @@ pub(crate) fn writers(input: &PassInput) -> impl Iterator<Item = &PassEntity> {
         .filter(|e| !fields(&e.kind).is_empty())
 }
 
-/// `(where, text)` of each written, non-blank prose value of `entity`, in the table's order: `where` is the field, or
-/// a row's place for a member of a block list (`step 2`, the list's name made singular and the row's 1-based number).
+/// The written, non-blank texts of a member's value: a text, or each text of a list.
+fn texts_of(value: Option<&Value>) -> Vec<&str> {
+    let said: Vec<&str> = match value {
+        Some(Value::String(text)) => vec![text.as_str()],
+        Some(Value::Array(items)) => items.iter().filter_map(Value::as_str).collect(),
+        _ => Vec::new(),
+    };
+    said.into_iter()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .collect()
+}
+
+/// `(where, text)` of each written, non-blank prose value of `entity`, in its kind's field order. `where` is the field;
+/// inside a block, the block's name, or for a row of a block list its place (`step 2`: the list's name made singular
+/// and the row's 1-based number), then the member's name unless it is the one prose member of a row.
 pub(crate) fn prose(entity: &PassEntity) -> Vec<(String, String)> {
     let mut out = Vec::new();
     for path in fields(&entity.kind) {
-        match path.split_once('.') {
-            Some((list, member)) => {
-                let row = list.strip_suffix('s').unwrap_or(list);
-                for (at, values) in rows(entity, list).iter().enumerate() {
-                    if let Some(said) = values
-                        .get(member)
-                        .map(|t| t.trim())
-                        .filter(|t| !t.is_empty())
-                    {
-                        out.push((format!("{row} {}", at + 1), said.to_string()));
-                    }
-                }
-            }
-            None => out.extend(text(entity, path).map(|said| (path.to_string(), said.to_string()))),
+        match path.blocks.first() {
+            None if path.list => out.extend(
+                strings(entity, path.name)
+                    .iter()
+                    .map(|said| said.trim())
+                    .filter(|said| !said.is_empty())
+                    .map(|said| (path.name.to_string(), said.to_string())),
+            ),
+            None => out.extend(
+                text(entity, path.name).map(|said| (path.name.to_string(), said.to_string())),
+            ),
+            Some((block, _)) => visit(entity.values.get(*block), &path.blocks, path, "", &mut out),
         }
     }
     out
+}
+
+/// A block list's name made singular, for its row's place: `steps` is `step`, `entries` is `entry`.
+fn singular(list: &str) -> String {
+    match list.strip_suffix("ies") {
+        Some(stem) => format!("{stem}y"),
+        None => list.strip_suffix('s').unwrap_or(list).to_string(),
+    }
+}
+
+/// Pushes `(where, text)` of each text `prose` names under `value`, the value of `blocks`' first block, which sits at
+/// `place` (empty for a field of the kind).
+fn visit(
+    value: Option<&Value>,
+    blocks: &[(&'static str, bool)],
+    prose: &Prose,
+    place: &str,
+    out: &mut Vec<(String, String)>,
+) {
+    let Some(((name, rows), rest)) = blocks.split_first() else {
+        out.extend(
+            texts_of(value)
+                .into_iter()
+                .map(|said| (place.to_string(), said.to_string())),
+        );
+        return;
+    };
+    let at = |part: String| {
+        if place.is_empty() {
+            part
+        } else {
+            format!("{place} {part}")
+        }
+    };
+    let records: Vec<(String, &serde_json::Map<String, Value>)> = if *rows {
+        let row = singular(name);
+        value
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .enumerate()
+            .filter_map(|(n, record)| Some((at(format!("{row} {}", n + 1)), record.as_object()?)))
+            .collect()
+    } else {
+        value
+            .and_then(Value::as_object)
+            .map(|record| (at(name.to_string()), record))
+            .into_iter()
+            .collect()
+    };
+    let next = rest.first().map_or(prose.name, |(block, _)| *block);
+    for (place, record) in records {
+        let place = if rest.is_empty() && !(*rows && prose.alone) {
+            format!("{place} {}", prose.name)
+        } else {
+            place
+        };
+        visit(record.get(next), rest, prose, &place, out);
+    }
 }
 
 /// The first place of `prose` (as [`prose`] reads it) that holds `phrase` as a whole word or phrase, read at the
@@ -157,7 +275,7 @@ impl<'p> Place<'p> {
     }
 }
 
-/// W534: prose (`PROSE`) that holds a word or phrase a term avoids, read at the Unicode boundary, outside every
+/// W534: prose (`PROSE`, every field the kinds mark prose) that holds a word or phrase a term avoids, read at the Unicode boundary, outside every
 /// accepted name or alias it writes. One warning per entity and avoided word, on the entity, naming the first place
 /// that holds it and what it writes there, the avoided word as the avoid list spells it, every term that avoids it and
 /// the word each asks for.

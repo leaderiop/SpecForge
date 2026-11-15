@@ -69,6 +69,10 @@ pub struct Field {
     pub immutable: bool,
     /// `U`: only a person writes it (ADR 0289).
     pub human: bool,
+    /// Free text in the author's language (a statement, a reason, an action, a note), never a name, a word to group
+    /// by, a command or a copy of other words: what an extension that reads the author's wording reads. Not declared
+    /// to the host.
+    pub prose: bool,
     /// `+`: the baseline's list is a prefix of the current one.
     pub append: bool,
     /// `O`: a context record checked only while its owner is open.
@@ -92,6 +96,7 @@ impl Field {
             writer: Writer::Author,
             immutable: false,
             human: false,
+            prose: false,
             append: false,
             open: false,
             range: None,
@@ -138,6 +143,11 @@ impl Field {
     /// `U`
     pub const fn u(mut self) -> Self {
         self.human = true;
+        self
+    }
+    /// Prose in the author's language: a `str` or `strs` an author writes.
+    pub const fn prose(mut self) -> Self {
+        self.prose = true;
         self
     }
     /// `+`

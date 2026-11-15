@@ -1,4 +1,4 @@
-use gsd_kit::dsl::{Kind, Ty};
+use gsd_kit::dsl::{Field, Kind, Ty, Writer};
 use serde_json::json;
 
 use super::*;
@@ -10,37 +10,83 @@ fn declared(kind: &str) -> &'static Kind {
         .unwrap_or_else(|| panic!("{kind} is declared"))
 }
 
-/// Each path of the table is a text field of a declared kind, or a text member of one of its block lists: a later
-/// rename fails here rather than leave the vocabulary reading nothing.
+/// Every prose mark sits on a text or a list of texts, and one on a kind's own field on an authored one: a mark the
+/// table cannot read fails here rather than leave the vocabulary reading nothing. A record two kinds share (a
+/// `resolved` block) may sit under another writer's block in one of them, where the table does not read it.
 #[test]
-fn every_prose_field_is_a_declared_text_field() {
-    for (kind, paths) in PROSE {
-        let fields = declared(kind).fields;
-        for path in *paths {
-            let (name, member) = path
-                .split_once('.')
-                .map_or((*path, None), |(l, m)| (l, Some(m)));
-            let field = fields
-                .iter()
-                .find(|f| f.name == name)
-                .unwrap_or_else(|| panic!("{kind}.{name} is declared"));
-            let ty = match (member, field.ty) {
-                (None, ty) => ty,
-                (Some(member), Ty::Blocks(members)) => {
-                    members
-                        .iter()
-                        .find(|m| m.name == member)
-                        .unwrap_or_else(|| panic!("{kind}.{path} is declared"))
-                        .ty
-                }
-                (Some(_), _) => panic!("{kind}.{name} is no block list"),
-            };
-            assert!(matches!(ty, Ty::Str), "{kind}.{path} is a text field");
+fn every_prose_mark_is_on_a_text_the_table_reads() {
+    fn walk(kind: &str, fields: &[Field], top: bool) {
+        for field in fields {
+            if field.prose {
+                assert!(
+                    matches!(field.ty, Ty::Str | Ty::Strs),
+                    "{kind}.{}: prose is a str or strs",
+                    field.name
+                );
+                assert!(
+                    !top || field.writer == Writer::Author,
+                    "{kind}.{}: prose is authored",
+                    field.name
+                );
+            }
+            if let Ty::Block(members) | Ty::Blocks(members) = field.ty {
+                walk(kind, members, false);
+            }
         }
+    }
+    for kind in crate::kinds::KINDS {
+        walk(kind.name, kind.fields, true);
+    }
+    // The blocker's `resolved` is authored and read; the revision conflict's is the planner's record and is not.
+    assert!(fields("blocker").iter().any(|p| p.name == "how"));
+    assert!(!fields("revision_conflict").iter().any(|p| p.name == "how"));
+}
+
+/// The table is what the kinds mark: a kind's prose fields, a block list's prose member, and nothing of a term (the
+/// glossary) or of `text_en` (another language).
+#[test]
+fn the_table_reads_the_kinds_marks() {
+    let field = |name, list| Prose {
+        blocks: Vec::new(),
+        name,
+        list,
+        alone: false,
+    };
+    assert_eq!(
+        fields("requirement"),
+        [field("text", false), field("reason", false)]
+    );
+    assert_eq!(
+        fields("journey"),
+        [Prose {
+            blocks: vec![("steps", true)],
+            name: "action",
+            list: false,
+            alone: true
+        }]
+    );
+    let decision = fields("decision");
+    assert!(decision.contains(&field("consequences", true)));
+    assert!(decision.contains(&Prose {
+        blocks: vec![("alternatives", true)],
+        name: "why_not",
+        list: false,
+        alone: false
+    }));
+    assert!(fields("discussion").contains(&Prose {
+        blocks: vec![("checkpoint", false), ("decisions", true)],
+        name: "question",
+        list: false,
+        alone: false
+    }));
+    assert!(fields("term").is_empty());
+    assert!(fields("commit").is_empty(), "a harness-written kind");
+    for (kind, prose) in PROSE.iter() {
+        assert!(!prose.iter().any(|p| p.name == "text_en"), "{kind}");
     }
 }
 
-/// `term.used_in` lists entities of exactly the kinds that write prose.
+/// `term.used_in` lists entities of exactly the kinds that write prose, in the kinds' order.
 #[test]
 fn the_used_in_union_is_the_prose_kinds() {
     let used_in = declared("term")
@@ -79,21 +125,37 @@ fn a_journey_step_action_is_prose() {
     assert_eq!(uses(&places, "owner"), None);
 }
 
-/// A decision's three prose fields, in the table's order; its `area` is no prose.
+/// A decision's prose, in its fields' order: its text and lists of texts, and its alternatives' prose members, each
+/// named with its row; its `area` is no prose.
 #[test]
-fn a_decision_reads_its_text_rationale_and_context() {
+fn a_decision_reads_its_prose_fields_and_its_alternatives() {
     let decision: PassEntity = serde_json::from_value(json!({
         "id": "v1.0/01/D1", "kind": "decision",
         "fields": { "text": "Store tasks", "area": "storage", "context": "a board",
                     "rationale": "a board needs them" },
+        "values": {
+            "consequences": ["a file per board", " "],
+            "alternatives": [ { "name": "SQLite", "why_not": "a server to run", "pros": ["fast"] } ],
+        },
     }))
     .expect("a decision");
-    let places: Vec<String> = prose(&decision)
-        .into_iter()
-        .map(|(place, _)| place)
-        .collect();
-    assert_eq!(places, ["text", "rationale", "context"]);
-    assert_eq!(uses(&prose(&decision), "board"), Some("rationale"));
+    assert_eq!(
+        prose(&decision),
+        [
+            ("text", "Store tasks"),
+            ("context", "a board"),
+            ("alternative 1 pros", "fast"),
+            ("alternative 1 why_not", "a server to run"),
+            ("rationale", "a board needs them"),
+            ("consequences", "a file per board"),
+        ]
+        .map(|(place, said)| (place.to_string(), said.to_string()))
+    );
+    assert_eq!(uses(&prose(&decision), "board"), Some("context"));
+    assert_eq!(
+        uses(&prose(&decision), "server"),
+        Some("alternative 1 why_not")
+    );
     assert_eq!(uses(&prose(&decision), "storage"), None);
 }
 
@@ -195,7 +257,7 @@ fn prose_without_an_avoided_word_is_not_w534() {
     let found = found(&input(json!([
         term("work_item", "task", &["ticket"]),
         { "id": "TASK-01", "kind": "requirement", "fields": { "text": "A user can add a task; tickets are gone" } },
-        { "id": "T1", "kind": "task", "fields": { "action": "close the ticket" } },
+        { "id": "R2", "kind": "requirement", "fields": { "text": "A user can add a task", "area": "ticket" } },
     ])));
     assert_eq!(found, []);
 }
@@ -258,5 +320,65 @@ fn w534_quotes_the_prose_as_written() {
         [
             "requirement 'R1' writes \"Support\n  Ticket\" in text, \"support ticket\" avoided by term 'work_item'"
         ]
+    );
+}
+
+/// Every field a kind marks prose is read, beyond the six of a requirement, a decision, a truth, a journey, a risk and
+/// an invariant: a task's action, a risk's mitigation, a decision's consequences, an alternative's `why_not`.
+#[test]
+fn w534_reads_every_field_the_kinds_mark_prose() {
+    let found = found(&input(json!([
+        term("work_item", "task", &["ticket"]),
+        { "id": "T1", "kind": "task", "fields": { "action": "close the ticket" } },
+        { "id": "RK1", "kind": "risk",
+          "fields": { "cause": "a bug", "effect": "lost work", "mitigation": "back up each ticket" } },
+        { "id": "D1", "kind": "decision", "fields": { "text": "Keep a board" },
+          "values": { "consequences": ["no ticket is lost"],
+                      "alternatives": [ { "name": "Jira", "why_not": "a ticket tracker" } ] } },
+    ])));
+    let on: Vec<(&str, &str)> = found
+        .iter()
+        .map(|(_, entity, message, _)| (entity.as_str(), message.as_str()))
+        .collect();
+    assert_eq!(
+        on,
+        [
+            (
+                "D1",
+                "decision 'D1' writes \"ticket\" in alternative 1 why_not, \"ticket\" avoided by term 'work_item'"
+            ),
+            (
+                "RK1",
+                "risk 'RK1' writes \"ticket\" in mitigation, \"ticket\" avoided by term 'work_item'"
+            ),
+            (
+                "T1",
+                "task 'T1' writes \"ticket\" in action, \"ticket\" avoided by term 'work_item'"
+            ),
+        ],
+        "{found:#?}"
+    );
+}
+
+/// A prose member two blocks down reads with both places: a discussion checkpoint's decision question.
+#[test]
+fn a_nested_block_member_reads_with_its_places() {
+    let discussion: PassEntity = serde_json::from_value(json!({
+        "id": "v1.0/01/01-DISCUSSION-LOG", "kind": "discussion",
+        "values": {
+            "entries": [ { "area": "storage", "question": "Where do tasks live?" } ],
+            "checkpoint": { "decisions": [ { "area": "ui", "question": "One board or many?" } ],
+                            "deferred_ideas": ["sharing"] },
+        },
+    }))
+    .expect("a discussion");
+    assert_eq!(
+        prose(&discussion),
+        [
+            ("entry 1 question", "Where do tasks live?"),
+            ("checkpoint decision 1 question", "One board or many?"),
+            ("checkpoint deferred_ideas", "sharing"),
+        ]
+        .map(|(place, said)| (place.to_string(), said.to_string()))
     );
 }

@@ -18,9 +18,9 @@ pub const CONTEXT: Kind = Kind::new(
             .i()
             .doc("the quick plan of a quick task's context (/gsd-quick --discuss)"),
         date("gathered").i().doc("**Gathered:**"),
-        str("boundary").r().doc("<domain> Phase Boundary"),
-        strs("discretion").doc("Claude's Discretion"),
-        str("specifics").doc("<specifics>"),
+        str("boundary").prose().r().doc("<domain> Phase Boundary"),
+        strs("discretion").prose().doc("Claude's Discretion"),
+        str("specifics").prose().doc("<specifics>"),
         // Not required: `gsd/E201` is the one diagnostic of its absence.
         blocks("canonical_refs", CANONICAL_REF).doc("<canonical_refs>"),
         strs("reusable_assets").doc("<code_context>"),
@@ -54,12 +54,12 @@ pub const DECISION: Kind = Kind::new(
             .i()
             .doc("owning quick CONTEXT: the quick plan whose context recorded it"),
         str("area").doc("### [Area]"),
-        str("text").r().doc("the decision"),
-        str("context").doc("what prompted it (an ADR's Context)"),
+        str("text").prose().r().doc("the decision"),
+        str("context").prose().doc("what prompted it (an ADR's Context)"),
         blocks("alternatives", super::ALTERNATIVE)
             .doc("the options weighed and not chosen, each with why it lost"),
-        str("rationale").doc("Key Decisions Rationale"),
-        strs("consequences").doc("what follows from it, good and bad (an ADR's Consequences)"),
+        str("rationale").prose().doc("Key Decisions Rationale"),
+        strs("consequences").prose().doc("what follows from it, good and bad (an ADR's Consequences)"),
         en("outcome", OUTCOME).doc("Good, Revisit or Pending"),
         en("reversibility", REVERSIBILITY).doc("planner reversibility rating"),
         bool("settled").doc("locked: a plan contradicting it is refused (judged)"),
@@ -95,9 +95,9 @@ pub const DEFERRED_IDEA: Kind = Kind::new(
     "deferred_idea",
     "An idea deferred out of a phase (GSD CONTEXT.md <deferred>)",
     &[
-        str("text").r(),
+        str("text").prose().r(),
         rf("phase", "phase").r(),
-        str("why"),
+        str("why").prose(),
         en("origin", IDEA_ORIGIN).r().i().doc(
             "`discussion`: deferred while the phase's context was set (discuss, the PRD path, the source audit), and served with that context; `execution`: an executor's out-of-scope discovery, which no context serves and the forensic audit lists",
         ),
@@ -111,27 +111,29 @@ pub const DEFERRED_IDEA: Kind = Kind::new(
 const DISCUSSION_MODES: &[&str] = &["interactive", "assumptions", "advisor"];
 const ENTRY: &[Field] = &[
     str("area"),
-    str("question"),
-    strs("options"),
+    str("question").prose(),
+    strs("options").prose(),
     str("chosen"),
     en("mode", DISCUSSION_MODES),
-    str("notes").doc("the user's follow-up notes, or the reason for a correction"),
+    str("notes")
+        .prose()
+        .doc("the user's follow-up notes, or the reason for a correction"),
     en("confidence", &["confident", "likely", "unclear"])
         .doc("assumptions mode: how sure the assumption is"),
     strs("evidence").doc("assumptions mode: the file paths behind the assumption"),
 ];
 const CHECKPOINT_DECISION: &[Field] = &[
     str("area").r(),
-    str("question").r(),
-    str("answer"),
-    strs("options_presented"),
+    str("question").prose().r(),
+    str("answer").prose(),
+    strs("options_presented").prose(),
 ];
 const CHECKPOINT: &[Field] = &[
     ts("timestamp"),
     strs("areas_completed"),
     strs("areas_remaining"),
     blocks("decisions", CHECKPOINT_DECISION),
-    strs("deferred_ideas"),
+    strs("deferred_ideas").prose(),
     strs("canonical_refs"),
 ];
 

@@ -33,7 +33,7 @@ fn glossary() -> Value {
           "values": { "aliases": ["to-do"], "avoid": ["ticket"] } },
         { "id": "R1", "kind": "requirement", "fields": { "text": "A user can add a Task" } },
         { "id": "R2", "kind": "requirement", "fields": { "text": "Every To-Do is kept" } },
-        { "id": "R3", "kind": "requirement", "fields": { "text": "A ticket is closed" } },
+        { "id": "R3", "kind": "requirement", "fields": { "text": "A ticket is closed", "area": "task" } },
         { "id": "D1", "kind": "decision", "fields": { "text": "Store on disk", "rationale": "a task survives" } },
         { "id": "add", "kind": "journey", "fields": { "persona": "owner" },
           "values": { "steps": [ { "action": "opens the board" }, { "action": "adds a task" } ] } },
@@ -42,13 +42,13 @@ fn glossary() -> Value {
 }
 
 /// The name and the alias are uses, case-insensitively, in any prose field (a decision's rationale, a journey step's
-/// action); an avoided word is none, and a task's action is no prose.
+/// action, a task's action); an avoided word is none, and a requirement's `area` is no prose.
 #[test]
 fn a_term_is_used_where_its_name_or_an_alias_is_a_whole_word() {
     let values = computed(&input(glossary(), &[]));
     assert_eq!(
         of(&values, "work_item", "used_in"),
-        Some(&json!(["D1", "R1", "R2", "add"]))
+        Some(&json!(["D1", "R1", "R2", "T1", "add"]))
     );
 }
 

@@ -23,8 +23,8 @@ pub const RISK: Kind = Kind::new(
     "A risk: what can go wrong, rated 1 to 10 for severity, occurrence and detection (FMEA), and what controls it \
      (beyond GSD)",
     &[
-        str("cause").r().doc("what makes it happen"),
-        str("effect").r().doc("what breaks when it does"),
+        str("cause").prose().r().doc("what makes it happen"),
+        str("effect").prose().r().doc("what breaks when it does"),
         int("severity")
             .r()
             .range(1, 10)
@@ -46,7 +46,7 @@ pub const RISK: Kind = Kind::new(
                 "what controls it: a task done, a truth verified, an invariant that holds; each reads it back as \
                  `mitigates`",
             ),
-        str("mitigation").doc("the planned control as prose; no evidence"),
+        str("mitigation").prose().doc("the planned control as prose; no evidence"),
         rfs("affects", "requirement")
             .inverse("risks")
             .doc("the requirements it threatens; each reads it back as `risks`"),
@@ -54,7 +54,7 @@ pub const RISK: Kind = Kind::new(
             "where it must be settled when no phase's plan mitigates it; the milestone reads it back as `risks`",
         ),
         strs("tags").doc("words to group it"),
-        str("description").doc("free prose"),
+        str("description").prose().doc("free prose"),
         strs("refs").doc("external references"),
         int("rpn")
             .c()
@@ -96,8 +96,8 @@ pub const INVARIANT: Kind = Kind::new(
     "An invariant: what must always hold, from which phase, proven by which tests, over which code items (beyond \
      GSD)",
     &[
-        str("statement").r().doc("what must always hold"),
-        str("description").doc("a summary beside the statement"),
+        str("statement").prose().r().doc("what must always hold"),
+        str("description").prose().doc("a summary beside the statement"),
         en("scope", INVARIANT_SCOPE)
             .doc("how far it reaches: the project (absent), or the milestone of its `holds_from` phase"),
         rf("holds_from", "phase")

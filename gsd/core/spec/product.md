@@ -67,17 +67,17 @@ A glossary entry: a word of the project and what it means. Name: a word, `spec_r
 | related | →* term | | related terms |
 | context | str | | where or how it is used |
 | tags | strs | | free words |
-| used_in | →* requirement \| decision \| truth \| journey \| risk \| invariant | C | the entities whose prose holds its `name` or one of its `aliases` as a whole word or phrase, by id, sorted; `[]` when none |
+| used_in | →* project \| requirement \| persona \| journey \| milestone \| phase \| workstream \| retrospective \| lesson \| methodology \| context \| decision \| deferred_idea \| phase_spec \| locked_req \| interview \| edge \| spec_prohibition \| discussion \| research \| finding \| stack_choice \| pattern \| pitfall \| dont_hand_roll \| open_question \| plan \| task \| checkpoint \| truth \| artifact \| prohibition \| disposition \| review \| review_concern \| revision_conflict \| user_setup \| summary \| deliverable \| deviation \| pause \| handoff \| blocker \| verification \| verify_gap \| override \| human_item \| uat_test \| uat_gap \| manual_check \| milestone_audit \| broken_window \| risk \| invariant | C | the entities whose prose holds its `name` or one of its `aliases` as a whole word or phrase, by id, sorted; `[]` when none |
 
 `related` relates terms with themselves, so it has no reverse to read: a term names the terms it relates to.
 
-`used_in` reads the authored prose in the author's language (ADR 0357 D16, D17): a requirement's `text`, a decision's
-`text`, `rationale` and `context`, a truth's `text`, each journey step's `action`, a risk's `cause` and `effect` and an
-invariant's `statement` (`text_en` is not read). A word matches whole, case-insensitively and accents as written, at
-Unicode word boundaries (UAX #29, an apostrophe splitting a word), with no stemming: "Tasks" is no use of "task". In
-Han and kana prose a word is found wherever its characters run; in Thai, Lao, Khmer and Myanmar, also inside a longer
-word (ADR 0357 D15).
-A computed reference makes no edge, so `specforge query <term>` shows it and `specforge refs` does not.
+`used_in` reads the authored prose in the author's language (ADR 0357 D16, D17): every field, or member of a block or
+block list, that its kind's table marks prose (a statement, a description, a reason, an action, a note, a criterion),
+in each of the kinds above; never a name, a word to group by, a command, a copy of other words, `text_en` or a term's
+own fields. A word matches whole, case-insensitively and accents as written, at Unicode word boundaries (UAX #29, an
+apostrophe splitting a word), with no stemming: "Tasks" is no use of "task". In Han and kana prose a word is found
+wherever its characters run; in Thai, Lao, Khmer and Myanmar, also inside a longer word (ADR 0357 D15). A computed
+reference makes no edge, so `specforge query <term>` shows it and `specforge refs` does not.
 
 ## What the old product kinds became
 

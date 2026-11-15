@@ -28,7 +28,11 @@ pub use roadmap::PHASE_COMPLETE;
 use specforge_extension_sdk::prelude::*;
 
 /// An option weighed: a checkpoint's options (GSD `<options>`) and, with why it lost, a decision's alternatives.
-const OPTION: &[dsl::Field] = &[dsl::str("name").r(), dsl::strs("pros"), dsl::strs("cons")];
+const OPTION: &[dsl::Field] = &[
+    dsl::str("name").r(),
+    dsl::strs("pros").prose(),
+    dsl::strs("cons").prose(),
+];
 
 /// A decision's alternative: the checkpoint's [`OPTION`] record and why it was not chosen. `why_not` is optional, so
 /// an alternative may be a bare name.
@@ -36,7 +40,7 @@ const ALTERNATIVE: &[dsl::Field] = &[
     OPTION[0],
     OPTION[1],
     OPTION[2],
-    dsl::str("why_not").doc("why it was not chosen"),
+    dsl::str("why_not").prose().doc("why it was not chosen"),
 ];
 
 /// Every kind declared so far, in the order of the model's files.

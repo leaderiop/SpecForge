@@ -191,15 +191,27 @@ features' requirements, a channel as a term, the artifact word, the journey memb
   - Under both, an empty needle matches nothing. There is no stemming, no accent stripping and no normalisation: a
     word in NFC does not match the same word in NFD. Lowercase mapping is not full case folding: "STRASSE" does not
     match "straße", and Turkish dotted and dotless i stay distinct letters.
-- **D16. The prose fields.** One table, `passes/vocabulary.rs`'s `PROSE`, names what the vocabulary reads: a
-  requirement's `text`; a decision's `text`, `rationale` and `context`; a truth's `text`; each journey step's
-  `action`; a risk's `cause` and `effect`; an invariant's `statement`. They are read in the author's language:
-  `text_en` is not read, nor a term's `definition`, a persona's goals or a milestone's goal.
+- **D16. The prose fields.** A kind's table marks each field that holds prose in the author's language
+  (`Field::prose` in `gsd-kit`'s `dsl`): a statement, a description, a reason, an action, a note, a criterion, or a
+  list of them, as a field of the kind or as a member of a block or of each row of a block list, at any depth (a
+  journey step's `action`, an alternative's `why_not`, a discussion checkpoint's decision `question`).
+  `passes/vocabulary.rs` derives the one table the vocabulary reads from those marks (`PROSE`, `table`), so a field a
+  kind gains is read once its table marks it, and no second list names the fields.
+  - The rule: a field is prose when an author writes it as sentences or phrases in the project's language. A name, a
+    title or a slug is not, nor a word to group by (an area, a tag, a subsystem, a channel, an artifact type), a
+    person, a command, a pattern, a path, a URL, a version, a symbol, a copy or a quote of other words
+    (`uat_test.reported`, `override.accepts`, `requirement.source`, a checkpoint's recorded answer), code context
+    (`context.reusable_assets`), or `text_en`, which is not the author's language.
+  - A field another writer fills (computed, harness, verdict, context record) is never prose, nor anything inside
+    such a block: a record two kinds share (`resolved`) is read where it is authored (a blocker's) and not where a
+    command writes it (a revision conflict's).
+  - A term's own fields are not prose: they are the glossary (D18).
 - **D17. `term.used_in` is computed.** It lists the entities whose prose (D16) holds the term's `name` or one of its
   `aliases` as a whole word or phrase (D15, `Unicode`), by id, sorted, and `[]` when the term is unused, so "none" is
   never "unknown". An `avoid` word is never a use.
-  - It is a reference list to the six prose kinds. A computed value is held beside the graph and makes no edge
-    (ADR 0287), so `specforge query <term>` shows it and `specforge refs` or `trace` do not.
+  - It is a reference list to every kind that writes prose (D16), in the kinds' order; a test holds the declared
+    union to the derived table. A computed value is held beside the graph and makes no edge (ADR 0287), so
+    `specforge query <term>` shows it and `specforge refs` or `trace` do not.
 - **D18. `gsd/W534`: prose writes a word a term avoids.** A prose field (D16) that holds a word or phrase a term lists
   in `avoid` (D15, `Unicode`) is one warning per entity and avoided word, the word compared as `gsd/W538` compares it.
   - It sits on the entity, and names the first field that holds the word, what that field writes (its case and
@@ -268,6 +280,8 @@ features' requirements, a channel as a term, the artifact word, the journey memb
 - A dictionary for Thai, Lao, Khmer and Myanmar (D15): a large table per language, for a warning.
 - Stemming or lemmatising (D15): each is language-specific. An inflection goes in `aliases` or `avoid`.
 - Reading `text_en` (D16): the vocabulary is the author's language.
+- A hand-kept list of the prose fields (D16): it named six kinds and missed a decision's `consequences`, a risk's
+  `mitigation` and every other kind's prose, and each new field had to be added twice.
 - One `used_in_<kind>` field per kind (D17): the host admits a computed union list.
 - `covered` as requirement `status complete` (D20): that says only that a plan finished.
 - A journey-tagged test making a journey covered (D21): two readings of coverage.

@@ -2,7 +2,11 @@
 
 use gsd_kit::dsl::*;
 
-const ABANDONED: &[Field] = &[str("reason").r(), str("ruled_by").r(), date("at").r()];
+const ABANDONED: &[Field] = &[
+    str("reason").prose().r(),
+    str("ruled_by").r(),
+    date("at").r(),
+];
 const COMPLETION: &[Field] = &[date("at"), rf("audit", "milestone_audit")];
 const STATS: &[Field] = &[
     int("files"),
@@ -28,12 +32,12 @@ pub const MILESTONE: Kind = Kind::new(
     "A milestone: a shippable version of the project (GSD ROADMAP.md, MILESTONES.md)",
     &[
         str("name").r().doc("MVP"),
-        str("delivered").doc("Delivered"),
-        strs("accomplishments").doc("Key accomplishments"),
-        str("whats_next").doc("What's next"),
-        str("goal").doc("**Goal:** of the Current Milestone in PROJECT.md"),
-        strs("target_features").doc("**Target features:** of the Current Milestone in PROJECT.md"),
-        strs("exit_criteria").doc("what must hold to call it done (beyond GSD)"),
+        str("delivered").prose().doc("Delivered"),
+        strs("accomplishments").prose().doc("Key accomplishments"),
+        str("whats_next").prose().doc("What's next"),
+        str("goal").prose().doc("**Goal:** of the Current Milestone in PROJECT.md"),
+        strs("target_features").prose().doc("**Target features:** of the Current Milestone in PROJECT.md"),
+        strs("exit_criteria").prose().doc("what must hold to call it done (beyond GSD)"),
         date("starts").doc("when work on it starts (beyond GSD)"),
         date("targets")
             .doc("the date it aims to ship; not before `starts`, gsd/E537 (beyond GSD)"),
@@ -106,12 +110,12 @@ pub const PHASE: Kind = Kind::new(
             .doc("the section it sits in"),
         str("name").r().doc("heading text"),
         str("slug").r().doc("directory NN-slug"),
-        str("goal").r().doc("Goal"),
+        str("goal").prose().r().doc("Goal"),
         rfs("depends_on", "phase").doc("Depends on"),
         rfs("requirements", "requirement")
             .inverse("phase")
             .doc("Requirements; the requirement reads its phase back as `phase`"),
-        strs("success_criteria")
+        strs("success_criteria").prose()
             .r()
             .doc("Success Criteria (2 to 5, gsd/W103)"),
         en("mode", MODES).doc("Mode (/gsd-mvp-phase)"),
@@ -152,7 +156,10 @@ pub const WORKSTREAM: Kind = Kind::new(
     "workstream",
     "A workstream: a scope with its own milestones and phases (GSD workstreams)",
     &[
-        str("purpose").r().doc("the workstream's description"),
+        str("purpose")
+            .prose()
+            .r()
+            .doc("the workstream's description"),
         en("status", WORKSTREAM_STATUS)
             .c()
             .doc("complete when all its milestones shipped"),
