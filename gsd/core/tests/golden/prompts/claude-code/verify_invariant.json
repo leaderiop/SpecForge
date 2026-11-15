@@ -25,7 +25,7 @@
     "",
     "No invariant awaits a verdict."
   ],
-  "bytes": 10889,
+  "bytes": 10901,
   "end": [
     "  \"dynamic_routing.max_escalations\": 1,",
     "  \"effort.routing_tier_defaults.heavy\": \"xhigh\",",
@@ -70,7 +70,7 @@
   ],
   "head": [
     "<specforge_gsd_preamble>",
-    "You are running a GSD workflow inside SpecForge (the extension `@gsd/core`). The workflow text below is GSD's own. The",
+    "You are running a workflow of `@gsd/core` inside SpecForge. The workflow text below is `@gsd/core`'s own, not a port of GSD's. The",
     "files it talks about are entities of the project's spec here, and the tools it calls are SpecForge's. This section says",
     "where each thing went; where it and the workflow disagree, this section wins.",
     "",
@@ -152,7 +152,7 @@
   ],
   "lines": 204,
   "payload": {
-    "digest": "sha256:46c1f1abd57b022b34eb7fb31fd6d021f0f4abd4e3837d02276071fc2918f25a",
+    "digest": "sha256:15d4dec795efe81aa63769d0514fbaecfcd80a6d9ffd3d0176837af11b35b8c8",
     "judged": [
       {
         "outcomes": [
@@ -168,5 +168,5 @@
     ],
     "prompt": "@gsd/core@VERSION:verify_invariant"
   },
-  "sha256": "46c1f1abd57b022b34eb7fb31fd6d021f0f4abd4e3837d02276071fc2918f25a"
+  "sha256": "15d4dec795efe81aa63769d0514fbaecfcd80a6d9ffd3d0176837af11b35b8c8"
 }

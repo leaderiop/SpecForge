@@ -270,7 +270,7 @@ fn every_host_shows_a_test_tag_as_the_reader_reads_it() {
     for host in ["claude-code", "codex", "cursor"] {
         let text = convert(
             host,
-            &preamble::text(host, "{}", "@gsd/core", preamble::FILES),
+            &preamble::text(host, "{}", "@gsd/core", preamble::FILES, false),
         );
         assert!(text.contains("`[gsd:<id>]`"), "{host}: {text}");
         assert!(!text.contains("[gsd-"), "{host}: {text}");

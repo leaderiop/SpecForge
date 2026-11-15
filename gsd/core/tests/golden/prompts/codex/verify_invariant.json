@@ -25,7 +25,7 @@
     "",
     "No invariant awaits a verdict."
   ],
-  "bytes": 19358,
+  "bytes": 19370,
   "end": [
     "  \"dynamic_routing.max_escalations\": 1,",
     "  \"effort.routing_tier_defaults.heavy\": \"xhigh\",",
@@ -152,7 +152,7 @@
   ],
   "lines": 322,
   "payload": {
-    "digest": "sha256:7c05785e3db2019a9623e14436cc4360ea328264bc149b7d08cfd4584b285ddf",
+    "digest": "sha256:23ccd1485e8767502cfce02558c385f26b72c14a22eb51af9dcfd9f9eea5b4f9",
     "judged": [
       {
         "outcomes": [
@@ -168,5 +168,5 @@
     ],
     "prompt": "@gsd/core@VERSION:verify_invariant"
   },
-  "sha256": "7c05785e3db2019a9623e14436cc4360ea328264bc149b7d08cfd4584b285ddf"
+  "sha256": "23ccd1485e8767502cfce02558c385f26b72c14a22eb51af9dcfd9f9eea5b4f9"
 }

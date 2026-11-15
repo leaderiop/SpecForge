@@ -91,16 +91,34 @@ fn spawning(host: &str) -> &'static str {
 
 /// The preamble for `host`, with `settings` (a JSON object, `settings::block()`) as the current configuration, for the
 /// prompt of `extension` (`@gsd/core`): the extension owns the settings the block lists and the commands that write
-/// the harness fields, and `files` are the rows of the table of where GSD's files went.
-pub fn text(host: &str, settings: &str, extension: &str, files: &[(&str, &str)]) -> String {
+/// the harness fields, and `files` are the rows of the table of where GSD's files went. `own` says the workflow text is
+/// the extension's own rather than a port of GSD's, and the opening line says whose it is.
+pub fn text(
+    host: &str,
+    settings: &str,
+    extension: &str,
+    files: &[(&str, &str)],
+    own: bool,
+) -> String {
     let mut table = String::from("| GSD file | Kinds |\n|---|---|\n");
     for (file, kinds) in files {
         table.push_str(&format!("| {file} | {kinds} |\n"));
     }
     let spawn = spawning(host);
+    let whose = if own {
+        format!(
+            "You are running a workflow of `{extension}` inside SpecForge. The workflow text below is `{extension}`'s own, \
+not a port of GSD's."
+        )
+    } else {
+        format!(
+            "You are running a GSD workflow inside SpecForge (the extension `{extension}`). The workflow text below is \
+GSD's own."
+        )
+    };
     format!(
         "{MARKER}
-You are running a GSD workflow inside SpecForge (the extension `{extension}`). The workflow text below is GSD's own. The
+{whose} The
 files it talks about are entities of the project's spec here, and the tools it calls are SpecForge's. This section says
 where each thing went; where it and the workflow disagree, this section wins.
 

@@ -34,6 +34,7 @@ impl<'a> Input<'a> {
             settings: self.settings,
             extension: "@gsd/core",
             files: gsd_kit::prompt::preamble::FILES,
+            own: own(self.command).is_some(),
             tail: self.tail,
             asset: assets::get,
             repoint: repoint_for,

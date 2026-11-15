@@ -149,6 +149,7 @@ fn handle(call: &PromptCall<'_>) -> Result<PromptOutput, String> {
         settings: &block(),
         extension: "@gsd/security",
         files: FILES,
+        own: false,
         tail: &tail(&phase),
         asset,
         // shortcut: every gsd-core path security's texts name is a core asset; ask core's list when one is not
