@@ -314,6 +314,53 @@ fn a_stale_i536_refuses_a_gate_under_gsd_plus() {
     );
 }
 
+/// [`TWIN_INVARIANT`] pending until phase 02 completes, the only invariant of the twin.
+fn pending_only() -> Project {
+    let p = taskboard();
+    author(&p, &TWIN_INVARIANT.replace("v1.0/01", "v1.0/02"));
+    assert_eq!(status(&p, "ids_are_sequential"), "pending");
+    p
+}
+
+/// A pending invariant owes no verdict yet: the prompt that judges invariants does not ask for one, and the rule
+/// does not report one missing.
+#[test]
+fn a_pending_invariant_is_asked_for_no_verdict() {
+    let p = pending_only();
+    let text = text_of(&payload(&prompt(
+        &p,
+        "verify_invariant",
+        &[],
+        "claude-code",
+    )));
+    assert!(text.contains("No invariant awaits a verdict."), "{text}");
+    // pinned: I536 still reports the verdict the prompt does not ask for
+    assert_eq!(on(&p, "ids_are_sequential"), [no_verdict()]);
+}
+
+/// A verdict recorded early on a pending invariant (`verify_invariant --invariant`) goes stale with its tests; the
+/// invariant owes no verdict yet, so no gate is refused for it.
+#[test]
+fn a_stale_verdict_on_a_pending_invariant_refuses_no_gate() {
+    let p = pending_only();
+    let tagged = (
+        "test/tasks.test.js",
+        "ids stay sequential [gsd:ids_are_sequential]",
+    );
+    let mut cases = TWIN_TESTS.to_vec();
+    cases.push((tagged.0, tagged.1, TestStatus::Passed));
+    assert_eq!(p.node_tests(&cases).code, 0);
+    assert_eq!(p.record("ids_are_sequential", "I536", "holds", &[]).code, 0);
+    *cases.last_mut().expect("the tagged test") = (tagged.0, tagged.1, TestStatus::Failed);
+    assert_eq!(p.node_tests(&cases).code, 0);
+    assert_eq!(status(&p, "ids_are_sequential"), "pending");
+    plus(&p);
+    let run = prompt(&p, "plan_phase", &["v1.0/02"], "claude-code");
+    // pinned: the stale verdict of an invariant not in force refuses the gate
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("E516"), "{}", run.all());
+}
+
 /// Without `@code/core` the `test` kind is not loaded: both chains of I536's `tests` input are inert, the rule is
 /// registered (no W112) and a verdict is recorded fresh.
 #[test]
