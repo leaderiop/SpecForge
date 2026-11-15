@@ -87,6 +87,8 @@ const PHASE_STATUS: &[&str] = &[
     "complete",
     "deferred",
 ];
+/// The statuses in which a phase is complete (its `complete_when`): executed is enough, verification is not awaited.
+pub const PHASE_COMPLETE: &[&str] = &["executed", "needs_review", "complete"];
 
 /// `### Phase N: Name`, named `03`, `03.1` (inserted) or `999.1` (backlog), scoped by its milestone.
 pub const PHASE: Kind = Kind::new(
@@ -128,7 +130,7 @@ pub const PHASE: Kind = Kind::new(
     ],
 )
 .scoped_by("milestone")
-.complete_when("status", &["executed", "needs_review", "complete"]);
+.complete_when("status", PHASE_COMPLETE);
 
 const WORKSTREAM_STATUS: &[&str] = &["active", "complete"];
 

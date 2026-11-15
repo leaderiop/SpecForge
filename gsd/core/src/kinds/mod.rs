@@ -22,6 +22,7 @@ mod verify;
 mod windows;
 
 use gsd_kit::dsl::{self, Kind};
+pub use roadmap::PHASE_COMPLETE;
 use specforge_extension_sdk::prelude::*;
 
 /// Every kind declared so far, in the order of the model's files.

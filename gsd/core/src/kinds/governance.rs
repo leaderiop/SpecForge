@@ -70,6 +70,18 @@ pub const RISK: Kind = Kind::new(
 
 /// How far an invariant reaches: the whole project, or its start phase's milestone.
 const INVARIANT_SCOPE: &[&str] = &["project", "milestone"];
+/// An invariant's status: `pending` until it is in force, then what its verdict says.
+const INVARIANT_STATUS: &[&str] = &[
+    "pending",
+    "unverified",
+    "stale",
+    "holds",
+    "violated",
+    "uncertain",
+];
+/// The statuses of an invariant in force: every one but `pending`. While pending, its `proof` and `items` are not
+/// checked.
+const INVARIANT_IN_FORCE: &[&str] = &["unverified", "stale", "holds", "violated", "uncertain"];
 /// What a violation costs, highest first.
 const CRITICALITY: &[&str] = &["critical", "high", "medium", "low"];
 
@@ -84,7 +96,8 @@ pub const INVARIANT: Kind = Kind::new(
         str("description").doc("a summary beside the statement"),
         en("scope", INVARIANT_SCOPE)
             .doc("how far it reaches: the project (absent), or the milestone of its `holds_from` phase"),
-        rf("holds_from", "phase").doc("the phase it holds from; absent: from the start"),
+        rf("holds_from", "phase")
+            .doc("in force once this phase is complete (executed or after); absent: from the start"),
         rfs("proof", "test").doc(
             "the tests that prove it: `@code/core` test facts, quoted (`\"js:pkg/a.test.js#adds\"`)",
         ),
@@ -94,5 +107,13 @@ pub const INVARIANT: Kind = Kind::new(
         en("criticality", CRITICALITY).doc("what a violation costs"),
         strs("tags").doc("words to group it"),
         strs("refs").doc("external references: issue or document URIs"),
+        en("status", INVARIANT_STATUS).c().doc(
+            "pending until its holds_from phase is complete; then unverified (no usable verdict), stale, or the fresh \
+             verdict's outcome",
+        ),
+        ts("last_verified")
+            .c()
+            .doc("the time of the fresh verdict that it holds; absent otherwise"),
     ],
-);
+)
+.complete_when("status", INVARIANT_IN_FORCE);

@@ -87,3 +87,35 @@ fn an_in_force_invariants_missing_test_is_code_e101() {
     assert!(found[0].1.contains("#no such test"), "{found:#?}");
 }
 
+/// The status of an entity, as `specforge query` answers it.
+pub(super) fn status(p: &Project, id: &str) -> String {
+    p.fields_of(id)["status"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string()
+}
+
+#[test]
+fn a_pending_invariants_proof_is_not_checked() {
+    let p = taskboard();
+    let missing = TWIN_INVARIANT.replace("#a task is added with the next id", "#no such test");
+    author(&p, &missing.replace("v1.0/01", "v1.0/02"));
+    collect_facts(&p);
+    let phase = status(&p, "v1.0/02");
+    assert!(
+        !["executed", "needs_review", "complete"].contains(&phase.as_str()),
+        "phase 02 is not complete: {phase}"
+    );
+    assert_eq!(status(&p, "ids_are_sequential"), "pending");
+    assert_eq!(on(&p, "ids_are_sequential"), Vec::new());
+    let phase = status(&p, "v1.0/01");
+    assert!(
+        ["executed", "needs_review", "complete"].contains(&phase.as_str()),
+        "phase 01 is complete: {phase}"
+    );
+    author(&p, &missing);
+    assert_eq!(status(&p, "ids_are_sequential"), "unverified");
+    let found = on(&p, "ids_are_sequential");
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(found[0].0, "code/E101", "{found:#?}");
+}

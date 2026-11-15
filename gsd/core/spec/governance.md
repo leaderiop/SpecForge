@@ -110,15 +110,37 @@ outlives the phase it starts at.
 | statement | str | R | what must always hold |
 | description | str | | a summary beside the statement |
 | scope | enum{project, milestone} | | how far it reaches: the project (absent), or the milestone of its `holds_from` phase |
-| holds_from | → phase | | the phase it holds from; absent: from the start |
+| holds_from | → phase | | in force once this phase is complete (executed or after); absent: from the start |
 | proof | →* test | | the tests that prove it: `@code/core` test facts, quoted (`"js:pkg/a.test.js#adds"`) |
 | items | →* item | | the code items it holds over: `@code/core` item facts, quoted (`"js:pkg/src/a.js::add"`) |
 | criticality | enum{critical, high, medium, low} | | what a violation costs, highest first |
 | tags | strs | | words to group it |
 | refs | strs | | external references: issue or document URIs |
+| status | enum{pending, unverified, stale, holds, violated, uncertain} | C | `pending` until its `holds_from` phase is complete; then `unverified` with no usable verdict, `stale` once an input moved since, or the fresh verdict's outcome |
+| last_verified | ts | C | the time of the fresh verdict that it holds; absent otherwise |
 
 `proof` and `items` read `@code/core`'s facts as a truth's `proof` and a task's `items` do: a name no served store
 holds is `code/E101`, and with no `@code/core` loaded a written one is I004.
+
+### In force, and its status
+
+An invariant is in force from the start when it names no `holds_from`, else once that phase is complete in the
+phase's own sense: `executed`, `needs_review` or `complete`, the values of the phase's `complete_when`. Executed is
+enough; its verification is not awaited. A `holds_from` that names no phase (the kernel reports it) keeps the
+invariant pending.
+
+While it is not in force its `status` is `pending`, whatever a verdict says, and the invariant is pending in the
+kernel's sense (its `complete_when` holds on every other status): its `proof` and `items` are not checked, so a test
+or an item the phase has yet to write is no finding. In force, its `status` reads its verdict:
+
+| Verdict | status |
+|---|---|
+| none, missing, unrecorded or unreadable | unverified |
+| stale (an input moved since) | stale |
+| fresh | its outcome: holds, violated or uncertain |
+
+`last_verified` is the `at` of the verdict while `status` is `holds`, and absent otherwise. `scope` changes no
+status.
 
 ### The old invariant's fields
 

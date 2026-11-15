@@ -16,7 +16,8 @@ pub fn table(md: &str, kind: &str) -> Vec<Vec<String>> {
 }
 
 /// A declared field (or block member) as the Type column writes it: `str`, `strs`, `int`, `int{1..10}`, `bool`,
-/// `→ kind`, `→* kind`, `→* a | b`, `enum{a, b}`, and a block or block list `{member type [R], …}`.
+/// `→ kind`, `→* kind`, `→* a | b`, `enum{a, b}`, and a block or block list `{member type [R], …}`. A `ts` column is
+/// read as `str` (`assert_declared`).
 pub fn written_type(field: &serde_json::Value) -> String {
     let target = || field["target_kind"].as_str().expect("a target kind");
     match field["field_type"].as_str().expect("a field type") {
@@ -85,7 +86,9 @@ pub fn assert_declared(md: &str, kinds: &[&str]) {
         assert_eq!(super::fields_of(kind), names, "{kind}");
         for row in &rows {
             let field = super::field_of(kind, &row[0]);
-            assert_eq!(written_type(&field), row[1], "{kind}.{}: Type", row[0]);
+            // A `ts` is declared a string: its RFC 3339 form is the extension's check, not the kernel's type.
+            let written = if row[1] == "ts" { "str" } else { &row[1] };
+            assert_eq!(written_type(&field), written, "{kind}.{}: Type", row[0]);
             assert_eq!(written_flags(&field), row[2], "{kind}.{}: Flags", row[0]);
         }
     }

@@ -10945,6 +10945,16 @@
         "verify_kinds": []
       },
       {
+        "complete_when": {
+          "field": "status",
+          "values": [
+            "unverified",
+            "stale",
+            "holds",
+            "violated",
+            "uncertain"
+          ]
+        },
         "description": "An invariant: what must always hold, from which phase, proven by which tests, over which code items (beyond GSD)",
         "dot_color": null,
         "dot_fillcolor": null,
@@ -10986,7 +10996,7 @@
           },
           {
             "default_value": null,
-            "description": "the phase it holds from; absent: from the start",
+            "description": "in force once this phase is complete (executed or after); absent: from the start",
             "edge": "InvariantHoldsFrom",
             "field_type": "reference",
             "inverse_of": null,
@@ -11049,6 +11059,36 @@
             "name": "refs",
             "required": false,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "pending until its holds_from phase is complete; then unverified (no usable verdict), stale, or the fresh verdict's outcome",
+            "edge": null,
+            "enum_values": [
+              "pending",
+              "unverified",
+              "stale",
+              "holds",
+              "violated",
+              "uncertain"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the time of the fresh verdict that it holds; absent otherwise",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "last_verified",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,
