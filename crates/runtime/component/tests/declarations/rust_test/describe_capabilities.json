@@ -20,6 +20,17 @@
         "name": "nextest.toml",
         "template": "[profile.specforge]\nfail-fast = false\n\n[profile.specforge.junit]\npath = \"{report}\"\nstore-success-output = false\nstore-failure-output = false\n"
       },
+      "env": [
+        "CARGO_*",
+        "RUSTUP_*",
+        "RUSTC",
+        "RUSTC_*",
+        "RUSTFLAGS"
+      ],
+      "filter": [
+        "-E",
+        "{filter}"
+      ],
       "name": "rust-test",
       "port": "process",
       "why": "run the command whose report the collector 'rust-test' reads"
