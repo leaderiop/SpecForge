@@ -165,7 +165,8 @@ fn insert_after_02_on_the_twin_makes_02_2() {
     assert_eq!(run.code, 0, "{}", run.all());
     let fields = p.fields_of("v1.0/02.2");
     assert_eq!(fields["goal"], "[Urgent work - to be planned]");
-    assert_eq!(fields["depends_on"], json!(["v1.0/02"]));
+    // Written as `link` spells it from the new phase: its sibling is `02` there.
+    assert_eq!(fields["depends_on"], json!(["02"]));
     assert_eq!(fields["slug"], "urgent-fix");
     assert!(ids(&p, "phase").contains(&"v1.0/02.1".to_string()));
 }
@@ -178,7 +179,7 @@ fn add_appends_with_to_be_planned() {
     let fields = p.fields_of("v1.0/04");
     assert_eq!(fields["goal"], "[To be planned]");
     assert_eq!(fields["success_criteria"], json!(["[To be planned]"]));
-    assert_eq!(fields["depends_on"], json!(["v1.0/03"]));
+    assert_eq!(fields["depends_on"], json!(["03"]));
     assert!(
         p.codes().contains(&"gsd/W103".to_string()),
         "{:?}",

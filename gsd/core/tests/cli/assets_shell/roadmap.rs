@@ -111,7 +111,8 @@ fn the_roadmap_write_step() {
         assert_eq!(p.fields_of(id)["priority"], "must", "{id}");
     }
     assert_eq!(p.fields_of("v1.1/05")["requirements"], json!(["SYNC-03"]));
-    assert_eq!(p.fields_of("v1.1/05")["depends_on"], json!(["v1.1/04"]));
+    // Written as `link` spells it from phase 05: its sibling is `04` there.
+    assert_eq!(p.fields_of("v1.1/05")["depends_on"], json!(["04"]));
     assert_eq!(p.fields_of("SYNC-03")["tier"], "v1");
     let mut after = p.codes();
     for code in &before {

@@ -147,7 +147,8 @@ fn the_summary_template_closes_a_plan() {
     );
     let fields = p.fields_of("v1.0/02/02-01/02-01-SUMMARY");
     assert!(fields["completed"].is_string(), "{fields}");
-    assert_eq!(fields["key_decisions"], serde_json::json!(["v1.0/02/D-04"]));
+    // Written as `link` spells it from the summary: the phase's D-04 is `D-04` there.
+    assert_eq!(fields["key_decisions"], serde_json::json!(["D-04"]));
     for id in ["D1", "DV1"] {
         let id = format!("v1.0/02/02-01/02-01-SUMMARY/{id}");
         assert!(p.fields_of(&id).is_object(), "{id} is missing");

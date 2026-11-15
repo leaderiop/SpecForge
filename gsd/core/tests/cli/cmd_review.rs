@@ -168,8 +168,6 @@ fn round_takes_only_unchecked_and_concerns() {
     unchanged(&p, &before);
 }
 
-const PLAN: &str = "v1.0/01/01-02";
-
 fn conflict(p: &crate::harness::Project, dimension: &str) -> crate::harness::Run {
     gsd(
         p,
@@ -205,7 +203,8 @@ fn a_conflict_is_recorded_once() {
     unchanged(&p, &before);
     let fields = p.fields_of("v1.0/01/CF1");
     assert_eq!(fields["status"], "open");
-    assert_eq!(fields["plan"], PLAN);
+    // Written as `link` spells it from the conflict, in phase 01.
+    assert_eq!(fields["plan"], "01-02");
     assert!(
         !p.codes().iter().any(|c| c.starts_with('E')),
         "{:?}",

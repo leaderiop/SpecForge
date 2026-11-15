@@ -579,7 +579,8 @@ fn the_verifier_records_each_gap_as_a_verify_gap() {
     assert_eq!(done.code, 0, "{}{}", done.out, done.err);
     assert!(done.added.is_empty(), "{:?}", done.added);
     let fields = p.fields_of("v1.0/01/01-VERIFICATION/VG1");
-    assert_eq!(fields["truth"], truth);
+    // Written as `link` spells it from the gap: the truth's plan is `01-02` in phase 01.
+    assert_eq!(fields["truth"], "01-02/TR2");
     assert_eq!(fields["status"], "open");
     assert_eq!(fields["artifacts"][0]["path"], "src/cli.js");
     assert_eq!(
@@ -603,7 +604,10 @@ fn the_verifier_records_each_gap_as_a_verify_gap() {
     // the fence numbers the next gap after the verification's last
     let again = typed::apply(&sh, &p, &gap);
     assert_eq!(again.code, 0, "{}{}", again.out, again.err);
-    assert_eq!(p.fields_of("v1.0/01/01-VERIFICATION/VG2")["truth"], truth);
+    assert_eq!(
+        p.fields_of("v1.0/01/01-VERIFICATION/VG2")["truth"],
+        "01-02/TR2"
+    );
 }
 
 /// The verifier records each check only a person can make (Step 8) as a `human_item` of the phase's verification: on a

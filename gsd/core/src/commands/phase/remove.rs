@@ -5,7 +5,7 @@ use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
 use super::{Number, Phase, find};
-use crate::commands::support::answer;
+use crate::commands::support::{answer, target};
 
 /// The prefix of the names of a phase's own children: `05-01`, `05-CONTEXT`.
 pub(super) fn prefix(number: Number) -> String {
@@ -29,7 +29,7 @@ pub(super) fn human_blocker<'a>(
             };
             if inside(&n.id) {
                 Some(("id", n))
-            } else if n.text("truth").is_some_and(inside) {
+            } else if target(call.graph(), &n.id, "truth").is_some_and(inside) {
                 Some(("truth", n))
             } else {
                 None

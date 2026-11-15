@@ -126,7 +126,8 @@ fn the_planners_typed_edits_write_a_checked_plan() {
     assert_eq!(p.fields_of("v1.0/02/02-02/AR1")["path"], "src/index.js");
     assert_eq!(
         p.fields_of("v1.0/02/02-02")["depends_on"],
-        serde_json::json!(["v1.0/02/02-01"])
+        serde_json::json!(["02-01"]),
+        "written as `link` spells it from the plan"
     );
 }
 

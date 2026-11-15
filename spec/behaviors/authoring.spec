@@ -20,7 +20,7 @@ behavior create_entity "Create an Entity" {
     exist reads as empty, and a file the list leaves as it read is not written. The id MUST be an identifier of 2 to 60 characters that is not a
     reserved word (E013), and MUST NOT be taken, the kind MUST be declared, the title MUST NOT be blank (only whitespace; refused
     invalid_title before the project is read; ADR 0225), and the file MUST be a project source.
-    Each field is written as a set of it writes it, so a field that holds what its file's default holds, as the graph stores both,
+    Each field is written as a set of it writes it, a reference spelled from the new entity's own scope chain, so a field that holds what its file's default holds, as the graph stores both,
     is not written, and each verify obligation as an add-verify writes it, its --verify prefix read by the kind's verify kinds, so an equal one given twice is written
     once. The field flags of `specforge new` are the kind's fields in the project
     the command acts on. Its command line is one command read once with the kind's fields: an option may stand anywhere
@@ -44,6 +44,7 @@ behavior create_entity "Create an Entity" {
   verify unit "new never writes a field that restates its default"
   verify unit "new refuses a field.entry path"
   verify unit "new writes each field as set writes it"
+  verify unit "new spells each reference from the new entity's own scope chain, as link writes it, so a rooted id its scope would read as another entity keeps its slash"
   verify unit "new writes an equal verify obligation once"
   verify unit "a create's skeleton filled in is the block new writes"
   verify unit "every kind's skeleton formats to itself"
