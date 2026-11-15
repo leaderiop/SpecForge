@@ -34,14 +34,19 @@ fn context_decision_and_deferred_idea_declare_the_fields_of_the_model() {
             "plan",
             "area",
             "text",
+            "context",
             "alternatives",
             "rationale",
+            "consequences",
             "outcome",
             "reversibility",
             "settled",
             "origin",
+            "decided",
+            "deciders",
             "supersedes",
-            "affects"
+            "affects",
+            "tags"
         ]
     );
     assert_eq!(
@@ -108,6 +113,28 @@ fn a_decision_affects_requirements_invariants_and_items() {
         "{affects}"
     );
     assert_eq!(affects["inverse_of"], "affected_by", "{affects}");
+}
+
+/// The ADR record's fields are authored and optional; `decided` is a date written once, since a change is a new
+/// decision that supersedes it.
+#[test]
+fn a_decisions_record_fields_are_authored_and_its_date_immutable() {
+    let decided = field_of("decision", "decided");
+    assert_eq!(decided["field_type"], "date", "{decided}");
+    assert_eq!(decided["immutable"], true, "{decided}");
+    assert_eq!(field_of("decision", "context")["field_type"], "string");
+    for field in ["consequences", "deciders", "tags"] {
+        assert_eq!(
+            field_of("decision", field)["field_type"],
+            "string_list",
+            "{field}"
+        );
+    }
+    for field in ["context", "consequences", "decided", "deciders", "tags"] {
+        let declared = field_of("decision", field);
+        assert_ne!(declared["required"], true, "{field}");
+        assert_ne!(declared["writer"], "computed", "{field}");
+    }
 }
 
 /// `name` of the field `field` of `kind`, with its described properties.
@@ -359,10 +386,11 @@ fn the_discuss_kinds_declare_every_field_of_discuss_md() {
     // + 1: the discussion's `checkpoint` (a block's members are not counted). + 1: the deferred idea's `status`, open
     // until an executor's out-of-scope discovery is resolved. + 1: its `origin`, discussion or execution, so only a
     // discussion idea is part of the phase's context. + 2: the decision's `alternatives` and `affects` (ADR 0359;
-    // `supersedes` took the place of `superseded_by`).
+    // `supersedes` took the place of `superseded_by`). + 5: its record fields `context`, `consequences`, `decided`,
+    // `deciders` and `tags`.
     assert_eq!(
         total,
-        95 - 1 + 1 + 3 + 2 + 7 + 11 + 1 + 1 + 1 + 2,
+        95 - 1 + 1 + 3 + 2 + 7 + 11 + 1 + 1 + 1 + 2 + 5,
         "the kinds' fields"
     );
 }

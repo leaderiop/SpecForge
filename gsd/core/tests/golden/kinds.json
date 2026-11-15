@@ -3480,6 +3480,16 @@
           },
           {
             "default_value": null,
+            "description": "what prompted it (an ADR's Context)",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "context",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
             "description": "the options weighed and not chosen, each with why it lost",
             "edge": null,
             "field_type": "block_list",
@@ -3542,6 +3552,16 @@
           },
           {
             "default_value": null,
+            "description": "what follows from it, good and bad (an ADR's Consequences)",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "consequences",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
             "description": "Good, Revisit or Pending",
             "edge": null,
             "enum_values": [
@@ -3599,6 +3619,27 @@
           },
           {
             "default_value": null,
+            "description": "the day it was taken; a change is a new decision that supersedes it",
+            "edge": null,
+            "field_type": "date",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "decided",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "who took it",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "deciders",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
             "description": "the earlier decisions this one reverses; each reads it back as `superseded_by`",
             "edge": "DecisionSupersedes",
             "field_type": "reference_list",
@@ -3621,6 +3662,16 @@
               "invariant",
               "item"
             ]
+          },
+          {
+            "default_value": null,
+            "description": "words to group decisions by",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "tags",
+            "required": false,
+            "target_kind": null
           }
         ],
         "has_body_parser": false,

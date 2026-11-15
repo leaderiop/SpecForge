@@ -197,3 +197,72 @@ fn an_alternative_keeps_why_it_lost() {
     assert_eq!(alternatives[0]["cons"][0], "a dependency", "{alternatives}");
     checks_clean(&p);
 }
+
+/// `per_call_site_sandbox`, one of SpecForge's own governance decisions, in its converted form: a project decision whose
+/// old `decision` is its `text`, `date` its `decided`, `invariants` its `affects`; nothing it did not hold (no tags,
+/// no deciders).
+const CONVERTED: &str = r#"invariant wasm_sandbox_integrity "Wasm Sandbox Integrity" {
+  statement "Wasm extensions do not escape the Wasm sandbox"
+}
+
+decision per_call_site_sandbox "Per-Call-Site Sandbox" {
+  text         """
+    Host function permissions are enforced per export call site, not per
+    extension. Each contribution type has a fixed permission set: validators
+    get query_graph + emit_diagnostic, renderers additionally get emit_file,
+    providers additionally get http_get, parsers get read_file +
+    emit_diagnostic + add_graph_node + add_graph_edge (but NOT query_graph,
+    since they run during graph construction). The runtime checks the current
+    export context before dispatching host function calls.
+  """
+  context      """
+    The contribution-based model means one extension can contribute entities,
+    rendering, and provider validation. A per-extension sandbox policy is
+    too coarse — an extension's validator should not have emit_file access
+    just because the same extension also contributes a renderer. The
+    principle of least privilege requires finer-grained permissions.
+  """
+  consequences [
+    "Least-privilege per operation — validator cannot write files even if same extension has a renderer",
+    "Defense in depth — compromised validator export cannot escalate to filesystem access",
+    "Runtime must track which export is currently executing per call",
+    "Permission model is static and predictable — no runtime configuration needed",
+  ]
+  settled      true
+  origin       project
+  decided      2026-03-03
+  affects      [wasm_sandbox_integrity]
+}
+"#;
+
+/// The converted decision checks with no error and no warning, and reads back its record fields.
+#[test]
+fn a_converted_governance_decision_checks_clean() {
+    let p = project("discuss");
+    p.write("spec/governance.spec", CONVERTED);
+    assert_eq!(findings(&p), Vec::new());
+    let fields = p.fields_of("per_call_site_sandbox");
+    assert_eq!(fields["decided"], "2026-03-03", "{fields}");
+    assert_eq!(
+        fields["consequences"].as_array().map(Vec::len),
+        Some(4),
+        "{fields}"
+    );
+    assert!(
+        fields["context"]
+            .as_str()
+            .is_some_and(|c| c.contains("A per-extension sandbox policy")),
+        "{fields}"
+    );
+    assert!(fields.get("tags").is_none_or(|v| v.is_null()), "{fields}");
+    let own = edges(&p, "per_call_site_sandbox");
+    assert!(
+        has_edge(
+            &own,
+            "per_call_site_sandbox",
+            "wasm_sandbox_integrity",
+            "affects"
+        ),
+        "{own:?}"
+    );
+}
