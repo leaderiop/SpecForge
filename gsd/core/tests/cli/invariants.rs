@@ -1,8 +1,9 @@
 //! The invariant kind, end to end (`spec/governance.md`): an invariant authored over the taskboard twin, its proof and
-//! items read through `@code/core`'s facts.
+//! items read through `@code/core`'s facts, and the prompt that judges whether it holds.
 
 use crate::harness::{Project, taskboard};
 use crate::judged::TWIN_TESTS;
+use crate::prompts_support::{payload, prompt, render_three_hosts, text_of};
 
 /// One invariant over the taskboard twin, in force from phase 01 (executed): what `addTask` keeps, the test that
 /// proves it and the code item it holds over.
@@ -118,4 +119,61 @@ fn a_pending_invariants_proof_is_not_checked() {
     let found = on(&p, "ids_are_sequential");
     assert_eq!(found.len(), 1, "{found:#?}");
     assert_eq!(found[0].0, "code/E101", "{found:#?}");
+}
+
+/// The twin's invariant in force and a second one pending until phase 02 completes.
+const WITH_A_PENDING_ONE: &str = r#"invariant ids_stay_unique "Task ids stay unique" {
+  statement  "No two tasks share an id"
+  holds_from v1.0/02
+}
+"#;
+
+/// `verify_invariant` is our own text, rendered for each host with no shell-ids line and no attribution; its tail
+/// names the invariant given, else every invariant in force that does not hold, else says none awaits a verdict.
+#[test]
+fn the_verify_invariant_prompt_lists_the_invariants_awaiting_a_verdict() {
+    let p = taskboard();
+    author(&p, &format!("{TWIN_INVARIANT}\n{WITH_A_PENDING_ONE}"));
+    assert_eq!(status(&p, "ids_stay_unique"), "pending");
+    let heading = "## The invariants to judge";
+    for (host, rendered) in
+        render_three_hosts(&p, "verify_invariant", &[], "(no arguments)", heading)
+    {
+        let text = text_of(&rendered);
+        for word in [
+            "specforge gsd record-verdict",
+            "--inputs gsd/I536",
+            "- `ids_are_sequential`",
+        ] {
+            assert!(text.contains(word), "{host}: no '{word}'");
+        }
+        for word in ["`ids_stay_unique`", "In the shell blocks above"] {
+            assert!(!text.contains(word), "{host}: '{word}'");
+        }
+        assert!(
+            rendered["payload"]
+                .get("attribution")
+                .is_none_or(|a| a.is_null()),
+            "{host}: {}",
+            rendered["payload"]
+        );
+    }
+    let given = ["--invariant", "ids_stay_unique"];
+    let text = text_of(&payload(&prompt(
+        &p,
+        "verify_invariant",
+        &given,
+        "claude-code",
+    )));
+    assert!(text.contains("- `ids_stay_unique`"), "{text}");
+    assert!(!text.contains("`ids_are_sequential`"), "{text}");
+    let plain = taskboard();
+    let text = text_of(&payload(&prompt(
+        &plain,
+        "verify_invariant",
+        &[],
+        "claude-code",
+    )));
+    assert!(text.contains("No invariant awaits a verdict."), "{text}");
+    assert!(!text.contains(heading), "{text}");
 }

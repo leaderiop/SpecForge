@@ -3,17 +3,17 @@
   "graph_tools": {
     "collect": 20,
     "context": 12,
-    "edit": 51,
+    "edit": 52,
     "explain": 11,
     "export": 10,
     "find_implementation": 2,
     "find_references": 1,
     "find_spec_for_source": 5,
-    "query": 53,
+    "query": 54,
     "schema": 11,
     "search": 4,
     "trace": 7,
-    "validate": 51,
+    "validate": 52,
     "verdict_inputs": 5
   },
   "unprompted": {

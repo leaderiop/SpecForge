@@ -1,6 +1,6 @@
 //! The render pipeline (D-r42-6) lives in `gsd_kit::prompt::render`; this is @gsd/core's call of it: its assets, its
-//! re-pointing and its own `update` text (ours, not a port: D-r43-16, upstream's workflow installs upstream GSD over
-//! this one).
+//! re-pointing and its own texts, [`OWN`]: `update` (ours, not a port: D-r43-16, upstream's workflow installs upstream
+//! GSD over this one) and `verify-invariant` (GSD has no invariant).
 
 use gsd_kit::prompt::args::Values;
 use gsd_kit::prompt::render as kit;
@@ -41,12 +41,25 @@ impl<'a> Input<'a> {
     }
 }
 
+/// The commands whose text is ours, rendered in place of a ported command body: no upstream file is read for them.
+const OWN: &[(&str, &str)] = &[
+    ("update", super::update::TEXT),
+    ("verify-invariant", super::invariant::TEXT),
+];
+
+/// Our own text of `command`, when it has one rather than a ported upstream file.
+pub fn own(command: &str) -> Option<&'static str> {
+    OWN.iter()
+        .find(|(c, _)| *c == command)
+        .map(|(_, text)| *text)
+}
+
 /// The text of the prompt, or why it cannot be built.
 pub fn render(input: &Input<'_>) -> Result<String, String> {
-    if input.command == "update" {
-        return Ok(assemble(super::update::TEXT, input));
+    match own(input.command) {
+        Some(text) => Ok(assemble(text, input)),
+        None => kit::render(&input.kit()),
     }
-    kit::render(&input.kit())
 }
 
 /// [`render`] over the text of the command file.

@@ -150,8 +150,8 @@ fn handle(spec: &'static Spec, call: &PromptCall<'_>) -> Result<PromptOutput, St
             ids = format!("`${var}` is `{id}`; {ids}");
         }
     }
-    // a router (`ns_*`) and `update` have no shell block of their own to bind the ids in
-    if !spec.id.starts_with("ns_") && spec.id != "update" {
+    // a router (`ns_*`) and a text of our own (`update`, `verify_invariant`) have no shell block to bind the ids in
+    if !spec.id.starts_with("ns_") && render::own(spec.command).is_none() {
         tail = format!("\n\nIn the shell blocks above, {ids}{tail}");
     }
     // the subject's value is the one the run is about, picked or given
@@ -195,7 +195,7 @@ pub fn declare(c: &mut ContributionsBuilder, spec: &'static Spec) {
         p.title(spec.title)
             .input(specforge_extension_sdk::Input::Graph)
             .description(spec.description);
-        // `update` is our text, not a port: its prompt names no upstream file (its slash binding does)
+        // a text of our own (`render::own`) names no upstream file: `update`'s slash binding does
         if let Some(path) = source_path(spec) {
             p.attribution(attribution(&path));
         }
