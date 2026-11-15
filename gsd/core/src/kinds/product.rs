@@ -67,6 +67,10 @@ pub const JOURNEY: Kind = Kind::new(
             .doc("every milestone it ships in; each milestone reads it back as `journeys`"),
         en("priority", PRIORITY).doc("MoSCoW; a journey nobody wants is not written"),
         strs("tags").doc("free words"),
+        rf("last_uat", "uat_session").c().doc(
+            "the session of a UAT test that names it (`uat_test.journey`): the latest `started`, an undated session \
+             older than every dated one, then the greatest id; absent when no test names it (ADR 0357 D22)",
+        ),
     ],
 );
 

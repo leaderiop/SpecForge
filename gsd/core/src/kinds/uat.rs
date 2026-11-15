@@ -74,6 +74,9 @@ pub const UAT_TEST: Kind = Kind::new(
         en("severity", SEVERITY).doc("major when absent"),
         str("reason").doc("why skipped; `Deferred follow-up` counts as passing"),
         en("blocked_by", BLOCKED_BY).doc("when blocked"),
+        rf("journey", "journey").inverse("uat_tests").doc(
+            "beyond GSD: the journey the test walks; the journey reads it back as `uat_tests` (ADR 0357 D22)",
+        ),
     ],
 )
 .scoped_by("session");

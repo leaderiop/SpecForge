@@ -104,6 +104,7 @@ The test being asked now is session state.
 | severity | enum{blocker, major, minor, cosmetic} | | major when absent |
 | reason | str | | why skipped; `Deferred follow-up…` counts as passing |
 | blocked_by | enum{server, physical_device, release_build, third_party, prior_phase} | | when blocked |
+| journey | → journey | | beyond GSD: the journey the test walks; the journey reads it back as `uat_tests` and its latest session as `last_uat` ([ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md) D22) |
 
 **uat_gap**: GSD `## Gaps`. Name `G1`, scoped by its test (`v1.0/01/01-UAT/U2/G1`).
 `test → uat_test R`, `truth str R`, `reason str`, `severity enum{blocker, major, minor, cosmetic}`, `root_cause str`,

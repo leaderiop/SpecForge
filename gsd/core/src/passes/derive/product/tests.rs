@@ -70,3 +70,82 @@ fn an_unused_term_reads_an_empty_list() {
     ));
     assert_eq!(of(&values, "board", "used_in"), Some(&json!([])));
 }
+
+/// Sessions `(id, started)` of phase `v1.0/01`, each with one test that names `journey` when it is not empty, and the
+/// edges a host sends for the tests' `session` and `journey`.
+fn sessions(of: &[(&str, Option<&str>, &str)]) -> PassInput {
+    let mut entities = Vec::new();
+    let mut edges = Vec::new();
+    for (id, started, journey) in of {
+        let mut fields = json!({ "phase": "v1.0/01" });
+        if let Some(started) = started {
+            fields["started"] = json!(started);
+        }
+        entities.push(json!({ "id": id, "kind": "uat_session", "fields": fields }));
+        let test = format!("{id}/U1");
+        entities.push(json!({ "id": test, "kind": "uat_test", "fields": { "session": id, "expected": "it works" } }));
+        edges.push((test.clone(), "session".to_string(), id.to_string()));
+        if !journey.is_empty() {
+            edges.push((test, "journey".to_string(), journey.to_string()));
+        }
+    }
+    entities.push(json!({ "id": "add", "kind": "journey", "fields": { "persona": "owner" } }));
+    entities.push(json!({ "id": "share", "kind": "journey", "fields": { "persona": "owner" } }));
+    let edges: Vec<(&str, &str, &str)> = edges
+        .iter()
+        .map(|(s, l, t)| (s.as_str(), l.as_str(), t.as_str()))
+        .collect();
+    input(Value::Array(entities), &edges)
+}
+
+#[test]
+fn the_last_uat_is_the_latest_session_whose_test_names_the_journey() {
+    let values = values(&sessions(&[
+        ("v1.0/01/01-UAT", Some("2026-10-29T10:00:00Z"), "add"),
+        ("v1.0/01/02-UAT", Some("2026-10-30T10:00:00Z"), "add"),
+        ("v1.0/01/03-UAT", Some("2026-10-31T10:00:00Z"), "share"),
+        ("v1.0/01/04-UAT", Some("2026-11-01T10:00:00Z"), ""),
+    ]));
+    assert_eq!(
+        of(&values, "add", "last_uat"),
+        Some(&json!("v1.0/01/02-UAT"))
+    );
+    assert_eq!(
+        of(&values, "share", "last_uat"),
+        Some(&json!("v1.0/01/03-UAT"))
+    );
+}
+
+#[test]
+fn a_journey_no_test_names_has_no_last_uat() {
+    let values = values(&sessions(&[(
+        "v1.0/01/01-UAT",
+        Some("2026-10-29T10:00:00Z"),
+        "share",
+    )]));
+    assert_eq!(of(&values, "add", "last_uat"), None);
+}
+
+#[test]
+fn sessions_started_at_once_are_ordered_by_id() {
+    let values = values(&sessions(&[
+        ("v1.0/01/02-UAT", Some("2026-10-29T10:00:00Z"), "add"),
+        ("v1.0/01/01-UAT", Some("2026-10-29T10:00:00Z"), "add"),
+    ]));
+    assert_eq!(
+        of(&values, "add", "last_uat"),
+        Some(&json!("v1.0/01/02-UAT"))
+    );
+}
+
+#[test]
+fn an_undated_session_is_older_than_a_dated_one() {
+    let values = values(&sessions(&[
+        ("v1.0/01/01-UAT", Some("2026-10-29T10:00:00Z"), "add"),
+        ("v1.0/01/09-UAT", None, "add"),
+    ]));
+    assert_eq!(
+        of(&values, "add", "last_uat"),
+        Some(&json!("v1.0/01/01-UAT"))
+    );
+}

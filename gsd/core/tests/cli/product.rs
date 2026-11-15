@@ -389,3 +389,35 @@ fn a_requirement_that_writes_an_avoided_word_is_w534() {
         assert_eq!(check.code, 0, "{profile}: a warning: {}", check.all());
     }
 }
+
+/// A persona and the journey `add_a_task`, one step on TASK-01, for the `verify` and `execute` projects.
+const ADD_A_TASK: &str = r#"persona owner "Board owner" {
+  context "Runs a small team's board"
+}
+
+journey add_a_task "Add a task" {
+  persona    owner
+  steps      [ { action "adds a task with a title" requirement TASK-01 } ]
+  milestones [v1.0]
+}
+"#;
+
+/// A UAT test that names the journey it walks makes its session the journey's `last_uat`, and the test holds the edge
+/// `journey`.
+#[test]
+fn a_journey_reads_the_uat_session_that_tested_it() {
+    let p = project("verify");
+    p.write("spec/product.spec", ADD_A_TASK);
+    assert_eq!(p.fields_of("add_a_task").get("last_uat"), None);
+    p.edit(
+        "spec/uat.spec",
+        "  expected  \"A task added from the form is listed\"\n",
+        "  expected  \"A task added from the form is listed\"\n  journey   add_a_task\n",
+    );
+    assert_eq!(p.fields_of("add_a_task")["last_uat"], "v1.0/01/01-UAT");
+    let found = edges_from(&p, "v1.0/01/01-UAT/U1");
+    assert!(
+        found.contains(&edge("journey", "v1.0/01/01-UAT/U1", "add_a_task")),
+        "{found:#?}"
+    );
+}

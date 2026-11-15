@@ -106,6 +106,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "JourneyLastUat",
+        "source_kind": "journey",
+        "target_kind": "uat_session"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "TermRelated",
         "source_kind": "term",
         "target_kind": "term"
@@ -1081,6 +1090,15 @@
         "label": "UatTestFromTask",
         "source_kind": "uat_test",
         "target_kind": "task"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "UatTestJourney",
+        "source_kind": "uat_test",
+        "target_kind": "journey"
       },
       {
         "description": null,
@@ -2070,6 +2088,17 @@
             "name": "tags",
             "required": false,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the session of a UAT test that names it (`uat_test.journey`): the latest `started`, an undated session older than every dated one, then the greatest id; absent when no test names it (ADR 0357 D22)",
+            "edge": "JourneyLastUat",
+            "field_type": "reference",
+            "inverse_of": null,
+            "name": "last_uat",
+            "required": false,
+            "target_kind": "uat_session",
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,
@@ -9740,6 +9769,16 @@
             "name": "blocked_by",
             "required": false,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "beyond GSD: the journey the test walks; the journey reads it back as `uat_tests` (ADR 0357 D22)",
+            "edge": "UatTestJourney",
+            "field_type": "reference",
+            "inverse_of": "uat_tests",
+            "name": "journey",
+            "required": false,
+            "target_kind": "journey"
           }
         ],
         "has_body_parser": false,
