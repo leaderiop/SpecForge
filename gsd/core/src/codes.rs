@@ -701,8 +701,9 @@ pub static CODES: &[Code] = &[
     code(
         "W534",
         "Prose uses an avoided synonym",
-        "The prose of a requirement, decision, truth, journey step, risk or invariant writes no word a term lists \
-         in avoid",
+        "Prose the author can still change (each field or block member its kind marks prose: free text written \
+         now, never a name, an id, a quote or a copy) writes no word or phrase a term lists in avoid, read outside \
+         paths, code spans and the names and aliases the glossary accepts",
         "product",
         Severity::Warning,
         Severity::Warning,
