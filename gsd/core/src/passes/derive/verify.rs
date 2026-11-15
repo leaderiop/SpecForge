@@ -14,7 +14,9 @@ use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
 use super::execute::value;
-use crate::passes::plans::{children, link, links, of_kind, phase_of, resolve, targets, text};
+use crate::passes::plans::{
+    children, link, links, of_kind, phase_of, targets, text, written_target,
+};
 use crate::passes::roadmap::numbering::Number;
 
 type Statuses<'a> = BTreeMap<&'a str, &'static str>;
@@ -166,8 +168,8 @@ fn still_accepts(input: &PassInput, o: &PassEntity) -> bool {
 /// The truths a verification defers: only to a phase that exists and comes later in the roadmap than its own (upstream
 /// defers to a later phase). A deferral to the same, an earlier or an unknown phase, or to one outside the numbering,
 /// is ignored, so the truth still needs its verdict: an agent-written `deferred` cannot reach `passed` by itself. A row
-/// holds its references as written, relative to the verification's scope, so each is read through the graph's
-/// `deferred.truth` and `deferred.addressed_in` edges.
+/// holds its references as written, by the verification's scope chain or rooted, so each is read through the graph's
+/// `deferred.truth` and `deferred.addressed_in` edges: a reference the kernel did not resolve (E003) defers nothing.
 fn deferred(input: &PassInput, v: &PassEntity, phase: &str) -> BTreeSet<String> {
     let own = Number::of(phase);
     let truths = targets(input, &v.id, "deferred.truth");
@@ -178,13 +180,13 @@ fn deferred(input: &PassInput, v: &PassEntity, phase: &str) -> BTreeSet<String> 
         .into_iter()
         .flatten()
         .filter_map(|row| {
-            let to = resolve(&phases, row.get("addressed_in")?.as_str()?)?;
+            let to = written_target(&phases, &v.id, row.get("addressed_in")?.as_str()?)?;
             let later = of_kind(input, "phase").any(|p| p.id == to)
                 && Number::of(to)
                     .zip(own.clone())
                     .is_some_and(|(to, own)| to > own);
             later
-                .then(|| resolve(&truths, row.get("truth")?.as_str()?))
+                .then(|| written_target(&truths, &v.id, row.get("truth")?.as_str()?))
                 .flatten()
                 .map(String::from)
         })

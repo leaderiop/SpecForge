@@ -201,6 +201,28 @@ fn a_deferral_counts_only_to_a_later_phase() {
     }
 }
 
+/// A deferral row's references name what the kernel resolves them to from the verification: a rooted path counts,
+/// and a name outside the verification's scope chain (E003) defers nothing, though another row's target ends with it.
+#[test]
+fn a_deferral_counts_as_the_kernel_resolves_its_row() {
+    let rooted = "    { truth /v1.0/01/01-01/TR1 addressed_in /v1.0/02 evidence \"later\" }\n";
+    let short = "    { truth 01-01/TR1 addressed_in 01 evidence \"same\" }\n    \
+                 { truth TR1 addressed_in 02 evidence \"later\" }\n";
+    for (rows, status, e003) in [(rooted, "passed", false), (short, "pending", true)] {
+        let p = bare();
+        p.edit(
+            "spec/verify.spec",
+            "  phase v1.0/01\n",
+            &format!("  phase v1.0/01\n  deferred [\n{rows}  ]\n"),
+        );
+        for item in ITEMS.iter().filter(|i| **i != "v1.0/01/01-01/TR1") {
+            verified(&p, item);
+        }
+        assert_eq!(p.codes().contains(&"E003".to_string()), e003, "{rows}");
+        assert_eq!(verification(&p)["status"], status, "{rows}");
+    }
+}
+
 /// M3 of the r40 review: an override that wrote `accepts` ends when the truth is rewritten (an agent can rewrite a truth
 /// that has no passing verdict: its E501 `no verdict` is the same before and after). One without it is bound by id.
 #[test]

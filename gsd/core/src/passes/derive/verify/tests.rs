@@ -159,9 +159,9 @@ fn a_deferral_to_the_same_an_earlier_or_a_missing_phase_does_not_count() {
     }
 }
 
-/// Phase 01's verification deferring TR2 to phase 02 as the writer stores it: each row's reference spelled relative
-/// to the verification's scope, the graph's `deferred.*` edges naming the full ids.
-fn deferring_as_written() -> Vec<PassValue> {
+/// Phase 01's verification, TR1 verified and TR2 failing among phases 01 and 02, with its `deferred` rows as written
+/// and the `(target, label)` edges the graph draws for them.
+fn deferring_rows(rows: serde_json::Value, edges: &[(&str, &str)]) -> Vec<PassValue> {
     let phases = ["v1.0/01", "v1.0/02"]
         .map(|id| json!({ "id": id, "kind": "phase" }))
         .to_vec();
@@ -172,20 +172,56 @@ fn deferring_as_written() -> Vec<PassValue> {
         ],
         phases,
     );
-    input.entities[0].values.insert(
-        "deferred".into(),
-        json!([{ "truth": "01-01/TR2", "addressed_in": "02", "evidence": "later" }]),
-    );
-    for (target, label) in [
-        ("v1.0/01/01-01/TR2", "deferred.truth"),
-        ("v1.0/02", "deferred.addressed_in"),
-    ] {
+    input.entities[0].values.insert("deferred".into(), rows);
+    for (target, label) in edges {
         input.edges.push(
             serde_json::from_value(json!({ "source": V, "target": target, "label": label }))
                 .expect("an edge"),
         );
     }
     run(&input)
+}
+
+/// Phase 01's verification deferring TR2 to phase 02 as the writer stores it: each row's reference spelled relative
+/// to the verification's scope, the graph's `deferred.*` edges naming the full ids.
+fn deferring_as_written() -> Vec<PassValue> {
+    deferring_rows(
+        json!([{ "truth": "01-01/TR2", "addressed_in": "02", "evidence": "later" }]),
+        &[
+            ("v1.0/01/01-01/TR2", "deferred.truth"),
+            ("v1.0/02", "deferred.addressed_in"),
+        ],
+    )
+}
+
+/// A row's reference names what the kernel resolves it to from the verification: a rooted path is the project's, and
+/// a name outside the verification's scope chain (E003) is nothing, though another row's target ends with it.
+#[test]
+fn a_deferral_counts_as_the_kernel_resolves_its_row() {
+    let rooted = deferring_rows(
+        json!([{ "truth": "/v1.0/01/01-01/TR2", "addressed_in": "/v1.0/02", "evidence": "later" }]),
+        &[
+            ("v1.0/01/01-01/TR2", "deferred.truth"),
+            ("v1.0/02", "deferred.addressed_in"),
+        ],
+    );
+    assert_eq!(of(&rooted, "score"), Some(json!("1/1")), "the rooted row");
+    let short = deferring_rows(
+        json!([
+            { "truth": "01-01/TR2", "addressed_in": "01", "evidence": "same phase" },
+            { "truth": "TR2", "addressed_in": "02", "evidence": "later" }
+        ]),
+        &[
+            ("v1.0/01/01-01/TR2", "deferred.truth"),
+            ("v1.0/01", "deferred.addressed_in"),
+            ("v1.0/02", "deferred.addressed_in"),
+        ],
+    );
+    assert_eq!(
+        of(&short, "score"),
+        Some(json!("1/2")),
+        "TR2 resolves to nothing"
+    );
 }
 
 /// A deferral counts through its edges: the rows' references are spelled relative to the scope.
