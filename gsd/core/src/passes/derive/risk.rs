@@ -147,22 +147,23 @@ fn read(risk: &PassEntity) -> Option<(Sod, Post)> {
     Some((sod, post))
 }
 
-/// What the derive pass already knows of the things a risk may name: each read through its own kind, as an id is
-/// unique only within its kind.
+/// What the derive pass already knows of the things a risk may name, by id: an id names one entity whatever its kind
+/// (ADR 0284 D3: a declaration of another kind at the same path is W060 and is not placed).
 struct Done<'a> {
     commits: &'a [Commit],
     statuses: &'a BTreeMap<&'a str, &'static str>,
     tasks: BTreeMap<&'a str, &'a PassEntity>,
-    items: BTreeMap<(&'a str, &'a str), Item>,
+    items: BTreeMap<&'a str, Item>,
 }
 
-/// Whether the mitigation `id` (a resolved `mitigated_by` target) is done: a task done, or a truth verified.
+/// Whether the mitigation `id` (a resolved `mitigated_by` target, a task or a truth) is done: a task done, or a truth
+/// verified.
 fn mitigation_done(id: &str, done: &Done) -> bool {
     let task = done
         .tasks
         .get(id)
         .is_some_and(|task| task_done(task, done.commits, done.statuses));
-    task || done.items.get(&("truth", id)) == Some(&Item::Verified)
+    task || done.items.get(id) == Some(&Item::Verified)
 }
 
 /// One entry per item `risk` writes in `mitigated_by`: whether it is done; `false` for one that does not resolve. A
@@ -222,8 +223,8 @@ fn raise<'a>(levels: &mut BTreeMap<&'a str, i64>, id: &'a str, current: i64) {
     *level = (*level).max(current);
 }
 
-/// `risk_level` of each phase a rated risk reaches and of each milestone that carries one. A mitigation's plan is read
-/// kind by kind (a task's, a truth's `plan`), and a quick plan is in no phase.
+/// `risk_level` of each phase a rated risk reaches and of each milestone that carries one. A mitigation's plan is its
+/// `plan` (a task's or a truth's, one map by id), and a quick plan is in no phase.
 fn risk_levels(input: &PassInput, rated: &[(&PassEntity, Rating)]) -> Vec<PassValue> {
     let plans: BTreeMap<&str, &str> = ["task", "truth"]
         .into_iter()

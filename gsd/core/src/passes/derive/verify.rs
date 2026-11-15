@@ -430,13 +430,14 @@ pub fn by_phase(input: &PassInput) -> BTreeMap<String, Verified> {
         .collect()
 }
 
-/// The state of each truth, artifact and key link a verification assesses, by `(kind, id)`: an id is unique only within
-/// its kind. An item no verification assesses (its phase has none, or defers it) is not here, so it is not verified.
-pub fn items(input: &PassInput) -> BTreeMap<(&str, &str), Item> {
+/// The state of each truth, artifact and key link a verification assesses, by id: an id names one entity whatever its
+/// kind (ADR 0284 D3: a declaration of another kind at the same path is W060 and is not placed). An item no
+/// verification assesses (its phase has none, or defers it) is not here, so it is not verified.
+pub fn items(input: &PassInput) -> BTreeMap<&str, Item> {
     assess(input)
         .into_iter()
         .flat_map(|a| a.group.entities.into_iter().zip(a.now))
-        .map(|(e, item)| ((e.kind.as_str(), e.id.as_str()), item))
+        .map(|(e, item)| (e.id.as_str(), item))
         .collect()
 }
 

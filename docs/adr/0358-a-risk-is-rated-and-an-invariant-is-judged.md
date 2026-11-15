@@ -40,8 +40,11 @@ lands, so the title names both.
   - A task is done when a recorded commit names it or its plan is complete (the rule that gives the task its `done`).
   - A truth is done when its phase's verification verifies it: an override, or a fresh passing `gsd/E501` verdict
     that no recorded test contradicts. A truth no verification assesses is not verified.
-  - A name that does not resolve is never done. The prose `mitigation` is no evidence.
-  - Each mitigation is read through its own kind: an id is unique only within its kind.
+  - A risk is unscoped, so it names a mitigation by its full path, rooted or not. A name that does not resolve is
+    never done, even when another item's path ends with it. The prose `mitigation` is no evidence.
+  - A mitigation is read by its id: an id names one entity whatever its kind
+    ([ADR 0284](0284-a-name-is-unique-within-its-scope.md) D3: a declaration of another kind at the same path is W060
+    and is not placed).
 - **D4. Blocking and the setting.** `blocking` is true while the risk's current rpn is at or above
   `specforge.risk_block_on`, an integer setting from 1 to 1000, 100 by default, that no profile presets. The current
   rpn is `rpn` until the risk is mitigated and `post_rpn` after: a mitigated risk whose residual is still at or above
