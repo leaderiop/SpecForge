@@ -156,10 +156,15 @@ status.
 
 The verdict is the judged rule `gsd/I536` ([rules.md](rules.md#governance)): outcomes `holds` (passing), `violated`
 and `uncertain`, judged by the prompt `verify_invariant`, over two inputs, the invariant itself and its tests (its
-proof's results and the tests whose name tags it, as a truth's). An invariant without a fresh `holds` reports it at
-Info under every profile, a pending one too: the rule reads no status. The prompt lists the invariants in force that
-do not hold, reads each one's code items, and records with `specforge gsd record-verdict <invariant> I536 <outcome>`,
-citing the source files it read, so an edit to one stales the verdict.
+proof's results and the tests whose name tags it, as a truth's). An invariant in force without a fresh `holds`
+reports it at Info under every profile. The prompt lists the invariants in force that do not hold, reads each one's
+code items, and records with `specforge gsd record-verdict <invariant> I536 <outcome>`, citing the source files it
+read, so an edit to one stales the verdict.
+
+A pending invariant owes no verdict: the rule waits for it to be in force (`judged_while complete`: the kind's
+`complete_when`, read after the compute passes). It is not reported, no gate reads a verdict of it (gsd/E516), and the
+prompt does not list it; with only pending invariants the prompt says how many wait. A verdict recorded early, with
+`verify_invariant --invariant <id>`, is kept and read once the invariant is in force.
 
 ### The old invariant's fields
 

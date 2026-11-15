@@ -139,6 +139,8 @@ pub struct JudgedRow {
     pub inputs: Vec<(String, String)>,
     /// The field a row's `unless_set` names, when the row says it.
     pub unless_set: Option<String>,
+    /// The owner state a row's `judged_while` names, when the row says it.
+    pub judged_while: Option<String>,
     pub binds: String,
 }
 
@@ -174,16 +176,20 @@ pub fn judged_rows() -> Vec<JudgedRow> {
             .split(',')
             .map(|c| c.trim().trim_start_matches("gsd/").to_string())
             .collect();
-        let unless_set = inputs
-            .split("`unless_set ")
-            .nth(1)
-            .and_then(|r| r.split(|c: char| !c.is_alphanumeric() && c != '_').next())
-            .map(String::from);
+        let word_after = |marker: &str| {
+            inputs
+                .split(marker)
+                .nth(1)
+                .and_then(|r| r.split(|c: char| !c.is_alphanumeric() && c != '_').next())
+                .map(String::from)
+        };
+        let (unless_set, judged_while) = (word_after("`unless_set "), word_after("`judged_while "));
         rows.push(JudgedRow {
             codes,
             target: target.trim_matches('`').to_string(),
             inputs: inputs.split(" · ").map(input_of).collect(),
             unless_set,
+            judged_while,
             binds: binds.clone(),
         });
     }
@@ -205,7 +211,7 @@ pub fn judged_descriptor(code: &str) -> Option<serde_json::Value> {
 }
 
 /// Asserts that the descriptor of `code` reads exactly what `rules.md` lists for it: each target with its inputs in
-/// order, and its `unless_set`.
+/// order, its `unless_set` and its `judged_while`.
 #[allow(
     dead_code,
     reason = "each test crate that includes this module uses some of it"
@@ -248,6 +254,12 @@ pub fn assert_inputs_match_rules_md(code: &str) {
         assert_eq!(
             unless,
             row.unless_set.iter().cloned().collect::<Vec<_>>(),
+            "{code} {}",
+            row.target
+        );
+        assert_eq!(
+            target["judged_while"].as_str(),
+            row.judged_while.as_deref(),
             "{code} {}",
             row.target
         );

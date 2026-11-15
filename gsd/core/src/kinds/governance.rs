@@ -80,7 +80,7 @@ const INVARIANT_STATUS: &[&str] = &[
     "uncertain",
 ];
 /// The statuses of an invariant in force: every one but `pending`. While pending, its `proof` and `items` are not
-/// checked.
+/// checked and `gsd/I536` asks no verdict of it (`judged_while: complete`).
 const INVARIANT_IN_FORCE: &[&str] = &["unverified", "stale", "holds", "violated", "uncertain"];
 /// What a violation costs, highest first.
 const CRITICALITY: &[&str] = &["critical", "high", "medium", "low"];

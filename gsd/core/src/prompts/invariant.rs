@@ -32,25 +32,54 @@ Judge what the code does, not what its comments or the statement hope. Do not ed
 /// The statuses of an invariant in force that does not hold: each awaits a verdict.
 const AWAITING: &[&str] = &["unverified", "stale", "violated", "uncertain"];
 
-/// The invariants to judge: the one given, else every invariant in force whose status is not `holds`. No shell-ids
-/// line comes before it, so it opens with no blank line: the render puts one after [`TEXT`].
+/// The status of an invariant not in force: `gsd/I536` waits for it, so it owes no verdict yet.
+const PENDING: &str = "pending";
+
+/// The invariants to judge: the one given, else every invariant in force whose status is not `holds`. With none, it
+/// says whether invariants are pending; a pending one given is judged early, and says so. No shell-ids line comes
+/// before it, so it opens with no blank line: the render puts one after [`TEXT`].
 fn awaiting(call: &PromptCall<'_>) -> String {
+    let invariants: Vec<&GraphNode> = call
+        .graph()
+        .map_or(&[][..], |g| &g.nodes)
+        .iter()
+        .filter(|n| n.kind == "invariant")
+        .collect();
+    let pending = |n: &&&GraphNode| n.text("status") == Some(PENDING);
     let named: Vec<String> = match call.str("invariant") {
         Some(id) => vec![id.to_string()],
-        None => call
-            .graph()
-            .map_or(&[][..], |g| &g.nodes)
+        None => invariants
             .iter()
-            .filter(|n| n.kind == "invariant")
             .filter(|n| n.text("status").is_some_and(|s| AWAITING.contains(&s)))
             .map(|n| n.id.clone())
             .collect(),
     };
     if named.is_empty() {
-        return "No invariant awaits a verdict.\n".to_string();
+        return match invariants.iter().filter(pending).count() {
+            0 => "No invariant awaits a verdict.\n".to_string(),
+            1 => "No invariant in force awaits a verdict. 1 invariant is pending until its `holds_from` phase has \
+                  run: it owes no verdict yet.\n"
+                .to_string(),
+            n => format!(
+                "No invariant in force awaits a verdict. {n} invariants are pending until their `holds_from` phase \
+                 has run: they owe no verdict yet.\n"
+            ),
+        };
     }
     let list: Vec<String> = named.iter().map(|id| format!("- `{id}`")).collect();
-    format!("## The invariants to judge\n\n{}\n", list.join("\n"))
+    let mut text = format!("## The invariants to judge\n\n{}\n", list.join("\n"));
+    for early in invariants
+        .iter()
+        .filter(pending)
+        .filter(|n| named.contains(&n.id))
+    {
+        text.push_str(&format!(
+            "\n`{}` is pending until its `holds_from` phase has run: it owes no verdict yet, and the one you record is \
+             read once it is in force.\n",
+            early.id
+        ));
+    }
+    text
 }
 
 static VERIFY_INVARIANT: Spec = Spec {

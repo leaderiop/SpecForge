@@ -5,7 +5,8 @@
 [ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md) (a typed setting) and
 [ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md) (a field that names its reverse).
 D1 to D8 hold the risk's decisions; D9 to D15, the invariant's, were added when that kind landed (2026-11-15), so the
-title names both. No SDK or protocol change. One kernel change, D15, amends
+title names both. No SDK or protocol change of its own: D12 waits for an invariant in force with a judged target's
+`judged_while` ([ADR 0362](0362-a-judged-target-may-wait-for-its-owner-state.md)). One kernel change, D15, amends
 [ADR 0331](0331-the-gsd-requirement-thread.md) D7: the registry's check of a judged rule's or a context route's
 `file()` selector.
 
@@ -129,12 +130,17 @@ title names both. No SDK or protocol change. One kernel change, D15, amends
   (missing, unrecorded or unreadable too), `stale` once an input moved since, else the fresh verdict's outcome,
   `holds`, `violated` or `uncertain`. No outcome field repeats it. `last_verified` is the `at` of the verdict while
   `status` is `holds`, absent otherwise: a time, as the verdict gives one; a phase view of it is another field's.
-- **D12. `gsd/I536`, the verdict that an invariant holds.** A judged rule over every invariant
+- **D12. `gsd/I536`, the verdict that an invariant holds.** A judged rule over every invariant in force
   ([ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md)), at Info under every profile: a judged rule
   reports on every target without a fresh passing verdict, and a converted project has one invariant per old one
   (149 in SpecForge's own spec), so a Warning would bury every other finding. A fresh `violated` stays Info; it shows
-  in `status` and in the risks the invariant mitigates (D14). The rule reads no status: a pending invariant reports
-  it too, and its prompt lists only the invariants in force.
+  in `status` and in the risks the invariant mitigates (D14).
+  - A pending invariant owes no verdict. The rule's target waits for the invariant's owner state
+    (`judged_while: complete`, [ADR 0362](0362-a-judged-target-may-wait-for-its-owner-state.md)): its `complete_when`
+    holds on every status but `pending` (D10), read on the merged snapshot after the compute passes. So the rule, its
+    prompt and the gates agree: a pending invariant is not reported, lists no judgement a gate reads, and the prompt
+    does not list it; with only pending invariants it says so. A verdict recorded early (`--invariant <id>`) is kept
+    and read once the invariant is in force.
   - The judge is the prompt `verify_invariant`, our own text (GSD has no invariant), rendered for each host, with no
     slash command: no upstream command row exists for one, as none exists for `execute_plan`. It reads the inputs,
     reads the code the items name, judges, and records with `specforge gsd record-verdict <invariant> I536 …`.
@@ -144,7 +150,7 @@ title names both. No SDK or protocol change. One kernel change, D15, amends
     the items or a `file()`: an item reference selects no entity on a clone without a fact store, so a verdict
     recorded on one machine would be stale on the next. The judge cites each source file it read (`--cited`), which
     stales the verdict when one is edited, and a clone has those files.
-  - Under `gsd-plus` a stale I536, as any stale verdict, refuses a scoped gate (gsd/E516).
+  - Under `gsd-plus` a stale I536 on an invariant in force, as any stale verdict, refuses a scoped gate (gsd/E516).
 - **D13. `scope` bounds where it reaches, not its status.** `scope` changes no `status`. It decides which phases a
   check of an invariant's code reads, when one is built: with no `holds_from`, every phase; else the `holds_from`
   phase, the later-numbered phases of its milestone and, where numbers do not order two phases (no roadmap order
@@ -185,7 +191,5 @@ title names both. No SDK or protocol change. One kernel change, D15, amends
 
 - A project that needs Action Priority beside, or in place of, the rpn.
 - A project that needs a threshold per milestone.
-- A judged rule's target that can skip an entity by a computed status: a pending invariant would then owe no verdict
-  (D12).
 - A fact store on every clone: a verdict could then read an invariant's items (D12).
 - A check of an invariant's code across the phases it reaches: D13's window is its scope.

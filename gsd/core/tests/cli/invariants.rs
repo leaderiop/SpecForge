@@ -139,8 +139,8 @@ fn a_pending_invariants_proof_is_not_checked() {
         "phase 02 is not complete: {phase}"
     );
     assert_eq!(status(&p, "ids_are_sequential"), "pending");
-    // its verdict is still owed: the rule reads no status
-    assert_eq!(on(&p, "ids_are_sequential"), [no_verdict()]);
+    // nor is its verdict owed: I536 waits for it to be in force
+    assert_eq!(on(&p, "ids_are_sequential"), Vec::new());
     let phase = status(&p, "v1.0/01");
     assert!(
         ["executed", "needs_review", "complete"].contains(&phase.as_str()),
@@ -198,6 +198,10 @@ fn the_verify_invariant_prompt_lists_the_invariants_awaiting_a_verdict() {
         "claude-code",
     )));
     assert!(text.contains("- `ids_stay_unique`"), "{text}");
+    assert!(
+        text.contains("`ids_stay_unique` is pending until its `holds_from` phase has run"),
+        "{text}"
+    );
     assert!(!text.contains("`ids_are_sequential`"), "{text}");
     let plain = taskboard();
     let text = text_of(&payload(&prompt(
@@ -333,9 +337,29 @@ fn a_pending_invariant_is_asked_for_no_verdict() {
         &[],
         "claude-code",
     )));
-    assert!(text.contains("No invariant awaits a verdict."), "{text}");
-    // pinned: I536 still reports the verdict the prompt does not ask for
-    assert_eq!(on(&p, "ids_are_sequential"), [no_verdict()]);
+    assert!(
+        text.contains(
+            "No invariant in force awaits a verdict. 1 invariant is pending until its `holds_from` phase has \
+             run: it owes no verdict yet."
+        ),
+        "{text}"
+    );
+    assert!(!text.contains("`ids_are_sequential`"), "{text}");
+    assert_eq!(on(&p, "ids_are_sequential"), Vec::new());
+    assert!(p.inputs("ids_are_sequential", "I536")["verdict"].is_null());
+    // judged early on request, and told so
+    let given = ["--invariant", "ids_are_sequential"];
+    let text = text_of(&payload(&prompt(
+        &p,
+        "verify_invariant",
+        &given,
+        "claude-code",
+    )));
+    assert!(text.contains("- `ids_are_sequential`"), "{text}");
+    assert!(
+        text.contains("`ids_are_sequential` is pending until its `holds_from` phase has run"),
+        "{text}"
+    );
 }
 
 /// A verdict recorded early on a pending invariant (`verify_invariant --invariant`) goes stale with its tests; the
@@ -355,8 +379,22 @@ fn a_stale_verdict_on_a_pending_invariant_refuses_no_gate() {
     assert_eq!(p.node_tests(&cases).code, 0);
     assert_eq!(status(&p, "ids_are_sequential"), "pending");
     plus(&p);
+    let rendered = payload(&prompt(&p, "plan_phase", &["v1.0/02"], "claude-code"));
+    assert!(
+        rendered["payload"]["prompt"]
+            .as_str()
+            .is_some_and(|s| s.ends_with(":plan_phase")),
+        "{rendered}"
+    );
+    // in force from phase 01, the verdict is owed, stale, and refuses the gate
+    let text = p.read("spec/invariants.spec");
+    author(
+        &p,
+        &text.replace("holds_from  v1.0/02", "holds_from  v1.0/01"),
+    );
+    let inputs = p.inputs("ids_are_sequential", "I536");
+    assert_eq!(inputs["verdict"]["state"], "stale", "{inputs}");
     let run = prompt(&p, "plan_phase", &["v1.0/02"], "claude-code");
-    // pinned: the stale verdict of an invariant not in force refuses the gate
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(run.all().contains("E516"), "{}", run.all());
 }

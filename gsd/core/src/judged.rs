@@ -15,6 +15,9 @@ pub struct Target {
     pub inputs: &'static [(&'static str, &'static str)],
     /// An entity that writes any of these fields is not judged.
     pub unless_set: &'static [&'static str],
+    /// An entity is judged only once its owner is complete (`judged_while: complete`): the kind's `complete_when`
+    /// decides, read after the compute passes, and an entity still pending owes no verdict.
+    pub once_complete: bool,
 }
 
 /// One judged rule.
@@ -77,6 +80,7 @@ const PLAN_CHECK: &[Target] = &[Target {
     kind: "plan",
     inputs: PLAN_CHECK_INPUTS,
     unless_set: &[],
+    once_complete: false,
 }];
 
 // E501 reads the files a truth's plan, an artifact and a key link name (ADR 0304); the plan checks read none: they
@@ -92,6 +96,7 @@ const E501: &[Target] = &[
             ("files", "file(self.plan.files_modified)"),
         ],
         unless_set: &[],
+        once_complete: false,
     },
     Target {
         kind: "artifact",
@@ -101,6 +106,7 @@ const E501: &[Target] = &[
             ("file", "file(self.path)"),
         ],
         unless_set: &[],
+        once_complete: false,
     },
     // A key link with a `pattern` is not judged: a pass searches the pattern (`passes::scan`).
     Target {
@@ -112,6 +118,7 @@ const E501: &[Target] = &[
             ("to", "file(self.to)"),
         ],
         unless_set: &["pattern"],
+        once_complete: false,
     },
 ];
 
@@ -168,6 +175,7 @@ pub const JUDGED: &[Judged] = &[
             kind: "milestone_audit",
             inputs: INTEGRATION_INPUTS,
             unless_set: &[],
+            once_complete: false,
         }],
         values: &[],
         outcome_fields: &["milestone_audit.integration"],
@@ -186,6 +194,7 @@ pub const JUDGED: &[Judged] = &[
                 ("phase", "self.phase"),
             ],
             unless_set: &[],
+            once_complete: false,
         }],
         values: &["phase_spec.scores"],
         outcome_fields: &[],
@@ -200,6 +209,7 @@ pub const JUDGED: &[Judged] = &[
             kind: "locked_req",
             inputs: &[("req", "self"), ("traces", "self.traces")],
             unless_set: &[],
+            once_complete: false,
         }],
         values: &[],
         outcome_fields: &[],
@@ -214,6 +224,7 @@ pub const JUDGED: &[Judged] = &[
             kind: "package_audit",
             inputs: &[("audit", "self")],
             unless_set: &[],
+            once_complete: false,
         }],
         values: &[],
         outcome_fields: &["package_audit.legitimacy"],
@@ -231,6 +242,7 @@ pub const JUDGED: &[Judged] = &[
                 ("tests", "test(self.proof, self<test.names)"),
             ],
             unless_set: &[],
+            once_complete: true,
         }],
         values: &[],
         outcome_fields: &[],
@@ -264,6 +276,9 @@ pub fn declare(c: &mut ContributionsBuilder) {
                             }
                             if !t.unless_set.is_empty() {
                                 tb.unless_set(t.unless_set);
+                            }
+                            if t.once_complete {
+                                tb.once_complete();
                             }
                         });
                     }

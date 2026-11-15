@@ -106,6 +106,26 @@ pub fn judged(report: &[(String, String)]) -> Vec<(String, String)> {
     found
 }
 
+/// Whether `node`, an exported graph node of `kind`, is complete in its kind's own sense: the field its declared
+/// `complete_when` names holds one of its values (a judged target that waits for its owner reads its own kind's).
+fn complete(kind: &str, node: &serde_json::Value) -> bool {
+    let host = specforge_extension_sdk::testing::MockHost::new(gsd_core::build());
+    let kinds: serde_json::Value =
+        serde_json::from_str(&host.describe_json("entities").expect("the kinds")).expect("JSON");
+    let when = kinds["items"]
+        .as_array()
+        .and_then(|all| all.iter().find(|k| k["name"] == kind))
+        .map(|k| k["complete_when"].clone())
+        .unwrap_or_else(|| panic!("no kind {kind}"));
+    let field = when["field"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{kind} declares no complete_when"));
+    when["values"]
+        .as_array()
+        .expect("its values")
+        .contains(&node["fields"][field])
+}
+
 /// What a report holds besides the judged rules' diagnostics.
 pub fn unjudged(report: &[(String, String)]) -> Vec<(String, String)> {
     report
@@ -500,8 +520,9 @@ impl Project {
 
     /// The `(code, entity)` pairs every judged rule reports on a project that records no verdict, sorted: one for each
     /// entity of each kind the rule targets (the graph says which, not the judged diagnostics), except the rules in
-    /// `off` (a gate that is off), an entity that writes a field the target says to skip and an entity that already
-    /// carries a fresh passing verdict of the rule.
+    /// `off` (a gate that is off), an entity that writes a field the target says to skip, an entity still pending when
+    /// the target waits for its kind's `complete_when` to hold, and an entity that already carries a fresh passing
+    /// verdict of the rule.
     pub fn expected_judged(&self, off: &[&str]) -> Vec<(String, String)> {
         let mut out = Vec::new();
         for rule in gsd_core::judged::JUDGED
@@ -513,7 +534,8 @@ impl Project {
                     let skipped = target
                         .unless_set
                         .iter()
-                        .any(|f| node["fields"].get(f).is_some_and(|v| !v.is_null()));
+                        .any(|f| node["fields"].get(f).is_some_and(|v| !v.is_null()))
+                        || (target.once_complete && !complete(target.kind, &node));
                     // A fresh passing verdict on the node (the twin carries its verifier's) answers the rule.
                     let judged = node["judgements"].as_array().is_some_and(|all| {
                         all.iter().any(|j| {
