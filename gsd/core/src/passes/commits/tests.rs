@@ -29,3 +29,28 @@ fn a_commit_reads_its_linked_by() {
     assert_eq!(found[0].kind, Some(CommitType::Feat));
     assert_eq!(found[1].kind, Some(CommitType::Docs));
 }
+
+/// The host sends a written list as its text in `fields` (`""` when empty, protocol 1.1.0) and its items in `values`;
+/// an unwritten one in neither.
+#[test]
+fn an_unwritten_items_changed_is_none_and_a_written_empty_one_is_empty() {
+    let input: PassInput = serde_json::from_value(json!({
+        "entities": [
+            {"id": "0123456789aa", "kind": "commit", "fields": {"at": "2026-10-28T09:00:00Z"}},
+            {"id": "0123456789ab", "kind": "commit", "fields": {"at": "2026-10-28T09:00:01Z", "items_changed": ""},
+             "values": {"items_changed": []}},
+            {"id": "0123456789ac", "kind": "commit",
+             "fields": {"at": "2026-10-28T09:00:02Z", "items_changed": "js:a/x.js::A"},
+             "values": {"items_changed": ["js:a/x.js::A"]}},
+        ],
+    }))
+    .expect("a pass input");
+    let found: Vec<Option<Vec<String>>> = commits(&input)
+        .into_iter()
+        .map(|c| c.items_changed)
+        .collect();
+    assert_eq!(
+        found,
+        [None, Some(vec![]), Some(vec!["js:a/x.js::A".to_string()])]
+    );
+}

@@ -219,7 +219,7 @@ fn anchored_items(input: &PassInput) -> Vec<PassDiagnostic> {
         let Some(plan) = commit.plan.as_deref() else {
             continue;
         };
-        for item in &commit.items_changed {
+        for item in commit.items_changed.iter().flatten() {
             anchors
                 .entry(item.clone())
                 .or_default()

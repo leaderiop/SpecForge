@@ -247,6 +247,8 @@ fn anchored(claims: bool) -> PassInput {
 /// A recorded commit `id` of `plan` whose `items_changed` is [`ITEM`].
 fn changing(input: &mut PassInput, id: &str, plan: &str) {
     let mut commit = entity(id, "commit");
+    // As the host sends a written list: its text in `fields`, its items in `values`.
+    commit.fields.insert("items_changed".into(), ITEM.into());
     commit
         .values
         .insert("items_changed".into(), serde_json::json!([ITEM]));
