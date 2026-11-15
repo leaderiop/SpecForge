@@ -338,3 +338,50 @@ fn i536_without_code_core_says_no_w112() {
     );
     assert_eq!(status(&p, "ids_are_sequential"), "holds");
 }
+
+/// A risk the twin's invariant controls: rpn 175, post_rpn 35 once mitigated.
+const RISK_ON_THE_INVARIANT: &str = r#"risk RK1 "A new task takes a used id" {
+  severity     7
+  occurrence   5
+  detection    5
+  post {
+    occurrence 1
+  }
+  mitigated_by [ids_are_sequential]
+}
+"#;
+
+/// `status` and `blocking` of the risk `RK1`.
+fn risk(p: &Project) -> (String, bool) {
+    let fields = p.fields_of("RK1");
+    (
+        fields["status"].as_str().unwrap_or_default().to_string(),
+        fields["blocking"]
+            .as_bool()
+            .unwrap_or_else(|| panic!("no blocking in {fields}")),
+    )
+}
+
+/// An invariant mitigates a risk while its status is `holds`: not before a verdict, not once violated, and not while
+/// it is pending, whatever its verdict says.
+#[test]
+fn a_risk_mitigated_by_an_invariant_counts_it_while_it_holds() {
+    let p = authored();
+    p.write("spec/risks.spec", RISK_ON_THE_INVARIANT);
+    assert_eq!(risk(&p), ("mitigating".into(), true), "no verdict yet");
+    assert_eq!(p.record("ids_are_sequential", "I536", "holds", &[]).code, 0);
+    assert_eq!(risk(&p), ("mitigated".into(), false), "post_rpn 35");
+    assert_eq!(
+        p.record("ids_are_sequential", "I536", "violated", &[]).code,
+        0
+    );
+    assert_eq!(risk(&p), ("mitigating".into(), true), "violated");
+
+    let pending = taskboard();
+    author(&pending, &TWIN_INVARIANT.replace("v1.0/01", "v1.0/02"));
+    pending.write("spec/risks.spec", RISK_ON_THE_INVARIANT);
+    let run = pending.record("ids_are_sequential", "I536", "holds", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(status(&pending, "ids_are_sequential"), "pending");
+    assert_eq!(risk(&pending), ("mitigating".into(), true), "pending");
+}

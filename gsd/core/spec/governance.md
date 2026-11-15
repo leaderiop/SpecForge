@@ -1,13 +1,13 @@
 # Risks and invariants
 
 ```
- risk ─*──*─ task | truth          (mitigated_by: what controls it)
-   ├─*──*─ requirement             (affects: what it threatens; the requirement reads `risks`)
-   └─*──0..1─ milestone            (milestone: where it must be settled; the milestone reads `risks`)
+ risk ─*──*─ task | truth | invariant  (mitigated_by: what controls it)
+   ├─*──*─ requirement                 (affects: what it threatens; the requirement reads `risks`)
+   └─*──0..1─ milestone                (milestone: where it must be settled; the milestone reads `risks`)
 
- invariant ─*──0..1─ phase         (holds_from: the phase it holds from)
-   ├─*──*─ test                    (proof: the `@code/core` tests that prove it)
-   └─*──*─ item                    (items: the `@code/core` code items it holds over)
+ invariant ─*──0..1─ phase             (holds_from: the phase it holds from)
+   ├─*──*─ test                        (proof: the `@code/core` tests that prove it)
+   └─*──*─ item                        (items: the `@code/core` code items it holds over)
 ```
 
 Files: `spec/gsd/governance/risks.spec`, `spec/gsd/governance/invariants.spec`.
@@ -30,7 +30,7 @@ a phase, and moving it to another milestone does not rename it.
 | occurrence | int{1..10} | R | 1 remote … 10 almost certain |
 | detection | int{1..10} | R | 1 almost certainly caught before harm … 10 cannot be caught |
 | post | {severity int{1..10}, occurrence int{1..10}, detection int{1..10}} | | the ratings once every mitigation is done; a member left out keeps its pre rating |
-| mitigated_by | →* task \| truth | | what controls it: a task done, a truth verified |
+| mitigated_by | →* task \| truth \| invariant | | what controls it: a task done, a truth verified, an invariant that holds |
 | mitigation | str | | the planned control as prose; no evidence |
 | affects | →* requirement | | the requirements it threatens; each reads it back as `risks` |
 | milestone | → milestone | | where it must be settled when no phase's plan mitigates it; the milestone reads it back as `risks` |
@@ -47,7 +47,7 @@ Each computed value is absent while a required rating is missing or one is outsi
 field is E082.
 
 `mitigated_by` names no reverse: the kernel reads a reverse name through a field's one target kind, and this field
-has two.
+has three.
 
 ### What mitigates a risk
 
@@ -56,9 +56,11 @@ A risk is `mitigated` once every item of its `mitigated_by` is done:
 - a task, when a recorded commit names it or its plan is `complete` (the rule that gives the task its `done`);
 - a truth, when its phase's verification verifies it (an override, or a fresh passing `gsd/E501` verdict that no
   recorded test contradicts); a phase's verifications are read as one, so an override on any of them counts. A truth
-  no verification assesses is not verified.
+  no verification assesses is not verified;
+- an invariant, while its `status` is `holds` ([Its verdict](#its-verdict)). Violated, stale, uncertain, unverified
+  and pending are not done, so the risk stays `mitigating` and blocks on its `rpn` until the invariant holds again.
 
-A risk is unscoped, so an item names a task or a truth by its full path, rooted or not (`v1.0/01/01-01/T1` or
+A risk is unscoped, so an item names a task, a truth or an invariant by its full path, rooted or not (`v1.0/01/01-01/T1` or
 `/v1.0/01/01-01/T1`). A name that does not resolve is never done (the kernel reports it, E003), even when another
 item's path ends with it (`T1` beside `v1.0/01/01-01/T1`), so a risk naming one stays `mitigating`. The
 prose `mitigation` is no evidence: a risk that names nothing in `mitigated_by` stays `open` whatever its prose says.
@@ -92,7 +94,8 @@ control catches.
 A phase and a milestone carry a computed `risk_level` ([project.md](project.md)): how risky they are now.
 
 - A risk *reaches* a phase when a task or a truth its `mitigated_by` names belongs to a plan of that phase. A quick
-  plan is in no phase, so a risk it mitigates reaches none.
+  plan is in no phase, so a risk it mitigates reaches none, and neither does one an invariant mitigates: an
+  invariant belongs to no plan.
 - A phase's `risk_level` is the highest current rpn (`post_rpn` once mitigated, else `rpn`) of the risks that reach
   it, so it drops as their mitigations land.
 - A milestone's `risk_level` is the highest of its phases' levels and of the current rpn of each risk whose

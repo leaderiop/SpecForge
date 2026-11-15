@@ -13,8 +13,8 @@ const POST: &[Field] = &[
         .doc("detection once mitigated"),
 ];
 
-/// What can control a risk: a task, done; a truth, verified.
-const MITIGATIONS: &[&str] = &["task", "truth"];
+/// What can control a risk: a task, done; a truth, verified; an invariant, while it holds.
+const MITIGATIONS: &[&str] = &["task", "truth", "invariant"];
 const RISK_STATUS: &[&str] = &["open", "mitigating", "mitigated"];
 
 /// A risk of the project. Unscoped: a risk outlives a phase, and moving it to another milestone does not rename it.
@@ -41,7 +41,7 @@ pub const RISK: Kind = Kind::new(
             "the ratings once every mitigation is done; a member left out keeps its pre rating",
         ),
         rfs_any("mitigated_by", MITIGATIONS)
-            .doc("what controls it: a task done, a truth verified"),
+            .doc("what controls it: a task done, a truth verified, an invariant that holds"),
         str("mitigation").doc("the planned control as prose; no evidence"),
         rfs("affects", "requirement")
             .inverse("risks")

@@ -79,7 +79,7 @@ fn a_risk_rates_severity_occurrence_and_detection_one_to_ten() {
     }
 }
 
-/// `mitigated_by` names no reverse: the kernel reads a reverse name through one target kind, and it has two.
+/// `mitigated_by` names no reverse: the kernel reads a reverse name through one target kind, and it has three.
 #[test]
 fn a_risk_names_its_mitigations_and_milestone() {
     let mitigated_by = field_of("risk", "mitigated_by");
@@ -89,7 +89,7 @@ fn a_risk_names_its_mitigations_and_milestone() {
     );
     assert_eq!(
         mitigated_by["target_kinds"],
-        serde_json::json!(["task", "truth"]),
+        serde_json::json!(["task", "truth", "invariant"]),
         "{mitigated_by}"
     );
     assert!(mitigated_by["inverse_of"].is_null(), "{mitigated_by}");

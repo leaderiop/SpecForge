@@ -46,9 +46,9 @@ fn risk(id: &str, ratings: [&str; 3], post: Option<serde_json::Value>) -> PassEn
     }
 }
 
-/// The values `values_and_findings` answers under the default threshold, with no commit and no plan status.
+/// The values `values_and_findings` answers under the default threshold, with no commit, plan status or invariant.
 fn rated_values(input: &PassInput) -> Vec<PassValue> {
-    values_and_findings(input, &[], &BTreeMap::new(), 100).0
+    values_and_findings(input, &[], &BTreeMap::new(), &BTreeMap::new(), 100).0
 }
 
 fn found(values: &[PassValue], entity: &str, field: &str) -> Option<serde_json::Value> {
@@ -136,6 +136,7 @@ fn values_answers_rpn_and_post_rpn_for_each_rated_risk() {
 }
 
 const PLAN: &str = "v1.0/01/01-01";
+const INVARIANT: &str = "ids_are_sequential";
 
 fn rate_7_5_5(done: &[bool]) -> Rating {
     rate(
@@ -149,7 +150,8 @@ fn rate_7_5_5(done: &[bool]) -> Rating {
     )
 }
 
-/// A phase with plan 01-01, its task T1 and truth TR1, the phase's verification, and `risks`; each risk's
+/// A phase with plan 01-01, its task T1 and truth TR1, the phase's verification, the invariant `ids_are_sequential`
+/// (of no plan), and `risks`; each risk's
 /// `mitigated_by` resolves to the full ids it lists that exist, rooted or not, as the host's edges would: a risk is
 /// unscoped, so the kernel reads its references from the project alone.
 fn project(risks: Vec<serde_json::Value>, truth_judgements: Vec<serde_json::Value>) -> PassInput {
@@ -160,6 +162,7 @@ fn project(risks: Vec<serde_json::Value>, truth_judgements: Vec<serde_json::Valu
         json!({ "id": format!("{PLAN}/TR1"), "kind": "truth", "fields": { "plan": PLAN },
                 "judgements": truth_judgements }),
         json!({ "id": "v1.0/01/01-VERIFICATION", "kind": "verification", "fields": { "phase": "v1.0/01" } }),
+        json!({ "id": INVARIANT, "kind": "invariant" }),
     ];
     let ids: Vec<String> = entities
         .iter()
@@ -209,7 +212,7 @@ fn status_of(
     id: &str,
 ) -> String {
     let statuses: BTreeMap<&str, &'static str> = statuses.iter().copied().collect();
-    let (values, _) = values_and_findings(input, commits, &statuses, 100);
+    let (values, _) = values_and_findings(input, commits, &statuses, &BTreeMap::new(), 100);
     found(&values, id, "status")
         .and_then(|s| s.as_str().map(String::from))
         .unwrap_or_else(|| panic!("{id} has no status: {values:?}"))
@@ -353,12 +356,45 @@ fn a_truth_mitigation_is_done_once_its_verification_verifies_it() {
         vec![verdict("verified", true)],
     );
     assert_eq!(status_of(&verified, &[], &[], "RK1"), "mitigated");
-    let (values, _) = values_and_findings(&verified, &[], &BTreeMap::new(), 100);
+    let (values, _) = values_and_findings(&verified, &[], &BTreeMap::new(), &BTreeMap::new(), 100);
     assert_eq!(
         found(&values, "RK1", "blocking"),
         Some(json!(false)),
         "post_rpn 35"
     );
+}
+
+/// An invariant mitigates while its status (`invariant::statuses`) is `holds`, and under no other status; with none
+/// (no status computed) it is not done. It belongs to no plan, so it reaches no phase's `risk_level`.
+#[test]
+fn an_invariant_mitigation_is_done_only_while_it_holds() {
+    let input = project(vec![named("RK1", &[INVARIANT])], Vec::new());
+    let rated = |status: Option<&'static str>| {
+        let invariants: BTreeMap<String, &'static str> = status
+            .map(|s| (INVARIANT.to_string(), s))
+            .into_iter()
+            .collect();
+        values_and_findings(&input, &[], &BTreeMap::new(), &invariants, 100).0
+    };
+    let status = |values: &[PassValue]| found(values, "RK1", "status").expect("a status");
+    let holds = rated(Some("holds"));
+    assert_eq!(status(&holds), json!("mitigated"));
+    assert_eq!(
+        found(&holds, "RK1", "blocking"),
+        Some(json!(false)),
+        "post_rpn 35"
+    );
+    assert!(holds.iter().all(|v| v.field != "risk_level"), "{holds:?}");
+    for other in ["violated", "stale", "uncertain", "unverified", "pending"] {
+        let values = rated(Some(other));
+        assert_eq!(status(&values), json!("mitigating"), "{other}");
+        assert_eq!(
+            found(&values, "RK1", "blocking"),
+            Some(json!(true)),
+            "{other}: rpn 175"
+        );
+    }
+    assert_eq!(status(&rated(None)), json!("mitigating"), "no status");
 }
 
 /// A risk rated `ratings`, naming `mitigated_by` (full ids).
@@ -371,8 +407,13 @@ fn rated_risk(id: &str, ratings: [&str; 3], mitigated_by: &[&str]) -> serde_json
 
 /// `(code, entity)` of each finding over `risks` under `block_on`.
 fn w532_on(risks: Vec<serde_json::Value>, block_on: i64) -> Vec<(String, String)> {
-    let (_, findings) =
-        values_and_findings(&project(risks, Vec::new()), &[], &BTreeMap::new(), block_on);
+    let (_, findings) = values_and_findings(
+        &project(risks, Vec::new()),
+        &[],
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        block_on,
+    );
     findings
         .into_iter()
         .map(|d| (d.code, d.entity.unwrap_or_default()))
@@ -407,8 +448,13 @@ fn w532_fires_at_the_threshold_with_nothing_named_and_not_one_below() {
     );
     assert_eq!(w532_on(risks(), 99), [w532("AT")], "rpn 98 one below 99");
     assert_eq!(w532_on(risks(), 101), Vec::new(), "rpn 100 one below 101");
-    let (_, findings) =
-        values_and_findings(&project(risks(), Vec::new()), &[], &BTreeMap::new(), 100);
+    let (_, findings) = values_and_findings(
+        &project(risks(), Vec::new()),
+        &[],
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        100,
+    );
     assert_eq!(
         findings[0].message,
         "risk 'AT' has rpn 100, at or above specforge.risk_block_on (100), and names nothing in mitigated_by"
@@ -481,7 +527,7 @@ fn placed(
 
 /// `risk_level` of each phase and milestone that has one, under the default threshold, with `commits`.
 fn levels(input: &PassInput, commits: &[Commit]) -> BTreeMap<String, i64> {
-    values_and_findings(input, commits, &BTreeMap::new(), 100)
+    values_and_findings(input, commits, &BTreeMap::new(), &BTreeMap::new(), 100)
         .0
         .into_iter()
         .filter(|v| v.field == "risk_level")
@@ -591,6 +637,6 @@ fn a_quick_plan_mitigation_reaches_no_phase() {
         None,
     )]);
     assert_eq!(levels(&input, &[]), BTreeMap::new());
-    let (values, _) = values_and_findings(&input, &[], &BTreeMap::new(), 100);
+    let (values, _) = values_and_findings(&input, &[], &BTreeMap::new(), &BTreeMap::new(), 100);
     assert_eq!(found(&values, "QUICK", "status"), Some(json!("mitigating")));
 }

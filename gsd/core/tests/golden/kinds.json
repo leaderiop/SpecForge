@@ -10809,7 +10809,7 @@
           },
           {
             "default_value": null,
-            "description": "what controls it: a task done, a truth verified",
+            "description": "what controls it: a task done, a truth verified, an invariant that holds",
             "edge": "RiskMitigatedBy",
             "field_type": "reference_list",
             "inverse_of": null,
@@ -10818,7 +10818,8 @@
             "target_kind": null,
             "target_kinds": [
               "task",
-              "truth"
+              "truth",
+              "invariant"
             ]
           },
           {

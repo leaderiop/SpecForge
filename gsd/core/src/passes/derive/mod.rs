@@ -80,7 +80,8 @@ fn derive(input: &PassInput) -> PassOutput {
     let block_on = Settings::current()
         .integer(crate::settings::RISK_BLOCK_ON)
         .unwrap_or(crate::settings::RISK_BLOCK_ON_DEFAULT);
-    let (risks, findings) = risk::values_and_findings(input, &commits, &statuses, block_on);
+    let (risks, findings) =
+        risk::values_and_findings(input, &commits, &statuses, &invariants, block_on);
     values.extend(risks);
     let mut diagnostics = branch::diagnostics(input);
     diagnostics.extend(findings);

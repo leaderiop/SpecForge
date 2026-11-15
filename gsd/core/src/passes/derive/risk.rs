@@ -5,15 +5,17 @@
 //! member left out keeping its pre rating. A risk whose rating is missing or outside 1 to 10 gets no value: the kernel
 //! reports it (a required field, E061), and no number is guessed.
 //!
-//! A mitigation is done when a task is done (a recorded commit names it, or its plan is complete: `execute::task_done`)
-//! or a truth is verified (its phase's verification verifies it: `verify::items`). A name that does not resolve is
-//! never done, and the prose `mitigation` is no evidence.
+//! A mitigation is done when a task is done (a recorded commit names it, or its plan is complete: `execute::task_done`),
+//! a truth is verified (its phase's verification verifies it: `verify::items`) or an invariant holds (its status is
+//! `holds`: `invariant::statuses`). A name that does not resolve is never done, and the prose `mitigation` is no
+//! evidence.
 //!
 //! gsd/W532 warns on a risk whose rpn is at or above the threshold and that names nothing in `mitigated_by`: this pass
 //! holds the product, the threshold and the finding, so nothing reads a computed value back.
 //!
 //! A phase's `risk_level` is the highest current rpn of the risks that reach it (a task or a truth they name is of a
-//! plan of the phase); a milestone's, the highest of its phases' and of the risks whose `milestone` names it.
+//! plan of the phase; an invariant belongs to no plan); a milestone's, the highest of its phases' and of the risks
+//! whose `milestone` names it.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -154,16 +156,19 @@ struct Done<'a> {
     statuses: &'a BTreeMap<&'a str, &'static str>,
     tasks: BTreeMap<&'a str, &'a PassEntity>,
     items: BTreeMap<&'a str, Item>,
+    /// Each invariant's status (`invariant::statuses`).
+    invariants: &'a BTreeMap<String, &'static str>,
 }
 
-/// Whether the mitigation `id` (a resolved `mitigated_by` target, a task or a truth) is done: a task done, or a truth
-/// verified.
+/// Whether the mitigation `id` (a resolved `mitigated_by` target, a task, a truth or an invariant) is done: a task
+/// done, a truth verified, or an invariant that holds.
 fn mitigation_done(id: &str, done: &Done) -> bool {
     let task = done
         .tasks
         .get(id)
         .is_some_and(|task| task_done(task, done.commits, done.statuses));
     task || done.items.get(id) == Some(&Item::Verified)
+        || done.invariants.get(id).copied() == Some("holds")
 }
 
 /// One entry per item `risk` writes in `mitigated_by`: whether it is done; `false` for one that does not resolve. A
@@ -184,6 +189,7 @@ fn rated<'a>(
     input: &'a PassInput,
     commits: &'a [Commit],
     statuses: &'a BTreeMap<&'a str, &'static str>,
+    invariants: &'a BTreeMap<String, &'static str>,
     block_on: i64,
 ) -> Vec<(&'a PassEntity, Rating)> {
     let done = Done {
@@ -191,6 +197,7 @@ fn rated<'a>(
         statuses,
         tasks: of_kind(input, "task").map(|t| (t.id.as_str(), t)).collect(),
         items: verify::items(input),
+        invariants,
     };
     of_kind(input, "risk")
         .filter_map(|risk| {
@@ -213,7 +220,7 @@ fn unmitigated(risk: &PassEntity, rated: &Rating, block_on: i64) -> PassDiagnost
             risk.id, rated.rpn
         ),
     )
-    .with_suggestion("name the task or truth that controls it in mitigated_by, or rate it again")
+    .with_suggestion("name the task, truth or invariant that controls it in mitigated_by, or rate it again")
     .with_entity(&risk.id)
 }
 
@@ -265,14 +272,16 @@ fn risk_levels(input: &PassInput, rated: &[(&PassEntity, Rating)]) -> Vec<PassVa
 }
 
 /// The values of each rated risk (`rpn`, `post_rpn`, `status`, `blocking`) and the `risk_level` of the phases and
-/// milestones they reach, and gsd/W532 on each risk at or above the threshold that names no mitigation.
+/// milestones they reach, and gsd/W532 on each risk at or above the threshold that names no mitigation. `invariants`
+/// is each invariant's status (`invariant::statuses`).
 pub fn values_and_findings(
     input: &PassInput,
     commits: &[Commit],
     statuses: &BTreeMap<&str, &'static str>,
+    invariants: &BTreeMap<String, &'static str>,
     block_on: i64,
 ) -> (Vec<PassValue>, Vec<PassDiagnostic>) {
-    let risks = rated(input, commits, statuses, block_on);
+    let risks = rated(input, commits, statuses, invariants, block_on);
     let mut values = Vec::new();
     let mut findings = Vec::new();
     for (risk, rated) in &risks {
