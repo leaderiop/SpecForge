@@ -112,18 +112,10 @@ fn a_journey_lists_every_milestone_it_ships_in() {
         "milestones [v1.0]",
         "milestones [v1.0, v2.0]",
     );
-    // No phase of v2.0 lists TASK-01 or TASK-02: one gsd/W530 each (ADR 0357 D24).
+    // v2.0 has no phase yet: its planning has not begun, so no gsd/W530 asks it for TASK-01 or TASK-02 (ADR 0357
+    // D24); `a_step_outside_the_milestone_is_w530` judges a milestone that has a phase.
     let check = p.run(&["check"]);
-    assert_eq!(p.codes(), ["gsd/W530", "gsd/W530"], "{}", check.all());
-    for requirement in ["TASK-01", "TASK-02"] {
-        assert!(
-            check.all().contains(&format!(
-                "lists milestone 'v2.0', but no phase of it lists {requirement}"
-            )),
-            "{requirement}: {}",
-            check.all()
-        );
-    }
+    assert_eq!(p.codes(), Vec::<String>::new(), "{}", check.all());
     let mut shipped: Vec<String> = edges_from(&p, "add_and_finish")
         .into_iter()
         .filter(|(label, _, _)| label == "milestones")

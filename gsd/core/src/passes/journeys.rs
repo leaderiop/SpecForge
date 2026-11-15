@@ -1,6 +1,6 @@
-//! The journeys pass: gsd/W530 (ADR 0357 D24). A journey lists every milestone it ships in; each requirement it names
-//! (a step's, or its own `requirements`, `passes::derive::product::Names`) that no phase of such a milestone lists in
-//! `requirements` means the milestone cannot deliver the journey.
+//! The journeys pass: gsd/W530 (ADR 0357 D24). A journey lists every milestone it ships in; once such a milestone has a
+//! phase, each requirement the journey names (a step's, or its own `requirements`, `passes::derive::product::Names`)
+//! that no phase of it lists in `requirements` means the milestone cannot deliver the journey.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -43,15 +43,18 @@ impl Need {
 
 /// W530: for each milestone a journey lists in `milestones`, one warning on the journey per requirement it names that
 /// no phase of that milestone lists, naming the requirement, the places that need it and the milestone. An unphased
-/// requirement is outside every milestone; a journey that lists no milestone is silent, and so is a step that names
-/// no requirement (`journey.covered` says that) or one that does not resolve (the host's E003).
+/// requirement is outside every milestone that has a phase. A milestone with no phase at all is silent: its planning
+/// has not begun, so it promises no phase yet. A journey that lists no milestone is silent, and so is a step that
+/// names no requirement (`journey.covered` says that) or one that does not resolve (the host's E003).
 fn check(input: &PassInput) -> Vec<PassDiagnostic> {
-    // Each requirement and the milestones whose phases list it.
+    // Each requirement and the milestones whose phases list it; the milestones that have a phase.
     let mut held: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    let mut phased: BTreeSet<&str> = BTreeSet::new();
     for phase in of_kind(input, "phase") {
         let Some(milestone) = link(input, phase, "milestone") else {
             continue;
         };
+        phased.insert(milestone);
         for requirement in links(input, phase, "requirements") {
             held.entry(requirement).or_default().insert(milestone);
         }
@@ -76,7 +79,7 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
                 needs.entry(requirement).or_default().whole = true;
             }
         }
-        for milestone in &milestones {
+        for milestone in milestones.iter().filter(|m| phased.contains(*m)) {
             for (requirement, need) in &needs {
                 if held.get(requirement).is_some_and(|m| m.contains(milestone)) {
                     continue;

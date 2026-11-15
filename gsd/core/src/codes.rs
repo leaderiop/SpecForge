@@ -711,7 +711,8 @@ pub static CODES: &[Code] = &[
     code(
         "W530",
         "Journey requirement outside a listed milestone",
-        "Each requirement a journey names is listed by a phase of every milestone the journey lists",
+        "Each requirement a journey names is listed by a phase of every milestone the journey lists that has a \
+         phase",
         "product",
         Severity::Warning,
         Severity::Error,

@@ -275,9 +275,14 @@ features' requirements, a channel as a term, the artifact word, the journey memb
 - **D23. `milestone.journeys_covered` is computed:** a block `{journeys, covered}` holding the journeys whose
   `milestones` list the milestone and how many of them are covered (D20). It is absent when no journey lists it.
 - **D24. `gsd/W530`: a journey's requirement is outside a milestone it lists.** For each milestone a journey lists in
-  `milestones`, each requirement it names (D19) that no phase of that milestone lists in `requirements` is one warning
-  on the journey. It names the requirement, the steps that need it (or "the journey's requirements") and the milestone.
-  - An unphased requirement is outside every milestone.
+  `milestones` that has at least one phase, each requirement it names (D19) that no phase of that milestone lists in
+  `requirements` is one warning on the journey. It names the requirement, the steps that need it (or "the journey's
+  requirements") and the milestone.
+  - A milestone with no phase at all is silent: its planning has not begun, and it promises no phase yet. Without
+    this, every journey of a project whose roadmap is still to be planned would warn once per requirement and listed
+    milestone, an error under `gsd-strict`, and a project converted from kinds that had no phase (ADR 0360) could
+    never check clean.
+  - An unphased requirement is outside every milestone that has a phase.
   - Each listed milestone is a promise of its own, so a requirement outside two of them is two warnings, and two
     steps on one requirement are one.
   - A journey that lists no milestone is silent, and so is a step with no requirement (`covered` says it).

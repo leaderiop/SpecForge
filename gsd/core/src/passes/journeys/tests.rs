@@ -3,7 +3,7 @@ use serde_json::{Value, json};
 use super::*;
 
 /// A roadmap: milestones v1.0 and v2.0, phase `v1.0/01` listing R1 and phase `v2.0/01` listing R2 (R3 is in no phase),
-/// and a journey `j` whose steps name `steps` (an empty one names none), whose own `requirements` are `whole` and
+/// milestone v3.0 with no phase yet, and a journey `j` whose steps name `steps` (an empty one names none), whose own `requirements` are `whole` and
 /// which lists `milestones`.
 fn roadmap(steps: &[&str], whole: &[&str], milestones: &[&str]) -> PassInput {
     let rows: Vec<Value> = steps
@@ -38,6 +38,7 @@ fn roadmap(steps: &[&str], whole: &[&str], milestones: &[&str]) -> PassInput {
             { "id": "R3", "kind": "requirement", "fields": { "text": "three" } },
             { "id": "v1.0", "kind": "milestone", "fields": { "name": "1.0" } },
             { "id": "v2.0", "kind": "milestone", "fields": { "name": "2.0" } },
+            { "id": "v3.0", "kind": "milestone", "fields": { "name": "3.0" } },
             { "id": "v1.0/01", "kind": "phase", "fields": { "milestone": "v1.0" } },
             { "id": "v2.0/01", "kind": "phase", "fields": { "milestone": "v2.0" } },
             { "id": "j", "kind": "journey", "fields": { "persona": "owner" },
@@ -115,6 +116,17 @@ fn each_listed_milestone_is_checked() {
 #[test]
 fn a_step_phased_in_the_milestone_is_not_w530() {
     assert_eq!(found(&roadmap(&["R1", "R1"], &["R1"], &["v1.0"])), []);
+}
+
+/// A milestone with no phase has not begun its planning: it promises no phase yet, so even an unphased requirement is
+/// silent there, while a milestone with a phase still judges the same journey.
+#[test]
+fn a_milestone_with_no_phase_is_not_w530() {
+    assert_eq!(found(&roadmap(&["R1", "R3"], &["R2"], &["v3.0"])), []);
+    assert_eq!(
+        messages(&roadmap(&["R3"], &[], &["v3.0", "v1.0"])),
+        ["journey 'j' lists milestone 'v1.0', but no phase of it lists R3, named by step 1"]
+    );
 }
 
 #[test]
