@@ -3,9 +3,11 @@
 **Status:** accepted (2026-11-14). Builds on [ADR 0285](0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md)
 (a bounded int, a block, a reference union), [ADR 0287](0287-who-writes-a-field-is-declared.md) (a computed field),
 [ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md) (a typed setting) and
-[ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md) (a field that names its reverse). No
-kernel, SDK or protocol change. This record holds the risk's decisions; the invariant's are appended when that kind
-lands, so the title names both.
+[ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md) (a field that names its reverse).
+D1 to D8 hold the risk's decisions; D9 to D15, the invariant's, were added when that kind landed (2026-11-15), so the
+title names both. No SDK or protocol change. One kernel change, D15, amends
+[ADR 0331](0331-the-gsd-requirement-thread.md) D7: the registry's check of a judged rule's or a context route's
+`file()` selector.
 
 ## Context
 
@@ -19,6 +21,11 @@ lands, so the title names both.
 - The self-spec's invariant `rpn_arithmetic_integrity` promises that a mismatched rpn is an error. No rule emits one.
 - A failure mode's other facts are prose (cause, effect, mitigation), its post-mitigation words, the invariant it
   threatens, the features and behaviors it affects, a description and references.
+- `@gsd/core` modelled no invariant either: GSD has none. The old `@specforge/governance` `invariant` states a
+  `guarantee` graded by a `risk` word, and nothing says whether it holds: W003 reports only one nothing references.
+- A judged rule's `file()` input, or a context section's, whose chain reaches a kind only an unloaded optional peer
+  declares dropped the rule (W112) or refused the route (E123), where the same chain as an entity or `test()` input is
+  inert ([ADR 0331](0331-the-gsd-requirement-thread.md) D7).
 
 ## Decisions
 
@@ -26,9 +33,9 @@ lands, so the title names both.
   unscoped: a risk outlives a phase, and moving it to another milestone does not rename it. Its writers are the planner
   and the executor, whose tasks and truths control it, so it is a core kind.
   - Authored: `cause` and `effect` (required); `severity`, `occurrence` and `detection` (required, each an int from 1
-    to 10); `post`, a block of the same three, none required; `mitigated_by` (→* task | truth); `mitigation` (prose);
-    `affects` (→* requirement) and `milestone` (→ milestone), each read back as `risks`; `tags`, `description` and
-    `refs`.
+    to 10); `post`, a block of the same three, none required; `mitigated_by` (→* task | truth | invariant, D14);
+    `mitigation` (prose); `affects` (→* requirement) and `milestone` (→ milestone), each read back as `risks`;
+    `tags`, `description` and `refs`.
   - Computed: `rpn`, `post_rpn`, `status` and `blocking`.
   - All three ratings are required: an rpn needs all three.
 - **D2. `rpn` and `post_rpn` are computed.** `rpn` is severity × occurrence × detection, 1 to 1000; `post_rpn` is the
@@ -87,10 +94,66 @@ lands, so the title names both.
   - `post_mitigation`'s words and the top-level `post_severity`, `post_occurrence` and `post_detection` become `post`
     members; where both are written and differ, the block's value wins and the other is a ledger row.
   - `cause`, `effect`, `mitigation`, `description` and `refs` keep their names.
-  - `invariant` → `mitigated_by`, once an invariant is one of its kinds: the invariant a failure mode names is the
-    control whose holding mitigates the risk, so the link has one home and no second field holds it.
+  - `invariant` → `mitigated_by` (D14): the invariant a failure mode names is the control whose holding mitigates
+    the risk, so the link has one home and no second field holds it.
   - `threatens_features` and `affected_behaviors` → `affects`, through the requirement each converts to.
   - The old `risk` string is computed now (`rpn`, `status`).
+
+- **D9. The kind `invariant`, in `@gsd/core`** ([spec/governance.md](../../gsd/core/spec/governance.md#invariant)),
+  beyond parity and unscoped: an invariant outlives the phase it starts at, and its name is a word unique in the
+  project (`entity_id_uniqueness`), as the old ids are.
+  - Authored: `statement` (required), `description`, `scope` (project, milestone), `holds_from` (→ phase), `proof`
+    (→* test) and `items` (→* item), `@code/core`'s facts quoted as a truth's proof and a task's items are,
+    `criticality` (critical, high, medium, low), `tags` and `refs`.
+  - Computed: `status` and `last_verified` (D11).
+  - Each field of `@specforge/governance`'s invariant has a home: `guarantee` → `statement`, `risk` → `criticality`
+    (the same four words in the same order, so no scale is needed), `description` → `description`, `refs` → `refs`,
+    and `@specforge/testing`'s `verify` → `proof`. Its presentation (icon, colours, inference guide) has none: no
+    `@gsd/core` kind declares one. Loading both extensions is E026, as for `risk`.
+- **D10. In force from a complete phase.** An invariant with no `holds_from` is in force from the start; with one, once
+  that phase is complete in the phase's own sense, `executed`, `needs_review` or `complete`: the values of the
+  phase's `complete_when`, one constant (`roadmap::PHASE_COMPLETE`) for both kinds. Executed is enough; verification
+  is not awaited. A `holds_from` that resolves to no phase (the kernel reports it) keeps the invariant pending.
+  While an invariant is not in force its `status` is `pending`, and its own `complete_when` holds on every other
+  status, so the kernel treats it as pending ([ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) D4, D5):
+  its `proof` and `items` are not checked, and a test or an item its phase has yet to write is no finding. In
+  force, a proof naming a test the served store lacks is `code/E101`.
+- **D11. `status` and `last_verified`.** In force, `status` reads the invariant's verdict: `unverified` with none
+  (missing, unrecorded or unreadable too), `stale` once an input moved since, else the fresh verdict's outcome,
+  `holds`, `violated` or `uncertain`. No outcome field repeats it. `last_verified` is the `at` of the verdict while
+  `status` is `holds`, absent otherwise: a time, as the verdict gives one; a phase view of it is another field's.
+- **D12. `gsd/I536`, the verdict that an invariant holds.** A judged rule over every invariant
+  ([ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md)), at Info under every profile: a judged rule
+  reports on every target without a fresh passing verdict, and a converted project has one invariant per old one
+  (149 in SpecForge's own spec), so a Warning would bury every other finding. A fresh `violated` stays Info; it shows
+  in `status` and in the risks the invariant mitigates (D14). The rule reads no status: a pending invariant reports
+  it too, and its prompt lists only the invariants in force.
+  - The judge is the prompt `verify_invariant`, our own text (GSD has no invariant), rendered for each host, with no
+    slash command: no upstream command row exists for one, as none exists for `execute_plan`. It reads the inputs,
+    reads the code the items name, judges, and records with `specforge gsd record-verdict <invariant> I536 …`.
+  - Two inputs: the invariant itself, and its tests, `test(self.proof, self<test.names)` (its proof's results and the
+    tests whose name tags it, [ADR 0331](0331-the-gsd-requirement-thread.md) D7). A new result of one stales the
+    verdict; on a fresh clone, with no test results, the input is unjudged and the verdict stays fresh. No input reads
+    the items or a `file()`: an item reference selects no entity on a clone without a fact store, so a verdict
+    recorded on one machine would be stale on the next. The judge cites each source file it read (`--cited`), which
+    stales the verdict when one is edited, and a clone has those files.
+  - Under `gsd-plus` a stale I536, as any stale verdict, refuses a scoped gate (gsd/E516).
+- **D13. `scope` bounds where it reaches, not its status.** `scope` changes no `status`. It decides which phases a
+  check of an invariant's code reads, when one is built: with no `holds_from`, every phase; else the `holds_from`
+  phase, the later-numbered phases of its milestone and, where numbers do not order two phases (no roadmap order
+  runs across milestones), any phase with a recorded commit no older than the first commit recorded for the
+  `holds_from` phase. `scope milestone` keeps only the `holds_from` phase's milestone; with no `holds_from` it has
+  no milestone and reads as `project`. That shape is accepted, not refused.
+- **D14. An invariant that holds mitigates a risk.** `mitigated_by` (D1, D3) may name an invariant beside a task and a
+  truth; it is done only while the invariant's `status` is `holds`. Violated, stale, uncertain, unverified and
+  pending are not done, so the risk stays `mitigating` and blocks on its rpn until the invariant holds again. An
+  invariant belongs to no plan, so it reaches no phase's `risk_level` (D6). This is the failure mode's `invariant`
+  link of D8: the invariant a failure mode threatens is the control whose holding mitigates the risk.
+- **D15. A `file()` through an unloaded optional peer's kind is inert** (amends ADR 0331 D7). A judged input or a
+  context section whose `file()` chain reaches only a kind an unloaded optional peer declares selects nothing: the
+  rule is registered, and the context section is skipped and listed, as an entity or `test()` chain already is. Any
+  other unloaded kind stays W112 for a rule and E123 for a context route. Before, the `file()` form dropped the rule
+  (W112, and E118 on each route that annotated it).
 
 ## Rejected
 
@@ -102,8 +165,20 @@ lands, so the title names both.
 - A separate check pass for `gsd/W532` (D5).
 - A separate `invariants` field for the invariants a risk would break: the old link has one home, `mitigated_by`, and
   two fields would hold the same value twice.
+- `gsd/I536` as a Warning: one per invariant without a fresh `holds`, on every converted invariant, buries every other
+  finding (D12).
+- An authored outcome or `status` on an invariant: the verdict holds it, and two homes would disagree.
+- A verdict input over `items`, or a `file()` of them: an item reference selects nothing on a clone without a fact
+  store, so the verdict would be stale on every other machine (D12). The judge's `--cited` files stale it instead.
+- A slash command for `verify_invariant`: no upstream command row exists for one, and a host name of ours would be
+  the only one GSD does not have.
+- `scope` deciding `status`: a verdict judges the code as it is, wherever it reaches (D13).
 
 ## Would reopen it
 
 - A project that needs Action Priority beside, or in place of, the rpn.
 - A project that needs a threshold per milestone.
+- A judged rule's target that can skip an entity by a computed status: a pending invariant would then owe no verdict
+  (D12).
+- A fact store on every clone: a verdict could then read an invariant's items (D12).
+- A check of an invariant's code across the phases it reaches: D13's window is its scope.
