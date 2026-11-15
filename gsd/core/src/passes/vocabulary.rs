@@ -82,9 +82,9 @@ struct Avoided<'a> {
     terms: Vec<(&'a str, &'a str)>,
 }
 
-/// The glossary as W534 reads it: every name and alias the terms accept, and the words they avoid.
+/// The glossary as W534 reads it: every name and alias the terms accept, folded, and the words they avoid.
 struct Glossary<'a> {
-    accepted: Vec<Segments>,
+    accepted: Vec<String>,
     /// By folded spelling, each with every term that avoids it; a word the glossary also accepts (a term's `name` or
     /// alias) is gsd/W538's, never W534's, and is left out.
     avoided: BTreeMap<String, Avoided<'a>>,
@@ -122,7 +122,7 @@ fn glossary(input: &PassInput) -> Glossary<'_> {
         }
     }
     Glossary {
-        accepted: accepted.iter().map(|word| Segments::of(word)).collect(),
+        accepted: accepted.into_iter().collect(),
         avoided,
     }
 }
@@ -131,37 +131,42 @@ fn glossary(input: &PassInput) -> Glossary<'_> {
 /// accepted name or alias.
 struct Place<'p> {
     place: &'p str,
-    text: Segments,
+    text: Segments<'p>,
     names: Vec<Range<usize>>,
 }
 
 impl<'p> Place<'p> {
-    fn read(place: &'p str, said: &str, accepted: &[Segments]) -> Self {
+    fn read(place: &'p str, said: &'p str, accepted: &[Segments]) -> Self {
         let text = Segments::of(said);
         let names = accepted.iter().flat_map(|name| text.find(name)).collect();
         Place { place, text, names }
     }
 
-    /// Whether the place writes `word` outside every accepted name it writes: a "ticket" inside "the ticket system",
-    /// a term's name, is that name.
-    fn writes(&self, word: &Segments) -> bool {
-        self.text.find(word).any(|at| {
-            !self
-                .names
-                .iter()
-                .any(|name| name.start <= at.start && at.end <= name.end)
-        })
+    /// What the place writes for `word`, as it writes it, at its first occurrence outside every accepted name the
+    /// place writes: a "ticket" inside "the ticket system", a term's name, is that name.
+    fn writes(&self, word: &Segments) -> Option<&'p str> {
+        self.text
+            .find(word)
+            .find(|at| {
+                !self
+                    .names
+                    .iter()
+                    .any(|name| name.start <= at.start && at.end <= name.end)
+            })
+            .map(|at| self.text.written(&at))
     }
 }
 
 /// W534: prose (`PROSE`) that holds a word or phrase a term avoids, read at the Unicode boundary, outside every
 /// accepted name or alias it writes. One warning per entity and avoided word, on the entity, naming the first place
-/// that holds it, every term that avoids it and the word each asks for.
+/// that holds it and what it writes there, the avoided word as the avoid list spells it, every term that avoids it and
+/// the word each asks for.
 fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     let glossary = glossary(input);
     if glossary.avoided.is_empty() {
         return Vec::new();
     }
+    let accepted: Vec<Segments> = glossary.accepted.iter().map(|w| Segments::of(w)).collect();
     let needles: Vec<(&Avoided, Segments)> = glossary
         .avoided
         .values()
@@ -174,10 +179,13 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
         let prose = prose(entity);
         let places: Vec<Place> = prose
             .iter()
-            .map(|(place, said)| Place::read(place, said, &glossary.accepted))
+            .map(|(place, said)| Place::read(place, said, &accepted))
             .collect();
         for (avoided, needle) in &needles {
-            let Some(place) = places.iter().find(|p| p.writes(needle)).map(|p| p.place) else {
+            let Some((place, written)) = places
+                .iter()
+                .find_map(|p| p.writes(needle).map(|written| (p.place, written)))
+            else {
                 continue;
             };
             let terms: Vec<String> = avoided
@@ -195,7 +203,7 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
                     "W534",
                     PassSeverity::Warning,
                     format!(
-                        "{} '{}' writes \"{}\" in {place}, a word avoided by {}",
+                        "{} '{}' writes \"{written}\" in {place}, \"{}\" avoided by {}",
                         entity.kind,
                         entity.id,
                         avoided.word,

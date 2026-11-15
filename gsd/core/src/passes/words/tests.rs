@@ -125,3 +125,17 @@ fn an_apostrophe_splits_a_word_and_a_full_stop_between_letters_does_not() {
     assert!(!has_word("see example.com", "example", Boundary::Unicode));
     assert!(has_word("an example. Then", "example", Boundary::Unicode));
 }
+/// An occurrence reads back as the text wrote it, line break and case included.
+#[test]
+fn an_occurrence_reads_back_as_written() {
+    let text = Segments::of("  the User\n  Account page");
+    let needle = Segments::of("user account");
+    let found: Vec<&str> = text.find(&needle).map(|at| text.written(&at)).collect();
+    assert_eq!(found, ["User\n  Account"]);
+    let text = Segments::of("Gérer l'Élève");
+    let found: Vec<&str> = text
+        .find(&Segments::of("ÉLÈVE"))
+        .map(|at| text.written(&at))
+        .collect();
+    assert_eq!(found, ["Élève"]);
+}

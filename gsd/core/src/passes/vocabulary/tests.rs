@@ -133,7 +133,7 @@ fn an_avoided_synonym_in_a_requirement_is_w534() {
         [(
             "W534".to_string(),
             "TASK-01".to_string(),
-            "requirement 'TASK-01' writes \"ticket\" in text, a word avoided by term 'work_item'"
+            "requirement 'TASK-01' writes \"Ticket\" in text, \"ticket\" avoided by term 'work_item'"
                 .to_string(),
             "write \"task\" (term 'work_item') instead".to_string(),
         )]
@@ -156,7 +156,7 @@ fn an_avoided_french_word_is_w534_and_a_longer_word_is_not() {
 }
 
 /// Two terms avoid "client", which a decision writes twice in two fields: one W534, naming both terms and the first
-/// field that holds it.
+/// field that holds it, quoting what the field writes ("client") and the avoid list's spelling ("Client").
 #[test]
 fn one_w534_per_entity_and_word_naming_every_term() {
     let found = found(&input(json!([
@@ -170,7 +170,7 @@ fn one_w534_per_entity_and_word_naming_every_term() {
     assert_eq!((code.as_str(), entity.as_str()), ("W534", "D1"));
     assert_eq!(
         message,
-        "decision 'D1' writes \"Client\" in text, a word avoided by term 'buyer' and term 'customer'"
+        "decision 'D1' writes \"client\" in text, \"Client\" avoided by term 'buyer' and term 'customer'"
     );
     assert_eq!(
         suggestion,
@@ -239,8 +239,24 @@ fn an_avoided_phrase_that_holds_an_accepted_word_is_w534() {
         on,
         [(
             "R1",
-            "requirement 'R1' writes \"ticket system\" in text, a word avoided by term 'helpdesk'"
+            "requirement 'R1' writes \"ticket system\" in text, \"ticket system\" avoided by term 'helpdesk'"
         )],
         "{found:#?}"
+    );
+}
+
+/// The message quotes the prose as it writes the word, case and line break included.
+#[test]
+fn w534_quotes_the_prose_as_written() {
+    let found = found(&input(json!([
+        term("work_item", "task", &["support ticket"]),
+        { "id": "R1", "kind": "requirement", "fields": { "text": "Close a Support\n  Ticket" } },
+    ])));
+    let messages: Vec<&str> = found.iter().map(|(_, _, m, _)| m.as_str()).collect();
+    assert_eq!(
+        messages,
+        [
+            "requirement 'R1' writes \"Support\n  Ticket\" in text, \"support ticket\" avoided by term 'work_item'"
+        ]
     );
 }

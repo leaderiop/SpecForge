@@ -202,8 +202,9 @@ features' requirements, a channel as a term, the artifact word, the journey memb
     (ADR 0287), so `specforge query <term>` shows it and `specforge refs` or `trace` do not.
 - **D18. `gsd/W534`: prose writes a word a term avoids.** A prose field (D16) that holds a word or phrase a term lists
   in `avoid` (D15, `Unicode`) is one warning per entity and avoided word, the word compared as `gsd/W538` compares it.
-  - It sits on the entity, and names the first field that holds the word, every term that avoids it and the word each
-    asks for (its `name`).
+  - It sits on the entity, and names the first field that holds the word, what that field writes (its case and
+    spacing as written), the word as the avoid list spells it, every term that avoids it and the word each asks for
+    (its `name`).
   - It is a warning under every profile: vocabulary is advice.
   - The term side is `gsd/W538` (D6). An avoided word the glossary also accepts is W538's alone and never W534: the
     glossary contradicts itself, so it cannot say which word the prose should write. A term is no prose.

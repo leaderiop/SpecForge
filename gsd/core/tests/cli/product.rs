@@ -391,7 +391,7 @@ fn a_requirement_that_writes_an_avoided_word_is_w534() {
             found,
             [(
                 "gsd/W534".to_string(),
-                "requirement 'TASK-01' writes \"ticket\" in text, a word avoided by term 'work_item'"
+                "requirement 'TASK-01' writes \"ticket\" in text, \"ticket\" avoided by term 'work_item'"
                     .to_string()
             )],
             "{profile}"

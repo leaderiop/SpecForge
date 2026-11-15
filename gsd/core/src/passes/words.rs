@@ -9,6 +9,8 @@
 //! [`folded`] is the one reading of a word the glossary compares: `gsd/W538` compares the terms' words with it, and
 //! the Unicode boundary folds each segment the same way. No stemming, no accent stripping, no normalisation.
 
+use std::ops::Range;
+
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Where a word starts and ends.
@@ -63,8 +65,9 @@ fn js(haystack: &str, needle: &str) -> bool {
 /// "Élève"): UAX #29 joins two letters across them, and allows this tailoring for languages that elide.
 const APOSTROPHES: [char; 2] = ['\'', '\u{2019}'];
 
-/// A text as [`Boundary::Unicode`] reads it: its word-boundary segments (UAX #29, `split_word_bounds`), each split
-/// at its apostrophes and [`folded`], a run of whitespace one segment `" "`, the text's edges trimmed.
+/// A text as [`Boundary::Unicode`] reads it: its word-boundary segments (UAX #29, `split_word_bound_indices`), each
+/// split at its apostrophes and [`folded`], a run of whitespace one segment `" "`, the text's edges trimmed; each keeps
+/// where it sits in the text, so an occurrence reads back as written ([`Segments::written`]).
 ///
 /// A word is one segment, so a combining mark, a joiner (U+200C, U+200D), a virama or a vowel sign stays in the word
 /// it marks, in every script, and a full stop or a colon between two letters joins them (`e.g.`, `example.com`).
@@ -72,54 +75,73 @@ const APOSTROPHES: [char; 2] = ['\'', '\u{2019}'];
 /// a segment, so a word of them is found wherever its characters run in the text. Thai, Lao, Khmer and Myanmar, which
 /// UAX #29 splits into words only with a dictionary, read as one segment per letter and its marks: a word of them is
 /// also found inside a longer word.
-pub struct Segments {
+pub struct Segments<'t> {
+    text: &'t str,
     folded: Vec<String>,
+    /// Where each segment sits in `text`: a run of whitespace spans the whole run.
+    spans: Vec<Range<usize>>,
 }
 
-impl Segments {
-    pub fn of(text: &str) -> Self {
-        let mut segments = Segments { folded: Vec::new() };
-        for segment in text.trim().split_word_bounds() {
+impl<'t> Segments<'t> {
+    pub fn of(text: &'t str) -> Self {
+        let start = text.len() - text.trim_start().len();
+        let mut segments = Segments {
+            text,
+            folded: Vec::new(),
+            spans: Vec::new(),
+        };
+        for (at, segment) in text.trim().split_word_bound_indices() {
+            let at = start + at;
             if segment.chars().all(char::is_whitespace) {
-                segments.push(" ".to_string());
+                segments.push(" ".to_string(), at..at + segment.len());
                 continue;
             }
             let mut from = 0;
-            for (at, apostrophe) in segment.match_indices(APOSTROPHES) {
-                if at > from {
-                    segments.push(segment[from..at].to_lowercase());
+            for (i, apostrophe) in segment.match_indices(APOSTROPHES) {
+                if i > from {
+                    segments.push(segment[from..i].to_lowercase(), at + from..at + i);
                 }
-                segments.push(apostrophe.to_string());
-                from = at + apostrophe.len();
+                segments.push(apostrophe.to_string(), at + i..at + i + apostrophe.len());
+                from = i + apostrophe.len();
             }
             if from < segment.len() {
-                segments.push(segment[from..].to_lowercase());
+                segments.push(
+                    segment[from..].to_lowercase(),
+                    at + from..at + segment.len(),
+                );
             }
         }
         segments
     }
 
-    /// Adds a segment; whitespace beside whitespace (a line break and the indent after it) is one space.
-    fn push(&mut self, folded: String) {
-        if folded == " " && self.folded.last().is_some_and(|last| last == " ") {
+    /// Adds a segment; whitespace beside whitespace (a line break and the indent after it) widens the space before.
+    fn push(&mut self, folded: String, span: Range<usize>) {
+        if folded == " "
+            && self.folded.last().is_some_and(|last| last == " ")
+            && let Some(last) = self.spans.last_mut()
+        {
+            last.end = span.end;
             return;
         }
         self.folded.push(folded);
+        self.spans.push(span);
     }
 
     /// Every occurrence of `needle`'s segments as a run of these, overlapping ones too, as a range of segment indices;
     /// none for an empty needle. Each window is compared once: linear in the text for a given needle, and no pattern
     /// is compiled.
-    pub fn find<'s>(
-        &'s self,
-        needle: &'s Segments,
-    ) -> impl Iterator<Item = std::ops::Range<usize>> + 's {
+    pub fn find<'s>(&'s self, needle: &'s Segments<'_>) -> impl Iterator<Item = Range<usize>> + 's {
         let width = needle.folded.len();
         self.folded
             .windows(width.max(1))
             .enumerate()
             .filter(move |(_, window)| width > 0 && *window == needle.folded.as_slice())
             .map(move |(at, _)| at..at + width)
+    }
+
+    /// The text an occurrence [`Segments::find`] gave covers, as the text writes it.
+    pub fn written(&self, found: &Range<usize>) -> &'t str {
+        &self.text[self.spans[found.start].start..self.spans[found.end - 1].end]
     }
 }
 
