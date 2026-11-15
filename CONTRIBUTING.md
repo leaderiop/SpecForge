@@ -131,7 +131,7 @@ What documents it:
 
 What builds and checks it:
 
-- [`gate/`](gate/) (`cargo gate`, the check list), [`xtask/`](xtask/) (build-blobs, revendor, check-links, perf-report),
+- [`gate/`](gate/) (`cargo gate`, the check list), [`xtask/`](xtask/) (build-blobs, revendor, check-links, perf-report, absorb),
   [`scripts/`](scripts/) (shell helpers the gate and the release run).
 - [`fixtures/`](fixtures/): extension fixtures the tests load; [`evaluation/`](evaluation/): the first-attempt
   accuracy eval.
