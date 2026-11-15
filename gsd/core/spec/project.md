@@ -43,7 +43,7 @@ GSD: one bullet of `REQUIREMENTS.md`. Name: `AUTH-01`. A requirement id is uniqu
 | tier | enum{v1, v2, out_of_scope} | R | `## v1` / `## v2` / `## Out of Scope` |
 | reason | str | | Out of Scope `Reason` (required when `out_of_scope`) |
 | defined | date | I | `**Defined:**` |
-| category | enum{functional, performance, compatibility, usability, reliability, security, maintainability, portability, safety, regulatory} | | beyond GSD: its quality class, ISO/IEC 25010:2023's nine product quality characteristics by their short names (interoperability is compatibility) or `regulatory` |
+| category | enum{functional, performance, compatibility, usability, reliability, security, maintainability, portability, safety, regulatory} | | beyond GSD: its quality class: ISO/IEC 25010:2011's eight product quality characteristics by their short names (interoperability is part of compatibility), `safety`, which ISO/IEC 25010:2023 added (that revision also renamed usability to interaction capability and portability to flexibility; the 2011 words are kept), or `regulatory` |
 | priority | enum{must, should, could} | | beyond GSD: MoSCoW, the journey's list ([product.md](product.md#journey)); "won't" is `tier out_of_scope` |
 | metric | {name str R, threshold num R, unit str, direction enum{at_most, at_least, exactly} R} | | beyond GSD: the measure it is held to; the threshold is a decimal with no bounds (`direction` carries the sense), and a count has no `unit` |
 | source | strs | | beyond GSD: where it came from: a person, quoted (`"Alice Martin"`), or a declared `ref`, bare (`gh.issue:42`; E003 when undeclared) |

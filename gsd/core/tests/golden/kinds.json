@@ -1556,7 +1556,7 @@
           },
           {
             "default_value": null,
-            "description": "### [Category]",
+            "description": "its heading, a feature area (### [Category]); not `category`, the quality class",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -1602,7 +1602,7 @@
           },
           {
             "default_value": null,
-            "description": "its quality characteristic (ISO/IEC 25010:2023) or regulatory",
+            "description": "its quality characteristic (ISO/IEC 25010:2011's names, and safety from 2023) or regulatory",
             "edge": null,
             "enum_values": [
               "functional",

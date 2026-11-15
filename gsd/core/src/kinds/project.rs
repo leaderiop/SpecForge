@@ -56,8 +56,10 @@ const REQUIREMENT_STATUS: &[&str] = &[
     "blocked",
     "gaps_found",
 ];
-/// A requirement's quality class: ISO/IEC 25010:2023's nine product quality characteristics by their short names
-/// (interoperability is compatibility), and `regulatory`.
+/// A requirement's quality class: ISO/IEC 25010:2011's eight product quality characteristics by their short names
+/// (interoperability is part of compatibility), `safety`, which ISO/IEC 25010:2023 added, and `regulatory`. The 2023
+/// revision also renamed usability to interaction capability and portability to flexibility; the list keeps the
+/// 2011 words.
 pub const REQUIREMENT_CATEGORY: &[&str] = &[
     "functional",
     "performance",
@@ -101,12 +103,14 @@ pub const REQUIREMENT: Kind = Kind::new(
     "A requirement, named by its GSD id such as AUTH-01 (GSD REQUIREMENTS.md)",
     &[
         str("text").r().doc("the description after the ID"),
-        str("area").r().doc("### [Category]"),
+        str("area")
+            .r()
+            .doc("its heading, a feature area (### [Category]); not `category`, the quality class"),
         en("tier", TIERS).r().doc("v1, v2 or Out of Scope"),
         str("reason").doc("Out of Scope reason: required when out_of_scope (gsd/E105)"),
         date("defined").i().doc("Defined"),
         en("category", REQUIREMENT_CATEGORY)
-            .doc("its quality characteristic (ISO/IEC 25010:2023) or regulatory"),
+            .doc("its quality characteristic (ISO/IEC 25010:2011's names, and safety from 2023) or regulatory"),
         en("priority", super::product::PRIORITY)
             .doc("must, should or could (won't is `tier out_of_scope`)"),
         block("metric", METRIC).doc(

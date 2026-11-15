@@ -37,10 +37,14 @@ SDK, protocol or host change: every field is a `@gsd/core` declaration, and ever
   text included (`[AREA]-[NUMBER]`, "scope each area", the roadmapper's "group by area"): an agent told `[Category]`
   writes the heading into `category`, the quality class, where it is E061. The new-milestone hand-off to the
   roadmapper labels each value with the field it fills (`area:`, `category:`, `priority:`).
-- **D2. `category` is the quality class**, an optional enum of ten words: ISO/IEC 25010:2023's nine product quality
+- **D2. `category` is the quality class**, an optional enum of ten words: ISO/IEC 25010:2011's eight product quality
   characteristics by their short names (`functional`, `performance`, `compatibility`, `usability`, `reliability`,
-  `security`, `maintainability`, `portability`, `safety`) and `regulatory`. Interoperability is part of
-  compatibility in that standard, so an old `interoperability` constraint is `compatibility`.
+  `security`, `maintainability`, `portability`), `safety`, which ISO/IEC 25010:2023 added, and `regulatory`. The
+  2023 revision also renamed usability to *interaction capability* and portability to *flexibility*; the kind keeps
+  the 2011 words, the ones SpecForge's own constraints already use (`usability` 5 times, `portability` 3), so a
+  reader mapping against the 2023 standard reads `usability` as interaction capability and `portability` as
+  flexibility. Interoperability is part of compatibility in both editions, so an old `interoperability` constraint
+  is `compatibility`.
 - **D3. `priority` is MoSCoW**: `must`, `should`, `could`, optional. "Won't" is `tier out_of_scope`, which a
   requirement already has. Upstream's FEATURES.md P1/P2/P3 is the precedent. The list is the journey's
   (`kinds::product::PRIORITY`): one MoSCoW list for both kinds.
