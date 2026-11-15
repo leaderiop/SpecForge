@@ -1716,7 +1716,7 @@
           },
           {
             "default_value": null,
-            "description": "the requirements it limits; its reverse is named `constrained_by`, but a `constrained_by` written on a requirement is still an unknown field (W020), not refused by name",
+            "description": "the requirements it limits; each reads it back as `constrained_by`",
             "edge": "RequirementConstrains",
             "field_type": "reference_list",
             "inverse_of": "constrained_by",

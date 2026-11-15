@@ -393,11 +393,12 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
     kind.
     A field the kind does not register that is the other side of a relation
     another kind owns (ADR 0150) MUST produce E079 instead of W020, naming
-    the owning field and the edit: an owning field of another kind that
-    targets this kind names it in its inverse_of, or every id the field
-    lists is an entity of one other kind that owns a reference field into
-    this kind. A field of the kind's own relations (a self-relation) is
-    never the other side, and stays W020.
+    the owning field and the edit: a reference field that targets this
+    kind, alone or among a union's kinds, names it in its inverse_of (a
+    self-relation's included), or every id the field lists is an entity
+    of one other kind that owns a reference field into this kind. By its
+    values alone, a field of the kind's own relations is never the other
+    side, and stays W020.
     `verify` statements are not fields (ADR 0094): a field named `verify`
     MUST be checked like any field, and statements on a kind no
     extension made testable (supports_verify) MUST produce W158. When the
@@ -416,6 +417,8 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
   verify unit "a reverse name an inverse_of declares is E079 even when its ids do not resolve"
   verify unit "an event's trigger is E079 naming the produces and consumes fields"
   verify unit "E079 names its owning fields in kind and field order"
+  verify unit "a reverse name a self-relation's inverse_of declares is E079 naming the owning field"
+  verify unit "a reverse name a union's inverse_of declares is E079 on each kind of the union"
   verify unit "an unknown field of a kind's own relation stays W020"
   verify unit "field validation skipped when entity kind is unregistered"
   verify contract "Detect Unknown Entity Fields: unknown field detection holds — registries_populated_fired, unknown_fields_diagnosed, cascading_avoided"

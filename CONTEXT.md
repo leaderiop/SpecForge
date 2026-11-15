@@ -659,7 +659,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Owning field**: the one reference field that writes a relation's edges, declared by an extension (ADR 0150).
   A relation is written there and nowhere else; its other side is derived.
 - **Other side** (of a relation): what the target entity reads the relation as: its incoming edges, which `query`
-  and `trace` (upstream) show. Never a field; an `inverse_of` may name it. Writing it is E079. A typed edit naming it is refused `other_side`, naming the owning field (ADR 0157).
+  and `trace` (upstream) show. Never a field; an `inverse_of` may name it, on its own kind or on each kind of a union. Writing it is E079. A typed edit naming it is refused `other_side`, naming the owning field (ADR 0157).
 - **Entity enhancement**: fields and verify kinds one extension declares on an entity kind another extension declares
   (`c.enhance(kind, ..)`). Its fields are the declaring extension's: trace treats them as opt-in for the kind, and
   the model and schema name their extension. The kind stays its declarer's. An enhancement of a kind no loaded

@@ -2,14 +2,17 @@
 
 **Status:** accepted (2026-11-15). Amends [ADR 0331](0331-the-gsd-requirement-thread.md) D5 (a requirement's thread
 state is its computed `proof`, which `gsd/E515` reads) and [ADR 0353](0353-a-pass-reads-the-facts-it-declares.md)
-D6 (`gate_e515` declares no facts any more: it reads that `proof`). Builds on
+D6 (`gate_e515` declares no facts any more: it reads that `proof`), and
+[ADR 0150](0150-a-relation-is-written-on-one-side.md) D2 (a reverse an `inverse_of` names is the other side by name
+on the field's own kind, a self-relation, and on each kind of a union). Builds on
 [ADR 0285](0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md) (an enum, a block),
 [ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md) (a field that names its reverse),
 [ADR 0093](0093-a-fields-declared-type-decides-what-its-value-references.md) (a scheme ref in a string list),
 [ADR 0353](0353-a-pass-reads-the-facts-it-declares.md) (a pass reads the facts it declares) and
 [ADR 0361](0361-a-kind-field-may-be-a-number-an-exact-decimal-written-as-one-word.md) (a decimal number field). No
-SDK, protocol or host change: every field is a `@gsd/core` declaration, and every typed edit (`specforge new`, `set`,
-`link`, an edit plan) takes it with no wiring of its own.
+SDK or protocol change: every field is a `@gsd/core` declaration, and every typed edit (`specforge new`, `set`, `link`,
+an edit plan) takes it with no wiring of its own. One host change, in the field registry (`crates/pipeline/registry`;
+no kernel crate, no re-vendor): the ADR 0150 D2 amendment above.
 
 ## Context
 
@@ -58,11 +61,11 @@ SDK, protocol or host change: every field is a `@gsd/core` declaration, and ever
   (the old `owner` and `contributors`) are quoted names: no person scheme.
 - **D6. Three relations name their reverse** (ADR 0354), so W162 stays silent: `personas` (→* persona, read back as
   `requirements`), `constrains` (→* requirement, its reverse named `constrained_by`) and `protects` (→* invariant,
-  read back as `protected_by`). Read back means the name written on the other side is E079, naming the owning field:
-  that holds on a persona and an invariant. `constrains` is a self-relation, whose other side the field registry
-  does not recognise by name ([ADR 0150](0150-a-relation-is-written-on-one-side.md) D2), so a `constrained_by`
-  written on a requirement is still an unknown field (W020) until the registry reads a self-relation's named reverse.
-  None is named `risks`, the reverse `risk.affects` declares on a requirement.
+  read back as `protected_by`). Read back means the name written on the other side is E079, naming the owning field,
+  on a persona, an invariant and a requirement alike. `constrains` is a self-relation: the field registry recognises
+  its named reverse since a self-relation's and a union's `inverse_of` are read by name (amending
+  [ADR 0150](0150-a-relation-is-written-on-one-side.md) D2), so a `constrained_by` written on a requirement is E079,
+  not an unknown field. None is named `risks`, the reverse `risk.affects` declares on a requirement.
 - **D7. `tags`**: free words to group it by, as on the other kinds that had them.
 - **D8. `satisfied_by` is computed from the written `task.items`** of every task of the plans that list the
   requirement, any task type (a `manual` task's item too): sorted, each once, absent when none. It reads the items

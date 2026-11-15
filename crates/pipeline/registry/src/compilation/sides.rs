@@ -4,15 +4,40 @@ use specforge_common::{Diagnostic, codes};
 
 use crate::FieldRegistry;
 
-/// W162 (ADR 0150, ADR 0354): a relation declared from both of its ends. (a) A
-/// reference field whose `inverse_of` names a field its target kind
-/// registers; (b) two different kinds that each register a reference field
-/// targeting the other, reported once per kind pair, lesser kind first. A
-/// field that names its reverse (`inverse_of`) is its own relation and pairs
-/// with nothing in (b): two relations between the same kinds are declared
-/// apart that way. The fields still register; nothing else changes.
+/// W162 (ADR 0150, ADR 0354, ADR 0359): a relation declared from both of its
+/// ends. (a) A reference field whose `inverse_of` names a field its target
+/// kind, or any kind of its union, registers: once per such kind; (b) two
+/// different kinds that each register a reference field targeting the other,
+/// reported once per kind pair, lesser kind first. A field that names its
+/// reverse (`inverse_of`) is its own relation and pairs with nothing in (b):
+/// two relations between the same kinds are declared apart that way. The
+/// fields still register; nothing else changes.
 pub(super) fn both_sides(fields: &FieldRegistry) -> Vec<Diagnostic> {
-    // (kind, field) -> (target kind, extension, inverse_of), reference fields only.
+    let mut diagnostics = Vec::new();
+    for (kind, name, entry) in fields.iter() {
+        let Some(inverse) = entry.declared().inverse_of.as_deref() else {
+            continue;
+        };
+        if !entry.field_type().is_reference() {
+            continue;
+        }
+        let extension = entry.source_extension();
+        for target in entry.form().target_kinds() {
+            if fields.contains(target, inverse) {
+                diagnostics.push(
+                    Diagnostic::new(
+                        codes::W162,
+                        format!(
+                            "field '{kind}.{name}' ({extension}) names '{inverse}' its reverse, but {target} declares a field '{inverse}': a relation is written from one side; drop inverse_of or name a word {target} does not use"
+                        ),
+                    )
+                    .with_suggestion(format!("remove inverse_of(\"{inverse}\") from '{kind}.{name}'")),
+                );
+            }
+        }
+    }
+
+    // (kind, field) -> (target kind, extension, inverse_of), single-target reference fields only.
     let mut refs: BTreeMap<(&str, &str), (&str, &str, Option<&str>)> = BTreeMap::new();
     for (kind, name, entry) in fields.iter() {
         if let (true, Some(target)) = (
@@ -21,24 +46,6 @@ pub(super) fn both_sides(fields: &FieldRegistry) -> Vec<Diagnostic> {
         ) {
             let inverse = entry.declared().inverse_of.as_deref();
             refs.insert((kind, name), (target, entry.source_extension(), inverse));
-        }
-    }
-
-    let mut diagnostics = Vec::new();
-    for (&(kind, name), &(target, extension, inverse)) in &refs {
-        let Some(inverse) = inverse else {
-            continue;
-        };
-        if fields.contains(target, inverse) {
-            diagnostics.push(
-                Diagnostic::new(
-                    codes::W162,
-                    format!(
-                        "field '{kind}.{name}' ({extension}) names '{inverse}' its reverse, but {target} declares a field '{inverse}': a relation is written from one side; drop inverse_of or name a word {target} does not use"
-                    ),
-                )
-                .with_suggestion(format!("remove inverse_of(\"{inverse}\") from '{kind}.{name}'")),
-            );
         }
     }
 

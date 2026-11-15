@@ -495,9 +495,10 @@ behavior registry_build_edges "Registry Build Registers Edge Types" {
     W018 warning naming both extensions; the first in load order keeps the
     label and its constraints, which graph validation uses. A relation is
     written from one side (ADR 0150): a reference field whose inverse_of
-    names a field its target kind registers, and two different kinds that
-    each register a reference field targeting the other, MUST produce W162,
-    once per such field or kind pair; the fields still register. A field
+    names a field its target kind, or any kind of its union, registers,
+    and two different kinds that each register a reference field
+    targeting the other, MUST produce W162, once per such field and kind
+    or kind pair; the fields still register. A field
     that names its reverse (inverse_of) is its own relation and pairs with
     nothing (ADR 0354).
   """
@@ -511,6 +512,7 @@ behavior registry_build_edges "Registry Build Registers Edge Types" {
   verify unit "a relation declared from both of its ends is W162, once per field whose inverse_of names a field of its target kind"
   verify unit "two kinds that each declare a reference field targeting the other are W162 once, naming both fields"
   verify unit "two kinds linked both ways where one field names its reverse are two relations, not W162"
+  verify unit "a union whose inverse_of names a field one of its kinds registers is W162 once per such kind"
   verify unit "the builtin extensions declare no relation from both ends"
   verify unit "a reference member of a typed block writes its edge type under its declared member path"
   verify contract "Registry Build Registers Edge Types: edge type registration holds — declarations_in_load_order, edge_types_registered, every_writer_named, one_type_per_field, first_wins"

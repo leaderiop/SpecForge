@@ -557,36 +557,39 @@ fn a_requirement_links_its_personas_requirements_and_invariants() {
         p.read("spec/quality.spec")
     );
     assert_clean(&p);
-    // The reverse is read back, never written: on the persona or the invariant it is E079 (ADR 0354).
-    for (anchor, reverse) in [
+    // The reverse is read back, never written: on the persona, the invariant or the constrained requirement (a
+    // self-relation, ADR 0359) it is E079 naming the owning field, never an unknown field (ADR 0354).
+    for (anchor, reverse, owner) in [
         (
             "  context \"Writes the spec files of a project\"\n",
             "  requirements [PERF-01]\n",
+            "requirement.personas",
         ),
         (
             "  statement \"The same files give the same diagnostics\"\n",
             "  protected_by [PERF-01]\n",
+            "requirement.protects",
+        ),
+        (
+            "  text \"A whole check of 500 files ends within 2 s\"\n",
+            "  constrained_by [PERF-01]\n",
+            "requirement.constrains",
         ),
     ] {
         let p = with_quality(&RELATED.replace(anchor, &format!("{anchor}{reverse}")));
         // Both sides written also make a cycle (W061): the E079 is what names the reverse.
+        let report = p.report();
         assert!(
-            p.codes().contains(&"E079".to_string()),
-            "{reverse}: {:#?}",
-            p.report()
+            report
+                .iter()
+                .any(|(code, message)| code == "E079" && message.contains(owner)),
+            "{reverse}: {report:#?}"
+        );
+        assert!(
+            report.iter().all(|(code, _)| code != "W020"),
+            "{reverse}: {report:#?}"
         );
     }
-    // `constrains` is a self-relation: the registry does not recognise its named reverse yet (ADR 0150 D2), so a
-    // `constrained_by` written on PERF-02 is an unknown field, W020, not E079.
-    let anchor = "  text \"A whole check of 500 files ends within 2 s\"\n";
-    let p =
-        with_quality(&RELATED.replace(anchor, &format!("{anchor}  constrained_by [PERF-01]\n")));
-    let codes = p.codes();
-    assert!(
-        codes.contains(&"W020".to_string()) && !codes.contains(&"E079".to_string()),
-        "{:#?}",
-        p.report()
-    );
     let p = with_quality(&RELATED.replace("[diagnostic_determinism]", "[nope]"));
     let (code, all) = checked(&p);
     assert_eq!(code, 1, "{all}");
