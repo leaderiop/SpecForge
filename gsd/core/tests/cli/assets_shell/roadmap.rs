@@ -28,6 +28,8 @@ const FILL: &[(&str, &str)] = &[
     ),
     ("{the second requirement's text}", "A board imports a file"),
     ("{the requirements' area}", "Sync"),
+    ("{its quality category}", "functional"),
+    ("{must, should or could}", "must"),
     ("{the first phase's number, e.g. 04}", "04"),
     ("{the second phase's number, e.g. 05}", "05"),
     ("{the first phase's name}", "Export"),
@@ -104,6 +106,10 @@ fn the_roadmap_write_step() {
     let written = mcp_edit(&p, &roadmap_edit());
     assert_ne!(written["isError"], true, "{written}");
     assert_eq!(p.fields_of("v1.1/04")["requirements"], json!(["SYNC-02"]));
+    for id in ["SYNC-02", "SYNC-03"] {
+        assert_eq!(p.fields_of(id)["category"], "functional", "{id}");
+        assert_eq!(p.fields_of(id)["priority"], "must", "{id}");
+    }
     assert_eq!(p.fields_of("v1.1/05")["requirements"], json!(["SYNC-03"]));
     assert_eq!(p.fields_of("v1.1/05")["depends_on"], json!(["v1.1/04"]));
     assert_eq!(p.fields_of("SYNC-03")["tier"], "v1");

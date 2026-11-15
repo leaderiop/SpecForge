@@ -29,6 +29,8 @@ fn requirement(id: &str, text: &str, tier: &str) -> String {
             ("TEXT", text),
             ("AREA", "Sync"),
             ("TIER", tier),
+            ("CATEGORY", "functional"),
+            ("PRIORITY", "should"),
             ("REASON", "Accounts are out of scope"),
         ],
     )
@@ -102,6 +104,8 @@ fn the_requirements_step() {
         "{v11}"
     );
     assert_eq!(p.fields_of("SYNC-02")["tier"], "v2");
+    assert_eq!(p.fields_of("SYNC-02")["category"], "functional");
+    assert_eq!(p.fields_of("SYNC-03")["priority"], "should");
     assert_eq!(
         p.fields_of("SYNC-03")["reason"],
         "Accounts are out of scope"

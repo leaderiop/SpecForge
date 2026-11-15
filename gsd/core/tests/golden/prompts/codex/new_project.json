@@ -61,23 +61,8 @@
     "```bash",
     ""
   ],
-  "bytes": 85056,
+  "bytes": 87128,
   "end": [
-    "TIER=\"{v1, v2 or out_of_scope}\"",
-    "IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\\n'}",
-    "{why it is out of scope}",
-    "TEXT",
-    "specforge new requirement \"$REQ_ID\" \"$TEXT\" --in spec/requirements.spec --text \"$TEXT\" --area \"$AREA\" --tier \"$TIER\" --reason \"$REASON\" || exit 1",
-    "```",
-    "",
-    "A `v1` requirement must be in a phase: `gsd/E101` binds once the project has a phase, so requirements recorded before",
-    "the roadmap wait for it, and the roadmapper maps each `v1` requirement to exactly one phase (the phase's",
-    "`requirements`). Coverage, traceability and status are computed from the phases, plans and verifications that cover a",
-    "requirement: `specforge query <id> --depth 1 --format context` reads them back.",
-    "",
-    "**What goes where:**",
-    "",
-    "- `id`: `AREA-NN` (AUTH-01, CONTENT-02, SOCIAL-03), upstream's `[CATEGORY]-[NUMBER]`.",
     "- `text`: user-centric, testable, atomic (\"User can reset password via email link\").",
     "- `area`: upstream's `### [Category]` heading: a feature area from the research, in the words the domain uses",
     "  (an auth, content or payments area, say).",
@@ -86,6 +71,21 @@
     "  - `v2`: acknowledged but deferred, not in the current roadmap; moving one to `v1` needs a roadmap update;",
     "  - `out_of_scope`: explicitly excluded, with its `reason`: it prevents \"why didn't you include X?\" later.",
     "    The research's anti-features land here as well, each keeping its warning.",
+    "- `category` (optional): its quality class, one of `functional`, `performance`, `compatibility`, `usability`,",
+    "  `reliability`, `security`, `maintainability`, `portability`, `safety` (ISO/IEC 25010's characteristics) or",
+    "  `regulatory`.",
+    "- `priority` (optional): `must`, `should` or `could`; a requirement nobody wants is `out_of_scope`, not \"won't\".",
+    "- `personas` (optional, `--personas <id>` per persona): the ids of recorded personas it serves (`specforge search \"\"",
+    "  --kinds persona` lists them).",
+    "- `metric` (optional): the measure it is held to, one JSON record: `name`, a `threshold` number, its `unit` when it",
+    "  has one (a count has none) and a `direction` (`at_most`, `at_least` or `exactly`), e.g.",
+    "  `{\"name\": \"p95 sign-in\", \"threshold\": 0.5, \"unit\": \"s\", \"direction\": \"at_most\"}`.",
+    "- `source` (optional, `--source <text>` per source): where it came from: a person's name, or a declared `ref` such as",
+    "  `gh.issue:42`.",
+    "- `constrains` (`--constrains <id>`), `protects` (`--protects <id>`), `tags` (`--tags <word>`) and `effort`",
+    "  (`--effort xs|s|m|l|xl`), each optional and left out of the line above when unknown: the requirements it limits,",
+    "  the invariants it guards, words to group it by, and a T-shirt estimate. Add them to the line, or set them later",
+    "  (`specforge link <id> constrains <other>`, `specforge set <id> effort m`).",
     "",
     "**Evolution.** After a phase completes its verification marks the covered requirements complete; after a roadmap",
     "update, every `v1` requirement is still mapped, new requirements are recorded if scope expanded, and descoped ones move",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1983,
+  "lines": 2007,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:cf080d27fbf92c9c0924e53e2b4bfceca6569cef2072faaf47e42b55dffd6e2d",
+    "digest": "sha256:de3262359bb24cd75f2cd8c4c920e11a11b7df0858a7a09bfa40b823045c6596",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "cf080d27fbf92c9c0924e53e2b4bfceca6569cef2072faaf47e42b55dffd6e2d"
+  "sha256": "de3262359bb24cd75f2cd8c4c920e11a11b7df0858a7a09bfa40b823045c6596"
 }

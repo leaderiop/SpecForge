@@ -406,7 +406,7 @@ Track: Selected → this milestone. Unselected table stakes → future. Unselect
 
 **Record the requirements:**
 
-- **Future and out-of-scope requirements** (tier `v2` or `out_of_scope`): record them now, one line per requirement, the requirement fence of `templates/requirements.md`. `--reason` is for an out-of-scope requirement: leave it out for a `v2` one.
+- **Future and out-of-scope requirements** (tier `v2` or `out_of_scope`): record them now, one line per requirement, the requirement fence of `templates/requirements.md`. `--reason` is for an out-of-scope requirement: leave it out for a `v2` one. A category or priority not known yet drops its flag; the other optional flags (personas, metric, source, …) are added as `templates/requirements.md` says.
 
   ```bash
   REQ_ID="{AREA-NN, continuing the numbering}"
@@ -417,10 +417,12 @@ Track: Selected → this milestone. Unselected table stakes → future. Unselect
   {its area}
   TEXT
   TIER="{v2 or out_of_scope}"
+  CATEGORY="{its quality category, e.g. security}"
+  PRIORITY="{must, should or could}"
   IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
   {why it is out of scope}
   TEXT
-  specforge new requirement "$REQ_ID" "$TEXT" --in spec/requirements.spec --text "$TEXT" --area "$AREA" --tier "$TIER" --reason "$REASON" || exit 1
+  specforge new requirement "$REQ_ID" "$TEXT" --in spec/requirements.spec --text "$TEXT" --area "$AREA" --tier "$TIER" --category "$CATEGORY" --priority "$PRIORITY" --reason "$REASON" || exit 1
   ```
 
 - **This milestone's v1 requirements:** hold them. A v1 requirement must be in a phase (`gsd/E101`), and the project has phases, so one recorded alone is refused. Show them for approval below, then hand them to the roadmapper in the spawn's `<requirements>` block (Step 10): it writes them with the phases in its one roadmap edit.
