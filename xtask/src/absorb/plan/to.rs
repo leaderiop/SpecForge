@@ -34,7 +34,7 @@ impl Planner<'_> {
             How::Words => self.list(e, row.field, field, how::items(value)),
             How::Ref => {
                 if let Some(id) = value.as_str()
-                    && let Some(id) = self.resolve(e, row.field, id)
+                    && let Some(id) = self.resolve(e, row.field, Some(field), id)
                     && let Some(draft) = self.own(e)
                 {
                     draft.set(field, Input::One(id));
@@ -78,7 +78,7 @@ impl Planner<'_> {
             How::Refs => {
                 let ids: Vec<String> = how::items(value)
                     .into_iter()
-                    .filter_map(|id| self.resolve(e, row.field, &id))
+                    .filter_map(|id| self.resolve(e, row.field, Some(field), &id))
                     .collect();
                 if let Some(draft) = self.own(e) {
                     draft.append(field, ids);
@@ -86,7 +86,7 @@ impl Planner<'_> {
             }
             How::InvertOnto => {
                 for id in how::items(value) {
-                    if let Some(target) = self.resolve(e, row.field, &id)
+                    if let Some(target) = self.resolve(e, row.field, None, &id)
                         && let Some(draft) = self.drafts.get_mut(&target)
                     {
                         draft.append(field, vec![e.id.clone()]);

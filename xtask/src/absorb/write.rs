@@ -258,8 +258,8 @@ impl Target {
         }
     }
 
-    /// Each create's required field it gives no value: `<kind> '<id>' <field>`.
-    pub fn missing(&self, creates: &[Edit]) -> Vec<String> {
+    /// Each create's required field it gives no value: (kind, id, field).
+    pub fn missing(&self, creates: &[Edit]) -> Vec<(String, String, String)> {
         let view = ProjectView::of(&self.project);
         let mut missing = Vec::new();
         for create in creates {
@@ -271,7 +271,7 @@ impl Target {
             };
             for field in edit::fields_of(&view, kind) {
                 if field.required && !fields.contains_key(&field.name) {
-                    missing.push(format!("{kind} '{id}' {}", field.name));
+                    missing.push((kind.clone(), id.clone(), field.name.clone()));
                 }
             }
         }

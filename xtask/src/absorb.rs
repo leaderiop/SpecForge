@@ -16,7 +16,8 @@
 //! Exit 0: written. 1: the edit plan was refused (the refusal printed, the ledger written, the scaffold removed), or
 //! the ledger could not be completed once the plan wrote (the target rolled back, the ledger printed to stderr).
 //! 2: usage, I/O, a source with errors, or a stop before any write (every stop printed); the ledger is written before
-//! the plan applies, so a ledger that cannot be written is such a stop.
+//! the plan applies, so a ledger that cannot be written is such a stop. A required reference `--only` leaves out is a
+//! stop that names the ids to add, and writes the ledger, which lists everything the selection left out.
 #![expect(
     clippy::print_stdout,
     clippy::print_stderr,
@@ -165,16 +166,41 @@ fn run(args: &[String]) -> i32 {
         &old.name,
         &mut planned.ledger,
     );
-    let missing = target.missing(&planned.creates);
+    let ledger_path = args.ledger.unwrap_or_else(|| args.to.join(LEDGER_FILE));
+    let (mut lacked, mut left_out) = (Vec::new(), Vec::new());
+    for (kind, id, field) in target.missing(&planned.creates) {
+        match planned.left_out.get(&(id.clone(), field.clone())) {
+            Some(ids) => {
+                let ids: Vec<String> = ids.iter().map(|id| format!("'{id}'")).collect();
+                left_out.push(format!(
+                    "{kind} '{id}' {field} needs {}, which --only leaves out",
+                    ids.join(", ")
+                ));
+            }
+            None => lacked.push(format!("{kind} '{id}' {field}")),
+        }
+    }
     let refused = target.refused_ids(&planned.creates);
-    if !missing.is_empty() || !refused.is_empty() {
+    if !lacked.is_empty() || !left_out.is_empty() || !refused.is_empty() {
         target.roll_back();
         let mut why = Vec::new();
-        if !missing.is_empty() {
+        if !left_out.is_empty() {
+            why.push(format!(
+                "{} required value(s) the selection leaves out; add the ids to --only (the ledger lists each as \
+                 out_of_selection):\n  {}",
+                left_out.len(),
+                left_out.join("\n  ")
+            ));
+            // The ledger says what else the selection left out.
+            if let Err(io) = write_ledger(&ledger_path, &planned.ledger.to_json(&old.name)) {
+                why.push(format!("the ledger: {io}"));
+            }
+        }
+        if !lacked.is_empty() {
             why.push(format!(
                 "{} required value(s) the old project lacks and no rule fills:\n  {}",
-                missing.len(),
-                missing.join("\n  ")
+                lacked.len(),
+                lacked.join("\n  ")
             ));
         }
         if !refused.is_empty() {
@@ -188,7 +214,6 @@ fn run(args: &[String]) -> i32 {
     }
     // The ledger as the plan has it, before the plan writes: a place it cannot be written stops the run here, the
     // scaffold rolled back, so the record of what does not convert is never lost behind a written target.
-    let ledger_path = args.ledger.unwrap_or_else(|| args.to.join(LEDGER_FILE));
     if let Err(io) = write_ledger(&ledger_path, &planned.ledger.to_json(&old.name)) {
         target.roll_back();
         return refuse(&format!("the ledger: {io}; nothing was written"));

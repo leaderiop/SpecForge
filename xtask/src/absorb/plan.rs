@@ -65,6 +65,9 @@ pub struct Planned {
     pub created: usize,
     /// The test ids the written proofs name: what a gate runs to hold them.
     pub cited: BTreeSet<String>,
+    /// For each (new id, new field) a reference was to be written in, the old ids it named that the selection leaves
+    /// out (ledgered `out_of_selection`): what a required field lacks because of `--only`, not the old project.
+    pub left_out: BTreeMap<(String, String), BTreeSet<String>>,
 }
 
 impl Planned {
@@ -282,6 +285,7 @@ struct Planner<'a> {
     ledger: Ledger,
     checks: Vec<Check>,
     created: usize,
+    left_out: BTreeMap<(String, String), BTreeSet<String>>,
 }
 
 /// Convert `entities` (each passed [`prechecks`]); `index` names every old entity's kind, `proofs` what an
@@ -301,6 +305,7 @@ pub fn plan(entities: &[OldEntity], index: &Index, proofs: &Proofs) -> Planned {
         ledger: Ledger::default(),
         checks: Vec::new(),
         created: 0,
+        left_out: BTreeMap::new(),
     };
     for e in entities {
         planner.draft(e);
@@ -433,13 +438,27 @@ impl Planner<'_> {
         );
     }
 
-    /// The new id a reference to `id` is written as, when this run converts it; otherwise ledgered and none.
-    fn resolve(&mut self, e: &OldEntity, field: &str, id: &str) -> Option<String> {
+    /// The new id a reference to `id` is written as, when this run converts it; otherwise ledgered and none. `into` is
+    /// the new field of `e`'s own entity it is written in (none for an inverse write): one the selection leaves out
+    /// is recorded there.
+    fn resolve(
+        &mut self,
+        e: &OldEntity,
+        field: &str,
+        into: Option<&str>,
+        id: &str,
+    ) -> Option<String> {
         if self.converted.contains(id) {
             return Some(id.to_string());
         }
         let why = match self.index.kind(id) {
-            Some(kind) if table::new_kind(kind).is_some() => Why::OutOfSelection(id.to_string()),
+            Some(kind) if table::new_kind(kind).is_some() => {
+                if let Some(into) = into {
+                    let at = (e.id.clone(), into.to_string());
+                    self.left_out.entry(at).or_default().insert(id.to_string());
+                }
+                Why::OutOfSelection(id.to_string())
+            }
             Some(kind) => Why::TargetLater {
                 target: id.to_string(),
                 pending: table::pending_of(kind),
@@ -504,6 +523,7 @@ impl Planner<'_> {
             checks,
             created,
             cited,
+            left_out,
             ..
         } = self;
         let converted = order.len() - created;
@@ -533,6 +553,7 @@ impl Planner<'_> {
             converted,
             created,
             cited,
+            left_out,
         }
     }
 }

@@ -2,6 +2,7 @@
 
 use serde_json::json;
 use specforge_ops::authoring::edit::Edit;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::super::ledger::Why;
 use super::super::plan::{self, Planned};
@@ -150,4 +151,31 @@ fn a_refused_value_outside_the_scope_does_not_stop_the_run() {
     let entities = only(&["a"]).select(all.to_vec()).unwrap();
     assert_eq!(plan::prechecks(&entities), Ok(()));
     assert!(plan::prechecks(&all).is_err(), "the whole project stops");
+}
+
+/// A reference the selection leaves out is recorded where it was to be written (the new entity and field), so a
+/// required one is a stop that names the selection; an inverse write onto an entity left out records nothing there.
+#[test]
+fn a_reference_the_selection_leaves_out_is_recorded_where_it_was_to_be_written() {
+    let all = [
+        old(
+            "journey",
+            "record",
+            json!({"persona": "writer", "flow": ["Writer saves"]}),
+        ),
+        old("persona", "writer", json!({"description": "D"})),
+        old("deliverable", "store_cli", json!({"journeys": ["record"]})),
+    ];
+    assert_eq!(
+        selected(&all, &["record", "store_cli"]).left_out,
+        BTreeMap::from([(
+            ("record".to_string(), "persona".to_string()),
+            BTreeSet::from(["writer".to_string()])
+        )])
+    );
+    assert_eq!(
+        selected(&all, &["store_cli"]).left_out,
+        BTreeMap::new(),
+        "a deliverable's journeys are written on the journey"
+    );
 }

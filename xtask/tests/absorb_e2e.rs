@@ -163,6 +163,48 @@ fn a_selection_converts_only_its_entities_and_checks_clean() {
     insta::assert_snapshot!("selection_ledger", ledger);
 }
 
+/// A selection that leaves out what a selected entity requires (a journey without its persona) stops before any write,
+/// naming the selected entity, the field and the ids to add to it, not the old project; the ledger is written, so
+/// every reference the selection left out is listed.
+#[test]
+#[ignore = "needs GSD_CORE_WASM"]
+fn a_selection_leaving_out_a_required_reference_stops_naming_the_selection() {
+    let dir = tempfile::tempdir().unwrap();
+    let (only, to) = (dir.path().join("only.json"), dir.path().join("t"));
+    std::fs::write(&only, r#"["record_an_entry", "store_entries"]"#).unwrap();
+    let run = absorb(&[
+        "--from",
+        OLD,
+        "--to",
+        path(&to),
+        "--only",
+        &format!("ids:{}", path(&only)),
+    ]);
+    assert_eq!(run.code, 2, "{}", run.stderr);
+    assert!(
+        run.stderr.contains(
+            "1 required value(s) the selection leaves out; add the ids to --only (the ledger lists each as \
+             out_of_selection):\n  journey 'record_an_entry' persona needs 'writer', which --only leaves out"
+        ),
+        "{}",
+        run.stderr
+    );
+    assert!(
+        !run.stderr.contains("the old project lacks"),
+        "{}",
+        run.stderr
+    );
+    let ledger = std::fs::read_to_string(to.join("absorb-ledger.json")).unwrap();
+    assert!(
+        ledger.contains("\"out_of_selection\": \"writer\""),
+        "{ledger}"
+    );
+    assert!(
+        !to.join("specforge.json").exists(),
+        "the scaffold is removed"
+    );
+}
+
 /// `from`'s files copied under `to`.
 fn copy_tree(from: &Path, to: &Path) {
     for entry in walkdir::WalkDir::new(from)
