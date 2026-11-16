@@ -404,17 +404,26 @@ fn a_filterset_over_the_collector_limit_is_refused_as_the_gates_own() {
     assert_eq!(FILTER_MAX, specforge_protocol_types::FILTER_MAX);
 }
 
+/// absorb cites no test since ADR 0370 D8: a run with no citation, nothing run and nothing compiled breaks no bound,
+/// and, with goldens it matches, passes.
 #[test]
-fn a_sample_that_cites_no_test_breaks_the_bound() {
+fn a_sample_that_cites_no_test_runs_none_and_holds_the_bound() {
     let mut none = run(json!([info()]));
     none.work.cited.clear();
     none.work.ran.clear();
+    assert!(none.work.compiled.is_empty());
     let judged = verdict(&none, &blessed(), false);
-    assert!(judged.failed);
-    assert_eq!(
-        judged.reason.as_deref(),
-        Some(
-            "bound: absorb cited no test; the sample proves nothing by a test, so its run is skipped"
-        )
+    assert!(!judged.failed, "{:?}", judged.lines);
+    assert_eq!(judged.reason, None);
+    assert!(
+        judged.lines.iter().all(|line| !line.contains("bound:")),
+        "{:?}",
+        judged.lines
+    );
+    let mut ran = run(json!([info()]));
+    ran.work.cited.clear();
+    assert!(
+        verdict(&ran, &blessed(), false).failed,
+        "a test that ran with none cited still breaks the bound"
     );
 }

@@ -1,6 +1,10 @@
 //! The `self-spec-sample` check's verdict (ADR 0360): the WASM-host sample of the self-spec, absorbed into `@gsd/core`
 //! kinds, checks with no error and no warning, its work stays within its bound, and its infos, ledger and selection
 //! equal their goldens. [`verdict`] and the helpers here are pure: they judge what a run found; [`run`] does the run.
+//!
+//! The sample runs the tests absorb cites, which are none since ADR 0370 D8: no kept kind holds a proof, so the bound
+//! no longer asks for a citation, and the run of cited tests is skipped until the sample retires at the swap (ADR 0367
+//! D1). The tests absorb used to cite still run in the `tests` check.
 
 use std::collections::BTreeMap;
 
@@ -300,11 +304,6 @@ fn placeheld(text: &str, paths: &[(String, &'static str)]) -> String {
 /// The lines that break the work bound, empty when it holds.
 fn bound(work: &Work) -> Vec<String> {
     let mut broken = Vec::new();
-    if work.cited.is_empty() {
-        broken.push(
-            "  bound: absorb cited no test; the sample proves nothing by a test, so its run is skipped".into(),
-        );
-    }
     if !work.compiled.is_empty() {
         broken.push(format!(
             "  bound: {} units compiled; the gate's test build should have held them: {}",

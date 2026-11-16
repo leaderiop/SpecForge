@@ -17,6 +17,15 @@
     {
       "kind": "constraint",
       "id": "extension_count_limit",
+      "field": "category",
+      "value": "performance",
+      "why": {
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_count_limit",
       "field": "constrains",
       "value": [
         "load_wasm_module",
@@ -25,6 +34,35 @@
       ],
       "why": {
         "later": "behavior"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_count_limit",
+      "field": "metric",
+      "value": "loaded_extensions <= 50\nThe system SHOULD support up to 20 extensions without performance\ndegradation. 21-50 extensions MUST produce a warning diagnostic.\nMore than 50 extensions MUST be refused with a hard error.",
+      "why": {
+        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_count_limit",
+      "field": "priority",
+      "value": "high",
+      "why": {
+        "dropped": "requirement.priority leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_count_limit",
+      "field": "protects",
+      "value": [
+        "wasm_sandbox_integrity"
+      ],
+      "why": {
+        "dropped": "requirement.protects leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -90,6 +128,15 @@
     {
       "kind": "constraint",
       "id": "extension_system_integrity",
+      "field": "category",
+      "value": "reliability",
+      "why": {
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_system_integrity",
       "field": "constrains",
       "value": [
         "load_extension_manifests",
@@ -132,19 +179,32 @@
     {
       "kind": "constraint",
       "id": "extension_system_integrity",
-      "field": "protects",
-      "value": "reference_resolution_completeness",
+      "field": "metric",
+      "value": "extension_integrity_violations <= 0\nextension install/remove never corrupts specforge.json; Wasm sandbox\ncontains all extension execution; Wasm traps produce diagnostics, not\ncrashes; provider registration survives reload; timeout enforcement\nprevents runaway extensions",
       "why": {
-        "out_of_selection": "reference_resolution_completeness"
+        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_system_integrity",
+      "field": "priority",
+      "value": "critical",
+      "why": {
+        "dropped": "requirement.priority leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "constraint",
       "id": "extension_system_integrity",
       "field": "protects",
-      "value": "spec_root_singleton",
+      "value": [
+        "spec_root_singleton",
+        "reference_resolution_completeness",
+        "wasm_sandbox_integrity"
+      ],
       "why": {
-        "out_of_selection": "spec_root_singleton"
+        "dropped": "requirement.protects leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -198,6 +258,15 @@
     {
       "kind": "constraint",
       "id": "test_coverage_accuracy",
+      "field": "category",
+      "value": "reliability",
+      "why": {
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "test_coverage_accuracy",
       "field": "constrains",
       "value": [
         "ingest_collector_report",
@@ -211,19 +280,31 @@
     {
       "kind": "constraint",
       "id": "test_coverage_accuracy",
-      "field": "protects",
-      "value": "testable_entity_classification",
+      "field": "metric",
+      "value": "coverage_ratio_error <= 0\ncoverage percentage matches actual verified/total ratio;\nmerge produces correct deduplicated results",
       "why": {
-        "out_of_selection": "testable_entity_classification"
+        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "test_coverage_accuracy",
+      "field": "priority",
+      "value": "critical",
+      "why": {
+        "dropped": "requirement.priority leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "constraint",
       "id": "test_coverage_accuracy",
       "field": "protects",
-      "value": "traceability_chain_integrity",
+      "value": [
+        "testable_entity_classification",
+        "traceability_chain_integrity"
+      ],
       "why": {
-        "out_of_selection": "traceability_chain_integrity"
+        "dropped": "requirement.protects leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -265,6 +346,15 @@
     {
       "kind": "constraint",
       "id": "traceability_completeness",
+      "field": "category",
+      "value": "reliability",
+      "why": {
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "traceability_completeness",
       "field": "constrains",
       "value": [
         "ingest_collector_report",
@@ -278,10 +368,30 @@
     {
       "kind": "constraint",
       "id": "traceability_completeness",
-      "field": "protects",
-      "value": "traceability_chain_integrity",
+      "field": "metric",
+      "value": "traceability_false_negatives <= 0\nspecforge analyze coverage MUST detect all broken links in the traceability\nchain with zero false negatives: testable entities with verify\ndeclarations but no recorded test results, and recorded results\nthat name unknown entities.",
       "why": {
-        "out_of_selection": "traceability_chain_integrity"
+        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "traceability_completeness",
+      "field": "priority",
+      "value": "critical",
+      "why": {
+        "dropped": "requirement.priority leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "traceability_completeness",
+      "field": "protects",
+      "value": [
+        "traceability_chain_integrity"
+      ],
+      "why": {
+        "dropped": "requirement.protects leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -323,6 +433,15 @@
     {
       "kind": "constraint",
       "id": "wasm_binary_size_limit",
+      "field": "category",
+      "value": "portability",
+      "why": {
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_binary_size_limit",
       "field": "constrains",
       "value": [
         "install_wasm_extension",
@@ -339,10 +458,27 @@
       "field": "metric",
       "value": "extension_wasm_size < 5MB\nEach extension .wasm binary SHOULD be under 5MB. Binaries exceeding 10MB\nMUST produce a warning diagnostic at install time. This ensures\nreasonable download times and first-compilation latency.",
       "why": {
-        "collapsed": {
-          "field": "requirement.metric.direction",
-          "into": "at_most"
-        }
+        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_binary_size_limit",
+      "field": "priority",
+      "value": "high",
+      "why": {
+        "dropped": "requirement.priority leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_binary_size_limit",
+      "field": "protects",
+      "value": [
+        "extension_load_order_determinism"
+      ],
+      "why": {
+        "dropped": "requirement.protects leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -396,6 +532,15 @@
     {
       "kind": "constraint",
       "id": "wasm_compile_cache_budget",
+      "field": "category",
+      "value": "performance",
+      "why": {
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_budget",
       "field": "constrains",
       "value": [
         "load_wasm_module",
@@ -412,10 +557,27 @@
       "field": "metric",
       "value": "cached_extension_load < 50ms\nEach Wasm extension MUST load in under 50ms on a compile-cache hit.\nFirst compilation (cache cold) SHOULD complete in under 500ms for a\ntypical component (<1MB .wasm).",
       "why": {
-        "collapsed": {
-          "field": "requirement.metric.direction",
-          "into": "at_most"
-        }
+        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_budget",
+      "field": "priority",
+      "value": "critical",
+      "why": {
+        "dropped": "requirement.priority leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_budget",
+      "field": "protects",
+      "value": [
+        "extension_load_order_determinism"
+      ],
+      "why": {
+        "dropped": "requirement.protects leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -469,6 +631,15 @@
     {
       "kind": "constraint",
       "id": "wasm_compile_cache_size_limit",
+      "field": "category",
+      "value": "portability",
+      "why": {
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_size_limit",
       "field": "constrains",
       "value": [
         "compile_wasm_component_with_cache"
@@ -483,10 +654,27 @@
       "field": "metric",
       "value": "compile_cache_size < 500MB\nThe compile cache directory SHOULD stay under 500MB total. The\nruntime configures wasmtime's cache with a 500MB files-total-size\nsoft limit; when exceeded, the engine's cleanup removes\nleast-recently-used entries on subsequent runs. No info diagnostic\nis required — cleanup is engine-internal.",
       "why": {
-        "collapsed": {
-          "field": "requirement.metric.direction",
-          "into": "at_most"
-        }
+        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_size_limit",
+      "field": "priority",
+      "value": "high",
+      "why": {
+        "dropped": "requirement.priority leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_size_limit",
+      "field": "protects",
+      "value": [
+        "wasm_compile_cache_integrity"
+      ],
+      "why": {
+        "dropped": "requirement.protects leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -540,6 +728,15 @@
     {
       "kind": "constraint",
       "id": "wasm_memory_limit",
+      "field": "category",
+      "value": "performance",
+      "why": {
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_memory_limit",
       "field": "constrains",
       "value": [
         "enforce_wasm_sandbox",
@@ -547,6 +744,35 @@
       ],
       "why": {
         "later": "behavior"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_memory_limit",
+      "field": "metric",
+      "value": "extension_memory <= 512MB\nEach Wasm extension instance MUST be limited to its declared\nmax_memory_mb of linear memory and tables, all its memories counted\ntogether, at most 512 MB; an extension declaring\nno limit MUST be limited to 512 MB. A growth past the limit MUST trap\nthe call (memory_limit_exceeded, reported as E028). No limit is shared\nacross extensions: one extension's memory never fails another\n(extension_isolation, ADR 0037).",
+      "why": {
+        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_memory_limit",
+      "field": "priority",
+      "value": "critical",
+      "why": {
+        "dropped": "requirement.priority leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_memory_limit",
+      "field": "protects",
+      "value": [
+        "wasm_sandbox_integrity"
+      ],
+      "why": {
+        "dropped": "requirement.protects leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -636,6 +862,15 @@
     {
       "kind": "constraint",
       "id": "wasm_sandbox_enforcement",
+      "field": "category",
+      "value": "security",
+      "why": {
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_sandbox_enforcement",
       "field": "constrains",
       "value": [
         "enforce_wasm_sandbox",
@@ -645,6 +880,35 @@
       ],
       "why": {
         "later": "behavior"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_sandbox_enforcement",
+      "field": "metric",
+      "value": "sandbox_escapes <= 0\nZero sandbox escapes in adversarial testing. A component's WASI\ncontext MUST preopen no directory and pass no environment, arguments\nor stdin, and MUST refuse TCP, UDP and name lookup. No declaration\n(sandbox_policy, a surface's sandbox override) grants a capability\n(ADR 0037); effects only through the four granted ports (ADR 0335 D4).",
+      "why": {
+        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_sandbox_enforcement",
+      "field": "priority",
+      "value": "critical",
+      "why": {
+        "dropped": "requirement.priority leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_sandbox_enforcement",
+      "field": "protects",
+      "value": [
+        "wasm_sandbox_integrity"
+      ],
+      "why": {
+        "dropped": "requirement.protects leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -698,10 +962,45 @@
     {
       "kind": "decision",
       "id": "auth_failure_vs_offline_fallback",
-      "field": "invariants",
-      "value": "offline_first_extension_resolution",
+      "field": "consequences",
+      "value": [
+        "Security boundary: revoked credentials immediately prevent extension use",
+        "Inconvenience when registry has transient auth issues — no silent fallback",
+        "Clear separation: network failures are infrastructure, auth failures are access control",
+        "Error messages must distinguish auth failure from network failure for actionable guidance"
+      ],
       "why": {
-        "out_of_selection": "offline_first_extension_resolution"
+        "dropped": "decision.consequences leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "auth_failure_vs_offline_fallback",
+      "field": "context",
+      "value": "Registry authentication failures (401/403) and network-level failures\n(DNS resolution, TCP timeout, TLS handshake) are distinct error classes.\nThe offline_first_extension_resolution invariant guarantees cached\nextensions work without network access, but does not specify behavior\nwhen the network IS reachable and the server actively rejects credentials.\nUsing cached binaries after an auth rejection could allow use of\nextensions the user is no longer authorized to access (revoked license,\nremoved from team, expired trial).",
+      "why": {
+        "dropped": "decision.context leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "auth_failure_vs_offline_fallback",
+      "field": "date",
+      "value": "2026-03-07",
+      "why": {
+        "dropped": "decision.decided leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "auth_failure_vs_offline_fallback",
+      "field": "invariants",
+      "value": [
+        "offline_first_extension_resolution",
+        "credential_secrecy"
+      ],
+      "why": {
+        "dropped": "decision.affects leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -719,6 +1018,49 @@
     {
       "kind": "decision",
       "id": "config_driven_kind_registry",
+      "field": "consequences",
+      "value": [
+        "Duplicate kind names are a hard error at extension load time",
+        "Zero config surface — no entity_kind_policy or entity_kinds in specforge.json",
+        "No @extension/kind qualified syntax needed — conflicts are impossible at parse time",
+        "Extension authors resolve collisions via renames or peer dependencies"
+      ],
+      "why": {
+        "dropped": "decision.consequences leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "config_driven_kind_registry",
+      "field": "context",
+      "value": "Wasm extensions declare entity kinds in their manifests, and can add\ngraph node instances at runtime via specforge.add_graph_node.\nCurrently there is no conflict prevention: two extensions can declare\nthe same kind name, and an extension can shadow a structural keyword\nlike spec. The existing\nFieldEnhancementRegistry solved the analogous problem for field-level\nconflicts but no equivalent exists for entity kind names.",
+      "why": {
+        "dropped": "decision.context leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "config_driven_kind_registry",
+      "field": "date",
+      "value": "2026-03-03",
+      "why": {
+        "dropped": "decision.decided leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "config_driven_kind_registry",
+      "field": "invariants",
+      "value": [
+        "entity_kind_uniqueness"
+      ],
+      "why": {
+        "dropped": "decision.affects leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "config_driven_kind_registry",
       "field": "origin",
       "value": null,
       "why": {
@@ -726,6 +1068,49 @@
           "field": "decision.origin",
           "value": "project"
         }
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "entity_enhancement_model",
+      "field": "consequences",
+      "value": [
+        "Extensions can annotate existing entities without forking the grammar",
+        "FieldRegistry becomes the single source of truth for field definitions",
+        "No conflict policy to configure: the load order decides, deterministically",
+        "Enhancements are applied when the registries are built, not lazily during validation"
+      ],
+      "why": {
+        "dropped": "decision.consequences leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "entity_enhancement_model",
+      "field": "context",
+      "value": "Extensions need to add fields and edges to existing entity types (e.g., a\nhexagonal architecture extension adding a layer field to behavior). Without\nentity enhancement, extensions are limited to creating new entity types —\nthey cannot annotate or extend entities from other extensions. This blocks\na significant class of architectural extensions.",
+      "why": {
+        "dropped": "decision.context leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "entity_enhancement_model",
+      "field": "date",
+      "value": "2026-03-03",
+      "why": {
+        "dropped": "decision.decided leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "entity_enhancement_model",
+      "field": "invariants",
+      "value": [
+        "enhancement_field_uniqueness"
+      ],
+      "why": {
+        "dropped": "decision.affects leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -743,10 +1128,49 @@
     {
       "kind": "decision",
       "id": "extension_file_parsers",
-      "field": "invariants",
-      "value": "zero_domain_knowledge_core",
+      "field": "consequences",
+      "value": [
+        "File-referenced content becomes structured graph data — the graph is truly complete",
+        "Domain-specific parsing stays in extensions — core remains domain-agnostic",
+        "@specforge/software can parse .feature files into scenario/step nodes",
+        "@specforge/api-design can parse .proto/.yaml into endpoint/schema nodes",
+        "Any future extension can register file parsers for its domain file formats",
+        "read_file is scoped and pattern-restricted — no arbitrary filesystem access",
+        "Parsers cannot query the graph — they read files, emit nodes/edges, and emit diagnostics; validators handle cross-parser consistency",
+        "Six contribution types total: entities, validators, renderers, providers, parsers, collectors"
+      ],
       "why": {
-        "out_of_selection": "zero_domain_knowledge_core"
+        "dropped": "decision.consequences leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "extension_file_parsers",
+      "field": "context",
+      "value": "Extensions declare file-reference fields (e.g., gherkin with\nfile_reference=true in @specforge/software). The core compiler validates\nthat referenced files exist (E016) but cannot parse their content — that\nwould require domain knowledge (gherkin syntax, protobuf schema, OpenAPI\nstructure), violating Principle 2. Without content parsing, file-reference\nfields are opaque paths: the graph knows a file exists but nothing about\nwhat is inside it. This forces agents to read raw files separately,\nlosing the \"graph is the product\" guarantee for file-referenced content.\nThe alternative — agents reading raw files — means the graph is\nincomplete: it models entities and relationships but not the structured\ncontent those entities reference.",
+      "why": {
+        "dropped": "decision.context leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "extension_file_parsers",
+      "field": "date",
+      "value": "2026-03-07",
+      "why": {
+        "dropped": "decision.decided leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "extension_file_parsers",
+      "field": "invariants",
+      "value": [
+        "wasm_sandbox_integrity",
+        "zero_domain_knowledge_core"
+      ],
+      "why": {
+        "dropped": "decision.affects leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -764,6 +1188,49 @@
     {
       "kind": "decision",
       "id": "per_call_site_sandbox",
+      "field": "consequences",
+      "value": [
+        "Least-privilege per operation — validator cannot write files even if same extension has a renderer",
+        "Defense in depth — compromised validator export cannot escalate to filesystem access",
+        "Runtime must track which export is currently executing per call",
+        "Permission model is static and predictable — no runtime configuration needed"
+      ],
+      "why": {
+        "dropped": "decision.consequences leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "per_call_site_sandbox",
+      "field": "context",
+      "value": "The contribution-based model means one extension can contribute entities,\nrendering, and provider validation. A per-extension sandbox policy is\ntoo coarse — an extension's validator should not have emit_file access\njust because the same extension also contributes a renderer. The\nprinciple of least privilege requires finer-grained permissions.",
+      "why": {
+        "dropped": "decision.context leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "per_call_site_sandbox",
+      "field": "date",
+      "value": "2026-03-03",
+      "why": {
+        "dropped": "decision.decided leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "per_call_site_sandbox",
+      "field": "invariants",
+      "value": [
+        "wasm_sandbox_integrity"
+      ],
+      "why": {
+        "dropped": "decision.affects leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "per_call_site_sandbox",
       "field": "origin",
       "value": null,
       "why": {
@@ -771,6 +1238,51 @@
           "field": "decision.origin",
           "value": "project"
         }
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "wasm_compile_cache_strategy",
+      "field": "consequences",
+      "value": [
+        "CLI cold start <50ms per extension on cache hit",
+        "First-time compilation pays full Cranelift compilation (100-500ms)",
+        "Cache directory grows proportionally to distinct compiled components",
+        "Engine or platform changes naturally miss the cache and recompile",
+        "No host-side invalidation logic to maintain or test"
+      ],
+      "why": {
+        "dropped": "decision.consequences leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "wasm_compile_cache_strategy",
+      "field": "context",
+      "value": "Components can be compiled on every load (JIT) or compiled once and\ncached as native machine code (AOT). JIT has zero setup but pays full\ncompilation on every CLI invocation; AOT trades one compile for fast\nsubsequent loads. For a batch compiler like SpecForge where cold start\nmatters (CLI, CI), cached AOT is preferred. A previous hand-rolled\nside cache (content-hash `.aot` byte copies) was never consumed by any\nruntime and was deleted in the Component Model cutover.",
+      "why": {
+        "dropped": "decision.context leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "wasm_compile_cache_strategy",
+      "field": "date",
+      "value": "2026-03-03",
+      "why": {
+        "dropped": "decision.decided leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "wasm_compile_cache_strategy",
+      "field": "invariants",
+      "value": [
+        "wasm_compile_cache_integrity",
+        "extension_load_order_determinism"
+      ],
+      "why": {
+        "dropped": "decision.affects leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -2450,18 +2962,31 @@
     {
       "kind": "invariant",
       "id": "collector_output_conformance",
+      "field": "guarantee",
+      "value": "What a collector reports is only recorded for entities the graph\ndeclares: results for any other entity ID are dropped with a W115\nwarning, not a hard error, so one stale annotation doesn't block the\nrest of a run. A test's status is passed, failed or skipped, the one\nvocabulary of the collect wire, the recorded test report and a pass's\ntest results. Recorded statuses are only passed and failed; skipped\ntests are counted, never recorded as proof.",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "collector_output_conformance",
+      "field": "risk",
+      "value": "medium",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "collector_output_conformance",
       "field": "verify",
       "value": {
         "kind": "unit",
         "text": "a test status is passed, failed or skipped, and no other value decodes"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-protocol-types#calls::tests::a_test_status_is_passed_failed_or_skipped"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2473,12 +2998,7 @@
         "text": "a test status outside passed, failed and skipped is an error naming the collector, never a skipped test"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-ops::operations#extension_calls::a_status_outside_the_vocabulary_is_not_a_collect_output"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2490,12 +3010,7 @@
         "text": "skipped tests are not recorded as proof"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-ops#analysis::collect::tests::skipped_tests_are_not_recorded"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2507,12 +3022,25 @@
         "text": "unknown entity ID in collector entry produces W115"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-ops#analysis::collect::tests::unknown_entities_are_dropped_with_w115"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "credential_secrecy",
+      "field": "guarantee",
+      "value": "Raw authentication tokens MUST never be logged, stored in\nspecforge.json, or included in diagnostic output. Only token\npresence/absence and validity status may be reported. The user's\nregistry files (the credential store, the kept secrets, the publisher\nsigning key and the known keys) MUST be created owner-only, 0600 files\nin a 0700 directory on unix, before a byte is written, and replaced\nwhole through a temporary created new: never readable by another user,\nnever left half written, never written through a link. A signing key\nfile is named in a diagnostic, never quoted.",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "credential_secrecy",
+      "field": "risk",
+      "value": "high",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2524,9 +3052,7 @@
         "text": "no log line contains raw token string"
       },
       "why": {
-        "unproven": {
-          "tests": []
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2538,12 +3064,7 @@
         "text": "a corrupt signing key file is named, never quoted"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-registry-client::tests#user_files::a_corrupt_signing_key_file_is_named_never_quoted"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2555,13 +3076,7 @@
         "text": "a user's registry file is never written through a link at its temporary name"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-registry-client::tests#user_files::a_kept_secret_is_never_written_through_a_link_at_its_temporary_name",
-            "rust:specforge-registry-client::tests#user_files::a_pin_save_is_never_written_through_a_link_at_its_temporary_name"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2573,9 +3088,7 @@
         "text": "diagnostic messages report credential presence not value"
       },
       "why": {
-        "unproven": {
-          "tests": []
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2587,13 +3100,7 @@
         "text": "every file in the user's registry directory is created 0600 in a 0700 directory"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-registry-client::tests#user_files::a_first_pin_save_is_0600_in_a_0700_directory",
-            "rust:specforge-registry-client::tests#user_files::a_first_signing_key_is_0600_in_a_0700_directory"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2605,9 +3112,25 @@
         "text": "registry token is not included in log output"
       },
       "why": {
-        "unproven": {
-          "tests": []
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "enhancement_field_uniqueness",
+      "field": "guarantee",
+      "value": "No two extensions MAY register the same field name for the same entity\nkind: an enhancement never overwrites a field the kind already has,\nwhether the kind's own or an earlier enhancement's, so the first\nregistration in load order wins. The resolution is deterministic.",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "enhancement_field_uniqueness",
+      "field": "risk",
+      "value": "medium",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2619,9 +3142,7 @@
         "text": "no two extensions can silently claim the same field"
       },
       "why": {
-        "unproven": {
-          "tests": []
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2633,9 +3154,25 @@
         "text": "conflict resolution is deterministic across runs"
       },
       "why": {
-        "unproven": {
-          "tests": []
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "entity_kind_uniqueness",
+      "field": "guarantee",
+      "value": "No two extensions MAY register the same entity kind name: a kind an\nearlier-loaded extension registered is E026, and the first extension\nin load order keeps it. Collisions are detected when the registries are\nbuilt. The compiler never arbitrates conflicts — extension authors\nresolve collisions via renames or peer dependencies.",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "entity_kind_uniqueness",
+      "field": "risk",
+      "value": "high",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2647,9 +3184,25 @@
         "text": "no two extensions can silently register the same entity kind"
       },
       "why": {
-        "unproven": {
-          "tests": []
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extension_isolation",
+      "field": "guarantee",
+      "value": "An extension failure MUST NOT affect other extensions or the host compiler.\nAfter an extension traps or fails during any lifecycle phase, the remaining\nextensions MUST continue execution normally. The failed extension MUST be\nexcluded from subsequent phases in the current compilation.",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extension_isolation",
+      "field": "risk",
+      "value": "high",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2661,9 +3214,7 @@
         "text": "extension trap does not affect other extensions"
       },
       "why": {
-        "unproven": {
-          "tests": []
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2675,9 +3226,25 @@
         "text": "failed extension excluded from subsequent phases"
       },
       "why": {
-        "unproven": {
-          "tests": []
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extension_load_order_determinism",
+      "field": "guarantee",
+      "value": "Given the same specforge.json extensions, the compiler MUST produce\nthe same load order on every invocation and platform: the entries'\norder, except that an extension comes after the peers it declares\n(ADR 0041). The registry build MUST produce it, so every surface\nreads the same order.",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extension_load_order_determinism",
+      "field": "risk",
+      "value": "medium",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2689,9 +3256,7 @@
         "text": "a load order given again comes back unchanged"
       },
       "why": {
-        "unproven": {
-          "tests": []
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2703,12 +3268,25 @@
         "text": "the same extensions give the same load order on every build, dependencies first"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-project::tests#compile::a_project_listing_a_dependent_first_loads_its_peer_first"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extension_operation_atomicity",
+      "field": "guarantee",
+      "value": "Extension install, uninstall, and update operations MUST be atomic.\nOn failure, all changes MUST be rolled back — no partial installs,\nno stray files, no inconsistent lock state, and no publisher key\npinned for an install that was not written.",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extension_operation_atomicity",
+      "field": "risk",
+      "value": "high",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2720,9 +3298,7 @@
         "text": "concurrent install and uninstall are serialized"
       },
       "why": {
-        "unproven": {
-          "tests": []
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2734,12 +3310,7 @@
         "text": "a failed change puts back every project file it wrote and removes the directories it created"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-ops#extension::lock_plan::tests::commit::a_failed_change_puts_back_every_project_file_and_the_directories_it_made"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2751,12 +3322,7 @@
         "text": "a failed change puts back the modules and the lock and removes the directories it made"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-installed::tests#change::a_failed_change_removes_the_directories_it_created"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2768,12 +3334,7 @@
         "text": "a pin that cannot be saved puts back everything the install wrote"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-ops#extension::lock_plan::tests::commit::a_pin_that_cannot_be_saved_puts_back_everything_the_install_wrote"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2785,12 +3346,7 @@
         "text": "failed install rolls back to previous state"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-installed::tests#change::a_failed_install_puts_back_the_binary_and_the_lock"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2802,12 +3358,25 @@
         "text": "interrupted upgrade preserves original extension"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-installed::tests#change::a_failed_upgrade_keeps_the_original_module"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extensions_run_in_their_loading_runtime",
+      "field": "guarantee",
+      "value": "Every extension call the host makes over a project MUST run in the\nruntime that loaded the project's extensions: the environment holds\nthat runtime from the moment it loads them, a compiled project, a\nproject session and every project view read it there, and no\noperation over a project view takes a runtime of its own (analyze's\npasses, collect's collectors, an extension\ncommand, a check's custom verdicts and passes). An environment loaded\nwithout a runtime loads no extension, and an extension call over it\nis E028, not loaded. Migrate, which compiles the project itself, and\nreading a candidate's declaration, which is in no environment, are\nhanded a runtime.",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extensions_run_in_their_loading_runtime",
+      "field": "risk",
+      "value": "medium",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2819,12 +3388,7 @@
         "text": "an environment assembled from its loaded parts holds the runtime they were loaded in and probes its custom rules there; one assembled without a runtime holds no extension and enables each entry as written"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-project::tests#environment::an_environment_assembles_from_the_parts_it_is_given"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2836,13 +3400,7 @@
         "text": "an environment holds the runtime it loaded its extensions in, and its session and compiled project read it there"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-project::tests#environment::without_a_runtime_nothing_loads_and_each_entry_is_enabled_as_written",
-            "rust:specforge-project::tests#session::an_environment_holds_the_runtime_it_loaded_its_extensions_in"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2854,12 +3412,25 @@
         "text": "an operation over a project view calls its extensions in the runtime the view's environment loaded them in"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-ops::operations#extension_calls::the_views_runtime::operations_over_a_view_call_extensions_in_its_runtime"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "host_function_type_safety",
+      "field": "guarantee",
+      "value": "Data exchanged between the host and extensions via host functions MUST\nconform to declared schemas. Malformed input from an extension MUST\nproduce an ExtensionError diagnostic, not undefined behavior. The host\nMUST validate all extension-provided data before processing.",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "host_function_type_safety",
+      "field": "risk",
+      "value": "high",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2871,9 +3442,7 @@
         "text": "malformed extension input produces ExtensionError"
       },
       "why": {
-        "unproven": {
-          "tests": []
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2885,9 +3454,25 @@
         "text": "valid extension input is processed correctly"
       },
       "why": {
-        "unproven": {
-          "tests": []
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "peer_dependency_satisfaction",
+      "field": "guarantee",
+      "value": "If an extension declares peer dependencies, the compiler MUST verify that\nall declared required peers are installed, and that every installed peer\nsatisfies its declared semver range. An optional peer may be absent.\nUnsatisfied peer dependencies MUST produce an error diagnostic (E-level), not\na silent degradation. A range that is not a SemVer requirement satisfies\nno version (E073). `check`, `doctor`, `add`, `init`, `update` and `remove`, and\nthe dry runs of `add` and `remove`, judge a peer by one rule over one\nset: the extensions the project's specforge.json entries load\n(ADR 0041). An installed extension is judged by what its module\ndeclares, which its lock entry must record (E070).",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "peer_dependency_satisfaction",
+      "field": "risk",
+      "value": "high",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2899,14 +3484,7 @@
         "text": "add, init, update and remove judge the set check judges: the extensions the project's entries load"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-ops#extension::peer_set::tests::loaded_by_takes_a_builtin_only_from_its_entry",
-            "rust:specforge-ops#extension::peer_set::tests::the_prediction_reads_each_file_entry_once_through_its_disk",
-            "rust:specforge-ops#extension::peer_set::tests::the_set_is_what_the_entries_load"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2918,12 +3496,7 @@
         "text": "one rule judges a peer: its range read as SemVer, then the version its peer is installed at"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-package#peers::tests::the_peer_rule"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2935,9 +3508,7 @@
         "text": "peer with wrong version range produces an error diagnostic"
       },
       "why": {
-        "unproven": {
-          "tests": []
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2949,12 +3520,7 @@
         "text": "satisfied peer dependencies pass validation"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-project::tests#compile::missing_optional_peers_are_not_reported"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2966,12 +3532,7 @@
         "text": "the lock plan judges a locked extension by what its module declares, and one whose lock entry records another version or other peers is no member, as the load refuses it"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-ops::operations#lock_records::the_lock_plan_judges_a_locked_module_by_what_it_declares"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -2983,12 +3544,7 @@
         "text": "the lock plan's peer set of the project as it is names what the extension load loads, in entry order, from the entries it loads them by"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-ops#extension::peer_set::tests::the_prediction_of_the_project_as_it_is_is_what_the_load_loads"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3000,12 +3556,25 @@
         "text": "unsatisfied peer dependency produces an error diagnostic"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-project::tests#compile::a_missing_required_peer_fails_the_compile"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "publisher_trust",
+      "field": "guarantee",
+      "value": "A registry package is installed only when its publisher signature\nverifies over the digests the registry describes (which the downloaded\nbytes must match) and the served manifest, or when it is unsigned, no\nkey is expected for its name (no pin of the user's and none in\nspecforge.lock) and the user passed --allow-unsigned; an unsigned\npackage for a name whose key is pinned or locked is never installed;\na broken signature is\nnever installed. The first verified key for a package is pinned, and a\npackage signed by another key is refused unless the user consents. A\nkey is pinned only for an install that is written, and a store of pins\nthat can't be read trusts nothing.",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "publisher_trust",
+      "field": "risk",
+      "value": "high",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3017,12 +3586,7 @@
         "text": "an unsigned package is refused for a name whose publisher key is pinned, by add, its dry run and MCP add_extension, downloading nothing"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-cli::tests#expected_publisher::an_unsigned_package_for_a_pinned_name_is_refused_on_every_surface"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3034,12 +3598,7 @@
         "text": "specforge add --dry-run refuses an unsigned package and a denied publisher key as specforge add does, downloading nothing"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-cli::tests#registry_dry_run::a_dry_run_refuses_what_the_add_refuses_and_downloads_nothing"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3051,12 +3610,7 @@
         "text": "specforge add pins the publisher key and records it in specforge.lock"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-cli::tests#registry::add_installs_a_signed_package_and_pins_its_key"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3068,12 +3622,7 @@
         "text": "specforge add refuses a package signed by another key than the pinned one"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-cli::tests#registry::add_refuses_a_package_signed_by_another_key_than_the_pinned_one"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3085,12 +3634,25 @@
         "text": "specforge add refuses an unsigned package without --allow-unsigned"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-cli::tests#registry::add_refuses_an_unsigned_package_without_allow_unsigned"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "registry_integrity",
+      "field": "guarantee",
+      "value": "Downloaded extension binaries from a registry MUST be verified against\ntheir declared SHA256 hash before installation. Hash mismatches MUST\nproduce a hard error diagnostic and abort installation. The hash and,\nfor a signed package, its publisher key id MUST be recorded in\nspecforge.lock. At the version specforge.lock pins, the bytes installed\nMUST be the ones it pins. A download MUST be no longer than the size\nthe registry declares for it (64 MiB at most).",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "registry_integrity",
+      "field": "risk",
+      "value": "high",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3102,9 +3664,7 @@
         "text": "SHA256 match passes verification"
       },
       "why": {
-        "unproven": {
-          "tests": []
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3116,12 +3676,7 @@
         "text": "SHA256 mismatch produces hard error and aborts"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-ops-registry::suite#fetch::a_registry_sha256_that_does_not_match_the_download_is_refused"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3133,12 +3688,25 @@
         "text": "the hash and the key id are recorded in the lock file"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-ops#extension::lock_plan::tests::commit::a_committed_registry_install_locks_its_hash_and_key_id"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "registry_reply_binding",
+      "field": "guarantee",
+      "value": "What a registry install verifies, pins and installs is the package and\nversion that was requested, described by a manifest that can be read:\na reply or manifest for another package or version, or a missing or\nunreadable manifest, is refused before any key is pinned; a reply\nwhose name, version or digest is no package name, SemVer version or\nlowercase SHA-256 is refused before anything is downloaded.",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "registry_reply_binding",
+      "field": "risk",
+      "value": "high",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3150,12 +3718,7 @@
         "text": "a manifest describing another package is refused"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-ops-registry::suite#fetch::a_manifest_describing_another_package_is_refused"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3167,12 +3730,25 @@
         "text": "a package served without a manifest is refused"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-ops-registry::suite#fetch::a_package_served_without_a_manifest_is_refused"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "surface_schema_validity",
+      "field": "guarantee",
+      "value": "Every registered extension MCP tool MUST have an input_schema that is\na JSON object, and an output_schema, when declared, that is a JSON\nobject: a tool with another value produces E055 and is not\nregistered. Every command arg MUST have a CommandArgType: the type is\nclosed, so a surfaces description with another one does not parse and\nfails its extension's load (E028).",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "surface_schema_validity",
+      "field": "risk",
+      "value": "medium",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3184,12 +3760,7 @@
         "text": "a surfaces description with an unknown arg type fails the extension's load"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-wasm::tests#protocol_host::an_unknown_arg_type_fails_the_load"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3201,12 +3772,7 @@
         "text": "a tool whose input_schema is not a JSON object is E055 and not registered"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-registry::tests#surface::the_invariant_refuses_a_malformed_tool"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3218,12 +3784,25 @@
         "text": "a tool whose schemas are JSON objects is registered"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-registry::tests#surface::the_invariant_keeps_a_wellformed_tool"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "wasm_compile_cache_integrity",
+      "field": "guarantee",
+      "value": "The Wasm compilation cache MUST be keyed by the engine configuration and\nthe exact component bytes that produced each artifact: an entry MUST\ndeserialize only for the binary and engine that compiled it. Corrupted\nor mismatched cache entries MUST be ignored — the runtime falls back to\nfresh compilation — never served. The cache directory is managed by the\nruntime engine (wasmtime), selected via SPECFORGE_WASMTIME_CACHE.\nSeparately, the integrity of an installed extension binary is enforced\nby the specforge.lock hash pin: a binary that no longer matches its\nrecorded hash MUST be refused at load time (E070).",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "wasm_compile_cache_integrity",
+      "field": "risk",
+      "value": "medium",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3235,9 +3814,7 @@
         "text": "a cache artifact from different bytes or engine config is never reused"
       },
       "why": {
-        "unproven": {
-          "tests": []
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3249,9 +3826,25 @@
         "text": "corrupted cache entry falls back to fresh compilation"
       },
       "why": {
-        "unproven": {
-          "tests": []
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "wasm_sandbox_integrity",
+      "field": "guarantee",
+      "value": "Wasm extensions MUST NOT escape the Wasm sandbox. An extension MUST NOT\naccess the host filesystem, network, environment, or memory outside its\nlinear memory region; no sandbox policy permits it, since a policy\ndeclares limits only (ADR 0037). Any call that crosses a limit of its\nsandbox MUST trap the extension and emit a diagnostic (E028). No text\nan extension supplies reaches a user's terminal as a control sequence:\nthe host reads it printable where it reads the answer (ADR 0244).",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "wasm_sandbox_integrity",
+      "field": "risk",
+      "value": "high",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3263,12 +3856,7 @@
         "text": "no text an extension supplies reaches the terminal as a control sequence"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-cli::tests#extension_text::an_extensions_text_reaches_the_terminal_printable"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3280,9 +3868,7 @@
         "text": "no extension can read or write outside its sandbox boundaries"
       },
       "why": {
-        "unproven": {
-          "tests": []
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
     },
     {
@@ -3294,30 +3880,59 @@
         "text": "sandbox violation traps the extension and emits a diagnostic"
       },
       "why": {
-        "collapsed": {
-          "field": "invariant.proof",
-          "into": [
-            "rust:specforge-component::suite#sandbox_limits::an_extension_growing_past_its_memory_limit_traps"
-          ]
-        }
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "author_a_domain_extension",
+      "field": "channels",
+      "value": [
+        "cli"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "journey",
       "id": "author_a_domain_extension",
       "field": "features",
-      "value": "extension_management",
+      "value": [
+        "extension_management",
+        "wasm_extension_authoring"
+      ],
       "why": {
-        "out_of_selection": "extension_management"
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "journey",
       "id": "author_a_domain_extension",
-      "field": "milestones",
-      "value": "specforge_wasm_runtime_deliverable",
+      "field": "flow",
+      "value": [
+        "Contributor runs specforge extension init to scaffold a Wasm domain extension",
+        "Contributor defines entity_kinds, edge_types, and validation_rules in manifest",
+        "Contributor implements validation exports using the PDK",
+        "Contributor runs specforge extension build to compile to .wasm",
+        "Contributor runs specforge extension test to verify against fixtures",
+        "Contributor installs locally via specforge add ./path/to/extension.wasm",
+        "Compiler loads .wasm and registers the domain vocabulary",
+        "Contributor writes .spec files using the new entity kinds",
+        "Success: extension entities participate in resolution, validation, and graph export",
+        "Failure: Wasm traps or manifest errors are reported as diagnostics"
+      ],
       "why": {
-        "out_of_selection": "specforge_wasm_runtime_deliverable"
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "author_a_domain_extension",
+      "field": "persona",
+      "value": "contributor",
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
@@ -3326,55 +3941,139 @@
       "field": "priority",
       "value": "low",
       "why": {
-        "collapsed": {
-          "field": "journey.priority",
-          "into": "could"
-        }
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "author_a_domain_extension",
+      "field": "tags",
+      "value": [
+        "contributor",
+        "cli"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "check_test_coverage",
+      "field": "channels",
+      "value": [
+        "cli"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "journey",
       "id": "check_test_coverage",
       "field": "features",
-      "value": "te_coverage_analysis",
+      "value": [
+        "test_result_collection",
+        "te_coverage_analysis"
+      ],
       "why": {
-        "out_of_selection": "te_coverage_analysis"
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "journey",
       "id": "check_test_coverage",
-      "field": "milestones",
-      "value": "specforge_cli_deliverable",
+      "field": "flow",
+      "value": [
+        "Developer runs specforge collect",
+        "System runs each detected runner extension's approved test command (e.g. vitest, cargo test) and records results in specforge-report.json",
+        "Developer runs specforge analyze coverage",
+        "System scores intent, enforcement and proof per entity",
+        "Success: coverage findings and summary printed",
+        "Developer sets --min threshold for CI gating"
+      ],
       "why": {
-        "out_of_selection": "specforge_cli_deliverable"
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "check_test_coverage",
+      "field": "persona",
+      "value": "developer",
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "check_test_coverage",
+      "field": "priority",
+      "value": "high",
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "check_test_coverage",
+      "field": "tags",
+      "value": [
+        "developer",
+        "cli"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "diagnose_extension_issues",
+      "field": "channels",
+      "value": [
+        "cli"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "journey",
       "id": "diagnose_extension_issues",
       "field": "features",
-      "value": "extension_management",
+      "value": [
+        "entity_enhancement",
+        "extension_management",
+        "wasm_extension_runtime",
+        "extension_manifest"
+      ],
       "why": {
-        "out_of_selection": "extension_management"
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "journey",
       "id": "diagnose_extension_issues",
-      "field": "features",
-      "value": "extension_manifest",
+      "field": "flow",
+      "value": [
+        "Developer runs specforge doctor",
+        "System loads all extension manifests",
+        "System builds KindRegistry and FieldRegistry from extension declarations",
+        "System detects entity kind conflicts and enhancement conflicts",
+        "System checks Wasm compile cache health",
+        "System produces a report listing installed extensions, entity kinds, enhancements, conflicts with actionable resolution suggestions, and cache status",
+        "Developer resolves issues based on report"
+      ],
       "why": {
-        "out_of_selection": "extension_manifest"
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "journey",
       "id": "diagnose_extension_issues",
-      "field": "milestones",
-      "value": "specforge_wasm_runtime_deliverable",
+      "field": "persona",
+      "value": "developer",
       "why": {
-        "out_of_selection": "specforge_wasm_runtime_deliverable"
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
@@ -3383,64 +4082,70 @@
       "field": "priority",
       "value": "medium",
       "why": {
-        "collapsed": {
-          "field": "journey.priority",
-          "into": "could"
-        }
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "diagnose_extension_issues",
+      "field": "tags",
+      "value": [
+        "developer",
+        "cli"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "install_domain_extensions",
+      "field": "channels",
+      "value": [
+        "cli"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "journey",
       "id": "install_domain_extensions",
       "field": "features",
-      "value": "dynamic_entity_registration",
+      "value": [
+        "extension_management",
+        "wasm_extension_runtime",
+        "dynamic_entity_registration"
+      ],
       "why": {
-        "out_of_selection": "dynamic_entity_registration"
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "journey",
       "id": "install_domain_extensions",
-      "field": "features",
-      "value": "extension_management",
+      "field": "flow",
+      "value": [
+        "Developer runs specforge add @specforge/atomic-design",
+        "System resolves extension from registry",
+        "System downloads .wasm binary and validates manifest",
+        "System verifies the binary SHA256 and places it atomically under .specforge/extensions/",
+        "System adds extension to specforge.json extensions list",
+        "New entity kinds (atom, molecule, organism, template, page) become available",
+        "Developer writes .spec files using the new domain vocabulary",
+        "All validation, LSP, and graph export work with new entity types"
+      ],
       "why": {
-        "out_of_selection": "extension_management"
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "journey",
       "id": "install_domain_extensions",
-      "field": "milestones",
-      "value": "specforge_cli_deliverable",
+      "field": "persona",
+      "value": "developer",
       "why": {
-        "out_of_selection": "specforge_cli_deliverable"
-      }
-    },
-    {
-      "kind": "journey",
-      "id": "install_domain_extensions",
-      "field": "milestones",
-      "value": "specforge_formal",
-      "why": {
-        "out_of_selection": "specforge_formal"
-      }
-    },
-    {
-      "kind": "journey",
-      "id": "install_domain_extensions",
-      "field": "milestones",
-      "value": "specforge_governance",
-      "why": {
-        "out_of_selection": "specforge_governance"
-      }
-    },
-    {
-      "kind": "journey",
-      "id": "install_domain_extensions",
-      "field": "milestones",
-      "value": "specforge_software",
-      "why": {
-        "out_of_selection": "specforge_software"
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
@@ -3449,19 +4154,66 @@
       "field": "priority",
       "value": "medium",
       "why": {
-        "collapsed": {
-          "field": "journey.priority",
-          "into": "could"
-        }
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "install_domain_extensions",
+      "field": "tags",
+      "value": [
+        "developer",
+        "cli"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "journey",
       "id": "j_publish_wasm_extension",
-      "field": "milestones",
-      "value": "specforge_wasm_runtime_deliverable",
+      "field": "channels",
+      "value": [
+        "cli"
+      ],
       "why": {
-        "out_of_selection": "specforge_wasm_runtime_deliverable"
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "j_publish_wasm_extension",
+      "field": "features",
+      "value": [
+        "wasm_extension_authoring"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "j_publish_wasm_extension",
+      "field": "flow",
+      "value": [
+        "Contributor runs specforge extension publish",
+        "System validates manifest v2 and .wasm binary",
+        "System bundles binary and manifest",
+        "System publishes to configured registry (npm, OCI, or GitHub Releases)",
+        "Success: extension URL printed",
+        "Failure: validation errors reported"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "j_publish_wasm_extension",
+      "field": "persona",
+      "value": "contributor",
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
@@ -3470,37 +4222,70 @@
       "field": "priority",
       "value": "low",
       "why": {
-        "collapsed": {
-          "field": "journey.priority",
-          "into": "could"
-        }
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "j_publish_wasm_extension",
+      "field": "tags",
+      "value": [
+        "contributor",
+        "cli"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "manage_extensions",
+      "field": "channels",
+      "value": [
+        "cli"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "journey",
       "id": "manage_extensions",
       "field": "features",
-      "value": "extension_management",
+      "value": [
+        "extension_management",
+        "wasm_extension_runtime",
+        "entity_enhancement",
+        "extension_manifest"
+      ],
       "why": {
-        "out_of_selection": "extension_management"
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "journey",
       "id": "manage_extensions",
-      "field": "features",
-      "value": "extension_manifest",
+      "field": "flow",
+      "value": [
+        "Developer runs specforge add @specforge/governance",
+        "System downloads the .wasm extension binary",
+        "System verifies the binary SHA256 and places it atomically under .specforge/extensions/",
+        "System adds extension to specforge.json",
+        "New entity kinds become available from the extension's domain vocabulary",
+        "Developer runs specforge extensions to verify installed extensions",
+        "Developer can later run specforge remove to uninstall"
+      ],
       "why": {
-        "out_of_selection": "extension_manifest"
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "journey",
       "id": "manage_extensions",
-      "field": "milestones",
-      "value": "specforge_cli_deliverable",
+      "field": "persona",
+      "value": "developer",
       "why": {
-        "out_of_selection": "specforge_cli_deliverable"
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
@@ -3509,19 +4294,66 @@
       "field": "priority",
       "value": "medium",
       "why": {
-        "collapsed": {
-          "field": "journey.priority",
-          "into": "could"
-        }
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "manage_extensions",
+      "field": "tags",
+      "value": [
+        "developer",
+        "cli"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "journey",
       "id": "scaffold_wasm_extension",
-      "field": "milestones",
-      "value": "specforge_wasm_runtime_deliverable",
+      "field": "channels",
+      "value": [
+        "cli"
+      ],
       "why": {
-        "out_of_selection": "specforge_wasm_runtime_deliverable"
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "scaffold_wasm_extension",
+      "field": "features",
+      "value": [
+        "wasm_extension_authoring"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "scaffold_wasm_extension",
+      "field": "flow",
+      "value": [
+        "Contributor runs specforge extension init",
+        "System prompts for extension name and contribution types (entities, validators, renderers, providers, parsers, collectors)",
+        "System scaffolds project with manifest v2, src/ skeleton, and build config",
+        "Manifest declares entity_kinds, edge_types, validation_rules",
+        "README includes PDK documentation and examples",
+        "Success: project is ready for development"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "scaffold_wasm_extension",
+      "field": "persona",
+      "value": "contributor",
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
@@ -3530,19 +4362,66 @@
       "field": "priority",
       "value": "low",
       "why": {
-        "collapsed": {
-          "field": "journey.priority",
-          "into": "could"
-        }
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "scaffold_wasm_extension",
+      "field": "tags",
+      "value": [
+        "contributor",
+        "cli"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "journey",
       "id": "test_wasm_extension_locally",
-      "field": "milestones",
-      "value": "specforge_wasm_runtime_deliverable",
+      "field": "channels",
+      "value": [
+        "cli"
+      ],
       "why": {
-        "out_of_selection": "specforge_wasm_runtime_deliverable"
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "test_wasm_extension_locally",
+      "field": "features",
+      "value": [
+        "wasm_extension_authoring"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "test_wasm_extension_locally",
+      "field": "flow",
+      "value": [
+        "Contributor runs specforge extension test",
+        "System builds .wasm binary",
+        "System loads binary in production sandbox",
+        "System runs against test fixtures",
+        "Success: test results printed",
+        "Failure: sandbox violations or Wasm traps reported"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "test_wasm_extension_locally",
+      "field": "persona",
+      "value": "contributor",
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
     },
     {
@@ -3551,10 +4430,409 @@
       "field": "priority",
       "value": "low",
       "why": {
-        "collapsed": {
-          "field": "journey.priority",
-          "into": "could"
-        }
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "test_wasm_extension_locally",
+      "field": "tags",
+      "value": [
+        "contributor",
+        "cli"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "agent",
+      "field": "description",
+      "value": "An AI coding assistant, PM agent, compliance agent, or any LLM-based tool that consumes the SpecForge graph protocol for structured context. Interacts via CLI or MCP.",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "agent",
+      "field": "goals",
+      "value": [
+        "Receive structured, typed context instead of ambiguous prose",
+        "Query the graph at multiple resolutions to fit context windows",
+        "Stay synchronized with spec changes via delta notifications",
+        "Achieve 70-85% first-attempt accuracy on implementation tasks"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "agent",
+      "field": "pain_points",
+      "value": [
+        "Prose ambiguity leading to ~30% first-attempt accuracy",
+        "No stable schema for structured context consumption"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "agent",
+      "field": "status",
+      "value": "active",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "agent",
+      "field": "tags",
+      "value": [
+        "automation",
+        "primary"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "agent",
+      "field": "technical_level",
+      "value": "non_technical",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "architect",
+      "field": "description",
+      "value": "A technical lead or system architect who reviews traceability chains, visualizes the entity graph, and exports structured data for planning and analysis.",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "architect",
+      "field": "goals",
+      "value": [
+        "Verify full traceability from features to tests",
+        "Visualize the dependency graph for architectural review",
+        "Export graph data for external dashboards and analysis tools",
+        "Identify unreferenced entities and traceability gaps"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "architect",
+      "field": "pain_points",
+      "value": [
+        "Invisible traceability gaps between features and tests",
+        "Manual cross-cutting review across disconnected artifacts"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "architect",
+      "field": "status",
+      "value": "active",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "architect",
+      "field": "tags",
+      "value": [
+        "end_user",
+        "secondary"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "architect",
+      "field": "technical_level",
+      "value": "expert",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "ci",
+      "field": "description",
+      "value": "An automated CI/CD pipeline that validates spec files, gates on coverage thresholds, and checks formatting as part of continuous integration.",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "ci",
+      "field": "goals",
+      "value": [
+        "Fail the build when spec validation errors exist",
+        "Gate merges on minimum spec coverage thresholds",
+        "Enforce canonical formatting via specforge format --check",
+        "Produce machine-readable output for downstream pipeline stages"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "ci",
+      "field": "pain_points",
+      "value": [
+        "No standard machine-readable format for quality gates",
+        "Manual wiring of coverage thresholds to CI exit codes"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "ci",
+      "field": "status",
+      "value": "active",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "ci",
+      "field": "tags",
+      "value": [
+        "automation",
+        "primary"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "ci",
+      "field": "technical_level",
+      "value": "non_technical",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "contributor",
+      "field": "description",
+      "value": "A developer who authors SpecForge Wasm extensions, custom providers, or grammar contributions to extend the compiler with new domain vocabulary.",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "contributor",
+      "field": "goals",
+      "value": [
+        "Scaffold a new Wasm extension with specforge extension init",
+        "Define entity kinds, edge types, and validation rules in a manifest",
+        "Test extensions locally before publishing to a registry",
+        "Author custom grammars for extension-specific syntax highlighting"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "contributor",
+      "field": "pain_points",
+      "value": [
+        "Undocumented extension APIs requiring source-code reading",
+        "No local testing harness for Wasm extensions"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "contributor",
+      "field": "status",
+      "value": "active",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "contributor",
+      "field": "tags",
+      "value": [
+        "end_user",
+        "secondary"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "contributor",
+      "field": "technical_level",
+      "value": "advanced",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "developer",
+      "field": "description",
+      "value": "A software engineer who writes .spec files, runs CLI commands, and uses IDE features to specify, validate, and export structured context for AI agents.",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "developer",
+      "field": "goals",
+      "value": [
+        "Write .spec files that compile cleanly on first attempt",
+        "Get instant feedback on broken references and unreferenced entities",
+        "Export structured context that makes AI agents produce correct output",
+        "Format, validate, and trace specs as part of daily workflow"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "developer",
+      "field": "pain_points",
+      "value": [
+        "Cryptic error messages that don't pinpoint the root cause",
+        "No structured format for feeding context to AI coding assistants"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "developer",
+      "field": "status",
+      "value": "active",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "developer",
+      "field": "tags",
+      "value": [
+        "end_user",
+        "primary"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "developer",
+      "field": "technical_level",
+      "value": "expert",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "product_manager",
+      "field": "description",
+      "value": "A product manager or technical program manager who uses SpecForge exports to track feature completion, review milestone progress, and communicate delivery status to stakeholders.",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "product_manager",
+      "field": "goals",
+      "value": [
+        "Review milestone completion ratios and identify blocked features",
+        "Trace deliverable scope through journeys and modules",
+        "Export graph data for roadmap dashboards and stakeholder reports",
+        "Understand feature dependency ordering for prioritization decisions"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "product_manager",
+      "field": "pain_points",
+      "value": [
+        "Scattered status information across disconnected tools",
+        "No automated gap detection between plans and implementation"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "product_manager",
+      "field": "status",
+      "value": "active",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "product_manager",
+      "field": "tags",
+      "value": [
+        "end_user",
+        "secondary"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "product_manager",
+      "field": "technical_level",
+      "value": "intermediate",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
       }
     },
     {
@@ -3636,272 +4914,1251 @@
     },
     {
       "kind": "term",
-      "id": "define_block",
-      "field": "see_also",
-      "value": "declarative_validation",
+      "id": "coverage",
+      "field": "aliases",
+      "value": [
+        "journey_coverage",
+        "feature_coverage"
+      ],
       "why": {
-        "out_of_selection": "declarative_validation"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "coverage",
+      "field": "context",
+      "value": "Queried via pe_query_journey_coverage. Features without a status field are treated as uncovered.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "coverage",
+      "field": "definition",
+      "value": "The fraction of features referenced by a journey that have status=done. Journey coverage measures how much of a user experience has been implemented. Unlike completion_ratio (which measures milestone/deliverable progress), coverage measures journey-level feature readiness.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "coverage",
+      "field": "tags",
+      "value": [
+        "metrics",
+        "planning"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "define_block",
-      "field": "see_also",
-      "value": "planning_entity",
+      "field": "aliases",
+      "value": [
+        "define",
+        "meta_block"
+      ],
       "why": {
-        "out_of_selection": "planning_entity"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "define_block",
+      "field": "context",
+      "value": "Every entity kind comes from an extension, so a project's kinds depend only on specforge.json (ADR 0005). Write an extension for project-specific vocabulary.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "define_block",
+      "field": "definition",
+      "value": "A reserved block, define <name> { ... }, once meant to declare custom entity kinds in a .spec file. Not supported: the compiler reports each define block (W143) and ignores it.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "define_block",
       "field": "see_also",
-      "value": "token_budget",
+      "value": [
+        "declarative_validation",
+        "planning_entity",
+        "token_budget"
+      ],
       "why": {
-        "out_of_selection": "token_budget"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "define_block",
+      "field": "tags",
+      "value": [
+        "core",
+        "dsl"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "diagnostic",
+      "field": "aliases",
+      "value": [
+        "compiler_message",
+        "validation_error"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "diagnostic",
+      "field": "context",
+      "value": "E-codes block compilation, W-codes warn but pass, I-codes inform. Each extension owns a range of diagnostic codes. Diagnostics include source context and did-you-mean suggestions.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "diagnostic",
+      "field": "definition",
+      "value": "A compiler message emitted during validation with a severity level (error, warning, info), a unique code (E/W/I prefix + number), a source location (file, line, column), and a human-readable message. Diagnostics are the primary feedback mechanism for spec quality.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "diagnostic",
       "field": "see_also",
-      "value": "cycle_detection",
+      "value": [
+        "unreferenced_entity",
+        "cycle_detection",
+        "declarative_validation",
+        "health_score",
+        "graph_diff",
+        "fuzzy_matching"
+      ],
       "why": {
-        "out_of_selection": "cycle_detection"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "diagnostic",
-      "field": "see_also",
-      "value": "declarative_validation",
+      "field": "tags",
+      "value": [
+        "core",
+        "validation"
+      ],
       "why": {
-        "out_of_selection": "declarative_validation"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
-      "id": "diagnostic",
-      "field": "see_also",
-      "value": "fuzzy_matching",
+      "id": "effort",
+      "field": "aliases",
+      "value": [
+        "size",
+        "story_points",
+        "complexity"
+      ],
       "why": {
-        "out_of_selection": "fuzzy_matching"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
-      "id": "diagnostic",
-      "field": "see_also",
-      "value": "graph_diff",
+      "id": "effort",
+      "field": "context",
+      "value": "Assigned to features; used by queryWeightedMilestoneCompletion",
       "why": {
-        "out_of_selection": "graph_diff"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
-      "id": "diagnostic",
-      "field": "see_also",
-      "value": "health_score",
+      "id": "effort",
+      "field": "definition",
+      "value": "A t-shirt size (xs, s, m, l, xl) indicating the relative effort required to complete a feature. Used for weighted milestone completion calculations with Fibonacci-inspired weights: xs=1, s=2, m=3, l=5, xl=8.",
       "why": {
-        "out_of_selection": "health_score"
-      }
-    },
-    {
-      "kind": "term",
-      "id": "diagnostic",
-      "field": "see_also",
-      "value": "unreferenced_entity",
-      "why": {
-        "out_of_selection": "unreferenced_entity"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "effort",
       "field": "see_also",
-      "value": "completion_ratio",
+      "value": [
+        "completion_ratio"
+      ],
       "why": {
-        "out_of_selection": "completion_ratio"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "effort",
+      "field": "tags",
+      "value": [
+        "estimation",
+        "planning"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "graph_protocol",
+      "field": "aliases",
+      "value": [
+        "graph_schema",
+        "entity_graph"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "graph_protocol",
+      "field": "context",
+      "value": "Used in export commands, MCP resources, and agent consumption. The graph is the product — not the compiler, not the DSL.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "graph_protocol",
+      "field": "definition",
+      "value": "The JSON schema output format produced by specforge export. Contains all entities, edges, metadata, and schema version. The graph protocol is the primary contract between SpecForge and its consumers (agents, dashboards, CI tools).",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "graph_protocol",
       "field": "see_also",
-      "value": "blocker",
+      "value": [
+        "surface_contribution",
+        "traceability_chain",
+        "t_entity_enhancement",
+        "impact_analysis",
+        "schema_evolution",
+        "lifecycle_consistency",
+        "owner",
+        "effort",
+        "release_entity",
+        "blocker",
+        "release_status_lifecycle"
+      ],
       "why": {
-        "out_of_selection": "blocker"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "graph_protocol",
-      "field": "see_also",
-      "value": "impact_analysis",
+      "field": "tags",
+      "value": [
+        "core",
+        "output"
+      ],
       "why": {
-        "out_of_selection": "impact_analysis"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
-      "id": "graph_protocol",
-      "field": "see_also",
-      "value": "lifecycle_consistency",
+      "id": "owner",
+      "field": "aliases",
+      "value": [
+        "assignee",
+        "responsible"
+      ],
       "why": {
-        "out_of_selection": "lifecycle_consistency"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
-      "id": "graph_protocol",
-      "field": "see_also",
-      "value": "release_entity",
+      "id": "owner",
+      "field": "context",
+      "value": "Used on features, milestones, deliverables, and releases",
       "why": {
-        "out_of_selection": "release_entity"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
-      "id": "graph_protocol",
-      "field": "see_also",
-      "value": "release_status_lifecycle",
+      "id": "owner",
+      "field": "definition",
+      "value": "A free-form string identifying the person or team responsible for a feature, milestone, deliverable, or release. Not an entity reference — supports any naming convention (email, handle, team name).",
       "why": {
-        "out_of_selection": "release_status_lifecycle"
-      }
-    },
-    {
-      "kind": "term",
-      "id": "graph_protocol",
-      "field": "see_also",
-      "value": "schema_evolution",
-      "why": {
-        "out_of_selection": "schema_evolution"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "owner",
       "field": "see_also",
-      "value": "contributors",
+      "value": [
+        "contributors"
+      ],
       "why": {
-        "out_of_selection": "contributors"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "owner",
+      "field": "tags",
+      "value": [
+        "ownership",
+        "planning"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "peer_dependency",
+      "field": "aliases",
+      "value": [
+        "extension_dependency",
+        "peer_dep"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "peer_dependency",
+      "field": "context",
+      "value": "Example: @specforge/software declares an optional peer_dependency on @specforge/product for its BehaviorImplementsFeature edges (behavior->feature); without product those references are I004 hints. A required peer is enabled with its dependent by `specforge add`. The product extension has no peer dependencies — it is fully standalone.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "peer_dependency",
+      "field": "definition",
+      "value": "A declaration in an extension's manifest that it requires another extension to be installed for certain features to work. Peer dependencies enable cross-extension edges and entity enhancements while keeping each extension independently installable.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "peer_dependency",
       "field": "see_also",
-      "value": "cross_extension_coexistence",
+      "value": [
+        "cross_extension_coexistence"
+      ],
       "why": {
-        "out_of_selection": "cross_extension_coexistence"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "peer_dependency",
+      "field": "tags",
+      "value": [
+        "extension",
+        "architecture"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "surface_contribution",
+      "field": "aliases",
+      "value": [
+        "surface",
+        "cli_command",
+        "mcp_tool"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "surface_contribution",
+      "field": "context",
+      "value": "Declared in ExtensionDeclaration surfaces field. Each CLI command maps to a cmd__{id} Wasm export; each MCP tool/resource maps to an mcp__{name} Wasm export.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "surface_contribution",
+      "field": "definition",
+      "value": "A CLI command, MCP tool, or MCP resource declared by an extension in its manifest surfaces field. CLI commands are auto-promoted to MCP tools. Surface contributions are the primary way extensions expose functionality to users and agents.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "surface_contribution",
       "field": "see_also",
-      "value": "declarative_validation",
+      "value": [
+        "declarative_validation"
+      ],
       "why": {
-        "out_of_selection": "declarative_validation"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "surface_contribution",
+      "field": "tags",
+      "value": [
+        "core",
+        "extension"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_collect_command",
+      "field": "aliases",
+      "value": [
+        "specforge collect"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_collect_command",
+      "field": "definition",
+      "value": "The specforge collect subcommand. It detects the project's test\nrunners from the enabled runner extensions, runs each one's declared\ncommand after the user approves it (or parses an existing report\nwith --no-run), and records the results in specforge-report.json.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_collect_command",
+      "field": "see_also",
+      "value": [
+        "t_specforge_report_json"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_compile_cache",
+      "field": "aliases",
+      "value": [
+        "AOT compilation",
+        "ahead-of-time compilation"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_compile_cache",
+      "field": "definition",
+      "value": "Wasmtime's on-disk cache of compiled component machine code, selected\nvia SPECFORGE_WASMTIME_CACHE (default $HOME/.cache/specforge/wasmtime;\n'off' disables). Entries are keyed by component bytes and engine\nconfiguration; a cache hit deserializes precompiled code instead of\nrecompiling, reducing extension load to <50ms. Platform-specific —\nengine config is part of the key.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_compiler_pipeline",
+      "field": "aliases",
+      "value": [
+        "pipeline",
+        "compilation pipeline"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_compiler_pipeline",
+      "field": "definition",
+      "value": "The sequence of stages that transforms .spec source files into a validated\nin-memory graph. Compilation is two-phase with strict ordering:\n\n  Phase 1: Parser (structural parsing of all .spec files)\n           → Extension Loader (load manifests, populate registries)\n\n  Phase 2: Resolver (link references, build graph edges)\n           → Validator (structural + declarative checks)\n           → Emitter (output artifacts)\n\nPhase 2 MUST NOT begin until all registries (KindRegistry, FieldRegistry,\nedge type set) are fully populated from Phase 1. Within each phase, stages\nare sequential — resolution completes before validation begins.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "t_compiler_pipeline",
       "field": "see_also",
-      "value": "t_resolver",
+      "value": [
+        "t_resolver",
+        "t_validator",
+        "t_emitter",
+        "t_spec_file"
+      ],
       "why": {
-        "out_of_selection": "t_resolver"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
-      "id": "t_compiler_pipeline",
-      "field": "see_also",
-      "value": "t_spec_file",
+      "id": "t_diagnostic",
+      "field": "aliases",
+      "value": [
+        "compiler diagnostic",
+        "validation message"
+      ],
       "why": {
-        "out_of_selection": "t_spec_file"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_diagnostic",
+      "field": "definition",
+      "value": "A compiler message with a severity (error, warning, info), a\ndiagnostic code, source location, and human-readable message.\nStyled like rustc output. Each code has exactly one meaning, one\nowner (core or a single extension) and one level, stated once in the\ndiagnostic catalog (`specforge explain`, rendered to\ndocs/diagnostics.md), which also gives every core code a typed\nconstant. Codes an extension reports are checked where they enter\nthe host. A third-party extension's code is its namespace and a\nlocal code (`acme.audit/W101`); the extension lists it in its own\ncatalog, at the level its letter states.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_domain_vocabulary",
+      "field": "aliases",
+      "value": [
+        "vocabulary",
+        "domain model"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_domain_vocabulary",
+      "field": "context",
+      "value": "The zero-entity core architecture means vocabulary is 100% extension-defined.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_domain_vocabulary",
+      "field": "definition",
+      "value": "The set of entity kinds, edge types, and validation rules that an\nextension contributes to the compiler. Each extension defines its own\ndomain-specific vocabulary — the core compiler has no vocabulary of\nits own. Extensions for different domains contribute entirely different\nentity kinds.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_emitter",
+      "field": "aliases",
+      "value": [
+        "renderer"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_emitter",
+      "field": "definition",
+      "value": "An output stage that traverses the in-memory graph to produce\nartifacts: Graph Protocol JSON, markdown documentation, DOT visualization,\ntraceability reports, or token-optimized agent context. Code generation\nis NOT a SpecForge concern — AI agents generate code by consuming the\nGraph Protocol.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "t_emitter",
       "field": "see_also",
-      "value": "t_agent_context",
+      "value": [
+        "t_renderer",
+        "t_agent_context"
+      ],
       "why": {
-        "out_of_selection": "t_agent_context"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_entity",
+      "field": "definition",
+      "value": "A declared block in a .spec file that represents a specification concept.\nEach entity has a unique ID, typed fields, and participates in the\ntraceability chain via compiler-checked cross-references. Entity types\nare NOT built into the core compiler — they are defined by installable\nextensions. The core is a pure typed-graph engine.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "t_entity",
       "field": "see_also",
-      "value": "t_entity_mapping",
+      "value": [
+        "t_spec_coverage",
+        "t_verify_statement",
+        "t_entity_mapping",
+        "t_compiler_pipeline"
+      ],
       "why": {
-        "out_of_selection": "t_entity_mapping"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
-      "id": "t_entity",
-      "field": "see_also",
-      "value": "t_verify_statement",
+      "id": "t_entity_enhancement",
+      "field": "aliases",
+      "value": [
+        "field_enhancement",
+        "cross_extension_field"
+      ],
       "why": {
-        "out_of_selection": "t_verify_statement"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_entity_enhancement",
+      "field": "context",
+      "value": "Example: @specforge/software adds a behaviors field to @specforge/product's milestone entity kind via entity_enhancements. The product extension itself declares no entity_enhancements — it is standalone.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_entity_enhancement",
+      "field": "definition",
+      "value": "A mechanism by which one extension adds fields to another extension's entity kinds without modifying the original extension. Declared in the enhancing extension's manifest via entity_enhancements. Enables cross-extension composition without coupling.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_entity_enhancement",
+      "field": "see_also",
+      "value": [
+        "surface_contribution",
+        "peer_dependency"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_entity_enhancement",
+      "field": "tags",
+      "value": [
+        "extension",
+        "architecture"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_entity_id",
+      "field": "aliases",
+      "value": [
+        "ID",
+        "entity identifier"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_entity_id",
+      "field": "definition",
+      "value": "A free-form name, unique within its scope, that with its scope's path is an entity's ID. Any name (words of\nletters, digits and underscores, joined by single dashes or dots, 2-60\nchars: AUTH-01, 03.1, v1.0), and not a reserved word (E013). A spec block's ID is its\nheader's string, held to length and reserved words, not to the grammar. No\nenforced case convention — projects choose their own naming style.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "t_entity_id",
       "field": "see_also",
-      "value": "t_string_interning",
+      "value": [
+        "t_string_interning"
+      ],
       "why": {
-        "out_of_selection": "t_string_interning"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_extension",
+      "field": "aliases",
+      "value": [
+        "plugin",
+        "domain extension"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_extension",
+      "field": "context",
+      "value": "Terraform-exact model: core has zero domain knowledge, all vocabulary from extensions. 'Extension' is the canonical term for entity IDs and code references; 'plugin' is accepted as a human-facing alias only.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_extension",
+      "field": "definition",
+      "value": "A Wasm extension (.wasm binary) that provides domain vocabulary to the\ncompiler: entity kinds, edge types, validation rules, and testability\nflags. Loaded via the wasmtime runtime. The core compiler has zero built-in\nentity types — ALL domain knowledge comes from extensions. Official extensions:\n@specforge/software, @specforge/product, @specforge/governance. Domain\nextensions: @specforge/atomic-design, @specforge/compliance, @specforge/api-design.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_extension",
+      "field": "see_also",
+      "value": [
+        "t_provider",
+        "t_peer_dependency"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_fuel_metering",
+      "field": "aliases",
+      "value": [
+        "fuel"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_fuel_metering",
+      "field": "definition",
+      "value": "Wasmtime's instruction counting mechanism for enforcing\nexecution time limits on Wasm extensions. Each Wasm instruction\nconsumes fuel; when the fuel budget is exhausted, the extension\ntraps. Prevents runaway extensions from blocking compilation.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_glossary_entity_enhancement",
+      "field": "aliases",
+      "value": [
+        "field enhancement",
+        "enhancement"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_glossary_entity_enhancement",
+      "field": "definition",
+      "value": "An extension's ability to add fields and edges to existing entity types\nvia declarations in its manifest.json. Enhanced fields participate\nin parsing, resolution, and validation like extension-defined fields.\nConflicts between extensions are resolved via configurable enhancement\npolicies.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "t_glossary_entity_enhancement",
       "field": "see_also",
-      "value": "t_body_parser",
+      "value": [
+        "t_body_parser"
+      ],
       "why": {
-        "out_of_selection": "t_body_parser"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_graph_protocol",
+      "field": "aliases",
+      "value": [
+        "Graph Protocol",
+        "agent context protocol"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_graph_protocol",
+      "field": "context",
+      "value": "The graph schema is the standard. The compiler and DSL are implementation details.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_graph_protocol",
+      "field": "definition",
+      "value": "The stable JSON schema that specforge export produces — the contract\nbetween the compiler and any consuming AI agent. The Graph Protocol is\nSpecForge's primary product: a structured, validated, cross-referenced\nrepresentation of human intent that any agent can consume for any task.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "t_graph_protocol",
       "field": "see_also",
-      "value": "t_multi_resolution_query",
+      "value": [
+        "t_multi_resolution_query"
+      ],
       "why": {
-        "out_of_selection": "t_multi_resolution_query"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_host_function",
+      "field": "aliases",
+      "value": [
+        "host fn"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_host_function",
+      "field": "definition",
+      "value": "A function provided by the SpecForge compiler that Wasm extensions can\ncall during execution. Host functions are the only way extensions\ninteract with the compiler and host system. Standard host functions:\nspecforge.query_graph (read the compiled graph), specforge.emit_diagnostic\n(emit a compiler diagnostic), specforge.emit_file (write an output file),\nspecforge.http_get (fetch a URL for provider validation).\nAdditionally, specforge.add_graph_node and specforge.add_graph_edge\nallow extensions to add graph node and edge instances at runtime.\nEntity kinds and edge types are declared in extension manifests.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_host_function",
+      "field": "see_also",
+      "value": [
+        "t_linear_memory"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_in_memory_graph",
+      "field": "aliases",
+      "value": [
+        "graph",
+        "spec graph",
+        "entity graph"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_in_memory_graph",
+      "field": "definition",
+      "value": "A directed graph of nodes (entities) and edges (relationships) built from\nparsed .spec files. Serves as the compiler's database — no external database\nrequired. Mutable and incrementally updatable for watch mode.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_linear_memory",
+      "field": "definition",
+      "value": "The contiguous block of memory available to a Wasm module. Each\nextension instance has its own isolated linear memory, capped at 64MB\nby default. The host cannot be accessed outside this boundary —\nattempts to do so result in a trap.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_naming_convention",
+      "field": "definition",
+      "value": "The convention for Rust test function names that enables convention-based\nentity mapping: {entity_id}__{description_slug}. The double underscore\nseparates the entity ID from the test description. A test whose name\ncarries no entity is linked to the innermost enclosing module named\nafter one. `specforge collect` applies it to plain `#[test]` functions.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "t_naming_convention",
       "field": "see_also",
-      "value": "t_double_underscore_separator",
+      "value": [
+        "t_double_underscore_separator"
+      ],
       "why": {
-        "out_of_selection": "t_double_underscore_separator"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_parser",
+      "field": "context",
+      "value": "SpecForge uses Tree-sitter, not a hand-written recursive descent parser.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_parser",
+      "field": "definition",
+      "value": "The first compiler stage. Uses a Tree-sitter grammar to transform\n.spec source text into a per-file Abstract Syntax Tree (AST).",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_peer_dependency",
+      "field": "definition",
+      "value": "An extension's declared requirement on another extension: its name, a\nSemVer range (read as Cargo reads one) and whether it is optional. The\nregistry build loads an extension after its peers and judges each peer\nby one rule (ADR 0041): a required peer must be loaded, a loaded one at\na version its range accepts. Unsatisfied is E027; a range that is not\nSemVer is E073.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "t_peer_dependency",
       "field": "see_also",
-      "value": "t_edk",
+      "value": [
+        "t_edk"
+      ],
       "why": {
-        "out_of_selection": "t_edk"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_port",
+      "field": "context",
+      "value": "Extension-defined entity kind from @specforge/software. In this domain, port means a hexagonal architecture port, not a network port.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_port",
+      "field": "definition",
+      "value": "An entity kind defined by @specforge/software representing an interface\nboundary between the domain and the outside world. Inbound ports define\nwhat the system offers; outbound ports define what the system requires.\nPorts are declarative specifications — AI agents consume port\ndeclarations from the Graph Protocol.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_port",
+      "field": "see_also",
+      "value": [
+        "t_traceability_chain"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_provider",
+      "field": "context",
+      "value": "A contribution type within an extension — extends ref validation, not the entity model.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_provider",
+      "field": "definition",
+      "value": "A Wasm extension that registers ref schemes for external reference validation.\nUses the specforge.http_get host function for network validation. Validates\nidentifier patterns, resolves URLs, and supports multiple aliased instances.\nExample: @specforge/gh for GitHub references.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_renderer",
+      "field": "context",
+      "value": "A contribution type for non-code outputs only. Code generation is the responsibility of AI agents, not SpecForge. Renamed from 'exporter' to avoid confusion with code generation.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_renderer",
+      "field": "definition",
+      "value": "A contribution type within a Wasm extension that reads the compiled graph\nvia the specforge.query_graph host function and produces non-code output\nfiles (reports, dashboards, traceability matrices) via specforge.emit_file.\nCode generation is NOT a SpecForge concern — AI agents generate code by\nconsuming the Graph Protocol. Renderers produce supplementary artifacts\nonly.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     },
     {
       "kind": "term",
       "id": "t_renderer",
       "field": "see_also",
-      "value": "t_drift_detection",
+      "value": [
+        "t_drift_detection"
+      ],
       "why": {
-        "out_of_selection": "t_drift_detection"
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_sandbox_policy",
+      "field": "definition",
+      "value": "The limits a Wasm extension's handshake declares for its sandbox: the\nwall-clock budget of one call (max_execution_ms) and the instance's\nlinear memory (max_memory_mb), each held to the host's ceiling and\nenforced by the wasmtime runtime. It grants nothing: a component has\nno file, network, environment or stdin access whatever it declares\n(ADR 0037).",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_spec_coverage",
+      "field": "aliases",
+      "value": [
+        "specification coverage"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_spec_coverage",
+      "field": "definition",
+      "value": "The percentage of testable entities that have passing tests. Distinct\nfrom code coverage — spec coverage measures how many testable\nentities (kinds @specforge/testing makes testable) have recorded\npassing test results. `specforge analyze coverage --min` gates on it.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_spec_root",
+      "field": "aliases",
+      "value": [
+        "project root",
+        "spec block"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_spec_root",
+      "field": "definition",
+      "value": "The project configuration in specforge.json that declares project\nidentity (name, version), installed extensions, provider\nconfigurations, personas, and surfaces. Exactly one per project.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_specforge_report_json",
+      "field": "aliases",
+      "value": [
+        "coverage report",
+        "test report"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_specforge_report_json",
+      "field": "definition",
+      "value": "The project's recorded test results, written by `specforge collect`\nand read, at the root the project was compiled from and never an\nancestor's, by `specforge analyze`, `specforge stats` and the MCP\ncoverage views. Contains per-entity test results (name, pass/fail, the\nverify obligation, duration, and the runner that recorded it) for any\ntestable entity kind.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_traceability_chain",
+      "field": "aliases",
+      "value": [
+        "trace chain",
+        "traceability path"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_traceability_chain",
+      "field": "definition",
+      "value": "The directed path through the entity graph following registered edge\ntypes from extensions. The chain shape depends entirely on installed\nextensions — different extension combinations produce different chains.\nEvery link is compiler-checked.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_validator",
+      "field": "definition",
+      "value": "The compiler stage that enforces graph invariants: no dangling references,\nno duplicate IDs, no import cycles, unreferenced detection. Emits diagnostics\nat error, warning, and info levels.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_wasm",
+      "field": "aliases",
+      "value": [
+        "WebAssembly",
+        ".wasm"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_wasm",
+      "field": "definition",
+      "value": "WebAssembly — a portable binary instruction format used as the\nuniversal extension runtime for SpecForge. Extensions compile to\nwasip2 components that run in a sandboxed environment via the\nwasmtime Component Model runtime.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_wasm",
+      "field": "see_also",
+      "value": [
+        "t_compile_cache"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_wasm_trap",
+      "field": "aliases",
+      "value": [
+        "trap",
+        "Wasm fault"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_wasm_trap",
+      "field": "definition",
+      "value": "An unrecoverable WebAssembly error such as out-of-bounds memory\naccess, stack overflow, or unreachable instruction. The wasmtime\nruntime catches all traps and converts them to Result errors.\nTrapped extensions transition to the failed lifecycle state.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "traceability_chain",
+      "field": "aliases",
+      "value": [
+        "trace_chain",
+        "requirement_trace"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "traceability_chain",
+      "field": "context",
+      "value": "specforge trace prints the chain. Gaps in the chain produce diagnostics (I049 for deliverable journey-module gap, I051 for milestone feature-module gap).",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "traceability_chain",
+      "field": "definition",
+      "value": "The path through the entity graph from a user need (journey) through planning (feature, milestone) to structural implementation (module) to shippable artifact (deliverable). A complete traceability chain means every journey feature is reachable from a deliverable via both journey and module paths.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "traceability_chain",
+      "field": "see_also",
+      "value": [
+        "coverage"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "traceability_chain",
+      "field": "tags",
+      "value": [
+        "core",
+        "planning"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
     }
   ]

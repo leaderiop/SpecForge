@@ -1,6 +1,5 @@
 //! `absorb` end to end: the old fixture project into a fresh `@gsd/core` project, which checks clean. Needs the built
-//! component: `GSD_CORE_WASM=<gsd_core.wasm> cargo nextest run -p xtask --run-ignored all -E 'binary_id(xtask::absorb_e2e)'`;
-//! the proof test also needs `SPECFORGE_BIN`, the built `specforge` binary that collects its fixture.
+//! component: `GSD_CORE_WASM=<gsd_core.wasm> cargo nextest run -p xtask --run-ignored all -E 'binary_id(xtask::absorb_e2e)'`.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -13,7 +12,6 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 const OLD: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/absorb/old");
-const PROOF: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/absorb/proof");
 const SELECTION: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/tests/fixtures/absorb/selection.json"
@@ -73,11 +71,6 @@ fn all_thirteen_kinds_convert_with_no_error_and_no_warning() {
     assert_eq!(run.code, 0, "{}", run.stderr);
     assert_eq!(run.summary["target"]["errors"], 0, "{}", run.summary);
     assert_eq!(run.summary["target"]["warnings"], 0, "{}", run.summary);
-    let constraints = std::fs::read_to_string(a.join("spec/governance/constraints.spec")).unwrap();
-    assert!(
-        constraints.contains("threshold 95.0\n"),
-        "a threshold keeps its written text: {constraints}"
-    );
     assert_eq!(
         run.summary["work"],
         json!({"compiles": 3, "edit_plans": 1}),
@@ -85,29 +78,19 @@ fn all_thirteen_kinds_convert_with_no_error_and_no_warning() {
     );
     assert_eq!(
         (&run.summary["converted"], &run.summary["created"]),
-        (&json!(26), &json!(1)),
-        "every entity but the module, the release and the two failure modes, and one feature's solution: {}",
+        (&json!(17), &json!(1)),
+        "the decisions, constraints, features, milestones and deliverables (ADR 0370 D8: the other kinds convert to \
+         nothing), and one feature's solution: {}",
         run.summary
     );
-    let journeys = std::fs::read_to_string(a.join("spec/product/journeys.spec")).unwrap();
     assert!(
-        journeys.contains("milestones [store_cli, store_web]"),
-        "a journey lists every deliverable that listed it: {journeys}"
+        !a.join("spec/product/journeys.spec").exists(),
+        "an old journey converts to nothing"
     );
-    assert!(
-        journeys
-            .lines()
-            .any(|l| l.split_whitespace().eq(["milestones", "[store_cli]"])),
-        "the journey with features lists the milestone its deliverable became: {journeys}"
-    );
-    assert!(
-        !run.summary["target"]["findings"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|f| f.as_str().unwrap().starts_with("gsd/W530 ")),
-        "a milestone with no phase asks no journey for its requirements (gsd/W530): {}",
-        run.summary
+    assert_eq!(
+        run.summary["cited_tests"],
+        json!([]),
+        "absorb cites no test"
     );
     let features = std::fs::read_to_string(a.join("spec/product/features.spec")).unwrap();
     assert!(
@@ -116,8 +99,8 @@ fn all_thirteen_kinds_convert_with_no_error_and_no_warning() {
     );
     let ledger = std::fs::read_to_string(a.join("absorb-ledger.json")).unwrap();
     assert!(
-        ledger.contains("\"id\": \"old_format\""),
-        "a superseded decision that names no successor is ledgered: {ledger}"
+        dropped(&ledger, "old_format", "status"),
+        "a superseded decision is ledgered dropped: gsd-core has no supersession: {ledger}"
     );
 
     let again = absorb(&["--from", OLD, "--to", path(&b)]);
@@ -146,191 +129,32 @@ fn a_selection_converts_only_its_entities_and_checks_clean() {
     assert_eq!(run.summary["target"]["warnings"], 0, "{}", run.summary);
     assert_eq!(
         (&run.summary["converted"], &run.summary["created"]),
-        (&json!(8), &json!(1)),
-        "the nine selected ids but the failure mode, and the selected feature's solution: {}",
+        (&json!(4), &json!(1)),
+        "the two decisions, the constraint and the feature of the nine selected ids (the failure mode, the \
+         invariant, the journey, the persona and the channel convert to nothing), and the feature's solution: {}",
         run.summary
     );
     let tree = spec_tree(&to);
     assert!(
         !tree.values().any(|text| text.contains("second_store")),
-        "a reference leaving the selection is never stubbed"
+        "an entity the selection leaves out is never stubbed"
     );
     let ledger = std::fs::read_to_string(to.join("absorb-ledger.json")).unwrap();
     assert!(
-        ledger.contains("\"out_of_selection\": \"second_store\""),
-        "{ledger}"
-    );
-    assert!(
-        left_out(&ledger, "record_an_entry", "milestones", "store_cli"),
-        "the deliverable left out took its milestone off the selected journey: {ledger}"
+        dropped(&ledger, "record_an_entry", "persona"),
+        "a selected journey's values are dropped: {ledger}"
     );
     insta::assert_snapshot!("selection_ledger", ledger);
 }
 
-/// Whether `ledger` holds the row for the item `left` that the selected `id` loses from `field` because `left` is out of
-/// the selection.
-fn left_out(ledger: &str, id: &str, field: &str, left: &str) -> bool {
+/// Whether `ledger` holds a `dropped` entry for `field` of the old entity `id`.
+fn dropped(ledger: &str, id: &str, field: &str) -> bool {
     let ledger: serde_json::Value = serde_json::from_str(ledger).unwrap();
-    ledger["entries"].as_array().unwrap().iter().any(|e| {
-        e["id"] == id
-            && e["field"] == field
-            && e["value"] == left
-            && e["why"]["out_of_selection"] == left
-    })
-}
-
-/// An inverse write from an entity the selection leaves out is a value the selected entity loses: the decision that
-/// `first_store` says supersedes it converts with no `supersedes`, and the ledger says why, naming `first_store`.
-#[test]
-#[ignore = "needs GSD_CORE_WASM"]
-fn a_selected_entity_losing_an_inverse_write_to_the_selection_is_ledgered() {
-    let dir = tempfile::tempdir().unwrap();
-    let (only, to) = (dir.path().join("only.json"), dir.path().join("t"));
-    std::fs::write(&only, r#"["second_store"]"#).unwrap();
-    let run = absorb(&[
-        "--from",
-        OLD,
-        "--to",
-        path(&to),
-        "--only",
-        &format!("ids:{}", path(&only)),
-    ]);
-    assert_eq!(run.code, 0, "{}", run.stderr);
-    assert_eq!(run.summary["target"]["errors"], 0, "{}", run.summary);
-    assert!(
-        !spec_tree(&to)
-            .values()
-            .any(|text| text.contains("first_store")),
-        "never stubbed"
-    );
-    let ledger = std::fs::read_to_string(to.join("absorb-ledger.json")).unwrap();
-    assert!(
-        left_out(&ledger, "second_store", "supersedes", "first_store"),
-        "{ledger}"
-    );
-}
-
-/// A selection that leaves out what a selected entity requires (a journey without its persona) stops before any write,
-/// naming the selected entity, the field and the ids to add to it, not the old project; the ledger is written, so
-/// every reference the selection left out is listed.
-#[test]
-#[ignore = "needs GSD_CORE_WASM"]
-fn a_selection_leaving_out_a_required_reference_stops_naming_the_selection() {
-    let dir = tempfile::tempdir().unwrap();
-    let (only, to) = (dir.path().join("only.json"), dir.path().join("t"));
-    std::fs::write(&only, r#"["record_an_entry", "store_entries"]"#).unwrap();
-    let run = absorb(&[
-        "--from",
-        OLD,
-        "--to",
-        path(&to),
-        "--only",
-        &format!("ids:{}", path(&only)),
-    ]);
-    assert_eq!(run.code, 2, "{}", run.stderr);
-    assert!(
-        run.stderr.contains(
-            "1 required value(s) the selection leaves out; add the ids to --only (the ledger lists each as \
-             out_of_selection):\n  journey 'record_an_entry' persona needs 'writer', which --only leaves out"
-        ),
-        "{}",
-        run.stderr
-    );
-    assert!(
-        !run.stderr.contains("the old project lacks"),
-        "{}",
-        run.stderr
-    );
-    let ledger = std::fs::read_to_string(to.join("absorb-ledger.json")).unwrap();
-    assert!(
-        ledger.contains("\"out_of_selection\": \"writer\""),
-        "{ledger}"
-    );
-    assert!(
-        !to.join("specforge.json").exists(),
-        "the scaffold is removed"
-    );
-}
-
-/// `from`'s files copied under `to`.
-fn copy_tree(from: &Path, to: &Path) {
-    for entry in walkdir::WalkDir::new(from)
-        .into_iter()
-        .filter_map(Result::ok)
-    {
-        let target = to.join(entry.path().strip_prefix(from).unwrap());
-        if entry.file_type().is_dir() {
-            std::fs::create_dir_all(&target).unwrap();
-        } else {
-            std::fs::copy(entry.path(), &target).unwrap();
-        }
-    }
-}
-
-#[test]
-#[ignore = "needs GSD_CORE_WASM and SPECFORGE_BIN"]
-fn invariant_obligations_become_proofs_of_the_collected_items() {
-    let specforge = std::env::var_os("SPECFORGE_BIN").expect(
-        "SPECFORGE_BIN names the built specforge: cargo build -p specforge-cli --bin specforge",
-    );
-    let dir = tempfile::tempdir().unwrap();
-    let (source, home, to) = (
-        dir.path().join("source"),
-        dir.path().join("home"),
-        dir.path().join("target"),
-    );
-    copy_tree(Path::new(PROOF), &source);
-    std::fs::create_dir(&home).unwrap();
-    let collect = Command::new(specforge)
-        .arg("collect")
-        .current_dir(&source)
-        .env("HOME", &home)
-        .output()
-        .expect("specforge collect runs");
-    assert!(
-        source.join(".specforge/facts").is_dir(),
-        "the source's items are recorded: {}",
-        String::from_utf8_lossy(&collect.stderr)
-    );
-
-    let run = absorb(&[
-        "--from",
-        path(&source),
-        "--to",
-        path(&to),
-        "--extension",
-        "@rust/cargo",
-        "--extension",
-        "@rust/source",
-    ]);
-    assert_eq!(run.code, 0, "{}", run.stderr);
-    let cited = [
-        "rust:absorb-proof#tests::a_killed_writer_leaves_the_old_entry",
-        "rust:absorb-proof#tests::an_acknowledged_write_is_on_disk",
-    ];
-    assert_eq!(run.summary["cited_tests"], json!(cited), "{}", run.summary);
-    let invariants = std::fs::read_to_string(to.join("spec/invariants.spec")).unwrap();
-    for test in cited {
-        assert!(invariants.contains(&format!("\"{test}\"")), "{invariants}");
-    }
-    assert_eq!(run.summary["target"]["errors"], 0, "{}", run.summary);
-    let findings = run.summary["target"]["findings"].as_array().unwrap();
-    assert_eq!(findings.len(), 2, "{}", run.summary);
-    assert!(
-        findings
-            .iter()
-            .all(|f| f.as_str().unwrap().starts_with("code/W102 ")),
-        "until the target collects its test facts, a written proof is code/W102, and nothing else warns: {}",
-        run.summary
-    );
-    let ledger = std::fs::read_to_string(to.join("absorb-ledger.json")).unwrap();
-    assert_eq!(
-        run.summary["ledger"],
-        json!({"collapsed": 2, "unconverted": 5, "unproven": 1}),
-        "the two proved obligations' kind and text, the five old extensions the target does not load, and the \
-         obligation no test item states: {ledger}"
-    );
-    insta::assert_snapshot!("proof_ledger", ledger);
+    ledger["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["id"] == id && e["field"] == field && e["why"]["dropped"].is_string())
 }
 
 /// A governance source at `old` holding one decision in `<file>`, its `specforge.json` the members `config` (a JSON
@@ -423,17 +247,19 @@ fn the_target_keeps_the_source_spec_root_and_version() {
     );
 }
 
-/// A source at `old` whose one term is `blocker`, an id the target reserves (gsd declares a `blocker` kind).
+/// A source at `old` whose one decision is `blocker`, an id the target reserves (gsd declares a `blocker` kind). An old
+/// term converts to nothing (ADR 0370 D8), so a decision, which converts, holds the id.
 fn reserved_source(old: &Path) {
     std::fs::create_dir_all(old.join("spec")).unwrap();
     std::fs::write(
         old.join("specforge.json"),
-        r#"{"name": "reserved", "spec_root": "spec", "extensions": ["@specforge/product"]}"#,
+        r#"{"name": "reserved", "spec_root": "spec", "extensions": ["@specforge/governance"]}"#,
     )
     .unwrap();
     std::fs::write(
-        old.join("spec/terms.spec"),
-        "term blocker \"Blocker\" {\n  definition \"What stops work.\"\n}\n",
+        old.join("spec/decisions.spec"),
+        "decision blocker \"Blocker\" {\n  status   accepted\n  context  \"Work stops.\"\n  decision \"Stop \
+         work.\"\n}\n",
     )
     .unwrap();
 }
@@ -557,7 +383,7 @@ fn an_old_id_the_target_reserves_stops_the_run_before_any_write() {
         run.stderr.contains("1 id(s) the target refuses")
             && run
                 .stderr
-                .contains("term 'blocker': invalid entity ID 'blocker'"),
+                .contains("decision 'blocker': invalid entity ID 'blocker'"),
         "{}",
         run.stderr
     );

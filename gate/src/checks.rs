@@ -293,7 +293,7 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "self-spec-sample",
-        proves: "the WASM-host sample of the self-spec, absorbed into @gsd/core kinds with its invariants' proofs, runs exactly its cited tests on the gate's own test build and checks with no error and no warning; its infos, ledger and selection equal their goldens",
+        proves: "the WASM-host sample of the self-spec, absorbed into @gsd/core kinds, checks with no error and no warning and runs only the tests absorb cites, none since ADR 0370; its infos, ledger and selection equal their goldens",
         reach: Reach::Quick,
         trigger: Trigger::Computed(
             "the spec, @gsd, the builtins, the toolchain and build configuration; a source cargo builds into the CLI, absorb, the gate or a cited test",

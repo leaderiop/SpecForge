@@ -137,8 +137,9 @@ fn a_cited_test_names_its_package_at_any_depth_of_the_ledger() {
 }
 
 /// Every file of the converter's module tree reaches the sample, wherever it is added: what the hand-written list
-/// left out (the `xtask` library absorb links, its proof's links module, the test support outside `crates/`) now
-/// reaches it, while another `xtask` binary and a file no program builds do not.
+/// left out (the `xtask` library absorb links, with its links module) now reaches it, while another `xtask` binary and
+/// a file no program builds do not. absorb cites no test since ADR 0370 D8, so the run builds no test's package, and
+/// the test support outside `crates/`, which only a cited test built, no longer reaches it.
 #[test]
 fn the_sample_is_reached_by_every_source_its_run_builds_in_this_repository() {
     let repo = Repo::discover().unwrap();
@@ -164,8 +165,6 @@ fn the_sample_is_reached_by_every_source_its_run_builds_in_this_repository() {
         "xtask/src/lib.rs",
         "xtask/src/links.rs",
         "xtask/Cargo.toml",
-        "integrations/rust/specforge-test/src/lib.rs",
-        "integrations/rust/specforge-test-macros/src/lib.rs",
         "gate/src/run.rs",
         "gate/golden/self-spec-sample/ledger.json",
         "crates/app/ops/src/lib.rs",
@@ -179,6 +178,8 @@ fn the_sample_is_reached_by_every_source_its_run_builds_in_this_repository() {
     for path in [
         "xtask/src/revendor.rs",
         "xtask/src/build_blobs/tests.rs",
+        "integrations/rust/specforge-test/src/lib.rs",
+        "integrations/rust/specforge-test-macros/src/lib.rs",
         "integrations/rust/spec/a.spec",
         "integrations/vscode/src/extension.ts",
         "examples/shop/spec/a.spec",

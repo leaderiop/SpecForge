@@ -206,7 +206,8 @@ fn sample(ctx: &Ctx, dir: &Path) -> Result<(), String> {
         .filter_map(Value::as_str)
         .map(String::from)
         .collect();
-    // No citation, no run: nextest given `none()` may write no report, and the verdict's bound names the cause.
+    // No citation, no run: nextest given `none()` may write no report. absorb cites no test since ADR 0370 D8, so
+    // the run is skipped, and the log says so.
     let filter = (!cited.is_empty()).then(|| filterset(&cited)).transpose()?;
     for runner in ["rust-cargo", "rust-source"] {
         collect(&target, runner, None)?;
