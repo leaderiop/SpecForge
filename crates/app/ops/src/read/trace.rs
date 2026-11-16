@@ -8,7 +8,7 @@ use serde::Serialize;
 use specforge_common::Sym;
 use specforge_common::shape::Shape;
 use specforge_graph::{Direction, FieldForms, Graph, Node};
-use specforge_registry::RegistryBuild;
+use specforge_registry::{CandidateVocabulary, RegistryBuild};
 use std::collections::{BTreeMap, BTreeSet};
 
 mod ask;
@@ -418,7 +418,7 @@ impl<'a> Tracer<'a> {
         notices.extend(
             self.followed
                 .into_iter()
-                .flat_map(|route| skipped(self.view, route)),
+                .flat_map(|route| skipped(self.view.registries().candidates(), route)),
         );
         Noticed::new(value, notices)
     }
@@ -456,9 +456,9 @@ fn another_kind(route: &Route, entity_id: &str, kind: &str) -> Refusal<TraceFiel
     .about(TraceField::Route)
 }
 
-/// I210 for each step or annotation `route` skips: it reaches a kind of an optional peer the project does not load.
-fn skipped(view: &ProjectView, route: &Route) -> Vec<Diagnostic> {
-    let candidates = view.registries().candidates();
+/// I210 for each step or annotation `route` skips (it reaches a kind of an optional peer the project does not load),
+/// with the remedy `candidates` gives for its kind: every extension that declares it (ADR 0369 D2).
+fn skipped(candidates: &CandidateVocabulary, route: &Route) -> Vec<Diagnostic> {
     route
         .skipped
         .iter()
@@ -667,12 +667,56 @@ fn links(graph: &Graph, entity_id: &str, direction: Direction) -> Vec<TraceLink>
 
 #[cfg(test)]
 mod tests {
-    use super::article;
+    use super::{CandidateVocabulary, Route, article, skipped};
+    use specforge_registry::Skipped;
 
     #[test]
     fn the_missing_link_sentence_writes_an_before_a_vowel() {
         assert_eq!(article("event"), "an");
         assert_eq!(article("invariant"), "an");
         assert_eq!(article("port"), "a");
+    }
+
+    #[test]
+    fn i210_names_every_extension_that_declares_the_skipped_kind() {
+        let route = Route {
+            name: "acme/proof-thread".to_string(),
+            extension: "@acme/routes".to_string(),
+            description: None,
+            start: "claim".to_string(),
+            default: true,
+            annotations: Vec::new(),
+            steps: Vec::new(),
+            skipped: vec![Skipped {
+                step: "check".to_string(),
+                annotation: None,
+                kind: "check".to_string(),
+            }],
+        };
+        let suggested = |owners: &str| {
+            let text = format!(r#"{{"kinds": {{"check": [{owners}]}}}}"#);
+            let notices = skipped(&CandidateVocabulary::from_json(&text), &route);
+            assert_eq!(notices.len(), 1, "{notices:?}");
+            assert_eq!(notices[0].code, "I210");
+            assert_eq!(
+                notices[0].message,
+                "route 'acme/proof-thread' skips step 'check': kind 'check' is not loaded"
+            );
+            notices[0].suggestion.clone().unwrap()
+        };
+        // `@aaa/other` is the first declarer: an answer that takes it alone hides `@acme/proof`.
+        assert_eq!(
+            suggested(r#""@aaa/other", "@acme/proof""#),
+            "install one of the extensions that declare it with: specforge add @aaa/other or specforge add @acme/proof"
+        );
+        assert_eq!(
+            suggested(r#""@acme/proof""#),
+            "install it with: specforge add @acme/proof"
+        );
+        // A keyword written with no extension is not named: the empty vocabulary.
+        assert_eq!(
+            suggested(""),
+            "search for an extension that provides it with: specforge extensions search check"
+        );
     }
 }
