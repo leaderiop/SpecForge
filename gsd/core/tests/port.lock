@@ -2037,7 +2037,7 @@ gsd-core/references/worktree-path-safety.md	kept	499+1	e3b0c44298fc
 gsd-core/templates/UAT.md	kept	1+2	b24329e0ee8e
 gsd-core/templates/UAT.md	own	3+1	1	e35a79976fcd	8b2cc137d0d3	ported-name
 gsd-core/templates/UAT.md	kept	4+3	316deeb28892
-gsd-core/templates/UAT.md	own	7+76	74	dcc4d317dbd4	4b44f2863f11	prose
+gsd-core/templates/UAT.md	own	7+76	73	dcc4d317dbd4	66d51de026b0	prose
 gsd-core/templates/UAT.md	kept	83+4	44e8df795026
 gsd-core/templates/UAT.md	own	87+12	0	dccd3aafd265	e3b0c44298fc	served
 gsd-core/templates/UAT.md	kept	99+1	d16ee0f6677d
@@ -2971,7 +2971,7 @@ gsd-core/workflows/execute-phase.md	own	1149+2	2	477221141dc5	04abdfc27d57	prose
 gsd-core/workflows/execute-phase.md	kept	1151+2	3bfc0580c68d
 gsd-core/workflows/execute-phase.md	own	1153+1	1	e4c395aad153	d7bcd915bada	prose
 gsd-core/workflows/execute-phase.md	kept	1154+31	5a85e6193836
-gsd-core/workflows/execute-phase.md	own	1185+42	26	576fe914f681	baeb2963dc7e	typed-edit
+gsd-core/workflows/execute-phase.md	own	1185+42	25	576fe914f681	ad935be015e8	typed-edit
 gsd-core/workflows/execute-phase.md	kept	1227+1	ad332335cfaa
 gsd-core/workflows/execute-phase.md	own	1228+1	1	bbc420df950a	9c9b9af95563	ported-name
 gsd-core/workflows/execute-phase.md	kept	1229+9	8bd653791747
@@ -5797,7 +5797,7 @@ gsd-core/workflows/verify-work.md	own	228+1	1	7721d5c0b84b	844de3d18ec8	ported-n
 gsd-core/workflows/verify-work.md	kept	229+6	ef75cf9a18a9
 gsd-core/workflows/verify-work.md	own	235+1	1	2c252634b3f2	67372f65fda1	relic
 gsd-core/workflows/verify-work.md	kept	236+71	4207ba72516a
-gsd-core/workflows/verify-work.md	own	307+66	7	1485b959151d	de4ade76a9f6	ported-name
+gsd-core/workflows/verify-work.md	own	307+66	5	1485b959151d	461a7edfd4b2	ported-name
 gsd-core/workflows/verify-work.md	kept	373+7	7dc6f6bd1d36
 gsd-core/workflows/verify-work.md	own	380+1	1	2bdaf2ba532b	bca4cd4218b6	prose
 gsd-core/workflows/verify-work.md	kept	381+2	5f046190424d

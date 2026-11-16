@@ -284,7 +284,6 @@ fn the_uat_step_writes_a_uat_session() {
                 "EXPECTED",
                 "`node src/cli.js` prints one usage line a person understands",
             ),
-            ("JOURNEY", ""),
         ],
     );
     let run = typed::apply(&sh, &p, &uat);

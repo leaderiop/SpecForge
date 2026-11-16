@@ -13,8 +13,7 @@ project state is a `.spec` entity, there is no `.planning/` folder and no Markdo
 ```
 ┌────────────────────────── @gsd/core (the unified meta-model) ──────────────────────────┐
 │ project · requirement · milestone · phase · plan · task · decision · research ·        │
-│ summary · verification · uat · validation · handoff · settings ·                       │
-│ persona · journey (beyond GSD)                                                         │
+│ summary · verification · uat · validation · handoff · settings                         │
 └───────────┬──────────────────────────────┬──────────────────────────────┬──────────────┘
    profiles │                capabilities  │                       tooling│
 ┌───────────┴───────────┐  ┌───────────────┴──────────────┐  ┌────────────┴─────────────┐
@@ -113,7 +112,6 @@ list fields as items, **K14** a writing call knows the time (`now`), **K15** a j
 spec/gsd/
 ├── project.spec                      project, settings that are not flags
 ├── requirements/<category>.spec      AUTH-01, AUTH-02 …
-├── product/                          personas, journeys (beyond GSD)
 ├── milestones/<v>/
 │   ├── milestone.spec
 │   └── phases/<NN-slug>/

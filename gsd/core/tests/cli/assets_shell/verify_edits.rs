@@ -142,7 +142,6 @@ fn the_uat_template_records_a_session_a_test_and_a_gap() {
             ("TEST_ID", "U1"),
             ("NAME", "Complete a task"),
             ("EXPECTED", "`node src/cli.js done 1` marks task 1 done"),
-            ("JOURNEY", ""),
         ],
     );
     let done = typed::apply(&sh, &p, &test);
@@ -411,15 +410,12 @@ fn the_uat_loop_records_a_pass_and_a_gap_the_diagnosis_reads() {
                 ("TEST_ID", id),
                 ("NAME", name),
                 ("EXPECTED", expected),
-                ("JOURNEY", ""),
             ],
         );
         let done = typed::apply(&sh, &p, &filled);
         assert_eq!(done.code, 0, "{}{}", done.out, done.err);
         assert!(done.added.is_empty(), "{:?}", done.added);
     }
-    // An empty JOURNEY writes no flag: the test names no journey.
-    assert_eq!(p.fields_of("v1.0/01/01-UAT/U1").get("journey"), None);
     let work = asset("gsd-core/workflows/verify-work.md");
     let present = fence_holding(&work, "--kinds uat_test --format context");
     let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{present}"));
