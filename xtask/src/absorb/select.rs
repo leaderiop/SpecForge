@@ -46,10 +46,16 @@ pub const SAMPLES: &[Sample] = &[Sample {
 
 /// The sample `name` names; refused naming every sample.
 pub fn sample(name: &str) -> Result<&'static Sample, String> {
-    SAMPLES.iter().find(|s| s.name == name).ok_or_else(|| {
-        let names: Vec<&str> = SAMPLES.iter().map(|s| s.name).collect();
-        format!("no sample '{name}'; the samples are: {}", names.join(", "))
-    })
+    SAMPLES
+        .iter()
+        .find(|s| s.name == name)
+        .ok_or_else(|| format!("no sample '{name}'; the samples are: {}", sample_names()))
+}
+
+/// Every sample's name, comma-separated: what a refused `--only` lists.
+pub fn sample_names() -> String {
+    let names: Vec<&str> = SAMPLES.iter().map(|s| s.name).collect();
+    names.join(", ")
 }
 
 /// What a sample selected: old kind → ids, both sorted.

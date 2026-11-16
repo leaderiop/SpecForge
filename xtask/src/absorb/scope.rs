@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 use super::read::OldEntity;
-use super::table;
+use super::{select, table};
 
 /// The ids a run converts.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,11 +16,15 @@ pub enum Scope {
 }
 
 impl Scope {
-    /// `--only`'s value: `ids:<file>`, the file a JSON array of old ids.
+    /// `--only`'s value: `ids:<file>`, the file a JSON array of old ids. A sample (`sample:<name>`) is read before
+    /// this, so a value of neither form is refused naming both, and every sample.
     pub fn from_arg(arg: &str) -> Result<Scope, String> {
-        let file = arg
-            .strip_prefix("ids:")
-            .ok_or_else(|| format!("--only takes ids:<file>, not '{arg}'"))?;
+        let file = arg.strip_prefix("ids:").ok_or_else(|| {
+            format!(
+                "--only takes ids:<file> or sample:<name> (the samples are: {}), not '{arg}'",
+                select::sample_names()
+            )
+        })?;
         let text =
             std::fs::read_to_string(Path::new(file)).map_err(|e| format!("--only {file}: {e}"))?;
         let ids: Vec<String> = serde_json::from_str(&text)

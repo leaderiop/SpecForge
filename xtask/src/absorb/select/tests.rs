@@ -151,7 +151,7 @@ fn a_term_named_only_by_another_term_stays_out() {
 }
 
 #[test]
-fn an_unknown_sample_is_refused_with_the_sample_names() {
+fn an_unknown_sample_or_only_form_is_refused_with_both_forms_and_the_sample_names() {
     let refused = sample("nope").unwrap_err();
     assert!(refused.contains("no sample 'nope'"), "{refused}");
     assert!(refused.contains("wasm-host"), "{refused}");
@@ -170,6 +170,11 @@ fn an_unknown_sample_is_refused_with_the_sample_names() {
         args(&["--selection", "s.json"])
             .unwrap_err()
             .contains("needs --only sample:<name>")
+    );
+    let neither = args(&["--only", "wasm-host"]).unwrap_err();
+    assert_eq!(
+        neither,
+        "--only takes ids:<file> or sample:<name> (the samples are: wasm-host), not 'wasm-host'"
     );
     let parsed = args(&["--only", "sample:wasm-host", "--selection", "s.json"]).unwrap();
     assert_eq!(parsed.sample.map(|s| s.name), Some("wasm-host"));
