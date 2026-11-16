@@ -9,9 +9,17 @@
 
 use std::collections::BTreeSet;
 
-use specforge_component::builtins::{BUILTINS, Family};
+use specforge_common::DiagnosticData;
+use specforge_component::ComponentRuntime;
+use specforge_component::builtins::{BUILTINS, Family, load_family};
 use specforge_component::committed::pinned_builtin_declarations;
-use specforge_registry::build_registries;
+use specforge_protocol_types::{
+    EntityKindDescriptor, ExtensionDeclaration, HandshakeResponse, PROTOCOL_VERSION,
+};
+use specforge_registry::{CandidateVocabulary, RegistryBuild, build_registries};
+use specforge_wasm::Provenance;
+use specforge_wasm::protocol::load_declaration;
+use specforge_wasm::runtime::WasmRuntime;
 
 fn set(family: Family) -> BTreeSet<&'static str> {
     family.names().iter().copied().collect()
@@ -105,4 +113,149 @@ fn each_set_builds_one_registry_with_no_e026_and_no_missing_peer() {
             assert!(found.is_empty(), "{family:?}: {code}: {found:?}");
         }
     }
+}
+
+/// The kinds `@gsd/core` declares, as a declaration named `@gsd/core` with nothing else in it. They are
+/// read from `gsd/core/tests/golden/kinds.json`, which the gsd suite's own golden test keeps equal to
+/// the extension's declaration, so this follows every later change to those kinds with no edit here.
+fn gsd_core_kinds_golden() -> ExtensionDeclaration {
+    let path = specforge_repo_root::repo_root().join("gsd/core/tests/golden/kinds.json");
+    let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    let golden: serde_json::Value =
+        serde_json::from_str(&text).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    let entities: Vec<EntityKindDescriptor> =
+        serde_json::from_value(golden["entities"]["items"].clone())
+            .unwrap_or_else(|e| panic!("{}: .entities.items: {e}", path.display()));
+    assert!(!entities.is_empty(), "{}: no kind", path.display());
+    ExtensionDeclaration {
+        handshake: HandshakeResponse {
+            name: "@gsd/core".to_string(),
+            version: "0.0.0".to_string(),
+            protocol_version: PROTOCOL_VERSION.to_string(),
+            ..Default::default()
+        },
+        entities,
+        ..Default::default()
+    }
+}
+
+/// The keywords of the E026 diagnostics of `build`.
+fn shadowed_keywords(build: &RegistryBuild) -> BTreeSet<String> {
+    build
+        .diagnostics()
+        .filter(|d| d.code == "E026")
+        .map(|d| match d.data.as_deref() {
+            Some(DiagnosticData::ShadowedKeyword { keyword }) => keyword.clone(),
+            other => panic!("E026 carries no shadowed keyword: {other:?}"),
+        })
+        .collect()
+}
+
+/// `@gsd/core` with its set alone reports no E026, and the same registry with the builtins of the old
+/// set only added reports E026 for exactly the keywords `@gsd/core` shares with them. `in_set` holds the
+/// declarations of the gsd set's other builtins. The shared keywords are computed from the declarations
+/// with the vocabulary's own keyword rule, never listed. Returns the build of the set alone.
+#[expect(
+    clippy::print_stdout,
+    reason = "the shared keywords are the control's finding: a run with --success-output shows them"
+)]
+fn the_gsd_set_alone_reports_no_e026(
+    in_set: Vec<ExtensionDeclaration>,
+    gsd_core: ExtensionDeclaration,
+) -> RegistryBuild {
+    assert_eq!(gsd_core.name(), "@gsd/core");
+    let gsd = set(Family::Gsd);
+    let old = set(Family::Old);
+    let mut declarations = in_set;
+    declarations.retain(|declaration| declaration.name() != "@gsd/core");
+    declarations.push(gsd_core.clone());
+
+    let alone = build_registries(declarations.clone());
+    assert_eq!(
+        shadowed_keywords(&alone),
+        BTreeSet::new(),
+        "@gsd/core with its set alone"
+    );
+
+    // The control: the builtins that are in the old set only declare keywords `@gsd/core` declares.
+    let old_only: Vec<ExtensionDeclaration> = pinned_builtin_declarations()
+        .unwrap()
+        .into_iter()
+        .filter(|declaration| old.contains(declaration.name()) && !gsd.contains(declaration.name()))
+        .collect();
+    let owners = CandidateVocabulary::of(&old_only).unwrap();
+    let staged = CandidateVocabulary::of(std::slice::from_ref(&gsd_core)).unwrap();
+    let shared: BTreeSet<String> = staged
+        .kind_keywords()
+        .filter(|keyword| !owners.kind_owners(keyword).is_empty())
+        .map(str::to_string)
+        .collect();
+    println!(
+        "shared kind keywords ({}): {}",
+        shared.len(),
+        shared.iter().cloned().collect::<Vec<_>>().join(", ")
+    );
+    assert!(!shared.is_empty(), "the control shares no keyword");
+    for keyword in ["decision", "deliverable", "milestone"] {
+        assert!(
+            shared.contains(keyword),
+            "'{keyword}' is not shared: {shared:?}"
+        );
+    }
+
+    declarations.extend(old_only);
+    let together = build_registries(declarations);
+    assert_eq!(
+        shadowed_keywords(&together),
+        shared,
+        "the E026 of the set with the old-only builtins added"
+    );
+    alone
+}
+
+/// `@gsd/core` with its set alone reports no E026, here with its kinds read from the tracked golden, so
+/// it runs in every test run. The control shows the test can see E026, which is a registry build's: the
+/// same registry with the old-only builtins added reports it for the keywords they share. ADR 0366's
+/// vendoring change adds the `@gsd/core` row; `Family::Gsd` then loads it and the ignored test below
+/// needs no variable.
+#[test]
+fn gsd_cores_kinds_golden_with_its_set_reports_no_e026() {
+    let gsd = set(Family::Gsd);
+    let in_set: Vec<ExtensionDeclaration> = pinned_builtin_declarations()
+        .unwrap()
+        .into_iter()
+        .filter(|declaration| gsd.contains(declaration.name()))
+        .collect();
+    the_gsd_set_alone_reports_no_e026(in_set, gsd_core_kinds_golden());
+}
+
+/// The same as the test above, with the component a build of `gsd/core` gives, loaded into a runtime as
+/// `@gsd/core`; its peers and the rest of the set come from the same runtime, and no peer is missing
+/// (no E027).
+#[test]
+#[ignore = "needs GSD_CORE_WASM"]
+fn gsd_core_with_its_set_alone_reports_no_e026() {
+    let path = std::path::PathBuf::from(std::env::var_os("GSD_CORE_WASM").expect(
+        "GSD_CORE_WASM names gsd_core.wasm: (cd gsd && cargo build --locked -p gsd-core --release --target wasm32-wasip2)",
+    ));
+    let bytes = std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    let runtime = ComponentRuntime::new();
+    load_family(&runtime, Family::Gsd).unwrap();
+    runtime
+        .load("@gsd/core", &bytes, Provenance::third_party(&bytes))
+        .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    let declaration = |name: &str| {
+        load_declaration(&runtime, name)
+            .unwrap_or_else(|e| panic!("{name}: {e}"))
+            .declaration
+    };
+    let in_set: Vec<ExtensionDeclaration> = Family::Gsd
+        .builtins()
+        .map(|builtin| declaration(builtin.name))
+        .collect();
+
+    let alone = the_gsd_set_alone_reports_no_e026(in_set, declaration("@gsd/core"));
+
+    let missing: Vec<_> = alone.diagnostics().filter(|d| d.code == "E027").collect();
+    assert!(missing.is_empty(), "{missing:?}");
 }

@@ -47,9 +47,11 @@ fn every_example_checks_byte_identically() {
 
 #[test]
 fn a_project_of_every_builtin_checks_identically() {
-    let names: Vec<&str> = specforge_component::builtins::BUILTIN_EXTENSIONS
-        .iter()
-        .map(|(name, _)| *name)
+    // The old set: its golden is the old set's (the spec text writes a `behavior`), and one project
+    // loads one set of builtins (ADR 0369 D3).
+    let names: Vec<&str> = specforge_component::builtins::Family::Old
+        .builtins()
+        .map(|builtin| builtin.name)
         .collect();
     let project = TestProject::new()
         .enabling(&names)
