@@ -173,7 +173,7 @@ pub fn root_layout(ctx: &Ctx, _: &Selection) -> Result<(), String> {
 }
 
 /// `git ls-files -z`: every tracked path, repo-relative.
-fn tracked_paths(ctx: &Ctx) -> Result<Vec<String>, String> {
+pub(crate) fn tracked_paths(ctx: &Ctx) -> Result<Vec<String>, String> {
     let (ok, listed) = ctx.capture(ctx.cmd("git").args(["ls-files", "-z"]))?;
     if !ok {
         return Err("`git ls-files` failed".into());

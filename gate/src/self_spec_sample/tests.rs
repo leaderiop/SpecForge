@@ -59,6 +59,27 @@ fn an_error_or_a_warning_fails_the_sample_and_is_never_blessed() {
 }
 
 #[test]
+fn an_info_on_the_collected_code_is_counted_and_never_golden() {
+    let on_code = json!({"severity": "Info", "code": "code/I402",
+        "span": {"file": "crates/x/src/lib.rs", "start_line": 9}, "message": "names `Fs`, which is no entity"});
+    let found = run(json!([info(), on_code.clone(), on_code]));
+    let judged = verdict(&found, &blessed(), false);
+    assert!(
+        !judged.failed,
+        "the golden holds only the converted project's: {:?}",
+        judged.lines
+    );
+    assert_eq!(judged.lines[0], "check: 0 errors, 0 warnings, 1 infos");
+    assert!(
+        judged.lines.contains(
+            &"  2 infos on the collected code, counted, not golden: code/I402 2".to_string()
+        ),
+        "{:?}",
+        judged.lines
+    );
+}
+
+#[test]
 fn a_machine_warning_is_named_and_not_judged() {
     let found = run(json!([info(),
         {"severity": "Warning", "code": "checks/W172", "message": "offline", "machine": true}]));

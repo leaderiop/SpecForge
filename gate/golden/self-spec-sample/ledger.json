@@ -1,0 +1,3118 @@
+{
+  "format": 1,
+  "from": "specforge",
+  "entries": [
+    {
+      "kind": "constraint",
+      "id": "extension_count_limit",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Constraint"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_count_limit",
+      "field": "constrains",
+      "value": [
+        "load_wasm_module",
+        "initialize_wasm_extension",
+        "registry_build_load_order"
+      ],
+      "why": {
+        "later": "behavior"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_count_limit",
+      "field": "tier",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v1"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_count_limit",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "20 extensions load without warning"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_count_limit",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "21+ extensions produce warning"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_count_limit",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "51+ extensions produce hard error"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_system_integrity",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Constraint"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_system_integrity",
+      "field": "constrains",
+      "value": [
+        "load_extension_manifests",
+        "register_extension_entity_types",
+        "load_provider_configurations",
+        "validate_provider_refs",
+        "remove_extension",
+        "provide_mcp_settings_set_tool",
+        "list_installed_extensions",
+        "list_configured_providers",
+        "validate_ref_target_format",
+        "validate_provider_kinds",
+        "load_wasm_module",
+        "call_extension_exports",
+        "initialize_wasm_extension",
+        "enforce_wasm_sandbox",
+        "registry_build_peer_dependencies",
+        "link_host_ports",
+        "bound_a_host_port_call",
+        "reuse_session_runtime",
+        "registry_build_load_order",
+        "load_extension_manifest",
+        "register_entity_enhancements",
+        "run_doctor_check",
+        "scaffold_wasm_extension_project",
+        "build_wasm_extension",
+        "validate_wasm_extension_locally",
+        "publish_wasm_extension",
+        "upgrade_wasm_extension",
+        "validate_extension_manifest",
+        "parse_extension_specifier",
+        "resolve_extension_source",
+        "write_lock_file",
+        "read_lock_file"
+      ],
+      "why": {
+        "later": "behavior"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_system_integrity",
+      "field": "protects",
+      "value": "reference_resolution_completeness",
+      "why": {
+        "out_of_selection": "reference_resolution_completeness"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_system_integrity",
+      "field": "protects",
+      "value": "spec_root_singleton",
+      "why": {
+        "out_of_selection": "spec_root_singleton"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_system_integrity",
+      "field": "tier",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v1"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_system_integrity",
+      "field": "verify",
+      "value": {
+        "kind": "integration",
+        "text": "Wasm traps produce diagnostics without crashing the compiler"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "extension_system_integrity",
+      "field": "verify",
+      "value": {
+        "kind": "integration",
+        "text": "extension operations never corrupt state or crash"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "test_coverage_accuracy",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Constraint"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "test_coverage_accuracy",
+      "field": "constrains",
+      "value": [
+        "ingest_collector_report",
+        "te_coverage_pass",
+        "te_coverage_gate"
+      ],
+      "why": {
+        "later": "behavior"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "test_coverage_accuracy",
+      "field": "protects",
+      "value": "testable_entity_classification",
+      "why": {
+        "out_of_selection": "testable_entity_classification"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "test_coverage_accuracy",
+      "field": "protects",
+      "value": "traceability_chain_integrity",
+      "why": {
+        "out_of_selection": "traceability_chain_integrity"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "test_coverage_accuracy",
+      "field": "tier",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v1"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "test_coverage_accuracy",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "coverage percentage and merge are accurate"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "traceability_completeness",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Constraint"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "traceability_completeness",
+      "field": "constrains",
+      "value": [
+        "ingest_collector_report",
+        "te_coverage_pass",
+        "ck_files_family"
+      ],
+      "why": {
+        "later": "behavior"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "traceability_completeness",
+      "field": "protects",
+      "value": "traceability_chain_integrity",
+      "why": {
+        "out_of_selection": "traceability_chain_integrity"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "traceability_completeness",
+      "field": "tier",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v1"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "traceability_completeness",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "all broken traceability links are detected with zero false negatives"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_binary_size_limit",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Constraint"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_binary_size_limit",
+      "field": "constrains",
+      "value": [
+        "install_wasm_extension",
+        "build_wasm_extension",
+        "compile_wasm_component_with_cache"
+      ],
+      "why": {
+        "later": "behavior"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_binary_size_limit",
+      "field": "metric",
+      "value": "extension_wasm_size < 5MB\nEach extension .wasm binary SHOULD be under 5MB. Binaries exceeding 10MB\nMUST produce a warning diagnostic at install time. This ensures\nreasonable download times and first-compilation latency.",
+      "why": {
+        "collapsed": {
+          "field": "requirement.metric.direction",
+          "into": "at_most"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_binary_size_limit",
+      "field": "tier",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v1"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_binary_size_limit",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "extension over 10MB produces warning at install"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_binary_size_limit",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "extension under 5MB installs without warning"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_budget",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Constraint"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_budget",
+      "field": "constrains",
+      "value": [
+        "load_wasm_module",
+        "compile_wasm_component_with_cache",
+        "reuse_session_runtime"
+      ],
+      "why": {
+        "later": "behavior"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_budget",
+      "field": "metric",
+      "value": "cached_extension_load < 50ms\nEach Wasm extension MUST load in under 50ms on a compile-cache hit.\nFirst compilation (cache cold) SHOULD complete in under 500ms for a\ntypical component (<1MB .wasm).",
+      "why": {
+        "collapsed": {
+          "field": "requirement.metric.direction",
+          "into": "at_most"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_budget",
+      "field": "tier",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v1"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_budget",
+      "field": "verify",
+      "value": {
+        "kind": "load",
+        "text": "benchmark compile-cache-hit extension load, assert < 50ms"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_budget",
+      "field": "verify",
+      "value": {
+        "kind": "load",
+        "text": "benchmark first compilation of a 1MB component, assert < 500ms"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_size_limit",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Constraint"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_size_limit",
+      "field": "constrains",
+      "value": [
+        "compile_wasm_component_with_cache"
+      ],
+      "why": {
+        "later": "behavior"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_size_limit",
+      "field": "metric",
+      "value": "compile_cache_size < 500MB\nThe compile cache directory SHOULD stay under 500MB total. The\nruntime configures wasmtime's cache with a 500MB files-total-size\nsoft limit; when exceeded, the engine's cleanup removes\nleast-recently-used entries on subsequent runs. No info diagnostic\nis required — cleanup is engine-internal.",
+      "why": {
+        "collapsed": {
+          "field": "requirement.metric.direction",
+          "into": "at_most"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_size_limit",
+      "field": "tier",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v1"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_size_limit",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "cache configured with 500MB files-total-size soft limit"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_compile_cache_size_limit",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "cache under 500MB operates normally"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_memory_limit",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Constraint"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_memory_limit",
+      "field": "constrains",
+      "value": [
+        "enforce_wasm_sandbox",
+        "load_wasm_module"
+      ],
+      "why": {
+        "later": "behavior"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_memory_limit",
+      "field": "tier",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v1"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_memory_limit",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "an extension cannot grow a shared memory past its memory limit"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_memory_limit",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "an extension cannot grow a table without bound"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_memory_limit",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "an extension declaring no memory limit is held to the 512 MB ceiling"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_memory_limit",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "an extension growing past its memory limit traps"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_memory_limit",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "the memory limit holds for every memory of an extension together"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_sandbox_enforcement",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Constraint"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_sandbox_enforcement",
+      "field": "constrains",
+      "value": [
+        "enforce_wasm_sandbox",
+        "grant_a_host_port_call",
+        "configure_sandbox_policy",
+        "link_host_ports"
+      ],
+      "why": {
+        "later": "behavior"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_sandbox_enforcement",
+      "field": "tier",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v1"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_sandbox_enforcement",
+      "field": "verify",
+      "value": {
+        "kind": "integration",
+        "text": "an extension that tries every capability a component can reach is granted none"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_sandbox_enforcement",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "direct filesystem access from Wasm is blocked"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "wasm_sandbox_enforcement",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "direct network access from Wasm is blocked"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "auth_failure_vs_offline_fallback",
+      "field": "invariants",
+      "value": "offline_first_extension_resolution",
+      "why": {
+        "out_of_selection": "offline_first_extension_resolution"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "auth_failure_vs_offline_fallback",
+      "field": "origin",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "decision.origin",
+          "value": "project"
+        }
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "config_driven_kind_registry",
+      "field": "origin",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "decision.origin",
+          "value": "project"
+        }
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "entity_enhancement_model",
+      "field": "origin",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "decision.origin",
+          "value": "project"
+        }
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "extension_file_parsers",
+      "field": "invariants",
+      "value": "zero_domain_knowledge_core",
+      "why": {
+        "out_of_selection": "zero_domain_knowledge_core"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "extension_file_parsers",
+      "field": "origin",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "decision.origin",
+          "value": "project"
+        }
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "per_call_site_sandbox",
+      "field": "origin",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "decision.origin",
+          "value": "project"
+        }
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "wasm_compile_cache_strategy",
+      "field": "origin",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "decision.origin",
+          "value": "project"
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "circular_peer_dependency",
+      "field": "post_mitigation",
+      "value": {
+        "detection": "certain",
+        "occurrence": "rare",
+        "rpn": 6,
+        "severity": "high"
+      },
+      "why": {
+        "computed": {
+          "field": "risk.post_rpn",
+          "new": 7
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "circular_peer_dependency",
+      "field": "rpn",
+      "value": 24,
+      "why": {
+        "computed": {
+          "field": "risk.rpn",
+          "new": 63
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "circular_peer_dependency",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "Circular Peer Dependency failure mode is handled"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "collector_output_malformation",
+      "field": "rpn",
+      "value": 30,
+      "why": {
+        "computed": {
+          "field": "risk.rpn",
+          "new": 75
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "collector_output_malformation",
+      "field": "threatens_features",
+      "value": "product_health_metric",
+      "why": {
+        "out_of_selection": "product_health_metric"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "collector_output_malformation",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "Collector Output Malformation failure mode is handled"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "entity_kind_collision_undetected",
+      "field": "rpn",
+      "value": 28,
+      "why": {
+        "computed": {
+          "field": "risk.rpn",
+          "new": 63
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "entity_kind_collision_undetected",
+      "field": "threatens_features",
+      "value": "product_entity_registration",
+      "why": {
+        "out_of_selection": "product_entity_registration"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "entity_kind_collision_undetected",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "Entity Kind Collision Undetected failure mode is handled"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "extension_initialization_failure",
+      "field": "post_mitigation",
+      "value": {
+        "detection": "certain",
+        "occurrence": "rare",
+        "rpn": 6,
+        "severity": "high"
+      },
+      "why": {
+        "computed": {
+          "field": "risk.post_rpn",
+          "new": 7
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "extension_initialization_failure",
+      "field": "rpn",
+      "value": 36,
+      "why": {
+        "computed": {
+          "field": "risk.rpn",
+          "new": 105
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "extension_initialization_failure",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "Extension Initialization Failure failure mode is handled"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "host_function_type_violation",
+      "field": "post_mitigation",
+      "value": {
+        "detection": "certain",
+        "occurrence": "rare",
+        "rpn": 8,
+        "severity": "critical"
+      },
+      "why": {
+        "computed": {
+          "field": "risk.post_rpn",
+          "new": 10
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "host_function_type_violation",
+      "field": "rpn",
+      "value": 48,
+      "why": {
+        "computed": {
+          "field": "risk.rpn",
+          "new": 150
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "host_function_type_violation",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "Host Function Type Safety Violation failure mode is handled"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "manifest_schema_mismatch",
+      "field": "rpn",
+      "value": 30,
+      "why": {
+        "computed": {
+          "field": "risk.rpn",
+          "new": 75
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "manifest_schema_mismatch",
+      "field": "threatens_features",
+      "value": "product_entity_registration",
+      "why": {
+        "out_of_selection": "product_entity_registration"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "manifest_schema_mismatch",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "Manifest Schema Mismatch failure mode is handled"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "peer_dependency_version_mismatch",
+      "field": "post_mitigation",
+      "value": {
+        "detection": "certain",
+        "occurrence": "rare",
+        "rpn": 6,
+        "severity": "high"
+      },
+      "why": {
+        "computed": {
+          "field": "risk.post_rpn",
+          "new": 7
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "peer_dependency_version_mismatch",
+      "field": "rpn",
+      "value": 24,
+      "why": {
+        "computed": {
+          "field": "risk.rpn",
+          "new": 63
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "peer_dependency_version_mismatch",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "Peer Dependency Version Mismatch failure mode is handled"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "registry_unavailability",
+      "field": "post_mitigation",
+      "value": {
+        "detection": "certain",
+        "occurrence": "unlikely",
+        "rpn": 8,
+        "severity": "medium"
+      },
+      "why": {
+        "computed": {
+          "field": "risk.post_rpn",
+          "new": 15
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "registry_unavailability",
+      "field": "rpn",
+      "value": 24,
+      "why": {
+        "computed": {
+          "field": "risk.rpn",
+          "new": 75
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "registry_unavailability",
+      "field": "threatens_features",
+      "value": "product_entity_registration",
+      "why": {
+        "out_of_selection": "product_entity_registration"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "registry_unavailability",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "Registry Unavailability failure mode is handled"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_compile_cache_corruption",
+      "field": "rpn",
+      "value": 40,
+      "why": {
+        "computed": {
+          "field": "risk.rpn",
+          "new": 105
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_compile_cache_corruption",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "Wasm Compile Cache Corruption failure mode is handled"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_extension_crash",
+      "field": "post_mitigation",
+      "value": {
+        "detection": "likely",
+        "occurrence": "rare",
+        "rpn": 12,
+        "severity": "high"
+      },
+      "why": {
+        "computed": {
+          "field": "risk.post_rpn",
+          "new": 21
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_extension_crash",
+      "field": "rpn",
+      "value": 54,
+      "why": {
+        "computed": {
+          "field": "risk.rpn",
+          "new": 175
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_extension_crash",
+      "field": "threatens_features",
+      "value": "product_validation",
+      "why": {
+        "out_of_selection": "product_validation"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_extension_crash",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "Wasm Extension Crash failure mode is handled"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_host_function_timeout",
+      "field": "rpn",
+      "value": 30,
+      "why": {
+        "computed": {
+          "field": "risk.rpn",
+          "new": 75
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_host_function_timeout",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "Wasm Host Function Timeout failure mode is handled"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_memory_exhaustion",
+      "field": "post_mitigation",
+      "value": {
+        "detection": "certain",
+        "occurrence": "rare",
+        "rpn": 6,
+        "severity": "medium"
+      },
+      "why": {
+        "computed": {
+          "field": "risk.post_rpn",
+          "new": 5
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_memory_exhaustion",
+      "field": "rpn",
+      "value": 54,
+      "why": {
+        "computed": {
+          "field": "risk.rpn",
+          "new": 175
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_memory_exhaustion",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "Wasm Memory Exhaustion failure mode is handled"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "contribution_based_extensions",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Feature"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "contribution_based_extensions",
+      "field": "solution",
+      "value": "Structured manifest format with typed objects (entity_kinds\nEntityKindDescriptor[], validation_rules ValidationRulePattern[],\nedge_types EdgeTypeDescriptor[]). What an extension contributes is what its declaration declares in\nthose categories (ExtensionDeclaration::declares, ADR 0050); its\nhandshake says providers when it implements configured providers.\nThe host calls an extension's exports through one typed\nmodule (call_extension_exports, ADR 0013): handshake and describe, a\ncommand, an MCP tool or resource, a compiler pass, a collector, a\ncustom validator and the migration hook, each with the\nprotocol's input and answer types and every failure E028. What an\neffectful call may do through the host ports belongs to the\nwasm_host_function_api feature. This\nfeature owns the compile-time categories (entities, edges,\nshared_fields, enhancements, validation_rules, passes, feature_flags). Test result collection (collectors) is owned by the\ntest_result_collection feature. Surface contributions (CLI commands,\nMCP tools, MCP resources) are owned by the surface_contributions feature.\nCollector behaviors (register_collector_contributions,\nauto_detect_collector, approve_capability, run_collector_command,\ndispatch_collector, ingest_collector_report) are owned by the\ntest_result_collection feature.",
+      "why": {
+        "created": {
+          "kind": "decision",
+          "id": "contribution_based_extensions_solution"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "contribution_based_extensions",
+      "field": "status",
+      "value": "done",
+      "why": {
+        "computed": {
+          "field": "requirement.status",
+          "new": "pending"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "entity_enhancement",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Feature"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "entity_enhancement",
+      "field": "solution",
+      "value": "Extensions declare entity enhancements in their sidecar manifest.json.\nManifest validation (validate_extension_manifest) runs before\nenhancement loading — owned by contribution_based_extensions.\nThe compiler loads enhancement declarations at startup, builds a\nFieldRegistry combining extension-defined and enhanced fields, and threads\nit through the resolve/graph-build/validate pipeline. Enhanced\nreference fields create graph edges. An enhancement field never\noverwrites a field the kind already declares. The specforge doctor\ncommand provides visibility into all enhancements.",
+      "why": {
+        "created": {
+          "kind": "decision",
+          "id": "entity_enhancement_solution"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "entity_enhancement",
+      "field": "status",
+      "value": "done",
+      "why": {
+        "computed": {
+          "field": "requirement.status",
+          "new": "pending"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "entity_kind_conflict_prevention",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Feature"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "entity_kind_conflict_prevention",
+      "field": "solution",
+      "value": "The registry build detects a kind an earlier-loaded extension already\nregistered: the first extension in load order owns it and the\nduplicate is E026. Entity ids that collide with the grammar's\nstructural keywords or an extension's kind keyword are E013.",
+      "why": {
+        "created": {
+          "kind": "decision",
+          "id": "entity_kind_conflict_prevention_solution"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "entity_kind_conflict_prevention",
+      "field": "status",
+      "value": "done",
+      "why": {
+        "computed": {
+          "field": "requirement.status",
+          "new": "pending"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "surface_contributions",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Feature"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "surface_contributions",
+      "field": "solution",
+      "value": "Extensions declare surface contributions in their manifest's surfaces\nfield: commands[] for CLI, mcp_tools[] for MCP tools, mcp_resources[]\nfor MCP resources. Core discovers contributions from manifests (static,\nno code execution), validates Wasm exports exist, and dispatches lazily\non invocation. CLI commands are auto-promoted to MCP tools with the\nspecforge.{ext}.{cmd} naming convention. Per-contribution sandbox\noverrides can only restrict below the type ceiling (MCP resources\ncannot fs_write). Phase 1 covers CLI commands, MCP tools, and MCP\nresources. LSP providers are deferred to Phase 2.",
+      "why": {
+        "created": {
+          "kind": "decision",
+          "id": "surface_contributions_solution"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "surface_contributions",
+      "field": "status",
+      "value": "done",
+      "why": {
+        "computed": {
+          "field": "requirement.status",
+          "new": "pending"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "test_result_collection",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Feature"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "test_result_collection",
+      "field": "solution",
+      "value": "Runner extensions (`@specforge/cargo-test`, …) declare a collector: the\nproject files that select it, the command that runs the runner, where\nthe report lands and a pure export that maps the report to entities.\n`specforge collect` detects the collectors that apply, asks the user to\napprove each command once per project, runs it on the extension's\nbehalf, hands the report to the export and merges the answer into\n`specforge-report.json`, which `specforge analyze` reads. The compiler\nstill never executes anything, and extensions stay pure wasm; `--no-run`\nparses an existing report without running anything.",
+      "why": {
+        "created": {
+          "kind": "decision",
+          "id": "test_result_collection_solution"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "test_result_collection",
+      "field": "status",
+      "value": "done",
+      "why": {
+        "computed": {
+          "field": "requirement.status",
+          "new": "pending"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_extension_authoring",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Feature"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_extension_authoring",
+      "field": "solution",
+      "value": "specforge extension CLI subcommands: init scaffolds a project with\nPDK skeleton, build compiles to .wasm targeting wasm32-wasi,\nvalidate loads the binary in a production sandbox against fixtures,\npublish uploads to npm/OCI/GitHub Releases. Publishing adheres to\nthe registry_api_openness invariant — the registry API specification\nis published as an open standard.",
+      "why": {
+        "created": {
+          "kind": "decision",
+          "id": "wasm_extension_authoring_solution"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_extension_authoring",
+      "field": "status",
+      "value": "done",
+      "why": {
+        "computed": {
+          "field": "requirement.status",
+          "new": "pending"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_extension_installation",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Feature"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_extension_installation",
+      "field": "solution",
+      "value": "Install resolves from multiple sources, verifies integrity, and\nplaces the binary atomically. Uninstall removes the extension and\nchecks peer dependencies. Upgrade checks compatibility and handles\nbreaking peer dependencies.",
+      "why": {
+        "created": {
+          "kind": "decision",
+          "id": "wasm_extension_installation_solution"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_extension_installation",
+      "field": "status",
+      "value": "done",
+      "why": {
+        "computed": {
+          "field": "requirement.status",
+          "new": "pending"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_extension_maintenance",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Feature"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_extension_maintenance",
+      "field": "solution",
+      "value": "Discovery queries registries for available extensions. The engine\ncompile cache is content-keyed, so replaced binaries never serve\nstale artifacts and need no host-side invalidation. Bulk update\nchecks all extensions for newer versions and upgrades them in\ndependency order.",
+      "why": {
+        "created": {
+          "kind": "decision",
+          "id": "wasm_extension_maintenance_solution"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_extension_maintenance",
+      "field": "status",
+      "value": "done",
+      "why": {
+        "computed": {
+          "field": "requirement.status",
+          "new": "pending"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_extension_runtime",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Feature"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_extension_runtime",
+      "field": "solution",
+      "value": "Wasm components (wasmtime Component Model) as the sole extension runtime. Extensions compile to .wasm\nbinaries. The compiler loads modules, validates peer dependencies,\ninitializes in topological order, calls validators, and handles traps\ngracefully — failed extensions do not affect others. Each extension\nruns with no capability and within the limits its handshake declares\n(enforce_wasm_sandbox, configure_sandbox_policy).",
+      "why": {
+        "created": {
+          "kind": "decision",
+          "id": "wasm_extension_runtime_solution"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_extension_runtime",
+      "field": "status",
+      "value": "done",
+      "why": {
+        "computed": {
+          "field": "requirement.status",
+          "new": "pending"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_host_function_api",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Feature"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_host_function_api",
+      "field": "solution",
+      "value": "Two faces (ADR 0335 D4): declared inputs and probes for the pure call\nkinds, and four granted ports for the effectful ones: the WIT package\nspecforge:host/{http,fs,process,git}@0.1.0, written once in the SDK and\nlinked on every instance. What one call may do is its port session: its\nkind, its extension's grant (declared, gated, under the ceiling and\napproved) and the journal of the call's effects mode. A pure kind is\nanswered denied(call-kind), a request outside the grant denied(scope)\nand E090; nothing prompts mid-call. A guest cannot write a file or\nchange the graph through a port: it answers an edit plan (ADR 0289). A\nport's time is not the guest's, an effectful call holds no lock of its\nextension, and a secret stays on the host.",
+      "why": {
+        "created": {
+          "kind": "decision",
+          "id": "wasm_host_function_api_solution"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_lock_management",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Feature"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_lock_management",
+      "field": "solution",
+      "value": "Lock file (specforge.lock) pins exact versions with SHA256 integrity\nhashes for reproducible builds. Lock file is read at startup to verify\ninstalled extensions match expected hashes. Refresh updates the lock\nfile when extensions are added or upgraded.",
+      "why": {
+        "created": {
+          "kind": "decision",
+          "id": "wasm_lock_management_solution"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_lock_management",
+      "field": "status",
+      "value": "done",
+      "why": {
+        "computed": {
+          "field": "requirement.status",
+          "new": "pending"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_performance_optimization",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Feature"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_performance_optimization",
+      "field": "solution",
+      "value": "Wasmtime's on-disk compilation cache (selected via\nSPECFORGE_WASMTIME_CACHE) stores compiled machine code keyed by\ncomponent bytes and engine config, so CLI cold starts deserialize\ninstead of recompiling. One runtime engine per LSP/MCP session keeps\ninstantiated components alive across calls. Unusable caches degrade\nto uncached compilation with a warning.",
+      "why": {
+        "created": {
+          "kind": "decision",
+          "id": "wasm_performance_optimization_solution"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "wasm_performance_optimization",
+      "field": "status",
+      "value": "done",
+      "why": {
+        "computed": {
+          "field": "requirement.status",
+          "new": "pending"
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "collector_output_conformance",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "a test status is passed, failed or skipped, and no other value decodes"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-protocol-types#calls::tests::a_test_status_is_passed_failed_or_skipped"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "collector_output_conformance",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "a test status outside passed, failed and skipped is an error naming the collector, never a skipped test"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-ops::operations#extension_calls::a_status_outside_the_vocabulary_is_not_a_collect_output"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "collector_output_conformance",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "skipped tests are not recorded as proof"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-ops#analysis::collect::tests::skipped_tests_are_not_recorded"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "collector_output_conformance",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "unknown entity ID in collector entry produces W115"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-ops#analysis::collect::tests::unknown_entities_are_dropped_with_w115"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "credential_secrecy",
+      "field": "verify",
+      "value": {
+        "kind": "property",
+        "text": "no log line contains raw token string"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "credential_secrecy",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "a corrupt signing key file is named, never quoted"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-registry-client::tests#user_files::a_corrupt_signing_key_file_is_named_never_quoted"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "credential_secrecy",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "a user's registry file is never written through a link at its temporary name"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-registry-client::tests#user_files::a_kept_secret_is_never_written_through_a_link_at_its_temporary_name",
+            "rust:specforge-registry-client::tests#user_files::a_pin_save_is_never_written_through_a_link_at_its_temporary_name"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "credential_secrecy",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "diagnostic messages report credential presence not value"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "credential_secrecy",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "every file in the user's registry directory is created 0600 in a 0700 directory"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-registry-client::tests#user_files::a_first_pin_save_is_0600_in_a_0700_directory",
+            "rust:specforge-registry-client::tests#user_files::a_first_signing_key_is_0600_in_a_0700_directory"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "credential_secrecy",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "registry token is not included in log output"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "enhancement_field_uniqueness",
+      "field": "verify",
+      "value": {
+        "kind": "property",
+        "text": "no two extensions can silently claim the same field"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "enhancement_field_uniqueness",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "conflict resolution is deterministic across runs"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "entity_kind_uniqueness",
+      "field": "verify",
+      "value": {
+        "kind": "property",
+        "text": "no two extensions can silently register the same entity kind"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extension_isolation",
+      "field": "verify",
+      "value": {
+        "kind": "property",
+        "text": "extension trap does not affect other extensions"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extension_isolation",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "failed extension excluded from subsequent phases"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extension_load_order_determinism",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "a load order given again comes back unchanged"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extension_load_order_determinism",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "the same extensions give the same load order on every build, dependencies first"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-project::tests#compile::a_project_listing_a_dependent_first_loads_its_peer_first"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extension_operation_atomicity",
+      "field": "verify",
+      "value": {
+        "kind": "integration",
+        "text": "concurrent install and uninstall are serialized"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extension_operation_atomicity",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "a failed change puts back every project file it wrote and removes the directories it created"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-ops#extension::lock_plan::tests::commit::a_failed_change_puts_back_every_project_file_and_the_directories_it_made"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extension_operation_atomicity",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "a failed change puts back the modules and the lock and removes the directories it made"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-installed::tests#change::a_failed_change_removes_the_directories_it_created"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extension_operation_atomicity",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "a pin that cannot be saved puts back everything the install wrote"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-ops#extension::lock_plan::tests::commit::a_pin_that_cannot_be_saved_puts_back_everything_the_install_wrote"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extension_operation_atomicity",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "failed install rolls back to previous state"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-installed::tests#change::a_failed_install_puts_back_the_binary_and_the_lock"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extension_operation_atomicity",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "interrupted upgrade preserves original extension"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-installed::tests#change::a_failed_upgrade_keeps_the_original_module"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extensions_run_in_their_loading_runtime",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "an environment assembled from its loaded parts holds the runtime they were loaded in and probes its custom rules there; one assembled without a runtime holds no extension and enables each entry as written"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-project::tests#environment::an_environment_assembles_from_the_parts_it_is_given"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extensions_run_in_their_loading_runtime",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "an environment holds the runtime it loaded its extensions in, and its session and compiled project read it there"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-project::tests#environment::without_a_runtime_nothing_loads_and_each_entry_is_enabled_as_written",
+            "rust:specforge-project::tests#session::an_environment_holds_the_runtime_it_loaded_its_extensions_in"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "extensions_run_in_their_loading_runtime",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "an operation over a project view calls its extensions in the runtime the view's environment loaded them in"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-ops::operations#extension_calls::the_views_runtime::operations_over_a_view_call_extensions_in_its_runtime"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "host_function_type_safety",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "malformed extension input produces ExtensionError"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "host_function_type_safety",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "valid extension input is processed correctly"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "peer_dependency_satisfaction",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "add, init, update and remove judge the set check judges: the extensions the project's entries load"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-ops#extension::peer_set::tests::loaded_by_takes_a_builtin_only_from_its_entry",
+            "rust:specforge-ops#extension::peer_set::tests::the_prediction_reads_each_file_entry_once_through_its_disk",
+            "rust:specforge-ops#extension::peer_set::tests::the_set_is_what_the_entries_load"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "peer_dependency_satisfaction",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "one rule judges a peer: its range read as SemVer, then the version its peer is installed at"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-package#peers::tests::the_peer_rule"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "peer_dependency_satisfaction",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "peer with wrong version range produces an error diagnostic"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "peer_dependency_satisfaction",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "satisfied peer dependencies pass validation"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-project::tests#compile::missing_optional_peers_are_not_reported"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "peer_dependency_satisfaction",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "the lock plan judges a locked extension by what its module declares, and one whose lock entry records another version or other peers is no member, as the load refuses it"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-ops::operations#lock_records::the_lock_plan_judges_a_locked_module_by_what_it_declares"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "peer_dependency_satisfaction",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "the lock plan's peer set of the project as it is names what the extension load loads, in entry order, from the entries it loads them by"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-ops#extension::peer_set::tests::the_prediction_of_the_project_as_it_is_is_what_the_load_loads"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "peer_dependency_satisfaction",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "unsatisfied peer dependency produces an error diagnostic"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-project::tests#compile::a_missing_required_peer_fails_the_compile"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "publisher_trust",
+      "field": "verify",
+      "value": {
+        "kind": "integration",
+        "text": "an unsigned package is refused for a name whose publisher key is pinned, by add, its dry run and MCP add_extension, downloading nothing"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-cli::tests#expected_publisher::an_unsigned_package_for_a_pinned_name_is_refused_on_every_surface"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "publisher_trust",
+      "field": "verify",
+      "value": {
+        "kind": "integration",
+        "text": "specforge add --dry-run refuses an unsigned package and a denied publisher key as specforge add does, downloading nothing"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-cli::tests#registry_dry_run::a_dry_run_refuses_what_the_add_refuses_and_downloads_nothing"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "publisher_trust",
+      "field": "verify",
+      "value": {
+        "kind": "integration",
+        "text": "specforge add pins the publisher key and records it in specforge.lock"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-cli::tests#registry::add_installs_a_signed_package_and_pins_its_key"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "publisher_trust",
+      "field": "verify",
+      "value": {
+        "kind": "integration",
+        "text": "specforge add refuses a package signed by another key than the pinned one"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-cli::tests#registry::add_refuses_a_package_signed_by_another_key_than_the_pinned_one"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "publisher_trust",
+      "field": "verify",
+      "value": {
+        "kind": "integration",
+        "text": "specforge add refuses an unsigned package without --allow-unsigned"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-cli::tests#registry::add_refuses_an_unsigned_package_without_allow_unsigned"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "registry_integrity",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "SHA256 match passes verification"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "registry_integrity",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "SHA256 mismatch produces hard error and aborts"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-ops-registry::suite#fetch::a_registry_sha256_that_does_not_match_the_download_is_refused"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "registry_integrity",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "the hash and the key id are recorded in the lock file"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-ops#extension::lock_plan::tests::commit::a_committed_registry_install_locks_its_hash_and_key_id"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "registry_reply_binding",
+      "field": "verify",
+      "value": {
+        "kind": "integration",
+        "text": "a manifest describing another package is refused"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-ops-registry::suite#fetch::a_manifest_describing_another_package_is_refused"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "registry_reply_binding",
+      "field": "verify",
+      "value": {
+        "kind": "integration",
+        "text": "a package served without a manifest is refused"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-ops-registry::suite#fetch::a_package_served_without_a_manifest_is_refused"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "surface_schema_validity",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "a surfaces description with an unknown arg type fails the extension's load"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-wasm::tests#protocol_host::an_unknown_arg_type_fails_the_load"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "surface_schema_validity",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "a tool whose input_schema is not a JSON object is E055 and not registered"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-registry::tests#surface::the_invariant_refuses_a_malformed_tool"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "surface_schema_validity",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "a tool whose schemas are JSON objects is registered"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-registry::tests#surface::the_invariant_keeps_a_wellformed_tool"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "wasm_compile_cache_integrity",
+      "field": "verify",
+      "value": {
+        "kind": "property",
+        "text": "a cache artifact from different bytes or engine config is never reused"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "wasm_compile_cache_integrity",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "corrupted cache entry falls back to fresh compilation"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "wasm_sandbox_integrity",
+      "field": "verify",
+      "value": {
+        "kind": "integration",
+        "text": "no text an extension supplies reaches the terminal as a control sequence"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-cli::tests#extension_text::an_extensions_text_reaches_the_terminal_printable"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "wasm_sandbox_integrity",
+      "field": "verify",
+      "value": {
+        "kind": "property",
+        "text": "no extension can read or write outside its sandbox boundaries"
+      },
+      "why": {
+        "unproven": {
+          "tests": []
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "wasm_sandbox_integrity",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "sandbox violation traps the extension and emits a diagnostic"
+      },
+      "why": {
+        "collapsed": {
+          "field": "invariant.proof",
+          "into": [
+            "rust:specforge-component::suite#sandbox_limits::an_extension_growing_past_its_memory_limit_traps"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "author_a_domain_extension",
+      "field": "features",
+      "value": "extension_management",
+      "why": {
+        "out_of_selection": "extension_management"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "author_a_domain_extension",
+      "field": "milestones",
+      "value": "specforge_wasm_runtime_deliverable",
+      "why": {
+        "out_of_selection": "specforge_wasm_runtime_deliverable"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "author_a_domain_extension",
+      "field": "priority",
+      "value": "low",
+      "why": {
+        "collapsed": {
+          "field": "journey.priority",
+          "into": "could"
+        }
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "check_test_coverage",
+      "field": "features",
+      "value": "te_coverage_analysis",
+      "why": {
+        "out_of_selection": "te_coverage_analysis"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "check_test_coverage",
+      "field": "milestones",
+      "value": "specforge_cli_deliverable",
+      "why": {
+        "out_of_selection": "specforge_cli_deliverable"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "diagnose_extension_issues",
+      "field": "features",
+      "value": "extension_management",
+      "why": {
+        "out_of_selection": "extension_management"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "diagnose_extension_issues",
+      "field": "features",
+      "value": "extension_manifest",
+      "why": {
+        "out_of_selection": "extension_manifest"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "diagnose_extension_issues",
+      "field": "milestones",
+      "value": "specforge_wasm_runtime_deliverable",
+      "why": {
+        "out_of_selection": "specforge_wasm_runtime_deliverable"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "diagnose_extension_issues",
+      "field": "priority",
+      "value": "medium",
+      "why": {
+        "collapsed": {
+          "field": "journey.priority",
+          "into": "could"
+        }
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "install_domain_extensions",
+      "field": "features",
+      "value": "dynamic_entity_registration",
+      "why": {
+        "out_of_selection": "dynamic_entity_registration"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "install_domain_extensions",
+      "field": "features",
+      "value": "extension_management",
+      "why": {
+        "out_of_selection": "extension_management"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "install_domain_extensions",
+      "field": "milestones",
+      "value": "specforge_cli_deliverable",
+      "why": {
+        "out_of_selection": "specforge_cli_deliverable"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "install_domain_extensions",
+      "field": "milestones",
+      "value": "specforge_formal",
+      "why": {
+        "out_of_selection": "specforge_formal"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "install_domain_extensions",
+      "field": "milestones",
+      "value": "specforge_governance",
+      "why": {
+        "out_of_selection": "specforge_governance"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "install_domain_extensions",
+      "field": "milestones",
+      "value": "specforge_software",
+      "why": {
+        "out_of_selection": "specforge_software"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "install_domain_extensions",
+      "field": "priority",
+      "value": "medium",
+      "why": {
+        "collapsed": {
+          "field": "journey.priority",
+          "into": "could"
+        }
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "j_publish_wasm_extension",
+      "field": "milestones",
+      "value": "specforge_wasm_runtime_deliverable",
+      "why": {
+        "out_of_selection": "specforge_wasm_runtime_deliverable"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "j_publish_wasm_extension",
+      "field": "priority",
+      "value": "low",
+      "why": {
+        "collapsed": {
+          "field": "journey.priority",
+          "into": "could"
+        }
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "manage_extensions",
+      "field": "features",
+      "value": "extension_management",
+      "why": {
+        "out_of_selection": "extension_management"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "manage_extensions",
+      "field": "features",
+      "value": "extension_manifest",
+      "why": {
+        "out_of_selection": "extension_manifest"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "manage_extensions",
+      "field": "milestones",
+      "value": "specforge_cli_deliverable",
+      "why": {
+        "out_of_selection": "specforge_cli_deliverable"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "manage_extensions",
+      "field": "priority",
+      "value": "medium",
+      "why": {
+        "collapsed": {
+          "field": "journey.priority",
+          "into": "could"
+        }
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "scaffold_wasm_extension",
+      "field": "milestones",
+      "value": "specforge_wasm_runtime_deliverable",
+      "why": {
+        "out_of_selection": "specforge_wasm_runtime_deliverable"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "scaffold_wasm_extension",
+      "field": "priority",
+      "value": "low",
+      "why": {
+        "collapsed": {
+          "field": "journey.priority",
+          "into": "could"
+        }
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "test_wasm_extension_locally",
+      "field": "milestones",
+      "value": "specforge_wasm_runtime_deliverable",
+      "why": {
+        "out_of_selection": "specforge_wasm_runtime_deliverable"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "test_wasm_extension_locally",
+      "field": "priority",
+      "value": "low",
+      "why": {
+        "collapsed": {
+          "field": "journey.priority",
+          "into": "could"
+        }
+      }
+    },
+    {
+      "kind": "spec",
+      "id": "specforge",
+      "field": "extensions",
+      "value": [
+        "@specforge/software",
+        "@specforge/product",
+        "@specforge/governance",
+        "@specforge/formal"
+      ],
+      "why": {
+        "unconverted": "the target's spec block is init's starter: the project's name and version"
+      }
+    },
+    {
+      "kind": "spec",
+      "id": "specforge",
+      "field": "version",
+      "value": "1.0",
+      "why": {
+        "unconverted": "the target's spec block is init's starter: the project's name and version"
+      }
+    },
+    {
+      "kind": "specforge.json",
+      "id": "specforge",
+      "field": "extensions",
+      "value": "@specforge/cargo-test",
+      "why": {
+        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+      }
+    },
+    {
+      "kind": "specforge.json",
+      "id": "specforge",
+      "field": "extensions",
+      "value": "@specforge/formal",
+      "why": {
+        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+      }
+    },
+    {
+      "kind": "specforge.json",
+      "id": "specforge",
+      "field": "extensions",
+      "value": "@specforge/governance",
+      "why": {
+        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+      }
+    },
+    {
+      "kind": "specforge.json",
+      "id": "specforge",
+      "field": "extensions",
+      "value": "@specforge/product",
+      "why": {
+        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+      }
+    },
+    {
+      "kind": "specforge.json",
+      "id": "specforge",
+      "field": "extensions",
+      "value": "@specforge/software",
+      "why": {
+        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+      }
+    },
+    {
+      "kind": "specforge.json",
+      "id": "specforge",
+      "field": "extensions",
+      "value": "@specforge/testing",
+      "why": {
+        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "define_block",
+      "field": "see_also",
+      "value": "declarative_validation",
+      "why": {
+        "out_of_selection": "declarative_validation"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "define_block",
+      "field": "see_also",
+      "value": "planning_entity",
+      "why": {
+        "out_of_selection": "planning_entity"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "define_block",
+      "field": "see_also",
+      "value": "token_budget",
+      "why": {
+        "out_of_selection": "token_budget"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "diagnostic",
+      "field": "see_also",
+      "value": "cycle_detection",
+      "why": {
+        "out_of_selection": "cycle_detection"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "diagnostic",
+      "field": "see_also",
+      "value": "declarative_validation",
+      "why": {
+        "out_of_selection": "declarative_validation"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "diagnostic",
+      "field": "see_also",
+      "value": "fuzzy_matching",
+      "why": {
+        "out_of_selection": "fuzzy_matching"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "diagnostic",
+      "field": "see_also",
+      "value": "graph_diff",
+      "why": {
+        "out_of_selection": "graph_diff"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "diagnostic",
+      "field": "see_also",
+      "value": "health_score",
+      "why": {
+        "out_of_selection": "health_score"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "diagnostic",
+      "field": "see_also",
+      "value": "unreferenced_entity",
+      "why": {
+        "out_of_selection": "unreferenced_entity"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "effort",
+      "field": "see_also",
+      "value": "completion_ratio",
+      "why": {
+        "out_of_selection": "completion_ratio"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "graph_protocol",
+      "field": "see_also",
+      "value": "blocker",
+      "why": {
+        "out_of_selection": "blocker"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "graph_protocol",
+      "field": "see_also",
+      "value": "impact_analysis",
+      "why": {
+        "out_of_selection": "impact_analysis"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "graph_protocol",
+      "field": "see_also",
+      "value": "lifecycle_consistency",
+      "why": {
+        "out_of_selection": "lifecycle_consistency"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "graph_protocol",
+      "field": "see_also",
+      "value": "release_entity",
+      "why": {
+        "out_of_selection": "release_entity"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "graph_protocol",
+      "field": "see_also",
+      "value": "release_status_lifecycle",
+      "why": {
+        "out_of_selection": "release_status_lifecycle"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "graph_protocol",
+      "field": "see_also",
+      "value": "schema_evolution",
+      "why": {
+        "out_of_selection": "schema_evolution"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "owner",
+      "field": "see_also",
+      "value": "contributors",
+      "why": {
+        "out_of_selection": "contributors"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "peer_dependency",
+      "field": "see_also",
+      "value": "cross_extension_coexistence",
+      "why": {
+        "out_of_selection": "cross_extension_coexistence"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "surface_contribution",
+      "field": "see_also",
+      "value": "declarative_validation",
+      "why": {
+        "out_of_selection": "declarative_validation"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_compiler_pipeline",
+      "field": "see_also",
+      "value": "t_resolver",
+      "why": {
+        "out_of_selection": "t_resolver"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_compiler_pipeline",
+      "field": "see_also",
+      "value": "t_spec_file",
+      "why": {
+        "out_of_selection": "t_spec_file"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_emitter",
+      "field": "see_also",
+      "value": "t_agent_context",
+      "why": {
+        "out_of_selection": "t_agent_context"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_entity",
+      "field": "see_also",
+      "value": "t_entity_mapping",
+      "why": {
+        "out_of_selection": "t_entity_mapping"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_entity",
+      "field": "see_also",
+      "value": "t_verify_statement",
+      "why": {
+        "out_of_selection": "t_verify_statement"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_entity_id",
+      "field": "see_also",
+      "value": "t_string_interning",
+      "why": {
+        "out_of_selection": "t_string_interning"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_glossary_entity_enhancement",
+      "field": "see_also",
+      "value": "t_body_parser",
+      "why": {
+        "out_of_selection": "t_body_parser"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_graph_protocol",
+      "field": "see_also",
+      "value": "t_multi_resolution_query",
+      "why": {
+        "out_of_selection": "t_multi_resolution_query"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_naming_convention",
+      "field": "see_also",
+      "value": "t_double_underscore_separator",
+      "why": {
+        "out_of_selection": "t_double_underscore_separator"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_peer_dependency",
+      "field": "see_also",
+      "value": "t_edk",
+      "why": {
+        "out_of_selection": "t_edk"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_renderer",
+      "field": "see_also",
+      "value": "t_drift_detection",
+      "why": {
+        "out_of_selection": "t_drift_detection"
+      }
+    }
+  ]
+}

@@ -1,10 +1,36 @@
 //! The `self-spec-sample` check's verdict (ADR 0360): the WASM-host sample of the self-spec, absorbed into `@gsd/core`
 //! kinds, checks with no error and no warning, its work stays within its bound, and its infos, ledger and selection
-//! equal their goldens. This part is pure: it judges what a run found, and never runs anything itself.
+//! equal their goldens. [`verdict`] and the helpers here are pure: they judge what a run found; [`run`] does the run.
 
 use std::collections::BTreeMap;
 
 use serde_json::{Value, json};
+
+mod steps;
+pub use steps::run;
+
+/// What the sample is converted from and judged by: the spec and the manifest it reads, the converter, the `@gsd`
+/// workspace it converts into, every crate (the binaries and the cited tests are built from them), the builtins, the
+/// build's own configuration, this check and the copy it makes, and its goldens.
+pub const TRIGGER: &[&str] = &[
+    "spec/**",
+    "specforge.json",
+    "xtask/Cargo.toml",
+    "xtask/src/absorb.rs",
+    "xtask/src/absorb/**",
+    "gsd/**",
+    "crates/**",
+    "extensions/**",
+    "Cargo.toml",
+    "Cargo.lock",
+    ".cargo/config.toml",
+    ".config/nextest.toml",
+    "gate/src/self_spec_sample.rs",
+    "gate/src/self_spec_sample/**",
+    "gate/src/gsd.rs",
+    "gate/src/checked_tree.rs",
+    "gate/golden/self-spec-sample/**",
+];
 
 /// Where the goldens live, from the repository root.
 pub const GOLDENS: &str = "gate/golden/self-spec-sample";
@@ -81,7 +107,7 @@ pub fn verdict(run: &SampleRun, goldens: &SampleGoldens, bless: bool) -> SampleV
         .iter()
         .filter(|d| severity(d) == "Warning" && d["machine"] == true)
         .collect();
-    let infos = infos(run);
+    let (infos, on_code) = infos(run);
     let info_count = infos.len();
     let infos = render(&infos);
     let errors = judged.iter().filter(|d| severity(d) == "Error").count();
@@ -90,6 +116,17 @@ pub fn verdict(run: &SampleRun, goldens: &SampleGoldens, bless: bool) -> SampleV
         judged.len() - errors,
         info_count
     ));
+    if !on_code.is_empty() {
+        let counts: Vec<String> = on_code
+            .iter()
+            .map(|(code, n)| format!("{code} {n}"))
+            .collect();
+        lines.push(format!(
+            "  {} infos on the collected code, counted, not golden: {}",
+            on_code.values().sum::<usize>(),
+            counts.join(", ")
+        ));
+    }
     for d in &judged {
         lines.push(format!(
             "  {} {}:{}: {}",
@@ -161,13 +198,28 @@ pub fn verdict(run: &SampleRun, goldens: &SampleGoldens, bless: bool) -> SampleV
     }
 }
 
-/// The run's infos (every diagnostic neither an error nor a warning) as `{code, file, message}`, the run's paths held
-/// as placeholders, sorted.
-fn infos(run: &SampleRun) -> Vec<Value> {
+/// The run's infos (every diagnostic neither an error nor a warning) on the converted project, as
+/// `{code, file, message}`, the run's paths held as placeholders, sorted; and the count by code of those placed in the
+/// code the collectors read. Those are about the whole workspace, a test anywhere naming an entity outside the sample,
+/// so they move with every change to the code, never with the conversion: a golden of them would be blessed on every
+/// change and so prove nothing.
+fn infos(run: &SampleRun) -> (Vec<Value>, BTreeMap<String, usize>) {
+    let mut on_code: BTreeMap<String, usize> = BTreeMap::new();
     let mut infos: Vec<Value> = run
         .diagnostics
         .iter()
         .filter(|d| !matches!(d["severity"].as_str(), Some("Error" | "Warning")))
+        .filter(|d| {
+            let file = file_of(d);
+            let converted =
+                file.is_empty() || file == "specforge.json" || file.starts_with("spec/");
+            if !converted {
+                *on_code
+                    .entry(d["code"].as_str().unwrap_or("?").to_string())
+                    .or_default() += 1;
+            }
+            converted
+        })
         .map(|d| {
             json!({
                 "code": d["code"].as_str().unwrap_or("?"),
@@ -177,7 +229,7 @@ fn infos(run: &SampleRun) -> Vec<Value> {
         })
         .collect();
     infos.sort_by_key(Value::to_string);
-    infos
+    (infos, on_code)
 }
 
 /// `values` as a pretty JSON array with a final newline.

@@ -1,0 +1,432 @@
+//! The run of the `self-spec-sample` check: build what it needs, copy the tracked tree twice, collect the source,
+//! absorb the WASM-host sample into the copy without a spec, collect the target and run its cited tests on the gate's
+//! own test build, check it, and judge what it found ([`super::verdict`]).
+//!
+//! Every `specforge` and `absorb` call runs with `HOME` under the run directory (a user's registries, consents and
+//! caches never reach it; `CARGO_HOME` and `RUSTUP_HOME` stay the user's, so the toolchain and the registry cache are
+//! the gate's), `SPECFORGE_CONSENT_FILE` in a `0700` directory emptied first, the gate's `CARGO_TARGET_DIR`, and no
+//! cargo credential variable (ADR 0288): a collector's command is a program the host runs, and keeps the rest of
+//! the environment. The cited tests run from the gate's own test build in a copy, so the run says so
+//! ([`COPY_OF_ENV`]: the test support then reads the checkout they were built under), and their own reports go to
+//! the run directory (`SPECFORGE_REPORT`), never into the shared `<target>/specforge` the `tests` check fills.
+
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::time::SystemTime;
+
+use serde_json::Value;
+
+use super::{
+    GOLDENS, SampleGoldens, SampleRun, Work, filterset, profile_dir, rust_test_profile, verdict,
+};
+use crate::checks::Selection;
+use crate::run::Ctx;
+
+/// The sample absorb converts.
+const SAMPLE: &str = "wasm-host";
+
+/// The extensions the converted project loads beside `@gsd/core`: the Rust packs that collect it and run its tests.
+const EXTENSIONS: [&str; 3] = ["@rust/cargo", "@rust/source", "@rust/test"];
+
+/// `@rust/test`'s committed declaration, which names the cargo profile its run builds with.
+const RUST_TEST_DECLARATION: &str =
+    "crates/runtime/component/tests/declarations/rust_test/describe_capabilities.json";
+
+/// The variable that says a run is in a copy of the checkout (`specforge_repo_root::COPY_OF_ENV`).
+const COPY_OF_ENV: &str = "SPECFORGE_CHECKOUT_COPY_OF";
+
+/// The variables a cargo credential or a registry's configuration lives in: never passed to a `specforge` call.
+const CREDENTIALS: [&str; 4] = [
+    "CARGO_REGISTRY_",
+    "CARGO_REGISTRIES_",
+    "CARGO_CREDENTIAL_",
+    "CARGO_HTTP_PROXY",
+];
+
+pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
+    let wasm = crate::gsd::build_wasm(ctx)?;
+    let specforge = ctx.specforge()?.to_path_buf();
+    let absorb = ctx.build("xtask", "absorb")?;
+    // The repository's test build: fresh after `build`, else compiled here, so the cited tests' run compiles nothing.
+    crate::steps::compile_tests(ctx)?;
+    let dir = ctx.repo.target_dir.join("gate/self-spec-sample");
+    let (source, target) = (dir.join("src"), dir.join("dst"));
+    let tracked = crate::steps::tracked_paths(ctx)?;
+    crate::checked_tree::copy_tracked(&ctx.repo.root, &tracked, &source)?;
+    let without_spec: Vec<String> = tracked
+        .iter()
+        .filter(|p| !p.starts_with("spec/") && p.as_str() != "specforge.json")
+        .cloned()
+        .collect();
+    crate::checked_tree::copy_tracked(&ctx.repo.root, &without_spec, &target)?;
+    let env = Env::prepare(&dir, &ctx.repo.root, &ctx.repo.target_dir)?;
+    let call = |program: &Path, args: &[&str]| {
+        let mut cmd = ctx.cmd(program);
+        env.apply(&mut cmd, std::env::vars().map(|(name, _)| name));
+        cmd.args(args);
+        cmd
+    };
+    let step = |what: &str, mut cmd: Command| -> Result<String, String> {
+        let (ok, out) = ctx.capture(&mut cmd)?;
+        if ok {
+            Ok(out)
+        } else {
+            let tail: String = out
+                .chars()
+                .rev()
+                .take(2000)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect();
+            Err(format!("{what} failed: {tail}"))
+        }
+    };
+    let collect = |project: &Path, runner: &str, filter: Option<&str>| {
+        let project = project.to_string_lossy();
+        let mut args = vec!["collect", "--path", &project, "--runner", runner];
+        if let Some(filter) = filter {
+            args.extend(["--filter", filter]);
+        }
+        args.extend(["--yes", "--effects", "online", "--format", "json"]);
+        step(
+            &format!("collect {runner} in {project}"),
+            call(&specforge, &args),
+        )
+    };
+    for runner in ["rust-cargo", "rust-source"] {
+        collect(&source, runner, None)?;
+    }
+    let (ledger, selection) = (dir.join("ledger.json"), dir.join("selection.json"));
+    let mut args: Vec<String> = [
+        "--from",
+        &source.to_string_lossy(),
+        "--to",
+        &target.to_string_lossy(),
+        "--only",
+        &format!("sample:{SAMPLE}"),
+        "--ledger",
+        &ledger.to_string_lossy(),
+        "--selection",
+        &selection.to_string_lossy(),
+    ]
+    .map(String::from)
+    .to_vec();
+    for extension in EXTENSIONS {
+        args.extend(["--extension".to_string(), extension.to_string()]);
+    }
+    let mut converting = call(
+        &absorb,
+        &args.iter().map(String::as_str).collect::<Vec<_>>(),
+    );
+    converting.env("GSD_CORE_WASM", &wasm.core);
+    let summary: Value = serde_json::from_str(&step("absorb", converting)?)
+        .map_err(|e| format!("absorb printed no JSON summary: {e}"))?;
+    let cited: Vec<String> = summary["cited_tests"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .map(String::from)
+        .collect();
+    let filter = filterset(&cited)?;
+    for runner in ["rust-cargo", "rust-source"] {
+        collect(&target, runner, None)?;
+    }
+    let declaration = read(&ctx.repo.root.join(RUST_TEST_DECLARATION))?;
+    let fingerprints = ctx
+        .repo
+        .target_dir
+        .join(profile_dir(&rust_test_profile(&declaration)?))
+        .join(".fingerprint");
+    let mark = SystemTime::now();
+    collect(&target, "rust-test", Some(&filter))?;
+    let compiled = built_since(&fingerprints, mark);
+    let ran = ran(&read(&target.join(".specforge/reports/rust-test.xml"))?);
+    let path = target.to_string_lossy();
+    // `check` exits non-zero on an error; its JSON is the verdict's to judge either way.
+    let (_, check) = ctx.capture(&mut call(
+        &specforge,
+        &[
+            "check",
+            "--path",
+            &path,
+            "--format",
+            "json",
+            "--effects",
+            "cached",
+        ],
+    ))?;
+    let diagnostics: Value = serde_json::from_str(&check)
+        .map_err(|e| format!("`specforge check` printed no JSON ({e}): {check}"))?;
+    let stats: Value = serde_json::from_str(&step(
+        "stats",
+        call(&specforge, &["stats", "--path", &path, "--format", "json"]),
+    )?)
+    .map_err(|e| format!("`specforge stats` printed no JSON: {e}"))?;
+    let found = SampleRun {
+        diagnostics: diagnostics.as_array().cloned().unwrap_or_default(),
+        selection: read(&selection)?,
+        ledger: read(&ledger)?,
+        paths: vec![
+            (source.to_string_lossy().into_owned(), "<source>"),
+            (target.to_string_lossy().into_owned(), "<target>"),
+            (wasm.core.to_string_lossy().into_owned(), "<gsd_core.wasm>"),
+            (dir.to_string_lossy().into_owned(), "<run>"),
+        ],
+        work: Work {
+            target_dir: built_in(&target),
+            compiled,
+            ran,
+            cited,
+            absorb: summary["work"].clone(),
+        },
+    };
+    let goldens_dir = ctx.repo.root.join(GOLDENS);
+    let golden = |name: &str| {
+        std::fs::read_to_string(goldens_dir.join(format!("{name}.json"))).unwrap_or_default()
+    };
+    let goldens = SampleGoldens {
+        selection: golden("selection"),
+        infos: golden("infos"),
+        ledger: golden("ledger"),
+    };
+    let bless = std::env::var_os("SPECFORGE_BLESS").is_some_and(|v| !v.is_empty());
+    let judged = verdict(&found, &goldens, bless);
+    for line in head(&found, &stats) {
+        ctx.log(&line);
+    }
+    for line in &judged.lines {
+        ctx.log(line);
+    }
+    if let Some(blessed) = &judged.bless {
+        std::fs::create_dir_all(&goldens_dir)
+            .map_err(|e| format!("{}: {e}", goldens_dir.display()))?;
+        for (name, text) in [
+            ("selection", &blessed.selection),
+            ("infos", &blessed.infos),
+            ("ledger", &blessed.ledger),
+        ] {
+            let path = goldens_dir.join(format!("{name}.json"));
+            std::fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))?;
+        }
+    }
+    if judged.failed {
+        let first = judged
+            .lines
+            .iter()
+            .find(|l| l.starts_with("  ") || l.contains("differs") || l.starts_with("not blessed"))
+            .map_or("the sample's verdict failed", |l| l.trim());
+        return Err(format!("{first} (read <target>/gate/self-spec-sample.log)"));
+    }
+    Ok(())
+}
+
+/// The environment of every `specforge` and `absorb` call of the run.
+struct Env {
+    home: PathBuf,
+    /// The checkout the copies are made from.
+    checkout: PathBuf,
+    /// Where the cited tests' own reports go.
+    reports: PathBuf,
+    cargo_home: Option<PathBuf>,
+    rustup_home: Option<PathBuf>,
+    consent: PathBuf,
+    target_dir: PathBuf,
+}
+
+/// An I/O error, naming the path it happened at.
+fn at(path: &Path) -> impl Fn(std::io::Error) -> String + '_ {
+    move |e| format!("{}: {e}", path.display())
+}
+
+impl Env {
+    /// The run's home (kept between runs: the extension compile cache lives there) and its consent file, removed
+    /// first, in a `0700` directory.
+    fn prepare(dir: &Path, checkout: &Path, target_dir: &Path) -> Result<Env, String> {
+        let (home, consents) = (dir.join("home"), dir.join("consent"));
+        std::fs::create_dir_all(&home).map_err(at(&home))?;
+        std::fs::create_dir_all(&consents).map_err(at(&consents))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&consents, std::fs::Permissions::from_mode(0o700))
+                .map_err(at(&consents))?;
+        }
+        // The cited tests' own reports of an earlier run are not this one's.
+        let reports = dir.join("test-reports");
+        match std::fs::remove_dir_all(&reports) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(at(&reports)(e)),
+            _ => {}
+        }
+        let consent = consents.join("consent.json");
+        match std::fs::remove_file(&consent) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(at(&consent)(e)),
+            _ => {}
+        }
+        let user = std::env::var_os("HOME").map(PathBuf::from);
+        let kept = |name: &str, under: &str| {
+            std::env::var_os(name)
+                .map(PathBuf::from)
+                .or_else(|| user.as_ref().map(|home| home.join(under)))
+        };
+        Ok(Env {
+            home,
+            checkout: checkout.to_path_buf(),
+            reports,
+            cargo_home: kept("CARGO_HOME", ".cargo"),
+            rustup_home: kept("RUSTUP_HOME", ".rustup"),
+            consent,
+            target_dir: target_dir.to_path_buf(),
+        })
+    }
+
+    /// Set the run's variables on `cmd` and remove each of `inherited` that names a cargo credential.
+    fn apply(&self, cmd: &mut Command, inherited: impl Iterator<Item = String>) {
+        cmd.env("HOME", &self.home)
+            .env(COPY_OF_ENV, &self.checkout)
+            .env("SPECFORGE_REPORT", &self.reports)
+            .env("SPECFORGE_CONSENT_FILE", &self.consent)
+            .env("CARGO_TARGET_DIR", &self.target_dir);
+        if let Some(cargo_home) = &self.cargo_home {
+            cmd.env("CARGO_HOME", cargo_home);
+        }
+        if let Some(rustup_home) = &self.rustup_home {
+            cmd.env("RUSTUP_HOME", rustup_home);
+        }
+        for name in credentials(inherited) {
+            cmd.env_remove(name);
+        }
+    }
+}
+
+/// The names among `names` a cargo credential or a registry's configuration lives in.
+fn credentials(names: impl Iterator<Item = String>) -> Vec<String> {
+    names
+        .filter(|name| CREDENTIALS.iter().any(|prefix| name.starts_with(prefix)))
+        .collect()
+}
+
+fn read(path: &Path) -> Result<String, String> {
+    std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))
+}
+
+/// The build units (fingerprint entries under `fingerprints`) a file of which was written at or after `mark`.
+fn built_since(fingerprints: &Path, mark: SystemTime) -> Vec<String> {
+    let newer = |path: &Path| {
+        std::fs::metadata(path)
+            .and_then(|m| m.modified())
+            .is_ok_and(|t| t >= mark)
+    };
+    let mut units: Vec<String> = std::fs::read_dir(fingerprints)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|unit| {
+            newer(&unit.path())
+                || std::fs::read_dir(unit.path())
+                    .into_iter()
+                    .flatten()
+                    .flatten()
+                    .any(|file| newer(&file.path()))
+        })
+        .map(|unit| unit.file_name().to_string_lossy().into_owned())
+        .collect();
+    units.sort();
+    units
+}
+
+/// Whether `project` holds a cargo build of its own: a `target` directory with anything but nextest's store
+/// (`target/nextest`, which nextest keeps under the workspace root whatever the target directory).
+fn built_in(project: &Path) -> bool {
+    std::fs::read_dir(project.join("target"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .any(|entry| entry.file_name() != "nextest")
+}
+
+/// The test ids a nextest JUnit report says ran (a `testcase` with no `skipped`), as absorb cites them:
+/// `rust:<classname>#<name>`.
+fn ran(junit: &str) -> Vec<String> {
+    let mut ids = Vec::new();
+    let mut rest = junit;
+    while let Some(start) = rest.find("<testcase ") {
+        rest = &rest[start..];
+        let open_end = rest.find('>').unwrap_or(rest.len());
+        let open = &rest[..open_end];
+        let body_end = if open.ends_with('/') {
+            open_end
+        } else {
+            rest.find("</testcase>").unwrap_or(rest.len())
+        };
+        let body = &rest[..body_end];
+        if let (Some(class), Some(name)) = (attribute(open, "classname"), attribute(open, "name"))
+            && !body.contains("<skipped")
+        {
+            ids.push(format!("rust:{class}#{name}"));
+        }
+        rest = &rest[open_end.min(rest.len())..];
+    }
+    ids.sort();
+    ids
+}
+
+/// The unescaped value of `name="…"` in an element's opening tag.
+fn attribute(open: &str, name: &str) -> Option<String> {
+    let key = format!(" {name}=\"");
+    let start = open.find(&key)? + key.len();
+    let end = open[start..].find('"')? + start;
+    Some(
+        open[start..end]
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&apos;", "'")
+            .replace("&amp;", "&"),
+    )
+}
+
+/// The log's head, the lines a pull request quotes: what was sampled, what the target holds, what ran, the work.
+fn head(run: &SampleRun, stats: &Value) -> Vec<String> {
+    let selection: std::collections::BTreeMap<String, Vec<String>> =
+        serde_json::from_str(&run.selection).unwrap_or_default();
+    let sampled: usize = selection.values().map(Vec::len).sum();
+    let kinds: Vec<String> = selection
+        .iter()
+        .map(|(k, ids)| format!("{k} {}", ids.len()))
+        .collect();
+    let counts: Vec<String> = stats["entity_counts"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|c| format!("{} {}", c["kind"].as_str().unwrap_or("?"), c["count"]))
+        .collect();
+    let work = &run.work;
+    vec![
+        format!(
+            "sample {SAMPLE}: {sampled} old entities ({})",
+            kinds.join(", ")
+        ),
+        format!(
+            "target: {} entities ({})",
+            stats["entity_count"],
+            counts.join(", ")
+        ),
+        format!(
+            "tests: {} cited, {} run, {} held as skipped (ignored), {} units compiled",
+            work.cited.len(),
+            work.ran.len(),
+            work.cited.len().saturating_sub(work.ran.len()),
+            work.compiled.len()
+        ),
+        format!(
+            "work: absorb compiles {}, edit plans {}; collects 5; checks 1",
+            work.absorb["compiles"], work.absorb["edit_plans"]
+        ),
+    ]
+}
+
+#[cfg(test)]
+#[path = "steps/tests.rs"]
+mod tests;

@@ -552,3 +552,40 @@ fn spec_modules_runs_when_the_module_file_or_a_manifest_changes() {
         Selection::Skip
     );
 }
+
+#[test]
+fn the_sample_check_runs_when_its_source_converter_kinds_tests_or_goldens_change() {
+    for path in [
+        "spec/governance/constraints.spec",
+        "specforge.json",
+        "xtask/src/absorb/select.rs",
+        "xtask/src/absorb.rs",
+        "xtask/Cargo.toml",
+        "gsd/core/src/kinds/project.rs",
+        "crates/app/ops/src/lib.rs",
+        "crates/runtime/component/tests/sandbox_limits.rs",
+        "extensions/rust/test/src/lib.rs",
+        "extensions/governance/wasm/specforge_ext_governance.wasm",
+        ".config/nextest.toml",
+        "gate/src/checked_tree.rs",
+        "gate/golden/self-spec-sample/ledger.json",
+    ] {
+        assert_eq!(
+            selection("self-spec-sample", Mode::Quick, &[path]),
+            Selection::Everything,
+            "{path}"
+        );
+    }
+    for path in [
+        "docs/guide.md",
+        "xtask/src/revendor.rs",
+        "examples/shop/spec/a.spec",
+        "evaluation/tasks.json",
+    ] {
+        assert_eq!(
+            selection("self-spec-sample", Mode::Quick, &[path]),
+            Selection::Skip,
+            "{path}"
+        );
+    }
+}
