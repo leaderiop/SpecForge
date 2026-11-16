@@ -4520,6 +4520,7 @@ version = "0.3.0"
 dependencies = [
  "git2",
  "gix",
+ "libc",
  "regex",
  "specforge-common",
  "specforge-effects",

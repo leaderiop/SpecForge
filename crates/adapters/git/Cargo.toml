@@ -30,5 +30,9 @@ specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 tempfile = { workspace = true }
 
+# The password database's record of the running user: what git reads for `~user/`, not `HOME`.
+[target.'cfg(unix)'.dev-dependencies]
+libc = "0.2"
+
 [lints]
 workspace = true

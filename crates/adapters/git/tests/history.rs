@@ -36,6 +36,46 @@ fn baseline(path: &Path) -> bool {
         || path.file_name().is_some_and(|n| n == "specforge-harness")
 }
 
+/// The running user's name and home as the password database holds them, the record git reads to interpolate
+/// `~user/` (`getpwnam`); `HOME` and `USER` play no part. `None` for a user the database does not hold.
+#[cfg(unix)]
+#[expect(
+    unsafe_code,
+    reason = "getpwuid_r fills a record and a buffer this function owns, read before they drop"
+)]
+fn running_user() -> Option<(String, std::path::PathBuf)> {
+    use std::ffi::{CStr, OsStr};
+    use std::os::unix::ffi::OsStrExt;
+    let mut buffer = vec![0 as libc::c_char; 16 * 1024];
+    // SAFETY: an all-zero `passwd` is a valid value of the plain C struct; getpwuid_r overwrites it.
+    let mut record: libc::passwd = unsafe { std::mem::zeroed() };
+    let mut found: *mut libc::passwd = std::ptr::null_mut();
+    // SAFETY: every pointer names a live local, and the buffer's length is the one passed.
+    let status = unsafe {
+        libc::getpwuid_r(
+            libc::getuid(),
+            &mut record,
+            buffer.as_mut_ptr(),
+            buffer.len(),
+            &mut found,
+        )
+    };
+    if status != 0 || found.is_null() {
+        return None;
+    }
+    // SAFETY: on success both fields point into `buffer`, NUL-terminated, and `buffer` is still alive.
+    let (name, home) = unsafe {
+        (
+            CStr::from_ptr(record.pw_name),
+            CStr::from_ptr(record.pw_dir),
+        )
+    };
+    Some((
+        name.to_str().ok()?.to_string(),
+        OsStr::from_bytes(home.to_bytes()).into(),
+    ))
+}
+
 /// Where `repo` is, as the port locates it.
 fn place(repo: &Repo) -> GitPlace {
     match Gix::default().locate(repo.dir()) {
