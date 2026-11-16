@@ -30,9 +30,10 @@ built with the test profile), each figure with its command in `../SpecForge-plan
   `specforge-provider-gh`. The research's 42 of 54 stands.
 - **11 rows** of the absorb table wait for a package (`later(Package)` in `xtask/src/absorb/table.rs`): eight of a
   module's own fields (`family`, `description`, `features`, `depends_on`, `reason`, `tags`, `ports`, `ports_defined`),
-  and `deliverable.modules`, `milestone.modules` and `term.module`. The whole-spec trial ledgered 260 values against
-  them: module `family` 54, `description` 54, `tags` 54, `features` 26, `depends_on` 44, deliverable `modules` 12 and
-  milestone `modules` 16 (`../SpecForge-planning/r4b/trial/ledger-by-class.md`). `reason`, `ports`, `ports_defined`
+  and `deliverable.modules`, `milestone.modules` and `term.module`. The whole-spec trial ledgered 260
+  entries (one per entity and field) against them: module `family` 54, `description` 54, `tags` 54, `features` 26,
+  `depends_on` 44, deliverable `modules` 12 and milestone `modules` 16
+  (`../SpecForge-planning/r4b/trial/ledger.json`, grouped by kind and field). `reason`, `ports`, `ports_defined`
   and `term.module` held no value.
 - `@gsd/core` already declares `@code/core` an optional peer (`c.optional_peer("@code/core", ...)` in
   `gsd/core/src/lib.rs`), so a project may load one without the other.
@@ -76,7 +77,7 @@ A module with no reference is valid: the reference is optional.
 - The gates that read modules (`spec-modules`, `crate-map`) are re-pointed at this kind at the swap.
 - Whether a module's `depends_on` agrees with its package's manifest dependencies is not checked by this decision;
   the round's requirements list it as a future requirement, outside this milestone.
-- The 11 table rows that wait for a package get homes when the kind lands, and the package pending (260 ledgered values
+- The 11 table rows that wait for a package get homes when the kind lands, and the package pending (260 ledger entries
   in the trial) clears with them.
 
 ## Would reopen it
