@@ -589,3 +589,34 @@ fn the_sample_check_runs_when_its_source_converter_kinds_tests_or_goldens_change
         );
     }
 }
+
+/// The sample runs where its cost is paid only for a change that can break it: a quick run, and CI's `ci --since` on a
+/// pull request (which chooses as quick), each when a path it watches changed; full and ci runs always; the
+/// pre-commit hook never.
+#[test]
+fn the_sample_runs_in_quick_and_a_pull_requests_ci_on_its_paths_and_never_in_the_hook() {
+    for path in [
+        "spec/a.spec",
+        "crates/leaf/cycles/src/lib.rs",
+        "gsd/core/src/lib.rs",
+    ] {
+        assert_eq!(
+            selection("self-spec-sample", Mode::Hook, &[path]),
+            Selection::Skip,
+            "{path}"
+        );
+        assert_eq!(
+            selection("self-spec-sample", Mode::Quick, &[path]),
+            Selection::Everything,
+            "{path}"
+        );
+    }
+    assert_eq!(
+        selection("self-spec-sample", Mode::Quick, &["docs/guide.md"]),
+        Selection::Skip
+    );
+    assert_eq!(
+        selection("self-spec-sample", Mode::Ci, &[]),
+        Selection::Everything
+    );
+}

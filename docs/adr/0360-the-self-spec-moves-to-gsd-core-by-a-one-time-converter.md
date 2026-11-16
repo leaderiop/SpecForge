@@ -221,7 +221,10 @@ converted on every change that can move it, by a check of `cargo gate`, and must
   reason, chosen by what it is: the first judged diagnostic, else the first broken bound, else the first golden that
   differs; the counted infos on the code follow the judged lines and never stand first.
 - **D17. CI runs it in the `build` job**, after the test archive is uploaded: only that job holds the test build the
-  run reuses (the archive carries no fingerprints). Its rust-cache gains `gsd -> target/gsd`. The `tests` jobs run
+  run reuses (the archive carries no fingerprints). It runs on every push to `main` and on every pull request whose
+  diff reaches its trigger paths: `ci --since` chooses as a quick run does, so the check's reach stays `Quick` (a
+  `Full` reach would skip it on every pull request). The job installs z3, as the `tests` jobs do, for a cited test
+  that proves with it. Its rust-cache gains `gsd -> target/gsd`. The `tests` jobs run
   `if: ${{ !cancelled() }}`, so a red sample never hides the partitions.
 - **D18. W061 reads no fact's reference.** A converted invariant's `proof` lists the tests that prove it, and each of
   them names the invariant in its attribute (`names`, ADR 0346 D8): the two edges are one claim made from both ends,
@@ -257,9 +260,11 @@ converted on every change that can move it, by a check of `cargo gate`, and must
   times its severity, at or above the default `risk_block_on` (100) whatever the severity; with no invariant to
   mitigate it, that is `gsd/W532`: the warning an unrated, unmitigated risk should give, not a gap in the conversion.
 - The root project does not move here: its swap is its own change, with D9's choice.
-- `cargo gate` (quick, and the hook's quick run) builds the `@gsd/core` wasm, `absorb` and the workspace's tests, and
-  runs the sample's cited tests, whenever a spec, `@gsd`, crate, extension or converter path changed: the sample's
-  cost is paid on every change that can break it, and only then.
+- `cargo gate` (quick) and a pull request's CI build the `@gsd/core` wasm, `absorb` and the workspace's tests, and
+  run the sample's cited tests, whenever a spec, `@gsd`, crate, extension or converter path changed: the sample's
+  cost is paid on every change that can break it, and only then. The pre-commit hook (`cargo gate hook`) reaches
+  only the hook's checks and never runs it. Measured on a warm local target, the test build already there: 391 s
+  for the check alone, 0 units compiled, 41 cited tests run.
 - A spec edit that breaks the sample (a new warning on a converted value, a test attribute whose text drifted from
   its obligation) fails the gate in the pull request that made it, at its source; a change the sample should show is
   a golden diff, blessed and reviewed.

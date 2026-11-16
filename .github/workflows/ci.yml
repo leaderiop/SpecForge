@@ -137,6 +137,9 @@ jobs:
           if-no-files-found: ignore
           compression-level: 0
           retention-days: 1
+      # A cited test may prove with z3, as the `tests` jobs' do.
+      - name: Install z3 (SMT solver for prove tests)
+        run: sudo apt-get update && sudo apt-get install -y z3
       # Here, after the archive: the cited tests' run must compile nothing, and only this job holds the test build
       # it reuses. A shard of its own would build the workspace's tests a second time.
       - run: cargo gate ci --only self-spec-sample ${{ github.event_name == 'pull_request' && format('--since origin/{0}', github.base_ref) || '' }}
