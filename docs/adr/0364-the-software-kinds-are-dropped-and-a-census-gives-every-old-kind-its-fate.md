@@ -115,8 +115,9 @@ change's design.
 ## D3. A release becomes a version milestone
 
 A release becomes a version milestone, and an old milestone becomes a phase under it. The owner decided so on
-2026-11-16. No `release` kind is added, and the 31 release-pending ledger entries have their home there. The mapping
-is the conversion change's design.
+2026-11-16. No `release` kind is added. Each of the 31 release-pending ledger entries gets a field gsd-core's
+milestone defines, or is dropped with its reason; which fields a milestone keeps is decided in a later ADR. The
+mapping is the conversion change's design.
 
 ## D4. The census holds per old kind and per entity
 
@@ -126,10 +127,10 @@ never summed against entities. The table above is the census's first reading.
 Its test lands with the conversion. Before the swap it reads the whole-spec run. After the swap it reads absorb's
 fixture projects under `xtask/tests/fixtures/`, which must hold every old kind.
 
-## D5. At the swap the root stops loading four old builtins
+## D5. At the swap the root stops loading the old builtins
 
-At the swap the root stops loading `@specforge/software`, `@specforge/testing`, `@specforge/formal` and
-`@specforge/cargo-test`
+At the swap the root stops loading its six old builtins, among them `@specforge/software`, `@specforge/testing`,
+`@specforge/formal` and `@specforge/cargo-test`, which declare the dropped software kinds and their tests
 ([ADR 0367](0367-the-self-spec-sample-retires-at-the-swap-and-absorb-stays-while-the-old-builtins-ship.md) D3 has the
 whole list). The root loads no `@gsd/core` before the swap, so it never loads two declarers of one keyword. No other
 project in the repository does either: no tracked `specforge.json` names `@gsd/core` at `f61370cb9`
