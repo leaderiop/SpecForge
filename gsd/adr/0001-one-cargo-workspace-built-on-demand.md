@@ -6,6 +6,9 @@
 and builds against an unreleased one with `[patch.crates-io]`) and
 [ADR 0292](../../docs/adr/0292-an-extension-contributes-agents-skills-commands-and-hooks.md) (a prompt or a body has no
 size limit). Kernel ADRs stay in `docs/adr/`; the family's own live here and move with the folder.
+D4, the Rejected item "A committed blob listed in `COMMITTED`", and D5, D6 and D7 as far as they build the wasm or name
+`GSD_CORE_WASM` are superseded by [ADR 0366](../../docs/adr/0366-gsd-core-is-vendored-as-a-builtin-with-a-size-allowance-of-its-own.md)
+(2026-11-16): `@gsd/core` is vendored as a committed builtin.
 
 ## Context
 
