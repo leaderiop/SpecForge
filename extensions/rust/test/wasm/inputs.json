@@ -9,7 +9,7 @@
     "crates/leaf/protocol-types/src/calls/collect.rs": "0c3c76ea80dd4c6a05396627fc20a209022ae8dbe34640be3790fd4f06269b50",
     "crates/leaf/protocol-types/src/calls/evidence.rs": "f10687676e8c14a0cf4046bf35e57366087df4b698104329efd164e707a4d983",
     "crates/leaf/protocol-types/src/calls/facts.rs": "9aa11df0902f2393c0f758d2ddb0e8747cc4d4afda5a0faff8b20e31ec6d710e",
-    "crates/leaf/protocol-types/src/capability.rs": "3b9e8648ebb886d6146566b4f5e7c4c302b52a034ce284c2b4302d13c34983b7",
+    "crates/leaf/protocol-types/src/capability.rs": "4627081c09404e932df880773cfc6dc9784b443866228b02c25e6248cc68b59e",
     "crates/leaf/protocol-types/src/checks.rs": "ee4ed29565dc59dcfd60d7b024f2353c0786cee4bbadb444fbe3a9ef42fbfe66",
     "crates/leaf/protocol-types/src/code_catalog.rs": "de6900b40ec736a8dbcc88073914de8db54c1d80a35ad482b4a092c2b19d5ea4",
     "crates/leaf/protocol-types/src/command_args.rs": "ec81e38e7b000cc15b4b7c26e9fe5de602f0d98764c3af4f466e6225c41866b1",
@@ -42,7 +42,7 @@
     "crates/runtime/extension-sdk-macros/Cargo.toml": "2845656f0847efeddb37aecc91031adc3396747949aa0e090cdad31644824544",
     "crates/runtime/extension-sdk-macros/src/lib.rs": "05b9dfd092444a55acc0993f35172ee3d0e4db9b6b1bed77682ce912ba54f67a",
     "crates/runtime/extension-sdk/Cargo.toml": "41c03d21f457d3e7394d86a625742a525700ac1ddcb92b49487e0fc5dcaa2797",
-    "crates/runtime/extension-sdk/src/builders.rs": "4a6409689b1debcd2e7fce975399c1d039950d8e383b7154524fa730b84634ac",
+    "crates/runtime/extension-sdk/src/builders.rs": "e45afa38f2e245d9938c6dbb0e0a09978f89cc45788d04fdcd0eb28b06f6643e",
     "crates/runtime/extension-sdk/src/capability.rs": "e6c88ecbe2e9ce2a5c6da397559ec9f846183bb9142f37765b1b329a0bf16667",
     "crates/runtime/extension-sdk/src/checker.rs": "4d89b64155c3a6fce020c07e432eb9f6d38320e14b3d4623fd89a3f7ae7ea3e7",
     "crates/runtime/extension-sdk/src/command_graph.rs": "e88d26d3134c7591aa1afeee1f432ecdf0437a191c23b5d2eb50a50a0b7e5562",
@@ -76,6 +76,6 @@
     "extensions/code/junit/src/xml.rs": "fa399f0b4782f298aaf8a2407f25c6112a9c40dbcf98951def06f8e06976dc20",
     "extensions/rust/test/Cargo.lock": "1fb6f6b819ab1252e8f2d604133bfddefde77856486b1628b58e237016575b5e",
     "extensions/rust/test/Cargo.toml": "04bd7f58112bb61c7852dcb03408a6188a1c08f4e1ca04ea5c9a4ce564900d2f",
-    "extensions/rust/test/src/lib.rs": "426d8cb40ed00ba5e8b41a60005cf5d6cb01788324519dd57ab51e95166464cd"
+    "extensions/rust/test/src/lib.rs": "0519bc860737c1f479ce225d52b5cc6cc08c705ba889b539a1824e94161bd71c"
   }
 }
