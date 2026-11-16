@@ -172,8 +172,11 @@ converted on every change that can move it, by a check of `cargo gate`, and must
   `.git` files by absolute path: a watched path under the package is kept relative, and a copy without `.git` would
   rerun it. The run declares the copy (`SPECFORGE_CHECKOUT_COPY_OF`, naming the checkout), so the test support's
   guard against a stale shared target directory passes, and the tests read the checkout they were built under. The
-  bound, checked on every run and never blessed: no fingerprint entry of the profile `rust-test` builds
-  with (read from `@rust/test`'s declaration: `test`, so `debug`) written during the run; no cargo build in
+  bound, checked on every run and never blessed: no build unit's fingerprint of the profile `rust-test` builds
+  with (read from `@rust/test`'s declaration: `test`, so `debug`) written during the run. The units are found where
+  cargo says it builds (`cargo metadata`'s `build_directory`, run in the copy, so a `build.build-dir` moves them
+  too), in either layout (`.fingerprint/<unit>`, or `build/<package>/<hash>/fingerprint` from cargo 1.100), and
+  none found before or after the run fails the check: a fingerprint cargo keeps elsewhere never reads as 0 units; no cargo build in
   `dst/target` (nextest's own store, `target/nextest`, which nextest keeps under the workspace root whatever the target
   directory, is not one); every test that ran is cited; absorb's work exactly 3 compiles and 1 edit plan.
 - **D16. The verdict and its goldens.** An error, or a warning that is not the machine's, fails the check and is

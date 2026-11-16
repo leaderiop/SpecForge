@@ -142,14 +142,19 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
         collect(&target, runner, None)?;
     }
     let declaration = read(&ctx.repo.root.join(RUST_TEST_DECLARATION))?;
-    let fingerprints = ctx
-        .repo
-        .target_dir
-        .join(profile_dir(&rust_test_profile(&declaration)?))
-        .join(".fingerprint");
+    let mut metadata = call(
+        Path::new("cargo"),
+        &["metadata", "--format-version", "1", "--no-deps"],
+    );
+    // In the copy, as nextest runs there: cargo reads its configuration (`build.build-dir`) from where it runs.
+    metadata.current_dir(&target);
+    let build_dir = build_directory(&step("cargo metadata", metadata)?)?;
+    let profile = build_dir.join(profile_dir(&rust_test_profile(&declaration)?));
+    // The positive control: the gate's test build is there, so a unit the run compiles can be seen.
+    units(&profile)?;
     let mark = SystemTime::now();
     collect(&target, "rust-test", Some(&filter))?;
-    let compiled = built_since(&fingerprints, mark);
+    let compiled = built_since(&units(&profile)?, mark);
     let ran = ran(&read(&target.join(".specforge/reports/rust-test.xml"))?);
     let path = target.to_string_lossy();
     // `check` exits non-zero on an error; its JSON is the verdict's to judge either way.
@@ -321,29 +326,74 @@ fn read(path: &Path) -> Result<String, String> {
     std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))
 }
 
-/// The build units (fingerprint entries under `fingerprints`) a file of which was written at or after `mark`.
-fn built_since(fingerprints: &Path, mark: SystemTime) -> Vec<String> {
+/// Cargo's build directory, from `cargo metadata`'s JSON: `build_directory` (which `build.build-dir` moves), else
+/// `target_directory`, for a cargo that reports none.
+fn build_directory(metadata: &str) -> Result<PathBuf, String> {
+    let metadata: Value = serde_json::from_str(metadata)
+        .map_err(|e| format!("`cargo metadata` printed no JSON: {e}"))?;
+    metadata["build_directory"]
+        .as_str()
+        .or_else(|| metadata["target_directory"].as_str())
+        .map(PathBuf::from)
+        .ok_or_else(|| "`cargo metadata` names no build or target directory".into())
+}
+
+/// Each build unit's fingerprint directory under `profile` (a profile's directory in cargo's build directory), by
+/// unit name, sorted: `.fingerprint/<unit>` in the layout every unit shares, `build/<package>/<hash>/fingerprint`
+/// (named `<package>-<hash>`) in the one that gives each unit its own directory (cargo 1.100). None found is an
+/// error, never "nothing compiled": the bound cannot be judged where cargo keeps no fingerprint.
+fn units(profile: &Path) -> Result<Vec<(String, PathBuf)>, String> {
+    let entries = |dir: &Path| {
+        std::fs::read_dir(dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|entry| {
+                (
+                    entry.file_name().to_string_lossy().into_owned(),
+                    entry.path(),
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    let mut units = entries(&profile.join(".fingerprint"));
+    for (package, at) in entries(&profile.join("build")) {
+        for (hash, unit) in entries(&at) {
+            if unit.join("fingerprint").is_dir() {
+                units.push((format!("{package}-{hash}"), unit.join("fingerprint")));
+            }
+        }
+    }
+    if units.is_empty() {
+        return Err(format!(
+            "{}: no build unit's fingerprint (neither `.fingerprint/` nor `build/*/*/fingerprint/`), so the bound \
+             of 0 units compiled cannot be judged",
+            profile.display()
+        ));
+    }
+    units.sort();
+    Ok(units)
+}
+
+/// The names of `units` whose fingerprint directory, or a file in it, was written at or after `mark`.
+fn built_since(units: &[(String, PathBuf)], mark: SystemTime) -> Vec<String> {
     let newer = |path: &Path| {
         std::fs::metadata(path)
             .and_then(|m| m.modified())
             .is_ok_and(|t| t >= mark)
     };
-    let mut units: Vec<String> = std::fs::read_dir(fingerprints)
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter(|unit| {
-            newer(&unit.path())
-                || std::fs::read_dir(unit.path())
+    units
+        .iter()
+        .filter(|(_, dir)| {
+            newer(dir)
+                || std::fs::read_dir(dir)
                     .into_iter()
                     .flatten()
                     .flatten()
                     .any(|file| newer(&file.path()))
         })
-        .map(|unit| unit.file_name().to_string_lossy().into_owned())
-        .collect();
-    units.sort();
-    units
+        .map(|(name, _)| name.clone())
+        .collect()
 }
 
 /// Whether `project` holds a cargo build of its own: a `target` directory with anything but nextest's store

@@ -126,20 +126,59 @@ fn only_a_cargo_build_in_the_project_is_a_build_of_its_own() {
 }
 
 #[test]
-fn a_unit_written_after_the_mark_was_compiled() {
+fn a_unit_written_after_the_mark_was_compiled_in_either_layout() {
     let dir = tempfile::tempdir().unwrap();
-    for unit in ["old-1", "new-2"] {
+    // The shared layout (`.fingerprint/<unit>`) and the one with a directory per unit (cargo 1.100).
+    let fingerprints = [
+        ".fingerprint/old-1",
+        ".fingerprint/new-2",
+        "build/pkg/aaaa/fingerprint",
+        "build/pkg/bbbb/fingerprint",
+    ];
+    for unit in fingerprints {
         std::fs::create_dir_all(dir.path().join(unit)).unwrap();
         std::fs::write(dir.path().join(unit).join("lib-x"), "").unwrap();
     }
+    // A unit directory with no fingerprint (a binary's own output) is no unit.
+    std::fs::create_dir_all(dir.path().join("build/pkg/cccc/out")).unwrap();
     let past = SystemTime::now() - std::time::Duration::from_secs(3600);
-    for path in ["old-1/lib-x", "old-1", "new-2"] {
+    for path in [
+        ".fingerprint/old-1/lib-x",
+        ".fingerprint/old-1",
+        ".fingerprint/new-2",
+        "build/pkg/aaaa/fingerprint/lib-x",
+        "build/pkg/aaaa/fingerprint",
+        "build/pkg/bbbb/fingerprint",
+    ] {
         let file = std::fs::File::open(dir.path().join(path)).unwrap();
         file.set_modified(past).unwrap();
     }
+    let units = units(dir.path()).unwrap();
+    let names: Vec<&str> = units.iter().map(|(name, _)| name.as_str()).collect();
+    assert_eq!(names, ["new-2", "old-1", "pkg-aaaa", "pkg-bbbb"]);
     let mark = SystemTime::now() - std::time::Duration::from_secs(60);
-    assert_eq!(built_since(dir.path(), mark), ["new-2"]);
-    assert!(built_since(&dir.path().join("none"), mark).is_empty());
+    assert_eq!(built_since(&units, mark), ["new-2", "pkg-bbbb"]);
+}
+
+#[test]
+fn no_fingerprint_where_cargo_builds_is_an_error_never_nothing_compiled() {
+    let dir = tempfile::tempdir().unwrap();
+    let missing = units(&dir.path().join("debug")).unwrap_err();
+    assert!(missing.contains("cannot be judged"), "{missing}");
+    std::fs::create_dir_all(dir.path().join("debug/.fingerprint")).unwrap();
+    std::fs::create_dir_all(dir.path().join("debug/build/pkg/aaaa/out")).unwrap();
+    let empty = units(&dir.path().join("debug")).unwrap_err();
+    assert!(empty.contains("cannot be judged"), "{empty}");
+}
+
+#[test]
+fn the_build_directory_is_cargos_own_else_its_target_directory() {
+    let both = r#"{"target_directory": "/t", "build_directory": "/b", "packages": []}"#;
+    assert_eq!(build_directory(both).unwrap(), PathBuf::from("/b"));
+    let older = r#"{"target_directory": "/t", "packages": []}"#;
+    assert_eq!(build_directory(older).unwrap(), PathBuf::from("/t"));
+    assert!(build_directory("{}").is_err());
+    assert!(build_directory("warning: not JSON").is_err());
 }
 
 #[test]
