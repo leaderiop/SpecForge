@@ -324,6 +324,41 @@ fn packages_map_changed_paths_to_members_and_manifests_to_everything() {
 }
 
 #[test]
+fn a_file_outside_the_workspace_that_a_member_tests_read_selects_that_member() {
+    let golden = "gsd/core/tests/golden/kinds.json";
+    // `gsd/` is its own workspace: the golden belongs to no member, yet two members' tests read it.
+    assert!(this_repo().member_of(golden).is_none());
+    for check in ["build", "tests"] {
+        assert_eq!(
+            selection(check, Mode::Quick, &[golden]),
+            only(&["specforge-component", "xtask"]),
+            "{check}"
+        );
+    }
+    assert_eq!(
+        selection(
+            "tests",
+            Mode::Quick,
+            &[golden, "crates/surfaces/lsp/src/lib.rs"]
+        ),
+        only(&["specforge-component", "specforge-lsp", "xtask"])
+    );
+    // Another file of `gsd/` is read by no member's test.
+    assert_eq!(
+        selection("tests", Mode::Quick, &["gsd/core/src/lib.rs"]),
+        Selection::Skip
+    );
+    // The file exists and the readers it names are members of the real workspace (`this_repo` lists a few).
+    let repo = Repo::discover().unwrap();
+    for (file, readers) in READ_FROM_OUTSIDE {
+        assert!(repo.root.join(file).is_file(), "{file}");
+        for reader in *readers {
+            assert!(repo.members.iter().any(|m| &m.name == reader), "{reader}");
+        }
+    }
+}
+
+#[test]
 fn doctests_run_for_the_changed_members_that_hold_one() {
     assert_eq!(
         selection(

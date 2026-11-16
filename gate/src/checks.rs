@@ -283,7 +283,7 @@ pub static CHECKS: &[Check] = &[
         proves: "every workspace test binary and the CLI build",
         reach: Reach::Quick,
         trigger: Trigger::Computed(
-            "a workspace member; the root manifest, lockfile or nextest config",
+            "a workspace member, or a file outside it that a member's tests read; the root manifest, lockfile or nextest config",
             packages,
         ),
         compiles: true,
@@ -309,7 +309,7 @@ pub static CHECKS: &[Check] = &[
         proves: "the workspace tests pass (quick: the changed crates and their dependents)",
         reach: Reach::Quick,
         trigger: Trigger::Computed(
-            "a workspace member; the root manifest, lockfile or nextest config",
+            "a workspace member, or a file outside it that a member's tests read; the root manifest, lockfile or nextest config",
             packages,
         ),
         compiles: false,
@@ -548,9 +548,32 @@ fn blobs_fed(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
     ))
 }
 
+/// Files outside the root workspace (`gsd/` is its own) that tests of a member read, each with the members whose
+/// tests read it: a change to the file is no change to any member, so `member_of` cannot reach them.
+const READ_FROM_OUTSIDE: &[(&str, &[&str])] = &[(
+    "gsd/core/tests/golden/kinds.json",
+    &["specforge-component", "xtask"],
+)];
+
+/// The members holding a changed path, and the members that read a changed file outside the workspace
+/// ([`READ_FROM_OUTSIDE`]); a change to the root manifest, the lockfile or nextest's config reaches every member.
+fn packages(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
+    let reached = member_packages(repo, changes)?;
+    let readers: BTreeSet<String> = READ_FROM_OUTSIDE
+        .iter()
+        .filter(|(file, _)| !changes.matching(&[file]).is_empty())
+        .flat_map(|(_, members)| members.iter().map(|m| m.to_string()))
+        .collect();
+    Ok(match reached {
+        Selection::Only(names) => only(names.into_iter().chain(readers).collect()),
+        Selection::Skip => only(readers),
+        Selection::Everything => Selection::Everything,
+    })
+}
+
 /// The members holding a changed path; a change to the root manifest, the lockfile or nextest's config reaches every
 /// member.
-fn packages(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
+fn member_packages(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
     if !changes
         .matching(&["Cargo.toml", "Cargo.lock", ".config/nextest.toml"])
         .is_empty()
@@ -565,9 +588,9 @@ fn packages(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
     Ok(only(names))
 }
 
-/// `packages`, narrowed to the members whose sources hold a runnable doctest.
+/// `member_packages`, narrowed to the members whose sources hold a runnable doctest.
 fn doctest_packages(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
-    let reached = packages(repo, changes)?;
+    let reached = member_packages(repo, changes)?;
     let Selection::Only(names) = reached else {
         return Ok(reached);
     };
