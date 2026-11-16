@@ -74,3 +74,40 @@ fn a_copy_keeps_each_file_s_modification_time() {
         assert_eq!(mode & 0o777, 0o755, "a tracked script stays executable");
     }
 }
+
+#[test]
+fn a_read_only_tracked_file_is_copied_with_its_time_and_mode_and_copied_over() {
+    let repo = tempfile::tempdir().unwrap();
+    let root = repo.path();
+    let file = root.join("locked.txt");
+    std::fs::write(&file, "kept\n").unwrap();
+    let an_hour_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
+    std::fs::File::options()
+        .write(true)
+        .open(&file)
+        .unwrap()
+        .set_modified(an_hour_ago)
+        .unwrap();
+    let mut read_only = std::fs::metadata(&file).unwrap().permissions();
+    read_only.set_readonly(true);
+    std::fs::set_permissions(&file, read_only).unwrap();
+    let tracked = ["locked.txt".to_string()];
+    let scratch = tempfile::tempdir().unwrap();
+    let into = scratch.path().join("tree");
+    // Twice: the second run empties a copy that holds a read-only file.
+    for _ in 0..2 {
+        copy_tracked(root, &tracked, &into).unwrap();
+        let copy = std::fs::metadata(into.join("locked.txt")).unwrap();
+        assert!(copy.permissions().readonly());
+        assert_eq!(copy.modified().unwrap(), an_hour_ago);
+        assert_eq!(
+            std::fs::read_to_string(into.join("locked.txt")).unwrap(),
+            "kept\n"
+        );
+    }
+    // The temporary directories are removed by their owner: give the original its write bit back first.
+    let mut writable = std::fs::metadata(&file).unwrap().permissions();
+    #[allow(clippy::permissions_set_readonly_false, reason = "a test's own file")]
+    writable.set_readonly(false);
+    std::fs::set_permissions(&file, writable).unwrap();
+}
