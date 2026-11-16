@@ -788,6 +788,60 @@
     {
       "kind": "failure_mode",
       "id": "circular_peer_dependency",
+      "field": "cause",
+      "value": "Extension A requires Extension B as a peer, and B requires A (or a longer chain closes back): no load order puts each after its required peers",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "circular_peer_dependency",
+      "field": "detection",
+      "value": "likely",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "circular_peer_dependency",
+      "field": "effect",
+      "value": "Without detection the order silently breaks 'dependencies first', and first-wins registration (E026, W018, enhancements, surfaces) follows whichever was listed first",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "circular_peer_dependency",
+      "field": "invariant",
+      "value": "peer_dependency_satisfaction",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "circular_peer_dependency",
+      "field": "mitigation",
+      "value": "The registry build finds each strongly connected set of required peers and reports it once as E027 naming its extensions, in every compile (check, the LSP, MCP, doctor); the members still load, together, in entry order. Optional peers that would close a cycle are only a preference and are dropped from the order (ADR 0041)",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "circular_peer_dependency",
+      "field": "occurrence",
+      "value": "unlikely",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "circular_peer_dependency",
       "field": "post_mitigation",
       "value": {
         "detection": "certain",
@@ -796,10 +850,7 @@
         "severity": "high"
       },
       "why": {
-        "computed": {
-          "field": "risk.post_rpn",
-          "new": 7
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -808,10 +859,16 @@
       "field": "rpn",
       "value": 24,
       "why": {
-        "computed": {
-          "field": "risk.rpn",
-          "new": 63
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "circular_peer_dependency",
+      "field": "severity",
+      "value": "high",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -823,7 +880,75 @@
         "text": "Circular Peer Dependency failure mode is handled"
       },
       "why": {
-        "later": "truth"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "collector_output_malformation",
+      "field": "cause",
+      "value": "Collector extension produces output that does not conform to specforge-report/v1 schema — e.g., missing entries array, invalid entity IDs, wrong schema version",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "collector_output_malformation",
+      "field": "detection",
+      "value": "moderate",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "collector_output_malformation",
+      "field": "effect",
+      "value": "Coverage ingestion fails or produces incorrect results — developer sees wrong coverage statistics or missing test mappings",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "collector_output_malformation",
+      "field": "invariant",
+      "value": "collector_output_conformance",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "collector_output_malformation",
+      "field": "mitigation",
+      "value": "Schema validation on all collector output before ingestion; malformed output produces ExtensionError with specific field-level details; partial ingestion of valid entries with warnings for invalid ones",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "collector_output_malformation",
+      "field": "occurrence",
+      "value": "unlikely",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "collector_output_malformation",
+      "field": "post_mitigation",
+      "value": {
+        "detection": "certain",
+        "occurrence": "rare",
+        "rpn": 5,
+        "severity": "medium"
+      },
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -832,19 +957,27 @@
       "field": "rpn",
       "value": 30,
       "why": {
-        "computed": {
-          "field": "risk.rpn",
-          "new": 75
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "collector_output_malformation",
+      "field": "severity",
+      "value": "medium",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
       "kind": "failure_mode",
       "id": "collector_output_malformation",
       "field": "threatens_features",
-      "value": "product_health_metric",
+      "value": [
+        "product_health_metric"
+      ],
       "why": {
-        "out_of_selection": "product_health_metric"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -856,7 +989,75 @@
         "text": "Collector Output Malformation failure mode is handled"
       },
       "why": {
-        "later": "truth"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "entity_kind_collision_undetected",
+      "field": "cause",
+      "value": "Two extensions register the same entity kind name but the KindRegistry fails to detect the collision — e.g., race condition or case-insensitive match not checked",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "entity_kind_collision_undetected",
+      "field": "detection",
+      "value": "likely",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "entity_kind_collision_undetected",
+      "field": "effect",
+      "value": "One extension's entity kind silently shadows the other — entities parsed incorrectly, wrong validation rules applied, corrupted graph",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "entity_kind_collision_undetected",
+      "field": "invariant",
+      "value": "entity_kind_uniqueness",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "entity_kind_collision_undetected",
+      "field": "mitigation",
+      "value": "The registry build checks every kind registration against the kinds earlier-loaded extensions registered; a duplicate is E026 and the first registration wins; property-based tests with random kind name combinations",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "entity_kind_collision_undetected",
+      "field": "occurrence",
+      "value": "unlikely",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "entity_kind_collision_undetected",
+      "field": "post_mitigation",
+      "value": {
+        "detection": "certain",
+        "occurrence": "rare",
+        "rpn": 7,
+        "severity": "high"
+      },
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -865,19 +1066,27 @@
       "field": "rpn",
       "value": 28,
       "why": {
-        "computed": {
-          "field": "risk.rpn",
-          "new": 63
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "entity_kind_collision_undetected",
+      "field": "severity",
+      "value": "high",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
       "kind": "failure_mode",
       "id": "entity_kind_collision_undetected",
       "field": "threatens_features",
-      "value": "product_entity_registration",
+      "value": [
+        "product_entity_registration"
+      ],
       "why": {
-        "out_of_selection": "product_entity_registration"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -889,7 +1098,61 @@
         "text": "Entity Kind Collision Undetected failure mode is handled"
       },
       "why": {
-        "later": "truth"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "extension_initialization_failure",
+      "field": "cause",
+      "value": "Extension .wasm module missing or exporting wrong initialize() signature — e.g., built with incompatible PDK version",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "extension_initialization_failure",
+      "field": "detection",
+      "value": "likely",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "extension_initialization_failure",
+      "field": "effect",
+      "value": "Extension entities not registered — references to extension entities produce E001 instead of I004, misleading developers into thinking entities are misspelled",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "extension_initialization_failure",
+      "field": "invariant",
+      "value": "extension_isolation",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "extension_initialization_failure",
+      "field": "mitigation",
+      "value": "Detect missing/wrong initialize() at loadModule phase before any export calls; transition extension to failed state; emit diagnostic with PDK version hint; continue loading remaining extensions",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "extension_initialization_failure",
+      "field": "occurrence",
+      "value": "occasional",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -903,10 +1166,7 @@
         "severity": "high"
       },
       "why": {
-        "computed": {
-          "field": "risk.post_rpn",
-          "new": 7
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -915,10 +1175,16 @@
       "field": "rpn",
       "value": 36,
       "why": {
-        "computed": {
-          "field": "risk.rpn",
-          "new": 105
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "extension_initialization_failure",
+      "field": "severity",
+      "value": "high",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -930,7 +1196,61 @@
         "text": "Extension Initialization Failure failure mode is handled"
       },
       "why": {
-        "later": "truth"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "host_function_type_violation",
+      "field": "cause",
+      "value": "Extension sends malformed or unexpected data through a host function — e.g., invalid JSON to specforge.add_graph_node, wrong schema to specforge.emit_diagnostic",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "host_function_type_violation",
+      "field": "detection",
+      "value": "moderate",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "host_function_type_violation",
+      "field": "effect",
+      "value": "Host processes corrupted data — wrong graph nodes added, invalid diagnostics emitted, graph corruption possible",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "host_function_type_violation",
+      "field": "invariant",
+      "value": "host_function_type_safety",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "host_function_type_violation",
+      "field": "mitigation",
+      "value": "Schema validation on every host function input; malformed data returns ExtensionError to extension; integration tests with deliberately malformed extension inputs",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "host_function_type_violation",
+      "field": "occurrence",
+      "value": "unlikely",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -944,10 +1264,7 @@
         "severity": "critical"
       },
       "why": {
-        "computed": {
-          "field": "risk.post_rpn",
-          "new": 10
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -956,10 +1273,16 @@
       "field": "rpn",
       "value": 48,
       "why": {
-        "computed": {
-          "field": "risk.rpn",
-          "new": 150
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "host_function_type_violation",
+      "field": "severity",
+      "value": "critical",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -971,7 +1294,75 @@
         "text": "Host Function Type Safety Violation failure mode is handled"
       },
       "why": {
-        "later": "truth"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "manifest_schema_mismatch",
+      "field": "cause",
+      "value": "Extension built against an outdated manifest schema — field names and semantics differ between versions",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "manifest_schema_mismatch",
+      "field": "detection",
+      "value": "moderate",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "manifest_schema_mismatch",
+      "field": "effect",
+      "value": "Manifest fields misinterpreted — entity registrations wrong, peer dependencies ignored, sandbox policy defaults applied instead of declared values",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "manifest_schema_mismatch",
+      "field": "invariant",
+      "value": "peer_dependency_satisfaction",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "manifest_schema_mismatch",
+      "field": "mitigation",
+      "value": "the handshake's protocol version is checked at load time: another major version fails the extension's load (E028); describe keys the protocol does not define produce W138; a sandbox declaration the host does not honour produces W153",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "manifest_schema_mismatch",
+      "field": "occurrence",
+      "value": "unlikely",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "manifest_schema_mismatch",
+      "field": "post_mitigation",
+      "value": {
+        "detection": "certain",
+        "occurrence": "rare",
+        "rpn": 5,
+        "severity": "medium"
+      },
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -980,19 +1371,27 @@
       "field": "rpn",
       "value": 30,
       "why": {
-        "computed": {
-          "field": "risk.rpn",
-          "new": 75
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "manifest_schema_mismatch",
+      "field": "severity",
+      "value": "medium",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
       "kind": "failure_mode",
       "id": "manifest_schema_mismatch",
       "field": "threatens_features",
-      "value": "product_entity_registration",
+      "value": [
+        "product_entity_registration"
+      ],
       "why": {
-        "out_of_selection": "product_entity_registration"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -1004,7 +1403,61 @@
         "text": "Manifest Schema Mismatch failure mode is handled"
       },
       "why": {
-        "later": "truth"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "peer_dependency_version_mismatch",
+      "field": "cause",
+      "value": "Extension A declares peer dependency on Extension B >=2.0, but Extension B version 1.x is installed — semver range check fails",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "peer_dependency_version_mismatch",
+      "field": "detection",
+      "value": "likely",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "peer_dependency_version_mismatch",
+      "field": "effect",
+      "value": "Extension initialization fails — entity types from dependent extension are unavailable, soft references degrade silently",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "peer_dependency_version_mismatch",
+      "field": "invariant",
+      "value": "peer_dependency_satisfaction",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "peer_dependency_version_mismatch",
+      "field": "mitigation",
+      "value": "Hard error on unsatisfied peer dependencies at startup; diagnostic includes installed vs required version; specforge add checks peers before installing",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "peer_dependency_version_mismatch",
+      "field": "occurrence",
+      "value": "unlikely",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -1018,10 +1471,7 @@
         "severity": "high"
       },
       "why": {
-        "computed": {
-          "field": "risk.post_rpn",
-          "new": 7
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -1030,10 +1480,16 @@
       "field": "rpn",
       "value": 24,
       "why": {
-        "computed": {
-          "field": "risk.rpn",
-          "new": 63
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "peer_dependency_version_mismatch",
+      "field": "severity",
+      "value": "high",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -1045,7 +1501,61 @@
         "text": "Peer Dependency Version Mismatch failure mode is handled"
       },
       "why": {
-        "later": "truth"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "registry_unavailability",
+      "field": "cause",
+      "value": "Registry endpoint is unreachable — DNS failure, network timeout, authentication error, or registry service outage",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "registry_unavailability",
+      "field": "detection",
+      "value": "likely",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "registry_unavailability",
+      "field": "effect",
+      "value": "Extension installation or upgrade fails — developer cannot add new extensions or update existing ones",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "registry_unavailability",
+      "field": "invariant",
+      "value": "registry_integrity",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "registry_unavailability",
+      "field": "mitigation",
+      "value": "Configurable timeout (default 10s) with retry guidance in diagnostic; offline fallback to local cache; diagnostic includes registry URL and HTTP status",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "registry_unavailability",
+      "field": "occurrence",
+      "value": "occasional",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -1059,10 +1569,7 @@
         "severity": "medium"
       },
       "why": {
-        "computed": {
-          "field": "risk.post_rpn",
-          "new": 15
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -1071,19 +1578,27 @@
       "field": "rpn",
       "value": 24,
       "why": {
-        "computed": {
-          "field": "risk.rpn",
-          "new": 75
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "registry_unavailability",
+      "field": "severity",
+      "value": "medium",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
       "kind": "failure_mode",
       "id": "registry_unavailability",
       "field": "threatens_features",
-      "value": "product_entity_registration",
+      "value": [
+        "product_entity_registration"
+      ],
       "why": {
-        "out_of_selection": "product_entity_registration"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -1095,7 +1610,75 @@
         "text": "Registry Unavailability failure mode is handled"
       },
       "why": {
-        "later": "truth"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_compile_cache_corruption",
+      "field": "cause",
+      "value": "A cached compilation artifact is corrupted — e.g., interrupted write, disk error, or engine/platform change after an OS upgrade",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_compile_cache_corruption",
+      "field": "detection",
+      "value": "unlikely",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_compile_cache_corruption",
+      "field": "effect",
+      "value": "Cache lookup misses or fails to deserialize — without engine validation this could serve wrong code; with it, the cost is only a lost cache entry",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_compile_cache_corruption",
+      "field": "invariant",
+      "value": "wasm_compile_cache_integrity",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_compile_cache_corruption",
+      "field": "mitigation",
+      "value": "Cache entries are keyed by component bytes and engine config and validated by the runtime engine; any corrupt or mismatched entry falls back to fresh compilation",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_compile_cache_corruption",
+      "field": "occurrence",
+      "value": "unlikely",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_compile_cache_corruption",
+      "field": "post_mitigation",
+      "value": {
+        "detection": "certain",
+        "occurrence": "rare",
+        "rpn": 2,
+        "severity": "low"
+      },
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -1104,10 +1687,16 @@
       "field": "rpn",
       "value": 40,
       "why": {
-        "computed": {
-          "field": "risk.rpn",
-          "new": 105
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_compile_cache_corruption",
+      "field": "severity",
+      "value": "medium",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -1119,7 +1708,61 @@
         "text": "Wasm Compile Cache Corruption failure mode is handled"
       },
       "why": {
-        "later": "truth"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_extension_crash",
+      "field": "cause",
+      "value": "Extension Wasm module traps during validate() or render() — e.g., out-of-bounds memory access, stack overflow, or unreachable instruction",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_extension_crash",
+      "field": "detection",
+      "value": "moderate",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_extension_crash",
+      "field": "effect",
+      "value": "Extension fails to complete its validation or export pass — diagnostics from that extension are lost, output may be incomplete",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_extension_crash",
+      "field": "invariant",
+      "value": "wasm_sandbox_integrity",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_extension_crash",
+      "field": "mitigation",
+      "value": "Wasmtime catches all traps and returns error; compiler wraps call in Result, emits ExtensionError with trap details; remaining extensions continue execution",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_extension_crash",
+      "field": "occurrence",
+      "value": "occasional",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -1133,10 +1776,7 @@
         "severity": "high"
       },
       "why": {
-        "computed": {
-          "field": "risk.post_rpn",
-          "new": 21
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -1145,19 +1785,27 @@
       "field": "rpn",
       "value": 54,
       "why": {
-        "computed": {
-          "field": "risk.rpn",
-          "new": 175
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_extension_crash",
+      "field": "severity",
+      "value": "high",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
       "kind": "failure_mode",
       "id": "wasm_extension_crash",
       "field": "threatens_features",
-      "value": "product_validation",
+      "value": [
+        "product_validation"
+      ],
       "why": {
-        "out_of_selection": "product_validation"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -1169,7 +1817,75 @@
         "text": "Wasm Extension Crash failure mode is handled"
       },
       "why": {
-        "later": "truth"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_host_function_timeout",
+      "field": "cause",
+      "value": "specforge.http_get host function makes a request to an unresponsive service — extension blocks waiting for network response",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_host_function_timeout",
+      "field": "detection",
+      "value": "likely",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_host_function_timeout",
+      "field": "effect",
+      "value": "Compilation hangs or takes excessively long — developer experiences unexplained delay",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_host_function_timeout",
+      "field": "invariant",
+      "value": "wasm_sandbox_integrity",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_host_function_timeout",
+      "field": "mitigation",
+      "value": "Enforce timeout on all http_get calls (default 5s); fuel metering caps total execution time per extension; timeout produces diagnostic with URL",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_host_function_timeout",
+      "field": "occurrence",
+      "value": "occasional",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_host_function_timeout",
+      "field": "post_mitigation",
+      "value": {
+        "detection": "certain",
+        "occurrence": "rare",
+        "rpn": 5,
+        "severity": "medium"
+      },
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -1178,10 +1894,16 @@
       "field": "rpn",
       "value": 30,
       "why": {
-        "computed": {
-          "field": "risk.rpn",
-          "new": 75
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_host_function_timeout",
+      "field": "severity",
+      "value": "medium",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -1193,7 +1915,61 @@
         "text": "Wasm Host Function Timeout failure mode is handled"
       },
       "why": {
-        "later": "truth"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_memory_exhaustion",
+      "field": "cause",
+      "value": "An extension grows its linear memory without bound (a leak across calls of a long session, or a hostile guest), up to the 4 GiB a wasm32 instance can address",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_memory_exhaustion",
+      "field": "detection",
+      "value": "moderate",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_memory_exhaustion",
+      "field": "effect",
+      "value": "The host process (CLI, LSP, MCP server) takes gigabytes of memory, slowing or killing the developer's session",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_memory_exhaustion",
+      "field": "invariant",
+      "value": "wasm_sandbox_integrity",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_memory_exhaustion",
+      "field": "mitigation",
+      "value": "The runtime's memory limiter holds each instance to its declared max_memory_mb, at most 512 MB; a growth past it traps the call (memory_limit_exceeded, E028) and the extension's next call gets a fresh instance",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_memory_exhaustion",
+      "field": "occurrence",
+      "value": "occasional",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -1207,10 +1983,7 @@
         "severity": "medium"
       },
       "why": {
-        "computed": {
-          "field": "risk.post_rpn",
-          "new": 5
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -1219,10 +1992,27 @@
       "field": "rpn",
       "value": 54,
       "why": {
-        "computed": {
-          "field": "risk.rpn",
-          "new": 175
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_memory_exhaustion",
+      "field": "severity",
+      "value": "high",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "wasm_memory_exhaustion",
+      "field": "threatens_features",
+      "value": [
+        "wasm_extension_runtime"
+      ],
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -1234,7 +2024,7 @@
         "text": "Wasm Memory Exhaustion failure mode is handled"
       },
       "why": {
-        "later": "truth"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {

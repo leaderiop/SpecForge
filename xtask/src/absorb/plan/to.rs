@@ -131,51 +131,6 @@ impl Planner<'_> {
                     draft.set(field, Input::One(written.to_string()));
                 }
             }
-            How::Sod(scale) => match how::rating(scale, value) {
-                Ok(n) => {
-                    if let Some(draft) = self.own(e) {
-                        draft.set(field, how::number(n));
-                    }
-                }
-                Err(why) => self.unconverted(e, row.field, value.clone(), &why),
-            },
-            How::Post => {
-                for (member, rated) in value.as_object().into_iter().flatten() {
-                    let scale = table::Scale::ALL.into_iter().find(|s| s.member() == member);
-                    match scale.map(|scale| how::rating(scale, rated)) {
-                        Some(Ok(n)) => {
-                            if let Some(draft) = self.own(e) {
-                                draft.member(field, member, how::number(n));
-                            }
-                        }
-                        Some(Err(why)) => self.unconverted(e, row.field, value.clone(), &why),
-                        // Its rpn is compared with the computed post_rpn.
-                        None if member == "rpn" => {}
-                        None => self.unconverted(
-                            e,
-                            row.field,
-                            value.clone(),
-                            &format!("the {member} member has no home in the post block"),
-                        ),
-                    }
-                }
-            }
-            How::PostWord(scale) => {
-                let member = scale.member();
-                let block = e.fields.get("post_mitigation");
-                if block.is_some_and(|block| block.get(member).is_some()) {
-                    let why = format!("post_mitigation's {member} is written in its place");
-                    return self.unconverted(e, row.field, value.clone(), &why);
-                }
-                match how::rating(scale, value) {
-                    Ok(n) => {
-                        if let Some(draft) = self.own(e) {
-                            draft.member(field, member, how::number(n));
-                        }
-                    }
-                    Err(why) => self.unconverted(e, row.field, value.clone(), &why),
-                }
-            }
             How::Bound => self.metric(e, field),
             // Read with the metric; alone, it joins the text.
             How::Threshold if e.fields.contains_key("metric") => {}

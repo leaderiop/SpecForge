@@ -52,19 +52,31 @@ fn every_old_governance_and_product_field_has_exactly_one_row() {
             }
             Home::Refused => "refused",
             Home::Default(_) => "default",
+            Home::Dropped(_) => "dropped",
         };
         *counts.entry(class).or_default() += 1;
     }
     assert_eq!(
         counts,
         BTreeMap::from([
-            ("to", 89),
-            ("computed", 4),
+            ("to", 74),
+            ("computed", 2),
             ("later", 31),
             ("refused", 16),
-            ("default", 1)
+            ("default", 1),
+            ("dropped", 17)
         ])
     );
+    for row in TABLE {
+        if row.homes.iter().any(|h| matches!(h, Home::Dropped(_))) {
+            assert!(
+                matches!(row.homes, [Home::Dropped(reason)] if !reason.trim().is_empty()),
+                "{}.{}: a dropped value has no other home, and a reason",
+                row.kind,
+                row.field
+            );
+        }
+    }
     assert_eq!(
         pending,
         BTreeMap::from([
@@ -107,8 +119,7 @@ fn written(how: How, old: Option<FieldType>) -> Vec<FieldType> {
         How::Steps | How::Options => vec![BlockList],
         How::FeatureTier | How::Outcome | How::Category | How::Priority => vec![Enum],
         How::Settled => vec![Bool],
-        How::Sod(_) => vec![Integer],
-        How::PostWord(_) | How::Post | How::Bound | How::Threshold => vec![Block],
+        How::Bound | How::Threshold => vec![Block],
     }
 }
 
@@ -165,8 +176,11 @@ fn every_home_names_a_field_the_gsd_core_golden_declares_of_the_type_it_writes()
             }
         }
     }
-    assert!(homes > 89, "{homes}");
-    assert!(typed >= 89, "{typed}");
+    assert_eq!(
+        (homes, typed),
+        (80, 76),
+        "every To and Computed home, and the To homes typed"
+    );
     for old in OLD_KINDS {
         if let Some(kind) = table::new_kind(old) {
             assert!(declared.contains_key(kind), "{old} → {kind}");

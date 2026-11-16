@@ -33,7 +33,8 @@ impl Scope {
     }
 
     /// The entities of `all` (every old entity of the absorbed kinds) this scope converts, in their order; refused
-    /// when it names an id that is no such entity, or one whose rows create nothing (a module, a release).
+    /// when it names an id that is no such entity, or one whose rows create nothing and drop nothing (a module, a
+    /// release). A failure mode, whose every value is ledgered `dropped`, may be named.
     pub fn select(&self, all: Vec<OldEntity>) -> Result<Vec<OldEntity>, String> {
         let Scope::Only(ids) = self else {
             return Ok(all);
@@ -42,7 +43,7 @@ impl Scope {
         for id in ids {
             match all.iter().find(|e| &e.id == id) {
                 None => refused.push(format!("'{id}' names no entity of the absorbed kinds")),
-                Some(e) if table::new_kind(&e.kind).is_none() => {
+                Some(e) if table::new_kind(&e.kind).is_none() && !table::drops(&e.kind) => {
                     refused.push(format!("'{id}' is a {}, which creates no entity", e.kind));
                 }
                 Some(_) => {}

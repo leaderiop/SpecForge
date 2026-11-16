@@ -7,7 +7,7 @@ use specforge_parser::lex::{is_entity_id, is_identifier};
 use specforge_parser::{CmpOp, Expr, ExprSpan, parse_expression};
 use std::collections::BTreeMap;
 
-use super::table::{Compare, How, Scale};
+use super::table::{Compare, How};
 
 /// Why a scheme reference in a list of texts is not written: the writer spells it bare, which names a `ref`.
 pub const SCHEME_REF: &str =
@@ -108,54 +108,6 @@ pub fn priority(word: &str) -> Mapped {
         "medium" | "low" => Mapped::Collapsed("could"),
         other => Mapped::Unknown(format!("'{other}' is no priority")),
     }
-}
-
-/// An FMEA rating word as its number on `scale` (ADR 0358 D8); a number from 1 to 10 is itself.
-pub fn rating(scale: Scale, value: &Value) -> Result<u64, String> {
-    if let Some(n) = value.as_u64() {
-        return if (1..=10).contains(&n) {
-            Ok(n)
-        } else {
-            Err(format!("{n} is outside 1 to 10"))
-        };
-    }
-    let word = value.as_str().unwrap_or_default();
-    let n = match (scale, word) {
-        (Scale::Severity, "critical") => 10,
-        (Scale::Severity, "high") => 7,
-        (Scale::Severity, "medium") => 5,
-        (Scale::Severity, "low") => 2,
-        (Scale::Occurrence, "certain") => 10,
-        (Scale::Occurrence, "likely") => 7,
-        (Scale::Occurrence, "occasional") => 5,
-        (Scale::Occurrence, "unlikely") => 3,
-        (Scale::Occurrence, "rare") => 1,
-        (Scale::Detection, "certain") => 1,
-        (Scale::Detection, "likely") => 3,
-        (Scale::Detection, "moderate") => 5,
-        (Scale::Detection, "unlikely") => 7,
-        (Scale::Detection, "undetectable") => 10,
-        _ => return Err(format!("{value} is no {} word", scale.member())),
-    };
-    Ok(n)
-}
-
-impl Scale {
-    /// The member of the `post` block, and the risk field, it rates.
-    pub fn member(self) -> &'static str {
-        match self {
-            Scale::Severity => "severity",
-            Scale::Occurrence => "occurrence",
-            Scale::Detection => "detection",
-        }
-    }
-
-    pub const ALL: [Scale; 3] = [Scale::Severity, Scale::Occurrence, Scale::Detection];
-}
-
-/// A rating as the input a number field takes.
-pub fn number(n: u64) -> Input {
-    Input::Number(n.into())
 }
 
 /// What an old `metric` (and `threshold`) writes: the metric record, if one line bounds it; the lines that join the
@@ -281,20 +233,12 @@ pub enum Expect {
     Value(Value),
     /// No new value equals it: always ledgered with the new one.
     Never,
-    /// Nothing to compare (the old value holds no such member).
-    Nothing,
 }
 
 /// The computed value the old `value` means under `compare`.
 pub fn expected(compare: Compare, value: &Value) -> Expect {
     match compare {
         Compare::Superseded => Expect::Value(json!(value.as_str() != Some("superseded"))),
-        Compare::Equal => Expect::Value(value.clone()),
-        Compare::PostRpn => value
-            .get("rpn")
-            .cloned()
-            .map_or(Expect::Nothing, Expect::Value),
-        Compare::Assessment => Expect::Never,
         Compare::Means(words) => words
             .iter()
             .find(|(old, _)| value.as_str() == Some(old))

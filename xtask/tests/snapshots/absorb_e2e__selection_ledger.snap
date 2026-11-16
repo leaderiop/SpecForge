@@ -113,12 +113,74 @@ expression: ledger
       "kind": "failure_mode",
       "id": "torn_write",
       "field": "affected_behaviors",
-      "value": "write_entry",
+      "value": [
+        "write_entry"
+      ],
       "why": {
-        "target_later": {
-          "target": "write_entry",
-          "pending": "behavior"
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "cause",
+      "value": "The process dies between two writes of one entry.",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "description",
+      "value": "The classic crash between write and rename.",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "detection",
+      "value": "unlikely",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "effect",
+      "value": "Half an entry is read back.",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "invariant",
+      "value": "writes_are_durable",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "mitigation",
+      "value": "Write to a temporary file, then rename it.",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "occurrence",
+      "value": "occasional",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -132,10 +194,18 @@ expression: ledger
         "severity": "high"
       },
       "why": {
-        "computed": {
-          "field": "risk.post_rpn",
-          "new": 21
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "refs",
+      "value": [
+        "FMEA worksheet 3"
+      ],
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -144,10 +214,25 @@ expression: ledger
       "field": "risk",
       "value": "high",
       "why": {
-        "computed": {
-          "field": "risk.rpn",
-          "new": 350
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "rpn",
+      "value": 350,
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "severity",
+      "value": "critical",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {
@@ -159,7 +244,7 @@ expression: ledger
         "text": "a killed writer leaves the old entry"
       },
       "why": {
-        "later": "truth"
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
     },
     {

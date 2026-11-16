@@ -29,6 +29,8 @@ pub enum Why {
     Created { kind: String, id: String },
     /// An obligation no test item states: the attributes that state it (`file:line`), none when none does.
     Unproven { tests: Vec<String> },
+    /// A value no `@gsd/core` field takes, with why: nothing is written for it.
+    Dropped(String),
 }
 
 /// One ledger row: the old entity, the old field (`title` for its header, `verify` for an obligation), its value as

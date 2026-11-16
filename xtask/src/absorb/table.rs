@@ -35,14 +35,8 @@ pub enum Home {
     Default(&'static str),
     /// No tracked project writes it and nothing holds it: a value stops the run (ADR 0357's refused class).
     Refused,
-}
-
-/// An FMEA rating's word scale (ADR 0358 D8).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Scale {
-    Severity,
-    Occurrence,
-    Detection,
+    /// No `@gsd/core` field takes the value: it is ledgered `dropped` with this reason and nothing is written.
+    Dropped(&'static str),
 }
 
 /// How a value is written to its `To` home.
@@ -76,12 +70,6 @@ pub enum How {
     Settled,
     /// Each string an option record `{name}`.
     Options,
-    /// A rating word as its number.
-    Sod(Scale),
-    /// A rating word as its number in the `post` block, unless `post_mitigation` writes that member.
-    PostWord(Scale),
-    /// `post_mitigation`'s rating words as the `post` block's numbers (its `rpn` is compared).
-    Post,
     /// The bound line of a metric (with the `threshold` field, when the metric is one name) as the `metric`
     /// record; the other lines join the entity's `text`.
     Bound,
@@ -98,12 +86,6 @@ pub enum How {
 pub enum Compare {
     /// A decision status: `in_force` is false exactly when the old status is `superseded`.
     Superseded,
-    /// The same value.
-    Equal,
-    /// `post_mitigation`'s `rpn` member.
-    PostRpn,
-    /// An assessment in words: no number equals it, so it is always ledgered with the new value.
-    Assessment,
     /// An old word and the computed word it means; a word not listed has no equal, so it is always ledgered.
     Means(&'static [(&'static str, &'static str)]),
 }
@@ -138,7 +120,6 @@ pub const OLD_KINDS: [&str; 13] = [
 
 const DECISION: &str = "decision";
 const REQUIREMENT: &str = "requirement";
-const RISK: &str = "risk";
 const INVARIANT: &str = "invariant";
 const JOURNEY: &str = "journey";
 const PERSONA: &str = "persona";
@@ -185,6 +166,13 @@ const fn later(pending: Pending) -> Home {
 
 const REFUSED: Home = Home::Refused;
 
+/// Why an old failure mode's values are dropped (ADR 0370 D2 and D8): gsd-core has no risk kind, so an old failure
+/// mode converts to nothing. A threat belongs to `@gsd/security`'s register, and needs a plan to name it.
+const NO_RISK: Home = Home::Dropped(
+    "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to \
+     @gsd/security's register and needs a plan",
+);
+
 /// `"kind": ["field" => [home, …], …] …`: one row per field, in written order.
 macro_rules! rows {
     ($($kind:literal: [$($field:literal => [$($home:expr),* $(,)?]),* $(,)?])*) => {
@@ -195,7 +183,6 @@ macro_rules! rows {
 use Compare::*;
 use How::*;
 use Pending::*;
-use Scale::*;
 
 pub const TABLE: &[Row] = rows! {
     // ADR 0359's conversion table.
@@ -236,26 +223,26 @@ pub const TABLE: &[Row] = rows! {
         "scope" => [REFUSED],
         "verify" => [later(Truth)],
     ]
-    // ADR 0358 D8: the word scale and field map.
+    // ADR 0370 D8: an old failure mode converts to nothing.
     "failure_mode": [
-        "severity" => [to(RISK, "severity", Sod(Severity))],
-        "occurrence" => [to(RISK, "occurrence", Sod(Occurrence))],
-        "detection" => [to(RISK, "detection", Sod(Detection))],
-        "post_mitigation" => [to(RISK, "post", Post), computed(RISK, "post_rpn", PostRpn)],
-        "post_severity" => [to(RISK, "post", PostWord(Severity))],
-        "post_occurrence" => [to(RISK, "post", PostWord(Occurrence))],
-        "post_detection" => [to(RISK, "post", PostWord(Detection))],
-        "rpn" => [computed(RISK, "rpn", Equal)],
-        "cause" => [to(RISK, "cause", As)],
-        "effect" => [to(RISK, "effect", As)],
-        "mitigation" => [to(RISK, "mitigation", As)],
-        "invariant" => [to(RISK, "mitigated_by", Refs)],
-        "threatens_features" => [to(RISK, "affects", Refs)],
-        "affected_behaviors" => [to(RISK, "affects", Refs)],
-        "description" => [to(RISK, "description", As)],
-        "refs" => [to(RISK, "refs", As)],
-        "risk" => [computed(RISK, "rpn", Assessment)],
-        "verify" => [later(Truth)],
+        "severity" => [NO_RISK],
+        "occurrence" => [NO_RISK],
+        "detection" => [NO_RISK],
+        "post_mitigation" => [NO_RISK],
+        "post_severity" => [NO_RISK],
+        "post_occurrence" => [NO_RISK],
+        "post_detection" => [NO_RISK],
+        "rpn" => [NO_RISK],
+        "cause" => [NO_RISK],
+        "effect" => [NO_RISK],
+        "mitigation" => [NO_RISK],
+        "invariant" => [NO_RISK],
+        "threatens_features" => [NO_RISK],
+        "affected_behaviors" => [NO_RISK],
+        "description" => [NO_RISK],
+        "refs" => [NO_RISK],
+        "risk" => [NO_RISK],
+        "verify" => [NO_RISK],
     ]
     // ADR 0358 D9.
     "invariant": [
@@ -386,12 +373,11 @@ pub const TABLE: &[Row] = rows! {
 };
 
 /// The `@gsd/core` kind an old kind's entity becomes, keeping its id; none for module and release, whose rows create
-/// no entity.
+/// no entity, and for failure_mode, whose values are dropped.
 pub fn new_kind(old: &str) -> Option<&'static str> {
     match old {
         "decision" => Some(DECISION),
         "constraint" | "feature" => Some(REQUIREMENT),
-        "failure_mode" => Some(RISK),
         "invariant" => Some(INVARIANT),
         "journey" => Some(JOURNEY),
         "persona" => Some(PERSONA),
@@ -399,6 +385,12 @@ pub fn new_kind(old: &str) -> Option<&'static str> {
         "milestone" | "deliverable" => Some(MILESTONE),
         _ => None,
     }
+}
+
+/// Whether every row of an old kind drops its value: its entities convert to nothing, each value ledgered `dropped`.
+pub fn drops(old: &str) -> bool {
+    let mut rows = rows_of(old).peekable();
+    rows.peek().is_some() && rows.all(|row| matches!(row.homes, [Home::Dropped(_)]))
 }
 
 /// The rows of an old kind, in table order.

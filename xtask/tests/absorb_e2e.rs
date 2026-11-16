@@ -85,8 +85,8 @@ fn all_thirteen_kinds_convert_with_no_error_and_no_warning() {
     );
     assert_eq!(
         (&run.summary["converted"], &run.summary["created"]),
-        (&json!(28), &json!(1)),
-        "every entity but the module and the release, and one feature's solution: {}",
+        (&json!(26), &json!(1)),
+        "every entity but the module, the release and the two failure modes, and one feature's solution: {}",
         run.summary
     );
     let journeys = std::fs::read_to_string(a.join("spec/product/journeys.spec")).unwrap();
@@ -146,8 +146,8 @@ fn a_selection_converts_only_its_entities_and_checks_clean() {
     assert_eq!(run.summary["target"]["warnings"], 0, "{}", run.summary);
     assert_eq!(
         (&run.summary["converted"], &run.summary["created"]),
-        (&json!(9), &json!(1)),
-        "the nine selected ids and the selected feature's solution: {}",
+        (&json!(8), &json!(1)),
+        "the nine selected ids but the failure mode, and the selected feature's solution: {}",
         run.summary
     );
     let tree = spec_tree(&to);
@@ -421,47 +421,6 @@ fn the_target_keeps_the_source_spec_root_and_version() {
         ledger.contains("\"field\": \"specforge.json.version\""),
         "a version the source lacks is filled: {ledger}"
     );
-}
-
-/// A failure mode that names no invariant and rates neither its occurrence nor its detection converts: both are filled
-/// at 10, the worst (ledgered), so its rpn is at or above `risk_block_on`, and a risk that high that nothing mitigates
-/// is gsd/W532 in the target. That is the warning an unrated, unmitigated risk should give, not a converter gap.
-#[test]
-#[ignore = "needs GSD_CORE_WASM"]
-fn an_unrated_failure_mode_with_no_invariant_is_w532_in_the_target() {
-    let dir = tempfile::tempdir().unwrap();
-    let (old, to) = (dir.path().join("old"), dir.path().join("new"));
-    std::fs::create_dir_all(old.join("spec")).unwrap();
-    std::fs::write(
-        old.join("specforge.json"),
-        r#"{"name": "risky", "spec_root": "spec", "extensions": ["@specforge/governance"]}"#,
-    )
-    .unwrap();
-    std::fs::write(
-        old.join("spec/failure-modes.spec"),
-        "failure_mode lost_power \"Lost Power\" {\n  severity high\n  cause    \"The machine loses power mid-write.\"\n  \
-         effect   \"The last entry is gone.\"\n}\n",
-    )
-    .unwrap();
-    let run = absorb(&["--from", path(&old), "--to", path(&to)]);
-    assert_eq!(run.code, 0, "{}", run.stderr);
-    assert_eq!(run.summary["target"]["errors"], 0, "{}", run.summary);
-    let findings: Vec<&str> = run.summary["target"]["findings"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|f| f.as_str().unwrap())
-        .collect();
-    assert_eq!(findings.len(), 1, "{findings:#?}");
-    assert!(findings[0].starts_with("gsd/W532 "), "{findings:#?}");
-    assert!(findings[0].contains("lost_power"), "{findings:#?}");
-    let ledger = std::fs::read_to_string(to.join("absorb-ledger.json")).unwrap();
-    for filled in ["risk.occurrence", "risk.detection"] {
-        assert!(
-            ledger.contains(&format!("\"field\": \"{filled}\"")),
-            "{ledger}"
-        );
-    }
 }
 
 /// A source at `old` whose one term is `blocker`, an id the target reserves (gsd declares a `blocker` kind).

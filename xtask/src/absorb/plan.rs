@@ -213,9 +213,6 @@ fn solution_id(id: &str) -> String {
     format!("{id}_solution")
 }
 
-/// The rating a missing occurrence or detection is filled with: the worst, so an unrated risk is never read as low.
-const UNRATED: u64 = 10;
-
 /// One entity being written: its create's parts.
 #[derive(Debug, Clone)]
 struct Draft {
@@ -241,17 +238,6 @@ impl Draft {
                 held.push_str(&text);
             }
             _ => self.set(field, Input::One(text)),
-        }
-    }
-
-    /// `value` as the member `member` of the block `field`, unless the block holds it already.
-    fn member(&mut self, field: &str, member: &str, value: Input) {
-        let entry = self
-            .fields
-            .entry(field.to_string())
-            .or_insert_with(|| Input::Block(BTreeMap::new()));
-        if let Input::Block(block) = entry {
-            block.entry(member.to_string()).or_insert(value);
         }
     }
 
@@ -404,7 +390,6 @@ impl Planner<'_> {
                 let expected = match how::expected(compare, value) {
                     how::Expect::Value(expected) => Some(expected),
                     how::Expect::Never => None,
-                    how::Expect::Nothing => return,
                 };
                 self.checks.push(Check {
                     kind: e.kind.clone(),
@@ -430,6 +415,15 @@ impl Planner<'_> {
             }
             // A refused value stopped the run before planning.
             Home::Refused => {}
+            Home::Dropped(reason) => {
+                self.ledger.record(
+                    &e.kind,
+                    &e.id,
+                    row.field,
+                    value.clone(),
+                    Why::Dropped(reason.to_string()),
+                );
+            }
         }
     }
 
@@ -523,10 +517,6 @@ impl Planner<'_> {
                     "tier",
                     Input::One(how::feature_tier(how::FEATURE_DEFAULT).to_string()),
                 ),
-            ],
-            "risk" => vec![
-                ("occurrence", how::number(UNRATED)),
-                ("detection", how::number(UNRATED)),
             ],
             _ => Vec::new(),
         };

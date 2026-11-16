@@ -163,6 +163,24 @@ fn a_selected_module_or_release_id_is_refused() {
 }
 
 #[test]
+fn a_selected_failure_mode_is_kept_and_its_values_dropped() {
+    let all = [
+        old("failure_mode", "torn", json!({"severity": "high"})),
+        decision("a", json!({})),
+    ];
+    let planned = selected(&all, &["a", "torn"]);
+    assert_eq!(created(&planned), ["a"]);
+    assert!(
+        matches!(
+            ledgered(&planned, "torn").as_slice(),
+            [(field, Why::Dropped(_))] if field == "severity"
+        ),
+        "{:?}",
+        ledgered(&planned, "torn")
+    );
+}
+
+#[test]
 fn a_selected_feature_brings_its_solution_decision() {
     let all = [
         old("feature", "f", json!({"problem": "P", "solution": "S"})),
