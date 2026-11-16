@@ -9,8 +9,8 @@ use crate::entity::EntityRecord;
 use crate::{CandidateVocabulary, KindRegistry};
 
 /// E024 for every entity whose kind is neither structural (`spec`, `ref`,
-/// `use`, `define`) nor registered, with the extension that would declare
-/// it as the suggestion when the candidate vocabulary knows one.
+/// `use`, `define`) nor registered, with every extension that declares it
+/// as the suggestion when the candidate vocabulary knows one.
 pub(super) fn unknown(
     entities: &[EntityRecord],
     kinds: &KindRegistry,
@@ -48,9 +48,10 @@ const KINDS_NAMED: usize = 5;
 /// extension is loaded, so I002 does not say so), yet the project writes
 /// entities that are not structural; the kind, field and identifier checks
 /// do not run on them. One diagnostic names how many and of which kinds
-/// (sorted, unique, at most five), with the extension that declares the first
-/// kind as the suggestion when the candidate vocabulary knows one. It has
-/// no span: it is about the project, like I002.
+/// (sorted, unique, at most five). Its suggestion installs an extension that
+/// declares the first kind, naming every one the candidate vocabulary knows,
+/// each with its command ([`CandidateVocabulary::kind_install`], ADR 0369 D2),
+/// else searches for one. It has no span: it is about the project, like I002.
 pub(super) fn unchecked(
     entities: &[EntityRecord],
     loaded: bool,
@@ -79,16 +80,12 @@ pub(super) fn unchecked(
         1 => (1, "entity", "is"),
         n => (n, "entities", "are"),
     };
-    let suggestion = match candidates.kind_owner(first) {
-        Some(ext) => format!(
-            "install it with: {}",
-            specforge_common::remedy::command("specforge add {}", &[ext])
-        ),
-        None => format!(
+    let suggestion = candidates.kind_install(first).unwrap_or_else(|| {
+        format!(
             "enable the extension that declares them; search with: {}",
             specforge_common::remedy::command("specforge extensions search {}", &[first])
-        ),
-    };
+        )
+    });
     vec![
         Diagnostic::new(
             codes::W151,

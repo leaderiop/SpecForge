@@ -349,15 +349,19 @@ mod tests {
         );
     }
 
-    /// A collector reading the facts of a kind its optional peer declares: inert while the peer is not loaded, as a
-    /// route part into the peer's kind is (ADR 0331 D7); a kind no candidate declares is still W021.
-    #[test]
-    fn a_facts_input_of_an_unloaded_optional_peers_kind_is_inert() {
-        let mut peer = ContributionsBuilder::new(ExtensionMeta::new("@acme/code", "1.0.0"));
-        peer.kind("item", |k| {
+    /// `name` declaring the collected kind `item`.
+    fn item_declared_by(name: &str) -> ExtensionDeclaration {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(name, "1.0.0"));
+        c.kind("item", |k| {
             k.collected(&["js"]);
         });
-        let candidates = crate::CandidateVocabulary::of(&[peer.declaration()]).unwrap();
+        c.declaration()
+    }
+
+    /// The messages about `@acme/plans`, loaded alone, whose collector reads the facts of `item` and of `nothing`
+    /// and whose optional peer is `@acme/code`, with the vocabulary `candidates` declare.
+    fn plans_reading_item(candidates: &[ExtensionDeclaration]) -> Vec<String> {
+        let candidates = crate::CandidateVocabulary::of(candidates).unwrap();
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/plans", "1.0.0"));
         c.optional_peer("@acme/code", "^1.0");
         c.collector("reader", |k| {
@@ -366,13 +370,28 @@ mod tests {
         });
         let declaration = c.declaration();
         let unloaded = UnloadedPeers::of(&declaration, &["@acme/plans"], &candidates);
-        assert_eq!(
-            problems(&declaration, std::slice::from_ref(&declaration), &unloaded),
-            [
-                "extension '@acme/plans': collector 'reader' declares the facts of kind 'nothing', which is not \
-                 served: no loaded extension declares it collector-written"
-            ]
-        );
+        problems(&declaration, std::slice::from_ref(&declaration), &unloaded)
+    }
+
+    const NOTHING_IS_W021: &str = "extension '@acme/plans': collector 'reader' declares the facts of kind 'nothing', \
+                                   which is not served: no loaded extension declares it collector-written";
+
+    /// A collector reading the facts of a kind its optional peer declares: inert while the peer is not loaded, as a
+    /// route part into the peer's kind is (ADR 0331 D7); a kind no candidate declares is still W021.
+    #[test]
+    fn a_facts_input_of_an_unloaded_optional_peers_kind_is_inert() {
+        let found = plans_reading_item(&[item_declared_by("@acme/code")]);
+        assert_eq!(found, [NOTHING_IS_W021]);
+    }
+
+    #[test]
+    fn a_facts_input_of_a_kind_the_unloaded_peer_and_another_candidate_declare_is_inert() {
+        // `@aaa/other` is the first declarer of `item`: an answer that takes it misses the peer `@acme/code`.
+        let found = plans_reading_item(&[
+            item_declared_by("@acme/code"),
+            item_declared_by("@aaa/other"),
+        ]);
+        assert_eq!(found, [NOTHING_IS_W021]);
     }
 
     #[test]

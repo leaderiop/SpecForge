@@ -177,7 +177,8 @@ impl CandidateVocabulary {
 
 /// The optional peers of one declaration the project does not load, and the kinds the candidate
 /// vocabulary credits to them (ADR 0331 D7): a judged chain or a route part of the declaration that
-/// reaches one of those kinds is inert. Any other kind no loaded extension declares is a mistake
+/// reaches one of those kinds is inert. A kind several candidates declare is a peer's when one of
+/// them is that peer (ADR 0369 D2). Any other kind no loaded extension declares is a mistake
 /// (W112, E118), a misspelt one or a peer's the vocabulary does not know alike.
 pub(crate) struct UnloadedPeers<'a> {
     peers: Vec<&'a str>,
@@ -205,11 +206,13 @@ impl<'a> UnloadedPeers<'a> {
         self.peers.contains(&extension)
     }
 
-    /// Whether one of them declares the kind written `keyword`.
+    /// Whether one of them declares the kind written `keyword`: any of its declarers, whatever
+    /// other candidates declare it too (ADR 0369 D2).
     pub(crate) fn declare(&self, keyword: &str) -> bool {
         self.candidates
-            .kind_owner(keyword)
-            .is_some_and(|owner| self.peers.contains(&owner))
+            .kind_owners(keyword)
+            .iter()
+            .any(|owner| self.peers.contains(owner))
     }
 }
 
@@ -378,6 +381,31 @@ mod tests {
         );
         assert!(v.kind_owners("feature").is_empty());
         assert!(v.is_empty());
+    }
+
+    #[test]
+    fn an_unloaded_optional_peer_declares_a_keyword_another_candidate_declares_too() {
+        let gizmo = |name: &str| {
+            declare(name, |c| {
+                c.kind("Gizmo", |k| {
+                    k.keyword("gizmo");
+                });
+            })
+        };
+        let candidates = CandidateVocabulary::of(&[gizmo("@x/peer"), gizmo("@a/first")]).unwrap();
+        // The peer is the second declarer: an answer that takes the first, `@a/first`, misses it.
+        assert_eq!(candidates.kind_owners("gizmo"), ["@a/first", "@x/peer"]);
+        let wanting = |peer: &str| {
+            declare("@x/plans", |c| {
+                c.optional_peer(peer, "^1.0");
+            })
+        };
+        let plans = wanting("@x/peer");
+        assert!(UnloadedPeers::of(&plans, &[], &candidates).declare("gizmo"));
+        assert!(!UnloadedPeers::of(&plans, &["@x/peer"], &candidates).declare("gizmo"));
+        assert!(!UnloadedPeers::of(&plans, &[], &candidates).declare("xyzzy"));
+        let elsewhere = wanting("@x/none");
+        assert!(!UnloadedPeers::of(&elsewhere, &[], &candidates).declare("gizmo"));
     }
 
     #[test]

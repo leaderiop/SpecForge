@@ -1,6 +1,6 @@
 //! The candidate vocabulary a build is handed (ADR 0122) changes the suggestions of E024, W151 and
 //! W020 and nothing else. It lists every extension that declares a kind keyword (ADR 0369), and
-//! E024 suggests each of them. Every test starts from `.spec` text (ADR 0115).
+//! E024 and W151 suggest each of them. Every test starts from `.spec` text (ADR 0115).
 
 use specforge_common::Diagnostic;
 use specforge_registry::CandidateVocabulary;
@@ -118,6 +118,32 @@ fn two_extensions_declaring_term_yield_one_vocabulary_and_e024_names_both() {
         e024[0].suggestion.as_deref(),
         Some(
             "install one of the extensions that declare it with: specforge add @gsd/core or specforge add @specforge/product"
+        ),
+        "{diags:?}"
+    );
+}
+
+/// `@specforge/software` and `@test/behaviors` both declare the keyword `behavior`: W151, over a
+/// build that declares no kind, suggests each of them (ADR 0369 D2).
+#[test]
+fn w151_names_every_extension_that_declares_the_first_kind() {
+    let behaviors = declare("@test/behaviors", |c| {
+        c.kind("Behavior", |k| {
+            k.keyword("behavior");
+        });
+    });
+    let kindless = declare("@test/kindless", |_| {});
+    let diags = checked(
+        &build_with([kindless], candidates(&[software(), behaviors])),
+        &[("t.spec", "behavior b1 \"B\" {\n}\n")],
+    );
+    let w151 = coded_in(&diags, "W151");
+    assert_eq!(w151.len(), 1, "{diags:?}");
+    // An answer that takes the first declarer would name `@specforge/software` alone.
+    assert_eq!(
+        w151[0].suggestion.as_deref(),
+        Some(
+            "install one of the extensions that declare it with: specforge add @specforge/software or specforge add @test/behaviors"
         ),
         "{diags:?}"
     );
