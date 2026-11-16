@@ -305,7 +305,7 @@ A reference field is declared to only accept entities of a specific kind, but
 the target ID resolves to an entity of a different kind. Point the field at an
 entity of the expected kind. It is reported at the reference, by the linker,
 whether or not an extension declares the expected kind; the suggestion names a
-close id of that kind, or the extension that declares it.
+close id of that kind, or every builtin extension that declares it.
 
 Owner: core
 Level: error
@@ -317,8 +317,9 @@ Level: error
 E024: Unknown entity kind
 
 An entity block uses a kind keyword that neither the core grammar nor any
-installed extension declares. Install the extension that provides the keyword,
-or fix a typo in the kind name.
+installed extension declares. Install an extension that provides the keyword
+(the suggestion names every builtin extension that declares it), or fix a typo
+in the kind name.
 
 Owner: core
 Level: error
@@ -1784,12 +1785,12 @@ A reference field targets a kind no enabled extension declares, an extension
 enhances a kind no enabled extension declares, or a `.spec` file has an
 `@scope/name` extension import for a known but not-installed extension. Install
 the missing extension with `specforge add <name>` to resolve the reference; for
-a reference field the suggestion names the builtin extension that declares the
+a reference field the suggestion names every builtin extension that declares the
 kind, as E024's does. An entity whose keyword no enabled extension declares is
-an error instead (E024), whose suggestion names the extension to install. An
-extension's enhancement of a kind no enabled extension declares is skipped
-silently, not reported, when the extension declares an optional peer the project
-does not load.
+an error instead (E024), whose suggestion names every builtin extension that
+declares the keyword. An extension's enhancement of a kind no enabled extension
+declares is skipped silently, not reported, when the extension declares an
+optional peer the project does not load.
 
 Owner: core
 Level: info
@@ -2431,8 +2432,9 @@ A route `specforge trace` follows (ADR 0330) has a step or an annotation that
 reaches a kind of an optional peer the project does not load, so the registry
 skipped it (it is not E118). The trace goes on without it and says so: the
 message names the route, the step (or `<step>.<annotation>`) and the kind.
-Nothing is wrong with the project. Install the extension that declares the kind
-to follow the whole route.
+Nothing is wrong with the project. Install an extension that declares the kind
+(the suggestion names every builtin extension that declares it) to follow the
+whole route.
 
 Owner: core
 Level: info
@@ -4124,10 +4126,10 @@ W151: Entity kinds left unchecked
 Extensions are loaded, but none of them declares an entity kind, so the
 entities' kinds, fields and identifiers are not checked: no E024 for an unknown
 kind, no W020, E013, E014, E022 or E061. The warning names how many entities
-that leaves unchecked and their kinds. Enable the extension that declares those
-kinds (the suggestion names it when it is a builtin), or remove the entities. A
-project with no extension at all is structural-only on purpose and gets I002
-instead.
+that leaves unchecked and their kinds. Enable an extension that declares those
+kinds (the suggestion names every builtin extension that declares the first of
+them), or remove the entities. A project with no extension at all is
+structural-only on purpose and gets I002 instead.
 
 Owner: core
 Level: warning

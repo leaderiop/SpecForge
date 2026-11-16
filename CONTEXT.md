@@ -564,10 +564,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   E040 for nothing there, no built component, several, or a file that can't be read
   (`specforge_ops::extension::LocalComponent`, ADR 0172).
 - **Candidate vocabulary**: what the extensions a host could enable declare, read only for suggestions: each kind
-  keyword and each field an enhancement adds, with the extension that declares it
-  (`specforge_registry::CandidateVocabulary`, ADR 0122). The session hands the builtins' to the registry build;
-  `revendor` generates it from their pinned declarations
-  (`crates/runtime/component/data/builtin-vocabulary.json`). It never decides a diagnostic, only names the extension
+  keyword with every extension that declares it (ADR 0369), and each field an enhancement adds with the one extension
+  that declares it (`specforge_registry::CandidateVocabulary`, ADR 0122). The session hands the builtins' to the
+  registry build; `revendor` generates it from their pinned declarations
+  (`crates/runtime/component/data/builtin-vocabulary.json`). It never decides a diagnostic, only names the extensions
   to install.
 - **Lock plan**: the change one operation makes to what the project installs and enables (`add` its
   installs and builtins, `update` every upgrade, `init` its local files and builtins, `remove` its
@@ -644,7 +644,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   caller reach it only through `build_registries` and that build's methods; its steps, its checks and
   its fields are private (ADR 0031).
 - **Graph inputs**: what the graph build reads of the loaded extensions (`specforge_graph::GraphInputs`):
-  the kinds whose bodies an extension parses, the extension that owns each target kind no loaded extension declares (`target_owners`), the
+  the kinds whose bodies an extension parses, the extensions that declare each target kind no loaded extension declares (`target_owners`), the
   each field's form with the kinds that take any field (`FieldForms`, with each reference field's target, ADR 0117) and the derived reference fields. Only the registry
   build derives them (`RegistryBuild::graph_inputs`), which holds them and builds every graph a snapshot reads with them
   (`RegistryBuild::graph_of`, ADR 0123); with the provider schemes the environment registers they are every graph's
@@ -804,7 +804,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   delta diffs it.
 - **Reference target**: the kind a reference field's ids must name, from its declaration
   (`FieldForm::target_kind`), and whether a loaded extension declares it (`FieldForms::target` gives a
-  `specforge_graph::Target`: `Loaded` or `Absent`; an absent kind's owner is `GraphInputs::target_owners`). The linker
+  `specforge_graph::Target`: `Loaded` or `Absent`; an absent kind's declarers are `GraphInputs::target_owners`). The linker
   decides each written reference against it once: an edge, E003, I004 (absent kind, missing id) or E022 (an entity of
   another kind), each at the reference (ADR 0117).
 - **Standing**: how the obligation rule sees an entity (`specforge_registry::Standing`):

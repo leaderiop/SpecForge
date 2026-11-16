@@ -142,10 +142,10 @@ behavior two_phase_validate_semantic "Two-Phase Validate: Semantic" {
   verify contract "Two-Phase Validate: Semantic: semantic validation holds — unknown_keywords_diagnosed"
 }
 
-// The candidate vocabulary names, for each kind keyword and enhancement field
-// the host could enable, the extension that declares it. The session hands the
-// builtins' vocabulary to the registry build; it is generated with the
-// builtins (ADR 0122) and needs no network.
+// The candidate vocabulary names, for each kind keyword the host could enable,
+// every extension that declares it, and for each enhancement field the one
+// that declares it. The session hands the builtins' vocabulary to the registry
+// build; it is generated with the builtins (ADR 0122) and needs no network.
 // suggest_missing_extensions is invoked inline by the diagnostic pipeline when
 // an E024 (unknown entity kind) is emitted — it is not event-driven. It enriches
 // the diagnostic help text with extension suggestions from the candidate vocabulary.
@@ -536,8 +536,8 @@ behavior registry_build_graph_inputs "Registry Build Derives the Graph Inputs" {
     The registry build MUST derive every input the graph build reads of the
     loaded extensions, and no caller derives one: every registered field of the
     reference type as a single reference field, none while no kind is
-    registered; the extension that owns each reference field's target kind no loaded
-    extension declares, where the candidate vocabulary names one; how each registered field's value is coerced to
+    registered; every extension that declares each reference field's target kind no loaded
+    extension declares, where the candidate vocabulary names any; how each registered field's value is coerced to
     its declared type (string_list and reference_list to a list, integer,
     bool, string and enum to that type, a single reference and a block read
     as written); and every reference field whose edges the host derives

@@ -318,7 +318,7 @@ type EdgeWriter "A field that writes an edge type: entities of kind write, throu
   verify unit "EdgeWriter schema is valid"
 }
 
-type CandidateVocabulary "What the extensions a host could enable declare, for suggestions only: kinds maps each kind keyword to the extension that declares it; fields maps each kind to the fields an enhancement adds to it, each to its extension (ADR 0122)." {
+type CandidateVocabulary "What the extensions a host could enable declare, for suggestions only: kinds maps each kind keyword to every extension that declares it (ADR 0369); fields maps each kind to the fields an enhancement adds to it, each to its one extension (ADR 0122)." {
   _tag   "CandidateVocabulary" @literal
   kinds  string
   fields string
