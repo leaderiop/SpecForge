@@ -10,6 +10,11 @@
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
+/// The variable a run of test binaries in a copy of a checkout sets to the checkout the copy was made from (the gate's
+/// `self-spec-sample` runs cited tests in one). Cargo found every unit fresh against the copy's sources, which are that
+/// checkout's own, so the binaries built under it are no stale target there, and they read that checkout's files.
+pub const COPY_OF_ENV: &str = "SPECFORGE_CHECKOUT_COPY_OF";
+
 /// The checkout's root, canonical (absolute, no `..`, symlinks resolved).
 ///
 /// # Panics
@@ -31,8 +36,9 @@ pub fn repo_root() -> &'static Path {
             .canonicalize()
             .unwrap_or_else(|e| panic!("{}: {e}", root.display()));
         if let Some(running) = std::env::var_os("CARGO_MANIFEST_DIR") {
+            let copy_of = std::env::var_os(COPY_OF_ENV).map(PathBuf::from);
             assert!(
-                !runs_in_another_checkout(&root, Path::new(&running)),
+                !runs_in_another_checkout(&root, Path::new(&running), copy_of.as_deref()),
                 "specforge-repo-root was built under {} but runs for {}: the shared target \
                  directory is stale, touch crates/leaf/repo-root/src/lib.rs and rebuild",
                 root.display(),
@@ -44,13 +50,12 @@ pub fn repo_root() -> &'static Path {
 }
 
 /// Whether `running` (the manifest directory cargo sets for the process that runs now) lies
-/// outside `baked`, the root this crate was compiled under. A nested workspace such as
+/// outside `baked`, the root this crate was compiled under, and the run does not say it is in a
+/// copy of `baked` (`copy_of`, from [`COPY_OF_ENV`]). A nested workspace such as
 /// `integrations/rust` is inside it.
-fn runs_in_another_checkout(baked: &Path, running: &Path) -> bool {
-    let running = running
-        .canonicalize()
-        .unwrap_or_else(|_| running.to_path_buf());
-    !running.starts_with(baked)
+fn runs_in_another_checkout(baked: &Path, running: &Path, copy_of: Option<&Path>) -> bool {
+    let canonical = |path: &Path| path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    !canonical(running).starts_with(baked) && copy_of.map(canonical).as_deref() != Some(baked)
 }
 
 /// The nearest ancestor of `dir`, `dir` excluded, whose `Cargo.toml` has a `[workspace]` table.
@@ -91,12 +96,25 @@ mod tests {
         std::fs::write(other.path().join("Cargo.toml"), "[workspace]\n").unwrap();
         let member = other.path().join("crates/x");
         std::fs::create_dir_all(&member).unwrap();
-        assert!(runs_in_another_checkout(here, &member));
+        assert!(runs_in_another_checkout(here, &member, None));
         assert!(!runs_in_another_checkout(
             here,
-            &here.join("crates/leaf/repo-root")
+            &here.join("crates/leaf/repo-root"),
+            None
         ));
-        assert!(!runs_in_another_checkout(here, here));
+        assert!(!runs_in_another_checkout(here, here, None));
+    }
+
+    #[test]
+    fn a_run_in_a_declared_copy_of_the_checkout_is_not_stale() {
+        let here = repo_root();
+        let copy = tempfile::TempDir::new().unwrap();
+        std::fs::write(copy.path().join("Cargo.toml"), "[workspace]\n").unwrap();
+        let member = copy.path().join("crates/x");
+        std::fs::create_dir_all(&member).unwrap();
+        assert!(!runs_in_another_checkout(here, &member, Some(here)));
+        // A copy of another checkout is still another checkout.
+        assert!(runs_in_another_checkout(here, &member, Some(copy.path())));
     }
 
     #[test]
