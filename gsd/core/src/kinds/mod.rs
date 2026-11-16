@@ -109,7 +109,6 @@ pub(crate) const KINDS: &[&Kind] = &[
     &audit::MILESTONE_AUDIT,
     &windows::BROKEN_WINDOW,
     &windows::REFACTOR_PROPOSAL,
-    &governance::RISK,
     &governance::INVARIANT,
 ];
 

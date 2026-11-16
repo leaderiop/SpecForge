@@ -679,6 +679,15 @@ fn a_files_digest_is_a_sha256_that_ignores_order_and_repeats_and_follows_a_diges
     );
 }
 
+/// The state of each truth, artifact and key link its phase's verifications assess, read as one, by id.
+fn items(input: &PassInput) -> BTreeMap<&str, Item> {
+    assess(input)
+        .into_iter()
+        .flat_map(|a| a.group.entities.into_iter().zip(a.now))
+        .map(|(e, item)| (e.id.as_str(), item))
+        .collect()
+}
+
 /// Phase 01 with TR1 (no verdict) and two verifications, `V` with an override accepting TR1 and `V2` with none, in
 /// entity order `v_first` gives them (`true`: `V` first).
 fn two_verifications(v_first: bool) -> PassInput {

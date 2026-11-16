@@ -65,7 +65,7 @@ fn project_and_requirement_declare_the_fields_of_the_model() {
 fn milestone_and_phase_declare_the_fields_of_the_model() {
     let milestone = "name delivered accomplishments whats_next goal target_features exit_criteria starts targets \
         depends_on owner contributors artifact_types tags abandoned workstream completion state first_commit shipped \
-        stats git_range progress branch risk_level journeys_covered";
+        stats git_range progress branch journeys_covered";
     let milestone: Vec<&str> = milestone.split_whitespace().collect();
     assert_eq!(fields_of("milestone"), milestone);
     assert_eq!(
@@ -87,7 +87,6 @@ fn milestone_and_phase_declare_the_fields_of_the_model() {
             "status",
             "plans_complete",
             "completed",
-            "risk_level",
             "invariants_due"
         ]
     );
@@ -163,7 +162,7 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
     // + 2: the requirement's `shapes` and `text_en`, which the spec-less edge probe reads (ADR 0333).
     // + 2: the lesson's `graduated` and `status`; + 2: the milestone's `goal` and `target_features`.
-    // + 8: the milestone's fields beyond GSD (ADR 0357); + 2: the milestone's and the phase's `risk_level`.
+    // + 8: the milestone's fields beyond GSD (ADR 0357).
     // + 2: the requirement's computed `proof` (its thread's state) and `satisfied_by` (the items its tasks name).
     // + 5: the requirement's quality `category`, `priority`, `metric`, `source` and `tags` (beyond GSD).
     // + 3: the requirement's `personas`, `constrains` and `protects`, each naming its reverse (ADR 0354).
@@ -171,7 +170,7 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
     // + 1: the phase's `invariants_due`; + 1: the milestone's `journeys_covered` (ADR 0357).
     assert_eq!(
         total,
-        72 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 8 + 2 + 2 + 5 + 3 + 1 + 1 + 1,
+        72 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 8 + 2 + 5 + 3 + 1 + 1 + 1,
         "the kinds' fields"
     );
 }

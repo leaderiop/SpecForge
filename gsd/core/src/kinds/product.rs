@@ -67,7 +67,6 @@ const USED_IN: &[&str] = &[
     "manual_check",
     "milestone_audit",
     "broken_window",
-    "risk",
     "invariant",
 ];
 const STEP: &[Field] = &[

@@ -1,10 +1,6 @@
-# Risks and invariants
+# Invariants
 
 ```
- risk ─*──*─ task | truth | invariant  (mitigated_by: what controls it)
-   ├─*──*─ requirement                 (affects: what it threatens; the requirement reads `risks`)
-   └─*──0..1─ milestone                (milestone: where it must be settled; the milestone reads `risks`)
-
  invariant ─*──0..1─ phase             (holds_from: the phase it holds from)
    ├─*──*─ test                        (proof: the `@code/core` tests that prove it)
    └─*──*─ item                        (items: the `@code/core` code items it holds over)
@@ -12,106 +8,13 @@
  phase ─*──*─ invariant                (invariants_due, computed: the invariants it owes a judgement)
 ```
 
-Files: `spec/gsd/governance/risks.spec`, `spec/gsd/governance/invariants.spec`.
-
-GSD keeps no risk file: this kind is beyond parity
-([ADR 0358](../../../docs/adr/0358-a-risk-is-rated-and-an-invariant-is-judged.md)), and no `gsd-compat` rule needs it.
-A risk is rated as FMEA rates a failure mode, severity, occurrence and detection each from 1 to 10, and SpecForge
-computes what the ratings give: an rpn is never written by hand.
-
-## risk
-
-What can go wrong. Name: by convention `RK1`; any identifier is valid. Unscoped, like `broken_window`: a risk outlives
-a phase, and moving it to another milestone does not rename it.
-
-| Field | Type | Flags | Meaning |
-|---|---|---|---|
-| cause | str | R | what makes it happen |
-| effect | str | R | what breaks when it does |
-| severity | int{1..10} | R | 1 no effect … 10 hazardous, without warning |
-| occurrence | int{1..10} | R | 1 remote … 10 almost certain |
-| detection | int{1..10} | R | 1 almost certainly caught before harm … 10 cannot be caught |
-| post | {severity int{1..10}, occurrence int{1..10}, detection int{1..10}} | | the ratings once every mitigation is done; a member left out keeps its pre rating |
-| mitigated_by | →* task \| truth \| invariant | | what controls it: a task done, a truth verified, an invariant that holds; inverse `mitigates` |
-| mitigation | str | | the planned control as prose; no evidence |
-| affects | →* requirement | | the requirements it threatens; each reads it back as `risks` |
-| milestone | → milestone | | where it must be settled when no phase's plan mitigates it; the milestone reads it back as `risks` |
-| tags | strs | | words to group it |
-| description | str | | free prose |
-| refs | strs | | external references |
-| rpn | int | C | severity × occurrence × detection, 1 to 1000 |
-| post_rpn | int | C | the same product over the post ratings; `rpn` without a post block |
-| status | enum{open, mitigating, mitigated} | C | `open` while it names no mitigation; `mitigated` once every one it names is done; else `mitigating` |
-| blocking | bool | C | its current rpn (`post_rpn` once mitigated, else `rpn`) is at or above `specforge.risk_block_on`; without a `post` block `post_rpn` is the `rpn`, so a mitigated risk stops blocking once post ratings bring it under |
-
-Each computed value is absent while a required rating is missing or one is outside 1 to 10: the kernel reports that
-(a missing required field, E061 out of bounds, in the post block too), and no number is guessed. Writing a computed
-field is E082.
-
-`mitigated_by` names its reverse, `mitigates`, on each of its three kinds: a task, a truth or an invariant reads back
-the risks it controls, and `mitigates` written on one is E079, naming `risk.mitigated_by`
-([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)). It is
-not `risks`, the reverse `affects` and `milestone` name: on a task that word would not say whether the task creates
-the risk or controls it.
-
-### What mitigates a risk
-
-A risk is `mitigated` once every item of its `mitigated_by` is done:
-
-- a task, when a recorded commit names it or its plan is `complete` (the rule that gives the task its `done`);
-- a truth, when its phase's verification verifies it (an override, or a fresh passing `gsd/E501` verdict that no
-  recorded test contradicts); a phase's verifications are read as one, so an override on any of them counts. A truth
-  no verification assesses is not verified;
-- an invariant, while its `status` is `holds` ([Its verdict](#its-verdict)). Violated, stale, uncertain, unverified
-  and pending are not done, so the risk stays `mitigating` and blocks on its `rpn` until the invariant holds again.
-
-A risk is unscoped, so an item names a task, a truth or an invariant by its full path, rooted or not (`v1.0/01/01-01/T1` or
-`/v1.0/01/01-01/T1`). A name that does not resolve is never done (the kernel reports it, E003), even when another
-item's path ends with it (`T1` beside `v1.0/01/01-01/T1`), so a risk naming one stays `mitigating`. The
-prose `mitigation` is no evidence: a risk that names nothing in `mitigated_by` stays `open` whatever its prose says.
-
-### Blocking
-
-`blocking` reads the risk's current rpn: `rpn` until it is mitigated, `post_rpn` after. A mitigated risk whose residual
-is still at or above the threshold keeps blocking, and an optimistic post block lowers nothing before its mitigations
-are done. Without a `post` block `post_rpn` is the `rpn`, so a risk whose every mitigation is done still blocks at the
-same number: write the `post` ratings the done mitigations earn to record the residual. Nothing guesses them, and no
-diagnostic is raised: `status` `mitigated` beside `blocking` `true` says it. The threshold is `specforge.risk_block_on` ([settings.md](settings.md#specforge-only-settings)), an
-integer from 1 to 1000, 100 by default.
-
-gsd/W532 ([rules.md](rules.md#governance)) warns on a risk whose `rpn` is at or above the threshold and that names
-nothing in `mitigated_by`: rate it again, or name what controls it. It is silent below the threshold and once anything
-is named, done or not (`blocking` says whether it still blocks).
-
-### The ratings
-
-Each rating is an integer from 1 to 10, as the FMEA scales give it. Detection runs the other way: 10 is a failure no
-control catches.
-
-| Rating | 1 | 10 |
-|---|---|---|
-| severity | no effect | hazardous, without warning |
-| occurrence | remote | almost certain |
-| detection | almost certainly caught before harm | cannot be caught |
-
-## Risk on phases and milestones
-
-A phase and a milestone carry a computed `risk_level` ([project.md](project.md)): how risky they are now.
-
-- A risk *reaches* a phase when a task or a truth its `mitigated_by` names belongs to a plan of that phase. A quick
-  plan is in no phase, so a risk it mitigates reaches none, and neither does one an invariant mitigates: an
-  invariant belongs to no plan.
-- A phase's `risk_level` is the highest current rpn (`post_rpn` once mitigated, else `rpn`) of the risks that reach
-  it, so it drops as their mitigations land.
-- A milestone's `risk_level` is the highest of its phases' levels and of the current rpn of each risk whose
-  `milestone` names it: a risk no phase's plan mitigates is settled there.
-- Each is absent when no risk reaches it.
+Files: `spec/gsd/governance/invariants.spec`.
 
 ## invariant
 
 What must always hold in the code, from a phase on: the statement, the tests that prove it and the code items it
-holds over. Name: a word, unique in the project (`entity_id_uniqueness`). Unscoped, like `risk`: an invariant
-outlives the phase it starts at.
+holds over. Name: a word, unique in the project (`entity_id_uniqueness`). Unscoped, like `broken_window`: an
+invariant outlives the phase it starts at.
 
 | Field | Type | Flags | Meaning |
 |---|---|---|---|
@@ -130,9 +33,8 @@ outlives the phase it starts at.
 `proof` and `items` read `@code/core`'s facts as a truth's `proof` and a task's `items` do: a name no served store
 holds is `code/E101`, and with no `@code/core` loaded a written one is I004.
 
-An invariant reads back the risks that name it in `risk.mitigated_by` as `mitigates`, the decisions that name it in
-`decision.affects` as `affected_by`, and the phases that owe it a judgement (`phase.invariants_due`, computed) as
-`due_in`, names it never writes: writing any is E079 ([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)).
+An invariant reads back the decisions that name it in `decision.affects` as `affected_by`, and the phases that owe it
+a judgement (`phase.invariants_due`, computed) as `due_in`, names it never writes: writing any is E079 ([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)).
 
 ### In force, and its status
 
@@ -143,8 +45,7 @@ invariant pending.
 
 In force is reached once and stays. GSD's gap closure (`plan-phase N --gaps`) adds a plan to a phase whose
 verification found gaps, and the phase is `in_progress` again until that plan has a summary: the invariant stays in
-force, so its verdict still shows, the risks it mitigates still count it and its `proof` is still checked, while the
-gaps are open. The status is computed and keeps no history, so the latch is read from what outlives the slide: a phase
+force, so its verdict still shows and its `proof` is still checked, while the gaps are open. The status is computed and keeps no history, so the latch is read from what outlives the slide: a phase
 with a recorded verification has run, whatever the verification found. A phase that gains a plan before any
 verification is still being executed, and its invariant waits for it.
 
@@ -222,8 +123,8 @@ would add one source to what an invariant guards, and every reader of those rows
 
 ### The old invariant's fields
 
-`@specforge/governance` declared an `invariant` too; loading it beside `@gsd/core` is E026, as for `risk`. Each of its
-fields has a home here:
+`@specforge/governance` declared an `invariant` too; loading it beside `@gsd/core` is E026. Each of its fields has a
+home here:
 
 | Old field | Here |
 |---|---|

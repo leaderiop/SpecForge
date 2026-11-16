@@ -162,9 +162,8 @@ fn check_statuses(input: &PassInput, deliverable: &PassEntity) -> Vec<PassValue>
         .collect()
 }
 
-/// A task is done when a recorded commit names it or its plan is `complete`; `pending` otherwise. The one place the
-/// rule is written: a task's `status` and a risk's mitigation read it.
-pub fn task_done(
+/// A task is done when a recorded commit names it or its plan is `complete`; `pending` otherwise: a task's `status`.
+fn task_done(
     task: &PassEntity,
     commits: &[Commit],
     statuses: &BTreeMap<&str, &'static str>,

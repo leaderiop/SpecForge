@@ -75,9 +75,6 @@ pub const MILESTONE: Kind = Kind::new(
         str("branch")
             .c()
             .doc("the branch it is executed on: git.branching_strategy and its template"),
-        int("risk_level").c().doc(
-            "the highest current rpn of the risks it carries: its phases' and those that name it (beyond GSD)",
-        ),
         block("journeys_covered", JOURNEYS_COVERED).c().doc(
             "the journeys whose `milestones` list it, and how many of them are `covered`; absent with none (beyond \
              GSD, ADR 0357 D23)",
@@ -133,9 +130,6 @@ pub const PHASE: Kind = Kind::new(
             .c()
             .doc("Progress: Plans Complete, N/M"),
         date("completed").c().doc("Progress: Completed"),
-        int("risk_level")
-            .c()
-            .doc("the highest current rpn of the risks its plans mitigate (beyond GSD)"),
         // Its own relation beside `invariant.holds_from`, so it names its reverse (W162 otherwise, ADR 0354).
         rfs("invariants_due", "invariant")
             .c()

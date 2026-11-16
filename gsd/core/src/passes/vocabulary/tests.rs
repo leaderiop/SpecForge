@@ -410,15 +410,13 @@ fn w534_quotes_the_prose_as_written() {
     );
 }
 
-/// Every field a kind marks prose is read, beyond the six of a requirement, a decision, a truth, a journey, a risk and
-/// an invariant: a task's action, a risk's mitigation, a decision's consequences, an alternative's `why_not`.
+/// Every field a kind marks prose is read, beyond the five of a requirement, a decision, a truth, a journey and an
+/// invariant: a task's action, a decision's consequences, an alternative's `why_not`.
 #[test]
 fn w534_reads_every_field_the_kinds_mark_prose() {
     let found = found(&input(json!([
         term("work_item", "task", &["ticket"]),
         { "id": "T1", "kind": "task", "fields": { "action": "close the ticket" } },
-        { "id": "RK1", "kind": "risk",
-          "fields": { "cause": "a bug", "effect": "lost work", "mitigation": "back up each ticket" } },
         { "id": "D1", "kind": "decision", "fields": { "text": "Keep a board" },
           "values": { "consequences": ["no ticket is lost"],
                       "alternatives": [ { "name": "Jira", "why_not": "a ticket tracker" } ] } },
@@ -433,10 +431,6 @@ fn w534_reads_every_field_the_kinds_mark_prose() {
             (
                 "D1",
                 "decision 'D1' writes \"ticket\" in alternative 1 why_not, \"ticket\" avoided by term 'work_item'"
-            ),
-            (
-                "RK1",
-                "risk 'RK1' writes \"ticket\" in mitigation, \"ticket\" avoided by term 'work_item'"
             ),
             (
                 "T1",

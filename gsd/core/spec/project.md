@@ -63,7 +63,7 @@ is written from one side, never both (W162). Its own relations name their revers
 a persona reads `personas` back as `requirements`, a requirement reads `constrains` back as `constrained_by` (a
 self-relation's named reverse, [ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)),
 and an invariant reads `protects` back as `protected_by`: that name written on the other side is E079, naming the
-owning field. A requirement also reads a decision's `affects` back as `affected_by`, and a risk's `affects` as `risks`.
+owning field. A requirement also reads a decision's `affects` back as `affected_by`.
 
 Why each field beyond GSD has its shape, and why `proof` is the one reading of the requirement's thread:
 [ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md).
@@ -98,7 +98,6 @@ GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. N
 | git_range | str | C | `**Git range:**`: the first and last recorded `feat` commit as `` `feat(01-01)` → `feat(01-02)` `` (the scope is the name of the plan the commit names); absent with none |
 | progress | {phases int, phases_complete int, plans int, plans_complete int, percent int} | C | `STATE.md`'s `progress`, per milestone: `percent` is the smaller of plans_complete/plans and phases_complete/phases (a side with nothing counts 1, `state-document.cts:861-878`); `phases_complete` counts the phases whose verification passed, which needs r40's verdicts. `plans_complete` counts every plan with a summary, a halted one too (#2830), and the sentinel `999.x` backlog phases are left out (#3167) |
 | branch | str | C | the branch it is executed on, from `git.branching_strategy` and its template (`{milestone}`, `{slug}`); under the `milestone` strategy, else absent |
-| risk_level | int | C | the highest current rpn of the risks it carries: its phases' `risk_level`, and each risk whose `milestone` names it ([governance.md](governance.md#risk-on-phases-and-milestones)); absent with none (beyond GSD) |
 | journeys_covered | {journeys int, covered int} | C | the journeys whose `milestones` list it ([product.md](product.md#journey)), and how many of them are `covered`; absent when no journey lists it (beyond GSD, [ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md) D23) |
 
 Upstream GSD's milestone has none of the fields marked beyond GSD ([ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)): they are optional, no GSD file renders them and no
@@ -133,7 +132,6 @@ Scoped by milestone.
 | status | enum{not_started, planned, in_progress, executed, needs_review, complete, deferred} | C | the GSD phase-status ladder (`phase-status.cts:160-196`): no plan is `not_started`, no summary `planned`, fewer summaries than plans `in_progress`, `needs_review` when the verification is `human_needed`, `complete` when it passed (`phase-status.cts:174-197`; UAT does not feed it), else `executed`. `passed` needs r40's verdicts; `deferred` is never derived. The phase is complete (ADR 0350 owner state) once `executed`, `needs_review` or `complete`: its scoped kinds' planned paths are checked from then on |
 | plans_complete | str `N/M` | C | Progress `Plans Complete`: plans with a summary over plans |
 | completed | date | C | Progress `Completed` |
-| risk_level | int | C | the highest current rpn of the risks a plan of the phase mitigates, through a task or a truth ([governance.md](governance.md#risk-on-phases-and-milestones)); absent with none (beyond GSD) |
 | invariants_due | →* invariant | C | the invariants a commit of the phase changed after their last gsd/I536 verdict ([governance.md](governance.md#when-an-invariant-is-due)); absent with none; inverse `due_in` (beyond GSD) |
 
 ## workstream

@@ -123,8 +123,7 @@ fn the_templates_list_the_words_the_kind_takes() {
     }
 }
 
-/// Each relation names its reverse (ADR 0354), so the other side reads it back by that name and W162 stays silent; no
-/// field or reverse here takes `risks`, the reverse of `risk.affects` on a requirement.
+/// Each relation names its reverse (ADR 0354), so the other side reads it back by that name and W162 stays silent.
 #[test]
 fn the_requirement_relations_name_their_reverse() {
     for (field, target, reverse) in [
@@ -143,13 +142,4 @@ fn the_requirement_relations_name_their_reverse() {
             "{target}: {reverse}"
         );
     }
-    assert!(!fields_of("requirement").contains(&"risks".to_string()));
-    let reverses: Vec<serde_json::Value> = fields_of("requirement")
-        .iter()
-        .map(|f| field_of("requirement", f)["inverse_of"].clone())
-        .collect();
-    assert!(
-        !reverses.contains(&serde_json::json!("risks")),
-        "{reverses:?}"
-    );
 }

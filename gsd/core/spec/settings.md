@@ -115,13 +115,11 @@ A setting has one preset source, and these are independent of `profile`:
 ## SpecForge-only settings
 
 Settings of `@gsd/core` GSD does not have, under `specforge.` so the roster check tells them apart. Those in the table
-below are bool, default false, and each gates rules ([rules.md](rules.md#setting-gated-rules)). Two more gate none.
-`specforge.agent_variant` is an enum, `full` (the default) or `compact`, that picks the body of the ten agents that have
-a compact variant (codex and cursor; Claude Code always renders the full body, as upstream installs no compact agent for
-it). It is an enum because the host takes a variant setting only as a string or enum; `workflow.compact_content`
-presets it. `specforge.risk_block_on` is an integer from 1 to 1000, 100 by default: the rpn at or above which a risk
-blocks: its `rpn` until it is mitigated, then its `post_rpn`, which is the `rpn` again without a `post` block
-([governance.md](governance.md#blocking)). gsd/W532 warns on one at or above it that names no mitigation. No profile presets it.
+below are bool, default false, and each gates rules ([rules.md](rules.md#setting-gated-rules)). One more,
+`specforge.agent_variant`, gates none:
+it is an enum, `full` (the default) or `compact`, that picks the body of the ten agents that have a compact variant
+(codex and cursor; Claude Code always renders the full body, as upstream installs no compact agent for it). It is an enum
+because the host takes a variant setting only as a string or enum; `workflow.compact_content` presets it.
 
 | Setting | Switches on |
 |---|---|

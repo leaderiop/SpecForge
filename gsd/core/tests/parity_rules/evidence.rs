@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 77] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 76] = [
     (
         "E101",
         Evidence::Tests {
@@ -519,13 +519,6 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 77] = [
         Evidence::Tests {
             fires: "a_term_that_avoids_its_own_alias_is_w538",
             silent: "a_glossary_whose_avoided_words_are_accepted_nowhere_is_not_w538",
-        },
-    ),
-    (
-        "W532",
-        Evidence::Tests {
-            fires: "a_risk_at_the_threshold_with_no_mitigation_is_w532",
-            silent: "a_mitigated_or_low_risk_is_not_w532",
         },
     ),
     (

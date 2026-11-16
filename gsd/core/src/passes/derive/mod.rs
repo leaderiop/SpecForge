@@ -10,9 +10,8 @@
 //! phase's `complete` and `needs_review`, `completed`, a requirement's `gaps_found` and `project.windows_*`. `estimate`
 //! answers a plan's slices under the smart-zone budget. `review` answers a review concern's status, a round's open
 //! counts and a revision conflict's status, `batch` a quick batch's status and eligible items, `learning` a
-//! lesson's status, `decision` a decision's `in_force` (the superseded set E310 reads), `risk` a risk's rpn, post_rpn,
-//! status and blocking (against `specforge.risk_block_on`, read once here), and `invariant` an invariant's status and
-//! last_verified (from each phase's status on the ladder and its verification), and `product` a term's `used_in`, a
+//! lesson's status, `decision` a decision's `in_force` (the superseded set E310 reads), and `invariant` an invariant's
+//! status and last_verified (from each phase's status on the ladder and its verification), and `product` a term's `used_in`, a
 //! journey's `last_uat` and `covered` (from the requirement states and proofs above).
 //!
 //! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection) and `retrospective.sessions` (no harness).
@@ -31,7 +30,6 @@ pub(crate) mod product;
 mod progress;
 mod requirement;
 mod review;
-pub mod risk;
 pub(crate) mod uat;
 pub mod verify;
 
@@ -86,15 +84,8 @@ fn derive(input: &PassInput) -> PassOutput {
     values.extend(branch::values(input));
     values.extend(estimate::values(input));
     values.extend(review::values(input));
-    let block_on = Settings::current()
-        .integer(crate::settings::RISK_BLOCK_ON)
-        .unwrap_or(crate::settings::RISK_BLOCK_ON_DEFAULT);
-    let (risks, findings) =
-        risk::values_and_findings(input, &commits, &statuses, &invariants, block_on);
-    values.extend(risks);
     values.extend(product::values(input, &requirements, &proofs));
-    let mut diagnostics = branch::diagnostics(input);
-    diagnostics.extend(findings);
+    let diagnostics = branch::diagnostics(input);
     PassOutput {
         values,
         diagnostics,
