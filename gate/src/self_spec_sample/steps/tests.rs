@@ -39,6 +39,7 @@ fn a_specforge_call_carries_no_cargo_credential() {
         .collect();
     let mut expected = inherited[..6].to_vec();
     expected.push(REPORT_ENV);
+    expected.extend(GIT_ELSEWHERE);
     expected.sort_unstable();
     let mut removed = removed;
     removed.sort_unstable();
@@ -344,4 +345,29 @@ fn a_passed_sample_removes_its_copies_and_a_failed_one_keeps_and_names_them() {
     std::fs::remove_dir_all(&copies[1]).unwrap();
     std::fs::remove_dir_all(&copies[0]).unwrap();
     assert_eq!(settled(&copies, Err("early".into())), Err("early".into()));
+}
+
+#[test]
+fn every_call_finds_no_repository_around_the_copies_wherever_the_target_is() {
+    let dir = tempfile::tempdir().unwrap();
+    let run = dir.path().join("target/gate/self-spec-sample");
+    let env = Env::prepare(&run, Path::new("/checkout"), &dir.path().join("target")).unwrap();
+    let mut cmd = Command::new("specforge");
+    let inherited = [
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_CEILING_DIRECTORIES",
+    ];
+    env.apply(&mut cmd, inherited.iter().map(OsString::from));
+    let value = |name: &str| {
+        cmd.get_envs()
+            .find(|(k, _)| *k == name)
+            .map(|(_, v)| v.map(std::ffi::OsStr::to_os_string))
+    };
+    // Both copies are directly in the run directory: the ceiling stops git's search above them.
+    assert_eq!(value(GIT_CEILING), Some(Some(run.clone().into_os_string())));
+    for name in GIT_ELSEWHERE {
+        assert_eq!(value(name), Some(None), "{name} is removed");
+    }
 }

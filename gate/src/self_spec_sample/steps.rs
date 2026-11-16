@@ -7,7 +7,8 @@
 //! the gate's), `SPECFORGE_CONSENT_FILE` in a `0700` directory emptied first, the gate's `CARGO_TARGET_DIR`, and no
 //! cargo credential variable (ADR 0288): a collector's command is a program the host runs, and keeps the rest of
 //! the environment. No bless switch reaches a cited test, and insta writes nothing: a test built under the checkout
-//! would write its goldens there. The cited tests run from the gate's own test build in a copy, so the run says so
+//! would write its goldens there. Both copies sit in no repository wherever the target directory is: every call gets
+//! `GIT_CEILING_DIRECTORIES` at the run directory and no variable that names another repository. The cited tests run from the gate's own test build in a copy, so the run says so
 //! ([`COPY_OF_ENV`]: the test support then reads the checkout they were built under), and their own reports go to
 //! the run directory ([`TEST_REPORT_DIR_ENV`]), never into the shared `<target>/specforge` the `tests` check fills,
 //! where a report of another nextest run would prune that check's.
@@ -59,6 +60,20 @@ const CREDENTIALS: [&str; 4] = [
 /// cited test built under the checkout would write into the checkout. Insta is then told to write nothing
 /// ([`INSTA_UPDATE`]), not even the `.snap.new` its default writes beside a snapshot that differs.
 const BLESS_SWITCHES: [&str; 4] = ["SPECFORGE_BLESS", "GSD_BLESS", "UPDATE_EXPECT", "INSTA_"];
+
+/// git's ceiling: a search for the repository a directory is in reads no directory at or above one it names.
+const GIT_CEILING: &str = "GIT_CEILING_DIRECTORIES";
+
+/// The variables that point git at a repository other than the one a directory is in: never passed to a call, which
+/// would read, or be refused for, that one instead of the copy's none.
+const GIT_ELSEWHERE: [&str; 6] = [
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_INDEX_FILE",
+];
 
 /// Insta's write mode, set to `no` on every call.
 const INSTA_UPDATE: &str = "INSTA_UPDATE";
@@ -354,6 +369,8 @@ struct Env {
     rustup_home: Option<PathBuf>,
     consent: PathBuf,
     target_dir: PathBuf,
+    /// The directory both copies sit in: git's search from either stops below it ([`GIT_CEILING`]).
+    ceiling: PathBuf,
 }
 
 /// An I/O error, naming the path it happened at.
@@ -399,11 +416,12 @@ impl Env {
             rustup_home: kept("RUSTUP_HOME", ".rustup"),
             consent,
             target_dir: target_dir.to_path_buf(),
+            ceiling: dir.to_path_buf(),
         })
     }
 
     /// Set the run's variables on `cmd` and remove each of `inherited` that names a cargo credential or a bless switch
-    /// ([`withheld`]); insta writes nothing. The cited tests'
+    /// ([`withheld`]); insta writes nothing; git finds no repository around either copy. The cited tests'
     /// reports are directed by [`TEST_REPORT_DIR_ENV`]: collect owns [`REPORT_ENV`], so the gate passes none of it.
     fn apply(&self, cmd: &mut Command, inherited: impl Iterator<Item = OsString>) {
         cmd.env("HOME", &self.home)
@@ -422,6 +440,12 @@ impl Env {
             cmd.env_remove(name);
         }
         cmd.env(INSTA_UPDATE, "no");
+        // Each copy is in no repository wherever the target directory sits (a CI `<checkout>/target` is in the
+        // checkout's own), so what the run finds never depends on it.
+        cmd.env(GIT_CEILING, &self.ceiling);
+        for name in GIT_ELSEWHERE {
+            cmd.env_remove(name);
+        }
     }
 }
 
