@@ -23,9 +23,9 @@ pub const CONTEXT: Kind = Kind::new(
         str("specifics").prose().doc("<specifics>"),
         // Not required: `gsd/E201` is the one diagnostic of its absence.
         blocks("canonical_refs", CANONICAL_REF).doc("<canonical_refs>"),
-        strs("reusable_assets").doc("<code_context>"),
-        strs("patterns").doc("<code_context>"),
-        strs("integration_points").doc("<code_context>"),
+        strs("reusable_assets").prose().doc("<code_context>"),
+        strs("patterns").prose().doc("<code_context>"),
+        strs("integration_points").prose().doc("<code_context>"),
         en("status", CONTEXT_STATUS)
             .c()
             .doc("**Status:** ready once canonical_refs and boundary are present and no interview is open"),
