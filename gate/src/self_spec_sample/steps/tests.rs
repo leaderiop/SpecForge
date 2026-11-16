@@ -22,7 +22,7 @@ fn a_specforge_call_carries_no_cargo_credential() {
         "PATH",
     ];
     let mut cmd = Command::new("specforge");
-    env.apply(&mut cmd, inherited.iter().map(ToString::to_string));
+    env.apply(&mut cmd, inherited.iter().map(OsString::from));
     let envs: Vec<(String, Option<String>)> = cmd
         .get_envs()
         .map(|(k, v)| {
@@ -226,4 +226,35 @@ fn the_checks_error_is_the_verdicts_reason() {
             "gsd/E537 spec/m.spec:2: ships before it starts (read <target>/gate/self-spec-sample.log)"
         )
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_variable_that_is_not_unicode_is_read_lossily_and_named() {
+    use std::os::unix::ffi::OsStringExt;
+    let odd = |bytes: &[u8]| OsString::from_vec(bytes.to_vec());
+    let names = [
+        odd(b"CARGO_REGISTRY_\xff"),
+        odd(b"OTHER_\xff"),
+        "PATH".into(),
+    ];
+    assert_eq!(
+        credentials(names.into_iter()),
+        [odd(b"CARGO_REGISTRY_\xff")]
+    );
+    let vars = [
+        (odd(b"OTHER_\xff"), OsString::from("v")),
+        (OsString::from("VALUE"), odd(b"\xff")),
+        (OsString::from("PATH"), OsString::from("/bin")),
+    ];
+    assert_eq!(
+        not_unicode(vars.into_iter()),
+        ["OTHER_\u{fffd}".to_string(), "VALUE".to_string()]
+    );
+}
+
+#[test]
+fn a_credentials_name_is_found_in_any_case_on_windows() {
+    let lower = credentials(["cargo_registry_token".into()].into_iter());
+    assert_eq!(lower.is_empty(), !cfg!(windows));
 }

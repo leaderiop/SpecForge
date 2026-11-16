@@ -11,6 +11,7 @@
 //! the run directory ([`TEST_REPORT_DIR_ENV`]), never into the shared `<target>/specforge` the `tests` check fills,
 //! where a report of another nextest run would prune that check's.
 
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::SystemTime;
@@ -69,9 +70,13 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
         .collect();
     crate::checked_tree::copy_tracked(&ctx.repo.root, &without_spec, &target)?;
     let env = Env::prepare(&dir, &ctx.repo.root, &ctx.repo.target_dir)?;
+    // Every variable is read as the system holds it: one that is not Unicode passes unread, named in the log.
+    for name in not_unicode(std::env::vars_os()) {
+        ctx.log(&format!("not Unicode, passed unread: {name}"));
+    }
     let call = |program: &Path, args: &[&str]| {
         let mut cmd = ctx.cmd(program);
-        env.apply(&mut cmd, std::env::vars().map(|(name, _)| name));
+        env.apply(&mut cmd, std::env::vars_os().map(|(name, _)| name));
         cmd.args(args);
         cmd
     };
@@ -303,7 +308,7 @@ impl Env {
 
     /// Set the run's variables on `cmd` and remove each of `inherited` that names a cargo credential. The cited tests'
     /// reports are directed by [`TEST_REPORT_DIR_ENV`]: collect owns [`REPORT_ENV`], so the gate passes none of it.
-    fn apply(&self, cmd: &mut Command, inherited: impl Iterator<Item = String>) {
+    fn apply(&self, cmd: &mut Command, inherited: impl Iterator<Item = OsString>) {
         cmd.env("HOME", &self.home)
             .env(COPY_OF_ENV, &self.checkout)
             .env_remove(REPORT_ENV)
@@ -322,10 +327,27 @@ impl Env {
     }
 }
 
-/// The names among `names` a cargo credential or a registry's configuration lives in.
-fn credentials(names: impl Iterator<Item = String>) -> Vec<String> {
+/// The names among `names` a cargo credential or a registry's configuration lives in, compared as Unicode (a name
+/// that is not is read lossily, so `CARGO_REGISTRY_` before a stray byte still counts), in any case on Windows, where
+/// cargo finds `cargo_registry_token` too.
+fn credentials(names: impl Iterator<Item = OsString>) -> Vec<OsString> {
     names
-        .filter(|name| CREDENTIALS.iter().any(|prefix| name.starts_with(prefix)))
+        .filter(|name| {
+            let name = name.to_string_lossy();
+            let name = if cfg!(windows) {
+                name.to_ascii_uppercase()
+            } else {
+                name.into_owned()
+            };
+            CREDENTIALS.iter().any(|prefix| name.starts_with(prefix))
+        })
+        .collect()
+}
+
+/// The names, read lossily, of the variables among `vars` whose name or value is not Unicode.
+fn not_unicode(vars: impl Iterator<Item = (OsString, OsString)>) -> Vec<String> {
+    vars.filter(|(name, value)| name.to_str().is_none() || value.to_str().is_none())
+        .map(|(name, _)| name.to_string_lossy().into_owned())
         .collect()
 }
 
