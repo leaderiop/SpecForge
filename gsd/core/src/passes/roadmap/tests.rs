@@ -421,6 +421,35 @@ fn a_second_context_in_a_phase_is_e206() {
 }
 
 #[test]
+fn a_second_verification_or_validation_of_a_phase_is_e206() {
+    let found = check(&input(
+        vec![
+            scoped("v1.0/01/01-VERIFICATION", "verification"),
+            scoped("v1.0/01/01-VERIFICATION-2", "verification"),
+            scoped("v1.0/01/01-VALIDATION", "validation"),
+            scoped("v1.0/01/01-VALIDATION-2", "validation"),
+            scoped("v1.0/02/02-VERIFICATION", "verification"),
+            scoped("v1.0/02/02-VALIDATION", "validation"),
+        ],
+        vec![],
+    ));
+    assert_eq!(
+        codes(&found),
+        [
+            ("E206", "v1.0/01/01-VALIDATION-2"),
+            ("E206", "v1.0/01/01-VERIFICATION-2")
+        ]
+    );
+    assert!(
+        found[1].message.contains(
+            "a second verification of phase 'v1.0/01'; its verification is 'v1.0/01/01-VERIFICATION'"
+        ),
+        "{}",
+        found[1].message
+    );
+}
+
+#[test]
 fn contexts_of_two_phases_are_clean() {
     let found = check(&input(
         vec![

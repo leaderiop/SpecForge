@@ -201,8 +201,9 @@ Kept on purpose, listed so none is silent:
 - A truth the verifier is `uncertain` about stays `pending`; upstream makes it a human item (`human_needed`). A
   backstop truth with no explicit evidence is not `human_needed`: only a fresh verdict makes it verified. A verification with no truth,
   whose artifacts and key links all pass, is `passed 0/0`.
-- A verification is judged one per phase, but nothing refuses a second: the last by id wins, and W504 counts per
-  verification, not per phase. The same holds for a phase's validation (the first by id).
+- A phase has one verification and one validation, as it has one `NN-VERIFICATION.md` and `NN-VALIDATION.md`: a second
+  is gsd/E206 ([rules](rules.md)). While it stands, the phase's verifications are read as one (an override on either
+  counts), W504 counts per verification, not per phase, and the validation read is the first by id.
 - A milestone audit lists a requirement of a `gaps_found` phase as `partial`, where upstream lists it `unsatisfied`, and
   does not list the complete requirements of phases that have not passed. The audit's status is `gaps_found` either way.
 - A UAT session with a blocked test or an unexcused skip and open gaps that all have root causes is `diagnosed`;

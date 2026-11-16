@@ -1,7 +1,7 @@
 //! The roadmap rules, end to end: which codes `specforge check` reports on the `roadmap_errors` project, and that
 //! the clean `roadmap` project reports none.
 
-use crate::harness::{project, taskboard};
+use crate::harness::{Project, project, taskboard};
 
 #[test]
 fn roadmap_errors_report_each_code_once() {
@@ -168,6 +168,34 @@ fn a_phase_with_two_contexts_is_e206() {
             .contains("'v1.0/02/02-CONTEXT-B' is a second context"),
         "{found:#?}"
     );
+}
+
+/// A phase's second verification and second validation are reported, as its second context is: each is one file of the
+/// phase directory, and nothing reported them before.
+#[test]
+fn a_phase_with_two_verifications_or_validations_is_e206() {
+    let p = project("verify");
+    let e206 = |p: &Project| -> Vec<String> {
+        p.findings()
+            .into_iter()
+            .filter(|(code, _)| code == "gsd/E206")
+            .map(|(_, message)| message)
+            .collect()
+    };
+    assert_eq!(e206(&p), Vec::<String>::new(), "one of each");
+    p.write(
+        "spec/second.spec",
+        "verification 01-VERIFICATION-2 \"Again\" {\n  phase v1.0/01\n}\n\n\
+         validation 01-VALIDATION-2 \"Again\" {\n  phase v1.0/01\n}\n",
+    );
+    let added = e206(&p);
+    assert_eq!(added.len(), 2, "{added:#?}");
+    for (message, second) in added.iter().zip([
+        "validation 'v1.0/01/01-VALIDATION-2' is a second validation of phase 'v1.0/01'",
+        "verification 'v1.0/01/01-VERIFICATION-2' is a second verification of phase 'v1.0/01'",
+    ]) {
+        assert!(message.contains(second), "{added:#?}");
+    }
 }
 
 /// A milestone keeps the Current Milestone's goal and target features: both write on the taskboard, read back, and

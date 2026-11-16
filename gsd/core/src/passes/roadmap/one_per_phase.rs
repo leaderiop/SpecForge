@@ -1,6 +1,7 @@
-//! E206: a phase has at most one context, phase spec, discussion log and research, a quick plan at most one context
-//! and research, and the project at most one research. GSD keeps one such file in a phase (or quick task) directory;
-//! the kernel's scopes would allow two entities of a kind in a phase, and a context route reads "the phase's context".
+//! E206: a phase has at most one context, phase spec, discussion log, research, verification and validation, a quick
+//! plan at most one context and research, and the project at most one research. GSD keeps one such file in a phase (or
+//! quick task) directory; the kernel's scopes would allow two entities of a kind in a phase, and a context route reads
+//! "the phase's context", the verifier "the phase's verification".
 //!
 //! A context, a decision and a research name their owner: a context exactly one of `phase` and `plan`, a decision and a
 //! research at most one, and a `plan` must be a quick plan (one with no phase). A quick plan's research is not named
@@ -15,7 +16,14 @@ use specforge_extension_sdk::prelude::*;
 use crate::scope::{owner, quick_plan, scope_of};
 
 /// The kinds a phase (or, for `context` and `research`, a quick plan; for `research`, the project) holds one of.
-const ONE_PER_SCOPE: &[&str] = &["context", "phase_spec", "discussion", "research"];
+const ONE_PER_SCOPE: &[&str] = &[
+    "context",
+    "phase_spec",
+    "discussion",
+    "research",
+    "verification",
+    "validation",
+];
 
 /// The kinds that may name a quick plan in `plan` instead of a phase in `phase`.
 const OWNED: &[&str] = &["context", "decision", "research"];
