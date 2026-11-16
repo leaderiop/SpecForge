@@ -10,6 +10,8 @@ fn clean_work() -> Work {
         ran: vec!["rust:a::b#m::t".into()],
         cited: vec!["rust:a::b#m::t".into(), "rust:a#n::u".into()],
         absorb: json!({"compiles": 3, "edit_plans": 1}),
+        collects: 5,
+        checks: 1,
     }
 }
 
@@ -233,6 +235,17 @@ fn cited_test_ids_become_one_nextest_filterset() {
         .unwrap(),
         "(binary_id(=a::b) & test(=m::t)) | (binary_id(=specforge-cli::bin/x) & test(=u))"
     );
+    // One group per binary, sorted; a test cited twice is named once.
+    assert_eq!(
+        filterset(&[
+            "rust:z#t1".into(),
+            "rust:a#t2".into(),
+            "rust:z#t3".into(),
+            "rust:z#t1".into()
+        ])
+        .unwrap(),
+        "(binary_id(=a) & test(=t2)) | (binary_id(=z) & (test(=t1) | test(=t3)))"
+    );
     assert_eq!(filterset(&[]).unwrap(), "none()");
     for refused in [
         "a::b#t",
@@ -367,4 +380,41 @@ fn a_bless_never_writes_an_empty_golden() {
     }
     assert!(hollow("") && hollow("[]") && hollow("{}") && hollow("{\"entries\": []}"));
     assert!(!hollow("[1]") && !hollow("{\"term\": [\"t\"]}"));
+}
+
+#[test]
+fn a_filterset_over_the_collector_limit_is_refused_as_the_gates_own() {
+    let cited = |n: usize| -> Vec<String> {
+        (0..n)
+            .map(|i| {
+                format!(
+                    "rust:specforge-ops::operations#a_rather_long_module::a_long_test_name_{i:05}"
+                )
+            })
+            .collect()
+    };
+    assert!(filterset(&cited(100)).unwrap().len() <= FILTER_MAX);
+    let refused = filterset(&cited(1000)).unwrap_err();
+    assert!(
+        refused.starts_with(
+            "the gate's own sample filter, for the 1000 tests absorb cited in 1 binaries"
+        ),
+        "{refused}"
+    );
+    assert_eq!(FILTER_MAX, specforge_protocol_types::FILTER_MAX);
+}
+
+#[test]
+fn a_sample_that_cites_no_test_breaks_the_bound() {
+    let mut none = run(json!([info()]));
+    none.work.cited.clear();
+    none.work.ran.clear();
+    let judged = verdict(&none, &blessed(), false);
+    assert!(judged.failed);
+    assert_eq!(
+        judged.reason.as_deref(),
+        Some(
+            "bound: absorb cited no test; the sample proves nothing by a test, so its run is skipped"
+        )
+    );
 }

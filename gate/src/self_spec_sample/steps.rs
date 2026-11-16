@@ -63,13 +63,48 @@ const BLESS_SWITCHES: [&str; 4] = ["SPECFORGE_BLESS", "GSD_BLESS", "UPDATE_EXPEC
 /// Insta's write mode, set to `no` on every call.
 const INSTA_UPDATE: &str = "INSTA_UPDATE";
 
+/// The check: [`sample`], then its two copies of the tracked tree removed when it passed, and kept and named when it
+/// failed, for reading.
 pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
+    let dir = ctx.repo.target_dir.join("gate/self-spec-sample");
+    settled(&[dir.join("src"), dir.join("dst")], sample(ctx, &dir))
+}
+
+/// The check's result from the sample's `outcome`: on a pass, `copies` removed (two tracked trees, the disk's to
+/// keep); on a failure, `copies` kept and named after the error, those that exist.
+fn settled(copies: &[PathBuf], outcome: Result<(), String>) -> Result<(), String> {
+    match outcome {
+        Ok(()) => {
+            for copy in copies {
+                match std::fs::remove_dir_all(copy) {
+                    Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(at(copy)(e)),
+                    _ => {}
+                }
+            }
+            Ok(())
+        }
+        Err(failed) => {
+            let kept: Vec<String> = copies
+                .iter()
+                .filter(|copy| copy.exists())
+                .map(|copy| copy.display().to_string())
+                .collect();
+            Err(if kept.is_empty() {
+                failed
+            } else {
+                format!("{failed}; kept for reading: {}", kept.join(", "))
+            })
+        }
+    }
+}
+
+/// Copy, convert, run the cited tests and check the sample in `dir`, then judge it.
+fn sample(ctx: &Ctx, dir: &Path) -> Result<(), String> {
     let wasm = crate::gsd::build_wasm(ctx)?;
     let specforge = ctx.specforge()?.to_path_buf();
     let absorb = ctx.build("xtask", "absorb")?;
     // The repository's test build: fresh after `build`, else compiled here, so the cited tests' run compiles nothing.
     crate::steps::compile_tests(ctx)?;
-    let dir = ctx.repo.target_dir.join("gate/self-spec-sample");
     let (source, target) = (dir.join("src"), dir.join("dst"));
     let tracked = crate::steps::tracked_paths(ctx)?;
     crate::checked_tree::copy_tracked(&ctx.repo.root, &tracked, &source)?;
@@ -79,7 +114,7 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
         .cloned()
         .collect();
     crate::checked_tree::copy_tracked(&ctx.repo.root, &without_spec, &target)?;
-    let env = Env::prepare(&dir, &ctx.repo.root, &ctx.repo.target_dir)?;
+    let env = Env::prepare(dir, &ctx.repo.root, &ctx.repo.target_dir)?;
     // Every variable is read as the system holds it: one that is not Unicode passes unread, named in the log.
     for name in not_unicode(std::env::vars_os()) {
         ctx.log(&format!("not Unicode, passed unread: {name}"));
@@ -106,7 +141,10 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
             Err(format!("{what} failed: {tail}"))
         }
     };
+    // The calls the run makes, counted as it makes them: the work the log reports.
+    let (collects, checks) = (std::cell::Cell::new(0), std::cell::Cell::new(0));
     let collect = |project: &Path, runner: &str, filter: Option<&str>| {
+        collects.set(collects.get() + 1);
         let project = project.to_string_lossy();
         let mut args = vec!["collect", "--path", &project, "--runner", runner];
         if let Some(filter) = filter {
@@ -153,26 +191,39 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
         .filter_map(Value::as_str)
         .map(String::from)
         .collect();
-    let filter = filterset(&cited)?;
+    // No citation, no run: nextest given `none()` may write no report, and the verdict's bound names the cause.
+    let filter = (!cited.is_empty()).then(|| filterset(&cited)).transpose()?;
     for runner in ["rust-cargo", "rust-source"] {
         collect(&target, runner, None)?;
     }
-    let declaration = read(&ctx.repo.root.join(RUST_TEST_DECLARATION))?;
-    let mut metadata = call(
-        Path::new("cargo"),
-        &["metadata", "--format-version", "1", "--no-deps"],
-    );
-    // In the copy, as nextest runs there: cargo reads its configuration (`build.build-dir`) from where it runs.
-    metadata.current_dir(&target);
-    let build_dir = build_directory(&step("cargo metadata", metadata)?)?;
-    let profile = build_dir.join(profile_dir(&rust_test_profile(&declaration)?));
-    // The positive control: the gate's test build is there, so a unit the run compiles can be seen.
-    units(&profile)?;
-    let mark = SystemTime::now();
-    collect(&target, "rust-test", Some(&filter))?;
-    let compiled = built_since(&units(&profile)?, mark);
-    let ran = ran(&read(&target.join(".specforge/reports/rust-test.xml"))?);
+    let (compiled, ran) = match &filter {
+        None => {
+            ctx.log("absorb cited no test: the cited tests' run is skipped");
+            (Vec::new(), Vec::new())
+        }
+        Some(filter) => {
+            let declaration = read(&ctx.repo.root.join(RUST_TEST_DECLARATION))?;
+            let mut metadata = call(
+                Path::new("cargo"),
+                &["metadata", "--format-version", "1", "--no-deps"],
+            );
+            // In the copy, as nextest runs there: cargo reads its configuration (`build.build-dir`) from where it runs.
+            metadata.current_dir(&target);
+            let build_dir = build_directory(&step("cargo metadata", metadata)?)?;
+            let profile = build_dir.join(profile_dir(&rust_test_profile(&declaration)?));
+            // The positive control: the gate's test build is there, so a unit the run compiles can be seen.
+            units(&profile)?;
+            let mark = SystemTime::now();
+            collect(&target, "rust-test", Some(filter))?;
+            let compiled = built_since(&units(&profile)?, mark);
+            (
+                compiled,
+                ran(&read(&target.join(".specforge/reports/rust-test.xml"))?),
+            )
+        }
+    };
     let path = target.to_string_lossy();
+    checks.set(checks.get() + 1);
     let checked = ctx.output(&mut call(
         &specforge,
         &[
@@ -211,6 +262,8 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
             ran,
             cited,
             absorb: summary["work"].clone(),
+            collects: collects.get(),
+            checks: checks.get(),
         },
     };
     let goldens_dir = ctx.repo.root.join(GOLDENS);
@@ -552,15 +605,15 @@ fn head(run: &SampleRun, stats: &Value) -> Vec<String> {
             counts.join(", ")
         ),
         format!(
-            "tests: {} cited, {} run, {} held as skipped (ignored), {} units compiled",
+            "tests: {} cited, {} run, {} cited, not run, {} units compiled",
             work.cited.len(),
             work.ran.len(),
             work.cited.len().saturating_sub(work.ran.len()),
             work.compiled.len()
         ),
         format!(
-            "work: absorb compiles {}, edit plans {}; collects 5; checks 1",
-            work.absorb["compiles"], work.absorb["edit_plans"]
+            "work: absorb compiles {}, edit plans {}; collects {}; checks {}",
+            work.absorb["compiles"], work.absorb["edit_plans"], work.collects, work.checks
         ),
     ]
 }

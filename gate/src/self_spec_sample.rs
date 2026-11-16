@@ -69,6 +69,10 @@ pub struct Work {
     pub cited: Vec<String>,
     /// absorb's `work` summary: `{compiles, edit_plans}`.
     pub absorb: Value,
+    /// The `specforge collect` calls the run made.
+    pub collects: usize,
+    /// The `specforge check` calls the run made.
+    pub checks: usize,
 }
 
 /// The three goldens, as their files hold them.
@@ -318,6 +322,11 @@ fn placeheld(text: &str, paths: &[(String, &'static str)]) -> String {
 /// The lines that break the work bound, empty when it holds.
 fn bound(work: &Work) -> Vec<String> {
     let mut broken = Vec::new();
+    if work.cited.is_empty() {
+        broken.push(
+            "  bound: absorb cited no test; the sample proves nothing by a test, so its run is skipped".into(),
+        );
+    }
     if !work.compiled.is_empty() {
         broken.push(format!(
             "  bound: {} units compiled; the gate's test build should have held them: {}",
@@ -393,14 +402,18 @@ fn difference(golden: &str, now: &str) -> Vec<String> {
     lines
 }
 
-/// The nextest filterset that runs exactly `cited` (`rust:<binary id>#<test name>`):
-/// `(binary_id(=<binary id>) & test(=<test name>)) | …`, or `none()` when none is cited. An id of another form, or
-/// one holding a character a filterset would read, is refused.
+/// The longest filter a collector command takes (`specforge_protocol_types::FILTER_MAX`).
+const FILTER_MAX: usize = 16 * 1024;
+
+/// The nextest filterset that runs exactly `cited` (`rust:<binary id>#<test name>`), one group per binary, sorted:
+/// `(binary_id(=<binary id>) & test(=<test name>))`, or `(binary_id(=<binary id>) & (test(=<a>) | test(=<b>)))`,
+/// joined by `|`; `none()` when none is cited. An id of another form, or one holding a character a filterset would
+/// read, is refused, and so is a filterset over [`FILTER_MAX`] bytes, named as the gate's own.
 pub fn filterset(cited: &[String]) -> Result<String, String> {
     if cited.is_empty() {
         return Ok("none()".into());
     }
-    let mut terms = Vec::new();
+    let mut binaries: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
     for id in cited {
         let parts = id
             .strip_prefix("rust:")
@@ -419,9 +432,32 @@ pub fn filterset(cited: &[String]) -> Result<String, String> {
                 "the cited test `{id}` is not `rust:<binary id>#<test name>`"
             ));
         };
-        terms.push(format!("(binary_id(={binary}) & test(={test}))"));
+        let tests = binaries.entry(binary).or_default();
+        if !tests.contains(&test) {
+            tests.push(test);
+        }
     }
-    Ok(terms.join(" | "))
+    let groups: Vec<String> = binaries
+        .iter()
+        .map(|(binary, tests)| {
+            let tests: Vec<String> = tests.iter().map(|test| format!("test(={test})")).collect();
+            match tests.as_slice() {
+                [one] => format!("(binary_id(={binary}) & {one})"),
+                _ => format!("(binary_id(={binary}) & ({}))", tests.join(" | ")),
+            }
+        })
+        .collect();
+    let filter = groups.join(" | ");
+    if filter.len() > FILTER_MAX {
+        return Err(format!(
+            "the gate's own sample filter, for the {} tests absorb cited in {} binaries, is {} bytes, over the {FILTER_MAX} \
+             a collector's filter may hold: the sample cites more tests than one run can name",
+            cited.len(),
+            binaries.len(),
+            filter.len()
+        ));
+    }
+    Ok(filter)
 }
 
 /// The cargo profile `@rust/test`'s `rust-test` capability builds with, from its declaration

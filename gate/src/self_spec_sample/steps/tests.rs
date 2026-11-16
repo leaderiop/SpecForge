@@ -189,6 +189,8 @@ fn the_head_names_what_was_sampled_what_the_target_holds_and_the_work() {
             cited: vec!["rust:a#x".into(), "rust:a#y".into()],
             ran: vec!["rust:a#x".into()],
             absorb: serde_json::json!({"compiles": 3, "edit_plans": 1}),
+            collects: 4,
+            checks: 1,
             ..Work::default()
         },
         ..SampleRun::default()
@@ -199,8 +201,8 @@ fn the_head_names_what_was_sampled_what_the_target_holds_and_the_work() {
         [
             "sample wasm-host: 3 old entities (feature 2, term 1)",
             "target: 4 entities (requirement 3, term 1)",
-            "tests: 2 cited, 1 run, 1 held as skipped (ignored), 0 units compiled",
-            "work: absorb compiles 3, edit plans 1; collects 5; checks 1",
+            "tests: 2 cited, 1 run, 1 cited, not run, 0 units compiled",
+            "work: absorb compiles 3, edit plans 1; collects 4; checks 1",
         ]
     );
 }
@@ -313,4 +315,33 @@ fn a_specforge_call_carries_no_bless_switch_and_insta_writes_nothing() {
     assert_eq!(value("INSTA_UPDATE"), Some(Some("no".to_string())));
     assert_eq!(value("SPECFORGE_LOG"), None, "passed as inherited");
     assert_eq!(BLESS_SWITCHES[0], specforge_repo_root::BLESS_ENV);
+}
+
+#[test]
+fn a_passed_sample_removes_its_copies_and_a_failed_one_keeps_and_names_them() {
+    let dir = tempfile::tempdir().unwrap();
+    let copies = [dir.path().join("src"), dir.path().join("dst")];
+    let make = || {
+        for copy in &copies {
+            std::fs::create_dir_all(copy.join("crates")).unwrap();
+        }
+    };
+    make();
+    assert_eq!(settled(&copies, Ok(())), Ok(()));
+    assert!(copies.iter().all(|copy| !copy.exists()));
+    assert_eq!(settled(&copies, Ok(())), Ok(()), "none left to remove");
+    make();
+    let failed = settled(&copies, Err("gsd/E537 …".into())).unwrap_err();
+    assert_eq!(
+        failed,
+        format!(
+            "gsd/E537 …; kept for reading: {}, {}",
+            copies[0].display(),
+            copies[1].display()
+        )
+    );
+    assert!(copies.iter().all(|copy| copy.is_dir()));
+    std::fs::remove_dir_all(&copies[1]).unwrap();
+    std::fs::remove_dir_all(&copies[0]).unwrap();
+    assert_eq!(settled(&copies, Err("early".into())), Err("early".into()));
 }

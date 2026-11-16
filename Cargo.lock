@@ -1382,6 +1382,7 @@ dependencies = [
  "insta",
  "serde",
  "serde_json",
+ "specforge-protocol-types",
  "specforge-repo-root",
  "specforge-test",
  "tempfile",

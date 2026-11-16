@@ -172,7 +172,11 @@ converted on every change that can move it, by a check of `cargo gate`, and must
   `spec/**` and `specforge.json`), collects `src` with `rust-cargo` and `rust-source`, absorbs the sample into `dst`
   (`--extension @rust/cargo --extension @rust/source --extension @rust/test`), collects `dst` with the same two, runs
   exactly the cited tests with `collect --runner rust-test --filter <filterset>`, then checks `dst` with
-  `--effects cached`. Every `specforge` and `absorb` call gets `HOME` under the run directory, `CARGO_HOME` and
+  `--effects cached`. The filterset groups the cited tests by binary (`binary_id(=b) & (test(=x) | test(=y))`), and
+  one over the 16 KiB a collector's filter may hold is refused as the gate's own; when absorb cites no test, the run
+  is skipped and the bound is broken by that line. The log's head counts the `collect` and `check` calls as they are
+  made, and the cited tests that did not run. A passed run removes both copies; a failed one keeps them and names
+  them after its error. Every `specforge` and `absorb` call gets `HOME` under the run directory, `CARGO_HOME` and
   `RUSTUP_HOME` kept, the gate's `CARGO_TARGET_DIR`, `--yes` against `SPECFORGE_CONSENT_FILE` in a `0700` directory
   emptied first, and no cargo credential variable, so the gate never writes the user's consents and never reuses a
   stale one. The cited tests' own reports go to the run directory, never into the `<target>/specforge` the `tests`
