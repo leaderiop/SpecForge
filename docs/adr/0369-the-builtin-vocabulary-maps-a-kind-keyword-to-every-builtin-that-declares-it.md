@@ -7,7 +7,7 @@ longer refuses a keyword two builtins declare; two builtins adding one field to 
 declarer: a field two builtins add to one kind is still refused). Builds on
 [ADR 0366](0366-gsd-core-is-vendored-as-a-builtin-with-a-size-allowance-of-its-own.md) (the vendored `@gsd/core` row
 needs it) and
-[ADR 0364](0364-the-software-kinds-become-authored-kinds-of-code-core-and-the-self-spec-converts-them.md)
+[ADR 0364](0364-the-software-kinds-are-dropped-and-a-census-gives-every-old-kind-its-fate.md)
 (`@code/core`'s new kinds reuse keywords `@specforge/software` declares). No protocol change comes with this decision.
 
 ## Context

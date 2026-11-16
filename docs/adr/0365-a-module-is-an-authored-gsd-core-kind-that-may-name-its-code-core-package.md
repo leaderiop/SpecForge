@@ -6,7 +6,7 @@ D8 (package values wait for an authored `module` kind of `@gsd/core`, not for `@
 `package` is collected, and writing one in a `.spec` file is E115) and
 [ADR 0349](0349-an-anchor-is-a-graph-edge-between-an-entity-and-a-located-fact.md) (an anchor is a graph edge between
 an entity and a located fact). Builds on
-[ADR 0364](0364-the-software-kinds-become-authored-kinds-of-code-core-and-the-self-spec-converts-them.md) (a module is
+[ADR 0364](0364-the-software-kinds-are-dropped-and-a-census-gives-every-old-kind-its-fate.md) (a module is
 not one of the software kinds: its home is `@gsd/core`, not `@code/core`). No protocol or SDK change comes with this
 decision.
 

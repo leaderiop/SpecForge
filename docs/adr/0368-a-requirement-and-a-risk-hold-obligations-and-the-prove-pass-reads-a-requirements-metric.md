@@ -7,7 +7,7 @@ the bound line). Builds on
 [ADR 0359](0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md) (a requirement's `metric` is
 a record, and a second store of one value is not wanted),
 [ADR 0358](0358-a-risk-is-rated-and-an-invariant-is-judged.md) (a risk is rated, an invariant is judged) and
-[ADR 0364](0364-the-software-kinds-become-authored-kinds-of-code-core-and-the-self-spec-converts-them.md) (a behavior's
+[ADR 0364](0364-the-software-kinds-are-dropped-and-a-census-gives-every-old-kind-its-fate.md) (a behavior's
 obligations take the same shape). **Protocol 2.3.0**, as ADR 0363 states its protocol: the prove pass reading a record
 is a wire change, because a record field has to declare the proof role the pass reads. It is the first commit of the
 change that lands it, before `@gsd/core` is vendored

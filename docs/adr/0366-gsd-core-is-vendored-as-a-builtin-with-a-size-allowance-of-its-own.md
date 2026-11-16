@@ -14,7 +14,7 @@ project from `gsd/core/tests/projects/`) and D8 to D10 stand. **Amends**
 [ADR 0328](0328-a-builtin-is-embedded-and-a-non-specforge-builtin-catalogues-its-codes.md) D3 (one builtin lives outside
 `extensions/`: the crate `gsd/core`, artifact `gsd_core.wasm`, named `@gsd/core`) and
 [ADR 0360](0360-the-self-spec-moves-to-gsd-core-by-a-one-time-converter.md) D9 (option a is chosen: vendor it as a
-committed builtin). Builds on [ADR 0364](0364-the-software-kinds-become-authored-kinds-of-code-core-and-the-self-spec-converts-them.md)
+committed builtin). Builds on [ADR 0364](0364-the-software-kinds-are-dropped-and-a-census-gives-every-old-kind-its-fate.md)
 and [ADR 0365](0365-a-module-is-an-authored-gsd-core-kind-that-may-name-its-code-core-package.md) (the kind set the
 vendored blob carries). Cites [ADR 0214](0214-a-builtins-name-is-refused-where-extensions-load.md) (a builtin's name is
 refused where an extension loads from a path, E028; it is kept whole) and

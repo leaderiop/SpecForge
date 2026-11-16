@@ -4,7 +4,7 @@
 D1 (its last sentence: absorb is "deleted with the old builtins once the root project has moved"; the root project's
 move deletes neither, and the old builtins outlive the swap) and D14 to D17 (the `self-spec-sample` check, its goldens
 and its CI step retire at the swap, not later). Builds on
-[ADR 0364](0364-the-software-kinds-become-authored-kinds-of-code-core-and-the-self-spec-converts-them.md) (absorb
+[ADR 0364](0364-the-software-kinds-are-dropped-and-a-census-gives-every-old-kind-its-fate.md) (absorb
 covers the software kinds, and the swap's evidence is a whole-spec run) and
 [ADR 0366](0366-gsd-core-is-vendored-as-a-builtin-with-a-size-allowance-of-its-own.md) (the vendored blob removes the
 sample's gsd build). No protocol or SDK change comes with this decision.
