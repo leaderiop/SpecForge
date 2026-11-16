@@ -32,3 +32,7 @@ term work_item "Task" {
 term t_chain "Chain" {
   definition "Named only by another term and an unsampled failure mode."
 }
+
+term t_release_train "Release Train" {
+  definition "Written only across two fields: the end of one and the start of the next."
+}

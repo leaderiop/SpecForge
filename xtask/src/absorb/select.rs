@@ -5,7 +5,8 @@
 //! sampled), the kinds that join when one of their outgoing edges ends at a seed or a `through` entity (one step), and
 //! whole files (every entity, drawing no referrer). Then a `term` joins when its title or one of its aliases occurs in
 //! the prose of a sampled entity of another kind: the values of the fields the old registry declares `string` or
-//! `string_list`, matched as a whole word or phrase, in any case, Unicode-aware. A term never draws a term.
+//! `string_list`, each matched alone, as a whole word or phrase, in any case, Unicode-aware. A term never draws a
+//! term.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -111,9 +112,13 @@ pub fn select(old: &Old, sample: &Sample) -> Selection {
         })
         .flat_map(|node| prose_of(old, node))
         .collect();
-    let prose = prose.join("\n");
+    // Each text alone: a phrase split between two fields, or two entities, is named by no text.
     for node in nodes.iter().filter(|node| node.kind.raw.as_str() == TERM) {
-        if names_of(node).iter().any(|name| names(&prose, name)) {
+        if names_of(node)
+            .iter()
+            .filter_map(|name| pattern(name))
+            .any(|re| prose.iter().any(|text| re.is_match(text)))
+        {
             selected.insert(node.id.raw.as_str(), TERM);
         }
     }
@@ -166,15 +171,14 @@ fn names_of(node: &specforge_graph::Node) -> Vec<String> {
     node.title.iter().cloned().chain(aliases).collect()
 }
 
-/// Whether `name` occurs in `text` as a whole word or phrase, in any case, its words apart by any whitespace (a
-/// phrase may wrap a line of prose).
-fn names(text: &str, name: &str) -> bool {
+/// The pattern of `name` as a whole word or phrase, in any case, its words apart by any whitespace (a phrase may wrap
+/// a line of one text); None for a name of no word.
+fn pattern(name: &str) -> Option<Regex> {
     let words: Vec<String> = name.split_whitespace().map(regex::escape).collect();
     if words.is_empty() {
-        return false;
+        return None;
     }
-    let pattern = format!(r"(?i)(?:^|\W){}(?:\W|$)", words.join(r"\s+"));
-    Regex::new(&pattern).is_ok_and(|re| re.is_match(text))
+    Regex::new(&format!(r"(?i)(?:^|\W){}(?:\W|$)", words.join(r"\s+"))).ok()
 }
 
 #[cfg(test)]

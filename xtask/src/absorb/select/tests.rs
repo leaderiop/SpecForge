@@ -118,6 +118,7 @@ fn a_term_joins_when_sampled_prose_names_its_title_or_an_alias() {
     for out in ["component", "t_caf"] {
         assert!(!terms.contains(&out), "{out}: {terms:?}");
     }
+    let names = |text: &str, name: &str| pattern(name).unwrap().is_match(text);
     assert!(names("an élève here", "Élève"));
     assert!(!names("the café", "caf"));
     assert!(names("the entity graph, built", "Entity Graph"));
@@ -126,6 +127,21 @@ fn a_term_joins_when_sampled_prose_names_its_title_or_an_alias() {
         "a wrapped line"
     );
     assert!(!names("the entitygraph", "entity graph"));
+}
+
+#[test]
+fn a_term_is_named_within_one_text_never_across_two() {
+    // "Release" ends the feature's problem and "Train" starts its description: no single text names the term.
+    let s = selected();
+    assert!(!ids(&s, "term").contains(&"t_release_train"), "{s:?}");
+    let texts = ["the whole host on a Release", "Train aside"].map(String::from);
+    let release_train = pattern("Release Train").unwrap();
+    assert!(!texts.iter().any(|text| release_train.is_match(text)));
+    assert!(
+        release_train.is_match("a Release\n  Train"),
+        "a wrap within one text"
+    );
+    assert!(pattern("  ").is_none(), "a name of no word names nothing");
 }
 
 #[test]

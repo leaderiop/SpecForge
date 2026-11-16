@@ -125,8 +125,9 @@ converted on every change that can move it, by a check of `cargo gate`, and must
   of whose edges ends at one of them or at a behavior of `spec/behaviors/wasm-*.spec` (one step; those behaviors stay
   out); every persona of `spec/product/personas.spec`; then every term whose title or alias the prose of a sampled
   non-term entity names (the fields the old registry declares `string` or `string_list`), as a whole word or phrase,
-  in any case, Unicode-aware, its words apart by any whitespace, so a phrase a line of prose wraps still names it. A
-  term's id is never matched, and a term never draws a term. It selects 108 old entities: constraint 9, decision 6,
+  in any case, Unicode-aware, its words apart by any whitespace, so a phrase a line of prose wraps still names it.
+  Each text is matched alone: a phrase split between two fields, or two entities, names nothing. A term's id is
+  never matched, and a term never draws a term. It selects 108 old entities: constraint 9, decision 6,
   failure mode 12, feature 12, invariant 16, journey 8, persona 6 and term 39 (a phrase wrapped across a line of a
   constraint's prose names both glossaries' "traceability chain").
   - Rejected: a committed id list, which is not computed from the graph and drifts; a selector file format, a second
