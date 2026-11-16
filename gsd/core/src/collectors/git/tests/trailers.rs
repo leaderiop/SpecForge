@@ -174,3 +174,27 @@ fn a_trailers_task_is_recorded_in_the_plan_its_plan_field_names() {
     assert_eq!(made[0].1["plan"], "v1.0/01/01-02");
     assert_eq!(made[0].1["task"], "v1.0/01/01-01/T9");
 }
+
+/// A task's `plan` written as a unique suffix (`01-02`), as a person may write a scope field: the task is recorded in
+/// the plan the graph resolved it to, its edge, never a text the collector resolves again.
+#[test]
+fn a_trailers_task_is_recorded_in_the_plan_its_edge_names() {
+    let mut graph = plan_graph().expect("a graph");
+    graph
+        .nodes
+        .push(node("v1.0/01/01-02", "plan", "Other plan"));
+    let mut task = node("v1.0/01/01-01/T9", "task", "Moved");
+    task.fields.insert("plan".into(), json!("01-02"));
+    graph.nodes.push(task);
+    let input = CollectInput {
+        graph: Some(graph),
+        ..Default::default()
+    };
+    let made = created(&collected_over(
+        vec![trailed('a', &["01-01/T9"], "chore: wire it")],
+        input,
+    ));
+    assert_eq!(made[0].1["plan"], "v1.0/01/01-02");
+    assert_eq!(made[0].1["task"], "v1.0/01/01-01/T9");
+    assert_eq!(made[0].1["linked_by"], LinkedBy::Trailer.as_str());
+}

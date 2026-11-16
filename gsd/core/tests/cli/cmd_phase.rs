@@ -567,3 +567,53 @@ fn a_backlog_phase_takes_the_first_free_999_number() {
     refused(&run, "invalid_input", &["--backlog", "--insert"]);
     unchanged(&p, &before);
 }
+
+/// A phase may name its milestone rooted (`/v1.0`), a spelling the graph resolves as `v1.0`: it is one of that
+/// milestone's phases. A promote renames the backlog phase in place, an add follows it, and a promote that names the
+/// backlog phase of another milestone finds it there.
+#[test]
+fn a_phase_naming_its_milestone_rooted_is_one_of_its_phases() {
+    let rooted = |p: &Project| {
+        let text = p
+            .read("spec/m.spec")
+            .replace("  milestone v1.0\n", "  milestone /v1.0\n");
+        p.write("spec/m.spec", &text);
+    };
+    let p = backlogged();
+    rooted(&p);
+    let run = gsd(&p, "phase", &["--promote", "999.1"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let phases = ids(&p, "phase");
+    assert!(phases.contains(&"v1.0/13".to_string()), "{phases:?}");
+    assert!(!phases.contains(&"v1.0/999.1".to_string()), "{phases:?}");
+    let run = gsd(&p, "phase", &["--name", "Sharing"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(ids(&p, "phase").contains(&"v1.0/14".to_string()));
+
+    let p = two_milestones(false);
+    rooted(&p);
+    let run = gsd(
+        &p,
+        "phase",
+        &["--promote", "v1.0/999.1", "--milestone", "v1.1"],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(ids(&p, "phase").contains(&"v1.1/02".to_string()));
+}
+
+/// A commit names its plan as the graph resolved it, so one written rooted (`/v1.0/02/02-01`) starts the phase too.
+#[test]
+fn a_commit_naming_a_plan_rooted_starts_its_phase() {
+    let p = project("execute");
+    let run = gsd(&p, "phase", &["--remove", "02", "--dry-run"]);
+    assert!(!run.all().contains("has started"), "{}", run.all());
+    plant(
+        &p,
+        "spec/ops.spec",
+        "commit abcdefabcdef \"x\" {\n  hash \"abcdefabcdefabcdefabcdefabcdefabcdefabcd\"\n  plan /v1.0/02/02-01\n  subject \"x\"\n}\n",
+    );
+    let before = bytes(&p);
+    let run = gsd(&p, "phase", &["--remove", "02"]);
+    refused(&run, "invalid_input", &["has started", "--force"]);
+    unchanged(&p, &before);
+}

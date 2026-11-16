@@ -10,7 +10,7 @@
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, run};
+use super::support::{answer, run, target};
 
 /// Whether `c` joins an id to its neighbour: `\w` (ASCII) or `-`.
 fn joins(c: char) -> bool {
@@ -49,7 +49,7 @@ fn plan_coverage(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     }
     let ids: Vec<&str> = graph
         .nodes_of_kind("plan")
-        .filter(|p| p.text("phase") == Some(phase))
+        .filter(|p| target(graph, &p.id, "phase") == Some(phase))
         .map(|p| p.id.rsplit('/').next().unwrap_or(&p.id))
         .collect();
     let report = coverage(&ids, review);

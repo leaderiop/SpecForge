@@ -13,18 +13,19 @@ use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
 use super::reports::current;
-use super::support::{answer, run};
+use super::support::{answer, run, target};
 use crate::passes::derive::uat::is_deferred;
 
-/// Whether `test` is still open: see the module's rule. `gaps` are the graph's uat_gap nodes, each naming its `test`.
-fn open(test: &GraphNode, gaps: &[&GraphNode]) -> bool {
+/// Whether `test` is still open: see the module's rule. `gaps` are the graph's uat_gap nodes, each naming its `test`
+/// (read through its edge: `test` is the gap's scope field, which a person may write as a unique suffix, `01-UAT/U4`).
+fn open(graph: &CommandGraph, test: &GraphNode, gaps: &[&GraphNode]) -> bool {
     match test.text("result").unwrap_or("pending") {
         "pass" => false,
         "skipped" => !is_deferred(test.text("reason")),
         "issue" => {
             let mine: Vec<&&GraphNode> = gaps
                 .iter()
-                .filter(|g| g.text("test") == Some(test.id.as_str()))
+                .filter(|g| target(graph, &g.id, "test") == Some(test.id.as_str()))
                 .collect();
             // upstream: every gap of the issue is resolved
             mine.is_empty() || mine.iter().any(|g| g.text("status") != Some("resolved"))
@@ -39,7 +40,7 @@ fn open_under<'g>(graph: &'g CommandGraph, scope: &str) -> Vec<&'g str> {
     let prefix = format!("{scope}/");
     graph
         .nodes_of_kind("uat_test")
-        .filter(|t| t.id.starts_with(&prefix) && open(t, &gaps))
+        .filter(|t| t.id.starts_with(&prefix) && open(graph, t, &gaps))
         .map(|t| t.id.as_str())
         .collect()
 }
@@ -150,57 +151,72 @@ mod tests {
         node
     }
 
+    /// The graph of `nodes`, each gap's `test` edge resolved from the suffix it writes (`01-UAT/U4`), as the kernel
+    /// resolves a scope field: a unique suffix of a path. The gaps here name tests of their own phase.
+    fn resolved(nodes: Vec<GraphNode>) -> CommandGraph {
+        let edges = nodes
+            .iter()
+            .filter(|n| n.kind == "uat_gap")
+            .filter_map(|gap| {
+                let phase = gap.id.rsplit_once('/')?.0;
+                Some(GraphEdge {
+                    source: gap.id.clone(),
+                    target: format!("{phase}/{}", gap.text("test")?),
+                    label: "test".into(),
+                })
+            })
+            .collect();
+        CommandGraph::new(nodes, edges)
+    }
+
     fn graph() -> CommandGraph {
-        CommandGraph::new(
-            vec![
-                node("v0.9", "milestone", &[("state", "shipped")]),
-                node("v0.9/01", "phase", &[]),
-                node("v0.9/01/01-UAT/U1", "uat_test", &[]),
-                node("v0.9/01/01-UAT/U2", "uat_test", &[("result", "pass")]),
-                node("v0.8", "milestone", &[("state", "shipped")]),
-                node("v0.8/01/01-UAT/U1", "uat_test", &[("result", "pass")]),
-                node("v1.0", "milestone", &[("state", "in_progress")]),
-                node("v1.0/01", "phase", &[]),
-                node("v1.0/02", "phase", &[]),
-                node("v1.0/01/01-UAT/U1", "uat_test", &[("result", "pass")]),
-                node(
-                    "v1.0/01/01-UAT/U2",
-                    "uat_test",
-                    &[
-                        ("result", "skipped"),
-                        ("reason", "Deferred follow-up: a device"),
-                    ],
-                ),
-                node(
-                    "v1.0/01/01-UAT/U3",
-                    "uat_test",
-                    &[("result", "skipped"), ("reason", "no time")],
-                ),
-                node("v1.0/01/01-UAT/U4", "uat_test", &[("result", "issue")]),
-                node(
-                    "v1.0/01/G-01-1",
-                    "uat_gap",
-                    &[("test", "v1.0/01/01-UAT/U4"), ("status", "resolved")],
-                ),
-                node("v1.0/01/01-UAT/U5", "uat_test", &[("result", "issue")]),
-                node(
-                    "v1.0/01/G-01-2",
-                    "uat_gap",
-                    &[("test", "v1.0/01/01-UAT/U5"), ("status", "resolved")],
-                ),
-                node(
-                    "v1.0/01/G-01-3",
-                    "uat_gap",
-                    &[("test", "v1.0/01/01-UAT/U5"), ("status", "open")],
-                ),
-                node("v1.0/01/01-UAT/U6", "uat_test", &[("result", "issue")]),
-                node("v1.0/02/02-UAT/U1", "uat_test", &[("result", "blocked")]),
-                node("v1.0/02/02-UAT/U2", "uat_test", &[("result", "pending")]),
-                node("v1.0/02/02-UAT/U3", "uat_test", &[]),
-                node("v1.0/02/02-UAT/U4", "uat_test", &[("result", "pass")]),
-            ],
-            Vec::new(),
-        )
+        resolved(vec![
+            node("v0.9", "milestone", &[("state", "shipped")]),
+            node("v0.9/01", "phase", &[]),
+            node("v0.9/01/01-UAT/U1", "uat_test", &[]),
+            node("v0.9/01/01-UAT/U2", "uat_test", &[("result", "pass")]),
+            node("v0.8", "milestone", &[("state", "shipped")]),
+            node("v0.8/01/01-UAT/U1", "uat_test", &[("result", "pass")]),
+            node("v1.0", "milestone", &[("state", "in_progress")]),
+            node("v1.0/01", "phase", &[]),
+            node("v1.0/02", "phase", &[]),
+            node("v1.0/01/01-UAT/U1", "uat_test", &[("result", "pass")]),
+            node(
+                "v1.0/01/01-UAT/U2",
+                "uat_test",
+                &[
+                    ("result", "skipped"),
+                    ("reason", "Deferred follow-up: a device"),
+                ],
+            ),
+            node(
+                "v1.0/01/01-UAT/U3",
+                "uat_test",
+                &[("result", "skipped"), ("reason", "no time")],
+            ),
+            node("v1.0/01/01-UAT/U4", "uat_test", &[("result", "issue")]),
+            node(
+                "v1.0/01/G-01-1",
+                "uat_gap",
+                &[("test", "01-UAT/U4"), ("status", "resolved")],
+            ),
+            node("v1.0/01/01-UAT/U5", "uat_test", &[("result", "issue")]),
+            node(
+                "v1.0/01/G-01-2",
+                "uat_gap",
+                &[("test", "01-UAT/U5"), ("status", "resolved")],
+            ),
+            node(
+                "v1.0/01/G-01-3",
+                "uat_gap",
+                &[("test", "01-UAT/U5"), ("status", "open")],
+            ),
+            node("v1.0/01/01-UAT/U6", "uat_test", &[("result", "issue")]),
+            node("v1.0/02/02-UAT/U1", "uat_test", &[("result", "blocked")]),
+            node("v1.0/02/02-UAT/U2", "uat_test", &[("result", "pending")]),
+            node("v1.0/02/02-UAT/U3", "uat_test", &[]),
+            node("v1.0/02/02-UAT/U4", "uat_test", &[("result", "pass")]),
+        ])
     }
 
     #[test]
@@ -252,19 +268,12 @@ mod tests {
     /// skipped) is refused, as the reports refuse (ADR 0299 D4), never counted as open.
     #[test]
     fn a_graph_without_computed_gap_status_is_refused() {
-        let graph = CommandGraph::new(
-            vec![
-                node("v1.0", "milestone", &[("state", "in_progress")]),
-                node("v1.0/01", "phase", &[]),
-                node("v1.0/01/01-UAT/U1", "uat_test", &[("result", "issue")]),
-                node(
-                    "v1.0/01/G-01-1",
-                    "uat_gap",
-                    &[("test", "v1.0/01/01-UAT/U1")],
-                ),
-            ],
-            Vec::new(),
-        );
+        let graph = resolved(vec![
+            node("v1.0", "milestone", &[("state", "in_progress")]),
+            node("v1.0/01", "phase", &[]),
+            node("v1.0/01/01-UAT/U1", "uat_test", &[("result", "issue")]),
+            node("v1.0/01/G-01-1", "uat_gap", &[("test", "01-UAT/U1")]),
+        ]);
         let why = debt(&graph, None, None).unwrap_err();
         assert!(
             why.contains("no computed status for v1.0/01/G-01-1"),

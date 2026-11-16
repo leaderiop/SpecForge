@@ -9,7 +9,7 @@
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, natural, node, required, run, texts};
+use super::support::{answer, natural, node, required, run, target, texts};
 
 const LISTS: [&str; 4] = ["built", "worked", "inefficient", "patterns"];
 
@@ -22,7 +22,10 @@ fn close(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         .graph()
         .nodes()
         .iter()
-        .filter(|n| n.kind == "milestone_audit" && n.text("milestone") == Some(&milestone.id))
+        .filter(|n| {
+            n.kind == "milestone_audit"
+                && target(call.graph(), &n.id, "milestone") == Some(&milestone.id)
+        })
         .max_by_key(|n| natural(&n.id))
         .ok_or_else(|| format!("milestone '{}' has no audit", milestone.id))?;
     let today = call.today();

@@ -7,7 +7,7 @@ use specforge_extension_sdk::prelude::*;
 
 use super::remove::{human_blocker, rename_children};
 use super::{Number, Phase, find, next_number};
-use crate::commands::support::answer;
+use crate::commands::support::{answer, target};
 
 /// The backlog phase `name` (`999.1`, or `v1.0/999.1` to say which milestone): in the target milestone's own phases
 /// first, else the only one of that name in the project.
@@ -37,7 +37,7 @@ fn locate<'a>(
         .nodes()
         .iter()
         .filter(|n| n.kind == "phase" && n.id.rsplit('/').next() == Some(short))
-        .filter(|n| scope.is_empty() || n.text("milestone") == Some(scope))
+        .filter(|n| scope.is_empty() || target(call.graph(), &n.id, "milestone") == Some(scope))
         .collect();
     match found.as_slice() {
         [one] => Ok(Phase { node: one, number }),
@@ -69,7 +69,7 @@ pub(super) fn promote(
     let mut plan = call.plan();
     let new_id = format!("{}/{}", ms.id, number.name());
     let old_id = from.node.id.clone();
-    if from.node.text("milestone") == Some(ms.id.as_str()) {
+    if target(call.graph(), &from.node.id, "milestone") == Some(ms.id.as_str()) {
         plan.rename(&old_id, &number.name());
     } else {
         // another milestone's backlog: the phase moves under this one (its id follows its milestone), then takes its number

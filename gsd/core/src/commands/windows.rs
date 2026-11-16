@@ -5,7 +5,9 @@
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, fields, next_id, node, now, ops_file, required, run, text, title};
+use super::support::{
+    answer, fields, next_id, node, now, ops_file, required, run, target, text, title,
+};
 
 const KINDS: &[&str] = &[
     "stub",
@@ -70,8 +72,7 @@ fn open_window<'a>(
     let window = node(call, "broken_window", required(call, arg)?)?;
     // The status is read from the authored fields, as the derive pass does, so the command and the pass agree. A
     // window whose refactor proposal is disposed is resolved: accepted fixes it, declined waives it.
-    let outcome = window
-        .text("refactor")
+    let outcome = target(call.graph(), &window.id, "refactor")
         .and_then(|r| call.graph().node(r))
         .and_then(|p| p.fields.get("disposition"))
         .and_then(|d| d["outcome"].as_str());

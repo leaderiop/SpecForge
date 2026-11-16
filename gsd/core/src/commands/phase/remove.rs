@@ -42,7 +42,8 @@ fn started(call: &CommandCall<'_>, phase: &Phase<'_>) -> bool {
     let under = format!("{}/", phase.node.id);
     call.graph().nodes().iter().any(|n| {
         (n.kind == "summary" && n.id.starts_with(&under))
-            || (n.kind == "commit" && n.text("plan").is_some_and(|p| p.starts_with(&under)))
+            || (n.kind == "commit"
+                && target(call.graph(), &n.id, "plan").is_some_and(|p| p.starts_with(&under)))
     })
 }
 

@@ -337,3 +337,30 @@ fn a_conflict_no_command_raised_has_no_status() {
     let fields = p.fields_of("v1.0/01/CF1");
     assert!(fields.get("status").is_none(), "{fields}");
 }
+
+/// A plan may name its phase by a unique suffix (`01`), as a person may write a scope field: `plan-coverage` counts the
+/// plans the graph resolved to the phase, not those whose text spells its whole id.
+#[test]
+fn plan_coverage_counts_a_plan_naming_its_phase_by_a_suffix() {
+    let p = twin();
+    let plans = p
+        .read("spec/plans.spec")
+        .replace("  phase            v1.0/01\n", "  phase            01\n");
+    p.write("spec/plans.spec", &plans);
+    let run = gsd(
+        &p,
+        "plan-coverage",
+        &[
+            PHASE,
+            "--review",
+            "Reviewed 01-01 and 01-02",
+            "--format",
+            "json",
+        ],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(
+        json(&run),
+        serde_json::json!({"complete": true, "missing_ids": [], "total": 2})
+    );
+}

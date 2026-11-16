@@ -11,7 +11,10 @@ use super::*;
 
 mod items;
 mod port;
+mod serve;
 mod trailers;
+
+pub(super) use serve::served;
 
 fn head(kind: &str, scope: Option<&str>, description: &str) -> Option<Header<'static>> {
     // The strings are 'static literals in these tests.
@@ -226,19 +229,6 @@ pub(super) fn changed(path: &str, status: GitChange, added: u32, removed: u32) -
     }
 }
 
-/// What `collect` answers with `repo` served (its top `/r` when none is set).
-pub(super) fn served(
-    mut repo: Repo,
-    input: &CollectInput,
-) -> (Result<CollectOutput, String>, Rc<Repo>) {
-    if repo.top.is_empty() {
-        repo.top = "/r".into();
-    }
-    let repo = Rc::new(repo);
-    let output = in_process::serve(Rc::clone(&repo) as Rc<dyn InProcessHost>, || collect(input));
-    (output, repo)
-}
-
 /// What `collect` answers over `log`, no commit changing a file.
 pub(super) fn collected_over(log: Vec<GitLogCommit>, input: CollectInput) -> CollectOutput {
     served(
@@ -318,7 +308,8 @@ fn node(id: &str, kind: &str, title: &str) -> GraphNode {
         file: Some("spec/plans.spec".into()),
         ..Default::default()
     };
-    // A task's `plan` reference, as the graph export writes it: its parent plan's id.
+    // A task's `plan` reference, its scope field, as a create writes it: its parent plan's id. `served` gives it the
+    // plan's edge, as the graph export does.
     if kind == "task"
         && let Some((plan, _)) = id.rsplit_once('/')
     {

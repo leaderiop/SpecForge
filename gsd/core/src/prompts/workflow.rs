@@ -95,14 +95,19 @@ fn shell_ids(call: &PromptCall<'_>, subject: Option<&str>) -> String {
 /// The first phase of the current milestone that no plan names, in phase order (`999.` backlog phases left out).
 fn next_unplanned(call: &PromptCall<'_>) -> Option<String> {
     // a prompt's graph is the wire one: the milestone is picked as `reports::current` does
-    let nodes: &[_] = call.graph().map_or(&[], |g| &g.nodes);
+    let (nodes, edges): (&[_], &[_]) = call.graph().map_or((&[], &[]), |g| (&g.nodes, &g.edges));
     let of_kind = |kind: &'static str| nodes.iter().filter(move |n| n.kind == kind);
     let milestone = of_kind("milestone")
         .find(|m| m.text("state") == Some("in_progress"))
         .or_else(|| of_kind("milestone").next_back())?;
     let scope = format!("{}/", milestone.id);
-    let planned: std::collections::BTreeSet<&str> =
-        of_kind("plan").filter_map(|p| p.text("phase")).collect();
+    // A plan's `phase` as the graph resolved it: a plan writes its phase short (`03`), never its whole id.
+    let plans: std::collections::BTreeSet<&str> = of_kind("plan").map(|p| p.id.as_str()).collect();
+    let planned: std::collections::BTreeSet<&str> = edges
+        .iter()
+        .filter(|e| e.label == "phase" && plans.contains(e.source.as_str()))
+        .map(|e| e.target.as_str())
+        .collect();
     let number = |id: &str| id.rsplit('/').next().unwrap_or_default().to_string();
     of_kind("phase")
         .filter(|p| p.id.starts_with(&scope) && !number(&p.id).starts_with("999."))

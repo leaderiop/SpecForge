@@ -297,11 +297,12 @@ fn plan_phase_with_no_phase_plans_the_next() {
     assert_eq!(text_of(&none), text_of(&named));
     assert!(text_of(&none).contains("`$PHASE_ID` is `v1.0/02.1`"));
 
-    // Once 02.1 is planned, the next one is 03.
+    // Once 02.1 is planned, the next one is 03: the plan names its phase by a unique suffix, as a person may write a
+    // scope field, and the phase it resolved to is planned.
     let plans = p.read("spec/plans.spec");
     p.write(
         "spec/plans.spec",
-        &format!("{plans}\nplan 02.1-01 \"Fix the title\" {{\n  phase v1.0/02.1\n  type execute\n  objective \"Fix it.\"\n}}\n"),
+        &format!("{plans}\nplan 02.1-01 \"Fix the title\" {{\n  phase 02.1\n  type execute\n  objective \"Fix it.\"\n}}\n"),
     );
     let next = payload(&prompt(&p, "plan_phase", &[], "claude-code"));
     assert_eq!(next["payload"]["subject"], "v1.0/03");

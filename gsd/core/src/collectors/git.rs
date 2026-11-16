@@ -545,6 +545,7 @@ fn plan_by_scope<'n>(
 /// read for its parents only. `code` is the project's `project_code` (the setting, else the project entity's field).
 fn link<'n, 'c>(
     nodes: &'n [GraphNode],
+    edges: &[GraphEdge],
     code: Option<&str>,
     commit: &'c Commit,
 ) -> Option<Linked<'n, 'c>> {
@@ -564,11 +565,13 @@ fn link<'n, 'c>(
         Trailer::Named(value) => task_named(nodes, code, value),
         Trailer::None | Trailer::Unreadable => None,
     };
-    // The task's own `plan` reference, not its id's prefix.
+    // The task's own `plan` reference, not its id's prefix: the plan the graph resolved it to (its edge), as a task
+    // writes it short (`01-01`), which another milestone's plan of that name would make ambiguous by suffix.
     if let Some(task) = named
-        && let Some(plan) = task
-            .text("plan")
-            .and_then(|plan| find_kind(nodes, plan, "plan"))
+        && let Some(plan) = edges
+            .iter()
+            .find(|e| e.source == task.id && e.label == "plan")
+            .and_then(|e| nodes.iter().find(|n| n.id == e.target && n.kind == "plan"))
     {
         return plan.file.is_some().then(|| Linked {
             plan,
@@ -616,6 +619,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     }
     let prefix = prefix(input.cwd.as_deref(), &repo.toplevel)?;
     let nodes = input.graph.as_ref().map_or(&[][..], |g| &g.nodes[..]);
+    let edges = input.graph.as_ref().map_or(&[][..], |g| &g.edges[..]);
     let mut known: BTreeSet<String> = nodes
         .iter()
         .filter(|n| n.kind == "commit")
@@ -647,7 +651,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     let mut fresh = Vec::new();
     for (at, commit) in commits.iter().enumerate().rev() {
         let name = commit.name();
-        if !known.contains(&name) && link(nodes, code, commit).is_some() {
+        if !known.contains(&name) && link(nodes, edges, code, commit).is_some() {
             known.insert(name);
             fresh.push(at);
         }
@@ -689,12 +693,17 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     }
     let plans: HashMap<&str, &str> = commits
         .iter()
-        .filter_map(|c| Some((c.hash.as_str(), link(nodes, code, c)?.plan.id.as_str())))
+        .filter_map(|c| {
+            Some((
+                c.hash.as_str(),
+                link(nodes, edges, code, c)?.plan.id.as_str(),
+            ))
+        })
         .collect();
     let mut descends = ancestry(&commits, &plans);
     for &at in &fresh {
         let commit = &commits[at];
-        let Some(linked) = link(nodes, code, commit) else {
+        let Some(linked) = link(nodes, edges, code, commit) else {
             continue;
         };
         let name = commit.name();

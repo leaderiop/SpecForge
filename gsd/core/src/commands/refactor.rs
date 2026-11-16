@@ -9,7 +9,9 @@ use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
 use super::complexity::{self, Analyzed, Candidate};
-use super::support::{answer, fields, next_id, node, now, ops_file, required, run, text, title};
+use super::support::{
+    answer, fields, next_id, node, now, ops_file, required, run, target, text, title,
+};
 
 const OUTCOMES: &[&str] = &["accepted", "declined"];
 
@@ -84,7 +86,9 @@ fn propose(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         .graph()
         .nodes()
         .iter()
-        .filter(|n| n.kind == "plan" && n.text("phase") == Some(phase.id.as_str()))
+        .filter(|n| {
+            n.kind == "plan" && target(call.graph(), &n.id, "phase") == Some(phase.id.as_str())
+        })
         .map(|n| n.id.as_str())
         .collect();
     let settings = Settings::current();
