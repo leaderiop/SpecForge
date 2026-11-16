@@ -83,7 +83,7 @@ struct Args {
 
 fn parse(args: &[String]) -> Result<Args, String> {
     let (mut from, mut to, mut ledger, mut scope) = (None, None, None, Scope::All);
-    let (mut sample, mut selection) = (None, None);
+    let (mut sample, mut selection, mut only) = (None, None, None::<String>);
     let mut extensions = Vec::new();
     let mut args = args.iter();
     while let Some(flag) = args.next() {
@@ -93,11 +93,17 @@ fn parse(args: &[String]) -> Result<Args, String> {
             "--to" => to = Some(PathBuf::from(args.next().ok_or_else(value)?)),
             "--ledger" => ledger = Some(PathBuf::from(args.next().ok_or_else(value)?)),
             "--only" => {
-                let only = args.next().ok_or_else(value)?;
-                match only.strip_prefix("sample:") {
-                    Some(name) => sample = Some(select::sample(name)?),
-                    None => scope = Scope::from_arg(only)?,
+                let given = args.next().ok_or_else(value)?;
+                if let Some(first) = &only {
+                    return Err(format!(
+                        "--only takes one value (ids:<file> or sample:<name>): '{first}' and '{given}' were both given"
+                    ));
                 }
+                match given.strip_prefix("sample:") {
+                    Some(name) => sample = Some(select::sample(name)?),
+                    None => scope = Scope::from_arg(given)?,
+                }
+                only = Some(given.clone());
             }
             "--selection" => selection = Some(PathBuf::from(args.next().ok_or_else(value)?)),
             "--extension" => extensions.push(args.next().ok_or_else(value)?.clone()),
@@ -108,9 +114,6 @@ fn parse(args: &[String]) -> Result<Args, String> {
         return Err(
             "--selection writes a sample's selection: it needs --only sample:<name>".to_string(),
         );
-    }
-    if sample.is_some() && scope != Scope::All {
-        return Err("--only takes one value: ids:<file> or sample:<name>".to_string());
     }
     Ok(Args {
         from: from.ok_or("--from is required")?,

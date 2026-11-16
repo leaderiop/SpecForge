@@ -193,3 +193,26 @@ fn the_selection_is_sorted_json_by_old_kind() {
         Scope::All => panic!("a sample is a selection"),
     }
 }
+
+#[test]
+fn a_second_only_of_either_form_is_refused_naming_both() {
+    let ids = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(ids.path(), "[]").unwrap();
+    let ids = format!("ids:{}", ids.path().display());
+    for (first, second) in [
+        ("sample:wasm-host", "sample:wasm-host"),
+        ("sample:wasm-host", ids.as_str()),
+        (ids.as_str(), "sample:wasm-host"),
+        (ids.as_str(), ids.as_str()),
+    ] {
+        let args = [
+            "--from", "a", "--to", "b", "--only", first, "--only", second,
+        ];
+        let refused = crate::parse(&args.map(String::from)).unwrap_err();
+        assert!(
+            refused.starts_with("--only takes one value")
+                && refused.contains(&format!("'{first}' and '{second}'")),
+            "{refused}"
+        );
+    }
+}
