@@ -1,7 +1,9 @@
 //! The candidate vocabulary a build is handed (ADR 0122) changes the suggestions of E024, W151 and
-//! W020 and nothing else. Every test starts from `.spec` text (ADR 0115).
+//! W020 and nothing else. It lists every extension that declares a kind keyword (ADR 0369), and
+//! E024 suggests each of them. Every test starts from `.spec` text (ADR 0115).
 
 use specforge_common::Diagnostic;
+use specforge_registry::CandidateVocabulary;
 use specforge_test_macros::test as spec;
 
 use crate::support::written::checked;
@@ -80,4 +82,43 @@ fn a_build_handed_no_vocabulary_suggests_search() {
     );
     let w020 = coded_in(&diags, "W020");
     assert_eq!(w020[0].suggestion, None, "{diags:?}");
+}
+
+/// Two extensions declare the keyword `term`: one vocabulary, written with both under `term`, and
+/// E024 for a `term` no loaded extension declares suggests each of them (ADR 0369 D1, D2).
+#[test]
+fn two_extensions_declaring_term_yield_one_vocabulary_and_e024_names_both() {
+    let term = |name: &str| {
+        declare(name, |c| {
+            c.kind("Term", |k| {
+                k.keyword("term");
+            });
+        })
+    };
+    let vocabulary = CandidateVocabulary::of(&[term("@specforge/product"), term("@gsd/core")])
+        .expect("a keyword two extensions declare is no error");
+
+    let text = vocabulary.to_json();
+    let written: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        written["kinds"]["term"],
+        serde_json::json!(["@gsd/core", "@specforge/product"]),
+        "{text}"
+    );
+    let read_back = CandidateVocabulary::from_json(&text);
+    assert_eq!(read_back, vocabulary);
+
+    let diags = checked(
+        &build_with([software()], read_back),
+        &[("t.spec", "term t1 \"T\" {\n}\n")],
+    );
+    let e024 = coded_in(&diags, "E024");
+    assert_eq!(e024.len(), 1, "{diags:?}");
+    assert_eq!(
+        e024[0].suggestion.as_deref(),
+        Some(
+            "install one of the extensions that declare it with: specforge add @gsd/core or specforge add @specforge/product"
+        ),
+        "{diags:?}"
+    );
 }

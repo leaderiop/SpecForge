@@ -3,14 +3,19 @@
 //! protocol-types, coverage, any `inputs.json` input). See docs/agents/revendor.md.
 //!
 //!   cargo run -p xtask --bin revendor
+//!   cargo run -p xtask --bin revendor -- --vocabulary
 //!
-//! In order: refuse a place it cannot work from; refresh the lockfile of every
+//! With no argument, in order: refuse a place it cannot work from; refresh the lockfile of every
 //! committed blob's crate (`specforge_component::committed::COMMITTED`); rebuild
 //! and vendor every blob with its `inputs.json` (`build-blobs --install`);
 //! rewrite the declaration snapshots of every SDK blob, in process; write the builtins'
-//! candidate vocabulary from those snapshots (ADR 0122); check what it
+//! candidate vocabulary from those snapshots (ADR 0122, ADR 0369); check what it
 //! did not write (`build-blobs --check` and the declarations test) and print
 //! the paths to stage.
+//!
+//! With `--vocabulary`: only write the builtins' candidate vocabulary from the snapshots as
+//! they are committed. It builds nothing, so it works from any checkout. For a change to the
+//! vocabulary's rule or written form that changes no blob input.
 #![expect(
     clippy::print_stdout,
     reason = "a developer tool: its report is its stdout"
@@ -20,22 +25,57 @@ use specforge_component::ComponentRuntime;
 use specforge_component::committed::{
     COMMITTED, pinned_builtin_declarations, snapshots, wire_answers,
 };
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::CandidateVocabulary;
 use specforge_wasm::runtime::WasmRuntime;
 use std::path::Path;
 use std::process::Command;
 
+/// The directory of the generated vocabulary, from the repository root: what a run stages.
+const VOCABULARY_DIR: &str = "crates/runtime/component/data";
+/// The generated vocabulary's file name in [`VOCABULARY_DIR`].
+const VOCABULARY_FILE: &str = "builtin-vocabulary.json";
+
 fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let vocabulary_only = match args
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
+        [] => false,
+        ["--vocabulary"] => true,
+        other => {
+            eprintln!("usage: revendor [--vocabulary] (got {other:?})");
+            std::process::exit(2);
+        }
+    };
     let root = specforge_repo_root::repo_root();
-    let env_target = std::env::var_os("CARGO_TARGET_DIR").is_some();
-    if let Err(message) = preflight(root, env_target) {
+    let done = if vocabulary_only {
+        run_vocabulary(root)
+    } else {
+        let env_target = std::env::var_os("CARGO_TARGET_DIR").is_some();
+        preflight(root, env_target).and_then(|()| run(root))
+    };
+    if let Err(message) = done {
         eprintln!("revendor: {message}");
         std::process::exit(1);
     }
-    if let Err(message) = run(root) {
-        eprintln!("revendor: {message}");
-        std::process::exit(1);
-    }
+}
+
+/// The `--vocabulary` run: the vocabulary step alone, from the pinned declarations as they are
+/// committed. No lockfile, blob, snapshot or check, and no `preflight`, since it builds nothing.
+fn run_vocabulary(root: &Path) -> Result<(), String> {
+    println!("== builtin vocabulary");
+    write_vocabulary(
+        &root.join(VOCABULARY_DIR).join(VOCABULARY_FILE),
+        &pinned_builtin_declarations()?,
+    )?;
+    println!("[ok]     builtin vocabulary written");
+    println!("\nReview `git diff --stat`, then stage:");
+    println!("  git add {VOCABULARY_DIR}");
+    Ok(())
 }
 
 /// Where a re-vendor cannot work: with `CARGO_TARGET_DIR` set (a staged
@@ -76,7 +116,10 @@ fn run(root: &Path) -> Result<(), String> {
     let written = write_snapshots()?;
     println!("[ok]     {written} snapshot files written");
     println!("== builtin vocabulary");
-    write_vocabulary(root)?;
+    write_vocabulary(
+        &root.join(VOCABULARY_DIR).join(VOCABULARY_FILE),
+        &pinned_builtin_declarations()?,
+    )?;
     println!("[ok]     builtin vocabulary written");
     println!("== checks");
     xtask(root, "build-blobs", &["--check"])?;
@@ -93,7 +136,7 @@ fn run(root: &Path) -> Result<(), String> {
         })
         .collect();
     println!(
-        "  git add {} crates/runtime/component/tests/declarations crates/runtime/component/data",
+        "  git add {} crates/runtime/component/tests/declarations {VOCABULARY_DIR}",
         paths.join(" ")
     );
     if !changed.is_empty() {
@@ -168,12 +211,12 @@ fn write_snapshots() -> Result<usize, String> {
     Ok(written)
 }
 
-/// Write the builtins' candidate vocabulary from their pinned declarations, which
-/// `write_snapshots` just wrote (ADR 0122).
-fn write_vocabulary(root: &Path) -> Result<(), String> {
-    let vocabulary = CandidateVocabulary::of(&pinned_builtin_declarations()?)?;
-    let path = root.join("crates/runtime/component/data/builtin-vocabulary.json");
-    std::fs::write(&path, vocabulary.to_json()).map_err(|e| format!("{}: {e}", path.display()))
+/// Write the candidate vocabulary of `declarations` to `path` (ADR 0122, ADR 0369). A keyword
+/// several of them declare is listed with each; a field two of them add to one kind stops it,
+/// with an error that names both.
+fn write_vocabulary(path: &Path, declarations: &[ExtensionDeclaration]) -> Result<(), String> {
+    let vocabulary = CandidateVocabulary::of(declarations)?;
+    std::fs::write(path, vocabulary.to_json()).map_err(|e| format!("{}: {e}", path.display()))
 }
 
 /// The cargo arguments of the declarations test: the `declarations` module of the component's `suite` target.
