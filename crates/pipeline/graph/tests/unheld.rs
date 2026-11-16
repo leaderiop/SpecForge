@@ -311,6 +311,32 @@ fn a_facts_short_name_reads_as_the_path_it_links_to() {
 }
 
 #[specforge_test(
+    behavior = "build_in_memory_graph",
+    verify = "W061 reads no fact's reference: a test naming the entity whose proof lists it is no reference cycle"
+)]
+fn a_cycle_a_facts_reference_closes_is_no_w061() {
+    let proven = format!("{PLANS}truth TR3 \"T\" {{\n  plan v1\n  covers [\"{FACT}\"]\n}}\n");
+
+    let (graph, diagnostics) = build_facts(&[parse(&proven, "a.spec"), served("covers [TR3]")]);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    let covers = |from: &str| -> Vec<String> {
+        let edges = graph.edges_from(from);
+        let covers = edges.iter().filter(|e| e.label.as_str() == "covers");
+        covers.map(|e| e.target.to_string()).collect()
+    };
+    assert_eq!(covers("v1/TR3"), [FACT], "both edges are kept");
+    assert_eq!(covers(FACT), ["v1/TR3"]);
+
+    // The same two references between authored entities are one.
+    let authored = format!(
+        "{PLANS}truth TR3 \"T\" {{\n  plan v1\n  covers [TR4]\n}}\ntruth TR4 \"T\" {{\n  plan v1\n  covers [TR3]\n}}\n"
+    );
+    let (_, diagnostics) = build_facts(&[parse(&authored, "a.spec")]);
+    assert_eq!(codes(&diagnostics), ["W061"], "{diagnostics:?}");
+}
+
+#[specforge_test(
     behavior = "link_entity_references",
     verify = "a fact's reference that names no entity, or one of another kind, is dangling: no E003 or E022, and the passes are sent it at its name span"
 )]

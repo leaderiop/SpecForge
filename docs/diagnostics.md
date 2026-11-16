@@ -3619,9 +3619,12 @@ Level: warning
 ```
 W061: Reference cycle detected
 
-The resolved reference graph contains a cycle among entity references. Cycles
-that share an entity are one warning, whose path walks every entity on them.
-Break each cycle by removing or inverting one of its references.
+The resolved reference graph contains a cycle among the references the `.spec`
+files write: neither a declared single reference nor a collected fact's
+reference (a test naming the invariant whose proof lists it, a crate's
+dev-dependency back on its dependent) is read. Cycles that share an entity are
+one warning, whose path walks every entity on them. Break each cycle by removing
+or inverting one of its references.
 
 Owner: core
 Level: warning

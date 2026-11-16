@@ -32,8 +32,9 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
     reference. Every set of entities that reach one another through
     references MUST be one W061, whose data path walks every entity of the
     set from the smallest id and back; it depends only on the references,
-    never on the order they are written in. A declared single reference and a derived
-    edge are in none (ADR 0093 D7, ADR 0204). W061 has no span: it is about its entities
+    never on the order they are written in. A declared single reference, a derived
+    edge and a fact's reference are in none (ADR 0093 D7, ADR 0204, ADR 0360 D18):
+    a test naming the entity whose proof lists it closes no cycle. W061 has no span: it is about its entities
     (ADR 0016 D7), and the compiled project locates it at the first one's
     block (ADR 0227).
     A block that writes a key twice, at any depth, MUST be E081 at each later
@@ -73,6 +74,7 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify contract "Build In-Memory Graph: in-memory graph construction holds — resolution_complete, one_node_per_entity, one_edge_per_reference, no_dangling_edges"
   verify unit "W060 carries actionable suggestion"
   verify unit "W061 carries actionable suggestion"
+  verify unit "W061 reads no fact's reference: a test naming the entity whose proof lists it is no reference cycle"
   verify unit "a fact store specforge-harness records is served as read-only entities; one it does not is W191, one that does not read W192"
   verify unit "a fact's single-value reference to another fact links like a written one"
   verify unit "a fact's value is read by its field's form, as a spec file writes it: a word field's word is bare"
