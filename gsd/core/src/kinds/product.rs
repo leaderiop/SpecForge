@@ -2,8 +2,8 @@
 
 use gsd_kit::dsl::*;
 
-/// MoSCoW: a journey or a requirement nobody wants is not written, so there is no "won't".
-pub(super) const PRIORITY: &[&str] = &["must", "should", "could"];
+/// MoSCoW: a journey nobody wants is not written, so there is no "won't".
+const PRIORITY: &[&str] = &["must", "should", "could"];
 /// Technical proficiency, most technical first: words that fit any domain (ADR 0279 D1).
 const TECHNICAL_LEVEL: &[&str] = &[
     "expert",

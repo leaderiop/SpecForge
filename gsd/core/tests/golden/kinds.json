@@ -34,33 +34,6 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
-        "label": "RequirementPersonas",
-        "source_kind": "requirement",
-        "target_kind": "persona"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "RequirementConstrains",
-        "source_kind": "requirement",
-        "target_kind": "requirement"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "RequirementProtects",
-        "source_kind": "requirement",
-        "target_kind": "invariant"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
         "label": "RequirementSatisfiedBy",
         "source_kind": "requirement",
         "target_kind": "item"
@@ -1565,7 +1538,7 @@
           },
           {
             "default_value": null,
-            "description": "its heading, a feature area (### [Category]); not `category`, the quality class",
+            "description": "its heading, a feature area (### [Category])",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -1606,167 +1579,6 @@
             "immutable": true,
             "inverse_of": null,
             "name": "defined",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "its quality characteristic (ISO/IEC 25010:2011's names, and safety from 2023) or regulatory",
-            "edge": null,
-            "enum_values": [
-              "functional",
-              "performance",
-              "compatibility",
-              "usability",
-              "reliability",
-              "security",
-              "maintainability",
-              "portability",
-              "safety",
-              "regulatory"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "category",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "must, should or could (won't is `tier out_of_scope`)",
-            "edge": null,
-            "enum_values": [
-              "must",
-              "should",
-              "could"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "priority",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the measure it is held to: `name`, a `threshold` number, its `unit` when it has one, a `direction`",
-            "edge": null,
-            "field_type": "block",
-            "inverse_of": null,
-            "members": [
-              {
-                "default_value": null,
-                "description": "what is measured",
-                "edge": null,
-                "field_type": "string",
-                "inverse_of": null,
-                "name": "name",
-                "required": true,
-                "target_kind": null
-              },
-              {
-                "default_value": null,
-                "description": "the value it is held to",
-                "edge": null,
-                "field_type": "number",
-                "inverse_of": null,
-                "name": "threshold",
-                "required": true,
-                "target_kind": null
-              },
-              {
-                "default_value": null,
-                "description": "its unit (ms, s, %); none for a count",
-                "edge": null,
-                "field_type": "string",
-                "inverse_of": null,
-                "name": "unit",
-                "required": false,
-                "target_kind": null
-              },
-              {
-                "default_value": null,
-                "description": "at_most, at_least or exactly the threshold",
-                "edge": null,
-                "enum_values": [
-                  "at_most",
-                  "at_least",
-                  "exactly"
-                ],
-                "field_type": "enum",
-                "inverse_of": null,
-                "name": "direction",
-                "required": true,
-                "target_kind": null
-              }
-            ],
-            "name": "metric",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "where it came from: a person, quoted, or a declared `ref` (`gh.issue:42`), bare",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "source",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the personas it serves; a persona reads them back as `requirements`",
-            "edge": "RequirementPersonas",
-            "field_type": "reference_list",
-            "inverse_of": "requirements",
-            "name": "personas",
-            "required": false,
-            "target_kind": "persona"
-          },
-          {
-            "default_value": null,
-            "description": "the requirements it limits; each reads it back as `constrained_by`",
-            "edge": "RequirementConstrains",
-            "field_type": "reference_list",
-            "inverse_of": "constrained_by",
-            "name": "constrains",
-            "required": false,
-            "target_kind": "requirement"
-          },
-          {
-            "default_value": null,
-            "description": "the invariants it guards; each reads it back as `protected_by`",
-            "edge": "RequirementProtects",
-            "field_type": "reference_list",
-            "inverse_of": "protected_by",
-            "name": "protects",
-            "required": false,
-            "target_kind": "invariant"
-          },
-          {
-            "default_value": null,
-            "description": "words to group it by",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "tags",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "how large it is to build, a T-shirt size",
-            "edge": null,
-            "enum_values": [
-              "xs",
-              "s",
-              "m",
-              "l",
-              "xl"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "effort",
             "required": false,
             "target_kind": null
           },

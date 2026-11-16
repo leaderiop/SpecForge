@@ -60,36 +60,6 @@ const REQUIREMENT_STATUS: &[&str] = &[
     "blocked",
     "gaps_found",
 ];
-/// A requirement's quality class: ISO/IEC 25010:2011's eight product quality characteristics by their short names
-/// (interoperability is part of compatibility), `safety`, which ISO/IEC 25010:2023 added, and `regulatory`. The 2023
-/// revision also renamed usability to interaction capability and portability to flexibility; the list keeps the
-/// 2011 words.
-pub const REQUIREMENT_CATEGORY: &[&str] = &[
-    "functional",
-    "performance",
-    "compatibility",
-    "usability",
-    "reliability",
-    "security",
-    "maintainability",
-    "portability",
-    "safety",
-    "regulatory",
-];
-/// The sense a metric's threshold holds in.
-pub const DIRECTION: &[&str] = &["at_most", "at_least", "exactly"];
-/// A requirement's effort, a T-shirt size.
-pub const EFFORT: &[&str] = &["xs", "s", "m", "l", "xl"];
-/// A measure: no bound on the threshold (a latency is positive, a drift may be negative: `direction` carries the
-/// sense), and no unit for a plain count.
-pub const METRIC: &[Field] = &[
-    str("name").r().doc("what is measured"),
-    num("threshold").r().doc("the value it is held to"),
-    str("unit").doc("its unit (ms, s, %); none for a count"),
-    en("direction", DIRECTION)
-        .r()
-        .doc("at_most, at_least or exactly the threshold"),
-];
 /// How far a requirement's thread reaches (`passes::thread::Proof`, in its order).
 pub const PROOF_STATES: &[&str] = &[
     "no_task",
@@ -100,40 +70,16 @@ pub const PROOF_STATES: &[&str] = &[
     "proven",
 ];
 
-/// One bullet of `REQUIREMENTS.md`, named `AUTH-01`, and the fields of the product feature and the governance
-/// constraint it absorbs (quality category, priority, metric, sources, relations, tags).
+/// One bullet of `REQUIREMENTS.md`, named `AUTH-01`.
 pub const REQUIREMENT: Kind = Kind::new(
     "requirement",
     "A requirement, named by its GSD id such as AUTH-01 (GSD REQUIREMENTS.md)",
     &[
         str("text").prose().r().doc("the description after the ID"),
-        str("area")
-            .r()
-            .doc("its heading, a feature area (### [Category]); not `category`, the quality class"),
+        str("area").r().doc("its heading, a feature area (### [Category])"),
         en("tier", TIERS).r().doc("v1, v2 or Out of Scope"),
         str("reason").prose().doc("Out of Scope reason: required when out_of_scope (gsd/E105)"),
         date("defined").i().doc("Defined"),
-        en("category", REQUIREMENT_CATEGORY)
-            .doc("its quality characteristic (ISO/IEC 25010:2011's names, and safety from 2023) or regulatory"),
-        en("priority", super::product::PRIORITY)
-            .doc("must, should or could (won't is `tier out_of_scope`)"),
-        block("metric", METRIC).doc(
-            "the measure it is held to: `name`, a `threshold` number, its `unit` when it has one, a `direction`",
-        ),
-        strs("source").doc(
-            "where it came from: a person, quoted, or a declared `ref` (`gh.issue:42`), bare",
-        ),
-        rfs("personas", "persona")
-            .inverse("requirements")
-            .doc("the personas it serves; a persona reads them back as `requirements`"),
-        rfs("constrains", "requirement")
-            .inverse("constrained_by")
-            .doc("the requirements it limits; each reads it back as `constrained_by`"),
-        rfs("protects", "invariant")
-            .inverse("protected_by")
-            .doc("the invariants it guards; each reads it back as `protected_by`"),
-        strs("tags").doc("words to group it by"),
-        en("effort", EFFORT).doc("how large it is to build, a T-shirt size"),
         en("status", REQUIREMENT_STATUS)
             .c()
             .doc("Traceability status, from plans, summaries and verifications"),

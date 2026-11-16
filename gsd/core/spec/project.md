@@ -43,30 +43,14 @@ GSD: one bullet of `REQUIREMENTS.md`. Name: `AUTH-01`. A requirement id is uniqu
 | tier | enum{v1, v2, out_of_scope} | R | `## v1` / `## v2` / `## Out of Scope` |
 | reason | str | | Out of Scope `Reason` (required when `out_of_scope`) |
 | defined | date | I | `**Defined:**` |
-| category | enum{functional, performance, compatibility, usability, reliability, security, maintainability, portability, safety, regulatory} | | beyond GSD: its quality class: ISO/IEC 25010:2011's eight product quality characteristics by their short names (interoperability is part of compatibility), `safety`, which ISO/IEC 25010:2023 added (that revision also renamed usability to interaction capability and portability to flexibility; the 2011 words are kept), or `regulatory` |
-| priority | enum{must, should, could} | | beyond GSD: MoSCoW, the journey's list ([product.md](product.md#journey)); "won't" is `tier out_of_scope` |
-| metric | {name str R, threshold num R, unit str, direction enum{at_most, at_least, exactly} R} | | beyond GSD: the measure it is held to; the threshold is a decimal with no bounds (`direction` carries the sense), and a count has no `unit` |
-| source | strs | | beyond GSD: where it came from: a person, quoted (`"Alice Martin"`), or a declared `ref`, bare (`gh.issue:42`; E003 when undeclared) |
-| personas | →* persona | | beyond GSD: the personas it serves ([product.md](product.md#persona)) |
-| constrains | →* requirement | | beyond GSD: the requirements it limits |
-| protects | →* invariant | | beyond GSD: the invariants it guards ([governance.md](governance.md#invariant)) |
-| tags | strs | | beyond GSD: words to group it by |
-| effort | enum{xs, s, m, l, xl} | | beyond GSD: how large it is to build, a T-shirt size |
 | status | enum{pending, in_progress, complete, blocked, gaps_found} | C | Traceability `Status`: complete when a plan naming it is complete (GSD marks it when the plan's summary is written, `gsd-executor.md:801-813`); blocked when it is not and every plan naming it is halted or blocked; in_progress when one is executing; else pending. `gaps_found` when the requirement would be complete and a phase it traces to has a `gaps_found` verification (`milestone.cts:453-514`) |
-| satisfied_by | →* item | C | beyond GSD: the code items the tasks of its plans name in `items`, as written (held by a collect or not, a `manual` task's too), sorted, each once; absent when none. The items `specforge trace <id>` reaches through its plans |
-| proof | enum{no_task, no_commit, not_run, no_test, failed, proven} | C | beyond GSD: how far its thread reaches, the first missing link of a task of its plans (not `manual`), a recorded commit of one, a collected test run (`not_run` without one), a passing test linked to a committed task or the requirement or named in the `proof` of a truth that names it (`no_test` with none, `failed` when a linked one failed and none passed); `proven` when whole. `gsd/E515` refuses a `complete` requirement that is not `proven` |
+| satisfied_by | →* item | C | computed by SpecForge: the code items the tasks of its plans name in `items`, as written (held by a collect or not, a `manual` task's too), sorted, each once; absent when none. The items `specforge trace <id>` reaches through its plans |
+| proof | enum{no_task, no_commit, not_run, no_test, failed, proven} | C | computed by SpecForge: how far its thread reaches, the first missing link of a task of its plans (not `manual`), a recorded commit of one, a collected test run (`not_run` without one), a passing test linked to a committed task or the requirement or named in the `proof` of a truth that names it (`no_test` with none, `failed` when a linked one failed and none passed); `proven` when whole. `gsd/E515` refuses a `complete` requirement that is not `proven` |
 | shapes | enum{numeric_range, collection, text, stateful, io}* | | the spec-less edge probe's authored shapes (an empty list proposes no edge) |
 | text_en | str | | an English translation the spec-less edge probe classifies instead |
 
 The requirement's phase (Traceability `Phase`) is the inverse of `phase.requirements`, read back as `phase`: a relation
-is written from one side, never both (W162). Its own relations name their reverse ([ADR 0354](../../../docs/adr/0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md)):
-a persona reads `personas` back as `requirements`, a requirement reads `constrains` back as `constrained_by` (a
-self-relation's named reverse, [ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)),
-and an invariant reads `protects` back as `protected_by`: that name written on the other side is E079, naming the
-owning field. A requirement also reads a decision's `affects` back as `affected_by`.
-
-Why each field beyond GSD has its shape, and why `proof` is the one reading of the requirement's thread:
-[ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md).
+is written from one side, never both (W162). A requirement also reads a decision's `affects` back as `affected_by`.
 
 ## milestone
 
