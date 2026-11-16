@@ -166,6 +166,35 @@ fn a_journey_step_action_is_prose() {
     assert_eq!(uses(&places, "owner"), None);
 }
 
+/// A context's code insights and a user setup's `local_dev` are prose: GSD writes each item as code named, then said
+/// in the project's language, so the code is masked and the explanation read.
+#[test]
+fn code_insights_and_local_dev_read_what_they_say_of_the_code() {
+    let context: PassEntity = serde_json::from_value(json!({
+        "id": "03-CONTEXT", "kind": "context",
+        "fields": { "boundary": "Checkout" },
+        "values": {
+            "reusable_assets": ["`CartStore`: holds the basket"],
+            "patterns": ["src/cart/store.ts keeps one state per basket"],
+            "integration_points": ["the checkout page posts each order"],
+        },
+    }))
+    .expect("a context");
+    let places = prose(&context);
+    assert_eq!(uses(&places, "basket"), Some("reusable_assets"));
+    assert_eq!(uses(&places, "order"), Some("integration_points"));
+    assert_eq!(uses(&places, "CartStore"), None, "a code span is no word");
+    assert_eq!(uses(&places, "cart"), None, "a path is no word");
+    let setup: PassEntity = serde_json::from_value(json!({
+        "id": "stripe", "kind": "user_setup",
+        "fields": { "service": "stripe", "why": "payments" },
+        "values": { "local_dev": ["Run: stripe listen --forward-to localhost:3000/api/webhooks",
+                                  "Use the webhook secret from the CLI output"] },
+    }))
+    .expect("a user setup");
+    assert_eq!(uses(&prose(&setup), "webhook secret"), Some("local_dev"));
+}
+
 /// A decision's prose, in its fields' order: its text and lists of texts, and its alternatives' prose members, each
 /// named with its row; its `area` is no prose.
 #[test]

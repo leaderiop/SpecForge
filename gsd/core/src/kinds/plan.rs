@@ -194,7 +194,7 @@ pub const USER_SETUP: Kind = Kind::new(
         str("why").prose().r().doc("`why:`"),
         blocks("env_vars", ENV_VAR).doc("`env_vars:`"),
         blocks("dashboard", DASHBOARD).doc("`dashboard_config:`"),
-        strs("local_dev").doc("`local_dev:`"),
+        strs("local_dev").prose().doc("`local_dev:`"),
         block("done", SETUP_DONE)
             .h()
             .doc("written when the human confirms (`confirm_setup`)"),

@@ -208,9 +208,13 @@ features' requirements, a channel as a term, the artifact word, the journey memb
       `strengths` and `suggestions`, a deferred follow-up's `idea`);
     - a copy of another field (`requirement.source`, a UAT gap's `truth`, a disposition's `feedback`);
     - a command, a pattern, a path, a URL, a version, a symbol, code, or the name of a thing outside the project
-      (`summary.tech_patterns`, `dont_hand_roll.instead`, `user_setup.local_dev`, `key_link.via`,
-      `context.reusable_assets`);
+      (`summary.tech_patterns`, `dont_hand_roll.instead`, `key_link.via`);
     - `text_en`, which is not the author's language.
+  - Text that names code and then says, in the project's language, what it does for the work is prose: a
+    context's `reusable_assets`, `patterns` and `integration_points` (GSD writes each item "[Component]: [How it could
+    be used in this phase]", "[Pattern]: [How it constrains/enables this phase]"), a user setup's `local_dev` ("Use
+    the webhook secret from CLI output for local testing"), as a task's `action` is. The code it names is masked
+    (below), so only its explanation is read.
   - A field another writer fills (computed, harness, verdict, context record) is never prose, nor anything inside such
     a block, at any depth (a verification's `re_verification`, a broken window's `waiver`): a record two kinds share
     (`resolved`) is read where it is authored (a blocker's) and not where a command writes it (a revision conflict's).
