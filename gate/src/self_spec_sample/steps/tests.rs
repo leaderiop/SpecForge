@@ -238,10 +238,7 @@ fn a_variable_that_is_not_unicode_is_read_lossily_and_named() {
         odd(b"OTHER_\xff"),
         "PATH".into(),
     ];
-    assert_eq!(
-        credentials(names.into_iter()),
-        [odd(b"CARGO_REGISTRY_\xff")]
-    );
+    assert_eq!(withheld(names.into_iter()), [odd(b"CARGO_REGISTRY_\xff")]);
     let vars = [
         (odd(b"OTHER_\xff"), OsString::from("v")),
         (OsString::from("VALUE"), odd(b"\xff")),
@@ -255,7 +252,7 @@ fn a_variable_that_is_not_unicode_is_read_lossily_and_named() {
 
 #[test]
 fn a_credentials_name_is_found_in_any_case_on_windows() {
-    let lower = credentials(["cargo_registry_token".into()].into_iter());
+    let lower = withheld(["cargo_registry_token".into()].into_iter());
     assert_eq!(lower.is_empty(), !cfg!(windows));
 }
 
@@ -283,4 +280,37 @@ fn checks_output_is_a_diagnostic_array_and_a_failed_exit_is_explained_by_an_erro
             && unexplained.contains("cannot read the lock"),
         "{unexplained}"
     );
+}
+
+#[test]
+fn a_specforge_call_carries_no_bless_switch_and_insta_writes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = Env::prepare(
+        dir.path(),
+        Path::new("/checkout"),
+        &dir.path().join("target"),
+    )
+    .unwrap();
+    let inherited = [
+        "SPECFORGE_BLESS",
+        "GSD_BLESS",
+        "UPDATE_EXPECT",
+        "INSTA_FORCE_PASS",
+        "INSTA_WORKSPACE_ROOT",
+        "INSTA_UPDATE",
+        "SPECFORGE_LOG",
+    ];
+    let mut cmd = Command::new("specforge");
+    env.apply(&mut cmd, inherited.iter().map(OsString::from));
+    let value = |name: &str| {
+        cmd.get_envs()
+            .find(|(k, _)| *k == name)
+            .map(|(_, v)| v.map(|v| v.to_string_lossy().into_owned()))
+    };
+    for name in &inherited[..5] {
+        assert_eq!(value(name), Some(None), "{name} is removed");
+    }
+    assert_eq!(value("INSTA_UPDATE"), Some(Some("no".to_string())));
+    assert_eq!(value("SPECFORGE_LOG"), None, "passed as inherited");
+    assert_eq!(BLESS_SWITCHES[0], specforge_repo_root::BLESS_ENV);
 }

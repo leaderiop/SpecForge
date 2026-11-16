@@ -47,7 +47,7 @@ fn is_example_local_code(code: &str) -> bool {
 fn explain_docs_sync() {
     let path = repo_root().join("docs/diagnostics.md");
     let rendered = render_docs();
-    if std::env::var("SPECFORGE_BLESS").as_deref() == Ok("1") {
+    if specforge_repo_root::bless() {
         std::fs::write(&path, &rendered).expect("write docs/diagnostics.md");
         return;
     }

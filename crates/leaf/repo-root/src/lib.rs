@@ -15,6 +15,40 @@ use std::sync::OnceLock;
 /// checkout's own, so the binaries built under it are no stale target there, and they read that checkout's files.
 pub const COPY_OF_ENV: &str = "SPECFORGE_CHECKOUT_COPY_OF";
 
+/// The variable that asks a test to rewrite its goldens instead of comparing with them.
+pub const BLESS_ENV: &str = "SPECFORGE_BLESS";
+
+/// Whether this test rewrites its goldens: [`BLESS_ENV`] is set and not empty. Every test that writes a golden asks
+/// here, so none writes one from a run in a copy of the checkout.
+///
+/// # Panics
+///
+/// When [`BLESS_ENV`] is set while [`COPY_OF_ENV`] is: a test in a copy names its goldens by the paths it was built
+/// under, which are the checkout's, so a bless there would rewrite the checkout from a copy's run.
+pub fn bless() -> bool {
+    blessing(
+        std::env::var_os(BLESS_ENV).as_deref(),
+        std::env::var_os(COPY_OF_ENV).as_deref(),
+    )
+    .unwrap_or_else(|refused| panic!("{refused}"))
+}
+
+/// [`bless`] from the two variables' values: Err when a bless is asked in a declared copy.
+fn blessing(
+    bless: Option<&std::ffi::OsStr>,
+    copy_of: Option<&std::ffi::OsStr>,
+) -> Result<bool, String> {
+    let asked = bless.is_some_and(|value| !value.is_empty());
+    match copy_of {
+        Some(checkout) if asked => Err(format!(
+            "{BLESS_ENV} is set in a copy of {} ({COPY_OF_ENV}): this test's goldens are that checkout's, so it \
+             refuses to write them; bless in the checkout itself",
+            Path::new(checkout).display()
+        )),
+        _ => Ok(asked),
+    }
+}
+
 /// The checkout's root, canonical (absolute, no `..`, symlinks resolved).
 ///
 /// # Panics
@@ -115,6 +149,20 @@ mod tests {
         assert!(!runs_in_another_checkout(here, &member, Some(here)));
         // A copy of another checkout is still another checkout.
         assert!(runs_in_another_checkout(here, &member, Some(copy.path())));
+    }
+
+    #[test]
+    fn a_bless_is_asked_by_a_value_and_refused_in_a_copy() {
+        let os = |text: &'static str| Some(std::ffi::OsStr::new(text));
+        assert_eq!(blessing(None, None), Ok(false));
+        assert_eq!(blessing(os(""), None), Ok(false));
+        assert_eq!(blessing(os("1"), None), Ok(true));
+        assert_eq!(blessing(None, os("/checkout")), Ok(false));
+        let refused = blessing(os("1"), os("/checkout")).unwrap_err();
+        assert!(
+            refused.contains(BLESS_ENV) && refused.contains("/checkout"),
+            "{refused}"
+        );
     }
 
     #[test]

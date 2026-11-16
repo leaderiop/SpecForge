@@ -6,7 +6,8 @@
 //! caches never reach it; `CARGO_HOME` and `RUSTUP_HOME` stay the user's, so the toolchain and the registry cache are
 //! the gate's), `SPECFORGE_CONSENT_FILE` in a `0700` directory emptied first, the gate's `CARGO_TARGET_DIR`, and no
 //! cargo credential variable (ADR 0288): a collector's command is a program the host runs, and keeps the rest of
-//! the environment. The cited tests run from the gate's own test build in a copy, so the run says so
+//! the environment. No bless switch reaches a cited test, and insta writes nothing: a test built under the checkout
+//! would write its goldens there. The cited tests run from the gate's own test build in a copy, so the run says so
 //! ([`COPY_OF_ENV`]: the test support then reads the checkout they were built under), and their own reports go to
 //! the run directory ([`TEST_REPORT_DIR_ENV`]), never into the shared `<target>/specforge` the `tests` check fills,
 //! where a report of another nextest run would prune that check's.
@@ -52,6 +53,15 @@ const CREDENTIALS: [&str; 4] = [
     "CARGO_CREDENTIAL_",
     "CARGO_HTTP_PROXY",
 ];
+
+/// The variables that make a test write its goldens or snapshots rather than compare with them (insta's `INSTA_*`, the
+/// repository's own `SPECFORGE_BLESS` and `GSD_BLESS`, expect-test's `UPDATE_EXPECT`): never passed to a call, since a
+/// cited test built under the checkout would write into the checkout. Insta is then told to write nothing
+/// ([`INSTA_UPDATE`]), not even the `.snap.new` its default writes beside a snapshot that differs.
+const BLESS_SWITCHES: [&str; 4] = ["SPECFORGE_BLESS", "GSD_BLESS", "UPDATE_EXPECT", "INSTA_"];
+
+/// Insta's write mode, set to `no` on every call.
+const INSTA_UPDATE: &str = "INSTA_UPDATE";
 
 pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     let wasm = crate::gsd::build_wasm(ctx)?;
@@ -339,7 +349,8 @@ impl Env {
         })
     }
 
-    /// Set the run's variables on `cmd` and remove each of `inherited` that names a cargo credential. The cited tests'
+    /// Set the run's variables on `cmd` and remove each of `inherited` that names a cargo credential or a bless switch
+    /// ([`withheld`]); insta writes nothing. The cited tests'
     /// reports are directed by [`TEST_REPORT_DIR_ENV`]: collect owns [`REPORT_ENV`], so the gate passes none of it.
     fn apply(&self, cmd: &mut Command, inherited: impl Iterator<Item = OsString>) {
         cmd.env("HOME", &self.home)
@@ -354,16 +365,18 @@ impl Env {
         if let Some(rustup_home) = &self.rustup_home {
             cmd.env("RUSTUP_HOME", rustup_home);
         }
-        for name in credentials(inherited) {
+        for name in withheld(inherited) {
             cmd.env_remove(name);
         }
+        cmd.env(INSTA_UPDATE, "no");
     }
 }
 
-/// The names among `names` a cargo credential or a registry's configuration lives in, compared as Unicode (a name
-/// that is not is read lossily, so `CARGO_REGISTRY_` before a stray byte still counts), in any case on Windows, where
-/// cargo finds `cargo_registry_token` too.
-fn credentials(names: impl Iterator<Item = OsString>) -> Vec<OsString> {
+/// The names among `names` the calls never receive: a cargo credential or a registry's configuration
+/// ([`CREDENTIALS`]) and a test's bless switch ([`BLESS_SWITCHES`]), compared as Unicode (a name that is not is read
+/// lossily, so `CARGO_REGISTRY_` before a stray byte still counts), in any case on Windows, where cargo finds
+/// `cargo_registry_token` too.
+fn withheld(names: impl Iterator<Item = OsString>) -> Vec<OsString> {
     names
         .filter(|name| {
             let name = name.to_string_lossy();
@@ -372,7 +385,10 @@ fn credentials(names: impl Iterator<Item = OsString>) -> Vec<OsString> {
             } else {
                 name.into_owned()
             };
-            CREDENTIALS.iter().any(|prefix| name.starts_with(prefix))
+            CREDENTIALS
+                .iter()
+                .chain(&BLESS_SWITCHES)
+                .any(|prefix| name.starts_with(prefix))
         })
         .collect()
 }
