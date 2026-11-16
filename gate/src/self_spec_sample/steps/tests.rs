@@ -258,3 +258,29 @@ fn a_credentials_name_is_found_in_any_case_on_windows() {
     let lower = credentials(["cargo_registry_token".into()].into_iter());
     assert_eq!(lower.is_empty(), !cfg!(windows));
 }
+
+#[cfg(unix)]
+#[test]
+fn checks_output_is_a_diagnostic_array_and_a_failed_exit_is_explained_by_an_error() {
+    use std::os::unix::process::ExitStatusExt;
+    let (ok, failed) = (
+        std::process::ExitStatus::from_raw(0),
+        std::process::ExitStatus::from_raw(1 << 8),
+    );
+    let error = r#"[{"severity": "Error", "code": "E1"}]"#;
+    assert_eq!(check_diagnostics(&ok, "[]", "").unwrap().len(), 0);
+    assert_eq!(check_diagnostics(&failed, error, "").unwrap().len(), 1);
+    let object = check_diagnostics(&ok, r#"{"diagnostics": []}"#, "").unwrap_err();
+    assert!(object.contains("no diagnostic array"), "{object}");
+    let text = check_diagnostics(&failed, "panicked", "thread main panicked").unwrap_err();
+    assert!(
+        text.contains("printed no JSON") && text.contains("thread main panicked"),
+        "{text}"
+    );
+    let unexplained = check_diagnostics(&failed, "[]", "cannot read the lock").unwrap_err();
+    assert!(
+        unexplained.contains("failed with no error")
+            && unexplained.contains("cannot read the lock"),
+        "{unexplained}"
+    );
+}

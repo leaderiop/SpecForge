@@ -17,7 +17,9 @@ fn run(diagnostics: Value) -> SampleRun {
     SampleRun {
         diagnostics: diagnostics.as_array().unwrap().clone(),
         selection: "{\n  \"term\": [\n    \"t_a\"\n  ]\n}\n".into(),
-        ledger: format!("{{\n  \"from\": \"{SOURCE}\",\n  \"entries\": []\n}}\n"),
+        ledger: format!(
+            "{{\n  \"from\": \"{SOURCE}\",\n  \"entries\": [\n    {{\"id\": \"t_a\"}}\n  ]\n}}\n"
+        ),
         paths: vec![
             (SOURCE.into(), "<source>"),
             (TARGET.into(), "<target>"),
@@ -336,4 +338,33 @@ fn a_failed_sample_names_what_failed_it_never_the_counted_infos() {
         verdict(&run(json!([info()])), &blessed(), false).reason,
         None
     );
+}
+
+#[test]
+fn a_bless_never_writes_an_empty_golden() {
+    for hollow_run in [
+        SampleRun {
+            selection: "{}\n".into(),
+            ..run(json!([info()]))
+        },
+        run(json!([])),
+        SampleRun {
+            ledger: format!("{{\n  \"from\": \"{SOURCE}\",\n  \"entries\": []\n}}\n"),
+            ..run(json!([info()]))
+        },
+    ] {
+        let refused = verdict(&hollow_run, &SampleGoldens::default(), true);
+        assert!(
+            refused.failed && refused.bless.is_none(),
+            "{:?}",
+            refused.lines
+        );
+        let reason = refused.reason.unwrap();
+        assert!(
+            reason.starts_with("not blessed: the run found no entry for "),
+            "{reason}"
+        );
+    }
+    assert!(hollow("") && hollow("[]") && hollow("{}") && hollow("{\"entries\": []}"));
+    assert!(!hollow("[1]") && !hollow("{\"term\": [\"t\"]}"));
 }

@@ -169,7 +169,16 @@ pub fn verdict(run: &SampleRun, goldens: &SampleGoldens, bless: bool) -> SampleV
         ledger: place(&run.ledger),
     };
     if bless {
-        if reason.is_none() {
+        let hollow: Vec<&str> = [
+            ("selection", &found.selection),
+            ("infos", &found.infos),
+            ("ledger", &found.ledger),
+        ]
+        .into_iter()
+        .filter(|(_, text)| hollow(text))
+        .map(|(name, _)| name)
+        .collect();
+        if reason.is_none() && hollow.is_empty() {
             lines.push(format!(
                 "blessed: {GOLDENS}/{{selection,infos,ledger}}.json"
             ));
@@ -180,9 +189,19 @@ pub fn verdict(run: &SampleRun, goldens: &SampleGoldens, bless: bool) -> SampleV
                 bless: Some(found),
             };
         }
-        lines.push(
-            "not blessed: a run with an error, a warning or a broken bound writes no golden".into(),
-        );
+        if reason.is_none() {
+            let empty = format!(
+                "not blessed: the run found no entry for {} (a run that converted or checked nothing)",
+                hollow.join(", ")
+            );
+            lines.push(empty.clone());
+            reason = Some(empty);
+        } else {
+            lines.push(
+                "not blessed: a run with an error, a warning or a broken bound writes no golden"
+                    .into(),
+            );
+        }
         return SampleVerdict {
             lines,
             failed: true,
@@ -245,6 +264,20 @@ fn infos(run: &SampleRun) -> (Vec<Value>, BTreeMap<String, usize>) {
         .collect();
     infos.sort_by_key(Value::to_string);
     (infos, on_code)
+}
+
+/// Whether a golden's `text` holds no entry: nothing, or JSON with no array element at any depth (`[]`, `{}`, a
+/// ledger whose `entries` is empty). A bless never writes one: it is what a run that read nothing produces.
+fn hollow(text: &str) -> bool {
+    fn elements(value: &Value) -> usize {
+        match value {
+            Value::Array(items) => items.len() + items.iter().map(elements).sum::<usize>(),
+            Value::Object(map) => map.values().map(elements).sum(),
+            _ => 0,
+        }
+    }
+    serde_json::from_str::<Value>(text)
+        .map_or(text.trim().is_empty(), |value| elements(&value) == 0)
 }
 
 /// `values` as a pretty JSON array with a final newline.

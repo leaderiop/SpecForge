@@ -124,6 +124,19 @@ impl Ctx<'_> {
         ))
     }
 
+    /// Like [`Ctx::capture`], but stderr comes back too (and is appended to the log): the whole output, its status
+    /// included, for a caller that judges a failed exit by what it said.
+    pub fn output(&self, cmd: &mut Command) -> Result<std::process::Output, String> {
+        let shown = describe(cmd);
+        self.log(&format!("$ {shown}"));
+        let output = cmd
+            .stdin(Stdio::null())
+            .output()
+            .map_err(|e| format!("`{shown}`: {e}"))?;
+        self.log(String::from_utf8_lossy(&output.stderr).trim_end());
+        Ok(output)
+    }
+
     /// The `specforge` binary cargo built, wherever the target directory is: built once per run, from
     /// `cargo build`'s own artifact message (`judge::executable_of`).
     pub fn specforge(&self) -> Result<&Path, String> {

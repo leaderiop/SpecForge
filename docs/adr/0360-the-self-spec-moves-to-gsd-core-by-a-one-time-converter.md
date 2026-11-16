@@ -191,9 +191,10 @@ converted on every change that can move it, by a check of `cargo gate`, and must
   with (read from `@rust/test`'s declaration: `test`, so `debug`) written during the run. The units are found where
   cargo says it builds (`cargo metadata`'s `build_directory`, run in the copy, so a `build.build-dir` moves them
   too), in either layout (`.fingerprint/<unit>`, or `build/<package>/<hash>/fingerprint` from cargo 1.100), and
-  none found before or after the run fails the check: a fingerprint cargo keeps elsewhere never reads as 0 units; no cargo build in
-  `dst/target` (nextest's own store, `target/nextest`, which nextest keeps under the workspace root whatever the target
-  directory, is not one); every test that ran is cited; absorb's work exactly 3 compiles and 1 edit plan.
+  none found before or after the run fails the check: a fingerprint cargo keeps elsewhere never reads as 0 units;
+  no cargo build in `dst/target` (nextest's own store, `target/nextest`, which nextest keeps under the workspace root
+  whatever the target directory, is not one); every test that ran is cited; absorb's work exactly 3 compiles and 1
+  edit plan.
 - **D16. The verdict and its goldens.** An error, or a warning that is not the machine's, fails the check and is
   listed with its file and line; a machine warning is named, never judged
   ([ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md) D7). The infos on the
@@ -203,7 +204,12 @@ converted on every change that can move it, by a check of `cargo gate`, and must
   and 20 removed lines. An info placed in the code the collectors read (about 6,000 `code/I402`: a test anywhere
   naming an entity outside the sample) is counted by code in the log, never golden: it moves with every change to the
   code, not with the conversion, so its golden would be blessed every time. `SPECFORGE_BLESS=1 cargo gate full --only
-  self-spec-sample` writes the three only for a run with no error, no warning and the bound held.
+  self-spec-sample` writes the three only for a run with no error, no warning and the bound held, and none of them
+  empty (a JSON with no entry at any depth: what a run that read nothing finds). `specforge check`'s output must be
+  a diagnostic array, and its failed exit must be explained by an error among them; anything else fails the check
+  with the exit and what it said on stderr, never reads as "no diagnostics". The check's error is the verdict's
+  reason, chosen by what it is: the first judged diagnostic, else the first broken bound, else the first golden that
+  differs; the counted infos on the code follow the judged lines and never stand first.
 - **D17. CI runs it in the `build` job**, after the test archive is uploaded: only that job holds the test build the
   run reuses (the archive carries no fingerprints). Its rust-cache gains `gsd -> target/gsd`. The `tests` jobs run
   `if: ${{ !cancelled() }}`, so a red sample never hides the partitions.

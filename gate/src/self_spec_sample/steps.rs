@@ -163,8 +163,7 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     let compiled = built_since(&units(&profile)?, mark);
     let ran = ran(&read(&target.join(".specforge/reports/rust-test.xml"))?);
     let path = target.to_string_lossy();
-    // `check` exits non-zero on an error; its JSON is the verdict's to judge either way.
-    let (_, check) = ctx.capture(&mut call(
+    let checked = ctx.output(&mut call(
         &specforge,
         &[
             "check",
@@ -176,15 +175,18 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
             "cached",
         ],
     ))?;
-    let diagnostics: Value = serde_json::from_str(&check)
-        .map_err(|e| format!("`specforge check` printed no JSON ({e}): {check}"))?;
+    let diagnostics = check_diagnostics(
+        &checked.status,
+        &String::from_utf8_lossy(&checked.stdout),
+        &String::from_utf8_lossy(&checked.stderr),
+    )?;
     let stats: Value = serde_json::from_str(&step(
         "stats",
         call(&specforge, &["stats", "--path", &path, "--format", "json"]),
     )?)
     .map_err(|e| format!("`specforge stats` printed no JSON: {e}"))?;
     let found = SampleRun {
-        diagnostics: diagnostics.as_array().cloned().unwrap_or_default(),
+        diagnostics,
         selection: read(&selection)?,
         ledger: read(&ledger)?,
         paths: vec![
@@ -234,6 +236,37 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
         return Err(reason);
     }
     Ok(())
+}
+
+/// `specforge check --format json`'s diagnostics, from its exit `status`, `stdout` and `stderr`. Its JSON must be an
+/// array: any other JSON (an error object, a changed format) is an error, never "no diagnostics". A failed exit must
+/// be explained by an error among them (`check` exits non-zero on one, which the verdict then judges); a failed exit
+/// with none is an error naming the exit and what `check` said on stderr.
+fn check_diagnostics(
+    status: &std::process::ExitStatus,
+    stdout: &str,
+    stderr: &str,
+) -> Result<Vec<Value>, String> {
+    let said = || format!("{status}, stderr: {}", stderr.trim());
+    let printed: Value = serde_json::from_str(stdout).map_err(|e| {
+        format!(
+            "`specforge check` printed no JSON ({e}; {}): {stdout}",
+            said()
+        )
+    })?;
+    let Value::Array(diagnostics) = printed else {
+        return Err(format!(
+            "`specforge check` printed no diagnostic array ({}): {stdout}",
+            said()
+        ));
+    };
+    if !status.success() && !diagnostics.iter().any(|d| d["severity"] == "Error") {
+        return Err(format!(
+            "`specforge check` failed with no error among its diagnostics ({})",
+            said()
+        ));
+    }
+    Ok(diagnostics)
 }
 
 /// The check's error for a failed verdict: its reason, and where the whole log is.
