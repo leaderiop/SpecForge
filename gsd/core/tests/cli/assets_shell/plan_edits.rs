@@ -626,7 +626,7 @@ fn the_plan_checker_spawn_reads_one_pack_per_plan() {
         "{err}"
     );
     let body = asset("agents/gsd-plan-checker.md");
-    let lp = fence_after(&body, "Orchestrator provides CONTEXT.md content");
+    let lp = fence_after(&body, "Orchestrator provides the phase's context");
     let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{lp}"));
     assert_eq!(code, 0, "{out}{err}");
     assert!(
