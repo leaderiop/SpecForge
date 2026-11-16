@@ -8,7 +8,8 @@
 //! cargo credential variable (ADR 0288): a collector's command is a program the host runs, and keeps the rest of
 //! the environment. The cited tests run from the gate's own test build in a copy, so the run says so
 //! ([`COPY_OF_ENV`]: the test support then reads the checkout they were built under), and their own reports go to
-//! the run directory (`SPECFORGE_REPORT`), never into the shared `<target>/specforge` the `tests` check fills.
+//! the run directory ([`TEST_REPORT_DIR_ENV`]), never into the shared `<target>/specforge` the `tests` check fills,
+//! where a report of another nextest run would prune that check's.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -34,6 +35,13 @@ const RUST_TEST_DECLARATION: &str =
 
 /// The variable that says a run is in a copy of the checkout (`specforge_repo_root::COPY_OF_ENV`).
 const COPY_OF_ENV: &str = "SPECFORGE_CHECKOUT_COPY_OF";
+
+/// The variable that says where a test binary's own report goes when no collect run names one
+/// (`specforge_test::atexit::REPORT_DIR_ENV`).
+const TEST_REPORT_DIR_ENV: &str = "SPECFORGE_TEST_REPORT_DIR";
+
+/// The variable a collect run tells a runner integration its report path by (`specforge_test::atexit::REPORT_ENV`).
+const REPORT_ENV: &str = "SPECFORGE_REPORT";
 
 /// The variables a cargo credential or a registry's configuration lives in: never passed to a `specforge` call.
 const CREDENTIALS: [&str; 4] = [
@@ -281,11 +289,13 @@ impl Env {
         })
     }
 
-    /// Set the run's variables on `cmd` and remove each of `inherited` that names a cargo credential.
+    /// Set the run's variables on `cmd` and remove each of `inherited` that names a cargo credential. The cited tests'
+    /// reports are directed by [`TEST_REPORT_DIR_ENV`]: collect owns [`REPORT_ENV`], so the gate passes none of it.
     fn apply(&self, cmd: &mut Command, inherited: impl Iterator<Item = String>) {
         cmd.env("HOME", &self.home)
             .env(COPY_OF_ENV, &self.checkout)
-            .env("SPECFORGE_REPORT", &self.reports)
+            .env_remove(REPORT_ENV)
+            .env(TEST_REPORT_DIR_ENV, &self.reports)
             .env("SPECFORGE_CONSENT_FILE", &self.consent)
             .env("CARGO_TARGET_DIR", &self.target_dir);
         if let Some(cargo_home) = &self.cargo_home {

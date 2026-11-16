@@ -12,8 +12,9 @@ changes no SDK, protocol or kernel code: it is a repository task in `xtask`, and
 the typed edit. The sample and its gate (D10 to D17) **amend**
 [ADR 0348](0348-a-collector-declares-a-config-file-and-the-rust-packs.md): a collector's `process` scope declares the
 arguments a caller's filter adds, a declared variable name may be a prefix, and `@rust/test` takes both; D18 amends
-[ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md): W061 reads no fact's reference. Protocol
-2.2.0, no bump.
+[ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md): W061 reads no fact's reference; D14 amends
+[ADR 0068](0068-a-test-binary-records-collect-scores.md) D5: a caller chooses where a test binary's report goes with
+`SPECFORGE_TEST_REPORT_DIR`. Protocol 2.2.0, no bump.
 
 ## Context
 
@@ -158,9 +159,11 @@ converted on every change that can move it, by a check of `cargo gate`, and must
   `--effects cached`. Every `specforge` and `absorb` call gets `HOME` under the run directory, `CARGO_HOME` and
   `RUSTUP_HOME` kept, the gate's `CARGO_TARGET_DIR`, `--yes` against `SPECFORGE_CONSENT_FILE` in a `0700` directory
   emptied first, and no cargo credential variable, so the gate never writes the user's consents and never reuses a
-  stale one. The cited tests' own reports go to the run directory (`SPECFORGE_REPORT`), never into the
-  `<target>/specforge` the `tests` check fills: a collector command told its report path by `{report}` (nextest's
-  JUnit, through its config) is no longer also handed it as `SPECFORGE_REPORT`, where each test binary would have
+  stale one. The cited tests' own reports go to the run directory, never into the `<target>/specforge` the `tests`
+  check fills, where a report of another nextest run would prune that check's: the gate passes no
+  `SPECFORGE_REPORT` and sets `SPECFORGE_TEST_REPORT_DIR`, which the test support reads when no collect run names a
+  report (amending ADR 0068 D5). `SPECFORGE_REPORT` is collect's own: a collector command told its report path by
+  `{report}` (nextest's JUnit, through its config) is no longer also handed it, where each test binary would have
   made a directory of the JUnit file's path.
 - **D15. The target run reuses the gate's test build: 0 units compiled.** The copies keep each file's modification
   time and permissions, the run shares the gate's target directory and cargo environment, and a path crate is keyed

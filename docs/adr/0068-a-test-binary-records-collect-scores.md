@@ -1,7 +1,9 @@
 # A test binary records; collect scores
 
 **Status:** accepted (2026-10-13, architecture round 8, plan 06). Follows ADR 0014 D3 (precedent: it removed a similar side
-channel) and ADR 0019 (the coverage rule's standing).
+channel) and ADR 0019 (the coverage rule's standing). **Amended by**
+[ADR 0360](0360-the-self-spec-moves-to-gsd-core-by-a-one-time-converter.md) D14: a caller chooses the directory with
+`$SPECFORGE_TEST_REPORT_DIR` when no collect run names one.
 
 `specforge-graph` had a build script that parsed this repository's `spec/` with the raw parser, decided which entities
 were testable by a rule of its own (a `verify` statement or a `gherkin` field), and wrote `graph.json` into the target
@@ -28,8 +30,9 @@ similar side channel (`.specforge/graph.json`).
   written) is not. `schema_version` stays `1.0`: no report's bytes change.
 - **D4. One slug algorithm, on the host** (`specforge_common::slug`). `specforge-test` links by the attribute's exact
   text and never needs one.
-- **D5. A report is build output.** Without `$SPECFORGE_REPORT` it goes to `specforge/` in the cargo target directory
-  the binary was built into, the nearest ancestor holding `CACHEDIR.TAG` or `.rustc_info.json`. A binary outside any
+- **D5. A report is build output.** It goes where `$SPECFORGE_REPORT` says when `specforge collect` sets it, else
+  where `$SPECFORGE_TEST_REPORT_DIR` says when the caller chose a directory, else to `specforge/` in the cargo target
+  directory the binary was built into, the nearest ancestor holding `CACHEDIR.TAG` or `.rustc_info.json`. A binary outside any
   target directory writes none and says so; nothing is ever written relative to the working directory. With a custom
   target directory, `specforge collect --report "$CARGO_TARGET_DIR/specforge"` reads what a plain `cargo test` wrote.
 

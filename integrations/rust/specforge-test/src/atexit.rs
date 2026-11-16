@@ -167,14 +167,38 @@ pub fn target_dir_of(binary: &Path) -> Option<PathBuf> {
         .map(Path::to_path_buf)
 }
 
+/// The variable `specforge collect` sets for a runner integration: the report path of its run.
+pub const REPORT_ENV: &str = "SPECFORGE_REPORT";
+
+/// The variable a caller sets to choose where a test binary's report goes when no collect run names one: a run that
+/// shares a target directory with another (a gate's check over a copy of the checkout) keeps its reports apart.
+/// `specforge collect` owns [`REPORT_ENV`] and removes it from a command it tells its report another way, so a caller's
+/// choice passes through this one.
+pub const REPORT_DIR_ENV: &str = "SPECFORGE_TEST_REPORT_DIR";
+
 /// Where this process's report goes: `$SPECFORGE_REPORT` when `specforge
-/// collect` set it, else `specforge/` in the binary's target directory. None
-/// when there is neither; the report is then not written, and never into the
-/// working directory.
+/// collect` set it, else `$SPECFORGE_TEST_REPORT_DIR` when the caller chose
+/// one, else `specforge/` in the binary's target directory. None when there is
+/// none of them; the report is then not written, and never into the working
+/// directory.
 fn report_dir() -> Option<PathBuf> {
-    if let Some(dir) = std::env::var_os("SPECFORGE_REPORT") {
-        return Some(PathBuf::from(dir));
-    }
-    let exe = std::env::current_exe().ok()?;
-    target_dir_of(&exe).map(|target| target.join("specforge"))
+    let binary = std::env::current_exe().ok();
+    report_dir_of(
+        std::env::var_os(REPORT_ENV),
+        std::env::var_os(REPORT_DIR_ENV),
+        binary.as_deref(),
+    )
+}
+
+/// [`report_dir`] from the values of [`REPORT_ENV`] (`collect`) and [`REPORT_DIR_ENV`] (`chosen`) and the test
+/// binary's path.
+pub fn report_dir_of(
+    collect: Option<std::ffi::OsString>,
+    chosen: Option<std::ffi::OsString>,
+    binary: Option<&Path>,
+) -> Option<PathBuf> {
+    collect
+        .or(chosen)
+        .map(PathBuf::from)
+        .or_else(|| target_dir_of(binary?).map(|target| target.join("specforge")))
 }

@@ -38,6 +38,7 @@ fn a_specforge_call_carries_no_cargo_credential() {
         .map(|(k, _)| k.as_str())
         .collect();
     let mut expected = inherited[..6].to_vec();
+    expected.push(REPORT_ENV);
     expected.sort_unstable();
     let mut removed = removed;
     removed.sort_unstable();
@@ -57,8 +58,10 @@ fn a_specforge_call_carries_no_cargo_credential() {
     );
     assert_eq!(set(COPY_OF_ENV), Some("/checkout".to_string()));
     assert_eq!(COPY_OF_ENV, specforge_repo_root::COPY_OF_ENV);
+    assert_eq!(TEST_REPORT_DIR_ENV, specforge_test::atexit::REPORT_DIR_ENV);
+    assert_eq!(REPORT_ENV, specforge_test::atexit::REPORT_ENV);
     assert_eq!(
-        set("SPECFORGE_REPORT"),
+        set(TEST_REPORT_DIR_ENV),
         Some(
             dir.path()
                 .join("test-reports")

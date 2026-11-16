@@ -157,6 +157,9 @@ usually a typo or a reworded statement, is A016.
   `CARGO_TARGET_DIR` points. A plain `cargo test` writes them to
   `specforge/` in the target directory (`$CARGO_TARGET_DIR/specforge/`);
   record them with `specforge collect --report "$CARGO_TARGET_DIR/specforge"`.
+  `SPECFORGE_TEST_REPORT_DIR` sends them to another directory when no
+  `collect` run names one (two runs sharing a target directory keep their
+  reports apart this way).
 - **Another command** (for example `cargo nextest run`): run it yourself, then
   `specforge collect --no-run`. The reports land in `specforge/` in the
   target directory, `target/specforge/` by default (with a custom one, use
