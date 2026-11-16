@@ -183,7 +183,11 @@ converted on every change that can move it, by a check of `cargo gate`, and must
   them after its error. Every `specforge` and `absorb` call gets `HOME` under the run directory, `CARGO_HOME` and
   `RUSTUP_HOME` kept, the gate's `CARGO_TARGET_DIR`, `--yes` against `SPECFORGE_CONSENT_FILE` in a `0700` directory
   emptied first, and no cargo credential variable, so the gate never writes the user's consents and never reuses a
-  stale one. The cited tests' own reports go to the run directory, never into the `<target>/specforge` the `tests`
+  stale one. Each call also gets `GIT_CEILING_DIRECTORIES` at the run directory, and none of the variables that name
+  another repository (`GIT_DIR`, `GIT_WORK_TREE`, `GIT_COMMON_DIR`, `GIT_OBJECT_DIRECTORY`,
+  `GIT_ALTERNATE_OBJECT_DIRECTORIES`, `GIT_INDEX_FILE`): both copies sit in no repository wherever the target
+  directory is, so a CI target under the checkout finds what a target outside every repository finds (`I204`, no
+  history), and the goldens hold in both. The cited tests' own reports go to the run directory, never into the `<target>/specforge` the `tests`
   check fills, where a report of another nextest run would prune that check's: the gate passes no
   `SPECFORGE_REPORT` and sets `SPECFORGE_TEST_REPORT_DIR`, which the test support reads when no collect run names a
   report (amending ADR 0068 D5). `SPECFORGE_REPORT` is collect's own: a collector command told its report path by
