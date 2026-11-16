@@ -51,7 +51,6 @@ fn every_old_governance_and_product_field_has_exactly_one_row() {
                 "later"
             }
             Home::Refused => "refused",
-            Home::Default(_) => "default",
             Home::Dropped(_) => "dropped",
         };
         *counts.entry(class).or_default() += 1;
@@ -59,12 +58,11 @@ fn every_old_governance_and_product_field_has_exactly_one_row() {
     assert_eq!(
         counts,
         BTreeMap::from([
-            ("to", 74),
+            ("to", 12),
             ("computed", 2),
-            ("later", 31),
-            ("refused", 16),
-            ("default", 1),
-            ("dropped", 17)
+            ("later", 29),
+            ("refused", 12),
+            ("dropped", 86)
         ])
     );
     for row in TABLE {
@@ -81,8 +79,8 @@ fn every_old_governance_and_product_field_has_exactly_one_row() {
         pending,
         BTreeMap::from([
             (Pending::Release, 14),
-            (Pending::Package, 11),
-            (Pending::Truth, 4),
+            (Pending::Package, 10),
+            (Pending::Truth, 3),
             (Pending::Behavior, 2)
         ])
     );
@@ -113,13 +111,9 @@ fn written(how: How, old: Option<FieldType>) -> Vec<FieldType> {
     match how {
         How::As => old.into_iter().collect(),
         How::Text | How::Solution => vec![String],
-        How::Refs | How::InvertOnto | How::Proof => vec![ReferenceList],
-        How::Ref => vec![Reference],
         How::Words => vec![StringList],
-        How::Steps | How::Options => vec![BlockList],
-        How::FeatureTier | How::Outcome | How::Category | How::Priority => vec![Enum],
+        How::FeatureTier | How::Outcome => vec![Enum],
         How::Settled => vec![Bool],
-        How::Bound | How::Threshold => vec![Block],
     }
 }
 
@@ -178,7 +172,7 @@ fn every_home_names_a_field_the_gsd_core_golden_declares_of_the_type_it_writes()
     }
     assert_eq!(
         (homes, typed),
-        (80, 76),
+        (16, 13),
         "every To and Computed home, and the To homes typed"
     );
     for old in OLD_KINDS {

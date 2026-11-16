@@ -10,12 +10,12 @@
 mod decision;
 #[path = "tests/governance.rs"]
 mod governance;
+#[path = "tests/keywords.rs"]
+mod keywords;
 #[path = "tests/measure.rs"]
 mod measure;
 #[path = "tests/product.rs"]
 mod product;
-#[path = "tests/proof.rs"]
-mod proof;
 #[path = "tests/scope.rs"]
 mod scope;
 
@@ -25,8 +25,7 @@ use std::collections::BTreeMap;
 
 use super::ledger::Why;
 use super::plan::{self, Planned, Stop};
-use super::proof::Proofs;
-use super::read::{self, Index, OldEntity};
+use super::read::{self, OldEntity};
 
 /// The old fixture project: the five old builtins and one file per old kind.
 pub(super) const OLD: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/absorb/old");
@@ -49,20 +48,10 @@ pub(super) fn old(kind: &str, id: &str, fields: Value) -> OldEntity {
     }
 }
 
-/// Every entity's kind by id, as the old project would name them.
-pub(super) fn index(entities: &[OldEntity]) -> Index {
-    Index(
-        entities
-            .iter()
-            .map(|e| (e.id.clone(), e.kind.clone()))
-            .collect(),
-    )
-}
-
 /// `entities` planned, once their pre-checks pass.
 pub(super) fn planned(entities: &[OldEntity]) -> Planned {
     plan::prechecks(entities).expect("the pre-checks pass");
-    plan::plan(entities, &[], &index(entities), &Proofs::default())
+    plan::plan(entities)
 }
 
 /// The pre-checks' stops for `entities`.

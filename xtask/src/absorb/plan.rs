@@ -8,8 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::how;
 use super::ledger::{Ledger, Why};
-use super::proof::Proofs;
-use super::read::{Index, OldEntity};
+use super::read::OldEntity;
 use super::table::{self, Home, Row, VERIFY};
 
 #[path = "plan/to.rs"]
@@ -63,12 +62,9 @@ pub struct Planned {
     pub converted: usize,
     /// Entities the converter created that the old project did not hold.
     pub created: usize,
-    /// The test ids the written proofs name: what a gate runs to hold them.
+    /// The test ids the written proofs name: what a gate runs to hold them. Always empty since ADR 0370 D8: no kept
+    /// kind holds a proof, so absorb cites no test. The self-spec sample reads it until it retires at the swap.
     pub cited: BTreeSet<String>,
-    /// For each (new id, new field) a reference was to be written in, the old ids the selection leaves out that it
-    /// would have held, its own references and the inverse writes of entities left out alike (each ledgered
-    /// `out_of_selection`): what a required field lacks because of `--only`, not the old project.
-    pub left_out: BTreeMap<(String, String), BTreeSet<String>>,
 }
 
 impl Planned {
@@ -106,9 +102,7 @@ impl Planned {
 }
 
 /// Every reason the run cannot convert `entities`, all at once: an entity of a kind no row converts, a field with no
-/// row, a value in a refused field, a word a default field does not imply, an obligation with no row, a milestone
-/// that targets a day before it starts (which the target refuses, so the converted project would not check clean),
-/// two creates with one id.
+/// row, a value in a refused field, an obligation with no row, two creates with one id.
 pub fn prechecks(entities: &[OldEntity]) -> Result<(), Vec<Stop>> {
     let mut stops = Vec::new();
     let stop = |e: &OldEntity, field: &str, why: String| Stop {
@@ -127,40 +121,16 @@ pub fn prechecks(entities: &[OldEntity]) -> Result<(), Vec<Stop>> {
                 stops.push(stop(e, field, format!("no row for {}.{field}", e.kind)));
                 continue;
             };
-            for home in row.homes {
-                match *home {
-                    Home::Refused => stops.push(stop(
-                        e,
-                        field,
-                        format!("refused: no kind holds it (value {value})"),
-                    )),
-                    Home::Default(implied) if value.as_str() != Some(implied) => {
-                        let kind = table::new_kind(&e.kind).unwrap_or_default();
-                        stops.push(stop(
-                            e,
-                            field,
-                            format!("no home for {value}: a {kind} implies only \"{implied}\""),
-                        ));
-                    }
-                    _ => {}
-                }
+            if row.homes.contains(&Home::Refused) {
+                stops.push(stop(
+                    e,
+                    field,
+                    format!("refused: no kind holds it (value {value})"),
+                ));
             }
         }
         if !e.obligations.is_empty() && table::row_of(&e.kind, VERIFY).is_none() {
             stops.push(stop(e, VERIFY, format!("no row for {}.{VERIFY}", e.kind)));
-        }
-        if table::new_kind(&e.kind) == Some("milestone")
-            && let (Some(starts), Some(targets)) = (day(e, "start_date"), day(e, "target_date"))
-            && targets < starts
-        {
-            stops.push(stop(
-                e,
-                "target_date",
-                format!(
-                    "{targets} is before its start_date {starts}: the target refuses a milestone that ships \
-                     before it starts (gsd/E537)"
-                ),
-            ));
         }
     }
     let mut by_id: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -179,18 +149,6 @@ pub fn prechecks(entities: &[OldEntity]) -> Result<(), Vec<Stop>> {
     }
     stops.sort();
     if stops.is_empty() { Ok(()) } else { Err(stops) }
-}
-
-/// The `YYYY-MM-DD` day `e` writes in `field`. Two such days compare as calendar days by their text; any other
-/// spelling is the source's own date error, never one the target adds.
-fn day<'e>(e: &'e OldEntity, field: &str) -> Option<&'e str> {
-    let text = e.fields.get(field)?.as_str()?;
-    let shaped = text.len() == 10
-        && text.bytes().enumerate().all(|(at, b)| match at {
-            4 | 7 => b == b'-',
-            _ => b.is_ascii_digit(),
-        });
-    shaped.then_some(text)
 }
 
 /// The ids `e` creates, each with the entity that makes it.
@@ -221,8 +179,6 @@ struct Draft {
     title: String,
     file: String,
     fields: BTreeMap<String, Input>,
-    /// The fields other entities wrote by inversion: sorted by id once every entity is planned.
-    inverted: BTreeSet<String>,
 }
 
 impl Draft {
@@ -261,40 +217,19 @@ impl Draft {
 }
 
 /// The plan as it is being made.
-struct Planner<'a> {
-    index: &'a Index,
-    proofs: &'a Proofs,
-    cited: BTreeSet<String>,
-    /// The old ids this run converts into an entity of their own.
-    converted: BTreeSet<String>,
+#[derive(Default)]
+struct Planner {
     drafts: BTreeMap<String, Draft>,
     order: Vec<String>,
     ledger: Ledger,
     checks: Vec<Check>,
     created: usize,
-    left_out: BTreeMap<(String, String), BTreeSet<String>>,
 }
 
-/// Convert `entities` (each passed [`prechecks`]); `left` is every old entity the selection leaves out (none for a
-/// whole run), read only for the inverse writes it makes onto `entities`; `index` names every old entity's kind,
-/// `proofs` what an invariant's obligations are proved by.
-pub fn plan(entities: &[OldEntity], left: &[OldEntity], index: &Index, proofs: &Proofs) -> Planned {
-    let mut planner = Planner {
-        index,
-        proofs,
-        cited: BTreeSet::new(),
-        converted: entities
-            .iter()
-            .filter(|e| table::new_kind(&e.kind).is_some())
-            .map(|e| e.id.clone())
-            .collect(),
-        drafts: BTreeMap::new(),
-        order: Vec::new(),
-        ledger: Ledger::default(),
-        checks: Vec::new(),
-        created: 0,
-        left_out: BTreeMap::new(),
-    };
+/// Convert `entities` (each passed [`prechecks`]). No home writes a reference (ADR 0370 D8), so an entity the
+/// selection leaves out changes nothing the selected ones write.
+pub fn plan(entities: &[OldEntity]) -> Planned {
+    let mut planner = Planner::default();
     for e in entities {
         planner.draft(e);
     }
@@ -316,13 +251,10 @@ pub fn plan(entities: &[OldEntity], left: &[OldEntity], index: &Index, proofs: &
         }
         planner.fill(e);
     }
-    for e in left {
-        planner.inverses_left_out(e);
-    }
     planner.finish()
 }
 
-impl Planner<'_> {
+impl Planner {
     /// The entity `e` converts to, empty but for its header.
     fn draft(&mut self, e: &OldEntity) {
         let Some(kind) = table::new_kind(&e.kind) else {
@@ -345,7 +277,7 @@ impl Planner<'_> {
             }
         };
         let mut fields = BTreeMap::new();
-        if matches!(kind, "milestone" | "term") {
+        if kind == "milestone" {
             fields.insert("name".to_string(), Input::One(title.clone()));
         }
         self.add(Draft {
@@ -354,7 +286,6 @@ impl Planner<'_> {
             title,
             file: e.file.clone(),
             fields,
-            inverted: BTreeSet::new(),
         });
     }
 
@@ -402,8 +333,6 @@ impl Planner<'_> {
                     expected,
                 });
             }
-            // The value the new kind implies: the pre-checks stopped on any other.
-            Home::Default(_) => {}
             Home::Later(pending) => {
                 self.ledger.record(
                     &e.kind,
@@ -435,69 +364,6 @@ impl Planner<'_> {
             value,
             Why::Unconverted(why.to_string()),
         );
-    }
-
-    /// The new id a reference to `id` is written as, when this run converts it; otherwise ledgered and none. `into` is
-    /// the new field of `e`'s own entity it is written in (none for an inverse write): one the selection leaves out
-    /// is recorded there.
-    fn resolve(
-        &mut self,
-        e: &OldEntity,
-        field: &str,
-        into: Option<&str>,
-        id: &str,
-    ) -> Option<String> {
-        if self.converted.contains(id) {
-            return Some(id.to_string());
-        }
-        let why = match self.index.kind(id) {
-            Some(kind) if table::new_kind(kind).is_some() => {
-                if let Some(into) = into {
-                    let at = (e.id.clone(), into.to_string());
-                    self.left_out.entry(at).or_default().insert(id.to_string());
-                }
-                Why::OutOfSelection(id.to_string())
-            }
-            Some(kind) => Why::TargetLater {
-                target: id.to_string(),
-                pending: table::pending_of(kind),
-            },
-            None => Why::Unconverted(format!("'{id}' names no entity of the old project")),
-        };
-        self.ledger.record(&e.kind, &e.id, field, json!(id), why);
-        None
-    }
-
-    /// The inverse writes `e`, an entity the selection leaves out, would make onto one it converts: each item the
-    /// converted entity loses is ledgered on it, `out_of_selection` naming `e`, under the new field it would have been
-    /// written in, and recorded there, so a required field it empties stops the run naming the selection.
-    fn inverses_left_out(&mut self, e: &OldEntity) {
-        for row in table::rows_of(&e.kind) {
-            let Some(value) = e.fields.get(row.field) else {
-                continue;
-            };
-            for home in row.homes {
-                let Home::To {
-                    field,
-                    how: table::How::InvertOnto,
-                    ..
-                } = *home
-                else {
-                    continue;
-                };
-                let index = self.index;
-                for id in how::items(value) {
-                    let Some(kind) = index.kind(&id).filter(|_| self.converted.contains(&id))
-                    else {
-                        continue;
-                    };
-                    let why = Why::OutOfSelection(e.id.clone());
-                    self.ledger.record(kind, &id, field, json!(e.id), why);
-                    let at = (id, field.to_string());
-                    self.left_out.entry(at).or_default().insert(e.id.clone());
-                }
-            }
-        }
     }
 
     /// The required values the old entity lacks, filled and ledgered.
@@ -549,28 +415,18 @@ impl Planner<'_> {
             ledger,
             checks,
             created,
-            cited,
-            left_out,
-            ..
         } = self;
         let converted = order.len() - created;
         let creates = order
             .iter()
             .filter_map(|id| drafts.remove(id))
-            .map(|mut draft| {
-                for field in &draft.inverted {
-                    if let Some(Input::Many(list)) = draft.fields.get_mut(field) {
-                        list.sort();
-                    }
-                }
-                Edit::Create {
-                    kind: draft.kind.to_string(),
-                    id: draft.id,
-                    title: draft.title,
-                    file: draft.file,
-                    fields: draft.fields,
-                    verify: Vec::new(),
-                }
+            .map(|draft| Edit::Create {
+                kind: draft.kind.to_string(),
+                id: draft.id,
+                title: draft.title,
+                file: draft.file,
+                fields: draft.fields,
+                verify: Vec::new(),
             })
             .collect();
         Planned {
@@ -579,8 +435,7 @@ impl Planner<'_> {
             checks,
             converted,
             created,
-            cited,
-            left_out,
+            cited: BTreeSet::new(),
         }
     }
 }

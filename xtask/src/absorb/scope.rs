@@ -1,6 +1,6 @@
 //! Which old entities a run converts (ADR 0360 D4): every one of the absorbed kinds, or the ids `--only ids:<file>`
-//! names. A reference or an inverse write onto an entity outside the scope is ledgered, never stubbed, and so is an
-//! inverse write from one outside it onto one inside.
+//! names. No home writes a reference (ADR 0370 D8), so an entity outside the scope changes nothing written inside
+//! it, and none is ever stubbed.
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -34,7 +34,8 @@ impl Scope {
 
     /// The entities of `all` (every old entity of the absorbed kinds) this scope converts, in their order; refused
     /// when it names an id that is no such entity, or one whose rows create nothing and drop nothing (a module, a
-    /// release). A failure mode, whose every value is ledgered `dropped`, may be named.
+    /// release). An entity whose every value is ledgered `dropped` (a failure mode, an invariant, a journey, a
+    /// persona, a term, a channel) may be named.
     pub fn select(&self, all: Vec<OldEntity>) -> Result<Vec<OldEntity>, String> {
         let Scope::Only(ids) = self else {
             return Ok(all);

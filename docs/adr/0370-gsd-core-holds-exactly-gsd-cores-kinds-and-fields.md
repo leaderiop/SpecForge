@@ -175,6 +175,13 @@ How each is written is the conversion change's design. Until that change, absorb
 `dropped` with the reason that the conversion change writes them as a requirement. What becomes of the test
 attributes that name a software kind (ADR 0364's Consequences) is not decided here.
 
+**Where the removed code is kept.** Reference resolution, its out-of-selection ledgering, the `gsd/E537` pre-check
+and the proof module (with the proof join and the refusal of a source with no recorded item) were removed from absorb
+by the change that made it drop these values. The last commit that holds them is
+`54252620647f8c6efacb44ce91369bf2988f0000`, where the conversion change can take them back
+(`xtask/src/absorb/plan.rs`, `xtask/src/absorb/plan/to.rs`, `xtask/src/absorb/proof.rs`,
+`xtask/src/absorb/read.rs`).
+
 ## D9. The kernel features R4 added stay, with no `@gsd/core` user
 
 These stay in the kernel and the host:

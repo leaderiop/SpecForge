@@ -3,20 +3,19 @@
 
 use serde_json::json;
 use specforge_ops::authoring::edit::{Edit, Input};
-use std::collections::BTreeMap;
 
 use super::super::ledger::Why;
 use super::super::plan;
-use super::super::table;
+use super::super::table::{self, Home};
 use super::super::write;
-use super::{create, field, fixture, ledgered, many, old, one, planned, stops};
+use super::{create, field, fixture, ledgered, old, one, planned, stops};
 
 #[test]
 fn a_decision_becomes_one_create_keeping_its_id_title_and_file() {
     let old = fixture();
     let entities = old.entities();
     plan::prechecks(&entities).expect("the fixture converts");
-    let planned = plan::plan(&entities, &[], &old.index(), &Default::default());
+    let planned = plan::plan(&entities);
     let headers: Vec<(&str, &str, &str, &str)> = planned
         .creates
         .iter()
@@ -92,67 +91,106 @@ fn decision_status_writes_outcome_or_settled_and_never_status() {
         create(&planned, "s").1.keys().collect::<Vec<_>>(),
         ["origin", "text"]
     );
-    let in_force: Vec<(&str, Option<bool>)> = planned
-        .checks
-        .iter()
-        .map(|c| {
-            assert_eq!((c.new_kind, c.new_field), ("decision", "in_force"));
-            (c.id.as_str(), c.expected.as_ref().and_then(|v| v.as_bool()))
-        })
-        .collect();
-    assert_eq!(
-        in_force,
-        [
-            ("a", Some(true)),
-            ("p", Some(true)),
-            ("d", Some(true)),
-            ("s", Some(false))
-        ]
+    assert!(
+        planned.checks.is_empty(),
+        "no computed value of a decision is compared: `in_force` left (ADR 0370 D4)"
     );
 }
 
+/// gsd-core has no supersession (ADR 0370 D4): a superseded status writes neither `outcome` nor `settled`, and is one
+/// `dropped` entry; the other statuses write what they wrote before.
 #[test]
-fn superseded_by_is_written_as_supersedes_on_the_successor() {
+fn a_superseded_decision_status_is_ledgered_dropped() {
     let planned = planned(&[
         old(
             "decision",
-            "first",
-            json!({"status": "superseded", "decision": "1", "superseded_by": "third"}),
+            "s",
+            json!({"status": "superseded", "decision": "S"}),
         ),
         old(
             "decision",
-            "second",
-            json!({"status": "superseded", "decision": "2", "superseded_by": "third"}),
+            "p",
+            json!({"status": "proposed", "decision": "P"}),
         ),
         old(
             "decision",
-            "third",
-            json!({"status": "accepted", "decision": "3"}),
+            "d",
+            json!({"status": "deprecated", "decision": "D"}),
+        ),
+        old(
+            "decision",
+            "a",
+            json!({"status": "accepted", "decision": "A"}),
         ),
     ]);
-    assert_eq!(field(&planned, "first", "supersedes"), None);
-    assert_eq!(field(&planned, "first", "superseded_by"), None);
+    assert_eq!(field(&planned, "s", "outcome"), None);
+    assert_eq!(field(&planned, "s", "settled"), None);
+    let status: Vec<(String, Why)> = ledgered(&planned, "s")
+        .into_iter()
+        .filter(|(f, _)| f == "status")
+        .collect();
     assert_eq!(
-        field(&planned, "third", "supersedes"),
-        Some(&many(&["first", "second"])),
-        "the direction flips, every superseded decision listed, by id"
+        status,
+        [(
+            "status".to_string(),
+            Why::Dropped(table::NO_SUPERSESSION.to_string())
+        )]
     );
+    assert!(table::NO_SUPERSESSION.contains("ADR 0370"));
+    assert_eq!(field(&planned, "p", "outcome"), Some(&one("pending")));
+    assert_eq!(field(&planned, "d", "outcome"), Some(&one("revisit")));
+    assert_eq!(field(&planned, "a", "settled"), Some(&Input::Bool(true)));
+    for id in ["p", "d", "a"] {
+        assert!(
+            ledgered(&planned, id).iter().all(|(f, _)| f != "status"),
+            "{id}"
+        );
+    }
 }
 
+/// A field whose home left `@gsd/core` (ADR 0370 D3 and D4) is one `dropped` entry with its row's reason, and the
+/// decision still converts with what it keeps.
 #[test]
-fn alternatives_become_options_by_name() {
+fn a_field_whose_home_leaves_is_ledgered_dropped_and_the_entity_still_converts() {
     let planned = planned(&[old(
         "decision",
         "x",
-        json!({"status": "accepted", "decision": "X", "alternatives": ["A hand parser", "Two parsers"]}),
+        json!({
+            "status": "accepted", "decision": "Read with one parser.", "context": "Readers drift.",
+            "superseded_by": "y", "alternatives": ["A hand parser", "Two parsers"],
+        }),
     )]);
-    let option = |name: &str| BTreeMap::from([("name".to_string(), one(name))]);
+    assert_eq!(planned.creates.len(), 1);
+    let (kind, fields) = create(&planned, "x");
+    assert_eq!(kind, "decision");
     assert_eq!(
-        field(&planned, "x", "alternatives"),
-        Some(&Input::Blocks(vec![
-            option("A hand parser"),
-            option("Two parsers")
-        ]))
+        fields.keys().collect::<Vec<_>>(),
+        ["origin", "settled", "text"],
+        "of the four fields, only `decision` is written, as `text`"
+    );
+    assert_eq!(
+        field(&planned, "x", "text"),
+        Some(&one("Read with one parser."))
+    );
+    let reason = |field: &str| {
+        let &[Home::Dropped(reason)] = table::row_of("decision", field).unwrap().homes else {
+            panic!("decision.{field} is dropped");
+        };
+        assert!(reason.contains("ADR 0370"), "{reason}");
+        Why::Dropped(reason.to_string())
+    };
+    let dropped: Vec<(String, Why)> = ledgered(&planned, "x")
+        .into_iter()
+        .filter(|(_, why)| matches!(why, Why::Dropped(_)))
+        .collect();
+    assert_eq!(
+        dropped,
+        ["alternatives", "context", "superseded_by"].map(|f| (f.to_string(), reason(f))),
+        "one entry per value, each with its row's reason"
+    );
+    assert!(
+        reason("context") != reason("alternatives"),
+        "each reason names the field that leaves"
     );
 }
 
@@ -253,6 +291,7 @@ fn the_ledger_is_sorted_and_identical_across_runs() {
             ("alpha".to_string(), "invariants".to_string()),
             ("alpha".to_string(), "origin".to_string()),
             ("zeta".to_string(), "origin".to_string()),
+            ("zeta".to_string(), "status".to_string()),
         ]
     );
     let text = first.ledger.to_json("p");

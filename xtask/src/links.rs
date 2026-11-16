@@ -1,7 +1,6 @@
 //! The spec-link attributes of Rust tests (`#[spec(..)]`, `#[specforge_test(..)]`,
-//! `#[specforge_test_macros::test(..)]`), read with `syn` without building or running a test. One reader for
-//! check-links, which compares each `verify` text with what its entity declares, and absorb, which turns an
-//! invariant's obligations into proofs of the tests that state them.
+//! `#[specforge_test_macros::test(..)]`), read with `syn` without building or running a test, for check-links,
+//! which compares each `verify` text with what its entity declares.
 
 use std::path::{Path, PathBuf};
 use syn::ext::IdentExt;

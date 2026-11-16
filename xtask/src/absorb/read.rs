@@ -6,16 +6,11 @@ use specforge_common::{ProjectConfig, ProjectRoot, Severity, read_project_config
 use specforge_component::ComponentRuntime;
 use specforge_graph::field_form;
 use specforge_project::CompiledProject;
-use specforge_registry::PlainDisk;
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use super::proof::{self, Item};
 use super::table::OLD_KINDS;
-
-/// The extension whose recorded `item` facts are the test items a proof names.
-const RUST_SOURCE: &str = "@rust/source";
 
 /// How many of a refused source's errors are printed.
 const ERRORS_SHOWN: usize = 10;
@@ -25,8 +20,6 @@ pub struct Old {
     /// Its name (`specforge.json`'s `name`, else its directory's).
     pub name: String,
     pub project: CompiledProject,
-    /// Its recorded test items, when it loads `@rust/source`.
-    pub items: Vec<Item>,
 }
 
 /// The source's project block as the target keeps it: its name (`specforge.json`'s, else its directory's), its
@@ -79,18 +72,8 @@ pub struct OldEntity {
     pub obligations: Vec<(Option<String>, String)>,
 }
 
-/// Every old entity's kind by id, whatever its kind: what a reference's target is.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct Index(pub BTreeMap<String, String>);
-
-impl Index {
-    pub fn kind(&self, id: &str) -> Option<&str> {
-        self.0.get(id).map(String::as_str)
-    }
-}
-
-/// Compile the project at `from` with the builtins it names; refused when it reports an error, naming the first, or
-/// when it loads `@rust/source` and holds no recorded item, so a proof is never silently missing.
+/// Compile the project at `from` with the builtins it names; refused when it reports an error, naming the first. No
+/// recorded item is required: no kept kind holds a proof (ADR 0370 D8).
 pub fn compile(from: &Path) -> Result<Old, String> {
     let root = ProjectRoot::of(from).map_err(|e| format!("{}: {e:?}", from.display()))?;
     let project =
@@ -121,29 +104,7 @@ pub fn compile(from: &Path) -> Result<Old, String> {
         ));
     }
     let name = Project::of(from, project.environment().config()).name;
-    let items = if project
-        .environment()
-        .config()
-        .extensions
-        .iter()
-        .any(|e| e == RUST_SOURCE)
-    {
-        let facts = specforge_project::facts::recorded_facts(&PlainDisk, root.dir(), &["item"]);
-        if facts.is_empty() {
-            return Err(format!(
-                "it loads {RUST_SOURCE} and holds no recorded item: collect the source first \
-                 (`specforge collect`), so its invariants' proofs can name their tests"
-            ));
-        }
-        proof::items(&facts)
-    } else {
-        Vec::new()
-    };
-    Ok(Old {
-        name,
-        project,
-        items,
-    })
+    Ok(Old { name, project })
 }
 
 impl Old {
@@ -184,17 +145,5 @@ impl Old {
             .collect();
         entities.sort_by(|a, b| (&a.file, a.line, &a.id).cmp(&(&b.file, b.line, &b.id)));
         entities
-    }
-
-    /// Every entity's kind by id.
-    pub fn index(&self) -> Index {
-        Index(
-            self.project
-                .graph()
-                .nodes()
-                .into_iter()
-                .map(|node| (node.id.raw.to_string(), node.kind.raw.to_string()))
-                .collect(),
-        )
     }
 }

@@ -1,18 +1,17 @@
 //! Where a `To` home writes a value (ADR 0360 D2): each transform the table names, from a value written as it is to
-//! a metric read with the prove pass's reader, and the helpers only they use.
+//! a decision status as its outcome, and the helpers only they use. No transform writes a reference (ADR 0370 D8).
 
 use serde_json::{Value, json};
 use specforge_ops::authoring::edit::Input;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use super::super::how;
 use super::super::ledger::Why;
-use super::super::proof::Proved;
 use super::super::read::OldEntity;
-use super::super::table::{self, Row, VERIFY};
+use super::super::table::{self, NO_SUPERSESSION, Row};
 use super::{Draft, Planner, solution_id};
 
-impl Planner<'_> {
+impl Planner {
     pub(super) fn to(
         &mut self,
         e: &OldEntity,
@@ -32,49 +31,7 @@ impl Planner<'_> {
                 }
             },
             How::Words => self.list(e, row.field, field, how::items(value)),
-            How::Ref => {
-                if let Some(id) = value.as_str()
-                    && let Some(id) = self.resolve(e, row.field, Some(field), id)
-                    && let Some(draft) = self.own(e)
-                {
-                    draft.set(field, Input::One(id));
-                }
-            }
-            How::Steps => {
-                let steps: Vec<BTreeMap<String, Input>> = how::items(value)
-                    .into_iter()
-                    .map(|action| BTreeMap::from([("action".to_string(), Input::One(action))]))
-                    .collect();
-                if let (false, Some(draft)) = (steps.is_empty(), self.drafts.get_mut(&e.id)) {
-                    draft.set(field, Input::Blocks(steps));
-                }
-            }
             How::Solution => self.solution(e, field, value),
-            How::Proof => {
-                let text = value["text"].as_str().unwrap_or_default();
-                match self.proofs.of(&e.id, text) {
-                    Proved::Tests(tests) => {
-                        self.cited.extend(tests.iter().cloned());
-                        // Written as the tests that prove it: its kind and its text are the ledger's, so a proof
-                        // shared by two obligations still says which statements it stands for.
-                        let kind = table::new_kind(&e.kind).unwrap_or_default();
-                        let why = Why::Collapsed {
-                            field: format!("{kind}.{field}"),
-                            into: json!(tests),
-                        };
-                        self.ledger
-                            .record(&e.kind, &e.id, VERIFY, value.clone(), why);
-                        if let Some(draft) = self.own(e) {
-                            draft.append(field, tests);
-                        }
-                    }
-                    Proved::Unproven(tests) => {
-                        let why = Why::Unproven { tests };
-                        self.ledger
-                            .record(&e.kind, &e.id, VERIFY, value.clone(), why);
-                    }
-                }
-            }
             How::FeatureTier => {
                 let status = value.as_str().unwrap_or(how::FEATURE_DEFAULT);
                 self.tier(e, field, status);
@@ -84,57 +41,18 @@ impl Planner<'_> {
                     draft.join(field, text.to_string());
                 }
             }
-            How::Refs => {
-                let ids: Vec<String> = how::items(value)
-                    .into_iter()
-                    .filter_map(|id| self.resolve(e, row.field, Some(field), &id))
-                    .collect();
-                if let Some(draft) = self.own(e) {
-                    draft.append(field, ids);
-                }
+            How::Outcome if value.as_str() == Some("superseded") => {
+                let why = Why::Dropped(NO_SUPERSESSION.to_string());
+                self.ledger
+                    .record(&e.kind, &e.id, row.field, value.clone(), why);
             }
-            How::InvertOnto => {
-                for id in how::items(value) {
-                    if let Some(target) = self.resolve(e, row.field, None, &id)
-                        && let Some(draft) = self.drafts.get_mut(&target)
-                    {
-                        draft.append(field, vec![e.id.clone()]);
-                        draft.inverted.insert(field.to_string());
-                    }
-                }
-            }
-            How::Outcome | How::Settled | How::Options => {
+            How::Outcome | How::Settled => {
                 if let Some(input) = how::word(how, value)
                     && let Some(draft) = self.own(e)
                 {
                     draft.set(field, input);
                 }
             }
-            How::Category | How::Priority => {
-                let word = value.as_str().unwrap_or_default();
-                let mapped = if how == How::Category {
-                    how::category(word)
-                } else {
-                    how::priority(word)
-                };
-                let written = match mapped {
-                    how::Mapped::Same(word) => word,
-                    how::Mapped::Collapsed(word) => {
-                        self.collapsed(e, row.field, value, field, word);
-                        word
-                    }
-                    how::Mapped::Unknown(why) => {
-                        return self.unconverted(e, row.field, value.clone(), &why);
-                    }
-                };
-                if let Some(draft) = self.own(e) {
-                    draft.set(field, Input::One(written.to_string()));
-                }
-            }
-            How::Bound => self.metric(e, field),
-            // Read with the metric; alone, it joins the text.
-            How::Threshold if e.fields.contains_key("metric") => {}
-            How::Threshold => self.metric(e, field),
         }
     }
 
@@ -150,7 +68,7 @@ impl Planner<'_> {
         }
     }
 
-    /// A feature's solution as a decision of its own, affecting the feature's requirement.
+    /// A feature's solution as a decision of the project's own, beside the feature's requirement.
     fn solution(&mut self, e: &OldEntity, field: &str, value: &Value) {
         let Some(own) = self.drafts.get(&e.id) else {
             return;
@@ -164,9 +82,7 @@ impl Planner<'_> {
             fields: BTreeMap::from([
                 (field.to_string(), how::as_written(value)),
                 ("origin".to_string(), Input::One("project".to_string())),
-                ("affects".to_string(), Input::Many(vec![e.id.clone()])),
             ]),
-            inverted: BTreeSet::new(),
         };
         self.add_after(&e.id, draft);
         let why = Why::Created {
@@ -194,58 +110,5 @@ impl Planner<'_> {
             self.ledger
                 .record(&e.kind, &e.id, "reason", Value::Null, why);
         }
-    }
-
-    /// The old metric and threshold as the `field` record and lines of the entity's `text`.
-    fn metric(&mut self, e: &OldEntity, field: &str) {
-        let metric = e.fields.get("metric");
-        let threshold = e.fields.get("threshold");
-        let read = how::metric(
-            metric.and_then(Value::as_str).unwrap_or_default(),
-            threshold.and_then(Value::as_str),
-        );
-        if let Some(value) = metric {
-            if let Some(why) = &read.unconverted {
-                self.unconverted(e, "metric", value.clone(), why);
-            }
-            if let Some(direction) = read.strict {
-                let path = format!("{field}.direction");
-                self.collapsed(e, "metric", value, &path, direction);
-            }
-        }
-        if let (Some(value), false) = (threshold, read.threshold_taken) {
-            let why = "no one-name metric it completes; it joins the text";
-            self.unconverted(e, "threshold", value.clone(), why);
-        }
-        if let Some(draft) = self.drafts.get_mut(&e.id) {
-            if let Some(record) = read.record {
-                draft.set(field, Input::Entries(record));
-            }
-            for text in read.text {
-                draft.join("text", text);
-            }
-        }
-    }
-
-    /// `value` of the old `field` written as the coarser `word` in the new `path` (a field of the entity's kind).
-    pub(super) fn collapsed(
-        &mut self,
-        e: &OldEntity,
-        field: &str,
-        value: &Value,
-        path: &str,
-        word: &str,
-    ) {
-        let kind = table::new_kind(&e.kind).unwrap_or_default();
-        self.ledger.record(
-            &e.kind,
-            &e.id,
-            field,
-            value.clone(),
-            Why::Collapsed {
-                field: format!("{kind}.{path}"),
-                into: json!(word),
-            },
-        );
     }
 }

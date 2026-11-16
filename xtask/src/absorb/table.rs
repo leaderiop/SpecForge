@@ -1,6 +1,10 @@
 //! The absorb table (ADR 0360 D2): one row per field of an old `@specforge/governance` or `@specforge/product` kind,
 //! as the old builtins' registry holds it, and one per old kind that takes `verify`. Each row names its homes in
 //! `@gsd/core`; every home of a row is applied to the row's value. The table is the measure: a test counts it.
+//!
+//! `@gsd/core` holds exactly gsd-core's kinds and fields (ADR 0370): a value whose home left it, or whose old kind
+//! converts to nothing (an invariant, a failure mode, a journey, a persona, a term, a channel), is `dropped` with its
+//! reason. A value with a home in GSD's kinds that absorb does not write yet waits for the conversion change.
 
 use serde::Serialize;
 
@@ -31,15 +35,13 @@ pub enum Home {
     },
     /// Waits for a kind not absorbed yet: ledgered.
     Later(Pending),
-    /// The old default, which the new kind implies: nothing is written; any other value stops the run.
-    Default(&'static str),
     /// No tracked project writes it and nothing holds it: a value stops the run (ADR 0357's refused class).
     Refused,
     /// No `@gsd/core` field takes the value: it is ledgered `dropped` with this reason and nothing is written.
     Dropped(&'static str),
 }
 
-/// How a value is written to its `To` home.
+/// How a value is written to its `To` home. No home writes a reference (ADR 0370 D8).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum How {
     /// As written: a text, a date, a number, a list of texts (appended to what the field holds; a scheme
@@ -47,45 +49,23 @@ pub enum How {
     As,
     /// A text joined after what the field holds, a blank line between.
     Text,
-    /// References to converted entities, appended to a list; one that leaves the run is ledgered.
-    Refs,
-    /// One reference to a converted entity.
-    Ref,
     /// Ids or words as a list of texts, appended (one word is a one-word list).
     Words,
-    /// Each text a step record `{action}`, in order.
-    Steps,
-    /// A decision `<id>_solution` created beside the entity, with the same title and file, the value as its text,
-    /// affecting the entity.
+    /// A decision `<id>_solution` of the project created beside the entity, with the same title and file, the value
+    /// as its text.
     Solution,
     /// A feature status as a tier: proposed and deferred v2, deprecated out_of_scope (with a reason), else v1.
     FeatureTier,
-    /// An invariant's obligation as the test ids of the items whose spec-link attributes state it.
-    Proof,
-    /// Written on each entity the value names (the home's field is of that entity's kind), naming this one.
-    InvertOnto,
-    /// A decision status as `outcome`: proposed → pending, deprecated → revisit.
+    /// A decision status as `outcome`: proposed → pending, deprecated → revisit; superseded is ledgered `dropped`
+    /// (gsd-core has no supersession, ADR 0370 D4).
     Outcome,
     /// A decision status as `settled`: accepted → true.
     Settled,
-    /// Each string an option record `{name}`.
-    Options,
-    /// The bound line of a metric (with the `threshold` field, when the metric is one name) as the `metric`
-    /// record; the other lines join the entity's `text`.
-    Bound,
-    /// A threshold: read with the metric's bound; when no bound takes it, it joins the text.
-    Threshold,
-    /// A quality class: the ten words as they are, interoperability as compatibility.
-    Category,
-    /// critical, high, medium, low as must, should, could, could.
-    Priority,
 }
 
 /// How a computed value is compared with the old one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Compare {
-    /// A decision status: `in_force` is false exactly when the old status is `superseded`.
-    Superseded,
     /// An old word and the computed word it means; a word not listed has no equal, so it is always ledgered.
     Means(&'static [(&'static str, &'static str)]),
 }
@@ -120,10 +100,6 @@ pub const OLD_KINDS: [&str; 13] = [
 
 const DECISION: &str = "decision";
 const REQUIREMENT: &str = "requirement";
-const INVARIANT: &str = "invariant";
-const JOURNEY: &str = "journey";
-const PERSONA: &str = "persona";
-const TERM: &str = "term";
 const MILESTONE: &str = "milestone";
 
 /// A feature status as the computed requirement status it means.
@@ -172,6 +148,38 @@ const NO_RISK: Home = Home::Dropped(
     "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to \
      @gsd/security's register and needs a plan",
 );
+/// Why an old invariant's values are dropped (ADR 0370 D2 and D8): the conversion change writes one as a requirement.
+const NO_INVARIANT: Home = Home::Dropped(
+    "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement",
+);
+/// Why an old journey's values are dropped (ADR 0370 D2 and D8).
+const NO_JOURNEY: Home =
+    Home::Dropped("gsd-core has no journey kind (ADR 0370): the value is dropped");
+/// Why an old persona's values are dropped (ADR 0370 D2 and D8).
+const NO_PERSONA: Home =
+    Home::Dropped("gsd-core has no persona kind (ADR 0370): the value is dropped");
+/// Why an old term's values are dropped (ADR 0370 D2 and D8).
+const NO_TERM: Home = Home::Dropped("gsd-core has no term kind (ADR 0370): the value is dropped");
+/// Why an old channel's values are dropped (ADR 0370 D2 and D8): it was a term of its id, and the term leaves.
+const NO_CHANNEL: Home =
+    Home::Dropped("gsd-core has no channel or term kind (ADR 0370): the value is dropped");
+/// Why an old constraint's metric and threshold are dropped (ADR 0370 D3): `requirement.metric` leaves, and a bound
+/// is the requirement's text (ADR 0368 D2), which the conversion change writes.
+const NO_METRIC: Home = Home::Dropped(
+    "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the \
+     conversion change writes",
+);
+
+/// Why an old decision's `superseded` status is dropped (ADR 0370 D4): `How::Outcome` ledgers it with this reason.
+pub const NO_SUPERSESSION: &str = "gsd-core has no supersession (ADR 0370): a decision that no longer holds is answered by a new one";
+
+/// `leaves!("kind.field")`: the value's home field left `@gsd/core` (ADR 0370 D3 and D4), so it is dropped, naming
+/// the field.
+macro_rules! leaves {
+    ($field:literal) => {
+        Home::Dropped(concat!($field, " leaves @gsd/core (ADR 0370)"))
+    };
+}
 
 /// `"kind": ["field" => [home, …], …] …`: one row per field, in written order.
 macro_rules! rows {
@@ -180,7 +188,6 @@ macro_rules! rows {
     };
 }
 
-use Compare::*;
 use How::*;
 use Pending::*;
 
@@ -190,34 +197,33 @@ pub const TABLE: &[Row] = rows! {
         "status" => [
             to(DECISION, "outcome", Outcome),
             to(DECISION, "settled", Settled),
-            computed(DECISION, "in_force", Superseded),
         ],
-        "context" => [to(DECISION, "context", As)],
+        "context" => [leaves!("decision.context")],
         "decision" => [to(DECISION, "text", As)],
-        "consequences" => [to(DECISION, "consequences", As)],
-        "date" => [to(DECISION, "decided", As)],
-        "authors" => [to(DECISION, "deciders", As)],
-        "deciders" => [to(DECISION, "deciders", As)],
+        "consequences" => [leaves!("decision.consequences")],
+        "date" => [leaves!("decision.decided")],
+        "authors" => [leaves!("decision.deciders")],
+        "deciders" => [leaves!("decision.deciders")],
         "reason" => [to(DECISION, "rationale", As)],
-        "tags" => [to(DECISION, "tags", As)],
-        "superseded_by" => [to(DECISION, "supersedes", InvertOnto)],
-        "invariants" => [to(DECISION, "affects", Refs)],
-        "affects_features" => [to(DECISION, "affects", Refs)],
-        "constraints" => [to(DECISION, "affects", Refs)],
-        "alternatives" => [to(DECISION, "alternatives", Options)],
+        "tags" => [leaves!("decision.tags")],
+        "superseded_by" => [leaves!("decision.supersedes")],
+        "invariants" => [leaves!("decision.affects")],
+        "affects_features" => [leaves!("decision.affects")],
+        "constraints" => [leaves!("decision.affects")],
+        "alternatives" => [leaves!("decision.alternatives")],
         "refs" => [REFUSED],
         "description" => [REFUSED],
     ]
     // ADR 0359 D1-D6: a constraint is a requirement of area "Constraint".
     "constraint": [
         "description" => [to(REQUIREMENT, "text", Text)],
-        "category" => [to(REQUIREMENT, "category", Category)],
-        "priority" => [to(REQUIREMENT, "priority", Priority)],
-        "metric" => [to(REQUIREMENT, "metric", Bound)],
-        "threshold" => [to(REQUIREMENT, "metric", Threshold)],
-        "governs_features" => [to(REQUIREMENT, "constrains", Refs)],
-        "protects" => [to(REQUIREMENT, "protects", Refs)],
-        "refs" => [to(REQUIREMENT, "source", As)],
+        "category" => [leaves!("requirement.category (the quality class)")],
+        "priority" => [leaves!("requirement.priority")],
+        "metric" => [NO_METRIC],
+        "threshold" => [NO_METRIC],
+        "governs_features" => [leaves!("requirement.constrains")],
+        "protects" => [leaves!("requirement.protects")],
+        "refs" => [leaves!("requirement.source")],
         "constrains" => [later(Behavior)],
         "enforced_by" => [later(Truth)],
         "scope" => [REFUSED],
@@ -244,14 +250,14 @@ pub const TABLE: &[Row] = rows! {
         "risk" => [NO_RISK],
         "verify" => [NO_RISK],
     ]
-    // ADR 0358 D9.
+    // ADR 0370 D8: an old invariant converts to nothing until the conversion change writes it as a requirement.
     "invariant": [
-        "guarantee" => [to(INVARIANT, "statement", As)],
-        "risk" => [to(INVARIANT, "criticality", As)],
-        "description" => [to(INVARIANT, "description", As)],
-        "refs" => [to(INVARIANT, "refs", As)],
-        "expression" => [later(Truth)],
-        "verify" => [to(INVARIANT, "proof", Proof)],
+        "guarantee" => [NO_INVARIANT],
+        "risk" => [NO_INVARIANT],
+        "description" => [NO_INVARIANT],
+        "refs" => [NO_INVARIANT],
+        "expression" => [NO_INVARIANT],
+        "verify" => [NO_INVARIANT],
     ]
     // ADR 0359 D7-D11: a feature is a requirement of area "Feature".
     "feature": [
@@ -262,36 +268,37 @@ pub const TABLE: &[Row] = rows! {
             to(REQUIREMENT, "tier", FeatureTier),
             computed(REQUIREMENT, "status", FEATURE_STATUS),
         ],
-        "priority" => [to(REQUIREMENT, "priority", Priority)],
-        "tags" => [to(REQUIREMENT, "tags", As)],
-        "effort" => [to(REQUIREMENT, "effort", As)],
-        "owner" => [to(REQUIREMENT, "source", Words)],
-        "contributors" => [to(REQUIREMENT, "source", Words)],
-        "refs" => [to(REQUIREMENT, "source", Words)],
+        "priority" => [leaves!("requirement.priority")],
+        "tags" => [leaves!("requirement.tags")],
+        "effort" => [leaves!("requirement.effort")],
+        "owner" => [leaves!("requirement.source")],
+        "contributors" => [leaves!("requirement.source")],
+        "refs" => [leaves!("requirement.source")],
         "reason" => [to(REQUIREMENT, "reason", As)],
         "acceptance" => [later(Truth)],
         "tests" => [later(Truth)],
         "depends_on" => [REFUSED],
         "features" => [REFUSED],
     ]
-    // ADR 0357.
+    // ADR 0370 D8: an old journey converts to nothing.
     "journey": [
-        "persona" => [to(JOURNEY, "persona", Ref)],
-        "flow" => [to(JOURNEY, "steps", Steps)],
-        "channels" => [to(JOURNEY, "channels", Words)],
-        "priority" => [to(JOURNEY, "priority", Priority)],
-        "tags" => [to(JOURNEY, "tags", As)],
-        "features" => [to(JOURNEY, "requirements", Refs)],
-        "description" => [REFUSED],
+        "persona" => [NO_JOURNEY],
+        "flow" => [NO_JOURNEY],
+        "channels" => [NO_JOURNEY],
+        "priority" => [NO_JOURNEY],
+        "tags" => [NO_JOURNEY],
+        "features" => [NO_JOURNEY],
+        "description" => [NO_JOURNEY],
     ]
+    // A milestone keeps gsd-core's fields alone (ADR 0370 D3).
     "deliverable": [
         "description" => [to(MILESTONE, "goal", As)],
-        "journeys" => [to(JOURNEY, "milestones", InvertOnto)],
-        "artifact_type" => [to(MILESTONE, "artifact_types", Words)],
-        "depends_on" => [to(MILESTONE, "depends_on", Refs)],
-        "owner" => [to(MILESTONE, "owner", As)],
-        "contributors" => [to(MILESTONE, "contributors", As)],
-        "tags" => [to(MILESTONE, "tags", As)],
+        "journeys" => [NO_JOURNEY],
+        "artifact_type" => [leaves!("milestone.artifact_types")],
+        "depends_on" => [leaves!("milestone.depends_on")],
+        "owner" => [leaves!("milestone.owner")],
+        "contributors" => [leaves!("milestone.contributors")],
+        "tags" => [leaves!("milestone.tags")],
         "status" => [computed(MILESTONE, "state", DELIVERABLE_STATE)],
         "modules" => [later(Package)],
         "version" => [REFUSED],
@@ -301,13 +308,13 @@ pub const TABLE: &[Row] = rows! {
     "milestone": [
         "description" => [to(MILESTONE, "goal", As)],
         "features" => [to(MILESTONE, "target_features", Words)],
-        "exit_criteria" => [to(MILESTONE, "exit_criteria", As)],
-        "start_date" => [to(MILESTONE, "starts", As)],
-        "target_date" => [to(MILESTONE, "targets", As)],
-        "depends_on" => [to(MILESTONE, "depends_on", Refs)],
-        "owner" => [to(MILESTONE, "owner", As)],
-        "contributors" => [to(MILESTONE, "contributors", As)],
-        "tags" => [to(MILESTONE, "tags", As)],
+        "exit_criteria" => [leaves!("milestone.exit_criteria")],
+        "start_date" => [leaves!("milestone.starts")],
+        "target_date" => [leaves!("milestone.targets")],
+        "depends_on" => [leaves!("milestone.depends_on")],
+        "owner" => [leaves!("milestone.owner")],
+        "contributors" => [leaves!("milestone.contributors")],
+        "tags" => [leaves!("milestone.tags")],
         "status" => [computed(MILESTONE, "state", MILESTONE_STATE)],
         "modules" => [later(Package)],
         "behaviors" => [later(Behavior)],
@@ -316,32 +323,32 @@ pub const TABLE: &[Row] = rows! {
         "reason" => [REFUSED],
         "refs" => [REFUSED],
     ]
+    // ADR 0370 D8: an old term, persona and channel convert to nothing.
     "term": [
-        "definition" => [to(TERM, "definition", As)],
-        "context" => [to(TERM, "context", As)],
-        "aliases" => [to(TERM, "aliases", As)],
-        "see_also" => [to(TERM, "related", Refs)],
-        "tags" => [to(TERM, "tags", As)],
-        "module" => [later(Package)],
+        "definition" => [NO_TERM],
+        "context" => [NO_TERM],
+        "aliases" => [NO_TERM],
+        "see_also" => [NO_TERM],
+        "tags" => [NO_TERM],
+        "module" => [NO_TERM],
     ]
     "persona": [
-        "description" => [to(PERSONA, "context", As)],
-        "technical_level" => [to(PERSONA, "technical_level", As)],
-        "goals" => [to(PERSONA, "goals", As)],
-        "pain_points" => [to(PERSONA, "pain_points", As)],
-        "tags" => [to(PERSONA, "tags", As)],
-        "status" => [to(PERSONA, "status", As)],
-        "key_features" => [to(REQUIREMENT, "personas", InvertOnto)],
-        "reason" => [REFUSED],
+        "description" => [NO_PERSONA],
+        "technical_level" => [NO_PERSONA],
+        "goals" => [NO_PERSONA],
+        "pain_points" => [NO_PERSONA],
+        "tags" => [NO_PERSONA],
+        "status" => [NO_PERSONA],
+        "key_features" => [NO_PERSONA],
+        "reason" => [NO_PERSONA],
     ]
-    // ADR 0357: a channel is a word; its entity is a term of its id.
     "channel": [
-        "description" => [to(TERM, "definition", As)],
-        "interaction_model" => [to(TERM, "tags", Words)],
-        "tags" => [to(TERM, "tags", As)],
-        "status" => [Home::Default("active")],
-        "url" => [REFUSED],
-        "reason" => [REFUSED],
+        "description" => [NO_CHANNEL],
+        "interaction_model" => [NO_CHANNEL],
+        "tags" => [NO_CHANNEL],
+        "status" => [NO_CHANNEL],
+        "url" => [NO_CHANNEL],
+        "reason" => [NO_CHANNEL],
     ]
     // No kind holds a module or a release yet: each value waits, and no entity is created.
     "module": [
@@ -373,15 +380,12 @@ pub const TABLE: &[Row] = rows! {
 };
 
 /// The `@gsd/core` kind an old kind's entity becomes, keeping its id; none for module and release, whose rows create
-/// no entity, and for failure_mode, whose values are dropped.
+/// no entity, and for the kinds whose every value is dropped (ADR 0370 D8): failure_mode, invariant, journey,
+/// persona, term and channel.
 pub fn new_kind(old: &str) -> Option<&'static str> {
     match old {
         "decision" => Some(DECISION),
         "constraint" | "feature" => Some(REQUIREMENT),
-        "invariant" => Some(INVARIANT),
-        "journey" => Some(JOURNEY),
-        "persona" => Some(PERSONA),
-        "term" | "channel" => Some(TERM),
         "milestone" | "deliverable" => Some(MILESTONE),
         _ => None,
     }
@@ -403,14 +407,4 @@ pub fn row_of(kind: &str, field: &str) -> Option<&'static Row> {
     TABLE
         .iter()
         .find(|row| row.kind == kind && row.field == field)
-}
-
-/// What a reference to an entity of `kind`, a kind no row gives a home, waits for.
-pub fn pending_of(kind: &str) -> Pending {
-    match kind {
-        "behavior" => Behavior,
-        "module" => Package,
-        "release" => Release,
-        _ => Truth,
-    }
 }

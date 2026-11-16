@@ -7,18 +7,14 @@ use std::collections::BTreeSet;
 
 use super::table::Pending;
 
-/// Why a value is in the ledger.
+/// Why a value is in the ledger. No home writes a reference and none a proof (ADR 0370 D8), so no value is ledgered
+/// for leaving the selection, for a reference to a kind with no home, as a collapsed word, or as an unproven
+/// obligation.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Why {
-    /// A reference, or an inverse write, onto an old entity this run does not convert.
-    OutOfSelection(String),
     /// A value whose home is a kind `@gsd/core` does not hold yet.
     Later(Pending),
-    /// A reference to an entity of a kind with no home yet.
-    TargetLater { target: String, pending: Pending },
-    /// A word written as a coarser one: the new field and what it holds.
-    Collapsed { field: String, into: Value },
     /// A computed value the new kind gives that differs from the old one (`null`: none).
     Computed { field: String, new: Value },
     /// A required field the old entity had no value for, filled.
@@ -27,8 +23,6 @@ pub enum Why {
     Unconverted(String),
     /// An entity the converter created from this value, that the old project did not hold.
     Created { kind: String, id: String },
-    /// An obligation no test item states: the attributes that state it (`file:line`), none when none does.
-    Unproven { tests: Vec<String> },
     /// A value no `@gsd/core` field takes, with why: nothing is written for it.
     Dropped(String),
 }

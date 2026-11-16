@@ -1,31 +1,26 @@
-//! `--only` converts a selection: what leaves it is ledgered, never stubbed (ADR 0360 D4).
+//! `--only` converts a selection, never stubbing what it leaves out (ADR 0360 D4); no home writes a reference (ADR
+//! 0370 D8), so what it leaves out changes nothing written.
 
 use serde_json::json;
 use specforge_ops::authoring::edit::Edit;
-use std::collections::{BTreeMap, BTreeSet};
 
 use super::super::ledger::Why;
 use super::super::plan::{self, Planned};
 use super::super::read::OldEntity;
 use super::super::scope::Scope;
-use super::{field, index, ledgered, many, old};
+use super::{ledgered, old};
 
 fn only(ids: &[&str]) -> Scope {
     Scope::Only(ids.iter().map(|id| id.to_string()).collect())
 }
 
-/// `ids` of `all` planned, with every entity of `all` in the index.
+/// `ids` of `all` planned.
 fn selected(all: &[OldEntity], ids: &[&str]) -> Planned {
     let entities = only(ids)
         .select(all.to_vec())
         .expect("the selection converts");
     plan::prechecks(&entities).expect("the pre-checks pass");
-    let left: Vec<OldEntity> = all
-        .iter()
-        .filter(|e| !ids.contains(&e.id.as_str()))
-        .cloned()
-        .collect();
-    plan::plan(&entities, &left, &index(all), &Default::default())
+    plan::plan(&entities)
 }
 
 fn created(planned: &Planned) -> Vec<&str> {
@@ -58,75 +53,6 @@ fn only_converts_the_selected_ids() {
     assert_eq!(created(&planned), ["a", "c"], "in the old order");
     assert_eq!(planned.converted, 2);
     assert_eq!(Scope::All.select(all.to_vec()).unwrap().len(), 3);
-}
-
-#[test]
-fn a_reference_leaving_the_scope_is_ledgered_not_stubbed() {
-    let all = [
-        decision("a", json!({"invariants": ["kept", "left"]})),
-        old("invariant", "kept", json!({"guarantee": "G"})),
-        old("invariant", "left", json!({"guarantee": "G"})),
-    ];
-    let planned = selected(&all, &["a", "kept"]);
-    assert_eq!(field(&planned, "a", "affects"), Some(&many(&["kept"])));
-    assert_eq!(created(&planned), ["a", "kept"], "no stub of 'left'");
-    assert_eq!(
-        ledgered(&planned, "a")
-            .into_iter()
-            .filter(|(f, _)| f == "invariants")
-            .collect::<Vec<_>>(),
-        [(
-            "invariants".to_string(),
-            Why::OutOfSelection("left".to_string())
-        )]
-    );
-}
-
-/// The other direction: an inverse write from an entity the selection leaves out, onto one it converts. The value the
-/// converted entity loses is ledgered on it, one row per item, naming the entity left out.
-#[test]
-fn an_inverse_write_from_an_unselected_entity_is_ledgered_on_the_selected_one() {
-    let all = [
-        decision(
-            "old",
-            json!({"status": "superseded", "superseded_by": "new"}),
-        ),
-        decision("new", json!({})),
-    ];
-    let planned = selected(&all, &["new"]);
-    assert_eq!(created(&planned), ["new"]);
-    assert_eq!(field(&planned, "new", "supersedes"), None);
-    assert_eq!(
-        ledgered(&planned, "new")
-            .into_iter()
-            .filter(|(f, _)| f == "supersedes")
-            .collect::<Vec<_>>(),
-        [(
-            "supersedes".to_string(),
-            Why::OutOfSelection("old".to_string())
-        )]
-    );
-}
-
-#[test]
-fn an_inverse_write_onto_an_unselected_entity_is_ledgered() {
-    let all = [
-        decision(
-            "old",
-            json!({"status": "superseded", "superseded_by": "new"}),
-        ),
-        decision("new", json!({})),
-    ];
-    let planned = selected(&all, &["old"]);
-    assert_eq!(created(&planned), ["old"]);
-    assert!(
-        ledgered(&planned, "old").contains(&(
-            "superseded_by".to_string(),
-            Why::OutOfSelection("new".to_string())
-        )),
-        "{:?}",
-        ledgered(&planned, "old")
-    );
 }
 
 #[test]
@@ -200,45 +126,4 @@ fn a_refused_value_outside_the_scope_does_not_stop_the_run() {
     let entities = only(&["a"]).select(all.to_vec()).unwrap();
     assert_eq!(plan::prechecks(&entities), Ok(()));
     assert!(plan::prechecks(&all).is_err(), "the whole project stops");
-}
-
-/// A reference the selection leaves out is recorded where it was to be written (the new entity and field), so a
-/// required one is a stop that names the selection: a selected entity's own reference, and an inverse write from an
-/// entity left out onto it. An inverse write onto an entity left out records nothing there.
-#[test]
-fn a_reference_the_selection_leaves_out_is_recorded_where_it_was_to_be_written() {
-    let all = [
-        old(
-            "journey",
-            "record",
-            json!({"persona": "writer", "flow": ["Writer saves"]}),
-        ),
-        old("persona", "writer", json!({"description": "D"})),
-        old("deliverable", "store_cli", json!({"journeys": ["record"]})),
-    ];
-    assert_eq!(
-        selected(&all, &["record", "store_cli"]).left_out,
-        BTreeMap::from([(
-            ("record".to_string(), "persona".to_string()),
-            BTreeSet::from(["writer".to_string()])
-        )])
-    );
-    assert_eq!(
-        selected(&all, &["store_cli"]).left_out,
-        BTreeMap::new(),
-        "a deliverable's journeys are written on the journey"
-    );
-    let planned = selected(&all, &["record", "writer"]);
-    assert_eq!(
-        planned.left_out,
-        BTreeMap::from([(
-            ("record".to_string(), "milestones".to_string()),
-            BTreeSet::from(["store_cli".to_string()])
-        )]),
-        "a deliverable left out takes its milestone off the journey"
-    );
-    assert!(ledgered(&planned, "record").contains(&(
-        "milestones".to_string(),
-        Why::OutOfSelection("store_cli".to_string())
-    )));
 }
