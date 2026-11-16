@@ -110,11 +110,11 @@ created plus those ledgered. The census above is its first reading.
 
 ## D4. A requirement and a milestone name behaviors that resolve
 
-A requirement names the behaviors it limits and enforces (the old constraint's `constrains`, 388 links, 63 of them
-ledgered Later today), and a milestone names its behaviors, each reference resolving to an authored `behavior`. These
-are the homes of the two Later behavior rows of ADR 0360 D8 and of the 8 target_later entries. The behavior pending
-(63 Later entries and the 8 target_later) clears when this lands; Later reaches 0 once the release, package and truth
-homes have landed too.
+A requirement names the behaviors it limits and enforces (the old constraint's `constrains`, 388 links, all ledgered
+Later today, in 63 entries, one per constraint), and a milestone names its behaviors, each reference resolving to an
+authored `behavior`. These are the homes of the two Later behavior rows of ADR 0360 D8 and of the 8 target_later
+entries. The behavior pending (63 Later entries and the 8 target_later) clears when this lands; Later reaches 0 once
+the release, package and truth homes have landed too.
 
 ## D5. At the swap the root stops loading four old builtins
 
