@@ -37,7 +37,7 @@ audit             quick      **/Cargo.lock
                              no lockfile holds an unsound or yanked dependency
 build             quick      computed: a workspace member; the root manifest, lockfile or nextest config [compiles]
                              every workspace test binary and the CLI build
-self-spec-sample  quick      spec/**, specforge.json, xtask/Cargo.toml, xtask/src/absorb.rs, xtask/src/absorb/**, gsd/**, crates/**, extensions/**, Cargo.toml, Cargo.lock, .cargo/config.toml, .config/nextest.toml, gate/src/self_spec_sample.rs, gate/src/self_spec_sample/**, gate/src/gsd.rs, gate/src/checked_tree.rs, gate/golden/self-spec-sample/** (after build) [compiles]
+self-spec-sample  quick      computed: the spec, @gsd, the builtins, the toolchain and build configuration; a source cargo builds into the CLI, absorb, the gate or a cited test (after build) [compiles]
                              the WASM-host sample of the self-spec, absorbed into @gsd/core kinds with its invariants' proofs, runs exactly its cited tests on the gate's own test build and checks with no error and no warning; its infos, ledger and selection equal their goldens
 tests             quick      computed: a workspace member; the root manifest, lockfile or nextest config (after build)
                              the workspace tests pass (quick: the changed crates and their dependents)

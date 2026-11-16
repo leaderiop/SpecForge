@@ -295,7 +295,10 @@ pub static CHECKS: &[Check] = &[
         name: "self-spec-sample",
         proves: "the WASM-host sample of the self-spec, absorbed into @gsd/core kinds with its invariants' proofs, runs exactly its cited tests on the gate's own test build and checks with no error and no warning; its infos, ledger and selection equal their goldens",
         reach: Reach::Quick,
-        trigger: Trigger::Paths(crate::self_spec_sample::TRIGGER),
+        trigger: Trigger::Computed(
+            "the spec, @gsd, the builtins, the toolchain and build configuration; a source cargo builds into the CLI, absorb, the gate or a cited test",
+            crate::self_spec_sample::reach::reached,
+        ),
         compiles: true,
         after: &["build"],
         fix: "read <target>/gate/self-spec-sample.log. An error or warning is fixed at the source (spec/, a test's attribute) or in absorb's table, never blessed. A compiled unit: the copy or the cargo environment differs from the gate's build (the log names the unit). An intended info, ledger or selection change: SPECFORGE_BLESS=1 cargo gate full --only self-spec-sample, then read the golden diff",

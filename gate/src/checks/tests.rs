@@ -553,6 +553,16 @@ fn spec_modules_runs_when_the_module_file_or_a_manifest_changes() {
     );
 }
 
+/// The sample check's selection for `paths` in this repository as cargo describes it: its trigger reads the
+/// workspace's dependency graph, which the literal [`this_repo`] does not hold.
+fn sample(mode: Mode, paths: &[&str]) -> Selection {
+    static REPO: std::sync::OnceLock<Repo> = std::sync::OnceLock::new();
+    let repo = REPO.get_or_init(|| Repo::discover().unwrap());
+    check("self-spec-sample")
+        .selection(mode, repo, &ChangeSet::of(paths.iter().copied()))
+        .unwrap()
+}
+
 #[test]
 fn the_sample_check_runs_when_its_source_converter_kinds_tests_or_goldens_change() {
     for path in [
@@ -561,6 +571,9 @@ fn the_sample_check_runs_when_its_source_converter_kinds_tests_or_goldens_change
         "xtask/src/absorb/select.rs",
         "xtask/src/absorb.rs",
         "xtask/Cargo.toml",
+        "xtask/src/lib.rs",
+        "xtask/src/links.rs",
+        "integrations/rust/specforge-test/src/atexit.rs",
         "gsd/core/src/kinds/project.rs",
         "crates/app/ops/src/lib.rs",
         "crates/runtime/component/tests/sandbox_limits.rs",
@@ -571,7 +584,7 @@ fn the_sample_check_runs_when_its_source_converter_kinds_tests_or_goldens_change
         "gate/golden/self-spec-sample/ledger.json",
     ] {
         assert_eq!(
-            selection("self-spec-sample", Mode::Quick, &[path]),
+            sample(Mode::Quick, &[path]),
             Selection::Everything,
             "{path}"
         );
@@ -582,11 +595,7 @@ fn the_sample_check_runs_when_its_source_converter_kinds_tests_or_goldens_change
         "examples/shop/spec/a.spec",
         "evaluation/tasks.json",
     ] {
-        assert_eq!(
-            selection("self-spec-sample", Mode::Quick, &[path]),
-            Selection::Skip,
-            "{path}"
-        );
+        assert_eq!(sample(Mode::Quick, &[path]), Selection::Skip, "{path}");
     }
 }
 
@@ -600,23 +609,13 @@ fn the_sample_runs_in_quick_and_a_pull_requests_ci_on_its_paths_and_never_in_the
         "crates/leaf/cycles/src/lib.rs",
         "gsd/core/src/lib.rs",
     ] {
+        assert_eq!(sample(Mode::Hook, &[path]), Selection::Skip, "{path}");
         assert_eq!(
-            selection("self-spec-sample", Mode::Hook, &[path]),
-            Selection::Skip,
-            "{path}"
-        );
-        assert_eq!(
-            selection("self-spec-sample", Mode::Quick, &[path]),
+            sample(Mode::Quick, &[path]),
             Selection::Everything,
             "{path}"
         );
     }
-    assert_eq!(
-        selection("self-spec-sample", Mode::Quick, &["docs/guide.md"]),
-        Selection::Skip
-    );
-    assert_eq!(
-        selection("self-spec-sample", Mode::Ci, &[]),
-        Selection::Everything
-    );
+    assert_eq!(sample(Mode::Quick, &["docs/guide.md"]), Selection::Skip);
+    assert_eq!(sample(Mode::Ci, &[]), Selection::Everything);
 }

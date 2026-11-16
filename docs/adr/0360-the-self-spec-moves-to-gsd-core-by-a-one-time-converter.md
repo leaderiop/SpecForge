@@ -269,7 +269,10 @@ converted on every change that can move it, by a check of `cargo gate`, and must
   mitigate it, that is `gsd/W532`: the warning an unrated, unmitigated risk should give, not a gap in the conversion.
 - The root project does not move here: its swap is its own change, with D9's choice.
 - `cargo gate` (quick) and a pull request's CI build the `@gsd/core` wasm, `absorb` and the workspace's tests, and
-  run the sample's cited tests, whenever a spec, `@gsd`, crate, extension or converter path changed: the sample's
+  run the sample's cited tests, whenever a change reaches what the run builds or reads: the spec, `@gsd`, the
+  builtins, the toolchain and the build's configuration, or a source cargo builds into the CLI, `absorb`, the gate or
+  a cited test, read from the workspace's dependency graph (`gate/src/self_spec_sample/reach.rs`), so a library
+  `absorb` links or the test support under `integrations/` reaches it as soon as cargo builds it in: the sample's
   cost is paid on every change that can break it, and only then. The pre-commit hook (`cargo gate hook`) reaches
   only the hook's checks and never runs it. Measured on a warm local target, the test build already there: 391 s
   for the check alone, 0 units compiled, 41 cited tests run.

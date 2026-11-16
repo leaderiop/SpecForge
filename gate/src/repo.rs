@@ -36,6 +36,8 @@ pub struct Member {
     pub description: Option<String>,
     /// Its crate roots, repo-relative: the source of each lib, proc-macro and bin target, in manifest order.
     pub roots: Vec<String>,
+    /// Its binaries, `(name, root)`: each bin target's name and its source, repo-relative, in manifest order.
+    pub bins: Vec<(String, String)>,
 }
 
 /// A path dependency of a member on a package inside the root.
@@ -192,6 +194,7 @@ impl Repo {
                 dependencies: dependencies(&root, package)?,
                 description: package["description"].as_str().map(str::to_string),
                 roots: crate_roots(&root, package),
+                bins: bins(&root, package),
             });
         }
         members.sort_by(|a, b| a.dir.cmp(&b.dir));
@@ -258,6 +261,26 @@ fn crate_roots(root: &Path, package: &Value) -> Vec<String> {
         })
         .filter_map(|target| target["src_path"].as_str())
         .filter_map(|path| relative(root, Path::new(path)))
+        .collect()
+}
+
+/// A package's bin targets inside `root`: each one's name and `src_path`.
+fn bins(root: &Path, package: &Value) -> Vec<(String, String)> {
+    package["targets"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+        .iter()
+        .filter(|target| {
+            target["kind"]
+                .as_array()
+                .is_some_and(|kinds| kinds.iter().any(|kind| kind == "bin"))
+        })
+        .filter_map(|target| {
+            let name = target["name"].as_str()?;
+            let source = relative(root, Path::new(target["src_path"].as_str()?))?;
+            Some((name.to_string(), source))
+        })
         .collect()
 }
 
@@ -466,7 +489,7 @@ mod tests {
     }
 
     #[test]
-    fn cargo_metadata_gives_each_member_its_description_and_crate_roots() {
+    fn cargo_metadata_gives_each_member_its_description_crate_roots_and_binaries() {
         let metadata = serde_json::json!({
             "workspace_root": "/r",
             "target_directory": "/r/target",
@@ -476,7 +499,7 @@ mod tests {
                 "description": "The a crate",
                 "targets": [
                     {"kind": ["lib"], "src_path": "/r/crates/leaf/a/src/lib.rs"},
-                    {"kind": ["bin"], "src_path": "/r/crates/leaf/a/src/main.rs"},
+                    {"kind": ["bin"], "name": "a", "src_path": "/r/crates/leaf/a/src/main.rs"},
                     {"kind": ["test"], "src_path": "/r/crates/leaf/a/tests/t.rs"},
                     {"kind": ["custom-build"], "src_path": "/r/crates/leaf/a/build.rs"},
                 ],
@@ -490,7 +513,14 @@ mod tests {
             ["crates/leaf/a/src/lib.rs", "crates/leaf/a/src/main.rs"]
         );
         let b = repo.members.iter().find(|m| m.name == "b").unwrap();
-        assert_eq!((b.description.as_deref(), b.roots.len()), (None, 0));
+        assert_eq!(
+            a.bins,
+            [("a".to_string(), "crates/leaf/a/src/main.rs".to_string())]
+        );
+        assert_eq!(
+            (b.description.as_deref(), b.roots.len(), b.bins.len()),
+            (None, 0, 0)
+        );
     }
 
     #[test]

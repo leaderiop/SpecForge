@@ -6,31 +6,9 @@ use std::collections::BTreeMap;
 
 use serde_json::{Value, json};
 
+pub mod reach;
 mod steps;
 pub use steps::run;
-
-/// What the sample is converted from and judged by: the spec and the manifest it reads, the converter, the `@gsd`
-/// workspace it converts into, every crate (the binaries and the cited tests are built from them), the builtins, the
-/// build's own configuration, this check and the copy it makes, and its goldens.
-pub const TRIGGER: &[&str] = &[
-    "spec/**",
-    "specforge.json",
-    "xtask/Cargo.toml",
-    "xtask/src/absorb.rs",
-    "xtask/src/absorb/**",
-    "gsd/**",
-    "crates/**",
-    "extensions/**",
-    "Cargo.toml",
-    "Cargo.lock",
-    ".cargo/config.toml",
-    ".config/nextest.toml",
-    "gate/src/self_spec_sample.rs",
-    "gate/src/self_spec_sample/**",
-    "gate/src/gsd.rs",
-    "gate/src/checked_tree.rs",
-    "gate/golden/self-spec-sample/**",
-];
 
 /// Where the goldens live, from the repository root.
 pub const GOLDENS: &str = "gate/golden/self-spec-sample";
