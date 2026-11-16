@@ -650,29 +650,27 @@ fn namesake(id: &str, kind: &str) -> PassEntity {
 }
 
 #[test]
-fn a_workstream_or_journey_sharing_a_milestones_id_hides_no_cycle() {
-    for kind in ["workstream", "journey", "persona"] {
-        for after in [true, false] {
-            let mut entities = vec![milestone("mvp"), milestone("beta")];
-            let other = namesake("mvp", kind);
-            if after {
-                entities.push(other);
-            } else {
-                entities.insert(0, other);
-            }
-            let found = check(&input(
-                entities,
-                vec![
-                    edge("mvp", "beta", "depends_on"),
-                    edge("beta", "mvp", "depends_on"),
-                ],
-            ));
-            assert_eq!(
-                ids(&found, "E102"),
-                ["beta", "mvp"],
-                "{kind} after: {after}: {found:?}"
-            );
+fn a_workstream_sharing_a_milestones_id_hides_no_cycle() {
+    for after in [true, false] {
+        let mut entities = vec![milestone("mvp"), milestone("beta")];
+        let workstream = namesake("mvp", "workstream");
+        if after {
+            entities.push(workstream);
+        } else {
+            entities.insert(0, workstream);
         }
+        let found = check(&input(
+            entities,
+            vec![
+                edge("mvp", "beta", "depends_on"),
+                edge("beta", "mvp", "depends_on"),
+            ],
+        ));
+        assert_eq!(
+            ids(&found, "E102"),
+            ["beta", "mvp"],
+            "workstream after: {after}: {found:?}"
+        );
     }
 }
 

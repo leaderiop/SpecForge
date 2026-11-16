@@ -117,12 +117,6 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/E521 | a task commit names its task by its `Gsd-Task:` trailer (ADR 0351, amending ADR 0331 D3): one error per recorded commit, on the commit, when the gsd-git collector found its task by the subject's title (`linked_by title`), or when it names no task and its type is one of the executor's task types other than `docs` (`feat`, `fix`, `test`, `refactor`, `perf`, `style`, `chore`). A `docs` commit (a plan's metadata commit) and a commit with no type are not judged. The setting `specforge.task_trailers` (on in gsd-plus) gates it; a collector's plan is never refused for it (ADR 0303) | pass | — | E (plus) | (new: gsd-plus) |
 | gsd/W522 | a code item a task or a commit names is anchored by a plan that reaches a requirement (ADR 0352 D7): for each item a `task.items` (its plan the task's) or a `commit.items_changed` (the commit's plan) names, the anchors in a quick plan dropped, when some remain and none of their plans reaches a requirement (a `requirements` entry that resolves to one, or a truth of the plan whose `requirement` resolves to one), one warning on the first anchoring task by id (else commit), naming the item and the plans. The item need not be held. On under every profile | pass | W | W | (new: the items a task names) |
 
-## Product
-
-| Code | Rule | Kind | compat | strict | GSD source |
-|---|---|---|---|---|---|
-| gsd/W530 | each requirement a journey names (a step's `requirement`, or its own `requirements`) is listed in `requirements` by a phase of every milestone the journey lists in `milestones` that has a phase: for each such milestone, one warning per requirement outside it (an unphased requirement is outside every milestone that has a phase), on the journey, naming the milestone, the requirement and the steps that need it (or the journey's requirements). Silent for a milestone with no phase at all (its planning has not begun) and for a journey that lists no milestone; a step that names no requirement is not judged (`journey.covered` says it), nor a reference that does not resolve (E003) | pass | W | E | (new: GSD keeps no journey, [ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)) |
-
 ## Governance
 
 Invariants: what must hold, and whether it does ([governance.md](governance.md)).
@@ -234,7 +228,7 @@ no agent; they bound the context a research, a spec or a validation is written a
 These are computed fields, not checks; they are listed so the parity suite can compare them with GSD's own values:
 phase status (`complete` once its verification is `passed`), plan wave, `autonomous`, plan and task status (blocked by halt propagation), a summary's duration, actuals and key files, a deliverable check's status, requirement status, milestone state,
 verification status, score and re-verification, UAT totals and status, validation status, audit status, broken-window status and the
-project's window counts, refactor proposal status, a review concern's status, a review round's open counts, a revision conflict's status, a quick batch's status and eligible items, a UAT session's follow-up count, a lesson's status, an invariant's status and last verdict, a journey's last UAT, coverage and tagged tests, a milestone's journey coverage, `STATE.md` progress.
+project's window counts, refactor proposal status, a review concern's status, a review round's open counts, a revision conflict's status, a quick batch's status and eligible items, a UAT session's follow-up count, a lesson's status, an invariant's status and last verdict, `STATE.md` progress.
 
 ## Elsewhere
 

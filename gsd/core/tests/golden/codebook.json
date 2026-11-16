@@ -439,12 +439,6 @@
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#governance",
       "explanation": "An invariant holds while a fresh verdict of the verify_invariant prompt says so. It is information.",
       "title": "Invariant without a fresh holds verdict"
-    },
-    {
-      "code": "W530",
-      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#product",
-      "explanation": "Each requirement a journey names is listed by a phase of every milestone the journey lists that has a phase. It is a warning, and an error under gsd-strict.",
-      "title": "Journey requirement outside a listed milestone"
     }
   ]
 }

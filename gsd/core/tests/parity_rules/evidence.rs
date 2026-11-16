@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 74] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 73] = [
     (
         "E101",
         Evidence::Tests {
@@ -519,13 +519,6 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 74] = [
         Evidence::Tests {
             fires: "an_invariant_without_a_fresh_holds_verdict_is_i536",
             silent: "a_passing_verdict_silences_each_judged_code",
-        },
-    ),
-    (
-        "W530",
-        Evidence::Tests {
-            fires: "a_step_whose_requirement_no_phase_of_the_milestone_holds_is_w530",
-            silent: "a_journey_with_no_milestone_is_not_w530",
         },
     ),
 ];

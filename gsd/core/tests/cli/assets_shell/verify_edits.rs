@@ -4,26 +4,6 @@
 use super::{Shell, asset, typed};
 use crate::harness::taskboard;
 
-/// A persona and the journey `complete_a_task`, one step on TASK-02, written on the taskboard as `spec/product.spec`.
-pub(super) const COMPLETE_A_TASK: &str = "persona owner \"Board owner\" {
-  context \"Runs a small team's board\"
-}
-
-journey complete_a_task \"Complete a task\" {
-  persona owner
-  steps   [ { action \"marks a task done\" requirement TASK-02 } ]
-}
-";
-
-/// A journey that ships in milestone `v1.0` and names no requirement.
-pub(super) const OPEN_THE_BOARD: &str = "
-journey open_the_board \"Open the board\" {
-  persona    owner
-  milestones [v1.0]
-  steps      [ { action \"opens the board\" } ]
-}
-";
-
 /// The code of the first bash fence of `text` holding `mark`.
 pub(super) fn fence_holding(text: &str, mark: &str) -> String {
     let fence = gsd_kit::markdown::fences(text)
@@ -147,7 +127,6 @@ fn the_uat_template_records_a_session_a_test_and_a_gap() {
         return;
     };
     let p = without_a_session();
-    p.write("spec/product.spec", COMPLETE_A_TASK);
     let template = asset("gsd-core/templates/UAT.md");
     let session = typed::filled(
         &fence_holding(&template, "new uat_session"),
@@ -163,15 +142,11 @@ fn the_uat_template_records_a_session_a_test_and_a_gap() {
             ("TEST_ID", "U1"),
             ("NAME", "Complete a task"),
             ("EXPECTED", "`node src/cli.js done 1` marks task 1 done"),
-            ("JOURNEY", "complete_a_task"),
+            ("JOURNEY", ""),
         ],
     );
     let done = typed::apply(&sh, &p, &test);
     assert_eq!(done.code, 0, "{}{}", done.out, done.err);
-    assert_eq!(
-        p.fields_of("v1.0/01/01-UAT/U1")["journey"],
-        "complete_a_task"
-    );
     let gap = typed::filled(
         &fence_holding(&template, "new uat_gap"),
         &[
@@ -353,52 +328,6 @@ fn the_validation_audit_writes_rows() {
     let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/02\n{command}"));
     assert_eq!(code, 0, "{err}");
     assert!(out.contains("02-VALIDATION"), "{out}");
-}
-
-/// The test-list step's query lists the journeys of a phase: `complete_a_task` steps through TASK-02, which phase
-/// `v1.0/01` holds; phase `v1.0/02` (STORE-01, STORE-02) has none.
-#[test]
-fn the_test_list_step_finds_the_journeys_of_the_phase() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
-    let p = taskboard();
-    p.write("spec/product.spec", COMPLETE_A_TASK);
-    let query = super::span(
-        &asset("gsd-core/workflows/verify-work.md"),
-        "specforge query \"$PHASE_ID\" --depth 2 --kinds journey",
-    );
-    for (phase, want) in [("v1.0/01", "complete_a_task"), ("v1.0/02", "")] {
-        let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID={phase}\n{query}"));
-        assert_eq!(code, 0, "{phase}: {err}");
-        assert_eq!(out.trim(), want, "{phase}: {out}");
-    }
-}
-
-/// The step's query also finds a journey that lists the phase's milestone and names none of its requirements: each
-/// phase of `v1.0` lists it, beside a journey that names a requirement of `v1.0/01` only.
-#[test]
-fn the_test_list_step_finds_a_journey_that_lists_the_milestone() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
-    let p = taskboard();
-    p.write(
-        "spec/product.spec",
-        &format!("{COMPLETE_A_TASK}{OPEN_THE_BOARD}"),
-    );
-    let query = super::span(
-        &asset("gsd-core/workflows/verify-work.md"),
-        "specforge query \"$PHASE_ID\" --depth 2 --kinds journey",
-    );
-    for (phase, want) in [
-        ("v1.0/01", "complete_a_task\nopen_the_board"),
-        ("v1.0/02", "open_the_board"),
-    ] {
-        let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID={phase}\n{query}"));
-        assert_eq!(code, 0, "{phase}: {err}");
-        assert_eq!(out.trim(), want, "{phase}: {out}");
-    }
 }
 
 /// The taskboard with phase `v1.0/01`'s UAT entities taken out: its summaries stay, so a session can be created on it.

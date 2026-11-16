@@ -11,8 +11,7 @@
 //! answers a plan's slices under the smart-zone budget. `review` answers a review concern's status, a round's open
 //! counts and a revision conflict's status, `batch` a quick batch's status and eligible items, `learning` a
 //! lesson's status, `decision` a decision's `in_force` (the superseded set E310 reads), and `invariant` an invariant's
-//! status and last_verified (from each phase's status on the ladder and its verification), and `product` a journey's
-//! `last_uat` and `covered` (from the requirement states and proofs above).
+//! status and last_verified (from each phase's status on the ladder and its verification).
 //!
 //! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection) and `retrospective.sessions` (no harness).
 
@@ -26,7 +25,6 @@ mod halt;
 pub mod invariant;
 pub mod ladder;
 mod learning;
-pub(crate) mod product;
 mod progress;
 mod requirement;
 mod review;
@@ -84,7 +82,6 @@ fn derive(input: &PassInput) -> PassOutput {
     values.extend(branch::values(input));
     values.extend(estimate::values(input));
     values.extend(review::values(input));
-    values.extend(product::values(input, &requirements, &proofs));
     let diagnostics = branch::diagnostics(input);
     PassOutput {
         values,

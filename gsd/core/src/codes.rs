@@ -682,15 +682,6 @@ pub static CODES: &[Code] = &[
         Severity::Info,
         Severity::Info,
     ),
-    code(
-        "W530",
-        "Journey requirement outside a listed milestone",
-        "Each requirement a journey names is listed by a phase of every milestone the journey lists that has a \
-         phase",
-        "product",
-        Severity::Warning,
-        Severity::Error,
-    ),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

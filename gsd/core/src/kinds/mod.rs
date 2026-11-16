@@ -10,7 +10,6 @@ mod governance;
 mod learning;
 mod must_haves;
 mod plan;
-mod product;
 mod project;
 mod research;
 mod review;
@@ -47,8 +46,6 @@ const ALTERNATIVE: &[dsl::Field] = &[
 pub(crate) const KINDS: &[&Kind] = &[
     &project::PROJECT,
     &project::REQUIREMENT,
-    &product::PERSONA,
-    &product::JOURNEY,
     &roadmap::MILESTONE,
     &roadmap::PHASE,
     &roadmap::WORKSTREAM,

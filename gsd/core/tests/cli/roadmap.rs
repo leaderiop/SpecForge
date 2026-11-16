@@ -266,13 +266,9 @@ fn a_milestone_carries_its_planning_fields_beyond_gsd() {
         assert_eq!(&fields[field], value, "{field}: {fields}");
     }
     assert!(
-        crate::product::edges_from(&p, "v1.1").contains(&(
-            "depends_on".into(),
-            "v1.1".into(),
-            "v1.0".into()
-        )),
+        edges_from(&p, "v1.1").contains(&("depends_on".into(), "v1.1".into(), "v1.0".into())),
         "{:#?}",
-        crate::product::edges_from(&p, "v1.1")
+        edges_from(&p, "v1.1")
     );
 }
 
@@ -354,4 +350,21 @@ fn a_milestone_date_that_is_no_calendar_day_is_e061_and_never_e537() {
             .collect();
         assert_eq!(codes, ["E061"], "starts {starts}, targets {targets}");
     }
+}
+
+/// `(label, source, target)` of every edge out of `id`, as `specforge query --format json` reports them.
+fn edges_from(p: &Project, id: &str) -> Vec<(String, String, String)> {
+    let query = p.run(&["query", id, "--format", "json"]);
+    let graph: serde_json::Value = serde_json::from_str(&query.stdout)
+        .unwrap_or_else(|e| panic!("query is JSON ({e}): {}", query.all()));
+    graph["edges"]
+        .as_array()
+        .expect("edges")
+        .iter()
+        .filter(|e| e["source"] == id)
+        .map(|e| {
+            let text = |key: &str| e[key].as_str().unwrap_or_default().to_string();
+            (text("label"), text("source"), text("target"))
+        })
+        .collect()
 }

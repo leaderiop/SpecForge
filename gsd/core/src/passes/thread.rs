@@ -119,12 +119,6 @@ impl<'a> Thread<'a> {
         })
     }
 
-    /// Every test fact whose `names` holds `id`, run or not: the `names` half of [`Thread::tests`]. A journey lists
-    /// its tagged tests so (`journey.tests`): a fact with no recorded status is still tagged.
-    pub fn named_by(&self, id: &str) -> BTreeSet<&'a str> {
-        self.facts_any_status(|e| (e.label == NAMES && e.target == id).then_some(e.source.as_str()))
-    }
-
     /// The test facts, run or not, at the end `end` reads of each edge it keeps.
     fn facts_any_status(&self, end: impl Fn(&'a PassEdge) -> Option<&'a str>) -> BTreeSet<&'a str> {
         let linked: BTreeSet<&str> = self.input.edges.iter().filter_map(end).collect();
@@ -283,7 +277,7 @@ impl Proof {
 
 /// Every task, of any type, whose `plan` resolves to a plan that lists `requirement` in its `requirements`: the
 /// route's `<plan.requirements` then `<task.plan`. A task's `plan` resolves to a plan only, so the sources of the
-/// `requirements` edges need no kind check: a phase or a journey that lists the requirement is no task's plan.
+/// `requirements` edges need no kind check: a phase that lists the requirement is no task's plan.
 pub fn requirement_tasks<'a>(input: &'a PassInput, requirement: &str) -> Vec<&'a PassEntity> {
     let listing: BTreeSet<&str> = input
         .edges

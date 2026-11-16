@@ -390,7 +390,7 @@ fn a_requirement_no_plan_names_has_no_task() {
     let (mut input, commits) = traced("auto", true, &[(TASK, TestStatus::Passed)]);
     input.edges.retain(|e| e.label != "requirements");
     assert_eq!(requirement_proof(&input, &commits, "R1"), Proof::NoTask);
-    // A phase or a journey that lists the requirement is no task's plan.
+    // A phase that lists the requirement is no task's plan.
     input.edges.push(PassEdge {
         source: "v1.0/01".to_string(),
         target: "R1".to_string(),
@@ -496,31 +496,4 @@ fn requirement_proven_needs_complete_and_proven() {
         assert!(!requirement_proven(status, Proof::Proven), "{status:?}");
     }
     assert_eq!(Proof::Proven.missing(), None);
-}
-
-/// `named_by` reads the `names` edges alone, and keeps a test fact whatever its status, or none.
-#[test]
-fn named_by_lists_the_facts_that_name_an_entity_run_or_not() {
-    let mut input = input();
-    add_test(&mut input, ADDS, "adds", FILE, TestStatus::Failed, &["J1"]);
-    add_test(
-        &mut input,
-        LISTS,
-        "lists",
-        FILE,
-        TestStatus::Passed,
-        &["J1"],
-    );
-    for fact in input.entities.iter_mut().filter(|e| e.id == LISTS) {
-        fact.fields.remove("status");
-    }
-    input.edges.push(PassEdge {
-        source: "J1".to_string(),
-        target: ADDS.to_string(),
-        label: PROOF.to_string(),
-    });
-    let thread = Thread::of(&input);
-    assert_eq!(Vec::from_iter(thread.named_by("J1")), [ADDS, LISTS]);
-    assert_eq!(thread.naming("J1"), [(ADDS, TestStatus::Failed)]);
-    assert!(thread.named_by("J2").is_empty());
 }

@@ -10,7 +10,6 @@ mod fails_when;
 mod file_scope;
 mod gates;
 mod invariants;
-mod journeys;
 mod nyquist;
 mod plan_shape;
 pub(crate) mod plans;
@@ -72,5 +71,4 @@ pub fn declare(c: &mut ContributionsBuilder) {
     workstreams::declare(c);
     gates::declare(c);
     traceability::declare(c);
-    journeys::declare(c);
 }
