@@ -47,17 +47,17 @@ fn scopes(kinds: &KindRegistry) -> BTreeMap<String, String> {
 }
 
 /// For each target kind no loaded extension declares, the extension that owns it (`owner_of`, the
-/// lookup E024 reads), so I004 and E022 name the extension E024 names (ADR 0117). A kind nothing
-/// owns has no entry.
+/// lookup E024 reads), as a list of one, so I004 and E022 name the extension E024 names (ADR 0117).
+/// A kind nothing owns has no entry.
 fn target_owners(
     forms: &FieldForms,
     owner_of: impl Fn(&str) -> Option<String>,
-) -> BTreeMap<String, String> {
+) -> BTreeMap<String, Vec<String>> {
     forms
         .targets()
         .into_iter()
         .flat_map(|(_, target)| target.absent())
-        .filter_map(|kind| Some((kind.to_string(), owner_of(kind)?)))
+        .filter_map(|kind| Some((kind.to_string(), vec![owner_of(kind)?])))
         .collect()
 }
 

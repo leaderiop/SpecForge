@@ -13,11 +13,12 @@ use std::sync::Arc;
 /// The default is a project with no extension loaded.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct GraphInputs {
-    /// For each target kind no loaded extension declares, the extension that
-    /// owns it, where the registry build knows one (`kind_owner` of its
-    /// candidate vocabulary, ADR 0117): what I004 and E022 tell the user to
-    /// enable. Plain data: the graph names no registry type.
-    pub target_owners: BTreeMap<String, String>,
+    /// For each target kind no loaded extension declares, the extensions that
+    /// declare it, in the order the registry build hands them (its candidate
+    /// vocabulary's, sorted), where it knows any: what I004 and E022 tell the
+    /// user to enable (ADR 0117, ADR 0369). A kind nothing is known to declare
+    /// has no entry. Plain data: the graph names no registry type.
+    pub target_owners: BTreeMap<String, Vec<String>>,
     /// Every registered field's form, and the kinds that take any field:
     /// the graph build stores each written value as its form coerces it,
     /// before references resolve, so a single reference on a reference_list

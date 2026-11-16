@@ -20,8 +20,8 @@ impl Graph {
     /// Resolve every node's references into edges and report what does not
     /// resolve (`Graph::resolve` decides each, ADR 0117): E003 (with a
     /// fuzzy-match suggestion when there is one), or I004 for a field whose
-    /// target kind no loaded extension declares, naming the extension in
-    /// `inputs.target_owners` that does. A reference in a fact scheme that names no fact is kept on its node as
+    /// target kind no loaded extension declares, naming each extension in
+    /// `inputs.target_owners` that declares it. A reference in a fact scheme that names no fact is kept on its node as
     /// unheld, with no diagnostic (ADR 0327 D6). A fact's own reference resolves from the project, a unique suffix
     /// taken; one that names no entity, one of another kind or several is kept on its node as dangling, with no
     /// diagnostic: the extension declaring the fact's kind judges it (ADR 0346 D4). Then W061 over the authored edges but

@@ -253,7 +253,7 @@ fn the_graph_inputs_name_each_absent_target_kinds_owner() {
     let handed = crate::support::build_with([software], vocabulary);
     let inputs = handed.graph_inputs();
     assert_eq!(inputs.target_owners.len(), 1, "{:?}", inputs.target_owners);
-    assert_eq!(inputs.target_owners["feature"], "@t/product");
+    assert_eq!(inputs.target_owners["feature"], ["@t/product"]);
     // `team` is owned by no one; `behavior` is loaded.
     assert!(!inputs.target_owners.contains_key("team"));
     assert!(!inputs.target_owners.contains_key("behavior"));
@@ -307,5 +307,5 @@ fn a_graph_built_in_the_registry_build_reads_its_inputs_and_schemes() {
     });
     let handed = crate::support::build_with([software], crate::support::candidates(&[product]));
     let empty = handed.graph_of([], HashSet::new());
-    assert_eq!(empty.inputs().target_owners["feature"], "@t/product");
+    assert_eq!(empty.inputs().target_owners["feature"], ["@t/product"]);
 }

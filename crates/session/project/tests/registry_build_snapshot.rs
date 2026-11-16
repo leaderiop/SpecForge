@@ -105,7 +105,7 @@ fn graph_inputs(env: &Environment) -> Value {
             (
                 format!("{kind}.{field}"),
                 match config.target_owners.get(target) {
-                    Some(owner) => format!("{target} ({owner})"),
+                    Some(owners) => format!("{target} ({})", owners.join(", ")),
                     None => target.to_string(),
                 },
             )

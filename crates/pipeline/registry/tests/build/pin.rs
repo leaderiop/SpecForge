@@ -174,7 +174,7 @@ fn graph_inputs(inputs: &GraphInputs) -> Value {
             (
                 format!("{kind}.{field}"),
                 match inputs.target_owners.get(target) {
-                    Some(owner) => format!("{target} ({owner})"),
+                    Some(owners) => format!("{target} ({})", owners.join(", ")),
                     None => target.to_string(),
                 },
             )
