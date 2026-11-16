@@ -141,9 +141,9 @@ feature zero_entity_bootstrap "Zero-Entity Bootstrap" {
     registries, then validates all keywords against the KindRegistry.
     Pipeline event sequence: all_files_parsed → extension_manifests_loaded →
     registries_populated → validation_complete.
-    Unknown keywords produce E024 with help text suggesting which extension
-    to install. Every entity kind comes from an extension: a define block
-    in a .spec file is reported (W143) and ignored (ADR 0005).
+    Unknown keywords produce E024 with help text suggesting every extension
+    that declares the keyword, each with its install command. Every entity kind
+    comes from an extension: a define block in a .spec file is reported (W143) and ignored (ADR 0005).
     suggest_missing_extensions consumes the candidate
     vocabulary the registry build is handed (the builtins', generated with them, ADR 0122). With zero extensions, the compiler gracefully degrades to
     structural-only mode with an I002 info diagnostic. Export commands

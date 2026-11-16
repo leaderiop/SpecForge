@@ -277,7 +277,7 @@ behavior user_login "Log in" {
     );
 }
 
-// --- ADR 0117: the linker names the extension that declares an absent target kind ---
+// --- ADR 0117, ADR 0369: the linker names each extension that declares an absent target kind ---
 
 #[specforge_test(
     behavior = "register_extension_entity_types",

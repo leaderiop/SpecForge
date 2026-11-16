@@ -567,8 +567,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   keyword with every extension that declares it (ADR 0369), and each field an enhancement adds with the one extension
   that declares it (`specforge_registry::CandidateVocabulary`, ADR 0122). The session hands the builtins' to the
   registry build; `revendor` generates it from their pinned declarations
-  (`crates/runtime/component/data/builtin-vocabulary.json`). It never decides a diagnostic, only names the extensions
-  to install.
+  (`crates/runtime/component/data/builtin-vocabulary.json`). It decides no check's diagnostic and no ownership: it
+  names the extensions to install and, beside that, decides whether a kind that an extension's route, context
+  section, judged chain or facts input reaches is an unloaded optional peer's, which makes that part inert instead
+  of E118, W112 or W021 (`UnloadedPeers`, ADR 0331 D7, ADR 0369 D2).
 - **Lock plan**: the change one operation makes to what the project installs and enables (`add` its
   installs and builtins, `update` every upgrade, `init` its local files and builtins, `remove` its
   disabled entries and uninstall), staged as the operation leaves them: each package's lock entry

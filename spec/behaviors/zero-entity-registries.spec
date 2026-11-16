@@ -163,15 +163,17 @@ behavior suggest_missing_extensions "Suggest Missing Extensions" {
   }
   contract   """
     When an E024 (unknown entity kind) diagnostic is emitted, the help
-    text MUST suggest which extension provides the unknown keyword, if known.
-    The suggestion MUST use the candidate vocabulary the registry build is
-    handed (not compiler source or data). The vocabulary maps keywords to
-    their providing extensions. If no mapping exists for the unknown keyword,
-    the help text MUST suggest running specforge extensions search. A build handed no
-    vocabulary suggests specforge extensions search. If the vocabulary's text is
-    malformed, the behavior MUST silently fall back to suggesting specforge
-    search for all unknown keywords. The vocabulary changes only
-    suggestions, never which diagnostics are reported.
+    text MUST suggest every extension that declares the unknown keyword, if
+    known, each with its own install command. The suggestion MUST use the
+    candidate vocabulary the registry build is handed (not compiler source or
+    data). The vocabulary maps keywords to the extensions that declare them.
+    If no mapping exists for the unknown keyword, the help text MUST suggest
+    running specforge extensions search. A build handed no vocabulary suggests
+    specforge extensions search. If the vocabulary's text is malformed, the
+    behavior MUST silently fall back to suggesting specforge search for all
+    unknown keywords. The vocabulary decides no check's diagnostic, only
+    suggestions; beside them it decides only whether a kind an unloaded optional
+    peer declares is inert (ADR 0331 D7, ADR 0369 D2).
   """
   verify unit "E024 for keyword in index suggests the providing extension"
   verify unit "E024 for keyword not in index suggests specforge extensions search"
