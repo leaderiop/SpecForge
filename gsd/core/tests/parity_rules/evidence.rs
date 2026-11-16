@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 76] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 74] = [
     (
         "E101",
         Evidence::Tests {
@@ -515,24 +515,10 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 76] = [
         },
     ),
     (
-        "W538",
-        Evidence::Tests {
-            fires: "a_term_that_avoids_its_own_alias_is_w538",
-            silent: "a_glossary_whose_avoided_words_are_accepted_nowhere_is_not_w538",
-        },
-    ),
-    (
         "I536",
         Evidence::Tests {
             fires: "an_invariant_without_a_fresh_holds_verdict_is_i536",
             silent: "a_passing_verdict_silences_each_judged_code",
-        },
-    ),
-    (
-        "W534",
-        Evidence::Tests {
-            fires: "an_avoided_synonym_in_a_requirement_is_w534",
-            silent: "prose_without_an_avoided_word_is_not_w534",
         },
     ),
     (

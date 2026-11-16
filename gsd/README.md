@@ -26,8 +26,8 @@ project state is a `.spec` entity, there is no `.planning/` folder and no Markdo
 
 The stack is complete on its own: a GSD project loads only `@gsd/*`, never `@specforge/product`, `governance`,
 `testing`, `cargo-test` or `vitest`. That is policy, not kernel-enforced: `@specforge/product` (`milestone`,
-`deliverable`, `persona`, `journey`, `term`) and `@specforge/governance` (`decision`) declare kinds `@gsd/core` also
-declares, and loading both is E026 (the first registration wins), so `specforge check` fails on a real clash
+`deliverable`, `persona`, `journey`) and `@specforge/governance` (`decision`) declare kinds `@gsd/core` also declares,
+and loading both is E026 (the first registration wins), so `specforge check` fails on a real clash
 ([ADR 0357](../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md) D11). Tests are the
 one thing GSD does not collect: a project that records them loads `@code/core` and a runner pack
 (`@javascript/node-test`, `@rust/test`), whose test facts `@gsd/core` reads; a `[gsd:<id>]` tag in a test's name names

@@ -41,8 +41,9 @@ fn of_kind<'a>(input: &'a PassInput, kind: &'a str) -> impl Iterator<Item = &'a 
     input.entities.iter().filter(move |e| e.kind == kind)
 }
 
-/// The ids of the entities of `kind`. An id is unique within a kind only (E002): a term, a journey or a persona may
-/// share a milestone's or a requirement's id, so an edge end is matched against one kind's ids, never an id→kind map.
+/// The ids of the entities of `kind`. An id is unique within a kind only (E002): a workstream, a journey or a persona
+/// may share a milestone's or a requirement's id, so an edge end is matched against one kind's ids, never an id→kind
+/// map.
 fn ids_of<'a>(input: &'a PassInput, kind: &'a str) -> BTreeSet<&'a str> {
     of_kind(input, kind).map(|e| e.id.as_str()).collect()
 }

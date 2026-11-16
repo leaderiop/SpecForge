@@ -1,15 +1,14 @@
-# Personas, journeys and the glossary
+# Personas and journeys
 
 ```
  persona ─1──*─ journey ─*──*─ milestone        (milestones: where it ships; the milestone reads `journeys`)
                    ├─*──*─ requirement          (requirements: what it exercises as a whole)
                    └─ steps[] ─*──0..1─ requirement
- term ─*──*─ term                               (related)
 ```
 
-Files: `spec/gsd/product/personas.spec`, `spec/gsd/product/journeys.spec`, `spec/gsd/product/glossary.spec`.
+Files: `spec/gsd/product/personas.spec`, `spec/gsd/product/journeys.spec`.
 
-GSD keeps no persona, journey or glossary file: these kinds are beyond parity
+GSD keeps no persona or journey file: these kinds are beyond parity
 ([ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)), and no
 `gsd-compat` rule needs them. Each is unscoped, so its id is unique across the project and a reference to it never
 needs a path.
@@ -53,42 +52,12 @@ journey lists every milestone it ships in rather than being scoped by one: a sco
 The journey reads back as `uat_tests` the UAT tests that walk it (`uat_test.journey`); `last_uat` is the latest of
 their sessions (ADR 0357 D22).
 
-## term
-
-A glossary entry: a word of the project and what it means. Name: a word, `spec_root`. A word that is a kind's keyword
-(`task`) is no entity id (E013), so its term takes another id (`work_item`) and `name` still holds the word.
-
-| Field | Type | Flags | Meaning |
-|---|---|---|---|
-| name | str | R | the word or phrase as prose writes it; a pass sees no title, so the vocabulary checks read this |
-| definition | str | R | what it means in this project |
-| avoid | strs | | synonyms not to use for it; a word the glossary accepts (this term's `name` or `aliases`, or another term's) is gsd/W538 |
-| aliases | strs | | other accepted names; one also in a term's `avoid` is gsd/W538 |
-| related | →* term | | related terms |
-| context | str | | where or how it is used |
-| tags | strs | | free words |
-| used_in | →* project \| requirement \| persona \| journey \| milestone \| phase \| workstream \| retrospective \| lesson \| methodology \| context \| decision \| deferred_idea \| phase_spec \| locked_req \| interview \| edge \| spec_prohibition \| discussion \| research \| finding \| stack_choice \| pattern \| pitfall \| dont_hand_roll \| open_question \| plan \| task \| checkpoint \| truth \| artifact \| prohibition \| disposition \| review \| review_concern \| revision_conflict \| user_setup \| summary \| deliverable \| deviation \| pause \| handoff \| blocker \| verify_gap \| override \| human_item \| uat_test \| uat_gap \| manual_check \| milestone_audit \| broken_window \| invariant | C | the entities whose prose holds its `name` or one of its `aliases` as a whole word or phrase, by id, sorted; `[]` when none |
-
-`related` relates terms with themselves, so it has no reverse to read: a term names the terms it relates to.
-
-`used_in` reads the authored prose in the author's language (ADR 0357 D16, D17): every field, or member of a block or
-block list, that its kind's table marks prose (a statement, a description, a reason, an action, a note, a criterion),
-in each of the kinds above; never a name, a word to group by, an option label, an id, a quote, a verbatim reply or
-recorded answer, a copy of another field, a command or code, the name of a thing outside the project, a computed or
-harness block, `text_en` or a term's own fields. A word matches whole, case-insensitively and accents as written, at
-Unicode word boundaries (UAX #29, an apostrophe splitting a word), with no stemming: "Tasks" is no use of "task". In
-Han and kana prose a word is found wherever its characters run; in Thai, Lao, Khmer and Myanmar, also inside a longer
-word (ADR 0357 D15). A code span between backticks and a token that holds a `/` or a `\` (a path, a URL) hold no word:
-"Write src/todo-list.js" is no use of "todo", and a word written with a slash ("CI/CD") reads as a path too. A
-computed reference makes no edge, so `specforge query <term>` shows it and `specforge refs` does not.
-
 ## What the old product kinds became
 
 The old `@specforge/product` declared `persona`, `journey`, `term`, `channel`, `deliverable` and `milestone`, with
 product commands, rules that reported an absence, and presentation keywords.
 [ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md) maps each of
 their fields to its home here or on the milestone ([project.md](project.md#milestone)): a channel is a word of
-`journey.channels` and its own text a term, a deliverable is a milestone whose kind of artifact is a word of
-`artifact_types`, and a field no tracked project writes and that has no home is refused rather than dropped. The
-commands and the absence rules are not carried: `specforge query`, `list` and `trace` answer what the commands
-answered.
+`journey.channels`, a deliverable is a milestone whose kind of artifact is a word of `artifact_types`, and a field no
+tracked project writes and that has no home is refused rather than dropped. The commands and the absence rules are not
+carried: `specforge query`, `list` and `trace` answer what the commands answered.

@@ -1,7 +1,6 @@
-//! The computed values of the product kinds (`spec/product.md`, ADR 0357): a term's `used_in`, the entities whose
-//! prose holds its name or one of its aliases (`passes::vocabulary`); a journey's `last_uat`, the latest session of a
-//! UAT test that names it, and `covered`, read from the requirements it names ([`Names`]) and the requirement thread;
-//! a milestone's `journeys_covered`, its journeys and the covered ones; and a journey's `tests`, the test facts
+//! The computed values of the product kinds (`spec/product.md`, ADR 0357): a journey's `last_uat`, the latest session
+//! of a UAT test that names it, and `covered`, read from the requirements it names ([`Names`]) and the requirement
+//! thread; a milestone's `journeys_covered`, its journeys and the covered ones; and a journey's `tests`, the test facts
 //! tagged with it, evidence that `covered` never reads.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -11,7 +10,6 @@ use specforge_extension_sdk::prelude::*;
 use super::execute::value;
 use crate::passes::plans::{link, of_kind, rows, strings, targets, text, written_target};
 use crate::passes::thread::{Proof, Thread, requirement_proven};
-use crate::passes::vocabulary::{prose, uses, writers};
 
 /// The product kinds' computed values. `requirements` and `proofs` are derive's requirement states and thread proofs,
 /// computed in this pass: its input does not hold them.
@@ -20,8 +18,7 @@ pub(crate) fn values(
     requirements: &BTreeMap<&str, &'static str>,
     proofs: &BTreeMap<&str, Proof>,
 ) -> Vec<PassValue> {
-    let mut out = used_in(input);
-    out.extend(last_uat(input));
+    let mut out = last_uat(input);
     let covered = covered(input, requirements, proofs);
     out.extend(
         covered
@@ -84,30 +81,6 @@ impl<'a> Names<'a> {
             })
             .collect()
     }
-}
-
-/// Each term's `used_in`: the ids of the entities whose prose holds its `name` or an alias as a whole word or phrase,
-/// sorted, and `[]` when none, so "unused" is never "unknown". An `avoid` word is no use.
-fn used_in(input: &PassInput) -> Vec<PassValue> {
-    let written: Vec<(&str, Vec<(String, String)>)> =
-        writers(input).map(|e| (e.id.as_str(), prose(e))).collect();
-    of_kind(input, "term")
-        .map(|term| {
-            let words: Vec<String> = text(term, "name")
-                .map(str::to_string)
-                .into_iter()
-                .chain(strings(term, "aliases"))
-                .collect();
-            let mut ids: Vec<&str> = written
-                .iter()
-                .filter(|(_, places)| words.iter().any(|w| uses(places, w).is_some()))
-                .map(|(id, _)| *id)
-                .collect();
-            ids.sort_unstable();
-            ids.dedup();
-            value(&term.id, "used_in", ids)
-        })
-        .collect()
 }
 
 /// Each journey a UAT test names (`uat_test.journey`): its `last_uat`, the session of such a test that started last. A

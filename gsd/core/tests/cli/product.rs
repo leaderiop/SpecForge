@@ -3,9 +3,8 @@
 
 use crate::harness::{Project, project};
 
-/// A persona, two journeys and two terms, written on the `roadmap` project as `spec/product.spec`: `add_and_finish`
-/// ships in `v1.0` and steps through TASK-01 and TASK-02; `share_board` steps through and exercises SHARE-01; the term
-/// `work_item`, whose word is "task" (a keyword is no entity id, E013), is related to `board`.
+/// A persona and two journeys, written on the `roadmap` project as `spec/product.spec`: `add_and_finish` ships in
+/// `v1.0` and steps through TASK-01 and TASK-02; `share_board` steps through and exercises SHARE-01.
 pub(crate) const PRODUCT: &str = r#"persona owner "Board owner" {
   context         "Runs a small team's board"
   goals           ["Never lose a task"]
@@ -31,21 +30,6 @@ journey share_board "Share the board" {
   persona      owner
   steps        [ { action "copies the board's link" requirement SHARE-01 } ]
   requirements [SHARE-01]
-}
-
-term work_item "Task" {
-  name       "task"
-  definition "A unit of work on the board, with a title"
-  avoid      ["ticket"]
-  aliases    ["to-do"]
-  related    [board]
-  context    "the board's lists"
-  tags       ["core"]
-}
-
-term board "Board" {
-  name       "board"
-  definition "The tasks a team shares"
 }
 "#;
 
@@ -199,81 +183,6 @@ fn a_journey_priority_is_must_should_or_could() {
     }
 }
 
-#[test]
-fn a_term_names_its_related_terms() {
-    let p = product();
-    assert_eq!(p.codes(), Vec::<String>::new());
-    assert_eq!(
-        edges_from(&p, "work_item"),
-        [edge("related", "work_item", "board")]
-    );
-    p.edit(
-        "spec/product.spec",
-        "related    [board]",
-        "related    [nope]",
-    );
-    let found = p.report();
-    assert_eq!(
-        found.iter().map(|(c, _)| c.as_str()).collect::<Vec<_>>(),
-        ["E003"],
-        "{found:#?}"
-    );
-    assert!(found[0].1.contains("nope"), "{found:#?}");
-}
-
-#[test]
-fn a_term_without_its_word_is_e006() {
-    let p = product();
-    p.edit("spec/product.spec", "  name       \"task\"\n", "");
-    let found = p.report();
-    assert_eq!(
-        found.iter().map(|(c, _)| c.as_str()).collect::<Vec<_>>(),
-        ["E006"],
-        "{found:#?}"
-    );
-    assert!(found[0].1.contains("name"), "{found:#?}");
-}
-
-/// A term's `avoid` holding a word the glossary accepts, its own alias or another term's name, is `gsd/W538` on the
-/// avoiding term, a warning under every profile, compared case-insensitively.
-#[test]
-fn a_term_that_avoids_an_accepted_word_is_w538() {
-    for profile in ["gsd-compat", "gsd-strict", "gsd-plus"] {
-        let p = product();
-        p.settings(serde_json::json!({ "profile": profile }));
-        p.edit(
-            "spec/product.spec",
-            "avoid      [\"ticket\"]",
-            "avoid      [\"ticket\", \"To-Do\", \"Board\"]",
-        );
-        let found = p.findings();
-        let codes: Vec<&str> = found.iter().map(|(code, _)| code.as_str()).collect();
-        assert_eq!(codes, ["gsd/W538", "gsd/W538"], "{profile}: {found:#?}");
-        for expected in [
-            "term 'work_item' avoids \"Board\", which is the name of term 'board'",
-            "term 'work_item' avoids \"To-Do\", which is its own alias",
-        ] {
-            assert!(
-                found.iter().any(|(_, message)| message.contains(expected)),
-                "{profile}: {expected} in {found:#?}"
-            );
-        }
-        let check = p.run(&["check"]);
-        assert_eq!(check.code, 0, "{profile}: a warning: {}", check.all());
-    }
-}
-
-/// The fixture's glossary avoids no word it accepts: no `gsd/W538`.
-#[test]
-fn a_glossary_that_avoids_no_accepted_word_is_not_w538() {
-    let p = product();
-    assert!(
-        !p.codes().iter().any(|code| code == "gsd/W538"),
-        "{:#?}",
-        p.report()
-    );
-}
-
 /// A journey names the requirements it exercises as a whole, an edge apart from its steps' finer ones.
 #[test]
 fn a_journey_names_the_requirements_it_exercises() {
@@ -319,10 +228,10 @@ fn kinds_the_readme_names() -> Vec<String> {
     kinds
 }
 
-/// Loading `@specforge/product` beside `@gsd/core` registers five kinds twice: E026 on each, the first registration
+/// Loading `@specforge/product` beside `@gsd/core` registers four kinds twice: E026 on each, the first registration
 /// (`@gsd/core`'s) winning, exactly as `gsd/README.md` says.
 #[test]
-fn specforge_product_beside_gsd_core_is_e026_on_five_kinds() {
+fn specforge_product_beside_gsd_core_is_e026_on_four_kinds() {
     let p = project("empty").with_builtins(&["@specforge/product"]);
     let quoted = regex::Regex::new(r"^entity kind '([a-z_]+)' registered by").expect("a pattern");
     let mut kinds: Vec<String> = p
@@ -337,74 +246,8 @@ fn specforge_product_beside_gsd_core_is_e026_on_five_kinds() {
         })
         .collect();
     kinds.sort();
-    assert_eq!(
-        kinds,
-        ["deliverable", "journey", "milestone", "persona", "term"]
-    );
+    assert_eq!(kinds, ["deliverable", "journey", "milestone", "persona"]);
     assert_eq!(kinds, kinds_the_readme_names());
-}
-
-/// `term.used_in` is a computed reference list to every kind that writes prose: the host admits it (no W165, nothing
-/// reported) and `specforge query` shows it. `work_item`'s word "task" is in TASK-01's and TASK-02's text, in
-/// `add_and_finish`'s first step, in the persona's, the project's and phase `v1.0/01`'s prose; "board" in SHARE-01's
-/// text, a step of each journey ("the board's link"), the persona's and the project's prose.
-#[test]
-fn the_host_admits_a_terms_used_in() {
-    let p = product();
-    assert_eq!(p.codes(), Vec::<String>::new(), "{:#?}", p.report());
-    assert_eq!(
-        p.fields_of("work_item")["used_in"],
-        serde_json::json!([
-            "TASK-01",
-            "TASK-02",
-            "add_and_finish",
-            "owner",
-            "taskboard",
-            "v1.0/01"
-        ])
-    );
-    assert_eq!(
-        p.fields_of("board")["used_in"],
-        serde_json::json!([
-            "SHARE-01",
-            "add_and_finish",
-            "owner",
-            "share_board",
-            "taskboard"
-        ])
-    );
-}
-
-/// The fixture's prose writes no word a term avoids; a requirement that writes "ticket", which `work_item` avoids, is
-/// one gsd/W534 on it naming the term and its word, a warning under every profile.
-#[test]
-fn a_requirement_that_writes_an_avoided_word_is_w534() {
-    let p = product();
-    assert!(
-        !p.codes().iter().any(|code| code == "gsd/W534"),
-        "{:#?}",
-        p.report()
-    );
-    p.edit(
-        "spec/project.spec",
-        "A user can add a task with a title",
-        "A user can add a ticket with a title",
-    );
-    for profile in ["gsd-compat", "gsd-strict", "gsd-plus"] {
-        p.settings(serde_json::json!({ "profile": profile }));
-        let found = p.findings();
-        assert_eq!(
-            found,
-            [(
-                "gsd/W534".to_string(),
-                "requirement 'TASK-01' writes \"ticket\" in text, \"ticket\" avoided by term 'work_item'"
-                    .to_string()
-            )],
-            "{profile}"
-        );
-        let check = p.run(&["check"]);
-        assert_eq!(check.code, 0, "{profile}: a warning: {}", check.all());
-    }
 }
 
 /// A persona and the journey `add_a_task`, one step on TASK-01, for the `verify` and `execute` projects.

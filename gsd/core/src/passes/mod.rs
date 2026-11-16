@@ -9,7 +9,6 @@ mod execute;
 mod fails_when;
 mod file_scope;
 mod gates;
-mod glossary;
 mod invariants;
 mod journeys;
 mod nyquist;
@@ -25,7 +24,6 @@ mod thread;
 mod traceability;
 mod verify_paths;
 mod verify_rules;
-mod vocabulary;
 mod waves;
 mod windows;
 pub(crate) mod words;
@@ -57,7 +55,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
     // `invariants` reads the invariant's `status`, which derive computes; it reports gsd/E531.
     invariants::declare(c);
     roadmap::declare(c);
-    glossary::declare(c);
     research::declare(c);
     execute::declare(c);
     schema_drift::declare(c);
@@ -75,6 +72,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     workstreams::declare(c);
     gates::declare(c);
     traceability::declare(c);
-    vocabulary::declare(c);
     journeys::declare(c);
 }

@@ -30,7 +30,7 @@ fn member_of(field: &serde_json::Value, member: &str) -> serde_json::Value {
 
 #[test]
 fn the_product_kinds_declare_the_fields_of_product_md() {
-    model_doc::assert_declared(PRODUCT_MD, &["persona", "journey", "term"]);
+    model_doc::assert_declared(PRODUCT_MD, &["persona", "journey"]);
 }
 
 #[test]
@@ -102,30 +102,5 @@ fn a_persona_has_its_context_its_five_step_scale_and_a_status() {
         if field != "context" {
             assert_ne!(field_of("persona", &field)["required"], true, "{field}");
         }
-    }
-}
-
-/// A pass sees no entity's title, so the word a term defines is its `name`, required with its definition.
-#[test]
-fn a_term_carries_its_word_because_a_pass_sees_no_title() {
-    assert!(kind_of("term")["scoped_by"].is_null());
-    for field in ["name", "definition"] {
-        let declared = field_of("term", field);
-        assert_eq!(declared["required"], true, "{declared}");
-        assert_eq!(declared["field_type"], "string", "{declared}");
-    }
-    for field in ["avoid", "aliases", "related", "context", "tags"] {
-        assert_ne!(field_of("term", field)["required"], true, "{field}");
-    }
-    let related = field_of("term", "related");
-    assert_eq!(related["field_type"], "reference_list", "{related}");
-    assert_eq!(related["target_kind"], "term", "{related}");
-    assert!(related["inverse_of"].is_null(), "{related}");
-    for field in ["avoid", "aliases"] {
-        assert_eq!(
-            field_of("term", field)["field_type"],
-            "string_list",
-            "{field}"
-        );
     }
 }

@@ -650,8 +650,8 @@ fn namesake(id: &str, kind: &str) -> PassEntity {
 }
 
 #[test]
-fn a_term_or_journey_sharing_a_milestones_id_hides_no_cycle() {
-    for kind in ["term", "journey", "persona"] {
+fn a_workstream_or_journey_sharing_a_milestones_id_hides_no_cycle() {
+    for kind in ["workstream", "journey", "persona"] {
         for after in [true, false] {
             let mut entities = vec![milestone("mvp"), milestone("beta")];
             let other = namesake("mvp", kind);
@@ -677,21 +677,21 @@ fn a_term_or_journey_sharing_a_milestones_id_hides_no_cycle() {
 }
 
 #[test]
-fn a_term_sharing_a_requirements_id_hides_no_phase_of_it() {
-    // The phase lists the requirement; a term of the same id, before or after it, is not what it lists.
+fn a_workstream_sharing_a_requirements_id_hides_no_phase_of_it() {
+    // The phase lists the requirement; a workstream of the same id, before or after it, is not what it lists.
     for after in [true, false] {
         let mut entities = vec![requirement("AUTH-01", "v1"), phase("v1.0/01")];
-        let term = namesake("AUTH-01", "term");
+        let workstream = namesake("AUTH-01", "workstream");
         if after {
-            entities.push(term);
+            entities.push(workstream);
         } else {
-            entities.insert(0, term);
+            entities.insert(0, workstream);
         }
         let found = check(&input(
             entities,
             vec![edge("v1.0/01", "AUTH-01", "requirements")],
         ));
-        assert!(found.is_empty(), "term after: {after}: {found:?}");
+        assert!(found.is_empty(), "workstream after: {after}: {found:?}");
     }
 }
 

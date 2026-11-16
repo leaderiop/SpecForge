@@ -26,56 +26,6 @@ fn of<'v>(values: &'v [PassValue], entity: &str, field: &str) -> Option<&'v Valu
         .map(|v| &v.value)
 }
 
-fn glossary() -> Value {
-    json!([
-        { "id": "work_item", "kind": "term",
-          "fields": { "name": "task", "definition": "a unit of work" },
-          "values": { "aliases": ["to-do"], "avoid": ["ticket"] } },
-        { "id": "R1", "kind": "requirement", "fields": { "text": "A user can add a Task" } },
-        { "id": "R2", "kind": "requirement", "fields": { "text": "Every To-Do is kept" } },
-        { "id": "R3", "kind": "requirement", "fields": { "text": "A ticket is closed", "area": "task" } },
-        { "id": "D1", "kind": "decision", "fields": { "text": "Store on disk", "rationale": "a task survives" } },
-        { "id": "add", "kind": "journey", "fields": { "persona": "owner" },
-          "values": { "steps": [ { "action": "opens the board" }, { "action": "adds a task" } ] } },
-        { "id": "T1", "kind": "task", "fields": { "action": "write the task form" } },
-    ])
-}
-
-/// The name and the alias are uses, case-insensitively, in any prose field (a decision's rationale, a journey step's
-/// action, a task's action); an avoided word is none, and a requirement's `area` is no prose.
-#[test]
-fn a_term_is_used_where_its_name_or_an_alias_is_a_whole_word() {
-    let values = computed(&input(glossary(), &[]));
-    assert_eq!(
-        of(&values, "work_item", "used_in"),
-        Some(&json!(["D1", "R1", "R2", "T1", "add"]))
-    );
-}
-
-#[test]
-fn a_term_inside_a_longer_word_is_unused() {
-    let values = computed(&input(
-        json!([
-            { "id": "work_item", "kind": "term", "fields": { "name": "task", "definition": "a unit" } },
-            { "id": "R1", "kind": "requirement", "fields": { "text": "Tasks are saved; multitasking is not" } },
-        ]),
-        &[],
-    ));
-    assert_eq!(of(&values, "work_item", "used_in"), Some(&json!([])));
-}
-
-#[test]
-fn an_unused_term_reads_an_empty_list() {
-    let values = computed(&input(
-        json!([
-            { "id": "board", "kind": "term", "fields": { "name": "board", "definition": "the tasks" } },
-            { "id": "R1", "kind": "requirement", "fields": { "text": "A user can add a task" } },
-        ]),
-        &[],
-    ));
-    assert_eq!(of(&values, "board", "used_in"), Some(&json!([])));
-}
-
 /// Sessions `(id, started)` of phase `v1.0/01`, each with one test that names `journey` when it is not empty, and the
 /// edges a host sends for the tests' `session` and `journey`.
 fn sessions(of: &[(&str, Option<&str>, &str)]) -> PassInput {
@@ -448,36 +398,4 @@ fn a_tagged_test_does_not_cover_a_journey() {
         Some(&json!(["js:app/test/j.test.js#walks"]))
     );
     assert_eq!(of(&values, "j", "covered"), Some(&json!(false)));
-}
-
-/// Prose W534 skips because it cannot change (a committed deviation's text) still uses a term: `used_in` lists it.
-#[test]
-fn a_term_is_used_in_prose_the_author_cannot_change() {
-    let values = computed(&input(
-        json!([
-            { "id": "customer", "kind": "term", "fields": { "name": "customer", "definition": "who pays" } },
-            { "id": "v1.0/01/01-01/01-01-SUMMARY/DV1", "kind": "deviation",
-              "fields": { "kind": "deviation", "text": "list() returns the customer tasks" } },
-        ]),
-        &[],
-    ));
-    assert_eq!(
-        of(&values, "customer", "used_in"),
-        Some(&json!(["v1.0/01/01-01/01-01-SUMMARY/DV1"]))
-    );
-}
-
-/// A path or a code span in prose is no use of a term: `used_in` lists the plain prose only.
-#[test]
-fn a_path_in_prose_is_no_use_of_a_term() {
-    let values = computed(&input(
-        json!([
-            { "id": "todo", "kind": "term", "fields": { "name": "todo", "definition": "a task to do" } },
-            { "id": "R1", "kind": "requirement", "fields": { "text": "Write src/todo-list.js" } },
-            { "id": "R2", "kind": "requirement", "fields": { "text": "Call `todo.add()` once" } },
-            { "id": "R3", "kind": "requirement", "fields": { "text": "Show the todo list" } },
-        ]),
-        &[],
-    ));
-    assert_eq!(of(&values, "todo", "used_in"), Some(&json!(["R3"])));
 }

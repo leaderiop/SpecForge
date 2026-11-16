@@ -675,30 +675,12 @@ pub static CODES: &[Code] = &[
         Severity::Error,
     ),
     code(
-        "W538",
-        "Term avoids a word the glossary accepts",
-        "A term's avoid lists no word the glossary accepts: its own name or aliases, or another term's",
-        "product",
-        Severity::Warning,
-        Severity::Warning,
-    ),
-    code(
         "I536",
         "Invariant without a fresh holds verdict",
         "An invariant holds while a fresh verdict of the verify_invariant prompt says so",
         "governance",
         Severity::Info,
         Severity::Info,
-    ),
-    code(
-        "W534",
-        "Prose uses an avoided synonym",
-        "Prose the author can still change (each field or block member its kind marks prose: free text written \
-         now, never a name, an id, a quote or a copy) writes no word or phrase a term lists in avoid, read outside \
-         paths, code spans and the names and aliases the glossary accepts",
-        "product",
-        Severity::Warning,
-        Severity::Warning,
     ),
     code(
         "W530",

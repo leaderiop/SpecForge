@@ -1,175 +1,33 @@
 use super::*;
 
-/// The four cases of the matcher before it had two boundaries: JavaScript's reading keeps today's answers for
-/// `gsd/E312`, and the Unicode reading answers the first two the other way ("caf" is no word of "café", "élève" is a
-/// word of "l'Élève"). Neither stems: "user" is no word of "Users".
+/// JavaScript's reading, for `gsd/E312`: ASCII word characters, ASCII letters folded. "caf" is a word of "café" (the
+/// `é` is no word character), "élève" is no word of "l'Élève" (non-ASCII letters do not fold), and nothing stems:
+/// "user" is no word of "Users".
 #[test]
-fn the_four_cases_read_as_javascript_and_as_unicode() {
+fn the_four_cases_read_as_javascript() {
     let cases = [
         ("le café est servi", "caf"),
         ("Gérer l'Élève", "élève"),
         ("the user-id", "user"),
         ("Users sign in", "user"),
     ];
-    let read = |boundary| -> Vec<bool> {
-        cases
-            .iter()
-            .map(|(haystack, needle)| has_word(haystack, needle, boundary))
-            .collect()
-    };
-    assert_eq!(read(Boundary::Js), [true, false, true, false]);
-    assert_eq!(read(Boundary::Unicode), [false, true, true, false]);
-}
-
-#[test]
-fn a_phrase_matches_whole_across_line_breaks_and_case() {
-    assert!(has_word(
-        "the user account page",
-        "User\n  Account",
-        Boundary::Unicode
-    ));
-    assert!(has_word(
-        "the User\n  account page",
-        "user account",
-        Boundary::Unicode
-    ));
-    assert!(!has_word(
-        "the user accounts page",
-        "user account",
-        Boundary::Unicode
-    ));
-}
-
-#[test]
-fn a_needle_edge_that_is_no_word_character_needs_no_boundary() {
-    assert!(has_word("we write C++.", "C++", Boundary::Unicode));
-    assert!(has_word("C++", "C", Boundary::Unicode));
-    // The needle's first character is a word character: "C" inside "XC++" is no word.
-    assert!(!has_word("XC++", "C++", Boundary::Unicode));
-}
-
-#[test]
-fn a_combining_mark_stays_in_its_word() {
-    assert!(!has_word("le cafe\u{301}", "cafe", Boundary::Unicode));
-    assert!(has_word("le cafe\u{301}", "cafe\u{301}", Boundary::Unicode));
-    // No normalisation: a composed "é" is not its decomposed spelling.
-    assert!(!has_word("le café", "cafe\u{301}", Boundary::Unicode));
-}
-
-#[test]
-fn an_overlapping_occurrence_counts() {
-    assert!(has_word("xa a a", "a a", Boundary::Unicode));
+    let read: Vec<bool> = cases
+        .iter()
+        .map(|(haystack, needle)| has_word(haystack, needle))
+        .collect();
+    assert_eq!(read, [true, false, true, false]);
 }
 
 #[test]
 fn an_empty_needle_matches_nothing() {
-    for boundary in [Boundary::Js, Boundary::Unicode] {
-        for haystack in ["", " ", "a task"] {
-            assert!(
-                !has_word(haystack, "", boundary),
-                "{boundary:?} {haystack:?}"
-            );
-        }
+    for haystack in ["", " ", "a task"] {
+        assert!(!has_word(haystack, ""), "{haystack:?}");
     }
-    assert!(!has_word("a task", " \n ", Boundary::Unicode));
 }
 
 #[test]
-fn the_glossary_folds_whitespace_runs_and_lowercases() {
+fn the_fold_collapses_whitespace_runs_and_lowercases() {
     assert_eq!(folded("  To-Do\n  List "), "to-do list");
     assert_eq!(folded("ÉLÈVE"), "élève");
     assert_eq!(folded("STRASSE"), "strasse");
-}
-
-/// A mark or a joiner is part of the word it sits in, in any script: a Devanagari virama, a Persian zero-width
-/// non-joiner and a zero-width joiner never open a word, and a Thai tone mark stays on its letter.
-#[test]
-fn a_mark_or_a_joiner_stays_in_its_word_in_every_script() {
-    assert!(!has_word("क्या हाल", "या", Boundary::Unicode));
-    assert!(has_word("क्या हाल", "क्या", Boundary::Unicode));
-    assert!(!has_word("می\u{200c}خواهم", "می", Boundary::Unicode));
-    assert!(!has_word("x\u{200d}y", "x", Boundary::Unicode));
-    assert!(!has_word("ผู้ใช้", "ผู", Boundary::Unicode));
-}
-
-/// Han and Hiragana are a segment per character and a Katakana run is one word, so a word of them is found in running
-/// text; Thai, segmented per character without a dictionary, finds a word inside a longer one.
-#[test]
-fn a_word_is_found_in_scripts_written_without_spaces() {
-    assert!(has_word(
-        "ユーザーがログインする",
-        "ユーザー",
-        Boundary::Unicode
-    ));
-    assert!(has_word(
-        "ユーザーがログインする",
-        "する",
-        Boundary::Unicode
-    ));
-    assert!(!has_word(
-        "ユーザーがログインする",
-        "ユーザ",
-        Boundary::Unicode
-    ));
-    assert!(has_word("用户登录系统", "用户", Boundary::Unicode));
-    assert!(has_word("用户登录系统", "登录", Boundary::Unicode));
-    assert!(has_word("ผู้ใช้งาน", "ผู้ใช้", Boundary::Unicode));
-}
-
-/// An apostrophe, straight or typographic, splits a word as French elision does; a full stop between two letters
-/// joins them, as UAX #29 reads `e.g.` or a host name.
-#[test]
-fn an_apostrophe_splits_a_word_and_a_full_stop_between_letters_does_not() {
-    assert!(has_word("Gérer l\u{2019}Élève", "élève", Boundary::Unicode));
-    assert!(has_word("we can't", "can", Boundary::Unicode));
-    assert!(!has_word("see example.com", "example", Boundary::Unicode));
-    assert!(has_word("an example. Then", "example", Boundary::Unicode));
-}
-/// An occurrence reads back as the text wrote it, line break and case included.
-#[test]
-fn an_occurrence_reads_back_as_written() {
-    let text = Segments::of("  the User\n  Account page");
-    let needle = Segments::of("user account");
-    let found: Vec<&str> = text.find(&needle).map(|at| text.written(&at)).collect();
-    assert_eq!(found, ["User\n  Account"]);
-    let text = Segments::of("Gérer l'Élève");
-    let found: Vec<&str> = text
-        .find(&Segments::of("ÉLÈVE"))
-        .map(|at| text.written(&at))
-        .collect();
-    assert_eq!(found, ["Élève"]);
-}
-
-/// A path, a URL and a code span in prose are no words: "todo" is not written in `src/todo-list.js`, in `C:\todo` or
-/// between backticks, and no phrase runs across one. Plain prose still holds the word; an unclosed backtick masks
-/// nothing. A word written with a slash reads as a path too.
-#[test]
-fn a_path_or_a_code_span_in_prose_is_no_word() {
-    let reads = |text| has_word(text, "todo", Boundary::Unicode);
-    assert!(!reads("Write src/todo-list.js"));
-    assert!(!reads("open C:\\todo\\list.txt"));
-    assert!(!reads("see https://example.org/todo first"));
-    assert!(!reads("run `todo add` now"));
-    assert!(!reads("run ``a ` todo`` now"));
-    assert!(!reads("todo/done"), "the documented limit");
-    assert!(reads("the todo list"));
-    assert!(reads("a ` todo"));
-    assert!(reads("`add` the todo"));
-    assert!(!has_word(
-        "todo src/a.js list",
-        "todo list",
-        Boundary::Unicode
-    ));
-    let text = Segments::of_prose("  write `x` then the Todo, see a/b ");
-    let found: Vec<&str> = text
-        .find(&Segments::of("todo"))
-        .map(|at| text.written(&at))
-        .collect();
-    assert_eq!(found, ["Todo"]);
-    assert_eq!(not_words("a `b` c/d"), [2..5, 6..9]);
-    assert_eq!(
-        not_words("`a/b` c c/d"),
-        [0..5, 8..11],
-        "a token over a code span merges"
-    );
 }

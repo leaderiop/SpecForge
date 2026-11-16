@@ -435,22 +435,10 @@
       "title": "Milestone targets a day before it starts"
     },
     {
-      "code": "W538",
-      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#product",
-      "explanation": "A term's avoid lists no word the glossary accepts: its own name or aliases, or another term's. It is a warning.",
-      "title": "Term avoids a word the glossary accepts"
-    },
-    {
       "code": "I536",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#governance",
       "explanation": "An invariant holds while a fresh verdict of the verify_invariant prompt says so. It is information.",
       "title": "Invariant without a fresh holds verdict"
-    },
-    {
-      "code": "W534",
-      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#product",
-      "explanation": "Prose the author can still change (each field or block member its kind marks prose: free text written now, never a name, an id, a quote or a copy) writes no word or phrase a term lists in avoid, read outside paths, code spans and the names and aliases the glossary accepts. It is a warning.",
-      "title": "Prose uses an avoided synonym"
     },
     {
       "code": "W530",

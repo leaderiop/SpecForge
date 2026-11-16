@@ -1,4 +1,4 @@
-//! `persona`, `journey` and `term` (`spec/product.md`): beyond GSD, ADR 0357.
+//! `persona` and `journey` (`spec/product.md`): beyond GSD, ADR 0357.
 
 use gsd_kit::dsl::*;
 
@@ -13,62 +13,6 @@ const TECHNICAL_LEVEL: &[&str] = &[
     "non_technical",
 ];
 const PERSONA_STATUS: &[&str] = &["active", "deprecated"];
-/// The kinds whose prose `term.used_in` reads: every kind with a field its table marks prose
-/// (`passes::vocabulary::PROSE`'s kinds), in the kinds' order.
-const USED_IN: &[&str] = &[
-    "project",
-    "requirement",
-    "persona",
-    "journey",
-    "milestone",
-    "phase",
-    "workstream",
-    "retrospective",
-    "lesson",
-    "methodology",
-    "context",
-    "decision",
-    "deferred_idea",
-    "phase_spec",
-    "locked_req",
-    "interview",
-    "edge",
-    "spec_prohibition",
-    "discussion",
-    "research",
-    "finding",
-    "stack_choice",
-    "pattern",
-    "pitfall",
-    "dont_hand_roll",
-    "open_question",
-    "plan",
-    "task",
-    "checkpoint",
-    "truth",
-    "artifact",
-    "prohibition",
-    "disposition",
-    "review",
-    "review_concern",
-    "revision_conflict",
-    "user_setup",
-    "summary",
-    "deliverable",
-    "deviation",
-    "pause",
-    "handoff",
-    "blocker",
-    "verify_gap",
-    "override",
-    "human_item",
-    "uat_test",
-    "uat_gap",
-    "manual_check",
-    "milestone_audit",
-    "broken_window",
-    "invariant",
-];
 const STEP: &[Field] = &[
     str("action")
         .prose()
@@ -133,30 +77,6 @@ pub const JOURNEY: Kind = Kind::new(
         rfs("tests", "test").c().doc(
             "the `@code/core` test facts tagged with it (`[gsd:<journey>]`), run or not: evidence beside `covered`, \
              which reads the requirement thread only; `[]` when none (ADR 0357 D21)",
-        ),
-    ],
-);
-
-/// A glossary entry. Unscoped: a term's id is project-wide.
-pub const TERM: Kind = Kind::new(
-    "term",
-    "A glossary entry: a word of the project and what it means (beyond GSD)",
-    &[
-        str("name")
-            .r()
-            .doc("the word or phrase as prose writes it; a pass sees no title, so the vocabulary checks read this"),
-        str("definition").r().doc("what it means in this project"),
-        strs("avoid").doc(
-            "synonyms not to use for it; a word the glossary accepts (this term's `name` or `aliases`, or another \
-             term's) is gsd/W538",
-        ),
-        strs("aliases").doc("other accepted names; one also in a term's `avoid` is gsd/W538"),
-        rfs("related", "term").doc("related terms"),
-        str("context").doc("where or how it is used"),
-        strs("tags").doc("free words"),
-        rfs_any("used_in", USED_IN).c().doc(
-            "the entities whose prose holds its `name` or one of its `aliases` as a whole word or phrase, by id; `[]` \
-             when none (ADR 0357 D17)",
         ),
     ],
 );
