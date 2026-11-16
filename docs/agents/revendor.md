@@ -38,6 +38,17 @@ so editing one re-vendors those builtins: code-facts, and code-junit, which it l
 feeds `@rust/cargo`; `specforge-javascript-workspace` feeds `@javascript/node-test` and `@javascript/source`.
 `every_committed_wasm_is_listed` (xtask) fails for a `.wasm` file git tracks that the list does not name.
 
+## Only the vocabulary
+
+```text
+cargo run -p xtask --bin revendor -- --vocabulary
+```
+
+When the vocabulary's rule or its written form changed and no blob input did (the `builtins` check passes), this
+rewrites `crates/runtime/component/data/builtin-vocabulary.json` from the pinned declarations and builds nothing:
+no lockfile, no blob and no snapshot changes, and it runs from any checkout. A kind keyword two builtins declare is
+listed with both, sorted (ADR 0369). A field two builtins add to one kind stops it, with an error that names both.
+
 ## Profile
 
 The blobs are built with `--profile blob` (root `Cargo.toml`: opt-level `z`, fat LTO, one codegen unit, strip), not with the

@@ -342,4 +342,164 @@ mod tests {
         // /tmp has no enclosing workspace manifest
         assert!(ok.is_ok(), "{ok:?}");
     }
+
+    /// The kinds `@gsd/core` declares, as a declaration named `@gsd/core` with nothing else in it.
+    /// They are read from `gsd/core/tests/golden/kinds.json`, which the gsd suite's own golden test
+    /// keeps equal to the extension's declaration, so this follows every later change to those
+    /// kinds with no edit here.
+    fn gsd_core_kinds_golden() -> ExtensionDeclaration {
+        let path = specforge_repo_root::repo_root().join("gsd/core/tests/golden/kinds.json");
+        let text =
+            std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let golden: serde_json::Value =
+            serde_json::from_str(&text).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let entities: Vec<specforge_protocol_types::EntityKindDescriptor> =
+            serde_json::from_value(golden["entities"]["items"].clone())
+                .unwrap_or_else(|e| panic!("{}: .entities.items: {e}", path.display()));
+        assert!(!entities.is_empty(), "{}: no kind", path.display());
+        ExtensionDeclaration {
+            handshake: specforge_protocol_types::HandshakeResponse {
+                name: "@gsd/core".to_string(),
+                version: "0.0.0".to_string(),
+                protocol_version: specforge_protocol_types::PROTOCOL_VERSION.to_string(),
+                ..Default::default()
+            },
+            entities,
+            ..Default::default()
+        }
+    }
+
+    /// The `fields` map of a written vocabulary.
+    fn written_fields(text: &str) -> serde_json::Value {
+        let written: serde_json::Value = serde_json::from_str(text).unwrap();
+        written["fields"].clone()
+    }
+
+    /// What the vocabulary step does with `gsd_core`, a declaration of `@gsd/core`, beside the
+    /// pinned builtins (ADR 0369 D1): it does not stop and it writes one vocabulary. The keywords
+    /// `@gsd/core` shares with the old builtins are computed from the declarations with the
+    /// vocabulary's own keyword rule, never listed here; `decision`, `deliverable` and `milestone`
+    /// are among them, and stay shared when later changes remove kinds from `@gsd/core`.
+    fn the_step_takes_gsd_core_beside_the_builtins(gsd_core: ExtensionDeclaration) {
+        assert_eq!(gsd_core.name(), "@gsd/core");
+        let mut declarations = pinned_builtin_declarations().unwrap();
+        // Once `@gsd/core` is a builtin itself, the declaration under test replaces its pinned one.
+        declarations.retain(|declaration| declaration.name() != "@gsd/core");
+        let old = CandidateVocabulary::of(&declarations).unwrap();
+        let staged = CandidateVocabulary::of(std::slice::from_ref(&gsd_core)).unwrap();
+        let shared: Vec<&str> = staged
+            .kind_keywords()
+            .filter(|keyword| !old.kind_owners(keyword).is_empty())
+            .collect();
+        println!(
+            "shared kind keywords ({}): {}",
+            shared.len(),
+            shared.join(", ")
+        );
+        for keyword in ["decision", "deliverable", "milestone"] {
+            assert!(
+                shared.contains(&keyword),
+                "'{keyword}' is not shared: {shared:?}"
+            );
+        }
+
+        declarations.push(gsd_core);
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("builtin-vocabulary.json");
+        write_vocabulary(&path, &declarations).expect("the step does not stop");
+        assert_eq!(
+            std::fs::read_dir(dir.path()).unwrap().count(),
+            1,
+            "one vocabulary"
+        );
+        let text = std::fs::read_to_string(&path).unwrap();
+        let written = CandidateVocabulary::from_json(&text);
+
+        for keyword in staged.kind_keywords() {
+            let owners = written.kind_owners(keyword);
+            if shared.contains(&keyword) {
+                // `@gsd/core` first, then the old builtins that declare it.
+                let mut expected = vec!["@gsd/core"];
+                expected.extend(old.kind_owners(keyword));
+                assert_eq!(owners, expected, "the shared keyword '{keyword}'");
+            } else {
+                assert_eq!(owners, ["@gsd/core"], "the keyword '{keyword}'");
+            }
+        }
+        for keyword in old.kind_keywords().filter(|k| !shared.contains(k)) {
+            assert_eq!(
+                written.kind_owners(keyword),
+                old.kind_owners(keyword),
+                "the old builtins' keyword '{keyword}'"
+            );
+        }
+        // `@gsd/core` declares no enhancement: the fields are the old builtins'.
+        assert_eq!(written_fields(&text), written_fields(&old.to_json()));
+    }
+
+    /// The step takes `@gsd/core`'s kinds, read from the tracked golden, beside the pinned builtins.
+    /// It runs in every test run; the staged test below makes the same assertions on a built
+    /// component.
+    #[test]
+    fn the_vocabulary_step_takes_gsd_cores_kinds_golden_beside_the_builtins() {
+        the_step_takes_gsd_core_beside_the_builtins(gsd_core_kinds_golden());
+    }
+
+    /// A field two builtins add to one kind still stops the step, naming both and the field
+    /// (ADR 0369 D4): a copy of `@specforge/formal` under another name adds every field it adds.
+    #[test]
+    fn the_vocabulary_step_still_stops_on_a_field_two_builtins_add_to_one_kind() {
+        let mut declarations = pinned_builtin_declarations().unwrap();
+        let mut copy = declarations
+            .iter()
+            .find(|declaration| declaration.name() == "@specforge/formal")
+            .expect("@specforge/formal is a builtin")
+            .clone();
+        copy.handshake.name = "@staged/formal".to_string();
+        let (kind, field) = copy
+            .enhancements
+            .iter()
+            .find_map(|enhancement| {
+                let field = enhancement.fields.first()?;
+                Some((enhancement.target_kind.clone(), field.name.clone()))
+            })
+            .expect("@specforge/formal adds a field to another extension's kind");
+        declarations.push(copy);
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("builtin-vocabulary.json");
+        let err = write_vocabulary(&path, &declarations).unwrap_err();
+        assert!(
+            err.contains("@specforge/formal and @staged/formal both add")
+                && err.contains(&format!("'{field}'"))
+                && err.contains(&format!("'{kind}'")),
+            "{err}"
+        );
+        assert!(!path.exists(), "a step that stops writes nothing");
+    }
+
+    /// The step takes the declaration of a built `@gsd/core` component beside the pinned builtins.
+    /// The build of `gsd/core` stands for the staged blob: its declaration comes from the same
+    /// source. The vendoring change of ADR 0366 replaces this test with the session's drift test
+    /// over fifteen builtins.
+    #[test]
+    #[ignore = "needs GSD_CORE_WASM"]
+    fn the_vocabulary_step_takes_the_staged_gsd_core_beside_the_builtins() {
+        let path = std::path::PathBuf::from(std::env::var_os("GSD_CORE_WASM").expect(
+            "GSD_CORE_WASM names gsd_core.wasm: (cd gsd && cargo build --locked -p gsd-core --release --target wasm32-wasip2)",
+        ));
+        let bytes = std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let runtime = ComponentRuntime::new();
+        runtime
+            .load(
+                "@gsd/core",
+                &bytes,
+                specforge_wasm::Provenance::third_party(&bytes),
+            )
+            .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let loaded = specforge_wasm::protocol::load_declaration(&runtime, "@gsd/core")
+            .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        assert_eq!(loaded.declaration.name(), "@gsd/core");
+        the_step_takes_gsd_core_beside_the_builtins(loaded.declaration);
+    }
 }
