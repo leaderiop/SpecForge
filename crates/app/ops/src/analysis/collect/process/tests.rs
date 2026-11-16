@@ -231,11 +231,14 @@ fn a_cmd_shim_on_path_runs() {
     unsafe_code,
     reason = "set_var before any thread of this test reads the environment; the test runs in its own process under nextest"
 )]
-fn a_collector_command_never_receives_a_cargo_registry_token() {
+fn a_collector_command_never_receives_a_credential() {
     // SAFETY: no other thread of this test reads the environment.
     unsafe {
         std::env::set_var("CARGO_REGISTRY_TOKEN", "withheld");
         std::env::set_var("CARGO_REGISTRIES_X_TOKEN", "withheld");
+        std::env::set_var("CARGO_REGISTRIES_X_CREDENTIAL_PROVIDER", "cargo:token");
+        std::env::set_var("CARGO_HTTP_PROXY", "http://user:pass@proxy.test:8080");
+        std::env::set_var("HTTPS_PROXY", "http://proxy.test:3128");
         std::env::set_var("CARGO_SPECFORGE_PROBE", "passed");
     }
     let dir = tempfile::tempdir().unwrap();
@@ -251,9 +254,23 @@ fn a_collector_command_never_receives_a_cargo_registry_token() {
     assert_eq!(ran.exit_code, Some(0));
     let env = String::from_utf8(capture).unwrap();
     assert!(env.contains("CARGO_SPECFORGE_PROBE=passed"), "{env}");
-    for withheld in ["CARGO_REGISTRY_TOKEN=", "CARGO_REGISTRIES_X_TOKEN="] {
+    for withheld in [
+        "CARGO_REGISTRY_TOKEN=",
+        "CARGO_REGISTRIES_X_TOKEN=",
+        "CARGO_REGISTRIES_X_CREDENTIAL_PROVIDER=",
+        "user:pass",
+    ] {
         assert!(!env.contains(withheld), "{withheld}: {env}");
     }
+    // The proxy still routes the command's fetches: without its password, or whole when it has none.
+    assert!(
+        env.contains("CARGO_HTTP_PROXY=http://proxy.test:8080\n"),
+        "{env}"
+    );
+    assert!(
+        env.contains("HTTPS_PROXY=http://proxy.test:3128\n"),
+        "{env}"
+    );
 }
 
 /// The report path a caller exported, as a test run exports its report directory.

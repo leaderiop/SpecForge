@@ -9,8 +9,10 @@ use std::path::Path;
 use std::time::Duration;
 
 use specforge_effects::process::request;
-use specforge_effects::{Output, Process, ProcessClass, ProcessRequest};
-use specforge_process::{Located, Runner, inherited, locate, secret};
+use specforge_effects::{Ceiling, Output, Process, ProcessClass, ProcessRequest};
+use specforge_process::{
+    Located, Passed, Runner, credential, inherited, locate, passed, secret, without_userinfo,
+};
 
 fn run(request: &ProcessRequest) -> specforge_effects::ProcessOutcome {
     Runner.run(request, &std::env::temp_dir(), Output::Buffer)
@@ -212,53 +214,204 @@ fn a_declared_prefix_passes_every_variable_it_starts() {
     unsafe_code,
     reason = "set_var before any thread of this test reads the environment; the test runs in its own process under nextest"
 )]
-fn a_secret_under_a_declared_prefix_is_never_passed() {
-    let withheld = [
-        "CARGO_REGISTRY_TOKEN",
-        "CARGO_REGISTRIES_X_TOKEN",
-        "CARGO_REGISTRY_CREDENTIAL_PROVIDER",
-        "CARGO_REGISTRIES_X_CREDENTIAL_PROVIDER",
-        "CARGO_HTTP_PROXY",
-        "CARGO_REGISTRIES_X_INDEX",
-        "RUSTUP_X_SECRET",
-    ];
+fn the_credential_filter_holds_for_a_guests_program_and_a_hosts_command() {
     // SAFETY: no other thread of this test reads the environment.
     unsafe {
-        for name in withheld {
-            std::env::set_var(name, "withheld");
+        for (name, value) in CREDENTIALS {
+            std::env::set_var(name, value);
         }
-        std::env::set_var("CARGO_SPECFORGE_PROBE", "passed");
+        for (name, value) in CLEANED {
+            std::env::set_var(name, value);
+        }
+        for (name, value) in WHOLE {
+            std::env::set_var(name, value);
+        }
     }
-    let env = |declared: &[&str]| {
+    let env = |inherit: Option<&[&str]>, ceiling: Ceiling| {
         let mut asked = request(["env"], Duration::from_secs(10));
-        asked.inherit = Some(declared.iter().map(ToString::to_string).collect());
-        let outcome = run(&asked);
+        asked.inherit = inherit.map(|declared| declared.iter().map(ToString::to_string).collect());
+        let outcome = Runner.run_within(&asked, &std::env::temp_dir(), Output::Buffer, ceiling);
         assert_eq!(outcome.class, ProcessClass::Exited(0), "{outcome:?}");
         outcome.text()
     };
-    let through_patterns = env(&["CARGO_*", "RUSTUP_*"]);
-    assert!(
-        through_patterns.contains("CARGO_SPECFORGE_PROBE=passed"),
-        "{through_patterns}"
-    );
-    for name in withheld {
-        assert!(
-            !through_patterns.contains(&format!("{name}=")),
-            "{name}: {through_patterns}"
-        );
+    let declared: &[&str] = &[
+        "CARGO_*",
+        "RUSTUP_*",
+        "NPM_CONFIG_*",
+        "npm_config_*",
+        "HTTPS_PROXY",
+        "https_proxy",
+        "http_proxy",
+        "ALL_PROXY",
+        // By their exact names, which a person approves: still never passed.
+        "CARGO_REGISTRY_TOKEN",
+        "CARGO_REGISTRY_CREDENTIAL_PROVIDER",
+    ];
+    // A guest's program (its declared names and prefixes) and a collector's command the host runs (the whole
+    // environment): the same filter.
+    for (path, seen) in [
+        ("guest", env(Some(declared), Ceiling::Request)),
+        ("host", env(None, Ceiling::Request)),
+    ] {
+        for (name, _) in CREDENTIALS {
+            assert!(!seen.contains(&format!("{name}=")), "{path} {name}: {seen}");
+        }
+        for (name, value) in CLEANED {
+            let clean = without_userinfo(value).unwrap();
+            assert!(
+                seen.contains(&format!("{name}={clean}\n")),
+                "{path} {name}: {seen}"
+            );
+        }
+        for (name, value) in WHOLE {
+            assert!(
+                seen.contains(&format!("{name}={value}\n")),
+                "{path} {name}: {seen}"
+            );
+        }
     }
-    // Declared by its exact name, which a person approves, the proxy passes; a secret's name never does.
-    let exact = env(&["CARGO_*", "CARGO_HTTP_PROXY", "CARGO_REGISTRY_TOKEN"]);
-    assert!(exact.contains("CARGO_HTTP_PROXY=withheld"), "{exact}");
-    assert!(!exact.contains("CARGO_REGISTRY_TOKEN="), "{exact}");
+    // The host's own build keeps what fetching its crates needs: only a secret is withheld.
+    let build = env(None, Ceiling::HostBuild);
+    assert!(!build.contains("CARGO_REGISTRY_TOKEN="), "{build}");
+    assert!(
+        build.contains("CARGO_REGISTRY_CREDENTIAL_PROVIDER=cargo:token"),
+        "{build}"
+    );
+    assert!(
+        build.contains("CARGO_HTTP_PROXY=http://user:pass@proxy.test:8080\n"),
+        "{build}"
+    );
 }
+
+/// What the credential filter withholds, by name, on every path.
+#[cfg(unix)]
+const CREDENTIALS: [(&str, &str); 10] = [
+    ("CARGO_REGISTRY_TOKEN", "withheld"),
+    ("CARGO_REGISTRIES_X_TOKEN", "withheld"),
+    ("CARGO_REGISTRY_CREDENTIAL_PROVIDER", "cargo:token"),
+    ("CARGO_REGISTRIES_X_CREDENTIAL_PROVIDER", "cargo:token"),
+    ("CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS", "cargo:token"),
+    ("CARGO_CREDENTIAL_X", "withheld"),
+    ("NPM_CONFIG__AUTH", "withheld"),
+    ("NPM_CONFIG__AUTHTOKEN", "withheld"),
+    ("npm_config__authToken", "withheld"),
+    ("RUSTUP_X_PASSWD", "withheld"),
+];
+
+/// What passes with its URL's user and password removed.
+#[cfg(unix)]
+const CLEANED: [(&str, &str); 8] = [
+    ("CARGO_HTTP_PROXY", "http://user:pass@proxy.test:8080"),
+    ("HTTPS_PROXY", "http://user:pass@proxy.test:8080"),
+    ("https_proxy", "http://user:pass@proxy.test:8080"),
+    ("ALL_PROXY", "socks5://user:pass@proxy.test:1080"),
+    (
+        "CARGO_REGISTRIES_X_INDEX",
+        "sparse+https://tok3n@registry.test/index/",
+    ),
+    ("RUSTUP_DIST_SERVER", "https://user:pass@mirror.test"),
+    ("RUSTUP_UPDATE_ROOT", "https://user:pass@mirror.test/rustup"),
+    ("NPM_CONFIG_REGISTRY", "https://user:pass@npm.test/"),
+];
+
+/// What passes whole: cargo's own setting, an index and a proxy with no user.
+#[cfg(unix)]
+const WHOLE: [(&str, &str); 3] = [
+    ("CARGO_SPECFORGE_PROBE", "passed"),
+    (
+        "CARGO_REGISTRIES_Y_INDEX",
+        "sparse+https://registry.test/index/",
+    ),
+    ("http_proxy", "http://proxy.test:3128"),
+];
 
 #[test]
 fn a_secret_is_named_like_one() {
     assert!(secret("aws_region".as_ref()) && secret("GH_API_KEY".as_ref()));
     assert!(secret("SIGNING_KEY".as_ref()) && secret("AZURE_CREDENTIALS".as_ref()));
     assert!(secret("GOOGLE_APPLICATION_CREDENTIALS".as_ref()));
+    for name in [
+        "NPM_CONFIG__AUTH",
+        "NPM_CONFIG__AUTHTOKEN",
+        "npm_config__authToken",
+        "DB_PASSWD",
+        "X_SECRET_KEY",
+        "X_PRIVATE_KEY",
+        "X_API_KEY",
+    ] {
+        assert!(secret(name.as_ref()), "{name}");
+    }
     assert!(!secret("TOKENIZER".as_ref()) && !secret("PATH".as_ref()));
+    assert!(!secret("AUTHOR".as_ref()) && !secret("OAUTH_SCOPE".as_ref()));
+}
+
+#[test]
+fn a_cargo_credential_is_named_like_one() {
+    for name in [
+        "CARGO_REGISTRY_CREDENTIAL_PROVIDER",
+        "cargo_registries_my_reg_credential_provider",
+        "CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS",
+        "CARGO_CREDENTIAL_X_TOKEN_FILE",
+    ] {
+        assert!(credential(name.as_ref()), "{name}");
+    }
+    for name in [
+        "CARGO_REGISTRIES_X_INDEX",
+        "CARGO_HTTP_PROXY",
+        "CARGO_TARGET_DIR",
+    ] {
+        assert!(!credential(name.as_ref()), "{name}");
+    }
+}
+
+#[test]
+fn a_url_passes_without_its_user_and_password() {
+    let cleaned = |text: &str| without_userinfo(text);
+    assert_eq!(
+        cleaned("http://user:pass@proxy.test:8080").as_deref(),
+        Some("http://proxy.test:8080")
+    );
+    // A token written as the user, under an HTTP scheme.
+    assert_eq!(
+        cleaned("sparse+https://tok3n@registry.test/index/").as_deref(),
+        Some("sparse+https://registry.test/index/")
+    );
+    // ssh's account is no secret; its password is.
+    assert_eq!(cleaned("ssh://git@github.test/x.git"), None);
+    assert_eq!(
+        cleaned("ssh://git:pw@github.test/x.git").as_deref(),
+        Some("ssh://github.test/x.git")
+    );
+    // Every URL of a list; an `@` past the host is no user.
+    assert_eq!(
+        cleaned("https://a:b@one.test/p@q https://two.test/r@s").as_deref(),
+        Some("https://one.test/p@q https://two.test/r@s")
+    );
+    for whole in ["http://proxy.test:3128", "no url here", "user@host.test"] {
+        assert_eq!(cleaned(whole), None, "{whole}");
+    }
+    assert_eq!(
+        passed("HTTPS_PROXY".as_ref(), "http://u:p@proxy.test".as_ref()),
+        Passed::Without("http://proxy.test".into())
+    );
+    assert_eq!(
+        passed("CARGO_REGISTRY_TOKEN".as_ref(), "x".as_ref()),
+        Passed::Withheld
+    );
+    assert_eq!(
+        passed("HTTPS_PROXY".as_ref(), "http://proxy.test".as_ref()),
+        Passed::Whole
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_url_that_is_not_unicode_is_withheld() {
+    use std::os::unix::ffi::OsStrExt;
+    let value = std::ffi::OsStr::from_bytes(b"http://u:p\xff@proxy.test");
+    assert_eq!(passed("HTTPS_PROXY".as_ref(), value), Passed::Withheld);
+    let plain = std::ffi::OsStr::from_bytes(b"plain\xff");
+    assert_eq!(passed("X".as_ref(), plain), Passed::Whole);
 }
 
 #[cfg(unix)]

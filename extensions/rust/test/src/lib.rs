@@ -8,11 +8,12 @@
 //! missing nextest is "not found on PATH" with its install line, never a failed build.
 //!
 //! A caller narrows the run with a filter (`specforge collect --runner rust-test --filter <TEXT>`, ADR 0360): the
-//! host appends `-E <TEXT>`, so the text is a nextest filterset (`binary_id(=toy::api) & test(=adds)`). The run reads
-//! the cargo environment its caller builds with (`CARGO_*`, `RUSTUP_*`, `RUSTC`, `RUSTC_*`, `RUSTFLAGS`: the target
-//! directory, the profile settings, the toolchain), which the capability declares, so the approval names it and the
-//! run builds where the caller builds instead of a second cold build in `<project>/target`; a registry credential
-//! never passes.
+//! host appends `-E <TEXT>`, so the text is a nextest filterset (`binary_id(=toy::api) & test(=adds)`). The host runs
+//! the command in the caller's environment, so it builds where the caller builds instead of a second cold build in
+//! `<project>/target`; the capability declares the cargo environment it reads (`CARGO_*`, `RUSTUP_*`, `RUSTC`,
+//! `RUSTC_*`, `RUSTFLAGS`: the target directory, the profile settings, the toolchain), so the approval names it. No
+//! credential passes: a registry token or credential provider is withheld, and a proxy or index URL passes without
+//! its user and password.
 //!
 //! Each case sits in exactly one `<testsuite>`, named by its binary id (`toy`, `toy::bin/toy`, `toy::api`): the test
 //! is `rust:<binary id>#<name>`. It is served `@rust/source`'s items; a test whose id an item's `test_id` holds takes

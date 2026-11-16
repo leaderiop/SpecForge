@@ -114,7 +114,13 @@ fn a_process_summary_names_its_filter() {
     );
     assert_eq!(
         rules(&scope).summary(),
-        "process cargo-nextest nextest run, inherits or sets CARGO_*,RUSTFLAGS, takes a filter as -E {filter}"
+        "process cargo-nextest nextest run, runs in the caller's environment less credentials (reads \
+         CARGO_*,RUSTFLAGS), takes a filter as -E {filter}"
+    );
+    // A command a guest may run inherits what it declares; neither passes a credential.
+    assert_eq!(
+        rules(&filtered(&["env"], &[], &["CARGO_*", "RUSTFLAGS"])).summary(),
+        "process env, inherits or sets CARGO_*,RUSTFLAGS, never a credential"
     );
     // The filter is part of the approved scope: another fragment asks again.
     let other = filtered(

@@ -142,15 +142,30 @@ converted on every change that can move it, by a check of `cargo gate`, and must
   refuses one; `filter_problem` refuses an empty text, one over 16 KiB, one starting with `-`, or one holding a
   control character. `@rust/test` declares `["-E", "{filter}"]`: the text is a nextest filterset.
 - **D13. A declared variable name may end in `*`**, a namespace prefix (a letter first, `[A-Za-z0-9_]` only, at least
-  4 characters, ending in `_`), inherit-only: a guest never sets a variable through one. A name a program receives
-  only through a prefix is refused when it is a cargo credential or registry setting (`CARGO_REGISTRY_*`,
-  `CARGO_REGISTRIES_*`, `CARGO_CREDENTIAL_*`, `CARGO_HTTP_PROXY`), and the secret deny-list still runs last
-  ([ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md)). `@rust/test` declares
+  4 characters, ending in `_`), inherit-only: a guest never sets a variable through one. `@rust/test` declares
   `CARGO_*`, `RUSTUP_*`, `RUSTC`, `RUSTC_*` and `RUSTFLAGS`, so its approval names the environment its build reads.
-  - A collector's command is a program the host runs, not a guest: it keeps the caller's environment less the
-    secret deny-list ([ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md)'s empty environment
-    holds for a program a guest runs). So the declaration changes no variable of today's collect run; it is what
-    the approval shows and what a guest-run program would receive. A registry token (`_TOKEN`) never reaches either.
+  - A collector's command is a program the host runs, not a guest: it keeps the caller's environment
+    ([ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md)'s empty environment holds for a program
+    a guest runs), so it builds where the caller builds. `@rust/test`'s command runs on this host path; its approval
+    line says so (`runs in the caller's environment less credentials (reads CARGO_*,…)`), where a command a guest may
+    run reads `inherits or sets …, never a credential`. The prefix expansion is the protocol's mechanism for a
+    guest-run program, kept for the declarants that path will have and tested end to end through the guest's
+    `process` port.
+  - **One credential filter, both paths** (`specforge_process::passed`, for every program a request or an extension
+    asks for; the host's own `extension build` keeps the secret deny-list alone, so it fetches as the user does): a
+    secret's name (`_TOKEN`, `_AUTHTOKEN`, `_AUTH`, `_SECRET`, `_PASSWORD`, `_PASSWD`, `_KEY`, `_CREDENTIALS`, `AWS_`,
+    any case on every system) and a cargo credential provider (`CARGO_REGISTRY_CREDENTIAL_PROVIDER`,
+    `CARGO_REGISTRIES_<NAME>_CREDENTIAL_PROVIDER`, `CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS`, `CARGO_CREDENTIAL_*`)
+    are withheld, even when declared by their exact name; a URL in an inherited value passes without its user and
+    password (a proxy, `CARGO_REGISTRIES_<NAME>_INDEX`, `RUSTUP_DIST_SERVER`, `NPM_CONFIG_REGISTRY`, a database URL),
+    a user alone removed under an HTTP scheme, where a token is written as the user, and kept as `ssh://git@host`'s
+    account. A proxy without a user passes whole, so a command still fetches through it. A value that is not Unicode
+    and may hold a URL's user is withheld, as it cannot be cleaned
+    ([ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md): secrets never reach a guest).
+  - Rejected: withholding a proxy that carries a password, which would send the command's fetches elsewhere (around
+    the proxy, or nowhere) with no word; removing its password keeps the route, and a proxy that needs it refuses the
+    request in the open. Rejected: running a collector's command in its declared environment only, which would
+    rebuild where the caller's build lives and break a runner that reads a variable nobody thought to declare.
 - **D14. The check `self-spec-sample`.** It builds the `@gsd/core` wasm, `specforge`, `absorb` and the workspace's
   tests, copies the tracked tree twice under `<target>/gate/self-spec-sample/` (`src/`: all of it; `dst/`: all but
   `spec/**` and `specforge.json`), collects `src` with `rust-cargo` and `rust-source`, absorbs the sample into `dst`

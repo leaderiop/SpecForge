@@ -728,9 +728,11 @@ impl CollectorBuilder {
         self.filter = args.iter().map(|a| a.to_string()).collect();
         self
     }
-    /// The environment variables [`CollectorBuilder::run`]'s program inherits beside what any program needs: a name,
-    /// or a namespace prefix ending `_*` (`CARGO_*`), which never passes registry credentials. A person approves them
-    /// with the command.
+    /// The environment variables [`CollectorBuilder::run`]'s program reads: a name, or a namespace prefix ending `_*`
+    /// (`CARGO_*`). A person approves them with the command. A collector's command is run by the host, in the
+    /// caller's environment, these included; a program a guest runs inherits only these beside what any program needs.
+    /// Neither receives a credential: a secret's name (`*_TOKEN`, `*_AUTH`, `*_PASSWORD`, `*_KEY`, …) or a cargo
+    /// credential provider is withheld, and a URL passes without its user and password.
     pub fn env(&mut self, names: &[&str]) -> &mut Self {
         self.env = names.iter().map(|n| n.to_string()).collect();
         self

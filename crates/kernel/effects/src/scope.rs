@@ -267,8 +267,16 @@ impl ScopeRules for ProcessScope {
 
     fn summary(&self) -> String {
         let mut line = format!("process {}", self.argv.join(" "));
+        // What the program receives, as exactly as it holds: a command no request is admitted on runs only as the
+        // host's collector command, in the caller's environment; another inherits or is set what it declares. Either
+        // passes no credential (the process runner's credential filter).
         if !self.env.is_empty() {
-            line.push_str(&format!(", inherits or sets {}", self.env.join(",")));
+            let env = self.env.join(",");
+            line.push_str(&if host_run_only(self) {
+                format!(", runs in the caller's environment less credentials (reads {env})")
+            } else {
+                format!(", inherits or sets {env}, never a credential")
+            });
         }
         if let Some(config) = &self.config {
             let digest = Sha256::of(config.template.as_bytes()).to_string();
@@ -291,10 +299,14 @@ impl ScopeRules for ProcessScope {
         // A placeholder is the host's to fill with its own paths (ADR 0348 D3), and a filter is the host's to append
         // with a caller's text: no request fills either, so a capability whose argv names a placeholder, or that
         // declares a filter, admits none; the host's own run is `Grant::permits_command`.
-        !templated(&self.argv)
-            && self.filter.is_empty()
-            && ((user && self.argv.is_empty()) || self.argv == request.argv)
+        !host_run_only(self) && ((user && self.argv.is_empty()) || self.argv == request.argv)
     }
+}
+
+/// Whether `scope` admits no request, so only the host runs its command (a collector's): its argv names a placeholder
+/// or it declares a filter.
+fn host_run_only(scope: &ProcessScope) -> bool {
+    templated(&scope.argv) || !scope.filter.is_empty()
 }
 
 impl ScopeRules for GitScope {
