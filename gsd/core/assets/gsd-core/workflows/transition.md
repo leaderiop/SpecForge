@@ -241,15 +241,15 @@ if [ -n "${_SUMMARIES[0]}" ]; then for s in "${_SUMMARIES[@]}"; do specforge que
    - Record each as a `v1` requirement of the phase that will build it. A `v1` requirement must be in a phase (`gsd/E101`), so it is recorded `v2`, mapped into the phase, then made `v1`:
 
    ```bash
-   REQ_ID="{AREA-NN: the next free id of its area}"
+   REQ_ID="{CATEGORY-NN: the next free id of its category}"
    IFS= read -rd '' TEXT <<'TEXT' || true; TEXT=${TEXT%$'\n'}
    {the requirement: user-centric, testable, atomic}
    TEXT
-   IFS= read -rd '' AREA <<'TEXT' || true; AREA=${AREA%$'\n'}
-   {its area, e.g. Authentication}
+   IFS= read -rd '' CATEGORY <<'TEXT' || true; CATEGORY=${CATEGORY%$'\n'}
+   {its category, e.g. Authentication}
    TEXT
    BUILT_BY="{the phase that will build it, e.g. v1.0/03}"
-   specforge new requirement "$REQ_ID" "$TEXT" --in spec/requirements.spec --text "$TEXT" --area "$AREA" --tier v2 || exit 1
+   specforge new requirement "$REQ_ID" "$TEXT" --in spec/requirements.spec --text "$TEXT" --category "$CATEGORY" --tier v2 || exit 1
    specforge link "$BUILT_BY" requirements "$REQ_ID" || exit 1
    specforge set "$REQ_ID" tier v1 || exit 1
    ```

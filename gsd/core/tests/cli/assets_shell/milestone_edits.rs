@@ -95,7 +95,7 @@ fn the_project_evolution_is_typed_edits() {
             &[
                 ("REQ_ID", "LIST-02"),
                 ("TEXT", "A user can search every board by a word"),
-                ("AREA", "Listing"),
+                ("CATEGORY", "Listing"),
                 ("BUILT_BY", "v1.0/03"),
             ],
         ),

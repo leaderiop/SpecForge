@@ -39,7 +39,7 @@ fn project_and_requirement_declare_the_fields_of_the_model() {
         fields_of("requirement"),
         [
             "text",
-            "area",
+            "category",
             "tier",
             "reason",
             "defined",

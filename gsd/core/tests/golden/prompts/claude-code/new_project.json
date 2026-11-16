@@ -61,13 +61,13 @@
     "```bash",
     ""
   ],
-  "bytes": 77245,
+  "bytes": 77220,
   "end": [
     "TIER=\"{v1, v2 or out_of_scope}\"",
     "IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\\n'}",
     "{why it is out of scope}",
     "TEXT",
-    "specforge new requirement \"$REQ_ID\" \"$TEXT\" --in spec/requirements.spec --text \"$TEXT\" --area \"$AREA\" --tier \"$TIER\" --reason \"$REASON\" || exit 1",
+    "specforge new requirement \"$REQ_ID\" \"$TEXT\" --in spec/requirements.spec --text \"$TEXT\" --category \"$CATEGORY\" --tier \"$TIER\" --reason \"$REASON\" || exit 1",
     "```",
     "",
     "A `v1` requirement must be in a phase: `gsd/E101` binds once the project has a phase, so requirements recorded before",
@@ -77,10 +77,10 @@
     "",
     "**What goes where:**",
     "",
-    "- `id`: `AREA-NN` (AUTH-01, CONTENT-02, SOCIAL-03), upstream's `[CATEGORY]-[NUMBER]`.",
+    "- `id`: `CATEGORY-NN` (AUTH-01, CONTENT-02, SOCIAL-03).",
     "- `text`: user-centric, testable, atomic (\"User can reset password via email link\").",
-    "- `area`: upstream's `### [Category]` heading: a feature area from the research, in the words the domain uses",
-    "  (an auth, content or payments area, say).",
+    "- `category`: a feature category from the research, in the words the domain itself uses (an auth, content or",
+    "  payments area, say).",
     "- `tier`:",
     "  - `v1`: committed scope, mapped to roadmap phases;",
     "  - `v2`: acknowledged but deferred, not in the current roadmap; moving one to `v1` needs a roadmap update;",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:db151d2fc447874d554c33bda6377342b84039af6830270a35081a104e08dcae",
+    "digest": "sha256:89d83d479cfe1252395e8444f995877997b3b1fbd02e7bae0dc34ff11589761b",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "db151d2fc447874d554c33bda6377342b84039af6830270a35081a104e08dcae"
+  "sha256": "89d83d479cfe1252395e8444f995877997b3b1fbd02e7bae0dc34ff11589761b"
 }

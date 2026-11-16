@@ -61,7 +61,7 @@
     "",
     "MILESTONE_NAME=\"Next\""
   ],
-  "bytes": 71432,
+  "bytes": 71439,
   "end": [
     "the roadmap wait for it, and the roadmapper maps each `v1` requirement to exactly one phase (the phase's",
     "`requirements`). Coverage, traceability and status are computed from the phases, plans and verifications that cover a",
@@ -69,10 +69,10 @@
     "",
     "**What goes where:**",
     "",
-    "- `id`: `AREA-NN` (AUTH-01, CONTENT-02, SOCIAL-03), upstream's `[CATEGORY]-[NUMBER]`.",
+    "- `id`: `CATEGORY-NN` (AUTH-01, CONTENT-02, SOCIAL-03).",
     "- `text`: user-centric, testable, atomic (\"User can reset password via email link\").",
-    "- `area`: upstream's `### [Category]` heading: a feature area from the research, in the words the domain uses",
-    "  (an auth, content or payments area, say).",
+    "- `category`: a feature category from the research, in the words the domain itself uses (an auth, content or",
+    "  payments area, say).",
     "- `tier`:",
     "  - `v1`: committed scope, mapped to roadmap phases;",
     "  - `v2`: acknowledged but deferred, not in the current roadmap; moving one to `v1` needs a roadmap update;",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:21ef8233a5a335e3c5ec3c245d10a8fd17c70af90dd5b0f0edc42b4f69b60577",
+    "digest": "sha256:26e8c777d062e881725df9994d802d6235d12f81a44fb5fa4050e88e33ca07e4",
     "prompt": "@gsd/core@VERSION:new_milestone",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "21ef8233a5a335e3c5ec3c245d10a8fd17c70af90dd5b0f0edc42b4f69b60577"
+  "sha256": "26e8c777d062e881725df9994d802d6235d12f81a44fb5fa4050e88e33ca07e4"
 }

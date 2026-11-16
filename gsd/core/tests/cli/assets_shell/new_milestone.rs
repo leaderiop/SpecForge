@@ -27,7 +27,7 @@ fn requirement(id: &str, text: &str, tier: &str) -> String {
         &[
             ("REQ_ID", id),
             ("TEXT", text),
-            ("AREA", "Sync"),
+            ("CATEGORY", "Sync"),
             ("TIER", tier),
             ("REASON", "Accounts are out of scope"),
         ],
@@ -166,24 +166,24 @@ fn a_workstream_milestone_is_recorded() {
 }
 
 /// The steps that gather requirements and the roadmapper that groups them call the heading what the requirement
-/// names it, `area`.
+/// names it, `category`, as upstream's templates do.
 #[test]
-fn the_requirement_heading_is_called_area() {
-    let heading_as_category = [
-        "[CATEGORY]-[NUMBER]",
-        "CAT-NN",
-        "[Category",
-        "[category]",
-        "by category",
-        "per category",
-        "per-category",
-        "each category",
-        "entire category",
-        "into categories",
-        "requirement categor",
-        "Group by Category",
-        "extract categories",
-        "feature categories",
+fn the_requirement_heading_is_called_category() {
+    let heading_as_area = [
+        "[AREA]-[NUMBER]",
+        "AREA-NN",
+        "[Area",
+        "[area]",
+        "by area",
+        "per area",
+        "per-area",
+        "each area",
+        "entire area",
+        "into areas",
+        "requirement area",
+        "Group by Area",
+        "extract areas",
+        "feature areas",
     ];
     for path in [
         "gsd-core/workflows/new-milestone.md",
@@ -192,7 +192,7 @@ fn the_requirement_heading_is_called_area() {
         "agents/gsd-roadmapper.compact.md",
     ] {
         for (n, line) in asset(path).lines().enumerate() {
-            for word in heading_as_category {
+            for word in heading_as_area {
                 assert!(!line.contains(word), "{path}:{}: {line}", n + 1);
             }
         }

@@ -10,7 +10,7 @@
     └─0..*─ methodology
 ```
 
-Files: `spec/gsd/project.spec`, `spec/gsd/requirements/<area>.spec`, `spec/gsd/milestones/<v>/milestone.spec`,
+Files: `spec/gsd/project.spec`, `spec/gsd/requirements/<category>.spec`, `spec/gsd/milestones/<v>/milestone.spec`,
 `spec/gsd/milestones/<v>/phases/<NN-slug>/phase.spec`.
 
 ## project
@@ -39,7 +39,7 @@ GSD: one bullet of `REQUIREMENTS.md`. Name: `AUTH-01`. A requirement id is uniqu
 | Field | Type | Flags | GSD |
 |---|---|---|---|
 | text | str | R | description after the ID |
-| area | str | R | `### [Category]` (the word `decision.area` uses) |
+| category | str | R | `### [Category]` |
 | tier | enum{v1, v2, out_of_scope} | R | `## v1` / `## v2` / `## Out of Scope` |
 | reason | str | | Out of Scope `Reason` (required when `out_of_scope`) |
 | defined | date | I | `**Defined:**` |

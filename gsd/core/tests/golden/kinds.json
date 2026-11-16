@@ -1538,11 +1538,11 @@
           },
           {
             "default_value": null,
-            "description": "its heading, a feature area (### [Category])",
+            "description": "### [Category]",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
-            "name": "area",
+            "name": "category",
             "required": true,
             "target_kind": null
           },

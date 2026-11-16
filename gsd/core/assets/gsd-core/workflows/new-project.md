@@ -728,19 +728,19 @@ Read the `project` entity (`specforge export --kinds project --format context`) 
 - Stated constraints (budget, timeline, tech limitations)
 - Any explicit scope boundaries
 
-**If research exists:** read the feature findings of `RESEARCH` (`specforge query RESEARCH --depth 1 --format context`, the findings of topic `features`) and extract feature areas (each becomes its requirements' `area`).
+**If research exists:** read the feature findings of `RESEARCH` (`specforge query RESEARCH --depth 1 --format context`, the findings of topic `features`) and extract feature categories.
 
 **If auto mode:**
 
 - Auto-include all table stakes features (users expect these)
 - Include features explicitly mentioned in provided document
 - Auto-defer differentiators not mentioned in document
-- Skip per-area AskUserQuestion loops
+- Skip per-category AskUserQuestion loops
 - Skip "Any additions?" question
 - Skip requirements approval gate
 - Record the requirements and commit directly
 
-**Present features by area (interactive mode only):**
+**Present features by category (interactive mode only):**
 
 ```
 Here are the features for [domain]:
@@ -761,7 +761,7 @@ Here are the features for [domain]:
 
 ---
 
-## [Next Area]
+## [Next Category]
 ...
 ```
 
@@ -773,20 +773,20 @@ For each capability mentioned:
 
 - Ask clarifying questions to make it specific
 - Probe for related capabilities
-- Group into areas
+- Group into categories
 
-**Scope each area:**
+**Scope each category:**
 
-For each area, use AskUserQuestion:
+For each category, use AskUserQuestion:
 
-- header: "[Area]" (max 12 chars)
-- question: "Which [area] features are in v1?"
+- header: "[Category]" (max 12 chars)
+- question: "Which [category] features are in v1?"
 - multiSelect: true
 - options:
   - "[Feature 1]" — [brief description]
   - "[Feature 2]" — [brief description]
   - "[Feature 3]" — [brief description]
-  - "None for v1" — Defer entire area
+  - "None for v1" — Defer entire category
 
 Track responses:
 
@@ -810,9 +810,9 @@ Cross-check requirements against the project's core value. If gaps detected, sur
 
 **Record the requirements:**
 
-Run **the requirement fence** in `templates/requirements.md` (`specforge gsd reference templates/requirements.md`) once per requirement, grouped by area (its `--area`): the v1 requirements (tier `v1`), the deferred ones (`v2`) and the explicit exclusions (`out_of_scope`, with their `reason`). There is no traceability to fill: the roadmapper maps each v1 requirement to a phase, and `gsd/E101` binds once the project has a phase.
+Run **the requirement fence** in `templates/requirements.md` (`specforge gsd reference templates/requirements.md`) once per requirement, grouped by category: the v1 requirements (tier `v1`), the deferred ones (`v2`) and the explicit exclusions (`out_of_scope`, with their `reason`). There is no traceability to fill: the roadmapper maps each v1 requirement to a phase, and `gsd/E101` binds once the project has a phase.
 
-**REQ-ID format:** `[AREA]-[NUMBER]` (AUTH-01, CONTENT-02)
+**REQ-ID format:** `[CATEGORY]-[NUMBER]` (AUTH-01, CONTENT-02)
 
 **Requirement quality criteria:**
 
@@ -1136,7 +1136,7 @@ PHASE1_HAS_UI=${PHASE1_HAS_UI:-false}   # @gsd/ui computes frontend: false when 
 - [ ] config.json has workflow mode, granularity, parallelization → **committed**
 - [ ] Research completed (if selected) — 4 parallel agents spawned → **committed**
 - [ ] Requirements gathered (from research or conversation)
-- [ ] User scoped each area (v1/v2/out of scope)
+- [ ] User scoped each category (v1/v2/out of scope)
 - [ ] `requirement` entities recorded with REQ-IDs and tiers → **committed**
 - [ ] gsd-roadmapper spawned with context
 - [ ] Roadmap files written immediately (not draft)

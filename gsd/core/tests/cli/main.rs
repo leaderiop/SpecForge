@@ -190,7 +190,7 @@ fn a_requirement_with_an_unknown_tier_is_refused() {
     let p = project("roadmap");
     p.write(
         "spec/bad.spec",
-        "requirement TASK-09 \"Bad\" {\n  text \"x\"\n  area \"Tasks\"\n  tier v3\n}\n",
+        "requirement TASK-09 \"Bad\" {\n  text \"x\"\n  category \"Tasks\"\n  tier v3\n}\n",
     );
     let check = p.run(&["check"]);
     assert_eq!(check.code, 1, "check: {}", check.all());
@@ -202,7 +202,7 @@ fn a_requirement_with_an_unknown_tier_is_refused() {
 }
 
 #[test]
-fn a_requirement_without_its_area_is_refused() {
+fn a_requirement_without_its_category_is_refused() {
     let p = project("roadmap");
     p.write(
         "spec/bad.spec",
@@ -211,7 +211,7 @@ fn a_requirement_without_its_area_is_refused() {
     let check = p.run(&["check"]);
     assert_eq!(check.code, 1, "check: {}", check.all());
     assert!(
-        check.all().contains("TASK-09") && check.all().contains("'area'"),
+        check.all().contains("TASK-09") && check.all().contains("'category'"),
         "check: {}",
         check.all()
     );
@@ -315,24 +315,24 @@ fn a_lesson_is_named_within_its_retrospective() {
     );
 }
 
-/// The heading is `area`: a requirement that writes `category` in its place lacks its `area`, and the `category`
+/// The heading is `category`: a requirement that writes `area` in its place lacks its `category`, and the `area`
 /// it wrote is a field the kind does not declare (W020).
 #[test]
-fn a_requirement_written_with_category_as_its_heading_is_refused() {
+fn a_requirement_written_with_area_as_its_heading_is_refused() {
     let p = project("roadmap");
     p.write(
         "spec/bad.spec",
-        "requirement TASK-09 \"Old\" {\n  text     \"x\"\n  category \"Tasks\"\n  tier     v2\n}\n",
+        "requirement TASK-09 \"Old\" {\n  text \"x\"\n  area \"Tasks\"\n  tier v2\n}\n",
     );
     let check = p.run(&["check"]);
     assert_eq!(check.code, 1, "check: {}", check.all());
     let all = check.all();
     assert!(
-        all.contains("TASK-09") && all.contains("'area'"),
+        all.contains("TASK-09") && all.contains("'category'"),
         "check: {all}"
     );
     assert!(
-        all.contains("W020") && all.contains("'category'"),
+        all.contains("W020") && all.contains("'area'"),
         "check: {all}"
     );
 }

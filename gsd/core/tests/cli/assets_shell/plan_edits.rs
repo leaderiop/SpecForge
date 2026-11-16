@@ -520,7 +520,7 @@ fn the_coverage_trace_names_an_uncovered_requirement() {
     p.write(
         "spec/requirements.spec",
         &format!(
-            "{requirements}\nrequirement STORE-03 \"A save survives a crash\" {{\n  text    \"A crash mid-save leaves the board whole\"\n  area    \"Storage\"\n  tier    v1\n  defined 2026-03-02\n}}\n"
+            "{requirements}\nrequirement STORE-03 \"A save survives a crash\" {{\n  text     \"A crash mid-save leaves the board whole\"\n  category \"Storage\"\n  tier     v1\n  defined  2026-03-02\n}}\n"
         ),
     );
     let uncovered = thread(&p);

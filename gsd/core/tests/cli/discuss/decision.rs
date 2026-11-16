@@ -209,8 +209,8 @@ fn an_authored_affected_by_is_e079_naming_affects() {
     p.write("spec/affects.spec", AFFECTS);
     p.edit(
         "spec/project.spec",
-        "  text \"A user can add a task with a title\"\n",
-        "  text \"A user can add a task with a title\"\n  affected_by [v1.0/02/D-03]\n",
+        "  text     \"A user can add a task with a title\"\n",
+        "  text     \"A user can add a task with a title\"\n  affected_by [v1.0/02/D-03]\n",
     );
     let report = p.report();
     assert!(

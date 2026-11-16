@@ -10,20 +10,20 @@ project taskboard "Taskboard" {
 }
 
 requirement TASK-01 "Add a task" {
-  text "A user can add a task with a title"
-  area "Tasks"
-  tier v1
+  text     "A user can add a task with a title"
+  category "Tasks"
+  tier     v1
 }
 
 requirement TASK-02 "Complete a task" {
-  text "A user can mark a task complete"
-  area "Tasks"
-  tier v1
+  text     "A user can mark a task complete"
+  category "Tasks"
+  tier     v1
 }
 
 requirement SHARE-01 "Share a board" {
-  text   "A user can share a board by link"
-  area   "Sharing"
-  tier   out_of_scope
-  reason "Needs accounts, which v1 does not have"
+  text     "A user can share a board by link"
+  category "Sharing"
+  tier     out_of_scope
+  reason   "Needs accounts, which v1 does not have"
 }
