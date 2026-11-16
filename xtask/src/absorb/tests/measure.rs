@@ -1,12 +1,13 @@
 //! The table is the measure (ADR 0360 D2): every field the old builtins register has exactly one row, every row a
-//! home, and every home a field `@gsd/core` declares, authored or computed as the home says.
+//! home, and every home a field `@gsd/core` declares, authored or computed as the home says, of the type it writes.
 
 use serde_json::Value;
 use specforge_ops::authoring::edit;
 use specforge_ops::view::ProjectView;
+use specforge_protocol_types::FieldType;
 use std::collections::BTreeMap;
 
-use super::super::table::{self, Home, OLD_KINDS, Pending, TABLE, VERIFY};
+use super::super::table::{self, Home, How, OLD_KINDS, Pending, TABLE, VERIFY};
 use super::fixture;
 
 #[test]
@@ -92,8 +93,27 @@ fn every_kind_that_takes_verify_has_one_obligation_row() {
     assert_eq!(rows, ["constraint", "failure_mode", "invariant"]);
 }
 
+/// The field type a home written `how` holds, from the old field's type (`None` for an obligation row, which no old
+/// builtin registers). `As` writes the old value as it is, so its home is of the old field's own type; every other way
+/// makes one shape, whatever the old one. Exhaustive: a new way of writing is classified here before it compiles.
+fn written(how: How, old: Option<FieldType>) -> Vec<FieldType> {
+    use FieldType::*;
+    match how {
+        How::As => old.into_iter().collect(),
+        How::Text | How::Solution => vec![String],
+        How::Refs | How::InvertOnto | How::Proof => vec![ReferenceList],
+        How::Ref => vec![Reference],
+        How::Words => vec![StringList],
+        How::Steps | How::Options => vec![BlockList],
+        How::FeatureTier | How::Outcome | How::Category | How::Priority => vec![Enum],
+        How::Settled => vec![Bool],
+        How::Sod(_) => vec![Integer],
+        How::PostWord(_) | How::Post | How::Bound | How::Threshold => vec![Block],
+    }
+}
+
 #[test]
-fn every_home_names_a_field_the_gsd_core_golden_declares() {
+fn every_home_names_a_field_the_gsd_core_golden_declares_of_the_type_it_writes() {
     let golden: Value = serde_json::from_str(
         &std::fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -102,32 +122,51 @@ fn every_home_names_a_field_the_gsd_core_golden_declares() {
         .unwrap(),
     )
     .unwrap();
-    // kind → field → its writer (empty: authored).
-    let mut declared: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+    // kind → field → its writer (empty: authored) and its type.
+    let mut declared: BTreeMap<String, BTreeMap<String, (String, FieldType)>> = BTreeMap::new();
     for kind in golden["entities"]["items"].as_array().unwrap() {
         let fields = kind["fields"].as_array().unwrap().iter().map(|f| {
+            let field_type: FieldType = serde_json::from_value(f["field_type"].clone()).unwrap();
             (
                 f["name"].as_str().unwrap().to_string(),
-                f["writer"].as_str().unwrap_or_default().to_string(),
+                (
+                    f["writer"].as_str().unwrap_or_default().to_string(),
+                    field_type,
+                ),
             )
         });
         declared.insert(kind["name"].as_str().unwrap().to_string(), fields.collect());
     }
-    let mut homes = 0;
+    let old = fixture();
+    let view = ProjectView::of(&old.project);
+    let (mut homes, mut typed) = (0, 0);
     for row in TABLE {
+        let old_type = edit::fields_of(&view, row.kind)
+            .into_iter()
+            .find(|f| f.name == row.field)
+            .map(|f| f.field_type);
         for home in row.homes {
-            let (kind, field, writer) = match *home {
-                Home::To { kind, field, .. } => (kind, field, ""),
-                Home::Computed { kind, field, .. } => (kind, field, "computed"),
+            let (kind, field, writer, how) = match *home {
+                Home::To { kind, field, how } => (kind, field, "", Some(how)),
+                Home::Computed { kind, field, .. } => (kind, field, "computed", None),
                 _ => continue,
             };
             homes += 1;
             let at = format!("{}.{} → {kind}.{field}", row.kind, row.field);
             let held = declared.get(kind).and_then(|f| f.get(field));
-            assert_eq!(held.map(String::as_str), Some(writer), "{at}");
+            assert_eq!(held.map(|(w, _)| w.as_str()), Some(writer), "{at}");
+            if let (Some(how), Some((_, field_type))) = (how, held) {
+                typed += 1;
+                let writes = written(how, old_type);
+                assert!(
+                    writes.contains(field_type),
+                    "{at}: {how:?} from {old_type:?} writes {writes:?}, the golden declares {field_type:?}"
+                );
+            }
         }
     }
     assert!(homes > 89, "{homes}");
+    assert!(typed >= 89, "{typed}");
     for old in OLD_KINDS {
         if let Some(kind) = table::new_kind(old) {
             assert!(declared.contains_key(kind), "{old} → {kind}");
