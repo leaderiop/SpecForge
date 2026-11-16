@@ -3,7 +3,7 @@
 use super::super::defaults::{self, Change};
 use super::super::path::{self, FieldPath};
 use super::super::typed;
-use super::super::write::not_editable;
+use super::super::write::{items_given, not_editable};
 use super::super::{EditField, Input};
 use super::{Block, Items, Site, items_of, list_text, unreadable};
 use crate::Refusal;
@@ -59,7 +59,19 @@ pub fn set(
 ) -> Result<String, Refusal<EditField>> {
     match path::resolve(site, field, None)? {
         FieldPath::Field { name, reading } => defaults::change(site, text, name, |block, _| {
+            let reference_list = matches!(
+                &reading,
+                Reading::Declared(form) if form.field_type() == FieldType::ReferenceList
+            );
             let input = &match input {
+                // A reference list's items as the write splits them (at commas), each spelled on its own: `D-09,X`
+                // is two references, and writes as its items given one by one do.
+                Input::One(_) | Input::Many(_) if reference_list => Input::Many(
+                    items_given(input, name, FieldType::ReferenceList)?
+                        .iter()
+                        .map(|one| spelled(site, name, &reading, one))
+                        .collect(),
+                ),
                 Input::One(one) => Input::One(spelled(site, name, &reading, one)),
                 Input::Many(many) => Input::Many(
                     many.iter()
@@ -310,12 +322,13 @@ pub fn link(
         };
         let Some(mut items) = current else {
             // A single `reference` field: unlink removes it when it names the target.
-            // A name written as a number or a date (`parent 10`) names its text (ADR 0283).
+            // A name written as a number or a date (`parent 10`, `plan 3.1`) names its text (ADR 0283, ADR 0361).
             return Ok(match held.entry().map(|e| &e.value) {
                 Some(
                     value @ (FieldValue::Identifier(_)
                     | FieldValue::String(_)
                     | FieldValue::Integer(_)
+                    | FieldValue::Number(_)
                     | FieldValue::Date(_)
                     | FieldValue::Boolean(_)),
                 ) if names_target(&specforge_registry::snapshot::field_text(value)) => {

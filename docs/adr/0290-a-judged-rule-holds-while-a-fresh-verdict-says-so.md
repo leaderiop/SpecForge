@@ -7,6 +7,7 @@ Amended by [ADR 0331](0331-the-gsd-requirement-thread.md) (D3: a `test(..)` inpu
 Amended by [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md) (a verdict digests each checked value's outcome class; an unknown one is I207).
 Amended by [ADR 0350](0350-a-fields-checks-may-wait-for-its-owner.md) (D9: the baseline runs the ungated checks at the commit, over its files, for D7).
 Extended by [ADR 0356](0356-an-extension-declares-the-context-a-role-reads.md) (a context section reads through the input evaluator and digests as the input of its selector, and a selector kind's field filter).
+Amended by [ADR 0362](0362-a-judged-target-may-wait-for-its-owner-state.md) (D1: a target may wait for an owner state, `judged_while`; an entity in the other state owes no verdict, decided after the compute passes).
 
 ## Context
 

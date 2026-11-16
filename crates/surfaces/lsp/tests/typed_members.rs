@@ -119,3 +119,47 @@ fn navigation_and_tokens_reach_a_block_member_reference() {
         .expect("a token for `02`");
     assert!(token.modifiers & MOD_REFERENCE != 0, "{token:?}");
 }
+
+const MEASURES: &str = "\
+measure m1 \"M\" {
+  value 1.5e3
+  ratio 0.50
+}
+
+measure m2 \"N\" {
+  value 0.75
+}
+";
+
+#[spec(
+    behavior = "provide_semantic_tokens",
+    verify = "a number field's word is a number token"
+)]
+fn a_number_fields_word_is_a_number_token() {
+    let project = Assembled::typed().sources(&[("main.spec", MEASURES)]);
+    let view = ProjectView::of(project.compiled());
+    let tokens = Document::new(MEASURES.into()).tokens(&view);
+    for word in ["1.5e3", "0.50", "0.75"] {
+        let token = tokens
+            .iter()
+            .find(|t| t.text == word)
+            .unwrap_or_else(|| panic!("a token for `{word}`: {tokens:?}"));
+        assert_eq!(token.token_type, "number", "{token:?}");
+    }
+}
+
+#[spec(
+    behavior = "provide_extension_entity_hover",
+    verify = "hover shows a number field's value beside the word it was written as when they differ"
+)]
+fn hover_shows_a_numbers_value_and_the_word_it_was_read_from() {
+    let served = served(MEASURES);
+    let m1 = served.hover_on("main.spec", "m1").expect("a hover on m1");
+    assert!(m1.contains("`value` = 1500 (written 1.5e3)"), "{m1}");
+    assert!(m1.contains("`ratio` = 0.5 (written 0.50)"), "{m1}");
+    let m2 = served.hover_on("main.spec", "m2").expect("a hover on m2");
+    assert!(
+        m2.contains("`value` = 0.75") && !m2.contains("written"),
+        "{m2}"
+    );
+}

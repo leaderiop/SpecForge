@@ -82,6 +82,9 @@ fn the_summary_template_closes_a_plan() {
             ("PLAN_ID", "v1.0/02/02-01"),
             ("DECISION_ID", "D-04"),
             ("DECISION", "The store syncs the file before the rename"),
+            ("SUPERSEDES", ""),
+            ("AFFECTS", ""),
+            ("ALTERNATIVES", ""),
         ],
     );
     let summary = typed::filled(
@@ -144,7 +147,8 @@ fn the_summary_template_closes_a_plan() {
     );
     let fields = p.fields_of("v1.0/02/02-01/02-01-SUMMARY");
     assert!(fields["completed"].is_string(), "{fields}");
-    assert_eq!(fields["key_decisions"], serde_json::json!(["v1.0/02/D-04"]));
+    // Written as `link` spells it from the summary: the phase's D-04 is `D-04` there.
+    assert_eq!(fields["key_decisions"], serde_json::json!(["D-04"]));
     for id in ["D1", "DV1"] {
         let id = format!("v1.0/02/02-01/02-01-SUMMARY/{id}");
         assert!(p.fields_of(&id).is_object(), "{id} is missing");
@@ -280,6 +284,7 @@ fn the_uat_step_writes_a_uat_session() {
                 "EXPECTED",
                 "`node src/cli.js` prints one usage line a person understands",
             ),
+            ("JOURNEY", ""),
         ],
     );
     let run = typed::apply(&sh, &p, &uat);
@@ -293,6 +298,36 @@ fn the_uat_step_writes_a_uat_session() {
         test["result"].is_null(),
         "the result is the person's: {test}"
     );
+}
+
+/// Step A's journey query, as execute-phase holds it, lists the journeys of the phase: one that names a requirement of
+/// `v1.0/01`, and one that lists milestone `v1.0` for every phase of it.
+#[test]
+fn the_uat_step_finds_the_journeys_of_the_phase() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    p.write(
+        "spec/product.spec",
+        &format!(
+            "{}{}",
+            super::verify_edits::COMPLETE_A_TASK,
+            super::verify_edits::OPEN_THE_BOARD
+        ),
+    );
+    let query = span(
+        &asset("gsd-core/workflows/execute-phase.md"),
+        "specforge query \"$PHASE_ID\" --depth 2 --kinds journey",
+    );
+    for (phase, want) in [
+        ("v1.0/01", "complete_a_task\nopen_the_board"),
+        ("v1.0/02", "open_the_board"),
+    ] {
+        let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID={phase}\n{query}"));
+        assert_eq!(code, 0, "{phase}: {err}");
+        assert_eq!(out.trim(), want, "{phase}: {out}");
+    }
 }
 
 /// The manager's background prompts tell a stuck agent to raise a blocker on its phase; each backticked line runs as

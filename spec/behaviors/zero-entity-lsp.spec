@@ -112,6 +112,7 @@ behavior provide_extension_entity_hover "Provide Extension Entity Hover" {
   verify unit "hover on an entity lists the diagnostics of its duplicate declarations"
   verify unit "a long field value is cut at a character boundary"
   verify unit "hover shows the last complete compile's coverage while the project rebuilds"
+  verify unit "hover shows a number field's value beside the word it was written as when they differ"
   verify contract "Provide Extension Entity Hover: extension entity hover holds — kind_registry_populated, hover_content_from_registry, source_extension_shown"
 }
 

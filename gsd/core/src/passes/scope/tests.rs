@@ -260,3 +260,19 @@ fn a_covered_phase_and_an_unplanned_phase_are_silent() {
     input.entities.retain(|e| e.kind != "plan");
     assert!(post_planning_gaps(&input).is_empty());
 }
+
+/// The gap report's CONTEXT.md rows leave out a decision another decision supersedes.
+#[test]
+fn a_superseded_decision_is_no_gap_row() {
+    let mut input = planned_phase("Build it", &["REQ-01", "REQ-02"], &["v/1/D-03"]);
+    input
+        .entities
+        .push(entity("v/1/D-03", "decision", &[("origin", "context")]));
+    input.edges.push(edge("v/1/D-03", "v/1/D-01", "supersedes"));
+    assert!(post_planning_gaps(&input).is_empty());
+    input.edges.retain(|e| e.label != "supersedes");
+    assert_eq!(
+        post_planning_gaps(&input)[0].message,
+        "⚠ 1 of 4 items not covered by any plan: D-01"
+    );
+}

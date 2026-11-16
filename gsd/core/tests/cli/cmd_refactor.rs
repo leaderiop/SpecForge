@@ -159,3 +159,17 @@ fn dispose_is_refused_twice() {
     refused(&again, "invalid_input", &["already disposed"]);
     unchanged(&p, &before);
 }
+
+/// A plan may name its phase by a unique suffix (`01`), as a person may write a scope field: the proposal reads the
+/// files of the plans the graph resolved to the phase.
+#[test]
+fn propose_refactor_reads_the_plans_naming_the_phase_by_a_suffix() {
+    let p = with_source(&busy("add", 16));
+    let plans = p
+        .read("spec/plans.spec")
+        .replace("  phase          v1.0/01\n", "  phase          01\n");
+    p.write("spec/plans.spec", &plans);
+    let run = gsd(&p, "propose-refactor", &[PHASE]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(p.fields_of("v1.0/01/RP1")["target_function"], "add");
+}

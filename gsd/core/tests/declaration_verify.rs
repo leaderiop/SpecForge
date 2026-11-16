@@ -18,7 +18,7 @@ fn kinds() -> Vec<serde_json::Value> {
 
 #[test]
 fn the_model_has_its_kinds() {
-    assert_eq!(kinds().len(), 61);
+    assert_eq!(kinds().len(), 66);
 }
 
 #[test]
@@ -72,6 +72,9 @@ fn the_verification_kinds_declare_the_fields_of_the_model() {
     let follow_ups = field_of("uat_session", "follow_ups");
     assert_eq!(follow_ups["writer"], "harness");
     assert_eq!(follow_ups["append_only"], true);
+    // Beyond GSD (ADR 0357 D22): a test names the journey it walks, and the journey reads its latest session.
+    assert_eq!(field_of("uat_test", "journey")["inverse_of"], "uat_tests");
+    assert_eq!(field_of("journey", "last_uat")["writer"], "computed");
 }
 
 #[test]

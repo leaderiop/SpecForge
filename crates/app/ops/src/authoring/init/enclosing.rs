@@ -2,7 +2,7 @@
 //! holds `specforge.json`, judged before anything is written. Once init's directory holds `specforge.json`, that
 //! project's walk ends there (ADR 0080 D1), and a spec root is read whatever it holds (D2).
 
-use super::{INSIDE_PROJECT_SOURCES, STARTER_FILE};
+use super::INSIDE_PROJECT_SOURCES;
 use crate::{OpError, OpErrorKind};
 use specforge_common::{ProjectRoot, SourceRoot, read_project_config};
 use std::path::{Path, PathBuf};
@@ -12,13 +12,14 @@ const NAMED: usize = 5;
 
 /// The root of the project `dir` lies inside, when that project reads the same sources once `dir` holds
 /// `specforge.json`; `None` when no project encloses `dir`. `dir` is where the directory lands (canonical as far as
-/// it exists, `containment::landing`) and is no project itself (init refused that first).
+/// it exists, `containment::landing`) and is no project itself (init refused that first); `starter` is the starter
+/// file init writes, relative to `dir`.
 ///
 /// Refused, `inside_project_sources` (conflict), when that project would read fewer sources (`dir` lies strictly
-/// below its spec root and holds some of them) or one more (`dir`, or `dir/spec`, is its spec root and the starter
-/// would be one of its sources). It reads that project's `specforge.json` as its compile reads it (an unusable one is
+/// below its spec root and holds some of them) or one more (`dir`, or the starter's directory, is its spec root and
+/// the starter would be one of its sources). It reads that project's `specforge.json` as its compile reads it (an unusable one is
 /// its default configuration, as there) and lists names under `dir` only.
-pub(super) fn judged(dir: &Path) -> Result<Option<PathBuf>, OpError> {
+pub(super) fn judged(dir: &Path, starter: &str) -> Result<Option<PathBuf>, OpError> {
     let Some(root) = dir.ancestors().skip(1).find(|d| ProjectRoot::is_root(d)) else {
         return Ok(None);
     };
@@ -33,10 +34,10 @@ pub(super) fn judged(dir: &Path) -> Result<Option<PathBuf>, OpError> {
         if !lost.is_empty() {
             return Err(loses(dir, root, &spec_root, &lost));
         }
-    } else if let Ok(key) = dir.join(STARTER_FILE).strip_prefix(&spec_root)
+    } else if let Ok(key) = dir.join(starter).strip_prefix(&spec_root)
         && sources.holds(&key.to_string_lossy())
     {
-        return Err(reads_the_starter(dir, root));
+        return Err(reads_the_starter(dir, root, starter));
     }
     Ok(Some(root.to_path_buf()))
 }
@@ -74,12 +75,12 @@ fn loses(dir: &Path, root: &Path, spec_root: &Path, lost: &[PathBuf]) -> OpError
     ))
 }
 
-fn reads_the_starter(dir: &Path, root: &Path) -> OpError {
+fn reads_the_starter(dir: &Path, root: &Path, starter: &str) -> OpError {
     OpError::new(
         OpErrorKind::Conflict,
         INSIDE_PROJECT_SOURCES,
         format!(
-            "{} is where the project at {} reads its sources from; it would read the new project's {STARTER_FILE} as one of its own",
+            "{} is where the project at {} reads its sources from; it would read the new project's {starter} as one of its own",
             dir.display(),
             root.display()
         ),

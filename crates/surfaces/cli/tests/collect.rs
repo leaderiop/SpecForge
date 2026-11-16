@@ -284,3 +284,85 @@ fn collect_takes_an_effects_mode() {
         .failure()
         .stderr(predicate::str::contains("sometimes"));
 }
+
+#[test]
+fn collect_help_names_the_filter() {
+    Cli::on(&scratch())
+        .bare_command(&["collect", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--filter <TEXT>"))
+        .stdout(predicate::str::contains("a nextest filterset"));
+}
+
+#[test]
+fn a_filter_for_a_runner_declaring_none_is_refused_before_it_runs() {
+    let fx = Fixture::new();
+    for text in ["api", "-x"] {
+        fx.cmd(&["collect", "--yes", "--filter", text])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("error[E058]"))
+            .stderr(predicate::str::contains("declares no filter"));
+    }
+    assert!(!fx.ran(), "nothing runs");
+    assert!(!fx.root().join("specforge-report.json").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn collect_filter_reaches_the_runner() {
+    let project = TestProject::new()
+        .raw_config(
+            r#"{"name":"demo","version":"0.1.0","extensions":["@code/core","@rust/cargo","@rust/source","@rust/test"]}"#,
+        )
+        .file(
+            "Cargo.toml",
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .file("src/lib.rs", "");
+    let tools = TempDir::new().unwrap();
+    let nextest = tools.path().join("cargo-nextest");
+    // Records its arguments, then writes an empty JUnit report where the config file says.
+    std::fs::write(
+        &nextest,
+        r#"#!/bin/sh
+printf '%s\n' "$@" > "$(dirname "$0")/argv"
+for a; do case "$a" in specforge:*) config="${a#specforge:}";; esac; done
+report=$(sed -n 's/^path = "\(.*\)"$/\1/p' "$config")
+printf '<testsuites><testsuite name="demo" tests="0"></testsuite></testsuites>' > "$report"
+"#,
+    )
+    .unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(&nextest, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let path = format!(
+        "{}:{}",
+        tools.path().display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+
+    Cli::on(&project)
+        .env("PATH", path)
+        .command(&[
+            "collect",
+            "--runner",
+            "rust-test",
+            "--yes",
+            "--effects",
+            "online",
+            "--filter",
+            "binary_id(=demo) & test(=adds)",
+        ])
+        .write_stdin("")
+        .assert()
+        .success();
+
+    let argv = std::fs::read_to_string(tools.path().join("argv")).unwrap();
+    let argv: Vec<&str> = argv.lines().collect();
+    assert_eq!(
+        argv[argv.len() - 2..],
+        ["-E", "binary_id(=demo) & test(=adds)"],
+        "{argv:?}"
+    );
+}

@@ -9,8 +9,9 @@ readme = "../../../docs/extension-protocol.md"
 
 [dependencies]
 serde = { workspace = true }
-# `raw_value`: the command input splices the host's rendered graph (`RawGraph`).
-serde_json = { workspace = true, features = ["raw_value"] }
+# `raw_value`: the command input splices the host's rendered graph (`RawGraph`). `float_roundtrip`: a guest reads a
+# JSON number as the binary64 nearest its text, so a `Decimal` written out reads back (ADR 0361 D2).
+serde_json = { workspace = true, features = ["raw_value", "float_roundtrip"] }
 
 [dev-dependencies]
 specforge-repo-root = { path = "../repo-root" }

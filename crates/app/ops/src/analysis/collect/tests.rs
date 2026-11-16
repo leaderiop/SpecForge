@@ -3,7 +3,9 @@ use super::*;
 use crate::Containment;
 use crate::testing::Viewed;
 use specforge_common::Severity;
-use specforge_protocol_types::{CollectEntityResult, CollectOutput, TestResult, TestStatus};
+use specforge_protocol_types::{
+    CollectEntityResult, CollectOutput, ProcessConfig, TestResult, TestStatus,
+};
 use specforge_test_macros::test as specforge_test;
 
 fn collector(report: &str) -> Collector {
@@ -21,6 +23,7 @@ fn collector(report: &str) -> Collector {
         capability: None,
         answers: Vec::new(),
         config: None,
+        filter: Vec::new(),
         install: None,
     }
 }
@@ -286,6 +289,7 @@ fn collect_without_a_root_is_no_project() {
             runner: None,
             mode: Mode::NoRun,
             announce: &mut |_, _| {},
+            filter: None,
             caller: crate::testing::caller(),
         },
         &crate::testing::ScriptedMachine::new(),
@@ -533,7 +537,8 @@ fn the_command_line_expands_the_config_placeholder() {
         command_line(
             &nextest,
             Path::new("/p/out/r.xml"),
-            Some(Path::new("/p/.specforge/reports/acme.nextest.toml"))
+            Some(Path::new("/p/.specforge/reports/acme.nextest.toml")),
+            None
         ),
         [
             "cargo-nextest",
@@ -541,5 +546,24 @@ fn the_command_line_expands_the_config_placeholder() {
             "specforge:/p/.specforge/reports/acme.nextest.toml",
             "--out=/p/out/r.xml"
         ]
+    );
+}
+
+#[test]
+fn a_command_is_told_its_report_through_its_argv_or_its_config() {
+    let mut told = collector("out/r.xml");
+    assert!(told.told_its_report(), "--out={{report}} in its argv");
+    told.run = vec!["cargo-nextest".into(), "specforge:{config}".into()];
+    assert!(!told.told_its_report(), "{{config}} alone tells it nothing");
+    told.config = Some(ProcessConfig {
+        name: "nextest.toml".into(),
+        template: "[profile.specforge.junit]\npath = \"{report}\"\n".into(),
+    });
+    assert!(told.told_its_report(), "{{report}} in its config");
+    told.config = None;
+    told.run = vec!["cargo".into(), "test".into()];
+    assert!(
+        !told.told_its_report(),
+        "a command writing through SPECFORGE_REPORT"
     );
 }

@@ -202,6 +202,9 @@ behavior load_extension_settings "Load Extension Settings" {
   verify integration "a code gated by a false bool setting is reported by no source"
   verify unit "a bool setting gates codes while it is on"
   verify unit "a number setting takes a decimal within its bounds"
+  verify unit "a number setting's bounds are exact decimals"
+  verify unit "a number setting of more than 15 significant digits is refused"
+  verify unit "a number setting, its default and a preset's value are held in their one JSON form"
   verify integration "a preset raises a code upward only and the surface's strict applies after"
   verify integration "analyze findings are gated and raised as the project's report is"
   verify integration "a command and a tool see whether a secret is set and never its value"
@@ -220,6 +223,7 @@ behavior load_extension_settings "Load Extension Settings" {
   verify integration "settings set refuses a secret, an unknown setting and a value the form refuses before it writes"
   verify integration "settings unset removes the member and an interrupted set is rolled back"
   verify unit "the SDK reads a number setting as a decimal, a whole number included"
+  verify integration "settings set stores a number setting as its decimal and refuses more than 15 significant digits"
 }
 
 behavior load_extension_declaration "Load Extension Declaration" {
@@ -278,6 +282,7 @@ behavior load_extension_declaration "Load Extension Declaration" {
   verify unit "every text a declaration holds is read printable, a starter template keeping its newlines and tabs"
   verify unit "a key a load warning quotes is printable"
   verify integration "every committed blob's declaration loads unchanged by the printable read"
+  verify unit "a guest declares a number field with number() and its decimal bounds"
 }
 
 behavior build_registries_from_declarations "Build Registries From Declarations" {

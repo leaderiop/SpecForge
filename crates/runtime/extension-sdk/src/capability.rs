@@ -187,6 +187,16 @@ impl Capability {
         self
     }
 
+    /// The arguments a process capability's host appends after its argv when a caller passes a filter: `{filter}` in
+    /// exactly one of them is the caller's text. Only a capability whose `call_kinds` are exactly `collect` may
+    /// declare them.
+    pub fn filter(mut self, args: &[&str]) -> Self {
+        if let PortScope::Process(process) = &mut self.0.port {
+            process.filter = args.iter().map(|a| a.to_string()).collect();
+        }
+        self
+    }
+
     /// A process capability's deadline, held to the host's ceiling.
     pub fn deadline_ms(mut self, deadline_ms: u32) -> Self {
         if let PortScope::Process(process) = &mut self.0.port {

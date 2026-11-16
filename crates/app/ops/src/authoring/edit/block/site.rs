@@ -13,7 +13,8 @@ use specforge_registry::FieldRegistryEntry;
 
 /// The edit names a field its kind does not declare.
 const UNKNOWN_FIELD: &str = "unknown_field";
-/// The edit names the other side of a relation another kind owns (ADR 0150, ADR 0157).
+/// The edit names the other side of a relation a reference field owns, its own kind's included (ADR 0150, ADR 0157,
+/// ADR 0359).
 const OTHER_SIDE: &str = "other_side";
 
 /// The entity an edit changes, and where it is.

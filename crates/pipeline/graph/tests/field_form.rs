@@ -4,15 +4,16 @@
 
 use std::borrow::Cow;
 
+use serde_json::json;
 use specforge_common::shape::{self, Definitions};
 use specforge_common::{SourceSpan, Sym};
 use specforge_graph::field_form::{
-    self, BlockMembers, FieldForm, FieldForms, FieldJson, Reading, ValueShape,
+    self, BlockMembers, Bounds, FieldForm, FieldForms, FieldJson, Reading, ValueShape,
 };
 use specforge_parser::{
     BlockItem, FieldEntry, FieldMap, FieldValue, ListItem, TypeMember, Written, parse_expression,
 };
-use specforge_protocol_types::FieldType;
+use specforge_protocol_types::{Decimal, FieldType};
 use specforge_test_macros::test as specforge_test;
 
 fn span() -> SourceSpan {
@@ -356,6 +357,147 @@ fn a_typed_block_is_stored_member_by_member() {
 
 #[specforge_test(
     behavior = "check_field_value_types",
+    verify = "a number is compared with its decimal bounds exactly"
+)]
+fn a_number_form_compares_its_decimal_bounds_exactly() {
+    let decimal = |text: &str| Decimal::parse(text).unwrap();
+    let ratio = FieldForm::new(FieldType::Number, Vec::new())
+        .bounded(Some(decimal("0.05")), Some(decimal("0.95")));
+    assert_eq!(
+        ratio.bounds(),
+        &Bounds::Number(Some(decimal("0.05")), Some(decimal("0.95")))
+    );
+    assert!(ratio.admit_json(&json!(0.95)).is_ok());
+    assert!(ratio.admit_json(&json!(0.05)).is_ok());
+    for outside in [json!(0.95000000000001), json!(0.04999999999999), json!(1)] {
+        assert_eq!(
+            ratio
+                .admit_json(&outside)
+                .unwrap_err()
+                .suggestion
+                .as_deref(),
+            Some("write a number from 0.05 to 0.95"),
+            "{outside}"
+        );
+    }
+    assert_eq!(
+        ratio
+            .admit_json(&json!(0.1 + 0.2))
+            .unwrap_err()
+            .suggestion
+            .as_deref(),
+        Some("a number keeps at most 15 significant digits")
+    );
+    assert_eq!(
+        ratio.json_schema(&mut Definitions::default()),
+        json!({"type": "number", "minimum": 0.05, "maximum": 0.95})
+    );
+    assert_eq!(ratio.label(), "number (0.05..0.95)");
+    let whole = FieldForm::new(FieldType::Number, Vec::new()).bounded(Some(0), None);
+    assert_eq!(whole.bounds(), &Bounds::Number(Some(decimal("0")), None));
+    assert_eq!(
+        whole.json_schema(&mut Definitions::default()),
+        json!({"type": "number", "minimum": 0})
+    );
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a JSON number a number form admits is held in its one JSON form, as a block member too"
+)]
+fn an_admitted_number_is_held_in_its_one_json_form() {
+    let number = FieldForm::new(FieldType::Number, Vec::new());
+    let held = |form: &FieldForm, value: serde_json::Value| -> serde_json::Value {
+        form.admit_json(&value).expect("admitted").into()
+    };
+    for (given, one) in [
+        (json!(100.0), json!(100)),
+        (json!(1e2), json!(100)),
+        (json!(-0.0), json!(0)),
+        (json!(0.5), json!(0.5)),
+        (json!(1e20), json!(1e20)),
+    ] {
+        let one_text = serde_json::to_string(&one).unwrap();
+        assert_eq!(held(&number, given.clone()), one, "{given}");
+        assert_eq!(
+            serde_json::to_string(&held(&number, given.clone())).unwrap(),
+            one_text,
+            "{given}"
+        );
+    }
+    let ratio = || FieldForm::new(FieldType::Number, Vec::new());
+    let block = FieldForm::new(FieldType::Block, Vec::new()).with_members(BlockMembers::new(vec![
+        ("ratio".to_string(), ratio()),
+        (
+            "note".to_string(),
+            FieldForm::new(FieldType::String, Vec::new()),
+        ),
+    ]));
+    assert_eq!(
+        held(&block, json!({"ratio": 95.0, "note": "n"})),
+        json!({"ratio": 95, "note": "n"})
+    );
+    let list = FieldForm::new(FieldType::BlockList, Vec::new())
+        .with_members(BlockMembers::new(vec![("ratio".to_string(), ratio())]));
+    assert_eq!(
+        held(&list, json!([{"ratio": 2.50}, {"ratio": 3.0}])),
+        json!([{"ratio": 2.5}, {"ratio": 3}])
+    );
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "an open block admits a whole JSON number of any length and a fraction a decimal holds"
+)]
+fn an_open_block_admits_every_integer_and_a_decimal_fraction() {
+    let open = FieldForm::new(FieldType::Block, Vec::new());
+    for entry in [
+        json!(1234567890123456i64),
+        json!(i64::MIN),
+        json!(u64::MAX),
+        json!(0.5),
+        json!([1234567890123456i64, 0.5]),
+        json!({"inner": 1234567890123456i64}),
+    ] {
+        assert!(open.admit_json(&json!({ "seq": entry })).is_ok(), "{entry}");
+    }
+    assert_eq!(
+        open.admit_json(&json!({"drift": 0.1 + 0.2}))
+            .unwrap_err()
+            .suggestion
+            .as_deref(),
+        Some("'drift': a number keeps at most 15 significant digits")
+    );
+    assert_eq!(
+        open.admit_json(&json!({"gap": null}))
+            .unwrap_err()
+            .suggestion
+            .as_deref(),
+        Some("give 'gap' a string, a number, a boolean, a list or an object")
+    );
+}
+
+#[specforge_test(
+    behavior = "create_entity",
+    verify = "a skeleton fills a number or an integer with the value within its bounds nearest zero"
+)]
+fn the_value_within_bounds_nearest_zero() {
+    let decimal = |text: &str| Some(Decimal::parse(text).unwrap());
+    for (bounds, nearest) in [
+        (Bounds::Integer(None, None), "0"),
+        (Bounds::Integer(Some(1), Some(5)), "1"),
+        (Bounds::Integer(Some(-5), Some(5)), "0"),
+        (Bounds::Integer(None, Some(-3)), "-3"),
+        (Bounds::Number(decimal("0.05"), decimal("0.95")), "0.05"),
+        (Bounds::Number(decimal("-0.95"), decimal("-0.05")), "-0.05"),
+        (Bounds::Number(None, decimal("0.5")), "0"),
+    ] {
+        assert_eq!(bounds.nearest_zero(), nearest, "{bounds:?}");
+    }
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
     verify = "an integer outside its declared minimum or maximum is E061 naming the bounds"
 )]
 fn bounds_name_the_range_in_the_remedy() {
@@ -501,7 +643,7 @@ fn the_walker_names_each_typed_member_by_its_path() {
     let declared: Vec<String> = forms.walk("k", &entry).map(|m| m.path.declared()).collect();
     assert_eq!(declared, ["f", "f.phase", "f.score"]);
     assert!(matches!(forms.reading_at("k", "f.score"),
-        Reading::Declared(form) if form.bounds() == (Some(0), Some(100))));
+        Reading::Declared(form) if form.bounds() == &Bounds::Integer(Some(0), Some(100))));
     assert!(matches!(
         forms.reading_at("k", "f.nope"),
         Reading::Undeclared

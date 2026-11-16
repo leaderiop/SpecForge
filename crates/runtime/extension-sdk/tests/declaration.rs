@@ -391,42 +391,6 @@ fn settings_presets_secrets_and_flags_are_declared() {
     assert_eq!(wire[5]["default"], true);
 }
 
-#[specforge_test_macros::test(
-    behavior = "declare_judged_rule",
-    verify = "an SDK judged rule builds the descriptor the host reads"
-)]
-fn a_judged_rule_builds_the_descriptor_the_host_reads() {
-    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/judged", "1.0.0"));
-    b.rule("W311", |r| {
-        r.severity(ValidationSeverity::Warning)
-            .message_template("the check of {id} does not hold")
-            .judged("checker", |j| {
-                j.outcomes(&["passed", "issues"])
-                    .passing(&["passed"])
-                    .target("plan", |t| {
-                        t.input("plan", "self")
-                            .input("decisions", "self.phase<decision.phase")
-                            .unless_set(&["pattern"]);
-                    })
-                    .values(&["phase_spec.scores"])
-                    .outcome_fields(&["plan.verdict"]);
-            });
-    });
-    let rule = &b.declaration().validation_rules[0];
-    assert_eq!(rule.check, "judged");
-    assert_eq!(
-        serde_json::to_value(rule.judged.as_ref().unwrap()).unwrap(),
-        serde_json::json!({
-            "judge": "checker", "outcomes": ["passed", "issues"], "passing": ["passed"],
-            "targets": [{"kind": "plan", "unless_set": ["pattern"], "inputs": [
-                {"name": "plan", "selector": "self"},
-                {"name": "decisions", "selector": "self.phase<decision.phase"},
-            ]}],
-            "values": ["phase_spec.scores"], "outcome_fields": ["plan.verdict"],
-        })
-    );
-}
-
 #[test]
 fn the_sdk_declares_a_kind_a_collector_writes() {
     let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/code", "0.1.0"));
@@ -767,4 +731,29 @@ fn a_context_route_records_fields_and_names_its_stale_code() {
         ]
     );
     assert_eq!(route.stale.as_deref(), Some("W524"));
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "a guest declares a number field with number() and its decimal bounds"
+)]
+fn a_number_field_is_declared_with_its_bounds() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/measures", "0.1.0"));
+    b.kind("measure", |k| {
+        k.field("ratio", |f| {
+            f.number()
+                .minimum(Decimal::parse("0.05").unwrap())
+                .maximum(1);
+        });
+    });
+    let wire = b.declaration().describe_items(DeclaredCategory::Entities);
+    let ratio = &wire[0]["fields"][0];
+    assert_eq!(ratio["field_type"], "number");
+    assert_eq!(ratio["minimum"], serde_json::json!(0.05));
+    assert_eq!(ratio["maximum"], serde_json::json!(1));
+    assert_eq!(
+        serde_json::to_string(&ratio["minimum"]).unwrap(),
+        "0.05",
+        "a decimal bound is the JSON number of its decimal"
+    );
 }

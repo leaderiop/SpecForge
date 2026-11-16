@@ -26,7 +26,7 @@
     "4. Tell the user to restart the host, so that it reads the new skills.",
     "</process>"
   ],
-  "bytes": 10856,
+  "bytes": 10868,
   "end": [
     "  \"effort.routing_tier_defaults.heavy\": \"xhigh\",",
     "  \"effort.routing_tier_defaults.light\": \"low\",",
@@ -71,7 +71,7 @@
   ],
   "head": [
     "<specforge_gsd_preamble>",
-    "You are running a GSD workflow inside SpecForge (the extension `@gsd/core`). The workflow text below is GSD's own. The",
+    "You are running a workflow of `@gsd/core` inside SpecForge. The workflow text below is `@gsd/core`'s own, not a port of GSD's. The",
     "files it talks about are entities of the project's spec here, and the tools it calls are SpecForge's. This section says",
     "where each thing went; where it and the workflow disagree, this section wins.",
     "",
@@ -153,8 +153,8 @@
   ],
   "lines": 205,
   "payload": {
-    "digest": "sha256:fca7fd903810c889265f788e9e65de0b8c718219838232b8057aacd6b40f9fa9",
+    "digest": "sha256:4a9e946b44c43fdbff7eb0d2e71a063b293dda444ba7d1e13c24b6f345308b16",
     "prompt": "@gsd/core@VERSION:update"
   },
-  "sha256": "fca7fd903810c889265f788e9e65de0b8c718219838232b8057aacd6b40f9fa9"
+  "sha256": "4a9e946b44c43fdbff7eb0d2e71a063b293dda444ba7d1e13c24b6f345308b16"
 }

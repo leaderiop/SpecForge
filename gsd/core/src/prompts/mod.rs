@@ -12,6 +12,7 @@ mod discuss;
 mod execute;
 mod git;
 use gsd_kit::prompt::host;
+mod invariant;
 mod learning;
 mod navigate;
 mod ns;
@@ -85,5 +86,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
     onboard::declare(c);
     workspace::declare(c);
     update::declare(c);
+    invariant::declare(c);
     ns::declare(c);
 }

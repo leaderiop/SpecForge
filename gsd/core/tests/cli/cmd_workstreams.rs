@@ -207,3 +207,27 @@ fn gsd_workstreams_and_gsd_cleanup_skills_render() {
         assert!(text.contains(skill), "{text}");
     }
 }
+
+/// A milestone may name its workstream rooted (`/auth`), a spelling the graph resolves as `auth`: it is one of that
+/// workstream's milestones.
+#[test]
+fn a_milestone_naming_its_workstream_rooted_is_one_of_its_milestones() {
+    let p = project("workstreams");
+    p.edit(
+        "spec/streams.spec",
+        "  workstream auth\n",
+        "  workstream /auth\n",
+    );
+    let run = json(&gsd(
+        &p,
+        "workstreams",
+        &["status", "--name", "auth", "--format", "json"],
+    ));
+    let milestones: Vec<&str> = run["workstreams"][0]["milestones"]
+        .as_array()
+        .expect("milestones")
+        .iter()
+        .filter_map(|m| m["milestone"].as_str())
+        .collect();
+    assert_eq!(milestones, ["auth/v1.0"], "{run}");
+}

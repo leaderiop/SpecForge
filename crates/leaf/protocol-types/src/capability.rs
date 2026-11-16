@@ -54,6 +54,8 @@ struct Wire {
     env: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     config: Option<ProcessConfig>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    filter: Vec<String>,
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
@@ -86,6 +88,7 @@ impl TryFrom<Wire> for CapabilityDescriptor {
                 deadline_ms: wire.deadline_ms,
                 env: wire.env,
                 config: wire.config,
+                filter: wire.filter,
             }),
             PortName::Git => PortScope::Git(GitScope {
                 ops: wire
@@ -127,6 +130,7 @@ impl From<CapabilityDescriptor> for Wire {
             deadline_ms: None,
             env: Vec::new(),
             config: None,
+            filter: Vec::new(),
         };
         match capability.port {
             PortScope::Http(http) => {
@@ -147,6 +151,7 @@ impl From<CapabilityDescriptor> for Wire {
                 wire.deadline_ms = process.deadline_ms;
                 wire.env = process.env;
                 wire.config = process.config;
+                wire.filter = process.filter;
             }
             PortScope::Git(git) => {
                 wire.port = PortName::Git;
@@ -318,13 +323,23 @@ pub struct ProcessScope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deadline_ms: Option<u32>,
     /// The environment variables, by name, the program inherits or a guest may set beside what any program needs to
-    /// work. A person approves them with the command: another name asks again.
+    /// work. A person approves them with the command: another name asks again. An entry ending `_*` after a namespace
+    /// ([`is_env_prefix`]) passes every variable it starts, inherit-only: no guest sets a variable through it. A
+    /// collector's command, which the host runs, keeps the caller's environment instead. No program receives a
+    /// credential: the host withholds a secret's name and a cargo credential provider, and removes a URL's user and
+    /// password.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub env: Vec<String>,
     /// The one file the host writes before a collector's run, which its argv names as `{config}` (ADR 0348 D1): part
     /// of what a person approves, so a changed template asks again.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub config: Option<ProcessConfig>,
+    /// The arguments the host appends after `argv` when, and only when, a caller passes a filter (`specforge collect
+    /// --filter`): exactly one of them holds [`FILTER_PLACEHOLDER`], once, which the host replaces with the caller's
+    /// text as one argument, in the collector's own filter syntax. Part of what a person approves; the filter text is
+    /// the caller's fill, as `{report}` is the host's, so any text runs under one approval.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub filter: Vec<String>,
 }
 
 /// A collector command's config file (ADR 0348 D1–D2): written to `.specforge/reports/<collector>.<name>` before the
@@ -346,6 +361,40 @@ pub const REPORT_PLACEHOLDER: &str = "{report}";
 pub const CONFIG_PLACEHOLDER: &str = "{config}";
 /// The argv placeholders the host expands: the report location and the config file.
 pub const ARGV_PLACEHOLDERS: [&str; 2] = [REPORT_PLACEHOLDER, CONFIG_PLACEHOLDER];
+/// The placeholder of a [`ProcessScope::filter`] argument: the caller's filter text.
+pub const FILTER_PLACEHOLDER: &str = "{filter}";
+/// The most bytes a caller's filter text holds.
+pub const FILTER_MAX: usize = 16 * 1024;
+
+/// Why a caller's filter text is refused before any command runs: it is empty, over [`FILTER_MAX`] bytes, starts with
+/// `-` (a program would read it as an option) or holds a control character.
+pub fn filter_problem(text: &str) -> Option<String> {
+    if text.trim().is_empty() {
+        Some("the filter is empty".to_string())
+    } else if text.len() > FILTER_MAX {
+        Some(format!("the filter is over {FILTER_MAX} bytes (16 KiB)"))
+    } else if text.starts_with('-') {
+        Some("the filter starts with '-', which a program would read as an option".to_string())
+    } else if text.chars().any(char::is_control) {
+        Some("the filter holds a control character".to_string())
+    } else {
+        None
+    }
+}
+
+/// Whether a declared `env` entry is a namespace prefix a program inherits every variable of (`CARGO_*`): it ends in
+/// its only `*`, and what precedes it starts with an ASCII letter, holds only `[A-Za-z0-9_]`, is at least 4
+/// characters long and ends in `_`. Inherit-only: no guest sets a variable through it.
+pub fn is_env_prefix(name: &str) -> bool {
+    name.strip_suffix('*').is_some_and(|prefix| {
+        prefix.len() >= 4
+            && prefix.ends_with('_')
+            && prefix.starts_with(|c: char| c.is_ascii_alphabetic())
+            && prefix
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_')
+    })
+}
 
 /// Whether `name` is a config file's name: one segment `[a-z0-9][a-z0-9._-]*` ending `.toml` or `.json`.
 pub fn is_config_name(name: &str) -> bool {
@@ -358,9 +407,52 @@ pub fn is_config_name(name: &str) -> bool {
         && (name.ends_with(".toml") || name.ends_with(".json"))
 }
 
+/// The problems of a process capability's filter arguments: `{filter}` belongs in exactly one of them, once, and
+/// nowhere in `argv`; the host's own placeholders are never part of a filter.
+fn filter_problems(capability: &CapabilityDescriptor, process: &ProcessScope) -> Vec<String> {
+    let mut problems = Vec::new();
+    if process
+        .argv
+        .iter()
+        .any(|arg| arg.contains(FILTER_PLACEHOLDER))
+    {
+        problems.push(format!(
+            "its argv names {FILTER_PLACEHOLDER}, which only its `filter` arguments may"
+        ));
+    }
+    if process.filter.is_empty() {
+        return problems;
+    }
+    let held: Vec<usize> = process
+        .filter
+        .iter()
+        .map(|arg| arg.matches(FILTER_PLACEHOLDER).count())
+        .collect();
+    if held.iter().filter(|n| **n > 0).count() != 1 || held.iter().sum::<usize>() != 1 {
+        problems.push(format!(
+            "its `filter` arguments hold {FILTER_PLACEHOLDER} {} times; one argument holds it once",
+            held.iter().sum::<usize>()
+        ));
+    }
+    for arg in process
+        .filter
+        .iter()
+        .filter(|arg| ARGV_PLACEHOLDERS.iter().any(|p| arg.contains(p)))
+    {
+        problems.push(format!(
+            "its `filter` argument '{arg}' names a placeholder only the host fills"
+        ));
+    }
+    if capability.call_kinds != [Operation::Collect] {
+        problems
+            .push("it declares a filter, so its call_kinds must be exactly collect".to_string());
+    }
+    problems
+}
+
 /// The problems of a process capability's config and placeholders (ADR 0348 D1).
 fn config_problems(capability: &CapabilityDescriptor, process: &ProcessScope) -> Vec<String> {
-    let mut problems = Vec::new();
+    let mut problems = filter_problems(capability, process);
     for arg in &process.argv {
         let held: usize = ARGV_PLACEHOLDERS
             .iter()
@@ -487,6 +579,16 @@ pub fn capability_problems(declaration: &ExtensionDeclaration) -> Vec<Capability
                     .filter(|name| name.is_empty() || name.contains(['=', '\0']))
                 {
                     problem(format!("its `env` name '{name}' is no variable's name"));
+                }
+                for name in process
+                    .env
+                    .iter()
+                    .filter(|name| name.contains('*') && !is_env_prefix(name))
+                {
+                    problem(format!(
+                        "its `env` pattern '{name}' is not a namespace prefix: a letter, then letters, digits or \
+                         `_`, at least 4 characters ending `_`, then one `*`"
+                    ));
                 }
                 for why in config_problems(capability, process) {
                     problem(why);

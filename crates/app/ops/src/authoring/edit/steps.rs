@@ -260,6 +260,7 @@ fn conclude(
     let change = change
         .rewriting_sources(rewritten)
         .moving(raw_moves.clone())
+        .renewing(declared.whole().cloned())
         .keeping_ledger(
             project,
             LedgerChange {
@@ -278,6 +279,7 @@ fn conclude(
             &declared,
             change.ledger_after(),
             change.moved(),
+            &|id| change.renews(id),
             host_only,
         )?
     };

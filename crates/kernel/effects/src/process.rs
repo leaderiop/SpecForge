@@ -67,6 +67,13 @@ impl Ceiling {
         self == Ceiling::User
     }
 
+    /// Whether the run's environment goes through the whole credential filter (a cargo credential provider withheld,
+    /// a URL's user and password removed), not only the secret deny-list: any process a request or an extension asks
+    /// for, a collector's command among them. The host's own build keeps them, to fetch its crates as the user does.
+    pub fn filters_credentials(self) -> bool {
+        self == Ceiling::Request
+    }
+
     /// Whether a run whose request gives no stdin reads the terminal's: only a program the user types.
     pub fn reads_the_terminal(self) -> bool {
         self == Ceiling::User

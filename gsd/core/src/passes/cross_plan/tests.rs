@@ -169,11 +169,18 @@ fn a_citation_of_another_phases_decision_covers_nothing_here() {
     assert_eq!(codes_of(&check(&input)), [("E310", Some("v/2/D-01"))]);
 }
 
+/// Plan `v/1/1-01` of `wave_a` naming its peer `<peer_scope>/1-02` of `wave_b` as the writer spells it from its own
+/// scope (`1-02` in its phase, `2/1-02` in phase 2), and the edge the graph draws.
 fn coupled(wave_a: &str, wave_b: &str, peer_scope: &str) -> Vec<PassDiagnostic> {
     let mut a = entity("v/1/1-01", "plan", &[("wave", wave_a)]);
+    let written = if peer_scope == "v/1" {
+        "1-02"
+    } else {
+        "2/1-02"
+    };
     a.values.insert(
         "coupling_justified".into(),
-        serde_json::json!([{ "peer": "1-02", "reason": "both read the store" }]),
+        serde_json::json!([{ "peer": written, "reason": "both read the store" }]),
     );
     let peer = format!("{peer_scope}/1-02");
     let b = entity(&peer, "plan", &[("wave", wave_b)]);
@@ -182,6 +189,51 @@ fn coupled(wave_a: &str, wave_b: &str, peer_scope: &str) -> Vec<PassDiagnostic> 
         edges: vec![edge("v/1/1-01", &peer, "coupling_justified.peer")],
         ..Default::default()
     })
+}
+
+/// Plan `v/1/1-01` of wave 1 naming `rows` in `coupling_justified`, beside `v/1/1-02` (wave 1) and `v/2/2-01`
+/// (wave 1), with the `coupling_justified.peer` edges the graph draws to `resolved`.
+fn coupling_rows(rows: serde_json::Value, resolved: &[&str]) -> Vec<PassDiagnostic> {
+    let mut a = entity("v/1/1-01", "plan", &[("wave", "1")]);
+    a.values.insert("coupling_justified".into(), rows);
+    let peers = ["v/1/1-02", "v/2/2-01"].map(|id| entity(id, "plan", &[("wave", "1")]));
+    let mut entities = vec![a];
+    entities.extend(peers);
+    couplings(&PassInput {
+        entities,
+        edges: resolved
+            .iter()
+            .map(|peer| edge("v/1/1-01", peer, "coupling_justified.peer"))
+            .collect(),
+        ..Default::default()
+    })
+}
+
+/// A row's peer is the plan the kernel resolves it to from the plan: a rooted path is the project's, and a name
+/// outside the plan's scope chain (E003) is nothing, though another row's peer ends with it.
+#[test]
+fn a_coupling_peer_is_the_plan_the_kernel_resolves_it_to() {
+    let rooted = coupling_rows(
+        serde_json::json!([{ "peer": "/v/1/1-02", "reason": "both read the store" }]),
+        &["v/1/1-02"],
+    );
+    assert_eq!(
+        codes_of(&rooted),
+        [("I321", Some("v/1/1-01"))],
+        "the rooted peer"
+    );
+    assert_eq!(
+        rooted[0].message,
+        "coupling between 'v/1/1-01' and 'v/1/1-02' is justified: both read the store"
+    );
+    let short = coupling_rows(
+        serde_json::json!([
+            { "peer": "2/2-01", "reason": "a" },
+            { "peer": "2-01", "reason": "b" }
+        ]),
+        &["v/2/2-01"],
+    );
+    assert_eq!(short.len(), 1, "2-01 resolves to nothing: {short:?}");
 }
 
 #[test]
@@ -205,5 +257,133 @@ fn a_coupling_peer_in_another_wave_or_phase_covers_nothing() {
                 .contains("is not in its wave: the exemption covers nothing"),
             "{found:?}"
         );
+    }
+}
+
+/// A context decision another decision supersedes no longer holds: no plan must list it, under every profile (the pass
+/// reads no setting). The one that supersedes it is tracked.
+#[test]
+fn a_superseded_context_decision_needs_no_plan() {
+    let input = |listed: &[&str]| {
+        let mut edges = vec![edge("v/1/D-05", "v/1/D-03", "supersedes")];
+        edges.extend(listed.iter().map(|d| edge("v/1/1-01", d, "decisions")));
+        PassInput {
+            entities: vec![
+                entity("v/1", "phase", &[]),
+                entity("v/1/1-01", "plan", &[]),
+                entity("v/1/D-03", "decision", &[("origin", "context")]),
+                entity("v/1/D-05", "decision", &[("origin", "context")]),
+            ],
+            edges,
+            ..Default::default()
+        }
+    };
+    assert!(check(&input(&["v/1/D-05"])).is_empty());
+    assert_eq!(codes_of(&check(&input(&[]))), [("E310", Some("v/1/D-05"))]);
+}
+
+/// Phase `v/1` with one plan that lists no decision, its context decisions `decisions` (`(name, fields)`) and the
+/// `supersedes` edges `(by, earlier)` between them: the decisions E310 names, by name.
+fn uncited(decisions: &[(&str, &[(&str, &str)])], supersedes: &[(&str, &str)]) -> Vec<String> {
+    let id = |name: &str| format!("v/1/{name}");
+    let mut entities = vec![entity("v/1", "phase", &[]), entity("v/1/1-01", "plan", &[])];
+    entities.extend(decisions.iter().map(|(name, fields)| {
+        let mut fields = fields.to_vec();
+        if !fields.iter().any(|(field, _)| *field == "origin") {
+            fields.push(("origin", "context"));
+        }
+        entity(&id(name), "decision", &fields)
+    }));
+    let input = PassInput {
+        entities,
+        edges: supersedes
+            .iter()
+            .map(|(by, earlier)| edge(&id(by), &id(earlier), "supersedes"))
+            .collect(),
+        ..Default::default()
+    };
+    let found = check(&input);
+    assert!(found.iter().all(|d| d.code == "E310"), "{found:?}");
+    found
+        .iter()
+        .filter_map(|d| d.entity.as_deref()?.strip_prefix("v/1/"))
+        .map(str::to_string)
+        .collect()
+}
+
+/// Context decisions named `names`, with no field of their own.
+fn plain(names: &[&'static str]) -> Vec<(&'static str, &'static [(&'static str, &'static str)])> {
+    names.iter().map(|name| (*name, &[][..])).collect()
+}
+
+/// A decision that supersedes itself, directly or round a cycle, is reversed by nothing: every decision of the cycle
+/// stays E310. An edge from a cycle to a decision outside it still retires that decision, as a chain's edges do.
+#[test]
+fn a_supersedes_cycle_retires_none_of_its_decisions() {
+    assert_eq!(uncited(&plain(&["D-01"]), &[("D-01", "D-01")]), ["D-01"]);
+    assert_eq!(
+        uncited(
+            &plain(&["D-01", "D-02"]),
+            &[("D-01", "D-02"), ("D-02", "D-01")]
+        ),
+        ["D-01", "D-02"]
+    );
+    // D-01 -> D-02 -> D-03 -> D-01 is a cycle; D-03 -> D-04 leaves it.
+    let three_and_out = [
+        ("D-01", "D-02"),
+        ("D-02", "D-03"),
+        ("D-03", "D-01"),
+        ("D-03", "D-04"),
+    ];
+    assert_eq!(
+        uncited(&plain(&["D-01", "D-02", "D-03", "D-04"]), &three_and_out),
+        ["D-01", "D-02", "D-03"]
+    );
+    // A chain retires every decision but its head.
+    assert_eq!(
+        uncited(
+            &plain(&["D-01", "D-02", "D-03"]),
+            &[("D-03", "D-02"), ("D-02", "D-01")]
+        ),
+        ["D-03"]
+    );
+    // Two cycles joined by one edge: the edge retires its target only, and that cycle's other member stays.
+    let joined = [
+        ("D-01", "D-02"),
+        ("D-02", "D-01"),
+        ("D-03", "D-04"),
+        ("D-04", "D-03"),
+        ("D-02", "D-03"),
+    ];
+    assert_eq!(
+        uncited(&plain(&["D-01", "D-02", "D-03", "D-04"]), &joined),
+        ["D-01", "D-02", "D-04"]
+    );
+}
+
+/// A context decision, taken with the user, leaves force only through a decision taken with the user: an agent's
+/// `summary` or `checkpoint` decision that supersedes it leaves it E310, settled or not, while a `context` or
+/// `project` one retires it.
+#[test]
+fn only_a_decision_taken_with_the_user_retires_a_context_decision() {
+    let settled: &[(&str, &str)] = &[("settled", "true")];
+    for earlier in [&[][..], settled] {
+        for (origin, retired) in [
+            ("summary", false),
+            ("checkpoint", false),
+            ("context", true),
+            ("project", true),
+        ] {
+            let later: &[(&str, &str)] = &[("origin", origin)];
+            let found = uncited(&[("D-01", earlier), ("D-02", later)], &[("D-02", "D-01")]);
+            let mut expected = Vec::new();
+            if !retired {
+                expected.push("D-01");
+            }
+            if origin == "context" {
+                expected.push("D-02");
+            }
+            assert_eq!(found, expected, "{origin} over {earlier:?}");
+        }
     }
 }

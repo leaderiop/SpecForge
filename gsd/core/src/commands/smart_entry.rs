@@ -16,7 +16,7 @@ use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
 use super::reports;
-use super::support::{answer, run};
+use super::support::{answer, run, target};
 
 /// `SITUATIONS`: every value `classify` can return.
 pub const SITUATIONS: [&str; 11] = [
@@ -459,9 +459,9 @@ pub fn signals(graph: &CommandGraph) -> Result<Signals, String> {
     }
     .to_string();
     if let Some(p) = current {
-        s.verify_failed = graph
-            .nodes_of_kind("verification")
-            .any(|v| v.text("phase") == Some(p.id) && v.text("status") == Some("gaps_found"));
+        s.verify_failed = graph.nodes_of_kind("verification").any(|v| {
+            target(graph, &v.id, "phase") == Some(p.id) && v.text("status") == Some("gaps_found")
+        });
     }
     Ok(s)
 }

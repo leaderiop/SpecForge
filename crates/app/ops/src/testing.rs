@@ -274,6 +274,8 @@ pub struct RanCommand {
     pub argv: Vec<String>,
     pub dir: PathBuf,
     pub report: PathBuf,
+    /// Whether `SPECFORGE_REPORT` would say the report's path.
+    pub report_in_env: bool,
     pub output: RunnerOutput,
 }
 
@@ -328,6 +330,7 @@ impl CollectorMachine for ScriptedMachine {
             argv: command.argv.to_vec(),
             dir: command.dir.to_path_buf(),
             report: command.report.to_path_buf(),
+            report_in_env: command.report_in_env,
             output: command.output,
         });
         let run = self.script.lock().unwrap().pop_front().unwrap_or_else(|| {

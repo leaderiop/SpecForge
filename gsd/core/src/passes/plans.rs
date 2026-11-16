@@ -58,11 +58,54 @@ pub fn listed_decisions<'a, 'b>(
         .collect()
 }
 
-/// The decisions of a phase's context (`origin context`), in id order: the ones its plans must list.
+/// The decisions no longer in force, so no plan must list them: each one a decision lists in `supersedes` with force.
+/// - A decision taken with the user (`origin` `context` or `project`) leaves force only through another taken with
+///   the user. An agent's decision (`summary` or `checkpoint`) retires only an agent's decision, and never a settled
+///   one, which the user locked.
+/// - A decision that supersedes itself, directly or round a cycle of such edges, is reversed by nothing outside the
+///   cycle: an edge between two decisions of one cycle retires neither (the graph's W061 reports the cycle).
+pub fn superseded(input: &PassInput) -> BTreeSet<&str> {
+    let decisions: BTreeMap<&str, &PassEntity> = of_kind(input, "decision")
+        .map(|d| (d.id.as_str(), d))
+        .collect();
+    let with_the_user = |d: &PassEntity| matches!(text(d, "origin"), Some("context" | "project"));
+    let locked = |d: &PassEntity| with_the_user(d) || text(d, "settled") == Some("true");
+    let mut graph: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for edge in input.edges.iter().filter(|e| e.label == "supersedes") {
+        let (Some(by), Some(earlier)) = (
+            decisions.get(edge.source.as_str()),
+            decisions.get(edge.target.as_str()),
+        ) else {
+            continue;
+        };
+        if with_the_user(by) || !locked(earlier) {
+            graph.entry(&by.id).or_default().push(&earlier.id);
+        }
+    }
+    let cycle_of: BTreeMap<&str, usize> = super::cycles::cycles(&graph)
+        .into_iter()
+        .enumerate()
+        .flat_map(|(n, members)| members.into_iter().map(move |m| (m, n)))
+        .collect();
+    graph
+        .iter()
+        .flat_map(|(by, earlier)| earlier.iter().map(move |e| (*by, *e)))
+        .filter(|(by, earlier)| {
+            cycle_of
+                .get(by)
+                .is_none_or(|n| cycle_of.get(earlier) != Some(n))
+        })
+        .map(|(_, earlier)| earlier)
+        .collect()
+}
+
+/// The trackable decisions of a phase's context (`origin context`) still in force (none [`superseded`]), in id order:
+/// the ones its plans must list.
 pub fn context_decisions<'a>(input: &'a PassInput, phase: &str) -> Vec<&'a PassEntity> {
+    let superseded = superseded(input);
     children(input, phase, "decision")
         .into_iter()
-        .filter(|d| text(d, "origin") == Some("context"))
+        .filter(|d| text(d, "origin") == Some("context") && !superseded.contains(d.id.as_str()))
         .collect()
 }
 
@@ -76,15 +119,34 @@ pub fn targets<'a>(input: &'a PassInput, source: &str, label: &str) -> BTreeSet<
         .collect()
 }
 
-/// The target among `targets` that a row's reference `raw` names: the writer spells a reference relative to the
-/// entity's scope (ADR 0284) and the graph resolves it into an edge, so the target is `raw` itself or ends with `/raw`.
-pub fn resolve<'a>(targets: &BTreeSet<&'a str>, raw: &str) -> Option<&'a str> {
-    let tail = format!("/{raw}");
-    targets
-        .iter()
-        .find(|t| **t == raw)
-        .or_else(|| targets.iter().find(|t| t.ends_with(&tail)))
-        .copied()
+/// The target among `targets`, the edges of one field of `holder`, that `written`, an item of that field as written,
+/// names. The graph resolves a reference by its holder's scope chain alone (ADR 0284 D4): in the holder itself, each
+/// enclosing scope, then the project, and a rooted `/path` in the project only; never by a suffix. So the target is
+/// the first spelling of that chain among `targets`: a nearer entity the field admits would have answered the item.
+/// An item the graph did not resolve (E003) names none, whatever target ends with it.
+pub fn written_target<'a>(
+    targets: &BTreeSet<&'a str>,
+    holder: &str,
+    written: &str,
+) -> Option<&'a str> {
+    let (path, levels): (&str, Vec<&str>) = match written.strip_prefix('/') {
+        Some(path) => (path, vec![""]),
+        None => (
+            written,
+            std::iter::successors(Some(holder), |scope| {
+                (!scope.is_empty()).then(|| crate::scope::scope_of(scope))
+            })
+            .collect(),
+        ),
+    };
+    levels.into_iter().find_map(|level| {
+        let id = if level.is_empty() {
+            path.to_string()
+        } else {
+            format!("{level}/{path}")
+        };
+        targets.get(id.as_str()).copied()
+    })
 }
 
 /// The last `/`-segment of an id: its name.
@@ -158,26 +220,6 @@ pub fn text<'a>(entity: &'a PassEntity, field: &str) -> Option<&'a str> {
         .get(field)
         .map(|t| t.trim())
         .filter(|t| !t.is_empty())
-}
-
-fn is_word(byte: u8) -> bool {
-    byte.is_ascii_alphanumeric() || byte == b'_'
-}
-
-/// `\b<needle>\b` in `haystack` (JavaScript's ASCII word boundary), case-insensitively for ASCII letters when `fold`.
-/// The needle starts and ends with a word character (an id, a phrase).
-pub fn has_word(haystack: &str, needle: &str, fold: bool) -> bool {
-    let (haystack, needle) = if fold {
-        (haystack.to_ascii_lowercase(), needle.to_ascii_lowercase())
-    } else {
-        (haystack.to_string(), needle.to_string())
-    };
-    let bytes = haystack.as_bytes();
-    haystack.match_indices(&needle).any(|(at, found)| {
-        let before = at.checked_sub(1).map(|i| bytes[i]);
-        let after = bytes.get(at + found.len()).copied();
-        !before.is_some_and(is_word) && !after.is_some_and(is_word)
-    })
 }
 
 /// What a JSON value holds, for [`texts`]: a string, children, or nothing to read.
@@ -273,3 +315,6 @@ pub fn with_field_edges(mut input: serde_json::Value) -> serde_json::Value {
     input["edges"] = edges.into();
     input
 }
+
+#[cfg(test)]
+mod tests;

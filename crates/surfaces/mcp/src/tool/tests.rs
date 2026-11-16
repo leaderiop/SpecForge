@@ -217,6 +217,7 @@ fn a_result_meta_titles_a_code_from_the_project_code_book() {
                 explanation: "Add one.".into(),
                 docs: None,
                 machine: false,
+                reported_while: None,
             }],
         )
         .unwrap();

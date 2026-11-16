@@ -126,7 +126,8 @@ fn the_planners_typed_edits_write_a_checked_plan() {
     assert_eq!(p.fields_of("v1.0/02/02-02/AR1")["path"], "src/index.js");
     assert_eq!(
         p.fields_of("v1.0/02/02-02")["depends_on"],
-        serde_json::json!(["v1.0/02/02-01"])
+        serde_json::json!(["02-01"]),
+        "written as `link` spells it from the plan"
     );
 }
 
@@ -314,46 +315,6 @@ fn a_review_is_recorded_with_its_concerns() {
     );
     let subject = p.git(&["log", "-1", "--format=%s"], "2026-01-01T00:00:00Z");
     assert_eq!(subject.trim(), "docs(review): record the review of v1.0/02");
-}
-
-/// The PRD express path records the phase's context as typed edits: the context, a decision per requirement (the
-/// line repeated with the next id, as a model repeats it) and a deferred idea, on a phase with no context.
-#[test]
-fn the_prd_express_path_writes_the_phase_context() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
-    let p = taskboard();
-    let text = asset("gsd-core/workflows/plan-phase/steps/prd-express-path.md");
-    let fence = typed::filled(
-        &typed::typed_fence(&text, "4. Record the context as typed edits"),
-        &[
-            ("PHASE_ID", "v1.0/03"),
-            ("CONTEXT", "03-CONTEXT"),
-            ("TITLE", "Listing context"),
-            ("BOUNDARY", "Open tasks are listed and filtered by a word"),
-            ("DISCRETION", "The column widths"),
-            ("SPECIFICS", "taskboard list prints one task per line"),
-            (
-                "CANONICAL_REFS",
-                r#"[{"topic": "No external specs — requirements fully captured in decisions above", "paths": []}]"#,
-            ),
-            ("AREA", "Listing"),
-            ("DECISION", "The list shows open tasks, oldest first"),
-            ("DEFERRED", "Sorting by due date"),
-        ],
-    );
-    let second = super::line(&fence, "specforge new decision D-01")
-        .replace("D-01 \"$DECISION\"", "D-02 \"$DECISION\"");
-    let script = format!("{fence}\nDECISION=\"A filter matches a word of the title\"\n{second}");
-    let run = typed::apply(&sh, &p, &script);
-    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
-    assert!(run.added.is_empty(), "{:?}", run.added);
-    for id in ["03-CONTEXT", "D-01", "D-02", "DI1"] {
-        let id = format!("v1.0/03/{id}");
-        assert!(p.fields_of(&id).is_object(), "{id} is missing");
-    }
-    assert_eq!(p.fields_of("v1.0/03/D-02")["origin"], "context");
 }
 
 /// The researcher records the phase's research and its items as typed edits, and plan-phase records the pack the
@@ -559,7 +520,7 @@ fn the_coverage_trace_names_an_uncovered_requirement() {
     p.write(
         "spec/requirements.spec",
         &format!(
-            "{requirements}\nrequirement STORE-03 \"A save survives a crash\" {{\n  text     \"A crash mid-save leaves the board whole\"\n  category \"Storage\"\n  tier     v1\n  defined  2026-03-02\n}}\n"
+            "{requirements}\nrequirement STORE-03 \"A save survives a crash\" {{\n  text    \"A crash mid-save leaves the board whole\"\n  area    \"Storage\"\n  tier    v1\n  defined 2026-03-02\n}}\n"
         ),
     );
     let uncovered = thread(&p);
@@ -665,7 +626,7 @@ fn the_plan_checker_spawn_reads_one_pack_per_plan() {
         "{err}"
     );
     let body = asset("agents/gsd-plan-checker.md");
-    let lp = fence_after(&body, "Orchestrator provides CONTEXT.md content");
+    let lp = fence_after(&body, "Orchestrator provides the phase's context");
     let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{lp}"));
     assert_eq!(code, 0, "{out}{err}");
     assert!(

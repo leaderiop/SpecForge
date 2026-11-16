@@ -140,7 +140,7 @@ fn classify(
             match fields.get_path(kind, &path)?.1.field_type() {
                 FieldType::Enum | FieldType::Identifier => Some(("enumMember", 0)),
                 FieldType::Bool => Some(("keyword", 0)),
-                FieldType::Integer => Some(("number", 0)),
+                FieldType::Integer | FieldType::Number => Some(("number", 0)),
                 _ => None,
             }
         }

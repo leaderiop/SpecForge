@@ -91,7 +91,7 @@ expression: listing
               "type": "string"
             },
             {
-              "type": "integer"
+              "type": "number"
             },
             {
               "type": "boolean"
@@ -103,7 +103,7 @@ expression: listing
                     "type": "string"
                   },
                   {
-                    "type": "integer"
+                    "type": "number"
                   },
                   {
                     "type": "boolean"
@@ -411,7 +411,7 @@ expression: listing
               "type": "boolean"
             },
             "maximum": {
-              "type": "integer"
+              "type": "number"
             },
             "members": {
               "items": {
@@ -420,7 +420,7 @@ expression: listing
               "type": "array"
             },
             "minimum": {
-              "type": "integer"
+              "type": "number"
             },
             "name": {
               "type": "string"
@@ -2391,7 +2391,7 @@ expression: listing
               "type": "boolean"
             },
             "maximum": {
-              "type": "integer"
+              "type": "number"
             },
             "members": {
               "items": {
@@ -2400,7 +2400,7 @@ expression: listing
               "type": "array"
             },
             "minimum": {
-              "type": "integer"
+              "type": "number"
             },
             "name": {
               "type": "string"
@@ -3228,7 +3228,7 @@ expression: listing
               "type": "string"
             },
             {
-              "type": "integer"
+              "type": "number"
             },
             {
               "type": "boolean"
@@ -3240,7 +3240,7 @@ expression: listing
                     "type": "string"
                   },
                   {
-                    "type": "integer"
+                    "type": "number"
                   },
                   {
                     "type": "boolean"
@@ -9074,6 +9074,10 @@ expression: listing
             "cached",
             "replay"
           ],
+          "type": "string"
+        },
+        "filter": {
+          "description": "With run: true, the tests the one collector's command runs, in its own filter syntax (rust-test: a nextest filterset)",
           "type": "string"
         },
         "path": {

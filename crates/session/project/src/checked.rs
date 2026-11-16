@@ -2,6 +2,7 @@
 //! checks and rules and the check passes over the snapshot with their values merged, and the harness ledger.
 
 use specforge_common::Diagnostic;
+use specforge_diagnostics::{CodeRef, Codebook};
 use specforge_graph::{Computed, GraphBuild};
 use specforge_registry::rules::{CustomVerdicts, NoVerdicts};
 use specforge_registry::{Disk, EntitySnapshot};
@@ -87,11 +88,9 @@ impl Environment {
         let mut found = judged::Evaluated::default();
         if let (Some(build), Some(bytes)) = (build, &ledger_bytes) {
             found = judged::evaluate(self, build.graph(), entities, disk, digests, checked, bytes);
-            diagnostics.append(&mut found.diagnostics);
         }
         // The `V` fields the fresh verdicts give are values before any compute pass runs (ADR 0290).
         let mut values = std::mem::take(&mut found.values);
-        let judgements = found.judgements;
         if let Some(runtime) = runtime
             && self.registries.compute_passes().next().is_some()
         {
@@ -101,7 +100,7 @@ impl Environment {
                 runtime,
                 translated.as_ref(),
                 &values,
-                &judgements,
+                &found.judgements,
                 compute::Reads { disk, tests },
             );
             values = computed_values;
@@ -111,6 +110,10 @@ impl Environment {
             merged = Some(entities.with_computed(&values, self.registries.fields()));
             computed = values;
         }
+        // The judgements owed once each owner state is known on the merged snapshot (ADR 0362); what the judged
+        // rules say comes first, as it did before the compute passes ran.
+        let (judgements, said) = found.settle(self, merged.as_ref().unwrap_or(entities));
+        diagnostics.splice(0..0, said);
         {
             let entities = merged.as_ref().unwrap_or(entities);
             let verdicts: Box<dyn CustomVerdicts + '_> = match runtime {
@@ -165,6 +168,10 @@ impl Environment {
             }
             _ => {}
         }
+        // A finding whose code waits for an owner state speaks only on an entity in that state, read where a
+        // computed status decides it (ADR 0363).
+        let owners = merged.as_ref().unwrap_or(entities);
+        diagnostics.retain(|d| speaks(self.registries.codes(), owners, d));
         Checked {
             diagnostics,
             entities: merged,
@@ -172,4 +179,20 @@ impl Environment {
             judgements,
         }
     }
+}
+
+/// Whether `d` speaks on its entity as `entities` holds it (`Codebook::speaks`, ADR 0363): a host finding, one that
+/// names no entity, one whose entity `entities` does not hold, and one whose code waits for no owner state always do;
+/// another only in the owner state its code waits for.
+pub(crate) fn speaks(codes: &Codebook, entities: &EntitySnapshot, d: &Diagnostic) -> bool {
+    let (Some(extension), Some(subject)) = (d.origin(), d.subject()) else {
+        return true;
+    };
+    let local = CodeRef::parse(&d.code).local;
+    if !codes.waits(extension, local) {
+        return true;
+    }
+    entities
+        .get(subject)
+        .is_none_or(|(record, _)| codes.speaks(extension, local, entities.is_pending(record)))
 }

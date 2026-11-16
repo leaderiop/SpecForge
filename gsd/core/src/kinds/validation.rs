@@ -84,10 +84,13 @@ pub const MANUAL_CHECK: Kind = Kind::new(
     "A behaviour with no automated check (GSD Manual-Only Verifications)",
     &[
         rf("validation", "validation").r().i().doc("parent"),
-        str("behavior").r().doc("the behaviour"),
+        str("behavior").prose().r().doc("the behaviour"),
         rf("requirement", "requirement").doc("the requirement it serves"),
-        str("why_manual").r().doc("why it cannot be automated"),
-        str("instructions").r().doc("how to check it"),
+        str("why_manual")
+            .prose()
+            .r()
+            .doc("why it cannot be automated"),
+        str("instructions").prose().r().doc("how to check it"),
     ],
 )
 .scoped_by("validation");

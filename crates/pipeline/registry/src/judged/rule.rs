@@ -5,7 +5,7 @@
 use std::collections::BTreeSet;
 
 use specforge_common::Severity;
-use specforge_protocol_types::{FieldType, FieldWriter, JudgedDescriptor};
+use specforge_protocol_types::{FieldType, FieldWriter, JudgedDescriptor, OwnerState};
 
 use super::selector::{Chain, Head, Kinds, Selector, Step};
 use crate::compilation::UnloadedPeers;
@@ -23,6 +23,20 @@ pub struct JudgedTargetRule {
     /// Named inputs, in order.
     pub inputs: Vec<(String, Selector)>,
     pub unless_set: Vec<String>,
+    /// The owner state an entity is judged in (ADR 0362); `None`, either.
+    pub judged_while: Option<OwnerState>,
+}
+
+impl JudgedTargetRule {
+    /// Whether an entity of this target whose owner is `pending` or not (ADR 0329 D4) owes a verdict: always, unless
+    /// the target waits for the other owner state.
+    pub fn judges(&self, pending: bool) -> bool {
+        match self.judged_while {
+            None => true,
+            Some(OwnerState::Complete) => !pending,
+            Some(OwnerState::Pending) => pending,
+        }
+    }
 }
 
 /// A registered judged rule (ADR 0290).
@@ -124,10 +138,20 @@ pub(crate) fn shape(
             })?;
             inputs.push((input.name.clone(), selector));
         }
+        let judged_while = match target.judged_while.as_deref() {
+            None => None,
+            Some(word) => Some(OwnerState::parse(word).ok_or_else(|| {
+                format!(
+                    "target '{}': judged_while '{word}' is neither 'complete' nor 'pending'",
+                    target.kind
+                )
+            })?),
+        };
         targets.push(JudgedTargetRule {
             kind: target.kind.clone(),
             inputs,
             unless_set: target.unless_set.clone(),
+            judged_while,
         });
     }
     Ok((targets, d.clone()))
@@ -388,13 +412,14 @@ fn follow(
     Ok(kinds)
 }
 
-/// Whether following `path` from `kinds` ends at a file field (or member) of every kind it reaches.
+/// Whether following `path` from `kinds` ends at a file field (or member) of every kind it reaches: a hop whose
+/// reference reaches only unloaded kinds is [`WalkError::Unloaded`], as in [`walk`].
 fn ends_at_file(
     registries: Registries<'_>,
     mut kinds: BTreeSet<String>,
     path: &str,
     reader: Reader,
-) -> Result<(), String> {
+) -> Result<(), WalkError> {
     let words: Vec<&str> = path.split('.').collect();
     let mut at = 0;
     loop {
@@ -412,10 +437,9 @@ fn ends_at_file(
             return Ok(());
         }
         if at + 1 >= words.len() {
-            return Err(format!("'{path}' is not a file field"));
+            return Err(WalkError::Invalid(format!("'{path}' is not a file field")));
         }
-        let (taken, reached) =
-            hop(registries, &kinds, &words[at..], reader).map_err(WalkError::why)?;
+        let (taken, reached) = hop(registries, &kinds, &words[at..], reader)?;
         at += taken;
         kinds = reached;
     }
@@ -461,8 +485,9 @@ fn forbid_written(
 
 /// Whether `selector` can be read from entities of the kinds `this` by `reader`: every kind and field it names loaded and
 /// declared, every reference it crosses one that makes an edge, a `file()` of a chain ending at a file field.
-/// `Ok(Some(kind))` when it is inert: an entity chain, or every chain of a `test(..)`, reaches only a kind of an
-/// optional peer the project does not load (`inert` says which kinds are), so it selects nothing.
+/// `Ok(Some(kind))` when it is inert: an entity chain, every chain of a `test(..)`, or the chain of a `file()`
+/// reaches only a kind of an optional peer the project does not load (`inert` says which kinds are), so it selects
+/// nothing.
 pub(crate) fn check_selector(
     selector: &Selector,
     this: &BTreeSet<String>,
@@ -470,12 +495,13 @@ pub(crate) fn check_selector(
     reader: Reader,
     inert: impl Fn(&str) -> bool,
 ) -> Result<Option<String>, WalkError> {
-    let walked = |steps: usize, chain: &Chain| walk(chain, steps, this, registries, reader);
-    let selects = |chain: &Chain| match walked(chain.steps.len(), chain) {
+    let settle = |walked: Result<(), WalkError>| match walked {
+        Ok(()) => Ok(None),
         Err(WalkError::Unloaded { kind, .. }) if inert(&kind) => Ok(Some(kind)),
-        walked => walked
-            .map(|_| None)
-            .map_err(|e| WalkError::Invalid(e.why())),
+        Err(e) => Err(WalkError::Invalid(e.why())),
+    };
+    let selects = |chain: &Chain| {
+        settle(walk(chain, chain.steps.len(), this, registries, reader).map(|_| ()))
     };
     match selector {
         Selector::Entities(chain) => selects(chain),
@@ -489,47 +515,87 @@ pub(crate) fn check_selector(
                 false => None,
             })
         }
-        Selector::FilesOf(chain) => {
-            let invalid = |why: String| WalkError::Invalid(why);
-            let (last, steps) = chain.steps.split_last().ok_or_else(|| {
-                invalid("file() of a chain needs a step ending at a file field".into())
-            })?;
-            match last {
-                Step::Path(path) => {
-                    let kinds = walked(steps.len(), chain).map_err(|e| invalid(e.why()))?;
-                    ends_at_file(registries, kinds, path, reader).map_err(invalid)?;
-                }
-                // The referrers are found by the path's reference prefix, as a check reads it (ADR 0304); the rest
-                // is a forward path from them that ends at a file field.
-                Step::Referrers { kinds, path } => {
-                    let words: Vec<&str> = path.split('.').collect();
-                    let first = kinds.names.first().map_or("", String::as_str);
-                    let end = reference_end(registries, first, &words, reader).map_err(invalid)?;
-                    if end == words.len() {
-                        return Err(invalid(format!(
-                            "file() of '{path}' ends at a reference, not a file field"
-                        )));
-                    }
-                    let mut prefix = chain.clone();
-                    if let Some(Step::Referrers { path, .. }) = prefix.steps.last_mut() {
-                        *path = words[..end].join(".");
-                    }
-                    let reached =
-                        walked(prefix.steps.len(), &prefix).map_err(|e| invalid(e.why()))?;
-                    ends_at_file(registries, reached, &words[end..].join("."), reader)
-                        .map_err(invalid)?;
-                }
-            }
-            Ok(None)
-        }
+        Selector::FilesOf(chain) => settle(files_of(chain, this, registries, reader)),
         Selector::Files(_) => Ok(None),
     }
 }
 
+/// Whether the chain of a `file()` ends at a file field: [`WalkError::Unloaded`] when a kind it names, or a
+/// reference it crosses, reaches only unloaded kinds, as [`walk`] reports it.
+fn files_of(
+    chain: &Chain,
+    this: &BTreeSet<String>,
+    registries: Registries<'_>,
+    reader: Reader,
+) -> Result<(), WalkError> {
+    let (last, steps) = chain.steps.split_last().ok_or_else(|| {
+        WalkError::Invalid("file() of a chain needs a step ending at a file field".into())
+    })?;
+    match last {
+        Step::Path(path) => {
+            let kinds = walk(chain, steps.len(), this, registries, reader)?;
+            ends_at_file(registries, kinds, path, reader)
+        }
+        // The referrers are found by the path's reference prefix, as a check reads it (ADR 0304); the rest is a
+        // forward path from them that ends at a file field.
+        Step::Referrers { kinds, path } => {
+            // A referrer kind is checked loaded before its fields are read, as `walk` checks its sources.
+            if let Some(kind) = kinds.names.iter().find(|k| !registries.kinds.contains(k)) {
+                return Err(WalkError::Unloaded {
+                    kind: kind.clone(),
+                    why: format!("kind '{kind}' is not loaded"),
+                });
+            }
+            let words: Vec<&str> = path.split('.').collect();
+            let first = kinds.names.first().map_or("", String::as_str);
+            let end = reference_end(registries, first, &words, reader)?;
+            if end == words.len() {
+                return Err(WalkError::Invalid(format!(
+                    "file() of '{path}' ends at a reference, not a file field"
+                )));
+            }
+            let mut prefix = chain.clone();
+            if let Some(Step::Referrers { path, .. }) = prefix.steps.last_mut() {
+                *path = words[..end].join(".");
+            }
+            let reached = walk(&prefix, prefix.steps.len(), this, registries, reader)?;
+            ends_at_file(registries, reached, &words[end..].join("."), reader)
+        }
+    }
+}
+
+/// A target that waits for an owner state (ADR 0362) has an owner, and binds no verdict value of its kind: an owner
+/// state is read after the compute passes, and a fresh verdict's values are given before them.
+fn waits(
+    target: &JudgedTargetRule,
+    descriptor: &JudgedDescriptor,
+    registries: Registries<'_>,
+) -> Result<(), String> {
+    let kind = &target.kind;
+    if !registries.kinds.owner_declared(kind, registries.fields) {
+        return Err(format!(
+            "target '{kind}': judged_while needs an owner state, and neither '{kind}' nor a kind along its scoped_by \
+             chain declares complete_when"
+        ));
+    }
+    let prefix = format!("{kind}.");
+    if let Some(bound) = descriptor
+        .values
+        .iter()
+        .chain(&descriptor.outcome_fields)
+        .find(|entry| entry.starts_with(&prefix))
+    {
+        return Err(format!(
+            "target '{kind}': judged_while waits for the compute passes, and '{bound}' is given before them"
+        ));
+    }
+    Ok(())
+}
+
 /// Every selector of the rule resolved, and every field it names declared: `Err` is the reason the rule can never
-/// work, which is W112. An entity or test chain that reaches only a kind of an optional peer the project does not
-/// load (`unloaded`) is inert, as a route's step is (ADR 0330): it selects nothing, and the rule is kept (ADR 0331
-/// D7). A chain into any other kind no loaded extension declares is W112.
+/// work, which is W112. An entity, test or file() chain that reaches only a kind of an optional peer the project
+/// does not load (`unloaded`) is inert, as a route's step is (ADR 0330): it selects nothing, and the rule is kept
+/// (ADR 0331 D7). A chain into any other kind no loaded extension declares is W112.
 pub(crate) fn resolve(
     targets: &[JudgedTargetRule],
     descriptor: &JudgedDescriptor,
@@ -555,6 +621,9 @@ pub(crate) fn resolve(
                     target.kind
                 ));
             }
+        }
+        if target.judged_while.is_some() {
+            waits(target, descriptor, registries)?;
         }
     }
     let judged_kinds: BTreeSet<&str> = targets.iter().map(|t| t.kind.as_str()).collect();

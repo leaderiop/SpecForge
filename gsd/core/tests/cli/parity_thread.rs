@@ -31,7 +31,7 @@ fn thread_twin() -> (Project, String) {
 
 /// [`thread_twin`] with its tests collected from the recorded JUnit report and its commits from git, as a plain
 /// `collect` does where node does not run.
-fn collected_thread() -> (Project, String) {
+pub(super) fn collected_thread() -> (Project, String) {
     let (p, sha) = thread_twin();
     succeeds(&p.collect_node_test_golden());
     succeeds(&p.collect(&["--runner", "javascript-source"]));
@@ -39,7 +39,7 @@ fn collected_thread() -> (Project, String) {
     (p, sha)
 }
 
-fn succeeds(run: &Run) {
+pub(super) fn succeeds(run: &Run) {
     assert_eq!(run.code, 0, "{}", run.all());
 }
 
@@ -112,24 +112,7 @@ fn the_thread_of_task_01_prints_from_a_live_node_run() {
 #[test]
 fn the_thread_shows_a_failing_proof_and_stales_its_truth() {
     let (p, sha) = collected_thread();
-    // The twin's recorded tests again, the first failing.
-    succeeds(&p.node_tests(&[
-        (
-            "test/tasks.test.js",
-            "a task is added with the next id",
-            TestStatus::Failed,
-        ),
-        (
-            "test/tasks.test.js",
-            "a task is completed by its id",
-            TestStatus::Passed,
-        ),
-        (
-            "test/tasks.test.js",
-            "completing an unknown id throws",
-            TestStatus::Passed,
-        ),
-    ]));
+    fail_the_first_test(&p);
 
     let line = traced(&p, &sha);
     assert!(
@@ -252,4 +235,61 @@ fn trace_within_a_milestone_follows_its_phases_requirements() {
         ]
     );
     assert_eq!(traced_within(&p, "01"), ["TASK-01", "TASK-02"]);
+}
+
+/// The twin's tests as recorded, the first failing: the one that proves TASK-01's truth.
+fn fail_the_first_test(p: &Project) {
+    succeeds(&p.node_tests(&[
+        (
+            "test/tasks.test.js",
+            "a task is added with the next id",
+            TestStatus::Failed,
+        ),
+        (
+            "test/tasks.test.js",
+            "a task is completed by its id",
+            TestStatus::Passed,
+        ),
+        (
+            "test/tasks.test.js",
+            "completing an unknown id throws",
+            TestStatus::Passed,
+        ),
+    ]));
+}
+
+#[test]
+fn the_requirements_proof_follows_its_thread() {
+    let proof = |p: &Project, id: &str| p.fields_of(id)["proof"].clone();
+    let p = taskboard();
+    assert_eq!(proof(&p, "TASK-01"), "no_commit");
+    // v2's SYNC-01 is listed by no plan.
+    assert_eq!(proof(&p, "SYNC-01"), "no_task");
+    let (p, _) = thread_twin();
+    succeeds(&p.collect(&["--runner", "gsd-git"]));
+    assert_eq!(proof(&p, "TASK-01"), "not_run");
+    let (p, _) = collected_thread();
+    assert_eq!(proof(&p, "TASK-01"), "proven");
+    assert_eq!(proof(&p, "TASK-02"), "no_commit");
+    fail_the_first_test(&p);
+    assert_eq!(proof(&p, "TASK-01"), "failed");
+}
+
+#[test]
+fn satisfied_by_is_the_items_its_thread_reaches() {
+    let items = serde_json::json!([
+        "js:taskboard/src/tasks.js::addTask",
+        "js:taskboard/src/tasks.js::createBoard"
+    ]);
+    // Before any collect: the items T1 names are written, though no fact holds them yet.
+    assert_eq!(taskboard().fields_of("TASK-01")["satisfied_by"], items);
+    let (p, sha) = collected_thread();
+    assert_eq!(p.fields_of("TASK-01")["satisfied_by"], items);
+    let traced: Vec<String> = traced(&p, &sha)
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("→ "))
+        .filter(|target| target.starts_with("js:taskboard/src/"))
+        .map(str::to_string)
+        .collect();
+    assert_eq!(serde_json::json!(traced), items);
 }

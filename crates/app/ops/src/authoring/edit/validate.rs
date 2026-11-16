@@ -4,7 +4,8 @@
 //! span nor the digits of a message are in the key, since a message may name a position (E002, E078) and an inserted
 //! block moves every later one. An extension's finding is also keyed by its subject entity, relocated through the
 //! plan's moves, so a finding on another entity is another error (ADR 0302). A judged rule's finding is never such an
-//! error (ADR 0297): its judge settles it, not the edit; only a finding the judged evaluation made is one.
+//! error (ADR 0297): its judge settles it, not the edit; only a finding the judged evaluation made is one. Nor is a
+//! finding the write revealed by moving its entity into the owner state its code waits for (ADR 0363).
 
 use super::EditField;
 use super::declared::Declared;
@@ -12,6 +13,7 @@ use super::steps::relocated;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Refusal};
 use specforge_common::{Diagnostic, DiagnosticList, Severity, codes};
+use specforge_diagnostics::CodeRef;
 use specforge_graph::{GraphDelta, compute_graph_delta_over};
 use specforge_project::CompiledProject;
 use specforge_registry::RegistryBuild;
@@ -57,6 +59,49 @@ pub(crate) fn judged_finding(post: &CompiledProject) -> impl Fn(&Diagnostic) -> 
     |d| post.judgements().is_finding(d)
 }
 
+/// Whether a diagnostic of `post`, the project a write leaves `before` as, is no error the write adds whatever its
+/// key: a judged rule's finding ([`judged_finding`]), or one the write revealed ([`revealed`]). `renewed` names the
+/// entities the write gives a new identity, as its plan says.
+pub(crate) fn not_added<'a, R: Fn(&str) -> bool + 'a>(
+    before: &'a CompiledProject,
+    post: &'a CompiledProject,
+    renewed: R,
+) -> impl Fn(&Diagnostic) -> bool + 'a {
+    let judged = judged_finding(post);
+    move |d| judged(d) || revealed(before, post, &renewed, d)
+}
+
+/// Whether the write from `before` to `post` revealed `d` (ADR 0363): an extension's finding on an entity, whose code
+/// waits for an owner state (`Codebook::waits`), and the write moved that entity from the other state into it.
+/// `before` could not report it there, so the write did not add it: the owner's state moved. The entity must be the
+/// one `before` held: never one the write's plan creates, deletes or moves, or is under one that it does (`renewed`),
+/// whatever id `before` held; and both states must be known (`CompiledProject::owner_pending`: none after an update
+/// that skipped the checks).
+fn revealed(
+    before: &CompiledProject,
+    post: &CompiledProject,
+    renewed: &dyn Fn(&str) -> bool,
+    d: &Diagnostic,
+) -> bool {
+    let (Some(extension), Some(subject)) = (d.origin(), d.subject()) else {
+        return false;
+    };
+    if renewed(subject) {
+        return false;
+    }
+    let codes = post.environment().registries().codes();
+    let local = CodeRef::parse(&d.code).local;
+    if !codes.waits(extension, local) {
+        return false;
+    }
+    match (before.owner_pending(subject), post.owner_pending(subject)) {
+        (Some(was), Some(is)) => {
+            !codes.speaks(extension, local, was) && codes.speaks(extension, local, is)
+        }
+        _ => false,
+    }
+}
+
 /// The diagnostics of `after` that `before` does not have, one by one: (errors, warnings and infos). A diagnostic
 /// `judged` names is never an error here, whatever its severity. `moved` relocates the subjects of `before`.
 /// `host_only`: an extension's diagnostic is never an error here either (ADR 0303).
@@ -93,16 +138,17 @@ pub(crate) fn added(
 
 /// Refuse (E080) when `after` has an error `before` does not.
 pub(crate) fn refuse_new_errors(
-    before: &[Diagnostic],
+    before: &CompiledProject,
     after: &CompiledProject,
     registries: &RegistryBuild,
     moved: &Moves,
+    renewed: &dyn Fn(&str) -> bool,
     host_only: bool,
 ) -> Result<(), Refusal<EditField>> {
     let (errors, _) = added(
-        before,
+        &before.judged_diagnostics(),
         after.diagnostics(),
-        judged_finding(after),
+        not_added(before, after, renewed),
         moved,
         host_only,
     );
@@ -113,8 +159,8 @@ pub(crate) fn refuse_new_errors(
     }
 }
 
-/// What the project reports once `texts` are written that its checked report does not have now: the warnings and
-/// infos; or E080 naming each new error; or, when the edited graph changes what `declared` does not name,
+/// What the project reports once `texts` are written that its checked report does not have now (`renewed`: the
+/// entities the plan creates, deletes or moves, [`not_added`]): the warnings and infos; or E080 naming each new error; or, when the edited graph changes what `declared` does not name,
 /// `undeclared_change` (ADR 0198) naming the remainder.
 pub fn check(
     view: &ProjectView<'_>,
@@ -122,6 +168,7 @@ pub fn check(
     declared: &Declared,
     ledger: Option<&[u8]>,
     moved: &Moves,
+    renewed: &dyn Fn(&str) -> bool,
     host_only: bool,
 ) -> Result<Vec<Diagnostic>, Refusal<EditField>> {
     let before = view.project().judged_diagnostics();
@@ -133,7 +180,7 @@ pub fn check(
     let (errors, rest) = added(
         &before,
         post.diagnostics(),
-        judged_finding(&post),
+        not_added(view.project(), &post, renewed),
         moved,
         host_only,
     );
@@ -158,8 +205,12 @@ fn new_errors(errors: Vec<Diagnostic>, codes: &specforge_common::Codebook) -> Re
         errors.len(),
         if errors.len() == 1 { "" } else { "s" }
     );
+    // Each error with its help line, as `check` renders it: an E061 out of bounds names the range to write in.
     for error in &errors {
         message.push_str(&format!("\n  error[{}]: {}", error.code, error.message));
+        if let Some(help) = &error.suggestion {
+            message.push_str(&format!("\n    help: {help}"));
+        }
     }
     let data = serde_json::json!({ "diagnostics": DiagnosticList::new(errors, codes) });
     OpError::coded(OpErrorKind::CompilationFailed, codes::E080, message)
@@ -210,6 +261,27 @@ fn undeclared(beyond: &GraphDelta) -> Refusal<EditField> {
 mod tests {
     use super::*;
     use specforge_test_macros::test as specforge_test;
+
+    #[specforge_test(
+        behavior = "validate_typed_edit",
+        verify = "an edit that adds an error is refused with E080 listing each error with its help line"
+    )]
+    fn e080_lists_each_added_error_with_its_help_line() {
+        let mut bounded = Diagnostic::new(
+            codes::E061,
+            "field 'severity' of risk 'RK1' is declared integer, but was given 11",
+        );
+        bounded.suggestion = Some("write a whole number from 1 to 10".into());
+        let plain = Diagnostic::new(codes::E003, "unresolved reference 'x' in entity 'a'");
+        let refusal = new_errors(vec![bounded, plain], &specforge_common::Codebook::default());
+        assert_eq!(
+            refusal.error.message,
+            "the edit would leave the project with 2 errors it does not have; nothing was written\n  \
+             error[E061]: field 'severity' of risk 'RK1' is declared integer, but was given 11\n    \
+             help: write a whole number from 1 to 10\n  \
+             error[E003]: unresolved reference 'x' in entity 'a'"
+        );
+    }
 
     #[specforge_test(
         behavior = "roll_back_interrupted_write",

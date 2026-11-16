@@ -18,7 +18,8 @@ env:
 
 jobs:
   ci:
-    # `cargo gate ci`'s lint, specs and gsd shards; the `build` and `tests` jobs below hold the tests. `dogfood` judges every partition's reports.
+    # `cargo gate ci`'s lint, specs and gsd shards; the `build` job below holds build and self-spec-sample, the `tests`
+    # jobs the tests. `dogfood` judges every partition's reports.
     # The lint shard fails when `cargo gate list` holds a check no shard names.
     name: Check list (${{ matrix.shard }})
     runs-on: ubuntu-latest
@@ -82,7 +83,7 @@ jobs:
       - name: Every check of the list is in a shard
         if: matrix.shard == 'lint'
         run: |
-          sharded="build,tests,guests,dogfood,rustfmt,clippy,gsd,doctests,audit,pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,blob-size,crate-map,links,doc-links,root-layout,builtins,published-schemas,specs,spec-modules"
+          sharded="build,self-spec-sample,tests,guests,dogfood,rustfmt,clippy,gsd,doctests,audit,pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,blob-size,crate-map,links,doc-links,root-layout,builtins,published-schemas,specs,spec-modules"
           listed=$(cargo gate list | awk '/^[a-z]/ && $2 != "bootstrap" {print $1}' | sort)
           missing=$(comm -23 <(echo "$listed") <(tr , '\n' <<<"$sharded" | sort))
           if [ -n "$missing" ]; then echo "checks in no shard: $missing"; exit 1; fi
@@ -102,7 +103,8 @@ jobs:
           retention-days: 1
 
   build:
-    # Compiles the tests once into a nextest archive; the four `tests` jobs run it without compiling.
+    # Compiles the tests once into a nextest archive; the four `tests` jobs run it without compiling. Then the sample
+    # check runs its cited tests on that same build.
     name: Check list (build)
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -118,6 +120,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: tests
+          # The sample check builds @gsd/core's wasm in the gsd workspace, as the gsd shard does.
+          workspaces: |
+            . -> target
+            gsd -> target/gsd
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@v2
         with:
@@ -131,10 +137,18 @@ jobs:
           if-no-files-found: ignore
           compression-level: 0
           retention-days: 1
+      # A cited test may prove with z3, as the `tests` jobs' do.
+      - name: Install z3 (SMT solver for prove tests)
+        run: sudo apt-get update && sudo apt-get install -y z3
+      # Here, after the archive: the cited tests' run must compile nothing, and only this job holds the test build
+      # it reuses. A shard of its own would build the workspace's tests a second time.
+      - run: cargo gate ci --only self-spec-sample ${{ github.event_name == 'pull_request' && format('--since origin/{0}', github.base_ref) || '' }}
 
   tests:
     name: Check list (tests-${{ matrix.part }})
     needs: build
+    # A red sample check fails the build job after its archive is up: the partitions still run.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

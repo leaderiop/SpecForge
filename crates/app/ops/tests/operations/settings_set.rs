@@ -421,8 +421,8 @@ fn the_edit_that_would_not_round_trip_writes_nothing() {
     );
 }
 
-/// `specforge.json` after `settings set @t/n x.ratio <word>` on a number setting.
-fn number_word_written(word: &str) -> String {
+/// `specforge.json` after `settings set @t/n x.ratio <word>` on a number setting, or the refusal.
+fn number_word_written(word: &str) -> Result<String, OpError> {
     let dir = TempDir::new().unwrap();
     let config =
         "{\n  \"name\": \"p\",\n  \"version\": \"0.1.0\",\n  \"extensions\": [\"@t/n\"]\n}\n";
@@ -449,9 +449,8 @@ fn number_word_written(word: &str) -> String {
             caller: specforge_ops::testing::caller(),
         },
     )
-    .map_err(|refusal| refusal.error)
-    .unwrap();
-    std::fs::read_to_string(dir.path().join("specforge.json")).unwrap()
+    .map_err(|refusal| refusal.error)?;
+    Ok(std::fs::read_to_string(dir.path().join("specforge.json")).unwrap())
 }
 
 #[specforge_test(
@@ -459,7 +458,7 @@ fn number_word_written(word: &str) -> String {
     verify = "a number setting takes a decimal within its bounds"
 )]
 fn settings_set_reads_a_decimal_word() {
-    let written: Value = serde_json::from_str(&number_word_written("30.5")).unwrap();
+    let written: Value = serde_json::from_str(&number_word_written("30.5").unwrap()).unwrap();
     assert_eq!(written["settings"]["@t/n"]["x.ratio"], json!(30.5));
 }
 
@@ -468,9 +467,34 @@ fn settings_set_reads_a_decimal_word() {
     verify = "a number setting takes a decimal within its bounds"
 )]
 fn settings_set_writes_a_whole_number_as_an_integer() {
-    let text = number_word_written("30");
+    let text = number_word_written("30").unwrap();
     assert!(
         text.contains("\"x.ratio\": 30\n") && !text.contains("30.0"),
         "{text}"
     );
+}
+
+#[specforge_test(
+    behavior = "load_extension_settings",
+    verify = "settings set stores a number setting as its decimal and refuses more than 15 significant digits"
+)]
+fn a_number_setting_is_stored_as_its_decimal() {
+    let stored = |word: &str| -> Value {
+        let written: Value = serde_json::from_str(&number_word_written(word).unwrap()).unwrap();
+        written["settings"]["@t/n"]["x.ratio"].clone()
+    };
+    assert_eq!(stored("1.50"), json!(1.5));
+    assert_eq!(stored("30"), json!(30));
+    assert_eq!(stored("2.5e1"), json!(25));
+    for (word, message) in [
+        (
+            "0.1234567890123456",
+            "a number keeps at most 15 significant digits",
+        ),
+        ("1,5", "'1,5' is no decimal number"),
+    ] {
+        let error = number_word_written(word).unwrap_err();
+        assert_eq!(error.code, "invalid_input", "{word}: {}", error.message);
+        assert_eq!(error.message, message, "{word}");
+    }
 }

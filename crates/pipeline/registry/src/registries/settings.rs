@@ -212,8 +212,8 @@ fn register(mut setting: SettingDescriptor, out: &mut ExtensionSettings, found: 
         name: name.clone(),
         field_type: setting.field_type.clone(),
         enum_values: setting.enum_values.clone(),
-        minimum: setting.minimum,
-        maximum: setting.maximum,
+        minimum: setting.minimum.clone(),
+        maximum: setting.maximum.clone(),
         members: setting.members.clone(),
         ..Default::default()
     };
@@ -249,8 +249,8 @@ fn register(mut setting: SettingDescriptor, out: &mut ExtensionSettings, found: 
     let kept = entry.declared();
     setting.field_type = kept.field_type.clone();
     setting.enum_values = kept.enum_values.clone();
-    setting.minimum = kept.minimum;
-    setting.maximum = kept.maximum;
+    setting.minimum = kept.minimum.clone();
+    setting.maximum = kept.maximum.clone();
     setting.members = kept.members.clone();
     let form = entry.form().clone();
 
@@ -261,8 +261,10 @@ fn register(mut setting: SettingDescriptor, out: &mut ExtensionSettings, found: 
             ));
             setting.default = None;
         }
-        Some(value) => {
-            if let Err(refusal) = form.admit_json(value) {
+        // A default is held as its form holds a value: a number in its one JSON form (ADR 0361 D7).
+        Some(value) => match form.admit_json(value) {
+            Ok(held) => setting.default = Some(held.into()),
+            Err(refusal) => {
                 found.w021(format!(
                     "setting '{name}' declares a default its type does not admit{}",
                     refusal
@@ -272,7 +274,7 @@ fn register(mut setting: SettingDescriptor, out: &mut ExtensionSettings, found: 
                 ));
                 setting.default = None;
             }
-        }
+        },
         None => {}
     }
     for (key, codes) in [
@@ -434,15 +436,18 @@ fn check_presets(
                     ));
                     return false;
                 }
-                if let Err(refusal) = setting.form.admit_json(v) {
-                    found.w021(format!(
-                        "preset '{source}' presets '{key}' with a value its type does not admit{}",
-                        refusal
-                            .suggestion
-                            .map(|s| format!(" ({s})"))
-                            .unwrap_or_default()
-                    ));
-                    return false;
+                match setting.form.admit_json(v) {
+                    Ok(held) => *v = held.into(),
+                    Err(refusal) => {
+                        found.w021(format!(
+                            "preset '{source}' presets '{key}' with a value its type does not admit{}",
+                            refusal
+                                .suggestion
+                                .map(|s| format!(" ({s})"))
+                                .unwrap_or_default()
+                        ));
+                        return false;
+                    }
                 }
                 if preset_by.get(key).is_some_and(|owner| *owner != index) {
                     found.w021(format!(

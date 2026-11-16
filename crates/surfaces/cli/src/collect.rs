@@ -41,6 +41,10 @@ pub(crate) struct Args {
     #[arg(long = "report", value_name = "FILE")]
     reports: Vec<PathBuf>,
 
+    /// The tests the runner runs, in its own filter syntax (rust-test: a nextest filterset); one collector
+    #[arg(long, value_name = "TEXT", allow_hyphen_values = true)]
+    filter: Option<String>,
+
     /// Plan a writing collector's edits and write none of them
     #[arg(long)]
     dry_run: bool,
@@ -116,6 +120,7 @@ fn collect_at(options: &Args, terminal: &Terminal, ports: &specforge_effects::Po
         runner: options.runner.as_deref(),
         mode,
         announce: &mut announce,
+        filter: options.filter.as_deref(),
         caller: crate::caller::of(options.yes, format, terminal)
             .lending(
                 ports,

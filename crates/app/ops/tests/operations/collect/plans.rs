@@ -44,6 +44,7 @@ fn a_collector_plan_creates_commits_and_records_results() {
             runner: Some("git"),
             mode: Mode::NoRun,
             announce: &mut |_, _| {},
+            filter: None,
             caller: caller(),
         },
         &ScriptedMachine::new(),

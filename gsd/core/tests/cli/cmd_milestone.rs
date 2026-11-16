@@ -128,3 +128,18 @@ fn a_retrospective_item_with_a_control_character_is_refused() {
     );
     unchanged(&p, &before);
 }
+
+/// An audit may name its milestone rooted (`/v1.0`), a spelling the graph resolves as `v1.0`: the close finds it, as
+/// the gate that reads the audit does.
+#[test]
+fn close_milestone_finds_an_audit_naming_its_milestone_rooted() {
+    let p = ready();
+    p.edit(
+        "spec/m.spec",
+        "milestone_audit A1 \"A\" {\n  milestone v1.0\n",
+        "milestone_audit A1 \"A\" {\n  milestone /v1.0\n",
+    );
+    let run = gsd(&p, "close-milestone", &["v1.0"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(p.fields_of("v1.0")["completion"]["audit"], "A1");
+}

@@ -468,6 +468,7 @@ fn a_pass_finding_with_a_code_it_may_not_use_is_reported() {
             explanation: "e".to_string(),
             docs: None,
             machine: false,
+            reported_while: None,
         }],
     )
     .unwrap();
@@ -549,6 +550,7 @@ fn a_pass_finding_of_a_machine_code_is_marked_machine() {
         explanation: "e".to_string(),
         docs: None,
         machine,
+        reported_while: None,
     };
     let mut book = specforge_diagnostics::Codebook::default();
     book.add("@acme/links", vec![code("W950", false), code("W951", true)])

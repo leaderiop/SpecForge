@@ -1,3 +1,4 @@
+use crate::judged::JudgedBuilder;
 use crate::{
     CheckKind, CollectInput, CollectOutput, ConstraintKind, EdgeTypeDescriptor,
     EntityEnhancementDescriptor, EntityKindDescriptor, FieldConstraintDescriptor, FieldDescriptor,
@@ -6,7 +7,7 @@ use crate::{
 };
 use specforge_protocol_types::{
     AutoDetectConfig, CodeDescriptor, CollectorDescriptor, CompilerPassDescriptor, GUARD_PHASE,
-    JudgedDescriptor, JudgedInput, JudgedTarget, ProcessConfig,
+    JudgedDescriptor, OwnerState, ProcessConfig,
 };
 
 /// Builder for [`EntityKindDescriptor`].
@@ -169,6 +170,11 @@ impl FieldBuilder {
         self.0.field_type = t.as_str().to_string();
         self
     }
+    /// A `number` field: an exact decimal of at most 15 significant digits (ADR 0361), `field_type(FieldType::Number)`.
+    /// A pass reads its value with [`PassEntity::number`](crate::PassEntity::number).
+    pub fn number(&mut self) -> &mut Self {
+        self.field_type(FieldType::Number)
+    }
     pub fn required(&mut self) -> &mut Self {
         self.0.required = true;
         self
@@ -276,14 +282,16 @@ impl FieldBuilder {
         self.0.target_kinds = kinds.iter().map(|k| k.to_string()).collect();
         self
     }
-    /// An integer field's least value, inclusive (ADR 0285).
-    pub fn minimum(&mut self, n: i64) -> &mut Self {
-        self.0.minimum = Some(n);
+    /// The field's least value, inclusive: an `integer` field's whole bound (ADR 0285) or a `number` field's decimal
+    /// one, a [`Decimal`](crate::prelude::Decimal) (ADR 0361). A bound its type cannot read is W021 and dropped.
+    pub fn minimum(&mut self, n: impl Into<serde_json::Number>) -> &mut Self {
+        self.0.minimum = Some(n.into());
         self
     }
-    /// An integer field's greatest value, inclusive (ADR 0285).
-    pub fn maximum(&mut self, n: i64) -> &mut Self {
-        self.0.maximum = Some(n);
+    /// The field's greatest value, inclusive: an `integer` field's whole bound or a `number` field's decimal one, read
+    /// as [`Self::minimum`] is.
+    pub fn maximum(&mut self, n: impl Into<serde_json::Number>) -> &mut Self {
+        self.0.maximum = Some(n.into());
         self
     }
     /// A member of a `block` or `block_list` field, declared as a field is (ADR 0285).
@@ -411,6 +419,19 @@ impl CodeBuilder {
         self.0.machine = true;
         self
     }
+    /// A finding of this code speaks only once its entity's owner is complete (ADR 0363, the owner state of ADR 0329
+    /// D4, read after the compute passes): the host drops one on a pending entity, and the write that completes the
+    /// owner reveals it rather than adding it (E080).
+    pub fn once_complete(&mut self) -> &mut Self {
+        self.0.reported_while = Some(OwnerState::Complete.as_str().to_string());
+        self
+    }
+    /// A finding of this code speaks only while its entity's owner is pending (ADR 0363): the host drops one on a
+    /// complete entity, and the write that reopens the owner reveals it rather than adding it (E080).
+    pub fn while_open(&mut self) -> &mut Self {
+        self.0.reported_while = Some(OwnerState::Pending.as_str().to_string());
+        self
+    }
 }
 
 /// Builder for [`ValidationRuleDescriptor`], with a `custom` rule's
@@ -504,61 +525,6 @@ impl RuleBuilder {
         f(&mut b);
         self.descriptor.check = CheckKind::Judged.as_str().to_string();
         self.descriptor.judged = Some(b.0);
-        self
-    }
-}
-
-/// Builder for [`JudgedDescriptor`].
-pub struct JudgedBuilder(JudgedDescriptor);
-
-impl JudgedBuilder {
-    /// The outcomes a verdict may record, in order.
-    pub fn outcomes(&mut self, outcomes: &[&str]) -> &mut Self {
-        self.0.outcomes = outcomes.iter().map(ToString::to_string).collect();
-        self
-    }
-    /// The outcomes that pass: a subset of the outcomes.
-    pub fn passing(&mut self, passing: &[&str]) -> &mut Self {
-        self.0.passing = passing.iter().map(ToString::to_string).collect();
-        self
-    }
-    /// What the rule reads of the entities of `kind`.
-    pub fn target(&mut self, kind: &str, f: impl FnOnce(&mut JudgedTargetBuilder)) -> &mut Self {
-        let mut b = JudgedTargetBuilder(JudgedTarget {
-            kind: kind.to_string(),
-            ..JudgedTarget::default()
-        });
-        f(&mut b);
-        self.0.targets.push(b.0);
-        self
-    }
-    /// `kind.field`s set from the verdict's `values` block.
-    pub fn values(&mut self, fields: &[&str]) -> &mut Self {
-        self.0.values = fields.iter().map(ToString::to_string).collect();
-        self
-    }
-    /// `kind.field`s that hold the verdict's outcome.
-    pub fn outcome_fields(&mut self, fields: &[&str]) -> &mut Self {
-        self.0.outcome_fields = fields.iter().map(ToString::to_string).collect();
-        self
-    }
-}
-
-/// Builder for [`JudgedTarget`].
-pub struct JudgedTargetBuilder(JudgedTarget);
-
-impl JudgedTargetBuilder {
-    /// A named input: what `selector` picks from the project.
-    pub fn input(&mut self, name: &str, selector: &str) -> &mut Self {
-        self.0.inputs.push(JudgedInput {
-            name: name.to_string(),
-            selector: selector.to_string(),
-        });
-        self
-    }
-    /// An entity that writes any of `fields` is not judged.
-    pub fn unless_set(&mut self, fields: &[&str]) -> &mut Self {
-        self.0.unless_set = fields.iter().map(ToString::to_string).collect();
         self
     }
 }
@@ -665,6 +631,10 @@ pub struct CollectorBuilder {
     pub(crate) run: Option<Vec<String>>,
     /// The config file [`CollectorBuilder::config`] gave, declared on that capability.
     pub(crate) config: Option<ProcessConfig>,
+    /// The arguments [`CollectorBuilder::filter`] gave, declared on that capability.
+    pub(crate) filter: Vec<String>,
+    /// The variable names [`CollectorBuilder::env`] gave, declared on that capability.
+    pub(crate) env: Vec<String>,
 }
 
 impl CollectorBuilder {
@@ -686,6 +656,8 @@ impl CollectorBuilder {
             collect: None,
             run: None,
             config: None,
+            filter: Vec::new(),
+            env: Vec::new(),
         }
     }
     /// What the collector does: `handler` receives the report files
@@ -747,6 +719,23 @@ impl CollectorBuilder {
             name: name.to_string(),
             template: template.to_string(),
         });
+        self
+    }
+    /// The arguments the host appends after [`CollectorBuilder::run`]'s command when a caller passes a filter
+    /// (`specforge collect --filter`): `{filter}` in exactly one of them is the caller's text, one argument, in the
+    /// program's own filter syntax. A person approves them with the command; without a filter they are not passed.
+    pub fn filter(&mut self, args: &[&str]) -> &mut Self {
+        self.filter = args.iter().map(|a| a.to_string()).collect();
+        self
+    }
+    /// The environment variables [`CollectorBuilder::run`]'s program reads: a name, or a namespace prefix ending `_*`
+    /// (`CARGO_*`). A person approves them with the command. A collector's command is run by the host, in the
+    /// caller's environment, these included; a program a guest runs inherits only these beside what any program needs.
+    /// Neither receives a credential: a secret's name (`*_TOKEN`, `*_AUTH`, `*PASSWORD`, `*_PWD`, `*_PAT`, `*_KEY`, …)
+    /// or a cargo credential provider is withheld, and a URL, or a proxy written without a scheme, passes without its
+    /// user and password.
+    pub fn env(&mut self, names: &[&str]) -> &mut Self {
+        self.env = names.iter().map(|n| n.to_string()).collect();
         self
     }
     /// What to run to install the command's program, said when it is not found on PATH (ADR 0348 D4).

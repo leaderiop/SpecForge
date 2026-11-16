@@ -56,7 +56,7 @@ fn check(host: Host) {
         .join("tests/golden")
         .join(host.as_str());
     let files = written(host);
-    if std::env::var_os("SPECFORGE_BLESS").is_some() {
+    if specforge_repo_root::bless() {
         let _ = std::fs::remove_dir_all(&root);
         for (path, text) in &files {
             let target = root.join(path);

@@ -21,6 +21,8 @@ pub fn field_text(value: &FieldValue) -> String {
     match value {
         FieldValue::String(s) | FieldValue::Identifier(s) | FieldValue::Date(s) => s.clone(),
         FieldValue::Integer(n) => n.to_string(),
+        // The canonical text, `1500` for `1.5e3` (ADR 0361): what `PassEntity::number` reads.
+        FieldValue::Number(d) => d.to_string(),
         FieldValue::Boolean(b) => b.to_string(),
         FieldValue::List(_)
         | FieldValue::Expression(_)
@@ -47,6 +49,7 @@ pub fn field_items(value: &FieldValue) -> Option<Vec<String>> {
         | FieldValue::Identifier(_)
         | FieldValue::Date(_)
         | FieldValue::Integer(_)
+        | FieldValue::Number(_)
         | FieldValue::Boolean(_) => None,
         FieldValue::VariantList(items) | FieldValue::TypeUnion(items) => {
             Some(items.iter().map(|m| m.text.clone()).collect())

@@ -32,6 +32,11 @@ pub struct JudgedTarget {
     /// An entity that writes any of these fields is not judged: no verdict is owed.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unless_set: Vec<String>,
+    /// The owner state (ADR 0329 D4) an entity is judged in (2.2.0, ADR 0362): `complete` or `pending`, an
+    /// [`OwnerState`](crate::OwnerState) word kept a string, so an unknown one costs the rule (W112). An entity in the
+    /// other state owes no verdict. Absent: judged in either.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub judged_while: Option<String>,
 }
 
 /// One named input: what a selector (ADR 0290) picks from the project.

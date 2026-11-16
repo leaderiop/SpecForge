@@ -40,6 +40,7 @@ mod code_catalog;
 pub mod command_args;
 mod context;
 mod contrib;
+mod decimal;
 mod declaration;
 mod effects;
 pub mod engine_tools;
@@ -65,10 +66,11 @@ mod vocabulary;
 pub use calls::*;
 pub use capability::{
     ARGV_PLACEHOLDERS, CAPABILITY_KEYS, CONFIG_PLACEHOLDER, CONFIG_TEMPLATE_MAX,
-    CapabilityDescriptor, CapabilityProblem, FsAccess, FsScope, GitOp, GitScope, Hosts, HttpMethod,
-    HttpScope, MAX_CAPABILITY_BYTES, Owner, PortScope, ProcessConfig, ProcessScope,
-    REPORT_PLACEHOLDER, SecretHeader, WRITING_KINDS, capability_problems, is_config_name,
-    is_host_pattern, is_scope_name,
+    CapabilityDescriptor, CapabilityProblem, FILTER_MAX, FILTER_PLACEHOLDER, FsAccess, FsScope,
+    GitOp, GitScope, Hosts, HttpMethod, HttpScope, MAX_CAPABILITY_BYTES, Owner, PortScope,
+    ProcessConfig, ProcessScope, REPORT_PLACEHOLDER, SecretHeader, WRITING_KINDS,
+    capability_problems, filter_problem, is_config_name, is_env_prefix, is_host_pattern,
+    is_scope_name,
 };
 pub use checks::{
     ByteRange, CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan,
@@ -81,6 +83,7 @@ pub use context::{
     ContextTier,
 };
 pub use contrib::*;
+pub use decimal::{Decimal, DecimalError};
 pub use declaration::{
     DECLARED_CATEGORIES, DeclaredCategory, ExtensionDeclaration, UnknownKey, is_valid_short,
     protocol_minor,

@@ -35,13 +35,14 @@ fn kind(name: &str, keyword: &str, scoped_by: Option<&str>, wire: Value) -> Enti
 /// - `plan.files_modified` a required string list of files from the project root (`@specforge/checks:file`)
 /// - `summary.requires` a block list of `{phase phase R, provides string R}`
 /// - `milestone.completion` a block `{at date, audit audit}`
-/// - `discussion.scores` a block `{goal integer 0..100, ambiguity integer 0..100}`
+/// - `discussion.scores` a block `{goal integer 0..100, ambiguity integer 0..100, weight number}`
 /// - `refactor_proposal.reasons` an enum list `{threshold, jump}`, `.score` an integer of at least 0
 /// - `context.canonical_refs` a block list of `{topic string, paths string list of files from the project root}`
 ///
 /// The file checks name `@specforge/checks`, an optional peer: inert until a project loads it.
 /// - `shape.tags` an enum list `{cli, api}`, `shape.checks` a block list of `{kind enum{cli, api}, note string}`
 /// - `truth.criterion` an integer from 1 to 5
+/// - `measure.value` a required number, `measure.ratio` a number from 0.05 to 0.95 (ADR 0361)
 pub fn typed_extension() -> ExtensionDeclaration {
     let mut declaration = super::scoped_extension().declaration();
     declaration.handshake.name = TYPED_EXTENSION.into();
@@ -125,6 +126,7 @@ pub fn typed_extension() -> ExtensionDeclaration {
             json!([{"name": "scores", "field_type": "block", "members": [
                 {"name": "goal", "field_type": "integer", "minimum": 0, "maximum": 100},
                 {"name": "ambiguity", "field_type": "integer", "minimum": 0, "maximum": 100},
+                {"name": "weight", "field_type": "number"},
             ]}]),
         ),
         kind(
@@ -151,6 +153,15 @@ pub fn typed_extension() -> ExtensionDeclaration {
             "truth",
             None,
             json!([{"name": "criterion", "field_type": "integer", "minimum": 1, "maximum": 5}]),
+        ),
+        kind(
+            "Measure",
+            "measure",
+            None,
+            json!([
+                {"name": "value", "field_type": "number", "required": true},
+                {"name": "ratio", "field_type": "number", "minimum": 0.05, "maximum": 0.95},
+            ]),
         ),
         kind("VerifyGap", "verify_gap", None, json!([])),
         kind("UatGap", "uat_gap", None, json!([])),

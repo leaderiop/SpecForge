@@ -125,3 +125,29 @@ fn the_target_directory_is_the_nearest_marked_ancestor() {
 
     assert_eq!(target_dir_of(&tmp.path().join("loose/x")), None);
 }
+
+/// Where a report goes: the collect run's path first, then the caller's chosen
+/// directory, then the binary's target directory.
+#[test]
+fn a_report_goes_where_collect_says_then_where_the_caller_chose() {
+    use specforge_test::atexit::report_dir_of;
+
+    let tmp = tempfile::tempdir().unwrap();
+    std::fs::write(tmp.path().join("CACHEDIR.TAG"), "Signature: x\n").unwrap();
+    let binary = tmp.path().join("debug/deps/x");
+    let collect = Some("/collect".into());
+    let chosen = Some("/chosen".into());
+    assert_eq!(
+        report_dir_of(collect.clone(), chosen.clone(), Some(&binary)),
+        Some("/collect".into())
+    );
+    assert_eq!(
+        report_dir_of(None, chosen, Some(&binary)),
+        Some("/chosen".into())
+    );
+    assert_eq!(
+        report_dir_of(None, None, Some(&binary)),
+        Some(tmp.path().join("specforge"))
+    );
+    assert_eq!(report_dir_of(None, None, None), None);
+}

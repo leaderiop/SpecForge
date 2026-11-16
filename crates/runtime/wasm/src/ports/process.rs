@@ -23,12 +23,14 @@ impl PortSession {
         let PortScope::Process(scope) = &granted.declared.port else {
             return Err(out_of_scope("no process capability permits it"));
         };
-        // A name it does not declare is one nobody approved: `BASH_ENV` chooses what an approved command runs.
-        if let Some(var) = request
-            .env
-            .iter()
-            .find(|var| !scope.env.iter().any(|name| same_variable(name, &var.name)))
-        {
+        // A name it does not declare is one nobody approved: `BASH_ENV` chooses what an approved command runs. A
+        // declared prefix (`CARGO_*`) is inherit-only, so it names no variable a guest sets, not even `CARGO_*`.
+        if let Some(var) = request.env.iter().find(|var| {
+            !scope
+                .env
+                .iter()
+                .any(|name| !name.ends_with('*') && same_variable(name, &var.name))
+        }) {
             let refusal = Refusal {
                 extension: call.grant.extension().to_string(),
                 request: specforge_effects::grant::one_line(&asked),

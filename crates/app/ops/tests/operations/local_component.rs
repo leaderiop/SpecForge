@@ -39,6 +39,7 @@ fn refusals(scratch: &Path, path: &Path) -> [(String, String); 4] {
             dir: &fresh,
             name: Some("demo"),
             version: init::DEFAULT_VERSION,
+            spec_root: Some(init::SPEC_ROOT),
             extensions: &extensions,
             caller: specforge_ops::testing::caller(),
         },

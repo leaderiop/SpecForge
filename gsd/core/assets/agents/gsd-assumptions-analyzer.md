@@ -22,7 +22,7 @@ Agent receives via prompt:
 
 - `<phase>` -- phase number and name, and its id (`PHASE_ID`, the pack's subject)
 - `<phase_goal>` -- the phase's goal
-- `<prior_decisions>` -- summary of locked decisions from earlier phases
+- `<prior_decisions>` -- summary of the decisions in force from earlier phases
 - `<codebase_hints>` -- scout results (relevant files, components, patterns found)
 - `<calibration_tier>` -- one of: `full_maturity`, `standard`, `minimal_decisive`
 </input>
@@ -91,7 +91,7 @@ ecosystem best practices, etc. Leave empty if codebase provides enough evidence.
 5. Do NOT suggest scope expansion -- stay within the phase boundary.
 6. Do NOT include implementation details (that's for the planner).
 7. Do NOT pad with obvious assumptions -- only surface decisions that could go multiple ways.
-8. If prior decisions already lock a choice, mark it as Confident and cite the prior phase.
+8. If a prior decision in force already settles a choice, mark it as Confident and cite the prior phase.
 </rules>
 
 <anti_patterns>

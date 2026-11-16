@@ -299,7 +299,7 @@ fn the_quick_reference_relations_are_generated() {
     );
     let body = begin + text[begin..].find('\n').unwrap() + 1;
     let expected = render();
-    if std::env::var_os("SPECFORGE_BLESS").is_some() {
+    if specforge_repo_root::bless() {
         let rewritten = format!("{}{BEGIN}\n{expected}{}", &text[..begin], &text[end..]);
         std::fs::write(&path, rewritten).unwrap();
         return;

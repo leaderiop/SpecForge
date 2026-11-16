@@ -361,13 +361,16 @@ impl FieldForm {
     /// (`block {kind, what}`).
     pub fn label(&self) -> String {
         let name = self.field_type().as_str();
-        let (minimum, maximum) = self.bounds();
         if !self.enum_values().is_empty() {
             return format!("{name} ({})", self.enum_values().join(", "));
         }
-        if minimum.is_some() || maximum.is_some() {
-            let bound = |n: Option<i64>| n.map(|n| n.to_string()).unwrap_or_default();
-            return format!("{name} ({}..{})", bound(minimum), bound(maximum));
+        if !self.bounds().is_unbounded() {
+            let (minimum, maximum) = self.bounds().texts();
+            return format!(
+                "{name} ({}..{})",
+                minimum.unwrap_or_default(),
+                maximum.unwrap_or_default()
+            );
         }
         match self.members() {
             Some(members) => {

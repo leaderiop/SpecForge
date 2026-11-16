@@ -1,6 +1,6 @@
 [package]
 name = "xtask"
-description = "Repository tasks that link the workspace: build-blobs, revendor, check-links, check-modules, clean-target and perf-report"
+description = "Repository tasks that link the workspace: build-blobs, revendor, check-links, check-modules, clean-target, perf-report and absorb"
 edition = "2024"
 version = "0.1.0"
 publish = false
@@ -29,7 +29,12 @@ path = "src/check_modules.rs"
 name = "perf-report"
 path = "src/perf_report.rs"
 
+[[bin]]
+name = "absorb"
+path = "src/absorb.rs"
+
 [dependencies]
+regex = { workspace = true }
 specforge-repo-root = { path = "../crates/leaf/repo-root" }
 specforge-common = { workspace = true }
 specforge-coverage = { path = "../crates/leaf/coverage" }
@@ -44,7 +49,15 @@ specforge-installed = { path = "../crates/runtime/installed" }
 specforge-wasm = { path = "../crates/runtime/wasm" }
 specforge-protocol-types = { path = "../crates/leaf/protocol-types" }
 serde_json = "1.0"
+serde = { workspace = true }
 gate = { path = "../gate" }
+specforge-ops = { workspace = true }
+specforge-parser = { workspace = true }
+specforge-graph = { path = "../crates/pipeline/graph" }
+
+[dev-dependencies]
+insta = { workspace = true }
+tempfile = { workspace = true }
 
 [lints]
 workspace = true

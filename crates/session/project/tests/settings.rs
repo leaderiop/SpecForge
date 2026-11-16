@@ -474,6 +474,96 @@ fn a_number_setting_keeps_its_bounds() {
     );
 }
 
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a number setting's bounds are exact decimals"
+)]
+fn a_number_setting_takes_decimal_bounds() {
+    let items = json!([{"kind": "setting", "name": "x.ratio", "field_type": "number", "minimum": 0.05, "maximum": 0.95}]);
+    let (resolved, found) = resolve_raw(items.clone(), json!({"@t/s": {"x.ratio": 0.95}}));
+    assert!(found.is_empty(), "{found:?}");
+    let ratio = resolved.of("@t/s").unwrap().get("x.ratio").unwrap();
+    assert_eq!(ratio.value, Some(json!(0.95)));
+    for outside in [0.96, 0.95000000000001, 0.04] {
+        let (_, found) = resolve_raw(items.clone(), json!({"@t/s": {"x.ratio": outside}}));
+        assert_eq!(codes_of(&found), ["E086"], "{outside}: {found:?}");
+        assert_eq!(
+            found[0].message, "'x.ratio' must be a number from 0.05 to 0.95",
+            "{outside}"
+        );
+        assert_eq!(
+            found[0].suggestion.as_deref(),
+            Some("write a number from 0.05 to 0.95"),
+            "{outside}"
+        );
+    }
+    let at_most =
+        json!([{"kind": "setting", "name": "x.ratio", "field_type": "number", "maximum": 0.95}]);
+    let (_, found) = resolve_raw(at_most, json!({"@t/s": {"x.ratio": 0.96}}));
+    assert_eq!(
+        found[0].suggestion.as_deref(),
+        Some("write a number of at most 0.95"),
+        "{found:?}"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a number setting of more than 15 significant digits is refused"
+)]
+fn a_number_setting_of_more_than_fifteen_significant_digits_is_refused() {
+    let (_, found) = resolve_raw(ratio_items(), json!({"@t/s": {"x.ratio": 0.1 + 0.2}}));
+    assert_eq!(codes_of(&found), ["E086"], "{found:?}");
+    assert_eq!(found[0].message, "'x.ratio' must be a number from 0 to 100");
+    assert_eq!(
+        found[0].suggestion.as_deref(),
+        Some("a number keeps at most 15 significant digits")
+    );
+    for fits in [json!(0.4), json!(30)] {
+        let (resolved, found) = resolve_raw(ratio_items(), json!({"@t/s": {"x.ratio": fits}}));
+        assert!(found.is_empty(), "{fits}: {found:?}");
+        let ratio = resolved.of("@t/s").unwrap().get("x.ratio").unwrap();
+        assert_eq!(ratio.value, Some(fits));
+    }
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a number setting, its default and a preset's value are held in their one JSON form"
+)]
+fn a_number_setting_is_held_in_its_one_json_form() {
+    let items = json!([
+        {"kind": "setting", "name": "x.mode", "field_type": "enum", "enum_values": ["lax", "strict"]},
+        {"kind": "setting", "name": "x.ratio", "field_type": "number", "default": 50.0},
+        {"kind": "setting", "name": "x.limit", "field_type": "number"},
+        {"kind": "preset", "source": "x.mode", "values": {"strict": {"settings": {"x.ratio": 40.0}}}},
+    ]);
+    let held = |settings: Value, name: &str| {
+        let (resolved, found) = resolve_raw(items.clone(), json!({ "@t/s": settings }));
+        assert!(found.is_empty(), "{found:?}");
+        let value = resolved
+            .of("@t/s")
+            .unwrap()
+            .get(name)
+            .unwrap()
+            .value
+            .clone();
+        serde_json::to_string(&value).unwrap()
+    };
+    assert_eq!(held(json!({}), "x.ratio"), "50", "the default");
+    assert_eq!(
+        held(json!({"x.mode": "strict"}), "x.ratio"),
+        "40",
+        "the preset's"
+    );
+    assert_eq!(
+        held(json!({"x.limit": 30.0}), "x.limit"),
+        "30",
+        "the explicit"
+    );
+    assert_eq!(held(json!({"x.limit": 2.50}), "x.limit"), "2.5");
+}
+
 mod attached_checks {
     use super::*;
 

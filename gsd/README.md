@@ -1,6 +1,6 @@
 # GSD in SpecForge (`@gsd/*`)
 
-**Status: the kernel changes are built (protocol 1.15.0); `@gsd/core` 1.1.0 is built and tracks gsd-core 1.19.0: its model, checks, 15 agents, 48 commands, 44 prompts, 50 slash commands and 15 hooks, installed for Claude Code (verified) and Codex and Cursor (drafts), and three of the parity suite's four checks run in the gate; the fourth (upgrade) is a procedure ([acceptance checklist](parity/ACCEPTANCE.md), which lists the named gaps: hooks are 16 of 29, the `specforged` harness is later, Codex and Cursor are unrun). `@gsd/security` 1.0.0 is built on it (the threat model, `/gsd-secure-phase`, the auditor and the ship gate; [security/](security/)). The other `@gsd/*` extensions are not built. Tracking stays at gsd-core 1.19.0 while the extensions are redesigned; upgrades resume afterwards, each as its own round.** This folder holds the model, the contribution rosters and the parity
+**Status: the kernel changes are built (protocol 1.15.0); `@gsd/core` 1.1.0 is built and tracks gsd-core 1.19.0: its model, checks, 15 agents, 48 commands, 45 prompts, 50 slash commands and 15 hooks, installed for Claude Code (verified) and Codex and Cursor (drafts), and three of the parity suite's four checks run in the gate; the fourth (upgrade) is a procedure ([acceptance checklist](parity/ACCEPTANCE.md), which lists the named gaps: hooks are 16 of 29, the `specforged` harness is later, Codex and Cursor are unrun). `@gsd/security` 1.0.0 is built on it (the threat model, `/gsd-secure-phase`, the auditor and the ship gate; [security/](security/)). The other `@gsd/*` extensions are not built. Tracking stays at gsd-core 1.19.0 while the extensions are redesigned; upgrades resume afterwards, each as its own round.** This folder holds the model, the contribution rosters and the parity
 plan for bringing the whole GSD framework ([open-gsd](https://github.com/open-gsd)) into SpecForge. It lives in this
 monorepo for now and moves to its own repository later; nothing in it may depend on a path outside `gsd/`.
 
@@ -13,7 +13,8 @@ project state is a `.spec` entity, there is no `.planning/` folder and no Markdo
 ```
 ┌────────────────────────── @gsd/core (the unified meta-model) ──────────────────────────┐
 │ project · requirement · milestone · phase · plan · task · decision · research ·        │
-│ summary · verification · uat · validation · handoff · settings                         │
+│ summary · verification · uat · validation · handoff · settings ·                       │
+│ persona · journey · term (beyond GSD)                                                  │
 └───────────┬──────────────────────────────┬──────────────────────────────┬──────────────┘
    profiles │                capabilities  │                       tooling│
 ┌───────────┴───────────┐  ┌───────────────┴──────────────┐  ┌────────────┴─────────────┐
@@ -25,10 +26,12 @@ project state is a `.spec` entity, there is no `.planning/` folder and no Markdo
 
 The stack is complete on its own: a GSD project loads only `@gsd/*`, never `@specforge/product`, `governance`,
 `testing`, `cargo-test` or `vitest`. That is policy, not kernel-enforced: `@specforge/product` (`milestone`,
-`deliverable`) and `@specforge/governance` (`decision`) declare kinds `@gsd/core` also declares, and loading both is
-E026 (the first registration wins), so `specforge check` fails on a real clash. Tests are the one thing GSD does not
-collect: a project that records them loads `@code/core` and a runner pack (`@javascript/node-test`, `@rust/test`),
-whose test facts `@gsd/core` reads; a `[gsd:<id>]` tag in a test's name names its entity.
+`deliverable`, `persona`, `journey`, `term`) and `@specforge/governance` (`decision`) declare kinds `@gsd/core` also
+declares, and loading both is E026 (the first registration wins), so `specforge check` fails on a real clash
+([ADR 0357](../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md) D11). Tests are the
+one thing GSD does not collect: a project that records them loads `@code/core` and a runner pack
+(`@javascript/node-test`, `@rust/test`), whose test facts `@gsd/core` reads; a `[gsd:<id>]` tag in a test's name names
+its entity.
 
 ## Decisions
 
@@ -110,7 +113,8 @@ list fields as items, **K14** a writing call knows the time (`now`), **K15** a j
 ```
 spec/gsd/
 ├── project.spec                      project, settings that are not flags
-├── requirements/<category>.spec      AUTH-01, AUTH-02 …
+├── requirements/<area>.spec          AUTH-01, AUTH-02 …
+├── product/                          personas, journeys, glossary (beyond GSD)
 ├── milestones/<v>/
 │   ├── milestone.spec
 │   └── phases/<NN-slug>/

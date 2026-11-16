@@ -1,7 +1,8 @@
 //! The adapter behind the effect plane's `Process` port (ADR 0335): the one runner every spawn goes through. It
 //! resolves the program ([`locate`]: through absolute PATH entries only, × PATHEXT on Windows, the request's own when
 //! it sets them), passes the parent's environment (for a program a guest runs, only what [`inherited`] keeps) with the
-//! request's variables, less a secret deny-list applied last, holds the run and its output to the request's deadline
+//! request's variables, less a secret deny-list applied last ([`secret`]; for a program a request or an extension asks
+//! for, the credential filter [`passed`]), holds the run and its output to the request's deadline
 //! (at most 600 s) and output cap, and ends the program's whole process group (a Job object on Windows) when either
 //! passes, or when the host itself is interrupted ([`stop_on_interrupt`]). A program that exits cleanly is never
 //! killed: a child it left holding its output is read for a short grace, then left alone.
@@ -33,14 +34,157 @@ const TICK: Duration = Duration::from_millis(5);
 pub struct Runner;
 
 /// Whether the environment variable `name` looks like a secret a program the host runs is not given, whoever set it:
-/// a name ending `_TOKEN`, `_SECRET`, `_PASSWORD`, `_KEY` or `_CREDENTIALS` (`GOOGLE_APPLICATION_CREDENTIALS`
-/// among them), or starting `AWS_` (any case). The one deny-list (ADR 0335 D1); only a grant passes a secret.
+/// a name ending `_TOKEN`, `_AUTHTOKEN`, `_AUTH` (npm's `NPM_CONFIG__AUTH`), `_SECRET`, `PASSWORD` (`PGPASSWORD` too),
+/// `_PASSWD`, `_PWD` (`MYSQL_PWD`; never `PWD` or `OLDPWD`, the working directories), `_PAT` (a personal access token,
+/// `GH_PAT`), `_KEY` (`_API_KEY`, `_SECRET_KEY`, `_PRIVATE_KEY`) or `_CREDENTIALS` (`GOOGLE_APPLICATION_CREDENTIALS`
+/// among them), or starting `AWS_`, in any case on every system. The one deny-list (ADR 0335 D1); only a grant passes a
+/// secret.
 pub fn secret(name: &OsStr) -> bool {
     let name = name.to_string_lossy().to_ascii_uppercase();
-    ["_TOKEN", "_SECRET", "_PASSWORD", "_KEY", "_CREDENTIALS"]
-        .iter()
-        .any(|end| name.ends_with(end))
+    [
+        "_TOKEN",
+        "_AUTHTOKEN",
+        "_AUTH",
+        "_SECRET",
+        "PASSWORD",
+        "_PASSWD",
+        "_PWD",
+        "_PAT",
+        "_KEY",
+        "_CREDENTIALS",
+    ]
+    .iter()
+    .any(|end| name.ends_with(end))
         || name.starts_with("AWS_")
+}
+
+/// Whether `name` (any case) is where cargo finds a registry credential beside a token, which [`secret`] withholds: a
+/// credential provider (`CARGO_REGISTRY_CREDENTIAL_PROVIDER`, `CARGO_REGISTRIES_<NAME>_CREDENTIAL_PROVIDER`,
+/// `CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS`) or a provider's own setting (`CARGO_CREDENTIAL_*`).
+pub fn credential(name: &OsStr) -> bool {
+    let name = name.to_string_lossy().to_ascii_uppercase();
+    name.starts_with("CARGO_CREDENTIAL_")
+        || name == "CARGO_REGISTRY_CREDENTIAL_PROVIDER"
+        || name == "CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS"
+        || name
+            .strip_prefix("CARGO_REGISTRIES_")
+            .is_some_and(|rest| rest.ends_with("_CREDENTIAL_PROVIDER"))
+}
+
+/// What a program a request or an extension asks for receives of one variable of the host's environment.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Passed {
+    /// The value as the host holds it.
+    Whole,
+    /// The value with every URL's user and password removed (`https://user:pass@host/` is `https://host/`).
+    Without(OsString),
+    /// Nothing: the variable is removed.
+    Withheld,
+}
+
+/// The credential filter, one for a program a guest runs and for a collector's command the host runs: what of the
+/// variable `name`, holding `value`, the program receives. A [`secret`] or a cargo [`credential`] is withheld. A URL
+/// carrying a user and password (a proxy, a registry index, a rustup or npm server, a database) passes without them,
+/// whatever the variable's name, so the program still reaches the same host and a server that needs them refuses it
+/// in the open, where a withheld proxy would send it elsewhere. A [`proxy`] written without a scheme
+/// (`user:pass@proxy:8080`, as curl reads one) is cleaned the same way. A value that is not Unicode and may hold one is
+/// withheld, as it cannot be cleaned. A URL with neither passes whole.
+pub fn passed(name: &OsStr, value: &OsStr) -> Passed {
+    if secret(name) || credential(name) {
+        return Passed::Withheld;
+    }
+    match value.to_str() {
+        Some(text) => {
+            let clean = if proxy(name) && !text.contains("://") {
+                without_userinfo(&format!("http://{text}"))
+                    .map(|clean| clean["http://".len()..].to_string())
+            } else {
+                without_userinfo(text)
+            };
+            clean.map_or(Passed::Whole, |clean| Passed::Without(clean.into()))
+        }
+        None => {
+            let lossy = value.to_string_lossy();
+            if lossy.contains("://") && lossy.contains('@') {
+                Passed::Withheld
+            } else {
+                Passed::Whole
+            }
+        }
+    }
+}
+
+/// Whether `name` (any case) holds a proxy a program fetches through: one ending `_PROXY` (`HTTP_PROXY`,
+/// `HTTPS_PROXY`, `ALL_PROXY`, `CARGO_HTTP_PROXY`, …), never one ending `NO_PROXY`, which lists hosts.
+pub fn proxy(name: &OsStr) -> bool {
+    let name = name.to_string_lossy().to_ascii_uppercase();
+    name.ends_with("_PROXY") && !name.ends_with("NO_PROXY")
+}
+
+/// `text` with the user information removed from each URL in it (`scheme://<userinfo>@host`), None when it holds none
+/// to remove. A user with a password is removed under any scheme; a user alone only under an HTTP scheme (`https`,
+/// `sparse+https`, `git+http`, …), where a token is written as the user, never under another (`ssh://git@host` names
+/// the account ssh logs in as, no secret). The user information runs to the last `@` of the authority, so a password
+/// holding an `@`, or an unencoded `/`, `?` or `#` (`postgres://user:pa#ss@db/x`), is removed whole: once a `user:`
+/// starts the authority and what follows the `:` is no port, the authority runs past those to its `@`.
+pub fn without_userinfo(text: &str) -> Option<String> {
+    let delimiter = |c: char| matches!(c, '/' | '?' | '#') || c.is_whitespace();
+    let mut clean = String::with_capacity(text.len());
+    let mut rest = text;
+    let mut changed = false;
+    while let Some(at) = rest.find("://") {
+        let scheme_start = rest[..at]
+            .rfind(|c: char| !(c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.')))
+            .map_or(0, |i| i + 1);
+        let scheme = rest[scheme_start..at].to_ascii_lowercase();
+        let http = scheme
+            .rsplit('+')
+            .next()
+            .is_some_and(|s| s == "http" || s == "https");
+        let start = at + 3;
+        let after = &rest[start..];
+        // The URL ends at whitespace; its authority, read strictly, at the first delimiter.
+        let url = &after[..after.find(char::is_whitespace).unwrap_or(after.len())];
+        let strict = &url[..url.find(delimiter).unwrap_or(url.len())];
+        let password_shape = strict.split_once(':').is_some_and(|(user, after)| {
+            !user.is_empty()
+                && !user.starts_with('[')
+                && !user.contains('@')
+                && (after.is_empty() || !after.bytes().all(|b| b.is_ascii_digit()))
+        });
+        // The first `@` of the URL then each further one reached without a delimiter: the userinfo's end.
+        let userinfo_end = url
+            .find('@')
+            .filter(|&first| first < strict.len() || password_shape)
+            .map(|first| {
+                let mut end = first;
+                while let Some(next) = url[end + 1..].find(|c: char| c == '@' || delimiter(c)) {
+                    let next = end + 1 + next;
+                    if url.as_bytes()[next] != b'@' {
+                        break;
+                    }
+                    end = next;
+                }
+                end
+            });
+        clean.push_str(&rest[..start]);
+        let authority_end = match userinfo_end {
+            Some(end) if http || url[..end].contains(':') => {
+                let host = &url[end + 1..];
+                let host_end = host.find(delimiter).unwrap_or(host.len());
+                clean.push_str(&host[..host_end]);
+                changed = true;
+                end + 1 + host_end
+            }
+            _ => {
+                clean.push_str(strict);
+                strict.len()
+            }
+        };
+        rest = &after[authority_end..];
+    }
+    clean.push_str(rest);
+    changed.then_some(clean)
 }
 
 /// What any program needs of the host's environment to work.
@@ -67,15 +211,28 @@ const NEEDED_ON_WINDOWS: &[&str] = &[
     "OS",
 ];
 
+/// Whether the declared entry `known` names the variable `name`: the same name, or, for an entry ending `*`, a name it
+/// starts. In any case on Windows.
+fn names(known: &str, name: &str) -> bool {
+    match known.strip_suffix('*') {
+        Some(prefix) => name
+            .get(..prefix.len())
+            .is_some_and(|head| same_variable(prefix, head)),
+        None => same_variable(known, name),
+    }
+}
+
 /// Whether a program a guest runs inherits the variable `name`: what any program needs to work (the locale's `LC_*`
-/// among it), or one its capability `declared`. In any case on Windows.
+/// among it), or one its capability `declared`, by name or through a declared prefix (`CARGO_*`). In any case on
+/// Windows. What it inherits then goes through the credential filter ([`passed`]), as a collector command's whole
+/// environment does: a declared name or prefix never passes a secret, a cargo credential, or a URL's password.
 pub fn inherited(name: &OsStr, declared: &[String]) -> bool {
     let name = name.to_string_lossy();
     let is = |known: &&str| same_variable(known, &name);
     name.starts_with("LC_")
         || NEEDED.iter().any(is)
         || (cfg!(windows) && NEEDED_ON_WINDOWS.iter().any(is))
-        || declared.iter().any(|known| same_variable(known, &name))
+        || declared.iter().any(|known| names(known, &name))
 }
 
 /// The extensions Windows tries when `PATHEXT` is not set.
@@ -219,11 +376,45 @@ impl Process for Runner {
                 None => command.env_remove(&var.name),
             };
         }
-        // The deny-list last: a request cannot put a secret back.
-        let named = request.env.iter().map(|var| OsString::from(&var.name));
-        for name in std::env::vars_os().map(|(name, _)| name).chain(named) {
-            if secret(&name) && !ceiling.keeps_secrets() {
-                command.env_remove(name);
+        // The deny-list last: a request cannot put a secret back. A program a request or an extension asks for goes
+        // through the whole credential filter; the host's own build keeps what fetching its crates needs.
+        if !ceiling.keeps_secrets() {
+            let filtered = ceiling.filters_credentials();
+            let sets = |name: &OsStr| {
+                let name = name.to_string_lossy();
+                request
+                    .env
+                    .iter()
+                    .any(|var| same_variable(&var.name, &name))
+            };
+            for (name, value) in std::env::vars_os() {
+                let kept = match (filtered, secret(&name)) {
+                    (true, _) => passed(&name, &value),
+                    (false, true) => Passed::Withheld,
+                    (false, false) => Passed::Whole,
+                };
+                match kept {
+                    Passed::Whole => {}
+                    Passed::Withheld => {
+                        command.env_remove(&name);
+                    }
+                    // Cleaned only where the program inherits the host's value: not over a value the request sets.
+                    Passed::Without(clean) => {
+                        let inherits = request
+                            .inherit
+                            .as_ref()
+                            .is_none_or(|declared| inherited(&name, declared));
+                        if inherits && !sets(&name) {
+                            command.env(&name, clean);
+                        }
+                    }
+                }
+            }
+            for var in &request.env {
+                let name = OsStr::new(&var.name);
+                if secret(name) || (filtered && credential(name)) {
+                    command.env_remove(name);
+                }
             }
         }
         let terminal = ceiling.reads_the_terminal();

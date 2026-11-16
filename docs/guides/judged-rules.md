@@ -16,7 +16,7 @@ plan 03-02 "Session tokens" {
   verdict gsd/W311 passed {
     judge "gsd-plan-checker@0.1.0"
     model "claude-sonnet-5-5"
-    at "2026-10-28"
+    at "2026-10-28T09:14:03Z"
     cited [AUTH-07, "docs/design.md"]
     inputs {
       plan "sha256:..."
@@ -30,10 +30,11 @@ plan 03-02 "Session tokens" {
 
 `verdict <rule> <outcome> { ... }` names the rule (qualified code, or the local code when unique) and one of its
 outcomes. `inputs` holds the digest of each input the judge read, `cited` always last; `cited` and `cited_tests` list
-what the judge looked at besides. Every verdict also has a line in `specforge-harness`
-(key `verdict:<rule>`): a verdict with no line was written by hand, which is **E083**, and the rule counts it as not
-recorded. A field that a rule binds to the verdict (`writer: "verdict"`) is set only by a fresh verdict; writing it by
-hand is **E082**.
+what the judge looked at besides. `at` is when the host recorded it, UTC to the second (a verdict recorded by an older
+host carries a day, which a reader takes as its last second; editing `at` by hand breaks its ledger line). Every
+verdict also has a line in `specforge-harness` (key `verdict:<rule>`): a verdict with no line was written by hand,
+which is **E083**, and the rule counts it as not recorded. A field that a rule binds to the verdict (`writer:
+"verdict"`) is set only by a fresh verdict; writing it by hand is **E082**.
 
 ## Where a rule stands
 
@@ -48,6 +49,20 @@ hand is **E082**.
 A stale or missing verdict never counts as a pass. A rule gated off by its setting is not evaluated, not listed and
 not asked for. **I205** says once per run that test inputs were not judged because no test report exists; **E045** is an
 unusable report.
+
+## Which entities owe a verdict
+
+Every entity of a target kind owes one, except:
+
+- an entity that writes a field the target names in `unless_set` (a key link with a `pattern`, which a pass searches);
+- with `judged_while` (ADR 0362), an entity whose owner state is the other one: `complete` judges an entity once its
+  owner is complete, `pending` only while it is open. The owner state is the one the kernel reads to check a planned
+  value (ADR 0329 D4): the kind's `complete_when`, else its nearest scope ancestor's, on the snapshot with the compute
+  passes' values, so a computed status decides.
+
+An entity that owes none is not reported, lists no judgement and stops no gate; `query --inputs` still answers its
+inputs (state `exempt`), and a verdict recorded early is read once it is owed. The compute passes read every
+judgement, owed or not, since a status they compute may follow a verdict.
 
 ## Writing around a judged rule
 
@@ -112,6 +127,7 @@ c.rule("<code>", |r| {
         j.target("plan", |t| {
             t.input("plan", "self").input("decisions", "self.phase<decision.phase");
         });
+        // or, judged only once a plan is complete: t.input("plan", "self").once_complete();
     });
 });
 ```

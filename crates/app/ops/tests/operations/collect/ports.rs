@@ -143,6 +143,7 @@ impl Reading {
                 runner: Some("source"),
                 mode,
                 announce: &mut |_, _| {},
+                filter: None,
                 caller: Caller::new(&containment, Asking::Nobody).lending(
                     &self.ports,
                     &consent,

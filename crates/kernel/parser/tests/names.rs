@@ -3,6 +3,7 @@
 use specforge_parser::lex::{LexemeKind, lex};
 use specforge_parser::testing::corpus;
 use specforge_parser::{CmpOp, Expr, FieldValue, Written, parse};
+use specforge_protocol_types::Decimal;
 use specforge_test_macros::test as specforge_test;
 
 fn only_entity_fields(source: &str) -> Vec<(String, FieldValue)> {
@@ -151,7 +152,12 @@ fn a_bare_value_or_list_item_is_one_word() {
         ("03-02", "id"),
         ("2-1", "id"),
         ("007", "id"),
-        ("1.5", "id"),
+        ("1.5", "num"),
+        ("-0.25", "num"),
+        ("1.50", "id"),
+        ("03.1", "id"),
+        ("1.5e3", "id"),
+        ("0.1234567890123456", "id"),
         ("99999999999999999999", "id"),
         ("AUTH-01", "id"),
         ("-5", "int"),
@@ -165,12 +171,17 @@ fn a_bare_value_or_list_item_is_one_word() {
         match tag {
             "id" => assert_eq!(value, &FieldValue::Identifier(word.into()), "{word}"),
             "int" => assert_eq!(value, &FieldValue::Integer(word.parse().unwrap()), "{word}"),
+            "num" => assert_eq!(
+                value,
+                &FieldValue::Number(Decimal::parse(word).unwrap()),
+                "{word}"
+            ),
             "bool" => assert_eq!(value, &FieldValue::Boolean(true)),
             _ => assert_eq!(value, &FieldValue::Date(word.into()), "{word}"),
         }
     }
     let file = parse(
-        "thing x \"X\" {\n  v [AUTH-01, v1.0, 2026-10-26, 03, 10, -5]\n}\n",
+        "thing x \"X\" {\n  v [AUTH-01, v1.0, 2026-10-26, 03, 10, -5, 1.5, 03.1, 1.5e3]\n}\n",
         "t.spec",
     );
     assert!(file.errors.is_empty(), "{:?}", file.errors);
@@ -187,6 +198,9 @@ fn a_bare_value_or_list_item_is_one_word() {
             ("03", Written::Literal),
             ("10", Written::Literal),
             ("-5", Written::Literal),
+            ("1.5", Written::Literal),
+            ("03.1", Written::Literal),
+            ("1.5e3", Written::Bare),
         ]
     );
 }
@@ -214,7 +228,7 @@ fn a_use_binding_may_import_a_gsd_name() {
     verify = "a word is one lexeme in a value, list item, header name or binding slot and nowhere else"
 )]
 fn a_word_is_one_lexeme_in_a_value_or_name_slot_only() {
-    let text = "thing AUTH-01 \"x\" {\n  a 03-02\n  b [v1.0, 2-1]\n  c 2026-10-26\n  d 007\n  m expr { a-b }\n}\nuse { D-01 } from \"x\"\n";
+    let text = "thing AUTH-01 \"x\" {\n  a 03-02\n  b [v1.0, 2-1]\n  c 2026-10-26\n  d 007\n  e 1.5\n  f 1.5e3\n  m expr { a-b }\n}\nuse { D-01 } from \"x\"\n";
     let read: Vec<(LexemeKind, &str)> = lex(text).iter().map(|l| (l.kind, l.text(text))).collect();
     let has = |kind, word| assert!(read.contains(&(kind, word)), "{word}: {read:?}");
     has(LexemeKind::Ident, "AUTH-01");
@@ -223,6 +237,8 @@ fn a_word_is_one_lexeme_in_a_value_or_name_slot_only() {
     has(LexemeKind::Ident, "2-1");
     has(LexemeKind::Number, "2026-10-26");
     has(LexemeKind::Number, "007");
+    has(LexemeKind::Number, "1.5");
+    has(LexemeKind::Ident, "1.5e3");
     has(LexemeKind::Ident, "D-01");
     assert!(!read.iter().any(|(_, word)| *word == "a-b"), "{read:?}");
 }

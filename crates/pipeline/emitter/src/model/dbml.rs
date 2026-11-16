@@ -196,14 +196,15 @@ fn render_table(entity: &super::ModelEntity, out: &mut String) -> fmt::Result {
     Ok(())
 }
 
-/// Real DBML column types instead of the previous all-`string` erasure (C13-10).
-/// Lists have no native DBML column type and render as JSON-carrying `text`;
+/// Real DBML column types instead of the previous all-`string` erasure.
+/// A `number` is an exact decimal of at most 15 significant digits (ADR 0361), so its column is a `decimal`, never
+/// a binary `double`. Lists have no native DBML column type and render as JSON-carrying `text`;
 /// structured `block` fields render as `json`.
 fn dbml_type(ft: FieldType) -> &'static str {
     match ft {
         FieldType::String | FieldType::Reference | FieldType::Identifier => "varchar",
         FieldType::Integer => "integer",
-        FieldType::Number => "double",
+        FieldType::Number => "decimal",
         FieldType::Bool => "boolean",
         FieldType::Date => "date",
         FieldType::StringList | FieldType::ReferenceList => "text",
@@ -254,5 +255,11 @@ mod tests {
     #[test]
     fn a_date_column_is_a_dbml_date() {
         assert_eq!(dbml_type(FieldType::Date), "date");
+    }
+
+    #[test]
+    fn a_number_column_is_a_dbml_decimal() {
+        assert_eq!(dbml_type(FieldType::Number), "decimal");
+        assert_eq!(dbml_type(FieldType::Integer), "integer");
     }
 }

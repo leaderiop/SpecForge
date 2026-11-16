@@ -52,6 +52,7 @@ fn init_at(
         dir: path,
         name,
         version,
+        spec_root: Some(init::SPEC_ROOT),
         extensions,
         caller: crate::caller::of(false, format, terminal),
     };

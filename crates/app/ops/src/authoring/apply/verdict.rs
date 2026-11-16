@@ -5,7 +5,8 @@
 //! In order: the rule is judged (`not_judged`); the entity's kind is a target, the outcome declared, the origin a
 //! command of the rule's extension, the judge the rule's, every value bound and every cited reference existing
 //! (`verdict_refused`, with a `reason`); the digests the verdict was judged over are the digests now
-//! (`stale_revision`, with `inputs`). Then the host fills `inputs` and `at` and plans the write.
+//! (`stale_revision`, with `inputs`). Then the host fills `inputs` and `at` (its time, to the second) and plans the
+//! write.
 
 use super::{NOT_JUDGED, Origin, STALE_REVISION};
 use crate::OpError;
@@ -54,7 +55,7 @@ pub struct VerdictMember {
     pub values: BTreeMap<String, Value>,
     /// The digest of each named input, as the host computed them.
     pub inputs: BTreeMap<String, String>,
-    /// The host's date, `YYYY-MM-DD`.
+    /// The host's time, UTC to the second, `YYYY-MM-DDTHH:MM:SSZ`: when the verdict was recorded.
     pub at: String,
 }
 
@@ -117,10 +118,10 @@ impl JudgedRules for NoJudgedRules {
     }
 }
 
-/// The host's calendar: one seam for the date a verdict and a command carry.
+/// The host's clock, as a verdict reads it: one seam for the time a verdict records.
 pub trait Calendar {
-    /// Today, UTC, `YYYY-MM-DD`.
-    fn today(&self) -> String;
+    /// Now, UTC to the second, `YYYY-MM-DDTHH:MM:SSZ`.
+    fn now(&self) -> String;
 }
 
 /// The system's calendar.
@@ -128,8 +129,8 @@ pub trait Calendar {
 pub struct SystemCalendar;
 
 impl Calendar for SystemCalendar {
-    fn today(&self) -> String {
-        crate::extension::command::today()
+    fn now(&self) -> String {
+        crate::extension::command::now()
     }
 }
 
@@ -319,7 +320,7 @@ pub(crate) fn check(
             cited: op.cited.clone(),
             values: op.values.clone(),
             inputs: current,
-            at: calendar.today(),
+            at: calendar.now(),
         },
         rules: Rules(Arc::clone(rules)),
     })
@@ -398,5 +399,14 @@ mod tests {
         };
         assert_eq!(judge_text(&rule("1.0.0")), "judge@1.0.0");
         assert_eq!(judge_text(&rule("")), "judge");
+    }
+
+    /// A verdict's `at` is the second it was recorded, so a reader orders it against a commit of the same day.
+    #[test]
+    fn a_verdict_records_the_hosts_time_to_the_second() {
+        let at = SystemCalendar.now();
+        assert_eq!(at.len(), "2026-11-15T09:00:00Z".len(), "{at}");
+        assert!(at.ends_with('Z'), "{at}");
+        assert!(chrono::DateTime::parse_from_rfc3339(&at).is_ok(), "{at}");
     }
 }

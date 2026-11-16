@@ -6,6 +6,8 @@ D1. Extends [ADR 0093](0093-a-fields-declared-type-decides-what-its-value-refere
 [ADR 0063](0063-one-reading-of-a-broken-document.md) and
 [ADR 0282](0282-an-unknown-type-name-is-the-hosts-e004-and-a-project-has-one-spec-block.md) D1 (a type name written
 whole may hold `-` and `.`). E013 and E014 are unchanged.
+Amended by [ADR 0361](0361-a-kind-field-may-be-a-number-an-exact-decimal-written-as-one-word.md): the shape tag
+gains a canonical decimal, and the decimal field type it would reopen on exists.
 
 ## Context
 

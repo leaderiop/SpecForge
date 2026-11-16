@@ -430,6 +430,7 @@ fn dedent(text: &str) -> String {
 fn word_value(word: &str) -> FieldValue {
     match literal_shape(word) {
         LiteralShape::Integer(n) => FieldValue::Integer(n),
+        LiteralShape::Number(d) => FieldValue::Number(d),
         LiteralShape::Boolean(b) => FieldValue::Boolean(b),
         LiteralShape::Date => FieldValue::Date(word.to_string()),
         LiteralShape::Other => FieldValue::Identifier(word.to_string()),

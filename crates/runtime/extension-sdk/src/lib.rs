@@ -86,6 +86,7 @@ mod contrib;
 mod guest;
 pub mod host;
 pub mod host_contrib;
+mod judged;
 mod plan;
 pub mod prompt;
 mod reads;
@@ -93,8 +94,7 @@ mod route;
 mod settings;
 pub use builders::{
     CodeBuilder, CollectorBuilder, EdgeBuilder, EnhancementBuilder, FieldBuilder,
-    FieldConstraintBuilder, JudgedBuilder, JudgedTargetBuilder, KindBuilder, PassBuilder,
-    RuleBuilder,
+    FieldConstraintBuilder, KindBuilder, PassBuilder, RuleBuilder,
 };
 pub use capability::Capability;
 pub use checker::{CheckerBuilder, Judged};
@@ -104,6 +104,7 @@ pub use guest::{ExportHandler, Served, answer_export, no_other_exports};
 pub use host_contrib::{
     AgentBuilder, HookBuilder, HookCall, RenderCall, SkillBuilder, SlashBuilder, hook_export,
 };
+pub use judged::{JudgedBuilder, JudgedTargetBuilder};
 pub use plan::{PlanBuilder, Verdict};
 pub use prompt::{PromptArgBuilder, PromptBuilder, PromptCall, PromptStepBuilder};
 pub use reads::FileReadSpec;
@@ -287,7 +288,7 @@ impl ContributionsBuilder {
     ///
     /// # Panics
     ///
-    /// When the collector declares no handler, or a config without a command.
+    /// When the collector declares no handler, or a config, a filter or variables without a command.
     pub fn collector(&mut self, name: &str, f: impl FnOnce(&mut CollectorBuilder)) -> &mut Self {
         let mut b = CollectorBuilder::new(name);
         f(&mut b);
@@ -300,8 +301,18 @@ impl ContributionsBuilder {
             collect,
         );
         self.decl.collectors.push(b.descriptor);
-        if b.config.is_some() && b.run.is_none() {
-            panic!("collector '{name}' declares a config but no command: give it `k.run(...)`");
+        if b.run.is_none() {
+            for (declares, what) in [
+                (b.config.is_some(), "a config"),
+                (!b.filter.is_empty(), "a filter"),
+                (!b.env.is_empty(), "variables"),
+            ] {
+                if declares {
+                    panic!(
+                        "collector '{name}' declares {what} but no command: give it `k.run(...)`"
+                    );
+                }
+            }
         }
         if let Some(argv) = b.run {
             let argv: Vec<&str> = argv.iter().map(String::as_str).collect();
@@ -313,6 +324,14 @@ impl ContributionsBuilder {
                 ));
             if let Some(config) = &b.config {
                 capability = capability.config(&config.name, &config.template);
+            }
+            if !b.filter.is_empty() {
+                let filter: Vec<&str> = b.filter.iter().map(String::as_str).collect();
+                capability = capability.filter(&filter);
+            }
+            if !b.env.is_empty() {
+                let env: Vec<&str> = b.env.iter().map(String::as_str).collect();
+                capability = capability.env(&env);
             }
             self.capability(capability);
         }
@@ -640,9 +659,9 @@ pub mod prelude {
     };
     pub use specforge_extension_sdk_macros::extension;
     pub use specforge_protocol_types::{
-        Attribution, Decision, GitBranch, GitChange, GitEntry, GitEntryKind, GitStatus, HookEvent,
-        HookOutput, PromptOutput, RenderKind, ServedSlash, StatePatch, StateView, Trigger,
-        TriggerKind,
+        Attribution, Decimal, DecimalError, Decision, GitBranch, GitChange, GitEntry, GitEntryKind,
+        GitStatus, HookEvent, HookOutput, PromptOutput, RenderKind, ServedSlash, StatePatch,
+        StateView, Trigger, TriggerKind,
     };
     pub use specforge_protocol_types::{
         SandboxPolicy, ValidationSeverity, ValidatorContext, ValidatorVerdict,

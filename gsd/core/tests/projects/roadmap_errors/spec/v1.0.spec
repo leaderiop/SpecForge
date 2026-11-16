@@ -9,21 +9,21 @@ project errors "Roadmap errors" {
 }
 
 requirement LOOSE-01 "In no phase" {
-  text     "Mapped nowhere"
-  category "Fixture"
-  tier     v1
+  text "Mapped nowhere"
+  area "Fixture"
+  tier v1
 }
 
 requirement TWICE-01 "In two phases" {
-  text     "Mapped twice"
-  category "Fixture"
-  tier     v1
+  text "Mapped twice"
+  area "Fixture"
+  tier v1
 }
 
 requirement GONE-01 "Out of scope, no reason" {
-  text     "Out of scope without a reason"
-  category "Fixture"
-  tier     out_of_scope
+  text "Out of scope without a reason"
+  area "Fixture"
+  tier out_of_scope
 }
 
 milestone v1.0 "Errors 1.0" {

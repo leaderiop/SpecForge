@@ -297,6 +297,7 @@ constraint traceability_completeness "Traceability Completeness" {
   category    reliability
   priority    critical
   metric      """
+    traceability_false_negatives <= 0
     specforge analyze coverage MUST detect all broken links in the traceability
     chain with zero false negatives: testable entities with verify
     declarations but no recorded test results, and recorded results
@@ -312,6 +313,7 @@ constraint extension_system_integrity "Extension System Integrity" {
   category    reliability
   priority    critical
   metric      """
+    extension_integrity_violations <= 0
     extension install/remove never corrupts specforge.json; Wasm sandbox
     contains all extension execution; Wasm traps produce diagnostics, not
     crashes; provider registration survives reload; timeout enforcement
@@ -361,6 +363,7 @@ constraint wasm_compile_cache_budget "Wasm Compile Cache Budget" {
   category    performance
   priority    critical
   metric      """
+    cached_extension_load < 50ms
     Each Wasm extension MUST load in under 50ms on a compile-cache hit.
     First compilation (cache cold) SHOULD complete in under 500ms for a
     typical component (<1MB .wasm).
@@ -376,6 +379,7 @@ constraint wasm_memory_limit "Wasm Memory Limit" {
   category    performance
   priority    critical
   metric      """
+    extension_memory <= 512MB
     Each Wasm extension instance MUST be limited to its declared
     max_memory_mb of linear memory and tables, all its memories counted
     together, at most 512 MB; an extension declaring
@@ -398,6 +402,7 @@ constraint wasm_sandbox_enforcement "Wasm Sandbox Enforcement" {
   category    security
   priority    critical
   metric      """
+    sandbox_escapes <= 0
     Zero sandbox escapes in adversarial testing. A component's WASI
     context MUST preopen no directory and pass no environment, arguments
     or stdin, and MUST refuse TCP, UDP and name lookup. No declaration
@@ -421,6 +426,7 @@ constraint wasm_binary_size_limit "Wasm Binary Size Limit" {
   category    portability
   priority    high
   metric      """
+    extension_wasm_size < 5MB
     Each extension .wasm binary SHOULD be under 5MB. Binaries exceeding 10MB
     MUST produce a warning diagnostic at install time. This ensures
     reasonable download times and first-compilation latency.
@@ -436,6 +442,7 @@ constraint extension_count_limit "Extension Count Limit" {
   category    performance
   priority    high
   metric      """
+    loaded_extensions <= 50
     The system SHOULD support up to 20 extensions without performance
     degradation. 21-50 extensions MUST produce a warning diagnostic.
     More than 50 extensions MUST be refused with a hard error.
@@ -452,6 +459,7 @@ constraint wasm_compile_cache_size_limit "Wasm Compile Cache Size Limit" {
   category    portability
   priority    high
   metric      """
+    compile_cache_size < 500MB
     The compile cache directory SHOULD stay under 500MB total. The
     runtime configures wasmtime's cache with a 500MB files-total-size
     soft limit; when exceeded, the engine's cleanup removes

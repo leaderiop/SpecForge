@@ -80,3 +80,50 @@ fn a_phase_not_verified_is_not_judged() {
     assert!(check(&input("gaps_found", false, "complete")).is_empty());
     assert!(check(&input("pending", false, "complete")).is_empty());
 }
+
+/// A verified phase's decision another decision supersedes needs no complete plan that lists it; the one that
+/// supersedes it does.
+#[test]
+fn a_superseded_decision_is_not_w506() {
+    let mut superseded = input("passed", false, "complete");
+    superseded
+        .entities
+        .push(entity("v/1/D-05", "decision", &[("origin", "context")]));
+    superseded.edges.push(PassEdge {
+        source: "v/1/D-05".into(),
+        target: "v/1/D-03".into(),
+        label: "supersedes".into(),
+    });
+    let found = check(&superseded);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].entity.as_deref(), Some("v/1/D-05"));
+    superseded.edges.push(PassEdge {
+        source: "v/1/1-01".into(),
+        target: "v/1/D-05".into(),
+        label: "decisions".into(),
+    });
+    assert!(check(&superseded).is_empty());
+}
+
+/// An executor's `summary` decision that supersedes a context decision, settled or not, does not retire it: W506
+/// still asks whether it shipped. A decision taken with the user (`origin context`) does retire it.
+#[test]
+fn a_summary_decision_does_not_retire_a_context_one_for_w506() {
+    let mut locked = input("passed", false, "complete");
+    locked.edges.push(PassEdge {
+        source: "v/1/D-04".into(),
+        target: "v/1/D-03".into(),
+        label: "supersedes".into(),
+    });
+    let found = check(&locked);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].entity.as_deref(), Some("v/1/D-03"));
+    for decision in &mut locked.entities {
+        if decision.id == "v/1/D-04" {
+            decision.fields.insert("origin".into(), "context".into());
+        }
+    }
+    let found = check(&locked);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].entity.as_deref(), Some("v/1/D-04"));
+}

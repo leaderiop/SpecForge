@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 
 /// One diagnostic code an extension reports: its local code (`E101`, never
 /// qualified; the host adds the namespace), a title, what it means and how
-/// to fix it, an optional absolute `http(s)` documentation URL, and whether this machine decides it (2.0.0).
+/// to fix it, an optional absolute `http(s)` documentation URL, whether this machine decides it (2.0.0), and the owner
+/// state its findings wait for (2.2.0).
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CodeDescriptor {
     pub code: String,
@@ -18,4 +19,11 @@ pub struct CodeDescriptor {
     /// counts it (protocol 2.0.0, ADR 0337 D7). Serialized only when set.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub machine: bool,
+    /// The owner state (ADR 0329 D4) a finding of this code speaks in (2.2.0, ADR 0363): `complete` or `pending`, an
+    /// [`OwnerState`](crate::OwnerState) word kept a string, so an unknown one costs the entry (E030). The host keeps
+    /// a finding of it only on an entity in that state, read on the snapshot the compute passes' values are merged
+    /// into, and a write that moves the entity into that state reveals the finding, which is no error the write adds
+    /// (E080). Absent: in either state.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reported_while: Option<String>,
 }

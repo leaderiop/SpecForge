@@ -4,7 +4,8 @@
 
 use specforge_common::Severity;
 use specforge_extension_sdk::Vocabulary;
-use specforge_protocol_types::ExtensionDeclaration;
+use specforge_graph::Bounds;
+use specforge_protocol_types::{Decimal, ExtensionDeclaration};
 use specforge_registry::{
     FieldDescriptor, FieldRegistryEntry, FieldType, ProofRole, UnknownFieldType,
 };
@@ -495,7 +496,7 @@ fn a_blocks_members_register_by_path() {
     assert_eq!(phase.target_kinds(), ["phase", "milestone"]);
     assert!(phase.required());
     let (_, score) = fields.get_path("thing", "requires.score").unwrap();
-    assert_eq!(score.bounds(), (Some(0), Some(100)));
+    assert_eq!(score.bounds(), &Bounds::Integer(Some(0), Some(100)));
     assert!(fields.get_path("thing", "requires.path").is_some());
     assert!(fields.get_path("thing", "requires").is_some());
     assert!(fields.get_path("thing", "requires.nope").is_none());
@@ -513,27 +514,87 @@ fn a_blocks_members_register_by_path() {
 
 #[spec(
     behavior = "registry_build_fields",
-    verify = "a kind field of type number is W021 and dropped, since the .spec grammar has no decimal literal"
+    verify = "a fractional bound on an integer field is W021 and dropped"
 )]
-fn a_kind_field_of_type_number_is_w021() {
+fn a_bound_its_type_cannot_read_is_w021() {
+    let half = serde_json::Number::from_f64(0.5).expect("finite");
+    let build = build([declare("@test/ext", |c| {
+        c.kind("Task", |k| {
+            k.keyword("task");
+            k.field("estimate", |f| {
+                f.field_type(FieldType::Integer)
+                    .minimum(half.clone())
+                    .maximum(10);
+            });
+            k.field("huge", |f| {
+                f.field_type(FieldType::Integer).maximum(u64::MAX);
+            });
+            k.field("inverted", |f| {
+                f.field_type(FieldType::Integer).minimum(5).maximum(1);
+            });
+        });
+    })]);
+    let refused: Vec<String> = coded(&build, "W021")
+        .iter()
+        .map(|d| d.message.clone())
+        .collect();
+    assert_eq!(refused.len(), 3, "{refused:?}");
+    assert!(
+        refused[0].contains("'estimate'")
+            && refused[0].contains("declares minimum 0.5, which its type 'integer' cannot read"),
+        "{}",
+        refused[0]
+    );
+    assert!(refused[1].contains("'huge'"), "{}", refused[1]);
+    assert!(
+        refused[2].contains("declares minimum 5 above maximum 1"),
+        "{}",
+        refused[2]
+    );
+    let fields = build.fields();
+    let bounds = |name: &str| *fields.get("task", name).unwrap().form().bounds();
+    assert_eq!(bounds("estimate"), Bounds::Integer(None, Some(10)));
+    assert_eq!(bounds("huge"), Bounds::Integer(None, None));
+    assert_eq!(bounds("inverted"), Bounds::Integer(None, None));
+}
+
+#[spec(
+    behavior = "registry_build_fields",
+    verify = "a kind field or block member of type number is registered with its bounds"
+)]
+fn a_kind_field_of_type_number_is_registered() {
+    let decimal = |text: &str| Decimal::parse(text).unwrap();
     let build = build([declare("@test/ext", |c| {
         c.kind("Task", |k| {
             k.keyword("task");
             k.field("ratio", |f| {
-                f.field_type(FieldType::Number);
+                f.field_type(FieldType::Number)
+                    .minimum(decimal("0.05"))
+                    .maximum(decimal("0.95"));
+            });
+            k.field("metric", |f| {
+                f.field_type(FieldType::Block).member("threshold", |m| {
+                    m.field_type(FieldType::Number);
+                });
             });
             k.field("estimate", |f| {
                 f.field_type(FieldType::Integer);
             });
         });
     })]);
-    let refused = coded(&build, "W021");
-    assert_eq!(refused.len(), 1, "{:?}", diagnostics(&build));
     assert!(
-        refused[0].message.contains("'ratio'") && refused[0].message.contains("decimal literal"),
-        "{}",
-        refused[0].message
+        coded(&build, "W021").is_empty(),
+        "{:?}",
+        diagnostics(&build)
     );
-    assert!(!build.fields().contains("task", "ratio"));
-    assert!(build.fields().contains("task", "estimate"));
+    let fields = build.fields();
+    let ratio = fields.get("task", "ratio").expect("ratio is registered");
+    assert_eq!(ratio.field_type(), FieldType::Number);
+    assert_eq!(
+        ratio.form().bounds(),
+        &Bounds::Number(Some(decimal("0.05")), Some(decimal("0.95")))
+    );
+    let (_, threshold) = fields.get_path("task", "metric.threshold").unwrap();
+    assert_eq!(threshold.field_type(), FieldType::Number);
+    assert!(fields.contains("task", "estimate"));
 }

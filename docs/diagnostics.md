@@ -420,12 +420,13 @@ declared: its name or version is empty, its `ext_short` isn't lowercase kebab
 case (`[a-z][a-z0-9-]*`; it names the extension's CLI subcommand and MCP tool
 prefix), or a `codes` entry is malformed: a code that is not `E`, `W` or `I` and
 three digits (a `/` included: the host adds the namespace), a code catalogued
-twice, an empty title or explanation, or a `docs` that is not an absolute
-`http(s)` URL; a first-party extension declares no `codes`, its codes are in
-this catalog. The registry build reports it on every load, and `specforge
-publish` refuses such a binary before any network call. Fix the declaration in
-the extension's source (with the SDK: `#[extension(name, version, short)]` and
-the builders) and rebuild it.
+twice, an empty title or explanation, a `docs` that is not an absolute `http(s)`
+URL, or a `reported_while` that is neither `complete` nor `pending` (ADR 0363);
+a first-party extension declares no `codes`, its codes are in this catalog. The
+registry build reports it on every load, and `specforge publish` refuses such a
+binary before any network call. Fix the declaration in the extension's source
+(with the SDK: `#[extension(name, version, short)]` and the builders) and
+rebuild it.
 
 Owner: core
 Level: error
@@ -751,20 +752,23 @@ or an `expr { }` group; an enum one of its declared values (the suggestion names
 the closest one; the closed vocabularies the builtins declare, a feature's
 `status`, a failure mode's `severity`, a property's `property_type`, and the
 like, are enum fields); an integer field an integer, an integer difference like
-`2-1` or a date (the message names the operand that is no number); a bool field
-true or false; a date field one calendar day, `YYYY-MM-DD`, that exists
+`2-1` or a date (the message names the operand that is no number, and a fraction
+is a number field's); a number field one decimal, `0.75`, `-0.25`, `1.5e3` (at
+most 15 significant digits, within the range a binary64 holds, ADR 0361); a bool
+field true or false; a date field one calendar day, `YYYY-MM-DD`, that exists
 (`2026-02-30` is none); a reference field one name, a number or a date written
 as one (`10`, `2026-10-26`) included, never one starting with `-`; a
 string_list, reference_list or enum_list field a list (an enum_list's words are
 each one of its declared values and appear once); a block field a block, whose
 members, when it declares them, are each read by their own type, and a
 block_list field a list of blocks, `[ { a 1 } { a 2 } ]`; a reference field with
-`target_kinds` names an entity of any of the listed kinds; an integer field with
-a `minimum` or `maximum` an integer inside them. Values that can be read as the
-declared type are converted without a diagnostic: a single string, id, integer,
-boolean or date on a list field becomes a one-item list, a list is stored as
-written, a quoted integer, boolean or calendar day the number, boolean or date.
-Fix the value, or check the field's type with `specforge schema --kind <kind>`.
+`target_kinds` names an entity of any of the listed kinds; an integer or number
+field with a `minimum` or `maximum` a value inside them. Values that can be read
+as the declared type are converted without a diagnostic: a single string, id,
+integer, boolean or date on a list field becomes a one-item list, a list is
+stored as written, a quoted integer, decimal, boolean or calendar day the
+number, boolean or date. Fix the value, or check the field's type with
+`specforge schema --kind <kind>`.
 
 Owner: core
 Level: error
@@ -1072,17 +1076,20 @@ Level: error
 E079: Relation written on its other side
 
 An entity writes a field its kind does not declare, and that field is the other
-side of a relation another kind owns. A relation is written on its owning field
-only (ADR 0150): the one reference field an extension declares for it. The other
-side is derived, never written: `query` shows it as the incoming edges and
-`trace` as the upstream. The field is recognised in two ways: an owning field
-names it in its `inverse_of` (so a documented reverse such as `behaviors` on a
-feature is refused even when its ids do not resolve), or every id it lists is
-one other kind's entity and that kind owns a reference field into this one
-(`journeys [..]` on a feature). A self-relation's other side is not recognised,
-and a kind that accepts any field is not checked. The graph still carries the
-field's untyped edge, and `check` fails. Remove the field and write the owning
-field on each entity it listed; the suggestion names both.
+side of a relation a reference field owns, its own kind's included. A relation
+is written on its owning field only (ADR 0150): the one reference field an
+extension declares for it. The other side is derived, never written: `query`
+shows it as the incoming edges and `trace` as the upstream. The field is
+recognised in two ways: a reference field whose targets hold this kind names it
+in its `inverse_of`, a self-relation's and a union's included (so a documented
+reverse such as `behaviors` on a feature, or `superseded_by` on a decision, is
+refused even when its ids do not resolve), or every id it lists is one other
+kind's entity and that kind owns a single-kind reference field into this one
+(`journeys [..]` on a feature). By its values alone a self-relation's or a
+union's other side is not recognised, and a kind that accepts any field is not
+checked. The graph still carries the field's untyped edge, and `check` fails.
+Remove the field and write the owning field on each entity it listed; the
+suggestion names both.
 
 Owner: core
 Level: error
@@ -1103,8 +1110,11 @@ what they name first: create the referenced entity, give the required field, or
 make both changes in one `specforge.edit` call. `delete --unlink-references`
 removes the references a delete would leave dangling. A judged rule's finding
 (no verdict, a stale or a failing verdict) is never one of them: its judge
-settles it, not the edit (ADR 0297). A writing collector's plan is compared with
-the project as its collect left it, and is refused for host errors only: an
+settles it, not the edit (ADR 0297). Nor is an extension's finding whose code
+waits for an owner state (`reported_while`) and that the edit revealed by moving
+its entity into that state: the edit is accepted and the finding is reported
+once it is written (ADR 0363). A writing collector's plan is compared with the
+project as its collect left it, and is refused for host errors only: an
 extension's error refuses no collected fact (ADR 0303).
 
 Owner: core
@@ -3234,10 +3244,10 @@ other than `block` or `block_list`, a `block_list` with none, a member named
 twice or not one identifier, a member that declares `derived_from`,
 `target_kinds` together with `target_kind`, on a type other than `reference` or
 `reference_list`, or naming one kind, a `minimum` or `maximum` on a type other
-than `integer` (or `number`, a setting's) or a `minimum` above the `maximum`,
-and a field of type `number` on a kind (the `.spec` grammar has no decimal
-literal, ADR 0305); a `scoped_by` field with `target_kinds` scopes nothing. Who
-writes a field is checked too (ADR 0287): a `writer` other than `computed`,
+than `integer` or `number`, a fraction or a value beyond `i64` on an `integer`,
+more than 15 significant digits on a `number`, or a `minimum` above the
+`maximum` (ADR 0361); a `scoped_by` field with `target_kinds` scopes nothing.
+Who writes a field is checked too (ADR 0287): a `writer` other than `computed`,
 `harness`, `human` or `verdict`, `harness` or `verdict` on a member, a computed
 or verdict field that is also `required`, `immutable`, `append_only` or
 `derived_from`, `append_only` on a field that is not a list, a computed field no
@@ -3609,9 +3619,12 @@ Level: warning
 ```
 W061: Reference cycle detected
 
-The resolved reference graph contains a cycle among entity references. Cycles
-that share an entity are one warning, whose path walks every entity on them.
-Break each cycle by removing or inverting one of its references.
+The resolved reference graph contains a cycle among the references the `.spec`
+files write: neither a declared single reference nor a collected fact's
+reference (a test naming the invariant whose proof lists it, a crate's
+dev-dependency back on its dependent) is read. Cycles that share an entity are
+one warning, whose path walks every entity on them. Break each cycle by removing
+or inverting one of its references.
 
 Owner: core
 Level: warning
@@ -3717,11 +3730,14 @@ does not resolve (a field the kind does not declare, one that is not a
 reference, a computed or verdict field, a `file(...)` of a path that leaves the
 project, holds a glob or is a `.spec` source, or of a field that is not a file
 field, a string or a string list), an `unless_set` field the kind does not
-declare, a `values` or `outcome_fields` entry that is not a `verdict`-written
-field of a target kind of the extension, its judge is no agent of its extension
-or of a declared peer (ADR 0292), is `prompt:<id>` of a prompt its extension
-does not declare (a peer's prompt is not a judge, ADR 0295), or the code is
-another judged rule's. Fix or remove the rule in the extension's manifest.
+declare, a `judged_while` that is neither `complete` nor `pending`, names a kind
+whose scope chain keeps no `complete_when`, or sits on a kind the rule's
+`values` or `outcome_fields` bind (ADR 0362), a `values` or `outcome_fields`
+entry that is not a `verdict`-written field of a target kind of the extension,
+its judge is no agent of its extension or of a declared peer (ADR 0292), is
+`prompt:<id>` of a prompt its extension does not declare (a peer's prompt is not
+a judge, ADR 0295), or the code is another judged rule's. Fix or remove the rule
+in the extension's manifest.
 
 Owner: core
 Level: warning
@@ -4244,15 +4260,16 @@ Level: warning
 W162: Relation declared from both sides
 
 A relation has two fields: one extension declares it from both of its ends.
-Either a reference field's `inverse_of` names a field its target kind registers
-(`milestone.behaviors` naming `features`, when `behavior` has its own
-`features`), or two different kinds each register a reference field targeting
-the other (`parent.children` and `child.parent`) and neither names its reverse.
-A relation is written from one side (ADR 0150): the other side is derived, so
-`query` and `trace` already show it. Both fields still register, and an entity
-can write either. Remove one field, or drop the `inverse_of` or name a word the
-target kind does not use; two relations between the same kinds are told apart by
-giving one an `inverse_of` (ADR 0354). The builtin extensions declare none.
+Either a reference field's `inverse_of` names a field its target kind, or any
+kind of its union, registers (`milestone.behaviors` naming `features`, when
+`behavior` has its own `features`), or two different kinds each register a
+reference field targeting the other (`parent.children` and `child.parent`) and
+neither names its reverse. A relation is written from one side (ADR 0150): the
+other side is derived, so `query` and `trace` already show it. Both fields still
+register, and an entity can write either. Remove one field, or drop the
+`inverse_of` or name a word the target kind does not use; two relations between
+the same kinds are told apart by giving one an `inverse_of` (ADR 0354). The
+builtin extensions declare none.
 
 Owner: core
 Level: warning

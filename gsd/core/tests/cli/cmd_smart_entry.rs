@@ -192,3 +192,18 @@ fn a_gaps_found_verification_of_the_current_phase_is_verify_failed() {
     assert_eq!(answer["situation"], "verify-failed", "{answer}");
     assert_eq!(answer["signals"]["verify_failed"], true);
 }
+
+/// A verification may name its phase by a unique suffix (`01`), as a person may write a scope field: `verify_failed`
+/// reads the phase the graph resolved, not the text.
+#[test]
+fn a_verification_naming_its_phase_by_a_suffix_is_verify_failed() {
+    let p = project("verify");
+    p.edit(
+        "spec/verify.spec",
+        "verification 01-VERIFICATION \"Phase 01 verification\" {\n  phase v1.0/01\n",
+        "verification 01-VERIFICATION \"Phase 01 verification\" {\n  phase 01\n",
+    );
+    std::fs::remove_file(p.root().join("src/complete.js")).expect("remove the artifact");
+    let answer = entry(&p, &[]);
+    assert_eq!(answer["signals"]["verify_failed"], true, "{answer}");
+}

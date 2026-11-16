@@ -4,7 +4,7 @@
 
 use specforge_common::{Diagnostic, codes};
 use specforge_diagnostics::{Codebook, ExtensionCode, is_local_code};
-use specforge_protocol_types::ExtensionDeclaration;
+use specforge_protocol_types::{ExtensionDeclaration, OwnerState};
 
 /// Whether `docs` is an absolute `http(s)` URL: the only link a surface may print.
 pub(crate) fn is_http_url(docs: &str) -> bool {
@@ -23,9 +23,15 @@ pub fn reports(declaration: &ExtensionDeclaration) -> bool {
         || !declaration.checkers.is_empty()
 }
 
+/// Whether `word` is an owner state a code's `reported_while` may name (ADR 0363).
+pub(crate) fn is_owner_state(word: &str) -> bool {
+    OwnerState::parse(word).is_some()
+}
+
 /// `declaration`'s `codes` as the code book reads them: an entry E030 refuses (not a local
-/// code, an empty title or explanation, a `docs` that is no http(s) URL, a code already
-/// catalogued: the first wins) never reaches it, so no surface prints what the load refused.
+/// code, an empty title or explanation, a `docs` that is no http(s) URL, a `reported_while` that is
+/// no owner state, a code already catalogued: the first wins) never reaches it, so no surface prints
+/// what the load refused.
 pub fn extension_codes(declaration: &ExtensionDeclaration) -> Vec<ExtensionCode> {
     let mut seen = std::collections::HashSet::new();
     declaration
@@ -36,6 +42,7 @@ pub fn extension_codes(declaration: &ExtensionDeclaration) -> Vec<ExtensionCode>
                 && !entry.title.trim().is_empty()
                 && !entry.explanation.trim().is_empty()
                 && entry.docs.as_deref().is_none_or(is_http_url)
+                && entry.reported_while.as_deref().is_none_or(is_owner_state)
                 && seen.insert(entry.code.to_uppercase())
         })
         .map(|entry| ExtensionCode {
@@ -44,6 +51,7 @@ pub fn extension_codes(declaration: &ExtensionDeclaration) -> Vec<ExtensionCode>
             explanation: entry.explanation.clone(),
             docs: entry.docs.clone(),
             machine: entry.machine,
+            reported_while: entry.reported_while.clone(),
         })
         .collect()
 }

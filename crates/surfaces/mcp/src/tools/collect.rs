@@ -25,6 +25,8 @@ pub struct Args {
     run: bool,
     /// Plan a writing collector's edits and write none of them (the report is still recorded)
     dry_run: bool,
+    /// With run: true, the tests the one collector's command runs, in its own filter syntax (rust-test: a nextest filterset)
+    filter: Option<String>,
     /// Whether an http or process effect the collector asks for is performed, reused or replayed (ADR 0337): cached (the default) performs none and answers from the effects journal; replay answers only from it; online and auto perform what the collector's approved capabilities allow
     #[arg(names = &specforge_effects::EffectsMode::NAMES)]
     effects: Option<String>,
@@ -36,6 +38,7 @@ impl ArgumentOf<CollectField> for Tool {
     fn argument(field: CollectField) -> Option<&'static str> {
         match field {
             CollectField::Runner => Some("runner"),
+            CollectField::Filter => Some("filter"),
         }
     }
 }
@@ -89,6 +92,7 @@ impl CoreTool for Tool {
                 Mode::NoRun
             },
             announce: &mut |_, _| {},
+            filter: args.filter.as_deref(),
             // Every file the collect reads or writes lands inside the call's project, and the
             // server never prompts: a command runs only if the user already approved it for this
             // project with `specforge collect` in a terminal.

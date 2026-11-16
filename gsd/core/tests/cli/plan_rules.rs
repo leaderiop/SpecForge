@@ -435,7 +435,7 @@ fn an_unplanned_phase_is_not_w317() {
     let p = project("plan");
     p.write(
         "spec/third.spec",
-        "requirement SYNC-01 \"Sync\" {\n  text \"Tasks sync\"\n  category \"Sync\"\n  tier v1\n}\n\nphase 03 \"Sync\" {\n  milestone v1.0\n  name \"Sync\"\n  slug \"sync\"\n  goal \"Tasks sync between machines\"\n  depends_on [02]\n  requirements [SYNC-01]\n  success_criteria [\"a\", \"b\"]\n}\n",
+        "requirement SYNC-01 \"Sync\" {\n  text \"Tasks sync\"\n  area \"Sync\"\n  tier v1\n}\n\nphase 03 \"Sync\" {\n  milestone v1.0\n  name \"Sync\"\n  slug \"sync\"\n  goal \"Tasks sync between machines\"\n  depends_on [02]\n  requirements [SYNC-01]\n  success_criteria [\"a\", \"b\"]\n}\n",
     );
     assert_eq!(p.codes(), CLEAN);
 }
@@ -463,7 +463,7 @@ fn an_unplanned_phase_is_not_e301() {
     let p = project("plan");
     p.write(
         "spec/third.spec",
-        "requirement SYNC-01 \"Sync\" {\n  text \"Tasks sync\"\n  category \"Sync\"\n  tier v1\n}\n\nphase 03 \"Sync\" {\n  milestone v1.0\n  name \"Sync\"\n  slug \"sync\"\n  goal \"Tasks sync between machines\"\n  depends_on [02]\n  requirements [SYNC-01]\n  success_criteria [\"a\", \"b\"]\n}\n\ncontext 03-CONTEXT \"Sync context\" {\n  phase v1.0/03\n  gathered 2026-10-28\n  boundary \"Sync\"\n  canonical_refs [{ topic \"No external specs: none\" paths [] }]\n}\n\ndecision D-01 \"Sync by file\" {\n  phase v1.0/03\n  text \"Tasks sync through one shared file\"\n  origin context\n}\n",
+        "requirement SYNC-01 \"Sync\" {\n  text \"Tasks sync\"\n  area \"Sync\"\n  tier v1\n}\n\nphase 03 \"Sync\" {\n  milestone v1.0\n  name \"Sync\"\n  slug \"sync\"\n  goal \"Tasks sync between machines\"\n  depends_on [02]\n  requirements [SYNC-01]\n  success_criteria [\"a\", \"b\"]\n}\n\ncontext 03-CONTEXT \"Sync context\" {\n  phase v1.0/03\n  gathered 2026-10-28\n  boundary \"Sync\"\n  canonical_refs [{ topic \"No external specs: none\" paths [] }]\n}\n\ndecision D-01 \"Sync by file\" {\n  phase v1.0/03\n  text \"Tasks sync through one shared file\"\n  origin context\n}\n",
     );
     assert_eq!(p.codes(), CLEAN, "an unplanned phase has nothing to cover");
 }
@@ -539,6 +539,32 @@ fn a_coupling_peer_in_another_wave_is_i321() {
     ));
     assert_eq!(p.codes(), ["gsd/I321"]);
     assert!(message(&p, "gsd/I321").contains("is not in its wave: the exemption covers nothing"));
+}
+
+/// A peer is the plan the kernel resolves it to from the plan: the rooted path is 01-01, and `02-01` beside
+/// `02/02-01` is E003 and names nothing, though the other row's peer ends with it.
+#[test]
+fn a_coupling_peer_counts_as_the_kernel_resolves_it() {
+    let rooted = with(&third_plan(
+        "  coupling_justified [{ peer /v1.0/01/01-01 reason \"both read the task list\" }]\n",
+        "\"src/third.js\"",
+        "",
+    ));
+    assert_eq!(rooted.codes(), ["gsd/I321"], "the rooted peer");
+    assert_eq!(
+        message(&rooted, "gsd/I321"),
+        "coupling between 'v1.0/01/01-03' and 'v1.0/01/01-01' is justified: both read the task list"
+    );
+    let short = with(&third_plan(
+        "  coupling_justified [\n    { peer 02/02-01 reason \"a\" }\n    { peer 02-01 reason \"b\" }\n  ]\n",
+        "\"src/third.js\"",
+        "",
+    ));
+    assert_eq!(
+        short.codes(),
+        ["E003", "gsd/I321"],
+        "02-01 resolves to nothing"
+    );
 }
 
 #[test]

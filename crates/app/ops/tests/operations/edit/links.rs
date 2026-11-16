@@ -158,4 +158,17 @@ fn unlink_removes_a_reference_written_as_a_number() {
     let text = after(&c, "events.spec", &[unlink("task_done", "payload", "10")]);
     assert!(!text.contains("payload"), "{text}");
     assert!(is_canonical(&c, &text), "{text}");
+
+    // A name written as a decimal (`3.1`) is tagged a number by the parser and names its text.
+    let events = "type 3.1 \"Three one\" {\n  id string\n}\n\nevent task_done \"Task Done\" {\n  payload 3.1\n}\n";
+    let parsed = specforge_parser::parse(events, "events.spec");
+    assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
+    assert!(matches!(
+        parsed.entities[1].fields.entries()[0].value,
+        specforge_parser::FieldValue::Number(_)
+    ));
+    let c = project(&[("events.spec", events)]);
+    let text = after(&c, "events.spec", &[unlink("task_done", "payload", "3.1")]);
+    assert!(!text.contains("payload"), "{text}");
+    assert!(is_canonical(&c, &text), "{text}");
 }

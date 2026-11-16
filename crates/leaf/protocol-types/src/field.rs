@@ -62,12 +62,13 @@ pub struct FieldDescriptor {
     /// with `target_kind`, which names one.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub target_kinds: Vec<String>,
-    /// An `integer` field's least value, inclusive (E061 below it).
+    /// An `integer` or `number` field's least value, inclusive (E061 below it): a whole number on an `integer`, an
+    /// exact decimal of at most 15 significant digits on a `number` (ADR 0361).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub minimum: Option<i64>,
-    /// An `integer` field's greatest value, inclusive (E061 above it).
+    pub minimum: Option<serde_json::Number>,
+    /// An `integer` or `number` field's greatest value, inclusive (E061 above it), read as [`Self::minimum`] is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub maximum: Option<i64>,
+    pub maximum: Option<serde_json::Number>,
     /// Who writes the field (protocol 1.8.0, ADR 0287): absent, its author; `computed`, a compute pass of the
     /// declaring extension, never a `.spec` file; `harness`, only a host write a command or collector plan
     /// makes, recorded in `specforge-harness`. Kept a string, as `proof_role`, so an unknown writer costs this

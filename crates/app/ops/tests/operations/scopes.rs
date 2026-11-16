@@ -328,6 +328,85 @@ fn a_later_edit_addresses_a_moved_entity_by_its_new_path() {
 }
 
 #[specforge_test(
+    behavior = "create_entity",
+    verify = "new spells each reference from the new entity's own scope chain, as link writes it, so a rooted id its scope would read as another entity keeps its slash"
+)]
+fn a_create_spells_a_reference_from_its_own_scope_chain() {
+    // A project decision D-01 beside phase 03's: from a plan of phase 03, `D-01` names the phase's.
+    let project = project(&format!("decision D-01 \"Project\" {{\n}}\n\n{TWO_PHASES}"));
+    let created = after(
+        &project,
+        &[Edit::Create {
+            kind: "plan".into(),
+            id: "03-09".into(),
+            title: "New".into(),
+            file: "a.spec".into(),
+            fields: BTreeMap::from([
+                ("phase".to_string(), Input::One("v1.0/03".into())),
+                (
+                    "decisions".to_string(),
+                    Input::Many(vec!["/D-01".into(), "/v1.0/03/D-02".into()]),
+                ),
+            ]),
+            verify: Vec::new(),
+        }],
+    );
+    assert!(created.contains("decisions [/D-01, D-02]"), "{created}");
+    let linked = after(
+        &project,
+        &[Edit::Link {
+            entity_id: "v1.0/03/03-02".into(),
+            field: "decisions".into(),
+            target: "/D-01".into(),
+        }],
+    );
+    assert!(linked.contains("decisions [D-01, /D-01]"), "{linked}");
+}
+
+#[specforge_test(
+    behavior = "create_entity",
+    verify = "new spells each reference from the new entity's own scope chain, as link writes it, so a rooted id its scope would read as another entity keeps its slash"
+)]
+fn a_comma_list_reference_value_is_spelled_per_item() {
+    let project = project(&format!("decision D-01 \"Project\" {{\n}}\n\n{TWO_PHASES}"));
+    let created = |decisions: Input| {
+        after(
+            &project,
+            &[Edit::Create {
+                kind: "plan".into(),
+                id: "03-09".into(),
+                title: "New".into(),
+                file: "a.spec".into(),
+                fields: BTreeMap::from([
+                    ("phase".to_string(), Input::One("v1.0/03".into())),
+                    ("decisions".to_string(), decisions),
+                ]),
+                verify: Vec::new(),
+            }],
+        )
+    };
+    let items = created(Input::Many(vec!["/D-01".into(), "/v1.0/03/D-02".into()]));
+    assert!(items.contains("decisions [/D-01, D-02]"), "{items}");
+    assert_eq!(created(Input::One("/D-01,/v1.0/03/D-02".into())), items);
+    assert_eq!(created(Input::One("/D-01, /v1.0/03/D-02".into())), items);
+    // A set of the list, one comma text or its items, writes the same file as well.
+    let set_to = |value: Input| {
+        after(
+            &project,
+            &[Edit::Set {
+                entity_id: "v1.0/03/03-02".into(),
+                field: "decisions".into(),
+                value,
+                annotations: None,
+            }],
+        )
+    };
+    let items = set_to(Input::Many(vec!["/v1.0/03/D-02".into(), "/D-01".into()]));
+    assert!(items.contains("decisions [D-02, /D-01]"), "{items}");
+    assert_eq!(set_to(Input::One("/v1.0/03/D-02,/D-01".into())), items);
+}
+
+#[specforge_test(
     behavior = "edit_entity_link",
     verify = "a plan's edits read the project as the edits before them leave it"
 )]

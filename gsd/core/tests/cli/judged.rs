@@ -411,7 +411,7 @@ fn an_artifacts_file_change_makes_e501_stale() {
 }
 
 /// The twin's tests: the three its truths' proofs name, as its recorded JUnit report holds them.
-const TWIN_TESTS: [(&str, &str, TestStatus); 3] = [
+pub(super) const TWIN_TESTS: [(&str, &str, TestStatus); 3] = [
     (
         "test/tasks.test.js",
         "a task is added with the next id",
@@ -492,7 +492,7 @@ fn e518_reads_only_its_milestones_requirements() {
     let p = project("execute");
     p.write(
         "spec/v2.spec",
-        "milestone v2.0 \"Two\" {\n  name \"Two\"\n}\n\nphase 01 \"Next\" {\n  milestone v2.0\n  name \"Next\"\n  slug \"next\"\n  goal \"Later\"\n  requirements [OTHER-01]\n  success_criteria [\"Done\"]\n}\n\nrequirement OTHER-01 \"Other\" {\n  text \"Another milestone\"\n  category \"Other\"\n  tier v1\n}\n\nmilestone_audit A1 \"A\" {\n  milestone v1.0\n}\n",
+        "milestone v2.0 \"Two\" {\n  name \"Two\"\n}\n\nphase 01 \"Next\" {\n  milestone v2.0\n  name \"Next\"\n  slug \"next\"\n  goal \"Later\"\n  requirements [OTHER-01]\n  success_criteria [\"Done\"]\n}\n\nrequirement OTHER-01 \"Other\" {\n  text \"Another milestone\"\n  area \"Other\"\n  tier v1\n}\n\nmilestone_audit A1 \"A\" {\n  milestone v1.0\n}\n",
     );
     let audit = "v1.0/A1";
     let run = p.record(audit, "E518", "passed", &[]);

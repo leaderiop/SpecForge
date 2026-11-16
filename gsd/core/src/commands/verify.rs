@@ -9,7 +9,8 @@
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, node, now, required, run, target, text};
+use super::support::{answer, node, now, required, run, target, targets, text};
+use crate::passes::plans::written_target;
 
 const RESULTS: &[&str] = &["pending", "pass", "issue", "skipped", "blocked"];
 const SEVERITIES: &[&str] = &["blocker", "major", "minor", "cosmetic"];
@@ -135,20 +136,7 @@ fn write_result(call: &CommandCall<'_>, automated: bool) -> Result<CommandOutput
     if let Some(idea) = follow_up {
         let session = target(call.graph(), id, "session")
             .ok_or_else(|| format!("uat test '{id}' names no session"))?;
-        let held = call
-            .graph()
-            .node(session)
-            .and_then(|s| s.fields.get("follow_ups"))
-            .and_then(serde_json::Value::as_array)
-            .is_some_and(|entries| {
-                entries.iter().any(|e| {
-                    e.get("idea").and_then(serde_json::Value::as_str) == Some(idea)
-                        && e.get("test")
-                            .and_then(serde_json::Value::as_str)
-                            .is_some_and(|t| t == id || id.ends_with(&format!("/{t}")))
-                })
-            });
-        if !held {
+        if !holds_follow_up(call.graph(), session, id, idea) {
             plan.append(
                 session,
                 "follow_ups",
@@ -163,6 +151,26 @@ fn write_result(call: &CommandCall<'_>, automated: bool) -> Result<CommandOutput
         format!("uat test {id}: {result} (told by {by})\n"),
         Some(&plan),
     ))
+}
+
+/// Whether `session` already holds the follow-up `idea` of `test`: an entry with that idea whose `test` names it as the
+/// graph resolved it, by the session's scope chain (its `follow_ups.test` edges). A text that only ends with the test's
+/// name may resolve to a nearer entity, or to none.
+fn holds_follow_up(graph: &CommandGraph, session: &str, test: &str, idea: &str) -> bool {
+    let tests = targets(graph, session, "follow_ups.test");
+    graph
+        .node(session)
+        .and_then(|s| s.fields.get("follow_ups"))
+        .and_then(serde_json::Value::as_array)
+        .is_some_and(|entries| {
+            entries.iter().any(|e| {
+                e.get("idea").and_then(serde_json::Value::as_str) == Some(idea)
+                    && e.get("test")
+                        .and_then(serde_json::Value::as_str)
+                        .and_then(|written| written_target(&tests, session, written))
+                        == Some(test)
+            })
+        })
 }
 
 /// `approve_validation <validation> <by>`: the person who approves a phase's validation, with the host's clock.
@@ -252,4 +260,63 @@ pub fn declare(c: &mut ContributionsBuilder) {
             })
             .handler(|call| run(call, approve_validation));
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SESSION: &str = "v1.0/01/01-UAT";
+    const U3: &str = "v1.0/01/01-UAT/U3";
+
+    /// The session with `entries` as `(test as written, idea)`, and the `follow_ups.test` edges the graph resolved.
+    fn graph(entries: &[(&str, &str)], resolved: &[&str]) -> CommandGraph {
+        let mut session = GraphNode {
+            id: SESSION.into(),
+            kind: "uat_session".into(),
+            ..Default::default()
+        };
+        session.fields.insert(
+            "follow_ups".into(),
+            entries
+                .iter()
+                .map(|(test, idea)| json!({ "test": test, "idea": idea, "deferred_at": "2026-11-16" }))
+                .collect(),
+        );
+        let edges = resolved
+            .iter()
+            .map(|target| GraphEdge {
+                source: SESSION.into(),
+                target: (*target).into(),
+                label: "follow_ups.test".into(),
+            })
+            .collect();
+        CommandGraph::new(vec![session], edges)
+    }
+
+    #[test]
+    fn a_follow_up_is_held_by_the_test_its_entry_resolves_to_never_by_a_suffix() {
+        // The short spelling a create writes, and a rooted one: both name U3.
+        for written in ["U3", "/v1.0/01/01-UAT/U3"] {
+            let g = graph(&[(written, "dark mode")], &[U3]);
+            assert!(holds_follow_up(&g, SESSION, U3, "dark mode"), "{written}");
+            assert!(!holds_follow_up(&g, SESSION, U3, "light mode"), "{written}");
+        }
+        // `U3` resolved to the session's own U3: another session's U3 ends with it but is not held.
+        let g = graph(&[("U3", "dark mode")], &[U3]);
+        assert!(!holds_follow_up(
+            &g,
+            SESSION,
+            "v1.0/01/01-UAT-B/U3",
+            "dark mode"
+        ));
+        // A text the graph did not resolve (E003) names no test, whatever ends with it.
+        let g = graph(&[("U9", "dark mode")], &[]);
+        assert!(!holds_follow_up(
+            &g,
+            SESSION,
+            "v1.0/01/01-UAT/U9",
+            "dark mode"
+        ));
+    }
 }

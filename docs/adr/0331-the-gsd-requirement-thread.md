@@ -3,7 +3,13 @@
 **Status:** accepted (2026-11-03, build-plan R1, plan 04); amended by
 [ADR 0351](0351-a-plan-lists-its-decisions-and-the-threads-gaps-have-codes.md) (D1, D3) and
 [ADR 0352](0352-gsd-git-reads-the-host-git-port-and-commits-name-their-items.md) (D3, D4, D8); amended in place
-(2026-11-10, [Amendment](#amendment-2026-11-10-the-thread-reads-test-facts-only)) (D4, D5, D7: test facts only).
+(2026-11-10, [Amendment](#amendment-2026-11-10-the-thread-reads-test-facts-only)) (D4, D5, D7: test facts only);
+amended by [ADR 0358](0358-a-risk-is-rated-and-an-invariant-is-judged.md) (D7: a `file()` input or context section
+through an unloaded optional peer's kind is inert too, D15); D5 amended by
+[ADR 0359](0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md): a requirement's thread state
+is its computed `proof`, which E515 reads. Extended by
+[ADR 0357](0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md) (D20: a journey is covered when
+each requirement it names is proven by the thread, through the predicate E515 reads).
 Amends [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md)
 D3 (a `test(..)` input), [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md) D4 (gsd-git
 reads a trailer), [ADR 0312](0312-collect-re-keys-a-test-id-as-the-test-report-does.md) (a truth's tests are its tags

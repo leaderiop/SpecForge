@@ -32,7 +32,7 @@ fn shipped() -> Project {
     p
 }
 
-pub(super) const ROWS: [Row; 44] = [
+pub(super) const ROWS: [Row; 45] = [
     Row {
         id: "new_project",
         args: &["--auto"],
@@ -219,6 +219,11 @@ pub(super) const ROWS: [Row; 44] = [
         setup: twin,
     },
     Row {
+        id: "verify_invariant",
+        args: &[],
+        setup: twin,
+    },
+    Row {
         id: "ns_context",
         args: &["--intent", "plan the next phase"],
         setup: twin,
@@ -376,7 +381,11 @@ fn help_lists_the_prompt_slash_commands() {
         .iter()
         .filter_map(|s| s["slash"].as_str())
         .collect();
-    for row in ROWS.iter().filter(|r| r.id != "execute_plan") {
+    // `execute_plan` and `verify_invariant` have no slash command
+    for row in ROWS
+        .iter()
+        .filter(|r| !["execute_plan", "verify_invariant"].contains(&r.id))
+    {
         let slash = format!("/gsd-{}", row.id.replace('_', "-"));
         assert!(
             listed.contains(&slash.as_str()),

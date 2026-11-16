@@ -60,10 +60,15 @@ TEXT
 IFS= read -rd '' DEFERRED <<'TEXT' || true; DEFERRED=${DEFERRED%$'\n'}
 {an item the PRD marks as future, v2 or out of scope}
 TEXT
+SUPERSEDES="{the earlier decisions it reverses, comma-separated ids such as v1.0/02/D-01, or nothing}"
+AFFECTS="{the requirements, invariants or code items it shapes, comma-separated ids such as AUTH-01, or nothing}"
+IFS= read -rd '' ALTERNATIVES <<'TEXT' || true; ALTERNATIVES=${ALTERNATIVES%$'\n'}
+{the options weighed and not chosen, one JSON list: [{"name": "…", "pros": ["…"], "cons": ["…"], "why_not": "…"}], or nothing}
+TEXT
 PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
 CONTEXT_ID="$PHASE_ID/$CONTEXT"
 specforge new context "$CONTEXT" "$TITLE" --in "$PHASE_FILE" --phase "$PHASE_ID" --boundary "$BOUNDARY" --discretion "$DISCRETION" --specifics "$SPECIFICS" --canonical_refs "$CANONICAL_REFS" || exit 1
-specforge new decision D-01 "$DECISION" --in "$PHASE_FILE" --phase "$PHASE_ID" --area "$AREA" --text "$DECISION" --origin context || exit 1
+specforge new decision D-01 "$DECISION" --in "$PHASE_FILE" --phase "$PHASE_ID" --area "$AREA" --text "$DECISION" --origin context ${SUPERSEDES:+--supersedes "$SUPERSEDES"} ${AFFECTS:+--affects "$AFFECTS"} ${ALTERNATIVES:+--alternatives "$ALTERNATIVES"} || exit 1
 specforge new deferred_idea DI1 "$DEFERRED" --in "$PHASE_FILE" --phase "$PHASE_ID" --origin discussion --text "$DEFERRED" || exit 1
 ```
 

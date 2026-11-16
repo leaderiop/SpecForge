@@ -113,13 +113,13 @@ fn full() -> ExtensionDeclaration {
                 explanation: "Give the report a title.".to_string(),
                 docs: Some("https://acme.dev/codes#r001".to_string()),
                 machine: true,
+                reported_while: Some("complete".to_string()),
             },
             CodeDescriptor {
                 code: "R002".to_string(),
                 title: "Chart without an axis".to_string(),
                 explanation: "Name the chart's axis.".to_string(),
-                docs: None,
-                machine: false,
+                ..Default::default()
             },
         ],
         settings: vec![SettingsItem::Setting(SettingDescriptor {
@@ -494,7 +494,10 @@ fn a_field_declares_members_a_union_and_bounds() {
         panic!("two members: {:?}", field.members);
     };
     assert_eq!(phase.target_kinds, ["phase", "milestone"]);
-    assert_eq!((score.minimum, score.maximum), (Some(0), Some(100)));
+    assert_eq!(
+        (&score.minimum, &score.maximum),
+        (&Some(0.into()), &Some(100.into()))
+    );
     let written = serde_json::to_value(&field).unwrap();
     let again: FieldDescriptor = serde_json::from_value(written).unwrap();
     assert_eq!(again, field, "the attributes survive the wire");
@@ -703,7 +706,9 @@ fn a_judged_rule_is_declared_with_selectors() {
         "judged": {
             "judge": "checker", "outcomes": ["passed", "issues"], "passing": ["passed"],
             "targets": [{"kind": "plan", "unless_set": ["pattern"],
-                "inputs": [{"name": "plan", "selector": "self"}]}],
+                "inputs": [{"name": "plan", "selector": "self"}]},
+                {"kind": "task", "judged_while": "complete",
+                "inputs": [{"name": "task", "selector": "self"}]}],
             "values": ["phase_spec.scores"], "outcome_fields": ["plan.verdict"],
         },
     });

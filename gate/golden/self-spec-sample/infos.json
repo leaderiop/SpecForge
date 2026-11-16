@@ -1,0 +1,87 @@
+[
+  {
+    "code": "I204",
+    "file": "",
+    "message": "not in a git repository: nothing is judged against history"
+  },
+  {
+    "code": "gsd/I536",
+    "file": "spec/invariants/wasm.spec",
+    "message": "invariant 'collector_output_conformance' has no fresh verdict that it holds: no verdict"
+  },
+  {
+    "code": "gsd/I536",
+    "file": "spec/invariants/wasm.spec",
+    "message": "invariant 'credential_secrecy' has no fresh verdict that it holds: no verdict"
+  },
+  {
+    "code": "gsd/I536",
+    "file": "spec/invariants/wasm.spec",
+    "message": "invariant 'enhancement_field_uniqueness' has no fresh verdict that it holds: no verdict"
+  },
+  {
+    "code": "gsd/I536",
+    "file": "spec/invariants/wasm.spec",
+    "message": "invariant 'entity_kind_uniqueness' has no fresh verdict that it holds: no verdict"
+  },
+  {
+    "code": "gsd/I536",
+    "file": "spec/invariants/wasm.spec",
+    "message": "invariant 'extension_isolation' has no fresh verdict that it holds: no verdict"
+  },
+  {
+    "code": "gsd/I536",
+    "file": "spec/invariants/wasm.spec",
+    "message": "invariant 'extension_load_order_determinism' has no fresh verdict that it holds: no verdict"
+  },
+  {
+    "code": "gsd/I536",
+    "file": "spec/invariants/wasm.spec",
+    "message": "invariant 'extension_operation_atomicity' has no fresh verdict that it holds: no verdict"
+  },
+  {
+    "code": "gsd/I536",
+    "file": "spec/invariants/wasm.spec",
+    "message": "invariant 'extensions_run_in_their_loading_runtime' has no fresh verdict that it holds: no verdict"
+  },
+  {
+    "code": "gsd/I536",
+    "file": "spec/invariants/wasm.spec",
+    "message": "invariant 'host_function_type_safety' has no fresh verdict that it holds: no verdict"
+  },
+  {
+    "code": "gsd/I536",
+    "file": "spec/invariants/wasm.spec",
+    "message": "invariant 'peer_dependency_satisfaction' has no fresh verdict that it holds: no verdict"
+  },
+  {
+    "code": "gsd/I536",
+    "file": "spec/invariants/wasm.spec",
+    "message": "invariant 'publisher_trust' has no fresh verdict that it holds: no verdict"
+  },
+  {
+    "code": "gsd/I536",
+    "file": "spec/invariants/wasm.spec",
+    "message": "invariant 'registry_integrity' has no fresh verdict that it holds: no verdict"
+  },
+  {
+    "code": "gsd/I536",
+    "file": "spec/invariants/wasm.spec",
+    "message": "invariant 'registry_reply_binding' has no fresh verdict that it holds: no verdict"
+  },
+  {
+    "code": "gsd/I536",
+    "file": "spec/invariants/wasm.spec",
+    "message": "invariant 'surface_schema_validity' has no fresh verdict that it holds: no verdict"
+  },
+  {
+    "code": "gsd/I536",
+    "file": "spec/invariants/wasm.spec",
+    "message": "invariant 'wasm_compile_cache_integrity' has no fresh verdict that it holds: no verdict"
+  },
+  {
+    "code": "gsd/I536",
+    "file": "spec/invariants/wasm.spec",
+    "message": "invariant 'wasm_sandbox_integrity' has no fresh verdict that it holds: no verdict"
+  }
+]

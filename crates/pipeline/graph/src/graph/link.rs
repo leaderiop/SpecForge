@@ -10,10 +10,10 @@ use crate::{Dangling, Edge, Graph, GraphInputs, Node, Unheld};
 
 mod reference;
 
-/// An edge as written, and whether a declared single reference wrote it.
+/// An edge as written, and whether W061 reads it: not when a declared single reference or a fact wrote it.
 struct WrittenEdge {
     edge: Edge,
-    single: bool,
+    cycles: bool,
 }
 
 impl Graph {
@@ -24,8 +24,9 @@ impl Graph {
     /// `inputs.target_owners` that does. A reference in a fact scheme that names no fact is kept on its node as
     /// unheld, with no diagnostic (ADR 0327 D6). A fact's own reference resolves from the project, a unique suffix
     /// taken; one that names no entity, one of another kind or several is kept on its node as dangling, with no
-    /// diagnostic: the extension declaring the fact's kind judges it (ADR 0346 D4). Then W061 over the edges but the
-    /// declared single references': a single reference is never part of a reference cycle.
+    /// diagnostic: the extension declaring the fact's kind judges it (ADR 0346 D4). Then W061 over the authored edges but
+    /// the declared single references': a single reference is never part of a reference cycle, and a fact's reference
+    /// is what its collector read in the source, which no `.spec` edit removes or inverts (ADR 0360).
     ///
     /// Clears all existing edges first, then adds each once, in written order.
     /// Diagnostics come in node order (the graph's nodes are sorted), then
@@ -36,7 +37,7 @@ impl Graph {
         let mut diagnostics = Vec::new();
         let mut unheld: Vec<(Sym, Unheld)> = Vec::new();
         let mut dangling: Vec<(Sym, Dangling)> = Vec::new();
-        // Every edge in written order, and whether it is a single reference's.
+        // Every edge in written order, and whether W061 reads it.
         let mut edges: Vec<WrittenEdge> = Vec::new();
 
         for node in self.nodes.values() {
@@ -45,7 +46,7 @@ impl Graph {
                 // A reference inside a typed block is held by this node, read from it and labelled by its declared
                 // member path (ADR 0285); diagnostics name the written path.
                 for (path, reading, entry) in forms.readings(kind, top) {
-                    let single = reading.is_single_reference();
+                    let cycles = !reading.is_single_reference() && !is_fact(node);
                     let declared = path.declared();
                     let target = forms.target(kind, &declared);
                     let from = held_from(node, scoped, &declared);
@@ -70,7 +71,7 @@ impl Graph {
                                     target: path,
                                     label,
                                 },
-                                single,
+                                cycles,
                             });
                         }
                         if is_fact(node)
@@ -90,9 +91,12 @@ impl Graph {
         }
 
         // W061 reads the written references but a declared single
-        // reference's (ADR 0093 D7). A derived edge joins later and is never
-        // one: a recursive type is a dependency, not a reference cycle (ADR 0204).
-        let references = super::successors(edges.iter().filter(|w| !w.single).map(|w| &w.edge));
+        // reference's (ADR 0093 D7) and a fact's: a test naming the invariant
+        // whose proof lists it, or a crate's dev-dependency back on its
+        // dependent, closes no reference cycle an author wrote. A derived edge
+        // joins later and is never one: a recursive type is a dependency, not
+        // a reference cycle (ADR 0204).
+        let references = super::successors(edges.iter().filter(|w| w.cycles).map(|w| &w.edge));
         for written in edges {
             self.add_edge(written.edge);
         }

@@ -1382,7 +1382,9 @@ dependencies = [
  "insta",
  "serde",
  "serde_json",
+ "specforge-protocol-types",
  "specforge-repo-root",
+ "specforge-test",
  "tempfile",
 ]
 
@@ -4518,6 +4520,7 @@ version = "0.3.0"
 dependencies = [
  "git2",
  "gix",
+ "libc",
  "regex",
  "specforge-common",
  "specforge-effects",
@@ -4785,6 +4788,7 @@ dependencies = [
  "serde",
  "specforge-common",
  "specforge-parser",
+ "specforge-protocol-types",
  "specforge-repo-root",
  "specforge-test",
  "specforge-test-macros",
@@ -6934,12 +6938,18 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "gate",
+ "insta",
  "proc-macro2",
+ "regex",
+ "serde",
  "serde_json",
  "specforge-common",
  "specforge-component",
  "specforge-coverage",
+ "specforge-graph",
  "specforge-installed",
+ "specforge-ops",
+ "specforge-parser",
  "specforge-project",
  "specforge-protocol-types",
  "specforge-registry",
@@ -6947,6 +6957,7 @@ dependencies = [
  "specforge-wasm",
  "strsim",
  "syn 2.0.117",
+ "tempfile",
  "walkdir",
 ]
 

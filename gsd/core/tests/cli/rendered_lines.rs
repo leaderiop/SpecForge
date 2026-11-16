@@ -1,4 +1,4 @@
-//! The lines every one of the 44 prompts shows: the earlier regression tests ran the lines of the lifecycle prompts
+//! The lines every one of the 45 prompts shows: the earlier regression tests ran the lines of the lifecycle prompts
 //! only, so new lines in the other prompts slipped past them. Each prompt is rendered once for `claude-code` on its
 //! golden project, and the checks run over all of the text: the shell the Rust side writes parses, no prose is joined
 //! to a path, and every `specforge settings` line is one the host accepts.
@@ -14,7 +14,7 @@ use super::harness::Project;
 use super::prompts_support::{payload, prompt, text_of};
 use super::render_prompts::ROWS;
 
-/// `(prompt id, rendered text)` of the 44 prompts.
+/// `(prompt id, rendered text)` of the 45 prompts.
 pub fn rendered() -> &'static [(&'static str, String)] {
     static ALL: OnceLock<Vec<(&'static str, String)>> = OnceLock::new();
     ALL.get_or_init(|| {
@@ -125,7 +125,7 @@ fn no_rendered_text_joins_the_spec_to_a_path() {
 
 #[test]
 fn every_prompt_rendered_once() {
-    assert_eq!(rendered().len(), 44);
+    assert_eq!(rendered().len(), 45);
     let _: Project = twin();
 }
 
@@ -244,7 +244,7 @@ fn concrete(word: &str) -> Option<String> {
 
 /// Five line shapes that the host refuses or stores wrongly (a block as a bare word, `null` for an
 /// enum, a JSON list as one word, a value that starts with `--`). Every `specforge settings set|unset @gsd/core ...`
-/// line of the 44 prompts is run with `--dry-run` on the twin.
+/// line of the 45 prompts is run with `--dry-run` on the twin.
 #[test]
 fn every_settings_line_is_accepted_by_the_host() {
     let p = twin();
@@ -505,7 +505,7 @@ fn a_rendered_prompt_calls_only_specforge() {
     );
 }
 
-/// The distinct graph tools of the engine-tool catalogue (every group but setup) that the 44 claude-code renders and
+/// The distinct graph tools of the engine-tool catalogue (every group but setup) that the 45 claude-code renders and
 /// the installed claude-code agent bodies name, by `tool_names::named`: the port's tool measure (ADR 0332). The count
 /// may not fall below it, and a rise raises it in the commit that names the new tool.
 const AT_LEAST: usize = 14;

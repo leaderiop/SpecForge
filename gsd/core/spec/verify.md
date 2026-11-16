@@ -48,12 +48,14 @@ files themselves are not read.
 
 ## verification
 
-GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
+GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`. A phase written with more than one has them read as
+one: an override, a deferral, a blocker anti-pattern, a human item or a partial scan recorded on any counts for the
+phase, each carries the phase's status and score, and nothing depends on their order.
 
 | Field | Type | Flags | GSD |
 |---|---|---|---|
 | phase | → phase | R I | `phase:` |
-| deferred | {truth → truth R, addressed_in → phase R, evidence str R} | | `deferred:`; a deferral takes the truth out of the status and the score only when `addressed_in` names a phase that exists and comes later than the verification's own (by phase number); otherwise it is ignored and the truth needs its verdict. It is the third path to `passed` besides a verdict and an override, and an agent can write it |
+| deferred | {truth → truth R, addressed_in → phase R, evidence str R} | | `deferred:`; a deferral takes the truth out of the status and the score only when `addressed_in` names a phase that exists and comes later than the verification's own (by phase number); otherwise it is ignored and the truth needs its verdict, as is a row whose `truth` or `addressed_in` does not resolve (E003). It is the third path to `passed` besides a verdict and an override, and an agent can write it |
 | status | enum{pending, passed, gaps_found, human_needed} | C | `status:`: gaps_found when any truth, artifact or link fails; human_needed when any human item is open; passed needs every truth, artifact and key link verified by a fresh gsd/E501 verdict or an override (the scan only fails, except that a key link whose literal `pattern` it found is verified; a regular-expression pattern is `unchecked` and keeps the phase `pending`), and a complete scan |
 | score | str `N/M` | C | `score:` as `verified / total`, upstream's: every truth that is not deferred is in `M`; a behavior-unverified truth is in `M` and not in `N` |
 | verified | ts | C | `verified:`: the latest verdict's time |
@@ -102,6 +104,7 @@ The test being asked now is session state.
 | severity | enum{blocker, major, minor, cosmetic} | | major when absent |
 | reason | str | | why skipped; `Deferred follow-up…` counts as passing |
 | blocked_by | enum{server, physical_device, release_build, third_party, prior_phase} | | when blocked |
+| journey | → journey | | beyond GSD: the journey the test walks; the journey reads it back as `uat_tests` and its latest session as `last_uat` ([ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md) D22) |
 
 **uat_gap**: GSD `## Gaps`. Name `G1`, scoped by its test (`v1.0/01/01-UAT/U2/G1`).
 `test → uat_test R`, `truth str R`, `reason str`, `severity enum{blocker, major, minor, cosmetic}`, `root_cause str`,
@@ -198,8 +201,9 @@ Kept on purpose, listed so none is silent:
 - A truth the verifier is `uncertain` about stays `pending`; upstream makes it a human item (`human_needed`). A
   backstop truth with no explicit evidence is not `human_needed`: only a fresh verdict makes it verified. A verification with no truth,
   whose artifacts and key links all pass, is `passed 0/0`.
-- A verification is judged one per phase, but nothing refuses a second: the last by id wins, and W504 counts per
-  verification, not per phase. The same holds for a phase's validation (the first by id).
+- A phase has one verification and one validation, as it has one `NN-VERIFICATION.md` and `NN-VALIDATION.md`: a second
+  is gsd/E206 ([rules](rules.md)). While it stands, the phase's verifications are read as one (an override on either
+  counts), W504 counts per verification, not per phase, and the validation read is the first by id.
 - A milestone audit lists a requirement of a `gaps_found` phase as `partial`, where upstream lists it `unsatisfied`, and
   does not list the complete requirements of phases that have not passed. The audit's status is `gaps_found` either way.
 - A UAT session with a blocked test or an unexcused skip and open gaps that all have root causes is `diagnosed`;

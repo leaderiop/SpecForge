@@ -336,8 +336,8 @@ fn staging_a_file_whose_attributes_name_a_filter_driver_is_refused() {
     );
 }
 
-/// A path the config names is interpolated as git interpolates one: `~user/` is that user's home, a relative path
-/// stays as written, and an unset key is none.
+/// A path the config names is interpolated as git interpolates one: `~user/` is that user's home in the password
+/// database, whatever `HOME` says, a relative path stays as written, and an unset key is none.
 #[cfg(unix)]
 #[test]
 fn a_config_path_is_interpolated_as_git_does() {
@@ -357,8 +357,8 @@ fn a_config_path_is_interpolated_as_git_does() {
             .unwrap(),
         Some(std::path::PathBuf::from("rel/hooks"))
     );
-    let (Ok(user), Some(home)) = (std::env::var("USER"), std::env::home_dir()) else {
-        return; // no user to name here
+    let Some((user, home)) = super::running_user() else {
+        return; // a uid the password database does not hold: no `~user/` to name
     };
     repo.config(&format!("[core]\n\thooksPath = ~{user}/hooks"));
     assert_eq!(

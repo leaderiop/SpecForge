@@ -26,6 +26,8 @@ pub struct Input<'a> {
     pub extension: &'a str,
     /// The rows of the preamble's table of where GSD's files went (`preamble::FILES` for core).
     pub files: &'a [(&'a str, &'a str)],
+    /// The command's text is the extension's own, not a port of a GSD command: the preamble says whose it is.
+    pub own: bool,
     /// The prompt's own closing section, when it has one.
     pub tail: &'a str,
     /// The embedded text of an asset path (`gsd-core/…`, `commands/gsd/…`), attribution line included.
@@ -135,6 +137,7 @@ pub fn assemble(command: &str, input: &Input<'_>) -> String {
         input.settings,
         input.extension,
         input.files,
+        input.own,
     ));
     // filled after every rewrite, so no rewrite runs on a value; the preamble and the tail are ours, never scanned
     text.push_str(&fill(

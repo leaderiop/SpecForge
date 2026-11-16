@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 use specforge_common::shape::Shape;
 use specforge_common::{Diagnostic, DiagnosticList, codes};
 use specforge_project::{ResolvedSettings, admit, is_secret};
-use specforge_protocol_types::FieldType;
+use specforge_protocol_types::{Decimal, FieldType};
 
 use crate::change::locked;
 use crate::config::{self, CONFIG_FILE};
@@ -75,7 +75,8 @@ fn invalid(message: String, suggestion: &str) -> OpError {
 }
 
 /// The value `words` mean for a setting of type `kind`: one word for a scalar, every word an item of a list. A word
-/// that is not the scalar's type is passed on as text, so the form's own E086 says what it should have been.
+/// that is not the scalar's type is passed on as text, so the form's own E086 says what it should have been; a word a
+/// number setting cannot read as a decimal is refused here, with the decimal reader's remedy (ADR 0361).
 fn read_words(kind: Option<FieldType>, words: &[String]) -> Result<Value, OpError> {
     let one = || match words {
         [word] => Ok(word.as_str()),
@@ -104,16 +105,14 @@ fn read_words(kind: Option<FieldType>, words: &[String]) -> Result<Value, OpErro
                 .map_or_else(|_| json!(word), |n| json!(n))
         }
         Some(FieldType::Number) => {
-            let word = one()?;
-            // A whole number stays an integer (`30`, not `30.0`).
-            word.parse::<i64>()
-                .map(|n| json!(n))
-                .ok()
-                .or_else(|| {
-                    let n = word.parse::<f64>().ok().filter(|n| n.is_finite())?;
-                    serde_json::Number::from_f64(n).map(Value::Number)
-                })
-                .unwrap_or_else(|| json!(word))
+            // A whole number stays an integer (`30`, not `30.0`); a fraction is the binary64 of its decimal.
+            let decimal = Decimal::parse(one()?).map_err(|e| {
+                invalid(
+                    e.to_string(),
+                    "give a decimal number of at most 15 significant digits, such as 0.25",
+                )
+            })?;
+            Value::Number(decimal.to_json())
         }
         Some(FieldType::Bool) => match one()? {
             "true" => json!(true),

@@ -273,3 +273,57 @@ fn new_refuses_a_blank_title() {
         );
     }
 }
+
+#[specforge_test_macros::test(
+    behavior = "create_entity",
+    verify = "new writes a number flag as given, and a skeleton fills a required number with zero"
+)]
+fn new_writes_a_number_flag_and_fills_a_required_number_with_zero() {
+    use specforge_ops::authoring::edit::Skeletons;
+    use specforge_ops::authoring::format::Place;
+    use specforge_ops::testing::Viewed;
+
+    const SEED: &str = "measure m1 \"M\" {\n  value 1\n}\n";
+    let created = typed_after(
+        SEED,
+        &[create(
+            "measure",
+            "m9",
+            "a.spec",
+            &[("value", one("2.50")), ("ratio", one("0.25"))],
+        )],
+    )
+    .unwrap();
+    let block = &created[created.find("measure m9").expect("m9 written")..];
+    assert!(
+        block.contains("  value 2.50\n") && block.contains("  ratio 0.25\n"),
+        "{created}"
+    );
+    // A ratio outside its decimal bounds is E061: nothing is written.
+    let (_, message) = typed_after(
+        SEED,
+        &[create(
+            "measure",
+            "m9",
+            "a.spec",
+            &[("value", one("1")), ("ratio", one("0.96"))],
+        )],
+    )
+    .unwrap_err();
+    assert!(
+        message.contains("E061") && message.contains("field 'ratio' of measure 'm9'"),
+        "{message}"
+    );
+    assert!(
+        message.contains("\n    help: write a number from 0.05 to 0.95"),
+        "{message}"
+    );
+
+    let project = typed(SEED);
+    let view = project.view();
+    let path = view.env().spec_root().join("new.spec");
+    let skeleton = Skeletons::at(&view, Place::File(&path))
+        .block("measure")
+        .expect("a measure skeleton");
+    assert!(skeleton.text.contains("  value 0\n"), "{}", skeleton.text);
+}

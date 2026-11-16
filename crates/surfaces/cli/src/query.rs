@@ -155,7 +155,7 @@ impl Args {
             );
             return Exit::Passed;
         }
-        // no verdict state: the rule's setting is off, or the entity is exempted by `unless_set`
+        // no verdict state: the rule's setting is off, or the entity owes none (`unless_set`, `judged_while`)
         let state = match (&answer.verdict, answer.gated) {
             (Some(verdict), _) => verdict.state.as_str(),
             (None, true) => "gated",

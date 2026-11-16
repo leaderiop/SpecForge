@@ -135,6 +135,7 @@ fn collect_and_apply_in(
             runner: Some("git"),
             mode: Mode::NoRun,
             announce: &mut |_, _| {},
+            filter: None,
             caller: caller(),
         },
         &ScriptedMachine::new(),

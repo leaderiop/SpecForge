@@ -20,9 +20,10 @@ behavior create_entity "Create an Entity" {
     exist reads as empty, and a file the list leaves as it read is not written. The id MUST be an identifier of 2 to 60 characters that is not a
     reserved word (E013), and MUST NOT be taken, the kind MUST be declared, the title MUST NOT be blank (only whitespace; refused
     invalid_title before the project is read; ADR 0225), and the file MUST be a project source.
-    Each field is written as a set of it writes it, so a field that holds what its file's default holds, as the graph stores both,
+    Each field is written as a set of it writes it, a reference spelled from the new entity's own scope chain, so a field that holds what its file's default holds, as the graph stores both,
     is not written, and each verify obligation as an add-verify writes it, its --verify prefix read by the kind's verify kinds, so an equal one given twice is written
-    once. The field flags of `specforge new` are the kind's fields in the project
+    once. A list field's flag takes its items as set takes its values: each value one item, a reference list's
+    also split at its commas; the flag repeated gives several, and its help says so. The field flags of `specforge new` are the kind's fields in the project
     the command acts on. Its command line is one command read once with the kind's fields: an option may stand anywhere
     and one given twice is refused, --help with a kind is that kind's help, its help and its usage errors name the program as specforge new, and an unknown kind is refused as unknown_kind,
     and a line whose --path a field's value spells is refused; a field named like one of its options is no flag of it, and
@@ -35,6 +36,7 @@ behavior create_entity "Create an Entity" {
   verify unit "new creates a missing source file"
   verify unit "new refuses a blank title"
   verify unit "new's help names a date field's value as YYYY-MM-DD"
+  verify unit "new takes a list field's items as set takes them, and its help says how"
   verify unit "new refuses a file that is not a project source"
   verify unit "new reads every spelling of a file under the project root as that file"
   verify unit "two spellings of one new file in one list are one file"
@@ -44,6 +46,7 @@ behavior create_entity "Create an Entity" {
   verify unit "new never writes a field that restates its default"
   verify unit "new refuses a field.entry path"
   verify unit "new writes each field as set writes it"
+  verify unit "new spells each reference from the new entity's own scope chain, as link writes it, so a rooted id its scope would read as another entity keeps its slash"
   verify unit "new writes an equal verify obligation once"
   verify unit "a create's skeleton filled in is the block new writes"
   verify unit "every kind's skeleton formats to itself"
@@ -55,6 +58,7 @@ behavior create_entity "Create an Entity" {
   verify integration "new refuses a field given twice that takes one value"
   verify integration "new refuses an unknown kind as unknown_kind"
   verify unit "a kind's field named like one of new's options is no flag of new, and the kind's help says to set it with set"
+  verify unit "new's help lists only the fields a person may write; a computed field stays a flag the edit refuses"
   verify unit "a kind's field named like one of new's options is set with --field"
   verify unit "new --field sets a field of the kind by name, refuses a name the kind lacks and a field given twice"
   verify integration "new --help begins with what new does"
@@ -67,7 +71,9 @@ behavior create_entity "Create an Entity" {
   verify unit "new writes into a spec root outside the project by the file check names"
   verify unit "a create that would shadow a target or make a short scope field ambiguous respells the tokens to keep their targets"
   verify unit "a skeleton writes a block list and a typed block empty, and a list of words with a slot"
+  verify unit "a skeleton fills a number or an integer with the value within its bounds nearest zero"
   verify unit "a collected entity is never created, edited or deleted by an edit, whoever asks"
+  verify unit "new writes a number flag as given, and a skeleton fills a required number with zero"
 }
 
 behavior edit_entity_field "Edit an Entity Field" {
@@ -103,7 +109,7 @@ behavior edit_entity_field "Edit an Entity Field" {
     refused not_editable. A field the kind does not declare is refused. A spec
     block's fields are declared by no kind: a set, unset, link or unlink of one is refused not_editable, naming the
     file to edit, as its retitle is. A field that is the other
-    side of a relation another kind owns is refused naming the owning field (ADR 0157).
+    side of a relation a reference field owns, its own kind's included, is refused naming the owning field (ADR 0157).
     A set, unset, link or unlink of a field the block writes twice first removes its later entries, which the
     graph does not hold (E081, ADR 0215). A union (`kind name = a | b`) holds only its variants: a set,
     unset, link, unlink, add-verify or remove-verify of it is refused not_editable before its field is
@@ -144,6 +150,8 @@ behavior edit_entity_field "Edit an Entity Field" {
   verify unit "a typed edit finds its block by its declared path, so an E002 duplicate never shifts the target"
   verify unit "a typed edit sets a block member, appends and removes a block-list item, and refuses the other ways to change one"
   verify unit "set reads a JSON object or an array of objects as a typed block or a block list, and any other text as one value"
+  verify unit "a JSON number given to a number member is written as its decimal"
+  verify unit "set writes a number field's word as given, and a JSON number as its decimal"
 }
 
 behavior edit_entity_link "Edit an Entity Reference List" {
@@ -282,7 +290,10 @@ behavior validate_typed_edit "Validate a Typed Edit" {
   verify unit "every verb's graph change is what it declares"
   verify unit "a block holding a padded value takes a typed edit"
   verify unit "an edit that adds an error is E080 and writes nothing"
+  verify unit "an edit that adds an error is refused with E080 listing each error with its help line"
   verify unit "a judged rules finding is no error a write adds"
+  verify unit "a finding a write reveals by moving its entity into the owner state its code waits for is no error the write adds"
+  verify unit "a finding on an entity the write creates, deletes or renames, or over skipped checks, is an error it adds"
   verify unit "a diagnostic with a judged rules code from another origin is no judged finding"
   verify unit "an extension's finding is paired by its subject, through the plan's moves"
   verify unit "only a finding the judged rules made is exempt"

@@ -659,7 +659,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Owning field**: the one reference field that writes a relation's edges, declared by an extension (ADR 0150).
   A relation is written there and nowhere else; its other side is derived.
 - **Other side** (of a relation): what the target entity reads the relation as: its incoming edges, which `query`
-  and `trace` (upstream) show. Never a field; an `inverse_of` may name it. Writing it is E079. A typed edit naming it is refused `other_side`, naming the owning field (ADR 0157).
+  and `trace` (upstream) show. Never a field; an `inverse_of` may name it, on its own kind or on each kind of a union. Writing it is E079. A typed edit naming it is refused `other_side`, naming the owning field (ADR 0157).
 - **Entity enhancement**: fields and verify kinds one extension declares on an entity kind another extension declares
   (`c.enhance(kind, ..)`). Its fields are the declaring extension's: trace treats them as opt-in for the kind, and
   the model and schema name their extension. The kind stays its declarer's. An enhancement of a kind no loaded
@@ -726,8 +726,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   and every read view that asks what a field says (search, the headline; ADR 0019, ADR 0228): scalars as written; lists of strings or references and mixed lists joined by `", "`;
   variant lists and type unions by `" | "`; expressions by `", "`; a
   block's keys by `", "`. An entity's `verify` statements are not a field and have no field text (ADR 0094). An empty value is `""`. Every written field has one, and none is null. It differs from the written value (`field_form::write`) only for an expression group, which every output writes one conjunct per line (ADR 0064, ADR 0115).
-- **Field type**: how the host reads a field's value, one of twelve names an extension declares:
-  `string`, `integer`, `bool`, `date` (one calendar day, written bare `YYYY-MM-DD`; ADR 0234), `enum` (its values are the declaration's `enum_values`, its absent value its `default_value`: a field
+- **Field type**: how the host reads a field's value, one of thirteen names an extension declares:
+  `string`, `integer`, `number` (an exact decimal of at most 15 significant digits; ADR 0361), `bool`, `date` (one calendar day, written bare `YYYY-MM-DD`; ADR 0234), `enum` (its values are the declaration's `enum_values`, its absent value its `default_value`: a field
   vocabulary; an enum without values, or a default outside them, is W021), `identifier` (one word from an open set,
   written bare; ADR 0147), `enum_list` (distinct words of its `enum_values`; ADR 0285), `string_list`,
   `reference`, `reference_list`, `block`, `block_list` (`specforge_protocol_types::FieldType`). The registry build
@@ -738,15 +738,21 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   stored as it, the JSON every output writes for it and that JSON's schema are its field form
   (ADR 0064).
 - **Date field**: a field of type `date`: one calendar day, written bare `YYYY-MM-DD`; E061 otherwise (ADR 0234).
+- **Decimal**: `specforge_protocol_types::Decimal`, the value of a `number`: an exact decimal of at most 15 significant
+  digits, read from one word by `Decimal::parse` (`0.75`, `-0.25`, `1.5e3`, `007.5`). Its canonical text is plain, with
+  no exponent and no trailing fraction zero (`1.50` is `1.5`, `1.5e3` is `1500`); two decimals compare by value. It
+  travels as a JSON number (`Decimal::to_json`/`from_json`), an integer when whole and within `u64`, and within the cap a binary64
+  holds it exactly (ADR 0361).
 - **Value form**: how a field's value is written: bare for an `enum`, `identifier`, `reference` and each
-  `reference_list` item, quoted for a `string` and each `string_list` item; an integer, true/false and a calendar day bare; a `string_list` / `reference_list` field's value is a list `[…]`, however many items (ADR 0147, ADR 0234). `specforge format` writes it;
+  `reference_list` item, quoted for a `string` and each `string_list` item; an integer, a `number` (a literal), true/false and a calendar day bare; a `string_list` / `reference_list` field's value is a list `[…]`, however many items (ADR 0147, ADR 0234). `specforge format` writes it;
   W159 reports a value written otherwise. Spelled by one module, `specforge_graph::field_form::spell` (the escape
   table, the bare rule and each declared type's one-line spelling); `spell::form` is the one table, which `FieldForms::rewrite` and `spell::value` read, and
   `format` (reading a value's text through `specforge_parser::value_token`), W159, migrate's `titles` step, the typed-edit writer and init's starter spell through it (ADR 0153,
   ADR 0226); `spell::escaped` is the inside of a quote. A `defaults` body's values are written in the forms of its
   body kind (ADR 0224).
 - **Stored value**: a field value as the graph build stores it: coerced by its field form (`FieldForms::stored`,
-  ADR 0182), so a list written as one value is a one-item list and `"100"` on an integer field is `100`. Every reader
+  ADR 0182), so a list written as one value is a one-item list, `"100"` on an integer field is `100` and a `number` is stored as
+  its decimal (`1.50` is 1.5). Every reader
   of references, derived names and inherited values reads it; what a file *writes* (W159 through `written_fields`, W161, the formatter) reads
   the written value.
 - **Value token**: one written value of a field, or one item of its list, as the parse reads it: how it is written
@@ -1094,8 +1100,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge_project::coverage::RecordedCoverage`); the coverage rule reads it as the pass input's `TestResults`,
   on the host as in every extension pass.
 - **Binary report**: what the `#[specforge_test]` attribute's exit handler writes for one test target:
-  `<package>--<target>.json` in `$SPECFORGE_REPORT` when `specforge collect` sets it, else in `specforge/` in the
-  cargo target directory the binary was built into, never the working directory
+  `<package>--<target>.json` in `$SPECFORGE_REPORT` when `specforge collect` sets it, else in
+  `$SPECFORGE_TEST_REPORT_DIR` when the caller chose a directory, else in `specforge/` in the cargo target directory
+  the binary was built into, never the working directory
   (`schema/specforge-binary-report.schema.json`). It lists the tests that ran, each with its entity, obligation text,
   module path, duration and status, and `@specforge/cargo-test` reads it during collect. It scores nothing: which
   obligations are proven is the coverage rule's, over the recorded test report (ADR 0068).
@@ -1115,7 +1122,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Invariant**: a rule that must always hold (`guarantee`, graded by `risk`), declared by `@specforge/governance`
   beside the decisions, constraints and failure modes that protect or threaten it; a behavior (software) enforces it,
   an axiom or property (formal) relies on it, and W003 reports one nothing references. No builtin needs the software
-  extension to state one (ADR 0280).
+  extension to state one (ADR 0280). In `@gsd/core` an invariant is what must always hold in the code from a phase
+  on (`holds_from`), proven by `@code/core` tests and holding over code items; its `status` is `pending` until that
+  phase is complete, then reads its verdict, `gsd/I536`, judged by the prompt `verify_invariant`, and while it is
+  `holds` it mitigates the risks that name it (ADR 0358). The two kinds are never loaded together (E026).
 - **Inference sources**: the files inference covers: the files the item facts of the compiled graph locate
   (`specforge_ops::read::infer::ITEM_KIND`, each item's first place), under the inference manifest's source roots (the
   project root when none), keyed by the source path rule (root-relative, `/`-separated, no `..`), every recorded path
@@ -1657,9 +1667,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Bare word**: the one word a field value, a list item, an entity header's name or a selective `use` binding is
   written as, `-?[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*` (a name has no leading `-`): `AUTH-01`, `03-02`, `2-1`, `-5`. The
   parser keeps its text; its field's declared type reads and means it (a reference its name, an integer its
-  difference `2-1` = 1, a date its day). The lexer and the grammar read it alike (ADR 0283).
+  difference `2-1` = 1, a date its day, a number its decimal). A decimal word (`1.5`, `-0.25`, `1.5e3`) is one word. The lexer and the grammar read it alike (ADR 0283).
 - **Shape tag**: what the parser says of a bare word by its shape alone (`specforge_parser::literal_shape`): canonical
-  integer, `true`/`false`, date, or text. It is the reading where no type is declared; the declared type decides the
+  integer, a canonical decimal (`-?(0|[1-9][0-9]*)\.[0-9]*[1-9]`, ADR 0361), `true`/`false`, date, or text. It is the reading where no type is declared; the declared type decides the
   rest (ADR 0283).
 - **Text edit**: one change of a project file's text, a span of the text the project was compiled from and the
   text it becomes (`specforge_ops::read::navigate::TextEdit`; an empty span inserts). Navigation's fixes and a
@@ -1768,6 +1778,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Risk grading**: the coverage owner's policy for one kind: its entities' risk is tallied, and
   one with no obligations is A002, an error at the grading's error level
   (`specforge_coverage::RiskGrading`, supplied by `@specforge/testing`; ADR 0009).
+- **Risk** (`@gsd/core`): what can go wrong in a GSD project, rated 1 to 10 for severity, occurrence and detection;
+  its rpn, post_rpn, status and blocking are computed (`specforge.risk_block_on`), never written (ADR 0358). Not the
+  coverage owner's Risk grading.
 - **Computed value**: the value of a `computed` field, given by a compute pass and held beside the graph (`Computed`),
   never written to a file; written by hand it is E082 (ADR 0287). Shown by every surface, the graph a call receives included (ADR 0299).
 - **Harness value**: the value of a `harness` field, which only a command's plan sets; the **Harness ledger**
@@ -1894,8 +1907,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **History reference**: a reference held by a field declared `writer: harness` and `immutable` (`commit.items_changed`):
   it records what held when the harness wrote it, so an unheld one is marked `history` and is never a finding
   (ADR 0352 D2).
-- **Decision coverage**: a planned phase's context decisions each listed in the `decisions` of one of its plans:
-  typed references resolved in the phase, never a match on the plan's text (gsd/E310, W317, W506; ADR 0351).
+- **Decision coverage**: a planned phase's context decisions still in force (none superseded), each listed in the
+  `decisions` of one of its plans: typed references resolved in the phase, never a match on the plan's text
+  (gsd/E310, W317, W506; ADR 0351, ADR 0359).
 - **Port lock**: `gsd/core/tests/port.lock`, which splits every `@gsd/core` and `@gsd/security` asset into kept spans
   and own spans against the tracked gsd-core release. Kept spans are upstream's text byte for byte, and are the
   quotes. Each own span holds a group that says why it differs. A test recomputes the lock and `GSD_BLESS=1` rewrites
@@ -1904,6 +1918,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   with no row and a row with no hit both fail. The ledgers are `pending_tools.txt` (a program a block runs, ADR 0343
   D1), `planning_names.txt` (a GSD file named outside an upstream quote) and `markdown_writes.txt` (a line that tells
   an agent to write a GSD file) (ADR 0332 D8, D9).
+- **Absorb table**: `xtask/src/absorb/table.rs`, one row per field of an old `@specforge/governance` or
+  `@specforge/product` kind (and one per old kind that takes `verify`), each naming its home in `@gsd/core`: a field it
+  is written to, a computed field it is compared with, a kind it waits for, refused, or an implied default. Its counts
+  are the measure that every old field has a home (ADR 0360).
+- **Absorb ledger**: the converter's sorted JSON list of every old value it did not write as itself, and why (waiting
+  for a kind, leaving the run, a computed value that differs, a filled required field, a collapsed word, an unproven
+  obligation, an entity it created) (ADR 0360). Not the **Harness ledger**, the **Read ledger** or a **Port ledger**.
 - **Human-only value**: a kind, field or member declared `writer: "human"`; an extension's plan, the MCP tools and a
   non-interactive CLI are refused `human_only` (ADR 0289), also when they edit an existing entity of a human-only kind or
   delete an entity holding a person's value (ADR 0298).
@@ -1914,7 +1935,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   one that is pending (ADR 0289). Not the **Effects journal**.
 - **Setting**: a typed value an extension declares under a dotted name (K3 `FieldForm`, JSON default, absent = unset) and
   a project sets in `specforge.json` under the extension's name; a **Setting family** has `*` segments (ADR 0288). A
-  setting may be a `number` (a decimal within inclusive bounds) and a bool setting may declare `gates_when_on` codes (ADR 0305).
+  setting may be a `number` (a decimal of at most 15 significant digits within inclusive decimal bounds, ADR 0361) and a bool setting may declare `gates_when_on` codes (ADR 0305).
 - **Preset**: a declared map from each value of an enum or bool setting to settings and raised codes; it raises
   severities upward only (ADR 0288).
 - **Gate**: a bool setting's list of codes; while it is false no source reports them, and `gates_when_on` lists those

@@ -168,8 +168,6 @@ fn round_takes_only_unchecked_and_concerns() {
     unchanged(&p, &before);
 }
 
-const PLAN: &str = "v1.0/01/01-02";
-
 fn conflict(p: &crate::harness::Project, dimension: &str) -> crate::harness::Run {
     gsd(
         p,
@@ -205,7 +203,8 @@ fn a_conflict_is_recorded_once() {
     unchanged(&p, &before);
     let fields = p.fields_of("v1.0/01/CF1");
     assert_eq!(fields["status"], "open");
-    assert_eq!(fields["plan"], PLAN);
+    // Written as `link` spells it from the conflict, in phase 01.
+    assert_eq!(fields["plan"], "01-02");
     assert!(
         !p.codes().iter().any(|c| c.starts_with('E')),
         "{:?}",
@@ -337,4 +336,31 @@ fn a_conflict_no_command_raised_has_no_status() {
     assert_eq!(run.code, 0, "{}", run.all());
     let fields = p.fields_of("v1.0/01/CF1");
     assert!(fields.get("status").is_none(), "{fields}");
+}
+
+/// A plan may name its phase by a unique suffix (`01`), as a person may write a scope field: `plan-coverage` counts the
+/// plans the graph resolved to the phase, not those whose text spells its whole id.
+#[test]
+fn plan_coverage_counts_a_plan_naming_its_phase_by_a_suffix() {
+    let p = twin();
+    let plans = p
+        .read("spec/plans.spec")
+        .replace("  phase            v1.0/01\n", "  phase            01\n");
+    p.write("spec/plans.spec", &plans);
+    let run = gsd(
+        &p,
+        "plan-coverage",
+        &[
+            PHASE,
+            "--review",
+            "Reviewed 01-01 and 01-02",
+            "--format",
+            "json",
+        ],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(
+        json(&run),
+        serde_json::json!({"complete": true, "missing_ids": [], "total": 2})
+    );
 }

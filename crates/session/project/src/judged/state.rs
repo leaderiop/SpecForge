@@ -1,5 +1,7 @@
 //! The state of each judged rule on each entity (ADR 0290), and what the rule reports for it.
 
+use std::collections::BTreeSet;
+
 use serde_json::Value;
 use specforge_common::{Diagnostic, SourceSpan, codes};
 use specforge_graph::Computed;
@@ -112,13 +114,87 @@ fn finding(rule: &JudgedRule, id: &str, kind: &str, why: &str, span: &SourceSpan
     .with_span(span.clone())
 }
 
-/// What an evaluation found.
+/// A judgement's key: the entity's path and the rule's qualified code.
+type Key = (String, String);
+
+/// What an evaluation found, before the owner states that decide which judgements are owed are known
+/// ([`Evaluated::settle`], ADR 0362).
 #[derive(Default)]
 pub struct Evaluated {
+    /// Every judged rule's state on every entity it targets, an entity whose target waits for an owner state
+    /// included: what the compute passes read, before the owner states they decide are known.
     pub judgements: Judgements,
-    pub diagnostics: Vec<Diagnostic>,
     /// The `V` fields the fresh verdicts give: their outcome or `values` (ADR 0290).
     pub values: Computed,
+    /// What the evaluation says, in order: W168, and each judgement's finding under its key.
+    said: Vec<(Option<Key>, Diagnostic)>,
+    /// The judgements whose test inputs were not judged (I205).
+    unjudged: BTreeSet<Key>,
+    /// The judgements whose checked values were not judged (I207).
+    unchecked: BTreeSet<Key>,
+    /// Why the test report cannot be read (E045), when a judgement's test inputs were not judged and it is unusable.
+    unusable: Option<String>,
+}
+
+impl Evaluated {
+    /// What the evaluation reports once each entity's owner state (ADR 0329 D4) is known on `entities`, the snapshot
+    /// the compute passes' values are merged into (ADR 0362): a judgement of a target that waits for an owner state
+    /// is kept only in that state, with its finding; W168 stays; I207, and I205 or E045, count the judgements kept.
+    pub fn settle(
+        mut self,
+        env: &Environment,
+        entities: &EntitySnapshot,
+    ) -> (Judgements, Vec<Diagnostic>) {
+        let rules: Vec<&JudgedRule> = env.registries().judged_rules().collect();
+        let owed = |entity: &str, rule: &str| {
+            let Some((record, _)) = entities.get(entity) else {
+                return true;
+            };
+            rules
+                .iter()
+                .find(|r| r.code == rule)
+                .and_then(|r| r.target(&record.kind))
+                .is_none_or(|target| target.judges(entities.is_pending(record)))
+        };
+        self.judgements.retain(owed);
+        let mut diagnostics = Vec::new();
+        for (key, diagnostic) in self.said {
+            match key {
+                None => diagnostics.push(diagnostic),
+                Some((entity, rule)) if owed(&entity, &rule) => {
+                    self.judgements.found(diagnostic.clone());
+                    diagnostics.push(diagnostic);
+                }
+                Some(_) => {}
+            }
+        }
+        let count = |keys: &BTreeSet<Key>| keys.iter().filter(|(e, r)| owed(e, r)).count();
+        let unchecked = count(&self.unchecked);
+        if unchecked > 0 {
+            diagnostics.push(Diagnostic::new(
+                codes::I207,
+                format!(
+                    "checked values of {unchecked} judged verdicts were not judged: their checks did not run on \
+                     this machine (I206); run `specforge check --effects online`"
+                ),
+            ));
+        }
+        let unjudged = count(&self.unjudged);
+        if unjudged > 0 {
+            diagnostics.push(match self.unusable {
+                Some(why) => Diagnostic::new(codes::E045, why),
+                None => Diagnostic::new(
+                    codes::I205,
+                    format!(
+                        "test inputs of {unjudged} judged verdicts were not judged: no test results are recorded \
+                         (no specforge-report.json, or no collected facts for the references they read); run \
+                         `specforge collect`"
+                    ),
+                ),
+            });
+        }
+        (self.judgements, diagnostics)
+    }
 }
 
 /// The `V` fields of `kind` that the fresh `verdict` of `rule` gives `id`: the outcome for an outcome field, a member
@@ -157,7 +233,8 @@ fn given(
         };
         match form.admit_json(write(&entry.value).as_value()) {
             Ok(admitted) => out.values.insert(id, field, admitted),
-            Err(refusal) => out.diagnostics.push(
+            Err(refusal) => out.said.push((
+                None,
                 Diagnostic::new(
                     codes::W168,
                     format!(
@@ -168,15 +245,16 @@ fn given(
                     ),
                 )
                 .with_span(verdict.span.clone()),
-            ),
+            )),
         }
     }
 }
 
-/// Every judged rule's state on every entity of `graph`, and the diagnostics: a rule's own for each entity whose
-/// verdict does not hold, W168 for a verdict that cannot be read, I205 once when test inputs were not judged, I207 once
-/// when checked values were not (a check this machine did not perform, ADR 0337 §6), E045
-/// when the report is unusable. `ledger` is the bytes of `specforge-harness`. A rule gated by its setting reads nothing.
+/// Every judged rule's state on every entity of `graph`, and what it says once [settled](Evaluated::settle): a rule's
+/// own finding for each entity whose verdict does not hold, W168 for a verdict that cannot be read, I205 once when test
+/// inputs were not judged, I207 once when checked values were not (a check this machine did not perform, ADR 0337 §6),
+/// E045 when the report is unusable. `ledger` is the bytes of `specforge-harness`. A rule gated by its setting reads
+/// nothing.
 pub fn evaluate(
     env: &Environment,
     graph: &specforge_graph::Graph,
@@ -200,14 +278,14 @@ pub fn evaluate(
     let harness = Harness::of(registries);
     let cx = Cx::new(env, graph, entities, disk, memo, checked);
     let forms = registries.field_forms();
-    let (mut unjudged, mut unchecked) = (0usize, 0usize);
     for node in graph.nodes() {
         let (id, kind) = (node.id.raw.as_str(), node.kind.raw.as_str());
         let mut read: Vec<(&JudgedRule, &VerdictMember)> = Vec::new();
         let mut broken: Vec<&JudgedRule> = Vec::new();
         for verdict in &node.verdicts {
             let Some(rule) = rule_of(&all, &verdict.rule) else {
-                out.diagnostics.push(
+                out.said.push((
+                    None,
                     Diagnostic::new(
                         codes::W168,
                         format!(
@@ -216,7 +294,7 @@ pub fn evaluate(
                         ),
                     )
                     .with_span(verdict.span.clone()),
-                );
+                ));
                 continue;
             };
             if env.settings().gated().contains(&rule.code) {
@@ -231,10 +309,11 @@ pub fn evaluate(
             };
             match why {
                 Some(why) => {
-                    out.diagnostics.push(
+                    out.said.push((
+                        None,
                         Diagnostic::new(codes::W168, format!("verdict of {kind} '{id}': {why}"))
                             .with_span(verdict.span.clone()),
-                    );
+                    ));
                     if !broken.iter().any(|r| r.code == rule.code)
                         && !read.iter().any(|(r, _)| r.code == rule.code)
                     {
@@ -291,15 +370,16 @@ pub fn evaluate(
                     } else {
                         let now = cx.inputs(node, rule, &Cited::of(verdict));
                         // A value not checked here is I207's; any other input not judged is I205's.
+                        let key = (id.to_string(), rule.code.clone());
                         if now
                             .unjudged
                             .iter()
                             .any(|name| !now.unchecked.contains(name))
                         {
-                            unjudged += 1;
+                            out.unjudged.insert(key.clone());
                         }
                         if !now.unchecked.is_empty() {
-                            unchecked += 1;
+                            out.unchecked.insert(key);
                         }
                         judgement.files = now.files.clone();
                         let before = recorded_inputs(verdict);
@@ -349,34 +429,17 @@ pub fn evaluate(
             }
             judgement.state = state.as_str().to_string();
             if !judgement.passed {
-                let finding = finding(rule, id, kind, &why, &span);
-                out.judgements.found(finding.clone());
-                out.diagnostics.push(finding);
+                let key = (id.to_string(), rule.code.clone());
+                out.said
+                    .push((Some(key), finding(rule, id, kind, &why, &span)));
             }
             out.judgements.insert(id, judgement);
         }
     }
-    if unchecked > 0 {
-        out.diagnostics.push(Diagnostic::new(
-            codes::I207,
-            format!(
-                "checked values of {unchecked} judged verdicts were not judged: their checks did not run on this \
-                 machine (I206); run `specforge check --effects online`"
-            ),
-        ));
-    }
-    if unjudged > 0 {
-        match cx.report() {
-            ReportRead::Unusable(why) => out.diagnostics.push(Diagnostic::new(codes::E045, why.clone())),
-            _ => out.diagnostics.push(Diagnostic::new(
-                codes::I205,
-                format!(
-                    "test inputs of {unjudged} judged verdicts were not judged: no test results are recorded (no \
-                     specforge-report.json, or no collected facts for the references they read); run `specforge \
-                     collect`"
-                ),
-            )),
-        }
+    if !out.unjudged.is_empty()
+        && let ReportRead::Unusable(why) = cx.report()
+    {
+        out.unusable = Some(why.clone());
     }
     out
 }

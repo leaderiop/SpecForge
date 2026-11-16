@@ -3,7 +3,9 @@
 **Status:** accepted (2026-10-18, syntax round R4). Amends [ADR 0060](0060-edge-types-resolved-once.md) (D6: the inverse
 reading of `inverse_of`) and [ADR 0032](0032-one-graph-build.md) (the inverse pairs of the graph inputs). Consequences amended by [ADR 0157](0157-a-typed-edit-names-a-relations-owning-side.md) (a typed edit refuses the other side, naming the owning field).
 D4 amended by [ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md) (a field that names its
-reverse is its own relation).
+reverse is its own relation). D2 amended by
+[ADR 0359](0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md) (a reverse an `inverse_of`
+names is recognised by name on the field's own kind and on each kind of a union).
 
 The builtin extensions declare every relation from one side: 53 reference fields, 53 relations, none declared from both
 ends. What authors and agents read said otherwise. `docs/quick-reference.md` made `behaviors` a required field of

@@ -75,7 +75,14 @@ fn starter(descriptor: &specforge_protocol_types::SettingDescriptor) -> Value {
     }
     match descriptor.field_type.as_str() {
         "bool" => Value::Bool(false),
-        "integer" => Value::from(descriptor.minimum.unwrap_or(0)),
+        "integer" => Value::from(
+            descriptor
+                .minimum
+                .as_ref()
+                .and_then(serde_json::Number::as_i64)
+                .unwrap_or(0),
+        ),
+        "number" => Value::Number(descriptor.minimum.clone().unwrap_or_else(|| 0.into())),
         "enum" => descriptor
             .enum_values
             .first()

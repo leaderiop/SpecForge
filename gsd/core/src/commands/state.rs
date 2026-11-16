@@ -57,11 +57,14 @@ fn resume(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let mut plan = call.plan();
     let mut wrote = vec![pause.id.clone()];
     plan.delete(&pause.id, true);
-    if let Some(handoff) = pause.text("handoff") {
-        let shared =
-            call.graph().nodes().iter().any(|n| {
-                n.kind == "pause" && n.id != pause.id && n.text("handoff") == Some(handoff)
-            });
+    // The handoff the pause's reference resolves to: its written text is spelled from the pause, not a full id.
+    let graph = call.graph();
+    if let Some(handoff) = target(graph, &pause.id, "handoff") {
+        let shared = graph.nodes().iter().any(|n| {
+            n.kind == "pause"
+                && n.id != pause.id
+                && target(graph, &n.id, "handoff") == Some(handoff)
+        });
         if !shared {
             plan.delete(handoff, true);
             wrote.push(handoff.to_string());

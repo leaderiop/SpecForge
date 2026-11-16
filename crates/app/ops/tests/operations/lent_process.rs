@@ -101,6 +101,45 @@ fn a_guests_program_starts_from_nothing_but_what_it_needs_and_declares() {
     }
 }
 
+#[test]
+#[allow(
+    unsafe_code,
+    reason = "set_var before any thread of this test reads the environment; the test runs in its own process under nextest"
+)]
+fn a_guests_declared_prefix_passes_its_namespace_less_every_credential() {
+    // SAFETY: nextest runs each test in its own process, and no thread has started yet.
+    unsafe {
+        std::env::set_var("ACME_PROBE", "passed");
+        std::env::set_var("ACME_ZONE_TOKEN", VALUE);
+        std::env::set_var("ACME_ZONE_AUTH", VALUE);
+        std::env::set_var("ACME_INDEX_URL", "https://user:pass@index.test/");
+        std::env::set_var("ACME_NAMED_VALUE", VALUE);
+        std::env::set_var("OTHER_PROBE", VALUE);
+    }
+    let output = session(&["ACME_*"])
+        .process_run(env_with(Vec::new()))
+        .expect("the capability grants `env`");
+    let seen = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(output.exit_code, Some(0), "{seen}");
+    assert!(
+        seen.contains("ACME_PROBE=passed"),
+        "through the prefix: {seen}"
+    );
+    assert!(
+        seen.contains("ACME_INDEX_URL=https://index.test/\n"),
+        "without its user and password: {seen}"
+    );
+    for name in [
+        "ACME_ZONE_TOKEN",
+        "ACME_ZONE_AUTH",
+        "ACME_NAMED_VALUE",
+        "OTHER_PROBE",
+    ] {
+        assert!(!seen.contains(name), "{name} reached the program: {seen}");
+    }
+    assert!(!seen.contains(VALUE), "{seen}");
+}
+
 /// A replayed run is the live one: its exit code and both streams.
 #[test]
 fn a_replay_of_a_run_answers_what_the_live_run_did() {

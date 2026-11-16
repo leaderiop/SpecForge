@@ -65,3 +65,49 @@ fn assets_embed_and_attribute() {
         }
     }
 }
+
+/// Every asset line that writes a decision offers the three relation flags (ADR 0359), and there are exactly eight
+/// such lines: a new writer must learn them too.
+#[test]
+fn every_decision_writer_offers_the_relation_flags() {
+    let mut writers = Vec::new();
+    for path in files::under(&root().join("assets")) {
+        let text = std::fs::read_to_string(&path).expect("an asset");
+        for line in text
+            .lines()
+            .filter(|l| l.contains("specforge new decision"))
+        {
+            for flag in ["--supersedes", "--affects", "--alternatives"] {
+                assert!(
+                    line.contains(flag),
+                    "{}: no {flag} in {line}",
+                    path.display()
+                );
+            }
+            writers.push(path.clone());
+        }
+    }
+    assert_eq!(writers.len(), 8, "{writers:#?}");
+}
+
+/// Every asset line that writes a UAT test offers the journey the test walks (ADR 0357 D22), and there are exactly two
+/// such lines: a new writer must learn it too.
+#[test]
+fn every_uat_test_writer_offers_the_journey() {
+    let mut writers = Vec::new();
+    for path in files::under(&root().join("assets")) {
+        let text = std::fs::read_to_string(&path).expect("an asset");
+        for line in text
+            .lines()
+            .filter(|l| l.contains("specforge new uat_test"))
+        {
+            assert!(
+                line.contains(r#"${JOURNEY:+--journey "$JOURNEY"}"#),
+                "{}: no --journey in {line}",
+                path.display()
+            );
+            writers.push(path.clone());
+        }
+    }
+    assert_eq!(writers.len(), 2, "{writers:#?}");
+}

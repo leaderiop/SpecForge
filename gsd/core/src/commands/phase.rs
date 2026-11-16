@@ -16,7 +16,7 @@ use std::cmp::Ordering;
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, fields, given, required, run, text, texts, title};
+use super::support::{self, answer, fields, given, required, run, text, texts, title};
 use crate::branch::slug;
 
 const TO_BE_PLANNED: &str = "[To be planned]";
@@ -107,7 +107,10 @@ pub(super) fn phases<'a>(call: &CommandCall<'a>, milestone: &GraphNode) -> Vec<P
         .graph()
         .nodes()
         .iter()
-        .filter(|n| n.kind == "phase" && n.text("milestone") == Some(&milestone.id))
+        .filter(|n| {
+            n.kind == "phase"
+                && support::target(call.graph(), &n.id, "milestone") == Some(&milestone.id)
+        })
         .filter_map(|node| {
             let name = node.id.rsplit('/').next()?;
             Some(Phase {

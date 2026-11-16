@@ -26,7 +26,7 @@ fn handshake_request_json_field_names() {
 
 #[test]
 fn protocol_version_constant() {
-    assert_eq!(PROTOCOL_VERSION, "2.1.0");
+    assert_eq!(PROTOCOL_VERSION, "2.2.0");
 }
 
 // ── Step 2: HandshakeResponse ──
@@ -664,12 +664,12 @@ fn describe_response_parse_collectors() {
 fn protocol_error_display_older_version() {
     let err = ProtocolError::OlderVersion {
         extension: "@acme/old".to_string(),
-        host_version: "2.1.0".to_string(),
+        host_version: "2.2.0".to_string(),
         extension_version: "1.4.0".to_string(),
     };
     assert_eq!(
         err.to_string(),
-        "extension '@acme/old' speaks protocol 1.4.0, older than the 2.1.0 this specforge speaks: install a \
+        "extension '@acme/old' speaks protocol 1.4.0, older than the 2.2.0 this specforge speaks: install a \
          version built for protocol 2.x"
     );
 }

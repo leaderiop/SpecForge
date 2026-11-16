@@ -292,6 +292,17 @@ pub struct FieldInfo {
     pub required: bool,
     /// Whether the field declares members: a value for it is a JSON object (a block) or array (a block list).
     pub typed: bool,
+    /// Who writes it (ADR 0287): `None` for an authored field.
+    pub writer: Option<specforge_protocol_types::FieldWriter>,
+}
+
+impl FieldInfo {
+    /// Whether a person's typed edit may write it: an authored field or a human one. A computed field, a harness
+    /// value and a context record are written by a pass, a command and the host, and a typed edit of one is refused.
+    pub fn settable(&self) -> bool {
+        self.writer
+            .is_none_or(|w| w == specforge_protocol_types::FieldWriter::Human)
+    }
 }
 
 /// The fields `kind` declares, in the order a new block writes them (the kind's own, then its enhancements');
@@ -306,6 +317,7 @@ pub fn fields_of(view: &ProjectView<'_>, kind: &str) -> Vec<FieldInfo> {
                 description: entry.declared().description.clone().unwrap_or_default(),
                 required: entry.declared().required,
                 typed: !entry.declared().members.is_empty(),
+                writer: entry.form().writer(),
                 name,
             })
         })

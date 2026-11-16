@@ -37,7 +37,8 @@ impl SettingBuilder {
     pub fn integer(&mut self) -> &mut Self {
         self.typed(FieldType::Integer)
     }
-    /// A whole or decimal number, within [`minimum`](Self::minimum) and [`maximum`](Self::maximum) (ADR 0305).
+    /// An exact decimal of at most 15 significant digits, within [`minimum`](Self::minimum) and
+    /// [`maximum`](Self::maximum) (ADRs 0305, 0361).
     pub fn number(&mut self) -> &mut Self {
         self.typed(FieldType::Number)
     }
@@ -69,12 +70,14 @@ impl SettingBuilder {
         self.0.members.push(b.0);
         self
     }
-    pub fn minimum(&mut self, n: i64) -> &mut Self {
-        self.0.minimum = Some(n);
+    /// The least value, inclusive: a whole number on an `integer`, an exact decimal on a `number` (ADR 0361).
+    pub fn minimum(&mut self, n: impl Into<serde_json::Number>) -> &mut Self {
+        self.0.minimum = Some(n.into());
         self
     }
-    pub fn maximum(&mut self, n: i64) -> &mut Self {
-        self.0.maximum = Some(n);
+    /// The greatest value, inclusive, read as [`Self::minimum`] is.
+    pub fn maximum(&mut self, n: impl Into<serde_json::Number>) -> &mut Self {
+        self.0.maximum = Some(n.into());
         self
     }
     /// For a family, the keys each `*` may take, in order; an empty list takes any segment.

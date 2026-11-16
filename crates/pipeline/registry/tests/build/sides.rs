@@ -95,3 +95,37 @@ fn a_field_that_names_its_reverse_is_its_own_relation() {
     let build = build([declared]);
     assert!(coded(&build, "W162").is_empty(), "{:?}", codes(&build));
 }
+
+#[spec(
+    behavior = "registry_build_edges",
+    verify = "a union whose inverse_of names a field one of its kinds registers is W162 once per such kind"
+)]
+fn a_unions_reverse_a_kind_of_it_declares_is_w162() {
+    let declared = declare("@t/docs", |c| {
+        c.kind("Doc", |k| {
+            k.keyword("doc");
+            k.field("cites", |f| {
+                f.field_type(FieldType::ReferenceList)
+                    .target_kinds(&["note", "memo"])
+                    .inverse_of("cited_by");
+            });
+        });
+        c.kind("Note", |k| {
+            k.keyword("note");
+            k.field("cited_by", |f| {
+                f.field_type(FieldType::String);
+            });
+        });
+        c.kind("Memo", |k| {
+            k.keyword("memo");
+        });
+    });
+    let build = build([declared]);
+    let found = coded(&build, "W162");
+    assert_eq!(found.len(), 1, "{:?}", codes(&build));
+    assert!(
+        found[0].message.contains("doc.cites") && found[0].message.contains("but note declares"),
+        "{}",
+        found[0].message
+    );
+}

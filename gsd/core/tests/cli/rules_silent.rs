@@ -5,18 +5,19 @@
 use serde_json::json;
 
 use super::harness::{judged, project, taskboard};
+use super::invariants::{TWIN_INVARIANT, author};
 
 #[test]
 fn the_clean_twin_is_silent_for_the_unjudged_codes() {
     /// The unjudged codes the taskboard twin must never report, under any of the three profiles. `W407` is the one the
     /// twin reports under strict and plus (its tasks carry no commit), so `task_without_commit_is_w407_...` holds it.
-    const SILENT_ON_THE_TWIN: [&str; 59] = [
+    const SILENT_ON_THE_TWIN: [&str; 64] = [
         "E101", "E102", "W103", "W104", "E105", "E106", "E107", "E108", "E201", "W204", "E206",
         "E301", "E302", "E303", "W304", "W305", "W306", "E307", "W308", "W309", "E310", "E312",
         "E314", "W317", "W318", "E319", "E320", "I321", "E322", "W323", "W324", "E507", "E401",
         "E402", "W403", "W404", "E405", "W406", "W408", "W409", "E502", "E503", "W504", "E505",
         "W506", "E509", "W510", "E511", "E512", "E513", "E515", "E516", "E517", "E519", "W520",
-        "E521", "W522", "E523", "W524",
+        "E521", "W522", "E523", "W524", "E531", "E537", "W538", "W534", "W530",
     ];
     for profile in ["gsd-compat", "gsd-strict", "gsd-plus"] {
         let p = taskboard();
@@ -85,4 +86,13 @@ fn a_passing_verdict_silences_each_judged_code() {
     let run = p.record(audit, "E518", "passed", &[]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert!(!owed(&p, "E518", audit));
+
+    // The invariant's verdict (I536), on the twin with its invariant in force.
+    let p = taskboard();
+    author(&p, TWIN_INVARIANT);
+    let invariant = "ids_are_sequential";
+    assert!(owed(&p, "I536", invariant));
+    let run = p.record(invariant, "I536", "holds", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(!owed(&p, "I536", invariant));
 }

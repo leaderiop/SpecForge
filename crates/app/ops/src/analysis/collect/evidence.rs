@@ -79,6 +79,7 @@ impl<'m> Source<'m> {
     pub(super) fn plan(
         collector: &Collector,
         mode: Mode<'m>,
+        filter: Option<&str>,
         root: &Path,
         containment: &Containment,
     ) -> Result<Self, OpError> {
@@ -95,6 +96,7 @@ impl<'m> Source<'m> {
                     collector,
                     &declared.report.at,
                     config.as_ref().map(|config| config.held.at.as_path()),
+                    filter,
                 );
                 if argv.is_empty() {
                     return Err(fail(
@@ -138,7 +140,7 @@ impl<'m> Source<'m> {
                 let ran = run_command(
                     machine,
                     root,
-                    &declared.report,
+                    (&declared.report, !collector.told_its_report()),
                     declared.capture.as_ref(),
                     config.as_ref(),
                     argv,
@@ -247,7 +249,7 @@ impl From<String> for NotRan {
 fn run_command(
     machine: &dyn CollectorMachine,
     root: &Path,
-    report: &Held,
+    (report, report_in_env): (&Held, bool),
     capture: Option<&Held>,
     config: Option<&ConfigFile>,
     argv: &[String],
@@ -285,6 +287,7 @@ fn run_command(
         argv,
         dir: root,
         report: &report.at,
+        report_in_env,
         output,
     };
     machine

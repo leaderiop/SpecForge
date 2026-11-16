@@ -9,21 +9,21 @@ project taskboard "Taskboard" {
 }
 
 requirement TASK-01 "Add a task" {
-  text     "A user can add a task with a title"
-  category "Tasks"
-  tier     v1
+  text "A user can add a task with a title"
+  area "Tasks"
+  tier v1
 }
 
 requirement TASK-02 "Complete a task" {
-  text     "A user can mark a task complete"
-  category "Tasks"
-  tier     v1
+  text "A user can mark a task complete"
+  area "Tasks"
+  tier v1
 }
 
 requirement STORE-01 "Save tasks" {
-  text     "Tasks are saved to disk"
-  category "Storage"
-  tier     v1
+  text "Tasks are saved to disk"
+  area "Storage"
+  tier v1
 }
 
 decision D-01 "ES modules, no build step" {

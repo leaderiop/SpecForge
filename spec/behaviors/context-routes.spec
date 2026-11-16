@@ -73,6 +73,7 @@ behavior declare_context_route "Declare a Context Route" {
   verify unit "a context route that cannot be served is E123 and is not registered"
   verify unit "a file section follows its referrers on to their file field, and one that ends at the reference is E123"
   verify unit "a context section of an optional peer the project does not load is skipped and listed"
+  verify unit "a context section whose file() goes through an unloaded optional peer's kind is skipped and listed"
   verify unit "a context route's agent its extension does not declare, or another route binds, is E124 and the route stays"
 }
 

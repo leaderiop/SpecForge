@@ -451,3 +451,134 @@ fn an_off_form_member_is_w159_at_the_member() {
     );
     assert!(coded(&diagnostics, "E061").is_empty(), "{diagnostics:#?}");
 }
+
+/// Every object anywhere in `value`.
+fn objects(value: &serde_json::Value) -> Vec<&serde_json::Value> {
+    let mut found = Vec::new();
+    let mut stack = vec![value];
+    while let Some(v) = stack.pop() {
+        match v {
+            serde_json::Value::Object(map) => {
+                found.push(v);
+                stack.extend(map.values());
+            }
+            serde_json::Value::Array(items) => stack.extend(items),
+            _ => {}
+        }
+    }
+    found
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a number field reads its decimal word and exports the exact decimal as a JSON number"
+)]
+fn a_number_field_reads_its_decimal_word_and_exports_a_json_number() {
+    use serde_json::json;
+    use specforge_protocol_types::{Decimal, PassEntity};
+
+    let source = "measure m1 \"M\" {\n  value 0.75\n  ratio 0.50\n}\n\
+                  measure m2 \"M\" {\n  value 1.5e3\n}\n\
+                  measure m3 \"M\" {\n  value 100\n}\n\
+                  measure m4 \"M\" {\n  value -0.25\n}\n";
+    let dir = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[TYPED_EXTENSION])
+        .installing_enabled()
+        .file("a.spec", source);
+    let runtime = Arc::new(typed_runtime());
+    let compiled = dir.compile_in(runtime.clone());
+    // The fixture's kinds link `audit` and `milestone` both ways (W162); nothing else is reported.
+    let reported: Vec<Diagnostic> = compiled
+        .diagnostics()
+        .into_iter()
+        .filter(|d| d.code != "W162")
+        .collect();
+    assert!(reported.is_empty(), "{reported:#?}");
+
+    let exported: serde_json::Value = serde_json::from_str(
+        &specforge_emitter::emit(compiled.graph(), &specforge_emitter::EmitOptions::default())
+            .unwrap(),
+    )
+    .unwrap();
+    let field = |id: &str, name: &str| {
+        exported["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == id)
+            .unwrap()["fields"][name]
+            .clone()
+    };
+    assert_eq!(field("m1", "value"), json!(0.75));
+    assert_eq!(field("m1", "ratio"), json!(0.5));
+    assert_eq!(field("m2", "value"), json!(1500));
+    assert!(field("m3", "value").is_i64(), "a whole value is an integer");
+    assert_eq!(field("m3", "value"), json!(100));
+    assert_eq!(field("m4", "value"), json!(-0.25));
+
+    let input = runtime
+        .calls()
+        .into_iter()
+        .rev()
+        .find(|c| c.export == "__pass_observe")
+        .map(|c| c.input)
+        .expect("the pass ran");
+    let entities: Vec<PassEntity> = serde_json::from_value(input["entities"].clone()).unwrap();
+    let entity = |id: &str| entities.iter().find(|e| e.id == id).expect("the measure");
+    let texts: Vec<&str> = ["m1", "m2", "m3", "m4"]
+        .iter()
+        .map(|id| entity(id).fields["value"].as_str())
+        .collect();
+    assert_eq!(texts, ["0.75", "1500", "100", "-0.25"]);
+    assert_eq!(entity("m1").fields["ratio"], "0.5");
+    assert_eq!(
+        entity("m1").number("value"),
+        Some(Decimal::parse("0.75").unwrap())
+    );
+
+    let registries =
+        specforge_registry::build_registries(vec![specforge_project::testing::typed_extension()]);
+    let schema = specforge_emitter::generate_schema(&registries);
+    let published = specforge_emitter::publish(&schema, specforge_emitter::EmitFormat::Json)
+        .expect("a published schema");
+    let ratio = json!({"type": "number", "minimum": 0.05, "maximum": 0.95});
+    assert!(
+        objects(&published).contains(&&ratio),
+        "measure.ratio is published as {ratio}: {published}"
+    );
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a number that is no decimal, has more than 15 significant digits or lies outside its bounds is E061"
+)]
+fn a_number_that_is_no_decimal_too_long_or_out_of_bounds_is_e061() {
+    for (source, remedy) in [
+        (
+            "measure m \"M\" {\n  value abc\n}\n",
+            "'abc' is no decimal number",
+        ),
+        (
+            "measure m \"M\" {\n  value 0.1234567890123456\n}\n",
+            "a number keeps at most 15 significant digits",
+        ),
+        (
+            "measure m \"M\" {\n  value 1\n  ratio 0.96\n}\n",
+            "write a number from 0.05 to 0.95",
+        ),
+        (
+            "measure m \"M\" {\n  value 1\n  ratio 0.04\n}\n",
+            "write a number from 0.05 to 0.95",
+        ),
+        (
+            "discussion d \"D\" {\n  scores { weight 1.2.3 }\n}\n",
+            "'1.2.3' is no decimal number",
+        ),
+    ] {
+        let (_, diagnostics) = compile(source);
+        let e061 = coded(&diagnostics, "E061");
+        assert_eq!(e061.len(), 1, "{source}: {diagnostics:#?}");
+        assert_eq!(e061[0].suggestion.as_deref(), Some(remedy), "{source}");
+    }
+}

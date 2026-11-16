@@ -9,6 +9,8 @@ use specforge_extension_sdk::prelude::*;
 pub enum Ty {
     Str,
     Int,
+    /// An exact decimal of at most 15 significant digits (ADR 0361).
+    Num,
     Bool,
     Date,
     /// An RFC 3339 UTC time: a string that `gsd/E107` checks when it is authored.
@@ -67,12 +69,19 @@ pub struct Field {
     pub immutable: bool,
     /// `U`: only a person writes it (ADR 0289).
     pub human: bool,
+    /// Free text in the author's language (a statement, a reason, an action, a note), never a name, a word to group
+    /// by, a command or a copy of other words: what an extension that reads the author's wording reads. Not declared
+    /// to the host.
+    pub prose: bool,
     /// `+`: the baseline's list is a prefix of the current one.
     pub append: bool,
     /// `O`: a context record checked only while its owner is open.
     pub open: bool,
-    /// The inclusive bounds of an `int`.
+    /// The inclusive whole bounds of an `int` or a `num`.
     pub range: Option<(i64, i64)>,
+    /// The inclusive decimal bounds of a `num`, as text, since a `const` cannot build a `Decimal`: each is read by
+    /// `Decimal::parse` when the kind is declared.
+    pub within: Option<(&'static str, &'static str)>,
     /// The name the target kind reads this reference by (`lessons` for `lesson.retrospective`).
     pub inverse: &'static str,
     pub doc: &'static str,
@@ -87,9 +96,11 @@ impl Field {
             writer: Writer::Author,
             immutable: false,
             human: false,
+            prose: false,
             append: false,
             open: false,
             range: None,
+            within: None,
             inverse: "",
             doc: "",
         }
@@ -134,14 +145,25 @@ impl Field {
         self.human = true;
         self
     }
+    /// Prose in the author's language: a `str` or `strs` an author writes.
+    pub const fn prose(mut self) -> Self {
+        self.prose = true;
+        self
+    }
     /// `+`
     pub const fn append(mut self) -> Self {
         self.append = true;
         self
     }
-    /// `int{lo..hi}`
+    /// `int{lo..hi}`, or `num{lo..hi}` with whole bounds
     pub const fn range(mut self, lo: i64, hi: i64) -> Self {
         self.range = Some((lo, hi));
+        self
+    }
+    /// `num{lo..hi}` with decimal bounds, `within("0.05", "0.95")`: a text that is no decimal, or `within` on a field
+    /// that is no `num`, panics when the kind is declared.
+    pub const fn within(mut self, lo: &'static str, hi: &'static str) -> Self {
+        self.within = Some((lo, hi));
         self
     }
     /// The name the target kind reads this relation by.
@@ -161,6 +183,9 @@ pub const fn str(name: &'static str) -> Field {
 }
 pub const fn int(name: &'static str) -> Field {
     Field::new(name, Ty::Int)
+}
+pub const fn num(name: &'static str) -> Field {
+    Field::new(name, Ty::Num)
 }
 pub const fn bool(name: &'static str) -> Field {
     Field::new(name, Ty::Bool)
@@ -305,6 +330,11 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
         Writer::Context => Ty::Block(&[]),
         _ => field.ty,
     };
+    assert!(
+        field.within.is_none() || matches!(ty, Ty::Num),
+        "{kind}.{}: within bounds a num only",
+        field.name
+    );
     match ty {
         Ty::Str | Ty::Ts => {
             f.field_type(FieldType::String);
@@ -313,6 +343,29 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
             f.field_type(FieldType::Integer);
             if let Some((lo, hi)) = field.range {
                 f.minimum(lo).maximum(hi);
+            }
+        }
+        Ty::Num => {
+            f.number();
+            let decimal = |text: &str| {
+                Decimal::parse(text).unwrap_or_else(|e| {
+                    panic!("{kind}.{}: the bound '{text}' is refused: {e}", field.name)
+                })
+            };
+            match (field.range, field.within) {
+                (Some(_), Some(_)) => {
+                    panic!(
+                        "{kind}.{}: a num takes range or within, not both",
+                        field.name
+                    )
+                }
+                (Some((lo, hi)), None) => {
+                    f.minimum(lo).maximum(hi);
+                }
+                (None, Some((lo, hi))) => {
+                    f.minimum(decimal(lo)).maximum(decimal(hi));
+                }
+                (None, None) => {}
             }
         }
         Ty::Bool => {

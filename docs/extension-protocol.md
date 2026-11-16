@@ -49,14 +49,14 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 **Input:**
 
 ```json
-{ "host_version": "2.1.0" }
+{ "host_version": "2.2.0" }
 ```
 
 **Output** (`specforge_protocol_types::HandshakeResponse`):
 
 ```json
 {
-  "protocol_version": "2.1.0",
+  "protocol_version": "2.2.0",
   "name": "@specforge/software",
   "version": "1.0.0",
   "peer_dependencies": [
@@ -222,7 +222,8 @@ node's top level; with `normative`, it is the statement MCP `inspect` reports
 as `contract`) and `exempts_obligations` (an entity that sets it owes no
 `verify` obligations).
 
-Field types (`specforge_protocol_types::FieldType`): `string`, `integer`,
+Field types (`specforge_protocol_types::FieldType`): `string`, `integer`, `number` (an exact decimal of at most 15
+significant digits, 2.2.0, ADR 0361),
 `bool`, `date` (one calendar day, `YYYY-MM-DD`, written as a string), `enum` (values in `enum_values`), `enum_list` (a list of those values, each once), `identifier` (one word from an open set, written bare), `string_list`, `reference`,
 `reference_list`, `block` and `block_list` (protocol 1.7.0, ADR 0285). The host also reads the `_type`-suffixed
 spellings (`string_type`, ...) and `boolean`; an unknown type drops the
@@ -232,11 +233,11 @@ hover and E061; the older spellings are read, never written (ADR 0034).
 
 What a field takes and what is written for it (ADR 0064): `string` takes text, a bare word, a date, a type
 union or an `expr { }` group, and is written as a string (a group as its conjuncts, one per line); `enum` one of
-its `enum_values`; `identifier` one word (letters, digits and `_`, starting with a letter or `_`), written as a string; `integer` and `bool` their JSON scalars; `date` one calendar day, `YYYY-MM-DD`, written as a string (a quoted day is read as the day); `reference` one id, written as a string;
+its `enum_values`; `identifier` one word (letters, digits and `_`, starting with a letter or `_`), written as a string; `integer` and `bool` their JSON scalars; `number` one decimal word (`0.75`, `-0.25`, `1.5e3`), written as a JSON number (an integer when whole and within `u64`, `100` never `100.0`), E061 for a word that is no decimal, more than 15 significant digits or a value outside binary64's normal range; `date` one calendar day, `YYYY-MM-DD`, written as a string (a quoted day is read as the day); `reference` one id, written as a string;
 `string_list` and `reference_list` a list (a single value is stored as a one-item list; a list is stored as written), written as an
 array of strings; `enum_list` a list of its `enum_values` (a word twice is E061), written as an array of strings; `block` a block, written as an object of its entries, and, when the field declares `members`, an object of those members; `block_list` a list of blocks, `[ { phase 02 provides "x" } { .. } ]` (commas optional, `specforge format` writes none), written as an array of objects. Anything else is E061.
 
-A field of 1.7.0 may also declare: `members`, the fields of a `block` or of each `block_list` item (field descriptors themselves, nested to any depth; a member may not declare `derived_from`); `target_kinds`, the kinds a `reference` or `reference_list` may name (a union, exclusive with `target_kind`; a scope field names one kind); and `minimum` and `maximum`, an `integer`'s inclusive bounds (E061 outside them). A field whose values name files carries a check on `@specforge/checks:file` (`checks`, below) with the root its paths start from. A member is addressed by its declared path, `requires.phase`; the edge a reference member writes is labelled by it. A pass's `PassEntity.values` and a validator's `ValidatorEntity.values` carry a field that declares members as structured JSON, keyed by field name, while `fields` keeps its text.
+A field of 1.7.0 may also declare: `members`, the fields of a `block` or of each `block_list` item (field descriptors themselves, nested to any depth; a member may not declare `derived_from`); `target_kinds`, the kinds a `reference` or `reference_list` may name (a union, exclusive with `target_kind`; a scope field names one kind); and `minimum` and `maximum`, an `integer`'s inclusive bounds (E061 outside them); a `number`'s bounds (2.2.0) are decimals, compared exactly, and a bound its type cannot read (a fraction on an `integer`, more than 15 significant digits on a `number`) is W021 and dropped. A field whose values name files carries a check on `@specforge/checks:file` (`checks`, below) with the root its paths start from. A member is addressed by its declared path, `requires.phase`; the edge a reference member writes is labelled by it. A pass's `PassEntity.values` and a validator's `ValidatorEntity.values` carry a field that declares members as structured JSON, keyed by field name, while `fields` keeps its text.
 
 A field of 2.0.0 may also declare `checks` (ADR 0336), the checks its values pass, run in order (see
 [Category: checkers](#category-checkers)): `{"checker": "<name>", "args": {..}}`, or `{"any_of": [..]}`, one level deep,
@@ -381,8 +382,11 @@ check leaves it as written.
 A rule of `check: "judged"` (1.9.0, ADR 0290) holds while a fresh `verdict` of its `judge` says so, instead of computing
 anything. The `judge` is a word naming an agent of the extension or of a declared peer, or, since 1.11.0 (ADR 0295),
 `prompt:<id>`, a prompt of **the rule's own extension** (a prompt of a peer is not a judge); any other judge is W112.
-A rendered prompt then lists the rules it judges under `judged` in its payload. Its `judged` descriptor is `{judge, outcomes, passing, targets: [{kind, inputs: [{name, selector}], unless_set}],
-values, outcome_fields}`; selectors are `self`, `Kind`, `.field`, `<Kind.field`, `file(..)` and `test(..)`
+A rendered prompt then lists the rules it judges under `judged` in its payload. Its `judged` descriptor is `{judge, outcomes, passing, targets: [{kind, inputs: [{name, selector}], unless_set, judged_while}],
+values, outcome_fields}`; an entity that writes an `unless_set` field owes no verdict, and since 2.2.0 (ADR 0362) a
+target's `judged_while` (`complete` or `pending`, an owner state) judges an entity only in that owner state, read on
+the merged snapshot after the compute passes, which still read every judgement; the kind or a scope ancestor declares
+`complete_when`, and the rule binds no `values` or `outcome_fields` of that kind (W112 otherwise); selectors are `self`, `Kind`, `.field`, `<Kind.field`, `file(..)` and `test(..)`
 ([guide](guides/judged-rules.md)); since 2.1.0 a kind may carry a field filter, `Kind[field=value|…]`, keeping only
 the entities whose authored string, enum, bool or integer field holds one of the values (ADR 0356 D13). The host evaluates it after the graph build and before the compute passes: a
 `PassEntity` then carries its `judgements` (`{rule, state, passed, outcome?, at?, changed?, files?}`, gated rules
@@ -669,8 +673,11 @@ Returns the test-result collectors a runner extension contributes
 select it (`auto_detect.file_patterns`, last segment may use `*`; with `auto_detect.repository`, any git repository the
 project is in, at its top or below), the `process`
 capability whose command `specforge collect` runs once this machine approves it (`capability`, a name from the
-extension's `capabilities`; `{report}` in its `argv` expands to the absolute report path, also exported as
-`SPECFORGE_REPORT`; none for a collector that only reads a report), where the
+extension's `capabilities`; `{report}` in its `argv` or its config expands to the absolute report path; a command
+told the path no such way gets it as `SPECFORGE_REPORT`, set over any value the caller's environment holds, for a
+runner integration to write to, and a command told it through `{report}` runs with `SPECFORGE_REPORT` removed from
+its environment, so a value the caller exported never reaches it; none for a collector
+that only reads a report), where the
 report lands (`report`, a file or directory inside the project; default
 `.specforge/reports/<name>.json` for a collector with a `capability`), whether the host also keeps the command's
 standard output (`capture: "stdout"`, for runners whose results only appear
@@ -887,13 +894,13 @@ Returns typed settings, presets and secrets (protocol 1.8.0, ADR 0288). `specfor
 }
 ```
 
-A name is dotted, or a family with `*` segments. `field_type` is a field type of this document; `default` absent means unset. `gates` (a bool setting only) lists local codes reported by no source while it is false, and `gates_when_on` (1.12.0, ADR 0305) those reported by no source while it is true; a code in both is W021. A `field_type` of `number` (1.12.0) is a whole or decimal number within `minimum` and `maximum`; a kind's field may not be one (W021: the `.spec` grammar has no decimal literal). A preset follows an enum or bool setting of the extension, or a peer's (`@ext:name`); each value sets `settings` and raises `severities`, never lowers one. A secret is read from the environment variable `env`, never from `specforge.json`: a guest is told only whether it is set. An item of a kind the host does not know costs that item (W021), not the category.
+A name is dotted, or a family with `*` segments. `field_type` is a field type of this document; `default` absent means unset. `gates` (a bool setting only) lists local codes reported by no source while it is false, and `gates_when_on` (1.12.0, ADR 0305) those reported by no source while it is true; a code in both is W021. A `field_type` of `number` (1.12.0) is an exact decimal of at most 15 significant digits within `minimum` and `maximum`, as a kind's `number` field is (2.2.0, ADR 0361). A preset follows an enum or bool setting of the extension, or a peer's (`@ext:name`); each value sets `settings` and raises `severities`, never lowers one. A secret is read from the environment variable `env`, never from `specforge.json`: a guest is told only whether it is set. An item of a kind the host does not know costs that item (W021), not the category.
 
 `specforge settings set <extension> <name> <value>` and `unset` (protocol 1.11.0, ADR 0296; the MCP tool `specforge.settings_set`) write one declared setting into `specforge.json`, admitted by its `field_type` as the load admits it, and never a secret (E087); an `unset` also removes a key the load reports (a misspelt setting, a committed secret). The host writes the text of the file in place, as one journalled change, so the rest of it is as the author left it. An extension declares nothing for it.
 
 ### Category: codes
 
-Returns the extension's diagnostic code catalog (protocol 1.7.0, ADR 0286): one entry per code the extension's rules and passes report. `code` is the extension's own code, `[EWI]` and three digits, never qualified (the host adds the extension's namespace). `title` and `explanation` are required; `docs` (optional) is an absolute `http(s)` URL. `machine` (optional, protocol 2.0.0, ADR 0337 D7) is `true` when this machine decides the code's finding (its approvals, its network or its effects journal), not the project: the diagnostic carries `machine`, `--strict` never promotes it and the gate's warning baseline never counts it.
+Returns the extension's diagnostic code catalog (protocol 1.7.0, ADR 0286): one entry per code the extension's rules and passes report. `code` is the extension's own code, `[EWI]` and three digits, never qualified (the host adds the extension's namespace). `title` and `explanation` are required; `docs` (optional) is an absolute `http(s)` URL. `machine` (optional, protocol 2.0.0, ADR 0337 D7) is `true` when this machine decides the code's finding (its approvals, its network or its effects journal), not the project: the diagnostic carries `machine`, `--strict` never promotes it and the gate's warning baseline never counts it. `reported_while` (optional, protocol 2.2.0, ADR 0363) is `complete` or `pending`, an owner state (ADR 0329 D4): a finding of the code on an entity speaks only while the entity's owner is in that state, read after the compute passes, and the host drops it otherwise; a typed edit that moves the entity into that state reveals the finding, which is no error the edit adds (E080). Another word is E030.
 
 ```json
 {
@@ -909,7 +916,7 @@ Returns the extension's diagnostic code catalog (protocol 1.7.0, ADR 0286): one 
 }
 ```
 
-SDK: `c.code("E901", |d| { d.title(..).explanation(..).docs(..); })`; `.machine()` marks a machine code.
+SDK: `c.code("E901", |d| { d.title(..).explanation(..).docs(..); })`; `.machine()` marks a machine code; `.once_complete()` and `.while_open()` write `reported_while`.
 
 ### Category: routes
 
@@ -989,7 +996,12 @@ the host's gate allows for its port) and what it reaches on one `port`:
   writes to `.specforge/reports/<collector>.<name>` before a collector's run, `{report}` in it replaced by the report's
   absolute path escaped for a quoted TOML or JSON string, and `{config}` in the argv its absolute path (ADR 0348). A
   person approves the template with the command. An argv naming `{report}` or `{config}` is the host's alone to run:
-  a guest's `process_run` is never admitted by it.
+  a guest's `process_run` is never admitted by it. An optional `filter` (2.2.0, ADR 0360) lists the arguments the host
+  appends after `argv` only when a caller passes a filter (`specforge collect --filter`): `{filter}` in exactly one of
+  them, once, is the caller's text, one argument in the program's own syntax. It is approved with the command (one
+  approval covers any filter text), a capability declaring one admits no guest request, and its `call_kinds` are
+  exactly `collect`. The host refuses a filter text that is empty, over 16 KiB, starts with `-` or holds a control
+  character, before any command.
 - `git`: `ops` (`read`, `write`).
 
 `name` is a scope name (`[a-z][a-z0-9-]*`), unique in the extension; approvals and `specforge grants` name it. A
@@ -998,7 +1010,9 @@ empty `argv`, an http capability with no host, a host that is no host or `*.`-pr
 `http` or `https`, a `write` whose `call_kinds` are empty or name a kind other than `collect` and `command`, a `POST`
 or a `max_bytes` on `from_values` hosts, a `max_bytes` over 16 MiB or a sixteenth of the memory, a `config` whose
 name or template is not sound, whose `call_kinds` are not exactly `collect` or whose argv does not name `{config}`
-once, `{config}` without a `config`, or an argv element holding two placeholders; so is a collector whose
+once, `{config}` without a `config`, an argv element holding two placeholders, `{filter}` in the argv, or a
+`filter` whose arguments do not hold `{filter}` exactly once, name `{report}` or `{config}`, or whose `call_kinds` are
+not exactly `collect`; so is a collector whose
 `capability` names no `process` capability the extension declares, and one whose `install` line is empty, over 200
 bytes or not printable. An unknown `port` fails the
 category (E028).
@@ -1322,8 +1336,21 @@ Nothing prompts mid-call: a caller settles the approvals before the call, and MC
 **What a request can't say.** There is no field for the private-address opt-in or a secret: the host attaches a
 capability's `secret_header` itself, and no answer shows it (ADR 0288). A program starts from an empty environment plus
 what any program needs to work (`PATH`, `HOME`, the locale, the temp directory, the Windows system variables) and the names
-its process capability's `env` declares. A guest setting any other name is `denied(scope)` and E090, and a variable a
-declared secret names is never passed, even when named. A `git` revision or path can't be an option or
+its process capability's `env` declares. A declared name may end in `*` after a namespace prefix (2.2.0, ADR 0360: a
+letter, then letters, digits or `_`, at least 4 characters ending `_`; `CARGO_*`): the program inherits every variable
+with that prefix; another prefix is W021. A prefix is inherit-only. A guest setting any name its capability does not
+declare exactly is `denied(scope)` and E090, and a variable a declared secret names is never passed, even when named.
+A collector's command, which the host runs, keeps the caller's environment instead of starting empty. Every one of
+these programs goes through one credential filter, whatever it declares: a secret's name (ending `_TOKEN`,
+`_AUTHTOKEN`, `_AUTH`, `_SECRET`, `PASSWORD` (`PGPASSWORD` too), `_PASSWD`, `_PWD` (never `PWD` or `OLDPWD`), `_PAT`,
+`_KEY` or `_CREDENTIALS`, or starting `AWS_`, any case) and a
+cargo credential provider (`CARGO_REGISTRY_CREDENTIAL_PROVIDER`, `CARGO_REGISTRIES_<NAME>_CREDENTIAL_PROVIDER`,
+`CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS`, `CARGO_CREDENTIAL_*`) are withheld, and a URL in any variable it inherits passes
+without its user and password (`http://user:pass@proxy:8080` is `http://proxy:8080`; a user alone is removed under an
+HTTP scheme, kept as `ssh://git@host`'s account; the user information runs to the authority's last `@`, so
+`postgres://user:pa#ss@db/x` is `postgres://db/x`). A proxy written without a scheme (`user:pass@proxy:8080` in a
+variable ending `_PROXY`, never `NO_PROXY`) is cleaned the same way. A value that is not Unicode and may hold one is
+withheld. A `git` revision or path can't be an option or
 climb out of the repository, and a file the disk withholds is withheld at a commit too.
 
 **Effects mode.** A port call's `http` and `process` requests run in its run's mode (`online`, `auto`, `cached`,
@@ -1357,7 +1384,7 @@ specforge at least as new. A guest of an older major is E088 too, with the remed
 host's major (ADR 0326 D1b). Since 2.0.0 (ADR 0337) every 1.x guest is such an older major: it declared its inputs
 as the `reads*` keys, which a 2.0.0 host no longer reads, so it is refused with E088 rather than loaded with its
 inputs unserved. `specforge --version` names the protocol a binary speaks
-(`specforge 0.3.0 (9229143f5, protocol 2.1.0)`). A guest built with the SDK declares the SDK's version in
+(`specforge 0.3.0 (9229143f5, protocol 2.2.0)`). A guest built with the SDK declares the SDK's version in
 its handshake and its registry manifest.
 
 The minor moves when a payload changes in a way every older guest survives: a field added, removed or
@@ -1384,6 +1411,7 @@ or answered.
 | `1.15.0` | A collector answers `facts`, the entities it observed (ADR 0327): each a `Fact` (`kind`, `id`, optional `title`, `fields`) of a kind that declares `writer: "collector"` and its `schemes`, the prefixes of its ids; a field that declares `writer: "collector"` is W021. Every collector's input carries `cwd`, the project root (a writing collector's only before). A collector may declare `reads` and its input then carries `files` (ports plan 00). A guest of another major is E088, saying which side is behind, and so is a component importing a host port this specforge does not provide (ADR 0326 D1a/D1b). A pass is sent `fact_stores`, the fact stores the session served. A reference in a fact scheme that names no fact is unheld, not E003: a `PassEntity` lists it under `unheld`. A kind may declare `complete_when`, a pass entity carries `pending`, and an unheld reference its `span` (ADR 0329). A collector-written kind may name its facts' `result` field (ADR 0329). An extension may declare `routes`, the steps `specforge trace` follows from a kind (ADR 0330). A 1.14 host ignores `facts` and `schemes` (W138) and reads a `collector` kind writer as nobody's; a guest older than 1.15 is not asked for `routes`. |
 | `2.0.0` | ADR 0337 (the ports round). A command, MCP tool or resource and a collector may call the five `specforge:host@0.1.0` ports (see [Host ports](#host-ports)), `syntax` parsing source with a tags query (ADR 0344, ADR 0345 D1). A pass, command, prompt, hook or collector declares what the host serves it as one tagged list, `inputs`: `files` (a `FileRead`), `tests`, `state`, `graph`, `slash_commands`, `git` (`status`, `when`) and `setting` (`extension`, `name`), replacing `reads`, `reads_tests`, `reads_state`, `reads_graph`, `reads_slash_commands`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings` (see [Inputs](#inputs-200-adr-0337)); an input its call kind is not served, or a second one of a kind served once, is W021 and served empty. A hook's `git.status` is a typed `GitStatus` (`branch` with `oid`, `head`, `upstream`, `ahead`, `behind`; `entries` with `kind`, `path`, `orig_path`, `index`, `worktree`), not porcelain text. A `codes` entry may declare `machine` (`CodeDescriptor.machine`, see [codes](#category-codes)): its finding is this machine's, never promoted by `--strict` nor counted by the gate's warning baseline. A 1.x guest is E088 (older): its keys would be W138 and its inputs unserved. An extension declares `capabilities` (a describe category, see [capabilities](#category-capabilities)): what it may make the host do, each on one port under a scope name (ADR 0335 D2), and a collector names the process `capability` it runs instead of carrying `run`. An extension declares `checkers` (a describe category, see [checkers](#category-checkers)), a field its `checks`, and the host calls `__check_values` in a values phase that runs first (ADR 0336); `CollectInput` gains `check_outcomes`, for a collector declaring that input, and `facts`, for a collector declaring a `facts` input (`kinds`); a collector declares `answers`, the collected kinds whose facts it answers, which order the collect (E119 for a cycle) and admit its facts (E116 otherwise); a collector with no `capability` and no `report` reads through its ports (ADR 0345). A `Fact` carries `at` (a list of `FactLocation`: where it is written, a project-relative file, 1-based lines, 1-based byte columns, end exclusive) and `named_at` (field → id → places: where each name it holds is written); a `PassEntity` carries `dangling` (`DanglingReference`: `field`, `id`, `span`, `reason` `unresolved` \| `ambiguous` \| `mistyped`, `actual`, `did_you_mean`, `candidates`), a fact's references that name no entity, the wrong kind or several: sent to every pass, judged by the extension declaring the holder's kind (ADR 0346). An `UnheldReference` carries `kinds`, the collected kinds of its scheme its field admits, and a `FactStore` carries `held` (scheme → the kinds of its facts), replacing `schemes` (ADR 0347 D9). `CommandInput` gains `nonce`, 32 lowercase hex digits of the host's entropy, fresh per call (ADR 0341); a pass, prompt, hook or collector is not told one. A field may declare `checks_while`, `complete` or `pending` (ADR 0350), and a check row's status (`CheckOutcome.status`) may be `planned` or `closed`. The source scanners' describe category and their operation (and its request and response types) are gone: source code reaches the graph as the `item` facts a source pack collects (ADR 0199). A `process` capability may declare one `config` (`ProcessConfig`: `name`, `template`): the host writes it to `.specforge/reports/<collector>.<name>` before the run, `{report}` expanded and escaped for a quoted string, and `{config}` in the argv names it; a `CollectorDescriptor` may declare `install`, the line said when its program is not found (ADR 0348). The git port answers `log` (a `log-query` of commit ids and paths from the repository's top: typed commits, their trailers and each signature's `name` and `seconds` (never an email address nor the signer's offset), as many as the answer holds, `truncated` past it or past the host's counted walk, which leaves no `count`; a pickaxe never reads a withheld file and is refused a withheld path) and `diff` (a `diff-query` from a commit or the empty tree to a commit, the index or the worktree, with `hunks`, a file's changed line ranges, and `renames`, searched by the host's rules: a file past the bytes the host reads for one diff says `truncated` and counts no lines; each `file-change` says `withheld` and then carries no `patch` nor `hunks`: a withheld name, or, against the worktree, a file the call's fs grant does not read) (ADR 0352). A collector's `auto_detect` may declare `repository`: it is detected when the git port locates the project root in a repository, git's ceilings kept, so a project in a subdirectory of its repository is (ADR 0352 D4). An `UnheldReference` carries `history` when its field is one the harness writes once (`writer: "harness"` and `immutable`): a pass reads it as what held then, never a missing fact (ADR 0352 D2). |
 | `2.1.0` | A contribution's `tools` may name the engine's tools (ADR 0334): `specforge:<tool>` (`specforge:trace`), `specforge:<group>` (`specforge:reads`, `navigation`, `edits`, `output`, `setup`) and `specforge:<short>.<command>`, an extension command run as `specforge <short> <command>`. An unknown one, a human-attested or refused command, `mcp:specforge/…` and any `specforge:` class on a hook are W021. `specforge_protocol_types::engine_tools` is the catalogue they name. An extension declares `contexts`, the fifteenth describe category, read last: for one entity of a subject kind, the ordered sections a role reads, each a named selector, core or enrich (ADR 0356). A selector kind may carry a field filter, `kind[field=value|…]` (ADR 0356 D13). A context route may record its pack in a `context` field (`records`) and name the code a stale record raises (`stale`, ADR 0356 D10); an edit plan's `record_context` asks the host to record it (D11). A 2.0.0 guest still loads. |
+| `2.2.0` | A kind field or a block member may be `number` (ADR 0361): an exact decimal of at most 15 significant digits, written as one decimal word (`0.75`, `-0.25`, `1.5e3`), carried as a JSON number (an integer when whole and within `u64`) in the graph and a `FieldJson`; a pass entity carries a top-level number field as its canonical text in `fields` (`PassEntity::number` reads it) and a number member of a typed block as a JSON number in `values`; E061 refuses a word that is no decimal, has more digits or lies outside its bounds. A `number` field's `minimum` and `maximum` are decimals, compared exactly; a bound its type cannot read is W021 and dropped. `Decimal`, `GraphNode::number` and `PassEntity::number` read one. A judged target may declare `judged_while`, `complete` or `pending` (ADR 0362): an entity in the other owner state owes no verdict, decided on the merged snapshot after the compute passes; the SDK writes it with `once_complete()` and `while_open()`. A `codes` entry may declare `reported_while`, `complete` or `pending` (ADR 0363): its findings speak only on an entity in that owner state, and a typed edit that moves the entity into it reveals one rather than adding it (E080); the SDK's `CodeBuilder` writes it with `once_complete()` and `while_open()`. A `process` capability may declare `filter` (`ProcessScope.filter`): the arguments the host appends after `argv` only when a caller passes a filter (`specforge collect --filter`), `{filter}` in exactly one of them, approved with the command; no guest request is admitted on such a scope (ADR 0360). A declared `env` name may end in `*` after a namespace prefix (a letter, at least 4 characters, ending in `_`): the program inherits every variable with that prefix, and no guest sets a variable through it (ADR 0360). A program a guest runs and a collector's command the host runs go through one credential filter: a secret's name (now also `_AUTHTOKEN`, `_AUTH`, `PASSWORD` without its `_`, `_PASSWD`, `_PWD`, `_PAT`) and a cargo credential provider are withheld, and a URL's user and password, or a scheme-less proxy's, are removed (ADR 0360). A collector's command told its report path through `{report}` in its argv or config runs with `SPECFORGE_REPORT` removed from its environment, a value the caller exported included; one told it no other way gets it set to its report path over the caller's (ADR 0360). A 2.1.0 guest still loads; a 2.2.0 guest is refused by a 2.1 host (E088, newer). |
 
 A host of `1.1.x` still loads a `1.0.0` guest and hands it the `1.1.0` values it knows; a host of
 `1.0.x` refuses a `1.1.0` guest (E088), and every host refuses a guest of another major (E088). A newer patch of the

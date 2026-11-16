@@ -5,8 +5,18 @@
 //!
 //! "No test" has one meaning: test facts are collected and none links a passed or failed one to the entity. With no
 //! test fact at all the evidence is `NotRun`, and each caller maps it once.
+//!
+//! A requirement's thread runs plan → task → commit → test: the tasks of the plans that list it, the commits that name
+//! those tasks, and the tests linked to a committed task, to the requirement, or named in the `proof` of a truth that
+//! names it. [`requirement_proof`] is its one reading: the derive pass writes it as the requirement's `proof`, and
+//! `gsd/E515` reads that value through [`requirement_proven`].
+
+use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
+
+use super::commits::Commit;
+use super::plans::{of_kind, text};
 
 #[cfg(test)]
 pub(crate) mod fixture;
@@ -38,9 +48,9 @@ const STATUS: &str = "status";
 /// A truth's fields the thread reads (`kinds/must_haves.rs`): the requirement it proves and the tests it cites.
 const TRUTH: &str = "truth";
 const REQUIREMENT: &str = "requirement";
-const PROOF: &str = "proof";
+pub(crate) const PROOF: &str = "proof";
 /// The label of the edge from a test fact to each entity its `names` holds (`@code/core`).
-const NAMES: &str = "names";
+pub(crate) const NAMES: &str = "names";
 
 /// Whether `reference` names the test fact `fact`: it is the fact's id, or `[file#]name`, where the first `#` ends
 /// the file (a test name may hold one) and the fact's `name` is `name` and, when `file` is not empty, its `file` is
@@ -97,6 +107,33 @@ impl<'a> Thread<'a> {
     /// `(fact id, status)` of each test fact whose `names` holds `id`.
     pub fn naming(&self, id: &str) -> Vec<(&'a str, TestStatus)> {
         self.facts_at_ends(|e| e.target == id && e.label == NAMES, |e| &e.source)
+    }
+
+    /// Every test fact linked to `id`, run or not: those whose `names` holds it and those its `proof` names. What an
+    /// invariant guards reads its tests so (`passes::invariants`): a proof test's function is guarded before it runs.
+    pub fn tests(&self, id: &str) -> BTreeSet<&'a str> {
+        self.facts_any_status(|e| match e.label.as_str() {
+            NAMES if e.target == id => Some(e.source.as_str()),
+            PROOF if e.source == id => Some(e.target.as_str()),
+            _ => None,
+        })
+    }
+
+    /// Every test fact whose `names` holds `id`, run or not: the `names` half of [`Thread::tests`]. A journey lists
+    /// its tagged tests so (`journey.tests`): a fact with no recorded status is still tagged.
+    pub fn named_by(&self, id: &str) -> BTreeSet<&'a str> {
+        self.facts_any_status(|e| (e.label == NAMES && e.target == id).then_some(e.source.as_str()))
+    }
+
+    /// The test facts, run or not, at the end `end` reads of each edge it keeps.
+    fn facts_any_status(&self, end: impl Fn(&'a PassEdge) -> Option<&'a str>) -> BTreeSet<&'a str> {
+        let linked: BTreeSet<&str> = self.input.edges.iter().filter_map(end).collect();
+        self.input
+            .entities
+            .iter()
+            .filter(|e| e.kind == TEST && linked.contains(e.id.as_str()))
+            .map(|e| e.id.as_str())
+            .collect()
     }
 
     /// `(fact id, status)` of the test fact at the chosen end of each edge `edge` keeps.
@@ -193,4 +230,129 @@ impl<'a> Thread<'a> {
     pub fn of_entity(&self, id: &str) -> Evidence {
         self.evidence(self.linked(id).into_iter().map(|(_, status)| status))
     }
+}
+
+/// How far a requirement's thread reaches: the first missing link of plan → task → commit → test, then what its
+/// tests say.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Proof {
+    /// No task of a plan that lists it, `manual` ones aside.
+    NoTask,
+    /// Its tasks have no recorded commit.
+    NoCommit,
+    /// A task is committed and no test fact is collected.
+    NotRun,
+    /// Test facts are collected, and none linked to a committed task passed or failed.
+    NoTest,
+    /// A linked test failed, and none of a committed task's passed.
+    Failed,
+    /// A committed task's linked tests hold a passed one and no failed one.
+    Proven,
+}
+
+impl Proof {
+    pub const ALL: [Proof; 6] = [
+        Proof::NoTask,
+        Proof::NoCommit,
+        Proof::NotRun,
+        Proof::NoTest,
+        Proof::Failed,
+        Proof::Proven,
+    ];
+
+    /// Its word: the kind declares the words (`kinds::PROOF_STATES`), in the order of the variants.
+    pub fn as_str(self) -> &'static str {
+        crate::kinds::PROOF_STATES[self as usize]
+    }
+
+    /// The state a computed `proof` value names; `None` for any other text.
+    pub fn parse(text: &str) -> Option<Proof> {
+        Self::ALL.into_iter().find(|p| p.as_str() == text)
+    }
+
+    /// The first missing link, as `gsd/E515` names it; `None` when the thread is whole.
+    pub fn missing(self) -> Option<&'static str> {
+        match self {
+            Proof::NoTask => Some("no task of its plans"),
+            Proof::NoCommit => Some("no commit of its tasks"),
+            Proof::NotRun | Proof::NoTest | Proof::Failed => Some("no passing test of its tasks"),
+            Proof::Proven => None,
+        }
+    }
+}
+
+/// Every task, of any type, whose `plan` resolves to a plan that lists `requirement` in its `requirements`: the
+/// route's `<plan.requirements` then `<task.plan`. A task's `plan` resolves to a plan only, so the sources of the
+/// `requirements` edges need no kind check: a phase or a journey that lists the requirement is no task's plan.
+pub fn requirement_tasks<'a>(input: &'a PassInput, requirement: &str) -> Vec<&'a PassEntity> {
+    let listing: BTreeSet<&str> = input
+        .edges
+        .iter()
+        .filter(|e| e.label == "requirements" && e.target == requirement)
+        .map(|e| e.source.as_str())
+        .collect();
+    let tasks: BTreeSet<&str> = input
+        .edges
+        .iter()
+        .filter(|e| e.label == "plan" && listing.contains(e.target.as_str()))
+        .map(|e| e.source.as_str())
+        .collect();
+    of_kind(input, "task")
+        .filter(|t| tasks.contains(t.id.as_str()))
+        .collect()
+}
+
+/// The requirement's thread state: its non-`manual` tasks (none: `NoTask`), those a recorded commit names (none:
+/// `NoCommit`), then, with test facts collected (else `NotRun`), the evidence of each committed task: the facts linked
+/// to it, those linked to the requirement and the proofs of the truths that name the requirement (ADR 0331 D5). One
+/// committed task whose evidence passed makes it `Proven`; else a failed one `Failed`; else `NoTest`.
+pub fn requirement_proof(input: &PassInput, commits: &[Commit], requirement: &str) -> Proof {
+    let tasks: Vec<&PassEntity> = requirement_tasks(input, requirement)
+        .into_iter()
+        .filter(|t| text(t, "type") != Some("manual"))
+        .collect();
+    if tasks.is_empty() {
+        return Proof::NoTask;
+    }
+    let committed: Vec<&PassEntity> = tasks
+        .into_iter()
+        .filter(|t| {
+            commits
+                .iter()
+                .any(|c| c.task.as_deref() == Some(t.id.as_str()))
+        })
+        .collect();
+    if committed.is_empty() {
+        return Proof::NoCommit;
+    }
+    let thread = Thread::of(input);
+    if !thread.ran() {
+        return Proof::NotRun;
+    }
+    let shared: Vec<TestStatus> = thread
+        .linked(requirement)
+        .into_iter()
+        .chain(thread.requirement_proofs(requirement))
+        .map(|(_, status)| status)
+        .collect();
+    let evidence: Vec<Evidence> = committed
+        .iter()
+        .map(|task| {
+            let linked = thread.linked(&task.id).into_iter().map(|(_, s)| s);
+            thread.evidence(linked.chain(shared.iter().copied()))
+        })
+        .collect();
+    if evidence.contains(&Evidence::Passed) {
+        Proof::Proven
+    } else if evidence.contains(&Evidence::Failed) {
+        Proof::Failed
+    } else {
+        Proof::NoTest
+    }
+}
+
+/// Whether a requirement is proven: it is `complete` and its thread is whole. `gsd/E515` refuses a complete
+/// requirement for which it is false.
+pub fn requirement_proven(status: Option<&str>, proof: Proof) -> bool {
+    status == Some("complete") && proof == Proof::Proven
 }

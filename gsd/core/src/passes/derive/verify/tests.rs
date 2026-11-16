@@ -52,6 +52,36 @@ fn all_truths_verified_is_passed() {
     assert_eq!(of(&out, "covered_files"), Some(json!(["src/a.js"])));
 }
 
+/// `verified` is the latest verdict by the time it records: a day written by hand is its last second, so it follows a
+/// verdict recorded earlier that day.
+#[test]
+fn verified_is_the_latest_verdict_by_its_time() {
+    let at = |at: &str| {
+        let mut j = judgement("verified", "fresh", true);
+        j["at"] = at.into();
+        j
+    };
+    for (first, second, latest) in [
+        (
+            "2026-10-29T10:00:00Z",
+            "2026-10-29T09:00:00Z",
+            "2026-10-29T10:00:00Z",
+        ),
+        ("2026-10-29T10:00:00Z", "2026-10-29", "2026-10-29"),
+        ("2026-10-30T00:00:00Z", "2026-10-29", "2026-10-30T00:00:00Z"),
+    ] {
+        let out = run(&input(
+            vec![truth(1, vec![at(first)]), truth(2, vec![at(second)])],
+            vec![],
+        ));
+        assert_eq!(
+            of(&out, "verified"),
+            Some(json!(latest)),
+            "{first} {second}"
+        );
+    }
+}
+
 #[test]
 fn a_failed_truth_is_gaps_found() {
     let out = run(&input(
@@ -159,9 +189,9 @@ fn a_deferral_to_the_same_an_earlier_or_a_missing_phase_does_not_count() {
     }
 }
 
-/// Phase 01's verification deferring TR2 to phase 02 as the writer stores it: each row's reference spelled relative
-/// to the verification's scope, the graph's `deferred.*` edges naming the full ids.
-fn deferring_as_written() -> Vec<PassValue> {
+/// Phase 01's verification, TR1 verified and TR2 failing among phases 01 and 02, with its `deferred` rows as written
+/// and the `(target, label)` edges the graph draws for them.
+fn deferring_rows(rows: serde_json::Value, edges: &[(&str, &str)]) -> Vec<PassValue> {
     let phases = ["v1.0/01", "v1.0/02"]
         .map(|id| json!({ "id": id, "kind": "phase" }))
         .to_vec();
@@ -172,20 +202,56 @@ fn deferring_as_written() -> Vec<PassValue> {
         ],
         phases,
     );
-    input.entities[0].values.insert(
-        "deferred".into(),
-        json!([{ "truth": "01-01/TR2", "addressed_in": "02", "evidence": "later" }]),
-    );
-    for (target, label) in [
-        ("v1.0/01/01-01/TR2", "deferred.truth"),
-        ("v1.0/02", "deferred.addressed_in"),
-    ] {
+    input.entities[0].values.insert("deferred".into(), rows);
+    for (target, label) in edges {
         input.edges.push(
             serde_json::from_value(json!({ "source": V, "target": target, "label": label }))
                 .expect("an edge"),
         );
     }
     run(&input)
+}
+
+/// Phase 01's verification deferring TR2 to phase 02 as the writer stores it: each row's reference spelled relative
+/// to the verification's scope, the graph's `deferred.*` edges naming the full ids.
+fn deferring_as_written() -> Vec<PassValue> {
+    deferring_rows(
+        json!([{ "truth": "01-01/TR2", "addressed_in": "02", "evidence": "later" }]),
+        &[
+            ("v1.0/01/01-01/TR2", "deferred.truth"),
+            ("v1.0/02", "deferred.addressed_in"),
+        ],
+    )
+}
+
+/// A row's reference names what the kernel resolves it to from the verification: a rooted path is the project's, and
+/// a name outside the verification's scope chain (E003) is nothing, though another row's target ends with it.
+#[test]
+fn a_deferral_counts_as_the_kernel_resolves_its_row() {
+    let rooted = deferring_rows(
+        json!([{ "truth": "/v1.0/01/01-01/TR2", "addressed_in": "/v1.0/02", "evidence": "later" }]),
+        &[
+            ("v1.0/01/01-01/TR2", "deferred.truth"),
+            ("v1.0/02", "deferred.addressed_in"),
+        ],
+    );
+    assert_eq!(of(&rooted, "score"), Some(json!("1/1")), "the rooted row");
+    let short = deferring_rows(
+        json!([
+            { "truth": "01-01/TR2", "addressed_in": "01", "evidence": "same phase" },
+            { "truth": "TR2", "addressed_in": "02", "evidence": "later" }
+        ]),
+        &[
+            ("v1.0/01/01-01/TR2", "deferred.truth"),
+            ("v1.0/01", "deferred.addressed_in"),
+            ("v1.0/02", "deferred.addressed_in"),
+        ],
+    );
+    assert_eq!(
+        of(&short, "score"),
+        Some(json!("1/2")),
+        "TR2 resolves to nothing"
+    );
 }
 
 /// A deferral counts through its edges: the rows' references are spelled relative to the scope.
@@ -611,4 +677,73 @@ fn a_files_digest_is_a_sha256_that_ignores_order_and_repeats_and_follows_a_diges
         a,
         files_digest([("a.js", "sha256:1"), ("b.js", "sha256:3")])
     );
+}
+
+/// Phase 01 with TR1 (no verdict) and two verifications, `V` with an override accepting TR1 and `V2` with none, in
+/// entity order `v_first` gives them (`true`: `V` first).
+fn two_verifications(v_first: bool) -> PassInput {
+    let v2 = "v1.0/01/01-VERIFICATION-2";
+    let o = json!({ "id": format!("{V}/OV1"), "kind": "override",
+                    "fields": { "verification": V, "truth": "v1.0/01/01-01/TR1" } });
+    let second = json!({ "id": v2, "kind": "verification", "fields": { "phase": "v1.0/01" } });
+    let mut input = input(vec![truth(1, vec![])], vec![o, second]);
+    if !v_first {
+        let v = input.entities.remove(0);
+        input.entities.push(v);
+    }
+    input
+}
+
+/// A phase's verifications are read as one: the outcome does not depend on their order, and an override recorded on
+/// either counts for the phase and for each of them.
+#[test]
+fn two_verifications_of_a_phase_are_read_as_one() {
+    let tr1 = "v1.0/01/01-01/TR1";
+    let status_of = |out: &[PassValue], v: &str| {
+        out.iter()
+            .find(|x| x.entity == v && x.field == "status")
+            .map(|x| x.value.clone())
+    };
+    let mut seen = Vec::new();
+    for v_first in [true, false] {
+        let input = two_verifications(v_first);
+        let out = run(&input);
+        seen.push((
+            items(&input).get(tr1).copied(),
+            by_phase(&input).get("v1.0/01").map(|v| v.status),
+            status_of(&out, V),
+            status_of(&out, "v1.0/01/01-VERIFICATION-2"),
+        ));
+    }
+    let read_as_one = (
+        Some(Item::Verified),
+        Some("passed"),
+        Some(json!("passed")),
+        Some(json!("passed")),
+    );
+    assert_eq!(seen, [read_as_one.clone(), read_as_one]);
+}
+
+/// A blocker the scan recorded on one verification of a phase holds the phase and its other verification at
+/// `gaps_found`, though the override on the other verifies its one truth.
+#[test]
+fn a_blocker_on_either_verification_holds_the_phase() {
+    for v_first in [true, false] {
+        let mut input = two_verifications(v_first);
+        let second = input
+            .entities
+            .iter_mut()
+            .find(|e| e.id == "v1.0/01/01-VERIFICATION-2")
+            .expect("the second verification");
+        second.values.insert(
+            "anti_patterns".into(),
+            json!([{ "file": "src/a.js", "line": 3, "text": "TODO", "severity": "blocker" }]),
+        );
+        let out = run(&input);
+        assert_eq!(of(&out, "status"), Some(json!("gaps_found")), "{v_first}");
+        assert_eq!(
+            by_phase(&input).get("v1.0/01").map(|v| v.status),
+            Some("gaps_found")
+        );
+    }
 }

@@ -110,6 +110,15 @@ fn completed_is_the_verified_date() {
         None
     );
     assert_eq!(completed("complete", Some(&verified("passed", None))), None);
+    // a verdict written by hand with a day is that day; an `at` that is no time gives none
+    assert_eq!(
+        completed("complete", Some(&verified("passed", Some("2026-10-29")))),
+        Some("2026-10-29".into())
+    );
+    assert_eq!(
+        completed("complete", Some(&verified("passed", Some("soon")))),
+        None
+    );
     let out = derive(&input("verified", true));
     assert_eq!(
         value_of(&out, "v1.0/01", "completed"),

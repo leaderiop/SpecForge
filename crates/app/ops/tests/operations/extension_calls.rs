@@ -39,7 +39,7 @@ fn sorted(value: &Value) -> Value {
 
 fn golden(name: &str, actual: &Value) {
     let path = wire_dir().join(name);
-    if std::env::var_os("SPECFORGE_BLESS").is_some() {
+    if specforge_repo_root::bless() {
         let mut text = serde_json::to_string_pretty(&sorted(actual)).unwrap();
         text.push('\n');
         fs::write(&path, text).unwrap();
@@ -80,6 +80,7 @@ fn collector() -> Collector {
         capability: None,
         answers: Vec::new(),
         config: None,
+        filter: Vec::new(),
         install: None,
     }
 }

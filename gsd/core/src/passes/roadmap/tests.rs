@@ -58,8 +58,8 @@ fn requirement_in_two_phases_is_e101() {
             phase("v1.0/02"),
         ],
         vec![
-            edge("v1.0/01", "AUTH-01", "PhaseRequirements"),
-            edge("v1.0/02", "AUTH-01", "PhaseRequirements"),
+            edge("v1.0/01", "AUTH-01", "requirements"),
+            edge("v1.0/02", "AUTH-01", "requirements"),
         ],
     ));
     assert_eq!(codes(&found), [("E101", "AUTH-01")]);
@@ -75,7 +75,7 @@ fn a_requirement_in_one_phase_and_a_v2_requirement_in_none_are_clean() {
             requirement("AUTH-03", "out_of_scope"),
             phase("v1.0/01"),
         ],
-        vec![edge("v1.0/01", "AUTH-01", "PhaseRequirements")],
+        vec![edge("v1.0/01", "AUTH-01", "requirements")],
     ));
     assert!(found.is_empty(), "{found:?}");
 }
@@ -85,8 +85,8 @@ fn cycle_is_e102() {
     let found = check(&input(
         vec![phase("v1.0/01"), phase("v1.0/02"), phase("v1.0/03")],
         vec![
-            edge("v1.0/02", "v1.0/03", "PhaseDependsOn"),
-            edge("v1.0/03", "v1.0/02", "PhaseDependsOn"),
+            edge("v1.0/02", "v1.0/03", "depends_on"),
+            edge("v1.0/03", "v1.0/02", "depends_on"),
         ],
     ));
     let on_cycle: Vec<_> = found
@@ -101,7 +101,7 @@ fn cycle_is_e102() {
 fn forward_dependency_is_e102() {
     let found = check(&input(
         vec![phase("v1.0/01"), phase("v1.0/02")],
-        vec![edge("v1.0/01", "v1.0/02", "PhaseDependsOn")],
+        vec![edge("v1.0/01", "v1.0/02", "depends_on")],
     ));
     assert_eq!(codes(&found), [("E102", "v1.0/01")]);
     assert!(found[0].message.contains("not an earlier phase"));
@@ -112,8 +112,8 @@ fn a_dependency_on_an_earlier_phase_or_an_inserted_one_is_clean() {
     let found = check(&input(
         vec![phase("v1.0/01"), phase("v1.0/01.1"), phase("v1.0/02")],
         vec![
-            edge("v1.0/01.1", "v1.0/01", "PhaseDependsOn"),
-            edge("v1.0/02", "v1.0/01.1", "PhaseDependsOn"),
+            edge("v1.0/01.1", "v1.0/01", "depends_on"),
+            edge("v1.0/02", "v1.0/01.1", "depends_on"),
         ],
     ));
     assert!(found.is_empty(), "{found:?}");
@@ -212,12 +212,12 @@ fn every_member_of_a_cycle_is_named_not_only_the_back_edge_path() {
             phase("v1.0/09"),
         ],
         vec![
-            edge("v1.0/05", "v1.0/06", "PhaseDependsOn"),
-            edge("v1.0/06", "v1.0/07", "PhaseDependsOn"),
-            edge("v1.0/07", "v1.0/05", "PhaseDependsOn"),
-            edge("v1.0/05", "v1.0/08", "PhaseDependsOn"),
-            edge("v1.0/08", "v1.0/07", "PhaseDependsOn"),
-            edge("v1.0/09", "v1.0/05", "PhaseDependsOn"),
+            edge("v1.0/05", "v1.0/06", "depends_on"),
+            edge("v1.0/06", "v1.0/07", "depends_on"),
+            edge("v1.0/07", "v1.0/05", "depends_on"),
+            edge("v1.0/05", "v1.0/08", "depends_on"),
+            edge("v1.0/08", "v1.0/07", "depends_on"),
+            edge("v1.0/09", "v1.0/05", "depends_on"),
         ],
     ));
     let on_cycle: Vec<_> = found
@@ -236,7 +236,7 @@ fn a_long_dependency_chain_does_not_exhaust_the_stack() {
             edge(
                 &format!("v1.0/{n}"),
                 &format!("v1.0/{}", n - 1),
-                "PhaseDependsOn",
+                "depends_on",
             )
         })
         .collect();
@@ -279,8 +279,8 @@ fn a_forward_dependency_between_letter_and_nested_phases_is_e102() {
             phase("v1.0/12.1"),
         ],
         vec![
-            edge("v1.0/12", "v1.0/12A", "PhaseDependsOn"),
-            edge("v1.0/12.1", "v1.0/12.1.1", "PhaseDependsOn"),
+            edge("v1.0/12", "v1.0/12A", "depends_on"),
+            edge("v1.0/12.1", "v1.0/12.1.1", "depends_on"),
         ],
     ));
     assert_eq!(ids(&found, "E102"), ["v1.0/12", "v1.0/12.1"], "{found:?}");
@@ -305,7 +305,7 @@ fn decimal_parts_order_numerically() {
             phase("v1.0/02.9"),
             phase("v1.0/02.10"),
         ],
-        vec![edge("v1.0/02.9", "v1.0/02.10", "PhaseDependsOn")],
+        vec![edge("v1.0/02.9", "v1.0/02.10", "depends_on")],
     ));
     assert_eq!(ids(&found, "E102"), ["v1.0/02.9"]);
 }
@@ -417,6 +417,35 @@ fn a_second_context_in_a_phase_is_e206() {
             .contains("a second context of phase 'v1.0/02'; its context is 'v1.0/02/02-CONTEXT'"),
         "{}",
         found[0].message
+    );
+}
+
+#[test]
+fn a_second_verification_or_validation_of_a_phase_is_e206() {
+    let found = check(&input(
+        vec![
+            scoped("v1.0/01/01-VERIFICATION", "verification"),
+            scoped("v1.0/01/01-VERIFICATION-2", "verification"),
+            scoped("v1.0/01/01-VALIDATION", "validation"),
+            scoped("v1.0/01/01-VALIDATION-2", "validation"),
+            scoped("v1.0/02/02-VERIFICATION", "verification"),
+            scoped("v1.0/02/02-VALIDATION", "validation"),
+        ],
+        vec![],
+    ));
+    assert_eq!(
+        codes(&found),
+        [
+            ("E206", "v1.0/01/01-VALIDATION-2"),
+            ("E206", "v1.0/01/01-VERIFICATION-2")
+        ]
+    );
+    assert!(
+        found[1].message.contains(
+            "a second verification of phase 'v1.0/01'; its verification is 'v1.0/01/01-VERIFICATION'"
+        ),
+        "{}",
+        found[1].message
     );
 }
 
@@ -552,4 +581,192 @@ fn a_quick_plans_research_named_research_is_e206() {
         "{}",
         found[0].message
     );
+}
+
+fn milestone(id: &str) -> PassEntity {
+    PassEntity {
+        id: id.into(),
+        kind: "milestone".into(),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn a_milestone_on_a_dependency_cycle_is_e102() {
+    let found = check(&input(
+        vec![milestone("v1.0"), milestone("v1.1"), milestone("v2.0")],
+        vec![
+            edge("v1.0", "v1.1", "depends_on"),
+            edge("v1.1", "v1.0", "depends_on"),
+            edge("v2.0", "v2.0", "depends_on"),
+        ],
+    ));
+    assert_eq!(ids(&found, "E102"), ["v1.0", "v1.1", "v2.0"], "{found:?}");
+    assert_eq!(found.len(), 3, "{found:?}");
+    assert_eq!(
+        found[0].message,
+        "milestone 'v1.0' is on a dependency cycle"
+    );
+    assert_eq!(
+        found[0].suggestion.as_deref(),
+        Some("break the cycle: remove one depends_on")
+    );
+}
+
+#[test]
+fn a_milestone_depending_on_another_is_clean() {
+    // A chain in either direction of the names: milestone names carry no order GSD defines.
+    let found = check(&input(
+        vec![milestone("v1.0"), milestone("v1.1"), milestone("v2.0")],
+        vec![
+            edge("v1.1", "v1.0", "depends_on"),
+            edge("v1.0", "v2.0", "depends_on"),
+        ],
+    ));
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn a_milestone_cycle_is_read_from_depends_on_only() {
+    // Two milestones linked both ways by another field are no dependency cycle.
+    let found = check(&input(
+        vec![milestone("v1.0"), milestone("v1.1")],
+        vec![
+            edge("v1.0", "v1.1", "depends_on"),
+            edge("v1.1", "v1.0", "supersedes"),
+        ],
+    ));
+    assert!(found.is_empty(), "{found:?}");
+}
+
+/// An entity of another kind sharing an id, listed before or after its namesake (E002 forbids a second id within one
+/// kind only).
+fn namesake(id: &str, kind: &str) -> PassEntity {
+    PassEntity {
+        id: id.into(),
+        kind: kind.into(),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn a_term_or_journey_sharing_a_milestones_id_hides_no_cycle() {
+    for kind in ["term", "journey", "persona"] {
+        for after in [true, false] {
+            let mut entities = vec![milestone("mvp"), milestone("beta")];
+            let other = namesake("mvp", kind);
+            if after {
+                entities.push(other);
+            } else {
+                entities.insert(0, other);
+            }
+            let found = check(&input(
+                entities,
+                vec![
+                    edge("mvp", "beta", "depends_on"),
+                    edge("beta", "mvp", "depends_on"),
+                ],
+            ));
+            assert_eq!(
+                ids(&found, "E102"),
+                ["beta", "mvp"],
+                "{kind} after: {after}: {found:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_term_sharing_a_requirements_id_hides_no_phase_of_it() {
+    // The phase lists the requirement; a term of the same id, before or after it, is not what it lists.
+    for after in [true, false] {
+        let mut entities = vec![requirement("AUTH-01", "v1"), phase("v1.0/01")];
+        let term = namesake("AUTH-01", "term");
+        if after {
+            entities.push(term);
+        } else {
+            entities.insert(0, term);
+        }
+        let found = check(&input(
+            entities,
+            vec![edge("v1.0/01", "AUTH-01", "requirements")],
+        ));
+        assert!(found.is_empty(), "term after: {after}: {found:?}");
+    }
+}
+
+/// A milestone with the dates it writes, `(field, day)`.
+fn dated(id: &str, dates: &[(&str, &str)]) -> PassEntity {
+    PassEntity {
+        fields: dates
+            .iter()
+            .map(|(field, day)| (field.to_string(), day.to_string()))
+            .collect(),
+        ..milestone(id)
+    }
+}
+
+#[test]
+fn a_milestone_targeting_before_it_starts_is_e537() {
+    let found = check(&input(
+        vec![dated(
+            "v1.1",
+            &[("starts", "2026-03-01"), ("targets", "2026-02-01")],
+        )],
+        vec![],
+    ));
+    assert_eq!(codes(&found), [("E537", "v1.1")]);
+    assert_eq!(
+        found[0].message,
+        "milestone 'v1.1' targets 2026-02-01 before it starts 2026-03-01"
+    );
+    assert_eq!(found[0].severity, PassSeverity::Error);
+    assert_eq!(
+        found[0].suggestion.as_deref(),
+        Some("move `targets` on or after `starts`, or correct `starts`")
+    );
+    // A day earlier in a later month and year is still compared as a day.
+    let found = check(&input(
+        vec![dated(
+            "v2.0",
+            &[("starts", "2027-01-01"), ("targets", "2026-12-31")],
+        )],
+        vec![],
+    ));
+    assert_eq!(codes(&found), [("E537", "v2.0")]);
+}
+
+#[test]
+fn a_milestone_targeting_on_or_after_its_start_is_not_e537() {
+    for dates in [
+        &[("starts", "2026-03-01"), ("targets", "2026-03-01")][..],
+        &[("starts", "2026-03-01"), ("targets", "2026-03-02")],
+        &[("starts", "2026-12-31"), ("targets", "2027-01-01")],
+        &[("starts", "2026-03-01")],
+        &[("targets", "2026-03-01")],
+        &[],
+    ] {
+        let found = check(&input(vec![dated("v1.1", dates)], vec![]));
+        assert!(found.is_empty(), "{dates:?}: {found:?}");
+    }
+}
+
+#[test]
+fn a_milestone_date_that_is_no_calendar_day_is_left_to_e061() {
+    // The kernel reports each of these texts as E061 and still passes it on; E537 judges two calendar days only.
+    for (starts, targets) in [
+        ("2026-3-1", "2026-10-01"),
+        ("2026-3-1", "2026-02-01"),
+        ("2026-03-01T09:00:00Z", "2026-03-01"),
+        ("2026-03-01T09:00:00Z", "2026-02-01"),
+        ("", "2026-01-01"),
+        ("2026-03-01", ""),
+        ("2026-02-30", "2026-02-01"),
+        ("+2026-03-01", "2026-02-01"),
+        ("2026-03-01", "soon"),
+    ] {
+        let dates = [("starts", starts), ("targets", targets)];
+        let found = check(&input(vec![dated("v1.1", &dates)], vec![]));
+        assert!(found.is_empty(), "{dates:?}: {found:?}");
+    }
 }

@@ -34,7 +34,8 @@ behavior declare_judged_rule "Declare a Judged Rule" {
   category   validation
   contract   """
     A rule whose check is `judged` names its judge, its outcomes, the outcomes that pass and, per target kind,
-    its named inputs by selector (ADR 0290). A rule that cannot work as declared is W112 and is not registered.
+    its named inputs by selector (ADR 0290), and may wait for an owner state its kind has (`judged_while`, ADR
+    0362). A rule that cannot work as declared is W112 and is not registered.
   """
   verify unit "a judged rule is declared with its judge, outcomes and per-target selectors"
   verify unit "a malformed judged rule is W112 and is not registered"
@@ -44,9 +45,11 @@ behavior declare_judged_rule "Declare a Judged Rule" {
   verify unit "every input of the model's judged rules parses and resolves"
   verify unit "a chain to a kind of an unloaded optional peer is inert, not W112"
   verify unit "a chain into an unloaded optional peer's kind is inert, and into any other unloaded kind W112"
+  verify unit "a file() of a chain into an unloaded optional peer's kind is inert, and of any other unloaded kind W112"
   verify unit "a selector prints back to its canonical text"
   verify unit "a selector's kind filter prints its values sorted and parses back"
   verify unit "a verdict-written field is set by exactly one judged rule, and is never required"
+  verify unit "a judged target waits for an owner state its kind has, and binds no verdict value of that kind"
   verify unit "an SDK judged rule builds the descriptor the host reads"
 }
 
@@ -121,7 +124,9 @@ behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {
     is E083 and counts as missing; one that cannot be read is W168. A failing verdict on an Error rule is recorded, and a write that creates a judged target or stales a passing verdict is written, the finding reported (ADR 0297). Test inputs are compared when their results
     are recorded (a report, or the facts a reference names or a referrer step's collected kinds are held in), each
     chain of a `test(..)` input on its own, nothing linked included, and said not judged (I205) when no chain's
-    results are. A gated rule is neither evaluated nor reported. A field whose
+    results are. A gated rule is neither evaluated nor reported. A target that waits for an owner state
+    (`judged_while`, ADR 0362) is evaluated on every entity and read by the compute passes, then settled on the
+    merged snapshot: an entity in the other state owes no verdict, is not reported and lists no judgement. A field whose
     writer is the verdict holds the fresh verdict's outcome or value, and is E082 when written by hand. A project
     that declares no judged rule reads no report and stamps no file.
   """
@@ -151,6 +156,8 @@ behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {
   verify unit "a baseline whose files git could not read is neither cached nor judged"
   verify unit "the baseline digests an ungated checked value at the commit, over the commit's files"
   verify unit "an input with a value this machine did not check is skipped like a missing report, and reported as I207"
+  verify unit "a judged target that waits for an owner state is owed a verdict only in it, decided after the compute passes"
+  verify unit "a verdict recorded while its owner is pending is read once the owner is complete"
 }
 
 behavior answer_judged_inputs "Answer a Judged Rule's Inputs" {

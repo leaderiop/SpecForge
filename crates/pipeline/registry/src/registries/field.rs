@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use specforge_graph::FieldForm;
 use specforge_graph::field_form::BlockMembers;
-use specforge_protocol_types::{FieldDescriptor, FieldType, FieldWriter, ProofRole};
+use specforge_graph::{Bounds, FieldForm};
+use specforge_protocol_types::{Decimal, FieldDescriptor, FieldType, FieldWriter, ProofRole};
 
 /// A declared field type this host does not read. The registry build
 /// reports it as W019 and registers nothing.
@@ -214,13 +214,15 @@ impl FieldRegistry {
     }
 
     /// The fields that own the relation an unregistered `name` on `kind` would
-    /// write from the other side (ADR 0150): every reference field of another
-    /// kind that targets `kind` and names `name` its `inverse_of`; then, when
-    /// `value_kind` is another kind, every reference field of `value_kind` that
-    /// targets `kind`. Each once, the `inverse_of` matches first; each group
-    /// by (kind, field). Empty when `kind` registers `name`; never a field of
-    /// `kind` itself (a self-relation's other side cannot be told from a new
-    /// one).
+    /// write from the other side (ADR 0150, ADR 0359): every reference field,
+    /// of any kind (`kind` itself included, a self-relation), that targets
+    /// `kind` alone or among the kinds of its union and names `name` its
+    /// `inverse_of`; then, when `value_kind` is another kind, every reference
+    /// field of `value_kind` whose one target kind is `kind`. Each once, the
+    /// `inverse_of` matches first; each group by (kind, field). Empty when
+    /// `kind` registers `name`. By its values alone a field of `kind` itself is
+    /// never found: a self-relation's unnamed other side cannot be told from a
+    /// new field, nor can a union's.
     pub fn owning_fields(
         &self,
         kind: &str,
@@ -230,27 +232,32 @@ impl FieldRegistry {
         if self.contains(kind, name) {
             return Vec::new();
         }
-        let into_kind = || {
-            self.iter().filter(move |(owner, _, entry)| {
-                *owner != kind
-                    && entry.field_type().is_reference()
-                    && entry.declared().target_kind.as_deref() == Some(kind)
-            })
-        };
         let by_owner = |a: &&FieldRegistryEntry, b: &&FieldRegistryEntry| {
             (a.kind_name(), a.name()).cmp(&(b.kind_name(), b.name()))
         };
-        let mut owning: Vec<&FieldRegistryEntry> = into_kind()
-            .filter(|(_, _, entry)| entry.declared().inverse_of.as_deref() == Some(name))
+        let mut owning: Vec<&FieldRegistryEntry> = self
+            .iter()
             .map(|(_, _, entry)| entry)
+            .filter(|entry| {
+                entry.field_type().is_reference()
+                    && entry.declared().inverse_of.as_deref() == Some(name)
+                    && entry
+                        .form()
+                        .target_kinds()
+                        .iter()
+                        .any(|target| target == kind)
+            })
             .collect();
         owning.sort_by(by_owner);
         if let Some(value_kind) = value_kind.filter(|value_kind| *value_kind != kind) {
-            let mut by_value: Vec<&FieldRegistryEntry> = into_kind()
-                .filter(|(owner, _, entry)| {
-                    *owner == value_kind && !owning.iter().any(|seen| std::ptr::eq(*seen, *entry))
+            let mut by_value: Vec<&FieldRegistryEntry> = self
+                .fields_for_kind(value_kind)
+                .into_iter()
+                .filter(|entry| {
+                    entry.field_type().is_reference()
+                        && entry.declared().target_kind.as_deref() == Some(kind)
+                        && !owning.iter().any(|seen| std::ptr::eq(*seen, *entry))
                 })
-                .map(|(_, _, entry)| entry)
                 .collect();
             by_value.sort_by(by_owner);
             owning.extend(by_value);
@@ -398,13 +405,42 @@ fn read(
         );
         (declared.minimum, declared.maximum) = (None, None);
     }
-    if let (Some(minimum), Some(maximum)) = (declared.minimum, declared.maximum)
-        && minimum > maximum
-    {
+    for (name, bound) in [
+        ("minimum", &mut declared.minimum),
+        ("maximum", &mut declared.maximum),
+    ] {
+        let Some(n) = bound.as_ref() else { continue };
+        let unread = match field_type {
+            FieldType::Integer if n.as_i64().is_none() => {
+                Some("an integer's bound is a whole number within i64".to_string())
+            }
+            FieldType::Number => Decimal::from_json(n).err().map(|e| e.to_string()),
+            _ => None,
+        };
+        if let Some(why) = unread {
+            refuse(
+                problems,
+                path,
+                format!("declares {name} {n}, which its type '{ty}' cannot read: {why}"),
+            );
+            *bound = None;
+        }
+    }
+    let bounds = Bounds::of(
+        field_type,
+        declared.minimum.as_ref(),
+        declared.maximum.as_ref(),
+    );
+    if bounds.is_inverted() {
+        let (minimum, maximum) = bounds.texts();
         refuse(
             problems,
             path,
-            format!("declares minimum {minimum} above maximum {maximum}"),
+            format!(
+                "declares minimum {} above maximum {}",
+                minimum.unwrap_or_default(),
+                maximum.unwrap_or_default()
+            ),
         );
         (declared.minimum, declared.maximum) = (None, None);
     }
@@ -461,7 +497,7 @@ fn read(
     }
 
     let mut form = FieldForm::new(field_type, declared.enum_values.clone())
-        .bounded(declared.minimum, declared.maximum)
+        .bounded(declared.minimum.clone(), declared.maximum.clone())
         .requiring(is_member && declared.required)
         .written_by(writer)
         .historied(declared.immutable, declared.append_only);

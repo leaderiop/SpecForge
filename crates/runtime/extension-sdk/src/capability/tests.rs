@@ -61,3 +61,30 @@ fn a_collector_config_without_a_command_panics() {
             .collect(|_| Ok(CollectOutput::default()));
     });
 }
+
+#[test]
+fn a_collector_filter_and_env_ride_its_process_capability() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/runner", "0.1.0"));
+    b.collector("acme", |k| {
+        k.run(&["acme", "--out={report}"])
+            .filter(&["--only", "{filter}"])
+            .env(&["ACME_*", "ACME"])
+            .collect(|_| Ok(CollectOutput::default()));
+    });
+    let declaration = b.declaration();
+
+    let wire = serde_json::to_value(&declaration.capabilities).unwrap();
+    assert_eq!(wire[0]["filter"], serde_json::json!(["--only", "{filter}"]));
+    assert_eq!(wire[0]["env"], serde_json::json!(["ACME_*", "ACME"]));
+    assert!(specforge_protocol_types::capability_problems(&declaration).is_empty());
+}
+
+#[test]
+#[should_panic(expected = "declares a filter but no command")]
+fn a_collector_filter_without_a_command_panics() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/runner", "0.1.0"));
+    b.collector("acme", |k| {
+        k.filter(&["{filter}"])
+            .collect(|_| Ok(CollectOutput::default()));
+    });
+}

@@ -348,7 +348,7 @@ fn every_guard_answers_a_gate_and_is_silent_on_a_write() {
         json!({ "entities": entities, "edges": edges }),
     ))
     .expect("input");
-    for (name, code, _, check) in GUARDS {
+    for (name, code, check) in GUARDS {
         let answered = codes(check(&gate));
         assert!(
             !answered.is_empty() && answered.iter().all(|c| c == code),
@@ -360,161 +360,72 @@ fn every_guard_answers_a_gate_and_is_silent_on_a_write() {
     }
 }
 
-const TASK: &str = "v1.0/01/01-01/T1";
-
-/// A phase whose requirement R1 is complete, a plan that names it and this task; `tests` are test facts
-/// `(entity it names, status)`, `commit` whether a commit names the task.
-fn traced(
-    subject: Option<&str>,
-    task_type: &str,
-    commit: bool,
-    tests: &[(&str, TestStatus)],
-) -> PassInput {
-    let mut entities = vec![
-        json!({ "id": "v1.0/01", "kind": "phase", "values": { "requirements": ["R1"] } }),
-        json!({ "id": "R1", "kind": "requirement", "fields": { "status": "complete" } }),
-        json!({ "id": "v1.0/01/01-01", "kind": "plan", "fields": { "phase": "v1.0/01" },
-                "values": { "requirements": ["R1"] } }),
-        json!({ "id": TASK, "kind": "task", "fields": { "plan": "v1.0/01/01-01", "type": task_type } }),
-    ];
-    if commit {
-        entities.push(
-            json!({ "id": "v1.0/01/01-01/abcdef123456", "kind": "commit",
-                              "fields": { "task": TASK, "at": "2026-10-29T10:00:00Z" } }),
-        );
+/// A phase that lists requirement R1, its computed `status` and `proof` as the gate's graph carries them (an absent
+/// `proof` when `None`).
+fn traced(subject: Option<&str>, status: &str, proof: Option<&str>) -> PassInput {
+    let mut fields = json!({ "status": status });
+    if let Some(proof) = proof {
+        fields["proof"] = json!(proof);
     }
-    let value = json!({ "entities": entities, "edges": [], "trigger": ship(subject) });
-    let mut input: PassInput =
-        serde_json::from_value(crate::passes::plans::with_field_edges(value))
-            .expect("a pass input");
-    for (n, (entity, status)) in tests.iter().enumerate() {
-        let id = format!("js:app/test/t.test.js#t{n}");
-        crate::passes::thread::fixture::add_test(
-            &mut input,
-            &id,
-            &format!("t{n}"),
-            "test/t.test.js",
-            *status,
-            &[entity],
-        );
-    }
-    input
+    input(
+        ship(subject),
+        vec![
+            json!({ "id": "v1.0/01", "kind": "phase", "values": { "requirements": ["R1"] } }),
+            json!({ "id": "R1", "kind": "requirement", "fields": fields }),
+        ],
+        vec![],
+    )
 }
 
 #[test]
 fn e515_is_silent_outside_a_gate() {
-    let mut found = traced(Some("v1.0/01"), "auto", false, &[]);
+    let mut found = traced(Some("v1.0/01"), "complete", Some("no_task"));
     found.trigger = None;
     assert!(e515(&found).is_empty());
 }
 
 #[test]
-fn a_complete_requirement_without_a_task_is_e515() {
-    let mut found = traced(Some("v1.0/01"), "auto", true, &[(TASK, TestStatus::Passed)]);
-    found
-        .entities
-        .retain(|e| e.kind != "task" && e.kind != "commit");
-    let refused = e515(&found);
-    assert_eq!(codes(refused.clone()), ["E515"]);
-    assert!(refused[0].message.contains("no task of its plans"));
+fn e515_names_the_first_missing_link_of_the_proof() {
+    let suggestion = "link a passing test to the task with [gsd:<task id>], or name it in the `proof` of a truth \
+        that names the requirement, and record the commit";
+    for (proof, missing) in [
+        (Some("no_task"), "no task of its plans"),
+        // The derive pass writes a proof for every requirement: none reads as a thread with no task.
+        (None, "no task of its plans"),
+        (Some("no_commit"), "no commit of its tasks"),
+        (Some("not_run"), "no passing test of its tasks"),
+        (Some("no_test"), "no passing test of its tasks"),
+        (Some("failed"), "no passing test of its tasks"),
+    ] {
+        let refused = e515(&traced(Some("v1.0/01"), "complete", proof));
+        assert_eq!(codes(refused.clone()), ["E515"], "{proof:?}");
+        assert_eq!(
+            refused[0].message,
+            format!(
+                "complete requirement 'R1' does not trace to a task, a commit and a passing test: {missing}"
+            )
+        );
+        assert_eq!(refused[0].suggestion.as_deref(), Some(suggestion));
+    }
 }
 
 #[test]
-fn a_commit_alone_does_not_trace() {
-    let refused = e515(&traced(Some("v1.0/01"), "auto", true, &[]));
-    assert_eq!(codes(refused.clone()), ["E515"]);
-    assert!(refused[0].message.contains("no passing test of its tasks"));
-    let no_commit = e515(&traced(
-        Some("v1.0/01"),
-        "auto",
-        false,
-        &[(TASK, TestStatus::Passed)],
-    ));
-    assert!(no_commit[0].message.contains("no commit of its tasks"));
+fn a_proven_complete_requirement_passes_e515() {
+    assert!(e515(&traced(Some("v1.0/01"), "complete", Some("proven"))).is_empty());
+    assert!(e515(&traced(None, "complete", Some("proven"))).is_empty());
 }
 
 #[test]
-fn a_manual_task_does_not_trace() {
-    let refused = e515(&traced(
-        Some("v1.0/01"),
-        "manual",
-        true,
-        &[(TASK, TestStatus::Passed)],
-    ));
-    assert!(refused[0].message.contains("no task of its plans"));
-}
-
-#[test]
-fn a_passing_test_naming_the_task_traces() {
-    assert!(
-        e515(&traced(
-            Some("v1.0/01"),
-            "auto",
-            true,
-            &[(TASK, TestStatus::Passed)]
-        ))
-        .is_empty()
-    );
-    assert!(
-        e515(&traced(
-            Some("v1.0/01"),
-            "tdd",
-            true,
-            &[("R1", TestStatus::Passed)]
-        ))
-        .is_empty()
-    );
-}
-
-#[test]
-fn a_failing_linked_test_does_not_trace() {
-    let tests = [(TASK, TestStatus::Passed), (TASK, TestStatus::Failed)];
-    let refused = e515(&traced(Some("v1.0/01"), "auto", true, &tests));
-    assert!(refused[0].message.contains("no passing test of its tasks"));
+fn an_incomplete_requirement_is_not_e515() {
+    for status in ["pending", "in_progress", "blocked", "gaps_found"] {
+        assert!(e515(&traced(Some("v1.0/01"), status, Some("no_task"))).is_empty());
+    }
 }
 
 #[test]
 fn e515_names_the_subject() {
-    let scoped = e515(&traced(Some("v1.0/01"), "auto", true, &[]));
+    let scoped = e515(&traced(Some("v1.0/01"), "complete", Some("not_run")));
     assert_eq!(scoped[0].entity.as_deref(), Some("v1.0/01"));
-    let project = e515(&traced(None, "auto", true, &[]));
+    let project = e515(&traced(None, "complete", Some("not_run")));
     assert_eq!(project[0].entity.as_deref(), Some("R1"));
-}
-
-/// [`traced`] with a truth of the plan that names `requirement` and proves it by a test fact of `status`.
-fn proved(requirement: &str, status: &str) -> PassInput {
-    let mut input = traced(Some("v1.0/01"), "auto", true, &[]);
-    let fact = "js:taskboard/test/tasks.test.js#adds";
-    for entity in [
-        json!({ "id": "v1.0/01/01-01/TR1", "kind": "truth", "fields": { "requirement": requirement } }),
-        json!({ "id": fact, "kind": "test", "fields": { "name": "adds", "status": status } }),
-    ] {
-        input
-            .entities
-            .push(serde_json::from_value(entity).expect("an entity"));
-    }
-    for (target, label) in [(requirement, "requirement"), (fact, "proof")] {
-        input.edges.push(PassEdge {
-            source: "v1.0/01/01-01/TR1".to_string(),
-            target: target.to_string(),
-            label: label.to_string(),
-        });
-    }
-    input
-}
-
-#[test]
-fn e515_counts_a_passing_proof_of_a_truth_that_names_the_requirement() {
-    assert!(e515(&proved("R1", "passed")).is_empty());
-    let failing = e515(&proved("R1", "failed"));
-    assert!(failing[0].message.contains("no passing test of its tasks"));
-    assert!(
-        failing[0]
-            .suggestion
-            .as_deref()
-            .is_some_and(|s| s.contains("`proof`"))
-    );
-    // A truth naming another requirement proves nothing of this one.
-    let other = e515(&proved("R2", "passed"));
-    assert!(other[0].message.contains("no passing test of its tasks"));
 }

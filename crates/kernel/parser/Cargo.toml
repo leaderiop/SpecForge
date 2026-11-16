@@ -19,6 +19,8 @@ testing = ["dep:proptest", "dep:specforge-repo-root"]
 
 [dependencies]
 specforge-common = { workspace = true }
+# `Decimal`: a canonical decimal word is tagged a number (ADR 0361).
+specforge-protocol-types = { path = "../../leaf/protocol-types" }
 serde = { workspace = true }
 tree-sitter = { workspace = true }
 tree-sitter-specforge = { workspace = true }

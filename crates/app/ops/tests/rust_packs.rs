@@ -67,6 +67,16 @@ fn collect_in(
     runner: Option<&str>,
     machine: &ScriptedMachine,
 ) -> Result<Outcome, String> {
+    collect_filtered(compiled, runner, None, machine)
+}
+
+/// [`collect_in`] with the caller's `filter`.
+fn collect_filtered(
+    compiled: &specforge_project::CompiledProject,
+    runner: Option<&str>,
+    filter: Option<&str>,
+    machine: &ScriptedMachine,
+) -> Result<Outcome, String> {
     let view = specforge_ops::view::ProjectView::of(compiled);
     // The disk, as the CLI lends it: rust-source's reads go through the host's own reader.
     let ports = Ports {
@@ -81,6 +91,7 @@ fn collect_in(
             runner,
             mode: Mode::Run(RunnerOutput::Discard),
             announce: &mut |_, _| {},
+            filter,
             caller: Caller::new(&containment, Asking::Nobody).lending(
                 &ports,
                 &consent,
@@ -231,6 +242,46 @@ fn rust_test_writes_its_nextest_config_and_runs_cargo_nextest() {
     assert!(
         written.contains(&format!("path = \"{escaped}\"")),
         "{written}"
+    );
+}
+
+#[test]
+fn a_filter_reaches_nextest_as_its_filterset() {
+    let p = fixture();
+    let machine = machine(None);
+    let compiled = p.compile();
+    let filter = "binary_id(=toy::api) & test(=adds)";
+    collect_filtered(&compiled, Some("rust-test"), Some(filter), &machine).unwrap();
+
+    let argv = &machine.runs()[0].argv;
+    assert_eq!(
+        argv[argv.len() - 2..],
+        ["-E".to_string(), filter.to_string()]
+    );
+    // nextest is told its report through its config, so no test binary's integration writes at that path.
+    assert!(!machine.runs()[0].report_in_env);
+    assert_eq!(
+        argv[argv.len() - 4..argv.len() - 2],
+        ["--profile", "specforge"]
+    );
+    let view = specforge_ops::view::ProjectView::of(&compiled);
+    let declarations = view.registries().declarations();
+    let rust_test = specforge_ops::analysis::collect::collectors(declarations)
+        .into_iter()
+        .find(|c| c.name == "rust-test")
+        .unwrap();
+    assert_eq!(rust_test.filter, ["-E", "{filter}"]);
+    let declaration = declarations
+        .iter()
+        .find(|d| d.name() == "@rust/test")
+        .unwrap();
+    let specforge_protocol_types::PortScope::Process(process) = &declaration.capabilities[0].port
+    else {
+        panic!("rust-test runs a process");
+    };
+    assert_eq!(
+        process.env,
+        ["CARGO_*", "RUSTUP_*", "RUSTC", "RUSTC_*", "RUSTFLAGS"]
     );
 }
 

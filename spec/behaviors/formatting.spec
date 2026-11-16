@@ -363,6 +363,7 @@ behavior apply_format_rules "Apply Format Rules" {
     level 9 (after all 8 core rules). When multiple extensions contribute
     format rules, they MUST be applied in extension load order.
   """
+  verify unit "format keeps a number's word as written and writes a quoted one bare"
   verify unit "indentation rules normalize to configured indent style"
   verify unit "format writes every bare word as it was written, a number-like word and a difference included"
   verify unit "spacing rules normalize single spaces between tokens"

@@ -40,6 +40,7 @@ fn init_with(
             dir,
             name,
             version: init::DEFAULT_VERSION,
+            spec_root: Some(init::SPEC_ROOT),
             extensions,
             caller: specforge_ops::testing::caller(),
         },

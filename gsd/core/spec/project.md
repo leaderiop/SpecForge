@@ -4,12 +4,13 @@
  project ─1──*─ requirement ─*──1─ phase           (each v1 requirement maps to exactly one phase)
     │
     ├─1──*─ milestone ─1──*─ phase ─*──*─ phase     (depends_on: a DAG, earlier phases only)
+    │           ├─*──*─ milestone                   (depends_on: acyclic, beyond GSD)
     │           └─0..1─ retrospective ─1──*─ lesson
     ├─0..*─ workstream (a scope: its own milestones and phases)
     └─0..*─ methodology
 ```
 
-Files: `spec/gsd/project.spec`, `spec/gsd/requirements/<category>.spec`, `spec/gsd/milestones/<v>/milestone.spec`,
+Files: `spec/gsd/project.spec`, `spec/gsd/requirements/<area>.spec`, `spec/gsd/milestones/<v>/milestone.spec`,
 `spec/gsd/milestones/<v>/phases/<NN-slug>/phase.spec`.
 
 ## project
@@ -38,16 +39,34 @@ GSD: one bullet of `REQUIREMENTS.md`. Name: `AUTH-01`. A requirement id is uniqu
 | Field | Type | Flags | GSD |
 |---|---|---|---|
 | text | str | R | description after the ID |
-| category | str | R | `### [Category]` |
+| area | str | R | `### [Category]` (the word `decision.area` uses) |
 | tier | enum{v1, v2, out_of_scope} | R | `## v1` / `## v2` / `## Out of Scope` |
 | reason | str | | Out of Scope `Reason` (required when `out_of_scope`) |
 | defined | date | I | `**Defined:**` |
+| category | enum{functional, performance, compatibility, usability, reliability, security, maintainability, portability, safety, regulatory} | | beyond GSD: its quality class: ISO/IEC 25010:2011's eight product quality characteristics by their short names (interoperability is part of compatibility), `safety`, which ISO/IEC 25010:2023 added (that revision also renamed usability to interaction capability and portability to flexibility; the 2011 words are kept), or `regulatory` |
+| priority | enum{must, should, could} | | beyond GSD: MoSCoW, the journey's list ([product.md](product.md#journey)); "won't" is `tier out_of_scope` |
+| metric | {name str R, threshold num R, unit str, direction enum{at_most, at_least, exactly} R} | | beyond GSD: the measure it is held to; the threshold is a decimal with no bounds (`direction` carries the sense), and a count has no `unit` |
+| source | strs | | beyond GSD: where it came from: a person, quoted (`"Alice Martin"`), or a declared `ref`, bare (`gh.issue:42`; E003 when undeclared) |
+| personas | →* persona | | beyond GSD: the personas it serves ([product.md](product.md#persona)) |
+| constrains | →* requirement | | beyond GSD: the requirements it limits |
+| protects | →* invariant | | beyond GSD: the invariants it guards ([governance.md](governance.md#invariant)) |
+| tags | strs | | beyond GSD: words to group it by |
+| effort | enum{xs, s, m, l, xl} | | beyond GSD: how large it is to build, a T-shirt size |
 | status | enum{pending, in_progress, complete, blocked, gaps_found} | C | Traceability `Status`: complete when a plan naming it is complete (GSD marks it when the plan's summary is written, `gsd-executor.md:801-813`); blocked when it is not and every plan naming it is halted or blocked; in_progress when one is executing; else pending. `gaps_found` when the requirement would be complete and a phase it traces to has a `gaps_found` verification (`milestone.cts:453-514`) |
+| satisfied_by | →* item | C | beyond GSD: the code items the tasks of its plans name in `items`, as written (held by a collect or not, a `manual` task's too), sorted, each once; absent when none. The items `specforge trace <id>` reaches through its plans |
+| proof | enum{no_task, no_commit, not_run, no_test, failed, proven} | C | beyond GSD: how far its thread reaches, the first missing link of a task of its plans (not `manual`), a recorded commit of one, a collected test run (`not_run` without one), a passing test linked to a committed task or the requirement or named in the `proof` of a truth that names it (`no_test` with none, `failed` when a linked one failed and none passed); `proven` when whole. `gsd/E515` refuses a `complete` requirement that is not `proven` |
 | shapes | enum{numeric_range, collection, text, stateful, io}* | | the spec-less edge probe's authored shapes (an empty list proposes no edge) |
 | text_en | str | | an English translation the spec-less edge probe classifies instead |
 
 The requirement's phase (Traceability `Phase`) is the inverse of `phase.requirements`, read back as `phase`: a relation
-is written from one side, never both (W162).
+is written from one side, never both (W162). Its own relations name their reverse ([ADR 0354](../../../docs/adr/0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md)):
+a persona reads `personas` back as `requirements`, a requirement reads `constrains` back as `constrained_by` (a
+self-relation's named reverse, [ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)),
+and an invariant reads `protects` back as `protected_by`: that name written on the other side is E079, naming the
+owning field. A requirement also reads a decision's `affects` back as `affected_by`, and a risk's `affects` as `risks`.
+
+Why each field beyond GSD has its shape, and why `proof` is the one reading of the requirement's thread:
+[ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md).
 
 ## milestone
 
@@ -61,6 +80,14 @@ GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. N
 | whats_next | str | | `**What's next:**` |
 | goal | str | | the Current Milestone's `**Goal:**` (PROJECT.md), recorded by `/gsd-new-milestone` |
 | target_features | strs | | the Current Milestone's `**Target features:**` (PROJECT.md) |
+| exit_criteria | strs | | beyond GSD ([ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)): what must hold to call it done |
+| starts | date | | beyond GSD ([ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)): when work on it starts |
+| targets | date | | beyond GSD ([ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)): the day it aims to ship; on or after `starts` (both written; the same day is clean), gsd/E537 |
+| depends_on | →* milestone | | beyond GSD ([ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)): the milestones that ship before it; acyclic, gsd/E102 |
+| owner | str | | beyond GSD ([ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)): the person or team that answers for it |
+| contributors | strs | | beyond GSD ([ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)): the others working on it |
+| artifact_types | strs | | beyond GSD ([ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)): the kinds of thing it ships, as open words (`cli`, `library`, `extension`, `service`); one milestone may ship several |
+| tags | strs | | beyond GSD ([ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)): free words |
 | abandoned | {reason str R, ruled_by str R, at date R} | | gsd-path's abandon ruling |
 | workstream | → workstream | I | the workstream it belongs to (K2: it scopes the milestone, `auth-rework/v1.0`); absent outside one, and the milestone keeps its short id |
 | completion | {at date, audit → milestone_audit} | H | written by `close_milestone` (`/gsd-complete-milestone`) once its audit passes: `audit` is the latest audit it closed on |
@@ -71,6 +98,14 @@ GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. N
 | git_range | str | C | `**Git range:**`: the first and last recorded `feat` commit as `` `feat(01-01)` → `feat(01-02)` `` (the scope is the name of the plan the commit names); absent with none |
 | progress | {phases int, phases_complete int, plans int, plans_complete int, percent int} | C | `STATE.md`'s `progress`, per milestone: `percent` is the smaller of plans_complete/plans and phases_complete/phases (a side with nothing counts 1, `state-document.cts:861-878`); `phases_complete` counts the phases whose verification passed, which needs r40's verdicts. `plans_complete` counts every plan with a summary, a halted one too (#2830), and the sentinel `999.x` backlog phases are left out (#3167) |
 | branch | str | C | the branch it is executed on, from `git.branching_strategy` and its template (`{milestone}`, `{slug}`); under the `milestone` strategy, else absent |
+| risk_level | int | C | the highest current rpn of the risks it carries: its phases' `risk_level`, and each risk whose `milestone` names it ([governance.md](governance.md#risk-on-phases-and-milestones)); absent with none (beyond GSD) |
+| journeys_covered | {journeys int, covered int} | C | the journeys whose `milestones` list it ([product.md](product.md#journey)), and how many of them are `covered`; absent when no journey lists it (beyond GSD, [ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md) D23) |
+
+Upstream GSD's milestone has none of the fields marked beyond GSD ([ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)): they are optional, no GSD file renders them and no
+ported prompt asks for them.
+
+The milestone reads back the journeys that ship in it as `journeys` (`journey.milestones`, [product.md](product.md)):
+writing `journeys` on a milestone is E079.
 
 GSD's archive copies (`milestones/<v>-ROADMAP.md` …) have no counterpart: a shipped milestone's entities stay where
 they are, and `specforge query` answers what an archive answered.
@@ -98,6 +133,8 @@ Scoped by milestone.
 | status | enum{not_started, planned, in_progress, executed, needs_review, complete, deferred} | C | the GSD phase-status ladder (`phase-status.cts:160-196`): no plan is `not_started`, no summary `planned`, fewer summaries than plans `in_progress`, `needs_review` when the verification is `human_needed`, `complete` when it passed (`phase-status.cts:174-197`; UAT does not feed it), else `executed`. `passed` needs r40's verdicts; `deferred` is never derived. The phase is complete (ADR 0350 owner state) once `executed`, `needs_review` or `complete`: its scoped kinds' planned paths are checked from then on |
 | plans_complete | str `N/M` | C | Progress `Plans Complete`: plans with a summary over plans |
 | completed | date | C | Progress `Completed` |
+| risk_level | int | C | the highest current rpn of the risks a plan of the phase mitigates, through a task or a truth ([governance.md](governance.md#risk-on-phases-and-milestones)); absent with none (beyond GSD) |
+| invariants_due | →* invariant | C | the invariants a commit of the phase changed after their last gsd/I536 verdict ([governance.md](governance.md#when-an-invariant-is-due)); absent with none; inverse `due_in` (beyond GSD) |
 
 ## workstream
 

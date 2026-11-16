@@ -95,6 +95,26 @@ fn the_text_has_the_preamble_the_header_and_the_tail() {
     assert!(assemble("x", &input("cursor", "")).contains("as the adapter header above says"));
 }
 
+/// The preamble says whose the workflow text is: GSD's for a ported command, ours for a command [`OWN`] lists.
+#[test]
+fn the_preamble_says_whose_the_workflow_text_is() {
+    let ported = "The workflow text below is GSD's own.";
+    let ours = "The workflow text below is `@gsd/core`'s own, not a port of GSD's.";
+    for (command, own) in [
+        ("plan-phase", false),
+        ("update", true),
+        ("verify-invariant", true),
+    ] {
+        let out = render(&Input {
+            command,
+            ..input("claude-code", "")
+        })
+        .expect("a render");
+        assert_eq!(out.contains(ours), own, "{command}: {out}");
+        assert_eq!(out.contains(ported), !own, "{command}: {out}");
+    }
+}
+
 /// The rows of `spec/README.md`'s "Every GSD file maps to a kind" table whose extension is `core`.
 fn readme_core_rows() -> Vec<(String, String)> {
     gsd_kit::markdown::tables(include_str!("../../../spec/README.md"))
@@ -117,7 +137,7 @@ fn the_preamble_table_matches_spec_readme() {
         .map(|(a, b)| (a.to_string(), b.to_string()))
         .collect();
     assert_eq!(ours, rows);
-    let text = preamble::text("claude-code", "{}", "@gsd/core", FILES);
+    let text = preamble::text("claude-code", "{}", "@gsd/core", FILES, false);
     for forbidden in [".planning", "gsd-tools", "gsd_run", "gsd-sdk", "gsd.cjs"] {
         assert!(!text.contains(forbidden), "the preamble names {forbidden}");
     }
@@ -134,7 +154,7 @@ fn the_preamble_settings_block_lists_the_gsd_settings() {
     let parsed: serde_json::Value = serde_json::from_str(&block).expect("a JSON object");
     assert_eq!(parsed["workflow.discuss_mode"], "assumptions");
     assert_eq!(parsed.as_object().map(|o| o.len()), Some(2));
-    assert!(preamble::text("claude-code", &block, "@gsd/core", FILES).contains(&block));
+    assert!(preamble::text("claude-code", &block, "@gsd/core", FILES, false).contains(&block));
 }
 
 /// The two rows in the roster's order, whatever that is.

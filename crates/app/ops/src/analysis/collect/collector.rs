@@ -6,8 +6,8 @@ use specforge_common::codes;
 use specforge_effects::Uses;
 use specforge_effects::git::{Git, Located};
 use specforge_protocol_types::{
-    CONFIG_PLACEHOLDER, ExtensionDeclaration, Input, Inputs, Operation, PortScope, ProcessConfig,
-    REPORT_PLACEHOLDER,
+    CONFIG_PLACEHOLDER, ExtensionDeclaration, FILTER_PLACEHOLDER, Input, Inputs, Operation,
+    PortScope, ProcessConfig, REPORT_PLACEHOLDER,
 };
 use std::path::Path;
 
@@ -38,6 +38,9 @@ pub struct Collector {
     pub answers: Vec<String>,
     /// The config file its command reads, from its process capability (ADR 0348 D1): written before a run.
     pub config: Option<ProcessConfig>,
+    /// The arguments its process capability appends after `run` when a caller passes a filter (ADR 0360), `{filter}`
+    /// in one of them the caller's text: empty when it takes none.
+    pub filter: Vec<String>,
     /// What installs its program, said when the program is not found (ADR 0348 D4).
     pub install: Option<String>,
 }
@@ -109,6 +112,7 @@ fn collector(
         capability: c.capability.clone(),
         answers: c.answers.clone(),
         config: process.and_then(|p| p.config.clone()),
+        filter: process.map(|p| p.filter.clone()).unwrap_or_default(),
         install: c.install.clone(),
     }
 }
@@ -317,14 +321,34 @@ pub(super) fn expanded_config(template: &str, report: &Path) -> String {
     template.replace(REPORT_PLACEHOLDER, &escaped)
 }
 
-/// The declared command with `{report}` and `{config}` expanded.
+impl Collector {
+    /// Whether its command is told where its report goes, through `{report}` in its argv or its config: then it writes
+    /// the report itself, and `SPECFORGE_REPORT` is not set for it.
+    pub fn told_its_report(&self) -> bool {
+        self.run.iter().any(|arg| arg.contains(REPORT_PLACEHOLDER))
+            || self
+                .config
+                .as_ref()
+                .is_some_and(|config| config.template.contains(REPORT_PLACEHOLDER))
+    }
+}
+
+/// The declared command with `{report}` and `{config}` expanded, then, when a caller passes `filter`, the collector's
+/// filter arguments with `{filter}` replaced by its text, one argument (ADR 0360): never read by a shell.
 pub(super) fn command_line(
     collector: &Collector,
     report: &Path,
     config: Option<&Path>,
+    filter: Option<&str>,
 ) -> Vec<String> {
     let report = report.display().to_string();
     let config = config.map(|c| c.display().to_string()).unwrap_or_default();
+    let filtered = filter.map(|text| {
+        collector
+            .filter
+            .iter()
+            .map(move |arg| arg.replace(FILTER_PLACEHOLDER, text))
+    });
     collector
         .run
         .iter()
@@ -332,5 +356,6 @@ pub(super) fn command_line(
             arg.replace(REPORT_PLACEHOLDER, &report)
                 .replace(CONFIG_PLACEHOLDER, &config)
         })
+        .chain(filtered.into_iter().flatten())
         .collect()
 }

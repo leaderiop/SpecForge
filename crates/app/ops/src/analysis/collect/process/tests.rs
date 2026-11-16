@@ -22,6 +22,7 @@ fn run(
             argv,
             dir,
             report,
+            report_in_env: true,
             output,
         },
         capture,
@@ -128,6 +129,7 @@ fn a_command_past_the_deadline_is_stopped() {
                     argv: &argv,
                     dir: &root,
                     report: &root.join("r.json"),
+                    report_in_env: true,
                     output: RunnerOutput::Discard,
                 },
                 None,
@@ -183,6 +185,7 @@ fn a_stopped_command_says_why_in_the_class_words() {
                 argv: &argv,
                 dir: dir.path(),
                 report: &dir.path().join("r.json"),
+                report_in_env: true,
                 output: RunnerOutput::Discard,
             },
             None,
@@ -220,4 +223,125 @@ fn a_cmd_shim_on_path_runs() {
     )
     .unwrap();
     assert_eq!(ran.exit_code, Some(3));
+}
+
+#[cfg(unix)]
+#[test]
+#[expect(
+    unsafe_code,
+    reason = "set_var before any thread of this test reads the environment; the test runs in its own process under nextest"
+)]
+fn a_collector_command_never_receives_a_credential() {
+    // SAFETY: no other thread of this test reads the environment.
+    unsafe {
+        std::env::set_var("CARGO_REGISTRY_TOKEN", "withheld");
+        std::env::set_var("CARGO_REGISTRIES_X_TOKEN", "withheld");
+        std::env::set_var("CARGO_REGISTRIES_X_CREDENTIAL_PROVIDER", "cargo:token");
+        std::env::set_var("CARGO_HTTP_PROXY", "http://user:pass@proxy.test:8080");
+        std::env::set_var("HTTPS_PROXY", "http://proxy.test:3128");
+        std::env::set_var("CARGO_SPECFORGE_PROBE", "passed");
+        std::env::set_var("PGPASSWORD", "withheld");
+        std::env::set_var("MYSQL_PWD", "withheld");
+        std::env::set_var("GH_PAT", "withheld");
+        std::env::set_var("ALL_PROXY", "user:pass@proxy.test:1080");
+        std::env::set_var("DATABASE_URL", "postgres://user:pa#ss@db.test/x");
+        std::env::set_var("OLDPWD", "/probe/before");
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let mut capture = Vec::new();
+    let ran = run(
+        &["env".to_string()],
+        dir.path(),
+        &dir.path().join("r.json"),
+        Some(&mut capture),
+        RunnerOutput::Discard,
+    )
+    .unwrap();
+    assert_eq!(ran.exit_code, Some(0));
+    let env = String::from_utf8(capture).unwrap();
+    assert!(env.contains("CARGO_SPECFORGE_PROBE=passed"), "{env}");
+    for withheld in [
+        "CARGO_REGISTRY_TOKEN=",
+        "CARGO_REGISTRIES_X_TOKEN=",
+        "CARGO_REGISTRIES_X_CREDENTIAL_PROVIDER=",
+        "PGPASSWORD=",
+        "MYSQL_PWD=",
+        "GH_PAT=",
+        "user:pa",
+    ] {
+        assert!(!env.contains(withheld), "{withheld}: {env}");
+    }
+    // The proxy still routes the command's fetches: without its password, or whole when it has none.
+    assert!(
+        env.contains("CARGO_HTTP_PROXY=http://proxy.test:8080\n"),
+        "{env}"
+    );
+    assert!(
+        env.contains("HTTPS_PROXY=http://proxy.test:3128\n"),
+        "{env}"
+    );
+    assert!(env.contains("ALL_PROXY=proxy.test:1080\n"), "{env}");
+    assert!(env.contains("DATABASE_URL=postgres://db.test/x\n"), "{env}");
+    assert!(
+        env.contains("OLDPWD=/probe/before\n"),
+        "a working directory: {env}"
+    );
+}
+
+/// The report path a caller exported, as a test run exports its report directory.
+#[cfg(unix)]
+const EXPORTED_REPORT: &str = "/a/report/directory/the/caller/exported";
+
+#[cfg(unix)]
+#[test]
+fn a_command_told_its_report_runs_without_the_report_env() {
+    // The test runs again in a child process whose environment holds the caller's own `SPECFORGE_REPORT`, so the
+    // machine meets an inherited value while this process's environment is never written.
+    if std::env::var_os(REPORT_ENV).as_deref() != Some(EXPORTED_REPORT.as_ref()) {
+        let module = module_path!()
+            .split_once("::")
+            .map_or("", |(_, module)| module);
+        let name = format!("{module}::a_command_told_its_report_runs_without_the_report_env");
+        let child = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([name.as_str(), "--exact", "--test-threads=1"])
+            .env(REPORT_ENV, EXPORTED_REPORT)
+            .output()
+            .unwrap();
+        let said = String::from_utf8_lossy(&child.stdout);
+        assert!(
+            child.status.success() && said.contains(" 1 passed;"),
+            "{said}{}",
+            String::from_utf8_lossy(&child.stderr)
+        );
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let seen = dir.path().join("seen");
+    let argv = vec![
+        "sh".to_string(),
+        "-c".into(),
+        format!(
+            "printf '%s' \"${{{REPORT_ENV}:-unset}}\" > {}",
+            seen.display()
+        ),
+    ];
+    for (report_in_env, expected) in [
+        (false, "unset".to_string()),
+        (true, dir.path().join("r.xml").display().to_string()),
+    ] {
+        let ran = real_machine()
+            .run(
+                &CollectorCommand {
+                    argv: &argv,
+                    dir: dir.path(),
+                    report: &dir.path().join("r.xml"),
+                    report_in_env,
+                    output: RunnerOutput::Discard,
+                },
+                None,
+            )
+            .unwrap();
+        assert_eq!(ran.exit_code, Some(0));
+        assert_eq!(std::fs::read_to_string(&seen).unwrap(), expected);
+    }
 }

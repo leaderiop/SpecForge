@@ -937,7 +937,7 @@ Route on `$STATUS`: if `passed`, proceed to update_roadmap. Otherwise keep the p
 
 One `uat_session` of the phase, sourced from the summaries the items come from, and one `uat_test` per
 human_verification item of the phase's verification (`specforge query "$PHASE_ID" --kinds verification --format context`),
-written with `specforge new` (`specforge schema --kind uat_session`, `--kind uat_test`). Repeat the `new uat_test` line
+with the journey an item walks when it walks one (`specforge query "$PHASE_ID" --depth 2 --kinds journey --pick '.nodes[kind=journey].id'` lists the journeys that name a requirement of the phase or list its milestone; read one with `specforge query <journey> --depth 0 --format context`), written with `specforge new` (`specforge schema --kind uat_session`, `--kind uat_test`). Repeat the `new uat_test` line
 per item with the next id (`U2`). A test's `result` is the person's, recorded by `/gsd:verify-work`; never write it.
 
 ```bash
@@ -952,9 +952,10 @@ TEXT
 IFS= read -rd '' EXPECTED <<'TEXT' || true; EXPECTED=${EXPECTED%$'\n'}
 {its expected behavior, from the verification}
 TEXT
+JOURNEY="{the journey the item walks, or nothing}"
 PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
 specforge new uat_session "$SESSION_ID" "$TITLE" --in "$PHASE_FILE" --phase "$PHASE_ID" --source "$SOURCE" --started "$STARTED" || exit 1
-specforge new uat_test U1 "$TEST_TITLE" --in "$PHASE_FILE" --session "$PHASE_ID/$SESSION_ID" --expected "$EXPECTED" || exit 1
+specforge new uat_test U1 "$TEST_TITLE" --in "$PHASE_FILE" --session "$PHASE_ID/$SESSION_ID" --expected "$EXPECTED" ${JOURNEY:+--journey "$JOURNEY"} || exit 1
 ```
 
 Commit the session:

@@ -374,7 +374,7 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
     registries_populated_fired "registries_populated event has fired, confirming FieldRegistry and KindRegistry are fully populated"
   }
   ensures {
-    unknown_fields_diagnosed "W020 warning emitted for every unrecognized field name on registered entity kinds, E079 when the name is the other side of a relation another kind owns"
+    unknown_fields_diagnosed "W020 warning emitted for every unrecognized field name on registered entity kinds, E079 when the name is the other side of a relation a reference field owns, its own kind's included"
     cascading_avoided        "Field validation skipped for entities with unregistered kinds (already E024)"
   }
   contract   """
@@ -392,12 +392,14 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
     the W020 MUST suggest installing that extension, as E024 does for a
     kind.
     A field the kind does not register that is the other side of a relation
-    another kind owns (ADR 0150) MUST produce E079 instead of W020, naming
-    the owning field and the edit: an owning field of another kind that
-    targets this kind names it in its inverse_of, or every id the field
-    lists is an entity of one other kind that owns a reference field into
-    this kind. A field of the kind's own relations (a self-relation) is
-    never the other side, and stays W020.
+    a reference field owns, its own kind's included (ADR 0150, ADR 0359),
+    MUST produce E079 instead of W020, naming the owning field and the
+    edit: a reference field that targets this kind, alone or among a
+    union's kinds, names it in its inverse_of (a self-relation's
+    included), or every id the field lists is an entity of one other kind
+    that owns a reference field into this kind. By its values alone, a
+    field of the kind's own relations is never the other side, and stays
+    W020.
     `verify` statements are not fields (ADR 0094): a field named `verify`
     MUST be checked like any field, and statements on a kind no
     extension made testable (supports_verify) MUST produce W158. When the
@@ -416,6 +418,8 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
   verify unit "a reverse name an inverse_of declares is E079 even when its ids do not resolve"
   verify unit "an event's trigger is E079 naming the produces and consumes fields"
   verify unit "E079 names its owning fields in kind and field order"
+  verify unit "a reverse name a self-relation's inverse_of declares is E079 naming the owning field"
+  verify unit "a reverse name a union's inverse_of declares is E079 on each kind of the union"
   verify unit "an unknown field of a kind's own relation stays W020"
   verify unit "field validation skipped when entity kind is unregistered"
   verify contract "Detect Unknown Entity Fields: unknown field detection holds — registries_populated_fired, unknown_fields_diagnosed, cascading_avoided"
@@ -451,14 +455,16 @@ behavior check_field_value_types "Check Field Value Types" {
     declared type (ADR 0283): on a reference field a number, a date or `true` / `false` is the name it is
     written as (`10`, `2026-10-26`), a negative number none; on an integer field `-?N(-N)*` is an integer
     difference in checked 64-bit arithmetic (`2-1` is 1, `007` is 7) and a date is its difference
-    (`2026-10-26` is 1990), quoted or bare.
+    (`2026-10-26` is 1990), quoted or bare; on a number field a decimal word (`0.75`, `-0.25`, `007.5`,
+    `1.5e3`) or an integer is its exact decimal of at most 15 significant digits (ADR 0361), quoted or bare.
     Coercion MUST NOT produce a diagnostic.
 
     A stored value its declared type does not take MUST produce an E061
     error at the value's source span naming the field, the declared type
     and the value given (a string quoted as a .spec string writes it). A string field takes text, a bare word, a date, a
     type union or an expression group; an enum one of its declared values
-    (suggesting the closest); an integer field an integer, a difference or a date (E061 names the operand that is no number); a bool field
+    (suggesting the closest); an integer field an integer, a difference or a date (E061 names the operand that is no number); a number field one decimal of
+    at most 15 significant digits within the range a binary64 holds and within its bounds; a bool field
     true or false; a date field one calendar day, `YYYY-MM-DD`, that exists; an identifier field one word (letters, digits and `_`,
     starting with a letter or `_`), bare or quoted; a reference field one id;
     a string_list or reference_list field a list; a block field a block. Fields no
@@ -490,6 +496,11 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "no authored kind of a builtin or pinned example declares a member, a target union, a bound, an enum list or a block list"
   verify unit "a reference field reads a bare word as the name it spells, whether or not the word could be a number or a date"
   verify unit "a bare word is read by its field's declared type: a reference its name, an integer its difference, a date its day"
+  verify unit "a number field reads a decimal word with a sign, a fraction, an exponent and leading zeros, and refuses any other word"
+  verify unit "a decimal word on a text field is its text and on a reference field the name it spells"
+  verify unit "a quoted number on a number field is W159 and written bare as given, or in its canonical text"
+  verify integration "a number field reads its decimal word and exports the exact decimal as a JSON number"
+  verify integration "a number that is no decimal, has more than 15 significant digits or lies outside its bounds is E061"
   verify unit "a list on a field declared as a single value is an error"
   verify unit "an enum value suggests the closest declared value"
   verify unit "an export with a coerced string_list validates against the published schema"
@@ -514,6 +525,9 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "an enum list takes the declared words, each once, and a scalar is a one-item list"
   verify unit "a typed block reads and admits each member by its own declared type"
   verify unit "an integer outside its declared minimum or maximum is E061 naming the bounds"
+  verify unit "a number is compared with its decimal bounds exactly"
+  verify unit "a JSON number a number form admits is held in its one JSON form, as a block member too"
+  verify unit "an open block admits a whole JSON number of any length and a fraction a decimal holds"
   verify unit "E061, E006, W020 and the declarative rules reach every member of every item of a typed block"
   verify unit "a field descriptor carries its members, target kinds and bounds on the wire"
   verify unit "a typed block is stored with each member coerced by its form, and a single block on a block list is its one item"

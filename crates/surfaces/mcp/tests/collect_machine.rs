@@ -67,3 +67,62 @@ fn collect_asks_nobody_and_runs_nothing_unapproved() {
     let error = crate::tool_errors::mcp_error(&resp);
     assert_eq!(error["diagnostic"]["code"], "E059", "{error}");
 }
+
+#[test]
+fn a_filter_for_a_collector_declaring_none_names_the_filter_argument() {
+    let machine = Arc::new(ScriptedMachine::new());
+    let server = McpServer::new()
+        .with_collector_machine(Arc::clone(&machine) as Arc<dyn CollectorMachine>)
+        .with_consent(Arc::new(
+            specforge_effects::testing::MemoryConsent::approving_everything(),
+        ));
+    let mut served = Served::over(project(), server);
+
+    let resp = call_tool(
+        &mut served,
+        "specforge.collect",
+        json!({"run": true, "filter": "api"}),
+    );
+
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["diagnostic"]["code"], "E058", "{error}");
+    assert_eq!(error["argument"], "filter", "{error}");
+    assert!(machine.runs().is_empty());
+}
+
+#[test]
+fn the_collect_tool_passes_its_filter() {
+    let machine = Arc::new(ScriptedMachine::new().answering(ScriptedRun {
+        files: vec![(
+                "".into(),
+                "<testsuites><testsuite name=\"demo\" tests=\"0\"></testsuite></testsuites>"
+                    .to_string(),
+            )],
+        exit_code: Some(0),
+        ..ScriptedRun::default()
+    }));
+    let server = McpServer::new()
+        .with_collector_machine(Arc::clone(&machine) as Arc<dyn CollectorMachine>)
+        .with_consent(Arc::new(
+            specforge_effects::testing::MemoryConsent::approving_everything(),
+        ));
+    let rust = TestProject::new()
+        .enabling(&["@code/core", "@rust/cargo", "@rust/source", "@rust/test"])
+        .file(
+            "Cargo.toml",
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .file("src/lib.rs", "");
+    let mut served = Served::over(rust, server);
+
+    let resp = call_tool(
+        &mut served,
+        "specforge.collect",
+        json!({"run": true, "runner": "rust-test", "filter": "test(=adds)", "effects": "online"}),
+    );
+
+    let runs = machine.runs();
+    assert_eq!(runs.len(), 1, "{resp}");
+    let argv = &runs[0].argv;
+    assert_eq!(argv[argv.len() - 2..], ["-E", "test(=adds)"], "{argv:?}");
+}

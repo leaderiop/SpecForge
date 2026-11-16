@@ -173,7 +173,7 @@ pub fn root_layout(ctx: &Ctx, _: &Selection) -> Result<(), String> {
 }
 
 /// `git ls-files -z`: every tracked path, repo-relative.
-fn tracked_paths(ctx: &Ctx) -> Result<Vec<String>, String> {
+pub(crate) fn tracked_paths(ctx: &Ctx) -> Result<Vec<String>, String> {
     let (ok, listed) = ctx.capture(ctx.cmd("git").args(["ls-files", "-z"]))?;
     if !ok {
         return Err("`git ls-files` failed".into());
@@ -273,6 +273,12 @@ pub fn build(ctx: &Ctx, _: &Selection) -> Result<(), String> {
             &archive,
         ]));
     }
+    compile_tests(ctx)
+}
+
+/// Compile every test of the workspace without running one: the test build `tests` and any check that runs tests
+/// later find fresh.
+pub(crate) fn compile_tests(ctx: &Ctx) -> Result<(), String> {
     ctx.sh(ctx
         .cmd("cargo")
         .args(["nextest", "run", "--workspace", "--no-run", "--cargo-quiet"]))

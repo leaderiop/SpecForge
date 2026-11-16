@@ -42,8 +42,13 @@ TEXT
 IFS= read -rd '' RATIONALE <<'TEXT' || true; RATIONALE=${RATIONALE%$'\n'}
 {why it was chosen}
 TEXT
+SUPERSEDES="{the earlier project decisions it reverses, comma-separated ids such as D-01, or nothing}"
+AFFECTS="{the requirements, invariants or code items it shapes, comma-separated ids such as AUTH-01, or nothing}"
+IFS= read -rd '' ALTERNATIVES <<'TEXT' || true; ALTERNATIVES=${ALTERNATIVES%$'\n'}
+{the options weighed and not chosen, one JSON list: [{"name": "…", "pros": ["…"], "cons": ["…"], "why_not": "…"}], or nothing}
+TEXT
 specforge new project "$SLUG" "$NAME" --in spec/project.spec --name "$NAME" --what "$WHAT" --core_value "$CORE_VALUE" --context "$CONTEXT" --constraints "$CONSTRAINTS" --out_of_scope "$OUT_OF_SCOPE" || exit 1
-specforge new decision "$DECISION_ID" "$DECISION" --in spec/project.spec --origin project --text "$DECISION" --rationale "$RATIONALE" --outcome pending || exit 1
+specforge new decision "$DECISION_ID" "$DECISION" --in spec/project.spec --origin project --text "$DECISION" --rationale "$RATIONALE" --outcome pending ${SUPERSEDES:+--supersedes "$SUPERSEDES"} ${AFFECTS:+--affects "$AFFECTS"} ${ALTERNATIVES:+--alternatives "$ALTERNATIVES"} || exit 1
 specforge link "$SLUG" key_decisions "$DECISION_ID" || exit 1
 ```
 

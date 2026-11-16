@@ -6,6 +6,7 @@
 mod checked_once;
 mod facts;
 mod facts_input;
+mod filter;
 mod modes;
 mod order;
 mod outcomes;
@@ -118,6 +119,8 @@ pub struct Runner {
     reads: Vec<specforge_protocol_types::Input>,
     /// The config file its command reads: a name and a template.
     config: Option<(String, String)>,
+    /// The arguments a caller's filter adds to its command.
+    filter: Vec<String>,
     install: Option<String>,
     answer: Answer,
 }
@@ -135,6 +138,7 @@ impl Runner {
             capture: None,
             reads: Vec::new(),
             config: None,
+            filter: Vec::new(),
             install: None,
             answer: Answer::Output(CollectOutput::default()),
         }
@@ -143,6 +147,12 @@ impl Runner {
     /// Its command reads the config file `name`, written from `template` before the run (ADR 0348).
     pub fn configuring(mut self, name: &str, template: &str) -> Self {
         self.config = Some((name.to_string(), template.to_string()));
+        self
+    }
+
+    /// Its command takes a caller's filter through `args` (ADR 0360).
+    pub fn filtering(mut self, args: &[&str]) -> Self {
+        self.filter = args.iter().map(|a| a.to_string()).collect();
         self
     }
 
@@ -238,6 +248,10 @@ impl Runner {
             }
             if let Some((name, template)) = &self.config {
                 c.config(name, template);
+            }
+            if !self.filter.is_empty() {
+                let filter: Vec<&str> = self.filter.iter().map(String::as_str).collect();
+                c.filter(&filter);
             }
             if let Some(line) = &self.install {
                 c.install(line);
@@ -389,6 +403,19 @@ impl Fixture {
         asking: Asking<'_>,
         machine: &Machine,
     ) -> Result<Outcome, Refusal<CollectField>> {
+        self.collect_filtered(runner, mode, None, containment, asking, machine)
+    }
+
+    /// The same, with the caller's `filter`.
+    pub fn collect_filtered(
+        &self,
+        runner: Option<&str>,
+        mode: Mode<'_>,
+        filter: Option<&str>,
+        containment: &Containment,
+        asking: Asking<'_>,
+        machine: &Machine,
+    ) -> Result<Outcome, Refusal<CollectField>> {
         let view = self.project.view();
         specforge_ops::analysis::collect::collect(
             &view,
@@ -396,6 +423,7 @@ impl Fixture {
                 runner,
                 mode,
                 announce: &mut |_, _| {},
+                filter,
                 caller: Caller::new(containment, asking),
             },
             &machine.scripted,

@@ -1,0 +1,276 @@
+---
+source: xtask/tests/absorb_e2e.rs
+expression: ledger
+---
+{
+  "format": 1,
+  "from": "absorb-fixture",
+  "entries": [
+    {
+      "kind": "constraint",
+      "id": "write_latency",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Constraint"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "write_latency",
+      "field": "constrains",
+      "value": [
+        "write_entry"
+      ],
+      "why": {
+        "later": "behavior"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "write_latency",
+      "field": "enforced_by",
+      "value": [
+        "write_entry"
+      ],
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "write_latency",
+      "field": "tier",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v1"
+        }
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "write_latency",
+      "field": "verify",
+      "value": {
+        "kind": "load",
+        "text": "benchmark a thousand writes, assert the 99th percentile"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "first_store",
+      "field": "origin",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "decision.origin",
+          "value": "project"
+        }
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "first_store",
+      "field": "status",
+      "value": "superseded",
+      "why": {
+        "computed": {
+          "field": "decision.in_force",
+          "new": true
+        }
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "first_store",
+      "field": "superseded_by",
+      "value": "second_store",
+      "why": {
+        "out_of_selection": "second_store"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "one_parser",
+      "field": "origin",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "decision.origin",
+          "value": "project"
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "affected_behaviors",
+      "value": "write_entry",
+      "why": {
+        "target_later": {
+          "target": "write_entry",
+          "pending": "behavior"
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "post_mitigation",
+      "value": {
+        "detection": "likely",
+        "occurrence": "rare",
+        "rpn": 12,
+        "severity": "high"
+      },
+      "why": {
+        "computed": {
+          "field": "risk.post_rpn",
+          "new": 21
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "risk",
+      "value": "high",
+      "why": {
+        "computed": {
+          "field": "risk.rpn",
+          "new": 350
+        }
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "verify",
+      "value": {
+        "kind": "unit",
+        "text": "a killed writer leaves the old entry"
+      },
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "store_entries",
+      "field": "acceptance",
+      "value": [
+        "A saved entry is on disk after a crash"
+      ],
+      "why": {
+        "later": "truth"
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "store_entries",
+      "field": "area",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.area",
+          "value": "Feature"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "store_entries",
+      "field": "refs",
+      "value": "gh.issue:42",
+      "why": {
+        "unconverted": "a scheme reference is written bare and names a `ref`, which a typed edit cannot create"
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "store_entries",
+      "field": "solution",
+      "value": "Write each entry to the store as it is saved.",
+      "why": {
+        "created": {
+          "kind": "decision",
+          "id": "store_entries_solution"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "store_entries",
+      "field": "status",
+      "value": "done",
+      "why": {
+        "computed": {
+          "field": "requirement.status",
+          "new": "pending"
+        }
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "record_an_entry",
+      "field": "milestones",
+      "value": "store_cli",
+      "why": {
+        "out_of_selection": "store_cli"
+      }
+    },
+    {
+      "kind": "specforge.json",
+      "id": "absorb-fixture",
+      "field": "extensions",
+      "value": "@specforge/formal",
+      "why": {
+        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+      }
+    },
+    {
+      "kind": "specforge.json",
+      "id": "absorb-fixture",
+      "field": "extensions",
+      "value": "@specforge/governance",
+      "why": {
+        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+      }
+    },
+    {
+      "kind": "specforge.json",
+      "id": "absorb-fixture",
+      "field": "extensions",
+      "value": "@specforge/product",
+      "why": {
+        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+      }
+    },
+    {
+      "kind": "specforge.json",
+      "id": "absorb-fixture",
+      "field": "extensions",
+      "value": "@specforge/software",
+      "why": {
+        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+      }
+    },
+    {
+      "kind": "specforge.json",
+      "id": "absorb-fixture",
+      "field": "extensions",
+      "value": "@specforge/testing",
+      "why": {
+        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+      }
+    }
+  ]
+}

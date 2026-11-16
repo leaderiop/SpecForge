@@ -8,7 +8,7 @@
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{active_workstream, answer, fields, node, required, run, text, title};
+use super::support::{active_workstream, answer, fields, node, required, run, target, text, title};
 
 const ACTIONS: &[&str] = &[
     "list", "status", "progress", "create", "complete", "switch", "resume",
@@ -68,7 +68,7 @@ fn milestones<'a>(call: &CommandCall<'a>, workstream: Option<&str>) -> Vec<Miles
         .nodes()
         .iter()
         .filter(|n| n.kind == "milestone")
-        .filter(|n| workstream.is_none_or(|w| n.text("workstream") == Some(w)))
+        .filter(|n| workstream.is_none_or(|w| target(call.graph(), &n.id, "workstream") == Some(w)))
         .map(|n| milestone_of(call, n))
         .collect()
 }

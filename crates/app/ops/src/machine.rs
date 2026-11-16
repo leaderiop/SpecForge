@@ -8,8 +8,10 @@ use std::io::Write;
 use std::path::Path;
 use std::time::SystemTime;
 
-/// Environment variable the machine sets to the report path when it runs a collector's command, so a
-/// runner integration can write there directly.
+/// Environment variable the machine sets to the report path when it runs a collector's command that is told the path
+/// no other way (no `{report}` in its argv or its config), so a runner integration can write there directly. A
+/// command told the path writes the report itself: a test binary's integration that also wrote there would claim the
+/// tool's report file for its own directory.
 pub const REPORT_ENV: &str = "SPECFORGE_REPORT";
 
 /// Where the runner's own output goes.
@@ -30,8 +32,11 @@ pub struct CollectorCommand<'a> {
     pub argv: &'a [String],
     /// The directory it runs in: the project root.
     pub dir: &'a Path,
-    /// What `SPECFORGE_REPORT` is set to: the report location as the project names it.
+    /// Where the report lands: the report location as the project names it.
     pub report: &'a Path,
+    /// Whether `SPECFORGE_REPORT` says [`report`](Self::report), over any value the caller's environment holds: the
+    /// command is told it no other way. When false the variable is removed, so the caller's never reaches it.
+    pub report_in_env: bool,
     /// Where its standard output and error go.
     pub output: RunnerOutput,
 }

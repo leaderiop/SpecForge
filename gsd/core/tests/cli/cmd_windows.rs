@@ -104,20 +104,24 @@ fn a_control_character_in_the_reason_is_refused() {
     unchanged(&p, &before);
 }
 
+/// The window's `refactor` is read as the graph resolved it, so its rooted spelling (`/v1.0/01/RP1`) names the same
+/// proposal.
 #[test]
 fn a_window_whose_proposal_was_accepted_cannot_be_waived() {
-    let p = project("verify");
-    p.edit(
-        "spec/ops/windows.spec",
-        "  phase       v1.0/01\n  file ",
-        "  phase       v1.0/01\n  refactor    v1.0/01/RP1\n  file ",
-    );
-    assert_eq!(
-        gsd_as_person(&p, "dispose-refactor", &["RP1", "accepted", "ada"]).code,
-        0
-    );
-    let before = bytes(&p);
-    let run = gsd_as_person(&p, "waive-window", &["BW1", "why", "ada"]);
-    refused(&run, "invalid_input", &["already fixed"]);
-    unchanged(&p, &before);
+    for refactor in ["v1.0/01/RP1", "/v1.0/01/RP1"] {
+        let p = project("verify");
+        p.edit(
+            "spec/ops/windows.spec",
+            "  phase       v1.0/01\n  file ",
+            &format!("  phase       v1.0/01\n  refactor    {refactor}\n  file "),
+        );
+        assert_eq!(
+            gsd_as_person(&p, "dispose-refactor", &["RP1", "accepted", "ada"]).code,
+            0
+        );
+        let before = bytes(&p);
+        let run = gsd_as_person(&p, "waive-window", &["BW1", "why", "ada"]);
+        refused(&run, "invalid_input", &["already fixed"]);
+        unchanged(&p, &before);
+    }
 }

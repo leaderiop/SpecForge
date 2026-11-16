@@ -9,8 +9,9 @@ use specforge_parser::{FieldMap, FieldValue};
 
 /// A field value as every output writes it: the Graph Protocol's field
 /// value. Made only by [`write`]. Its shape (named `FieldJson`) is the schema
-/// of every value `write` can produce, declared or not: a string, an
-/// integer, a boolean, an array of strings, integers, booleans and objects, or an object whose values are `FieldJson`.
+/// of every value `write` can produce, declared or not: a string, a
+/// number (an integer or an exact decimal, ADR 0361), a boolean, an array of strings, numbers, booleans and objects, or
+/// an object whose values are `FieldJson`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(transparent)]
 pub struct FieldJson(Value);
@@ -45,11 +46,11 @@ impl Shape for FieldJson {
         let this = defs.reference::<FieldJson>("FieldJson");
         json!({"anyOf": [
             {"type": "string"},
-            {"type": "integer"},
+            {"type": "number"},
             {"type": "boolean"},
             {"type": "array", "items": {"anyOf": [
                 {"type": "string"},
-                {"type": "integer"},
+                {"type": "number"},
                 {"type": "boolean"},
                 {"type": "object", "additionalProperties": this},
             ]}},
@@ -62,7 +63,9 @@ impl Shape for FieldJson {
 /// string, an identifier, a date) as a string; a type union as its members
 /// joined by `" | "`; an expression group as its conjuncts, each in its
 /// display form, joined by `"\n"` (the string form the prove pass reads, one
-/// comparison per line, ADR 0009); an integer and a boolean as JSON scalars;
+/// comparison per line, ADR 0009); an integer, a number (its exact decimal,
+/// [`specforge_protocol_types::Decimal::to_json`], ADR 0361) and a
+/// boolean as JSON scalars;
 /// a list or variant list as an array of its items' text; a block
 /// as an object of its entries, each written by this function. Never the
 /// parser's tree, never a position. The field text of the same value
@@ -87,6 +90,7 @@ pub fn write(value: &FieldValue) -> FieldJson {
                 .join("\n"),
         ),
         FieldValue::Integer(n) => Value::Number((*n).into()),
+        FieldValue::Number(d) => Value::Number(d.to_json()),
         FieldValue::Boolean(b) => Value::Bool(*b),
         FieldValue::List(items) => Value::Array(
             items

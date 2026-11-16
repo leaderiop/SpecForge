@@ -97,9 +97,14 @@ impl Planner<'_> {
         let existing = self.text(file).unwrap_or_default();
         let parsed = parse(&existing, file);
         let config = self.config_of(file);
+        // The fields are spelled from the new entity's own scope chain, as a set or a link of them after the create
+        // would spell them: a chain without it would skip its enclosing scope and drop a needed leading `/`.
+        let scopes = self
+            .scopes
+            .added(Sym::new(path), Sym::new(kind), super::keep::parent(path));
         let site = Site {
             view: self.view,
-            scopes: &self.scopes,
+            scopes: &scopes,
             key: file,
             id: path,
             kind,

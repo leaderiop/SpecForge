@@ -276,6 +276,8 @@ This catches bugs that only manifest on fresh start — race conditions in start
 
 Build the test list from the extracted deliverables, then create the phase's `uat_session` and one `uat_test` per test with the first fence of the UAT template this workflow reads; every test starts with no `result`, which reads as pending.
 
+A test walks a journey when it exercises that journey's steps: `specforge query "$PHASE_ID" --depth 2 --kinds journey --pick '.nodes[kind=journey].id'` lists the journeys that name a requirement of the phase or list its milestone; read the one a test exercises (`specforge query <journey> --depth 0 --format context`) and set the test's `JOURNEY` to it, or leave `JOURNEY` empty.
+
 **Coverage auto-passed entries (#1602):** create a `uat_test` for each `auto_passed[]` entry from `uat classify-coverage` too, its coverage description as both name and `expected`, then record it with `specforge gsd record-automated-uat <uat_test> pass --by coverage`: these are NOT presented to the user.
 
 Proceed to `present_test`.

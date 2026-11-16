@@ -259,6 +259,64 @@ fn new_names_a_date_fields_value_as_a_calendar_day() {
     );
 }
 
+/// `new` takes a list of text as `set` takes it: one value is one item, commas and all, and the flag repeated gives
+/// several; a reference list also splits one value at its commas. Its help says so.
+#[specforge_test_macros::test(
+    behavior = "create_entity",
+    verify = "new takes a list field's items as set takes them, and its help says how"
+)]
+fn new_takes_a_list_fields_items_as_set_does() {
+    let dir = governed("spec/g.spec", "");
+    let cli = Cli::on(&dir);
+    let new = |id: &str, flags: &[&str]| {
+        let mut args = vec![
+            "new",
+            "decision",
+            id,
+            "Choice",
+            "--in",
+            "spec/g.spec",
+            "--status",
+            "accepted",
+            "--context",
+            "c",
+            "--decision",
+            "d",
+        ];
+        args.extend_from_slice(flags);
+        cli.run(&args).exits(0);
+    };
+    new("by_new_one", &["--tags", "a,b"]);
+    new("by_new_two", &["--tags", "a", "--tags", "b"]);
+    new("by_set_one", &[]);
+    new("by_set_two", &[]);
+    cli.run(&["set", "by_set_one", "tags", "a,b"]).exits(0);
+    cli.run(&["set", "by_set_two", "tags", "a", "b"]).exits(0);
+    let text = std::fs::read_to_string(dir.root().join("spec/g.spec")).unwrap();
+    let tags = |id: &str| -> String {
+        let start = text.find(&format!("decision {id} ")).expect("the block");
+        text[start..]
+            .lines()
+            .find(|line| line.trim_start().starts_with("tags"))
+            .map(|line| line.split_whitespace().collect::<Vec<_>>().join(" "))
+            .unwrap_or_default()
+    };
+    assert_eq!(tags("by_new_one"), "tags [\"a,b\"]", "{text}");
+    assert_eq!(tags("by_new_one"), tags("by_set_one"), "{text}");
+    assert_eq!(tags("by_new_two"), "tags [\"a\", \"b\"]", "{text}");
+    assert_eq!(tags("by_new_two"), tags("by_set_two"), "{text}");
+
+    let help = cli.run(&["new", "decision", "--help"]).exits(0).stdout;
+    assert!(
+        help.contains("repeat the flag for several items; each value is one item, commas and all"),
+        "{help}"
+    );
+    assert!(
+        help.contains("repeat the flag for several items, or separate them with commas"),
+        "{help}"
+    );
+}
+
 /// Format keeps a padded value, check reports it before and after, and a typed edit of the block works.
 #[specforge_test_macros::test(
     behavior = "format_spec_files",

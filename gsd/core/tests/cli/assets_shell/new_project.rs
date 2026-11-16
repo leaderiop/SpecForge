@@ -99,30 +99,66 @@ fn project_fence() -> String {
             ),
             ("DECISION_ID", "D-03"),
             ("DECISION", "Notes are plain text files"),
+            ("SUPERSEDES", ""),
+            ("AFFECTS", ""),
+            ("ALTERNATIVES", ""),
             ("RATIONALE", "Any editor opens them"),
         ],
     )
 }
 
-/// The requirements template's fence, filled for one requirement of `tier`; the `--reason` flag left out unless the
-/// requirement is out of scope, as the template says.
+/// The requirements template's optional list and record flags, each with the variable it reads.
+const OPTIONAL: [(&str, &str); 4] = [
+    ("--personas", "PERSONA"),
+    ("--metric", "METRIC"),
+    ("--source", "SOURCE"),
+    ("--reason", "REASON"),
+];
+
+/// The requirements template's fence, filled for one requirement of `tier`: a functional must-have with none of the
+/// optional flags but `--reason` for an out-of-scope one, each left out as the template says of a value it lacks.
 fn requirement_fence(id: &str, text: &str, tier: &str) -> String {
-    let fence = typed::typed_fence(
+    let kept: &[&str] = if tier == "out_of_scope" {
+        &["--reason"]
+    } else {
+        &[]
+    };
+    requirement_line(id, text, tier, kept)
+}
+
+/// The requirements template's fence, filled for one requirement of `tier`, keeping of [`OPTIONAL`] only the flags
+/// `kept` names. Every variable is filled, so a flag the fence keeps reads its value: the persona `board_reader`,
+/// a metric whose name holds an apostrophe, with a decimal threshold, and the source `gh.issue:42`.
+fn requirement_line(id: &str, text: &str, tier: &str, kept: &[&str]) -> String {
+    let mut fence = typed::typed_fence(
         &asset("gsd-core/templates/requirements.md"),
         "## The Requirements' Typed Edits",
     );
-    let fence = if tier == "out_of_scope" {
-        fence
-    } else {
-        fence.replace(r#" --reason "$REASON""#, "")
-    };
+    for (flag, variable) in OPTIONAL {
+        let written = format!(r#" {flag} "${variable}""#);
+        assert!(
+            fence.contains(&written),
+            "no {written} in the fence:\n{fence}"
+        );
+        if !kept.contains(&flag) {
+            fence = fence.replace(&written, "");
+        }
+    }
     typed::filled(
         &fence,
         &[
             ("REQ_ID", id),
             ("TEXT", text),
-            ("CATEGORY", "Notes"),
+            ("AREA", "Notes"),
             ("TIER", tier),
+            ("CATEGORY", "functional"),
+            ("PRIORITY", "must"),
+            ("PERSONA", "board_reader"),
+            (
+                "METRIC",
+                r#"{"name": "a note's sync lag", "threshold": 0.25, "direction": "at_most"}"#,
+            ),
+            ("SOURCE", "gh.issue:42"),
             ("REASON", "One machine is enough for now"),
         ],
     )
@@ -185,6 +221,49 @@ fn the_project_fence_records_the_project_and_its_requirements() {
         p.fields_of("NOTE-03")["reason"],
         "One machine is enough for now"
     );
+}
+
+/// On a taskboard copy holding the persona `board_reader` and the ref `gh.issue:42`, the requirement fence with every
+/// flag it names kept records NOTE-04 with its area, quality category, priority, persona, metric and source; the
+/// metric's name keeps its apostrophe, read from its quoted heredoc. The check reports nothing new.
+#[test]
+fn the_requirement_fence_takes_every_field_it_names() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    p.write("spec/refs.spec", "ref gh.issue:42 \"Board export\"\n");
+    let persona = typed::apply(
+        &sh,
+        &p,
+        "specforge new persona board_reader \"Board reader\" --in spec/personas.spec --context \"Reads the board each \
+         morning\" || exit 1",
+    );
+    assert_eq!(persona.code, 0, "{}{}", persona.out, persona.err);
+    let script = requirement_line(
+        "NOTE-04",
+        "User can see a note's last sync",
+        "v2",
+        &["--personas", "--metric", "--source"],
+    );
+    let run = typed::apply(&sh, &p, &script);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(run.added.is_empty(), "{:?}", run.added);
+    let note = p.fields_of("NOTE-04");
+    assert_eq!(note["area"], "Notes", "{note}");
+    assert_eq!(note["category"], "functional", "{note}");
+    assert_eq!(note["priority"], "must", "{note}");
+    assert_eq!(
+        note["personas"],
+        serde_json::json!(["board_reader"]),
+        "{note}"
+    );
+    assert_eq!(
+        note["metric"],
+        serde_json::json!({"name": "a note's sync lag", "threshold": 0.25, "direction": "at_most"}),
+        "{note}"
+    );
+    assert_eq!(note["source"], serde_json::json!(["gh.issue:42"]), "{note}");
 }
 
 /// What the synthesizer returned inline: a summary with an apostrophe, set as it is.

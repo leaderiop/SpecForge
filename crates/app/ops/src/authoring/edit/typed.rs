@@ -12,7 +12,7 @@ use crate::Refusal;
 use crate::view::ProjectView;
 use specforge_graph::field_form::{FieldForm, Reading, spell};
 use specforge_parser::{FieldEntry, FieldMap, FieldValue};
-use specforge_protocol_types::FieldType;
+use specforge_protocol_types::{Decimal, FieldType};
 use std::collections::BTreeMap;
 
 /// A field's value as a block writes it.
@@ -149,13 +149,20 @@ fn member_tree(
                 format!("'{path}' is an open block; it takes no typed member"),
             ));
         }
-        FieldType::Integer | FieldType::Bool
+        FieldType::Integer | FieldType::Number | FieldType::Bool
             if matches!(input, Input::Number(_) | Input::Bool(_)) =>
         {
-            // Written as given; the member's form validates it when the project is read back (E061 for a float).
-            let (written, wants) = match input {
-                Input::Number(n) => (n.to_string(), FieldType::Integer),
-                Input::Bool(b) => (b.to_string(), FieldType::Bool),
+            // An integer member's number is written as given; its form validates it when the project is read back
+            // (E061 for a float). A number member's is written as its decimal, refused here when it is none.
+            let (written, wants) = match (field_type, input) {
+                (FieldType::Number, Input::Number(n)) => {
+                    let decimal = Decimal::from_json(n).map_err(|e| {
+                        not_editable(EditField::Value, format!("'{path}' takes a number: {e}"))
+                    })?;
+                    (decimal.to_string(), FieldType::Number)
+                }
+                (_, Input::Number(n)) => (n.to_string(), FieldType::Integer),
+                (_, Input::Bool(b)) => (b.to_string(), FieldType::Bool),
                 _ => unreachable!("matched above"),
             };
             if wants != field_type {
@@ -179,10 +186,10 @@ fn member_tree(
 }
 
 fn type_word(field_type: FieldType) -> &'static str {
-    if field_type == FieldType::Integer {
-        "an integer"
-    } else {
-        "a boolean"
+    match field_type {
+        FieldType::Integer => "an integer",
+        FieldType::Number => "a number",
+        _ => "a boolean",
     }
 }
 

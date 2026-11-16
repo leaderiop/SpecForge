@@ -12,9 +12,14 @@ TEXT
 IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\n'}
 {why it fits the project}
 TEXT
+SUPERSEDES="{the earlier project decisions it reverses, comma-separated ids such as D-01, or nothing}"
+AFFECTS="{the requirements, invariants or code items it shapes, comma-separated ids such as AUTH-01, or nothing}"
+IFS= read -rd '' ALTERNATIVES <<'TEXT' || true; ALTERNATIVES=${ALTERNATIVES%$'\n'}
+{the options weighed and not chosen, one JSON list: [{"name": "…", "pros": ["…"], "cons": ["…"], "why_not": "…"}], or nothing}
+TEXT
 FILE=$(specforge query "$PROJECT" --depth 0 --pick '.nodes[0].file') || exit 1
 [ -n "$FILE" ] || { echo "no project $PROJECT in the graph" >&2; exit 1; }
-specforge new decision "$DECISION_ID" "$CHOICE" --in "$FILE" --origin project --area "Walking Skeleton" --text "$CHOICE" --rationale "$WHY" || exit 1
+specforge new decision "$DECISION_ID" "$CHOICE" --in "$FILE" --origin project --area "Walking Skeleton" --text "$CHOICE" --rationale "$WHY" ${SUPERSEDES:+--supersedes "$SUPERSEDES"} ${AFFECTS:+--affects "$AFFECTS"} ${ALTERNATIVES:+--alternatives "$ALTERNATIVES"} || exit 1
 ```
 
 ```markdown

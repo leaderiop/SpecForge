@@ -156,6 +156,28 @@ fn a_skeleton_writes_typed_fields_empty() {
 }
 
 #[specforge_test(
+    behavior = "create_entity",
+    verify = "a skeleton fills a number or an integer with the value within its bounds nearest zero"
+)]
+fn a_skeleton_fills_a_bounded_number_within_its_bounds() {
+    use specforge_ops::authoring::edit::Skeletons;
+    use specforge_ops::authoring::format::Place;
+    let project = Assembled::typed().sources(&[("a.spec", SOURCE)]);
+    let view = project.view();
+    let path = view.env().spec_root().join("new.spec");
+    let skeletons = Skeletons::at(&view, Place::File(&path));
+    for (kind, field, text) in [
+        ("measure", "value", "value 0"),
+        ("measure", "ratio", "ratio 0.05"),
+        ("truth", "criterion", "criterion 1"),
+        ("refactor_proposal", "score", "score 0"),
+    ] {
+        let skeleton = skeletons.member(kind, field).expect("a skeleton");
+        assert_eq!(skeleton.text, text, "{kind}.{field}");
+    }
+}
+
+#[specforge_test(
     behavior = "edit_entity_field",
     verify = "a typed edit sets a block member, appends and removes a block-list item, and refuses the other ways to change one"
 )]
@@ -174,13 +196,21 @@ fn a_json_number_or_boolean_is_a_leaf_of_an_integer_or_bool_member() {
             .contains("goal 60"),
         "{member}"
     );
-    // The member's own form judges the number: out of range and not an integer are both E061.
+    // The member's own form judges the number: out of range and not an integer are both E061; out of range, its
+    // help line names the range.
     for bad in [json!(500), json!(1.5)] {
         let (_, message) =
             run(json!({"op": "set", "entity_id": "d1", "field": "scores.goal", "value": bad}))
                 .unwrap_err();
         assert!(message.contains("E061"), "{bad}: {message}");
     }
+    let (_, message) =
+        run(json!({"op": "set", "entity_id": "d1", "field": "scores.goal", "value": 500}))
+            .unwrap_err();
+    assert!(
+        message.contains("\n    help: write a whole number from 0 to 100"),
+        "{message}"
+    );
     // A text member and a bool given the wrong leaf are refused by name, not as "is a block".
     for (field, value, fragment) in [
         ("requires[0].provides", json!(5), "takes text"),
@@ -189,6 +219,41 @@ fn a_json_number_or_boolean_is_a_leaf_of_an_integer_or_bool_member() {
         let (code, message) = run(json!({"op": "set", "entity_id": if field.starts_with("scores") { "d1" } else { "03-02-S" }, "field": field, "value": value})).unwrap_err();
         assert_eq!(code, "not_editable", "{message}");
         assert!(message.contains(fragment), "{field}: {message}");
+    }
+}
+
+#[specforge_test(
+    behavior = "edit_entity_field",
+    verify = "a JSON number given to a number member is written as its decimal"
+)]
+fn a_json_number_is_a_leaf_of_a_number_member_written_as_its_decimal() {
+    let squeezed = |text: String| text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let set = run(json!({"op": "set", "entity_id": "d1", "field": "scores", "value": {"goal": 10, "weight": 0.25}}))
+        .unwrap();
+    assert!(
+        squeezed(set.clone()).contains("scores { goal 10 weight 0.25 }"),
+        "{set}"
+    );
+    let member =
+        run(json!({"op": "set", "entity_id": "d1", "field": "scores.weight", "value": 1e-7}))
+            .unwrap();
+    assert!(
+        squeezed(member.clone()).contains("weight 0.0000001"),
+        "{member}"
+    );
+    // A boolean, and a number of more than 15 significant digits, are refused by name before writing.
+    for (value, fragment) in [
+        (json!(true), "'scores.weight' is a number, not a boolean"),
+        (
+            json!(0.1 + 0.2),
+            "'scores.weight' takes a number: a number keeps at most 15 significant digits",
+        ),
+    ] {
+        let (code, message) =
+            run(json!({"op": "set", "entity_id": "d1", "field": "scores.weight", "value": value}))
+                .unwrap_err();
+        assert_eq!(code, "not_editable", "{message}");
+        assert!(message.contains(fragment), "{value}: {message}");
     }
 }
 

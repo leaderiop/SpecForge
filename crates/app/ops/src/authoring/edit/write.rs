@@ -7,7 +7,7 @@ use crate::{OpError, OpErrorKind, Refusal};
 use specforge_formatter::FormatConfig;
 use specforge_graph::FieldValue;
 use specforge_graph::field_form::{Reading, spell};
-use specforge_protocol_types::FieldType;
+use specforge_protocol_types::{Decimal, FieldType};
 
 /// The refusal code of an edit that does not fit the field it names.
 pub const NOT_EDITABLE: &str = "not_editable";
@@ -107,9 +107,9 @@ fn whole(n: &serde_json::Number) -> Option<i64> {
         .map(|f| f as i64)
 }
 
-/// The text of a scalar `input` for a field of `field_type`: an integer field takes a JSON whole number and a bool
-/// field
-/// a JSON boolean, as a block member does (ADR 0311); any other field takes what [`one`] takes.
+/// The text of a scalar `input` for a field of `field_type`: an integer field takes a JSON whole number, a number
+/// field a JSON number written as its decimal (ADR 0361) and a bool field a JSON boolean, as a block member does
+/// (ADR 0311); any other field takes what [`one`] takes, a number field's word kept as given.
 fn scalar<'i>(
     input: &'i Input,
     key: &str,
@@ -125,6 +125,9 @@ fn scalar<'i>(
                 format!("'{key}' takes a whole number"),
             )),
         },
+        (FieldType::Number, Input::Number(n)) => Decimal::from_json(n)
+            .map(|d| Cow::Owned(d.to_string()))
+            .map_err(|e| not_editable(EditField::Value, format!("'{key}' takes a number: {e}"))),
         (FieldType::Bool, Input::Bool(b)) => Ok(Cow::Owned(b.to_string())),
         _ => one(input, key, what).map(Cow::Borrowed),
     }

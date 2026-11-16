@@ -195,6 +195,9 @@ const UNBOUND: &[&str] = &[
     // the latest review round, read by the line above it: `assets_shell::plan_edits` records one and runs them
     "$REVIEW_ID",
     "<review>",
+    // a journey of the phase, which the line's own query lists: the twin holds none, `assets_shell::verify_edits`
+    // writes one and runs that query
+    "<journey>",
     "$uat_path",
     // entity ids a prompt hands its agent, each read with `--format context`
     "{roadmap_path}",

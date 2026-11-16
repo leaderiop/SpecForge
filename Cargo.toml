@@ -97,7 +97,9 @@ tree-sitter = "0.26.6"
 tree-sitter-language = "0.1.7"
 lasso = { version = "0.7.3", features = ["multi-threaded"] }
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.149"
+# `float_roundtrip`: a JSON number is read as the binary64 nearest its text, so a decimal written out reads back
+# (ADR 0361 D2). Without it, a number with an exponent past ±22 can read one ULP off.
+serde_json = { version = "1.0.149", features = ["float_roundtrip"] }
 ariadne = "0.6.0"
 sha2 = "0.10.9"
 semver = "1.0.28"

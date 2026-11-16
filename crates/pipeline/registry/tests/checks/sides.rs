@@ -1,5 +1,5 @@
-//! E079: a field written on the other side of a relation another kind owns (ADR 0150). Every test
-//! starts from `.spec` text (ADR 0115).
+//! E079: a field written on the other side of a relation a reference field owns, its own kind's
+//! included (ADR 0150, ADR 0359). Every test starts from `.spec` text (ADR 0115).
 
 use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::ExtensionDeclaration;
@@ -94,6 +94,67 @@ fn an_unknown_field_naming_its_own_kind_stays_w020() {
     let diags = checked(&build, &[("test.spec", text)]);
     assert_eq!(coded_in(&diags, "W020").len(), 1, "{diags:?}");
     assert!(coded_in(&diags, "E079").is_empty(), "{diags:?}");
+}
+
+#[spec(
+    behavior = "detect_unknown_entity_fields",
+    verify = "a reverse name a self-relation's inverse_of declares is E079 naming the owning field"
+)]
+fn a_self_relations_named_reverse_is_e079_naming_its_owning_field() {
+    let build = build([declare("@test/self", |c| {
+        c.kind("Behavior", |k| {
+            k.keyword("behavior");
+            k.field("supersedes", |f| {
+                f.field_type(FieldType::ReferenceList)
+                    .target_kind("behavior")
+                    .inverse_of("superseded_by");
+            });
+        });
+    })]);
+    let text = "behavior b1 \"B\" {\n  superseded_by [b2]\n}\nbehavior b2 \"B\" {\n}\n";
+    let diags = checked(&build, &[("test.spec", text)]);
+    let e079 = coded_in(&diags, "E079");
+    assert_eq!(e079.len(), 1, "{diags:?}");
+    assert!(e079[0].message.contains("behavior.supersedes"), "{diags:?}");
+    let suggestion = e079[0].suggestion.as_deref().unwrap_or_default();
+    assert!(
+        suggestion.contains("supersedes [b1]") && suggestion.contains("b2"),
+        "{suggestion}"
+    );
+    assert!(coded_in(&diags, "W020").is_empty(), "{diags:?}");
+}
+
+#[spec(
+    behavior = "detect_unknown_entity_fields",
+    verify = "a reverse name a union's inverse_of declares is E079 on each kind of the union"
+)]
+fn a_unions_named_reverse_is_e079_on_each_of_its_kinds() {
+    let build = build([declare("@test/union", |c| {
+        c.kind("Behavior", |k| {
+            k.keyword("behavior");
+            k.field("affects", |f| {
+                f.field_type(FieldType::ReferenceList)
+                    .target_kinds(&["feature", "event"])
+                    .inverse_of("affected_by");
+            });
+        });
+        c.kind("Feature", |k| {
+            k.keyword("feature");
+        });
+        c.kind("Event", |k| {
+            k.keyword("event");
+        });
+    })]);
+    let text = "feature checkout \"C\" {\n  affected_by [pay]\n}\nevent paid \"P\" {\n  affected_by [pay]\n}\n\
+                behavior pay \"P\" {\n}\n";
+    let diags = checked(&build, &[("test.spec", text)]);
+    let e079 = coded_in(&diags, "E079");
+    assert_eq!(e079.len(), 2, "{diags:?}");
+    assert!(
+        e079.iter().all(|d| d.message.contains("behavior.affects")),
+        "{diags:?}"
+    );
+    assert!(coded_in(&diags, "W020").is_empty(), "{diags:?}");
 }
 
 /// Six owners into `event`: E079 names them in (kind, field) order on every registry built.
