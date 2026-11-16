@@ -240,6 +240,12 @@ fn a_collector_command_never_receives_a_credential() {
         std::env::set_var("CARGO_HTTP_PROXY", "http://user:pass@proxy.test:8080");
         std::env::set_var("HTTPS_PROXY", "http://proxy.test:3128");
         std::env::set_var("CARGO_SPECFORGE_PROBE", "passed");
+        std::env::set_var("PGPASSWORD", "withheld");
+        std::env::set_var("MYSQL_PWD", "withheld");
+        std::env::set_var("GH_PAT", "withheld");
+        std::env::set_var("ALL_PROXY", "user:pass@proxy.test:1080");
+        std::env::set_var("DATABASE_URL", "postgres://user:pa#ss@db.test/x");
+        std::env::set_var("OLDPWD", "/probe/before");
     }
     let dir = tempfile::tempdir().unwrap();
     let mut capture = Vec::new();
@@ -258,7 +264,10 @@ fn a_collector_command_never_receives_a_credential() {
         "CARGO_REGISTRY_TOKEN=",
         "CARGO_REGISTRIES_X_TOKEN=",
         "CARGO_REGISTRIES_X_CREDENTIAL_PROVIDER=",
-        "user:pass",
+        "PGPASSWORD=",
+        "MYSQL_PWD=",
+        "GH_PAT=",
+        "user:pa",
     ] {
         assert!(!env.contains(withheld), "{withheld}: {env}");
     }
@@ -270,6 +279,12 @@ fn a_collector_command_never_receives_a_credential() {
     assert!(
         env.contains("HTTPS_PROXY=http://proxy.test:3128\n"),
         "{env}"
+    );
+    assert!(env.contains("ALL_PROXY=proxy.test:1080\n"), "{env}");
+    assert!(env.contains("DATABASE_URL=postgres://db.test/x\n"), "{env}");
+    assert!(
+        env.contains("OLDPWD=/probe/before\n"),
+        "a working directory: {env}"
     );
 }
 

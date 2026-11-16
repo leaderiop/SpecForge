@@ -11,7 +11,7 @@ use std::time::Duration;
 use specforge_effects::process::request;
 use specforge_effects::{Ceiling, Output, Process, ProcessClass, ProcessRequest};
 use specforge_process::{
-    Located, Passed, Runner, credential, inherited, locate, passed, secret, without_userinfo,
+    Located, Passed, Runner, credential, inherited, locate, passed, proxy, secret, without_userinfo,
 };
 
 fn run(request: &ProcessRequest) -> specforge_effects::ProcessOutcome {
@@ -243,9 +243,18 @@ fn the_credential_filter_holds_for_a_guests_program_and_a_hosts_command() {
         "https_proxy",
         "http_proxy",
         "ALL_PROXY",
+        "all_proxy",
+        "HTTP_PROXY",
+        "NO_PROXY",
+        "DATABASE_URL",
+        "PWD",
+        "OLDPWD",
         // By their exact names, which a person approves: still never passed.
         "CARGO_REGISTRY_TOKEN",
         "CARGO_REGISTRY_CREDENTIAL_PROVIDER",
+        "PGPASSWORD",
+        "MYSQL_PWD",
+        "GH_PAT",
     ];
     // A guest's program (its declared names and prefixes) and a collector's command the host runs (the whole
     // environment): the same filter.
@@ -257,7 +266,10 @@ fn the_credential_filter_holds_for_a_guests_program_and_a_hosts_command() {
             assert!(!seen.contains(&format!("{name}=")), "{path} {name}: {seen}");
         }
         for (name, value) in CLEANED {
-            let clean = without_userinfo(value).unwrap();
+            let Passed::Without(clean) = passed(name.as_ref(), value.as_ref()) else {
+                panic!("{name} is cleaned");
+            };
+            let clean = clean.to_string_lossy();
             assert!(
                 seen.contains(&format!("{name}={clean}\n")),
                 "{path} {name}: {seen}"
@@ -285,7 +297,7 @@ fn the_credential_filter_holds_for_a_guests_program_and_a_hosts_command() {
 
 /// What the credential filter withholds, by name, on every path.
 #[cfg(unix)]
-const CREDENTIALS: [(&str, &str); 10] = [
+const CREDENTIALS: [(&str, &str); 13] = [
     ("CARGO_REGISTRY_TOKEN", "withheld"),
     ("CARGO_REGISTRIES_X_TOKEN", "withheld"),
     ("CARGO_REGISTRY_CREDENTIAL_PROVIDER", "cargo:token"),
@@ -296,11 +308,14 @@ const CREDENTIALS: [(&str, &str); 10] = [
     ("NPM_CONFIG__AUTHTOKEN", "withheld"),
     ("npm_config__authToken", "withheld"),
     ("RUSTUP_X_PASSWD", "withheld"),
+    ("PGPASSWORD", "withheld"),
+    ("MYSQL_PWD", "withheld"),
+    ("GH_PAT", "withheld"),
 ];
 
 /// What passes with its URL's user and password removed.
 #[cfg(unix)]
-const CLEANED: [(&str, &str); 8] = [
+const CLEANED: [(&str, &str); 11] = [
     ("CARGO_HTTP_PROXY", "http://user:pass@proxy.test:8080"),
     ("HTTPS_PROXY", "http://user:pass@proxy.test:8080"),
     ("https_proxy", "http://user:pass@proxy.test:8080"),
@@ -312,17 +327,26 @@ const CLEANED: [(&str, &str); 8] = [
     ("RUSTUP_DIST_SERVER", "https://user:pass@mirror.test"),
     ("RUSTUP_UPDATE_ROOT", "https://user:pass@mirror.test/rustup"),
     ("NPM_CONFIG_REGISTRY", "https://user:pass@npm.test/"),
+    // A proxy as curl reads one, with no scheme.
+    ("HTTP_PROXY", "user:pass@proxy.test:8080"),
+    ("all_proxy", "user:pass@proxy.test:1080"),
+    // A password holding an unencoded `#`: the user information runs to the authority's last `@`.
+    ("DATABASE_URL", "postgres://user:pa#ss@db.test/x"),
 ];
 
-/// What passes whole: cargo's own setting, an index and a proxy with no user.
+/// What passes whole: cargo's own setting, an index and a proxy with no user, a host list that is no proxy, and the
+/// working directories, whose names end like a password's.
 #[cfg(unix)]
-const WHOLE: [(&str, &str); 3] = [
+const WHOLE: [(&str, &str); 6] = [
     ("CARGO_SPECFORGE_PROBE", "passed"),
     (
         "CARGO_REGISTRIES_Y_INDEX",
         "sparse+https://registry.test/index/",
     ),
     ("http_proxy", "http://proxy.test:3128"),
+    ("NO_PROXY", "a:b@host.test"),
+    ("PWD", "/probe/working"),
+    ("OLDPWD", "/probe/before"),
 ];
 
 #[test]
@@ -340,6 +364,12 @@ fn a_secret_is_named_like_one() {
         "X_API_KEY",
     ] {
         assert!(secret(name.as_ref()), "{name}");
+    }
+    for name in ["PGPASSWORD", "pgpassword", "MYSQL_PWD", "GH_PAT", "x_pat"] {
+        assert!(secret(name.as_ref()), "{name}");
+    }
+    for name in ["PWD", "OLDPWD", "LD_LIBRARY_PATH", "PATH_INFO"] {
+        assert!(!secret(name.as_ref()), "{name}");
     }
     assert!(!secret("TOKENIZER".as_ref()) && !secret("PATH".as_ref()));
     assert!(!secret("AUTHOR".as_ref()) && !secret("OAUTH_SCOPE".as_ref()));
@@ -387,7 +417,28 @@ fn a_url_passes_without_its_user_and_password() {
         cleaned("https://a:b@one.test/p@q https://two.test/r@s").as_deref(),
         Some("https://one.test/p@q https://two.test/r@s")
     );
-    for whole in ["http://proxy.test:3128", "no url here", "user@host.test"] {
+    // The user information runs to the authority's last `@`, past an unencoded `#`, `?`, `/` or `@` in a password.
+    for (url, clean) in [
+        ("postgres://user:pa#ss@db.test/x", "postgres://db.test/x"),
+        (
+            "postgres://user:pa?ss@db.test/x?y",
+            "postgres://db.test/x?y",
+        ),
+        ("postgres://user:pa/ss@db.test", "postgres://db.test"),
+        ("https://user:pa@ss@host.test/a@b", "https://host.test/a@b"),
+        ("https://user:pa#s@s@host.test", "https://host.test"),
+    ] {
+        assert_eq!(cleaned(url).as_deref(), Some(clean), "{url}");
+    }
+    // A port is no password, a bracketed host no user, and an `@` in the path no user's end.
+    for whole in [
+        "http://proxy.test:3128",
+        "no url here",
+        "user@host.test",
+        "http://host.test:8080/a@b",
+        "http://[::1]:80/a@b",
+        "https://registry.npmjs.test/@scope/pkg",
+    ] {
         assert_eq!(cleaned(whole), None, "{whole}");
     }
     assert_eq!(
@@ -402,6 +453,25 @@ fn a_url_passes_without_its_user_and_password() {
         passed("HTTPS_PROXY".as_ref(), "http://proxy.test".as_ref()),
         Passed::Whole
     );
+    // A proxy with no scheme is cleaned as curl reads it; a host list is no proxy.
+    assert_eq!(
+        passed("https_proxy".as_ref(), "user:pass@proxy.test:8080".as_ref()),
+        Passed::Without("proxy.test:8080".into())
+    );
+    assert_eq!(
+        passed("ALL_PROXY".as_ref(), "tok3n@proxy.test".as_ref()),
+        Passed::Without("proxy.test".into())
+    );
+    assert_eq!(
+        passed("HTTP_PROXY".as_ref(), "proxy.test:3128".as_ref()),
+        Passed::Whole
+    );
+    assert_eq!(
+        passed("NO_PROXY".as_ref(), "a:b@host.test".as_ref()),
+        Passed::Whole
+    );
+    assert!(proxy("CARGO_HTTP_PROXY".as_ref()) && proxy("all_proxy".as_ref()));
+    assert!(!proxy("NO_PROXY".as_ref()) && !proxy("no_proxy".as_ref()));
 }
 
 #[cfg(unix)]

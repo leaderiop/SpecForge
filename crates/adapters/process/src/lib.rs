@@ -34,9 +34,11 @@ const TICK: Duration = Duration::from_millis(5);
 pub struct Runner;
 
 /// Whether the environment variable `name` looks like a secret a program the host runs is not given, whoever set it:
-/// a name ending `_TOKEN`, `_AUTHTOKEN`, `_AUTH` (npm's `NPM_CONFIG__AUTH`), `_SECRET`, `_PASSWORD`, `_PASSWD`, `_KEY`
-/// (`_API_KEY`, `_SECRET_KEY`, `_PRIVATE_KEY`) or `_CREDENTIALS` (`GOOGLE_APPLICATION_CREDENTIALS` among them), or
-/// starting `AWS_`, in any case on every system. The one deny-list (ADR 0335 D1); only a grant passes a secret.
+/// a name ending `_TOKEN`, `_AUTHTOKEN`, `_AUTH` (npm's `NPM_CONFIG__AUTH`), `_SECRET`, `PASSWORD` (`PGPASSWORD` too),
+/// `_PASSWD`, `_PWD` (`MYSQL_PWD`; never `PWD` or `OLDPWD`, the working directories), `_PAT` (a personal access token,
+/// `GH_PAT`), `_KEY` (`_API_KEY`, `_SECRET_KEY`, `_PRIVATE_KEY`) or `_CREDENTIALS` (`GOOGLE_APPLICATION_CREDENTIALS`
+/// among them), or starting `AWS_`, in any case on every system. The one deny-list (ADR 0335 D1); only a grant passes a
+/// secret.
 pub fn secret(name: &OsStr) -> bool {
     let name = name.to_string_lossy().to_ascii_uppercase();
     [
@@ -44,8 +46,10 @@ pub fn secret(name: &OsStr) -> bool {
         "_AUTHTOKEN",
         "_AUTH",
         "_SECRET",
-        "_PASSWORD",
+        "PASSWORD",
         "_PASSWD",
+        "_PWD",
+        "_PAT",
         "_KEY",
         "_CREDENTIALS",
     ]
@@ -82,7 +86,8 @@ pub enum Passed {
 /// variable `name`, holding `value`, the program receives. A [`secret`] or a cargo [`credential`] is withheld. A URL
 /// carrying a user and password (a proxy, a registry index, a rustup or npm server, a database) passes without them,
 /// whatever the variable's name, so the program still reaches the same host and a server that needs them refuses it
-/// in the open, where a withheld proxy would send it elsewhere; a value that is not Unicode and may hold one is
+/// in the open, where a withheld proxy would send it elsewhere. A [`proxy`] written without a scheme
+/// (`user:pass@proxy:8080`, as curl reads one) is cleaned the same way. A value that is not Unicode and may hold one is
 /// withheld, as it cannot be cleaned. A URL with neither passes whole.
 pub fn passed(name: &OsStr, value: &OsStr) -> Passed {
     if secret(name) || credential(name) {
@@ -90,7 +95,13 @@ pub fn passed(name: &OsStr, value: &OsStr) -> Passed {
     }
     match value.to_str() {
         Some(text) => {
-            without_userinfo(text).map_or(Passed::Whole, |clean| Passed::Without(clean.into()))
+            let clean = if proxy(name) && !text.contains("://") {
+                without_userinfo(&format!("http://{text}"))
+                    .map(|clean| clean["http://".len()..].to_string())
+            } else {
+                without_userinfo(text)
+            };
+            clean.map_or(Passed::Whole, |clean| Passed::Without(clean.into()))
         }
         None => {
             let lossy = value.to_string_lossy();
@@ -103,11 +114,21 @@ pub fn passed(name: &OsStr, value: &OsStr) -> Passed {
     }
 }
 
+/// Whether `name` (any case) holds a proxy a program fetches through: one ending `_PROXY` (`HTTP_PROXY`,
+/// `HTTPS_PROXY`, `ALL_PROXY`, `CARGO_HTTP_PROXY`, …), never one ending `NO_PROXY`, which lists hosts.
+pub fn proxy(name: &OsStr) -> bool {
+    let name = name.to_string_lossy().to_ascii_uppercase();
+    name.ends_with("_PROXY") && !name.ends_with("NO_PROXY")
+}
+
 /// `text` with the user information removed from each URL in it (`scheme://<userinfo>@host`), None when it holds none
 /// to remove. A user with a password is removed under any scheme; a user alone only under an HTTP scheme (`https`,
 /// `sparse+https`, `git+http`, …), where a token is written as the user, never under another (`ssh://git@host` names
-/// the account ssh logs in as, no secret).
+/// the account ssh logs in as, no secret). The user information runs to the last `@` of the authority, so a password
+/// holding an `@`, or an unencoded `/`, `?` or `#` (`postgres://user:pa#ss@db/x`), is removed whole: once a `user:`
+/// starts the authority and what follows the `:` is no port, the authority runs past those to its `@`.
 pub fn without_userinfo(text: &str) -> Option<String> {
+    let delimiter = |c: char| matches!(c, '/' | '?' | '#') || c.is_whitespace();
     let mut clean = String::with_capacity(text.len());
     let mut rest = text;
     let mut changed = false;
@@ -116,26 +137,51 @@ pub fn without_userinfo(text: &str) -> Option<String> {
             .rfind(|c: char| !(c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.')))
             .map_or(0, |i| i + 1);
         let scheme = rest[scheme_start..at].to_ascii_lowercase();
-        let authority_start = at + 3;
-        let authority_end = rest[authority_start..]
-            .find(|c: char| matches!(c, '/' | '?' | '#') || c.is_whitespace())
-            .map_or(rest.len(), |i| authority_start + i);
-        let authority = &rest[authority_start..authority_end];
-        clean.push_str(&rest[..authority_start]);
-        match authority.rfind('@') {
-            Some(userinfo_end)
-                if authority[..userinfo_end].contains(':')
-                    || scheme
-                        .rsplit('+')
-                        .next()
-                        .is_some_and(|s| s == "http" || s == "https") =>
-            {
-                clean.push_str(&authority[userinfo_end + 1..]);
+        let http = scheme
+            .rsplit('+')
+            .next()
+            .is_some_and(|s| s == "http" || s == "https");
+        let start = at + 3;
+        let after = &rest[start..];
+        // The URL ends at whitespace; its authority, read strictly, at the first delimiter.
+        let url = &after[..after.find(char::is_whitespace).unwrap_or(after.len())];
+        let strict = &url[..url.find(delimiter).unwrap_or(url.len())];
+        let password_shape = strict.split_once(':').is_some_and(|(user, after)| {
+            !user.is_empty()
+                && !user.starts_with('[')
+                && !user.contains('@')
+                && (after.is_empty() || !after.bytes().all(|b| b.is_ascii_digit()))
+        });
+        // The first `@` of the URL then each further one reached without a delimiter: the userinfo's end.
+        let userinfo_end = url
+            .find('@')
+            .filter(|&first| first < strict.len() || password_shape)
+            .map(|first| {
+                let mut end = first;
+                while let Some(next) = url[end + 1..].find(|c: char| c == '@' || delimiter(c)) {
+                    let next = end + 1 + next;
+                    if url.as_bytes()[next] != b'@' {
+                        break;
+                    }
+                    end = next;
+                }
+                end
+            });
+        clean.push_str(&rest[..start]);
+        let authority_end = match userinfo_end {
+            Some(end) if http || url[..end].contains(':') => {
+                let host = &url[end + 1..];
+                let host_end = host.find(delimiter).unwrap_or(host.len());
+                clean.push_str(&host[..host_end]);
                 changed = true;
+                end + 1 + host_end
             }
-            _ => clean.push_str(authority),
-        }
-        rest = &rest[authority_end..];
+            _ => {
+                clean.push_str(strict);
+                strict.len()
+            }
+        };
+        rest = &after[authority_end..];
     }
     clean.push_str(rest);
     changed.then_some(clean)

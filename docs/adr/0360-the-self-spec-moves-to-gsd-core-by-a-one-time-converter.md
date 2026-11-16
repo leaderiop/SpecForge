@@ -154,13 +154,17 @@ converted on every change that can move it, by a check of `cargo gate`, and must
     `process` port.
   - **One credential filter, both paths** (`specforge_process::passed`, for every program a request or an extension
     asks for; the host's own `extension build` keeps the secret deny-list alone, so it fetches as the user does): a
-    secret's name (`_TOKEN`, `_AUTHTOKEN`, `_AUTH`, `_SECRET`, `_PASSWORD`, `_PASSWD`, `_KEY`, `_CREDENTIALS`, `AWS_`,
-    any case on every system) and a cargo credential provider (`CARGO_REGISTRY_CREDENTIAL_PROVIDER`,
+    secret's name (`_TOKEN`, `_AUTHTOKEN`, `_AUTH`, `_SECRET`, `PASSWORD` (`PGPASSWORD`), `_PASSWD`, `_PWD`
+    (`MYSQL_PWD`, never `PWD` or `OLDPWD`), `_PAT` (`GH_PAT`), `_KEY`, `_CREDENTIALS`, `AWS_`, any case on every system)
+    and a cargo credential provider (`CARGO_REGISTRY_CREDENTIAL_PROVIDER`,
     `CARGO_REGISTRIES_<NAME>_CREDENTIAL_PROVIDER`, `CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS`, `CARGO_CREDENTIAL_*`)
     are withheld, even when declared by their exact name; a URL in an inherited value passes without its user and
     password (a proxy, `CARGO_REGISTRIES_<NAME>_INDEX`, `RUSTUP_DIST_SERVER`, `NPM_CONFIG_REGISTRY`, a database URL),
     a user alone removed under an HTTP scheme, where a token is written as the user, and kept as `ssh://git@host`'s
-    account. A proxy without a user passes whole, so a command still fetches through it. A value that is not Unicode
+    account. The user information runs to the authority's last `@`: once a `user:` starts it and no port follows the
+    `:`, an unencoded `#`, `?`, `/` or `@` in the password does not end it (`postgres://user:pa#ss@db/x`). A proxy
+    variable (ending `_PROXY`, never `NO_PROXY`) written without a scheme (`user:pass@proxy:8080`) is cleaned as curl
+    reads it. A proxy without a user passes whole, so a command still fetches through it. A value that is not Unicode
     and may hold a URL's user is withheld, as it cannot be cleaned
     ([ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md): secrets never reach a guest).
   - Rejected: withholding a proxy that carries a password, which would send the command's fetches elsewhere (around

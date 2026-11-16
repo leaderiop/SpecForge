@@ -12,8 +12,8 @@
 //! the command in the caller's environment, so it builds where the caller builds instead of a second cold build in
 //! `<project>/target`; the capability declares the cargo environment it reads (`CARGO_*`, `RUSTUP_*`, `RUSTC`,
 //! `RUSTC_*`, `RUSTFLAGS`: the target directory, the profile settings, the toolchain), so the approval names it. No
-//! credential passes: a registry token or credential provider is withheld, and a proxy or index URL passes without
-//! its user and password.
+//! credential passes: a registry token or credential provider is withheld, and a proxy (with or without its scheme)
+//! or an index URL passes without its user and password.
 //!
 //! Each case sits in exactly one `<testsuite>`, named by its binary id (`toy`, `toy::bin/toy`, `toy::api`): the test
 //! is `rust:<binary id>#<name>`. It is served `@rust/source`'s items; a test whose id an item's `test_id` holds takes
