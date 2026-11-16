@@ -187,6 +187,11 @@ converted on every change that can move it, by a check of `cargo gate`, and must
   `.git` files by absolute path: a watched path under the package is kept relative, and a copy without `.git` would
   rerun it. The run declares the copy (`SPECFORGE_CHECKOUT_COPY_OF`, naming the checkout), so the test support's
   guard against a stale shared target directory passes, and the tests read the checkout they were built under. The
+  guard honours the declaration only for a copy: the named checkout has its `.git` and its workspace manifest, and
+  the running workspace is another directory with no `.git`; another checkout naming this one stays stale. So
+  they would write there too: no bless switch reaches them (`SPECFORGE_BLESS`, `GSD_BLESS`, `UPDATE_EXPECT`, every
+  `INSTA_*`), insta is told to write nothing (`INSTA_UPDATE=no`), and every test that writes a golden asks
+  `specforge_repo_root::bless`, which refuses a bless in a declared copy. The
   bound, checked on every run and never blessed: no build unit's fingerprint of the profile `rust-test` builds
   with (read from `@rust/test`'s declaration: `test`, so `debug`) written during the run. The units are found where
   cargo says it builds (`cargo metadata`'s `build_directory`, run in the copy, so a `build.build-dir` moves them

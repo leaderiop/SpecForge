@@ -84,12 +84,28 @@ pub fn repo_root() -> &'static Path {
 }
 
 /// Whether `running` (the manifest directory cargo sets for the process that runs now) lies
-/// outside `baked`, the root this crate was compiled under, and the run does not say it is in a
-/// copy of `baked` (`copy_of`, from [`COPY_OF_ENV`]). A nested workspace such as
-/// `integrations/rust` is inside it.
+/// outside `baked`, the root this crate was compiled under, and is no declared copy of it. A nested
+/// workspace such as `integrations/rust` is inside it.
+///
+/// A copy is declared by `copy_of` (from [`COPY_OF_ENV`]) naming `baked`, and is honoured only when it
+/// is one: `baked` is a checkout (its workspace manifest and its `.git`), and the workspace `running`
+/// belongs to is another directory with no `.git` of its own (a copy of the tracked files). Another
+/// checkout naming this one is still another checkout, with its own stale target.
 fn runs_in_another_checkout(baked: &Path, running: &Path, copy_of: Option<&Path>) -> bool {
     let canonical = |path: &Path| path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    !canonical(running).starts_with(baked) && copy_of.map(canonical).as_deref() != Some(baked)
+    let running = canonical(running);
+    if running.starts_with(baked) {
+        return false;
+    }
+    let checkout = |root: &Path| root.join(".git").exists();
+    let declared_copy = copy_of.map(canonical).as_deref() == Some(baked)
+        && checkout(baked)
+        && declares_workspace(&baked.join("Cargo.toml"))
+        && running
+            .ancestors()
+            .find(|dir| declares_workspace(&dir.join("Cargo.toml")))
+            .is_some_and(|copy| copy != baked && !checkout(copy));
+    !declared_copy
 }
 
 /// The nearest ancestor of `dir`, `dir` excluded, whose `Cargo.toml` has a `[workspace]` table.
@@ -149,6 +165,29 @@ mod tests {
         assert!(!runs_in_another_checkout(here, &member, Some(here)));
         // A copy of another checkout is still another checkout.
         assert!(runs_in_another_checkout(here, &member, Some(copy.path())));
+    }
+
+    #[test]
+    fn another_checkout_naming_this_one_as_its_original_is_still_stale() {
+        let here = repo_root();
+        let other = tempfile::TempDir::new().unwrap();
+        std::fs::write(other.path().join("Cargo.toml"), "[workspace]\n").unwrap();
+        std::fs::create_dir(other.path().join(".git")).unwrap();
+        let member = other.path().join("crates/x");
+        std::fs::create_dir_all(&member).unwrap();
+        assert!(
+            runs_in_another_checkout(here, &member, Some(here)),
+            "a checkout of its own is no copy"
+        );
+        // Nor is a run that names, as its original, a tree that is no checkout.
+        let tree = tempfile::TempDir::new().unwrap();
+        std::fs::write(tree.path().join("Cargo.toml"), "[workspace]\n").unwrap();
+        let baked = tree.path().canonicalize().unwrap();
+        std::fs::remove_dir(other.path().join(".git")).unwrap();
+        assert!(runs_in_another_checkout(&baked, &member, Some(&baked)));
+        // And a member of no workspace at all.
+        let loose = tempfile::TempDir::new().unwrap();
+        assert!(runs_in_another_checkout(here, loose.path(), Some(here)));
     }
 
     #[test]
