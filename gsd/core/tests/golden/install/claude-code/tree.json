@@ -4,8 +4,8 @@
     "sha256": "c6218fe0b0c413644ff2dc2676b5b1acd120b3922634e73595945f03d7b5eb46"
   },
   ".claude/agents/gsd-assumptions-analyzer.md": {
-    "bytes": 7626,
-    "sha256": "713a2b3a06ee712ffaa3dfd6d87a9c43b3145421c6d5367f078df1087d06e471"
+    "bytes": 7645,
+    "sha256": "fc0eb94dc1b6e1bba821687acd395934a45941d6cfc1547cc7ba092ef44fa59d"
   },
   ".claude/agents/gsd-doc-classifier.md": {
     "bytes": 14073,
@@ -36,8 +36,8 @@
     "sha256": "d74aed55a257e2e7f7d5038264c101374406705d4367512aed641c604a544ecb"
   },
   ".claude/agents/gsd-plan-checker.md": {
-    "bytes": 53150,
-    "sha256": "5ff4c17e2e684531bc6bbe2079b233789d898968491e40670a0043206efd4ce5"
+    "bytes": 53218,
+    "sha256": "dbb1830013f0227a172fceb48d922bb5fb968d91d4bac89751f827960eded44c"
   },
   ".claude/agents/gsd-planner.md": {
     "bytes": 54700,
