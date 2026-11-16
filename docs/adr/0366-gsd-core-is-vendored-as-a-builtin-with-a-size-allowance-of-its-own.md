@@ -85,10 +85,11 @@ The build job's `self-spec-sample` step and the `gsd` shard both build the `gsd-
 
 **By name, by path.** With the row, `specforge check` of `gsd/core/tests/projects/roadmap` with `@gsd/core` and
 `@specforge/checks` enabled and `GSD_CORE_WASM` unset exits 0 and prints `[]`; the same blob loaded by path by a CLI
-without the row prints the same diagnostics, on the clean project and on `roadmap_errors` (8 each). With the row, an
-entry `@gsd/core=<path>` is refused with E028 (`declares '@gsd/core', the name of a builtin extension: only the builtin
-loads under it`), and every gsd kind then answers E024, because the entry is dropped. A CLI without the row refuses
-`@gsd/core` by name as "enabled but not installed": the row is what makes the name resolve.
+without the row prints the same diagnostics, none on the clean project and the same 8 on `roadmap_errors`, by name and
+by path alike. With the row, an entry `@gsd/core=<path>` is refused with E028 (`declares '@gsd/core', the name of a
+builtin extension: only the builtin loads under it`), and every gsd kind then answers E024, because the entry is
+dropped. A CLI without the row refuses `@gsd/core` by name as "enabled but not installed": the row is what makes the
+name resolve.
 
 **What the spike changed**, one row per file it touched or found it must touch, and the change each lands with (the
 vendoring change is this decision's; the vocabulary change is ADR 0369's):
