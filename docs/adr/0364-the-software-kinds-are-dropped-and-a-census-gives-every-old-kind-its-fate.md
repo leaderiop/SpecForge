@@ -34,7 +34,7 @@ graph` of a scratch copy of `f61370cb9`, binary built with the test profile), co
 | `event` | 123 | not read by absorb | dropped | this ADR (D1, D2) |
 | `type` | 678 | not read by absorb | dropped | this ADR (D1, D2) |
 | `port` | 26 | not read by absorb | dropped | this ADR (D1, D2) |
-| `module` | 54 | read, no entity created | dropped | [ADR 0365](0365-a-module-is-an-authored-gsd-core-kind-that-may-name-its-code-core-package.md) |
+| `module` | 54 | read, no entity created | dropped | [ADR 0365](0365-a-module-is-dropped-and-no-kind-is-added-to-hold-it.md) |
 | `release` | 3 | read, no entity created | becomes a version milestone | this ADR (D3) |
 | `milestone` | 18 | converted | becomes a phase under a version milestone | this ADR (D3) |
 | `feature` | 141 | converted | becomes a requirement | ADR 0360 |
