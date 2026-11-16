@@ -7,8 +7,13 @@ invariant and the word scale), [ADR 0359](0359-requirement-and-decision-fields-a
 [ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md) and
 [ADR 0198](0198-a-typed-edit-is-judged-by-the-graph-change-it-makes.md) (a typed edit, judged by the change it makes:
 E080), [ADR 0064](0064-a-declared-field-type-decides-one-wire-form.md) (one wire form of a value) and
-[ADR 0327](0327-a-collectors-facts-are-read-only-entities-recorded-by-digest.md) (recorded facts). No SDK, protocol or
-kernel change: the converter is a repository task in `xtask`, and every value it writes goes through the typed edit.
+[ADR 0327](0327-a-collectors-facts-are-read-only-entities-recorded-by-digest.md) (recorded facts). The converter
+changes no SDK, protocol or kernel code: it is a repository task in `xtask`, and every value it writes goes through
+the typed edit. The sample and its gate (D10 to D17) **amend**
+[ADR 0348](0348-a-collector-declares-a-config-file-and-the-rust-packs.md): a collector's `process` scope declares the
+arguments a caller's filter adds, a declared variable name may be a prefix, and `@rust/test` takes both; D18 amends
+[ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md): W061 reads no fact's reference. Protocol
+2.2.0, no bump.
 
 ## Context
 
@@ -107,6 +112,86 @@ kernel change: the converter is a repository task in `xtask`, and every value it
   - (c) a registry package pinned by its digest in `specforge.lock`: a released `@gsd/core`, installed as any
     extension is; it needs the gsd release pipeline first.
 
+## The sample and its gate
+
+A conversion that is only ever run by hand drifts from the spec it converts. A sample of the self-spec is therefore
+converted on every change that can move it, by a check of `cargo gate`, and must check clean: no error, no warning.
+
+- **D10. A sample is a rule in code, computed from the old graph.** `--only sample:<name>` names one of
+  `select::SAMPLES` (a second value form of `--only`, beside `ids:<file>`, yielding the same scope), and `--selection
+  <file>` writes what it selected, by old kind, sorted. The `wasm-host` rule: every entity of
+  `spec/features/wasm.spec` and `spec/invariants/wasm.spec`; every failure mode, constraint, decision and journey one
+  of whose edges ends at one of them or at a behavior of `spec/behaviors/wasm-*.spec` (one step; those behaviors stay
+  out); every persona of `spec/product/personas.spec`; then every term whose title or alias the prose of a sampled
+  non-term entity names (the fields the old registry declares `string` or `string_list`), as a whole word or phrase,
+  in any case, Unicode-aware, its words apart by any whitespace, so a phrase a line of prose wraps still names it. A
+  term's id is never matched, and a term never draws a term. It selects 108 old entities: constraint 9, decision 6,
+  failure mode 12, feature 12, invariant 16, journey 8, persona 6 and term 39 (a phrase wrapped across a line of a
+  constraint's prose names both glossaries' "traceability chain").
+  - Rejected: a committed id list, which is not computed from the graph and drifts; a selector file format, a second
+    reader for one sample; gsd's own glossary matcher, which xtask cannot link across workspaces.
+- **D11. The nine WASM-host constraints state their bound on a line the prove pass reads**, the first line of each
+  `metric """` (`traceability_false_negatives <= 0`, `cached_extension_load < 50ms`, `extension_memory <= 512MB`, …),
+  so D7 converts each to a `metric` record: none is `unconverted`, and the three strict ones (`<`) are `collapsed`.
+- **D12. The filter is a declared argument fragment the caller fills.** A collector's `process` capability may
+  declare `filter`, the arguments appended after its argv when, and only when, a caller passes `specforge collect
+  --filter <TEXT>` (MCP `specforge.collect`'s `filter`); `{filter}` in exactly one of them is the caller's text, one
+  argument, never read by a shell. The approval covers the declared command and fragment, so one approval covers any
+  text. A filter needs exactly one collector and a run (not `--no-run` or `--report`); a collector declaring none
+  refuses one; `filter_problem` refuses an empty text, one over 16 KiB, one starting with `-`, or one holding a
+  control character. `@rust/test` declares `["-E", "{filter}"]`: the text is a nextest filterset.
+- **D13. A declared variable name may end in `*`**, a namespace prefix (a letter first, `[A-Za-z0-9_]` only, at least
+  4 characters, ending in `_`), inherit-only: a guest never sets a variable through one. A name a program receives
+  only through a prefix is refused when it is a cargo credential or registry setting (`CARGO_REGISTRY_*`,
+  `CARGO_REGISTRIES_*`, `CARGO_CREDENTIAL_*`, `CARGO_HTTP_PROXY`), and the secret deny-list still runs last
+  ([ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md)). `@rust/test` declares
+  `CARGO_*`, `RUSTUP_*`, `RUSTC`, `RUSTC_*` and `RUSTFLAGS`, so its approval names the environment its build reads.
+  - A collector's command is a program the host runs, not a guest: it keeps the caller's environment less the
+    secret deny-list ([ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md)'s empty environment
+    holds for a program a guest runs). So the declaration changes no variable of today's collect run; it is what
+    the approval shows and what a guest-run program would receive. A registry token (`_TOKEN`) never reaches either.
+- **D14. The check `self-spec-sample`.** It builds the `@gsd/core` wasm, `specforge`, `absorb` and the workspace's
+  tests, copies the tracked tree twice under `<target>/gate/self-spec-sample/` (`src/`: all of it; `dst/`: all but
+  `spec/**` and `specforge.json`), collects `src` with `rust-cargo` and `rust-source`, absorbs the sample into `dst`
+  (`--extension @rust/cargo --extension @rust/source --extension @rust/test`), collects `dst` with the same two, runs
+  exactly the cited tests with `collect --runner rust-test --filter <filterset>`, then checks `dst` with
+  `--effects cached`. Every `specforge` and `absorb` call gets `HOME` under the run directory, `CARGO_HOME` and
+  `RUSTUP_HOME` kept, the gate's `CARGO_TARGET_DIR`, `--yes` against `SPECFORGE_CONSENT_FILE` in a `0700` directory
+  emptied first, and no cargo credential variable, so the gate never writes the user's consents and never reuses a
+  stale one. The cited tests' own reports go to the run directory (`SPECFORGE_REPORT`), never into the
+  `<target>/specforge` the `tests` check fills: a collector command told its report path by `{report}` (nextest's
+  JUnit, through its config) is no longer also handed it as `SPECFORGE_REPORT`, where each test binary would have
+  made a directory of the JUnit file's path.
+- **D15. The target run reuses the gate's test build: 0 units compiled.** The copies keep each file's modification
+  time and permissions, the run shares the gate's target directory and cargo environment, and a path crate is keyed
+  by its path from the workspace root, so cargo finds every unit fresh. The CLI's build script watches the commit's
+  `.git` files by absolute path: a watched path under the package is kept relative, and a copy without `.git` would
+  rerun it. The run declares the copy (`SPECFORGE_CHECKOUT_COPY_OF`, naming the checkout), so the test support's
+  guard against a stale shared target directory passes, and the tests read the checkout they were built under. The
+  bound, checked on every run and never blessed: no fingerprint entry of the profile `rust-test` builds
+  with (read from `@rust/test`'s declaration: `test`, so `debug`) written during the run; no cargo build in
+  `dst/target` (nextest's own store, `target/nextest`, which nextest keeps under the workspace root whatever the target
+  directory, is not one); every test that ran is cited; absorb's work exactly 3 compiles and 1 edit plan.
+- **D16. The verdict and its goldens.** An error, or a warning that is not the machine's, fails the check and is
+  listed with its file and line; a machine warning is named, never judged
+  ([ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md) D7). The infos on the
+  converted project (placed in `spec/`, in `specforge.json` or nowhere, as `{code, file, message}`), the selection and
+  the ledger, the run's absolute paths written as `<source>`, `<target>`, `<gsd_core.wasm>` and `<run>`, equal
+  `gate/golden/self-spec-sample/{infos,selection,ledger}.json` as line multisets; a difference shows at most 20 added
+  and 20 removed lines. An info placed in the code the collectors read (about 6,000 `code/I402`: a test anywhere
+  naming an entity outside the sample) is counted by code in the log, never golden: it moves with every change to the
+  code, not with the conversion, so its golden would be blessed every time. `SPECFORGE_BLESS=1 cargo gate full --only
+  self-spec-sample` writes the three only for a run with no error, no warning and the bound held.
+- **D17. CI runs it in the `build` job**, after the test archive is uploaded: only that job holds the test build the
+  run reuses (the archive carries no fingerprints). Its rust-cache gains `gsd -> target/gsd`. The `tests` jobs run
+  `if: ${{ !cancelled() }}`, so a red sample never hides the partitions.
+- **D18. W061 reads no fact's reference.** A converted invariant's `proof` lists the tests that prove it, and each of
+  them names the invariant in its attribute (`names`, ADR 0346 D8): the two edges are one claim made from both ends,
+  and W061 called each pair a reference cycle. A cargo dev-dependency back on its dependent did the same between two
+  `package` facts. A fact's reference is what its collector read in the source, which no `.spec` edit removes or
+  inverts, and whose own extension judges it (ADR 0346 D4); W061 now reads the written references but a declared
+  single reference's and a fact's. The edges are kept.
+
 ## Rejected
 
 - A kernel kind-map migration (`specforge migrate --kind-map`): the kernel is domain-free and knows no kind's
@@ -134,6 +219,12 @@ kernel change: the converter is a repository task in `xtask`, and every value it
   times its severity, at or above the default `risk_block_on` (100) whatever the severity; with no invariant to
   mitigate it, that is `gsd/W532`: the warning an unrated, unmitigated risk should give, not a gap in the conversion.
 - The root project does not move here: its swap is its own change, with D9's choice.
+- `cargo gate` (quick, and the hook's quick run) builds the `@gsd/core` wasm, `absorb` and the workspace's tests, and
+  runs the sample's cited tests, whenever a spec, `@gsd`, crate, extension or converter path changed: the sample's
+  cost is paid on every change that can break it, and only then.
+- A spec edit that breaks the sample (a new warning on a converted value, a test attribute whose text drifted from
+  its obligation) fails the gate in the pull request that made it, at its source; a change the sample should show is
+  a golden diff, blessed and reviewed.
 - The engine's plan is superlinear in the number of creates (about a second for a hundred, minutes for thousands),
   so a whole-spec run is a deliberate, measured step.
 

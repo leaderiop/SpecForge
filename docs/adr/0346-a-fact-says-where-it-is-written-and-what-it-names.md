@@ -7,6 +7,7 @@ not a kernel error; a unique suffix) and D7 (a rename of an entity a fact names 
 refused), and [ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) D3 (`names` is a fact-held reference).
 Protocol 2.0.0, unreleased: its additions go into the 2.0.0 row, no bump. Codes E117, E120, W197.
 Amended by [ADR 0353](0353-a-pass-reads-the-facts-it-declares.md) (D4: `dangling` rides on the facts a pass is sent, which are those its `facts` input names).
+Amended by [ADR 0360](0360-the-self-spec-moves-to-gsd-core-by-a-one-time-converter.md) D18 (W061 reads no fact's reference).
 D7 amended 2026-11-11: renames compose (a served store's places are shifted by what the renames wrote; one stale line
 per name held, replaced by a later rename; `source_rewritten` is gone).
 

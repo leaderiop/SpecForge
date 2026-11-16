@@ -8,6 +8,11 @@ collectors, `answers`, the `facts` input), [ADR 0346](0346-a-fact-says-where-it-
 (`Fact.at`, `Fact::name`) and [ADR 0347](0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md) (the ids and
 their minting). Protocol 2.0.0, unreleased: `ProcessScope.config` and `CollectorDescriptor.install` go into the 2.0.0
 row, no bump. No code: a collector reports only its error or its skip, and `@code/core` judges the facts.
+**Amended by** [ADR 0360](0360-the-self-spec-moves-to-gsd-core-by-a-one-time-converter.md) D12 and D13: the `process`
+scope's `filter` (the arguments `collect --filter` appends, `{filter}` the caller's text), a declared variable name
+ending in `*` (a namespace prefix, inherit-only, never a cargo credential), and `@rust/test`'s filter
+(`["-E", "{filter}"]`) and environment (`CARGO_*`, `RUSTUP_*`, `RUSTC`, `RUSTC_*`, `RUSTFLAGS`). Protocol 2.2.0, no
+bump.
 
 ## Context
 
