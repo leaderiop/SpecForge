@@ -3,6 +3,7 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
+use specforge_component::builtins::Family;
 use specforge_component::{ComponentRuntime, builtins};
 use specforge_protocol_types::DeclaredCategory;
 use specforge_test_macros::test as specforge_test;
@@ -48,6 +49,8 @@ fn every_committed_builtin_imports_only_wasi_and_the_ports_it_calls() {
     }
 }
 
+/// This one loads all: it proves every embedded component loads into one runtime. It builds no
+/// registry, and E026 is a registry build's, so no two declarers of a keyword meet here (ADR 0369 D3).
 #[test]
 fn load_all_builtins() {
     let runtime = ComponentRuntime::new();
@@ -57,7 +60,7 @@ fn load_all_builtins() {
 #[test]
 fn product_handshake() {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
 
     let result = runtime.call_export("@specforge/product", "__handshake", &[]);
     let WasmCallResult::Ok(bytes) = result else {
@@ -70,7 +73,7 @@ fn product_handshake() {
 #[test]
 fn software_describe_entities() {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
 
     let input = br#"{"category":"entities"}"#;
     let result = runtime.call_export("@specforge/software", "__describe", input);
@@ -85,7 +88,7 @@ fn software_describe_entities() {
 #[test]
 fn governance_handshake() {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
 
     let result = runtime.call_export("@specforge/governance", "__handshake", &[]);
     let WasmCallResult::Ok(bytes) = result else {
@@ -98,7 +101,7 @@ fn governance_handshake() {
 #[test]
 fn formal_describe_edges() {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
 
     let input = br#"{"category":"edges"}"#;
     let result = runtime.call_export("@specforge/formal", "__describe", input);
@@ -114,7 +117,7 @@ fn formal_describe_edges() {
 #[test]
 fn formal_handshake_from_sdk_authored_twin() {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
 
     let result = runtime.call_export("@specforge/formal", "__handshake", &[]);
     let WasmCallResult::Ok(bytes) = result else {
@@ -140,7 +143,7 @@ fn formal_handshake_from_sdk_authored_twin() {
 #[test]
 fn builtin_handshakes_survive_sdk_migration() {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
 
     let expectations = [
         (
@@ -204,7 +207,7 @@ fn builtin_handshakes_survive_sdk_migration() {
 )]
 fn product_declares_its_commands_and_exports_them() {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
 
     let input = br#"{"category":"surfaces"}"#;
     let WasmCallResult::Ok(bytes) = runtime.call_export("@specforge/product", "__describe", input)
@@ -288,7 +291,7 @@ fn product_declares_its_commands_and_exports_them() {
 )]
 fn product_declares_the_commands_its_cli_surface_specifies() {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
     let input = br#"{"category":"surfaces"}"#;
     let WasmCallResult::Ok(bytes) = runtime.call_export("@specforge/product", "__describe", input)
     else {

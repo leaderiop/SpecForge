@@ -9,6 +9,7 @@
 )]
 
 use serde_json::{Map, Value, json};
+use specforge_component::builtins::Family;
 use specforge_component::{ComponentRuntime, builtins};
 use specforge_protocol_types::{
     CommandEvidence, CommandFormat, CommandInput, CommandOutput, RawGraph,
@@ -34,7 +35,7 @@ const KINDS: [&str; 9] = [
 
 fn runtime() -> ComponentRuntime {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
     runtime
 }
 
