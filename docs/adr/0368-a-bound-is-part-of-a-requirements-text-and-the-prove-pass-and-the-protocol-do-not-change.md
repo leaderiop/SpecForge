@@ -1,6 +1,8 @@
 # A bound is part of a requirement's text, and the prove pass and the protocol do not change
 
-**Status:** accepted (2026-11-16). **Amends** [ADR 0360](0360-the-self-spec-moves-to-gsd-core-by-a-one-time-converter.md)
+**Status:** accepted (2026-11-16). D2 and D3 amended by
+[ADR 0370](0370-gsd-core-holds-exactly-gsd-cores-kinds-and-fields.md) (its D3 and D8): `requirement.metric` leaves,
+and an old invariant becomes a requirement. **Amends** [ADR 0360](0360-the-self-spec-moves-to-gsd-core-by-a-one-time-converter.md)
 D7 (the converter writes every `metric` line of an old constraint into the requirement's text; it writes no `metric`
 value, collapses no strict bound and ledgers no line `unconverted` for not being one bound) D8 (truth values wait
 for no kind and no field) and D11 (the nine WASM-host constraints keep their bound line as text; none becomes a

@@ -1,6 +1,8 @@
 # `@gsd/core` holds persona, journey and term, and a channel is a word
 
-**Status:** accepted (2026-11-14). Extends [ADR 0285](0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md)
+**Status:** accepted (2026-11-14). Superseded by
+[ADR 0370](0370-gsd-core-holds-exactly-gsd-cores-kinds-and-fields.md): `persona`, `journey` and `term` leave
+`@gsd/core`; D11 is kept and D15 kept in part, and ADR 0370's table gives each decision its outcome. Extends [ADR 0285](0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md)
 D4 (a reference inside a block), [ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md)
 (a field that names its reverse) and [ADR 0279](0279-a-builtin-closes-a-fields-words-only-when-they-fit-any-domain.md)
 D1 (open words). No kernel, SDK or protocol change. Extends

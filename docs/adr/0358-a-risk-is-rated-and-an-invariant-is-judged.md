@@ -1,6 +1,8 @@
 # A risk is rated 1 to 10 and an invariant is judged to hold
 
-**Status:** accepted (2026-11-14). Builds on [ADR 0285](0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md)
+**Status:** accepted (2026-11-14). Superseded by
+[ADR 0370](0370-gsd-core-holds-exactly-gsd-cores-kinds-and-fields.md): `risk` and `invariant` leave `@gsd/core`; D15
+and D24 are kept, and ADR 0370's table gives each decision its outcome. Builds on [ADR 0285](0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md)
 (a bounded int, a block, a reference union), [ADR 0287](0287-who-writes-a-field-is-declared.md) (a computed field),
 [ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md) (a typed setting) and
 [ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md) (a field that names its reverse).
