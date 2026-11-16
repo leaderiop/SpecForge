@@ -176,8 +176,8 @@ checks with nothing to build. What ties the blob to the source is D4's test, not
 `@gsd/core` is vendored once: after the changes that settle its kinds, its fields and its rules, each decided in a
 later ADR, and after the vocabulary change
 ([ADR 0369](0369-the-builtin-vocabulary-maps-a-kind-keyword-to-every-builtin-that-declares-it.md)), without which
-revendor refuses the row: `revendor: @specforge/product and @gsd/core both declare the kind keyword 'persona'`. No
-protocol change precedes it
+revendor refuses the row. At the spike it printed
+`revendor: @specforge/product and @gsd/core both declare the kind keyword 'persona'`. No protocol change precedes it
 ([ADR 0368](0368-a-bound-is-part-of-a-requirements-text-and-the-prove-pass-and-the-protocol-do-not-change.md)): the
 protocol stays 2.2.0, and no builtin is re-vendored for a protocol change.
 
