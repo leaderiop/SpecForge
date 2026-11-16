@@ -707,7 +707,7 @@ mod tests {
         // `@aaa/other` is the first declarer: an answer that takes it alone hides `@acme/proof`.
         assert_eq!(
             suggested(r#""@aaa/other", "@acme/proof""#),
-            "install one of the extensions that declare it with: specforge add @aaa/other or specforge add @acme/proof"
+            "install one of the extensions that declare it with: `specforge add @aaa/other` or `specforge add @acme/proof`"
         );
         assert_eq!(
             suggested(r#""@acme/proof""#),

@@ -135,7 +135,11 @@ impl CandidateVocabulary {
             [only] => Some(format!("install it with: {only}")),
             several => Some(format!(
                 "install one of the extensions that declare it with: {}",
-                several.join(" or ")
+                several
+                    .iter()
+                    .map(|command| format!("`{command}`"))
+                    .collect::<Vec<_>>()
+                    .join(" or ")
             )),
         }
     }
@@ -298,7 +302,7 @@ mod tests {
         assert_eq!(
             v.kind_install("gizmo").as_deref(),
             Some(
-                "install one of the extensions that declare it with: specforge add @x/a or specforge add @x/c"
+                "install one of the extensions that declare it with: `specforge add @x/a` or `specforge add @x/c`"
             )
         );
         assert_eq!(v.kind_install("xyzzy"), None);

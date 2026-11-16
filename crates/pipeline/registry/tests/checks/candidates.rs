@@ -117,7 +117,7 @@ fn two_extensions_declaring_term_yield_one_vocabulary_and_e024_names_both() {
     assert_eq!(
         e024[0].suggestion.as_deref(),
         Some(
-            "install one of the extensions that declare it with: specforge add @gsd/core or specforge add @specforge/product"
+            "install one of the extensions that declare it with: `specforge add @gsd/core` or `specforge add @specforge/product`"
         ),
         "{diags:?}"
     );
@@ -143,7 +143,7 @@ fn w151_names_every_extension_that_declares_the_first_kind() {
     assert_eq!(
         w151[0].suggestion.as_deref(),
         Some(
-            "install one of the extensions that declare it with: specforge add @specforge/software or specforge add @test/behaviors"
+            "install one of the extensions that declare it with: `specforge add @specforge/software` or `specforge add @test/behaviors`"
         ),
         "{diags:?}"
     );
