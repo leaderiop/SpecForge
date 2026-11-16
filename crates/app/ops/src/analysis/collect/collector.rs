@@ -321,6 +321,18 @@ pub(super) fn expanded_config(template: &str, report: &Path) -> String {
     template.replace(REPORT_PLACEHOLDER, &escaped)
 }
 
+impl Collector {
+    /// Whether its command is told where its report goes, through `{report}` in its argv or its config: then it writes
+    /// the report itself, and `SPECFORGE_REPORT` is not set for it.
+    pub fn told_its_report(&self) -> bool {
+        self.run.iter().any(|arg| arg.contains(REPORT_PLACEHOLDER))
+            || self
+                .config
+                .as_ref()
+                .is_some_and(|config| config.template.contains(REPORT_PLACEHOLDER))
+    }
+}
+
 /// The declared command with `{report}` and `{config}` expanded, then, when a caller passes `filter`, the collector's
 /// filter arguments with `{filter}` replaced by its text, one argument (ADR 0360): never read by a shell.
 pub(super) fn command_line(

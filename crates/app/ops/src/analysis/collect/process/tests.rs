@@ -22,6 +22,7 @@ fn run(
             argv,
             dir,
             report,
+            report_in_env: true,
             output,
         },
         capture,
@@ -128,6 +129,7 @@ fn a_command_past_the_deadline_is_stopped() {
                     argv: &argv,
                     dir: &root,
                     report: &root.join("r.json"),
+                    report_in_env: true,
                     output: RunnerOutput::Discard,
                 },
                 None,
@@ -183,6 +185,7 @@ fn a_stopped_command_says_why_in_the_class_words() {
                 argv: &argv,
                 dir: dir.path(),
                 report: &dir.path().join("r.json"),
+                report_in_env: true,
                 output: RunnerOutput::Discard,
             },
             None,
@@ -250,5 +253,39 @@ fn a_collector_command_never_receives_a_cargo_registry_token() {
     assert!(env.contains("CARGO_SPECFORGE_PROBE=passed"), "{env}");
     for withheld in ["CARGO_REGISTRY_TOKEN=", "CARGO_REGISTRIES_X_TOKEN="] {
         assert!(!env.contains(withheld), "{withheld}: {env}");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_command_told_its_report_runs_without_the_report_env() {
+    let dir = tempfile::tempdir().unwrap();
+    let seen = dir.path().join("seen");
+    let argv = vec![
+        "sh".to_string(),
+        "-c".into(),
+        format!(
+            "printf '%s' \"${{{REPORT_ENV}:-unset}}\" > {}",
+            seen.display()
+        ),
+    ];
+    for (report_in_env, expected) in [
+        (false, "unset".to_string()),
+        (true, dir.path().join("r.xml").display().to_string()),
+    ] {
+        let ran = real_machine()
+            .run(
+                &CollectorCommand {
+                    argv: &argv,
+                    dir: dir.path(),
+                    report: &dir.path().join("r.xml"),
+                    report_in_env,
+                    output: RunnerOutput::Discard,
+                },
+                None,
+            )
+            .unwrap();
+        assert_eq!(ran.exit_code, Some(0));
+        assert_eq!(std::fs::read_to_string(&seen).unwrap(), expected);
     }
 }

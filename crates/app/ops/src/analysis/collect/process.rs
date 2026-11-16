@@ -49,10 +49,12 @@ impl CollectorMachine for ProcessMachine {
             )));
         }
         let mut asked = request(command.argv.iter().map(String::as_str), self.deadline);
-        asked.env = vec![EnvVar::set(
-            REPORT_ENV,
-            command.report.to_string_lossy().into_owned(),
-        )];
+        if command.report_in_env {
+            asked.env = vec![EnvVar::set(
+                REPORT_ENV,
+                command.report.to_string_lossy().into_owned(),
+            )];
+        }
         let mut sink = std::io::sink();
         let shown = match command.output {
             RunnerOutput::Inherit => Shown::Terminal,

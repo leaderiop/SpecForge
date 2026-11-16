@@ -258,6 +258,8 @@ fn a_filter_reaches_nextest_as_its_filterset() {
         argv[argv.len() - 2..],
         ["-E".to_string(), filter.to_string()]
     );
+    // nextest is told its report through its config, so no test binary's integration writes at that path.
+    assert!(!machine.runs()[0].report_in_env);
     assert_eq!(
         argv[argv.len() - 4..argv.len() - 2],
         ["--profile", "specforge"]

@@ -574,8 +574,9 @@ c.collector("cargo-test", |k| {
 `.run(argv)` declares the collector's `process` capability, named after it, and names it; an extension that
 declares its capabilities itself (`c.capability(Capability::process("tests").argv(..).why(..))`) names one with
 `k.capability("tests")`. `specforge collect` runs that command in the project root, after
-the user approves it once for the project, with `SPECFORGE_REPORT` set to
-the absolute report path. It then reads the report (the file, or every
+the user approves it once for the project. The command learns the absolute report path from `{report}` in its argv
+or its config file; a command that names it neither way gets it as `SPECFORGE_REPORT` instead (a test binary's
+runner integration writes there, ADR 0068). It then reads the report (the file, or every
 `*.json` file directly inside the directory) and calls the extension's
 `collect__<name>` export (`-` becomes `_`), which the SDK routes to the
 handler declared with `k.collect`, a pure function from [`CollectInput`] to
