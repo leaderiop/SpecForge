@@ -42,7 +42,7 @@
     "crates/runtime/extension-sdk-macros/Cargo.toml": "2845656f0847efeddb37aecc91031adc3396747949aa0e090cdad31644824544",
     "crates/runtime/extension-sdk-macros/src/lib.rs": "05b9dfd092444a55acc0993f35172ee3d0e4db9b6b1bed77682ce912ba54f67a",
     "crates/runtime/extension-sdk/Cargo.toml": "41c03d21f457d3e7394d86a625742a525700ac1ddcb92b49487e0fc5dcaa2797",
-    "crates/runtime/extension-sdk/src/builders.rs": "e45afa38f2e245d9938c6dbb0e0a09978f89cc45788d04fdcd0eb28b06f6643e",
+    "crates/runtime/extension-sdk/src/builders.rs": "e47433bc3d3036efd7046f6c53f415efe17c16a79c073c107488d21be0ac79b4",
     "crates/runtime/extension-sdk/src/capability.rs": "e6c88ecbe2e9ce2a5c6da397559ec9f846183bb9142f37765b1b329a0bf16667",
     "crates/runtime/extension-sdk/src/checker.rs": "4d89b64155c3a6fce020c07e432eb9f6d38320e14b3d4623fd89a3f7ae7ea3e7",
     "crates/runtime/extension-sdk/src/command_graph.rs": "e88d26d3134c7591aa1afeee1f432ecdf0437a191c23b5d2eb50a50a0b7e5562",
