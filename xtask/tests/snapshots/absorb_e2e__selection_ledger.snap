@@ -47,22 +47,22 @@ expression: ledger
     {
       "kind": "constraint",
       "id": "write_latency",
-      "field": "area",
-      "value": null,
+      "field": "category",
+      "value": "performance",
       "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "constraint",
       "id": "write_latency",
       "field": "category",
-      "value": "performance",
+      "value": null,
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "filled": {
+          "field": "requirement.category",
+          "value": "Constraint"
+        }
       }
     },
     {
@@ -408,11 +408,11 @@ expression: ledger
     {
       "kind": "feature",
       "id": "store_entries",
-      "field": "area",
+      "field": "category",
       "value": null,
       "why": {
         "filled": {
-          "field": "requirement.area",
+          "field": "requirement.category",
           "value": "Feature"
         }
       }

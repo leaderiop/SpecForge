@@ -56,22 +56,22 @@ expression: ledger
     {
       "kind": "constraint",
       "id": "bounded_retries",
-      "field": "area",
-      "value": null,
+      "field": "category",
+      "value": "interoperability",
       "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "constraint",
       "id": "bounded_retries",
       "field": "category",
-      "value": "interoperability",
+      "value": null,
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "filled": {
+          "field": "requirement.category",
+          "value": "Constraint"
+        }
       }
     },
     {
@@ -107,22 +107,22 @@ expression: ledger
     {
       "kind": "constraint",
       "id": "calm_wait",
-      "field": "area",
-      "value": null,
+      "field": "category",
+      "value": "usability",
       "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "constraint",
       "id": "calm_wait",
       "field": "category",
-      "value": "usability",
+      "value": null,
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "filled": {
+          "field": "requirement.category",
+          "value": "Constraint"
+        }
       }
     },
     {
@@ -158,22 +158,22 @@ expression: ledger
     {
       "kind": "constraint",
       "id": "retry_window",
-      "field": "area",
-      "value": null,
+      "field": "category",
+      "value": "reliability",
       "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "constraint",
       "id": "retry_window",
       "field": "category",
-      "value": "reliability",
+      "value": null,
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "filled": {
+          "field": "requirement.category",
+          "value": "Constraint"
+        }
       }
     },
     {
@@ -209,22 +209,22 @@ expression: ledger
     {
       "kind": "constraint",
       "id": "write_latency",
-      "field": "area",
-      "value": null,
+      "field": "category",
+      "value": "performance",
       "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "constraint",
       "id": "write_latency",
       "field": "category",
-      "value": "performance",
+      "value": null,
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "filled": {
+          "field": "requirement.category",
+          "value": "Constraint"
+        }
       }
     },
     {
@@ -305,22 +305,22 @@ expression: ledger
     {
       "kind": "constraint",
       "id": "write_throughput",
-      "field": "area",
-      "value": null,
+      "field": "category",
+      "value": "performance",
       "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "constraint",
       "id": "write_throughput",
       "field": "category",
-      "value": "performance",
+      "value": null,
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "filled": {
+          "field": "requirement.category",
+          "value": "Constraint"
+        }
       }
     },
     {
@@ -832,11 +832,11 @@ expression: ledger
     {
       "kind": "feature",
       "id": "old_export",
-      "field": "area",
+      "field": "category",
       "value": null,
       "why": {
         "filled": {
-          "field": "requirement.area",
+          "field": "requirement.category",
           "value": "Feature"
         }
       }
@@ -879,11 +879,11 @@ expression: ledger
     {
       "kind": "feature",
       "id": "store_entries",
-      "field": "area",
+      "field": "category",
       "value": null,
       "why": {
         "filled": {
-          "field": "requirement.area",
+          "field": "requirement.category",
           "value": "Feature"
         }
       }

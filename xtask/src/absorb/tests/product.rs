@@ -172,7 +172,7 @@ fn feature_effort_priority_tags_and_sources_are_dropped() {
     let fields = create(&planned, "f").1;
     assert_eq!(
         fields.keys().collect::<Vec<_>>(),
-        ["area", "text", "tier"],
+        ["category", "text", "tier"],
         "{fields:?}"
     );
     for name in [

@@ -5,22 +5,22 @@
     {
       "kind": "constraint",
       "id": "extension_count_limit",
-      "field": "area",
-      "value": null,
+      "field": "category",
+      "value": "performance",
       "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "constraint",
       "id": "extension_count_limit",
       "field": "category",
-      "value": "performance",
+      "value": null,
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "filled": {
+          "field": "requirement.category",
+          "value": "Constraint"
+        }
       }
     },
     {
@@ -116,22 +116,22 @@
     {
       "kind": "constraint",
       "id": "extension_system_integrity",
-      "field": "area",
-      "value": null,
+      "field": "category",
+      "value": "reliability",
       "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "constraint",
       "id": "extension_system_integrity",
       "field": "category",
-      "value": "reliability",
+      "value": null,
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "filled": {
+          "field": "requirement.category",
+          "value": "Constraint"
+        }
       }
     },
     {
@@ -246,22 +246,22 @@
     {
       "kind": "constraint",
       "id": "test_coverage_accuracy",
-      "field": "area",
-      "value": null,
+      "field": "category",
+      "value": "reliability",
       "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "constraint",
       "id": "test_coverage_accuracy",
       "field": "category",
-      "value": "reliability",
+      "value": null,
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "filled": {
+          "field": "requirement.category",
+          "value": "Constraint"
+        }
       }
     },
     {
@@ -334,22 +334,22 @@
     {
       "kind": "constraint",
       "id": "traceability_completeness",
-      "field": "area",
-      "value": null,
+      "field": "category",
+      "value": "reliability",
       "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "constraint",
       "id": "traceability_completeness",
       "field": "category",
-      "value": "reliability",
+      "value": null,
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "filled": {
+          "field": "requirement.category",
+          "value": "Constraint"
+        }
       }
     },
     {
@@ -421,22 +421,22 @@
     {
       "kind": "constraint",
       "id": "wasm_binary_size_limit",
-      "field": "area",
-      "value": null,
+      "field": "category",
+      "value": "portability",
       "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "constraint",
       "id": "wasm_binary_size_limit",
       "field": "category",
-      "value": "portability",
+      "value": null,
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "filled": {
+          "field": "requirement.category",
+          "value": "Constraint"
+        }
       }
     },
     {
@@ -520,22 +520,22 @@
     {
       "kind": "constraint",
       "id": "wasm_compile_cache_budget",
-      "field": "area",
-      "value": null,
+      "field": "category",
+      "value": "performance",
       "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "constraint",
       "id": "wasm_compile_cache_budget",
       "field": "category",
-      "value": "performance",
+      "value": null,
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "filled": {
+          "field": "requirement.category",
+          "value": "Constraint"
+        }
       }
     },
     {
@@ -619,22 +619,22 @@
     {
       "kind": "constraint",
       "id": "wasm_compile_cache_size_limit",
-      "field": "area",
-      "value": null,
+      "field": "category",
+      "value": "portability",
       "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "constraint",
       "id": "wasm_compile_cache_size_limit",
       "field": "category",
-      "value": "portability",
+      "value": null,
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "filled": {
+          "field": "requirement.category",
+          "value": "Constraint"
+        }
       }
     },
     {
@@ -716,22 +716,22 @@
     {
       "kind": "constraint",
       "id": "wasm_memory_limit",
-      "field": "area",
-      "value": null,
+      "field": "category",
+      "value": "performance",
       "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "constraint",
       "id": "wasm_memory_limit",
       "field": "category",
-      "value": "performance",
+      "value": null,
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "filled": {
+          "field": "requirement.category",
+          "value": "Constraint"
+        }
       }
     },
     {
@@ -850,22 +850,22 @@
     {
       "kind": "constraint",
       "id": "wasm_sandbox_enforcement",
-      "field": "area",
-      "value": null,
+      "field": "category",
+      "value": "security",
       "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
+        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "constraint",
       "id": "wasm_sandbox_enforcement",
       "field": "category",
-      "value": "security",
+      "value": null,
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "filled": {
+          "field": "requirement.category",
+          "value": "Constraint"
+        }
       }
     },
     {
@@ -2542,11 +2542,11 @@
     {
       "kind": "feature",
       "id": "contribution_based_extensions",
-      "field": "area",
+      "field": "category",
       "value": null,
       "why": {
         "filled": {
-          "field": "requirement.area",
+          "field": "requirement.category",
           "value": "Feature"
         }
       }
@@ -2578,11 +2578,11 @@
     {
       "kind": "feature",
       "id": "entity_enhancement",
-      "field": "area",
+      "field": "category",
       "value": null,
       "why": {
         "filled": {
-          "field": "requirement.area",
+          "field": "requirement.category",
           "value": "Feature"
         }
       }
@@ -2614,11 +2614,11 @@
     {
       "kind": "feature",
       "id": "entity_kind_conflict_prevention",
-      "field": "area",
+      "field": "category",
       "value": null,
       "why": {
         "filled": {
-          "field": "requirement.area",
+          "field": "requirement.category",
           "value": "Feature"
         }
       }
@@ -2650,11 +2650,11 @@
     {
       "kind": "feature",
       "id": "surface_contributions",
-      "field": "area",
+      "field": "category",
       "value": null,
       "why": {
         "filled": {
-          "field": "requirement.area",
+          "field": "requirement.category",
           "value": "Feature"
         }
       }
@@ -2686,11 +2686,11 @@
     {
       "kind": "feature",
       "id": "test_result_collection",
-      "field": "area",
+      "field": "category",
       "value": null,
       "why": {
         "filled": {
-          "field": "requirement.area",
+          "field": "requirement.category",
           "value": "Feature"
         }
       }
@@ -2722,11 +2722,11 @@
     {
       "kind": "feature",
       "id": "wasm_extension_authoring",
-      "field": "area",
+      "field": "category",
       "value": null,
       "why": {
         "filled": {
-          "field": "requirement.area",
+          "field": "requirement.category",
           "value": "Feature"
         }
       }
@@ -2758,11 +2758,11 @@
     {
       "kind": "feature",
       "id": "wasm_extension_installation",
-      "field": "area",
+      "field": "category",
       "value": null,
       "why": {
         "filled": {
-          "field": "requirement.area",
+          "field": "requirement.category",
           "value": "Feature"
         }
       }
@@ -2794,11 +2794,11 @@
     {
       "kind": "feature",
       "id": "wasm_extension_maintenance",
-      "field": "area",
+      "field": "category",
       "value": null,
       "why": {
         "filled": {
-          "field": "requirement.area",
+          "field": "requirement.category",
           "value": "Feature"
         }
       }
@@ -2830,11 +2830,11 @@
     {
       "kind": "feature",
       "id": "wasm_extension_runtime",
-      "field": "area",
+      "field": "category",
       "value": null,
       "why": {
         "filled": {
-          "field": "requirement.area",
+          "field": "requirement.category",
           "value": "Feature"
         }
       }
@@ -2866,11 +2866,11 @@
     {
       "kind": "feature",
       "id": "wasm_host_function_api",
-      "field": "area",
+      "field": "category",
       "value": null,
       "why": {
         "filled": {
-          "field": "requirement.area",
+          "field": "requirement.category",
           "value": "Feature"
         }
       }
@@ -2890,11 +2890,11 @@
     {
       "kind": "feature",
       "id": "wasm_lock_management",
-      "field": "area",
+      "field": "category",
       "value": null,
       "why": {
         "filled": {
-          "field": "requirement.area",
+          "field": "requirement.category",
           "value": "Feature"
         }
       }
@@ -2926,11 +2926,11 @@
     {
       "kind": "feature",
       "id": "wasm_performance_optimization",
-      "field": "area",
+      "field": "category",
       "value": null,
       "why": {
         "filled": {
-          "field": "requirement.area",
+          "field": "requirement.category",
           "value": "Feature"
         }
       }

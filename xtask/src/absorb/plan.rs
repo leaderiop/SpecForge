@@ -374,11 +374,11 @@ impl Planner {
         let fills: Vec<(&str, Input)> = match kind {
             "decision" => vec![("origin", Input::One("project".to_string()))],
             "requirement" if e.kind == "constraint" => vec![
-                ("area", Input::One("Constraint".to_string())),
+                ("category", Input::One("Constraint".to_string())),
                 ("tier", Input::One("v1".to_string())),
             ],
             "requirement" => vec![
-                ("area", Input::One("Feature".to_string())),
+                ("category", Input::One("Feature".to_string())),
                 (
                     "tier",
                     Input::One(how::feature_tier(how::FEATURE_DEFAULT).to_string()),

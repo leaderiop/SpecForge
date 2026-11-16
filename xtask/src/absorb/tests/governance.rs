@@ -79,12 +79,11 @@ fn a_constraint_keeps_its_text_and_drops_the_fields_that_left() {
     assert_eq!(kind, "requirement");
     assert_eq!(
         fields.keys().collect::<Vec<_>>(),
-        ["area", "text", "tier"],
+        ["category", "text", "tier"],
         "only the text, and the fills"
     );
     assert_eq!(field(&planned, "c", "text"), Some(&one("Fast.")));
     for name in [
-        "category",
         "governs_features",
         "metric",
         "priority",
@@ -98,6 +97,19 @@ fn a_constraint_keeps_its_text_and_drops_the_fields_that_left() {
             why_of(&planned, "c", name)
         );
     }
+    // The quality class and the requirement's heading share the name `category`: the class is dropped, and the
+    // heading is filled with "Constraint".
+    assert!(
+        matches!(
+            why_of(&planned, "c", "category").as_slice(),
+            [Why::Dropped(reason), Why::Filled { field, value }]
+                if reason.contains("ADR 0370")
+                    && field == "requirement.category"
+                    && value == "Constraint"
+        ),
+        "category: {:?}",
+        why_of(&planned, "c", "category")
+    );
     assert!(
         matches!(why_of(&planned, "c", "metric").as_slice(), [Why::Dropped(reason)] if reason.contains("ADR 0368 D2")),
         "a bound is the requirement's text, which the conversion change writes"

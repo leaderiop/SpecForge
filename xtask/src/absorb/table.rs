@@ -214,7 +214,7 @@ pub const TABLE: &[Row] = rows! {
         "refs" => [REFUSED],
         "description" => [REFUSED],
     ]
-    // ADR 0359 D1-D6: a constraint is a requirement of area "Constraint".
+    // ADR 0359 D1-D6: a constraint is a requirement of category "Constraint".
     "constraint": [
         "description" => [to(REQUIREMENT, "text", Text)],
         "category" => [leaves!("requirement.category (the quality class)")],
@@ -259,7 +259,7 @@ pub const TABLE: &[Row] = rows! {
         "expression" => [NO_INVARIANT],
         "verify" => [NO_INVARIANT],
     ]
-    // ADR 0359 D7-D11: a feature is a requirement of area "Feature".
+    // ADR 0359 D7-D11: a feature is a requirement of category "Feature".
     "feature": [
         "problem" => [to(REQUIREMENT, "text", Text)],
         "description" => [to(REQUIREMENT, "text", Text)],
