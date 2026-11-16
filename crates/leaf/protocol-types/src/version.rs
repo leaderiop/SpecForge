@@ -48,12 +48,27 @@
 /// An edit plan may `record_context` a route's pack on an entity; the host computes and writes it (D11).
 /// A 2.0.0 guest still loads, being an older minor.
 ///
-/// 2.2.0 adds: a kind field or a block member may be `number`, an exact decimal of at most 15 significant digits
-/// (ADR 0361), written as one decimal word and carried as a JSON number; a `number` field's `minimum` and `maximum`
-/// are decimals. [`Decimal`](crate::Decimal), `GraphNode::number` and `PassEntity::number` read one. A judged target
-/// may declare `judged_while`, the owner state its entities are judged in (ADR 0362): an entity in the other state
-/// owes no verdict, decided after the compute passes. A 2.1.0 guest still loads; a 2.2.0 guest is refused by a 2.1
-/// host (E088, newer).
+/// 2.2.0 adds:
+/// - a kind field or a block member may be `number`, an exact decimal of at most 15 significant digits (ADR 0361),
+///   written as one decimal word and carried as a JSON number; a `number` field's `minimum` and `maximum` are
+///   decimals. [`Decimal`](crate::Decimal), `GraphNode::number` and `PassEntity::number` read one;
+/// - a judged target may declare `judged_while`, the owner state its entities are judged in (ADR 0362): an entity in
+///   the other state owes no verdict, decided after the compute passes;
+/// - a `codes` entry may declare `reported_while`, `complete` or `pending` (ADR 0363): its findings speak only on an
+///   entity in that owner state, and a typed edit that moves the entity into it reveals one rather than adding it;
+/// - a `process` capability may declare `filter` ([`ProcessScope::filter`](crate::ProcessScope::filter)): the
+///   arguments the host appends after `argv` only when a caller passes a filter (`specforge collect --filter`),
+///   [`FILTER_PLACEHOLDER`](crate::FILTER_PLACEHOLDER) in exactly one of them; no guest request is admitted on such a
+///   scope (ADR 0360);
+/// - a declared `env` name may end in `*` after a namespace prefix: the program inherits every variable with that
+///   prefix, and no guest sets a variable through it (ADR 0360);
+/// - a program a guest runs and a collector's command the host runs go through one credential filter: a secret's
+///   name and a cargo credential provider are withheld, and a URL's user and password are removed (ADR 0360);
+/// - a collector's command told its report path through `{report}` in its argv or config runs with
+///   `SPECFORGE_REPORT` removed from its environment; one told it no other way gets it set to its report path (the
+///   host's `report_in_env`, ADR 0360).
+///
+/// A 2.1.0 guest still loads; a 2.2.0 guest is refused by a 2.1 host (E088, newer).
 ///
 /// A change that adds to the current minor (grants, host imports, value checks) adds its item here and to that
 /// minor's row of `docs/extension-protocol.md` ("Protocol Versions"), which also keeps the 1.x history, 1.15.0
