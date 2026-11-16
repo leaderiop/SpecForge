@@ -2,8 +2,9 @@
 
 **Status:** accepted (2026-11-16). **Amends** [ADR 0360](0360-the-self-spec-moves-to-gsd-core-by-a-one-time-converter.md)
 D7 (the converter writes every `metric` line of an old constraint into the requirement's text; it writes no `metric`
-value, collapses no strict bound and ledgers no line `unconverted` for not being one bound) and D8 (truth values wait
-for no kind and no field). Builds on
+value, collapses no strict bound and ledgers no line `unconverted` for not being one bound) D8 (truth values wait
+for no kind and no field) and D11 (the nine WASM-host constraints keep their bound line as text; none becomes a
+`metric` record and none is collapsed). Builds on
 [ADR 0364](0364-the-software-kinds-are-dropped-and-a-census-gives-every-old-kind-its-fate.md) (the rule that no kind
 is added to port the old spec, and the whole-spec run the figures come from). No protocol or SDK change comes with
 this decision: the protocol stays 2.2.0, unreleased, and no builtin is re-vendored for it.
