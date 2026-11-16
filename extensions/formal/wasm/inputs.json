@@ -41,7 +41,7 @@
     "crates/leaf/protocol-types/src/tokens.rs": "712d002d00fec879b8f594f775bb25513ead53ee61d11978478c36d83bfbe9b1",
     "crates/leaf/protocol-types/src/tool_input.rs": "0e7e9603b820339efea2266baafcd42ba39323b287b0f682a2bb509227590b17",
     "crates/leaf/protocol-types/src/trigger.rs": "4e76e4d280ed72934f33b823c9c2bb2a80648b1fb227c594ba9385ee2c60d422",
-    "crates/leaf/protocol-types/src/version.rs": "39e9d0421106fbd3d43f400d905587f6eff8d05269db040fbc1d08d2b18f0c0c",
+    "crates/leaf/protocol-types/src/version.rs": "bc4a6bcf4bde2c8ddffc7e44c29793716f7033d8593d417c088cc26ed56dfa48",
     "crates/leaf/protocol-types/src/vocabulary.rs": "c3bea56db4bb5cfc84ce400db7750b2eb33c58dcbf11e5b3f2761683341675b5",
     "crates/runtime/extension-sdk-macros/Cargo.toml": "2845656f0847efeddb37aecc91031adc3396747949aa0e090cdad31644824544",
     "crates/runtime/extension-sdk-macros/src/lib.rs": "05b9dfd092444a55acc0993f35172ee3d0e4db9b6b1bed77682ce912ba54f67a",
