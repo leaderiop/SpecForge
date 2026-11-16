@@ -14,7 +14,7 @@ mod invariants;
 mod journeys;
 mod nyquist;
 mod plan_shape;
-mod plans;
+pub(crate) mod plans;
 mod probe_rows;
 mod research;
 mod roadmap;

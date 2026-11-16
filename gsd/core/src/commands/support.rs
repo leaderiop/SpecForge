@@ -1,7 +1,7 @@
 //! What the writing commands share (D-r41-2): one way to refuse, the clock, a person's text and the ids a command
 //! creates. Every refusal is `invalid_input` (exit 1) unless a gate or the host says otherwise.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::Value;
 use specforge_extension_sdk::prelude::*;
@@ -175,6 +175,17 @@ pub fn target<'a>(graph: &'a CommandGraph, id: &str, label: &str) -> Option<&'a 
         .into_iter()
         .find(|e| e.label == label)
         .map(|e| e.target.as_str())
+}
+
+/// The resolved targets of `id`'s reference field `label`, every item of a list (a block member's edges are labelled by
+/// its member path, `follow_ups.test`).
+pub fn targets<'a>(graph: &'a CommandGraph, id: &str, label: &str) -> BTreeSet<&'a str> {
+    graph
+        .edges_from(id)
+        .into_iter()
+        .filter(|e| e.label == label)
+        .map(|e| e.target.as_str())
+        .collect()
 }
 
 /// The next free number of `prefix` among the entities of `kind` under `scope` (a path prefix, `""` for none):
