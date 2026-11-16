@@ -96,8 +96,6 @@ fn the_project_evolution_is_typed_edits() {
                 ("REQ_ID", "LIST-02"),
                 ("TEXT", "A user can search every board by a word"),
                 ("AREA", "Listing"),
-                ("CATEGORY", "usability"),
-                ("PRIORITY", "must"),
                 ("BUILT_BY", "v1.0/03"),
             ],
         ),
@@ -132,8 +130,6 @@ fn the_project_evolution_is_typed_edits() {
     assert_eq!(list["tier"], "out_of_scope", "{list}");
     assert_eq!(list["reason"], "Search replaces the filter", "{list}");
     assert_eq!(p.fields_of("LIST-02")["tier"], "v1");
-    assert_eq!(p.fields_of("LIST-02")["category"], "usability");
-    assert_eq!(p.fields_of("LIST-02")["priority"], "must");
     let built = p.fields_of("v1.0/03")["requirements"].to_string();
     assert!(built.contains("LIST-02"), "{built}");
     assert_eq!(

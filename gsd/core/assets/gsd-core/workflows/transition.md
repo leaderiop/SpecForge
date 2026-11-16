@@ -238,7 +238,7 @@ if [ -n "${_SUMMARIES[0]}" ]; then for s in "${_SUMMARIES[@]}"; do specforge que
 
 3. **Requirements emerged?**
    - Any new requirements discovered during building?
-   - Record each as a `v1` requirement of the phase that will build it. A `v1` requirement must be in a phase (`gsd/E101`), so it is recorded `v2`, mapped into the phase, then made `v1`. A category or priority not known yet drops its flag; the other optional flags (personas, metric, source, …) are added as `templates/requirements.md` says:
+   - Record each as a `v1` requirement of the phase that will build it. A `v1` requirement must be in a phase (`gsd/E101`), so it is recorded `v2`, mapped into the phase, then made `v1`:
 
    ```bash
    REQ_ID="{AREA-NN: the next free id of its area}"
@@ -248,10 +248,8 @@ if [ -n "${_SUMMARIES[0]}" ]; then for s in "${_SUMMARIES[@]}"; do specforge que
    IFS= read -rd '' AREA <<'TEXT' || true; AREA=${AREA%$'\n'}
    {its area, e.g. Authentication}
    TEXT
-   CATEGORY="{its quality category, e.g. security}"
-   PRIORITY="{must, should or could}"
    BUILT_BY="{the phase that will build it, e.g. v1.0/03}"
-   specforge new requirement "$REQ_ID" "$TEXT" --in spec/requirements.spec --text "$TEXT" --area "$AREA" --category "$CATEGORY" --priority "$PRIORITY" --tier v2 || exit 1
+   specforge new requirement "$REQ_ID" "$TEXT" --in spec/requirements.spec --text "$TEXT" --area "$AREA" --tier v2 || exit 1
    specforge link "$BUILT_BY" requirements "$REQ_ID" || exit 1
    specforge set "$REQ_ID" tier v1 || exit 1
    ```

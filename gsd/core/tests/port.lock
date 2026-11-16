@@ -2093,7 +2093,9 @@ gsd-core/templates/project.md	kept	74+2	3d0b188170e8
 gsd-core/templates/project.md	own	76+128	81	1c862e91d0b8	a6ef7e22af01	ported-name
 gsd-core/templates/project.md	kept	204+1	e3b0c44298fc
 gsd-core/templates/requirements.md	kept	1+2	4e4770dc4777
-gsd-core/templates/requirements.md	own	3+229	75	a1274e32edcd	e5e0bebfb5e8	ported-name
+gsd-core/templates/requirements.md	own	3+66	1	ae2b68e6d8e9	e745623c2698	ported-name
+gsd-core/templates/requirements.md	kept	69+2	3d0b188170e8
+gsd-core/templates/requirements.md	own	71+161	45	e639292d8ec4	8404e0e6b50d	prose
 gsd-core/templates/requirements.md	kept	232+1	e3b0c44298fc
 gsd-core/templates/research-project/ARCHITECTURE.md	kept	1+2	9c4f4a864fdf
 gsd-core/templates/research-project/ARCHITECTURE.md	own	3+166	1	a36531c494aa	4a25967ea73b	ported-name
@@ -2124,7 +2126,7 @@ gsd-core/templates/retrospective.md	kept	1+2	627fd13feaee
 gsd-core/templates/retrospective.md	own	3+52	43	e4bd471ac6b8	603736446b1b	prose
 gsd-core/templates/retrospective.md	kept	55+1	e3b0c44298fc
 gsd-core/templates/roadmap.md	kept	1+2	f712c1693da0
-gsd-core/templates/roadmap.md	own	3+200	48	a553c27b2f6f	6efeb272ed9f	ported-name
+gsd-core/templates/roadmap.md	own	3+200	44	a553c27b2f6f	85729bd199be	ported-name
 gsd-core/templates/roadmap.md	kept	203+1	e3b0c44298fc
 gsd-core/templates/spec.md	kept	1+2	f714433f3c7b
 gsd-core/templates/spec.md	own	3+3	3	15286ccbd93e	d0cbbd0f6b94	ported-name
@@ -3581,7 +3583,7 @@ gsd-core/workflows/new-milestone.md	own	485+3	3	d5cd6ab16c07	111fa87f0091	review
 gsd-core/workflows/new-milestone.md	kept	488+2	93df044b2993
 gsd-core/workflows/new-milestone.md	own	490+1	1	8e3d99472847	3e633a5275d7	review
 gsd-core/workflows/new-milestone.md	kept	491+7	b0ef7e0ee026
-gsd-core/workflows/new-milestone.md	own	498+7	24	c07cdf8567d5	30fb65109a08	prose
+gsd-core/workflows/new-milestone.md	own	498+7	22	c07cdf8567d5	aa6b33bf8401	prose
 gsd-core/workflows/new-milestone.md	kept	505+14	08331f0f65f7
 gsd-core/workflows/new-milestone.md	own	519+6	6	61b8a80116ff	a9b0ff90ae22	review
 gsd-core/workflows/new-milestone.md	kept	525+6	1cb83fda2ccb
@@ -3593,7 +3595,7 @@ gsd-core/workflows/new-milestone.md	own	557+3	1	31abf20ab6d7	60aebbff1837	prose
 gsd-core/workflows/new-milestone.md	kept	560+1	529dc1906004
 gsd-core/workflows/new-milestone.md	own	561+1	0	4b709662eadf	e3b0c44298fc	relic
 gsd-core/workflows/new-milestone.md	kept	562+6	790576ffbd92
-gsd-core/workflows/new-milestone.md	own	568+0	6	e3b0c44298fc	6530a84f9175	prose
+gsd-core/workflows/new-milestone.md	own	568+0	6	e3b0c44298fc	16dac71e4fed	prose
 gsd-core/workflows/new-milestone.md	kept	568+5	6d9547d9083b
 gsd-core/workflows/new-milestone.md	own	573+2	2	13c6978b7fee	28bea94b34ff	prose
 gsd-core/workflows/new-milestone.md	kept	575+2	765a1ed21e3c
@@ -5608,7 +5610,7 @@ gsd-core/workflows/transition.md	own	230+1	1	75414b4c053f	76df4abbb0cf	prose
 gsd-core/workflows/transition.md	kept	231+3	035e1983f086
 gsd-core/workflows/transition.md	own	234+1	10	80202d890114	8f0e40f9179b	prose
 gsd-core/workflows/transition.md	kept	235+3	0826483d6ba3
-gsd-core/workflows/transition.md	own	238+1	17	f56bf4994554	d77b826f30d4	prose
+gsd-core/workflows/transition.md	own	238+1	15	f56bf4994554	5a12b05376e2	prose
 gsd-core/workflows/transition.md	kept	239+2	dfc68af77eaa
 gsd-core/workflows/transition.md	own	241+2	22	2207a5a5bf21	7d89efaff165	prose
 gsd-core/workflows/transition.md	kept	243+5	f3ee745bebb5
