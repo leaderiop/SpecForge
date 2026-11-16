@@ -18,7 +18,8 @@ use std::time::SystemTime;
 use serde_json::Value;
 
 use super::{
-    GOLDENS, SampleGoldens, SampleRun, Work, filterset, profile_dir, rust_test_profile, verdict,
+    GOLDENS, SampleGoldens, SampleRun, SampleVerdict, Work, filterset, profile_dir,
+    rust_test_profile, verdict,
 };
 use crate::checks::Selection;
 use crate::run::Ctx;
@@ -224,15 +225,21 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
             std::fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))?;
         }
     }
-    if judged.failed {
-        let first = judged
-            .lines
-            .iter()
-            .find(|l| l.starts_with("  ") || l.contains("differs") || l.starts_with("not blessed"))
-            .map_or("the sample's verdict failed", |l| l.trim());
-        return Err(format!("{first} (read <target>/gate/self-spec-sample.log)"));
+    if let Some(reason) = failure(&judged) {
+        return Err(reason);
     }
     Ok(())
+}
+
+/// The check's error for a failed verdict: its reason, and where the whole log is.
+fn failure(judged: &SampleVerdict) -> Option<String> {
+    judged.failed.then(|| {
+        let reason = judged
+            .reason
+            .as_deref()
+            .unwrap_or("the sample's verdict failed");
+        format!("{reason} (read <target>/gate/self-spec-sample.log)")
+    })
 }
 
 /// The environment of every `specforge` and `absorb` call of the run.

@@ -79,11 +79,14 @@ pub struct SampleGoldens {
     pub ledger: String,
 }
 
-/// The check's lines, whether it failed, and (blessing a clean run) the goldens to write.
+/// The check's lines, whether it failed and why, and (blessing a clean run) the goldens to write.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SampleVerdict {
     pub lines: Vec<String>,
     pub failed: bool,
+    /// What failed it, chosen by what it is: the first judged diagnostic, else the first broken bound, else the first
+    /// golden that differs. None when it passed.
+    pub reason: Option<String>,
     pub bless: Option<SampleGoldens>,
 }
 
@@ -116,6 +119,20 @@ pub fn verdict(run: &SampleRun, goldens: &SampleGoldens, bless: bool) -> SampleV
         judged.len() - errors,
         info_count
     ));
+    let judged_lines: Vec<String> = judged
+        .iter()
+        .map(|d| {
+            format!(
+                "{} {}:{}: {}",
+                d["code"].as_str().unwrap_or("?"),
+                place(file_of(d)),
+                line_of(d),
+                place(d["message"].as_str().unwrap_or(""))
+            )
+        })
+        .collect();
+    lines.extend(judged_lines.iter().map(|line| format!("  {line}")));
+    // After the judged lines: it never fails the check, so it never stands first.
     if !on_code.is_empty() {
         let counts: Vec<String> = on_code
             .iter()
@@ -125,15 +142,6 @@ pub fn verdict(run: &SampleRun, goldens: &SampleGoldens, bless: bool) -> SampleV
             "  {} infos on the collected code, counted, not golden: {}",
             on_code.values().sum::<usize>(),
             counts.join(", ")
-        ));
-    }
-    for d in &judged {
-        lines.push(format!(
-            "  {} {}:{}: {}",
-            d["code"].as_str().unwrap_or("?"),
-            place(file_of(d)),
-            line_of(d),
-            place(d["message"].as_str().unwrap_or(""))
         ));
     }
     if !machine.is_empty() {
@@ -150,20 +158,25 @@ pub fn verdict(run: &SampleRun, goldens: &SampleGoldens, bless: bool) -> SampleV
     }
     let bound = bound(&run.work);
     lines.extend(bound.iter().cloned());
-    let clean = judged.is_empty() && bound.is_empty();
+    // What fails the run, by what it is: a judged diagnostic, then a broken bound.
+    let mut reason = judged_lines
+        .first()
+        .cloned()
+        .or_else(|| bound.first().map(|line| line.trim().to_string()));
     let found = SampleGoldens {
         selection: place(&run.selection),
         infos,
         ledger: place(&run.ledger),
     };
     if bless {
-        if clean {
+        if reason.is_none() {
             lines.push(format!(
                 "blessed: {GOLDENS}/{{selection,infos,ledger}}.json"
             ));
             return SampleVerdict {
                 lines,
                 failed: false,
+                reason: None,
                 bless: Some(found),
             };
         }
@@ -173,10 +186,10 @@ pub fn verdict(run: &SampleRun, goldens: &SampleGoldens, bless: bool) -> SampleV
         return SampleVerdict {
             lines,
             failed: true,
+            reason,
             bless: None,
         };
     }
-    let mut differs = false;
     for (name, golden, now) in [
         ("selection", &goldens.selection, &found.selection),
         ("infos", &goldens.infos, &found.infos),
@@ -186,14 +199,16 @@ pub fn verdict(run: &SampleRun, goldens: &SampleGoldens, bless: bool) -> SampleV
         if difference.is_empty() {
             lines.push(format!("{name}: {} lines (golden)", now.lines().count()));
         } else {
-            differs = true;
-            lines.push(format!("{name}: differs from {GOLDENS}/{name}.json"));
+            let differs = format!("{name}: differs from {GOLDENS}/{name}.json");
+            reason.get_or_insert_with(|| differs.clone());
+            lines.push(differs);
             lines.extend(difference);
         }
     }
     SampleVerdict {
         lines,
-        failed: !clean || differs,
+        failed: reason.is_some(),
+        reason,
         bless: None,
     }
 }

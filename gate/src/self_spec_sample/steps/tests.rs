@@ -204,3 +204,26 @@ fn the_head_names_what_was_sampled_what_the_target_holds_and_the_work() {
         ]
     );
 }
+
+#[test]
+fn the_checks_error_is_the_verdicts_reason() {
+    let error = serde_json::json!({"severity": "Error", "code": "gsd/E537", "file": "spec/m.spec",
+        "line": 2, "message": "ships before it starts"});
+    let on_code = serde_json::json!({"severity": "Info", "code": "code/I402",
+        "file": "crates/x/src/lib.rs", "line": 9, "message": "names `Fs`"});
+    let found = SampleRun {
+        diagnostics: vec![on_code, error],
+        work: Work {
+            absorb: serde_json::json!({"compiles": 3, "edit_plans": 1}),
+            ..Work::default()
+        },
+        ..SampleRun::default()
+    };
+    let judged = verdict(&found, &SampleGoldens::default(), false);
+    assert_eq!(
+        failure(&judged).as_deref(),
+        Some(
+            "gsd/E537 spec/m.spec:2: ships before it starts (read <target>/gate/self-spec-sample.log)"
+        )
+    );
+}

@@ -297,3 +297,43 @@ fn rust_test_runs_the_test_profile_today() {
     assert_eq!(profile, "test");
     assert_eq!(profile_dir(&profile), "debug");
 }
+
+#[test]
+fn a_failed_sample_names_what_failed_it_never_the_counted_infos() {
+    let on_code = json!({"severity": "Info", "code": "code/I402",
+        "span": {"file": "crates/x/src/lib.rs", "start_line": 9}, "message": "names `Fs`"});
+    let error = json!({"severity": "Error", "code": "gsd/E537", "file": "spec/m.spec", "line": 2,
+        "message": "ships before it starts"});
+    let found = run(json!([info(), on_code.clone(), error]));
+    for bless in [false, true] {
+        let judged = verdict(&found, &blessed(), bless);
+        assert_eq!(
+            judged.reason.as_deref(),
+            Some("gsd/E537 spec/m.spec:2: ships before it starts"),
+            "{:?}",
+            judged.lines
+        );
+        // The counted line follows the judged ones.
+        let at = |prefix: &str| judged.lines.iter().position(|l| l.starts_with(prefix));
+        assert!(at("  gsd/E537") < at("  1 infos on the collected code"));
+    }
+    // A broken bound, then a golden that differs, when nothing is judged.
+    let mut bound = run(json!([info(), on_code.clone()]));
+    bound.work.target_dir = true;
+    let reason = verdict(&bound, &blessed(), false).reason.unwrap();
+    assert!(
+        reason.starts_with("bound: the converted project holds a target directory"),
+        "{reason}"
+    );
+    let mut differs = run(json!([info(), on_code]));
+    differs.ledger.push_str("more\n");
+    let reason = verdict(&differs, &blessed(), false).reason.unwrap();
+    assert_eq!(
+        reason,
+        format!("ledger: differs from {GOLDENS}/ledger.json")
+    );
+    assert_eq!(
+        verdict(&run(json!([info()])), &blessed(), false).reason,
+        None
+    );
+}
