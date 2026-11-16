@@ -213,10 +213,12 @@ fn write_snapshots() -> Result<usize, String> {
 
 /// Write the candidate vocabulary of `declarations` to `path` (ADR 0122, ADR 0369). A keyword
 /// several of them declare is listed with each; a field two of them add to one kind stops it,
-/// with an error that names both.
+/// with an error that names both. The file is replaced whole, by a rename of a file written beside
+/// it, so a write that fails leaves the tracked file as it was.
 fn write_vocabulary(path: &Path, declarations: &[ExtensionDeclaration]) -> Result<(), String> {
     let vocabulary = CandidateVocabulary::of(declarations)?;
-    std::fs::write(path, vocabulary.to_json()).map_err(|e| format!("{}: {e}", path.display()))
+    specforge_common::fresh::replace_file(path, vocabulary.to_json().as_bytes())
+        .map_err(|e| format!("{}: {e}", path.display()))
 }
 
 /// The cargo arguments of the declarations test: the `declarations` module of the component's `suite` target.
@@ -476,6 +478,28 @@ mod tests {
             "{err}"
         );
         assert!(!path.exists(), "a step that stops writes nothing");
+    }
+
+    /// The tracked file is replaced by a rename of a file written beside it: the old text is there until
+    /// the new one is, no temporary file is left, and a name that cannot be replaced is left as it was.
+    #[test]
+    fn the_vocabulary_step_replaces_the_tracked_file_whole() {
+        let declarations = pinned_builtin_declarations().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("builtin-vocabulary.json");
+        std::fs::write(&path, "{\"truncated\"").unwrap();
+        write_vocabulary(&path, &declarations).expect("the step does not stop");
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            CandidateVocabulary::of(&declarations).unwrap().to_json()
+        );
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1, "no temp");
+
+        let blocked = dir.path().join("blocked");
+        std::fs::create_dir(&blocked).unwrap();
+        write_vocabulary(&blocked, &declarations).unwrap_err();
+        assert!(blocked.is_dir(), "a name that cannot be replaced stays");
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 2, "no temp");
     }
 
     /// The step takes the declaration of a built `@gsd/core` component beside the pinned builtins.
