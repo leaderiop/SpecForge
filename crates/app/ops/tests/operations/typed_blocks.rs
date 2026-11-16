@@ -196,13 +196,21 @@ fn a_json_number_or_boolean_is_a_leaf_of_an_integer_or_bool_member() {
             .contains("goal 60"),
         "{member}"
     );
-    // The member's own form judges the number: out of range and not an integer are both E061.
+    // The member's own form judges the number: out of range and not an integer are both E061; out of range, its
+    // help line names the range.
     for bad in [json!(500), json!(1.5)] {
         let (_, message) =
             run(json!({"op": "set", "entity_id": "d1", "field": "scores.goal", "value": bad}))
                 .unwrap_err();
         assert!(message.contains("E061"), "{bad}: {message}");
     }
+    let (_, message) =
+        run(json!({"op": "set", "entity_id": "d1", "field": "scores.goal", "value": 500}))
+            .unwrap_err();
+    assert!(
+        message.contains("\n    help: write a whole number from 0 to 100"),
+        "{message}"
+    );
     // A text member and a bool given the wrong leaf are refused by name, not as "is a block".
     for (field, value, fragment) in [
         ("requires[0].provides", json!(5), "takes text"),

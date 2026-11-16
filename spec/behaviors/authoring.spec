@@ -289,6 +289,7 @@ behavior validate_typed_edit "Validate a Typed Edit" {
   verify unit "every verb's graph change is what it declares"
   verify unit "a block holding a padded value takes a typed edit"
   verify unit "an edit that adds an error is E080 and writes nothing"
+  verify unit "an edit that adds an error is refused with E080 listing each error with its help line"
   verify unit "a judged rules finding is no error a write adds"
   verify unit "a finding a write reveals by moving its entity into the owner state its code waits for is no error the write adds"
   verify unit "a finding on an entity the write creates, deletes or renames, or over skipped checks, is an error it adds"

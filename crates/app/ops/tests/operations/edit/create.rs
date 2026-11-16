@@ -314,6 +314,10 @@ fn new_writes_a_number_flag_and_fills_a_required_number_with_zero() {
         message.contains("E061") && message.contains("field 'ratio' of measure 'm9'"),
         "{message}"
     );
+    assert!(
+        message.contains("\n    help: write a number from 0.05 to 0.95"),
+        "{message}"
+    );
 
     let project = typed(SEED);
     let view = project.view();

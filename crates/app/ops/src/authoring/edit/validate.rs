@@ -205,8 +205,12 @@ fn new_errors(errors: Vec<Diagnostic>, codes: &specforge_common::Codebook) -> Re
         errors.len(),
         if errors.len() == 1 { "" } else { "s" }
     );
+    // Each error with its help line, as `check` renders it: an E061 out of bounds names the range to write in.
     for error in &errors {
         message.push_str(&format!("\n  error[{}]: {}", error.code, error.message));
+        if let Some(help) = &error.suggestion {
+            message.push_str(&format!("\n    help: {help}"));
+        }
     }
     let data = serde_json::json!({ "diagnostics": DiagnosticList::new(errors, codes) });
     OpError::coded(OpErrorKind::CompilationFailed, codes::E080, message)
@@ -257,6 +261,27 @@ fn undeclared(beyond: &GraphDelta) -> Refusal<EditField> {
 mod tests {
     use super::*;
     use specforge_test_macros::test as specforge_test;
+
+    #[specforge_test(
+        behavior = "validate_typed_edit",
+        verify = "an edit that adds an error is refused with E080 listing each error with its help line"
+    )]
+    fn e080_lists_each_added_error_with_its_help_line() {
+        let mut bounded = Diagnostic::new(
+            codes::E061,
+            "field 'severity' of risk 'RK1' is declared integer, but was given 11",
+        );
+        bounded.suggestion = Some("write a whole number from 1 to 10".into());
+        let plain = Diagnostic::new(codes::E003, "unresolved reference 'x' in entity 'a'");
+        let refusal = new_errors(vec![bounded, plain], &specforge_common::Codebook::default());
+        assert_eq!(
+            refusal.error.message,
+            "the edit would leave the project with 2 errors it does not have; nothing was written\n  \
+             error[E061]: field 'severity' of risk 'RK1' is declared integer, but was given 11\n    \
+             help: write a whole number from 1 to 10\n  \
+             error[E003]: unresolved reference 'x' in entity 'a'"
+        );
+    }
 
     #[specforge_test(
         behavior = "roll_back_interrupted_write",

@@ -96,6 +96,16 @@ fn a_risk_is_created_with_new_and_set_refuses_its_rpn() {
     assert_ne!(set.code, 0, "{}", set.all());
     assert!(set.all().contains("computed"), "{}", set.all());
     assert_eq!(p.read("spec/risks.spec"), before, "nothing is written");
+    // A rating outside 1 to 10 is refused, E061's help line naming the range.
+    let set = p.run(&["set", "RK9", "severity", "11"]);
+    assert_ne!(set.code, 0, "{}", set.all());
+    assert!(
+        set.all()
+            .contains("error[E061]: field 'severity' of risk 'RK9' is declared integer, but was given 11\n    help: write a whole number from 1 to 10"),
+        "{}",
+        set.all()
+    );
+    assert_eq!(p.read("spec/risks.spec"), before, "nothing is written");
 }
 
 /// `status` and `blocking` of `id`, as `specforge query` answers them.
