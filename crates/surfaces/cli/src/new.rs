@@ -147,6 +147,7 @@ pub(crate) fn command(kind: Option<(&str, &[FieldInfo])>) -> Command {
     };
     cmd = cmd.override_usage(format!("specforge new {kind} <ID> <TITLE> [OPTIONS]"));
     let (flagged, unflagged) = split(fields);
+    let unflagged: Vec<&FieldInfo> = unflagged.into_iter().filter(|f| f.settable()).collect();
     if !unflagged.is_empty() {
         let names: Vec<&str> = unflagged.iter().map(|f| f.name.as_str()).collect();
         cmd = cmd.after_help(format!(
@@ -166,10 +167,13 @@ pub(crate) fn command(kind: Option<(&str, &[FieldInfo])>) -> Command {
             }
             _ => "",
         };
+        // The help lists only what a person may write; a computed, harness or context field stays a hidden flag, so
+        // a value given for one is refused by its writer, naming who writes it, not as an unknown argument.
         let mut arg = Arg::new(field.name.clone())
             .long(field.name.clone())
             .allow_hyphen_values(true)
             .action(ArgAction::Append)
+            .hide(!field.settable())
             .help(format!("{}{list}", field.description));
         arg = match field.field_type {
             FieldType::ReferenceList => arg.value_name("ID,…"),
@@ -389,7 +393,46 @@ mod tests {
             description: String::new(),
             required: false,
             typed: false,
+            writer: None,
         }
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "create_entity",
+        verify = "new's help lists only the fields a person may write; a computed field stays a flag the edit refuses"
+    )]
+    fn new_lists_only_the_fields_a_person_may_write() {
+        use specforge_protocol_types::FieldWriter;
+        let written_by = |name: &str, writer| FieldInfo {
+            writer: Some(writer),
+            ..field(name)
+        };
+        let fields = [
+            field("text"),
+            written_by("by_hand", FieldWriter::Human),
+            written_by("in_force", FieldWriter::Computed),
+            written_by("approval", FieldWriter::Harness),
+            written_by("pack", FieldWriter::Context),
+            written_by("format", FieldWriter::Computed),
+        ];
+        let cmd = command(Some(("decision", &fields)));
+        let help = cmd.clone().render_long_help().to_string();
+        for listed in ["--text", "--by_hand"] {
+            assert!(help.contains(listed), "{listed}: {help}");
+        }
+        for unlisted in ["--in_force", "--approval", "--pack", "format: no flag"] {
+            assert!(!help.contains(unlisted), "{unlisted}: {help}");
+        }
+        let matches = cmd
+            .no_binary_name(true)
+            .try_get_matches_from(["decision", "d1", "D", "--in_force", "true"])
+            .expect("a computed field is still read, for its writer to refuse");
+        assert_eq!(
+            matches
+                .get_many::<String>("in_force")
+                .map(|v| v.cloned().collect::<Vec<_>>()),
+            Some(vec!["true".to_string()])
+        );
     }
 
     #[specforge_test_macros::test(
