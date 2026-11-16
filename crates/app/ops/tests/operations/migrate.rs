@@ -551,40 +551,36 @@ fn a_hook_receives_the_versions_and_the_migrated_files() {
     verify = "every builtin extension's hooks run in dependency order with no failure"
 )]
 fn the_builtin_extensions_hooks_run_without_a_dependency_failure() {
-    // Every builtin loaded together, as a project enabling all of them
-    // does: the peer graph (optional peers included) must sort, or the
-    // hooks never run and a migration rolls back.
-    let names: Vec<&str> = specforge_component::builtins::BUILTIN_EXTENSIONS
-        .iter()
-        .map(|(name, _)| *name)
-        .collect();
-    assert_eq!(names.len(), specforge_component::builtins::BUILTINS.len());
-    let runtime = Arc::new(specforge_component::ComponentRuntime::new());
-    specforge_component::builtins::load_builtins(runtime.as_ref()).unwrap();
-    let declarations: Vec<ExtensionDeclaration> = names
-        .iter()
-        .map(|name| {
-            specforge_wasm::protocol::load_declaration(runtime.as_ref(), name)
-                .unwrap()
-                .declaration
-        })
-        .collect();
-    let input = MigrationInput {
-        from: "0.9".into(),
-        to: "1.0".into(),
-        files: Vec::new(),
-    };
+    // One set loaded together, as a project enabling it does (ADR 0369 D3): the peer graph
+    // (optional peers included) must sort, or the hooks never run and a migration rolls back.
+    for family in specforge_component::builtins::Family::ALL {
+        let runtime = Arc::new(specforge_component::ComponentRuntime::new());
+        specforge_component::builtins::load_family(runtime.as_ref(), family).unwrap();
+        let declarations: Vec<ExtensionDeclaration> = family
+            .builtins()
+            .map(|builtin| {
+                specforge_wasm::protocol::load_declaration(runtime.as_ref(), builtin.name)
+                    .unwrap()
+                    .declaration
+            })
+            .collect();
+        let input = MigrationInput {
+            from: "0.9".into(),
+            to: "1.0".into(),
+            files: Vec::new(),
+        };
 
-    let build = build_registries(declarations);
+        let build = build_registries(declarations);
 
-    let (_, failures) = invoke_hooks(&build, runtime.as_ref(), &input);
+        let (_, failures) = invoke_hooks(&build, runtime.as_ref(), &input);
 
-    assert!(failures.is_empty(), "{failures:?}");
-    assert!(
-        build.diagnostics().all(|d| d.code != "E027"),
-        "{:?}",
-        build.diagnostics().collect::<Vec<_>>()
-    );
+        assert!(failures.is_empty(), "{family:?}: {failures:?}");
+        let dependency: Vec<_> = build
+            .diagnostics()
+            .filter(|d| d.code == "E027" || d.code == "E026")
+            .collect();
+        assert!(dependency.is_empty(), "{family:?}: {dependency:?}");
+    }
 }
 
 #[specforge_test(

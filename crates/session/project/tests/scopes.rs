@@ -2,16 +2,23 @@
 
 use std::collections::{HashMap, HashSet};
 
+use specforge_component::builtins::Family;
 use specforge_component::committed::pinned_builtin_declarations;
 use specforge_graph::{GraphBuild, written_tokens};
 use specforge_parser::{SpecFile, parse};
 use specforge_project::testing::Assembled;
 use specforge_test_macros::test as specforge_test;
 
-/// The builtins' registries as every example project compiles with them.
+/// The old set's registries, which is what every example project compiles with (a registry is built
+/// from one set of builtins, ADR 0369 D3).
 fn builtins() -> Assembled {
+    let old = Family::Old.names();
     Assembled::over(specforge_registry::build_registries(
-        pinned_builtin_declarations().unwrap(),
+        pinned_builtin_declarations()
+            .unwrap()
+            .into_iter()
+            .filter(|declaration| old.contains(&declaration.name()))
+            .collect(),
     ))
 }
 

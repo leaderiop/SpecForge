@@ -1,5 +1,5 @@
 use specforge_common::Diagnostic;
-use specforge_component::builtins::BUILTINS;
+use specforge_component::builtins::Family;
 use specforge_project::testing::TestProject;
 use specforge_protocol_types::{DeclaredCategory, EntityKindDescriptor, ExtensionDeclaration};
 use specforge_wasm::protocol::load_declaration;
@@ -361,37 +361,43 @@ fn product_lifecycle_kinds_declare_status() {
     }
 }
 
-/// The nine builtin extensions loaded together, as a project enabling all
-/// of them does: their rules register with no W112 or W147, the custom
-/// ones' functions answer the load probe, and every rule's target kind and
-/// edge type is its extension's or a declared peer's (no W021).
+/// The builtin extensions of each set loaded together, as a project enabling that set does (one set at
+/// a time: two declarers of one keyword are E026, ADR 0369 D3): their rules register with no W112 or
+/// W147, the custom ones' functions answer the load probe, and every rule's target kind and edge type
+/// is its extension's or a declared peer's (no W021).
 #[specforge_test_macros::test(
     behavior = "execute_validation_pattern",
     verify = "the builtin extensions' rules register with no W112, W147 or W021"
 )]
 fn the_builtin_extensions_rules_register_cleanly() {
-    let names: Vec<&str> = specforge_component::builtins::BUILTIN_EXTENSIONS
-        .iter()
-        .map(|(name, _)| *name)
-        .collect();
-    assert_eq!(names.len(), BUILTINS.len(), "{names:?}");
-    let dir = TestProject::new()
-        .config(|c| c["name"] = "all".into())
-        .enabling(&names);
+    for family in Family::ALL {
+        let names: Vec<&str> = family.builtins().map(|builtin| builtin.name).collect();
+        let dir = TestProject::new()
+            .config(|c| c["name"] = "all".into())
+            .enabling(&names);
 
-    let env = specforge_project::Environment::load(&dir.project_root(), Some(dir.runtime()));
+        let env = specforge_project::Environment::load(&dir.project_root(), Some(dir.runtime()));
 
-    assert_eq!(env.registries().declarations().len(), BUILTINS.len());
-    assert!(
-        env.registries().rules().len() > 80,
-        "{}",
-        env.registries().rules().len()
-    );
-    let unworkable: Vec<&Diagnostic> = env
-        .diagnostics()
-        .filter(|d| ["W112", "W147", "W021"].contains(&d.code.as_str()))
-        .collect();
-    assert!(unworkable.is_empty(), "{unworkable:?}");
+        assert_eq!(
+            env.registries().declarations().len(),
+            names.len(),
+            "{family:?}: {names:?}"
+        );
+        // The count is the old set's: it holds the rules of the product, governance and software
+        // builtins.
+        if family == Family::Old {
+            assert!(
+                env.registries().rules().len() > 80,
+                "{}",
+                env.registries().rules().len()
+            );
+        }
+        let unworkable: Vec<&Diagnostic> = env
+            .diagnostics()
+            .filter(|d| ["W112", "W147", "W021"].contains(&d.code.as_str()))
+            .collect();
+        assert!(unworkable.is_empty(), "{family:?}: {unworkable:?}");
+    }
 }
 
 #[test]
