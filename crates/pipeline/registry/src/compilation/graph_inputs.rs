@@ -13,10 +13,10 @@ pub(super) fn derive(
     kinds: &KindRegistry,
     fields: &FieldRegistry,
     forms: &FieldForms,
-    owner_of: impl Fn(&str) -> Option<String>,
+    owners_of: impl Fn(&str) -> Vec<String>,
 ) -> GraphInputs {
     GraphInputs {
-        target_owners: target_owners(forms, owner_of),
+        target_owners: target_owners(forms, owners_of),
         field_forms: forms.clone(),
         derived_references: derived_references(fields),
         scopes: scopes(kinds),
@@ -46,18 +46,19 @@ fn scopes(kinds: &KindRegistry) -> BTreeMap<String, String> {
         .collect()
 }
 
-/// For each target kind no loaded extension declares, the extension that owns it (`owner_of`, the
-/// lookup E024 reads), as a list of one, so I004 and E022 name the extension E024 names (ADR 0117).
-/// A kind nothing owns has no entry.
+/// For each target kind no loaded extension declares, every extension the candidate vocabulary
+/// credits with it (`owners_of`, the lookup E024 reads), in its order, so I004 and E022 name each
+/// extension E024 names (ADR 0117, ADR 0369). A kind nothing declares has no entry.
 fn target_owners(
     forms: &FieldForms,
-    owner_of: impl Fn(&str) -> Option<String>,
+    owners_of: impl Fn(&str) -> Vec<String>,
 ) -> BTreeMap<String, Vec<String>> {
     forms
         .targets()
         .into_iter()
         .flat_map(|(_, target)| target.absent())
-        .filter_map(|kind| Some((kind.to_string(), vec![owner_of(kind)?])))
+        .map(|kind| (kind.to_string(), owners_of(kind)))
+        .filter(|(_, owners)| !owners.is_empty())
         .collect()
 }
 

@@ -243,20 +243,68 @@ fn the_graph_inputs_name_each_absent_target_kinds_owner() {
             });
         });
     });
-    let vocabulary = crate::support::candidates(&[product]);
+    let planning = declare("@t/planning", |c| {
+        c.kind("Feature", |k| {
+            k.keyword("feature");
+        });
+    });
+    let vocabulary = crate::support::candidates(std::slice::from_ref(&product));
 
     // A build never handed a vocabulary names no owner.
     let unhanded = build([software.clone()]);
     assert!(unhanded.graph_inputs().target_owners.is_empty());
 
     // A build handed one names the owners it knows.
-    let handed = crate::support::build_with([software], vocabulary);
+    let handed = crate::support::build_with([software.clone()], vocabulary);
     let inputs = handed.graph_inputs();
     assert_eq!(inputs.target_owners.len(), 1, "{:?}", inputs.target_owners);
     assert_eq!(inputs.target_owners["feature"], ["@t/product"]);
     // `team` is owned by no one; `behavior` is loaded.
     assert!(!inputs.target_owners.contains_key("team"));
     assert!(!inputs.target_owners.contains_key("behavior"));
+
+    // Two declarations declare `feature`: the inputs name both, in the vocabulary's order (ADR 0369).
+    let mut both =
+        crate::support::build_with([software], crate::support::candidates(&[product, planning]));
+    assert_eq!(
+        both.graph_inputs().target_owners["feature"],
+        ["@t/planning", "@t/product"]
+    );
+    let suggestions = |source: &str, code: &str| -> Vec<String> {
+        both.graph_of(
+            [specforge_parser::parse(source, "main.spec")],
+            HashSet::new(),
+        )
+        .diagnostics()
+        .iter()
+        .filter(|d| d.code == code)
+        .map(|d| d.suggestion.clone().unwrap_or_default())
+        .collect()
+    };
+    assert_eq!(
+        suggestions("behavior b1 \"B1\" {\n  features [f_missing]\n}\n", "I004"),
+        [
+            "enable one of the extensions that declare 'feature' with `specforge add @t/planning` or \
+             `specforge add @t/product`, or drop the field"
+        ]
+    );
+    assert_eq!(
+        suggestions(
+            "behavior b1 \"B1\" {\n  features [b2]\n}\nbehavior b2 \"B2\" {\n}\n",
+            "E022"
+        ),
+        [
+            "name a feature here (enable one of the extensions that declare it with `specforge add @t/planning` \
+             or `specforge add @t/product`), or drop the reference"
+        ]
+    );
+    // The build derives its graph inputs again when it refuses provider schemes: the second feed
+    // hands the whole list too.
+    both.refuse_provider_schemes(&HashSet::from(["zz".to_string()]));
+    assert_eq!(
+        both.graph_inputs().target_owners["feature"],
+        ["@t/planning", "@t/product"]
+    );
 }
 
 #[spec(

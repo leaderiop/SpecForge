@@ -122,16 +122,6 @@ impl CandidateVocabulary {
         self.kinds.keys().map(String::as_str)
     }
 
-    /// The extension that declares the kind written `keyword`, when exactly one does: None when
-    /// none declares it and None when several do, so no caller takes the first of several
-    /// (ADR 0369 D2). [`Self::kind_owners`] answers for every declarer.
-    pub fn kind_owner(&self, keyword: &str) -> Option<&str> {
-        match self.kind_owners(keyword).as_slice() {
-            [only] => Some(*only),
-            _ => None,
-        }
-    }
-
     /// The sentence that installs a declarer of the kind written `keyword`, each declarer with its
     /// own command, in the vocabulary's order (ADR 0369 D2); None when nothing declares it.
     pub fn kind_install(&self, keyword: &str) -> Option<String> {
@@ -280,8 +270,6 @@ mod tests {
         assert_eq!(reversed.kind_owners("gizmo"), ["@x/a", "@x/c"]);
         assert_eq!(reversed, v);
         assert_eq!(CandidateVocabulary::from_json(&v.to_json()), v);
-        // The single-owner answer is for exactly one declarer, never the first of two.
-        assert_eq!(v.kind_owner("gizmo"), None);
     }
 
     #[test]

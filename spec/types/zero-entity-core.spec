@@ -72,9 +72,9 @@ type RegistryBuild "What the registry build derives from the loaded declarations
 }
 
 type GraphInputs "What the graph build reads of the loaded extensions (specforge_graph::GraphInputs). Only the registry build derives it; with the provider schemes the environment registers it is every graph's configuration (ADR 0032)." {
-  // each target kind no loaded extension declares, with the extension that
-  // owns it (the candidate vocabulary's kind_owner): what I004 and E022
-  // suggest enabling
+  // each target kind no loaded extension declares, with every extension that
+  // declares it (the candidate vocabulary's declarers, ADR 0369): what I004
+  // and E022 suggest enabling
   target_owners      string[] @readonly
   // kind.field of every registered field whose value is coerced to its
   // declared type: a list type to a list; integer, bool, string or enum to

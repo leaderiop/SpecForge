@@ -348,10 +348,10 @@ impl RegistryBuild {
         self.commands.prompts()
     }
 
-    /// What the graph build reads of these declarations: the owners of the
-    /// absent target kinds (from the candidate vocabulary the build holds
-    /// now), inverse pairs, value coercions and derived references
-    /// (ADR 0032, amended).
+    /// What the graph build reads of these declarations: every extension
+    /// that declares each absent target kind (from the candidate vocabulary
+    /// the build holds now, ADR 0369), inverse pairs, value coercions and
+    /// derived references (ADR 0032, amended).
     pub fn graph_inputs(&self) -> &GraphInputs {
         &self.graph_inputs
     }
@@ -378,7 +378,11 @@ impl RegistryBuild {
     /// The graph inputs of these declarations and the vocabulary held now.
     fn derived_graph_inputs(&self) -> GraphInputs {
         graph_inputs::derive(&self.kinds, &self.fields, &self.field_forms, |kind| {
-            self.candidates().kind_owner(kind).map(str::to_string)
+            self.candidates()
+                .kind_owners(kind)
+                .into_iter()
+                .map(str::to_string)
+                .collect()
         })
     }
 
@@ -485,9 +489,9 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
 }
 
 /// [`build_registries`], knowing what extensions the host could enable (ADR 0122): the checks
-/// suggest the one that declares an absent kind, the graph inputs name it, and a judged chain or a
-/// route part that reaches a kind of an unloaded optional peer is inert (ADR 0331 D7). The session
-/// hands the builtins' vocabulary.
+/// suggest every extension that declares an absent kind, the graph inputs name each, and a judged
+/// chain or a route part that reaches a kind of an unloaded optional peer is inert (ADR 0331 D7).
+/// The session hands the builtins' vocabulary.
 pub fn build_registries_with(
     declarations: Vec<ExtensionDeclaration>,
     candidates: CandidateVocabulary,
@@ -598,7 +602,11 @@ pub fn build_registries_with(
 
     let field_forms = graph_inputs::field_forms(&kinds, &fields);
     let graph_inputs = graph_inputs::derive(&kinds, &fields, &field_forms, |kind| {
-        candidates.kind_owner(kind).map(str::to_string)
+        candidates
+            .kind_owners(kind)
+            .into_iter()
+            .map(str::to_string)
+            .collect()
     });
     RegistryBuild {
         declarations,
