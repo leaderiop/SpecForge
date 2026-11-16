@@ -163,8 +163,9 @@ converted on every change that can move it, by a check of `cargo gate`, and must
   check fills, where a report of another nextest run would prune that check's: the gate passes no
   `SPECFORGE_REPORT` and sets `SPECFORGE_TEST_REPORT_DIR`, which the test support reads when no collect run names a
   report (amending ADR 0068 D5). `SPECFORGE_REPORT` is collect's own: a collector command told its report path by
-  `{report}` (nextest's JUnit, through its config) is no longer also handed it, where each test binary would have
-  made a directory of the JUnit file's path.
+  `{report}` (nextest's JUnit, through its config) runs with it removed from its environment, a value the caller
+  exported included, where each test binary would have made a directory of the JUnit file's path; a command told it
+  no other way gets it set over the caller's.
 - **D15. The target run reuses the gate's test build: 0 units compiled.** The copies keep each file's modification
   time and permissions, the run shares the gate's target directory and cargo environment, and a path crate is keyed
   by its path from the workspace root, so cargo finds every unit fresh. The CLI's build script watches the commit's

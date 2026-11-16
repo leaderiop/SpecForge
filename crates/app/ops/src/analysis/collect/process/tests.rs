@@ -256,9 +256,33 @@ fn a_collector_command_never_receives_a_cargo_registry_token() {
     }
 }
 
+/// The report path a caller exported, as a test run exports its report directory.
+#[cfg(unix)]
+const EXPORTED_REPORT: &str = "/a/report/directory/the/caller/exported";
+
 #[cfg(unix)]
 #[test]
 fn a_command_told_its_report_runs_without_the_report_env() {
+    // The test runs again in a child process whose environment holds the caller's own `SPECFORGE_REPORT`, so the
+    // machine meets an inherited value while this process's environment is never written.
+    if std::env::var_os(REPORT_ENV).as_deref() != Some(EXPORTED_REPORT.as_ref()) {
+        let module = module_path!()
+            .split_once("::")
+            .map_or("", |(_, module)| module);
+        let name = format!("{module}::a_command_told_its_report_runs_without_the_report_env");
+        let child = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([name.as_str(), "--exact", "--test-threads=1"])
+            .env(REPORT_ENV, EXPORTED_REPORT)
+            .output()
+            .unwrap();
+        let said = String::from_utf8_lossy(&child.stdout);
+        assert!(
+            child.status.success() && said.contains(" 1 passed;"),
+            "{said}{}",
+            String::from_utf8_lossy(&child.stderr)
+        );
+        return;
+    }
     let dir = tempfile::tempdir().unwrap();
     let seen = dir.path().join("seen");
     let argv = vec![

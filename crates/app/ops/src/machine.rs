@@ -34,7 +34,8 @@ pub struct CollectorCommand<'a> {
     pub dir: &'a Path,
     /// Where the report lands: the report location as the project names it.
     pub report: &'a Path,
-    /// Whether `SPECFORGE_REPORT` says [`report`](Self::report): the command is told it no other way.
+    /// Whether `SPECFORGE_REPORT` says [`report`](Self::report), over any value the caller's environment holds: the
+    /// command is told it no other way. When false the variable is removed, so the caller's never reaches it.
     pub report_in_env: bool,
     /// Where its standard output and error go.
     pub output: RunnerOutput,

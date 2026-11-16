@@ -49,12 +49,13 @@ impl CollectorMachine for ProcessMachine {
             )));
         }
         let mut asked = request(command.argv.iter().map(String::as_str), self.deadline);
-        if command.report_in_env {
-            asked.env = vec![EnvVar::set(
-                REPORT_ENV,
-                command.report.to_string_lossy().into_owned(),
-            )];
-        }
+        // Set over, or removed from, what the caller's environment holds: a value the caller exported (a test run's
+        // report directory) would otherwise reach a command told its report another way.
+        asked.env = vec![if command.report_in_env {
+            EnvVar::set(REPORT_ENV, command.report.to_string_lossy().into_owned())
+        } else {
+            EnvVar::removed(REPORT_ENV)
+        }];
         let mut sink = std::io::sink();
         let shown = match command.output {
             RunnerOutput::Inherit => Shown::Terminal,
