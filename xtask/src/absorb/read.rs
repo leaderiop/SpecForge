@@ -6,7 +6,7 @@
 
 use serde_json::Value;
 use specforge_common::facts::is_fact_store;
-use specforge_common::{ProjectConfig, ProjectRoot, Severity, read_project_config};
+use specforge_common::{ProjectConfig, ProjectRoot, Severity, codes, read_project_config};
 use specforge_component::ComponentRuntime;
 use specforge_graph::{Members, field_form};
 use specforge_project::CompiledProject;
@@ -90,9 +90,6 @@ pub fn authored(kind: &str, file: &str) -> bool {
     kind != SCAFFOLDED && !is_fact_store(file)
 }
 
-/// The warning of a declaration whose id another kind declared first: the graph keeps the first and drops this one.
-const DROPPED_DECLARATION: &str = "W060";
-
 /// Compile the project at `from` with the builtins it names; refused when it reports an error, or a declaration its
 /// graph drops (W060: an id another kind declared first), which absorb could neither convert nor ledger (ADR 0372
 /// D2). Each refusal names the first [`ERRORS_SHOWN`] of its kind. No recorded item is required: no kept kind holds a
@@ -111,7 +108,7 @@ pub fn compile(from: &Path) -> Result<Old, String> {
         let line = format!("{at}{} {}", d.code, d.message);
         if d.severity == Severity::Error {
             errors.push(line);
-        } else if d.code == DROPPED_DECLARATION {
+        } else if codes::W060.matches(&d.code) {
             dropped.push(line);
         }
     }
