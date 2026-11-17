@@ -1777,9 +1777,6 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Risk grading**: the coverage owner's policy for one kind: its entities' risk is tallied, and
   one with no obligations is A002, an error at the grading's error level
   (`specforge_coverage::RiskGrading`, supplied by `@specforge/testing`; ADR 0009).
-- **Risk** (`@gsd/core`): what can go wrong in a GSD project, rated 1 to 10 for severity, occurrence and detection;
-  its rpn, post_rpn, status and blocking are computed (`specforge.risk_block_on`), never written (ADR 0358). Not the
-  coverage owner's Risk grading.
 - **Computed value**: the value of a `computed` field, given by a compute pass and held beside the graph (`Computed`),
   never written to a file; written by hand it is E082 (ADR 0287). Shown by every surface, the graph a call receives included (ADR 0299).
 - **Harness value**: the value of a `harness` field, which only a command's plan sets; the **Harness ledger**
@@ -1919,11 +1916,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   an agent to write a GSD file) (ADR 0332 D8, D9).
 - **Absorb table**: `xtask/src/absorb/table.rs`, one row per field of an old `@specforge/governance` or
   `@specforge/product` kind (and one per old kind that takes `verify`), each naming its home in `@gsd/core`: a field it
-  is written to, a computed field it is compared with, a kind it waits for, refused, or an implied default. Its counts
-  are the measure that every old field has a home (ADR 0360).
+  is written to, a computed field it is compared with, a kind it waits for, refused, an implied default, or dropped
+  (no `@gsd/core` field takes it, ADR 0370). Its counts are the measure that every old field has a home (ADR 0360).
 - **Absorb ledger**: the converter's sorted JSON list of every old value it did not write as itself, and why (waiting
-  for a kind, leaving the run, a computed value that differs, a filled required field, a collapsed word, an unproven
-  obligation, an entity it created) (ADR 0360). Not the **Harness ledger**, the **Read ledger** or a **Port ledger**.
+  for a kind, a computed value that differs, a filled required field, a value it could not map, an entity it created,
+  a value no `@gsd/core` field takes) (ADR 0360, ADR 0370). Not the **Harness ledger**, the **Read ledger** or a **Port ledger**.
 - **Human-only value**: a kind, field or member declared `writer: "human"`; an extension's plan, the MCP tools and a
   non-interactive CLI are refused `human_only` (ADR 0289), also when they edit an existing entity of a human-only kind or
   delete an entity holding a person's value (ADR 0298).
