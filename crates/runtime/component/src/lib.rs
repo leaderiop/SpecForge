@@ -631,19 +631,35 @@ impl WasmRuntime for ComponentRuntime {
 /// Per-user Wasmtime compilation cache directory.
 ///
 /// `$SPECFORGE_WASMTIME_CACHE` overrides; setting it to `off` disables the
-/// cache. Default: `$HOME/.cache/specforge/wasmtime` (no cache when `HOME`
-/// is unset). The test drivers read it, so a child running under another `HOME` shares the cache of the test process
+/// cache. Default: `<home>/.cache/specforge/wasmtime`, where the home is `HOME`,
+/// else `USERPROFILE` (Windows), kept only when absolute: the rule of
+/// `specforge_effects::journal::user_home` (ADR 0375 D5). No cache with no home.
+/// The test drivers read it, so a child running under another `HOME` shares the cache of the test process
 /// (a cache of its own would compile every builtin again).
 pub fn user_compile_cache_dir() -> Option<PathBuf> {
-    match std::env::var_os("SPECFORGE_WASMTIME_CACHE") {
+    compile_cache_dir_from(
+        std::env::var_os("SPECFORGE_WASMTIME_CACHE"),
+        std::env::var_os("HOME"),
+        std::env::var_os("USERPROFILE"),
+    )
+}
+
+/// [`user_compile_cache_dir`] over the variables' values: `cache` (`SPECFORGE_WASMTIME_CACHE`), `home` (`HOME`)
+/// and `profile` (`USERPROFILE`). A relative home is no home, so a project directory never holds compiled code
+/// the runtime would load.
+fn compile_cache_dir_from(
+    cache: Option<std::ffi::OsString>,
+    home: Option<std::ffi::OsString>,
+    profile: Option<std::ffi::OsString>,
+) -> Option<PathBuf> {
+    match cache {
         Some(v) if v == "off" => None,
         Some(v) => Some(PathBuf::from(v)),
-        None => std::env::var_os("HOME").map(|home| {
-            PathBuf::from(home)
-                .join(".cache")
-                .join("specforge")
-                .join("wasmtime")
-        }),
+        None => home
+            .or(profile)
+            .map(PathBuf::from)
+            .filter(|home| home.is_absolute())
+            .map(|home| home.join(".cache").join("specforge").join("wasmtime")),
     }
 }
 
@@ -660,6 +676,79 @@ fn enable_compile_cache(config: &mut Config, dir: &Path) -> Result<(), String> {
     let cache = Cache::new(cache_config).map_err(|e| e.to_string())?;
     config.cache(Some(cache));
     Ok(())
+}
+
+#[cfg(test)]
+mod user_compile_cache_tests {
+    use std::ffi::OsString;
+    use std::path::PathBuf;
+
+    use super::compile_cache_dir_from;
+
+    fn abs() -> OsString {
+        std::env::temp_dir().into_os_string()
+    }
+
+    fn cache_under(home: OsString) -> PathBuf {
+        PathBuf::from(home)
+            .join(".cache")
+            .join("specforge")
+            .join("wasmtime")
+    }
+
+    #[test]
+    fn a_user_compile_cache_lives_under_userprofile_when_home_is_unset() {
+        let profile = abs();
+        assert_eq!(
+            compile_cache_dir_from(None, None, Some(profile.clone())),
+            Some(cache_under(profile))
+        );
+    }
+
+    #[test]
+    fn the_user_compile_cache_takes_home_before_userprofile() {
+        let home = abs();
+        let profile = PathBuf::from(abs()).join("profile").into_os_string();
+        assert_eq!(
+            compile_cache_dir_from(None, Some(home.clone()), Some(profile)),
+            Some(cache_under(home))
+        );
+    }
+
+    #[test]
+    fn a_relative_home_gives_no_user_compile_cache() {
+        assert_eq!(
+            compile_cache_dir_from(None, Some("relative".into()), Some(abs())),
+            None
+        );
+    }
+
+    #[test]
+    fn the_cache_variable_still_overrides_the_user_compile_cache_first() {
+        assert_eq!(
+            compile_cache_dir_from(Some("off".into()), Some(abs()), Some(abs())),
+            None
+        );
+        let dir = PathBuf::from(abs()).join("cache");
+        assert_eq!(
+            compile_cache_dir_from(Some(dir.clone().into_os_string()), None, None),
+            Some(dir)
+        );
+    }
+
+    #[test]
+    fn no_home_at_all_gives_no_user_compile_cache() {
+        assert_eq!(compile_cache_dir_from(None, None, None), None);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_user_compile_cache_lives_under_a_drive_path_userprofile() {
+        assert_eq!(
+            compile_cache_dir_from(None, None, Some(r"C:\Users\runner".into())),
+            Some(PathBuf::from(r"C:\Users\runner\.cache\specforge\wasmtime"))
+        );
+    }
 }
 
 #[cfg(test)]

@@ -7,6 +7,7 @@
 //! [`RecordedRequest`], which has no place for a sensitive header's value, an environment value, a body or stdin,
 //! and every file and directory is written `0600`/`0700`.
 
+use std::ffi::OsString;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -483,10 +484,15 @@ pub fn state_base(root: &ProjectRoot) -> Option<PathBuf> {
         .or_else(user_home)
 }
 
-/// The user's home directory (`HOME`, else `USERPROFILE`); none when it is unset or relative.
+/// The user's home directory (`HOME`, else `USERPROFILE`); none when it is unset or relative. The compile cache's
+/// home (`specforge_component::user_compile_cache_dir`) follows the same rule (ADR 0375 D5).
 pub fn user_home() -> Option<PathBuf> {
-    std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
+    home_from(std::env::var_os("HOME"), std::env::var_os("USERPROFILE"))
+}
+
+/// [`user_home`] over the variables' values: `home` (`HOME`), else `profile` (`USERPROFILE`), absolute only.
+fn home_from(home: Option<OsString>, profile: Option<OsString>) -> Option<PathBuf> {
+    home.or(profile)
         .map(PathBuf::from)
         .filter(|home| home.is_absolute())
 }
