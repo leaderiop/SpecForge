@@ -12,7 +12,6 @@ mod answers;
 mod batch;
 mod commits;
 mod counts;
-mod decision_edits;
 mod discuss;
 mod execute_edits;
 mod gates;

@@ -99,9 +99,6 @@ fn project_fence() -> String {
             ),
             ("DECISION_ID", "D-03"),
             ("DECISION", "Notes are plain text files"),
-            ("SUPERSEDES", ""),
-            ("AFFECTS", ""),
-            ("ALTERNATIVES", ""),
             ("RATIONALE", "Any editor opens them"),
         ],
     )

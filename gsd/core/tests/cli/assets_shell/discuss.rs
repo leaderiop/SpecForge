@@ -33,12 +33,6 @@ fn context_fence() -> String {
             ("DECISION", "Open tasks are listed oldest first"),
             ("REVERSIBILITY", "reversible"),
             ("RATIONALE", "Only the listing reads the order"),
-            ("SUPERSEDES", ""),
-            ("AFFECTS", "TASK-03"),
-            (
-                "ALTERNATIVES",
-                r#"[{"name": "Newest first", "pros": ["The latest task is on top"], "why_not": "Old tasks would sink out of the user's sight"}]"#,
-            ),
             ("IDEA", "Sort by due date"),
             ("WHY", "Tasks have no due date yet"),
         ],
@@ -86,18 +80,6 @@ fn the_context_fence_records_the_phase_context() {
     assert_eq!(
         picked(&p, "v1.0/03/D-01", ".nodes[0].fields.origin"),
         "context"
-    );
-    assert_eq!(
-        picked(
-            &p,
-            "v1.0/03/D-01",
-            ".nodes[0].fields.alternatives[0].why_not"
-        ),
-        "Old tasks would sink out of the user's sight"
-    );
-    assert_eq!(
-        picked(&p, "v1.0/03/D-01", ".nodes[0].fields.affects[0]"),
-        "TASK-03"
     );
     assert_eq!(
         picked(&p, "v1.0/03/DI1", ".nodes[0].fields.text"),

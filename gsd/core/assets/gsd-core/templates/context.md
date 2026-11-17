@@ -62,11 +62,6 @@ REVERSIBILITY="{reversible, costly or one_way}"
 IFS= read -rd '' RATIONALE <<'TEXT' || true; RATIONALE=${RATIONALE%$'\n'}
 {what undoing it would cost: the migration, the contract or the dependent system}
 TEXT
-SUPERSEDES="{the earlier decisions it reverses, comma-separated ids such as v1.0/02/D-01, or nothing}"
-AFFECTS="{the requirements, invariants or code items it shapes, comma-separated ids such as AUTH-01, or nothing}"
-IFS= read -rd '' ALTERNATIVES <<'TEXT' || true; ALTERNATIVES=${ALTERNATIVES%$'\n'}
-{the options weighed and not chosen, one JSON list: [{"name": "…", "pros": ["…"], "cons": ["…"], "why_not": "…"}], or nothing}
-TEXT
 IFS= read -rd '' IDEA <<'TEXT' || true; IDEA=${IDEA%$'\n'}
 {an idea that came up but belongs in another phase}
 TEXT
@@ -74,7 +69,7 @@ IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\n'}
 {why it was deferred: out of scope, belongs in a later phase}
 TEXT
 specforge new context "${PADDED_PHASE}-CONTEXT" "$NAME context" --in spec/discuss.spec --phase "$PHASE_ID" --gathered "$GATHERED" --boundary "$BOUNDARY" --specifics "$SPECIFICS" --canonical_refs "$REFS" --discretion "$DISCRETION" --reusable_assets "$ASSET" --patterns "$PATTERN" --integration_points "$INTEGRATION" || exit 1
-specforge new decision D-01 "$DECISION" --in spec/discuss.spec --phase "$PHASE_ID" --origin context --area "$AREA" --text "$DECISION" --reversibility "$REVERSIBILITY" --rationale "$RATIONALE" ${SUPERSEDES:+--supersedes "$SUPERSEDES"} ${AFFECTS:+--affects "$AFFECTS"} ${ALTERNATIVES:+--alternatives "$ALTERNATIVES"} || exit 1
+specforge new decision D-01 "$DECISION" --in spec/discuss.spec --phase "$PHASE_ID" --origin context --area "$AREA" --text "$DECISION" --reversibility "$REVERSIBILITY" --rationale "$RATIONALE" || exit 1
 specforge new deferred_idea DI1 "$IDEA" --in spec/discuss.spec --phase "$PHASE_ID" --origin discussion --text "$IDEA" --why "$WHY" || exit 1
 ```
 
@@ -88,9 +83,6 @@ the decisions, ideas and the discussion it came from are found from the phase: `
   within it.
 - `decision`: one per implementation decision, its `area` the gray area it was discussed under. Areas are not
   predefined: they are what was discussed for this phase.
-  A decision's three relations are given only when they hold something, each left empty otherwise: `supersedes`, a
-  prior decision (from the prior phases' decisions this discussion read) that this one reverses; `affects`, the
-  phase requirements it shapes; `alternatives`, the options of the gray area that were not chosen, each with why.
 - `discretion`: the areas where the user said "you decide", where Claude has flexibility.
 - `canonical_refs`: mandatory. Every spec, ADR or doc downstream agents must read, grouped by `topic`, each path
   relative to the project root (a `§N` after a path names a section). Sources: the phase and its requirements, docs the

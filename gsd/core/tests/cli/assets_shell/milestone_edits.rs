@@ -112,12 +112,6 @@ fn the_project_evolution_is_typed_edits() {
                 ("DECISION_ID", "D-07"),
                 ("DECISION", "Boards stay on the user's disk"),
                 ("RATIONALE", "No server in v1"),
-                ("SUPERSEDES", ""),
-                ("AFFECTS", "STORE-01"),
-                (
-                    "ALTERNATIVES",
-                    r#"[{"name": "A sync server", "why_not": "No server in v1"}]"#,
-                ),
             ],
         ),
     ];
@@ -138,9 +132,6 @@ fn the_project_evolution_is_typed_edits() {
     );
     let decisions = p.fields_of("taskboard")["key_decisions"].to_string();
     assert!(decisions.contains("D-07"), "{decisions}");
-    let d07 = p.fields_of("D-07");
-    assert_eq!(d07["affects"], serde_json::json!(["STORE-01"]), "{d07}");
-    assert_eq!(d07["alternatives"][0]["name"], "A sync server", "{d07}");
 }
 
 /// complete-milestone's close fence, filled with a deliverable holding an apostrophe, a backtick and a `$`: on a ready
@@ -457,9 +448,6 @@ fn a_promoted_cluster_becomes_a_project_decision() {
                 "Persistence decides the data model; reload loses ids unless it is planned.",
             ),
             ("SOURCES", "Sources: Phase 01, Phase 02"),
-            ("SUPERSEDES", ""),
-            ("AFFECTS", ""),
-            ("ALTERNATIVES", ""),
         ],
     );
     let done = typed::apply(&sh, &p, &promote);
