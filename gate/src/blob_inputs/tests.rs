@@ -242,3 +242,72 @@ fn a_change_to_an_examples_extension_feeds_its_blob() {
         ["examples/marketing/extension"]
     );
 }
+
+/// The patterns of the bootstrap workflow's `pull_request` `paths:` list, read line by line (no YAML dependency).
+fn bootstrap_paths(workflow: &str) -> Vec<String> {
+    let mut lines = workflow
+        .lines()
+        .skip_while(|line| line.trim() != "pull_request:");
+    assert!(
+        lines.next().is_some(),
+        "the bootstrap workflow has no pull_request trigger"
+    );
+    lines
+        .skip_while(|line| line.trim() != "paths:")
+        .skip(1)
+        .map_while(|line| line.trim().strip_prefix("- "))
+        .map(|pattern| pattern.trim_matches('"').to_owned())
+        .collect()
+}
+
+/// A pattern ending `/**` matches a path under that directory; any other pattern matches itself.
+fn covers(pattern: &str, path: &str) -> bool {
+    match pattern.strip_suffix("/**") {
+        Some(dir) => path
+            .strip_prefix(dir)
+            .is_some_and(|rest| rest.starts_with('/')),
+        None => pattern == path,
+    }
+}
+
+/// A change to anything a committed blob compiles from runs the cold-clone job on a pull request: every input key of
+/// every record is under one of the job's `paths:` (ADR 0366 D2 and D4, ADR 0373 D2).
+#[test]
+fn the_bootstrap_paths_cover_every_recorded_input() {
+    let path = repo_root().join(".github/workflows/bootstrap.yml");
+    let workflow = std::fs::read_to_string(&path).unwrap();
+    let patterns = bootstrap_paths(&workflow);
+    assert!(!patterns.is_empty(), "{} lists no paths", path.display());
+    let mut uncovered = Vec::new();
+    for crate_dir in blobs(repo_root()).unwrap() {
+        let record = BlobRecord::read(repo_root(), &crate_dir).unwrap();
+        for key in record.inputs.keys() {
+            let input = path_of(key);
+            if !patterns.iter().any(|pattern| covers(pattern, input)) {
+                uncovered.push(format!("{crate_dir}: {key}"));
+            }
+        }
+    }
+    assert!(
+        uncovered.is_empty(),
+        "{} does not run on a change to these recorded inputs; add their paths:\n  {}",
+        path.display(),
+        uncovered.join("\n  ")
+    );
+}
+
+/// The job runs the equality test the ignored way: it is `#[ignore]`d so the gate's `tests` check does not build the
+/// blob (ADR 0373 D2).
+#[test]
+fn the_bootstrap_job_runs_the_gsd_core_equality_test() {
+    let path = repo_root().join(".github/workflows/bootstrap.yml");
+    let workflow = std::fs::read_to_string(&path).unwrap();
+    let line = workflow
+        .lines()
+        .find(|line| line.contains("committed_gsd_core_blob_is_the_stagers_build"))
+        .unwrap_or_else(|| panic!("{} does not run the gsd/core equality test", path.display()));
+    assert!(
+        line.contains("cargo nextest run") && line.contains("--run-ignored only"),
+        "{line}"
+    );
+}

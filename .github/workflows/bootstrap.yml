@@ -2,6 +2,8 @@ name: Bootstrap
 
 # A cold clone rebuilds every committed blob. It takes ~8 min uncached, so a PR runs it only when what the blobs
 # compile from changes (the paths every `inputs.json` records, plus the build tooling); main runs it on every push.
+# A gsd input runs it too: `gsd/core/**`, `gsd/kit/**`, `gsd/.cargo/**` (the SDK patch) and `gsd/Cargo.lock`, which
+# `@gsd/core`'s record hashes whole. A gate test holds these paths to every input any record lists.
 # A PR that misses it still has the `builtins` check (ci.yml), which compares each blob's recorded inputs.
 on:
   push:
@@ -11,12 +13,17 @@ on:
       - "crates/leaf/coverage/**"
       - "crates/leaf/cycles/**"
       - "crates/leaf/protocol-types/**"
+      - "crates/leaf/checks-kit/**"
       - "crates/runtime/extension-sdk/**"
       - "crates/runtime/extension-sdk-macros/**"
       - "crates/runtime/component/src/committed.rs"
       - "extensions/**"
       - "fixtures/**"
       - "examples/marketing/extension/**"
+      - "gsd/core/**"
+      - "gsd/kit/**"
+      - "gsd/Cargo.lock"
+      - "gsd/.cargo/**"
       - "Cargo.toml"
       - "Cargo.lock"
       - "rust-toolchain.toml"
@@ -46,6 +53,12 @@ jobs:
       - name: Install the pinned blob toolchain (gate::blob_inputs::BLOB_RUSTC)
         run: rustup toolchain install 1.99.1 --profile minimal --target wasm32-wasip2
 
+      # Prebuilt, as ci.yml installs it: the equality step below runs under it.
+      - name: Install nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+
       # No rust-cache here on purpose: this job must prove that a cold clone
       # can rebuild every builtin component blob from source via the xtask
       # escape hatch (wayfinder map #1, ticket #4).
@@ -54,3 +67,9 @@ jobs:
       # vendored bytes, and fails, never skips, on a blob another rustc built.
       - name: Build all builtin component blobs from source and compare them with the vendored ones
         run: cargo gate bootstrap
+
+      # `--verify` above compares every blob; this names the one the ADR pins. It is #[ignore]d so the gate's `tests`
+      # check does not build the blob, and it fails, never skips, on a blob another rustc built or other bytes
+      # (ADR 0366 D4, ADR 0373 D2).
+      - name: Prove the committed @gsd/core blob is the stager's build on the pinned rustc
+        run: cargo nextest run -p xtask --run-ignored only -E 'test(committed_gsd_core_blob_is_the_stagers_build)'
