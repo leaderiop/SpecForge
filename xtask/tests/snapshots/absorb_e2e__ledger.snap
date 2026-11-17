@@ -77,7 +77,7 @@ expression: ledger
       "field": "category",
       "value": "interoperability",
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
       }
     },
     {
@@ -128,7 +128,7 @@ expression: ledger
       "field": "category",
       "value": "usability",
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
       }
     },
     {
@@ -179,7 +179,7 @@ expression: ledger
       "field": "category",
       "value": "reliability",
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
       }
     },
     {
@@ -230,7 +230,7 @@ expression: ledger
       "field": "category",
       "value": "performance",
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
       }
     },
     {
@@ -326,7 +326,7 @@ expression: ledger
       "field": "category",
       "value": "performance",
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
       }
     },
     {

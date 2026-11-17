@@ -59,7 +59,7 @@ expression: ledger
       "field": "category",
       "value": "performance",
       "why": {
-        "dropped": "requirement.category (the quality class) leaves @gsd/core (ADR 0370)"
+        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
       }
     },
     {

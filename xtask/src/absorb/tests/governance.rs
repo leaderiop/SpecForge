@@ -98,13 +98,15 @@ fn a_constraint_keeps_its_text_and_drops_the_fields_that_left() {
             why_of(&planned, "c", name)
         );
     }
-    // The quality class and the requirement's heading share the name `category`: the class is dropped, and the
-    // heading is filled with "Constraint".
+    // The quality class and the requirement's heading share the name `category`: the class is dropped, its reason
+    // naming the class, not the heading that stays, and the heading is filled with "Constraint".
     assert!(
         matches!(
             why_of(&planned, "c", "category").as_slice(),
             [Why::Dropped(reason), Why::Filled { field, value }]
-                if reason.contains("ADR 0370")
+                if reason.contains("quality class")
+                    && reason.contains("ADR 0370")
+                    && !reason.contains("requirement.category")
                     && field == "requirement.category"
                     && value == "Constraint"
         ),

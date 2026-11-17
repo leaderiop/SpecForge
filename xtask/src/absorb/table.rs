@@ -171,6 +171,11 @@ const NO_METRIC: Home = Home::Dropped(
      conversion change writes",
 );
 
+/// Why an old constraint's `category` is dropped (ADR 0370 D3): it named a quality class (performance, security, …),
+/// which no `@gsd/core` field holds. `requirement.category` is the requirement's heading, which the fill writes.
+const NO_QUALITY_CLASS: Home =
+    Home::Dropped("the constraint's quality class has no home in @gsd/core (ADR 0370)");
+
 /// Why an old decision whose status is `superseded` converts to nothing (ADR 0370 D4 and D8): it no longer holds.
 pub const NO_SUPERSESSION: &str =
     "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing";
@@ -219,7 +224,7 @@ pub const TABLE: &[Row] = rows! {
     // ADR 0359 D1-D6: a constraint is a requirement of category "Constraint".
     "constraint": [
         "description" => [to(REQUIREMENT, "text", Text)],
-        "category" => [leaves!("requirement.category (the quality class)")],
+        "category" => [NO_QUALITY_CLASS],
         "priority" => [leaves!("requirement.priority")],
         "metric" => [NO_METRIC],
         "threshold" => [NO_METRIC],
