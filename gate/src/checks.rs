@@ -548,12 +548,17 @@ fn blobs_fed(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
     ))
 }
 
-/// Files outside the root workspace (`gsd/` is its own) that tests of a member read, each with the members whose
-/// tests read it: a change to the file is no change to any member, so `member_of` cannot reach them.
-const READ_FROM_OUTSIDE: &[(&str, &[&str])] = &[(
-    "gsd/core/tests/golden/kinds.json",
-    &["specforge-component", "xtask"],
-)];
+/// Paths outside every member (`gsd/` is a workspace of its own, `spec/` and `specforge.json` the self-spec) that tests
+/// of a member read, each a file or a `<dir>/**` pattern with the members whose tests read it: a change there is no
+/// change to any member, so `member_of` cannot reach them. `xtask`'s keyword guard compiles the whole self-spec.
+const READ_FROM_OUTSIDE: &[(&str, &[&str])] = &[
+    (
+        "gsd/core/tests/golden/kinds.json",
+        &["specforge-component", "xtask"],
+    ),
+    ("spec/**", &["xtask"]),
+    ("specforge.json", &["xtask"]),
+];
 
 /// The members holding a changed path, and the members that read a changed file outside the workspace
 /// ([`READ_FROM_OUTSIDE`]); a change to the root manifest, the lockfile or nextest's config reaches every member.

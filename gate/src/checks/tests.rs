@@ -348,14 +348,49 @@ fn a_file_outside_the_workspace_that_a_member_tests_read_selects_that_member() {
         selection("tests", Mode::Quick, &["gsd/core/src/lib.rs"]),
         Selection::Skip
     );
-    // The file exists and the readers it names are members of the real workspace (`this_repo` lists a few).
+    // The file or directory exists and the readers it names are members of the real workspace (`this_repo` lists a
+    // few).
     let repo = Repo::discover().unwrap();
-    for (file, readers) in READ_FROM_OUTSIDE {
-        assert!(repo.root.join(file).is_file(), "{file}");
+    for (path, readers) in READ_FROM_OUTSIDE {
+        let there = match path.strip_suffix("/**") {
+            Some(dir) => repo.root.join(dir).is_dir(),
+            None => repo.root.join(path).is_file(),
+        };
+        assert!(there, "{path}");
         for reader in *readers {
             assert!(repo.members.iter().any(|m| &m.name == reader), "{reader}");
         }
     }
+}
+
+/// The self-spec belongs to no member, yet `xtask`'s keyword guard compiles all of it: a change to a spec file or to
+/// the manifest selects `xtask`'s tests, and nothing else.
+#[test]
+fn a_change_to_the_self_spec_selects_the_test_that_compiles_it() {
+    for path in ["spec/governance/constraints.spec", "specforge.json"] {
+        assert!(this_repo().member_of(path).is_none(), "{path}");
+        assert_eq!(
+            selection("tests", Mode::Quick, &[path]),
+            only(&["xtask"]),
+            "{path}"
+        );
+    }
+    assert_eq!(
+        selection(
+            "tests",
+            Mode::Quick,
+            &[
+                "spec/product/features.spec",
+                "crates/surfaces/lsp/src/lib.rs"
+            ]
+        ),
+        only(&["specforge-lsp", "xtask"])
+    );
+    assert_eq!(
+        selection("tests", Mode::Quick, &["integrations/rust/spec/a.spec"]),
+        Selection::Skip,
+        "another project's spec is not the self-spec"
+    );
 }
 
 #[test]
