@@ -64,7 +64,7 @@ fn spec_tree(root: &Path) -> BTreeMap<String, String> {
 
 /// Every one of the 17 old kinds the fixture holds converts or is dropped whole (ADR 0372 D1): the target checks with
 /// no error and no warning, nothing waits, and an entity dropped whole leaves its methods and field annotations in the
-/// ledger (ADR 0372 D2).
+/// ledger (ADR 0372 D2), as its `ref` declaration leaves its title and metadata.
 #[test]
 #[ignore = "needs GSD_CORE_WASM"]
 fn all_seventeen_old_kinds_convert_or_drop_with_no_error_and_no_warning() {
@@ -167,6 +167,10 @@ fn all_seventeen_old_kinds_convert_or_drop_with_no_error_and_no_warning() {
     assert!(
         dropped(&ledger, "EntryStore", "method") && dropped(&ledger, "SavedEntry", "annotations"),
         "a port's methods and a type's member annotations are ledgered: {ledger}"
+    );
+    assert!(
+        dropped(&ledger, "gh.issue:42", "title") && dropped(&ledger, "gh.issue:42", "labels"),
+        "a ref declaration is dropped whole, its title and metadata ledgered: {ledger}"
     );
     releases_become_version_milestones_and_their_milestones_phases(&a, &ledger);
     only_the_scaffold_entries_are_unconverted(&ledger);

@@ -3,7 +3,8 @@
 //! names its homes in `@gsd/core`; every home of a row is applied to the row's value. The table is the measure: a test
 //! counts it.
 //!
-//! Six old kinds convert and eleven are dropped whole, each with its reason ([`FATES`]). A home is one of three
+//! Six old kinds convert and eleven are dropped whole, each with its reason ([`FATES`]); a `ref` declaration is
+//! dropped whole too ([`REF_FATE`]). A home is one of three
 //! classes: To (an authored field, through a named way of writing), Computed (the new kind computes it, and the old
 //! value is compared after the write) or Dropped (no `@gsd/core` field takes the value, and the ledger says why).
 //! No value waits and none is refused for having no home: what stops a run before any write is the refused class
@@ -142,8 +143,17 @@ macro_rules! software {
     };
 }
 
+/// Why a `ref` declaration is dropped whole (ADR 0372 D1).
+const REF: &str = "a ref declaration names an outside resource: no @gsd/core kind holds it and a typed edit cannot \
+                   create one, so it is dropped with its title and metadata, and a scheme reference that names it in a \
+                   list is dropped with that list's value (ADR 0372 D1, D8)";
+
+/// The core grammar's `ref` declaration and its fate: absorb reads it like an entity, and it is dropped whole (ADR
+/// 0372 D1). It is no old kind: no extension declares it, and a project may hold none.
+pub const REF_FATE: (&str, Fate) = ("ref", Fate::Dropped(REF));
+
 /// Every old kind and its fate (ADR 0372 D1): governance's four, product's nine, software's four. One lookup
-/// ([`fate`]) answers what a kind becomes.
+/// ([`fate`]) answers what a kind, or a `ref` declaration ([`REF_FATE`]), becomes.
 pub const FATES: [(&str, Fate); 17] = [
     // A decision in force becomes a decision (ADR 0372 D5).
     ("decision", Fate::To(DECISION)),
@@ -178,10 +188,12 @@ pub const FATES: [(&str, Fate); 17] = [
     ("port", Fate::Dropped(software!("port"))),
 ];
 
-/// The fate of the old kind `kind`; none for a kind the table does not know, which stops a run (ADR 0372 D2).
+/// The fate of the old kind `kind`, or of a `ref` declaration; none for a kind the table does not know, which stops a
+/// run (ADR 0372 D2).
 pub fn fate(kind: &str) -> Option<Fate> {
     FATES
         .iter()
+        .chain(std::iter::once(&REF_FATE))
         .find(|(old, _)| *old == kind)
         .map(|(_, fate)| *fate)
 }

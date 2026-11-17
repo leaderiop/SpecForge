@@ -49,6 +49,12 @@ lists to a `phase`. Eleven are dropped whole, each with its reason:
 
 absorb reads every authored entity of the source; an entity of a kind with no fate stops the run.
 
+A `ref` declaration, the core grammar's outside resource (`ref gh.issue:42 "…"`), is no old kind, but absorb reads it
+like one and gives it a fate: it is dropped whole, its title and each metadata field ledgered `dropped`. It is not
+carried to the target: no `@gsd/core` kind holds it, a typed edit cannot create one, and every list that named it is
+dropped (its scheme references among them), so a carried `ref` would be one nothing points at. The root spec holds
+none; the fixture holds one, in block form, and the census counts it.
+
 | Old kind | Entities | Fate | Converted | Dropped whole |
 |---|---|---|---|---|
 | `feature` | 141 | requirement | 141 | 0 |
@@ -159,7 +165,7 @@ The ledger is format 2: `format`, `from`, `entries`, then `ids`, an array of `{"
 kind and id, `new` the new id or, for a phase, its path.
 
 A census test, pure, holds per old kind over the repository's own spec and over absorb's fixture: entities = converted
-+ dropped whole, 0 unaccounted, and every kind in the spec has a fate.
++ dropped whole, 0 unaccounted, and every kind in the spec has a fate. A `ref` declaration is counted like a kind.
 
 ## What each amended decision becomes
 
@@ -227,8 +233,8 @@ later change now has it.
 **The census.** A pure test over the root spec and over absorb's fixture pins D1's table per old kind: entities =
 converted + dropped whole, 0 unaccounted, and a kind with no fate fails it. On the root spec: 2,290 authored entities
 (2,291 with the `spec` block), 469 converted (353 requirements, 69 `v1` and 284 `v2`; 100 decisions; 3 milestones;
-13 phases) and 1,821 dropped whole, every count as D1 to D7 planned. On the fixture: 39 entities, 17 converted and 22
-dropped whole. The census's root half reads the old spec and goes with the self-spec sample when the root spec is
+13 phases) and 1,821 dropped whole, every count as D1 to D7 planned. On the fixture: 40 entities (its one `ref`
+declaration among them), 17 converted and 23 dropped whole. The census's root half reads the old spec and goes with the self-spec sample when the root spec is
 converted; its fixture half stays.
 
 **The whole-spec trial.** absorb ran on a copy of the repository with the facts of its collectors recorded and the

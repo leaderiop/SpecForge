@@ -1,7 +1,8 @@
 //! The old project, compiled in-process with its own builtins (ADR 0360 D1): every authored entity, whatever its
 //! kind, each value in the one wire form every output writes (ADR 0064). Nothing is filtered by the kind an extension
-//! declares (ADR 0372 D1): an entity of a kind with no fate stops the run, never passes unread. Only the core
-//! grammar's structural blocks and the collected facts are left out ([`authored`]).
+//! declares (ADR 0372 D1): an entity of a kind with no fate stops the run, never passes unread. A `ref` declaration
+//! is read as one too, and dropped whole by its fate. Only the project's `spec` block, which the target scaffolds
+//! fresh, and the collected facts are left out ([`authored`]).
 
 use serde_json::Value;
 use specforge_common::facts::is_fact_store;
@@ -13,9 +14,9 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
-/// The core grammar's structural blocks the graph holds as nodes: the project's `spec` block, which the target
-/// scaffolds fresh, and a `ref` declaration, an outside resource an entity names. Neither is an entity of an old kind.
-const STRUCTURAL: [&str; 2] = ["spec", "ref"];
+/// The core grammar's structural block absorb does not read as an entity: the project's `spec` block, which the target
+/// scaffolds fresh and the project module ledgers. A `ref` declaration is read, and dropped whole by its fate.
+const SCAFFOLDED: &str = "spec";
 
 /// How many of a refused source's errors are printed.
 const ERRORS_SHOWN: usize = 10;
@@ -82,10 +83,11 @@ pub struct OldEntity {
     pub annotations: BTreeMap<String, Value>,
 }
 
-/// Whether a graph node of `kind` whose span names `file` is an authored entity absorb reads: any kind but a
-/// structural block, from any source but a fact store (a collected fact, which the graph tells by the same test).
+/// Whether a graph node of `kind` whose span names `file` is an authored entity absorb reads: any kind but the `spec`
+/// block, a `ref` declaration among them, from any source but a fact store (a collected fact, which the graph tells by
+/// the same test).
 pub fn authored(kind: &str, file: &str) -> bool {
-    !STRUCTURAL.contains(&kind) && !is_fact_store(file)
+    kind != SCAFFOLDED && !is_fact_store(file)
 }
 
 /// Compile the project at `from` with the builtins it names; refused when it reports an error, naming the first. No

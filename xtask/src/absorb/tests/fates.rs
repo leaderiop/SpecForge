@@ -179,12 +179,12 @@ fn read_takes_every_authored_entity_and_no_collected_fact() {
         ("feature", "spec/product/features.spec"),
         ("behavior", "spec/behaviors/b.spec"),
         ("widget", "spec/w.spec"),
+        ("ref", "spec/product/refs.spec"),
     ] {
         assert!(read::authored(kind, file), "{kind} in {file}");
     }
     for (kind, file) in [
         ("spec", "spec/project.spec"),
-        ("ref", "spec/product/refs.spec"),
         ("feature", ".specforge/facts/main/cargo.json"),
         ("test", ".specforge/facts/main/rust.json"),
     ] {
@@ -192,9 +192,40 @@ fn read_takes_every_authored_entity_and_no_collected_fact() {
     }
 }
 
+/// A `ref` declaration, the core grammar's outside resource, is read like an entity and dropped whole: its title and
+/// each metadata field are ledgered `dropped` with its reason, and nothing is created (ADR 0372 D1, D8).
 #[test]
-fn the_fixture_holds_every_old_kind() {
+fn a_ref_declaration_is_dropped_whole_its_title_and_metadata_ledgered() {
+    assert_eq!(
+        table::fate("ref").and_then(Fate::new_kind),
+        None,
+        "a ref has a fate, and converts to nothing"
+    );
+    let mut declared = old(
+        "ref",
+        "gh.issue:42",
+        json!({"labels": ["storage"], "priority": "high"}),
+    );
+    declared.title = Some("Entries are lost".to_string());
+    let planned = planned(&[declared]);
+    assert!(planned.creates.is_empty(), "{:?}", planned.creates);
+    assert_eq!(planned.ids.entries().count(), 0);
+    let why = Why::Dropped(reason("ref").to_string());
+    assert!(reason("ref").contains("ADR 0372"), "{}", reason("ref"));
+    assert_eq!(
+        entries(&planned, "gh.issue:42"),
+        [
+            ("labels".to_string(), json!(["storage"]), why.clone()),
+            ("priority".to_string(), json!("high"), why.clone()),
+            ("title".to_string(), json!("Entries are lost"), why),
+        ]
+    );
+}
+
+#[test]
+fn the_fixture_holds_every_old_kind_and_a_ref() {
     let kinds: BTreeSet<String> = fixture().entities().into_iter().map(|e| e.kind).collect();
-    let fated: BTreeSet<String> = FATES.iter().map(|(kind, _)| kind.to_string()).collect();
+    let mut fated: BTreeSet<String> = FATES.iter().map(|(kind, _)| kind.to_string()).collect();
+    fated.insert("ref".to_string());
     assert_eq!(kinds, fated);
 }

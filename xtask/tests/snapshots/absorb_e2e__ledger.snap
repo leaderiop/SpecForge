@@ -1571,6 +1571,53 @@ expression: ledger
       }
     },
     {
+      "kind": "ref",
+      "id": "gh.issue:42",
+      "field": "identifier",
+      "value": "42",
+      "why": {
+        "dropped": "a ref declaration names an outside resource: no @gsd/core kind holds it and a typed edit cannot create one, so it is dropped with its title and metadata, and a scheme reference that names it in a list is dropped with that list's value (ADR 0372 D1, D8)"
+      }
+    },
+    {
+      "kind": "ref",
+      "id": "gh.issue:42",
+      "field": "labels",
+      "value": [
+        "storage"
+      ],
+      "why": {
+        "dropped": "a ref declaration names an outside resource: no @gsd/core kind holds it and a typed edit cannot create one, so it is dropped with its title and metadata, and a scheme reference that names it in a list is dropped with that list's value (ADR 0372 D1, D8)"
+      }
+    },
+    {
+      "kind": "ref",
+      "id": "gh.issue:42",
+      "field": "ref_kind",
+      "value": "issue",
+      "why": {
+        "dropped": "a ref declaration names an outside resource: no @gsd/core kind holds it and a typed edit cannot create one, so it is dropped with its title and metadata, and a scheme reference that names it in a list is dropped with that list's value (ADR 0372 D1, D8)"
+      }
+    },
+    {
+      "kind": "ref",
+      "id": "gh.issue:42",
+      "field": "scheme",
+      "value": "gh",
+      "why": {
+        "dropped": "a ref declaration names an outside resource: no @gsd/core kind holds it and a typed edit cannot create one, so it is dropped with its title and metadata, and a scheme reference that names it in a list is dropped with that list's value (ADR 0372 D1, D8)"
+      }
+    },
+    {
+      "kind": "ref",
+      "id": "gh.issue:42",
+      "field": "title",
+      "value": "Entries are lost when the editor closes",
+      "why": {
+        "dropped": "a ref declaration names an outside resource: no @gsd/core kind holds it and a typed edit cannot create one, so it is dropped with its title and metadata, and a scheme reference that names it in a list is dropped with that list's value (ADR 0372 D1, D8)"
+      }
+    },
+    {
       "kind": "release",
       "id": "first_release",
       "field": "deliverables",

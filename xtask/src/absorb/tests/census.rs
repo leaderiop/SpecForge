@@ -199,10 +199,11 @@ fn the_root_spec_census_holds_per_old_kind() {
 fn the_fixture_census_holds_per_old_kind() {
     let entities = fixture().entities();
     let kinds: BTreeSet<String> = entities.iter().map(|e| e.kind.clone()).collect();
+    let mut fated = fated();
+    fated.insert("ref".to_string());
     assert_eq!(
-        kinds,
-        fated(),
-        "the fixture holds every old kind (ADR 0364 D4)"
+        kinds, fated,
+        "the fixture holds every old kind (ADR 0364 D4) and a ref declaration (ADR 0372 D1)"
     );
     let (_, counts) = census(&entities).expect("the fixture converts");
     assert_eq!(
@@ -225,15 +226,16 @@ fn the_fixture_census_holds_per_old_kind() {
             ("event", 0, 1),
             ("type", 0, 1),
             ("port", 0, 1),
+            ("ref", 0, 1),
         ]),
         "the fixture's fates, as ADR 0372 D1 gives them"
     );
     assert_eq!(
         total(&counts),
         Count {
-            entities: 39,
+            entities: 40,
             converted: 17,
-            dropped: 22
+            dropped: 23
         }
     );
 }
