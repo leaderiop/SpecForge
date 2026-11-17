@@ -377,13 +377,12 @@ impl RegistryBuild {
 
     /// The graph inputs of these declarations and the vocabulary held now.
     fn derived_graph_inputs(&self) -> GraphInputs {
-        graph_inputs::derive(&self.kinds, &self.fields, &self.field_forms, |kind| {
-            self.candidates()
-                .kind_owners(kind)
-                .into_iter()
-                .map(str::to_string)
-                .collect()
-        })
+        graph_inputs::derive(
+            &self.kinds,
+            &self.fields,
+            &self.field_forms,
+            &self.candidates,
+        )
     }
 
     /// What the checks' suggestions read: the extensions the host could enable, by kind keyword
@@ -601,13 +600,7 @@ pub fn build_registries_with(
     surface_diagnostics.extend(about(BuildPart::Collision, duplicates));
 
     let field_forms = graph_inputs::field_forms(&kinds, &fields);
-    let graph_inputs = graph_inputs::derive(&kinds, &fields, &field_forms, |kind| {
-        candidates
-            .kind_owners(kind)
-            .into_iter()
-            .map(str::to_string)
-            .collect()
-    });
+    let graph_inputs = graph_inputs::derive(&kinds, &fields, &field_forms, &candidates);
     RegistryBuild {
         declarations,
         kinds,

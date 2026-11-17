@@ -415,10 +415,12 @@ impl<'a> Tracer<'a> {
     /// `value`, with what versioning the schema reported and each followed route's skips.
     fn noticed<T>(self, value: T) -> Noticed<T> {
         let mut notices = self.view.versioned_schema().notices();
+        let registries = self.view.registries();
+        let registered = |kind: &str| registries.kinds().contains(kind);
         notices.extend(
             self.followed
                 .into_iter()
-                .flat_map(|route| skipped(self.view.registries().candidates(), route)),
+                .flat_map(|route| skipped(registries.candidates(), registered, route)),
         );
         Noticed::new(value, notices)
     }
@@ -457,8 +459,13 @@ fn another_kind(route: &Route, entity_id: &str, kind: &str) -> Refusal<TraceFiel
 }
 
 /// I210 for each step or annotation `route` skips (it reaches a kind of an optional peer the project does not load),
-/// with the remedy `candidates` gives for its kind: every extension that declares it (ADR 0369 D2).
-fn skipped(candidates: &CandidateVocabulary, route: &Route) -> Vec<Diagnostic> {
+/// with the remedy `candidates` gives for its kind: the declarers that declare no kind `registered` holds, else all
+/// of them, saying so (ADR 0373 D4).
+fn skipped(
+    candidates: &CandidateVocabulary,
+    registered: impl Fn(&str) -> bool + Copy,
+    route: &Route,
+) -> Vec<Diagnostic> {
     route
         .skipped
         .iter()
@@ -470,7 +477,7 @@ fn skipped(candidates: &CandidateVocabulary, route: &Route) -> Vec<Diagnostic> {
                     route.name, skip.kind
                 ),
             )
-            .with_suggestion(candidates.kind_remedy(&skip.kind, |_| false))
+            .with_suggestion(candidates.kind_remedy(&skip.kind, registered))
         })
         .collect()
 }
@@ -693,9 +700,11 @@ mod tests {
                 kind: "check".to_string(),
             }],
         };
-        let suggested = |owners: &str| {
-            let text = format!(r#"{{"kinds": {{"check": [{owners}]}}}}"#);
-            let notices = skipped(&CandidateVocabulary::from_json(&text), &route);
+        // `@aaa/other` also declares `claim`, which is registered when `claim_loaded`.
+        let offered = |owners: &str, claim_loaded: bool| {
+            let text = format!(r#"{{"kinds": {{"check": [{owners}], "claim": ["@aaa/other"]}}}}"#);
+            let registered = |kind: &str| claim_loaded && kind == "claim";
+            let notices = skipped(&CandidateVocabulary::from_json(&text), registered, &route);
             assert_eq!(notices.len(), 1, "{notices:?}");
             assert_eq!(notices[0].code, "I210");
             assert_eq!(
@@ -704,6 +713,7 @@ mod tests {
             );
             notices[0].suggestion.clone().unwrap()
         };
+        let suggested = |owners: &str| offered(owners, false);
         // `@aaa/other` is the first declarer: an answer that takes it alone hides `@acme/proof`.
         assert_eq!(
             suggested(r#""@aaa/other", "@acme/proof""#),
@@ -711,6 +721,11 @@ mod tests {
         );
         assert_eq!(
             suggested(r#""@acme/proof""#),
+            "install it with: specforge add @acme/proof"
+        );
+        // Adding `@aaa/other` would declare the loaded `claim` again (E026): `@acme/proof` alone.
+        assert_eq!(
+            offered(r#""@aaa/other", "@acme/proof""#, true),
             "install it with: specforge add @acme/proof"
         );
         // A keyword written with no extension is not named: the empty vocabulary.
