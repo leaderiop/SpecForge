@@ -155,7 +155,7 @@ For niche domains (3D/games/audio/shaders/ML), suggest `/gsd:plan-phase --resear
 
 Every task has four required fields:
 
-**<files>:** Exact file paths created or modified. **<items>:** the code items the task creates or changes, by their quoted fact ids (`"rust:crate::module::item"`, `"js:package/file::export"`); one not written yet is allowed
+**<files>:** Exact file paths created or modified.
 - Good: `src/app/api/auth/login/route.ts`, `prisma/schema.prisma`
 - Bad: "the auth files", "relevant components"
 
@@ -350,7 +350,6 @@ TEXT
 IFS= read -rd '' TRUTH <<'TEXT' || true; TRUTH=${TRUTH%$'\n'}
 {an observable behavior that must be true}
 TEXT
-TRUTH_REQUIREMENT="{the requirement id it proves}"
 IFS= read -rd '' ARTIFACT_NAME <<'TEXT' || true; ARTIFACT_NAME=${ARTIFACT_NAME%$'\n'}
 {what the file is}
 TEXT
@@ -371,7 +370,7 @@ PLAN_FILE="${PHASE_FILE%/*}/plans/$PLAN.spec"
 PLAN_ID="$PHASE_ID/$PLAN"
 specforge new plan "$PLAN" "$TITLE" --in "$PLAN_FILE" --phase "$PHASE_ID" --type "$TYPE" --depends_on "$DEPENDS_ON" --files_modified "$FILE_1" --files_modified "$FILE_2" --requirements "$REQUIREMENTS" --objective "$OBJECTIVE" --purpose "$PURPOSE" --output "$OUTPUT" --context_refs "$CONTEXT_REF" --verification "$VERIFICATION" --success_criteria "$SUCCESS_CRITERIA" --estimate "$ESTIMATE" || exit 1
 specforge new task T1 "$TASK_NAME" --in "$PLAN_FILE" --plan "$PLAN_ID" --type auto --files "$TASK_FILE" --action "$TASK_ACTION" --verify_text "$TASK_VERIFY" --done "$TASK_DONE" || exit 1
-specforge new truth TR1 "$TRUTH" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$TRUTH" --requirement "$TRUTH_REQUIREMENT" || exit 1
+specforge new truth TR1 "$TRUTH" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$TRUTH" || exit 1
 specforge new artifact AR1 "$ARTIFACT_NAME" --in "$PLAN_FILE" --plan "$PLAN_ID" --field path="$ARTIFACT_PATH" --provides "$ARTIFACT_PROVIDES" || exit 1
 specforge new key_link KL1 "$LINK_NAME" --in "$PLAN_FILE" --plan "$PLAN_ID" --from "$LINK_FROM" --to "$LINK_TO" --via "$LINK_VIA" || exit 1
 ```

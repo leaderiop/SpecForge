@@ -17,7 +17,7 @@
     "`specforge gsd reference gsd-core/references/response-language-directive.md`",
     "",
     "<purpose>",
-    "Verify the milestone achieved its definition of done: read its requirements along their threads (requirement → plans → tasks → commits → tests → truths) and the phases' verifications, record the cross-phase integration verdict on the milestone's audit, and record its tech debt. The audit's gaps, Nyquist counts and status are computed from the graph.",
+    "Verify the milestone achieved its definition of done: read its requirements along their threads (requirement → plans → tasks → commits → truths → coverage items) and the phases' verifications, record the cross-phase integration verdict on the milestone's audit, and record its tech debt. The audit's gaps, Nyquist counts and status are computed from the graph.",
     "</purpose>",
     "",
     "<required_reading>",
@@ -61,7 +61,7 @@
     "Resolve the milestone's audit, the `milestone_audit` entity this workflow records into. A re-audit reuses it; the first audit creates `<milestone>/A1`, before the integration checker is spawned, since its verdict is recorded on it:",
     ""
   ],
-  "bytes": 28306,
+  "bytes": 28371,
   "end": [
     "",
     "<success_criteria>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:29f9a906aadcafa1bfbb42c8526271615c4d518accc782d111292c3501a3cb54",
+    "digest": "sha256:4c56987c5312c6b4cbc4cda0770c9b4392603f9176177f789fbaa68a13777afa",
     "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "29f9a906aadcafa1bfbb42c8526271615c4d518accc782d111292c3501a3cb54"
+  "sha256": "4c56987c5312c6b4cbc4cda0770c9b4392603f9176177f789fbaa68a13777afa"
 }

@@ -82,7 +82,6 @@ fn the_planners_typed_edits_write_a_checked_plan() {
             ("TASK_VERIFY", "npm test"),
             ("TASK_DONE", "the board loads"),
             ("TRUTH", "A restarted board shows the tasks it had"),
-            ("TRUTH_REQUIREMENT", "STORE-02"),
             ("ARTIFACT_NAME", "The board loader"),
             ("ARTIFACT_PATH", "src/index.js"),
             ("ARTIFACT_PROVIDES", "loadBoard"),
@@ -377,7 +376,6 @@ fn the_spec_less_lift_writes_truths_and_a_descriptor_less_prohibition() {
         &typed::typed_fence(&text, "## C. Authoring"),
         &[
             ("PLAN_ID", "v1.0/02/02-01"),
-            ("REQUIREMENT", "STORE-01"),
             ("EXPLICIT_ID", "TR4"),
             (
                 "CRITERION",

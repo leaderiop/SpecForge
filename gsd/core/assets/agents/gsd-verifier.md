@@ -341,7 +341,7 @@ Verify each link below; per-pattern procedures and recipes:
 specforge trace --route gsd/requirement-thread --in "$PHASE_ID" --partial
 ```
 
-Each requirement prints its thread: the plans that claim it, their tasks with their items and commits, its tests with their status, and its truths with their verdict state. A thread that stops before a verified truth (`no truth`, or a truth `missing`) is a requirement no truth proves yet. `--format json` prints the same threads with each test's fact id (its `test` step), the id a verdict cites.
+Each requirement prints its thread: the requirement with its computed proof and the status of the tests that name it, the plans that claim it, their tasks, each task's commits and the items they changed, the plans' truths with their verdict state, and the summaries' coverage items with each check's `ref`. A thread with `no truth` or `no deliverable` is incomplete, and one that stops before a verified truth (`no truth`, or a truth `missing`) is a requirement no truth proves yet.
 
 **6b. Map each requirement to its evidence:**
 

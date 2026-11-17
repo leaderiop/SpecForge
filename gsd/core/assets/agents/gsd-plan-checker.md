@@ -124,7 +124,7 @@ For calibration on scoring and issue identification, reference these examples:
 
 **Process:**
 1. Read the phase goal (`specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal'`)
-2. Trace each of the phase's requirements to its plans, tasks, tests and truths; a thread that says `no plan` is in no
+2. Trace each of the phase's requirements to its plans, tasks, commits, truths and coverage items; a thread that says `no plan` is in no
    plan's `requirements`:
 
    ```bash

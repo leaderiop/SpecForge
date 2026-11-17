@@ -115,7 +115,6 @@ plan's next free id, and no line for a kind the report has none of:
 
 ```bash
 PLAN_ID="{the plan id, e.g. v1.0/02/02-01}"
-REQUIREMENT="{the requirement the edge was probed on}"
 EXPLICIT_ID="{the plan's next truth id, e.g. TR4}"
 IFS= read -rd '' CRITERION <<'TEXT' || true; CRITERION=${CRITERION%$'\n'}
 {a resolved (verification: explicit) edge's acceptance criterion}
@@ -132,8 +131,8 @@ IFS= read -rd '' PURPOSE <<'TEXT' || true; PURPOSE=${PURPOSE%$'\n'}
 {the plan's purpose, then each unresolved or unclassified row, as an assumption}
 TEXT
 PLAN_FILE=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].file') || exit 1
-specforge new truth "$EXPLICIT_ID" "$CRITERION" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$CRITERION" --requirement "$REQUIREMENT" || exit 1
-specforge new truth "$BACKSTOP_ID" "$CHECK" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$CHECK" --requirement "$REQUIREMENT" --verification backstop || exit 1
+specforge new truth "$EXPLICIT_ID" "$CRITERION" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$CRITERION" || exit 1
+specforge new truth "$BACKSTOP_ID" "$CHECK" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$CHECK" --verification backstop || exit 1
 specforge new prohibition "$PROHIBITION_ID" "$STATEMENT" --in "$PLAN_FILE" --plan "$PLAN_ID" --statement "$STATEMENT" --verification judgment || exit 1
 specforge set "$PLAN_ID" purpose "$PURPOSE" || exit 1
 ```

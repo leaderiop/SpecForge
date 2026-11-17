@@ -462,7 +462,7 @@ agents/gsd-plan-checker.md	own	11+1	1	c9f846d2ee79	e0707e383b2b	agent
 agents/gsd-plan-checker.md	kept	12+74	fd9dfc98aef1
 agents/gsd-plan-checker.md	own	86+8	8	dd2b1b5e2622	d5b4565099f5	agent
 agents/gsd-plan-checker.md	kept	94+37	a2d8632c201d
-agents/gsd-plan-checker.md	own	131+7	15	ad0393d61eb9	02129ec21b0c	agent
+agents/gsd-plan-checker.md	own	131+7	15	ad0393d61eb9	a40e20b87d7a	agent
 agents/gsd-plan-checker.md	kept	138+167	68463a9ba68d
 agents/gsd-plan-checker.md	own	305+11	11	022452bea592	6ae2ba7cc4ff	agent
 agents/gsd-plan-checker.md	kept	316+310	6cd10fb9b6c6
@@ -534,16 +534,14 @@ agents/gsd-planner.md	kept	24+14	3e234a7f3940
 agents/gsd-planner.md	own	38+1	1	92f770d3a109	380639057f18	agent
 agents/gsd-planner.md	kept	39+30	14ae437b006f
 agents/gsd-planner.md	own	69+1	1	05608c3e258f	307894c5e55d	thread
-agents/gsd-planner.md	kept	70+99	03347c1b80f4
-agents/gsd-planner.md	own	169+1	1	8009e4de4780	219248039416	thread
-agents/gsd-planner.md	kept	170+19	257ca09d1868
+agents/gsd-planner.md	kept	70+119	9af7a501aee2
 agents/gsd-planner.md	own	189+1	1	7d020638f73a	7621ab2f684f	agent
 agents/gsd-planner.md	kept	190+5	69927fde50ce
 agents/gsd-planner.md	own	195+1	1	6778a4d30bca	e3145f37d3b1	served
 agents/gsd-planner.md	kept	196+81	df2c47ffce78
 agents/gsd-planner.md	own	277+1	1	7c6eee157d11	77d8d6ac8238	agent
 agents/gsd-planner.md	kept	278+29	ac1c144b972b
-agents/gsd-planner.md	own	307+89	129	783bd45a0789	3d9b5792a1b4	ported-name
+agents/gsd-planner.md	own	307+89	128	783bd45a0789	d4166663a7cf	ported-name
 agents/gsd-planner.md	kept	396+8	bac43ee40ea5
 agents/gsd-planner.md	own	404+1	1	d32f932706f6	6c6ee48ec884	thread
 agents/gsd-planner.md	kept	405+2	db1c4f5c0c4f
@@ -904,7 +902,7 @@ agents/gsd-verifier.md	own	331+6	6	0e9664caff7f	cad7f20d4733	ported-name
 agents/gsd-verifier.md	kept	337+20	6bd71f2b7d35
 agents/gsd-verifier.md	own	357+1	1	9feb27ab469f	e1b99b4dd337	agent
 agents/gsd-verifier.md	kept	358+2	5f046190424d
-agents/gsd-verifier.md	own	360+9	9	864b92960cd1	a98d59011b9e	agent
+agents/gsd-verifier.md	own	360+9	9	864b92960cd1	301a3c2439ea	agent
 agents/gsd-verifier.md	kept	369+9	6034b7fb9b8f
 agents/gsd-verifier.md	own	378+4	4	873dfdd3fbc3	737be70e6f83	ported-name
 agents/gsd-verifier.md	kept	382+3	2b67c0f37977
@@ -1719,7 +1717,7 @@ gsd-core/references/specless-probe-fallback.md	own	123+6	3	02c1b211c605	9721d065
 gsd-core/references/specless-probe-fallback.md	kept	129+21	5de3263b57b7
 gsd-core/references/specless-probe-fallback.md	own	150+5	3	6f8fe7a74e05	634e5699c845	prose
 gsd-core/references/specless-probe-fallback.md	kept	155+5	840df124880c
-gsd-core/references/specless-probe-fallback.md	own	160+10	37	1748e647baba	57b81c1ba936	prose
+gsd-core/references/specless-probe-fallback.md	own	160+10	36	1748e647baba	5710ab7f7f48	prose
 gsd-core/references/specless-probe-fallback.md	kept	170+2	027bb8d44f12
 gsd-core/references/specless-probe-fallback.md	own	172+2	2	9b9281fe24be	5bbc60d071ec	prose
 gsd-core/references/specless-probe-fallback.md	kept	174+1	e3b0c44298fc
@@ -2207,7 +2205,7 @@ gsd-core/workflows/analyze-dependencies.md	kept	88+3	0dbfc3682c1b
 gsd-core/workflows/analyze-dependencies.md	own	91+6	10	0918e44e6e45	464d5200df5d	prose
 gsd-core/workflows/analyze-dependencies.md	kept	97+3	c95d594b0139
 gsd-core/workflows/audit-milestone.md	kept	1+3	941df86109c2
-gsd-core/workflows/audit-milestone.md	own	4+1	1	8ee24b184304	c0a7c63a1efa	prose
+gsd-core/workflows/audit-milestone.md	own	4+1	1	8ee24b184304	5eddf2494c7b	prose
 gsd-core/workflows/audit-milestone.md	kept	5+16	dcfd9d80e8d1
 gsd-core/workflows/audit-milestone.md	own	21+12	9	c3f3ef1e2428	500b53336aa2	ported-name
 gsd-core/workflows/audit-milestone.md	kept	33+3	052fe63be0bc
@@ -2227,7 +2225,7 @@ gsd-core/workflows/audit-milestone.md	own	98+1	1	98fd755a54b7	5ddccb406252	porte
 gsd-core/workflows/audit-milestone.md	kept	99+10	7b57aeff2302
 gsd-core/workflows/audit-milestone.md	own	109+0	26	e3b0c44298fc	ab170ab2e05b	prose
 gsd-core/workflows/audit-milestone.md	kept	109+10	3ae814a6bfb3
-gsd-core/workflows/audit-milestone.md	own	119+10	13	c19fa27a46f3	794913eb08f2	prose
+gsd-core/workflows/audit-milestone.md	own	119+10	13	c19fa27a46f3	c6af881833df	prose
 gsd-core/workflows/audit-milestone.md	kept	129+5	8af4984a3cc4
 gsd-core/workflows/audit-milestone.md	own	134+7	1	74884b8df3d2	d52716815dff	ported-name
 gsd-core/workflows/audit-milestone.md	kept	141+6	8bcd2768ada9
