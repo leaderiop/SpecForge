@@ -216,7 +216,7 @@
       "seeds": {
         "S1": {
           "A": [{ "replace": { "file": ".planning/phases/02-persistence/02-01-PLAN.md", "old": "    - \"A title comes back exactly as it was written (D-03)\"", "new": "    - \"A title comes back exactly as it was written (D-03), proven by test/store.test.js#a title survives a reload byte for byte\"" } }],
-          "B": [{ "replace": { "file": "spec/plans.spec", "old": "  plan v1.0/02/02-01\n  text \"A title comes back exactly as it was written (D-03)\"\n", "new": "  plan        v1.0/02/02-01\n  text        \"A title comes back exactly as it was written (D-03)\"\n  requirement STORE-02\n  proof       [\"js:taskboard/test/store.test.js#a title survives a reload byte for byte\"]\n" } }],
+          "B": [{ "replace": { "file": "spec/plans.spec", "old": "\"A title comes back exactly as it was written (D-03)\"\n", "new": "\"A title comes back exactly as it was written (D-03)\"\n  proof [\"js:taskboard/test/store.test.js#a title survives a reload byte for byte\"]\n" } }],
           "resolved_if": [{ "file": "test/store.test.js", "contains": "a title survives a reload byte for byte" }]
         },
         "S4": {
