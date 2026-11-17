@@ -19,6 +19,8 @@ pub struct Link {
     pub line: usize,
     /// The line of the entity id's string: where a source reader places the name the attribute gives.
     pub id_line: usize,
+    /// The attribute's kind word, before the `=`: `requirement`, or an old builtin's `behavior`, `invariant`, ...
+    pub kind: String,
     pub id: String,
     pub verify: Option<String>,
 }
@@ -33,7 +35,8 @@ pub struct Read {
 
 /// Every link in the `.rs` files under each of `scan` (directories relative to `root`), in file order. A file that
 /// does not parse is in [`Read::unparsed`] wherever it is; one that does, whose path from `root` starts with one of
-/// `skip`, gives no link.
+/// `skip` or has a `tests/fixtures/` part, gives no link: a crate under another crate's `tests/fixtures/` is another
+/// project's, its tests linked to that project's spec (ADR 0374 D4).
 pub fn read(root: &Path, scan: &[String], skip: &[&str]) -> Read {
     let mut read = Read::default();
     for dir in scan {
@@ -57,7 +60,7 @@ pub fn read(root: &Path, scan: &[String], skip: &[&str]) -> Read {
                 continue;
             };
             let relative = path.strip_prefix(root).unwrap_or(path);
-            if skip.iter().any(|prefix| relative.starts_with(prefix)) {
+            if skip.iter().any(|prefix| relative.starts_with(prefix)) || under_fixtures(relative) {
                 continue;
             }
             let mut visitor = Links {
@@ -70,6 +73,14 @@ pub fn read(root: &Path, scan: &[String], skip: &[&str]) -> Read {
     read
 }
 
+/// Whether `relative` passes through a `tests` directory holding a `fixtures` directory.
+fn under_fixtures(relative: &Path) -> bool {
+    let parts: Vec<_> = relative.components().map(|c| c.as_os_str()).collect();
+    parts
+        .windows(2)
+        .any(|pair| pair[0] == "tests" && pair[1] == "fixtures")
+}
+
 struct Links<'a> {
     file: String,
     links: &'a mut Vec<Link>,
@@ -80,13 +91,14 @@ impl<'ast> Visit<'ast> for Links<'_> {
         if !is_test_attribute(attr) {
             return;
         }
-        let Ok((id, verify)) = attr.parse_args_with(parse_args) else {
+        let Ok((kind, id, verify)) = attr.parse_args_with(parse_args) else {
             return;
         };
         self.links.push(Link {
             file: self.file.clone(),
             line: attr.pound_token.spans[0].start().line,
             id_line: id.span().start().line,
+            kind,
             id: id.value(),
             verify,
         });
@@ -115,8 +127,8 @@ fn is_test_attribute(attr: &Attribute) -> bool {
 }
 
 /// `<kind> = "<id>" [, verify = "<text>"] [, __guard_only]`.
-fn parse_args(input: syn::parse::ParseStream) -> syn::Result<(LitStr, Option<String>)> {
-    let _kind = Ident::parse_any(input)?;
+fn parse_args(input: syn::parse::ParseStream) -> syn::Result<(String, LitStr, Option<String>)> {
+    let kind = Ident::parse_any(input)?.unraw().to_string();
     let _eq: Token![=] = input.parse()?;
     let id: LitStr = input.parse()?;
     let mut verify = None;
@@ -132,7 +144,7 @@ fn parse_args(input: syn::parse::ParseStream) -> syn::Result<(LitStr, Option<Str
             verify = Some(text.value());
         }
     }
-    Ok((id, verify))
+    Ok((kind, id, verify))
 }
 
 #[cfg(test)]
@@ -177,6 +189,7 @@ mod tests {
                     file: "src/lib.rs".to_string(),
                     line: 2,
                     id_line: 3,
+                    kind: "invariant".to_string(),
                     id: "writes_are_durable".to_string(),
                     verify: Some("a killed writer leaves the old entry".to_string()),
                 },
@@ -184,10 +197,35 @@ mod tests {
                     file: "src/lib.rs".to_string(),
                     line: 7,
                     id_line: 7,
+                    kind: "behavior".to_string(),
                     id: "write_entry".to_string(),
                     verify: None,
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn a_crate_under_tests_fixtures_gives_no_link() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = "#[specforge_test(requirement = \"TRACER-01\")]\nfn adds() {}\n";
+        for file in ["x/tests/fixtures/y/src/lib.rs", "x/src/lib.rs"] {
+            let path = dir.path().join(file);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, source).unwrap();
+        }
+        let read = read(dir.path(), &["x".to_string()], &[]);
+        assert_eq!(
+            read.links,
+            [Link {
+                file: "x/src/lib.rs".to_string(),
+                line: 1,
+                id_line: 1,
+                kind: "requirement".to_string(),
+                id: "TRACER-01".to_string(),
+                verify: None,
+            }],
+            "another project's tests, under a crate's tests/fixtures/, are not this one's"
         );
     }
 }

@@ -11,6 +11,7 @@ pub mod crate_map;
 mod doc_links;
 mod gsd;
 pub mod judge;
+pub mod junit;
 pub mod layers;
 pub mod objects;
 mod repo;

@@ -1,18 +1,22 @@
-//! Reports a test's `verify` text its spec entity does not declare (A016)
-//! without running a test.
+//! Reports a test's spec-link attribute that does not hold against the project's spec, without running a test.
 //!
-//! Every `#[spec(...)]` / `#[specforge_test_macros::test(...)]` attribute is
-//! read from the Rust sources with `syn`; the project is compiled; and the
-//! pairs go through the coverage crate's own rule (`Verdict::of`), the one
-//! `specforge analyze coverage` applies to a recorded report, so the two
-//! cannot disagree.
+//! Every `#[spec(...)]` / `#[specforge_test(...)]` / `#[specforge_test_macros::test(...)]` attribute is read from
+//! the Rust sources with `syn` (a crate under a `tests/fixtures/` directory is another project's and is skipped), and
+//! the project is compiled. Two rules, by the attribute's kind word:
+//!
+//! - `requirement` (ADR 0374 D4): the id names a requirement of the spec, and the attribute carries no `verify`
+//!   text. `UNKNOWN <file>:<line> <id>` when no entity has the id, `KIND <file>:<line> requirement <id> is a
+//!   <kind>, not a requirement` when the entity is of another kind, `VERIFY <file>:<line> <id>: a requirement takes
+//!   no verify text`.
+//! - any other word (`behavior`, `invariant`, ...: the old builtins' links): `UNKNOWN` as above, and a `verify` text
+//!   its entity does not declare is `A016 <file>:<line> <entity> "<verify>"` with the closest declared text, through
+//!   the coverage crate's own rule (`Verdict::of`), the one `specforge analyze coverage` applies to a recorded report.
+//!   This rule goes when the root swap rewrites every attribute of this repository's tests to `requirement`.
 //!
 //!   cargo run -p xtask --bin check-links                     the repository's tests against its spec
 //!   cargo run -p xtask --bin check-links -- ROOT [DIR...]    ROOT's project, scanning DIR... under it
 //!
-//! Prints `A016 <file>:<line> <entity> "<verify>"` per finding (and the
-//! closest declared text), `UNKNOWN <file>:<line> <entity>` for a link to an
-//! entity the project does not have; exits 1 on any.
+//! Prints one line per finding; exits 1 on any.
 #![expect(
     clippy::print_stdout,
     reason = "a developer tool: its report is its stdout"
@@ -31,6 +35,8 @@ use xtask::links;
 const DEFAULT_SCAN: [&str; 3] = ["crates", "extensions", "integrations/rust"];
 /// The macro's own self-tests link to entities invented for them.
 const SELF_TEST_DIR: &str = "integrations/rust/specforge-test";
+/// The kind word, and the entity kind, of a link that names a requirement (`@gsd/core`).
+const REQUIREMENT: &str = "requirement";
 
 fn main() {
     let mut args = std::env::args().skip(1);
@@ -95,6 +101,21 @@ fn check(root: &Path, scan: &[String]) -> Result<Vec<String>, String> {
             findings.push(format!("UNKNOWN {}:{} {}", link.file, link.line, link.id));
             continue;
         };
+        if link.kind == REQUIREMENT {
+            if entity.kind != REQUIREMENT {
+                findings.push(format!(
+                    "KIND {}:{} requirement {} is a {}, not a requirement",
+                    link.file, link.line, link.id, entity.kind
+                ));
+            }
+            if link.verify.is_some() {
+                findings.push(format!(
+                    "VERIFY {}:{} {}: a requirement takes no verify text",
+                    link.file, link.line, link.id
+                ));
+            }
+            continue;
+        }
         let Some(text) = &link.verify else { continue };
         let undeclared = assessment
             .verdicts

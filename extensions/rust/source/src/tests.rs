@@ -682,6 +682,19 @@ fn a_specforge_test_attribute_names_its_entity() {
     assert_eq!(three.fields["attrs"], json!(["test"]));
 }
 
+#[specforge_test(behavior = "rs_mark_tests")]
+fn two_stacked_requirement_attributes_name_both_requirements() {
+    // One attribute takes one `<kind> = "<id>"` pair (ADR 0374 D3): a test that proves two requirements carries two.
+    let facts = collected(&[(
+        "src/lib.rs",
+        "#[specforge_test(requirement = \"A-01\")]\n#[specforge_test(requirement = \"B-01\")]\nfn adds() {}\n",
+    )]);
+    assert_eq!(
+        item(&facts, "rust:toy::adds").fields["names"],
+        json!(["A-01", "B-01"])
+    );
+}
+
 #[specforge_test(
     behavior = "rs_mark_tests",
     verify = "a runner attribute whose path ends in ::test marks a test"
