@@ -257,3 +257,29 @@ fn a_category_whose_prefix_would_be_d_takes_the_old_kind_name_beside_the_decisio
         Some(&one("D"))
     );
 }
+
+/// A category word with a letter or digit outside ASCII stops the run before any write, naming it: the prefix keeps
+/// ASCII letters and digits only, so `Sécurité` would be `SCURIT` and `安全` the old kind's name, a word mangled with
+/// no signal (ADR 0372 D3). Punctuation is no letter: `data-integrity` converts.
+#[test]
+fn a_category_with_a_letter_outside_ascii_stops_the_run_naming_it() {
+    let named: Vec<String> = super::stops(&[
+        constraint("safe", Some("Sécurité")),
+        constraint("calm", Some("安全")),
+        constraint("integrity", Some("data-integrity")),
+    ])
+    .iter()
+    .map(ToString::to_string)
+    .collect();
+    assert_eq!(named.len(), 2, "{named:?}");
+    assert!(
+        named[0].starts_with("constraint 'calm' category: ") && named[0].contains("'安全'"),
+        "{}",
+        named[0]
+    );
+    assert!(
+        named[1].starts_with("constraint 'safe' category: ") && named[1].contains("'Sécurité'"),
+        "{}",
+        named[1]
+    );
+}

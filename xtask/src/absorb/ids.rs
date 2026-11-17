@@ -7,7 +7,8 @@
 //!   ASCII letters and digits upper-cased. The same rule writes the requirement's `category`, so for a category led
 //!   by an ASCII letter the heading and the id agree letter for letter (`Data-integrity`, `DATAINTEGRITY-01`). When
 //!   the letters are empty, start with a digit, or are the decisions' `D`, the prefix is the old kind's name and the
-//!   heading is written as it is (`9lives`, `CONSTRAINT-01`; `D`, `CONSTRAINT-02`).
+//!   heading is written as it is (`9lives`, `CONSTRAINT-01`; `D`, `CONSTRAINT-02`). A category word with a letter or
+//!   digit outside ASCII stops the run before any write: the prefix would drop it with no signal (`Sécurité`).
 //! - A decision in force is `D-<NN>`, at project scope (its create writes no `phase`).
 //! - Numbers run from 1 per (new kind, prefix) in (old kind, old id) order, bytewise, at least two digits and as
 //!   many as the group's size needs: on the root spec `FEATURE-001` to `FEATURE-141`, `INVARIANT-001` to
@@ -83,8 +84,9 @@ impl Ids {
     }
 }
 
-/// The id map of `entities` under `links`, and the stops: a release with no version, and two entities given one path
-/// within one new kind (the map keeps the first). Pure, and the same for the same entities.
+/// The id map of `entities` under `links`, and the stops: a release with no version, a constraint whose category word
+/// holds a letter or digit outside ASCII (its prefix would lose it), and two entities given one path within one new
+/// kind (the map keeps the first). Pure, and the same for the same entities.
 pub fn assign(entities: &[OldEntity], links: &Links) -> (Ids, Vec<Stop>) {
     let mut stops = Vec::new();
     let mut versions: BTreeMap<&str, String> = BTreeMap::new();
@@ -100,6 +102,21 @@ pub fn assign(entities: &[OldEntity], links: &Links) -> (Ids, Vec<Stop>) {
                 why: "a release becomes the milestone its version names, and it has none"
                     .to_string(),
             }),
+        }
+    }
+    for e in entities.iter().filter(|e| e.kind == "constraint") {
+        if let Some(word) = e.fields.get("category").and_then(Value::as_str)
+            && word.chars().any(|c| c.is_alphanumeric() && !c.is_ascii())
+        {
+            stops.push(Stop {
+                kind: e.kind.clone(),
+                id: e.id.clone(),
+                field: "category".to_string(),
+                why: format!(
+                    "its category '{word}' holds a letter outside ASCII, which the id prefix cannot keep: spell it \
+                     in ASCII in the source first (ADR 0372 D3)"
+                ),
+            });
         }
     }
     let phases = phase_names(entities, links);

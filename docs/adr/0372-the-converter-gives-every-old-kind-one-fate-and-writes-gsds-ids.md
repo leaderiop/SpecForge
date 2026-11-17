@@ -86,11 +86,11 @@ are To (an authored field of a `@gsd/core` kind, through a named way of writing)
 the old value is compared after the write) or Dropped (with its reason). No row waits and none refuses.
 
 What stops a run before any write is the refused class: an entity of a kind with no fate, a field of a converting
-kind with no row, two entities given one new id, an id the target refuses, a required value no rule fills. An empty
-required value (a blank text, an empty list) is a missing one: a phase whose name holds no ASCII letter or digit gets
-no slug, and a constraint whose only text is `""` gets no `text`, so the stop names each. An entity
-dropped whole ledgers its title and each of its fields, `verify` lines, `method` members and field annotations
-`dropped`, with its fate's reason.
+kind with no row, two entities given one new id, a category word with a letter outside ASCII (D3), an id the target
+refuses, a required value no rule fills. An empty required value (a blank text, an empty list) is a missing one: a
+phase whose name holds no ASCII letter or digit gets no slug, and a constraint whose only text is `""` gets no `text`,
+so the stop names each. An entity dropped whole ledgers its title and each of its fields, `verify` lines, `method`
+members and field annotations `dropped`, with its fate's reason.
 
 ## D3. Ids are GSD's, and the ledger maps old to new
 
@@ -98,7 +98,9 @@ dropped whole ledgers its title and each of its fields, `verify` lines, `method`
   kind's name (`Feature`, `Invariant`, `Constraint`). The prefix is the category's ASCII letters and digits
   upper-cased, or the old kind's name when that is empty, starts with a digit, or is the decisions' `D`. The heading
   and the prefix therefore agree letter for letter for a category led by an ASCII letter (`Data-integrity`,
-  `DATAINTEGRITY-01`), and not otherwise (`9lives` is `CONSTRAINT-NN`). Numbers run from 1 per prefix in
+  `DATAINTEGRITY-01`), and not otherwise (`9lives` is `CONSTRAINT-NN`). A category word with a letter or digit
+  outside ASCII stops the run before any write, naming the constraint: its prefix would lose those letters with no
+  signal (`Sécurité` would be `SCURIT`), so it is spelt in ASCII in the source first. Numbers run from 1 per prefix in
   (old kind, old id) order, at least two digits and as many as the group's size needs. On the root spec:
   `FEATURE-001` to `FEATURE-141`, `INVARIANT-001` to `INVARIANT-149`, `RELIABILITY-01` to `-34`, `PERFORMANCE-01` to
   `-17`, `USABILITY-01` to `-05`, `PORTABILITY-01` to `-03`, `COMPATIBILITY-01` to `-02`, `INTEROPERABILITY-01`,
