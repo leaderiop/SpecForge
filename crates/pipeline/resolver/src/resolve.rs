@@ -215,19 +215,20 @@ fn name<'s>(
     candidates(&base)
         .iter()
         .find_map(|candidate| {
-            let candidate = slashed(candidate);
-            let key = match spec_dir.as_os_str().is_empty() {
-                true => candidate,
-                false => format!("{}/{candidate}", slashed(spec_dir)),
-            };
-            sources.get(key.as_str()).copied()
+            sources
+                .get(key(&spec_dir.join(candidate)).as_str())
+                .copied()
         })
         .map_or(Named::Nothing, Named::Source)
 }
 
-/// `path` as a key spells it: its components joined by `/` on every OS. A key is `/`-joined, and a path built
-/// with `push` or `join` is `\`-joined on Windows, so a candidate rendered as the OS spells it names no key there.
-fn slashed(path: &Path) -> String {
+/// The key of the source at `path` (under the spec root), spelled as `ProjectPath::key` mints it: a path relative to
+/// the project is its names joined by `/` on every OS (a path built with `join` is `\`-joined on Windows), and an
+/// absolute one (a spec root outside the project) is the path as the OS writes it.
+fn key(path: &Path) -> String {
+    if path.is_absolute() {
+        return path.to_string_lossy().into_owned();
+    }
     path.components()
         .map(|component| component.as_os_str().to_string_lossy())
         .collect::<Vec<_>>()
