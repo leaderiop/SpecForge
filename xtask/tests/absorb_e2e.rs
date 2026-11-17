@@ -743,3 +743,29 @@ fn a_stop_leaves_no_selection_behind() {
     assert!(!selection.exists(), "a stop writes no selection");
     assert!(!to.exists(), "nor a target");
 }
+
+/// An empty required value is a missing one: a phase whose name gives an empty slug and a constraint whose only text is
+/// empty stop the run before any write, each named, and no target is left.
+#[test]
+#[ignore = "needs GSD_CORE_WASM"]
+fn an_empty_required_value_stops_the_run_as_missing() {
+    let dir = tempfile::tempdir().unwrap();
+    let (old, to) = (dir.path().join("old"), dir.path().join("new"));
+    product_source(
+        &old,
+        "release first \"First\" {\n  version    \"0.1.0\"\n  status     planned\n  milestones [one]\n}\n\n\
+         milestone one \"第一段\" {\n  description   \"The first cut.\"\n  status        planned\n  \
+         exit_criteria [\"Entries are saved\", \"Entries are listed\"]\n}\n\n\
+         constraint blank \"Blank\" {\n  description \"\"\n}\n",
+    );
+    let run = absorb(&["--from", path(&old), "--to", path(&to)]);
+    assert_eq!(run.code, 2, "{}", run.stderr);
+    assert!(
+        run.stderr.contains("2 required value(s)")
+            && run.stderr.contains("phase 'v0.1.0/01' slug")
+            && run.stderr.contains("requirement 'CONSTRAINT-01' text"),
+        "{}",
+        run.stderr
+    );
+    assert!(!to.exists(), "the scaffold is removed");
+}

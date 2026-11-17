@@ -86,7 +86,9 @@ are To (an authored field of a `@gsd/core` kind, through a named way of writing)
 the old value is compared after the write) or Dropped (with its reason). No row waits and none refuses.
 
 What stops a run before any write is the refused class: an entity of a kind with no fate, a field of a converting
-kind with no row, two entities given one new id, an id the target refuses, a required value no rule fills. An entity
+kind with no row, two entities given one new id, an id the target refuses, a required value no rule fills. An empty
+required value (a blank text, an empty list) is a missing one: a phase whose name holds no ASCII letter or digit gets
+no slug, and a constraint whose only text is `""` gets no `text`, so the stop names each. An entity
 dropped whole ledgers its title and each of its fields, `verify` lines, `method` members and field annotations
 `dropped`, with its fate's reason.
 

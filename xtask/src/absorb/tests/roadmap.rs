@@ -299,6 +299,19 @@ fn a_milestone_with_no_exit_criteria_takes_its_description_as_its_one_criterion(
     assert_eq!(why_of(&planned, "bare", "success_criteria"), []);
 }
 
+/// A phase name with no ASCII letter or digit gives an empty slug: nothing is filled, so the run's missing-value stop
+/// names the phase, never a phase written with an empty slug.
+#[test]
+fn a_name_with_no_ascii_letter_fills_no_slug() {
+    let mut first = milestone("first", 10, json!({}));
+    first.title = Some("第一段".to_string());
+    let planned = planned(&[release("one", "0.1.0", &["first"]), first]);
+    let fields = create(&planned, "v0.1.0/01").1;
+    assert_eq!(fields.get("name"), Some(&one("第一段")));
+    assert!(!fields.contains_key("slug"), "{fields:?}");
+    assert_eq!(why_of(&planned, "first", "slug"), []);
+}
+
 #[test]
 fn when_a_phase_is_written_a_requirement_no_phase_lists_is_v2() {
     let requirements = [

@@ -287,7 +287,8 @@ impl Target {
         }
     }
 
-    /// Each create's required field it gives no value: (kind, path, field), a scoped create named by its path.
+    /// Each create's required field it gives no value, or an empty one (a blank text, an empty list): (kind, path,
+    /// field), a scoped create named by its path.
     pub fn missing(&self, creates: &[Edit]) -> Vec<(String, String, String)> {
         let view = ProjectView::of(&self.project);
         let mut missing = Vec::new();
@@ -299,7 +300,7 @@ impl Target {
                 continue;
             };
             for field in edit::fields_of(&view, kind) {
-                if field.required && !fields.contains_key(&field.name) {
+                if field.required && fields.get(&field.name).is_none_or(is_empty) {
                     let path = path_of(&view, kind, id, fields);
                     missing.push((kind.clone(), path, field.name.clone()));
                 }
@@ -396,6 +397,15 @@ impl Target {
     /// Remove what the run scaffolded: the directory when it made it, else the project's files.
     pub fn roll_back(self) {
         self.scaffold.roll_back();
+    }
+}
+
+/// Whether `input` gives no value: a blank text or an empty list.
+fn is_empty(input: &Input) -> bool {
+    match input {
+        Input::One(text) => text.trim().is_empty(),
+        Input::Many(items) => items.is_empty(),
+        _ => false,
     }
 }
 
