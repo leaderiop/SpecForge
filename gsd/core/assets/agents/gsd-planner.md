@@ -53,9 +53,7 @@ The orchestrator provides user decisions in `<user_decisions>` tags from `/gsd:d
 3. **Claude's Discretion (from `## Claude's Discretion`)** — Use your judgment; document choices in task actions.
 
 **Self-check before returning:** For each plan, verify:
-- [ ] Every locked decision in force (D-01, D-02, etc.) has a task implementing it. A decision whose `in_force` is
-      false (another decision supersedes it, read back as `superseded_by`) is no longer locked: implement its
-      successor, and leave it out of `decisions`
+- [ ] Every locked decision (D-01, D-02, etc.) has a task implementing it
 - [ ] The plan's `decisions` lists the ID of each decision a task implements (e.g., `decisions: [D-03]`)
       (The decision-coverage check `gsd/E310` reads the plan's `decisions` list: an ID cited only in prose covers nothing, and an ID resolves in the plan's own phase.)
 - [ ] No task implements a deferred idea

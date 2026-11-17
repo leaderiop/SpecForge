@@ -96,21 +96,17 @@ agents/gsd-advisor-researcher.md	kept	7+25	77f3d8af0387
 agents/gsd-advisor-researcher.md	own	32+2	1	e2719e90a166	477ffb3d90f5	agent
 agents/gsd-advisor-researcher.md	kept	34+80	032807786eab
 agents/gsd-assumptions-analyzer.compact.md	kept	7+10	054343be2ae8
-agents/gsd-assumptions-analyzer.compact.md	own	17+1	1	e7ea18ea3a12	65bd14b3d458	agent
+agents/gsd-assumptions-analyzer.compact.md	own	17+1	1	e7ea18ea3a12	4844e78b69a4	agent
 agents/gsd-assumptions-analyzer.compact.md	kept	18+13	de94e014cbef
 agents/gsd-assumptions-analyzer.compact.md	own	31+3	3	213a9a70af5e	3f79b39744bf	ported-name
-agents/gsd-assumptions-analyzer.compact.md	kept	34+41	c1cf9f536639
-agents/gsd-assumptions-analyzer.compact.md	own	75+1	1	fd17a1de625b	5eb24a9bd7d2	thread
-agents/gsd-assumptions-analyzer.compact.md	kept	76+7	56ba5424c360
+agents/gsd-assumptions-analyzer.compact.md	kept	34+49	794c13145ec7
 agents/gsd-assumptions-analyzer.md	kept	7+7	08002289a0e0
 agents/gsd-assumptions-analyzer.md	own	14+1	1	60631fef28cd	071a960dd4fa	agent
 agents/gsd-assumptions-analyzer.md	kept	15+13	8effd3eddcc0
-agents/gsd-assumptions-analyzer.md	own	28+3	3	9db9e10e2e75	5dcab64994e5	agent
-agents/gsd-assumptions-analyzer.md	kept	31+24	aa141e549809
+agents/gsd-assumptions-analyzer.md	own	28+2	2	aa553f1da99f	8317e71b0864	agent
+agents/gsd-assumptions-analyzer.md	kept	30+25	4a4e72ec8bbc
 agents/gsd-assumptions-analyzer.md	own	55+3	3	279fd055f04d	28da94cda878	ported-name
-agents/gsd-assumptions-analyzer.md	kept	58+41	b846e81c46e5
-agents/gsd-assumptions-analyzer.md	own	99+1	1	59a0482aa4b3	ce7895a44fee	thread
-agents/gsd-assumptions-analyzer.md	kept	100+11	95a69259e558
+agents/gsd-assumptions-analyzer.md	kept	58+53	44fd769ca4d2
 agents/gsd-doc-classifier.compact.md	kept	13+3	e01463bcbb08
 agents/gsd-doc-classifier.compact.md	own	16+1	1	2c9582237958	5d10b7efe0ae	ported-name
 agents/gsd-doc-classifier.compact.md	kept	17+13	45e7f4d3405a
@@ -463,25 +459,15 @@ agents/gsd-phase-researcher.md	own	890+2	2	b1212709668a	d90c5ca84190	typed-edit
 agents/gsd-phase-researcher.md	kept	892+11	9565463ea041
 agents/gsd-plan-checker.md	kept	7+4	e3c4e2076bb7
 agents/gsd-plan-checker.md	own	11+1	1	c9f846d2ee79	e0707e383b2b	agent
-agents/gsd-plan-checker.md	kept	12+65	eff0ad8caff7
-agents/gsd-plan-checker.md	own	77+1	1	af3a6909b804	75516386942c	thread
-agents/gsd-plan-checker.md	kept	78+4	8b9841924c61
-agents/gsd-plan-checker.md	own	82+1	1	0063a73fe8b3	dfce6c23c873	thread
-agents/gsd-plan-checker.md	kept	83+3	377f0627c280
+agents/gsd-plan-checker.md	kept	12+74	fd9dfc98aef1
 agents/gsd-plan-checker.md	own	86+8	8	dd2b1b5e2622	d5b4565099f5	agent
 agents/gsd-plan-checker.md	kept	94+37	a2d8632c201d
 agents/gsd-plan-checker.md	own	131+7	15	ad0393d61eb9	02129ec21b0c	agent
 agents/gsd-plan-checker.md	kept	138+167	68463a9ba68d
 agents/gsd-plan-checker.md	own	305+11	11	022452bea592	6ae2ba7cc4ff	agent
 agents/gsd-plan-checker.md	kept	316+69	e40001a5f610
-agents/gsd-plan-checker.md	own	385+2	4	182e0a89672f	bb8bae27cce0	thread
-agents/gsd-plan-checker.md	kept	387+4	bfea91070bf5
-agents/gsd-plan-checker.md	own	391+2	2	0d35d5f19bb0	7c25f71fd235	thread
-agents/gsd-plan-checker.md	kept	393+8	43a924be4bda
-agents/gsd-plan-checker.md	own	401+2	2	b8b02bfe3c02	96b86a0e391f	thread
-agents/gsd-plan-checker.md	kept	403+50	eadb7d604f5a
-agents/gsd-plan-checker.md	own	453+1	1	844a93f33f7b	0262b5f5464a	thread
-agents/gsd-plan-checker.md	kept	454+172	a2b5e74bda9c
+agents/gsd-plan-checker.md	own	385+2	2	182e0a89672f	cda7e7df6d0d	thread
+agents/gsd-plan-checker.md	kept	387+239	a6e59ddb2437
 agents/gsd-plan-checker.md	own	626+1	1	8cea98703df4	4bb1f7b9e0d0	agent
 agents/gsd-plan-checker.md	kept	627+12	2c49b8c1f6e0
 agents/gsd-plan-checker.md	own	639+3	4	16f83e34c6c1	04816599ef54	agent
@@ -514,12 +500,12 @@ agents/gsd-plan-checker.md	own	716+1	1	eea303acc976	be231a338350	review
 agents/gsd-plan-checker.md	kept	717+12	257da5580907
 agents/gsd-plan-checker.md	own	729+1	1	f685616ece4b	a23ec5f8cb97	agent
 agents/gsd-plan-checker.md	kept	730+2	5f046190424d
-agents/gsd-plan-checker.md	own	732+7	7	881da6f983db	3bb2c66e4dc0	ported-name
-agents/gsd-plan-checker.md	kept	739+5	2c7946306b0a
+agents/gsd-plan-checker.md	own	732+5	5	2a0022d650e2	5deb60a655f5	ported-name
+agents/gsd-plan-checker.md	kept	737+7	1d980396b946
 agents/gsd-plan-checker.md	own	744+5	5	ab8c564570da	bb9c839e4439	ported-name
 agents/gsd-plan-checker.md	kept	749+2	7c90a5833d9f
-agents/gsd-plan-checker.md	own	751+8	6	b6165b97d8d6	749a3dece390	ported-name
-agents/gsd-plan-checker.md	kept	759+3	24bff8c29535
+agents/gsd-plan-checker.md	own	751+5	3	71eb14128ecd	1964a892308f	ported-name
+agents/gsd-plan-checker.md	kept	756+6	69f60465b90f
 agents/gsd-plan-checker.md	own	762+1	1	38f6f9e980cc	2a378bf57654	ported-name
 agents/gsd-plan-checker.md	kept	763+2	5f046190424d
 agents/gsd-plan-checker.md	own	765+14	10	ea399511ed10	252d2df0a71b	ported-name
@@ -543,19 +529,15 @@ agents/gsd-plan-checker.md	kept	854+4	fbd1463f5797
 agents/gsd-plan-checker.md	own	858+5	3	3966db272062	f37fe3ef2a93	served
 agents/gsd-plan-checker.md	kept	863+18	141128761353
 agents/gsd-plan-checker.md	own	881+2	2	c3b0037d9435	efd0afa46e5a	ported-name
-agents/gsd-plan-checker.md	kept	883+53	83978ec4ab5d
-agents/gsd-plan-checker.md	own	936+1	1	d6f83796fd97	d03194d7fdcc	thread
-agents/gsd-plan-checker.md	kept	937+128	5f0668e512dc
-agents/gsd-plan-checker.md	own	1065+2	2	4105bfcc57c5	ac947a0f29a3	thread
-agents/gsd-plan-checker.md	kept	1067+11	41835056e5f9
+agents/gsd-plan-checker.md	kept	883+195	327ec4f17390
 agents/gsd-planner.md	kept	13+10	5314484b14a3
 agents/gsd-planner.md	own	23+1	1	20cdb0b15e49	c97a032be06d	agent
 agents/gsd-planner.md	kept	24+14	3e234a7f3940
 agents/gsd-planner.md	own	38+1	1	92f770d3a109	380639057f18	agent
 agents/gsd-planner.md	kept	39+21	72375a05c1e4
 agents/gsd-planner.md	own	60+1	1	74dbc1fcc99e	7888c8c02d46	thread
-agents/gsd-planner.md	kept	61+6	7645141f6d8d
-agents/gsd-planner.md	own	67+3	5	c9669bc2a7db	1e1b70b14705	thread
+agents/gsd-planner.md	kept	61+7	be2fe2eb3f63
+agents/gsd-planner.md	own	68+2	2	635974522054	2501f9160fac	thread
 agents/gsd-planner.md	kept	70+99	03347c1b80f4
 agents/gsd-planner.md	own	169+1	1	8009e4de4780	219248039416	thread
 agents/gsd-planner.md	kept	170+19	257ca09d1868

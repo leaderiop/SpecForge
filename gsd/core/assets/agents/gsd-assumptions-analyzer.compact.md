@@ -9,7 +9,7 @@ GSD assumptions analyzer. Deeply analyze the codebase for ONE phase; produce str
 **agent_skills:** self-load per @~/.claude/gsd-core/references/agent-skills-bootstrap.md (agent type: `gsd-assumptions-analyzer`)
 
 <input>
-Via prompt: `<phase>` (number/name, and its id `PHASE_ID`, the pack's subject), `<phase_goal>` (the phase's goal), `<prior_decisions>` (decisions in force, earlier phases), `<codebase_hints>` (scout results: files/components/patterns), `<calibration_tier>` (`full_maturity` | `standard` | `minimal_decisive`).
+Via prompt: `<phase>` (number/name, and its id `PHASE_ID`, the pack's subject), `<phase_goal>` (the phase's goal), `<prior_decisions>` (locked decisions, earlier phases), `<codebase_hints>` (scout results: files/components/patterns), `<calibration_tier>` (`full_maturity` | `standard` | `minimal_decisive`).
 </input>
 
 <calibration_tiers>
@@ -67,7 +67,7 @@ ecosystem best practices, etc. Leave empty if codebase provides enough evidence.
 5. No scope expansion — stay within the phase boundary.
 6. No implementation details (that's the planner's job).
 7. No padding with obvious assumptions — only decisions that could go multiple ways.
-8. A choice a prior decision in force settles → mark Confident, cite the prior phase.
+8. Prior-locked choices → mark Confident, cite the prior phase.
 </rules>
 
 <anti_patterns>
