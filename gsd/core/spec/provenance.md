@@ -17,7 +17,9 @@ A row names one field of one kind, and the `source` says where the field comes f
 
 A field that both mirrors upstream and is read by a capability cites upstream. A block or list field has one row, and
 its members are covered by the line that holds the block. A field with neither source has no row: it is removed from
-its kind, or given the capability that reads it. The test `tests/provenance.rs` holds the table to the declaration.
+its kind, or given the capability that reads it. The test `tests/provenance.rs`
+(`every_authored_field_names_its_upstream_line_or_the_capability_that_reads_it`) holds the table to the declaration:
+one row per authored field, no row for another field, every upstream line holding its text, every capability declared.
 
 ## project.md
 
