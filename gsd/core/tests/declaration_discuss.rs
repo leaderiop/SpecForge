@@ -34,20 +34,13 @@ fn context_decision_and_deferred_idea_declare_the_fields_of_the_model() {
             "plan",
             "area",
             "text",
-            "context",
-            "alternatives",
             "rationale",
-            "consequences",
             "outcome",
             "reversibility",
             "settled",
             "origin",
-            "decided",
-            "deciders",
             "supersedes",
-            "in_force",
-            "affects",
-            "tags"
+            "in_force"
         ]
     );
     assert_eq!(
@@ -86,60 +79,15 @@ fn members(kind: &str, field: &str) -> Vec<(String, bool)> {
         .collect()
 }
 
-/// A decision's alternative is the checkpoint's option record plus why it lost; the checkpoint's option keeps its
-/// three members, since an option offered before the choice has not lost yet.
+/// The checkpoint's option is a name with its pros and cons: the name is required, since an option offered before the
+/// choice has not lost yet.
 #[test]
-fn a_decisions_alternatives_are_a_checkpoints_options_and_why_not() {
-    assert_eq!(
-        field_of("decision", "alternatives")["field_type"],
-        "block_list"
-    );
+fn a_checkpoints_options_are_a_name_with_pros_and_cons() {
     let required = |name: &str| (name.to_string(), name == "name");
-    assert_eq!(
-        members("decision", "alternatives"),
-        ["name", "pros", "cons", "why_not"].map(required)
-    );
     assert_eq!(
         members("checkpoint", "options"),
         ["name", "pros", "cons"].map(required)
     );
-}
-
-/// The union rule (ADR 0359): a kind joins `affects` only in the change that declares the kind, because a member no
-/// loaded extension declares turns every unresolved id of the union into I004. The list is pinned here, and the change
-/// that declares a new member moves this pin.
-#[test]
-fn a_decision_affects_requirements_invariants_and_items() {
-    let affects = field_of("decision", "affects");
-    assert_eq!(affects["field_type"], "reference_list", "{affects}");
-    assert_eq!(
-        affects["target_kinds"],
-        serde_json::json!(["requirement", "invariant", "item"]),
-        "{affects}"
-    );
-    assert_eq!(affects["inverse_of"], "affected_by", "{affects}");
-}
-
-/// The ADR record's fields are authored and optional; `decided` is a date written once, since a change is a new
-/// decision that supersedes it.
-#[test]
-fn a_decisions_record_fields_are_authored_and_its_date_immutable() {
-    let decided = field_of("decision", "decided");
-    assert_eq!(decided["field_type"], "date", "{decided}");
-    assert_eq!(decided["immutable"], true, "{decided}");
-    assert_eq!(field_of("decision", "context")["field_type"], "string");
-    for field in ["consequences", "deciders", "tags"] {
-        assert_eq!(
-            field_of("decision", field)["field_type"],
-            "string_list",
-            "{field}"
-        );
-    }
-    for field in ["context", "consequences", "decided", "deciders", "tags"] {
-        let declared = field_of("decision", field);
-        assert_ne!(declared["required"], true, "{field}");
-        assert_ne!(declared["writer"], "computed", "{field}");
-    }
 }
 
 /// `name` of the field `field` of `kind`, with its described properties.
@@ -390,12 +338,11 @@ fn the_discuss_kinds_declare_every_field_of_discuss_md() {
     // `text_en` on locked_req, and its two row kinds, edge (7 fields) and spec_prohibition (11) (ADR 0333).
     // + 1: the discussion's `checkpoint` (a block's members are not counted). + 1: the deferred idea's `status`, open
     // until an executor's out-of-scope discovery is resolved. + 1: its `origin`, discussion or execution, so only a
-    // discussion idea is part of the phase's context. + 2: the decision's `alternatives` and `affects` (ADR 0359;
-    // `supersedes` took the place of `superseded_by`). + 5: its record fields `context`, `consequences`, `decided`,
-    // `deciders` and `tags`. + 1: its computed `in_force`.
+    // discussion idea is part of the phase's context. + 1: the decision's computed `in_force` (`supersedes` took the
+    // place of `superseded_by`).
     assert_eq!(
         total,
-        95 - 1 + 1 + 3 + 2 + 7 + 11 + 1 + 1 + 1 + 2 + 5 + 1,
+        95 - 1 + 1 + 3 + 2 + 7 + 11 + 1 + 1 + 1 + 1,
         "the kinds' fields"
     );
 }

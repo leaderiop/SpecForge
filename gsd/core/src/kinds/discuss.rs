@@ -36,9 +36,6 @@ pub const CONTEXT: Kind = Kind::new(
 const OUTCOME: &[&str] = &["good", "revisit", "pending"];
 const REVERSIBILITY: &[&str] = &["reversible", "costly", "one_way"];
 const ORIGIN: &[&str] = &["context", "project", "summary", "checkpoint"];
-/// What a decision shapes. A kind joins this union only in the change that declares the kind: an absent member turns
-/// every unresolved id of the union into I004 (ADR 0359).
-const AFFECTED: &[&str] = &["requirement", "invariant", "item"];
 
 /// `- **D-NN:**` of a CONTEXT, a Key Decisions row; scoped by its phase, or by the project when it has none.
 // A decision of `origin summary` names its summary by the other side: `summary.key_decisions` (a relation is written
@@ -55,19 +52,11 @@ pub const DECISION: Kind = Kind::new(
             .doc("owning quick CONTEXT: the quick plan whose context recorded it"),
         str("area").doc("### [Area]"),
         str("text").prose().r().doc("the decision"),
-        str("context").prose().doc("what prompted it (an ADR's Context)"),
-        blocks("alternatives", super::ALTERNATIVE)
-            .doc("the options weighed and not chosen, each with why it lost"),
         str("rationale").prose().doc("Key Decisions Rationale"),
-        strs("consequences").prose().doc("what follows from it, good and bad (an ADR's Consequences)"),
         en("outcome", OUTCOME).doc("Good, Revisit or Pending"),
         en("reversibility", REVERSIBILITY).doc("planner reversibility rating"),
         bool("settled").doc("locked: a plan contradicting it is refused (judged)"),
         en("origin", ORIGIN).r().i().doc("where it was recorded"),
-        date("decided")
-            .i()
-            .doc("the day it was taken; a change is a new decision that supersedes it"),
-        strs("deciders").doc("who took it"),
         rfs("supersedes", "decision")
             .inverse("superseded_by")
             .doc("the earlier decisions this one reverses; each reads it back as `superseded_by`"),
@@ -76,13 +65,6 @@ pub const DECISION: Kind = Kind::new(
              only by a decision of origin context or project, and none round a cycle): it no longer holds, so no \
              plan lists it and no prompt holds it locked",
         ),
-        rfs_any("affects", AFFECTED)
-            .inverse("affected_by")
-            .doc(
-                "what it shapes: requirements, invariants, code items (`@code/core`); each reads it back as \
-                 `affected_by`",
-            ),
-        strs("tags").doc("words to group decisions by"),
     ],
 )
 .scoped_by("phase");

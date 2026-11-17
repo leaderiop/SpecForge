@@ -33,8 +33,8 @@ invariant outlives the phase it starts at.
 `proof` and `items` read `@code/core`'s facts as a truth's `proof` and a task's `items` do: a name no served store
 holds is `code/E101`, and with no `@code/core` loaded a written one is I004.
 
-An invariant reads back the decisions that name it in `decision.affects` as `affected_by`, and the phases that owe it
-a judgement (`phase.invariants_due`, computed) as `due_in`, names it never writes: writing any is E079 ([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)).
+An invariant reads back the phases that owe it a judgement (`phase.invariants_due`, computed) as `due_in`, a name it
+never writes: writing it is E079 ([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)).
 
 ### In force, and its status
 

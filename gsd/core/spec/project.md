@@ -50,7 +50,7 @@ GSD: one bullet of `REQUIREMENTS.md`. Name: `AUTH-01`. A requirement id is uniqu
 | text_en | str | | an English translation the spec-less edge probe classifies instead |
 
 The requirement's phase (Traceability `Phase`) is the inverse of `phase.requirements`, read back as `phase`: a relation
-is written from one side, never both (W162). A requirement also reads a decision's `affects` back as `affected_by`.
+is written from one side, never both (W162).
 
 ## milestone
 
