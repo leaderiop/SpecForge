@@ -101,27 +101,6 @@ expression: ledger
     {
       "kind": "constraint",
       "id": "bounded_retries",
-      "field": "category",
-      "value": "interoperability",
-      "why": {
-        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "bounded_retries",
-      "field": "category",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.category",
-          "value": "Constraint"
-        }
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "bounded_retries",
       "field": "priority",
       "value": "high",
       "why": {
@@ -137,27 +116,6 @@ expression: ledger
         "filled": {
           "field": "requirement.tier",
           "value": "v2"
-        }
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "calm_wait",
-      "field": "category",
-      "value": "usability",
-      "why": {
-        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "calm_wait",
-      "field": "category",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.category",
-          "value": "Constraint"
         }
       }
     },
@@ -185,27 +143,6 @@ expression: ledger
     {
       "kind": "constraint",
       "id": "retry_window",
-      "field": "category",
-      "value": "reliability",
-      "why": {
-        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "retry_window",
-      "field": "category",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.category",
-          "value": "Constraint"
-        }
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "retry_window",
       "field": "priority",
       "value": "medium",
       "why": {
@@ -221,27 +158,6 @@ expression: ledger
         "filled": {
           "field": "requirement.tier",
           "value": "v2"
-        }
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "write_latency",
-      "field": "category",
-      "value": "performance",
-      "why": {
-        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "write_latency",
-      "field": "category",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.category",
-          "value": "Constraint"
         }
       }
     },
@@ -309,27 +225,6 @@ expression: ledger
       },
       "why": {
         "dropped": "a requirement holds no list of obligations (ADR 0368 D1): a verify line is dropped (ADR 0372 D6)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "write_throughput",
-      "field": "category",
-      "value": "performance",
-      "why": {
-        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "write_throughput",
-      "field": "category",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.category",
-          "value": "Constraint"
-        }
       }
     },
     {
@@ -1866,62 +1761,62 @@ expression: ledger
     {
       "kind": "constraint",
       "old": "bounded_retries",
-      "new": "bounded_retries"
+      "new": "INTEROPERABILITY-01"
     },
     {
       "kind": "constraint",
       "old": "calm_wait",
-      "new": "calm_wait"
+      "new": "USABILITY-01"
     },
     {
       "kind": "constraint",
       "old": "retry_window",
-      "new": "retry_window"
+      "new": "RELIABILITY-01"
     },
     {
       "kind": "constraint",
       "old": "write_latency",
-      "new": "write_latency"
+      "new": "PERFORMANCE-01"
     },
     {
       "kind": "constraint",
       "old": "write_throughput",
-      "new": "write_throughput"
+      "new": "PERFORMANCE-02"
     },
     {
       "kind": "decision",
       "old": "one_parser",
-      "new": "one_parser"
+      "new": "D-01"
     },
     {
       "kind": "decision",
       "old": "second_store",
-      "new": "second_store"
+      "new": "D-02"
     },
     {
       "kind": "feature",
       "old": "list_entries",
-      "new": "list_entries"
+      "new": "FEATURE-01"
     },
     {
       "kind": "feature",
       "old": "old_export",
-      "new": "old_export"
+      "new": "FEATURE-02"
     },
     {
       "kind": "feature",
       "old": "store_entries",
-      "new": "store_entries"
+      "new": "FEATURE-03"
     },
     {
       "kind": "invariant",
       "old": "entries_are_whole",
-      "new": "entries_are_whole"
+      "new": "INVARIANT-01"
     },
     {
       "kind": "invariant",
       "old": "writes_are_durable",
-      "new": "writes_are_durable"
+      "new": "INVARIANT-02"
     },
     {
       "kind": "milestone",

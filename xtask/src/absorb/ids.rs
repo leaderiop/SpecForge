@@ -1,19 +1,33 @@
 //! The id map (ADR 0372 D3): every converted entity's new id and path, assigned before any draft, so a reference
 //! names an entity whatever order the entities are drafted in, and the plan, its checks and the ledger key every new
-//! entity by one path.
+//! entity by one path. The ids are GSD's:
 //!
-//! A release's milestone is `v<version>`. A milestone a converted release lists is a phase under that version
-//! milestone, numbered from `01` in source order (file, line) within its release; its path is `<version id>/<NN>`
-//! and its create's id the number alone, placed by its `milestone` field (a name holds no `/`). Every other
-//! converting entity keeps its old id here, until the requirement and decision ids are GSD's. The map is one to one
-//! within each new kind: two entities given one path stop the run before any write, naming both.
+//! - A requirement is `<CAT>-<NN>`. Its category ([`category`]) is a constraint's own `category` word, its first
+//!   letter upper-cased, else the old kind's name (`Feature`, `Invariant`, `Constraint`); the prefix is the category's
+//!   ASCII letters and digits upper-cased, or the old kind's name when that is empty or starts with a digit. The same
+//!   rule writes the requirement's `category`, so its heading and its id agree.
+//! - A decision in force is `D-<NN>`, at project scope (its create writes no `phase`).
+//! - Numbers run from 1 per prefix in (old kind, old id) order, bytewise, at least two digits and as many as the
+//!   group's size needs: on the root spec `FEATURE-001` to `FEATURE-141`, `INVARIANT-001` to `INVARIANT-149`,
+//!   `RELIABILITY-01` to `RELIABILITY-34`, `PERFORMANCE-01` to `PERFORMANCE-17`, `SECURITY-01`, and `D-001` to
+//!   `D-100`. Kinds that share a prefix share its counter, so no two share a number.
+//! - A release's milestone is `v<version>`. A milestone a converted release lists is a phase under that version
+//!   milestone, numbered from `01` in source order (file, line) within its release; its path is `<version id>/<NN>`
+//!   and its create's id the number alone, placed by its `milestone` field (a name holds no `/`).
+//!
+//! The map is one to one within each new kind: two entities given one path stop the run before any write, naming
+//! both.
 
 use serde_json::Value;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::links::{Links, MILESTONE, RELEASE};
 use super::plan::{self, Stop};
 use super::read::OldEntity;
+
+/// The new kinds whose ids are numbered GSD's way.
+const REQUIREMENT: &str = "requirement";
+const DECISION: &str = "decision";
 
 /// The scope field of each new kind absorb writes that is scoped (ADR 0284): a phase is placed by its milestone.
 pub const SCOPED: &[(&str, &str)] = &[("phase", "milestone")];
@@ -83,6 +97,7 @@ pub fn assign(entities: &[OldEntity], links: &Links) -> (Ids, Vec<Stop>) {
         }
     }
     let phases = phase_names(entities, links);
+    let numbered = numbered(entities, links);
     let mut map = BTreeMap::new();
     // (new kind, path) → the old entities given it, as a stop names them.
     let mut given: BTreeMap<(&'static str, String), Vec<String>> = BTreeMap::new();
@@ -110,10 +125,13 @@ pub fn assign(entities: &[OldEntity], links: &Links) -> (Ids, Vec<Stop>) {
                     scope: Some((scope_field(kind), version.clone())),
                 }
             }
-            _ => New {
-                kind,
-                name: e.id.clone(),
-                scope: None,
+            _ => match numbered.get(&(e.kind.clone(), e.id.clone())) {
+                Some(name) => New {
+                    kind,
+                    name: name.clone(),
+                    scope: None,
+                },
+                None => continue,
             },
         };
         given
@@ -134,6 +152,64 @@ pub fn assign(entities: &[OldEntity], links: &Links) -> (Ids, Vec<Stop>) {
         });
     }
     (Ids(map), stops)
+}
+
+/// A requirement's category (ADR 0372 D3): a constraint's own `category` word, trimmed, its first letter upper-cased;
+/// else the old kind's name, capitalised (`Feature`, `Invariant`, `Constraint`). The written `category` and the id's
+/// prefix ([`prefix`]) both come from it.
+pub fn category(e: &OldEntity) -> String {
+    let word = (e.kind == "constraint")
+        .then(|| e.fields.get("category").and_then(Value::as_str))
+        .flatten()
+        .map(str::trim)
+        .filter(|word| !word.is_empty());
+    let word = word.unwrap_or(&e.kind);
+    let mut chars = word.chars();
+    chars.next().map_or_else(String::new, |first| {
+        first.to_uppercase().chain(chars).collect()
+    })
+}
+
+/// The id prefix of a requirement of `category` converted from an old `kind`: the category's ASCII letters and digits,
+/// upper-cased; the old kind's name upper-cased when that is empty or starts with a digit. It matches
+/// `^[A-Z][A-Z0-9]*$`.
+fn prefix(category: &str, kind: &str) -> String {
+    let letters = category
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .collect::<String>()
+        .to_ascii_uppercase();
+    if letters.starts_with(|c: char| c.is_ascii_uppercase()) {
+        letters
+    } else {
+        kind.to_ascii_uppercase()
+    }
+}
+
+/// Each converting requirement's and decision's id: `<prefix>-<NN>` for a requirement, `D-<NN>` for a decision,
+/// numbered from 1 per (new kind, prefix) in (old kind, old id) order, at least two digits and as many as the group's
+/// size needs. Two entities of one old (kind, id) get one id, which the map's one-to-one stop names.
+fn numbered(entities: &[OldEntity], links: &Links) -> BTreeMap<(String, String), String> {
+    let mut groups: BTreeMap<(&str, String), BTreeSet<(String, String)>> = BTreeMap::new();
+    for e in entities {
+        let group = match plan::converts_to(e, links) {
+            Some(REQUIREMENT) => (REQUIREMENT, prefix(&category(e), &e.kind)),
+            Some(DECISION) => (DECISION, "D".to_string()),
+            _ => continue,
+        };
+        groups
+            .entry(group)
+            .or_default()
+            .insert((e.kind.clone(), e.id.clone()));
+    }
+    let mut names = BTreeMap::new();
+    for ((_, prefix), members) in groups {
+        let width = members.len().to_string().len().max(2);
+        for (n, old) in members.into_iter().enumerate() {
+            names.insert(old, format!("{prefix}-{:0width$}", n + 1));
+        }
+    }
+    names
 }
 
 /// The id of the milestone a release of `version` becomes: `v` and the version, with no second `v`.

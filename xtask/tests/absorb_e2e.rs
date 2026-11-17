@@ -123,7 +123,7 @@ fn all_seventeen_old_kinds_convert_or_drop_with_no_error_and_no_warning() {
         "a feature's solution is in its requirement's text, and no decision is created: {features}"
     );
     let constraints = std::fs::read_to_string(a.join("spec/governance/constraints.spec")).unwrap();
-    let throughput = &constraints[constraints.find("requirement write_throughput").unwrap()..];
+    let throughput = &constraints[constraints.find("requirement PERFORMANCE-02").unwrap()..];
     let throughput = &throughput[..throughput.find("\n}").unwrap()];
     let lines: Vec<&str> = throughput.lines().map(str::trim).collect();
     let closing = lines.iter().rposition(|line| *line == "\"\"\"").unwrap();
@@ -140,8 +140,8 @@ fn all_seventeen_old_kinds_convert_or_drop_with_no_error_and_no_warning() {
         .collect();
     assert_eq!(
         written,
-        ["one_parser", "second_store"],
-        "only a decision in force converts: {decisions}"
+        ["D-01", "D-02"],
+        "only a decision in force converts, as GSD's D-NN in old-id order: {decisions}"
     );
     let ledger = std::fs::read_to_string(a.join("absorb-ledger.json")).unwrap();
     let entries: Value = serde_json::from_str(&ledger).unwrap();
@@ -215,8 +215,9 @@ fn a_selection_converts_only_its_entities_and_checks_clean() {
     insta::assert_snapshot!("selection_ledger", ledger);
 }
 
-/// ADR 0372 D3, D4, D7 on the converted fixture: two version milestones, three phases keyed by path with their
-/// references written through the id map, the tiers the rule gives, and each phase's computed status read by its path.
+/// ADR 0372 D3, D4, D7 on the converted fixture: GSD's requirement and decision ids, two version milestones, three
+/// phases keyed by path with their references written through the id map, the tiers the rule gives, and each phase's
+/// computed status read by its path.
 fn releases_become_version_milestones_and_their_milestones_phases(to: &Path, ledger: &str) {
     let releases = std::fs::read_to_string(to.join("spec/product/releases.spec")).unwrap();
     assert!(
@@ -242,7 +243,7 @@ fn releases_become_version_milestones_and_their_milestones_phases(to: &Path, led
     let first = block("phase 01 \"First Cut\"");
     assert!(
         first.contains("milestone        v0.1.0")
-            && first.contains("requirements     [store_entries]"),
+            && first.contains("requirements     [FEATURE-03]"),
         "{first}"
     );
     let second = block("phase 02 \"Second Cut\"");
@@ -266,6 +267,18 @@ fn releases_become_version_milestones_and_their_milestones_phases(to: &Path, led
         .map(|e| (e["old"].as_str().unwrap(), e["new"].as_str().unwrap()))
         .collect();
     for (old, new) in [
+        ("list_entries", "FEATURE-01"),
+        ("old_export", "FEATURE-02"),
+        ("store_entries", "FEATURE-03"),
+        ("entries_are_whole", "INVARIANT-01"),
+        ("writes_are_durable", "INVARIANT-02"),
+        ("bounded_retries", "INTEROPERABILITY-01"),
+        ("write_latency", "PERFORMANCE-01"),
+        ("write_throughput", "PERFORMANCE-02"),
+        ("retry_window", "RELIABILITY-01"),
+        ("calm_wait", "USABILITY-01"),
+        ("one_parser", "D-01"),
+        ("second_store", "D-02"),
         ("first_release", "v0.1.0"),
         ("second_release", "v0.2.0"),
         ("first_cut", "v0.1.0/01"),
@@ -319,7 +332,7 @@ fn releases_become_version_milestones_and_their_milestones_phases(to: &Path, led
         "every constraint is v2: no phase lists one: {constraints}"
     );
     let features = std::fs::read_to_string(to.join("spec/product/features.spec")).unwrap();
-    let store = &features[features.find("requirement store_entries").unwrap()..];
+    let store = &features[features.find("requirement FEATURE-03").unwrap()..];
     assert_eq!(
         tier_is(&store[..store.find("\n}").unwrap()], "v1"),
         1,
@@ -427,19 +440,24 @@ fn the_target_keeps_the_source_spec_root_and_version() {
     );
 }
 
-/// A source at `old` whose one decision is `blocker`, an id the target reserves (gsd declares a `blocker` kind). An old
-/// term converts to nothing (ADR 0370 D8), so a decision, which converts, holds the id.
-fn reserved_source(old: &Path) {
+/// The version the old product builtin accepts and the id grammar refuses: its milestone would be `v1.0.0+build.1`.
+const REFUSED_VERSION: &str = "1.0.0+build.1";
+
+/// A source at `old` whose one release has [`REFUSED_VERSION`]: it converts to a version milestone whose id the target
+/// refuses (`+` is no id character), so the run stops after init wrote, before the edit plan applies.
+fn refused_version_source(old: &Path) {
     std::fs::create_dir_all(old.join("spec")).unwrap();
     std::fs::write(
         old.join("specforge.json"),
-        r#"{"name": "reserved", "spec_root": "spec", "extensions": ["@specforge/governance"]}"#,
+        r#"{"name": "refused", "spec_root": "spec", "extensions": ["@specforge/product"]}"#,
     )
     .unwrap();
     std::fs::write(
-        old.join("spec/decisions.spec"),
-        "decision blocker \"Blocker\" {\n  status   accepted\n  context  \"Work stops.\"\n  decision \"Stop \
-         work.\"\n}\n",
+        old.join("spec/releases.spec"),
+        format!(
+            "release build \"Build\" {{\n  version     \"{REFUSED_VERSION}\"\n  description \"A build.\"\n  status      \
+             planned\n}}\n"
+        ),
     )
     .unwrap();
 }
@@ -462,14 +480,14 @@ fn tree_bytes(root: &Path) -> BTreeMap<String, Option<Vec<u8>>> {
         .collect()
 }
 
-/// A stop in a directory the run did not make leaves it byte for byte as it was: init appended to its `.gitignore`
-/// and `.gitattributes`, and the roll back gives them back their bytes.
+/// A stop in a directory the run did not make leaves it byte for byte as it was: the refused version stops the run
+/// after init appended to its `.gitignore` and `.gitattributes`, and the roll back gives them back their bytes.
 #[test]
 #[ignore = "needs GSD_CORE_WASM"]
 fn a_stop_leaves_a_directory_it_did_not_make_byte_for_byte() {
     let dir = tempfile::tempdir().unwrap();
     let (old, to) = (dir.path().join("old"), dir.path().join("tree"));
-    reserved_source(&old);
+    refused_version_source(&old);
     std::fs::create_dir_all(to.join("src")).unwrap();
     std::fs::write(to.join(".gitignore"), "/target").unwrap();
     std::fs::write(to.join(".gitattributes"), "*.rs text\n").unwrap();
@@ -551,21 +569,59 @@ fn a_ledger_that_cannot_be_written_stops_before_any_write() {
     assert_eq!(tree_bytes(&to), before);
 }
 
+/// A milestone id the target refuses, from a release's version, stops the run before any write, naming it; the scaffold
+/// is removed (ADR 0372 D3: every id goes through the target's id rule).
 #[test]
 #[ignore = "needs GSD_CORE_WASM"]
-fn an_old_id_the_target_reserves_stops_the_run_before_any_write() {
+fn a_version_the_target_refuses_as_an_id_stops_the_run_before_any_write() {
     let dir = tempfile::tempdir().unwrap();
     let (old, to) = (dir.path().join("old"), dir.path().join("new"));
-    reserved_source(&old);
+    refused_version_source(&old);
     let run = absorb(&["--from", path(&old), "--to", path(&to)]);
     assert_eq!(run.code, 2, "{}", run.stderr);
     assert!(
         run.stderr.contains("1 id(s) the target refuses")
-            && run
-                .stderr
-                .contains("decision 'blocker': invalid entity ID 'blocker'"),
+            && run.stderr.contains(&format!(
+                "milestone 'v{REFUSED_VERSION}': invalid entity ID"
+            )),
         "{}",
         run.stderr
     );
     assert!(!to.exists(), "the scaffold is removed");
+}
+
+/// An old id that is a kind keyword of the target (gsd declares a `blocker` kind) converts under its GSD id: a decision
+/// `blocker` is `D-01`, and the target checks clean (ADR 0372 D3).
+#[test]
+#[ignore = "needs GSD_CORE_WASM"]
+fn an_old_id_that_is_a_kind_keyword_converts_under_its_gsd_id() {
+    let dir = tempfile::tempdir().unwrap();
+    let (old, to) = (dir.path().join("old"), dir.path().join("new"));
+    std::fs::create_dir_all(old.join("spec")).unwrap();
+    std::fs::write(
+        old.join("specforge.json"),
+        r#"{"name": "reserved", "spec_root": "spec", "extensions": ["@specforge/governance"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        old.join("spec/decisions.spec"),
+        "decision blocker \"Blocker\" {\n  status   accepted\n  context  \"Work stops.\"\n  decision \"Stop \
+         work.\"\n}\n",
+    )
+    .unwrap();
+    let run = absorb(&["--from", path(&old), "--to", path(&to)]);
+    assert_eq!(run.code, 0, "{}", run.stderr);
+    assert_eq!(run.summary["target"]["errors"], 0, "{}", run.summary);
+    let decisions = std::fs::read_to_string(to.join("spec/decisions.spec")).unwrap();
+    assert!(
+        decisions.contains("decision D-01 \"Blocker\""),
+        "{decisions}"
+    );
+    let ledger: Value =
+        serde_json::from_str(&std::fs::read_to_string(to.join("absorb-ledger.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        ledger["ids"],
+        json!([{"kind": "decision", "old": "blocker", "new": "D-01"}])
+    );
 }

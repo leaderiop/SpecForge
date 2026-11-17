@@ -5,27 +5,6 @@
     {
       "kind": "constraint",
       "id": "extension_count_limit",
-      "field": "category",
-      "value": "performance",
-      "why": {
-        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "extension_count_limit",
-      "field": "category",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.category",
-          "value": "Constraint"
-        }
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "extension_count_limit",
       "field": "constrains",
       "value": [
         "load_wasm_module",
@@ -102,27 +81,6 @@
       },
       "why": {
         "dropped": "a requirement holds no list of obligations (ADR 0368 D1): a verify line is dropped (ADR 0372 D6)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "extension_system_integrity",
-      "field": "category",
-      "value": "reliability",
-      "why": {
-        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "extension_system_integrity",
-      "field": "category",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.category",
-          "value": "Constraint"
-        }
       }
     },
     {
@@ -228,27 +186,6 @@
     {
       "kind": "constraint",
       "id": "test_coverage_accuracy",
-      "field": "category",
-      "value": "reliability",
-      "why": {
-        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "test_coverage_accuracy",
-      "field": "category",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.category",
-          "value": "Constraint"
-        }
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "test_coverage_accuracy",
       "field": "constrains",
       "value": [
         "ingest_collector_report",
@@ -307,27 +244,6 @@
     {
       "kind": "constraint",
       "id": "traceability_completeness",
-      "field": "category",
-      "value": "reliability",
-      "why": {
-        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "traceability_completeness",
-      "field": "category",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.category",
-          "value": "Constraint"
-        }
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "traceability_completeness",
       "field": "constrains",
       "value": [
         "ingest_collector_report",
@@ -380,27 +296,6 @@
       },
       "why": {
         "dropped": "a requirement holds no list of obligations (ADR 0368 D1): a verify line is dropped (ADR 0372 D6)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "wasm_binary_size_limit",
-      "field": "category",
-      "value": "portability",
-      "why": {
-        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "wasm_binary_size_limit",
-      "field": "category",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.category",
-          "value": "Constraint"
-        }
       }
     },
     {
@@ -475,27 +370,6 @@
     {
       "kind": "constraint",
       "id": "wasm_compile_cache_budget",
-      "field": "category",
-      "value": "performance",
-      "why": {
-        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "wasm_compile_cache_budget",
-      "field": "category",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.category",
-          "value": "Constraint"
-        }
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "wasm_compile_cache_budget",
       "field": "constrains",
       "value": [
         "load_wasm_module",
@@ -565,27 +439,6 @@
     {
       "kind": "constraint",
       "id": "wasm_compile_cache_size_limit",
-      "field": "category",
-      "value": "portability",
-      "why": {
-        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "wasm_compile_cache_size_limit",
-      "field": "category",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.category",
-          "value": "Constraint"
-        }
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "wasm_compile_cache_size_limit",
       "field": "constrains",
       "value": [
         "compile_wasm_component_with_cache"
@@ -648,27 +501,6 @@
       },
       "why": {
         "dropped": "a requirement holds no list of obligations (ADR 0368 D1): a verify line is dropped (ADR 0372 D6)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "wasm_memory_limit",
-      "field": "category",
-      "value": "performance",
-      "why": {
-        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "wasm_memory_limit",
-      "field": "category",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.category",
-          "value": "Constraint"
-        }
       }
     },
     {
@@ -773,27 +605,6 @@
       },
       "why": {
         "dropped": "a requirement holds no list of obligations (ADR 0368 D1): a verify line is dropped (ADR 0372 D6)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "wasm_sandbox_enforcement",
-      "field": "category",
-      "value": "security",
-      "why": {
-        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "wasm_sandbox_enforcement",
-      "field": "category",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.category",
-          "value": "Constraint"
-        }
       }
     },
     {
@@ -6766,217 +6577,217 @@
     {
       "kind": "constraint",
       "old": "extension_count_limit",
-      "new": "extension_count_limit"
+      "new": "PERFORMANCE-01"
     },
     {
       "kind": "constraint",
       "old": "extension_system_integrity",
-      "new": "extension_system_integrity"
+      "new": "RELIABILITY-01"
     },
     {
       "kind": "constraint",
       "old": "test_coverage_accuracy",
-      "new": "test_coverage_accuracy"
+      "new": "RELIABILITY-02"
     },
     {
       "kind": "constraint",
       "old": "traceability_completeness",
-      "new": "traceability_completeness"
+      "new": "RELIABILITY-03"
     },
     {
       "kind": "constraint",
       "old": "wasm_binary_size_limit",
-      "new": "wasm_binary_size_limit"
+      "new": "PORTABILITY-01"
     },
     {
       "kind": "constraint",
       "old": "wasm_compile_cache_budget",
-      "new": "wasm_compile_cache_budget"
+      "new": "PERFORMANCE-02"
     },
     {
       "kind": "constraint",
       "old": "wasm_compile_cache_size_limit",
-      "new": "wasm_compile_cache_size_limit"
+      "new": "PORTABILITY-02"
     },
     {
       "kind": "constraint",
       "old": "wasm_memory_limit",
-      "new": "wasm_memory_limit"
+      "new": "PERFORMANCE-03"
     },
     {
       "kind": "constraint",
       "old": "wasm_sandbox_enforcement",
-      "new": "wasm_sandbox_enforcement"
+      "new": "SECURITY-01"
     },
     {
       "kind": "decision",
       "old": "auth_failure_vs_offline_fallback",
-      "new": "auth_failure_vs_offline_fallback"
+      "new": "D-01"
     },
     {
       "kind": "decision",
       "old": "config_driven_kind_registry",
-      "new": "config_driven_kind_registry"
+      "new": "D-02"
     },
     {
       "kind": "decision",
       "old": "entity_enhancement_model",
-      "new": "entity_enhancement_model"
+      "new": "D-03"
     },
     {
       "kind": "decision",
       "old": "extension_file_parsers",
-      "new": "extension_file_parsers"
+      "new": "D-04"
     },
     {
       "kind": "decision",
       "old": "per_call_site_sandbox",
-      "new": "per_call_site_sandbox"
+      "new": "D-05"
     },
     {
       "kind": "decision",
       "old": "wasm_compile_cache_strategy",
-      "new": "wasm_compile_cache_strategy"
+      "new": "D-06"
     },
     {
       "kind": "feature",
       "old": "contribution_based_extensions",
-      "new": "contribution_based_extensions"
+      "new": "FEATURE-01"
     },
     {
       "kind": "feature",
       "old": "entity_enhancement",
-      "new": "entity_enhancement"
+      "new": "FEATURE-02"
     },
     {
       "kind": "feature",
       "old": "entity_kind_conflict_prevention",
-      "new": "entity_kind_conflict_prevention"
+      "new": "FEATURE-03"
     },
     {
       "kind": "feature",
       "old": "surface_contributions",
-      "new": "surface_contributions"
+      "new": "FEATURE-04"
     },
     {
       "kind": "feature",
       "old": "test_result_collection",
-      "new": "test_result_collection"
+      "new": "FEATURE-05"
     },
     {
       "kind": "feature",
       "old": "wasm_extension_authoring",
-      "new": "wasm_extension_authoring"
+      "new": "FEATURE-06"
     },
     {
       "kind": "feature",
       "old": "wasm_extension_installation",
-      "new": "wasm_extension_installation"
+      "new": "FEATURE-07"
     },
     {
       "kind": "feature",
       "old": "wasm_extension_maintenance",
-      "new": "wasm_extension_maintenance"
+      "new": "FEATURE-08"
     },
     {
       "kind": "feature",
       "old": "wasm_extension_runtime",
-      "new": "wasm_extension_runtime"
+      "new": "FEATURE-09"
     },
     {
       "kind": "feature",
       "old": "wasm_host_function_api",
-      "new": "wasm_host_function_api"
+      "new": "FEATURE-10"
     },
     {
       "kind": "feature",
       "old": "wasm_lock_management",
-      "new": "wasm_lock_management"
+      "new": "FEATURE-11"
     },
     {
       "kind": "feature",
       "old": "wasm_performance_optimization",
-      "new": "wasm_performance_optimization"
+      "new": "FEATURE-12"
     },
     {
       "kind": "invariant",
       "old": "collector_output_conformance",
-      "new": "collector_output_conformance"
+      "new": "INVARIANT-01"
     },
     {
       "kind": "invariant",
       "old": "credential_secrecy",
-      "new": "credential_secrecy"
+      "new": "INVARIANT-02"
     },
     {
       "kind": "invariant",
       "old": "enhancement_field_uniqueness",
-      "new": "enhancement_field_uniqueness"
+      "new": "INVARIANT-03"
     },
     {
       "kind": "invariant",
       "old": "entity_kind_uniqueness",
-      "new": "entity_kind_uniqueness"
+      "new": "INVARIANT-04"
     },
     {
       "kind": "invariant",
       "old": "extension_isolation",
-      "new": "extension_isolation"
+      "new": "INVARIANT-05"
     },
     {
       "kind": "invariant",
       "old": "extension_load_order_determinism",
-      "new": "extension_load_order_determinism"
+      "new": "INVARIANT-06"
     },
     {
       "kind": "invariant",
       "old": "extension_operation_atomicity",
-      "new": "extension_operation_atomicity"
+      "new": "INVARIANT-07"
     },
     {
       "kind": "invariant",
       "old": "extensions_run_in_their_loading_runtime",
-      "new": "extensions_run_in_their_loading_runtime"
+      "new": "INVARIANT-08"
     },
     {
       "kind": "invariant",
       "old": "host_function_type_safety",
-      "new": "host_function_type_safety"
+      "new": "INVARIANT-09"
     },
     {
       "kind": "invariant",
       "old": "peer_dependency_satisfaction",
-      "new": "peer_dependency_satisfaction"
+      "new": "INVARIANT-10"
     },
     {
       "kind": "invariant",
       "old": "publisher_trust",
-      "new": "publisher_trust"
+      "new": "INVARIANT-11"
     },
     {
       "kind": "invariant",
       "old": "registry_integrity",
-      "new": "registry_integrity"
+      "new": "INVARIANT-12"
     },
     {
       "kind": "invariant",
       "old": "registry_reply_binding",
-      "new": "registry_reply_binding"
+      "new": "INVARIANT-13"
     },
     {
       "kind": "invariant",
       "old": "surface_schema_validity",
-      "new": "surface_schema_validity"
+      "new": "INVARIANT-14"
     },
     {
       "kind": "invariant",
       "old": "wasm_compile_cache_integrity",
-      "new": "wasm_compile_cache_integrity"
+      "new": "INVARIANT-15"
     },
     {
       "kind": "invariant",
       "old": "wasm_sandbox_integrity",
-      "new": "wasm_sandbox_integrity"
+      "new": "INVARIANT-16"
     }
   ]
 }

@@ -8,10 +8,10 @@ use super::super::ledger::Why;
 use super::super::plan;
 use super::super::table::{self, Home};
 use super::super::write;
-use super::{create, field, fixture, ledgered, old, one, planned, stops};
+use super::{create_of, field_of, fixture, ledgered, old, one, planned, stops};
 
 #[test]
-fn a_decision_becomes_one_create_keeping_its_id_title_and_file() {
+fn a_decision_becomes_one_create_keeping_its_title_and_file() {
     let old = fixture();
     let entities = old.entities();
     plan::prechecks(&entities).expect("the fixture converts");
@@ -50,8 +50,9 @@ fn a_decision_becomes_one_create_keeping_its_id_title_and_file() {
     let decisions: Vec<_> = headers.iter().filter(|h| h.0 == "decision").collect();
     assert_eq!(
         decisions.iter().map(|h| h.1.as_str()).collect::<Vec<_>>(),
-        ["one_parser", "second_store"],
-        "every fixture decision in force, once: the others are dropped whole (ADR 0372 D5)"
+        ["D-01", "D-02"],
+        "every fixture decision in force, once, numbered in old-id order (one_parser, second_store): the others are \
+         dropped whole (ADR 0372 D5, D3)"
     );
     assert_eq!(decisions[0].3, "spec/governance/decisions.spec");
     assert_eq!(
@@ -80,7 +81,7 @@ fn only_a_decision_in_force_converts() {
         decision("s", "superseded", json!({})),
         decision("later", "accepted", json!({"superseded_by": "a"})),
     ]);
-    let (kind, fields) = create(&planned, "a");
+    let (kind, fields) = create_of(&planned, "decision", "a");
     assert_eq!(kind, "decision");
     assert_eq!(
         fields,
@@ -134,7 +135,7 @@ fn a_field_whose_home_leaves_is_ledgered_dropped_and_the_entity_still_converts()
         }),
     )]);
     assert_eq!(planned.creates.len(), 1);
-    let (kind, fields) = create(&planned, "x");
+    let (kind, fields) = create_of(&planned, "decision", "x");
     assert_eq!(kind, "decision");
     assert_eq!(
         fields.keys().collect::<Vec<_>>(),
@@ -142,7 +143,7 @@ fn a_field_whose_home_leaves_is_ledgered_dropped_and_the_entity_still_converts()
         "of the three fields, only `decision` is written, as `text`"
     );
     assert_eq!(
-        field(&planned, "x", "text"),
+        field_of(&planned, "decision", "x", "text"),
         Some(&one("Read with one parser."))
     );
     let reason = |field: &str| {
@@ -174,7 +175,10 @@ fn a_required_value_the_old_spec_lacks_is_filled_and_ledgered() {
         "x",
         json!({"status": "accepted", "decision": "X"}),
     )]);
-    assert_eq!(field(&planned, "x", "origin"), Some(&one("project")));
+    assert_eq!(
+        field_of(&planned, "decision", "x", "origin"),
+        Some(&one("project"))
+    );
     assert_eq!(
         ledgered(&planned, "x"),
         [(
@@ -247,7 +251,7 @@ fn two_entities_given_one_id_stop_the_run_naming_them() {
     assert_eq!(stops.len(), 1, "{stops:?}");
     assert_eq!(
         stops[0].to_string(),
-        "'same': two entities given one decision id, by decision 'same' and decision 'same'"
+        "'D-01': two entities given one decision id, by decision 'same' and decision 'same'"
     );
 }
 
@@ -291,7 +295,7 @@ fn the_ledger_is_sorted_and_identical_across_runs() {
     assert!(text.starts_with("{\n  \"format\": 2,\n  \"from\": \"p\",\n  \"entries\": ["));
     assert!(
         text.ends_with(
-            "  \"ids\": [\n    {\n      \"kind\": \"decision\",\n      \"old\": \"alpha\",\n      \"new\": \"alpha\"\n    }\n  ]\n}\n"
+            "  \"ids\": [\n    {\n      \"kind\": \"decision\",\n      \"old\": \"alpha\",\n      \"new\": \"D-01\"\n    }\n  ]\n}\n"
         ),
         "the id map follows the entries, the converted decision alone: {text}"
     );

@@ -12,6 +12,8 @@ mod decision;
 mod fates;
 #[path = "tests/governance.rs"]
 mod governance;
+#[path = "tests/ids.rs"]
+mod ids;
 #[path = "tests/keywords.rs"]
 mod keywords;
 #[path = "tests/measure.rs"]
@@ -27,7 +29,7 @@ use serde_json::Value;
 use specforge_ops::authoring::edit::{Edit, Input};
 use std::collections::BTreeMap;
 
-use super::ids;
+use super::ids as id_map;
 use super::ledger::Why;
 use super::plan::{self, Planned, Stop};
 use super::read::{self, OldEntity};
@@ -67,7 +69,7 @@ pub(super) fn stops(entities: &[OldEntity]) -> Vec<Stop> {
     plan::prechecks(entities).expect_err("a stop")
 }
 
-/// The path of a create: its scope field's value, `/`, its id, for a kind the target scopes ([`ids::SCOPED`]); its id
+/// The path of a create: its scope field's value, `/`, its id, for a kind the target scopes ([`id_map::SCOPED`]); its id
 /// otherwise.
 pub(super) fn path_of(edit: &Edit) -> String {
     let Edit::Create {
@@ -76,7 +78,7 @@ pub(super) fn path_of(edit: &Edit) -> String {
     else {
         panic!("only creates: {edit:?}");
     };
-    let scope = ids::SCOPED
+    let scope = id_map::SCOPED
         .iter()
         .find(|(scoped, _)| scoped == kind)
         .and_then(|(_, field)| fields.get(*field));
@@ -111,6 +113,33 @@ pub(super) fn create<'p>(
 /// The value the create whose new path is `path` writes in `field`.
 pub(super) fn field<'p>(planned: &'p Planned, path: &str, field: &str) -> Option<&'p Input> {
     create(planned, path).1.get(field)
+}
+
+/// The new path the id map gives the old entity (`kind`, `id`), which converts.
+pub(super) fn new_path(planned: &Planned, kind: &str, id: &str) -> String {
+    planned
+        .ids
+        .path(kind, id)
+        .unwrap_or_else(|| panic!("{kind} '{id}' converts to nothing"))
+}
+
+/// The create of the old entity (`kind`, `id`), found through the id map: its kind and fields.
+pub(super) fn create_of<'p>(
+    planned: &'p Planned,
+    kind: &str,
+    id: &str,
+) -> (&'p str, &'p BTreeMap<String, Input>) {
+    create(planned, &new_path(planned, kind, id))
+}
+
+/// The value the create of the old entity (`kind`, `id`) writes in `field`.
+pub(super) fn field_of<'p>(
+    planned: &'p Planned,
+    kind: &str,
+    id: &str,
+    field: &str,
+) -> Option<&'p Input> {
+    create_of(planned, kind, id).1.get(field)
 }
 
 /// The ledger's (field, why) of the old entity `id`.

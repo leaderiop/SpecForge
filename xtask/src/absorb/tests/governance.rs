@@ -5,7 +5,7 @@ use serde_json::json;
 
 use super::super::ledger::Why;
 use super::super::table::{self, Fate};
-use super::{create, field, ledgered, old, one, planned};
+use super::{create_of, field_of, ledgered, old, one, planned};
 
 fn why_of(planned: &super::super::plan::Planned, id: &str, field: &str) -> Vec<Why> {
     ledgered(planned, id)
@@ -63,8 +63,8 @@ fn a_failure_mode_converts_to_nothing_and_ledgers_each_value_dropped() {
     );
 }
 
-/// A constraint's quality class, priority, references and sources leave the requirement (ADR 0370 D3): each value is
-/// one `dropped` entry, and the requirement keeps its text, its bound in it.
+/// A constraint's priority, references and sources leave the requirement (ADR 0370 D3): each value is one `dropped`
+/// entry, and the requirement keeps its text, its bound in it, and its quality class as its heading (ADR 0372 D3).
 #[test]
 fn a_constraint_keeps_its_text_and_drops_the_fields_that_left() {
     let planned = planned(&[old(
@@ -76,7 +76,7 @@ fn a_constraint_keeps_its_text_and_drops_the_fields_that_left() {
             "protects": ["durable"], "refs": ["Design note"],
         }),
     )]);
-    let (kind, fields) = create(&planned, "c");
+    let (kind, fields) = create_of(&planned, "constraint", "c");
     assert_eq!(kind, "requirement");
     assert_eq!(
         fields.keys().collect::<Vec<_>>(),
@@ -84,7 +84,7 @@ fn a_constraint_keeps_its_text_and_drops_the_fields_that_left() {
         "only the text, and the fills"
     );
     assert_eq!(
-        field(&planned, "c", "text"),
+        field_of(&planned, "constraint", "c", "text"),
         Some(&one("Fast.\n\nlatency <= 95.0ms < 100ms"))
     );
     for name in ["governs_features", "priority", "protects", "refs"] {
@@ -94,21 +94,13 @@ fn a_constraint_keeps_its_text_and_drops_the_fields_that_left() {
             why_of(&planned, "c", name)
         );
     }
-    // The quality class and the requirement's heading share the name `category`: the class is dropped, its reason
-    // naming the class, not the heading that stays, and the heading is filled with "Constraint".
-    assert!(
-        matches!(
-            why_of(&planned, "c", "category").as_slice(),
-            [Why::Dropped(reason), Why::Filled { field, value }]
-                if reason.contains("quality class")
-                    && reason.contains("ADR 0370")
-                    && !reason.contains("requirement.category")
-                    && field == "requirement.category"
-                    && value == "Constraint"
-        ),
-        "category: {:?}",
-        why_of(&planned, "c", "category")
+    // The quality class is the requirement's heading, by the rule that also gives its id (ADR 0372 D3): written,
+    // so nothing is ledgered for it.
+    assert_eq!(
+        field_of(&planned, "constraint", "c", "category"),
+        Some(&one("Performance"))
     );
+    assert_eq!(why_of(&planned, "c", "category"), []);
 }
 
 /// A bound is part of the requirement's text (ADR 0368 D2, ADR 0372 D6): the description, a blank line, the metric as
@@ -140,7 +132,11 @@ fn a_constraint_text_holds_its_description_then_its_metric_and_threshold() {
         ),
         ("bare", "D >= 200"),
     ] {
-        assert_eq!(field(&planned, id, "text"), Some(&one(text)), "{id}");
+        assert_eq!(
+            field_of(&planned, "constraint", id, "text"),
+            Some(&one(text)),
+            "{id}"
+        );
         for name in ["metric", "threshold"] {
             assert_eq!(why_of(&planned, id, name), [], "{id}.{name}");
         }
@@ -175,7 +171,7 @@ fn constraint_constrains_enforced_by_and_verify_are_dropped_with_their_reasons()
     );
     c.obligations = vec![(Some("load".to_string()), "benchmark it".to_string())];
     let planned = planned(&[c]);
-    assert_eq!(field(&planned, "c", "constrains"), None);
+    assert_eq!(field_of(&planned, "constraint", "c", "constrains"), None);
     dropped_naming(
         &planned,
         "c",
@@ -198,7 +194,7 @@ fn an_invariant_becomes_a_requirement_whose_text_is_its_guarantee_then_its_descr
     invariant.obligations = vec![(Some("unit".to_string()), "survives a crash".to_string())];
     let planned = planned(&[invariant]);
     assert_eq!(planned.converted, 1);
-    let (kind, fields) = create(&planned, "durable");
+    let (kind, fields) = create_of(&planned, "invariant", "durable");
     assert_eq!(kind, "requirement");
     assert_eq!(
         fields.keys().collect::<Vec<_>>(),
@@ -206,13 +202,16 @@ fn an_invariant_becomes_a_requirement_whose_text_is_its_guarantee_then_its_descr
         "{fields:?}"
     );
     assert_eq!(
-        field(&planned, "durable", "text"),
+        field_of(&planned, "invariant", "durable", "text"),
         Some(&one(
             "An acknowledged write survives a crash.\n\nNo reader sees half an entry."
         ))
     );
     for (name, value) in [("category", "Invariant"), ("tier", "v1")] {
-        assert_eq!(field(&planned, "durable", name), Some(&one(value)));
+        assert_eq!(
+            field_of(&planned, "invariant", "durable", name),
+            Some(&one(value))
+        );
         assert_eq!(
             why_of(&planned, "durable", name),
             [Why::Filled {

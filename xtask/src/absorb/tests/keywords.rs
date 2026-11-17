@@ -1,19 +1,20 @@
-//! The ids absorb converts from this repository's own spec, read as an old project as `cargo xtask absorb` reads it,
-//! are no keyword of the target: a kind `@gsd/core` declares, or a structural keyword, is an id the target refuses
-//! (E013). This test reads the self-spec as an old project, so the swap removes it with the self-spec sample (ADR 0367
-//! D1).
+//! The ids absorb converts this repository's own spec to, read as an old project as `cargo xtask absorb` reads it,
+//! are GSD's and no keyword of the target: a kind `@gsd/core` declares, or a structural keyword, is an id the target
+//! refuses (E013). This test reads the self-spec as an old project, so the swap removes it with the self-spec sample
+//! (ADR 0367 D1).
 
+use regex::Regex;
 use serde_json::Value;
 use std::collections::BTreeSet;
 
+use super::super::plan;
 use super::super::read;
-use super::super::table::{self, Fate};
 
 /// The structural keywords of the core grammar: an id no project may take.
 const STRUCTURAL: [&str; 4] = ["spec", "ref", "use", "define"];
 
 #[test]
-fn no_old_id_the_root_spec_converts_is_a_kind_keyword() {
+fn no_id_the_root_spec_converts_to_is_a_kind_keyword() {
     let golden: Value = serde_json::from_str(
         &std::fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -37,23 +38,34 @@ fn no_old_id_the_root_spec_converts_is_a_kind_keyword() {
     let old =
         read::compile(specforge_repo_root::repo_root()).expect("the self-spec compiles clean");
     let entities = old.entities();
-    let converted: Vec<(&str, &str)> = entities
-        .iter()
-        .filter(|e| table::fate(&e.kind).and_then(Fate::new_kind).is_some())
-        .map(|e| (e.kind.as_str(), e.id.as_str()))
+    plan::prechecks(&entities).expect("the self-spec converts");
+    let planned = plan::plan(&entities);
+    let converted: Vec<(&str, &str, String)> = planned
+        .ids
+        .entries()
+        .map(|(kind, id, new)| (kind, id, new.name.clone()))
         .collect();
     assert!(
         converted.len() >= 300,
         "the self-spec's features, constraints, invariants, decisions, releases and milestones: {}",
         converted.len()
     );
-    let clashing: Vec<&(&str, &str)> = converted
+    let grammar = Regex::new(r"^([A-Z][A-Z0-9]*-\d+|D-\d+|v[0-9][0-9A-Za-z.\-]*|\d{2,})$").unwrap();
+    let ungrammatical: Vec<&(&str, &str, String)> = converted
         .iter()
-        .filter(|(_, id)| keywords.contains(*id))
+        .filter(|(_, _, new)| !grammar.is_match(new))
+        .collect();
+    assert!(
+        ungrammatical.is_empty(),
+        "ids that match no GSD grammar: {ungrammatical:?}"
+    );
+    let clashing: Vec<&(&str, &str, String)> = converted
+        .iter()
+        .filter(|(_, _, new)| keywords.contains(new))
         .collect();
     assert!(
         clashing.is_empty(),
-        "old ids absorb converts that the target refuses as a keyword: {clashing:?}"
+        "new ids the target refuses as a keyword: {clashing:?}"
     );
     assert!(
         entities
@@ -62,7 +74,7 @@ fn no_old_id_the_root_spec_converts_is_a_kind_keyword() {
         "the old term that stopped the first trial with E013"
     );
     assert!(
-        !converted.iter().any(|(_, id)| *id == "blocker"),
+        !converted.iter().any(|(_, id, _)| *id == "blocker"),
         "an old term is dropped whole (ADR 0372 D1)"
     );
 }

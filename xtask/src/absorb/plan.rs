@@ -462,24 +462,23 @@ impl Planner {
         );
     }
 
-    /// The required values the old entity lacks, filled and ledgered. A requirement's category is its old kind's
-    /// name; a constraint's and an invariant's tier is `v2` when the run writes a phase that does not list it (ADR 0372
-    /// D7), else `v1`.
+    /// The required values the old entity lacks, filled and ledgered. A requirement's category is the one rule's
+    /// ([`ids::category`], ADR 0372 D3), which a constraint's own category word has already written; a constraint's
+    /// and an invariant's tier is `v2` when the run writes a phase that does not list it (ADR 0372 D7), else `v1`.
     fn fill(&mut self, e: &OldEntity) {
         let Some(kind) = self.ids.get(&e.kind, &e.id).map(|new| new.kind) else {
             return;
         };
-        let requirement = |category: &str, tier: &str| {
+        let requirement = |tier: &str| {
             vec![
-                ("category", Input::One(category.to_string())),
+                ("category", Input::One(ids::category(e))),
                 ("tier", Input::One(tier.to_string())),
             ]
         };
         let fills: Vec<(&str, Input)> = match (kind, e.kind.as_str()) {
             ("decision", _) => vec![("origin", Input::One("project".to_string()))],
-            ("requirement", "constraint") => requirement("Constraint", self.unlisted_tier(e, "v1")),
-            ("requirement", "invariant") => requirement("Invariant", self.unlisted_tier(e, "v1")),
-            ("requirement", _) => requirement("Feature", how::feature_tier(how::FEATURE_DEFAULT)),
+            ("requirement", "feature") => requirement(how::feature_tier(how::FEATURE_DEFAULT)),
+            ("requirement", _) => requirement(self.unlisted_tier(e, "v1")),
             ("phase", _) => self.phase_fills(e),
             _ => Vec::new(),
         };

@@ -56,27 +56,6 @@ expression: ledger
     {
       "kind": "constraint",
       "id": "write_latency",
-      "field": "category",
-      "value": "performance",
-      "why": {
-        "dropped": "the constraint's quality class has no home in @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "write_latency",
-      "field": "category",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.category",
-          "value": "Constraint"
-        }
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "write_latency",
       "field": "constrains",
       "value": [
         "write_entry"
@@ -740,22 +719,22 @@ expression: ledger
     {
       "kind": "constraint",
       "old": "write_latency",
-      "new": "write_latency"
+      "new": "PERFORMANCE-01"
     },
     {
       "kind": "decision",
       "old": "one_parser",
-      "new": "one_parser"
+      "new": "D-01"
     },
     {
       "kind": "feature",
       "old": "store_entries",
-      "new": "store_entries"
+      "new": "FEATURE-01"
     },
     {
       "kind": "invariant",
       "old": "writes_are_durable",
-      "new": "writes_are_durable"
+      "new": "INVARIANT-01"
     }
   ]
 }

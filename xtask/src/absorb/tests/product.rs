@@ -8,7 +8,7 @@ use specforge_ops::authoring::edit::Edit;
 use super::super::ledger::Why;
 use super::super::plan::Planned;
 use super::super::table::{self, Fate};
-use super::{create, field, ledgered, old, one, planned};
+use super::{create_of, field_of, ledgered, old, one, planned};
 
 fn why_of(planned: &Planned, id: &str, field: &str) -> Vec<Why> {
     ledgered(planned, id)
@@ -48,14 +48,18 @@ fn a_feature_solution_joins_its_requirement_text_and_creates_nothing() {
         ),
         feature("other", json!({"solution": "Only a solution."})),
     ]);
-    assert_eq!(ids(&planned), ["store", "other"]);
+    assert_eq!(
+        ids(&planned),
+        ["FEATURE-02", "FEATURE-01"],
+        "store and other, each once, numbered in old-id order (ADR 0372 D3)"
+    );
     assert_eq!(planned.converted, planned.creates.len());
     assert_eq!(
-        field(&planned, "store", "text"),
+        field_of(&planned, "feature", "store", "text"),
         Some(&one("P\n\nOne file per entry.\n\nWrite each entry."))
     );
     assert_eq!(
-        field(&planned, "other", "text"),
+        field_of(&planned, "feature", "other", "text"),
         Some(&one("P\n\nOnly a solution."))
     );
     assert_eq!(why_of(&planned, "store", "solution"), []);
@@ -82,11 +86,15 @@ fn feature_status_sets_the_tier_and_compares_the_computed_status() {
         ("deferred", "v2", "pending"),
     ] {
         assert_eq!(
-            field(&planned, status, "tier"),
+            field_of(&planned, "feature", status, "tier"),
             Some(&one(tier)),
             "{status}"
         );
-        assert_eq!(field(&planned, status, "status"), None, "{status}");
+        assert_eq!(
+            field_of(&planned, "feature", status, "status"),
+            None,
+            "{status}"
+        );
         let check = planned.checks.iter().find(|c| c.id == status).unwrap();
         assert_eq!(
             (check.new_field, check.expected.clone()),
@@ -104,7 +112,7 @@ fn feature_status_sets_the_tier_and_compares_the_computed_status() {
     );
     let unwritten = planned_without_status();
     assert_eq!(
-        field(&unwritten, "f", "tier"),
+        field_of(&unwritten, "feature", "f", "tier"),
         Some(&one("v2")),
         "the old default, proposed"
     );
@@ -123,8 +131,14 @@ fn a_deprecated_feature_is_out_of_scope_with_a_reason() {
             json!({"status": "deprecated", "reason": "Replaced by sync"}),
         ),
     ]);
-    assert_eq!(field(&planned, "bare", "tier"), Some(&one("out_of_scope")));
-    assert_eq!(field(&planned, "bare", "reason"), Some(&one("deprecated")));
+    assert_eq!(
+        field_of(&planned, "feature", "bare", "tier"),
+        Some(&one("out_of_scope"))
+    );
+    assert_eq!(
+        field_of(&planned, "feature", "bare", "reason"),
+        Some(&one("deprecated"))
+    );
     assert_eq!(
         why_of(&planned, "bare", "reason"),
         [Why::Filled {
@@ -133,7 +147,7 @@ fn a_deprecated_feature_is_out_of_scope_with_a_reason() {
         }]
     );
     assert_eq!(
-        field(&planned, "told", "reason"),
+        field_of(&planned, "feature", "told", "reason"),
         Some(&one("Replaced by sync"))
     );
     assert_eq!(why_of(&planned, "told", "reason"), []);
@@ -150,7 +164,7 @@ fn feature_effort_priority_tags_and_sources_are_dropped() {
             "refs": ["Design note", "gh.issue:42"], "tags": ["storage"], "priority": "high",
         }),
     )]);
-    let fields = create(&planned, "f").1;
+    let fields = create_of(&planned, "feature", "f").1;
     assert_eq!(
         fields.keys().collect::<Vec<_>>(),
         ["category", "text", "tier"],
@@ -182,8 +196,14 @@ fn a_feature_description_joins_the_text_after_the_problem() {
             json!({"problem": "", "description": "D"}),
         ),
     ]);
-    assert_eq!(field(&planned, "both", "text"), Some(&one("P\n\nD")));
-    assert_eq!(field(&planned, "only", "text"), Some(&one("D")));
+    assert_eq!(
+        field_of(&planned, "feature", "both", "text"),
+        Some(&one("P\n\nD"))
+    );
+    assert_eq!(
+        field_of(&planned, "feature", "only", "text"),
+        Some(&one("D"))
+    );
 }
 
 /// GSD writes acceptance as a plan's truths, which the conversion does not create (ADR 0372 D6): a feature's acceptance
@@ -195,7 +215,10 @@ fn feature_acceptance_and_tests_are_dropped_with_their_reasons() {
         json!({"acceptance": ["A saved entry is on disk"], "tests": ["crates/store/tests/save.rs"]}),
     )]);
     assert_eq!(
-        create(&planned, "f").1.keys().collect::<Vec<_>>(),
+        create_of(&planned, "feature", "f")
+            .1
+            .keys()
+            .collect::<Vec<_>>(),
         ["category", "text", "tier"]
     );
     for name in ["acceptance", "tests"] {

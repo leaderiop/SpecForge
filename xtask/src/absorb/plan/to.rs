@@ -6,6 +6,7 @@ use serde_json::{Value, json};
 use specforge_ops::authoring::edit::Input;
 
 use super::super::how;
+use super::super::ids;
 use super::super::ledger::Why;
 use super::super::read::OldEntity;
 use super::super::table::{self, Row};
@@ -35,6 +36,14 @@ impl Planner {
             How::Parent => self.parent(e, row.field, field, value),
             How::Requirements => self.requirements(e, row.field, field, value),
             How::Earlier => self.earlier(e, row.field, field, value),
+            How::Category => {
+                if value.as_str().is_some_and(|word| !word.trim().is_empty()) {
+                    let category = ids::category(e);
+                    if let Some(draft) = self.own(e) {
+                        draft.set(field, Input::One(category));
+                    }
+                }
+            }
             How::FeatureTier => {
                 let status = value.as_str().unwrap_or(how::FEATURE_DEFAULT);
                 self.tier(e, field, status);

@@ -50,7 +50,11 @@ fn only_converts_the_selected_ids() {
         decision("c", json!({})),
     ];
     let planned = selected(&all, &["c", "a"]);
-    assert_eq!(created(&planned), ["a", "c"], "in the old order");
+    assert_eq!(
+        created(&planned),
+        ["D-01", "D-02"],
+        "a and c, in the old order, numbered over the selection (ADR 0372 D3)"
+    );
     assert_eq!(planned.converted, 2);
     assert_eq!(Scope::All.select(all.to_vec()).unwrap().len(), 3);
 }
@@ -80,7 +84,7 @@ fn a_selected_entity_of_any_fated_kind_may_be_named() {
     let planned = selected(&all, &["a", "first", "store_module", "write_entry"]);
     assert_eq!(
         created(&planned),
-        ["v0.1.0", "a"],
+        ["v0.1.0", "D-01"],
         "a release is a version milestone; a module and a behavior create nothing"
     );
     for id in ["store_module", "write_entry"] {
@@ -100,7 +104,7 @@ fn a_selected_failure_mode_is_kept_and_its_values_dropped() {
         decision("a", json!({})),
     ];
     let planned = selected(&all, &["a", "torn"]);
-    assert_eq!(created(&planned), ["a"]);
+    assert_eq!(created(&planned), ["D-01"]);
     let fields: Vec<String> = ledgered(&planned, "torn")
         .into_iter()
         .map(|(field, why)| {
@@ -118,7 +122,11 @@ fn a_selected_feature_creates_its_requirement_alone() {
         old("feature", "g", json!({"problem": "P", "solution": "S"})),
     ];
     let planned = selected(&all, &["f"]);
-    assert_eq!(created(&planned), ["f"], "its solution is in its text");
+    assert_eq!(
+        created(&planned),
+        ["FEATURE-01"],
+        "its solution is in its text"
+    );
     assert_eq!(planned.converted, 1);
 }
 

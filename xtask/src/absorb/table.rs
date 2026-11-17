@@ -77,6 +77,10 @@ pub enum How {
     /// A bound: the value appended to the last line of the text the field holds, after one space (ADR 0368 D2), so a
     /// threshold reads on its metric's line (`throughput >= 200`); the value alone when the field holds none.
     Bound,
+    /// A constraint's own category word as its requirement's category, by the one rule that also gives its id's
+    /// prefix ([`super::ids::category`], ADR 0372 D3): the quality class is the heading (ADR 0370 D5). A blank word
+    /// writes nothing, and the fill writes the kind's name.
+    Category,
     /// A feature status as a tier: proposed and deferred v2, deprecated out_of_scope (with a reason), else v1.
     FeatureTier,
     /// A decision status as `settled`: accepted → true. Only a decision in force converts (ADR 0372 D5), so its status
@@ -215,11 +219,6 @@ const fn computed(kind: &'static str, field: &'static str, compare: Compare) -> 
     }
 }
 
-/// Why an old constraint's `category` is dropped (ADR 0370 D3): it named a quality class (performance, security, …),
-/// which no `@gsd/core` field holds. `requirement.category` is the requirement's heading, which the fill writes.
-const NO_QUALITY_CLASS: Home =
-    Home::Dropped("the constraint's quality class has no home in @gsd/core (ADR 0370)");
-
 /// Why an old milestone's modules are dropped: a module is dropped and no kind holds it (ADR 0365).
 const NO_MODULE: Home = Home::Dropped(MODULE);
 /// Why an old milestone's behaviors are dropped: the software kinds are dropped (ADR 0364 D2).
@@ -303,13 +302,14 @@ pub const TABLE: &[Row] = rows! {
         "refs" => [keeps!("decision", "references")],
         "description" => [keeps!("decision", "description")],
     ]
-    // ADR 0359 D1-D6: a constraint is a requirement of category "Constraint"; its rows in text order: the description,
-    // then the metric, the threshold on the metric's last line (ADR 0372 D6).
+    // ADR 0359 D1-D6: a constraint is a requirement whose category is its own quality class, else "Constraint" (ADR
+    // 0372 D3); its rows in text order: the description, then the metric, the threshold on the metric's last line (ADR
+    // 0372 D6).
     "constraint": [
         "description" => [to(REQUIREMENT, "text", Text)],
         "metric" => [to(REQUIREMENT, "text", Text)],
         "threshold" => [to(REQUIREMENT, "text", Bound)],
-        "category" => [NO_QUALITY_CLASS],
+        "category" => [to(REQUIREMENT, "category", Category)],
         "priority" => [leaves!("requirement.priority")],
         "governs_features" => [leaves!("requirement.constrains")],
         "protects" => [leaves!("requirement.protects")],

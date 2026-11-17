@@ -9,7 +9,7 @@ use super::super::ledger::Why;
 use super::super::plan::Planned;
 use super::super::read::OldEntity;
 use super::super::table;
-use super::{create, field, ledgered, many, old, one, paths, planned, stops};
+use super::{create, field, field_of, ledgered, many, old, one, paths, planned, stops};
 
 /// `e` written at `line` of `file`.
 fn at(mut e: OldEntity, file: &str, line: usize) -> OldEntity {
@@ -244,7 +244,8 @@ fn a_phase_lists_its_requirements_and_depends_only_on_an_earlier_phase_of_its_mi
     ]);
     assert_eq!(
         field(&planned, "v0.1.0/02", "requirements"),
-        Some(&many(&["store"]))
+        Some(&many(&["FEATURE-01"])),
+        "the feature store, through the id map"
     );
     assert_eq!(
         field(&planned, "v0.1.0/02", "depends_on"),
@@ -322,13 +323,17 @@ fn when_a_phase_is_written_a_requirement_no_phase_lists_is_v2() {
     entities.push(release("one", "0.1.0", &["first"]));
     entities.push(milestone("first", 10, json!({"features": ["listed"]})));
     let planned = planned(&entities);
-    for (id, tier) in [
-        ("listed", "v1"),
-        ("unlisted", "v2"),
-        ("gone", "out_of_scope"),
-        ("bound", "v2"),
+    for (kind, id, tier) in [
+        ("feature", "listed", "v1"),
+        ("feature", "unlisted", "v2"),
+        ("feature", "gone", "out_of_scope"),
+        ("constraint", "bound", "v2"),
     ] {
-        assert_eq!(field(&planned, id, "tier"), Some(&one(tier)), "{id}");
+        assert_eq!(
+            field_of(&planned, kind, id, "tier"),
+            Some(&one(tier)),
+            "{id}"
+        );
     }
     let v2 = Why::Filled {
         field: "requirement.tier".to_string(),
@@ -344,13 +349,13 @@ fn when_a_phase_is_written_a_requirement_no_phase_lists_is_v2() {
     assert_eq!(why_of(&planned, "listed", "tier"), []);
 
     let alone = super::planned(&requirements);
-    for (id, tier) in [
-        ("listed", "v1"),
-        ("unlisted", "v1"),
-        ("gone", "out_of_scope"),
-        ("bound", "v1"),
+    for (kind, id, tier) in [
+        ("feature", "listed", "v1"),
+        ("feature", "unlisted", "v1"),
+        ("feature", "gone", "out_of_scope"),
+        ("constraint", "bound", "v1"),
     ] {
-        assert_eq!(field(&alone, id, "tier"), Some(&one(tier)), "{id}");
+        assert_eq!(field_of(&alone, kind, id, "tier"), Some(&one(tier)), "{id}");
     }
     assert!(
         alone.ledger.entries().all(|e| e.why != v2),
@@ -414,8 +419,8 @@ fn the_id_map_is_total_one_to_one_and_repeatable() {
     assert_eq!(
         ids,
         [
-            ("decision", "parser", "parser"),
-            ("feature", "store", "store"),
+            ("decision", "parser", "D-01"),
+            ("feature", "store", "FEATURE-01"),
             ("milestone", "first", "v0.1.0/01"),
             ("milestone", "second", "v0.1.0/02"),
             ("milestone", "third", "v0.2.0/01"),
