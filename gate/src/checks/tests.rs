@@ -364,6 +364,26 @@ fn a_file_outside_the_workspace_that_a_member_tests_read_selects_that_member() {
         selection("tests", Mode::Quick, &["gsd/core/src/lib.rs"]),
         Selection::Skip
     );
+    // A fixture inside one member that other members' tests read (ADR 0374 D5's chain: the CLI's proof test and the
+    // gate's JUnit merge) selects them beside its own member; another fixture of the same member selects only it.
+    for fixture in [
+        "xtask/tests/fixtures/requirement-links/spec/project.spec",
+        "xtask/tests/fixtures/requirement-links/junit/part-1.xml",
+    ] {
+        assert_eq!(
+            selection("tests", Mode::Quick, &[fixture]),
+            only(&["gate", "specforge-cli", "xtask"]),
+            "{fixture}"
+        );
+    }
+    assert_eq!(
+        selection(
+            "tests",
+            Mode::Quick,
+            &["xtask/tests/fixtures/absorb/specforge.json"]
+        ),
+        only(&["xtask"])
+    );
     // The file or directory exists and the readers it names are members of the real workspace (`this_repo` lists a
     // few).
     let repo = Repo::discover().unwrap();

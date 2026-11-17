@@ -517,11 +517,12 @@ fn blobs_fed(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
     ))
 }
 
-/// Paths outside every member (`gsd/` is a workspace of its own) that tests of a member read, each a file or a
-/// `<dir>/**` pattern with the members whose tests read it: a change there is no change to any member, so `member_of`
-/// cannot reach them. The root spec is read by the corpus (`specforge_parser::testing`), the CLI's self-check and
-/// format corpus and the published-schema test, the root's project file by the last three; the frozen pre-swap spec
-/// (ADR 0374 D8) by the corpus and the tests that need the old kinds.
+/// Paths that tests of a member read and `member_of` does not map to it, each a file or a `<dir>/**` pattern with the
+/// members whose tests read it. Most lie outside every member (`gsd/` is a workspace of its own): a change there is
+/// no change to any member. The root spec is read by the corpus (`specforge_parser::testing`), the CLI's self-check
+/// and format corpus and the published-schema test, the root's project file by the last three; the frozen pre-swap
+/// spec (ADR 0374 D8) by the corpus and the tests that need the old kinds. `xtask`'s `requirement-links` fixture is
+/// `xtask`'s, yet the CLI's proof test and the gate's JUnit merge read it too (ADR 0374 D5).
 const READ_FROM_OUTSIDE: &[(&str, &[&str])] = &[
     (
         "fixtures/old-spec/**",
@@ -550,6 +551,10 @@ const READ_FROM_OUTSIDE: &[(&str, &[&str])] = &[
         ],
     ),
     ("specforge.json", &["specforge-cli", "specforge-ops"]),
+    (
+        "xtask/tests/fixtures/requirement-links/**",
+        &["gate", "specforge-cli"],
+    ),
 ];
 
 /// The members holding a changed path, and the members that read a changed file outside the workspace
