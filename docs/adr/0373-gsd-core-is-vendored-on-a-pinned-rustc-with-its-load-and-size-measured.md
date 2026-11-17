@@ -21,9 +21,9 @@ blob (its D3); the rustc that builds the blobs and the CI job that runs the equa
 (its D4); the readers that take the blob by name (its D5); and the answer for the cached load, which the spike put 2 ms
 over the 50 ms bound (its Consequences). This ADR is that change's record.
 
-**The measured inputs.** These are the research's figures, measured on the tree at `eaa5d1d12` with rustc 1.99.1;
-the figures measured at the vendoring commit replace them in this record when the change lands, and a figure that moves
-is used as measured.
+**The measured inputs.** These are the research's figures, measured on the tree at `eaa5d1d12` with rustc 1.99.1,
+before the decisions. The figures measured at the vendoring commit are under [As built](#as-built); where the two
+differ, the as-built figure is the record.
 
 - **The blob.** The stager (`build-blobs --install`, run on a scratch copy of the tree with the `@gsd/core` row) builds
   `gsd_core.wasm` at 5,470,682 B, sha256 starting `5c958ac0`, with 567 recorded inputs; a build staged by hand with the
@@ -145,6 +145,37 @@ declares authored kinds.
 
 The reason: the tests that hold these rules were written for the old set and stay true of it; `@gsd/core` was never
 meant to meet them.
+
+## As built
+
+Measured at the vendoring commit `6cd048a37` (2026-11-17), whose one revendor built the blob on rustc 1.99.1
+(58cf8f9c3 2026-10-13); the constants and both constraints' texts are computed from its committed bytes.
+
+- **The blob.** `gsd/core/wasm/gsd_core.wasm` is 5,470,859 B, sha256 starting `da1b8291`, with 567 recorded inputs,
+  `gsd/Cargo.lock` and `gsd/.cargo/config.toml` among them. It is 177 B more than the research's 5,470,682 B: the
+  rewordings of D6 and of six field docs landed between the two.
+- **The allowance.** 5,500,000 B, the size rounded up to the next 100,000 B: 29,141 B of headroom. The 2,500,000 B cap
+  is unchanged.
+- **The total.** The fifteen builtins total 17,637,071 B, and `TOTAL_BUDGET` is 17,700,000 B: 62,929 B of headroom.
+  The old fourteen, rebuilt on the pin, total 12,166,212 B, the research's figure to the byte (17,925 B less than on
+  rustc 1.98.1); `@specforge/checks` is 2,448,525 B of it.
+- **The cold compile.** In process: 359, 314 and 334 ms in three runs. The CLI differential's cold compile: 285 ms wall.
+- **The cached load in process** (load of a compile-cache hit, the handshake and the `describe` calls), median of eight
+  runs, three times: 33.15, 31.99 and 32.07 ms, of which the load is about 16 to 17 ms and the declaration about
+  15.6 to 15.8 ms. The harness is the ignored test `gsd_core_loads_from_the_compile_cache_in_under_fifty_ms`.
+- **The CLI differential**, n=20, a check loading the blob minus the same check without it, both cached: 51.2 ms
+  wall and 46.7 ms CPU. The wall time of the check loading it is bimodal at 65 and 75 ms, in the epoch ticker's 10 ms
+  steps.
+- **The revendor** that vendored it took 5 min 17 s; the Consequences' "about six minutes" was the research's estimate.
+- **The equality test**, `committed_gsd_core_blob_is_the_stagers_build`, runs in about 22 s on a warm target
+  (`[same]   gsd/core`).
+- **The vocabulary** holds 85 kind keywords, 61 of them `@gsd/core`'s; exactly three are shared with an old builtin:
+  `decision`, `deliverable` and `milestone`.
+
+**D3's branch.** The in-process cached load, about 32 ms, is under 50 ms. So `wasm_compile_cache_budget`'s metric
+records the figure with its date and the CLI differential beside it, no exception is written, and it names no owner
+or trigger; the assets are not compressed. The CLI differential's 51 ms wall is the host's registry build and the
+ticker's join on top of the load (D3), not the bound's reading.
 
 ## Rejected
 
