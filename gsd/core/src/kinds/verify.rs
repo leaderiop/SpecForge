@@ -26,7 +26,7 @@ const ANTI_PATTERNS: &[Field] = &[
     str("text"),
     en("severity", SEVERITY),
 ];
-const GAP_ARTIFACTS: &[Field] = &[path("path", Mode::Present), str("issue").prose()];
+const GAP_ARTIFACTS: &[Field] = &[path("path", Mode::Present), str("issue")];
 
 /// `NN-VERIFICATION.md`, named `01-VERIFICATION` and scoped by its phase.
 pub const VERIFICATION: Kind = Kind::new(
@@ -68,9 +68,9 @@ pub const VERIFY_GAP: Kind = Kind::new(
     &[
         rf("verification", "verification").r().i().doc("parent"),
         rf("truth", "truth").r().doc("the truth that failed"),
-        str("reason").prose().r().doc("why it failed"),
+        str("reason").r().doc("why it failed"),
         blocks("artifacts", GAP_ARTIFACTS).doc("the files at fault"),
-        strs("missing").prose().doc("what is missing"),
+        strs("missing").doc("what is missing"),
         en("status", GAP_STATUS)
             .c()
             .doc("closed when a `gap_closure` plan naming it is complete"),
@@ -91,7 +91,7 @@ pub const OVERRIDE: Kind = Kind::new(
         rf("verification", "verification").r().i().doc("parent"),
         rf("truth", "truth").r().u().doc("the truth accepted"),
         str("accepts").u().doc("the truth's text as the person accepted it; the override counts only while the truth still says this. Without it the override is bound by the truth's id alone"),
-        str("reason").prose().r().u().doc("why"),
+        str("reason").r().u().doc("why"),
         str("by").u().doc("who accepted it (gsd/E503)"),
         date("at").u().doc("when (gsd/E503)"),
     ],
@@ -105,12 +105,9 @@ pub const HUMAN_ITEM: Kind = Kind::new(
     "A check only a human can make (GSD human_verification)",
     &[
         rf("verification", "verification").r().i().doc("parent"),
-        str("test").prose().r().doc("what to check"),
-        str("expected").prose().r().doc("what should happen"),
-        str("why_human")
-            .prose()
-            .r()
-            .doc("why a program cannot check it"),
+        str("test").r().doc("what to check"),
+        str("expected").r().doc("what should happen"),
+        str("why_human").r().doc("why a program cannot check it"),
         rf("uat", "uat_test").doc("the UAT test that asks it"),
     ],
 )

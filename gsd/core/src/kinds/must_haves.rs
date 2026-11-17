@@ -21,7 +21,7 @@ pub const TRUTH: Kind = Kind::new(
     "A user-observable truth the plan makes true (GSD must_haves.truths)",
     &[
         rf("plan", "plan").r().i().doc("parent"),
-        str("text").prose().r().doc("the truth, as a user observes it"),
+        str("text").r().doc("the truth, as a user observes it"),
         rf("requirement", "requirement")
             .inverse("truths")
             .doc("the requirement it proves; the requirement reads its truths back as `truths`"),
@@ -45,7 +45,7 @@ pub const ARTIFACT: Kind = Kind::new(
         path("path", Mode::Planned)
             .r()
             .doc("`path:` (from the project root; checked once the plan is complete: E016)"),
-        str("provides").prose().r().doc("`provides:`"),
+        str("provides").r().doc("`provides:`"),
         int("min_lines").doc("`min_lines:`"),
         strs("exports").doc("`exports:`"),
         str("contains").doc("`contains:`"),
@@ -85,7 +85,7 @@ pub const PROHIBITION: Kind = Kind::new(
     "Something the plan must not do (GSD must_haves.prohibitions)",
     &[
         rf("plan", "plan").r().i().doc("parent"),
-        str("statement").prose().r().doc("`statement:`"),
+        str("statement").r().doc("`statement:`"),
         en("verification", PROHIBITION_VERIFICATION)
             .r()
             .doc("`verification:`"),

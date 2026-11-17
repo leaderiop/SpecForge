@@ -211,11 +211,11 @@ These stay in the kernel and the host:
 After this ADR no `@gsd/core` kind, rule or code uses any of them. They are not removed here: each is a host rule
 another extension may use, and a later change removes one only if nothing else uses it.
 
-## D10. The prose marks are reviewed by the owner
+## D10. The prose marks leave with their only reader
 
-Once the vocabulary leaves with `term` (D2), no rule reads a `Field::prose()` mark. Every mark of the kinds that stay
-is put before the owner, who keeps, removes or rewords it, and a golden of the prose fields of each kind pins the
-result: it fails when a mark is added or removed without a re-bless.
+A field's prose mark said its text was the author's own wording. The vocabulary passes, `gsd/W534` and `term.used_in`,
+were the only code that read a mark, and they leave with `term` (D2). A mark that nothing reads holds nothing, so
+every mark leaves and `gsd_kit`'s `Field` has no prose flag. No mark is left to review and no golden pins one.
 
 ## What each decision of ADRs 0357, 0358 and 0359 becomes
 
@@ -239,7 +239,7 @@ to apply to.
 | 0357 | D13 | reversed | zero loss is no longer the rule: a value with no home is dropped with its reason (D1, D8) |
 | 0357 | D14 | reversed | `gsd/E537` leaves with `starts` and `targets` (D3) |
 | 0357 | D15 | kept in part | `has_word` at the JavaScript boundary, which `gsd/E312` reads, and `folded`, which the git collector reads, stay; the Unicode boundary goes with its only readers, `gsd/W534` and `term.used_in` |
-| 0357 | D16 | reversed in part | the marks stay on the kinds that stay, but no rule reads them once the vocabulary leaves; D10 reviews each |
+| 0357 | D16 | reversed | the marks leave with the vocabulary, their only reader (D10) |
 | 0357 | D17 | reversed | `term.used_in` leaves with the term (D2) |
 | 0357 | D18 | reversed | `gsd/W534` leaves with the term (D2) |
 | 0357 | D19 | reversed | a journey names no requirement: the journey leaves (D2) |

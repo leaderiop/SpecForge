@@ -23,12 +23,12 @@ pub const PHASE_SPEC: Kind = Kind::new(
         context_record("context_pack")
             .doc("the gsd/phase-context pack it was written against (gsd/W406)"),
         date("created").i().doc("**Created:**"),
-        str("goal").prose().r().doc("X changes from A to B"),
-        str("background").prose(),
-        strs("in_scope").prose(),
-        strs("out_of_scope").prose(),
-        strs("constraints").prose(),
-        strs("acceptance").prose(),
+        str("goal").r().doc("X changes from A to B"),
+        str("background"),
+        strs("in_scope"),
+        strs("out_of_scope"),
+        strs("constraints"),
+        strs("acceptance"),
         block("scores", SCORES).v().doc("the spec_phase prompt's verdict, in percent (goal >= 75, boundary >= 70, constraint >= 65, acceptance >= 70, ambiguity <= 20)"),
     ],
 )
@@ -44,9 +44,9 @@ pub const LOCKED_REQ: Kind = Kind::new(
     &[
         rf("spec", "phase_spec").r(),
         str("title").r(),
-        str("current").prose().r(),
-        str("target").prose().r(),
-        str("acceptance").prose().r().doc("falsifiable"),
+        str("current").r(),
+        str("target").r(),
+        str("acceptance").r().doc("falsifiable"),
         rfs("traces", "requirement"),
         ens("shapes", SHAPES)
             .doc("upstream's authored shapes override; an empty list proposes no edge"),
@@ -72,9 +72,9 @@ pub const INTERVIEW: Kind = Kind::new(
         rf("spec", "phase_spec").r().i(),
         int("round").r().i(),
         en("perspective", PERSPECTIVES).r().i(),
-        str("question").prose().r().i(),
+        str("question").r().i(),
         str("answer").i(),
-        str("locked").prose().i(),
+        str("locked").i(),
     ],
 )
 .scoped_by("spec")
@@ -91,10 +91,8 @@ pub const EDGE: Kind = Kind::new(
         en("category", EDGE_VALIDATORS.categories).r(),
         en("status", &VALID_STATUS).r(),
         en("verification", EDGE_VALIDATORS.verification),
-        str("resolution")
-            .prose()
-            .doc("the acceptance criterion or backstop test note"),
-        str("reason").prose().doc("why it is dismissed"),
+        str("resolution").doc("the acceptance criterion or backstop test note"),
+        str("reason").doc("why it is dismissed"),
     ],
 )
 .scoped_by("spec");
@@ -108,10 +106,10 @@ pub const SPEC_PROHIBITION: Kind = Kind::new(
     &[
         rf("spec", "phase_spec").r().i(),
         rf("requirement", "locked_req").r(),
-        str("statement").prose().r(),
+        str("statement").r(),
         en("status", &VALID_STATUS).r(),
         en("verification", PROHIBITION_VALIDATORS.verification),
-        str("reason").prose(),
+        str("reason"),
         en("check_kind", &["node_test", "lint_rule"]),
         str("check_target"),
         str("check_rule"),

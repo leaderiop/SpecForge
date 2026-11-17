@@ -24,11 +24,7 @@ pub use project::PROOF_STATES;
 use specforge_extension_sdk::prelude::*;
 
 /// An option weighed: a checkpoint's options (GSD `<options>`).
-const OPTION: &[dsl::Field] = &[
-    dsl::str("name").r(),
-    dsl::strs("pros").prose(),
-    dsl::strs("cons").prose(),
-];
+const OPTION: &[dsl::Field] = &[dsl::str("name").r(), dsl::strs("pros"), dsl::strs("cons")];
 
 /// Every kind declared so far, in the order of the model's files.
 pub(crate) const KINDS: &[&Kind] = &[

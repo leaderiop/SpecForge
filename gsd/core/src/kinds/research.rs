@@ -6,7 +6,7 @@
 use gsd_kit::dsl::*;
 
 const CONFIDENCE: &[&str] = &["high", "medium", "low"];
-const RESPONSIBILITY: &[Field] = &[str("capability").prose(), str("tier")];
+const RESPONSIBILITY: &[Field] = &[str("capability"), str("tier")];
 
 /// `NN-RESEARCH.md`, named `02-RESEARCH`; the project's research (`research/*.md`) is named `RESEARCH` and has no phase;
 /// a quick plan's (`<quick_id>-RESEARCH.md`) names its quick plan in `plan` instead.
@@ -26,7 +26,7 @@ pub const RESEARCH: Kind = Kind::new(
         str("domain"),
         date("researched").i(),
         en("confidence", CONFIDENCE).r(),
-        str("summary").prose().r(),
+        str("summary").r(),
         rfs("user_constraints", "decision"),
         blocks("responsibility_map", RESPONSIBILITY),
     ],
@@ -41,7 +41,7 @@ pub const FINDING: Kind = Kind::new(
     &[
         rf("research", "research").r(),
         en("topic", FINDING_TOPICS),
-        str("text").prose().r(),
+        str("text").r(),
         en("confidence", CONFIDENCE).r(),
         rfs("sources", "source"),
     ],
@@ -57,9 +57,9 @@ pub const STACK_CHOICE: Kind = Kind::new(
         rf("research", "research").r(),
         str("name").r(),
         str("version"),
-        str("purpose").prose().r(),
+        str("purpose").r(),
         en("tier", TIERS),
-        str("rejected_because").prose(),
+        str("rejected_because"),
     ],
 )
 .scoped_by("research");
@@ -70,8 +70,8 @@ pub const PATTERN: Kind = Kind::new(
     &[
         rf("research", "research").r(),
         str("name").r(),
-        str("what").prose().r(),
-        str("when").prose(),
+        str("what").r(),
+        str("when"),
         str("example"),
         bool("anti").doc("### Anti-Patterns"),
     ],
@@ -84,10 +84,10 @@ pub const PITFALL: Kind = Kind::new(
     &[
         rf("research", "research").r(),
         str("name").r(),
-        str("goes_wrong").prose().r(),
-        str("why").prose().r(),
-        str("avoid").prose().r(),
-        str("warning_signs").prose(),
+        str("goes_wrong").r(),
+        str("why").r(),
+        str("avoid").r(),
+        str("warning_signs"),
     ],
 )
 .scoped_by("research");
@@ -97,9 +97,9 @@ pub const DONT_HAND_ROLL: Kind = Kind::new(
     "A problem a research says to solve with an existing library (GSD ## Don't Hand-Roll)",
     &[
         rf("research", "research").r(),
-        str("problem").prose().r(),
+        str("problem").r(),
         str("instead").r(),
-        str("why").prose().r(),
+        str("why").r(),
     ],
 )
 .scoped_by("research");
@@ -110,10 +110,10 @@ pub const OPEN_QUESTION: Kind = Kind::new(
     "An open question of a research (GSD ## Open Questions)",
     &[
         rf("research", "research").r(),
-        str("question").prose().r(),
-        str("known").prose(),
-        str("unclear").prose().r(),
-        str("recommendation").prose(),
+        str("question").r(),
+        str("known"),
+        str("unclear").r(),
+        str("recommendation"),
         rf("resolved_by", "decision"),
     ],
 )

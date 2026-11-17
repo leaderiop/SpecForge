@@ -44,6 +44,8 @@ nothing is kept as Markdown.
 
 The rule this table carries: an agent may author a plan, but it may not author `status passed`.
 
+No field carries a prose mark: nothing has read one since the vocabulary left `@gsd/core` (ADR 0370).
+
 Rename or renumber an entity that holds an `H` value through SpecForge (`/gsd-phase`, `specforge.rename`, the editor's
 rename): its ledger lines follow, and a move record (`<new> moved:<old>`) lets the `I` and `+` checks follow it to the baseline. A rename by hand leaves its `H` values unrecorded and its history unmatched.
 

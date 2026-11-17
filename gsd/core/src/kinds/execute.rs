@@ -35,28 +35,22 @@ pub const SUMMARY: Kind = Kind::new(
         en("status", SUMMARY_STATUS)
             .r()
             .doc("`status:`; a halted summary blocks the plans that depend on its plan"),
-        str("one_liner").prose().r().doc("the bold one-liner"),
+        str("one_liner").r().doc("the bold one-liner"),
         str("subsystem").r().doc("`subsystem:`"),
         strs("tags").doc("`tags:`"),
         blocks("requires", REQUIRES).doc("`requires:`"),
-        strs("provides").prose().doc("`provides:`"),
+        strs("provides").doc("`provides:`"),
         strs("affects").doc("`affects:`"),
         strs("tech_added").doc("`tech-stack: added`"),
         strs("tech_patterns").doc("`tech-stack: patterns`"),
         rfs("key_decisions", "decision").doc("`key-decisions:`"),
-        strs("patterns_established")
-            .prose()
-            .doc("`patterns-established:`"),
+        strs("patterns_established").doc("`patterns-established:`"),
         rfs("requirements_completed", "requirement")
             .r()
             .doc("`requirements-completed:`; gsd/E401 compares it with the plan's"),
-        strs("threat_flags").prose().doc("`## Threat Flags`"),
-        str("next_readiness")
-            .prose()
-            .doc("`## Next Phase Readiness`"),
-        str("halted_because")
-            .prose()
-            .doc("required when `status halted` (gsd/E402)"),
+        strs("threat_flags").doc("`## Threat Flags`"),
+        str("next_readiness").doc("`## Next Phase Readiness`"),
+        str("halted_because").doc("required when `status halted` (gsd/E402)"),
         ts("started")
             .h()
             .doc("the plan's `started`, written by the command that closes the plan"),
@@ -101,14 +95,12 @@ pub const DELIVERABLE: Kind = Kind::new(
     "A thing a plan delivers and how it is checked (GSD SUMMARY coverage)",
     &[
         rf("summary", "summary").r().i().doc("parent"),
-        str("description").prose().r().doc("`description:`"),
+        str("description").r().doc("`description:`"),
         rf("requirement", "requirement").doc("`requirement:`"),
         bool("human_judgment")
             .r()
             .doc("`human_judgment:`; false means the checks decide"),
-        str("rationale")
-            .prose()
-            .doc("`rationale:`; why a human judges it (gsd/W408)"),
+        str("rationale").doc("`rationale:`; why a human judges it (gsd/W408)"),
         blocks("checks", CHECKS)
             .doc("`verification:`; a check's `ref` is `path#test name`, GSD's own test link"),
     ],
@@ -128,7 +120,7 @@ pub const DEVIATION: Kind = Kind::new(
             .i()
             .doc("a deviation or an issue"),
         str("rule").i().doc("the executor's rule, `Rule 1 - Bug`"),
-        str("text").prose().r().i().doc("what happened"),
+        str("text").r().i().doc("what happened"),
         paths("files", Mode::History)
             .i()
             .doc("the paths it touched: a record, never checked (a later commit may delete one)"),
@@ -140,7 +132,7 @@ pub const DEVIATION: Kind = Kind::new(
 const HANDOFF_STATE: &[&str] = &["in_progress", "blocked", "almost_done"];
 const WORK_STATE: &[&str] = &["done", "in_progress", "not_started"];
 const COMPLETED_WORK: &[Field] = &[rf("task", "task"), en("state", WORK_STATE)];
-pub(crate) const RESOLVED: &[Field] = &[ts("at"), str("how").prose()];
+pub(crate) const RESOLVED: &[Field] = &[ts("at"), str("how")];
 
 /// `/gsd-pause-work`'s record, named `PS1`: what a teammate who pulls the repository must see. Removed on resume.
 pub const PAUSE: Kind = Kind::new(
@@ -156,7 +148,6 @@ pub const PAUSE: Kind = Kind::new(
             .doc("written by the pausing command, with the host's clock"),
         str("by").h().doc("who paused"),
         str("reason")
-            .prose()
             .r()
             .doc("where and why the work stopped (STATE.md's `Stopped at:`)"),
         rf("handoff", "handoff").doc("`.continue-here.md`"),
@@ -174,13 +165,13 @@ pub const HANDOFF: Kind = Kind::new(
             .doc("absent when the handoff is not in a phase"),
         rf("task", "task").doc("the task that was open"),
         en("state", HANDOFF_STATE).r().doc("where the work stands"),
-        str("current_state").prose().r().doc("`<current_state>`"),
+        str("current_state").r().doc("`<current_state>`"),
         blocks("completed_work", COMPLETED_WORK).doc("`<completed_work>`"),
-        strs("remaining_work").prose().doc("`<remaining_work>`"),
+        strs("remaining_work").doc("`<remaining_work>`"),
         rfs("decisions_made", "decision").doc("`<decisions_made>`"),
         rfs("blockers", "blocker").doc("`<blockers>`"),
-        str("context").prose().doc("`<context>`"),
-        str("next_action").prose().r().doc("`<next_action>`"),
+        str("context").doc("`<context>`"),
+        str("next_action").r().doc("`<next_action>`"),
     ],
 )
 .scoped_by("phase");
@@ -190,7 +181,7 @@ pub const BLOCKER: Kind = Kind::new(
     "blocker",
     "A blocker or concern that stops or slows the work (GSD STATE.md Blockers/Concerns)",
     &[
-        str("text").prose().r().doc("the blocker"),
+        str("text").r().doc("the blocker"),
         rf("phase", "phase").doc("the phase it blocks"),
         rf("plan", "plan").doc("the plan whose gate tripped (STATE.md's `last_gate_trip`), or that it blocks"),
         rf("gate", "task")
