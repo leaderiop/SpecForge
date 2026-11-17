@@ -192,8 +192,11 @@ impl Draft {
         self.fields.insert(field.to_string(), value);
     }
 
-    /// `text` after the text `field` holds, a blank line between.
+    /// `text` after the text `field` holds, a blank line between; a blank `text` adds nothing.
     fn join(&mut self, field: &str, text: String) {
+        if text.trim().is_empty() {
+            return;
+        }
         match self.fields.get_mut(field) {
             Some(Input::One(held)) if !held.is_empty() => {
                 held.push_str("\n\n");
@@ -203,8 +206,12 @@ impl Draft {
         }
     }
 
-    /// `bound` on the last line of the text `field` holds, after one space; `bound` alone when it holds none.
+    /// `bound` on the last line of the text `field` holds, after one space; `bound` alone when it holds none; a blank
+    /// `bound` adds nothing.
     fn bound(&mut self, field: &str, bound: &str) {
+        if bound.trim().is_empty() {
+            return;
+        }
         match self.fields.get_mut(field) {
             Some(Input::One(held)) if !held.trim().is_empty() => {
                 held.truncate(held.trim_end().len());

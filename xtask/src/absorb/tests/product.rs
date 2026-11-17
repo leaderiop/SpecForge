@@ -206,6 +206,32 @@ fn a_feature_description_joins_the_text_after_the_problem() {
     );
 }
 
+/// A blank part adds nothing to a requirement's text: no blank lines after a problem whose description is empty, and no
+/// trailing space after a metric whose threshold is empty (ADR 0372 D6).
+#[test]
+fn a_blank_part_adds_nothing_to_a_requirement_text() {
+    let planned = planned(&[
+        feature("empty", json!({"description": ""})),
+        feature("spaces", json!({"description": "  ", "solution": "S"})),
+        old(
+            "constraint",
+            "unbounded",
+            json!({"description": "D", "metric": "throughput", "threshold": ""}),
+        ),
+    ]);
+    for (kind, id, text) in [
+        ("feature", "empty", "P"),
+        ("feature", "spaces", "P\n\nS"),
+        ("constraint", "unbounded", "D\n\nthroughput"),
+    ] {
+        assert_eq!(
+            field_of(&planned, kind, id, "text"),
+            Some(&one(text)),
+            "{id}"
+        );
+    }
+}
+
 /// GSD writes acceptance as a plan's truths, which the conversion does not create (ADR 0372 D6): a feature's acceptance
 /// and its tests are each one `dropped` entry.
 #[test]
