@@ -54,6 +54,7 @@ gate = { path = "../gate" }
 specforge-ops = { workspace = true }
 specforge-parser = { workspace = true }
 specforge-graph = { path = "../crates/pipeline/graph" }
+toml = { workspace = true }
 
 [dev-dependencies]
 insta = { workspace = true }

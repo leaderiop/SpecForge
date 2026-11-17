@@ -230,3 +230,59 @@ fn a_staged_member_carries_no_workspace_or_profile_table() {
         "[package]\nname = \"x\"\n\n[lib]\ncrate-type = [\"cdylib\"]\n\n[dependencies]\nserde = \"1\"\n\n"
     );
 }
+
+/// The stage of a gsd crate builds against the SDK the gsd workspace patches in, read from the
+/// repository's own `gsd/.cargo/config.toml` and re-rooted at the repository (ADR 0366 D2).
+#[test]
+fn the_gsd_stage_replays_the_sdk_patch_from_the_root() {
+    let root = specforge_repo_root::repo_root();
+    let config = blob_inputs::cargo_config_of("gsd/core").expect("a gsd crate reads a config");
+    let table = patch::stage_patch(&root.join(config), blob_inputs::cargo_dir("gsd/core")).unwrap();
+    assert_eq!(
+        table,
+        "[patch.crates-io]\nspecforge-extension-sdk = { path = \"crates/runtime/extension-sdk\" }\n"
+    );
+    assert!(blob_inputs::cargo_config_of("extensions/product").is_none());
+}
+
+/// A config file written to a fresh temporary directory, for the patch reader's refusals.
+fn patch_of(config: &str) -> Result<String, String> {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.toml");
+    std::fs::write(&path, config).unwrap();
+    patch::stage_patch(&path, "gsd")
+}
+
+#[test]
+fn a_patch_path_that_leaves_the_repository_is_refused() {
+    let err =
+        patch_of("[patch.crates-io]\nforeign = { path = \"../../elsewhere/sdk\" }\n").unwrap_err();
+    assert!(
+        err.contains("foreign") && err.contains("leaves the repository"),
+        "{err}"
+    );
+    let err = patch_of("[patch.crates-io]\nrooted = { path = \"/opt/sdk\" }\n").unwrap_err();
+    assert!(
+        err.contains("rooted") && err.contains("leaves the repository"),
+        "{err}"
+    );
+}
+
+#[test]
+fn a_patch_entry_that_is_not_a_path_is_refused() {
+    let err = patch_of(
+        "[patch.crates-io]\nfrom-git = { git = \"https://example.com/sdk\", branch = \"main\" }\n",
+    )
+    .unwrap_err();
+    assert!(
+        err.contains("from-git") && err.contains("not a lone `path`"),
+        "{err}"
+    );
+    let err = patch_of("[patch.crates-io]\npinned = { path = \"../crates/x\", version = \"1\" }\n")
+        .unwrap_err();
+    assert!(
+        err.contains("pinned") && err.contains("not a lone `path`"),
+        "{err}"
+    );
+    assert_eq!(patch_of("[build]\njobs = 2\n"), Ok(String::new()));
+}

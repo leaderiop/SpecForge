@@ -127,6 +127,11 @@ fn build(root: &Path, committed: &CommittedBlob, force: bool) -> Option<PathBuf>
 /// `wasm32-wasip2` build compiles, at their repo-relative paths: cargo then hashes their paths
 /// relative to the stage, and passes them to rustc relative. The cargo home is remapped to
 /// `/cargo` and the stage to `/specforge`.
+///
+/// A crate of the gsd workspace (`gsd/core`) is staged as that workspace builds it (ADR 0366 D2):
+/// its metadata comes from `gsd/`, where cargo reads the workspace's SDK patch, the stage takes
+/// `gsd/Cargo.lock` and that patch re-rooted at the repository ([`patch`]), and its record lists
+/// `gsd/Cargo.lock` and `gsd/.cargo/config.toml` (`blob_inputs::workspace_inputs`).
 struct Stage {
     /// Canonical.
     root: PathBuf,
@@ -146,8 +151,12 @@ impl Stage {
     ///   resolution) and is built with the stage's `[profile.blob]`;
     /// - a `Cargo.toml` naming the extension as the member, with the root manifest's inherited
     ///   tables (`[workspace.package]`, `[workspace.dependencies]` and the `[workspace.lints]` tables
-    ///   the staged crates' `[lints] workspace = true` reads);
-    /// - the extension's `Cargo.lock` and the toolchain file.
+    ///   the staged crates' `[lints] workspace = true` reads), and for a crate of the gsd workspace
+    ///   that workspace's `[patch.crates-io]`, re-rooted at the repository;
+    /// - the crate's lock (`blob_inputs::lock_of`: `gsd/Cargo.lock` for a gsd crate) and the
+    ///   toolchain file.
+    ///
+    /// `cargo metadata` runs in `blob_inputs::cargo_dir`, so it reads the config a gsd crate builds with.
     fn prepare(repo: &Path, blob: &CommittedBlob) -> Result<Stage, String> {
         let crate_dir = blob.crate_dir;
         let dir = repo.join(format!("target/blob-stage/{}", blob.crate_dir));
@@ -169,6 +178,7 @@ impl Stage {
                 "--manifest-path",
             ])
             .arg(&manifest)
+            .current_dir(repo.join(blob_inputs::cargo_dir(crate_dir)))
             .output()
             .map_err(|e| format!("spawn cargo metadata: {e}"))?;
         if !output.status.success() {
@@ -193,16 +203,21 @@ impl Stage {
 
         let root_manifest = std::fs::read_to_string(repo.join("Cargo.toml"))
             .map_err(|e| format!("read Cargo.toml: {e}"))?;
-        let workspace = format!(
+        let mut workspace = format!(
             "[workspace]\nresolver = \"2\"\nmembers = [\"{crate_dir}\"]\n\n{}",
             blob_inputs::inherited_tables(&root_manifest)
         );
+        if let Some(config) = blob_inputs::cargo_config_of(crate_dir) {
+            workspace.push('\n');
+            workspace.push_str(&patch::stage_patch(
+                &repo.join(&config),
+                blob_inputs::cargo_dir(crate_dir),
+            )?);
+        }
         std::fs::write(root.join("Cargo.toml"), workspace).map_err(|e| e.to_string())?;
-        std::fs::copy(
-            repo.join(crate_dir).join("Cargo.lock"),
-            root.join("Cargo.lock"),
-        )
-        .map_err(|e| format!("copy Cargo.lock: {e}"))?;
+        let lock = blob_inputs::lock_of(crate_dir);
+        std::fs::copy(repo.join(&lock), root.join("Cargo.lock"))
+            .map_err(|e| format!("copy {lock}: {e}"))?;
         std::fs::copy(
             repo.join("rust-toolchain.toml"),
             root.join("rust-toolchain.toml"),
@@ -252,14 +267,11 @@ impl Stage {
         }
         let staged = std::fs::read_to_string(self.root.join("Cargo.lock"))
             .map_err(|e| format!("read the stage's Cargo.lock: {e}"))?;
-        let extension = std::fs::read_to_string(self.repo.join(self.crate_dir).join("Cargo.lock"))
-            .map_err(|e| format!("read Cargo.lock: {e}"))?;
-        lock_subset(&staged, &extension).map_err(|package| {
-            format!(
-                "the stage resolved {package} differently from {}/Cargo.lock",
-                self.crate_dir
-            )
-        })?;
+        let lock = blob_inputs::lock_of(self.crate_dir);
+        let extension = std::fs::read_to_string(self.repo.join(&lock))
+            .map_err(|e| format!("read {lock}: {e}"))?;
+        lock_subset(&staged, &extension)
+            .map_err(|package| format!("the stage resolved {package} differently from {lock}"))?;
         Ok(blob)
     }
 }
@@ -545,7 +557,8 @@ fn check(root: &Path, committed: &CommittedBlob) -> bool {
 
 /// Every repo-local file rustc read for the artifact (from cargo's dep-info, taken in the
 /// stage, which mirrors the repository's layout), the manifest owning each, the crate's
-/// lockfile (pins registry crates), and the root manifest tables the shared crates inherit
+/// workspace inputs (its lockfile, which pins registry crates, and for a gsd crate the cargo
+/// config holding the SDK patch: `blob_inputs::workspace_inputs`), and the root manifest tables the shared crates inherit
 /// from. Each is hashed as the repository holds it.
 fn collect_inputs(
     root: &Path,
@@ -577,7 +590,7 @@ fn collect_inputs(
             dep_info.display()
         ));
     }
-    keys.insert(format!("{name}/Cargo.lock"));
+    keys.extend(blob_inputs::workspace_inputs(name));
     keys.insert(WORKSPACE_INHERITED.to_string());
 
     keys.into_iter()
@@ -703,6 +716,9 @@ fn rustc_verdict(built_with: &str, pinned: &str) -> Option<String> {
         )
     })
 }
+
+#[path = "build_blobs/patch.rs"]
+mod patch;
 
 #[cfg(test)]
 #[path = "build_blobs/tests.rs"]

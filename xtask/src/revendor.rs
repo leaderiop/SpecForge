@@ -21,6 +21,7 @@
     reason = "a developer tool: its report is its stdout"
 )]
 
+use gate::blob_inputs::{cargo_dir, lock_of};
 use specforge_component::ComponentRuntime;
 use specforge_component::committed::{
     COMMITTED, pinned_builtin_declarations, snapshots, wire_answers,
@@ -107,7 +108,7 @@ fn run(root: &Path) -> Result<(), String> {
     let mut changed = Vec::new();
     for blob in COMMITTED {
         if refresh_lockfile(root, blob.crate_dir)? {
-            changed.push(format!("{}/Cargo.lock", blob.crate_dir));
+            changed.push(lock_of(blob.crate_dir));
         }
     }
     println!("== blobs");
@@ -126,15 +127,7 @@ fn run(root: &Path) -> Result<(), String> {
     declarations_test(root)?;
 
     println!("\nre-vendored. Review `git diff --stat`, then stage:");
-    let paths: Vec<String> = COMMITTED
-        .iter()
-        .flat_map(|blob| {
-            [
-                format!("{}/wasm", blob.crate_dir),
-                format!("{}/Cargo.lock", blob.crate_dir),
-            ]
-        })
-        .collect();
+    let paths = stage_paths(COMMITTED.iter().map(|blob| blob.crate_dir));
     println!(
         "  git add {} crates/runtime/component/tests/declarations {VOCABULARY_DIR}",
         paths.join(" ")
@@ -145,13 +138,29 @@ fn run(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// The paths a run prints to stage for the committed crates `crate_dirs`, in their order: each
+/// crate's `wasm/` and its lock (`lock_of`), a lock two crates share (`gsd/Cargo.lock`) listed once.
+fn stage_paths<'a>(crate_dirs: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+    let mut paths: Vec<String> = Vec::new();
+    for crate_dir in crate_dirs {
+        for path in [format!("{crate_dir}/wasm"), lock_of(crate_dir)] {
+            if !paths.contains(&path) {
+                paths.push(path);
+            }
+        }
+    }
+    paths
+}
+
 /// `cargo metadata --locked` for `guest`; when the lockfile is stale, once
 /// without `--locked` (a stale guest lockfile follows a workspace dependency
 /// change, never a decision). True when the lockfile changed. It runs on the pinned
-/// rustc, so a refreshed lockfile resolves with the rustc that builds the blob (ADR 0373 D1).
+/// rustc, so a refreshed lockfile resolves with the rustc that builds the blob (ADR 0373 D1),
+/// and in the guest's cargo directory with its lock (`gsd/` and `gsd/Cargo.lock` for a crate of
+/// the gsd workspace, whose SDK patch only that directory's config holds: ADR 0366 D2).
 fn refresh_lockfile(root: &Path, guest: &str) -> Result<bool, String> {
     let manifest = root.join(guest).join("Cargo.toml");
-    let lock = root.join(guest).join("Cargo.lock");
+    let lock = root.join(lock_of(guest));
     let before = std::fs::read(&lock).ok();
     let metadata = |locked: bool| {
         let mut cmd = Command::new("cargo");
@@ -164,6 +173,7 @@ fn refresh_lockfile(root: &Path, guest: &str) -> Result<bool, String> {
                 "--manifest-path",
             ])
             .arg(&manifest)
+            .current_dir(root.join(cargo_dir(guest)))
             .stdout(std::process::Stdio::null());
         if locked {
             cmd.arg("--locked");
@@ -317,6 +327,23 @@ mod tests {
         assert!(
             suite.contains("mod declarations;"),
             "{target} has no declarations module"
+        );
+    }
+
+    /// The printed `git add` line stages each crate's `wasm/` and its lock, and the lock of the gsd
+    /// workspace once however many of its crates commit a blob (ADR 0366 D2).
+    #[test]
+    fn the_stage_line_names_a_shared_lock_once() {
+        let paths = stage_paths(["extensions/product", "gsd/core", "gsd/security"]);
+        assert_eq!(
+            paths,
+            [
+                "extensions/product/wasm",
+                "extensions/product/Cargo.lock",
+                "gsd/core/wasm",
+                "gsd/Cargo.lock",
+                "gsd/security/wasm",
+            ]
         );
     }
 

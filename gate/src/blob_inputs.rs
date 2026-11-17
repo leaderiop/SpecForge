@@ -1,7 +1,8 @@
 //! `<crate_dir>/wasm/inputs.json`: what one committed blob (a builtin under `extensions/`, a fixture under
-//! `fixtures/` or an example project's own extension under `examples/<name>/extension`) was built from. `build-blobs` writes and checks it through this module; a quick run asks it which
-//! blobs a change set feeds. A blob is named by its crate directory from the repository root. The JSON is unchanged
-//! byte for byte.
+//! `fixtures/`, an example project's own extension under `examples/<name>/extension`, or `@gsd/core` under
+//! `gsd/core`, the one builtin outside `extensions/`) was built from. `build-blobs` writes and checks it through this
+//! module; a quick run asks it which blobs a change set feeds. A blob is named by its crate directory from the
+//! repository root. The JSON is unchanged byte for byte.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -109,12 +110,59 @@ pub fn inherited_tables(manifest: &str) -> String {
     out
 }
 
-/// The crates that commit a blob besides the builtins ([`crate::repo::EXTENSION_CRATES`]), as `repo::expand`
-/// patterns: the fixtures and the example projects' extensions.
-pub const BLOB_CRATES: &[&str] = &["fixtures/*", "examples/*/extension"];
+/// The crates that commit a blob besides the builtins under `extensions/` ([`crate::repo::EXTENSION_CRATES`]), as
+/// `repo::expand` patterns: the fixtures, the example projects' extensions and `@gsd/core` (ADR 0366 D2), so a `gsd/`
+/// input feeds the `builtins` check once its record exists.
+pub const BLOB_CRATES: &[&str] = &["fixtures/*", "examples/*/extension", "gsd/core"];
+
+/// The gsd workspace, from the repository root: one Cargo workspace with one lock and its own `.cargo/config.toml`.
+const GSD_WORKSPACE: &str = "gsd";
+
+/// Whether `crate_dir` is a crate of the gsd workspace, which builds as that workspace does (ADR 0366 D2).
+fn in_gsd(crate_dir: &str) -> bool {
+    crate_dir
+        .strip_prefix(GSD_WORKSPACE)
+        .is_some_and(|rest| rest.starts_with('/'))
+}
+
+/// The lock a crate's blob resolves with, from the repository root: `gsd/Cargo.lock` for a crate of the gsd workspace,
+/// else the crate's own `<crate_dir>/Cargo.lock` (ADR 0366 D2).
+pub fn lock_of(crate_dir: &str) -> String {
+    if in_gsd(crate_dir) {
+        format!("{GSD_WORKSPACE}/Cargo.lock")
+    } else {
+        format!("{crate_dir}/Cargo.lock")
+    }
+}
+
+/// The directory cargo runs in for a crate, from the repository root (`.` for the root): cargo reads the
+/// `.cargo/config.toml` of its working directory, not of `--manifest-path`, so a crate of the gsd workspace runs in
+/// `gsd` to take that workspace's SDK patch (ADR 0366 D2).
+pub fn cargo_dir(crate_dir: &str) -> &'static str {
+    if in_gsd(crate_dir) {
+        GSD_WORKSPACE
+    } else {
+        "."
+    }
+}
+
+/// The cargo config a crate's build reads besides the repository root's, from the repository root:
+/// `gsd/.cargo/config.toml` for a crate of the gsd workspace (its `[patch.crates-io]` decides which SDK the blob
+/// compiles), else none (ADR 0366 D2).
+pub fn cargo_config_of(crate_dir: &str) -> Option<String> {
+    in_gsd(crate_dir).then(|| format!("{GSD_WORKSPACE}/.cargo/config.toml"))
+}
+
+/// The workspace files a crate's blob is recorded as built from, besides what rustc reads: its lock and, for a crate
+/// of the gsd workspace, that workspace's cargo config (ADR 0366 D2).
+pub fn workspace_inputs(crate_dir: &str) -> Vec<String> {
+    std::iter::once(lock_of(crate_dir))
+        .chain(cargo_config_of(crate_dir))
+        .collect()
+}
 
 /// Every committed blob with a record: the crate directories (`extensions/<dir>`, `extensions/<family>/<pack>`,
-/// `fixtures/<dir>`, `examples/<dir>/extension`, sorted) whose `wasm/inputs.json` exists; an extension library has
+/// `fixtures/<dir>`, `examples/<dir>/extension`, `gsd/core`, sorted) whose `wasm/inputs.json` exists; an extension library has
 /// none, so it is no blob.
 pub fn blobs(repo_root: &Path) -> Result<Vec<String>, String> {
     let suffix = format!("/wasm/{FILE}");

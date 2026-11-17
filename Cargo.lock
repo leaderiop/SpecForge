@@ -6958,6 +6958,7 @@ dependencies = [
  "strsim",
  "syn 2.0.117",
  "tempfile",
+ "toml 0.8.23",
  "walkdir",
 ]
 

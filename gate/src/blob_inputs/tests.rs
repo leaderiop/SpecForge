@@ -127,7 +127,34 @@ fn blobs_lists_the_recorded_blobs() {
     );
     assert!(listed.iter().all(|l| l.starts_with("extensions/")
         || l.starts_with("fixtures/")
-        || l.starts_with("examples/")));
+        || l.starts_with("examples/")
+        || l == "gsd/core"));
+}
+
+/// A crate of the gsd workspace builds as that workspace does: its lock, its cargo directory and its SDK patch; any
+/// other crate with its own lock, at the root (ADR 0366 D2).
+#[test]
+fn a_gsd_crate_builds_with_the_gsd_lock_and_config() {
+    assert_eq!(lock_of("gsd/core"), "gsd/Cargo.lock");
+    assert_eq!(cargo_dir("gsd/core"), "gsd");
+    assert_eq!(
+        workspace_inputs("gsd/core"),
+        ["gsd/Cargo.lock", "gsd/.cargo/config.toml"]
+    );
+    assert_eq!(
+        lock_of("extensions/product"),
+        "extensions/product/Cargo.lock"
+    );
+    assert_eq!(cargo_dir("extensions/product"), ".");
+    assert_eq!(
+        workspace_inputs("extensions/product"),
+        ["extensions/product/Cargo.lock"]
+    );
+    // A directory that only begins with the workspace's name is not in it.
+    assert_eq!(lock_of("gsdx/core"), "gsdx/core/Cargo.lock");
+    for key in workspace_inputs("gsd/core") {
+        assert!(repo_root().join(&key).is_file(), "{key} is missing");
+    }
 }
 
 #[test]
