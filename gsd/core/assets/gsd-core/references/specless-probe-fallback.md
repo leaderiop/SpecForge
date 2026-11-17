@@ -77,8 +77,8 @@ fi
 
 **Edge `--auto` resolution rules (reuse spec-phase 5.5 verbatim, D-06):** auto-`resolved`
 (verification: explicit) where a defensible acceptance criterion can be written (→ a `truth` entity of the plan); else
-auto-`resolved` (verification: backstop) → a `truth` entity too, never a prose note, whose id your
-return lists as backstop (§C). A `backstop` truth
+auto-`resolved` (verification: backstop) → a `truth` entity too, never a prose note, whose
+`verification` is `backstop` (§C). A `backstop` truth
 the verifier cannot confirm with explicit evidence abstains → `human_needed` (reason
 `insufficient_spec`), never a silent pass (#1154; `gsd-core/references/honest-verifier.md`). **Never
 auto-dismiss** (a wrong dismissal is the exact silent failure this eliminates). An `unclassified` row
@@ -133,15 +133,14 @@ IFS= read -rd '' PURPOSE <<'TEXT' || true; PURPOSE=${PURPOSE%$'\n'}
 TEXT
 PLAN_FILE=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].file') || exit 1
 specforge new truth "$EXPLICIT_ID" "$CRITERION" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$CRITERION" --requirement "$REQUIREMENT" || exit 1
-specforge new truth "$BACKSTOP_ID" "$CHECK" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$CHECK" --requirement "$REQUIREMENT" --proposed_verification backstop || exit 1
+specforge new truth "$BACKSTOP_ID" "$CHECK" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$CHECK" --requirement "$REQUIREMENT" --verification backstop || exit 1
 specforge new prohibition "$PROHIBITION_ID" "$STATEMENT" --in "$PLAN_FILE" --plan "$PLAN_ID" --statement "$STATEMENT" --verification judgment || exit 1
 specforge set "$PLAN_ID" purpose "$PURPOSE" || exit 1
 ```
 
 - **Edges →** a resolved (verification: explicit) edge is a truth; a resolved (verification: backstop)
-  edge is a truth whose id your return lists as backstop. A truth's tier (`verification`) is a
-  person's field: the person sets `verification backstop` in the editor, and an agent's write of it is
-  refused (`human_only`). A truth with no `explicit` tier is never contradicted by a test result, and
+  edge is a truth whose `verification` is `backstop`, upstream's `{ statement, verification: backstop }`
+  marker (a person may change the tier). A truth with no `explicit` tier is never contradicted by a test result, and
   one the verifier cannot confirm abstains → `human_needed` (#1154); every `unresolved`/`unclassified` row is an
   assumption named in the plan's `purpose` (never a silent drop), never a truth.
 - **Prohibitions →** every kept prohibition is a `prohibition` entity (never a truth), with

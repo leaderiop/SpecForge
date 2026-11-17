@@ -884,7 +884,7 @@ agents/gsd-verifier.md	own	128+1	1	1679c9b6f168	ed0a5fbcada9	ported-name
 agents/gsd-verifier.md	kept	129+7	22f083c92516
 agents/gsd-verifier.md	own	136+1	1	6259e5aef95b	e2aab30c591f	served
 agents/gsd-verifier.md	kept	137+73	86a3e7f08539
-agents/gsd-verifier.md	own	210+1	1	06e24c4fca64	ad9b5ef8335e	agent
+agents/gsd-verifier.md	own	210+1	1	06e24c4fca64	8c47e7394fa7	agent
 agents/gsd-verifier.md	kept	211+5	abcf081b6aba
 agents/gsd-verifier.md	own	216+1	1	cc31724f24f3	c8b1595fb117	served
 agents/gsd-verifier.md	kept	217+3	57ffb36175de
@@ -1719,11 +1719,11 @@ gsd-core/references/specless-probe-fallback.md	own	111+1	1	37930a341de7	ed9f1133
 gsd-core/references/specless-probe-fallback.md	kept	112+4	1292bd9ff533
 gsd-core/references/specless-probe-fallback.md	own	116+4	2	256f5bbbed58	fa922fc84ba3	served
 gsd-core/references/specless-probe-fallback.md	kept	120+3	3168832a2544
-gsd-core/references/specless-probe-fallback.md	own	123+6	3	02c1b211c605	0a8ea643d1fa	prose
+gsd-core/references/specless-probe-fallback.md	own	123+6	3	02c1b211c605	9721d0659d7e	prose
 gsd-core/references/specless-probe-fallback.md	kept	129+21	5de3263b57b7
 gsd-core/references/specless-probe-fallback.md	own	150+5	3	6f8fe7a74e05	634e5699c845	prose
 gsd-core/references/specless-probe-fallback.md	kept	155+5	840df124880c
-gsd-core/references/specless-probe-fallback.md	own	160+10	38	1748e647baba	c0a613c63ef2	prose
+gsd-core/references/specless-probe-fallback.md	own	160+10	37	1748e647baba	57b81c1ba936	prose
 gsd-core/references/specless-probe-fallback.md	kept	170+2	027bb8d44f12
 gsd-core/references/specless-probe-fallback.md	own	172+2	2	9b9281fe24be	5bbc60d071ec	prose
 gsd-core/references/specless-probe-fallback.md	kept	174+1	e3b0c44298fc
@@ -4070,7 +4070,7 @@ gsd-core/workflows/plan-phase.md	own	882+3	4	98e8b859ad95	b9c08f93fd31	prose
 gsd-core/workflows/plan-phase.md	kept	885+15	78cbe5c18df8
 gsd-core/workflows/plan-phase.md	own	900+2	2	388169507684	a2cb40be81ef	prose
 gsd-core/workflows/plan-phase.md	kept	902+1	fbc2e48084ac
-gsd-core/workflows/plan-phase.md	own	903+5	5	81781ff9615f	c8e080c92935	answer
+gsd-core/workflows/plan-phase.md	own	903+5	5	81781ff9615f	d43107a28787	answer
 gsd-core/workflows/plan-phase.md	kept	908+36	755601ed5d65
 gsd-core/workflows/plan-phase.md	own	944+1	1	6a17eb0e7f31	9c717bcca02d	prose
 gsd-core/workflows/plan-phase.md	kept	945+8	92192fbc3b5c

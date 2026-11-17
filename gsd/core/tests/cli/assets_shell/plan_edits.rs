@@ -362,8 +362,9 @@ fn the_research_fence_records_the_phase_research() {
     assert!(run.added.is_empty(), "{:?}", run.added);
 }
 
-/// The spec-less lift writes both resolved edges as truths with no tier (a person's field, so the backstop one is never
-/// contradicted by a test), a kept prohibition with no test, and an unresolved row as an assumption in the purpose.
+/// The spec-less lift writes both resolved edges as truths, the backstop one with `verification backstop` as upstream's
+/// planner writes it (so it is never contradicted by a test), a kept prohibition with no test, and an unresolved row as
+/// an assumption in the purpose.
 #[test]
 fn the_spec_less_lift_writes_truths_and_a_descriptor_less_prohibition() {
     let Some(sh) = Shell::only(&[]) else {
@@ -394,19 +395,12 @@ fn the_spec_less_lift_writes_truths_and_a_descriptor_less_prohibition() {
     let run = typed::apply(&sh, &p, &fence);
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(run.added.is_empty(), "{:?}", run.added);
-    for id in ["TR4", "TR5"] {
-        let truth = p.fields_of(&format!("v1.0/02/02-01/{id}"));
-        assert!(truth.is_object(), "{id} is missing");
-        assert!(truth.get("verification").is_none(), "{truth}");
-    }
-    // the backstop edge is proposed; a person confirms it by setting `verification`
+    // the explicit edge is a plain truth; the backstop edge carries its tier
+    let explicit = p.fields_of("v1.0/02/02-01/TR4");
+    assert!(explicit.is_object(), "TR4 is missing");
+    assert!(explicit.get("verification").is_none(), "{explicit}");
     let backstop = p.fields_of("v1.0/02/02-01/TR5");
-    assert_eq!(backstop["proposed_verification"], "backstop", "{backstop}");
-    assert!(
-        p.fields_of("v1.0/02/02-01/TR4")
-            .get("proposed_verification")
-            .is_none()
-    );
+    assert_eq!(backstop["verification"], "backstop", "{backstop}");
     let prohibition = p.fields_of("v1.0/02/02-01/PR1");
     assert_eq!(prohibition["verification"], "judgment", "{prohibition}");
     assert!(prohibition.get("test").is_none(), "{prohibition}");
