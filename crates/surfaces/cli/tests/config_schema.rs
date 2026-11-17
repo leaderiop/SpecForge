@@ -131,11 +131,7 @@ fn no_unread_test_dirs_config_is_documented() {
             .contains("test_dirs"),
         "$comment lists test_dirs as consumed"
     );
-    for doc in [
-        "docs/entities/spec.md",
-        "docs/quick-reference.md",
-        "spec/types/config.spec",
-    ] {
+    for doc in ["docs/entities/spec.md", "docs/quick-reference.md"] {
         let text = std::fs::read_to_string(repo_root().join(doc)).unwrap();
         assert!(!text.contains("test_dirs"), "{doc} documents `test_dirs`");
     }

@@ -460,29 +460,32 @@ fn core_session() -> (Logged, tempfile::TempDir) {
     (server, dir)
 }
 
-/// The core session records every event `spec/events/mcp.spec` declares,
-/// and each recorded event serializes to the shape `McpEvent` derives.
-#[specforge_test(
-    behavior = "mcp_event_record",
-    verify = "every event the server records is one an events spec declares, its payload exactly the declared fields"
-)]
+/// The core session records every MCP event `McpEvent` declares (each
+/// variant whose `event` tag, read from the shape it derives, starts with
+/// `mcp_`) and no other, and each recorded event serializes to that shape.
+/// The other variants are the compilation and surface events, which other
+/// sessions record.
+#[specforge_test(behavior = "mcp_event_record")]
 fn a_session_records_every_mcp_event() {
     let (server, _dir) = core_session();
     let events = recorded(&server);
     let emitted: std::collections::BTreeSet<&str> =
         events.iter().map(|(name, _)| name.as_str()).collect();
-    let spec =
-        std::fs::read_to_string(specforge_repo_root::repo_root().join("spec/events/mcp.spec"))
-            .unwrap();
-    let declared: std::collections::BTreeSet<&str> = spec
-        .lines()
-        .filter_map(|line| line.strip_prefix("event "))
-        .filter_map(|rest| rest.split_whitespace().next())
+    let document = specforge_common::shape::document::<specforge_mcp::events::McpEvent>();
+    let declared: std::collections::BTreeSet<&str> = document["oneOf"]
+        .as_array()
+        .expect("a tagged enum's shape is a oneOf")
+        .iter()
+        .map(|variant| {
+            variant["properties"]["event"]["enum"][0]
+                .as_str()
+                .unwrap_or_else(|| panic!("a variant names its event tag: {variant}"))
+        })
+        .filter(|tag| tag.starts_with("mcp_"))
         .collect();
     assert_eq!(declared.len(), 13, "{declared:?}");
     assert_eq!(emitted, declared, "the session emits every MCP event");
 
-    let document = specforge_common::shape::document::<specforge_mcp::events::McpEvent>();
     for recorded in server.log().recorded() {
         let value = serde_json::to_value(&recorded.event).unwrap();
         let violations = specforge_common::shape::violations(document, &value);
