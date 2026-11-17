@@ -40,10 +40,12 @@ pub const FINDING: Kind = Kind::new(
     "A finding of a research (GSD ## Summary, project research files)",
     &[
         rf("research", "research").r(),
-        en("topic", FINDING_TOPICS),
+        en("topic", FINDING_TOPICS)
+            .doc("the project research file it comes from (upstream: the file, here a value)"),
         str("text").r(),
         en("confidence", CONFIDENCE).r(),
-        rfs("sources", "source"),
+        rfs("sources", "source")
+            .doc("the sources it cites (upstream tags the claim with its source in its text)"),
     ],
 )
 .scoped_by("research");
@@ -114,7 +116,8 @@ pub const OPEN_QUESTION: Kind = Kind::new(
         str("known"),
         str("unclear").r(),
         str("recommendation"),
-        rf("resolved_by", "decision"),
+        rf("resolved_by", "decision")
+            .doc("the decision that answers it (upstream marks it `RESOLVED:` in its text)"),
     ],
 )
 .scoped_by("research");

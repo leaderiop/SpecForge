@@ -164,7 +164,7 @@ one row per authored field, no row for another field, every upstream line holdin
 | stack_choice | version | agents/gsd-phase-researcher.md:294 | Version \| Purpose |
 | stack_choice | purpose | agents/gsd-phase-researcher.md:294 | Purpose \| Why Standard |
 | stack_choice | tier | agents/gsd-phase-researcher.md:293 | ### Core |
-| stack_choice | rejected_because | agents/gsd-phase-researcher.md:304 | Instead of \| Could Use \| Tradeoff |
+| stack_choice | rejected_because | agents/gsd-project-researcher.md:239 | Alternative \| Why Not |
 | pattern | research | agents/gsd-phase-researcher.md:336 | ## Architecture Patterns |
 | pattern | name | agents/gsd-phase-researcher.md:360 | ### Pattern 1: [Pattern Name] |
 | pattern | what | agents/gsd-phase-researcher.md:361 | **What:** [description] |

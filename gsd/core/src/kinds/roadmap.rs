@@ -35,7 +35,7 @@ pub const MILESTONE: Kind = Kind::new(
         block("abandoned", ABANDONED).doc("gsd-path's abandon ruling"),
         rf("workstream", "workstream")
             .i()
-            .doc("the workstream that scopes it; absent outside one"),
+            .doc("the workstream that scopes it; absent outside one (upstream: the workstream directory that holds its state)"),
         block("completion", COMPLETION)
             .h()
             .doc("written by close_milestone (/gsd-complete-milestone) once its audit passes"),

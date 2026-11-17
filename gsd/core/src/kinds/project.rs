@@ -30,7 +30,9 @@ pub const PROJECT: Kind = Kind::new(
         blocks("constraints", CONSTRAINT).r().doc("Constraints"),
         blocks("out_of_scope", OUT_OF_SCOPE).doc("Out of Scope"),
         rfs("key_decisions", "decision").doc("Key Decisions"),
-        str("project_code").doc("config project_code: ^[A-Z][A-Z0-9_]*$"),
+        str("project_code").doc(
+            "config project_code: ^[A-Z][A-Z0-9_]*$ (upstream keeps it in config.json only; gsd-git reads this field when the setting is unset)",
+        ),
         rfs("validated", "requirement")
             .c()
             .doc("Validated: from requirement status"),
@@ -73,7 +75,9 @@ pub const REQUIREMENT: Kind = Kind::new(
     &[
         str("text").r().doc("the description after the ID"),
         str("category").r().doc("### [Category]"),
-        en("tier", TIERS).r().doc("v1, v2 or Out of Scope"),
+        en("tier", TIERS)
+            .r()
+            .doc("v1, v2 or Out of Scope (upstream: the heading it sits under)"),
         str("reason").doc("Out of Scope reason: required when out_of_scope (gsd/E105)"),
         date("defined").i().doc("Defined"),
         en("status", REQUIREMENT_STATUS)

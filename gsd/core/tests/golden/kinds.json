@@ -1268,7 +1268,7 @@
           },
           {
             "default_value": null,
-            "description": "config project_code: ^[A-Z][A-Z0-9_]*$",
+            "description": "config project_code: ^[A-Z][A-Z0-9_]*$ (upstream keeps it in config.json only; gsd-git reads this field when the setting is unset)",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -1395,7 +1395,7 @@
           },
           {
             "default_value": null,
-            "description": "v1, v2 or Out of Scope",
+            "description": "v1, v2 or Out of Scope (upstream: the heading it sits under)",
             "edge": null,
             "enum_values": [
               "v1",
@@ -1628,7 +1628,7 @@
           },
           {
             "default_value": null,
-            "description": "the workstream that scopes it; absent outside one",
+            "description": "the workstream that scopes it; absent outside one (upstream: the workstream directory that holds its state)",
             "edge": "MilestoneWorkstream",
             "field_type": "reference",
             "immutable": true,
@@ -3980,7 +3980,7 @@
           },
           {
             "default_value": null,
-            "description": null,
+            "description": "the project research file it comes from (upstream: the file, here a value)",
             "edge": null,
             "enum_values": [
               "stack",
@@ -4022,7 +4022,7 @@
           },
           {
             "default_value": null,
-            "description": null,
+            "description": "the sources it cites (upstream tags the claim with its source in its text)",
             "edge": "FindingSources",
             "field_type": "reference_list",
             "inverse_of": null,
@@ -4412,7 +4412,7 @@
           },
           {
             "default_value": null,
-            "description": null,
+            "description": "the decision that answers it (upstream marks it `RESOLVED:` in its text)",
             "edge": "OpenQuestionResolvedBy",
             "field_type": "reference",
             "inverse_of": null,
