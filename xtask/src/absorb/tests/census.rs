@@ -20,9 +20,6 @@ use super::super::read::{self, OldEntity};
 use super::super::table::FATES;
 use super::{fixture, old};
 
-/// The structural keywords of the core grammar: an id no project may take.
-const STRUCTURAL: [&str; 4] = ["spec", "ref", "use", "define"];
-
 /// The root spec's authored entities, compiled once for the tests that read them.
 static ROOT: LazyLock<Vec<OldEntity>> = LazyLock::new(|| {
     read::compile(specforge_repo_root::repo_root())
@@ -287,23 +284,14 @@ fn the_root_spec_ids_are_total_one_to_one_repeatable_and_grammatical() {
         "phase" => r"^\d{2,}$",
         other => panic!("no grammar for {other}"),
     };
-    let mut keywords: BTreeSet<String> = gsd_kinds().into_keys().collect();
-    assert!(
-        keywords.contains("blocker"),
-        "gsd declares a `blocker` kind"
-    );
-    keywords.extend(STRUCTURAL.map(String::from));
+    // Each grammar holds a digit, so no new name is a kind keyword (E013); the target's refused-id check, which the
+    // e2e `an_old_id_that_is_a_kind_keyword_converts_under_its_gsd_id` runs, is that defence, not this test.
     for (kind, id, new) in planned.ids.entries() {
         assert!(
             Regex::new(grammar(new.kind)).unwrap().is_match(&new.name),
             "{kind} '{id}': {} matches no {} id",
             new.name,
             new.kind
-        );
-        assert!(
-            !keywords.contains(&new.name),
-            "{kind} '{id}': {} is a keyword the target refuses (E013)",
-            new.name
         );
     }
     assert!(
