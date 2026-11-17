@@ -27,7 +27,7 @@ the item and its plan, the code the item or its plan names, and every file the v
 
 | GSD per-item status | Here |
 |---|---|
-| truth `verified`, `failed`, `uncertain`, `present_behavior_unverified`, `verified_coincidental` | the verifier's verdict on the truth; `verified` needs a passing test fact for an `explicit` truth (gsd/E502: one whose `[gsd:<id>]` tag names it, one its `proof` holds, or one the verdict's `cited_tests` names); a verified truth the tests contradict derives as not verified |
+| truth `verified`, `failed`, `uncertain`, `present_behavior_unverified`, `verified_coincidental` | the verifier's verdict on the truth; `verified` needs a passing test fact for an `explicit` truth (gsd/E502: one whose `[gsd:<id>]` tag names it, or one the verdict's `cited_tests` names); a verified truth the tests contradict derives as not verified |
 | truth `passed_override` | an `override` entity, written by a human |
 | artifact `verified`, `orphaned`, `stub`, `missing`; data flow `flowing`, `static`, `disconnected`, `hollow_prop` | `missing`, `min_lines`, `contains` and `exports` are a pass over the file's facts (the file is absent, too short by upstream's `split('\n')` count, lacks the text or a name it exports, found by substring as upstream does); the rest are the verdict |
 | key link `wired`, `not_wired`, `partial` | a pass (the pattern is searched in `from`, and in `to`, as upstream) when `pattern` is set, else the verdict |
@@ -35,7 +35,7 @@ the item and its plan, the code the item or its plan names, and every file the v
 The passes that read project files (artifact facts, a key link's `pattern`, `anti_patterns`, `validation_row.file_exists`,
 `wave0_item.done`, the refactor trigger's complexity) are buildable since protocol 1.11.0 (K11) and built in r39 (the scan pass; the refactor trigger's complexity waits for r41; the verify command's own paths are `gsd/E320`, built in r37): a pass declares the paths it
 reads (a `files` input) and receives a `FileFact` per file (`exists`, `bytes`, `lines`, `digest`) and, for declared text reads, the text.
-Every status computed from test evidence reads `@code/core`'s test facts and the graph's `names` and `proof` edges, not
+Every status computed from test evidence reads `@code/core`'s test facts, the graph's `names` edges and the tests a check or a verdict names, not
 the recorded test report.
 The timestamps a command writes (`approval.at`, `recorded_at`, a refactor `disposition.at`) are the host's clock,
 `CommandInput.now` (K14).

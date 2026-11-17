@@ -7,19 +7,11 @@ fn input() -> PassInput {
     serde_json::from_value(json!({ "entities": [] })).expect("a pass input")
 }
 
-/// `input` holding `facts` as `@code/core` test facts `(id, name, file, status)` and `proofs` as `(truth, fact)`
-/// `proof` edges.
-fn with_facts(facts: &[(&str, &str, &str, TestStatus)], proofs: &[(&str, &str)]) -> PassInput {
+/// `input` holding `facts` as `@code/core` test facts `(id, name, file, status)` that name nothing.
+fn with_facts(facts: &[(&str, &str, &str, TestStatus)]) -> PassInput {
     let mut input = input();
     for (id, name, file, status) in facts {
         add_test(&mut input, id, name, file, *status, &[]);
-    }
-    for (truth, fact) in proofs {
-        input.edges.push(PassEdge {
-            source: truth.to_string(),
-            target: fact.to_string(),
-            label: "proof".to_string(),
-        });
     }
     input
 }
@@ -74,7 +66,7 @@ fn a_failed_test_outweighs_a_passed_one() {
     let thread = Thread::of(&input);
     assert_eq!(thread.of_entity("T1"), Evidence::Failed);
     assert_eq!(
-        thread.linked("T1"),
+        thread.naming("T1"),
         [(ADDS, TestStatus::Passed), (LISTS, TestStatus::Failed)]
     );
 }
@@ -104,13 +96,10 @@ fn a_cited_test_counts_wherever_it_ran() {
 
 #[test]
 fn a_checks_ref_names_a_fact() {
-    let input = with_facts(
-        &[
-            (ADDS, "adds", FILE, TestStatus::Passed),
-            (LISTS, "lists", FILE, TestStatus::Failed),
-        ],
-        &[],
-    );
+    let input = with_facts(&[
+        (ADDS, "adds", FILE, TestStatus::Passed),
+        (LISTS, "lists", FILE, TestStatus::Failed),
+    ]);
     let thread = Thread::of(&input);
     assert_eq!(
         thread.named("test/tasks.test.js#adds"),
@@ -123,38 +112,31 @@ fn a_checks_ref_names_a_fact() {
     );
 }
 
+/// A truth's tests are the facts that name it (ADR 0371 D5): a `proof` edge, which no truth writes now, links nothing.
 #[test]
-fn a_truths_proof_results_are_linked_to_it() {
-    let mut input = with_facts(
-        &[
-            (ADDS, "adds", FILE, TestStatus::Failed),
-            (LISTS, "lists", FILE, TestStatus::Passed),
-        ],
-        &[("TR1", ADDS)],
-    );
+fn a_truths_tests_are_the_facts_that_name_it() {
+    let mut input = with_facts(&[(ADDS, "adds", FILE, TestStatus::Failed)]);
+    input.edges.push(PassEdge {
+        source: "TR1".to_string(),
+        target: ADDS.to_string(),
+        label: "proof".to_string(),
+    });
     add_test(
         &mut input,
-        "js:taskboard/test/tasks.test.js#tagged",
-        "tagged",
+        LISTS,
+        "lists",
         FILE,
         TestStatus::Passed,
         &["TR1"],
     );
     let thread = Thread::of(&input);
-    assert_eq!(
-        thread.linked("TR1"),
-        [
-            ("js:taskboard/test/tasks.test.js#tagged", TestStatus::Passed),
-            (ADDS, TestStatus::Failed)
-        ]
-    );
-    assert_eq!(thread.proof("TR1"), [(ADDS, TestStatus::Failed)]);
-    assert_eq!(thread.of_entity("TR1"), Evidence::Failed);
+    assert_eq!(thread.naming("TR1"), [(LISTS, TestStatus::Passed)]);
+    assert_eq!(thread.of_entity("TR1"), Evidence::Passed);
 }
 
 #[test]
 fn a_test_fact_is_a_test_run() {
-    let input = with_facts(&[(ADDS, "adds", FILE, TestStatus::Passed)], &[]);
+    let input = with_facts(&[(ADDS, "adds", FILE, TestStatus::Passed)]);
     let thread = Thread::of(&input);
     assert!(thread.ran());
     assert_eq!(thread.of_entity("TR1"), Evidence::NoTest);
@@ -162,18 +144,15 @@ fn a_test_fact_is_a_test_run() {
 
 #[test]
 fn a_checks_ref_names_a_fact_by_its_name_and_file() {
-    let input = with_facts(
-        &[
-            (ADDS, "adds", FILE, TestStatus::Passed),
-            (
-                "js:other/test/other.test.js#adds",
-                "adds",
-                "test/other.test.js",
-                TestStatus::Failed,
-            ),
-        ],
-        &[],
-    );
+    let input = with_facts(&[
+        (ADDS, "adds", FILE, TestStatus::Passed),
+        (
+            "js:other/test/other.test.js#adds",
+            "adds",
+            "test/other.test.js",
+            TestStatus::Failed,
+        ),
+    ]);
     let thread = Thread::of(&input);
     assert_eq!(
         thread.named("test/tasks.test.js#adds"),
@@ -190,7 +169,7 @@ fn a_checks_ref_names_a_fact_by_its_name_and_file() {
 #[test]
 fn a_checks_ref_splits_at_its_first_hash() {
     const FIXES: &str = "js:taskboard/test/tasks.test.js#fixes #42";
-    let input = with_facts(&[(FIXES, "fixes #42", FILE, TestStatus::Passed)], &[]);
+    let input = with_facts(&[(FIXES, "fixes #42", FILE, TestStatus::Passed)]);
     let thread = Thread::of(&input);
     // The first '#' ends the file: the name is `fixes #42`, not `42` in the file `test/tasks.test.js#fixes `.
     assert_eq!(
@@ -202,19 +181,16 @@ fn a_checks_ref_splits_at_its_first_hash() {
 #[test]
 fn a_cited_name_with_a_hash_and_no_file_is_read_whole() {
     const FIXES: &str = "js:taskboard/test/tasks.test.js#fixes #42";
-    let input = with_facts(
-        &[
-            (FIXES, "fixes #42", FILE, TestStatus::Passed),
-            (ADDS, "adds", FILE, TestStatus::Failed),
-            (
-                "js:o/x.js#whole",
-                "test/tasks.test.js#adds",
-                "x.js",
-                TestStatus::Passed,
-            ),
-        ],
-        &[],
-    );
+    let input = with_facts(&[
+        (FIXES, "fixes #42", FILE, TestStatus::Passed),
+        (ADDS, "adds", FILE, TestStatus::Failed),
+        (
+            "js:o/x.js#whole",
+            "test/tasks.test.js#adds",
+            "x.js",
+            TestStatus::Passed,
+        ),
+    ]);
     let thread = Thread::of(&input);
     // `fixes ` names no test file: the whole text is the name.
     assert_eq!(thread.cited(&["fixes #42"]), [TestStatus::Passed]);
@@ -247,7 +223,7 @@ fn a_test_names_its_entity_through_its_names_edge() {
     );
     let thread = Thread::of(&input);
     assert_eq!(thread.naming("TR1"), [(ADDS, TestStatus::Passed)]);
-    assert_eq!(thread.linked("T1"), [(ADDS, TestStatus::Passed)]);
+    assert_eq!(thread.naming("T1"), [(ADDS, TestStatus::Passed)]);
     assert_eq!(thread.of_entity("T2"), Evidence::Failed);
     // A fact that names another entity is no evidence for this one.
     assert_eq!(thread.of_entity("T3"), Evidence::NoTest);
@@ -269,28 +245,6 @@ fn a_cited_test_is_a_fact_by_id_or_by_name() {
         [TestStatus::Passed]
     );
     assert_eq!(thread.cited(&["test/other.test.js#adds".to_string()]), []);
-}
-
-#[test]
-fn a_named_test_and_a_proof_both_link_a_truth() {
-    let mut input = with_facts(
-        &[(ADDS, "adds", FILE, TestStatus::Passed)],
-        &[("TR1", ADDS)],
-    );
-    add_test(
-        &mut input,
-        LISTS,
-        "lists",
-        FILE,
-        TestStatus::Failed,
-        &["TR1"],
-    );
-    let thread = Thread::of(&input);
-    assert_eq!(
-        thread.linked("TR1"),
-        [(LISTS, TestStatus::Failed), (ADDS, TestStatus::Passed)]
-    );
-    assert_eq!(thread.of_entity("TR1"), Evidence::Failed);
 }
 
 /// The passes whose handler reads the thread: `grep -rn 'Thread::of' gsd/core/src/passes` keeps this list whole, with
@@ -530,6 +484,19 @@ fn a_failing_linked_test_is_failed() {
         proof_of(&traced("auto", true, &[("R1", TestStatus::Failed)])),
         Proof::Failed
     );
+}
+
+/// A committed task's tests are the facts that name it: a `proof` edge from the task links nothing.
+#[test]
+fn a_committed_tasks_tests_are_the_facts_that_name_it() {
+    let (mut input, commits) = traced("auto", true, &[(TASK, TestStatus::Passed)]);
+    add_test(&mut input, ADDS, "adds", FILE, TestStatus::Failed, &[]);
+    input.edges.push(PassEdge {
+        source: TASK.to_string(),
+        target: ADDS.to_string(),
+        label: "proof".to_string(),
+    });
+    assert_eq!(requirement_proof(&input, &commits, "R1"), Proof::Proven);
 }
 
 #[test]

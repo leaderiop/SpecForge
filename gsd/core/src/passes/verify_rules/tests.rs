@@ -96,27 +96,33 @@ fn a_report_with_no_result_is_no_run_for_e502() {
     );
 }
 
+/// E502 reads the facts that name the truth and those its verdict cites (ADR 0371 D5): a failed one that names it
+/// contradicts the verdict, and a fact a `proof` edge points at, which no truth writes now, plays no part.
 #[test]
-fn a_failing_proof_contradicts_a_verified_explicit_truth() {
-    let fact = "js:taskboard/test/tasks.test.js#adds";
-    let with_proof = |status: &str| {
-        // The proof's fact is the test run (`collect --runner node-test`).
-        let mut proved = input("explicit", &[], None);
-        proved.entities.push(
-            serde_json::from_value(
-                json!({ "id": fact, "kind": "test", "fields": { "name": "adds", "status": status } }),
-            )
-            .expect("a test fact"),
-        );
-        proved.edges.push(PassEdge {
-            source: TR.to_string(),
-            target: fact.to_string(),
-            label: "proof".to_string(),
-        });
-        e502(&proved)
-    };
-    let found = with_proof("failed");
+fn a_failed_fact_that_names_the_truth_contradicts_it_and_a_proof_edge_plays_no_part() {
+    let found = e502(&input(
+        "explicit",
+        &[],
+        Some(report(&[("linked", TestStatus::Failed)], &[])),
+    ));
     assert_eq!(found.len(), 1);
     assert!(found[0].message.contains("a test recorded for it failed"));
-    assert!(with_proof("passed").is_empty());
+    assert_eq!(
+        found[0].suggestion.as_deref(),
+        Some("record `failed` for the truth, or tag a passing test with it ([gsd:<id>])")
+    );
+    let mut with_edge = input(
+        "explicit",
+        &[],
+        Some(report(
+            &[("linked", TestStatus::Passed)],
+            &[("adds", TestStatus::Failed)],
+        )),
+    );
+    with_edge.edges.push(PassEdge {
+        source: TR.to_string(),
+        target: "js:taskboard/test/tasks.test.js#adds".to_string(),
+        label: "proof".to_string(),
+    });
+    assert!(e502(&with_edge).is_empty());
 }

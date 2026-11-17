@@ -25,10 +25,10 @@ fn plan_checker_inputs_match_rules_md() {
     }
 }
 
-/// E501 reads a truth's tests two ways (ADR 0331 D7, amended): its proof's test facts and the test facts that name it
-/// (a `[gsd:<id>]` tag in a test's name, `@code/core`'s `test.names`); without `@code/core` both chains are inert.
+/// E501 reads a truth's tests one way (ADR 0331 D7, amended by ADR 0371 D5): the test facts that name it (a
+/// `[gsd:<id>]` tag in a test's name, `@code/core`'s `test.names`); without `@code/core` the chain is inert.
 #[test]
-fn the_truth_verdict_reads_its_tags_and_its_proof() {
+fn the_truth_verdict_reads_the_tests_that_name_it() {
     assert_inputs_match_rules_md("E501");
     let judged = judged_descriptor("E501").expect("judged");
     let truth = judged["targets"]
@@ -39,5 +39,5 @@ fn the_truth_verdict_reads_its_tags_and_its_proof() {
         .as_array()
         .and_then(|inputs| inputs.iter().find(|i| i["name"] == "tests"))
         .expect("a tests input");
-    assert_eq!(tests["selector"], "test(self.proof, self<test.names)");
+    assert_eq!(tests["selector"], "test(self<test.names)");
 }

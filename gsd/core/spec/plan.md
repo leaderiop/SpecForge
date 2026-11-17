@@ -101,7 +101,7 @@ GSD: the `must_haves:` block. Each item is an entity, so a verifier's verdict ca
 
 | Kind | Fields |
 |---|---|
-| truth | `plan R I`, `text str R` (user-observable), `proof refs test` (the `@code/core` test facts that prove it, quoted ids such as `"js:pkg/a.test.js#adds"`; with no `@code/core` loaded a written proof is I004), `verification enum{explicit, backstop}` (`explicit`: a named passing test; `backstop`: judged, and a verifier abstains on it with no explicit evidence. The planner writes `backstop` for a lifted backstop edge, as upstream's `{ statement, verification: backstop }`; a person may change it). Name `TR1`. |
+| truth | `plan R I`, `text str R` (user-observable), `verification enum{explicit, backstop}` (`explicit`: a named passing test; `backstop`: judged, and a verifier abstains on it with no explicit evidence. The planner writes `backstop` for a lifted backstop edge, as upstream's `{ statement, verification: backstop }`; a person may change it). Name `TR1`. |
 | artifact | `plan R I`, `path path<planned> R` (a path the plan creates: checked once the plan is complete, E016), `provides str R`, `min_lines int`, `exports strs`, `contains str`. Name `AR1`. |
 | key_link | `plan R I`, `from path<planned> R`, `to path<planned> R` (paths the plan creates: checked once the plan is complete, E016), `via str R`, `pattern str`. Name `KL1`. |
 | prohibition | `plan R I`, `statement str R`, `verification enum{test, judgment} R`, `test str` (the test it names when `verification test`, gsd/E319). Name `PR1`. |

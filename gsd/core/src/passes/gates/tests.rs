@@ -386,8 +386,8 @@ fn e515_is_silent_outside_a_gate() {
 
 #[test]
 fn e515_names_the_first_missing_link_of_the_proof() {
-    let suggestion = "link a passing test to the task with [gsd:<task id>], or name it in the `proof` of a truth \
-        that names the requirement, and record the commit";
+    let suggestion = "tag a passing test with the task or the requirement ([gsd:<id>]), or name it in a check of the \
+        summary's coverage item for the requirement, and record the commit";
     for (proof, missing) in [
         (Some("no_task"), "no task of its plans"),
         // The derive pass writes a proof for every requirement: none reads as a thread with no task.

@@ -22,9 +22,6 @@ pub const TRUTH: Kind = Kind::new(
     &[
         rf("plan", "plan").r().i().doc("parent"),
         str("text").r().doc("the truth, as a user observes it"),
-        rfs("proof", "test").doc(
-            "the tests that prove it: `@code/core` test facts, quoted (`\"js:pkg/a.test.js#adds\"`)",
-        ),
         en("verification", TRUTH_VERIFICATION).doc(
             "explicit: a named passing test; backstop: judged, and a verifier abstains on it with no explicit \
              evidence. The planner writes `backstop` for a lifted backstop edge; a person may change the tier",

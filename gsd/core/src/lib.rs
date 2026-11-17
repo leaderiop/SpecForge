@@ -31,7 +31,8 @@ pub use kinds::path_fields;
 /// The gsd-core release this crate tracks; `[package.metadata.gsd] tracks` in `Cargo.toml` says the same.
 pub const TRACKS: &str = concat!("gsd-core@", gsd_kit::tracked_version!());
 
-/// The `@code/core` versions a truth's `proof` reads the `test` facts of (ADR 0331 D2); a project works without it.
+/// The `@code/core` versions whose `test` facts the thread and E501's truth input read (ADR 0331 D2, ADR 0371 D5); a
+/// project works without it.
 const CODE_CORE_RANGE: &str = "^1.0";
 
 #[specforge_extension_sdk::extension(

@@ -1,21 +1,9 @@
-//! A truth's `proof` names `@code/core`'s test facts (ADR 0331 D2). `@code/core` is an optional peer of `@gsd/core`:
-//! without it a written proof is I004 naming it, and with it a proof no collect has stored facts for is unheld, not
-//! E003. Neither way is a W021.
+//! `@code/core` is an optional peer of `@gsd/core`: its test facts are what E501's truth input `tests` selects
+//! (`test(self<test.names)`, the facts that name the truth) and what the passes that read the thread declare. No
+//! authored field names a test (ADR 0371 D5), so a project checks the same without the peer and with it: neither way is
+//! a W021 or an I004.
 
 use super::harness::{Project, project};
-
-const ADDS: &str = "js:taskboard/test/tasks.test.js#a task is added with the next id";
-
-/// The `execute` project with TR1 of `01-01` citing `ADDS` in its proof.
-fn proved() -> Project {
-    let p = project("execute");
-    p.edit(
-        "spec/plans.spec",
-        "  verification explicit\n",
-        &format!("  verification explicit\n  proof        [\"{ADDS}\"]\n"),
-    );
-    p
-}
 
 /// Every diagnostic of `specforge check --format json`.
 fn diagnostics(p: &Project) -> Vec<serde_json::Value> {
@@ -30,39 +18,15 @@ fn coded<'a>(found: &'a [serde_json::Value], code: &str) -> Vec<&'a serde_json::
 }
 
 #[test]
-fn a_written_proof_without_code_core_is_i004_naming_it() {
-    let found = diagnostics(&proved());
-    let i004 = coded(&found, "I004");
-    assert_eq!(i004.len(), 1, "{found:#?}");
-    assert!(
-        i004[0]["suggestion"]
-            .as_str()
-            .is_some_and(|s| s.contains("specforge add @code/core")),
-        "{:#?}",
-        i004[0]
-    );
-    assert!(coded(&found, "E003").is_empty(), "{found:#?}");
-}
-
-#[test]
 fn a_project_without_code_core_has_no_w021() {
-    for p in [project("execute"), proved()] {
-        let found = diagnostics(&p);
-        assert!(coded(&found, "W021").is_empty(), "{found:#?}");
-    }
-}
-
-#[test]
-fn with_code_core_a_proof_without_facts_is_no_e003() {
-    let found = diagnostics(&proved().with_builtins(&["@code/core"]));
-    assert!(coded(&found, "E003").is_empty(), "{found:#?}");
+    let found = diagnostics(&project("execute"));
+    assert!(coded(&found, "W021").is_empty(), "{found:#?}");
     assert!(coded(&found, "I004").is_empty(), "{found:#?}");
 }
 
 #[test]
 fn with_code_core_a_project_has_no_w021() {
-    for p in [project("execute"), proved()] {
-        let found = diagnostics(&p.with_builtins(&["@code/core"]));
-        assert!(coded(&found, "W021").is_empty(), "{found:#?}");
-    }
+    let found = diagnostics(&project("execute").with_builtins(&["@code/core"]));
+    assert!(coded(&found, "W021").is_empty(), "{found:#?}");
+    assert!(coded(&found, "I004").is_empty(), "{found:#?}");
 }

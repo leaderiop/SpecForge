@@ -8,8 +8,8 @@
 //! newly trigger it. A future writer of `result` without a `source`, or an `issue` recorded without `reported`, would.
 //!
 //! `gsd/E502` needs a fresh passing `gsd/E501` judgement and a recorded test run, and both of its inputs are inputs of
-//! E501 (`truth self`, `tests test(self.proof, self<test.names)`): a new or changed result of a test fact that names
-//! the truth or that its proof names stales the verdict first, so a recorded test never makes E502 appear. It appears
+//! E501 (`truth self`, `tests test(self<test.names)`): a new or changed result of a test fact that names the truth
+//! stales the verdict first, so a recorded test never makes E502 appear. It appears
 //! only when a verifier records `verified` over results that contradict it, and that record is refused (E080 names
 //! it): the verifier records `failed` instead. Silent without a test fact (`passes::thread`).
 //!
@@ -93,7 +93,7 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     found
 }
 
-/// Why the test facts contradict a verdict on an explicit truth: one that names it or its proof names, or one its
+/// Why the test facts contradict a verdict on an explicit truth: one that names it (a `[gsd:<id>]` tag), or one its
 /// fresh passing `gsd/E501` judgement cites by id or name (`cited_tests`), failed, or none passed. `None` for a
 /// backstop truth, without a test fact or without such a verdict. `derive` reads the same predicate (`verify.rs`).
 pub(crate) fn contradicted(input: &PassInput, t: &PassEntity) -> Option<&'static str> {
@@ -105,8 +105,8 @@ pub(crate) fn contradicted(input: &PassInput, t: &PassEntity) -> Option<&'static
         .iter()
         .find(|j| j.rule == "gsd/E501" && j.state == "fresh" && j.passed)?;
     let thread = Thread::of(input);
-    let linked = thread.linked(&t.id).into_iter().map(|(_, status)| status);
-    match thread.evidence(linked.chain(thread.cited(&verdict.cited_tests))) {
+    let naming = thread.naming(&t.id).into_iter().map(|(_, status)| status);
+    match thread.evidence(naming.chain(thread.cited(&verdict.cited_tests))) {
         Evidence::Failed => Some("a test recorded for it failed"),
         Evidence::NoTest => Some("no passing test is recorded for it"),
         Evidence::NotRun | Evidence::Passed => None,
@@ -126,7 +126,7 @@ fn e502(input: &PassInput) -> Vec<PassDiagnostic> {
                     format!("explicit truth '{}' is verified, but {why}", t.id),
                 )
                 .with_suggestion(
-                    "record `failed` for the truth, or link a passing test to it with `[gsd:<id>]`",
+                    "record `failed` for the truth, or tag a passing test with it ([gsd:<id>])",
                 )
                 .with_entity(&t.id),
             )

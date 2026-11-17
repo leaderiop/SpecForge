@@ -1,7 +1,8 @@
 //! The tests of an entity, read one way from `@code/core`'s test facts (kind `test`, its `status`) and the graph's
-//! edges (ADR 0331 D5, amended): the test facts that name an entity (an edge `names`, from a `[<ns>:<id>]` tag in the
-//! test's name), its proof's facts (a truth's `proof`), and the facts a check or a verdict names (a deliverable
-//! check's `ref`, a verdict's `cited_tests`: a fact's id, or `[file#]name`, ADR 0304). No report is read.
+//! edges (ADR 0331 D5, amended by ADR 0371 D5): the test facts that name an entity (an edge `names`, from a
+//! `[<ns>:<id>]` tag in the test's name), and the facts a check or a verdict names (a deliverable check's `ref`, a
+//! verdict's `cited_tests`: a fact's id, or `[file#]name`, ADR 0304). No authored link names a test, and no report is
+//! read.
 //!
 //! "No test" has one meaning: test facts are collected and none links a passed or failed one to the entity. With no
 //! test fact at all the evidence is `NotRun`, and each caller maps it once.
@@ -39,8 +40,8 @@ pub enum Evidence {
     Failed,
 }
 
-/// The kind of `@code/core`'s test facts, which a truth's `proof` names: every pass that reads the thread declares it
-/// in its `facts` input (ADR 0353), and the fields a deliverable check's `ref` is matched on.
+/// The kind of `@code/core`'s test facts: every pass that reads the thread declares it in its `facts` input (ADR 0353),
+/// and the fields a deliverable check's `ref` is matched on.
 pub(crate) const TEST: &str = "test";
 const NAME: &str = "name";
 const FILE: &str = "file";
@@ -48,8 +49,6 @@ const FILE: &str = "file";
 /// entities, not their kinds' declarations (protocol 1.15), so the pass cannot read it from the registry; it names the
 /// peer's declared field once, here.
 const STATUS: &str = "status";
-/// The tests a truth cites (`kinds/must_haves.rs`).
-const PROOF: &str = "proof";
 /// The field of a coverage item naming the requirement it covers.
 const REQUIREMENT: &str = "requirement";
 /// The label of the edge from a test fact to each entity its `names` holds (`@code/core`).
@@ -109,13 +108,6 @@ impl<'a> Thread<'a> {
         self.facts().next().is_some()
     }
 
-    /// `(fact id, status)` of each test fact linked to `id`: those that name it, then its proof's.
-    pub fn linked(&self, id: &str) -> Vec<(&'a str, TestStatus)> {
-        let mut linked = self.naming(id);
-        linked.extend(self.proof(id));
-        linked
-    }
-
     /// `(fact id, status)` of each test fact whose `names` holds `id`.
     pub fn naming(&self, id: &str) -> Vec<(&'a str, TestStatus)> {
         self.facts_at_ends(|e| e.target == id && e.label == NAMES, |e| &e.source)
@@ -136,11 +128,6 @@ impl<'a> Thread<'a> {
                 Some((fact.id.as_str(), status))
             })
             .collect()
-    }
-
-    /// `(fact id, status)` of each test fact `id`'s `proof` names (a truth's, ADR 0331 D2).
-    pub fn proof(&self, id: &str) -> Vec<(&'a str, TestStatus)> {
-        self.facts_at_ends(|e| e.source == id && e.label == PROOF, |e| &e.target)
     }
 
     /// The status of each test fact a check of a coverage item names, for every `deliverable` whose `requirement` is
@@ -214,9 +201,9 @@ impl<'a> Thread<'a> {
         }
     }
 
-    /// The evidence of the test facts linked to `id`.
+    /// The evidence of the test facts that name `id`.
     pub fn of_entity(&self, id: &str) -> Evidence {
-        self.evidence(self.linked(id).into_iter().map(|(_, status)| status))
+        self.evidence(self.naming(id).into_iter().map(|(_, status)| status))
     }
 }
 
@@ -308,7 +295,7 @@ fn plan_lists(input: &PassInput, requirement: &str) -> bool {
 /// test facts collected (else `NotRun`), the facts that name it and those its coverage items' checks name, `Proven`
 /// when one passed and none failed, `Failed` when one failed, else `NoTest`. A requirement a plan lists reads its
 /// thread: its tasks (none: `NoTask`), those a recorded commit names (none: `NoCommit`), then, with test facts
-/// collected (else `NotRun`), the evidence of each committed task: the facts linked to it, those linked to the
+/// collected (else `NotRun`), the evidence of each committed task: the facts that name it, those that name the
 /// requirement, and those its coverage items' checks name. One committed task whose evidence passed makes it `Proven`;
 /// else a failed one `Failed`; else `NoTest`.
 pub fn requirement_proof(input: &PassInput, commits: &[Commit], requirement: &str) -> Proof {
@@ -342,7 +329,7 @@ pub fn requirement_proof(input: &PassInput, commits: &[Commit], requirement: &st
         return Proof::NotRun;
     }
     let shared: Vec<TestStatus> = thread
-        .linked(requirement)
+        .naming(requirement)
         .into_iter()
         .map(|(_, status)| status)
         .chain(thread.coverage(requirement))
@@ -350,8 +337,8 @@ pub fn requirement_proof(input: &PassInput, commits: &[Commit], requirement: &st
     let evidence: Vec<Evidence> = committed
         .iter()
         .map(|task| {
-            let linked = thread.linked(&task.id).into_iter().map(|(_, s)| s);
-            thread.evidence(linked.chain(shared.iter().copied()))
+            let naming = thread.naming(&task.id).into_iter().map(|(_, s)| s);
+            thread.evidence(naming.chain(shared.iter().copied()))
         })
         .collect();
     if evidence.contains(&Evidence::Passed) {

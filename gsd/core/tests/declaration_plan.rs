@@ -262,7 +262,7 @@ fn must_haves_golden() {
     assert_eq!(
         fields,
         [
-            ("truth", vec!["plan", "text", "proof", "verification"]),
+            ("truth", vec!["plan", "text", "verification"]),
             (
                 "artifact",
                 vec![
@@ -287,7 +287,7 @@ fn must_haves_golden() {
         .map(|(k, f)| (k, f.into_iter().map(String::from).collect()))
     );
     let total: usize = fields.iter().map(|(_, f)| f.len()).sum();
-    assert_eq!(total, 21);
+    assert_eq!(total, 20);
     for (kind, required) in [
         ("truth", vec!["plan", "text"]),
         ("artifact", vec!["plan", "path", "provides"]),
@@ -317,13 +317,11 @@ fn must_haves_golden() {
     }
 }
 
-/// A truth's `proof` lists `@code/core`'s `test` facts (ADR 0331 D2): `@gsd/core` does not declare the kind.
+/// A truth names no test (ADR 0371 D5): its tests are `@code/core`'s `test` facts that name it, and `@gsd/core` does
+/// not declare the kind.
 #[test]
-fn a_truths_proof_lists_test_facts() {
-    let proof = field_of("truth", "proof");
-    assert_eq!(proof["field_type"], "reference_list");
-    assert_eq!(proof["target_kind"], "test");
-    assert_ne!(proof["required"], true);
+fn a_truth_names_no_test_and_gsd_core_declares_no_test_kind() {
+    assert!(!fields_of("truth").contains(&"proof".to_string()));
     assert!(
         describe("entities")["items"]
             .as_array()
@@ -334,7 +332,7 @@ fn a_truths_proof_lists_test_facts() {
 }
 
 /// A plan is complete once `complete`, a task once `done`, and a truth follows its plan (ADR 0329 D4): until then a
-/// red test of its proof is TDD, not a `@code/core` finding.
+/// red test that names it is TDD, not a `@code/core` finding.
 #[test]
 fn the_plan_and_the_task_declare_when_they_are_complete() {
     assert_eq!(
@@ -402,7 +400,7 @@ fn the_plan_kinds_declare_every_field_of_plan_md() {
         "user_setup",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 86 - 1 + 2, "the kinds' fields");
+    assert_eq!(total, 85 - 1 + 2, "the kinds' fields");
 }
 
 /// The host refuses a computed field that two compute passes claim, and one that none does (W021): every `C` field of

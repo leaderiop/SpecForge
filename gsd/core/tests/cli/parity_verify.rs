@@ -178,8 +178,8 @@ fn verification_is_three_of_three_on_both_sides() {
 
 /// P7 (D-r44-21): the verifier's seven verdicts on phase 01 are committed into the twin's `spec/` and its harness
 /// ledger, and they are fresh in any copy of it, before and after a collect of its tests. `GSD_BLESS=1` records them
-/// on a stripped copy over the collected thread (the truths' proofs passed) and writes the files back, the ledger
-/// without its `facts:` lines: the fact store is not committed.
+/// on a stripped copy over the collected thread and writes the files back, the ledger without its `facts:` lines: the
+/// fact store is not committed.
 #[test]
 fn the_twin_holds_its_verifier_verdicts() {
     if std::env::var_os("GSD_BLESS").is_some() {

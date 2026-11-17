@@ -164,8 +164,7 @@ pub const RUST_TEST_COLLECTORS: [&str; 2] = ["rust-cargo", "rust-source"];
 
 /// The parity suite's ledger fixture: a Rust project whose CI is red, its `spec/` twin beside its `.planning/`,
 /// loading beside `@gsd/core` the builtins `evaluation/gsd-ab/tasks.json` names as the ledger's `thread` (the code
-/// facts and the Rust packs whose collectors read its manifest, its items and a nextest report); its truths' proofs
-/// quiet until collected (`code/W102`), as the taskboard's.
+/// facts and the Rust packs whose collectors read its manifest, its items and a nextest report).
 #[allow(
     dead_code,
     reason = "@gsd/security's tests include this harness and do not use it"

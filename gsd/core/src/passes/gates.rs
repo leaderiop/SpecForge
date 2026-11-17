@@ -296,7 +296,7 @@ fn e515(input: &PassInput) -> Vec<PassDiagnostic> {
                 format!(
                     "complete requirement '{requirement}' does not trace to a task, a commit and a passing test: {missing}"
                 ),
-                "link a passing test to the task with [gsd:<task id>], or name it in the `proof` of a truth that names the requirement, and record the commit",
+                "tag a passing test with the task or the requirement ([gsd:<id>]), or name it in a check of the summary's coverage item for the requirement, and record the commit",
             ));
         }
     }
