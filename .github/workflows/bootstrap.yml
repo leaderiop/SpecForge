@@ -38,6 +38,10 @@ jobs:
   bootstrap:
     name: Fresh-clone bootstrap (builtin components)
     runs-on: ubuntu-latest
+    # A cold clone measured `cargo gate bootstrap` at 292 s and the equality step at 97 s on a workstation; a hosted
+    # runner is several times slower. The bound stops a hung rebuild or a stalled toolchain install (a gate test
+    # holds it).
+    timeout-minutes: 45
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

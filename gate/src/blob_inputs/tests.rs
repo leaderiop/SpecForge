@@ -231,6 +231,24 @@ fn the_bootstrap_job_installs_the_pinned_rustc() {
     assert!(line.contains("wasm32-wasip2"), "{line}");
 }
 
+/// The bootstrap job is bounded, as every `ci.yml` job is: it builds cold with no cache, so a hung rebuild or a stalled
+/// toolchain install would otherwise hold a runner for the platform's six-hour default.
+#[test]
+fn the_bootstrap_job_has_a_timeout() {
+    let path = repo_root().join(".github/workflows/bootstrap.yml");
+    let workflow = std::fs::read_to_string(&path).unwrap();
+    let minutes: u32 = workflow
+        .lines()
+        .skip_while(|line| line.trim() != "bootstrap:")
+        .take_while(|line| line.trim() != "steps:")
+        .find_map(|line| line.trim().strip_prefix("timeout-minutes:"))
+        .unwrap_or_else(|| panic!("{}: job `bootstrap` has no timeout-minutes", path.display()))
+        .trim()
+        .parse()
+        .unwrap();
+    assert!((1..=60).contains(&minutes), "{minutes}");
+}
+
 #[test]
 fn a_change_to_an_examples_extension_feeds_its_blob() {
     assert_eq!(
