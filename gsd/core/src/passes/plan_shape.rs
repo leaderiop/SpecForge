@@ -102,7 +102,8 @@ fn requirements(input: &PassInput) -> Vec<PassDiagnostic> {
 /// E303: an `auto`, `tdd` or `tracer` task has files and a verify of some form (`action` and `done` are required
 /// fields, so the host reports those). GSD's `verify plan-structure` warns on a missing `<verify>`, `<files>` and
 /// `<done>` and errors on a missing `<action>`; the plan checker's D2 blocks all four, and that is the severity kept
-/// here.
+/// here. The three are every task type; the filter stays for a task whose required `type` is missing or not one of
+/// them, which the host already reports, so the message always names the task's type.
 fn task_parts(input: &PassInput) -> Vec<PassDiagnostic> {
     of_kind(input, "task")
         .filter(|t| {
