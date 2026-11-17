@@ -13,6 +13,7 @@ nothing is kept as Markdown.
 | [verify.md](verify.md) | verification, verify_gap, override, human_item, uat_session, uat_test, uat_gap, validation, validation_row, wave0_item, manual_check, milestone_audit, broken_window, refactor_proposal |
 | [settings.md](settings.md) | the settings and profiles that replace `config.json` |
 | [rules.md](rules.md) | every GSD check as a rule, with its code, kind and profile |
+| [provenance.md](provenance.md) | where each authored field comes from |
 
 ## Notation
 
