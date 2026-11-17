@@ -92,7 +92,7 @@ impl<'a> Job<'a> {
     }
 
     /// The lines nested under the job's key `key` (a block of four spaces' indent, e.g. `env:` or `steps:`).
-    fn block(&self, key: &str) -> Vec<&'a str> {
+    pub fn block(&self, key: &str) -> Vec<&'a str> {
         self.lines
             .iter()
             .skip_while(|line| !(indent(line) == 4 && line.trim() == format!("{key}:")))
@@ -213,6 +213,24 @@ impl<'a> Step<'a> {
                 .filter(|line| indent(line) == at)
                 .find_map(|line| value_of(line, key))
         })
+    }
+
+    /// An input of the step's `with:`.
+    pub fn with(&self, key: &str) -> Option<&'a str> {
+        let at = self.key_indent();
+        self.lines
+            .iter()
+            .skip_while(|line| !(indent(line) == at && line.trim() == "with:"))
+            .skip(1)
+            .take_while(|line| line.trim().is_empty() || indent(line) > at)
+            .filter(|line| indent(line) == at + 2)
+            .find_map(|line| value_of(line, key))
+    }
+
+    /// Whether the step runs `Swatinem/rust-cache`.
+    pub fn is_rust_cache(&self) -> bool {
+        self.key("uses")
+            .is_some_and(|uses| uses.starts_with("Swatinem/rust-cache@"))
     }
 
     /// The step's `run: |` script, dedented, each line ending in a newline; `None` when it runs no block script.

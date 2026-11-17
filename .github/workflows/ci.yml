@@ -205,11 +205,7 @@ jobs:
         with:
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
-      # Only `cargo gate` itself compiles here; the tests come from the archive.
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: specs
-          save-if: false
+      # No cache: only `cargo gate` compiles here, and the tests come from the archive (ADR 0375 D1).
       - uses: taiki-e/install-action@v2
         with:
           tool: nextest
@@ -394,6 +390,58 @@ jobs:
           path: target/nextest/ci
       - name: Run dogfood
         run: cargo gate ci --only dogfood
+      - name: Build-time budget
+        shell: bash
+        run: |
+          whole='^[0-9]+$'
+          if ! [[ ${BUDGET_T0:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no clock: the job's first step recorded no BUDGET_T0"
+            exit 1
+          fi
+          if ! [[ ${BUDGET_SECONDS:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no budget: BUDGET_SECONDS is not a whole number of seconds"
+            exit 1
+          fi
+          took=$(( $(date +%s) - 10#$BUDGET_T0 ))
+          line="this job took $took s of its $BUDGET_SECONDS s build-time budget (ADR 0375 D3)"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          if (( took > 10#$BUDGET_SECONDS )); then
+            echo "::error title=Build-time budget::$line"
+            exit 1
+          fi
+          echo "$line"
+
+  cache-prune:
+    # Main keeps one generation of each cache: every entry a newer one of its group supersedes is deleted, a group
+    # being the key without its toolchain and lockfile hashes. The previous prefix's entries are the maintainer's to
+    # delete once (ADR 0375 D2).
+    name: Cache prune
+    needs: [ci, build, effect-plane, windows-subset]
+    if: github.event_name == 'push' && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: write
+      contents: read
+    env:
+      BUDGET_SECONDS: 300
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      STALE_CACHES: 'group_by(.key | sub("-[0-9a-f]{8}-[0-9a-f]{8}$"; "")) | map(sort_by(.createdAt) | .[:-1]) | flatten | .[].id'
+    steps:
+      - name: Start the build-time budget clock
+        shell: bash
+        run: |
+          echo "BUDGET_T0=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Delete the cache entries a newer one of their group supersedes
+        shell: bash
+        run: |
+          stale=$(gh cache list --ref refs/heads/main --limit 100 --json id,key,createdAt --jq "$STALE_CACHES")
+          for id in $stale; do
+            if ! gh cache delete "$id"; then
+              echo "::warning title=cache-prune::could not delete cache $id (a concurrent main run may have deleted it)"
+            fi
+          done
       - name: Build-time budget
         shell: bash
         run: |

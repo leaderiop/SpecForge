@@ -19,7 +19,10 @@ jobs:
         with:
           components: llvm-tools-preview
           targets: wasm32-wasip2
+      # Saves nothing: a nightly instrumented cache would only evict CI's (ADR 0375 D1).
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: false
       - uses: taiki-e/install-action@nextest
       - uses: taiki-e/install-action@cargo-llvm-cov
       - name: Install z3 (SMT solver for prove tests)

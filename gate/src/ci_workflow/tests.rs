@@ -255,6 +255,7 @@ fn every_job_has_a_budget_under_its_timeout() {
             "effect-plane",
             "windows-subset",
             "dogfood",
+            "cache-prune",
             "bootstrap"
         ]
     );
@@ -270,6 +271,7 @@ fn the_timeouts_are_the_decided_ones() {
         ("effect-plane", 30),
         ("windows-subset", 30),
         ("dogfood", 20),
+        ("cache-prune", 10),
         ("bootstrap", 45),
     ];
     let mut found = Vec::new();
@@ -320,5 +322,114 @@ fn the_windows_leg_runs_the_named_subset() {
     assert!(
         config.is_some_and(|config| config < checkout),
         "no bash step sets core.autocrlf false and core.longpaths true before the checkout"
+    );
+}
+
+/// The `tests` jobs restore no cache: only `cargo gate` compiles there, and the tests come from the archive (ADR 0375
+/// D1).
+#[test]
+fn the_tests_jobs_restore_no_cache() {
+    let workflow = read(CI);
+    let jobs = jobs(&workflow);
+    let tests = jobs.iter().find(|job| job.id == "tests").unwrap();
+    assert!(!tests.steps().is_empty());
+    assert!(
+        !tests.steps().iter().any(Step::is_rust_cache),
+        "the tests jobs restore a cache"
+    );
+}
+
+/// Only `ci.yml` and the nightly `perf.yml` save a cache, and `ci.yml` saves only on main: a pull request never saves
+/// a cache main would restore, and coverage's instrumented or release's tag-scoped caches never evict CI's (ADR 0375
+/// D1).
+#[test]
+fn only_ci_and_perf_save_a_cache() {
+    let main = "${{ github.ref == 'refs/heads/main' }}";
+    let dir = repo_root().join(".github/workflows");
+    let mut files: Vec<String> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .filter(|name| name.ends_with(".yml") || name.ends_with(".yaml"))
+        .collect();
+    files.sort();
+    assert!(
+        files.contains(&"coverage.yml".to_string()) && files.contains(&"release.yml".to_string())
+    );
+    let mut ci_savers = 0;
+    for name in files.iter().filter(|name| *name != "perf.yml") {
+        let file = format!(".github/workflows/{name}");
+        let workflow = read(&file);
+        for job in jobs(&workflow) {
+            for step in job.steps().iter().filter(|step| step.is_rust_cache()) {
+                let save_if = step.with("save-if");
+                if name == "ci.yml" && save_if == Some(main) {
+                    ci_savers += 1;
+                } else {
+                    assert_eq!(
+                        save_if,
+                        Some("false"),
+                        "{file}: a rust-cache step of job `{}` saves outside main",
+                        job.id
+                    );
+                }
+            }
+        }
+    }
+    assert!(ci_savers > 0, "ci.yml saves no cache on main");
+}
+
+/// The one job that deletes caches runs only on a push (to main, the only branch `ci.yml` runs pushes for), after
+/// every job that saves a cache, with `actions: write` and `contents: read` alone, and lists only main's entries
+/// (ADR 0375 D2).
+#[test]
+fn the_prune_job_runs_only_on_mains_pushes_with_actions_write_alone() {
+    let workflow = read(CI);
+    assert!(
+        workflow.contains("on:\n  push:\n    branches: [main]\n"),
+        "ci.yml runs pushes for another branch than main"
+    );
+    let jobs = jobs(&workflow);
+    let prune = jobs.iter().find(|job| job.id == "cache-prune").unwrap();
+    assert_eq!(
+        prune.key("if"),
+        Some("github.event_name == 'push' && !cancelled()")
+    );
+    let permissions: Vec<&str> = prune
+        .block("permissions")
+        .iter()
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .collect();
+    assert_eq!(permissions, ["actions: write", "contents: read"]);
+    let savers: Vec<&str> = jobs
+        .iter()
+        .filter(|job| {
+            job.steps()
+                .iter()
+                .any(|step| step.is_rust_cache() && step.with("save-if") != Some("false"))
+        })
+        .map(|job| job.id)
+        .collect();
+    assert_eq!(
+        prune.key("needs"),
+        Some(format!("[{}]", savers.join(", ")).as_str())
+    );
+    let steps = prune.steps();
+    assert!(
+        !steps.iter().any(|step| step
+            .key("uses")
+            .is_some_and(|uses| uses.starts_with("actions/checkout@"))),
+        "the prune job checks out the repository"
+    );
+    let delete = steps
+        .iter()
+        .find_map(|step| {
+            step.script()
+                .filter(|script| script.contains("gh cache delete"))
+        })
+        .expect("the prune job deletes nothing");
+    assert!(
+        delete.contains("gh cache list --ref refs/heads/main "),
+        "{delete}"
     );
 }

@@ -56,9 +56,10 @@ a shared resource, so the job's reach is main's pushes, one group's older entrie
 A first step records the clock and a last step fails the job with an `::error` when it took longer than its
 `BUDGET_SECONDS`. A budget is the smaller of 1.25 times the job's cold wall time rounded up to a whole minute, and its
 timeout less 300 seconds, set from this change's own cold run. A job a pull request cannot run takes its budget from its
-runs on main (`dogfood`, which has never had a cache hit) or from its cap. The timeouts are unchanged: `ci` and `build`
-40 minutes, `tests` and `effect-plane` 30, `dogfood` 20, `bootstrap` 45. Gate tests hold every budget under its cap,
-every cap under its timeout, and the key rules of D1.
+runs on main (`dogfood`, which has never had a cache hit) or from its cap (`cache-prune`). The timeouts are unchanged:
+`ci` and `build` 40 minutes, `tests` and `effect-plane` 30, `dogfood` 20, `bootstrap` 45; the two jobs this change adds
+take `windows-subset` 30 and `cache-prune` 10. Gate tests hold every budget under its cap, every cap under its timeout,
+and the key rules of D1.
 
 The reason: a timeout cuts a job at the cap and says only that it ran long; a budget under it fails the run while the
 job still finishes, and so names the job that slipped before a cold run lands on the timeout.
