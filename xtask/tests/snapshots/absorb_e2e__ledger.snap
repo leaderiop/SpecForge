@@ -122,15 +122,6 @@ expression: ledger
     {
       "kind": "constraint",
       "id": "bounded_retries",
-      "field": "metric",
-      "value": "retries <= 3",
-      "why": {
-        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "bounded_retries",
       "field": "priority",
       "value": "high",
       "why": {
@@ -173,15 +164,6 @@ expression: ledger
     {
       "kind": "constraint",
       "id": "calm_wait",
-      "field": "metric",
-      "value": "Fast enough that nobody reaches for the button twice.",
-      "why": {
-        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "calm_wait",
       "field": "priority",
       "value": "low",
       "why": {
@@ -219,15 +201,6 @@ expression: ledger
           "field": "requirement.category",
           "value": "Constraint"
         }
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "retry_window",
-      "field": "metric",
-      "value": "wait < 30s",
-      "why": {
-        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
       }
     },
     {
@@ -292,15 +265,6 @@ expression: ledger
       ],
       "why": {
         "dropped": "it names behaviors, which are dropped with the software kinds (ADR 0364 D2): no requirement field names one (ADR 0372 D6)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "write_latency",
-      "field": "metric",
-      "value": "latency <= 95.0ms\nmeasured at the 99th percentile",
-      "why": {
-        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
       }
     },
     {
@@ -371,28 +335,10 @@ expression: ledger
     {
       "kind": "constraint",
       "id": "write_throughput",
-      "field": "metric",
-      "value": "throughput",
-      "why": {
-        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "write_throughput",
       "field": "priority",
       "value": "high",
       "why": {
         "dropped": "requirement.priority leaves @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "write_throughput",
-      "field": "threshold",
-      "value": ">= 200",
-      "why": {
-        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
       }
     },
     {
@@ -413,7 +359,7 @@ expression: ledger
       "field": "context",
       "value": "Facts needed a home.",
       "why": {
-        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
@@ -422,7 +368,7 @@ expression: ledger
       "field": "decision",
       "value": "Keep facts in one JSON file.",
       "why": {
-        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
@@ -431,7 +377,7 @@ expression: ledger
       "field": "status",
       "value": "superseded",
       "why": {
-        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
@@ -440,7 +386,7 @@ expression: ledger
       "field": "superseded_by",
       "value": "second_store",
       "why": {
-        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
@@ -449,7 +395,7 @@ expression: ledger
       "field": "title",
       "value": "First Store",
       "why": {
-        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
@@ -458,19 +404,34 @@ expression: ledger
       "field": "context",
       "value": "Cold runs read every file.",
       "why": {
-        "dropped": "decision.context leaves @gsd/core (ADR 0370)"
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
       "kind": "decision",
       "id": "lazy_cache",
-      "field": "origin",
-      "value": null,
+      "field": "decision",
+      "value": "Cache the parse of each file until it changes.",
       "why": {
-        "filled": {
-          "field": "decision.origin",
-          "value": "project"
-        }
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "lazy_cache",
+      "field": "status",
+      "value": "proposed",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "lazy_cache",
+      "field": "title",
+      "value": "Lazy Cache",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
@@ -479,7 +440,7 @@ expression: ledger
       "field": "context",
       "value": "The first format had no versions.",
       "why": {
-        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
@@ -488,7 +449,7 @@ expression: ledger
       "field": "decision",
       "value": "Write the format without a version line.",
       "why": {
-        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
@@ -497,7 +458,7 @@ expression: ledger
       "field": "status",
       "value": "superseded",
       "why": {
-        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
@@ -506,7 +467,7 @@ expression: ledger
       "field": "title",
       "value": "Old Format",
       "why": {
-        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
@@ -609,23 +570,83 @@ expression: ledger
     },
     {
       "kind": "decision",
-      "id": "sync_writes",
+      "id": "stale_choice",
       "field": "context",
-      "value": "Writes raced the watcher.",
+      "value": "The store had one writer.",
       "why": {
-        "dropped": "decision.context leaves @gsd/core (ADR 0370)"
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "stale_choice",
+      "field": "decision",
+      "value": "Lock the whole store on each write.",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "stale_choice",
+      "field": "status",
+      "value": "accepted",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "stale_choice",
+      "field": "superseded_by",
+      "value": "second_store",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "stale_choice",
+      "field": "title",
+      "value": "Stale Choice",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
       "kind": "decision",
       "id": "sync_writes",
-      "field": "origin",
-      "value": null,
+      "field": "context",
+      "value": "Writes raced the watcher.",
       "why": {
-        "filled": {
-          "field": "decision.origin",
-          "value": "project"
-        }
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "sync_writes",
+      "field": "decision",
+      "value": "Write every file synchronously.",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "sync_writes",
+      "field": "status",
+      "value": "deprecated",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "sync_writes",
+      "field": "title",
+      "value": "Synchronous Writes",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
@@ -1094,18 +1115,6 @@ expression: ledger
       ],
       "why": {
         "dropped": "requirement.source leaves @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "feature",
-      "id": "store_entries",
-      "field": "solution",
-      "value": "Write each entry to the store as it is saved.",
-      "why": {
-        "created": {
-          "kind": "decision",
-          "id": "store_entries_solution"
-        }
       }
     },
     {
@@ -1881,11 +1890,6 @@ expression: ledger
     },
     {
       "kind": "decision",
-      "old": "lazy_cache",
-      "new": "lazy_cache"
-    },
-    {
-      "kind": "decision",
       "old": "one_parser",
       "new": "one_parser"
     },
@@ -1893,11 +1897,6 @@ expression: ledger
       "kind": "decision",
       "old": "second_store",
       "new": "second_store"
-    },
-    {
-      "kind": "decision",
-      "old": "sync_writes",
-      "new": "sync_writes"
     },
     {
       "kind": "feature",

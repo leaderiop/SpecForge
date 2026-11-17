@@ -80,13 +80,14 @@ fn all_seventeen_old_kinds_convert_or_drop_with_no_error_and_no_warning() {
         "three compiles and one edit plan, whatever the size"
     );
     assert_eq!(
-        (&run.summary["converted"], &run.summary["created"]),
-        (&json!(19), &json!(1)),
-        "the decisions still in force, constraints, invariants, features, releases and the milestones they list \
-         (ADR 0372 D1, D4: the superseded decisions, the milestone no release lists and the eleven kinds dropped \
-         whole convert to nothing), and one feature's solution: {}",
+        (&run.summary["converted"], &run.summary["creates"]),
+        (&json!(17), &json!(17)),
+        "the decisions in force, constraints, invariants, features, releases and the milestones they list (ADR \
+         0372 D1, D4, D5: the decisions not in force, the milestone no release lists and the eleven kinds dropped \
+         whole convert to nothing); nothing is created: {}",
         run.summary
     );
+    assert_eq!(run.summary.get("created"), None, "{}", run.summary);
     for dropped_whole in [
         "spec/product/journeys.spec",
         "spec/product/deliverables.spec",
@@ -117,21 +118,52 @@ fn all_seventeen_old_kinds_convert_or_drop_with_no_error_and_no_warning() {
     );
     let features = std::fs::read_to_string(a.join("spec/product/features.spec")).unwrap();
     assert!(
-        features.contains("decision store_entries_solution \"Store Entries\""),
-        "{features}"
+        !features.contains("decision ")
+            && features.contains("Write each entry to the store as it is saved."),
+        "a feature's solution is in its requirement's text, and no decision is created: {features}"
+    );
+    let constraints = std::fs::read_to_string(a.join("spec/governance/constraints.spec")).unwrap();
+    let throughput = &constraints[constraints.find("requirement write_throughput").unwrap()..];
+    let throughput = &throughput[..throughput.find("\n}").unwrap()];
+    let lines: Vec<&str> = throughput.lines().map(str::trim).collect();
+    let closing = lines.iter().rposition(|line| *line == "\"\"\"").unwrap();
+    assert_eq!(
+        lines[closing - 1],
+        "throughput >= 200",
+        "the bound ends the text, its threshold on the metric's line: {throughput}"
     );
     let decisions = std::fs::read_to_string(a.join("spec/governance/decisions.spec")).unwrap();
-    assert!(
-        decisions.contains("decision one_parser") && !decisions.contains("old_format"),
-        "a superseded decision converts to nothing: {decisions}"
+    let written: Vec<&str> = decisions
+        .lines()
+        .filter_map(|line| line.strip_prefix("decision "))
+        .filter_map(|rest| rest.split_whitespace().next())
+        .collect();
+    assert_eq!(
+        written,
+        ["one_parser", "second_store"],
+        "only a decision in force converts: {decisions}"
     );
     let ledger = std::fs::read_to_string(a.join("absorb-ledger.json")).unwrap();
-    assert!(
-        ["title", "status", "decision"]
+    let entries: Value = serde_json::from_str(&ledger).unwrap();
+    for id in [
+        "lazy_cache",
+        "sync_writes",
+        "first_store",
+        "old_format",
+        "stale_choice",
+    ] {
+        let reasons: Vec<&str> = entries["entries"]
+            .as_array()
+            .unwrap()
             .iter()
-            .all(|f| dropped(&ledger, "old_format", f)),
-        "a superseded decision's values are ledgered dropped: gsd-core has no supersession: {ledger}"
-    );
+            .filter(|e| e["kind"] == "decision" && e["id"] == id)
+            .map(|e| e["why"]["dropped"].as_str().unwrap_or_default())
+            .collect();
+        assert!(
+            reasons.len() >= 3 && reasons.iter().all(|r| r.contains("docs/adr/")),
+            "{id}: a decision not in force is dropped whole, docs/adr/ its record: {reasons:?}"
+        );
+    }
     assert!(
         dropped(&ledger, "EntryStore", "method") && dropped(&ledger, "SavedEntry", "annotations"),
         "a port's methods and a type's member annotations are ledgered: {ledger}"
@@ -163,13 +195,13 @@ fn a_selection_converts_only_its_entities_and_checks_clean() {
     assert_eq!(run.summary["target"]["errors"], 0, "{}", run.summary);
     assert_eq!(run.summary["target"]["warnings"], 0, "{}", run.summary);
     assert_eq!(
-        (&run.summary["converted"], &run.summary["created"]),
-        (&json!(4), &json!(1)),
+        (&run.summary["converted"], &run.summary["creates"]),
+        (&json!(4), &json!(4)),
         "the decision, the constraint, the invariant and the feature of the nine selected ids (the superseded \
-         decision, the failure mode, the journey, the persona and the channel are dropped whole), and the feature's \
-         solution: {}",
+         decision, the failure mode, the journey, the persona and the channel are dropped whole): {}",
         run.summary
     );
+    assert_eq!(run.summary.get("created"), None, "{}", run.summary);
     let tree = spec_tree(&to);
     assert!(
         !tree.values().any(|text| text.contains("second_store")),

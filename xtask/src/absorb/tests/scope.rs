@@ -112,14 +112,14 @@ fn a_selected_failure_mode_is_kept_and_its_values_dropped() {
 }
 
 #[test]
-fn a_selected_feature_brings_its_solution_decision() {
+fn a_selected_feature_creates_its_requirement_alone() {
     let all = [
         old("feature", "f", json!({"problem": "P", "solution": "S"})),
         old("feature", "g", json!({"problem": "P", "solution": "S"})),
     ];
     let planned = selected(&all, &["f"]);
-    assert_eq!(created(&planned), ["f", "f_solution"]);
-    assert_eq!((planned.converted, planned.created), (1, 1));
+    assert_eq!(created(&planned), ["f"], "its solution is in its text");
+    assert_eq!(planned.converted, 1);
 }
 
 #[test]

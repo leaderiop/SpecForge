@@ -99,15 +99,6 @@ expression: ledger
     {
       "kind": "constraint",
       "id": "write_latency",
-      "field": "metric",
-      "value": "latency <= 95.0ms\nmeasured at the 99th percentile",
-      "why": {
-        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "write_latency",
       "field": "priority",
       "value": "critical",
       "why": {
@@ -155,7 +146,7 @@ expression: ledger
       "field": "context",
       "value": "Facts needed a home.",
       "why": {
-        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
@@ -164,7 +155,7 @@ expression: ledger
       "field": "decision",
       "value": "Keep facts in one JSON file.",
       "why": {
-        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
@@ -173,7 +164,7 @@ expression: ledger
       "field": "status",
       "value": "superseded",
       "why": {
-        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
@@ -182,7 +173,7 @@ expression: ledger
       "field": "superseded_by",
       "value": "second_store",
       "why": {
-        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
@@ -191,7 +182,7 @@ expression: ledger
       "field": "title",
       "value": "First Store",
       "why": {
-        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
@@ -488,18 +479,6 @@ expression: ledger
       ],
       "why": {
         "dropped": "requirement.source leaves @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "feature",
-      "id": "store_entries",
-      "field": "solution",
-      "value": "Write each entry to the store as it is saved.",
-      "why": {
-        "created": {
-          "kind": "decision",
-          "id": "store_entries_solution"
-        }
       }
     },
     {

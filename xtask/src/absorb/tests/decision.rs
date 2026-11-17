@@ -30,7 +30,6 @@ fn a_decision_becomes_one_create_keeping_its_id_title_and_file() {
             ),
             other => panic!("only creates: {other:?}"),
         })
-        .filter(|header| header.1 != "store_entries_solution")
         .collect();
     let expected: Vec<(&str, String, &str, &str)> = entities
         .iter()
@@ -50,87 +49,76 @@ fn a_decision_becomes_one_create_keeping_its_id_title_and_file() {
     );
     let decisions: Vec<_> = headers.iter().filter(|h| h.0 == "decision").collect();
     assert_eq!(
-        decisions.len(),
-        4,
-        "every fixture decision still in force, once: the two superseded convert to nothing"
+        decisions.iter().map(|h| h.1.as_str()).collect::<Vec<_>>(),
+        ["one_parser", "second_store"],
+        "every fixture decision in force, once: the others are dropped whole (ADR 0372 D5)"
     );
     assert_eq!(decisions[0].3, "spec/governance/decisions.spec");
     assert_eq!(
-        (planned.converted, planned.created),
-        (expected.len(), 1),
-        "the module creates nothing; one feature's solution is created"
+        (planned.converted, planned.creates.len()),
+        (expected.len(), expected.len()),
+        "no entity is created that the old spec did not hold"
     );
 }
 
+/// Only a decision in force converts (ADR 0372 D5): status `accepted` and no `superseded_by`. It writes `text`,
+/// `rationale`, `settled true` and `origin project`; every other decision is dropped whole, its title and each value
+/// one `dropped` entry whose reason names `docs/adr/` as its record.
 #[test]
-fn decision_status_writes_outcome_or_settled_and_never_status() {
+fn only_a_decision_in_force_converts() {
+    let decision = |id: &str, status: &str, more: serde_json::Value| {
+        let mut fields = json!({"status": status, "decision": "D", "reason": "R"});
+        for (k, v) in more.as_object().unwrap() {
+            fields[k] = v.clone();
+        }
+        old("decision", id, fields)
+    };
     let planned = planned(&[
-        old(
-            "decision",
-            "a",
-            json!({"status": "accepted", "decision": "A"}),
-        ),
-        old(
-            "decision",
-            "p",
-            json!({"status": "proposed", "decision": "P"}),
-        ),
-        old(
-            "decision",
-            "d",
-            json!({"status": "deprecated", "decision": "D"}),
-        ),
+        decision("a", "accepted", json!({})),
+        decision("p", "proposed", json!({})),
+        decision("d", "deprecated", json!({})),
+        decision("s", "superseded", json!({})),
+        decision("later", "accepted", json!({"superseded_by": "a"})),
     ]);
-    assert_eq!(field(&planned, "a", "settled"), Some(&Input::Bool(true)));
-    assert_eq!(field(&planned, "a", "outcome"), None);
-    assert_eq!(field(&planned, "p", "outcome"), Some(&one("pending")));
-    assert_eq!(field(&planned, "d", "outcome"), Some(&one("revisit")));
-    for id in ["a", "p", "d"] {
-        assert_eq!(field(&planned, id, "status"), None, "{id}");
-        assert!(
-            ledgered(&planned, id).iter().all(|(f, _)| f != "status"),
-            "{id}"
-        );
-    }
+    let (kind, fields) = create(&planned, "a");
+    assert_eq!(kind, "decision");
+    assert_eq!(
+        fields,
+        &std::collections::BTreeMap::from([
+            ("origin".to_string(), one("project")),
+            ("rationale".to_string(), one("R")),
+            ("settled".to_string(), Input::Bool(true)),
+            ("text".to_string(), one("D")),
+        ])
+    );
+    assert_eq!(planned.creates.len(), 1);
+    assert_eq!(planned.converted, 1);
     assert!(
         planned.checks.is_empty(),
         "no computed value of a decision is compared: `in_force` left (ADR 0370 D4)"
     );
-}
-
-/// gsd-core has no supersession (ADR 0370 D4): a decision that no longer holds converts to nothing (D8), its title
-/// and each of its values one `dropped` entry with that reason, and no other decision changes.
-#[test]
-fn a_superseded_decision_converts_to_nothing_and_ledgers_each_value_dropped() {
-    let planned = planned(&[
-        old(
-            "decision",
-            "s",
-            json!({"status": "superseded", "decision": "S", "context": "C", "superseded_by": "a"}),
+    for (id, fields) in [
+        ("p", ["decision", "reason", "status", "title"].as_slice()),
+        ("d", &["decision", "reason", "status", "title"]),
+        ("s", &["decision", "reason", "status", "title"]),
+        (
+            "later",
+            &["decision", "reason", "status", "superseded_by", "title"],
         ),
-        old(
-            "decision",
-            "a",
-            json!({"status": "accepted", "decision": "A"}),
-        ),
-    ]);
-    let ids: Vec<&str> = planned
-        .creates
-        .iter()
-        .filter_map(|edit| match edit {
-            Edit::Create { id, .. } => Some(id.as_str()),
-            _ => None,
-        })
-        .collect();
-    assert_eq!(ids, ["a"]);
-    assert_eq!((planned.converted, planned.created), (1, 0));
-    assert!(table::NO_SUPERSESSION.contains("ADR 0370"));
-    let dropped = Why::Dropped(table::NO_SUPERSESSION.to_string());
-    assert_eq!(
-        ledgered(&planned, "s"),
-        ["context", "decision", "status", "superseded_by", "title"]
-            .map(|f| (f.to_string(), dropped.clone()))
-    );
+    ] {
+        let ledger = ledgered(&planned, id);
+        assert_eq!(
+            ledger.iter().map(|(f, _)| f.as_str()).collect::<Vec<_>>(),
+            fields,
+            "{id}"
+        );
+        for (field, why) in ledger {
+            assert!(
+                matches!(&why, Why::Dropped(reason) if reason.contains("docs/adr/") && reason.contains("ADR 0372 D5")),
+                "{id}.{field}: {why:?}"
+            );
+        }
+    }
 }
 
 /// A field whose home left `@gsd/core` (ADR 0370 D3 and D4) is one `dropped` entry with its row's reason, and the
@@ -142,7 +130,7 @@ fn a_field_whose_home_leaves_is_ledgered_dropped_and_the_entity_still_converts()
         "x",
         json!({
             "status": "accepted", "decision": "Read with one parser.", "context": "Readers drift.",
-            "superseded_by": "y", "alternatives": ["A hand parser", "Two parsers"],
+            "alternatives": ["A hand parser", "Two parsers"],
         }),
     )]);
     assert_eq!(planned.creates.len(), 1);
@@ -151,7 +139,7 @@ fn a_field_whose_home_leaves_is_ledgered_dropped_and_the_entity_still_converts()
     assert_eq!(
         fields.keys().collect::<Vec<_>>(),
         ["origin", "settled", "text"],
-        "of the four fields, only `decision` is written, as `text`"
+        "of the three fields, only `decision` is written, as `text`"
     );
     assert_eq!(
         field(&planned, "x", "text"),
@@ -170,7 +158,7 @@ fn a_field_whose_home_leaves_is_ledgered_dropped_and_the_entity_still_converts()
         .collect();
     assert_eq!(
         dropped,
-        ["alternatives", "context", "superseded_by"].map(|f| (f.to_string(), reason(f))),
+        ["alternatives", "context"].map(|f| (f.to_string(), reason(f))),
         "one entry per value, each with its row's reason"
     );
     assert!(
@@ -253,7 +241,7 @@ fn two_entities_given_one_id_stop_the_run_naming_them() {
         old(
             "decision",
             "same",
-            json!({"status": "proposed", "decision": "B"}),
+            json!({"status": "accepted", "decision": "B"}),
         ),
     ]);
     assert_eq!(stops.len(), 1, "{stops:?}");

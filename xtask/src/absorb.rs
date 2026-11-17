@@ -1,5 +1,5 @@
-//! Converts an old project's `@specforge/governance` and `@specforge/product` entities into a fresh `@gsd/core`
-//! project by one typed-edit plan (ADR 0360).
+//! Converts an old project's authored entities into a fresh `@gsd/core` project by one typed-edit plan (ADR 0360):
+//! every old kind converts or is dropped whole (ADR 0372 D1), and no entity is created that the old spec did not hold.
 //!
 //!   GSD_CORE_WASM=<gsd_core.wasm> cargo run -p xtask --bin absorb -- --from <project> --to <dir>
 //!       [--only ids:<file> | --only sample:<name> [--selection <file>]] [--extension <name>]... [--ledger <file>]
@@ -262,7 +262,6 @@ fn run(args: &[String]) -> i32 {
     let ([errors, warnings, infos], findings) = target.report();
     let summary = json!({
         "converted": planned.converted,
-        "created": planned.created,
         "creates": planned.creates.len(),
         "cited_tests": [],
         "ledger": planned.ledger.counts(),

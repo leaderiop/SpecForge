@@ -4,12 +4,11 @@
 
 use serde_json::{Value, json};
 use specforge_ops::authoring::edit::Edit;
-use std::collections::BTreeMap;
 
 use super::super::ledger::Why;
 use super::super::plan::Planned;
 use super::super::table::{self, Fate};
-use super::{create, field, ledgered, old, one, planned, stops};
+use super::{create, field, ledgered, old, one, planned};
 
 fn why_of(planned: &Planned, id: &str, field: &str) -> Vec<Why> {
     ledgered(planned, id)
@@ -38,50 +37,32 @@ fn ids(planned: &Planned) -> Vec<&str> {
         .collect()
 }
 
+/// A feature's text is its problem, its description and its solution (ADR 0372 D6): no entity is created for the
+/// solution, and nothing is ledgered for it.
 #[test]
-fn a_feature_solution_becomes_a_project_decision_beside_the_requirement() {
+fn a_feature_solution_joins_its_requirement_text_and_creates_nothing() {
     let planned = planned(&[
-        feature("store", json!({"solution": "Write each entry."})),
-        feature("other", json!({})),
-    ]);
-    assert_eq!(ids(&planned), ["store", "store_solution", "other"]);
-    assert_eq!((planned.converted, planned.created), (2, 1));
-    let (kind, fields) = create(&planned, "store_solution");
-    assert_eq!(kind, "decision");
-    assert_eq!(
-        fields,
-        &BTreeMap::from([
-            ("text".to_string(), one("Write each entry.")),
-            ("origin".to_string(), one("project")),
-        ]),
-        "no `affects`: the field left the decision (ADR 0370 D3)"
-    );
-    let Edit::Create { title, file, .. } = &planned.creates[1] else {
-        panic!("a create")
-    };
-    assert_eq!(
-        (title.as_str(), file.as_str()),
-        ("The store", "spec/feature.spec")
-    );
-    assert_eq!(
-        why_of(&planned, "store", "solution"),
-        [Why::Created {
-            kind: "decision".to_string(),
-            id: "store_solution".to_string()
-        }]
-    );
-    let clash = stops(&[
-        feature("store", json!({"solution": "S"})),
-        old(
-            "decision",
-            "store_solution",
-            json!({"status": "accepted", "decision": "D"}),
+        feature(
+            "store",
+            json!({"description": "One file per entry.", "solution": "Write each entry."}),
         ),
+        feature("other", json!({"solution": "Only a solution."})),
     ]);
+    assert_eq!(ids(&planned), ["store", "other"]);
+    assert_eq!(planned.converted, planned.creates.len());
     assert_eq!(
-        clash[0].to_string(),
-        "'store_solution': two entities given one decision id, by feature 'store' (its solution) and \
-         decision 'store_solution'"
+        field(&planned, "store", "text"),
+        Some(&one("P\n\nOne file per entry.\n\nWrite each entry."))
+    );
+    assert_eq!(
+        field(&planned, "other", "text"),
+        Some(&one("P\n\nOnly a solution."))
+    );
+    assert_eq!(why_of(&planned, "store", "solution"), []);
+    assert!(
+        !planned.ledger.counts().contains_key("created"),
+        "{:?}",
+        planned.ledger.counts()
     );
 }
 
@@ -258,7 +239,7 @@ fn a_deliverable_and_a_module_are_dropped_whole() {
     ]);
     assert!(planned.creates.is_empty(), "{:?}", planned.creates);
     assert!(planned.checks.is_empty());
-    assert_eq!((planned.converted, planned.created), (0, 0));
+    assert_eq!(planned.converted, 0);
     for (kind, id, fields) in [
         (
             "deliverable",
@@ -324,7 +305,7 @@ fn an_old_kind_that_converts_to_nothing_creates_no_entity_and_ledgers_each_value
     ];
     let planned = planned(&entities);
     assert!(planned.creates.is_empty(), "{:?}", planned.creates);
-    assert_eq!((planned.converted, planned.created), (0, 0));
+    assert_eq!(planned.converted, 0);
     assert!(planned.checks.is_empty());
     for (kind, id, fields) in [
         ("journey", "record", ["flow", "persona", "title"].as_slice()),

@@ -39,15 +39,6 @@
     {
       "kind": "constraint",
       "id": "extension_count_limit",
-      "field": "metric",
-      "value": "loaded_extensions <= 50\nThe system SHOULD support up to 20 extensions without performance\ndegradation. 21-50 extensions MUST produce a warning diagnostic.\nMore than 50 extensions MUST be refused with a hard error.",
-      "why": {
-        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "extension_count_limit",
       "field": "priority",
       "value": "high",
       "why": {
@@ -179,15 +170,6 @@
     {
       "kind": "constraint",
       "id": "extension_system_integrity",
-      "field": "metric",
-      "value": "extension_integrity_violations <= 0\nextension install/remove never corrupts specforge.json; Wasm sandbox\ncontains all extension execution; Wasm traps produce diagnostics, not\ncrashes; provider registration survives reload; timeout enforcement\nprevents runaway extensions",
-      "why": {
-        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "extension_system_integrity",
       "field": "priority",
       "value": "critical",
       "why": {
@@ -280,15 +262,6 @@
     {
       "kind": "constraint",
       "id": "test_coverage_accuracy",
-      "field": "metric",
-      "value": "coverage_ratio_error <= 0\ncoverage percentage matches actual verified/total ratio;\nmerge produces correct deduplicated results",
-      "why": {
-        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "test_coverage_accuracy",
       "field": "priority",
       "value": "critical",
       "why": {
@@ -368,15 +341,6 @@
     {
       "kind": "constraint",
       "id": "traceability_completeness",
-      "field": "metric",
-      "value": "traceability_false_negatives <= 0\nspecforge analyze coverage MUST detect all broken links in the traceability\nchain with zero false negatives: testable entities with verify\ndeclarations but no recorded test results, and recorded results\nthat name unknown entities.",
-      "why": {
-        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "traceability_completeness",
       "field": "priority",
       "value": "critical",
       "why": {
@@ -450,15 +414,6 @@
       ],
       "why": {
         "dropped": "it names behaviors, which are dropped with the software kinds (ADR 0364 D2): no requirement field names one (ADR 0372 D6)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "wasm_binary_size_limit",
-      "field": "metric",
-      "value": "extension_wasm_size < 5MB\nEach extension .wasm binary SHOULD be under 5MB. Binaries exceeding 10MB\nMUST produce a warning diagnostic at install time. This ensures\nreasonable download times and first-compilation latency.",
-      "why": {
-        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
       }
     },
     {
@@ -554,15 +509,6 @@
     {
       "kind": "constraint",
       "id": "wasm_compile_cache_budget",
-      "field": "metric",
-      "value": "cached_extension_load < 50ms\nEach Wasm extension MUST load in under 50ms on a compile-cache hit.\nFirst compilation (cache cold) SHOULD complete in under 500ms for a\ntypical component (<1MB .wasm).",
-      "why": {
-        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "wasm_compile_cache_budget",
       "field": "priority",
       "value": "critical",
       "why": {
@@ -646,15 +592,6 @@
       ],
       "why": {
         "dropped": "it names behaviors, which are dropped with the software kinds (ADR 0364 D2): no requirement field names one (ADR 0372 D6)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "wasm_compile_cache_size_limit",
-      "field": "metric",
-      "value": "compile_cache_size < 500MB\nThe compile cache directory SHOULD stay under 500MB total. The\nruntime configures wasmtime's cache with a 500MB files-total-size\nsoft limit; when exceeded, the engine's cleanup removes\nleast-recently-used entries on subsequent runs. No info diagnostic\nis required — cleanup is engine-internal.",
-      "why": {
-        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
       }
     },
     {
@@ -744,15 +681,6 @@
       ],
       "why": {
         "dropped": "it names behaviors, which are dropped with the software kinds (ADR 0364 D2): no requirement field names one (ADR 0372 D6)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "wasm_memory_limit",
-      "field": "metric",
-      "value": "extension_memory <= 512MB\nEach Wasm extension instance MUST be limited to its declared\nmax_memory_mb of linear memory and tables, all its memories counted\ntogether, at most 512 MB; an extension declaring\nno limit MUST be limited to 512 MB. A growth past the limit MUST trap\nthe call (memory_limit_exceeded, reported as E028). No limit is shared\nacross extensions: one extension's memory never fails another\n(extension_isolation, ADR 0037).",
-      "why": {
-        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
       }
     },
     {
@@ -880,15 +808,6 @@
       ],
       "why": {
         "dropped": "it names behaviors, which are dropped with the software kinds (ADR 0364 D2): no requirement field names one (ADR 0372 D6)"
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "wasm_sandbox_enforcement",
-      "field": "metric",
-      "value": "sandbox_escapes <= 0\nZero sandbox escapes in adversarial testing. A component's WASI\ncontext MUST preopen no directory and pass no environment, arguments\nor stdin, and MUST refuse TCP, UDP and name lookup. No declaration\n(sandbox_policy, a surface's sandbox override) grants a capability\n(ADR 0037); effects only through the four granted ports (ADR 0335 D4).",
-      "why": {
-        "dropped": "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the conversion change writes"
       }
     },
     {
@@ -2662,18 +2581,6 @@
     {
       "kind": "feature",
       "id": "contribution_based_extensions",
-      "field": "solution",
-      "value": "Structured manifest format with typed objects (entity_kinds\nEntityKindDescriptor[], validation_rules ValidationRulePattern[],\nedge_types EdgeTypeDescriptor[]). What an extension contributes is what its declaration declares in\nthose categories (ExtensionDeclaration::declares, ADR 0050); its\nhandshake says providers when it implements configured providers.\nThe host calls an extension's exports through one typed\nmodule (call_extension_exports, ADR 0013): handshake and describe, a\ncommand, an MCP tool or resource, a compiler pass, a collector, a\ncustom validator and the migration hook, each with the\nprotocol's input and answer types and every failure E028. What an\neffectful call may do through the host ports belongs to the\nwasm_host_function_api feature. This\nfeature owns the compile-time categories (entities, edges,\nshared_fields, enhancements, validation_rules, passes, feature_flags). Test result collection (collectors) is owned by the\ntest_result_collection feature. Surface contributions (CLI commands,\nMCP tools, MCP resources) are owned by the surface_contributions feature.\nCollector behaviors (register_collector_contributions,\nauto_detect_collector, approve_capability, run_collector_command,\ndispatch_collector, ingest_collector_report) are owned by the\ntest_result_collection feature.",
-      "why": {
-        "created": {
-          "kind": "decision",
-          "id": "contribution_based_extensions_solution"
-        }
-      }
-    },
-    {
-      "kind": "feature",
-      "id": "contribution_based_extensions",
       "field": "status",
       "value": "done",
       "why": {
@@ -2698,18 +2605,6 @@
     {
       "kind": "feature",
       "id": "entity_enhancement",
-      "field": "solution",
-      "value": "Extensions declare entity enhancements in their sidecar manifest.json.\nManifest validation (validate_extension_manifest) runs before\nenhancement loading — owned by contribution_based_extensions.\nThe compiler loads enhancement declarations at startup, builds a\nFieldRegistry combining extension-defined and enhanced fields, and threads\nit through the resolve/graph-build/validate pipeline. Enhanced\nreference fields create graph edges. An enhancement field never\noverwrites a field the kind already declares. The specforge doctor\ncommand provides visibility into all enhancements.",
-      "why": {
-        "created": {
-          "kind": "decision",
-          "id": "entity_enhancement_solution"
-        }
-      }
-    },
-    {
-      "kind": "feature",
-      "id": "entity_enhancement",
       "field": "status",
       "value": "done",
       "why": {
@@ -2728,18 +2623,6 @@
         "filled": {
           "field": "requirement.category",
           "value": "Feature"
-        }
-      }
-    },
-    {
-      "kind": "feature",
-      "id": "entity_kind_conflict_prevention",
-      "field": "solution",
-      "value": "The registry build detects a kind an earlier-loaded extension already\nregistered: the first extension in load order owns it and the\nduplicate is E026. Entity ids that collide with the grammar's\nstructural keywords or an extension's kind keyword are E013.",
-      "why": {
-        "created": {
-          "kind": "decision",
-          "id": "entity_kind_conflict_prevention_solution"
         }
       }
     },
@@ -2764,18 +2647,6 @@
         "filled": {
           "field": "requirement.category",
           "value": "Feature"
-        }
-      }
-    },
-    {
-      "kind": "feature",
-      "id": "surface_contributions",
-      "field": "solution",
-      "value": "Extensions declare surface contributions in their manifest's surfaces\nfield: commands[] for CLI, mcp_tools[] for MCP tools, mcp_resources[]\nfor MCP resources. Core discovers contributions from manifests (static,\nno code execution), validates Wasm exports exist, and dispatches lazily\non invocation. CLI commands are auto-promoted to MCP tools with the\nspecforge.{ext}.{cmd} naming convention. Per-contribution sandbox\noverrides can only restrict below the type ceiling (MCP resources\ncannot fs_write). Phase 1 covers CLI commands, MCP tools, and MCP\nresources. LSP providers are deferred to Phase 2.",
-      "why": {
-        "created": {
-          "kind": "decision",
-          "id": "surface_contributions_solution"
         }
       }
     },
@@ -2800,18 +2671,6 @@
         "filled": {
           "field": "requirement.category",
           "value": "Feature"
-        }
-      }
-    },
-    {
-      "kind": "feature",
-      "id": "test_result_collection",
-      "field": "solution",
-      "value": "Runner extensions (`@specforge/cargo-test`, …) declare a collector: the\nproject files that select it, the command that runs the runner, where\nthe report lands and a pure export that maps the report to entities.\n`specforge collect` detects the collectors that apply, asks the user to\napprove each command once per project, runs it on the extension's\nbehalf, hands the report to the export and merges the answer into\n`specforge-report.json`, which `specforge analyze` reads. The compiler\nstill never executes anything, and extensions stay pure wasm; `--no-run`\nparses an existing report without running anything.",
-      "why": {
-        "created": {
-          "kind": "decision",
-          "id": "test_result_collection_solution"
         }
       }
     },
@@ -2836,18 +2695,6 @@
         "filled": {
           "field": "requirement.category",
           "value": "Feature"
-        }
-      }
-    },
-    {
-      "kind": "feature",
-      "id": "wasm_extension_authoring",
-      "field": "solution",
-      "value": "specforge extension CLI subcommands: init scaffolds a project with\nPDK skeleton, build compiles to .wasm targeting wasm32-wasi,\nvalidate loads the binary in a production sandbox against fixtures,\npublish uploads to npm/OCI/GitHub Releases. Publishing adheres to\nthe registry_api_openness invariant — the registry API specification\nis published as an open standard.",
-      "why": {
-        "created": {
-          "kind": "decision",
-          "id": "wasm_extension_authoring_solution"
         }
       }
     },
@@ -2872,18 +2719,6 @@
         "filled": {
           "field": "requirement.category",
           "value": "Feature"
-        }
-      }
-    },
-    {
-      "kind": "feature",
-      "id": "wasm_extension_installation",
-      "field": "solution",
-      "value": "Install resolves from multiple sources, verifies integrity, and\nplaces the binary atomically. Uninstall removes the extension and\nchecks peer dependencies. Upgrade checks compatibility and handles\nbreaking peer dependencies.",
-      "why": {
-        "created": {
-          "kind": "decision",
-          "id": "wasm_extension_installation_solution"
         }
       }
     },
@@ -2908,18 +2743,6 @@
         "filled": {
           "field": "requirement.category",
           "value": "Feature"
-        }
-      }
-    },
-    {
-      "kind": "feature",
-      "id": "wasm_extension_maintenance",
-      "field": "solution",
-      "value": "Discovery queries registries for available extensions. The engine\ncompile cache is content-keyed, so replaced binaries never serve\nstale artifacts and need no host-side invalidation. Bulk update\nchecks all extensions for newer versions and upgrades them in\ndependency order.",
-      "why": {
-        "created": {
-          "kind": "decision",
-          "id": "wasm_extension_maintenance_solution"
         }
       }
     },
@@ -2944,18 +2767,6 @@
         "filled": {
           "field": "requirement.category",
           "value": "Feature"
-        }
-      }
-    },
-    {
-      "kind": "feature",
-      "id": "wasm_extension_runtime",
-      "field": "solution",
-      "value": "Wasm components (wasmtime Component Model) as the sole extension runtime. Extensions compile to .wasm\nbinaries. The compiler loads modules, validates peer dependencies,\ninitializes in topological order, calls validators, and handles traps\ngracefully — failed extensions do not affect others. Each extension\nruns with no capability and within the limits its handshake declares\n(enforce_wasm_sandbox, configure_sandbox_policy).",
-      "why": {
-        "created": {
-          "kind": "decision",
-          "id": "wasm_extension_runtime_solution"
         }
       }
     },
@@ -2985,18 +2796,6 @@
     },
     {
       "kind": "feature",
-      "id": "wasm_host_function_api",
-      "field": "solution",
-      "value": "Two faces (ADR 0335 D4): declared inputs and probes for the pure call\nkinds, and four granted ports for the effectful ones: the WIT package\nspecforge:host/{http,fs,process,git}@0.1.0, written once in the SDK and\nlinked on every instance. What one call may do is its port session: its\nkind, its extension's grant (declared, gated, under the ceiling and\napproved) and the journal of the call's effects mode. A pure kind is\nanswered denied(call-kind), a request outside the grant denied(scope)\nand E090; nothing prompts mid-call. A guest cannot write a file or\nchange the graph through a port: it answers an edit plan (ADR 0289). A\nport's time is not the guest's, an effectful call holds no lock of its\nextension, and a secret stays on the host.",
-      "why": {
-        "created": {
-          "kind": "decision",
-          "id": "wasm_host_function_api_solution"
-        }
-      }
-    },
-    {
-      "kind": "feature",
       "id": "wasm_lock_management",
       "field": "category",
       "value": null,
@@ -3004,18 +2803,6 @@
         "filled": {
           "field": "requirement.category",
           "value": "Feature"
-        }
-      }
-    },
-    {
-      "kind": "feature",
-      "id": "wasm_lock_management",
-      "field": "solution",
-      "value": "Lock file (specforge.lock) pins exact versions with SHA256 integrity\nhashes for reproducible builds. Lock file is read at startup to verify\ninstalled extensions match expected hashes. Refresh updates the lock\nfile when extensions are added or upgraded.",
-      "why": {
-        "created": {
-          "kind": "decision",
-          "id": "wasm_lock_management_solution"
         }
       }
     },
@@ -3040,18 +2827,6 @@
         "filled": {
           "field": "requirement.category",
           "value": "Feature"
-        }
-      }
-    },
-    {
-      "kind": "feature",
-      "id": "wasm_performance_optimization",
-      "field": "solution",
-      "value": "Wasmtime's on-disk compilation cache (selected via\nSPECFORGE_WASMTIME_CACHE) stores compiled machine code keyed by\ncomponent bytes and engine config, so CLI cold starts deserialize\ninstead of recompiling. One runtime engine per LSP/MCP session keeps\ninstantiated components alive across calls. Unusable caches degrade\nto uncached compilation with a warning.",
-      "why": {
-        "created": {
-          "kind": "decision",
-          "id": "wasm_performance_optimization_solution"
         }
       }
     },

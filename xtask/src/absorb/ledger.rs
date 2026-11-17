@@ -7,9 +7,9 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 
-/// Why a value is in the ledger: it was computed, filled, created, left unconverted or dropped (ADR 0372 D8). No
-/// value waits for a kind (ADR 0372 D2), and none is ledgered as an unproven obligation: no kept kind holds a proof
-/// (ADR 0370 D8).
+/// Why a value is in the ledger: it was computed, filled, left unconverted or dropped (ADR 0372 D8). No value waits
+/// for a kind (ADR 0372 D2), none created an entity the old spec did not hold (ADR 0372 D6), and none is ledgered as
+/// an unproven obligation: no kept kind holds a proof (ADR 0370 D8).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Why {
@@ -19,8 +19,6 @@ pub enum Why {
     Filled { field: String, value: Value },
     /// A value the converter could not map, with why; it stays where the row's fallback put it.
     Unconverted(String),
-    /// An entity the converter created from this value, that the old project did not hold.
-    Created { kind: String, id: String },
     /// A value no `@gsd/core` field takes, with why: nothing is written for it.
     Dropped(String),
 }

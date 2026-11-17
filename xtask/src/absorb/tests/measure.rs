@@ -66,7 +66,7 @@ fn every_field_of_a_converting_kind_has_exactly_one_row() {
     }
     assert_eq!(
         counts,
-        BTreeMap::from([("to", 19), ("computed", 2), ("dropped", 56)])
+        BTreeMap::from([("to", 21), ("computed", 2), ("dropped", 54)])
     );
     for row in TABLE {
         if row.homes.iter().any(|h| matches!(h, Home::Dropped(_))) {
@@ -104,10 +104,10 @@ fn written(how: How, old: Option<FieldType>) -> Vec<FieldType> {
     use FieldType::*;
     match how {
         How::As => old.into_iter().collect(),
-        How::Text | How::Solution => vec![String],
+        How::Text | How::Bound => vec![String],
         How::Parent => vec![Reference],
         How::Requirements | How::Earlier => vec![ReferenceList],
-        How::FeatureTier | How::Outcome => vec![Enum],
+        How::FeatureTier => vec![Enum],
         How::Settled => vec![Bool],
         // The id the map assigns writes no field: the golden check skips its sentinel.
         How::Id => Vec::new(),
@@ -170,7 +170,7 @@ fn every_home_names_a_field_the_gsd_core_golden_declares_of_the_type_it_writes()
     }
     assert_eq!(
         (homes, typed),
-        (22, 19),
+        (23, 20),
         "every To and Computed home, and the To homes typed"
     );
     for (old, fate) in FATES {

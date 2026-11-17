@@ -63,11 +63,6 @@ impl Ids {
     }
 }
 
-/// The id of the decision a feature's solution becomes.
-pub fn solution_id(id: &str) -> String {
-    format!("{id}_solution")
-}
-
 /// The id map of `entities` under `links`, and the stops: a release with no version, and two entities given one path
 /// within one new kind (the map keeps the first). Pure, and the same for the same entities.
 pub fn assign(entities: &[OldEntity], links: &Links) -> (Ids, Vec<Stop>) {
@@ -125,12 +120,6 @@ pub fn assign(entities: &[OldEntity], links: &Links) -> (Ids, Vec<Stop>) {
             .entry((kind, new.path()))
             .or_default()
             .push(format!("{} '{}'", e.kind, e.id));
-        if e.fields.contains_key("solution") {
-            given
-                .entry(("decision", solution_id(&e.id)))
-                .or_default()
-                .push(format!("{} '{}' (its solution)", e.kind, e.id));
-        }
         map.entry((e.kind.clone(), e.id.clone())).or_insert(new);
     }
     for ((kind, path), makers) in given.into_iter().filter(|(_, m)| m.len() > 1) {

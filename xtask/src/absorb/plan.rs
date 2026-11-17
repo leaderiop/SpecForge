@@ -1,6 +1,7 @@
 //! The conversion, pure: the old entities through the table into one list of creates, the ledger, and the computed
 //! values to compare once the target is written (ADR 0360 D1-D5). The pre-checks turn what would be an E080 or an
-//! E002 into a listed stop before any write.
+//! E002 into a listed stop before any write. Each create is an entity the old spec held: no entity is created that
+//! it did not (ADR 0372 D6).
 //!
 //! The cross-entity links and the id map come first (ADR 0372 D3, D4): every new id and path is assigned before any
 //! draft, every draft is keyed by its new path, and a reference is written through the map. The plan carries the map,
@@ -59,6 +60,11 @@ pub struct Check {
     pub expected: Option<Value>,
 }
 
+/// Why a decision not in force is dropped whole (ADR 0372 D5): its status is not `accepted`, or it names a successor.
+pub const NOT_IN_FORCE: &str = "a decision not in force (its status is not accepted, or it names a successor) no \
+                                longer holds: it converts to nothing, and its ADR under docs/adr/ is its record \
+                                (ADR 0372 D5)";
+
 /// The ledger's field for one `method` member of an entity dropped whole.
 const METHOD: &str = "method";
 /// The ledger's field for an entity's field annotations, dropped whole: one entry, each field to its annotations.
@@ -67,17 +73,15 @@ const ANNOTATIONS: &str = "annotations";
 /// What the conversion plans.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Planned {
-    /// One create per converted entity, in the old order, each created entity after the one it comes from.
+    /// One create per converted entity, in the old order.
     pub creates: Vec<Edit>,
     /// The ledger, its `ids` section the map's.
     pub ledger: Ledger,
     pub checks: Vec<Check>,
     /// The id map: each converted entity's new id and path.
     pub ids: Ids,
-    /// Old entities that became an entity of their own.
+    /// Old entities that became an entity of their own: one per create.
     pub converted: usize,
-    /// Entities the converter created that the old project did not hold.
-    pub created: usize,
 }
 
 impl Planned {
@@ -199,6 +203,18 @@ impl Draft {
         }
     }
 
+    /// `bound` on the last line of the text `field` holds, after one space; `bound` alone when it holds none.
+    fn bound(&mut self, field: &str, bound: &str) {
+        match self.fields.get_mut(field) {
+            Some(Input::One(held)) if !held.trim().is_empty() => {
+                held.truncate(held.trim_end().len());
+                held.push(' ');
+                held.push_str(bound);
+            }
+            _ => self.set(field, Input::One(bound.to_string())),
+        }
+    }
+
     /// `items` after the list `field` holds, each once; no items write nothing.
     fn append(&mut self, field: &str, items: Vec<String>) {
         if items.is_empty() {
@@ -229,7 +245,6 @@ struct Planner {
     order: Vec<String>,
     ledger: Ledger,
     checks: Vec<Check>,
-    created: usize,
 }
 
 /// Convert `entities` (each passed [`prechecks`]). The links and the id map come first; a reference is written
@@ -276,8 +291,9 @@ pub fn plan(entities: &[OldEntity]) -> Planned {
     planner.finish()
 }
 
-/// Why `e` is dropped whole, if it is (ADR 0372 D1, D4): its kind's fate drops it, it is a decision that no longer
-/// holds, or it is a milestone no converted release lists. None for a kind with no fate, which stops the run.
+/// Why `e` is dropped whole, if it is (ADR 0372 D1, D4, D5): its kind's fate drops it, it is a decision not in force
+/// (its status is not `accepted`, or it writes `superseded_by`), or it is a milestone no converted release lists. None
+/// for a kind with no fate, which stops the run.
 fn dropped_whole(e: &OldEntity, links: &Links) -> Option<&'static str> {
     match table::fate(&e.kind)? {
         Fate::Dropped(reason) => Some(reason),
@@ -286,9 +302,10 @@ fn dropped_whole(e: &OldEntity, links: &Links) -> Option<&'static str> {
         }
         Fate::To(_)
             if e.kind == "decision"
-                && e.fields.get("status").and_then(Value::as_str) == Some("superseded") =>
+                && (e.fields.get("status").and_then(Value::as_str) != Some("accepted")
+                    || e.fields.contains_key("superseded_by")) =>
         {
-            Some(table::NO_SUPERSESSION)
+            Some(NOT_IN_FORCE)
         }
         Fate::To(_) => None,
     }
@@ -389,19 +406,6 @@ impl Planner {
     fn add(&mut self, path: String, draft: Draft) {
         self.order.push(path.clone());
         self.drafts.insert(path, draft);
-    }
-
-    /// `draft`, created from the entity `from`, written right after it; its path is its id.
-    fn add_after(&mut self, from: &OldEntity, draft: Draft) {
-        let from = self.ids.path(&from.kind, &from.id);
-        let at = self
-            .order
-            .iter()
-            .position(|path| Some(path) == from.as_ref())
-            .map_or(self.order.len(), |at| at + 1);
-        self.order.insert(at, draft.id.clone());
-        self.drafts.insert(draft.id.clone(), draft);
-        self.created += 1;
     }
 
     /// The draft `e` converts to.
@@ -508,10 +512,9 @@ impl Planner {
             order,
             ledger,
             checks,
-            created,
             ..
         } = self;
-        let converted = order.len() - created;
+        let converted = order.len();
         let creates = order
             .iter()
             .filter_map(|path| drafts.remove(path))
@@ -530,7 +533,6 @@ impl Planner {
             checks,
             ids,
             converted,
-            created,
         }
     }
 }

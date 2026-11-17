@@ -1,17 +1,15 @@
 //! Where a `To` home writes a value (ADR 0360 D2): each transform the table names, from a value written as it is to
-//! a decision status as its outcome, and the helpers only they use. Only the phase's three ways write a reference,
+//! a bound on its text's last line, and the helpers only they use. Only the phase's three ways write a reference,
 //! through the id map ([`super::roadmap`], ADR 0372 D4).
 
 use serde_json::{Value, json};
 use specforge_ops::authoring::edit::Input;
-use std::collections::BTreeMap;
 
 use super::super::how;
-use super::super::ids::solution_id;
 use super::super::ledger::Why;
 use super::super::read::OldEntity;
 use super::super::table::{self, Row};
-use super::{Draft, Planner};
+use super::Planner;
 
 impl Planner {
     pub(super) fn to(
@@ -37,7 +35,6 @@ impl Planner {
             How::Parent => self.parent(e, row.field, field, value),
             How::Requirements => self.requirements(e, row.field, field, value),
             How::Earlier => self.earlier(e, row.field, field, value),
-            How::Solution => self.solution(e, field, value),
             How::FeatureTier => {
                 let status = value.as_str().unwrap_or(how::FEATURE_DEFAULT);
                 self.tier(e, field, status);
@@ -49,8 +46,15 @@ impl Planner {
                     draft.join(field, text.to_string());
                 }
             }
-            How::Outcome | How::Settled => {
-                if let Some(input) = how::word(how, value)
+            How::Bound => {
+                if let Some(bound) = value.as_str()
+                    && let Some(draft) = self.own(e)
+                {
+                    draft.bound(field, bound);
+                }
+            }
+            How::Settled => {
+                if let Some(input) = how::settled(value)
                     && let Some(draft) = self.own(e)
                 {
                     draft.set(field, input);
@@ -69,31 +73,6 @@ impl Planner {
         if let Some(draft) = self.own(e) {
             draft.append(field, items);
         }
-    }
-
-    /// A feature's solution as a decision of the project's own, beside the feature's requirement.
-    fn solution(&mut self, e: &OldEntity, field: &str, value: &Value) {
-        let Some(own) = self.own(e) else {
-            return;
-        };
-        let id = solution_id(&e.id);
-        let draft = Draft {
-            kind: "decision",
-            id: id.clone(),
-            title: own.title.clone(),
-            file: own.file.clone(),
-            fields: BTreeMap::from([
-                (field.to_string(), how::as_written(value)),
-                ("origin".to_string(), Input::One("project".to_string())),
-            ]),
-        };
-        self.add_after(e, draft);
-        let why = Why::Created {
-            kind: "decision".to_string(),
-            id,
-        };
-        self.ledger
-            .record(&e.kind, &e.id, "solution", value.clone(), why);
     }
 
     /// A feature's tier from its status; a deprecated feature with no reason is given one. A `v1` tier no written

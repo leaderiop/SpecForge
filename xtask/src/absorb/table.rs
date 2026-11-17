@@ -74,15 +74,13 @@ pub enum How {
     /// Each listed old milestone as the path of its phase, kept only when that phase is an earlier one of the same
     /// version milestone (GSD resolves a phase's `depends_on` within its milestone); any other is ledgered `dropped`.
     Earlier,
-    /// A decision `<id>_solution` of the project created beside the entity, with the same title and file, the value
-    /// as its text.
-    Solution,
+    /// A bound: the value appended to the last line of the text the field holds, after one space (ADR 0368 D2), so a
+    /// threshold reads on its metric's line (`throughput >= 200`); the value alone when the field holds none.
+    Bound,
     /// A feature status as a tier: proposed and deferred v2, deprecated out_of_scope (with a reason), else v1.
     FeatureTier,
-    /// A decision status as `outcome`: proposed → pending, deprecated → revisit. A superseded decision never reaches
-    /// it: it converts to nothing ([`converts_to_nothing`]).
-    Outcome,
-    /// A decision status as `settled`: accepted → true.
+    /// A decision status as `settled`: accepted → true. Only a decision in force converts (ADR 0372 D5), so its status
+    /// is always `accepted` here.
     Settled,
 }
 
@@ -217,13 +215,6 @@ const fn computed(kind: &'static str, field: &'static str, compare: Compare) -> 
     }
 }
 
-/// Why an old constraint's metric and threshold are dropped (ADR 0370 D3): `requirement.metric` leaves, and a bound
-/// is the requirement's text (ADR 0368 D2), which the conversion change writes.
-const NO_METRIC: Home = Home::Dropped(
-    "requirement.metric leaves @gsd/core (ADR 0370): a bound is the requirement's text (ADR 0368 D2), which the \
-     conversion change writes",
-);
-
 /// Why an old constraint's `category` is dropped (ADR 0370 D3): it named a quality class (performance, security, …),
 /// which no `@gsd/core` field holds. `requirement.category` is the requirement's heading, which the fill writes.
 const NO_QUALITY_CLASS: Home =
@@ -263,10 +254,6 @@ const SHIPPED_IS_COMPUTED: Home = Home::Dropped(
 pub const NO_RELEASE: &str = "no converted release lists this milestone: it becomes no phase, and no version \
                               milestone is made for it (ADR 0372 D4)";
 
-/// Why an old decision whose status is `superseded` converts to nothing (ADR 0370 D4 and D8): it no longer holds.
-pub const NO_SUPERSESSION: &str =
-    "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing";
-
 /// `leaves!("kind.field")`: the value's home field left `@gsd/core` (ADR 0370 D3 and D4), so it is dropped, naming
 /// the field.
 macro_rules! leaves {
@@ -299,10 +286,7 @@ use How::*;
 pub const TABLE: &[Row] = rows! {
     // ADR 0359's conversion table; only a decision in force converts (ADR 0372 D5).
     "decision": [
-        "status" => [
-            to(DECISION, "outcome", Outcome),
-            to(DECISION, "settled", Settled),
-        ],
+        "status" => [to(DECISION, "settled", Settled)],
         "context" => [leaves!("decision.context")],
         "decision" => [to(DECISION, "text", As)],
         "consequences" => [leaves!("decision.consequences")],
@@ -319,13 +303,14 @@ pub const TABLE: &[Row] = rows! {
         "refs" => [keeps!("decision", "references")],
         "description" => [keeps!("decision", "description")],
     ]
-    // ADR 0359 D1-D6: a constraint is a requirement of category "Constraint".
+    // ADR 0359 D1-D6: a constraint is a requirement of category "Constraint"; its rows in text order: the description,
+    // then the metric, the threshold on the metric's last line (ADR 0372 D6).
     "constraint": [
         "description" => [to(REQUIREMENT, "text", Text)],
+        "metric" => [to(REQUIREMENT, "text", Text)],
+        "threshold" => [to(REQUIREMENT, "text", Bound)],
         "category" => [NO_QUALITY_CLASS],
         "priority" => [leaves!("requirement.priority")],
-        "metric" => [NO_METRIC],
-        "threshold" => [NO_METRIC],
         "governs_features" => [leaves!("requirement.constrains")],
         "protects" => [leaves!("requirement.protects")],
         "refs" => [leaves!("requirement.source")],
@@ -344,11 +329,12 @@ pub const TABLE: &[Row] = rows! {
         "expression" => [NO_EXPRESSION],
         "verify" => [NO_OBLIGATIONS],
     ]
-    // ADR 0359 D7-D11: a feature is a requirement of category "Feature".
+    // ADR 0359 D7-D11: a feature is a requirement of category "Feature", its text its problem, description and
+    // solution (ADR 0372 D6).
     "feature": [
         "problem" => [to(REQUIREMENT, "text", Text)],
         "description" => [to(REQUIREMENT, "text", Text)],
-        "solution" => [to(DECISION, "text", Solution)],
+        "solution" => [to(REQUIREMENT, "text", Text)],
         "status" => [
             to(REQUIREMENT, "tier", FeatureTier),
             computed(REQUIREMENT, "status", FEATURE_STATUS),

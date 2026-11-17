@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use specforge_ops::authoring::edit::Input;
 use specforge_parser::lex::is_entity_id;
 
-use super::table::{Compare, How};
+use super::table::Compare;
 
 /// Why a scheme reference in a list of texts is not written: the writer spells it bare, which names a `ref`.
 pub const SCHEME_REF: &str =
@@ -43,18 +43,9 @@ pub fn is_scheme_ref(item: &str) -> bool {
     item.contains(':') && is_entity_id(item)
 }
 
-/// The input a word-mapping `how` writes for `value`; none when the word maps to nothing.
-pub fn word(how: How, value: &Value) -> Option<Input> {
-    let word = value.as_str().unwrap_or_default();
-    match how {
-        How::Outcome => match word {
-            "proposed" => Some(Input::One("pending".to_string())),
-            "deprecated" => Some(Input::One("revisit".to_string())),
-            _ => None,
-        },
-        How::Settled => (word == "accepted").then_some(Input::Bool(true)),
-        _ => None,
-    }
+/// The `settled` a decision status writes: true for `accepted`; none for any other word.
+pub fn settled(value: &Value) -> Option<Input> {
+    (value.as_str() == Some("accepted")).then_some(Input::Bool(true))
 }
 
 /// What a computed value is checked against.

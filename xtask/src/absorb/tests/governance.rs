@@ -63,8 +63,8 @@ fn a_failure_mode_converts_to_nothing_and_ledgers_each_value_dropped() {
     );
 }
 
-/// A constraint's quality class, priority, metric, threshold, references and sources leave the requirement (ADR 0370
-/// D3): each value is one `dropped` entry, and the requirement keeps its text.
+/// A constraint's quality class, priority, references and sources leave the requirement (ADR 0370 D3): each value is
+/// one `dropped` entry, and the requirement keeps its text, its bound in it.
 #[test]
 fn a_constraint_keeps_its_text_and_drops_the_fields_that_left() {
     let planned = planned(&[old(
@@ -83,15 +83,11 @@ fn a_constraint_keeps_its_text_and_drops_the_fields_that_left() {
         ["category", "text", "tier"],
         "only the text, and the fills"
     );
-    assert_eq!(field(&planned, "c", "text"), Some(&one("Fast.")));
-    for name in [
-        "governs_features",
-        "metric",
-        "priority",
-        "protects",
-        "refs",
-        "threshold",
-    ] {
+    assert_eq!(
+        field(&planned, "c", "text"),
+        Some(&one("Fast.\n\nlatency <= 95.0ms < 100ms"))
+    );
+    for name in ["governs_features", "priority", "protects", "refs"] {
         assert!(
             matches!(why_of(&planned, "c", name).as_slice(), [Why::Dropped(reason)] if reason.contains("ADR 0370")),
             "{name}: {:?}",
@@ -113,10 +109,42 @@ fn a_constraint_keeps_its_text_and_drops_the_fields_that_left() {
         "category: {:?}",
         why_of(&planned, "c", "category")
     );
-    assert!(
-        matches!(why_of(&planned, "c", "metric").as_slice(), [Why::Dropped(reason)] if reason.contains("ADR 0368 D2")),
-        "a bound is the requirement's text, which the conversion change writes"
-    );
+}
+
+/// A bound is part of the requirement's text (ADR 0368 D2, ADR 0372 D6): the description, a blank line, the metric as
+/// written, the threshold appended to its last line after one space; nothing is ledgered for either.
+#[test]
+fn a_constraint_text_holds_its_description_then_its_metric_and_threshold() {
+    let planned = planned(&[
+        old(
+            "constraint",
+            "both",
+            json!({"description": "D", "metric": "throughput", "threshold": ">= 200"}),
+        ),
+        old(
+            "constraint",
+            "lines",
+            json!({"description": "D", "metric": "latency <= 95.0ms\nmeasured at the 99th percentile"}),
+        ),
+        old(
+            "constraint",
+            "bare",
+            json!({"description": "D", "threshold": ">= 200"}),
+        ),
+    ]);
+    for (id, text) in [
+        ("both", "D\n\nthroughput >= 200"),
+        (
+            "lines",
+            "D\n\nlatency <= 95.0ms\nmeasured at the 99th percentile",
+        ),
+        ("bare", "D >= 200"),
+    ] {
+        assert_eq!(field(&planned, id, "text"), Some(&one(text)), "{id}");
+        for name in ["metric", "threshold"] {
+            assert_eq!(why_of(&planned, id, name), [], "{id}.{name}");
+        }
+    }
 }
 
 /// Every value of `id`'s `fields` is one `dropped` entry whose reason holds each of `naming`.
