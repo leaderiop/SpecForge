@@ -2,8 +2,9 @@
 
 **Status:** accepted (2026-11-16). Amended by
 [ADR 0370](0370-gsd-core-holds-exactly-gsd-cores-kinds-and-fields.md) (its D3 and D8): the census rows left to a later
-ADR, and D3's fields a milestone keeps, are decided there. **Amends** [ADR 0360](0360-the-self-spec-moves-to-gsd-core-by-a-one-time-converter.md)
-D8 (behavior values and release values wait for no kind: the first are dropped, and a release becomes a version
+ADR, and D3's fields a milestone keeps, are decided there. D3 and D4 carried out by
+[ADR 0372](0372-the-converter-gives-every-old-kind-one-fate-and-writes-gsds-ids.md) D4 and D8. **Amends**
+[ADR 0360](0360-the-self-spec-moves-to-gsd-core-by-a-one-time-converter.md) D8 (behavior values and release values wait for no kind: the first are dropped, and a release becomes a version
 milestone) and D2 ("No row drops a value" stops holding: a value with no home in a kind gsd-core defines is dropped
 and ledgered with its reason, and absorb reads the four software kinds too). Builds on
 [ADR 0327](0327-a-collectors-facts-are-read-only-entities-recorded-by-digest.md) and

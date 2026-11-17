@@ -1,6 +1,7 @@
 # `@gsd/core` holds exactly gsd-core's kinds and fields
 
-**Status:** accepted (2026-11-16). **Supersedes**
+**Status:** accepted (2026-11-16). D8's conversion design decided by
+[ADR 0372](0372-the-converter-gives-every-old-kind-one-fate-and-writes-gsds-ids.md). **Supersedes**
 [ADR 0357](0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md),
 [ADR 0358](0358-a-risk-is-rated-and-an-invariant-is-judged.md) and
 [ADR 0359](0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md): each of their decisions is
