@@ -7,6 +7,8 @@ mod blob_size;
 mod change_set;
 mod checked_tree;
 mod checks;
+#[cfg(test)]
+mod ci_workflow;
 pub mod crate_map;
 mod doc_links;
 mod dogfood;

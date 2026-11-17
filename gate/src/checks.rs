@@ -522,8 +522,10 @@ fn blobs_fed(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
 /// no change to any member. The root spec is read by the corpus (`specforge_parser::testing`), the CLI's self-check
 /// and format corpus and the published-schema test, the root's project file by the last three; the frozen pre-swap
 /// spec (ADR 0374 D8) by the corpus and the tests that need the old kinds. `xtask`'s `requirement-links` fixture is
-/// `xtask`'s, yet the CLI's proof test and the gate's JUnit merge read it too (ADR 0374 D5).
+/// `xtask`'s, yet the CLI's proof test and the gate's JUnit merge read it too (ADR 0374 D5). The gate's tests read
+/// the workflows, whose jobs' timeouts and build-time budgets they hold (ADR 0375 D3).
 const READ_FROM_OUTSIDE: &[(&str, &[&str])] = &[
+    (".github/workflows/**", &["gate"]),
     (
         "fixtures/old-spec/**",
         &[

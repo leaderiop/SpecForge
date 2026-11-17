@@ -100,7 +100,14 @@ jobs:
     timeout-minutes: 40
     env:
       GATE_TEST_ARCHIVE: target/tests.tar.zst
+      BUDGET_SECONDS: 1680
     steps:
+      # Every job starts a clock first and fails past its BUDGET_SECONDS last: the budget is the job's wall time on a
+      # cold run times 1.25, under its timeout less five minutes (ADR 0375 D3).
+      - name: Start the build-time budget clock
+        shell: bash
+        run: |
+          echo "BUDGET_T0=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -125,6 +132,26 @@ jobs:
           if-no-files-found: ignore
           compression-level: 0
           retention-days: 1
+      - name: Build-time budget
+        shell: bash
+        run: |
+          whole='^[0-9]+$'
+          if ! [[ ${BUDGET_T0:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no clock: the job's first step recorded no BUDGET_T0"
+            exit 1
+          fi
+          if ! [[ ${BUDGET_SECONDS:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no budget: BUDGET_SECONDS is not a whole number of seconds"
+            exit 1
+          fi
+          took=$(( $(date +%s) - 10#$BUDGET_T0 ))
+          line="this job took $took s of its $BUDGET_SECONDS s build-time budget (ADR 0375 D3)"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          if (( took > 10#$BUDGET_SECONDS )); then
+            echo "::error title=Build-time budget::$line"
+            exit 1
+          fi
+          echo "$line"
 
   tests:
     name: Check list (tests-${{ matrix.part }})
