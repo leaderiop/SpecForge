@@ -400,8 +400,8 @@ fn an_untouched_path_is_w520_only_when_plan_paths_touched_is_on() {
     let p = repository();
     p.edit(
         "spec/plans.spec",
-        "  requirements   [TASK-01]\n  decisions      [D-01]",
-        "  files_deleted  [\"src/old.js\"]\n  requirements   [TASK-01]\n  decisions      [D-01]",
+        "  requirements   [TASK-01]\n",
+        "  files_deleted  [\"src/old.js\"]\n  requirements   [TASK-01]\n",
     );
     p.write("src/old.js", "old\n");
     p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);
