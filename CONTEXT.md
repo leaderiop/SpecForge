@@ -1124,10 +1124,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Invariant**: a rule that must always hold (`guarantee`, graded by `risk`), declared by `@specforge/governance`
   beside the decisions, constraints and failure modes that protect or threaten it; a behavior (software) enforces it,
   an axiom or property (formal) relies on it, and W003 reports one nothing references. No builtin needs the software
-  extension to state one (ADR 0280). In `@gsd/core` an invariant is what must always hold in the code from a phase
-  on (`holds_from`), proven by `@code/core` tests and holding over code items; its `status` is `pending` until that
-  phase is complete, then reads its verdict, `gsd/I536`, judged by the prompt `verify_invariant`, and while it is
-  `holds` it mitigates the risks that name it (ADR 0358). The two kinds are never loaded together (E026).
+  extension to state one (ADR 0280).
 - **Inference sources**: the files inference covers: the files the item facts of the compiled graph locate
   (`specforge_ops::read::infer::ITEM_KIND`, each item's first place), under the inference manifest's source roots (the
   project root when none), keyed by the source path rule (root-relative, `/`-separated, no `..`), every recorded path
