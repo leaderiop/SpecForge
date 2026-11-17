@@ -1,6 +1,6 @@
-//! Old product kinds become `@gsd/core` requirements and milestones (ADR 0359), keeping what gsd-core's kinds hold;
-//! an old invariant, journey, persona, term and channel convert to nothing (ADR 0370 D8); a module waits for a kind,
-//! and creates nothing. Releases and milestones are `roadmap.rs`'s.
+//! An old feature becomes a `@gsd/core` requirement (ADR 0359), keeping what gsd-core's requirement holds; an old
+//! deliverable, module, journey, persona, term and channel are dropped whole (ADR 0372 D1). Releases and milestones are
+//! `roadmap.rs`'s.
 
 use serde_json::{Value, json};
 use specforge_ops::authoring::edit::Edit;
@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 
 use super::super::ledger::Why;
 use super::super::plan::Planned;
-use super::super::table::{self, Home, Pending};
+use super::super::table::{self, Fate};
 use super::{create, field, ledgered, old, one, planned, stops};
 
 fn why_of(planned: &Planned, id: &str, field: &str) -> Vec<Why> {
@@ -205,53 +205,102 @@ fn a_feature_description_joins_the_text_after_the_problem() {
     assert_eq!(field(&planned, "only", "text"), Some(&one("D")));
 }
 
+/// GSD writes acceptance as a plan's truths, which the conversion does not create (ADR 0372 D6): a feature's acceptance
+/// and its tests are each one `dropped` entry.
 #[test]
-fn a_deliverable_becomes_a_milestone_keeping_its_id_goal_and_state() {
-    let planned = planned(&[old(
-        "deliverable",
-        "store_cli",
-        json!({"artifact_type": "cli", "description": "The tool", "status": "deprecated",
-               "owner": "Alice Martin", "journeys": ["record"], "modules": ["store_module"]}),
+fn feature_acceptance_and_tests_are_dropped_with_their_reasons() {
+    let planned = planned(&[feature(
+        "f",
+        json!({"acceptance": ["A saved entry is on disk"], "tests": ["crates/store/tests/save.rs"]}),
     )]);
-    let (kind, fields) = create(&planned, "store_cli");
-    assert_eq!(kind, "milestone");
     assert_eq!(
-        fields,
-        &BTreeMap::from([
-            ("name".to_string(), one("The store_cli")),
-            ("goal".to_string(), one("The tool")),
-        ]),
-        "a milestone keeps gsd-core's fields alone (ADR 0370 D3)"
+        create(&planned, "f").1.keys().collect::<Vec<_>>(),
+        ["category", "text", "tier"]
     );
-    assert_eq!(planned.checks[0].expected, Some(json!("abandoned")));
-    assert_eq!(
-        why_of(&planned, "store_cli", "modules"),
-        [Why::Later(Pending::Package)]
-    );
-    for name in ["artifact_type", "journeys", "owner"] {
+    for name in ["acceptance", "tests"] {
         assert!(
             matches!(
-                why_of(&planned, "store_cli", name).as_slice(),
-                [Why::Dropped(_)]
+                why_of(&planned, "f", name).as_slice(),
+                [Why::Dropped(reason)] if reason.contains("plan's truths") && reason.contains("ADR 0372 D6")
             ),
-            "{name}"
+            "{name}: {:?}",
+            why_of(&planned, "f", name)
         );
     }
 }
 
-/// gsd-core has no invariant, journey, persona, term or channel kind (ADR 0370 D2): each old one creates no entity,
-/// and its title and each of its values, an invariant's obligation too, is one `dropped` entry with its kind's reason,
-/// the reason each of its rows gives.
+/// Why `kind`'s entities are dropped whole.
+fn reason(kind: &str) -> &'static str {
+    match table::fate(kind) {
+        Some(Fate::Dropped(reason)) => reason,
+        other => panic!("{kind} is dropped whole: {other:?}"),
+    }
+}
+
+/// A deliverable is GSD's coverage item of a plan's summary, and the old spec holds no plan; a module has no kind
+/// (ADR 0372 D1, ADR 0365): each creates nothing, and its title and every value is one `dropped` entry with its fate's
+/// reason.
+#[test]
+fn a_deliverable_and_a_module_are_dropped_whole() {
+    let planned = planned(&[
+        old(
+            "deliverable",
+            "store_cli",
+            json!({"artifact_type": "cli", "description": "The tool", "status": "deprecated",
+                   "owner": "Alice Martin", "journeys": ["record"], "modules": ["store_module"],
+                   "version": "1.0", "milestones": ["first_cut"], "reason": "Shipped"}),
+        ),
+        old(
+            "module",
+            "store_module",
+            json!({"family": "core", "description": "D", "features": ["store"]}),
+        ),
+    ]);
+    assert!(planned.creates.is_empty(), "{:?}", planned.creates);
+    assert!(planned.checks.is_empty());
+    assert_eq!((planned.converted, planned.created), (0, 0));
+    for (kind, id, fields) in [
+        (
+            "deliverable",
+            "store_cli",
+            [
+                "artifact_type",
+                "description",
+                "journeys",
+                "milestones",
+                "modules",
+                "owner",
+                "reason",
+                "status",
+                "title",
+                "version",
+            ]
+            .as_slice(),
+        ),
+        (
+            "module",
+            "store_module",
+            &["description", "family", "features", "title"],
+        ),
+    ] {
+        let dropped = Why::Dropped(reason(kind).to_string());
+        assert_eq!(
+            ledgered(&planned, id),
+            fields
+                .iter()
+                .map(|f| (f.to_string(), dropped.clone()))
+                .collect::<Vec<_>>(),
+            "{kind}"
+        );
+    }
+    assert!(reason("deliverable").contains("plan"));
+}
+
+/// gsd-core has no journey, persona, term or channel kind (ADR 0370 D2): each old one creates no entity, and its
+/// title and each of its values is one `dropped` entry with its fate's reason.
 #[test]
 fn an_old_kind_that_converts_to_nothing_creates_no_entity_and_ledgers_each_value_dropped() {
-    let mut invariant = old(
-        "invariant",
-        "durable",
-        json!({"guarantee": "Writes survive.", "risk": "high"}),
-    );
-    invariant.obligations = vec![(Some("unit".to_string()), "survives a crash".to_string())];
     let entities = [
-        invariant,
         old(
             "journey",
             "record",
@@ -278,18 +327,12 @@ fn an_old_kind_that_converts_to_nothing_creates_no_entity_and_ledgers_each_value
     assert_eq!((planned.converted, planned.created), (0, 0));
     assert!(planned.checks.is_empty());
     for (kind, id, fields) in [
-        (
-            "invariant",
-            "durable",
-            ["guarantee", "risk", "title", "verify"].as_slice(),
-        ),
-        ("journey", "record", &["flow", "persona", "title"]),
+        ("journey", "record", ["flow", "persona", "title"].as_slice()),
         ("persona", "writer", &["description", "goals", "title"]),
         ("term", "t_entry", &["aliases", "definition", "title"]),
         ("channel", "cli", &["description", "status", "title"]),
     ] {
-        assert_eq!(table::new_kind(kind), None, "{kind}");
-        let reason = table::dropped(kind).unwrap();
+        let reason = reason(kind);
         assert!(reason.contains("ADR 0370"), "{reason}");
         let ledger = ledgered(&planned, id);
         assert_eq!(
@@ -298,9 +341,6 @@ fn an_old_kind_that_converts_to_nothing_creates_no_entity_and_ledgers_each_value
             "{kind}: one entry for the title and one per value"
         );
         for (field, why) in ledger {
-            if let Some(row) = table::row_of(kind, &field) {
-                assert_eq!(row.homes, [Home::Dropped(reason)], "{kind}.{field}");
-            }
             assert_eq!(why, Why::Dropped(reason.to_string()), "{kind}.{field}");
         }
     }
@@ -327,56 +367,12 @@ fn an_entity_with_no_value_of_a_kind_that_converts_to_nothing_ledgers_its_title(
             )
         })
         .collect();
-    let dropped = |kind: &str| Why::Dropped(table::dropped(kind).unwrap().to_string());
+    let dropped = |kind: &str| Why::Dropped(reason(kind).to_string());
     assert_eq!(
         entries,
         [
             ("persona", "p", "title", Value::Null, dropped("persona")),
             ("term", "t", "title", json!("The t"), dropped("term")),
         ]
-    );
-}
-
-/// The kinds whose every row drops its value, each with one reason, are exactly those that convert to nothing.
-#[test]
-fn the_kinds_that_convert_to_nothing_are_those_whose_every_row_drops_with_one_reason() {
-    let dropped: Vec<&str> = table::OLD_KINDS
-        .into_iter()
-        .filter(|kind| table::dropped(kind).is_some())
-        .collect();
-    assert_eq!(
-        dropped,
-        [
-            "failure_mode",
-            "invariant",
-            "journey",
-            "term",
-            "persona",
-            "channel"
-        ]
-    );
-    assert_eq!(
-        table::dropped("constraint"),
-        None,
-        "a row writes, another drops"
-    );
-    assert_eq!(table::dropped("module"), None, "every row waits");
-    assert_eq!(table::dropped("nothing"), None, "no row");
-}
-
-#[test]
-fn a_module_creates_nothing_and_ledgers_each_value() {
-    let planned = planned(&[old(
-        "module",
-        "store_module",
-        json!({"family": "core", "description": "D", "features": ["store"]}),
-    )]);
-    assert!(planned.creates.is_empty());
-    assert_eq!((planned.converted, planned.created), (0, 0));
-    let module: Vec<_> = ledgered(&planned, "store_module");
-    assert_eq!(
-        module,
-        ["description", "family", "features"]
-            .map(|f| (f.to_string(), Why::Later(Pending::Package)))
     );
 }

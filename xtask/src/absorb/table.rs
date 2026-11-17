@@ -1,25 +1,38 @@
-//! The absorb table (ADR 0360 D2): one row per field of an old `@specforge/governance` or `@specforge/product` kind,
-//! as the old builtins' registry holds it, and one per old kind that takes `verify`. Each row names its homes in
-//! `@gsd/core`; every home of a row is applied to the row's value. The table is the measure: a test counts it.
+//! The absorb table (ADR 0360 D2, ADR 0372 D1 and D2): one fate per old kind, and one row per field of an old kind
+//! that converts, as the old builtins' registry holds it, and one per converting kind that takes `verify`. Each row
+//! names its homes in `@gsd/core`; every home of a row is applied to the row's value. The table is the measure: a test
+//! counts it.
 //!
-//! `@gsd/core` holds exactly gsd-core's kinds and fields (ADR 0370): a value whose home left it, or whose old entity
-//! converts to nothing (an invariant, a failure mode, a journey, a persona, a term, a channel, a decision that no
-//! longer holds, a milestone no converted release lists), is `dropped` with its reason. A value with a home in GSD's
-//! kinds that absorb does not write yet waits for the conversion change.
+//! Six old kinds convert and eleven are dropped whole, each with its reason ([`FATES`]). A home is one of three
+//! classes: To (an authored field, through a named way of writing), Computed (the new kind computes it, and the old
+//! value is compared after the write) or Dropped (no `@gsd/core` field takes the value, and the ledger says why).
+//! No value waits and none is refused for having no home: what stops a run before any write is the refused class
+//! (an entity of a kind with no fate, a field of a converting kind with no row, two entities given one new id, an id
+//! the target refuses, a required value no rule fills).
 //!
 //! A release becomes a version milestone and each milestone it lists a phase under it (ADR 0372 D4). No home writes
 //! a reference except the phase's three: its `milestone`, its `requirements` and its `depends_on`, each through the
 //! id map ([`super::ids`]).
 
-use serde::Serialize;
+/// What an old kind becomes (ADR 0372 D1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fate {
+    /// Its entities convert to entities of this `@gsd/core` kind, through its rows. One may still be dropped whole: a
+    /// decision that no longer holds, a milestone no converted release lists.
+    To(&'static str),
+    /// Its entities are dropped whole: each one's title and every value ledgered `dropped` with this reason. Its kind
+    /// has no row.
+    Dropped(&'static str),
+}
 
-/// What a Later value waits for: a kind `@gsd/core` does not hold yet, never a date.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Pending {
-    Package,
-    Truth,
-    Behavior,
+impl Fate {
+    /// The `@gsd/core` kind it converts to; none when it is dropped.
+    pub fn new_kind(self) -> Option<&'static str> {
+        match self {
+            Fate::To(kind) => Some(kind),
+            Fate::Dropped(_) => None,
+        }
+    }
 }
 
 /// Where an old value goes.
@@ -37,10 +50,6 @@ pub enum Home {
         field: &'static str,
         compare: Compare,
     },
-    /// Waits for a kind not absorbed yet: ledgered.
-    Later(Pending),
-    /// No tracked project writes it and nothing holds it: a value stops the run (ADR 0357's refused class).
-    Refused,
     /// No `@gsd/core` field takes the value: it is ledgered `dropped` with this reason and nothing is written.
     Dropped(&'static str),
 }
@@ -98,27 +107,82 @@ pub const VERIFY: &str = "verify";
 /// The field of a [`How::Id`] home: the entity's id, which no field holds.
 pub const ID: &str = "(id)";
 
-/// The old kinds the table absorbs: governance's four, then product's nine.
-pub const OLD_KINDS: [&str; 13] = [
-    "decision",
-    "constraint",
-    "failure_mode",
-    "invariant",
-    "feature",
-    "journey",
-    "deliverable",
-    "milestone",
-    "module",
-    "term",
-    "persona",
-    "channel",
-    "release",
-];
-
 const DECISION: &str = "decision";
 const REQUIREMENT: &str = "requirement";
 const MILESTONE: &str = "milestone";
 const PHASE: &str = "phase";
+
+/// Why a deliverable is dropped whole (ADR 0372 D1).
+const DELIVERABLE: &str = "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or \
+                           summary, and none is invented (ADR 0372 D1)";
+/// Why a failure mode is dropped whole (ADR 0370 D2, ADR 0372 D1).
+const FAILURE_MODE: &str = "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's \
+                            register, which needs a plan: an old failure mode becomes no requirement and no threat \
+                            (ADR 0372 D1)";
+/// Why a module is dropped whole, and why a milestone's modules are dropped (ADR 0365).
+const MODULE: &str = "a module is dropped and no @gsd/core kind holds it (ADR 0365)";
+
+/// `no_kind!("journey")`: gsd-core has no kind for it (ADR 0370 D2).
+macro_rules! no_kind {
+    ($kind:literal) => {
+        concat!("gsd-core has no ", $kind, " kind (ADR 0370 D2)")
+    };
+}
+
+/// `software!("behavior")`: the software kinds are dropped (ADR 0364 D1 and D2).
+macro_rules! software {
+    ($kind:literal) => {
+        concat!(
+            "gsd-core has no ",
+            $kind,
+            " kind: the software kinds are dropped (ADR 0364 D1, D2)"
+        )
+    };
+}
+
+/// Every old kind and its fate (ADR 0372 D1): governance's four, product's nine, software's four. One lookup
+/// ([`fate`]) answers what a kind becomes.
+pub const FATES: [(&str, Fate); 17] = [
+    // A decision in force becomes a decision (ADR 0372 D5).
+    ("decision", Fate::To(DECISION)),
+    // A constraint becomes a requirement whose text holds its bound (ADR 0372 D6).
+    ("constraint", Fate::To(REQUIREMENT)),
+    // A failure mode becomes no requirement and no threat.
+    ("failure_mode", Fate::Dropped(FAILURE_MODE)),
+    // An invariant becomes a requirement whose text is its guarantee (ADR 0372 D6).
+    ("invariant", Fate::To(REQUIREMENT)),
+    // A feature becomes a requirement (ADR 0359 D7-D11).
+    ("feature", Fate::To(REQUIREMENT)),
+    // A journey has no GSD kind.
+    ("journey", Fate::Dropped(no_kind!("journey"))),
+    // A deliverable is a plan summary's coverage item, and the old spec holds no plan.
+    ("deliverable", Fate::Dropped(DELIVERABLE)),
+    // A milestone a converted release lists becomes a phase under its version milestone (ADR 0372 D4).
+    ("milestone", Fate::To(PHASE)),
+    // A module has no GSD kind (ADR 0365).
+    ("module", Fate::Dropped(MODULE)),
+    // A term has no GSD kind.
+    ("term", Fate::Dropped(no_kind!("term"))),
+    // A persona has no GSD kind.
+    ("persona", Fate::Dropped(no_kind!("persona"))),
+    // A channel has no GSD kind.
+    ("channel", Fate::Dropped(no_kind!("channel"))),
+    // A release becomes the version milestone its version names (ADR 0372 D4).
+    ("release", Fate::To(MILESTONE)),
+    // The software kinds have no GSD kind (ADR 0364).
+    ("behavior", Fate::Dropped(software!("behavior"))),
+    ("event", Fate::Dropped(software!("event"))),
+    ("type", Fate::Dropped(software!("type"))),
+    ("port", Fate::Dropped(software!("port"))),
+];
+
+/// The fate of the old kind `kind`; none for a kind the table does not know, which stops a run (ADR 0372 D2).
+pub fn fate(kind: &str) -> Option<Fate> {
+    FATES
+        .iter()
+        .find(|(old, _)| *old == kind)
+        .map(|(_, fate)| *fate)
+}
 
 /// A feature status as the computed requirement status it means.
 const FEATURE_STATUS: Compare = Compare::Means(&[
@@ -140,13 +204,6 @@ const PHASE_STATUS: Compare = Compare::Means(&[
     ("in_progress", "in_progress"),
     ("completed", "complete"),
 ]);
-/// A deliverable status as the computed milestone state.
-const DELIVERABLE_STATE: Compare = Compare::Means(&[
-    ("draft", "planned"),
-    ("in_progress", "in_progress"),
-    ("shipped", "shipped"),
-    ("deprecated", "abandoned"),
-]);
 
 const fn to(kind: &'static str, field: &'static str, how: How) -> Home {
     Home::To { kind, field, how }
@@ -160,33 +217,6 @@ const fn computed(kind: &'static str, field: &'static str, compare: Compare) -> 
     }
 }
 
-const fn later(pending: Pending) -> Home {
-    Home::Later(pending)
-}
-
-const REFUSED: Home = Home::Refused;
-
-/// Why an old failure mode's values are dropped (ADR 0370 D2 and D8): gsd-core has no risk kind, so an old failure
-/// mode converts to nothing. A threat belongs to `@gsd/security`'s register, and needs a plan to name it.
-const NO_RISK: Home = Home::Dropped(
-    "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to \
-     @gsd/security's register and needs a plan",
-);
-/// Why an old invariant's values are dropped (ADR 0370 D2 and D8): the conversion change writes one as a requirement.
-const NO_INVARIANT: Home = Home::Dropped(
-    "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement",
-);
-/// Why an old journey's values are dropped (ADR 0370 D2 and D8).
-const NO_JOURNEY: Home =
-    Home::Dropped("gsd-core has no journey kind (ADR 0370): the value is dropped");
-/// Why an old persona's values are dropped (ADR 0370 D2 and D8).
-const NO_PERSONA: Home =
-    Home::Dropped("gsd-core has no persona kind (ADR 0370): the value is dropped");
-/// Why an old term's values are dropped (ADR 0370 D2 and D8).
-const NO_TERM: Home = Home::Dropped("gsd-core has no term kind (ADR 0370): the value is dropped");
-/// Why an old channel's values are dropped (ADR 0370 D2 and D8): it was a term of its id, and the term leaves.
-const NO_CHANNEL: Home =
-    Home::Dropped("gsd-core has no channel or term kind (ADR 0370): the value is dropped");
 /// Why an old constraint's metric and threshold are dropped (ADR 0370 D3): `requirement.metric` leaves, and a bound
 /// is the requirement's text (ADR 0368 D2), which the conversion change writes.
 const NO_METRIC: Home = Home::Dropped(
@@ -200,11 +230,28 @@ const NO_QUALITY_CLASS: Home =
     Home::Dropped("the constraint's quality class has no home in @gsd/core (ADR 0370)");
 
 /// Why an old milestone's modules are dropped: a module is dropped and no kind holds it (ADR 0365).
-const NO_MODULE: Home =
-    Home::Dropped("a module is dropped and no @gsd/core kind holds it (ADR 0365)");
+const NO_MODULE: Home = Home::Dropped(MODULE);
 /// Why an old milestone's behaviors are dropped: the software kinds are dropped (ADR 0364 D2).
 const NO_BEHAVIOR: Home = Home::Dropped(
     "a behavior is dropped with the software kinds (ADR 0364 D2): no phase lists one",
+);
+/// Why a constraint's `constrains` and `enforced_by` are dropped: the behaviors they name are dropped.
+const NAMES_BEHAVIORS: Home = Home::Dropped(
+    "it names behaviors, which are dropped with the software kinds (ADR 0364 D2): no requirement field names one \
+     (ADR 0372 D6)",
+);
+/// Why a constraint's and an invariant's `verify` lines are dropped.
+const NO_OBLIGATIONS: Home = Home::Dropped(
+    "a requirement holds no list of obligations (ADR 0368 D1): a verify line is dropped (ADR 0372 D6)",
+);
+/// Why an invariant's formal expression is dropped.
+const NO_EXPRESSION: Home = Home::Dropped(
+    "a requirement holds no formal expression, and the prove pass does not change (ADR 0368 D3): it is dropped (ADR \
+     0372 D6)",
+);
+/// Why a feature's acceptance and tests are dropped.
+const PLAN_TRUTHS: Home = Home::Dropped(
+    "GSD writes acceptance as a plan's truths, and the conversion creates no plan (ADR 0372 D6)",
 );
 /// Why a release's completion date is dropped: a milestone's `shipped` day is computed from its completion.
 const SHIPPED_IS_COMPUTED: Home = Home::Dropped(
@@ -248,10 +295,9 @@ macro_rules! rows {
 }
 
 use How::*;
-use Pending::*;
 
 pub const TABLE: &[Row] = rows! {
-    // ADR 0359's conversion table.
+    // ADR 0359's conversion table; only a decision in force converts (ADR 0372 D5).
     "decision": [
         "status" => [
             to(DECISION, "outcome", Outcome),
@@ -270,8 +316,8 @@ pub const TABLE: &[Row] = rows! {
         "affects_features" => [leaves!("decision.affects")],
         "constraints" => [leaves!("decision.affects")],
         "alternatives" => [leaves!("decision.alternatives")],
-        "refs" => [REFUSED],
-        "description" => [REFUSED],
+        "refs" => [keeps!("decision", "references")],
+        "description" => [keeps!("decision", "description")],
     ]
     // ADR 0359 D1-D6: a constraint is a requirement of category "Constraint".
     "constraint": [
@@ -283,40 +329,20 @@ pub const TABLE: &[Row] = rows! {
         "governs_features" => [leaves!("requirement.constrains")],
         "protects" => [leaves!("requirement.protects")],
         "refs" => [leaves!("requirement.source")],
-        "constrains" => [later(Behavior)],
-        "enforced_by" => [later(Truth)],
-        "scope" => [REFUSED],
-        "verify" => [later(Truth)],
+        "constrains" => [NAMES_BEHAVIORS],
+        "enforced_by" => [NAMES_BEHAVIORS],
+        "scope" => [keeps!("requirement", "scope")],
+        "verify" => [NO_OBLIGATIONS],
     ]
-    // ADR 0370 D8: an old failure mode converts to nothing.
-    "failure_mode": [
-        "severity" => [NO_RISK],
-        "occurrence" => [NO_RISK],
-        "detection" => [NO_RISK],
-        "post_mitigation" => [NO_RISK],
-        "post_severity" => [NO_RISK],
-        "post_occurrence" => [NO_RISK],
-        "post_detection" => [NO_RISK],
-        "rpn" => [NO_RISK],
-        "cause" => [NO_RISK],
-        "effect" => [NO_RISK],
-        "mitigation" => [NO_RISK],
-        "invariant" => [NO_RISK],
-        "threatens_features" => [NO_RISK],
-        "affected_behaviors" => [NO_RISK],
-        "description" => [NO_RISK],
-        "refs" => [NO_RISK],
-        "risk" => [NO_RISK],
-        "verify" => [NO_RISK],
-    ]
-    // ADR 0370 D8: an old invariant converts to nothing until the conversion change writes it as a requirement.
+    // ADR 0372 D6: an invariant is a requirement of category "Invariant", its text its guarantee then its
+    // description.
     "invariant": [
-        "guarantee" => [NO_INVARIANT],
-        "risk" => [NO_INVARIANT],
-        "description" => [NO_INVARIANT],
-        "refs" => [NO_INVARIANT],
-        "expression" => [NO_INVARIANT],
-        "verify" => [NO_INVARIANT],
+        "guarantee" => [to(REQUIREMENT, "text", Text)],
+        "description" => [to(REQUIREMENT, "text", Text)],
+        "risk" => [keeps!("requirement", "risk (ADR 0372 D6)")],
+        "refs" => [keeps!("requirement", "references (ADR 0372 D6)")],
+        "expression" => [NO_EXPRESSION],
+        "verify" => [NO_OBLIGATIONS],
     ]
     // ADR 0359 D7-D11: a feature is a requirement of category "Feature".
     "feature": [
@@ -334,35 +360,10 @@ pub const TABLE: &[Row] = rows! {
         "contributors" => [leaves!("requirement.source")],
         "refs" => [leaves!("requirement.source")],
         "reason" => [to(REQUIREMENT, "reason", As)],
-        "acceptance" => [later(Truth)],
-        "tests" => [later(Truth)],
-        "depends_on" => [REFUSED],
-        "features" => [REFUSED],
-    ]
-    // ADR 0370 D8: an old journey converts to nothing.
-    "journey": [
-        "persona" => [NO_JOURNEY],
-        "flow" => [NO_JOURNEY],
-        "channels" => [NO_JOURNEY],
-        "priority" => [NO_JOURNEY],
-        "tags" => [NO_JOURNEY],
-        "features" => [NO_JOURNEY],
-        "description" => [NO_JOURNEY],
-    ]
-    // A milestone keeps gsd-core's fields alone (ADR 0370 D3).
-    "deliverable": [
-        "description" => [to(MILESTONE, "goal", As)],
-        "journeys" => [NO_JOURNEY],
-        "artifact_type" => [leaves!("milestone.artifact_types")],
-        "depends_on" => [leaves!("milestone.depends_on")],
-        "owner" => [leaves!("milestone.owner")],
-        "contributors" => [leaves!("milestone.contributors")],
-        "tags" => [leaves!("milestone.tags")],
-        "status" => [computed(MILESTONE, "state", DELIVERABLE_STATE)],
-        "modules" => [later(Package)],
-        "version" => [REFUSED],
-        "milestones" => [REFUSED],
-        "reason" => [REFUSED],
+        "acceptance" => [PLAN_TRUTHS],
+        "tests" => [PLAN_TRUTHS],
+        "depends_on" => [keeps!("requirement", "dependencies")],
+        "features" => [keeps!("requirement", "features")],
     ]
     // ADR 0372 D4: a milestone a converted release lists becomes a phase under its version milestone.
     "milestone": [
@@ -383,44 +384,6 @@ pub const TABLE: &[Row] = rows! {
         "reason" => [keeps!("phase", "reason")],
         "refs" => [keeps!("phase", "references")],
     ]
-    // ADR 0370 D8: an old term, persona and channel convert to nothing.
-    "term": [
-        "definition" => [NO_TERM],
-        "context" => [NO_TERM],
-        "aliases" => [NO_TERM],
-        "see_also" => [NO_TERM],
-        "tags" => [NO_TERM],
-        "module" => [NO_TERM],
-    ]
-    "persona": [
-        "description" => [NO_PERSONA],
-        "technical_level" => [NO_PERSONA],
-        "goals" => [NO_PERSONA],
-        "pain_points" => [NO_PERSONA],
-        "tags" => [NO_PERSONA],
-        "status" => [NO_PERSONA],
-        "key_features" => [NO_PERSONA],
-        "reason" => [NO_PERSONA],
-    ]
-    "channel": [
-        "description" => [NO_CHANNEL],
-        "interaction_model" => [NO_CHANNEL],
-        "tags" => [NO_CHANNEL],
-        "status" => [NO_CHANNEL],
-        "url" => [NO_CHANNEL],
-        "reason" => [NO_CHANNEL],
-    ]
-    // No kind holds a module yet: each value waits, and no entity is created.
-    "module": [
-        "family" => [later(Package)],
-        "description" => [later(Package)],
-        "features" => [later(Package)],
-        "depends_on" => [later(Package)],
-        "reason" => [later(Package)],
-        "tags" => [later(Package)],
-        "ports" => [later(Package)],
-        "ports_defined" => [later(Package)],
-    ]
     // ADR 0372 D4: a release becomes the version milestone its version names.
     "release": [
         "description" => [to(MILESTONE, "goal", As)],
@@ -439,39 +402,6 @@ pub const TABLE: &[Row] = rows! {
         "tags" => [leaves!("milestone.tags")],
     ]
 };
-
-/// The `@gsd/core` kind an old kind's entity becomes: a release a version milestone, an old milestone a phase (ADR
-/// 0372 D4); none for a module, whose rows create no entity, and for the kinds whose every value is dropped (ADR 0370
-/// D8): failure_mode, invariant, journey, persona, term and channel.
-pub fn new_kind(old: &str) -> Option<&'static str> {
-    match old {
-        "decision" => Some(DECISION),
-        "constraint" | "feature" => Some(REQUIREMENT),
-        "release" | "deliverable" => Some(MILESTONE),
-        "milestone" => Some(PHASE),
-        _ => None,
-    }
-}
-
-/// Why an old kind's entities convert to nothing: the one reason every row of it drops its value with. None for a
-/// kind with no row, or one a row of which writes, waits or refuses.
-pub fn dropped(old: &str) -> Option<&'static str> {
-    let mut reasons = rows_of(old).map(|row| match row.homes {
-        [Home::Dropped(reason)] => Some(*reason),
-        _ => None,
-    });
-    let reason = reasons.next()??;
-    reasons.all(|other| other == Some(reason)).then_some(reason)
-}
-
-/// Why an old entity of `kind` whose status is `status` converts to nothing, each of its values ledgered `dropped`
-/// (ADR 0370 D8): every row of its kind drops its value ([`dropped`]), or it is a decision that no longer holds.
-pub fn converts_to_nothing(kind: &str, status: Option<&str>) -> Option<&'static str> {
-    match (kind, status) {
-        (DECISION, Some("superseded")) => Some(NO_SUPERSESSION),
-        _ => dropped(kind),
-    }
-}
 
 /// The rows of an old kind, in table order.
 pub fn rows_of(kind: &str) -> impl Iterator<Item = &'static Row> + '_ {

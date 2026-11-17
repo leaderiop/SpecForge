@@ -7,12 +7,39 @@ expression: ledger
   "from": "absorb-fixture",
   "entries": [
     {
+      "kind": "behavior",
+      "id": "write_entry",
+      "field": "category",
+      "value": "command",
+      "why": {
+        "dropped": "gsd-core has no behavior kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "behavior",
+      "id": "write_entry",
+      "field": "contract",
+      "value": "The store MUST write an entry whole.",
+      "why": {
+        "dropped": "gsd-core has no behavior kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "behavior",
+      "id": "write_entry",
+      "field": "title",
+      "value": "Write Entry",
+      "why": {
+        "dropped": "gsd-core has no behavior kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
       "kind": "channel",
       "id": "cli",
       "field": "description",
       "value": "The store's command-line tool.",
       "why": {
-        "dropped": "gsd-core has no channel or term kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no channel kind (ADR 0370 D2)"
       }
     },
     {
@@ -21,7 +48,7 @@ expression: ledger
       "field": "interaction_model",
       "value": "request_response",
       "why": {
-        "dropped": "gsd-core has no channel or term kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no channel kind (ADR 0370 D2)"
       }
     },
     {
@@ -30,7 +57,7 @@ expression: ledger
       "field": "status",
       "value": "active",
       "why": {
-        "dropped": "gsd-core has no channel or term kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no channel kind (ADR 0370 D2)"
       }
     },
     {
@@ -41,7 +68,7 @@ expression: ledger
         "primary"
       ],
       "why": {
-        "dropped": "gsd-core has no channel or term kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no channel kind (ADR 0370 D2)"
       }
     },
     {
@@ -50,7 +77,7 @@ expression: ledger
       "field": "title",
       "value": "Command Line",
       "why": {
-        "dropped": "gsd-core has no channel or term kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no channel kind (ADR 0370 D2)"
       }
     },
     {
@@ -59,7 +86,7 @@ expression: ledger
       "field": "description",
       "value": "A page that lists the entries.",
       "why": {
-        "dropped": "gsd-core has no channel or term kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no channel kind (ADR 0370 D2)"
       }
     },
     {
@@ -68,7 +95,7 @@ expression: ledger
       "field": "title",
       "value": "Web Page",
       "why": {
-        "dropped": "gsd-core has no channel or term kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no channel kind (ADR 0370 D2)"
       }
     },
     {
@@ -253,7 +280,7 @@ expression: ledger
         "write_entry"
       ],
       "why": {
-        "later": "behavior"
+        "dropped": "it names behaviors, which are dropped with the software kinds (ADR 0364 D2): no requirement field names one (ADR 0372 D6)"
       }
     },
     {
@@ -264,7 +291,7 @@ expression: ledger
         "write_entry"
       ],
       "why": {
-        "later": "truth"
+        "dropped": "it names behaviors, which are dropped with the software kinds (ADR 0364 D2): no requirement field names one (ADR 0372 D6)"
       }
     },
     {
@@ -317,7 +344,7 @@ expression: ledger
         "text": "benchmark a thousand writes, assert the 99th percentile"
       },
       "why": {
-        "later": "truth"
+        "dropped": "a requirement holds no list of obligations (ADR 0368 D1): a verify line is dropped (ADR 0372 D6)"
       }
     },
     {
@@ -607,7 +634,16 @@ expression: ledger
       "field": "artifact_type",
       "value": "cli",
       "why": {
-        "dropped": "milestone.artifact_types leaves @gsd/core (ADR 0370)"
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "deliverable",
+      "id": "store_cli",
+      "field": "description",
+      "value": "The command-line tool.",
+      "why": {
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
       }
     },
     {
@@ -619,7 +655,7 @@ expression: ledger
         "record_an_entry"
       ],
       "why": {
-        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
       }
     },
     {
@@ -630,7 +666,7 @@ expression: ledger
         "store_module"
       ],
       "why": {
-        "later": "package"
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
       }
     },
     {
@@ -639,7 +675,7 @@ expression: ledger
       "field": "owner",
       "value": "Alice Martin",
       "why": {
-        "dropped": "milestone.owner leaves @gsd/core (ADR 0370)"
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
       }
     },
     {
@@ -648,10 +684,16 @@ expression: ledger
       "field": "status",
       "value": "shipped",
       "why": {
-        "computed": {
-          "field": "milestone.state",
-          "new": "planned"
-        }
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "deliverable",
+      "id": "store_cli",
+      "field": "title",
+      "value": "store-cli",
+      "why": {
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
       }
     },
     {
@@ -660,7 +702,7 @@ expression: ledger
       "field": "artifact_type",
       "value": "web_app",
       "why": {
-        "dropped": "milestone.artifact_types leaves @gsd/core (ADR 0370)"
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
       }
     },
     {
@@ -671,7 +713,16 @@ expression: ledger
         "store_cli"
       ],
       "why": {
-        "dropped": "milestone.depends_on leaves @gsd/core (ADR 0370)"
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "deliverable",
+      "id": "store_web",
+      "field": "description",
+      "value": "The page that lists entries.",
+      "why": {
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
       }
     },
     {
@@ -682,7 +733,43 @@ expression: ledger
         "browse_entries"
       ],
       "why": {
-        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "deliverable",
+      "id": "store_web",
+      "field": "title",
+      "value": "store-web",
+      "why": {
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "event",
+      "id": "entry_saved",
+      "field": "channel",
+      "value": "store.entry_saved",
+      "why": {
+        "dropped": "gsd-core has no event kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "event",
+      "id": "entry_saved",
+      "field": "payload",
+      "value": "SavedEntry",
+      "why": {
+        "dropped": "gsd-core has no event kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "event",
+      "id": "entry_saved",
+      "field": "title",
+      "value": "Entry Saved",
+      "why": {
+        "dropped": "gsd-core has no event kind: the software kinds are dropped (ADR 0364 D1, D2)"
       }
     },
     {
@@ -691,7 +778,7 @@ expression: ledger
       "field": "cause",
       "value": "The disk is shared with a backup.",
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -700,7 +787,7 @@ expression: ledger
       "field": "effect",
       "value": "Writes queue up.",
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -709,7 +796,7 @@ expression: ledger
       "field": "invariant",
       "value": "entries_are_whole",
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -718,7 +805,7 @@ expression: ledger
       "field": "severity",
       "value": "low",
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -727,7 +814,7 @@ expression: ledger
       "field": "title",
       "value": "Slow Disk",
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -738,7 +825,7 @@ expression: ledger
         "write_entry"
       ],
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -747,7 +834,7 @@ expression: ledger
       "field": "cause",
       "value": "The process dies between two writes of one entry.",
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -756,7 +843,7 @@ expression: ledger
       "field": "description",
       "value": "The classic crash between write and rename.",
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -765,7 +852,7 @@ expression: ledger
       "field": "detection",
       "value": "unlikely",
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -774,7 +861,7 @@ expression: ledger
       "field": "effect",
       "value": "Half an entry is read back.",
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -783,7 +870,7 @@ expression: ledger
       "field": "invariant",
       "value": "writes_are_durable",
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -792,7 +879,7 @@ expression: ledger
       "field": "mitigation",
       "value": "Write to a temporary file, then rename it.",
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -801,7 +888,7 @@ expression: ledger
       "field": "occurrence",
       "value": "occasional",
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -815,7 +902,7 @@ expression: ledger
         "severity": "high"
       },
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -826,7 +913,7 @@ expression: ledger
         "FMEA worksheet 3"
       ],
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -835,7 +922,7 @@ expression: ledger
       "field": "risk",
       "value": "high",
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -844,7 +931,7 @@ expression: ledger
       "field": "rpn",
       "value": 350,
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -853,7 +940,7 @@ expression: ledger
       "field": "severity",
       "value": "critical",
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -862,7 +949,7 @@ expression: ledger
       "field": "title",
       "value": "Torn Write",
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -874,7 +961,7 @@ expression: ledger
         "text": "a killed writer leaves the old entry"
       },
       "why": {
-        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -945,7 +1032,7 @@ expression: ledger
         "A saved entry is on disk after a crash"
       ],
       "why": {
-        "later": "truth"
+        "dropped": "GSD writes acceptance as a plan's truths, and the conversion creates no plan (ADR 0372 D6)"
       }
     },
     {
@@ -1047,19 +1134,13 @@ expression: ledger
     {
       "kind": "invariant",
       "id": "entries_are_whole",
-      "field": "description",
-      "value": "No reader ever sees half an entry.",
+      "field": "category",
+      "value": null,
       "why": {
-        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
-      }
-    },
-    {
-      "kind": "invariant",
-      "id": "entries_are_whole",
-      "field": "guarantee",
-      "value": "An entry is read back whole or not at all.",
-      "why": {
-        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+        "filled": {
+          "field": "requirement.category",
+          "value": "Invariant"
+        }
       }
     },
     {
@@ -1070,7 +1151,7 @@ expression: ledger
         "Storage design note"
       ],
       "why": {
-        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+        "dropped": "a requirement keeps gsd-core's fields alone (ADR 0370 D3): none holds its references (ADR 0372 D6)"
       }
     },
     {
@@ -1079,25 +1160,31 @@ expression: ledger
       "field": "risk",
       "value": "low",
       "why": {
-        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+        "dropped": "a requirement keeps gsd-core's fields alone (ADR 0370 D3): none holds its risk (ADR 0372 D6)"
       }
     },
     {
       "kind": "invariant",
       "id": "entries_are_whole",
-      "field": "title",
-      "value": "Entries Are Whole",
+      "field": "tier",
+      "value": null,
       "why": {
-        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v2"
+        }
       }
     },
     {
       "kind": "invariant",
       "id": "writes_are_durable",
-      "field": "guarantee",
-      "value": "An acknowledged write survives a crash.",
+      "field": "category",
+      "value": null,
       "why": {
-        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+        "filled": {
+          "field": "requirement.category",
+          "value": "Invariant"
+        }
       }
     },
     {
@@ -1106,16 +1193,19 @@ expression: ledger
       "field": "risk",
       "value": "high",
       "why": {
-        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+        "dropped": "a requirement keeps gsd-core's fields alone (ADR 0370 D3): none holds its risk (ADR 0372 D6)"
       }
     },
     {
       "kind": "invariant",
       "id": "writes_are_durable",
-      "field": "title",
-      "value": "Writes Are Durable",
+      "field": "tier",
+      "value": null,
       "why": {
-        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v2"
+        }
       }
     },
     {
@@ -1127,7 +1217,7 @@ expression: ledger
         "web"
       ],
       "why": {
-        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
       }
     },
     {
@@ -1139,7 +1229,7 @@ expression: ledger
         "Writer opens one"
       ],
       "why": {
-        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
       }
     },
     {
@@ -1148,7 +1238,7 @@ expression: ledger
       "field": "persona",
       "value": "writer",
       "why": {
-        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
       }
     },
     {
@@ -1157,7 +1247,7 @@ expression: ledger
       "field": "title",
       "value": "Browse Entries",
       "why": {
-        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
       }
     },
     {
@@ -1168,7 +1258,7 @@ expression: ledger
         "cli"
       ],
       "why": {
-        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
       }
     },
     {
@@ -1179,7 +1269,7 @@ expression: ledger
         "store_entries"
       ],
       "why": {
-        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
       }
     },
     {
@@ -1192,7 +1282,7 @@ expression: ledger
         "Writer sees the entry listed"
       ],
       "why": {
-        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
       }
     },
     {
@@ -1201,7 +1291,7 @@ expression: ledger
       "field": "persona",
       "value": "writer",
       "why": {
-        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
       }
     },
     {
@@ -1210,7 +1300,7 @@ expression: ledger
       "field": "priority",
       "value": "critical",
       "why": {
-        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
       }
     },
     {
@@ -1221,7 +1311,7 @@ expression: ledger
         "daily"
       ],
       "why": {
-        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
       }
     },
     {
@@ -1230,7 +1320,7 @@ expression: ledger
       "field": "title",
       "value": "Record an Entry",
       "why": {
-        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
       }
     },
     {
@@ -1392,7 +1482,7 @@ expression: ledger
       "field": "description",
       "value": "The code that reads and writes entries.",
       "why": {
-        "later": "package"
+        "dropped": "a module is dropped and no @gsd/core kind holds it (ADR 0365)"
       }
     },
     {
@@ -1401,7 +1491,7 @@ expression: ledger
       "field": "family",
       "value": "core",
       "why": {
-        "later": "package"
+        "dropped": "a module is dropped and no @gsd/core kind holds it (ADR 0365)"
       }
     },
     {
@@ -1412,7 +1502,7 @@ expression: ledger
         "store_entries"
       ],
       "why": {
-        "later": "package"
+        "dropped": "a module is dropped and no @gsd/core kind holds it (ADR 0365)"
       }
     },
     {
@@ -1423,7 +1513,16 @@ expression: ledger
         "leaf"
       ],
       "why": {
-        "later": "package"
+        "dropped": "a module is dropped and no @gsd/core kind holds it (ADR 0365)"
+      }
+    },
+    {
+      "kind": "module",
+      "id": "store_module",
+      "field": "title",
+      "value": "store",
+      "why": {
+        "dropped": "a module is dropped and no @gsd/core kind holds it (ADR 0365)"
       }
     },
     {
@@ -1432,7 +1531,7 @@ expression: ledger
       "field": "description",
       "value": "Someone who records short entries every day.",
       "why": {
-        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no persona kind (ADR 0370 D2)"
       }
     },
     {
@@ -1443,7 +1542,7 @@ expression: ledger
         "Never lose an entry"
       ],
       "why": {
-        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no persona kind (ADR 0370 D2)"
       }
     },
     {
@@ -1454,7 +1553,7 @@ expression: ledger
         "store_entries"
       ],
       "why": {
-        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no persona kind (ADR 0370 D2)"
       }
     },
     {
@@ -1465,7 +1564,7 @@ expression: ledger
         "Editors that forget unsaved text"
       ],
       "why": {
-        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no persona kind (ADR 0370 D2)"
       }
     },
     {
@@ -1474,7 +1573,7 @@ expression: ledger
       "field": "status",
       "value": "active",
       "why": {
-        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no persona kind (ADR 0370 D2)"
       }
     },
     {
@@ -1485,7 +1584,7 @@ expression: ledger
         "primary"
       ],
       "why": {
-        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no persona kind (ADR 0370 D2)"
       }
     },
     {
@@ -1494,7 +1593,7 @@ expression: ledger
       "field": "technical_level",
       "value": "intermediate",
       "why": {
-        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no persona kind (ADR 0370 D2)"
       }
     },
     {
@@ -1503,7 +1602,68 @@ expression: ledger
       "field": "title",
       "value": "Writer",
       "why": {
-        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no persona kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "port",
+      "id": "EntryStore",
+      "field": "category",
+      "value": "storage",
+      "why": {
+        "dropped": "gsd-core has no port kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "port",
+      "id": "EntryStore",
+      "field": "direction",
+      "value": "outbound",
+      "why": {
+        "dropped": "gsd-core has no port kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "port",
+      "id": "EntryStore",
+      "field": "method",
+      "value": {
+        "name": "save",
+        "params": [
+          {
+            "name": "path",
+            "type": "string"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          }
+        ],
+        "returns": "Result<SavedEntry, string>"
+      },
+      "why": {
+        "dropped": "gsd-core has no port kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "port",
+      "id": "EntryStore",
+      "field": "title",
+      "value": "Entry Store",
+      "why": {
+        "dropped": "gsd-core has no port kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "port",
+      "id": "EntryStore",
+      "field": "verify",
+      "value": {
+        "kind": "integration",
+        "text": "a saved entry is read back by its path"
+      },
+      "why": {
+        "dropped": "gsd-core has no port kind: the software kinds are dropped (ADR 0364 D1, D2)"
       }
     },
     {
@@ -1580,7 +1740,7 @@ expression: ledger
         "record"
       ],
       "why": {
-        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no term kind (ADR 0370 D2)"
       }
     },
     {
@@ -1589,7 +1749,7 @@ expression: ledger
       "field": "context",
       "value": "The store and its readers.",
       "why": {
-        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no term kind (ADR 0370 D2)"
       }
     },
     {
@@ -1598,7 +1758,7 @@ expression: ledger
       "field": "definition",
       "value": "One dated piece of text the writer saves.",
       "why": {
-        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no term kind (ADR 0370 D2)"
       }
     },
     {
@@ -1609,7 +1769,7 @@ expression: ledger
         "t_store"
       ],
       "why": {
-        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no term kind (ADR 0370 D2)"
       }
     },
     {
@@ -1620,7 +1780,7 @@ expression: ledger
         "core"
       ],
       "why": {
-        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no term kind (ADR 0370 D2)"
       }
     },
     {
@@ -1629,7 +1789,7 @@ expression: ledger
       "field": "title",
       "value": "Entry",
       "why": {
-        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no term kind (ADR 0370 D2)"
       }
     },
     {
@@ -1638,7 +1798,7 @@ expression: ledger
       "field": "definition",
       "value": "The folder that holds every entry.",
       "why": {
-        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no term kind (ADR 0370 D2)"
       }
     },
     {
@@ -1647,7 +1807,49 @@ expression: ledger
       "field": "title",
       "value": "Store",
       "why": {
-        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+        "dropped": "gsd-core has no term kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "type",
+      "id": "SavedEntry",
+      "field": "annotations",
+      "value": {
+        "note": [
+          {
+            "name": "optional"
+          }
+        ]
+      },
+      "why": {
+        "dropped": "gsd-core has no type kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "type",
+      "id": "SavedEntry",
+      "field": "note",
+      "value": "string",
+      "why": {
+        "dropped": "gsd-core has no type kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "type",
+      "id": "SavedEntry",
+      "field": "path",
+      "value": "string",
+      "why": {
+        "dropped": "gsd-core has no type kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "type",
+      "id": "SavedEntry",
+      "field": "title",
+      "value": "Saved Entry",
+      "why": {
+        "dropped": "gsd-core has no type kind: the software kinds are dropped (ADR 0364 D1, D2)"
       }
     }
   ],
@@ -1698,16 +1900,6 @@ expression: ledger
       "new": "sync_writes"
     },
     {
-      "kind": "deliverable",
-      "old": "store_cli",
-      "new": "store_cli"
-    },
-    {
-      "kind": "deliverable",
-      "old": "store_web",
-      "new": "store_web"
-    },
-    {
       "kind": "feature",
       "old": "list_entries",
       "new": "list_entries"
@@ -1721,6 +1913,16 @@ expression: ledger
       "kind": "feature",
       "old": "store_entries",
       "new": "store_entries"
+    },
+    {
+      "kind": "invariant",
+      "old": "entries_are_whole",
+      "new": "entries_are_whole"
+    },
+    {
+      "kind": "invariant",
+      "old": "writes_are_durable",
+      "new": "writes_are_durable"
     },
     {
       "kind": "milestone",

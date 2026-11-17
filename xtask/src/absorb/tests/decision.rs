@@ -199,28 +199,47 @@ fn a_required_value_the_old_spec_lacks_is_filled_and_ledgered() {
     );
 }
 
+/// No row refuses (ADR 0372 D2): a field the old builtins register that no `@gsd/core` field takes is one `dropped`
+/// entry with its reason, and the run goes on.
 #[test]
-fn a_value_in_a_refused_field_stops_the_run_naming_it() {
-    let stops = stops(&[
+fn a_known_field_with_no_home_is_dropped_and_never_stops_the_run() {
+    let entities = [
         old(
             "decision",
             "x",
-            json!({"status": "accepted", "decision": "X", "refs": ["https://example.org"]}),
+            json!({"status": "accepted", "decision": "X", "refs": ["https://example.org"], "description": "Why"}),
         ),
         old(
-            "decision",
-            "y",
-            json!({"status": "accepted", "decision": "Y", "description": "Why"}),
+            "constraint",
+            "c",
+            json!({"description": "D", "scope": "the store"}),
         ),
-    ]);
-    let named: Vec<String> = stops.iter().map(ToString::to_string).collect();
-    assert_eq!(
-        named,
-        [
-            "decision 'x' refs: refused: no kind holds it (value [\"https://example.org\"])",
-            "decision 'y' description: refused: no kind holds it (value \"Why\")",
-        ]
-    );
+        old(
+            "feature",
+            "f",
+            json!({"problem": "P", "depends_on": ["g"], "features": ["g"]}),
+        ),
+    ];
+    assert_eq!(plan::prechecks(&entities), Ok(()));
+    let planned = planned(&entities);
+    assert_eq!(planned.converted, 3);
+    for (id, name) in [
+        ("x", "refs"),
+        ("x", "description"),
+        ("c", "scope"),
+        ("f", "depends_on"),
+        ("f", "features"),
+    ] {
+        let whys: Vec<Why> = ledgered(&planned, id)
+            .into_iter()
+            .filter(|(f, _)| f == name)
+            .map(|(_, why)| why)
+            .collect();
+        assert!(
+            matches!(whys.as_slice(), [Why::Dropped(reason)] if !reason.trim().is_empty()),
+            "{id}.{name}: {whys:?}"
+        );
+    }
 }
 
 #[test]

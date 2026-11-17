@@ -7,7 +7,7 @@ use serde_json::Value;
 use std::collections::BTreeSet;
 
 use super::super::read;
-use super::super::table;
+use super::super::table::{self, Fate};
 
 /// The structural keywords of the core grammar: an id no project may take.
 const STRUCTURAL: [&str; 4] = ["spec", "ref", "use", "define"];
@@ -39,12 +39,12 @@ fn no_old_id_the_root_spec_converts_is_a_kind_keyword() {
     let entities = old.entities();
     let converted: Vec<(&str, &str)> = entities
         .iter()
-        .filter(|e| table::new_kind(&e.kind).is_some())
+        .filter(|e| table::fate(&e.kind).and_then(Fate::new_kind).is_some())
         .map(|e| (e.kind.as_str(), e.id.as_str()))
         .collect();
     assert!(
         converted.len() >= 300,
-        "the self-spec's features, constraints, decisions, milestones and deliverables: {}",
+        "the self-spec's features, constraints, invariants, decisions, releases and milestones: {}",
         converted.len()
     );
     let clashing: Vec<&(&str, &str)> = converted
@@ -63,6 +63,6 @@ fn no_old_id_the_root_spec_converts_is_a_kind_keyword() {
     );
     assert!(
         !converted.iter().any(|(_, id)| *id == "blocker"),
-        "an old term converts to nothing (ADR 0370 D8)"
+        "an old term is dropped whole (ADR 0372 D1)"
     );
 }

@@ -15,7 +15,7 @@ use super::ids::{self, Ids};
 use super::ledger::{Ledger, Why};
 use super::links::Links;
 use super::read::OldEntity;
-use super::table::{self, Home, Row, VERIFY};
+use super::table::{self, Fate, Home, Row, VERIFY};
 
 #[path = "plan/roadmap.rs"]
 mod roadmap;
@@ -58,6 +58,11 @@ pub struct Check {
     pub new_field: &'static str,
     pub expected: Option<Value>,
 }
+
+/// The ledger's field for one `method` member of an entity dropped whole.
+const METHOD: &str = "method";
+/// The ledger's field for an entity's field annotations, dropped whole: one entry, each field to its annotations.
+const ANNOTATIONS: &str = "annotations";
 
 /// What the conversion plans.
 #[derive(Debug, Clone, PartialEq)]
@@ -109,9 +114,11 @@ impl Planned {
     }
 }
 
-/// Every reason the run cannot convert `entities`, all at once: an entity of a kind no row converts, a field with no
-/// row, a value in a refused field, an obligation with no row, a milestone two releases list, a release with no
-/// version, two entities given one new id (the links' and the id map's stops).
+/// Every reason the run cannot convert `entities`, all at once (ADR 0372 D2): an entity of a kind with no fate; on an
+/// entity of a converting kind, a field with no row, an obligation with no row, a method or a field annotation (no
+/// `@gsd/core` field takes one); a milestone two releases list, a release with no version, two entities given one new
+/// id (the links' and the id map's stops). An entity of a kind dropped whole needs no row: its fate's reason is every
+/// value's.
 pub fn prechecks(entities: &[OldEntity]) -> Result<(), Vec<Stop>> {
     let mut stops = Vec::new();
     let stop = |e: &OldEntity, field: &str, why: String| Stop {
@@ -121,25 +128,42 @@ pub fn prechecks(entities: &[OldEntity]) -> Result<(), Vec<Stop>> {
         why,
     };
     for e in entities {
-        if table::rows_of(&e.kind).next().is_none() {
-            stops.push(stop(e, "", format!("no row converts a {} yet", e.kind)));
-            continue;
-        }
-        for (field, value) in &e.fields {
-            let Some(row) = table::row_of(&e.kind, field) else {
-                stops.push(stop(e, field, format!("no row for {}.{field}", e.kind)));
-                continue;
-            };
-            if row.homes.contains(&Home::Refused) {
+        match table::fate(&e.kind) {
+            None => {
                 stops.push(stop(
                     e,
-                    field,
-                    format!("refused: no kind holds it (value {value})"),
+                    "",
+                    format!("no fate for kind {} (ADR 0372 D1)", e.kind),
                 ));
+                continue;
+            }
+            Some(Fate::Dropped(_)) => continue,
+            Some(Fate::To(_)) => {}
+        }
+        for field in e.fields.keys() {
+            if table::row_of(&e.kind, field).is_none() {
+                stops.push(stop(e, field, format!("no row for {}.{field}", e.kind)));
             }
         }
         if !e.obligations.is_empty() && table::row_of(&e.kind, VERIFY).is_none() {
             stops.push(stop(e, VERIFY, format!("no row for {}.{VERIFY}", e.kind)));
+        }
+        if !e.methods.is_empty() {
+            stops.push(stop(
+                e,
+                METHOD,
+                format!("a {} holds no method: no @gsd/core field takes one", e.kind),
+            ));
+        }
+        for field in e.annotations.keys() {
+            stops.push(stop(
+                e,
+                field,
+                format!(
+                    "a field annotation of a {} has no home in @gsd/core",
+                    e.kind
+                ),
+            ));
         }
     }
     let (links, linked) = Links::of(entities);
@@ -252,20 +276,31 @@ pub fn plan(entities: &[OldEntity]) -> Planned {
     planner.finish()
 }
 
-/// Why `e` converts to nothing, if it does (ADR 0370 D8, ADR 0372 D4): every row of its kind drops its value, it is
-/// a decision that no longer holds, or it is a milestone no converted release lists.
+/// Why `e` is dropped whole, if it is (ADR 0372 D1, D4): its kind's fate drops it, it is a decision that no longer
+/// holds, or it is a milestone no converted release lists. None for a kind with no fate, which stops the run.
 fn dropped_whole(e: &OldEntity, links: &Links) -> Option<&'static str> {
-    if e.kind == super::links::MILESTONE && links.release_of(&e.id).is_none() {
-        return Some(table::NO_RELEASE);
+    match table::fate(&e.kind)? {
+        Fate::Dropped(reason) => Some(reason),
+        Fate::To(_) if e.kind == super::links::MILESTONE && links.release_of(&e.id).is_none() => {
+            Some(table::NO_RELEASE)
+        }
+        Fate::To(_)
+            if e.kind == "decision"
+                && e.fields.get("status").and_then(Value::as_str) == Some("superseded") =>
+        {
+            Some(table::NO_SUPERSESSION)
+        }
+        Fate::To(_) => None,
     }
-    let status = e.fields.get("status").and_then(Value::as_str);
-    table::converts_to_nothing(&e.kind, status)
 }
 
-/// The `@gsd/core` kind of the entity `e` converts to under `links`: none for an entity that converts to nothing,
-/// and for a module, whose rows create no entity.
+/// The `@gsd/core` kind of the entity `e` converts to under `links`, read from the fate table: none for an entity
+/// dropped whole, and for one of a kind with no fate.
 pub fn converts_to(e: &OldEntity, links: &Links) -> Option<&'static str> {
-    dropped_whole(e, links).map_or_else(|| table::new_kind(&e.kind), |_| None)
+    match dropped_whole(e, links) {
+        Some(_) => None,
+        None => table::fate(&e.kind)?.new_kind(),
+    }
 }
 
 /// `e`'s obligations, each as the ledger writes it.
@@ -277,8 +312,9 @@ fn obligations(e: &OldEntity) -> Vec<Value> {
 }
 
 impl Planner {
-    /// `e`, which converts to nothing: its title, each of its values and each obligation ledgered `dropped` with
-    /// `reason`, so an entity with no value still leaves one entry.
+    /// `e`, dropped whole: its title, each of its values, each obligation, each method and its field annotations (one
+    /// entry, each field to its annotations) ledgered `dropped` with `reason`, so an entity with no value still leaves
+    /// one entry (ADR 0372 D2).
     fn drop_whole(&mut self, e: &OldEntity, reason: &str) {
         let title = ("title", e.title.clone().map_or(Value::Null, Value::String));
         let values = e
@@ -286,7 +322,17 @@ impl Planner {
             .iter()
             .map(|(field, value)| (field.as_str(), value.clone()));
         let obligations = obligations(e).into_iter().map(|value| (VERIFY, value));
-        for (field, value) in std::iter::once(title).chain(values).chain(obligations) {
+        let methods = e.methods.iter().map(|method| (METHOD, method.clone()));
+        let annotations = (!e.annotations.is_empty()).then(|| {
+            let held = e.annotations.clone().into_iter().collect();
+            (ANNOTATIONS, Value::Object(held))
+        });
+        let all = std::iter::once(title)
+            .chain(values)
+            .chain(obligations)
+            .chain(methods)
+            .chain(annotations);
+        for (field, value) in all {
             let why = Why::Dropped(reason.to_string());
             self.ledger.record(&e.kind, &e.id, field, value, why);
         }
@@ -390,17 +436,6 @@ impl Planner {
                     expected,
                 });
             }
-            Home::Later(pending) => {
-                self.ledger.record(
-                    &e.kind,
-                    &e.id,
-                    row.field,
-                    value.clone(),
-                    Why::Later(pending),
-                );
-            }
-            // A refused value stopped the run before planning.
-            Home::Refused => {}
             Home::Dropped(reason) => {
                 self.ledger.record(
                     &e.kind,
@@ -423,26 +458,25 @@ impl Planner {
         );
     }
 
-    /// The required values the old entity lacks, filled and ledgered. A constraint's tier is `v2` when the run writes
-    /// a phase that does not list it (ADR 0372 D7).
+    /// The required values the old entity lacks, filled and ledgered. A requirement's category is its old kind's
+    /// name; a constraint's and an invariant's tier is `v2` when the run writes a phase that does not list it (ADR 0372
+    /// D7), else `v1`.
     fn fill(&mut self, e: &OldEntity) {
         let Some(kind) = self.ids.get(&e.kind, &e.id).map(|new| new.kind) else {
             return;
         };
-        let fills: Vec<(&str, Input)> = match kind {
-            "decision" => vec![("origin", Input::One("project".to_string()))],
-            "requirement" if e.kind == "constraint" => vec![
-                ("category", Input::One("Constraint".to_string())),
-                ("tier", Input::One(self.unlisted_tier(e, "v1").to_string())),
-            ],
-            "requirement" => vec![
-                ("category", Input::One("Feature".to_string())),
-                (
-                    "tier",
-                    Input::One(how::feature_tier(how::FEATURE_DEFAULT).to_string()),
-                ),
-            ],
-            "phase" => self.phase_fills(e),
+        let requirement = |category: &str, tier: &str| {
+            vec![
+                ("category", Input::One(category.to_string())),
+                ("tier", Input::One(tier.to_string())),
+            ]
+        };
+        let fills: Vec<(&str, Input)> = match (kind, e.kind.as_str()) {
+            ("decision", _) => vec![("origin", Input::One("project".to_string()))],
+            ("requirement", "constraint") => requirement("Constraint", self.unlisted_tier(e, "v1")),
+            ("requirement", "invariant") => requirement("Invariant", self.unlisted_tier(e, "v1")),
+            ("requirement", _) => requirement("Feature", how::feature_tier(how::FEATURE_DEFAULT)),
+            ("phase", _) => self.phase_fills(e),
             _ => Vec::new(),
         };
         for (field, value) in fills {

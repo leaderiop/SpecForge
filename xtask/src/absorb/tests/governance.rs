@@ -1,10 +1,10 @@
-//! Old constraints become `@gsd/core` requirements (ADR 0359 D1-D6), keeping what gsd-core's requirement holds; an
-//! old failure mode and an old invariant convert to nothing, their values ledgered `dropped` (ADR 0370 D8).
+//! Old constraints and invariants become `@gsd/core` requirements (ADR 0359 D1-D6, ADR 0372 D6), keeping what
+//! gsd-core's requirement holds; an old failure mode is dropped whole, its values ledgered `dropped` (ADR 0372 D1).
 
 use serde_json::json;
 
 use super::super::ledger::Why;
-use super::super::table::{self, Home, Pending};
+use super::super::table::{self, Fate};
 use super::{create, field, ledgered, old, one, planned};
 
 fn why_of(planned: &super::super::plan::Planned, id: &str, field: &str) -> Vec<Why> {
@@ -29,10 +29,10 @@ fn a_failure_mode_converts_to_nothing_and_ledgers_each_value_dropped() {
     let planned = planned(&[f]);
     assert!(planned.creates.is_empty(), "{:?}", planned.creates);
     assert_eq!(planned.converted, 0);
-    let &[Home::Dropped(reason)] = table::row_of("failure_mode", "severity").unwrap().homes else {
-        panic!("a failure mode's severity is dropped");
+    let Some(Fate::Dropped(reason)) = table::fate("failure_mode") else {
+        panic!("a failure mode is dropped whole");
     };
-    assert!(reason.contains("ADR 0370"), "{reason}");
+    assert!(reason.contains("ADR 0372 D1"), "{reason}");
     let dropped = Why::Dropped(reason.to_string());
     let entries: Vec<_> = planned
         .ledger
@@ -59,7 +59,7 @@ fn a_failure_mode_converts_to_nothing_and_ledgers_each_value_dropped() {
                 dropped
             ),
         ],
-        "one entry for the title and one per value, each with the table's reason"
+        "one entry for the title and one per value, each with its fate's reason"
     );
 }
 
@@ -119,35 +119,87 @@ fn a_constraint_keeps_its_text_and_drops_the_fields_that_left() {
     );
 }
 
-#[test]
-fn constraint_constrains_is_ledgered_until_behaviors_have_a_home() {
-    let planned = planned(&[old(
-        "constraint",
-        "c",
-        json!({"description": "D", "constrains": ["write_entry"]}),
-    )]);
-    assert_eq!(field(&planned, "c", "constrains"), None);
-    assert_eq!(
-        why_of(&planned, "c", "constrains"),
-        [Why::Later(Pending::Behavior)]
-    );
+/// Every value of `id`'s `fields` is one `dropped` entry whose reason holds each of `naming`.
+fn dropped_naming(
+    planned: &super::super::plan::Planned,
+    id: &str,
+    fields: &[&str],
+    naming: &[&str],
+) {
+    for name in fields {
+        assert!(
+            matches!(
+                why_of(planned, id, name).as_slice(),
+                [Why::Dropped(reason)] if naming.iter().all(|n| reason.contains(n))
+            ),
+            "{name}: {:?}",
+            why_of(planned, id, name)
+        );
+    }
 }
 
 #[test]
-fn a_later_field_is_ledgered_with_what_it_waits_for() {
+fn constraint_constrains_enforced_by_and_verify_are_dropped_with_their_reasons() {
     let mut c = old(
         "constraint",
         "c",
-        json!({"description": "D", "enforced_by": ["write_entry"]}),
+        json!({"description": "D", "constrains": ["write_entry"], "enforced_by": ["write_entry"]}),
     );
     c.obligations = vec![(Some("load".to_string()), "benchmark it".to_string())];
     let planned = planned(&[c]);
+    assert_eq!(field(&planned, "c", "constrains"), None);
+    dropped_naming(
+        &planned,
+        "c",
+        &["constrains", "enforced_by"],
+        &["ADR 0364 D2", "ADR 0372 D6"],
+    );
+    dropped_naming(&planned, "c", &["verify"], &["ADR 0368 D1", "ADR 0372 D6"]);
+}
+
+#[test]
+fn an_invariant_becomes_a_requirement_whose_text_is_its_guarantee_then_its_description() {
+    let mut invariant = old(
+        "invariant",
+        "durable",
+        json!({
+            "guarantee": "An acknowledged write survives a crash.", "risk": "high",
+            "description": "No reader sees half an entry.", "refs": ["Storage note"], "expression": "forall w. durable(w)",
+        }),
+    );
+    invariant.obligations = vec![(Some("unit".to_string()), "survives a crash".to_string())];
+    let planned = planned(&[invariant]);
+    assert_eq!(planned.converted, 1);
+    let (kind, fields) = create(&planned, "durable");
+    assert_eq!(kind, "requirement");
     assert_eq!(
-        why_of(&planned, "c", "enforced_by"),
-        [Why::Later(Pending::Truth)]
+        fields.keys().collect::<Vec<_>>(),
+        ["category", "text", "tier"],
+        "{fields:?}"
     );
     assert_eq!(
-        why_of(&planned, "c", "verify"),
-        [Why::Later(Pending::Truth)]
+        field(&planned, "durable", "text"),
+        Some(&one(
+            "An acknowledged write survives a crash.\n\nNo reader sees half an entry."
+        ))
     );
+    for (name, value) in [("category", "Invariant"), ("tier", "v1")] {
+        assert_eq!(field(&planned, "durable", name), Some(&one(value)));
+        assert_eq!(
+            why_of(&planned, "durable", name),
+            [Why::Filled {
+                field: format!("requirement.{name}"),
+                value: json!(value)
+            }]
+        );
+    }
+    dropped_naming(
+        &planned,
+        "durable",
+        &["risk", "refs", "expression", "verify"],
+        &["ADR 0372 D6"],
+    );
+    dropped_naming(&planned, "durable", &["expression"], &["ADR 0368 D3"]);
+    assert_eq!(why_of(&planned, "durable", "guarantee"), []);
+    assert_eq!(why_of(&planned, "durable", "description"), []);
 }

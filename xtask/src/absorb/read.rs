@@ -1,16 +1,21 @@
-//! The old project, compiled in-process with its own builtins (ADR 0360 D1): its entities of the absorbed kinds,
-//! each value in the one wire form every output writes (ADR 0064).
+//! The old project, compiled in-process with its own builtins (ADR 0360 D1): every authored entity, whatever its
+//! kind, each value in the one wire form every output writes (ADR 0064). Nothing is filtered by the kind an extension
+//! declares (ADR 0372 D1): an entity of a kind with no fate stops the run, never passes unread. Only the core
+//! grammar's structural blocks and the collected facts are left out ([`authored`]).
 
 use serde_json::Value;
+use specforge_common::facts::is_fact_store;
 use specforge_common::{ProjectConfig, ProjectRoot, Severity, read_project_config};
 use specforge_component::ComponentRuntime;
-use specforge_graph::field_form;
+use specforge_graph::{Members, field_form};
 use specforge_project::CompiledProject;
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use super::table::OLD_KINDS;
+/// The core grammar's structural blocks the graph holds as nodes: the project's `spec` block, which the target
+/// scaffolds fresh, and a `ref` declaration, an outside resource an entity names. Neither is an entity of an old kind.
+const STRUCTURAL: [&str; 2] = ["spec", "ref"];
 
 /// How many of a refused source's errors are printed.
 const ERRORS_SHOWN: usize = 10;
@@ -57,7 +62,7 @@ impl Project {
     }
 }
 
-/// One old entity of an absorbed kind.
+/// One old authored entity.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OldEntity {
     pub kind: String,
@@ -70,6 +75,17 @@ pub struct OldEntity {
     pub fields: BTreeMap<String, Value>,
     /// Its `verify` statements in written order: (kind, text).
     pub obligations: Vec<(Option<String>, String)>,
+    /// Its `method` members in written order, each as the graph export writes one (`name`, `params` with `name` and
+    /// `type`, `returns`).
+    pub methods: Vec<Value>,
+    /// Each annotated field's annotations, by the field's path, each list as the graph export writes it.
+    pub annotations: BTreeMap<String, Value>,
+}
+
+/// Whether a graph node of `kind` whose span names `file` is an authored entity absorb reads: any kind but a
+/// structural block, from any source but a fact store (a collected fact, which the graph tells by the same test).
+pub fn authored(kind: &str, file: &str) -> bool {
+    !STRUCTURAL.contains(&kind) && !is_fact_store(file)
 }
 
 /// Compile the project at `from` with the builtins it names; refused when it reports an error, naming the first. No
@@ -108,42 +124,56 @@ pub fn compile(from: &Path) -> Result<Old, String> {
 }
 
 impl Old {
-    /// Its entities of the absorbed kinds, by file, then line.
+    /// Its authored entities ([`authored`]), by file, then line.
     pub fn entities(&self) -> Vec<OldEntity> {
         let mut entities: Vec<OldEntity> = self
             .project
             .graph()
             .nodes()
             .into_iter()
-            .filter(|node| OLD_KINDS.contains(&node.kind.raw.as_str()))
-            .map(|node| OldEntity {
-                kind: node.kind.raw.to_string(),
-                id: node.id.raw.to_string(),
-                title: node.title.clone(),
-                file: node.source_span.file.to_string(),
-                line: node.source_span.start_line,
-                fields: node
-                    .fields
-                    .entries()
-                    .iter()
-                    .map(|entry| {
-                        (
-                            entry.key.to_string(),
-                            field_form::write(&entry.value).as_value().clone(),
-                        )
-                    })
-                    .collect(),
-                obligations: node
-                    .obligations
-                    .iter()
-                    .map(|o| {
-                        let kind = (!o.kind.is_empty()).then(|| o.kind.clone());
-                        (kind, o.description.clone())
-                    })
-                    .collect(),
+            .filter(|node| authored(node.kind.raw.as_str(), node.source_span.file.as_str()))
+            .map(|node| {
+                let members = Members::of(node);
+                OldEntity {
+                    kind: node.kind.raw.to_string(),
+                    id: node.id.raw.to_string(),
+                    title: node.title.clone(),
+                    file: node.source_span.file.to_string(),
+                    line: node.source_span.start_line,
+                    fields: node
+                        .fields
+                        .entries()
+                        .iter()
+                        .map(|entry| {
+                            (
+                                entry.key.to_string(),
+                                field_form::write(&entry.value).as_value().clone(),
+                            )
+                        })
+                        .collect(),
+                    obligations: node
+                        .obligations
+                        .iter()
+                        .map(|o| {
+                            let kind = (!o.kind.is_empty()).then(|| o.kind.clone());
+                            (kind, o.description.clone())
+                        })
+                        .collect(),
+                    methods: members.methods.iter().map(json).collect(),
+                    annotations: members
+                        .annotations
+                        .iter()
+                        .map(|(field, annotations)| (field.clone(), json(annotations)))
+                        .collect(),
+                }
             })
             .collect();
         entities.sort_by(|a, b| (&a.file, a.line, &a.id).cmp(&(&b.file, b.line, &b.id)));
         entities
     }
+}
+
+/// `value` as the graph export writes it.
+fn json(value: &impl serde::Serialize) -> Value {
+    serde_json::to_value(value).unwrap_or(Value::Null)
 }

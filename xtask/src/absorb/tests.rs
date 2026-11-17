@@ -8,6 +8,8 @@
 
 #[path = "tests/decision.rs"]
 mod decision;
+#[path = "tests/fates.rs"]
+mod fates;
 #[path = "tests/governance.rs"]
 mod governance;
 #[path = "tests/keywords.rs"]
@@ -30,10 +32,11 @@ use super::ledger::Why;
 use super::plan::{self, Planned, Stop};
 use super::read::{self, OldEntity};
 
-/// The old fixture project: the five old builtins and one file per old kind.
+/// The old fixture project: the five old builtins and an entity of every old kind.
 pub(super) const OLD: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/absorb/old");
 
-/// An old entity of `kind` named `id`, titled after it, in `spec/<kind>.spec`, writing `fields` (a JSON object).
+/// An old entity of `kind` named `id`, titled after it, in `spec/<kind>.spec`, writing `fields` (a JSON object), with no
+/// method and no field annotation.
 pub(super) fn old(kind: &str, id: &str, fields: Value) -> OldEntity {
     OldEntity {
         kind: kind.to_string(),
@@ -48,6 +51,8 @@ pub(super) fn old(kind: &str, id: &str, fields: Value) -> OldEntity {
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect(),
         obligations: Vec::new(),
+        methods: Vec::new(),
+        annotations: BTreeMap::new(),
     }
 }
 

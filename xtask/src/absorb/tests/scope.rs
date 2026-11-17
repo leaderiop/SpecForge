@@ -63,31 +63,34 @@ fn an_unknown_selected_id_is_refused() {
         .unwrap_err();
     assert_eq!(
         why,
-        "--only names 2 id(s) that do not convert:\n  'ghost' names no entity of the absorbed kinds\n  \
-         'write_entry' names no entity of the absorbed kinds"
+        "--only names 2 id(s) that name no entity of the source:\n  'ghost'\n  'write_entry'"
     );
 }
 
+/// Every old kind has a fate (ADR 0372 D1), so `--only` may name an entity of any of them: one dropped whole leaves its
+/// values in the ledger, a release becomes a version milestone.
 #[test]
-fn a_selected_module_id_is_refused_and_a_release_kept() {
+fn a_selected_entity_of_any_fated_kind_may_be_named() {
     let all = [
         old("module", "store_module", json!({"family": "core"})),
+        old("behavior", "write_entry", json!({"contract": "C"})),
         old("release", "first", json!({"version": "0.1.0"})),
         decision("a", json!({})),
     ];
-    let why = only(&["a", "first", "store_module"])
-        .select(all.to_vec())
-        .unwrap_err();
-    assert_eq!(
-        why,
-        "--only names 1 id(s) that do not convert:\n  'store_module' is a module, which creates no entity"
-    );
-    let planned = selected(&all, &["a", "first"]);
+    let planned = selected(&all, &["a", "first", "store_module", "write_entry"]);
     assert_eq!(
         created(&planned),
         ["v0.1.0", "a"],
-        "a release is a version milestone"
+        "a release is a version milestone; a module and a behavior create nothing"
     );
+    for id in ["store_module", "write_entry"] {
+        assert!(
+            ledgered(&planned, id)
+                .iter()
+                .all(|(_, why)| matches!(why, Why::Dropped(_))),
+            "{id}"
+        );
+    }
 }
 
 #[test]
@@ -120,10 +123,10 @@ fn a_selected_feature_brings_its_solution_decision() {
 }
 
 #[test]
-fn a_refused_value_outside_the_scope_does_not_stop_the_run() {
+fn an_entity_of_a_kind_with_no_fate_outside_the_scope_does_not_stop_the_run() {
     let all = [
         decision("a", json!({})),
-        decision("refusing", json!({"description": "no kind holds this"})),
+        old("widget", "gear", json!({"size": 3})),
     ];
     let entities = only(&["a"]).select(all.to_vec()).unwrap();
     assert_eq!(plan::prechecks(&entities), Ok(()));

@@ -7,16 +7,12 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 
-use super::table::Pending;
-
-/// Why a value is in the ledger. No home writes a reference and none a proof (ADR 0370 D8), so no value is ledgered
-/// for leaving the selection, for a reference to a kind with no home, as a collapsed word, or as an unproven
-/// obligation.
+/// Why a value is in the ledger: it was computed, filled, created, left unconverted or dropped (ADR 0372 D8). No
+/// value waits for a kind (ADR 0372 D2), and none is ledgered as an unproven obligation: no kept kind holds a proof
+/// (ADR 0370 D8).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Why {
-    /// A value whose home is a kind `@gsd/core` does not hold yet.
-    Later(Pending),
     /// A computed value the new kind gives that differs from the old one (`null`: none).
     Computed { field: String, new: Value },
     /// A required field the old entity had no value for, filled.
@@ -112,7 +108,7 @@ impl Ledger {
         self.ids.iter()
     }
 
-    /// How many entries give each why, by its name (`later`, `computed`, …).
+    /// How many entries give each why, by its name (`computed`, `dropped`, …).
     pub fn counts(&self) -> std::collections::BTreeMap<String, usize> {
         let mut counts = std::collections::BTreeMap::new();
         for entry in &self.entries {
