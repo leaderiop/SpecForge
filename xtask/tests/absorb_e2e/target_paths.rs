@@ -179,3 +179,19 @@ fn a_version_the_target_refuses_as_an_id_stops_the_run_before_any_write() {
     );
     assert!(!to.exists(), "the scaffold is removed");
 }
+
+/// A `--to` past Windows' old 260-character limit converts and checks clean: the Windows leg runs this, where
+/// `core.longpaths` and std's long-path handling are what it tests (ADR 0375 D4).
+#[test]
+fn a_target_longer_than_260_characters_converts_and_checks_clean() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut to = dir.path().to_path_buf();
+    while to.as_os_str().len() <= 260 {
+        to.push("t".repeat(60));
+    }
+    assert!(to.as_os_str().len() > 260, "{} is not long", to.display());
+    let run = absorb(&["--from", OLD, "--to", path(&to)]);
+    assert_eq!(run.code, 0, "{}", run.stderr);
+    assert_eq!(run.summary["target"]["errors"], 0, "{}", run.summary);
+    assert!(to.join("specforge.json").is_file());
+}
