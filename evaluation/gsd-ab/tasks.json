@@ -64,7 +64,7 @@
     ]
   },
   "fixtures": [
-    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "9085d3e5d08476e9e16764348f8536539adc3db8", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"],
+    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "cc69e48b71b45c059a7534d3f5493a9b8159cf91", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"],
       "baseline": [
         "I213 -:0", "gsd/E501 spec/plans.spec:231", "gsd/E501 spec/plans.spec:237", "gsd/E501 spec/plans.spec:243",
         "gsd/E501 spec/plans.spec:249", "gsd/E501 spec/plans.spec:256", "gsd/W311 spec/plans.spec:1",

@@ -508,25 +508,6 @@ fn a_paraphrase_is_no_citation_and_the_id_is_one() {
 }
 
 #[test]
-fn a_listed_decision_cited_nowhere_is_e310_and_a_gap_row() {
-    let p = with(&phase_1_decision("Completed tasks move to a done list"));
-    p.edit(
-        "spec/plans.spec",
-        "  decisions      [D-01]\n",
-        "  decisions      [D-01, D-02]\n",
-    );
-    assert_eq!(p.codes(), ["gsd/E310", "gsd/W317"]);
-    assert_eq!(
-        message(&p, "gsd/E310"),
-        "decision 'v1.0/01/D-02' is cited by no plan of phase 'v1.0/01'"
-    );
-    assert_eq!(
-        message(&p, "gsd/W317"),
-        "⚠ 1 of 4 items not covered by any plan: D-02"
-    );
-}
-
-#[test]
 fn a_project_decision_is_not_tracked() {
     // The project's `D-01` is cited by no plan and is clean; so is a decision of another origin.
     let p = with(

@@ -197,10 +197,9 @@ one row per authored field, no row for another field, every upstream line holdin
 
 ## plan.md
 
-Four rows of this section name the capability that reads a link field gsd-core does not write: `truth.requirement`
-(`gsd/E519`), `truth.proof` (a judged input of `gsd/E501`), `task.items` (`gsd/W522`; `requirement.satisfied_by`
-reads the commits' `items_changed` instead) and `plan.decisions` (`gsd/E310`). Each row goes with its field when the
-field leaves its kind.
+Three rows of this section name the capability that reads a link field gsd-core does not write: `truth.requirement`
+(`gsd/E519`), `truth.proof` (a judged input of `gsd/E501`) and `task.items` (`gsd/W522`; `requirement.satisfied_by`
+reads the commits' `items_changed` instead). Each row goes with its field when the field leaves its kind.
 
 | kind | field | source | the line holds |
 |---|---|---|---|
@@ -212,7 +211,6 @@ field leaves its kind.
 | plan | coupling_justified | gsd-core/references/planner-coupling.md:30 | coupling_justified: ["03-02: |
 | plan | gap_closure | gsd-core/workflows/verify-work.md:788 | MUST carry `gap_closure: true` and `gap_ids: [...]` |
 | plan | requirements | agents/gsd-planner.md:318 | requirements: []            # REQUIRED |
-| plan | decisions | rule:gsd/E310 |  |
 | plan | wave0 | gsd-core/references/nyquist-compliance.md:55 | Wave 0 plan must execute before dependent task |
 | plan | agent_hint | gsd-core/workflows/execute-phase/steps/per-plan-executor-routing.md:11 | A plan opts into a specialist by declaring `agent_hint: <name>` |
 | plan | estimate | agents/gsd-planner.md:321 | estimate:                   # Projected execution cost |

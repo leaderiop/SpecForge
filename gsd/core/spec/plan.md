@@ -14,8 +14,7 @@
                 │   ├──*─ disposition    (review ledger, append-only)
                 │   └──*─ user_setup
                 ├── depends_on →* plan   (a DAG; waves are computed from it)
-                ├── requirements →* requirement
-                └── decisions →* decision   (the context decisions it implements)
+                └── requirements →* requirement
 ```
 
 File: `plans/<NN-MM>.spec` in the phase folder: the plan, its tasks, checkpoints and must-haves, its plan-check
@@ -35,7 +34,6 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 | files_deleted | paths<open> | | `files_deleted:`: checked while the plan is pending (the file is still there to delete), closed once it is complete |
 | coupling_justified | {peer → plan R, reason str R} | | `coupling_justified:`; exempts only non-file coupling (D3b, gsd/I321), never file overlap (gsd/W305) |
 | requirements | →* requirement | | `requirements:` (non-empty for a plan of a phase, not `R`, so gsd/E302 is the one diagnostic of its absence; a quick plan names none) |
-| decisions | →* decision | | the context decisions the plan implements (`decisions [D-01, D-03]`), resolved in its phase and read back as `implemented_by` (ADR 0351): gsd/E310, W317, W506 and E312's exemption read them, never the plan's text. Not `R`: gsd/E310 is the one diagnostic of a missing one; another phase's decision (`02/D-01`) covers nothing here |
 | wave0 | bool | | `wave: 0`: the plan builds the phase's Nyquist wave-0 items (test stubs, fixtures, framework install) |
 | gap_closure | →* verify_gap \| uat_gap | | `gap_closure: true` and `gap_ids:` (a reference union, ADR 0285 D5) |
 | agent_hint | str | | `agent_hint:` |
@@ -187,7 +185,7 @@ one line; the same open conflict twice is one entity), `specforge gsd resolve-co
 GSD's plan checker is a prompt with twelve dimensions. Here each dimension is a rule: the ones code can decide are
 declarative rules or passes; the rest are **judged** (K7): the checker agent records a `verdict` member in the plan's file, and
 the verdict goes stale when any of the plan-check inputs changes ([rules.md](rules.md#judged-rules-inputs)): the plan
-and its tasks and must-haves, its phase, its requirements, the decisions it lists, the phase's and the project's decisions, the context,
+and its tasks and must-haves, its phase, its requirements, the phase's and the project's decisions, the context,
 the research, its sibling plans, the agent instruction files, and what the checker cited. A plan is `checked` only
 with a fresh passing verdict, and `/gsd-execute-phase` refuses a phase whose plans are not. The mapping is in
 [rules.md](rules.md#plan).
@@ -200,7 +198,7 @@ with a fresh passing verdict, and `/gsd-execute-phase` refuses a phase whose pla
     cited       [AUTH-07, "src/http/middleware.ts"]
     cited_tests []
     inputs      { plan "sha256:9f1c…" body "sha256:41d7…" phase "sha256:04ab…" requirements "sha256:5e21…"
-                  decisions "sha256:c3d0…" phase_decisions "sha256:5b17…" all_decisions "sha256:e0b9…"
+                  phase_decisions "sha256:5b17…" all_decisions "sha256:e0b9…"
                   context "sha256:7a4f…" research "sha256:19cd…" research_items "sha256:b6a2…"
                   siblings "sha256:2f80…" instructions "sha256:77e0…" cited "sha256:a8f3…" }
     findings    []

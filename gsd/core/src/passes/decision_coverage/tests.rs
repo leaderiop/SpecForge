@@ -24,8 +24,6 @@ fn edge(source: &str, target: &str, label: &str) -> PassEdge {
 #[derive(Clone, Copy, PartialEq)]
 enum Cited {
     Nowhere,
-    /// Listed in `decisions` and cited nowhere.
-    Listed,
     Plan,
     Summary,
     Item,
@@ -44,13 +42,10 @@ fn input(status: &str, cited: Cited, plan_status: &str) -> PassInput {
             text.to_string()
         }
     };
-    let mut edges = vec![
+    let edges = vec![
         edge("v/1/1-VERIFICATION", "v/1", "phase"),
         edge("abc123def456", "v/1/1-01", "plan"),
     ];
-    if cited == Cited::Listed {
-        edges.push(edge("v/1/1-01", "v/1/D-03", "decisions"));
-    }
     PassInput {
         entities: vec![
             entity("v/1", "phase", &[]),
@@ -106,16 +101,14 @@ fn input(status: &str, cited: Cited, plan_status: &str) -> PassInput {
 
 #[test]
 fn a_decision_nothing_shipped_is_w506_on_the_decision() {
-    for cited in [Cited::Nowhere, Cited::Listed] {
-        let found = check(&input("passed", cited, "complete"));
-        assert_eq!(found.len(), 1);
-        assert_eq!(found[0].code, "W506");
-        assert_eq!(found[0].entity.as_deref(), Some("v/1/D-03"));
-        assert_eq!(
-            found[0].message,
-            "decision 'v/1/D-03' of verified phase 'v/1' is cited by no complete plan of the phase, its summaries or its commits"
-        );
-    }
+    let found = check(&input("passed", Cited::Nowhere, "complete"));
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].code, "W506");
+    assert_eq!(found[0].entity.as_deref(), Some("v/1/D-03"));
+    assert_eq!(
+        found[0].message,
+        "decision 'v/1/D-03' of verified phase 'v/1' is cited by no complete plan of the phase, its summaries or its commits"
+    );
 }
 
 #[test]

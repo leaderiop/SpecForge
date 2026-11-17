@@ -64,9 +64,8 @@ fn an_unplanned_phase_is_not_judged() {
     assert!(check(&input).is_empty());
 }
 
-/// Phase `v/1` with one plan whose objective and task action are given, and the plan's `decisions` edges (still
-/// declared, read by no rule).
-fn decision_input(text: &str, objective: &str, task_action: &str, listed: &[&str]) -> PassInput {
+/// Phase `v/1` with one plan whose objective and task action are given.
+fn decision_input(text: &str, objective: &str, task_action: &str) -> PassInput {
     PassInput {
         entities: vec![
             entity("v/1", "phase", &[]),
@@ -80,22 +79,13 @@ fn decision_input(text: &str, objective: &str, task_action: &str, listed: &[&str
             entity("v/1/D-04", "decision", &[("origin", "summary")]),
             entity("D-03", "decision", &[("origin", "context")]),
         ],
-        edges: listed
-            .iter()
-            .map(|target| edge("v/1/1-01", target, "decisions"))
-            .collect(),
         ..Default::default()
     }
 }
 
 #[test]
 fn an_uncited_context_decision_is_e310_on_the_decision() {
-    let found = check(&decision_input(
-        "Log every retry",
-        "Build it",
-        "Write it",
-        &[],
-    ));
+    let found = check(&decision_input("Log every retry", "Build it", "Write it"));
     assert_eq!(codes_of(&found), [("E310", Some("v/1/D-03"))]);
     assert_eq!(
         found[0].message,
@@ -109,7 +99,7 @@ fn a_decision_is_covered_by_its_id_in_a_plans_text() {
     // The id, in the plan's objective or in a task, covers it.
     for (objective, action) in [("Honour D-03", "Write it"), ("Build it", "See D-03.")] {
         assert!(
-            check(&decision_input(text, objective, action, &[])).is_empty(),
+            check(&decision_input(text, objective, action)).is_empty(),
             "{objective} / {action}"
         );
     }
@@ -120,29 +110,14 @@ fn a_decision_is_covered_by_its_id_in_a_plans_text() {
         ("Build it", "See d-03"),
     ] {
         assert_eq!(
-            codes_of(&check(&decision_input(text, objective, action, &[]))),
+            codes_of(&check(&decision_input(text, objective, action))),
             [("E310", Some("v/1/D-03"))],
             "{objective} / {action}"
         );
     }
-    // A `decisions` edge with no citation covers nothing: no rule reads the list.
-    assert_eq!(
-        codes_of(&check(&decision_input(
-            text,
-            "Build it",
-            "Write it",
-            &["v/1/D-03"]
-        ))),
-        [("E310", Some("v/1/D-03"))]
-    );
     // The project's namesake, cited by its rooted path, covers nothing of the phase.
     assert_eq!(
-        codes_of(&check(&decision_input(
-            text,
-            "Honour /D-03",
-            "Write it",
-            &[]
-        ))),
+        codes_of(&check(&decision_input(text, "Honour /D-03", "Write it"))),
         [("E310", Some("v/1/D-03"))]
     );
 }

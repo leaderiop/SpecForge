@@ -156,7 +156,6 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
             ),
             ("phase", "self.phase", true),
             ("requirements", "self.requirements", true),
-            ("decisions", "self.decisions", true),
             (
                 "context",
                 "self.phase<context|decision[origin=context]|deferred_idea[origin=discussion].phase",

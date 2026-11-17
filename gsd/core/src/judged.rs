@@ -43,7 +43,6 @@ pub(crate) const PLAN_CHECK_INPUTS: &[(&str, &str)] = &[
     ),
     ("phase", "self.phase"),
     ("requirements", "self.requirements"),
-    ("decisions", "self.decisions"),
     ("phase_decisions", "self.phase<decision.phase"),
     ("all_decisions", "decision"),
     (

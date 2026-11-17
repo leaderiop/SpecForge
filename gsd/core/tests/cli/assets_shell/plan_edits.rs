@@ -670,19 +670,14 @@ fn the_decision_coverage_reads_e310_and_discretion_clears_it() {
     };
     let p = taskboard();
     let plans = p.read("spec/plans.spec");
-    // The twin's plan 02-01 cites D-03 in a task and a truth, and lists it: all three go (the list, read by no rule,
-    // would refuse the decision's delete below).
+    // The twin's plan 02-01 cites D-03 in a task and a truth: both go.
     let dropped = plans
         .replace(", and a title is stored as typed (D-03)", "")
-        .replace("as it was written (D-03)", "as it was written")
-        .replace(
-            "decisions        [D-01, D-02, D-03]",
-            "decisions        [D-01, D-02]",
-        );
+        .replace("as it was written (D-03)", "as it was written");
     assert_eq!(
-        dropped.matches("D-03").count() + 3,
+        dropped.matches("D-03").count() + 2,
         plans.matches("D-03").count(),
-        "the twin's plan cites D-03 twice and lists it"
+        "the twin's plan cites D-03 twice"
     );
     p.write("spec/plans.spec", &dropped);
     let text = asset("gsd-core/workflows/plan-phase.md");
