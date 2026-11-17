@@ -792,7 +792,7 @@ c.route("requirement-thread", |r| {
         .step("task", "<task.plan", |_| {})
         .step("commit", "<commit.task", |s| { s.from_step("task").field("linked_by"); })
         .step("item", ".items_changed", |_| {})
-        .step("truth", "<truth.plan", |s| { s.from_step("plan").judgement("E501"); })
+        .step("truth", "<truth.plan", |s| { s.from_step("plan").judgement("E901"); })
         .step("deliverable", "<deliverable.requirement", |s| {
             s.from_start().label("deliverable").field("checks.ref");
         });
