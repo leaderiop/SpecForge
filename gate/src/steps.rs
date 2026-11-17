@@ -521,7 +521,7 @@ const RUST_PACKS: [(&str, &str); 2] = [
 
 /// `specforge collect --path <copy> --runner <runner> --yes --effects online --format json` for each of
 /// [`RUST_PACKS`] when the copy's `specforge.json` loads both (they read the project's files; no command runs). A
-/// failed collect is an error naming the project and the runner.
+/// failed collect is an error naming the project, the runner and the reason it printed ([`Ctx::answer`]).
 fn collect_rust(ctx: &Ctx, specforge: &Path, project: &str, copy: &Path) -> Result<(), String> {
     let manifest = copy.join("specforge.json");
     let text =
@@ -537,7 +537,7 @@ fn collect_rust(ctx: &Ctx, specforge: &Path, project: &str, copy: &Path) -> Resu
         return Ok(());
     }
     for (_, runner) in RUST_PACKS {
-        let (collected, _) = ctx.capture(ctx.cmd(specforge).args([
+        ctx.answer(ctx.cmd(specforge).args([
             "collect",
             "--path",
             &copy.to_string_lossy(),
@@ -548,12 +548,8 @@ fn collect_rust(ctx: &Ctx, specforge: &Path, project: &str, copy: &Path) -> Resu
             "online",
             "--format",
             "json",
-        ]))?;
-        if !collected {
-            return Err(format!(
-                "{project}: `specforge collect --runner {runner}` failed"
-            ));
-        }
+        ]))
+        .map_err(|e| format!("{project}: collecting with {runner}: {e}"))?;
     }
     Ok(())
 }

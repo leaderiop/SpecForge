@@ -130,6 +130,40 @@ fn the_report_names_failures_and_the_fix() {
     assert!(hook.starts_with("pre-commit: rustfmt: "), "{hook}");
 }
 
+/// A command that answers on stdout (`specforge … --format json`) prints its reason for a failure there: the error
+/// and the check's log both carry it, the log the command's stderr too. On success stdout comes back.
+#[cfg(unix)]
+#[test]
+fn a_failed_answer_keeps_what_it_printed() {
+    let repo = crate::repo::this_repo();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("check.log");
+    let (specforge, changes) = (OnceLock::new(), ChangeSet::default());
+    let ctx = Ctx {
+        repo: &repo,
+        mode: Mode::Quick,
+        changes: &changes,
+        log: File::create(&path).unwrap(),
+        specforge: &specforge,
+    };
+    let script = "printf '{\\n  \"error\": \"no report\",\\n  \"code\": \"E045\"\\n}\\n'; echo warned >&2; exit 1";
+    let failed = ctx.answer(ctx.cmd("sh").args(["-c", script])).unwrap_err();
+    assert!(
+        failed.starts_with("`sh -c ")
+            && failed.ends_with(r#"exit status: 1: { "error": "no report", "code": "E045" }"#),
+        "{failed}"
+    );
+    let log = std::fs::read_to_string(&path).unwrap();
+    assert!(
+        log.contains("\"code\": \"E045\"") && log.contains("warned"),
+        "{log}"
+    );
+    assert_eq!(
+        ctx.answer(ctx.cmd("sh").args(["-c", "echo '[]'"])),
+        Ok("[]\n".to_string())
+    );
+}
+
 #[test]
 fn only_names_a_comma_separated_list_of_checks() {
     assert!(named(None, "audit"));

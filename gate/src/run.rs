@@ -62,6 +62,9 @@ pub const CARGO_AUDIT: Tool = Tool {
     install: "cargo install cargo-audit --locked",
 };
 
+/// How many characters of a failed command's stdout [`Ctx::answer`]'s error carries (the log keeps all of it).
+const ANSWER_SHOWN: usize = 400;
+
 /// What a check's `run` gets: the repo, the mode, the change set, the check's log file and the binaries the run
 /// builds once.
 pub struct Ctx<'a> {
@@ -135,6 +138,31 @@ impl Ctx<'_> {
             .map_err(|e| format!("`{shown}`: {e}"))?;
         self.log(String::from_utf8_lossy(&output.stderr).trim_end());
         Ok(output)
+    }
+
+    /// For a command that answers on stdout, its reason for a failure included (`specforge … --format json` prints
+    /// its error there): stdout on success. On a failure stdout is appended to the log after stderr, and the error
+    /// names the command, its status and what it printed, on one line.
+    pub fn answer(&self, cmd: &mut Command) -> Result<String, String> {
+        let shown = describe(cmd);
+        let output = self.output(cmd)?;
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        if output.status.success() {
+            return Ok(stdout);
+        }
+        self.log(stdout.trim_end());
+        let said: String = stdout
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .chars()
+            .take(ANSWER_SHOWN)
+            .collect();
+        Err(if said.is_empty() {
+            format!("`{shown}` {}", output.status)
+        } else {
+            format!("`{shown}` {}: {said}", output.status)
+        })
     }
 
     /// The `specforge` binary cargo built, wherever the target directory is: built once per run, from

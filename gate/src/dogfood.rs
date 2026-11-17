@@ -132,12 +132,10 @@ fn anchored(anchors: &Value) -> BTreeSet<String> {
         .collect()
 }
 
-/// `specforge <args>`'s stdout as JSON; an error when it exits non-zero or prints none.
+/// `specforge <args>`'s stdout as JSON; an error when it exits non-zero (carrying the reason it printed, which the
+/// log holds too: [`Ctx::answer`]) or prints none.
 fn json(ctx: &Ctx, specforge: &Path, args: &[&str]) -> Result<Value, String> {
-    let (ok, out) = ctx.capture(ctx.cmd(specforge).args(args))?;
-    if !ok {
-        return Err(format!("`specforge {}` failed", args.join(" ")));
-    }
+    let out = ctx.answer(ctx.cmd(specforge).args(args))?;
     serde_json::from_str(&out)
         .map_err(|e| format!("`specforge {}` printed no JSON ({e})", args.join(" ")))
 }
