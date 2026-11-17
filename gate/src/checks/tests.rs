@@ -608,7 +608,6 @@ fn the_sample_check_runs_when_its_source_converter_kinds_tests_or_goldens_change
         "xtask/Cargo.toml",
         "xtask/src/lib.rs",
         "xtask/src/links.rs",
-        "integrations/rust/specforge-test/src/atexit.rs",
         "gsd/core/src/kinds/project.rs",
         "crates/app/ops/src/lib.rs",
         "crates/runtime/component/tests/sandbox_limits.rs",
@@ -629,6 +628,8 @@ fn the_sample_check_runs_when_its_source_converter_kinds_tests_or_goldens_change
         "xtask/src/revendor.rs",
         "examples/shop/spec/a.spec",
         "evaluation/tasks.json",
+        // The sample cites and runs no test until the swap (ADR 0370 D8), so specforge-test is not in what it builds.
+        "integrations/rust/specforge-test/src/atexit.rs",
     ] {
         assert_eq!(sample(Mode::Quick, &[path]), Selection::Skip, "{path}");
     }
