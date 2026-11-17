@@ -64,7 +64,7 @@
     ]
   },
   "fixtures": [
-    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "5ba46865f7e1681b68d48bf10c4306e9e0492bd9", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"],
+    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "9085d3e5d08476e9e16764348f8536539adc3db8", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"],
       "baseline": [
         "I213 -:0", "gsd/E501 spec/plans.spec:231", "gsd/E501 spec/plans.spec:237", "gsd/E501 spec/plans.spec:243",
         "gsd/E501 spec/plans.spec:249", "gsd/E501 spec/plans.spec:256", "gsd/W311 spec/plans.spec:1",
@@ -216,7 +216,7 @@
       "seeds": {
         "S1": {
           "A": [{ "replace": { "file": ".planning/phases/02-persistence/02-01-PLAN.md", "old": "    - \"A title comes back exactly as it was written (D-03)\"", "new": "    - \"A title comes back exactly as it was written (D-03), proven by test/store.test.js#a title survives a reload byte for byte\"" } }],
-          "B": [{ "replace": { "file": "spec/plans.spec", "old": "  text        \"A title comes back exactly as it was written (D-03)\"\n", "new": "  text        \"A title comes back exactly as it was written (D-03)\"\n  requirement STORE-02\n  proof       [\"js:taskboard/test/store.test.js#a title survives a reload byte for byte\"]\n" } }],
+          "B": [{ "replace": { "file": "spec/plans.spec", "old": "  plan v1.0/02/02-01\n  text \"A title comes back exactly as it was written (D-03)\"\n", "new": "  plan        v1.0/02/02-01\n  text        \"A title comes back exactly as it was written (D-03)\"\n  requirement STORE-02\n  proof       [\"js:taskboard/test/store.test.js#a title survives a reload byte for byte\"]\n" } }],
           "resolved_if": [{ "file": "test/store.test.js", "contains": "a title survives a reload byte for byte" }]
         },
         "S4": {
