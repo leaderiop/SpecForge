@@ -154,9 +154,10 @@ pub fn prechecks(entities: &[OldEntity]) -> Result<(), Vec<Stop>> {
 /// The ids `e` creates, each with the entity that makes it.
 fn new_ids(e: &OldEntity) -> Vec<(String, String)> {
     let mut ids = Vec::new();
-    if table::new_kind(&e.kind).is_some() {
-        ids.push((e.id.clone(), format!("{} '{}'", e.kind, e.id)));
+    if converts_to(e).is_none() {
+        return ids;
     }
+    ids.push((e.id.clone(), format!("{} '{}'", e.kind, e.id)));
     if e.fields.contains_key("solution") {
         ids.push((
             solution_id(&e.id),
@@ -254,9 +255,17 @@ pub fn plan(entities: &[OldEntity]) -> Planned {
     planner.finish()
 }
 
-/// Why `e` converts to nothing, if it does (ADR 0370 D8): every row of its kind drops its value.
+/// Why `e` converts to nothing, if it does (ADR 0370 D8): every row of its kind drops its value, or it is a decision
+/// that no longer holds.
 fn dropped_whole(e: &OldEntity) -> Option<&'static str> {
-    table::dropped(&e.kind)
+    let status = e.fields.get("status").and_then(Value::as_str);
+    table::converts_to_nothing(&e.kind, status)
+}
+
+/// The `@gsd/core` kind of the entity `e` converts to, keeping its id: none for an entity that converts to nothing,
+/// and for a module or a release, whose rows create no entity.
+pub fn converts_to(e: &OldEntity) -> Option<&'static str> {
+    dropped_whole(e).map_or_else(|| table::new_kind(&e.kind), |_| None)
 }
 
 /// `e`'s obligations, each as the ledger writes it.
@@ -285,7 +294,7 @@ impl Planner {
 
     /// The entity `e` converts to, empty but for its header.
     fn draft(&mut self, e: &OldEntity) {
-        let Some(kind) = table::new_kind(&e.kind) else {
+        let Some(kind) = converts_to(e) else {
             return;
         };
         let title = match &e.title {
@@ -396,7 +405,7 @@ impl Planner {
 
     /// The required values the old entity lacks, filled and ledgered.
     fn fill(&mut self, e: &OldEntity) {
-        let Some(kind) = table::new_kind(&e.kind) else {
+        let Some(kind) = converts_to(e) else {
             return;
         };
         let fills: Vec<(&str, Input)> = match kind {

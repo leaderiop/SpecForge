@@ -35,7 +35,7 @@ fn a_decision_becomes_one_create_keeping_its_id_title_and_file() {
         .iter()
         .filter_map(|e| {
             Some((
-                table::new_kind(&e.kind)?,
+                plan::converts_to(e)?,
                 e.id.as_str(),
                 e.title.as_deref().unwrap(),
                 e.file.as_str(),
@@ -47,7 +47,11 @@ fn a_decision_becomes_one_create_keeping_its_id_title_and_file() {
         "every converted entity, once, in the old order"
     );
     let decisions: Vec<_> = headers.iter().filter(|h| h.0 == "decision").collect();
-    assert_eq!(decisions.len(), 6, "every fixture decision, once");
+    assert_eq!(
+        decisions.len(),
+        4,
+        "every fixture decision still in force, once: the two superseded convert to nothing"
+    );
     assert_eq!(decisions[0].3, "spec/governance/decisions.spec");
     assert_eq!(
         (planned.converted, planned.created),
@@ -74,48 +78,33 @@ fn decision_status_writes_outcome_or_settled_and_never_status() {
             "d",
             json!({"status": "deprecated", "decision": "D"}),
         ),
-        old(
-            "decision",
-            "s",
-            json!({"status": "superseded", "decision": "S"}),
-        ),
     ]);
     assert_eq!(field(&planned, "a", "settled"), Some(&Input::Bool(true)));
     assert_eq!(field(&planned, "a", "outcome"), None);
     assert_eq!(field(&planned, "p", "outcome"), Some(&one("pending")));
     assert_eq!(field(&planned, "d", "outcome"), Some(&one("revisit")));
-    for id in ["a", "p", "d", "s"] {
+    for id in ["a", "p", "d"] {
         assert_eq!(field(&planned, id, "status"), None, "{id}");
+        assert!(
+            ledgered(&planned, id).iter().all(|(f, _)| f != "status"),
+            "{id}"
+        );
     }
-    assert_eq!(
-        create(&planned, "s").1.keys().collect::<Vec<_>>(),
-        ["origin", "text"]
-    );
     assert!(
         planned.checks.is_empty(),
         "no computed value of a decision is compared: `in_force` left (ADR 0370 D4)"
     );
 }
 
-/// gsd-core has no supersession (ADR 0370 D4): a superseded status writes neither `outcome` nor `settled`, and is one
-/// `dropped` entry; the other statuses write what they wrote before.
+/// gsd-core has no supersession (ADR 0370 D4): a decision that no longer holds converts to nothing (D8), its title
+/// and each of its values one `dropped` entry with that reason, and no other decision changes.
 #[test]
-fn a_superseded_decision_status_is_ledgered_dropped() {
+fn a_superseded_decision_converts_to_nothing_and_ledgers_each_value_dropped() {
     let planned = planned(&[
         old(
             "decision",
             "s",
-            json!({"status": "superseded", "decision": "S"}),
-        ),
-        old(
-            "decision",
-            "p",
-            json!({"status": "proposed", "decision": "P"}),
-        ),
-        old(
-            "decision",
-            "d",
-            json!({"status": "deprecated", "decision": "D"}),
+            json!({"status": "superseded", "decision": "S", "context": "C", "superseded_by": "a"}),
         ),
         old(
             "decision",
@@ -123,29 +112,23 @@ fn a_superseded_decision_status_is_ledgered_dropped() {
             json!({"status": "accepted", "decision": "A"}),
         ),
     ]);
-    assert_eq!(field(&planned, "s", "outcome"), None);
-    assert_eq!(field(&planned, "s", "settled"), None);
-    let status: Vec<(String, Why)> = ledgered(&planned, "s")
-        .into_iter()
-        .filter(|(f, _)| f == "status")
+    let ids: Vec<&str> = planned
+        .creates
+        .iter()
+        .filter_map(|edit| match edit {
+            Edit::Create { id, .. } => Some(id.as_str()),
+            _ => None,
+        })
         .collect();
-    assert_eq!(
-        status,
-        [(
-            "status".to_string(),
-            Why::Dropped(table::NO_SUPERSESSION.to_string())
-        )]
-    );
+    assert_eq!(ids, ["a"]);
+    assert_eq!((planned.converted, planned.created), (1, 0));
     assert!(table::NO_SUPERSESSION.contains("ADR 0370"));
-    assert_eq!(field(&planned, "p", "outcome"), Some(&one("pending")));
-    assert_eq!(field(&planned, "d", "outcome"), Some(&one("revisit")));
-    assert_eq!(field(&planned, "a", "settled"), Some(&Input::Bool(true)));
-    for id in ["p", "d", "a"] {
-        assert!(
-            ledgered(&planned, id).iter().all(|(f, _)| f != "status"),
-            "{id}"
-        );
-    }
+    let dropped = Why::Dropped(table::NO_SUPERSESSION.to_string());
+    assert_eq!(
+        ledgered(&planned, "s"),
+        ["context", "decision", "status", "superseded_by", "title"]
+            .map(|f| (f.to_string(), dropped.clone()))
+    );
 }
 
 /// A field whose home left `@gsd/core` (ADR 0370 D3 and D4) is one `dropped` entry with its row's reason, and the
@@ -290,8 +273,9 @@ fn the_ledger_is_sorted_and_identical_across_runs() {
         [
             ("alpha".to_string(), "invariants".to_string()),
             ("alpha".to_string(), "origin".to_string()),
-            ("zeta".to_string(), "origin".to_string()),
+            ("zeta".to_string(), "decision".to_string()),
             ("zeta".to_string(), "status".to_string()),
+            ("zeta".to_string(), "title".to_string()),
         ]
     );
     let text = first.ledger.to_json("p");

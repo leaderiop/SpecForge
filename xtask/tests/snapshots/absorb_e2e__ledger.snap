@@ -386,19 +386,16 @@ expression: ledger
       "field": "context",
       "value": "Facts needed a home.",
       "why": {
-        "dropped": "decision.context leaves @gsd/core (ADR 0370)"
+        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
       }
     },
     {
       "kind": "decision",
       "id": "first_store",
-      "field": "origin",
-      "value": null,
+      "field": "decision",
+      "value": "Keep facts in one JSON file.",
       "why": {
-        "filled": {
-          "field": "decision.origin",
-          "value": "project"
-        }
+        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
       }
     },
     {
@@ -407,7 +404,7 @@ expression: ledger
       "field": "status",
       "value": "superseded",
       "why": {
-        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds is answered by a new one"
+        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
       }
     },
     {
@@ -416,7 +413,16 @@ expression: ledger
       "field": "superseded_by",
       "value": "second_store",
       "why": {
-        "dropped": "decision.supersedes leaves @gsd/core (ADR 0370)"
+        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "first_store",
+      "field": "title",
+      "value": "First Store",
+      "why": {
+        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
       }
     },
     {
@@ -446,19 +452,16 @@ expression: ledger
       "field": "context",
       "value": "The first format had no versions.",
       "why": {
-        "dropped": "decision.context leaves @gsd/core (ADR 0370)"
+        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
       }
     },
     {
       "kind": "decision",
       "id": "old_format",
-      "field": "origin",
-      "value": null,
+      "field": "decision",
+      "value": "Write the format without a version line.",
       "why": {
-        "filled": {
-          "field": "decision.origin",
-          "value": "project"
-        }
+        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
       }
     },
     {
@@ -467,7 +470,16 @@ expression: ledger
       "field": "status",
       "value": "superseded",
       "why": {
-        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds is answered by a new one"
+        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "old_format",
+      "field": "title",
+      "value": "Old Format",
+      "why": {
+        "dropped": "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing"
       }
     },
     {

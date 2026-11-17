@@ -78,9 +78,9 @@ fn all_thirteen_kinds_convert_with_no_error_and_no_warning() {
     );
     assert_eq!(
         (&run.summary["converted"], &run.summary["created"]),
-        (&json!(17), &json!(1)),
-        "the decisions, constraints, features, milestones and deliverables (ADR 0370 D8: the other kinds convert to \
-         nothing), and one feature's solution: {}",
+        (&json!(15), &json!(1)),
+        "the decisions still in force, constraints, features, milestones and deliverables (ADR 0370 D8: the \
+         superseded decisions and the other kinds convert to nothing), and one feature's solution: {}",
         run.summary
     );
     assert!(
@@ -97,10 +97,17 @@ fn all_thirteen_kinds_convert_with_no_error_and_no_warning() {
         features.contains("decision store_entries_solution \"Store Entries\""),
         "{features}"
     );
+    let decisions = std::fs::read_to_string(a.join("spec/governance/decisions.spec")).unwrap();
+    assert!(
+        decisions.contains("decision one_parser") && !decisions.contains("old_format"),
+        "a superseded decision converts to nothing: {decisions}"
+    );
     let ledger = std::fs::read_to_string(a.join("absorb-ledger.json")).unwrap();
     assert!(
-        dropped(&ledger, "old_format", "status"),
-        "a superseded decision is ledgered dropped: gsd-core has no supersession: {ledger}"
+        ["title", "status", "decision"]
+            .iter()
+            .all(|f| dropped(&ledger, "old_format", f)),
+        "a superseded decision's values are ledgered dropped: gsd-core has no supersession: {ledger}"
     );
 
     let again = absorb(&["--from", OLD, "--to", path(&b)]);
@@ -129,9 +136,10 @@ fn a_selection_converts_only_its_entities_and_checks_clean() {
     assert_eq!(run.summary["target"]["warnings"], 0, "{}", run.summary);
     assert_eq!(
         (&run.summary["converted"], &run.summary["created"]),
-        (&json!(4), &json!(1)),
-        "the two decisions, the constraint and the feature of the nine selected ids (the failure mode, the \
-         invariant, the journey, the persona and the channel convert to nothing), and the feature's solution: {}",
+        (&json!(3), &json!(1)),
+        "the decision, the constraint and the feature of the nine selected ids (the superseded decision, the failure \
+         mode, the invariant, the journey, the persona and the channel convert to nothing), and the feature's \
+         solution: {}",
         run.summary
     );
     let tree = spec_tree(&to);

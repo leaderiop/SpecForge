@@ -2,9 +2,10 @@
 //! as the old builtins' registry holds it, and one per old kind that takes `verify`. Each row names its homes in
 //! `@gsd/core`; every home of a row is applied to the row's value. The table is the measure: a test counts it.
 //!
-//! `@gsd/core` holds exactly gsd-core's kinds and fields (ADR 0370): a value whose home left it, or whose old kind
-//! converts to nothing (an invariant, a failure mode, a journey, a persona, a term, a channel), is `dropped` with its
-//! reason. A value with a home in GSD's kinds that absorb does not write yet waits for the conversion change.
+//! `@gsd/core` holds exactly gsd-core's kinds and fields (ADR 0370): a value whose home left it, or whose old entity
+//! converts to nothing (an invariant, a failure mode, a journey, a persona, a term, a channel, a decision that no
+//! longer holds), is `dropped` with its reason. A value with a home in GSD's kinds that absorb does not write yet
+//! waits for the conversion change.
 
 use serde::Serialize;
 
@@ -56,8 +57,8 @@ pub enum How {
     Solution,
     /// A feature status as a tier: proposed and deferred v2, deprecated out_of_scope (with a reason), else v1.
     FeatureTier,
-    /// A decision status as `outcome`: proposed → pending, deprecated → revisit; superseded is ledgered `dropped`
-    /// (gsd-core has no supersession, ADR 0370 D4).
+    /// A decision status as `outcome`: proposed → pending, deprecated → revisit. A superseded decision never reaches
+    /// it: it converts to nothing ([`converts_to_nothing`]).
     Outcome,
     /// A decision status as `settled`: accepted → true.
     Settled,
@@ -170,8 +171,9 @@ const NO_METRIC: Home = Home::Dropped(
      conversion change writes",
 );
 
-/// Why an old decision's `superseded` status is dropped (ADR 0370 D4): `How::Outcome` ledgers it with this reason.
-pub const NO_SUPERSESSION: &str = "gsd-core has no supersession (ADR 0370): a decision that no longer holds is answered by a new one";
+/// Why an old decision whose status is `superseded` converts to nothing (ADR 0370 D4 and D8): it no longer holds.
+pub const NO_SUPERSESSION: &str =
+    "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing";
 
 /// `leaves!("kind.field")`: the value's home field left `@gsd/core` (ADR 0370 D3 and D4), so it is dropped, naming
 /// the field.
@@ -400,6 +402,15 @@ pub fn dropped(old: &str) -> Option<&'static str> {
     });
     let reason = reasons.next()??;
     reasons.all(|other| other == Some(reason)).then_some(reason)
+}
+
+/// Why an old entity of `kind` whose status is `status` converts to nothing, each of its values ledgered `dropped`
+/// (ADR 0370 D8): every row of its kind drops its value ([`dropped`]), or it is a decision that no longer holds.
+pub fn converts_to_nothing(kind: &str, status: Option<&str>) -> Option<&'static str> {
+    match (kind, status) {
+        (DECISION, Some("superseded")) => Some(NO_SUPERSESSION),
+        _ => dropped(kind),
+    }
 }
 
 /// The rows of an old kind, in table order.

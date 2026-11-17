@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use super::super::how;
 use super::super::ledger::Why;
 use super::super::read::OldEntity;
-use super::super::table::{self, NO_SUPERSESSION, Row};
+use super::super::table::{self, Row};
 use super::{Draft, Planner, solution_id};
 
 impl Planner {
@@ -40,11 +40,6 @@ impl Planner {
                 if let (Some(text), Some(draft)) = (value.as_str(), self.drafts.get_mut(&e.id)) {
                     draft.join(field, text.to_string());
                 }
-            }
-            How::Outcome if value.as_str() == Some("superseded") => {
-                let why = Why::Dropped(NO_SUPERSESSION.to_string());
-                self.ledger
-                    .record(&e.kind, &e.id, row.field, value.clone(), why);
             }
             How::Outcome | How::Settled => {
                 if let Some(input) = how::word(how, value)
