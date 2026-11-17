@@ -1,4 +1,4 @@
-//! Which nodes of a directed graph lie on a cycle: the answer `gsd/E102` reads for phases, plans and milestones.
+//! Which nodes of a directed graph lie on a cycle: the answer `gsd/E102` reads for phases and plans.
 
 use std::collections::{BTreeMap, BTreeSet};
 

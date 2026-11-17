@@ -43,15 +43,6 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
-        "label": "MilestoneDependsOn",
-        "source_kind": "milestone",
-        "target_kind": "milestone"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
         "label": "MilestoneWorkstream",
         "source_kind": "milestone",
         "target_kind": "workstream"
@@ -1617,86 +1608,6 @@
             "field_type": "string_list",
             "inverse_of": null,
             "name": "target_features",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "what must hold to call it done (beyond GSD)",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "exit_criteria",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "when work on it starts (beyond GSD)",
-            "edge": null,
-            "field_type": "date",
-            "inverse_of": null,
-            "name": "starts",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the date it aims to ship; not before `starts`, gsd/E537 (beyond GSD)",
-            "edge": null,
-            "field_type": "date",
-            "inverse_of": null,
-            "name": "targets",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the milestones that ship before it; acyclic, gsd/E102 (beyond GSD)",
-            "edge": "MilestoneDependsOn",
-            "field_type": "reference_list",
-            "inverse_of": null,
-            "name": "depends_on",
-            "required": false,
-            "target_kind": "milestone"
-          },
-          {
-            "default_value": null,
-            "description": "the person or team that answers for it (beyond GSD)",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "owner",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the others working on it (beyond GSD)",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "contributors",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the kinds of thing it ships, as words: cli, library, extension, service (beyond GSD)",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "artifact_types",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "free words (beyond GSD)",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "tags",
             "required": false,
             "target_kind": null
           },
