@@ -178,7 +178,7 @@ attributes that name a software kind (ADR 0364's Consequences) is not decided he
 **Where the removed code is kept.** Reference resolution, its out-of-selection ledgering, the `gsd/E537` pre-check
 and the proof module (with the proof join and the refusal of a source with no recorded item) were removed from absorb
 by the change that made it drop these values. The last commit that holds them is
-`54252620647f8c6efacb44ce91369bf2988f0000`, where the conversion change can take them back
+`2183c2a9dbfe12174fd31ab6f11491e6df153367`, where the conversion change can take them back
 (`xtask/src/absorb/plan.rs`, `xtask/src/absorb/plan/to.rs`, `xtask/src/absorb/proof.rs`,
 `xtask/src/absorb/read.rs`).
 
