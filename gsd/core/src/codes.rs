@@ -287,7 +287,7 @@ pub static CODES: &[Code] = &[
     code(
         "E312",
         "Task action reduces scope",
-        "No task action reduces scope (\"for now\", \"simplified\", \"v1\")",
+        "No task action reduces scope (\"for now\", \"simplified\", \"v1\") unless a decision its plan cites says so",
         "plan",
         Severity::Error,
         Severity::Error,
@@ -327,7 +327,7 @@ pub static CODES: &[Code] = &[
     code(
         "W317",
         "Post-planning gaps open",
-        "The post-planning gap report finds nothing open",
+        "The post-planning gap report finds nothing open: each phase requirement is in a plan's requirements and each context decision is cited by a plan",
         "plan",
         Severity::Warning,
         Severity::Warning,
@@ -511,7 +511,7 @@ pub static CODES: &[Code] = &[
     code(
         "W506",
         "Settled decision maps to nothing shipped",
-        "Every settled decision maps to something shipped",
+        "Every settled decision is cited by something shipped: a complete plan's text, its summary or a commit subject",
         "verify",
         Severity::Warning,
         Severity::Warning,

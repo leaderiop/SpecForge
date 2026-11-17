@@ -12,14 +12,17 @@
 //! the id inside any path), and an id inside a fenced block or an HTML comment of a field counts (upstream's plan gate
 //! strips them first).
 //!
-//! `gsd/E310` reads [`cited_by`].
+//! `gsd/E310`, the decision rows of `gsd/W317` and `gsd/E312`'s exemption read [`cited_by`] (ADR 0371 D3); `gsd/W506`
+//! reads [`shipped_by`] (D4).
 
 use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
 
+use super::commits;
 use super::plans::{children, name_of, of_kind, text, texts, written_target};
 use super::words;
+use crate::scope::scope_of;
 
 /// Every decision id of the input: what a citation may resolve to.
 pub fn decisions(input: &PassInput) -> BTreeSet<&str> {
@@ -114,6 +117,38 @@ pub fn cited_by<'a, 'b>(
         .into_iter()
         .flat_map(|plan| cited(&decisions, &plan.id, &plan_text(input, plan)))
         .collect()
+}
+
+/// The decisions the plans `plans` shipped (ADR 0371 D4): what [`cited_by`] reads, then the text of each summary the
+/// plan scopes and of each entity such a summary scopes (its coverage items and deviations), then the subject of each
+/// recorded commit of the plan; each read from its plan. No file content and no commit body (upstream's verify gate
+/// reads both, `[decision-shipped-reach]`).
+pub fn shipped_by<'a, 'b>(
+    input: &'a PassInput,
+    plans: impl IntoIterator<Item = &'b PassEntity>,
+) -> BTreeSet<&'a str> {
+    let decisions = decisions(input);
+    let commits = commits::commits(input);
+    let mut found = BTreeSet::new();
+    for plan in plans {
+        found.extend(cited(&decisions, &plan.id, &plan_text(input, plan)));
+        for summary in of_kind(input, "summary").filter(|s| scope_of(&s.id) == plan.id) {
+            let scoped = input
+                .entities
+                .iter()
+                .filter(|e| scope_of(&e.id) == summary.id);
+            for entity in std::iter::once(summary).chain(scoped) {
+                found.extend(cited(&decisions, &plan.id, &texts(entity).join("\n")));
+            }
+        }
+        for commit in commits
+            .iter()
+            .filter(|c| c.plan.as_deref() == Some(plan.id.as_str()))
+        {
+            found.extend(cited(&decisions, &plan.id, &commit.subject));
+        }
+    }
+    found
 }
 
 #[cfg(test)]

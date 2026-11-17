@@ -5,19 +5,21 @@
 //! the rule is that prohibition. The checker's wider list (stub, hours, too complex) is judgment: `gsd/W311`.
 //! Upstream's checker (`agents/gsd-plan-checker.md:430-446`) cross-references each hit with the context decision the
 //! plan claims to implement and asks whether the task delivers it or a reduced version, so a hit is exempt only when a
-//! decision the task's plan lists in `decisions` says the same phrase itself: what was decided is delivered. Naming a
-//! decision in the action excuses nothing (upstream's own red flag cites the decision it cuts). A dotted version is no
-//! hit: `v1.0` is a release, not a scope cut.
+//! decision the task's plan cites (anywhere in the plan's text, `passes::citations`, ADR 0371 D3) says the same phrase
+//! itself: what was decided is delivered. Citing a decision that does not say the phrase excuses nothing (upstream's
+//! own red flag cites the decision it cuts). A dotted version is no hit: `v1.0` is a release, not a scope cut.
 //!
 //! W317: the post-planning gap report (`src/gap-checker.cts`). The items are the phase's requirement ids and every
 //! `D-NN` of its context; a requirement is covered when a plan of the phase lists it in `requirements`, a decision when
-//! one lists it in `decisions` (upstream matches `\b<id>\b` in the plans' text).
+//! one cites it. Upstream's gap checker matches `\b<id>\b` in the plans' text; SpecForge reads the same word with the
+//! path written before it and resolves it by the plan's scope chain (`passes::citations::cited_by`).
 
 use specforge_extension_sdk::prelude::*;
 
 use std::collections::BTreeSet;
 
-use super::plans::{children, context_decisions, links, listed_decisions, name_of, of_kind, text};
+use super::citations;
+use super::plans::{children, context_decisions, links, name_of, of_kind, text};
 use super::words::has_word;
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -69,10 +71,11 @@ fn without_versions(action: &str) -> String {
         .collect()
 }
 
-/// A decision the task's plan lists in `decisions` says `phrase` itself, by the rule of the hit: then the task
-/// delivers what was decided.
+/// A decision the task's plan cites says `phrase` itself, by the rule of the hit: then the task delivers what was
+/// decided.
 fn decided(input: &PassInput, task: &PassEntity, phrase: &str) -> bool {
-    listed_decisions(input, [crate::scope::scope_of(&task.id)])
+    let plan = crate::scope::scope_of(&task.id);
+    citations::cited_by(input, input.entities.iter().filter(|e| e.id == plan))
         .into_iter()
         .filter_map(|id| input.entities.iter().find(|d| d.id == id))
         .filter_map(|d| text(d, "text"))
@@ -94,7 +97,7 @@ fn scope_reduction(input: &PassInput) -> Vec<PassDiagnostic> {
                     PassSeverity::Error,
                     format!("task '{}' reduces scope: its action says \"{phrase}\"", task.id),
                 )
-                .with_suggestion("deliver what the decision says, or split the plan: a phrase is excused only when a decision the plan lists says it too")
+                .with_suggestion("deliver what the decision says, or split the plan: a phrase is excused only when a decision the plan cites says it too")
                 .with_entity(&task.id),
             )
         })
@@ -185,7 +188,7 @@ fn post_planning_gaps(input: &PassInput) -> Vec<PassDiagnostic> {
                 .iter()
                 .flat_map(|plan| links(input, plan, "requirements"))
                 .collect();
-            let decisions = listed_decisions(input, plans.iter().map(|plan| plan.id.as_str()));
+            let decisions = citations::cited_by(input, plans.iter().copied());
             let mut rows: Vec<Row> = links(input, phase, "requirements")
                 .into_iter()
                 .map(|id| Row {

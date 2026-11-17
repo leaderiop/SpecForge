@@ -385,7 +385,7 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 70] = [
         "W506",
         Evidence::Tests {
             fires: "a_decision_nothing_shipped_is_w506_on_the_decision",
-            silent: "w506_a_complete_plan_listing_the_decision_covers_it",
+            silent: "w506_a_complete_plan_citing_the_decision_covers_it",
         },
     ),
     (

@@ -1,4 +1,4 @@
-//! `gsd/W506` end to end: a verified phase whose context decision no complete plan lists.
+//! `gsd/W506` end to end: a verified phase whose context decision no complete plan, summary or commit subject cites.
 
 use serde_json::json;
 
@@ -37,17 +37,16 @@ fn w506_fires_on_a_verified_phase_whose_decision_nothing_shipped() {
     assert!(found[0].contains("v1.0/01/D-09"), "{found:?}");
 }
 
+/// The summary of the phase's complete plan cites the decision by its id. (The plan's own text is not edited here: an
+/// edit stales the phase's verdict, and an unverified phase is not judged; `passes::decision_coverage`'s unit tests
+/// cover the plan, its coverage items, its deviations and its commit subjects.)
 #[test]
-fn w506_is_silent_when_a_complete_plan_lists_the_decision() {
-    // A summary that names the decision is no claim.
+fn w506_is_silent_when_a_complete_plans_summary_cites_the_decision() {
     let p = verified("An in-memory store (D-09)");
+    assert!(w506(&p).is_empty(), "{:?}", p.report_all());
+    // Its name in another case, or inside another id, cites nothing.
+    let p = verified("An in-memory store (d-09, XD-09)");
     assert_eq!(w506(&p).len(), 1, "{:?}", p.report_all());
-    p.edit(
-        "spec/m.spec",
-        "  type execute\n  objective \"Do it\"\n",
-        "  type execute\n  decisions [D-09]\n  objective \"Do it\"\n",
-    );
-    assert!(w506(&p).is_empty(), "{:?}", w506(&p));
 }
 
 #[test]

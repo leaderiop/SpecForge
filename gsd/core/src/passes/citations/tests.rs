@@ -188,3 +188,85 @@ fn the_plans_text_is_its_designated_sections() {
     );
     assert!(cites(fields, vec![other]).is_empty());
 }
+
+/// Phase 02's plan 02-01 with a summary, a coverage item and a deviation of it, and a recorded commit of it; plan
+/// 01-01 with its own summary and commit; and phase 02's decisions `D-02` and `D-03`.
+fn shipped(summary: &str, item: &str, deviation: &str, subject: &str) -> Vec<String> {
+    let input = input(vec![
+        entity(
+            "v1.0/02/D-02",
+            "decision",
+            json!({ "origin": "context", "text": "Rename the store" }),
+        ),
+        entity(
+            "v1.0/02/D-03",
+            "decision",
+            json!({ "origin": "context", "text": "Keep the titles" }),
+        ),
+        entity(
+            "v1.0/02/02-01/02-01-SUMMARY",
+            "summary",
+            json!({ "plan": PLAN_02, "one_liner": summary }),
+        ),
+        entity(
+            "v1.0/02/02-01/02-01-SUMMARY/D1",
+            "deliverable",
+            json!({ "description": item }),
+        ),
+        entity(
+            "v1.0/02/02-01/02-01-SUMMARY/DV1",
+            "deviation",
+            json!({ "description": deviation }),
+        ),
+        entity(
+            "abc123def456",
+            "commit",
+            json!({ "plan": PLAN_02, "subject": subject }),
+        ),
+        entity(
+            "v1.0/01/01-01/01-01-SUMMARY",
+            "summary",
+            json!({ "plan": PLAN_01, "one_liner": "Implements 02/D-03" }),
+        ),
+        entity(
+            "def456abc123",
+            "commit",
+            json!({ "plan": PLAN_01, "subject": "feat(01-01): 02/D-03 kept" }),
+        ),
+    ]);
+    let plan = input
+        .entities
+        .iter()
+        .find(|e| e.id == PLAN_02)
+        .expect("plan 02-01");
+    shipped_by(&input, [plan])
+        .into_iter()
+        .map(String::from)
+        .collect()
+}
+
+#[test]
+fn a_summarys_citation_is_read_from_its_plan() {
+    assert_eq!(shipped("Implements D-01", "", "", ""), ["v1.0/02/D-01"]);
+    assert_eq!(
+        shipped("Keeps 01/D-01", "", "", ""),
+        ["v1.0/01/D-01"],
+        "a path from the plan"
+    );
+    assert_eq!(shipped("", "D-02 shipped", "", ""), ["v1.0/02/D-02"]);
+    assert_eq!(shipped("", "", "D-03 moved", ""), ["v1.0/02/D-03"]);
+}
+
+#[test]
+fn a_commit_subject_cites_from_its_plan() {
+    assert_eq!(
+        shipped("", "", "", "feat(02-01): D-02 rename"),
+        ["v1.0/02/D-02"]
+    );
+}
+
+/// Another plan's summary and commit cite `02/D-03`: shipped by that plan, not by 02-01.
+#[test]
+fn another_plans_summary_and_commit_ship_nothing_here() {
+    assert!(shipped("Done", "Done", "None", "feat(02-01): done").is_empty());
+}

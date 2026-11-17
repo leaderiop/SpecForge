@@ -40,26 +40,8 @@ pub fn links<'a>(input: &'a PassInput, entity: &PassEntity, field: &str) -> Vec<
         .collect()
 }
 
-/// The decisions the plans `plans` (ids) list in `decisions`, each resolved id once: what E310, W317, W506 and E312
-/// read as covered, shipped or decided.
-pub fn listed_decisions<'a, 'b>(
-    input: &'a PassInput,
-    plans: impl IntoIterator<Item = &'b str>,
-) -> BTreeSet<&'a str> {
-    plans
-        .into_iter()
-        .flat_map(|plan| {
-            input
-                .edges
-                .iter()
-                .filter(move |e| e.source == plan && e.label == "decisions")
-                .map(|e| e.target.as_str())
-        })
-        .collect()
-}
-
 /// The trackable decisions of a phase's context (`origin context`), every one of them, in id order: the ones its
-/// plans must list.
+/// plans must cite.
 pub fn context_decisions<'a>(input: &'a PassInput, phase: &str) -> Vec<&'a PassEntity> {
     children(input, phase, "decision")
         .into_iter()

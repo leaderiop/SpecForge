@@ -378,11 +378,6 @@ fn a_version_and_a_hit_its_decision_states_are_not_e312() {
     let p = with(&phase_1_decision("Ship the v1 only"));
     p.edit(
         "spec/plans.spec",
-        "  decisions      [D-01]\n",
-        "  decisions      [D-01, D-02]\n",
-    );
-    p.edit(
-        "spec/plans.spec",
         "in-memory store (D-01)\"",
         "in-memory store (D-01, D-02)\"",
     );
@@ -392,19 +387,20 @@ fn a_version_and_a_hit_its_decision_states_are_not_e312() {
         "action \"Tag the v1.0 release in package.json\"",
     );
     assert_eq!(p.codes(), CLEAN);
+    // The plan cites D-02, which says "v1": the hit is excused.
     p.edit(
         "spec/plans.spec",
         "action \"Tag the v1.0 release in package.json\"",
-        "action \"Write src/tasks.js, v1 only, as D-02 settles\"",
+        "action \"Write src/tasks.js, v1 only\"",
     );
     assert_eq!(p.codes(), CLEAN);
-    // Cited but not listed, D-02 excuses nothing (and is an open gap row).
+    // Cited nowhere, D-02 excuses nothing (and is itself uncovered).
     p.edit(
         "spec/plans.spec",
-        "  decisions      [D-01, D-02]\n",
-        "  decisions      [D-01]\n",
+        "in-memory store (D-01, D-02)\"",
+        "in-memory store (D-01)\"",
     );
-    assert_eq!(p.codes(), ["gsd/E312", "gsd/W317"]);
+    assert_eq!(p.codes(), ["gsd/E310", "gsd/E312", "gsd/W317"]);
 }
 
 /// Plan 01-02 delivers TASK-01 instead of TASK-02: the requirement of phase 01 that no plan cites is the one gap.
@@ -502,27 +498,31 @@ fn a_paraphrase_is_no_citation_and_the_id_is_one() {
         "action \"Completed tasks move to a done list: write src/complete.js\"",
     );
     assert_eq!(p.codes(), ["gsd/E310", "gsd/W317"]);
-    // The id in the action cites it.
+    // The id in the action cites it, for the gap report too.
     p.edit(
         "spec/plans.spec",
         "action \"Completed tasks move",
         "action \"D-02: completed tasks move",
     );
-    assert_eq!(p.codes(), ["gsd/W317"]);
+    assert_eq!(p.codes(), CLEAN);
 }
 
 #[test]
-fn a_listed_decision_cited_nowhere_is_e310() {
+fn a_listed_decision_cited_nowhere_is_e310_and_a_gap_row() {
     let p = with(&phase_1_decision("Completed tasks move to a done list"));
     p.edit(
         "spec/plans.spec",
         "  decisions      [D-01]\n",
         "  decisions      [D-01, D-02]\n",
     );
-    assert_eq!(p.codes(), ["gsd/E310"]);
+    assert_eq!(p.codes(), ["gsd/E310", "gsd/W317"]);
     assert_eq!(
         message(&p, "gsd/E310"),
         "decision 'v1.0/01/D-02' is cited by no plan of phase 'v1.0/01'"
+    );
+    assert_eq!(
+        message(&p, "gsd/W317"),
+        "⚠ 1 of 4 items not covered by any plan: D-02"
     );
 }
 

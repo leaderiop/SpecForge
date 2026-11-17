@@ -154,7 +154,7 @@
     {
       "code": "E312",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "No task action reduces scope (\"for now\", \"simplified\", \"v1\"). It is an error.",
+      "explanation": "No task action reduces scope (\"for now\", \"simplified\", \"v1\") unless a decision its plan cites says so. It is an error.",
       "title": "Task action reduces scope"
     },
     {
@@ -184,7 +184,7 @@
     {
       "code": "W317",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "The post-planning gap report finds nothing open. It is a warning.",
+      "explanation": "The post-planning gap report finds nothing open: each phase requirement is in a plan's requirements and each context decision is cited by a plan. It is a warning.",
       "title": "Post-planning gaps open"
     },
     {
@@ -322,7 +322,7 @@
     {
       "code": "W506",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "Every settled decision maps to something shipped. It is a warning.",
+      "explanation": "Every settled decision is cited by something shipped: a complete plan's text, its summary or a commit subject. It is a warning.",
       "title": "Settled decision maps to nothing shipped"
     },
     {

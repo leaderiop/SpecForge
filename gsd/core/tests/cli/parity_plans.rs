@@ -301,8 +301,8 @@ fn gate_cutover_plan_verdicts_reproduce() {
         "the clean phase has no finding"
     );
 
-    // The gap golden's summary is the W317 message's prefix, byte for byte: typed `requirements` and `decisions` here,
-    // upstream's word search in the plans' text, the same items.
+    // The gap golden's summary is the W317 message's prefix, byte for byte: typed `requirements` and the decision ids
+    // the plans cite here, upstream's word search in the plans' text, the same items.
     let summary = printed("gap-analysis-plan-post-enabled")["summary"]
         .as_str()
         .expect("a summary")

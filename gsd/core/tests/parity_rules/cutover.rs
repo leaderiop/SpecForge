@@ -200,7 +200,7 @@ pub const GATE_CUTOVER: [(&str, Class); 171] = [
     (
         "decision-coverage-verify-final",
         Class::NotReproduced(
-            "W506 judges a decision nothing shipped on a verified phase (unit-tested in src/passes/decision_coverage/tests.rs); the gate-cutover tree has no verified phase to run it on, so no twin gives this verdict. Not built in r44.",
+            "W506 judges a decision nothing shipped on a verified phase from the ids cited in its complete plans' text, their summaries and their recorded commit subjects (unit-tested in src/passes/decision_coverage/tests.rs); the final verdict also reads the contents of the files the summaries list, which W506 does not read (ADR 0371, decision-shipped-reach), and the gate-cutover tree has no verified phase to run it on, so no twin gives this verdict. Not built in r44.",
         ),
     ),
     (
