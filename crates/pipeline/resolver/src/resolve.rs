@@ -215,14 +215,23 @@ fn name<'s>(
     candidates(&base)
         .iter()
         .find_map(|candidate| {
-            let candidate = candidate.to_string_lossy();
+            let candidate = slashed(candidate);
             let key = match spec_dir.as_os_str().is_empty() {
-                true => candidate.into_owned(),
-                false => format!("{}/{candidate}", spec_dir.to_string_lossy()),
+                true => candidate,
+                false => format!("{}/{candidate}", slashed(spec_dir)),
             };
             sources.get(key.as_str()).copied()
         })
         .map_or(Named::Nothing, Named::Source)
+}
+
+/// `path` as a key spells it: its components joined by `/` on every OS. A key is `/`-joined, and a path built
+/// with `push` or `join` is `\`-joined on Windows, so a candidate rendered as the OS spells it names no key there.
+fn slashed(path: &Path) -> String {
+    path.components()
+        .map(|component| component.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
 /// `key` without the spec dir it is under (a key is named from the project root, the spec root being its prefix).
