@@ -15,8 +15,6 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use numbering::Number;
 
-use super::cycles::on_a_cycle;
-
 use specforge_extension_sdk::prelude::*;
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -180,6 +178,59 @@ fn dependencies(input: &PassInput) -> Vec<PassDiagnostic> {
         );
     }
     found
+}
+
+/// The nodes on a cycle: every member of a strongly connected component of more than one node, and a node that
+/// depends on itself (Tarjan's algorithm, iterative so a long chain cannot exhaust the guest's stack).
+fn on_a_cycle<'a>(graph: &BTreeMap<&'a str, Vec<&'a str>>) -> BTreeSet<&'a str> {
+    let mut nodes: BTreeSet<&str> = graph.keys().copied().collect();
+    nodes.extend(graph.values().flatten().copied());
+    let (mut index, mut low): (BTreeMap<&str, usize>, BTreeMap<&str, usize>) = Default::default();
+    let (mut stack, mut on_stack) = (Vec::new(), BTreeSet::new());
+    let mut cyclic = BTreeSet::new();
+    for root in nodes {
+        if index.contains_key(root) {
+            continue;
+        }
+        // (node, how many of its successors are done)
+        let mut work = vec![(root, 0usize)];
+        while let Some((node, done)) = work.pop() {
+            if done == 0 {
+                index.insert(node, index.len());
+                low.insert(node, index[node]);
+                stack.push(node);
+                on_stack.insert(node);
+            }
+            let next = graph.get(node).and_then(|n| n.get(done)).copied();
+            if let Some(next) = next {
+                work.push((node, done + 1));
+                if !index.contains_key(next) {
+                    work.push((next, 0));
+                } else if on_stack.contains(next) {
+                    low.insert(node, low[node].min(index[next]));
+                }
+                continue;
+            }
+            if low[node] == index[node] {
+                let mut component = Vec::new();
+                while let Some(member) = stack.pop() {
+                    on_stack.remove(member);
+                    component.push(member);
+                    if member == node {
+                        break;
+                    }
+                }
+                let alone = component.len() == 1;
+                if !alone || graph.get(node).is_some_and(|n| n.contains(&node)) {
+                    cyclic.extend(component);
+                }
+            }
+            if let Some(&(parent, _)) = work.last() {
+                low.insert(parent, low[parent].min(low[node]));
+            }
+        }
+    }
+    cyclic
 }
 
 #[cfg(test)]
