@@ -239,9 +239,8 @@ Bv1 records the tag's), a set whose Bv1 runs record B's, and a run whose copy ca
 
 Open before v3's tag: `gsd-ab-v1` set; Bv1's preflight run on the tag's build (`seed.py preflight --arm Bv1`); the
 fixtures' preflight baselines in `tasks.json`, re-recorded on one machine (`seed.py preflight --record`), checked on the
-operator's build (arm B's preflight, OPERATOR.md step 4); the ledger's and the vault's own `requirement` and `proof`
-lines, which the trees these pins name still hold and which leave before the tag (moving the pins and the baselines
-again); the autonomy measures and a project from outside may join v3 before its tag, or come in a later version.
+operator's build (arm B's preflight, OPERATOR.md step 4); the autonomy measures and a project from outside may join v3
+before its tag, or come in a later version.
 Open before v1's tag, each needing gsd-core 1.19.0 installed (`gsd-tools`, node 24):
 
 - the ledger's JSON goldens, recorded by `gsd/parity/record-ledger.sh`, and the comparison of the statuses gsd-tools

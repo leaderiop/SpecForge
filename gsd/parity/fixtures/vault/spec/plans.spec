@@ -30,14 +30,8 @@ task T2 "Tests for seal and open" {
 }
 
 truth TR1 "A sealed vault opens to what was sealed, and to nothing else" {
-  plan        v1.0/01/01-01
-  text        "A sealed vault opens to what was sealed, and to nothing else"
-  requirement SEC-01
-  proof       [
-    "js:vault/test/vault.test.js#a sealed vault opens to what was sealed",
-    "js:vault/test/vault.test.js#a tampered vault does not open",
-    "js:vault/test/vault.test.js#another key does not open it",
-  ]
+  plan v1.0/01/01-01
+  text "A sealed vault opens to what was sealed, and to nothing else"
 }
 
 artifact AR1 "seal and open" {
@@ -130,9 +124,8 @@ task T1 "set, get and list" {
 }
 
 truth TR1 "A secret set from the command line is read back by its name" {
-  plan        v1.0/01/01-02
-  text        "A secret set from the command line is read back by its name"
-  requirement SEC-02
+  plan v1.0/01/01-02
+  text "A secret set from the command line is read back by its name"
 }
 
 artifact AR1 "set, get and list" {
@@ -230,9 +223,8 @@ task T2 "The share command" {
 }
 
 truth TR1 "An exported secret opens only with the recipient's key" {
-  plan        v1.0/02/02-01
-  text        "An exported secret opens only with the recipient's key"
-  requirement SHARE-01
+  plan v1.0/02/02-01
+  text "An exported secret opens only with the recipient's key"
 }
 
 artifact AR1 "export of one secret for a recipient" {

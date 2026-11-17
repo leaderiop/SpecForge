@@ -18,8 +18,8 @@ An encrypted store for secrets on the command line: `VAULT_KEY=<hex> node src/cl
   `goldens/vault/junit.xml`.
 - `spec/`: the SpecForge twin, mirroring `.planning/`: the phases and plans, each plan's `must_haves` (truths,
   artifacts, key links), phase 1's two summaries, and the security model's entities (trust boundaries, threats, the
-  audit, the accepted risk and the audit run). Plan 01-01's truth cites the three tests of `test/vault.test.js`
-  (`proof`, `js:vault/test/vault.test.js#<test name>`); the command line has no test, so 01-02's truth cites none.
+  audit, the accepted risk and the audit run). A truth names no requirement and no test, and no summary carries a
+  coverage item: the tests of `test/vault.test.js` are collected facts no entity names.
   It loads the thread's builtins as the taskboard twin does, and checks with `@gsd/core` and `@gsd/security` loaded:
   its one error is the duplicate `T-01-02` (`gsd.security/E101`, once per claim) that the fixture exists to carry,
   besides the verifier's `no verdict` on each truth, artifact and key link (no verifier has run, as `.planning/` has
