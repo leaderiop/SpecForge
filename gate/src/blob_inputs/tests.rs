@@ -231,6 +231,20 @@ fn the_bootstrap_job_installs_the_pinned_rustc() {
     assert!(line.contains("wasm32-wasip2"), "{line}");
 }
 
+/// The re-vendoring guide installs the pinned rustc with the command the tools print, so a pin bump that forgets the
+/// doc fails here (ADR 0373 D1).
+#[test]
+fn the_revendor_guide_installs_the_pinned_rustc() {
+    let path = repo_root().join("docs/agents/revendor.md");
+    let guide = std::fs::read_to_string(&path).unwrap();
+    let install = blob_rustc_install();
+    assert!(
+        guide.lines().any(|line| line.trim() == install),
+        "{} does not show `{install}` on a line of its own",
+        path.display()
+    );
+}
+
 /// The bootstrap job is bounded, as every `ci.yml` job is: it builds cold with no cache, so a hung rebuild or a stalled
 /// toolchain install would otherwise hold a runner for the platform's six-hour default.
 #[test]

@@ -166,7 +166,8 @@ Measured at the vendoring commit `6cd048a37` (2026-11-17), whose one revendor bu
 - **The CLI differential**, n=20, a check loading the blob minus the same check without it, both cached: 51.2 ms
   wall and 46.7 ms CPU. The wall time of the check loading it is bimodal at 65 and 75 ms, in the epoch ticker's 10 ms
   steps.
-- **The revendor** that vendored it took 5 min 17 s; the Consequences' "about six minutes" was the research's estimate.
+- **The revendor** that vendored it took 5 min 17 s, against the research's estimate of about six minutes; the
+  Consequences give the measured figure.
 - **The equality test**, `committed_gsd_core_blob_is_the_stagers_build`, runs in about 22 s on a warm target
   (`[same]   gsd/core`).
 - **The vocabulary** holds 85 kind keywords, 61 of them `@gsd/core`'s; exactly three are shared with an old builtin:
@@ -199,7 +200,8 @@ ticker's join on top of the load (D3), not the bound's reading.
   is keyed by name: a release-note line.
 - Re-vendoring needs the pinned toolchain installed.
 - `gsd/Cargo.lock` is hashed whole, so a dependency change that touches only `gsd-security` re-vendors `@gsd/core`.
-- An edit to `gsd/core` reaches the black-box suite only after a revendor (about six minutes) and a CLI rebuild.
+- An edit to `gsd/core` reaches the black-box suite only after a revendor (about five minutes: 5 min 17 s
+  measured) and a CLI rebuild.
 - The 19 old blobs are rewritten once, on 1.99.1; bumping the pin re-vendors all twenty.
 
 ## Would reopen it
