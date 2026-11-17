@@ -7,10 +7,11 @@
 //!   ASCII letters and digits upper-cased, or the old kind's name when that is empty or starts with a digit. The same
 //!   rule writes the requirement's `category`, so its heading and its id agree.
 //! - A decision in force is `D-<NN>`, at project scope (its create writes no `phase`).
-//! - Numbers run from 1 per prefix in (old kind, old id) order, bytewise, at least two digits and as many as the
-//!   group's size needs: on the root spec `FEATURE-001` to `FEATURE-141`, `INVARIANT-001` to `INVARIANT-149`,
-//!   `RELIABILITY-01` to `RELIABILITY-34`, `PERFORMANCE-01` to `PERFORMANCE-17`, `SECURITY-01`, and `D-001` to
-//!   `D-100`. Kinds that share a prefix share its counter, so no two share a number.
+//! - Numbers run from 1 per (new kind, prefix) in (old kind, old id) order, bytewise, at least two digits and as
+//!   many as the group's size needs: on the root spec `FEATURE-001` to `FEATURE-141`, `INVARIANT-001` to
+//!   `INVARIANT-149`, `RELIABILITY-01` to `RELIABILITY-34`, `PERFORMANCE-01` to `PERFORMANCE-17`, `SECURITY-01`, and
+//!   `D-001` to `D-100`. Old kinds whose requirements share a prefix share its counter, so no two share a number, and
+//!   a requirement whose prefix is `D` never takes a decision's.
 //! - A release's milestone is `v<version>`. A milestone a converted release lists is a phase under that version
 //!   milestone, numbered from `01` in source order (file, line) within its release; its path is `<version id>/<NN>`
 //!   and its create's id the number alone, placed by its `milestone` field (a name holds no `/`).

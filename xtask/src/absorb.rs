@@ -1,5 +1,7 @@
-//! Converts an old project's authored entities into a fresh `@gsd/core` project by one typed-edit plan (ADR 0360):
-//! every old kind converts or is dropped whole (ADR 0372 D1), and no entity is created that the old spec did not hold.
+//! Converts every authored entity of an old project into a fresh `@gsd/core` project by one typed-edit plan
+//! (ADR 0360), each old kind to its fate (ADR 0372 D1: six convert, eleven are dropped whole with their reason),
+//! under GSD's ids (ADR 0372 D3: a requirement `<CAT>-<NN>`, a decision in force `D-<NN>`, a release's milestone
+//! `v<version>`, a phase `<NN>` under it). No entity is created that the old spec did not hold.
 //!
 //!   GSD_CORE_WASM=<gsd_core.wasm> cargo run -p xtask --bin absorb -- --from <project> --to <dir>
 //!       [--only ids:<file> | --only sample:<name> [--selection <file>]] [--extension <name>]... [--ledger <file>]
@@ -8,12 +10,15 @@
 //! required. `@gsd/core` holds exactly gsd-core's kinds and fields (ADR 0370 D8): a value with no home there is
 //! ledgered `dropped`, and no kept kind holds a proof, so absorb cites no test (the summary's `cited_tests` is empty).
 //! A release becomes a version milestone and the milestones it lists phases under it, whose references are written
-//! through the id map the ledger records (ADR 0372 D3, D4). `--only` converts just the old ids a JSON array names, `--only sample:<name>`
-//! the ids a sample's selector computes from the old graph (`--selection` writes them, by old kind).
+//! through the id map the ledger records (ADR 0372 D3, D4). `--only` converts just the old ids a JSON array names,
+//! `--only sample:<name>` the ids a sample's selector computes from the old graph (`--selection` writes them, by old
+//! kind).
 //! `--extension` adds an extension to the target. `--to` is absent or a directory with no project; it is scaffolded
 //! with `@specforge/checks`, `@code/core` and the `@gsd/core` component `GSD_CORE_WASM` names, keeping the source's
 //! name, version and spec root, and written by one edit plan, all or nothing; a stop leaves it as it was. The absorb
-//! ledger (default `<to>/absorb-ledger.json`) lists every old value not written as itself. Prints one JSON summary.
+//! ledger (default `<to>/absorb-ledger.json`) lists every old value not written as itself, with one outcome each
+//! (`computed`, `filled`, `unconverted` for the scaffold's values only, `dropped`), and the old id of every converted
+//! entity beside its new one (ADR 0372 D8). Prints one JSON summary.
 //!
 //! Exit 0: written. 1: the edit plan was refused (the refusal printed, the ledger written, the scaffold removed), or
 //! the ledger could not be completed once the plan wrote (the target rolled back, the ledger printed to stderr).

@@ -1917,13 +1917,18 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   with no row and a row with no hit both fail. The ledgers are `pending_tools.txt` (a program a block runs, ADR 0343
   D1), `planning_names.txt` (a GSD file named outside an upstream quote) and `markdown_writes.txt` (a line that tells
   an agent to write a GSD file) (ADR 0332 D8, D9).
-- **Absorb table**: `xtask/src/absorb/table.rs`, one row per field of an old `@specforge/governance` or
-  `@specforge/product` kind (and one per old kind that takes `verify`), each naming its home in `@gsd/core`: a field it
-  is written to, a computed field it is compared with, a kind it waits for, refused, an implied default, or dropped
-  (no `@gsd/core` field takes it, ADR 0370). Its counts are the measure that every old field has a home (ADR 0360).
-- **Absorb ledger**: the converter's sorted JSON list of every old value it did not write as itself, and why (waiting
-  for a kind, a computed value that differs, a filled required field, a value it could not map, an entity it created,
-  a value no `@gsd/core` field takes) (ADR 0360, ADR 0370). Not the **Harness ledger**, the **Read ledger** or a **Port ledger**.
+- **Absorb table**: `xtask/src/absorb/table.rs`: one fate per old kind (17: six convert, eleven are dropped whole,
+  each with its reason) and, for the six converting kinds, one row per field the old builtins register (and one per
+  converting kind that takes `verify`). Each row's homes are To (an authored `@gsd/core` field it is written to),
+  Computed (a field the new kind computes, compared after the write) or Dropped (with its reason). A run stops before
+  any write on a kind with no fate or a field with no row; no value waits and none is refused for having no home. Its
+  counts are the measure that every old value has a home (ADR 0360, ADR 0372).
+- **Absorb ledger**: the converter's sorted JSON record (format 2) of every old value it did not write as itself, each
+  with one outcome: `computed` (the new kind's computed value differs), `filled` (a required value the old entity
+  lacked), `unconverted` (the scaffold's own `spec` block and `specforge.json` values only, written fresh by absorb)
+  or `dropped` (no `@gsd/core` field takes it, with why). Its `ids` section holds the old (kind, id) of every
+  converted entity beside its GSD id: `<CAT>-<NN>`, `D-<NN>`, `v<version>`, or a phase's path (ADR 0360, ADR 0370,
+  ADR 0372). Not the **Harness ledger**, the **Read ledger** or a **Port ledger**.
 - **Human-only value**: a kind, field or member declared `writer: "human"`; an extension's plan, the MCP tools and a
   non-interactive CLI are refused `human_only` (ADR 0289), also when they edit an existing entity of a human-only kind or
   delete an entity holding a person's value (ADR 0298).

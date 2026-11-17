@@ -199,9 +199,14 @@ later change now has it.
 ## Consequences
 
 - 95 `done` features read `v2`: their old status survives in the ledger's `computed` entries.
-- The ledger grows to about 19,800 entries on the whole spec: the software kinds' values, every one ledgered.
+- The ledger grows to 20,130 entries on the whole spec (`dropped` 19,306, `filled` 678, `computed` 138,
+  `unconverted` 8), of which 16,190 are the software kinds' values (behavior 11,075, type 4,320, event 544, port 251),
+  every one ledgered. Its `ids` section holds 469 entries, one per converted entity.
 - Phase numbers restart in each version milestone, and a selection numbers its own subset: an `--only` run numbers
   from 1, so its ids are not those of a whole-spec run.
+- Numbering groups requirements and decisions apart: a requirement's counter is its (new kind, prefix), so a
+  constraint whose category word is `D` never shares the decisions' `D-<NN>` numbers. Two entities of one old kind and
+  id are given one id, so the map's one-to-one stop still names them.
 - **The failure modes.** None converts, and the ledger keeps all 35 with their values. For a person to author by hand
   at the swap, as a security requirement, if wanted, the eight candidates, each with its severity and the invariant it
   threatens:
@@ -216,6 +221,34 @@ later change now has it.
   | `wasm_compile_cache_corruption` | medium | `wasm_compile_cache_integrity` |
   | `collector_output_malformation` | medium | `collector_output_conformance` |
   | `registry_unavailability` | medium | `registry_integrity` |
+
+### As built, measured on the repository's own spec
+
+**The census.** A pure test over the root spec and over absorb's fixture pins D1's table per old kind: entities =
+converted + dropped whole, 0 unaccounted, and a kind with no fate fails it. On the root spec: 2,290 authored entities
+(2,291 with the `spec` block), 469 converted (353 requirements, 69 `v1` and 284 `v2`; 100 decisions; 3 milestones;
+13 phases) and 1,821 dropped whole, every count as D1 to D7 planned. On the fixture: 39 entities, 17 converted and 22
+dropped whole. The census's root half reads the old spec and goes with the self-spec sample when the root spec is
+converted; its fixture half stays.
+
+**The whole-spec trial.** absorb ran on a copy of the repository with the facts of its collectors recorded and the
+three `@rust` extensions loaded (`--extension @rust/cargo --extension @rust/source --extension @rust/test`):
+
+| Measure | This decision as built | Before it, same collectors | First baseline |
+|---|---|---|---|
+| Wall time | 9.01 s | 8.40 s | 66.47 s |
+| Peak memory | 1,053,472 kB | 886,228 kB | 931,960 kB |
+
+The first baseline joined proofs over the tests the old spec cited; that join left with the kinds that held a proof,
+and the run fell to 8.40 s before this decision. The rise since then is this decision's: absorb now reads the four
+software kinds it used to skip and ledgers their 16,190 values. Neither figure is a gate.
+
+The run exited 0 with 469 creates in one edit plan (3 compiles), the ledger above and every unconverted entry the
+scaffold's, each "written fresh by absorb". Per old kind its converted and dropped-whole counts equal the census.
+`specforge check` of the target exits 0 under `gsd-compat` (the target names no profile, and `gsd-compat` is the
+default): 0 errors, 7 warnings, 0 infos. All 7 are `gsd/W103`, the phases whose old milestone had more than five exit
+criteria (`v0.1.0/04` 8, `v0.5.0/02` 8, `v0.5.0/03` 7, `v0.5.0/04` 11, `v0.5.0/05` 8, `v1.0.0/01` 10, `v1.0.0/02`
+9); a phase has 2 to 5, and a warning is GSD's advice to merge or split, not a refusal.
 
 ## Would reopen it
 
