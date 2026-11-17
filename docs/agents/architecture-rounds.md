@@ -83,6 +83,6 @@ stays open. Done when CI is green; after the merge, delete the round's target di
 ## Pitfalls round 7 paid for
 
 - A PR stacked on a branch that had already merged never reached `main`: step 0 exists for that.
-- A hook-less repo found its unformatted specs, stale `verify` texts and `.snap.new` files at step 6:
+- A hook-less repo found its unformatted specs, test attributes that name no requirement and `.snap.new` files at step 6:
   run `scripts/setup-hooks.sh` in the main checkout (worktrees share the config).
 - Agents' scratch files collide in a shared scratchpad: each uses `<scratchpad>/<its label>/`.

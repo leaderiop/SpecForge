@@ -1488,8 +1488,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   holds defined once under `$defs`; content an extension defines is an open value), its structured
   result is it
   serialized, and a result its schema refuses is never sent as one (`schema_mismatch`). An optional
-  value is absent, never `null`. `spec/types/mcp.spec`'s `Mcp*` types state the same shapes, and a
-  test holds them to the derived schemas. A tool answering a document in text (validate, export,
+  value is absent, never `null`. A tool answering a document in text (validate, export,
   model, outline_extensions) has no outputSchema.
   A mutation's reply is sent as `WrittenReply`: its tool reply with what the mutation pipeline adds,
   declared beside it (`files_written`; `diagnostics` when its type says so, rename), never by the tool
@@ -1556,9 +1555,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **MCP event**: what an MCP server records it did — a tool, prompt or listing invoked, a resource
   read, a mutation completed, a subscription made or ended, a delta notified, an extension surface
   dispatched, the server initialized or shut down, a protocol error answered, a cancel acknowledged —
-  one typed value per event the spec declares for it, its payload the spec's field for field
-  (`specforge_mcp::events::McpEvent`; `spec/events/mcp.spec`, `surface-contributions.spec`, and the
-  `extension_added` and `project_initialized` a mutation produces). Every module records through the
+  one typed value per event (`specforge_mcp::events::McpEvent`, with the `extension_added` and
+  `project_initialized` a mutation produces). Every module records through the
   server's one **event sink** (`EventSink`): a production server's keeps nothing (`Discard`), so what
   a server holds never grows with the requests it answered; a test's keeps every event in order,
   stamped with the time it was recorded (`events::testing::EventLog`, given with

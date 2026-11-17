@@ -42,8 +42,8 @@ shrink, split or move one, run `cargo gate baseline --only file-size` and commit
 ## Tests
 
 A test that crosses a surface (a CLI exit code, an MCP `isError`, an LSP reply) moves below it only when one surface
-test still covers the mapping, or the commit says why none can. The `verify` links do not see the loss: they count per
-obligation, not per surface.
+test still covers the mapping, or the commit says why none can. The requirement links do not see the loss: they count
+per requirement, not per surface.
 
 A test builds its project with `specforge_project::testing::TestProject` (feature `testing`) and exercises it
 through one driver: `compile()`/`session()` in process, `specforge_mcp::testing::Served` over MCP, or
@@ -51,10 +51,15 @@ through one driver: `compile()`/`session()` in process, `specforge_mcp::testing:
 only the binary's contract (arguments, exit codes, streams, environment) and cross-surface comparisons are CLI
 tests ([ADR 0078](docs/adr/0078-a-tests-project-is-one-fixture.md)).
 
-SpecForge's own project loads the Rust source packs: `specforge collect --no-run` at the root runs rust-cargo, then
-rust-source, and skips cargo-test (a plain `specforge collect` would ask to run the whole test suite first). It stores
-the facts of every crate's items in `.specforge/` (ignored, as the rename ledger `specforge-harness` is), and
-`specforge anchors <behavior>` then lists the tests whose `#[specforge_test]` names it.
+A test of this repository names the requirement it proves, `#[specforge_test(requirement = "<id>")]`, one attribute
+per requirement and no verify text; `check-links` (the `links` check) reports one that names no requirement of `spec/`
+([ADR 0374](docs/adr/0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md)).
+
+SpecForge's own project loads the Rust packs: `specforge collect --no-run` at the root runs rust-cargo, then
+rust-source, and skips rust-test (whose nextest report `cargo gate`'s `dogfood` hands it; a plain `specforge collect`
+would ask to run the whole test suite first). It stores the facts of every crate's items in `.specforge/` (ignored, as
+the rename ledger `specforge-harness` is), and `specforge anchors <requirement>` then lists the tests whose attribute
+names it.
 Nothing it writes is committed: the one line the ledger's first write would add to `.gitattributes` is committed
 already, so the file stays unchanged.
 
@@ -124,7 +129,9 @@ What documents it:
 
 - [`docs/`](docs/): guides, references, [ADRs](docs/adr/), the [vision](docs/vision/README.md),
   [agent conventions](docs/agents/) and the round reports in `docs/research/`.
-- [`spec/`](spec/): SpecForge's own specification, written in SpecForge; `specforge.json` is its project file.
+- [`spec/`](spec/): SpecForge's own specification, written in `@gsd/core`'s kinds
+  ([ADR 0374](docs/adr/0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md)); `specforge.json` is
+  its project file.
 - [`examples/`](examples/): worked example projects, checked by the gate.
 - [`ARCHITECTURE.md`](ARCHITECTURE.md), [`CONTEXT.md`](CONTEXT.md) (the domain glossary), this file and
   [`AGENTS.md`](AGENTS.md).
