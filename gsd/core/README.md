@@ -35,27 +35,36 @@ Cargo reads the SDK patch from `gsd/.cargo/config.toml`, so run it **in `gsd/`**
 
 ```sh
 cd gsd
-cargo build -p gsd-core --release --target wasm32-wasip2      # target/wasm32-wasip2/release/gsd_core.wasm
 (cd .. && cargo build --profile test -p specforge-cli)        # the binary the black-box tests drive (optimised deps)
+cargo build -p gsd-security --release --target wasm32-wasip2  # target/wasm32-wasip2/release/gsd_security.wasm
 SPECFORGE_BIN=<repo target>/debug/specforge \
-GSD_CORE_WASM=$PWD/target/wasm32-wasip2/release/gsd_core.wasm \
+GSD_SECURITY_WASM=$PWD/target/wasm32-wasip2/release/gsd_security.wasm \
   cargo test                                                   # declaration, roster, profile and CLI tests
 ```
 
 Both variables are **absolute** paths: cargo runs the tests in `gsd/core`, and each test project resolves the component
 from its own temp directory, so the harness refuses a relative one. From the repository root, `cargo gate full --only gsd`
-runs all of it (clippy for native and wasm, the release build, the CLI build, the tests); `cargo gate quick` runs it when
-`gsd/` or any crate changed. Plain `cargo gate --only gsd` is `quick`: on a clean tree nothing changed, so it selects
-nothing and runs nothing. The component is built on demand and never committed.
+runs all of it (clippy for native and wasm, the release build of `@gsd/security`, the CLI build, the tests);
+`cargo gate quick` runs it when `gsd/` or any crate changed. Plain `cargo gate --only gsd` is `quick`: on a clean tree
+nothing changed, so it selects nothing and runs nothing.
 
-To use it in a project, add the built file:
+The component is vendored: its blob is committed in `wasm/` and embedded in the `specforge` binary
+([ADR 0366](../../docs/adr/0366-gsd-core-is-vendored-as-a-builtin-with-a-size-allowance-of-its-own.md),
+[ADR 0373](../../docs/adr/0373-gsd-core-is-vendored-on-a-pinned-rustc-with-its-load-and-size-measured.md)). The CLI
+tests drive that embedded component, so an edit here reaches them only after `cargo run -p xtask --bin revendor` from
+the repository root and a CLI rebuild ([../README.md](../README.md#build-order)); the native tests read the working tree.
+
+To use it in a project, add it by name:
 
 ```sh
 specforge init --name my-project
-specforge add gsd/target/wasm32-wasip2/release/gsd_core.wasm   # lists @gsd/core in specforge.json
+specforge add @gsd/core                                        # lists @gsd/core in specforge.json
 specforge check
 specforge settings --extension @gsd/core
 ```
+
+A path entry for it is refused: a file entry whose component declares a builtin's name reports E028
+([ADR 0214](../../docs/adr/0214-a-builtins-name-is-refused-where-extensions-load.md)).
 
 **Requirements.** The prompts' shell blocks need `bash`, `git` and `specforge` on the `PATH`, and no jq anywhere: a value
 is read with `--pick` (`specforge query`, `export`, `check`, `settings` and the extension commands, ADR 0325), a document

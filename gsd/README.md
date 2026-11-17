@@ -164,8 +164,17 @@ Each extension builds to `wasm32-wasip2` on its own; the Cargo workspace exclude
 
 ## Build order
 
-The packaging (one Cargo workspace, built on demand, tested through the `specforge` binary) is
-[ADR gsd/0001](adr/0001-one-cargo-workspace-built-on-demand.md).
+The packaging is one Cargo workspace, [ADR gsd/0001](adr/0001-one-cargo-workspace-built-on-demand.md). `@gsd/core` is
+vendored as a builtin: its blob is committed in `gsd/core/wasm/` and embedded in the `specforge` binary
+([ADR 0366](../docs/adr/0366-gsd-core-is-vendored-as-a-builtin-with-a-size-allowance-of-its-own.md),
+[ADR 0373](../docs/adr/0373-gsd-core-is-vendored-on-a-pinned-rustc-with-its-load-and-size-measured.md)), and it is
+tested through that binary.
+
+An edit to `gsd/core` reaches the black-box suite only after `cargo run -p xtask --bin revendor` (about five minutes,
+on the pinned rustc of ADR 0373 D1) and a CLI rebuild. Until then the suite tests the last vendored component, and the
+native tests test the working tree. `gsd/Cargo.lock` is one input of the blob, hashed whole, so a dependency change that
+only touches `gsd-security` still re-vendors `@gsd/core`. `@gsd/security` is not vendored: the gate's `gsd` step builds
+its wasm from `gsd/`, and the suite reads it through `GSD_SECURITY_WASM`.
 
 1. The kernel changes, in order: K1 identifiers, K2 scoped identifiers, K10 namespaced codes, K3 field types,
    K4 field flags, K5 edit plans, K6 settings, K7 judged rules, K8 contributed prompts, K9 contributed
@@ -210,7 +219,7 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
 | The `specforged` harness | `/gsd-autonomous` unattended; `claude-orchestration` and `external-job` have settings keys only | the capability table above |
 | The other extensions' commands and agents | 21 commands and 37 agents are owned by them | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
 | Codex and Cursor verified in the host | drafts until run there | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
-| Publishing | `specforge publish` is a user action | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
+| Publishing | `@gsd/core` ships inside `specforge` as a builtin and is not published | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
 
 ## Credit
 

@@ -89,7 +89,6 @@ taskboard goldens (19), the hook cases recorded from the upstream hook files, an
 Not verified:
 
 - Codex and Cursor rendering are drafts. They are golden-tested against our own output, not run in those hosts.
-- The published artefact: `specforge publish` is a user action and was not run.
 - No real project of gsd-core's was run through both sides; the twin is the fixture `taskboard`.
 - The commands the program docs name were checked with `--help` only (`publish` needs the network), not each on a
   temp project.
@@ -249,13 +248,17 @@ Each needs a crate, a gate, an ADR, a protocol change or a revendor, so none is 
 | The `specforged` harness | `/gsd-autonomous` unattended, `claude-orchestration`, `external-job` |
 | More host renderers | opencode, copilot, windsurf, kilo, kimi, kimi-code, antigravity, cline, trae, qwen, hermes, codebuddy, augment, zcode, vscode, pi |
 | Running Codex and Cursor | their goldens are the kernel's rendering, cross-checked against upstream's installer only |
-| Publishing | `specforge publish`, done by the user |
+| Publishing | none: `@gsd/core` ships inside `specforge` as a builtin and is not published |
 
 ## Publishing
 
+`@gsd/core` is not published. It ships inside `specforge` as a builtin, vendored in `gsd/core/wasm/`
+([ADR 0366](../../docs/adr/0366-gsd-core-is-vendored-as-a-builtin-with-a-size-allowance-of-its-own.md)), and a project
+loads it by name:
+
 ```sh
-specforge publish --help
-specforge publish gsd/target/wasm32-wasip2/release/gsd_core.wasm
+specforge add @gsd/core
 ```
 
-The second line is the user's call: it needs the network and an account, and nothing here runs it.
+`specforge publish` refuses a component that declares a builtin's name
+([ADR 0214](../../docs/adr/0214-a-builtins-name-is-refused-where-extensions-load.md)).
