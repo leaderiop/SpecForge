@@ -286,3 +286,49 @@ fn a_patch_entry_that_is_not_a_path_is_refused() {
     );
     assert_eq!(patch_of("[build]\njobs = 2\n"), Ok(String::new()));
 }
+
+fn parsed(args: &[&str]) -> Result<(Mode, Option<&'static str>), String> {
+    parse_args(args).map(|(mode, only)| (mode, only.map(|blob| blob.crate_dir)))
+}
+
+/// `--only <crate dir>` narrows any mode to one committed blob (ADR 0373 D2: the bootstrap job verifies `gsd/core` alone).
+#[test]
+fn only_narrows_a_mode_to_one_committed_crate() {
+    assert_eq!(
+        parsed(&["--verify", "--only", "gsd/core"]),
+        Ok((Mode::Verify, Some("gsd/core")))
+    );
+    assert_eq!(
+        parsed(&["--only", "gsd/core", "--verify"]),
+        Ok((Mode::Verify, Some("gsd/core")))
+    );
+    assert_eq!(
+        parsed(&["--only", "gsd/core"]),
+        Ok((Mode::Missing, Some("gsd/core")))
+    );
+    assert_eq!(parsed(&["--verify"]), Ok((Mode::Verify, None)));
+    assert_eq!(parsed(&[]), Ok((Mode::Missing, None)));
+}
+
+#[test]
+fn an_unknown_crate_dir_is_refused_naming_the_committed_ones() {
+    let message = parsed(&["--verify", "--only", "nowhere"]).expect_err("nowhere is not committed");
+    assert!(message.contains("nowhere"), "{message}");
+    for blob in COMMITTED {
+        assert!(message.contains(blob.crate_dir), "{message}");
+    }
+    assert!(message.contains("gsd/core"), "{message}");
+}
+
+#[test]
+fn two_modes_or_a_dangling_only_are_usage_errors() {
+    for args in [
+        &["--verify", "--check"][..],
+        &["--only"],
+        &["--only", "gsd/core", "--only", "gsd/core"],
+        &["--bogus"],
+    ] {
+        let message = parsed(args).expect_err("a usage error");
+        assert!(message.contains("usage: build-blobs"), "{message}");
+    }
+}

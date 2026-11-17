@@ -9,6 +9,7 @@
 //! build-blobs --check     fail if a vendored blob or any recorded input changed (no build)
 //! build-blobs --verify    rebuild every blob and fail if one differs from its vendored bytes
 //!                            (a blob another rustc built fails, naming the pin)
+//! build-blobs <mode> --only <crate dir>   any mode over that one committed crate (`gsd/core`)
 //! ```
 //!
 //! A blob is built in a staged workspace ([`Stage`]), so its bytes depend only on
@@ -30,7 +31,7 @@ use std::process::Command;
 
 const TARGET: &str = "wasm32-wasip2";
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 enum Mode {
     Missing,
     Force,
@@ -39,30 +40,68 @@ enum Mode {
     Verify,
 }
 
+const USAGE: &str =
+    "usage: build-blobs [--force | --install | --check | --verify] [--only <crate dir>]";
+
+/// The mode `args` name (none is [`Mode::Missing`]) and the one committed blob `--only <crate dir>`
+/// narrows it to (none is every blob). A second mode, a second `--only`, a dangling one, or a crate dir
+/// no blob is committed under is an error.
+fn parse_args(args: &[&str]) -> Result<(Mode, Option<&'static CommittedBlob>), String> {
+    let mut mode = None;
+    let mut only = None;
+    let mut rest = args.iter().copied();
+    while let Some(arg) = rest.next() {
+        let named = match arg {
+            "--force" => Some(Mode::Force),
+            "--install" => Some(Mode::Install),
+            "--check" => Some(Mode::Check),
+            "--verify" => Some(Mode::Verify),
+            "--only" => None,
+            _ => return Err(format!("{USAGE} (got {arg:?})")),
+        };
+        if let Some(named) = named {
+            if mode.replace(named).is_some() {
+                return Err(format!("{USAGE} (got {args:?})"));
+            }
+            continue;
+        }
+        let dir = rest
+            .next()
+            .ok_or_else(|| format!("{USAGE} (--only needs a crate dir)"))?;
+        let blob = COMMITTED
+            .iter()
+            .find(|blob| blob.crate_dir == dir)
+            .ok_or_else(|| {
+                let committed: Vec<&str> = COMMITTED.iter().map(|blob| blob.crate_dir).collect();
+                format!(
+                    "--only {dir}: no blob is committed under that crate dir; the committed ones are {}",
+                    committed.join(", ")
+                )
+            })?;
+        if only.replace(blob).is_some() {
+            return Err(format!("{USAGE} (--only twice)"));
+        }
+    }
+    Ok((mode.unwrap_or(Mode::Missing), only))
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let mode = match args
-        .iter()
-        .map(String::as_str)
-        .collect::<Vec<_>>()
-        .as_slice()
-    {
-        [] => Mode::Missing,
-        ["--force"] => Mode::Force,
-        ["--install"] => Mode::Install,
-        ["--check"] => Mode::Check,
-        ["--verify"] => Mode::Verify,
-        other => {
-            eprintln!(
-                "usage: build-blobs [--force | --install | --check | --verify] (got {other:?})"
-            );
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    let (mode, only) = match parse_args(&args) {
+        Ok(parsed) => parsed,
+        Err(message) => {
+            eprintln!("{message}");
             std::process::exit(2);
         }
     };
     let root = specforge_repo_root::repo_root();
 
     let mut failed = false;
-    for blob in COMMITTED {
+    for blob in COMMITTED
+        .iter()
+        .filter(|blob| only.is_none_or(|one| one.crate_dir == blob.crate_dir))
+    {
         let ok = match mode {
             Mode::Check => check(root, blob),
             Mode::Verify => verify(root, blob),
