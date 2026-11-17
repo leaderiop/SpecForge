@@ -39,12 +39,12 @@ Every status computed from test evidence reads `@code/core`'s test facts, the gr
 the recorded test report.
 The timestamps a command writes (`approval.at`, `recorded_at`, a refactor `disposition.at`) are the host's clock,
 `CommandInput.now` (K14).
-| requirement `satisfied`, `blocked`, `needs_human`, `orphaned` | computed from the truths and deliverables that trace to it |
 
 **Decisions to shipped (gsd/W506, r42).** GSD's verify gate asks that every settled decision map to something shipped. A
-phase whose verification is `passed` has each decision of its context (`origin context`) listed in the `decisions` of one
-of its complete plans ([rules.md](rules.md), ADR 0351): a summary or a commit subject that names it is no claim. The shipped
-files themselves are not read.
+phase whose verification is `passed` has each decision of its context (`origin context`) cited by its id in the text of one
+of its complete plans, in one of their summaries (with the coverage items and deviations they scope), or in the subject of a
+recorded commit of those plans ([rules.md](rules.md), ADR 0371 D4). The shipped files themselves and the commits' bodies
+are not read (ACCEPTANCE.md `[decision-shipped-reach]`).
 
 ## verification
 

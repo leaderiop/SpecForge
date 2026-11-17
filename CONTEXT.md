@@ -1133,7 +1133,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   project root adds none and is never read. Progress, the inference plan, the `inferred` lint and the mark read them
   through one module (`specforge_ops::read::infer::sources`, ADR 0113, ADR 0199).
 - **Anchor**: an edge of the compiled graph between an authored entity and a located fact, either way: a `.spec`
-  field citing the fact (`proof ["rust:…"]`, a gsd task's `items`), or a fact naming the entity (`item.names`,
+  field citing the fact (`proof ["rust:…"]`), or a fact naming the entity (`item.names`,
   `test.names`). Its `via` is `<holder kind>.<field>`. An edge between two facts or two authored entities is none.
   Read in one walk (`specforge_ops::read::navigate::anchors_in`) by the anchors of an entity and of a source file
   (`anchors_of_entity`, `anchors_of_file`: rows `{fact_id, file, line, end_line, item_kind, collector, via}`, I212
@@ -1896,16 +1896,19 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Result field**: the enum field of a collector-written kind that holds a fact's result, its values `TestStatus`
   names (`KindBuilder::result`, ADR 0329 D3); what a judged `test(..)` input and a reader of a reference to the fact
   take as its result (ADR 0331 D6).
-- **Requirement thread**: requirement → plan → task → the code items it targets (`task.items`) → commit (found by its
-  `Gsd-Task:` trailer or its title, `commit.linked_by`) → the proving test (`truth.proof`) → its result → the truth's
-  verdict: what `@gsd/core`'s route `requirement-thread` (`gsd/requirement-thread`) declares and `specforge trace`
-  prints (ADR 0331, ADR 0352).
+- **Requirement thread**: requirement → plan → task → commit (found by its `Gsd-Task:` trailer or its title,
+  `commit.linked_by`) → the code items it changed (`commit.items_changed`); the plans' truths, each with its verdict;
+  the coverage items of its summaries and their checks; and the requirement's computed `proof`, read from a committed
+  task's tests, the requirement's own tagged tests and the coverage checks' tests, or from the tests alone when no plan
+  lists it. Every link is a field GSD writes or something a pass computes from collected facts: what `@gsd/core`'s
+  route `requirement-thread` (`gsd/requirement-thread`) declares and `specforge trace` prints (ADR 0331, ADR 0352,
+  ADR 0371).
 - **History reference**: a reference held by a field declared `writer: harness` and `immutable` (`commit.items_changed`):
   it records what held when the harness wrote it, so an unheld one is marked `history` and is never a finding
   (ADR 0352 D2).
-- **Decision coverage**: a planned phase's context decisions, each listed in the `decisions` of one of its plans:
-  typed references resolved in the phase, never a match on the plan's text (gsd/E310, W317, W506; ADR 0351,
-  ADR 0370).
+- **Decision coverage**: a planned phase's context decisions, each cited by its id in the text of one of its plans:
+  the id as a whole word, read with the path written before it and resolved in the plan's phase, never a match on the
+  decision's own words (gsd/E310, W317, W506; ADR 0371, ADR 0370).
 - **Port lock**: `gsd/core/tests/port.lock`, which splits every `@gsd/core` and `@gsd/security` asset into kept spans
   and own spans against the tracked gsd-core release. Kept spans are upstream's text byte for byte, and are the
   quotes. Each own span holds a group that says why it differs. A test recomputes the lock and `GSD_BLESS=1` rewrites

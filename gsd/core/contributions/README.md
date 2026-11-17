@@ -179,8 +179,9 @@ The assets are upstream's text; where the spec has no counterpart a line was def
   edge-probe steps of `spec-phase` and `specless-probe-fallback` run `specforge gsd edge-probe` and read the
   graph's counts of a spec's `edge` and `spec_prohibition` rows (ADR 0333), where upstream ran its runtime
   libraries `edge-probe.cjs` / `spec-section.cjs` with node.
-- `gsd/W506` reads what a complete plan lists in `decisions` (ADR 0351): a decision cited only in prose covers nothing,
-  where upstream reads the plans' text, the modified files and the commit bodies.
+- `gsd/W506` reads the text of a complete plan, of its summaries and the subjects of its recorded commits for a decision's
+  id (ADR 0371 D4): where upstream also reads the files the summaries list and the commit bodies, this reads neither
+  (ACCEPTANCE.md `[decision-shipped-reach]`).
 - The ledger scope in `ship` (`ship.md`, the broken-window step) is the milestone's (`"$MILESTONE" --depth 2`: every phase of it), not upstream's project-wide file: the graph links a window to its phase, not to the project. The `windows_enforce` gate (E512) still refuses on an open window anywhere in the project.
 - Cursor: upstream's section A (the Claude-only blocks) is dropped, and `~/.claude` paths read `~/.cursor`. Codex maps
   an agent's effort to `high` as upstream does (`gsd/kit/tests/golden/host/` holds the probe and both conversions, made with

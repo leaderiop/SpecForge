@@ -216,6 +216,20 @@ Not verified:
 - `[gate-uv-lock]` pytest runs through `uv run` when `uv.lock` exists; upstream re-runs a failed suite under uv, so a failing one runs twice.
 - `[gate-build-script]` The build gate's package arm reads `scripts.build`; upstream takes any `"build"` in `package.json`.
 - `[guard-reads-words]` Step 0c asks `gsd automated-guard`, which reads the command as the shell's words and halts on one it cannot read; upstream scans its text with regexes. The words close upstream's stated limits: quoted boundaries, control keywords, `command` and `exec`, a `--` before a directory flag, a relocating launcher's payload and an operand-taking shell option.
+- `[decision-citation-id-only]` A plan cites a decision by its id alone: a whole word of the plan's text, case as written
+  (`gsd/E310`, the decision rows of `gsd/W317`, `gsd/E312`'s exemption, `gsd/W506`; ADR 0371 D2). gsd-core 1.19.0 also
+  counts a decision cited when the first six normalised words of its text appear in the plan's text
+  (`src/decision-coverage-support.cts`, `decisionMentioned`); SpecForge counts no paraphrase. Three smaller differences go
+  with it. SpecForge reads the path written before the id and resolves it from the plan by its scope chain (`01/D-01` is
+  phase 01's decision, a bare `D-01` the plan's own phase's), where upstream matches the id inside any path. A path that
+  names no decision (`src/D-01`) cites nothing. An id inside a fenced block or an HTML comment of a field counts, where
+  upstream's plan gate strips both before it looks. No vendored verdict depends on any of these: every fixture decision's
+  text is under six words.
+- `[decision-shipped-reach]` `gsd/W506` reads the text of a verified phase's complete plans, of their summaries (with the
+  coverage items and deviations they scope) and the subjects of their recorded commits. It reads no file content and no
+  commit body, where upstream's verify gate also reads the files the summaries list and the commits' bodies
+  (`src/gate-decision-coverage-verify.cts`). The gate-cutover verdict `decision-coverage-verify-final` stays unreproduced
+  for that reason (`core/tests/parity_rules/cutover.rs`).
 
 ## Needs a change outside `gsd/`
 

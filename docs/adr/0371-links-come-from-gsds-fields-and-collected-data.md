@@ -186,10 +186,14 @@ the recorded test names and the gsd-tools goldens recorded over the fixture, and
 check carries S5 and S6 with no fixture edit.
 
 **The ledger fixture.** Its red run shows as the failing check of its coverage item (`gsd/W408` on
-`01-02-SUMMARY/D1`). Whether the red run still stales the truth `01-02/TR2` depends on whether the kernel digests a
-verdict's cited tests from the run, which was read, not run, at planning: the phase observes it and writes the observed
-answer into this decision before it closes. The ledger fixture records no commit, so `LEDG-02`'s proof is `no_commit`
-either way.
+`01-02-SUMMARY/D1`). The planning left open whether the red run still stales the truth `01-02/TR2`, which depends on
+whether the kernel digests a verdict's cited tests from the run. The phase observed it on the ledger fixture
+with its re-recorded verdicts: **nothing goes stale.** A verdict's `cited` input is a digest only when the verdict cites
+tests, and its `tests` input reads the test facts that name the truth; with no truth link and no `[gsd:<truth>]` tag both
+read `none`, over the red run as over the run before it. `01-02/TR2` stays fresh; the red run shows only as `gsd/W408` on
+the coverage item, and `01-VERIFICATION` still computes `passed`, 4 of 4. The claim that the red run stales exactly the
+truth its failing test proves is retired with `truth.proof`. The A/B ledger task's ground truths still hold `01-02/TR2`
+not verified. The ledger fixture records no commit, so `LEDG-02`'s proof is `no_commit` either way.
 
 ## What each decision of ADRs 0351 and 0331 becomes
 
@@ -265,7 +269,10 @@ Each holds once the phase that this ADR opens lands.
 - `@gsd/core` holds no authored reference to a test, so `code/E101`, `code/W102` and `code/W401` no longer fire on a
   gsd entity.
 - A failing test stales a truth's verdict only through a test that names the truth or through the verdict's cited
-  tests.
+  tests. Observed on the taskboard twin: when the test a coverage check names fails, `TR1`'s verdict stays
+  fresh, because its `tests` input reads `none` (no tag names `TR1`), its `files` input does not move, and its `cited`
+  input is the same digest before and after. The failure shows as `gsd/W408` on the coverage item's check and as the
+  requirement's `proof`, `failed`.
 - `satisfied_by` is absent until a commit is collected with item facts; W522's warning moves from a task to a commit.
 - The taskboard twin's thread ends at its coverage item.
 - `@gsd/core` declares 69 codes, and the settings and preset tables are one row shorter.

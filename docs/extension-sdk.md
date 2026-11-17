@@ -785,20 +785,23 @@ judged rules' grammar without its head:
 ```rust
 c.route("requirement-thread", |r| {
     r.start("requirement")
-        .description("A requirement's thread: its plans, tasks, commits, tests and truths")
+        .description("A requirement's thread: its plans, tasks, their commits and the code items they changed, the plans' truths, and its summaries' coverage items")
+        .field("proof")
+        .annotate(|a| { a.of("<test.names").field("status"); })
         .step("plan", "<plan.requirements", |s| { s.label("plan"); })
         .step("task", "<task.plan", |_| {})
-        .step("commit", "<commit.task", |s| { s.field("linked_by"); })
-        .step("test", "<truth.requirement.proof", |s| {
-            s.from_start().annotate(|a| { a.field("status").of("<test_run.test").absent("not run"); });
-        })
-        .step("truth", "<truth.requirement", |s| { s.from_start().judgement("E901"); });
+        .step("commit", "<commit.task", |s| { s.from_step("task").field("linked_by"); })
+        .step("item", ".items_changed", |_| {})
+        .step("truth", "<truth.plan", |s| { s.from_step("plan").judgement("E501"); })
+        .step("deliverable", "<deliverable.requirement", |s| {
+            s.from_start().label("deliverable").field("checks.ref");
+        });
 });
 ```
 
-`<plan.requirements` selects the plans whose `requirements` names the entity, `.proof` the entities its `proof`
-names. A step's `label` prints before each match's name (`plan 01-01`). An annotation prints a field of the match
-(`field`), a field of the entities `of` selects from it (a test's run status), or its judgement by a judged rule of
+`<plan.requirements` selects the plans whose `requirements` names the entity, `.items_changed` the entities its
+`items_changed` names. A step's `label` prints before each match's name (`plan 01-01`). An annotation prints a field of the match
+(`field`), a field of the entities `of` selects from it (`<test.names` on the start: the status of the tests that name it), or its judgement by a judged rule of
 the extension (`judgement`, printed `verified, fresh`); `absent` prints when there is nothing. The route (for its start
 entity) and each step share `field`, `judgement` and `annotate` through the `Annotates` trait, in the prelude. `default_route()` marks
 the route followed when several start at one kind. The builders don't check the route: the host's registry does,
