@@ -136,8 +136,8 @@ fn a_uat_result_is_harness_written() {
     // The value is in the file and blessed in the ledger, as the command that records an answer leaves it.
     p.edit(
         "spec/uat.spec",
-        "  expected  \"A task added from the form is listed\"\n}",
-        "  expected  \"A task added from the form is listed\"\n  result pass\n}",
+        "  expected \"A task added from the form is listed\"\n}",
+        "  expected \"A task added from the form is listed\"\n  result pass\n}",
     );
     assert_eq!(p.run(&["format", "spec"]).code, 0);
     p.record_harness("v1.0/01/01-UAT/U1", "result", "\"pass\"");
@@ -504,7 +504,7 @@ fn uat_tests_and_gaps_written_with_relative_references_still_count() {
     let p = verify();
     p.edit(
         "spec/uat.spec",
-        "  session   v1.0/01/01-UAT\n  expected  \"A completed",
+        "  session  v1.0/01/01-UAT\n  expected \"A completed",
         "  session   01-UAT\n  expected  \"A completed",
     );
     p.edit(

@@ -24,7 +24,7 @@ fn every_port_and_host_verb_is_a_command() {
     }
 }
 
-/// `(host:file, text)` of the 45 prompts rendered for each host and of every agent file each host's install writes.
+/// `(host:file, text)` of the 44 prompts rendered for each host and of every agent file each host's install writes.
 fn corpus() -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> = rendered()
         .iter()
