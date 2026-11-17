@@ -407,11 +407,14 @@ fn the_source_spec_root_decides_what_the_target_may_hold() {
     assert!(write::check_to(dir.path(), Some("specs/main")).is_ok());
     std::fs::write(dir.path().join("crates/a/old.spec"), "").unwrap();
     let held = write::check_to(dir.path(), None).unwrap_err();
+    // The file is named as the OS writes a path: `crates\a\old.spec` on Windows.
+    let named = std::path::Path::new("crates").join("a").join("old.spec");
     assert!(
-        held.ends_with(
-            "holds 1 spec file(s) the target would read as its own (the source's spec root is the \
-                        project's root): crates/a/old.spec"
-        ),
+        held.ends_with(&format!(
+            "holds 1 spec file(s) the target would read as its own (the source's spec root is the project's root): \
+             {}",
+            named.display()
+        )),
         "{held}"
     );
     assert!(write::check_to(dir.path(), Some("specs")).is_ok());
