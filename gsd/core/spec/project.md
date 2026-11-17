@@ -92,7 +92,6 @@ Scoped by milestone.
 | requirements | →* requirement | | `**Requirements**:`; a requirement reads its phase back as `phase` |
 | success_criteria | strs | R | `**Success Criteria**` (2–5) |
 | mode | enum{standard, mvp} | | `**Mode**:` (`/gsd-mvp-phase`) |
-| tag | str | | the parenthetical, `(Cluster B)` |
 | inserted | bool | C | `(INSERTED)`: a name that holds a `.`, but not a `999.x` one |
 | backlog | bool | C | a `999.x` name; only `--promote` and `--remove` of `phase` act on it |
 | branch | str | C | the branch it is executed on, from `git.branching_strategy` and its template (`{phase}`, `{slug}`); `phase`: each non-backlog phase; `milestone`: its milestone's; `none`: absent |
@@ -133,8 +132,7 @@ a lexical cluster the next run recomputes; the lesson is what persists, so each 
 
 ## methodology
 
-GSD: `METHODOLOGY.md`. Name `M1`. `name str R`, `diagnoses str`, `recommends str`, `apply_when str`,
-`status enum{active, superseded}`, `superseded_by → methodology`.
+GSD: `METHODOLOGY.md`. Name `M1`. `name str R`, `diagnoses str`, `recommends str`, `apply_when str`.
 
 ## Computed, project-wide
 

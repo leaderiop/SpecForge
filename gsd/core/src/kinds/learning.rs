@@ -56,8 +56,6 @@ pub const LESSON: Kind = Kind::new(
 )
 .scoped_by("retrospective");
 
-const METHODOLOGY_STATUS: &[&str] = &["active", "superseded"];
-
 /// `METHODOLOGY.md`.
 pub const METHODOLOGY: Kind = Kind::new(
     "methodology",
@@ -67,7 +65,5 @@ pub const METHODOLOGY: Kind = Kind::new(
         str("diagnoses").prose(),
         str("recommends").prose(),
         str("apply_when").prose(),
-        en("status", METHODOLOGY_STATUS),
-        rf("superseded_by", "methodology"),
     ],
 );

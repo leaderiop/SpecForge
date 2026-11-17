@@ -98,7 +98,6 @@ pub const PHASE: Kind = Kind::new(
             .r()
             .doc("Success Criteria (2 to 5, gsd/W103)"),
         en("mode", MODES).doc("Mode (/gsd-mvp-phase)"),
-        str("tag").doc("the parenthetical, (Cluster B)"),
         bool("inserted").c().doc("(INSERTED): a decimal name"),
         bool("backlog").c().doc("a 999.x name"),
         str("branch")

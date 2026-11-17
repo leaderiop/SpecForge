@@ -133,15 +133,6 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
-        "label": "MethodologySupersededBy",
-        "source_kind": "methodology",
-        "target_kind": "methodology"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
         "label": "ContextPhase",
         "source_kind": "context",
         "target_kind": "phase"
@@ -2001,16 +1992,6 @@
           },
           {
             "default_value": null,
-            "description": "the parenthetical, (Cluster B)",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "tag",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
             "description": "(INSERTED): a decimal name",
             "edge": null,
             "field_type": "bool",
@@ -2499,30 +2480,6 @@
             "name": "apply_when",
             "required": false,
             "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": null,
-            "edge": null,
-            "enum_values": [
-              "active",
-              "superseded"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "status",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": null,
-            "edge": "MethodologySupersededBy",
-            "field_type": "reference",
-            "inverse_of": null,
-            "name": "superseded_by",
-            "required": false,
-            "target_kind": "methodology"
           }
         ],
         "has_body_parser": false,
