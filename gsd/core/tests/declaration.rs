@@ -20,9 +20,9 @@ fn the_handshake_names_gsd_core_and_its_tracked_release() {
     );
 }
 
-/// A truth's `proof` names `@code/core`'s test facts (ADR 0331 D2), and a project works without them: the peer is
-/// optional, so `specforge add @gsd/core` does not enable it and a project without it is no W021. A path field
-/// needs `@specforge/checks`, a required peer.
+/// `@code/core`'s test facts are read by the requirement thread and E501's truth input (ADR 0371 D5), and a project
+/// works without them: the peer is optional, so `specforge add @gsd/core` does not enable it and a project without it
+/// is no W021. A path field needs `@specforge/checks`, a required peer.
 #[test]
 fn the_handshake_names_code_core_as_an_optional_peer() {
     let host = MockHost::new(build());
