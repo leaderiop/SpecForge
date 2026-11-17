@@ -16,7 +16,8 @@ the review finding IN-03, which [ADR 0365](0365-a-module-is-dropped-and-no-kind-
 ADR: ADR 0357 is superseded whole, so its D13 and its three module rows no longer stand. Leaves
 [ADR 0367](0367-the-self-spec-sample-retires-at-the-swap-and-absorb-stays-while-the-old-builtins-ship.md) D1 as it is
 (the sample retires at the swap). No protocol, SDK or kernel change comes with this decision, and no builtin is
-re-vendored: the kernel features of D9 stay.
+re-vendored: the kernel features of D9 stay. Its rows for ADR 0359 D8 and D9 are re-sourced by
+[ADR 0371](0371-links-come-from-gsds-fields-and-collected-data.md).
 
 ## Context
 

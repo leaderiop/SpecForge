@@ -16,7 +16,8 @@ reads a trailer), [ADR 0312](0312-collect-re-keys-a-test-id-as-the-test-report-d
 and its proof) and [ADR 0125](0125-collects-machine-is-one-port-the-caller-passes.md) D5 (a detected collector with no
 evidence is skipped). Builds on [ADR 0327](0327-a-collectors-facts-are-read-only-entities-recorded-by-digest.md) (facts)
 and [ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) (`@code/core`, a kind's `result`, owner state). No
-protocol change of its own; the route uses the 1.15.0 `routes` category.
+protocol change of its own; the route uses the 1.15.0 `routes` category. D1 and D2 superseded (D2's owner state
+kept), D5, D7 and D8 amended, by [ADR 0371](0371-links-come-from-gsds-fields-and-collected-data.md).
 
 ## Context
 
