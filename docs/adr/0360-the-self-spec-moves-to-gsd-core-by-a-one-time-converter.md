@@ -21,7 +21,9 @@ the typed edit. The sample and its gate (D10 to D17) **amend**
 arguments a caller's filter adds, a declared variable name may be a prefix, and `@rust/test` takes both; D18 amends
 [ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md): W061 reads no fact's reference; D14 amends
 [ADR 0068](0068-a-test-binary-records-collect-scores.md) D5: a caller chooses where a test binary's report goes with
-`SPECFORGE_TEST_REPORT_DIR`. Protocol 2.2.0, no bump.
+`SPECFORGE_TEST_REPORT_DIR`. Protocol 2.2.0, no bump. D14 to D17 carried out by
+[ADR 0374](0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md) D7: the sample retired before
+the swap.
 
 ## Context
 

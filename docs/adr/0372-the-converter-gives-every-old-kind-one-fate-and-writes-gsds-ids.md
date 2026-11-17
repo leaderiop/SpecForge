@@ -11,7 +11,8 @@ change's design" (decided here: D1 to D8). Builds on
 [ADR 0365](0365-a-module-is-dropped-and-no-kind-is-added-to-hold-it.md) (a module is dropped) and
 [ADR 0368](0368-a-bound-is-part-of-a-requirements-text-and-the-prove-pass-and-the-protocol-do-not-change.md) D2 (a
 bound is part of a requirement's text). No protocol, SDK or kernel change comes with this decision, `@gsd/core` does
-not change, and no builtin is re-vendored: the converter is `xtask/src/absorb/`.
+not change, and no builtin is re-vendored: the converter is `xtask/src/absorb/`. D8's root half retired by
+[ADR 0374](0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md) D7 after it last held.
 
 ## Context
 

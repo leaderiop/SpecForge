@@ -8,7 +8,9 @@ and its CI step retire at the swap, not later). Builds on
 kind and drops what has no home in a kind gsd-core defines, and the swap's evidence is a whole-spec run with the
 census of that ADR's D4) and
 [ADR 0366](0366-gsd-core-is-vendored-as-a-builtin-with-a-size-allowance-of-its-own.md) (the vendored blob removes the
-sample's gsd build). No protocol or SDK change comes with this decision.
+sample's gsd build). No protocol or SDK change comes with this decision. D1 carried out by
+[ADR 0374](0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md) D7; D2 and D3 stand, with
+the projects ADR 0374 D9 lists.
 
 ## Context
 

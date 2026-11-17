@@ -183,6 +183,57 @@ They stay (ADR 0367 D2, D3), because tracked projects still load the old builtin
 The reason: deleting a builtin a tracked project loads breaks that project, and absorb is the way off the old builtins
 for each of them.
 
+## As built
+
+Measured on the swap commit `6121b7461` (2026-11-17), whose parent `7670c2793` carries the local annotated tag
+`r4b-pre-swap`: the rollback point. Until the round's pull request merges, the swap is undone by reverting that one
+commit, or by a branch from the tag. The Context's figures above are the research's; where the two differ, these are
+the record.
+
+- **The census at the base.** Run at `3c32339dd`, before its root half retired, on the spec the tag still holds: 2,290
+  authored entities, 469 converted and 1,821 dropped whole, each old kind's counts as ADR 0372's census gives them.
+- **The conversion.** absorb over a `git archive` of the tag exits 0 in 6.54 s (research 9.07 s): 469 converted, 469
+  creates, 1,821 dropped whole. Its ledger holds 20,130 entries (dropped 19,306, filled 678, computed 138,
+  unconverted 8) and 469 ids (invariant 149, feature 141, decision 100, constraint 63, milestone 13, release 3), no old
+  id twice. The target checks with 0 errors and the 7 gsd/W103 warnings the research found.
+- **The copy-back.** 73 `.spec` files written (the 72 converted files at their old paths, and the scaffold's
+  `hello.spec` as `spec/specforge.spec`), 127 deleted, none renamed; the 65 tracked files under `spec/` that are not
+  `.spec` files kept, untouched.
+- **The criteria.** The seven phases over five success criteria were merged into five each: `v0.1.0/04` from 8,
+  `v0.5.0/02` from 8, `v0.5.0/03` from 7, `v0.5.0/04` from 11, `v0.5.0/05` from 8, `v1.0.0/01` from 10 and
+  `v1.0.0/02` from 9.
+- **The three profiles.** The root under `gsd-compat`, `gsd-strict` and `gsd-plus` checks with exit 0 and no
+  diagnostic at all.
+- **The attributes.** 6,196 spec-link attributes: 6,065 rewritten into 6,458 attribute lines, 95 removed with
+  `#[test]` put back on 89 functions, and 36 kept (other projects' tests and the macro's self-tests; 33 in the
+  committed tree, since the old links fixture left). 917 files changed. The workspace listed 9,516 tests before and
+  9,515 after: the one gone is the old `check-links` rule's own test, deleted with that rule. The whole workspace on
+  the rewritten tree: 9,496 passed, 19 skipped, none failed.
+- **The frozen corpus.** `fixtures/old-spec/spec/` holds the pre-swap spec's 200 `.spec` files, 2,603,101 bytes, byte
+  for byte, beside its project file.
+- **The proofs.** `dogfood` prints `requirements proven: 161 of 353 (failed 0, not_run 0, no_test 192, of them 14 named
+  only by guests' tests)` (research: 147 proven and 15 failed on a tree with the drift tests still red).
+- **The baselines that fell.** `specs` lost the root's entry (`W003` 1, `W004` 1); `integrations/rust/spec` keeps its
+  own. `file-size`: all 45 entries fell, 6 of them under the cap and gone, 39 left; none is new or higher than in the
+  baseline at `f61370cb9`, where this round's work began.
+- **`@specforge/checks` stays.** It is the foundation extension of generic value checkers (ADR 0338), not one of the
+  six old builtins D1 names, and `@gsd/core` declares it a required peer (a path field is read by its `file` check),
+  so a project loading `@gsd/core` loads it too. The root loads none of `@specforge/product`, `@specforge/software`,
+  `@specforge/testing`, `@specforge/cargo-test`, `@specforge/governance` or `@specforge/formal`.
+
+**D9 at the tip.** `git ls-files '*specforge.json'` lists these that name one of the six old builtins:
+
+- the example projects `examples/product-launch`, `examples/regulated-process`, `examples/shop`,
+  `examples/spec-driven-method` and `examples/todo-app`, and `integrations/rust/spec`;
+- the fifteen fixtures of the CLI's tests under `crates/surfaces/cli/tests/fixtures/` (`coverage/fx1`, four under
+  `navigation/`, nine under `parity/`, `read_views/rv1`);
+- two projects under `xtask/tests/fixtures/`: absorb's `absorb/old` and `absorb-sample` (the old link-check fixture
+  left with the swap);
+- the editor extension's `integrations/vscode/test/fixtures/sample-project`;
+- the frozen corpus, `fixtures/old-spec`.
+
+`integrations/vscode/snippets/specforge.json` still names them as snippet text, and is still no project.
+
 ## Rejected
 
 - **Re-pointing `crate-map` at `package` facts.** They carry no description, which the map prints.
@@ -203,6 +254,8 @@ for each of them.
 - The frozen corpus adds about 2.6 MB of tracked text.
 - CI's test partitions upload their JUnit reports for the `dogfood` job.
 - The old builtins and absorb remain for the projects D9 lists.
+- A code comment that names an old spec file names its pre-swap path, which the frozen copy holds at
+  `fixtures/old-spec/<that path>`.
 
 ## Would reopen it
 

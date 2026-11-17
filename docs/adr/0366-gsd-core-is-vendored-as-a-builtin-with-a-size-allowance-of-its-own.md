@@ -20,7 +20,8 @@ and [ADR 0365](0365-a-module-is-dropped-and-no-kind-is-added-to-hold-it.md) (the
 the blob carries `@gsd/core` as its own later changes leave it). Cites [ADR 0214](0214-a-builtins-name-is-refused-where-extensions-load.md) (a builtin's name is
 refused where an extension loads from a path, E028; it is kept whole) and
 [ADR 0070](0070-every-committed-blob-is-listed-once-and-built-one-way.md) (every committed blob is listed once and built
-one way). No protocol change comes with this decision.
+one way). No protocol change comes with this decision. The sample in its table of readers retired:
+[ADR 0374](0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md) D7.
 
 ## Context
 

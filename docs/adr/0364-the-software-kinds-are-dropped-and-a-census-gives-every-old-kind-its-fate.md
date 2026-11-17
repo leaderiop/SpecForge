@@ -9,7 +9,8 @@ milestone) and D2 ("No row drops a value" stops holding: a value with no home in
 and ledgered with its reason, and absorb reads the four software kinds too). Builds on
 [ADR 0327](0327-a-collectors-facts-are-read-only-entities-recorded-by-digest.md) and
 [ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) (`@code/core` holds collected facts, and gains no kind).
-No protocol or SDK change comes with this decision.
+No protocol or SDK change comes with this decision. The drift tests of the types and events left by
+[ADR 0374](0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md) D7.
 
 ## Context
 

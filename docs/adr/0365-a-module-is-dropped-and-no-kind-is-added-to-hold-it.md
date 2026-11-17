@@ -7,7 +7,9 @@ module references, and its three carry-over rows `term.module`, `deliverable.mod
 references are dropped and wait for no `@code/core` package). Cites
 [ADR 0327](0327-a-collectors-facts-are-read-only-entities-recorded-by-digest.md) D7 (a collected fact is read-only).
 Builds on [ADR 0364](0364-the-software-kinds-are-dropped-and-a-census-gives-every-old-kind-its-fate.md) (the same rule,
-applied to the software kinds). No protocol or SDK change comes with this decision.
+applied to the software kinds). No protocol or SDK change comes with this decision. D1's consequence for
+`spec-modules` carried out by [ADR 0374](0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md) D7;
+for `crate-map` moot: it never read `module`.
 
 ## Context
 
