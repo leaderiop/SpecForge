@@ -9,7 +9,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use specforge_effects::process::request;
-use specforge_effects::{Ceiling, Output, Process, ProcessClass, ProcessRequest};
+use specforge_effects::{Output, Process, ProcessClass, ProcessRequest};
 use specforge_process::{
     Located, Passed, Runner, credential, inherited, locate, passed, proxy, secret, without_userinfo,
 };
@@ -215,6 +215,7 @@ fn a_declared_prefix_passes_every_variable_it_starts() {
     reason = "set_var before any thread of this test reads the environment; the test runs in its own process under nextest"
 )]
 fn the_credential_filter_holds_for_a_guests_program_and_a_hosts_command() {
+    use specforge_effects::Ceiling;
     // SAFETY: no other thread of this test reads the environment.
     unsafe {
         for (name, value) in CREDENTIALS {
