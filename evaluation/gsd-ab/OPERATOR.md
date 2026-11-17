@@ -58,7 +58,8 @@ The corpus is `gsd-ab-v3` ([README.md](README.md) status): a v2 run file does no
 For each `(task, seed, arm)` in the schedule's order:
 
 1. **The copy.** `python3 -I evaluation/gsd-ab/seed.py seed --task <task> --arm <arm> --out <copy> --gsd-security
-   <gsd_security.wasm>` (arm Bv1 adds `--gsd-core <its gsd_core.wasm>`), `<copy>` outside this repository, from a
+   <gsd_security.wasm>` (arm Bv1 adds `--gsd-core <its gsd_core.wasm>`; any other arm refuses it, since its binary
+   embeds `@gsd/core` and loads it by name), `<copy>` outside this repository, from a
    clean checkout of the tag (it refuses uncommitted changes). It is a git repository whose commits hold the seeds;
    its HEAD is the same for every seed number of one (task, arm). Keep the `commit` it prints for the run file's `protocol`.
 2. **The arm's tools, in the copy only.** Arm A: gsd-core 1.19.0's own installer, local to the copy

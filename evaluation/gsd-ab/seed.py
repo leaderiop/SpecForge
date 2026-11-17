@@ -26,7 +26,7 @@ tests compare a seeded one with. Two seedings of one (task, arm) with the same f
 seeds; it refuses a repository without the tag, a fixture path the tag lacks, and `--worktree`. In the manifest,
 `@gsd/core` is the builtin the CLI embeds and is written by name; `--gsd-core <wasm>` writes it as `<name>=<path>`
 instead, which only a binary with no `@gsd/core` row loads: arm Bv1's, built from the tag, so a Bv1 copy without the
-flag is refused. `@gsd/security` is not a builtin and is always loaded from the `--gsd-security` component.
+flag is refused, and so is a copy of any other arm with it. `@gsd/security` is not a builtin and is always loaded from the `--gsd-security` component.
 
 `present` names the seeded defects still in a copy after a run (the run file's `defects_present`): a defect is present
 while any of its edits holds (a text it inserted is still in its file, a text or file it deleted is still gone, a commit
@@ -183,9 +183,9 @@ def dropped(path: str, drops: list[str]) -> bool:
 
 def manifest(tasks: dict, fixture: dict, arm: dict, components: dict) -> dict:
     """The arm's `specforge.json` for the fixture: its extensions, the fixture's thread packs when the arm loads them,
-    the fixture's own extensions, and the arm's settings. `@gsd/core` is the embedded builtin, written by name unless
-    a component is given (a tagged arm's binary predates its row, so it needs one); `@gsd/security` is loaded from its
-    component."""
+    the fixture's own extensions, and the arm's settings. `@gsd/core` is the embedded builtin, written by name, except
+    in a tagged arm, whose binary predates its row and so takes it from a component; a component given to an untagged
+    arm is refused (its binary would report E028). `@gsd/security` is loaded from its component."""
     config = arm["config"]
     names = list(config["extensions"])
     if config["thread"]:
@@ -195,6 +195,9 @@ def manifest(tasks: dict, fixture: dict, arm: dict, components: dict) -> dict:
     for name in names:
         if name.startswith("@gsd/"):
             flag = "--" + name[1:].replace("/", "-")
+            if name == "@gsd/core" and components.get(name) and not arm.get("tag"):
+                raise Refused(f"arm {arm['id']}'s binary embeds {name} and loads it by name: drop {flag} "
+                              f"(only arm Bv1, built from its tag, takes a path)")
             if components.get(name):
                 extensions.append(f"{name}={Path(components[name]).resolve()}")
             elif name == "@gsd/core" and not arm.get("tag"):
@@ -662,7 +665,7 @@ def corpus(tasks: dict, root: Path, scratch: Path) -> tuple[int, list[str]]:
     """Seeds every task of `tasks` in every arm, seeded and unseeded: `present` names exactly the task's seeded defects
     on the seeded copy and none on the unseeded one. A tagged arm is seeded from its tag's trees, and skipped, saying
     so, where the tag does not resolve. Answers the number of copies made and the arms seeded."""
-    components = {name: str(scratch / "component.wasm") for name in ("@gsd/core", "@gsd/security")}
+    security = {"@gsd/security": str(scratch / "component.wasm")}
     arms = []
     for arm in ARMS:
         tag = find(tasks["arms"], arm, "arm").get("tag")
@@ -674,6 +677,8 @@ def corpus(tasks: dict, root: Path, scratch: Path) -> tuple[int, list[str]]:
     for task in tasks["tasks"]:
         for arm in arms:
             tagged = bool(find(tasks["arms"], arm, "arm").get("tag"))
+            # Only a tagged arm's binary predates the @gsd/core builtin and takes it from a component.
+            components = {**security, "@gsd/core": str(scratch / "component.wasm")} if tagged else security
             for unseeded in (False, True):
                 copy = scratch / f"{task['id']}-{arm}-{'unseeded' if unseeded else 'seeded'}"
                 seed(tasks, root, task["id"], arm, copy, components, unseeded=unseeded, worktree=not tagged)
@@ -809,6 +814,7 @@ def self_test() -> None:
         git(root, "init", "-q", "-b", "main")
         git(root, "add", "fx")
         git(root, "commit", "-q", "-m", "the synthetic fixture")
+        # The component only the tagged arm Bv1 takes: B and B0 load the builtin their binary embeds, by name.
         components = {"@gsd/core": str(root / "gsd_core.wasm")}
 
         def files(copy: Path, under: str) -> int:
@@ -818,22 +824,18 @@ def self_test() -> None:
         a, b, b0 = root / "a", root / "b", root / "b0"
         assert seed(SYNTHETIC, root, "t1", "A", a) == 2, "A applies its two edits"
         assert (files(a, "spec/"), files(a, ".planning/"), (a / "specforge.json").exists()) == (0, 1, False)
-        assert seed(SYNTHETIC, root, "t1", "B", b, components) == 3, "B applies its three edits"
+        assert seed(SYNTHETIC, root, "t1", "B", b) == 3, "B applies its three edits"
         assert (files(b, ".planning/"), files(b, "spec/"), files(b, "README.md")) == (0, 1, 0)
+        # @gsd/core is the builtin the CLI embeds, written by name.
         wrote = json.loads((b / "specforge.json").read_text())["extensions"]
-        assert [e.split("=")[0] for e in wrote] == ["@gsd/core", "@code/core"], wrote
-        seed(SYNTHETIC, root, "t1", "B0", b0, components)
-        assert [e.split("=")[0] for e in json.loads((b0 / "specforge.json").read_text())["extensions"]] == [
-            "@gsd/core"]
-        # With no component, @gsd/core is the builtin the CLI embeds, written by name.
-        seed(SYNTHETIC, root, "t1", "B", root / "b-by-name")
-        by_name = json.loads((root / "b-by-name" / "specforge.json").read_text())["extensions"]
-        assert by_name == ["@gsd/core", "@code/core"], by_name
+        assert wrote == ["@gsd/core", "@code/core"], wrote
+        seed(SYNTHETIC, root, "t1", "B0", b0)
+        assert json.loads((b0 / "specforge.json").read_text())["extensions"] == ["@gsd/core"]
 
         refusals = 0
         for task, arm in (("t2", "A"), ("t2", "B"), ("t3", "A")):
             try:
-                seed(SYNTHETIC, root, task, arm, root / f"r-{task}-{arm}", components)
+                seed(SYNTHETIC, root, task, arm, root / f"r-{task}-{arm}")
             except Refused as refused:
                 print(f"refused: {refused}")
                 refusals += 1
@@ -850,6 +852,14 @@ def self_test() -> None:
             assert "--gsd-core" in str(refused), refused
             refusals += 1
         assert refusals == 6, "a Bv1 copy without the component is refused, naming the flag"
+        # The other way round: an untagged arm's binary embeds @gsd/core, so a path to it is refused (E028 otherwise).
+        for arm in ("B", "B0"):
+            try:
+                seed(SYNTHETIC, root, "t1", arm, root / f"core-path-{arm}", components)
+            except Refused as refused:
+                assert "drop --gsd-core" in str(refused) and "only arm Bv1" in str(refused), refused
+                refusals += 1
+        assert refusals == 8, "a B or B0 copy given --gsd-core is refused, naming the flag to drop"
         # A refusal leaves nothing behind: not the copy, not the directory it was built in.
         escapes = {**SYNTHETIC, "tasks": [{"id": "t5", "fixture": "fx", "seeded": ["D8"], "seeds": {"D8": {
             "A": [{"write": {"file": "../escaped.js", "text": "x"}}], "B": []}}}]}
@@ -861,7 +871,7 @@ def self_test() -> None:
                 assert why in str(refused), refused
                 refusals += 1
         assert not (root / "escaped.js").exists(), "an edit never writes outside the copy"
-        refused_names = (".", "no-wasm", "a-complete", "escape")
+        refused_names = (".", "no-wasm", "core-path", "a-complete", "escape")
         left = sorted(path.name for path in root.iterdir() if path.name.startswith(refused_names))
         assert left == [".git"], f"a refused seeding leaves nothing: {left}"
 
@@ -882,10 +892,10 @@ def self_test() -> None:
         except Refused as refused:
             assert "pins" in str(refused), refused
             refusals += 1
-        assert refusals == 10, "a dirty fixture and a fixture off its pinned tree are refused"
+        assert refusals == 12, "a dirty fixture and a fixture off its pinned tree are refused"
 
         again = root / "b-again"
-        seed(SYNTHETIC, root, "t1", "B", again, components)
+        seed(SYNTHETIC, root, "t1", "B", again)
         heads = {git(copy, "rev-parse", "HEAD").strip() for copy in (b, again)}
         assert len(heads) == 1, f"two seedings, one HEAD: {heads}"
         assert git(b, "status", "--porcelain") == "", "a seeded copy starts clean: no seed shows in git status"
@@ -907,9 +917,9 @@ def self_test() -> None:
         stand_in.write_text(f"#!/bin/sh\n[ \"$1\" = check ] && echo '{report}'\nexit 0\n")
         stand_in.chmod(0o755)
         at_baseline = {**SYNTHETIC, "fixtures": [{**SYNTHETIC["fixtures"][0], "baseline": ["W1 a.spec:3"]}]}
-        assert preflight(at_baseline, root, str(stand_in), components) == {"fx": ["W1 a.spec:3"]}
+        assert preflight(at_baseline, root, str(stand_in), {}) == {"fx": ["W1 a.spec:3"]}
         try:
-            preflight(SYNTHETIC, root, str(stand_in), components)
+            preflight(SYNTHETIC, root, str(stand_in), {})
         except Refused as refused:
             assert "fx: + W1 a.spec:3" in str(refused), refused
         else:
@@ -954,7 +964,7 @@ def self_test() -> None:
         git(root, "commit", "-q", "-m", "the fixture moves on")
         v1, now = root / "bv1", root / "b-now"
         assert seed(SYNTHETIC, root, "t1", "Bv1", v1, components) == 3, "Bv1 applies B's three edits"
-        seed(SYNTHETIC, root, "t1", "B", now, components)
+        seed(SYNTHETIC, root, "t1", "B", now)
         assert ((v1 / "src/v.js").read_text(), (now / "src/v.js").read_text()) == ("v1\n", "v2\n")
         assert present(SYNTHETIC, "t1", "Bv1", v1) == ["D1", "D2"], "Bv1's seeds are B's"
         untagged = {**SYNTHETIC, "arms": [*SYNTHETIC["arms"], {**SYNTHETIC["arms"][3], "id": "Bx", "tag": "gsd-ab-v0"}]}
