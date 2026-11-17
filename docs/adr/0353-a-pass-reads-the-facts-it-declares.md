@@ -12,7 +12,9 @@ pass input's entities). Builds on
 input, the syntax cache and its `SyntaxWork`). Protocol 2.0.0, unreleased: the change goes into its 2.0.0 row, no
 bump. Codes W200 and I214. D6 amended by
 [ADR 0359](0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md): `gate_e515` declares no
-facts since a requirement's thread state became its computed `proof`, which E515 reads.
+facts since a requirement's thread state became its computed `proof`, which E515 reads. The warm collect and
+`check` with facts served are over D8's budgets on the runner, and
+[ADR 0375](0375-ci-caches-are-keyed-once-each-job-has-a-time-budget-and-windows-runs-a-named-subset.md) D6 records why.
 
 ## Context
 
