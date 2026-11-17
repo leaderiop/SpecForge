@@ -73,9 +73,10 @@ fn check(root: &Path, scan: &[String]) -> Result<Vec<String>, String> {
         .collect();
 
     let mut findings = Vec::new();
-    let mut reported: BTreeSet<(String, usize)> = BTreeSet::new();
+    // A link read twice (a directory scanned twice) is judged once; two attributes on one line are two links.
+    let mut reported: BTreeSet<(&str, usize, &str, &str)> = BTreeSet::new();
     for link in &read.links {
-        if !reported.insert((link.file.clone(), link.line)) {
+        if !reported.insert((&link.file, link.line, &link.kind, &link.id)) {
             continue;
         }
         let Some(kind) = kinds.get(link.id.as_str()) else {

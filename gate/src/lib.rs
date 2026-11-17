@@ -12,7 +12,7 @@ mod doc_links;
 mod dogfood;
 mod gsd;
 pub mod judge;
-pub mod junit;
+mod junit;
 pub mod layers;
 pub mod objects;
 mod repo;

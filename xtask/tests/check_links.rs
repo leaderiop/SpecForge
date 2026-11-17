@@ -9,8 +9,8 @@ use std::process::Command;
 
 /// The gsd fixture (ADR 0374 D4): an attribute whose kind word is `requirement` names a requirement of the spec, and
 /// carries no `verify` text. One that names no entity is `UNKNOWN`, one that names an entity of another kind (the
-/// project) or uses another kind word is `KIND`, one with a `verify` text is `VERIFY`; the fixture's own tests, two
-/// stacked on one function, pass.
+/// project) or uses another kind word is `KIND`, one with a `verify` text is `VERIFY`; two on one line are each
+/// judged; the fixture's own tests, two stacked on one function, pass.
 #[test]
 fn requirement_links_name_requirements_of_the_spec() {
     let fixture = std::path::Path::new(concat!(
@@ -30,7 +30,9 @@ fn requirement_links_name_requirements_of_the_spec() {
         "#[specforge_test(requirement = \"NOPE-99\")]\nfn a() {}\n\
          #[specforge_test(requirement = \"tracer\")]\nfn b() {}\n\
          #[specforge_test(requirement = \"TRACER-01\", verify = \"x\")]\nfn c() {}\n\
-         #[specforge_test(behavior = \"TRACER-01\")]\nfn d() {}\n",
+         #[specforge_test(behavior = \"TRACER-01\")]\nfn d() {}\n\
+         #[specforge_test(requirement = \"NOPE-97\")] #[specforge_test(requirement = \"NOPE-96\")]\n\
+         fn f() {}\n",
     )
     .unwrap();
     // A helper of this project's tests under `tests/fixtures/` is checked; a crate there is another project's.
@@ -49,6 +51,8 @@ fn requirement_links_name_requirements_of_the_spec() {
          KIND tests/bad.rs:3 requirement tracer is a project, not a requirement\n\
          VERIFY tests/bad.rs:5 TRACER-01: a requirement takes no verify text\n\
          KIND tests/bad.rs:7 behavior TRACER-01: a test names a requirement\n\
+         UNKNOWN tests/bad.rs:9 NOPE-97\n\
+         UNKNOWN tests/bad.rs:9 NOPE-96\n\
          UNKNOWN tests/fixtures/helper.rs:1 NOPE-98\n"
     );
     assert_eq!(out.status.code(), Some(1));
