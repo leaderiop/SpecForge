@@ -1,16 +1,24 @@
 //! The conversion, pure: the old entities through the table into one list of creates, the ledger, and the computed
 //! values to compare once the target is written (ADR 0360 D1-D5). The pre-checks turn what would be an E080 or an
 //! E002 into a listed stop before any write.
+//!
+//! The cross-entity links and the id map come first (ADR 0372 D3, D4): every new id and path is assigned before any
+//! draft, every draft is keyed by its new path, and a reference is written through the map. The plan carries the map,
+//! and the ledger records it as its `ids` section.
 
 use serde_json::{Value, json};
 use specforge_ops::authoring::edit::{Edit, Input};
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::how;
+use super::ids::{self, Ids};
 use super::ledger::{Ledger, Why};
+use super::links::Links;
 use super::read::OldEntity;
 use super::table::{self, Home, Row, VERIFY};
 
+#[path = "plan/roadmap.rs"]
+mod roadmap;
 #[path = "plan/to.rs"]
 mod to;
 
@@ -37,8 +45,8 @@ impl std::fmt::Display for Stop {
     }
 }
 
-/// A computed value to read back once the target is written: the old (kind, id, field) and value, the new entity
-/// and field, and the value the old one means (`None`: no new value equals it, so it is always ledgered).
+/// A computed value to read back once the target is written: the old (kind, id, field) and value, the new entity's
+/// path and field, and the value the old one means (`None`: no new value equals it, so it is always ledgered).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Check {
     pub kind: String,
@@ -56,8 +64,11 @@ pub struct Check {
 pub struct Planned {
     /// One create per converted entity, in the old order, each created entity after the one it comes from.
     pub creates: Vec<Edit>,
+    /// The ledger, its `ids` section the map's.
     pub ledger: Ledger,
     pub checks: Vec<Check>,
+    /// The id map: each converted entity's new id and path.
+    pub ids: Ids,
     /// Old entities that became an entity of their own.
     pub converted: usize,
     /// Entities the converter created that the old project did not hold.
@@ -99,7 +110,8 @@ impl Planned {
 }
 
 /// Every reason the run cannot convert `entities`, all at once: an entity of a kind no row converts, a field with no
-/// row, a value in a refused field, an obligation with no row, two creates with one id.
+/// row, a value in a refused field, an obligation with no row, a milestone two releases list, a release with no
+/// version, two entities given one new id (the links' and the id map's stops).
 pub fn prechecks(entities: &[OldEntity]) -> Result<(), Vec<Stop>> {
     let mut stops = Vec::new();
     let stop = |e: &OldEntity, field: &str, why: String| Stop {
@@ -130,46 +142,14 @@ pub fn prechecks(entities: &[OldEntity]) -> Result<(), Vec<Stop>> {
             stops.push(stop(e, VERIFY, format!("no row for {}.{VERIFY}", e.kind)));
         }
     }
-    let mut by_id: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for e in entities {
-        for (new_id, maker) in new_ids(e) {
-            by_id.entry(new_id).or_default().push(maker);
-        }
-    }
-    for (new_id, makers) in by_id.into_iter().filter(|(_, makers)| makers.len() > 1) {
-        stops.push(Stop {
-            kind: String::new(),
-            id: new_id,
-            field: String::new(),
-            why: format!("two creates with one id, by {}", makers.join(" and ")),
-        });
-    }
+    let (links, linked) = Links::of(entities);
+    stops.extend(linked);
+    stops.extend(ids::assign(entities, &links).1);
     stops.sort();
     if stops.is_empty() { Ok(()) } else { Err(stops) }
 }
 
-/// The ids `e` creates, each with the entity that makes it.
-fn new_ids(e: &OldEntity) -> Vec<(String, String)> {
-    let mut ids = Vec::new();
-    if converts_to(e).is_none() {
-        return ids;
-    }
-    ids.push((e.id.clone(), format!("{} '{}'", e.kind, e.id)));
-    if e.fields.contains_key("solution") {
-        ids.push((
-            solution_id(&e.id),
-            format!("{} '{}' (its solution)", e.kind, e.id),
-        ));
-    }
-    ids
-}
-
-/// The id of the decision a feature's solution becomes.
-fn solution_id(id: &str) -> String {
-    format!("{id}_solution")
-}
-
-/// One entity being written: its create's parts.
+/// One entity being written: its create's parts, its id the name within its scope (its scope field among its fields).
 #[derive(Debug, Clone)]
 struct Draft {
     kind: &'static str,
@@ -214,9 +194,13 @@ impl Draft {
     }
 }
 
-/// The plan as it is being made.
+/// The plan as it is being made: drafts keyed by their new path.
 #[derive(Default)]
 struct Planner {
+    links: Links,
+    ids: Ids,
+    /// Each old id of the run and the old kinds that hold it, so a reference the map does not hold says why.
+    known: BTreeMap<String, Vec<(String, bool)>>,
     drafts: BTreeMap<String, Draft>,
     order: Vec<String>,
     ledger: Ledger,
@@ -224,17 +208,33 @@ struct Planner {
     created: usize,
 }
 
-/// Convert `entities` (each passed [`prechecks`]). No home writes a reference (ADR 0370 D8), so an entity the
-/// selection leaves out changes nothing the selected ones write.
+/// Convert `entities` (each passed [`prechecks`]). The links and the id map come first; a reference is written
+/// through the map, and one to an entity the run does not convert is ledgered `dropped`, never stubbed.
 pub fn plan(entities: &[OldEntity]) -> Planned {
-    let mut planner = Planner::default();
-    for e in entities {
-        match dropped_whole(e) {
+    let links = Links::of(entities).0;
+    let ids = ids::assign(entities, &links).0;
+    let wholes: Vec<Option<&'static str>> =
+        entities.iter().map(|e| dropped_whole(e, &links)).collect();
+    let mut known: BTreeMap<String, Vec<(String, bool)>> = BTreeMap::new();
+    for (e, whole) in entities.iter().zip(&wholes) {
+        known
+            .entry(e.id.clone())
+            .or_default()
+            .push((e.kind.clone(), whole.is_some()));
+    }
+    let mut planner = Planner {
+        links,
+        ids,
+        known,
+        ..Planner::default()
+    };
+    for (e, whole) in entities.iter().zip(&wholes) {
+        match whole {
             Some(reason) => planner.drop_whole(e, reason),
             None => planner.draft(e),
         }
     }
-    for e in entities.iter().filter(|e| dropped_whole(e).is_none()) {
+    for (e, _) in entities.iter().zip(&wholes).filter(|(_, w)| w.is_none()) {
         for row in table::rows_of(&e.kind) {
             let values: Vec<Value> = if row.field == VERIFY {
                 obligations(e)
@@ -252,17 +252,20 @@ pub fn plan(entities: &[OldEntity]) -> Planned {
     planner.finish()
 }
 
-/// Why `e` converts to nothing, if it does (ADR 0370 D8): every row of its kind drops its value, or it is a decision
-/// that no longer holds.
-fn dropped_whole(e: &OldEntity) -> Option<&'static str> {
+/// Why `e` converts to nothing, if it does (ADR 0370 D8, ADR 0372 D4): every row of its kind drops its value, it is
+/// a decision that no longer holds, or it is a milestone no converted release lists.
+fn dropped_whole(e: &OldEntity, links: &Links) -> Option<&'static str> {
+    if e.kind == super::links::MILESTONE && links.release_of(&e.id).is_none() {
+        return Some(table::NO_RELEASE);
+    }
     let status = e.fields.get("status").and_then(Value::as_str);
     table::converts_to_nothing(&e.kind, status)
 }
 
-/// The `@gsd/core` kind of the entity `e` converts to, keeping its id: none for an entity that converts to nothing,
-/// and for a module or a release, whose rows create no entity.
-pub fn converts_to(e: &OldEntity) -> Option<&'static str> {
-    dropped_whole(e).map_or_else(|| table::new_kind(&e.kind), |_| None)
+/// The `@gsd/core` kind of the entity `e` converts to under `links`: none for an entity that converts to nothing,
+/// and for a module, whose rows create no entity.
+pub fn converts_to(e: &OldEntity, links: &Links) -> Option<&'static str> {
+    dropped_whole(e, links).map_or_else(|| table::new_kind(&e.kind), |_| None)
 }
 
 /// `e`'s obligations, each as the ledger writes it.
@@ -289,11 +292,12 @@ impl Planner {
         }
     }
 
-    /// The entity `e` converts to, empty but for its header.
+    /// The entity `e` converts to, empty but for its header, its name and its scope field, keyed by its new path.
     fn draft(&mut self, e: &OldEntity) {
-        let Some(kind) = converts_to(e) else {
+        let Some(new) = self.ids.get(&e.kind, &e.id).cloned() else {
             return;
         };
+        let kind = new.kind;
         let title = match &e.title {
             Some(title) if !title.trim().is_empty() => title.clone(),
             _ => {
@@ -311,37 +315,53 @@ impl Planner {
             }
         };
         let mut fields = BTreeMap::new();
-        if kind == "milestone" {
-            fields.insert("name".to_string(), Input::One(title.clone()));
+        match kind {
+            "milestone" => {
+                fields.insert("name".to_string(), Input::One(title.clone()));
+            }
+            "phase" => {
+                fields.insert("name".to_string(), Input::One(how::phase_name(&title)));
+            }
+            _ => {}
         }
-        self.add(Draft {
-            kind,
-            id: e.id.clone(),
-            title,
-            file: e.file.clone(),
-            fields,
-        });
+        if let Some((field, scope)) = &new.scope {
+            fields.insert((*field).to_string(), Input::One(scope.clone()));
+        }
+        self.ledger.rename(&e.kind, &e.id, new.path());
+        self.add(
+            new.path(),
+            Draft {
+                kind,
+                id: new.name,
+                title,
+                file: e.file.clone(),
+                fields,
+            },
+        );
     }
 
-    fn add(&mut self, draft: Draft) {
-        self.order.push(draft.id.clone());
-        self.drafts.insert(draft.id.clone(), draft);
+    fn add(&mut self, path: String, draft: Draft) {
+        self.order.push(path.clone());
+        self.drafts.insert(path, draft);
     }
 
-    /// `draft`, created from the entity `from`, written right after it.
-    fn add_after(&mut self, from: &str, draft: Draft) {
+    /// `draft`, created from the entity `from`, written right after it; its path is its id.
+    fn add_after(&mut self, from: &OldEntity, draft: Draft) {
+        let from = self.ids.path(&from.kind, &from.id);
         let at = self
             .order
             .iter()
-            .position(|id| id == from)
+            .position(|path| Some(path) == from.as_ref())
             .map_or(self.order.len(), |at| at + 1);
         self.order.insert(at, draft.id.clone());
         self.drafts.insert(draft.id.clone(), draft);
         self.created += 1;
     }
 
+    /// The draft `e` converts to.
     fn own(&mut self, e: &OldEntity) -> Option<&mut Draft> {
-        self.drafts.get_mut(&e.id)
+        let path = self.ids.path(&e.kind, &e.id)?;
+        self.drafts.get_mut(&path)
     }
 
     fn home(&mut self, e: &OldEntity, row: &Row, home: &Home, value: &Value) {
@@ -356,12 +376,15 @@ impl Planner {
                     how::Expect::Value(expected) => Some(expected),
                     how::Expect::Never => None,
                 };
+                let Some(new_id) = self.ids.path(&e.kind, &e.id) else {
+                    return;
+                };
                 self.checks.push(Check {
                     kind: e.kind.clone(),
                     id: e.id.clone(),
                     field: row.field.to_string(),
                     value: value.clone(),
-                    new_id: e.id.clone(),
+                    new_id,
                     new_kind: kind,
                     new_field: field,
                     expected,
@@ -400,16 +423,17 @@ impl Planner {
         );
     }
 
-    /// The required values the old entity lacks, filled and ledgered.
+    /// The required values the old entity lacks, filled and ledgered. A constraint's tier is `v2` when the run writes
+    /// a phase that does not list it (ADR 0372 D7).
     fn fill(&mut self, e: &OldEntity) {
-        let Some(kind) = converts_to(e) else {
+        let Some(kind) = self.ids.get(&e.kind, &e.id).map(|new| new.kind) else {
             return;
         };
         let fills: Vec<(&str, Input)> = match kind {
             "decision" => vec![("origin", Input::One("project".to_string()))],
             "requirement" if e.kind == "constraint" => vec![
                 ("category", Input::One("Constraint".to_string())),
-                ("tier", Input::One("v1".to_string())),
+                ("tier", Input::One(self.unlisted_tier(e, "v1").to_string())),
             ],
             "requirement" => vec![
                 ("category", Input::One("Feature".to_string())),
@@ -418,10 +442,11 @@ impl Planner {
                     Input::One(how::feature_tier(how::FEATURE_DEFAULT).to_string()),
                 ),
             ],
+            "phase" => self.phase_fills(e),
             _ => Vec::new(),
         };
         for (field, value) in fills {
-            let Some(draft) = self.drafts.get_mut(&e.id) else {
+            let Some(draft) = self.own(e) else {
                 return;
             };
             if draft.fields.contains_key(field) {
@@ -444,16 +469,18 @@ impl Planner {
 
     fn finish(self) -> Planned {
         let Planner {
+            ids,
             mut drafts,
             order,
             ledger,
             checks,
             created,
+            ..
         } = self;
         let converted = order.len() - created;
         let creates = order
             .iter()
-            .filter_map(|id| drafts.remove(id))
+            .filter_map(|path| drafts.remove(path))
             .map(|draft| Edit::Create {
                 kind: draft.kind.to_string(),
                 id: draft.id,
@@ -467,6 +494,7 @@ impl Planner {
             creates,
             ledger,
             checks,
+            ids,
             converted,
             created,
         }

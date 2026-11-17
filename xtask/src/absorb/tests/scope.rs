@@ -1,5 +1,5 @@
-//! `--only` converts a selection, never stubbing what it leaves out (ADR 0360 D4); no home writes a reference (ADR
-//! 0370 D8), so what it leaves out changes nothing written.
+//! `--only` converts a selection, never stubbing what it leaves out (ADR 0360 D4): a reference to it is ledgered
+//! `dropped` (ADR 0372 D4).
 
 use serde_json::json;
 use specforge_ops::authoring::edit::Edit;
@@ -69,7 +69,7 @@ fn an_unknown_selected_id_is_refused() {
 }
 
 #[test]
-fn a_selected_module_or_release_id_is_refused() {
+fn a_selected_module_id_is_refused_and_a_release_kept() {
     let all = [
         old("module", "store_module", json!({"family": "core"})),
         old("release", "first", json!({"version": "0.1.0"})),
@@ -78,13 +78,15 @@ fn a_selected_module_or_release_id_is_refused() {
     let why = only(&["a", "first", "store_module"])
         .select(all.to_vec())
         .unwrap_err();
-    assert!(
-        why.contains("'first' is a release, which creates no entity"),
-        "{why}"
+    assert_eq!(
+        why,
+        "--only names 1 id(s) that do not convert:\n  'store_module' is a module, which creates no entity"
     );
-    assert!(
-        why.contains("'store_module' is a module, which creates no entity"),
-        "{why}"
+    let planned = selected(&all, &["a", "first"]);
+    assert_eq!(
+        created(&planned),
+        ["v0.1.0", "a"],
+        "a release is a version milestone"
     );
 }
 

@@ -4,8 +4,12 @@
 //!
 //! `@gsd/core` holds exactly gsd-core's kinds and fields (ADR 0370): a value whose home left it, or whose old entity
 //! converts to nothing (an invariant, a failure mode, a journey, a persona, a term, a channel, a decision that no
-//! longer holds), is `dropped` with its reason. A value with a home in GSD's kinds that absorb does not write yet
-//! waits for the conversion change.
+//! longer holds, a milestone no converted release lists), is `dropped` with its reason. A value with a home in GSD's
+//! kinds that absorb does not write yet waits for the conversion change.
+//!
+//! A release becomes a version milestone and each milestone it lists a phase under it (ADR 0372 D4). No home writes
+//! a reference except the phase's three: its `milestone`, its `requirements` and its `depends_on`, each through the
+//! id map ([`super::ids`]).
 
 use serde::Serialize;
 
@@ -13,7 +17,6 @@ use serde::Serialize;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Pending {
-    Release,
     Package,
     Truth,
     Behavior,
@@ -42,7 +45,7 @@ pub enum Home {
     Dropped(&'static str),
 }
 
-/// How a value is written to its `To` home. No home writes a reference (ADR 0370 D8).
+/// How a value is written to its `To` home. Only the phase's three ways write a reference (ADR 0372 D4).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum How {
     /// As written: a text, a date, a number, a list of texts (appended to what the field holds; a scheme
@@ -50,8 +53,18 @@ pub enum How {
     As,
     /// A text joined after what the field holds, a blank line between.
     Text,
-    /// Ids or words as a list of texts, appended (one word is a one-word list).
-    Words,
+    /// The entity's id, which the id map assigns from the value (a release's version): it writes no field, and its
+    /// field is [`ID`].
+    Id,
+    /// Each listed milestone's phase placed under this entity's milestone: its scope field set to this new id. A
+    /// listed milestone the run writes no phase for is ledgered `dropped`.
+    Parent,
+    /// Each listed old id as the requirement it becomes, through the id map; one that becomes none is ledgered
+    /// `dropped` with why.
+    Requirements,
+    /// Each listed old milestone as the path of its phase, kept only when that phase is an earlier one of the same
+    /// version milestone (GSD resolves a phase's `depends_on` within its milestone); any other is ledgered `dropped`.
+    Earlier,
     /// A decision `<id>_solution` of the project created beside the entity, with the same title and file, the value
     /// as its text.
     Solution,
@@ -82,6 +95,9 @@ pub struct Row {
 /// The field name of an obligation row.
 pub const VERIFY: &str = "verify";
 
+/// The field of a [`How::Id`] home: the entity's id, which no field holds.
+pub const ID: &str = "(id)";
+
 /// The old kinds the table absorbs: governance's four, then product's nine.
 pub const OLD_KINDS: [&str; 13] = [
     "decision",
@@ -102,6 +118,7 @@ pub const OLD_KINDS: [&str; 13] = [
 const DECISION: &str = "decision";
 const REQUIREMENT: &str = "requirement";
 const MILESTONE: &str = "milestone";
+const PHASE: &str = "phase";
 
 /// A feature status as the computed requirement status it means.
 const FEATURE_STATUS: Compare = Compare::Means(&[
@@ -111,11 +128,17 @@ const FEATURE_STATUS: Compare = Compare::Means(&[
     ("accepted", "pending"),
     ("deferred", "pending"),
 ]);
-/// A milestone status as the computed milestone state; blocked has no equal.
-const MILESTONE_STATE: Compare = Compare::Means(&[
+/// A release status as the computed milestone state; recalled has no equal.
+const RELEASE_STATE: Compare = Compare::Means(&[
     ("planned", "planned"),
     ("in_progress", "in_progress"),
-    ("completed", "shipped"),
+    ("released", "shipped"),
+]);
+/// An old milestone status as the computed phase status; blocked has no equal.
+const PHASE_STATUS: Compare = Compare::Means(&[
+    ("planned", "not_started"),
+    ("in_progress", "in_progress"),
+    ("completed", "complete"),
 ]);
 /// A deliverable status as the computed milestone state.
 const DELIVERABLE_STATE: Compare = Compare::Means(&[
@@ -176,6 +199,23 @@ const NO_METRIC: Home = Home::Dropped(
 const NO_QUALITY_CLASS: Home =
     Home::Dropped("the constraint's quality class has no home in @gsd/core (ADR 0370)");
 
+/// Why an old milestone's modules are dropped: a module is dropped and no kind holds it (ADR 0365).
+const NO_MODULE: Home =
+    Home::Dropped("a module is dropped and no @gsd/core kind holds it (ADR 0365)");
+/// Why an old milestone's behaviors are dropped: the software kinds are dropped (ADR 0364 D2).
+const NO_BEHAVIOR: Home = Home::Dropped(
+    "a behavior is dropped with the software kinds (ADR 0364 D2): no phase lists one",
+);
+/// Why a release's completion date is dropped: a milestone's `shipped` day is computed from its completion.
+const SHIPPED_IS_COMPUTED: Home = Home::Dropped(
+    "milestone.shipped is computed from the milestone's completion, which absorb does not write (ADR 0370 D3)",
+);
+
+/// Why an old milestone that no converted release lists converts to nothing (ADR 0372 D4): a phase sits under a
+/// version milestone, and none is made for it.
+pub const NO_RELEASE: &str = "no converted release lists this milestone: it becomes no phase, and no version \
+                              milestone is made for it (ADR 0372 D4)";
+
 /// Why an old decision whose status is `superseded` converts to nothing (ADR 0370 D4 and D8): it no longer holds.
 pub const NO_SUPERSESSION: &str =
     "gsd-core has no supersession (ADR 0370): a decision that no longer holds converts to nothing";
@@ -185,6 +225,18 @@ pub const NO_SUPERSESSION: &str =
 macro_rules! leaves {
     ($field:literal) => {
         Home::Dropped(concat!($field, " leaves @gsd/core (ADR 0370)"))
+    };
+}
+
+/// `keeps!("kind", "field")`: the new kind keeps gsd-core's fields alone (ADR 0370 D3) and none holds the value.
+macro_rules! keeps {
+    ($kind:literal, $field:literal) => {
+        Home::Dropped(concat!(
+            "a ",
+            $kind,
+            " keeps gsd-core's fields alone (ADR 0370 D3): none holds its ",
+            $field
+        ))
     };
 }
 
@@ -312,23 +364,24 @@ pub const TABLE: &[Row] = rows! {
         "milestones" => [REFUSED],
         "reason" => [REFUSED],
     ]
+    // ADR 0372 D4: a milestone a converted release lists becomes a phase under its version milestone.
     "milestone": [
-        "description" => [to(MILESTONE, "goal", As)],
-        "features" => [to(MILESTONE, "target_features", Words)],
-        "exit_criteria" => [leaves!("milestone.exit_criteria")],
-        "start_date" => [leaves!("milestone.starts")],
-        "target_date" => [leaves!("milestone.targets")],
-        "depends_on" => [leaves!("milestone.depends_on")],
-        "owner" => [leaves!("milestone.owner")],
-        "contributors" => [leaves!("milestone.contributors")],
-        "tags" => [leaves!("milestone.tags")],
-        "status" => [computed(MILESTONE, "state", MILESTONE_STATE)],
-        "modules" => [later(Package)],
-        "behaviors" => [later(Behavior)],
-        "blockers" => [REFUSED],
-        "priority" => [REFUSED],
-        "reason" => [REFUSED],
-        "refs" => [REFUSED],
+        "description" => [to(PHASE, "goal", As)],
+        "features" => [to(PHASE, "requirements", Requirements)],
+        "exit_criteria" => [to(PHASE, "success_criteria", As)],
+        "start_date" => [keeps!("phase", "start date")],
+        "target_date" => [keeps!("phase", "target date")],
+        "depends_on" => [to(PHASE, "depends_on", Earlier)],
+        "owner" => [keeps!("phase", "owner")],
+        "contributors" => [keeps!("phase", "contributors")],
+        "tags" => [keeps!("phase", "tags")],
+        "status" => [computed(PHASE, "status", PHASE_STATUS)],
+        "modules" => [NO_MODULE],
+        "behaviors" => [NO_BEHAVIOR],
+        "blockers" => [keeps!("phase", "blockers")],
+        "priority" => [keeps!("phase", "priority")],
+        "reason" => [keeps!("phase", "reason")],
+        "refs" => [keeps!("phase", "references")],
     ]
     // ADR 0370 D8: an old term, persona and channel convert to nothing.
     "term": [
@@ -357,7 +410,7 @@ pub const TABLE: &[Row] = rows! {
         "url" => [NO_CHANNEL],
         "reason" => [NO_CHANNEL],
     ]
-    // No kind holds a module or a release yet: each value waits, and no entity is created.
+    // No kind holds a module yet: each value waits, and no entity is created.
     "module": [
         "family" => [later(Package)],
         "description" => [later(Package)],
@@ -368,32 +421,34 @@ pub const TABLE: &[Row] = rows! {
         "ports" => [later(Package)],
         "ports_defined" => [later(Package)],
     ]
+    // ADR 0372 D4: a release becomes the version milestone its version names.
     "release": [
-        "description" => [later(Release)],
-        "version" => [later(Release)],
-        "status" => [later(Release)],
-        "deliverables" => [later(Release)],
-        "milestones" => [later(Release)],
-        "target_date" => [later(Release)],
-        "release_date" => [later(Release)],
-        "changelog" => [later(Release)],
-        "depends_on" => [later(Release)],
-        "owner" => [later(Release)],
-        "contributors" => [later(Release)],
-        "reason" => [later(Release)],
-        "refs" => [later(Release)],
-        "tags" => [later(Release)],
+        "description" => [to(MILESTONE, "goal", As)],
+        "version" => [to(MILESTONE, ID, Id)],
+        "status" => [computed(MILESTONE, "state", RELEASE_STATE)],
+        "deliverables" => [keeps!("milestone", "deliverables")],
+        "milestones" => [to(PHASE, "milestone", Parent)],
+        "target_date" => [leaves!("milestone.targets")],
+        "release_date" => [SHIPPED_IS_COMPUTED],
+        "changelog" => [to(MILESTONE, "delivered", As)],
+        "depends_on" => [leaves!("milestone.depends_on")],
+        "owner" => [leaves!("milestone.owner")],
+        "contributors" => [leaves!("milestone.contributors")],
+        "reason" => [keeps!("milestone", "reason")],
+        "refs" => [keeps!("milestone", "references")],
+        "tags" => [leaves!("milestone.tags")],
     ]
 };
 
-/// The `@gsd/core` kind an old kind's entity becomes, keeping its id; none for module and release, whose rows create
-/// no entity, and for the kinds whose every value is dropped (ADR 0370 D8): failure_mode, invariant, journey,
-/// persona, term and channel.
+/// The `@gsd/core` kind an old kind's entity becomes: a release a version milestone, an old milestone a phase (ADR
+/// 0372 D4); none for a module, whose rows create no entity, and for the kinds whose every value is dropped (ADR 0370
+/// D8): failure_mode, invariant, journey, persona, term and channel.
 pub fn new_kind(old: &str) -> Option<&'static str> {
     match old {
         "decision" => Some(DECISION),
         "constraint" | "feature" => Some(REQUIREMENT),
-        "milestone" | "deliverable" => Some(MILESTONE),
+        "release" | "deliverable" => Some(MILESTONE),
+        "milestone" => Some(PHASE),
         _ => None,
     }
 }

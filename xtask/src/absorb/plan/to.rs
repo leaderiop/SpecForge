@@ -1,15 +1,17 @@
 //! Where a `To` home writes a value (ADR 0360 D2): each transform the table names, from a value written as it is to
-//! a decision status as its outcome, and the helpers only they use. No transform writes a reference (ADR 0370 D8).
+//! a decision status as its outcome, and the helpers only they use. Only the phase's three ways write a reference,
+//! through the id map ([`super::roadmap`], ADR 0372 D4).
 
 use serde_json::{Value, json};
 use specforge_ops::authoring::edit::Input;
 use std::collections::BTreeMap;
 
 use super::super::how;
+use super::super::ids::solution_id;
 use super::super::ledger::Why;
 use super::super::read::OldEntity;
 use super::super::table::{self, Row};
-use super::{Draft, Planner, solution_id};
+use super::{Draft, Planner};
 
 impl Planner {
     pub(super) fn to(
@@ -30,14 +32,20 @@ impl Planner {
                     }
                 }
             },
-            How::Words => self.list(e, row.field, field, how::items(value)),
+            // The id map assigned the id from this value before any draft.
+            How::Id => {}
+            How::Parent => self.parent(e, row.field, field, value),
+            How::Requirements => self.requirements(e, row.field, field, value),
+            How::Earlier => self.earlier(e, row.field, field, value),
             How::Solution => self.solution(e, field, value),
             How::FeatureTier => {
                 let status = value.as_str().unwrap_or(how::FEATURE_DEFAULT);
                 self.tier(e, field, status);
             }
             How::Text => {
-                if let (Some(text), Some(draft)) = (value.as_str(), self.drafts.get_mut(&e.id)) {
+                if let Some(text) = value.as_str()
+                    && let Some(draft) = self.own(e)
+                {
                     draft.join(field, text.to_string());
                 }
             }
@@ -65,7 +73,7 @@ impl Planner {
 
     /// A feature's solution as a decision of the project's own, beside the feature's requirement.
     fn solution(&mut self, e: &OldEntity, field: &str, value: &Value) {
-        let Some(own) = self.drafts.get(&e.id) else {
+        let Some(own) = self.own(e) else {
             return;
         };
         let id = solution_id(&e.id);
@@ -79,7 +87,7 @@ impl Planner {
                 ("origin".to_string(), Input::One("project".to_string())),
             ]),
         };
-        self.add_after(&e.id, draft);
+        self.add_after(e, draft);
         let why = Why::Created {
             kind: "decision".to_string(),
             id,
@@ -88,10 +96,19 @@ impl Planner {
             .record(&e.kind, &e.id, "solution", value.clone(), why);
     }
 
-    /// A feature's tier from its status; a deprecated feature with no reason is given one.
+    /// A feature's tier from its status; a deprecated feature with no reason is given one. A `v1` tier no written
+    /// phase lists is `v2`, ledgered `filled` (ADR 0372 D7).
     fn tier(&mut self, e: &OldEntity, field: &str, status: &str) {
-        let tier = how::feature_tier(status);
+        let by_status = how::feature_tier(status);
+        let tier = self.unlisted_tier(e, by_status);
         let unexplained = tier == "out_of_scope" && !e.fields.contains_key("reason");
+        if tier != by_status {
+            let why = Why::Filled {
+                field: "requirement.tier".to_string(),
+                value: json!(tier),
+            };
+            self.ledger.record(&e.kind, &e.id, field, Value::Null, why);
+        }
         let Some(draft) = self.own(e) else {
             return;
         };

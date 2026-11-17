@@ -3,7 +3,7 @@ source: xtask/tests/absorb_e2e.rs
 expression: ledger
 ---
 {
-  "format": 1,
+  "format": 2,
   "from": "absorb-fixture",
   "entries": [
     {
@@ -749,6 +749,23 @@ expression: ledger
       "why": {
         "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
       }
+    }
+  ],
+  "ids": [
+    {
+      "kind": "constraint",
+      "old": "write_latency",
+      "new": "write_latency"
+    },
+    {
+      "kind": "decision",
+      "old": "one_parser",
+      "new": "one_parser"
+    },
+    {
+      "kind": "feature",
+      "old": "store_entries",
+      "new": "store_entries"
     }
   ]
 }

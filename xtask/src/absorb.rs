@@ -6,8 +6,9 @@
 //!
 //! The old project is compiled in-process with its own builtins, and must report no error; no recorded item is
 //! required. `@gsd/core` holds exactly gsd-core's kinds and fields (ADR 0370 D8): a value with no home there is
-//! ledgered `dropped`, no home writes a reference, and no kept kind holds a proof, so absorb cites no test (the
-//! summary's `cited_tests` is empty). `--only` converts just the old ids a JSON array names, `--only sample:<name>`
+//! ledgered `dropped`, and no kept kind holds a proof, so absorb cites no test (the summary's `cited_tests` is empty).
+//! A release becomes a version milestone and the milestones it lists phases under it, whose references are written
+//! through the id map the ledger records (ADR 0372 D3, D4). `--only` converts just the old ids a JSON array names, `--only sample:<name>`
 //! the ids a sample's selector computes from the old graph (`--selection` writes them, by old kind).
 //! `--extension` adds an extension to the target. `--to` is absent or a directory with no project; it is scaffolded
 //! with `@specforge/checks`, `@code/core` and the `@gsd/core` component `GSD_CORE_WASM` names, keeping the source's
@@ -26,8 +27,12 @@
 
 #[path = "absorb/how.rs"]
 mod how;
+#[path = "absorb/ids.rs"]
+mod ids;
 #[path = "absorb/ledger.rs"]
 mod ledger;
+#[path = "absorb/links.rs"]
+mod links;
 #[path = "absorb/plan.rs"]
 mod plan;
 #[path = "absorb/project.rs"]

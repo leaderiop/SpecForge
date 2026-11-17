@@ -7,7 +7,7 @@ use specforge_common::{PROJECT_FILE, ProjectConfig, ProjectRoot, Severity};
 use specforge_component::ComponentRuntime;
 use specforge_ops::asking::Asking;
 use specforge_ops::authoring::apply::Origin;
-use specforge_ops::authoring::edit::{self, Edit};
+use specforge_ops::authoring::edit::{self, Edit, Input};
 use specforge_ops::authoring::entity_id;
 use specforge_ops::authoring::init;
 use specforge_ops::view::ProjectView;
@@ -15,7 +15,7 @@ use specforge_ops::{Caller, Containment};
 use specforge_project::CompiledProject;
 
 use super::read::Project;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
@@ -287,7 +287,7 @@ impl Target {
         }
     }
 
-    /// Each create's required field it gives no value: (kind, id, field).
+    /// Each create's required field it gives no value: (kind, path, field), a scoped create named by its path.
     pub fn missing(&self, creates: &[Edit]) -> Vec<(String, String, String)> {
         let view = ProjectView::of(&self.project);
         let mut missing = Vec::new();
@@ -300,7 +300,8 @@ impl Target {
             };
             for field in edit::fields_of(&view, kind) {
                 if field.required && !fields.contains_key(&field.name) {
-                    missing.push((kind.clone(), id.clone(), field.name.clone()));
+                    let path = path_of(&view, kind, id, fields);
+                    missing.push((kind.clone(), path, field.name.clone()));
                 }
             }
         }
@@ -308,17 +309,20 @@ impl Target {
     }
 
     /// Each create whose id the target refuses (E013, E014): an old id that is the keyword of a kind the target
-    /// declares (`blocker`, `phase`, `item`) keeps no id there, so it is named before any write.
+    /// declares (`blocker`, `phase`, `item`) keeps no id there, so it is named, by its path, before any write.
     pub fn refused_ids(&self, creates: &[Edit]) -> Vec<String> {
         let view = ProjectView::of(&self.project);
         creates
             .iter()
             .filter_map(|create| match create {
-                Edit::Create { kind, id, .. } => {
-                    entity_id::validate_id(id, view.registries().kinds())
-                        .err()
-                        .map(|refused| format!("{kind} '{id}': {}", refused.message))
-                }
+                Edit::Create {
+                    kind, id, fields, ..
+                } => entity_id::validate_id(id, view.registries().kinds())
+                    .err()
+                    .map(|refused| {
+                        let path = path_of(&view, kind, id, fields);
+                        format!("{kind} '{path}': {}", refused.message)
+                    }),
                 _ => None,
             })
             .collect()
@@ -356,7 +360,7 @@ impl Target {
         &self.project
     }
 
-    /// The computed value of `path` on the entity `id` (`null`: none).
+    /// The computed value of `path` on the entity whose path is `id` (`null`: none).
     pub fn computed(&self, id: &str, path: &str) -> Value {
         self.project
             .computed()
@@ -392,6 +396,16 @@ impl Target {
     /// Remove what the run scaffolded: the directory when it made it, else the project's files.
     pub fn roll_back(self) {
         self.scaffold.roll_back();
+    }
+}
+
+/// The path of a create of `kind` named `id` writing `fields`, as the target places it (ADR 0284): its scope field's
+/// value, `/`, its id, for a kind the target scopes; its id otherwise.
+fn path_of(view: &ProjectView, kind: &str, id: &str, fields: &BTreeMap<String, Input>) -> String {
+    let scopes = &view.registries().graph_inputs().scopes;
+    match scopes.get(kind).and_then(|field| fields.get(field)) {
+        Some(Input::One(scope)) => format!("{scope}/{id}"),
+        _ => id.to_string(),
     }
 }
 

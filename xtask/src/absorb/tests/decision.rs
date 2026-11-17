@@ -16,27 +16,29 @@ fn a_decision_becomes_one_create_keeping_its_id_title_and_file() {
     let entities = old.entities();
     plan::prechecks(&entities).expect("the fixture converts");
     let planned = plan::plan(&entities);
-    let headers: Vec<(&str, &str, &str, &str)> = planned
+    let headers: Vec<(&str, String, &str, &str)> = planned
         .creates
         .iter()
         .map(|edit| match edit {
             Edit::Create {
-                kind,
-                id,
-                title,
-                file,
-                ..
-            } => (kind.as_str(), id.as_str(), title.as_str(), file.as_str()),
+                kind, title, file, ..
+            } => (
+                kind.as_str(),
+                super::path_of(edit),
+                title.as_str(),
+                file.as_str(),
+            ),
             other => panic!("only creates: {other:?}"),
         })
         .filter(|header| header.1 != "store_entries_solution")
         .collect();
-    let expected: Vec<(&str, &str, &str, &str)> = entities
+    let expected: Vec<(&str, String, &str, &str)> = entities
         .iter()
         .filter_map(|e| {
+            let new = planned.ids.get(&e.kind, &e.id)?;
             Some((
-                plan::converts_to(e)?,
-                e.id.as_str(),
+                new.kind,
+                new.path(),
                 e.title.as_deref().unwrap(),
                 e.file.as_str(),
             ))
@@ -44,7 +46,7 @@ fn a_decision_becomes_one_create_keeping_its_id_title_and_file() {
         .collect();
     assert_eq!(
         headers, expected,
-        "every converted entity, once, in the old order"
+        "every converted entity, once, in the old order, by its new path"
     );
     let decisions: Vec<_> = headers.iter().filter(|h| h.0 == "decision").collect();
     assert_eq!(
@@ -56,7 +58,7 @@ fn a_decision_becomes_one_create_keeping_its_id_title_and_file() {
     assert_eq!(
         (planned.converted, planned.created),
         (expected.len(), 1),
-        "the module and the release create nothing; one feature's solution is created"
+        "the module creates nothing; one feature's solution is created"
     );
 }
 
@@ -222,7 +224,7 @@ fn a_value_in_a_refused_field_stops_the_run_naming_it() {
 }
 
 #[test]
-fn two_creates_with_one_id_stop_the_run_naming_them() {
+fn two_entities_given_one_id_stop_the_run_naming_them() {
     let stops = stops(&[
         old(
             "decision",
@@ -238,7 +240,7 @@ fn two_creates_with_one_id_stop_the_run_naming_them() {
     assert_eq!(stops.len(), 1, "{stops:?}");
     assert_eq!(
         stops[0].to_string(),
-        "'same': two creates with one id, by decision 'same' and decision 'same'"
+        "'same': two entities given one decision id, by decision 'same' and decision 'same'"
     );
 }
 
@@ -279,8 +281,13 @@ fn the_ledger_is_sorted_and_identical_across_runs() {
         ]
     );
     let text = first.ledger.to_json("p");
-    assert!(text.starts_with("{\n  \"format\": 1,\n  \"from\": \"p\",\n  \"entries\": ["));
-    assert!(text.ends_with("}\n"));
+    assert!(text.starts_with("{\n  \"format\": 2,\n  \"from\": \"p\",\n  \"entries\": ["));
+    assert!(
+        text.ends_with(
+            "  \"ids\": [\n    {\n      \"kind\": \"decision\",\n      \"old\": \"alpha\",\n      \"new\": \"alpha\"\n    }\n  ]\n}\n"
+        ),
+        "the id map follows the entries, the converted decision alone: {text}"
+    );
 }
 
 /// The spec root most sources keep.

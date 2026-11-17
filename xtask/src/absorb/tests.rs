@@ -16,6 +16,8 @@ mod keywords;
 mod measure;
 #[path = "tests/product.rs"]
 mod product;
+#[path = "tests/roadmap.rs"]
+mod roadmap;
 #[path = "tests/scope.rs"]
 mod scope;
 
@@ -23,6 +25,7 @@ use serde_json::Value;
 use specforge_ops::authoring::edit::{Edit, Input};
 use std::collections::BTreeMap;
 
+use super::ids;
 use super::ledger::Why;
 use super::plan::{self, Planned, Stop};
 use super::read::{self, OldEntity};
@@ -59,26 +62,50 @@ pub(super) fn stops(entities: &[OldEntity]) -> Vec<Stop> {
     plan::prechecks(entities).expect_err("a stop")
 }
 
-/// The create of `id`: its kind and fields.
-pub(super) fn create<'p>(planned: &'p Planned, id: &str) -> (&'p str, &'p BTreeMap<String, Input>) {
+/// The path of a create: its scope field's value, `/`, its id, for a kind the target scopes ([`ids::SCOPED`]); its id
+/// otherwise.
+pub(super) fn path_of(edit: &Edit) -> String {
+    let Edit::Create {
+        kind, id, fields, ..
+    } = edit
+    else {
+        panic!("only creates: {edit:?}");
+    };
+    let scope = ids::SCOPED
+        .iter()
+        .find(|(scoped, _)| scoped == kind)
+        .and_then(|(_, field)| fields.get(*field));
+    match scope {
+        Some(Input::One(scope)) => format!("{scope}/{id}"),
+        _ => id.clone(),
+    }
+}
+
+/// The paths of the creates, in order.
+pub(super) fn paths(planned: &Planned) -> Vec<String> {
+    planned.creates.iter().map(path_of).collect()
+}
+
+/// The create whose new path is `path`: its kind and fields.
+pub(super) fn create<'p>(
+    planned: &'p Planned,
+    path: &str,
+) -> (&'p str, &'p BTreeMap<String, Input>) {
     planned
         .creates
         .iter()
         .find_map(|edit| match edit {
-            Edit::Create {
-                kind,
-                id: created,
-                fields,
-                ..
-            } if created == id => Some((kind.as_str(), fields)),
+            Edit::Create { kind, fields, .. } if path_of(edit) == path => {
+                Some((kind.as_str(), fields))
+            }
             _ => None,
         })
-        .unwrap_or_else(|| panic!("no create of {id}"))
+        .unwrap_or_else(|| panic!("no create of {path}"))
 }
 
-/// The value the create of `id` writes in `field`.
-pub(super) fn field<'p>(planned: &'p Planned, id: &str, field: &str) -> Option<&'p Input> {
-    create(planned, id).1.get(field)
+/// The value the create whose new path is `path` writes in `field`.
+pub(super) fn field<'p>(planned: &'p Planned, path: &str, field: &str) -> Option<&'p Input> {
+    create(planned, path).1.get(field)
 }
 
 /// The ledger's (field, why) of the old entity `id`.

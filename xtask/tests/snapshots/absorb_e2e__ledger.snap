@@ -3,7 +3,7 @@ source: xtask/tests/absorb_e2e.rs
 expression: ledger
 ---
 {
-  "format": 1,
+  "format": 2,
   "from": "absorb-fixture",
   "entries": [
     {
@@ -118,7 +118,7 @@ expression: ledger
       "why": {
         "filled": {
           "field": "requirement.tier",
-          "value": "v1"
+          "value": "v2"
         }
       }
     },
@@ -169,7 +169,7 @@ expression: ledger
       "why": {
         "filled": {
           "field": "requirement.tier",
-          "value": "v1"
+          "value": "v2"
         }
       }
     },
@@ -220,7 +220,7 @@ expression: ledger
       "why": {
         "filled": {
           "field": "requirement.tier",
-          "value": "v1"
+          "value": "v2"
         }
       }
     },
@@ -304,7 +304,7 @@ expression: ledger
       "why": {
         "filled": {
           "field": "requirement.tier",
-          "value": "v1"
+          "value": "v2"
         }
       }
     },
@@ -376,7 +376,7 @@ expression: ledger
       "why": {
         "filled": {
           "field": "requirement.tier",
-          "value": "v1"
+          "value": "v2"
         }
       }
     },
@@ -879,6 +879,30 @@ expression: ledger
     },
     {
       "kind": "feature",
+      "id": "list_entries",
+      "field": "category",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.category",
+          "value": "Feature"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "list_entries",
+      "field": "status",
+      "value": "in_progress",
+      "why": {
+        "computed": {
+          "field": "requirement.status",
+          "new": "pending"
+        }
+      }
+    },
+    {
+      "kind": "feature",
       "id": "old_export",
       "field": "category",
       "value": null,
@@ -1217,30 +1241,16 @@ expression: ledger
         "Bob Stone"
       ],
       "why": {
-        "dropped": "milestone.contributors leaves @gsd/core (ADR 0370)"
+        "dropped": "a phase keeps gsd-core's fields alone (ADR 0370 D3): none holds its contributors"
       }
     },
     {
       "kind": "milestone",
       "id": "first_cut",
       "field": "depends_on",
-      "value": [
-        "groundwork"
-      ],
+      "value": "groundwork",
       "why": {
-        "dropped": "milestone.depends_on leaves @gsd/core (ADR 0370)"
-      }
-    },
-    {
-      "kind": "milestone",
-      "id": "first_cut",
-      "field": "exit_criteria",
-      "value": [
-        "An entry survives a crash",
-        "Entries list newest first"
-      ],
-      "why": {
-        "dropped": "milestone.exit_criteria leaves @gsd/core (ADR 0370)"
+        "dropped": "it names a milestone the run drops whole: a reference is never stubbed (ADR 0360 D4)"
       }
     },
     {
@@ -1251,7 +1261,7 @@ expression: ledger
         "store_module"
       ],
       "why": {
-        "later": "package"
+        "dropped": "a module is dropped and no @gsd/core kind holds it (ADR 0365)"
       }
     },
     {
@@ -1260,7 +1270,19 @@ expression: ledger
       "field": "owner",
       "value": "Alice Martin",
       "why": {
-        "dropped": "milestone.owner leaves @gsd/core (ADR 0370)"
+        "dropped": "a phase keeps gsd-core's fields alone (ADR 0370 D3): none holds its owner"
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "first_cut",
+      "field": "slug",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "phase.slug",
+          "value": "first-cut"
+        }
       }
     },
     {
@@ -1269,7 +1291,7 @@ expression: ledger
       "field": "start_date",
       "value": "2026-09-01",
       "why": {
-        "dropped": "milestone.starts leaves @gsd/core (ADR 0370)"
+        "dropped": "a phase keeps gsd-core's fields alone (ADR 0370 D3): none holds its start date"
       }
     },
     {
@@ -1279,8 +1301,8 @@ expression: ledger
       "value": "completed",
       "why": {
         "computed": {
-          "field": "milestone.state",
-          "new": "planned"
+          "field": "phase.status",
+          "new": "not_started"
         }
       }
     },
@@ -1292,7 +1314,7 @@ expression: ledger
         "h1"
       ],
       "why": {
-        "dropped": "milestone.tags leaves @gsd/core (ADR 0370)"
+        "dropped": "a phase keeps gsd-core's fields alone (ADR 0370 D3): none holds its tags"
       }
     },
     {
@@ -1301,7 +1323,16 @@ expression: ledger
       "field": "target_date",
       "value": "2026-10-15",
       "why": {
-        "dropped": "milestone.targets leaves @gsd/core (ADR 0370)"
+        "dropped": "a phase keeps gsd-core's fields alone (ADR 0370 D3): none holds its target date"
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "groundwork",
+      "field": "description",
+      "value": "The store's folder layout.",
+      "why": {
+        "dropped": "no converted release lists this milestone: it becomes no phase, and no version milestone is made for it (ADR 0372 D4)"
       }
     },
     {
@@ -1310,9 +1341,48 @@ expression: ledger
       "field": "status",
       "value": "in_progress",
       "why": {
-        "computed": {
-          "field": "milestone.state",
-          "new": "planned"
+        "dropped": "no converted release lists this milestone: it becomes no phase, and no version milestone is made for it (ADR 0372 D4)"
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "groundwork",
+      "field": "title",
+      "value": "Groundwork",
+      "why": {
+        "dropped": "no converted release lists this milestone: it becomes no phase, and no version milestone is made for it (ADR 0372 D4)"
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "second_cut",
+      "field": "slug",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "phase.slug",
+          "value": "second-cut"
+        }
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "third_cut",
+      "field": "depends_on",
+      "value": "first_cut",
+      "why": {
+        "dropped": "it names a phase of another version milestone: GSD resolves a phase's depends_on within its own milestone (ADR 0372 D4)"
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "third_cut",
+      "field": "slug",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "phase.slug",
+          "value": "third-cut"
         }
       }
     },
@@ -1444,36 +1514,7 @@ expression: ledger
         "store_cli"
       ],
       "why": {
-        "later": "release"
-      }
-    },
-    {
-      "kind": "release",
-      "id": "first_release",
-      "field": "description",
-      "value": "The store, usable every day.",
-      "why": {
-        "later": "release"
-      }
-    },
-    {
-      "kind": "release",
-      "id": "first_release",
-      "field": "milestones",
-      "value": [
-        "first_cut"
-      ],
-      "why": {
-        "later": "release"
-      }
-    },
-    {
-      "kind": "release",
-      "id": "first_release",
-      "field": "status",
-      "value": "planned",
-      "why": {
-        "later": "release"
+        "dropped": "a milestone keeps gsd-core's fields alone (ADR 0370 D3): none holds its deliverables"
       }
     },
     {
@@ -1482,16 +1523,7 @@ expression: ledger
       "field": "target_date",
       "value": "2026-12-01",
       "why": {
-        "later": "release"
-      }
-    },
-    {
-      "kind": "release",
-      "id": "first_release",
-      "field": "version",
-      "value": "0.1.0",
-      "why": {
-        "later": "release"
+        "dropped": "milestone.targets leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -1617,6 +1649,103 @@ expression: ledger
       "why": {
         "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
+    }
+  ],
+  "ids": [
+    {
+      "kind": "constraint",
+      "old": "bounded_retries",
+      "new": "bounded_retries"
+    },
+    {
+      "kind": "constraint",
+      "old": "calm_wait",
+      "new": "calm_wait"
+    },
+    {
+      "kind": "constraint",
+      "old": "retry_window",
+      "new": "retry_window"
+    },
+    {
+      "kind": "constraint",
+      "old": "write_latency",
+      "new": "write_latency"
+    },
+    {
+      "kind": "constraint",
+      "old": "write_throughput",
+      "new": "write_throughput"
+    },
+    {
+      "kind": "decision",
+      "old": "lazy_cache",
+      "new": "lazy_cache"
+    },
+    {
+      "kind": "decision",
+      "old": "one_parser",
+      "new": "one_parser"
+    },
+    {
+      "kind": "decision",
+      "old": "second_store",
+      "new": "second_store"
+    },
+    {
+      "kind": "decision",
+      "old": "sync_writes",
+      "new": "sync_writes"
+    },
+    {
+      "kind": "deliverable",
+      "old": "store_cli",
+      "new": "store_cli"
+    },
+    {
+      "kind": "deliverable",
+      "old": "store_web",
+      "new": "store_web"
+    },
+    {
+      "kind": "feature",
+      "old": "list_entries",
+      "new": "list_entries"
+    },
+    {
+      "kind": "feature",
+      "old": "old_export",
+      "new": "old_export"
+    },
+    {
+      "kind": "feature",
+      "old": "store_entries",
+      "new": "store_entries"
+    },
+    {
+      "kind": "milestone",
+      "old": "first_cut",
+      "new": "v0.1.0/01"
+    },
+    {
+      "kind": "milestone",
+      "old": "second_cut",
+      "new": "v0.1.0/02"
+    },
+    {
+      "kind": "milestone",
+      "old": "third_cut",
+      "new": "v0.2.0/01"
+    },
+    {
+      "kind": "release",
+      "old": "first_release",
+      "new": "v0.1.0"
+    },
+    {
+      "kind": "release",
+      "old": "second_release",
+      "new": "v0.2.0"
     }
   ]
 }

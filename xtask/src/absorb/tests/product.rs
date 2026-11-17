@@ -1,6 +1,6 @@
 //! Old product kinds become `@gsd/core` requirements and milestones (ADR 0359), keeping what gsd-core's kinds hold;
-//! an old invariant, journey, persona, term and channel convert to nothing (ADR 0370 D8); a module or a release waits
-//! for a kind, and creates nothing.
+//! an old invariant, journey, persona, term and channel convert to nothing (ADR 0370 D8); a module waits for a kind,
+//! and creates nothing. Releases and milestones are `roadmap.rs`'s.
 
 use serde_json::{Value, json};
 use specforge_ops::authoring::edit::Edit;
@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use super::super::ledger::Why;
 use super::super::plan::Planned;
 use super::super::table::{self, Home, Pending};
-use super::{create, field, ledgered, many, old, one, planned, stops};
+use super::{create, field, ledgered, old, one, planned, stops};
 
 fn why_of(planned: &Planned, id: &str, field: &str) -> Vec<Why> {
     ledgered(planned, id)
@@ -80,8 +80,8 @@ fn a_feature_solution_becomes_a_project_decision_beside_the_requirement() {
     ]);
     assert_eq!(
         clash[0].to_string(),
-        "'store_solution': two creates with one id, by feature 'store' (its solution) and decision \
-         'store_solution'"
+        "'store_solution': two entities given one decision id, by feature 'store' (its solution) and \
+         decision 'store_solution'"
     );
 }
 
@@ -239,61 +239,6 @@ fn a_deliverable_becomes_a_milestone_keeping_its_id_goal_and_state() {
     }
 }
 
-#[test]
-fn a_milestone_keeps_its_goal_target_features_and_state() {
-    let planned = planned(&[
-        old("milestone", "groundwork", json!({"status": "blocked"})),
-        old(
-            "milestone",
-            "first_cut",
-            json!({
-                "status": "completed", "description": "The first cut", "start_date": "2026-10-15",
-                "target_date": "2026-09-01", "owner": "Alice Martin", "contributors": ["Bob Stone"],
-                "depends_on": ["groundwork"], "exit_criteria": ["Survives a crash"], "features": ["store"],
-                "behaviors": ["write"], "tags": ["core"],
-            }),
-        ),
-    ]);
-    assert_eq!(
-        create(&planned, "first_cut").1,
-        &BTreeMap::from([
-            ("name".to_string(), one("The first_cut")),
-            ("goal".to_string(), one("The first cut")),
-            ("target_features".to_string(), many(&["store"])),
-        ]),
-        "a target day before the start day is no stop: neither is written (ADR 0370 D3)"
-    );
-    for name in [
-        "contributors",
-        "depends_on",
-        "exit_criteria",
-        "owner",
-        "start_date",
-        "tags",
-        "target_date",
-    ] {
-        let why = why_of(&planned, "first_cut", name);
-        assert!(
-            matches!(why.as_slice(), [Why::Dropped(reason)] if reason.contains("ADR 0370")),
-            "{name}: {why:?}"
-        );
-    }
-    let expected: Vec<_> = planned
-        .checks
-        .iter()
-        .map(|c| (c.id.as_str(), c.expected.clone()))
-        .collect();
-    assert_eq!(
-        expected,
-        [("groundwork", None), ("first_cut", Some(json!("shipped")))],
-        "blocked has no equal state"
-    );
-    assert_eq!(
-        why_of(&planned, "first_cut", "behaviors"),
-        [Why::Later(Pending::Behavior)]
-    );
-}
-
 /// gsd-core has no invariant, journey, persona, term or channel kind (ADR 0370 D2): each old one creates no entity,
 /// and its title and each of its values, an invariant's obligation too, is one `dropped` entry with its kind's reason,
 /// the reason each of its rows gives.
@@ -420,19 +365,12 @@ fn the_kinds_that_convert_to_nothing_are_those_whose_every_row_drops_with_one_re
 }
 
 #[test]
-fn a_module_or_release_creates_nothing_and_ledgers_each_value() {
-    let planned = planned(&[
-        old(
-            "module",
-            "store_module",
-            json!({"family": "core", "description": "D", "features": ["store"]}),
-        ),
-        old(
-            "release",
-            "first",
-            json!({"version": "0.1.0", "status": "planned", "milestones": ["cut"]}),
-        ),
-    ]);
+fn a_module_creates_nothing_and_ledgers_each_value() {
+    let planned = planned(&[old(
+        "module",
+        "store_module",
+        json!({"family": "core", "description": "D", "features": ["store"]}),
+    )]);
     assert!(planned.creates.is_empty());
     assert_eq!((planned.converted, planned.created), (0, 0));
     let module: Vec<_> = ledgered(&planned, "store_module");
@@ -440,10 +378,5 @@ fn a_module_or_release_creates_nothing_and_ledgers_each_value() {
         module,
         ["description", "family", "features"]
             .map(|f| (f.to_string(), Why::Later(Pending::Package)))
-    );
-    let release: Vec<_> = ledgered(&planned, "first");
-    assert_eq!(
-        release,
-        ["milestones", "status", "version"].map(|f| (f.to_string(), Why::Later(Pending::Release)))
     );
 }

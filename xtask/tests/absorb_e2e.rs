@@ -78,9 +78,10 @@ fn all_thirteen_kinds_convert_with_no_error_and_no_warning() {
     );
     assert_eq!(
         (&run.summary["converted"], &run.summary["created"]),
-        (&json!(15), &json!(1)),
-        "the decisions still in force, constraints, features, milestones and deliverables (ADR 0370 D8: the \
-         superseded decisions and the other kinds convert to nothing), and one feature's solution: {}",
+        (&json!(19), &json!(1)),
+        "the decisions still in force, constraints, features, deliverables, releases and the milestones they list \
+         (ADR 0370 D8, ADR 0372 D4: the superseded decisions, the milestone no release lists and the other kinds \
+         convert to nothing), and one feature's solution: {}",
         run.summary
     );
     assert!(
@@ -109,6 +110,7 @@ fn all_thirteen_kinds_convert_with_no_error_and_no_warning() {
             .all(|f| dropped(&ledger, "old_format", f)),
         "a superseded decision's values are ledgered dropped: gsd-core has no supersession: {ledger}"
     );
+    releases_become_version_milestones_and_their_milestones_phases(&a, &ledger);
 
     let again = absorb(&["--from", OLD, "--to", path(&b)]);
     assert_eq!(again.code, 0, "{}", again.stderr);
@@ -153,6 +155,118 @@ fn a_selection_converts_only_its_entities_and_checks_clean() {
         "a selected journey's values are dropped: {ledger}"
     );
     insta::assert_snapshot!("selection_ledger", ledger);
+}
+
+/// ADR 0372 D3, D4, D7 on the converted fixture: two version milestones, three phases keyed by path with their
+/// references written through the id map, the tiers the rule gives, and each phase's computed status read by its path.
+fn releases_become_version_milestones_and_their_milestones_phases(to: &Path, ledger: &str) {
+    let releases = std::fs::read_to_string(to.join("spec/product/releases.spec")).unwrap();
+    assert!(
+        releases.contains("milestone v0.1.0 \"First Release\"")
+            && releases.contains("milestone v0.2.0 \"Second Release\""),
+        "{releases}"
+    );
+    let phases = std::fs::read_to_string(to.join("spec/product/milestones.spec")).unwrap();
+    assert_eq!(
+        phases.matches("\nphase ").count() + usize::from(phases.starts_with("phase ")),
+        3,
+        "{phases}"
+    );
+    let block = |header: &str| {
+        let at = phases
+            .find(header)
+            .unwrap_or_else(|| panic!("{header}: {phases}"));
+        let end = phases[at..]
+            .find("\n}")
+            .map_or(phases.len(), |end| at + end);
+        phases[at..end].to_string()
+    };
+    let first = block("phase 01 \"First Cut\"");
+    assert!(
+        first.contains("milestone        v0.1.0")
+            && first.contains("requirements     [store_entries]"),
+        "{first}"
+    );
+    let second = block("phase 02 \"Second Cut\"");
+    assert!(
+        second.contains("depends_on       [01]"),
+        "a dependency within one version milestone, as the writer prints v0.1.0/01 there: {second}"
+    );
+    let third = block("phase 01 \"Phase 3: Third Cut\"");
+    assert!(
+        third.contains("milestone        v0.2.0")
+            && third.contains("name             \"Third Cut\"")
+            && !third.contains("depends_on"),
+        "{third}"
+    );
+
+    let ledger: Value = serde_json::from_str(ledger).unwrap();
+    let ids: BTreeMap<&str, &str> = ledger["ids"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| (e["old"].as_str().unwrap(), e["new"].as_str().unwrap()))
+        .collect();
+    for (old, new) in [
+        ("first_release", "v0.1.0"),
+        ("second_release", "v0.2.0"),
+        ("first_cut", "v0.1.0/01"),
+        ("second_cut", "v0.1.0/02"),
+        ("third_cut", "v0.2.0/01"),
+    ] {
+        assert_eq!(ids.get(old), Some(&new), "{old}");
+    }
+    assert!(
+        !ids.contains_key("groundwork"),
+        "a milestone no release lists converts to nothing"
+    );
+    let entries = ledger["entries"].as_array().unwrap();
+    let entry = |id: &str, field: &str| {
+        entries
+            .iter()
+            .filter(|e| e["id"] == id && e["field"] == field)
+            .collect::<Vec<_>>()
+    };
+    assert!(
+        entry("groundwork", "title")[0]["why"]["dropped"]
+            .as_str()
+            .unwrap()
+            .contains("no converted release lists this milestone")
+    );
+    for (id, on) in [("third_cut", "first_cut"), ("first_cut", "groundwork")] {
+        assert!(
+            entry(id, "depends_on")
+                .iter()
+                .any(|e| e["value"] == on && e["why"]["dropped"].is_string()),
+            "{id} on {on}"
+        );
+    }
+    assert_eq!(
+        entry("first_cut", "status")[0]["why"],
+        json!({"computed": {"field": "phase.status", "new": "not_started"}}),
+        "the phase's computed status, read by its path v0.1.0/01: a null would mean it was not found"
+    );
+    let constraints = std::fs::read_to_string(to.join("spec/governance/constraints.spec")).unwrap();
+    let tier_is = |text: &str, tier: &str| {
+        text.lines()
+            .filter(|l| {
+                l.trim_start().starts_with("tier ") && l.trim_end().ends_with(&format!(" {tier}"))
+            })
+            .count()
+    };
+    let tiers = tier_is(&constraints, "v2");
+    assert_eq!(
+        (tiers, constraints.matches("\nrequirement ").count() + 1),
+        (5, 5),
+        "every constraint is v2: no phase lists one: {constraints}"
+    );
+    let features = std::fs::read_to_string(to.join("spec/product/features.spec")).unwrap();
+    let store = &features[features.find("requirement store_entries").unwrap()..];
+    assert_eq!(
+        tier_is(&store[..store.find("\n}").unwrap()], "v1"),
+        1,
+        "{features}"
+    );
 }
 
 /// Whether `ledger` holds a `dropped` entry for `field` of the old entity `id`.

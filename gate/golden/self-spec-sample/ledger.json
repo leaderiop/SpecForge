@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "from": "specforge",
   "entries": [
     {
@@ -6889,6 +6889,143 @@
       "why": {
         "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }
+    }
+  ],
+  "ids": [
+    {
+      "kind": "constraint",
+      "old": "extension_count_limit",
+      "new": "extension_count_limit"
+    },
+    {
+      "kind": "constraint",
+      "old": "extension_system_integrity",
+      "new": "extension_system_integrity"
+    },
+    {
+      "kind": "constraint",
+      "old": "test_coverage_accuracy",
+      "new": "test_coverage_accuracy"
+    },
+    {
+      "kind": "constraint",
+      "old": "traceability_completeness",
+      "new": "traceability_completeness"
+    },
+    {
+      "kind": "constraint",
+      "old": "wasm_binary_size_limit",
+      "new": "wasm_binary_size_limit"
+    },
+    {
+      "kind": "constraint",
+      "old": "wasm_compile_cache_budget",
+      "new": "wasm_compile_cache_budget"
+    },
+    {
+      "kind": "constraint",
+      "old": "wasm_compile_cache_size_limit",
+      "new": "wasm_compile_cache_size_limit"
+    },
+    {
+      "kind": "constraint",
+      "old": "wasm_memory_limit",
+      "new": "wasm_memory_limit"
+    },
+    {
+      "kind": "constraint",
+      "old": "wasm_sandbox_enforcement",
+      "new": "wasm_sandbox_enforcement"
+    },
+    {
+      "kind": "decision",
+      "old": "auth_failure_vs_offline_fallback",
+      "new": "auth_failure_vs_offline_fallback"
+    },
+    {
+      "kind": "decision",
+      "old": "config_driven_kind_registry",
+      "new": "config_driven_kind_registry"
+    },
+    {
+      "kind": "decision",
+      "old": "entity_enhancement_model",
+      "new": "entity_enhancement_model"
+    },
+    {
+      "kind": "decision",
+      "old": "extension_file_parsers",
+      "new": "extension_file_parsers"
+    },
+    {
+      "kind": "decision",
+      "old": "per_call_site_sandbox",
+      "new": "per_call_site_sandbox"
+    },
+    {
+      "kind": "decision",
+      "old": "wasm_compile_cache_strategy",
+      "new": "wasm_compile_cache_strategy"
+    },
+    {
+      "kind": "feature",
+      "old": "contribution_based_extensions",
+      "new": "contribution_based_extensions"
+    },
+    {
+      "kind": "feature",
+      "old": "entity_enhancement",
+      "new": "entity_enhancement"
+    },
+    {
+      "kind": "feature",
+      "old": "entity_kind_conflict_prevention",
+      "new": "entity_kind_conflict_prevention"
+    },
+    {
+      "kind": "feature",
+      "old": "surface_contributions",
+      "new": "surface_contributions"
+    },
+    {
+      "kind": "feature",
+      "old": "test_result_collection",
+      "new": "test_result_collection"
+    },
+    {
+      "kind": "feature",
+      "old": "wasm_extension_authoring",
+      "new": "wasm_extension_authoring"
+    },
+    {
+      "kind": "feature",
+      "old": "wasm_extension_installation",
+      "new": "wasm_extension_installation"
+    },
+    {
+      "kind": "feature",
+      "old": "wasm_extension_maintenance",
+      "new": "wasm_extension_maintenance"
+    },
+    {
+      "kind": "feature",
+      "old": "wasm_extension_runtime",
+      "new": "wasm_extension_runtime"
+    },
+    {
+      "kind": "feature",
+      "old": "wasm_host_function_api",
+      "new": "wasm_host_function_api"
+    },
+    {
+      "kind": "feature",
+      "old": "wasm_lock_management",
+      "new": "wasm_lock_management"
+    },
+    {
+      "kind": "feature",
+      "old": "wasm_performance_optimization",
+      "new": "wasm_performance_optimization"
     }
   ]
 }

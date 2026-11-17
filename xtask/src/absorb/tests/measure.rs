@@ -58,11 +58,11 @@ fn every_old_governance_and_product_field_has_exactly_one_row() {
     assert_eq!(
         counts,
         BTreeMap::from([
-            ("to", 12),
-            ("computed", 2),
-            ("later", 29),
-            ("refused", 12),
-            ("dropped", 86)
+            ("to", 18),
+            ("computed", 3),
+            ("later", 13),
+            ("refused", 8),
+            ("dropped", 99)
         ])
     );
     for row in TABLE {
@@ -78,10 +78,9 @@ fn every_old_governance_and_product_field_has_exactly_one_row() {
     assert_eq!(
         pending,
         BTreeMap::from([
-            (Pending::Release, 14),
-            (Pending::Package, 10),
+            (Pending::Package, 9),
             (Pending::Truth, 3),
-            (Pending::Behavior, 2)
+            (Pending::Behavior, 1)
         ])
     );
 }
@@ -111,9 +110,12 @@ fn written(how: How, old: Option<FieldType>) -> Vec<FieldType> {
     match how {
         How::As => old.into_iter().collect(),
         How::Text | How::Solution => vec![String],
-        How::Words => vec![StringList],
+        How::Parent => vec![Reference],
+        How::Requirements | How::Earlier => vec![ReferenceList],
         How::FeatureTier | How::Outcome => vec![Enum],
         How::Settled => vec![Bool],
+        // The id the map assigns writes no field: the golden check skips its sentinel.
+        How::Id => Vec::new(),
     }
 }
 
@@ -152,6 +154,7 @@ fn every_home_names_a_field_the_gsd_core_golden_declares_of_the_type_it_writes()
             .map(|f| f.field_type);
         for home in row.homes {
             let (kind, field, writer, how) = match *home {
+                Home::To { field, .. } if field == table::ID => continue,
                 Home::To { kind, field, how } => (kind, field, "", Some(how)),
                 Home::Computed { kind, field, .. } => (kind, field, "computed", None),
                 _ => continue,
@@ -172,7 +175,7 @@ fn every_home_names_a_field_the_gsd_core_golden_declares_of_the_type_it_writes()
     }
     assert_eq!(
         (homes, typed),
-        (16, 13),
+        (22, 18),
         "every To and Computed home, and the To homes typed"
     );
     for old in OLD_KINDS {

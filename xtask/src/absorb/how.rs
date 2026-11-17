@@ -91,3 +91,38 @@ pub const FEATURE_DEFAULT: &str = "proposed";
 pub fn input_json(input: &Input) -> Value {
     serde_json::to_value(input).unwrap_or(Value::Null)
 }
+
+/// `text` as a slug: lower case, runs of other characters as one dash. Copied from `gsd/core/src/branch.rs` `slug`,
+/// since no crate outside `gsd/` depends on the gsd crates: a phase's directory is named from it.
+pub fn slug(text: &str) -> String {
+    let mut slug = String::new();
+    for c in text.chars().flat_map(char::to_lowercase) {
+        if c.is_ascii_alphanumeric() {
+            slug.push(c);
+        } else if !slug.ends_with('-') && !slug.is_empty() {
+            slug.push('-');
+        }
+    }
+    slug.trim_end_matches('-').to_string()
+}
+
+/// A phase's name from its old milestone's title: the title less a leading `Phase `, its digits, an optional letter,
+/// `:` and the spaces after it (GSD renders the number from the phase's id), else the title as written.
+pub fn phase_name(title: &str) -> String {
+    numbered(title).unwrap_or(title).to_string()
+}
+
+/// What follows a leading `Phase <digits><letter?>: ` in `title`, when it does and something follows.
+fn numbered(title: &str) -> Option<&str> {
+    let rest = title.strip_prefix("Phase ")?;
+    let after = rest.trim_start_matches(|c: char| c.is_ascii_digit());
+    if after.len() == rest.len() {
+        return None;
+    }
+    let after = after
+        .strip_prefix(|c: char| c.is_ascii_alphabetic())
+        .filter(|tail| tail.starts_with(':'))
+        .unwrap_or(after);
+    let name = after.strip_prefix(':')?.trim_start();
+    (!name.is_empty()).then_some(name)
+}

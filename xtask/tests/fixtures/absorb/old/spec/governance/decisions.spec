@@ -7,7 +7,7 @@ decision one_parser "One Parser" {
   decision     "Read the format with one parser."
   consequences ["One grammar to keep", "A hand parser is refused in review"]
   alternatives ["A hand parser", "A parser combinator"]
-  tags         [parsing, format]
+  tags         ["parsing", "format"]
   reason       "Drift cost more than the parser."
   deciders     ["Alice Martin"]
 }
