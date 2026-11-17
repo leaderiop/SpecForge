@@ -36,6 +36,57 @@ fn a_stage_lock_must_be_a_subset_of_the_extensions() {
     assert_eq!(lock_subset(moved, extension), Err("b 2.1.0".to_string()));
 }
 
+/// `--verify` fails, never skips, on a blob another rustc built, and on a pinned rustc that is not
+/// installed (ADR 0373 D1).
+#[test]
+fn a_blob_another_rustc_built_fails_naming_the_pin() {
+    let pinned = "rustc 1.99.1 (58cf8f9c3 2026-10-13)";
+    assert_eq!(blob_inputs::BLOB_RUSTC, "1.99.1");
+    assert_eq!(rustc_verdict(pinned, pinned), None);
+
+    let old = "rustc 1.98.1 (48a229cea 2026-09-01)";
+    let message = rustc_verdict(old, pinned).expect("another rustc fails");
+    for named in [old, pinned, "BLOB_RUSTC", "rustup toolchain install 1.99.1"] {
+        assert!(message.contains(named), "{named} not in: {message}");
+    }
+
+    let missing = "rustc 1.100.0 (0123456789 2026-12-01)";
+    let message = rustc_verdict(missing, missing).expect("another pin fails");
+    assert!(
+        message.contains("BLOB_RUSTC") && message.contains("rustup toolchain install 1.99.1"),
+        "{message}"
+    );
+    // A version that only shares the pin's prefix is another rustc.
+    assert!(rustc_verdict("rustc 1.99.10 (x)", "rustc 1.99.10 (x)").is_some());
+}
+
+/// The stager's and `revendor`'s cargo and rustc run on the pin: `RUSTUP_TOOLCHAIN` names it and
+/// no `RUSTC` override reaches them (ADR 0373 D1).
+#[test]
+fn the_blob_commands_run_on_the_pinned_rustc() {
+    let mut command = Command::new("cargo");
+    blob_inputs::on_blob_rustc(&mut command);
+    let envs: BTreeMap<String, Option<String>> = command
+        .get_envs()
+        .map(|(key, value)| {
+            (
+                key.to_string_lossy().into_owned(),
+                value.map(|v| v.to_string_lossy().into_owned()),
+            )
+        })
+        .collect();
+    assert_eq!(
+        envs.get("RUSTUP_TOOLCHAIN"),
+        Some(&Some(blob_inputs::BLOB_RUSTC.to_string()))
+    );
+    assert_eq!(envs.get("RUSTC"), Some(&None), "RUSTC is removed");
+    assert_eq!(
+        envs.get("CARGO_BUILD_RUSTC"),
+        Some(&None),
+        "CARGO_BUILD_RUSTC is removed"
+    );
+}
+
 #[test]
 fn a_stage_mirrors_the_repo_layout() {
     let stage = Path::new("/r/target/blob-stage/extensions/product");

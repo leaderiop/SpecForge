@@ -174,6 +174,36 @@ fn a_key_names_the_repo_path_it_hashes() {
     assert_eq!(path_of("crates/x/src/lib.rs"), "crates/x/src/lib.rs");
 }
 
+/// Every committed blob was built on the pinned rustc, so a pin moved without a re-vendor fails here (ADR 0373 D1).
+#[test]
+fn every_record_was_built_with_the_pinned_rustc() {
+    let pinned = format!("rustc {BLOB_RUSTC} ");
+    let listed = blobs(repo_root()).unwrap();
+    assert!(!listed.is_empty());
+    for crate_dir in listed {
+        let record = BlobRecord::read(repo_root(), &crate_dir).unwrap();
+        assert!(
+            record.built_with.starts_with(&pinned),
+            "{crate_dir} was built with {}, not the pinned rustc {BLOB_RUSTC}: re-vendor it on the pin",
+            record.built_with
+        );
+    }
+}
+
+/// The bootstrap job installs the pinned rustc itself, since a rustup that does not install a missing toolchain
+/// implicitly would otherwise stop the job (ADR 0373 D1).
+#[test]
+fn the_bootstrap_job_installs_the_pinned_rustc() {
+    let path = repo_root().join(".github/workflows/bootstrap.yml");
+    let workflow = std::fs::read_to_string(&path).unwrap();
+    let install = format!("rustup toolchain install {BLOB_RUSTC} ");
+    let line = workflow
+        .lines()
+        .find(|line| line.contains(&install))
+        .unwrap_or_else(|| panic!("{} does not run `{install}`", path.display()));
+    assert!(line.contains("wasm32-wasip2"), "{line}");
+}
+
 #[test]
 fn a_change_to_an_examples_extension_feeds_its_blob() {
     assert_eq!(

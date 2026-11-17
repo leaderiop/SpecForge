@@ -413,7 +413,7 @@ pub static CHECKS: &[Check] = &[
         trigger: Trigger::Always,
         compiles: false,
         after: &[],
-        fix: "cargo run -p xtask --bin revendor with this rustc",
+        fix: "install the pinned rustc gate::blob_inputs::BLOB_RUSTC names (docs/agents/revendor.md), then cargo run -p xtask --bin revendor",
         run: steps::builtins_verify,
     },
 ];

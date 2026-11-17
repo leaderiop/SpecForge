@@ -147,22 +147,24 @@ fn run(root: &Path) -> Result<(), String> {
 
 /// `cargo metadata --locked` for `guest`; when the lockfile is stale, once
 /// without `--locked` (a stale guest lockfile follows a workspace dependency
-/// change, never a decision). True when the lockfile changed.
+/// change, never a decision). True when the lockfile changed. It runs on the pinned
+/// rustc, so a refreshed lockfile resolves with the rustc that builds the blob (ADR 0373 D1).
 fn refresh_lockfile(root: &Path, guest: &str) -> Result<bool, String> {
     let manifest = root.join(guest).join("Cargo.toml");
     let lock = root.join(guest).join("Cargo.lock");
     let before = std::fs::read(&lock).ok();
     let metadata = |locked: bool| {
         let mut cmd = Command::new("cargo");
-        cmd.args([
-            "metadata",
-            "--format-version",
-            "1",
-            "--quiet",
-            "--manifest-path",
-        ])
-        .arg(&manifest)
-        .stdout(std::process::Stdio::null());
+        gate::blob_inputs::on_blob_rustc(&mut cmd)
+            .args([
+                "metadata",
+                "--format-version",
+                "1",
+                "--quiet",
+                "--manifest-path",
+            ])
+            .arg(&manifest)
+            .stdout(std::process::Stdio::null());
         if locked {
             cmd.arg("--locked");
         }

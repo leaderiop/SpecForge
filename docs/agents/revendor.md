@@ -17,8 +17,17 @@ cargo run -p xtask --bin revendor
 ```
 
 Run it from the main checkout, or from a worktree outside the repository directory, with `CARGO_TARGET_DIR` unset
-(it refuses otherwise; the blobs build in `target/blob-stage/`). It takes about four minutes and needs
-`rustup target add wasm32-wasip2`.
+(it refuses otherwise; the blobs build in `target/blob-stage/`). It takes about four minutes and needs the pinned
+toolchain with its target, not only the target:
+
+```text
+rustup toolchain install 1.99.1 --profile minimal --target wasm32-wasip2
+```
+
+Every committed blob is built on that one rustc, `BLOB_RUSTC` in `gate/src/blob_inputs.rs` (ADR 0373 D1): the stager
+runs every cargo and rustc of a blob build on it whatever the checkout's own toolchain is, `inputs.json` records it as
+`built_with`, and `build-blobs --verify` fails on a blob another rustc built. A change of the pin re-vendors every blob
+in its commit.
 
 It refreshes the lockfile of every committed blob's crate, rebuilds every committed blob
 (`specforge_component::committed::COMMITTED`: every builtin, the four fixtures and the marketing example's extension) into `<crate>/wasm/` with its

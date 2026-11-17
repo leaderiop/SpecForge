@@ -5,12 +5,33 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use serde::{Deserialize, Serialize};
 
 use crate::change_set::ChangeSet;
 
 pub const FILE: &str = "inputs.json";
+
+/// The rustc every committed blob is built with (ADR 0373 D1). The stager and `revendor` run every cargo and rustc of
+/// a blob build on it ([`on_blob_rustc`]), `built_with` records its version, and `build-blobs --verify` fails on a
+/// blob another rustc built. Changing it re-vendors every blob in the same commit; the bootstrap job installs it.
+pub const BLOB_RUSTC: &str = "1.99.1";
+
+/// The command that installs [`BLOB_RUSTC`] with the blobs' target, for a message that names the fix.
+pub fn blob_rustc_install() -> String {
+    format!("rustup toolchain install {BLOB_RUSTC} --profile minimal --target wasm32-wasip2")
+}
+
+/// Put `command` (a cargo or rustc of a blob build) on [`BLOB_RUSTC`]: `RUSTUP_TOOLCHAIN` names it, which replaces
+/// the toolchain a parent `cargo run` sets for its child, and `RUSTC` and `CARGO_BUILD_RUSTC` are removed, since
+/// either would override the rustc rustup selects (ADR 0373 D1).
+pub fn on_blob_rustc(command: &mut Command) -> &mut Command {
+    command
+        .env("RUSTUP_TOOLCHAIN", BLOB_RUSTC)
+        .env_remove("RUSTC")
+        .env_remove("CARGO_BUILD_RUSTC")
+}
 /// The key for the root manifest's tables a staged crate inherits: `[workspace.package]` (edition, version,
 /// license), `[workspace.dependencies]` (dependency specs) the two `[workspace.lints]` tables (the lint levels
 /// its `[lints] workspace = true` reads) and `[profile.blob]` (how it is optimised). Only these can change how a staged crate builds.
@@ -27,6 +48,7 @@ pub const INHERITED_TABLES: &[&str] = &[
 pub struct BlobRecord {
     pub artifact: String,
     pub artifact_sha256: String,
+    /// The `rustc --version` of [`BLOB_RUSTC`] the blob was built with.
     pub built_with: String,
     /// Recorded input key -> SHA-256 of what the key names.
     pub inputs: BTreeMap<String, String>,

@@ -1,7 +1,7 @@
 {
   "artifact": "specforge_ext_checks.wasm",
-  "artifact_sha256": "bc4a2486f2ee9c182dc96d8ac1157321dda17b1f6f50344dcda06b6f3a3e46ca",
-  "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "artifact_sha256": "227bf735f1955e6f65c6bda5ce232d49136636e2196c15f5974229f1a1d4d46a",
+  "built_with": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9e0489b27be2c7fd7820cd1d3b2e145c1a7793b4d2dca8320df80d1c29c0e984",
     "crates/leaf/checks-kit/Cargo.toml": "0805e48ebe95ef91c23eb4a784a6696c933994bd2d7245e2070b5df9bb530173",
