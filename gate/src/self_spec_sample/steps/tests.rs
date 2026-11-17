@@ -196,12 +196,12 @@ fn the_head_names_what_was_sampled_what_the_target_holds_and_the_work() {
         },
         ..SampleRun::default()
     };
-    let stats = serde_json::json!({"entity_count": 4, "entity_counts": [{"kind": "requirement", "count": 3}, {"kind": "term", "count": 1}]});
+    let stats = serde_json::json!({"entity_count": 4, "entity_counts": [{"kind": "requirement", "count": 3}, {"kind": "decision", "count": 1}]});
     assert_eq!(
         head(&run, &stats),
         [
             "sample wasm-host: 3 old entities (feature 2, term 1)",
-            "target: 4 entities (requirement 3, term 1)",
+            "target: 4 entities (requirement 3, decision 1)",
             "tests: 2 cited, 1 run, 1 cited, not run, 0 units compiled",
             "work: absorb compiles 3, edit plans 1; collects 4; checks 1",
         ]

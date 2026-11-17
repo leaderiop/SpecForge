@@ -32,7 +32,7 @@ fn run(diagnostics: Value) -> SampleRun {
 }
 
 fn info() -> Value {
-    json!({"severity": "Info", "code": "gsd/I536", "file": "spec/a.spec", "line": 3,
+    json!({"severity": "Info", "code": "gsd/I321", "file": "spec/a.spec", "line": 3,
            "message": format!("held in {TARGET}/spec/a.spec")})
 }
 
@@ -102,7 +102,7 @@ fn infos_selection_and_ledger_must_equal_their_goldens() {
     let goldens = blessed();
     assert!(!verdict(&run(json!([info()])), &goldens, false).failed);
     let mut other_info =
-        run(json!([info(), {"severity": "Info", "code": "gsd/I536", "message": "m"}]));
+        run(json!([info(), {"severity": "Info", "code": "gsd/I321", "message": "m"}]));
     assert!(verdict(&other_info, &goldens, false).failed, "an info more");
     other_info = run(json!([info()]));
     other_info.selection = "{}\n".into();
@@ -148,7 +148,7 @@ fn bless_returns_the_three_goldens_only_when_the_check_is_clean_and_the_bound_ho
     assert!(!clean.failed);
     let goldens = clean.bless.unwrap();
     assert!(
-        goldens.infos.contains("\"code\": \"gsd/I536\""),
+        goldens.infos.contains("\"code\": \"gsd/I321\""),
         "{}",
         goldens.infos
     );
