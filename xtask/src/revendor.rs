@@ -57,7 +57,7 @@ fn main() {
         run_vocabulary(root)
     } else {
         let env_target = std::env::var_os("CARGO_TARGET_DIR").is_some();
-        preflight(root, env_target).and_then(|()| run(root))
+        preflight(root, env_target, Command::new("rustc")).and_then(|()| run(root))
     };
     if let Err(message) = done {
         eprintln!("revendor: {message}");
@@ -80,9 +80,12 @@ fn run_vocabulary(root: &Path) -> Result<(), String> {
 }
 
 /// Where a re-vendor cannot work: with `CARGO_TARGET_DIR` set (a staged
-/// build and the guest crates would share it), or in a checkout nested in
-/// another Cargo workspace (cargo then reads the outer one).
-fn preflight(root: &Path, target_dir_set: bool) -> Result<(), String> {
+/// build and the guest crates would share it), in a checkout nested in
+/// another Cargo workspace (cargo then reads the outer one), or where `rustc`
+/// (the rustc program) does not run as the pinned rustc: every cargo the run
+/// spawns is on the pin (ADR 0373 D1), so that is refused here, naming the
+/// install, before the lockfile step's first `cargo metadata`.
+fn preflight(root: &Path, target_dir_set: bool, rustc: Command) -> Result<(), String> {
     if target_dir_set {
         return Err(
             "CARGO_TARGET_DIR is set: unset it (`env -u CARGO_TARGET_DIR cargo run -p xtask --bin revendor`); \
@@ -100,7 +103,9 @@ fn preflight(root: &Path, target_dir_set: bool) -> Result<(), String> {
             ));
         }
     }
-    Ok(())
+    gate::blob_inputs::pinned_rustc(rustc).map(drop).map_err(|problem| {
+        format!("{problem}\nnothing was refreshed or built: revendor checks the pin before any cargo")
+    })
 }
 
 fn run(root: &Path) -> Result<(), String> {
@@ -347,9 +352,22 @@ mod tests {
         );
     }
 
+    /// A rustc the refusals below never reach: they refuse before any rustc runs.
+    fn unreached_rustc() -> Command {
+        Command::new("revendor-test-rustc-never-runs")
+    }
+
+    /// A stand-in for the rustc program that runs `script` (Unix `sh`) in place of `rustc --version`.
+    #[cfg(unix)]
+    fn rustc_running(script: &str) -> Command {
+        let mut sh = Command::new("sh");
+        sh.args(["-c", script]);
+        sh
+    }
+
     #[test]
     fn refuses_when_cargo_target_dir_is_set() {
-        let err = preflight(Path::new("/nowhere/repo"), true).unwrap_err();
+        let err = preflight(Path::new("/nowhere/repo"), true, unreached_rustc()).unwrap_err();
         assert!(err.contains("CARGO_TARGET_DIR"), "{err}");
     }
 
@@ -359,19 +377,54 @@ mod tests {
         let inner = outer.join("worktrees/repo");
         std::fs::create_dir_all(&inner).unwrap();
         std::fs::write(outer.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
-        let err = preflight(&inner, false).unwrap_err();
+        let err = preflight(&inner, false, unreached_rustc()).unwrap_err();
         std::fs::remove_dir_all(&outer).unwrap();
         assert!(err.contains("inside the Cargo workspace"), "{err}");
     }
 
-    #[test]
-    fn accepts_a_standalone_checkout() {
-        let dir = std::env::temp_dir().join(format!("revendor-alone-{}", std::process::id()));
+    /// Runs `preflight` from a standalone directory (/tmp has no enclosing workspace manifest).
+    fn preflight_alone(name: &str, rustc: Command) -> Result<(), String> {
+        let dir = std::env::temp_dir().join(format!("revendor-{name}-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let ok = preflight(&dir, false);
+        let done = preflight(&dir, false, rustc);
         std::fs::remove_dir_all(&dir).unwrap();
-        // /tmp has no enclosing workspace manifest
+        done
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn accepts_a_standalone_checkout_on_the_pinned_rustc() {
+        let pinned = format!("echo 'rustc {} (stand-in)'", gate::blob_inputs::BLOB_RUSTC);
+        let ok = preflight_alone("alone", rustc_running(&pinned));
         assert!(ok.is_ok(), "{ok:?}");
+    }
+
+    /// Every cargo the lockfile step spawns runs on the pin, so a missing pin is caught up front, naming the
+    /// install, rather than as a bare `cargo metadata failed` for the first crate (ADR 0373 D1).
+    #[cfg(unix)]
+    #[test]
+    fn refuses_a_missing_pinned_rustc_naming_the_install() {
+        let missing = "echo 'error: toolchain is not installed' >&2; exit 1";
+        let err = preflight_alone("missing", rustc_running(missing)).unwrap_err();
+        assert!(
+            err.contains(&gate::blob_inputs::blob_rustc_install())
+                && err.contains("not installed")
+                && err.contains("before any cargo"),
+            "{err}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_another_rustc_naming_the_pin() {
+        let other = "echo 'rustc 1.98.1 (stand-in)'";
+        let err = preflight_alone("other", rustc_running(other)).unwrap_err();
+        assert!(
+            err.contains("rustc 1.98.1")
+                && err.contains("not the pinned")
+                && err.contains(&gate::blob_inputs::blob_rustc_install()),
+            "{err}"
+        );
     }
 
     /// The kinds `@gsd/core` declares, as a declaration named `@gsd/core` with nothing else in it.

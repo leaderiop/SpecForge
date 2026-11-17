@@ -491,7 +491,7 @@ fn verify(root: &Path, committed: &CommittedBlob) -> bool {
     let Some(built) = build(root, committed, true) else {
         return false;
     };
-    let verdict = match rustc_version() {
+    let verdict = match blob_inputs::blob_rustc_version(Command::new("rustc")) {
         Ok(pinned) => rustc_verdict(&record.built_with, &pinned),
         Err(e) => Some(e),
     };
@@ -524,7 +524,7 @@ fn install(root: &Path, committed: &CommittedBlob, built: &Path) -> bool {
     let (name, artifact) = (committed.crate_dir, committed.artifact);
     let vendor_dir = root.join(name).join("wasm");
     let result = (|| -> Result<usize, String> {
-        let built_with = pinned_rustc()?;
+        let built_with = blob_inputs::pinned_rustc(Command::new("rustc"))?;
         let bytes = std::fs::read(built).map_err(|e| format!("read {}: {e}", built.display()))?;
         let stage =
             std::fs::canonicalize(root.join(format!("target/blob-stage/{}", committed.crate_dir)))
@@ -700,50 +700,10 @@ fn parse_dep_info(text: &str) -> Vec<PathBuf> {
     paths
 }
 
-/// The `--version` of the rustc a blob build runs on (`BLOB_RUSTC`), or an error naming the install command.
-fn rustc_version() -> Result<String, String> {
-    let output = blob_inputs::on_blob_rustc(&mut Command::new("rustc"))
-        .arg("--version")
-        .output()
-        .map_err(|e| format!("spawn rustc: {e}"))?;
-    let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if !output.status.success() || version.is_empty() {
-        return Err(format!(
-            "the pinned rustc {} does not run ({}); install it: {}",
-            blob_inputs::BLOB_RUSTC,
-            String::from_utf8_lossy(&output.stderr).trim(),
-            blob_inputs::blob_rustc_install()
-        ));
-    }
-    Ok(version)
-}
-
-/// The pinned rustc's `--version`, refused unless it is `BLOB_RUSTC` (no rustup selects it, or
-/// the toolchain is missing): what `--install` records as `built_with`.
-fn pinned_rustc() -> Result<String, String> {
-    let version = rustc_version()?;
-    match pin_problem(&version) {
-        Some(problem) => Err(problem),
-        None => Ok(version),
-    }
-}
-
-/// Why `version` (a `rustc --version`) is not the pinned rustc, if it is not.
-fn pin_problem(version: &str) -> Option<String> {
-    let pin = blob_inputs::BLOB_RUSTC;
-    (!version.starts_with(&format!("rustc {pin} "))).then(|| {
-        format!(
-            "the rustc a blob build runs is {version}, not the pinned {pin} \
-             (gate::blob_inputs::BLOB_RUSTC); install it: {}",
-            blob_inputs::blob_rustc_install()
-        )
-    })
-}
-
 /// `--verify`'s verdict over a record's `built_with` and the pinned rustc's `--version`: `None`
 /// when they are the same rustc, else what fails, naming the pin and the fix. Never a skip.
 fn rustc_verdict(built_with: &str, pinned: &str) -> Option<String> {
-    if let Some(problem) = pin_problem(pinned) {
+    if let Some(problem) = blob_inputs::pin_problem(pinned) {
         return Some(problem);
     }
     (built_with != pinned).then(|| {

@@ -24,6 +24,45 @@ pub fn blob_rustc_install() -> String {
     format!("rustup toolchain install {BLOB_RUSTC} --profile minimal --target wasm32-wasip2")
 }
 
+/// The `--version` of `rustc` (the rustc program, run here on [`BLOB_RUSTC`]), or an error naming the install command
+/// when it does not run. Whether it is the pin is [`pin_problem`]'s question.
+pub fn blob_rustc_version(mut rustc: Command) -> Result<String, String> {
+    let output = on_blob_rustc(&mut rustc)
+        .arg("--version")
+        .output()
+        .map_err(|e| format!("spawn rustc: {e}"))?;
+    let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if !output.status.success() || version.is_empty() {
+        return Err(format!(
+            "the pinned rustc {BLOB_RUSTC} does not run ({}); install it: {}",
+            String::from_utf8_lossy(&output.stderr).trim(),
+            blob_rustc_install()
+        ));
+    }
+    Ok(version)
+}
+
+/// Why `version` (a `rustc --version`) is not the pinned rustc, if it is not.
+pub fn pin_problem(version: &str) -> Option<String> {
+    (!version.starts_with(&format!("rustc {BLOB_RUSTC} "))).then(|| {
+        format!(
+            "the rustc a blob build runs is {version}, not the pinned {BLOB_RUSTC} \
+             (gate::blob_inputs::BLOB_RUSTC); install it: {}",
+            blob_rustc_install()
+        )
+    })
+}
+
+/// The `--version` of `rustc` on [`BLOB_RUSTC`], refused unless it is the pin (no rustup selects it, or the toolchain
+/// is missing), the refusal naming the install command.
+pub fn pinned_rustc(rustc: Command) -> Result<String, String> {
+    let version = blob_rustc_version(rustc)?;
+    match pin_problem(&version) {
+        Some(problem) => Err(problem),
+        None => Ok(version),
+    }
+}
+
 /// Put `command` (a cargo or rustc of a blob build) on [`BLOB_RUSTC`]: `RUSTUP_TOOLCHAIN` names it, which replaces
 /// the toolchain a parent `cargo run` sets for its child, and `RUSTC` and `CARGO_BUILD_RUSTC` are removed, since
 /// either would override the rustc rustup selects (ADR 0373 D1).
