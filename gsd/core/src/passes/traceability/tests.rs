@@ -23,58 +23,6 @@ fn codes_of(found: &[PassDiagnostic]) -> Vec<(&str, Option<&str>)> {
         .collect()
 }
 
-/// Plan `v/1/1-01` (in phase `v/1` when `phased`) claiming REQ-01, and its truth TR1 with the given `requirement`.
-fn truth(phased: bool, requirement: Option<&str>) -> PassInput {
-    let mut edges = vec![
-        edge("v/1/1-01", "REQ-01", "requirements"),
-        edge("v/1/1-01/TR1", "v/1/1-01", "plan"),
-    ];
-    if phased {
-        edges.push(edge("v/1/1-01", "v/1", "phase"));
-    }
-    if let Some(r) = requirement {
-        edges.push(edge("v/1/1-01/TR1", r, "requirement"));
-    }
-    PassInput {
-        entities: vec![
-            entity("v/1", "phase"),
-            entity("v/1/1-01", "plan"),
-            entity("v/1/1-01/TR1", "truth"),
-            entity("REQ-01", "requirement"),
-            entity("REQ-02", "requirement"),
-        ],
-        edges,
-        ..Default::default()
-    }
-}
-
-#[test]
-fn a_truth_without_a_requirement_is_e519() {
-    let found = check(&truth(true, None));
-    assert_eq!(codes_of(&found), [("E519", Some("v/1/1-01/TR1"))]);
-    assert_eq!(
-        found[0].message,
-        "truth 'v/1/1-01/TR1' names no requirement it proves"
-    );
-    assert!(check(&truth(true, Some("REQ-01"))).is_empty());
-}
-
-#[test]
-fn a_truth_proving_another_plans_requirement_is_e519() {
-    let found = check(&truth(true, Some("REQ-02")));
-    assert_eq!(codes_of(&found), [("E519", Some("v/1/1-01/TR1"))]);
-    assert_eq!(
-        found[0].message,
-        "truth 'v/1/1-01/TR1' proves 'REQ-02', which is not a requirement of plan 'v/1/1-01'"
-    );
-}
-
-#[test]
-fn a_quick_plans_truth_is_not_judged_for_e519() {
-    assert!(check(&truth(false, None)).is_empty());
-    assert!(check(&truth(false, Some("REQ-02"))).is_empty());
-}
-
 /// A recorded commit of plan `v/1/1-01` with a subject of `kind`, naming `task` as `linked_by` says.
 fn commit(kind: &str, task: Option<&str>, linked_by: Option<&str>) -> PassInput {
     let mut c = entity("0123456789ab", "commit");
@@ -285,23 +233,6 @@ fn an_item_of_a_plan_with_no_requirement_is_w522() {
 #[test]
 fn an_item_changed_by_a_commit_of_a_plan_with_a_requirement_is_not_w522() {
     assert!(check(&anchored(true)).is_empty());
-}
-
-#[test]
-fn a_truths_requirement_reaches_nothing() {
-    let mut input = anchored(false);
-    input.entities.push(entity("v/1/1-01/TR1", "truth"));
-    input.edges.push(edge("v/1/1-01/TR1", "v/1/1-01", "plan"));
-    input
-        .edges
-        .push(edge("v/1/1-01/TR1", "REQ-01", "requirement"));
-    // The truth claims a requirement its plan does not: E519's, beside this rule's.
-    let found = check(&input);
-    let w522: Vec<_> = codes_of(&found)
-        .into_iter()
-        .filter(|(c, _)| *c == "W522")
-        .collect();
-    assert_eq!(w522, [("W522", Some(COMMIT))]);
 }
 
 #[test]

@@ -10,8 +10,6 @@ use super::harness::{judged, project, taskboard};
 fn the_clean_twin_is_silent_for_the_unjudged_codes() {
     /// The unjudged codes the taskboard twin must never report, under any of the three profiles. `W407` is the one the
     /// twin reports under strict and plus (its tasks carry no commit), so `task_without_commit_is_w407_...` holds it.
-    /// `E519` is not here: the twin's truths name no requirement, as GSD writes none (ADR 0371 D1), so under plus it
-    /// reports each; `truth_without_requirement_is_e519_only_when_truth_requirements_is_on` holds its silence.
     const SILENT_ON_THE_TWIN: [&str; 58] = [
         "E101", "E102", "W103", "W104", "E105", "E106", "E107", "E108", "E201", "W204", "E206",
         "E301", "E302", "E303", "W304", "W305", "W306", "E307", "W308", "W309", "E310", "E312",

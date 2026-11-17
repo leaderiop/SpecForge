@@ -197,9 +197,8 @@ one row per authored field, no row for another field, every upstream line holdin
 
 ## plan.md
 
-Two rows of this section name the capability that reads a link field gsd-core does not write: `truth.requirement`
-(`gsd/E519`) and `truth.proof` (a judged input of `gsd/E501`). Each row goes with its field when the field leaves its
-kind.
+One row of this section names the capability that reads a link field gsd-core does not write: `truth.proof` (a
+judged input of `gsd/E501`). The row goes with its field when the field leaves its kind.
 
 | kind | field | source | the line holds |
 |---|---|---|---|
@@ -248,7 +247,6 @@ kind.
 | checkpoint | resume_signal | gsd-core/references/checkpoints.md:54 | <resume-signal>[How to continue - "approved", "yes", or describe issues]</resume-signal> |
 | truth | plan | agents/gsd-planner.md:327 | must_haves: |
 | truth | text | agents/gsd-planner.md:328 | truths: []                # Observable behaviors |
-| truth | requirement | rule:gsd/E519 |  |
 | truth | proof | rule:gsd/E501 |  |
 | truth | verification | gsd-core/references/honest-verifier.md:66 | `{ statement, verification: backstop }` |
 | artifact | plan | gsd-core/references/planner-guidance.md:227 | artifacts: |

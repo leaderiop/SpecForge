@@ -359,31 +359,6 @@ fn proof_of((input, commits): &(PassInput, Vec<Commit>)) -> Proof {
     requirement_proof(input, commits, "R1")
 }
 
-/// [`traced`] with a committed task and a truth of the plan that names `requirement` and proves it by a test fact of
-/// `status`.
-fn proved(requirement: &str, status: TestStatus) -> (PassInput, Vec<Commit>) {
-    let (mut input, commits) = traced("auto", true, &[]);
-    let truth = "v1.0/01/01-01/TR1";
-    input.entities.push(
-        serde_json::from_value(
-            json!({ "id": truth, "kind": "truth", "fields": { "requirement": requirement } }),
-        )
-        .expect("a truth"),
-    );
-    input.edges.push(PassEdge {
-        source: truth.to_string(),
-        target: requirement.to_string(),
-        label: "requirement".to_string(),
-    });
-    add_test(&mut input, ADDS, "adds", FILE, status, &[]);
-    input.edges.push(PassEdge {
-        source: truth.to_string(),
-        target: ADDS.to_string(),
-        label: "proof".to_string(),
-    });
-    (input, commits)
-}
-
 /// Pushes onto `input` an entity `id` of `kind` whose `requirement` is `requirement` and whose `checks` hold one row
 /// with the `ref` `reference`: a summary's coverage item when `kind` is `deliverable`.
 fn cover(input: &mut PassInput, kind: &str, id: &str, requirement: &str, reference: &str) {
@@ -555,17 +530,6 @@ fn a_failing_linked_test_is_failed() {
         proof_of(&traced("auto", true, &[("R1", TestStatus::Failed)])),
         Proof::Failed
     );
-}
-
-#[test]
-fn a_passing_proof_of_a_truth_that_names_the_requirement_proves_it() {
-    assert_eq!(proof_of(&proved("R1", TestStatus::Passed)), Proof::Proven);
-    assert_eq!(proof_of(&proved("R1", TestStatus::Failed)), Proof::Failed);
-}
-
-#[test]
-fn a_passing_proof_of_a_truth_that_names_another_requirement_proves_nothing() {
-    assert_eq!(proof_of(&proved("R2", TestStatus::Passed)), Proof::NoTest);
 }
 
 #[test]

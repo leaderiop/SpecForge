@@ -386,12 +386,6 @@
       "title": "Integration verdict is stale"
     },
     {
-      "code": "E519",
-      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "A truth of a phase's plan names one of its plan's requirements. It is an error.",
-      "title": "Truth proves no requirement of its plan"
-    },
-    {
       "code": "W520",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
       "explanation": "A complete plan's commits touched every path it planned, and the files it deletes are gone. It is a warning.",

@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 70] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 69] = [
     (
         "E101",
         Evidence::Tests {
@@ -456,13 +456,6 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 70] = [
         Evidence::Tests {
             fires: "an_audit_without_a_verdict_reports_e518",
             silent: "a_passing_verdict_silences_each_judged_code",
-        },
-    ),
-    (
-        "E519",
-        Evidence::Tests {
-            fires: "a_truth_without_a_requirement_is_e519",
-            silent: "truth_without_requirement_is_e519_only_when_truth_requirements_is_on",
         },
     ),
     (

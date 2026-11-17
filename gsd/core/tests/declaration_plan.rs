@@ -262,10 +262,7 @@ fn must_haves_golden() {
     assert_eq!(
         fields,
         [
-            (
-                "truth",
-                vec!["plan", "text", "requirement", "proof", "verification"]
-            ),
+            ("truth", vec!["plan", "text", "proof", "verification"]),
             (
                 "artifact",
                 vec![
@@ -290,7 +287,7 @@ fn must_haves_golden() {
         .map(|(k, f)| (k, f.into_iter().map(String::from).collect()))
     );
     let total: usize = fields.iter().map(|(_, f)| f.len()).sum();
-    assert_eq!(total, 22);
+    assert_eq!(total, 21);
     for (kind, required) in [
         ("truth", vec!["plan", "text"]),
         ("artifact", vec!["plan", "path", "provides"]),
@@ -318,17 +315,6 @@ fn must_haves_golden() {
         }
         assert_eq!(field_of(kind, "plan")["immutable"], true, "{kind}");
     }
-}
-
-/// A truth names the requirement it proves, and the requirement reads its truths back as `truths` (ADR 0331 D1): the
-/// requirement declares no field for them.
-#[test]
-fn a_truth_names_its_requirement_with_an_inverse() {
-    let requirement = field_of("truth", "requirement");
-    assert_eq!(requirement["target_kind"], "requirement");
-    assert_eq!(requirement["inverse_of"], "truths");
-    assert_ne!(requirement["required"], true);
-    assert!(!fields_of("requirement").contains(&"truths".to_string()));
 }
 
 /// A truth's `proof` lists `@code/core`'s `test` facts (ADR 0331 D2): `@gsd/core` does not declare the kind.
@@ -416,7 +402,7 @@ fn the_plan_kinds_declare_every_field_of_plan_md() {
         "user_setup",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 87 - 1 + 2, "the kinds' fields");
+    assert_eq!(total, 86 - 1 + 2, "the kinds' fields");
 }
 
 /// The host refuses a computed field that two compute passes claim, and one that none does (W021): every `C` field of

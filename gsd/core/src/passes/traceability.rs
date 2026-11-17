@@ -1,15 +1,15 @@
-//! The requirement thread's gap rules. Three are off in gsd-compat and switched by their `specforge.*` setting
-//! (ADR 0351): `gsd/E519`, a truth of a phase's plan proves one of its plan's requirements; `gsd/W520`, a complete
-//! plan's commits touched every path it planned and the files it deletes are gone; `gsd/E521`, a task commit names its
-//! task by its `Gsd-Task:` trailer. `gsd/W522` is on under every profile (ADR 0352 D7, amended by ADR 0371 D6): a code
-//! item a recorded commit changed is anchored by a plan that reaches a requirement through its `requirements`.
+//! The requirement thread's gap rules. Two are off in gsd-compat and switched by their `specforge.*` setting
+//! (ADR 0351): `gsd/W520`, a complete plan's commits touched every path it planned and the files it deletes are gone;
+//! `gsd/E521`, a task commit names its task by its `Gsd-Task:` trailer. `gsd/W522` is on under every profile (ADR 0352
+//! D7, amended by ADR 0371 D6): a code item a recorded commit changed is anchored by a plan that reaches a requirement
+//! through its `requirements`.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_extension_sdk::prelude::*;
 
 use super::commits::{CommitType, commits};
-use super::plans::{children, link, links, of_kind, phase_of, strings, text};
+use super::plans::{children, links, of_kind, phase_of, strings, text};
 use crate::collectors::LinkedBy;
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -24,52 +24,10 @@ pub fn declare(c: &mut ContributionsBuilder) {
 }
 
 fn check(input: &PassInput) -> Vec<PassDiagnostic> {
-    let mut found = truth_requirements(input);
-    found.extend(plan_paths(input));
+    let mut found = plan_paths(input);
     found.extend(task_trailers(input));
     found.extend(anchored_items(input));
     found
-}
-
-/// E519, on the truth: a truth whose plan is in a phase (not a quick plan) names a requirement, and one its plan
-/// claims in `requirements`.
-fn truth_requirements(input: &PassInput) -> Vec<PassDiagnostic> {
-    of_kind(input, "truth")
-        .filter_map(|truth| {
-            let plan = input
-                .entities
-                .iter()
-                .find(|e| Some(e.id.as_str()) == link(input, truth, "plan"))?;
-            link(input, plan, "phase")?;
-            let (message, suggestion) = match link(input, truth, "requirement") {
-                None => (
-                    format!("truth '{}' names no requirement it proves", truth.id),
-                    "set its requirement to the one of its plan's requirements it proves".to_string(),
-                ),
-                Some(requirement) => {
-                    let claimed: BTreeSet<&str> =
-                        links(input, plan, "requirements").into_iter().collect();
-                    if claimed.contains(requirement) {
-                        return None;
-                    }
-                    (
-                        format!(
-                            "truth '{}' proves '{requirement}', which is not a requirement of plan '{}'",
-                            truth.id, plan.id
-                        ),
-                        format!(
-                            "name one of the plan's requirements, or add '{requirement}' to the plan's requirements"
-                        ),
-                    )
-                }
-            };
-            Some(
-                PassDiagnostic::new("E519", PassSeverity::Error, message)
-                    .with_suggestion(suggestion)
-                    .with_entity(&truth.id),
-            )
-        })
-        .collect()
 }
 
 /// A path as a plan writes it, compared as the commits' are: trimmed, a leading `./` dropped.

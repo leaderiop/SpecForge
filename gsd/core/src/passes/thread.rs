@@ -8,8 +8,8 @@
 //!
 //! A requirement is read one of two ways (ADR 0371 D5). When a plan lists it, its thread runs plan → task → commit →
 //! test: the tasks of the plans that list it, the commits that name those tasks, and the tests linked to a committed
-//! task, to the requirement, named in the `proof` of a truth that names it, or named by a check of a summary's
-//! coverage item (a `deliverable`) whose `requirement` is it. When no plan lists it, it has no task to look for and
+//! task or to the requirement, or named by a check of a summary's coverage item (a `deliverable`) whose `requirement`
+//! is it. When no plan lists it, it has no task to look for and
 //! reads its tests alone: those that name it and those its coverage items' checks name. [`requirement_proof`] is the
 //! one reading: the derive pass writes it as the requirement's `proof`, and `gsd/E515` reads that value through
 //! [`requirement_proven`].
@@ -48,10 +48,10 @@ const FILE: &str = "file";
 /// entities, not their kinds' declarations (protocol 1.15), so the pass cannot read it from the registry; it names the
 /// peer's declared field once, here.
 const STATUS: &str = "status";
-/// A truth's fields the thread reads (`kinds/must_haves.rs`): the requirement it proves and the tests it cites.
-const TRUTH: &str = "truth";
-const REQUIREMENT: &str = "requirement";
+/// The tests a truth cites (`kinds/must_haves.rs`).
 const PROOF: &str = "proof";
+/// The field of a coverage item naming the requirement it covers.
+const REQUIREMENT: &str = "requirement";
 /// The label of the edge from a test fact to each entity its `names` holds (`@code/core`).
 const NAMES: &str = "names";
 /// A summary's coverage item (`kinds/execute.rs`): the one kind whose `requirement` brings checks to a requirement's
@@ -141,23 +141,6 @@ impl<'a> Thread<'a> {
     /// `(fact id, status)` of each test fact `id`'s `proof` names (a truth's, ADR 0331 D2).
     pub fn proof(&self, id: &str) -> Vec<(&'a str, TestStatus)> {
         self.facts_at_ends(|e| e.source == id && e.label == PROOF, |e| &e.target)
-    }
-
-    /// `(fact id, status)` of each test fact the `proof` of a truth whose `requirement` is `requirement` names: what
-    /// proves a requirement besides the facts linked to it and its tasks (ADR 0331 D1, D5).
-    pub fn requirement_proofs(&self, requirement: &str) -> Vec<(&'a str, TestStatus)> {
-        self.input
-            .edges
-            .iter()
-            .filter(|e| e.label == REQUIREMENT && e.target == requirement)
-            .filter(|e| {
-                self.input
-                    .entities
-                    .iter()
-                    .any(|t| t.kind == TRUTH && t.id == e.source)
-            })
-            .flat_map(|e| self.proof(&e.source))
-            .collect()
     }
 
     /// The status of each test fact a check of a coverage item names, for every `deliverable` whose `requirement` is
@@ -326,8 +309,8 @@ fn plan_lists(input: &PassInput, requirement: &str) -> bool {
 /// when one passed and none failed, `Failed` when one failed, else `NoTest`. A requirement a plan lists reads its
 /// thread: its tasks (none: `NoTask`), those a recorded commit names (none: `NoCommit`), then, with test facts
 /// collected (else `NotRun`), the evidence of each committed task: the facts linked to it, those linked to the
-/// requirement, the proofs of the truths that name the requirement, and those its coverage items' checks name. One
-/// committed task whose evidence passed makes it `Proven`; else a failed one `Failed`; else `NoTest`.
+/// requirement, and those its coverage items' checks name. One committed task whose evidence passed makes it `Proven`;
+/// else a failed one `Failed`; else `NoTest`.
 pub fn requirement_proof(input: &PassInput, commits: &[Commit], requirement: &str) -> Proof {
     if !plan_lists(input, requirement) {
         let thread = Thread::of(input);
@@ -361,7 +344,6 @@ pub fn requirement_proof(input: &PassInput, commits: &[Commit], requirement: &st
     let shared: Vec<TestStatus> = thread
         .linked(requirement)
         .into_iter()
-        .chain(thread.requirement_proofs(requirement))
         .map(|(_, status)| status)
         .chain(thread.coverage(requirement))
         .collect();

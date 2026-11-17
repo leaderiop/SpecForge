@@ -597,14 +597,6 @@ pub static CODES: &[Code] = &[
         Severity::Error,
     ),
     code(
-        "E519",
-        "Truth proves no requirement of its plan",
-        "A truth of a phase's plan names one of its plan's requirements",
-        "verify",
-        Severity::Error,
-        Severity::Error,
-    ),
-    code(
         "W520",
         "Complete plan's paths not touched or not deleted",
         "A complete plan's commits touched every path it planned, and the files it deletes are gone",

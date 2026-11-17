@@ -17,7 +17,7 @@ disagrees. Every row but Capabilities is computed from tables of code; Capabilit
 | CLI modules | 288 | 170 | 21 | 97 | 0 | `core/tests/parity_roster/modules.rs` |
 | Config keys | 212 | 161 | 35 | 16 | 0 | `core/spec/settings.md` |
 | Gate-cutover verdicts | 171 | 93 | 51 | 14 | 13 | `core/tests/parity_rules/cutover.rs` |
-| Codes | 70 | 70 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
+| Codes | 69 | 69 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
 
 Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, verification) are the kinds of
 `core/spec/*.md`; they have no inventory family, so no count. They are exercised by every row above.

@@ -457,15 +457,6 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
-        "label": "TruthRequirement",
-        "source_kind": "truth",
-        "target_kind": "requirement"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
         "label": "TruthProof",
         "source_kind": "truth",
         "target_kind": "test"
@@ -5475,16 +5466,6 @@
             "name": "text",
             "required": true,
             "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the requirement it proves; the requirement reads its truths back as `truths`",
-            "edge": "TruthRequirement",
-            "field_type": "reference",
-            "inverse_of": "truths",
-            "name": "requirement",
-            "required": false,
-            "target_kind": "requirement"
           },
           {
             "default_value": null,
