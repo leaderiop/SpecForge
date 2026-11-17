@@ -201,7 +201,7 @@
       {
         "id": "plan",
         "prompt": "specforge.gsd.plan_phase",
-        "title": "Plan the phase, in MVP mode (plan_phase --mvp)"
+        "title": "Plan the phase, in MVP mode (the prompt plan_phase)"
       }
     ],
     "subject": "v1.0/02"

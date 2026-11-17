@@ -211,7 +211,7 @@
       {
         "id": "converge",
         "prompt": "specforge.gsd.plan_review_convergence",
-        "title": "Replan until the cross-AI review concerns are resolved (--converge)"
+        "title": "Replan until the cross-AI review concerns are resolved (when converging)"
       },
       {
         "id": "execute",

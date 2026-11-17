@@ -10,7 +10,8 @@
 //! it pastes may be a lock entry, a `specforge.json` entry or a declaration. The template of a `remedy::command`
 //! call is the one literal allowed to hold a `{}`.
 //!
-//! A command's declared description is read from the committed `describe_surfaces.json` of each builtin (ADR 0135 D5).
+//! A command's declared description is read from the committed `describe_surfaces.json` of each builtin (ADR 0135 D5);
+//! an `argument_hint`, a command's own usage line, is its syntax and is not read (ADR 0373 D6).
 //!
 //! Not seen: strings built at run time from pieces (`format!("--{}", name)`), text coming from extensions, and the
 //! surfaces themselves (the CLI's own errors may name its flags).
@@ -369,17 +370,28 @@ fn the_remedy_writers_templates_are_not_literals() {
     assert!(bare_flags("specforge login --registry {} --token <TOKEN>").is_empty());
 }
 
-/// Every string value of every `describe_surfaces.json` snapshot of a builtin or a fixture, as `snapshot-dir: text`,
-/// in directory-name then document order.
-fn declared_strings() -> Vec<(String, String)> {
-    fn walk(dir: &str, value: &serde_json::Value, out: &mut Vec<(String, String)>) {
+/// Every string value of one declaration, in document order, but the value of an `argument_hint` key: a command's
+/// usage line is its own syntax, where a flag is fine (ADR 0373 D6).
+fn declared_strings_of(value: &serde_json::Value) -> Vec<String> {
+    fn walk(value: &serde_json::Value, out: &mut Vec<String>) {
         match value {
-            serde_json::Value::String(text) => out.push((dir.to_string(), text.clone())),
-            serde_json::Value::Array(items) => items.iter().for_each(|item| walk(dir, item, out)),
-            serde_json::Value::Object(map) => map.values().for_each(|item| walk(dir, item, out)),
+            serde_json::Value::String(text) => out.push(text.clone()),
+            serde_json::Value::Array(items) => items.iter().for_each(|item| walk(item, out)),
+            serde_json::Value::Object(map) => map
+                .iter()
+                .filter(|(key, _)| key.as_str() != "argument_hint")
+                .for_each(|(_, item)| walk(item, out)),
             _ => {}
         }
     }
+    let mut out = Vec::new();
+    walk(value, &mut out);
+    out
+}
+
+/// Every string value of every `describe_surfaces.json` snapshot of a builtin or a fixture, as `snapshot-dir: text`,
+/// in directory-name then document order.
+fn declared_strings() -> Vec<(String, String)> {
     let root = specforge_repo_root::repo_root().join("crates/runtime/component/tests/declarations");
     let mut dirs: Vec<_> = std::fs::read_dir(&root)
         .unwrap_or_else(|error| panic!("{}: {error}", root.display()))
@@ -395,13 +407,30 @@ fn declared_strings() -> Vec<(String, String)> {
         let text = std::fs::read_to_string(&file).unwrap();
         let value: serde_json::Value = serde_json::from_str(&text)
             .unwrap_or_else(|error| panic!("{}: {error}", file.display()));
-        walk(
-            &dir.file_name().unwrap().to_string_lossy(),
-            &value,
-            &mut out,
+        let name = dir.file_name().unwrap().to_string_lossy().into_owned();
+        out.extend(
+            declared_strings_of(&value)
+                .into_iter()
+                .map(|text| (name.clone(), text)),
         );
     }
     out
+}
+
+/// A slash command's argument hint is the command's own usage line, its syntax and no remedy (ADR 0373 D6, amending
+/// ADR 0135 D5): the walk does not read it, and reads the same flag in a description.
+#[test]
+fn an_argument_hint_is_syntax_and_is_not_read() {
+    let declaration = serde_json::json!({
+        "items": [{
+            "slash_commands": [{"argument_hint": "<phase> [--auto]", "description": "plan it"}],
+            "commands": [{"description": "with --auto, faster"}],
+        }],
+    });
+    let mut strings = declared_strings_of(&declaration);
+    strings.sort();
+    assert_eq!(strings, ["plan it", "with --auto, faster"]);
+    assert_eq!(bare_flags("with --auto, faster"), ["--auto"]);
 }
 
 #[test]

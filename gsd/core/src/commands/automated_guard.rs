@@ -306,7 +306,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
         )
         .arg("command", |a| {
             a.required().description(
-                "the <automated> command, as the plan wrote it; with --task, the task whose commands are read",
+                "the <automated> command, as the plan wrote it; when a task is named, the task whose commands are read",
             );
         })
         .arg("task", |a| {
