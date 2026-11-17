@@ -19,6 +19,14 @@ SpecForge is a domain-free engine. Its grammar knows five structural keywords an
 because an extension the project loads declares it, with its fields, edges, rules and commands. The builtin
 extensions (`@specforge/software`, `product`, `governance`, `formal`, `testing`, ...) are a starter set, not the base.
 
+## This repository
+
+SpecForge's own `spec/` runs on `@gsd/core` and `@code/core` (ADR 0374), so its requirements, decisions, milestones and
+phases are `@gsd/core` kinds, written with `specforge new` like any kind. The per-kind skills below teach the old
+`@specforge/*` builtins' kinds (`behavior`, `feature`, `invariant`, `module`, and the rest), which this repository's
+spec does not load and which the example projects and `integrations/rust/spec` still do. A test of this repository
+names the requirement it proves, `#[specforge_test(requirement = "<id>")]`, one attribute per requirement.
+
 ## Step 1: find out what this project can say
 
 Never assume a kind exists. Before writing anything:
@@ -55,6 +63,9 @@ specforge link archive_task invariants task_id_uniqueness    # unlink removes; u
 specforge link archive_task --verify unit:"archiving an unknown task fails"
 specforge delete archive_task --unlink-references
 ```
+
+The `behavior` examples above are for a project that loads `@specforge/software`; in this repository, run the same
+commands with a `@gsd/core` kind such as `requirement`.
 
 A write is checked against the file as you last read it. `specforge set/unset/link/unlink/delete/new` take `--revision <sha256:..|absent>` (MCP: a `revision` on each edit; `specforge.inspect` returns an entity's `file` and `revision`), and when the file has changed since, the write is refused `stale_revision` and nothing is written: read the entity again, then retry. A kind or field declared `writer: human` is refused `human_only` to an agent: tell the person instead of working around it.
 

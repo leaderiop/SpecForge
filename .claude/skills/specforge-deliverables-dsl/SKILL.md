@@ -9,6 +9,9 @@ description: "Write deliverable blocks in .spec files (the deliverable kind is d
 > loads it: run `specforge extensions` first, and if it is not listed, do not write `deliverable` blocks (add it with
 > `specforge add @specforge/product`, or write the kinds the project's own extensions declare).
 > `specforge infer-guide deliverable` prints the fields.
+>
+> This repository's own spec does not load it (ADR 0374): write `deliverable` blocks in a project that does, such as
+> the example projects or `integrations/rust/spec`, and see `specforge-authoring`'s "This repository".
 
 Deliverables are what ships. They bridge journeys (what users do) and modules (how the work is organised).
 

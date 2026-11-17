@@ -9,6 +9,9 @@ description: "Write constraint blocks in .spec files (the constraint kind is dec
 > loads it: run `specforge extensions` first, and if it is not listed, do not write `constraint` blocks (add it with
 > `specforge add @specforge/governance`, or write the kinds the project's own extensions declare). `verify` needs
 > `@specforge/testing`. `specforge infer-guide constraint` prints the fields.
+>
+> This repository's own spec does not load it (ADR 0374): write `constraint` blocks in a project that does, such as
+> the example projects or `integrations/rust/spec`, and see `specforge-authoring`'s "This repository".
 
 Constraints declare quantified limits: a metric, a threshold, and what they apply to. For rules about state that are
 either kept or broken, use an invariant instead.

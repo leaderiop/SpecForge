@@ -9,6 +9,9 @@ description: "Write failure_mode blocks in .spec files (the failure_mode kind is
 > loads it: run `specforge extensions` first, and if it is not listed, do not write `failure_mode` blocks (add it with
 > `specforge add @specforge/governance`, or write the kinds the project's own extensions declare). `verify` needs
 > `@specforge/testing`. `specforge infer-guide failure_mode` prints the fields.
+>
+> This repository's own spec does not load it (ADR 0374): write `failure_mode` blocks in a project that does, such as
+> the example projects or `integrations/rust/spec`, and see `specforge-authoring`'s "This repository".
 
 Failure modes are FMEA (Failure Mode and Effects Analysis) entries: one way something can break, how bad it is, and
 what is done about it.

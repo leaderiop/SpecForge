@@ -9,6 +9,10 @@ description: "Write milestone blocks in .spec files (the milestone kind is decla
 > it: run `specforge extensions` first, and if it is not listed, do not write `milestone` blocks (add it with
 > `specforge add @specforge/product`, or write the kinds the project's own extensions declare).
 > `specforge infer-guide milestone` prints the fields.
+>
+> This repository's own spec writes `milestone` blocks as `@gsd/core`'s kind, with `@gsd/core`'s fields (ADR 0374),
+> and does not load this builtin: write the blocks below in a project that does, such as the example projects or
+> `integrations/rust/spec`, and see `specforge-authoring`'s "This repository".
 
 Milestones give the plan its time dimension, with exit criteria that say when a phase is done.
 

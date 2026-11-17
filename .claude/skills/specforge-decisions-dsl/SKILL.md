@@ -9,6 +9,10 @@ description: "Write decision (ADR) blocks in .spec files (the decision kind is d
 > loads it: run `specforge extensions` first, and if it is not listed, do not write `decision` blocks (add it with
 > `specforge add @specforge/governance`, or write the kinds the project's own extensions declare).
 > `specforge infer-guide decision` prints the fields.
+>
+> This repository's own spec writes `decision` blocks as `@gsd/core`'s kind, with `@gsd/core`'s fields (ADR 0374), and
+> does not load this builtin: write the blocks below in a project that does, such as the example projects or
+> `integrations/rust/spec`, and see `specforge-authoring`'s "This repository".
 
 Decisions capture the *why* behind choices that would be expensive to reverse.
 

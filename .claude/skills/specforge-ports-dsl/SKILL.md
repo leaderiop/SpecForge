@@ -9,6 +9,9 @@ description: "Write port interface blocks in .spec files (the port kind is decla
 > run `specforge extensions` first, and if it is not listed, do not write `port` blocks (add it with
 > `specforge add @specforge/software`, or write the kinds the project's own extensions declare). `verify` needs
 > `@specforge/testing`. `specforge infer-guide port` prints the fields.
+>
+> This repository's own spec does not load it (ADR 0374): write `port` blocks in a project that does, such as the
+> example projects or `integrations/rust/spec`, and see `specforge-authoring`'s "This repository".
 
 Ports define the boundaries in hexagonal architecture -- the "holes" that adapters plug into. Typed edits do not cover
 `method` lines yet: write a port with methods by hand, then run `specforge check`.
