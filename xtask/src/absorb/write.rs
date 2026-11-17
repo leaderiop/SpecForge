@@ -33,10 +33,11 @@ pub struct Work {
 }
 
 /// `to` is absent, or a directory that holds no project yet (it may hold other files: a copy of the source's tree,
-/// as the self-spec sample converts into), read without following a symbolic link. `spec_root` is the source's, which the target keeps: it must
-/// not be there yet, or, when it is the project's root, `to` must hold no source the target would read. Refused when
-/// `to`, or a path absorb writes, is a symbolic link (absorb would write through it, or a roll back remove it), when
-/// one of [`APPENDED`] is no file, or when the spec root leaves `to`. The answer is what a roll back undoes.
+/// as the self-spec sample converts into), read without following a symbolic link. `spec_root` is the source's,
+/// which the target keeps: it must not be there yet, or, when it is the project's root, `to` must hold no source the
+/// target would read. Refused when `to`, or a path absorb writes, is a symbolic link (absorb would write through it,
+/// or a roll back remove it), when one of [`APPENDED`] is no file, or when the spec root leaves `to`. The answer is
+/// what a roll back undoes.
 pub fn check_to(to: &Path, spec_root: Option<&str>) -> Result<Scaffold, String> {
     let spec_dir = spec_dir(spec_root)?;
     let mut scaffold = Scaffold {

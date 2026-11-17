@@ -220,7 +220,10 @@ fn the_head_names_what_was_sampled_what_the_target_holds_and_the_work() {
         },
         ..SampleRun::default()
     };
-    let stats = serde_json::json!({"entity_count": 4, "entity_counts": [{"kind": "requirement", "count": 3}, {"kind": "decision", "count": 1}]});
+    let stats = json!({
+        "entity_count": 4,
+        "entity_counts": [{"kind": "requirement", "count": 3}, {"kind": "decision", "count": 1}],
+    });
     assert_eq!(
         head(&run, &stats),
         [

@@ -31,7 +31,8 @@ pub const PROJECT: Kind = Kind::new(
         blocks("out_of_scope", OUT_OF_SCOPE).doc("Out of Scope"),
         rfs("key_decisions", "decision").doc("Key Decisions"),
         str("project_code").doc(
-            "config project_code: ^[A-Z][A-Z0-9_]*$ (upstream keeps it in config.json only; gsd-git reads this field when the setting is unset)",
+            "config project_code: ^[A-Z][A-Z0-9_]*$ (upstream keeps it in config.json only; gsd-git reads this \
+             field when the setting is unset)",
         ),
         rfs("validated", "requirement")
             .c()

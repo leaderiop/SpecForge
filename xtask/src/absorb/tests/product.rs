@@ -272,9 +272,10 @@ fn a_milestone_keeps_its_goal_target_features_and_state() {
         "tags",
         "target_date",
     ] {
+        let why = why_of(&planned, "first_cut", name);
         assert!(
-            matches!(why_of(&planned, "first_cut", name).as_slice(), [Why::Dropped(reason)] if reason.contains("ADR 0370")),
-            "{name}"
+            matches!(why.as_slice(), [Why::Dropped(reason)] if reason.contains("ADR 0370")),
+            "{name}: {why:?}"
         );
     }
     let expected: Vec<_> = planned

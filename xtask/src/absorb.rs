@@ -9,10 +9,10 @@
 //! ledgered `dropped`, no home writes a reference, and no kept kind holds a proof, so absorb cites no test (the
 //! summary's `cited_tests` is empty). `--only` converts just the old ids a JSON array names, `--only sample:<name>`
 //! the ids a sample's selector computes from the old graph (`--selection` writes them, by old kind).
-//! `--extension` adds an extension to the target. `--to` is absent or a directory with no project; it is scaffolded with `@specforge/checks`, `@code/core` and the `@gsd/core`
-//! component `GSD_CORE_WASM` names, keeping the source's name, version and spec root, and written by one edit plan,
-//! all or nothing; a stop leaves it as it was. The absorb ledger (default
-//! `<to>/absorb-ledger.json`) lists every old value not written as itself. Prints one JSON summary.
+//! `--extension` adds an extension to the target. `--to` is absent or a directory with no project; it is scaffolded
+//! with `@specforge/checks`, `@code/core` and the `@gsd/core` component `GSD_CORE_WASM` names, keeping the source's
+//! name, version and spec root, and written by one edit plan, all or nothing; a stop leaves it as it was. The absorb
+//! ledger (default `<to>/absorb-ledger.json`) lists every old value not written as itself. Prints one JSON summary.
 //!
 //! Exit 0: written. 1: the edit plan was refused (the refusal printed, the ledger written, the scaffold removed), or
 //! the ledger could not be completed once the plan wrote (the target rolled back, the ledger printed to stderr).
