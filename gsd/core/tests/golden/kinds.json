@@ -2459,7 +2459,7 @@
           },
           {
             "default_value": null,
-            "description": "the quick plan of a quick task's context (/gsd-quick --discuss)",
+            "description": "the quick plan of a quick task's context (a /gsd-quick run with discussion)",
             "edge": "ContextPlan",
             "field_type": "reference",
             "immutable": true,
@@ -3771,7 +3771,7 @@
           },
           {
             "default_value": null,
-            "description": "the quick plan of a quick task's research (/gsd-quick --research)",
+            "description": "the quick plan of a quick task's research (a /gsd-quick run with research)",
             "edge": "ResearchPlan",
             "field_type": "reference",
             "immutable": true,
@@ -5144,7 +5144,7 @@
           },
           {
             "default_value": null,
-            "description": "the directory and the manifest each `automated` command runs in (`cd`, `--prefix`), read by gsd/E320; each distinct path is listed once, on the first task (by id) that names it, so the host reads it once",
+            "description": "the directory and the manifest each `automated` command runs in (a `cd`, or a tool's prefix option), read by gsd/E320; each distinct path is listed once, on the first task (by id) that names it, so the host reads it once",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
@@ -7618,7 +7618,7 @@
           },
           {
             "default_value": null,
-            "description": "the task whose TDD gate tripped (STATE.md's `last_gate_trip`), written by `raise_blocker --gate`",
+            "description": "the task whose TDD gate tripped (STATE.md's `last_gate_trip`), written by `raise_blocker` when a gate is given",
             "edge": "BlockerGate",
             "field_type": "reference",
             "inverse_of": null,
@@ -8383,7 +8383,7 @@
           {
             "append_only": true,
             "default_value": null,
-            "description": "`## Deferred Follow-Ups`: each skipped test's idea, verbatim, written by `set_uat_result --follow-up`",
+            "description": "`## Deferred Follow-Ups`: each skipped test's idea, verbatim, written by `set_uat_result` when a follow-up is given",
             "edge": null,
             "field_type": "block_list",
             "inverse_of": null,
@@ -8569,7 +8569,7 @@
           },
           {
             "default_value": null,
-            "description": "an automated result is marked by the caller (a collector, or `--source automated`)",
+            "description": "the caller marks a result automated, through a collector or by setting the source to automated",
             "edge": null,
             "enum_values": [
               "human",

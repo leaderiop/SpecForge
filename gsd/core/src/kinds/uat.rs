@@ -47,7 +47,7 @@ pub const UAT_SESSION: Kind = Kind::new(
         blocks("follow_ups", FOLLOW_UP)
             .h()
             .append()
-            .doc("`## Deferred Follow-Ups`: each skipped test's idea, verbatim, written by `set_uat_result --follow-up`"),
+            .doc("`## Deferred Follow-Ups`: each skipped test's idea, verbatim, written by `set_uat_result` when a follow-up is given"),
         block("totals", TOTALS)
             .c()
             .doc("`## Summary`; `follow_ups` counts the deferred follow-ups"),
@@ -66,7 +66,7 @@ pub const UAT_TEST: Kind = Kind::new(
             .h()
             .doc("written from the person's answer"),
         en("source", SOURCE).h().doc(
-            "an automated result is marked by the caller (a collector, or `--source automated`)",
+            "the caller marks a result automated, through a collector or by setting the source to automated",
         ),
         str("reported").doc("the person's words, verbatim, when `issue`"),
         en("severity", SEVERITY).doc("major when absent"),

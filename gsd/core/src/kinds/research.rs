@@ -19,7 +19,7 @@ pub const RESEARCH: Kind = Kind::new(
             .doc("absent for the project's research and a quick plan's"),
         rf("plan", "plan")
             .i()
-            .doc("the quick plan of a quick task's research (/gsd-quick --research)"),
+            .doc("the quick plan of a quick task's research (a /gsd-quick run with research)"),
         context_record("context_pack").doc(
             "the gsd/phase-context pack (a quick plan's research: gsd/quick-context) it was written against (gsd/W406)",
         ),

@@ -16,7 +16,7 @@ pub const CONTEXT: Kind = Kind::new(
             .doc("file location; absent for a quick plan's context"),
         rf("plan", "plan")
             .i()
-            .doc("the quick plan of a quick task's context (/gsd-quick --discuss)"),
+            .doc("the quick plan of a quick task's context (a /gsd-quick run with discussion)"),
         date("gathered").i().doc("**Gathered:**"),
         str("boundary").r().doc("<domain> Phase Boundary"),
         strs("discretion").doc("Claude's Discretion"),

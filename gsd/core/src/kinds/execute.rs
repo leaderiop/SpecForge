@@ -186,7 +186,7 @@ pub const BLOCKER: Kind = Kind::new(
         rf("plan", "plan").doc("the plan whose gate tripped (STATE.md's `last_gate_trip`), or that it blocks"),
         rf("gate", "task")
             .h()
-            .doc("the task whose TDD gate tripped (STATE.md's `last_gate_trip`), written by `raise_blocker --gate`"),
+            .doc("the task whose TDD gate tripped (STATE.md's `last_gate_trip`), written by `raise_blocker` when a gate is given"),
         ts("raised")
             .h()
             .doc("written by the command that raises it, with the host's clock"),
