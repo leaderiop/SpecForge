@@ -43,9 +43,9 @@ the arm does not see), and `seed.py` writes it into every copy.
 
 No configuration turns the route off: `@gsd/core` declares it whatever is loaded. What B0 lacks is the test facts:
 what the route's `item` step and the start's tagged-test annotation read, what `gsd/E501`'s `tests` input reads, and
-the status of each check of a summary's coverage item, so `gsd/W408` has no check to judge and reports nothing. A
-verdict recorded over tests therefore reads stale in B0 from the start (its `tests` input reads none), on the seeded
-and the unseeded copy alike: it is no signal of a seed.
+the status of each check of a summary's coverage item, so `gsd/W408` has no check to judge and reports nothing. No
+fixture's verdict is recorded over tests (no fixture test names a truth, so every verdict's `tests` input reads none),
+and B0's missing facts stale none of them.
 
 | Arm | State | Tools |
 |---|---|---|

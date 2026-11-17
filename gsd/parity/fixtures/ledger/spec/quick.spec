@@ -18,9 +18,8 @@ task T1 "The total's column" {
 }
 
 truth TR1 "A total prints right-aligned in a column of fourteen" {
-  plan  261105-tcl
-  text  "A total prints right-aligned in a column of fourteen"
-  proof ["rust:ledger::totals#a_total_prints_in_a_column_of_fourteen"]
+  plan 261105-tcl
+  text "A total prints right-aligned in a column of fourteen"
 }
 
 artifact AR1 "column" {

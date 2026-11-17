@@ -13,10 +13,11 @@ CI is red; see [gsd/parity/README.md](../../README.md) for how its goldens are r
   `record-ledger.sh` records that run in `goldens/ledger/rust-test.xml`, and the run with the fold restored to an
   `i64`, the state the verifier saw, in `goldens/ledger/rust-test-before-quick.xml`.
 - `spec/`: the SpecForge twin of `.planning/`: project, decisions, requirements, roadmap, the three plans with their
-  must-haves, phase 1's summaries, and the quick task as a plan with no phase. Each of phase 1's truths cites the test
-  that proves it (`proof`, `rust:ledger::<test binary>#<test name>`, a fact `@rust/test` collects from a nextest report).
-  It loads `@code/core`, `@rust/cargo`, `@rust/source` and `@rust/test`.
+  must-haves, phase 1's summaries, and the quick task as a plan with no phase. A truth names no requirement and no
+  test; each of phase 1's summaries carries a coverage item (`deliverable`) whose checks name the tests
+  (`tests/<binary>.rs#<test name>`, facts `@rust/test` collects from a nextest report). It loads `@code/core`,
+  `@rust/cargo`, `@rust/source` and `@rust/test`.
 - `specforge-harness`: the ledger lines of phase 1's eight verifier verdicts, recorded over the run before the quick
-  task (`GSD_BLESS=1 cargo test the_twin_holds_its_verifier_verdicts`). Over the recorded red run the one verdict of
-  the truth the failing test proves is stale (`tests changed`), and `specforge trace LEDG-02` shows the test
-  `(failed)`: `gsd/core/tests/cli/parity_ledger.rs`.
+  task (`GSD_BLESS=1 cargo test the_twin_holds_its_verifier_verdicts`). Over the recorded red run every verdict stays
+  fresh (no truth names the failing test); `gsd/W408` reports the check of `01-02-SUMMARY`'s deliverable that names
+  it, and `specforge trace LEDG-02` reaches that check: `gsd/core/tests/cli/parity_ledger.rs`.
