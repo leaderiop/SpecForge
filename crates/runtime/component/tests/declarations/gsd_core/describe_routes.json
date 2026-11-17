@@ -1,0 +1,65 @@
+{
+  "category": "routes",
+  "items": [
+    {
+      "annotations": [
+        {
+          "field": "proof"
+        },
+        {
+          "field": "status",
+          "of": "<test.names"
+        }
+      ],
+      "description": "A requirement's thread: its plans, tasks, their commits and the code items they changed, the plans' truths, and its summaries' coverage items",
+      "name": "requirement-thread",
+      "start": "requirement",
+      "steps": [
+        {
+          "label": "plan",
+          "name": "plan",
+          "via": "<plan.requirements"
+        },
+        {
+          "name": "task",
+          "via": "<task.plan"
+        },
+        {
+          "annotations": [
+            {
+              "field": "linked_by"
+            }
+          ],
+          "from": "task",
+          "name": "commit",
+          "via": "<commit.task"
+        },
+        {
+          "name": "item",
+          "via": ".items_changed"
+        },
+        {
+          "annotations": [
+            {
+              "judgement": "E501"
+            }
+          ],
+          "from": "plan",
+          "name": "truth",
+          "via": "<truth.plan"
+        },
+        {
+          "annotations": [
+            {
+              "field": "checks.ref"
+            }
+          ],
+          "from": "start",
+          "label": "deliverable",
+          "name": "deliverable",
+          "via": "<deliverable.requirement"
+        }
+      ]
+    }
+  ]
+}

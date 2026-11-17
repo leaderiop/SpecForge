@@ -162,14 +162,18 @@ fn layout(root: &Path) -> Layout {
 fn the_table_is_the_extensions_directory_by_the_naming_rule() {
     let on_disk = layout(specforge_repo_root::repo_root());
     assert!(on_disk.problems.is_empty(), "{:#?}", on_disk.problems);
+    // The one builtin outside `extensions/`, named in its row (ADR 0366 D1); every other row is the rule's.
+    let mut expected = on_disk.builtins;
+    expected.push(Named::new("gsd/core", "@gsd/core", "gsd_core.wasm"));
+    expected.sort();
     let mut listed: Vec<Named> = BUILTINS
         .iter()
         .map(|b| Named::new(b.crate_dir, b.name, b.artifact))
         .collect();
     listed.sort();
     assert_eq!(
-        listed, on_disk.builtins,
-        "BUILTINS lists every builtin crate under extensions/, once, named by the rule"
+        listed, expected,
+        "BUILTINS lists every builtin crate under extensions/, once, named by the rule, and @gsd/core at gsd/core"
     );
     for builtin in BUILTINS {
         assert!(

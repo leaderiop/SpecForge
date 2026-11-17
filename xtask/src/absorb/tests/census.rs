@@ -4,7 +4,7 @@
 //! values. Over the root spec, the id map is total, one to one, repeatable and GSD's; the pure plan's ledger holds one
 //! outcome per entry; and every create writes only kinds and authored fields `@gsd/core` declares.
 //!
-//! Pure: no target and no `GSD_CORE_WASM`, so it runs in the unit slice and the gate's `tests` check. The root spec is
+//! Pure: it scaffolds no target, so it runs in the unit slice and the gate's `tests` check. The root spec is
 //! read as an old project, so the swap removes the root half with the self-spec sample (ADR 0367 D1); the fixture,
 //! which holds every old kind, is what keeps the census after it.
 

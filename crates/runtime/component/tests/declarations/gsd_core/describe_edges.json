@@ -1,0 +1,1058 @@
+{
+  "category": "edges",
+  "items": [
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ProjectKeyDecisions",
+      "source_kind": "project",
+      "target_kind": "decision"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ProjectValidated",
+      "source_kind": "project",
+      "target_kind": "requirement"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ProjectActive",
+      "source_kind": "project",
+      "target_kind": "requirement"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "RequirementSatisfiedBy",
+      "source_kind": "requirement",
+      "target_kind": "item"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "MilestoneWorkstream",
+      "source_kind": "milestone",
+      "target_kind": "workstream"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "MilestoneCompletionAudit",
+      "source_kind": "milestone",
+      "target_kind": "milestone_audit"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "PhaseMilestone",
+      "source_kind": "phase",
+      "target_kind": "milestone"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "PhaseDependsOn",
+      "source_kind": "phase",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "PhaseRequirements",
+      "source_kind": "phase",
+      "target_kind": "requirement"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "RetrospectiveMilestone",
+      "source_kind": "retrospective",
+      "target_kind": "milestone"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "LessonRetrospective",
+      "source_kind": "lesson",
+      "target_kind": "retrospective"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "LessonGraduatedTarget",
+      "source_kind": "lesson",
+      "target_kind": "decision"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "LessonGraduatedUntil",
+      "source_kind": "lesson",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ContextPhase",
+      "source_kind": "context",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ContextPlan",
+      "source_kind": "context",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "DecisionPhase",
+      "source_kind": "decision",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "DecisionPlan",
+      "source_kind": "decision",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "DeferredIdeaPhase",
+      "source_kind": "deferred_idea",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "PhaseSpecPhase",
+      "source_kind": "phase_spec",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "LockedReqSpec",
+      "source_kind": "locked_req",
+      "target_kind": "phase_spec"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "LockedReqTraces",
+      "source_kind": "locked_req",
+      "target_kind": "requirement"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "InterviewSpec",
+      "source_kind": "interview",
+      "target_kind": "phase_spec"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "EdgeSpec",
+      "source_kind": "edge",
+      "target_kind": "phase_spec"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "EdgeRequirement",
+      "source_kind": "edge",
+      "target_kind": "locked_req"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "SpecProhibitionSpec",
+      "source_kind": "spec_prohibition",
+      "target_kind": "phase_spec"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "SpecProhibitionRequirement",
+      "source_kind": "spec_prohibition",
+      "target_kind": "locked_req"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "DiscussionPhase",
+      "source_kind": "discussion",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ResearchPhase",
+      "source_kind": "research",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ResearchPlan",
+      "source_kind": "research",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ResearchUserConstraints",
+      "source_kind": "research",
+      "target_kind": "decision"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "FindingResearch",
+      "source_kind": "finding",
+      "target_kind": "research"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "FindingSources",
+      "source_kind": "finding",
+      "target_kind": "source"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "StackChoiceResearch",
+      "source_kind": "stack_choice",
+      "target_kind": "research"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "PatternResearch",
+      "source_kind": "pattern",
+      "target_kind": "research"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "PitfallResearch",
+      "source_kind": "pitfall",
+      "target_kind": "research"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "DontHandRollResearch",
+      "source_kind": "dont_hand_roll",
+      "target_kind": "research"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "OpenQuestionResearch",
+      "source_kind": "open_question",
+      "target_kind": "research"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "OpenQuestionResolvedBy",
+      "source_kind": "open_question",
+      "target_kind": "decision"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "SourceResearch",
+      "source_kind": "source",
+      "target_kind": "research"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "PackageAuditResearch",
+      "source_kind": "package_audit",
+      "target_kind": "research"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "PlanPhase",
+      "source_kind": "plan",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "PlanDependsOn",
+      "source_kind": "plan",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "PlanCouplingJustifiedPeer",
+      "source_kind": "plan",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "PlanGapClosure",
+      "source_kind": "plan",
+      "target_kind": null
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "PlanRequirements",
+      "source_kind": "plan",
+      "target_kind": "requirement"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "TaskPlan",
+      "source_kind": "task",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "TaskReversibilitySettledBy",
+      "source_kind": "task",
+      "target_kind": "decision"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "CheckpointPlan",
+      "source_kind": "checkpoint",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "CheckpointAfter",
+      "source_kind": "checkpoint",
+      "target_kind": "task"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "TruthPlan",
+      "source_kind": "truth",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ArtifactPlan",
+      "source_kind": "artifact",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "KeyLinkPlan",
+      "source_kind": "key_link",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ProhibitionPlan",
+      "source_kind": "prohibition",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "DispositionPlan",
+      "source_kind": "disposition",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "DispositionConcern",
+      "source_kind": "disposition",
+      "target_kind": "review_concern"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ReviewPhase",
+      "source_kind": "review",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ReviewPlans",
+      "source_kind": "review",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ReviewConcernReview",
+      "source_kind": "review_concern",
+      "target_kind": "review"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ReviewConcernPlan",
+      "source_kind": "review_concern",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "RevisionConflictPhase",
+      "source_kind": "revision_conflict",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "RevisionConflictPlan",
+      "source_kind": "revision_conflict",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "UserSetupPlan",
+      "source_kind": "user_setup",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "PlanStartPlan",
+      "source_kind": "plan_start",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "SummaryPlan",
+      "source_kind": "summary",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "SummaryRequiresPhase",
+      "source_kind": "summary",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "SummaryKeyDecisions",
+      "source_kind": "summary",
+      "target_kind": "decision"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "SummaryRequirementsCompleted",
+      "source_kind": "summary",
+      "target_kind": "requirement"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "DeliverableSummary",
+      "source_kind": "deliverable",
+      "target_kind": "summary"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "DeliverableRequirement",
+      "source_kind": "deliverable",
+      "target_kind": "requirement"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "DeviationSummary",
+      "source_kind": "deviation",
+      "target_kind": "summary"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "CommitTask",
+      "source_kind": "commit",
+      "target_kind": "task"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "CommitPlan",
+      "source_kind": "commit",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "CommitDescendsFrom",
+      "source_kind": "commit",
+      "target_kind": "commit"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "CommitItemsChanged",
+      "source_kind": "commit",
+      "target_kind": "item"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "PausePhase",
+      "source_kind": "pause",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "PausePlan",
+      "source_kind": "pause",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "PauseHandoff",
+      "source_kind": "pause",
+      "target_kind": "handoff"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "HandoffPhase",
+      "source_kind": "handoff",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "HandoffTask",
+      "source_kind": "handoff",
+      "target_kind": "task"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "HandoffCompletedWorkTask",
+      "source_kind": "handoff",
+      "target_kind": "task"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "HandoffDecisionsMade",
+      "source_kind": "handoff",
+      "target_kind": "decision"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "HandoffBlockers",
+      "source_kind": "handoff",
+      "target_kind": "blocker"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "BlockerPhase",
+      "source_kind": "blocker",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "BlockerPlan",
+      "source_kind": "blocker",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "BlockerGate",
+      "source_kind": "blocker",
+      "target_kind": "task"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "QuickBatchItems",
+      "source_kind": "quick_batch",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "VerificationPhase",
+      "source_kind": "verification",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "VerificationDeferredTruth",
+      "source_kind": "verification",
+      "target_kind": "truth"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "VerificationDeferredAddressedIn",
+      "source_kind": "verification",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "VerifyGapVerification",
+      "source_kind": "verify_gap",
+      "target_kind": "verification"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "VerifyGapTruth",
+      "source_kind": "verify_gap",
+      "target_kind": "truth"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "VerifyGapClosedBy",
+      "source_kind": "verify_gap",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "OverrideVerification",
+      "source_kind": "override",
+      "target_kind": "verification"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "OverrideTruth",
+      "source_kind": "override",
+      "target_kind": "truth"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "HumanItemVerification",
+      "source_kind": "human_item",
+      "target_kind": "verification"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "HumanItemUat",
+      "source_kind": "human_item",
+      "target_kind": "uat_test"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "UatSessionPhase",
+      "source_kind": "uat_session",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "UatSessionSource",
+      "source_kind": "uat_session",
+      "target_kind": "summary"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "UatSessionFollowUpsTest",
+      "source_kind": "uat_session",
+      "target_kind": "uat_test"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "UatTestSession",
+      "source_kind": "uat_test",
+      "target_kind": "uat_session"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "UatGapTest",
+      "source_kind": "uat_gap",
+      "target_kind": "uat_test"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "UatGapResolvedBy",
+      "source_kind": "uat_gap",
+      "target_kind": "plan"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ValidationPhase",
+      "source_kind": "validation",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ValidationRowValidation",
+      "source_kind": "validation_row",
+      "target_kind": "validation"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ValidationRowTask",
+      "source_kind": "validation_row",
+      "target_kind": "task"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ValidationRowRequirement",
+      "source_kind": "validation_row",
+      "target_kind": "requirement"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "Wave0ItemValidation",
+      "source_kind": "wave0_item",
+      "target_kind": "validation"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "Wave0ItemFor",
+      "source_kind": "wave0_item",
+      "target_kind": "requirement"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ManualCheckValidation",
+      "source_kind": "manual_check",
+      "target_kind": "validation"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "ManualCheckRequirement",
+      "source_kind": "manual_check",
+      "target_kind": "requirement"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "MilestoneAuditMilestone",
+      "source_kind": "milestone_audit",
+      "target_kind": "milestone"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "MilestoneAuditTechDebtPhase",
+      "source_kind": "milestone_audit",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "MilestoneAuditGapsRequirement",
+      "source_kind": "milestone_audit",
+      "target_kind": "requirement"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "BrokenWindowPhase",
+      "source_kind": "broken_window",
+      "target_kind": "phase"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "BrokenWindowRefactor",
+      "source_kind": "broken_window",
+      "target_kind": "refactor_proposal"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "BrokenWindowMilestone",
+      "source_kind": "broken_window",
+      "target_kind": "milestone"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "RefactorProposalPhase",
+      "source_kind": "refactor_proposal",
+      "target_kind": "phase"
+    }
+  ]
+}

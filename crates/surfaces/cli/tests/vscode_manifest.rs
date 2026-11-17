@@ -350,14 +350,15 @@ fn vscode_pickers_offer_the_builtins_that_declare_kinds() {
         .find(|(name, _)| name == "commands.ts")
         .expect("commands.ts")
         .1;
-    // Each `label: "@specforge/…"` and the `description: "…"` that follows it (maybe on the next line).
+    // Each `label: "@…"` and the `description: "…"` that follows it (maybe on the next line): every
+    // builtin that declares authored kinds, `@gsd/core` among them (ADR 0373 D7).
     let quoted_after = |text: &str, key: &str| -> Option<String> {
         let rest = &text[text.find(key)? + key.len()..];
         let rest = rest.trim_start().strip_prefix('"')?;
         Some(rest[..rest.find('"')?].to_string())
     };
     let mut offered: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-    for (at, _) in commands.match_indices("label: \"@specforge/") {
+    for (at, _) in commands.match_indices("label: \"@") {
         let tail = &commands[at..];
         let label = quoted_after(tail, "label:").expect("a label");
         let description = quoted_after(tail, "description:").expect("a description");
@@ -415,7 +416,7 @@ fn vscode_pickers_offer_the_builtins_that_declare_kinds() {
     let add = &add[..add.find("{ placeHolder").expect("the add picker's options")];
     let listed: BTreeSet<String> = add
         .split('"')
-        .filter(|w| w.starts_with("@specforge/"))
+        .filter(|w| w.starts_with('@'))
         .map(str::to_string)
         .collect();
     assert_eq!(

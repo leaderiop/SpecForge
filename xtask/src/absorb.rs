@@ -3,7 +3,7 @@
 //! under GSD's ids (ADR 0372 D3: a requirement `<CAT>-<NN>`, a decision in force `D-<NN>`, a release's milestone
 //! `v<version>`, a phase `<NN>` under it). No entity is created that the old spec did not hold.
 //!
-//!   GSD_CORE_WASM=<gsd_core.wasm> cargo run -p xtask --bin absorb -- --from <project> --to <dir>
+//!   cargo run -p xtask --bin absorb -- --from <project> --to <dir>
 //!       [--only ids:<file> | --only sample:<name> [--selection <file>]] [--extension <name>]... [--ledger <file>]
 //!
 //! The old project is compiled in-process with its own builtins, and must report no error; no recorded item is
@@ -14,7 +14,7 @@
 //! `--only sample:<name>` the ids a sample's selector computes from the old graph (`--selection` writes them, by old
 //! kind).
 //! `--extension` adds an extension to the target. `--to` is absent or a directory with no project; it is scaffolded
-//! with `@specforge/checks`, `@code/core` and the `@gsd/core` component `GSD_CORE_WASM` names, keeping the source's
+//! with the builtins `@specforge/checks`, `@code/core` and `@gsd/core`, loaded by name, keeping the source's
 //! name, version and spec root, and written by one edit plan, all or nothing; a stop leaves it as it was. The absorb
 //! ledger (default `<to>/absorb-ledger.json`) lists every old value not written as itself, with one outcome each
 //! (`computed`, `filled`, `unconverted` for the scaffold's values only, `dropped`), and the old id of every converted
@@ -66,10 +66,7 @@ use scope::Scope;
 use write::{Target, Work};
 
 const USAGE: &str = "usage: absorb --from <project> --to <dir> [--only ids:<file> | --only sample:<name> \
-                     [--selection <file>]] [--extension <name>]... [--ledger <file>]  (GSD_CORE_WASM names \
-                     gsd_core.wasm)";
-const BUILD_GSD_CORE: &str =
-    "build it: (cd gsd && cargo build --locked -p gsd-core --release --target wasm32-wasip2)";
+                     [--selection <file>]] [--extension <name>]... [--ledger <file>]";
 /// The ledger's file in the target when `--ledger` is not given.
 const LEDGER_FILE: &str = "absorb-ledger.json";
 
@@ -142,16 +139,6 @@ fn run(args: &[String]) -> i32 {
         Ok(args) => args,
         Err(why) => return refuse(&format!("{why}\n{USAGE}")),
     };
-    let gsd_core = match std::env::var_os("GSD_CORE_WASM").map(PathBuf::from) {
-        Some(path) if path.is_file() => path,
-        Some(path) => {
-            return refuse(&format!(
-                "GSD_CORE_WASM {} is not a file; {BUILD_GSD_CORE}",
-                path.display()
-            ));
-        }
-        None => return refuse(&format!("GSD_CORE_WASM is not set; {BUILD_GSD_CORE}")),
-    };
     let source = Project::read(&args.from);
     // The ledger is a path absorb writes like the scaffold's, checked the same way before any write.
     let ledger_path = args
@@ -197,8 +184,7 @@ fn run(args: &[String]) -> i32 {
     if let Err(why) = scaffold.claim(&planned.files()) {
         return refuse(&why);
     }
-    let mut target = match Target::create(scaffold, &source, &gsd_core, &args.extensions, &mut work)
-    {
+    let mut target = match Target::create(scaffold, &source, &args.extensions, &mut work) {
         Ok(target) => target,
         Err(why) => return refuse(&why),
     };

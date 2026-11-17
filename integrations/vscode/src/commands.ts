@@ -51,6 +51,11 @@ export function registerCommands(
             label: "@specforge/formal",
             description: "property, axiom, protocol, refinement, process",
           },
+          {
+            label: "@gsd/core",
+            description:
+              "artifact, blocker, broken_window, checkpoint, commit, context, decision, deferred_idea, deliverable, deviation, discussion, disposition, dont_hand_roll, edge, finding, handoff, human_item, interview, key_link, lesson, locked_req, manual_check, methodology, milestone, milestone_audit, open_question, override, package_audit, pattern, pause, phase, phase_spec, pitfall, plan, plan_start, prohibition, project, quick_batch, refactor_proposal, requirement, research, retrospective, review, review_concern, revision_conflict, source, spec_prohibition, stack_choice, summary, task, truth, uat_gap, uat_session, uat_test, user_setup, validation, validation_row, verification, verify_gap, wave0_item, workstream",
+          },
         ],
         {
           canPickMany: true,
@@ -184,6 +189,7 @@ export function registerCommands(
           "@specforge/product",
           "@specforge/governance",
           "@specforge/formal",
+          "@gsd/core",
         ],
         { placeHolder: "Select extension to add" }
       );

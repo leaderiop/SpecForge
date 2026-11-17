@@ -1,5 +1,6 @@
-//! `absorb` end to end: the old fixture project into a fresh `@gsd/core` project, which checks clean. Needs the built
-//! component: `GSD_CORE_WASM=<gsd_core.wasm> cargo nextest run -p xtask --run-ignored all -E 'binary_id(xtask::absorb_e2e)'`.
+//! `absorb` end to end: the old fixture project into a fresh `@gsd/core` project, which checks clean. The target loads
+//! `@gsd/core` by name, the builtin the CLI embeds, so nothing is built first:
+//! `cargo nextest run -p xtask -E 'binary_id(xtask::absorb_e2e)'`.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -8,7 +9,7 @@
 
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 
 const OLD: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/absorb/old");
@@ -16,12 +17,6 @@ const SELECTION: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/tests/fixtures/absorb/selection.json"
 );
-
-fn gsd_core() -> PathBuf {
-    PathBuf::from(std::env::var_os("GSD_CORE_WASM").expect(
-        "GSD_CORE_WASM names gsd_core.wasm: (cd gsd && cargo build --locked -p gsd-core --release --target wasm32-wasip2)",
-    ))
-}
 
 /// One run of the command: its exit code, its summary (stdout) and its stderr.
 struct Run {
@@ -33,7 +28,6 @@ struct Run {
 fn absorb(args: &[&str]) -> Run {
     let out = Command::new(env!("CARGO_BIN_EXE_absorb"))
         .args(args)
-        .env("GSD_CORE_WASM", gsd_core())
         .output()
         .expect("absorb runs");
     let stdout = String::from_utf8_lossy(&out.stdout);
@@ -66,7 +60,6 @@ fn spec_tree(root: &Path) -> BTreeMap<String, String> {
 /// no error and no warning, nothing waits, and an entity dropped whole leaves its methods and field annotations in the
 /// ledger (ADR 0372 D2), as its `ref` declaration leaves its title and metadata.
 #[test]
-#[ignore = "needs GSD_CORE_WASM"]
 fn all_seventeen_old_kinds_convert_or_drop_with_no_error_and_no_warning() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = (dir.path().join("a"), dir.path().join("b"));
@@ -190,7 +183,6 @@ fn all_seventeen_old_kinds_convert_or_drop_with_no_error_and_no_warning() {
 }
 
 #[test]
-#[ignore = "needs GSD_CORE_WASM"]
 fn a_selection_converts_only_its_entities_and_checks_clean() {
     let dir = tempfile::tempdir().unwrap();
     let to = dir.path().join("t");
@@ -396,7 +388,6 @@ fn decision_source(old: &Path, config: &str, file: &str) {
 /// converted into a tree that already holds other files). What the source's project block holds beyond them is
 /// ledgered: its extensions, and the spec block's own version and extensions.
 #[test]
-#[ignore = "needs GSD_CORE_WASM"]
 fn the_target_keeps_the_source_spec_root_and_version() {
     let dir = tempfile::tempdir().unwrap();
     let (old, to) = (dir.path().join("old"), dir.path().join("new"));
@@ -509,7 +500,6 @@ fn tree_bytes(root: &Path) -> BTreeMap<String, Option<Vec<u8>>> {
 /// A stop in a directory the run did not make leaves it byte for byte as it was: the refused version stops the run
 /// after init appended to its `.gitignore` and `.gitattributes`, and the roll back gives them back their bytes.
 #[test]
-#[ignore = "needs GSD_CORE_WASM"]
 fn a_stop_leaves_a_directory_it_did_not_make_byte_for_byte() {
     let dir = tempfile::tempdir().unwrap();
     let (old, to) = (dir.path().join("old"), dir.path().join("tree"));
@@ -534,7 +524,6 @@ fn a_stop_leaves_a_directory_it_did_not_make_byte_for_byte() {
 /// it points to, outside `--to`, is never written through, and `--to` is left as it was.
 #[cfg(unix)]
 #[test]
-#[ignore = "needs GSD_CORE_WASM"]
 fn a_symbolic_link_at_the_ledger_path_is_refused_before_any_write() {
     let dir = tempfile::tempdir().unwrap();
     let outside = dir.path().join("outside.json");
@@ -575,7 +564,6 @@ fn a_symbolic_link_at_the_ledger_path_is_refused_before_any_write() {
 /// A ledger that cannot be written is a stop before any write: the ledger is written before the edit plan applies, so
 /// the record of what does not convert is never lost behind a written target, and the tree is left as it was.
 #[test]
-#[ignore = "needs GSD_CORE_WASM"]
 fn a_ledger_that_cannot_be_written_stops_before_any_write() {
     let dir = tempfile::tempdir().unwrap();
     let to = dir.path().join("tree");
@@ -598,7 +586,6 @@ fn a_ledger_that_cannot_be_written_stops_before_any_write() {
 /// A milestone id the target refuses, from a release's version, stops the run before any write, naming it; the scaffold
 /// is removed (ADR 0372 D3: every id goes through the target's id rule).
 #[test]
-#[ignore = "needs GSD_CORE_WASM"]
 fn a_version_the_target_refuses_as_an_id_stops_the_run_before_any_write() {
     let dir = tempfile::tempdir().unwrap();
     let (old, to) = (dir.path().join("old"), dir.path().join("new"));
@@ -619,7 +606,6 @@ fn a_version_the_target_refuses_as_an_id_stops_the_run_before_any_write() {
 /// An old id that is a kind keyword of the target (gsd declares a `blocker` kind) converts under its GSD id: a decision
 /// `blocker` is `D-01`, and the target checks clean (ADR 0372 D3).
 #[test]
-#[ignore = "needs GSD_CORE_WASM"]
 fn an_old_id_that_is_a_kind_keyword_converts_under_its_gsd_id() {
     let dir = tempfile::tempdir().unwrap();
     let (old, to) = (dir.path().join("old"), dir.path().join("new"));
@@ -667,7 +653,6 @@ fn product_source(old: &Path, text: &str) {
 /// ledgered `dropped`: the target reports no `gsd/E101`, and checks clean (ADR 0372 D7). (A source whose id two kinds
 /// share is refused before any write: its graph drops the second declaration, W060.)
 #[test]
-#[ignore = "needs GSD_CORE_WASM"]
 fn a_feature_two_phases_list_is_in_one_phase_and_the_target_checks_clean() {
     let dir = tempfile::tempdir().unwrap();
     let (old, to) = (dir.path().join("old"), dir.path().join("new"));
@@ -704,7 +689,6 @@ fn a_feature_two_phases_list_is_in_one_phase_and_the_target_checks_clean() {
 /// `--selection` is written only once the run passes its stops: a sample whose milestone two releases list stops before
 /// any write, and leaves no selection file behind, nor a target.
 #[test]
-#[ignore = "needs GSD_CORE_WASM"]
 fn a_stop_leaves_no_selection_behind() {
     let dir = tempfile::tempdir().unwrap();
     let (old, to) = (dir.path().join("old"), dir.path().join("new"));
@@ -747,7 +731,6 @@ fn a_stop_leaves_no_selection_behind() {
 /// An empty required value is a missing one: a phase whose name gives an empty slug and a constraint whose only text is
 /// empty stop the run before any write, each named, and no target is left.
 #[test]
-#[ignore = "needs GSD_CORE_WASM"]
 fn an_empty_required_value_stops_the_run_as_missing() {
     let dir = tempfile::tempdir().unwrap();
     let (old, to) = (dir.path().join("old"), dir.path().join("new"));
@@ -772,7 +755,6 @@ fn an_empty_required_value_stops_the_run_as_missing() {
 
 /// A constraint of category `d` converts beside a decision: its id is `CONSTRAINT-01`, never the decision's `D-01`.
 #[test]
-#[ignore = "needs GSD_CORE_WASM"]
 fn a_constraint_of_category_d_converts_beside_a_decision() {
     let dir = tempfile::tempdir().unwrap();
     let (old, to) = (dir.path().join("old"), dir.path().join("new"));

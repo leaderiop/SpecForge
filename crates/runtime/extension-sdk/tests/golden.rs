@@ -156,8 +156,10 @@ fn mock_host_pins_wire_output() {
     );
 }
 
-/// No builtin contributes to a host (ADR 0292): its pinned `surfaces` holds none of the four kinds, and a guest
-/// that declares none is byte-equal to what it was before they existed.
+/// No builtin of the old set contributes to a host (ADR 0292): its pinned `surfaces` holds none of the four
+/// kinds, and a guest that declares none is byte-equal to what it was before they existed. `@gsd/core`
+/// (`gsd_core`) contributes agents, skills, slash commands and hooks by design (ADR 0373 D7), so its
+/// directory is not read.
 #[specforge_test_macros::test(
     behavior = "install_into_a_host",
     verify = "a project whose extensions contribute nothing to a host declares and runs as it did"
@@ -166,7 +168,12 @@ fn the_builtins_declare_no_host_contribution() {
     let root = specforge_repo_root::repo_root().join("crates/runtime/component/tests/declarations");
     let mut checked = 0;
     for dir in std::fs::read_dir(&root).unwrap() {
-        let surfaces = dir.unwrap().path().join("describe_surfaces.json");
+        let dir = dir.unwrap().path();
+        // The old set and the pinned examples only (ADR 0373 D7).
+        if dir.file_name().is_some_and(|name| name == "gsd_core") {
+            continue;
+        }
+        let surfaces = dir.join("describe_surfaces.json");
         let Ok(text) = std::fs::read_to_string(&surfaces) else {
             continue;
         };

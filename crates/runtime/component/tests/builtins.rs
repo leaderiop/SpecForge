@@ -11,7 +11,7 @@ use specforge_wasm::protocol::load_declaration;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 
 /// The builtins that call a `specforge:host` port, and the interfaces each imports (the port and its types).
-const HOST_IMPORTS: [(&str, &[&str]); 2] = [
+const HOST_IMPORTS: [(&str, &[&str]); 3] = [
     (
         "@rust/source",
         &["specforge:host/syntax@0.1.0", "specforge:host/types@0.1.0"],
@@ -19,6 +19,14 @@ const HOST_IMPORTS: [(&str, &[&str]); 2] = [
     (
         "@javascript/source",
         &["specforge:host/syntax@0.1.0", "specforge:host/types@0.1.0"],
+    ),
+    (
+        "@gsd/core",
+        &[
+            "specforge:host/fs@0.1.0",
+            "specforge:host/git@0.1.0",
+            "specforge:host/types@0.1.0",
+        ],
     ),
 ];
 

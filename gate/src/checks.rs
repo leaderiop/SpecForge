@@ -177,7 +177,7 @@ pub static CHECKS: &[Check] = &[
         proves: concat!(
             "every committed .wasm blob (the staged one, at the hook) is at most ",
             blob_size::cap!(),
-            " B (ADR 0338 D8)"
+            " B, or the allowance `gate/src/blob_size.rs` names for it (ADR 0338 D8, ADR 0366 D3)"
         ),
         reach: Reach::Hook,
         trigger: Trigger::Paths(&["**/*.wasm", "gate/src/blob_size.rs"]),

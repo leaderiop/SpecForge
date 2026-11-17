@@ -237,12 +237,11 @@ pub struct Target {
 
 impl Target {
     /// `ops init` in `scaffold`'s directory (what [`check_to`] answered and the plan claimed) as `project` says
-    /// (the source's name, version and spec root), loading `@specforge/checks`, `@code/core`, `gsd_core` and `extra`,
-    /// then compiled. On a failure, the directory is as it was.
+    /// (the source's name, version and spec root), loading the builtins `@specforge/checks`, `@code/core` and
+    /// `@gsd/core` by name (ADR 0366 D5) and `extra`, then compiled. On a failure, the directory is as it was.
     pub fn create(
         scaffold: Scaffold,
         project: &Project,
-        gsd_core: &Path,
         extra: &[String],
         work: &mut Work,
     ) -> Result<Target, String> {
@@ -252,10 +251,11 @@ impl Target {
         let mut extensions = vec![
             "@specforge/checks".to_string(),
             "@code/core".to_string(),
-            gsd_core.display().to_string(),
+            "@gsd/core".to_string(),
         ];
         extensions.extend(extra.iter().cloned());
-        // As `specforge init` does: the component is read where it was built, outside the new project.
+        // As `specforge init` does: an `--extension` may name a component by path, read where it was built,
+        // outside the new project.
         let containment = Containment::unbounded();
         let runtime = ComponentRuntime::with_user_cache();
         let outcome = init::init(

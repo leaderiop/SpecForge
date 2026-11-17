@@ -1,8 +1,28 @@
 //! The builtins' candidate vocabulary is generated beside them (ADR 0122).
 
-use specforge_component::builtins::BUILTIN_VOCABULARY;
-use specforge_component::committed::pinned_builtin_declarations;
+use specforge_component::builtins::{BUILTIN_VOCABULARY, BUILTINS, Family};
+use specforge_component::committed::{key_of, pinned_builtin_declarations};
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::CandidateVocabulary;
+
+/// The pinned declarations of the old set, the fourteen `@specforge/*` starter-set builtins. The
+/// declaration rules below hold for them (ADR 0373 D7); `@gsd/core` scopes its kinds (ADR 0370),
+/// declares settings, members and baselines by design.
+fn old_set_declarations() -> Vec<ExtensionDeclaration> {
+    let mut declarations = pinned_builtin_declarations().unwrap();
+    declarations.retain(|d| Family::Old.names().contains(&d.name()));
+    assert_eq!(declarations.len(), Family::Old.names().len());
+    declarations
+}
+
+/// Whether a snapshot directory is a builtin's outside the old set (ADR 0373 D7, ADR 0370): the
+/// rules that read every snapshot directory hold for the old set and the pinned examples.
+fn outside_the_old_set(dir: &std::path::Path) -> bool {
+    let key = dir.file_name().unwrap().to_string_lossy();
+    BUILTINS
+        .iter()
+        .any(|b| !Family::Old.names().contains(&b.name) && key_of(b.name) == key)
+}
 
 #[specforge_test_macros::test(
     behavior = "suggest_missing_extensions",
@@ -42,7 +62,8 @@ fn no_builtin_reference_field_declares_a_default() {
     verify = "no builtin kind declares a scope field, so every builtin entity id is its name"
 )]
 fn no_builtin_kind_is_scoped() {
-    let declarations = pinned_builtin_declarations().unwrap();
+    // The old set only: @gsd/core scopes, sets and pins by design (ADR 0373 D7, ADR 0370).
+    let declarations = old_set_declarations();
     let text = serde_json::to_string(&declarations).unwrap();
     assert!(
         !text.contains("scoped_by"),
@@ -74,7 +95,12 @@ fn keys_and_types(value: &serde_json::Value, found: &mut Vec<String>) {
 fn no_builtin_field_declares_a_k3_attribute() {
     let mut files = 0;
     for dir in std::fs::read_dir(specforge_component::committed::snapshots()).unwrap() {
-        for file in std::fs::read_dir(dir.unwrap().path()).unwrap() {
+        let dir = dir.unwrap().path();
+        // The old set and the pinned examples only (ADR 0373 D7, ADR 0370).
+        if outside_the_old_set(&dir) {
+            continue;
+        }
+        for file in std::fs::read_dir(&dir).unwrap() {
             let path = file.unwrap().path();
             let name = path.file_name().unwrap().to_string_lossy().into_owned();
             // Fields are declared by entities, shared fields and enhancements; a surface's command
@@ -123,7 +149,12 @@ fn no_builtin_field_declares_a_k3_attribute() {
 fn no_builtin_declares_a_writer_or_history_flag() {
     let mut files = 0;
     for dir in std::fs::read_dir(specforge_component::committed::snapshots()).unwrap() {
-        for file in std::fs::read_dir(dir.unwrap().path()).unwrap() {
+        let dir = dir.unwrap().path();
+        // The old set and the pinned examples only (ADR 0373 D7, ADR 0370).
+        if outside_the_old_set(&dir) {
+            continue;
+        }
+        for file in std::fs::read_dir(&dir).unwrap() {
             let path = file.unwrap().path();
             let name = path.file_name().unwrap().to_string_lossy().into_owned();
             let declared = ["entities", "shared_fields", "enhancements", "passes"];
@@ -161,7 +192,8 @@ fn no_builtin_declares_a_writer_or_history_flag() {
     verify = "no builtin declares a feature flag, and none but @specforge/checks a setting: its family switches"
 )]
 fn the_builtins_declare_no_settings() {
-    let declarations = pinned_builtin_declarations().unwrap();
+    // The old set only: @gsd/core scopes, sets and pins by design (ADR 0373 D7, ADR 0370).
+    let declarations = old_set_declarations();
     for declaration in &declarations {
         assert!(
             declaration.feature_flags.is_empty(),

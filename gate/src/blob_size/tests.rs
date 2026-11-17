@@ -25,6 +25,28 @@ fn a_blob_at_the_cap_passes() {
 }
 
 #[test]
+fn the_allowance_holds_its_blob_and_no_other() {
+    let gsd = "gsd/core/wasm/gsd_core.wasm";
+    let allowance = cap_of(gsd);
+    assert!(allowance > CAP, "{gsd} has an allowance over the cap");
+    assert!(verdict(&sizes(&[(gsd, allowance)])).is_empty());
+    assert_eq!(
+        verdict(&sizes(&[(gsd, allowance + 1)])),
+        [format!(
+            "{gsd} is {} B, over its {allowance} B allowance (ADR 0366 D3)",
+            allowance + 1
+        )]
+    );
+    // Another blob of that size is over the cap: the allowance is the one path's.
+    assert_eq!(
+        verdict(&sizes(&[("extensions/b/wasm/b.wasm", allowance)])),
+        [format!(
+            "extensions/b/wasm/b.wasm is {allowance} B, over the {CAP} B cap"
+        )]
+    );
+}
+
+#[test]
 fn measure_reads_each_blob_and_leaves_out_a_file_that_is_gone() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("a.wasm"), [0u8; 3]).unwrap();

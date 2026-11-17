@@ -1,8 +1,9 @@
-//! Runs the `specforge` binary on a project that loads the built `@gsd/core`, and with [`Project::with_extension`]
-//! another `@gsd/*` beside it.
+//! Runs the `specforge` binary on a project that loads `@gsd/core` by name, the builtin the binary embeds (ADR 0366
+//! D5), and with [`Project::with_extension`] another `@gsd/*` beside it.
 //!
-//! `SPECFORGE_BIN` is the binary and `GSD_CORE_WASM` the component (`GSD_SECURITY_WASM` for `@gsd/security`); a
-//! missing one fails the test naming the command that builds it.
+//! `SPECFORGE_BIN` is the binary and `GSD_SECURITY_WASM` the `@gsd/security` component; a missing one fails the test
+//! naming the command that builds it. An edit to `gsd/core` reaches these tests once it is re-vendored and the binary
+//! rebuilt.
 
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
@@ -18,7 +19,7 @@ pub mod ab;
 pub mod answer_check;
 use answer_check::answers_listed;
 
-pub(crate) const HOW_TO_BUILD: &str = "build it: (cd <repo> && cargo build --profile test -p specforge-cli) and (cd gsd && cargo build -p gsd-core -p gsd-security --release --target wasm32-wasip2), then set SPECFORGE_BIN, GSD_CORE_WASM and GSD_SECURITY_WASM to the artifacts";
+pub(crate) const HOW_TO_BUILD: &str = "build it: (cd <repo> && cargo build --profile test -p specforge-cli) and (cd gsd && cargo build -p gsd-security --release --target wasm32-wasip2), then set SPECFORGE_BIN and GSD_SECURITY_WASM to the artifacts";
 
 fn required(var: &str) -> PathBuf {
     match std::env::var_os(var).map(|value| existing_file(var, &value)) {
@@ -42,7 +43,8 @@ pub fn compile_cache() -> std::ffi::OsString {
 }
 
 /// `value` as the file `var` names. It must be absolute: cargo runs the tests in `gsd/core`, and each test project
-/// resolves `@gsd/core=<path>` from its own temp directory, so a relative path means something else to each.
+/// resolves a component's `<name>=<path>` (`@gsd/security`'s) from its own temp directory, so a relative path means
+/// something else to each. `@gsd/core` is the binary's builtin and has no path.
 fn existing_file(var: &str, value: &std::ffi::OsStr) -> Result<PathBuf, String> {
     let path = Path::new(value);
     if !path.is_absolute() {
@@ -115,7 +117,7 @@ pub fn unjudged(report: &[(String, String)]) -> Vec<(String, String)> {
         .collect()
 }
 
-/// A copy of `tests/projects/<name>/` in a temp dir, with `@gsd/core` loaded from `GSD_CORE_WASM`.
+/// A copy of `tests/projects/<name>/` in a temp dir, loading `@gsd/core` by name: the builtin `SPECFORGE_BIN` embeds.
 pub struct Project {
     /// The temp dir, removed when the project drops.
     _dir: tempfile::TempDir,
@@ -233,7 +235,6 @@ fn from_dir(source: &Path) -> Project {
 
 /// [`from_dir`] with the project `inside` the temp dir (`.claude/worktrees/agent-x`: a subagent's worktree).
 fn from_dir_at(source: &Path, inside: &str) -> Project {
-    let wasm = required("GSD_CORE_WASM");
     let dir = tempfile::tempdir().expect("a temp dir");
     let root = dir.path().join(inside);
     std::fs::create_dir_all(&root).expect("the project's directory");
@@ -243,7 +244,7 @@ fn from_dir_at(source: &Path, inside: &str) -> Project {
         root,
         // `@specforge/checks` is a required peer of `@gsd/core`: its `files` fields are read by `@specforge/checks:file`.
         extensions: RefCell::new(vec![
-            ("@gsd/core".to_string(), Some(wasm)),
+            ("@gsd/core".to_string(), None),
             ("@specforge/checks".to_string(), None),
         ]),
     };
@@ -750,7 +751,7 @@ mod tests {
 
     #[test]
     fn a_relative_path_is_refused_whether_or_not_the_file_exists() {
-        let why = existing_file("GSD_CORE_WASM", "Cargo.toml".as_ref()).unwrap_err();
+        let why = existing_file("GSD_SECURITY_WASM", "Cargo.toml".as_ref()).unwrap_err();
         assert!(
             why.contains("relative path") && why.contains("absolute"),
             "{why}"

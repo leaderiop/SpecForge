@@ -3,27 +3,39 @@ use specforge_common::ExtensionEntry;
 #[cfg(feature = "testing")]
 use specforge_wasm::{LoadError, Provenance, WasmRuntime};
 
-/// One builtin extension: its package name, its crate under `extensions/`, the component
-/// `build-blobs` vendors into `<crate_dir>/wasm/`, and the vendored bytes this host embeds.
-/// Name and crate follow one rule: `extensions/<dir>` is `@specforge/<dir>`, and
-/// `extensions/<family>/<pack>` is `@<family>/<pack>` (ADR 0328 D3).
+/// One builtin extension: its package name, its crate, the component `build-blobs` vendors into
+/// `<crate_dir>/wasm/`, and the vendored bytes this host embeds. Name and crate follow one rule:
+/// `extensions/<dir>` is `@specforge/<dir>`, and `extensions/<family>/<pack>` is `@<family>/<pack>`
+/// (ADR 0328 D3). One crate lives outside `extensions/` and is named in its row: `@gsd/core` at
+/// `gsd/core`, in the gsd workspace (ADR 0366 D1).
 pub struct Builtin {
     pub name: &'static str,
-    /// Its crate, from the repository root: `extensions/<dir>` or `extensions/<family>/<pack>`.
+    /// Its crate, from the repository root: `extensions/<dir>`, `extensions/<family>/<pack>`, or
+    /// the path a named row gives (`gsd/core`).
     pub crate_dir: &'static str,
     pub artifact: &'static str,
     pub bytes: &'static [u8],
 }
 
+/// The rows by the naming rule, then after a `;` the rows that name their crate's path from the
+/// repository root (`"<name>" at "<path>" as "<artifact>"`, ADR 0366 D1).
 macro_rules! builtins {
-    ($($name:literal in $dir:literal as $artifact:literal),* $(,)?) => {
+    (
+        $($name:literal in $dir:literal as $artifact:literal),* $(,)?;
+        $($oname:literal at $opath:literal as $oartifact:literal),* $(,)?
+    ) => {
         /// Every builtin this host embeds, in the order `init` and the listings use.
         pub const BUILTINS: &[Builtin] = &[$(Builtin {
             name: $name,
             crate_dir: concat!("extensions/", $dir),
             artifact: $artifact,
             bytes: include_bytes!(concat!("../../../../extensions/", $dir, "/wasm/", $artifact)),
-        }),*];
+        },)* $(Builtin {
+            name: $oname,
+            crate_dir: $opath,
+            artifact: $oartifact,
+            bytes: include_bytes!(concat!("../../../../", $opath, "/wasm/", $oartifact)),
+        },)*];
     };
 }
 
@@ -41,7 +53,8 @@ builtins! {
     "@rust/cargo" in "rust/cargo" as "specforge_ext_rust_cargo.wasm",
     "@rust/source" in "rust/source" as "specforge_ext_rust_source.wasm",
     "@rust/test" in "rust/test" as "specforge_ext_rust_test.wasm",
-    "@javascript/source" in "javascript/source" as "specforge_ext_javascript_source.wasm",
+    "@javascript/source" in "javascript/source" as "specforge_ext_javascript_source.wasm";
+    "@gsd/core" at "gsd/core" as "gsd_core.wasm",
 }
 
 /// (name, bytes) of every builtin, read from [`BUILTINS`]: what the extension load reads
@@ -145,8 +158,7 @@ impl Family {
         }
     }
 
-    /// The builtins of the set this host embeds, in [`BUILTINS`] order. A name with no row yields
-    /// nothing: until `@gsd/core` is vendored, the gsd set's embedded builtins are the other seven.
+    /// The builtins of the set this host embeds, in [`BUILTINS`] order.
     pub fn builtins(self) -> impl Iterator<Item = &'static Builtin> {
         BUILTINS
             .iter()

@@ -359,14 +359,25 @@ constraint extension_system_integrity "Extension System Integrity" {
 }
 
 constraint wasm_compile_cache_budget "Wasm Compile Cache Budget" {
-  description "Wasm extensions must load from the compile cache in under 50ms, and first compilation must complete in under 500ms for typical components."
+  description "Wasm extensions must load from the compile cache in under 50ms, measured in process as the load of a compile-cache hit plus the handshake and describe calls that declare the extension, and first compilation must complete in under 500ms for typical components."
   category    performance
   priority    critical
   metric      """
     cached_extension_load < 50ms
     Each Wasm extension MUST load in under 50ms on a compile-cache hit.
+    cached_extension_load is read in process: the runtime's load of a
+    compile-cache hit plus the handshake and describe calls that declare
+    the extension, which is what the host pays for it (ADR 0373 D3).
     First compilation (cache cold) SHOULD complete in under 500ms for a
     typical component (<1MB .wasm).
+    Measured 2026-11-17 on the vendored @gsd/core (5,470,859 B, the
+    largest builtin): 32 to 33ms in process (median of 8 runs, three
+    times; the ignored test
+    gsd_core_loads_from_the_compile_cache_in_under_fifty_ms). The CLI
+    differential of a check loading it, 51ms wall and 47ms CPU (median
+    of 20), adds the host's registry build over its declaration and the
+    runtime's 10ms epoch-ticker join, so wall time moves in 10ms steps;
+    its cold compile is 285ms wall.
   """
   constrains  [load_wasm_module, compile_wasm_component_with_cache, reuse_session_runtime]
   protects    [extension_load_order_determinism]
@@ -422,7 +433,7 @@ constraint wasm_sandbox_enforcement "Wasm Sandbox Enforcement" {
 }
 
 constraint wasm_binary_size_limit "Wasm Binary Size Limit" {
-  description "Extension Wasm binaries should be under 5MB, with a warning diagnostic for binaries exceeding 10MB to ensure reasonable download and compilation times."
+  description "Extension Wasm binaries should be under 5MB, with a warning diagnostic for binaries exceeding 10MB to ensure reasonable download and compilation times. The one exception is the vendored builtin @gsd/core, held to its own allowance by the blob-size check."
   category    portability
   priority    high
   metric      """
@@ -430,6 +441,10 @@ constraint wasm_binary_size_limit "Wasm Binary Size Limit" {
     Each extension .wasm binary SHOULD be under 5MB. Binaries exceeding 10MB
     MUST produce a warning diagnostic at install time. This ensures
     reasonable download times and first-compilation latency.
+    One exception: the vendored builtin @gsd/core (5,470,859 B, about
+    half of it its prompt and agent assets) is held to its own
+    allowance, 5,500,000 B, which the blob-size check enforces
+    (gate/src/blob_size.rs, ADR 0366 D3).
   """
   constrains  [install_wasm_extension, build_wasm_extension, compile_wasm_component_with_cache]
   protects    [extension_load_order_determinism]

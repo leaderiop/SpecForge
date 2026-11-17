@@ -7,7 +7,7 @@ use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
-use super::{Project, Run, required};
+use super::{Project, Run};
 
 /// The repository's `evaluation/gsd-ab/`.
 pub fn ab_dir() -> PathBuf {
@@ -130,22 +130,13 @@ pub fn ab_task<'a>(tasks: &'a serde_json::Value, id: &str) -> &'a serde_json::Va
 }
 
 /// Arm `arm`'s copy of `task`'s fixture, made by `seed.py seed --worktree` (the working tree, so a change under test
-/// is seen before it is committed) with `flags` (`--state complete`, `--unseeded`) and the components from the
-/// environment; `Err` holds what `seed.py` said when it refused.
+/// is seen before it is committed) with `flags` (`--state complete`, `--unseeded`), `@gsd/core` by name (the builtin
+/// `SPECFORGE_BIN` embeds) and `@gsd/security`'s component from the environment; `Err` holds what `seed.py` said when
+/// it refused.
 pub fn seeded(task: &str, arm: &str, flags: &[&str]) -> Result<Project, String> {
     let dir = tempfile::tempdir().expect("a temp dir");
     let root = dir.path().join("copy");
-    let core = required("GSD_CORE_WASM").display().to_string();
-    let mut args = vec![
-        "seed",
-        "--worktree",
-        "--task",
-        task,
-        "--arm",
-        arm,
-        "--gsd-core",
-        &core,
-    ];
+    let mut args = vec!["seed", "--worktree", "--task", task, "--arm", arm];
     let security = std::env::var("GSD_SECURITY_WASM").unwrap_or_default();
     if !security.is_empty() {
         args.extend(["--gsd-security", &security]);

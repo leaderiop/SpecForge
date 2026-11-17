@@ -30,22 +30,24 @@ The corpus is `gsd-ab-v3` ([README.md](README.md) status): a v2 run file does no
    npm 10 or later (gsd-core 1.19.0's `engines`; the Node fixtures' tests), the stable Rust toolchain
    (`rust-toolchain.toml`) with `cargo-nextest` (the ledger's tests). Write `node --version`, `rustc --version` and
    `cargo nextest --version` into `host.machine` after the OS, CPU and memory: the baselines below hold for them.
-3. Build, from a clean checkout of the tag, the `specforge` binary and the components arms B and B0 load, with the
-   commands the tests use:
+3. Build, from a clean checkout of the tag, the `specforge` binary and the component arms B and B0 load, with the
+   commands the tests use (`@gsd/core` is a builtin the binary embeds, loaded by name; only `@gsd/security` is built):
    - at the repository root, `cargo build --profile test -p specforge-cli`: `specforge` in the target directory's
      `debug/`;
-   - in `gsd/`, `cargo build -p gsd-core -p gsd-security --release --target wasm32-wasip2`: `gsd_core.wasm` and
-     `gsd_security.wasm` in its `wasm32-wasip2/release/`.
-4. Preflight, arm B: `python3 -I evaluation/gsd-ab/seed.py preflight --specforge <specforge> --gsd-core
-   <gsd_core.wasm> --gsd-security <gsd_security.wasm>`. Per fixture it makes an unseeded B copy, runs a real
+   - in `gsd/`, `cargo build -p gsd-security --release --target wasm32-wasip2`: `gsd_security.wasm` in its
+     `wasm32-wasip2/release/`.
+4. Preflight, arm B: `python3 -I evaluation/gsd-ab/seed.py preflight --specforge <specforge> --gsd-security
+   <gsd_security.wasm>`. Per fixture it makes an unseeded B copy, runs a real
    `specforge collect --yes` (the fixture's tests run) and `specforge check --format json`, and compares the
    diagnostics with the fixture's `baseline` in `tasks.json`. A difference (another build, another node or cargo)
    is printed and the study does not start until it is explained; it is never recorded over.
 5. Preflight, arm A: in an unseeded A copy of each fixture, with gsd-core 1.19.0 installed as in "One run", its own
    health check, `gsd-tools validate health` (the `/gsd-health` command), reports the project healthy. Arm A has no
    recorded baseline: its state is the Markdown the fixture holds, which the B baseline's fixture tree pins.
-6. Arm Bv1: build its `specforge` and components the same two ways from a clean checkout of the tag `gsd-ab-v1`, and
-   run its preflight with them: `python3 -I evaluation/gsd-ab/seed.py preflight --arm Bv1 --specforge <its specforge>
+6. Arm Bv1: build its `specforge` the same way from a clean checkout of the tag `gsd-ab-v1`, and its components in
+   `gsd/` with `cargo build -p gsd-core -p gsd-security --release --target wasm32-wasip2` (that binary predates the
+   `@gsd/core` builtin, so its copies load `gsd_core.wasm` by path through `--gsd-core`), and run its preflight with
+   them: `python3 -I evaluation/gsd-ab/seed.py preflight --arm Bv1 --specforge <its specforge>
    --gsd-core <its gsd_core.wasm> --gsd-security <its gsd_security.wasm>`. It copies the tag's fixture trees and
    compares with the baselines of the tag's own `tasks.json`.
 7. Print the run order: `python3 -I evaluation/gsd-ab/seed.py schedule`. Each line is a task, a seed and its arms in
@@ -55,10 +57,10 @@ The corpus is `gsd-ab-v3` ([README.md](README.md) status): a v2 run file does no
 
 For each `(task, seed, arm)` in the schedule's order:
 
-1. **The copy.** `python3 -I evaluation/gsd-ab/seed.py seed --task <task> --arm <arm> --out <copy> --gsd-core
-   <gsd_core.wasm> --gsd-security <gsd_security.wasm>`, `<copy>` outside this repository, from a clean checkout of the
-   tag (it refuses uncommitted changes). It is a git repository whose commits hold the seeds; its HEAD is the same for
-   every seed number of one (task, arm). Keep the `commit` it prints for the run file's `protocol`.
+1. **The copy.** `python3 -I evaluation/gsd-ab/seed.py seed --task <task> --arm <arm> --out <copy> --gsd-security
+   <gsd_security.wasm>` (arm Bv1 adds `--gsd-core <its gsd_core.wasm>`), `<copy>` outside this repository, from a
+   clean checkout of the tag (it refuses uncommitted changes). It is a git repository whose commits hold the seeds;
+   its HEAD is the same for every seed number of one (task, arm). Keep the `commit` it prints for the run file's `protocol`.
 2. **The arm's tools, in the copy only.** Arm A: gsd-core 1.19.0's own installer, local to the copy
    (`npx @opengsd/gsd-core@1.19.0 --claude --local`, or the flag of the agent the host names). Arms B and B0:
    `specforge install claude-code` (or the host's name) from the tagged commit, then `specforge collect --yes`. Arm

@@ -1,0 +1,23 @@
+{
+  "protocol_version": "2.2.0",
+  "name": "@gsd/core",
+  "version": "1.1.0",
+  "peer_dependencies": [
+    {
+      "name": "@code/core",
+      "version": "^1.0",
+      "optional": true
+    },
+    {
+      "name": "@specforge/checks",
+      "version": "^1.0",
+      "optional": false
+    }
+  ],
+  "sandbox_policy": null,
+  "ext_short": "gsd",
+  "description": "GSD in SpecForge: project, roadmap, plans, execution, verification and their checks",
+  "keywords": [
+    "tracks:gsd-core@1.19.0"
+  ]
+}

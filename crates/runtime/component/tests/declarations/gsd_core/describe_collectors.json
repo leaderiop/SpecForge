@@ -1,0 +1,24 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [],
+        "repository": true
+      },
+      "export": "collect__gsd_git",
+      "input_formats": [],
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "item"
+          ]
+        }
+      ],
+      "name": "gsd-git",
+      "writes": true
+    }
+  ]
+}
