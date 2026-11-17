@@ -88,8 +88,6 @@ const PHASE_STATUS: &[&str] = &[
     "complete",
     "deferred",
 ];
-/// The statuses in which a phase is complete (its `complete_when`): executed is enough, verification is not awaited.
-pub const PHASE_COMPLETE: &[&str] = &["executed", "needs_review", "complete"];
 
 /// `### Phase N: Name`, named `03`, `03.1` (inserted) or `999.1` (backlog), scoped by its milestone.
 pub const PHASE: Kind = Kind::new(
@@ -107,7 +105,8 @@ pub const PHASE: Kind = Kind::new(
         rfs("requirements", "requirement")
             .inverse("phase")
             .doc("Requirements; the requirement reads its phase back as `phase`"),
-        strs("success_criteria").prose()
+        strs("success_criteria")
+            .prose()
             .r()
             .doc("Success Criteria (2 to 5, gsd/W103)"),
         en("mode", MODES).doc("Mode (/gsd-mvp-phase)"),
@@ -125,18 +124,10 @@ pub const PHASE: Kind = Kind::new(
             .c()
             .doc("Progress: Plans Complete, N/M"),
         date("completed").c().doc("Progress: Completed"),
-        // Its own relation beside `invariant.holds_from`, so it names its reverse (W162 otherwise, ADR 0354).
-        rfs("invariants_due", "invariant")
-            .c()
-            .inverse("due_in")
-            .doc(
-                "the invariants a commit of the phase changed after their last gsd/I536 verdict (gsd/E531); each \
-                 reads it back as `due_in` (beyond GSD)",
-            ),
     ],
 )
 .scoped_by("milestone")
-.complete_when("status", PHASE_COMPLETE);
+.complete_when("status", &["executed", "needs_review", "complete"]);
 
 const WORKSTREAM_STATUS: &[&str] = &["active", "complete"];
 

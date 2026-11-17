@@ -106,18 +106,6 @@ fn phases<'a>(
         .collect()
 }
 
-/// Each phase's status on the ladder, by id: what `values` answers as `phase.status`, for a reader in the same pass.
-pub fn phase_statuses(
-    input: &PassInput,
-    verified: &BTreeMap<String, Verified>,
-) -> BTreeMap<String, &'static str> {
-    let summarised: BTreeSet<&str> = summaries(input).keys().copied().collect();
-    phases(input, &summarised, verified)
-        .into_iter()
-        .map(|phase| (phase.id.to_string(), phase.status))
-        .collect()
-}
-
 /// Whole seconds of a `ts` or a `date` (`YYYY-MM-DD`).
 fn instant(text: &str) -> Option<i64> {
     seconds(text).or_else(|| seconds(&format!("{text}T00:00:00Z")))

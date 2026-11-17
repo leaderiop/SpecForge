@@ -100,11 +100,7 @@ fn the_text_has_the_preamble_the_header_and_the_tail() {
 fn the_preamble_says_whose_the_workflow_text_is() {
     let ported = "The workflow text below is GSD's own.";
     let ours = "The workflow text below is `@gsd/core`'s own, not a port of GSD's.";
-    for (command, own) in [
-        ("plan-phase", false),
-        ("update", true),
-        ("verify-invariant", true),
-    ] {
+    for (command, own) in [("plan-phase", false), ("update", true)] {
         let out = render(&Input {
             command,
             ..input("claude-code", "")

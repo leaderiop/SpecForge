@@ -97,15 +97,6 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
-        "label": "PhaseInvariantsDue",
-        "source_kind": "phase",
-        "target_kind": "invariant"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
         "label": "RetrospectiveMilestone",
         "source_kind": "retrospective",
         "target_kind": "milestone"
@@ -1135,33 +1126,6 @@
         "label": "RefactorProposalPhase",
         "source_kind": "refactor_proposal",
         "target_kind": "phase"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "InvariantHoldsFrom",
-        "source_kind": "invariant",
-        "target_kind": "phase"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "InvariantProof",
-        "source_kind": "invariant",
-        "target_kind": "test"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "InvariantItems",
-        "source_kind": "invariant",
-        "target_kind": "item"
       }
     ]
   },
@@ -2227,17 +2191,6 @@
             "name": "completed",
             "required": false,
             "target_kind": null,
-            "writer": "computed"
-          },
-          {
-            "default_value": null,
-            "description": "the invariants a commit of the phase changed after their last gsd/I536 verdict (gsd/E531); each reads it back as `due_in` (beyond GSD)",
-            "edge": "PhaseInvariantsDue",
-            "field_type": "reference_list",
-            "inverse_of": "due_in",
-            "name": "invariants_due",
-            "required": false,
-            "target_kind": "invariant",
             "writer": "computed"
           }
         ],
@@ -10339,166 +10292,6 @@
         "name": "refactor_proposal",
         "open_fields": false,
         "scoped_by": "phase",
-        "semantic_token": null,
-        "singleton": false,
-        "supports_verify": false,
-        "testable": false,
-        "verify_kinds": []
-      },
-      {
-        "complete_when": {
-          "field": "status",
-          "values": [
-            "unverified",
-            "stale",
-            "holds",
-            "violated",
-            "uncertain"
-          ]
-        },
-        "description": "An invariant: what must always hold, from which phase, proven by which tests, over which code items (beyond GSD)",
-        "dot_color": null,
-        "dot_fillcolor": null,
-        "dot_shape": null,
-        "fields": [
-          {
-            "default_value": null,
-            "description": "what must always hold",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "statement",
-            "required": true,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "a summary beside the statement",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "description",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "how far it reaches: the project (absent), or the milestone of its `holds_from` phase",
-            "edge": null,
-            "enum_values": [
-              "project",
-              "milestone"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "scope",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "in force once this phase has been complete (executed or after) or verified, and for good; absent: from the start",
-            "edge": "InvariantHoldsFrom",
-            "field_type": "reference",
-            "inverse_of": null,
-            "name": "holds_from",
-            "required": false,
-            "target_kind": "phase"
-          },
-          {
-            "default_value": null,
-            "description": "the tests that prove it: `@code/core` test facts, quoted (`\"js:pkg/a.test.js#adds\"`)",
-            "edge": "InvariantProof",
-            "field_type": "reference_list",
-            "inverse_of": null,
-            "name": "proof",
-            "required": false,
-            "target_kind": "test"
-          },
-          {
-            "default_value": null,
-            "description": "the code items it holds over: `@code/core` item facts, quoted (`\"js:pkg/src/a.js::add\"`)",
-            "edge": "InvariantItems",
-            "field_type": "reference_list",
-            "inverse_of": null,
-            "name": "items",
-            "required": false,
-            "target_kind": "item"
-          },
-          {
-            "default_value": null,
-            "description": "what a violation costs",
-            "edge": null,
-            "enum_values": [
-              "critical",
-              "high",
-              "medium",
-              "low"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "criticality",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "words to group it",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "tags",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "external references: issue or document URIs",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "refs",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "pending until its holds_from phase has been complete or verified; then unverified (no usable verdict), stale, or the fresh verdict's outcome",
-            "edge": null,
-            "enum_values": [
-              "pending",
-              "unverified",
-              "stale",
-              "holds",
-              "violated",
-              "uncertain"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "status",
-            "required": false,
-            "target_kind": null,
-            "writer": "computed"
-          },
-          {
-            "default_value": null,
-            "description": "the time of the fresh verdict that it holds; absent otherwise",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "last_verified",
-            "required": false,
-            "target_kind": null,
-            "writer": "computed"
-          }
-        ],
-        "has_body_parser": false,
-        "incremental": null,
-        "inference_guide": null,
-        "keyword": null,
-        "lsp_icon": null,
-        "name": "invariant",
-        "open_fields": false,
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,

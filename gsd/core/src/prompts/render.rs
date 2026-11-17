@@ -1,6 +1,6 @@
 //! The render pipeline (D-r42-6) lives in `gsd_kit::prompt::render`; this is @gsd/core's call of it: its assets, its
 //! re-pointing and its own texts, [`OWN`]: `update` (ours, not a port: D-r43-16, upstream's workflow installs upstream
-//! GSD over this one) and `verify-invariant` (GSD has no invariant).
+//! GSD over this one).
 
 use gsd_kit::prompt::args::Values;
 use gsd_kit::prompt::render as kit;
@@ -43,10 +43,7 @@ impl<'a> Input<'a> {
 }
 
 /// The commands whose text is ours, rendered in place of a ported command body: no upstream file is read for them.
-const OWN: &[(&str, &str)] = &[
-    ("update", super::update::TEXT),
-    ("verify-invariant", super::invariant::TEXT),
-];
+const OWN: &[(&str, &str)] = &[("update", super::update::TEXT)];
 
 /// Our own text of `command`, when it has one rather than a ported upstream file.
 pub fn own(command: &str) -> Option<&'static str> {

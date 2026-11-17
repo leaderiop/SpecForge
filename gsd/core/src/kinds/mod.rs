@@ -6,7 +6,6 @@ mod audit;
 mod commit;
 mod discuss;
 mod execute;
-mod governance;
 mod learning;
 mod must_haves;
 mod plan;
@@ -20,10 +19,8 @@ mod validation;
 mod verify;
 mod windows;
 
-pub use governance::INVARIANT_IN_FORCE;
 use gsd_kit::dsl::{self, Kind};
 pub use project::PROOF_STATES;
-pub use roadmap::PHASE_COMPLETE;
 use specforge_extension_sdk::prelude::*;
 
 /// An option weighed: a checkpoint's options (GSD `<options>`).
@@ -96,7 +93,6 @@ pub(crate) const KINDS: &[&Kind] = &[
     &audit::MILESTONE_AUDIT,
     &windows::BROKEN_WINDOW,
     &windows::REFACTOR_PROPOSAL,
-    &governance::INVARIANT,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

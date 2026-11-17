@@ -47,8 +47,6 @@ fn help_lists_the_slash_commands_and_the_prompt() {
         .collect();
     // A prompt with a slash command is listed under it, not twice.
     assert!(!prompts.contains(&"spec_phase"), "{prompts:?}");
-    // A prompt with no slash command is listed as a prompt.
-    assert!(prompts.contains(&"verify_invariant"), "{prompts:?}");
     let commands = found["commands"].as_array().expect("a list");
     assert!(
         commands

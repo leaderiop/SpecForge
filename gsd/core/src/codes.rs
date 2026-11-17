@@ -43,20 +43,9 @@ pub struct Code {
     pub severity: Severity,
     /// The severity under `gsd-strict` and `gsd-plus`; never below `severity`.
     pub strict: Severity,
-    /// Its findings speak only once their entity's owner is complete (`CodeBuilder::once_complete`, ADR 0363): the
-    /// host drops one on a pending entity, and the write that completes the owner reveals it rather than adding it.
-    pub once_complete: bool,
 }
 
 impl Code {
-    /// This code, its findings speaking only once their entity's owner is complete.
-    const fn once_complete(self) -> Code {
-        Code {
-            once_complete: true,
-            ..self
-        }
-    }
-
     fn explanation(&self) -> String {
         let raised = if self.strict == self.severity {
             String::new()
@@ -90,7 +79,6 @@ const fn code(
         section,
         severity,
         strict,
-        once_complete: false,
     }
 }
 
@@ -656,16 +644,6 @@ pub static CODES: &[Code] = &[
         Severity::Warning,
         Severity::Warning,
     ),
-    // An invariant owes a judgement only in force: the write that brings it into force reveals its E531.
-    code(
-        "E531",
-        "Invariant changed since it was last judged",
-        "A phase that changes code an invariant guards has the invariant judged again",
-        "governance",
-        Severity::Error,
-        Severity::Error,
-    )
-    .once_complete(),
     code(
         "E537",
         "Milestone targets a day before it starts",
@@ -673,14 +651,6 @@ pub static CODES: &[Code] = &[
         "project-and-roadmap",
         Severity::Error,
         Severity::Error,
-    ),
-    code(
-        "I536",
-        "Invariant without a fresh holds verdict",
-        "An invariant holds while a fresh verdict of the verify_invariant prompt says so",
-        "governance",
-        Severity::Info,
-        Severity::Info,
     ),
 ];
 
@@ -690,9 +660,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
             d.title(k.title)
                 .explanation(&k.explanation())
                 .docs(&k.docs());
-            if k.once_complete {
-                d.once_complete();
-            }
         });
     }
 }

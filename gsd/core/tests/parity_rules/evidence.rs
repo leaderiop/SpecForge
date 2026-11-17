@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 73] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 71] = [
     (
         "E101",
         Evidence::Tests {
@@ -501,24 +501,10 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 73] = [
         },
     ),
     (
-        "E531",
-        Evidence::Tests {
-            fires: "a_change_after_the_last_judgement_makes_the_invariant_due",
-            silent: "a_change_judged_since_makes_nothing_due",
-        },
-    ),
-    (
         "E537",
         Evidence::Tests {
             fires: "a_milestone_targeting_before_it_starts_is_e537",
             silent: "a_milestone_targeting_on_or_after_its_start_is_not_e537",
-        },
-    ),
-    (
-        "I536",
-        Evidence::Tests {
-            fires: "an_invariant_without_a_fresh_holds_verdict_is_i536",
-            silent: "a_passing_verdict_silences_each_judged_code",
         },
     ),
 ];

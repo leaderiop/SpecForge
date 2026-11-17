@@ -9,9 +9,8 @@
 //! gap's resolution, `audit` a validation's coverage, a milestone audit and the windows and proposals, and `ladder` the
 //! phase's `complete` and `needs_review`, `completed`, a requirement's `gaps_found` and `project.windows_*`. `estimate`
 //! answers a plan's slices under the smart-zone budget. `review` answers a review concern's status, a round's open
-//! counts and a revision conflict's status, `batch` a quick batch's status and eligible items, `learning` a
-//! lesson's status, and `invariant` an invariant's status and last_verified (from each phase's status on the ladder
-//! and its verification).
+//! counts and a revision conflict's status, `batch` a quick batch's status and eligible items, and `learning` a
+//! lesson's status.
 //!
 //! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection) and `retrospective.sessions` (no harness).
 
@@ -21,7 +20,6 @@ mod branch;
 mod estimate;
 mod execute;
 mod halt;
-pub mod invariant;
 pub mod ladder;
 mod learning;
 mod progress;
@@ -62,9 +60,6 @@ fn derive(input: &PassInput) -> PassOutput {
     values.extend(verify::values(input, &statuses));
     let verified = verify::by_phase(input);
     values.extend(progress::values(input, &commits, &statuses, &verified));
-    let phases = progress::phase_statuses(input, &verified);
-    let invariants = invariant::statuses(input, &phases, &verified);
-    values.extend(invariant::values(input, &invariants));
     values.extend(uat::values(input, &statuses));
     values.extend(learning::values(input, &verified));
     values.extend(batch::values(input, &statuses));

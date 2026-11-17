@@ -44,7 +44,7 @@ its E531 reported once written.
 
 ## Decisions
 
-- **D1. The kind `risk`, in `@gsd/core`** ([spec/governance.md](../../gsd/core/spec/governance.md)), beyond parity and
+- **D1. The kind `risk`, in `@gsd/core`** (`gsd/core/spec/governance.md`, since removed), beyond parity and
   unscoped: a risk outlives a phase, and moving it to another milestone does not rename it. Its writers are the planner
   and the executor, whose tasks and truths control it, so it is a core kind.
   - Authored: `cause` and `effect` (required); `severity`, `occurrence` and `detection` (required, each an int from 1
@@ -114,7 +114,7 @@ its E531 reported once written.
   - `threatens_features` and `affected_behaviors` → `affects`, through the requirement each converts to.
   - The old `risk` string is computed now (`rpn`, `status`).
 
-- **D9. The kind `invariant`, in `@gsd/core`** ([spec/governance.md](../../gsd/core/spec/governance.md#invariant)),
+- **D9. The kind `invariant`, in `@gsd/core`** (`gsd/core/spec/governance.md`, removed with it),
   beyond parity and unscoped: an invariant outlives the phase it starts at, and its name is a word unique in the
   project (`entity_id_uniqueness`), as the old ids are.
   - Authored: `statement` (required), `description`, `scope` (project, milestone), `holds_from` (→ phase), `proof`

@@ -117,15 +117,6 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/E521 | a task commit names its task by its `Gsd-Task:` trailer (ADR 0351, amending ADR 0331 D3): one error per recorded commit, on the commit, when the gsd-git collector found its task by the subject's title (`linked_by title`), or when it names no task and its type is one of the executor's task types other than `docs` (`feat`, `fix`, `test`, `refactor`, `perf`, `style`, `chore`). A `docs` commit (a plan's metadata commit) and a commit with no type are not judged. The setting `specforge.task_trailers` (on in gsd-plus) gates it; a collector's plan is never refused for it (ADR 0303) | pass | — | E (plus) | (new: gsd-plus) |
 | gsd/W522 | a code item a task or a commit names is anchored by a plan that reaches a requirement (ADR 0352 D7): for each item a `task.items` (its plan the task's) or a `commit.items_changed` (the commit's plan) names, the anchors in a quick plan dropped, when some remain and none of their plans reaches a requirement (a `requirements` entry that resolves to one, or a truth of the plan whose `requirement` resolves to one), one warning on the first anchoring task by id (else commit), naming the item and the plans. The item need not be held. On under every profile | pass | W | W | (new: the items a task names) |
 
-## Governance
-
-Invariants: what must hold, and whether it does ([governance.md](governance.md)).
-
-| Code | Rule | Kind | compat | strict | GSD source |
-|---|---|---|---|---|---|
-| gsd/E531 | a phase that changes code an invariant guards has the invariant judged again ([ADR 0358](../../../docs/adr/0358-a-risk-is-rated-and-an-invariant-is-judged.md#e531-is-a-pass-over-the-verdict)): for each invariant in force with a recorded gsd/I536 verdict, a commit of a phase in its window (`holds_from` and later, by number in its milestone, else by time; one milestone under `scope milestone`) whose `items_changed` names an item it guards (its `items`, the items its proof's tests and the tests naming it run as, the items naming it), or, with `items_changed` unwritten, touches a file one of them is in, authored after that verdict (to the second it records; a verdict recorded with a day covers that whole day, and one whose `at` was edited by hand is unrecorded, E083, and covers nothing); one error per invariant and phase, on the invariant, the suggestion naming each commit and item. A quick plan's commit is not judged, and a pending or never-judged invariant owes nothing. Reported by the `invariants` compute pass, which answers `phase.invariants_due` from the same rows ([governance.md](governance.md#when-an-invariant-is-due)). On under every profile | pass | E | E | (new: the invariant thread) |
-| gsd/I536 | an invariant has a fresh verdict that it holds: one information on each invariant without one, judged by the prompt `verify_invariant` over the invariant and its tests ([Judged rules' inputs](#judged-rules-inputs)). A fresh `violated` or `uncertain` stays information and shows in the invariant's `status`. A pending invariant owes no verdict: the rule waits for it to be in force ([ADR 0362](../../../docs/adr/0362-a-judged-target-may-wait-for-its-owner-state.md)). Information under every profile | judged (prompt `verify_invariant`) | I | I | (new: GSD has no invariant, [ADR 0358](../../../docs/adr/0358-a-risk-is-rated-and-an-invariant-is-judged.md)) |
-
 ## Retired and kernel-provided
 
 - `gsd/E508` (what a verdict cites exists when it is recorded) is retired: the host already refuses it. `set_verdict`
@@ -144,7 +135,7 @@ Invariants: what must hold, and whether it does ([governance.md](governance.md))
   `gsd/E515` is built as a guard over the requirement's `proof`. `gsd/W403` reads the recorded commits.
 - Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` (r36), `gsd/W305` and `gsd/W306` (r37) are built;
   `gsd/E517` is built (r41) and reads the items in `values`.
-- A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is built (r40): `prompt:spec_phase`, a short judging prompt that names the two rules and how to record; r42 ports GSD's spec-phase workflow into the same id. `gsd/I536`'s judge, `prompt:verify_invariant`, is a text of ours: GSD has no invariant.
+- A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is built (r40): `prompt:spec_phase`, a short judging prompt that names the two rules and how to record; r42 ports GSD's spec-phase workflow into the same id.
 
 - **Kernel behaviour the rules rely on.** The host's E080 no longer counts a judged rule's finding as an error a write adds (K17, ADR 0297), and pairs an extension's finding by its subject (ADR 0302); a collector's plan is judged for host errors only (ADR 0303). The human-only guarantee holds for every existing entity of a human-only kind and against deleting a person's value (K17, ADR 0298): an agent cannot change an `override` or delete a `milestone_audit` that carries a `debt_accepted`.
 
@@ -191,7 +182,6 @@ is neither fresh nor stale.
 | gsd/W203 | locked_req | `req` self · `traces` self.traces | — |
 | gsd/W205 | package_audit | `audit` self | `legitimacy` (its outcome: legitimate \| suspicious \| unknown, passing legitimate) |
 | gsd/E518 | milestone_audit | `audit` self · `phases` self.milestone<phase.milestone · `verifications` self.milestone<phase.milestone<verification.phase · `requirements` self.milestone<phase.milestone.requirements | `integration` (its outcome: passed \| issues, passing passed) |
-| gsd/I536 | invariant | `invariant` self · `tests` test(self.proof, self<test.names) (its proof's results and the tests whose name tags it, as a truth's); no input reads its `items` or a `file()`: an item selects nothing on a clone without a fact store, and the judge cites each source file it read; judged once in force (`judged_while complete`: its `complete_when` holds on every status but `pending`), so a pending invariant owes no verdict | — (the derive pass reads the verdict into `status` and `last_verified`) |
 
 gsd/E501 reads the files a truth's plan (`files_modified`), an artifact (`path`) and a key link (`from`, `to`) name (ADR 0304: a `file()` input may end at a string or string-list field; a missing file digests `absent`), so a code edit stales the verdict, and `covered_files` lists them. The plan checks read no file: they judge the plan before its files exist, and a code edit must not stale an in-flight check.
 
@@ -228,7 +218,7 @@ no agent; they bound the context a research, a spec or a validation is written a
 These are computed fields, not checks; they are listed so the parity suite can compare them with GSD's own values:
 phase status (`complete` once its verification is `passed`), plan wave, `autonomous`, plan and task status (blocked by halt propagation), a summary's duration, actuals and key files, a deliverable check's status, requirement status, milestone state,
 verification status, score and re-verification, UAT totals and status, validation status, audit status, broken-window status and the
-project's window counts, refactor proposal status, a review concern's status, a review round's open counts, a revision conflict's status, a quick batch's status and eligible items, a UAT session's follow-up count, a lesson's status, an invariant's status and last verdict, `STATE.md` progress.
+project's window counts, refactor proposal status, a review concern's status, a review round's open counts, a revision conflict's status, a quick batch's status and eligible items, a UAT session's follow-up count, a lesson's status, `STATE.md` progress.
 
 ## Elsewhere
 

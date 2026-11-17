@@ -155,7 +155,7 @@ fn handle(spec: &'static Spec, call: &PromptCall<'_>) -> Result<PromptOutput, St
             ids = format!("`${var}` is `{id}`; {ids}");
         }
     }
-    // a router (`ns_*`) and a text of our own (`update`, `verify_invariant`) have no shell block to bind the ids in
+    // a router (`ns_*`) and a text of our own (`update`) have no shell block to bind the ids in
     if !spec.id.starts_with("ns_") && render::own(spec.command).is_none() {
         tail = format!("\n\nIn the shell blocks above, {ids}{tail}");
     }

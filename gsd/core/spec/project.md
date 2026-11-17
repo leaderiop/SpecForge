@@ -112,7 +112,6 @@ Scoped by milestone.
 | status | enum{not_started, planned, in_progress, executed, needs_review, complete, deferred} | C | the GSD phase-status ladder (`phase-status.cts:160-196`): no plan is `not_started`, no summary `planned`, fewer summaries than plans `in_progress`, `needs_review` when the verification is `human_needed`, `complete` when it passed (`phase-status.cts:174-197`; UAT does not feed it), else `executed`. `passed` needs r40's verdicts; `deferred` is never derived. The phase is complete (ADR 0350 owner state) once `executed`, `needs_review` or `complete`: its scoped kinds' planned paths are checked from then on |
 | plans_complete | str `N/M` | C | Progress `Plans Complete`: plans with a summary over plans |
 | completed | date | C | Progress `Completed` |
-| invariants_due | →* invariant | C | the invariants a commit of the phase changed after their last gsd/I536 verdict ([governance.md](governance.md#when-an-invariant-is-due)); absent with none; inverse `due_in` (beyond GSD) |
 
 ## workstream
 

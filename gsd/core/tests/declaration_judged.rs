@@ -41,38 +41,3 @@ fn the_truth_verdict_reads_its_tags_and_its_proof() {
         .expect("a tests input");
     assert_eq!(tests["selector"], "test(self.proof, self<test.names)");
 }
-
-/// I536 is judged by the `verify_invariant` prompt over the invariant and its tests, read as a truth's are (its
-/// proof's results and the tests whose name tags it); no input reads its items or a file.
-#[test]
-fn the_invariant_verdict_reads_its_statement_and_tests() {
-    assert_inputs_match_rules_md("I536");
-    let judged = judged_descriptor("I536").expect("judged");
-    assert_eq!(judged["judge"], "prompt:verify_invariant");
-    assert_eq!(
-        judged["outcomes"],
-        serde_json::json!(["holds", "violated", "uncertain"])
-    );
-    assert_eq!(judged["passing"], serde_json::json!(["holds"]));
-    let targets = judged["targets"].as_array().expect("targets");
-    assert_eq!(targets.len(), 1, "{targets:?}");
-    assert_eq!(targets[0]["kind"], "invariant");
-    let inputs: Vec<(&str, &str)> = targets[0]["inputs"]
-        .as_array()
-        .expect("inputs")
-        .iter()
-        .map(|i| {
-            (
-                i["name"].as_str().expect("a name"),
-                i["selector"].as_str().expect("a selector"),
-            )
-        })
-        .collect();
-    assert_eq!(
-        inputs,
-        [
-            ("invariant", "self"),
-            ("tests", "test(self.proof, self<test.names)")
-        ]
-    );
-}

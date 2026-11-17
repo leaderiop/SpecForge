@@ -294,9 +294,8 @@ fn a_named_test_and_a_proof_both_link_a_truth() {
 }
 
 /// The passes whose handler reads the thread: `grep -rn 'Thread::of' gsd/core/src/passes` keeps this list whole, with
-/// the callers of `requirement_proof` (the derive pass), which reads it inside. A pass may name other facts beside the
-/// tests (`invariants` reads the item facts too).
-const READ_THE_THREAD: [&str; 4] = ["derive", "invariants", "scan", "verify_rules"];
+/// the callers of `requirement_proof` (the derive pass), which reads it inside.
+const READ_THE_THREAD: [&str; 3] = ["derive", "scan", "verify_rules"];
 
 #[test]
 fn every_pass_that_reads_the_thread_declares_test_facts() {
@@ -314,7 +313,7 @@ fn every_pass_that_reads_the_thread_declares_test_facts() {
     for pass in &declaration.passes {
         match facts(&pass.inputs).as_slice() {
             [] => {}
-            kinds if kinds.iter().any(|k| k == TEST) => reading.push(&pass.name),
+            [only] if only == TEST => reading.push(&pass.name),
             other => panic!("pass '{}' declares the facts {other:?}", pass.name),
         }
     }

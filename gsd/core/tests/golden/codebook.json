@@ -422,23 +422,10 @@
       "title": "Stale executor pack"
     },
     {
-      "code": "E531",
-      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#governance",
-      "explanation": "A phase that changes code an invariant guards has the invariant judged again. It is an error.",
-      "reported_while": "complete",
-      "title": "Invariant changed since it was last judged"
-    },
-    {
       "code": "E537",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
       "explanation": "A milestone's targets day is on or after its starts day. It is an error.",
       "title": "Milestone targets a day before it starts"
-    },
-    {
-      "code": "I536",
-      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#governance",
-      "explanation": "An invariant holds while a fresh verdict of the verify_invariant prompt says so. It is information.",
-      "title": "Invariant without a fresh holds verdict"
     }
   ]
 }
