@@ -29,7 +29,7 @@ D1 (open words). No kernel, SDK or protocol change. Extends
 
 ## Decisions
 
-- **D1. `@gsd/core` declares `persona`, `journey` and `term`** ([spec/product.md](../../gsd/core/spec/product.md)).
+- **D1. `@gsd/core` declares `persona`, `journey` and `term`** (`gsd/core/spec/product.md`, removed with them).
   GSD keeps no such file, so they are beyond parity: no GSD file renders them and no `gsd-compat` rule needs them. Each
   is unscoped, so its id is project-wide.
 - **D2. A channel is a word.** `journey.channels` is a list of open words: no channel vocabulary fits every domain
