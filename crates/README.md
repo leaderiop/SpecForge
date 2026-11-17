@@ -15,9 +15,7 @@ check's allow list ([ADR 0084](../docs/adr/0084-a-crates-layer-is-its-folder.md)
 1. Put it in the layer whose line below says what it is. Every crate it depends on must sit in that layer or lower.
 2. Give its `Cargo.toml` a one-line `description` saying what it owns, and open each crate root (`src/lib.rs`,
    `src/main.rs`) with a `//!` doc saying what the crate is.
-3. Add it to the root `Cargo.toml` `members`, and add a `module` titled with its package name to
-   [spec/product/modules.spec](../spec/product/modules.spec). `cargo gate`'s `spec-modules` check says what that module
-   must read.
+3. Add it to the root `Cargo.toml` `members`.
 4. Run `cargo gate crate-map`. It rewrites the tables below and the stack in `ARCHITECTURE.md`.
 
 ## The crates
@@ -130,6 +128,6 @@ Crates with no SpecForge dependency but the guest wire: the wire itself, the dia
 | [`gate`](../gate/) | `gate` | The repository's check list: every check CI, cargo gate and the pre-commit hook run, each written once (ADR 0066) |
 | [`integrations/rust/specforge-test`](../integrations/rust/specforge-test/) | `specforge-test` | Test traceability for SpecForge — link Rust tests to spec entities |
 | [`integrations/rust/specforge-test-macros`](../integrations/rust/specforge-test-macros/) | `specforge-test-macros` | Proc macros for specforge-test |
-| [`xtask`](../xtask/) | `xtask` | Repository tasks that link the workspace: build-blobs, revendor, check-links, check-modules, clean-target, perf-report and absorb |
+| [`xtask`](../xtask/) | `xtask` | Repository tasks that link the workspace: build-blobs, revendor, check-links, clean-target, perf-report and absorb |
 
 <!-- crate-map:end -->
