@@ -192,3 +192,234 @@ its kind, or given the capability that reads it. The test `tests/provenance.rs` 
 | package_audit | research | agents/gsd-phase-researcher.md:321 | ## Package Legitimacy Audit |
 | package_audit | package | agents/gsd-phase-researcher.md:325 | Package \| Registry |
 | package_audit | registry | agents/gsd-phase-researcher.md:325 | Package \| Registry |
+
+## plan.md
+
+Four rows of this section name the capability that reads a link field gsd-core does not write: `truth.requirement`
+(`gsd/E519`), `truth.proof` (a judged input of `gsd/E501`), `task.items` (`requirement.satisfied_by`) and
+`plan.decisions` (`gsd/E310`). Each row goes with its field when the field leaves its kind.
+
+| kind | field | source | the line holds |
+|---|---|---|---|
+| plan | phase | agents/gsd-planner.md:311 | phase: XX-name |
+| plan | type | agents/gsd-planner.md:313 | type: execute |
+| plan | depends_on | agents/gsd-planner.md:315 | depends_on: [] |
+| plan | files_modified | agents/gsd-planner.md:316 | files_modified: [] |
+| plan | files_deleted | gsd-core/references/planner-quick-batch.md:54 | ### `files_deleted` — only if your plan removes a file |
+| plan | coupling_justified | gsd-core/references/planner-coupling.md:30 | coupling_justified: ["03-02: |
+| plan | gap_closure | gsd-core/workflows/verify-work.md:788 | MUST carry `gap_closure: true` and `gap_ids: [...]` |
+| plan | requirements | agents/gsd-planner.md:318 | requirements: []            # REQUIRED |
+| plan | decisions | rule:gsd/E310 |  |
+| plan | wave0 | gsd-core/references/nyquist-compliance.md:55 | Wave 0 plan must execute before dependent task |
+| plan | agent_hint | gsd-core/workflows/execute-phase/steps/per-plan-executor-routing.md:11 | A plan opts into a specialist by declaring `agent_hint: <name>` |
+| plan | estimate | agents/gsd-planner.md:321 | estimate:                   # Projected execution cost |
+| plan | objective | agents/gsd-planner.md:333 | <objective> |
+| plan | purpose | agents/gsd-planner.md:336 | Purpose: [Why this matters] |
+| plan | output | agents/gsd-planner.md:337 | Output: [Artifacts created] |
+| plan | context_refs | agents/gsd-planner.md:345 | <context> |
+| plan | verification | agents/gsd-planner.md:384 | <verification> |
+| plan | success_criteria | agents/gsd-planner.md:388 | <success_criteria> |
+| plan | slug | gsd-core/workflows/quick.md:138 | `quick_id`, `slug` |
+| task | plan | agents/gsd-planner.md:354 | <tasks> |
+| task | type | agents/gsd-planner.md:356 | <task type="auto"> |
+| task | files | agents/gsd-planner.md:169 | **<files>:** Exact file paths created or modified. |
+| task | read_first | agents/gsd-planner.md:177 | Code excerpts belong in `<read_first>` source files |
+| task | items | computed:requirement.satisfied_by |  |
+| task | precondition | agents/gsd-planner.md:209 | **<precondition>** (optional, one prose line) |
+| task | reversibility | agents/gsd-planner.md:211 | **<reversibility>** (optional) |
+| task | action | agents/gsd-planner.md:173 | **<action>:** Specific implementation instructions |
+| task | verify | agents/gsd-planner.md:191 | **Nyquist Rule:** Every `<verify>` includes `<automated>`. |
+| task | verify_text | agents/gsd-planner.md:360 | <verify>[Command or check]</verify> |
+| task | verify_human | agents/gsd-planner.md:251 | use `<verify><human-check>`. |
+| task | acceptance | gsd-core/references/planner-preconditions.md:16 | `<verify>` + `<done>` + `<acceptance_criteria>` |
+| task | done | agents/gsd-planner.md:205 | **<done>:** Acceptance criteria |
+| checkpoint | plan | gsd-core/references/checkpoints.md:49 | <task type="checkpoint:human-verify" gate="blocking"> |
+| checkpoint | after | gsd-core/references/checkpoints.md:591 | **After automation completes** - not before Claude does the work |
+| checkpoint | kind | gsd-core/references/checkpoints.md:150 | type="checkpoint:decision" |
+| checkpoint | gate | gsd-core/references/checkpoints.md:18 | `gate="blocking"` |
+| checkpoint | what_built | gsd-core/references/checkpoints.md:50 | <what-built>[What Claude automated and deployed/built]</what-built> |
+| checkpoint | how_to_verify | gsd-core/references/checkpoints.md:51 | <how-to-verify> |
+| checkpoint | decision | gsd-core/references/checkpoints.md:151 | <decision>[What's being decided]</decision> |
+| checkpoint | options | gsd-core/references/checkpoints.md:153 | <options> |
+| checkpoint | auto_select | gsd-core/references/checkpoints.md:169 | `auto_select` is optional and names the `id` of the `<option>` |
+| checkpoint | instructions | gsd-core/references/checkpoints.md:252 | <instructions> |
+| checkpoint | action | gsd-core/references/checkpoints.md:251 | <action>[What human must do |
+| checkpoint | verification | gsd-core/references/checkpoints.md:256 | <verification>[What Claude can check afterward]</verification> |
+| checkpoint | resume_signal | gsd-core/references/checkpoints.md:54 | <resume-signal>[How to continue - "approved", "yes", or describe issues]</resume-signal> |
+| truth | plan | agents/gsd-planner.md:327 | must_haves: |
+| truth | text | agents/gsd-planner.md:328 | truths: []                # Observable behaviors |
+| truth | requirement | rule:gsd/E519 |  |
+| truth | proof | rule:gsd/E501 |  |
+| truth | verification | gsd-core/references/honest-verifier.md:66 | `{ statement, verification: backstop }` |
+| artifact | plan | gsd-core/references/planner-guidance.md:227 | artifacts: |
+| artifact | path | gsd-core/references/planner-guidance.md:228 | - path: "src/components/Chat.tsx" |
+| artifact | provides | gsd-core/references/planner-guidance.md:229 | provides: "Message list rendering" |
+| artifact | min_lines | gsd-core/references/planner-guidance.md:230 | min_lines: 30 |
+| artifact | exports | gsd-core/references/planner-guidance.md:233 | exports: ["GET", "POST"] |
+| artifact | contains | gsd-core/references/planner-guidance.md:236 | contains: "model Message" |
+| key_link | plan | gsd-core/references/planner-guidance.md:237 | key_links: |
+| key_link | from | gsd-core/references/planner-guidance.md:238 | - from: "src/components/Chat.tsx" |
+| key_link | to | gsd-core/references/planner-guidance.md:239 | to: "src/app/api/chat/route.ts" |
+| key_link | via | gsd-core/references/planner-guidance.md:240 | via: "fetch in useEffect — calls /api/chat endpoint" |
+| key_link | pattern | gsd-core/references/planner-guidance.md:241 | pattern: "fetch.*api/chat" |
+| prohibition | plan | gsd-core/references/prohibition-probe.md:160 | **five flat scalar keys** on the `must_haves.prohibitions` item |
+| prohibition | statement | gsd-core/references/prohibition-probe.md:203 | where `statement` is the must-NOT sentence |
+| prohibition | verification | gsd-core/references/prohibition-probe.md:105 | - **verification** (only when `status` is `resolved` |
+| prohibition | test | gsd-core/references/prohibition-probe.md:107 | - **test** — the prohibition can be mechanically checked |
+| disposition | plan | gsd-core/references/planner-reviews.md:54 | `## Review Dispositions Ledger` section in the affected PLAN.md |
+| disposition | round | gsd-core/references/planner-reviews.md:55 | `### Round {N} — {REVIEWS_sha}` subsection |
+| disposition | feedback | gsd-core/references/planner-reviews.md:68 | {concern} \| HIGH \| Plan {N}, Task {M}: {how} |
+| disposition | outcome | gsd-core/references/planner-reviews.md:70 | ### Review Feedback Deferred |
+| disposition | reason | gsd-core/references/planner-reviews.md:71 | Concern \| Reason |
+| disposition | concern | gsd-core/references/planner-reviews.md:66 | Concern \| Severity \| How Addressed |
+| review | phase | gsd-core/workflows/review.md:739 | phase: {N} |
+| review | plans | gsd-core/workflows/review.md:742 | plans_reviewed: [{list of PLAN.md files}] |
+| review | reviewers | gsd-core/workflows/review.md:740 | reviewers: [claude, codex |
+| review | lanes | gsd-core/workflows/review.md:778 | ## <reviewsSection> Review |
+| review | coverage | gsd-core/workflows/review.md:759 | plan_coverage:            # only present |
+| review | consensus | gsd-core/workflows/review.md:793 | ## Consensus Summary |
+| review | strengths | gsd-core/workflows/review.md:797 | ### Agreed Strengths |
+| review | divergent | gsd-core/workflows/review.md:803 | ### Divergent Views |
+| review | unchecked | gsd-core/workflows/plan-review-convergence.md:310 | **UNCHECKABLE** (adapter cannot analyze this language/kind |
+| review_concern | review | gsd-core/workflows/review.md:800 | ### Agreed Concerns |
+| review_concern | plan | gsd-core/workflows/review.md:227 | Analyze each plan and provide: |
+| review_concern | reviewers | gsd-core/workflows/review.md:801 | {concerns raised by 2+ reviewers |
+| review_concern | severity | gsd-core/workflows/review.md:231 | with severity: HIGH/MEDIUM/LOW |
+| review_concern | text | gsd-core/workflows/review.md:231 | **Concerns** — Potential issues, gaps, risks |
+| review_concern | actionable | gsd-core/workflows/plan-review-convergence.md:285 | ACTIONABLE — a non-HIGH review finding |
+| review_concern | drift | gsd-core/workflows/plan-review-convergence.md:368 | **Severity: advisory, never a blocker.** |
+| review_concern | evidence | gsd-core/workflows/review.md:214 | cite concrete `path/to/file:line` evidence |
+| revision_conflict | phase | gsd-core/references/revision-loop.md:121 | and the phase `*-REVIEWS.md` already exists |
+| revision_conflict | plan | gsd-core/references/revision-loop.md:125 | REVISION_CONFLICT {dimension}/{plan} |
+| revision_conflict | dimension | gsd-core/references/revision-loop.md:125 | REVISION_CONFLICT {dimension} |
+| revision_conflict | property | gsd-core/references/revision-loop.md:125 | required_property: {property} |
+| revision_conflict | conflicts_with | gsd-core/references/revision-loop.md:125 | conflicts with: {locked decision D-nn |
+| revision_conflict | alternatives | gsd-core/references/revision-loop.md:125 | alternatives: {the agent's alternatives} |
+| user_setup | plan | gsd-core/templates/user-setup.md:76 | In PLAN.md, `user_setup` declares human-required configuration |
+| user_setup | service | gsd-core/templates/user-setup.md:80 | - service: stripe |
+| user_setup | why | gsd-core/templates/user-setup.md:81 | why: "Payment processing requires API keys" |
+| user_setup | env_vars | gsd-core/templates/user-setup.md:82 | env_vars: |
+| user_setup | dashboard | gsd-core/templates/user-setup.md:87 | dashboard_config: |
+| user_setup | local_dev | gsd-core/templates/user-setup.md:91 | local_dev: |
+
+## execute.md
+
+| kind | field | source | the line holds |
+|---|---|---|---|
+| plan_start | plan | agents/gsd-executor.md:106 | PLAN_START_TIME=$(date -u |
+| summary | plan | gsd-core/templates/summary.md:12 | plan: YY |
+| summary | status | gsd-core/templates/summary.md:71 | status: complete |
+| summary | one_liner | gsd-core/templates/summary.md:76 | **[Substantive one-liner describing outcome |
+| summary | subsystem | gsd-core/templates/summary.md:13 | subsystem: [primary category |
+| summary | tags | gsd-core/templates/summary.md:14 | tags: [searchable tech |
+| summary | requires | gsd-core/templates/summary.md:17 | requires: |
+| summary | provides | gsd-core/templates/summary.md:20 | provides: |
+| summary | affects | gsd-core/templates/summary.md:22 | affects: [list of phase names |
+| summary | tech_added | gsd-core/templates/summary.md:33 | added: [libraries/tools added in this phase] |
+| summary | tech_patterns | gsd-core/templates/summary.md:34 | patterns: [architectural/code patterns established] |
+| summary | key_decisions | gsd-core/templates/summary.md:40 | key-decisions: |
+| summary | patterns_established | gsd-core/templates/summary.md:44 | patterns-established: |
+| summary | requirements_completed | gsd-core/templates/summary.md:48 | requirements-completed: [] |
+| summary | threat_flags | agents/gsd-executor.md:740 | ## Threat Flags |
+| summary | next_readiness | gsd-core/templates/summary.md:149 | ## Next Phase Readiness |
+| summary | halted_because | rule:gsd/E402 |  |
+| deliverable | summary | gsd-core/templates/summary.md:53 | coverage: |
+| deliverable | description | gsd-core/templates/summary.md:55 | description: "[deliverable in human-readable form |
+| deliverable | requirement | gsd-core/templates/summary.md:56 | requirement: "[REQ-ID from this plan's `requirements` |
+| deliverable | human_judgment | gsd-core/templates/summary.md:61 | human_judgment: false     # REQUIRED boolean |
+| deliverable | rationale | gsd-core/templates/summary.md:66 | rationale: "[REQUIRED when human_judgment: true |
+| deliverable | checks | gsd-core/templates/summary.md:57 | verification: |
+| deviation | summary | gsd-core/templates/summary.md:110 | ## Deviations from Plan |
+| deviation | kind | gsd-core/templates/summary.md:133 | ## Issues Encountered |
+| deviation | rule | gsd-core/templates/summary.md:118 | **1. [Rule X - Category] Brief description** |
+| deviation | text | gsd-core/templates/summary.md:120 | - **Issue:** [What was wrong] |
+| deviation | files | gsd-core/templates/summary.md:122 | - **Files modified:** [file paths] |
+| pause | phase | gsd-core/workflows/pause-work.md:83 | "phase": "{phase_number}", |
+| pause | plan | gsd-core/workflows/pause-work.md:86 | "plan": {current_plan_number}, |
+| pause | handoff | gsd-core/workflows/pause-work.md:131 | **Write handoff to the path determined in the detect step** |
+| handoff | phase | gsd-core/workflows/pause-work.md:136 | phase: XX-name |
+| handoff | task | gsd-core/workflows/pause-work.md:137 | task: 3 |
+| handoff | state | gsd-core/workflows/pause-work.md:139 | status: in_progress |
+| handoff | current_state | gsd-core/workflows/pause-work.md:165 | <current_state> |
+| handoff | completed_work | gsd-core/workflows/pause-work.md:169 | <completed_work> |
+| handoff | remaining_work | gsd-core/workflows/pause-work.md:177 | <remaining_work> |
+| handoff | decisions_made | gsd-core/workflows/pause-work.md:184 | <decisions_made> |
+| handoff | blockers | gsd-core/workflows/pause-work.md:190 | <blockers> |
+| handoff | context | gsd-core/workflows/pause-work.md:213 | <context> |
+| handoff | next_action | gsd-core/workflows/pause-work.md:217 | <next_action> |
+| blocker | text | gsd-core/templates/state.md:81 | ### Blockers/Concerns |
+| blocker | phase | gsd-core/templates/state.md:184 | - Prefix with originating phase |
+| blocker | resolved | gsd-core/templates/state.md:185 | - Cleared when addressed |
+| quick_batch | items | gsd-core/workflows/quick-batch/steps/batch-init.md:46 | j.items.length |
+
+## verify.md
+
+| kind | field | source | the line holds |
+|---|---|---|---|
+| verification | phase | agents/gsd-verifier.md:687 | phase: XX-name |
+| verification | deferred | agents/gsd-verifier.md:716 | deferred: # Only if deferred items exist |
+| verify_gap | verification | agents/gsd-verifier.md:707 | gaps: # Only if status: gaps_found |
+| verify_gap | truth | agents/gsd-verifier.md:708 | - truth: "Observable truth that failed" |
+| verify_gap | reason | agents/gsd-verifier.md:710 | reason: "Why it failed" |
+| verify_gap | artifacts | agents/gsd-verifier.md:711 | artifacts: |
+| verify_gap | missing | agents/gsd-verifier.md:714 | missing: |
+| override | verification | agents/gsd-verifier.md:695 | overrides: # Only if overrides exist |
+| override | truth | agents/gsd-verifier.md:221 | normalize both the override `must_have` and the current truth |
+| override | accepts | agents/gsd-verifier.md:696 | - must_have: "Must-have text that was overridden" |
+| override | reason | agents/gsd-verifier.md:697 | reason: "Why deviation is acceptable" |
+| override | by | agents/gsd-verifier.md:698 | accepted_by: "username" |
+| override | at | agents/gsd-verifier.md:699 | accepted_at: "ISO timestamp" |
+| human_item | verification | agents/gsd-verifier.md:734 | human_verification: # Only if status: human_needed |
+| human_item | test | agents/gsd-verifier.md:735 | - test: "What to do" |
+| human_item | expected | agents/gsd-verifier.md:736 | expected: "What should happen" |
+| human_item | why_human | agents/gsd-verifier.md:737 | why_human: "Why can't verify programmatically" |
+| human_item | uat | agents/gsd-verifier.md:537 | `human_needed` → `{phase_num}-UAT.md` path |
+| uat_session | phase | gsd-core/templates/UAT.md:12 | phase: XX-name |
+| uat_session | source | gsd-core/templates/UAT.md:13 | source: [list of SUMMARY.md files tested] |
+| uat_session | started | gsd-core/templates/UAT.md:14 | started: [ISO timestamp] |
+| uat_test | session | gsd-core/templates/UAT.md:27 | ## Tests |
+| uat_test | expected | gsd-core/templates/UAT.md:30 | expected: [observable behavior - what user should see] |
+| uat_test | reported | gsd-core/templates/UAT.md:40 | reported: "[verbatim user response]" |
+| uat_test | severity | gsd-core/templates/UAT.md:41 | severity: major |
+| uat_test | reason | gsd-core/templates/UAT.md:46 | reason: [why skipped] |
+| uat_test | blocked_by | gsd-core/templates/UAT.md:51 | blocked_by: server \| physical-device |
+| uat_gap | test | gsd-core/templates/UAT.md:72 | test: [N] |
+| uat_gap | truth | gsd-core/templates/UAT.md:68 | - truth: "[expected behavior from test]" |
+| uat_gap | reason | gsd-core/templates/UAT.md:70 | reason: "User reported: [verbatim response]" |
+| uat_gap | severity | gsd-core/templates/UAT.md:71 | severity: blocker \| major \| minor \| cosmetic |
+| uat_gap | root_cause | gsd-core/templates/UAT.md:73 | root_cause: ""     # Filled by diagnosis |
+| uat_gap | artifacts | gsd-core/templates/UAT.md:74 | artifacts: []      # Filled by diagnosis |
+| uat_gap | missing | gsd-core/templates/UAT.md:75 | missing: []        # Filled by diagnosis |
+| validation | phase | gsd-core/templates/VALIDATION.md:2 | phase: "{N}" |
+| validation | framework | gsd-core/templates/VALIDATION.md:22 | **Framework** |
+| validation | config_file | gsd-core/templates/VALIDATION.md:23 | **Config file** |
+| validation | quick_cmd | gsd-core/templates/VALIDATION.md:24 | **Quick run command** |
+| validation | full_cmd | gsd-core/templates/VALIDATION.md:25 | **Full suite command** |
+| validation | max_latency_s | gsd-core/templates/VALIDATION.md:35 | **Max feedback latency:** {N} seconds |
+| validation_row | validation | gsd-core/templates/VALIDATION.md:39 | ## Per-Task Verification Map |
+| validation_row | task | gsd-core/templates/VALIDATION.md:41 | Task ID \| Plan |
+| validation_row | requirement | gsd-core/templates/VALIDATION.md:41 | Requirement \| Threat Ref |
+| validation_row | test_type | gsd-core/templates/VALIDATION.md:41 | Test Type \| Automated Command |
+| validation_row | command | gsd-core/templates/VALIDATION.md:41 | Automated Command \| File Exists |
+| validation_row | file | gsd-core/templates/VALIDATION.md:41 | File Exists \| Status |
+| wave0_item | validation | gsd-core/templates/VALIDATION.md:49 | ## Wave 0 Requirements |
+| wave0_item | path | gsd-core/templates/VALIDATION.md:51 | `{tests/test_file.py}` |
+| wave0_item | for | gsd-core/templates/VALIDATION.md:51 | stubs for REQ-{XX} |
+| wave0_item | kind | gsd-core/templates/VALIDATION.md:53 | `{framework install}` — if no framework detected |
+| manual_check | validation | gsd-core/templates/VALIDATION.md:59 | ## Manual-Only Verifications |
+| manual_check | behavior | gsd-core/templates/VALIDATION.md:61 | Behavior \| Requirement |
+| manual_check | requirement | gsd-core/templates/VALIDATION.md:61 | Requirement \| Why Manual |
+| manual_check | why_manual | gsd-core/templates/VALIDATION.md:61 | Why Manual \| Test Instructions |
+| manual_check | instructions | gsd-core/templates/VALIDATION.md:61 | Test Instructions |
+| milestone_audit | milestone | gsd-core/workflows/audit-milestone.md:197 | milestone: {version} |
+| milestone_audit | tech_debt | gsd-core/workflows/audit-milestone.md:216 | tech_debt:  # Non-critical, deferred |
+| milestone_audit | debt_accepted | gsd-core/workflows/audit-milestone.md:356 | **A. Complete milestone** — accept debt |
+| broken_window | kind | agents/gsd-executor.md:726 | --kind stub |
+| broken_window | phase | agents/gsd-executor.md:727 | --phase "${PHASE_NUMBER}" |
+| broken_window | file | agents/gsd-executor.md:728 | --file "<path-relative-to-repo-root>" |
+| broken_window | line | agents/gsd-executor.md:729 | --line "<line-number-or-omit>" |
+| broken_window | description | agents/gsd-executor.md:730 | --description "<one-line description |
+| broken_window | refactor | computed:broken_window.status |  |
+| refactor_proposal | phase | src/complexity-trigger.cts:908 | `phase: ${p.phase}`, |
+| refactor_proposal | target_file | src/complexity-trigger.cts:909 | `target_file: ${p.target_file}`, |
+| refactor_proposal | target_function | src/complexity-trigger.cts:910 | `target_function: ${p.target_function}`, |
