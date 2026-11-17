@@ -6,6 +6,8 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
+#[path = "tests/census.rs"]
+mod census;
 #[path = "tests/decision.rs"]
 mod decision;
 #[path = "tests/fates.rs"]
@@ -14,8 +16,6 @@ mod fates;
 mod governance;
 #[path = "tests/ids.rs"]
 mod ids;
-#[path = "tests/keywords.rs"]
-mod keywords;
 #[path = "tests/measure.rs"]
 mod measure;
 #[path = "tests/product.rs"]
