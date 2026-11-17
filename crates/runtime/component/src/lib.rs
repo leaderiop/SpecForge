@@ -335,8 +335,9 @@ impl ComponentRuntime {
         // deregisters it one frame description at a time, each a linear search, so freeing a
         // compiled component was most of a session's reload (#159). Nothing unwinds through a
         // guest: traps and wasm backtraces walk frame pointers, and a host panic under a guest
-        // is caught and resumed on the host side.
-        config.native_unwind_info(false);
+        // is caught and resumed on the host side. Windows keeps it: its exception handling walks
+        // the registered function tables, so wasmtime refuses an engine there without them.
+        config.native_unwind_info(cfg!(windows));
         if let Some(dir) = &cache_dir
             && let Err(e) = enable_compile_cache(&mut config, dir)
         {
