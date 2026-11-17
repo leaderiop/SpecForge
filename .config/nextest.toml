@@ -37,3 +37,11 @@ path = "junit.xml"
 [[profile.default.overrides]]
 filter = "package(specforge-cli) & test(=extension_authoring::a_scaffolded_extension_builds_and_validates)"
 slow-timeout = { period = "60s", terminate-after = 10 }
+
+# absorb's end-to-end tests load `@gsd/core` and the old builtins cold on a
+# Windows runner, where a compile takes longer than the default kill bound
+# allows (ADR 0375 D4). Windows only: the Linux and macOS bounds are unchanged.
+[[profile.default.overrides]]
+platform = 'cfg(windows)'
+filter = "binary_id(xtask::absorb_e2e)"
+slow-timeout = { period = "60s", terminate-after = 10 }

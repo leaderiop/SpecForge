@@ -28,6 +28,7 @@ mod scope;
 use serde_json::Value;
 use specforge_ops::authoring::edit::{Edit, Input};
 use std::collections::BTreeMap;
+use std::path::Path;
 
 use super::ids as id_map;
 use super::ledger::Why;
@@ -163,4 +164,58 @@ pub(super) fn many(items: &[&str]) -> Input {
 /// The old fixture, compiled.
 pub(super) fn fixture() -> read::Old {
     read::compile(std::path::Path::new(OLD)).expect("the fixture compiles clean")
+}
+
+/// A symbolic link to the directory `target` (which need not exist) at `link`; it never returns without one (ADR 0375
+/// D4). On Windows, without the privilege to make a symbolic link (os error 1314), it makes a directory junction: a
+/// name-surrogate reparse point, which `symlink_metadata` reports as a link as it does a symbolic one.
+#[cfg(unix)]
+pub(super) fn link_dir(target: &Path, link: &Path) {
+    std::os::unix::fs::symlink(target, link)
+        .unwrap_or_else(|e| panic!("a link {} -> {}: {e}", link.display(), target.display()));
+}
+
+/// A symbolic link to the directory `target` (which need not exist) at `link`; it never returns without one (ADR 0375
+/// D4). Without the privilege to make a symbolic link (os error 1314), a directory junction: a name-surrogate reparse
+/// point, which `symlink_metadata` reports as a link as it does a symbolic one.
+#[cfg(windows)]
+pub(super) fn link_dir(target: &Path, link: &Path) {
+    match std::os::windows::fs::symlink_dir(target, link) {
+        Ok(()) => {}
+        Err(e) if e.raw_os_error() == Some(1314) => {
+            let status = std::process::Command::new("cmd")
+                .args(["/C", "mklink", "/J"])
+                .arg(link)
+                .arg(target)
+                .status()
+                .expect("cmd runs");
+            assert!(
+                status.success(),
+                "mklink /J {} {}: {status}",
+                link.display(),
+                target.display()
+            );
+        }
+        Err(e) => panic!("a link {} -> {}: {e}", link.display(), target.display()),
+    }
+}
+
+/// A symbolic link to the file `target` (which need not exist) at `link`; it never returns without one (ADR 0375 D4).
+#[cfg(unix)]
+pub(super) fn link_file(target: &Path, link: &Path) {
+    std::os::unix::fs::symlink(target, link)
+        .unwrap_or_else(|e| panic!("a link {} -> {}: {e}", link.display(), target.display()));
+}
+
+/// A symbolic link to the file `target` (which need not exist) at `link`; it never returns without one (ADR 0375 D4):
+/// a file has no junction, so a link it cannot make fails the test.
+#[cfg(windows)]
+pub(super) fn link_file(target: &Path, link: &Path) {
+    std::os::windows::fs::symlink_file(target, link).unwrap_or_else(|e| {
+        panic!(
+            "a file link {} -> {}: {e}; a file link needs the privilege to create symbolic links or Developer Mode",
+            link.display(),
+            target.display()
+        )
+    });
 }

@@ -8,7 +8,9 @@ use super::super::ledger::Why;
 use super::super::plan;
 use super::super::table::{self, Home};
 use super::super::write;
-use super::{create_of, field_of, fixture, ledgered, old, one, planned, stops};
+use super::{
+    create_of, field_of, fixture, ledgered, link_dir, link_file, old, one, planned, stops,
+};
 
 #[test]
 fn a_decision_becomes_one_create_keeping_its_title_and_file() {
@@ -329,14 +331,19 @@ fn a_target_holding_a_project_is_refused() {
 }
 
 /// A symbolic link where absorb writes is refused, dangling or not, and left where it is: init would write through
-/// it, and a roll back would remove it.
-#[cfg(unix)]
+/// it, and a roll back would remove it. It runs on both OSes, its links made by `link_dir` and `link_file` (ADR 0375
+/// D4).
 #[test]
 fn a_symbolic_link_where_absorb_writes_is_refused_and_kept() {
     for name in ["spec", ".specforge", ".gitignore"] {
         let dir = tempfile::tempdir().unwrap();
         let link = dir.path().join(name);
-        std::os::unix::fs::symlink(dir.path().join("nowhere"), &link).unwrap();
+        let target = dir.path().join("nowhere");
+        if name == ".gitignore" {
+            link_file(&target, &link);
+        } else {
+            link_dir(&target, &link);
+        }
         let refused = write::check_to(dir.path(), SPEC).unwrap_err();
         assert!(
             refused.ends_with(&format!(
@@ -348,7 +355,7 @@ fn a_symbolic_link_where_absorb_writes_is_refused_and_kept() {
     }
     let dir = tempfile::tempdir().unwrap();
     let to = dir.path().join("to");
-    std::os::unix::fs::symlink(dir.path(), &to).unwrap();
+    link_dir(dir.path(), &to);
     assert!(
         write::check_to(&to, SPEC)
             .unwrap_err()
@@ -357,8 +364,8 @@ fn a_symbolic_link_where_absorb_writes_is_refused_and_kept() {
 }
 
 /// The ledger is a path absorb writes like any other: a symbolic link there is refused, dangling or not, and kept, and
-/// a write made after the check refuses it too; a ledger already there, a file, is replaced.
-#[cfg(unix)]
+/// a write made after the check refuses it too; a ledger already there, a file, is replaced. It runs on both OSes,
+/// its links made by `link_file` (ADR 0375 D4).
 #[test]
 fn a_symbolic_link_at_the_ledger_path_is_refused_and_never_written_through() {
     let dir = tempfile::tempdir().unwrap();
@@ -366,7 +373,7 @@ fn a_symbolic_link_at_the_ledger_path_is_refused_and_never_written_through() {
     std::fs::write(&outside, "mine\n").unwrap();
     for target in [outside.clone(), dir.path().join("nowhere")] {
         let link = dir.path().join("absorb-ledger.json");
-        std::os::unix::fs::symlink(&target, &link).unwrap();
+        link_file(&target, &link);
         let refused = write::check_output("ledger", &link).unwrap_err();
         assert!(
             refused.ends_with("is a symbolic link: absorb never writes through one; remove it, or name another --ledger"),
