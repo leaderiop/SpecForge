@@ -5,13 +5,13 @@ uat_session 01-UAT "Phase 01 acceptance" {
 }
 
 uat_test U1 "Add a task" {
-  session   v1.0/01/01-UAT
-  expected  "A task added from the form is listed"
+  session  v1.0/01/01-UAT
+  expected "A task added from the form is listed"
 }
 
 uat_test U2 "Complete a task" {
-  session   v1.0/01/01-UAT
-  expected  "A completed task is struck through"
+  session  v1.0/01/01-UAT
+  expected "A completed task is struck through"
 }
 
 uat_gap G1 "Completed tasks are not struck through" {
