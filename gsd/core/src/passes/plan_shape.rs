@@ -102,17 +102,15 @@ fn requirements(input: &PassInput) -> Vec<PassDiagnostic> {
 /// E303: an `auto`, `tdd` or `tracer` task has files and a verify of some form (`action` and `done` are required
 /// fields, so the host reports those). GSD's `verify plan-structure` warns on a missing `<verify>`, `<files>` and
 /// `<done>` and errors on a missing `<action>`; the plan checker's D2 blocks all four, and that is the severity kept
-/// here. The three are every task type; the filter stays for a task whose required `type` is missing or not one of
-/// them, which the host already reports, so the message always names the task's type.
+/// here. The three are every task type, but the kernel sends a pass every authored task: one whose required `type` is
+/// missing or not one of them, which the host already reports, is skipped.
 fn task_parts(input: &PassInput) -> Vec<PassDiagnostic> {
     of_kind(input, "task")
-        .filter(|t| {
-            matches!(
-                t.fields.get("type").map(String::as_str),
-                Some("auto" | "tdd" | "tracer")
-            )
-        })
         .filter_map(|task| {
+            let kind = task
+                .fields
+                .get("type")
+                .filter(|kind| matches!(kind.as_str(), "auto" | "tdd" | "tracer"))?;
             let mut missing = Vec::new();
             if strings(task, "files").is_empty() {
                 missing.push("files");
@@ -132,9 +130,8 @@ fn task_parts(input: &PassInput) -> Vec<PassDiagnostic> {
                     "E303",
                     PassSeverity::Error,
                     format!(
-                        "task '{}' of type {} has no {}",
+                        "task '{}' of type {kind} has no {}",
                         task.id,
-                        task.fields.get("type").map_or("", String::as_str),
                         missing.join(" and no ")
                     ),
                 )

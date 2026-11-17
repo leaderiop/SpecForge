@@ -153,6 +153,20 @@ fn e303_fires_on_an_auto_task_without_files_or_verify() {
         found[2].message.contains("no files and no verify"),
         "{found:?}"
     );
+    assert!(found[2].message.contains("of type tracer has"), "{found:?}");
+}
+
+/// The kernel sends a pass every authored task, its type valid or not: a task whose required `type` is missing or
+/// outside the three, which the host already reports, gets no E303 on top, whatever it lacks.
+#[test]
+fn e303_is_silent_on_a_task_with_no_type_or_another_type() {
+    let mut untyped = task("T1", "auto", false, false);
+    untyped.fields.remove("type");
+    let found = check(&input(
+        vec![untyped, task("T2", "manual", false, false)],
+        vec![],
+    ));
+    assert!(found.is_empty(), "{found:?}");
 }
 
 #[test]
