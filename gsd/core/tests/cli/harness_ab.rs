@@ -244,7 +244,8 @@ fn succeeds(run: &Run) {
 }
 
 /// The defects the requirement thread exists to report, whose signal B0 (no test facts) does not have: those
-/// `tasks.json#defects` marks `"thread": true`.
+/// `tasks.json#defects` marks `"thread": true` (v3: S5 and S6, whose `gsd/W408` reads the status of a coverage check,
+/// which only a collected test fact gives).
 fn thread_defects() -> Vec<String> {
     ab_tasks()["defects"]
         .as_array()

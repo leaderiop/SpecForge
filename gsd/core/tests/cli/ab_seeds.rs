@@ -1,7 +1,7 @@
 //! The GSD A/B's seeded defects on the taskboard and ledger fixtures: each `b_signals` row of `evaluation/gsd-ab/tasks.json` is
 //! what arm B's checker reports on a copy `seed.py` made, and B0 (no test facts) reports none of the thread's.
 
-use super::harness::ab::{assert_signals, seeded};
+use super::harness::ab::{Signal, ab_task, ab_tasks, assert_signals, seeded};
 
 #[test]
 fn taskboard_execute_02_01_reports_its_seeds() {
@@ -73,6 +73,27 @@ fn ledger_execute_02_01_reports_its_seeds() {
 #[test]
 fn ledger_verify_01_reports_its_seeds() {
     assert_signals("ledger-verify-01");
+}
+
+/// S6 is not seeded on the ledger's verify task (`not_seeded`): the one deliverable that names its test,
+/// `01-02-SUMMARY/D1`, reports `gsd/W408` on the unseeded copy already, because the recorded run fails its other check,
+/// so a seed there would not be the only way the signal appears.
+#[test]
+fn ledger_s6_is_not_seeded_because_its_deliverable_reports_without_it() {
+    let tasks = ab_tasks();
+    let task = ab_task(&tasks, "ledger-verify-01");
+    assert_eq!(task["not_seeded"][0]["defect"], "S6");
+    let p = seeded("ledger-verify-01", "B", &["--unseeded"]).expect("an unseeded copy");
+    p.collect_seeded("ledger-verify-01", false);
+    let on_its_deliverable = Signal {
+        defect: "S6".to_string(),
+        code: Some("gsd/W408".to_string()),
+        entity: Some("v1.0/01/01-02/01-02-SUMMARY/D1".to_string()),
+        count: 1,
+        when: "seed".to_string(),
+        reruns: true,
+    };
+    assert_eq!(p.signal(&on_its_deliverable), 1);
 }
 
 #[test]

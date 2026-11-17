@@ -197,13 +197,19 @@ fn run_files_are_ignored() {
     assert_eq!(run_files_ignored(), 0);
 }
 
-/// The corpus is version 2: arms A, B, B0 and Bv1, where Bv1 is arm B as the tag `gsd-ab-v1` froze it (B's tools,
-/// configuration and drops); three ready fixtures whose paths exist, twelve tasks, each listed defect seeded in arm A
+/// The corpus is version 3: arms A, B, B0 and Bv1, where Bv1 is arm B as the tag `gsd-ab-v1` froze it (B's tools,
+/// configuration and drops); three ready fixtures whose paths exist, twelve tasks, each seeded defect seeded in arm A
 /// and arm B with at least one `b_signals` row, each row about a seeded defect, and no status `pending` left in it.
+///
+/// What v3 changed from v2 (the version moves, so no v2 run scores against it): S1 is retired, the one row of
+/// `retired`; S5 and S6 are signalled by `gsd/W408` on the deliverable whose check names the failed or deleted test, not
+/// by `code/W401` and `code/E101` on a truth, and a task that has no seed-only signal for one does not seed it
+/// (`not_seeded`); H2 counts S5 and S6, the defects marked `"thread": true`; and the requirement's B read finds its
+/// truths through the plans that list it.
 #[test]
-fn the_corpus_is_version_2() {
+fn the_corpus_is_version_3() {
     let tasks = ab_tasks();
-    assert_eq!(tasks["version"], "gsd-ab-v2");
+    assert_eq!(tasks["version"], "gsd-ab-v3");
     let arms = tasks["arms"].as_array().expect("arms");
     let ids: Vec<&str> = arms.iter().filter_map(|a| a["id"].as_str()).collect();
     assert_eq!(ids, ["A", "B", "B0", "Bv1"]);
@@ -258,6 +264,12 @@ fn the_corpus_is_version_2() {
         }
     }
     let text = std::fs::read_to_string(ab_dir().join("tasks.json")).expect("tasks.json");
+    for gone in ["fields.requirement", "\"code/E101\"", "\"code/W401\""] {
+        assert!(
+            !text.contains(gone),
+            "v3 rests on no truth's proof or requirement: {gone}"
+        );
+    }
     // `pending` is also a word of the states' vocabularies; a placeholder is a fixture or task whose status says it.
     assert_eq!(
         text.matches("\"status\": \"pending\"").count(),
@@ -266,10 +278,91 @@ fn the_corpus_is_version_2() {
     );
 }
 
-/// A verify task's seeds break what its `b_signals` rows name: the proof of a truth, which is then `not verified` in
-/// the task's ground truth, so a run that leaves it verified drifts; or a check of a summary's coverage item (a
-/// `deliverable`, which is no ground-truth key), whose seeded test a truth of the task's ground truth rests on, `not
-/// verified` there too.
+/// S1 is the one retired defect: a row of `retired` with its reason, in no `defects` entry and no task's `seeded`. The
+/// thread defects, those H2 counts, are S5 and S6. Each `not_seeded` entry of a task names a defect of the corpus the
+/// task does not seed, gives its reason, and belongs to a defect that is seeded in some other task; no `b_signals` row
+/// is on a truth's proof (`code/E101`, `code/W401`).
+#[test]
+fn s1_is_retired_and_h2_counts_s5_and_s6() {
+    let tasks = ab_tasks();
+    let retired = tasks["retired"].as_array().expect("retired");
+    let ids: Vec<&str> = retired.iter().filter_map(|r| r["id"].as_str()).collect();
+    assert_eq!(ids, ["S1"]);
+    assert!(
+        retired[0]["why"].as_str().is_some_and(|w| !w.is_empty()),
+        "a retired defect gives its reason"
+    );
+    let defects: Vec<&str> = tasks["defects"]
+        .as_array()
+        .expect("defects")
+        .iter()
+        .filter_map(|d| d["id"].as_str())
+        .collect();
+    assert_eq!(defects, ["S2", "S3", "S4", "S5", "S6"]);
+    let thread: Vec<&str> = tasks["defects"]
+        .as_array()
+        .expect("defects")
+        .iter()
+        .filter(|d| d["thread"] == true)
+        .filter_map(|d| d["id"].as_str())
+        .collect();
+    assert_eq!(thread, ["S5", "S6"], "H2's defect set in v3");
+    let mut seeded_somewhere = std::collections::BTreeSet::new();
+    for task in tasks["tasks"].as_array().expect("tasks") {
+        let id = task["id"].as_str().expect("an id");
+        let seeded: Vec<&str> = task["seeded"]
+            .as_array()
+            .expect("seeded")
+            .iter()
+            .filter_map(|d| d.as_str())
+            .collect();
+        assert!(!seeded.contains(&"S1"), "{id} seeds the retired S1");
+        assert_eq!(
+            task["seeds"].as_object().map(|s| s.len()),
+            Some(seeded.len()),
+            "{id}: its seeds are its seeded defects"
+        );
+        seeded_somewhere.extend(seeded.iter().map(|d| d.to_string()));
+        for row in task["b_signals"].as_array().expect("b_signals") {
+            let code = row["code"].as_str().unwrap_or_default();
+            assert!(
+                !["code/E101", "code/W401"].contains(&code),
+                "{id}: a signal on a truth's proof: {row}"
+            );
+        }
+        for entry in task["not_seeded"].as_array().into_iter().flatten() {
+            let defect = entry["defect"].as_str().expect("a defect");
+            assert!(defects.contains(&defect), "{id}: not_seeded names {defect}");
+            assert!(!seeded.contains(&defect), "{id} seeds {defect} too");
+            assert!(
+                entry["why"].as_str().is_some_and(|w| !w.is_empty()),
+                "{id}: {defect} is not seeded for no reason"
+            );
+        }
+        if task["workflow"] == "verify" {
+            for defect in &thread {
+                let said = task["not_seeded"]
+                    .as_array()
+                    .is_some_and(|all| all.iter().any(|e| e["defect"] == *defect));
+                assert!(
+                    seeded.contains(defect) != said,
+                    "{id}: {defect} is seeded or says why it is not, not both or neither"
+                );
+            }
+        }
+    }
+    for defect in thread {
+        assert!(
+            seeded_somewhere.contains(defect),
+            "{defect} is seeded in no task"
+        );
+    }
+}
+
+/// A verify task's seeds break what its `b_signals` rows name: a check of a summary's coverage item (a `deliverable`,
+/// which is no ground-truth key) whose seeded test a truth of the plan the summary belongs to rests on, so one of that
+/// plan's truths is `not verified` in the task's ground truth: a run that leaves it verified drifts. A verify task that
+/// seeds nothing has no row.
 #[test]
 fn a_verify_tasks_seeded_truths_are_not_verified() {
     let tasks = ab_tasks();
@@ -280,27 +373,30 @@ fn a_verify_tasks_seeded_truths_are_not_verified() {
         }
         let truths = task["ground_truth"].as_object().expect("a ground truth");
         for row in task["b_signals"].as_array().expect("b_signals") {
-            if let Some(entity) = row["entity"].as_str() {
-                if entity.contains("-SUMMARY/") && !truths.contains_key(entity) {
-                    assert!(
-                        truths.values().any(|v| v == "not verified"),
-                        "{}: {entity} names a coverage item, and no truth is not verified",
-                        task["id"]
-                    );
-                } else {
-                    assert_eq!(
-                        task["ground_truth"][entity], "not verified",
-                        "{}: {entity}",
-                        task["id"]
-                    );
-                }
-                checked += 1;
-            }
+            let entity = row["entity"]
+                .as_str()
+                .expect("a verify row names its entity");
+            let parts: Vec<&str> = entity.split('/').collect();
+            assert!(
+                parts.len() == 5 && parts[3].ends_with("-SUMMARY") && parts[4].starts_with('D'),
+                "{}: {entity} is no deliverable of a summary",
+                task["id"]
+            );
+            let plan = parts[..3].join("/");
+            assert!(
+                truths
+                    .iter()
+                    .any(|(key, value)| key.starts_with(&format!("{plan}/TR"))
+                        && value == "not verified"),
+                "{}: {entity} names a coverage item of {plan}, and none of its truths is not verified",
+                task["id"]
+            );
+            checked += 1;
         }
     }
-    assert!(
-        checked >= 5,
-        "the verify tasks name their seeded truths: {checked}"
+    assert_eq!(
+        checked, 3,
+        "the verify tasks name their seeded coverage items: taskboard's two and the ledger's one"
     );
 }
 
