@@ -6,7 +6,9 @@ longer refuses a keyword two builtins declare; two builtins adding one field to 
 D5's rule). Keeps [ADR 0096](0096-an-enhancements-fields-are-credited-to-its-declarer.md) (an enhancement field is
 credited to its declarer). Builds on
 [ADR 0366](0366-gsd-core-is-vendored-as-a-builtin-with-a-size-allowance-of-its-own.md) (the vendored `@gsd/core` row
-needs it). No protocol change comes with this decision.
+needs it). No protocol change comes with this decision. D2 amended by
+[ADR 0373](0373-gsd-core-is-vendored-on-a-pinned-rustc-with-its-load-and-size-measured.md) D4: a suggestion offers the
+declarers that collide with nothing loaded.
 
 ## Context
 

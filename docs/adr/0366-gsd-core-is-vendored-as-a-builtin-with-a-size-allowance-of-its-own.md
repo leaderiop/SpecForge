@@ -1,6 +1,7 @@
 # @gsd/core is vendored as a builtin, with a size allowance of its own
 
-**Status:** accepted (2026-11-16). **Supersedes**
+**Status:** accepted (2026-11-16). D3's constants, D4's pin and job, D5's readers and the cached-load rule are carried
+out by [ADR 0373](0373-gsd-core-is-vendored-on-a-pinned-rustc-with-its-load-and-size-measured.md). **Supersedes**
 [gsd ADR 0001](../../gsd/adr/0001-one-cargo-workspace-built-on-demand.md) in these places only: D4 ("The blob is not
 committed; it is built on demand"); its Rejected item "A committed blob listed in `COMMITTED`"; D6's step "the wasm
 build", its "with both variables set" (`GSD_CORE_WASM` leaves, `SPECFORGE_BIN` stays) and the Consequences clause "and a

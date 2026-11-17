@@ -4,6 +4,7 @@
 0110 D4 (R-TRUST-003's text); amended by the round-14 follow-up F2 (D5).
 Extended by [ADR 0230](0230-a-lock-source-is-checked-once-and-a-remedys-command-quotes-its-values.md): D2's guard also refuses a command literal that writes a value; such a command is written by `specforge_common::remedy::command`.
 R-TRUST-001's text amended by [ADR 0221](0221-an-unsigned-package-is-held-to-its-names-expected-publisher.md): the MCP server takes no allow_unsigned.
+D5 amended by [ADR 0373](0373-gsd-core-is-vendored-on-a-pinned-rustc-with-its-load-and-size-measured.md) D6: an argument hint is the command's syntax.
 
 Below the surfaces, 15 string literals told the caller which CLI flag to pass. An operation does not know its
 caller, so 8 of them reached MCP callers whose arguments are spelled otherwise (`min`, `run`, `runner`, `force`,
