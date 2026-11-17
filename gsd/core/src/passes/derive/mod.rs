@@ -10,15 +10,14 @@
 //! phase's `complete` and `needs_review`, `completed`, a requirement's `gaps_found` and `project.windows_*`. `estimate`
 //! answers a plan's slices under the smart-zone budget. `review` answers a review concern's status, a round's open
 //! counts and a revision conflict's status, `batch` a quick batch's status and eligible items, `learning` a
-//! lesson's status, `decision` a decision's `in_force` (the superseded set E310 reads), and `invariant` an invariant's
-//! status and last_verified (from each phase's status on the ladder and its verification).
+//! lesson's status, and `invariant` an invariant's status and last_verified (from each phase's status on the ladder
+//! and its verification).
 //!
 //! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection) and `retrospective.sessions` (no harness).
 
 mod audit;
 mod batch;
 mod branch;
-mod decision;
 mod estimate;
 mod execute;
 mod halt;
@@ -69,7 +68,6 @@ fn derive(input: &PassInput) -> PassOutput {
     values.extend(uat::values(input, &statuses));
     values.extend(learning::values(input, &verified));
     values.extend(batch::values(input, &statuses));
-    values.extend(decision::values(input));
     let failing = verified
         .iter()
         .filter(|(_, v)| v.status == "gaps_found")

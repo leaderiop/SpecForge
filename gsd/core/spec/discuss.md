@@ -50,11 +50,8 @@ in `plan`, and is named `<quick_id>-D-01` so it cannot collide with a project de
 | rationale | str | | Key Decisions `Rationale` |
 | outcome | enum{good, revisit, pending} | | `✓ Good` / `⚠️ Revisit` / `— Pending` |
 | reversibility | enum{reversible, costly, one_way} | | planner reversibility rating |
-| settled | bool | | locked: a plan contradicting it is refused (judged, [rules](rules.md)); read by gsd/W311, not by gsd/E310, which counts every trackable decision as GSD does (one no decision supersedes with force) and reads the plans' `decisions` lists; a settled decision is superseded only by one of `origin` `context` or `project`, as a decision of those origins is |
+| settled | bool | | locked: a plan contradicting it is refused (judged, [rules](rules.md)); read by gsd/W311, not by gsd/E310, which counts every trackable decision as GSD does and reads the plans' `decisions` lists |
 | origin | enum{context, project, summary, checkpoint} | R I | where it was recorded |
-| supersedes | →* decision | | beyond GSD: the earlier decisions this one reverses, written on the later decision; each reads it back as `superseded_by` |
-| superseded_by | ←* decision | | read, not written: the inverse of `supersedes`, the later decisions that reverse it; writing it is E079 ([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)) |
-| in_force | bool | C | beyond GSD: false once a decision supersedes it with force (`passes::plans::superseded`, the set gsd/E310, W317 and W506 leave out: a decision of `origin` `context` or `project`, or a settled one, only by one of `origin` `context` or `project`, and none round a supersedes cycle); every pack that serves a decision shows it, since no selector filters on a computed field |
 
 ## deferred_idea
 

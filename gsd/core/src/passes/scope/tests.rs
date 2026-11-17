@@ -261,16 +261,19 @@ fn a_covered_phase_and_an_unplanned_phase_are_silent() {
     assert!(post_planning_gaps(&input).is_empty());
 }
 
-/// The gap report's CONTEXT.md rows leave out a decision another decision supersedes.
+/// The gap report's CONTEXT.md rows hold every context decision: one a later decision says it reverses is still a
+/// row, open until a plan lists it, since a decision has no supersession.
 #[test]
-fn a_superseded_decision_is_no_gap_row() {
+fn every_context_decision_is_a_gap_row_with_no_supersession() {
     let mut input = planned_phase("Build it", &["REQ-01", "REQ-02"], &["v/1/D-03"]);
-    input
-        .entities
-        .push(entity("v/1/D-03", "decision", &[("origin", "context")]));
-    input.edges.push(edge("v/1/D-03", "v/1/D-01", "supersedes"));
-    assert!(post_planning_gaps(&input).is_empty());
-    input.edges.retain(|e| e.label != "supersedes");
+    input.entities.push(entity(
+        "v/1/D-03",
+        "decision",
+        &[
+            ("origin", "context"),
+            ("text", "Supersedes D-01: the store is in memory"),
+        ],
+    ));
     assert_eq!(
         post_planning_gaps(&input)[0].message,
         "⚠ 1 of 4 items not covered by any plan: D-01"

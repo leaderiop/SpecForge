@@ -196,15 +196,6 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
-        "label": "DecisionSupersedes",
-        "source_kind": "decision",
-        "target_kind": "decision"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
         "label": "DeferredIdeaPhase",
         "source_kind": "deferred_idea",
         "target_kind": "phase"
@@ -2975,27 +2966,6 @@
             "name": "origin",
             "required": true,
             "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the earlier decisions this one reverses; each reads it back as `superseded_by`",
-            "edge": "DecisionSupersedes",
-            "field_type": "reference_list",
-            "inverse_of": "superseded_by",
-            "name": "supersedes",
-            "required": false,
-            "target_kind": "decision"
-          },
-          {
-            "default_value": null,
-            "description": "false once a decision supersedes it with force (one of origin context or project, or a settled one, only by a decision of origin context or project, and none round a cycle): it no longer holds, so no plan lists it and no prompt holds it locked",
-            "edge": null,
-            "field_type": "bool",
-            "inverse_of": null,
-            "name": "in_force",
-            "required": false,
-            "target_kind": null,
-            "writer": "computed"
           }
         ],
         "has_body_parser": false,

@@ -1909,9 +1909,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **History reference**: a reference held by a field declared `writer: harness` and `immutable` (`commit.items_changed`):
   it records what held when the harness wrote it, so an unheld one is marked `history` and is never a finding
   (ADR 0352 D2).
-- **Decision coverage**: a planned phase's context decisions still in force (none superseded), each listed in the
-  `decisions` of one of its plans: typed references resolved in the phase, never a match on the plan's text
-  (gsd/E310, W317, W506; ADR 0351, ADR 0359).
+- **Decision coverage**: a planned phase's context decisions, each listed in the `decisions` of one of its plans:
+  typed references resolved in the phase, never a match on the plan's text (gsd/E310, W317, W506; ADR 0351,
+  ADR 0370).
 - **Port lock**: `gsd/core/tests/port.lock`, which splits every `@gsd/core` and `@gsd/security` asset into kept spans
   and own spans against the tracked gsd-core release. Kept spans are upstream's text byte for byte, and are the
   quotes. Each own span holds a group that says why it differs. A test recomputes the lock and `GSD_BLESS=1` rewrites

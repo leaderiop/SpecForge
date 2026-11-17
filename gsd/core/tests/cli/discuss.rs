@@ -2,7 +2,6 @@
 
 use crate::harness::{Project, project};
 
-mod decision;
 mod log;
 mod probe;
 

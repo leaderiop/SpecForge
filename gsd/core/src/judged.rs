@@ -47,8 +47,6 @@ pub(crate) const PLAN_CHECK_INPUTS: &[(&str, &str)] = &[
     ("phase", "self.phase"),
     ("requirements", "self.requirements"),
     ("decisions", "self.decisions"),
-    // Each decision is served with its computed `in_force`: a selector filters on no computed field, so a superseded
-    // decision is shown as no longer locked rather than left out.
     ("phase_decisions", "self.phase<decision.phase"),
     ("all_decisions", "decision"),
     (

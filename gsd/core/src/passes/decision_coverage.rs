@@ -1,7 +1,6 @@
 //! `gsd/W506`: every settled decision of a verified phase maps to something shipped. GSD's verify gate
 //! (`gate-decision-coverage-verify`) reads the shipped files and the plans' text; here a decision of the phase's
-//! context (`origin context` and superseded by none, as E310 counts them) is shipped when a complete plan of the phase
-//! lists it in its
+//! context (`origin context`, as E310 counts them) is shipped when a complete plan of the phase lists it in its
 //! `decisions`, the typed form of "this plan delivered it". `workflow.context_coverage_gate` off turns it off (the
 //! setting gates the code). Reading the shipped files is not done (U39).
 //!

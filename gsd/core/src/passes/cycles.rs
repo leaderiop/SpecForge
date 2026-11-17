@@ -1,5 +1,4 @@
-//! Which nodes of a directed graph lie on a cycle: the one answer `gsd/E102` (phases, plans and milestones) and the
-//! decisions a `supersedes` cycle keeps in force (`passes::plans::superseded`) read.
+//! Which nodes of a directed graph lie on a cycle: the answer `gsd/E102` reads for phases, plans and milestones.
 
 use std::collections::{BTreeMap, BTreeSet};
 
