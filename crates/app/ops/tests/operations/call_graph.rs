@@ -71,10 +71,7 @@ fn node(input: &Value, id: &str) -> Value {
         .clone()
 }
 
-#[specforge_test(
-    behavior = "compute_field_values",
-    verify = "the graph a command and a writing collector receive carries the computed values"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_commands_graph_carries_the_computed_values() {
     let p = project();
     let runtime = Arc::new(
@@ -93,10 +90,7 @@ fn a_commands_graph_carries_the_computed_values() {
     assert_eq!(d["fields"]["checks"][0]["status"], "pass", "{d}");
 }
 
-#[specforge_test(
-    behavior = "answer_judged_inputs",
-    verify = "inspect, query, the graph export and a command's graph list each entity's judgements"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_commands_graph_carries_each_entitys_judgements() {
     let project = gsd_judged_project("");
     let runtime = Arc::new(
@@ -137,10 +131,7 @@ fn a_commands_graph_carries_each_entitys_judgements() {
     assert_eq!(w311["passed"], false, "{w311}");
 }
 
-#[specforge_test(
-    behavior = "compute_field_values",
-    verify = "the graph a command and a writing collector receive carries the computed values"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_writing_collectors_graph_carries_the_computed_values() {
     let p = project().file(".specforge/reports/git.json", "{}");
     let runtime = Arc::new(
@@ -168,10 +159,7 @@ fn a_writing_collectors_graph_carries_the_computed_values() {
     assert_eq!(node(&input, "v1.0/03/V")["fields"]["status"], "passed");
 }
 
-#[specforge_test(
-    behavior = "compute_field_values",
-    verify = "a call over a checked project runs no compute pass"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_command_call_runs_no_pass() {
     let p = project();
     let runtime = Arc::new(
@@ -187,10 +175,7 @@ fn a_command_call_runs_no_pass() {
     assert_eq!(exports, ["cmd__quiet"], "{exports:?}");
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a plan echoing a computed value its graph carries is refused"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_plan_echoing_a_computed_value_it_read_is_refused() {
     let p = project();
     let ops = json!([set(
@@ -223,10 +208,7 @@ fn a_plan_echoing_a_computed_value_it_read_is_refused() {
     );
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a plan echoing a verdict-given value its graph carries is refused"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_plan_echoing_a_verdict_value_it_read_is_refused() {
     let project = gsd_judged_project("");
     let verdict = verdict_on(
@@ -278,10 +260,7 @@ fn a_plan_echoing_a_verdict_value_it_read_is_refused() {
     assert!(!project.read("a.spec").contains("legitimacy"));
 }
 
-#[specforge_test(
-    behavior = "compute_field_values",
-    verify = "the graph a hook with the graph input receives carries the computed values"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_hooks_graph_carries_the_computed_values() {
     let project = hosts_project(json!({}), json!({}));
     project.write(

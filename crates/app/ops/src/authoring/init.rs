@@ -688,10 +688,7 @@ mod tests {
         assert!(lock.contains("release/b_ext.wasm"), "{lock}");
     }
 
-    #[specforge_test_macros::test(
-        invariant = "mcp_structured_error_responses",
-        verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-    )]
+    #[specforge_test_macros::test(requirement = "INVARIANT-067")]
     fn init_states_which_field_a_refusal_is_about() {
         let scratch = tempfile::tempdir().unwrap();
         let init_with = |dir: &str, name: Option<&str>, extensions: &[String]| {

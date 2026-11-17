@@ -31,10 +31,7 @@ fn a_schema_declaring_a_target_argument_is_refused() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a tool schema declaring the reserved settings argument is refused"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_tool_schema_declaring_settings_is_refused() {
     // I017 names `settings` as it names `path`.
     let schema = json!({"type": "object", "properties": {"settings": {"type": "object"}}});

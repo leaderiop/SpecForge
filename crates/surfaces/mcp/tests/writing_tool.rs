@@ -31,10 +31,7 @@ fn served() -> Served {
     Served::initialized_in(project, runtime)
 }
 
-#[specforge_test(
-    behavior = "writing_command_tool",
-    verify = "a writing command's tool is a mutation that answers its plan and the files it wrote"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn a_writing_command_tool_is_a_mutation() {
     let mut server = served();
     let listed = call(&mut server, "tools/list", json!({}));
@@ -76,10 +73,7 @@ fn a_writing_command_tool_is_a_mutation() {
     assert_eq!(inspected["fields"]["result"], "pass", "{inspected}");
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a writing collector's plan is previewed with dry_run over MCP"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_writing_collectors_plan_is_previewed_with_dry_run() {
     let ops = json!([{"op": "create", "kind": "commit", "id": "c1", "title": "C", "file": "commits.spec",
         "revision": "absent", "fields": {"phase": "03", "sha": "abc"}}]);
@@ -118,10 +112,7 @@ fn a_writing_collectors_plan_is_previewed_with_dry_run() {
     assert!(server.root().join("commits.spec").exists());
 }
 
-#[specforge_test(
-    behavior = "refuse_human_only_write",
-    verify = "a human-attested command runs from a terminal and is refused to an agent's call"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_human_commands_tool_is_refused() {
     let ops = json!([{"op": "set", "entity": "v1.0/03/U1", "field": "result", "value": "pass",
         "revision": revision_of(U.as_bytes())}]);

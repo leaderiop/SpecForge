@@ -68,10 +68,7 @@ fn prompt(project: &TestProject, rest: &[&str]) -> (i32, String, String) {
     (code.code(), capture.stdout(), capture.stderr())
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "specforge prompt prints a rendered prompt, as JSON with its host message, and refuses a failing gate"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn specforge_prompt_prints_a_rendered_prompt() {
     let ok = project("fine", "ok");
     let (code, out, err) = prompt(
@@ -97,10 +94,7 @@ fn specforge_prompt_prints_a_rendered_prompt() {
     );
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "an extension's name routes a prompt when no command of it has that name"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn an_extension_name_routes_a_prompt_when_no_command_has_it() {
     let ok = project("fine", "ok");
     // `research_phase` is a prompt only; `record_plan` is a command only.
@@ -115,10 +109,7 @@ fn an_extension_name_routes_a_prompt_when_no_command_has_it() {
     );
 }
 
-#[specforge_test(
-    behavior = "gate_a_command",
-    verify = "a gated command is refused on the command line with its failing diagnostics, and its export is not called"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_gated_command_is_refused_on_the_cli() {
     let blocked = project("fine", "blocked");
     let (code, out, err) = extension(&blocked, "t", &["execute-phase", "03"]);
@@ -137,10 +128,7 @@ fn a_gated_command_is_refused_on_the_cli() {
     assert!(err_json.contains("\"code\":\"gate_failed\""), "{err_json}");
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt renders the same messages and payload on the command line and over MCP"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_prompt_renders_alike_on_the_command_line_and_over_mcp() {
     use serde_json::json;
     use specforge_mcp::testing::{Served, rpc};
@@ -172,10 +160,7 @@ fn a_prompt_renders_alike_on_the_command_line_and_over_mcp() {
     assert_eq!(cli["payload"], reply["payload"]);
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "completions and help list an extension's prompts beside its commands, with their arguments"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn the_extension_command_line_lists_its_prompts() {
     let runtime: SharedRuntime = Arc::new(GsdPrompts::new().runtime());
     let env = project("fine", "ok").environment_in(runtime);
@@ -200,10 +185,7 @@ fn the_extension_command_line_lists_its_prompts() {
     );
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "specforge prompt refuses an unknown prompt, an unknown host or format and an option without its value, rendering nothing"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn specforge_prompt_refuses_what_it_cannot_render() {
     let ok = project("fine", "ok");
     for (words, said) in [
@@ -231,10 +213,7 @@ fn specforge_prompt_refuses_what_it_cannot_render() {
     }
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt's own path and format arguments reach it on the command line"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_prompts_own_path_and_format_reach_it() {
     let ok = project("fine", "ok");
     // After the host's `--` every word is the prompt's.
@@ -275,10 +254,7 @@ fn fallback(line: &[&str]) -> (Vec<String>, String) {
     (words, path)
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "the host reads its options before the first double dash only"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn the_host_reads_its_options_before_double_dash_only() {
     let ok = project("fine", "ok");
     let (code, _, err) = prompt(&ok, &["t.plan_phase", "03", "--", "--host", "codex"]);
@@ -289,10 +265,7 @@ fn the_host_reads_its_options_before_double_dash_only() {
     );
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "the fallback line an install writes leaves the host's options in the text to the prompt"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn the_fallback_line_leaves_host_options_in_the_text_to_the_prompt() {
     let ok = project("fine", "ok");
     // The line a skill writes: `--host`, then `--`, then the user's text. Clap drops a leading `--`; it is put back.
@@ -345,10 +318,7 @@ fn named<'a>(name: &'a str, words: &'a [String]) -> Vec<&'a str> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a path in the prompt's text never moves the project, and a leading path names it"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_path_in_the_text_never_moves_the_project() {
     let (_, path) = fallback(&[
         "t.plan_phase",
@@ -369,10 +339,7 @@ fn a_path_in_the_text_never_moves_the_project() {
     assert!(!words.iter().any(|w| w == "--path"), "{words:?}");
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "the host option reaches a command on the command line, and a host that is none is refused"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn the_host_option_reaches_a_command() {
     let p = project("fine", "fine");
     let (code, out, err) = extension(&p, "t", &["record-plan", "03", "--host", "codex"]);
@@ -384,10 +351,7 @@ fn the_host_option_reaches_a_command() {
     assert!(err.contains("vim"), "{err}");
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "a command that declares a host argument keeps it as its own and is not told the calling host"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_command_declaring_host_keeps_its_own_argument() {
     let p = project("fine", "fine");
     let (code, out, err) = extension(&p, "t", &["name-host", "--host", "codex"]);

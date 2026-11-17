@@ -81,10 +81,7 @@ fn project_with(config: &str) -> tempfile::TempDir {
     dir
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "add extension appends to extensions list"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_commit_writes_the_entries_the_plan_judged_and_keeps_the_rest() {
     let dir = project_with(
         r#"{"name":"p","version":"0.1.0","spec_root":"spec","extensions":["@acme/foo@1.0.0",7]}"#,
@@ -201,10 +198,7 @@ fn a_config_that_appeared_or_no_longer_parses_is_changed() {
     assert!(opened_none.unchanged(&held, "add").is_ok());
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "add extension appends to extensions list"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_entry_whose_name_prefixes_an_enabled_one_is_appended() {
     let dir = project_with(r#"{"name":"p","extensions":["@specforge/software-ish@1.0.0"]}"#);
     let (runtime, installed) = (software(), Installed::at(dir.path()));

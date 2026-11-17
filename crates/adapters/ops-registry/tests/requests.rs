@@ -54,10 +54,7 @@ fn name(text: &str) -> PackageName {
     PackageName::parse(text).unwrap()
 }
 
-#[specforge_test(
-    behavior = "resolve_registry_source",
-    verify = "a fetch requests the name and version it was given, from the registry it was given"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn the_adapter_requests_these_paths() {
     let served = serving(&["1.4.0", "2.0.0-beta.1"]);
     let dir = project_with(&default_registry(served.root().as_str()));
@@ -111,10 +108,7 @@ fn the_adapter_requests_these_paths() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_registry_source",
-    verify = "a name no registry serves is refused with R-OPS-001 before any request"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn the_adapter_asks_no_registry_for_a_name_none_serves() {
     let served = serving(&["1.0.0"]);
     let dir = project_with(&format!(
@@ -136,10 +130,7 @@ fn the_adapter_asks_no_registry_for_a_name_none_serves() {
     assert!(served.requests().is_empty(), "{:?}", served.requests());
 }
 
-#[specforge_test(
-    behavior = "resolve_registry_source",
-    verify = "a fetch requests the name and version it was given, from the registry it was given"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn the_registry_is_chosen_once() {
     // One default registry: the adapter chooses it, and the client fetches
     // from it (§3 R4).
@@ -174,10 +165,7 @@ fn the_registry_is_chosen_once() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_registry_source",
-    verify = "a scope_filter that is not a scope sends none of its scope's names to another registry"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_scope_filter_that_is_no_scope_asks_no_registry() {
     for text in ["sdk", "@sdk/", "@SDK", ""] {
         let public = serving(&["1.0.0"]);
@@ -208,10 +196,7 @@ fn a_scope_filter_that_is_no_scope_asks_no_registry() {
     }
 }
 
-#[specforge_test(
-    behavior = "check_registry_reply",
-    verify = "a fetch of the version specforge.lock pins served as other bytes is refused before its download"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_locked_version_served_as_other_bytes_is_refused_before_its_download() {
     let served = serving(&["1.0.0"]);
     let dir = project_with(&default_registry(served.root().as_str()));
@@ -234,10 +219,7 @@ fn a_locked_version_served_as_other_bytes_is_refused_before_its_download() {
     assert_eq!(served.requests(), ["GET /v1/packages/@acme%2Ftool/1.0.0"]);
 }
 
-#[specforge_test(
-    behavior = "verify_publisher_signature",
-    verify = "a package the trust decision refuses is refused before its download"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn an_unsigned_package_is_refused_before_its_download() {
     let served = serving(&["1.0.0"]); // unsigned
     let dir = project_with(&default_registry(served.root().as_str()));
@@ -262,10 +244,7 @@ fn store(dir: &TestProject, text: &str) {
     std::fs::write(dir.home().join("known-keys.json"), text).unwrap();
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "an unsigned package for a pinned name is refused before its download"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn an_unsigned_package_for_a_pinned_name_is_refused_before_its_download() {
     let served = serving(&["1.0.0"]); // unsigned
     let dir = project_with(&default_registry(served.root().as_str()));
@@ -288,10 +267,7 @@ fn an_unsigned_package_for_a_pinned_name_is_refused_before_its_download() {
     assert_eq!(served.requests(), ["GET /v1/packages/@acme%2Ftool/1.0.0"]);
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "a known-keys store that can't be read refuses an unsigned install too"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn an_unreadable_known_keys_store_refuses_an_unsigned_package_before_its_download() {
     let served = serving(&["1.0.0"]); // unsigned
     let dir = project_with(&default_registry(served.root().as_str()));

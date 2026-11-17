@@ -43,13 +43,13 @@ fn walk(roots: &Roots, glob: Option<&str>) -> Vec<String> {
     walked.entries
 }
 
-#[specforge_test_macros::test(port = "Fs", verify = "Fs contract is satisfied")]
+#[test]
 fn the_local_fs_keeps_the_fs_contract() {
     let (_dir, roots) = project();
     specforge_effects::testing::fs_contract(&LocalFs, &roots);
 }
 
-#[specforge_test_macros::test(port = "Fs", verify = "Fs contract is satisfied")]
+#[test]
 fn the_fake_fs_keeps_the_same_contract() {
     let roots = Roots::new("/p", "/p/spec");
     let fake = specforge_effects::testing::FakeFs::new()

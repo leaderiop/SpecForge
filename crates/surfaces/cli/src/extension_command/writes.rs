@@ -81,10 +81,7 @@ fn revision(project: &TestProject) -> String {
     )
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a writing command previews its plan with --dry-run and writes it otherwise on the command line"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_writing_command_previews_and_applies_on_the_cli() {
     let p = project();
     let revision = revision(&p);
@@ -112,10 +109,7 @@ fn a_writing_command_previews_and_applies_on_the_cli() {
     assert!(err.contains("\"code\":\"stale_revision\""), "{err}");
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a writing command's plan and the file it writes agree on the command line and over MCP"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_writing_commands_plan_agrees_on_both_surfaces() {
     use specforge_mcp::testing::{Served, rpc};
     let (cli_project, mcp_project) = (project(), project());
@@ -143,10 +137,7 @@ fn a_writing_commands_plan_agrees_on_both_surfaces() {
     );
 }
 
-#[specforge_test(
-    behavior = "refuse_human_only_write",
-    verify = "a human-attested command runs from a terminal and is refused to an agent's call"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_human_command_runs_only_from_a_terminal() {
     let p = project();
     let revision = revision(&p);

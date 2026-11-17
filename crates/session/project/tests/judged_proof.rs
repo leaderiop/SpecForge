@@ -83,10 +83,7 @@ fn codes(compiled: &CompiledProject) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a test input of several chains digests their union"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_test_input_of_several_chains_digests_their_union() {
     let p = proved();
     store(&p, &[("adds", "passed"), ("lists", "passed")]);
@@ -102,10 +99,7 @@ fn a_test_input_of_several_chains_digests_their_union() {
     assert_eq!(judgement(&compile(&p), PROVED, E501).1, ["tests"]);
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a fact's own result is its test input, and a status change stales it"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn with_no_report_a_failing_proof_stales_a_verified_truth() {
     // A facts-only collect writes no report: the truth's own chain is not read, its proof's is.
     let p = proved();
@@ -122,10 +116,7 @@ fn with_no_report_a_failing_proof_stales_a_verified_truth() {
     );
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "each chain of a test input counts on its own, and the input is unjudged only when no chain is read"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn with_no_report_a_passing_proof_keeps_it_fresh() {
     let p = proved();
     store(&p, &[("adds", "passed")]);
@@ -137,10 +128,7 @@ fn with_no_report_a_passing_proof_keeps_it_fresh() {
     assert!(!codes(&compiled).contains(&"I205".to_string()));
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a proof with no stored facts is unjudged, as a missing report is"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn with_no_report_and_no_stored_facts_every_chain_is_unjudged_and_i205() {
     let p = proved();
     store(&p, &[("adds", "passed")]);
@@ -163,10 +151,7 @@ fn with_no_report_and_no_stored_facts_every_chain_is_unjudged_and_i205() {
     );
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a proof the store does not hold leaves the input unjudged, and one the store lost stales it"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_proof_no_store_holds_is_unjudged_and_one_the_store_lost_is_absent() {
     let p = proved();
     // No store holds `js` facts: the cited test may simply not be collected yet.
@@ -181,10 +166,7 @@ fn a_proof_no_store_holds_is_unjudged_and_one_the_store_lost_is_absent() {
     assert_eq!(judgement(&compiled, PROVED, E501).1, ["tests"]);
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a proof beside a store of other kinds in its scheme leaves the input unjudged"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_proof_beside_a_store_of_other_kinds_in_its_scheme_is_unjudged() {
     let p = proved();
     // The store holds `js` items only: a `test` the proof cites may simply not be collected yet.
@@ -195,10 +177,7 @@ fn a_proof_beside_a_store_of_other_kinds_in_its_scheme_is_unjudged() {
     assert_eq!(tests_input(&compiled, PROVED).0, [ADDS, PROVED]);
 }
 
-#[specforge_test(
-    behavior = "declare_judged_rule",
-    verify = "a chain to a kind of an unloaded optional peer is inert, not W112"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_chain_to_a_kind_of_an_unloaded_optional_peer_is_inert_not_w112() {
     // `@gsd/core`'s E501 reads `test(self, self.proof)`, and `proof` names `test`, which the builtin vocabulary
     // credits to `@code/core`, an optional peer the project does not load.
@@ -212,10 +191,7 @@ fn a_chain_to_a_kind_of_an_unloaded_optional_peer_is_inert_not_w112() {
     assert!(digest.starts_with("sha256:"), "{digest}");
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a linked test that vanishes stales the verdict"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_linked_test_that_vanishes_stales_the_verdict() {
     let p = gsd_judged_project("");
     let truth = "v1.0/03/03-02/TR1";
@@ -257,10 +233,7 @@ fn compile_named(p: &TestProject) -> CompiledProject {
     p.compile_in(Arc::new(gsd_routed_serving(named_builder)) as SharedRuntime)
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a referrer step over a collected kind no store holds is unjudged, as a missing report is"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_truth_only_a_tag_links_is_unjudged_on_a_fresh_clone() {
     const TRUTH: &str = "v1.0/03/03-02/TR1";
     let p = gsd_judged_tests_project("");

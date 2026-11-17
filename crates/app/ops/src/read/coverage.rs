@@ -195,10 +195,9 @@ mod tests {
         Status::NotTestable,
     ];
 
-    #[specforge_test(
-        behavior = "read_views_over_the_project_view",
-        verify = "a coverage row is one JSON document on every surface"
-    )]
+    #[specforge_test(requirement = "FEATURE-025")]
+    #[specforge_test(requirement = "FEATURE-064")]
+    #[specforge_test(requirement = "FEATURE-130")]
     fn the_filter_names_are_the_written_statuses() {
         for status in ALL {
             assert_eq!(

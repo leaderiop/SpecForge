@@ -128,10 +128,8 @@ fn citing(cited: &str) -> String {
     format!("truth T1 \"One\" {{\n  proof [\"{cited}\"]\n}}\n")
 }
 
-#[specforge_test_macros::test(
-    behavior = "cc_check_fact_refs",
-    verify = "a fact ref to a missing test is code/E101"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-003")]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
 fn a_fact_ref_to_a_missing_test_is_code_e101() {
     let p = project(&[("truths.spec", &citing("js:app/test/a.test.js#board > add"))]);
     stored(p.root(), "node", KEY, adds("passed", &[]));
@@ -150,10 +148,8 @@ fn a_fact_ref_to_a_missing_test_is_code_e101() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "cc_check_fact_refs",
-    verify = "a fact ref with no facts collected is code/W102"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-003")]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
 fn a_fact_ref_with_no_facts_collected_is_code_w102() {
     let p = project(&[("truths.spec", &citing(ADDS))]);
 
@@ -167,10 +163,8 @@ fn a_fact_ref_with_no_facts_collected_is_code_w102() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "cc_check_fact_refs",
-    verify = "a fact ref of a pending owner is unchecked"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-003")]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
 fn a_fact_ref_of_a_pending_owner_is_unchecked() {
     let plans = format!(
         "plan open \"Open\" {{\n  status open\n}}\n\nplan done \"Done\" {{\n  status complete\n}}\n\n\
@@ -190,10 +184,8 @@ fn a_fact_ref_of_a_pending_owner_is_unchecked() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "cc_check_fact_refs",
-    verify = "a held fact ref links and reports nothing"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-003")]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
 fn a_held_fact_ref_links_and_reports_nothing() {
     let p = project(&[("truths.spec", &citing(ADDS))]);
     stored(p.root(), "node", KEY, adds("passed", &[]));
@@ -211,7 +203,7 @@ fn a_held_fact_ref_links_and_reports_nothing() {
     );
 }
 
-#[specforge_test_macros::test(behavior = "cc_check_proof", verify = "a failing proof is code/W401")]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
 fn a_failing_proof_is_code_w401() {
     let plans = format!(
         "{}\nplan open \"Open\" {{\n  status open\n}}\n\nstep later \"Later\" {{\n  plan open\n  proof [\"{ADDS}\"]\n}}\n",
@@ -235,10 +227,7 @@ fn a_failing_proof_is_code_w401() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "cc_check_proof",
-    verify = "a test naming a missing entity is code/I402"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
 fn a_test_naming_a_missing_entity_is_code_i402() {
     let p = project(&[("truths.spec", &citing(ADDS))]);
     stored(p.root(), "node", KEY, adds("passed", &["T1", "T9"]));
@@ -257,10 +246,8 @@ fn a_test_naming_a_missing_entity_is_code_i402() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "cc_check_fact_refs",
-    verify = "a test run's dangling test reference is code/E101 at the fact, addressed to its collector"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-003")]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
 fn a_test_runs_dangling_test_reference_is_code_e101_at_the_fact() {
     let p = project(&[("truths.spec", &citing(ADDS))]);
     let mut facts = adds("passed", &[]);
@@ -302,10 +289,8 @@ fn a_test_runs_dangling_test_reference_is_code_e101_at_the_fact() {
     assert_eq!((span.file.as_str(), span.start_line), ("test/a.test.js", 7));
 }
 
-#[specforge_test_macros::test(
-    behavior = "cc_check_fact_refs",
-    verify = "a rust test ref beside only item facts is code/W102"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-003")]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
 fn a_rust_test_ref_beside_only_item_facts_is_code_w102() {
     let p = project(&[("truths.spec", &citing("rust:toy#tests::adds"))]);
     stored(
@@ -331,10 +316,8 @@ fn a_rust_test_ref_beside_only_item_facts_is_code_w102() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "cc_check_fact_refs",
-    verify = "a missing item of a collected crate is code/E101"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-003")]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
 fn a_missing_item_of_a_collected_crate_is_code_e101() {
     let p = project(&[("apis.spec", &api("rust:toy::Board::ad"))]);
     stored(
@@ -358,10 +341,8 @@ fn a_missing_item_of_a_collected_crate_is_code_e101() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "cc_check_fact_refs",
-    verify = "an item ref links to its fact"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-003")]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
 fn an_item_ref_links_to_its_fact() {
     let p = project(&[("apis.spec", &api("rust:toy::Board::add"))]);
     stored(
@@ -386,10 +367,8 @@ fn an_item_ref_links_to_its_fact() {
 
 /// An item the harness recorded once and the code has since renamed is history: what held when it was written, never
 /// a finding, where an authored reference to it is `code/E101`.
-#[specforge_test_macros::test(
-    behavior = "cc_check_fact_refs",
-    verify = "an unheld history reference is no finding"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-003")]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
 fn a_harness_immutable_reference_is_no_finding() {
     let change = "change C1 \"One\" {\n  items_changed [\"rust:toy::Board::ad\"]\n}\n";
     let p = project(&[("changes.spec", change)]);

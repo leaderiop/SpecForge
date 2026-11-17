@@ -32,10 +32,7 @@ fn published(settings: serde_json::Value) -> Vec<(String, Option<DiagnosticSever
     found
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "the language server publishes a raised severity and no gated code"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_lsp_publishes_raised_severities() {
     let off = published(json!({}));
     assert!(

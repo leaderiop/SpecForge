@@ -75,7 +75,7 @@ fn expected(states: &[(&str, &str)]) -> BTreeMap<String, String> {
         .collect()
 }
 
-#[specforge_test(behavior = "ingest_collector_report")]
+#[specforge_test(requirement = "FEATURE-128")]
 fn two_stacked_requirement_attributes_prove_both_requirements() {
     let project = tracer();
     assert_eq!(
@@ -88,7 +88,7 @@ fn two_stacked_requirement_attributes_prove_both_requirements() {
     );
 }
 
-#[specforge_test(behavior = "ingest_collector_report")]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_failed_test_fails_the_requirement_it_names() {
     let project = tracer();
     let report = project.root().join("junit.xml");

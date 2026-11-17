@@ -157,10 +157,7 @@ fn guest_answering(protocol_version: &str) -> specforge_wasm::testing::InProcess
         )
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_extension_manifest",
-    verify = "a handshake of an older minor of the host's major loads"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn an_older_minor_of_the_hosts_major_still_loads() {
     use specforge_protocol_types::HandshakeResponse;
     use specforge_wasm::protocol::check_protocol_version;
@@ -178,10 +175,7 @@ fn an_older_minor_of_the_hosts_major_still_loads() {
     assert!(check_protocol_version("2.3.0", &guest("2.4.0")).is_err());
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_extension_manifest",
-    verify = "a handshake of another protocol major produces E088, saying which side is behind"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_1_x_guest_is_refused_with_e088_as_older() {
     use specforge_protocol_types::{PROTOCOL_VERSION, ProtocolError};
     use specforge_wasm::protocol::load_declaration;
@@ -205,10 +199,7 @@ fn a_1_x_guest_is_refused_with_e088_as_older() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_extension_manifest",
-    verify = "a handshake whose protocol minor is newer than the host's produces E088"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_newer_minor_protocol_is_refused() {
     use specforge_protocol_types::{PROTOCOL_VERSION, ProtocolError};
     use specforge_wasm::protocol::load_declaration;
@@ -254,10 +245,7 @@ fn host_major() -> u64 {
         .expect("the host protocol is semver")
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_extension_manifest",
-    verify = "a handshake of another protocol major produces E088, saying which side is behind"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_newer_protocol_major_is_refused_as_newer() {
     use specforge_protocol_types::{PROTOCOL_VERSION, ProtocolError};
     use specforge_wasm::protocol::load_declaration;
@@ -274,10 +262,7 @@ fn a_newer_protocol_major_is_refused_as_newer() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_extension_manifest",
-    verify = "a handshake of another protocol major produces E088, saying which side is behind"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn an_older_protocol_major_is_refused_as_older() {
     use specforge_protocol_types::PROTOCOL_VERSION;
     use specforge_wasm::protocol::load_declaration;
@@ -290,10 +275,7 @@ fn an_older_protocol_major_is_refused_as_older() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_extension_manifest",
-    verify = "a handshake whose protocol version is not semver produces E028"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_protocol_version_that_is_not_semver_fails_the_handshake() {
     use specforge_protocol_types::ProtocolError;
     use specforge_wasm::protocol::load_declaration;

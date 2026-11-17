@@ -7,10 +7,7 @@
 
 use specforge_extension_sdk::prelude::*;
 
-#[specforge_test_macros::test(
-    behavior = "declare_judged_rule",
-    verify = "an SDK judged rule builds the descriptor the host reads"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-058")]
 fn a_judged_rule_builds_the_descriptor_the_host_reads() {
     let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/judged", "1.0.0"));
     b.rule("W311", |r| {

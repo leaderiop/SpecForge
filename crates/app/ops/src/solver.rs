@@ -221,10 +221,7 @@ mod tests {
         (dir, path)
     }
 
-    #[specforge_test(
-        behavior = "prove_declared_bounds_and_claims",
-        verify = "a solver call ends at its timeout, even when the solver leaves a child process"
-    )]
+    #[specforge_test(requirement = "FEATURE-124")]
     fn process_outliving_the_timeout_is_killed() {
         let started = Instant::now();
         let z3 = Z3::at("sleep", Duration::from_secs(30), Duration::from_secs(5));
@@ -234,10 +231,7 @@ mod tests {
     }
 
     #[cfg(unix)]
-    #[specforge_test(
-        behavior = "prove_declared_bounds_and_claims",
-        verify = "a solver call ends at its timeout, even when the solver leaves a child process"
-    )]
+    #[specforge_test(requirement = "FEATURE-124")]
     fn a_solver_that_leaves_a_child_is_stopped_at_the_timeout() {
         // `sh` forks `sleep`, which keeps the stdout pipe after `sh` is killed.
         let started = Instant::now();
@@ -252,10 +246,7 @@ mod tests {
     }
 
     #[cfg(unix)]
-    #[specforge_test(
-        behavior = "prove_declared_bounds_and_claims",
-        verify = "a solver call ends at its timeout, even when the solver leaves a child process"
-    )]
+    #[specforge_test(requirement = "FEATURE-124")]
     fn a_slow_solve_is_timed_out_after_the_adapters_timeout() {
         let (_dir, fake) = fake_z3(
             r#"[ "$1" = "--version" ] && { echo "Z3 version 4.13.0 - fake"; exit 0; }; sleep 30; true"#,
@@ -273,10 +264,7 @@ mod tests {
     }
 
     #[cfg(unix)]
-    #[specforge_test(
-        behavior = "prove_declared_bounds_and_claims",
-        verify = "a solver call ends at its timeout, even when the solver leaves a child process"
-    )]
+    #[specforge_test(requirement = "FEATURE-124")]
     fn a_hung_probe_is_unavailable_after_the_probe_timeout() {
         let (_dir, fake) = fake_z3("sleep 30");
         let z3 = Z3::at(fake, Duration::from_secs(30), Duration::from_millis(200));
@@ -324,7 +312,7 @@ mod tests {
         );
     }
 
-    #[specforge_test(port = "SmtSolver", verify = "SmtSolver contract is satisfied")]
+    #[test]
     fn the_real_z3_keeps_the_port_contract() {
         let z3 = real_z3();
         let Availability::Ready { version } = z3.availability() else {

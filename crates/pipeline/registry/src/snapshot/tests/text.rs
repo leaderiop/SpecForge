@@ -41,10 +41,7 @@ fn texts(source: &str) -> Vec<(String, &'static str, String)> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "snapshot_entities_once",
-    verify = "every written field keeps its value shape and value span beside its text"
-)]
+#[specforge_test(requirement = "FEATURE-016")]
 fn every_variant_has_a_value_shape() {
     let source = r#"item x "X" {
   title "a title"
@@ -110,10 +107,7 @@ fn every_variant_has_a_value_shape() {
     }
 }
 
-#[specforge_test(
-    behavior = "snapshot_entities_once",
-    verify = "a variant list or type union is its members joined by ' | ', a list or expression group its items joined by ', '"
-)]
+#[specforge_test(requirement = "FEATURE-016")]
 fn field_text_of_every_variant() {
     let source = r#"item x "X" {
   title "a title"
@@ -185,10 +179,7 @@ fn field_text_of_every_variant() {
     }
 }
 
-#[specforge_test(
-    behavior = "snapshot_entities_once",
-    verify = "an empty list or block is written, with empty text, never left out or null"
-)]
+#[specforge_test(requirement = "FEATURE-016")]
 fn an_empty_value_has_empty_text() {
     let actual = texts("item x \"X\" {\n  values []\n  tags []\n  requires {\n  }\n}\n");
     assert_eq!(

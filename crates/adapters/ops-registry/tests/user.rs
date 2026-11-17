@@ -11,10 +11,7 @@ use specforge_project::testing::TestProject;
 use specforge_registry_client::testing::MemoryClient;
 use specforge_test_macros::test as specforge_test;
 
-#[specforge_test(
-    behavior = "authenticate_registry_request",
-    verify = "a kept token whose secret is missing is R-AUTH-021 before any request"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn a_kept_token_whose_secret_is_gone_refuses_the_read() {
     let project = TestProject::new().config(|c| {
         c["name"] = "p".into();
@@ -42,10 +39,7 @@ fn a_kept_token_whose_secret_is_gone_refuses_the_read() {
     assert!(calls.is_empty(), "{calls:?}");
 }
 
-#[specforge_test(
-    behavior = "support_private_registries",
-    verify = "a read carries the credential kept for its registry's root, and none kept for another root"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn a_read_carries_the_credential_kept_for_its_root_only() {
     // Two entries with one alias and two roots (W140): they do not share a credential.
     let project = TestProject::new().config(|c| {
@@ -78,10 +72,7 @@ fn a_read_carries_the_credential_kept_for_its_root_only() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "support_private_registries",
-    verify = "a user store another user could have written counts as missing"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn a_user_store_another_user_could_have_written_counts_as_missing() {
     use std::os::unix::fs::PermissionsExt;
     let project = TestProject::new().config(|c| {
@@ -113,10 +104,7 @@ fn a_user_store_another_user_could_have_written_counts_as_missing() {
     assert_eq!(sent, [false], "a group-writable store gives no credential");
 }
 
-#[specforge_test(
-    behavior = "support_private_registries",
-    verify = "a user store the git worktree it lies in tracks is refused before any request"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn a_user_store_a_git_worktree_tracks_is_refused_before_any_request() {
     use specforge_effects::testing::FakeGit;
     let project = TestProject::new().config(|c| {
@@ -190,10 +178,7 @@ fn kept_roots(project: &TestProject) -> Vec<String> {
     roots
 }
 
-#[specforge_test(
-    behavior = "validate_registry_credentials",
-    verify = "login stores the credential under the root of the registry it validated against"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn login_keeps_the_credential_under_the_registrys_root() {
     let (project, client) = project_on_main();
 
@@ -206,10 +191,7 @@ fn login_keeps_the_credential_under_the_registrys_root() {
     assert_eq!(kept_roots(&project), ["https://main.invalid"]);
 }
 
-#[specforge_test(
-    behavior = "validate_registry_credentials",
-    verify = "raw token never stored in specforge.json"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn login_with_a_token_keeps_the_secret_out_of_the_store() {
     let (project, client) = project_on_main();
 
@@ -243,10 +225,7 @@ fn login_with_a_token_keeps_the_secret_out_of_the_store() {
     assert_eq!(sent.token(), "t");
 }
 
-#[specforge_test(
-    behavior = "validate_registry_credentials",
-    verify = "login refuses an unreadable credential store before any request, and keeps it"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn login_refuses_an_unreadable_store_before_any_request_and_keeps_it() {
     let (project, client) = project_on_main();
     std::fs::create_dir_all(project.home()).unwrap();
@@ -265,10 +244,7 @@ fn login_refuses_an_unreadable_store_before_any_request_and_keeps_it() {
     );
 }
 
-#[specforge_test(
-    behavior = "validate_registry_credentials",
-    verify = "invalid credentials produce error with guidance"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn a_token_the_registry_refuses_writes_nothing() {
     let (project, client) = project_on_main();
 
@@ -280,10 +256,7 @@ fn a_token_the_registry_refuses_writes_nothing() {
     assert!(!project.home().join("credentials.json").exists());
 }
 
-#[specforge_test(
-    behavior = "validate_registry_credentials",
-    verify = "two registries with one alias keep two credentials, one per root"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn two_entries_with_one_alias_keep_two_credentials() {
     let (project, client) = project_on_main();
     registry_for(&project, &client, "login")
@@ -308,10 +281,7 @@ fn two_entries_with_one_alias_keep_two_credentials() {
     );
 }
 
-#[specforge_test(
-    behavior = "logout_registry",
-    verify = "credentials for other registry roots remain untouched"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn logout_forgets_only_its_roots_credential() {
     let (project, client) = project_on_main();
     registry_for(&project, &client, "login")
@@ -332,10 +302,7 @@ fn logout_forgets_only_its_roots_credential() {
     assert_eq!(left.count(), 0, "its secret file is gone");
 }
 
-#[specforge_test(
-    behavior = "logout_registry",
-    verify = "no credential for the root succeeds silently"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn logout_of_a_root_with_nothing_kept_succeeds_silently() {
     let (project, _) = project_on_main();
 

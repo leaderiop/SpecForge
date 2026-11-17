@@ -129,10 +129,7 @@ fn capabilities_include_extension_counts() {
 // --- Dynamic kind-based tools and resources ---
 
 // B:provide_mcp_entities_by_kind — verify unit "specforge.list returns entities filtered by kind"
-#[specforge_test(
-    behavior = "provide_mcp_entities_by_kind",
-    verify = "specforge.list returns entities filtered by kind"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn list_tool_returns_entities_by_kind() {
     let mut server = init_server_with_kinds();
     let resp = call_tool(&mut server, "specforge.list", json!({"kind": "feature"}));
@@ -169,10 +166,7 @@ fn listed_ids(server: &mut McpServer, args: Value) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_entities_by_kind",
-    verify = "specforge.list keeps the entities whose fields hold the where values"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn list_tool_filters_by_field_values() {
     let mut server = init_server_with_kinds();
     let planned = json!({"kind": "feature", "where": {"status": "planned"}});
@@ -186,10 +180,7 @@ fn list_tool_filters_by_field_values() {
     assert!(listed_ids(&mut server, done).is_empty());
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_entities_by_kind",
-    verify = "specforge.list pages the entities sorted by id with offset and limit"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn list_tool_pages_sorted_entities() {
     let mut server = init_server_with_kinds();
     assert_eq!(
@@ -217,10 +208,7 @@ fn list_tool_refuses_a_malformed_filter_or_page() {
 }
 
 // B:provide_mcp_entities_by_kind — verify unit "specforge.list returns empty array for unknown kind"
-#[specforge_test(
-    behavior = "provide_mcp_entities_by_kind",
-    verify = "specforge.list returns empty for unknown kind"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn list_tool_empty_for_unknown_kind() {
     let mut server = init_server_with_kinds();
     let resp = call_tool(
@@ -234,10 +222,7 @@ fn list_tool_empty_for_unknown_kind() {
 }
 
 // B:provide_mcp_entities_by_kind — verify unit "specforge://entities/{kind} resource returns entities as JSON"
-#[specforge_test(
-    behavior = "provide_mcp_entities_by_kind",
-    verify = "entity-by-kind resource returns entities"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn entities_by_kind_resource() {
     let mut server = init_server_with_kinds();
     let resp = read_resource(&mut server, "specforge://entities/behavior");
@@ -255,10 +240,7 @@ fn entities_by_kind_resource() {
 }
 
 // B:provide_mcp_entities_by_kind — verify unit "specforge.list tool is registered"
-#[specforge_test(
-    behavior = "provide_mcp_entities_by_kind",
-    verify = "specforge.list tool appears in tool list"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn list_tool_registered() {
     let mut server = McpServer::new();
     call(&mut server, "initialize", json!({}));
@@ -288,10 +270,7 @@ fn extension_tool_dispatches() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "unknown tool still returns METHOD_NOT_FOUND"
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "truly unknown tool returns -32602 Invalid params (MCP spec example)"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn unknown_tool_returns_invalid_params() {
     let (mut server, _ext, _dir) = init_server_with_surfaces();
     let resp = call_tool(&mut server, "totally.unknown.tool", json!({}));
@@ -299,10 +278,7 @@ fn unknown_tool_returns_invalid_params() {
 }
 
 // B:list_mcp_tools — verify unit "re-compilation preserves core tools"
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "returns core-provided descriptors when no extensions installed"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn recompilation_refreshes_surfaces() {
     let dir = TempDir::new().unwrap();
     fs::write(
@@ -365,10 +341,7 @@ fn recompilation_refreshes_surfaces() {
 }
 
 // B:provide_mcp_entities_by_kind — verify unit "entities resource registered in resource list"
-#[specforge_test(
-    behavior = "provide_mcp_entities_by_kind",
-    verify = "entities resource template in resource template list"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn entities_resource_registered() {
     let mut server = McpServer::new();
     call(&mut server, "initialize", json!({}));
@@ -398,10 +371,7 @@ fn listed_tool(server: &mut McpServer, name: &str) -> Option<Value> {
         .cloned()
 }
 
-#[specforge_test(
-    behavior = "auto_promote_commands_to_mcp_tools",
-    verify = "CLI command auto-promoted to MCP tool"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn cli_command_auto_promoted_to_mcp_tool() {
     let output = json!({"exit_code": 0, "stdout": "3 of 4 covered", "stderr": ""});
     let (mut server, ext, _dir) =
@@ -445,10 +415,7 @@ fn promoted_report(output: Value) -> (Value, Value) {
     (resp["result"].clone(), input.clone())
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "over MCP a command's JSON object output is the tool's structured content, and output that is not one object is text"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn over_mcp_a_commands_output_is_structured_only_when_it_is_one_object() {
     let ran = |exit_code: i32, stdout: &str, stderr: &str| {
         promoted_report(json!({"exit_code": exit_code, "stdout": stdout, "stderr": stderr})).0
@@ -492,10 +459,7 @@ fn over_mcp_a_commands_output_is_structured_only_when_it_is_one_object() {
     );
 }
 
-#[specforge_test(
-    behavior = "auto_promote_commands_to_mcp_tools",
-    verify = "auto-promoted tool name follows specforge.{ext}.{cmd} pattern"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn auto_promoted_tool_name_follows_pattern() {
     let (server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
     // `@test/cmds` has the short name `cmds`; each promoted tool is
@@ -524,10 +488,7 @@ fn auto_promoted_tool_name_follows_pattern() {
     );
 }
 
-#[specforge_test(
-    behavior = "auto_promote_commands_to_mcp_tools",
-    verify = "a command the CLI refuses, such as one declaring an arg named format, is not promoted"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_command_the_cli_refuses_is_no_tool() {
     let command = |id: &str, arg: &str| {
         json!({"id": id, "title": id, "description": id, "export": format!("cmd__{id}"),
@@ -569,10 +530,7 @@ fn a_command_the_cli_refuses_is_no_tool() {
     );
 }
 
-#[specforge_test(
-    behavior = "auto_promote_commands_to_mcp_tools",
-    verify = "derived input_schema computed from command args"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_commands_input_schema_is_derived_from_its_args() {
     let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
     let listed = listed_tool(&mut server, "specforge.cmds.report").unwrap();
@@ -592,10 +550,7 @@ fn a_commands_input_schema_is_derived_from_its_args() {
     );
 }
 
-#[specforge_test(
-    behavior = "auto_promote_commands_to_mcp_tools",
-    verify = "explicit MCP tool wins over auto-promoted tool with I017"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn explicit_mcp_tool_wins_over_auto_promoted() {
     let (mut server, ext, _dir) = fake_extension::initialized(
         FakeExtension::new().with_output("mcp__check", json!({"checked": true})),
@@ -649,10 +604,7 @@ fn explicit_mcp_tool_wins_over_auto_promoted() {
     );
 }
 
-#[specforge_test(
-    behavior = "notify_diagnostics_delta_via_mcp",
-    verify = "the I017 the extension surfaces add and remove is notified with the update's delta"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn the_i017_the_surfaces_drop_is_notified() {
     let (mut server, _ext, dir) = fake_extension::initialized(
         FakeExtension::new().with_output("mcp__check", json!({"checked": true})),
@@ -704,10 +656,7 @@ fn the_i017_the_surfaces_drop_is_notified() {
     assert!(codes("added").iter().any(|(code, _)| code == "I002"));
 }
 
-#[specforge_test(
-    behavior = "commands_auto_promoted",
-    verify = "emits commands_auto_promoted with correct promoted and conflict counts"
-)]
+#[test]
 fn event_commands_auto_promoted() {
     let (server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
     let promoted: Vec<Value> = server
@@ -730,10 +679,7 @@ fn event_commands_auto_promoted() {
     assert!(events(&server, "commands_auto_promoted").is_empty());
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_tool",
-    verify = "the served project's runtime is the one its compile loaded and serves later calls until the project reloads"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn one_runtime_serves_extension_calls_until_the_next_compile() {
     let dir = TempDir::new().unwrap();
     let config = json!({"name": "rt", "version": "0.1.0",
@@ -781,10 +727,7 @@ fn one_runtime_serves_extension_calls_until_the_next_compile() {
     assert!(!std::sync::Arc::ptr_eq(&compiled, &runtime(&server)));
 }
 
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "an extension tool's declared output_schema is listed as its outputSchema"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn an_extension_tool_lists_its_declared_output_schema() {
     let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
     let resp = call(&mut server, "tools/list", json!({}));
@@ -805,10 +748,7 @@ fn an_extension_tool_lists_its_declared_output_schema() {
     assert!(report.get("outputSchema").is_none(), "{report}");
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_tool",
-    verify = "input validated against declared input_schema"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn extension_tool_input_is_checked_against_its_schema() {
     let (mut server, ext, _dir) = fake_extension::initialized(
         FakeExtension::new()
@@ -835,10 +775,7 @@ fn extension_tool_input_is_checked_against_its_schema() {
     assert_eq!(ext.calls().len(), 1);
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_tool",
-    verify = "output that does not match the declared output_schema is a schema_mismatch error"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn extension_tool_output_is_checked_against_its_schema() {
     // check declares {"checked": boolean}; this module returns a string.
     let (mut server, ext, _dir) = fake_extension::initialized(
@@ -872,10 +809,7 @@ fn extension_tool_output_is_checked_against_its_schema() {
     );
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_tool",
-    verify = "an output with a key its declared output_schema does not allow is a schema_mismatch error"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn extension_tool_output_with_an_undeclared_key_is_refused() {
     let closed = FakeExtension::declaring(json!({
         "mcp_tools": [{
@@ -908,10 +842,7 @@ fn extension_tool_output_with_an_undeclared_key_is_refused() {
     );
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_tool",
-    verify = "an output that breaks a definition its declared output_schema refers to by $ref is a schema_mismatch error"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn extension_tool_output_breaking_a_referenced_definition_is_refused() {
     let referencing = FakeExtension::declaring(json!({
         "mcp_tools": [{
@@ -967,10 +898,7 @@ fn the_schema_check_finds_type_enum_and_required_violations() {
     assert_eq!(check(json!(3)), ["$: expected object, got integer"]);
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_tool",
-    verify = "input JSON passed to mcp__ export"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn an_extension_tool_export_gets_its_arguments_as_json() {
     let (mut server, ext, _dir) = fake_extension::initialized(
         FakeExtension::new().with_output("mcp__check", json!({"checked": true})),
@@ -986,10 +914,7 @@ fn an_extension_tool_export_gets_its_arguments_as_json() {
     );
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_tool",
-    verify = "Wasm trap returned as structured MCP error"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_trapping_extension_tool_is_a_structured_error() {
     // No output for mcp__check: the guest routes no such export.
     let (mut server, ext, _dir) = fake_extension::initialized(FakeExtension::new());
@@ -1010,10 +935,7 @@ fn a_trapping_extension_tool_is_a_structured_error() {
     assert!(call(&mut server, "ping", json!({}))["result"].is_object());
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_tool",
-    verify = "tool output returned as MCP tool result"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn an_extension_tools_output_is_its_result() {
     let (mut server, _ext, _dir) = fake_extension::initialized(
         FakeExtension::new().with_output("mcp__check", json!({"checked": true})),
@@ -1035,10 +957,7 @@ fn with_summary() -> FakeExtension {
     )
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_resource",
-    verify = "URI matched against registered templates"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn an_extension_resource_is_found_by_its_uri_template() {
     let (mut server, ext, _dir) = fake_extension::initialized(with_summary());
     let resp = read_resource(&mut server, SUMMARY);
@@ -1060,10 +979,7 @@ fn an_extension_resource_is_found_by_its_uri_template() {
     assert_eq!(ext.calls().len(), 1, "{:?}", ext.calls());
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_resource",
-    verify = "URI passed to mcp__ export"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn an_extension_resource_export_gets_the_uri() {
     let (mut server, ext, _dir) = fake_extension::initialized(with_summary());
     read_resource(&mut server, SUMMARY);
@@ -1077,10 +993,7 @@ fn an_extension_resource_export_gets_the_uri() {
     );
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_resource",
-    verify = "Wasm trap returned as structured MCP error"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_trapping_extension_resource_is_a_structured_error() {
     // No output for mcp__summary: the guest routes no such export.
     let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
@@ -1100,10 +1013,7 @@ fn a_trapping_extension_resource_is_a_structured_error() {
     assert!(call(&mut server, "ping", json!({}))["result"].is_object());
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_resource",
-    verify = "a resource whose answer is not its content and mime type is a structured MCP error"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_resource_answering_no_content_is_a_structured_error() {
     for answer in [
         json!("oops"),
@@ -1130,10 +1040,7 @@ fn a_resource_answering_no_content_is_a_structured_error() {
     }
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_resource",
-    verify = "resource content and mime_type returned to client"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn an_extension_resources_content_and_mime_type_are_returned() {
     let (mut server, _ext, _dir) = fake_extension::initialized(with_summary());
     let resp = read_resource(&mut server, SUMMARY);
@@ -1275,10 +1182,7 @@ fn args_reaching(fake: FakeExtension, tool: &str, calls: &[Value]) -> Vec<Option
         .collect()
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "the CLI and MCP send a command's export the same args for the same input, its declared defaults applied by the host"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn mcp_sends_a_commands_export_the_args_its_derivation_normalizes() {
     // What `ExtensionCommand::normalize` gives for the same declaration and
     // input: what the command line sends too (extension_command.rs,
@@ -1330,10 +1234,7 @@ fn mcp_sends_a_commands_export_the_args_its_derivation_normalizes() {
     );
 }
 
-#[specforge_test(
-    behavior = "auto_promote_commands_to_mcp_tools",
-    verify = "an explicit extension tool named as a core tool is not listed, with I017"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_core_named_tool_is_not_served() {
     let (mut server, ext, _dir) =
         fake_extension::initialized(FakeExtension::new().with_tool(core_named_tool()));
@@ -1364,10 +1265,7 @@ fn a_core_named_tool_is_not_served() {
     assert!(ext.calls().is_empty(), "the core tool ran, not mcp__v");
 }
 
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "every listed extension tool is the one dispatched under its name, listed once"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn every_listed_extension_tool_is_the_one_dispatched() {
     // The explicit check takes the name its command would have, and an
     // explicit tool is named as a core tool.
@@ -1433,10 +1331,7 @@ fn every_listed_extension_tool_is_the_one_dispatched() {
     }
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_resource",
-    verify = "an extension resource template outside specforge://ext/ is read through its export"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_resource_outside_specforge_ext_is_read_through_its_export() {
     let (mut server, ext, _dir) = fake_extension::initialized(
         FakeExtension::new()
@@ -1478,10 +1373,7 @@ fn a_resource_outside_specforge_ext_is_read_through_its_export() {
     );
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_resource",
-    verify = "a URI names a core or extension resource by one rule: a template's text before its first placeholder and anything after it, a plain URI alone or followed by a query"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn an_extension_resource_template_names_an_empty_placeholder() {
     let (mut server, ext, _dir) = fake_extension::initialized(
         FakeExtension::new()
@@ -1508,10 +1400,7 @@ fn an_extension_resource_template_names_an_empty_placeholder() {
     );
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_resource",
-    verify = "a URI names a core or extension resource by one rule: a template's text before its first placeholder and anything after it, a plain URI alone or followed by a query"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn an_extension_resource_names_its_uri_with_a_query() {
     let uri = "specforge://ext/cmds/summary?x=1";
     let (mut server, ext, _dir) = fake_extension::initialized(with_summary());
@@ -1530,10 +1419,7 @@ fn an_extension_resource_names_its_uri_with_a_query() {
     assert!(resp["error"].is_null(), "{resp}");
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_resource",
-    verify = "an extension resource template a core resource serves is not listed, with I017"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_resource_template_a_core_resource_serves_is_not_served() {
     let (mut server, ext, _dir) = fake_extension::initialized(
         FakeExtension::new()

@@ -663,10 +663,7 @@ mod tests {
     use super::*;
     use specforge_test_macros::test as specforge_test;
 
-    #[specforge_test(
-        behavior = "provide_mcp_analyze_tool",
-        verify = "specforge.analyze takes min and returns the run verdict and where the gate landed"
-    )]
+    #[specforge_test(requirement = "FEATURE-064")]
     fn a_number_is_read_from_a_number_or_a_string_holding_one() {
         assert_eq!(f64::read("min", &json!(92.5)), Ok(92.5));
         assert_eq!(f64::read("min", &json!(50)), Ok(50.0));

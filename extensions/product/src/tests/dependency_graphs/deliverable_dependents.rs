@@ -18,10 +18,7 @@ fn deliverable_chain() -> G {
         .edge("f1", "d1", "depends_on")
 }
 
-#[specforge_test(
-    behavior = "surface_deliverable_dependents",
-    verify = "deliverable-dependents returns DeliverableDependentPayload JSON"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn deliverable_dependents_answers_its_payload() {
     let dd = json_of(
         "deliverable_dependents",
@@ -34,10 +31,7 @@ fn deliverable_dependents_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_deliverable_dependents",
-    verify = "missing deliverable ID returns error with suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn deliverable_dependents_of_a_mistyped_deliverable_suggests_the_nearest() {
     let error = not_found_suggesting(
         "deliverable_dependents",
@@ -47,10 +41,7 @@ fn deliverable_dependents_of_a_mistyped_deliverable_suggests_the_nearest() {
     assert_eq!(error["suggestion"], "d1");
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_dependents",
-    verify = "deliverable with dependent returns that dependent"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_deliverable_depended_on_once_has_that_dependent() {
     let dd = json_of(
         "deliverable_dependents",
@@ -60,10 +51,7 @@ fn a_deliverable_depended_on_once_has_that_dependent() {
     assert_eq!(dd["dependents"], json!(["d4"]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_dependents",
-    verify = "deliverable with multiple dependents returns all sorted by ID"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_deliverables_dependents_are_sorted_by_id() {
     let dd = json_of(
         "deliverable_dependents",
@@ -73,10 +61,7 @@ fn a_deliverables_dependents_are_sorted_by_id() {
     assert_eq!(dd["dependents"], json!(["d2", "d3"]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_dependents",
-    verify = "deliverable with no dependents returns empty list"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_deliverable_nothing_depends_on_has_no_dependents() {
     let dd = json_of(
         "deliverable_dependents",
@@ -89,10 +74,7 @@ fn a_deliverable_nothing_depends_on_has_no_dependents() {
     );
 }
 
-#[specforge_test(
-    behavior = "product_query_correctness",
-    verify = "reverse queries return exact inverse of forward queries"
-)]
+#[specforge_test(requirement = "RELIABILITY-20")]
 fn dependents_are_exactly_the_depends_on_references_reversed() {
     let g = deliverable_chain();
     for d in ["d1", "d2", "d3", "d4"] {

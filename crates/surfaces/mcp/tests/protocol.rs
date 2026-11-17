@@ -10,10 +10,7 @@ fn call_raw(server: &mut McpServer, input: &str) -> Option<String> {
 // -- JSON-RPC 2.0 framing --
 
 // B:handle_mcp_protocol_error — verify unit "parse error returns -32700"
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "malformed JSON produces -32700 Parse error"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn parse_error_returns_32700() {
     let mut server = McpServer::new();
     let resp = call_raw(&mut server, "not valid json").unwrap();
@@ -25,10 +22,7 @@ fn parse_error_returns_32700() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "invalid request returns -32600"
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "returns -32600 for invalid request"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn invalid_request_returns_32600() {
     let mut server = McpServer::new();
     let resp = call_raw(&mut server, r#"{"id":1}"#).unwrap();
@@ -38,10 +32,7 @@ fn invalid_request_returns_32600() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "missing method returns -32600"
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "returns -32600 for invalid request"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn missing_method_returns_32600() {
     let mut server = McpServer::new();
     let resp = call_raw(&mut server, r#"{"jsonrpc":"2.0","id":1}"#).unwrap();
@@ -50,10 +41,7 @@ fn missing_method_returns_32600() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "unknown method returns -32601"
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "invalid method produces -32601 Method not found"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn unknown_method_returns_32601() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "nonexistent_method", json!({}));
@@ -61,10 +49,7 @@ fn unknown_method_returns_32601() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "invalid jsonrpc version returns -32600"
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "returns -32600 for invalid request"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn invalid_jsonrpc_version_returns_32600() {
     let mut server = McpServer::new();
     let resp = call_raw(&mut server, r#"{"jsonrpc":"1.0","id":1,"method":"ping"}"#).unwrap();
@@ -73,10 +58,7 @@ fn invalid_jsonrpc_version_returns_32600() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "response always has jsonrpc 2.0 field"
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "response always has jsonrpc 2.0 field"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn response_always_has_jsonrpc_field() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "ping", json!({}));
@@ -84,10 +66,7 @@ fn response_always_has_jsonrpc_field() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "error response includes id from request"
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "error response includes id from request"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn error_response_includes_request_id() {
     let mut server = McpServer::new();
     let req = json!({"jsonrpc": "2.0", "id": 42, "method": "nonexistent"});
@@ -98,10 +77,7 @@ fn error_response_includes_request_id() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "success response includes id from request"
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "success response includes id from request"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn success_response_includes_request_id() {
     let mut server = McpServer::new();
     let req = json!({"jsonrpc": "2.0", "id": 99, "method": "ping"});
@@ -119,10 +95,7 @@ fn cancel_request_returns_success() {
 }
 
 // Notifications (no id) should not produce a response
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "notifications produce no response"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn notifications_produce_no_response() {
     let mut server = McpServer::new();
     let req = json!({"jsonrpc": "2.0", "method": "notifications/initialized"});
@@ -137,10 +110,7 @@ fn init_server() -> Logged {
 }
 
 // B:handle_mcp_protocol_error — verify unit "missing required params produces -32602"
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "missing required params produces -32602 Invalid params"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn missing_tool_name_returns_32602() {
     let mut server = init_server();
     let resp = call(&mut server, "tools/call", json!({}));
@@ -148,10 +118,7 @@ fn missing_tool_name_returns_32602() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "error response does not leak internal state"
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "error response does not leak internal state"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn error_does_not_leak_internal_state() {
     let mut server = server_with_corrupt_inference_manifest();
     let root = server.root().to_str().unwrap().to_string();
@@ -208,10 +175,7 @@ fn error_does_not_leak_internal_state() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "server remains operational after protocol error"
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "server remains operational after protocol error"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn server_operational_after_protocol_error() {
     let mut server = McpServer::new();
     call_raw(&mut server, "not valid json");
@@ -221,10 +185,7 @@ fn server_operational_after_protocol_error() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "returns -32603 for internal error"
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "returns -32603 for internal error"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn internal_error_code_defined() {
     // An extension tool whose handler panics: a server fault, not a tool
     // failure.
@@ -254,10 +215,7 @@ fn internal_error_code_defined() {
     assert_eq!(stats["result"]["isError"], false, "{stats}");
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "a failed tool call is an isError result whose content is an McpError with a code"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn a_tool_that_cannot_read_its_project_file_fails_with_an_mcp_error() {
     // An execution failure inside the tool: the inference manifest does
     // not parse. Before D4-a this was a -32603 the agent could not act on.
@@ -280,10 +238,7 @@ fn a_tool_that_cannot_read_its_project_file_fails_with_an_mcp_error() {
     );
 }
 
-#[specforge_test(
-    behavior = "handle_mcp_request_cancellation",
-    verify = "notifications/cancelled is accepted without a response"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn mcp_cancel_notification_gets_no_response() {
     let mut server = init_server();
     let req = json!({"jsonrpc": "2.0", "id": 7, "method": "ping", "params": {}});
@@ -300,10 +255,7 @@ fn mcp_cancel_notification_gets_no_response() {
     assert_eq!(event["wasInProgress"], false);
 }
 
-#[specforge_test(
-    behavior = "handle_mcp_request_cancellation",
-    verify = "cancellation of completed request is a no-op"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn cancel_completed_request_is_noop() {
     let mut server = init_server();
     let req = json!({"jsonrpc": "2.0", "id": 5, "method": "ping", "params": {}});
@@ -313,10 +265,7 @@ fn cancel_completed_request_is_noop() {
     assert!(resp["error"].is_null());
 }
 
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "a tool that detects invalid arguments returns an isError result, not -32602"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_missing_tool_argument_is_an_is_error_result() {
     let mut server = init_server();
     // A well-formed tools/call whose tool lacks a required argument: the
@@ -335,10 +284,7 @@ fn a_missing_tool_argument_is_an_is_error_result() {
     assert_eq!(error["tool"], "specforge.query", "{error}");
 }
 
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "tools/call arguments that are not an object produce -32602 Invalid params"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn arguments_that_are_not_an_object_are_invalid_params() {
     let mut server = init_server();
     let resp = call(

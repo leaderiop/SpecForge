@@ -101,10 +101,7 @@ fn policy() -> TrustPolicy<'static> {
     TrustPolicy::new(true, Asking::Yes)
 }
 
-#[specforge_test(
-    behavior = "check_registry_reply",
-    verify = "a reply whose sha256 is not 64 lowercase hex characters is refused with R009 before its binary is downloaded, and its dry run says so"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_digest_that_is_no_sha256_is_refused_before_any_download() {
     for bad in [
         digest().to_uppercase(),
@@ -126,10 +123,7 @@ fn a_digest_that_is_no_sha256_is_refused_before_any_download() {
     }
 }
 
-#[specforge_test(
-    behavior = "check_registry_reply",
-    verify = "a reply whose name is no package name or whose version is no SemVer version is refused with R009, not as another package"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_name_or_version_that_is_not_one_is_r009_not_another_package() {
     for (key, bad) in [
         ("name", "@acme/tool\u{1b}[31m"),
@@ -147,10 +141,7 @@ fn a_name_or_version_that_is_not_one_is_r009_not_another_package() {
     }
 }
 
-#[specforge_test(
-    behavior = "resolve_registry_source",
-    verify = "a version list holding a version that is no SemVer version is refused with R009, never read as fewer versions"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_version_list_holding_no_semver_version_is_r009_not_fewer_versions() {
     for versions in [
         serde_json::json!(["1.0.0", "not-a-version"]),
@@ -168,10 +159,7 @@ fn a_version_list_holding_no_semver_version_is_r009_not_fewer_versions() {
     }
 }
 
-#[specforge_test(
-    behavior = "authenticate_registry_request",
-    verify = "a token check whose expiry is not an RFC 3339 timestamp is refused with R009 and login keeps nothing"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 
 fn a_token_expiry_that_is_no_timestamp_is_r009_and_login_keeps_nothing() {
     let fake = serve(vec![(

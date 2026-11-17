@@ -154,10 +154,7 @@ mod tests {
             .map(|key| key.as_str().to_string())
     }
 
-    #[specforge_test_macros::test(
-        behavior = "read_a_named_source_path",
-        verify = "every spelling of a source-code path under the project root reads as its key"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-064")]
     fn every_spelling_under_the_root_is_its_key() {
         let project = Assembled::new();
         let root = project.root().to_path_buf();
@@ -187,10 +184,7 @@ mod tests {
         assert_eq!(view.source_root("./src/").unwrap().as_str(), "src");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "read_a_named_source_path",
-        verify = "a source-code path whose key lies outside the project root is refused in the named spec file's sentence"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-064")]
     fn a_spelling_that_leaves_is_refused_in_the_spec_files_sentence() {
         let project = Assembled::new();
         let other = tempfile::TempDir::new().unwrap();
@@ -232,10 +226,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "read_a_named_source_path",
-        verify = "a source-code path that names nothing is refused"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-064")]
     fn a_spelling_of_nothing_is_refused() {
         let project = Assembled::new();
         for named in ["", ".", "./"] {

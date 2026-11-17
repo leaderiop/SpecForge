@@ -69,10 +69,8 @@ fn project() -> Assembled {
     .source("behavior a \"A\" {\n}\n")
 }
 
-#[specforge_test(
-    behavior = "management_operations_over_the_project_view",
-    verify = "Management Operations over the Project View: management operations hold — project_compiled, one_project_read, root_for_disk"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
+#[specforge_test(requirement = "FEATURE-070")]
 fn management_operations_read_the_project_from_their_view() {
     // project_compiled: the view is what a compile supplied.
     let project = project();
@@ -217,10 +215,7 @@ fn the_providers_listing_reports_what_the_environment_registered() {
     );
 }
 
-#[specforge_test(
-    behavior = "register_provider_schemes",
-    verify = "the providers listing reads the environment's registration, never specforge.json again"
-)]
+#[specforge_test(requirement = "FEATURE-107")]
 fn the_providers_listing_reads_the_registration() {
     let dir = tempfile::TempDir::new().unwrap();
     let config = serde_json::json!({
@@ -243,10 +238,7 @@ fn the_providers_listing_reads_the_registration() {
     assert_eq!(listing.diagnostics.0.len(), 1, "{listing:?}");
 }
 
-#[specforge_test(
-    behavior = "report_command_outcome",
-    verify = "a command run outside any project refuses with no_project"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn collect_at_a_root_that_is_no_project_is_no_project() {
     let project = project();
     // A project whose environment found no specforge.json.
@@ -282,10 +274,7 @@ fn collect_at_a_root_that_is_no_project_is_no_project() {
     );
 }
 
-#[specforge_test(
-    behavior = "list_installed_extensions",
-    verify = "an extension's source is where the extension load takes it from, whatever order its entries are in"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn an_extensions_source_is_the_entry_that_loaded_it() {
     use specforge_installed::Origin;
     use specforge_ops::extension::inventory;

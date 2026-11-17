@@ -112,10 +112,7 @@ fn infer_progress_is_equal_on_both_surfaces() {
     assert_eq!(cli_doc, mcp_doc);
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_infer_status_cli",
-    verify = "--format json includes the gaps --gaps and --gaps-detail ask for"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-054")]
 fn infer_status_json_carries_the_gaps_asked_for() {
     let dir = scratch();
     infer_project(&dir);

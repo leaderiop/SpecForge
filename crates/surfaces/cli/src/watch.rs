@@ -433,10 +433,7 @@ mod tests {
         assert_eq!(value["changed"], serde_json::json!(["a.spec"]));
     }
 
-    #[specforge_test_macros::test(
-        behavior = "notify_delta_subscribers",
-        verify = "watch --format json prints the diagnostics each update added and removed"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-051")]
     fn every_update_line_prints_its_diagnostics_delta() {
         let at = |line: usize| {
             Diagnostic::untyped("E001", Severity::Error, "unexpected token").with_span(SourceSpan {
@@ -467,10 +464,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "notify_delta_subscribers",
-        verify = "watch --format json prints each rebuild's GraphDelta, the one MCP notifies"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-051")]
     fn a_rebuild_prints_the_graph_delta() {
         let mut rebuilt = applied(UpdateKind::Sources, Some(Ok(())));
         rebuilt.update.delta = GraphDelta {

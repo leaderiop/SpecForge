@@ -23,10 +23,7 @@ fn plan(ops: Value) -> WasmCallResult {
     )
 }
 
-#[specforge_test(
-    behavior = "answer_edit_plan",
-    verify = "a writing collector receives the graph and its plan is applied after the report"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_collector_plan_creates_commits_and_records_results() {
     let p = project().file(".specforge/reports/git.json", "{}");
     let ops = json!([{"op": "create", "kind": "commit", "id": "c1", "title": "C", "file": "commits.spec",
@@ -73,10 +70,7 @@ fn a_collector_plan_creates_commits_and_records_results() {
     );
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "every collector is sent the project root as cwd; only a writing collector the date, the graph and the revisions"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn every_collector_is_sent_the_project_root_as_cwd() {
     use super::{Fixture, Machine, Runner};
 

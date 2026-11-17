@@ -394,34 +394,22 @@ fn assert_rows(kinds: &[Kind]) {
     assert!(report.is_empty(), "{report}");
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "every command run from a subdirectory of a project acts on that project"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn every_command_from_a_subdirectory_acts_on_its_project() {
     assert_rows(&[Kind::Read, Kind::Writes]);
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "an extension command run from a subdirectory is routed over the project it is in"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_extension_command_from_a_subdirectory_is_routed_over_its_project() {
     assert_rows(&[Kind::Extension]);
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "watch run from a subdirectory watches the project it is in"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn watch_from_a_subdirectory_watches_its_project() {
     assert_rows(&[Kind::Watch]);
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "a command given a path that does not exist refuses it as file_not_found"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_command_given_a_missing_path_refuses_it_as_file_not_found() {
     let dir = TestProject::new().without_config();
     for (args, code) in [
@@ -440,10 +428,7 @@ fn a_command_given_a_missing_path_refuses_it_as_file_not_found() {
     }
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "a command given a path that does not exist refuses it as file_not_found"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_extension_command_given_a_missing_path_writes_one_error_object() {
     let dir = TestProject::new().without_config();
     let out = Cli::on(&dir).bare(&["product", "features", "--path", "nope", "--format", "json"]);
@@ -460,10 +445,7 @@ fn an_extension_command_given_a_missing_path_writes_one_error_object() {
     );
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "a file path is in the project of its directory"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_file_path_names_the_project_it_is_in() {
     let p = project();
     let file = p.root().join("spec/a.spec");
@@ -483,10 +465,7 @@ fn a_file_path_names_the_project_it_is_in() {
     assert_eq!(stderr, project_stderr);
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "a file in a nested project is checked by its own project and by no project above it"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_file_in_a_nested_project_is_checked_by_its_own_project_alone() {
     let tmp = TestProject::new()
         .raw_config(r#"{"extensions":["@specforge/product"]}"#)
@@ -551,10 +530,7 @@ fn observe_with_path(row: &Row, project: &TestProject, outside: &Path) -> Observ
     observe(row, project, outside, &["--path".to_string(), path])
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "every command given --path acts on the project the path is in, from any directory"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn every_command_names_its_project_with_path() {
     let results: Vec<(&str, Observed, Observed)> = std::thread::scope(|scope| {
         let handles: Vec<_> = ROWS
@@ -583,10 +559,7 @@ fn every_command_names_its_project_with_path() {
     assert!(report.is_empty(), "{report}");
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "a project path given as a positional argument is refused as a usage error"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn no_command_takes_its_project_as_a_positional_argument() {
     let results: Vec<(&str, Observed)> = std::thread::scope(|scope| {
         let handles: Vec<_> = WERE_POSITIONAL

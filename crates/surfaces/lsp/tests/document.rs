@@ -5,10 +5,7 @@ use tower_lsp::lsp_types::Position;
 
 // -- incremental_document_sync ------------------------------------------------
 
-#[spec(
-    behavior = "incremental_document_sync",
-    verify = "incremental change applies correctly to source buffer"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn incremental_change_applies_correctly() {
     let mut buf = Document::new("behavior foo \"Foo\" {\n  contract \"old\"\n}\n".into());
 
@@ -21,10 +18,7 @@ fn incremental_change_applies_correctly() {
     );
 }
 
-#[spec(
-    behavior = "incremental_document_sync",
-    verify = "multiple incremental changes produce correct source"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn multiple_incremental_changes_produce_correct_source() {
     let mut buf = Document::new("line0\nline1\nline2\n".into());
 
@@ -37,10 +31,7 @@ fn multiple_incremental_changes_produce_correct_source() {
     assert_eq!(buf.text(), "line0\nREPLACED\nprefix_line2\n");
 }
 
-#[spec(
-    behavior = "incremental_document_sync",
-    verify = "incremental sync reduces transfer size vs full sync"
-)]
+#[spec(requirement = "FEATURE-059")]
 #[tokio::test]
 async fn incremental_sync_reduces_transfer_size() {
     use crate::session::Session;
@@ -107,10 +98,7 @@ async fn incremental_sync_reduces_transfer_size() {
 
 // -- utf16_positions -----------------------------------------------------------
 
-#[spec(
-    behavior = "incremental_document_sync",
-    verify = "incremental change applies correctly to source buffer"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn utf16_columns_resolve_to_byte_offsets_after_multibyte_chars() {
     // Line 0 layout: `behavior foo "🚀世" {`
     //   `behavior foo "` = 14 UTF-16 units / 14 bytes
@@ -169,10 +157,7 @@ fn walked_positions(text: &str) -> Vec<(usize, Position)> {
     positions
 }
 
-#[spec(
-    invariant = "lsp_utf16_positions",
-    verify = "the line index converts byte columns to UTF-16 and back on every line"
-)]
+#[spec(requirement = "INVARIANT-064")]
 fn line_index_agrees_with_a_char_walk_on_every_line() {
     let spec = specforge_repo_root::repo_root().join(crate::OLD_SPEC);
     let mut texts = Vec::new();
@@ -189,10 +174,7 @@ fn line_index_agrees_with_a_char_walk_on_every_line() {
     }
 }
 
-#[spec(
-    invariant = "lsp_utf16_positions",
-    verify = "the line index converts byte columns to UTF-16 and back on every line"
-)]
+#[spec(requirement = "INVARIANT-064")]
 fn positions_past_a_line_end() {
     // `a🚀b`: 🚀 is 4 bytes and 2 UTF-16 units (columns 1..3).
     let text = "a🚀b\nxy";
@@ -234,10 +216,7 @@ fn positions_past_a_line_end() {
 
 // -- a column no line has --------------------------------------------------------
 
-#[spec(
-    invariant = "lsp_utf16_positions",
-    verify = "a column past its line's end, up to the largest, resolves to the line's end"
-)]
+#[spec(requirement = "INVARIANT-064")]
 fn a_column_past_the_line_end_resolves_to_the_line_end() {
     for text in ["éé\n", "// éé\n", "a😀b\n", "ascii\n"] {
         let index = LineIndex::new(text);
@@ -250,10 +229,7 @@ fn a_column_past_the_line_end_resolves_to_the_line_end() {
     }
 }
 
-#[spec(
-    behavior = "incremental_document_sync",
-    verify = "an edit at any column past its line's end applies at the line's end"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn an_edit_at_the_largest_column_applies_at_the_line_end() {
     for (text, expected) in [("éé\n", "ééx\n"), ("// éé\n", "// ééx\n")] {
         let mut doc = Document::new(text.into());
@@ -262,10 +238,7 @@ fn an_edit_at_the_largest_column_applies_at_the_line_end() {
     }
 }
 
-#[spec(
-    invariant = "lsp_utf16_positions",
-    verify = "a column past its line's end, up to the largest, resolves to the line's end"
-)]
+#[spec(requirement = "INVARIANT-064")]
 fn every_column_resolves_to_a_character_boundary() {
     for text in ["éé\n", "// éé\n", "a😀b\n", "ascii\n", "x\nb😀é\nlast"] {
         let index = LineIndex::new(text);

@@ -74,10 +74,7 @@ fn retarget(link: &Path, to: &Path) {
     symlink(to, link).unwrap();
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a directory link on the way to a source's hop pointed elsewhere is that source's change"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_directory_link_on_a_sources_chain_pointed_elsewhere_changes_that_source() {
     let mut a = aliased(true);
     assert_eq!(
@@ -95,10 +92,7 @@ fn a_directory_link_on_a_sources_chain_pointed_elsewhere_changes_that_source() {
     );
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a directory link on the way to an input outside the root is watched by its own directory"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_directory_link_outside_the_project_is_watched_by_its_own_directory() {
     let a = aliased(false);
     let roots = a.session.inputs().watch_roots();
@@ -120,10 +114,7 @@ fn a_directory_link_outside_the_project_is_watched_by_its_own_directory() {
     assert_eq!(a.session.changes([a.alias.as_path()]).sources(), ["a.spec"]);
 }
 
-#[specforge_test(
-    behavior = "invalidate_changed_files",
-    verify = "a source whose chain goes through a directory link pointed at an equal-stamp file still moves"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn stale_sees_a_directory_link_on_a_chain_pointed_at_an_equal_stamp_file() {
     let mut a = aliased(true);
     retarget(&a.alias, &a.out.join("v2"));

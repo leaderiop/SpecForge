@@ -173,10 +173,7 @@ fn answer(
     Ok(serde_json::from_slice(&bytes).unwrap())
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "a declaration round-trips through its wire answers unchanged"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_declaration_round_trips_through_its_wire_answers() {
     let declared = full();
     let mut asked = Vec::new();
@@ -203,10 +200,7 @@ fn a_declaration_round_trips_through_its_wire_answers() {
     assert_eq!(loaded, empty);
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "a describe category that does not parse fails the load naming the category"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_category_that_does_not_parse_fails_naming_it() {
     let declared = full();
     let error = ExtensionDeclaration::from_wire(
@@ -253,10 +247,7 @@ fn a_category_that_does_not_parse_fails_naming_it() {
 }
 
 /// A guest built before ADR 0286 still sends a rule's `description`: the key is ignored and reported (W138).
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "a describe item key the protocol does not define produces W138"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_rule_description_a_guest_still_sends_is_reported() {
     let declared = full();
     let mut unknown = Vec::new();
@@ -289,10 +280,7 @@ fn a_rule_description_a_guest_still_sends_is_reported() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "a describe item key the protocol does not define produces W138"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn an_unknown_item_key_is_reported() {
     let declared = full();
     let mut unknown = Vec::new();
@@ -373,10 +361,7 @@ fn an_unknown_item_key_is_reported() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "an absent short is the name's last segment"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn an_absent_short_is_the_names_last_segment() {
     let mut declaration = full();
     assert_eq!(declaration.short(), "rep");
@@ -424,10 +409,7 @@ fn absent_handshake_metadata_is_not_serialized() {
     assert_eq!(parsed, handshake);
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "the declared categories are the protocol's only describe categories"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_declared_categories_are_the_only_describe_categories() {
     let names: Vec<&str> = DeclaredCategory::ALL.iter().map(|c| c.name()).collect();
     assert_eq!(DECLARED_CATEGORIES, names.as_slice());
@@ -477,10 +459,7 @@ fn declares_reads_the_content() {
 
 /// A descriptor carrying members, a target union and bounds keeps them on the wire (ADR 0285); one
 /// that writes none reads as before.
-#[specforge_test_macros::test(
-    behavior = "check_field_value_types",
-    verify = "a field descriptor carries its members, target kinds and bounds on the wire"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-018")]
 fn a_field_declares_members_a_union_and_bounds() {
     let wire = json!({
         "name": "requires", "field_type": "block_list",
@@ -513,10 +492,7 @@ fn a_field_declares_members_a_union_and_bounds() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "a code catalog crosses the wire and a guest older than 1.7 is not asked for it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn codes_round_trip_on_the_wire() {
     let declared = full();
     let items = declared.describe_items(DeclaredCategory::Codes);
@@ -533,10 +509,7 @@ fn codes_round_trip_on_the_wire() {
     assert_eq!(loaded.codes, declared.codes);
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "a code catalog crosses the wire and a guest older than 1.7 is not asked for it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_1_6_guest_is_asked_no_codes_and_loads() {
     let mut handshake = full().handshake;
     handshake.protocol_version = "1.6.0".to_string();
@@ -559,10 +532,7 @@ fn a_1_6_guest_is_asked_no_codes_and_loads() {
     assert!(loaded.codes.is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "a code catalog crosses the wire and a guest older than 1.7 is not asked for it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_1_10_guest_is_asked_for_codes() {
     // Numeric, not string, order: "1.10" sorts before "1.7" as text.
     let mut handshake = full().handshake;
@@ -611,10 +581,7 @@ fn the_writer_and_history_keys_round_trip_and_stay_off_the_wire_when_unset() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a settings category round-trips its three item kinds and an unknown kind costs that item"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_settings_category_round_trips() {
     let items = json!([
         {"kind": "setting", "name": "workflow.tdd_mode", "field_type": "bool", "default": false,
@@ -677,10 +644,7 @@ fn a_settings_category_round_trips() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a feature flag reads as a bool setting of its name and default"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_feature_flag_reads_as_a_bool_setting() {
     let flag = FeatureFlagDescriptor {
         name: "experimental".to_string(),
@@ -696,10 +660,7 @@ fn a_feature_flag_reads_as_a_bool_setting() {
     assert_eq!(setting.description.as_deref(), Some("Try it"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "declare_judged_rule",
-    verify = "a judged rule is declared with its judge, outcomes and per-target selectors"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-058")]
 fn a_judged_rule_is_declared_with_selectors() {
     let wire = json!({
         "code": "W311", "severity": "warning", "check": "judged", "message_template": "m",
@@ -722,10 +683,7 @@ fn a_judged_rule_is_declared_with_selectors() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "a describe item key the protocol does not define produces W138"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_misspelt_prompt_key_is_reported_unknown() {
     let declared = full();
     let mut unknown = Vec::new();
@@ -750,10 +708,7 @@ fn a_misspelt_prompt_key_is_reported_unknown() {
     assert_eq!(keys, ["requird", "copyrigth"], "{unknown:?}");
 }
 
-#[specforge_test_macros::test(
-    type = "EntityKindDescriptor",
-    verify = "EntityKindDescriptor schema is valid"
-)]
+#[test]
 fn a_kind_written_by_a_collector_round_trips_with_its_schemes_and_result() {
     let collected = EntityKindDescriptor {
         writer: Some("collector".to_string()),
@@ -775,10 +730,7 @@ fn a_kind_written_by_a_collector_round_trips_with_its_schemes_and_result() {
     );
 }
 
-#[specforge_test_macros::test(
-    type = "EntityKindDescriptor",
-    verify = "EntityKindDescriptor schema is valid"
-)]
+#[test]
 fn a_kind_round_trips_when_its_entities_are_complete() {
     let owner = EntityKindDescriptor {
         complete_when: Some(specforge_protocol_types::CompleteWhen {

@@ -13,10 +13,7 @@ fn patch(hosted: &crate::host_support::Hosted, text: &str) -> serde_json::Value 
            "tool": {"name": "apply_patch", "class": "edit", "input": {"input": text}}})
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "the spec guard judges the spec files a patch-text tool leaves and ignores a patch of other files"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn the_spec_guard_judges_a_patch() {
     let project = hosts_project(json!({}), json!({}));
     project.write("v.spec", "verification V1 \"One\" {\n  phase 03\n}\n");

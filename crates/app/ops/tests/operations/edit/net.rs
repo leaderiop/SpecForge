@@ -33,10 +33,7 @@ fn tasks() -> crate::navigate::Compiled {
     project(&[("tasks.spec", TASKS)])
 }
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "a file new creates is not written when the later edits leave it empty"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_new_file_the_edits_leave_empty_is_not_written() {
     let c = tasks();
     let edits = [
@@ -58,10 +55,7 @@ fn a_new_file_the_edits_leave_empty_is_not_written() {
     assert!(!c.project.environment().spec_root().join("rules").exists());
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_typed_edit",
-    verify = "the report names what the edits change taken together"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn an_edit_list_that_cancels_out_names_no_entity() {
     let c = tasks();
     let lists = [

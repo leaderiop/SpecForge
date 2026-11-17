@@ -297,10 +297,7 @@ mod tests {
         book
     }
 
-    #[specforge_test(
-        invariant = "diagnostic_code_uniqueness",
-        verify = "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
-    )]
+    #[specforge_test(requirement = "INVARIANT-017")]
     fn a_core_code_is_not_a_first_party_extensions() {
         let none = Codebook::default();
         let misuse = none
@@ -325,10 +322,7 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        invariant = "diagnostic_code_uniqueness",
-        verify = "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
-    )]
+    #[specforge_test(requirement = "INVARIANT-017")]
     fn a_first_party_extensions_own_code_at_its_level_is_accepted() {
         let none = Codebook::default();
         assert_eq!(
@@ -341,10 +335,7 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        invariant = "diagnostic_code_uniqueness",
-        verify = "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
-    )]
+    #[specforge_test(requirement = "INVARIANT-017")]
     fn a_first_party_code_at_another_level_is_refused() {
         let misuse = Codebook::default()
             .check("@specforge/product", "W041", Level::Error)
@@ -358,10 +349,7 @@ mod tests {
         assert!(misuse.to_string().contains("warning"), "{misuse}");
     }
 
-    #[specforge_test(
-        invariant = "diagnostic_code_uniqueness",
-        verify = "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
-    )]
+    #[specforge_test(requirement = "INVARIANT-017")]
     fn a_graded_code_accepts_any_level() {
         // The testing extension's A-codes are graded by its pass.
         let entry = lookup("A001").expect("A001 is catalogued");
@@ -375,10 +363,7 @@ mod tests {
         }
     }
 
-    #[specforge_test(
-        invariant = "diagnostic_code_uniqueness",
-        verify = "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
-    )]
+    #[specforge_test(requirement = "INVARIANT-017")]
     fn a_retired_code_is_refused_to_a_first_party_extension() {
         let none = Codebook::default();
         assert_eq!(
@@ -393,10 +378,7 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        invariant = "diagnostic_code_uniqueness",
-        verify = "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
-    )]
+    #[specforge_test(requirement = "INVARIANT-017")]
     fn a_first_party_uncatalogued_code_is_refused() {
         let none = Codebook::default();
         for code in ["W500", "W950"] {
@@ -409,10 +391,7 @@ mod tests {
     }
 
     // Flips K10-D3: an extension owns its whole number space, `E101` and `E001` included.
-    #[specforge_test(
-        invariant = "diagnostic_code_uniqueness",
-        verify = "a third-party extension's code is its namespace and its own local code"
-    )]
+    #[specforge_test(requirement = "INVARIANT-017")]
     fn a_third_party_extension_owns_its_whole_number_space() {
         let gsd = book("@gsd/core", &["E101", "E001"]);
         assert_eq!(gsd.check("@gsd/core", "E101", Level::Error), Ok(()));
@@ -440,10 +419,7 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        invariant = "diagnostic_code_uniqueness",
-        verify = "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
-    )]
+    #[specforge_test(requirement = "INVARIANT-017")]
     fn a_third_party_letter_states_its_level() {
         let acme = book("@acme/x", &["W950", "E950", "I950"]);
         for (code, level) in [

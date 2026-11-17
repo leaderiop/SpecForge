@@ -115,10 +115,7 @@ type Manifest "M" {
 // B:se_validate_port_methods — the primitives docs/entities/type.md and
 // port.md document (`number`, `integer`, `boolean`, `timestamp`, and
 // `never` for an impossible error channel) are valid port method types.
-#[specforge_test(
-    behavior = "se_validate_port_methods",
-    verify = "port method with valid type references passes"
-)]
+#[specforge_test(requirement = "FEATURE-119")]
 fn port_method_documented_primitives_pass_e004() {
     let ctx = compile_with_builtins(
         &["@specforge/software", "@specforge/governance"],
@@ -186,10 +183,7 @@ fn type_body_syntax_the_grammar_rejects_is_reported() {
 }
 
 // B:parse_all_block_types — verify unit "a domain field named `kind` on a type is not flagged as an invalid meta-kind"
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "a type field named kind is an ordinary field"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn type_domain_kind_field_is_an_ordinary_field() {
     let ctx = compile_with_builtins(
         &["@specforge/software", "@specforge/governance"],
@@ -233,10 +227,7 @@ type CodeAction "Code Action" {
 }
 
 // B:build_in_memory_graph — verify unit "single entity roundtrip: parse→graph→json"
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "graph contains one node per entity"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn single_entity_roundtrip() {
     let ctx = compile_specs(&[(
         "core.spec",
@@ -270,10 +261,7 @@ fn single_entity_roundtrip() {
 }
 
 // B:resolve_use_imports — verify unit "multi-file resolution with imports"
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "a use path resolves to the project source it names"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn multi_file_with_imports() {
     let (_dir, ctx) = compile_specs_in(&[
         (
@@ -330,10 +318,7 @@ behavior login "User Login" {
 }
 
 // B:link_entity_references — verify unit "cross-entity references produce edges"
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "reference list IDs create graph edges"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn cross_entity_references_produce_edges() {
     let ctx = compile_specs(&[(
         "core.spec",
@@ -361,10 +346,7 @@ behavior save_record "Save Record" {
 }
 
 // B:link_entity_references — verify unit "validation diagnostics surface through pipeline"
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "unresolvable reference produces E003"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn validation_diagnostics_surface() {
     let ctx = compile_specs(&[(
         "core.spec",
@@ -395,10 +377,7 @@ fn validation_diagnostics_surface() {
 }
 
 // B:build_in_memory_graph — verify unit "empty project produces empty graph"
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "graph contains one node per entity"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn empty_project_produces_empty_graph() {
     let dir = TestProject::new().without_config();
     let ctx = dir.compile_bare();
@@ -414,7 +393,7 @@ fn empty_project_produces_empty_graph() {
 }
 
 // B:serialize_json_graph — verify unit "all emit formats work on pipeline output"
-#[specforge_test(behavior = "serialize_json_graph", verify = "output is valid JSON")]
+#[specforge_test(requirement = "FEATURE-057")]
 fn all_emit_formats_work() {
     let ctx = compile_specs(&[(
         "core.spec",
@@ -459,10 +438,7 @@ invariant security "Security Invariant" {
     );
 }
 
-#[specforge_test(
-    behavior = "recover_from_syntax_errors",
-    verify = "a string or body left unclosed is reported in every entity, whatever its kind"
-)]
+#[specforge_test(requirement = "FEATURE-023")]
 fn an_unclosed_port_body_reports_its_syntax_error() {
     let ctx = compile_with_builtins(
         &["@specforge/software", "@specforge/governance"],
@@ -483,10 +459,7 @@ fn an_unclosed_port_body_reports_its_syntax_error() {
     );
 }
 
-#[specforge_test(
-    behavior = "recover_from_syntax_errors",
-    verify = "a string or body left unclosed is reported in every entity, whatever its kind"
-)]
+#[specforge_test(requirement = "FEATURE-023")]
 fn an_unclosed_string_in_a_port_body_reports_its_syntax_error() {
     let ctx = compile_with_builtins(
         &["@specforge/software", "@specforge/governance"],

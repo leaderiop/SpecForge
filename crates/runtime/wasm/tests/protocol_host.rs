@@ -71,14 +71,8 @@ fn handshake_returns_parsed_response() {
 
 // ── Handshake applies the extension's sandbox: its limits (C7-10, ADR 0037) ──
 
-#[specforge_test_macros::test(
-    behavior = "configure_sandbox_policy",
-    verify = "a declared limit below the ceiling is applied as declared"
-)]
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "the loader applies the execution budget its handshake declares, and a handshake call alone applies none"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-136")]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_loader_applies_the_declared_execution_budget() {
     let runtime = InProcessRuntime::new().with(|| {
         let mut meta = ExtensionMeta::new("@specforge/software", "1.0.0");
@@ -101,10 +95,7 @@ fn the_loader_applies_the_declared_execution_budget() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "the loader applies the execution budget its handshake declares, and a handshake call alone applies none"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_handshake_call_applies_no_limits() {
     let runtime = InProcessRuntime::new().with(|| {
         let mut meta = ExtensionMeta::new("@specforge/software", "1.0.0");
@@ -122,10 +113,7 @@ fn a_handshake_call_applies_no_limits() {
     assert!(runtime.limits().is_empty(), "{:?}", runtime.limits());
 }
 
-#[specforge_test_macros::test(
-    behavior = "configure_sandbox_policy",
-    verify = "an extension declaring no sandbox policy runs under the host's ceiling"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-136")]
 fn an_extension_declaring_no_policy_runs_under_the_ceiling() {
     let runtime = InProcessRuntime::new().with(declaring("@specforge/formal"));
     load_declaration(&runtime, "@specforge/formal").unwrap();
@@ -144,14 +132,7 @@ fn older_handshake(name: &'static str, sandbox_policy: serde_json::Value) -> Was
     raw(handshake.to_string().as_bytes())
 }
 
-#[specforge_test_macros::test(
-    behavior = "configure_sandbox_policy",
-    verify = "Configure Sandbox Policy: sandbox policy configuration holds — handshake_read, limits_held_to_ceiling, above_ceiling_warned, capabilities_never_granted, limits_applied_at_handshake"
-)]
-#[specforge_test_macros::test(
-    behavior = "configure_sandbox_policy",
-    verify = "a sandbox_policy key that asks for a capability is W153"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-136")]
 fn a_sandbox_policy_key_that_asks_for_a_capability_is_w153() {
     let runtime = InProcessRuntime::new()
         .with(declaring("@acme/asks"))
@@ -215,10 +196,7 @@ fn a_policy_of_two_limits_loads_clean() {
     assert!(loaded.warnings.is_empty(), "{:?}", loaded.warnings);
 }
 
-#[specforge_test_macros::test(
-    behavior = "configure_sandbox_policy",
-    verify = "a surface's sandbox override is W153"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-136")]
 fn a_surface_sandbox_override_is_w153() {
     let runtime = InProcessRuntime::new().with(|| {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/asks", "1.0.0"));
@@ -365,19 +343,13 @@ fn load_with_unknown_arg_type() -> Result<Loaded, ProtocolError> {
     load_declaration(&runtime, "@test/ext")
 }
 
-#[specforge_test_macros::test(
-    behavior = "register_surface_contributions",
-    verify = "a surfaces description that does not parse fails the extension's load"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-125")]
 fn a_surfaces_description_that_does_not_parse_fails_the_load() {
     let err = load_with_unknown_arg_type().unwrap_err();
     assert!(format!("{err}").contains("surfaces"), "{err}");
 }
 
-#[specforge_test_macros::test(
-    invariant = "surface_schema_validity",
-    verify = "a surfaces description with an unknown arg type fails the extension's load"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-135")]
 fn an_unknown_arg_type_fails_the_load() {
     assert!(load_with_unknown_arg_type().is_err());
 }

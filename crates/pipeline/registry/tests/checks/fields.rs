@@ -8,10 +8,8 @@ use specforge_extension_sdk::prelude::FieldType;
 use crate::support::written::checked;
 use crate::support::{build, build_with, candidates, coded_in, declare, formal, peer, software};
 
-#[spec(
-    behavior = "detect_unknown_entity_fields",
-    verify = "unregistered field name produces W020"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-141")]
 fn unregistered_field_name_produces_w020() {
     let text = "behavior b1 \"B\" {\n  unknown_field \"\"\n}\n";
     let diags = checked(&build([software()]), &[("test.spec", text)]);
@@ -23,10 +21,8 @@ fn unregistered_field_name_produces_w020() {
     );
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_fields",
-    verify = "W020 includes field name, entity kind, and source span"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-141")]
 fn w020_includes_field_name_entity_kind_and_source_span() {
     let text = "\n\nbehavior b1 \"B\" {\n  bogus_field \"\"\n}\n";
     let diags = checked(&build([software()]), &[("my.spec", text)]);
@@ -45,10 +41,8 @@ fn w020_includes_field_name_entity_kind_and_source_span() {
     assert!(span.start_line >= 3, "{span:?}");
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_fields",
-    verify = "expression is checked like any other field (W020 where undeclared)"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-141")]
 fn expression_is_checked_like_any_other_field() {
     let alone = build([software()]);
     // software's invariant and behavior declare no `expression`; without an
@@ -84,20 +78,16 @@ fn expression_is_checked_like_any_other_field() {
     assert!(diags[0].message.contains("behavior"), "{diags:?}");
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_fields",
-    verify = "registered field name does not produce W020"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-141")]
 fn registered_field_name_does_not_produce_w020() {
     let text = "behavior b1 \"B\" {\n  contract {\n  }\n}\n";
     let diags = checked(&build([software()]), &[("test.spec", text)]);
     assert!(diags.is_empty(), "registered field should not produce W020");
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_fields",
-    verify = "a body field named title is W020 where no extension declares it"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-141")]
 fn a_body_title_field_is_w020() {
     let text = "behavior b1 \"B\" {\n  title \"T\"\n}\n";
     let diags = checked(&build([software()]), &[("test.spec", text)]);
@@ -106,10 +96,8 @@ fn a_body_title_field_is_w020() {
     assert!(diags[0].message.contains("title"), "{diags:?}");
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_fields",
-    verify = "field validation skipped when entity kind is unregistered"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-141")]
 fn field_validation_skipped_when_entity_kind_is_unregistered() {
     let text = "wibble x1 \"X\" {\n  some_field \"\"\n}\n";
     let diags = checked(&build([software()]), &[("test.spec", text)]);
@@ -121,10 +109,8 @@ fn field_validation_skipped_when_entity_kind_is_unregistered() {
     );
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_fields",
-    verify = "an undeclared field a builtin enhancement adds suggests its extension"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-141")]
 fn w020_for_a_builtin_enhancements_field_names_its_extension() {
     let text = "invariant i1 \"I\" {\n  expression \"x\"\n  bogus \"x\"\n}\n";
     let build = build_with([software()], candidates(&[formal()]));
@@ -141,10 +127,8 @@ fn w020_for_a_builtin_enhancements_field_names_its_extension() {
     assert_eq!(diags[1].suggestion, None, "{diags:?}");
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_fields",
-    verify = "Detect Unknown Entity Fields: unknown field detection holds — registries_populated_fired, unknown_fields_diagnosed, cascading_avoided"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-141")]
 fn detect_unknown_entity_fields_contract() {
     let build = build([software()]);
     // ensures: unknown field → W020
@@ -162,10 +146,8 @@ fn detect_unknown_entity_fields_contract() {
     assert!(coded_in(&checked(&build, &[("test.spec", e3)]), "W020").is_empty());
 }
 
-#[spec(
-    behavior = "two_phase_validate_semantic",
-    verify = "field validation uses FieldRegistry"
-)]
+#[spec(requirement = "FEATURE-140")]
+#[spec(requirement = "FEATURE-141")]
 fn field_validation_uses_the_field_registry() {
     let text = "behavior my_beh \"B\" {\n  contract {\n  }\n  unknown_field \"\"\n}\n";
     let diags = checked(&build([software()]), &[("test.spec", text)]);

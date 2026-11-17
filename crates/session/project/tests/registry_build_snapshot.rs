@@ -267,10 +267,7 @@ fn digest(env: &Environment) -> Value {
     })
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_registries_from_declarations",
-    verify = "the registry build of the builtins matches its pinned snapshot"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn registry_build_of_the_builtins_matches_its_snapshot() {
     let runtime = std::sync::Arc::new(runtime());
     // Each set loads together into its own registry (ADR 0369 D3): two declarers of one keyword never

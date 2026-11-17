@@ -15,10 +15,7 @@ fn no_lint(_: LintProfile) -> Vec<Diagnostic> {
 
 /// Strict is one rule for every surface: the policy promotes warnings to
 /// errors, and the exit code counts errors.
-#[specforge_test(
-    behavior = "exit_code_reflects_diagnostic_severity",
-    verify = "exit 1 with warnings in strict mode"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn strict_promotes_warnings_so_the_exit_code_is_one() {
     let lenient = DiagnosticPolicy::strict(false).apply(vec![warning()], no_lint);
     assert_eq!(lenient[0].severity, Severity::Warning);
@@ -34,10 +31,7 @@ fn strict_promotes_warnings_so_the_exit_code_is_one() {
 }
 
 /// A raise only raises a code's severity, before strict promotes what is left.
-#[specforge_test(
-    behavior = "exit_code_reflects_diagnostic_severity",
-    verify = "a raised severity only raises a code, before strict"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_raise_raises_a_namespaced_code_and_never_lowers() {
     let finding = |code: &str, severity| Diagnostic::untyped(code, severity, "finding");
     let mut raises = Raises::default();
@@ -87,10 +81,8 @@ fn a_raise_raises_a_namespaced_code_and_never_lowers() {
 
 /// The policy asks its caller for a named profile's diagnostics, once
 /// however often it is named, and promotes them with the rest.
-#[specforge_test(
-    behavior = "check_diagnostic_policy",
-    verify = "each named lint profile adds its diagnostics once, before strict promotes warnings"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn the_policy_adds_each_named_profile_once_before_strict() {
     let policy = DiagnosticPolicy {
         strict: true,
@@ -117,10 +109,8 @@ fn the_policy_adds_each_named_profile_once_before_strict() {
 /// The lint profiles are a closed set: each name parses to its profile,
 /// any other is refused with the name it was given, and `pedantic`, the
 /// explicit name of the default, adds nothing.
-#[specforge_test(
-    behavior = "check_diagnostic_policy",
-    verify = "an unknown lint profile is refused by name, and pedantic adds nothing"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn lint_profiles_are_a_closed_set() {
     for name in LINT_PROFILE_NAMES {
         let profile: LintProfile = name.parse().unwrap();
@@ -158,10 +148,8 @@ fn lint_profiles_are_a_closed_set() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_diagnostic_policy",
-    verify = "strict never promotes a machine diagnostic, an extension's included"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn strict_never_promotes_a_machine_diagnostic() {
     let machine = Diagnostic::from_extension("@acme/links", "acme/W901", Severity::Warning, "m")
         .decided_by_machine(true);
@@ -179,10 +167,8 @@ fn strict_never_promotes_a_machine_diagnostic() {
     assert_eq!(specforge_common::compute_exit_code(&promoted[..1]), 0);
 }
 
-#[specforge_test(
-    behavior = "check_diagnostic_policy",
-    verify = "the value checks a run did not perform are one I206, counted by scope"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn i206_counts_each_scope_once() {
     let mut log = specforge_effects::mode::Log::default();
     assert!(

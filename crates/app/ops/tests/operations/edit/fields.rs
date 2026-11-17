@@ -10,10 +10,7 @@ fn the_base_project_is_canonical() {
     assert!(is_canonical(&c, TASKS));
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "set writes the value in the form its field declares"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn set_replaces_the_value_and_keeps_annotations() {
     let c = tasks();
     let text = after(
@@ -25,10 +22,7 @@ fn set_replaces_the_value_and_keeps_annotations() {
     assert!(is_canonical(&c, &text));
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "set of an absent field inserts it at its rank"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn set_of_an_absent_field_inserts_it_at_its_rank() {
     let c = tasks();
     let text = after(
@@ -44,10 +38,7 @@ fn set_of_an_absent_field_inserts_it_at_its_rank() {
     assert!(is_canonical(&c, &text));
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "unset removes the field and the comment above it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn unset_removes_the_field_and_the_comment_above() {
     let c = tasks();
     let text = after(&c, "tasks.spec", &[unset("complete_task", "types")]);
@@ -68,10 +59,7 @@ fn unset_of_an_absent_field_changes_nothing() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "set refuses a field the kind does not declare"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn set_refuses_an_undeclared_field_with_a_close_match() {
     let c = tasks();
     let (code, message) = refused(&c, &[set("list_tasks", "categroy", one("command"))]);
@@ -86,10 +74,7 @@ fn set_refuses_an_undeclared_field_with_a_close_match() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "retitle replaces the header title"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn retitle_replaces_the_title() {
     let c = tasks();
     let text = after(
@@ -106,10 +91,7 @@ fn retitle_replaces_the_title() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "retitle of a spec block is refused: its title is its name"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn retitling_a_spec_block_is_refused_as_not_editable() {
     let c = project(&[
         ("tasks.spec", TASKS),
@@ -126,10 +108,7 @@ fn retitling_a_spec_block_is_refused_as_not_editable() {
     assert!(message.contains("spec block"), "{message}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "a set or unset of a spec block's field is refused not_editable: no kind declares its fields"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_field_edit_of_a_spec_block_is_refused_as_not_editable() {
     let c = project(&[
         ("tasks.spec", TASKS),
@@ -203,10 +182,7 @@ const REQUIRING: &str = r#"behavior check_graph "Check the Graph" {
 }
 "#;
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "set of a nested entry edits one line of the block field"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn set_of_a_nested_entry_edits_one_line() {
     let c = compile(
         &[
@@ -344,10 +320,7 @@ fn typed_edits_work_on_a_header_written_over_two_lines() {
     assert!(!unlinked.contains("[task_unique]"), "{unlinked}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "retitle refuses a blank title before anything is planned, as create does"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn retitle_to_a_blank_title_is_refused_as_create_is() {
     let c = project(&[
         ("tasks.spec", TASKS),
@@ -390,10 +363,7 @@ fn failure_modes() -> Compiled {
     compile(&["@specforge/governance"], &[("fm.spec", FAILURE_MODES)])
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_edit_plan",
-    verify = "a plan op sets an integer field from a JSON number and a bool field from a JSON boolean"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_number_sets_an_integer_field() {
     let c = failure_modes();
     let number = |n: i64| Input::Number(n.into());
@@ -415,10 +385,7 @@ fn a_number_sets_an_integer_field() {
     assert!(text.contains("abstract") && text.contains("true"), "{text}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_edit_plan",
-    verify = "a plan op refuses a fraction on an integer field and a number on a text field"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_fraction_on_an_integer_field_is_refused() {
     let c = failure_modes();
     let fraction = Input::Number(serde_json::Number::from_f64(4.5).unwrap());
@@ -426,20 +393,14 @@ fn a_fraction_on_an_integer_field_is_refused() {
     assert!(message.contains("takes a whole number"), "{message}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_edit_plan",
-    verify = "a plan op refuses a fraction on an integer field and a number on a text field"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_number_on_a_text_field_is_still_refused() {
     let c = failure_modes();
     let (_, message) = refused(&c, &[set("slow_disk", "cause", Input::Number(7.into()))]);
     assert!(message.contains("takes text; give a string"), "{message}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "set writes a number field's word as given, and a JSON number as its decimal"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_number_field_keeps_the_word_it_is_given() {
     const MEASURE: &str = "measure m1 \"M\" {\n  value 1\n}\n";
     let written = |value: Input| typed_after(MEASURE, &[set("m1", "value", value)]);

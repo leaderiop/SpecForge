@@ -19,10 +19,7 @@ fn manifest(server: &Served) -> String {
     std::fs::read_to_string(server.root().join("specforge-infer.json")).unwrap()
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_infer_session_tool",
-    verify = "an argument of another action is refused on that argument"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn an_argument_of_another_action_is_refused_on_it() {
     let mut server = served();
     let started = call_tool(
@@ -71,10 +68,7 @@ fn an_argument_of_another_action_is_refused_on_it() {
     assert_eq!(ended["status"], "completed", "{ended}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_infer_session_tool",
-    verify = "an argument of another action is refused on that argument"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn the_schema_default_status_is_accepted_on_any_action() {
     let mut server = served();
     let started = call_tool(

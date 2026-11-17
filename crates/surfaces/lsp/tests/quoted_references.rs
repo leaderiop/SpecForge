@@ -17,10 +17,7 @@ fn range(r: Range) -> String {
     )
 }
 
-#[spec(
-    behavior = "find_all_references",
-    verify = "each reference is the identifier token as written"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn references_show_a_quoted_reference_inside_its_quotes() {
     let served = served(QUOTED);
     let (state, uri) = (served.state(), served.uri("main.spec"));
@@ -33,10 +30,7 @@ fn references_show_a_quoted_reference_inside_its_quotes() {
     assert_eq!(found, ["1:10-1:14", "4:5-4:9"]);
 }
 
-#[spec(
-    behavior = "prepare_rename",
-    verify = "prepare rename answers on a quoted reference, inside its quotes"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn prepare_rename_on_a_quoted_reference_is_its_id() {
     let served = served(QUOTED);
     let answer = answers::prepare_rename(
@@ -51,10 +45,7 @@ fn prepare_rename_on_a_quoted_reference_is_its_id() {
     assert_eq!(range(r), "1:10-1:14");
 }
 
-#[spec(
-    invariant = "cursor_names_one_entity",
-    verify = "a quoted reference under the cursor names its entity"
-)]
+#[spec(requirement = "INVARIANT-012")]
 fn a_cursor_inside_a_quoted_reference_names_its_entity() {
     let served = served(QUOTED);
     let (state, uri) = (served.state(), served.uri("main.spec"));

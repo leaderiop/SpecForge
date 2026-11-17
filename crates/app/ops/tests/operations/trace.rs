@@ -43,10 +43,7 @@ fn build_chain() -> Graph {
 }
 
 // B:compute_traceability_chain — verify unit "trace from entity shows upstream and downstream connections"
-#[specforge_test(
-    behavior = "compute_traceability_chain",
-    verify = "trace from entity shows upstream and downstream connections"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_shows_upstream_and_downstream() {
     let graph = build_chain();
     let trace = chain(&graph, "b");
@@ -62,10 +59,7 @@ fn trace_shows_upstream_and_downstream() {
 }
 
 // B:compute_traceability_chain — verify unit "trace shows full chain depth"
-#[specforge_test(
-    behavior = "compute_traceability_chain",
-    verify = "trace shows full chain depth"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_shows_full_chain_depth() {
     let mut graph = build_chain();
     graph.add_node(node("d", "event"));
@@ -90,7 +84,7 @@ fn trace_shows_full_chain_depth() {
 
 // B:compute_traceability_chain — verify unit "trace from entity shows upstream and downstream connections"
 // (error case: nonexistent entity returns error)
-#[specforge_test(behavior = "compute_traceability_chain")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_nonexistent_entity_returns_error() {
     let graph = build_chain();
     let project = Assembled::over(RegistryBuild::default()).graph(graph);
@@ -99,10 +93,7 @@ fn trace_nonexistent_entity_returns_error() {
 }
 
 // B:serialize_traceability_data — verify unit "output conforms to Graph Protocol schema"
-#[specforge_test(
-    behavior = "serialize_traceability_data",
-    verify = "output conforms to Graph Protocol schema"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_serializes_to_json() {
     let graph = build_chain();
     let project = Assembled::over(RegistryBuild::default()).graph(graph);
@@ -118,7 +109,7 @@ fn trace_serializes_to_json() {
 
 // B:compute_traceability_chain — verify unit "trace from entity shows upstream and downstream connections"
 // (edge case: leaf has upstream only)
-#[specforge_test(behavior = "compute_traceability_chain")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_on_leaf_has_upstream_only() {
     let graph = build_chain();
     let trace = chain(&graph, "c");
@@ -132,7 +123,7 @@ fn trace_on_leaf_has_upstream_only() {
 
 // B:compute_traceability_chain — verify unit "trace from entity shows upstream and downstream connections"
 // (edge case: root has downstream only)
-#[specforge_test(behavior = "compute_traceability_chain")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_on_root_has_downstream_only() {
     let graph = build_chain();
     let trace = chain(&graph, "a");
@@ -142,10 +133,7 @@ fn trace_on_root_has_downstream_only() {
 }
 
 // B:serialize_traceability_data — verify unit "full trace covers all root entities across registered edge types"
-#[specforge_test(
-    behavior = "serialize_traceability_data",
-    verify = "full trace covers all root entities across registered edge types"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn tracing_every_entity_covers_all_root_entities() {
     let graph = build_chain();
     let traces = crate::view_support::every_chain_list(&graph, RegistryBuild::default());
@@ -158,7 +146,7 @@ fn tracing_every_entity_covers_all_root_entities() {
 }
 
 // B:serialize_traceability_data — verify unit "output conforms to Graph Protocol schema"
-#[specforge_test(behavior = "serialize_traceability_data")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn every_trace_serializes_as_json_array() {
     let graph = build_chain();
     let traces = every_chain(&graph, RegistryBuild::default());
@@ -190,10 +178,7 @@ fn missing(chain: &specforge_ops::read::trace::TraceChain) -> Vec<(&str, &str, &
 }
 
 // B:compute_traceability_chain — verify unit "missing link in chain is flagged"
-#[specforge_test(
-    behavior = "compute_traceability_chain",
-    verify = "missing link in chain is flagged"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_missing_link_flagged() {
     // b -features-> a: b declares no invariant, which its kind expects.
     let mut graph = Graph::new();
@@ -244,7 +229,7 @@ fn trace_missing_link_flagged() {
 
 // B:compute_traceability_chain — the expected edges come from the
 // registries alone.
-#[specforge_test(behavior = "compute_traceability_chain")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_expectations_come_from_the_registries() {
     let expected = expectations();
     let labels = |kind: &str| -> Vec<String> {
@@ -276,10 +261,7 @@ fn trace_expectations_come_from_the_registries() {
 }
 
 // B:compute_traceability_chain — the other side of a relation is derived.
-#[specforge_test(
-    behavior = "compute_traceability_chain",
-    verify = "a relation written on its owning field shows on the other side as upstream, under the owning field's label"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn the_other_side_of_a_relation_is_upstream() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "feature"));
@@ -297,10 +279,9 @@ fn the_other_side_of_a_relation_is_upstream() {
 }
 
 // B:read_views_over_the_project_view — verify unit "the reach of some entities is every entity their trace chains reach, the seeds included, and its unverified entities are those that count toward coverage and are not proven"
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "the reach of some entities is every entity their trace chains reach, the seeds included, and its unverified entities are those that count toward coverage and are not proven"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn reach_lists_what_the_chains_reach_and_what_is_unverified() {
     let mut project = Assembled::over(crate::view_support::registries(&["behavior"], &["feature"]))
         .source(
@@ -374,10 +355,7 @@ mod compiled {
 
     // --- Trace depth tests ---
 
-    #[specforge_test(
-        behavior = "compute_traceability_chain",
-        verify = "trace from entity shows upstream and downstream connections"
-    )]
+    #[specforge_test(requirement = "FEATURE-130")]
     fn trace_isolated_entity_has_empty_upstream_and_downstream() {
         let spec = format!(
             "{}\nfeature alpha \"A\" {{ problem \"p\" solution \"s\" }}\nbehavior beta \"B\" {{ contract \"first\" features [alpha] }}\n",
@@ -398,10 +376,7 @@ mod compiled {
         );
     }
 
-    #[specforge_test(
-        behavior = "compute_traceability_chain",
-        verify = "trace shows full chain depth"
-    )]
+    #[specforge_test(requirement = "FEATURE-130")]
     fn trace_linear_chain_shows_correct_depths() {
         let (_project, compiled) = built(&[("main.spec", specs::DEEP_CHAIN)]);
 
@@ -428,10 +403,7 @@ mod compiled {
         }
     }
 
-    #[specforge_test(
-        invariant = "graph_traversal_integrity",
-        verify = "traversal from any node visits every reachable node exactly once"
-    )]
+    #[specforge_test(requirement = "INVARIANT-054")]
     fn trace_handles_cycles_without_hanging() {
         let (_project, compiled) = built(&[("main.spec", specs::CYCLE)]);
 
@@ -449,10 +421,7 @@ mod compiled {
         );
     }
 
-    #[specforge_test(
-        invariant = "graph_traversal_integrity",
-        verify = "traversal from any node visits every reachable node exactly once"
-    )]
+    #[specforge_test(requirement = "INVARIANT-054")]
     fn trace_cycle_visits_each_node_once() {
         let (_project, compiled) = built(&[("main.spec", specs::CYCLE)]);
 
@@ -469,10 +438,7 @@ mod compiled {
         );
     }
 
-    #[specforge_test(
-        invariant = "graph_traversal_integrity",
-        verify = "identical graph inputs produce identical traversal results"
-    )]
+    #[specforge_test(requirement = "INVARIANT-054")]
     fn trace_deterministic_output() {
         let (_project, compiled) = built(&[("main.spec", specs::DEEP_CHAIN)]);
 
@@ -481,10 +447,7 @@ mod compiled {
         assert_eq!(stdout1, stdout2, "trace output should be deterministic");
     }
 
-    #[specforge_test(
-        behavior = "compute_traceability_chain",
-        verify = "trace from entity shows upstream and downstream connections"
-    )]
+    #[specforge_test(requirement = "FEATURE-130")]
     fn trace_root_entity_has_no_upstream() {
         let (_project, compiled) = built(&[("main.spec", specs::DEEP_CHAIN)]);
 
@@ -503,10 +466,7 @@ mod compiled {
         assert_eq!(trace(&compiled, "typ_leaf"), (links(&[]), links(&[])));
     }
 
-    #[specforge_test(
-        behavior = "compute_traceability_chain",
-        verify = "trace from entity shows upstream and downstream connections"
-    )]
+    #[specforge_test(requirement = "FEATURE-130")]
     fn trace_leaf_entity_has_no_downstream() {
         let (_project, compiled) = built(&[(
             "main.spec",
@@ -619,10 +579,7 @@ behavior beta "B" { contract "first" features [alpha] }
         ]
     }
 
-    #[specforge_test(
-        behavior = "compute_traceability_chain",
-        verify = "missing link in chain is flagged"
-    )]
+    #[specforge_test(requirement = "FEATURE-130")]
     fn trace_json_flags_missing_links() {
         let (_project, compiled) = gap_project();
 
@@ -663,10 +620,7 @@ behavior beta "B" { contract "first" features [alpha] }
         assert_eq!(isolated["missing"], serde_json::json!([]));
     }
 
-    #[specforge_test(
-        behavior = "serialize_traceability_data",
-        verify = "gaps in chain are highlighted"
-    )]
+    #[specforge_test(requirement = "FEATURE-130")]
     fn trace_without_entity_serializes_every_chain_with_its_gaps() {
         let (_project, compiled) = gap_project();
 
@@ -709,10 +663,7 @@ behavior beta "B" { contract "first" features [alpha] }
         ),
     ];
 
-    #[specforge_test(
-        behavior = "compute_traceability_chain",
-        verify = "a field that writes a reference has its link, resolved or not: an unresolved one is E003, never a missing link"
-    )]
+    #[specforge_test(requirement = "FEATURE-130")]
     fn a_field_that_writes_an_unresolved_reference_has_no_missing_link() {
         let project = TestProject::new()
             .enabling(&[crate::navigate::SOFTWARE, &["@specforge/product"]].concat())
@@ -772,10 +723,7 @@ behavior beta "B" { contract "first" features [alpha] }
         );
     }
 
-    #[specforge_test(
-        behavior = "compute_traceability_chain",
-        verify = "trace output includes schema version"
-    )]
+    #[specforge_test(requirement = "FEATURE-130")]
     fn trace_output_includes_schema_version() {
         let (_project, compiled) = built(&[("main.spec", specs::ISOLATED)]);
 

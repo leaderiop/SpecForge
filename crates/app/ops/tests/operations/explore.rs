@@ -40,10 +40,8 @@ fn nodes(edges: &[(&str, &[&str])], alone: &[&str]) -> Assembled {
     Assembled::over(RegistryBuild::default()).source(&source)
 }
 
-#[specforge_test(
-    behavior = "explore_the_graph",
-    verify = "the exploration selects the entities entity_id reaches within depth, of kind when given, and every list is about that selection"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn every_list_is_about_the_selection() {
     let project = r1();
 
@@ -80,10 +78,8 @@ fn every_list_is_about_the_selection() {
     assert_eq!(whole.most_connected, ["hub", "linked"]);
 }
 
-#[specforge_test(
-    behavior = "explore_the_graph",
-    verify = "starting points are the selected connected entities that lead most, ties by id, at most five"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn starting_points_lead_most() {
     let project = nodes(
         &[
@@ -102,10 +98,8 @@ fn starting_points_lead_most() {
     assert_eq!(exploration.unconnected, ["k"]);
 }
 
-#[specforge_test(
-    behavior = "explore_the_graph",
-    verify = "the most connected are the selected connected entities with the most edges to other entities, ties by id, at most ten"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn most_connected_count_edges_to_others() {
     let mut source = String::new();
     for n in 1..12 {
@@ -125,10 +119,8 @@ fn most_connected_count_edges_to_others() {
     assert!(!exploration.most_connected.contains(&"selfish".to_string()));
 }
 
-#[specforge_test(
-    behavior = "explore_the_graph",
-    verify = "unconnected lists the selected entities no edge links to another entity"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn unconnected_lists_the_selection_s_unconnected() {
     let project = r1();
     let behaviors = explored(
@@ -142,10 +134,8 @@ fn unconnected_lists_the_selection_s_unconnected() {
     assert_eq!(behaviors.unconnected, ["dangling", "lonely"]);
 }
 
-#[specforge_test(
-    behavior = "explore_the_graph",
-    verify = "relationship paths run from entity_id to each selected entity it reaches, nearest first, with their edge labels"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn paths_run_from_the_entity() {
     let project = Assembled::over(RegistryBuild::default()).source("node a \"a\" {\n  to [b]\n}\nnode b \"b\" {\n  next [c]\n}\nnode c \"c\" {\n  last [d]\n}\nnode d \"d\" {\n}\n");
     let noticed = noticed(
@@ -176,10 +166,8 @@ fn paths_run_from_the_entity() {
     );
 }
 
-#[specforge_test(
-    behavior = "explore_the_graph",
-    verify = "an unknown kind selects nothing and is an I020 notice naming the closest kind"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn an_unknown_kind_is_a_notice() {
     let project = r1();
     let exploration = noticed(

@@ -1,35 +1,10 @@
-// Output and serialization features
-//
-// P7 Justification — DOT stays in core:
-// DOT is the Graph Protocol's native visual representation, analogous to
-// how JSON is its data representation. The serialize_dot_visualization
-// behavior contains zero domain knowledge: it walks generic graph nodes and
-// edges, delegating all entity-kind-aware rendering (shapes, styles) to
-// extension-provided callbacks via render_extension_defined_dot_shapes and
-// render_extension_defined_edge_styles. Adding a new domain (e.g.,
-// @specforge/compliance) requires ZERO compiler changes for DOT output —
-// the extension's manifest declares dot_shape and edge_style, and the core
-// DOT serializer reads them from the KindRegistry. This is identical to
-// how the formatting engine (features/formatting.spec) is core despite
-// formatting extension-defined entity blocks. DOT is a diagnostic/debugging
-// format for the graph engine, not a domain-specific output.
-
-use "behaviors/output"
-use "behaviors/output-schema"
-
-// markdown_documentation_generation moved to spec/extensions/markdown-renderer/
-// Vision: "SpecForge does not produce documentation." Markdown rendering is
-// a renderer contribution from the @specforge/markdown-renderer extension.
-
-feature json_and_dot_render "JSON and DOT Render" {
-  status   done
-  // render_extension_defined_dot_shapes is owned by extension_driven_visualization
-  // in zero-entity-core.spec; serialize_dot_visualization delegates to it.
-  problem  """
+requirement FEATURE-057 "JSON and DOT Render" {
+  category "Feature"
+  tier     v1
+  text     """
     External tools (dashboards, analyzers, visualizers) need machine-readable
     access to the spec graph. The graph must be exportable in standard formats.
-  """
-  solution """
+
     specforge render json exports the full graph as JSON conforming to the
     Graph Protocol schema — the versioned, open interchange format that any
     tool or agent framework can consume. specforge render dot exports a DOT
@@ -37,17 +12,15 @@ feature json_and_dot_render "JSON and DOT Render" {
   """
 }
 
-// Note: specforge export (--format=context|graph|brief) is defined in product/capabilities.spec as an agent-facing command distinct from specforge render
-
-feature traceability_serialization "Traceability Serialization" {
-  status   done
-  problem  """
+requirement FEATURE-130 "Traceability Serialization" {
+  category "Feature"
+  tier     v1
+  text     """
     Architects and auditors need to trace entities upstream and downstream
     through the graph. Manual traceability matrices are error-prone and
     always stale. AI agents produce implementation plans that must be
     validated against the spec graph to ensure completeness and consistency.
-  """
-  solution """
+
     specforge trace computes and serializes traceability chains by traversing the
     graph across all registered edge types. Single-entity trace shows
     upstream and downstream links. Full trace shows every chain with gap
@@ -61,15 +34,15 @@ feature traceability_serialization "Traceability Serialization" {
   """
 }
 
-feature agent_export "Agent-Optimized Export" {
-  status   done
-  problem  """
+requirement FEATURE-001 "Agent-Optimized Export" {
+  category "Feature"
+  tier     v1
+  text     """
     AI agents need structured, token-efficient context from the spec graph.
     Full JSON export wastes context window. Agents need scoped, multi-resolution
     access to exactly the subgraph relevant to their task. Agents operating
     in MCP server mode need resource-based access without CLI invocation.
-  """
-  solution """
+
     specforge export provides agent-optimized formats: context (token-optimized
     with contracts and relationships), brief (IDs and contracts only), and
     graph (full JSON). specforge query provides multi-resolution access via
@@ -80,14 +53,14 @@ feature agent_export "Agent-Optimized Export" {
   """
 }
 
-feature review_export "Review Export" {
-  status   done
-  problem  """
+requirement FEATURE-112 "Review Export" {
+  category "Feature"
+  tier     v2
+  text     """
     A reviewer who signs a specification (a QA lead, a qualified person) reads
     documents, not JSON. Every export format is JSON or Graphviz, so a review
     needs a hand conversion that can drop or misstate what the spec says.
-  """
-  solution """
+
     specforge export --format markdown writes the graph as one Markdown
     document: per entity its statements, fields, links with titles, the
     entities that reference it and its obligations. It reads only the field
@@ -95,14 +68,14 @@ feature review_export "Review Export" {
   """
 }
 
-feature ci_integration "CI Integration" {
-  status   done
-  problem  """
+requirement FEATURE-006 "CI Integration" {
+  category "Feature"
+  tier     v1
+  text     """
     CI pipelines need a single command that validates all .spec files,
     exits with an appropriate code, and produces deterministic output
     suitable for automated checks.
-  """
-  solution """
+
     specforge check parses, resolves, and validates without writing files;
     nothing writes a file but the commands that say so.
     Exit code 0 for clean, 1 for errors. --strict treats warnings as errors.
@@ -116,16 +89,16 @@ feature ci_integration "CI Integration" {
   """
 }
 
-feature self_describing_graph_protocol "Self-Describing Graph Protocol" {
-  status   done
-  problem  """
+requirement FEATURE-120 "Self-Describing Graph Protocol" {
+  category "Feature"
+  tier     v1
+  text     """
     The Graph Protocol JSON export contains nodes and edges but no schema
     describing what entity kinds exist, what fields they have, or what edge
     types connect them. Agents consuming the graph must rely on external
     documentation or heuristics to understand the graph structure, reducing
     first-attempt accuracy.
-  """
-  solution """
+
     Self-describing schema embedded in Graph Protocol exports. After all
     extension registries are populated, the compiler serializes the
     KindRegistry and FieldRegistry into a GraphProtocolSchema object.
@@ -139,14 +112,14 @@ feature self_describing_graph_protocol "Self-Describing Graph Protocol" {
   """
 }
 
-feature graph_protocol_versioning "Graph Protocol Versioning" {
-  status   done
-  problem  """
+requirement FEATURE-048 "Graph Protocol Versioning" {
+  category "Feature"
+  tier     v1
+  text     """
     The Graph Protocol schema evolves as extensions add entity kinds and edge
     types, but there is no versioning mechanism. Agents consuming the graph
     cannot negotiate compatible versions, and breaking changes are undetectable.
-  """
-  solution """
+
     Semantic versioning for the Graph Protocol schema, derived from the
     extensions: each export versions the schema against the one the last
     export recorded in .specforge/schema-cache.json, comparing every
@@ -164,8 +137,3 @@ feature graph_protocol_versioning "Graph Protocol Versioning" {
     migration tooling.
   """
 }
-
-// plan_validation removed — validate_agent_plan is already covered by
-// the traceability_serialization feature above.
-
-// entity_embedding_search moved to spec/extensions/embeddings/features.spec

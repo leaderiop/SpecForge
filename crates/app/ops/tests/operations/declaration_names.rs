@@ -8,10 +8,7 @@ use specforge_test::prelude::*;
 const BELOW: &str = "invariant\n  session_limit \"Limit\" {\n  guarantee \"x\"\n}\n";
 const LOGIN: &str = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n";
 
-#[specforge_test(
-    behavior = "go_to_definition",
-    verify = "the definition selects a name written below its kind"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn the_definition_of_a_name_written_below_its_kind_selects_the_name() {
     let p = compile(SOFTWARE, &[("limit.spec", BELOW), ("login.spec", LOGIN)]);
     let nav = p.navigator();
@@ -24,10 +21,7 @@ fn the_definition_of_a_name_written_below_its_kind_selects_the_name() {
     assert_eq!(token.target, "session_limit");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename edits a declaration whose name is written below its kind"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_rename_of_a_name_written_below_its_kind_edits_the_declaration() {
     let p = compile(SOFTWARE, &[("limit.spec", BELOW), ("login.spec", LOGIN)]);
     let plan = rename::plan(&p.navigator(), "session_limit", "session_cap").unwrap();

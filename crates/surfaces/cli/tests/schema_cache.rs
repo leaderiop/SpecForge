@@ -106,10 +106,7 @@ fn names_in(dir: &Path) -> Vec<String> {
 
 // --- The cache is written by export ---
 
-#[specforge_test(
-    behavior = "persist_schema_cache",
-    verify = "schema-cache.json written after schema generation"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn first_export_creates_the_schema_cache() {
     let dir = software_project();
     assert!(!cache_path(&dir).exists());
@@ -126,10 +123,7 @@ fn first_export_creates_the_schema_cache() {
     assert!(!stderr.contains("I016"), "{stderr}");
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "no previous schema treats all changes as non-breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn first_export_of_a_project_reports_nothing() {
     // Every kind and edge type is new against no previous schema; none of
     // that is breaking, and a project never exported gets no I016.
@@ -139,10 +133,7 @@ fn first_export_of_a_project_reports_nothing() {
     assert!(!stderr.contains("I016"), "{stderr}");
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "a missing schema cache emits no diagnostic"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn export_without_a_cache_emits_no_diagnostic() {
     let dir = software_project();
     let stderr = export_ok(&dir);
@@ -217,10 +208,7 @@ fn a_failed_export_leaves_the_cache_alone() {
     assert_eq!(read_cache(&dir), cache);
 }
 
-#[specforge_test(
-    behavior = "persist_schema_cache",
-    verify = "cache file overwritten atomically via temp+rename"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn export_replaces_the_cache_atomically() {
     let dir = software_project();
     export_ok(&dir);
@@ -252,10 +240,7 @@ fn export_replaces_the_cache_atomically() {
 
 // --- The cache feeds breaking-change detection ---
 
-#[specforge_test(
-    behavior = "persist_schema_cache",
-    verify = "persisted cache feeds breaking change detection in the next compilation"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn removing_an_extension_warns_on_the_next_export() {
     let dir = TestProject::new()
         .raw_config(SOFTWARE_AND_GOVERNANCE)
@@ -279,10 +264,7 @@ fn removing_an_extension_warns_on_the_next_export() {
     assert_eq!(export_ok(&dir), "");
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "previous schema is read from .specforge/schema-cache.json"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn the_previous_schema_comes_from_the_cache_file() {
     let stderr =
         export_against_edited_cache(|cache| {
@@ -299,10 +281,7 @@ fn the_previous_schema_comes_from_the_cache_file() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "removed entity kind detected as breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_removed_kind_warns() {
     let stderr =
         export_against_edited_cache(|cache| {
@@ -316,10 +295,7 @@ fn a_removed_kind_warns() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "removed field is breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_removed_field_warns() {
     let stderr = export_against_edited_cache(|cache| {
         kind_mut(cache, "behavior")["fields"]
@@ -341,10 +317,7 @@ fn a_removed_field_warns() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "new required field detected as breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_new_required_field_warns() {
     // The previous schema had no `contract` on behavior; it is required now.
     let stderr = export_against_edited_cache(|cache| {
@@ -364,10 +337,7 @@ fn a_new_required_field_warns() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "added optional field detected as non-breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_new_optional_field_is_silent() {
     let stderr = export_against_edited_cache(|cache| {
         let fields = kind_mut(cache, "behavior")["fields"]
@@ -382,10 +352,7 @@ fn a_new_optional_field_is_silent() {
     assert_eq!(stderr, "", "an added optional field is not breaking");
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "new entity kind detected as non-breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_new_kind_is_silent() {
     let stderr = export_against_edited_cache(|cache| {
         cache["schema"]["entity_kinds"]
@@ -396,10 +363,7 @@ fn a_new_kind_is_silent() {
     assert_eq!(stderr, "", "an added kind is not breaking");
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "removed edge type detected as breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_removed_edge_type_warns() {
     let stderr = export_against_edited_cache(|cache| {
         cache["schema"]["edge_types"]
@@ -416,10 +380,7 @@ fn a_removed_edge_type_warns() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "new edge type detected as non-breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_new_edge_type_is_silent() {
     let stderr = export_against_edited_cache(|cache| {
         let edges = cache["schema"]["edge_types"].as_array_mut().unwrap();
@@ -543,10 +504,7 @@ fn add_legacy_kind(cache: &mut Value) {
         .push(json!({"name": "legacy", "source_extension": "x", "testable": false, "fields": []}));
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "first compilation without cache produces version 1.0.0"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_first_export_is_schema_version_1_0_0() {
     let dir = software_project();
     assert_eq!(exported_version(&export(&dir, &[])), version(1, 0, 0));
@@ -556,10 +514,7 @@ fn a_first_export_is_schema_version_1_0_0() {
     );
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "removed entity kind triggers major version bump"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_removed_kind_bumps_the_exported_major_version() {
     let (_dir, embedded, cached) = version_after_edited_cache(|cache| {
         cache["schema"]["schema_version"] = version(1, 2, 3);
@@ -570,10 +525,7 @@ fn a_removed_kind_bumps_the_exported_major_version() {
     assert_eq!(cached, version(2, 0, 0));
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "new entity kind triggers minor version bump"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_new_kind_bumps_the_exported_minor_version() {
     let (_dir, embedded, cached) = version_after_edited_cache(|cache| {
         cache["schema"]["schema_version"] = version(1, 2, 3);
@@ -586,10 +538,7 @@ fn a_new_kind_bumps_the_exported_minor_version() {
     assert_eq!(cached, version(1, 3, 0));
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "no changes returns previous"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn an_unchanged_schema_keeps_the_exported_version() {
     let (_dir, embedded, cached) = version_after_edited_cache(|cache| {
         cache["schema"]["schema_version"] = version(3, 1, 4);
@@ -641,10 +590,7 @@ fn export_version_string(output: &Output) -> String {
         .to_owned()
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "a field's required flag changing either way is breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_changed_required_flag_bumps_the_major_version_and_warns() {
     let dir = software_project();
     export_ok(&dir);
@@ -669,10 +615,7 @@ fn a_changed_required_flag_bumps_the_major_version_and_warns() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "an edge type losing a source or target kind is breaking; gaining one is an addition"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn an_edge_type_that_loses_a_target_kind_bumps_the_major_version() {
     let dir = software_project();
     export_ok(&dir);
@@ -694,10 +637,7 @@ fn an_edge_type_that_loses_a_target_kind_bumps_the_major_version() {
     );
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "an extension's version changing is a patch"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn an_extension_version_change_bumps_the_patch_version() {
     let dir = software_project();
     export_ok(&dir);
@@ -711,10 +651,7 @@ fn an_extension_version_change_bumps_the_patch_version() {
     assert_eq!(String::from_utf8_lossy(&output.stderr), "");
 }
 
-#[specforge_test(
-    behavior = "negotiate_schema_version",
-    verify = "a requested version of the same major, not newer, is admitted and the export carries the current version"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_requested_version_does_not_relabel_the_export() {
     let dir = software_project();
     export_ok(&dir);
@@ -748,10 +685,7 @@ fn a_requested_version_does_not_relabel_the_export() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "an unreadable schema cache restarts the version at 1.0.0 with I016"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn an_unreadable_cache_restarts_the_version_with_i016() {
     let dir = software_project();
     export_ok(&dir);
@@ -775,10 +709,7 @@ fn an_unreadable_cache_restarts_the_version_with_i016() {
     );
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "one schema version names one document: equal versions have equal content hashes"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn an_unchanged_schema_keeps_its_version_and_its_hash() {
     let dir = software_project();
     export_ok(&dir);

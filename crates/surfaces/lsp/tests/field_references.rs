@@ -10,10 +10,7 @@ use specforge_project::testing::Assembled;
 use crate::registries::registries;
 use specforge_test_macros::test as specforge_test;
 
-#[specforge_test(
-    behavior = "provide_semantic_tokens",
-    verify = "a string list's bare item is no reference"
-)]
+#[specforge_test(requirement = "FEATURE-121")]
 fn a_bare_word_on_a_string_list_is_no_reference_position() {
     let registries = registries("@test/ext", |c| {
         c.kind("term", |k| {

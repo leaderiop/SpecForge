@@ -138,10 +138,7 @@ fn every_call(
 /// The greet fixture answers every call alike through the component
 /// runtime, from its vendored blob, and through the in-process runtime,
 /// from its source: the same bytes, or the same trap.
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn greet_answers_alike_through_both_runtimes() {
     use specforge_wasm::testing::InProcessRuntime;
 

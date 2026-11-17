@@ -43,10 +43,7 @@ fn passes_only() -> ContributionsBuilder {
     b
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "the loader reads the handshake and every describe category once"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_loader_reads_every_category_once() {
     // A passes-only extension raises no contribution flag that used to gate
     // a category, yet every category is read.
@@ -66,10 +63,7 @@ fn the_loader_reads_every_category_once() {
     assert!(loaded.warnings.is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "an extension that only declares passes has them in its declaration"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_passes_only_extension_has_its_passes() {
     let runtime = InProcessRuntime::new().with(passes_only);
     let declaration = load_declaration(&runtime, "@acme/audit")
@@ -101,10 +95,7 @@ fn typo() -> ContributionsBuilder {
     b
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "a describe item key the protocol does not define produces W138"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn an_unknown_describe_key_is_w138() {
     let runtime = InProcessRuntime::new().with(typo);
     let loaded = load_declaration(&runtime, "@acme/typo").unwrap();
@@ -210,10 +201,7 @@ fn no_findings(_: &PassInput) -> Vec<PassDiagnostic> {
     Vec::new()
 }
 
-#[specforge_test_macros::test(
-    behavior = "configure_sandbox_policy",
-    verify = "a load's warnings name the extension by the name its handshake declares"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-136")]
 fn a_loads_warnings_name_the_extension_its_handshake_declares() {
     let runtime = InProcessRuntime::new().binary(b"\0asm named", || {
         let mut meta = ExtensionMeta::new("@acme/named", "1.0.0");
@@ -254,10 +242,7 @@ fn a_loads_warnings_name_the_extension_its_handshake_declares() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "refuse_an_unbacked_port_import",
-    verify = "an extension that imports a port no capability backs is not loaded (E089)"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn an_unbacked_port_import_fails_the_load() {
     const HTTP: &str = "specforge:host/http@0.1.0";
     fn bare() -> ContributionsBuilder {

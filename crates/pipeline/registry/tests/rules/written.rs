@@ -55,10 +55,7 @@ fn implementing(rule: ValidationRuleDescriptor, with_feature: bool) -> Built {
     rules_of(vec![declaration])
 }
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "an edge rule counts only edges of its edge type and is dropped when no extension declares the kind at its far end"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn an_edge_rule_counts_only_its_edge_type() {
     let mut declared = rule("W001", "no_outgoing_edges");
     declared.edge_type = Some("BehaviorImplementsFeature".to_string());
@@ -95,10 +92,7 @@ const UNRESOLVED: &str = "behavior typo \"Typo\" {\n  features [nope_feature]\n}
                           behavior real \"Real\" {\n  features [f1]\n}\n\n\
                           feature f1 \"F1\" {\n}\n";
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "an edge rule reports no entity whose field of its edge type writes a reference that does not resolve: that is E003 alone"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn an_edge_rule_reports_no_cascade_of_an_unresolved_reference() {
     // Each reference that does not resolve is the linker's E003.
     let built = implementing(rule("W900", "no_outgoing_edges"), true);
@@ -134,10 +128,7 @@ fn an_edge_rule_reports_no_cascade_of_an_unresolved_reference() {
     assert_eq!(reported(rule("W902", "no_edges"), None), ["empty"]);
 }
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "an edge rule over an edge type several kinds write without declaring it counts the edges of every writing kind"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn an_edge_rule_over_an_undeclared_edge_counts_every_writing_kind() {
     // `person` is assigned by `task` (from `@test`) and `ticket` (from
     // `@test/more`), through the `assigned_to` edge neither declares.
@@ -189,10 +180,7 @@ fn an_edge_rule_over_an_undeclared_edge_counts_every_writing_kind() {
     assert_eq!(messages(&diagnostics), ["person 'p3' is assigned nothing"]);
 }
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "cycle_detection follows every field that writes its edge type"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn cycle_detection_follows_every_field_that_writes_its_edge_type() {
     // `module.depends_on` and `service.needs` both write `Requires`.
     let mut declaration = declare("@test", |c| {
@@ -253,10 +241,7 @@ fn obligation_rule(code: &str, target: Option<&str>, field: &str) -> ValidationR
     }
 }
 
-#[spec(
-    behavior = "te_validate_unverified_testable",
-    verify = "a field named like an obligation or an exemption exempts nothing from W004"
-)]
+#[spec(requirement = "FEATURE-127")]
 fn w004_reads_statements_and_the_exemption_not_field_names() {
     // A rule for `behavior` and one for `type` (a union has no body to hold obligations).
     let built = rules(vec![
@@ -284,10 +269,7 @@ fn w004_reads_statements_and_the_exemption_not_field_names() {
     assert_eq!(over("type Plain \"Plain\" {\n  id string\n}\n").len(), 1);
 }
 
-#[spec(
-    behavior = "snapshot_entities_once",
-    verify = "a kind that accepts no verify statements owes no obligations, whatever rule applies to it"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_kind_without_verify_owes_no_statements_but_still_owes_other_fields() {
     let memo_rules = |rules: Vec<ValidationRuleDescriptor>| -> Built {
         let mut declaration = declare("@test", |c| {
@@ -347,10 +329,7 @@ fn a_non_empty_constraint_flags_an_empty_value() {
     }
 }
 
-#[spec(
-    behavior = "emit_diagnostic_from_pattern",
-    verify = "message template interpolates {field} and {value}"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn message_template_interpolates_field_and_value() {
     let constrained = |field: &str, field_type: FieldType| {
         let mut declared = rule("W103", "field_value_constraint");

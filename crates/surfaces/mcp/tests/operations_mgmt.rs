@@ -68,10 +68,7 @@ fn invoked(server: &impl Logs, tool: &str) -> bool {
 // --- specforge.extensions ---
 
 // B:provide_mcp_extensions_tool — verify unit "returns extensions list"
-#[specforge_test(
-    behavior = "provide_mcp_extensions_tool",
-    verify = "specforge.extensions lists all installed extensions"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn extensions_returns_list() {
     let (mut server, _root) = software_project();
     let resp = call_tool(&mut server, "specforge.extensions", json!({}));
@@ -100,10 +97,7 @@ fn extensions_returns_list() {
 // --- specforge.providers ---
 
 // B:provide_mcp_providers_tool — verify unit "returns providers list"
-#[specforge_test(
-    behavior = "provide_mcp_providers_tool",
-    verify = "specforge.providers lists all configured providers"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn providers_returns_list() {
     let (mut server, _root) = server_over(json!({
         "name": "t", "version": "0.1.0", "extensions": [],
@@ -166,10 +160,7 @@ pub(crate) fn collect_project() -> tempfile::TempDir {
 }
 
 // B:provide_mcp_collect_tool — verify unit "returns collect result"
-#[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "specforge.collect parses test results and maps to entities"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn collect_returns_result() {
     let mut server = test_server();
     let project = within(server.root(), collect_project());
@@ -247,10 +238,7 @@ fn each_collect_runner_is_an_mcp_collect_runner() {
 }
 
 // B:provide_mcp_collect_tool — verify unit "unapproved command is refused"
-#[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "specforge.collect refuses to run an unapproved command"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn collect_refuses_unapproved_command() {
     let mut server = test_server();
     let project = within(server.root(), collect_project());
@@ -270,10 +258,7 @@ fn collect_refuses_unapproved_command() {
 }
 
 // B:provide_mcp_collect_tool — verify unit "no collector is an error"
-#[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "a project without a collector returns an E058 error"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn collect_without_collector_errors() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.collect", json!({}));
@@ -282,10 +267,7 @@ fn collect_without_collector_errors() {
 }
 
 // B:provide_mcp_collect_tool — verify contract
-#[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "Provide MCP Collect Tool: MCP collect tool holds — filesystem_available, compiler_api_available, report_emitted, collector_delegated, never_prompts, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn collect_contract() {
     let mut server = test_server();
     let project = within(server.root(), collect_project());
@@ -329,10 +311,7 @@ fn providers_entry_fields() {
 // --- Contract tests ---
 
 // B:provide_mcp_extensions_tool — verify contract
-#[specforge_test(
-    behavior = "provide_mcp_extensions_tool",
-    verify = "Provide MCP Extensions Tool: MCP extensions tool holds — compiler_api_available, extensions_listed, config_reflected, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn extensions_contract() {
     // compiler_api_available: the server compiled the project.
     let (mut server, root) = software_project();
@@ -368,10 +347,7 @@ fn extensions_contract() {
 }
 
 // B:provide_mcp_providers_tool — verify contract
-#[specforge_test(
-    behavior = "provide_mcp_providers_tool",
-    verify = "Provide MCP Providers Tool: MCP providers tool holds — compiler_api_available, providers_listed, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn providers_contract() {
     // compiler_api_available: a compiled project configuring one provider
     // whose scheme no loaded extension serves.
@@ -394,10 +370,7 @@ fn providers_contract() {
 }
 
 // B:provide_mcp_doctor_tool — verify contract
-#[specforge_test(
-    behavior = "provide_mcp_doctor_tool",
-    verify = "Provide MCP Doctor Tool: MCP doctor tool holds — compiler_api_available, health_checked, resolution_steps_provided, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn doctor_contract() {
     // compiler_api_available: a project with one extension installed.
     let (mut server, root) = server_with_product();
@@ -475,10 +448,7 @@ fn doctor(server: &mut McpServer) -> Value {
     serde_json::from_str(&tool_text(&resp)).unwrap_or_else(|_| panic!("{resp}"))
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_doctor_tool",
-    verify = "response checks wasm cache integrity"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn doctor_flags_an_installed_binary_that_no_longer_matches_the_lock() {
     let (mut server, root) = server_with_product();
     let healthy = doctor(&mut server);
@@ -503,10 +473,7 @@ fn doctor_flags_an_installed_binary_that_no_longer_matches_the_lock() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_doctor_tool",
-    verify = "response provides deterministic resolution steps"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn doctor_gives_each_issue_the_same_remediation_every_time() {
     let (mut server, root) = server_with_product();
     tamper_with_installed_binary(&root);
@@ -540,10 +507,7 @@ fn finding<'a>(report: &'a Value, code: &str) -> Option<&'a Value> {
         .find(|f| f["code"] == code)
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_doctor_tool",
-    verify = "specforge.doctor reports an extension that fails to load (E028, E070) as an error"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn doctor_reports_an_extension_that_fails_to_load() {
     let (mut server, root) = server_with_product();
 
@@ -588,10 +552,7 @@ fn doctor_reports_an_extension_that_fails_to_load() {
     assert_eq!(missing["extensions_ok"], false, "{missing}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_doctor_tool",
-    verify = "specforge.doctor reports the project as it is on disk, edits made outside the server included"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn doctor_reports_the_project_as_it_is_on_disk() {
     let (mut server, root) = software_project();
     assert!(finding(&doctor(&mut server), "E028").is_none());
@@ -613,10 +574,7 @@ fn doctor_reports_the_project_as_it_is_on_disk() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_doctor_tool",
-    verify = "specforge.doctor detects extension conflicts"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn doctor_lists_extension_conflicts_from_the_compile() {
     // Two extensions register one kind, `feature`: the compile reports
     // E026. And an unrelated warning, a check-phase pass's.
@@ -655,10 +613,7 @@ fn render(server: &mut McpServer, args: Value) -> Value {
     serde_json::from_str(&tool_text(&resp)).unwrap_or_else(|_| panic!("{resp}"))
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_render_tool",
-    verify = "specforge.render writes output files to out_dir"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn render_writes_the_output_into_out_dir() {
     let mut server = test_server();
     // Inside the served project: an out_dir may not leave it (ADR 0092).
@@ -676,10 +631,7 @@ fn render_writes_the_output_into_out_dir() {
     assert!(dot.contains("alpha"), "{dot}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_render_tool",
-    verify = "registered renderer invoked for matching format"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn render_uses_the_renderer_the_format_names() {
     let mut server = test_server();
     let out = server.root().join("rendered");
@@ -717,10 +669,7 @@ fn render_scope_limits_the_graph_to_one_entity() {
     crate::tool_errors::mcp_error(&missing);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_render_tool",
-    verify = "unrecognized format returns error listing available renderers"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn render_unknown_format_lists_the_available_renderers() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.render", json!({"format": "yaml"}));
@@ -739,10 +688,7 @@ fn render_unknown_format_lists_the_available_renderers() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_render_tool",
-    verify = "Provide MCP Render Tool: MCP render tool holds — graph_available, filesystem_available, files_written, files_listed, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn render_contract() {
     let mut server = test_server();
     let out = server.root().join("rendered");
@@ -764,10 +710,7 @@ fn render_contract() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_render_tool",
-    verify = "a relative out_dir is written under the call's project root, wherever the server runs"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn a_relative_out_dir_is_written_under_the_project_root() {
     let mut server = test_server();
     // The served project is its canonical path, which render writes under.
@@ -783,10 +726,7 @@ fn a_relative_out_dir_is_written_under_the_project_root() {
     assert!(!in_cwd.exists(), "nothing is written under the cwd");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_render_tool",
-    verify = "a relative out_dir with no project served is invalid input on out_dir"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn a_relative_out_dir_with_nothing_served_is_refused() {
     let mut server = McpServer::new();
     let init = call(&mut server, "initialize", json!({}));
@@ -805,10 +745,7 @@ fn a_relative_out_dir_with_nothing_served_is_refused() {
     assert!(!cwd.join("p15-refused").exists());
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "specforge.collect of a directory that holds no project refuses with no_project"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn collect_of_a_directory_that_is_no_project_is_no_project() {
     // A server that serves nothing and has no root bounds no path (ADR 0092
     // D2): the directory is read for the call, and holds no project.

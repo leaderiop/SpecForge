@@ -152,10 +152,7 @@ impl Project {
     }
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "a known-keys store that can't be read refuses the install and is left as it was"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn an_unreadable_known_keys_file_refuses_the_fetch_and_is_left_as_it_was() {
     let key = SigningKey::generate();
     let project = Project::on(Reply::signed(&key));
@@ -201,10 +198,7 @@ fn pinned_at(path: &Path) -> Option<String> {
         .map(str::to_string)
 }
 
-#[specforge_test(
-    behavior = "verify_registry_integrity",
-    verify = "mismatched SHA256 produces hard error"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_download_that_does_not_match_the_registry_sha256_is_refused() {
     let key = SigningKey::generate();
     let served = Reply {
@@ -223,10 +217,7 @@ fn a_download_that_does_not_match_the_registry_sha256_is_refused() {
     );
 }
 
-#[specforge_test(
-    invariant = "registry_integrity",
-    verify = "SHA256 mismatch produces hard error and aborts"
-)]
+#[specforge_test(requirement = "INVARIANT-119")]
 fn a_registry_sha256_that_does_not_match_the_download_is_refused() {
     let served = Reply {
         sha256: Sha256::of(b"something else"),
@@ -238,10 +229,7 @@ fn a_registry_sha256_that_does_not_match_the_download_is_refused() {
     assert_eq!(error.code, "R-OPS-002", "{error:?}");
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "a package the registry or the trust check refuses is never an internal_error"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn a_trust_refusal_is_permission_denied() {
     // Unsigned, without --allow-unsigned.
     let project = Project::on(Reply::unsigned());
@@ -261,10 +249,7 @@ fn a_trust_refusal_is_permission_denied() {
     assert_eq!(error.kind, specforge_ops::OpErrorKind::PermissionDenied);
 }
 
-#[specforge_test(
-    behavior = "verify_publisher_signature",
-    verify = "a signature over other bytes is refused even with --allow-unsigned"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_signature_over_other_bytes_is_refused_even_with_allow_unsigned() {
     // The registry serves a consistent sha256 for the bytes it sends, but
     // the publisher signed different ones: integrity passes, the signature
@@ -282,10 +267,7 @@ fn a_signature_over_other_bytes_is_refused_even_with_allow_unsigned() {
     assert_eq!(project.pinned(), None);
 }
 
-#[specforge_test(
-    behavior = "verify_publisher_signature",
-    verify = "a swapped manifest breaks the signature"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_swapped_manifest_breaks_the_signature() {
     let key = SigningKey::generate();
     let served = Reply {
@@ -301,10 +283,7 @@ fn a_swapped_manifest_breaks_the_signature() {
     assert_eq!(error.code, "R-TRUST-002", "{error:?}");
 }
 
-#[specforge_test(
-    behavior = "verify_publisher_signature",
-    verify = "an unsigned package is refused without --allow-unsigned"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn an_unsigned_package_is_refused_without_allow_unsigned() {
     let project = Project::on(Reply::unsigned());
 
@@ -320,10 +299,7 @@ fn an_unsigned_package_is_refused_without_allow_unsigned() {
     );
 }
 
-#[specforge_test(
-    behavior = "verify_publisher_signature",
-    verify = "an unsigned package is accepted with --allow-unsigned and pins no key"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn an_unsigned_package_is_accepted_with_allow_unsigned_and_pins_nothing() {
     let project = Project::on(Reply::unsigned());
 
@@ -333,10 +309,7 @@ fn an_unsigned_package_is_accepted_with_allow_unsigned_and_pins_nothing() {
     assert_eq!(project.pinned(), None);
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "the key of the first verified install is pinned and accepted again"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_correctly_signed_package_is_accepted_and_its_key_pinned() {
     let key = SigningKey::generate();
     let project = Project::on(Reply::signed(&key));
@@ -375,10 +348,7 @@ fn a_correctly_signed_package_is_accepted_and_its_key_pinned() {
     assert_eq!(project.pinned(), Some(key.key_id()));
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "a fetch pins nothing; its pins are recorded when the install is written"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_fetch_pins_nothing() {
     let pinned = SigningKey::generate();
     let other = SigningKey::generate();
@@ -427,10 +397,7 @@ fn fetch_locked(
     )
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "a user's pin wins over the key specforge.lock records"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_users_pin_wins_over_the_locked_key() {
     let (pinned, locked) = (SigningKey::generate(), SigningKey::generate());
 
@@ -475,10 +442,7 @@ fn with_no_pin_a_package_signed_by_the_locked_key_is_a_first_use() {
     assert_eq!(project.pinned(), None, "the fetch pins nothing");
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "a package signed by another key than the pinned one is refused"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_package_signed_by_another_key_than_the_pinned_one_is_refused() {
     let pinned = SigningKey::generate();
     let other = SigningKey::generate();
@@ -495,10 +459,7 @@ fn a_package_signed_by_another_key_than_the_pinned_one_is_refused() {
     assert_eq!(project.pinned(), Some(pinned.key_id()), "the pin stands");
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "consent to a key change re-pins the new key"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn consent_to_a_key_change_re_pins_the_new_key() {
     let pinned = SigningKey::generate();
     let other = SigningKey::generate();
@@ -527,10 +488,7 @@ fn consent_to_a_key_change_re_pins_the_new_key() {
     assert_eq!(project.pinned(), Some(other.key_id()));
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "a denied key is refused even with consent"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_denied_key_is_refused_even_with_consent() {
     let key = SigningKey::generate();
     let project = Project::on(Reply::signed(&key));
@@ -542,10 +500,7 @@ fn a_denied_key_is_refused_even_with_consent() {
     assert_eq!(error.code, "R-TRUST-005", "{error:?}");
 }
 
-#[specforge_test(
-    behavior = "check_registry_reply",
-    verify = "a reply for another package is refused and pins nothing"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_registry_answering_with_another_package_is_refused() {
     // `@acme/tool` is pinned; a registry that answers the request with a
     // validly signed `@evil/tool` must not get it past the pin.
@@ -566,10 +521,7 @@ fn a_registry_answering_with_another_package_is_refused() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_registry_reply",
-    verify = "the peers the served manifest declares reach the package"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_correctly_signed_package_carries_the_peers_its_manifest_declares() {
     let key = SigningKey::generate();
     let manifest = r#"{"handshake":{"protocol_version":"1.0.0","name":"@acme/tool","version":"1.0.0","peer_dependencies":[{"name":"@acme/base","version":"^1.0"}],"sandbox_policy":null}}"#;
@@ -582,10 +534,7 @@ fn a_correctly_signed_package_carries_the_peers_its_manifest_declares() {
     assert_eq!(peers[0].version, "^1.0");
 }
 
-#[specforge_test(
-    behavior = "check_registry_reply",
-    verify = "a manifest that cannot be read is refused and pins nothing"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_manifest_that_cannot_be_read_is_refused_and_pins_nothing() {
     // Signed over the unreadable manifest, so only the manifest itself is
     // wrong. Read as "no peers", it would slip past the diamond gate.
@@ -598,10 +547,7 @@ fn a_manifest_that_cannot_be_read_is_refused_and_pins_nothing() {
     assert_eq!(project.pinned(), None, "nothing is pinned for it");
 }
 
-#[specforge_test(
-    invariant = "registry_reply_binding",
-    verify = "a package served without a manifest is refused"
-)]
+#[specforge_test(requirement = "INVARIANT-121")]
 fn a_package_served_without_a_manifest_is_refused() {
     let served = Reply {
         manifest: String::new(),
@@ -614,10 +560,7 @@ fn a_package_served_without_a_manifest_is_refused() {
     assert!(error.message.contains("served none"), "{error:?}");
 }
 
-#[specforge_test(
-    invariant = "registry_reply_binding",
-    verify = "a manifest describing another package is refused"
-)]
+#[specforge_test(requirement = "INVARIANT-121")]
 fn a_manifest_describing_another_package_is_refused() {
     let key = SigningKey::generate();
     let manifest = r#"{"handshake":{"protocol_version":"1.0.0","name":"@evil/tool","version":"1.0.0","peer_dependencies":[],"sandbox_policy":null}}"#;
@@ -629,10 +572,7 @@ fn a_manifest_describing_another_package_is_refused() {
     assert_eq!(project.pinned(), None);
 }
 
-#[specforge_test(
-    behavior = "check_registry_reply",
-    verify = "a package published with a legacy manifest is refused with a re-publish suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_package_published_with_a_legacy_manifest_is_refused() {
     // Published before ADR 0012: its manifest is the camelCase
     // manifest file, not a declaration.
@@ -692,10 +632,7 @@ fn reads(project: &Project) -> Vec<specforge_registry_client::testing::Call> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "support_private_registries",
-    verify = "authentication occurs before fetch from private registry"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn a_read_carries_the_stored_credential() {
     let project = Project::on(Reply::unsigned());
     store_credentials(&project, r#"{"token":"t"}"#);
@@ -721,10 +658,7 @@ fn a_read_carries_the_stored_credential() {
     );
 }
 
-#[specforge_test(
-    behavior = "support_private_registries",
-    verify = "an unusable stored credential refuses the read before any request"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn an_expired_stored_credential_refuses_a_read() {
     let project = Project::on(Reply::unsigned());
     store_credentials(
@@ -752,10 +686,7 @@ fn the_environment_token_is_not_sent_on_a_read() {
     assert!(reads[0].credential.is_none());
 }
 
-#[specforge_test(
-    behavior = "verify_publisher_signature",
-    verify = "an unsigned package accepted with --allow-unsigned is reported as W155"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn an_unsigned_fetch_is_reported_as_w155() {
     let project = Project::on(Reply::unsigned());
     let registry = project.registry();
@@ -775,10 +706,7 @@ fn an_unsigned_fetch_is_reported_as_w155() {
     assert!(w155[0].message.contains("@acme/tool 1.0.0"), "{w155:?}");
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "consent to a key change is reported as W156"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_consented_key_change_is_reported_as_w156() {
     let pinned = SigningKey::generate();
     let other = SigningKey::generate();
@@ -808,10 +736,7 @@ fn a_consented_key_change_is_reported_as_w156() {
     assert!(w156[0].message.contains(&other.key_id()), "{w156:?}");
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "a key change is decided by the surface that can ask"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_key_change_is_decided_by_the_asker() {
     let pinned = SigningKey::generate();
     let other = SigningKey::generate();

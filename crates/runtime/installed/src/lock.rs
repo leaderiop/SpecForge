@@ -537,10 +537,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "run_doctor_check",
-        verify = "a lock file that cannot be read is an error finding naming E033"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-021")]
     fn a_lock_entry_that_names_no_package_is_unreadable() {
         let dir = TempDir::new().unwrap();
         let entry = |name: &str| {
@@ -575,10 +572,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "read_lock_file",
-        verify = "a lock file that can't be read names one remedy, whatever made it unreadable"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-138")]
     fn a_lock_that_cannot_be_read_names_one_remedy() {
         let dir = TempDir::new().unwrap();
         let bad_name = r#"{"lockfile_version": 1, "entries": [{"name": "Bad Name", "version": "1.0.0", "source": "registry", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"}]}"#;

@@ -16,10 +16,7 @@ fn both_layouts(header: &str, body: &str) -> [String; 2] {
     [lf, crlf]
 }
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "a raw CR LF inside a quoted text reads as LF, as inside a triple-quoted one"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_raw_cr_lf_inside_a_quoted_text_reads_as_lf() {
     let field = |value: &str| both_layouts("feature f1 \"F1\"", &format!("  problem {value}\n"));
     for source in field("\"a␍\nb\"") {
@@ -59,10 +56,7 @@ fn a_raw_cr_lf_inside_a_quoted_text_reads_as_lf() {
     }
 }
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "an escaped CR inside a quoted text stays a CR, and a raw lone CR is a parse error"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn an_escaped_cr_stays_a_cr_and_a_raw_lone_cr_is_a_parse_error() {
     let read = |source: &str| match parse(source, "t.spec").entities[0].fields.get("problem") {
         Some(FieldValue::String(text)) => text.clone(),
@@ -80,10 +74,7 @@ fn an_escaped_cr_stays_a_cr_and_a_raw_lone_cr_is_a_parse_error() {
     }
 }
 
-#[specforge_test(
-    behavior = "recover_from_syntax_errors",
-    verify = "a backslash before a line break leaves a string unclosed, as the grammar reads it"
-)]
+#[specforge_test(requirement = "FEATURE-023")]
 fn a_backslash_before_a_cr_lf_leaves_the_string_unclosed() {
     let source = "behavior a \"A\" {\r\n  contract \"line one \\\r\n  line two\"\r\n}\r\n\r\nbehavior b \"B\" {\r\n  contract \"fine\"\r\n}\r\n";
     let result = parse(source, "test.spec");

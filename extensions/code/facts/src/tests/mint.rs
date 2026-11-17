@@ -130,10 +130,7 @@ fn definition(id: &ItemId, kind: ItemKind, visibility: Visibility, at: FactLocat
     }
 }
 
-#[specforge_test(
-    behavior = "cc_mint_code_ids",
-    verify = "definitions of one id merge into one fact listing every location and kind"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
 fn cfg_twins_merge_into_one_item_listing_every_location() {
     let id = ItemId::rust("toy", &strings(&["sys"]), None, "open");
     let unix = Definition {

@@ -11,10 +11,7 @@ fn serving() -> Served {
     Served::initialized(gsd_routed_project(GSD_ROUTED_SPEC).serving(gsd_routed_runtime()))
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_trace_tool",
-    verify = "specforge.trace follows a kind's declared route, a named route, or the reach as asked"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn trace_answers_the_route_document() {
     let mut server = serving();
     let document = server.tool("specforge.trace", json!({"entity_id": "AUTH-07"}));
@@ -31,10 +28,7 @@ fn trace_answers_the_route_document() {
     assert_eq!(named, document);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_trace_tool",
-    verify = "specforge.trace follows a kind's declared route, a named route, or the reach as asked"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn reach_answers_the_chain() {
     let mut server = serving();
     let chain = server.tool(
@@ -46,10 +40,7 @@ fn reach_answers_the_chain() {
     assert!(chain["upstream"].is_array(), "{chain}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_trace_tool",
-    verify = "specforge.trace follows a kind's declared route, a named route, or the reach as asked"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn an_unknown_route_is_invalid_input_on_route() {
     let mut server = serving();
     for arguments in [
@@ -64,10 +55,7 @@ fn an_unknown_route_is_invalid_input_on_route() {
     }
 }
 
-#[specforge_test(
-    behavior = "trace_within_entity",
-    verify = "the trace tool's in answers the traces of every entity within the entity"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn the_tools_in_answers_the_traces_within_the_entity() {
     let mut server = serving();
     let within = server.tool(

@@ -12,10 +12,7 @@ fn compile(files: &[(&str, &str)]) -> crate::navigate::Compiled {
     crate::navigate::compile(crate::navigate::SOFTWARE, files)
 }
 
-#[specforge_test_macros::test(
-    behavior = "rename_entity_id",
-    verify = "rename to a name the project already writes for no entity is refused naming each place"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-111")]
 fn a_rename_to_a_name_written_as_an_open_world_type_is_refused_naming_it() {
     let p = compile(&[("a.spec", OPEN_WORLD)]);
     let refused = rename::plan(&p.navigator(), "Session", "Token").unwrap_err();
@@ -32,10 +29,7 @@ fn a_rename_to_a_name_written_as_an_open_world_type_is_refused_naming_it() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "rename_entity_id",
-    verify = "rename refuses a capture the graph shows no new edge for"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-111")]
 fn a_rename_to_a_primitive_written_in_a_signature_is_refused_though_no_edge_is_added() {
     let p = compile(&[("a.spec", PRIMITIVE)]);
     let refused = rename::plan(&p.navigator(), "Session", "string").unwrap_err();
@@ -45,10 +39,7 @@ fn a_rename_to_a_primitive_written_in_a_signature_is_refused_though_no_edge_is_a
     assert!(!message.contains("a.spec:2"), "{message}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "rename_entity_id",
-    verify = "rename onto an unresolved reference is refused as a capture"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-111")]
 fn a_rename_onto_a_dangling_reference_is_refused() {
     let p = compile(&[
         ("limit.spec", LIMIT),
@@ -66,10 +57,7 @@ fn a_rename_onto_a_dangling_reference_is_refused() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "rename_entity_id",
-    verify = "a rename is refused while a source that spells the new ID does not parse"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-111")]
 fn a_rename_is_refused_while_a_source_that_spells_the_new_id_does_not_parse() {
     let p = compile(&[
         ("limit.spec", LIMIT),
@@ -94,10 +82,7 @@ fn a_rename_whose_new_id_is_written_nowhere_plans() {
     assert_eq!(plan.edits().len(), 2);
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_typed_edit",
-    verify = "a create links the names the project already writes for its ID"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_create_links_the_names_already_written_for_its_id() {
     use specforge_ops::authoring::edit::{self, Edit};
     use specforge_ops::view::ProjectView;

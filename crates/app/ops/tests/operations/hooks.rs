@@ -20,10 +20,7 @@ fn root_of(hosted: &crate::host_support::Hosted) -> String {
     hosted.project.root().display().to_string()
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "a hook is given the facts of every path its tool names that a guest cannot read"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_hook_sees_path_facts_it_cannot_read() {
     let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
     let root = root_of(&hosted);
@@ -54,10 +51,7 @@ fn a_hook_sees_path_facts_it_cannot_read() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "a hook that times out or traps applies its failure policy: allow is a no-op with the E028 line, deny is a deny with its text"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_hook_that_times_out_applies_its_failure_policy() {
     // `write_guard` declares `on_failure: deny`; `injection_scan` declares nothing, so it allows.
     let hosted = hosted(
@@ -92,10 +86,7 @@ fn a_hook_that_times_out_applies_its_failure_policy() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "pre_commit fires only for git commit, with its message"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn pre_commit_fires_only_for_git_commit_with_its_message() {
     let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
     let shell = |command: &str| {
@@ -142,10 +133,7 @@ fn pre_commit_fires_only_for_git_commit_with_its_message() {
     assert!(hosted.input("hook__validate_commit")["commit"]["message"].is_null());
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "a hook's plan is applied through the edit plan step, and a refused plan becomes a notice"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_hook_plan_is_applied_through_the_edit_plan_step() {
     let hosted_ok = |plan: serde_json::Value| {
         hosted(
@@ -193,10 +181,7 @@ fn hosts_revision(path: &str) -> String {
     specforge_project::testing::revision_of(project.read(path).as_bytes())
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "a hook whose when setting is off is a no-op that loads nothing further"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_hook_off_by_its_setting_is_a_no_op() {
     // `write_guard` declares `when: workflow.hooks`.
     let hosted = hosted(
@@ -215,10 +200,7 @@ fn a_hook_off_by_its_setting_is_a_no_op() {
     assert_eq!(hosted.exports().len(), before, "the guest was not called");
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "the human guard denies a shell call that runs a human-attested command, from the served descriptors"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 #[allow(
     clippy::too_many_lines,
     reason = "one table of the spellings the guard must refuse"
@@ -308,10 +290,7 @@ fn the_human_guard_denies_a_shell_call_running_a_human_command() {
     }
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "a hook that declares the git input is told its repository's toplevel, git directory and branch, and with status the typed status"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_hook_that_reads_git_is_told_the_head() {
     use specforge_effects::git::{GitPlace, Located};
     use specforge_effects::testing::FakeGit;
@@ -407,10 +386,7 @@ fn a_hook_whose_git_cannot_be_asked_is_told_why() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "a shell tool's hook is told its command split into commands"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_shell_tool_is_told_its_commands() {
     let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
     let event = json!({"event": "pre_commit", "host": "claude-code", "session": "s1",
@@ -428,10 +404,7 @@ fn a_shell_tool_is_told_its_commands() {
     assert!(input["commit"].get("cleanup").is_none());
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "a hook is sent the value of another extension's setting it names, and nothing of a setting or extension that is absent"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_hook_reads_another_extensions_setting() {
     let task = |settings| {
         let hosted = hosted(hosts_project(json!({}), settings), GsdHosts::new());
@@ -447,10 +420,7 @@ fn a_hook_reads_another_extensions_setting() {
     assert_eq!(task(json!({})), json!({"@t/ui:workflow.ui_phase": false}));
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "the human guard denies a line that names specforge and cannot be read"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn the_human_guard_denies_a_line_it_cannot_read() {
     let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
     let shell = |command: &str| {

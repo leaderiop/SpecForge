@@ -18,10 +18,7 @@ fn config(registry: &LocalRegistry) -> RegistryConfig {
     }
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "publish derives the stored declaration from the binary"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn publish_stores_the_declaration_the_binary_declares() {
     let registry = LocalRegistry::start();
     let project = project_publishing_to(&registry);
@@ -62,10 +59,7 @@ fn publish_stores_the_declaration_the_binary_declares() {
     );
 }
 
-#[specforge_test(
-    behavior = "publish_wasm_extension",
-    verify = "publish refuses a declaration whose name or version is not publishable before it uploads"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn publish_refuses_an_unscoped_or_unversioned_declaration_offline() {
     // A registry nothing listens on: any request would fail differently.
     let project = TestProject::new().config(|c| {
@@ -129,10 +123,7 @@ fn greet_is_published(registry: &LocalRegistry) -> bool {
         .is_ok()
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "with no credential for its registry, publish refuses with R001 before any network call and creates no signing key"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_publish_with_no_credential_is_refused_before_any_request() {
     let registry = LocalRegistry::start();
     let project = project_publishing_to(&registry);
@@ -160,10 +151,7 @@ fn a_publish_with_no_credential_is_refused_before_any_request() {
     assert!(!greet_is_published(&registry));
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "a version already published is refused with R007"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn publishing_a_version_twice_is_refused_with_r007() {
     let registry = LocalRegistry::start();
     let project = project_publishing_to(&registry);

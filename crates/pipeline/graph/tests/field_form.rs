@@ -122,10 +122,7 @@ fn document(form: &FieldForm) -> serde_json::Value {
     defs.finish(schema)
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a value the check admits is written as the published schema admits it"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_value_the_check_admits_is_written_as_its_schema_admits() {
     let any_value = shape::build::<FieldJson>();
     let span = span();
@@ -311,10 +308,7 @@ fn bare(text: &str) -> FieldValue {
     FieldValue::Identifier(text.into())
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a typed block is stored with each member coerced by its form, and a single block on a block list is its one item"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_typed_block_is_stored_member_by_member() {
     let span = span();
     let block = FieldForm::new(FieldType::Block, Vec::new()).with_members(members());
@@ -355,10 +349,7 @@ fn a_typed_block_is_stored_member_by_member() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a number is compared with its decimal bounds exactly"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_number_form_compares_its_decimal_bounds_exactly() {
     let decimal = |text: &str| Decimal::parse(text).unwrap();
     let ratio = FieldForm::new(FieldType::Number, Vec::new())
@@ -401,10 +392,7 @@ fn a_number_form_compares_its_decimal_bounds_exactly() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a JSON number a number form admits is held in its one JSON form, as a block member too"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn an_admitted_number_is_held_in_its_one_json_form() {
     let number = FieldForm::new(FieldType::Number, Vec::new());
     let held = |form: &FieldForm, value: serde_json::Value| -> serde_json::Value {
@@ -445,10 +433,7 @@ fn an_admitted_number_is_held_in_its_one_json_form() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "an open block admits a whole JSON number of any length and a fraction a decimal holds"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn an_open_block_admits_every_integer_and_a_decimal_fraction() {
     let open = FieldForm::new(FieldType::Block, Vec::new());
     for entry in [
@@ -477,10 +462,7 @@ fn an_open_block_admits_every_integer_and_a_decimal_fraction() {
     );
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "a skeleton fills a number or an integer with the value within its bounds nearest zero"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn the_value_within_bounds_nearest_zero() {
     let decimal = |text: &str| Some(Decimal::parse(text).unwrap());
     for (bounds, nearest) in [
@@ -496,10 +478,7 @@ fn the_value_within_bounds_nearest_zero() {
     }
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "an integer outside its declared minimum or maximum is E061 naming the bounds"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn bounds_name_the_range_in_the_remedy() {
     let both = FieldForm::new(FieldType::Integer, Vec::new()).bounded(Some(1), Some(5));
     assert!(both.admit(ValueShape::Integer, "5").is_ok());
@@ -526,10 +505,7 @@ fn bounds_name_the_range_in_the_remedy() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "an enum list takes the declared words, each once, and a scalar is a one-item list"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn an_enum_list_refuses_an_unknown_and_a_repeated_word() {
     let form = FieldForm::new(FieldType::EnumList, vec!["threshold".into(), "jump".into()]);
     let words = |w: &[&str]| w.iter().map(|w| w.to_string()).collect::<Vec<_>>();
@@ -550,10 +526,7 @@ fn an_enum_list_refuses_an_unknown_and_a_repeated_word() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a block list takes a list of blocks and a typed block writes an object closed to its members"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn typed_forms_write_what_their_schema_admits() {
     let span = span();
     let item = |score: i64| BlockItem {
@@ -607,10 +580,7 @@ fn typed_forms_write_what_their_schema_admits() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "the walker yields every typed member of a stored value by its member path, and reading_at reads a declared member path"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn the_walker_names_each_typed_member_by_its_path() {
     let list = FieldForm::new(FieldType::BlockList, Vec::new()).with_members(members());
     let forms = typed(list);
@@ -651,10 +621,7 @@ fn the_walker_names_each_typed_member_by_its_path() {
     assert!(matches!(forms.reading_at("k", "f"), Reading::Declared(_)));
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a member of a typed block is respelled by its own form, in a block and in each item of a block list"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_member_is_respelled_by_its_form() {
     let list = FieldForm::new(FieldType::BlockList, Vec::new()).with_members(members());
     let forms = typed(list);
@@ -745,10 +712,7 @@ fn json_corpus() -> Vec<serde_json::Value> {
     corpus
 }
 
-#[specforge_test(
-    behavior = "load_extension_settings",
-    verify = "json admitted by a form conforms to the form's published schema, and json the schema refuses is refused"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn json_admitted_by_a_form_conforms_to_its_schema() {
     let mut agreed = 0;
     for form in setting_forms() {

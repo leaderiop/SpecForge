@@ -5,6 +5,7 @@ use crate::blob_inputs;
 use crate::blob_size;
 use crate::change_set::{ChangeSet, Pattern};
 use crate::crate_map;
+use crate::dogfood;
 use crate::judge;
 use crate::layers;
 use crate::repo::Repo;
@@ -201,15 +202,15 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "links",
-        proves: "every test's verify text and entity is declared by the spec (A016, static)",
+        proves: "every spec-link attribute of the repository's tests names a requirement of the spec and carries no verify text (ADR 0374 D4)",
         reach: Reach::Hook,
         trigger: Trigger::Computed(
-            "a .spec file; a test file or one with a `verify =` attribute",
+            "a .spec file; a test file or one with a spec-link attribute",
             link_sources,
         ),
         compiles: false,
         after: &[],
-        fix: "edit the test's verify text to match the spec entity (or the spec), then re-stage",
+        fix: "target/debug/check-links names each finding: UNKNOWN (no such entity), KIND (not `requirement = \"<id>\"` of a requirement), VERIFY (drop the verify text); fix the attribute or the spec, then re-stage",
         run: steps::links,
     },
     Check {
@@ -355,7 +356,7 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "specs",
-        proves: "every project, as tracked, checks with no error and no warning above the baseline",
+        proves: "every project, as tracked (collected by @rust/cargo and @rust/source first when it loads them), checks with no error and no warning above the baseline",
         reach: Reach::Quick,
         trigger: Trigger::Paths(&[
             "**/*.spec",
@@ -372,13 +373,13 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "dogfood",
-        proves: "the tests' reports leave no unknown entity (W115), failing proof (A014) or undeclared obligation (A016)",
+        proves: "the tests' nextest reports, read through @rust/test, prove at least one requirement and fail none (ADR 0374 D5)",
         reach: Reach::Full,
         trigger: Trigger::Always,
         compiles: false,
-        after: &["tests", "guests"],
-        fix: "fix the test or the spec entity the finding names",
-        run: steps::dogfood,
+        after: &["tests"],
+        fix: "fix the failing test the log names (cargo nextest run --workspace --profile gate -E 'test(<its name>)'), then cargo gate full --only tests,dogfood",
+        run: dogfood::run,
     },
     Check {
         name: "builtins-verify",
@@ -466,15 +467,15 @@ fn spec_files(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
     Ok(only(files))
 }
 
-/// A `.spec` file, a Rust file under a `tests/` directory, or a Rust file that holds a `verify =` attribute: what can
-/// change a test's link to its spec entity.
+/// A `.spec` file, a Rust file under a `tests/` directory, or a Rust file that holds a spec-link attribute: what can
+/// change a test's link to its requirement (ADR 0374 D4).
 fn link_sources(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
     let links = changes.paths().any(|path| {
         path.ends_with(".spec")
             || (path.ends_with(".rs")
                 && (path.starts_with("tests/")
                     || path.contains("/tests/")
-                    || holds_verify(&repo.root.join(path))))
+                    || holds_spec_link(&repo.root.join(path))))
     });
     Ok(if links {
         Selection::Everything
@@ -483,15 +484,26 @@ fn link_sources(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
     })
 }
 
-/// Whether the file's text has `verify`, optional spaces, then `=`.
-fn holds_verify(file: &Path) -> bool {
+/// The paths the spec-link attribute goes by (the macro's own `registration`).
+const SPEC_LINK_PATHS: [&str; 5] = [
+    "spec",
+    "specforge_test",
+    "specforge_test_macros::test",
+    "specforge_test::test",
+    "specforge::test",
+];
+
+/// Whether the file's text has `#[`, then one of [`SPEC_LINK_PATHS`], then `(` (spaces allowed between them).
+fn holds_spec_link(file: &Path) -> bool {
     let Ok(text) = std::fs::read_to_string(file) else {
         return false;
     };
-    text.match_indices("verify").any(|(at, word)| {
-        text[at + word.len()..]
-            .trim_start_matches(' ')
-            .starts_with('=')
+    text.match_indices("#[").any(|(at, open)| {
+        let rest = text[at + open.len()..].trim_start();
+        SPEC_LINK_PATHS.iter().any(|path| {
+            rest.strip_prefix(path)
+                .is_some_and(|after| after.trim_start().starts_with('('))
+        })
     })
 }
 

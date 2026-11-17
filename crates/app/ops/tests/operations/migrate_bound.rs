@@ -34,10 +34,7 @@ fn echoing() -> InProcessRuntime {
     })
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_bounded_migration_compiles_no_source_the_bound_refuses() {
     let scene = tempfile::TempDir::new().unwrap();
     let (dir, outside) = (scene.path().join("proj"), scene.path().join("outside"));

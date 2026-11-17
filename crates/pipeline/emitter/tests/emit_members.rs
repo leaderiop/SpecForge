@@ -62,10 +62,7 @@ fn save() -> Value {
     }])
 }
 
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "graph format writes each entity's methods and its fields' annotations"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn a_graph_node_writes_its_methods_and_its_fields_annotations() {
     let export = crate::export(&graph(), EmitFormat::Json, None);
     let port = node(&export, "order_store");
@@ -88,10 +85,7 @@ fn a_graph_node_writes_its_methods_and_its_fields_annotations() {
     assert!(order.get("methods").is_none(), "{order}");
 }
 
-#[specforge_test(
-    behavior = "export_agent_context_format",
-    verify = "context format keeps an entity's methods and its fields' annotations"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn a_context_node_keeps_its_methods_and_its_fields_annotations() {
     let build = build_of(vec![
         kind("type", vec![field("note", true, false)]),
@@ -108,10 +102,7 @@ fn a_context_node_keeps_its_methods_and_its_fields_annotations() {
     assert_eq!(context["fields"], graph_node["fields"], "{context}");
 }
 
-#[specforge_test(
-    behavior = "export_review_document",
-    verify = "a section lists its methods, and each field's annotations follow its value"
-)]
+#[specforge_test(requirement = "FEATURE-112")]
 fn a_section_lists_methods_and_annotations() {
     let export = crate::export(&graph(), EmitFormat::Markdown, None);
     assert!(
@@ -131,10 +122,7 @@ fn a_section_lists_methods_and_annotations() {
     assert!(export.contains("- street: string @optional"), "{export}");
 }
 
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "graph format writes a fact's places under located, and markdown shows its first"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn a_facts_graph_node_carries_its_located_range() {
     let store = ".specforge/facts/k/node.json";
     let at = |file: &str, line| SourceSpan {

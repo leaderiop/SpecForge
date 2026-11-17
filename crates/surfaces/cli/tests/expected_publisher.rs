@@ -58,10 +58,7 @@ fn mcp_add(dir: &TestProject, arguments: Value) -> Value {
     parse_tool_content(reply)
 }
 
-#[specforge_test(
-    invariant = "publisher_trust",
-    verify = "an unsigned package is refused for a name whose publisher key is pinned, by add, its dry run and MCP add_extension, downloading nothing"
-)]
+#[specforge_test(requirement = "INVARIANT-115")]
 fn an_unsigned_package_for_a_pinned_name_is_refused_on_every_surface() {
     let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]); // unsigned
     let dir = project_on(&registry);
@@ -90,10 +87,7 @@ fn an_unsigned_package_for_a_pinned_name_is_refused_on_every_surface() {
     assert_eq!(downloads(&registry), Vec::<String>::new());
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "with no pin of the user's, an unsigned version of a name specforge.lock records a key for is refused by add and update, and the lock keeps its key"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn an_unsigned_version_of_a_locked_name_is_refused_and_the_lock_keeps_its_key() {
     let key = specforge_registry_client::SigningKey::generate();
     let registry = serve(vec![
@@ -143,10 +137,7 @@ fn an_unsigned_version_of_a_locked_name_is_refused_and_the_lock_keeps_its_key() 
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "add_extension takes no allow_unsigned: an unsigned package is refused with R-TRUST-001 naming the terminal command"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn mcp_add_extension_accepts_no_unsigned_package() {
     let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]); // unsigned
     let dir = project_on(&registry);

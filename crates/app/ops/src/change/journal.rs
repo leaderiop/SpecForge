@@ -282,10 +282,7 @@ mod tests {
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(48))]
 
-        #[specforge_test(
-            behavior = "roll_back_interrupted_write",
-            verify = "rollback restores exactly the files at their after digest"
-        )]
+        #[specforge_test(requirement = "FEATURE-131")]
         fn rollback_restores_exactly_the_files_at_their_after_digest(
             files in proptest::collection::vec(planned(), 1..6),
             written in 0usize..7,

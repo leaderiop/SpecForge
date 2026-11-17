@@ -104,10 +104,7 @@ feature greeting "Greeting Feature" {
 }
 
 // B:mcp_initialize — verify unit "returns MCP-compliant init response"
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "returns MCP-compliant init response"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn initialize_returns_capabilities() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "initialize", json!({}));
@@ -163,10 +160,7 @@ fn initialize_returns_capabilities() {
     }
 }
 
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "initialize and server/discover give the same capabilities and instructions"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn initialize_and_discover_agree() {
     let mut server = McpServer::new();
     let init = call(&mut server, "initialize", json!({}));
@@ -181,10 +175,7 @@ fn initialize_and_discover_agree() {
     );
 }
 
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "initialize answers the negotiated revision, the server's capabilities, its name and version and its instructions, and no listing"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn initialize_is_mcps_initialize_result() {
     for revision in ["2025-03-26", "2025-06-18", "2025-11-25"] {
         let mut server = McpServer::new();
@@ -222,10 +213,7 @@ fn initialize_is_mcps_initialize_result() {
 }
 
 // B:mcp_initialize — verify unit "registers tools"
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "all core tools registered before accepting requests"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn initialize_registers_tools() {
     let mut server = McpServer::new();
     call(&mut server, "initialize", json!({}));
@@ -251,10 +239,7 @@ fn initialize_registers_tools() {
 }
 
 // B:mcp_initialize — verify unit "registers resources"
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "all core resources registered before accepting requests"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn initialize_registers_resources() {
     let mut server = McpServer::new();
     call(&mut server, "initialize", json!({}));
@@ -307,10 +292,7 @@ fn initialize_registers_prompts() {
 }
 
 // B:mcp_initialize — verify unit "compiles project when projectRoot is provided"
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "compiles project when projectRoot is provided"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn initialize_compiles_project() {
     let (server, _dir) = init_server_with_project();
     assert!(server.state().graph().node_count() > 0);
@@ -333,10 +315,7 @@ fn shutdown_returns_success() {
 }
 
 // B:mcp_shutdown — verify unit "rejects calls after shutdown"
-#[specforge_test(
-    behavior = "mcp_shutdown",
-    verify = "shutdown rejects new tool calls during teardown"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn rejects_calls_after_shutdown() {
     let mut server = init_server();
     call(&mut server, "shutdown", json!({}));
@@ -353,20 +332,14 @@ fn double_shutdown_returns_error() {
 }
 
 // B:guard_mcp_reinitialization — verify unit "duplicate initialize returns -32600"
-#[specforge_test(
-    behavior = "guard_mcp_reinitialization",
-    verify = "second initialize request returns -32600 error"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn duplicate_initialize_returns_error() {
     let mut server = init_server();
     let resp = call(&mut server, "initialize", json!({}));
     assert_eq!(resp["error"]["code"], -32600);
 }
 
-#[specforge_test(
-    behavior = "guard_mcp_reinitialization",
-    verify = "can reinitialize after shutdown"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn can_reinitialize_after_shutdown() {
     let (mut server, _dir) = init_server_with_project();
     let root = server
@@ -406,7 +379,7 @@ fn list_tools_returns_descriptors() {
 }
 
 // B:list_mcp_tools — verify unit "tools have categories"
-#[specforge_test(behavior = "list_mcp_tools", verify = "tools have categories")]
+#[specforge_test(requirement = "FEATURE-066")]
 fn tools_have_categories() {
     let mut server = init_server();
     let resp = call(&mut server, "tools/list", json!({}));
@@ -470,10 +443,7 @@ fn list_prompts_error_when_not_initialized() {
 }
 
 // B:mcp_initialize — verify unit "initialization rejects tool calls before completion"
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "initialization rejects tool calls before completion"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn initialize_rejects_tool_calls_before_completion() {
     let mut server = McpServer::new();
     // Server is not initialized yet — tool calls should be rejected
@@ -512,10 +482,7 @@ fn shutdown_events_recorded() {
 }
 
 // B:guard_mcp_reinitialization — verify unit "existing session continues after rejected reinit"
-#[specforge_test(
-    behavior = "guard_mcp_reinitialization",
-    verify = "existing session continues after rejected reinitialization"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn reinit_rejected_session_continues() {
     let (mut server, _dir) = init_server_with_project();
     // Attempt duplicate init — should be rejected
@@ -526,10 +493,7 @@ fn reinit_rejected_session_continues() {
 }
 
 // B:guard_mcp_reinitialization — verify unit "no resources leaked on rejected reinit"
-#[specforge_test(
-    behavior = "guard_mcp_reinitialization",
-    verify = "no resources leaked on rejected reinitialization"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn reinit_rejected_no_resource_leak() {
     let mut server = init_server();
     let listed = |server: &McpServer| {
@@ -554,10 +518,7 @@ fn reinit_rejected_no_resource_leak() {
 }
 
 // B:list_mcp_tools — verify unit "returns core-provided descriptors when no extensions"
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "returns core-provided descriptors when no extensions installed"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn list_tools_core_descriptors_no_extensions() {
     let mut server = init_server();
     let resp = call(&mut server, "tools/list", json!({}));
@@ -575,10 +536,7 @@ fn list_tools_core_descriptors_no_extensions() {
 }
 
 // B:list_mcp_tools — verify unit "reflects tools from newly loaded extension"
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "reflects tools from newly loaded extension"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn list_tools_reflects_extension_tools() {
     let (mut server, _ext, _dir) = server_with_extension_surfaces();
     let resp = call(&mut server, "tools/list", json!({}));
@@ -595,10 +553,7 @@ fn list_tools_reflects_extension_tools() {
 }
 
 // B:list_mcp_resources — verify unit "returns core-provided descriptors when no extensions"
-#[specforge_test(
-    behavior = "list_mcp_resources",
-    verify = "returns core-provided descriptors when no extensions installed"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn list_resources_core_descriptors_no_extensions() {
     let mut server = init_server();
     let resp = call(&mut server, "resources/list", json!({}));
@@ -613,10 +568,7 @@ fn list_resources_core_descriptors_no_extensions() {
 }
 
 // B:list_mcp_resources — verify unit "reflects resources from newly loaded extension"
-#[specforge_test(
-    behavior = "list_mcp_resources",
-    verify = "reflects resources from newly loaded extension"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn list_resources_reflects_extension_resources() {
     let (mut server, _ext, _dir) = server_with_extension_surfaces();
     let resp = call(&mut server, "resources/list", json!({}));
@@ -642,10 +594,7 @@ fn list_resources_reflects_extension_resources() {
 }
 
 // B:list_mcp_prompts — verify unit "returns core-provided descriptors when no extensions"
-#[specforge_test(
-    behavior = "list_mcp_prompts",
-    verify = "returns core-provided descriptors when no extensions installed"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn list_prompts_core_descriptors_no_extensions() {
     let mut server = init_server();
     let resp = call(&mut server, "prompts/list", json!({}));
@@ -662,10 +611,7 @@ fn list_prompts_core_descriptors_no_extensions() {
 }
 
 // B:handle_mcp_request_cancellation — verify unit "server state remains consistent"
-#[specforge_test(
-    behavior = "handle_mcp_request_cancellation",
-    verify = "server state remains consistent after cancellation"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn cancel_state_consistent() {
     let (mut server, _dir) = init_server_with_project();
     call(
@@ -693,10 +639,7 @@ fn cancel_state_consistent() {
 }
 
 // B:handle_mcp_request_cancellation — verify unit "server state remains consistent after cancellation"
-#[specforge_test(
-    behavior = "handle_mcp_request_cancellation",
-    verify = "server state remains consistent after cancellation"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn cancel_server_state_consistent() {
     let (mut server, _dir) = init_server_with_project();
     let query = json!({"name": "specforge.query", "arguments": {"entity_id": "hello_world"}});
@@ -722,10 +665,7 @@ fn cancel_server_state_consistent() {
 }
 
 // B:list_mcp_resources — verify unit "returns core-provided descriptors when no extensions installed"
-#[specforge_test(
-    behavior = "list_mcp_resources",
-    verify = "returns core-provided descriptors when no extensions installed"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn list_resources_core_only() {
     let mut server = init_server();
     // No extensions installed — should still return core resources
@@ -763,10 +703,7 @@ fn list_resources_core_only() {
 }
 
 // B:list_mcp_tools — verify unit "returns core-provided descriptors when no extensions installed"
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "returns core-provided descriptors when no extensions installed"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn list_tools_core_only() {
     let mut server = init_server();
     let resp = call(&mut server, "tools/list", json!({}));
@@ -780,10 +717,7 @@ fn list_tools_core_only() {
 }
 
 // B:list_mcp_prompts — verify unit "returns core-provided descriptors when no extensions installed"
-#[specforge_test(
-    behavior = "list_mcp_prompts",
-    verify = "returns core-provided descriptors when no extensions installed"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn list_prompts_core_only() {
     let mut server = init_server();
     let resp = call(&mut server, "prompts/list", json!({}));
@@ -806,10 +740,7 @@ fn list_prompts_core_only() {
 }
 
 // B:guard_mcp_reinitialization — verify unit "existing session continues after rejected reinitialization"
-#[specforge_test(
-    behavior = "guard_mcp_reinitialization",
-    verify = "existing session continues after rejected reinitialization"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn reinit_existing_session_continues() {
     let (mut server, _dir) = init_server_with_project();
     let before = state_snapshot(&server);
@@ -838,10 +769,7 @@ fn reinit_existing_session_continues() {
 }
 
 // B:guard_mcp_reinitialization — verify unit "no resources leaked on rejected reinitialization"
-#[specforge_test(
-    behavior = "guard_mcp_reinitialization",
-    verify = "no resources leaked on rejected reinitialization"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn reinit_no_resource_leak() {
     let mut server = init_server();
     // Get initial state

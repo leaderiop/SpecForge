@@ -5,10 +5,7 @@ use specforge_test::prelude::*;
 use std::fs;
 use tempfile::TempDir;
 
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "with nothing served, init refuses a directory whose files an enclosing project reads, as a conflict on path, before anything is written"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_with_nothing_served_refuses_a_directory_an_enclosing_project_reads() {
     let scratch = TempDir::new().unwrap();
     let workspace = scratch.path().join("workspace");

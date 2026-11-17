@@ -4,10 +4,8 @@ use specforge_test_macros::test as spec;
 
 use crate::hover::coverage_project;
 
-#[spec(
-    behavior = "provide_extension_entity_hover",
-    verify = "hover lists the entity's obligations apart from its fields"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn hover_lists_obligations_apart_from_fields() {
     let project = coverage_project(
         "type Payload \"P\" {\n  verify string @optional\n  verify unit \"payload is valid\"\n}\n",
@@ -21,10 +19,8 @@ fn hover_lists_obligations_apart_from_fields() {
     assert!(!hover.contains("`verify` = unit"), "{hover}");
 }
 
-#[spec(
-    behavior = "provide_extension_entity_hover",
-    verify = "hover lists each obligation once, its kind apart from its text, whatever the text holds"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn hover_lists_each_obligation_once_whatever_its_text() {
     let project = coverage_project(
         "behavior b5 \"B5\" {\n  contract \"c\"\n  verify unit \"x\"\n  verify \"unit: x\"\n  verify unit \"first line\\nsecond\"\n}\n",

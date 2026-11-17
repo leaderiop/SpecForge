@@ -37,10 +37,7 @@ fn gsd(spec: &str) -> TestProject {
         .file("a.spec", format!("{BASE}{spec}"))
 }
 
-#[specforge_test(
-    behavior = "refuse_written_computed",
-    verify = "a typed edit of a computed, harness or immutable field is refused"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_typed_edit_of_a_computed_harness_or_immutable_field_is_refused() {
     let verification = gsd("verification V \"V\" {\n  phase 03\n}\n");
     assert_eq!(
@@ -96,10 +93,7 @@ fn e083(project: &TestProject) -> usize {
         .count()
 }
 
-#[specforge_test(
-    behavior = "record_harness_values",
-    verify = "a rename records its move and re-keys its lines"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_rename_records_its_move_and_rekeys_its_lines() {
     let project = gsd("uat_test U1 \"U\" {\n  phase 03\n  result pass\n}\n");
     let header = "# specforge-harness 1\n";
@@ -116,10 +110,7 @@ fn a_rename_records_its_move_and_rekeys_its_lines() {
     assert_eq!(e083(&project), 0, "{ledger}");
 }
 
-#[specforge_test(
-    behavior = "record_harness_values",
-    verify = "two writers both land their lines"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn two_writers_both_land_their_lines() {
     let uat =
         |phase: &str| format!("uat_test U{phase} \"U\" {{\n  phase {phase}\n  result pass\n}}\n");
@@ -172,10 +163,7 @@ fn two_writers_both_land_their_lines() {
     assert_eq!(e083(&project), 0, "{ledger}");
 }
 
-#[specforge_test(
-    behavior = "record_harness_values",
-    verify = "a rename planned on an unchanged ledger re-keys a line another writer added"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_rename_planned_on_an_unchanged_ledger_rekeys_a_line_another_writer_added() {
     let project = gsd("uat_test U1 \"U\" {\n  phase 03\n  result pass\n}\n");
     let compiled = project.compile_in(Arc::new(gsd_history_runtime(json!([]))));
@@ -199,10 +187,7 @@ fn a_rename_planned_on_an_unchanged_ledger_rekeys_a_line_another_writer_added() 
     assert!(!ledger.contains("v1.0/03/U1 result"), "{ledger}");
 }
 
-#[specforge_test(
-    behavior = "collect_harness_ledger",
-    verify = "the first ledger write adds the union attribute"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn the_first_ledger_write_adds_the_union_attribute() {
     let project = gsd("uat_test U1 \"U\" {\n  phase 03\n  result pass\n}\n");
     project.write(
@@ -226,10 +211,7 @@ fn the_first_ledger_write_adds_the_union_attribute() {
     );
 }
 
-#[specforge_test(
-    behavior = "collect_harness_ledger",
-    verify = "harness gc rewrites the ledger canonically and --dry-run writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn harness_gc_rewrites_the_ledger_canonically() {
     let project = gsd("uat_test U1 \"U\" {\n  phase 03\n  result pass\n}\n");
     let kept = line("v1.0/03/U1", "result", "\"pass\"");
@@ -253,10 +235,7 @@ fn harness_gc_rewrites_the_ledger_canonically() {
     assert_eq!(ledger(), format!("# specforge-harness 1\n{kept}"));
 }
 
-#[specforge_test(
-    behavior = "collect_harness_ledger",
-    verify = "every host write of a project with a harness field takes the write lock, and one without creates no lock file"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn every_write_takes_the_lock_only_where_a_ledger_can_exist() {
     let owner = |project: &TestProject,
                  runtime: Arc<specforge_wasm::testing::InProcessRuntime>,
@@ -298,10 +277,7 @@ fn every_write_takes_the_lock_only_where_a_ledger_can_exist() {
     assert!(!plain.root().join(".specforge/write.lock").exists());
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a typed edit of a context-written field is refused context_field, whatever its origin"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_typed_edit_of_a_context_field_is_refused_context_field() {
     use specforge_ops::authoring::apply::{CONTEXT_FIELD, Origin};
     use specforge_project::testing::{

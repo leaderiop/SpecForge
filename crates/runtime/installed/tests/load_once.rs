@@ -34,10 +34,7 @@ fn describe_fails(mut runtime: InProcessRuntime, names: &[&str]) -> InProcessRun
     runtime
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "an entry whose declaration can't be read is E028 saying so and naming what failed"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_file_entry_whose_describe_fails_says_its_declaration_cannot_be_read() {
     let dir = TempDir::new().unwrap();
     file(dir.path(), "m.wasm", b"\0asm m");
@@ -66,10 +63,7 @@ fn a_file_entry_whose_describe_fails_says_its_declaration_cannot_be_read() {
     assert!(!message.contains("handshake"), "{message}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "an entry refused at any step of its load leaves nothing loaded"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_named_entry_whose_declaration_cannot_be_read_is_not_left_loaded() {
     let dir = TempDir::new().unwrap();
     let served = InProcessRuntime::new().binary(b"\0asm a", extension("@acme/a"));
@@ -102,10 +96,7 @@ fn a_named_entry_whose_declaration_cannot_be_read_is_not_left_loaded() {
     assert!(!runtime.unload("@acme/b"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "an entry's declaration is read once, with one handshake"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_file_entry_is_handshaken_once() {
     let dir = TempDir::new().unwrap();
     file(dir.path(), "tool.wasm", b"\0asm tool");
@@ -126,10 +117,7 @@ fn a_file_entry_is_handshaken_once() {
     assert_eq!(handshakes, 1);
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "a .wasm file entry that cannot be read is E028 saying it cannot be read"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_file_entry_that_cannot_be_read_says_so() {
     let dir = TempDir::new().unwrap();
     std::fs::create_dir(dir.path().join("d.wasm")).unwrap();
@@ -158,10 +146,7 @@ fn a_file_entry_that_cannot_be_read_says_so() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "a .wasm file entry's load warnings name the extension it declares"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_file_entrys_load_warnings_name_the_extension_it_declares() {
     let dir = TempDir::new().unwrap();
     file(dir.path(), "typo.wasm", b"\0asm typo");
@@ -193,10 +178,7 @@ fn a_file_entrys_load_warnings_name_the_extension_it_declares() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_extension_manifest",
-    verify = "a handshake whose protocol minor is newer than the host's produces E088"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn an_entry_of_a_newer_protocol_minor_is_refused_with_e088() {
     let dir = TempDir::new().unwrap();
     let builtins = Builtins(&[("@acme/new", &b"\0asm new"[..])]);
@@ -259,10 +241,7 @@ fn load_speaking(protocol: &str) -> (Vec<specforge_common::Diagnostic>, InProces
     (reported(dir.path(), &loaded), runtime)
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_extension_manifest",
-    verify = "a handshake of another protocol major produces E088, saying which side is behind"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn an_entry_of_a_newer_protocol_major_is_refused_with_e088() {
     use specforge_protocol_types::PROTOCOL_VERSION;
     let major: u64 = PROTOCOL_VERSION.split('.').next().unwrap().parse().unwrap();
@@ -281,10 +260,7 @@ fn an_entry_of_a_newer_protocol_major_is_refused_with_e088() {
     assert!(!runtime.unload("@acme/major"), "nothing is left loaded");
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_extension_manifest",
-    verify = "a handshake of another protocol major produces E088, saying which side is behind"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn an_entry_of_an_older_protocol_major_is_refused_with_e088() {
     let (reports, runtime) = load_speaking("0.9.0");
 
@@ -327,10 +303,7 @@ fn load_refused(
     (reported(dir.path(), &loaded), runtime)
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_wasm_module",
-    verify = "a component importing a host port this specforge does not provide is refused with E088 before it is instantiated, naming the port"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-136")]
 fn an_entry_importing_a_host_port_this_specforge_lacks_is_refused_with_e088() {
     use specforge_protocol_types::PROTOCOL_VERSION;
     let port = "specforge:host/http@9.9.0".to_string();
@@ -351,10 +324,7 @@ fn an_entry_importing_a_host_port_this_specforge_lacks_is_refused_with_e088() {
     assert!(!runtime.unload("@acme/importing"), "nothing is left loaded");
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_wasm_module",
-    verify = "a component importing an interface that is neither WASI nor a specforge host port is refused with E028 naming it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-136")]
 fn an_entry_importing_a_foreign_interface_is_e028_naming_it() {
     let interface = "acme:x/y@1.0.0".to_string();
 
@@ -369,10 +339,7 @@ fn an_entry_importing_a_foreign_interface_is_e028_naming_it() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "refuse_an_unbacked_port_import",
-    verify = "the environment load reports E089 naming the extension and the port"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn an_unbacked_import_is_e089() {
     const BYTES: &[u8] = b"\0asm importing";
     let dir = TempDir::new().unwrap();

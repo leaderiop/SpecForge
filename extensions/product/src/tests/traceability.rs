@@ -14,10 +14,7 @@ fn shipping_reversed() -> G {
     g
 }
 
-#[specforge_test(
-    behavior = "surface_deliverable_traceability",
-    verify = "deliverable-traceability returns DeliverableTraceabilityPayload JSON"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn deliverable_traceability_answers_its_payload() {
     let dt = json_of(
         "deliverable_traceability",
@@ -31,10 +28,7 @@ fn deliverable_traceability_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_deliverable_traceability",
-    verify = "missing deliverable ID returns error with suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn deliverable_traceability_of_a_mistyped_deliverable_suggests_the_nearest() {
     let error = run_in(
         &runtime(),
@@ -48,10 +42,7 @@ fn deliverable_traceability_of_a_mistyped_deliverable_suggests_the_nearest() {
     assert_eq!(error["suggestion"], "d1");
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_traceability",
-    verify = "deliverable with journeys and modules returns union of features"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_deliverables_features_are_its_journeys_and_its_modules() {
     let dt = json_of(
         "deliverable_traceability",
@@ -61,10 +52,7 @@ fn a_deliverables_features_are_its_journeys_and_its_modules() {
     assert_eq!(dt["transitive_features"], json!(["f1", "f2", "f3"]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_traceability",
-    verify = "deliverable with only journeys returns journey features"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_deliverable_with_only_journeys_has_their_features() {
     let g = shipping()
         .n("d5", "deliverable")
@@ -79,10 +67,7 @@ fn a_deliverable_with_only_journeys_has_their_features() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_traceability",
-    verify = "deliverable with no journeys or modules returns empty feature set"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_deliverable_with_nothing_reaches_no_feature() {
     let dt = json_of(
         "deliverable_traceability",
@@ -96,10 +81,7 @@ fn a_deliverable_with_nothing_reaches_no_feature() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_traceability",
-    verify = "deliverable with overlapping journey and module features deduplicates"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_feature_reached_both_ways_is_listed_once() {
     let dt = json_of(
         "deliverable_traceability",
@@ -115,10 +97,7 @@ fn a_feature_reached_both_ways_is_listed_once() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_traceability",
-    verify = "deliverable traceability is deterministic across repeated queries"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn deliverable_traceability_is_deterministic() {
     let args = json!({"deliverable": "d1"});
     let first = json_of("deliverable_traceability", args.clone(), &shipping());
@@ -132,10 +111,7 @@ fn deliverable_traceability_is_deterministic() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_feature_deliverables",
-    verify = "feature-deliverables returns FeatureDeliverablePayload JSON"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn feature_deliverables_answers_its_payload() {
     let fd = json_of(
         "feature_deliverables",
@@ -149,10 +125,7 @@ fn feature_deliverables_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_feature_deliverables",
-    verify = "missing feature ID returns error with suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn feature_deliverables_of_a_mistyped_feature_suggests_the_nearest() {
     let error = run_in(
         &runtime(),
@@ -166,10 +139,7 @@ fn feature_deliverables_of_a_mistyped_feature_suggests_the_nearest() {
     assert_eq!(error["suggestion"], "f1");
 }
 
-#[specforge_test(
-    behavior = "pe_query_feature_deliverables",
-    verify = "feature reachable via journey path returns deliverable"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_feature_in_a_deliverables_journey_is_in_the_deliverable() {
     let fd = json_of(
         "feature_deliverables",
@@ -183,10 +153,7 @@ fn a_feature_in_a_deliverables_journey_is_in_the_deliverable() {
     assert_eq!(fd["via_module_count"], 0);
 }
 
-#[specforge_test(
-    behavior = "pe_query_feature_deliverables",
-    verify = "feature reachable via module path returns deliverable"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_feature_in_a_deliverables_module_is_in_the_deliverable() {
     let fd = json_of(
         "feature_deliverables",
@@ -200,10 +167,7 @@ fn a_feature_in_a_deliverables_module_is_in_the_deliverable() {
     assert_eq!(fd["via_journey_count"], 0);
 }
 
-#[specforge_test(
-    behavior = "pe_query_feature_deliverables",
-    verify = "feature reachable via both paths deduplicates deliverables"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_deliverable_reached_both_ways_is_listed_once() {
     let fd = json_of(
         "feature_deliverables",
@@ -220,10 +184,7 @@ fn a_deliverable_reached_both_ways_is_listed_once() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_feature_deliverables",
-    verify = "feature with no incoming edges returns empty deliverables"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_feature_nothing_holds_is_in_no_deliverable() {
     let fd = json_of(
         "feature_deliverables",
@@ -237,10 +198,7 @@ fn a_feature_nothing_holds_is_in_no_deliverable() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_feature_deliverables",
-    verify = "feature deliverable query is deterministic across repeated queries"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn feature_deliverables_is_deterministic() {
     let args = json!({"feature": "f3"});
     let first = json_of("feature_deliverables", args.clone(), &shipping());
@@ -254,10 +212,7 @@ fn feature_deliverables_is_deterministic() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_persona_channels",
-    verify = "persona-channels returns PersonaChannelPayload JSON"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn persona_channels_answers_its_payload() {
     let pc = json_of("persona_channels", json!({"persona": "dev"}), &shipping());
     assert_eq!(
@@ -266,10 +221,7 @@ fn persona_channels_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_persona_channels",
-    verify = "missing persona ID returns error with suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn persona_channels_of_a_mistyped_persona_suggests_the_nearest() {
     let error = run_in(
         &runtime(),
@@ -283,19 +235,13 @@ fn persona_channels_of_a_mistyped_persona_suggests_the_nearest() {
     assert_eq!(error["suggestion"], "dev");
 }
 
-#[specforge_test(
-    behavior = "pe_query_persona_channels",
-    verify = "persona with one journey returns that journey's channels"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_personas_one_journey_gives_its_channels() {
     let pc = json_of("persona_channels", json!({"persona": "ops"}), &shipping());
     assert_eq!(pc["channels"], json!(["web"]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_persona_channels",
-    verify = "persona with multiple journeys returns deduplicated channels"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_personas_journeys_give_each_channel_once() {
     // j1 and j2 both use cli.
     let pc = json_of("persona_channels", json!({"persona": "dev"}), &shipping());
@@ -305,10 +251,7 @@ fn a_personas_journeys_give_each_channel_once() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_persona_channels",
-    verify = "persona with no journeys returns empty channel list"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_persona_without_journeys_uses_no_channel() {
     let pc = json_of("persona_channels", json!({"persona": "loner"}), &shipping());
     assert_eq!(
@@ -317,10 +260,7 @@ fn a_persona_without_journeys_uses_no_channel() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_persona_channels",
-    verify = "persona channels query is deterministic across repeated queries"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn persona_channels_is_deterministic() {
     let args = json!({"persona": "dev"});
     let first = json_of("persona_channels", args.clone(), &shipping());
@@ -334,10 +274,7 @@ fn persona_channels_is_deterministic() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_deliverable_personas",
-    verify = "deliverable-personas returns DeliverablePersonaPayload JSON"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn deliverable_personas_answers_its_payload() {
     let dp = json_of(
         "deliverable_personas",
@@ -351,10 +288,7 @@ fn deliverable_personas_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_deliverable_personas",
-    verify = "missing deliverable ID returns error with suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn deliverable_personas_of_a_mistyped_deliverable_suggests_the_nearest() {
     let error = run_in(
         &runtime(),
@@ -368,10 +302,7 @@ fn deliverable_personas_of_a_mistyped_deliverable_suggests_the_nearest() {
     assert_eq!(error["suggestion"], "d1");
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_personas",
-    verify = "deliverable with one journey and one persona returns that persona"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_deliverables_journey_gives_its_persona() {
     let g = shipping()
         .n("d6", "deliverable")
@@ -383,10 +314,7 @@ fn a_deliverables_journey_gives_its_persona() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_personas",
-    verify = "deliverable with multiple journeys sharing a persona deduplicates"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_persona_shared_by_journeys_is_listed_once() {
     let dp = json_of(
         "deliverable_personas",
@@ -396,10 +324,7 @@ fn a_persona_shared_by_journeys_is_listed_once() {
     assert_eq!(dp["personas"], json!(["dev"]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_personas",
-    verify = "deliverable with no journeys returns empty list"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_deliverable_without_journeys_serves_no_persona() {
     let dp = json_of(
         "deliverable_personas",
@@ -412,10 +337,7 @@ fn a_deliverable_without_journeys_serves_no_persona() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_personas",
-    verify = "deliverable with journeys without personas returns empty list"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_deliverable_whose_journeys_target_no_one_serves_no_persona() {
     let dp = json_of(
         "deliverable_personas",
@@ -428,10 +350,7 @@ fn a_deliverable_whose_journeys_target_no_one_serves_no_persona() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_personas",
-    verify = "result includes via_journey_ids for traceability"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn deliverable_personas_name_the_journeys_between() {
     let g = shipping().edge("d1", "j3", "journeys");
     let dp = json_of("deliverable_personas", json!({"deliverable": "d1"}), &g);
@@ -439,10 +358,7 @@ fn deliverable_personas_name_the_journeys_between() {
     assert_eq!(dp["via_journey_ids"], json!(["j1", "j2", "j3"]));
 }
 
-#[specforge_test(
-    behavior = "product_deliverable_persona_correctness",
-    verify = "via_journey_ids includes all intermediate journeys"
-)]
+#[specforge_test(requirement = "RELIABILITY-10")]
 fn every_journey_between_a_deliverable_and_a_persona_is_named() {
     // d1's journeys j1 and j2 both reach dev; j5 (on d4) reaches no one.
     let g = shipping().edge("d1", "j5", "journeys");
@@ -450,10 +366,7 @@ fn every_journey_between_a_deliverable_and_a_persona_is_named() {
     assert_eq!(dp["via_journey_ids"], json!(["j1", "j2"]));
 }
 
-#[specforge_test(
-    behavior = "product_deliverable_persona_correctness",
-    verify = "traversal order does not affect result"
-)]
+#[specforge_test(requirement = "RELIABILITY-10")]
 fn deliverable_personas_do_not_depend_on_declaration_order() {
     let args = json!({"deliverable": "d1"});
     assert_eq!(
@@ -464,10 +377,7 @@ fn deliverable_personas_do_not_depend_on_declaration_order() {
 
 // ── feature impact ────────────────────────────────────────────────────────
 
-#[specforge_test(
-    behavior = "surface_feature_impact",
-    verify = "feature-impact returns FeatureImpactPayload JSON"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn feature_impact_answers_its_payload() {
     let fi = json_of("feature_impact", json!({"feature": "f1"}), &shipping());
     assert_eq!(
@@ -478,10 +388,7 @@ fn feature_impact_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_feature_impact",
-    verify = "feature in one journey and one milestone returns both as affected"
-)]
+#[specforge_test(requirement = "FEATURE-103")]
 fn a_feature_in_a_journey_and_a_milestone_affects_both() {
     let g = G::default()
         .n("f1", "feature")
@@ -495,20 +402,14 @@ fn a_feature_in_a_journey_and_a_milestone_affects_both() {
     assert_eq!(fi["total_affected_entities"], 2);
 }
 
-#[specforge_test(
-    behavior = "pe_query_feature_impact",
-    verify = "feature with dependent features includes transitive dependents"
-)]
+#[specforge_test(requirement = "FEATURE-103")]
 fn a_features_dependents_include_their_dependents() {
     let fi = json_of("feature_impact", json!({"feature": "f1"}), &shipping());
     // f5 depends on f4, which depends on f1; f6 only relates to f1.
     assert_eq!(fi["dependent_features"], json!(["f4", "f5"]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_feature_impact",
-    verify = "feature with no references returns zero affected entities"
-)]
+#[specforge_test(requirement = "FEATURE-103")]
 fn a_feature_nothing_references_affects_nothing() {
     let fi = json_of("feature_impact", json!({"feature": "f7"}), &shipping());
     assert_eq!(
@@ -519,10 +420,7 @@ fn a_feature_nothing_references_affects_nothing() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_feature_impact",
-    verify = "affected deliverables found via both journey and module paths"
-)]
+#[specforge_test(requirement = "FEATURE-103")]
 fn a_features_deliverables_come_through_journeys_and_modules() {
     // d7 holds f3 only through its journey j2, d2 only through mod2.
     let g = shipping()
@@ -533,10 +431,7 @@ fn a_features_deliverables_come_through_journeys_and_modules() {
     assert_eq!(fi["affected_deliverables"], json!(["d1", "d2", "d7"]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_feature_impact",
-    verify = "total_affected_entities is deduplicated count"
-)]
+#[specforge_test(requirement = "FEATURE-103")]
 fn the_total_counts_each_affected_entity_once() {
     // d1 holds f1 through j1 and through mod1: one deliverable.
     let fi = json_of("feature_impact", json!({"feature": "f1"}), &shipping());
@@ -554,10 +449,7 @@ fn the_total_counts_each_affected_entity_once() {
     assert_eq!(fi["affected_deliverables"], json!(["d1"]));
 }
 
-#[specforge_test(
-    behavior = "product_impact_query_correctness",
-    verify = "feature impact returns complete transitive closure"
-)]
+#[specforge_test(requirement = "RELIABILITY-14")]
 fn feature_impact_follows_dependencies_to_the_end() {
     // A chain f1 <- c1 <- c2 <- c3, and a cycle back to c1.
     let g = shipping()
@@ -575,10 +467,7 @@ fn feature_impact_follows_dependencies_to_the_end() {
     );
 }
 
-#[specforge_test(
-    behavior = "product_impact_query_correctness",
-    verify = "traversal order does not affect results"
-)]
+#[specforge_test(requirement = "RELIABILITY-14")]
 fn impact_and_persona_features_do_not_depend_on_declaration_order() {
     for (id, args) in [
         ("feature_impact", json!({"feature": "f1"})),

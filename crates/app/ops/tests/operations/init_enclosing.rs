@@ -40,10 +40,7 @@ fn init_at(dir: &Path) -> Result<init::Outcome, Refusal<InitField>> {
 
 const OUTER: &str = "spec \"outer\" {\n  version \"0.1.0\"\n}\n";
 
-#[specforge_test_macros::test(
-    behavior = "scaffold_new_project",
-    verify = "init refuses a directory whose files the enclosing project reads as its sources, naming them, writing nothing"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_refuses_a_directory_whose_files_the_enclosing_project_reads() {
     let scratch = TempDir::new().unwrap();
     let root = scratch.path();
@@ -66,10 +63,7 @@ fn init_refuses_a_directory_whose_files_the_enclosing_project_reads() {
     assert_eq!(files_under(&root.join("spec/sub")).len(), 1);
 }
 
-#[specforge_test_macros::test(
-    behavior = "scaffold_new_project",
-    verify = "init refuses the directory the enclosing project reads its sources from, which would read the new starter as its own"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_refuses_the_enclosing_projects_spec_root() {
     let scratch = TempDir::new().unwrap();
     let root = scratch.path();
@@ -87,10 +81,7 @@ fn init_refuses_the_enclosing_projects_spec_root() {
     assert!(!root.join("spec/specforge.json").exists());
 }
 
-#[specforge_test_macros::test(
-    behavior = "scaffold_new_project",
-    verify = "init names the project it is created inside, and creates a separate one beside its sources"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_names_the_project_it_is_created_inside() {
     let scratch = TempDir::new().unwrap();
     let root = scratch.path();
@@ -103,10 +94,7 @@ fn init_names_the_project_it_is_created_inside() {
     assert_eq!(init_at(&alone.path().join("p")).unwrap().enclosing, None);
 }
 
-#[specforge_test_macros::test(
-    behavior = "scaffold_new_project",
-    verify = "a directory the enclosing project's exclude leaves out holds none of its sources, and init proceeds there"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn an_excluded_directory_is_no_source_init_takes() {
     let scratch = TempDir::new().unwrap();
     let root = scratch.path();
@@ -122,10 +110,7 @@ fn an_excluded_directory_is_no_source_init_takes() {
     assert_eq!(outcome.enclosing, Some(root.canonicalize().unwrap()));
 }
 
-#[specforge_test_macros::test(
-    behavior = "scaffold_new_project",
-    verify = "init below the enclosing project's spec root proceeds where that project reads no source"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_below_the_spec_root_in_a_directory_without_sources_proceeds() {
     let scratch = TempDir::new().unwrap();
     let root = scratch.path();
@@ -135,10 +120,7 @@ fn init_below_the_spec_root_in_a_directory_without_sources_proceeds() {
     assert!(init_at(&root.join("spec/new/deeper")).is_ok());
 }
 
-#[specforge_test_macros::test(
-    behavior = "scaffold_new_project",
-    verify = "init refuses a directory whose files the enclosing project reads as its sources, naming them, writing nothing"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn a_refusal_names_the_first_sources_and_counts_the_rest() {
     let scratch = TempDir::new().unwrap();
     let root = scratch.path();
@@ -158,10 +140,7 @@ fn a_refusal_names_the_first_sources_and_counts_the_rest() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "scaffold_new_project",
-    verify = "init refuses the directory the enclosing project reads its sources from, which would read the new starter as its own"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_refuses_a_directory_whose_spec_dir_is_the_enclosing_spec_root() {
     let scratch = TempDir::new().unwrap();
     let root = scratch.path();

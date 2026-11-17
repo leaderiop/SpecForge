@@ -11,10 +11,7 @@ use specforge_test_macros::test as specforge_test;
 
 use super::compiled_support::exported_text;
 
-#[specforge_test(
-    behavior = "compute_field_values",
-    verify = "every surface shows a computed value as a field and marks it computed"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn every_surface_shows_a_computed_value_as_a_field() {
     let runtime =
         gsd_history_runtime(json!([{"entity": "v1.0/03/V", "field": "status", "value": "passed"}]));

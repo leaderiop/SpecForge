@@ -26,10 +26,7 @@ fn pins() -> KnownKeys {
     known
 }
 
-#[specforge_test_macros::test(
-    invariant = "credential_secrecy",
-    verify = "every file in the user's registry directory is created 0600 in a 0700 directory"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-009")]
 fn a_first_signing_key_is_0600_in_a_0700_directory() {
     let home = tempfile::tempdir().unwrap();
     let dir = home.path().join(".specforge");
@@ -38,10 +35,7 @@ fn a_first_signing_key_is_0600_in_a_0700_directory() {
     assert_eq!(mode(&dir.join("signing-key.json")), 0o600);
 }
 
-#[specforge_test_macros::test(
-    invariant = "credential_secrecy",
-    verify = "every file in the user's registry directory is created 0600 in a 0700 directory"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-009")]
 fn a_first_pin_save_is_0600_in_a_0700_directory() {
     let home = tempfile::tempdir().unwrap();
     let dir = home.path().join(".specforge");
@@ -50,10 +44,7 @@ fn a_first_pin_save_is_0600_in_a_0700_directory() {
     assert_eq!(mode(&dir.join("known-keys.json")), 0o600);
 }
 
-#[specforge_test_macros::test(
-    invariant = "credential_secrecy",
-    verify = "a user's registry file is never written through a link at its temporary name"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-009")]
 fn a_kept_secret_is_never_written_through_a_link_at_its_temporary_name() {
     let home = tempfile::tempdir().unwrap();
     let dir = home.path().join(".specforge");
@@ -81,10 +72,7 @@ fn a_kept_secret_is_never_written_through_a_link_at_its_temporary_name() {
     assert_eq!(mode(&secret), 0o600);
 }
 
-#[specforge_test_macros::test(
-    invariant = "credential_secrecy",
-    verify = "a user's registry file is never written through a link at its temporary name"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-009")]
 fn a_pin_save_is_never_written_through_a_link_at_its_temporary_name() {
     let home = tempfile::tempdir().unwrap();
     let outside = home.path().join("outside.txt");
@@ -95,10 +83,7 @@ fn a_pin_save_is_never_written_through_a_link_at_its_temporary_name() {
     assert_eq!(mode(&home.path().join("known-keys.json")), 0o600);
 }
 
-#[specforge_test_macros::test(
-    invariant = "credential_secrecy",
-    verify = "a corrupt signing key file is named, never quoted"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-009")]
 fn a_corrupt_signing_key_file_is_named_never_quoted() {
     let home = tempfile::tempdir().unwrap();
     let key = home.path().join("signing-key.json");

@@ -61,10 +61,7 @@ fn row(label: &str, args: &[&str], run: &Run) -> String {
     )
 }
 
-#[specforge_test_macros::test(
-    behavior = "report_command_outcome",
-    verify = "Report a Command's Outcome: command outcome holds — operation_ran, one_refusal_shape, one_exit_table, surfaces_agree"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-006")]
 fn refusals_after() {
     let mut table = String::new();
     let mut add = |label: &str, dir: &TestProject, args: &[&str]| {
@@ -181,10 +178,7 @@ fn verdicts() {
 
 /// The refusals that print the error document under JSON output, with the
 /// code each carries: stdout holds one document, stderr nothing.
-#[specforge_test_macros::test(
-    behavior = "report_command_outcome",
-    verify = "stats, trace, analyze, migrate and init refuse with the error document under --format json"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-006")]
 fn json_refusals_are_the_error_document() {
     let broken = rv1(Some("{"));
     let project = rv1(None);
@@ -216,10 +210,7 @@ fn json_refusals_are_the_error_document() {
 
 /// `stats` and `analyze` measure: a refusal means they could not judge the
 /// project, exit 2; every other command's refusal is exit 1.
-#[specforge_test_macros::test(
-    behavior = "report_command_outcome",
-    verify = "a passed run exits 0, a failed verdict or a refusal 1, a refusal of a measuring command 2"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-006")]
 fn measuring_commands_exit_two_on_refusal() {
     let broken = rv1(Some("{"));
     let project = rv1(None);
@@ -239,10 +230,8 @@ fn measuring_commands_exit_two_on_refusal() {
 }
 
 /// `review` is a read view: an unreadable report exits 1, as `query --include-coverage` does.
-#[specforge_test_macros::test(
-    behavior = "provide_review_cli",
-    verify = "a recorded report that cannot be read is E045, exit 1"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-001")]
+#[specforge_test_macros::test(requirement = "FEATURE-025")]
 fn review_refuses_as_query_does_when_the_report_cannot_be_read() {
     let broken = rv1(Some("{"));
 
@@ -258,10 +247,7 @@ fn review_refuses_as_query_does_when_the_report_cannot_be_read() {
     assert_eq!(query.code, 1, "{}", query.stderr);
 }
 
-#[specforge_test_macros::test(
-    behavior = "report_command_outcome",
-    verify = "a command run outside any project refuses with no_project"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-006")]
 fn collect_outside_a_project_is_no_project() {
     let loose = scratch();
 
@@ -282,10 +268,7 @@ fn collect_outside_a_project_is_no_project() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "report_command_outcome",
-    verify = "an operation's refusal is error[CODE]: message, its hint and the files it left written, on stderr"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-006")]
 fn an_unknown_explain_code_is_a_refusal() {
     let dir = scratch();
 
@@ -301,10 +284,7 @@ fn an_unknown_explain_code_is_a_refusal() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "report_command_outcome",
-    verify = "a command run outside any project refuses with no_project"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-006")]
 fn collect_from_a_sub_path_finds_its_project() {
     // A project without a collector: `collect` finds it from a sub-path and
     // fails for want of a collector (E058), not for want of a project.
@@ -323,10 +303,7 @@ fn collect_from_a_sub_path_finds_its_project() {
 }
 
 /// A fixed-format command's stdout is its document or nothing (output.spec, report_command_outcome).
-#[specforge_test_macros::test(
-    behavior = "report_command_outcome",
-    verify = "a fixed-format command (export, schema, model, query, outline) refuses on stderr whatever its --format names, with nothing on stdout"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-006")]
 fn a_fixed_format_refusal_is_on_stderr_under_every_format() {
     let project = rv1(None);
     let rows: [(&[&str], &str); 11] = [

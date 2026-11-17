@@ -19,7 +19,7 @@ env:
 jobs:
   ci:
     # `cargo gate ci`'s lint, specs and gsd shards; the `build` job below holds build, the `tests` jobs the tests.
-    # `dogfood` judges every partition's reports.
+    # `dogfood` judges every partition's nextest report.
     # The lint shard fails when `cargo gate list` holds a check no shard names.
     name: Check list (${{ matrix.shard }})
     runs-on: ubuntu-latest
@@ -93,15 +93,6 @@ jobs:
       - name: Run the shard's checks
         run: cargo gate ci --only ${{ matrix.checks }} ${{ github.event_name == 'pull_request' && format('--since origin/{0}', github.base_ref) || '' }}
 
-      # dogfood reaches only full runs (main), so only main keeps the reports for it.
-      - name: Keep the test reports for dogfood
-        if: github.event_name == 'push' && matrix.shard == 'specs'
-        uses: actions/upload-artifact@v4
-        with:
-          name: reports-${{ matrix.shard }}
-          path: target/specforge
-          retention-days: 1
-
   build:
     # Compiles the tests once into a nextest archive; the four `tests` jobs run it without compiling.
     name: Check list (build)
@@ -172,12 +163,13 @@ jobs:
       - name: Run the partition
         if: steps.archive.outcome == 'success'
         run: cargo gate ci --only tests ${{ github.event_name == 'pull_request' && format('--since origin/{0}', github.base_ref) || '' }}
-      - name: Keep the test reports for dogfood
+      # dogfood reaches only full runs (main), so only main keeps the partition's nextest report for it.
+      - name: Keep the JUnit report for dogfood
         if: github.event_name == 'push'
         uses: actions/upload-artifact@v4
         with:
-          name: reports-tests-${{ matrix.part }}
-          path: target/specforge
+          name: junit-tests-${{ matrix.part }}
+          path: target/nextest/ci/junit.xml
           retention-days: 1
 
   effect-plane:
@@ -208,7 +200,8 @@ jobs:
         run: cargo nextest run -p specforge-ops --lib -E "test(/^analysis::collect::process::/)"
 
   dogfood:
-    # Every test of every partition and guest reported into target/specforge; dogfood judges them together.
+    # Each tests partition's nextest JUnit report lands in its own directory under target/nextest/ci (no
+    # merge-multiple: every partition writes junit.xml); dogfood merges them and judges the requirements' proof.
     name: Check list (dogfood)
     needs: [ci, tests]
     if: github.event_name == 'push'
@@ -223,9 +216,8 @@ jobs:
           save-if: false
       - uses: actions/download-artifact@v4
         with:
-          pattern: reports-*
-          path: target/specforge
-          merge-multiple: true
+          pattern: junit-tests-*
+          path: target/nextest/ci
       - name: Run dogfood
         run: cargo gate ci --only dogfood
 

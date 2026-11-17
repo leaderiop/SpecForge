@@ -1,17 +1,15 @@
-//! Reports a test's spec-link attribute that does not hold against the project's spec, without running a test.
+//! Reports a test's spec-link attribute that does not name a requirement of the project's spec, without running a
+//! test (ADR 0374 D4).
 //!
 //! Every `#[spec(...)]` / `#[specforge_test(...)]` / `#[specforge_test_macros::test(...)]` attribute is read from
-//! the Rust sources with `syn` (a crate under a `tests/fixtures/` directory is another project's and is skipped), and
-//! the project is compiled. Two rules, by the attribute's kind word:
+//! the Rust sources with `syn` (a crate under a `tests/fixtures/` directory is another project's and is skipped, and
+//! so are the macro's own self-tests), and the project is compiled. Each attribute names, with the kind word
+//! `requirement`, a requirement of the spec, and carries no `verify` text:
 //!
-//! - `requirement` (ADR 0374 D4): the id names a requirement of the spec, and the attribute carries no `verify`
-//!   text. `UNKNOWN <file>:<line> <id>` when no entity has the id, `KIND <file>:<line> requirement <id> is a
-//!   <kind>, not a requirement` when the entity is of another kind, `VERIFY <file>:<line> <id>: a requirement takes
-//!   no verify text`.
-//! - any other word (`behavior`, `invariant`, ...: the old builtins' links): `UNKNOWN` as above, and a `verify` text
-//!   its entity does not declare is `A016 <file>:<line> <entity> "<verify>"` with the closest declared text, through
-//!   the coverage crate's own rule (`Verdict::of`), the one `specforge analyze coverage` applies to a recorded report.
-//!   This rule goes when the root swap rewrites every attribute of this repository's tests to `requirement`.
+//! - `UNKNOWN <file>:<line> <id>`: no entity has the id;
+//! - `KIND <file>:<line> <word> <id>: a test names a requirement`: the kind word is not `requirement`;
+//! - `KIND <file>:<line> requirement <id> is a <kind>, not a requirement`: the entity is of another kind;
+//! - `VERIFY <file>:<line> <id>: a requirement takes no verify text`.
 //!
 //!   cargo run -p xtask --bin check-links                     the repository's tests against its spec
 //!   cargo run -p xtask --bin check-links -- ROOT [DIR...]    ROOT's project, scanning DIR... under it
@@ -24,9 +22,7 @@
 
 use specforge_common::ProjectRoot;
 use specforge_component::ComponentRuntime;
-use specforge_coverage::assess;
 use specforge_project::CompiledProject;
-use specforge_protocol_types::{TestResult, TestResults, TestStatus};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -65,79 +61,44 @@ fn check(root: &Path, scan: &[String]) -> Result<Vec<String>, String> {
     for path in &read.unparsed {
         eprintln!("check-links: skipped {}: does not parse", path.display());
     }
-    let links = read.links;
     let project_root = ProjectRoot::of(root).map_err(|e| format!("{}: {e:?}", root.display()))?;
     let project = CompiledProject::compile(
         &project_root,
         Some(Arc::new(ComponentRuntime::with_user_cache())),
     );
     let entities = project.entities().coverage_entities();
-    let known: BTreeMap<&str, &specforge_coverage::Entity> =
-        entities.iter().map(|e| (e.id.as_str(), e)).collect();
-
-    let mut results = TestResults::default();
-    for link in links.iter().filter(|l| known.contains_key(l.id.as_str())) {
-        results
-            .results
-            .entry(link.id.clone())
-            .or_default()
-            .tests
-            .push(TestResult {
-                name: format!("{}:{}", link.file, link.line),
-                status: TestStatus::Passed,
-                verify: link.verify.clone(),
-                duration_ms: None,
-            });
-    }
-    let assessment = assess(&entities, Some(&results), None, None);
+    let kinds: BTreeMap<&str, &str> = entities
+        .iter()
+        .map(|e| (e.id.as_str(), e.kind.as_str()))
+        .collect();
 
     let mut findings = Vec::new();
     let mut reported: BTreeSet<(String, usize)> = BTreeSet::new();
-    for link in &links {
+    for link in &read.links {
         if !reported.insert((link.file.clone(), link.line)) {
             continue;
         }
-        let Some(entity) = known.get(link.id.as_str()) else {
+        let Some(kind) = kinds.get(link.id.as_str()) else {
             findings.push(format!("UNKNOWN {}:{} {}", link.file, link.line, link.id));
             continue;
         };
-        if link.kind == REQUIREMENT {
-            if entity.kind != REQUIREMENT {
-                findings.push(format!(
-                    "KIND {}:{} requirement {} is a {}, not a requirement",
-                    link.file, link.line, link.id, entity.kind
-                ));
-            }
-            if link.verify.is_some() {
-                findings.push(format!(
-                    "VERIFY {}:{} {}: a requirement takes no verify text",
-                    link.file, link.line, link.id
-                ));
-            }
-            continue;
+        if link.kind != REQUIREMENT {
+            findings.push(format!(
+                "KIND {}:{} {} {}: a test names a requirement",
+                link.file, link.line, link.kind, link.id
+            ));
+        } else if *kind != REQUIREMENT {
+            findings.push(format!(
+                "KIND {}:{} requirement {} is a {kind}, not a requirement",
+                link.file, link.line, link.id
+            ));
         }
-        let Some(text) = &link.verify else { continue };
-        let undeclared = assessment
-            .verdicts
-            .get(&link.id)
-            .is_some_and(|v| v.undeclared.contains(text));
-        if undeclared {
-            let mut line = format!("A016 {}:{} {} {text:?}", link.file, link.line, link.id);
-            if let Some(near) = closest(text, &entity.verify_texts) {
-                line.push_str(&format!("\n     declared: {near:?}"));
-            }
-            findings.push(line);
+        if link.verify.is_some() {
+            findings.push(format!(
+                "VERIFY {}:{} {}: a requirement takes no verify text",
+                link.file, link.line, link.id
+            ));
         }
     }
     Ok(findings)
-}
-
-/// The declared text nearest `text`, when it is near enough to be a typo.
-fn closest<'a>(text: &str, declared: &'a [String]) -> Option<&'a String> {
-    declared
-        .iter()
-        .map(|d| (strsim::normalized_levenshtein(text, d), d))
-        .filter(|(score, _)| *score >= 0.5)
-        .max_by(|a, b| a.0.total_cmp(&b.0))
-        .map(|(_, d)| d)
 }

@@ -130,10 +130,7 @@ fn digest(inputs: &Inputs, name: &str) -> String {
         .clone()
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a file input may name a path held in a string field"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_file_input_on_a_string_field_digests_the_file() {
     let p = project();
     let first = inputs(&compile(&p));
@@ -147,10 +144,7 @@ fn a_file_input_on_a_string_field_digests_the_file() {
     assert_eq!(missing.files[0].digest, "absent");
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a referrer selector goes on past its reference"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_referrer_path_continues_forward() {
     let p = project();
     let first = inputs(&compile(&p));
@@ -173,10 +167,7 @@ fn a_referrer_path_continues_forward() {
     assert_ne!(digest(&first, "requirements"), digest(&own, "requirements"));
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a file input that only a case variant on disk matches digests as absent on every OS"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_file_input_spelled_in_another_case_is_absent() {
     let p = project();
     // On disk: `src/a.ts`. A case-insensitive file system would open `src/A.ts`; the containment does not.
@@ -187,10 +178,7 @@ fn a_file_input_spelled_in_another_case_is_absent() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a judged file input through a link out of the project digests as outside_project and is not read"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_judged_file_input_through_a_link_out_of_the_project_is_not_read() {
     let p = project();
     let outside = tempfile::TempDir::new().unwrap();
@@ -211,10 +199,7 @@ fn a_judged_file_input_through_a_link_out_of_the_project_is_not_read() {
     assert_eq!(out.digest, "outside_project");
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a judged file input reads a spec-prefixed path from the spec root"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_judged_file_input_reads_a_spec_prefixed_path_from_the_spec_root() {
     let p = TestProject::new()
         .config(|c| {

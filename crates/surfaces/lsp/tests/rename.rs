@@ -50,10 +50,7 @@ const AUTH: &str = "behavior user_login \"Login\" {\n  types [auth_token]\n}\n";
 
 // -- rename_entity_id ---------------------------------------------------------
 
-#[spec(
-    behavior = "rename_entity_id",
-    verify = "rename updates declaration and all references"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn rename_updates_all_sites() {
     let state = buffers(&[("/p/types.spec", TYPES), ("/p/auth.spec", AUTH)]);
     let edits = renamed_edits(&state, "/p/types.spec", (0, 6), "session_token").unwrap();
@@ -61,10 +58,7 @@ fn rename_updates_all_sites() {
     assert_eq!(edits, ["/p/auth.spec 1:9-19", "/p/types.spec 0:5-15"]);
 }
 
-#[spec(
-    behavior = "rename_entity_id",
-    verify = "rename is atomic — all or nothing"
-)]
+#[spec(requirement = "FEATURE-111")]
 #[tokio::test]
 async fn rename_is_atomic() {
     use crate::session::{Session, uri_of};
@@ -117,10 +111,7 @@ async fn rename_is_atomic() {
 /// from, and apply to the text the editor has: a file whose text changed
 /// since the compile (here, on disk, with no change event yet) is not
 /// renamed from stale positions.
-#[spec(
-    behavior = "rename_entity_id",
-    verify = "rename is refused as content modified when a file it edits changed since the compile"
-)]
+#[spec(requirement = "FEATURE-111")]
 #[tokio::test]
 async fn rename_waits_for_the_compile_of_a_changed_file() {
     use crate::session::{Session, uri_of};
@@ -151,10 +142,7 @@ async fn rename_waits_for_the_compile_of_a_changed_file() {
 
 /// The new name follows the shared entity-ID rule: the editor gets an
 /// error saying why, and no edit.
-#[spec(
-    behavior = "rename_entity_id",
-    verify = "rename to an illegal entity ID is refused with why"
-)]
+#[spec(requirement = "FEATURE-111")]
 #[tokio::test]
 async fn rename_to_an_illegal_id_is_refused_with_why() {
     use crate::session::{Session, uri_of};
@@ -185,10 +173,7 @@ async fn rename_to_an_illegal_id_is_refused_with_why() {
 }
 
 /// A reserved word is no entity ID either: the editor gets the reason, and no edit.
-#[spec(
-    behavior = "rename_entity_id",
-    verify = "rename to a reserved word is refused with why"
-)]
+#[spec(requirement = "FEATURE-111")]
 #[tokio::test]
 async fn rename_to_a_reserved_word_is_refused_with_why() {
     use crate::session::{Session, uri_of};
@@ -222,7 +207,7 @@ async fn rename_to_a_reserved_word_is_refused_with_why() {
     assert!(message.contains("reserved"), "{refused}");
 }
 
-#[spec(behavior = "rename_entity_id", verify = "rename across multiple files")]
+#[spec(requirement = "FEATURE-111")]
 fn rename_across_files() {
     let state = buffers(&[
         ("/p/a.spec", "type tok \"T\" {\n}\n"),
@@ -236,10 +221,7 @@ fn rename_across_files() {
     );
 }
 
-#[spec(
-    behavior = "rename_entity_id",
-    verify = "rename rejects new name that duplicates existing entity ID"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn rename_rejects_duplicate() {
     let state = buffers(&[("/p/types.spec", TYPES), ("/p/auth.spec", AUTH)]);
     let refused = renamed_edits(&state, "/p/types.spec", (0, 6), "user_login").unwrap_err();
@@ -275,10 +257,7 @@ fn a_rename_without_a_files_text_is_refused_whole() {
 
 // -- a name written below its kind keyword -----------------------------------
 
-#[spec(
-    behavior = "prepare_rename",
-    verify = "prepare rename answers on a name written below its kind"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn prepare_rename_on_a_name_written_below_its_kind_has_a_rename_range() {
     let state = buffers(&[("/p/types.spec", TYPES_BELOW), ("/p/auth.spec", AUTH)]);
     let prepared =
@@ -292,10 +271,7 @@ fn prepare_rename_on_a_name_written_below_its_kind_has_a_rename_range() {
     );
 }
 
-#[spec(
-    behavior = "rename_entity_id",
-    verify = "rename edits a name written below its kind and its references"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn rename_of_a_name_written_below_its_kind_edits_it_and_its_references() {
     let state = buffers(&[("/p/types.spec", TYPES_BELOW), ("/p/auth.spec", AUTH)]);
     let want = ["/p/auth.spec 1:9-19", "/p/types.spec 1:2-12"];
@@ -382,10 +358,7 @@ mod ledger {
         served.apply(Change::Watched(events));
     }
 
-    #[spec(
-        behavior = "land_rename_ledger",
-        verify = "the LSP rename writes its ledger change once the rename lands on disk"
-    )]
+    #[spec(requirement = "FEATURE-059")]
     fn the_lsp_rename_writes_its_ledger_once_it_lands() {
         let mut served = served();
         let (sent, edit) = rename_and_type(&mut served);
@@ -412,10 +385,7 @@ mod ledger {
         assert!(!ledger.contains("v1.0/03/U1 result"), "{ledger}");
     }
 
-    #[spec(
-        behavior = "land_rename_ledger",
-        verify = "an undone LSP rename writes no ledger change"
-    )]
+    #[spec(requirement = "FEATURE-059")]
     fn an_undone_lsp_rename_writes_no_ledger_change() {
         let mut served = served();
         let before = ledger_on_disk(&served);
@@ -436,10 +406,7 @@ mod ledger {
         assert_eq!(ledger_on_disk(&served), before);
     }
 
-    #[spec(
-        behavior = "land_rename_ledger",
-        verify = "an applied LSP rename whose buffers are closed unsaved is undone"
-    )]
+    #[spec(requirement = "FEATURE-059")]
     fn an_applied_lsp_rename_whose_buffers_are_closed_unsaved_is_undone() {
         let mut served = served();
         let before = ledger_on_disk(&served);
@@ -457,10 +424,7 @@ mod ledger {
         assert_eq!(ledger_on_disk(&served), before);
     }
 
-    #[spec(
-        behavior = "land_rename_ledger",
-        verify = "a rename whose ledger write fails stays pending and lands on the next event"
-    )]
+    #[spec(requirement = "FEATURE-059")]
     fn a_rename_whose_ledger_write_fails_stays_pending() {
         let mut served = served();
         rename_and_type(&mut served);
@@ -476,10 +440,7 @@ mod ledger {
         assert!(served.state().pending().shown().is_empty(), "landed");
     }
 
-    #[spec(
-        behavior = "land_rename_ledger",
-        verify = "a saved LSP rename lands its ledger change at shutdown"
-    )]
+    #[spec(requirement = "FEATURE-059")]
     fn a_saved_lsp_rename_lands_its_ledger_change_at_shutdown() {
         let mut served = served();
         rename_and_type(&mut served);
@@ -492,10 +453,7 @@ mod ledger {
     }
 }
 
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "the LSP rename and fixes are versioned for a client that takes document changes"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn the_lsp_rename_and_fixes_are_versioned() {
     use specforge_lsp::ClientSupport;
     use tower_lsp::lsp_types::{
@@ -538,10 +496,7 @@ fn the_lsp_rename_and_fixes_are_versioned() {
 }
 
 /// A rename of a fact, a collected entity, is refused for the editor too (ADR 0327): the editor gets why, once.
-#[spec(
-    behavior = "rename_entity_id",
-    verify = "a rename of a collected entity, or of one a fact names with no place, is refused with why"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn rename_of_a_collected_entity_is_refused_with_why() {
     use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, stored};
     let dir = tempfile::TempDir::new().unwrap();
@@ -578,10 +533,7 @@ fn rename_of_a_collected_entity_is_refused_with_why() {
 
 /// An editor rename of an entity a collected fact names edits the source file where the fact's collector read the
 /// name, placed in the disk text (ADR 0346 D7).
-#[spec(
-    behavior = "rename_entity_id",
-    verify = "an editor rename of an entity a fact names edits the source file where the fact read it"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn rename_of_an_entity_a_fact_names_edits_its_source_file() {
     let served = fact_named();
     let uri = served.uri("truths.spec");
@@ -632,10 +584,7 @@ pub(crate) fn apply_to_buffers(
 /// (ADR 0289): the fact the first moved names the entity where it went, in the source file the first rewrote in the
 /// editor's buffer. Renames compose (ADR 0346 D7): the second edits that buffer where the first left the name, and,
 /// saved, one change lands, the store's stale line from the name collected to the name written last.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "a second editor rename before the first lands reads the facts as the first leaves them"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_second_rename_before_the_first_lands_sees_the_fact_it_moved() {
     use specforge_project::harness::{Ledger, Line};
     use tower_lsp::lsp_types::{FileChangeType, FileEvent};

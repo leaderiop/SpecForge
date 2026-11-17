@@ -196,10 +196,7 @@ mod tests {
         assert_eq!(crate_name("@x/4th-kind"), "ext-4th-kind");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "scaffold_wasm_extension_project",
-        verify = "the scaffold's extension name is a package name"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-133")]
     fn the_scaffolds_extension_name_is_a_package_name() {
         for ok in ["@ok/name", "unscoped"] {
             assert!(PackageName::parse(ok).is_ok(), "{ok}");
@@ -209,10 +206,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "scaffold_wasm_extension_project",
-        verify = "the scaffold names the SDK at the version this specforge is built with"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-133")]
     fn the_scaffold_names_the_sdk_at_this_builds_version() {
         let dir = tempfile::tempdir().unwrap();
         let project = dir.path().join("my-ext");

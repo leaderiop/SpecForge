@@ -64,10 +64,7 @@ fn parse_names_each_source() {
 /// What `parse` makes of every input of the table below: a
 /// package reference, or the code of the refusal. Nothing reaches a
 /// registry that is not a scoped package name with a requirement.
-#[specforge_test(
-    behavior = "parse_extension_specifier",
-    verify = "each add argument reads as one extension source"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn parse_reads_each_input() {
     fn registry(reference: &str) -> Result<Source, String> {
         Ok(Source::Registry(PackageRef::parse(reference).unwrap()))
@@ -129,10 +126,7 @@ fn parse_reads_each_input() {
     }
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "the specifiers of an add are read in order, the first unreadable one refused and named among several"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn each_string_is_read_in_order_and_refused_named_among_several() {
     let dir = Path::new("/p");
     let read = Names::read(
@@ -320,10 +314,7 @@ fn a_local_file_outside_the_containment_is_refused_at_the_read() {
     assert_eq!(error.code, crate::OUTSIDE_ROOT);
 }
 
-#[specforge_test(
-    behavior = "parse_extension_specifier",
-    verify = "E054's suggestion names only the forms add installs, and E064 suggests them"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn e054_suggests_only_the_forms_add_installs() {
     for refused in [
         parse("").unwrap_err(),

@@ -62,10 +62,7 @@ fn compiled(root: &Path) -> (Vec<String>, Vec<String>) {
     (codes, e070)
 }
 
-#[specforge_test(
-    invariant = "peer_dependency_satisfaction",
-    verify = "the lock plan judges a locked extension by what its module declares, and one whose lock entry records another version or other peers is no member, as the load refuses it"
-)]
+#[specforge_test(requirement = "INVARIANT-110")]
 fn the_lock_plan_judges_a_locked_module_by_what_it_declares() {
     // Forward: the entry records a peer the module never declared.
     let dir = project(&["@probe/base"]);
@@ -117,10 +114,7 @@ fn the_lock_plan_judges_a_locked_module_by_what_it_declares() {
     assert_eq!(error.error.code, "E027", "{error:?}");
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "an add of an installed extension whose lock entry records other than its module declares rewrites the entry from the module"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_add_rewrites_a_lock_entry_its_module_does_not_declare() {
     let dir = project(&[]);
     let file = dir.path().join("base.wasm");

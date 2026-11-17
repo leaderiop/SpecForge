@@ -148,10 +148,7 @@ fn cycle(code: &str) -> Value {
     })
 }
 
-#[spec(
-    behavior = "parse_validation_rule_pattern",
-    verify = "a cycle_detection rule without an edge_type produces W112 and is not registered"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_cycle_rule_without_an_edge_type_is_w112() {
     let diagnostics = check(
         NODES,
@@ -177,10 +174,7 @@ fn a_cycle_rule_without_an_edge_type_is_w112() {
     );
 }
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "a cycle_detection rule without a target_kind reports every entity on a cycle of its edge type"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_cycle_rule_without_a_target_kind_checks_every_entity() {
     let diagnostics = check(
         NODES,
@@ -196,10 +190,7 @@ fn a_cycle_rule_without_a_target_kind_checks_every_entity() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "a rule whose edge type no loaded extension declares reports nothing"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn an_edge_rule_naming_an_undeclared_edge_type_reports_nothing() {
     let diagnostics = check(
         NODES,
@@ -215,10 +206,8 @@ fn an_edge_rule_naming_an_undeclared_edge_type_reports_nothing() {
     assert_eq!(naming(&diagnostics, "W021", "'X005'").len(), 1);
 }
 
-#[spec(
-    behavior = "registry_build_declaration_consistency",
-    verify = "a rule's edge type that neither its extension nor its peers declare produces W021"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-029")]
 fn a_cycle_rule_naming_an_undeclared_edge_type_is_inert_and_w021() {
     let diagnostics = check(
         NODES,
@@ -238,10 +227,7 @@ fn a_cycle_rule_naming_an_undeclared_edge_type_is_inert_and_w021() {
     );
 }
 
-#[spec(
-    behavior = "register_custom_validation_patterns",
-    verify = "a custom rule whose function fails on entities produces one W148 per check naming how many were not checked"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_custom_function_failing_on_an_entity_is_w148() {
     let diagnostics = check(
         NODES,
@@ -362,10 +348,7 @@ fn an_untargeted_obligation_rule_obliges_every_kind_after_the_move() {
     assert!(!alpha.owes_none);
 }
 
-#[spec(
-    behavior = "parse_validation_rule_pattern",
-    verify = "a conditional_field_required constraint of another kind produces W147 and is read as when_field_equals"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_conditional_rule_with_a_matches_constraint_is_w147_and_reads_pattern_as_a_field() {
     let diagnostics = check(
         "node alpha \"Alpha\" {\n  status \"deferred\"\n}\n\n\

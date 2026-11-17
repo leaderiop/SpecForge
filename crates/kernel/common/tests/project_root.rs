@@ -24,10 +24,7 @@ fn project_above(dir: &Path) -> bool {
     canonical(dir).ancestors().any(ProjectRoot::is_root)
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "specforge.json found in the path's own directory"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn found_in_its_own_directory() {
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("specforge.json"), "{}").unwrap();
@@ -39,10 +36,7 @@ fn found_in_its_own_directory() {
     assert_eq!(root.config_file(), dir.path().join("specforge.json"));
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "specforge.json found in an ancestor directory"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn found_in_an_ancestor() {
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("specforge.json"), "{}").unwrap();
@@ -55,10 +49,7 @@ fn found_in_an_ancestor() {
     assert_eq!(ProjectRoot::enclosing(&child), Some(root));
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "closest directory wins over ancestor directory"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn the_closest_wins() {
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("specforge.json"), "{}").unwrap();
@@ -70,10 +61,7 @@ fn the_closest_wins() {
     assert_eq!(root.canonical(), canonical(&child));
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "a specforge.spec file marks no project"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_specforge_spec_file_marks_no_project() {
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("specforge.json"), "{}").unwrap();
@@ -87,10 +75,7 @@ fn a_specforge_spec_file_marks_no_project() {
     assert!(root.is_configured());
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "a path with no specforge.json at or above it is a loose root, its own directory"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_path_in_no_project_is_its_own_loose_root() {
     let dir = TempDir::new().unwrap();
     let loose = dir.path().join("loose");
@@ -107,10 +92,7 @@ fn a_path_in_no_project_is_its_own_loose_root() {
     assert_eq!(ProjectRoot::enclosing(&loose), None);
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "a file path is in the project of its directory"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_file_path_is_in_its_directorys_project() {
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("specforge.json"), "{}").unwrap();
@@ -131,10 +113,7 @@ fn a_file_path_is_in_its_directorys_project() {
     }
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "a path that does not exist is refused as file_not_found"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_missing_path_is_no_such_path() {
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("specforge.json"), "{}").unwrap();
@@ -156,10 +135,7 @@ fn a_missing_path_is_no_such_path() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "symlinks are resolved before path comparison"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn resolves_symlinks() {
     let dir = TempDir::new().unwrap();
     let real = dir.path().join("real");
@@ -174,10 +150,7 @@ fn resolves_symlinks() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "the root is spelled as the path spells it"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn the_root_keeps_the_paths_spelling() {
     let dir = TempDir::new().unwrap();
     let real = canonical(dir.path()).join("real");
@@ -205,10 +178,7 @@ fn the_root_keeps_the_paths_spelling() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "circular symlink chain does not cause infinite loop"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn handles_circular_symlinks() {
     let dir = TempDir::new().unwrap();
     let a = dir.path().join("a");
@@ -228,10 +198,7 @@ fn handles_circular_symlinks() {
     assert!(ProjectRoot::of(&c).is_err());
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "directory traversal completes in under 100ms for 20-level deep hierarchy"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn performance() {
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("specforge.json"), "{}").unwrap();
@@ -254,10 +221,7 @@ fn performance() {
 }
 
 /// Every clause of the `locate_project_root` contract, on one directory tree.
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "Locate the Project a Path Is In: project root location holds — filesystem_available, closest_wins_enforced, one_marker, loose_root, missing_path_refused, symlinks_resolved, every_surface_agrees, one_option"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn contract() {
     // filesystem_available: a real directory tree to walk.
     let dir = TempDir::new().unwrap();

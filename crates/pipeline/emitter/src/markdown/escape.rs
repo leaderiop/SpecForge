@@ -113,10 +113,7 @@ fn escape_line(line: &str, out: &mut String) {
 mod tests {
     use super::*;
 
-    #[specforge_test_macros::test(
-        behavior = "export_review_document",
-        verify = "prose renders as written, raw HTML escaped outside code spans"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-112")]
     fn prose_renders_as_written_raw_html_escaped_outside_code_spans() {
         assert_eq!(
             inline("It MUST return Result<Task, E>."),

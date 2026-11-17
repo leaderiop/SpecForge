@@ -11,10 +11,7 @@ use specforge_common::{
 };
 use specforge_test::prelude::*;
 
-#[specforge_test(
-    invariant = "diagnostic_code_uniqueness",
-    verify = "a host diagnostic's severity is its code's catalogued level"
-)]
+#[specforge_test(requirement = "INVARIANT-017")]
 fn diagnostic_new_takes_the_catalogued_level() {
     for (code, severity) in [
         (codes::W112, Severity::Warning),
@@ -39,10 +36,7 @@ fn diagnostic_new_takes_the_catalogued_level() {
 /// gives that code, read back from the catalog and not from the constant.
 /// (A struct literal that chose another severity no longer compiles: see the
 /// `compile_fail` example on [`Diagnostic`].)
-#[specforge_test(
-    invariant = "diagnostic_code_uniqueness",
-    verify = "a host diagnostic's severity is its code's catalogued level"
-)]
+#[specforge_test(requirement = "INVARIANT-017")]
 fn diagnostic_severity_comes_from_the_code() {
     use specforge_diagnostics::Level;
     for code in [
@@ -102,10 +96,8 @@ fn at(line: usize) -> SourceSpan {
     }
 }
 
-#[specforge_test(
-    behavior = "present_diagnostics_as_json",
-    verify = "a diagnostic without a span takes the span of the first entity its data names that is known; one with a span keeps it"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn placed_at_subject_takes_the_first_known_subjects_span() {
     let known = |id: &str| match id {
         "b" => Some(at(2)),
@@ -146,10 +138,7 @@ fn placed_at_subject_takes_the_first_known_subjects_span() {
     );
 }
 
-#[specforge_test(
-    invariant = "diagnostic_code_uniqueness",
-    verify = "a diagnostic of a machine code is marked machine, and serializes the mark only when set"
-)]
+#[specforge_test(requirement = "INVARIANT-017")]
 fn a_machine_code_builds_a_machine_diagnostic() {
     let machine = Diagnostic::new(codes::I206, "2 value checks not run (links 2)");
     assert!(machine.machine, "I206 is catalogued machine");

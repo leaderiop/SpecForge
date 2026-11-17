@@ -44,10 +44,7 @@ fn link(target: &Path, name: &Path) {
     std::os::unix::fs::symlink(target, name).unwrap();
 }
 
-#[specforge_test(
-    behavior = "discover_inference_sources",
-    verify = "a file two source roots reach is one source"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn a_file_two_source_roots_reach_is_one_source() {
     let project = project();
     manifest(
@@ -59,10 +56,7 @@ fn a_file_two_source_roots_reach_is_one_source() {
     assert_eq!(progress.unanalyzed, ["src/lib.rs"]);
 }
 
-#[specforge_test(
-    behavior = "discover_inference_sources",
-    verify = "no inference source lands outside the project root"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn a_source_root_outside_the_project_adds_no_source() {
     let project = project();
     let outside = outside(&project);
@@ -80,10 +74,7 @@ fn a_source_root_outside_the_project_adds_no_source() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "discover_inference_sources",
-    verify = "an indexed path outside the project root is deleted, never read"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn an_indexed_path_outside_the_project_is_deleted_and_never_read() {
     let project = project();
     let outside = outside(&project);
@@ -112,10 +103,8 @@ fn an_indexed_path_outside_the_project_is_deleted_and_never_read() {
     assert!(diagnostics.is_empty(), "{diagnostics:?}");
 }
 
-#[specforge_test(
-    behavior = "read_a_recorded_source_path",
-    verify = "an index entry recorded by its absolute path under the project root is that file"
-)]
+#[specforge_test(requirement = "FEATURE-052")]
+#[specforge_test(requirement = "FEATURE-054")]
 fn an_index_entry_recorded_absolute_under_the_root_is_its_file() {
     let project = project();
     write(project.root(), "src/net/wire.rs", "pub fn wire() {}\n");
@@ -141,10 +130,8 @@ fn an_index_entry_recorded_absolute_under_the_root_is_its_file() {
     );
 }
 
-#[specforge_test(
-    behavior = "read_a_recorded_source_path",
-    verify = "a source root recorded by its absolute path under the project root is walked"
-)]
+#[specforge_test(requirement = "FEATURE-052")]
+#[specforge_test(requirement = "FEATURE-054")]
 fn a_source_root_recorded_absolute_under_the_root_is_walked() {
     let project = project();
     let root = project.root().join("src");
@@ -157,10 +144,7 @@ fn a_source_root_recorded_absolute_under_the_root_is_walked() {
     assert_eq!(progress.unanalyzed, ["src/lib.rs"]);
 }
 
-#[specforge_test(
-    behavior = "compute_inference_summary",
-    verify = "files_analyzed counts the inference sources the index records"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn files_analyzed_counts_the_indexed_inference_sources() {
     let project = project();
     manifest(
@@ -184,10 +168,7 @@ fn files_analyzed_counts_the_indexed_inference_sources() {
     assert_eq!(twice.summary.files_analyzed, 1, "{twice:?}");
 }
 
-#[specforge_test(
-    behavior = "discover_inference_sources",
-    verify = "a source is a file an item fact locates"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn a_source_is_a_file_an_item_fact_locates() {
     let mut project = project();
     // A file no item fact locates is no source; a file only a fact locates is one.
@@ -199,10 +180,7 @@ fn a_source_is_a_file_an_item_fact_locates() {
     assert_eq!(progress.unanalyzed, ["src/gen/made.rs", "src/lib.rs"]);
 }
 
-#[specforge_test(
-    behavior = "discover_inference_sources",
-    verify = "with no item facts, progress counts no source file"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn with_no_item_facts_progress_counts_no_source_file() {
     let project = Assembled::new().declarations(item_declarations());
     write(project.root(), "src/lib.rs", "pub fn inside() {}\n");

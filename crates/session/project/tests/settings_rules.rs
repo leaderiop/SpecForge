@@ -41,10 +41,7 @@ fn reported(settings: Value) -> Vec<(String, Severity)> {
     found
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a code gated by a false bool setting is reported by no source"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_gated_code_is_reported_by_no_source_while_its_setting_is_false() {
     // W901 (a pass) and W903 (a declarative rule) are gone with `flag` false (its default) and back with true.
     let off = reported(json!({}));
@@ -62,10 +59,7 @@ fn a_gated_code_is_reported_by_no_source_while_its_setting_is_false() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a preset raises a code upward only and the surface's strict applies after"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_preset_raises_a_code_and_strict_applies_after() {
     let strict = reported(json!({"@t/s": {"profile": "strict"}}));
     assert!(

@@ -56,10 +56,7 @@ fn write_config_with_providers(dir: &std::path::Path, providers: &[serde_json::V
 // Behavior: remove_extension
 // ===============================================================
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "delegates to uninstall_wasm_extension for lifecycle cleanup"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn remove_delegates_to_uninstall() {
     let dir = TestProject::new().without_config();
     // Create a lock file with one extension
@@ -103,10 +100,7 @@ fn remove_delegates_to_uninstall() {
     );
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "extension is removed from extensions list"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn remove_updates_lock_file() {
     let dir = TestProject::new().without_config();
     write_lock_file(
@@ -138,10 +132,7 @@ fn remove_updates_lock_file() {
     assert_eq!(entries[0]["name"], "@specforge/governance");
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = ".spec files are not modified by removal"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn remove_does_not_modify_spec_files() {
     let dir = TestProject::new().without_config();
     // Create a spec file
@@ -177,10 +168,7 @@ fn remove_does_not_modify_spec_files() {
 // Behavior: list_installed_extensions
 // ===============================================================
 
-#[specforge_test(
-    behavior = "list_installed_extensions",
-    verify = "output order is deterministic"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn extensions_lists_alphabetically() {
     let dir = TestProject::new().without_config();
     // Write entries in reverse alphabetical order
@@ -248,10 +236,7 @@ fn extensions_json_format() {
     assert_eq!(extensions[1]["source"], "registry");
 }
 
-#[specforge_test(
-    behavior = "list_installed_extensions",
-    verify = "list shows all installed extensions"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn extensions_no_lock_file() {
     let list = |dir: &TestProject| {
         let output = Cli::on(dir)
@@ -293,10 +278,7 @@ fn extensions_no_lock_file() {
     );
 }
 
-#[specforge_test(
-    behavior = "list_installed_extensions",
-    verify = "List Installed Extensions: extension listing holds — kind_registry_ready, all_extensions_listed, entity_counts_included, output_deterministic"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn extensions_contract() {
     let dir = TestProject::new().without_config();
     // Precondition: lock file with known extensions
@@ -339,10 +321,7 @@ fn extensions_contract() {
 // a provider. A scheme can't be shown registered, or with kinds, until an
 // extension contributes providers (05·R4).
 
-#[specforge_test(
-    behavior = "list_configured_providers",
-    verify = "list shows all configured providers"
-)]
+#[specforge_test(requirement = "FEATURE-107")]
 fn providers_lists_alias_extension_schemes() {
     let dir = TestProject::new().without_config();
     write_config_with_providers(
@@ -368,10 +347,7 @@ fn providers_lists_alias_extension_schemes() {
     assert!(stderr.contains("warning[W118]"), "{stderr}");
 }
 
-#[specforge_test(
-    behavior = "list_configured_providers",
-    verify = "multiple aliases shown separately"
-)]
+#[specforge_test(requirement = "FEATURE-107")]
 fn providers_multiple_aliases() {
     let dir = TestProject::new().without_config();
     // Two instances of one provider, each with its own scheme (D3-c).
@@ -441,10 +417,7 @@ fn providers_json(dir: &TestProject) -> (String, serde_json::Value) {
     (stdout, json)
 }
 
-#[specforge_test(
-    behavior = "list_configured_providers",
-    verify = "output order is deterministic"
-)]
+#[specforge_test(requirement = "FEATURE-107")]
 fn providers_output_order_deterministic() {
     let dir = TestProject::new().without_config();
     write_two_providers(dir.root());
@@ -750,10 +723,7 @@ fn extension<'a>(report: &'a serde_json::Value, name: &str) -> &'a serde_json::V
         .unwrap_or_else(|| panic!("{name} not listed: {report}"))
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor lists all installed extensions with enhancement counts"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_lists_enabled_builtins_and_lock_entries_with_enhancement_counts() {
     let dir = builtin_project(None);
     // One installed extension alongside the builtins.
@@ -799,10 +769,7 @@ fn doctor_lists_enabled_builtins_and_lock_entries_with_enhancement_counts() {
     assert!(line("test-ext").contains("1.2.3"), "{human}");
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor lists all enhancements grouped by entity kind"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_groups_enhancements_by_target_entity_kind() {
     let dir = builtin_project(None);
 
@@ -857,10 +824,7 @@ fn doctor_fails_on_a_shadowed_keyword_without_calling_it_a_conflict() {
     assert!(human.contains("Conflicts:\n  none"), "{human}");
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor detects shadowed grammar-level constructs"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_reports_a_keyword_shadowing_an_extension_entity_kind() {
     let dir = builtin_project(Some(SHADOWING_ID));
 
@@ -890,10 +854,7 @@ fn doctor_reports_a_keyword_shadowing_an_extension_entity_kind() {
     assert!(human[section..].contains("'behavior'"), "{human}");
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor --format json produces valid JSON output"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_json_carries_every_report_section() {
     let dir = builtin_project(Some(SHADOWING_ID));
 
@@ -914,10 +875,7 @@ fn doctor_json_carries_every_report_section() {
     }
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_contract() {
     // Requires: builtins registered (their enhancements reach the report),
     // and the filesystem holds the lock file and an installed binary.
@@ -988,10 +946,7 @@ fn doctor_contract() {
 // Behavior: add_extension (specifier validation)
 // ===============================================================
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "add unresolvable extension rejects with diagnostic"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn add_validates_registry_specifier() {
     let dir = TestProject::new().without_config();
     // A registry nothing listens on (port 9, discard): the connection is
@@ -1016,10 +971,7 @@ fn add_validates_registry_specifier() {
     assert!(json["code"].as_str().is_some());
 }
 
-#[specforge_test(
-    behavior = "parse_extension_specifier",
-    verify = "invalid specifier produces ExtensionError"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn add_rejects_invalid_specifier() {
     let dir = TestProject::new().without_config();
     let config = r#"{"name":"t","version":"0.1.0","extensions":[]}"#;
@@ -1069,10 +1021,7 @@ fn add_rejects_invalid_specifier() {
 /// Which inputs `specforge add` takes for a registry package:
 /// E063 is the registry port reached with no registry configured, E054 and
 /// R-RES-003 are the argument refused before any registry is asked.
-#[specforge_test(
-    behavior = "parse_extension_specifier",
-    verify = "each add argument reads as one extension source"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn add_refuses_what_is_not_a_package_before_the_registry() {
     let dir = TestProject::new().without_config();
     let config = r#"{"name":"t","version":"0.1.0","extensions":[]}"#;
@@ -1126,10 +1075,7 @@ fn add_refuses_what_is_not_a_package_before_the_registry() {
 /// nothing deleted, even when a lock entry carries that name. The module is
 /// the greet blob with its name (`@sdk/greet`, 10 bytes) replaced by a
 /// path of the same length.
-#[specforge_test(
-    behavior = "install_wasm_extension",
-    verify = "an extension is installed under the extensions directory of its project, by its package name"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn a_module_whose_declared_name_is_not_a_package_name_is_refused() {
     let root = scratch();
     let project = root.root().join("a/b/proj");
@@ -1207,10 +1153,7 @@ fn a_module_whose_declared_name_is_not_a_package_name_is_refused() {
     assert!(outside.is_dir());
 }
 
-#[specforge_test(
-    behavior = "parse_extension_specifier",
-    verify = "./path parsed as local source"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn add_validates_local_specifier() {
     let dir = TestProject::new().without_config();
     fs::write(
@@ -1283,10 +1226,7 @@ fn remove_extension_keywords_produce_e024() {
     );
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "Remove Extension: extension removal holds — extension_installed, filesystem_available, extension_entry_removed, spec_files_unchanged, extension_removed_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn remove_extension_contract() {
     let dir = TestProject::new().without_config();
     // Precondition: extension is installed
@@ -1365,10 +1305,7 @@ fn enabled_extensions(dir: &std::path::Path) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "removing an installed extension drops its specforge.json entry"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn remove_installed_extension_drops_its_config_entry() {
     let dir = TestProject::new().without_config();
     project_with_installed(dir.root(), &[("@acme/base", &[])]);
@@ -1382,10 +1319,7 @@ fn remove_installed_extension_drops_its_config_entry() {
     assert!(!dir.root().join(".specforge/extensions/@acme/base").exists());
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "specforge remove with no lock file reports error"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn remove_no_lock_file() {
     let dir = TestProject::new().without_config();
     Cli::on(&dir)
@@ -1395,10 +1329,7 @@ fn remove_no_lock_file() {
         .stderr(predicates::str::contains("no lock file found"));
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "specforge remove for non-existent extension reports error"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn remove_nonexistent_extension() {
     let dir = TestProject::new().without_config();
     write_lock_file(dir.root(), &[("@specforge/software", "1.0.0", "registry")]);
@@ -1432,10 +1363,7 @@ fn read_config(dir: &std::path::Path) -> serde_json::Value {
     serde_json::from_str(&fs::read_to_string(dir.join("specforge.json")).unwrap()).unwrap()
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "add extension appends to extensions list"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn add_builtin_enables_it_in_specforge_json() {
     let dir = TestProject::new().without_config();
     write_config_with_extensions(dir.root(), &["@specforge/software"]);
@@ -1460,10 +1388,7 @@ fn add_builtin_enables_it_in_specforge_json() {
     );
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "add enables a builtin's required peers but not its optional ones"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn add_enables_required_peers_only() {
     // software's peer on product is optional: software alone is enabled.
     let dir = TestProject::new().without_config();
@@ -1497,10 +1422,7 @@ fn add_enables_required_peers_only() {
     );
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "add duplicate extension is a no-op with info message"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn add_enabled_builtin_is_a_no_op() {
     let dir = TestProject::new().without_config();
     write_config_with_extensions(dir.root(), &["@specforge/software"]);
@@ -1517,10 +1439,7 @@ fn add_enabled_builtin_is_a_no_op() {
     );
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "add extension with no specforge.json rejects with error and exit code 1"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn add_builtin_without_project_fails() {
     let dir = TestProject::new().without_config();
     Cli::on(&dir)
@@ -1530,10 +1449,7 @@ fn add_builtin_without_project_fails() {
         .stderr(predicates::str::contains("specforge init"));
 }
 
-#[specforge_test(
-    behavior = "list_installed_extensions",
-    verify = "list shows all installed extensions"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn extensions_lists_enabled_builtins() {
     let dir = TestProject::new().without_config();
     write_config_with_extensions(dir.root(), &["@specforge/software", "@specforge/formal"]);
@@ -1564,10 +1480,7 @@ fn extensions_lists_enabled_builtins() {
     );
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "extension is removed from extensions list"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn remove_builtin_disables_it() {
     let dir = TestProject::new().without_config();
     write_config_with_extensions(dir.root(), &["@specforge/software", "@specforge/product"]);
@@ -1588,10 +1501,7 @@ fn remove_builtin_disables_it() {
         .stderr(predicates::str::contains("is not enabled"));
 }
 
-#[specforge_test(
-    behavior = "list_installed_extensions",
-    verify = "list includes entity counts and entity types"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn extensions_list_each_extensions_kinds_and_entities() {
     let dir = TestProject::new().without_config();
     fs::write(
@@ -1657,10 +1567,7 @@ fn extensions_list_each_extensions_kinds_and_entities() {
 // project view
 // ===============================================================
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "a removal with an unreadable specforge.json is config_invalid and changes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn removing_a_builtin_with_an_unreadable_config_is_config_invalid() {
     let dir = TestProject::new().without_config();
     let config = r#"{ "extensions": ["@specforge/product",  }"#;
@@ -1682,10 +1589,8 @@ fn removing_a_builtin_with_an_unreadable_config_is_config_invalid() {
 
 // One refusal for an unusable specforge.json: add, update and remove all
 // answer config_invalid with the reason E069 gives, and change nothing.
-#[specforge_test(
-    behavior = "management_operations_over_the_project_view",
-    verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
+#[specforge_test(requirement = "FEATURE-070")]
 fn add_update_and_remove_refuse_an_unusable_config_alike() {
     for config in UNUSABLE_CONFIGS {
         let dir = TestProject::new().without_config();
@@ -1741,10 +1646,7 @@ fn add_update_and_remove_refuse_an_unusable_config_alike() {
     }
 }
 
-#[specforge_test(
-    behavior = "list_installed_extensions",
-    verify = "list includes entity counts and entity types"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_legacy_entry_that_did_not_load_is_listed_with_its_written_version() {
     let dir = TestProject::new().without_config();
     write_config_with_extensions(dir.root(), &["@specforge/product", "@acme/missing@1.2.0"]);
@@ -1768,10 +1670,7 @@ fn a_legacy_entry_that_did_not_load_is_listed_with_its_written_version() {
 
 // A directory without specforge.json is a valid
 // default project, but doctor says so, as a warning.
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor in a directory without specforge.json reports config_missing as a warning"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_without_specforge_json_says_so() {
     let dir = TestProject::new().without_config();
     let (report, code) = doctor_json(&dir);
@@ -1802,10 +1701,7 @@ fn doctor_without_specforge_json_says_so() {
 
 // A specforge.lock that is there and cannot be read: the environment read
 // it once, and doctor reports it as an error finding naming E033.
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "a lock file that cannot be read is an error finding naming E033"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_reports_a_corrupt_lock_as_an_error_finding() {
     let dir = TestProject::new().without_config();
     fs::write(
@@ -1854,10 +1750,7 @@ const UNUSABLE_CONFIGS: [&str; 3] = [
 // A specforge.json that is there and can't be used fails
 // check with E069 (an error), then an I002 that names the file. It used to
 // compile silently as "no extensions configured".
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "a specforge.json that is there and can't be used produces E069 first and an I002 that names it"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn an_unusable_config_fails_check_with_e069() {
     for config in UNUSABLE_CONFIGS {
         let dir = TestProject::new().without_config();
@@ -1928,10 +1821,7 @@ fn empty_project() -> (TestProject, TempDir, String) {
     (dir, blobs, wasm)
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "add --format json lists the files it wrote in files_written"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn add_json_lists_the_files_it_wrote() {
     let (dir, _blobs, wasm) = empty_project();
     let root = dir.root();
@@ -1963,10 +1853,7 @@ fn add_json_lists_the_files_it_wrote() {
     assert_eq!(files_written(&enabled), Vec::<String>::new());
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "specforge add with several specifiers prints one entry per specifier and writes them as one change, or nothing"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn add_with_several_specifiers_is_one_change() {
     let (dir, _blobs, wasm) = empty_project();
     let root = dir.root();
@@ -2034,10 +1921,7 @@ fn add_with_several_specifiers_is_one_change() {
     assert!(!output.status.success(), "{output:?}");
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "remove --format json lists the files it wrote in files_written"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn remove_json_lists_the_files_it_wrote() {
     let (dir, _blobs, wasm) = empty_project();
     let root = dir.root();
@@ -2090,10 +1974,7 @@ fn findings_about<'a>(report: &'a serde_json::Value, about: &str) -> Vec<&'a ser
         .collect()
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor states each finding once, saying what it is about, and its verdict; the CLI and MCP return one report"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_json_is_one_report_on_both_surfaces() {
     let dir = TestProject::new().without_config();
     write_config_with_extensions(dir.root(), &["@specforge/software", "@acme/missing"]);
@@ -2135,10 +2016,7 @@ fn doctor_json_is_one_report_on_both_surfaces() {
 // Behavior: add_extension_to_existing_project
 // ===============================================================
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a local crate directory installs the component its crate builds"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn add_of_a_crate_directory_installs_its_component() {
     let dir = TestProject::new().without_config();
     Cli::on(&dir)

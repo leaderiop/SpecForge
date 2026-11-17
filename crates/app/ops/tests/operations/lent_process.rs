@@ -252,10 +252,7 @@ fn collector_session(argv: &[&str]) -> PortSession {
     PortSession::effectful(EXT, Operation::Collect, Some(call), Limits::CEILING)
 }
 
-#[specforge_test_macros::test(
-    behavior = "approve_capability",
-    verify = "a guest never runs its collector's command with a placeholder filled by itself"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn a_guest_never_fills_its_collector_commands_placeholders() {
     for (declared, asked) in [
         (

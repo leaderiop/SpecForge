@@ -42,10 +42,7 @@ mod tests {
         slug: String,
     }
 
-    #[specforge_test(
-        behavior = "slug_obligation_text",
-        verify = "slug matches the shared test vectors"
-    )]
+    #[specforge_test(requirement = "FEATURE-128")]
     fn slug_matches_the_shared_test_vectors() {
         let cases: Vec<Case> =
             serde_json::from_str(include_str!("../tests/fixtures/slug-cases.json")).unwrap();

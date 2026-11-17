@@ -67,10 +67,7 @@ fn as_read(args: &Map<String, Value>) -> Value {
     Value::Object(read)
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "the host and the SDK normalize a command's args by the same rule"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn the_host_and_the_sdk_normalize_args_alike() {
     let c = extension();
     let declared = c

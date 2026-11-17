@@ -4,10 +4,7 @@ use crate::navigate::{SOFTWARE, compile};
 use specforge_ops::read::navigate::outline;
 use specforge_test::prelude::*;
 
-#[specforge_test(
-    behavior = "outline_view",
-    verify = "an outline method's signature is the method as written, its parameters' annotations included"
-)]
+#[specforge_test(requirement = "FEATURE-078")]
 fn an_outline_signature_carries_a_parameters_annotations() {
     let p = compile(
         SOFTWARE,

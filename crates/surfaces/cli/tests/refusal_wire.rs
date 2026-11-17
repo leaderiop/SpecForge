@@ -160,10 +160,7 @@ fn printed_mcp(project: &TestProject, calls: &[(&str, serde_json::Value)]) -> St
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "report_command_outcome",
-    verify = "a project file a command could not write, read or found changed is file_unwritable, file_unreadable or file_changed on every command"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-006")]
 fn project_change_refusals_print_as_pinned() {
     use std::fs;
     let scratch = tempfile::TempDir::new().unwrap();
@@ -275,10 +272,7 @@ fn project_change_refusals_print_as_pinned() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "read_lock_file",
-    verify = "every surface refuses an unreadable lock as pinned: one code and one remedy on the CLI and over MCP"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-138")]
 fn an_unreadable_lock_refusals_print_as_pinned() {
     let p = TestProject::new()
         .enabling(&["@sdk/greet"])

@@ -362,10 +362,7 @@ mod tests {
     use proptest::prelude::*;
     use specforge_test_macros::test as spec;
 
-    #[spec(
-        behavior = "declare_judged_rule",
-        verify = "a selector prints back to its canonical text"
-    )]
+    #[spec(requirement = "FEATURE-058")]
     fn spaces_do_not_change_the_canonical_text() {
         let a = Selector::parse("self . phase < task . plan").unwrap();
         let b = Selector::parse("self.phase<task.plan").unwrap();
@@ -395,10 +392,7 @@ mod tests {
         );
     }
 
-    #[spec(
-        behavior = "declare_judged_rule",
-        verify = "a selector's kind filter prints its values sorted and parses back"
-    )]
+    #[spec(requirement = "FEATURE-058")]
     fn a_kind_filter_prints_its_values_sorted_and_parses_back() {
         let selector = Selector::parse(
             "self.phase < decision [ origin = summary | context | context ] .phase",
@@ -492,10 +486,7 @@ mod tests {
     }
 
     proptest! {
-        #[spec(
-            behavior = "declare_judged_rule",
-            verify = "a selector prints back to its canonical text"
-        )]
+        #[spec(requirement = "FEATURE-058")]
         fn print_then_parse_is_the_identity(selector in selector()) {
             prop_assert_eq!(Selector::parse(&selector.to_string()), Ok(selector));
         }

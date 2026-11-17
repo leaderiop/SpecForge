@@ -19,10 +19,7 @@ pub(crate) fn git_repo(root: &Path) {
     specforge_git::testing::Repo::init(root).commit_all("c");
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a project that declares no history reads no git and watches no ref and no ledger"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn an_unflagged_project_records_no_git_ref_and_no_ledger_as_a_check_input() {
     let dir = TestProject::new().files(&[("a.spec", "term alpha_one \"A\" {}\n")]);
     git_repo(dir.root());
@@ -56,10 +53,7 @@ fn compiled_with(fake: &Arc<FakeGit>, project: &TestProject) -> Vec<specforge_co
         .diagnostics()
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "no history is I204 only when history is declared"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn no_history_is_i204_only_when_history_is_declared() {
     let flagged = computed::project(DECISION);
     let outside = Arc::new(FakeGit::none());
@@ -91,10 +85,7 @@ fn no_history_is_i204_only_when_history_is_declared() {
     assert_eq!(silent.questions(), 0);
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "an unreadable baseline is W164 and nothing is judged"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn an_unreadable_baseline_is_w164() {
     let project = computed::project(DECISION);
     let mut missing = FakeGit::none();
@@ -112,10 +103,7 @@ fn an_unreadable_baseline_is_w164() {
     assert!(computed::with_code(&found, "I204").is_empty());
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "the baseline is cached by commit, environment and the journal answers its checks read"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn the_baseline_is_cached_by_commit_and_environment() {
     let project = computed::project(DECISION);
     let fake = Arc::new(FakeGit::repo(
@@ -210,10 +198,7 @@ fn decision(origin: &str) -> String {
     at(&format!("decision D1 \"D\" {{\n  phase 03\n{origin}}}\n"))
 }
 
-#[specforge_test(
-    behavior = "judge_field_history",
-    verify = "an immutable value that differs from its baseline is E084"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn an_immutable_value_that_differs_from_head_is_e084() {
     let head = decision("  origin context\n");
     let same = judged(&head, &head, None);
@@ -225,10 +210,7 @@ fn an_immutable_value_that_differs_from_head_is_e084() {
     assert!(e084[0].message.contains("1a2b3c4"), "{e084:?}");
 }
 
-#[specforge_test(
-    behavior = "judge_field_history",
-    verify = "an immutable field unset at the baseline may be set once"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn an_immutable_field_unset_at_head_may_be_set_once() {
     let unset = decision("");
     let set = decision("  origin context\n");
@@ -252,10 +234,7 @@ fn discussion(entries: &[&str]) -> String {
     ))
 }
 
-#[specforge_test(
-    behavior = "judge_field_history",
-    verify = "an append-only list must extend its baseline"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn an_append_only_list_must_extend_its_baseline() {
     let head = discussion(&["one", "two", "three"]);
     let longer = judged(&head, &discussion(&["one", "two", "three", "four"]), None);
@@ -273,10 +252,7 @@ fn an_append_only_list_must_extend_its_baseline() {
     assert_eq!(computed::with_code(&edited, "E085").len(), 1, "{edited:?}");
 }
 
-#[specforge_test(
-    behavior = "judge_field_history",
-    verify = "an append-only kind keeps its entities"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn an_append_only_kinds_entity_stays() {
     let deviation =
         |id: &str, note: &str| format!("deviation {id} \"{id}\" {{\n  note \"{note}\"\n}}\n");
@@ -317,10 +293,7 @@ fn an_append_only_kinds_entity_stays() {
     assert!(computed::with_code(&added, "E085").is_empty(), "{added:?}");
 }
 
-#[specforge_test(
-    behavior = "judge_field_history",
-    verify = "a renamed scope is judged through its move record"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_renamed_scope_is_judged_through_its_move_record() {
     use specforge_project::harness::{Ledger, Line};
     let tree = |phase: &str, origin: &str| {
@@ -367,10 +340,7 @@ fn git_cli() -> SharedGit {
     Arc::new(specforge_git::Gix::default())
 }
 
-#[specforge_test(
-    behavior = "watch_baseline_refs",
-    verify = "a commit re-checks the session"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_commit_rechecks_the_session() {
     let (project, mut session) = committed_session("context");
     let root = project.root().canonicalize().unwrap();
@@ -400,10 +370,7 @@ fn a_commit_rechecks_the_session() {
     assert_eq!(e084(&session), 0);
 }
 
-#[specforge_test(
-    behavior = "watch_baseline_refs",
-    verify = "refs outside the root are watched by their directories own entries"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn refs_outside_the_root_are_watched_by_their_directorys_entries() {
     let project = computed::project("decision D \"D\" {\n  phase 03\n  origin context\n}\n");
     // The project is a linked worktree: its refs live in the common directory, outside it.
@@ -463,10 +430,7 @@ fn judged_members(journal: bool, head: &str, now: &str) -> Vec<specforge_common:
         .diagnostics()
 }
 
-#[specforge_test(
-    behavior = "judge_field_history",
-    verify = "a history flag that sits only on a block member is judged"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_flag_only_on_a_member_is_judged() {
     let checks = |kind: &str| {
         format!("deliverable D \"D\" {{\n  checks [ {{ kind {kind}  ref \"t\" }} ]\n}}\n")
@@ -482,10 +446,7 @@ fn a_flag_only_on_a_member_is_judged() {
     );
 }
 
-#[specforge_test(
-    behavior = "judge_field_history",
-    verify = "a change inside a block of an append-only kind is one E084"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_member_change_in_an_append_only_kind_is_reported_once() {
     let journal = |kind: &str| format!("journal J \"J\" {{\n  parts [ {{ kind {kind} }} ]\n}}\n");
     let changed = judged_members(true, &journal("a"), &journal("b"));
@@ -510,10 +471,7 @@ fn renumbered(first: &str, second: &str, notes: [&str; 2]) -> String {
     )
 }
 
-#[specforge_test(
-    behavior = "judge_field_history",
-    verify = "a renumbering chain is judged through both move records at once"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_renumbering_chain_is_judged_through_both_move_records() {
     use specforge_project::harness::{Ledger, Line};
     let mut ledger = Ledger::default();
@@ -553,10 +511,7 @@ fn a_renumbering_chain_is_judged_through_both_move_records() {
     }
 }
 
-#[specforge_test(
-    behavior = "judge_field_history",
-    verify = "only a reference value is respelled by a move record"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn only_a_reference_is_respelled_by_a_move_record() {
     use specforge_project::harness::{Ledger, Line};
     let mut ledger = Ledger::default();
@@ -575,10 +530,7 @@ fn only_a_reference_is_respelled_by_a_move_record() {
     }
 }
 
-#[specforge_test(
-    behavior = "judge_field_history",
-    verify = "a file that does not parse is not judged against history"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_file_with_a_parse_error_is_not_judged_against_history() {
     let deviation =
         |id: &str, note: &str| format!("deviation {id} \"{id}\" {{\n  note \"{note}\"\n}}\n");

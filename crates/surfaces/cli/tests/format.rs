@@ -33,10 +33,7 @@ fn write_spec(dir: &std::path::Path, name: &str, content: &str) {
 
 // --- Slice 8: format_spec_files ---
 
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "formatting all files in spec/ directory succeeds"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_command_formats_files() {
     let tmp = project();
     let root = tmp.root();
@@ -103,10 +100,7 @@ fn project_with_spec_files(root: &std::path::Path) {
     write_spec(root, "broken.spec", "behavior {{{ not valid\n");
 }
 
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "files matching the canonical format are not rewritten"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_does_not_rewrite_unchanged_files() {
     let tmp = project();
     let root = tmp.root();
@@ -121,10 +115,7 @@ fn format_does_not_rewrite_unchanged_files() {
         .stderr(predicate::str::contains("0 changed"));
 }
 
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "changed files are printed to stdout"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_prints_changed_file_names() {
     let tmp = project();
     let root = tmp.root();
@@ -149,10 +140,7 @@ fn format_prints_changed_file_names() {
 
 // --- Slice 9: check_formatting ---
 
-#[specforge_test(
-    behavior = "check_formatting",
-    verify = "already formatted files exit with code 0"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn check_already_formatted_exits_zero() {
     let tmp = project();
     let root = tmp.root();
@@ -168,10 +156,7 @@ fn check_already_formatted_exits_zero() {
         .success();
 }
 
-#[specforge_test(
-    behavior = "check_formatting",
-    verify = "unformatted files exit with code 1"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn check_unformatted_exits_one() {
     let tmp = project();
     let root = tmp.root();
@@ -187,10 +172,7 @@ fn check_unformatted_exits_one() {
         .code(1);
 }
 
-#[specforge_test(
-    behavior = "check_formatting",
-    verify = "check mode writes no files to disk"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn check_mode_writes_no_files() {
     let tmp = project();
     let root = tmp.root();
@@ -208,10 +190,7 @@ fn check_mode_writes_no_files() {
 
 // --- Slice 10: show_formatting_diff ---
 
-#[specforge_test(
-    behavior = "show_formatting_diff",
-    verify = "diff output uses unified format"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn diff_shows_unified_format() {
     let tmp = project();
     let root = tmp.root();
@@ -230,10 +209,7 @@ fn diff_shows_unified_format() {
         .stdout(predicate::str::contains("@@"));
 }
 
-#[specforge_test(
-    behavior = "show_formatting_diff",
-    verify = "diff mode writes no files to disk"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn diff_mode_writes_no_files() {
     let tmp = project();
     let root = tmp.root();
@@ -249,10 +225,7 @@ fn diff_mode_writes_no_files() {
     assert_eq!(after, original, "diff mode should not modify files");
 }
 
-#[specforge_test(
-    behavior = "show_formatting_diff",
-    verify = "unchanged files produce no diff output"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn diff_unchanged_produces_no_output() {
     let tmp = project();
     let root = tmp.root();
@@ -271,10 +244,7 @@ fn diff_unchanged_produces_no_output() {
 
 // --- Slice 11: format_from_stdin ---
 
-#[specforge_test(
-    behavior = "format_from_stdin",
-    verify = "stdin content is formatted and written to stdout"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn stdin_formats_and_writes_to_stdout() {
     let nowhere = scratch();
     Cli::on(&nowhere)
@@ -285,10 +255,7 @@ fn stdin_formats_and_writes_to_stdout() {
         .stdout(predicate::eq(CANONICAL_FOO));
 }
 
-#[specforge_test(
-    behavior = "format_from_stdin",
-    verify = "stdin mode does not read or write files"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn stdin_mode_does_not_read_files() {
     let tmp = TestProject::new().without_config();
     let root = tmp.root();
@@ -314,10 +281,7 @@ fn stdin_mode_does_not_read_files() {
 
 // --- Integration: formatting all files in spec/ directory ---
 
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "formatting all files in spec/ directory succeeds"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_integration_all_spec_files_in_directory() {
     let tmp = project();
     let root = tmp.root();
@@ -361,10 +325,7 @@ fn format_integration_all_spec_files_in_directory() {
 
 // --- Property: stdin formatting is idempotent ---
 
-#[specforge_test(
-    behavior = "format_from_stdin",
-    verify = "stdin formatting is idempotent"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn stdin_formatting_is_idempotent() {
     let input = "behavior foo \"Foo\" {\n      contract   \"stuff\"\n    types [a, b]\n}\n";
     let tmp = TestProject::new().without_config();
@@ -383,10 +344,7 @@ fn stdin_formatting_is_idempotent() {
 
 // --- Property: stdin formatting converges to canonical form ---
 
-#[specforge_test(
-    behavior = "format_from_stdin",
-    verify = "stdin formatting converges to canonical form"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn stdin_formatting_converges_to_canonical_form() {
     let variants = [
         "behavior foo \"Foo\" {\n      contract   \"stuff\"\n}\n",
@@ -406,10 +364,7 @@ fn stdin_formatting_converges_to_canonical_form() {
 
 // --- Contract: format_spec_files ---
 
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "Format Spec Files: spec file formatting holds — spec_files_available, format_config_loaded, formatted_output_written, unchanged_files_preserved, format_complete_emitted, summary_printed"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_spec_files_contract_requires_ensures() {
     let tmp = project();
     let root = tmp.root();
@@ -443,10 +398,7 @@ fn format_spec_files_contract_requires_ensures() {
 
 // --- Contract: check_formatting ---
 
-#[specforge_test(
-    behavior = "check_formatting",
-    verify = "Check Formatting Without Modifying Files: formatting check holds — spec_files_available, format_config_loaded, no_files_written, exit_code_correct, unformatted_paths_printed"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn check_formatting_contract_requires_ensures() {
     let tmp = project();
     let root = tmp.root();
@@ -475,10 +427,7 @@ fn check_formatting_contract_requires_ensures() {
 
 // --- Contract: show_formatting_diff ---
 
-#[specforge_test(
-    behavior = "show_formatting_diff",
-    verify = "Show Formatting Diff: formatting diff holds — spec_files_available, format_config_loaded, no_files_written, unified_diff_produced"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn show_formatting_diff_contract_requires_ensures() {
     let tmp = project();
     let root = tmp.root();
@@ -499,10 +448,7 @@ fn show_formatting_diff_contract_requires_ensures() {
 
 // --- Contract: format_from_stdin ---
 
-#[specforge_test(
-    behavior = "format_from_stdin",
-    verify = "Format from Standard Input: stdin formatting holds — stdin_available, format_config_loaded, stdout_produced, no_files_touched, format_complete_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_from_stdin_contract_requires_ensures() {
     let tmp = TestProject::new().without_config();
     let root = tmp.root();
@@ -524,10 +470,7 @@ fn format_from_stdin_contract_requires_ensures() {
     );
 }
 
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "a file's configuration does not depend on where format runs"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn check_from_a_subdirectory_agrees_with_the_root() {
     let tmp = project();
     let root = tmp.root();
@@ -572,10 +515,7 @@ fn check_in(project: &TestProject) -> (Option<i32>, String) {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "check_formatting",
-    verify = "a file that cannot be read makes the check fail"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn check_exits_one_on_an_unreadable_file() {
     use std::os::unix::fs::PermissionsExt;
     let tmp = project();
@@ -603,10 +543,7 @@ fn project_with_a_kept_region(root: &std::path::Path) -> std::path::PathBuf {
     root.join("spec/broken.spec")
 }
 
-#[specforge_test(
-    behavior = "check_formatting",
-    verify = "a region left unformatted makes the check fail"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn check_exits_one_on_a_region_left_unformatted() {
     let tmp = TestProject::new().without_config();
     project_with_a_kept_region(tmp.root());
@@ -620,10 +557,7 @@ fn check_exits_one_on_a_region_left_unformatted() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_formatting",
-    verify = "a region left unformatted makes the check fail"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn diff_exits_one_on_a_region_left_unformatted() {
     let tmp = TestProject::new().without_config();
     project_with_a_kept_region(tmp.root());
@@ -635,10 +569,7 @@ fn diff_exits_one_on_a_region_left_unformatted() {
         .stderr(predicate::str::contains("error region preserved verbatim"));
 }
 
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "a region left unformatted makes the run exit 1, the rest of the file still written"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn write_exits_one_on_a_region_left_unformatted() {
     let tmp = TestProject::new().without_config();
     let file = project_with_a_kept_region(tmp.root());
@@ -654,10 +585,7 @@ fn write_exits_one_on_a_region_left_unformatted() {
     );
 }
 
-#[specforge_test(
-    behavior = "format_from_stdin",
-    verify = "stdin with a region left unformatted prints the formatted text and exits 1"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn stdin_exits_one_on_a_region_left_unformatted() {
     let tmp = scratch();
     lay_out_project(tmp.root());
@@ -705,10 +633,7 @@ fn project_with_one_change(root: &std::path::Path) {
     );
 }
 
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "under --format json the run prints the format document on stdout and nothing on stderr"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn json_prints_the_format_document_and_the_files_written() {
     let tmp = TestProject::new().without_config();
     let root = tmp.root();
@@ -733,10 +658,7 @@ fn json_prints_the_format_document_and_the_files_written() {
     assert!(document.get("diffs").is_none(), "{document}");
 }
 
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "under --format json the run prints the format document on stdout and nothing on stderr"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn json_carries_what_formatting_reported_instead_of_stderr() {
     let tmp = TestProject::new().without_config();
     project_with_a_kept_region(tmp.root());
@@ -749,10 +671,7 @@ fn json_carries_what_formatting_reported_instead_of_stderr() {
     assert_eq!(document["diagnostics"][0]["code"], "W142", "{document}");
 }
 
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "under --format json the run prints the format document on stdout and nothing on stderr"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn json_with_nothing_to_format_is_an_empty_run() {
     let tmp = TestProject::new().without_config();
     lay_out_project(tmp.root());
@@ -765,10 +684,7 @@ fn json_with_nothing_to_format_is_an_empty_run() {
     assert_eq!(document["all_clean"], true);
 }
 
-#[specforge_test(
-    behavior = "check_formatting",
-    verify = "under --format json a check that finds a change prints the document and exits 1"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn json_check_that_finds_a_change_exits_one() {
     let tmp = TestProject::new().without_config();
     let root = tmp.root();
@@ -788,10 +704,7 @@ fn json_check_that_finds_a_change_exits_one() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "check_formatting",
-    verify = "under --format json a check that finds a change prints the document and exits 1"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn json_names_a_file_that_cannot_be_read_in_the_document() {
     use std::os::unix::fs::PermissionsExt;
     let tmp = project();
@@ -811,10 +724,7 @@ fn json_names_a_file_that_cannot_be_read_in_the_document() {
     assert_eq!(document["failures"][0]["code"], "permission_denied");
 }
 
-#[specforge_test(
-    behavior = "show_formatting_diff",
-    verify = "under --format json --diff the document carries each changed file's before and after"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn json_diff_carries_each_change_before_and_after() {
     let tmp = TestProject::new().without_config();
     let root = tmp.root();
@@ -839,10 +749,7 @@ fn json_diff_carries_each_change_before_and_after() {
     );
 }
 
-#[specforge_test(
-    behavior = "format_from_stdin",
-    verify = "--stdin refuses --format json with the error document"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn stdin_refuses_json_with_the_error_document() {
     let nowhere = scratch();
     let output = Cli::on(&nowhere)
@@ -857,10 +764,7 @@ fn stdin_refuses_json_with_the_error_document() {
     assert_eq!(document["code"], "invalid_input", "{document}");
 }
 
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "summary count reflects actual changes"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_prints_how_many_files_it_formatted_and_changed() {
     let tmp = project();
     let root = tmp.root();
@@ -932,10 +836,7 @@ pub(crate) fn json_of(project: &TestProject, args: &[&str]) -> (Option<i32>, ser
     (output.status.code(), json)
 }
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "a specforge.json that does not say which files are the project's sources refuses the run, and nothing is written"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_refuses_a_config_that_does_not_say_which_files_are_its_sources() {
     for config in HIDES_SOURCES {
         let tmp = TestProject::new().without_config();
@@ -971,10 +872,7 @@ fn format_refuses_a_config_that_does_not_say_which_files_are_its_sources() {
     }
 }
 
-#[specforge_test(
-    behavior = "check_formatting",
-    verify = "a problem in specforge.json the run goes around is an E069 that fails the check"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_check_fails_on_a_config_problem_it_goes_around() {
     let tmp = TestProject::new().without_config();
     let root = tmp.root();
@@ -999,10 +897,7 @@ fn format_check_fails_on_a_config_problem_it_goes_around() {
     );
 }
 
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "a problem in specforge.json the run goes around is reported as E069 and makes the run exit 1, the files still formatted"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_writes_and_fails_on_a_mistyped_name() {
     let tmp = TestProject::new().without_config();
     let root = tmp.root();

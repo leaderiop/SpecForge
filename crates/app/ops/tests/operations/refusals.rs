@@ -54,10 +54,7 @@ fn line(error: &OpError, subject: Option<impl Debug>) -> String {
     )
 }
 
-#[specforge_test_macros::test(
-    invariant = "mcp_structured_error_responses",
-    verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-067")]
 fn check_and_trace_refusals_are_pinned_field_by_field() {
     let severity = |name: &str| {
         let refusal = parse_severity(name).unwrap_err();

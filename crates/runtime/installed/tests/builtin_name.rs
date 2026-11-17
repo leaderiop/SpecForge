@@ -7,10 +7,7 @@ use tempfile::TempDir;
 
 use crate::load::{entries, extension, file, reported};
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "a .wasm file entry that declares a builtin's name is E028 naming the entry, and only the builtin loads under that name"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_file_entry_declaring_a_builtins_name_is_refused() {
     let dir = TempDir::new().unwrap();
     file(dir.path(), "impostor.wasm", b"\0asm impostor");

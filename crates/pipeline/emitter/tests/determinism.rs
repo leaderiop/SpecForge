@@ -60,10 +60,7 @@ fn build_graph() -> Graph {
 }
 
 // B:deterministic_output — verify property "same input produces identical output across runs"
-#[specforge_test(
-    behavior = "deterministic_output",
-    verify = "same input produces identical output across runs"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn same_input_produces_identical_json_across_runs() {
     let outputs: Vec<String> = (0..5)
         .map(|_| crate::support::emit_json(&build_graph()))
@@ -78,7 +75,7 @@ fn same_input_produces_identical_json_across_runs() {
 
 // B:deterministic_output — verify property "same input produces identical output across runs"
 // (DOT format)
-#[specforge_test(behavior = "deterministic_output")]
+#[specforge_test(requirement = "FEATURE-006")]
 fn same_input_produces_identical_dot_across_runs() {
     let outputs: Vec<String> = (0..5)
         .map(|_| {
@@ -98,7 +95,7 @@ fn same_input_produces_identical_dot_across_runs() {
 
 // B:deterministic_output — verify property "same input produces identical output across runs"
 // (brief format)
-#[specforge_test(behavior = "deterministic_output")]
+#[specforge_test(requirement = "FEATURE-006")]
 fn same_input_produces_identical_brief_across_runs() {
     let outputs: Vec<String> = (0..5)
         .map(|_| crate::export(&build_graph(), specforge_emitter::EmitFormat::Brief, None))
@@ -113,7 +110,7 @@ fn same_input_produces_identical_brief_across_runs() {
 
 // B:deterministic_output — verify property "same input produces identical output across runs"
 // (context format)
-#[specforge_test(behavior = "deterministic_output")]
+#[specforge_test(requirement = "FEATURE-006")]
 fn same_input_produces_identical_context_across_runs() {
     let outputs: Vec<String> = (0..5)
         .map(|_| crate::export(&build_graph(), specforge_emitter::EmitFormat::Context, None))
@@ -127,10 +124,7 @@ fn same_input_produces_identical_context_across_runs() {
 }
 
 // B:deterministic_output — verify unit "entity ordering is independent of hashmap iteration"
-#[specforge_test(
-    behavior = "deterministic_output",
-    verify = "entity ordering is independent of hashmap iteration"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn json_nodes_sorted_by_id() {
     let graph = build_graph();
     let json = crate::support::emit_json(&graph);
@@ -146,10 +140,7 @@ fn json_nodes_sorted_by_id() {
 }
 
 // B:deterministic_output — verify unit "edge ordering is deterministic"
-#[specforge_test(
-    behavior = "deterministic_output",
-    verify = "edge ordering is independent of hashmap iteration"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn json_edges_sorted_deterministically() {
     // The same edges, inserted in two opposite orders, none of them sorted.
     let edges = [
@@ -220,10 +211,7 @@ fn json_edges_sorted_deterministically() {
 }
 
 // B:deterministic_output — verify unit "output contains no timestamps or non-deterministic values"
-#[specforge_test(
-    behavior = "deterministic_output",
-    verify = "output contains no timestamps or non-deterministic values"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn json_output_contains_no_timestamps() {
     let graph = build_graph();
     let emit_all = |graph: &Graph| -> Vec<String> {
@@ -292,10 +280,7 @@ fn json_output_contains_no_timestamps() {
 }
 
 // B:deterministic_output — verify unit "file emission order is independent of filesystem readdir order"
-#[specforge_test(
-    behavior = "deterministic_output",
-    verify = "file emission order is independent of filesystem readdir order"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn file_emission_order_independent_of_filesystem() {
     // Build two graphs with nodes from different "files" added in different orders
     let mut graph1 = Graph::new();
@@ -379,10 +364,7 @@ fn file_emission_order_independent_of_filesystem() {
 }
 
 // B:deterministic_output — verify property "scoped emit is deterministic"
-#[specforge_test(
-    behavior = "deterministic_output",
-    verify = "same input produces identical output across runs"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn scoped_json_output_is_deterministic() {
     let graph = build_graph();
     let outputs: Vec<_> = (0..5)
@@ -397,10 +379,7 @@ fn scoped_json_output_is_deterministic() {
 }
 
 // B:deterministic_output — verify property "scoped context emit is deterministic"
-#[specforge_test(
-    behavior = "deterministic_output",
-    verify = "same input produces identical output across runs"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn scoped_context_output_is_deterministic() {
     let graph = build_graph();
     let outputs: Vec<_> = (0..5)

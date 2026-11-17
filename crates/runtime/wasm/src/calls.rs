@@ -658,10 +658,7 @@ mod tests {
     use super::*;
     use crate::testing::InProcessRuntime;
 
-    #[specforge_test_macros::test(
-        behavior = "call_extension_exports",
-        verify = "a pass input that does not encode fails each pass's call, naming its export, and nothing is sent"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-013")]
     fn a_pass_input_that_does_not_encode_fails_each_pass_without_a_call() {
         let runtime = InProcessRuntime::new();
         let calls = ExtensionCalls::new(&runtime);

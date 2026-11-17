@@ -58,10 +58,7 @@ fn admitted(current: &Version, reach: Reach) -> Vec<VersionReq> {
 mod tests {
     use super::*;
 
-    #[specforge_test_macros::test(
-        behavior = "upgrade_wasm_extension",
-        verify = "one rule picks the version an update moves to, never the locked version or below"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-134")]
     fn the_upgrade_target_is_the_newest_version_the_reach_admits_never_lower() {
         use Reach::{Compatible, Major};
         #[rustfmt::skip]

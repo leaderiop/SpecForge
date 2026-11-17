@@ -29,10 +29,7 @@ fn run(
     )
 }
 
-#[specforge_test(
-    port = "CollectorMachine",
-    verify = "CollectorMachine contract is satisfied"
-)]
+#[test]
 fn the_process_machine_keeps_the_port_contract() {
     let dir = tempfile::tempdir().unwrap();
     // `$CARGO` is set by cargo for every test run; a binary run by hand has none.
@@ -84,10 +81,7 @@ fn run_sets_the_report_env_in_the_directory_and_dates_its_files_after_the_start(
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "run_collector_command",
-    verify = "a captured stdout is kept in every output mode"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_captured_stdout_is_kept_in_every_output_mode() {
     let dir = tempfile::tempdir().unwrap();
     let argv = vec!["sh".to_string(), "-c".into(), "echo 'test a ... ok'".into()];
@@ -111,10 +105,7 @@ fn a_captured_stdout_is_kept_in_every_output_mode() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "run_collector_command",
-    verify = "a collector command past its deadline is stopped"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_command_past_the_deadline_is_stopped() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().to_path_buf();
@@ -197,10 +188,7 @@ fn a_stopped_command_says_why_in_the_class_words() {
 }
 
 #[cfg(windows)]
-#[specforge_test(
-    behavior = "run_collector_command",
-    verify = "a .cmd shim on PATH runs as a collector command on Windows"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 #[expect(
     unsafe_code,
     reason = "set_var before any thread of this test reads the environment; the test runs in its own process under nextest"

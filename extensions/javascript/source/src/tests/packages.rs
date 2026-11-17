@@ -2,10 +2,8 @@
 
 use super::*;
 
-#[specforge_test(
-    behavior = "js_mint_item_facts",
-    verify = "a second package of one name keeps its items and its package fact apart"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_second_package_of_one_name_keeps_its_items_and_its_package_fact_apart() {
     let facts = run(
         host(&[

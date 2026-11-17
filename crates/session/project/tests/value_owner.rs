@@ -153,10 +153,7 @@ fn plan(done: bool, field: &str, files: &[&str]) -> String {
     )
 }
 
-#[specforge_test(
-    behavior = "check_values_by_owner_state",
-    verify = "a planned value's checks wait while its owner is pending, and its row says planned"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_planned_file_waits_for_its_owner() {
     let project = compile(&plan(false, "files", &["new.js"]));
     assert!(
@@ -172,10 +169,7 @@ fn a_planned_file_waits_for_its_owner() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_values_by_owner_state",
-    verify = "a planned value is checked once its owner is complete, its computed state deciding"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_complete_owners_planned_file_is_e016() {
     let project = compile(&plan(true, "files", &["new.js"]));
     let found = coded(&project, "E016");
@@ -185,10 +179,7 @@ fn a_complete_owners_planned_file_is_e016() {
     assert_eq!(statuses(&project, "p1", "files"), [CheckStatus::Failed]);
 }
 
-#[specforge_test(
-    behavior = "check_values_by_owner_state",
-    verify = "a kind with no complete_when follows its nearest scope ancestor's owner state"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_scope_ancestors_owner_state_decides() {
     let spec = |done: bool| {
         format!(
@@ -212,10 +203,7 @@ fn a_scope_ancestors_owner_state_decides() {
     assert_eq!(statuses(&complete, "p1/t1", "files"), [CheckStatus::Failed]);
 }
 
-#[specforge_test(
-    behavior = "check_values_by_owner_state",
-    verify = "a value its owner holds back calls no checker"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_pending_owner_calls_no_checker() {
     let runtime = runtime();
     let compiled = project(&plan(false, "notes", &["one", "two"])).compile_in(runtime.clone());
@@ -240,10 +228,7 @@ fn a_pending_owner_calls_no_checker() {
     assert_eq!(calls, 1, "the second stage asks once its owner is complete");
 }
 
-#[specforge_test(
-    behavior = "check_values_by_owner_state",
-    verify = "a while-open value is checked while its owner is pending, and its row says closed once it is complete"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_while_open_value_is_checked_only_while_its_owner_is_pending() {
     let open = compile(&plan(false, "gone", &["old.js"]));
     assert_eq!(coded(&open, "E016").len(), 1, "{:?}", open.diagnostics());
@@ -261,10 +246,7 @@ fn a_while_open_value_is_checked_only_while_its_owner_is_pending() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_values_by_owner_state",
-    verify = "a gated value is no judged input, waiting or checked"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_planned_value_is_no_judged_input() {
     let spec = |done: bool| {
         format!(
@@ -296,10 +278,7 @@ fn a_planned_value_is_no_judged_input() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_values_by_owner_state",
-    verify = "a judged verdict over a gated value stays fresh when its owner completes"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_verdict_over_a_planned_value_stays_fresh_when_its_owner_completes() {
     use specforge_project::judged::Cited;
     let spec = |done: bool| {
@@ -338,10 +317,7 @@ fn a_verdict_over_a_planned_value_stays_fresh_when_its_owner_completes() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_values_by_owner_state",
-    verify = "the values waiting for their owner are counted once in I213, by field, and never in I206 or I207"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn waiting_values_are_counted_once_in_i213() {
     let project = compile(&plan(false, "files", &["a.js", "b.js"]));
     let found = coded(&project, "I213");
@@ -359,10 +335,7 @@ fn waiting_values_are_counted_once_in_i213() {
     }
 }
 
-#[specforge_test(
-    behavior = "check_values_by_owner_state",
-    verify = "a gated value spends the compile's one value budget"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_gated_value_spends_the_runs_one_budget() {
     let dir =
         project("plan p1 \"P1\" {\n  done true\n  files [\"new.js\"]\n  refs [\"here.md\"]\n}\n");
@@ -390,10 +363,7 @@ fn a_gated_value_spends_the_runs_one_budget() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_values_by_owner_state",
-    verify = "a planned path that climbs out of its root is E094 while its owner is pending"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_planned_path_that_climbs_out_is_e094_while_pending() {
     let project = compile(&plan(
         false,
@@ -432,10 +402,7 @@ fn a_planned_path_that_climbs_out_is_e094_while_pending() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_values_by_owner_state",
-    verify = "a planned path naming an undeclared root is E095 while its owner is pending"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn an_unknown_root_is_e095_while_pending() {
     let project = compile(&plan(false, "files", &["<nowhere>/a.js"]));
     let found = coded(&project, "E095");

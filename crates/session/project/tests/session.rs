@@ -83,10 +83,7 @@ fn w113(diagnostics: &[Diagnostic]) -> Vec<String> {
 /// Edits that add and remove imports, a duplicate ID that moves between
 /// files, a missing import and a deleted file: after each, the session's
 /// graph and diagnostics are those of a fresh compile.
-#[specforge_test(
-    invariant = "incremental_correctness",
-    verify = "incremental recompilation produces the same graph as a full rebuild"
-)]
+#[specforge_test(requirement = "INVARIANT-057")]
 fn every_update_leaves_what_a_fresh_compile_builds() {
     let dir = project(
         CONFIG,
@@ -151,10 +148,7 @@ fn every_update_leaves_what_a_fresh_compile_builds() {
 /// The format version header is a compile diagnostic like any other: an
 /// edit that adds, changes or removes it changes what the session reports,
 /// the same as a fresh compile does.
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "older format version detected and reported as I007"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn an_edited_format_version_header_is_reported_as_a_fresh_compile_reports_it() {
     const BODY: &str = "behavior alpha \"A\" {\n  contract \"The system MUST a\"\n}\n";
     let dir = project(CONFIG, &[("a.spec", BODY)]);
@@ -189,10 +183,7 @@ fn an_edited_format_version_header_is_reported_as_a_fresh_compile_reports_it() {
 
 /// Define blocks are reported, not registered: adding one, renaming it
 /// and removing it leave what a fresh compile reports.
-#[specforge_test(
-    behavior = "report_define_blocks",
-    verify = "an incremental rebuild reports a define block as a fresh compile does"
-)]
+#[specforge_test(requirement = "FEATURE-140")]
 fn an_incremental_rebuild_reports_define_blocks_as_a_fresh_compile() {
     let dir = project(
         CONFIG,
@@ -227,10 +218,7 @@ fn an_incremental_rebuild_reports_define_blocks_as_a_fresh_compile() {
     }
 }
 
-#[specforge_test(
-    behavior = "resolve_imports_on_update",
-    verify = "cycle detection re-runs after an update"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn an_edit_that_closes_an_import_cycle_reports_it() {
     let dir = project(
         CONFIG,
@@ -259,10 +247,7 @@ fn an_edit_that_closes_an_import_cycle_reports_it() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_imports_on_update",
-    verify = "cycle detection re-runs after an update"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn an_edit_that_breaks_an_import_cycle_clears_it() {
     let dir = project(
         CONFIG,
@@ -306,10 +291,7 @@ fn e025(diagnostics: &[Diagnostic]) -> Vec<String> {
 /// file, a directory's `index.spec`, an extension (I004). Each update
 /// resolves them all again, so the import diagnostics are a fresh
 /// compile's, and an importer is never re-parsed for its target's sake.
-#[specforge_test(
-    behavior = "resolve_imports_on_update",
-    verify = "import diagnostics after an update match a full rebuild"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn imports_of_every_kind_stay_resolved_across_updates() {
     let dir = project(
         CONFIG,
@@ -365,10 +347,7 @@ fn imports_of_every_kind_stay_resolved_across_updates() {
 /// `@alias/...` imports resolve through the resolver's path aliases, which
 /// `specforge.json` does not configure: in a project an `@` import names an
 /// extension (I004), and the session reports it as a fresh compile does.
-#[specforge_test(
-    behavior = "resolve_imports_on_update",
-    verify = "an added use import is resolved on the next update"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn an_added_import_is_resolved_on_the_next_update() {
     let dir = project(
         CONFIG,
@@ -402,10 +381,7 @@ fn an_added_import_is_resolved_on_the_next_update() {
     }
 }
 
-#[specforge_test(
-    behavior = "resolve_imports_on_update",
-    verify = "a removed use import no longer reports"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_removed_import_no_longer_reports() {
     let dir = project(
         CONFIG,
@@ -423,10 +399,7 @@ fn a_removed_import_no_longer_reports() {
     assert!(e025(&update.diagnostics).is_empty());
 }
 
-#[specforge_test(
-    behavior = "resolve_imports_on_update",
-    verify = "Resolve Imports on Every Update: import resolution after each update holds — subgraph_invalidated_fired, import_dag_updated_emitted, cycle_detection_rerun"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn resolve_imports_on_update_contract() {
     let dir = project(
         CONFIG,
@@ -473,10 +446,7 @@ fn resolve_imports_on_update_contract() {
 
 /// `exclude` is relative to the spec root, and a change to an excluded
 /// file leaves the session as it was.
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "files matching an exclude entry are not compiled"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn excluded_files_stay_out_of_the_compile_and_the_session() {
     let dir = project(
         r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"],"spec_root":"spec","exclude":["drafts/"]}"#,
@@ -509,10 +479,7 @@ fn excluded_files_stay_out_of_the_compile_and_the_session() {
 
 /// A project whose spec root holds a nested project (`sub`, with its own
 /// `specforge.json`) that declares what the outer project does too.
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "a nested project's files are not compiled, an editor buffer of one included"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_nested_projects_files_are_not_compiled() {
     let dir = project(
         CONFIG,
@@ -554,10 +521,7 @@ fn a_nested_projects_files_are_not_compiled() {
 
 /// A nested project appearing below the spec root takes its files out of
 /// the session, and its removal puts them back.
-#[specforge_test(
-    behavior = "bring_session_up_to_date",
-    verify = "a nested project appearing below the spec root takes its files out of the session, and its removal puts them back"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_nested_project_appearing_takes_its_files_out_and_its_removal_puts_them_back() {
     let bare = r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"]}"#;
     let dir = project(
@@ -712,10 +676,7 @@ fn three_files() -> TestProject {
     )
 }
 
-#[specforge_test(
-    behavior = "invalidate_changed_files",
-    verify = "only the changed files are re-parsed"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn only_the_changed_files_are_re_parsed() {
     let dir = three_files();
     let root = dir.root();
@@ -732,10 +693,7 @@ fn only_the_changed_files_are_re_parsed() {
 /// References resolve across the project without `use`: an importer parses
 /// the same whatever its import's target says, so it is not re-parsed, and
 /// its references still follow the target's entities.
-#[specforge_test(
-    behavior = "invalidate_changed_files",
-    verify = "an importer of a changed file is not re-parsed"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn an_importer_of_a_changed_file_is_not_re_parsed() {
     let dir = three_files();
     let root = dir.root();
@@ -765,10 +723,7 @@ fn an_importer_of_a_changed_file_is_not_re_parsed() {
     assert_matches_a_fresh_compile(&session, &dir);
 }
 
-#[specforge_test(
-    behavior = "invalidate_changed_files",
-    verify = "unrelated files are not re-parsed"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn unrelated_files_are_not_re_parsed() {
     let dir = three_files();
     let root = dir.root();
@@ -781,10 +736,7 @@ fn unrelated_files_are_not_re_parsed() {
     assert_matches_a_fresh_compile(&session, &dir);
 }
 
-#[specforge_test(
-    behavior = "invalidate_changed_files",
-    verify = "deleted file entities removed from graph"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn deleted_file_entities_are_removed_from_the_graph() {
     let dir = three_files();
     let root = dir.root();
@@ -800,10 +752,7 @@ fn deleted_file_entities_are_removed_from_the_graph() {
     assert_matches_a_fresh_compile(&session, &dir);
 }
 
-#[specforge_test(
-    behavior = "invalidate_changed_files",
-    verify = "new file entities added to graph"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn new_file_entities_are_added_to_the_graph() {
     let dir = three_files();
     let root = dir.root();
@@ -823,10 +772,7 @@ fn new_file_entities_are_added_to_the_graph() {
     assert_matches_a_fresh_compile(&session, &dir);
 }
 
-#[specforge_test(
-    behavior = "invalidate_changed_files",
-    verify = "Invalidate Changed Files: file invalidation holds — file_changes_coalesced_fired, invalidation_set_computed, subgraph_invalidated_emitted, unrelated_files_untouched"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn invalidate_changed_files_contract() {
     let dir = three_files();
     let root = dir.root();
@@ -850,10 +796,7 @@ fn invalidate_changed_files_contract() {
     assert_matches_a_fresh_compile(&session, &dir);
 }
 
-#[specforge_test(
-    behavior = "rebuild_affected_subgraph",
-    verify = "stale nodes are removed"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn stale_nodes_are_removed() {
     let dir = three_files();
     let root = dir.root();
@@ -867,7 +810,7 @@ fn stale_nodes_are_removed() {
     assert_eq!(ids(&update.delta.added_nodes), ["renamed"]);
 }
 
-#[specforge_test(behavior = "rebuild_affected_subgraph", verify = "new nodes are added")]
+#[specforge_test(requirement = "FEATURE-050")]
 fn new_nodes_are_added() {
     let dir = three_files();
     let root = dir.root();
@@ -894,10 +837,7 @@ fn new_nodes_are_added() {
 /// Growing, shrinking and breaking the text, the session stays what a
 /// fresh compile of the same texts builds, and every delta is the full
 /// comparison's.
-#[specforge_test(
-    behavior = "rebuild_affected_subgraph",
-    verify = "incremental rebuild equals cold rebuild"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn buffer_edits_leave_what_a_fresh_compile_builds() {
     let dir = three_files();
     let root = dir.root();
@@ -974,10 +914,7 @@ fn the_session_keeps_the_text_each_file_was_built_from() {
 
 /// The editor applied an edit to two files at once (a rename): one update,
 /// one run of the checks, and never the diagnostics of a half-applied edit.
-#[specforge_test(
-    behavior = "invalidate_changed_files",
-    verify = "several editor buffers changed at once are one update"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn several_buffers_are_one_update() {
     let dir = project(
         CONFIG,
@@ -1019,10 +956,7 @@ fn several_buffers_are_one_update() {
     assert_matches_a_fresh_compile(&session, &dir);
 }
 
-#[specforge_test(
-    behavior = "invalidate_changed_files",
-    verify = "the typing fast path skips the checks while any edited buffer does not parse"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_parse_error_in_any_edited_buffer_skips_the_checks() {
     let dir = project(
         CONFIG,
@@ -1073,10 +1007,7 @@ fn a_parse_error_in_any_edited_buffer_skips_the_checks() {
     assert!(!update.diagnostics.iter().any(|d| d.code == "E001"));
 }
 
-#[specforge_test(
-    behavior = "rebuild_affected_subgraph",
-    verify = "debug --verify-incremental performs cold rebuild comparison"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn verify_incremental_compares_each_update_with_a_cold_rebuild() {
     let dir = three_files();
     let root = dir.root();
@@ -1092,10 +1023,7 @@ fn verify_incremental_compares_each_update_with_a_cold_rebuild() {
     assert_eq!(update.verification, Some(Ok(())));
 }
 
-#[specforge_test(
-    behavior = "rebuild_affected_subgraph",
-    verify = "Rebuild Affected Subgraph: affected subgraph rebuild holds — subgraph_invalidated, import_dag_updated, graph_reflects_reparse, stale_removed, new_added, rebuild_event_fired, unaffected_subgraph_intact"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn rebuild_affected_subgraph_contract() {
     let dir = three_files();
     let root = dir.root();
@@ -1123,10 +1051,7 @@ fn rebuild_affected_subgraph_contract() {
     assert_matches_a_fresh_compile(&session, &dir);
 }
 
-#[specforge_test(
-    behavior = "emit_incremental_diagnostics",
-    verify = "diagnostics from changed files are refreshed"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn diagnostics_from_changed_files_are_refreshed() {
     let dir = three_files();
     let root = dir.root();
@@ -1154,10 +1079,7 @@ fn diagnostics_from_changed_files_are_refreshed() {
     );
 }
 
-#[specforge_test(
-    behavior = "emit_incremental_diagnostics",
-    verify = "diagnostics from unchanged files are preserved"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn diagnostics_from_unchanged_files_are_preserved() {
     let dir = three_files();
     let root = dir.root();
@@ -1195,10 +1117,7 @@ fn diagnostics_from_unchanged_files_are_preserved() {
 
 /// No extension runs here: the time is the rebuild's and the import
 /// resolution's, not an extension's checks.
-#[specforge_test(
-    behavior = "emit_incremental_diagnostics",
-    verify = "file change to diagnostics emitted within 100ms"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn file_change_to_diagnostics_within_100ms() {
     let dir = three_files();
     let root = dir.root();
@@ -1218,10 +1137,7 @@ fn file_change_to_diagnostics_within_100ms() {
     assert!(update.diagnostics.iter().any(|d| d.code == "E003"));
 }
 
-#[specforge_test(
-    behavior = "emit_incremental_diagnostics",
-    verify = "Emit Incremental Diagnostics: incremental diagnostics holds for the declared obligations"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn emit_incremental_diagnostics_contract() {
     let dir = three_files();
     let root = dir.root();
@@ -1261,10 +1177,7 @@ fn emit_incremental_diagnostics_contract() {
     assert_matches_a_fresh_compile(&session, &dir);
 }
 
-#[specforge_test(
-    behavior = "validate_delta_correctness",
-    verify = "check disabled in release builds"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn the_delta_check_runs_only_when_asked_for() {
     let dir = three_files();
     let root = dir.root();
@@ -1277,10 +1190,7 @@ fn the_delta_check_runs_only_when_asked_for() {
     assert_eq!(update.verification, None);
 }
 
-#[specforge_test(
-    behavior = "validate_delta_correctness",
-    verify = "a rebuild that passes the check is reported as passed"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn a_rebuild_that_passes_the_check_is_reported_as_passed() {
     let dir = three_files();
     let root = dir.root();
@@ -1301,10 +1211,7 @@ fn a_rebuild_that_passes_the_check_is_reported_as_passed() {
     assert_eq!(beta.changed_aspects, [specforge_project::NodeAspect::Edges]);
 }
 
-#[specforge_test(
-    behavior = "notify_delta_subscribers",
-    verify = "an update reports its delta and the files it affects"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn an_update_reports_its_delta_and_the_files_it_affects() {
     let dir = three_files();
     let root = dir.root();
@@ -1319,10 +1226,7 @@ fn an_update_reports_its_delta_and_the_files_it_affects() {
     assert_eq!(update.delta.affected_files, ["a.spec", "types.spec"]);
 }
 
-#[specforge_test(
-    behavior = "notify_delta_subscribers",
-    verify = "Notify Delta Subscribers: delta reporting holds — graph_delta_computed_fired, affected_files_delivered, delta_subscribers_notified_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn notify_delta_subscribers_contract() {
     let dir = three_files();
     let root = dir.root();
@@ -1406,10 +1310,7 @@ fn random_spec(rng: &mut Rng) -> String {
 /// an add in one batch) and editor buffers, over nested, excluded and
 /// never-discovered (`build/`) paths: after each update the session holds
 /// what a fresh compile of the disk builds, and its delta is the full one.
-#[specforge_test(
-    invariant = "incremental_correctness",
-    verify = "incremental recompilation produces the same graph as a full rebuild"
-)]
+#[specforge_test(requirement = "INVARIANT-057")]
 fn random_updates_leave_what_a_fresh_compile_builds() {
     const PATHS: &[&str] = &[
         "a.spec",
@@ -1513,10 +1414,7 @@ fn random_updates_leave_what_a_fresh_compile_builds() {
     }
 }
 
-#[specforge_test(
-    behavior = "emit_incremental_diagnostics",
-    verify = "an update reports the diagnostics it added and removed"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn an_update_reports_the_diagnostics_it_added_and_removed() {
     let dir = three_files();
     let root = dir.root();
@@ -1578,10 +1476,7 @@ fn a_reload_and_a_recheck_report_their_delta() {
 
 const CYCLE: &str = "behavior alpha \"A\" {\n  depends_on [beta]\n}\nbehavior beta \"B\" {\n  depends_on [alpha]\n}\n";
 
-#[specforge_test(
-    behavior = "emit_incremental_diagnostics",
-    verify = "a diagnostic about entities moves with the first one's block"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_diagnostic_about_entities_moves_with_its_first_entity() {
     let dir = project(
         r#"{"name":"c","extensions":["@specforge/software","@specforge/governance"]}"#,
@@ -1633,10 +1528,7 @@ fn assert_delta_takes(previous: &[Diagnostic], update: &specforge_project::Updat
 /// reload); an explicit reload. After each update that runs the checks,
 /// the session reports exactly what a fresh compile of the disk reports,
 /// in the same order, and its graph's nodes come in the same order.
-#[specforge_test(
-    invariant = "incremental_correctness",
-    verify = "a session reports what a fresh compile of the same sources reports, in the same order, after every update that runs the checks"
-)]
+#[specforge_test(requirement = "INVARIANT-057")]
 fn a_session_reports_what_a_fresh_compile_reports_in_order() {
     const PATHS: &[&str] = &[
         "a.spec",
@@ -1791,10 +1683,7 @@ fn bring_up_to_date(session: &mut ProjectSession) {
 /// Sources edited, created and deleted, the config rewritten and the lock
 /// written: after each, a session brought up to date with disk is what a
 /// fresh compile of the files on disk builds.
-#[specforge_test(
-    behavior = "bring_session_up_to_date",
-    verify = "after bringing itself up to date a session matches a fresh compile"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn every_update_kind_leaves_what_a_fresh_compile_builds() {
     let dir = project(
         CONFIG,
@@ -1897,10 +1786,7 @@ fn walk(dir: &Path) -> Vec<std::path::PathBuf> {
     files
 }
 
-#[specforge_test(
-    behavior = "bring_session_up_to_date",
-    verify = "an up-to-date session reports no change and re-parses nothing"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn an_up_to_date_session_changes_nothing() {
     let dir = project(
         CONFIG,
@@ -1931,10 +1817,7 @@ fn an_unchanged_racy_file_is_not_reported() {
     assert!(session.ensure_fresh().is_none());
 }
 
-#[specforge_test(
-    behavior = "bring_session_up_to_date",
-    verify = "edits, creations and deletions since the last build are applied as one update"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn edits_creations_and_deletions_apply_as_one_update() {
     let dir = project(
         CONFIG,
@@ -1973,10 +1856,7 @@ fn edits_creations_and_deletions_apply_as_one_update() {
     assert!(session.ensure_fresh().is_none());
 }
 
-#[specforge_test(
-    behavior = "bring_session_up_to_date",
-    verify = "a file rewritten within the timestamp granularity of the last build is still seen"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_racy_rewrite_is_still_seen() {
     let dir = project(CONFIG, &[("a.spec", "behavior alpha \"A\" {\n}\n")]);
     let root = dir.root();
@@ -2001,10 +1881,7 @@ fn a_racy_rewrite_is_still_seen() {
     assert_matches_a_fresh_compile(&session, &dir);
 }
 
-#[specforge_test(
-    behavior = "bring_session_up_to_date",
-    verify = "a specforge.lock change reloads the environment"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_lock_change_reloads_the_environment() {
     let config = r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/governance","@acme/missing"]}"#;
     let dir = project(config, &[("a.spec", "behavior alpha \"A\" {\n}\n")]);
@@ -2075,10 +1952,9 @@ fn measure_ensure_fresh_on_a_thousand_files() {
     );
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "coverage is computed once per compile and report content, and again after the report changes"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn an_update_starts_a_fresh_coverage_memo() {
     let dir = project(
         CONFIG,
@@ -2137,10 +2013,7 @@ fn obliging_items() -> specforge_extension_sdk::prelude::ContributionsBuilder {
     c
 }
 
-#[specforge_test(
-    behavior = "snapshot_entities_once",
-    verify = "a session's snapshot follows every update"
-)]
+#[specforge_test(requirement = "FEATURE-016")]
 fn a_sessions_snapshot_follows_every_update() {
     use specforge_wasm::testing::InProcessRuntime;
     use std::sync::Arc;
@@ -2213,10 +2086,7 @@ fn a_sessions_snapshot_follows_every_update() {
     );
 }
 
-#[specforge_test(
-    behavior = "snapshot_entities_once",
-    verify = "a session's snapshot follows every update"
-)]
+#[specforge_test(requirement = "FEATURE-016")]
 fn an_update_that_skips_the_checks_still_scores_its_own_graph() {
     let dir = project(
         CONFIG,
@@ -2315,10 +2185,7 @@ fn source_writing(
     (source, seen)
 }
 
-#[specforge_test(
-    behavior = "bring_session_up_to_date",
-    verify = "a specforge.json written while the extension runtime loads is seen next time"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_config_written_while_the_runtime_loads_is_seen_next_time() {
     let dir = project(V1, &[("a.spec", "")]);
     let root = dir.root();
@@ -2351,10 +2218,7 @@ fn a_config_written_while_the_runtime_loads_is_seen_next_time() {
     assert!(session.stale().environment().is_empty());
 }
 
-#[specforge_test(
-    behavior = "bring_session_up_to_date",
-    verify = "a module written before the extension load reads it is what the session read"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_module_written_before_the_load_reads_it_is_what_was_read() {
     let dir = project(
         r#"{"name":"s","version":"0.1.0","extensions":["@acme/local=ext/local.wasm"]}"#,
@@ -2421,10 +2285,7 @@ fn e025_messages(diagnostics: &[Diagnostic]) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "resolve_imports_on_update",
-    verify = "an unreadable source stays E025 after an update of another file"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn an_unreadable_source_is_reported_after_an_update_of_another_file() {
     let dir = project_with_an_unreadable_source();
     let root = dir.root();
@@ -2467,10 +2328,7 @@ fn a_source_that_becomes_readable_joins_the_build() {
 
 /// `b.spec`: `behavior dup`; `c.spec`: `invariant dup`; `d.spec`:
 /// `invariant dup` and a define block.
-#[specforge_test(
-    behavior = "rebuild_affected_subgraph",
-    verify = "incremental rebuild equals cold rebuild"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn duplicates_across_files_and_kinds_stay_what_a_fresh_compile_reports() {
     let invariant = "invariant dup \"Dup\" {\n  contract \"The system MUST dup\"\n}\n";
     let dir = project(
@@ -2560,10 +2418,7 @@ fn the_session_reports_graph_diagnostics_in_build_order() {
 
 /// Every session verifies its updates in a debug build, with no flag; a
 /// release build only when asked.
-#[specforge_test(
-    behavior = "validate_delta_correctness",
-    verify = "a debug build checks each rebuild without the flag"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn a_session_verifies_its_updates_in_a_debug_build() {
     let dir = three_files();
     let root = dir.root();
@@ -2585,10 +2440,7 @@ fn a_session_verifies_its_updates_in_a_debug_build() {
 
 /// What every surface reports of a verified update: how its graph differs
 /// from a cold rebuild, only when it does.
-#[specforge_test(
-    behavior = "validate_delta_correctness",
-    verify = "a discrepancy is reported with a message naming what differs"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn a_divergence_is_the_failed_verification() {
     let dir = three_files();
     let mut session = dir.session();
@@ -2603,10 +2455,7 @@ fn a_divergence_is_the_failed_verification() {
     }
 }
 
-#[specforge_test(
-    invariant = "extensions_run_in_their_loading_runtime",
-    verify = "an environment holds the runtime it loaded its extensions in, and its session and compiled project read it there"
-)]
+#[specforge_test(requirement = "INVARIANT-031")]
 fn an_environment_holds_the_runtime_it_loaded_its_extensions_in() {
     use specforge_project::{Environment, SharedRuntime};
     use specforge_wasm::testing::InProcessRuntime;
@@ -2645,10 +2494,7 @@ fn an_environment_holds_the_runtime_it_loaded_its_extensions_in() {
     assert!(bare.environment().registries().declarations().is_empty());
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "a spec root named like a skipped directory is compiled"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_spec_root_named_like_a_skipped_directory_is_compiled() {
     let dir = project(
         r#"{"name":"s","version":"0.1.0","extensions":[],"spec_root":"build"}"#,
@@ -2685,10 +2531,7 @@ const BARE: &str = r#"{"name":"s","version":"0.1.0","extensions":[]}"#;
 const EXCLUDING_DRAFTS: &str =
     r#"{"name":"s","version":"0.1.0","extensions":[],"exclude":["drafts/"]}"#;
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "an import of a file that is no project source produces E025"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn an_import_of_a_file_that_is_no_source_is_e025() {
     let dir = project(
         EXCLUDING_DRAFTS,
@@ -2738,10 +2581,7 @@ fn an_import_of_a_file_that_is_no_source_is_e025() {
     }
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "an import of an unreadable source reports only that source's E025"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn an_import_of_an_unreadable_source_reports_only_its_e025() {
     let dir = project(
         BARE,
@@ -2763,10 +2603,7 @@ fn an_import_of_an_unreadable_source_reports_only_its_e025() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "an import names an editor buffer's source, saved or not"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn an_import_names_an_unsaved_buffer() {
     let dir = project(BARE, &[("a.spec", "use \"b\"\n\nterm a \"A\" {\n}\n")]);
     let root = dir.root();
@@ -2784,10 +2621,7 @@ fn an_import_names_an_unsaved_buffer() {
     assert!(session.project().graph().node("b").is_some());
 }
 
-#[specforge_test(
-    invariant = "incremental_correctness",
-    verify = "a file discovery does not find changes nothing a compile or a session reports"
-)]
+#[specforge_test(requirement = "INVARIANT-057")]
 fn a_file_discovery_does_not_find_changes_nothing_a_session_reports() {
     let dir = project(
         EXCLUDING_DRAFTS,
@@ -2805,10 +2639,7 @@ fn a_file_discovery_does_not_find_changes_nothing_a_session_reports() {
     assert_eq!(e025(&session.project().diagnostics()).len(), 1);
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "an excluded or undiscovered .spec file changes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn an_update_naming_only_files_discovery_does_not_find_changes_nothing() {
     let dir = project(EXCLUDING_DRAFTS, &[("a.spec", "term a \"A\" {\n}\n")]);
     let root = dir.root();
@@ -2823,10 +2654,7 @@ fn an_update_naming_only_files_discovery_does_not_find_changes_nothing() {
     assert_eq!(session.project().diagnostics()[..], before[..]);
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "files matching an exclude entry are not compiled"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_glob_exclude_entry_leaves_its_files_out_of_the_compile() {
     let dir = project(
         r#"{"name":"s","version":"0.1.0","extensions":[],"exclude":["drafts/**","**/*.draft.spec"]}"#,
@@ -2851,10 +2679,7 @@ fn a_glob_exclude_entry_leaves_its_files_out_of_the_compile() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "symlink pointing outside spec_root is rejected"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 #[cfg(unix)]
 fn a_symlinked_directory_is_no_source() {
     let outer = TempDir::new().unwrap();
@@ -2880,10 +2705,7 @@ fn a_symlinked_directory_is_no_source() {
 /// of that batch are what the session finds stale: the batch comparison is
 /// the full comparison narrowed to what the paths reach, so naming every
 /// changed path loses nothing.
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "the changes of a batch naming every changed path are what the session finds stale"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_batch_naming_every_changed_path_changes_what_is_stale() {
     use std::path::PathBuf;
 
@@ -3007,10 +2829,7 @@ fn a_batch_naming_every_changed_path_changes_what_is_stale() {
     }
 }
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "an entity that only moved is a moved node, not a modification"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn an_update_lists_the_nodes_it_moved() {
     let alpha = "behavior alpha \"A\" { contract \"a\" }\n";
     let dir = project(CONFIG, &[("main.spec", alpha)]);

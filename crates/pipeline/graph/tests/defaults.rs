@@ -72,10 +72,7 @@ fn ports(graph: &Graph, id: &str) -> Vec<String> {
     }
 }
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "a default reaches every block of its kind in its file"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_default_reaches_every_block_of_its_kind_in_its_file() {
     let (graph, _) = build(&[("a.spec", &blocks())]);
     for id in ["a", "b", "c"] {
@@ -84,10 +81,7 @@ fn a_default_reaches_every_block_of_its_kind_in_its_file() {
     }
 }
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "a defaults block is never a node"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_defaults_block_is_no_node() {
     let (graph, diagnostics) = build(&[
         ("a.spec", "defaults behavior {\n  ports [Repo]\n}\n"),
@@ -97,10 +91,7 @@ fn a_defaults_block_is_no_node() {
     assert!(coded(&diagnostics, "E002").is_empty(), "{diagnostics:?}");
 }
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "a block's own field replaces the default whole"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_blocks_own_field_replaces_the_default_whole() {
     let text = "defaults behavior {\n  ports [Repo]\n}\n\nbehavior a \"A\" {\n  ports [Other]\n}\n\n\
          behavior b \"B\" {\n  ports []\n}\n\nbehavior c \"C\" {\n}\n\nport Repo \"Repo\" {\n}\n";
@@ -111,10 +102,7 @@ fn a_blocks_own_field_replaces_the_default_whole() {
     assert_eq!(ports(&graph, "c"), ["Repo"]);
 }
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "a default reaches no other file and no other kind"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_default_reaches_no_other_file_and_no_other_kind() {
     let (graph, _) = build(&[
         (
@@ -127,10 +115,7 @@ fn a_default_reaches_no_other_file_and_no_other_kind() {
     assert!(graph.node("Repo").unwrap().fields.get("ports").is_none());
 }
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "an inherited reference is written at the default"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn an_inherited_reference_is_written_at_the_default() {
     let (graph, _) = build(&[("a.spec", &blocks())]);
     let inputs = GraphInputs {
@@ -158,10 +143,7 @@ fn an_inherited_reference_is_written_at_the_default() {
     }
 }
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "a default for a field its kind does not declare is E077 and is not applied"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_default_for_an_undeclared_field_is_e077() {
     let text = format!("defaults behavior {{\n  owner \"x\"\n}}\n\n{BEHAVIORS}");
     let (graph, diagnostics) = build(&[("a.spec", &text)]);
@@ -189,10 +171,7 @@ fn without_declared_kinds_a_default_applies_unchecked() {
     assert!(graph.node("a").unwrap().fields.get("owner").is_some());
 }
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "a malformed defaults block is E078"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_malformed_defaults_block_is_e078() {
     let messages = |text: String| {
         let (graph, diagnostics) = build(&[("a.spec", &text)]);
@@ -229,10 +208,7 @@ fn a_malformed_defaults_block_is_e078() {
     assert_eq!(ports(&graph, "a"), ["Repo"], "it still applies");
 }
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "a default that changes nothing is W161"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_default_that_changes_nothing_is_w161() {
     let text = "defaults behavior {\n  ports [Repo]\n}\n\nbehavior a \"A\" {\n  ports [Repo]\n}\n\n\
          behavior b \"B\" {\n}\n\nport Repo \"Repo\" {\n}\n";
@@ -247,10 +223,7 @@ fn a_default_that_changes_nothing_is_w161() {
     assert!(w[0].contains("reaches no block"), "{w:?}");
 }
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "changing a default changes every block that inherits it"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn changing_a_default_changes_every_block_that_inherits_it() {
     let config = GraphConfig {
         inputs: GraphInputs {
@@ -282,10 +255,7 @@ const ASKED: &str = "defaults behavior {\n  ports [Repo]\n  ports [Store]\n  own
      behavior b \"B\" {\n  ports [Store]\n}\n\n\
      behavior c \"C\" {\n  ports []\n}\n";
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "the defaults answer which entry applies and whether a field restates it"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn the_defaults_answer_which_entry_applies_and_whether_a_field_restates_it() {
     let file = parse(ASKED, "a.spec");
     let (defaults, _) = FileDefaults::of(&file, &forms());
@@ -436,10 +406,7 @@ fn repeats_widens_restates_to_stored_values() {
     }
 }
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "a block's written fields are its entries before they are stored"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn written_fields_are_a_nodes_entries_before_they_are_stored() {
     let forms = FieldForms::new(
         [

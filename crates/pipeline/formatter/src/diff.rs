@@ -45,10 +45,7 @@ pub fn unified_diff(file_path: &str, original: &str, formatted: &str) -> FormatD
 mod tests {
     use super::*;
 
-    #[specforge_test_macros::test(
-        behavior = "show_formatting_diff",
-        verify = "diff output uses unified format"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-009")]
     fn test_unified_diff_format() {
         let diff = unified_diff(
             "spec/test.spec",
@@ -60,10 +57,7 @@ mod tests {
         assert!(diff.diff_text.contains("@@"));
     }
 
-    #[specforge_test_macros::test(
-        behavior = "show_formatting_diff",
-        verify = "unchanged files produce no diff output"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-009")]
     fn test_diff_unchanged_files_empty() {
         let diff = unified_diff("test.spec", "hello\n", "hello\n");
         assert!(diff.diff_text.is_empty());
@@ -71,19 +65,13 @@ mod tests {
         assert_eq!(diff.deletions, 0);
     }
 
-    #[specforge_test_macros::test(
-        behavior = "show_formatting_diff",
-        verify = "diff output uses unified format"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-009")]
     fn test_diff_counts_insertions_deletions() {
         let diff = unified_diff("test.spec", "  line1\n  line2\n", "line1\nline2\n");
         assert!(diff.insertions > 0 || diff.deletions > 0);
     }
 
-    #[specforge_test_macros::test(
-        behavior = "show_formatting_diff",
-        verify = "an unchanged line is shown as context, never as removed and added"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-009")]
     fn a_moved_line_is_one_change_not_two() {
         let original = "use \"b\"\nuse \"a\"\n\nbehavior x \"X\" {\n  contract \"c\"\n\n  verify unit \"v\"\n}\n";
         let formatted = "use \"a\"\nuse \"b\"\n\nbehavior x \"X\" {\n  contract \"c\"\n  verify unit \"v\"\n}\n";

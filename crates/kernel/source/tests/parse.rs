@@ -32,10 +32,7 @@ fn capture<'m>(matched: &'m SyntaxMatch, name: &str) -> Option<&'m str> {
         .map(|capture| capture.text.as_str())
 }
 
-#[specforge_test(
-    behavior = "read_source_syntax",
-    verify = "a rust file answers every named capture with spans and parents"
-)]
+#[specforge_test(requirement = "FEATURE-137")]
 fn a_rust_file_answers_every_named_capture_with_spans_and_parents() {
     let source = "mod a {\n    pub struct S;\n    impl S {\n        pub fn m(&self) { helper() }\n    }\n}\nfn helper() {}\n";
     let (matches, errors) = parsed(Language::Rust, RUST_TAGS, source);
@@ -75,10 +72,7 @@ fn a_rust_file_answers_every_named_capture_with_spans_and_parents() {
     assert_eq!((name.span.start.col, name.span.end.col), (16, 17));
 }
 
-#[specforge_test(
-    behavior = "read_source_syntax",
-    verify = "a broken file answers what the parse recovered and counts its errors"
-)]
+#[specforge_test(requirement = "FEATURE-137")]
 fn a_broken_file_answers_what_the_parse_recovered_and_counts_its_errors() {
     let source = "pub fn first() -> u8 { 1 }\npub struct Second { a: u8 }\nfn third( { let x = ; }\npub enum Fourth { A, B }\nimpl Second { pub fn fifth(&self) -> u8 { self.a } }\n";
     let (matches, errors) = parsed(Language::Rust, RUST_TAGS, source);
@@ -164,10 +158,7 @@ fn a_capture_starting_with_an_underscore_is_not_answered() {
     assert_eq!(names, ["body"]);
 }
 
-#[specforge_test(
-    behavior = "read_source_syntax",
-    verify = "a query without exactly one role capture or with a general predicate is a fault"
-)]
+#[specforge_test(requirement = "FEATURE-137")]
 fn a_query_without_one_role_capture_is_a_fault() {
     let fault = |query: &str| SourceQuery::compile(Language::Rust, query).unwrap_err();
     let none = fault("(function_item name: (identifier) @name)");
@@ -212,10 +203,7 @@ fn a_tree_sitter_query_error_is_a_fault_with_its_row_and_column() {
     assert_eq!((fault.row, fault.column), (2, 4));
 }
 
-#[specforge_test(
-    behavior = "read_source_syntax",
-    verify = "a capture's text is cut at 4096 bytes on a character boundary"
-)]
+#[specforge_test(requirement = "FEATURE-137")]
 fn a_capture_text_is_cut_at_4096_bytes_on_a_char_boundary() {
     // A string of 3-byte characters whose 4096th byte falls inside one.
     let body = "é".to_string() + &"€".repeat(2000);
@@ -246,10 +234,7 @@ fn columns_count_characters_not_bytes() {
     assert_eq!((c.span.start.col, c.span.start.byte_col), (23, 27));
 }
 
-#[specforge_test(
-    behavior = "read_source_syntax",
-    verify = "the grammar versions are the locked ones"
-)]
+#[specforge_test(requirement = "FEATURE-137")]
 fn the_grammar_versions_are_the_locked_ones() {
     let lock =
         std::fs::read_to_string(specforge_repo_root::repo_root().join("Cargo.lock")).unwrap();

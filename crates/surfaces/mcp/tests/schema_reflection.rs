@@ -13,10 +13,7 @@ use serde_json::json;
 use specforge_test::prelude::*;
 use std::collections::BTreeMap;
 
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "each core tool's input schema advertises exactly the arguments its handler reads"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn each_core_tool_schema_advertises_exactly_what_its_handler_reads() {
     let mut drift = Vec::new();
     for tool in specforge_mcp::tools::CORE_TOOLS {
@@ -68,10 +65,7 @@ fn each_core_tool_schema_advertises_exactly_what_its_handler_reads() {
     assert!(drift.is_empty(), "schema drift: {drift:#?}");
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_prompt",
-    verify = "each core prompt lists exactly the arguments its handler reads"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn each_core_prompt_lists_exactly_the_arguments_its_handler_reads() {
     let mut served = {
         use crate::support::Serve;
@@ -217,10 +211,7 @@ fn validate_advertises_severity_filter() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "validate advertises effects, and a call without it performs no effect"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn validate_advertises_effects_defaulting_to_cached() {
     let tools = advertised_properties();
     let validate = tools
@@ -270,10 +261,7 @@ fn stated<P: specforge_mcp::prompt::CorePrompt>() -> (&'static str, &'static str
     )
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_prompt",
-    verify = "each core prompt is one module: its name, description, arguments, spec type and typed payload are stated there once"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn each_core_prompt_is_one_module() {
     use specforge_mcp::prompts::{context, explore, infer, review, trace};
     let modules = [
@@ -301,10 +289,7 @@ fn each_core_prompt_is_one_module() {
     assert_eq!(names.len(), listed.len(), "names are unique");
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a read-only command's tool keeps its annotations and schema"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn read_only_command_tools_keep_their_annotations_and_schema() {
     let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
     let listed = call(&mut server, "tools/list", json!({}));
@@ -323,10 +308,7 @@ fn read_only_command_tools_keep_their_annotations_and_schema() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_export_tool",
-    verify = "specforge.export advertises with_checks, as specforge export takes --with-checks"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn the_export_tool_advertises_with_checks() {
     let tool = specforge_mcp::tools::core_tool("specforge.export").unwrap();
     assert_eq!(

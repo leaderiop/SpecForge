@@ -53,10 +53,7 @@ fn build_chain_graph() -> Graph {
 }
 
 // B:export_agent_graph_format — verify unit "scoped export returns only reachable subgraph"
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "scoped export returns only reachable subgraph"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn scoped_json_returns_only_reachable_subgraph() {
     let graph = build_chain_graph();
     let json = crate::support::scoped_json(&graph, "b").unwrap();
@@ -73,10 +70,7 @@ fn scoped_json_returns_only_reachable_subgraph() {
 }
 
 // B:export_agent_context_format — verify unit "scoped export returns only reachable subgraph"
-#[specforge_test(
-    behavior = "export_agent_context_format",
-    verify = "scoped export returns only reachable subgraph"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn scoped_context_returns_only_reachable_subgraph() {
     let graph = build_chain_graph();
     let json = crate::support::scoped_context(&graph, "a").unwrap();
@@ -94,7 +88,7 @@ fn scoped_context_returns_only_reachable_subgraph() {
 
 // B:export_agent_graph_format — verify unit "scoped export returns only reachable subgraph"
 // (validates edges are also scoped correctly)
-#[specforge_test(behavior = "export_agent_graph_format")]
+#[specforge_test(requirement = "FEATURE-001")]
 fn scoped_edges_only_between_reachable_nodes() {
     let graph = build_chain_graph();
     let json = crate::support::scoped_json(&graph, "a").unwrap();
@@ -106,7 +100,7 @@ fn scoped_edges_only_between_reachable_nodes() {
 
 // B:export_agent_graph_format — verify unit "scoped export returns only reachable subgraph"
 // (edge case: disconnected leaf returns single node)
-#[specforge_test(behavior = "export_agent_graph_format")]
+#[specforge_test(requirement = "FEATURE-001")]
 fn scoped_leaf_node_returns_single_node() {
     let graph = build_chain_graph();
     // "d" is disconnected, so scope returns just d

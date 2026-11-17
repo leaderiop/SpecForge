@@ -24,10 +24,8 @@ fn outside_the_old_set(dir: &std::path::Path) -> bool {
         .any(|b| !Family::Old.names().contains(&b.name) && key_of(b.name) == key)
 }
 
-#[specforge_test_macros::test(
-    behavior = "suggest_missing_extensions",
-    verify = "the builtin vocabulary is what the builtins' pinned declarations declare"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-140")]
+#[specforge_test_macros::test(requirement = "FEATURE-141")]
 fn the_builtin_vocabulary_is_what_the_builtins_declare() {
     let declarations = pinned_builtin_declarations().unwrap();
     let expected = CandidateVocabulary::of(&declarations).unwrap().to_json();
@@ -38,10 +36,7 @@ fn the_builtin_vocabulary_is_what_the_builtins_declare() {
     assert!(!CandidateVocabulary::from_json(BUILTIN_VOCABULARY).is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "link_entity_references",
-    verify = "no builtin reference field declares a default value, so an absent value names nothing"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-109")]
 fn no_builtin_reference_field_declares_a_default() {
     let declarations = pinned_builtin_declarations().unwrap();
     let mut checked = 0;
@@ -57,10 +52,7 @@ fn no_builtin_reference_field_declares_a_default() {
     assert!(checked > 40, "only {checked} reference fields were found");
 }
 
-#[specforge_test_macros::test(
-    behavior = "link_entity_references",
-    verify = "no builtin kind declares a scope field, so every builtin entity id is its name"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-109")]
 fn no_builtin_kind_is_scoped() {
     // The old set only: @gsd/core scopes, sets and pins by design (ADR 0373 D7, ADR 0370).
     let declarations = old_set_declarations();
@@ -88,10 +80,7 @@ fn keys_and_types(value: &serde_json::Value, found: &mut Vec<String>) {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_value_types",
-    verify = "no authored kind of a builtin or pinned example declares a member, a target union, a bound, an enum list or a block list"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-018")]
 fn no_builtin_field_declares_a_k3_attribute() {
     let mut files = 0;
     for dir in std::fs::read_dir(specforge_component::committed::snapshots()).unwrap() {
@@ -142,10 +131,7 @@ fn no_builtin_field_declares_a_k3_attribute() {
     assert!(files > 20, "only {files} declaration files were found");
 }
 
-#[specforge_test_macros::test(
-    behavior = "judge_field_history",
-    verify = "no builtin or pinned example declaration declares a writer other than a collected kind's, an immutable or append-only flag, a baseline or computes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn no_builtin_declares_a_writer_or_history_flag() {
     let mut files = 0;
     for dir in std::fs::read_dir(specforge_component::committed::snapshots()).unwrap() {
@@ -187,10 +173,7 @@ fn no_builtin_declares_a_writer_or_history_flag() {
     assert!(files > 20, "only {files} declaration files were found");
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "no builtin declares a feature flag, and none but @specforge/checks a setting: its family switches"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_builtins_declare_no_settings() {
     // The old set only: @gsd/core scopes, sets and pins by design (ADR 0373 D7, ADR 0370).
     let declarations = old_set_declarations();

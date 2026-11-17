@@ -119,52 +119,6 @@ pub fn spec_verdict(
     }
 }
 
-/// The dogfood verdict (was `gate.sh:142-158`): W115 in collect's output, A014 or A016 in analyze's; the number of
-/// obligations proven, printed.
-pub fn dogfood_verdict(collect: &Value, analyze: &Value) -> (Vec<String>, bool) {
-    let mut lines = Vec::new();
-    let mut failed = false;
-    let mut unknown = Vec::new();
-    find_code(collect, "W115", &mut unknown);
-    for d in unknown {
-        lines.push(format!(
-            "W115 in collect: {}",
-            d["message"].as_str().unwrap_or("")
-        ));
-        failed = true;
-    }
-    let passes = analyze["passes"]
-        .as_array()
-        .map(Vec::as_slice)
-        .unwrap_or_default();
-    for finding in passes
-        .iter()
-        .flat_map(|p| p["findings"].as_array().into_iter().flatten())
-    {
-        let code = finding["code"].as_str().unwrap_or("");
-        if code == "A014" || code == "A016" {
-            lines.push(format!(
-                "{code} {}",
-                finding["message"].as_str().unwrap_or("")
-            ));
-            failed = true;
-        }
-    }
-    let proven = passes
-        .iter()
-        .find(|p| {
-            p["pass"]
-                .as_str()
-                .is_some_and(|name| name.ends_with(":coverage"))
-        })
-        .map(|p| &p["summary"]["test_results"]["obligations_proven"]);
-    lines.push(format!(
-        "obligations proven: {}",
-        proven.map_or("none".to_string(), Value::to_string)
-    ));
-    (lines, failed)
-}
-
 /// How many failed requirements [`requirement_verdict`] names one by one before it counts the rest.
 const FAILED_NAMED: usize = 10;
 
@@ -226,19 +180,6 @@ pub fn requirement_verdict(export: &Value, guest_named: &BTreeSet<String>) -> (V
     }
     failed |= !failures.is_empty();
     (lines, failed)
-}
-
-fn find_code<'a>(value: &'a Value, code: &str, out: &mut Vec<&'a Value>) {
-    match value {
-        Value::Object(map) => {
-            if map.get("code").and_then(Value::as_str) == Some(code) {
-                out.push(value);
-            }
-            map.values().for_each(|v| find_code(v, code, out));
-        }
-        Value::Array(items) => items.iter().for_each(|v| find_code(v, code, out)),
-        _ => {}
-    }
 }
 
 /// The `executable` of `bin`'s compiler-artifact message in cargo's JSON output (the last one, when it was built
@@ -405,30 +346,6 @@ mod tests {
             true,
         );
         assert!(written.failed && written.new_baseline.is_none());
-    }
-
-    #[test]
-    fn w115_a014_and_a016_fail_the_dogfood() {
-        let analyze = |code: &str| json!({"passes": [{"pass": "@x:coverage", "findings": [{"code": code, "message": "m"}]}]});
-        let collect = json!({"diagnostics": []});
-        assert!(!dogfood_verdict(&collect, &analyze("A001")).1);
-        assert!(dogfood_verdict(&collect, &analyze("A014")).1);
-        assert!(dogfood_verdict(&collect, &analyze("A016")).1);
-        let unknown = json!({"diagnostics": [{"code": "W115", "message": "no such entity"}]});
-        let (lines, failed) = dogfood_verdict(&unknown, &analyze("A001"));
-        assert!(failed);
-        assert!(lines[0].starts_with("W115 in collect"));
-    }
-
-    #[test]
-    fn the_dogfood_prints_the_obligations_proven() {
-        let analyze = json!({"passes": [
-            {"pass": "@x:other", "findings": []},
-            {"pass": "@specforge/testing:coverage", "findings": [],
-             "summary": {"test_results": {"obligations_proven": 1234}}}]});
-        let (lines, failed) = dogfood_verdict(&json!({}), &analyze);
-        assert!(!failed);
-        assert_eq!(lines, ["obligations proven: 1234"]);
     }
 
     /// The requirement nodes of the fixture's real export (`xtask/tests/fixtures/requirement-links` collected through

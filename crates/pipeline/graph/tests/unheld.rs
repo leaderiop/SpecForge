@@ -68,10 +68,7 @@ fn codes(diagnostics: &[specforge_graph::Diagnostic]) -> Vec<&str> {
     diagnostics.iter().map(|d| d.code.as_str()).collect()
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a reference in a fact scheme that names no fact is unheld: no edge and no core diagnostic"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_reference_in_a_fact_scheme_that_names_no_fact_is_unheld_with_no_diagnostic() {
     let (graph, diagnostics) = build(
         &[truth(&format!("proof [\"{FACT}\"]\n  note [\"js:b\"]"))],
@@ -91,10 +88,7 @@ fn a_reference_in_a_fact_scheme_that_names_no_fact_is_unheld_with_no_diagnostic(
     assert!(graph.node("t1").unwrap().unheld[0].span.is_some());
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "an unheld reference names the collected kinds of its scheme its field admits"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn an_unheld_reference_names_the_collected_kinds_its_field_admits() {
     let (graph, diagnostics) = build(
         &[truth(&format!("proof [\"{FACT}\"]\n  note [\"js:b\"]"))],
@@ -137,10 +131,7 @@ fn a_reference_in_a_fact_scheme_naming_a_fact_links() {
     assert!(graph.node("t1").unwrap().unheld.is_empty());
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a fact scheme reference whose target kind is absent stays I004, and one of the wrong kind E022"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_fact_scheme_reference_of_another_kind_is_still_mistyped() {
     let (graph, diagnostics) = build(
         &[truth(&format!("proof [\"{FACT}\"]")), fact("person", FACT)],
@@ -151,10 +142,7 @@ fn a_fact_scheme_reference_of_another_kind_is_still_mistyped() {
     assert!(graph.node("t1").unwrap().unheld.is_empty());
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a fact scheme reference whose target kind is absent stays I004, and one of the wrong kind E022"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_fact_scheme_reference_whose_target_kind_is_not_loaded_is_still_i004() {
     let (graph, diagnostics) = build(
         &[truth(&format!("proof [\"{FACT}\"]"))],
@@ -232,10 +220,7 @@ fn served(fields: &str) -> SpecFile {
 
 const PLANS: &str = "plan v1 \"One\" {}\nplan v2 \"Two\" {}\ntruth TR1 \"T\" {\n  plan v1\n}\n";
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a fact's reference that names no entity, or one of another kind, is dangling: no E003 or E022, and the passes are sent it at its name span"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_facts_reference_naming_no_entity_is_dangling_with_no_diagnostic() {
     let (graph, diagnostics) = build_facts(&[parse(PLANS, "a.spec"), served("covers [nobody]")]);
 
@@ -252,10 +237,7 @@ fn a_facts_reference_naming_no_entity_is_dangling_with_no_diagnostic() {
     assert!(fact.unheld.is_empty());
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a fact's reference that names no entity, or one of another kind, is dangling: no E003 or E022, and the passes are sent it at its name span"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_facts_mistyped_reference_is_dangling_and_keeps_its_edge() {
     let (graph, diagnostics) = build_facts(&[parse(PLANS, "a.spec"), served("proves [v1]")]);
 
@@ -271,10 +253,7 @@ fn a_facts_mistyped_reference_is_dangling_and_keeps_its_edge() {
     assert_eq!(targets, ["v1"], "a mistyped reference keeps its edge");
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a fact's short name links by its unique suffix"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_facts_short_name_links_by_its_unique_suffix() {
     let two =
         format!("{PLANS}truth TR2 \"T\" {{\n  plan v1\n}}\ntruth TR2 \"T\" {{\n  plan v2\n}}\n");
@@ -293,10 +272,7 @@ fn a_facts_short_name_links_by_its_unique_suffix() {
     assert_eq!(fact.dangling[0].candidates, ["v1/TR2", "v2/TR2"]);
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a fact's short name reads as the path it links to"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_facts_short_name_reads_as_the_path_it_links_to() {
     let two =
         format!("{PLANS}truth TR2 \"T\" {{\n  plan v1\n}}\ntruth TR2 \"T\" {{\n  plan v2\n}}\n");
@@ -310,10 +286,7 @@ fn a_facts_short_name_reads_as_the_path_it_links_to() {
     assert_eq!(bytes(&value), b"[\"v1/TR1\",\"TR2\"]");
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "W061 reads no fact's reference: a test naming the entity whose proof lists it is no reference cycle"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_cycle_a_facts_reference_closes_is_no_w061() {
     let proven = format!("{PLANS}truth TR3 \"T\" {{\n  plan v1\n  covers [\"{FACT}\"]\n}}\n");
 
@@ -336,10 +309,7 @@ fn a_cycle_a_facts_reference_closes_is_no_w061() {
     assert_eq!(codes(&diagnostics), ["W061"], "{diagnostics:?}");
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a fact's reference that names no entity, or one of another kind, is dangling: no E003 or E022, and the passes are sent it at its name span"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn an_authored_reference_naming_no_entity_is_still_e003() {
     let (graph, diagnostics) = build_facts(&[parse(
         &format!("{PLANS}truth TR3 \"T\" {{\n  plan v1\n  covers [nobody]\n}}\n"),
@@ -350,10 +320,7 @@ fn an_authored_reference_naming_no_entity_is_still_e003() {
     assert!(graph.node("v1/TR3").unwrap().dangling.is_empty());
 }
 
-#[specforge_test(
-    behavior = "detect_duplicate_entity_ids",
-    verify = "a fact id two stores hold is E117 naming both collectors, not E002"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_fact_id_two_stores_hold_is_e117_not_e002() {
     let at = |store: &str| {
         let mut file = parse("test placeholder \"P\" {}\n", store);

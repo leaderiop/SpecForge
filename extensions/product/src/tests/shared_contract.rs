@@ -65,10 +65,7 @@ fn every_command() -> Vec<(&'static str, Value)> {
     commands
 }
 
-#[specforge_test(
-    behavior = "surface_query_command_contract",
-    verify = "entity-scoped query with valid ID returns typed payload"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn an_entity_scoped_query_answers_about_its_entity() {
     let runtime = runtime();
     let g = plan();
@@ -78,10 +75,7 @@ fn an_entity_scoped_query_answers_about_its_entity() {
     }
 }
 
-#[specforge_test(
-    behavior = "surface_query_command_contract",
-    verify = "entity-scoped query with invalid ID returns ENTITY_NOT_FOUND"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn an_entity_scoped_query_about_no_entity_is_not_found() {
     let runtime = runtime();
     let g = plan();
@@ -96,10 +90,7 @@ fn an_entity_scoped_query_about_no_entity_is_not_found() {
     }
 }
 
-#[specforge_test(
-    behavior = "surface_query_command_contract",
-    verify = "entity-scoped query with close typo returns suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn an_entity_scoped_query_with_a_typo_suggests_its_kinds_nearest() {
     let runtime = runtime();
     let g = plan();
@@ -110,10 +101,7 @@ fn an_entity_scoped_query_with_a_typo_suggests_its_kinds_nearest() {
     }
 }
 
-#[specforge_test(
-    behavior = "surface_query_command_contract",
-    verify = "project-wide query returns typed payload"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_project_wide_query_answers_its_payload() {
     let runtime = runtime();
     let g = plan();
@@ -123,10 +111,7 @@ fn a_project_wide_query_answers_its_payload() {
     assert!(h["score"]["overall"].is_number(), "{h}");
 }
 
-#[specforge_test(
-    behavior = "surface_query_command_contract",
-    verify = "query result respects --format=json"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_query_prints_json_only_when_asked() {
     let runtime = runtime();
     let g = plan();
@@ -142,10 +127,7 @@ fn a_query_prints_json_only_when_asked() {
     }
 }
 
-#[specforge_test(
-    behavior = "surface_format_conventions",
-    verify = "json output is valid JSON"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn every_command_prints_one_json_object() {
     let runtime = runtime();
     for g in [G::default(), plan()] {
@@ -162,10 +144,7 @@ fn every_command_prints_one_json_object() {
     }
 }
 
-#[specforge_test(
-    behavior = "surface_error_handling",
-    verify = "entity-not-found returns ENTITY_NOT_FOUND code"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_missing_entity_is_entity_not_found_exiting_one() {
     let out = run_in(
         &runtime(),
@@ -181,10 +160,7 @@ fn a_missing_entity_is_entity_not_found_exiting_one() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_error_handling",
-    verify = "fuzzy-match suggestion present when close match exists"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_close_id_of_the_same_kind_is_suggested() {
     let runtime = runtime();
     let g = plan();
@@ -220,10 +196,7 @@ fn a_close_id_of_the_same_kind_is_suggested() {
     assert_ne!(error["suggestion"], "f1", "{error}");
 }
 
-#[specforge_test(
-    behavior = "surface_error_handling",
-    verify = "no surface panics on null, empty, or malformed input"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn no_command_panics_on_odd_input() {
     // Raw bytes on purpose: inputs no host sends (a missing field, a
     // malformed value), so the call is `call_export`, not `run_command`.
@@ -262,10 +235,11 @@ fn no_command_panics_on_odd_input() {
     }
 }
 
-#[specforge_test(
-    behavior = "pe_query_entity_not_found",
-    verify = "query with missing entity ID returns error"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
+#[specforge_test(requirement = "FEATURE-091")]
+#[specforge_test(requirement = "FEATURE-092")]
+#[specforge_test(requirement = "FEATURE-093")]
+#[specforge_test(requirement = "FEATURE-100")]
 fn a_query_about_a_missing_id_errs() {
     let error = run_in(
         &runtime(),
@@ -279,10 +253,11 @@ fn a_query_about_a_missing_id_errs() {
     assert_eq!(error["message"], "feature 'gone' not found");
 }
 
-#[specforge_test(
-    behavior = "pe_query_entity_not_found",
-    verify = "query with missing ID and close match includes suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
+#[specforge_test(requirement = "FEATURE-091")]
+#[specforge_test(requirement = "FEATURE-092")]
+#[specforge_test(requirement = "FEATURE-093")]
+#[specforge_test(requirement = "FEATURE-100")]
 fn a_query_about_a_near_miss_suggests() {
     let error = run_in(
         &runtime(),
@@ -295,10 +270,11 @@ fn a_query_about_a_near_miss_suggests() {
     assert_eq!(error["suggestion"], "web");
 }
 
-#[specforge_test(
-    behavior = "pe_query_entity_not_found",
-    verify = "query with missing ID and no close match omits suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
+#[specforge_test(requirement = "FEATURE-091")]
+#[specforge_test(requirement = "FEATURE-092")]
+#[specforge_test(requirement = "FEATURE-093")]
+#[specforge_test(requirement = "FEATURE-100")]
 fn a_query_about_a_far_miss_suggests_nothing() {
     let runtime = runtime();
     let out = run_in(

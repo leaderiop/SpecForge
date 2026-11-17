@@ -57,10 +57,7 @@ fn blocks(count: usize, body: impl Fn(usize) -> String) -> String {
 
 const BOTH: &str = "  ports [R]\n  features [F]\n";
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "a list every block writes alike is hoisted"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_list_every_block_writes_alike_is_hoisted() {
     let after = migrated(&blocks(3, |_| BOTH.to_string()));
     assert_eq!(
@@ -72,10 +69,7 @@ fn a_list_every_block_writes_alike_is_hoisted() {
     );
 }
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "the most common list is hoisted and the others keep theirs"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn the_most_common_list_is_hoisted_and_the_others_keep_theirs() {
     let text = blocks(4, |i| {
         format!(
@@ -92,10 +86,7 @@ fn the_most_common_list_is_hoisted_and_the_others_keep_theirs() {
     assert!(!after.contains("ports [R]"), "{after}");
 }
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "a kind where a block lacks the field is left as written"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_kind_where_a_block_lacks_the_field_is_left_as_written() {
     let text = blocks(6, |i| {
         if i < 5 {
@@ -112,10 +103,7 @@ fn a_kind_where_a_block_lacks_the_field_is_left_as_written() {
     assert_eq!(after.matches("features [F]").count(), 5, "{after}");
 }
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "an identifier, a quoted or a multi-line list is never hoisted"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn an_identifier_a_quoted_or_a_multi_line_list_is_never_hoisted() {
     for body in [
         "  category command\n",
@@ -128,10 +116,7 @@ fn an_identifier_a_quoted_or_a_multi_line_list_is_never_hoisted() {
     }
 }
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "a line with a comment on or above it is left as written"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_line_with_a_comment_on_or_above_it_is_left_as_written() {
     for body in ["  ports [R] // why\n", "  // why\n  ports [R]\n"] {
         let text = blocks(6, |_| body.to_string());
@@ -139,10 +124,7 @@ fn a_line_with_a_comment_on_or_above_it_is_left_as_written() {
     }
 }
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "a // line inside a string above a list is no comment"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_comment_line_inside_a_string_above_a_list_is_no_comment() {
     let text = blocks(6, |_| {
         "  contract \"\"\"\n    Example:\n    // the caller writes this\"\"\"\n  ports [R]\n"
@@ -156,10 +138,7 @@ fn a_comment_line_inside_a_string_above_a_list_is_no_comment() {
     assert_eq!(after.matches("// the caller writes this\"\"\"").count(), 6);
 }
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "a kind that has defaults is left as written"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_kind_that_has_defaults_is_left_as_written() {
     let text = format!(
         "defaults behavior {{\n  features [F]\n}}\n\n{}",
@@ -168,10 +147,7 @@ fn a_kind_that_has_defaults_is_left_as_written() {
     assert_eq!(migrated(&text), text);
 }
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "a hoist that saves no line is not written"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_hoist_that_saves_no_line_is_not_written() {
     let text = blocks(2, |_| "  ports [R]\n".to_string());
     assert_eq!(migrated(&text), text);
@@ -182,10 +158,7 @@ fn a_hoist_that_saves_no_line_is_not_written() {
     );
 }
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "the block goes after the imports or before the first form"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn the_block_goes_after_the_imports_or_before_the_first_form() {
     let body = blocks(3, |_| BOTH.to_string());
     let defaults = "defaults behavior {\n  ports    [R]\n  features [F]\n}\n";
@@ -201,10 +174,7 @@ fn the_block_goes_after_the_imports_or_before_the_first_form() {
     );
 }
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "the block goes below the format header"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn the_block_goes_below_the_format_header() {
     let body = blocks(3, |_| BOTH.to_string());
     let defaults = "defaults behavior {\n  ports    [R]\n  features [F]\n}\n";
@@ -220,19 +190,13 @@ fn the_block_goes_below_the_format_header() {
     );
 }
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "hoisting twice changes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn hoisting_twice_changes_nothing() {
     let once = migrated(&blocks(4, |_| BOTH.to_string()));
     assert_eq!(migrated(&once), once);
 }
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "a file with a syntax error is left alone"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_file_with_a_syntax_error_is_left_alone() {
     let text = format!(
         "{}behavior z \"T\" {{\n  ports [R\n",
@@ -241,10 +205,7 @@ fn a_file_with_a_syntax_error_is_left_alone() {
     assert_eq!(migrated(&text), text);
 }
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "the block goes above the file's first block when an import follows it"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn the_block_goes_above_the_first_block_when_an_import_follows_it() {
     let text = format!(
         "type Thing \"T\" {{\n}}\n\nuse \"x\"\n\n{}",
@@ -275,10 +236,7 @@ fn kinds(names: &[&str]) -> FieldForms {
     )
 }
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "a field or a kind the field forms do not declare is never hoisted"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_field_or_kind_the_forms_do_not_declare_is_never_hoisted() {
     let text = blocks(6, |_| "  ports [R]\n".to_string());
 

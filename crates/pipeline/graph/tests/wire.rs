@@ -51,10 +51,7 @@ fn bytes_of(graph: &Graph, field: &str) -> Vec<u8> {
     bytes(&resolved(graph, &forms(), node, field).expect("the uat writes the field"))
 }
 
-#[specforge_test(
-    behavior = "record_harness_values",
-    verify = "the value digest reads the target of a reference, not its spelling"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn the_value_digest_reads_the_target_not_the_spelling() {
     let short = graph(&format!("{BASE}uat U1 \"U\" {{\n  phase 03\n}}\n"));
     let long = graph(&format!("{BASE}uat U1 \"U\" {{\n  phase v1.0/03\n}}\n"));
@@ -68,10 +65,7 @@ fn the_value_digest_reads_the_target_not_the_spelling() {
     assert_eq!(bytes_of(&list, "peers"), b"[\"v1.0/03\",\"ghost\"]");
 }
 
-#[specforge_test(
-    behavior = "record_harness_values",
-    verify = "an entity digest leaves out a context-written value as it leaves out computed and verdict values"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_context_written_value_is_not_in_the_entity_bytes() {
     use specforge_graph::wire::entity_bytes;
     use specforge_protocol_types::FieldWriter;

@@ -94,10 +94,7 @@ fn told_the_secret(found: &[specforge_common::Diagnostic]) -> bool {
     found.iter().any(|d| d.message.contains("bytes: ["))
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a spec root outside the project is an outside root a probe needs approval to read"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_probe_reads_an_outside_spec_root_only_once_approved() {
     let outside = tempfile::tempdir().unwrap();
     let scene = scene(outside.path());

@@ -76,10 +76,7 @@ fn run_collect(
     .unwrap()
 }
 
-#[specforge_test_macros::test(
-    behavior = "vt_declare_vitest_collector",
-    verify = "vitest declares its collector"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-132")]
 fn vitest_declares_its_collector() {
     let manifest = load_via_protocol("@specforge/vitest");
     assert!(
@@ -100,10 +97,8 @@ fn vitest_declares_its_collector() {
     assert_eq!(c.report.as_deref(), Some(".specforge/reports/vitest.json"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "nt_declare_node_test_collector",
-    verify = "node-test declares its collector, its reads and its peer"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
+#[specforge_test_macros::test(requirement = "FEATURE-077")]
 fn node_test_declares_its_collector() {
     let manifest = load_via_protocol("@javascript/node-test");
     let peers: Vec<(&str, bool)> = manifest
@@ -150,10 +145,7 @@ fn node_test_declares_its_collector() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "ct_declare_cargo_collector",
-    verify = "cargo-test declares its collector"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-015")]
 fn cargo_test_declares_its_collector() {
     let manifest = load_via_protocol("@specforge/cargo-test");
     assert!(
@@ -178,10 +170,7 @@ fn cargo_test_declares_its_collector() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "ct_report_unlinked_tests",
-    verify = "tests the attribute did not record are reported as unlinked"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-015")]
 fn cargo_test_reports_plain_tests_as_unlinked() {
     let runtime = wasm_runtime_for(&["@specforge/cargo-test"]);
     let manifest = load_via_protocol("@specforge/cargo-test");
@@ -222,10 +211,8 @@ fn cargo_test_reports_plain_tests_as_unlinked() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "management_operations_over_the_project_view",
-    verify = "collect maps test results to the entities of its view"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
+#[specforge_test_macros::test(requirement = "FEATURE-070")]
 fn collect_maps_results_to_the_views_entities() {
     use specforge_ops::analysis::collect::{Mode, Request, collect};
     use specforge_ops::view::ProjectView;
@@ -282,10 +269,7 @@ fn collect_maps_results_to_the_views_entities() {
     assert!(w115[0].contains("'zz'"), "{}", w115[0]);
 }
 
-#[specforge_test_macros::test(
-    behavior = "ct_map_binary_reports",
-    verify = "a report entry whose status is not passed, failed or skipped is the collector's error"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-015")]
 fn cargo_test_refuses_an_entry_with_an_unknown_status() {
     let runtime = wasm_runtime_for(&["@specforge/cargo-test"]);
     let manifest = load_via_protocol("@specforge/cargo-test");
@@ -303,10 +287,7 @@ fn cargo_test_refuses_an_entry_with_an_unknown_status() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "vt_map_vitest_report",
-    verify = "a linked test whose status vitest's JSON reporter does not write is the collector's error"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-132")]
 fn vitest_refuses_a_linked_test_with_an_unknown_status() {
     let runtime = wasm_runtime_for(&["@specforge/vitest"]);
     let manifest = load_via_protocol("@specforge/vitest");
@@ -328,10 +309,7 @@ fn vitest_refuses_a_linked_test_with_an_unknown_status() {
 
 const LOGIN: &str = "behavior login \"Login\" {\n  verify unit \"accepts valid credentials\"\n}\n";
 
-#[specforge_test_macros::test(
-    behavior = "resolve_test_conventions",
-    verify = "collect links plain tests by naming convention"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn collect_links_plain_tests_by_naming_convention() {
     use specforge_ops::testing::{ScriptedMachine, ScriptedRun};
     let (dir, project) = project_with("@specforge/cargo-test", LOGIN);
@@ -377,10 +355,7 @@ fn collect_links_plain_tests_by_naming_convention() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "vt_declare_vitest_collector",
-    verify = "collect runs vitest with the report path and maps linked tests"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-132")]
 fn vitest_runs_with_the_report_path_and_maps_linked_tests() {
     use specforge_ops::testing::{ScriptedMachine, ScriptedRun};
     let (dir, project) = project_with("@specforge/vitest", LOGIN);
@@ -524,10 +499,8 @@ fn facts_of(p: &specforge_project::testing::TestProject, kind: &str) -> Vec<(Str
     found
 }
 
-#[specforge_test_macros::test(
-    behavior = "nt_declare_node_test_collector",
-    verify = "collect runs node --test with the spec and JUnit reporters and reads the report it wrote"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
+#[specforge_test_macros::test(requirement = "FEATURE-077")]
 fn node_test_runs_with_both_reporters_and_its_report_path() {
     let p = node_project(&NODE_TEST);
     let machine = node_run(tasks_xml(p.root(), &TASKS.map(|t| (t, false))), 0);
@@ -558,10 +531,8 @@ fn node_test_runs_with_both_reporters_and_its_report_path() {
     assert_eq!((runner.files, runner.facts), (1, 6), "{outcome:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "nt_map_node_test_report",
-    verify = "a failing node test exits 1 and its report is still read"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
+#[specforge_test_macros::test(requirement = "FEATURE-077")]
 fn a_failing_node_test_run_is_read_and_its_test_failed() {
     let p = node_project(&NODE_TEST);
     let tests = [(TASKS[0], false), (TASKS[1], true), (TASKS[2], false)];
@@ -585,10 +556,8 @@ fn a_failing_node_test_run_is_read_and_its_test_failed() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "nt_map_node_test_report",
-    verify = "node-test's tests become test and test_run facts named js:<package>/<file>#<name>"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
+#[specforge_test_macros::test(requirement = "FEATURE-077")]
 fn node_tests_become_facts_named_after_their_package() {
     let p = node_project(&NODE_TEST);
     let machine = node_run(tasks_xml(p.root(), &TASKS.map(|t| (t, false))), 0);
@@ -606,10 +575,8 @@ fn node_tests_become_facts_named_after_their_package() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "nt_declare_node_test_collector",
-    verify = "a package.json selects node-test among several collectors"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
+#[specforge_test_macros::test(requirement = "FEATURE-077")]
 fn a_package_json_selects_node_test_among_several_collectors() {
     let p = node_project(&[
         "@specforge/testing",

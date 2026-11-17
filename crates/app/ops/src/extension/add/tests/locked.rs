@@ -31,10 +31,7 @@ fn add_greet_at(
     )
 }
 
-#[specforge_test(
-    behavior = "check_registry_reply",
-    verify = "add refuses the version specforge.lock pins served as other bytes, writing nothing, and its dry run says so"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn the_locked_version_served_as_other_bytes_is_refused() {
     // A clone has no module; a module changed on disk is not the pinned one either.
     for tampered in [None, Some(&b"tampered"[..])] {
@@ -66,10 +63,7 @@ fn the_locked_version_served_as_other_bytes_is_refused() {
     }
 }
 
-#[specforge_test(
-    behavior = "check_registry_reply",
-    verify = "add of the version specforge.lock pins, served as its bytes, installs them and leaves the lock as it was"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn the_locked_version_served_as_its_bytes_installs_them_and_keeps_the_lock() {
     let dir = locked_greet(&hex_sha256(&greet()));
     let lock = std::fs::read(lock_path(dir.path())).unwrap();

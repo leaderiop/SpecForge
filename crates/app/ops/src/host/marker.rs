@@ -137,10 +137,7 @@ mod tests {
         assert_eq!(inspect(&deep), Mark::Foreign);
     }
 
-    #[specforge_test_macros::test(
-        behavior = "install_into_a_host",
-        verify = "a marked file whose line ends became CRLF is not an edited file"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-013")]
     fn crlf_line_ends_are_not_an_edit() {
         let stamped = stamp(
             Host::Codex,

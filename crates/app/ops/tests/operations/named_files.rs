@@ -34,10 +34,7 @@ const TESTING: &[&str] = &[
     "@specforge/testing",
 ];
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "new reads every spelling of a file under the project root as that file"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_create_in_a_spelling_of_an_existing_file_adds_to_it() {
     let planned = plan_in_spec_dir(
         &[("tasks.spec", TASKS)],
@@ -52,10 +49,7 @@ fn a_create_in_a_spelling_of_an_existing_file_adds_to_it() {
     assert!(planned.change().after()["spec/tasks.spec"].starts_with(TASKS));
 }
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "two spellings of one new file in one list are one file"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn two_spellings_of_one_new_file_are_one_file() {
     let planned = plan_in_spec_dir(
         &[("tasks.spec", TASKS)],
@@ -85,10 +79,7 @@ fn two_spellings_of_one_new_file_are_one_file() {
 const LOGOUT: &str =
     "behavior login \"Login\" {\n  contract \"c\"\n  invariants [sesion_limit]\n}\n";
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_suggest_fixes_tool",
-    verify = "file_path reads every spelling of a source as that source"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-069")]
 fn the_fixes_read_a_spelling_of_a_source_as_that_source() {
     let p = compile(TESTING, &[("limit.spec", LIMIT), ("login.spec", LOGOUT)]);
     let titles = |file: &str| -> Vec<String> {
@@ -109,10 +100,7 @@ fn the_fixes_read_a_spelling_of_a_source_as_that_source() {
     assert_eq!(titles(absolute.to_str().unwrap()), exact);
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_suggest_fixes_tool",
-    verify = "a file_path that names no source is refused on file_path"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-069")]
 fn the_fixes_refuse_a_file_that_is_no_source() {
     let p = compile(TESTING, &[("limit.spec", LIMIT)]);
     let refusal = |file: &str| {
@@ -162,10 +150,7 @@ fn kind_and_code(error: &specforge_ops::OpError) -> (specforge_ops::OpErrorKind,
     (error.kind, &error.code)
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_a_named_spec_file",
-    verify = "every spelling of a spec file under the project root reads as its source key"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn the_view_reads_every_spelling_into_its_source_key() {
     let (_dir, project) = spec_dir_project();
     let view = ProjectView::of(&project);
@@ -193,10 +178,7 @@ fn the_view_reads_every_spelling_into_its_source_key() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_a_named_spec_file",
-    verify = "a spelling whose key lies outside the project root and the spec root is not_a_source"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn the_view_refuses_a_spelling_outside_both_roots() {
     let (_dir, project) = spec_dir_project();
     let view = ProjectView::of(&project);
@@ -212,10 +194,7 @@ fn the_view_refuses_a_spelling_outside_both_roots() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_a_named_spec_file",
-    verify = "a read of a file that is no compiled source is file_not_found"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn the_view_reads_no_source_as_file_not_found() {
     let (_dir, project) = spec_dir_project();
     let view = ProjectView::of(&project);
@@ -233,10 +212,7 @@ fn the_view_reads_no_source_as_file_not_found() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_a_named_spec_file",
-    verify = "a new spec file under the spec root is a place, whatever directory it repeats"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn a_new_file_repeating_a_directory_stays_a_place() {
     let (_dir, project) = spec_dir_project();
     let view = ProjectView::of(&project);
@@ -250,10 +226,7 @@ fn a_new_file_repeating_a_directory_stays_a_place() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_a_named_spec_file",
-    verify = "a create into a file that differs from a source only in case is not_a_source, naming the source"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn a_new_file_differing_from_a_source_only_in_case_is_not_a_source() {
     let (_dir, project) = spec_dir_project();
     let view = ProjectView::of(&project);
@@ -274,10 +247,7 @@ fn a_new_file_differing_from_a_source_only_in_case_is_not_a_source() {
     assert_eq!(view.source_place("spec/new.spec").unwrap(), "spec/new.spec");
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_a_named_spec_file",
-    verify = "a refusal of a named spec file names the file as the request spelled it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn a_refusal_of_a_named_file_names_it() {
     let (_dir, project) = spec_dir_project();
     let view = ProjectView::of(&project);
@@ -297,10 +267,7 @@ fn a_refusal_of_a_named_file_names_it() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_a_named_spec_file",
-    verify = "a spec file is named from the project root, as every document names it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn the_view_reads_a_spec_file_from_the_project_root() {
     let (_dir, project) = spec_dir_project();
     let view = ProjectView::of(&project);
@@ -344,10 +311,7 @@ fn outside_project(link: bool) -> (tempfile::TempDir, specforge_project::Compile
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "read_a_named_spec_file",
-    verify = "a source under a spec root outside the project reads by its key and every spelling of it from the project root"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn the_view_reads_a_source_under_an_outside_spec_root_by_every_spelling() {
     for link in [false, true] {
         let (dir, project) = outside_project(link);
@@ -384,10 +348,7 @@ fn the_view_reads_a_source_under_an_outside_spec_root_by_every_spelling() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_a_named_spec_file",
-    verify = "a spelling with a .. reads as the file it lands on"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn a_dotdot_that_stays_inside_reads_as_its_key() {
     let (_dir, project) = spec_dir_project();
     assert_eq!(

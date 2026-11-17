@@ -69,10 +69,7 @@ fn graph_kinds(c: &mut ContributionsBuilder) {
     c.kind("milestone", |k| references(k, "features"));
 }
 
-#[spec(
-    behavior = "hover_information",
-    verify = "hover returns markdown-formatted content"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn hover_renders_markdown() {
     let served = plain("type my_type \"My Type\" {}\n");
 
@@ -83,10 +80,8 @@ fn hover_renders_markdown() {
     assert!(served.hover_on("main.spec", "nonexistent").is_none());
 }
 
-#[spec(
-    behavior = "provide_extension_entity_hover",
-    verify = "hover shows entity kind and source extension"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn hover_shows_the_kind_and_its_extension() {
     let served = Served::new(&[("main.spec", "behavior login \"User Login\" {}\n")])
         .extension("@specforge/software", |c| {
@@ -112,10 +107,8 @@ fn hover_shows_the_kind_and_its_extension() {
     );
 }
 
-#[spec(
-    behavior = "provide_extension_entity_hover",
-    verify = "hover shows testability for testable kinds"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn hover_shows_testability_from_the_standing() {
     let served = Served::new(&[(
         "main.spec",
@@ -140,10 +133,8 @@ fn hover_shows_testability_from_the_standing() {
     );
 }
 
-#[spec(
-    behavior = "provide_extension_entity_hover",
-    verify = "hover shows reference count from graph"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn hover_shows_reference_counts_and_groups() {
     let served = Served::new(&[(
         "main.spec",
@@ -204,10 +195,8 @@ fn hover_shows_reference_counts_and_groups() {
     );
 }
 
-#[spec(
-    behavior = "provide_extension_entity_hover",
-    verify = "hover content formatted as markdown"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn hover_without_registries_is_plain_markdown() {
     let served = plain("type g \"G\" {}\n");
     // No extension line; the one section is its coverage.
@@ -305,10 +294,8 @@ constraint free \"Free\" {\n}\n\
 note doc \"Doc\" {\n  verify unit \"read\"\n}\n\
 note plain \"Plain\" {\n}\n";
 
-#[spec(
-    behavior = "provide_extension_entity_hover",
-    verify = "hover shows the entity's coverage as specforge.inspect reports it"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn hover_shows_each_coverage_case() {
     let project = coverage_project(COVERAGE);
     let line = |id: &str| coverage(&project.hover_on("main.spec", id).unwrap());
@@ -389,10 +376,8 @@ fn hover_shows_each_coverage_case() {
     );
 }
 
-#[spec(
-    behavior = "provide_extension_entity_hover",
-    verify = "hover shows the headline statement as its summary"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn hover_quotes_the_headline_and_fields_skip_it() {
     let source = "\
 behavior one \"One\" {\n  contract \"The system MUST do one thing\"\n  verify unit \"it does\"\n}\n\
@@ -434,10 +419,7 @@ note doc \"Doc\" {\n  verify unit \"read\"\n}\n";
     assert!(!doc.contains("\n> "), "{doc}");
 }
 
-#[spec(
-    behavior = "hover_diagnostic",
-    verify = "the diagnostic under the cursor comes before the entity's hover, which does not list it again"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn hover_puts_the_diagnostic_under_the_cursor_first() {
     let served = plain(
         "behavior alpha \"A\" {\n  types [beta]\n}\nbehavior beta \"B\" {\n  types [alpha]\n}\n",
@@ -454,10 +436,8 @@ fn hover_puts_the_diagnostic_under_the_cursor_first() {
     assert!(!text.contains("**Diagnostics**"), "{text}");
 }
 
-#[spec(
-    behavior = "provide_extension_entity_hover",
-    verify = "hover lists the entity's diagnostics the cursor's do not already show"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn hover_lists_the_diagnostics_not_already_shown() {
     use specforge_common::{Diagnostic, DiagnosticData};
     let mut g = Graph::new();
@@ -604,10 +584,7 @@ fn field_hover_unknown_kind_returns_none() {
     assert!(specforge_lsp::hover_field_info("contract", "unknown_kind", reg).is_none());
 }
 
-#[spec(
-    behavior = "hover_information",
-    verify = "field help says what an absent value counts as"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn field_hover_says_what_an_absent_value_counts_as() {
     let declaration = crate::registries::declaration("@t/x", |c| {
         c.kind("ticket", |k| {
@@ -632,10 +609,7 @@ fn field_hover_says_what_an_absent_value_counts_as() {
     assert!(!owner.contains("Absent"), "{owner}");
 }
 
-#[spec(
-    behavior = "hover_information",
-    verify = "field help names a field's type as E061 does, an enum's declared values included"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn field_hover_names_a_type_as_e061_does() {
     let build = registries("@t/x", |c| {
         c.kind("ticket", |k| {
@@ -691,10 +665,7 @@ fn diagnostic_hover(
 /// An extension's finding with a code it may not use (here E001, core's)
 /// is not described as that code: the hover names the extension instead of
 /// quoting the parse-error explanation.
-#[spec(
-    behavior = "call_extension_exports",
-    verify = "a diagnostic an extension reported names its extension, and a code it may not use is not described as its owner's"
-)]
+#[spec(requirement = "FEATURE-013")]
 fn hover_names_the_extension_of_a_squatted_code() {
     let content = "behavior login \"Login\" {\n  types [ghost]\n}\n";
     let mut squatted = diagnostic_at("E001", "an extension's finding", 2, 10, 15);
@@ -720,10 +691,7 @@ fn hover_names_the_extension_of_a_squatted_code() {
     assert!(md.contains("[Documentation]"), "{md}");
 }
 
-#[spec(
-    behavior = "hover_diagnostic",
-    verify = "hovering a diagnostic shows its catalogued title and explanation"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn hovering_a_diagnostic_shows_the_catalogue_entry() {
     let content = "behavior login \"Login\" {\n  types [ghost]\n}\n";
     // `ghost`: line 2, columns 10..15 (1-based).
@@ -751,10 +719,7 @@ fn hovering_a_diagnostic_shows_the_catalogue_entry() {
     );
 }
 
-#[spec(
-    behavior = "hover_diagnostic",
-    verify = "an uncatalogued diagnostic's hover shows its code and message only"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn an_uncatalogued_diagnostic_hover_shows_code_and_message() {
     let content = "behavior login \"Login\" {\n  types [ghost]\n}\n";
     // E901 is a third-party extension's code.
@@ -779,10 +744,8 @@ fn contract_line(value: &str) -> String {
         .to_string()
 }
 
-#[spec(
-    behavior = "provide_extension_entity_hover",
-    verify = "a long field value is cut at a character boundary"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn a_long_field_is_cut_at_a_character_boundary() {
     let value = format!("{}é{}", "a".repeat(119), "b".repeat(20));
     assert_eq!(

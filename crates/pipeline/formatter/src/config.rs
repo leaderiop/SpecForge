@@ -117,10 +117,7 @@ mod tests {
         Ok(source.as_bytes().to_vec())
     }
 
-    #[specforge_test_macros::test(
-        invariant = "config_defaults_valid",
-        verify = "default FormatConfig passes validation"
-    )]
+    #[specforge_test_macros::test(requirement = "INVARIANT-008")]
     fn the_default_config_reads_back_without_a_diagnostic() {
         let d = FormatConfig::default();
         let source = format!(
@@ -134,10 +131,7 @@ mod tests {
         assert_eq!(config, d);
     }
 
-    #[specforge_test_macros::test(
-        behavior = "load_format_config",
-        verify = "missing config file uses defaults"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-009")]
     fn test_default_config() {
         let config = FormatConfig::default();
         assert_eq!(config.indent_width, 2);
@@ -145,14 +139,8 @@ mod tests {
         assert_eq!(config.max_width, 100);
     }
 
-    #[specforge_test_macros::test(
-        behavior = "load_format_config",
-        verify = "invalid indent_width produces diagnostic and uses default"
-    )]
-    #[specforge_test_macros::test(
-        invariant = "config_defaults_valid",
-        verify = "fallback from invalid config produces usable FormatConfig"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-009")]
+    #[specforge_test_macros::test(requirement = "INVARIANT-008")]
     fn parse_reports_an_invalid_value_and_keeps_the_valid_ones() {
         let path = Path::new("/p/.specforgefmt.toml");
 
@@ -169,10 +157,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "load_format_config",
-        verify = "a configuration the disk cannot read is a W141 naming why, and its defaults apply"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-009")]
     fn parse_reports_a_failed_read_as_one_w141_naming_the_file_and_the_reason() {
         let path = Path::new("/p/.specforgefmt.toml");
         let refused = std::io::Error::new(
@@ -192,10 +177,7 @@ mod tests {
         assert!(diags[0].message.contains("2 names"), "{diags:?}");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "load_format_config",
-        verify = "a configuration the disk cannot read is a W141 naming why, and its defaults apply"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-009")]
     fn parse_reports_text_that_is_not_utf8() {
         let (config, diags) = parse(Path::new(FILE), Ok(vec![0xff]));
 
@@ -204,10 +186,7 @@ mod tests {
         assert!(diags[0].message.contains("valid UTF-8"), "{diags:?}");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "apply_format_rules",
-        verify = "indentation rules normalize to configured indent style"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-009")]
     fn test_indent_str_spaces() {
         let config = FormatConfig {
             indent_width: 4,
@@ -217,10 +196,7 @@ mod tests {
         assert_eq!(config.indent_str(), "    ");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "apply_format_rules",
-        verify = "indentation rules normalize to configured indent style"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-009")]
     fn test_indent_str_tabs() {
         let config = FormatConfig {
             indent_width: 4,

@@ -79,10 +79,7 @@ const OUTSIDE_SPEC: &str =
     "behavior leaked \"Leaked Behavior\" {\n  summary \"outside-body-text\"\n}\n";
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn a_source_symlink_that_leaves_the_project_is_read_by_no_view() {
     let (_scene, project, outside) = scene();
     fs::write(
@@ -98,10 +95,7 @@ fn a_source_symlink_that_leaves_the_project_is_read_by_no_view() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn a_source_symlink_to_a_spec_outside_enters_no_graph() {
     let (_scene, project, outside) = scene();
     fs::write(outside.join("leaked.spec"), OUTSIDE_SPEC).unwrap();
@@ -116,10 +110,7 @@ fn a_source_symlink_to_a_spec_outside_enters_no_graph() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn a_symlinked_spec_root_that_leaves_the_project_enters_no_graph() {
     let (_scene, project, outside) = scene();
     fs::create_dir_all(outside.join("specdir")).unwrap();
@@ -132,10 +123,7 @@ fn a_symlinked_spec_root_that_leaves_the_project_enters_no_graph() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn a_link_retargeted_outside_after_the_session_opened_is_refused_at_the_next_request() {
     let (_scene, project, outside) = scene();
     fs::write(outside.join("leaked.spec"), OUTSIDE_SPEC).unwrap();
@@ -160,10 +148,7 @@ fn a_link_retargeted_outside_after_the_session_opened_is_refused_at_the_next_req
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn another_project_a_call_names_reads_no_source_through_a_link_outside_it() {
     let (_scene, project, outside) = scene();
     let other = project.join("nested");
@@ -192,10 +177,7 @@ fn another_project_a_call_names_reads_no_source_through_a_link_outside_it() {
 
 /// A chain that stays inside the project, and a hop outside whose final target is inside, keep working.
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn a_source_link_whose_final_target_is_inside_the_project_is_read() {
     let (_scene, project, outside) = scene();
     fs::create_dir_all(project.join("real")).unwrap();
@@ -217,10 +199,7 @@ fn a_source_link_whose_final_target_is_inside_the_project_is_read() {
 
 /// A file with more than one name is another name for a file outside: no view reads it (ADR 0146).
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn a_hard_linked_source_that_is_not_a_spec_is_read_by_no_view() {
     let (_scene, project, outside) = scene();
     fs::write(
@@ -237,10 +216,7 @@ fn a_hard_linked_source_that_is_not_a_spec_is_read_by_no_view() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn a_hard_linked_source_that_is_a_valid_spec_enters_no_graph() {
     let (_scene, project, outside) = scene();
     fs::write(outside.join("leaked.spec"), OUTSIDE_SPEC).unwrap();
@@ -256,10 +232,7 @@ fn a_hard_linked_source_that_is_a_valid_spec_enters_no_graph() {
 
 /// A hard-linked recorded report steers no coverage verdict.
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn a_hard_linked_recorded_report_steers_no_coverage_verdict() {
     let (_scene, project, outside) = scene();
     fs::write(
@@ -282,10 +255,7 @@ fn a_hard_linked_recorded_report_steers_no_coverage_verdict() {
 
 /// A plain file, and a symlink that stays inside, still read: only a second name is refused.
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn a_source_with_one_name_is_read() {
     let (_scene, project, _outside) = scene();
     fs::write(
@@ -301,10 +271,7 @@ fn a_source_with_one_name_is_read() {
 
 /// The refusal is on the count, so a second name that is also inside the project is refused too (ADR 0146 D3).
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn a_cp_al_snapshot_served_directly_is_refused() {
     let (_scene, project, _outside) = scene();
     fs::hard_link(project.join("spec/a.spec"), project.join("spec/copy.spec")).unwrap();
@@ -317,10 +284,7 @@ fn a_cp_al_snapshot_served_directly_is_refused() {
 /// A bounded format run reads no file with two names (ADR 0146 D1, ADR 0169): it fails that file,
 /// which is neither read into a reply nor rewritten, and the session still has none of its text.
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn a_source_with_two_names_is_a_failed_file_for_format_and_is_not_rewritten() {
     let (_scene, project, outside) = scene();
     let text = "behavior   leaked   \"Leaked\"   {\n}\n";
@@ -343,10 +307,7 @@ fn a_source_with_two_names_is_a_failed_file_for_format_and_is_not_rewritten() {
 
 /// A symlinked directory inside the spec root is not entered at all.
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn a_symlinked_directory_inside_the_spec_root_is_not_entered() {
     let (_scene, project, outside) = scene();
     fs::create_dir_all(outside.join("dir")).unwrap();
@@ -371,10 +332,7 @@ fn retitle(server: &mut McpServer) -> Value {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn an_edit_validates_over_no_source_symlink_that_leaves_the_project() {
     let (_scene, project, outside) = scene();
     fs::write(outside.join("probe.spec"), PROBE_SPEC).unwrap();
@@ -386,10 +344,7 @@ fn an_edit_validates_over_no_source_symlink_that_leaves_the_project() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn an_edit_validates_over_no_hard_linked_source() {
     let (_scene, project, outside) = scene();
     fs::write(outside.join("probe.spec"), PROBE_SPEC).unwrap();
@@ -413,10 +368,7 @@ fn migrating_scene() -> (TempDir, std::path::PathBuf, std::path::PathBuf) {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn a_migration_previews_no_hard_linked_source() {
     let (_scene, project, _outside) = migrating_scene();
     let before = files_under(&project);
@@ -432,10 +384,7 @@ fn a_migration_previews_no_hard_linked_source() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn a_migration_copies_no_hard_linked_source_into_the_project() {
     use std::os::unix::fs::MetadataExt;
     let (_scene, project, outside) = migrating_scene();

@@ -288,10 +288,7 @@ mod tests {
         problems(&declaration, std::slice::from_ref(&declaration), &unloaded)
     }
 
-    #[specforge_test_macros::test(
-        behavior = "register_collector_contributions",
-        verify = "a facts input is served to a pass or a collector, and an empty or unknown kind or a second one is W021"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-128")]
     fn a_pass_is_served_the_facts_input() {
         let found = problems_of(|c| {
             for phase in ["check", "compute", "guard", "analyze"] {
@@ -327,10 +324,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "register_collector_contributions",
-        verify = "a pass naming an authored kind in its facts input is W021"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-128")]
     fn a_pass_naming_an_authored_kind_in_facts_is_w021() {
         let found = problems_of(|c| {
             c.kind("note", |_| {});

@@ -24,7 +24,7 @@ fn approval(scope: &str) -> Approval {
     })
 }
 
-#[specforge_test(port = "Consent", verify = "Consent contract is satisfied")]
+#[test]
 fn the_user_consent_keeps_the_port_contract() {
     let dir = tempfile::tempdir().unwrap();
     specforge_effects::testing::consent_contract(&UserConsent::at(
@@ -32,10 +32,7 @@ fn the_user_consent_keeps_the_port_contract() {
     ));
 }
 
-#[specforge_test(
-    behavior = "approve_capability",
-    verify = "the consent store is replaced privately and atomically, never through a link"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 #[cfg(unix)]
 fn the_consent_store_is_replaced_privately_never_through_a_link() {
     use std::os::unix::fs::PermissionsExt;
@@ -77,10 +74,7 @@ fn the_consent_store_is_replaced_privately_never_through_a_link() {
     assert_eq!(parent.permissions().mode() & 0o777, 0o700);
 }
 
-#[specforge_test(
-    behavior = "approve_capability",
-    verify = "an approval is never written over a consent store that cannot be read"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn the_consent_store_is_never_overwritten_when_it_cannot_be_read() {
     let dir = tempfile::tempdir().unwrap();
     let store = dir.path().join("consent.json");
@@ -348,10 +342,7 @@ fn two_approvals_at_once_keep_both() {
     assert_eq!(UserConsent::at(store).list().unwrap().capabilities.len(), 8);
 }
 
-#[specforge_test(
-    behavior = "approve_capability",
-    verify = "an approval is keyed by project, extension provenance and scope, and covers narrower grants"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn an_approval_is_keyed_by_provenance_and_covers_narrower_grants() {
     use specforge_protocol_types::{GitOp, GitScope};
     let dir = tempfile::tempdir().unwrap();

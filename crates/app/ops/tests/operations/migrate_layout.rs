@@ -57,14 +57,8 @@ fn unformatted(path: &std::path::Path, text: &str) -> bool {
     format::document(Place::File(path), text, None, None, &Forms::none()).changed()
 }
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "a hoisted block and the blocks it shortened are laid out with the file's format configuration"
-)]
-#[specforge_test(
-    invariant = "migration_canonical_form",
-    verify = "every block a migration writes is unchanged by format"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
+#[specforge_test(requirement = "INVARIANT-072")]
 fn a_hoist_leaves_the_blocks_it_shortened_format_clean() {
     let (dir, after) = migrated(&milestones("  "), None);
 
@@ -79,10 +73,7 @@ fn a_hoist_leaves_the_blocks_it_shortened_format_clean() {
     assert!(!unformatted(&dir.path().join("a.spec"), &after), "{after}");
 }
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "a hoisted block and the blocks it shortened are laid out with the file's format configuration"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_hoisted_defaults_block_takes_the_files_indent() {
     let (dir, after) = migrated(&milestones("    "), Some("indent_width = 4\n"));
 
@@ -98,10 +89,7 @@ fn a_hoisted_defaults_block_takes_the_files_indent() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "a bounded migration lays out with the defaults when its bound refuses the configuration"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_bounded_migration_lays_out_with_the_defaults_when_the_configuration_links_outside() {
     let dir = project(&milestones("  "), None);
     let outside = tempfile::tempdir().unwrap();

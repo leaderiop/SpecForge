@@ -1,10 +1,7 @@
 use super::*;
 use crate::OpError;
 
-#[specforge_test(
-    behavior = "parse_extension_specifier",
-    verify = "a specifier that is no builtin's name, git+ URL or @scope/name reference is a local path, a bare crate directory included"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn a_bare_path_is_a_local_source() {
     assert_eq!(parse("ext").unwrap(), Source::Local("ext".into()));
     assert_eq!(
@@ -102,10 +99,7 @@ impl Registry for Refusing {
     }
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn every_refusal_of_a_specifier_is_about_the_extensions() {
     let about = Some(AddField::Extensions);
     // Reading the specifiers.

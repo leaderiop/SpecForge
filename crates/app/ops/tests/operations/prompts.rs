@@ -84,10 +84,7 @@ fn plan_phase(served: &Served, args: Args<'_>) -> Result<Rendered, Refused> {
     render(served, "plan_phase", args)
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt argument is read by its field type and a reference is sent as its full path"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_prompt_argument_is_read_by_its_field_type() {
     let served = served(project("fine", "ok", json!({})));
     let sent = |served: &Served| served.input("prompt__plan_phase")["args"].clone();
@@ -123,10 +120,7 @@ fn a_prompt_argument_is_read_by_its_field_type() {
     );
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt argument outside its field type is invalid input on that argument"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_prompt_argument_outside_its_form_is_invalid_input() {
     let served = served(project("fine", "ok", json!({})));
     let cases = [
@@ -151,10 +145,7 @@ fn a_prompt_argument_outside_its_form_is_invalid_input() {
     assert!(!served.called("prompt__plan_phase"), "no export was called");
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt whose entry gate fails is refused and its export is not called"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_prompt_whose_entry_gate_fails_is_refused() {
     let args = || Args::Named(json!({"phase": "03"}));
     let empty = served(project(NO_CONTEXT, "ok", json!({})));
@@ -172,10 +163,7 @@ fn a_prompt_whose_entry_gate_fails_is_refused() {
     assert!(off.called("prompt__plan_phase"));
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a rendered prompt shows its version, digest, attribution and each step with its gate"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_rendered_prompt_shows_each_steps_gate_and_its_attribution() {
     let served = served(project("fine", "blocked", json!({})));
     let args = || Args::Named(json!({"phase": "03"}));
@@ -214,10 +202,7 @@ fn a_rendered_prompt_shows_each_steps_gate_and_its_attribution() {
     );
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a command step's cli names the host the prompt is rendered for"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_command_steps_cli_names_the_host() {
     use specforge_ops::host::Host;
     let served = served(project("fine", "ok", json!({})));
@@ -233,10 +218,7 @@ fn a_command_steps_cli_names_the_host() {
     assert_eq!(cli(None), "specforge t record-plan");
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a rendered step names the agent that runs it, and a step without one has no agent key"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_step_without_an_agent_has_no_agent_key() {
     let served = served(project("fine", "ok", json!({})));
     let rendered = plan_phase(&served, Args::Named(json!({"phase": "03"}))).unwrap();
@@ -245,10 +227,7 @@ fn a_step_without_an_agent_has_no_agent_key() {
     assert_eq!(steps[2]["agent"], "checker");
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt export that traps is E028"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_prompt_export_that_traps_is_e028() {
     let trap = WasmCallResult::Trap(WasmTrapInfo {
         kind: "trap".into(),
@@ -268,10 +247,7 @@ fn a_prompt_export_that_traps_is_e028() {
     );
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a reference argument names an entity of its target kind and a quoted word is one word"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_reference_argument_must_name_its_target_kind() {
     let served = served(project("fine", "ok", json!({})));
     let refused = plan_phase(&served, Args::Named(json!({"phase": "v1.0"}))).unwrap_err();
@@ -285,10 +261,7 @@ fn a_reference_argument_must_name_its_target_kind() {
     );
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "an unterminated quote is refused, a quoted word is a value, --name=value and -- are read, and null or an empty string is an unfilled optional"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn the_words_of_a_command_line_are_read_exactly() {
     let served = served(project("fine", "ok", json!({})));
     let sent = |served: &Served| served.input("prompt__plan_phase")["args"].clone();
@@ -340,10 +313,7 @@ fn quick_args(served: &Served, argv: &str) -> Result<Value, Refused> {
     Ok(served.input("prompt__quick")["args"].clone())
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt's free-text tail takes the words no option takes, joined by one space"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn the_tail_takes_the_words_no_option_takes() {
     let served = quick();
     assert_eq!(
@@ -360,10 +330,7 @@ fn the_tail_takes_the_words_no_option_takes() {
     );
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt's tail given by name and by words is refused, an unknown option is not tail, and after -- every word is tail"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn the_tail_given_twice_or_swallowing_an_option_is_refused() {
     let served = quick();
     let twice = quick_args(&served, "--task a b").unwrap_err();
@@ -378,10 +345,7 @@ fn the_tail_given_twice_or_swallowing_an_option_is_refused() {
     );
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a named (MCP) tail is an ordinary string"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_named_tail_is_an_ordinary_string() {
     let served = quick();
     render(&served, "quick", Args::Named(json!({"task": "do it"}))).unwrap();
@@ -415,10 +379,7 @@ fn picks(subject: Option<&str>) -> Option<Value> {
     Some(answer)
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt with an optional subject and none given renders for the subject its export picks"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn an_absent_subject_is_picked_by_the_export() {
     let served = next_phase(project("fine", "ok", json!({})), picks(Some("v1.0/03")));
     let rendered = render(&served, "next_phase", Args::Named(json!({}))).unwrap();
@@ -431,10 +392,7 @@ fn an_absent_subject_is_picked_by_the_export() {
     );
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a picked subject meets the prompt's gate, and a given subject wins over the pick"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_picked_subject_meets_its_gate_and_a_given_one_wins() {
     let blocked = next_phase(project(NO_CONTEXT, "ok", json!({})), picks(Some("v1.0/03")));
     let refused = render(&blocked, "next_phase", Args::Named(json!({}))).unwrap_err();
@@ -446,10 +404,7 @@ fn a_picked_subject_meets_its_gate_and_a_given_one_wins() {
     assert_eq!(rendered.payload["subject"], "v1.0/03");
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a picked subject must be an entity of the subject argument's kind, else the answer is E028"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_picked_subject_must_be_of_the_subjects_kind() {
     for wrong in ["v1.0/03/03-01", "v1.0/99"] {
         let served = next_phase(project("fine", "ok", json!({})), picks(Some(wrong)));
@@ -458,10 +413,7 @@ fn a_picked_subject_must_be_of_the_subjects_kind() {
     }
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt with an optional subject and no pick is project-wide, and the first word is the subject"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn no_picked_subject_is_project_wide_and_a_word_is_the_subject() {
     let served = next_phase(project("fine", "ok", json!({})), picks(None));
     let rendered = render(&served, "next_phase", Args::Named(json!({}))).unwrap();
@@ -485,10 +437,7 @@ fn router(settings: Value) -> Served {
     )
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt that reads the slash commands is sent the ones the project serves, as an install writes them"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_prompt_reads_the_served_slash_commands() {
     let served = router(json!({}));
     render(&served, "router", Args::Named(json!({}))).unwrap();
@@ -514,10 +463,7 @@ fn a_prompt_reads_the_served_slash_commands() {
     assert_eq!(names, ["t-plan-phase"]);
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt that does not ask for the slash commands is sent none"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_prompt_that_does_not_ask_gets_none() {
     let served = served(project("fine", "ok", json!({})));
     plan_phase(&served, Args::Named(json!({"phase": "03"}))).unwrap();
@@ -529,10 +475,7 @@ fn a_prompt_that_does_not_ask_gets_none() {
     );
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "a contribution whose when names several settings is served only while all of them are on"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_slash_is_served_while_every_when_setting_is_on() {
     let names = |settings: Value| -> Vec<String> {
         let served = router(settings);

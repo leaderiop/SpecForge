@@ -14,10 +14,7 @@ pub fn routed_served(spec: &str) -> Served {
     Served::served_by(dir, gsd_routed_runtime(), &[GSD_JUDGED, CODE_CORE]).open(&["a.spec"])
 }
 
-#[spec(
-    behavior = "show_trace_thread",
-    verify = "the hover on a routed entity shows its thread"
-)]
+#[spec(requirement = "FEATURE-129")]
 fn the_hover_on_a_routed_entity_shows_its_thread() {
     let served = routed_served(GSD_ROUTED_SPEC);
     let text = served

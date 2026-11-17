@@ -35,10 +35,7 @@ fn report(path: &Path, proven: bool, extra: Option<&str>) -> String {
     json
 }
 
-#[specforge_test(
-    behavior = "te_coverage_gate",
-    verify = "coverage at or above the threshold passes"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn min_gate_passes_when_coverage_meets_threshold() {
     let tmp = seeded();
     report(tmp.root(), true, None);
@@ -60,10 +57,7 @@ fn min_gate_passes_when_coverage_meets_threshold() {
     );
 }
 
-#[specforge_test(
-    behavior = "te_coverage_gate",
-    verify = "coverage below the threshold fails with E048"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn min_gate_fails_when_coverage_below_threshold() {
     let tmp = seeded();
     // 1 of 1 entities proven = 100%; make it fail by NOT proving: failing test
@@ -87,10 +81,7 @@ fn min_gate_fails_when_coverage_below_threshold() {
     assert!(stderr.contains("below the required minimum"), "{stderr}");
 }
 
-#[specforge_test(
-    behavior = "te_coverage_gate",
-    verify = "a proven entity whose kind is not testable does not raise the gate"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn a_feature_with_a_passing_test_does_not_raise_the_gate() {
     let tmp = TestProject::new().without_config();
     std::fs::create_dir_all(tmp.root().join("src")).unwrap();
@@ -116,7 +107,7 @@ fn a_feature_with_a_passing_test_does_not_raise_the_gate() {
     );
 }
 
-#[specforge_test(behavior = "te_coverage_gate", verify = "the gate needs test results")]
+#[specforge_test(requirement = "FEATURE-126")]
 fn min_requires_test_results() {
     let tmp = seeded();
     let out = Cli::on(&tmp)
@@ -131,10 +122,7 @@ fn min_requires_test_results() {
     );
 }
 
-#[specforge_test(
-    behavior = "te_coverage_gate",
-    verify = "a gate without the coverage pass exits 2 with E068"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn min_without_the_coverage_pass_exits_2_with_e068() {
     let tmp = TestProject::new().without_config();
     std::fs::create_dir_all(tmp.root().join("src")).unwrap();
@@ -166,10 +154,7 @@ fn min_without_the_coverage_pass_exits_2_with_e068() {
     );
 }
 
-#[specforge_test(
-    behavior = "te_stray_test_records",
-    verify = "an unknown entity in a test record warns W097 with a close-match hint and does not fail the run"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn stray_test_records_warn_with_suggestion() {
     let tmp = seeded();
     // Report proves "widget" and orphans "wodget" (typo of widget).
@@ -220,10 +205,7 @@ fn analyze_json(project: &TestProject, strict: bool) -> (Option<i32>, serde_json
     (out.status.code(), doc)
 }
 
-#[specforge_test(
-    behavior = "te_stray_test_records",
-    verify = "stray_records appear in the json output only when records exist"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn json_carries_stray_records_only_when_records_exist() {
     let tmp = seeded();
     write_report(tmp.root(), &["widget"]);
@@ -239,10 +221,7 @@ fn json_carries_stray_records_only_when_records_exist() {
     );
 }
 
-#[specforge_test(
-    behavior = "te_stray_test_records",
-    verify = "strict neither promotes a stray record nor changes ok or the exit code"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn strict_leaves_stray_records_alone() {
     let tmp = seeded();
     write_report(tmp.root(), &["widget", "wodget"]);
@@ -332,10 +311,7 @@ fn analyze_min_json(project: &TestProject, pass: &str) -> std::process::Output {
         .unwrap()
 }
 
-#[specforge_test(
-    behavior = "te_coverage_gate",
-    verify = "the analysis's ok is the run verdict, the gate included, and its JSON says where the gate landed"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn the_json_verdict_is_the_exit_verdict() {
     let tmp = seeded();
     tmp.write("specforge-report.json", r#"{"runner":"r","results":{}}"#);
@@ -354,10 +330,7 @@ fn the_json_verdict_is_the_exit_verdict() {
     assert!(stderr.is_empty(), "{stderr}");
 }
 
-#[specforge_test(
-    behavior = "te_coverage_gate",
-    verify = "a gate without the coverage pass exits 2 with E068"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn a_gate_without_the_coverage_pass_is_refused_before_the_analysis() {
     let tmp = seeded();
     tmp.write("specforge-report.json", r#"{"runner":"r","results":{}}"#);

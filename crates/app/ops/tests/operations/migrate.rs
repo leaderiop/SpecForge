@@ -111,10 +111,7 @@ fn copy_at_old_format(from: &Path, to: &Path) -> usize {
     prefixed
 }
 
-#[specforge_test(
-    invariant = "migration_semantic_preservation",
-    verify = "migration that only changes formatting preserves graph structure"
-)]
+#[specforge_test(requirement = "INVARIANT-076")]
 fn a_header_only_migration_of_the_frozen_spec_keeps_its_graph() {
     // The pre-swap root project, frozen as a corpus (ADR 0374 D8): its project file and its spec.
     let frozen = specforge_repo_root::repo_root().join("fixtures/old-spec");
@@ -150,10 +147,7 @@ fn a_header_only_migration_of_the_frozen_spec_keeps_its_graph() {
     );
 }
 
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "a planned text that changes an existing title or a kind is reported and refused"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_planned_title_or_kind_change_is_refused() {
     for (from, to, aspect) in [
         ("\"Alpha\"", "\"Renamed\"", "title"),
@@ -181,10 +175,7 @@ fn a_planned_title_or_kind_change_is_refused() {
     }
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "a migration whose extension hook fails is refused and nothing is written"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_migration_whose_hook_fails_is_refused() {
     let dir = project_with_extension();
     let runtime = Arc::new(hooked(|_| Err("the data cannot be migrated".into())));
@@ -221,10 +212,7 @@ fn a_migration_whose_hook_fails_is_refused() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_migrate_tool",
-    verify = "a failed migration's error names its cause: a hook, a changed graph, a project that does not compile, or files that could not be migrated"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_failed_migration_names_its_cause() {
     let root = |dir: &tempfile::TempDir| specforge_common::ProjectRoot::of(dir.path()).unwrap();
 
@@ -316,10 +304,7 @@ fn a_failed_migration_names_its_cause() {
     assert!(error.message.contains("W054"), "{}", error.message);
 }
 
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "post-migration check runs automatically"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_header_only_migration_is_checked_after_it_runs() {
     let dir = project();
 
@@ -356,10 +341,7 @@ fn nothing_pending_compiles_and_hooks_nothing() {
     );
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "a problem in specforge.json the migration goes around is an E069 in its document and fails it"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_problem_the_migration_goes_around_fails_it_after_it_ran() {
     let dir = project();
     std::fs::write(dir.path().join("specforge.json"), r#"{"exclude": ["["]}"#).unwrap();
@@ -393,10 +375,7 @@ fn a_target_newer_than_supported_or_malformed_is_e019() {
     assert_eq!(parse_target(None).unwrap(), CURRENT_FORMAT_VERSION);
 }
 
-#[specforge_test(
-    behavior = "rollback_failed_migration",
-    verify = "a rollback reports the files it restored as written"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_rollback_reports_the_files_it_restored_as_written() {
     let dir = project();
     let root = dir.path();
@@ -434,10 +413,7 @@ fn a_rollback_reports_the_files_it_restored_as_written() {
     );
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "extension with migration_hook field has it invoked during migrate"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn the_hook_an_extension_declares_in_its_handshake_runs_on_migrate() {
     let dir = project_with_extension();
     let runtime = Arc::new(hooked(|_| Ok(())));
@@ -453,10 +429,7 @@ fn the_hook_an_extension_declares_in_its_handshake_runs_on_migrate() {
     assert!(exports_called(&runtime).contains(&"migrate_acme".to_string()));
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "extension without migration_hook field is skipped silently"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn an_extension_whose_handshake_names_no_hook_is_skipped_silently() {
     let dir = project_with_extension();
     let runtime = Arc::new(unhooked());
@@ -509,10 +482,7 @@ fn manifest(name: &str, hook: &str) -> ExtensionDeclaration {
     }
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "a migration hook receives the from and to format versions and the migrated files"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_hook_receives_the_versions_and_the_migrated_files() {
     use std::sync::{Arc, Mutex};
     // The hook's handler records what it decoded.
@@ -546,10 +516,7 @@ fn a_hook_receives_the_versions_and_the_migrated_files() {
     );
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "every builtin extension's hooks run in dependency order with no failure"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn the_builtin_extensions_hooks_run_without_a_dependency_failure() {
     // One set loaded together, as a project enabling it does (ADR 0369 D3): the peer graph
     // (optional peers included) must sort, or the hooks never run and a migration rolls back.
@@ -583,10 +550,7 @@ fn the_builtin_extensions_hooks_run_without_a_dependency_failure() {
     }
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "hook that traps collects WasmTrapInfo and continues"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_trapping_hook_is_recorded_and_the_next_one_still_runs() {
     let runtime = Arc::new(hooks());
     let manifests = build_registries(vec![
@@ -639,10 +603,7 @@ fn extension(
     }
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "hooks invoked in deterministic extension load order"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_required_peer_cycle_does_not_stop_the_hooks() {
     let runtime = Arc::new(
         InProcessRuntime::new()
@@ -705,10 +666,7 @@ fn handshakes_of(runtime: &InProcessRuntime, extension: &str) -> usize {
         .count()
 }
 
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "new diagnostics from migration reported"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_diagnostic_the_migration_introduces_is_reported() {
     let dir = project_with_extension();
     let before = compile_at(dir.path(), None);
@@ -739,10 +697,7 @@ fn a_diagnostic_the_migration_introduces_is_reported() {
     assert!(verdict.refusal().is_some(), "{verdict:?}");
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "extension with empty migration_hook field is skipped silently"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn an_empty_hook_name_is_skipped_silently() {
     let runtime = Arc::new(hooks());
     let input = MigrationInput {
@@ -761,10 +716,7 @@ fn an_empty_hook_name_is_skipped_silently() {
     assert!(runtime.calls().is_empty(), "{:?}", runtime.calls());
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "hook returning error collects diagnostic and continues"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_hook_that_answers_an_error_is_recorded_and_the_next_one_runs() {
     let runtime = Arc::new(
         InProcessRuntime::new()
@@ -800,10 +752,7 @@ fn a_hook_that_answers_an_error_is_recorded_and_the_next_one_runs() {
     );
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "hooks invoked in deterministic extension load order"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn hooks_run_in_dependency_order_every_time() {
     // `@acme/b` is listed first and peer-depends on `@acme/a`.
     let order = || {
@@ -829,10 +778,7 @@ fn hooks_run_in_dependency_order_every_time() {
     assert_eq!(second_invoked, first_invoked);
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "extension in failed lifecycle state has hook skipped"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn an_extension_that_failed_to_load_runs_no_hook() {
     let runtime = Arc::new(
         InProcessRuntime::new()
@@ -873,10 +819,7 @@ fn an_extension_that_failed_to_load_runs_no_hook() {
     );
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "hook exceeding timeout treated as trap"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_hook_over_its_deadline_is_a_trap_and_the_next_one_runs() {
     // The component runtime enforces the deadline (its own tests prove it);
     // here the host's reading of the extension's declared limit and of the
@@ -934,10 +877,7 @@ fn a_hook_over_its_deadline_is_a_trap_and_the_next_one_runs() {
     assert!(outcome.failure().is_some(), "{outcome:?}");
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "validation runs once after both core and extension hooks complete"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn the_project_is_checked_once_after_the_files_and_the_hooks() {
     let dir = project_with_extension();
     let file = dir.path().join("old.spec");
@@ -974,10 +914,7 @@ fn the_project_is_checked_once_after_the_files_and_the_hooks() {
     assert_eq!(handshakes_of(&runtime, "@acme/x"), 1);
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "a refused migration made without backups leaves the record as it was"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_refused_migration_without_backups_keeps_the_record() {
     let dir = project_with_extension();
     let root = dir.path();
@@ -1004,10 +941,7 @@ fn a_refused_migration_without_backups_keeps_the_record() {
     assert!(!root.join("second.spec.bak").exists());
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "a kept migration records its files in .specforge/migration.json"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_kept_migration_records_what_a_rollback_undoes() {
     let dir = project_with_extension();
     let root = dir.path();
@@ -1060,10 +994,7 @@ fn a_migration_without_backups_removes_the_record() {
     assert!(!root.join(".specforge/migration.json").exists());
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn migrate_states_which_field_a_refusal_is_about() {
     use specforge_ops::authoring::migrate::MigrateField;
     for target in ["99.0", "latest"] {

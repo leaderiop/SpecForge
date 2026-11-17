@@ -17,10 +17,7 @@ fn values<'t>(node: Node<'t>, out: &mut Vec<Node<'t>>) {
     }
 }
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "a value token reads to the text the parse stores: a quoted one unescaped, a triple-quoted one dedented, neither trimmed"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_value_token_reads_as_the_parse_stores_it() {
     for body in [
         "k \" draft\"",
@@ -101,10 +98,7 @@ fn a_value_token_reads_as_the_parse_stores_it() {
     }
 }
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "a list of blocks parses to its items, commas optional, and a key twice in an item is E081"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_block_list_is_a_list_of_blocks() {
     let parsed = |body: &str| parse(&format!("thing t \"T\" {{\n  f {body}\n}}\n"), "t.spec");
     for body in [

@@ -5,10 +5,7 @@ const RANGE_WITH_A_KEPT_REGION: &str = "behavior a \"A\" {\n  contract \"a\"\n}\
 
 const CRLF_TWO: &str = "behavior a \"A\" {\r\n  contract \"x\"\r\n}\r\n\r\nbehavior b \"B\" {\r\n      contract \"y\"\r\n}\r\n";
 
-#[specforge_test_macros::test(
-    behavior = "lsp_format_range",
-    verify = "a region left unformatted is reported at its document lines"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-061")]
 fn range_reports_a_kept_region_at_its_document_lines() {
     let result = format_range(
         RANGE_WITH_A_KEPT_REGION,
@@ -37,10 +34,7 @@ fn range_reports_a_kept_region_at_its_document_lines() {
     assert_eq!(span.end_col, 4);
 }
 
-#[specforge_test_macros::test(
-    behavior = "lsp_format_range",
-    verify = "range formatting changes no byte outside the blocks it touches"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-061")]
 fn a_range_keeps_every_byte_outside_its_blocks() {
     let config = FormatConfig::default();
     assert_eq!(
@@ -67,10 +61,7 @@ fn a_range_keeps_every_byte_outside_its_blocks() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "lsp_format_range",
-    verify = "range formatting changes no byte outside the blocks it touches"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-061")]
 fn a_range_on_the_unterminated_last_line_adds_no_newline() {
     let source =
         "behavior a \"A\" {\n  contract \"x\"\n}\n\nbehavior b \"B\" {\n      contract \"y\"\n}";
@@ -91,10 +82,7 @@ fn a_range_on_the_unterminated_last_line_adds_no_newline() {
 
 // --- Invariant: discover_completeness (tested from engine for convenience) ---
 
-#[specforge_test_macros::test(
-    behavior = "lsp_format_range",
-    verify = "range formatting matches full formatting for affected blocks"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-061")]
 fn test_format_range_matches_full_formatting_for_affected_blocks() {
     let source = "behavior foo \"Foo\" {\n  contract \"a\"\n}\n\nbehavior bar \"Bar\" {\n      contract \"b\"\n}\n";
     let full = fmt(source);
@@ -125,10 +113,7 @@ fn test_format_range_matches_full_formatting_for_affected_blocks() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "lsp_format_range",
-    verify = "range formatting matches full formatting for affected blocks"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-061")]
 fn a_range_keeps_the_blank_lines_around_it() {
     let source = "behavior foo \"Foo\" {\n  contract \"a\"\n}\n\nbehavior bar \"Bar\" {\n      contract \"b\"\n}\n";
     // The range starts on the blank line between the blocks.
@@ -159,10 +144,7 @@ fn a_range_keeps_the_blank_lines_around_it() {
 
 // --- Gap coverage: lsp_format_range ---
 
-#[specforge_test_macros::test(
-    behavior = "lsp_format_range",
-    verify = "range is expanded to block boundaries"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-061")]
 fn test_range_is_expanded_to_block_boundaries() {
     // Source with two blocks: request formatting in the MIDDLE of the second block
     let source = "behavior foo \"Foo\" {\n  contract \"a\"\n}\n\nbehavior bar \"Bar\" {\n      contract   \"b\"\n      types   [x]\n}\n";
@@ -195,10 +177,7 @@ fn test_range_is_expanded_to_block_boundaries() {
 
 // --- Gap coverage: lsp_format_range ---
 
-#[specforge_test_macros::test(
-    behavior = "lsp_format_range",
-    verify = "parse errors within range are left unchanged per format_with_parse_errors"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-061")]
 fn test_range_parse_errors_left_unchanged() {
     let config = FormatConfig::default();
     let source = "behavior foo \"Foo\" {\n  contract \"ok\"\n}\n\n{{{ broken\n\nbehavior bar \"Bar\" {\n      contract   \"fix\"\n}\n";

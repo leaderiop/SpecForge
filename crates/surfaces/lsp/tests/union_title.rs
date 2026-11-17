@@ -5,10 +5,7 @@ use specforge_test_macros::test as spec;
 use crate::hover::plain;
 use crate::semantic_tokens::{kinds, token, tokens_of};
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "a titled union is a form and its variants are values"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn a_titled_union_is_a_form_and_its_variants_are_values() {
     let tokens = tokens_of(
         concat!(
@@ -30,10 +27,7 @@ fn a_titled_union_is_a_form_and_its_variants_are_values() {
     assert_ne!(next.modifiers & specforge_lsp::MOD_DECLARATION, 0);
 }
 
-#[spec(
-    behavior = "hover_information",
-    verify = "hover lists a type member named title"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn hover_lists_a_type_member_named_title() {
     let served = plain("type task \"Task\" {\n  title string\n}\n");
 

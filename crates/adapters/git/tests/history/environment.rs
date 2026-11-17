@@ -54,10 +54,7 @@ impl Vars {
 
 /// As git: a search from below a ceiling never reads the ceiling nor above it; one from the ceiling itself, or from
 /// beside every ceiling, goes on as without one.
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a search from below a git ceiling directory never reads the ceiling nor above it"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_ceiling_directory_is_never_searched_from_below() {
     let (_dir, real) = home();
     let ceilings = std::env::join_paths([real.join("repo"), real.join("elsewhere")]).unwrap();
@@ -74,10 +71,7 @@ fn a_ceiling_directory_is_never_searched_from_below() {
     assert_eq!(vars.top(&real.join("repo/sub/deep")), Ok(real.join("repo")));
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a GIT_DIR or GIT_WORK_TREE naming another repository than the one a directory is in is refused"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_git_dir_naming_another_repository_refuses() {
     let (_dir, real) = home();
     let other = Repo::init(&real.join("other"));
@@ -97,10 +91,7 @@ fn a_git_dir_with_no_repository_around_refuses() {
         .refused(&real.join("plain"), "GIT_DIR");
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a GIT_DIR or GIT_WORK_TREE naming another repository than the one a directory is in is refused"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_work_tree_naming_another_directory_refuses() {
     let (_dir, real) = home();
     std::fs::create_dir_all(real.join("elsewhere")).unwrap();
@@ -121,10 +112,7 @@ fn a_git_dir_naming_the_repository_the_directory_is_in_is_kept() {
 
 /// git looks for a `.git` only strictly below the nearest ceiling: a repository found at the ceiling is none, whatever
 /// its `core.worktree` names.
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a search from below a git ceiling directory never reads the ceiling nor above it"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_repository_at_the_ceiling_is_none_whatever_its_worktree() {
     let (_dir, real) = home();
     std::fs::create_dir_all(real.join("wt")).unwrap();
@@ -143,10 +131,7 @@ fn a_repository_at_the_ceiling_is_none_whatever_its_worktree() {
 }
 
 /// What lies at the ceiling is never opened: a repository there whose config git cannot read is none, not unavailable.
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a search from below a git ceiling directory never reads the ceiling nor above it"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_repository_at_the_ceiling_is_never_opened() {
     let (_dir, real) = unreadable_ceiling();
     let vars = Vars::default().set("GIT_CEILING_DIRECTORIES", real.join("repo"));
@@ -168,10 +153,7 @@ fn unreadable_ceiling() -> (tempfile::TempDir, PathBuf) {
 }
 
 /// git stops at a `.git` it cannot use below the ceiling; the search never goes on past it to the ceiling.
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a search from below a git ceiling directory never reads the ceiling nor above it"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_broken_git_below_the_ceiling_stops_the_search_there() {
     let (_dir, real) = unreadable_ceiling();
     let vars = Vars::default().set("GIT_CEILING_DIRECTORIES", real.join("repo"));

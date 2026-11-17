@@ -171,10 +171,7 @@ fn watch_verify_incremental_checks_each_rebuild_against_a_cold_one() {
 // with --verify-incremental. The binary is built in the test's profile, so
 // this test exists only in debug builds.
 #[cfg(debug_assertions)]
-#[specforge_test(
-    behavior = "validate_delta_correctness",
-    verify = "a debug build checks each rebuild without the flag"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn watch_debug_build_verifies_without_the_flag() {
     let project = TestProject::new().raw_config("{}");
     project.write("main.spec", "entity one \"One\" {}\n");
@@ -295,10 +292,7 @@ fn watch_and_check(fixture: &str) -> (serde_json::Value, serde_json::Value, serd
 
 /// The resolver's E025 reaches watch at startup and after a rebuild, with
 /// everything else `check` reports.
-#[specforge_test(
-    behavior = "emit_incremental_diagnostics",
-    verify = "total diagnostic set matches full rebuild"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn watch_reports_what_check_reports_for_a_missing_import() {
     let (ready, rebuilt, check) = watch_and_check("missing_import");
     assert!(
@@ -320,10 +314,7 @@ fn watch_reports_what_check_reports_for_a_missing_import() {
 
 /// An extension that fails to load (E028) is reported by watch as by
 /// `check`, before and after a rebuild.
-#[specforge_test(
-    behavior = "rebuild_affected_subgraph",
-    verify = "incremental rebuild equals cold rebuild"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn watch_reports_what_check_reports_for_an_extension_that_fails_to_load() {
     let (ready, rebuilt, check) = watch_and_check("unknown_extension");
     assert!(
@@ -385,10 +376,7 @@ fn e028(event: &serde_json::Value) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "watch_file_system_for_changes",
-    verify = "a specforge.lock change reloads the environment"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn watch_reloads_on_a_lock_change() {
     let project = TestProject::new()
         .raw_config(r#"{"name":"w","version":"0.1.0","extensions":["@acme/missing"]}"#);
@@ -425,10 +413,7 @@ fn watch_reloads_on_a_lock_change() {
     );
 }
 
-#[specforge_test(
-    behavior = "watch_file_system_for_changes",
-    verify = "a .wasm file no extension loads changes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn watch_ignores_a_wasm_no_extension_loads() {
     let project = TestProject::new().raw_config("{}");
     project.write("main.spec", "entity one \"One\" {}\n");
@@ -464,10 +449,7 @@ fn watch_ignores_a_wasm_no_extension_loads() {
     );
 }
 
-#[specforge_test(
-    behavior = "watch_file_system_for_changes",
-    verify = "after spec_root changes, files under the new spec root are watched"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn watch_follows_a_moved_spec_root() {
     let project = TestProject::new().without_config();
     let root = project.root();
@@ -569,10 +551,7 @@ fn codes(event: &serde_json::Value) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a file a files check names re-runs the checks"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn watch_rechecks_when_a_referenced_file_outside_the_spec_root_appears() {
     let project = docref_project(&gadget_naming(&project_reference("shared/guide.md")));
     let outside = project.root();
@@ -599,10 +578,7 @@ fn watch_rechecks_when_a_referenced_file_outside_the_spec_root_appears() {
     );
 }
 
-#[specforge_test(
-    behavior = "watch_file_system_for_changes",
-    verify = "after an edit names a file outside the spec root, a change to it is seen"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn watch_follows_a_file_an_edit_names_outside_the_spec_root() {
     let project = docref_project("gadget gadget_one \"G\" {\n}\n");
     let outside = project.root();
@@ -640,10 +616,7 @@ fn watch_follows_a_file_an_edit_names_outside_the_spec_root() {
     );
 }
 
-#[specforge_test(
-    behavior = "watch_file_system_for_changes",
-    verify = "a file the checks read is seen when it is created in a directory that did not exist"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn watch_sees_a_referenced_file_created_in_a_new_directory() {
     let project = docref_project(&gadget_naming(&project_reference("nodir/guide.md")));
     let outside = project.root();
@@ -734,10 +707,7 @@ fn watch_ends_when_its_reader_leaves() {
 /// A file discovery does not find (an excluded `drafts/x.spec`) is no
 /// source: creating it moves nothing, and every event watch sends is what
 /// `check` reports (ADR 0055).
-#[specforge_test(
-    invariant = "incremental_correctness",
-    verify = "a file discovery does not find changes nothing a compile or a session reports"
-)]
+#[specforge_test(requirement = "INVARIANT-057")]
 fn watch_reports_what_check_reports_when_an_excluded_import_target_appears() {
     let project = TestProject::new()
         .raw_config(r#"{"name":"w","version":"0.1.0","extensions":[],"exclude":["drafts/"]}"#);
@@ -788,10 +758,7 @@ fn watch_reports_what_check_reports_when_an_excluded_import_target_appears() {
 /// A directory moved inside the spec root, its file removed, another file
 /// declaring the same ID written: watch reports what `check` reports, and
 /// no E002 for the entity that left with the directory.
-#[specforge_test(
-    behavior = "watch_file_system_for_changes",
-    verify = "a directory moved inside the spec root leaves watch reporting what check reports"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn watch_reports_what_check_reports_after_a_directory_move() {
     let project = TestProject::new().raw_config(r#"{"extensions":[]}"#);
     project.write("r.spec", "thing root_one \"R\" {}\n");
@@ -839,10 +806,7 @@ fn watch_reports_what_check_reports_after_a_directory_move() {
 /// An edit to a symlinked source's target, in a directory outside the
 /// project, is seen as an edit to the link.
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "watch_file_system_for_changes",
-    verify = "an edit to a symlinked source's target is seen"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn watch_sees_an_edit_to_a_symlinked_sources_target() {
     let outside = TempDir::new().unwrap();
     let target = fs::canonicalize(outside.path()).unwrap().join("real.spec");
@@ -908,10 +872,7 @@ fn event_with_e025_at(rx: &mpsc::Receiver<String>, line: i64) -> serde_json::Val
     panic!("no rebuilt event reported an E025 at line {line}");
 }
 
-#[specforge_test(
-    behavior = "notify_delta_subscribers",
-    verify = "watch --format json prints the diagnostics each update added and removed"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn watch_prints_the_diagnostics_each_update_added_and_removed() {
     let project = TestProject::new().raw_config(r#"{"name":"w","version":"0.1.0"}"#);
     let alpha = "behavior alpha \"Alpha\" {\n}\n";

@@ -71,10 +71,7 @@ fn listed_commands(help: &str) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "auto_promote_commands_to_mcp_tools",
-    verify = "each auto-promoted tool is a command line of the same name whose help shows the tool's description and each of its arguments"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn every_product_tool_is_a_product_command_line() {
     let dir = setup_product_project();
     let tools = listed_tools();
@@ -124,10 +121,7 @@ fn product_json(dir: &TestProject, args: &[&str]) -> Value {
     serde_json::from_slice(&output.stdout).unwrap()
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "the CLI and MCP send a command's export the same args for the same input, its declared defaults applied by the host"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn the_cli_and_mcp_answer_one_command_alike() {
     let dir = setup_product_project();
     let calls = [
@@ -154,10 +148,7 @@ fn the_cli_and_mcp_answer_one_command_alike() {
     }
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "over MCP an argument the command's declaration refuses is invalid_input on that argument, with the message the CLI writes (a missing one in the sentence every MCP tool uses), and the export is not called"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn one_mistake_is_one_message_in_each_surfaces_shape() {
     let dir = setup_product_project();
     let mistakes = [
@@ -206,10 +197,7 @@ fn one_mistake_is_one_message_in_each_surfaces_shape() {
     }
 }
 
-#[specforge_test(
-    behavior = "gate_a_command",
-    verify = "a command that declares no gate runs as it did"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_command_without_gates_runs_as_today() {
     let dir = setup_product_project();
     let output = Cli::on(&dir)
@@ -302,10 +290,7 @@ fn tool_call(id: u64, name: &str, arguments: Value) -> String {
     )
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "the CLI and MCP send a command's export the same project root, absolute and canonical"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_command_is_told_the_project_root_on_each_surface() {
     let dir = probe_project();
     let output = Cli::on(&dir)
@@ -329,10 +314,7 @@ fn a_command_is_told_the_project_root_on_each_surface() {
     assert_eq!(mcp["cwd"], cli["cwd"], "{response}");
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "a trapped command is E028 on both surfaces: one error object on the CLI's stderr under json, a structured MCP error over MCP"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_trapped_command_fails_in_each_surfaces_shape() {
     let dir = probe_project();
     let prefix = "command cmd__trap() of '@test/probe' trapped: ";
@@ -365,10 +347,7 @@ fn a_trapped_command_fails_in_each_surfaces_shape() {
     );
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "the CLI and MCP send a command the same evidence for the same recorded report"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn the_cli_and_mcp_send_a_command_the_same_evidence() {
     let dir = evidence_project();
     let output = Cli::on(&dir)
@@ -392,10 +371,7 @@ fn the_cli_and_mcp_send_a_command_the_same_evidence() {
     );
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a read-only command's help and output are unchanged"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_read_only_commands_help_and_output_are_unchanged() {
     let dir = setup_product_project();
     let listing = product_help(&dir, &["--help"]);
@@ -406,10 +382,7 @@ fn a_read_only_commands_help_and_output_are_unchanged() {
     }
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "hand-written host files are never read or written by any command"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn hand_written_host_files_are_never_read_or_written() {
     let hand = [
         (

@@ -114,10 +114,7 @@ pub(super) mod tests {
         out
     }
 
-    #[specforge_test(
-        behavior = "lsp_format_document",
-        verify = "applying the formatting edits to the document gives the formatted text byte for byte"
-    )]
+    #[specforge_test(requirement = "FEATURE-061")]
     fn a_crlf_is_never_split() {
         let edits = between("a\r\nb\r\n", "a\nb\n");
         assert_eq!(
@@ -130,10 +127,7 @@ pub(super) mod tests {
         assert_eq!(apply("a\r\nb\r\n", &edits), "a\nb\n");
     }
 
-    #[specforge_test(
-        behavior = "lsp_format_document",
-        verify = "applying the formatting edits to the document gives the formatted text byte for byte"
-    )]
+    #[specforge_test(requirement = "FEATURE-061")]
     fn trimming_stops_at_a_char_boundary() {
         // `é` = C3 A9, `è` = C3 A8: a byte-wise prefix would end inside the char.
         let edits = between("x \"é\"\n", "x \"è\"\n");
@@ -383,10 +377,7 @@ pub(super) mod tests {
         Ok(())
     }
 
-    #[specforge_test(
-        behavior = "lsp_format_document",
-        verify = "applying the formatting edits to the document gives the formatted text byte for byte"
-    )]
+    #[specforge_test(requirement = "FEATURE-061")]
     fn the_edits_rebuild_the_formatted_text_over_the_corpus() {
         let editors = [
             None,
@@ -419,14 +410,7 @@ pub(super) mod tests {
         assert!(failures.is_empty(), "{failures:#?}");
     }
 
-    #[specforge_test(
-        behavior = "lsp_format_range",
-        verify = "range formatting changes no byte outside the blocks it touches"
-    )]
-    #[specforge_test(
-        behavior = "lsp_format_document",
-        verify = "applying the formatting edits to the document gives the formatted text byte for byte"
-    )]
+    #[specforge_test(requirement = "FEATURE-061")]
     fn a_range_formats_edits_rebuild_its_text_over_the_corpus() {
         let (checked, failures) = over_inputs(&corpus_inputs(), |input, failures| {
             if input.corpus == usize::MAX

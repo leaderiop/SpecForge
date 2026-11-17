@@ -40,10 +40,7 @@ fn collected(reads: &[(&str, FileRead)], files: &[(&str, &str)]) -> Value {
         .clone()
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "a collector receives the facts of the files it declares it reads, and none when it declares none"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_collector_receives_the_facts_of_the_files_it_reads() {
     let input = collected(
         &[
@@ -64,20 +61,14 @@ fn a_collector_receives_the_facts_of_the_files_it_reads() {
     assert!(input["files"]["facts"]["facts"][0].get("text").is_none());
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "a collector receives the facts of the files it declares it reads, and none when it declares none"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_collector_that_declares_no_reads_is_sent_no_files() {
     let input = collected(&[], &[("package.json", "{}")]);
 
     assert!(input.get("files").is_none(), "{input}");
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "a collector's read is held to the project and withholds a credential's text, as a pass's is"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_collectors_read_withholds_a_credentials_text() {
     let input = collected(&[("env", glob(".env", true))], &[(".env", "TOKEN=x\n")]);
 
@@ -86,10 +77,7 @@ fn a_collectors_read_withholds_a_credentials_text() {
     assert!(fact.get("text").is_none(), "{fact}");
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "a collector's read is held to the project and withholds a credential's text, as a pass's is"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_collectors_read_outside_the_project_is_refused() {
     let input = collected(&[("outside", glob("../x", false))], &[]);
     assert!(input["files"].get("outside").is_none(), "{input}");

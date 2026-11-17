@@ -40,10 +40,7 @@ fn project(extensions: &[&str]) -> tempfile::TempDir {
     dir
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "a peer a builtin satisfies is not reported"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn a_peer_a_builtin_satisfies_is_not_reported_by_doctor() {
     let dir = project(&["@specforge/software", "@acme/app"]);
     let runtime = InProcessRuntime::new()
@@ -74,10 +71,7 @@ fn a_peer_a_builtin_satisfies_is_not_reported_by_doctor() {
     assert!(report.extensions_ok());
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor reports the peer requirements check reports, with the remedy each suggests"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_reports_the_peer_requirements_check_reports() {
     let dir = project(&["@acme/base", "@acme/bad"]);
     let runtime = InProcessRuntime::new()
@@ -126,10 +120,7 @@ fn doctor_reports_the_peer_requirements_check_reports() {
     assert_eq!(peers[0].check, e027[0].message);
 }
 
-#[specforge_test(
-    behavior = "registry_build_load_order",
-    verify = "specforge check reports a cycle among required peers"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
 fn check_reports_a_cycle_among_required_peers() {
     let dir = project(&["@acme/a", "@acme/b"]);
     let runtime = InProcessRuntime::new()
@@ -255,10 +246,7 @@ fn add_cases() -> Vec<Case> {
     ]
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "add and check agree: an add check would report E027 or E073 for is refused, and an add that passes leaves none"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn add_and_check_agree_on_the_project_peer_set() {
     use specforge_ops::extension::{self, AddRequest};
     use specforge_ops::testing::probes;
@@ -333,10 +321,7 @@ fn snapshot(root: &Path) -> std::collections::BTreeMap<std::path::PathBuf, Vec<u
     files
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a dry run answers what the add answers, refusals and the builtins it enables included, and writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_dry_run_answers_what_the_add_answers() {
     use specforge_ops::extension::{self, AddRequest};
     use specforge_ops::testing::probes;
@@ -428,10 +413,7 @@ fn removal_project(
     dir
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "remove and check agree: a removal check would report E027 for is refused, and a removal that passes leaves none"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn remove_and_check_agree_on_the_project_peer_set() {
     use specforge_ops::extension::{self, RemoveRequest};
     use specforge_ops::testing::{
@@ -574,10 +556,7 @@ fn remove_and_check_agree_on_the_project_peer_set() {
 }
 
 /// R2 without the timing: a removal judged on the config the compile read must not write another.
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "a removal judged on the compiled specforge.json never writes another"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_removal_judged_on_the_compiled_config_never_writes_another() {
     use specforge_ops::extension::{self, RemoveRequest};
     use specforge_ops::testing::{NEEDS_SOFTWARE_1, probes};

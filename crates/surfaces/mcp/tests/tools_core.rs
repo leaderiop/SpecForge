@@ -52,10 +52,7 @@ fn serving_nothing() -> McpServer {
     server
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "testable is the kind's testability and declared says whether the entity has obligations"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn inspect_testable_is_the_kinds_and_declared_is_the_entitys() {
     let mut server = test_server();
     let mut inspect = |id: &str| {
@@ -96,10 +93,7 @@ fn inspected(server: &mut McpServer, id: &str) -> Value {
     tool_json(&resp)
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "coverage_status says whether the entity counts, as specforge.coverage's row says"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn inspect_coverage_status_is_the_coverage_rows() {
     let mut server = standings_server();
     let mut exempt = Vec::new();
@@ -124,10 +118,7 @@ fn inspect_coverage_status_is_the_coverage_rows() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "obligated says whether the entity's kind must declare obligations"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn inspect_obligated_follows_the_rule_set() {
     let mut server = standings_server();
     // W004 targets behavior and invariant.
@@ -152,10 +143,7 @@ fn inspect_obligated_follows_the_rule_set() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "source_extension names the extension that declares the entity's kind"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn inspect_names_the_declaring_extension() {
     let mut server = standings_server();
     for id in ["alpha", "beta_feature", "free_one", "Choice"] {
@@ -197,10 +185,7 @@ fn node<'a>(parsed: &'a Value, id: &str) -> &'a Value {
 // --- specforge.query ---
 
 // B:provide_mcp_query_tool — verify unit "returns subgraph for entity"
-#[specforge_test(
-    behavior = "provide_mcp_query_tool",
-    verify = "specforge.query tool returns subgraph for valid entityId"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn query_returns_subgraph() {
     let mut server = test_server();
     let resp = call_tool(
@@ -219,10 +204,7 @@ fn query_returns_subgraph() {
 }
 
 // B:provide_mcp_query_tool — verify unit "returns error for unknown entity"
-#[specforge_test(
-    behavior = "provide_mcp_query_tool",
-    verify = "non-existent entityId returns error response"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn query_error_for_unknown() {
     let mut server = test_server();
     let resp = call_tool(
@@ -236,10 +218,7 @@ fn query_error_for_unknown() {
 }
 
 // B:provide_mcp_query_tool — verify unit "respects depth parameter"
-#[specforge_test(
-    behavior = "provide_mcp_query_tool",
-    verify = "depth parameter limits traversal depth"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn query_respects_depth() {
     let mut server = test_server();
     let resp = call_tool(
@@ -256,10 +235,7 @@ fn query_respects_depth() {
 }
 
 // B:provide_mcp_query_tool — verify unit "respects kind filter"
-#[specforge_test(
-    behavior = "provide_mcp_query_tool",
-    verify = "kind filter restricts returned node types"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn query_respects_kind_filter() {
     let mut server = test_server();
     let resp = call_tool(
@@ -278,10 +254,7 @@ fn query_respects_kind_filter() {
 }
 
 // B:provide_mcp_query_tool — verify unit "missing entity_id returns error"
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "a tool that detects invalid arguments returns an isError result, not -32602"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn query_missing_entity_id() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.query", json!({}));
@@ -293,10 +266,7 @@ fn query_missing_entity_id() {
 // --- specforge.export ---
 
 // B:provide_mcp_export_tool — verify unit "exports graph format"
-#[specforge_test(
-    behavior = "provide_mcp_export_tool",
-    verify = "specforge.export tool returns graph in requested format"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn export_graph_format() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.export", json!({"format": "graph"}));
@@ -319,10 +289,7 @@ fn export_graph_format() {
 }
 
 // B:provide_mcp_export_tool — verify unit "exports context format"
-#[specforge_test(
-    behavior = "provide_mcp_export_tool",
-    verify = "all three formats (context, brief, graph) supported"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn export_context_format() {
     let mut server = project().serve(&[extension().headline("behavior")]);
     let resp = call_tool(
@@ -353,10 +320,7 @@ fn export_context_format() {
 }
 
 // B:provide_mcp_export_tool — verify unit "exports brief format"
-#[specforge_test(
-    behavior = "provide_mcp_export_tool",
-    verify = "all three formats (context, brief, graph) supported"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn export_brief_format() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.export", json!({"format": "brief"}));
@@ -376,10 +340,7 @@ fn export_brief_format() {
 }
 
 // B:provide_mcp_export_tool — verify unit "exports scoped subgraph"
-#[specforge_test(
-    behavior = "provide_mcp_export_tool",
-    verify = "scope parameter restricts to subgraph"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn export_scoped() {
     let mut server = test_server();
     let resp = call_tool(
@@ -394,10 +355,7 @@ fn export_scoped() {
 }
 
 // B:provide_mcp_export_tool — verify unit "unknown format returns error"
-#[specforge_test(
-    behavior = "provide_mcp_export_tool",
-    verify = "unknown format returns error"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn export_unknown_format() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.export", json!({"format": "yaml"}));
@@ -409,10 +367,7 @@ fn export_unknown_format() {
 // --- specforge.trace ---
 
 // B:provide_mcp_trace_tool — verify unit "returns trace chain"
-#[specforge_test(
-    behavior = "provide_mcp_trace_tool",
-    verify = "specforge.trace tool returns traceability chain for valid entityId"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn trace_returns_chain() {
     let mut server = test_server();
     let resp = call_tool(
@@ -432,10 +387,7 @@ fn trace_returns_chain() {
 }
 
 // B:provide_mcp_trace_tool — verify unit "unknown entity returns error"
-#[specforge_test(
-    behavior = "provide_mcp_trace_tool",
-    verify = "non-existent entityId returns error response"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn trace_unknown_entity() {
     let mut server = test_server();
     let resp = call_tool(
@@ -451,10 +403,7 @@ fn trace_unknown_entity() {
 // --- specforge.search ---
 
 // B:provide_mcp_search_tool — verify unit "respects kind filter"
-#[specforge_test(
-    behavior = "provide_mcp_search_tool",
-    verify = "kind filter restricts results to matching entity kinds"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn search_respects_kind_filter() {
     let mut server = test_server();
     let mut hits = |arguments: Value| -> Vec<(String, String)> {
@@ -496,10 +445,7 @@ fn search_respects_kind_filter() {
 }
 
 // B:provide_mcp_search_tool — verify unit "respects limit"
-#[specforge_test(
-    behavior = "provide_mcp_search_tool",
-    verify = "limit caps the number of returned results"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn search_respects_limit() {
     let mut server = test_server();
     let mut ids = |arguments: Value| -> Vec<String> {
@@ -520,10 +466,7 @@ fn search_respects_limit() {
 }
 
 // B:provide_mcp_search_tool — verify unit "missing query returns error"
-#[specforge_test(
-    behavior = "provide_mcp_search_tool",
-    verify = "missing query returns error"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn search_missing_query() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.search", json!({}));
@@ -532,10 +475,7 @@ fn search_missing_query() {
     assert_eq!(error["argument"], "query", "{error}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_search_tool",
-    verify = "field without value, or value without field, is an invalid-input error"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn search_refuses_a_lone_field_or_value() {
     let mut server = test_server();
     for (arguments, missing) in [
@@ -563,10 +503,7 @@ fn search_refuses_a_lone_field_or_value() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_entities_by_kind",
-    verify = "specforge.list reports an unknown kind with I020"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn list_reports_an_unknown_kind() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.list", json!({"kind": "behaviour"}));
@@ -582,10 +519,7 @@ fn list_reports_an_unknown_kind() {
     assert!(resp["result"]["_meta"].is_null(), "{resp}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_query_tool",
-    verify = "the default query is the document specforge://graph/{entityId} serves"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn query_is_the_graph_resource() {
     let mut server = test_server();
     for id in ["alpha", "gamma_orphan"] {
@@ -622,10 +556,7 @@ fn names(list: &Value, key: &str) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_schema_tool",
-    verify = "specforge.schema returns full GraphProtocolSchema"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn schema_tool_returns_the_graph_protocol_schema() {
     let project = project_with_errors_and_warnings();
     let mut server = serving_nothing();
@@ -668,10 +599,7 @@ fn schema_tool_returns_the_graph_protocol_schema() {
     assert_eq!(schema, export["schema"]);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_schema_tool",
-    verify = "kind filter restricts schema to single entity kind"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn schema_tool_kind_filter() {
     let project = project_with_errors_and_warnings();
     let mut server = serving_nothing();
@@ -705,10 +633,7 @@ fn server_with_report(tests: &[(&str, &str)]) -> Served {
         .serve(&[extension()])
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "analyze reads the project's specforge-report.json by default"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn analyze_reads_the_project_report_by_default() {
     let project = tempfile::tempdir().unwrap();
     let root = project.path();
@@ -756,10 +681,7 @@ fn analyze_reads_the_project_report_by_default() {
     assert!(a015[0]["message"].as_str().unwrap().contains("\"b\""));
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "stray test records come back as an optional stray_records field"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn analyze_returns_stray_records_only_when_records_are_stray() {
     let project = tempfile::tempdir().unwrap();
     let root = project.path();
@@ -799,10 +721,7 @@ fn mcp_error(resp: &Value) -> Value {
     serde_json::from_str(&tool_text(resp)).unwrap_or_else(|e| panic!("McpError JSON ({e}): {resp}"))
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_coverage_tool",
-    verify = "a malformed specforge-report.json is an error result, not an empty report"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn coverage_refuses_a_malformed_report() {
     let mut server = test_server();
     server.write(
@@ -827,10 +746,7 @@ fn coverage_refuses_a_malformed_report() {
     assert_ne!(resp["result"]["isError"], true, "{resp}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "a malformed test report is an error result"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn analyze_refuses_a_malformed_report() {
     let project = tempfile::tempdir().unwrap();
     let root = project.path();
@@ -869,10 +785,7 @@ fn analyze_refuses_a_malformed_report() {
     assert_eq!(error["code"], "schema_mismatch", "{error}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "extension passes receive no proved claims, as specforge analyze without --prove"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn analyze_hands_extension_passes_no_proved_claims() {
     use crate::fake_extension::{self, EXT, FakeExtension};
 
@@ -894,10 +807,7 @@ fn analyze_hands_extension_passes_no_proved_claims() {
     assert_eq!(input["proved_claims"], Value::Null, "{input}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "an unknown or undeclared pass is an invalid-input error listing the available passes"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn analyze_refuses_an_undeclared_pass() {
     use crate::fake_extension::{self, FakeExtension};
 
@@ -927,10 +837,7 @@ fn analyze_refuses_an_undeclared_pass() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "strict promotes warnings and clears ok"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn analyze_strict_promotes_warnings() {
     use crate::fake_extension::{self, FakeExtension};
 
@@ -958,10 +865,7 @@ fn analyze_strict_promotes_warnings() {
     assert_eq!(strict["passes"][0]["findings"][0]["severity"], "Error");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "analyzing another project leaves the served project untouched"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn analyze_of_another_project_leaves_the_served_one() {
     use crate::fake_extension::{self, FakeExtension};
 
@@ -1005,10 +909,7 @@ fn analyze_of_another_project_leaves_the_served_one() {
 // --- specforge.stats ---
 
 // Tool call when not initialized
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "initialization rejects tool calls before completion"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn tool_call_not_initialized() {
     let mut server = McpServer::new();
     let resp = call_tool(
@@ -1020,10 +921,7 @@ fn tool_call_not_initialized() {
 }
 
 // Unknown tool name
-#[specforge_test(
-    behavior = "provide_mcp_query_tool",
-    verify = "unknown tool returns error"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn unknown_tool_returns_error() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.nonexistent", json!({}));
@@ -1031,10 +929,7 @@ fn unknown_tool_returns_error() {
 }
 
 // B:provide_mcp_validate_tool — verify unit "response includes all diagnostics"
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "specforge.validate tool triggers compilation"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn validate_returns_all_diagnostics() {
     let project = project_with_errors_and_warnings();
     let mut server = serving_nothing();
@@ -1136,10 +1031,7 @@ fn validate_reports_the_format_version_headers() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "severity_filter restricts returned diagnostics"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn validate_severity_filter_restricts_diagnostics() {
     let project = project_with_errors_and_warnings();
     let path = project.path().to_str().unwrap();
@@ -1153,10 +1045,7 @@ fn validate_severity_filter_restricts_diagnostics() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "strict mode promotes warnings to errors"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn validate_strict_promotes_warnings_to_errors() {
     let project = project_with_errors_and_warnings();
     let path = project.path().to_str().unwrap();
@@ -1176,10 +1065,7 @@ fn validate_response(path: &str, mut args: Value) -> Value {
     call_tool(&mut server, "specforge.validate", args)
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "an unknown severity_filter or lint profile is invalid input"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn validate_refuses_an_unknown_severity_filter_or_lint_profile() {
     let project = project_with_errors_and_warnings();
     let path = project.path().to_str().unwrap();
@@ -1227,10 +1113,7 @@ fn validate_refuses_an_unknown_severity_filter_or_lint_profile() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "the verdict on every reported diagnostic rides in _meta, whatever severity_filter shows"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn validate_verdict_in_meta_counts_everything_reported() {
     let project = project_with_errors_and_warnings();
     let path = project.path().to_str().unwrap();
@@ -1284,10 +1167,7 @@ fn validate_verdict_in_meta_counts_everything_reported() {
 }
 
 // B:provide_mcp_validate_tool — verify unit "validate reports files changed on disk since the last call"
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "validate reports files changed on disk since the last call"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn validate_reports_files_changed_since_the_last_call() {
     let project = project_with_errors_and_warnings();
     let mut server = serving_nothing();
@@ -1355,10 +1235,7 @@ fn plan_project() -> (tempfile::TempDir, McpServer) {
     (project, server)
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_trace_tool",
-    verify = "plan parameter triggers gap analysis"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn trace_plan_gap_analysis() {
     let (_project, mut server) = plan_project();
 
@@ -1393,7 +1270,7 @@ fn trace_plan_gap_analysis() {
     assert_eq!(parsed["ok"], false, "{parsed}");
 }
 
-#[specforge_test(behavior = "validate_agent_plan", verify = "output is structured JSON")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_plan_reports_its_gaps_as_structured_json() {
     let (_project, mut server) = plan_project();
 
@@ -1447,10 +1324,7 @@ fn trace_plan_reports_its_gaps_as_structured_json() {
     );
 }
 
-#[specforge_test(
-    behavior = "validate_agent_plan",
-    verify = "a plan that is not an AgentPlan is refused, naming every place it departs from the type"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_refuses_a_plan_that_is_not_an_agent_plan() {
     let (_project, mut server) = plan_project();
     let mut refused = |plan: Value| {
@@ -1495,10 +1369,7 @@ fn trace_refuses_a_plan_that_is_not_an_agent_plan() {
     assert_eq!(parsed["resolved_entries"], json!([]), "{parsed}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_trace_tool",
-    verify = "trace without entity_id, in or plan returns error"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn trace_without_entity_or_plan_errors() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.trace", json!({}));
@@ -1508,10 +1379,7 @@ fn trace_without_entity_or_plan_errors() {
     assert!(message.contains("entity_id, in or plan"), "{message}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_schema_tool",
-    verify = "include_edges false omits edge type definitions"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn schema_include_edges_false_omits_edges() {
     let project = project_with_errors_and_warnings();
     let mut server = serving_nothing();
@@ -1527,10 +1395,7 @@ fn schema_include_edges_false_omits_edges() {
 }
 
 // B:provide_mcp_schema_tool — verify unit "include_validation_rules true includes rules"
-#[specforge_test(
-    behavior = "provide_mcp_schema_tool",
-    verify = "include_validation_rules true includes validation rules"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn schema_include_validation_rules_lists_extension_rules() {
     let project = project_with_errors_and_warnings();
     let mut server = serving_nothing();
@@ -1559,10 +1424,7 @@ fn schema_include_validation_rules_lists_extension_rules() {
 }
 
 // B:provide_mcp_coverage_tool — verify unit "kind filter restricts to matching entity kinds"
-#[specforge_test(
-    behavior = "provide_mcp_coverage_tool",
-    verify = "kind filter restricts to matching entity kinds"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn coverage_kind_filter() {
     let mut server = test_server();
     let resp = call_tool(
@@ -1579,10 +1441,7 @@ fn coverage_kind_filter() {
 }
 
 // B:provide_mcp_coverage_tool — verify unit "status_filter restricts to matching status"
-#[specforge_test(
-    behavior = "provide_mcp_coverage_tool",
-    verify = "status_filter restricts to matching coverage status"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn coverage_status_filter_restricts_status() {
     // `two` has one of its two obligations proven; alpha has none.
     let mut server = server_with_report(&[("a", "passed")]);
@@ -1607,10 +1466,7 @@ fn coverage_status_filter_restricts_status() {
     assert!(ids(&mut server, "covered").is_empty());
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_schema_tool",
-    verify = "an unknown kind is an invalid-input error naming the closest kind"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn schema_unknown_kind_is_invalid_input() {
     let mut server = test_server();
     for (kind, suggestion) in [
@@ -1635,10 +1491,7 @@ fn schema_unknown_kind_is_invalid_input() {
     assert_eq!(schema["entity_kinds"][0]["name"], "behavior", "{schema}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_coverage_tool",
-    verify = "an unknown status_filter is an invalid-input error naming the closest status"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn coverage_refuses_an_unknown_status_filter() {
     let mut server = test_server();
     let resp = call_tool(
@@ -1657,10 +1510,7 @@ fn coverage_refuses_an_unknown_status_filter() {
 }
 
 // B:provide_mcp_query_tool — verify unit "format parameter selects emitter format"
-#[specforge_test(
-    behavior = "provide_mcp_query_tool",
-    verify = "format parameter changes output serialization"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn query_format_parameter() {
     let mut server = project().serve(&[extension().headline("behavior")]);
     // context format
@@ -1693,10 +1543,7 @@ fn query_format_parameter() {
 }
 
 // B:provide_mcp_query_tool — verify unit "include_coverage annotates nodes with coverage status"
-#[specforge_test(
-    behavior = "provide_mcp_query_tool",
-    verify = "include_coverage parameter includes coverage status in response"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn query_include_coverage() {
     let mut server = test_server();
     let resp = call_tool(
@@ -1729,10 +1576,7 @@ fn query_include_coverage() {
 }
 
 // B:provide_mcp_search_tool — verify unit "field and value filter matches entity fields"
-#[specforge_test(
-    behavior = "provide_mcp_search_tool",
-    verify = "field and value filter matches entity fields"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn search_field_value_filter() {
     let mut server = test_server();
     let resp = call_tool(
@@ -1759,10 +1603,7 @@ fn search_field_value_filter() {
 }
 
 // B:provide_mcp_search_tool — verify unit "references filter returns entities referencing target"
-#[specforge_test(
-    behavior = "provide_mcp_search_tool",
-    verify = "references filter returns entities referencing target"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn search_references_filter() {
     let mut server = test_server();
     let resp = call_tool(
@@ -1782,10 +1623,7 @@ fn search_references_filter() {
 }
 
 // B:provide_mcp_validate_tool — verify unit "validate recompiles and updates graph"
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "response includes all diagnostics as Graph Protocol diagnostics"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn validate_updates_graph() {
     let project = project_with_errors_and_warnings();
     let mut server = serving_nothing();
@@ -1878,10 +1716,7 @@ fn context_resource_honors_max_tokens_budget() {
     );
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "a diagnostic code behind a failed tool call is in its McpError diagnostic"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn query_and_trace_report_e003_in_the_diagnostic_not_the_message() {
     let mut server = test_server();
     for tool in ["specforge.query", "specforge.trace"] {
@@ -1897,10 +1732,7 @@ fn query_and_trace_report_e003_in_the_diagnostic_not_the_message() {
 
 // --- specforge.explain ---
 
-#[specforge_test(
-    behavior = "provide_mcp_explain_tool",
-    verify = "specforge.explain returns the catalogued title, owner, level, explanation and docs link"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn explain_returns_the_catalogued_entry() {
     let mut server = test_server();
     let explain = |server: &mut McpServer, code: &str| -> Value {
@@ -1934,10 +1766,7 @@ fn explain_returns_the_catalogued_entry() {
     assert_eq!(formal["owner"], "@specforge/formal", "{formal}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_explain_tool",
-    verify = "a retired code names the code that replaced it"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn explain_a_retired_code_names_its_replacement() {
     let mut server = test_server();
     let retired: Value = serde_json::from_str(&tool_text(&call_tool(
@@ -1961,10 +1790,7 @@ fn explain_a_retired_code_names_its_replacement() {
     assert_eq!(gone, json!({"code": "W024", "retired": true}));
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_explain_tool",
-    verify = "an uncatalogued code is an invalid_input error"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn explain_an_uncatalogued_code_is_invalid_input() {
     let mut server = test_server();
     // E901 belongs to a third-party extension; Z123 is no code at all.
@@ -1988,10 +1814,7 @@ fn explain_an_uncatalogued_code_is_invalid_input() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "each catalogued diagnostic carries its title"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn validate_gives_each_catalogued_code_its_title() {
     let project = project_with_errors_and_warnings();
     let mut server = serving_nothing();
@@ -2014,10 +1837,7 @@ fn validate_gives_each_catalogued_code_its_title() {
     assert_eq!(title("E006"), "Missing required field");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "specforge.analyze takes min and returns the run verdict and where the gate landed"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn analyze_gates_on_min() {
     // Software and testing, a widget with an obligation, and a recorded
     // report that proves nothing: 0 of 1 testable entities proven.

@@ -95,10 +95,7 @@ fn gap_items(server: &mut Served) -> Vec<(String, String)> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_infer_gaps_tool",
-    verify = "an item fact with an anchor to a declared entity is no gap"
-)]
+#[specforge_test(requirement = "FEATURE-052")]
 fn an_item_fact_with_an_anchor_to_a_declared_entity_is_no_gap() {
     let mut server = served(lib());
     let items = gap_items(&mut server);
@@ -108,10 +105,7 @@ fn an_item_fact_with_an_anchor_to_a_declared_entity_is_no_gap() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_infer_gaps_tool",
-    verify = "an anchored entity covers only the items its anchors name"
-)]
+#[specforge_test(requirement = "FEATURE-052")]
 fn an_anchored_entity_covers_only_the_items_its_anchors_name() {
     let mut facts = lib();
     facts.push(other());
@@ -127,10 +121,7 @@ fn an_anchored_entity_covers_only_the_items_its_anchors_name() {
     assert_eq!(document["collectors"], json!(["rust-source"]), "{document}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_infer_gaps_tool",
-    verify = "every item find_spec_for_source anchors to a declared entity is no gap"
-)]
+#[specforge_test(requirement = "FEATURE-052")]
 fn every_item_find_spec_for_source_anchors_to_a_declared_entity_is_no_gap() {
     let mut facts = lib();
     facts.push(naming(
@@ -162,10 +153,7 @@ fn every_item_find_spec_for_source_anchors_to_a_declared_entity_is_no_gap() {
     assert!(items.contains(&("src/lib.rs".to_string(), "Ghost".to_string())));
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_infer_gaps_tool",
-    verify = "an entity that only shares an item's name does not cover it"
-)]
+#[specforge_test(requirement = "FEATURE-052")]
 fn a_same_named_entity_does_not_cover_an_item() {
     let mut facts = lib();
     facts.push(item(
@@ -184,10 +172,7 @@ fn a_same_named_entity_does_not_cover_an_item() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_infer_gaps_tool",
-    verify = "an item an authored entity cites is covered"
-)]
+#[specforge_test(requirement = "FEATURE-052")]
 fn an_item_an_authored_entity_cites_is_covered() {
     let spec = format!("{SPEC}task wire \"W\" {{\n    items [\"rust:p::net::Wire\"]\n}}\n");
     let facts = vec![
@@ -215,10 +200,7 @@ fn an_item_an_authored_entity_cites_is_covered() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_infer_gaps_tool",
-    verify = "an item that names an authored entity is covered"
-)]
+#[specforge_test(requirement = "FEATURE-052")]
 fn an_item_that_names_an_entity_is_covered() {
     let facts = vec![
         naming(
@@ -248,10 +230,7 @@ fn an_item_that_names_an_entity_is_covered() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_infer_gaps_tool",
-    verify = "only public items are counted"
-)]
+#[specforge_test(requirement = "FEATURE-052")]
 fn an_item_no_other_package_may_name_is_no_gap() {
     let facts = vec![
         item(
@@ -287,10 +266,7 @@ fn an_item_no_other_package_may_name_is_no_gap() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_infer_gaps_tool",
-    verify = "with no item facts, gaps count nothing and name no collector"
-)]
+#[specforge_test(requirement = "FEATURE-052")]
 fn with_no_item_facts_gaps_count_nothing() {
     let mut server = served(Vec::new());
     let document = gaps(&mut server);
@@ -301,10 +277,7 @@ fn with_no_item_facts_gaps_count_nothing() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_infer_gaps_tool",
-    verify = "the report is approximate when a fact store is not served"
-)]
+#[specforge_test(requirement = "FEATURE-052")]
 fn an_unserved_fact_store_makes_gaps_approximate() {
     let project = project(SPEC, lib());
     // A store no specforge-harness line records: W191, its facts unserved.
@@ -316,10 +289,7 @@ fn an_unserved_fact_store_makes_gaps_approximate() {
     assert_eq!(document["total_pub_items"], 0, "{document}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_infer_gaps_tool",
-    verify = "an anchor to an entity the graph does not declare covers nothing"
-)]
+#[specforge_test(requirement = "FEATURE-052")]
 fn an_anchor_to_an_entity_the_graph_does_not_declare_covers_nothing() {
     let facts = vec![naming(
         item(

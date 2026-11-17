@@ -32,10 +32,7 @@ fn defaulted() -> Compiled {
     project(&[("tasks.spec", WITH_DEFAULTS)])
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_link",
-    verify = "link of an inherited field copies the default"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn link_of_an_inherited_field_copies_the_default() {
     let c = defaulted();
     let text = after(
@@ -62,10 +59,7 @@ fn link_of_a_target_the_default_has_plans_nothing() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_link",
-    verify = "an own field equal to the default is removed"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn an_own_field_equal_to_the_default_is_removed() {
     let c = defaulted();
     let text = after(
@@ -165,10 +159,7 @@ failure_mode slow_disk "Slow Disk" {
 }
 "#;
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "new compares what it writes with the default, not what it was given"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn new_writes_a_string_list_item_that_holds_a_comma() {
     let c = project(&[(
         "d.spec",
@@ -190,10 +181,7 @@ fn new_writes_a_string_list_item_that_holds_a_comma() {
     assert!(text.contains("[\"a, b\"]"), "{text}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "new never writes a field that restates its default"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn new_leaves_out_an_integer_equal_to_its_default() {
     let c = compile(&["@specforge/governance"], &[("fm.spec", FM)]);
     let edit = new_block(
@@ -212,10 +200,7 @@ fn new_leaves_out_an_integer_equal_to_its_default() {
     assert!(!added(&c, &[edit]).contains(&"W161".to_string()));
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_link",
-    verify = "a link after new starts from the file's default"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_link_after_new_starts_from_the_default() {
     let c = defaulted();
     let text = after(
@@ -241,10 +226,7 @@ fn a_link_after_new_starts_from_the_default() {
     assert!(is_canonical(&c, &text));
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_link",
-    verify = "a link after unset starts from none"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_link_after_unset_starts_from_none() {
     let c = defaulted();
     // Unset leaves `[]`, the link writes `[task_unique]` back: the block as it was.

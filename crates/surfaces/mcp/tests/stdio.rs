@@ -163,10 +163,7 @@ fn ping(id: u64) -> String {
     line(id, "ping", json!({}))
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_over_stdio",
-    verify = "each line of input is one message, and each response or notification is one line of output"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn each_line_is_one_message_and_each_reply_one_line() {
     let dir = TestProject::new()
         .file("spec/base.spec", "behavior base \"Base\" {\n}\n")
@@ -212,10 +209,7 @@ fn each_line_is_one_message_and_each_reply_one_line() {
     assert_eq!(lines[3]["id"], 5, "{}", lines[3]);
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_over_stdio",
-    verify = "a message's response is written before the notifications it queued"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_response_precedes_the_notifications_it_queued() {
     let mut server = served();
     let subscribed = call(
@@ -242,10 +236,7 @@ fn a_response_precedes_the_notifications_it_queued() {
     assert!(lines[2].get("id").is_none(), "{}", lines[2]);
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_over_stdio",
-    verify = "the output is flushed after each message"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn the_output_is_flushed_after_each_message() {
     let mut server = served();
     let input = format!("{}\n\n  \n{}\n", ping(1), ping(2));
@@ -264,10 +255,7 @@ fn the_output_is_flushed_after_each_message() {
     }
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_over_stdio",
-    verify = "a line holding only whitespace is skipped"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_line_of_only_whitespace_is_skipped() {
     let mut server = served();
     let input = format!("\n   \n\t\r\n{}\r\n  {}  \n", ping(1), ping(2));
@@ -280,10 +268,7 @@ fn a_line_of_only_whitespace_is_skipped() {
     assert!(lines.iter().all(|l| l.get("error").is_none()), "{lines:?}");
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_over_stdio",
-    verify = "a line that is not UTF-8 is answered with -32700 Parse error and serving continues"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_line_that_is_not_utf8_is_a_parse_error_and_serving_continues() {
     let mut server = served();
     let mut input = b"\xff\xfe\n".to_vec();
@@ -307,10 +292,7 @@ fn a_line_that_is_not_utf8_is_a_parse_error_and_serving_continues() {
     assert_eq!(lines[3]["id"], 4);
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_over_stdio",
-    verify = "the end of the input disconnects the client"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn the_end_of_the_input_disconnects_the_client() {
     let mut server = served();
     let subscribed = call(
@@ -329,10 +311,7 @@ fn the_end_of_the_input_disconnects_the_client() {
     assert!(server.state().subscriptions().is_empty());
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_over_stdio",
-    verify = "a failed write ends the connection and disconnects the client"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_failed_write_ends_the_connection_and_disconnects_the_client() {
     let mut server = served();
     call(
@@ -358,10 +337,7 @@ fn a_failed_write_ends_the_connection_and_disconnects_the_client() {
     assert!(server.state().subscriptions().is_empty());
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_over_stdio",
-    verify = "a failed read ends the connection and disconnects the client"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_failed_read_ends_the_connection_and_disconnects_the_client() {
     let mut server = served();
     call(
@@ -380,10 +356,7 @@ fn a_failed_read_ends_the_connection_and_disconnects_the_client() {
     assert!(server.state().subscriptions().is_empty());
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_over_stdio",
-    verify = "Serve MCP over Stdio: stdio transport holds — connection_open, one_line_per_message, response_first, connection_ended"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn stdio_transport_contract() {
     // connection_open: an initialized server, its input and output connected.
     let mut server = served();

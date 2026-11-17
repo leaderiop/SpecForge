@@ -92,10 +92,7 @@ async fn items(client: &mut Session, uri: &str, line: u32, character: u32) -> Ve
     resp["result"].as_array().cloned().unwrap_or_default()
 }
 
-#[spec(
-    behavior = "prepare_rename",
-    verify = "prepare rename on entity ID returns token range"
-)]
+#[spec(requirement = "FEATURE-111")]
 #[tokio::test]
 async fn prepare_rename_answers_a_ref_id() {
     let (mut client, uri, _dir) = open("main.spec", MAIN).await;
@@ -113,10 +110,7 @@ async fn prepare_rename_answers_a_ref_id() {
     );
 }
 
-#[spec(
-    invariant = "cursor_names_one_entity",
-    verify = "a scheme ref ID under the cursor names its ref"
-)]
+#[spec(requirement = "INVARIANT-012")]
 #[tokio::test]
 async fn a_scheme_ref_id_names_its_ref() {
     let (mut client, uri, _dir) = open("main.spec", MAIN).await;
@@ -154,10 +148,7 @@ fn entity_in(hover: &str) -> Option<&str> {
     Some(&after[..after.find('`')?])
 }
 
-#[spec(
-    invariant = "cursor_names_one_entity",
-    verify = "a word in a string or comment names no entity"
-)]
+#[spec(requirement = "INVARIANT-012")]
 #[tokio::test]
 async fn words_in_prose_name_no_entity() {
     let (mut client, uri, _dir) = open("prose.spec", PROSE).await;
@@ -181,10 +172,7 @@ const MULTI: &str = concat!(
     "}\n",
 );
 
-#[spec(
-    invariant = "cursor_names_one_entity",
-    verify = "a word in a string or comment names no entity"
-)]
+#[spec(requirement = "INVARIANT-012")]
 #[tokio::test]
 async fn words_in_a_multi_line_string_name_no_entity() {
     let (mut client, uri, _dir) = open("multi.spec", MULTI).await;
@@ -195,10 +183,7 @@ async fn words_in_a_multi_line_string_name_no_entity() {
     assert!(resp["result"].is_null(), "{resp}");
 }
 
-#[spec(
-    behavior = "hover_information",
-    verify = "field help answers only on a field's name"
-)]
+#[spec(requirement = "FEATURE-049")]
 #[tokio::test]
 async fn field_help_answers_on_a_field_name_only() {
     let text = PROSE.replace(
@@ -281,10 +266,7 @@ const PROSE_ONLY: &str = concat!(
 
 const CORE: &str = "type token \"Token\" {}\n";
 
-#[spec(
-    invariant = "cursor_names_one_entity",
-    verify = "hover and go-to-definition resolve the same entity on every token of a document"
-)]
+#[spec(requirement = "INVARIANT-012")]
 #[tokio::test]
 async fn hover_and_definition_resolve_the_same_entity_everywhere() {
     let (mut client, _dir, opened) = open_project(&[
@@ -315,10 +297,7 @@ async fn hover_and_definition_resolve_the_same_entity_everywhere() {
     assert!(named > 10, "only {named} positions name an entity");
 }
 
-#[spec(
-    invariant = "cursor_names_one_entity",
-    verify = "a value of a field typed as no reference names no entity"
-)]
+#[spec(requirement = "INVARIANT-012")]
 #[tokio::test]
 async fn an_enum_value_names_no_entity() {
     let text = "behavior b \"B\" {\n  category command\n}\n\ntype command \"Command\" {}\n";
@@ -330,10 +309,7 @@ async fn an_enum_value_names_no_entity() {
     assert!(resp["result"].is_null(), "{resp}");
 }
 
-#[spec(
-    behavior = "go_to_definition",
-    verify = "a use binding's imported name goes to the entity it names"
-)]
+#[spec(requirement = "FEATURE-046")]
 #[tokio::test]
 async fn a_use_binding_names_its_entity() {
     let main = "use { token } from \"types/core\"\n\nbehavior b \"B\" {}\n";
@@ -363,10 +339,8 @@ async fn a_use_binding_names_its_entity() {
     assert_eq!(result["range"]["start"]["character"], 0, "{resp}");
 }
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "a bracket inside a string opens no reference list"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 #[tokio::test]
 async fn a_bracket_in_a_string_keeps_field_completion() {
     let (mut client, uri, _dir) = open("comp.spec", COMP).await;
@@ -381,10 +355,7 @@ async fn a_bracket_in_a_string_keeps_field_completion() {
     assert_eq!(labels(&found), labels(&beta));
 }
 
-#[spec(
-    behavior = "complete_keywords",
-    verify = "use is always suggested and define never is"
-)]
+#[spec(requirement = "FEATURE-049")]
 #[tokio::test]
 async fn define_is_not_offered() {
     let (mut client, uri, _dir) = open("comp.spec", COMP).await;
@@ -393,10 +364,8 @@ async fn define_is_not_offered() {
     assert!(!found.iter().any(|i| i["label"] == "define"), "{found:?}");
 }
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "nothing is suggested inside a string, a comment or a nested block"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 #[tokio::test]
 async fn nested_blocks_and_strings_complete_nothing() {
     let (mut client, uri, _dir) = open("nest.spec", NEST).await;

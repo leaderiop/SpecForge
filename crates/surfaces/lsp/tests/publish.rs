@@ -44,10 +44,7 @@ const SOFTWARE: &[&str] = &["@specforge/software"];
 /// A file the project reports nothing about.
 const CLEAN: &str = "behavior beta \"B\" {\n  contract \"y\"\n  category command\n}\n";
 
-#[spec(
-    behavior = "emit_live_diagnostics",
-    verify = "a diagnostic is published on the file its span names"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn each_diagnostic_goes_on_the_file_its_span_names() {
     let (dir, mut state) = project(
         SOFTWARE,
@@ -88,10 +85,7 @@ fn each_diagnostic_goes_on_the_file_its_span_names() {
 /// Two behaviors that depend on each other (W061, a spanless cycle).
 const CYCLE: &str = "behavior alpha \"A\" {\n  depends_on [beta]\n}\nbehavior beta \"B\" {\n  depends_on [alpha]\n}\n";
 
-#[spec(
-    behavior = "emit_live_diagnostics",
-    verify = "a diagnostic about entities is published at the first one's block, with related information at each other's name"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_spanless_cycle_goes_on_the_first_entitys_block() {
     let (dir, mut state) = project(
         SOFTWARE,
@@ -126,10 +120,7 @@ fn a_spanless_cycle_goes_on_the_first_entitys_block() {
     assert!(placed.span.is_some());
 }
 
-#[spec(
-    behavior = "emit_live_diagnostics",
-    verify = "a diagnostic about no entity is published on the edited document"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_diagnostic_about_nothing_goes_on_the_edited_document_else_the_anchor_else_the_first_open() {
     // No extension configured: I002, about no entity and no file.
     let (dir, mut state) = project(&[], &[("a.spec", "\n"), ("b.spec", "\n")]);
@@ -167,10 +158,7 @@ fn a_diagnostic_about_nothing_goes_on_the_edited_document_else_the_anchor_else_t
     );
 }
 
-#[spec(
-    behavior = "emit_live_diagnostics",
-    verify = "a publish clears the files whose diagnostics are gone"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_publish_clears_files_whose_diagnostics_are_gone() {
     let broken =
         "behavior alpha \"A\" {\n  contract \"x\"\n  category command\n  features [ghost]\n}\n";
@@ -198,10 +186,7 @@ fn a_publish_clears_files_whose_diagnostics_are_gone() {
     );
 }
 
-#[spec(
-    behavior = "emit_live_diagnostics",
-    verify = "a define block's W143 is published as unnecessary code"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_define_block_is_published_as_unnecessary() {
     let (_dir, state) = project(
         SOFTWARE,

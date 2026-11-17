@@ -29,10 +29,7 @@ fn checker(name: &str, args: &[&str]) -> CheckerDescriptor {
     }
 }
 
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "a checked field lists its resolved checks, and a member its own"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn a_checked_field_lists_its_checks() {
     let mut declaration = ExtensionDeclaration::default();
     declaration.handshake.name = EXT.to_string();
@@ -89,10 +86,7 @@ fn a_checked_field_lists_its_checks() {
     );
 }
 
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "a gated field names the owner state its checks run in, and an ungated one none"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn a_gated_field_names_its_owner_state() {
     let gated = |name: &str, word: &str| FieldDescriptor {
         checks_while: Some(word.into()),

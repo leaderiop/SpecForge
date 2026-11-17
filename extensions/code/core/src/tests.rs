@@ -62,10 +62,7 @@ fn the_kinds_are_collected_with_their_schemes() {
     );
 }
 
-#[specforge_test(
-    behavior = "cc_declare_code_facts",
-    verify = "item and package reference their facts by in_package, runs_as and uses_package"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
 fn item_and_package_reference_their_facts() {
     let declared = declaration();
     let edges = |name: &str| -> Vec<(String, Option<String>, Option<String>)> {
@@ -324,10 +321,8 @@ fn a_scheme_no_store_serves_is_w102() {
     );
 }
 
-#[specforge_test(
-    behavior = "cc_check_fact_refs",
-    verify = "a reference whose kinds no served store holds in its scheme is code/W102 naming the kind and its pack"
-)]
+#[specforge_test(requirement = "FEATURE-003")]
+#[specforge_test(requirement = "FEATURE-004")]
 fn a_store_of_another_kind_in_the_scheme_is_w102() {
     // The store holds `js` items: no test runner ran, so a missing test cannot be told from an uncollected one.
     let entities = vec![citing("t1", &["js:app/test/a.test.js#adds"])];
@@ -357,10 +352,8 @@ fn a_rust_test_ref_beside_rust_items_only_is_w102() {
     );
 }
 
-#[specforge_test(
-    behavior = "cc_check_fact_refs",
-    verify = "a package reference's W102 names the pack of its purl type"
-)]
+#[specforge_test(requirement = "FEATURE-003")]
+#[specforge_test(requirement = "FEATURE-004")]
 fn a_package_references_w102_names_the_pack_of_its_purl_type() {
     let entities = vec![citing("t1", &["pkg:npm/%40acme/core", "pkg:cargo/toy"])];
     let diagnostics = refs::refs(&holding(entities, &[]));
@@ -377,10 +370,8 @@ fn a_package_references_w102_names_the_pack_of_its_purl_type() {
     );
 }
 
-#[specforge_test(
-    behavior = "cc_check_fact_refs",
-    verify = "a test id in a field of no target kind beside only item facts is code/W102"
-)]
+#[specforge_test(requirement = "FEATURE-003")]
+#[specforge_test(requirement = "FEATURE-004")]
 fn a_test_id_in_a_field_of_no_target_beside_only_items_is_w102() {
     // A field with no target admits every collected kind of the scheme; the `#` makes the id a test's alone.
     let note = PassEntity {
@@ -404,10 +395,8 @@ fn a_test_id_in_a_field_of_no_target_beside_only_items_is_w102() {
     );
 }
 
-#[specforge_test(
-    behavior = "cc_check_fact_refs",
-    verify = "a reference naming no fact of a kind a served store holds in its scheme is code/E101"
-)]
+#[specforge_test(requirement = "FEATURE-003")]
+#[specforge_test(requirement = "FEATURE-004")]
 fn a_missing_item_of_a_held_kind_is_e101_with_no_suggestion() {
     let entities = vec![
         entity("rust:toy::Board::add", "item"),
@@ -512,10 +501,8 @@ fn read_at(line: usize) -> Option<PassSpan> {
 const COLLECTOR: &str =
     "run `specforge collect` again; if it stays, the runner pack mints it wrong";
 
-#[specforge_test(
-    behavior = "cc_check_fact_refs",
-    verify = "a fact's reference no fact or entity answers is code/E101 addressed to its collector, at its span"
-)]
+#[specforge_test(requirement = "FEATURE-003")]
+#[specforge_test(requirement = "FEATURE-004")]
 fn a_dangling_reference_of_a_test_run_is_e101_for_its_collector() {
     let dangling = |id: &str, reason, actual: Option<&str>, line| DanglingReference {
         field: "test".to_string(),
@@ -636,10 +623,8 @@ fn an_unheld_reference_of_a_test_run_is_e101_for_its_collector() {
     }
 }
 
-#[specforge_test(
-    behavior = "cc_check_fact_refs",
-    verify = "refs is sent the test and test_run facts, and proof the facts of every code kind"
-)]
+#[specforge_test(requirement = "FEATURE-003")]
+#[specforge_test(requirement = "FEATURE-004")]
 fn its_passes_declare_the_facts_they_read() {
     let declared = declaration();
     let facts = |pass: &str| -> Vec<String> {

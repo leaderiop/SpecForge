@@ -111,10 +111,7 @@ fn calls(runtime: &InProcessRuntime) -> Vec<Value> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "auto_detect_collector",
-    verify = "checks.publish adds a collector reading check outcomes to a plain collect, and never to a reports run"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn checks_publish_runs_it_on_a_plain_collect() {
     for (publish, expected) in [(true, 1), (false, 0)] {
         let project = project(publish);
@@ -125,10 +122,7 @@ fn checks_publish_runs_it_on_a_plain_collect() {
     }
 }
 
-#[specforge_test(
-    behavior = "auto_detect_collector",
-    verify = "a collect owes the values phase only when a selected collector reads check outcomes"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_collect_owes_the_values_phase_only_for_a_reader() {
     let reads = |publish, runner, mode: &Mode<'_>| {
         let project = project(publish);
@@ -147,10 +141,7 @@ fn a_collect_owes_the_values_phase_only_for_a_reader() {
     assert!(!reads(false, Some("unknown"), &Mode::NoRun), "it refuses");
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "a collector named by the runner receives each checked value's outcome"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn runner_names_it_and_it_receives_the_outcomes() {
     let project = project(false);
     let runtime = Arc::new(InProcessRuntime::new().with(declare));
@@ -173,10 +164,7 @@ fn runner_names_it_and_it_receives_the_outcomes() {
     assert_eq!(row["status"], "passed", "{input}");
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "a collector reading check outcomes needs no command and no report"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_check_outcomes_collector_needs_no_command_or_report() {
     for mode in [Mode::NoRun, Mode::Run(RunnerOutput::Inherit)] {
         let project = project(false);
@@ -191,10 +179,7 @@ fn a_check_outcomes_collector_needs_no_command_or_report() {
     }
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "published outcomes are stored under the collect key"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn published_outcomes_are_stored_under_the_collect_key() {
     let project = project(true);
     let git: SharedGit = Arc::new(FakeGit::repo(project.root(), SHA, Vec::new()));

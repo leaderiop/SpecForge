@@ -23,7 +23,7 @@ fn sh(script: &str, deadline: Duration) -> ProcessRequest {
     request(["sh", "-c", script], deadline)
 }
 
-#[specforge_test_macros::test(port = "Process", verify = "Process contract is satisfied")]
+#[test]
 fn the_runner_keeps_the_process_contract() {
     specforge_effects::testing::process_contract(&Runner);
 }

@@ -441,10 +441,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "export_agent_graph_format",
-        verify = "with_schema and no_schema together are invalid input on every surface"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-001")]
     fn both_schema_flags_are_invalid_input() {
         let refusal = Schema::of_flags(true, true).unwrap_err();
         assert_eq!(refusal.error.kind, OpErrorKind::InvalidInput);
@@ -460,10 +457,7 @@ mod tests {
         export(&fixture.view(), request).unwrap_err().error
     }
 
-    #[specforge_test_macros::test(
-        behavior = "export_agent_graph_format",
-        verify = "depth without a scope is invalid input on every surface"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-001")]
     fn a_depth_without_a_scope_is_invalid_input() {
         let error = failed(&Request {
             depth: Some(2),
@@ -561,10 +555,7 @@ mod tests {
         assert!(!without.attaches_schema());
     }
 
-    #[specforge_test_macros::test(
-        invariant = "mcp_structured_error_responses",
-        verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-    )]
+    #[specforge_test_macros::test(requirement = "INVARIANT-067")]
     fn export_states_which_field_a_refusal_is_about() {
         let fixture = specforge_project::testing::Assembled::new();
         let subject = |request: Request| export(&fixture.view(), &request).unwrap_err().subject;

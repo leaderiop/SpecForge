@@ -256,19 +256,29 @@ fn quick_runs_the_guests_and_the_specs_when_a_rule_crate_changes() {
 }
 
 #[test]
-fn a_test_file_or_a_verify_attribute_or_a_spec_runs_links() {
+fn a_test_file_or_a_spec_link_attribute_or_a_spec_runs_links() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::create_dir_all(dir.path().join("crates/a/src")).unwrap();
-    std::fs::write(
-        dir.path().join("crates/a/src/linked.rs"),
-        "#[test(verify   = \"x\")]\nfn t() {}\n",
-    )
-    .unwrap();
-    std::fs::write(
-        dir.path().join("crates/a/src/plain.rs"),
-        "fn verified() {}\nlet verify_all = 1;\n",
-    )
-    .unwrap();
+    for (file, text) in [
+        (
+            "linked.rs",
+            "#[specforge_test(requirement = \"X-01\")]\nfn t() {}\n",
+        ),
+        (
+            "spaced.rs",
+            "#[ spec (requirement = \"X-01\")]\nfn t() {}\n",
+        ),
+        (
+            "pathed.rs",
+            "#[specforge_test_macros::test(requirement = \"X-01\")]\nfn t() {}\n",
+        ),
+        (
+            "plain.rs",
+            "#[test]\nfn specforge_test() {}\n#[spec_helper(x)]\nfn f() {}\nlet verify = 1;\n",
+        ),
+    ] {
+        std::fs::write(dir.path().join("crates/a/src").join(file), text).unwrap();
+    }
     let repo = Repo {
         root: dir.path().to_path_buf(),
         target_dir: dir.path().join("target"),
@@ -279,7 +289,13 @@ fn a_test_file_or_a_verify_attribute_or_a_spec_runs_links() {
             .selection(Mode::Hook, &repo, &ChangeSet::of(paths.iter().copied()))
             .unwrap()
     };
-    assert_eq!(run(&["crates/a/src/linked.rs"]), Selection::Everything);
+    for linked in ["linked.rs", "spaced.rs", "pathed.rs"] {
+        assert_eq!(
+            run(&[&format!("crates/a/src/{linked}")]),
+            Selection::Everything,
+            "{linked}"
+        );
+    }
     assert_eq!(run(&["crates/a/src/plain.rs"]), Selection::Skip);
     assert_eq!(run(&["crates/a/tests/t.rs"]), Selection::Everything);
     assert_eq!(run(&["tests/t.rs"]), Selection::Everything);

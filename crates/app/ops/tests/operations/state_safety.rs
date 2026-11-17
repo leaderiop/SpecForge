@@ -20,10 +20,7 @@ fn project_patch(value: serde_json::Value) -> StatePatch {
     }
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "state is never written, read or pruned through a link, and an oversized document is ignored"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn state_never_follows_a_link() {
     let h = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
     let view = ProjectView::of(&h.compiled);
@@ -62,10 +59,7 @@ fn state_never_follows_a_link() {
     assert!(state::read(&view, CORE, None).project.is_empty());
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "a refused state patch is reported and the files its command's plan wrote stay written"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_refused_state_patch_keeps_the_plan() {
     use crate::plans::{compiled, project, revision, run_command, set};
     use serde_json::{Value, json};

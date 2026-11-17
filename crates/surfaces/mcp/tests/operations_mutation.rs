@@ -65,10 +65,7 @@ fn format_result(server: &mut McpServer, args: Value) -> Value {
     serde_json::from_str(&tool_text(&resp)).unwrap_or_else(|_| panic!("{resp}"))
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "specforge.format formats spec files"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn format_rewrites_unformatted_files() {
     let (mut server, root) = server_with_unformatted();
 
@@ -92,10 +89,7 @@ fn format_rewrites_unformatted_files() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "check mode reports without modifying files"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn format_check_mode_reports_without_writing() {
     let (mut server, root) = server_with_unformatted();
 
@@ -114,10 +108,7 @@ fn format_check_mode_reports_without_writing() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "paths filter restricts to specified files"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn format_paths_restrict_the_run() {
     let (mut server, root) = server_with_unformatted();
 
@@ -138,10 +129,7 @@ fn format_paths_restrict_the_run() {
     );
 }
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "a file several arguments reach is formatted once"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_counts_a_file_two_paths_name_once() {
     let (mut server, root) = server_with_unformatted();
     std::fs::create_dir(root.join("x")).unwrap();
@@ -159,10 +147,7 @@ fn format_counts_a_file_two_paths_name_once() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "diff mode returns FormatDiff entries"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn format_diff_mode_returns_diffs_without_writing() {
     let (mut server, root) = server_with_unformatted();
 
@@ -190,10 +175,7 @@ fn format_diff_mode_returns_diffs_without_writing() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "a file that cannot be written does not stop the others, and the failed call names it"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn format_writes_every_file_it_can_and_names_the_ones_it_cannot() {
     use std::os::unix::fs::PermissionsExt;
     let (mut server, root) = server_with_unformatted();
@@ -220,10 +202,7 @@ fn format_writes_every_file_it_can_and_names_the_ones_it_cannot() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "format configuration diagnostics are returned in the result"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn format_returns_the_config_diagnostics() {
     let (mut server, root) = server_with_unformatted();
     std::fs::write(root.join(".specforgefmt.toml"), "indent_width = 99\n").unwrap();
@@ -256,10 +235,7 @@ fn server_with_canonical_and(extra: (&str, &str)) -> (Served, std::path::PathBuf
     (server, root)
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "a file with a region left unformatted is not reported clean, and its W142 is returned"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn format_does_not_report_a_parse_error_file_clean() {
     let broken = "behavior login \"Login\" {\n  contract \"ok\"\n}\n\n}}}\n";
     let (mut server, _root) = server_with_canonical_and(("broken.spec", broken));
@@ -282,10 +258,7 @@ fn format_does_not_report_a_parse_error_file_clean() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "a file that cannot be read fails the call, is named, and does not stop the others"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn format_fails_on_an_unreadable_file_and_names_it() {
     use std::os::unix::fs::PermissionsExt;
     let other = CANONICAL.replace("messy", "other");
@@ -318,10 +291,7 @@ fn format_fails_on_an_unreadable_file_and_names_it() {
     assert_eq!(data["total_checked"], 2, "{data}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "a file that does not exist fails the call as file_not_found, naming it"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn format_fails_on_a_missing_file_as_not_found() {
     let (mut server, _root) = server_with_canonical_and(("b.spec", CANONICAL));
 
@@ -341,10 +311,7 @@ fn format_fails_on_a_missing_file_as_not_found() {
 // --- specforge.rename ---
 
 // B:provide_mcp_rename_tool — verify unit "unknown entity returns error"
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "non-existent entity returns error response"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn rename_unknown_entity() {
     let mut server = test_server();
     let resp = call_tool(
@@ -403,10 +370,7 @@ fn references(server: &McpServer, from: &str) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "specforge.rename renames entity and all references"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn rename_rewrites_the_declaration_and_every_reference() {
     let (mut server, root) = server_with_token_project();
 
@@ -434,10 +398,7 @@ fn rename_rewrites_the_declaration_and_every_reference() {
 /// The rename edits exactly what find_references returns with the
 /// declaration: the declaration's name and each reference's token, and no
 /// title, guarantee, comment or verify text that mentions the ID.
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "rename edits exactly the declaration and the references find_references returns"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn rename_edits_exactly_the_occurrences() {
     let (mut server, root) = server_with_token_project();
     std::fs::write(
@@ -498,10 +459,7 @@ fn rename_edits_exactly_the_occurrences() {
 /// A rename recompiles the project from disk: a file edited since the
 /// server last loaded it, and not touched by the rename, is served too,
 /// and the diagnostics returned are what a fresh compile reports.
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "Provide MCP Rename Tool: MCP rename tool holds — graph_available, filesystem_available, references_updated, recompilation_triggered, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn rename_recompiles_files_it_did_not_edit() {
     let (mut server, root) = server_with_token_project();
     // Edited without watch: the server does not know yet.
@@ -570,10 +528,7 @@ fn rename_result_is_an_mcp_rename_result() {
 
 /// With `spec_root` set, spans name a source by its key (its path from the project
 /// root): rename must read and write the files there.
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "specforge.rename renames entity and all references"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn rename_edits_the_files_under_a_configured_spec_root() {
     let (mut server, root) = server_with_token_project();
     std::fs::write(
@@ -602,10 +557,7 @@ fn rename_edits_the_files_under_a_configured_spec_root() {
     assert!(server.state().graph().node("token_distinct").is_some());
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "dry_run returns rename plan without applying changes"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn rename_dry_run_returns_the_plan_and_changes_nothing() {
     let (mut server, root) = server_with_token_project();
 
@@ -650,10 +602,7 @@ fn rename_invalid_new_name() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "Provide MCP Rename Tool: MCP rename tool holds — graph_available, filesystem_available, references_updated, recompilation_triggered, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn rename_contract() {
     // graph_available, filesystem_available: a compiled project on disk.
     let (mut server, root) = server_with_token_project();
@@ -728,10 +677,7 @@ fn read_config(project: &Path) -> Value {
     serde_json::from_str(&std::fs::read_to_string(project.join("specforge.json")).unwrap()).unwrap()
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "specforge.init creates specforge.json project"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_creates_the_project() {
     let dir = fresh_project_dir();
     let project = dir.path().join("fresh");
@@ -757,10 +703,7 @@ fn init_creates_the_project() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "init without a path is invalid_input on path"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_without_a_path_is_invalid_input_on_path() {
     let mut server = test_server();
     let error = init_error(&mut server, json!({"name": "myproject"}));
@@ -770,10 +713,7 @@ fn init_without_a_path_is_invalid_input_on_path() {
     assert_eq!(error["tool"], "specforge.init", "{error}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "extensions installed when specified"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_adds_the_requested_extensions_to_the_config() {
     let dir = fresh_project_dir();
     let mut server = unserved();
@@ -791,10 +731,7 @@ fn init_adds_the_requested_extensions_to_the_config() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "specforge.init result includes the starter file path and installed extensions"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_extensions_in_result() {
     let dir = fresh_project_dir();
     let mut server = unserved();
@@ -812,10 +749,7 @@ fn init_extensions_in_result() {
     assert_eq!(parsed["starter_file"], "spec/hello.spec");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "path inside current project returns error"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_refuses_a_path_inside_the_current_project() {
     let mut server = test_server();
     let root = server
@@ -840,10 +774,7 @@ fn init_refuses_a_path_inside_the_current_project() {
     assert!(!nested.exists(), "nothing is written");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "init inside the served project is refused by the call target as a conflict on path, before anything is written"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_inside_the_served_project_is_a_conflict_on_path() {
     let mut server = test_server();
     let root = server
@@ -876,10 +807,7 @@ fn init_inside_the_served_project_is_a_conflict_on_path() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "init refuses a directory whose starter file exists, writing nothing"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_refuses_to_overwrite_a_starter_file() {
     let dir = fresh_project_dir();
     std::fs::create_dir_all(dir.path().join("spec")).unwrap();
@@ -901,10 +829,7 @@ fn init_refuses_to_overwrite_a_starter_file() {
     assert!(!dir.path().join("specforge.json").exists());
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "invalid project name returns error"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_rejects_an_invalid_project_name() {
     let mut server = unserved();
     for name in ["", ".hidden", "-dash", "has space"] {
@@ -927,10 +852,7 @@ fn init_rejects_an_invalid_project_name() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "unknown extension returns error with diagnostic"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_rejects_an_unknown_extension() {
     let dir = fresh_project_dir();
     let mut server = unserved();
@@ -969,10 +891,7 @@ fn init_requires_a_path() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "MCP init followed by check produces zero errors"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_then_validate_has_no_errors() {
     let dir = fresh_project_dir();
     // Nothing is served and the server has no root, so no path is bounded
@@ -995,10 +914,7 @@ fn init_then_validate_has_no_errors() {
     assert_eq!(resp["result"]["isError"], false, "{}", tool_text(&resp));
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "Provide MCP Init Tool: MCP init tool holds — filesystem_available, project_created, path_outside_current, extensions_validated, project_initialized_emitted, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_contract() {
     let dir = fresh_project_dir();
     let mut server = unserved();
@@ -1085,10 +1001,7 @@ fn listed_hint(server: &mut McpServer, tool: &str, key: &str) -> Value {
         .clone()
 }
 
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "a writing tool's hints say what it does: one that overwrites is destructive, one whose repeat changes nothing is idempotent"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn add_extension_overwrites_a_changed_module() {
     let mut server = components_server();
     let root = server.root().to_path_buf();
@@ -1124,10 +1037,7 @@ fn add_extension_overwrites_a_changed_module() {
     );
 }
 
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "a writing tool's hints say what it does: one that overwrites is destructive, one whose repeat changes nothing is idempotent"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn infer_session_mark_replaces_a_record() {
     let mut server = TestProject::new()
         .file("src/lib.rs", "pub fn a() {}\n")
@@ -1162,10 +1072,7 @@ fn infer_session_mark_replaces_a_record() {
     );
 }
 
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "a writing tool's hints say what it does: one that overwrites is destructive, one whose repeat changes nothing is idempotent"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn a_repeated_rename_changes_nothing() {
     let (mut server, root) = server_with_token_project();
     let args = json!({"entity_id": "token_unique", "new_name": "token_distinct"});
@@ -1185,10 +1092,7 @@ fn a_repeated_rename_changes_nothing() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "rename never edits a nested project's files"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn rename_leaves_a_nested_projects_files_alone() {
     let (mut server, dir) = served_project(&[], &[("a.spec", "term outer_one \"O\" {\n}\n")]);
     std::fs::create_dir_all(dir.path().join("sub")).unwrap();
@@ -1211,10 +1115,7 @@ fn rename_leaves_a_nested_projects_files_alone() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "add, init and publish read a candidate's declaration in the runtime their surface passes"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn add_extension_reads_the_candidate_in_the_host_runtime() {
     // The host serves `@sdk/greet` in process: the tool reads the candidate
     // in it, and the served session then loads the install through it too.
@@ -1296,10 +1197,7 @@ fn config_extensions(root: &Path) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "dry_run returns preview without modifying files"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn add_extension_dry_run_writes_nothing() {
     let mut server = components_server();
     let root = server.root().to_path_buf();
@@ -1317,10 +1215,7 @@ fn add_extension_dry_run_writes_nothing() {
     assert_eq!(files_under(&root), before, "a dry run writes nothing");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_remove_extension_tool",
-    verify = "specforge.remove_extension removes extension from config"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn remove_extension_removes_it_from_config_lock_and_disk() {
     let (mut server, root) = server_with_product();
     assert!(
@@ -1350,10 +1245,7 @@ fn remove_extension_removes_it_from_config_lock_and_disk() {
     assert!(!root.join(".specforge/extensions").join(GREET).exists());
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_remove_extension_tool",
-    verify = "specforge.remove_extension removes a .wasm file entry by the name it declares, leaving its file in place"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn remove_extension_removes_a_wasm_file_entry_by_its_declared_name() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
@@ -1394,10 +1286,7 @@ fn remove_extension_removes_a_wasm_file_entry_by_its_declared_name() {
     assert!(!root.join("specforge.lock").exists());
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_remove_extension_tool",
-    verify = "dry_run returns preview without modifying files"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn remove_extension_dry_run_writes_nothing() {
     let (mut server, root) = server_with_product();
     let before = files_under(&root);
@@ -1415,10 +1304,7 @@ fn remove_extension_dry_run_writes_nothing() {
     assert_eq!(files_under(&root), before, "a dry run writes nothing");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_remove_extension_tool",
-    verify = "the entities whose kind only that extension declares are listed as stranded"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn remove_extension_lists_stranded_entities() {
     let (mut server, root) = server_with_product();
     // `hello` is a greeting, a kind only the product extension declares;
@@ -1444,10 +1330,7 @@ fn remove_extension_lists_stranded_entities() {
     assert!(!root.join(".specforge/extensions").join(GREET).exists());
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_remove_extension_tool",
-    verify = "non-installed extension returns extension_not_found error"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn remove_extension_not_installed_is_extension_not_found() {
     let (mut server, _root) = server_with_product();
 
@@ -1463,10 +1346,7 @@ fn remove_extension_not_installed_is_extension_not_found() {
     assert!(message.contains("@acme/missing"), "{message}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_remove_extension_tool",
-    verify = "specforge.remove_extension removes extension from config"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn remove_extension_disables_an_enabled_builtin() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
@@ -1547,10 +1427,7 @@ fn add_extension_invalid_manifest_placeholder() {
 }
 
 // B:provide_mcp_rename_tool — verify unit "invalid new_name format returns validation error"
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "invalid new_name returns validation error"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn rename_invalid_name_format() {
     let mut server = test_server();
     // Empty string
@@ -1577,10 +1454,7 @@ fn rename_invalid_name_format() {
 }
 
 // B:provide_mcp_init_tool — verify unit "default version is 0.1.0"
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "default version is 0.1.0"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_default_version_value() {
     let dir = fresh_project_dir();
     let mut server = unserved();
@@ -1595,10 +1469,7 @@ fn init_default_version_value() {
 }
 
 // B:provide_mcp_init_tool — verify unit "version parameter overrides default 0.1.0"
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "version parameter overrides default 0.1.0"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_version_override_value() {
     let dir = fresh_project_dir();
     let mut server = unserved();
@@ -1613,10 +1484,7 @@ fn init_version_override_value() {
 }
 
 // B:provide_mcp_add_extension_tool — verify unit "invalid specifier returns error"
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "invalid specifier format returns error"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn add_extension_invalid_specifier() {
     let mut server = test_server();
     let resp = call_tool(
@@ -1633,10 +1501,7 @@ fn add_extension_invalid_specifier() {
 /// `specforge.add_extension` reads its argument as `specforge add` does:
 /// the same inputs reach the registry port, which this
 /// server has none behind (E063), and the same ones are refused (E054).
-#[specforge_test(
-    behavior = "parse_extension_specifier",
-    verify = "each add argument reads as one extension source"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn add_extension_reads_specifiers_as_add_does() {
     let mut server = test_server();
     for (specifier, code) in [
@@ -1720,10 +1585,7 @@ fn remove_extension_dry_run() {
 // --- Contract tests ---
 
 // B:provide_mcp_format_tool — verify contract
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "Provide MCP Format Tool: MCP format tool holds — filesystem_available, files_formatted, check_mode_readonly, mutation_completed_emitted, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn format_contract() {
     // filesystem_available: a project with two unformatted files.
     let (mut server, root) = server_with_unformatted();
@@ -1763,10 +1625,7 @@ fn format_contract() {
     assert!(invoked(&server, "specforge.format"));
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "specforge.add_extension adds extension to config"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn add_extension_adds_the_extension_to_config() {
     // Enables nothing; the module is a local .wasm, so the add is offline.
     let mut server = components_server();
@@ -1793,10 +1652,7 @@ fn add_extension_adds_the_extension_to_config() {
 }
 
 // B:provide_mcp_add_extension_tool — verify contract
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "Provide MCP Add Extension Tool: MCP add extension tool holds — filesystem_available, extension_installed, wasm_downloaded, extension_added_emitted, dry_run_safe, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn add_extension_contract() {
     // filesystem_available: a project on disk, served with its own
     // component runtime so the installed module loads.
@@ -1871,10 +1727,7 @@ fn remove_extension_contract() {
 }
 
 // B:provide_mcp_migrate_tool — verify contract
-#[specforge_test(
-    behavior = "provide_mcp_migrate_tool",
-    verify = "Provide MCP Migrate Tool: MCP migrate tool holds — filesystem_available, migrations_applied, post_migration_validated, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn migrate_contract() {
     // filesystem_available: a project with one spec file in format 0.9
     // whose feature references an entity that does not exist.
@@ -1961,10 +1814,7 @@ fn server_with_old_spec() -> (Served, std::path::PathBuf) {
     (server, root)
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_migrate_tool",
-    verify = "target_version selects the format version to migrate to"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn migrate_target_version_selects_the_version() {
     let (mut server, root) = server_with_old_spec();
     let resp = call_tool(
@@ -1989,10 +1839,7 @@ fn migrate_target_version_selects_the_version() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_migrate_tool",
-    verify = "a malformed or unsupported target_version is refused without modifying files"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn migrate_refuses_a_bad_target_version() {
     let (mut server, root) = server_with_old_spec();
     let before = files_under(&root);
@@ -2010,10 +1857,7 @@ fn migrate_refuses_a_bad_target_version() {
     assert_eq!(files_under(&root), before);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_migrate_tool",
-    verify = "the result reports the hooks run and the structural differences"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn migrate_reports_hooks_and_structure() {
     let (mut server, root) = server_with_old_spec();
 
@@ -2049,10 +1893,7 @@ fn project_with_duplicate_registry_alias() -> tempfile::TempDir {
     dir
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "add_extension of a registry package reports what reading the registry configuration found"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn add_extension_from_a_registry_reports_a_duplicate_registry_alias() {
     let mut server = test_server();
     let dir = within(server.root(), project_with_duplicate_registry_alias());
@@ -2082,10 +1923,7 @@ fn add_extension_from_a_registry_reports_a_duplicate_registry_alias() {
 
 // A dry run of a registry package asks its registry for the package's manifest, so the registry
 // configuration's diagnostics are shown, as for the real add (the reply may be the registry's failure).
-#[specforge_test(
-    behavior = "configure_registries",
-    verify = "an operation shows the registry configuration's diagnostics once it has asked a registry"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn add_extension_dry_run_shows_the_registry_configuration_it_asked() {
     let mut server = test_server();
     let dir = within(server.root(), project_with_duplicate_registry_alias());
@@ -2144,10 +1982,7 @@ fn served_project(extensions: &[&str], files: &[(&str, &str)]) -> (McpServer, te
     (server, dir)
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "remove_extension with a path to another project checks that project's dependents and entities"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn remove_on_another_project_checks_that_projects_dependents() {
     // The served project enables cargo-test, which requires testing; the
     // other enables testing alone.
@@ -2183,10 +2018,7 @@ fn remove_on_another_project_checks_that_projects_dependents() {
     assert_eq!(error["diagnostic"]["code"], "E027", "{error}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "rename plans on the project as it is on disk, references added since the last call included"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn rename_plans_on_the_project_as_it_is_on_disk() {
     let (mut server, dir) = served_project(
         &[],
@@ -2219,10 +2051,7 @@ fn rename_plans_on_the_project_as_it_is_on_disk() {
     assert!(diagnostics.iter().all(|d| d["code"] != "E003"), "{payload}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "after add_extension the server serves the extension it installed"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn add_then_tools_list_shows_the_extension_tools() {
     let (mut server, _dir) = served_project(&[], &[("main.spec", "")]);
     let product_tools = |server: &mut McpServer| -> usize {
@@ -2280,10 +2109,7 @@ fn files_under(root: &Path) -> std::collections::BTreeMap<std::path::PathBuf, Ve
     files
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "a specforge.json that does not say which files are the project's sources fails the call as config_invalid and writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn format_refuses_a_config_that_does_not_say_which_files_are_its_sources() {
     let (mut server, root) = server_with_unformatted();
     std::fs::write(root.join("specforge.json"), TRUNCATED_CONFIG).unwrap();
@@ -2304,10 +2130,7 @@ fn format_refuses_a_config_that_does_not_say_which_files_are_its_sources() {
     assert_eq!(files_under(&root), before, "nothing is written");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "a problem in specforge.json the call goes around is an E069 among the diagnostics and makes ok false"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn format_check_reports_a_config_problem_it_goes_around() {
     let (mut server, root) =
         server_with_canonical_and(("b.spec", &CANONICAL.replace("messy", "other")));
@@ -2320,10 +2143,7 @@ fn format_check_reports_a_config_problem_it_goes_around() {
     assert_eq!(parsed["diagnostics"][0]["code"], "E069", "{parsed}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_migrate_tool",
-    verify = "a specforge.json that does not say which files are the project's sources fails the call as config_invalid and writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn migrate_refuses_a_config_that_does_not_say_which_files_are_its_sources() {
     let server = project()
         .file(
@@ -2343,10 +2163,7 @@ fn migrate_refuses_a_config_that_does_not_say_which_files_are_its_sources() {
     assert_eq!(files_under(&root), before, "no rewrite, no .bak");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a specforge.json that does not say which files are the project's sources fails the rename as config_invalid and writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn rename_refuses_a_config_that_does_not_say_which_files_are_its_sources() {
     let (mut server, root) = server_with_token_project();
     std::fs::create_dir_all(root.join("vendor")).unwrap();

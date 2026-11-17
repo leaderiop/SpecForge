@@ -26,10 +26,7 @@ pub(crate) fn with_code<'a>(diagnostics: &'a [Diagnostic], code: &str) -> Vec<&'
 
 const VERIFICATION: &str = "verification V \"V\" {\n  phase 03\n}\n";
 
-#[specforge_test(
-    behavior = "compute_field_values",
-    verify = "a compute pass's value joins the snapshot beside the graph, which keeps the authored values"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_compute_pass_gives_a_value_the_rules_read() {
     let runtime = Arc::new(gsd_history_runtime(
         json!([{"entity": "v1.0/03/V", "field": "status", "value": "passed"}]),
@@ -54,10 +51,7 @@ fn a_compute_pass_gives_a_value_the_rules_read() {
     );
 }
 
-#[specforge_test(
-    behavior = "refuse_written_computed",
-    verify = "a computed field written in a spec file is E082 at the value, and the computed value wins"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_computed_field_written_by_hand_is_e082() {
     let runtime = Arc::new(gsd_history_runtime(
         json!([{"entity": "v1.0/03/V", "field": "status", "value": "passed"}]),
@@ -82,10 +76,7 @@ fn a_computed_field_written_by_hand_is_e082() {
     assert!(e082[0].message.contains("checks[0].status"), "{e082:?}");
 }
 
-#[specforge_test(
-    behavior = "compute_field_values",
-    verify = "a value the pass may not give is W165 and dropped"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_value_the_pass_may_not_give_is_w165() {
     let values = json!([
         {"entity": "v1.0/03/V", "field": "phase", "value": "03"},
@@ -99,10 +90,7 @@ fn a_value_the_pass_may_not_give_is_w165() {
     assert!(!record.fields.iter().any(|f| f.key == "re_verification"));
 }
 
-#[specforge_test(
-    behavior = "compute_field_values",
-    verify = "a computed field or member is never required and never scaffolded"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn no_computed_field_is_required_or_scaffolded() {
     let spec = "deliverable D \"D\" {\n  checks [ { kind unit  ref \"t\" } ]\n}\n";
     let runtime = gsd_history_runtime(json!([

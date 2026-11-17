@@ -85,10 +85,7 @@ fn ids_under(payload: &Value, key: &str, id_key: &str) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "surface_coverage_matrix",
-    verify = "product:coverage-matrix returns PersonaCoverageMatrixPayload"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn coverage_matrix_answers_its_payload() {
     let cm = json_of("coverage_matrix", json!({}), &reach());
     assert_eq!(
@@ -119,10 +116,7 @@ fn coverage_matrix_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_coverage_matrix",
-    verify = "no personas returns empty matrix"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn coverage_matrix_of_no_personas_is_empty() {
     let cm = json_of(
         "coverage_matrix",
@@ -136,10 +130,7 @@ fn coverage_matrix_of_no_personas_is_empty() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_channel_coverage_matrix",
-    verify = "product:channel-coverage-matrix returns ChannelCoverageMatrixPayload"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn channel_coverage_matrix_answers_its_payload() {
     let cm = json_of("channel_coverage_matrix", json!({}), &reach());
     assert_eq!(
@@ -178,10 +169,7 @@ fn channel_coverage_matrix_answers_its_payload() {
     assert!(human.ends_with("Overall coverage: 50%\n"), "{human}");
 }
 
-#[specforge_test(
-    behavior = "surface_channel_coverage_matrix",
-    verify = "no channels returns empty matrix"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn channel_coverage_matrix_of_no_channels_is_empty() {
     let cm = json_of("channel_coverage_matrix", json!({}), &G::default());
     assert_eq!(
@@ -191,10 +179,7 @@ fn channel_coverage_matrix_of_no_channels_is_empty() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_persona_coverage_matrix",
-    verify = "persona with journeys covering all features has coverage_ratio=1.0"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn a_persona_whose_journeys_cover_every_feature_is_at_one() {
     let g = reach()
         .edge("j1", "ops", "persona")
@@ -209,10 +194,7 @@ fn a_persona_whose_journeys_cover_every_feature_is_at_one() {
     assert_eq!(ops["unreachable_features"], json!([]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_persona_coverage_matrix",
-    verify = "persona with no journeys has coverage_ratio=0.0"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn a_persona_without_journeys_is_at_zero() {
     let idle = matrix_entry(
         &json_of("coverage_matrix", json!({}), &reach()),
@@ -229,10 +211,7 @@ fn a_persona_without_journeys_is_at_zero() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_persona_coverage_matrix",
-    verify = "overall_coverage is arithmetic mean of persona ratios"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn overall_persona_coverage_is_the_mean_of_the_ratios() {
     let cm = json_of("coverage_matrix", json!({}), &reach());
     let ratios: Vec<f64> = cm["personas"]
@@ -250,10 +229,7 @@ fn overall_persona_coverage_is_the_mean_of_the_ratios() {
     assert_eq!(page["overall_coverage"], cm["overall_coverage"]);
 }
 
-#[specforge_test(
-    behavior = "pe_query_persona_coverage_matrix",
-    verify = "diamond topology deduplicates shared features"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn a_feature_two_of_a_personas_journeys_share_counts_once() {
     // dev reaches f2 through j1 and j2.
     let dev = matrix_entry(
@@ -265,10 +241,7 @@ fn a_feature_two_of_a_personas_journeys_share_counts_once() {
     assert_eq!(dev["reachable_features"], json!(["f1", "f2", "f3"]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_channel_coverage_matrix",
-    verify = "channel with journeys covering all features has coverage_ratio=1.0"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn a_channel_whose_journeys_cover_every_feature_is_at_one() {
     let g = reach().edge("j4", "web", "channels");
     let web = matrix_entry(
@@ -281,10 +254,7 @@ fn a_channel_whose_journeys_cover_every_feature_is_at_one() {
     assert_eq!(web["journey_count"], 3);
 }
 
-#[specforge_test(
-    behavior = "pe_query_channel_coverage_matrix",
-    verify = "channel with no journeys has coverage_ratio=0.0"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn a_channel_without_journeys_is_at_zero() {
     let none = matrix_entry(
         &json_of("channel_coverage_matrix", json!({}), &reach()),
@@ -295,20 +265,14 @@ fn a_channel_without_journeys_is_at_zero() {
     assert_eq!(none["coverage_ratio"], 0.0);
 }
 
-#[specforge_test(
-    behavior = "pe_query_channel_coverage_matrix",
-    verify = "overall_coverage is arithmetic mean of channel ratios"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn overall_channel_coverage_is_the_mean_of_the_ratios() {
     // (0.75 + 0 + 0.75) / 3.
     let cm = json_of("channel_coverage_matrix", json!({}), &reach());
     assert_eq!(cm["overall_coverage"], 0.5);
 }
 
-#[specforge_test(
-    behavior = "pe_query_channel_coverage_matrix",
-    verify = "diamond topology deduplicates shared features"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn a_feature_two_of_a_channels_journeys_share_counts_once() {
     // web reaches f2 and f3 through j2, f4 through j3; cli f2 through j1 and j2.
     let cm = json_of("channel_coverage_matrix", json!({}), &reach());
@@ -316,10 +280,7 @@ fn a_feature_two_of_a_channels_journeys_share_counts_once() {
     assert_eq!(cli["reachable_features"], json!(["f1", "f2", "f3"]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_channel_coverage_matrix",
-    verify = "empty channel graph returns empty matrix"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn a_graph_without_channels_has_an_empty_channel_matrix() {
     let cm = json_of("channel_coverage_matrix", json!({}), &many_personas(2));
     assert_eq!(
@@ -332,10 +293,7 @@ fn a_graph_without_channels_has_an_empty_channel_matrix() {
     );
 }
 
-#[specforge_test(
-    behavior = "product_new_query_correctness",
-    verify = "coverage matrix ratios are mathematically correct"
-)]
+#[specforge_test(requirement = "RELIABILITY-16")]
 fn each_coverage_ratio_is_reachable_over_total() {
     for (id, key, id_key) in [
         ("coverage_matrix", "personas", "persona_id"),
@@ -356,10 +314,7 @@ fn each_coverage_ratio_is_reachable_over_total() {
     }
 }
 
-#[specforge_test(
-    behavior = "product_query_pagination_required",
-    verify = "matrix query with limit=10 returns at most 10 entries"
-)]
+#[specforge_test(requirement = "USABILITY-05")]
 fn a_matrix_query_with_limit_ten_returns_ten() {
     let cm = json_of("coverage_matrix", json!({"limit": 10}), &many_personas(12));
     assert_eq!(cm["personas"].as_array().unwrap().len(), 10);
@@ -369,10 +324,7 @@ fn a_matrix_query_with_limit_ten_returns_ten() {
     );
 }
 
-#[specforge_test(
-    behavior = "product_query_pagination_required",
-    verify = "offset=limit retrieves the second page"
-)]
+#[specforge_test(requirement = "USABILITY-05")]
 fn offset_equal_to_limit_is_the_second_page() {
     let g = many_personas(12);
     let first = json_of("coverage_matrix", json!({"limit": 5}), &g);
@@ -383,10 +335,7 @@ fn offset_equal_to_limit_is_the_second_page() {
     assert_eq!(ids_under(&second, "personas", "persona_id"), ids[5..10]);
 }
 
-#[specforge_test(
-    behavior = "product_query_pagination_required",
-    verify = "limit>1000 is clamped to 1000"
-)]
+#[specforge_test(requirement = "USABILITY-05")]
 fn a_matrix_limit_above_a_thousand_is_a_thousand() {
     for id in [
         "coverage_matrix",
@@ -403,10 +352,7 @@ fn a_matrix_limit_above_a_thousand_is_a_thousand() {
     }
 }
 
-#[specforge_test(
-    behavior = "surface_feature_overlap",
-    verify = "feature-overlap returns FeatureOverlapPayload JSON"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn feature_overlap_answers_its_payload() {
     let fo = json_of("feature_overlap", json!({}), &reach());
     assert_eq!(
@@ -436,10 +382,7 @@ fn feature_overlap_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_feature_overlap",
-    verify = "no overlapping features returns empty list"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn feature_overlap_without_shared_features_is_empty() {
     let fo = json_of("feature_overlap", json!({}), &plan());
     assert_eq!(
@@ -449,10 +392,7 @@ fn feature_overlap_without_shared_features_is_empty() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_feature_overlap",
-    verify = "feature in two deliverables appears in overlap list"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn a_feature_two_deliverables_reach_overlaps() {
     let g = G::default()
         .n("f", "feature")
@@ -471,10 +411,7 @@ fn a_feature_two_deliverables_reach_overlaps() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_feature_overlap",
-    verify = "feature in one deliverable is excluded"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn a_feature_one_deliverable_reaches_does_not_overlap() {
     // f3 is d2's alone, f4 no deliverable's.
     let fo = json_of("feature_overlap", json!({}), &reach());
@@ -485,10 +422,7 @@ fn a_feature_one_deliverable_reaches_does_not_overlap() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_feature_overlap",
-    verify = "feature reachable via journey path and module path from same deliverable counts once"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn a_deliverable_reaching_a_feature_both_ways_counts_once() {
     // d2 reaches f2 through j2 and through m2.
     let fo = json_of("feature_overlap", json!({}), &reach());
@@ -507,10 +441,7 @@ fn a_deliverable_reaching_a_feature_both_ways_counts_once() {
     assert_eq!(json_of("feature_overlap", json!({}), &g)["count"], 0);
 }
 
-#[specforge_test(
-    behavior = "pe_query_feature_overlap",
-    verify = "diamond topology correctly deduplicates"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn a_diamond_lists_each_feature_and_deliverable_once() {
     // d1 reaches f1 through j1 and j4; d2 and d3 through m1.
     let fo = json_of("feature_overlap", json!({}), &reach());
@@ -526,10 +457,7 @@ fn a_diamond_lists_each_feature_and_deliverable_once() {
     assert_eq!(ids, ["f1", "f2"]);
 }
 
-#[specforge_test(
-    behavior = "product_new_query_correctness",
-    verify = "feature overlap detected via both journey and module paths"
-)]
+#[specforge_test(requirement = "RELIABILITY-16")]
 fn overlap_is_found_through_journeys_and_through_modules() {
     let base = || {
         G::default()

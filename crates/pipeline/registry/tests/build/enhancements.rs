@@ -23,10 +23,7 @@ fn enhancer(name: &str, target: &str, fields: &[&str]) -> ExtensionDeclaration {
     })
 }
 
-#[spec(
-    behavior = "register_entity_enhancements",
-    verify = "enhancement fields registered in FieldRegistry"
-)]
+#[spec(requirement = "FEATURE-021")]
 fn an_enhancement_registers_its_fields_on_the_target_kind() {
     let coverage = declare("@test/coverage", |c| {
         c.enhance("behavior", |e| {
@@ -77,10 +74,7 @@ fn an_enhancement_registers_its_fields_on_the_target_kind() {
     );
 }
 
-#[spec(
-    behavior = "register_entity_enhancements",
-    verify = "unknown target kind produces I004 info diagnostic"
-)]
+#[spec(requirement = "FEATURE-021")]
 fn an_enhancement_of_an_unknown_kind_is_i004() {
     let build = build([
         software(),
@@ -99,10 +93,7 @@ fn an_enhancement_of_an_unknown_kind_is_i004() {
     assert!(!build.fields().contains("nonexistent_kind", "extra"));
 }
 
-#[spec(
-    behavior = "register_entity_enhancements",
-    verify = "an enhancement of an unknown kind whose extension's optional peer is not loaded is skipped silently"
-)]
+#[spec(requirement = "FEATURE-021")]
 fn an_enhancement_of_a_kind_whose_optional_peer_is_not_loaded_is_skipped_silently() {
     let enhancing = || {
         declare("@test/ext", |c| {
@@ -133,10 +124,7 @@ fn an_enhancement_of_a_kind_whose_optional_peer_is_not_loaded_is_skipped_silentl
     assert!(i004[0].message.contains("'module'"), "{}", i004[0].message);
 }
 
-#[spec(
-    behavior = "register_entity_enhancements",
-    verify = "an enhancement with verify kinds makes its target kind testable"
-)]
+#[spec(requirement = "FEATURE-021")]
 fn an_enhancement_with_verify_kinds_makes_its_target_testable() {
     let untestable = declare("@specforge/software", |c| {
         c.kind("Behavior", |k| {
@@ -163,10 +151,7 @@ fn an_enhancement_with_verify_kinds_makes_its_target_testable() {
     );
 }
 
-#[spec(
-    behavior = "register_entity_enhancements",
-    verify = "enhancement field does NOT overwrite existing kind-level field"
-)]
+#[spec(requirement = "FEATURE-021")]
 fn an_enhancement_field_never_overwrites_a_kind_field() {
     // `contract` is a block field of software's `behavior`; the enhancement
     // declares it again as a string.
@@ -192,10 +177,7 @@ fn owner_enhancer(name: &str, field_type: FieldType) -> ExtensionDeclaration {
     })
 }
 
-#[spec(
-    behavior = "register_entity_enhancements",
-    verify = "registration order follows extensions array"
-)]
+#[spec(requirement = "FEATURE-021")]
 fn enhancements_register_in_load_order() {
     let a = owner_enhancer("@test/a", FieldType::String);
     let b = owner_enhancer("@test/b", FieldType::Reference);
@@ -225,10 +207,7 @@ fn enhancements_register_in_load_order() {
     }
 }
 
-#[spec(
-    behavior = "register_entity_enhancements",
-    verify = "Register Entity Enhancements: entity enhancement registration holds — manifests_validated, enhancement_registered_emitted, registration_before_resolve, registration_order_deterministic"
-)]
+#[spec(requirement = "FEATURE-021")]
 fn enhancement_registration_holds() {
     let a = owner_enhancer("@test/a", FieldType::String);
     let b = owner_enhancer("@test/b", FieldType::Reference);

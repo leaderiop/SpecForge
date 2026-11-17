@@ -20,10 +20,7 @@ fn searched() -> Searched {
     }
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "search's document writes its diagnostics as check does and carries no null"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn the_search_document_leaves_out_an_absent_category() {
     let searched = searched();
 
@@ -35,10 +32,7 @@ fn the_search_document_leaves_out_an_absent_category() {
     assert_eq!(with["results"][0]["registry"], "local");
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "search's document writes its diagnostics as check does and carries no null"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn the_search_document_writes_failures_in_the_shared_diagnostic_shape() {
     let searched = searched();
 

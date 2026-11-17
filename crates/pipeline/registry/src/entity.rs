@@ -410,10 +410,7 @@ mod tests {
         }
     }
 
-    #[specforge_test(
-        behavior = "snapshot_entities_once",
-        verify = "every field an entity writes has one text, the same for declarative rules, custom validators and compiler passes"
-    )]
+    #[specforge_test(requirement = "FEATURE-016")]
     fn entity_record_lookups_read_a_fields_one_text() {
         let record = EntityRecord::new("item", "a", &span())
             .with_field("status", "draft")

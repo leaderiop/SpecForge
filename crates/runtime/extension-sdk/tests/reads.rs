@@ -159,10 +159,7 @@ fn the_sdk_declares_a_collectors_files_input() {
     assert!(reads[0].text);
 }
 
-#[specforge_test_macros::test(
-    behavior = "register_collector_contributions",
-    verify = "the SDK declares a facts input and the kinds a collector answers"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn the_sdk_declares_a_facts_input_and_the_kinds_a_collector_answers() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/reads", "1.0.0"));
     c.collector("packages", |collector| {

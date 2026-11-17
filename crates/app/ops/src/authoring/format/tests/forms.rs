@@ -26,10 +26,7 @@ fn software_project() -> tempfile::TempDir {
     project_with(SOFTWARE, &[("spec/a.spec", TAGGED)])
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "a document of the project the caller holds is written in its lent forms, without loading them again"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn a_document_of_the_lent_project_is_written_in_its_forms_and_loads_nothing() {
     let dir = software_project();
     let root = ProjectRoot::of(dir.path()).unwrap();
@@ -50,10 +47,7 @@ fn a_document_of_the_lent_project_is_written_in_its_forms_and_loads_nothing() {
     assert_eq!(loads.load(Ordering::SeqCst), 0);
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "another project's forms load once per run"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn another_projects_documents_load_its_forms_once_per_run() {
     let dir = project_with(
         r#"{"extensions": []}"#,
@@ -78,10 +72,7 @@ fn another_projects_documents_load_its_forms_once_per_run() {
     assert_eq!(loads.load(Ordering::SeqCst), 1);
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "a document outside any project is written as it is"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn a_document_outside_any_project_is_written_as_it_is() {
     let held = software_project();
     let env = Environment::load(&ProjectRoot::of(held.path()).unwrap(), None);
@@ -100,10 +91,7 @@ fn a_document_outside_any_project_is_written_as_it_is() {
     assert_eq!(loads.load(Ordering::SeqCst), 0);
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "an environment loaded at no project root lends no forms"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn an_environment_with_no_project_root_lends_nothing() {
     let dir = software_project();
     let file = dir.path().join("spec/a.spec");
@@ -113,10 +101,7 @@ fn an_environment_with_no_project_root_lends_nothing() {
     assert_eq!(formatted.formatted, TAGGED);
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "text of a project that is no file is written in that project's forms"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn stdin_text_is_written_in_the_forms_of_its_project() {
     let dir = software_project();
     let (source, loads) = counting();

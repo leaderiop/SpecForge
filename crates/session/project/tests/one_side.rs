@@ -7,10 +7,7 @@ use specforge_component::builtins::Family;
 use specforge_project::Environment;
 use tempfile::TempDir;
 
-#[specforge_test_macros::test(
-    behavior = "registry_build_edges",
-    verify = "the builtin extensions declare no relation from both ends"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-018")]
 fn no_builtin_declares_a_relation_from_both_sides() {
     for family in Family::ALL {
         let dir = TempDir::new().unwrap();

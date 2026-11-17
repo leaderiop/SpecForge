@@ -22,10 +22,7 @@ fn ids(document: &Value, key: &str) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "enforce_token_budget",
-    verify = "a token budget never cuts the scope entity of a scoped export"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-001")]
 fn a_budget_never_cuts_the_scope_entity() {
     let (graph, _) = specforge_graph::build_graph(&[specforge_parser::parse(SRC, "main.spec")]);
     let selected = graph.select(Some("leaf"), None, &[]).unwrap();
@@ -62,10 +59,7 @@ fn a_budget_never_cuts_the_scope_entity() {
     assert!(ids(&document, "nodes").contains(&"hub".to_string()));
 }
 
-#[specforge_test_macros::test(
-    behavior = "enforce_token_budget",
-    verify = "a scoped export whose budget cannot hold its scope entity alone fails with E062"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-001")]
 fn a_budget_below_the_scope_entity_alone_is_e062() {
     let (graph, _) = specforge_graph::build_graph(&[specforge_parser::parse(SRC, "main.spec")]);
     let selected = graph.select(Some("leaf"), None, &[]).unwrap();

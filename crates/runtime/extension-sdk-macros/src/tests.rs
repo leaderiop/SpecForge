@@ -1,9 +1,6 @@
 use super::*;
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "a short name that is not lowercase kebab case is refused when the extension is built"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_short_name_that_is_not_kebab_case_is_refused() {
     for bad in [
         "Friendly greetings",

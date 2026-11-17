@@ -7,10 +7,7 @@ use serde_json::json;
 use specforge_project::testing::{GSD_WRITES_EXTENSIONS, GsdWrites, TestProject};
 use specforge_test::prelude::*;
 
-#[specforge_test(
-    behavior = "roll_back_interrupted_write",
-    verify = "an interrupted write is W167 until the next writer rolls it back"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn an_interrupted_write_is_w167_until_rolled_back() {
     let spec = "milestone v1.0 \"One\" {}\n";
     let project = TestProject::new()
@@ -41,10 +38,7 @@ fn an_interrupted_write_is_w167_until_rolled_back() {
     assert_eq!(project.read("a.spec"), spec);
 }
 
-#[specforge_test(
-    behavior = "roll_back_interrupted_write",
-    verify = "a session reports a journal that appears and drops one that goes"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_session_reports_a_journal_that_appears_and_drops_one_that_goes() {
     let project = TestProject::new()
         .config(|c| c["name"] = "p".into())

@@ -2,10 +2,7 @@ use super::*;
 
 // --- Slice 5: Idempotency ---
 
-#[specforge_test_macros::test(
-    behavior = "maintain_format_idempotency",
-    verify = "format(format(x)) == format(x) for random valid inputs"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_idempotency_simple() {
     let input = "use \"types/core\"\n\nbehavior foo \"Foo\" {\n  contract \"does stuff\"\n}\n";
     let first = fmt(input);
@@ -13,10 +10,7 @@ fn test_idempotency_simple() {
     assert_eq!(first, second, "format(format(x)) != format(x)");
 }
 
-#[specforge_test_macros::test(
-    behavior = "maintain_format_idempotency",
-    verify = "format(format(x)) == format(x) for random valid inputs"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_idempotency_complex() {
     let input = concat!(
         "use \"types/core\"\n",
@@ -44,10 +38,7 @@ fn test_idempotency_complex() {
 
 // --- Behavior: maintain_format_idempotency ---
 
-#[specforge_test_macros::test(
-    behavior = "maintain_format_idempotency",
-    verify = "alignment rules do not oscillate between runs"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_alignment_rules_do_not_oscillate_between_runs() {
     let input = "behavior foo \"Foo\" {\n  invariants [a, b]\n  types [x]\n  ports [y, z]\n  contract \"stuff\"\n}\n";
     let first = fmt(input);
@@ -57,10 +48,7 @@ fn test_alignment_rules_do_not_oscillate_between_runs() {
     assert_eq!(second, third, "alignment oscillated on 3rd pass");
 }
 
-#[specforge_test_macros::test(
-    behavior = "maintain_format_idempotency",
-    verify = "wrapping decisions are stable across runs"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_wrapping_decisions_are_stable_across_runs() {
     let config = FormatConfig {
         indent_width: 2,
@@ -75,10 +63,7 @@ fn test_wrapping_decisions_are_stable_across_runs() {
     assert_eq!(second, third, "wrapping oscillated on 3rd pass");
 }
 
-#[specforge_test_macros::test(
-    behavior = "maintain_format_idempotency",
-    verify = "format(format(x)) == format(x) for random valid inputs"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_idempotency_random_valid_inputs() {
     // Property-style test: multiple representative inputs
     let inputs = [
@@ -117,10 +102,7 @@ fn test_formatting_already_formatted_file_produces_identical_output() {
 
 // --- Contract: maintain_format_idempotency ---
 
-#[specforge_test_macros::test(
-    behavior = "maintain_format_idempotency",
-    verify = "Maintain Format Idempotency: format idempotency holds — format_rules_available, idempotency_holds, no_oscillation"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_maintain_format_idempotency_contract() {
     let config = FormatConfig::default();
 

@@ -65,10 +65,7 @@ fn the_inferred_lint_adds_nothing_without_a_manifest() {
 
 /// An unusable manifest is an error the check reports (and fails on), not
 /// a false pass.
-#[specforge_test(
-    behavior = "detect_stale_source_anchor",
-    verify = "the inferred profile reports a manifest it cannot use as E071"
-)]
+#[specforge_test(requirement = "FEATURE-055")]
 fn the_inferred_lint_reports_an_unusable_manifest() {
     let project = project(Some("{ nope"), serde_json::json!({}));
     let options = CheckOptions {
@@ -90,10 +87,7 @@ fn the_inferred_lint_reports_an_unusable_manifest() {
 /// The density threshold is the config the compile read, not a second
 /// read of `specforge.json`: 2 entities from 2 lines are over the default
 /// threshold and not over 1.0, and 3 are over it.
-#[specforge_test(
-    behavior = "detect_high_inference_density",
-    verify = "I202 threshold is configurable via specforge.json"
-)]
+#[specforge_test(requirement = "FEATURE-055")]
 fn the_density_threshold_is_the_compiled_config() {
     let dense = project(Some(&indexing(2)), serde_json::json!({}));
     assert!(
@@ -159,10 +153,7 @@ fn started(project: &Assembled, agent: Option<&str>) -> String {
     }
 }
 
-#[specforge_test(
-    behavior = "start_inference_session",
-    verify = "start creates session with active status"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn start_records_an_active_session() {
     let project = project(None, serde_json::json!({}));
     let id = started(&project, Some("claude"));
@@ -174,10 +165,7 @@ fn start_records_an_active_session() {
     assert!(sessions[0].get("ended_at").is_none(), "{sessions:?}");
 }
 
-#[specforge_test(
-    behavior = "start_inference_session",
-    verify = "start rejects when another session is active"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn a_second_start_is_session_active_and_writes_nothing() {
     let project = project(None, serde_json::json!({}));
     started(&project, None);
@@ -201,10 +189,7 @@ fn a_second_start_is_session_active_and_writes_nothing() {
     assert_eq!(before, after);
 }
 
-#[specforge_test(
-    behavior = "end_inference_session",
-    verify = "end sets status to completed"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn end_completes_or_pauses_and_stamps_ended_at() {
     let project = project(None, serde_json::json!({}));
     for (status, expected) in [
@@ -245,10 +230,7 @@ fn end_completes_or_pauses_and_stamps_ended_at() {
     }
 }
 
-#[specforge_test(
-    behavior = "end_inference_session",
-    verify = "end rejects unknown session_id"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn end_of_an_unknown_session_is_unknown_session() {
     let project = project(None, serde_json::json!({}));
     let error = step(
@@ -275,10 +257,7 @@ fn source_index(project: &Assembled) -> Vec<serde_json::Value> {
         .unwrap_or_default()
 }
 
-#[specforge_test(
-    behavior = "mark_source_file_analyzed",
-    verify = "mark updates existing entry on re-analysis"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn mark_records_and_replaces_an_entry() {
     let project = project(None, serde_json::json!({}));
     let first = ["a".to_string()];
@@ -305,10 +284,7 @@ fn mark_records_and_replaces_an_entry() {
     assert_eq!(index[0]["entities_produced"], serde_json::json!(["a", "b"]));
 }
 
-#[specforge_test(
-    behavior = "mark_source_file_analyzed",
-    verify = "mark computes SHA-256 content hash"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn mark_hashes_the_file_with_sha256() {
     use sha2::{Digest, Sha256};
 
@@ -360,10 +336,7 @@ fn a_rootless_view_is_no_project() {
     assert_eq!(error.error.code, "no_project");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_infer_session_tool",
-    verify = "creates manifest on first write"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn every_step_reports_the_manifest_as_its_write() {
     let project = project(None, serde_json::json!({}));
     let root = project.root();
@@ -403,10 +376,7 @@ fn every_step_reports_the_manifest_as_its_write() {
     assert!(refused.error.writes.is_empty());
 }
 
-#[specforge_test(
-    behavior = "mark_source_file_analyzed",
-    verify = "mark refuses a file outside the project root"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn a_source_root_outside_the_root_is_refused() {
     let project = project(None, serde_json::json!({}));
     let error = step(
@@ -440,10 +410,7 @@ fn a_source_root_outside_the_root_is_refused() {
     assert_eq!(manifest["source_roots"], serde_json::json!([".", "src"]));
 }
 
-#[specforge_test(
-    behavior = "start_inference_session",
-    verify = "start refuses a source root that is not a directory under the project root, and writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn a_source_root_that_is_no_directory_is_refused() {
     let project = project(None, serde_json::json!({}));
     for root in ["src/tiny.rs", "nope"] {
@@ -481,10 +448,7 @@ fn a_source_root_that_is_no_directory_is_refused() {
     .unwrap();
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn a_session_refusal_is_about_its_field() {
     use specforge_ops::read::infer::SessionField;
     let project = project(None, serde_json::json!({}));

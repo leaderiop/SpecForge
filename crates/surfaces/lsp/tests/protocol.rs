@@ -102,10 +102,7 @@ async fn pin_definition_is_a_link_only_for_a_link_client() {
     assert_eq!(range(&result["range"]), (0, 5, 0, 10));
 }
 
-#[spec(
-    behavior = "document_open_close",
-    verify = "closing a project source publishes what the project reports for its file"
-)]
+#[spec(requirement = "FEATURE-062")]
 #[tokio::test]
 async fn closing_a_clean_source_keeps_its_errors_over_the_protocol() {
     let dir = project(&[("a.spec", A_DANGLING), ("b.spec", B_PLAIN)]);
@@ -214,7 +211,6 @@ fn shapes_of_sent(sent: &[Sent]) -> Vec<Shape> {
 
 /// The open sequence of the docref project told to the editor through both adapters of the
 /// `Editor` port: the client adapter over JSON-RPC, and the recorder. Both say the same.
-#[spec(port = "Editor", verify = "Editor contract is satisfied")]
 #[tokio::test]
 async fn the_editor_adapters_send_the_same_open_sequence() {
     let dir = docref_project(NAMES_GUIDE);

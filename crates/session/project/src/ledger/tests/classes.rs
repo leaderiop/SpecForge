@@ -220,10 +220,7 @@ fn every_input_is_reached_by_its_name_each_hop_and_a_directory_above() {
     }
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "an input that is a symlink pointed elsewhere is its change"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn an_input_pointed_elsewhere_is_its_change() {
     for case in linked() {
         let l = layout();
@@ -238,10 +235,7 @@ fn an_input_pointed_elsewhere_is_its_change() {
     }
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a session's watch roots cover every input it classifies"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn the_directory_of_every_input_and_hop_is_watched() {
     for case in linked() {
         let l = layout();
@@ -289,10 +283,7 @@ fn watched_names_every_input_and_hop() {
     }
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a directory created on the way to a missing input's directory outside the root is that input's change, a source hop's included"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_missing_directory_on_the_way_to_an_input_is_pending() {
     for case in linked() {
         let l = layout();
@@ -384,10 +375,7 @@ fn journal_record(l: &Layout, name: &str) -> PathBuf {
     record
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "an effect record a check consulted re-runs the checks once it expires"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn an_expired_effect_record_reruns_the_checks() {
     let l = layout();
     let record = journal_record(&l, "a");
@@ -399,10 +387,7 @@ fn an_expired_effect_record_reruns_the_checks() {
     assert_eq!(ledger.changes([], NOW).check_inputs, vec![record]);
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "an effect record a check consulted re-runs the checks when it is rewritten"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_rewritten_effect_record_reruns_the_checks() {
     let l = layout();
     let record = journal_record(&l, "a");
@@ -416,10 +401,7 @@ fn a_rewritten_effect_record_reruns_the_checks() {
     assert_eq!(ledger.stale(NOW).check_inputs, vec![record]);
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "an effect record a check consulted that is fresh and unchanged changes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_fresh_unchanged_record_changes_nothing() {
     let l = layout();
     let record = journal_record(&l, "a");
@@ -434,10 +416,7 @@ fn a_fresh_unchanged_record_changes_nothing() {
     assert!(ledger.changes([record.as_path()], NOW).is_empty());
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a session wakes at the earliest expiry of the effect records its checks consulted"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn next_expiry_is_the_earliest_row_expiry() {
     let l = layout();
     let (a, b, c) = (
@@ -462,10 +441,7 @@ fn next_expiry_is_the_earliest_row_expiry() {
     assert_eq!(ledger.next_expiry(), None);
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "an expired effect record beside the fact stores' rows re-runs the checks and reads no fact store"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn an_effect_row_beside_fact_rows_leaves_the_fact_stores_unread() {
     let l = layout();
     let record = journal_record(&l, "a");

@@ -36,10 +36,7 @@ fn dirs(project: &TestProject) -> BTreeSet<String> {
     out
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "install, uninstall and install --check refuse a specforge.json the compile reports as E069 and write nothing"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn install_refuses_an_unusable_specforge_json_and_writes_nothing() {
     let p = project(json!({}), json!({}));
     assert_eq!(install(&p, &HOSTS, &[]).code, 0);
@@ -82,10 +79,7 @@ fn install_refuses_an_unusable_specforge_json_and_writes_nothing() {
     }
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "install refuses a host config of the wrong shape, naming the key, and writes nothing on any host"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn install_refuses_a_wrong_shape_config_by_name_and_writes_nothing() {
     let rows = [
         (
@@ -131,10 +125,7 @@ fn install_refuses_a_wrong_shape_config_by_name_and_writes_nothing() {
     }
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "uninstall refuses a marked file edited since and names uninstall --force"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn uninstall_of_an_edited_file_names_uninstall_force() {
     let p = project(json!({}), json!({}));
     assert_eq!(install(&p, &["claude-code"], &[]).code, 0);
@@ -152,10 +143,7 @@ fn uninstall_of_an_edited_file_names_uninstall_force() {
     );
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "uninstall removes only what install created: a config file, a key and a directory the user had stay"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn uninstall_keeps_what_the_user_had_before_install() {
     let p = project(json!({}), json!({}));
     p.write(".claude/settings.json", "{}\n");
@@ -171,10 +159,7 @@ fn uninstall_keeps_what_the_user_had_before_install() {
     assert_eq!(dirs(&p), directories);
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "uninstall removes the empty host directories install created, the host's root included"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn uninstall_removes_the_host_folder_it_created() {
     let p = project(json!({}), json!({}));
     assert_eq!(install(&p, &HOSTS, &[]).code, 0);
@@ -187,10 +172,7 @@ fn uninstall_removes_the_host_folder_it_created() {
     assert_eq!(left, 0, "a record is left under .specforge/install");
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "an install made without a record uninstalls its files and keeps its containers, directories and config files"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn an_install_without_a_record_uninstalls_and_keeps_its_containers() {
     let p = project(json!({}), json!({}));
     assert_eq!(install(&p, &HOSTS, &[]).code, 0);
@@ -223,10 +205,7 @@ fn an_install_without_a_record_uninstalls_and_keeps_its_containers() {
     assert_eq!(dirs(&p), layout.collect(), "the layout directories stay");
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "a re-install keeps the record, so the uninstall after it still removes the host roots"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_reinstall_keeps_the_record() {
     let p = project(json!({}), json!({}));
     assert_eq!(install(&p, &HOSTS, &[]).code, 0);

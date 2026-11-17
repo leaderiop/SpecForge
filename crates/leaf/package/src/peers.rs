@@ -432,10 +432,7 @@ mod tests {
         peers.load_order().iter().map(|&i| specs[i].name).collect()
     }
 
-    #[spec(
-        invariant = "peer_dependency_satisfaction",
-        verify = "one rule judges a peer: its range read as SemVer, then the version its peer is installed at"
-    )]
+    #[spec(requirement = "INVARIANT-110")]
     fn the_peer_rule() {
         #[derive(Debug)]
         enum Want {
@@ -490,10 +487,7 @@ mod tests {
         );
     }
 
-    #[spec(
-        behavior = "registry_build_load_order",
-        verify = "a dependent listed before its peer loads after it"
-    )]
+    #[spec(requirement = "FEATURE-136")]
     fn a_dependent_loads_after_its_peers() {
         let specs = [ext("B", &[("A", false)]), ext("A", &[])];
         assert_eq!(names(&specs, &peers_of(&specs)), ["A", "B"]);
@@ -510,19 +504,13 @@ mod tests {
         assert!(peers_of(&empty).load_order().is_empty());
     }
 
-    #[spec(
-        behavior = "registry_build_load_order",
-        verify = "extensions with no peer between them keep the order they were given in"
-    )]
+    #[spec(requirement = "FEATURE-136")]
     fn unrelated_members_keep_entry_order() {
         let specs = [ext("Z", &[]), ext("A", &[]), ext("M", &[])];
         assert_eq!(names(&specs, &peers_of(&specs)), ["Z", "A", "M"]);
     }
 
-    #[spec(
-        behavior = "registry_build_load_order",
-        verify = "extensions naming each other as optional peers load without a cycle"
-    )]
+    #[spec(requirement = "FEATURE-136")]
     fn a_mutual_optional_pair_loads_without_a_cycle() {
         let specs = [
             ext("B", &[("A", true)]),
@@ -541,10 +529,7 @@ mod tests {
         assert_eq!(names(&specs, &peers_of(&specs)), ["C", "B", "A"]);
     }
 
-    #[spec(
-        behavior = "registry_build_load_order",
-        verify = "a cycle among required peers is one E027 naming its extensions"
-    )]
+    #[spec(requirement = "FEATURE-136")]
     fn a_required_cycle_is_one_strongly_connected_set() {
         let specs = [
             ext("A", &[("B", false)]),
@@ -574,10 +559,7 @@ mod tests {
         assert_eq!(names(&specs, &peers), ["A", "B", "D"]);
     }
 
-    #[spec(
-        behavior = "registry_build_load_order",
-        verify = "a load order given again comes back unchanged"
-    )]
+    #[spec(requirement = "FEATURE-136")]
     fn a_load_order_given_again_comes_back_unchanged() {
         let sets: Vec<Vec<Spec>> = vec![
             vec![ext("B", &[("A", false)]), ext("A", &[])],

@@ -51,10 +51,7 @@ fn rich_node() -> Node {
 }
 
 // B:export_agent_context_format — verify unit "context format includes entity IDs and contracts"
-#[specforge_test(
-    behavior = "export_agent_context_format",
-    verify = "context format includes entity IDs and contracts"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn context_includes_contracts_and_verify() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
@@ -81,10 +78,7 @@ fn context_includes_contracts_and_verify() {
 }
 
 // B:export_agent_context_format — verify unit "context format leaves out each entity's source location"
-#[specforge_test(
-    behavior = "export_agent_context_format",
-    verify = "context format leaves out each entity's source location"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn context_leaves_out_the_source_location() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
@@ -104,10 +98,7 @@ fn context_leaves_out_the_source_location() {
 
 // B:export_agent_context_format — verify unit "output includes schema_version field"
 // B:export_agent_context_format — verify unit "output conforms to Graph Protocol schema"
-#[specforge_test(
-    behavior = "export_agent_context_format",
-    verify = "output includes schema_version field"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn context_includes_edges_and_schema_version() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
@@ -148,10 +139,7 @@ fn context_includes_edges_and_schema_version() {
 }
 
 // B:export_agent_context_format — verify unit "output conforms to Graph Protocol schema"
-#[specforge_test(
-    behavior = "export_agent_context_format",
-    verify = "output conforms to Graph Protocol schema"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn context_conforms_to_graph_protocol_schema() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
@@ -176,7 +164,7 @@ fn context_conforms_to_graph_protocol_schema() {
 
 // B:export_agent_context_format — verify unit "context format omits verbose prose fields"
 // (demonstrates token optimization by size comparison)
-#[specforge_test(behavior = "export_agent_context_format")]
+#[specforge_test(requirement = "FEATURE-001")]
 fn context_is_smaller_than_full_json() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
@@ -191,10 +179,7 @@ fn context_is_smaller_than_full_json() {
     );
 }
 
-#[specforge_test(
-    behavior = "export_agent_context_format",
-    verify = "context format keeps every field an entity writes, its headline lifted"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn context_keeps_every_field_an_entity_writes() {
     use crate::support::{build_of, field, kind};
 
@@ -253,10 +238,7 @@ fn context_keeps_every_field_an_entity_writes() {
     );
 }
 
-#[specforge_test(
-    behavior = "export_agent_context_format",
-    verify = "context format includes entity IDs and contracts"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn context_lifts_the_fields_an_extension_declares_headline() {
     use crate::support::headline_build;
 
@@ -370,10 +352,7 @@ fn a_headline_field_named_coverage_status_is_not_lifted() {
     assert_eq!(parsed["nodes"][0]["coverage_status"], "covered");
 }
 
-#[specforge_test(
-    behavior = "export_agent_context_format",
-    verify = "context format lifts a headline field as its field text, whatever its written shape"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn context_lifts_a_headline_field_as_its_field_text() {
     // `contract 2026-10-22`: a date, which a string field takes and format leaves as written.
     let mut fields = FieldMap::new();

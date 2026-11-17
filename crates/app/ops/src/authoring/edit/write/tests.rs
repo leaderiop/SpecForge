@@ -23,10 +23,7 @@ fn many(items: &[&str]) -> Input {
     Input::Many(items.iter().map(|i| i.to_string()).collect())
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "set writes the value in the form its field declares"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn each_field_type_is_written_in_its_form() {
     assert_eq!(declared(FieldType::String, "note", one("hi")), r#""hi""#);
     assert_eq!(declared(FieldType::Integer, "priority", one("42")), "42");
@@ -197,10 +194,7 @@ fn a_string_is_laid_out_with_the_configuration() {
     assert_eq!(string("contract", long, "  ", &wide), spell::quoted(long));
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_link",
-    verify = "a reference list's items are split at commas however they are given"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_list_value_is_taken_by_its_field_type() {
     assert_eq!(
         declared(

@@ -89,10 +89,7 @@ fn project() -> (Vec<EntityRecord>, Vec<EdgeRecord>) {
     (entities, edges)
 }
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "cycle_detection finds cycles in edge type"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn cycle_detection_finds_cycles_in_edge_type() {
     let built = modules(vec![cycle_rule(
         "E007",
@@ -155,10 +152,7 @@ fn a_cycle_rule_never_reads_its_edge_type_as_a_field_name() {
     );
 }
 
-#[spec(
-    behavior = "parse_validation_rule_pattern",
-    verify = "a cycle_detection rule without an edge_type produces W112 and is not registered"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_cycle_rule_without_an_edge_type_is_w112() {
     let built = modules(vec![cycle_rule("E009", Some("module"), None)]);
     assert!(built.rules.is_empty());
@@ -170,10 +164,7 @@ fn a_cycle_rule_without_an_edge_type_is_w112() {
     );
 }
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "a cycle_detection rule without a target_kind reports every entity on a cycle of its edge type"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn an_untargeted_cycle_rule_reports_every_entity_on_a_cycle() {
     let built = modules(vec![cycle_rule("E010", None, Some("ModuleDependsOn"))]);
     assert!(built.diagnostics.is_empty(), "{:?}", built.diagnostics);
@@ -219,10 +210,7 @@ fn a_cycle_rules_field_reads_as_the_default_field_and_value() {
 
 /// `a→b`, `a→d`, `b→c`, `c→a`, `d→b`: `d` is on the cycle `a b c a d b`, and
 /// its edge into `b` meets `b` already walked.
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "a cycle_detection rule reports an entity whose cycle closes through an entity already reported"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_cycle_rule_reports_an_entity_whose_cycle_closes_through_a_reported_one() {
     let built = modules(vec![cycle_rule(
         "E007",

@@ -40,10 +40,7 @@ fn filled(skeleton: &Skeleton, value: impl Fn(&SlotOf) -> Option<String>) -> Str
     text
 }
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "a create's skeleton filled in is the block new writes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_filled_skeleton_is_the_block_new_writes() {
     type Row<'a> = (&'a str, Vec<(&'a str, Input)>);
     let rows: [Row; 4] = [
@@ -118,10 +115,7 @@ fn a_filled_skeleton_is_the_block_new_writes() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "every kind's skeleton formats to itself"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn every_kinds_skeleton_formats_to_itself() {
     for toml in CONFIGS {
         let c = configured(toml);
@@ -184,10 +178,7 @@ fn every_kinds_skeleton_formats_to_itself() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "a member's skeleton is written in its field's form"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_member_skeleton_is_written_in_its_fields_form() {
     let c = configured("indent_width = 4\n");
     let member = |kind: &str, field: &str| skeletons(&c, |_, s| s.member(kind, field));

@@ -8,10 +8,7 @@ use specforge_test_macros::test as specforge_test;
 
 use super::{install, project, uninstall};
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "install and uninstall never write through a link, even a dangling one, and refuse"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn install_never_writes_through_a_link() {
     let project = project(json!({}), json!({}));
     let outside = tempfile::tempdir().unwrap();
@@ -32,10 +29,7 @@ fn install_never_writes_through_a_link() {
     assert!(!target.exists(), "{}", out.stdout);
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "uninstall keeps a user's hook that only mentions specforge, and a settings file it did not create"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn uninstall_keeps_what_it_did_not_mark() {
     let project = project(json!({}), json!({}));
     let settings = json!({"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [
@@ -48,10 +42,7 @@ fn uninstall_keeps_what_it_did_not_mark() {
     assert_eq!(after, settings, "the user's hook went with ours");
 }
 
-#[specforge_test(
-    behavior = "roll_back_interrupted_write",
-    verify = "a journal never restores a host config file, which runs code, through an install"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_journal_never_restores_a_host_config_file() {
     let project = project(json!({}), json!({}));
     assert_eq!(install(&project, &["claude-code"], &[]).code, 0);

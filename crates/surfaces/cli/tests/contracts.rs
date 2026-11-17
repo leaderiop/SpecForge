@@ -8,10 +8,7 @@ fn empty_directory() -> TestProject {
 }
 
 // B:scaffold_new_project — verify contract "requires/ensures consistency for new project scaffolding"
-#[specforge_test(
-    behavior = "scaffold_new_project",
-    verify = "Scaffold New Project: new project scaffolding holds — filesystem_available, no_existing_project, valid_config_created, schema_field_included, project_initialized_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn scaffold_new_project_contract() {
     // Requires: empty directory + project name
     // Ensures: specforge.json + spec/ directory created with valid content
@@ -63,10 +60,7 @@ pub(crate) fn assert_scaffold_contract(project: &TestProject, name: &str) {
 }
 
 // B:non_interactive_init — verify contract "requires/ensures consistency for non-interactive init"
-#[specforge_test(
-    behavior = "non_interactive_init",
-    verify = "Non-Interactive Init: non-interactive init holds — name_flag_provided, filesystem_available, no_existing_project, config_identical_to_interactive, all_prompts_skipped, json_output_supported, project_initialized_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn non_interactive_init_contract() {
     // Requires: --name flag provided (no interactive prompts)
     // Ensures: project created without requiring stdin input
@@ -93,10 +87,7 @@ fn non_interactive_init_contract() {
 }
 
 // B:graceful_zero_extension_init — verify contract "requires/ensures consistency for zero-extension init"
-#[specforge_test(
-    behavior = "graceful_zero_extension_init",
-    verify = "Graceful Zero-Extension Init: zero-extension init holds — zero_extensions_selected, filesystem_available, empty_extensions_list, structural_starter_valid, valid_graph_exportable, project_initialized_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn graceful_zero_extension_init_contract() {
     // Requires: init with no --extensions flag
     // Ensures: specforge.json has empty extensions array, project still functional

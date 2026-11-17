@@ -68,10 +68,7 @@ fn node(document: &str, id: &str) -> Value {
         .clone()
 }
 
-#[specforge_test(
-    behavior = "inspect_entity_facts",
-    verify = "an entity lists each checked value's outcome"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn an_entity_lists_each_checked_values_outcome() {
     let project = compiled();
     let view = ProjectView::of(&project);
@@ -104,10 +101,7 @@ fn planned() -> ContributionsBuilder {
     c
 }
 
-#[specforge_test(
-    behavior = "inspect_entity_facts",
-    verify = "an entity lists a value waiting for its owner as planned, with no outcome"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn an_entity_lists_a_planned_value_as_planned() {
     let project = TestProject::new()
         .config(|c| c["name"] = "p".into())
@@ -130,10 +124,7 @@ fn an_entity_lists_a_planned_value_as_planned() {
     assert_eq!(written["status"], "planned");
 }
 
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "with_checks adds each value's outcomes to a graph or context export, and a plain export is unchanged"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn with_checks_adds_outcomes_and_plain_export_is_unchanged() {
     let project = compiled();
     for format in [Format::Graph, Format::Context] {
@@ -165,10 +156,7 @@ fn with_checks_adds_outcomes_and_plain_export_is_unchanged() {
     }
 }
 
-#[specforge_test(
-    behavior = "list_installed_extensions",
-    verify = "the extensions listing names each checker"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn extensions_lists_checkers() {
     let project = compiled();
     let document = extension::list(&ProjectView::of(&project));

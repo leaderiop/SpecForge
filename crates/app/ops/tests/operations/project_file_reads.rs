@@ -39,10 +39,9 @@ fn notices_of(view: &specforge_ops::view::ProjectView<'_>) -> Vec<specforge_comm
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "over MCP, a schema cache that leads outside the project or has more than one name is not read"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn a_bounded_view_versions_against_no_schema_cache_that_links_outside() {
     let project = project();
     let outside = tempfile::tempdir().unwrap();
@@ -68,10 +67,9 @@ fn a_bounded_view_versions_against_no_schema_cache_that_links_outside() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "over MCP, a schema cache that leads outside the project or has more than one name is not read"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn a_bounded_view_versions_against_no_hard_linked_schema_cache() {
     let project = project();
     let outside = tempfile::tempdir().unwrap();
@@ -97,10 +95,9 @@ fn a_bounded_view_versions_against_no_hard_linked_schema_cache() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "the CLI and the LSP read the schema cache where its link points"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn an_unbounded_view_versions_against_a_linked_schema_cache() {
     let project = project();
     // A real record, steered to 7.3.1, kept outside the project.
@@ -118,10 +115,9 @@ fn an_unbounded_view_versions_against_a_linked_schema_cache() {
 
 /// ADR 0183 D4: ops opens file content only through `containment/`, but for the collector machine's
 /// approvals store (a user file, not a project file).
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "over MCP, a schema cache that leads outside the project or has more than one name is not read"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn ops_opens_file_content_only_through_the_containment() {
     fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
         for entry in std::fs::read_dir(dir).unwrap() {

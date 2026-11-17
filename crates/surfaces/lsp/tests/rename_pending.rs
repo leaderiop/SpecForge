@@ -45,10 +45,7 @@ pub(crate) fn ledger(served: &Served) -> Ledger {
 
 /// A second rename answered and never applied (a preview cancelled, an edit refused) leaves the first as it was: it
 /// shows, and saved, it lands as itself.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "a later editor rename never applied leaves the earlier one to show and land alone"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_second_rename_never_applied_leaves_the_first_to_land_alone() {
     let mut served = fact_named();
     let uri = served.uri("truths.spec");
@@ -83,10 +80,7 @@ fn a_second_rename_never_applied_leaves_the_first_to_land_alone() {
 
 /// Two renames composed, then the buffers typed back to the first's old name: both are undone, none shows; saved,
 /// nothing lands.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "a chain of editor renames typed back to its first name is undone whole"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_chain_typed_back_to_its_first_name_is_undone_whole() {
     let mut served = fact_named();
     let uri = served.uri("truths.spec");
@@ -175,10 +169,7 @@ fn phase(name: &str) -> Position {
 
 /// A rename of `v1.0/03` to `04`, then of `v2.0/04`, the other phase that name now shares: the second renames
 /// another entity, so it composes with nothing, and each lands as itself.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "a later editor rename composes only with the rename of the entity it renames, matched by path"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_rename_of_another_entity_sharing_a_name_composes_with_nothing() {
     let mut served = scoped();
     let uri = served.uri("m.spec");

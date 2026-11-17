@@ -8,10 +8,7 @@
 use serde_json::json;
 use specforge_protocol_types::SurfaceDescriptor;
 
-#[specforge_test_macros::test(
-    behavior = "install_into_a_host",
-    verify = "an agent, a skill, a slash command and a hook round-trip through the protocol"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn host_contributions_round_trip() {
     let wire = json!({
         "commands": [{"id": "stats", "title": "Stats", "description": "Stats", "export": "cmd__stats", "args": [],
@@ -32,10 +29,7 @@ fn host_contributions_round_trip() {
     assert_eq!(serde_json::to_value(&parsed).unwrap(), wire);
 }
 
-#[specforge_test_macros::test(
-    behavior = "install_into_a_host",
-    verify = "when reads a name or a list and writes one name as a string, several as a list and none as nothing"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn when_reads_a_name_or_a_list_and_writes_one_as_a_name() {
     use specforge_protocol_types::{AgentDescriptor, PromptDescriptor};
 
@@ -61,10 +55,7 @@ fn when_reads_a_name_or_a_list_and_writes_one_as_a_name() {
     assert_eq!(prompt.when, ["x", "y"]);
 }
 
-#[specforge_test_macros::test(
-    behavior = "run_a_hook",
-    verify = "a git status round-trips as its branch and typed entries, and is dirty unless every entry is ignored"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn git_status_round_trips_as_typed_entries() {
     use specforge_protocol_types::{GitChange, GitEntryKind, GitStatus};
 

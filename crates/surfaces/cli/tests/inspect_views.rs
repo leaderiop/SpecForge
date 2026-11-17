@@ -319,10 +319,9 @@ fn assert_hover_and_inspect_agree(served: &mut Served, file: &str) {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_views_over_the_project_view",
-    verify = "specforge.inspect and the LSP hover report the same facts for an entity"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-025")]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
+#[specforge_test_macros::test(requirement = "FEATURE-130")]
 fn hover_and_inspect_agree_on_every_entity() {
     assert_hover_and_inspect_agree(&mut served(project("fx1")), "spec/main.spec");
     assert_hover_and_inspect_agree(&mut served(cyc()), "a.spec");

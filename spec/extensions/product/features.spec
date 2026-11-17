@@ -1,19 +1,14 @@
-// @specforge/product features — capability groupings
-
-// Note: behavior imports removed to break circular dependency.
-// Behaviors are resolved globally — use imports not needed for reference resolution.
-
-feature pe_core_entity_kinds "Product Entity Kind Registration" {
-  status   done
-  problem  """
+requirement FEATURE-080 "Product Entity Kind Registration" {
+  category "Feature"
+  tier     v2
+  text     """
     The @specforge/product extension must register 9 entity kinds with
     full metadata, 20 edge types, field definitions, and validation rules.
     Without this registration, the compiler has zero knowledge of product
     planning concepts including the domain-neutral feature entity, who
     uses the system (persona), through which medium (channel), or how
     deliverables ship together (release).
-  """
-  solution """
+
     A comprehensive manifest declaration provides all entity kinds with
     testability flags, LSP metadata (semantic tokens, icons), DOT shapes,
     typed field definitions with edge mappings, and declarative validation
@@ -29,16 +24,16 @@ feature pe_core_entity_kinds "Product Entity Kind Registration" {
   """
 }
 
-feature pe_query_dependency_analysis "Product Dependency Analysis Queries" {
-  status   done
-  problem  """
+requirement FEATURE-091 "Product Dependency Analysis Queries" {
+  category "Feature"
+  tier     v2
+  text     """
     Product entities form dependency chains (FeatureDependsOn, ModuleDependsOn,
     MilestoneDependsOn) but there is no way to compute topological ordering,
     detect cycles, find reverse dependents, or measure dependency depth. Without
     these queries, agents cannot answer "what order should features be built?"
     or "what is the critical path through milestones?"
-  """
-  solution """
+
     Dependency-focused query behaviors: feature ordering (topological sort
     via FeatureDependsOn), feature dependents (reverse FeatureDependsOn),
     critical path (longest incomplete milestone chain with slack analysis),
@@ -48,17 +43,17 @@ feature pe_query_dependency_analysis "Product Dependency Analysis Queries" {
   """
 }
 
-feature pe_query_traceability "Product Traceability Queries" {
-  status   done
-  problem  """
+requirement FEATURE-093 "Product Traceability Queries" {
+  category "Feature"
+  tier     v2
+  text     """
     Product entities are richly connected across kinds — features belong to
     milestones and deliverables, journeys reference personas and channels,
     modules contain features — but there is no way to trace from any entity
     to its related entities. Without traceability queries, agents cannot answer
     "which deliverables contain this feature?" or "what features does this
     persona need?"
-  """
-  solution """
+
     Traceability query behaviors that traverse the product graph to find
     related entities: deliverable traceability (transitive features via
     journeys and modules), feature deliverables (reverse traversal from
@@ -78,16 +73,16 @@ feature pe_query_traceability "Product Traceability Queries" {
   """
 }
 
-feature pe_query_coverage_analysis "Product Coverage Analysis Queries" {
-  status   done
-  problem  """
+requirement FEATURE-090 "Product Coverage Analysis Queries" {
+  category "Feature"
+  tier     v2
+  text     """
     Product entities should form a well-connected graph, but there is no way
     to measure how well entities are connected: which features lack milestone
     scheduling, which features appear in multiple deliverables, or how
     thoroughly personas and channels are covered by journeys. Without coverage
     queries, quality gaps in the product specification go undetected.
-  """
-  solution """
+
     Coverage-focused query behaviors: journey coverage (features with
     status=done per journey), unscheduled features (features with zero
     MilestoneDeliversFeature edges), feature overlap (features reachable from 2+
@@ -98,16 +93,16 @@ feature pe_query_coverage_analysis "Product Coverage Analysis Queries" {
   """
 }
 
-feature pe_query_lifecycle_metrics "Product Lifecycle Metrics Queries" {
-  status   done
-  problem  """
+requirement FEATURE-092 "Product Lifecycle Metrics Queries" {
+  category "Feature"
+  tier     v2
+  text     """
     Product managers need to track progress and health across milestones,
     deliverables, and the overall product graph: completion ratios, timeline
     status, velocity trends, and priority derivation. Without lifecycle
     queries, agents cannot answer "how complete is this milestone?" or
     "which milestones are overdue?"
-  """
-  solution """
+
     Lifecycle-focused query behaviors: milestone completion (ratio of features
     with status=done), deliverable completion (aggregate milestone completion
     across DeliverableTrackedByMilestone edges), milestone timeline (chronological
@@ -122,15 +117,15 @@ feature pe_query_lifecycle_metrics "Product Lifecycle Metrics Queries" {
   """
 }
 
-feature pe_surface_contributions "Product Surface Contributions" {
-  status   done
-  problem  """
+requirement FEATURE-095 "Product Surface Contributions" {
+  category "Feature"
+  tier     v2
+  text     """
     The @specforge/product extension has query behaviors and validation rules
     but no declared CLI commands or MCP tools to expose them to users and agents.
     Without typed input/output schemas, consumers cannot discover or validate
     the surface contract at compile time.
-  """
-  solution """
+
     The manifest declares the 40 specforge product commands as surface
     contributions, run by the extension's own cmd__product_* exports over
     the graph the host passes (MCP tools specforge.product.<id> by
@@ -157,14 +152,14 @@ feature pe_surface_contributions "Product Surface Contributions" {
   """
 }
 
-feature pe_validation_suite "Product Validation Suite" {
-  status   in_progress
-  problem  """
+requirement FEATURE-097 "Product Validation Suite" {
+  category "Feature"
+  tier     v2
+  text     """
     Without domain-specific validation rules, the compiler cannot detect
     product-level quality issues: unreferenced journeys, dependency cycles,
     milestones without features, or unused modules.
-  """
-  solution """
+
     Declarative validation rules (E007, E015, E052, W041-W046, W049, W057,
     W092, W093, I010, I046-I048, I050,
     I054, I055, I057, I059-I061, I066-I070, I080-I083, I089)
@@ -206,15 +201,15 @@ feature pe_validation_suite "Product Validation Suite" {
   """
 }
 
-feature pe_graph_rendering "Product Graph Rendering" {
-  status   in_progress
-  problem  """
+requirement FEATURE-084 "Product Graph Rendering" {
+  category "Feature"
+  tier     v2
+  text     """
     Product entities are registered in the KindRegistry and appear in the
     entity graph, but there is no specification for how they render in the
     Graph Protocol JSON output produced by specforge export. Without this,
     consumers cannot predict the shape of product entities in exported output.
-  """
-  solution """
+
     Product entities render as standard graph nodes following the core Graph
     Protocol schema. The core emitter handles all entity kinds uniformly —
     no product-specific renderer is needed (contributes.renderers = false).
@@ -230,16 +225,16 @@ feature pe_graph_rendering "Product Graph Rendering" {
   """
 }
 
-feature pe_cross_extension_cooperation "Cross-Extension Cooperation" {
-  status   in_progress
-  problem  """
+requirement FEATURE-081 "Cross-Extension Cooperation" {
+  category "Feature"
+  tier     v2
+  text     """
     @specforge/product declares no peer_dependencies and operates standalone,
     but @specforge/software declares a peer_dependency on product and
     contributes the BehaviorImplementsFeature edge (behavior->feature) and an entity_enhancement
     adding a behaviors field to milestone. There is no specification for how cross-extension
     cooperation is validated end-to-end.
-  """
-  solution """
+
     Cross-extension integration is validated through: (1) product queries
     respect the 20-edge-type allowlist and never follow foreign edges,
     (2) entity_enhancements from peer extensions add fields to product
@@ -250,15 +245,15 @@ feature pe_cross_extension_cooperation "Cross-Extension Cooperation" {
   """
 }
 
-feature pe_partial_graph_queries "Partial Graph Query Behavior" {
-  status   done
-  problem  """
+requirement FEATURE-088 "Partial Graph Query Behavior" {
+  category "Feature"
+  tier     v2
+  text     """
     When the entity graph contains validation errors (e.g., unreferenced entities,
     broken references), the behavior of product queries is unspecified.
     Consumers cannot predict whether queries return partial results, fail
     entirely, or silently omit invalid entities.
-  """
-  solution """
+
     Product queries operate on the structural graph, not the validation
     result. Entities with validation errors are still traversable and
     appear in query results. Queries never filter entities based on
@@ -268,15 +263,15 @@ feature pe_partial_graph_queries "Partial Graph Query Behavior" {
   """
 }
 
-feature pe_migration_strategy "Extension Migration Strategy" {
-  status   in_progress
-  problem  """
+requirement FEATURE-086 "Extension Migration Strategy" {
+  category "Feature"
+  tier     v2
+  text     """
     The v1 manifest declares migration_hook=null (no prior version), but
     there is no specification for what happens when the product extension
     version bumps. Schema evolution, field additions, and diagnostic code
     changes need a documented migration path.
-  """
-  solution """
+
     The product extension follows additive-only schema evolution for minor
     versions: new fields are always optional, new diagnostic codes use
     reserved ranges, new edge types require manifest version bump. Breaking
@@ -287,17 +282,17 @@ feature pe_migration_strategy "Extension Migration Strategy" {
   """
 }
 
-feature pe_planning_insights "Advanced Planning Insights" {
-  status   done
-  problem  """
+requirement FEATURE-089 "Advanced Planning Insights" {
+  category "Feature"
+  tier     v1
+  text     """
     Product managers and agents cannot answer key planning questions
     without manual graph traversal: which features are unscheduled,
     which features overlap across deliverables, what is each persona's
     feature coverage, and what is the critical path through milestones.
     These questions require multi-hop traversal that no existing query
     provides.
-  """
-  solution """
+
     Four new query methods covering the planning blind spots:
     (1) queryUnscheduledFeatures returns features with zero MilestoneDeliversFeature
     edges, (2) queryFeatureOverlap returns features reachable from 2+
@@ -309,9 +304,10 @@ feature pe_planning_insights "Advanced Planning Insights" {
   """
 }
 
-feature pe_chain_validation "End-to-End Chain Validation" {
-  status   proposed
-  problem  """
+requirement FEATURE-079 "End-to-End Chain Validation" {
+  category "Feature"
+  tier     v2
+  text     """
     Existing validation checks journey-module gaps (I049) and milestone-
     module gaps (I051) independently, but no check validates the full
     deliverable→milestone→feature→module chain. A deliverable can have
@@ -319,8 +315,7 @@ feature pe_chain_validation "End-to-End Chain Validation" {
     with no diagnostic. Additionally, features scheduled in multiple
     milestones, priority mismatches between features and milestones,
     and implicit temporal ordering conflicts go undetected.
-  """
-  solution """
+
     Four new validation rules: I076 detects deliverable end-to-end chain
     gaps, I077 flags features in multiple milestones (informational),
     I078 detects priority escalation gaps (high-priority feature in
@@ -329,98 +324,88 @@ feature pe_chain_validation "End-to-End Chain Validation" {
   """
 }
 
-// ---------------------------------------------------------------------------
-// v1.1 features — ownership, effort, release, temporal, blockers, flow
-// ---------------------------------------------------------------------------
-
-feature pe_ownership_tracking "Ownership Tracking" {
-  status   in_progress
-  problem  """
+requirement FEATURE-087 "Ownership Tracking" {
+  category "Feature"
+  tier     v2
+  text     """
     Product entities have no concept of who is responsible. Product managers
     cannot answer "what features does Alice own?" or "which milestones have
     no owner?" — basic PM queries that every planning tool supports.
-  """
-  solution """
+
     Add owner (string @optional) and contributors (string[] @optional) fields
     to feature, milestone, deliverable, and release entities. Provide an
     owner-workload query that aggregates ownership across all product entities.
   """
-  tags     ["ownership", "planning", "v1-1"]
 }
 
-feature pe_effort_estimation "Effort Estimation" {
-  status   done
-  problem  """
+requirement FEATURE-082 "Effort Estimation" {
+  category "Feature"
+  tier     v2
+  text     """
     Milestone completion is feature-count-based: 3/5 done = 60%. But a
     trivial feature and a month-long epic both count as 1. This makes
     completion ratios misleading for capacity planning.
-  """
-  solution """
+
     Add effort field (t-shirt size: xs, s, m, l, xl) to features. The
     sizes weigh 1, 2, 3, 5 and 8 (a Fibonacci-inspired scale): the weights
     define the scale and are not configurable (ADR 0011). Provide a weighted milestone completion query. Features
     without effort default to m weight.
   """
-  tags     ["estimation", "planning", "v1-1"]
 }
 
-feature pe_release_coordination "Release Coordination" {
-  status   in_progress
-  problem  """
+requirement FEATURE-094 "Release Coordination" {
+  category "Feature"
+  tier     v2
+  text     """
     Deliverables have individual versions and statuses, but multiple
     deliverables often ship together. There is no way to answer "what
     ships together?" or track coordinated release readiness.
-  """
-  solution """
+
     Add release as the 9th product entity kind with fields: description,
     version (required), status, deliverables, milestones, target_date,
     release_date, changelog, depends_on, owner, contributors, reason, refs.
     Three new edge types: ReleaseIncludesDeliverable,
     ReleaseCompletesMilestone and ReleaseDependsOn.
   """
-  tags     ["release", "coordination", "v1-1"]
 }
 
-feature pe_temporal_planning "Temporal Planning" {
-  status   done
-  problem  """
+requirement FEATURE-096 "Temporal Planning" {
+  category "Feature"
+  tier     v2
+  text     """
     Milestones have only target_date — no start date. Duration cannot be
     computed, and milestone dependency ordering cannot validate temporal
     consistency of start dates.
-  """
-  solution """
+
     Add start_date (date @optional, ISO 8601) to milestones. E061 reports
     a start_date that is no calendar day; no rule checks its order relative
     to target_date.
   """
-  tags     ["temporal", "planning", "v1-1"]
 }
 
-feature pe_external_blockers "External Blocker Tracking" {
-  status   done
-  problem  """
+requirement FEATURE-083 "External Blocker Tracking" {
+  category "Feature"
+  tier     v1
+  text     """
     Blocked milestones only reference internal dependencies (depends_on).
     External factors (regulatory, third-party APIs, hiring) that block
     progress cannot be documented structurally.
-  """
-  solution """
+
     Add blockers (string[] @optional) to milestones. I060 reports a
     blocked milestone that lists no blockers.
   """
-  tags     ["blockers", "planning", "v1-1"]
 }
 
-feature pe_journey_flow_validation "Journey Flow Validation" {
-  status   proposed
-  problem  """
+requirement FEATURE-085 "Journey Flow Validation" {
+  category "Feature"
+  tier     v2
+  text     """
     Journey flow steps are free-text with no structural validation.
     Steps may reference features via [brackets] but there is no check
     that referenced features exist in the journey's features list.
-  """
-  solution """
+
     Validate bracketed references in flow steps against the journey's
     declared features. I090 warns when a flow step references an
     undeclared feature.
   """
-  tags     ["validation", "journeys", "v1-1"]
 }

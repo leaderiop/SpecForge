@@ -91,10 +91,7 @@ fn project_dir(config: Value, spec: &str) -> tempfile::TempDir {
     dir
 }
 
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "MCP Initialize: MCP initialization holds — compiler_api_available, wasm_runtime_available, capabilities_returned, surface_contributions_merged, mcp_initialized_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn contract_initialize() {
     use crate::fake_extension::{self, EXT, FakeExtension};
     // wasm_runtime_available: the project's extension, @test/cmds, runs in
@@ -211,10 +208,7 @@ fn contract_initialize() {
     assert!(after["error"].is_null(), "{after}");
 }
 
-#[specforge_test(
-    behavior = "mcp_shutdown",
-    verify = "MCP Shutdown: MCP shutdown holds — server_initialized, notifications_flushed, subscriptions_removed, wasm_engines_released, shutdown_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn contract_shutdown() {
     let mut server = test_server();
     call(
@@ -297,10 +291,7 @@ fn unknown_kind(kind: &str, suggestion: Option<&str>) -> Value {
     })
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_query_tool",
-    verify = "Provide MCP Query Tool: MCP query tool holds — graph_available, subgraph_returned, unknown_kinds_reported, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn contract_query() {
     let mut server = test_server();
     // graph_available: the tool reads the server's compiled graph.
@@ -360,10 +351,7 @@ fn contract_query() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_export_tool",
-    verify = "Provide MCP Export Tool: MCP export tool holds — graph_available, format_produced, token_budget_enforced, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn contract_export() {
     let mut server = test_server();
 
@@ -423,10 +411,7 @@ fn contract_export() {
     assert_tool_invoked(&server, "specforge.export");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_export_tool",
-    verify = "max_tokens truncates output to fit token budget"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn contract_export_max_tokens() {
     let mut server = test_server();
 
@@ -463,10 +448,7 @@ fn contract_export_max_tokens() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_trace_tool",
-    verify = "Provide MCP Trace Tool: MCP trace tool holds — graph_available, trace_result_returned, gaps_identified, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn contract_trace() {
     let mut server = test_server();
 
@@ -507,10 +489,7 @@ fn contract_trace() {
     assert_tool_invoked(&server, "specforge.trace");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_search_tool",
-    verify = "Provide MCP Search Tool: MCP search tool holds — graph_available, filtered_results_returned, unknown_kinds_reported, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn contract_search() {
     let mut server = test_server();
     let ids = |resp: &Value| -> Vec<String> {
@@ -597,10 +576,7 @@ fn contract_search() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_stats_tool",
-    verify = "Provide MCP Stats Tool: MCP stats tool holds — graph_available, stats_returned, latest_state_reflected, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn contract_stats() {
     // An orphan feature, one nothing references, is a warning: a rule the
     // extension declares (W901, NoIncomingEdges on `feature`).
@@ -642,10 +618,7 @@ fn contract_stats() {
     assert_tool_invoked(&server, "specforge.stats");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "Provide MCP Inspect Tool: MCP inspect tool holds — graph_available, entity_details_returned, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn contract_inspect() {
     // One diagnostic inside alpha's span (test.spec line 2), one in beta's
     // file (feat.spec line 2), as a check-phase pass reports them.
@@ -686,10 +659,7 @@ fn contract_inspect() {
     assert_tool_invoked(&server, "specforge.inspect");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_definition_tool",
-    verify = "Provide MCP Find Definition Tool: MCP find definition tool holds — graph_available, source_location_returned, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn contract_find_definition() {
     // more/gamma.spec line 7 is `  behavior gamma "GAMMA" {`: a 2-column
     // indent.
@@ -742,10 +712,7 @@ fn contract_find_definition() {
     assert_tool_invoked(&server, "specforge.find_definition");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_references_tool",
-    verify = "Provide MCP Find References Tool: MCP find references tool holds — graph_available, references_returned, empty_list_for_unreferenced, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn contract_find_references() {
     let mut server = test_server();
 
@@ -779,10 +746,7 @@ fn contract_find_references() {
     assert_tool_invoked(&server, "specforge.find_references");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_outline_tool",
-    verify = "Provide MCP Outline Tool: MCP outline tool holds — graph_available, outline_returned, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn contract_outline() {
     // test.spec: alpha on lines 1–5, the port gamma on 7–12, its method
     // `check` on line 8.
@@ -826,10 +790,7 @@ fn contract_outline() {
     assert_tool_invoked(&server, "specforge.outline");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_coverage_tool",
-    verify = "Provide MCP Coverage Tool: MCP coverage tool holds — graph_available, coverage_returned, testability_respected, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn contract_coverage() {
     let mut server = test_server();
 
@@ -897,10 +858,7 @@ fn contract_coverage() {
     assert_tool_invoked(&server, "specforge.coverage");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_schema_tool",
-    verify = "Provide MCP Schema Tool: MCP schema tool holds — graph_available, schema_returned, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn contract_schema() {
     // graph_available: a compiled project whose extension declares kinds.
     let project = project_dir(
@@ -933,10 +891,7 @@ fn contract_schema() {
     assert_tool_invoked(&server, "specforge.schema");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_context_prompt",
-    verify = "Provide MCP Context Prompt: MCP context prompt holds — graph_available, context_returned, hints_included, prompt_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn contract_context_prompt() {
     // An invariant nothing connects to alpha (inv.spec).
     let mut server = contracts_project()
@@ -976,10 +931,7 @@ fn contract_context_prompt() {
     assert_prompt_invoked(&server, "specforge://prompts/context");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_review_prompt",
-    verify = "Provide MCP Review Prompt: MCP review prompt holds — graph_available, coverage_analysis_returned, gaps_identified, prompt_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn contract_review_prompt() {
     // gamma (test.spec 7–9): a testable behavior of beta with no verify
     // declarations; delta (test.spec 11–13): gamma depends on it, two hops
@@ -1035,10 +987,7 @@ fn contract_review_prompt() {
     assert_prompt_invoked(&server, "specforge://prompts/review");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_trace_prompt",
-    verify = "Provide MCP Trace Prompt: MCP trace prompt holds — graph_available, gaps_returned, affected_entities_listed, prompt_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn contract_trace_prompt() {
     let mut server = test_server();
 
@@ -1074,10 +1023,7 @@ fn contract_trace_prompt() {
     assert_prompt_invoked(&server, "specforge://prompts/trace");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_explore_prompt",
-    verify = "Provide MCP Explore Prompt: MCP explore prompt holds — graph_available, exploration_returned, bfs_from_entity, prompt_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn contract_explore_prompt() {
     // beta <-features- alpha -invariants-> gamma (inv.spec); delta
     // (test.spec 11–13) is unconnected.
@@ -1148,10 +1094,7 @@ fn with_extension_surface(
             "mime_type": "application/json"}))
 }
 
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, discovery_emitted, listed_once"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn contract_list_tools() {
     use crate::fake_extension::{self, FakeExtension};
     // server_initialized: over a project whose extension contributes an
@@ -1229,10 +1172,7 @@ fn contract_list_tools() {
     );
 }
 
-#[specforge_test(
-    behavior = "auto_promote_commands_to_mcp_tools",
-    verify = "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surfaces_registered, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted, schema_is_the_declaration"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn contract_auto_promote_commands() {
     use crate::fake_extension::{self, EXT, FakeExtension};
     use specforge_mcp::surface_table::ToolKind;
@@ -1339,10 +1279,7 @@ fn contract_auto_promote_commands() {
     );
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted, args_normalized_by_the_host, evidence_carried, one_operation"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn contract_dispatch_surface_command() {
     // The sandbox probe (fixtures/sandbox-probe), in the component runtime
     // every extension runs in. Its `probe` command reports its input and
@@ -1466,10 +1403,7 @@ fn contract_dispatch_surface_command() {
     assert_eq!(events(&server, "surface_command_dispatched").len(), 2);
 }
 
-#[specforge_test(
-    behavior = "surface_command_dispatched",
-    verify = "emits surface_command_dispatched with correct commandId and exitCode"
-)]
+#[test]
 fn event_surface_command_dispatched() {
     use crate::fake_extension::{self, FakeExtension};
     let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new().with_output(
@@ -1506,10 +1440,7 @@ fn timed_events(server: &impl Logs, name: &str) -> Vec<Value> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_tool",
-    verify = "a returned tool call is recorded as a surface_mcp_tool_dispatched event"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_returned_tool_call_is_a_dispatched_tool() {
     use crate::fake_extension::{self, EXT, FakeExtension};
     let dispatched = |success: bool| json!({"extensionName": EXT, "toolName": "specforge.cmds.check", "success": success});
@@ -1538,10 +1469,7 @@ fn a_returned_tool_call_is_a_dispatched_tool() {
     assert!(events(&server, "surface_mcp_tool_dispatched").is_empty());
 }
 
-#[specforge_test(
-    behavior = "surface_mcp_tool_dispatched",
-    verify = "emits surface_mcp_tool_dispatched with correct toolName and success"
-)]
+#[test]
 fn event_surface_mcp_tool_dispatched() {
     use crate::fake_extension::{self, FakeExtension};
     let (mut server, _ext, _dir) = fake_extension::initialized(
@@ -1557,10 +1485,7 @@ fn event_surface_mcp_tool_dispatched() {
     assert!(events(&server, "surface_command_dispatched").is_empty());
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_resource",
-    verify = "a returned resource read is recorded as a surface_mcp_resource_dispatched event"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_returned_resource_read_is_a_dispatched_resource() {
     use crate::fake_extension::{self, EXT, FakeExtension};
     let summary = "specforge://ext/cmds/summary";
@@ -1582,10 +1507,7 @@ fn a_returned_resource_read_is_a_dispatched_resource() {
     assert!(events(&server, "surface_mcp_resource_dispatched").is_empty());
 }
 
-#[specforge_test(
-    behavior = "surface_mcp_resource_dispatched",
-    verify = "emits surface_mcp_resource_dispatched with correct uriTemplate"
-)]
+#[test]
 fn event_surface_mcp_resource_dispatched() {
     use crate::fake_extension::{self, FakeExtension};
     let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new().with_output(
@@ -1600,10 +1522,7 @@ fn event_surface_mcp_resource_dispatched() {
     assert_eq!(templates, [json!("specforge://ext/cmds/summary")]);
 }
 
-#[specforge_test(
-    behavior = "list_mcp_resources",
-    verify = "List MCP Resources: listing MCP resources holds — server_initialized, complete_list_returned, discovery_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn contract_list_resources() {
     use crate::fake_extension::{self, FakeExtension};
     let (mut server, _ext, _dir) = fake_extension::initialized(with_extension_surface(
@@ -1664,14 +1583,7 @@ fn contract_list_resources() {
     assert_eq!(resp["error"]["code"], -32600, "{resp}");
 }
 
-#[specforge_test(
-    behavior = "list_mcp_prompts",
-    verify = "List MCP Prompts: listing MCP prompts holds — server_initialized, complete_list_returned, discovery_emitted"
-)]
-#[specforge_test(
-    behavior = "list_mcp_prompts",
-    verify = "lists every core prompt, each one prompts/get serves"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn contract_list_prompts() {
     let mut server = test_server();
 
@@ -1712,10 +1624,7 @@ fn contract_list_prompts() {
     assert_eq!(resp["error"]["code"], -32600, "{resp}");
 }
 
-#[specforge_test(
-    behavior = "guard_mcp_reinitialization",
-    verify = "Guard MCP Reinitialization: MCP reinitialization guard holds — server_initialized, reinit_rejected, session_unaffected, error_handled_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn contract_guard_reinit() {
     let mut server = test_server();
     let root = server
@@ -1754,10 +1663,7 @@ fn contract_guard_reinit() {
     );
 }
 
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "Handle MCP Protocol Error: MCP protocol error handling holds — mcp_protocol_available, standard_error_returned, no_state_leaked, server_operational, error_handled_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn contract_protocol_error() {
     let mut server = test_server();
     let root = server
@@ -1808,10 +1714,7 @@ fn contract_protocol_error() {
     assert_eq!(codes, [-32601, -32700, -32602]);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "Provide MCP Validate Tool: MCP validate tool holds — compiler_api_available, diagnostics_returned, strict_promotion_enforced, tool_invoked_emitted, verdict_in_meta"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn contract_validate() {
     let dir = tempfile::TempDir::new().unwrap();
     let config = json!({
@@ -1912,10 +1815,7 @@ fn contract_validate() {
     assert_tool_invoked(&server, "specforge.validate");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_suggest_fixes_tool",
-    verify = "Provide MCP Suggest Fixes Tool: MCP suggest fixes tool holds — graph_available, fixes_returned, empty_for_clean, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn contract_suggest_fixes() {
     // graph_available: a project compiled from disk, logout naming
     // `sesion_limit`, which no entity declares.
@@ -1979,10 +1879,7 @@ fn contract_suggest_fixes() {
     assert_tool_invoked(&server, "specforge.suggest_fixes");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "Provide MCP Format Tool: MCP format tool holds — filesystem_available, files_formatted, check_mode_readonly, mutation_completed_emitted, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn contract_format() {
     let mut server = test_server();
     let root = server
@@ -2044,10 +1941,7 @@ fn contract_format() {
     assert_tool_invoked(&server, "specforge.format");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_extensions_tool",
-    verify = "Provide MCP Extensions Tool: MCP extensions tool holds — compiler_api_available, extensions_listed, config_reflected, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn contract_extensions() {
     let dir = project_dir(
         json!({"name":"t","version":"0.1.0","extensions":["@specforge/product", "@acme/absent@1.2.0"]}),
@@ -2094,10 +1988,7 @@ fn contract_extensions() {
     assert_tool_invoked(&server, "specforge.extensions");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_doctor_tool",
-    verify = "Provide MCP Doctor Tool: MCP doctor tool holds — compiler_api_available, health_checked, resolution_steps_provided, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn contract_doctor() {
     // A project that enables nothing, served with its own component
     // runtime, so the extension it installs loads.
@@ -2154,10 +2045,7 @@ fn walk(dir: &Path) -> Vec<PathBuf> {
     files
 }
 
-#[specforge_test(
-    behavior = "expose_graph_as_mcp_resource",
-    verify = "Expose Graph as MCP Resource: graph MCP resource holds — validation_complete_fired, graph_json_returned, resource_read_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn contract_graph_resource() {
     let mut server = test_server();
     let (content, graph) = resource(&mut server, "specforge://graph");
@@ -2180,10 +2068,7 @@ fn contract_graph_resource() {
     assert_resource_read(&server, "specforge://graph");
 }
 
-#[specforge_test(
-    behavior = "expose_schema_as_mcp_resource",
-    verify = "Expose Schema as MCP Resource: schema MCP resource holds — validation_complete_fired, schema_json_returned, resource_read_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn contract_schema_resource() {
     // validation_complete_fired: initialize compiled the project.
     let project = project_dir(
@@ -2208,10 +2093,7 @@ fn contract_schema_resource() {
     assert_resource_read(&server, "specforge://schema");
 }
 
-#[specforge_test(
-    behavior = "expose_context_as_mcp_resource",
-    verify = "Expose Context as MCP Resource: context MCP resource holds — validation_complete_fired, context_format_returned, resource_read_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn contract_context_resource() {
     let mut server = test_server();
     let (content, context) = resource(&mut server, "specforge://context");
@@ -2231,10 +2113,7 @@ fn contract_context_resource() {
     assert_resource_read(&server, "specforge://context");
 }
 
-#[specforge_test(
-    behavior = "expose_brief_as_mcp_resource",
-    verify = "Expose Brief as MCP Resource: brief MCP resource holds — validation_complete_fired, brief_format_returned, resource_read_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn contract_brief_resource() {
     let mut server = test_server();
     let (content, brief) = resource(&mut server, "specforge://brief");
@@ -2257,10 +2136,7 @@ fn contract_brief_resource() {
     assert_resource_read(&server, "specforge://brief");
 }
 
-#[specforge_test(
-    behavior = "expose_diagnostics_as_mcp_resource",
-    verify = "Expose Diagnostics as MCP Resource: diagnostics MCP resource holds — validation_complete_fired, diagnostics_returned, resource_read_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn contract_diagnostics_resource() {
     // broken.spec: `broken` names `ghost`, which no entity declares (E003
     // at 2:16–2:21, alone: no edge rule reports its cascade, ADR 0232);
@@ -2304,10 +2180,7 @@ fn contract_diagnostics_resource() {
     assert_resource_read(&server, "specforge://diagnostics");
 }
 
-#[specforge_test(
-    behavior = "expose_entity_as_mcp_resource",
-    verify = "Expose Per-Entity MCP Resource: per-entity MCP resource holds — validation_complete_fired, subgraph_returned, resource_read_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn contract_entity_resource() {
     // gamma (inv.spec) hangs off alpha, like beta.
     let mut server = contracts_project()
@@ -2379,10 +2252,7 @@ fn updated(uri: &str) -> Value {
     })
 }
 
-#[specforge_test(
-    behavior = "notify_graph_delta_via_mcp",
-    verify = "Notify Graph Delta via MCP: graph delta MCP notification holds — graph_delta_computed_fired, subscribers_notified, no_notification_when_empty, delta_notified_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn contract_graph_notification() {
     let (mut server, spec) = project_server();
 
@@ -2506,10 +2376,7 @@ fn modified_after_rebuild(server: &mut McpServer) -> Value {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "notify_graph_delta_via_mcp",
-    verify = "a field-only edit is reported as a modified node"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn field_only_edits_are_modified_nodes() {
     let (mut server, spec) = subscribed_graph_server();
 
@@ -2557,10 +2424,7 @@ fn field_only_edits_are_modified_nodes() {
     );
 }
 
-#[specforge_test(
-    behavior = "notify_graph_delta_via_mcp",
-    verify = "moving an entity is not a modification: no graphChanged is sent"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn moving_an_entity_is_not_a_modification() {
     let (mut server, spec) = subscribed_graph_server();
     let moved_graph = vec![updated("specforge://graph")];
@@ -2595,10 +2459,7 @@ fn moving_an_entity_is_not_a_modification() {
     assert!(events(&server, "mcp_delta_notified").is_empty());
 }
 
-#[specforge_test(
-    behavior = "notify_graph_delta_via_mcp",
-    verify = "a moved entity updates the resources that write its place, and no graphChanged is sent"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn a_moved_entity_updates_the_graph_documents() {
     let (mut server, spec) = project_server();
     rebuild(&mut server);
@@ -2634,10 +2495,7 @@ fn a_moved_entity_updates_the_graph_documents() {
     assert!(events(&server, "mcp_delta_notified").is_empty());
 }
 
-#[specforge_test(
-    behavior = "notify_diagnostics_delta_via_mcp",
-    verify = "Notify Diagnostics Delta via MCP: diagnostics delta MCP notification holds — validation_complete_fired, subscribers_notified, unchanged_suppressed, delta_notified_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn contract_diagnostics_notification() {
     let (mut server, spec) = project_server();
     rebuild(&mut server);
@@ -2757,10 +2615,7 @@ fn located(diagnostics: &[Value]) -> Vec<(String, i64)> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "notify_diagnostics_delta_via_mcp",
-    verify = "a diagnostic that moved is removed where it was and added where it is"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn a_moved_diagnostic_is_notified() {
     let text = "behavior alpha \"Alpha\" {\n}\nbogus thing\n";
     let (removed, added) = diagnostics_heard_after(text, &format!("\n\n\n{text}"));
@@ -2768,10 +2623,7 @@ fn a_moved_diagnostic_is_notified() {
     assert_eq!(located(&added), [("E001".to_string(), 6)]);
 }
 
-#[specforge_test(
-    behavior = "notify_diagnostics_delta_via_mcp",
-    verify = "a diagnostic whose span changed is removed and added"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn a_diagnostic_whose_span_changed_is_notified() {
     let alpha = "behavior alpha \"Alpha\" {\n}\n";
     let (removed, added) = diagnostics_heard_after(
@@ -2784,10 +2636,7 @@ fn a_diagnostic_whose_span_changed_is_notified() {
     assert_eq!(added[0]["span"]["end_line"], 3);
 }
 
-#[specforge_test(
-    behavior = "notify_diagnostics_delta_via_mcp",
-    verify = "removing one of two identical diagnostics is notified"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn removing_one_of_two_identical_diagnostics_is_notified() {
     let two = "behavior alpha \"Alpha\" {\n}\nbehavior alpha \"Again\" {\n}\n";
     let (removed, added) =
@@ -2796,10 +2645,7 @@ fn removing_one_of_two_identical_diagnostics_is_notified() {
     assert!(added.is_empty(), "{added:?}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "Provide MCP Add Extension Tool: MCP add extension tool holds — filesystem_available, extension_installed, wasm_downloaded, extension_added_emitted, dry_run_safe, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn contract_add_extension() {
     // A project that enables nothing, served with its own component
     // runtime, so an installed extension loads.
@@ -2863,10 +2709,7 @@ fn contract_migrate() {
     assert_tool_invoked(&server, "specforge.migrate");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_providers_tool",
-    verify = "Provide MCP Providers Tool: MCP providers tool holds — compiler_api_available, providers_listed, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn contract_providers() {
     // The project names two providers; only an extension that contributes
     // providers can back a scheme: `@acme/github-provider`, enabled after
@@ -2906,10 +2749,7 @@ fn contract_providers() {
     assert_tool_invoked(&server, "specforge.providers");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_render_tool",
-    verify = "Provide MCP Render Tool: MCP render tool holds — graph_available, filesystem_available, files_written, files_listed, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn contract_render() {
     let mut server = test_server();
     let out_dir = server.root().join("rendered");
@@ -2948,10 +2788,7 @@ fn contract_render() {
     assert_tool_invoked(&server, "specforge.render");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "Provide MCP Analyze Tool: MCP analyze tool holds — graph_available, passes_run, results_structured, tool_invoked_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn contract_analyze() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.analyze", json!({}));
@@ -3004,10 +2841,7 @@ fn model_kinds(server: &mut McpServer, mut args: Value) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "expose_model_mcp_tool",
-    verify = "specforge.model appears in MCP tool list"
-)]
+#[specforge_test(requirement = "FEATURE-074")]
 fn the_model_tool_is_listed_with_its_parameters() {
     let (mut server, _project) = model_server();
     let tools = call(&mut server, "tools/list", json!({}));
@@ -3031,10 +2865,7 @@ fn the_model_tool_is_listed_with_its_parameters() {
     }
 }
 
-#[specforge_test(
-    behavior = "expose_model_mcp_tool",
-    verify = "default format is markdown"
-)]
+#[specforge_test(requirement = "FEATURE-074")]
 fn the_model_defaults_to_markdown() {
     let (mut server, _project) = model_server();
     let default = model_text(&mut server, json!({}));
@@ -3045,10 +2876,7 @@ fn the_model_defaults_to_markdown() {
     );
 }
 
-#[specforge_test(
-    behavior = "expose_model_mcp_tool",
-    verify = "all five formats produce valid output"
-)]
+#[specforge_test(requirement = "FEATURE-074")]
 fn every_model_format_renders() {
     let (mut server, _project) = model_server();
     let text = |server: &mut McpServer, format: &str| model_text(server, json!({"format": format}));
@@ -3072,10 +2900,7 @@ fn every_model_format_renders() {
     assert_eq!(error["argument"], "format");
 }
 
-#[specforge_test(
-    behavior = "expose_model_mcp_tool",
-    verify = "filter parameters are passed through to model options"
-)]
+#[specforge_test(requirement = "FEATURE-074")]
 fn model_filters_reach_the_model() {
     let (mut server, _project) = model_server();
     let all = model_kinds(&mut server, json!({}));
@@ -3121,10 +2946,7 @@ fn model_filters_reach_the_model() {
     assert!(every.len() > keys.len());
 }
 
-#[specforge_test(
-    behavior = "filter_model",
-    verify = "a depth without a root is refused"
-)]
+#[specforge_test(requirement = "FEATURE-075")]
 fn a_model_depth_without_a_root_is_refused() {
     let (mut server, _project) = model_server();
     let resp = call_tool(&mut server, "specforge.model", json!({"depth": 0}));
@@ -3138,10 +2960,7 @@ fn a_model_depth_without_a_root_is_refused() {
     );
 }
 
-#[specforge_test(
-    behavior = "filter_model",
-    verify = "an empty kind list selects every kind"
-)]
+#[specforge_test(requirement = "FEATURE-075")]
 fn an_empty_kind_list_selects_every_kind() {
     let (mut server, _project) = model_server();
     assert_eq!(
@@ -3150,10 +2969,7 @@ fn an_empty_kind_list_selects_every_kind() {
     );
 }
 
-#[specforge_test(
-    behavior = "filter_model",
-    verify = "a root no loaded extension declares is refused with unknown_kind naming the closest declared kind"
-)]
+#[specforge_test(requirement = "FEATURE-075")]
 fn an_unknown_model_root_is_refused_on_root() {
     let (mut server, _project) = model_server();
     let resp = call_tool(&mut server, "specforge.model", json!({"root": "behaviour"}));
@@ -3165,10 +2981,7 @@ fn an_unknown_model_root_is_refused_on_root() {
     assert_eq!(error["data"]["suggestion"], "did you mean 'behavior'?");
 }
 
-#[specforge_test(
-    behavior = "filter_model",
-    verify = "a listed kind the project does not know is reported as I020 and selects nothing"
-)]
+#[specforge_test(requirement = "FEATURE-075")]
 fn an_unknown_model_kind_is_an_i020_notice() {
     let (mut server, _project) = model_server();
     let resp = call_tool(
@@ -3192,10 +3005,7 @@ fn an_unknown_model_kind_is_an_i020_notice() {
     );
 }
 
-#[specforge_test(
-    behavior = "expose_model_mcp_tool",
-    verify = "Expose Model as MCP Tool: MCP model tool holds — validation_complete_fired, tool_registered, all_formats_available, all_filters_available, result_is_string"
-)]
+#[specforge_test(requirement = "FEATURE-074")]
 fn contract_model() {
     // validation_complete_fired: initialize compiled the project.
     let (mut server, _project) = model_server();
@@ -3229,10 +3039,7 @@ fn contract_model() {
     assert_tool_invoked(&server, "specforge.model");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_coverage_tool",
-    verify = "entity_id filter returns single entity coverage"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn coverage_by_entity_id_is_one_row() {
     let mut server = test_server();
     let rows = tool(

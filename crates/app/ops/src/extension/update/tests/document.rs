@@ -1,9 +1,6 @@
 use super::*;
 
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "the update document lists every locked extension's status, held back when another failed"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn update_document_lists_each_status() {
     let row = |name: &str, status| ExtensionUpdate {
         name: name.into(),

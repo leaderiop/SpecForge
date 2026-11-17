@@ -57,10 +57,9 @@ fn shape(view: &ProjectView, id: &str) -> (bool, bool, bool) {
     )
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "inspect reports an entity's standing as the coverage view counts it"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn standing_is_the_coverage_views() {
     let project = standings();
     let view = project.view();
@@ -78,10 +77,7 @@ fn standing_is_the_coverage_views() {
     assert_eq!(shape(&view, "done"), (true, true, true));
 }
 
-#[specforge_test(
-    behavior = "inspect_entity_facts",
-    verify = "an entity's coverage is its coverage row's verdict, obligation by obligation"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn coverage_is_the_coverage_rows_verdict() {
     let project = standings();
     project.record_passing(&[("done", "first")]);
@@ -116,10 +112,9 @@ fn without_a_report_the_coverage_is_unrecorded() {
     );
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "a report that cannot be read is the coverage's error, and the standing still holds"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn an_unreadable_report_is_the_coverage_error_not_the_inspects() {
     let project = standings();
     let readable: Vec<Standing> = IDS.iter().map(|id| standing(&project.view(), id)).collect();
@@ -144,10 +139,7 @@ fn span(file: &str, start_line: usize, end_line: usize) -> SourceSpan {
     }
 }
 
-#[specforge_test(
-    behavior = "inspect_entity_facts",
-    verify = "the diagnostics about an entity are its own, not those of an entity whose id contains it"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn diagnostics_are_those_about_the_entity() {
     // `task` on lines 1–3, `task_id_uniqueness` on 4–8.
     let source = "invariant task \"Task\" {\n  guarantee \"a task exists\"\n}\n\
@@ -185,10 +177,7 @@ fn diagnostics_are_those_about_the_entity() {
     assert_eq!(codes("task_id_uniqueness"), ["W003", "W102"]);
 }
 
-#[specforge_test(
-    behavior = "inspect_entity_facts",
-    verify = "a duplicate declaration's diagnostics are about its entity"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn a_duplicate_declarations_diagnostics_are_about_its_entity() {
     let p = compile(
         &["@specforge/software", "@specforge/governance"],
@@ -330,10 +319,7 @@ type orphan \"Orphan\" {\n}\n";
     assert!(orphan.incoming.is_empty() && orphan.outgoing.is_empty());
 }
 
-#[specforge_test(
-    behavior = "inspect_entity_facts",
-    verify = "an unknown entity is E003, entity_not_found"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn an_unknown_entity_is_not_found() {
     let project = standings();
     let error = inspect(&project.view(), "ghost").unwrap_err();
@@ -345,10 +331,7 @@ fn an_unknown_entity_is_not_found() {
     );
 }
 
-#[specforge_test(
-    behavior = "inspect_entity_facts",
-    verify = "an entity's headline and its fields read the one entry of a field written twice"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn the_headline_and_the_fields_read_one_entry_of_a_field_written_twice() {
     let p = compile(
         &["@specforge/software", "@specforge/governance"],
@@ -371,10 +354,7 @@ fn the_headline_and_the_fields_read_one_entry_of_a_field_written_twice() {
     );
 }
 
-#[specforge_test(
-    behavior = "inspect_entity_facts",
-    verify = "an entity's headline is its headline field's text, whatever its written shape"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn an_entitys_headline_is_its_field_text_whatever_its_shape() {
     let p = compile(
         &["@specforge/software", "@specforge/governance"],

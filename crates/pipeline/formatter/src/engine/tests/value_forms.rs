@@ -36,10 +36,7 @@ fn fmt_forms(source: &str) -> String {
     format_source(source, &FormatConfig::default(), &forms()).formatted
 }
 
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "a value is written in its field's form, read from the project's declarations"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_value_is_written_in_its_fields_form() {
     assert_eq!(
         fmt_forms("behavior b \"B\" {\n  category \"cart\"\n  contract plain\n}\n"),
@@ -51,10 +48,7 @@ fn a_value_is_written_in_its_fields_form() {
     );
 }
 
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "format keeps a number's word as written and writes a quoted one bare"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_number_keeps_its_word_and_a_quoted_one_is_written_bare_as_given() {
     for kept in ["1.50", "1.5e3", "007.5", "-0.25", "100"] {
         let text = format!("behavior b \"B\" {{\n  value {kept}\n}}\n");
@@ -72,10 +66,7 @@ fn a_number_keeps_its_word_and_a_quoted_one_is_written_bare_as_given() {
     assert_eq!(fmt_forms(refused), refused);
 }
 
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "a value is written in its field's form, read from the project's declarations"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn what_cannot_be_written_in_the_form_is_left() {
     let text = "behavior b \"B\" {\n  category \"api/lsp\"\n  contract \"\"\"\n    x\n  \"\"\"\n}\n\n\
                 type T \"T\" {\n  description string\n}\n";
@@ -86,10 +77,7 @@ fn what_cannot_be_written_in_the_form_is_left() {
     assert_eq!(fmt_forms(truth), truth);
 }
 
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "a value is written in its field's form, read from the project's declarations"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_quoted_scheme_ref_in_a_reference_list_loses_its_quotes() {
     assert_eq!(
         fmt_forms("behavior b \"B\" {\n  types [\"gh.issue:1\", b]\n}\n"),
@@ -97,28 +85,19 @@ fn a_quoted_scheme_ref_in_a_reference_list_loses_its_quotes() {
     );
 }
 
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "without the project's declarations no value is rewritten"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn with_no_forms_nothing_is_rewritten() {
     let text = "behavior b \"B\" {\n  category \"cart\"\n  contract plain\n}\n";
     assert_eq!(fmt(text), text);
 }
 
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "a value is written in its field's form, read from the project's declarations"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn the_rewritten_text_is_a_fixed_point() {
     let once = fmt_forms("behavior b \"B\" {\n  category \"cart\"\n  types [\"a\"]\n}\n");
     assert_eq!(fmt_forms(&once), once);
 }
 
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "a value is written in its field's form, read from the project's declarations"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_triple_quoted_word_is_written_bare_as_a_quoted_one_is() {
     assert_eq!(
         fmt_forms("behavior b \"B\" {\n  category \"\"\"cart\"\"\"\n}\n"),
@@ -126,10 +105,7 @@ fn a_triple_quoted_word_is_written_bare_as_a_quoted_one_is() {
     );
 }
 
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "a defaults block's values are written in the forms of the kind it names"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_defaults_blocks_values_are_written_in_the_forms_of_the_kind_it_names() {
     assert_eq!(
         fmt_forms(
@@ -142,29 +118,20 @@ fn a_defaults_blocks_values_are_written_in_the_forms_of_the_kind_it_names() {
 }
 
 /// D5 through the named kind: `type` takes members, so a bare word stays.
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "a defaults block's values are written in the forms of the kind it names"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_defaults_block_of_a_kind_that_takes_members_keeps_a_bare_word() {
     let text = "defaults type {\n  description string\n}\n";
     assert_eq!(fmt_forms(text), text);
 }
 
 /// A kind with no forms (E077 in the graph) rewrites nothing.
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "a defaults block's values are written in the forms of the kind it names"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_defaults_block_naming_an_undeclared_kind_rewrites_nothing() {
     let text = "defaults widget {\n  category \"cart\"\n}\n";
     assert_eq!(fmt_forms(text), text);
 }
 
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "a number, a boolean, a literal and a whole value on a list field are written in their field's form"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_number_a_boolean_a_literal_and_a_whole_value_on_a_list_are_written_in_their_form() {
     let format = fmt_forms;
     let once = format(
@@ -177,30 +144,21 @@ fn a_number_a_boolean_a_literal_and_a_whole_value_on_a_list_are_written_in_their
     assert_eq!(format(&once), once, "a fixed point");
 }
 
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "a multi-line text on a list field is left as written"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_multi_line_text_on_a_list_field_is_left_as_written() {
     let text = "behavior b \"B\" {\n  tags \"\"\"\n    one\n    two\n  \"\"\"\n}\n";
     assert_eq!(fmt_forms(text), text);
 }
 
 /// The parse keeps a padded value, so format does.
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "a padded value is kept as written, as check reads it"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_padded_value_is_kept_as_written() {
     let text = "behavior b \"B\" {\n  category \" cart\"\n  due      \" 2026-03-01\"\n  types    [\" a \", b]\n}\n";
     assert_eq!(fmt_forms(text), text);
 }
 
 /// The parse dedents a one-word `"""` to the word, so W159 names it and format writes it.
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "format writes a value in another form exactly where W159's rule names one"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_multi_line_word_is_written_in_its_fields_form() {
     let once = fmt_forms(
         "behavior b \"B\" {\n  category \"\"\"\n    cart\n  \"\"\"\n  tags \"\"\"\n    x\n  \"\"\"\n}\n",
@@ -213,10 +171,7 @@ fn a_multi_line_word_is_written_in_its_fields_form() {
 }
 
 /// The parse reads `true` in a list as a literal, so W159 says quote it and format does.
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "format writes a value in another form exactly where W159's rule names one"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_bare_true_item_on_a_members_kind_is_quoted() {
     assert_eq!(
         fmt_forms("type T \"T\" {\n  types [true, b]\n}\n"),
@@ -225,10 +180,7 @@ fn a_bare_true_item_on_a_members_kind_is_quoted() {
 }
 
 /// A quoted number is written as the number it reads to, as `set` writes it.
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "a quoted number is written as the number it reads to"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_quoted_number_is_written_as_the_number_it_reads_to() {
     for (given, written) in [("+3", "3"), (" 3", "3"), ("007", "7")] {
         assert_eq!(

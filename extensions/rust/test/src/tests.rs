@@ -51,10 +51,8 @@ fn item(id: &str, test_id: &str, attrs: &[&str], file: &str, line: usize) -> Fac
         .at(place(file, line))
 }
 
-#[specforge_test(
-    behavior = "rt_declare_test_collector",
-    verify = "rust-test declares nextest, its config, its install line and its peers"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-114")]
 fn rust_test_declares_nextest_its_config_its_install_line_and_its_peers() {
     let declaration = crate::specforge_extension_build().declaration();
     let peers: Vec<(&str, &str, bool)> = declaration
@@ -111,10 +109,8 @@ fn rust_test_declares_nextest_its_config_its_install_line_and_its_peers() {
     );
 }
 
-#[specforge_test(
-    behavior = "rt_declare_test_collector",
-    verify = "the config's specforge profile writes JUnit to the report path"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-114")]
 fn the_config_writes_junit_to_the_report_path() {
     let lines: Vec<&str> = TEMPLATE.lines().collect();
     let junit = lines
@@ -132,10 +128,8 @@ fn the_config_writes_junit_to_the_report_path() {
     assert_eq!(TEMPLATE.matches("{report}").count(), 1);
 }
 
-#[specforge_test(
-    behavior = "rt_map_nextest_report",
-    verify = "cases become tests named by their binary id and path"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-114")]
 fn cases_become_tests_named_by_binary_and_path() {
     let out = collect(&input(TOY, Vec::new())).unwrap();
     assert_eq!(
@@ -178,10 +172,8 @@ fn cases_become_tests_named_by_binary_and_path() {
     assert_eq!(out.facts[0].fields["binary"], "toy-crate");
 }
 
-#[specforge_test(
-    behavior = "rt_map_nextest_report",
-    verify = "a test takes its places, file and names from its item"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-114")]
 fn a_test_takes_its_location_file_and_names_from_its_item() {
     let adds = item(
         "rust:toy-crate::tests::adds",
@@ -204,10 +196,8 @@ fn a_test_takes_its_location_file_and_names_from_its_item() {
     );
 }
 
-#[specforge_test(
-    behavior = "rt_fill_ignored_tests",
-    verify = "an ignored test the report omits is a skipped test without a run"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-114")]
 fn an_ignored_test_the_report_omits_is_a_skipped_test_without_a_run() {
     let skipped = item(
         "rust:toy-crate/test/tests::skipped",
@@ -241,10 +231,8 @@ fn an_ignored_test_the_report_omits_is_a_skipped_test_without_a_run() {
     assert_eq!(skipped.fields["file"], "tests/tests.rs");
 }
 
-#[specforge_test(
-    behavior = "rt_fill_ignored_tests",
-    verify = "an ignored test the report holds keeps the status it ran with"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-114")]
 fn an_ignored_test_the_report_holds_keeps_its_status() {
     let deep = item(
         "rust:toy-crate::tests::nested::deep",
@@ -271,10 +259,8 @@ fn an_ignored_test_the_report_holds_keeps_its_status() {
     );
 }
 
-#[specforge_test(
-    behavior = "rt_map_nextest_report",
-    verify = "a case outside exactly one testsuite is the collector's error"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-114")]
 fn a_case_outside_one_binary_suite_is_the_collectors_error() {
     for report in [
         r#"<testsuites><testcase name="x"/></testsuites>"#,
@@ -288,10 +274,8 @@ fn a_case_outside_one_binary_suite_is_the_collectors_error() {
     assert!(why.starts_with(&format!("{REPORT}: ")), "{why}");
 }
 
-#[specforge_test(
-    behavior = "rt_map_nextest_report",
-    verify = "an empty report has no test"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-114")]
 fn an_empty_report_has_no_test() {
     for report in [
         "",

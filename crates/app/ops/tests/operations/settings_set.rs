@@ -87,10 +87,7 @@ impl Project {
     }
 }
 
-#[specforge_test(
-    behavior = "load_extension_settings",
-    verify = "settings set writes a value its setting's form admits and leaves the rest of specforge.json as it was"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn set_writes_an_admitted_value() {
     let p = project(CONFIG);
 
@@ -112,10 +109,7 @@ fn set_writes_an_admitted_value() {
     assert!(p.config().contains("\"name\": \"p\""));
 }
 
-#[specforge_test(
-    behavior = "load_extension_settings",
-    verify = "settings set refuses a secret, an unknown setting and a value the form refuses before it writes"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn set_refuses_before_writing() {
     let p = project(CONFIG);
     let refused = |error: OpError, code| {
@@ -252,10 +246,7 @@ fn the_edit_keeps_the_files_layout() {
     assert_eq!(p.json()["settings"]["@t/s"]["level"], 2);
 }
 
-#[specforge_test(
-    behavior = "load_extension_settings",
-    verify = "settings unset removes the member and an interrupted set is rolled back"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn unset_restores_the_default() {
     let p = project(CONFIG);
     p.set("level", &["2"]).unwrap();
@@ -453,19 +444,13 @@ fn number_word_written(word: &str) -> Result<String, OpError> {
     Ok(std::fs::read_to_string(dir.path().join("specforge.json")).unwrap())
 }
 
-#[specforge_test(
-    behavior = "load_extension_settings",
-    verify = "a number setting takes a decimal within its bounds"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn settings_set_reads_a_decimal_word() {
     let written: Value = serde_json::from_str(&number_word_written("30.5").unwrap()).unwrap();
     assert_eq!(written["settings"]["@t/n"]["x.ratio"], json!(30.5));
 }
 
-#[specforge_test(
-    behavior = "load_extension_settings",
-    verify = "a number setting takes a decimal within its bounds"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn settings_set_writes_a_whole_number_as_an_integer() {
     let text = number_word_written("30").unwrap();
     assert!(
@@ -474,10 +459,7 @@ fn settings_set_writes_a_whole_number_as_an_integer() {
     );
 }
 
-#[specforge_test(
-    behavior = "load_extension_settings",
-    verify = "settings set stores a number setting as its decimal and refuses more than 15 significant digits"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_number_setting_is_stored_as_its_decimal() {
     let stored = |word: &str| -> Value {
         let written: Value = serde_json::from_str(&number_word_written(word).unwrap()).unwrap();

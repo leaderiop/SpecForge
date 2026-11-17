@@ -116,22 +116,9 @@ fn trap_kind(result: &WasmCallResult) -> &str {
     }
 }
 
-#[specforge_test(
-    behavior = "enforce_wasm_sandbox",
-    verify = "memory limit enforced via linear memory cap"
-)]
-#[specforge_test(
-    constraint = "wasm_memory_limit",
-    verify = "an extension growing past its memory limit traps"
-)]
-#[specforge_test(
-    invariant = "wasm_sandbox_integrity",
-    verify = "sandbox violation traps the extension and emits a diagnostic"
-)]
-#[specforge_test(
-    failure_mode = "wasm_memory_exhaustion",
-    verify = "Wasm Memory Exhaustion failure mode is handled"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
+#[specforge_test(requirement = "PERFORMANCE-17")]
+#[specforge_test(requirement = "INVARIANT-147")]
 fn an_extension_growing_past_its_memory_limit_traps() {
     // The handshake runs under the ceiling (its limits are not known yet);
     // the 32 MB it declares then binds every later growth.
@@ -160,10 +147,7 @@ fn an_extension_growing_past_its_memory_limit_traps() {
     );
 }
 
-#[specforge_test(
-    constraint = "wasm_memory_limit",
-    verify = "an extension declaring no memory limit is held to the 512 MB ceiling"
-)]
+#[specforge_test(requirement = "PERFORMANCE-17")]
 fn an_extension_declaring_no_memory_limit_is_held_to_the_ceiling() {
     // 128 MiB per call: the handshake, call 1 and call 2 reach 128, 256 and
     // 384 MiB; call 3 would pass 512 MiB.
@@ -177,10 +161,7 @@ fn an_extension_declaring_no_memory_limit_is_held_to_the_ceiling() {
     assert!(trap_message(&third).contains("512 MB"), "{third:?}");
 }
 
-#[specforge_test(
-    behavior = "enforce_wasm_sandbox",
-    verify = "every call gets the whole fuel budget, and a call that spends it traps as fuel_exhausted"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
 fn every_call_gets_the_whole_fuel_budget() {
     // Each call spends about a third of the budget, so a budget shared by
     // the instance's calls would run out on the third.
@@ -215,10 +196,7 @@ fn every_call_gets_the_whole_fuel_budget() {
     );
 }
 
-#[specforge_test(
-    behavior = "enforce_wasm_sandbox",
-    verify = "a call that crosses a limit traps with the limit's kind, and the next call gets a fresh instance under the same limits"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
 fn a_limit_trap_names_its_limit() {
     let runtime = ComponentRuntime::new();
     runtime
@@ -252,10 +230,7 @@ fn a_limit_trap_names_its_limit() {
 
 /// The sandbox contract end to end: nothing is granted, and the three
 /// limits trap.
-#[specforge_test(
-    behavior = "enforce_wasm_sandbox",
-    verify = "Enforce Wasm Sandbox: Wasm sandbox enforcement holds — sandbox_policy_configured, wasm_runtime_available, no_capability_granted, memory_limit_enforced, execution_time_enforced, deadline_never_early, violations_trapped"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
 fn the_sandbox_contract_holds() {
     // no_capability_granted: the probe is told about a directory and a port.
     let probe = probe_runtime();
@@ -356,10 +331,7 @@ fn second_memory(memory: &str) -> String {
         .replace("MEMORY", memory)
 }
 
-#[specforge_test(
-    constraint = "wasm_memory_limit",
-    verify = "the memory limit holds for every memory of an extension together"
-)]
+#[specforge_test(requirement = "PERFORMANCE-17")]
 fn the_memory_limit_counts_every_memory_together() {
     // Two memories of 24 MiB each: neither passes 32 MB alone, together
     // they do.
@@ -373,10 +345,7 @@ fn the_memory_limit_counts_every_memory_together() {
     assert_eq!(trap_kind(&result), "memory_limit_exceeded", "{result:?}");
 }
 
-#[specforge_test(
-    constraint = "wasm_memory_limit",
-    verify = "an extension cannot grow a shared memory past its memory limit"
-)]
+#[specforge_test(requirement = "PERFORMANCE-17")]
 fn a_shared_memory_cannot_pass_the_memory_limit() {
     // 64 MiB of shared memory under a 32 MB limit: refused at load (the
     // engine does not enable shared memory), or trapped when it grows.
@@ -391,10 +360,7 @@ fn a_shared_memory_cannot_pass_the_memory_limit() {
     }
 }
 
-#[specforge_test(
-    constraint = "wasm_memory_limit",
-    verify = "an extension cannot grow a table without bound"
-)]
+#[specforge_test(requirement = "PERFORMANCE-17")]
 fn a_table_cannot_grow_without_bound() {
     // A table declaring no maximum, grown by ten million entries at once.
     let runtime = custom_guest(
@@ -407,10 +373,7 @@ fn a_table_cannot_grow_without_bound() {
     assert_eq!(trap_kind(&result), "memory_limit_exceeded", "{result:?}");
 }
 
-#[specforge_test(
-    behavior = "enforce_wasm_sandbox",
-    verify = "an extension waiting on a timer is stopped instead of blocking the host"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
 fn an_extension_waiting_on_a_timer_does_not_block_the_host() {
     // The guest asks WASI for a 5 s timer and blocks on it. Epoch
     // interruption only fires while guest code runs, so the wait itself
@@ -453,10 +416,7 @@ fn an_extension_waiting_on_a_timer_does_not_block_the_host() {
     );
 }
 
-#[specforge_test(
-    behavior = "enforce_wasm_sandbox",
-    verify = "an extension that cannot be restarted after a trap is unloaded, and its next call says why"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
 fn an_extension_that_cannot_restart_is_unloaded_with_its_reason() {
     // 18 pages (over 1 MiB) at instantiation, which the 512 MB ceiling
     // admits; under its 1 MB limit, the first growth traps and no fresh
@@ -478,10 +438,7 @@ fn an_extension_that_cannot_restart_is_unloaded_with_its_reason() {
     assert_eq!(trap_kind(&next), "extension_not_found", "{next:?}");
 }
 
-#[specforge_test(
-    behavior = "enforce_wasm_sandbox",
-    verify = "a call cut at the budget its caller gave names that budget, not the extension's limit"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
 fn a_call_cut_at_its_budget_names_the_budget() {
     let runtime = ComponentRuntime::new();
     runtime
@@ -501,10 +458,7 @@ fn a_call_cut_at_its_budget_names_the_budget() {
     );
 }
 
-#[specforge_test(
-    behavior = "enforce_wasm_sandbox",
-    verify = "under a work budget a call is held to its instructions, not to the time budget its caller gave"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
 fn a_work_budget_replaces_the_callers_time_budget() {
     // A budget of 0 ms traps at the guest's first checkpoint, unless the work budget lifts it.
     let runtime = ComponentRuntime::new().with_work_budget(1_000_000);
@@ -536,10 +490,7 @@ fn a_work_budget_replaces_the_callers_time_budget() {
     );
 }
 
-#[specforge_test(
-    behavior = "enforce_wasm_sandbox",
-    verify = "under a work budget the extension's own limit holds as the work it allows, and no clock runs"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
 fn under_a_work_budget_the_extensions_limit_is_work() {
     // The limit's work: 50 ms at the reference rate. A spin past it traps on its instructions, naming the limit.
     let runtime = ComponentRuntime::new().with_work_budget(u64::MAX);

@@ -48,10 +48,7 @@ fn check(host: Host) {
     assert!(cases >= 5, "{} holds {cases} cases", dir.display());
 }
 
-#[specforge_test_macros::test(
-    behavior = "run_a_hook",
-    verify = "each host reads its hook stdin into the neutral event and writes the neutral answer as the host expects it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn claude_code_reads_and_answers_its_hook_protocol() {
     check(Host::ClaudeCode);
 }
@@ -96,10 +93,7 @@ fn on_event(event: HookEvent, on_failure: OnFailure) -> RenderedHook {
 
 const GUARD: &str = "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook t.write_guard cannot run, so it denies' >&2; exit 2; }; specforge hook t.write_guard --host codex";
 
-#[specforge_test_macros::test(
-    behavior = "install_into_a_host",
-    verify = "a hook whose policy is deny blocks with exit 2 when specforge is not on PATH, and an allow hook's line is the plain command"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_deny_hook_line_fails_closed_without_the_binary() {
     let line = write_guard(OnFailure::Deny).command(Host::Codex);
     assert!(line.starts_with(GUARD), "{line}");
@@ -157,10 +151,7 @@ fn a_deny_hook_line_runs_the_binary_when_it_is_present() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
-#[specforge_test_macros::test(
-    behavior = "install_into_a_host",
-    verify = "a deny hook is fail-closed without sh syntax on Windows: Claude Code's handler carries onFailure block, Codex's carries commandWindows, Cursor's Windows line is the plain command"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_deny_hook_is_fail_closed_without_sh_syntax_on_windows() {
     let deny = write_guard(OnFailure::Deny);
     let plain = |host: Host| format!("specforge hook t.write_guard --host {}", host.as_str());
@@ -231,10 +222,7 @@ fn a_deny_hook_is_fail_closed_without_sh_syntax_on_windows() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "install_into_a_host",
-    verify = "a stop or subagent_stop hook never gets the fail-closed line"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_deny_stop_hook_line_is_the_plain_command() {
     for event in [
         HookEvent::Stop,
@@ -283,10 +271,7 @@ fn answer_of(
     serde_json::from_str(&reply.stdout).unwrap()
 }
 
-#[specforge_test_macros::test(
-    behavior = "run_a_hook",
-    verify = "Cursor wires a user_prompt hook on beforeSubmitPrompt and answers a denied prompt with continue false"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn cursor_renders_user_prompt_as_before_submit_prompt() {
     let cursor = renderer(Host::Cursor).unwrap();
     assert_eq!(
@@ -306,10 +291,7 @@ fn cursor_renders_user_prompt_as_before_submit_prompt() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "run_a_hook",
-    verify = "Cursor answers a denied tool call with permission deny, its reason to the user and the agent"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn cursor_denies_a_tool_call_with_permission_deny() {
     for decision in [Decision::Deny, Decision::Ask] {
         let reply = answer_of(Host::Cursor, HookEvent::PreTool, decision, "r", "c");
@@ -321,10 +303,7 @@ fn cursor_denies_a_tool_call_with_permission_deny() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "run_a_hook",
-    verify = "Claude Code wires a file_changed hook on FileChanged, matching the files by name, and reads the changed file and what happened"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn claude_code_reads_and_answers_file_changed() {
     let adapter = renderer(Host::ClaudeCode).unwrap();
     let read = adapter
@@ -358,10 +337,7 @@ fn claude_code_reads_and_answers_file_changed() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "run_a_hook",
-    verify = "Cursor cannot deny after a tool ran: a post_tool deny reaches the agent as context only"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn cursor_drops_a_post_tool_deny_to_context() {
     let reply = answer_of(
         Host::Cursor,

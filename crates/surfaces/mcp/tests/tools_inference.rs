@@ -393,10 +393,7 @@ fn infer_session_full_lifecycle() {
 
 // --- Mixed language discovery ---
 
-#[specforge_test(
-    behavior = "discover_inference_sources",
-    verify = "a source is a file an item fact locates"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn infer_progress_counts_the_files_of_every_item_scheme() {
     let tmp = TestProject::new()
         .file("src/app.ts", "export function handleRequest() {}")
@@ -450,10 +447,7 @@ fn recorded_sessions(root: &std::path::Path) -> Vec<Value> {
     manifest["sessions"].as_array().cloned().unwrap_or_default()
 }
 
-#[specforge_test(
-    behavior = "start_inference_session",
-    verify = "start assigns unique session ID"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn infer_session_ids_are_unique_uuids() {
     let tmp = TestProject::new();
     let mut server = init_server(tmp);
@@ -479,10 +473,7 @@ fn infer_session_ids_are_unique_uuids() {
     assert_ne!(ids[0], ids[1]);
 }
 
-#[specforge_test(
-    behavior = "end_inference_session",
-    verify = "end sets ended_at timestamp"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn infer_session_timestamps_are_rfc_3339() {
     let tmp = TestProject::new();
     std::fs::create_dir_all(tmp.root().join("src")).unwrap();
@@ -541,10 +532,7 @@ const MANIFEST_WITH_AN_UNREADABLE_SESSION: &str = r#"{
 /// A session the manifest cannot read makes the whole manifest unusable:
 /// every action refuses, naming the file and the missing field, and the
 /// file is not touched.
-#[specforge_test(
-    behavior = "load_inference_manifest",
-    verify = "a session the manifest cannot read refuses the load, and nothing is written"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn a_session_the_manifest_cannot_read_refuses_every_action() {
     let tmp = TestProject::new();
     write_sources(tmp.root());
@@ -570,10 +558,7 @@ fn a_session_the_manifest_cannot_read_refuses_every_action() {
 }
 
 /// An active session written to disk by hand is seen by the next start.
-#[specforge_test(
-    behavior = "start_inference_session",
-    verify = "start rejects when another session is active"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn start_refuses_while_a_session_is_active_after_a_reload() {
     let tmp = TestProject::new();
     write_manifest(
@@ -596,10 +581,7 @@ fn start_refuses_while_a_session_is_active_after_a_reload() {
 /// A write changes only what its step changed: the keys the manifest does
 /// not define survive, at the top level and inside a source entry or a
 /// session.
-#[specforge_test(
-    behavior = "save_inference_manifest",
-    verify = "save keeps keys the manifest does not define, at every level"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn a_rewrite_keeps_the_keys_it_does_not_define() {
     let tmp = TestProject::new();
     write_manifest(
@@ -624,10 +606,7 @@ fn a_rewrite_keeps_the_keys_it_does_not_define() {
 
 /// A path is recorded root-relative with `/` separators, so a file is
 /// analyzed or unanalyzed, never both.
-#[specforge_test(
-    behavior = "mark_source_file_analyzed",
-    verify = "mark records the path root-relative with / separators"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn mark_analyzed_records_the_root_relative_path() {
     let tmp = TestProject::new();
     write_sources(tmp.root());
@@ -653,10 +632,7 @@ fn mark_analyzed_records_the_root_relative_path() {
 }
 
 /// A file outside the project root is refused and nothing is written.
-#[specforge_test(
-    behavior = "mark_source_file_analyzed",
-    verify = "mark refuses a file outside the project root"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn mark_analyzed_refuses_a_file_outside_the_root() {
     let outside = tempfile::TempDir::new().unwrap();
     std::fs::write(outside.path().join("outside.rs"), "pub fn o() {}\n").unwrap();
@@ -698,10 +674,7 @@ fn relative_to(target: &std::path::Path, from: &std::path::Path) -> String {
 
 /// Every refusal's code, argument and wording; an unknown action or status
 /// is refused with the option table's wording (ADR 0027 D5).
-#[specforge_test(
-    behavior = "provide_mcp_infer_session_tool",
-    verify = "an unknown action or status is refused with the option table's wording"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn session_refusals_keep_their_codes_arguments_and_wording() {
     let tmp = TestProject::new();
     write_manifest(tmp.root(), r#"{"version":1,"source_roots":["src"]}"#);

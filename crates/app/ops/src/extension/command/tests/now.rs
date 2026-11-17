@@ -25,10 +25,7 @@ fn today_and_now_are_one_instant() {
     assert_eq!(now_of(at), "2026-10-03T23:59:59Z");
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "the CommandInput carries the format the caller asked for and the host's date"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_command_input_carries_now() {
     let runtime = std::sync::Arc::new(fake());
     let fixture = fixture(&runtime);
@@ -47,10 +44,7 @@ fn a_command_input_carries_now() {
     assert_eq!(input["now"], "2026-10-03T23:59:59Z");
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "every command call carries a fresh nonce from the host: 32 hex digits of the OS's entropy, never the same twice"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_command_input_carries_a_fresh_nonce() {
     let runtime = std::sync::Arc::new(fake());
     let fixture = fixture(&runtime);

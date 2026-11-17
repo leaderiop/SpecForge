@@ -82,10 +82,7 @@ fn linked(spec: &str, files: &[(&str, &str)]) -> Vec<String> {
         .collect()
 }
 
-#[spec(
-    behavior = "complete_checked_paths",
-    verify = "a path value completes the root prefixes, then the entries inside the root"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn a_path_value_completes_root_prefixes_then_entries_inside_the_root() {
     assert_eq!(completed(""), ["<spec>/", "<project>/"]);
     assert_eq!(completed("<sp"), ["<spec>/"]);
@@ -96,10 +93,7 @@ fn a_path_value_completes_root_prefixes_then_entries_inside_the_root() {
     assert_eq!(completed("docs/."), Vec::<String>::new());
 }
 
-#[spec(
-    behavior = "complete_checked_paths",
-    verify = "a spec root outside the project offers no prefix and no entry"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn a_spec_root_outside_the_project_offers_no_prefix_and_no_entry() {
     let outside = tempfile::tempdir().unwrap();
     std::fs::write(outside.path().join("secret.md"), "x").unwrap();
@@ -122,20 +116,14 @@ fn a_spec_root_outside_the_project_offers_no_prefix_and_no_entry() {
     assert_eq!(completed("<project>/docs/"), ["guide.md"]);
 }
 
-#[spec(
-    behavior = "complete_checked_paths",
-    verify = "a path prefix that leaves its root completes nothing"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn a_path_prefix_that_leaves_its_root_completes_nothing() {
     for value in ["../", "docs/../../", "/etc/", "<nope>/", "/e"] {
         assert_eq!(completed(value), Vec::<String>::new(), "{value}");
     }
 }
 
-#[spec(
-    behavior = "complete_checked_paths",
-    verify = "a string no path checker reads completes nothing"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn a_string_no_path_checker_reads_completes_nothing() {
     let spec = "service a \"A\" {\n  note \"do\"\n}\n";
     let served = Served::new(&[("a.spec", spec), ("docs/guide.md", "guide")])
@@ -148,10 +136,7 @@ fn a_string_no_path_checker_reads_completes_nothing() {
     assert!(items.is_empty(), "{items:?}");
 }
 
-#[spec(
-    behavior = "link_checked_values",
-    verify = "a path value links to its file inside its root"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn a_path_value_links_to_its_file_inside_its_root() {
     let spec = "service a \"A\" {\n  doc \"docs/guide.md\"\n}\n";
     assert_eq!(
@@ -160,10 +145,7 @@ fn a_path_value_links_to_its_file_inside_its_root() {
     );
 }
 
-#[spec(
-    behavior = "link_checked_values",
-    verify = "a path outside its root, missing, withheld or under an unknown root has no link"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn a_path_outside_its_root_or_missing_has_no_link() {
     for value in [
         "../outside.md",
@@ -182,10 +164,7 @@ fn a_path_outside_its_root_or_missing_has_no_link() {
 }
 
 #[cfg(unix)]
-#[spec(
-    behavior = "link_checked_values",
-    verify = "a link that leaves its root is neither listed nor linked"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn a_link_that_leaves_its_root_is_neither_listed_nor_linked() {
     let outside = tempfile::tempdir().unwrap();
     std::fs::write(outside.path().join("secret.md"), "secret").unwrap();
@@ -198,10 +177,7 @@ fn a_link_that_leaves_its_root_is_neither_listed_nor_linked() {
     assert!(links.is_empty(), "{links:?}");
 }
 
-#[spec(
-    behavior = "link_checked_values",
-    verify = "a URL value links to its URL when it is http or https"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn a_url_value_links_to_its_url() {
     let spec = "service a \"A\" {\n  site \"https://a.example/x\"\n}\n\nservice b \"B\" {\n  site \"ftp://a.example/x\"\n}\n";
     assert_eq!(linked(spec, &[]), ["https://a.example/x"]);

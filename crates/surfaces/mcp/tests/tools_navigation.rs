@@ -110,10 +110,7 @@ fn inspect_reports_no_contract_its_kind_does_not_declare() {
 }
 
 // B:provide_mcp_inspect_tool — verify unit "returns entity details"
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "specforge.inspect returns full entity details"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn inspect_returns_details() {
     let mut server = project().serve(&[TestExtension::software().headline("behavior")]);
     let resp = call_tool(
@@ -131,10 +128,7 @@ fn inspect_returns_details() {
 }
 
 // B:provide_mcp_inspect_tool — verify unit "includes reference count"
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "response includes referenced_by, refers_to and verify declarations"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn inspect_includes_referenced_by_and_refers_to() {
     let mut server = test_server();
     let parsed = result(
@@ -161,10 +155,7 @@ fn inspect_includes_referenced_by_and_refers_to() {
 }
 
 // B:provide_mcp_inspect_tool — verify unit "unknown entity returns error"
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "non-existent entity returns error response"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn inspect_unknown_entity() {
     let mut server = test_server();
     let resp = call_tool(
@@ -181,10 +172,7 @@ fn inspect_unknown_entity() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "response includes every field, like an invariant's guarantee"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn inspect_returns_every_field() {
     let mut server = project()
         .file(
@@ -203,10 +191,7 @@ fn inspect_returns_every_field() {
     assert!(parsed["contract"].is_null(), "an invariant has no contract");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "coverage status matches specforge.coverage obligation by obligation"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn inspect_coverage_matches_the_coverage_tool() {
     let mut server = test_server();
     let statuses = |server: &mut McpServer| {
@@ -244,10 +229,7 @@ fn inspect_coverage_matches_the_coverage_tool() {
     assert_eq!(inspect, coverage);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "diagnostics are the entity's own, not those of an entity whose ID contains it"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn inspect_diagnostics_are_the_entitys_own() {
     // tasks.spec: `task` on lines 20–22, `task_id_uniqueness` on 30–34.
     let tasks = format!(
@@ -296,10 +278,7 @@ fn inspect_diagnostics_are_the_entitys_own() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "a spanless diagnostic belongs to the entities its data names, never to one its message quotes"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn inspect_attributes_spanless_diagnostics_by_data() {
     // A reference cycle: no span, its entities in its data.
     // and a spanless diagnostic whose message quotes `gamma` but whose
@@ -343,10 +322,7 @@ fn inspect_attributes_spanless_diagnostics_by_data() {
 // --- specforge.find_definition ---
 
 // B:provide_mcp_find_definition_tool — verify unit "returns source location"
-#[specforge_test(
-    behavior = "provide_mcp_find_definition_tool",
-    verify = "specforge.find_definition returns file, line, and column"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn find_definition_returns_location() {
     let mut server = served(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
     let parsed = result(
@@ -394,10 +370,7 @@ fn find_definition_returns_location() {
 }
 
 // B:provide_mcp_find_definition_tool — verify unit "unknown entity returns error"
-#[specforge_test(
-    behavior = "provide_mcp_find_definition_tool",
-    verify = "non-existent entity returns error response"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn find_definition_unknown_entity() {
     let mut server = test_server();
     let resp = call_tool(
@@ -417,10 +390,7 @@ fn find_definition_unknown_entity() {
 // --- specforge.find_references ---
 
 // B:provide_mcp_find_references_tool — verify unit "returns referencing entities"
-#[specforge_test(
-    behavior = "provide_mcp_find_references_tool",
-    verify = "specforge.find_references returns all reference locations"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn find_references_returns_refs() {
     let mut server = served(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
     let parsed = result(
@@ -443,10 +413,7 @@ fn find_references_returns_refs() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_references_tool",
-    verify = "direction and include_declaration select which occurrences are returned"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn find_references_direction_and_declaration() {
     let mut server = served(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
     let mut spans = |args: Value| -> Vec<String> {
@@ -498,10 +465,7 @@ fn find_references_direction_and_declaration() {
 }
 
 // B:provide_mcp_find_references_tool — verify unit "unknown entity returns error"
-#[specforge_test(
-    behavior = "provide_mcp_find_references_tool",
-    verify = "non-existent entity returns error response"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn find_references_unknown_entity() {
     let mut server = test_server();
     let resp = call_tool(
@@ -521,10 +485,7 @@ fn find_references_unknown_entity() {
 // --- specforge.outline ---
 
 // B:provide_mcp_outline_tool — verify unit "returns entities in file"
-#[specforge_test(
-    behavior = "provide_mcp_outline_tool",
-    verify = "specforge.outline returns all entities defined in file"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn outline_returns_entities_in_file() {
     let mut server = test_server();
     let resp = call_tool(
@@ -547,10 +508,7 @@ fn outline_returns_entities_in_file() {
     assert_eq!(outline_ids(&mut server, "other.spec"), vec!["elsewhere"]);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_outline_tool",
-    verify = "non-existent file returns error response"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn outline_of_a_missing_file_is_an_error() {
     let mut server = test_server();
     let resp = call_tool(
@@ -581,10 +539,7 @@ fn outline_of_an_existing_file_without_entities_is_empty() {
 }
 
 // B:provide_mcp_outline_tool — verify unit "sorted by line number"
-#[specforge_test(
-    behavior = "provide_mcp_outline_tool",
-    verify = "sorted by line number"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn outline_sorted_by_line() {
     let mut server = server_with_unordered_file();
     assert_eq!(
@@ -641,10 +596,7 @@ const REPLACE: &str =
 const CREATE: &str = "Create invariant stub for sesion_limit refactor E003 | login.spec 8:1-8:1 \"\\ninvariant sesion_limit \\\"sesion_limit\\\" {\\n  guarantee \\\"TODO\\\"\\n}\\n\"";
 
 // B:provide_mcp_suggest_fixes_tool — verify unit "returns suggestions from diagnostics"
-#[specforge_test(
-    behavior = "provide_mcp_suggest_fixes_tool",
-    verify = "specforge.suggest_fixes returns applicable fix suggestions"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn suggest_fixes_returns_suggestions() {
     let mut server = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
     // Each fix carries the edits that apply it.
@@ -654,10 +606,7 @@ fn suggest_fixes_returns_suggestions() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_suggest_fixes_tool",
-    verify = "clean entity with no diagnostics returns empty list"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn suggest_fixes_for_a_clean_entity_is_empty() {
     let mut server = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
     let inspected = result(
@@ -672,10 +621,7 @@ fn suggest_fixes_for_a_clean_entity_is_empty() {
     assert!(fixes(&mut server, json!({"entity_id": "login"})).is_empty());
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_suggest_fixes_tool",
-    verify = "diagnostic_code filter restricts to matching diagnostics"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn suggest_fixes_diagnostic_code_filter() {
     let mut server = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
     assert_eq!(
@@ -702,10 +648,7 @@ fn suggest_fixes_entity_and_file_filters() {
     assert_eq!(resp["result"]["isError"], true, "{resp}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_outline_tool",
-    verify = "nested entries included for complex entities"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn outline_nests_an_entitys_methods() {
     // store.spec: the port `store`, its method `load` on line 3.
     let mut server = project()

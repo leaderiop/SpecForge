@@ -13,10 +13,7 @@ use specforge_test_macros::test as spec;
 
 use crate::support::{build, coded, codes, declare, diagnostics, software};
 
-#[spec(
-    behavior = "registry_build_fields",
-    verify = "every kind's declared fields and its extension's shared fields are registered for that kind"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn every_kinds_fields_and_shared_fields_are_registered() {
     let shared = declare("@test/ext", |c| {
         c.shared_field("owner", |f| {
@@ -76,10 +73,7 @@ fn spellings(field_type: FieldType) -> Vec<String> {
     names
 }
 
-#[spec(
-    behavior = "registry_build_fields",
-    verify = "each field type and its _type alias register as that type"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn each_field_type_and_its_alias_registers_as_that_type() {
     let mut declaration = declare("@test/ext", |c| {
         c.kind("Thing", |k| {
@@ -136,10 +130,7 @@ fn each_field_type_and_its_alias_registers_as_that_type() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_fields",
-    verify = "a field of a type the protocol does not define is W019 and not registered"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_field_of_an_undefined_type_is_w019_and_not_registered() {
     let mut declaration = declare("@test/ext", |c| {
         c.kind("Thing", |k| {
@@ -177,10 +168,7 @@ fn a_field_of_an_undefined_type_is_w019_and_not_registered() {
     assert!(build.kinds().contains("thing"));
 }
 
-#[spec(
-    behavior = "registry_build_fields",
-    verify = "a registry entry is built only from a descriptor whose type the host reads"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn an_entry_is_built_only_from_a_type_the_host_reads() {
     let described = |field_type: &str| FieldDescriptor {
         name: "level".into(),
@@ -220,10 +208,7 @@ fn an_entry_is_built_only_from_a_type_the_host_reads() {
     assert_eq!(entry.type_label(), "string");
 }
 
-#[spec(
-    behavior = "registry_build_fields",
-    verify = "a registry entry names its type canonically, whatever spelling was declared"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn an_entry_names_its_type_canonically() {
     for spelling in ["boolean", "bool_type", "bool"] {
         let declared = FieldDescriptor {
@@ -237,10 +222,7 @@ fn an_entry_names_its_type_canonically() {
     }
 }
 
-#[spec(
-    behavior = "registry_build_fields",
-    verify = "a field's normative flag reaches its registry entry"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_fields_normative_flag_reaches_its_entry() {
     let build = build([declare("@test/ext", |c| {
         c.kind("Rule", |k| {
@@ -284,10 +266,7 @@ fn roles_extension(limit_role: &str, goal_role: &str) -> ExtensionDeclaration {
     })
 }
 
-#[spec(
-    behavior = "registry_build_fields",
-    verify = "a field's proof_role reaches the field registry"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_fields_proof_role_reaches_its_entry() {
     // An enhancement's field carries its role onto the target kind.
     let other = declare("@test/other", |c| {
@@ -316,10 +295,7 @@ fn a_fields_proof_role_reaches_its_entry() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_fields",
-    verify = "a proof_role other than bound or claim is refused"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_proof_role_other_than_bound_or_claim_is_refused() {
     let build = build([roles_extension("assumed", "claim")]);
 
@@ -346,10 +322,7 @@ fn a_proof_role_other_than_bound_or_claim_is_refused() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_fields",
-    verify = "an enum field without values, or whose default_value is not one of its values, is W021 and still registered"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn an_enum_without_values_or_with_a_default_outside_them_is_w021() {
     let mut declaration = declare("@test/ext", |c| {
         c.kind("Thing", |k| {
@@ -396,10 +369,7 @@ fn an_enum_without_values_or_with_a_default_outside_them_is_w021() {
     }
 }
 
-#[spec(
-    behavior = "registry_build_fields",
-    verify = "Registry Build Registers Fields: field registration holds — declarations_in_load_order, fields_registered, types_parsed, roles_checked, enums_checked"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn field_registration_holds() {
     // declarations_in_load_order: software, then an extension with a field
     // of an unknown type and one with a bad role.
@@ -460,10 +430,7 @@ fn field_registration_holds() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_fields",
-    verify = "a block field's members register as forms, read by member path, with their bounds, base and targets"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_blocks_members_register_by_path() {
     let build = build([declare("@test/ext", |c| {
         for kind in ["Phase", "Milestone"] {
@@ -512,10 +479,7 @@ fn a_blocks_members_register_by_path() {
     assert_eq!(names, ["phase", "score", "path"], "in declared order");
 }
 
-#[spec(
-    behavior = "registry_build_fields",
-    verify = "a fractional bound on an integer field is W021 and dropped"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_bound_its_type_cannot_read_is_w021() {
     let half = serde_json::Number::from_f64(0.5).expect("finite");
     let build = build([declare("@test/ext", |c| {
@@ -558,10 +522,7 @@ fn a_bound_its_type_cannot_read_is_w021() {
     assert_eq!(bounds("inverted"), Bounds::Integer(None, None));
 }
 
-#[spec(
-    behavior = "registry_build_fields",
-    verify = "a kind field or block member of type number is registered with its bounds"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_kind_field_of_type_number_is_registered() {
     let decimal = |text: &str| Decimal::parse(text).unwrap();
     let build = build([declare("@test/ext", |c| {

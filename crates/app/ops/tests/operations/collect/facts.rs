@@ -109,10 +109,7 @@ fn codes(outcome: &Outcome) -> Vec<&str> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "a collector's facts are stored under the key of the commit they were collected at and their digest is recorded in specforge-harness"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn collect_stores_a_collectors_facts_under_the_head_commit_and_records_their_digest() {
     let p = project();
     let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
@@ -135,10 +132,7 @@ fn collect_stores_a_collectors_facts_under_the_head_commit_and_records_their_dig
     assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "a dirty tree or a project in no repository files its facts under a key that says so, with I209"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_dirty_tree_files_facts_under_the_commit_and_dirty_with_i209() {
     let p = project();
     let mut fake = FakeGit::repo(p.root(), SHA, Vec::new());
@@ -173,10 +167,7 @@ fn a_dirty_tree_files_facts_under_the_commit_and_dirty_with_i209() {
     );
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "a dirty tree or a project in no repository files its facts under a key that says so, with I209"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_project_in_no_repository_files_facts_under_worktree_with_i209() {
     let p = project();
     let git: SharedGit = Arc::new(FakeGit::none());
@@ -192,10 +183,7 @@ fn a_project_in_no_repository_files_facts_under_worktree_with_i209() {
     );
 }
 
-#[specforge_test(
-    behavior = "collect_harness_ledger",
-    verify = "a collect records one facts line per collector, replacing its last"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_second_collect_replaces_the_collectors_line_and_its_store() {
     let p = project();
     {
@@ -225,10 +213,7 @@ fn a_second_collect_replaces_the_collectors_line_and_its_store() {
     );
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "facts that name a kind no collector writes, or an id outside its kind's schemes, are E116 and none of them is stored"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_fact_of_a_kind_no_collector_writes_is_e116_and_nothing_is_stored() {
     let p = project();
     let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
@@ -256,10 +241,7 @@ fn a_fact_of_a_kind_no_collector_writes_is_e116_and_nothing_is_stored() {
     assert_eq!(outcome.runners[0].facts, 0);
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "a fact of a kind its collector does not declare it answers is E116 and none of its facts is stored"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_fact_of_a_kind_its_collector_does_not_answer_is_e116() {
     let p = project();
     let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
@@ -292,10 +274,7 @@ fn a_fact_of_a_kind_its_collector_does_not_answer_is_e116() {
     assert_eq!(outcome.runners[0].facts, 0);
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "facts that name a kind no collector writes, or an id outside its kind's schemes, are E116 and none of them is stored"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_fact_whose_id_names_none_of_its_kinds_schemes_is_e116() {
     let p = project();
     let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
@@ -327,10 +306,7 @@ fn a_collect_with_no_facts_writes_no_store_and_no_line() {
     assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
 }
 
-#[specforge_test(
-    behavior = "record_harness_values",
-    verify = "two writers both land their lines"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn facts_and_their_line_land_beside_another_writers_line() {
     let uat = "milestone v1.0 \"One\" {}\n\nphase 03 \"Three\" {\n  milestone v1.0\n}\n\nuat_test U1 \"U\" {\n  phase 03\n  result pass\n}\n";
     let p = TestProject::new()
@@ -367,10 +343,7 @@ fn facts_and_their_line_land_beside_another_writers_line() {
     assert!(ledger.contains(&format!("node facts:{SHA} ")), "{ledger}");
 }
 
-#[specforge_test(
-    behavior = "ingest_collector_report",
-    verify = "a collect whose answers carry facts and no test results creates and rewrites no report, in a run of one collector or several"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_facts_only_collect_creates_no_report_and_rewrites_none() {
     let p = project();
     let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
@@ -399,10 +372,7 @@ fn a_facts_only_collect_creates_no_report_and_rewrites_none() {
     assert_eq!(before, after);
 }
 
-#[specforge_test(
-    behavior = "ingest_collector_report",
-    verify = "a collect whose answers carry facts and no test results creates and rewrites no report, in a run of one collector or several"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_mixed_run_of_a_plan_only_and_a_facts_only_collector_writes_no_report() {
     let p = project();
     let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
@@ -502,10 +472,7 @@ fn citing(extra: &[&str]) -> TestProject {
         )
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a fresh clone with no fact store reports no unresolved reference for its fact references"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_fresh_clone_has_no_unresolved_reference_for_its_fact_scheme_refs() {
     let p = citing(&[]);
 
@@ -604,10 +571,7 @@ fn run(compiled: &specforge_project::CompiledProject, runner: Option<&str>) -> O
     Some(outcome)
 }
 
-#[specforge_test(
-    behavior = "ck_outcome_facts",
-    verify = "collect --runner checks stores one check_outcome fact per checked value under the head commit"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn checks_collect_runner_checks_stores_check_outcome_facts() {
     let (project, compiled) = checked_project(false);
     let outcome = run(&compiled, Some("checks")).expect("the collect runs");
@@ -635,10 +599,7 @@ fn checks_collect_runner_checks_stores_check_outcome_facts() {
     assert_eq!(of("@specforge/checks:url")["fields"]["status"], "skipped");
 }
 
-#[specforge_test(
-    behavior = "ck_outcome_facts",
-    verify = "a plain collect leaves the checks collector out unless checks.publish is set"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn checks_a_plain_collect_leaves_the_checks_collector_out() {
     let (project, compiled) = checked_project(false);
     assert!(!collect::reads_outcomes(
@@ -660,10 +621,7 @@ fn checks_a_plain_collect_leaves_the_checks_collector_out() {
     ));
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "a fact's places are stored as project keys with the digest of each file they name"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_facts_places_are_keyed_and_their_files_digested_in_the_store() {
     let p = project().file("src/a.test.js", "test('adds', () => {})\n");
     let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
@@ -689,10 +647,7 @@ fn a_facts_places_are_keyed_and_their_files_digested_in_the_store() {
     assert_eq!(fact.named_at["covers"]["T1"][0].file, "src/a.test.js");
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "a fact placed outside the project root is E116 and none of its collector's facts is stored"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_fact_placed_outside_the_root_is_e116_and_nothing_is_stored() {
     let p = project();
     let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
@@ -724,10 +679,7 @@ fn naming(name: &str) -> Value {
                 {"file": "a.test.js", "start_line": 1, "start_col": 11, "end_line": 1, "end_col": 13}]}}}])
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "a fact store a rename marked stale is served through the ledger's moves with W197 until the next collect"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn the_next_collect_after_a_rename_replaces_the_stale_store_and_its_w197() {
     let p = project();
     std::fs::write(p.root().join("a.test.js"), "// covers T1\n").unwrap();

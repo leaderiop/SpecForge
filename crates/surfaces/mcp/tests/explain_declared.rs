@@ -9,10 +9,7 @@ use specforge_extension_sdk::prelude::{
 };
 use specforge_test_macros::test as specforge_test;
 
-#[specforge_test(
-    behavior = "provide_mcp_explain_tool",
-    verify = "specforge.explain explains a code the served project's extensions catalog, as specforge explain does"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn a_bare_code_an_extension_catalogs_is_refused_with_its_namespaced_form() {
     let mut server = TestProject::new().serve(&[TestExtension::named("@acme/launch")
         .kind("campaign", false)
@@ -36,10 +33,7 @@ fn a_bare_code_an_extension_catalogs_is_refused_with_its_namespaced_form() {
     assert_eq!(tool_json(&reply)["owner"], "@acme/launch");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_explain_tool",
-    verify = "specforge.explain explains a code the served project's extensions catalog, as specforge explain does"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn explain_answers_a_namespaced_code_from_the_project() {
     let mut server =
         TestProject::new().serve(&[TestExtension::named("@sdk/greet").declaring(|c| {
@@ -57,10 +51,7 @@ fn explain_answers_a_namespaced_code_from_the_project() {
     assert_eq!(entry["docs"], "https://greet.dev/codes#e901", "{entry}");
 }
 
-#[specforge_test(
-    behavior = "expose_diagnostics_as_mcp_resource",
-    verify = "each catalogued diagnostic in the resource carries its title"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn a_third_party_code_is_titled_from_its_catalog() {
     let mut server = TestProject::new().serve(&[TestExtension::named("@sdk/greet")
         .reporting(PassDiagnostic::new("W901", PassSeverity::Warning, "m"))

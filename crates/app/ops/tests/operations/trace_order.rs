@@ -42,10 +42,7 @@ fn two_ways() -> Graph {
     graph
 }
 
-#[specforge_test(
-    behavior = "compute_traceability_chain",
-    verify = "a link carries the label of the edge it was first reached over, nearer entities first and each entity's edges in written order"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn a_link_carries_the_label_it_was_first_reached_over() {
     let graph = two_ways();
     let links = |links: &[TraceLink]| -> Vec<(String, usize, String)> {
@@ -86,7 +83,7 @@ fn in_order(json: &str, keys: &[&str]) {
     );
 }
 
-#[specforge_test(behavior = "serialize_traceability_data")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn one_entity_is_a_chain_every_entity_is_a_list_of_traces() {
     let project = Assembled::over(RegistryBuild::default()).graph(two_ways());
     let view = project.view();

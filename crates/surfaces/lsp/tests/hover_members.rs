@@ -14,10 +14,8 @@ port order_store "Order store" {
 }
 "#;
 
-#[spec(
-    behavior = "provide_extension_entity_hover",
-    verify = "hover lists the entity's methods and each field's annotations"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn hover_lists_methods_and_annotations() {
     let project = Served::new(&[("main.spec", TEXT)])
         .extension("@t/soft", |c| {

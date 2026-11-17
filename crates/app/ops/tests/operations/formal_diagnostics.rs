@@ -187,74 +187,32 @@ fn assert_blank_description(code: &str, kind: &str, blank: &str, told: &str) {
     );
 }
 
-#[specforge_test(
-    behavior = "fa_validate_empty_property_description",
-    verify = "property with empty description produces W124"
-)]
-#[specforge_test(
-    behavior = "fa_validate_empty_property_description",
-    verify = "property with non-empty description passes"
-)]
+#[specforge_test(requirement = "FEATURE-042")]
 fn a_blank_property_description_is_w124() {
     assert_blank_description("W124", "property", "p_blank", "p_told");
 }
 
-#[specforge_test(
-    behavior = "fa_validate_empty_axiom_description",
-    verify = "axiom with empty description produces W127"
-)]
-#[specforge_test(
-    behavior = "fa_validate_empty_axiom_description",
-    verify = "axiom with non-empty description passes"
-)]
+#[specforge_test(requirement = "FEATURE-032")]
 fn a_blank_axiom_description_is_w127() {
     assert_blank_description("W127", "axiom", "a_blank", "a_told");
 }
 
-#[specforge_test(
-    behavior = "fa_validate_empty_protocol_description",
-    verify = "protocol with empty description produces W129"
-)]
-#[specforge_test(
-    behavior = "fa_validate_empty_protocol_description",
-    verify = "protocol with non-empty description passes"
-)]
+#[specforge_test(requirement = "FEATURE-038")]
 fn a_blank_protocol_description_is_w129() {
     assert_blank_description("W129", "protocol", "pr_blank", "pr_told");
 }
 
-#[specforge_test(
-    behavior = "fa_validate_empty_refinement_description",
-    verify = "refinement with empty description produces W132"
-)]
-#[specforge_test(
-    behavior = "fa_validate_empty_refinement_description",
-    verify = "refinement with non-empty description passes"
-)]
+#[specforge_test(requirement = "FEATURE-039")]
 fn a_blank_refinement_description_is_w132() {
     assert_blank_description("W132", "refinement", "r_blank", "r_told");
 }
 
-#[specforge_test(
-    behavior = "fa_validate_empty_process_description",
-    verify = "process with empty description produces W135"
-)]
-#[specforge_test(
-    behavior = "fa_validate_empty_process_description",
-    verify = "process with non-empty description passes"
-)]
+#[specforge_test(requirement = "FEATURE-036")]
 fn a_blank_process_description_is_w135() {
     assert_blank_description("W135", "process", "pc_blank", "pc_told");
 }
 
-#[specforge_test(
-    behavior = "fa_validate_refinement_without_delta",
-    verify = "refinement with no invariant_deltas produces W133"
-)]
-#[specforge_test(
-    behavior = "fa_validate_refinement_without_delta",
-    verify = "refinement with invariant_deltas passes"
-)]
+#[specforge_test(requirement = "FEATURE-039")]
 fn a_refinement_without_invariant_deltas_is_w133() {
     let dir = project(concat!(
         "behavior spec_side \"Spec side\" {\n  contract \"c\"\n}\n",
@@ -287,14 +245,7 @@ fn a_refinement_without_invariant_deltas_is_w133() {
     );
 }
 
-#[specforge_test(
-    behavior = "fa_validate_process_without_alphabet",
-    verify = "process with empty alphabet produces W136"
-)]
-#[specforge_test(
-    behavior = "fa_validate_process_without_alphabet",
-    verify = "process with non-empty alphabet passes"
-)]
+#[specforge_test(requirement = "FEATURE-036")]
 fn a_process_with_an_empty_alphabet_is_w136() {
     let dir = project(concat!(
         "event go \"Go\" {\n  channel \"go\"\n}\n",
@@ -317,10 +268,7 @@ fn a_process_with_an_empty_alphabet_is_w136() {
 
 // ── The check-phase pass ────────────────────────────────────────
 
-#[specforge_test(
-    behavior = "fa_emit_formal_analysis_available",
-    verify = "behaviors with requires/ensures trigger I015 info"
-)]
+#[specforge_test(requirement = "FEATURE-033")]
 fn conditioned_behaviors_are_noted_once_per_check_as_i015() {
     let dir = project(concat!(
         "behavior obligated \"Obligated\" {\n",
@@ -363,30 +311,7 @@ fn ping_pong(sync: Option<&str>) -> TestProject {
     ))
 }
 
-#[specforge_test(
-    behavior = "fa_detect_unmitigated_cycles",
-    verify = "unmitigated circular event dependency detected as E034"
-)]
-#[specforge_test(
-    behavior = "fa_detect_unmitigated_cycles",
-    verify = "E034 names a cycle path and suggests sync on a member"
-)]
-#[specforge_test(
-    behavior = "fa_pattern_e034_unmitigated_cycle",
-    verify = "SCC with no mitigations produces E034"
-)]
-#[specforge_test(
-    behavior = "fa_pattern_e034_unmitigated_cycle",
-    verify = "E034 lists full cycle path"
-)]
-#[specforge_test(
-    behavior = "fa_pattern_e034_unmitigated_cycle",
-    verify = "E034 suggests applicable mitigations"
-)]
-#[specforge_test(
-    behavior = "fa_event_graph_analyze_pass",
-    verify = "unmitigated cycle detection runs on SCC"
-)]
+#[specforge_test(requirement = "FEATURE-034")]
 fn an_unmitigated_event_cycle_is_e034() {
     let findings = analyze(&ping_pong(None), "event_graph_analyze");
     assert_eq!(
@@ -404,27 +329,14 @@ fn an_unmitigated_event_cycle_is_e034() {
     assert!(messages(&findings, "I009").is_empty(), "{findings:?}");
 }
 
-#[specforge_test(
-    behavior = "fa_detect_unmitigated_cycles",
-    verify = "cycle with a sync on one member passes silently"
-)]
-#[specforge_test(
-    behavior = "fa_pattern_e034_unmitigated_cycle",
-    verify = "SCC with a sync on any member passes"
-)]
+#[specforge_test(requirement = "FEATURE-034")]
 fn a_cycle_with_a_sync_on_a_member_is_not_e034() {
     let findings = analyze(&ping_pong(Some("timeout 5s")), "event_graph_analyze");
     assert!(messages(&findings, "E034").is_empty(), "{findings:?}");
 }
 
-#[specforge_test(
-    behavior = "fa_detect_unmitigated_cycles",
-    verify = "non-circular event dependency passes"
-)]
-#[specforge_test(
-    behavior = "fa_emit_no_structural_cycles_info",
-    verify = "cycle-free event graph produces I009"
-)]
+#[specforge_test(requirement = "FEATURE-034")]
+#[specforge_test(requirement = "FEATURE-033")]
 fn a_cycle_free_event_graph_is_noted_as_i009() {
     let dir = project(concat!(
         "event job \"Job\" {\n  channel \"job\"\n  sync [\"timeout 5s\"]\n}\n",
@@ -442,14 +354,7 @@ fn a_cycle_free_event_graph_is_noted_as_i009() {
     );
 }
 
-#[specforge_test(
-    behavior = "fa_detect_unmitigated_retry_cycle",
-    verify = "re-triggering without backoff detected as W032"
-)]
-#[specforge_test(
-    behavior = "fa_detect_unmitigated_retry_cycle",
-    verify = "re-triggering with timeout/backoff passes"
-)]
+#[specforge_test(requirement = "FEATURE-034")]
 fn a_behavior_re_producing_what_it_consumes_is_w032() {
     let retry = |sync: &str| {
         project(&format!(
@@ -472,14 +377,7 @@ fn a_behavior_re_producing_what_it_consumes_is_w032() {
     assert!(messages(&bounded, "W032").is_empty(), "{bounded:?}");
 }
 
-#[specforge_test(
-    behavior = "fa_detect_unbounded_channel",
-    verify = "event channel with no sync produces W034"
-)]
-#[specforge_test(
-    behavior = "fa_detect_unbounded_channel",
-    verify = "event channel with a sync passes"
-)]
+#[specforge_test(requirement = "FEATURE-034")]
 fn a_produced_event_without_sync_is_w034() {
     let dir = project(concat!(
         "event open \"Open\" {\n  channel \"open\"\n}\n",
@@ -494,14 +392,7 @@ fn a_produced_event_without_sync_is_w034() {
     );
 }
 
-#[specforge_test(
-    behavior = "fa_detect_asymmetric_connectivity",
-    verify = "port with unbalanced access pattern produces W033"
-)]
-#[specforge_test(
-    behavior = "fa_detect_asymmetric_connectivity",
-    verify = "port with single consumer passes"
-)]
+#[specforge_test(requirement = "FEATURE-034")]
 fn a_port_with_unbalanced_users_is_w033() {
     // `hot` is refined by four behaviors (4 incoming edges); `cold` by
     // none. `solo` is the only user of its port.
@@ -529,22 +420,7 @@ fn a_port_with_unbalanced_users_is_w033() {
 
 // ── condition_check ─────────────────────────────────────────────
 
-#[specforge_test(
-    behavior = "fa_validate_condition_consistency",
-    verify = "ensures without requires produces I011 info"
-)]
-#[specforge_test(
-    behavior = "fa_validate_condition_consistency",
-    verify = "consistent requires and ensures passes"
-)]
-#[specforge_test(
-    behavior = "fa_parse_ensures_block",
-    verify = "ensures without requires produces info diagnostic"
-)]
-#[specforge_test(
-    behavior = "fa_condition_check_pass",
-    verify = "behavior with requires and no ensures produces W096"
-)]
+#[specforge_test(requirement = "FEATURE-041")]
 fn one_sided_conditions_are_i011_or_w096() {
     let dir = project(concat!(
         "behavior promising \"Promising\" {\n",
@@ -574,14 +450,7 @@ fn one_sided_conditions_are_i011_or_w096() {
     );
 }
 
-#[specforge_test(
-    behavior = "fa_detect_redundant_precondition",
-    verify = "a precondition repeated in its requires block is E081, never W039"
-)]
-#[specforge_test(
-    behavior = "fa_detect_redundant_precondition",
-    verify = "independent precondition passes"
-)]
+#[specforge_test(requirement = "FEATURE-041")]
 fn a_requires_naming_a_condition_twice_is_e081_not_w039() {
     let dir = project(concat!(
         "behavior twice \"Twice\" {\n",
@@ -607,14 +476,7 @@ fn a_requires_naming_a_condition_twice_is_e081_not_w039() {
     );
 }
 
-#[specforge_test(
-    behavior = "fa_detect_invariant_without_property",
-    verify = "invariant with prose-only guarantee produces W040"
-)]
-#[specforge_test(
-    behavior = "fa_detect_invariant_without_property",
-    verify = "invariant with an expression passes"
-)]
+#[specforge_test(requirement = "FEATURE-041")]
 fn a_prose_only_invariant_is_w040() {
     let dir = project(concat!(
         "invariant prose \"Prose\" {\n  guarantee \"ids are unique\"\n}\n",
@@ -646,10 +508,7 @@ fn analyze_with_results(dir: &TestProject, report: Value) -> Vec<Finding> {
     )
 }
 
-#[specforge_test(
-    behavior = "fa_emit_coverage_item_covered_info",
-    verify = "coverage item covered by test produces I008"
-)]
+#[specforge_test(requirement = "FEATURE-033")]
 fn an_item_every_test_proves_is_i008_naming_the_tests() {
     let dir = tested_project(concat!(
         "behavior proven \"Proven\" {\n",
@@ -729,26 +588,7 @@ fn depth_results() -> serde_json::Value {
     }})
 }
 
-#[specforge_test(
-    behavior = "fa_detect_specification_depth",
-    verify = "entity with requires/ensures computes as Level 2 (conditions)"
-)]
-#[specforge_test(
-    behavior = "fa_detect_specification_depth",
-    verify = "entity with maintains and invariant refs computes as Level 3 (invariants)"
-)]
-#[specforge_test(
-    behavior = "fa_detect_specification_depth",
-    verify = "entity with all obligations proven computes as Level 4 (proofs)"
-)]
-#[specforge_test(
-    behavior = "fa_detect_specification_depth",
-    verify = "entity at Level 2+ emits I014"
-)]
-#[specforge_test(
-    behavior = "fa_detect_specification_depth",
-    verify = "entity at Level 0 emits no depth diagnostic"
-)]
+#[specforge_test(requirement = "FEATURE-033")]
 fn behaviors_from_level_two_report_their_specification_depth() {
     let dir = tested_project(DEPTHS);
     let findings = analyze_with_results(&dir, depth_results());
@@ -773,10 +613,7 @@ fn behaviors_from_level_two_report_their_specification_depth() {
     );
 }
 
-#[specforge_test(
-    behavior = "fa_detect_specification_depth",
-    verify = ">5 prose-only behaviors triggers adoption nudge in I014"
-)]
+#[specforge_test(requirement = "FEATURE-033")]
 fn many_shallow_behaviors_earn_the_adoption_note() {
     let mut spec = String::from(DEPTHS);
     for i in 0..4 {

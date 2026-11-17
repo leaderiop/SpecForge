@@ -18,10 +18,8 @@ fn project() -> Assembled {
         .source("behavior login \"Log in\" {\n}\n")
 }
 
-#[specforge_test(
-    behavior = "compute_the_coverage_view",
-    verify = "an entity_id the graph lacks is E003 naming the closest entity"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
 fn coverage_refuses_an_entity_the_graph_lacks() {
     let project = project();
     let query = CoverageQuery {
@@ -38,10 +36,8 @@ fn coverage_refuses_an_entity_the_graph_lacks() {
     );
 }
 
-#[specforge_test(
-    behavior = "compute_the_coverage_view",
-    verify = "an unknown kind matches nothing and is an I020 notice; kind narrows an entity_id's row as status does"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
 fn coverage_kind_is_a_filter_like_every_kind_filter() {
     let project = project();
     let view = project.view();
@@ -97,10 +93,7 @@ fn fixes_refuse_an_entity_the_graph_lacks() {
     );
 }
 
-#[specforge_test(
-    behavior = "select_entities_over_the_view",
-    verify = "a references entity the graph lacks is E003 naming the closest entity"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn search_refuses_a_referenced_entity_the_graph_lacks() {
     let project = project();
     let request = SearchRequest {
@@ -123,10 +116,8 @@ fn assert_depth_refused<T: std::fmt::Debug>(read: Result<T, specforge_ops::Refus
     assert_eq!(refusal.subject, Some(EntityField::EntityId));
 }
 
-#[specforge_test(
-    behavior = "explore_the_graph",
-    verify = "a depth without entity_id is refused as invalid input about entity_id"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn explore_refuses_a_depth_without_an_entity() {
     let project = project();
     assert_depth_refused(explore(
@@ -138,10 +129,9 @@ fn explore_refuses_a_depth_without_an_entity() {
     ));
 }
 
-#[specforge_test(
-    behavior = "review_coverage_gaps",
-    verify = "a depth without entity_id is refused as invalid input about entity_id"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn review_refuses_a_depth_without_an_entity() {
     let project = project();
     assert_depth_refused(review(

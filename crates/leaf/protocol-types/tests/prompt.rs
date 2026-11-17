@@ -8,10 +8,7 @@
 use serde_json::json;
 use specforge_protocol_types::{CommandDescriptor, SurfaceDescriptor};
 
-#[specforge_test_macros::test(
-    behavior = "gate_a_command",
-    verify = "a command descriptor that declares no gate serializes as it did"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn the_command_descriptor_without_gates_is_byte_equal() {
     let command = CommandDescriptor {
         id: "report".into(),
@@ -37,10 +34,7 @@ fn the_command_descriptor_without_gates_is_byte_equal() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt declaration round-trips through the protocol with its args, steps and attribution"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-071")]
 fn a_prompt_declaration_round_trips() {
     let wire = json!({
         "commands": [{
@@ -80,10 +74,7 @@ fn a_prompt_declaration_round_trips() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_extension_prompt",
-    verify = "a pass input without a trigger reads a write and a gate trigger round-trips with its command and subject"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-071")]
 fn a_pass_input_trigger_is_absent_for_a_write_and_round_trips_for_a_gate() {
     use specforge_protocol_types::{PassInput, Trigger, TriggerKind};
     let plain = serde_json::to_value(PassInput::default()).unwrap();
@@ -106,10 +97,7 @@ fn a_pass_input_trigger_is_absent_for_a_write_and_round_trips_for_a_gate() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt argument that is not a tail serializes as it did, and a tail round-trips"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-071")]
 fn a_rest_false_argument_has_no_rest_key() {
     use specforge_protocol_types::PromptArgDescriptor;
 
@@ -131,10 +119,7 @@ fn a_rest_false_argument_has_no_rest_key() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt answer without a subject serializes as it did, and a picked subject round-trips"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-071")]
 fn a_prompt_output_subject_is_absent_unless_picked() {
     use specforge_protocol_types::PromptOutput;
 

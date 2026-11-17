@@ -25,20 +25,14 @@ fn legend() -> Vec<String> {
     }
 }
 
-#[spec(
-    behavior = "lsp_initialize",
-    verify = "initialize response includes semantic token legend"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn init_includes_semantic_legend() {
     let legend = legend();
     assert_eq!(legend, specforge_lsp::TOKEN_TYPES);
     assert!(legend.contains(&"keyword".to_string()));
 }
 
-#[spec(
-    behavior = "lsp_initialize",
-    verify = "initialize response advertises incremental sync"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn init_advertises_incremental_sync() {
     assert_eq!(
         capabilities().text_document_sync,
@@ -48,10 +42,7 @@ fn init_advertises_incremental_sync() {
     );
 }
 
-#[spec(
-    behavior = "lsp_initialize",
-    verify = "initialize response includes completion trigger characters"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn init_includes_completion_triggers() {
     let Some(CompletionOptions {
         trigger_characters, ..
@@ -62,20 +53,14 @@ fn init_includes_completion_triggers() {
     assert_eq!(trigger_characters, Some(vec![" ".into(), "[".into()]));
 }
 
-#[spec(
-    behavior = "lsp_initialize",
-    verify = "initialize response includes server_info with name and version"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn init_includes_server_info() {
     let info = initialize_result().server_info.expect("server_info");
     assert_eq!(info.name, "specforge-lsp");
     assert_eq!(info.version.as_deref(), Some(env!("CARGO_PKG_VERSION")));
 }
 
-#[spec(
-    behavior = "lsp_initialize",
-    verify = "zero extensions produces structural-only capabilities"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn initialize_answers_a_static_result() {
     // The answer is one static value: nothing in it depends on a project, so a project with
     // no extension and one with extensions are offered the same (checked over the protocol
@@ -115,10 +100,7 @@ fn initialize_answers_a_static_result() {
 
 // -- lsp_shutdown -------------------------------------------------------------
 
-#[spec(
-    behavior = "lsp_shutdown",
-    verify = "shutdown releases in-memory graph"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn shutdown_clears_state() {
     let mut state = specforge_lsp::LspState::new();
     state.open_document(&crate::url("file:///p/login.spec"), LOGIN, 1);
@@ -172,10 +154,8 @@ fn requests_after_shutdown_rejected() {
 
 // -- shared_incremental_pipeline ----------------------------------------------
 
-#[spec(
-    behavior = "shared_incremental_pipeline",
-    verify = "LSP and watch share the same graph"
-)]
+#[spec(requirement = "FEATURE-050")]
+#[spec(requirement = "FEATURE-059")]
 fn lsp_state_holds_graph() {
     let mut state = specforge_lsp::LspState::new();
     assert_eq!(state.graph().node_count(), 0);
@@ -227,10 +207,8 @@ fn lsp_state_holds_graph() {
     );
 }
 
-#[spec(
-    behavior = "shared_incremental_pipeline",
-    verify = "graph update serves all LSP features"
-)]
+#[spec(requirement = "FEATURE-050")]
+#[spec(requirement = "FEATURE-059")]
 fn graph_update_serves_all_features() {
     let mut state = specforge_lsp::LspState::new();
 
@@ -286,7 +264,7 @@ fn graph_update_serves_all_features() {
     );
 }
 
-#[spec(behavior = "lsp_shutdown", verify = "shutdown releases Wasm engines")]
+#[spec(requirement = "FEATURE-062")]
 fn shutdown_frees_the_wasm_runtime() {
     let project = tempfile::TempDir::new().unwrap();
     std::fs::write(
@@ -316,10 +294,7 @@ fn shutdown_frees_the_wasm_runtime() {
 // While the session is out for an update, readers see the stand-in of its
 // last complete graph: its entity snapshot is that graph's own, and a later
 // stand-in never reads the memo of an earlier one.
-#[spec(
-    behavior = "snapshot_entities_once",
-    verify = "a session's snapshot follows every update"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_stand_in_reads_the_snapshot_of_its_own_graph() {
     let project = tempfile::TempDir::new().unwrap();
     std::fs::write(
@@ -356,10 +331,7 @@ fn a_stand_in_reads_the_snapshot_of_its_own_graph() {
     assert!(std::ptr::eq(view.entities(), session.project().entities()));
 }
 
-#[spec(
-    behavior = "lsp_initialize",
-    verify = "initialize offers document links"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn initialize_offers_document_links() {
     let capabilities = initialize_result().capabilities;
     assert!(capabilities.document_link_provider.is_some());
@@ -370,10 +342,7 @@ fn initialize_offers_document_links() {
 /// The session the LSP holds verifies each rebuild against a cold build in a
 /// debug build, with no flag set (ADR 0032).
 #[cfg(debug_assertions)]
-#[spec(
-    behavior = "validate_delta_correctness",
-    verify = "the LSP and MCP check each rebuild in a debug build"
-)]
+#[spec(requirement = "FEATURE-051")]
 fn a_debug_build_of_the_lsp_verifies_each_rebuild() {
     let mut state = specforge_lsp::LspState::new();
     let limit = "invariant session_limit \"Limit\" {\n}\n";

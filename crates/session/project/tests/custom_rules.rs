@@ -94,10 +94,7 @@ fn rules_extension() -> InProcessRuntime {
 /// The builtin software extension's custom rules come out of the load
 /// registered with their `wasm_function` and origin, beside its
 /// declarative rules, and every name resolves against its real module.
-#[specforge_test(
-    behavior = "register_custom_validation_patterns",
-    verify = "custom pattern registered with wasm_function reference"
-)]
+#[specforge_test(requirement = "FEATURE-016")]
 fn a_builtin_custom_rule_is_registered_with_its_wasm_function() {
     let dir = project(&["@specforge/software"], "");
 
@@ -129,10 +126,7 @@ fn a_builtin_custom_rule_is_registered_with_its_wasm_function() {
 /// A custom rule naming an export the extension does not have is W112 when
 /// the extension loads, naming the function and the extension; the rule
 /// naming a real export is not.
-#[specforge_test(
-    behavior = "register_custom_validation_patterns",
-    verify = "unresolvable wasm_function produces warning"
-)]
+#[specforge_test(requirement = "FEATURE-016")]
 fn an_unresolvable_wasm_function_is_w112_on_load() {
     let dir = project(&[EXTENSION], "");
 
@@ -157,10 +151,7 @@ fn an_unresolvable_wasm_function_is_w112_on_load() {
 
 /// A custom rule that names no `wasm_function` has nothing to dispatch to:
 /// it is W112 when the extension loads and is not registered.
-#[specforge_test(
-    behavior = "register_custom_validation_patterns",
-    verify = "custom rule without a wasm_function produces warning and is not registered"
-)]
+#[specforge_test(requirement = "FEATURE-016")]
 fn a_custom_rule_without_a_wasm_function_is_w112_and_not_registered() {
     let dir = project(&[EXTENSION], "");
 
@@ -188,10 +179,7 @@ fn a_custom_rule_without_a_wasm_function_is_w112_and_not_registered() {
 /// declarative one, the unresolvable name is warned about once, and the
 /// resolvable rule is dispatched to the extension and reports with its
 /// configured code and severity.
-#[specforge_test(
-    behavior = "register_custom_validation_patterns",
-    verify = "Register Custom Validation Patterns: custom validation pattern registration holds — extension_manifests_loaded_fired, wasm_runtime_available, custom_patterns_registered, wasm_functions_resolved"
-)]
+#[specforge_test(requirement = "FEATURE-016")]
 fn custom_rules_register_resolve_and_dispatch_through_a_compile() {
     let dir = project(
         &[EXTENSION],

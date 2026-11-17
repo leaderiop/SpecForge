@@ -62,10 +62,7 @@ fn run(wire: serde_json::Value) -> Result<String, (String, String)> {
     }
 }
 
-#[specforge_test(
-    behavior = "edit_entity_field",
-    verify = "a typed edit sets a block member, appends and removes a block-list item, and refuses the other ways to change one"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_typed_edit_sets_appends_and_removes_block_items() {
     let set = run(
         json!({"op": "set", "entity_id": "03-02-S", "field": "requires[0].phase", "value": "03"}),
@@ -133,10 +130,7 @@ fn a_typed_edit_sets_appends_and_removes_block_items() {
     }
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "a skeleton writes a block list and a typed block empty, and a list of words with a slot"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_skeleton_writes_typed_fields_empty() {
     use specforge_ops::authoring::edit::Skeletons;
     use specforge_ops::authoring::format::Place;
@@ -155,10 +149,7 @@ fn a_skeleton_writes_typed_fields_empty() {
     assert!(words.text.starts_with("reasons ["), "{}", words.text);
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "a skeleton fills a number or an integer with the value within its bounds nearest zero"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_skeleton_fills_a_bounded_number_within_its_bounds() {
     use specforge_ops::authoring::edit::Skeletons;
     use specforge_ops::authoring::format::Place;
@@ -177,10 +168,7 @@ fn a_skeleton_fills_a_bounded_number_within_its_bounds() {
     }
 }
 
-#[specforge_test(
-    behavior = "edit_entity_field",
-    verify = "a typed edit sets a block member, appends and removes a block-list item, and refuses the other ways to change one"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_json_number_or_boolean_is_a_leaf_of_an_integer_or_bool_member() {
     let set = run(json!({"op": "set", "entity_id": "d1", "field": "scores", "value": {"goal": 50, "ambiguity": 7}}))
         .unwrap();
@@ -222,10 +210,7 @@ fn a_json_number_or_boolean_is_a_leaf_of_an_integer_or_bool_member() {
     }
 }
 
-#[specforge_test(
-    behavior = "edit_entity_field",
-    verify = "a JSON number given to a number member is written as its decimal"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_json_number_is_a_leaf_of_a_number_member_written_as_its_decimal() {
     let squeezed = |text: String| text.split_whitespace().collect::<Vec<_>>().join(" ");
     let set = run(json!({"op": "set", "entity_id": "d1", "field": "scores", "value": {"goal": 10, "weight": 0.25}}))
@@ -257,10 +242,7 @@ fn a_json_number_is_a_leaf_of_a_number_member_written_as_its_decimal() {
     }
 }
 
-#[specforge_test(
-    behavior = "edit_entity_field",
-    verify = "set reads a JSON object or an array of objects as a typed block or a block list, and any other text as one value"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_value_is_json_exactly_where_the_declaration_is_a_block() {
     let project = Assembled::typed().sources(&[("a.spec", SOURCE)]);
     let view = project.view();

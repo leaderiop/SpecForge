@@ -65,10 +65,7 @@ fn graph() -> CommandGraph {
     )
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a writing declaration reaches the wire and its plan carries the call's revisions"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_writing_command_declares_writes_and_names_the_revisions_of_the_call() {
     let host = MockHost::new(writer());
     let declaration = host.declaration();
@@ -111,10 +108,7 @@ fn a_writing_command_declares_writes_and_names_the_revisions_of_the_call() {
     );
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a writing declaration reaches the wire and its plan carries the call's revisions"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_writing_command_may_not_take_the_hosts_dry_run() {
     let result = std::panic::catch_unwind(|| {
         let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/w", "1.0.0"));
@@ -137,10 +131,7 @@ fn a_writing_command_may_not_take_the_hosts_dry_run() {
     });
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a writing declaration reaches the wire and its plan carries the call's revisions"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_verdict_op_has_no_file_revision() {
     let mut plan = PlanBuilder::new(Default::default(), Default::default());
     plan.set_verdict(Verdict {
@@ -155,10 +146,7 @@ fn a_verdict_op_has_no_file_revision() {
     assert_eq!(value["ops"][0]["cited"], json!([]));
 }
 
-#[specforge_test(
-    behavior = "record_context_pack",
-    verify = "a record_context op names the entity, the route and the budget, and no revision"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn a_record_context_op_names_the_entity_route_and_budget() {
     let mut plan = PlanBuilder::new(Default::default(), Default::default());
     plan.record_context("02-01", "gsd/executor", Some(4000))
@@ -180,7 +168,7 @@ fn a_record_context_op_names_the_entity_route_and_budget() {
     ));
 }
 
-#[specforge_test(behavior = "refuse_human_only_write", verify = "human sets writes")]
+#[specforge_test(requirement = "FEATURE-131")]
 fn human_sets_writes() {
     let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/h", "1.0.0"));
     b.command("attest", |c| {

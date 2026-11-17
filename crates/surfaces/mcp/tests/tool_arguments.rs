@@ -233,10 +233,7 @@ fn format_changes(arguments: Value) -> Vec<PathBuf> {
     changed_files(&root, &before, &files_under(&root))
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "the format tool advertises no default for write, and check or diff without write writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn format_states_the_write_rule_not_a_default() {
     let format = core_tools()
         .into_iter()
@@ -256,10 +253,8 @@ fn format_states_the_write_rule_not_a_default() {
     );
 }
 
-#[specforge_test(
-    behavior = "read_mcp_arguments_as_declared",
-    verify = "an argument neither the tool nor its target declares is refused naming it, with the declared one it is close to"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn an_undeclared_argument_is_refused_naming_it() {
     use crate::tool_errors::mcp_error;
 
@@ -334,10 +329,8 @@ fn refused(tool: &str, arguments: Value) -> Value {
     crate::tool_errors::mcp_error(&reply)
 }
 
-#[specforge_test(
-    behavior = "read_mcp_arguments_as_declared",
-    verify = "a boolean or count sent as a string is read as one, as an extension command reads it; any other value of the wrong type is refused naming the argument"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_core_tool_reads_a_value_by_its_type() {
     // A count sent as a string is that count: depth "0" is the entity alone.
     let query = answer(
@@ -390,10 +383,7 @@ fn a_core_tool_reads_a_value_by_its_type() {
     assert_eq!(error["message"], "Missing required parameter: action");
 }
 
-#[specforge_test(
-    invariant = "dry_run_side_effect_freedom",
-    verify = "an MCP dry run, check or diff asked for with the string true writes nothing"
-)]
+#[specforge_test(requirement = "INVARIANT-021")]
 fn a_preview_asked_for_with_a_string_writes_nothing() {
     for (tool, arguments) in [
         ("specforge.format", json!({"check": "true"})),
@@ -424,10 +414,8 @@ fn a_preview_asked_for_with_a_string_writes_nothing() {
     }
 }
 
-#[specforge_test(
-    behavior = "read_mcp_arguments_as_declared",
-    verify = "a prompt reads its arguments by the same rule its listing states"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_prompt_reads_its_arguments_by_the_listed_rule() {
     // alpha <- beta <- gamma: depth 1 from alpha reaches beta, depth 2 gamma.
     let mut served = TestProject::new()
@@ -487,10 +475,8 @@ fn a_prompt_reads_its_arguments_by_the_listed_rule() {
     }
 }
 
-#[specforge_test(
-    behavior = "read_mcp_arguments_as_declared",
-    verify = "a boolean or count sent as a string is read as one, as an extension command reads it; any other value of the wrong type is refused naming the argument"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_target_argument_is_read_by_its_type() {
     // A path that is not a string is refused, not ignored.
     let error = refused("specforge.validate", json!({"path": 42}));
@@ -499,10 +485,8 @@ fn a_target_argument_is_read_by_its_type() {
     assert_eq!(error["message"], "path must be a string, got 42");
 }
 
-#[specforge_test(
-    behavior = "read_mcp_arguments_as_declared",
-    verify = "a listing is derived from the typed arguments: each argument's type, description, default, enumerated values and whether it is required"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn every_core_tool_lists_its_typed_arguments() {
     for tool in specforge_mcp::tools::CORE_TOOLS {
         let schema = tool.input_schema();
@@ -594,10 +578,8 @@ mod derived {
             .collect()
     }
 
-    #[specforge_test(
-        behavior = "read_mcp_arguments_as_declared",
-        verify = "a listing is derived from the typed arguments: each argument's type, description, default, enumerated values and whether it is required"
-    )]
+    #[specforge_test(requirement = "FEATURE-064")]
+    #[specforge_test(requirement = "FEATURE-071")]
     fn a_listing_is_derived_from_the_typed_arguments() {
         let declared = Probe::declared();
         assert_eq!(
@@ -660,10 +642,8 @@ mod derived {
         *read::<Probe>(&arguments).expect_err("a refusal")
     }
 
-    #[specforge_test(
-        behavior = "read_mcp_arguments_as_declared",
-        verify = "an absent or null argument reads as the default the listing advertises, and a missing required one is refused naming it"
-    )]
+    #[specforge_test(requirement = "FEATURE-064")]
+    #[specforge_test(requirement = "FEATURE-071")]
     fn an_absent_argument_is_its_default() {
         for given in [json!({"name": "x"}), json!({"name": "x", "hops": null})] {
             let probe: Probe = read(&given).expect("a read");
@@ -683,10 +663,8 @@ mod derived {
         assert_eq!(error.argument.as_deref(), Some("name"));
     }
 
-    #[specforge_test(
-        behavior = "read_mcp_arguments_as_declared",
-        verify = "a boolean or count sent as a string is read as one, as an extension command reads it; any other value of the wrong type is refused naming the argument"
-    )]
+    #[specforge_test(requirement = "FEATURE-064")]
+    #[specforge_test(requirement = "FEATURE-071")]
     fn a_value_is_read_by_its_type() {
         let probe: Probe = read(&json!({
             "name": "x", "hops": "2", "flag": "true", "kinds": ["a"], "maybe": "m",
@@ -823,10 +801,8 @@ mod derived {
         renderer: String,
     }
 
-    #[specforge_test(
-        behavior = "read_mcp_arguments_as_declared",
-        verify = "an agent plan is read as the AgentPlan type, from an object or a string holding its JSON"
-    )]
+    #[specforge_test(requirement = "FEATURE-064")]
+    #[specforge_test(requirement = "FEATURE-071")]
     fn an_agent_plan_argument_is_read_from_an_object_or_its_text() {
         let plan = AgentPlan {
             plan_id: "p".into(),

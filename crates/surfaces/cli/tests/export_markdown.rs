@@ -9,10 +9,7 @@ fn shop() -> TestProject {
     TestProject::copy_of(specforge_repo_root::repo_root().join("examples/shop"))
 }
 
-#[specforge_test(
-    behavior = "export_review_document",
-    verify = "export --format markdown writes the review document of examples/todo-app and examples/shop"
-)]
+#[specforge_test(requirement = "FEATURE-112")]
 fn todo_app_review_document() {
     let run = Cli::on(&todo_app())
         .run(&["export", "--format", "markdown"])
@@ -25,10 +22,7 @@ fn todo_app_review_document() {
     insta::assert_snapshot!("todo_app_review_document", run.stdout);
 }
 
-#[specforge_test(
-    behavior = "export_review_document",
-    verify = "export --format markdown writes the review document of examples/todo-app and examples/shop"
-)]
+#[specforge_test(requirement = "FEATURE-112")]
 fn shop_review_document() {
     let run = Cli::on(&shop())
         .run(&["export", "--format", "markdown"])
@@ -77,10 +71,7 @@ fn a_written_reference_that_does_not_resolve_is_in_the_document() {
     );
 }
 
-#[specforge_test(
-    behavior = "export_review_document",
-    verify = "export --format markdown writes the review document of examples/todo-app and examples/shop"
-)]
+#[specforge_test(requirement = "FEATURE-112")]
 fn complete_task_reads_as_a_review_document() {
     let project = todo_app();
     let run = Cli::on(&project)

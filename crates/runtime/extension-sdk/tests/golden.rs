@@ -160,10 +160,7 @@ fn mock_host_pins_wire_output() {
 /// kinds, and a guest that declares none is byte-equal to what it was before they existed. `@gsd/core`
 /// (`gsd_core`) contributes agents, skills, slash commands and hooks by design (ADR 0373 D7), so its
 /// directory is not read.
-#[specforge_test_macros::test(
-    behavior = "install_into_a_host",
-    verify = "a project whose extensions contribute nothing to a host declares and runs as it did"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn the_builtins_declare_no_host_contribution() {
     let root = specforge_repo_root::repo_root().join("crates/runtime/component/tests/declarations");
     let mut checked = 0;

@@ -157,10 +157,7 @@ fn verdict(mismatches: Vec<String>) {
     assert!(mismatches.is_empty(), "{}", mismatches.join("\n"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "every verb reads a field.entry path the same way"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn set_and_unset_read_a_path_alike() {
     let c = project_of(PATHS);
     let mut bad = Vec::new();
@@ -172,10 +169,7 @@ fn set_and_unset_read_a_path_alike() {
     verdict(bad);
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "an entry of a block field written as a value is refused"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_path_into_a_block_field_written_as_text_is_refused() {
     let c = project_of(TEXT_BLOCK);
     let want = Refused("not_editable", "written as a value, not a block");
@@ -195,10 +189,7 @@ fn a_path_into_a_block_field_written_as_text_is_refused() {
     verdict(bad);
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_link",
-    verify = "link and unlink refuse a field.entry path as an entry of a block field"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn link_and_unlink_take_a_whole_field() {
     let c = project_of(PATHS);
     let mut bad = Vec::new();
@@ -227,10 +218,7 @@ fn link_and_unlink_take_a_whole_field() {
     verdict(bad);
 }
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "new refuses a field.entry path"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn create_takes_whole_fields() {
     let c = project_of(PATHS);
     let mut bad = Vec::new();

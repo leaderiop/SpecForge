@@ -3,10 +3,7 @@
 use specforge_parser::{FieldValue, parse};
 use specforge_test_macros::test as specforge_test;
 
-#[specforge_test(
-    behavior = "parse_ref_blocks",
-    verify = "ref block extracts scheme, kind, and identifier components"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_one_line_ref_splits_into_scheme_kind_and_identifier() {
     let result = parse(r#"ref gh.issue:42 "Support Wasm extensions""#, "test.spec");
     assert!(result.errors.is_empty(), "{:?}", result.errors);

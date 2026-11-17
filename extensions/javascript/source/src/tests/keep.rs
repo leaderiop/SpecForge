@@ -12,10 +12,7 @@ fn packages(facts: &[Fact]) -> Vec<&str> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "js_select_source_files",
-    verify = "a short walk is the collector's error whatever the answer's cap"
-)]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_short_walk_is_the_collectors_error_whatever_the_answers_cap() {
     // The `.js` listing is truncated, so its glob is parsed; the walk stops before `src/c.js`.
     let files = [
@@ -40,10 +37,7 @@ fn a_short_walk_is_the_collectors_error_whatever_the_answers_cap() {
     }
 }
 
-#[specforge_test(
-    behavior = "js_select_source_files",
-    verify = "a kept file the fs port withholds is the collector's error"
-)]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_kept_file_the_fs_port_withholds_is_the_collectors_error() {
     let files = [
         APP,
@@ -62,10 +56,7 @@ fn a_kept_file_the_fs_port_withholds_is_the_collectors_error() {
     );
 }
 
-#[specforge_test(
-    behavior = "js_select_source_files",
-    verify = "the keep rules judge a path inside its package, a package.json too"
-)]
+#[specforge_test(requirement = "FEATURE-056")]
 fn the_keep_rules_judge_a_path_inside_its_package_a_package_json_too() {
     // A named package under tests/ or build/ of the root package is no package the pack reads, nor are its files.
     let fixture = run(

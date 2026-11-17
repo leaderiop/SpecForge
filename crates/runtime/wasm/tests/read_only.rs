@@ -10,10 +10,7 @@ fn golden() -> Value {
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_edit_plan",
-    verify = "a read-only command's input carries no revisions"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_read_only_commands_input_is_unchanged() {
     let golden = golden();
     let input = CommandInput {
@@ -31,10 +28,7 @@ fn a_read_only_commands_input_is_unchanged() {
     assert!(sent.get("revisions").is_none(), "{sent}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "run_a_hook",
-    verify = "a command without state has a byte-equal input"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_command_without_state_has_a_byte_equal_input() {
     let golden = golden();
     let input = CommandInput {

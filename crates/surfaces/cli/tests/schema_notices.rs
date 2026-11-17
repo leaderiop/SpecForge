@@ -46,30 +46,21 @@ fn assert_reports_i016(dir: &TestProject, args: &[&str]) {
     assert_eq!(lines, 1, "{args:?}: {stderr}");
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "every reader of the schema reports the notices export reports for the same record"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn schema_and_its_publication_report_an_unreadable_record() {
     let dir = project_with_unreadable_record();
     assert_reports_i016(&dir, &["schema"]);
     assert_reports_i016(&dir, &["schema", "--publish"]);
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "every reader of the schema reports the notices export reports for the same record"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn trace_and_model_report_an_unreadable_record() {
     let dir = project_with_unreadable_record();
     assert_reports_i016(&dir, &["trace", "parse_input"]);
     assert_reports_i016(&dir, &["model", "--format", "json"]);
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "every reader of the schema reports the notices export reports for the same record"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn query_reports_an_unreadable_record() {
     let dir = project_with_unreadable_record();
     assert_reports_i016(&dir, &["query", "parse_input", "--format", "graph"]);
@@ -83,10 +74,7 @@ fn w053_lines(dir: &TestProject, args: &[&str]) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "every reader of the schema reports the notices export reports for the same record"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn every_reader_reports_a_breaking_change_as_export_does() {
     let dir = software_project(SOFTWARE_AND_GOVERNANCE);
     stderr_of(&dir, &["export"]);
@@ -109,10 +97,7 @@ fn every_reader_reports_a_breaking_change_as_export_does() {
     }
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "every reader of the schema reports the notices export reports for the same record"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn every_trace_reports_an_unreadable_record() {
     let dir = project_with_unreadable_record();
     assert_reports_i016(&dir, &["trace"]);

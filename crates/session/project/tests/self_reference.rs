@@ -20,14 +20,7 @@ behavior b1 \"B1\" {\n}\n\nbehavior b2 \"B2\" {\n}\n\n\
 refinement r_alone \"Alone\" {\n  refines b1\n  refined_by b2\n}\n\n\
 refinement r_self \"Self\" {\n  refines b1\n  refined_by b2\n  chains_to r_self\n}\n";
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "an edge from an entity to itself is no incoming edge: a builtin no_incoming_edges rule reports an entity only it references"
-)]
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "a reference an entity writes to itself gives its field its link: no_edges stays quiet and W061 reports it"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn an_entity_only_it_references_is_unreferenced() {
     let compiled = TestProject::new()
         .enabling(&[

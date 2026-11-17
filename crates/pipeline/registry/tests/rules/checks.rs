@@ -11,10 +11,7 @@ use super::{check, constraint, declaring, entity, messages, one, over, rule, rul
 use crate::support::declare;
 use specforge_extension_sdk::prelude::*;
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "no_incoming_edges detects unreferenced entities"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn no_incoming_edges_detects_orphan_entities() {
     let built = one(rule("W100", "no_incoming_edges"));
     let diagnostics = check(
@@ -27,10 +24,7 @@ fn no_incoming_edges_detects_orphan_entities() {
     assert_eq!(messages(&diagnostics), ["orphan behavior 'b1'"]);
 }
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "no_outgoing_edges detects entities with zero outgoing edges"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn no_outgoing_edges_detects_entities_with_zero_outgoing_edges() {
     let mut declared = rule("W101", "no_outgoing_edges");
     declared.message_template = "leaf {kind} '{id}'".to_string();
@@ -82,10 +76,7 @@ fn implementing(rule: ValidationRuleDescriptor, with_feature: bool) -> super::Bu
     rules_of(vec![declaration])
 }
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "an edge rule no loaded field can satisfy at its target kind is inert"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn an_edge_rule_no_field_can_satisfy_is_inert() {
     // `behavior.features` is the one field writing BehaviorImplementsFeature:
     // from a behavior, to a feature.
@@ -114,10 +105,7 @@ fn an_edge_rule_no_field_can_satisfy_is_inert() {
     assert_eq!(implementing(incoming, true).rules.len(), 1);
 }
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "missing_field_when_flag_set detects missing specified field on flagged entity"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn missing_field_when_flag_set_detects_missing_field() {
     let mut declared = rule("W102", "missing_field_when_flag_set");
     declared.field = Some("contract".to_string());
@@ -135,10 +123,7 @@ fn missing_field_when_flag_set_detects_missing_field() {
     );
 }
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "field_value_constraint rejects invalid field value"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn field_value_constraint_rejects_invalid_field_value() {
     let mut declared = rule("W103", "field_value_constraint");
     declared.message_template = "{kind} '{id}' has invalid {field}='{value}'".to_string();
@@ -342,10 +327,7 @@ fn obligation_rule(code: &str, target: Option<&str>, field: &str) -> ValidationR
     }
 }
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "pattern violation produces diagnostic with configured code and severity"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn applies_to_reads_target_kind_once() {
     let built = rules(vec![
         obligation_rule("W004", Some("behavior"), "verify"),
@@ -410,10 +392,7 @@ fn applies_to_reads_target_kind_once() {
     assert!(!only_w004.rules.obligates("type", false));
 }
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "Execute Validation Pattern: declarative validation holds — all_entities_matched, violations_diagnosed, deterministic_order"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn execute_validation_pattern_contract() {
     let built = rules(vec![
         rule("W200", "no_outgoing_edges"),
@@ -445,10 +424,7 @@ fn execute_validation_pattern_contract() {
 
 // -- emit_diagnostic_from_pattern --
 
-#[spec(
-    behavior = "emit_diagnostic_from_pattern",
-    verify = "message template interpolates {id} and {kind}"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn message_template_interpolates_id_and_kind() {
     let built = one(rule("W100", "no_incoming_edges"));
     let diagnostics = check(&built, &[entity("my_beh", "behavior", 0, 0)]);
@@ -456,10 +432,7 @@ fn message_template_interpolates_id_and_kind() {
     assert!(diagnostics[0].span.is_some());
 }
 
-#[spec(
-    behavior = "emit_diagnostic_from_pattern",
-    verify = "message template interpolates {allowed} with a one_of rule's values"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_one_of_rule_fills_allowed_with_its_values() {
     let mut declared = rule("W900", "field_value_constraint");
     declared.target_kind = Some("behavior".to_string());
@@ -480,10 +453,7 @@ fn a_one_of_rule_fills_allowed_with_its_values() {
     );
 }
 
-#[spec(
-    behavior = "emit_diagnostic_from_pattern",
-    verify = "diagnostic code matches pattern code"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn diagnostic_code_matches_pattern_code() {
     let mut declared = rule("E999", "no_incoming_edges");
     declared.message_template = "test".to_string();
@@ -491,10 +461,7 @@ fn diagnostic_code_matches_pattern_code() {
     assert_eq!(diagnostics[0].code, "test/E999");
 }
 
-#[spec(
-    behavior = "emit_diagnostic_from_pattern",
-    verify = "diagnostic severity matches pattern severity"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn diagnostic_severity_matches_pattern_severity() {
     for (severity, expected) in [
         (ValidationSeverity::Error, Severity::Error),
@@ -508,10 +475,7 @@ fn diagnostic_severity_matches_pattern_severity() {
     }
 }
 
-#[spec(
-    behavior = "emit_diagnostic_from_pattern",
-    verify = "Emit Diagnostic From Pattern: pattern diagnostic emission holds — violation_detected, pattern_configured, diagnostic_emitted, template_interpolated"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn emit_diagnostic_from_pattern_contract() {
     // requires: violation detected, pattern configured
     let mut declared = rule("W100", "no_incoming_edges");
@@ -527,10 +491,7 @@ fn emit_diagnostic_from_pattern_contract() {
     assert_eq!(diagnostics[0].severity, Severity::Warning);
 }
 
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "a rule targeting a kind no loaded extension declares reports nothing"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_rule_for_an_unloaded_kind_reports_nothing() {
     let mut ghost = rule("W100", "no_incoming_edges");
     ghost.target_kind = Some("ghost".to_string());
@@ -565,10 +526,7 @@ fn a_rule_for_an_unloaded_kind_is_not_registered() {
     assert_eq!(built.rules.len(), 1);
 }
 
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "a rule whose edge type no loaded extension declares reports nothing"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_rule_whose_edge_type_no_loaded_extension_declares_reports_nothing() {
     let mut edge_rule = rule("X005", "no_outgoing_edges");
     edge_rule.edge_type = Some("NoSuchEdge".to_string());
@@ -612,10 +570,7 @@ fn an_sdk_declared_rule_runs_as_declared() {
     assert_eq!(messages(&diagnostics), ["behavior 'b1' has no verify"]);
 }
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "a field_value_constraint over a declared member path judges each item of a typed block"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_constraint_over_a_member_path_judges_each_item() {
     let mut declared = rule("W103", "field_value_constraint");
     declared.message_template = "{kind} '{id}' has invalid {field}='{value}'".to_string();

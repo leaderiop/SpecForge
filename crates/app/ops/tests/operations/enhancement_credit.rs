@@ -21,10 +21,7 @@ fn compiled() -> CompiledProject {
         .compile()
 }
 
-#[specforge_test(
-    behavior = "compute_traceability_chain",
-    verify = "a reference field another extension adds to a kind is not an expected link"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_does_not_expect_the_fields_another_extension_adds() {
     let compiled = compiled();
     let document = trace_document(&compiled, "core_mod");
@@ -37,10 +34,7 @@ fn trace_does_not_expect_the_fields_another_extension_adds() {
     assert_eq!(missing, ["features"], "{document}");
 }
 
-#[specforge_test(
-    behavior = "build_model_intermediate",
-    verify = "a field an entity enhancement adds names the extension that declared it"
-)]
+#[specforge_test(requirement = "FEATURE-060")]
 fn the_model_names_the_extension_that_added_a_field() {
     let compiled = compiled();
     let options = ModelOptions {

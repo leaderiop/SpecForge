@@ -219,10 +219,7 @@ pub const DEPS: OptionTable<DependencyDepth> = OptionTable {
 mod root_tests {
     use super::*;
 
-    #[specforge_test_macros::test(
-        behavior = "filter_model",
-        verify = "a depth without a root is refused"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-075")]
     fn a_depth_without_a_root_is_invalid_input_about_the_root() {
         let refusal = root(None, Some(1)).unwrap_err();
         assert_eq!(refusal.error.kind, OpErrorKind::InvalidInput);

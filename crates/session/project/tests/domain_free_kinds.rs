@@ -22,10 +22,7 @@ fn reported(project: TestProject) -> Vec<(String, String)> {
     pairs
 }
 
-#[specforge_test_macros::test(
-    behavior = "ge_declare_manifest",
-    verify = "a project that loads governance and not software declares invariants, and W003 reports the one nothing references"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-044")]
 fn governance_alone_declares_invariant() {
     let pairs = reported(
         TestProject::new()
@@ -53,14 +50,8 @@ fn governance_alone_declares_invariant() {
     assert!(w003[0].contains("'orphan_rule'"), "{w003:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "fa_declare_manifest",
-    verify = "formal loads without software: a project of invariants, constraints, properties, protocols and processes has no E027, no enhancement I004 and no W123 or W128"
-)]
-#[specforge_test_macros::test(
-    behavior = "ge_declare_manifest",
-    verify = "governance and formal load together without software"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-037")]
+#[specforge_test_macros::test(requirement = "FEATURE-044")]
 fn rules_and_lifecycles_check_without_software() {
     let pairs = reported(
         TestProject::new()
@@ -74,10 +65,7 @@ fn rules_and_lifecycles_check_without_software() {
     assert!(pairs[0].1.contains("'batch_lifecycle'"), "{pairs:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "ge_declare_manifest",
-    verify = "a project that loads software, governance and formal checks its invariants as before the move"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-044")]
 fn a_software_project_with_governance_keeps_its_rules() {
     let compiled = TestProject::new()
         .enabling(&[

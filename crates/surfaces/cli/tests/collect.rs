@@ -125,10 +125,7 @@ fn test_collect_json_format_in_empty_dir() {
         .stdout(predicate::str::contains("\"error\""));
 }
 
-#[specforge_test(
-    behavior = "approve_capability",
-    verify = "unapproved command without a terminal fails with E059 and runs nothing"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn unapproved_command_without_a_terminal_is_refused() {
     let fx = Fixture::new();
     fx.cmd(&["collect"])
@@ -143,10 +140,7 @@ fn unapproved_command_without_a_terminal_is_refused() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "approve_capability",
-    verify = "--yes runs the declared command"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn yes_runs_the_declared_command() {
     let fx = Fixture::new();
     // A stale report from an earlier run must not survive the new one.
@@ -171,10 +165,7 @@ fn yes_runs_the_declared_command() {
     assert_eq!(tests[0]["runner"], "cargo-test");
 }
 
-#[specforge_test(
-    behavior = "ingest_collector_report",
-    verify = "collect then analyze scores the recorded tests"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn collect_then_analyze_scores_the_recorded_tests() {
     let fx = Fixture::new();
     // No process: collect reads the report it is given, and analyze reads what collect wrote.
@@ -206,10 +197,7 @@ fn collect_then_analyze_scores_the_recorded_tests() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_test_conventions",
-    verify = "a plain cargo test proves obligations by naming convention"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_plain_cargo_test_proves_obligations_by_naming_convention() {
     let project = TestProject::new()
         .raw_config(

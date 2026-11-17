@@ -10,10 +10,7 @@ use specforge_wasm::testing::InProcessRuntime;
 
 use crate::support::*;
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "settings lists each setting's type, value, origin, default, gates, raises and each secret's status"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn specforge_settings_replies_with_its_output_schema() {
     let runtime = Arc::new(
         InProcessRuntime::new()

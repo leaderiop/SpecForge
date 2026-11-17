@@ -14,10 +14,7 @@ fn setting(name: &str, keys: &[&[&str]]) -> SettingDescriptor {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a family matches its keys, closed or open, and an exact name beats it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_family_matches_its_keys() {
     assert!(Family::matches("models.*", "models.planning"));
     assert!(!Family::matches("models.*", "models"));

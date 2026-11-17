@@ -101,10 +101,7 @@ fn test_product_feature_impact() {
     assert!(!result["affected_modules"].as_array().unwrap().is_empty());
 }
 
-#[specforge_test(
-    behavior = "pe_query_feature_impact",
-    verify = "a feature that only relates to the feature is not a dependent"
-)]
+#[specforge_test(requirement = "FEATURE-103")]
 fn a_related_feature_is_not_a_dependent_in_the_impact() {
     let dir = setup_product_project();
     // f3 relates to f1 (`features`); f2 depends on it (`depends_on`).
@@ -275,10 +272,7 @@ fn test_product_nonexistent_milestone_exits_one() {
     cmd.assert().failure();
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "exit code, stdout, stderr returned to CLI"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn an_extension_command_prints_what_its_export_returns() {
     let dir = setup_product_project();
     let output = Cli::on(&dir)
@@ -337,10 +331,7 @@ fn an_extension_command_has_the_declared_command_line() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_features",
-    verify = "pagination offset and limit are respected"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_features_command_pages_after_counting() {
     let dir = setup_product_project();
     let output = Cli::on(&dir)
@@ -399,10 +390,7 @@ fn completions_include_the_commands_of_the_project_here() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "locate_project_root",
-    verify = "a command given a path that does not exist refuses it as file_not_found"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn completions_refuse_a_path_that_does_not_exist() {
     let empty = TestProject::new().without_config();
     let output = Cli::on(&empty)
@@ -417,10 +405,7 @@ fn completions_refuse_a_path_that_does_not_exist() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_error_handling",
-    verify = "CLI errors go to stderr"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_command_that_cannot_answer_writes_its_error_to_stderr() {
     let dir = setup_product_project();
     let run = |args: &[&str]| {
@@ -453,10 +438,7 @@ fn a_command_that_cannot_answer_writes_its_error_to_stderr() {
     assert_eq!(error["code"], "INVALID_INPUT", "{error}");
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "under --format json a usage error the command line catches is one INVALID_INPUT error object on stderr, exit 2"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn under_json_a_usage_error_is_an_invalid_input_object() {
     let dir = setup_product_project();
     let run = |args: &[&str]| {
@@ -550,10 +532,7 @@ fn timeline(dir: &TestProject, extra: &[&str]) -> std::process::Output {
     Cli::on(dir).command(&args).output().unwrap()
 }
 
-#[specforge_test(
-    behavior = "surface_milestone_timeline",
-    verify = "as-of flag overrides current date for overdue calculation"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_timeline_compares_against_today_unless_as_of_says_otherwise() {
     let dir = setup_overdue_project();
     // The host passes today, long after 2000.
@@ -571,10 +550,7 @@ fn the_timeline_compares_against_today_unless_as_of_says_otherwise() {
     assert_eq!(error["code"], "INVALID_INPUT");
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "the CommandInput carries what the recorded tests prove, per entity that counts toward coverage"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn milestone_completion_reads_the_projects_recorded_tests() {
     let dir = TestProject::new().raw_config(
         serde_json::json!({"name": "p", "version": "0.1.0",
@@ -689,14 +665,7 @@ fn delivery_evidence(dir: &TestProject) -> serde_json::Value {
     serde_json::from_slice(&output.stdout).unwrap_or_else(|e| panic!("{e}: {output:?}"))
 }
 
-#[specforge_test(
-    behavior = "detect_done_feature_without_evidence",
-    verify = "done feature with an unproven implementing behavior produces I071"
-)]
-#[specforge_test(
-    behavior = "detect_done_feature_without_evidence",
-    verify = "done feature whose implementing behaviors are all proven suppresses I071"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn delivery_evidence_reports_done_features_the_recorded_tests_do_not_prove() {
     let report = delivery_evidence(&evidence_project(true));
     let pass = &report["passes"][0];
@@ -728,10 +697,7 @@ fn delivery_evidence_reports_done_features_the_recorded_tests_do_not_prove() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_done_feature_without_evidence",
-    verify = "without recorded test results delivery_evidence reports nothing"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn delivery_evidence_without_a_report_reports_nothing() {
     let report = delivery_evidence(&evidence_project(false));
     let pass = &report["passes"][0];

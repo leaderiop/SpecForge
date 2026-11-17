@@ -439,10 +439,7 @@ mod tests {
     const LIMIT: &str = "invariant session_limit \"Limit\" {\n  guarantee \"x\"\n}\n";
     const LOGIN: &str = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n";
 
-    #[specforge_test(
-        behavior = "rename_entity_id",
-        verify = "a rename is refused when specforge.json does not say which files are the project's sources"
-    )]
+    #[specforge_test(requirement = "FEATURE-111")]
     fn a_config_that_hides_the_sources_refuses_the_rename() {
         let hiding = r#"{"name":"r","extensions":["@specforge/software","@specforge/governance"],"spec_root":["spec"]}"#;
         let (_dir, project) = project_with_config(hiding, &[("limit.spec", LIMIT)]);
@@ -479,10 +476,7 @@ mod tests {
         assert!(limit.starts_with("invariant session_cap "), "{limit}");
     }
 
-    #[specforge_test(
-        behavior = "rename_entity_id",
-        verify = "rename leaves strings, comments and verify texts alone"
-    )]
+    #[specforge_test(requirement = "FEATURE-111")]
     fn a_plan_leaves_prose_alone() {
         let text = "invariant session_limit \"session_limit cap\" {\n  guarantee \"session_limit is never exceeded\"\n}\n\
                     behavior login \"Login\" {\n  invariants [session_limit]\n  // keeps session_limit\n  verify unit \"login respects session_limit\"\n}\n";
@@ -596,10 +590,7 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        invariant = "mcp_structured_error_responses",
-        verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-    )]
+    #[specforge_test(requirement = "INVARIANT-067")]
     fn rename_states_which_field_a_refusal_is_about() {
         let (_dir, project) = project(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
         let navigator = nav(&project);

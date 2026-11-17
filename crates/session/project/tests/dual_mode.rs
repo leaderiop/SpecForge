@@ -86,10 +86,7 @@ fn protocol_extension_loaded_with_runtime() {
 // --- Step 8: Error handling — protocol failures become diagnostics ---
 
 // B:dual_mode_loading — verify unit "protocol handshake trap produces E031 diagnostic"
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "unloadable extension binary produces diagnostic instead of crash"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn protocol_handshake_trap_produces_e028() {
     let dir = project(
         &["@test/broken"],
@@ -137,10 +134,7 @@ fn protocol_handshake_trap_produces_e028() {
 }
 
 // B:dual_mode_loading — verify unit "protocol version mismatch produces E031"
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "unloadable extension binary produces diagnostic instead of crash"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_handshake_protocol_version_that_is_no_semver_is_e028() {
     let dir = project(
         &["@test/badver"],

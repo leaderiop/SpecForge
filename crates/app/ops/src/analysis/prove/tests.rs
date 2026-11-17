@@ -81,10 +81,7 @@ fn prove(graph: &Graph) -> ProveReport {
     run(graph, &roles(), &crate::solver::real_z3())
 }
 
-#[specforge_test(
-    behavior = "prove_declared_bounds_and_claims",
-    verify = "contradictory declared bounds are E046 citing every bound of the unsat core"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn contradictory_bounds_flagged_with_core() {
     let mut g = Graph::new();
     g.add_node(constraint_node("c1", "latency < 100ms"));
@@ -99,10 +96,7 @@ fn contradictory_bounds_flagged_with_core() {
     );
 }
 
-#[specforge_test(
-    behavior = "prove_declared_bounds_and_claims",
-    verify = "a claim the bounds entail reaches the extension passes as a proved claim"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn satisfiable_bounds_prove_entailed_claim() {
     let mut g = Graph::new();
     g.add_node(constraint_node("budget", "latency < 100ms"));
@@ -116,10 +110,7 @@ fn satisfiable_bounds_prove_entailed_claim() {
     assert!(report.findings.iter().all(|f| f.code != "W139"));
 }
 
-#[specforge_test(
-    behavior = "prove_declared_bounds_and_claims",
-    verify = "a claim the bounds do not entail is W139 with a counterexample in the declared units"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn unentailed_claim_yields_counterexample() {
     let mut g = Graph::new();
     g.add_node(constraint_node("budget", "latency < 100ms"));
@@ -225,10 +216,7 @@ fn data_units_normalize_to_bytes() {
     assert!(report2.summary["unsatisfiable"].as_bool().unwrap());
 }
 
-#[specforge_test(
-    behavior = "prove_declared_bounds_and_claims",
-    verify = "a claim the bounds do not entail is W139 with a counterexample in the declared units"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn counterexample_renders_declared_units() {
     let mut g = Graph::new();
     g.add_node(constraint_node("budget", "latency < 100ms"));
@@ -331,10 +319,7 @@ fn prove_with(graph: &Graph, solver: &dyn Solver) -> ProveReport {
     run(graph, &roles(), solver)
 }
 
-#[specforge_test(
-    behavior = "prove_declared_bounds_and_claims",
-    verify = "a solver that times out or fails mid-run is W098 and the checks it did not answer are skipped"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn timed_out_solver_yields_w098() {
     let mut g = Graph::new();
     g.add_node(constraint_node("c1", "latency < 100ms"));
@@ -361,10 +346,7 @@ fn timed_out_solver_yields_w098() {
     );
 }
 
-#[specforge_test(
-    behavior = "prove_declared_bounds_and_claims",
-    verify = "a solver that does not run is one W098, the finding doctor states, and nothing is solved"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn missing_solver_yields_w098_without_solving() {
     let mut g = Graph::new();
     g.add_node(constraint_node("c1", "latency < 100ms"));
@@ -376,10 +358,7 @@ fn missing_solver_yields_w098_without_solving() {
     assert!(solver.scripts().is_empty());
 }
 
-#[specforge_test(
-    behavior = "prove_declared_bounds_and_claims",
-    verify = "a solver that times out or fails mid-run is W098 and the checks it did not answer are skipped"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn solver_failing_mid_run_yields_w098() {
     let mut g = Graph::new();
     g.add_node(constraint_node("c1", "latency < 100ms"));
@@ -393,10 +372,7 @@ fn solver_failing_mid_run_yields_w098() {
     assert!(report.proved_claim_ids.is_empty());
 }
 
-#[specforge_test(
-    behavior = "prove_declared_bounds_and_claims",
-    verify = "contradictory declared bounds are E046 citing every bound of the unsat core"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn unsat_bounds_yield_e046_with_scripted_core() {
     let mut g = Graph::new();
     g.add_node(constraint_node("c1", "latency < 100ms"));

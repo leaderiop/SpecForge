@@ -1,5 +1,5 @@
-//! `check-links` on a fixture project: one declared link, one `verify` text
-//! the entity does not declare (A016), one link to an entity that is not there.
+//! `check-links` on the gsd fixture project (ADR 0374 D4): every spec-link attribute names a requirement of the
+//! spec and carries no `verify` text.
 #![allow(
     clippy::unwrap_used,
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
@@ -7,48 +7,10 @@
 
 use std::process::Command;
 
-fn run(root: &str) -> (i32, String) {
-    let out = Command::new(env!("CARGO_BIN_EXE_check-links"))
-        .arg(root)
-        .arg("tests")
-        .output()
-        .expect("check-links runs");
-    (
-        out.status.code().unwrap_or(-1),
-        String::from_utf8_lossy(&out.stdout).into_owned(),
-    )
-}
-
-#[test]
-fn reports_the_undeclared_text_and_the_unknown_entity() {
-    let (code, stdout) = run(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/links"));
-    assert_eq!(code, 1, "{stdout}");
-    assert_eq!(
-        stdout.lines().filter(|l| l.starts_with("A016 ")).count(),
-        1,
-        "{stdout}"
-    );
-    assert!(
-        stdout.contains(
-            "A016 tests/links.rs:7 task_id_uniqueness \"concurrent task creation never produces duplicate id\""
-        ),
-        "{stdout}"
-    );
-    assert!(
-        stdout.contains("declared: \"concurrent task creation never produces duplicate ids\""),
-        "{stdout}"
-    );
-    assert!(
-        stdout.contains("UNKNOWN tests/links.rs:13 no_such_invariant"),
-        "{stdout}"
-    );
-    assert!(!stdout.contains("links.rs:2 "), "{stdout}");
-}
-
 /// The gsd fixture (ADR 0374 D4): an attribute whose kind word is `requirement` names a requirement of the spec, and
 /// carries no `verify` text. One that names no entity is `UNKNOWN`, one that names an entity of another kind (the
-/// project) is `KIND`, one with a `verify` text is `VERIFY`; the fixture's own tests, two stacked on one function,
-/// pass.
+/// project) or uses another kind word is `KIND`, one with a `verify` text is `VERIFY`; the fixture's own tests, two
+/// stacked on one function, pass.
 #[test]
 fn requirement_links_name_requirements_of_the_spec() {
     let fixture = std::path::Path::new(concat!(
@@ -67,7 +29,8 @@ fn requirement_links_name_requirements_of_the_spec() {
         root.join("tests/bad.rs"),
         "#[specforge_test(requirement = \"NOPE-99\")]\nfn a() {}\n\
          #[specforge_test(requirement = \"tracer\")]\nfn b() {}\n\
-         #[specforge_test(requirement = \"TRACER-01\", verify = \"x\")]\nfn c() {}\n",
+         #[specforge_test(requirement = \"TRACER-01\", verify = \"x\")]\nfn c() {}\n\
+         #[specforge_test(behavior = \"TRACER-01\")]\nfn d() {}\n",
     )
     .unwrap();
     let out = Command::new(env!("CARGO_BIN_EXE_check-links"))
@@ -79,7 +42,8 @@ fn requirement_links_name_requirements_of_the_spec() {
         String::from_utf8_lossy(&out.stdout),
         "UNKNOWN tests/bad.rs:1 NOPE-99\n\
          KIND tests/bad.rs:3 requirement tracer is a project, not a requirement\n\
-         VERIFY tests/bad.rs:5 TRACER-01: a requirement takes no verify text\n"
+         VERIFY tests/bad.rs:5 TRACER-01: a requirement takes no verify text\n\
+         KIND tests/bad.rs:7 behavior TRACER-01: a test names a requirement\n"
     );
     assert_eq!(out.status.code(), Some(1));
 
@@ -105,13 +69,21 @@ fn requirement_links_name_requirements_of_the_spec() {
 fn a_file_that_does_not_parse_is_reported_under_its_name() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path();
-    let fixture =
-        std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/links"));
-    for file in ["specforge.json", "spec/invariants.spec", "tests/links.rs"] {
+    let fixture = std::path::Path::new(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/requirement-links"
+    ));
+    for file in ["specforge.json", "spec/project.spec"] {
         let to = root.join(file);
         std::fs::create_dir_all(to.parent().unwrap()).unwrap();
         std::fs::copy(fixture.join(file), &to).unwrap();
     }
+    std::fs::create_dir_all(root.join("tests")).unwrap();
+    std::fs::write(
+        root.join("tests/links.rs"),
+        "#[specforge_test(requirement = \"NOPE-99\")]\nfn a() {}\n",
+    )
+    .unwrap();
     let self_test = root.join("integrations/rust/specforge-test");
     std::fs::create_dir_all(&self_test).unwrap();
     std::fs::write(root.join("tests/broken.rs"), "fn (").unwrap();

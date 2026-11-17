@@ -14,10 +14,7 @@ fn facts<'a>(input: &'a Value, read: &str) -> &'a [Value] {
     input["files"][read]["facts"].as_array().unwrap()
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "the baseline reads a source file through git, and a link at the commit is unreadable"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn the_baseline_reads_a_source_file_through_git() {
     let project = gsd_facts_project();
     let root = project.root();

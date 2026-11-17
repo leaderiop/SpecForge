@@ -19,10 +19,7 @@ fn served() -> Served {
         .serve_in(runtime)
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_settings_set_tool",
-    verify = "specforge.settings_set writes an admitted value through the write lock and the journal"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn set_writes_an_admitted_value() {
     let mut server = served();
     let reply = call_tool(
@@ -40,10 +37,7 @@ fn set_writes_an_admitted_value() {
     assert_eq!(config["settings"]["@t/s"]["profile"], "compat");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_settings_set_tool",
-    verify = "specforge.settings_set writes an admitted value through the write lock and the journal"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn settings_set_is_a_mutation_and_writes_through_the_lock() {
     let mut server = served();
     let tools = call(&mut server, "tools/list", json!({}));
@@ -76,10 +70,7 @@ fn config_text(server: &Served) -> String {
     std::fs::read_to_string(server.root().join("specforge.json")).unwrap()
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_settings_set_tool",
-    verify = "specforge.settings_set refuses E086 and E087 naming the argument, before it writes"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn settings_set_refuses_e086_and_e087_before_writing() {
     let mut server = served();
     let before = config_text(&server);
@@ -119,10 +110,7 @@ fn settings_set_refuses_e086_and_e087_before_writing() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_settings_set_tool",
-    verify = "specforge.settings_set takes exactly one of value and unset"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn settings_set_needs_exactly_one_of_value_and_unset() {
     let mut server = served();
     for arguments in [
@@ -146,10 +134,7 @@ fn settings_set_needs_exactly_one_of_value_and_unset() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_settings_set_tool",
-    verify = "dry_run previews the change and lists no file written"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn settings_set_dry_run_previews_and_lists_no_files() {
     let mut server = served();
     let before = config_text(&server);
@@ -169,10 +154,7 @@ fn settings_set_dry_run_previews_and_lists_no_files() {
     assert_eq!(config_text(&server), before);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_settings_set_tool",
-    verify = "specforge.settings_set takes a path to another project and does not reload the served one"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn settings_set_takes_a_path_and_does_not_serve_it() {
     let runtime = Arc::new(InProcessRuntime::new().with(settings_extension));
     let mut server = TestProject::new()

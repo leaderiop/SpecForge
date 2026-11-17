@@ -100,10 +100,7 @@ fn spec(project: &TestProject) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-#[specforge_test(
-    behavior = "record_context_pack",
-    verify = "a recorded pack holds the route, the digest the pack read gives and its budget, with its ledger line"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn a_command_of_the_routes_extension_records_its_pack() {
     let project = gsd_context_project();
     let expected = digest(&project, Some(5000));
@@ -149,10 +146,7 @@ fn a_command_of_the_routes_extension_records_its_pack() {
     assert_eq!(spec(&project).matches("context_pack {").count(), 1);
 }
 
-#[specforge_test(
-    behavior = "record_context_pack",
-    verify = "a record of an unknown route, a kind it does not record, from another extension or with no subject is refused record_refused"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn a_record_is_refused_for_an_unknown_route_an_unrecorded_kind_another_origin_or_no_subject() {
     // 02-02 names no requirement; 02-01 names two.
     let extra = "\nplan 02-02 \"Nothing required\" {\n  phase 02\n}\n";
@@ -211,10 +205,7 @@ fn a_record_is_refused_for_an_unknown_route_an_unrecorded_kind_another_origin_or
     assert_eq!(spec(&project), before, "nothing is written");
 }
 
-#[specforge_test(
-    behavior = "record_context_pack",
-    verify = "recording a pack stales no verdict"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn recording_a_pack_leaves_a_fresh_verdict_fresh() {
     let project = gsd_context_project();
     let compiled = compile(&project);

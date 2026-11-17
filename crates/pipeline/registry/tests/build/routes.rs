@@ -106,10 +106,7 @@ fn need_thread(c: &mut ContributionsBuilder) {
     });
 }
 
-#[spec(
-    behavior = "declare_trace_route",
-    verify = "a route that cannot be followed is E118 and is not registered"
-)]
+#[spec(requirement = "FEATURE-129")]
 fn a_route_over_loaded_kinds_is_registered_with_its_steps_in_order() {
     let build = build([
         proof(),
@@ -175,10 +172,7 @@ fn a_route_over_loaded_kinds_is_registered_with_its_steps_in_order() {
     assert_eq!(build.routes().of_kind("need").count(), 1);
 }
 
-#[spec(
-    behavior = "declare_trace_route",
-    verify = "a route that cannot be followed is E118 and is not registered"
-)]
+#[spec(requirement = "FEATURE-129")]
 fn a_route_naming_an_unknown_kind_field_or_a_non_reference_is_e118_and_not_registered() {
     type Declare = fn(&mut ContributionsBuilder);
     let cases: &[(&str, Declare)] = &[
@@ -313,10 +307,7 @@ fn a_route_naming_an_unknown_kind_field_or_a_non_reference_is_e118_and_not_regis
     assert_eq!(build.routes().iter().count(), 1);
 }
 
-#[spec(
-    behavior = "declare_trace_route",
-    verify = "a route step of an optional peer the project does not load is skipped, not reported"
-)]
+#[spec(requirement = "FEATURE-129")]
 fn a_step_of_an_unloaded_optional_peer_is_skipped_silently_and_recorded() {
     let declare_routes = |c: &mut ContributionsBuilder| {
         c.route("need-thread", |r| {
@@ -400,10 +391,7 @@ fn a_step_of_an_unloaded_optional_peer_is_skipped_silently_and_recorded() {
     }
 }
 
-#[spec(
-    behavior = "declare_trace_route",
-    verify = "several routes from one kind without one default are W195, and the first in load order is followed"
-)]
+#[spec(requirement = "FEATURE-129")]
 fn two_routes_from_one_kind_without_one_default_are_w195_and_the_first_is_followed() {
     let build = build([
         proof(),
@@ -428,10 +416,7 @@ fn two_routes_from_one_kind_without_one_default_are_w195_and_the_first_is_follow
     assert_eq!(build.routes().of_kind("need").count(), 2);
 }
 
-#[spec(
-    behavior = "declare_trace_route",
-    verify = "several routes from one kind without one default are W195, and the first in load order is followed"
-)]
+#[spec(requirement = "FEATURE-129")]
 fn one_default_among_several_routes_is_followed_without_a_warning() {
     let build = build([
         proof(),

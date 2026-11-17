@@ -107,10 +107,7 @@ fn a_moved_set_is_watched_then_caught_up() {
     assert_eq!(following.watched(), &2);
 }
 
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "a set of watchers refused once is not asked for again in the same follow"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_set_refused_once_is_not_asked_for_again_in_the_follow() {
     let mut script = Script::wanting(&[2]).refusing(2).always_catching_up();
     let mut following = Following::new(1);

@@ -18,10 +18,7 @@ fn source_files<'a>(files: &[(&'a str, &'a str)]) -> Vec<(&'a str, &'a str)> {
     files.to_vec()
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "a use path resolves to the project source it names"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn resolve_use_import_to_file() {
     let dir = source_files(&[
         ("types.spec", r#"behavior alpha "A" { contract "first" }"#),
@@ -40,10 +37,7 @@ fn resolve_use_import_to_file() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "missing import file produces E025"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn missing_import_produces_e025() {
     let dir = source_files(&[("main.spec", "use \"nonexistent\"\nbehavior foo \"F\" { }")]);
 
@@ -53,10 +47,7 @@ fn missing_import_produces_e025() {
     assert_eq!(errors.len(), 1, "should produce E025 for missing import");
 }
 
-#[specforge_test(
-    behavior = "detect_import_cycles",
-    verify = "detect direct cycle between two files"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn detect_direct_import_cycle() {
     let dir = source_files(&[
         ("a.spec", "use \"b\"\nbehavior alpha \"A\" { }"),
@@ -78,10 +69,7 @@ fn detect_direct_import_cycle() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_import_cycles",
-    verify = "detect transitive cycle across three files"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn detect_transitive_import_cycle() {
     let dir = source_files(&[
         ("a.spec", "use \"b\"\nbehavior alpha \"A\" { }"),
@@ -98,10 +86,7 @@ fn detect_transitive_import_cycle() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_import_cycles",
-    verify = "non-cyclic files still process when a cycle exists"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn non_cyclic_files_still_resolve_when_cycle_exists() {
     let dir = source_files(&[
         ("a.spec", "use \"b\"\nbehavior alpha \"A\" { }"),
@@ -126,10 +111,7 @@ fn non_cyclic_files_still_resolve_when_cycle_exists() {
 
 // --- nested directory imports ---
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "imports across nested directories resolve correctly"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn imports_across_nested_directories_resolve_correctly() {
     let dir = source_files(&[
         (
@@ -155,10 +137,7 @@ fn imports_across_nested_directories_resolve_correctly() {
 
 // --- 5-step path resolution cascade ---
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "a use path resolves to the project source it names"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn resolve_relative_dot_slash() {
     let dir = source_files(&[
         (
@@ -180,10 +159,7 @@ fn resolve_relative_dot_slash() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "a use path resolves to the project source it names"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn resolve_relative_dot_dot_slash() {
     let dir = source_files(&[
         (
@@ -205,10 +181,7 @@ fn resolve_relative_dot_dot_slash() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "relative import traversing above spec_root is rejected"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn resolve_relative_escaping_spec_root() {
     let dir = source_files(&[(
         "sub/main.spec",
@@ -225,10 +198,7 @@ fn resolve_relative_escaping_spec_root() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "a use path resolves to the project source it names"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn resolve_directory_to_index_spec() {
     let dir = source_files(&[
         (
@@ -251,10 +221,7 @@ fn resolve_directory_to_index_spec() {
     // main.spec + models/index.spec = 2 files
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "a use path resolves to the project source it names"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn bare_path_precedence_over_index() {
     let dir = source_files(&[
         (
@@ -290,10 +257,7 @@ fn bare_path_precedence_over_index() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "resolve extension import path"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn extension_import_emits_i004() {
     let dir = source_files(&[(
         "main.spec",
@@ -319,10 +283,7 @@ fn extension_import_emits_i004() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "missing import file produces E025"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn missing_import_e025_with_suggestion() {
     let dir = source_files(&[
         ("helpers.spec", r#"behavior helper "H" { contract "help" }"#),
@@ -343,10 +304,7 @@ fn missing_import_e025_with_suggestion() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "missing import file produces E025"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn missing_import_e025_no_suggestion() {
     let dir = source_files(&[
         ("types.spec", r#"behavior t "T" { contract "t" }"#),
@@ -384,10 +342,7 @@ fn missing_import_e025_no_suggestion() {
 
 // --- pub use re-export scope tests ---
 
-#[specforge_test(
-    behavior = "resolve_reexports",
-    verify = "selective re-export of unknown entity produces W027"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn pub_use_unknown_entity_w027() {
     let dir = source_files(&[
         ("foo.spec", r#"behavior Foo "F" { contract "foo" }"#),
@@ -405,10 +360,7 @@ fn pub_use_unknown_entity_w027() {
     assert!(warnings[0].message.contains("NonExistent"));
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "relative import traversing above spec_root is rejected"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn relative_import_path_traversal_rejected() {
     // A spec file that tries to import ../../outside (above the spec root);
     // no such file is among the sources, whatever is on disk.
@@ -429,10 +381,7 @@ fn relative_import_path_traversal_rejected() {
 
 // === M3: W113 import cycle diagnostic carries suggestion ===
 
-#[specforge_test(
-    behavior = "detect_import_cycles",
-    verify = "W113 carries actionable suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn w113_import_cycle_has_suggestion() {
     let dir = source_files(&[
         ("a.spec", "use \"b\"\nbehavior alpha \"A\" { }"),
@@ -454,10 +403,7 @@ fn w113_import_cycle_has_suggestion() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "an import path may spell out the .spec extension"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn use_import_may_spell_out_the_spec_extension() {
     let dir = source_files(&[
         ("tokens.spec", r#"behavior token "T" { contract "t" }"#),
@@ -476,10 +422,7 @@ fn use_import_may_spell_out_the_spec_extension() {
 
 /// W113 names each cycle from its smallest path, and the cycles come in
 /// sorted order, whatever order the files were walked in (ADR 0004 D1-a).
-#[specforge_test(
-    invariant = "import_dag",
-    verify = "a circular import produces W113 naming the cycle participants in a deterministic order"
-)]
+#[specforge_test(requirement = "INVARIANT-056")]
 fn w113_names_each_cycle_the_same_way_on_every_run() {
     let dir = source_files(&[
         ("c.spec", "use \"a\"\nbehavior gamma \"G\" { }"),
@@ -509,10 +452,7 @@ fn w113_names_each_cycle_the_same_way_on_every_run() {
 /// One import, resolved on its own (the LSP's go-to-definition on a `use`
 /// path), the way the compile resolves it: bare, relative and
 /// directory-index targets, relative to the spec root.
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "a use path resolves to the project source it names"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn resolve_one_import_by_the_compile_cascade() {
     let sources = BTreeSet::from([
         "types.spec",
@@ -534,10 +474,7 @@ fn resolve_one_import_by_the_compile_cascade() {
 
 /// Whichever cascade step names it, a target outside the spec root does
 /// not resolve: E025, as for a relative import.
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "an import reaching above spec_root by any cascade step produces E025"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn no_import_reaches_above_the_spec_root() {
     let sources = BTreeSet::from(["main.spec", "outside.spec"]);
     for import in ["../outside", "sub/../../outside", "/outside"] {
@@ -575,10 +512,7 @@ fn w027_messages(files: &[(&str, &str)]) -> Vec<String> {
 
 const USER_AND_PROFILE: &str = "behavior User \"U\" { contract \"user\" }\nbehavior UserProfile \"UP\" { contract \"profile\" }";
 
-#[specforge_test(
-    behavior = "resolve_reexports",
-    verify = "pub use re-exports all entities from target"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn pub_use_reexports_all_entities_w027() {
     // top names UserProfile through barrel's `pub use "./user"`.
     let w027 = w027_messages(&[
@@ -589,10 +523,7 @@ fn pub_use_reexports_all_entities_w027() {
     assert!(w027.is_empty(), "{w027:?}");
 }
 
-#[specforge_test(
-    behavior = "resolve_reexports",
-    verify = "pub use selective re-exports only named entities"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn pub_use_selective_reexport_w027() {
     let w027 = w027_messages(&[
         ("user.spec", USER_AND_PROFILE),
@@ -608,10 +539,7 @@ fn pub_use_selective_reexport_w027() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_reexports",
-    verify = "pub use chains resolve transitively"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn pub_use_transitive_chain_w027() {
     let w027 = w027_messages(&[
         (
@@ -625,10 +553,7 @@ fn pub_use_transitive_chain_w027() {
     assert!(w027.is_empty(), "{w027:?}");
 }
 
-#[specforge_test(
-    behavior = "resolve_reexports",
-    verify = "regular use does not re-export"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn regular_use_does_not_reexport_w027() {
     let w027 = w027_messages(&[
         ("user.spec", "behavior User \"U\" { contract \"user\" }"),
@@ -645,10 +570,7 @@ fn regular_use_does_not_reexport_w027() {
     assert!(w027[0].contains("'User'"), "{w027:?}");
 }
 
-#[specforge_test(
-    behavior = "resolve_reexports",
-    verify = "barrel index with pub use re-exports from sub-files"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn barrel_index_with_pub_use_w027() {
     let w027 = w027_messages(&[
         (
@@ -668,10 +590,7 @@ fn barrel_index_with_pub_use_w027() {
     assert!(w027.is_empty(), "{w027:?}");
 }
 
-#[specforge_test(
-    behavior = "resolve_reexports",
-    verify = "pub use through cycle participant uses only declared set"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn pub_use_through_cycle_no_transitive_w027() {
     // a and b form a cycle; c pub-uses a; d names what c exports.
     let w027 = w027_messages(&[
@@ -687,10 +606,7 @@ fn pub_use_through_cycle_no_transitive_w027() {
     assert!(w027[0].contains("'Beta'"), "{w027:?}");
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "a dotted import path names the file with .spec appended"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_dotted_import_path_names_the_file_with_spec_appended() {
     let dir = source_files(&[
         ("api.v2.spec", "term v \"V\" {\n}\n"),
@@ -711,10 +627,7 @@ fn a_dotted_import_path_names_the_file_with_spec_appended() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "import paths match source paths exactly, whatever the file system's case rules"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn import_paths_match_source_paths_exactly() {
     let dir = source_files(&[
         ("types.spec", "term t \"T\" {\n}\n"),
@@ -736,10 +649,7 @@ fn import_paths_match_source_paths_exactly() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "an import of a file that is no project source produces E025"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn an_import_of_a_key_no_source_has_is_e025() {
     let diagnostics = resolve(&[("main.spec", "use \"drafts/x\"\n")], &[]);
 
@@ -757,10 +667,7 @@ fn an_import_of_a_key_no_source_has_is_e025() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "an import of an unreadable source reports only that source's E025"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn an_unreadable_key_is_a_source_with_no_exports() {
     let diagnostics = resolve(
         &[(

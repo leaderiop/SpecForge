@@ -9,10 +9,7 @@ use specforge_test_macros::test as specforge_test;
 
 const BODY: &str = "behavior foo \"Foo\" {\n  contract \"x\"\n}\n";
 
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "unsupported format version produces E019 with upgrade guidance"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn the_e019_hint_names_the_versions_a_file_may_declare() {
     let (_, diagnostics) =
         detect_format_version(&format!("// specforge-format: 99.0\n{BODY}"), "a.spec");
@@ -90,10 +87,7 @@ fn without_header(text: &str) -> (Vec<&str>, bool) {
     }
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "the header migrate writes is the header the parser reads"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn the_header_written_is_the_header_read() {
     let mut runner = TestRunner::new(property_config());
     let result = runner.run(&edited_corpus(), |case| {

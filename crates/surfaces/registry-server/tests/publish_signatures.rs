@@ -107,10 +107,7 @@ fn signed_publish_round_trips_through_http_boundary() {
         .expect("served signature must verify offline against served metadata");
 }
 
-#[specforge_test_macros::test(
-    behavior = "retry_registry_request",
-    verify = "a rate-limited answer is R003 on every registry call"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-110")]
 fn a_rate_limited_publish_is_r003() {
     let server = LocalRegistry::start_with(PublishLimits {
         per_token: 1,
@@ -145,10 +142,7 @@ fn a_rate_limited_publish_is_r003() {
 /// A signature text no client accepts: the round-3 envelope with values that are not hex.
 const MALFORMED: &str = r#"{"sig":"x","keyId":"y","pubkey":"z","signedAt":"now"}"#;
 
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "the registry refuses a signature that is not a package signature, and the version stays publishable"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn a_signature_the_client_would_refuse_is_refused_and_the_version_stays_publishable() {
     use specforge_package::{PackageName, Version};
     use specforge_registry_client::RegistryClient;

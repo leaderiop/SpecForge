@@ -209,10 +209,8 @@ fn builtin_handshakes_survive_sdk_migration() {
     }
 }
 
-#[specforge_test(
-    behavior = "pe_declare_surface_contributions",
-    verify = "manifest surfaces declares the specforge product commands, each answered by its export"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
+#[specforge_test(requirement = "FEATURE-104")]
 fn product_declares_its_commands_and_exports_them() {
     let runtime = ComponentRuntime::new();
     builtins::load_family(&runtime, Family::Old).unwrap();
@@ -293,10 +291,8 @@ fn product_declares_its_commands_and_exports_them() {
     }
 }
 
-#[specforge_test(
-    behavior = "pe_declare_surface_contributions",
-    verify = "manifest surfaces declares the 40 commands surfaces-cli.spec specifies"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
+#[specforge_test(requirement = "FEATURE-104")]
 fn product_declares_the_commands_its_cli_surface_specifies() {
     let runtime = ComponentRuntime::new();
     builtins::load_family(&runtime, Family::Old).unwrap();
@@ -329,10 +325,7 @@ fn product_declares_the_commands_its_cli_surface_specifies() {
     assert_eq!(declared, specified);
 }
 
-#[specforge_test_macros::test(
-    behavior = "link_host_ports",
-    verify = "every instance links the five ports, and a guest that calls none imports none"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn the_probe_imports_the_ports_it_calls_and_builtins_only_theirs() {
     let engine = wasmtime::Engine::default();
     let blob = std::fs::read(specforge_component::committed::PROBE.path()).unwrap();

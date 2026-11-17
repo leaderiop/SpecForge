@@ -6,10 +6,7 @@ use specforge_test::prelude::*;
 
 // ── feature dependents ────────────────────────────────────────────────────
 
-#[specforge_test(
-    behavior = "pe_query_feature_dependents",
-    verify = "feature with dependent returns that dependent"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn a_features_dependent_is_listed() {
     let g = G::default()
         .n("f1", "feature")
@@ -22,10 +19,7 @@ fn a_features_dependent_is_listed() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_feature_dependents",
-    verify = "feature with multiple dependents returns all sorted by ID"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn a_features_dependents_are_sorted_by_id() {
     // Declared in reverse order; one only relates to f1 (`features`).
     let g = G::default()
@@ -41,10 +35,7 @@ fn a_features_dependents_are_sorted_by_id() {
     assert_eq!(fd["count"], 2);
 }
 
-#[specforge_test(
-    behavior = "pe_query_feature_dependents",
-    verify = "feature with no dependents returns empty list"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn a_feature_without_dependents_has_none() {
     let fd = json_of("feature_dependents", json!({"feature": "f2"}), &plan());
     assert_eq!(
@@ -53,10 +44,7 @@ fn a_feature_without_dependents_has_none() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_feature_dependents",
-    verify = "feature-dependents returns FeatureDependentPayload JSON"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn feature_dependents_answers_its_payload() {
     let fd = json_of("feature_dependents", json!({"feature": "f1"}), &plan());
     assert_eq!(
@@ -69,10 +57,7 @@ fn feature_dependents_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_feature_dependents",
-    verify = "missing feature ID returns error with suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_mistyped_feature_is_not_found_with_the_nearest() {
     let runtime = runtime();
     let error = run_in(
@@ -97,10 +82,7 @@ fn a_mistyped_feature_is_not_found_with_the_nearest() {
     assert_eq!(error["code"], "ENTITY_NOT_FOUND");
 }
 
-#[specforge_test(
-    behavior = "surface_feature_impact",
-    verify = "missing feature ID returns error with suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn feature_impact_of_a_mistyped_feature_suggests_the_nearest() {
     let error = run_in(
         &runtime(),

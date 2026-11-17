@@ -11,10 +11,7 @@ fn judged_served(extra: &str) -> Served {
         .open(&["a.spec"])
 }
 
-#[spec(
-    behavior = "show_verdict_state",
-    verify = "the hover lists an entity's verdicts with their state and the inputs that changed"
-)]
+#[spec(requirement = "FEATURE-058")]
 fn hover_shows_a_verdicts_state_and_changed_inputs() {
     let served = judged_served("");
     let text = served

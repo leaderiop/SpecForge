@@ -47,10 +47,7 @@ fn round_trips<T: DeserializeOwned + Serialize>(golden: &Value) -> T {
     decoded
 }
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "every operational payload is one protocol type the host and the SDK share"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn the_host_payloads_decode_as_their_protocol_types() {
     // The command input decodes with the graph export's extra keys
     // (`format_version`, a node's `file` and `line`) ignored.
@@ -93,10 +90,7 @@ fn the_host_payloads_decode_as_their_protocol_types() {
     round_trips::<MigrationInput>(&wire("migrate.input.json"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "run_check_phase_passes",
-    verify = "a pass entity carries whether the host found it exempt"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_pass_entity_carries_its_exemption() {
     let input: PassInput = serde_json::from_value(wire("pass.input.json")).unwrap();
     let exempt: Vec<(&str, bool)> = input
@@ -220,12 +214,8 @@ fn a_pass_answers_bare_diagnostics_or_diagnostics_with_a_summary() {
 mod evidence {
     use serde_json::json;
     use specforge_protocol_types::{CommandEvidence, CommandInput, EntityEvidence, GraphWire};
-    use specforge_test_macros::test as specforge_test;
 
-    #[specforge_test(
-        type = "CommandEvidence",
-        verify = "a command input without evidence leaves the field off the wire, and evidence is tagged by its state"
-    )]
+    #[test]
     fn evidence_is_absent_or_tagged_by_its_state() {
         let input = CommandInput::<GraphWire>::default();
         let wire = serde_json::to_value(&input).unwrap();
@@ -264,10 +254,7 @@ mod evidence {
         assert!(older.evidence.is_none());
     }
 
-    #[specforge_test(
-        type = "EntityEvidence",
-        verify = "an entity is proven when it declares an obligation, every one is proven and no test fails"
-    )]
+    #[test]
     fn an_entity_is_proven_only_when_every_obligation_is() {
         let e = |obligations, proven, failing| EntityEvidence {
             obligations,
@@ -300,7 +287,7 @@ fn a_pass_answer_carries_computed_values_and_omits_none() {
     );
 }
 
-#[specforge_test_macros::test(type = "CollectOutput", verify = "CollectOutput schema is valid")]
+#[test]
 fn collect_output_with_facts_round_trips_and_omits_an_empty_list() {
     use specforge_protocol_types::{CollectOutput, Fact};
 
@@ -322,7 +309,7 @@ fn collect_output_with_facts_round_trips_and_omits_an_empty_list() {
     assert!(empty.get("facts").is_none(), "{empty}");
 }
 
-#[specforge_test_macros::test(type = "PassEntity", verify = "PassEntity schema is valid")]
+#[test]
 fn a_pass_entity_carries_pending_and_its_unheld_spans_and_omits_them_when_absent() {
     use specforge_protocol_types::PassEntity;
 
@@ -433,7 +420,7 @@ fn a_syntax_request_and_answer_round_trip() {
     assert!(quiet.get("truncated").is_none(), "{quiet}");
 }
 
-#[specforge_test_macros::test(type = "Fact", verify = "Fact schema is valid")]
+#[test]
 fn a_fact_carries_its_places_and_named_places_and_omits_them_when_absent() {
     use specforge_protocol_types::{Fact, FactLocation};
 
@@ -467,7 +454,7 @@ fn a_fact_carries_its_places_and_named_places_and_omits_them_when_absent() {
     );
 }
 
-#[specforge_test_macros::test(type = "PassEntity", verify = "PassEntity schema is valid")]
+#[test]
 fn a_pass_entity_carries_its_dangling_references_and_omits_them_when_absent() {
     use specforge_protocol_types::{DanglingReason, PassEntity};
 
@@ -497,10 +484,7 @@ fn a_pass_entity_carries_its_dangling_references_and_omits_them_when_absent() {
     assert!(plain.get("dangling").is_none(), "{plain}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "record_context_pack",
-    verify = "a record_context op round trips, its budget optional"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-012")]
 fn a_record_context_op_round_trips() {
     use specforge_protocol_types::{EditPlan, PlanOp};
     let plan: EditPlan = round_trips(&json!({"ops": [

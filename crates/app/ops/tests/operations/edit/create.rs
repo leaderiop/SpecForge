@@ -34,10 +34,7 @@ const ARCHIVE: &str = r#"behavior archive_task "Archive a Task" {
 }
 "#;
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "new writes the block in the canonical form after the last block of its kind"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn new_goes_after_the_last_block_of_its_kind() {
     let c = tasks();
     let text = after(&c, "tasks.spec", &[archive("tasks.spec")]);
@@ -72,10 +69,7 @@ fn new_goes_at_the_end_without_a_sibling() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "new creates a missing source file"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn new_creates_a_missing_source_file() {
     let c = tasks();
     let planned = plan(&c, &[archive("behaviors/archive.spec")]).unwrap();
@@ -86,10 +80,7 @@ fn new_creates_a_missing_source_file() {
     assert_eq!(planned.change().after()["behaviors/archive.spec"], ARCHIVE);
 }
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "new refuses a file that is not a project source"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn new_refuses_a_file_that_is_not_a_source() {
     let c = tasks();
     for file in [
@@ -103,10 +94,7 @@ fn new_refuses_a_file_that_is_not_a_source() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "new refuses an id that is taken"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn new_refuses_a_taken_id() {
     let c = tasks();
     let (code, _) = refused(&c, &[create("behavior", "list_tasks", "tasks.spec", &[])]);
@@ -124,10 +112,7 @@ fn new_refuses_an_invalid_id() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "new refuses a reserved id before the edited project is compiled"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn new_refuses_a_reserved_id_before_the_compile() {
     let c = tasks();
     for id in ["behavior", "invariant", "defaults"] {
@@ -248,7 +233,7 @@ fn new_omits_a_field_equal_to_the_default() {
     assert!(text.contains("invariants [other_rule]"), "{text}");
 }
 
-#[specforge_test_macros::test(behavior = "create_entity", verify = "new refuses a blank title")]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn new_refuses_a_blank_title() {
     let c = tasks();
     for blank in ["", "  "] {
@@ -274,10 +259,7 @@ fn new_refuses_a_blank_title() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "new writes a number flag as given, and a skeleton fills a required number with zero"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn new_writes_a_number_flag_and_fills_a_required_number_with_zero() {
     use specforge_ops::authoring::edit::Skeletons;
     use specforge_ops::authoring::format::Place;

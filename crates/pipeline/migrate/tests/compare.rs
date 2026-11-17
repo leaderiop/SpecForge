@@ -16,10 +16,7 @@ fn drift(pre: &Graph, post: &Graph) -> Vec<Diagnostic> {
 }
 
 // F2: Post-migration structural equivalence (format-only migration)
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "structural equivalence verified between pre and post graphs"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn format_only_migration_zero_differences() {
     use specforge_graph::{Edge, EntityId, EntityKind, FieldMap, FieldValue, Graph, Node};
     use specforge_parser::{ListItem, Written};
@@ -130,10 +127,7 @@ fn format_only_migration_zero_differences() {
 }
 
 // F3: Structural differences → warnings
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "structural differences reported as warnings"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn structural_differences_produce_warnings() {
     use specforge_graph::{EntityId, EntityKind, FieldMap, Graph, Node, SourceSpan};
 
@@ -217,10 +211,7 @@ fn new_entities_after_migration_reported() {
     );
 }
 
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "Validate Post-Migration Integrity: post-migration integrity validation holds — extension_hooks_complete_fired, structural_equivalence_checked, differences_reported, migration_validation_complete_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn post_migration_integrity_contract() {
     use specforge_graph::{Edge, EntityId, EntityKind, FieldMap, Graph, Node, SourceSpan};
 
@@ -282,10 +273,7 @@ fn post_migration_integrity_contract() {
     );
 }
 
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "structural differences reported as warnings"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn cross_extension_broken_reference_produces_diagnostic() {
     use specforge_graph::{Edge, EntityId, EntityKind, FieldMap, Graph, Node, SourceSpan};
 
@@ -434,14 +422,8 @@ fn graph_after(change: Option<Change>) -> Graph {
     graph
 }
 
-#[specforge_test(
-    invariant = "migration_semantic_preservation",
-    verify = "pre-migration and post-migration entity graphs are structurally identical"
-)]
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "each change the graph delta names is one W054 warning, and an empty delta none"
-)]
+#[specforge_test(requirement = "INVARIANT-076")]
+#[specforge_test(requirement = "FEATURE-122")]
 fn every_change_the_delta_names_is_one_w054_and_a_move_is_none() {
     let edge_gone = "edge alpha-[refs]->beta present before migration but missing after";
     let cases: [(Change, Vec<&str>); 8] = [

@@ -50,10 +50,7 @@ fn is_link(fx: &Fixture, name: &str) -> bool {
         .is_symlink()
 }
 
-#[specforge_test(
-    behavior = "run_collector_command",
-    verify = "a link at the report, capture or config name is replaced, never written through"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_link_at_a_name_the_run_owns_is_replaced_never_written_through() {
     let fx = linked();
     let machine = Machine::new()

@@ -9,10 +9,7 @@ use specforge_test::prelude::*;
 
 use crate::check_passes::{SPEC, passes_extension, project};
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a project with no judged rule reads no report and stamps no file"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_project_without_judged_rules_reads_no_report_and_stamps_no_file() {
     let dir = project(SPEC).file("specforge-report.json", "{}");
     let ext = Arc::new(passes_extension());
@@ -166,20 +163,14 @@ pub(crate) fn digest_of(compiled: &CompiledProject, entity: &str) -> String {
 pub(crate) const PLAN: &str = "v1.0/03/03-02";
 pub(crate) const W311: &str = "gsd/W311";
 
-#[specforge_test(
-    behavior = "declare_judged_rule",
-    verify = "every input of the model's judged rules parses and resolves"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn every_gsd_judged_input_parses_and_resolves() {
     let compiled = compile(&gsd_judged_project(""));
     let diagnostics = compiled.diagnostics();
     assert!(found(&diagnostics, "W112").is_empty(), "{diagnostics:?}");
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a hand-written verdict is E083"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_hand_written_verdict_is_e083() {
     let compiled = compile(&gsd_judged_project(&hand_written()));
     let diagnostics = compiled.diagnostics();
@@ -192,10 +183,7 @@ fn hand_written() -> String {
     )
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a hand-written verdict counts as missing"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_hand_written_verdict_counts_as_missing() {
     let compiled = compile(&gsd_judged_project(&hand_written()));
     let diagnostics = compiled.diagnostics();
@@ -207,10 +195,7 @@ fn a_hand_written_verdict_counts_as_missing() {
     assert!(on_hand[0].message.contains("not recorded"), "{on_hand:?}");
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "an entity digest ignores layout, comments, verdicts and derived values"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn an_entity_digest_ignores_layout_comments_verdicts_and_derived_values() {
     let project = gsd_judged_project("");
     let before = digest_of(&compile(&project), PLAN);
@@ -226,10 +211,7 @@ fn an_entity_digest_ignores_layout_comments_verdicts_and_derived_values() {
     assert_ne!(before, digest_of(&compile(&project), PLAN));
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a respelling stales nothing and a rename stales the verdicts that read it"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_respelling_stales_nothing_and_a_rename_stales_its_readers() {
     let project = gsd_judged_project("");
     record(&project, PLAN, W311, "passed");
@@ -252,10 +234,7 @@ fn a_respelling_stales_nothing_and_a_rename_stales_its_readers() {
     assert!(changed.contains(&"requirements".to_string()), "{changed:?}");
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a judged rule reports missing, stale and failed verdicts"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_judged_rule_reports_missing_stale_and_failed_verdicts() {
     let project = gsd_judged_project("");
     let missing = compile(&project).diagnostics();
@@ -293,10 +272,7 @@ fn a_judged_rule_reports_missing_stale_and_failed_verdicts() {
     );
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a stale verdict names the inputs that changed"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_stale_verdict_names_the_inputs_that_changed() {
     let project = gsd_judged_project("");
     record(&project, PLAN, W311, "passed");
@@ -309,10 +285,7 @@ fn a_stale_verdict_names_the_inputs_that_changed() {
     assert_eq!(changed, ["decisions"]);
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a file input reads from its field's base and an absent file digests as absent"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_file_input_reads_from_its_fields_base_and_absent_digests_absent() {
     let project = gsd_judged_project("");
     record(&project, "v1.0/03/03-02/TR1", "gsd/E501", "passed");
@@ -329,10 +302,7 @@ fn a_file_input_reads_from_its_fields_base_and_absent_digests_absent() {
     );
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a file input that is a spec source digests as what it declares"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_spec_source_file_input_ignores_its_verdicts() {
     let project = gsd_judged_project("");
     let truth = "v1.0/03/03-02/TR1";
@@ -355,10 +325,7 @@ fn a_spec_source_file_input_ignores_its_verdicts() {
     assert_eq!(judgement(&compile(&project), truth, "gsd/E501").0, "stale");
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "test inputs are not judged without a report"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn test_inputs_are_not_judged_without_a_report() {
     let project = gsd_judged_project("");
     let truth = "v1.0/03/03-02/TR1";
@@ -371,10 +338,7 @@ fn test_inputs_are_not_judged_without_a_report() {
     assert!(!found(&diagnostics, "E045").is_empty(), "{diagnostics:?}");
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a re-run that agrees on every status stales nothing"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_rerun_that_agrees_stales_nothing() {
     let project = gsd_judged_project("");
     let truth = "v1.0/03/03-02/TR1";
@@ -391,10 +355,7 @@ fn a_rerun_that_agrees_stales_nothing() {
     assert_eq!(changed, ["tests"]);
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a gated judged rule computes and reports nothing"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_gated_judged_rule_computes_and_reports_nothing() {
     let project = gsd_judged_project("");
     let open = compile(&project).diagnostics();
@@ -414,20 +375,14 @@ fn a_gated_judged_rule_computes_and_reports_nothing() {
     );
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a verdict that cannot be read is W168"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn an_unknown_rules_verdict_is_w168() {
     let spec = "plan 03-05 \"Odd\" {\n  phase 03\n  verdict gsd/W999 passed {\n    judge \"j\"\n    model \"m\"\n    at \"t\"\n    inputs { plan \"sha256:0\" }\n  }\n}\n";
     let diagnostics = compile(&gsd_judged_project(spec)).diagnostics();
     assert_eq!(found(&diagnostics, "W168").len(), 1, "{diagnostics:?}");
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a changed file input rechecks the session"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_changed_file_input_rechecks_the_session() {
     let project = gsd_judged_project("");
     let truth = "v1.0/03/03-02/TR1";
@@ -447,10 +402,7 @@ fn a_changed_file_input_rechecks_the_session() {
     );
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "incremental digests equal cold digests"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn incremental_digests_equal_cold_digests() {
     use proptest::prelude::*;
     // A random sequence of edits to the fixture: after each, a verifying session's kept digests equal a cold
@@ -514,10 +466,7 @@ fn incremental_digests_equal_cold_digests() {
         .expect("the incremental digests agree with a cold evaluation");
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a memo hit still watches its file"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_memo_hit_still_watches_its_file() {
     let project = gsd_judged_project("");
     record(&project, PLAN, W311, "passed");
@@ -529,10 +478,7 @@ fn a_memo_hit_still_watches_its_file() {
     );
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a file change the session has not applied misses the memo"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_change_not_yet_applied_misses_the_memo() {
     let project = gsd_judged_project("");
     let truth = "v1.0/03/03-02/TR1";
@@ -556,10 +502,7 @@ fn a_change_not_yet_applied_misses_the_memo() {
     );
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a compute pass reads judgements and a V field is its fresh verdict's value"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_compute_pass_reads_judgements_and_a_v_field_is_its_fresh_value() {
     let project = gsd_judged_project("");
     record(&project, "PA", "gsd/W205", "suspicious");
@@ -589,10 +532,7 @@ fn a_compute_pass_reads_judgements_and_a_v_field_is_its_fresh_value() {
     );
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a V field written by hand is E082"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_v_field_written_by_hand_is_e082() {
     let spec = "package_audit PB \"B\" {\n  legitimacy suspicious\n}\n";
     let diagnostics = compile(&gsd_judged_project(spec)).diagnostics();
@@ -601,10 +541,7 @@ fn a_v_field_written_by_hand_is_e082() {
     assert!(e082[0].message.contains("gsd/W205"), "{e082:?}");
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "re-verification reads the baseline's judgements"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn re_verification_reads_the_baselines_judgements() {
     use specforge_effects::git::{Git, Located, Sha};
     use specforge_effects::testing::FakeGit;
@@ -680,10 +617,7 @@ fn re_verification_reads_the_baselines_judgements() {
     );
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a filtered kind keeps only the entities whose field holds one of the values, and its digest moves with no entity it drops"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_kind_filter_keeps_only_the_entities_whose_field_holds_a_value() {
     use specforge_protocol_types::ContextTier;
     use specforge_registry::judged::Selector;
@@ -759,10 +693,7 @@ pub(crate) fn recorded_plan(record: &str) -> TestProject {
     project
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a judged entity digest is the same with or without a context record, whatever it holds"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn an_entity_digest_ignores_context_written_values() {
     let runtime: SharedRuntime = Arc::new(specforge_project::testing::gsd_context_runtime());
     let plan = specforge_project::testing::CONTEXT_PLAN;

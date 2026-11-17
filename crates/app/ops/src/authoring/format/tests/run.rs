@@ -274,10 +274,7 @@ fn mode_reads_the_flags_once() {
     }
 }
 
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "the format document names each changed file, each failed file with its kind, and the run's verdict"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn the_document_is_the_run_both_surfaces_print() {
     let dir = project();
     let mut outcome = run(&request(
@@ -326,10 +323,7 @@ fn the_document_is_the_run_both_surfaces_print() {
 /// [`MESSY`] in canonical form.
 const CANONICAL: &str = "behavior messy \"Messy\" {\n  contract \"The system MUST work\"\n}\n";
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "a specforge.json that does not say which files are the project's sources refuses the run, and nothing is written"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_config_that_hides_the_sources_refuses_the_run() {
     for config in crate::config::testing::HIDES_SOURCES {
         for mode in [Mode::Write, Mode::Check, Mode::Preview] {
@@ -358,10 +352,7 @@ fn a_config_that_hides_the_sources_refuses_the_run() {
     }
 }
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "a specforge.json that does not say which files are the project's sources refuses the run, and nothing is written"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_nested_projects_config_refuses_the_walk_that_reaches_it() {
     let dir = project_with(
         "{}",
@@ -392,10 +383,7 @@ fn a_nested_projects_config_refuses_the_walk_that_reaches_it() {
     assert_eq!(crate::config::testing::files_under(dir.path()), before);
 }
 
-#[specforge_test(
-    behavior = "check_formatting",
-    verify = "a problem in specforge.json the run goes around is an E069 that fails the check"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_problem_the_run_goes_around_is_e069_and_fails_ok() {
     let config = r#"{"spec_root":"spec","exclude":["[", 5],"name":7}"#;
     let dir = project_with(
@@ -440,10 +428,7 @@ fn a_problem_the_run_goes_around_is_e069_and_fails_ok() {
     );
 }
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "a named file is formatted whatever specforge.json says"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_named_file_reads_no_config() {
     let dir = project_with(r#"{"spec_root": "#, &[("spec/a.spec", MESSY)]);
     let file = dir.path().join("spec/a.spec");
@@ -556,10 +541,7 @@ fn with_a_hard_linked_target() -> (tempfile::TempDir, tempfile::TempDir, PathBuf
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "an unbounded run formats a file with more than one name; a bounded one fails it and formats the others"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_bounded_run_fails_a_hard_linked_target_and_formats_the_others() {
     let (dir, _outside, victim) = with_a_hard_linked_target();
     let held = crate::Containment::within(dir.path());
@@ -599,10 +581,7 @@ fn a_bounded_run_fails_a_hard_linked_target_and_formats_the_others() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "an unbounded run formats a file with more than one name; a bounded one fails it and formats the others"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn an_unbounded_run_formats_a_hard_linked_target() {
     let (dir, _outside, victim) = with_a_hard_linked_target();
 

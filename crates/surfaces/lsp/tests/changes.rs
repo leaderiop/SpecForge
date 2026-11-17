@@ -38,10 +38,7 @@ fn changed(served: &Served, file: &str, typ: FileChangeType) -> FileEvent {
     }
 }
 
-#[spec(
-    behavior = "handle_text_document_change",
-    verify = "edits to several documents in one debounce window are one update and one publication"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_batch_of_edits_is_one_update_and_one_publication() {
     let mut served = two_files();
     // A rename's edits: the client applies both before the debounce fires.
@@ -69,10 +66,7 @@ fn a_batch_of_edits_is_one_update_and_one_publication() {
     );
 }
 
-#[spec(
-    behavior = "document_open_close",
-    verify = "closing a document compiles its file from disk again, dropping its unsaved edits"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn closing_an_unsaved_buffer_reads_its_file_from_disk() {
     let mut served = two_files();
     let b = served.uri("b.spec");
@@ -100,10 +94,7 @@ fn closing_an_unsaved_buffer_reads_its_file_from_disk() {
     );
 }
 
-#[spec(
-    behavior = "document_open_close",
-    verify = "closing a document compiles its file from disk again, dropping its unsaved edits"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn closing_an_unmodified_buffer_publishes_its_file_once() {
     let mut served = two_files();
     let a = served.uri("a.spec");
@@ -117,10 +108,7 @@ fn closing_an_unmodified_buffer_publishes_its_file_once() {
     );
 }
 
-#[spec(
-    behavior = "document_open_close",
-    verify = "closing a project source publishes what the project reports for its file"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn closing_a_clean_source_keeps_its_errors_published() {
     let mut served = Served::new(&[("a.spec", A_DANGLING), ("b.spec", B_PLAIN)]).open(&["a.spec"]);
     served.sent();
@@ -141,10 +129,7 @@ fn closing_a_clean_source_keeps_its_errors_published() {
     );
 }
 
-#[spec(
-    behavior = "document_open_close",
-    verify = "closing a document outside a project drops its file from the project"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn closing_a_buffer_outside_a_project_drops_it() {
     let mut served = Served::detached();
     let a = Url::parse("file:///test/a.spec").unwrap();
@@ -167,10 +152,8 @@ fn closing_a_buffer_outside_a_project_drops_it() {
     );
 }
 
-#[spec(
-    behavior = "shared_incremental_pipeline",
-    verify = "a reload applies every open buffer again, in one update"
-)]
+#[spec(requirement = "FEATURE-050")]
+#[spec(requirement = "FEATURE-059")]
 fn a_reload_applies_every_open_buffer_in_one_update() {
     let mut served = two_files();
     // Unsaved text in both buffers, compiled.
@@ -204,10 +187,7 @@ fn a_reload_applies_every_open_buffer_in_one_update() {
     );
 }
 
-#[spec(
-    behavior = "document_open_close",
-    verify = "only open documents participate in incremental compilation"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn a_disk_change_to_an_open_document_is_ignored() {
     let mut served = Served::new(&[("a.spec", A_ALPHA), ("c.spec", A_OMEGA)]).open(&["a.spec"]);
     served.edit("a.spec", "type zeta \"Z\" {}\n");
@@ -273,10 +253,7 @@ fn readers_keep_the_last_graph_while_the_session_is_out() {
     assert!(served.state().session().is_some());
 }
 
-#[spec(
-    behavior = "bring_session_up_to_date",
-    verify = "the LSP's catch-up keeps an open buffer"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_catch_up_reads_the_disk_except_for_an_open_buffer() {
     let mut served = Served::new(&[("a.spec", A_ALPHA), ("c.spec", A_OMEGA)]).open(&["a.spec"]);
     served.edit("a.spec", "type zeta \"Z\" {}\n");
@@ -307,10 +284,7 @@ fn a_catch_up_reads_the_disk_except_for_an_open_buffer() {
     );
 }
 
-#[spec(
-    behavior = "bring_session_up_to_date",
-    verify = "the LSP's catch-up keeps an open buffer"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_catch_up_keeps_an_open_document_whose_file_was_deleted() {
     let mut served = Served::new(&[("a.spec", A_ALPHA), ("c.spec", A_OMEGA)]).open(&["a.spec"]);
     served.edit("a.spec", "type zeta \"Z\" {}\n");
@@ -320,10 +294,7 @@ fn a_catch_up_keeps_an_open_document_whose_file_was_deleted() {
     assert!(served.state().graph().node("zeta").is_some());
 }
 
-#[spec(
-    behavior = "document_open_close",
-    verify = "an open document's entities stay when its file is deleted, until it is closed"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn deleting_an_open_documents_file_keeps_its_entities_until_it_is_closed() {
     let mut served = Served::new(&[("a.spec", A_ALPHA), ("b.spec", B_USES_ZETA)]).open(&["a.spec"]);
     served.edit("a.spec", "type zeta \"Z\" {}\n");
@@ -398,10 +369,8 @@ fn checks_reported(served: &Served) -> bool {
         .any(|d| d.code.ends_with("/I990"))
 }
 
-#[spec(
-    behavior = "shared_incremental_pipeline",
-    verify = "opening a project with open documents runs the checks once"
-)]
+#[spec(requirement = "FEATURE-050")]
+#[spec(requirement = "FEATURE-059")]
 fn opening_and_reloading_with_open_buffers_runs_the_checks_once() {
     // The editor restores a tab holding unsaved text before the project opens.
     let mut served = counted(&[("a.spec", A_ALPHA), ("b.spec", B_USES_ALPHA)])
@@ -453,10 +422,7 @@ fn last_e003(served: &Served, sent: &[Sent], file: &str) -> (Option<i32>, Vec<u3
         .expect("published")
 }
 
-#[spec(
-    behavior = "emit_live_diagnostics",
-    verify = "a publish is labelled with the version of the buffer the project was compiled from"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_publication_carries_the_version_the_project_was_compiled_from() {
     let mut served =
         Served::new(&[("a.spec", V1), ("b.spec", "type beta \"B\" {}\n")]).open(&["a.spec"]);
@@ -487,10 +453,7 @@ fn a_publication_carries_the_version_the_project_was_compiled_from() {
     assert_eq!(last_e003_version(&served, &sent, "b.spec"), None);
 }
 
-#[spec(
-    behavior = "document_open_close",
-    verify = "closing a saved document leaves nothing to catch up on"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn closing_a_saved_buffer_leaves_nothing_stale() {
     let mut served = counted(&[("a.spec", A_ALPHA), ("b.spec", B_USES_ALPHA)]).open(&["a.spec"]);
     served.edit("a.spec", A_OMEGA);
@@ -504,10 +467,7 @@ fn closing_a_saved_buffer_leaves_nothing_stale() {
     assert!(served.state().graph().node("omega").is_some());
 }
 
-#[spec(
-    behavior = "document_open_close",
-    verify = "closing a document that does not parse runs the checks its typing skipped"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn closing_a_saved_buffer_that_does_not_parse_runs_the_checks() {
     let mut served = counted(&[("a.spec", A_ALPHA)]).open(&["a.spec"]);
     assert!(checks_reported(&served));
@@ -533,10 +493,7 @@ fn last_e003_version(served: &Served, sent: &[Sent], file: &str) -> Option<i32> 
     })?
 }
 
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "a directory created, moved or deleted under the spec root changes every source under it"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_moved_directory_is_every_source_under_it() {
     let mut served = Served::new(&[("a.spec", A_ALPHA), ("old/b.spec", B_PLAIN)]).open(&[]);
     std::fs::rename(served.root().join("old"), served.root().join("new")).unwrap();
@@ -559,10 +516,7 @@ fn a_moved_directory_is_every_source_under_it() {
     assert_eq!(keys, ["a.spec", "new/b.spec"]);
 }
 
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "the LSP drops a nested project's files when its specforge.json is created, and takes them back when it goes"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_nested_project_created_while_open_leaves_the_workspace_project() {
     let mut served =
         Served::new(&[("a.spec", A_ALPHA), ("sub/c.spec", "type sigma \"S\" {}\n")]).open(&[]);
@@ -585,10 +539,7 @@ fn a_nested_project_created_while_open_leaves_the_workspace_project() {
     assert!(served.state().graph().node("sigma").is_some());
 }
 
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "the LSP applies an expired effect record the checks consulted before it answers a request"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn an_expired_effect_record_is_applied_before_a_request() {
     let mut served = two_files();
     assert!(

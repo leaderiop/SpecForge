@@ -16,10 +16,7 @@ fn only_change(delta: &GraphDelta) -> (&[String], &[NodeAspect]) {
     (&modified.changed_fields, &modified.changed_aspects)
 }
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "a changed annotation is a changed field, never an aspect"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn a_changed_annotation_is_a_changed_field() {
     let order = |id: &str| format!("type Order \"O\" {{\n  id string{id}\n}}\n");
     let added = delta(&order(""), &order(" @optional"));
@@ -28,10 +25,7 @@ fn a_changed_annotation_is_a_changed_field() {
     assert_eq!(only_change(&valued), (&["id".to_string()][..], &[][..]));
 }
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "a method edit is the methods aspect, not a changed field"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn a_method_edit_is_the_methods_aspect() {
     let port =
         |method: &str| format!("port p \"P\" {{\n  direction outbound\n  method {method}\n}}\n");
@@ -47,10 +41,7 @@ fn a_method_edit_is_the_methods_aspect() {
     }
 }
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "an annotation changed inside a block field is a change of the block field"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn a_block_entrys_changed_annotation_is_a_changed_field() {
     let order = |note: &str| {
         format!("type Order \"O\" {{\n  address {{\n    street string{note}\n  }}\n}}\n")
@@ -73,10 +64,7 @@ port p "P" {
 }
 "#;
 
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "what an entity holds is written once: its fields, their annotations at any depth and its methods, with no position"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn members_are_written_without_positions() {
     let entities = parse(HELD, "a.spec").entities;
     let order = Members::new(&entities[0].fields, &entities[0].methods);

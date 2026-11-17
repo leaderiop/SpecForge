@@ -2,10 +2,7 @@
 
 use super::*;
 
-#[specforge_test_macros::test(
-    behavior = "build_in_memory_graph",
-    verify = "a fact's value is read by its field's form, as a spec file writes it: a word field's word is bare"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-047")]
 fn a_facts_strings_are_read_by_their_fields_form() {
     let fact = Fact::new("test", "js:a#b")
         .field("status", "passed")
@@ -73,10 +70,7 @@ fn a_facts_field_values_become_field_values_by_their_form() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_in_memory_graph",
-    verify = "a fact's fraction is a number value, and one no decimal holds is its text on a declared field, for E061"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-047")]
 fn a_fraction_is_a_number_value() {
     use specforge_graph::field_form::ValueShape;
     use specforge_protocol_types::FieldType;

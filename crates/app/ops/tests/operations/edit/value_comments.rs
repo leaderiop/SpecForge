@@ -19,10 +19,7 @@ fn entries(pairs: &[(&str, &str)]) -> Input {
     )
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "set of a value holding a comment to what it holds writes nothing"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn set_to_what_a_value_holding_a_comment_holds_writes_nothing() {
     let c = tasks();
     let same = [
@@ -42,10 +39,7 @@ fn set_to_what_a_value_holding_a_comment_holds_writes_nothing() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "set of a value holding a comment to another value is refused not_editable, naming its entity and file"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn set_of_a_value_holding_a_comment_to_another_is_refused_naming_its_entity_and_file() {
     let c = tasks();
     let error = plan(
@@ -60,10 +54,7 @@ fn set_of_a_value_holding_a_comment_to_another_is_refused_naming_its_entity_and_
     assert!(error.message.contains("tasks.spec"), "{}", error.message);
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_link",
-    verify = "link and unlink keep the comment trailing the list"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn link_and_unlink_keep_the_comment_trailing_the_list() {
     let c = tasks();
     let linked = after(
@@ -90,10 +81,7 @@ fn link_and_unlink_keep_the_comment_trailing_the_list() {
     assert_eq!(back, COMMENTED);
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_link",
-    verify = "a link to a target already there writes nothing, whatever comment the list holds"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_link_to_a_target_already_there_writes_nothing_whatever_comment_the_list_holds() {
     let c = tasks();
     for id in ["complete_task", "list_tasks"] {
@@ -107,10 +95,7 @@ fn a_link_to_a_target_already_there_writes_nothing_whatever_comment_the_list_hol
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "delete_entity",
-    verify = "delete with unlink_references through a list holding a comment is refused naming the referrer and its file"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn delete_through_a_list_holding_a_comment_is_refused_naming_the_referrer_and_its_file() {
     let c = tasks();
     let edit = Edit::Delete {
@@ -124,10 +109,7 @@ fn delete_through_a_list_holding_a_comment_is_refused_naming_the_referrer_and_it
     assert!(error.message.contains("tasks.spec"), "{}", error.message);
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "set keeps the comment trailing the value, annotations given or not"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn set_with_annotations_keeps_the_comment_trailing_the_value() {
     let c = tasks();
     let annotated = Edit::Set {

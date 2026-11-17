@@ -103,10 +103,7 @@ fn stateless(server: &mut McpServer, method: &str, params: Value) -> Value {
     send(server, 1, method, with_meta(params)).expect("a request gets a reply")
 }
 
-#[specforge_test(
-    behavior = "serve_stateless_mcp_requests",
-    verify = "server/discover is answered without initialize and lists 2026-07-28"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn discover_needs_no_initialize() {
     let dir = project();
     let mut server = server(&dir);
@@ -118,10 +115,7 @@ fn discover_needs_no_initialize() {
     assert!(result["instructions"].is_string(), "{reply}");
 }
 
-#[specforge_test(
-    behavior = "serve_stateless_mcp_requests",
-    verify = "a request with a protocol version in its _meta is served without initialize"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_stateless_request_is_served_without_initialize() {
     let dir = project();
     let mut server = server(&dir);
@@ -143,10 +137,7 @@ fn a_stateless_request_is_served_without_initialize() {
     assert_eq!(legacy["error"]["code"], -32600, "{legacy}");
 }
 
-#[specforge_test(
-    behavior = "serve_stateless_mcp_requests",
-    verify = "a stateless result carries resultType complete and the server info"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_stateless_result_is_typed_and_names_the_server() {
     let dir = project();
     let mut server = server(&dir);
@@ -165,10 +156,7 @@ fn a_stateless_result_is_typed_and_names_the_server() {
     assert!(result.get("ttlMs").is_none(), "{reply}");
 }
 
-#[specforge_test(
-    behavior = "serve_stateless_mcp_requests",
-    verify = "list and read results carry ttlMs and cacheScope"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn lists_and_reads_carry_caching_hints() {
     let dir = project();
     let mut server = server(&dir);
@@ -188,10 +176,7 @@ fn lists_and_reads_carry_caching_hints() {
     }
 }
 
-#[specforge_test(
-    behavior = "serve_stateless_mcp_requests",
-    verify = "a stateless request without the client capabilities is -32602"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_request_without_client_capabilities_is_malformed() {
     let dir = project();
     let mut server = server(&dir);
@@ -212,10 +197,7 @@ fn a_request_without_client_capabilities_is_malformed() {
     assert_eq!(reply["error"]["code"], -32602, "{reply}");
 }
 
-#[specforge_test(
-    behavior = "serve_stateless_mcp_requests",
-    verify = "an unsupported protocol version is -32022 naming the supported versions"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn an_unsupported_version_names_the_supported_ones() {
     let dir = project();
     let mut server = server(&dir);
@@ -230,10 +212,7 @@ fn an_unsupported_version_names_the_supported_ones() {
     );
 }
 
-#[specforge_test(
-    behavior = "serve_stateless_mcp_requests",
-    verify = "ping and resources/subscribe are not stateless methods"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn the_revision_has_no_ping_or_resource_subscribe() {
     let dir = project();
     let mut server = server(&dir);
@@ -256,10 +235,7 @@ fn the_revision_has_no_ping_or_resource_subscribe() {
     assert_eq!(reply["result"], json!({}), "{reply}");
 }
 
-#[specforge_test(
-    behavior = "serve_stateless_mcp_requests",
-    verify = "a stateless request after initialize is served under its own revision"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_stateless_request_after_initialize_keeps_its_revision() {
     let dir = project();
     let mut server = server(&dir);
@@ -298,10 +274,7 @@ fn with_output_schema(reply: &Value) -> usize {
         .count()
 }
 
-#[specforge_test(
-    behavior = "serve_stateless_mcp_requests",
-    verify = "a stateless request's revision ends with the request"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_stateless_requests_revision_ends_with_it() {
     let dir = project();
     let mut server = server(&dir);
@@ -369,10 +342,7 @@ fn change_graph(server: &mut McpServer, dir: &tempfile::TempDir) {
     bring_up_to_date(server);
 }
 
-#[specforge_test(
-    behavior = "listen_for_mcp_resource_updates",
-    verify = "subscriptions/listen is acknowledged first with the resources honoured"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn listen_is_acknowledged_with_what_is_honoured() {
     let dir = project();
     let mut server = server(&dir);
@@ -396,10 +366,7 @@ fn listen_is_acknowledged_with_what_is_honoured() {
     );
 }
 
-#[specforge_test(
-    behavior = "listen_for_mcp_resource_updates",
-    verify = "a recompile that changes a listened resource sends resources/updated with the subscription id"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_change_reaches_the_stream() {
     let dir = project();
     let mut server = server(&dir);
@@ -426,10 +393,7 @@ fn a_change_reaches_the_stream() {
     );
 }
 
-#[specforge_test(
-    behavior = "listen_for_mcp_resource_updates",
-    verify = "a listen stream receives no notification type it did not ask for"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_stream_hears_only_what_it_asked_for() {
     let dir = project();
     let mut server = server(&dir);
@@ -456,10 +420,7 @@ fn a_stream_hears_only_what_it_asked_for() {
     assert_eq!(sent[0]["params"]["uri"], "specforge://diagnostics");
 }
 
-#[specforge_test(
-    behavior = "listen_for_mcp_resource_updates",
-    verify = "cancelling the listen request ends the stream"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn cancelling_the_listen_request_ends_the_stream() {
     let dir = project();
     let mut server = server(&dir);
@@ -485,10 +446,7 @@ fn cancelling_the_listen_request_ends_the_stream() {
     assert!(server.take_notifications().is_empty());
 }
 
-#[specforge_test(
-    behavior = "listen_for_mcp_resource_updates",
-    verify = "the end of the connection ends the stream"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn the_end_of_the_connection_ends_the_stream() {
     let dir = project();
     let mut server = server(&dir);
@@ -505,10 +463,7 @@ fn the_end_of_the_connection_ends_the_stream() {
     assert!(server.take_notifications().is_empty());
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_prompt",
-    verify = "a stateless prompts/get renders without initialize"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn stateless_prompt_get_renders() {
     let dir = project();
     let mut server = server(&dir);
@@ -550,10 +505,7 @@ fn installed_project(extra: &str) -> tempfile::TempDir {
     dir
 }
 
-#[specforge_test(
-    behavior = "serve_stateless_mcp_requests",
-    verify = "a stateless call's path is read for that call only, whatever tool takes it, and what the server serves is unchanged"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_stateless_path_is_read_for_its_call_only_for_every_tool() {
     let mut covered: Vec<&str> = path_tool_calls().iter().map(|(name, _)| *name).collect();
     covered.push("specforge.init");
@@ -610,10 +562,7 @@ fn a_stateless_path_is_read_for_its_call_only_for_every_tool() {
     );
 }
 
-#[specforge_test(
-    behavior = "serve_stateless_mcp_requests",
-    verify = "a stateless init serves nothing it creates"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_stateless_init_serves_nothing_it_creates() {
     let parent = tempfile::TempDir::new().unwrap();
     let created = parent.path().join("created");
@@ -633,10 +582,7 @@ fn a_stateless_init_serves_nothing_it_creates() {
     assert_eq!(served(&rooted), Some(canonical(&created)));
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "while nothing is served, a project created at or above the server's root is served by the next request, in either revision"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_project_created_at_the_root_is_served_by_the_next_stateless_request() {
     let root = tempfile::TempDir::new().unwrap();
     let mut server = logged(McpServer::with_project_root(root.path().to_path_buf()));
@@ -649,10 +595,7 @@ fn a_project_created_at_the_root_is_served_by_the_next_stateless_request() {
     assert_eq!(extensions["result"]["isError"], false, "{extensions}");
 }
 
-#[specforge_test(
-    behavior = "serve_stateless_mcp_requests",
-    verify = "a stateless no-project refusal names no call that would serve a project"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_stateless_no_project_refusal_names_no_call_that_serves_one() {
     let mut server = rootless();
     let reply = tool(&mut server, "specforge.extensions", json!({}));
@@ -675,10 +618,7 @@ fn a_stateless_no_project_refusal_names_no_call_that_serves_one() {
     assert_eq!(error["argument"], "path", "{error}");
 }
 
-#[specforge_test(
-    behavior = "serve_stateless_mcp_requests",
-    verify = "a stateless request after initialize reads the project the handshake session serves"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_stateless_request_after_initialize_reads_what_the_session_serves() {
     let alpha = |server: &mut McpServer| {
         let reply = tool(server, "specforge.query", json!({"entity_id": "alpha"}));
@@ -709,10 +649,7 @@ fn a_stateless_request_after_initialize_reads_what_the_session_serves() {
     assert!(alpha(&mut adopted));
 }
 
-#[specforge_test(
-    behavior = "serve_stateless_mcp_requests",
-    verify = "a stateless request is answered as a fresh server answers it, whatever stateless requests came before"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_stateless_answer_depends_on_no_earlier_request() {
     for starts_with_project in [true, false] {
         let root = tempfile::TempDir::new().unwrap();

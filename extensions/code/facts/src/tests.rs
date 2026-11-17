@@ -65,10 +65,7 @@ fn a_rust_test_id_is_its_binary_and_path() {
     assert_eq!(TestId::rust("toy", "adds").package(), "toy");
 }
 
-#[specforge_test(
-    behavior = "cc_mint_code_ids",
-    verify = "an item id never holds a hash sign, a test id always does"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
 fn an_item_id_never_holds_a_hash() {
     let raw = ItemId::rust("toy", &strings(&["r#match"]), None, "r#type");
     assert_eq!(raw.to_string(), "rust:toy::match::type");
@@ -176,10 +173,7 @@ fn a_second_package_of_one_name_takes_its_dir() {
     assert_eq!(item.to_string().parse::<ItemId>().unwrap(), item);
 }
 
-#[specforge_test(
-    behavior = "cc_mint_code_ids",
-    verify = "the shallowest package of one name keeps the plain id"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
 fn the_shallowest_package_of_one_name_keeps_the_plain_id() {
     let packages = [
         ("app", "b/app"),
@@ -211,10 +205,7 @@ fn the_shallowest_package_of_one_name_keeps_the_plain_id() {
     );
 }
 
-#[specforge_test(
-    behavior = "cc_mint_code_ids",
-    verify = "a second npm package of one name takes its dir"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
 fn a_second_npm_package_of_one_name_takes_its_dir() {
     let twin = PackageId::npm_in("@acme/core", "examples/core");
     assert_eq!(twin.to_string(), "pkg:npm/%40acme/core#examples/core");
@@ -270,10 +261,7 @@ fn an_items_test_id_is_what_nextest_names_it() {
     }
 }
 
-#[specforge_test(
-    behavior = "cc_mint_code_ids",
-    verify = "an item's test id writes the words its edition reserves raw, as libtest names the test"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
 fn an_items_test_id_writes_reserved_words_raw_as_libtest_does() {
     // Each line is `cargo test -- --list` of `mod r#async { #[test] fn r#match/r#gen/r#try() {} }` in the edition.
     let item = |name: &str| ItemId::rust("toy", &strings(&["r#async"]), None, name);
@@ -327,10 +315,7 @@ fn a_scoped_npm_purl_encodes_the_at() {
     }
 }
 
-#[specforge_test(
-    behavior = "cc_mint_code_ids",
-    verify = "every id parses back to itself"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
 fn every_id_parses_back_to_itself() {
     let tests = [
         TestId::js("@acme/core", "src/a#b.ts", &strings(&["s", "t"])),
@@ -553,10 +538,7 @@ fn scip_typescript(symbol: &str, minted: &BTreeSet<&str>) -> Option<String> {
     nearest(&container, names, ".", &minted)
 }
 
-#[specforge_test(
-    behavior = "cc_mint_code_ids",
-    verify = "a SCIP symbol of rust-analyzer or scip-typescript maps into exactly one id"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
 fn rust_analyzer_symbols_map_into_ids() {
     let minted = BTreeSet::from([
         "rust:foo::a::b::f",
@@ -611,10 +593,7 @@ fn rust_analyzer_symbols_map_into_ids() {
     assert_eq!(rust_analyzer("local 4", &minted), None);
 }
 
-#[specforge_test(
-    behavior = "cc_mint_code_ids",
-    verify = "a SCIP symbol of rust-analyzer or scip-typescript maps into exactly one id"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
 fn scip_typescript_symbols_map_into_ids() {
     let board =
         |path: &[&str]| ItemId::js("@acme/core", "src/board.ts", &strings(path)).to_string();

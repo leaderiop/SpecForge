@@ -6,10 +6,7 @@ use specforge_test_macros::test as specforge_test;
 
 use crate::gates::{project, run_command_on, served};
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "a command is told the host that calls it, and nothing when none does"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_command_is_told_its_host() {
     for (host, wire) in [(Some(Host::Codex), Some("codex")), (None, None)] {
         let served = served(project("g", "s", json!({})));

@@ -14,10 +14,7 @@ use crate::plans::{compiled, project, refused, revision, serving, set};
 
 const OVERRIDE: &str = "override O1 \"O\" {\n  phase 03\n}\n";
 
-#[specforge_test(
-    behavior = "refuse_human_only_write",
-    verify = "a human-only value is refused in an agents write"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_human_only_value_is_refused_in_an_agents_write() {
     let p = project();
     // From a command's plan.
@@ -79,10 +76,7 @@ fn typed_as(
     .map(|e| e.error.code.to_string())
 }
 
-#[specforge_test(
-    behavior = "refuse_human_only_write",
-    verify = "a human-only or computed member is refused in the value of a set, append or create"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_human_only_or_computed_member_is_refused_in_the_value_of_a_write() {
     use crate::edit::{create, set};
     use specforge_ops::authoring::edit::{Edit, Input};
@@ -135,10 +129,7 @@ fn a_human_only_or_computed_member_is_refused_in_the_value_of_a_write() {
     assert_eq!(typed(&p, &[set("R", "approvals", note)]), None);
 }
 
-#[specforge_test(
-    behavior = "refuse_human_only_write",
-    verify = "a delete that unlinks references and a rename do not change a human-only entity"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_delete_that_unlinks_and_a_rename_do_not_change_a_human_only_entity() {
     use specforge_ops::authoring::edit::Edit;
     use specforge_ops::authoring::rename;
@@ -165,10 +156,7 @@ fn a_delete_that_unlinks_and_a_rename_do_not_change_a_human_only_entity() {
     assert!(p.read("o.spec").contains("phase v1.0/04"));
 }
 
-#[specforge_test(
-    behavior = "refuse_human_only_write",
-    verify = "an agents set, unset or link of an existing human-only entity is refused"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn an_agents_edit_of_an_existing_human_only_entity_is_refused() {
     use crate::edit::{link, one, set, unset};
     use specforge_ops::authoring::apply::Origin;
@@ -190,10 +178,7 @@ fn an_agents_edit_of_an_existing_human_only_entity_is_refused() {
     );
 }
 
-#[specforge_test(
-    behavior = "refuse_human_only_write",
-    verify = "an agents delete of an entity holding a persons value is refused"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn an_agents_delete_of_an_entity_holding_a_persons_value_is_refused() {
     use specforge_ops::authoring::apply::Origin;
     use specforge_ops::authoring::edit::Edit;
@@ -216,10 +201,7 @@ fn an_agents_delete_of_an_entity_holding_a_persons_value_is_refused() {
 
 const HELD: &str = "reviewed R \"R\" {\n  approvals [\n    {\n      by \"me\"\n    }\n  ]\n}\n";
 
-#[specforge_test(
-    behavior = "refuse_human_only_write",
-    verify = "a plan that renames an entity and deletes it under the new id is refused as the delete would be"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_rename_then_a_delete_in_one_plan_is_checked_against_the_original() {
     let p = project()
         .file("r.spec", HELD)
@@ -249,10 +231,7 @@ fn a_rename_then_a_delete_in_one_plan_is_checked_against_the_original() {
     );
 }
 
-#[specforge_test(
-    behavior = "refuse_human_only_write",
-    verify = "an agents unset, remove or replacing set of a persons member value is refused"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn an_agents_write_that_drops_a_persons_member_value_is_refused() {
     use crate::edit::{set, unset};
     use specforge_ops::authoring::apply::Origin;
@@ -285,10 +264,7 @@ fn an_agents_write_that_drops_a_persons_member_value_is_refused() {
     assert_eq!(typed(&p, &[unset("N", "approvals")]), None);
 }
 
-#[specforge_test(
-    behavior = "refuse_human_only_write",
-    verify = "an agent deletes an entity holding only computed or harness values"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_delete_of_an_entity_with_only_computed_or_harness_values_is_not_refused() {
     use specforge_ops::authoring::edit::Edit;
     let p = project().file(
@@ -302,10 +278,7 @@ fn a_delete_of_an_entity_with_only_computed_or_harness_values_is_not_refused() {
     assert_eq!(typed(&p, &[delete]), None);
 }
 
-#[specforge_test(
-    behavior = "refuse_human_only_write",
-    verify = "an agent still writes a non-human field of a non-human kind"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn an_agent_still_writes_a_non_human_field_of_a_non_human_kind() {
     use crate::edit::{set, unset};
     use specforge_ops::authoring::edit::{Edit, Input};
@@ -326,10 +299,7 @@ fn an_agent_still_writes_a_non_human_field_of_a_non_human_kind() {
     assert_eq!(typed(&p, &[unset("N", "approvals")]), None, "unset");
 }
 
-#[specforge_test(
-    behavior = "refuse_human_only_write",
-    verify = "a human-attested command is refused on every agent surface and runs for a person at a terminal"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_human_command_is_refused_on_every_agent_surface() {
     let p = project();
     let ops = json!([set(
@@ -373,10 +343,7 @@ fn a_human_command_is_refused_on_every_agent_surface() {
     );
 }
 
-#[specforge_test(
-    behavior = "refuse_human_only_write",
-    verify = "a human-attested command is refused on every agent surface and runs for a person at a terminal"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_dry_run_of_a_human_command_is_refused_before_the_command_runs() {
     let p = project();
     let ops = json!([set(

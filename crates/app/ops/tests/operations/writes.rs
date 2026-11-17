@@ -313,10 +313,7 @@ fn installing_a_local_extension_writes_module_lock_and_config() {
     assert_eq!(changed_since(root, &before), Vec::<String>::new());
 }
 
-#[specforge_test_macros::test(
-    behavior = "install_wasm_extension",
-    verify = "a failed install puts back the binary, specforge.lock and specforge.json it changed"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-134")]
 fn an_add_that_fails_after_placing_its_module_writes_nothing() {
     let blobs = Blobs::new();
     let dir = project(&[], &[]);
@@ -370,10 +367,7 @@ fn a_failed_add_over_an_install_keeps_the_pinned_binary() {
     assert!(refused.is_empty(), "{diagnostics:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_lock_file",
-    verify = "an unreadable lock file is E033 and is never replaced by a change"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-138")]
 fn an_add_over_an_unreadable_lock_is_refused() {
     let blobs = Blobs::new();
     let dir = project(&[], &[]);
@@ -393,10 +387,7 @@ fn an_add_over_an_unreadable_lock_is_refused() {
     assert_eq!(lock, "not a lock {{{", "the lock is byte-identical");
 }
 
-#[specforge_test_macros::test(
-    behavior = "remove_extension",
-    verify = "a removal that fails changes nothing"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_failed_remove_changes_nothing() {
     let blobs = Blobs::new();
     let dir = project(&[], &[]);

@@ -26,10 +26,7 @@ pub(crate) fn line_counts(text: &str) -> BTreeMap<&str, usize> {
     counts
 }
 
-#[specforge_test(
-    behavior = "preserve_comments",
-    verify = "the format header stays where it is and documents no block"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn the_format_header_stays_where_it_is_and_documents_no_block() {
     let bare = "// specforge-format: 0.9\ntype S \"S\" {\n  user string\n}\n";
     let documented =
@@ -45,10 +42,7 @@ fn the_format_header_stays_where_it_is_and_documents_no_block() {
     assert_eq!(first_doc_line(documented), Some(2));
 }
 
-#[specforge_test(
-    behavior = "format_with_parse_errors",
-    verify = "forms that share a line with a form left unchanged are kept with it, each line written once"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_line_shared_with_a_broken_form_is_written_once() {
     for source in [
         "}invariatype t \"T\" = a | bn \"x\"\n}\n",
@@ -78,10 +72,7 @@ fn a_line_shared_with_a_broken_form_is_written_once() {
     }
 }
 
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "multiline string literals are kept byte-for-byte"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_strings_trailing_whitespace_is_its_value() {
     for source in [
         "behavior a \"A\" {\n  contract \"\"\"\n    one \n    two\n  \"\"\"\n}\n",
@@ -106,10 +97,7 @@ fn a_strings_trailing_whitespace_is_its_value() {
     }
 }
 
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "an expression block's lines are indented one level inside it, whatever their indentation"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn an_expression_block_is_reindented() {
     let canonical =
         "constraint c \"C\" {\n  expression expr {\n    a < 250ms\n    b < 75MB\n  }\n}\n";
@@ -119,10 +107,7 @@ fn an_expression_block_is_reindented() {
     assert_eq!(fmt(canonical), canonical);
 }
 
-#[specforge_test(
-    behavior = "format_with_parse_errors",
-    verify = "formatting any text never panics, and formatting its output again changes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn the_last_line_before_an_unclosed_strings_delimiter_is_written_once() {
     // The closing quote that runs into text leaves a `"` unclosed: the piece
     // ends with an appended delimiter on a row of its own. That row held no
@@ -133,10 +118,7 @@ fn the_last_line_before_an_unclosed_strings_delimiter_is_written_once() {
     assert_eq!(fmt(&once), once, "a second run changes nothing");
 }
 
-#[specforge_test(
-    invariant = "formatting_semantic_preservation",
-    verify = "format(spec) parses to an identical entity graph as spec"
-)]
+#[specforge_test(requirement = "INVARIANT-049")]
 fn an_annotation_after_a_multiline_value_stays_after_it() {
     // `@optional` once moved to the first line, inside the string.
     let source = "feature f \"F\" {\n  solution \"\"\"\n    text\n  \"\"\" @optional\n}\n";
@@ -149,10 +131,7 @@ fn an_annotation_after_a_multiline_value_stays_after_it() {
     assert_eq!(once, source);
 }
 
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "the formatted text has LF line endings and exactly one final newline"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_writes_lf_inside_a_title_a_list_item_and_a_verify_text() {
     let formatted = fmt(
         "feature f1 \"F\r\none\" {\r\n  channels [\"a\r\nb\"]\r\n  verify unit \"one\r\ntwo\"\r\n}\r\n",
@@ -160,10 +139,7 @@ fn format_writes_lf_inside_a_title_a_list_item_and_a_verify_text() {
     assert!(!formatted.contains('\r'), "{formatted:?}");
 }
 
-#[specforge_test(
-    behavior = "format_with_parse_errors",
-    verify = "a text holding a control character is left as written, with one E001"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_text_holding_a_control_character_is_left_as_written() {
     let source = "feature f1 \"T\u{1b}[31mt\" {\n  problem    \"p\"\n}\n";
     let result = format_source(
@@ -176,10 +152,7 @@ fn a_text_holding_a_control_character_is_left_as_written() {
     assert_eq!(result.diagnostics[0].code, "E001");
 }
 
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "format writes every bare word as it was written, a number-like word and a difference included"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_writes_every_bare_word_as_written() {
     let canonical = "thing AUTH-01 \"T\" {\n  points 2-1\n  more   007\n  parent 03\n  refs   [03, v1.0]\n}\n\ntype L = 01 | 2\n";
     assert_eq!(fmt(canonical), canonical);
@@ -188,10 +161,7 @@ fn format_writes_every_bare_word_as_written() {
     assert_eq!(fmt(&untidy), canonical);
 }
 
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "a list of blocks is written one item a line, indented, with no commas"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_writes_a_block_list_one_item_a_line() {
     let source = "thing t \"T\" {\n  f [ {a 1}, {b \"x\" c 2}   ]\n}\n";
     let formatted = fmt(source);
@@ -202,10 +172,7 @@ fn format_writes_a_block_list_one_item_a_line() {
     assert_eq!(fmt(&formatted), formatted, "idempotent");
 }
 
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "a list of blocks is written one item a line, indented, with no commas"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_block_list_item_with_a_trailing_comment_stays_multi_line() {
     let source = "thing t \"T\" {\n  r [ { a 1 // note\nb 2 } ]\n}\n";
     let formatted = fmt(source);
@@ -214,10 +181,7 @@ fn a_block_list_item_with_a_trailing_comment_stays_multi_line() {
     assert_eq!(fmt(&formatted), formatted, "idempotent");
 }
 
-#[specforge_test(
-    behavior = "parse_verdict_statement",
-    verify = "the formatter keeps a verdict's members in their fixed order"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn the_formatter_lays_out_a_verdict() {
     let scrambled = "plan P \"P\" {\n  phase 03\n  verdict gsd/W311 passed {\n  inputs { plan \"sha256:1\" }\n      at \"t\"\n  model \"m\"\n judge \"j\"\n  }\n}\n";
     let want = "plan P \"P\" {\n  phase 03\n  verdict gsd/W311 passed {\n    judge \"j\"\n    model \"m\"\n    at    \"t\"\n    inputs {\n      plan \"sha256:1\"\n    }\n  }\n}\n";
@@ -226,10 +190,7 @@ fn the_formatter_lays_out_a_verdict() {
     assert_eq!(fmt(&once), once);
 }
 
-#[specforge_test(
-    invariant = "formatting_semantic_preservation",
-    verify = "formatting does not alter entity IDs, field values, or reference lists"
-)]
+#[specforge_test(requirement = "INVARIANT-049")]
 fn a_method_type_written_across_lines_reads_as_its_formatted_line() {
     let source = "port p \"P\" {\n  method m(a: Map<K,\n    V>) -> Result<A,\n  B\n>\n}\n";
     let types = |text: &str| {
@@ -248,10 +209,7 @@ fn a_method_type_written_across_lines_reads_as_its_formatted_line() {
     assert_eq!(types(&formatted), types(source));
 }
 
-#[specforge_test(
-    invariant = "formatting_semantic_preservation",
-    verify = "formatting does not alter entity IDs, field values, or reference lists"
-)]
+#[specforge_test(requirement = "INVARIANT-049")]
 fn a_field_type_is_written_in_the_spelling_the_parse_reads() {
     let source = "shape s \"S\" {\n  kind Map< K ,V >[]|fn( A,( ) )->B|\"a  b\"\n  items Result<\n    A,B>[]\n}\n";
     let types = |text: &str| {

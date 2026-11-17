@@ -28,10 +28,7 @@ fn level(severity: &ValidationSeverity) -> Level {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "registry_build_rules",
-    verify = "every builtin rule uses a code its extension owns, at the catalogued level"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-016")]
 fn builtin_rules_use_their_own_codes() {
     let runtime = ComponentRuntime::new();
     let mut checked = 0;
@@ -85,10 +82,7 @@ fn builtin_rules_use_their_own_codes() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "ck_family_switches",
-    verify = "every code a checks switch gates is catalogued with owner @specforge/checks"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn the_checks_switches_gate_codes_the_catalog_gives_checks() {
     let runtime = ComponentRuntime::new();
     let (name, bytes) = BUILTIN_EXTENSIONS

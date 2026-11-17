@@ -4,10 +4,7 @@ use specforge_test_macros::test as specforge_test;
 
 use crate::contracts::{apply_edits, format_project, open_in};
 
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "a file is formatted with the configuration of its own project"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 #[tokio::test]
 async fn the_cli_and_the_editor_agree_on_a_nested_project() {
     let two = "behavior login \"Login\" {\n  contract \"The system MUST log in\"\n}\n";
@@ -37,10 +34,7 @@ async fn the_cli_and_the_editor_agree_on_a_nested_project() {
     assert_eq!((outcome.checked, outcome.changes.len()), (1, 0));
 }
 
-#[specforge_test(
-    behavior = "lsp_format_document",
-    verify = "LSP format produces same result as CLI format"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 #[tokio::test]
 async fn lsp_format_matches_cli_format() {
     let messy = "behavior login \"Connexion é\" {\n  contract   \"The system MUST log in\"\n      types [a, b]\n}\n";
@@ -101,14 +95,8 @@ const CONVERGE: [(&str, &str); 7] = [
     ),
 ];
 
-#[specforge_test(
-    behavior = "lsp_format_document",
-    verify = "editor formatting reaches the text specforge format writes in one pass: blank lines removed, final newline added, CRLF made LF"
-)]
-#[specforge_test(
-    invariant = "format_rule_determinism",
-    verify = "same input and config produce identical output across CLI and LSP"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
+#[specforge_test(requirement = "INVARIANT-045")]
 #[tokio::test]
 async fn editor_formatting_reaches_the_cli_text_in_one_pass() {
     use crate::session::{Session, uri_of};
@@ -152,10 +140,7 @@ async fn editor_formatting_reaches_the_cli_text_in_one_pass() {
 }
 
 /// The editor served at an outer project writes a nested project's values as `specforge format` does.
-#[specforge_test(
-    behavior = "lsp_format_document",
-    verify = "the editor writes a nested project's values as specforge format does"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 #[tokio::test]
 async fn the_editor_writes_a_nested_projects_values_as_specforge_format_does() {
     use specforge_ops::authoring::format::{Mode, Request, run};

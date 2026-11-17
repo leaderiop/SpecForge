@@ -15,10 +15,7 @@ fn test_server() -> Served {
 }
 
 // I:mcp_structured_error_responses — verify property "error response includes error code and message fields"
-#[specforge_test(
-    behavior = "mcp_structured_error_responses",
-    verify = "error response includes error code and message fields"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn error_responses_have_code_and_message() {
     let mut server = McpServer::new();
 
@@ -52,10 +49,7 @@ fn error_codes_are_valid() {
 }
 
 // I:mcp_structured_error_responses — verify property "success responses never have error field"
-#[specforge_test(
-    behavior = "mcp_structured_error_responses",
-    verify = "success responses never have error field"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn success_never_has_error() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "initialize", json!({}));
@@ -64,10 +58,7 @@ fn success_never_has_error() {
 }
 
 // I:mcp_tool_idempotency — verify property "query is idempotent"
-#[specforge_test(
-    behavior = "mcp_tool_idempotency",
-    verify = "read-only tools return equivalent results for identical inputs"
-)]
+#[specforge_test(requirement = "INVARIANT-069")]
 fn query_is_idempotent() {
     let mut server = test_server();
     let resp1 = call_tool(
@@ -86,10 +77,7 @@ fn query_is_idempotent() {
 }
 
 // I:mcp_tool_idempotency — verify property "export is idempotent"
-#[specforge_test(
-    behavior = "mcp_tool_idempotency",
-    verify = "repeated calls with same params return identical results when graph unchanged"
-)]
+#[specforge_test(requirement = "INVARIANT-069")]
 fn export_is_idempotent() {
     let mut server = test_server();
     let resp1 = call_tool(&mut server, "specforge.export", json!({"format": "graph"}));
@@ -100,10 +88,7 @@ fn export_is_idempotent() {
 }
 
 // I:mcp_tool_idempotency — verify property "stats is idempotent"
-#[specforge_test(
-    behavior = "mcp_tool_idempotency",
-    verify = "read-only tools return equivalent results for identical inputs"
-)]
+#[specforge_test(requirement = "INVARIANT-069")]
 fn stats_is_idempotent() {
     let mut server = test_server();
     let resp1 = call_tool(&mut server, "specforge.stats", json!({}));
@@ -114,10 +99,7 @@ fn stats_is_idempotent() {
 }
 
 // I:mcp_tool_idempotency — verify property "trace is idempotent"
-#[specforge_test(
-    behavior = "mcp_tool_idempotency",
-    verify = "read-only tools return equivalent results for identical inputs"
-)]
+#[specforge_test(requirement = "INVARIANT-069")]
 fn trace_is_idempotent() {
     let mut server = test_server();
     let resp1 = call_tool(
@@ -135,10 +117,7 @@ fn trace_is_idempotent() {
     assert_eq!(text1, text2);
 }
 
-#[specforge_test(
-    behavior = "mcp_subscription_cleanup",
-    verify = "no orphan subscriptions remain after disconnect"
-)]
+#[specforge_test(requirement = "INVARIANT-068")]
 fn no_orphan_subscriptions_after_disconnect() {
     let mut server = McpServer::new();
     call(&mut server, "initialize", json!({}));
@@ -172,10 +151,7 @@ fn no_subscriptions_survive_shutdown() {
 }
 
 // I:mcp_structured_error_responses — verify property "error response includes entity_id when applicable"
-#[specforge_test(
-    behavior = "mcp_structured_error_responses",
-    verify = "error response includes entity_id when applicable"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn error_includes_entity_id_when_applicable() {
     let mut server = test_server();
     let resp = call_tool(
@@ -193,10 +169,7 @@ fn error_includes_entity_id_when_applicable() {
 }
 
 // I:mcp_structured_error_responses — verify property "no MCP endpoint returns a plain string error"
-#[specforge_test(
-    behavior = "mcp_structured_error_responses",
-    verify = "no MCP endpoint returns a plain string error"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn no_core_tool_fails_with_a_plain_string_or_an_error_body() {
     let mut server = test_server();
     let probes = specforge_mcp::tools::CORE_TOOLS

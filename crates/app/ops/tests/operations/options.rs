@@ -10,10 +10,8 @@ use specforge_ops::read::model::{
     DEPS, GROUP_BY, MODEL_FIELDS, MODEL_FORMAT, OUTLINE_FIELDS, OUTLINE_FORMAT,
 };
 
-#[specforge_test_macros::test(
-    behavior = "name_enumerated_options_once",
-    verify = "a table parses its names and aliases and refuses any other naming the expected names"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-001")]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn a_table_parses_names_and_aliases_and_refuses_others() {
     assert_eq!(FORMAT.parse("json"), Ok(Format::Graph));
     assert_eq!(AGENT_FORMAT.parse("json"), Ok(Format::Graph));

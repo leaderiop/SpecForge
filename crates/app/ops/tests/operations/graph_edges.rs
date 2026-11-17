@@ -47,10 +47,7 @@ fn edges(list: &[(&str, &str, &str)]) -> EdgeSet {
 
 // --- Phase 1c: Edge types from reference-list fields, DOT labels, multi-hop ---
 
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "graph format includes all nodes and edges"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn the_features_of_two_behaviors_create_edges() {
     let (nodes, edge_set) = exported_graph(
         r#"
@@ -69,10 +66,7 @@ behavior beta "B" { contract "second" features [gamma] }
     );
 }
 
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "graph format includes all nodes and edges"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn features_field_creates_edges() {
     let (nodes, edge_set) = exported_graph(
         r#"
@@ -90,10 +84,7 @@ behavior parse_input "P" {
     );
 }
 
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "graph format includes all nodes and edges"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn invariants_field_creates_edges() {
     let (nodes, edge_set) = exported_graph(
         r#"
@@ -110,10 +101,7 @@ invariant refs_resolved "RR" {
     );
 }
 
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "graph format includes all nodes and edges"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn mitigations_field_creates_edges() {
     let (nodes, edge_set) = exported_graph(
         r#"
@@ -135,10 +123,7 @@ failure_mode parser_crash "PC" {
     );
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "edge types match relationship semantics"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn export_graph_edge_labels_are_field_names() {
     let (_project, compiled) = built(&[(
         "main.spec",
@@ -156,10 +141,7 @@ behavior gamma "G" { contract "first" features [alpha] }
     );
 }
 
-#[specforge_test(
-    behavior = "serialize_dot_visualization",
-    verify = "edges are labeled with types"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn dot_export_shows_edge_labels() {
     let (_project, compiled) = built(&[(
         "main.spec",
@@ -177,10 +159,7 @@ behavior gamma "G" { contract "first" features [alpha] }
     );
 }
 
-#[specforge_test(
-    behavior = "compute_traceability_chain",
-    verify = "trace from entity shows upstream and downstream connections"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_follows_edges_across_entity_kinds() {
     let (_project, compiled) = built(&[("main.spec", specs::CROSS_REF)]);
 
@@ -221,10 +200,7 @@ fn trace_follows_edges_across_entity_kinds() {
     assert_eq!(links("downstream"), BTreeSet::new());
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "depth 1 returns direct neighbors"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn query_depth_2_traverses_multi_hop() {
     let (_project, compiled) = built(&[(
         "main.spec",
@@ -246,10 +222,7 @@ journey dev_journey "DJ" { description "workflow" }
     );
 }
 
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "graph format includes all nodes and edges"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn multiple_reference_fields_produce_separate_edges() {
     let (nodes, edge_set) = exported_graph(
         r#"
@@ -268,10 +241,7 @@ invariant inv_a "I" { guarantee "always" }
     );
 }
 
-#[specforge_test(
-    behavior = "serialize_dot_visualization",
-    verify = "nodes are labeled with IDs"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn dot_export_all_entity_kinds_as_nodes() {
     let (_project, compiled) = built(&[("main.spec", specs::MULTI_EXTENSION)]);
 
@@ -289,10 +259,7 @@ fn dot_export_all_entity_kinds_as_nodes() {
     }
 }
 
-#[specforge_test(
-    behavior = "serialize_dot_visualization",
-    verify = "nodes are labeled with IDs"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn dot_export_cross_kind_edges() {
     let (_project, compiled) = built(&[(
         "main.spec",
@@ -310,10 +277,7 @@ failure_mode fm "FM" { severity 1 occurrence 1 detection 1 cause "x" effect "y" 
     assert!(stdout.contains("fm"), "should have fm node");
 }
 
-#[specforge_test(
-    behavior = "deterministic_output",
-    verify = "same input produces identical output across runs"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn dot_export_deterministic_output() {
     let (_project, compiled) = built(&[("main.spec", specs::MULTI_EXTENSION)]);
 

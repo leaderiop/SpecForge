@@ -44,10 +44,7 @@ fn touch_config(root: &std::path::Path) {
     }
 }
 
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "a set of watchers refused once is not asked for again in the same follow"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_refused_set_of_watchers_is_asked_for_once_per_follow() {
     let served = refusing();
     let root = served.root().to_path_buf();
@@ -58,10 +55,7 @@ fn a_refused_set_of_watchers_is_asked_for_once_per_follow() {
     assert_eq!(refused(served.opening()).len(), 1, "{:?}", served.opening());
 }
 
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "the LSP reports a refused set of watchers and registers the static ones"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_refused_set_of_watchers_is_logged_after_the_static_ones() {
     let served = refusing().open(&[]);
 
@@ -85,10 +79,7 @@ fn a_refused_set_of_watchers_is_logged_after_the_static_ones() {
     }
 }
 
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "an environment reload that leaves the inputs as they were moves no watchers"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_reload_that_leaves_the_inputs_asks_for_no_watchers() {
     let mut served = refusing().open(&[]);
     served.sent();

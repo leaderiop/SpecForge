@@ -100,10 +100,7 @@ fn glob_matches(glob: &str, path: &str) -> bool {
 /// Every input the session classifies, a file created beside a missing
 /// referenced file included, is matched by a watcher glob, spelled under
 /// the project root (or canonical outside it).
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "the LSP's watchers cover every input the session classifies"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn the_watchers_cover_what_the_session_classifies() {
     use specforge_project::ProjectSession;
     use tower_lsp::lsp_types::GlobPattern;
@@ -181,10 +178,7 @@ fn the_watchers_cover_what_the_session_classifies() {
     assert!(!globs.iter().any(|g| g.contains("/../")), "{globs:?}");
 }
 
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "the LSP's watchers report every specforge.json under the spec root"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn the_watchers_report_a_nested_projects_specforge_json() {
     use specforge_project::ProjectSession;
     use tower_lsp::lsp_types::{GlobPattern, OneOf, Url, WorkspaceFolder};
@@ -240,10 +234,7 @@ fn the_watchers_report_a_nested_projects_specforge_json() {
 /// A symlinked source's target lies outside the project: a client that is
 /// asked to report only the root never sees it change.
 #[cfg(unix)]
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "a session's watch roots and the LSP's watchers cover every symlinked source's target"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn the_watchers_cover_a_symlinked_sources_target() {
     use tower_lsp::lsp_types::GlobPattern;
 
@@ -280,10 +271,7 @@ fn the_watchers_cover_a_symlinked_sources_target() {
 /// A symlinked source behind a chain of links: the client is asked to report
 /// each hop, not only the file the chain ends at.
 #[cfg(unix)]
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "a session's watch roots and the LSP's watchers cover every symlinked source's target"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn the_watchers_cover_each_hop_of_a_symlinked_source() {
     use tower_lsp::lsp_types::GlobPattern;
 
@@ -322,10 +310,7 @@ fn the_watchers_cover_each_hop_of_a_symlinked_source() {
 
 /// A folder moved or deleted sends no event for a `**/*.spec` glob: the
 /// client is asked for every entry created or deleted under the root.
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "the LSP asks its client to report every directory created or deleted under the project root"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn the_client_reports_directories_under_the_root() {
     use tower_lsp::lsp_types::{GlobPattern, WatchKind};
 
@@ -377,10 +362,7 @@ fn with_a_fact_store(extensions: &[&str]) -> specforge_project::testing::TestPro
 }
 
 /// A collect writes a store and rewrites the ledger: the client reports both (ADR 0327 D9).
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "a fact store and the harness ledger are watched inputs when a collector-written kind is loaded"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn the_watchers_cover_the_fact_store_when_a_collected_kind_is_loaded() {
     use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected};
     let p = with_a_fact_store(&COLLECTED_EXTENSIONS);

@@ -3,10 +3,7 @@ use crate::tests::host::*;
 use serde_json::json;
 use specforge_test::prelude::*;
 
-#[specforge_test(
-    behavior = "surface_list_features",
-    verify = "list features returns paginated FeatureListResult"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_features_list_is_a_feature_list_result() {
     let page = json_of("features", json!({"limit": 2}), &catalog());
     assert_eq!(
@@ -19,10 +16,7 @@ fn the_features_list_is_a_feature_list_result() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_features",
-    verify = "priority filter reduces result set"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_features_list_filters_by_priority() {
     assert_eq!(
         ids_of("features", json!({"priority": "critical"}), &catalog()),
@@ -30,10 +24,7 @@ fn the_features_list_filters_by_priority() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_features",
-    verify = "tags filter intersects correctly"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_features_list_keeps_features_sharing_a_tag() {
     let g = catalog();
     assert_eq!(ids_of("features", json!({"tags": "cli"}), &g), ["f1"]);
@@ -46,10 +37,7 @@ fn the_features_list_keeps_features_sharing_a_tag() {
     assert_eq!(ids_of("features", json!({"tags": ""}), &g).len(), 4);
 }
 
-#[specforge_test(
-    behavior = "surface_list_features",
-    verify = "empty project returns total=0 and empty list"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_features_list_of_no_features_is_empty() {
     let page = json_of("features", json!({}), &G::default().n("j1", "journey"));
     assert_eq!(
@@ -58,10 +46,7 @@ fn the_features_list_of_no_features_is_empty() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_features",
-    verify = "human format is a table with a header row"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_features_list_is_a_table_for_people() {
     let out = human_of("features", json!({"limit": 3}), &catalog());
     assert_eq!(
@@ -74,10 +59,7 @@ fn the_features_list_is_a_table_for_people() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_journeys",
-    verify = "list journeys returns paginated JourneyListResult"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_journeys_list_is_a_journey_list_result() {
     let page = json_of("journeys", json!({}), &catalog());
     assert_eq!(page["total"], 3);
@@ -88,20 +70,14 @@ fn the_journeys_list_is_a_journey_list_result() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_journeys",
-    verify = "persona filter reduces result set to matching journeys"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_journeys_list_filters_by_persona() {
     let g = catalog();
     assert_eq!(ids_of("journeys", json!({"persona": "ops"}), &g), ["j2"]);
     assert!(ids_of("journeys", json!({"persona": "nobody"}), &g).is_empty());
 }
 
-#[specforge_test(
-    behavior = "surface_list_journeys",
-    verify = "channel_count and feature_count are accurate per entry"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_journey_entry_counts_its_channels_and_features() {
     let j2 = entry_of("journeys", "j2");
     assert_eq!(
@@ -115,10 +91,7 @@ fn a_journey_entry_counts_its_channels_and_features() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_deliverables",
-    verify = "list deliverables returns paginated DeliverableListResult"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_deliverables_list_is_a_deliverable_list_result() {
     let page = json_of("deliverables", json!({}), &catalog());
     assert_eq!(
@@ -132,10 +105,7 @@ fn the_deliverables_list_is_a_deliverable_list_result() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_deliverables",
-    verify = "artifact-type filter reduces result set"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_deliverables_list_filters_by_artifact_type() {
     let g = catalog();
     assert_eq!(
@@ -149,10 +119,7 @@ fn the_deliverables_list_filters_by_artifact_type() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_deliverables",
-    verify = "journey_count and module_count are accurate per entry"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_deliverable_entry_counts_its_journeys_and_modules() {
     let d1 = entry_of("deliverables", "d1");
     assert_eq!(
@@ -161,10 +128,7 @@ fn a_deliverable_entry_counts_its_journeys_and_modules() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_milestones",
-    verify = "list milestones returns paginated MilestoneListResult"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_milestones_list_is_a_milestone_list_result() {
     let page = json_of("milestones", json!({}), &catalog());
     assert_eq!(
@@ -181,10 +145,7 @@ fn the_milestones_list_is_a_milestone_list_result() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_milestones",
-    verify = "status filter reduces result set"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_milestones_list_filters_by_status() {
     let g = catalog();
     // A milestone without a status is planned.
@@ -195,19 +156,13 @@ fn the_milestones_list_filters_by_status() {
     assert!(ids_of("milestones", json!({"status": "blocked"}), &g).is_empty());
 }
 
-#[specforge_test(
-    behavior = "surface_list_milestones",
-    verify = "feature_count is accurate per entry"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_milestone_entry_counts_its_features() {
     assert_eq!(entry_of("milestones", "ms1")["feature_count"], 2);
     assert_eq!(entry_of("milestones", "ms2")["feature_count"], 0);
 }
 
-#[specforge_test(
-    behavior = "surface_list_modules",
-    verify = "list modules returns paginated ModuleListResult"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_modules_list_is_a_module_list_result() {
     let page = json_of("modules", json!({}), &catalog());
     assert_eq!(
@@ -221,10 +176,7 @@ fn the_modules_list_is_a_module_list_result() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_modules",
-    verify = "family filter reduces result set"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_modules_list_filters_by_family() {
     assert_eq!(
         ids_of("modules", json!({"family": "core"}), &catalog()),
@@ -232,10 +184,7 @@ fn the_modules_list_filters_by_family() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_modules",
-    verify = "feature_count and depends_on are accurate per entry"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_module_entry_counts_its_features_and_lists_its_dependencies() {
     let mod1 = entry_of("modules", "mod1");
     assert_eq!(
@@ -244,10 +193,7 @@ fn a_module_entry_counts_its_features_and_lists_its_dependencies() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_terms",
-    verify = "list terms returns paginated TermListResult"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_terms_list_is_a_term_list_result() {
     let page = json_of("terms", json!({}), &catalog());
     assert_eq!(
@@ -259,19 +205,13 @@ fn the_terms_list_is_a_term_list_result() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_terms",
-    verify = "alias_count is accurate per entry"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_term_entry_counts_its_aliases() {
     assert_eq!(entry_of("terms", "t1")["alias_count"], 2);
     assert_eq!(entry_of("terms", "t2")["alias_count"], 0);
 }
 
-#[specforge_test(
-    behavior = "surface_list_personas",
-    verify = "list personas returns paginated PersonaListResult"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_personas_list_is_a_persona_list_result() {
     let page = json_of("personas", json!({}), &catalog());
     assert_eq!(
@@ -285,10 +225,7 @@ fn the_personas_list_is_a_persona_list_result() {
     assert_eq!(page["total"], 2);
 }
 
-#[specforge_test(
-    behavior = "surface_list_personas",
-    verify = "technical-level filter reduces result set"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_personas_list_filters_by_technical_level() {
     assert_eq!(
         ids_of(
@@ -300,10 +237,7 @@ fn the_personas_list_filters_by_technical_level() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_personas",
-    verify = "journey_count is accurate per entry"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_persona_entry_counts_the_journeys_targeting_it() {
     let g = catalog().n("j4", "journey").edge("j4", "dev", "persona");
     let page = json_of("personas", json!({}), &g);
@@ -311,10 +245,7 @@ fn a_persona_entry_counts_the_journeys_targeting_it() {
     assert_eq!(page["personas"][1]["journey_count"], 1);
 }
 
-#[specforge_test(
-    behavior = "surface_list_channels",
-    verify = "list channels returns paginated ChannelListResult"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_channels_list_is_a_channel_list_result() {
     let page = json_of("channels", json!({}), &catalog());
     assert_eq!(
@@ -328,10 +259,7 @@ fn the_channels_list_is_a_channel_list_result() {
     assert_eq!(page["total"], 2);
 }
 
-#[specforge_test(
-    behavior = "surface_list_channels",
-    verify = "interaction-model filter reduces result set"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_channels_list_filters_by_interaction_model() {
     assert_eq!(
         ids_of(
@@ -343,19 +271,13 @@ fn the_channels_list_filters_by_interaction_model() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_channels",
-    verify = "journey_count is accurate per entry"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_channel_entry_counts_the_journeys_using_it() {
     assert_eq!(entry_of("channels", "cli")["journey_count"], 2);
     assert_eq!(entry_of("channels", "web")["journey_count"], 1);
 }
 
-#[specforge_test(
-    behavior = "surface_list_releases",
-    verify = "list-releases returns all releases with default pagination"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_releases_list_has_every_release_on_one_default_page() {
     let page = json_of("releases", json!({}), &catalog());
     assert_eq!(
@@ -368,10 +290,7 @@ fn the_releases_list_has_every_release_on_one_default_page() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_releases",
-    verify = "list-releases --status=released filters correctly"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_releases_list_filters_by_status() {
     let g = catalog();
     assert_eq!(
@@ -382,10 +301,7 @@ fn the_releases_list_filters_by_status() {
     assert_eq!(ids_of("releases", json!({"status": "planned"}), &g), ["r2"]);
 }
 
-#[specforge_test(
-    behavior = "surface_list_releases",
-    verify = "list-releases --format=json returns valid JSON"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_releases_list_is_json_when_asked() {
     let out = run_in(&runtime(), "releases", json!({}), &catalog(), "json");
     assert!(out.json()["releases"].is_array());

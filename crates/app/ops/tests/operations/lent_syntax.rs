@@ -44,10 +44,7 @@ fn shown(answer: &SyntaxAnswer) -> Vec<(&str, Vec<&str>)> {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "parse_source_through_the_syntax_import",
-    verify = "a syntax request over a link out of its root, a hard link or a .. path parses nothing outside"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn a_syntax_request_over_a_link_a_hard_link_or_a_parent_path_parses_nothing_outside() {
     let base = tempfile::tempdir().unwrap();
     let base = base.path().canonicalize().unwrap();

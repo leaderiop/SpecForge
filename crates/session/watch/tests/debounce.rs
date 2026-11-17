@@ -3,10 +3,7 @@ use specforge_watch::Debouncer;
 use std::sync::mpsc;
 use std::time::Duration;
 
-#[spec(
-    behavior = "debounce_file_changes",
-    verify = "rapid successive changes coalesced into single batch"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn rapid_successive_changes_coalesced_into_single_batch() {
     let (tx, rx) = mpsc::channel();
     let debouncer = Debouncer::new(Duration::from_millis(50));
@@ -22,10 +19,7 @@ fn rapid_successive_changes_coalesced_into_single_batch() {
     assert_eq!(batch, vec!["a.spec", "b.spec"]);
 }
 
-#[spec(
-    behavior = "debounce_file_changes",
-    verify = "single isolated change triggers after debounce window"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn single_isolated_change_triggers_after_debounce_window() {
     let window = Duration::from_millis(40);
     let (tx, rx) = mpsc::channel();
@@ -51,7 +45,7 @@ fn single_isolated_change_triggers_after_debounce_window() {
     drop(tx);
 }
 
-#[spec(behavior = "debounce_file_changes")]
+#[spec(requirement = "FEATURE-050")]
 fn closed_channel_returns_none() {
     let (tx, rx) = mpsc::channel::<String>();
     let debouncer = Debouncer::new(Duration::from_millis(20));
@@ -62,10 +56,7 @@ fn closed_channel_returns_none() {
     assert!(result.is_none());
 }
 
-#[spec(
-    behavior = "debounce_file_changes",
-    verify = "debounce window prevents redundant recompilation"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn debounce_window_prevents_redundant_recompilation() {
     let (tx, rx) = mpsc::channel();
     let debouncer = Debouncer::new(Duration::from_millis(50));
@@ -87,10 +78,7 @@ fn debounce_window_prevents_redundant_recompilation() {
     assert_eq!(batch[0], "same.spec");
 }
 
-#[spec(
-    behavior = "debounce_file_changes",
-    verify = "coalesced batch includes union of all changed files"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn coalesced_batch_includes_union_of_all_changed_files() {
     let (tx, rx) = mpsc::channel();
     let debouncer = Debouncer::new(Duration::from_millis(50));
@@ -110,10 +98,8 @@ fn coalesced_batch_includes_union_of_all_changed_files() {
 /// worker) are one rule: the same changes make the same batch, and a closed
 /// channel ends both.
 #[cfg(feature = "tokio")]
-#[spec(
-    behavior = "shared_incremental_pipeline",
-    verify = "CLI and LSP share identical debounce window"
-)]
+#[spec(requirement = "FEATURE-050")]
+#[spec(requirement = "FEATURE-059")]
 #[tokio::test]
 async fn both_adapters_batch_alike() {
     let window = specforge_watch::DEFAULT_DEBOUNCE_WINDOW;
@@ -139,10 +125,7 @@ async fn both_adapters_batch_alike() {
 
 /// A change sent while the window runs restarts it, on a tokio channel too.
 #[cfg(feature = "tokio")]
-#[spec(
-    behavior = "debounce_file_changes",
-    verify = "each change restarts the quiet window"
-)]
+#[spec(requirement = "FEATURE-050")]
 #[tokio::test]
 async fn the_tokio_adapter_restarts_the_window_on_every_change() {
     let window = Duration::from_millis(120);

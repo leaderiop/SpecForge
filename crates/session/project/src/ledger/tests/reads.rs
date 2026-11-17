@@ -34,10 +34,7 @@ fn text(read: &Read) -> Option<&str> {
     }
 }
 
-#[specforge_test(
-    behavior = "bring_session_up_to_date",
-    verify = "a source or check input written between its stamp and its read is seen next time"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_source_written_between_its_stamp_and_its_read_is_seen_next_time() {
     let (dir, root) = project();
     let spec_root = dir.path();
@@ -106,10 +103,7 @@ impl specforge_registry::Disk for Refusing {
     }
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn both_reads_read_each_source_through_the_disk_they_are_handed() {
     let (_dir, root) = project();
     let mut ledger = Ledger::opening_through(Some(Arc::new(Refusing)));

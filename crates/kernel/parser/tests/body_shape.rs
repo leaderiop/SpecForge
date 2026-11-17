@@ -3,10 +3,7 @@
 use specforge_parser::parse;
 use specforge_test_macros::test as specforge_test;
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "a block answers whether it is a union from its syntax, whatever its fields are named"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_block_answers_whether_it_is_a_union() {
     let file = parse(
         "type Status = open | done\n\ntype Feature \"F\" {\n  variants string[]\n}\n\n\

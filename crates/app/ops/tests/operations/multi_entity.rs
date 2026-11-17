@@ -32,10 +32,7 @@ fn check_accepts_all_governance_entity_kinds() {
     assert!(checked(&compiled, CheckOptions::default()).ok());
 }
 
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "JSON output contains all nodes"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn export_graph_includes_all_entity_kinds() {
     let (_project, compiled) = built(&[("main.spec", specs::MULTI_EXTENSION)]);
 
@@ -68,10 +65,7 @@ fn export_graph_includes_all_entity_kinds() {
     }
 }
 
-#[specforge_test(
-    behavior = "export_agent_brief_format",
-    verify = "brief format includes only IDs, kinds, titles, and edges"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn export_brief_includes_all_entity_kinds() {
     let (_project, compiled) = built(&[("main.spec", specs::MULTI_EXTENSION)]);
 
@@ -126,10 +120,7 @@ fn export_brief_includes_all_entity_kinds() {
     assert_eq!(edge_set(&parsed), edge_set(&graph));
 }
 
-#[specforge_test(
-    behavior = "export_agent_context_format",
-    verify = "context format includes entity IDs and contracts"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn export_context_shows_contracts_for_all_kinds() {
     let project = TestProject::new()
         .enabling(&specs::BUILTINS)
@@ -169,10 +160,7 @@ fn query_by_kind_filter_governance_entities() {
     assert_eq!(nodes[0]["kind"], "decision");
 }
 
-#[specforge_test(
-    behavior = "compute_project_statistics",
-    verify = "stats reports correct entity counts"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
 fn stats_entities_by_kind_counts_all_kinds() {
     let (_project, compiled) = built(&[("main.spec", specs::MULTI_EXTENSION)]);
 

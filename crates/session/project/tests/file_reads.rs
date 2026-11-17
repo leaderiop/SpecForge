@@ -185,10 +185,7 @@ fn a_path_outside_the_project_is_outside_project() {
 
 /// A written name compares with the directory's listing (ADR 0335): a case variant of a file on disk is absent on
 /// macOS and Windows as on Linux, and its text is not read.
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "a read path whose case differs from the disk is absent on every OS"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_read_path_whose_case_differs_is_absent() {
     let project = project_of(&plan_naming(&["SRC/LIB.RS", "src/lib.rs"]));
     let (_, _, input) = probed(project, modified());

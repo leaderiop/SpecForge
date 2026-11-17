@@ -47,10 +47,7 @@ const SERDE_LINES: &str = "{\"name\":\"serde\",\"vers\":\"1.0.0\",\"yanked\":fal
                            {\"name\":\"serde\",\"vers\":\"1.0.1\",\"yanked\":true}\n";
 const OSV: &str = "https://api.osv.dev/v1/query";
 
-#[specforge_test_macros::test(
-    behavior = "checks_registries",
-    verify = "a requirement only yanked versions meet is E105 naming the newest"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn a_requirement_only_yanked_versions_meet_is_e105_naming_the_newest() {
     let http = FakeHttp::new().route(SERDE_INDEX, 200, SERDE_LINES);
     let scene = scene(
@@ -72,10 +69,7 @@ fn a_requirement_only_yanked_versions_meet_is_e105_naming_the_newest() {
     assert!(!missing[0].machine);
 }
 
-#[specforge_test_macros::test(
-    behavior = "checks_registries",
-    verify = "a registry 503 is W181, never E105"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn a_registry_503_is_w181_never_e105() {
     let http = FakeHttp::new()
         .route("https://registry.npmjs.org/react", 503, "")
@@ -101,10 +95,7 @@ fn a_registry_503_is_w181_never_e105() {
     assert!(!gone[0].machine, "a definite answer about the package");
 }
 
-#[specforge_test_macros::test(
-    behavior = "checks_registries",
-    verify = "an OSV hit is W179 with its aliases, and a withdrawn one is not"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn an_osv_hit_is_w179_with_its_aliases_and_a_withdrawn_one_is_not() {
     let answer = json!({ "vulns": [
         { "id": "RUSTSEC-2099-0001", "aliases": ["CVE-2099-1", "GHSA-xxxx"],
@@ -138,10 +129,7 @@ fn an_osv_hit_is_w179_with_its_aliases_and_a_withdrawn_one_is_not() {
     assert_eq!(body["version"], "1.0.0");
 }
 
-#[specforge_test_macros::test(
-    behavior = "checks_registries",
-    verify = "a licence outside allow is W179"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn a_licence_outside_allow_is_w179() {
     let npm = json!({ "versions": { "18.2.0": {}, "17.0.2": {} } });
     let pypi = json!({ "releases": { "2.31.0": [{ "filename": "requests-2.31.0.tar.gz", "yanked": false }] } });
@@ -176,10 +164,7 @@ fn a_licence_outside_allow_is_w179() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "checks_registries",
-    verify = "an unknown DOI is E105 and a malformed one is E103"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn an_unknown_doi_is_e105_and_a_malformed_one_is_e103() {
     let http = FakeHttp::new()
         .route(
@@ -216,10 +201,7 @@ fn an_unknown_doi_is_e105_and_a_malformed_one_is_e103() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "checks_registries",
-    verify = "the registries scope asks only for its seven hosts"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn the_registries_scope_asks_only_for_its_seven_hosts() {
     let scene = scene(&["crates:serde@1"], "package", json!({}), FakeHttp::new());
     let found = scene
@@ -248,10 +230,7 @@ fn the_registries_scope_asks_only_for_its_seven_hosts() {
     assert!(scene.http.requests().is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "checks_registries",
-    verify = "an answer whose body the journal did not keep is a miss, never a pass"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn an_answer_whose_body_the_journal_did_not_keep_is_a_miss() {
     // Over the journal's 4 MiB payload cap, within the registries capability's 16 MiB.
     let mut index = String::from(SERDE_LINES);

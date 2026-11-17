@@ -1,9 +1,6 @@
 use super::*;
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "an extension whose peer range is not SemVer is refused with E073 before anything is installed"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_unreadable_candidate_range_is_refused_e073() {
     let installed = nowhere(base_and_other(">=1.0.0"));
     let runtime = runtime();
@@ -40,10 +37,7 @@ fn an_unreadable_requirer_range_is_e073_naming_it() {
     assert!(err.message.contains("'@acme/other'"), "{err:?}");
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a local install whose peer is installed outside its range is refused with E027"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_local_candidate_out_of_range_is_e027() {
     let installed = nowhere(base_and_other("^1.0"));
     let runtime = runtime();
@@ -160,10 +154,7 @@ fn a_required_peer_no_member_has_is_refused_e027() {
     );
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "an extension no specforge.json entry enables is not judged"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_locked_extension_no_entry_enables_is_not_judged() {
     let installed = nowhere(vec![
         entry("@acme/base", "1.0.0", "registry", &[]),

@@ -63,10 +63,7 @@ fn watches(session: &ProjectSession, dir: &Path) -> bool {
     })
 }
 
-#[specforge_test(
-    behavior = "invalidate_changed_files",
-    verify = "a source relinked to a file with an equal stamp still moves the inputs"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_source_relinked_to_an_equal_stamp_file_moves_the_inputs() {
     for time in times() {
         let (dir, _outside, out, mut session) = project(None, time);

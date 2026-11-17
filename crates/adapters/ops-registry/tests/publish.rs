@@ -91,10 +91,7 @@ impl Pkg {
     }
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "publish refuses in one order, each refusal before anything after it is read or asked"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn the_adapter_refuses_before_any_request_in_this_order() {
     // 1. no specforge.json: E063.
     let empty = TestProject::new().without_config();
@@ -200,10 +197,7 @@ fn the_adapter_refuses_before_any_request_in_this_order() {
     assert_eq!(second.key_id, first.key_id);
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "with no credential for its registry, publish refuses with R001 before any network call and creates no signing key"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn with_no_credential_the_adapter_sends_nothing_and_creates_no_key() {
     let world = World::acme();
     let error = world
@@ -215,10 +209,7 @@ fn with_no_credential_the_adapter_sends_nothing_and_creates_no_key() {
     assert!(!world.signing_key().exists(), "no key is created");
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "the environment token wins over the stored credential"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn the_environment_token_wins_over_the_stored_credential() {
     let published_with = |world: &World, token: Option<&str>, version: &str| {
         world
@@ -257,10 +248,7 @@ fn the_environment_token_wins_over_the_stored_credential() {
     assert_eq!(error.code, "R001", "{error:?}");
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "a signing key that can't be read is refused with E074 before any network call"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_corrupt_signing_key_is_refused_with_e074_before_any_request() {
     let world = World::acme();
     std::fs::write(world.signing_key(), "not json").unwrap();
@@ -281,10 +269,7 @@ fn a_corrupt_signing_key_is_refused_with_e074_before_any_request() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "a signing key that can't be read is refused with E074 before any network call"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn an_unreadable_signing_key_is_e074_and_left_as_it_was() {
     use std::os::unix::fs::PermissionsExt;
     let world = World::acme();
@@ -333,10 +318,7 @@ fn the_e074_suggestion_reads_as_one_sentence() {
     );
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "publish asks the registry add fetches the same name from"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn publish_asks_the_registry_fetch_asks() {
     let world = World::with(serde_json::json!([
         { "alias": "acme", "url": "https://acme.invalid", "scope_filter": "@acme" },
@@ -437,10 +419,7 @@ fn on_server(server: &specforge_registry_server::testing::LocalRegistry) -> (Tes
     (project, TempDir::new().unwrap())
 }
 
-#[specforge_test(
-    behavior = "retry_registry_request",
-    verify = "a Retry-After longer than the longest backoff is not waited for"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn a_retry_after_beyond_the_longest_backoff_is_not_waited_for() {
     use specforge_registry_server::state::PublishLimits;
     let server = specforge_registry_server::testing::LocalRegistry::start_with(PublishLimits {
@@ -472,10 +451,7 @@ fn a_retry_after_beyond_the_longest_backoff_is_not_waited_for() {
     assert_eq!(puts, 2, "{:?}", server.requests());
 }
 
-#[specforge_test(
-    behavior = "retry_registry_request",
-    verify = "a rate-limited publish is sent again once the registry's wait has passed"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn a_rate_limited_publish_is_sent_again_after_its_wait() {
     use specforge_registry_server::state::PublishLimits;
     let server = specforge_registry_server::testing::LocalRegistry::start_with(PublishLimits {
@@ -510,10 +486,7 @@ fn home_with_credentials(json: &str) -> TempDir {
     home
 }
 
-#[specforge_test(
-    behavior = "authenticate_registry_request",
-    verify = "missing token source produces ExtensionError"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn an_unset_token_variable_is_r010_before_any_request() {
     let world = World::acme();
     let home = home_with_credentials(
@@ -537,10 +510,7 @@ fn an_unset_token_variable_is_r010_before_any_request() {
     assert!(world.client.calls().is_empty());
 }
 
-#[specforge_test(
-    behavior = "authenticate_registry_request",
-    verify = "token resolved from environment variable"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 #[expect(
     unsafe_code,
     reason = "set_var before any thread of this test reads the environment; the test runs in its own process under nextest"
@@ -565,10 +535,7 @@ fn a_token_variable_is_sent_as_the_bearer_token() {
     assert_eq!(calls[0].credential.as_ref().unwrap().token(), "t");
 }
 
-#[specforge_test(
-    behavior = "authenticate_registry_request",
-    verify = "token resolved from token file"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn a_token_file_is_sent_as_the_bearer_token() {
     let world = World::acme();
     let file = world.project.home().join("tok");
@@ -594,10 +561,7 @@ fn a_token_file_is_sent_as_the_bearer_token() {
     assert_eq!(calls[0].credential.as_ref().unwrap().token(), "t");
 }
 
-#[specforge_test(
-    behavior = "authenticate_registry_request",
-    verify = "a token file that can't be read is R011 before any request"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn an_unreadable_token_file_is_r011_before_any_request() {
     let world = World::acme();
     let home = home_with_credentials(
@@ -617,10 +581,7 @@ fn an_unreadable_token_file_is_r011_before_any_request() {
     assert!(world.client.calls().is_empty());
 }
 
-#[specforge_test(
-    behavior = "resolve_registry_source",
-    verify = "a scope_filter that is not a scope sends none of its scope's names to another registry"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_scope_filter_that_is_no_scope_publishes_nowhere() {
     let world = World::with(serde_json::json!([
         { "alias": "public", "url": "https://public.invalid", "default_registry": true },

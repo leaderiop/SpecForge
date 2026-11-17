@@ -132,10 +132,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "pin_publisher_key",
-        verify = "the CLI asks its terminal about a key change: yes at the prompt consents, and with nobody to ask nothing is asked"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-030")]
     fn a_key_change_is_asked_of_the_terminal() {
         let (terminal, capture) = Terminal::captured("y\n", INTERACTIVE);
         assert!((&terminal as &dyn Asker).answer(&change(ExpectedFrom::UserPin)));
@@ -159,10 +156,7 @@ mod tests {
         assert_eq!(capture.stderr(), "", "nobody to ask: nothing is asked");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "approve_capability",
-        verify = "a terminal that can answer is asked; with nobody to ask, or under --format json, only an approved command runs"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-128")]
     fn a_collector_command_is_asked_of_a_terminal_that_can_answer() {
         let argv = vec!["cargo".to_string(), "test".to_string()];
         let question = Question::Capability {
@@ -258,10 +252,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "approve_capability",
-        verify = "the terminal shows a collector's config file under its command"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-128")]
     fn a_command_with_a_config_shows_the_file_it_writes() {
         let argv = vec![
             "cargo-nextest".to_string(),

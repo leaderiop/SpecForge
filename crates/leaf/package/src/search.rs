@@ -14,10 +14,7 @@ pub fn matches(query: &str, name: &str, description: &str, keywords: &[&str]) ->
 mod tests {
     use super::*;
 
-    #[specforge_test_macros::test(
-        behavior = "search_registry",
-        verify = "a search matches a case-insensitive substring of a package's name, description or one keyword, wildcards included as text"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-030")]
     fn a_query_matches_a_substring_of_the_name_description_or_one_keyword() {
         assert!(matches("XT", "@a/myxext", "", &[]));
         assert!(matches("plain", "@a/x", "A Plain package", &[]));

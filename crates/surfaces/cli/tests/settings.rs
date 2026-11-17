@@ -2,10 +2,7 @@
 
 use crate::support::{Cli, TestProject};
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "settings lists each setting's type, value, origin, default, gates, raises and each secret's status"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn settings_lists_value_origin_gates_raises_and_secrets() {
     // The builtins declare no setting: a project that sets one is told so (the typed listing is tested over the
     // view in `specforge-ops`, where an extension is served in process).
@@ -24,10 +21,7 @@ fn settings_lists_value_origin_gates_raises_and_secrets() {
     assert!(human.stderr.contains("W166"), "{}", human.stderr);
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "settings lists each setting's type, value, origin, default, gates, raises and each secret's status"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn settings_fails_when_specforge_json_gets_a_setting_wrong() {
     // E086 (settings of a loaded extension that are no object) fails the run; the W166 above does not.
     let project = TestProject::new()

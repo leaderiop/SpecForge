@@ -42,10 +42,7 @@ fn coded<'d>(diagnostics: &'d [Diagnostic], code: &str) -> Vec<&'d Diagnostic> {
     diagnostics.iter().filter(|d| d.code == code).collect()
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "an enum list takes the declared words, each once, and a scalar is a one-item list"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn an_enum_list_takes_declared_words_once() {
     let (graph, diagnostics) = compile(
         "refactor_proposal r1 \"R\" {\n  reasons [threshold, jump]\n}\n\
@@ -78,10 +75,7 @@ fn an_enum_list_takes_declared_words_once() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a typed block reads and admits each member by its own declared type"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_typed_block_coerces_and_admits_each_member() {
     let (graph, diagnostics) =
         compile("discussion d1 \"D\" {\n  scores { goal 03-02 ambiguity 7 }\n}\n");
@@ -95,10 +89,7 @@ fn a_typed_block_coerces_and_admits_each_member() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a typed block reads and admits each member by its own declared type"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_member_of_a_typed_block_is_admitted_at_its_own_span() {
     let (_, diagnostics) = compile("discussion d1 \"D\" {\n  scores { goal \"x\" }\n}\n");
     let e061 = coded(&diagnostics, "E061");
@@ -116,10 +107,7 @@ fn a_member_of_a_typed_block_is_admitted_at_its_own_span() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "an integer outside its declared minimum or maximum is E061 naming the bounds"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn an_integer_outside_its_bounds_is_e061() {
     let (_, diagnostics) = compile("truth t1 \"T\" {\n  criterion 9\n}\n");
     let e061 = coded(&diagnostics, "E061");
@@ -130,10 +118,7 @@ fn an_integer_outside_its_bounds_is_e061() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "an integer outside its declared minimum or maximum is E061 naming the bounds"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_bounded_member_is_e061_at_its_own_span() {
     let (_, diagnostics) = compile("discussion d1 \"D\" {\n  scores { goal 120 }\n}\n");
     let e061 = coded(&diagnostics, "E061");
@@ -150,10 +135,7 @@ fn a_bounded_member_is_e061_at_its_own_span() {
     );
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "an enum list's words and a typed block's members are no type expression: no derived edge and no E004"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_typed_block_on_a_type_kind_is_no_type_expression() {
     let (graph, diagnostics) = compile(&format!(
         "{HIERARCHY}\nshape s1 \"S\" {{\n  phase v1.0/03\n  tags [cli, api]\n  checks [{{ kind cli note \"x\" }}]\n  g Missing\n}}\n"
@@ -179,10 +161,7 @@ summary 03-02-S \"S\" {
 }
 ";
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a reference inside a block is held by its entity, resolves outward from it and is labelled by its member path"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_reference_in_a_block_links_from_its_entity() {
     let (graph, diagnostics) = compile(&format!("{HIERARCHY}\n{REQUIRING}"));
     assert!(coded(&diagnostics, "E003").is_empty(), "{diagnostics:#?}");
@@ -206,10 +185,7 @@ fn a_reference_in_a_block_links_from_its_entity() {
     assert_eq!(coded(&diagnostics, "E003").len(), 1, "{diagnostics:#?}");
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a reference field declaring several target kinds takes an entity of any of them and refuses another, naming each"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_union_reference_takes_any_listed_kind() {
     let (graph, diagnostics) = compile(&format!(
         "{HIERARCHY}\nverify_gap VG1 \"G\" {{\n}}\nuat_gap G-03-1 \"G\" {{\n}}\n\
@@ -237,10 +213,7 @@ fn a_union_reference_takes_any_listed_kind() {
     );
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "the finder reports a reference inside a block under its member path, held by the entity"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn the_finder_holds_member_tokens_by_their_entity() {
     let project = Assembled::typed();
     let file = parse(&format!("{HIERARCHY}\n{REQUIRING}"), "a.spec");
@@ -254,10 +227,7 @@ fn the_finder_holds_member_tokens_by_their_entity() {
     assert_eq!(token.held_by, ["v1.0/03/03-02/03-02-S"]);
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "E061, E006, W020 and the declarative rules reach every member of every item of a typed block"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn checks_reach_block_members() {
     let (_, diagnostics) = compile(
         "project p1 \"P\" {\n  constraints [\n    { kind timelin what \"a\" }\n    { kind timeline what \"b\" whyy \"c\" }\n  ]\n}\n\
@@ -290,10 +260,7 @@ fn checks_reach_block_members() {
     );
 }
 
-#[specforge_test(
-    behavior = "ck_files_family",
-    verify = "a check whose root is the project reads its relative paths from the directory of specforge.json"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_project_file_check_reads_from_the_project_root() {
     let dir = TestProject::new()
         .config(|c| {
@@ -324,10 +291,7 @@ fn a_project_file_check_reads_from_the_project_root() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_check_phase_passes",
-    verify = "a pass receives a typed block and a block list structured beside their text"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_pass_receives_a_block_structured() {
     let dir = TestProject::new()
         .config(|c| c["name"] = "p".into())
@@ -374,10 +338,7 @@ fn a_pass_receives_a_block_structured() {
     );
 }
 
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "a block list is exported as an array of objects and the Graph Protocol schema describes its members"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn an_export_writes_blocks_and_their_schema() {
     let (graph, _) = compile(&format!(
         "{HIERARCHY}\nplan 03-03 \"Other\" {{\n  phase v1.0/03\n  files_modified [\"src/a.ts\"]\n  \
@@ -436,10 +397,7 @@ fn an_export_writes_blocks_and_their_schema() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a member written in another form than its type gives is W159 at the member, named by its path"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn an_off_form_member_is_w159_at_the_member() {
     let (_, diagnostics) = compile("discussion d1 \"D\" {\n  scores { goal \"3\" }\n}\n");
     let w159 = coded(&diagnostics, "W159");
@@ -469,10 +427,7 @@ fn objects(value: &serde_json::Value) -> Vec<&serde_json::Value> {
     found
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a number field reads its decimal word and exports the exact decimal as a JSON number"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_number_field_reads_its_decimal_word_and_exports_a_json_number() {
     use serde_json::json;
     use specforge_protocol_types::{Decimal, PassEntity};
@@ -549,10 +504,7 @@ fn a_number_field_reads_its_decimal_word_and_exports_a_json_number() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a number that is no decimal, has more than 15 significant digits or lies outside its bounds is E061"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_number_that_is_no_decimal_too_long_or_out_of_bounds_is_e061() {
     for (source, remedy) in [
         (

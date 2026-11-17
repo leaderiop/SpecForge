@@ -396,10 +396,7 @@ fn prompt_golden_events() {
     insta::assert_json_snapshot!("39_invocation_events", invoked);
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "a missing entity is one E003 refusal naming the closest entity on every read view"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn context_constraint_naming_no_entity_is_the_e003_refusal() {
     let dir = project();
     let mut server = server(&dir);

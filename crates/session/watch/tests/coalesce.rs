@@ -12,10 +12,7 @@ fn ms(n: u64) -> Duration {
     Duration::from_millis(n)
 }
 
-#[spec(
-    behavior = "debounce_file_changes",
-    verify = "rapid successive changes coalesced into single batch"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn changes_less_than_a_window_apart_are_one_batch() {
     let t0 = Instant::now();
     let mut batch = Coalescer::new(WINDOW);
@@ -28,10 +25,7 @@ fn changes_less_than_a_window_apart_are_one_batch() {
     assert_eq!(batch.take_due(t0 + ms(500)), None, "a batch is taken once");
 }
 
-#[spec(
-    behavior = "debounce_file_changes",
-    verify = "each change restarts the quiet window"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn each_change_restarts_the_window() {
     let t0 = Instant::now();
     let mut batch = Coalescer::new(WINDOW);
@@ -44,10 +38,7 @@ fn each_change_restarts_the_window() {
     assert_eq!(batch.take_due(t0 + ms(129)), None);
 }
 
-#[spec(
-    behavior = "debounce_file_changes",
-    verify = "single isolated change triggers after debounce window"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_batch_is_due_one_window_after_its_last_change() {
     let t0 = Instant::now();
     let mut batch = Coalescer::new(WINDOW);
@@ -57,10 +48,7 @@ fn a_batch_is_due_one_window_after_its_last_change() {
     assert_eq!(batch.take_due(t0 + WINDOW), Some(vec!["only"]));
 }
 
-#[spec(
-    behavior = "debounce_file_changes",
-    verify = "debounce window prevents redundant recompilation"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn repeated_changes_are_in_the_batch_once() {
     let t0 = Instant::now();
     let mut batch = Coalescer::new(WINDOW);
@@ -70,10 +58,7 @@ fn repeated_changes_are_in_the_batch_once() {
     assert_eq!(batch.flush(), Some(vec!["same"]));
 }
 
-#[spec(
-    behavior = "debounce_file_changes",
-    verify = "coalesced batch includes union of all changed files"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn the_batch_is_the_union_sorted() {
     let t0 = Instant::now();
     let mut batch = Coalescer::new(WINDOW);
@@ -84,7 +69,7 @@ fn the_batch_is_the_union_sorted() {
     assert_eq!(batch.flush(), Some(vec!["x", "y", "z"]));
 }
 
-#[spec(behavior = "debounce_file_changes")]
+#[spec(requirement = "FEATURE-050")]
 fn nothing_pending_is_never_due() {
     let mut batch = Coalescer::<&str>::new(WINDOW);
     assert_eq!(batch.due(), None);
@@ -95,7 +80,7 @@ fn nothing_pending_is_never_due() {
     assert_eq!(batch.flush(), None);
 }
 
-#[spec(behavior = "debounce_file_changes")]
+#[spec(requirement = "FEATURE-050")]
 fn a_flushed_batch_starts_the_next_one_afresh() {
     let t0 = Instant::now();
     let mut batch = Coalescer::new(WINDOW);

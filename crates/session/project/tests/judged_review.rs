@@ -20,10 +20,7 @@ fn report(tests: &[(&str, &str)]) -> String {
     json!({"results": {TRUTH: {"tests": tests}}}).to_string()
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a verdict recorded without a report is stale once a report exists"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_recorded_none_goes_stale_once_a_report_exists() {
     let project = gsd_judged_project("");
     record(&project, TRUTH, E501, "passed");
@@ -36,10 +33,7 @@ fn a_recorded_none_goes_stale_once_a_report_exists() {
     );
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a report that links no test to an entity stales none of its verdicts"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_report_that_links_no_test_stales_no_verdict() {
     let project = gsd_judged_project("");
     record(&project, TRUTH, E501, "passed");
@@ -51,10 +45,7 @@ fn a_report_that_links_no_test_stales_no_verdict() {
     assert_eq!(judgement(&compile(&project), TRUTH, E501).0, "fresh");
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a missing report hides no change to a cited entity or file"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_missing_report_hides_no_change_to_what_a_verdict_cites() {
     let project = gsd_judged_project("").file("docs/design.md", "one\n");
     let cited = Cited {
@@ -83,10 +74,7 @@ fn a_missing_report_hides_no_change_to_what_a_verdict_cites() {
     assert_eq!(judgement(&compile(&project), TRUTH, E501).1, ["cited"]);
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "cited tests are an input of their own, judged once a report exists"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn cited_tests_are_judged_once_a_report_exists() {
     let project = gsd_judged_project("");
     let cited = Cited {
@@ -100,10 +88,7 @@ fn cited_tests_are_judged_once_a_report_exists() {
     assert!(changed.contains(&"cited_tests".to_string()), "{changed:?}");
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "the tests of a report digest sorted, whatever order they ran in"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_report_that_reorders_its_tests_stales_nothing() {
     let project = gsd_judged_project("");
     project.write(
@@ -121,10 +106,7 @@ fn a_report_that_reorders_its_tests_stales_nothing() {
 const ELSEWHERE: &str =
     "\nphase 04 \"Four\" {\n  milestone v1.0\n}\n\ndecision D-09 \"Elsewhere\" {\n  phase 04\n}\n";
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a cited entity is digested by the resolution that accepted it"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_cited_entity_outside_the_holders_chain_is_still_watched() {
     let project = gsd_judged_project(ELSEWHERE);
     let cited = Cited {
@@ -144,10 +126,7 @@ fn a_cited_entity_outside_the_holders_chain_is_still_watched() {
     );
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a spec source that declares nothing digests as its bytes"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_spec_file_declaring_nothing_digests_as_its_bytes() {
     let project = gsd_judged_project("").file("empty.spec", "// one\n");
     project.write(
@@ -162,10 +141,7 @@ fn a_spec_file_declaring_nothing_digests_as_its_bytes() {
     assert_eq!(judgement(&compile(&project), TRUTH, E501).0, "stale");
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a reference digests as the graph links it"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_reference_digests_as_the_graph_links_it() {
     // `phase 03` and `phase v1.0/03` are one value.
     let project = gsd_judged_project("");
@@ -189,10 +165,7 @@ fn a_reference_digests_as_the_graph_links_it() {
     assert_eq!(requirements.as_value(), &json!(["AUTH-07"]));
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a cited file outside the project is not read"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_cited_file_outside_the_project_is_not_read() {
     let project = gsd_judged_project("");
     let other = TestProject::new();
@@ -223,10 +196,7 @@ fn a_cited_file_outside_the_project_is_not_read() {
     }
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a baseline whose files git could not read is neither cached nor judged"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_failed_blob_read_poisons_no_baseline() {
     use specforge_effects::git::{Git, GitError, Located, Sha};
     use specforge_effects::testing::FakeGit;
@@ -279,10 +249,7 @@ fn a_failed_blob_read_poisons_no_baseline() {
     );
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a fresh verdict's message counts its findings"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_judged_message_counts_its_findings() {
     let message = |findings: &str| {
         let project = gsd_judged_project("");
@@ -318,10 +285,7 @@ fn a_judged_message_counts_its_findings() {
     );
 }
 
-#[specforge_test(
-    behavior = "answer_judged_inputs",
-    verify = "a pass sees the tests a verdict cites"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_pass_sees_the_tests_a_verdict_cites() {
     let project = gsd_judged_project("");
     let cited = Cited {

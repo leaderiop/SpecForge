@@ -23,10 +23,7 @@ fn keys(value: &serde_json::Value) -> Vec<&str> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "answer_edit_plan",
-    verify = "a writing collector receives the graph and its plan is applied after the report"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn command_collect_and_hook_inputs_differ_from_1_10_only_by_now() {
     // A writing collector: the graph, the revisions it may name, and the date and the instant.
     let p = project().file(".specforge/reports/git.json", "{}");

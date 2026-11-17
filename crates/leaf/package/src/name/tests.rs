@@ -22,10 +22,7 @@ fn variant(error: &PackageNameError) -> &'static str {
     }
 }
 
-#[specforge_test(
-    behavior = "parse_extension_specifier",
-    verify = "a package name is @scope/name or a local name, and always a relative path inside its directory"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn a_name_is_scoped_or_local_and_a_safe_path() {
     for name in ACCEPTED {
         let parsed = PackageName::parse(name).unwrap_or_else(|e| panic!("{name}: {e}"));
@@ -64,10 +61,7 @@ fn a_name_is_scoped_or_local_and_a_safe_path() {
     );
 }
 
-#[specforge_test(
-    behavior = "parse_extension_specifier",
-    verify = "a package name is @scope/name or a local name, and always a relative path inside its directory"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn relative_path_never_leaves_its_directory() {
     use std::path::Component;
     for name in ACCEPTED {
@@ -93,10 +87,7 @@ fn relative_path_never_leaves_its_directory() {
     assert_eq!((local.scope(), local.base()), (None, "greet"));
 }
 
-#[specforge_test(
-    behavior = "parse_extension_specifier",
-    verify = "a package name crosses a registry URL as one segment"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn url_segment_round_trips() {
     for name in ACCEPTED {
         let name = PackageName::parse(name).unwrap();
@@ -139,10 +130,7 @@ fn requirement(text: &str) -> String {
     }
 }
 
-#[specforge_test(
-    behavior = "parse_extension_specifier",
-    verify = "a version requirement is latest, one version or a SemVer requirement"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn a_requirement_is_latest_exact_or_a_range() {
     let cases = [
         ("latest", "latest"),
@@ -181,10 +169,7 @@ fn picked(requirement: &str, published: &[&str]) -> Option<String> {
         .map(Version::to_string)
 }
 
-#[specforge_test(
-    behavior = "upgrade_wasm_extension",
-    verify = "one rule picks the version a requirement asks for"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn pick_takes_the_highest_release_then_a_pre_release() {
     assert_eq!(
         picked("latest", &["1.4.0", "2.0.0-beta.1"]).as_deref(),
@@ -220,10 +205,7 @@ fn pick_takes_the_highest_release_then_a_pre_release() {
     assert_eq!(picked("1.3.0", &["1.1.0", "1.2.0"]), None);
 }
 
-#[specforge_test(
-    behavior = "upgrade_wasm_extension",
-    verify = "one rule picks the version a requirement asks for"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn pick_from_chooses_the_record_pick_chooses() {
     let version = |r: &(&str, &str)| Version::parse(r.1).ok();
     let records = [("a", "1.4.0"), ("b", "2.0.0-beta.1"), ("c", "nope")];
@@ -250,10 +232,7 @@ fn highest(published: &[&str], requirements: &[&str]) -> Option<String> {
     highest_matching(&published, &requirements).map(Version::to_string)
 }
 
-#[specforge_test(
-    behavior = "upgrade_wasm_extension",
-    verify = "one rule picks the version a requirement asks for"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn highest_matching_is_the_highest_every_requirement_matches() {
     let published = ["1.0.0", "1.5.0", "2.0.0", "2.5.0", "3.0.0"];
     assert_eq!(
@@ -286,10 +265,7 @@ fn highest_matching_is_the_highest_every_requirement_matches() {
     );
 }
 
-#[specforge_test(
-    behavior = "parse_extension_specifier",
-    verify = "each add argument reads as one extension source"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn split_requirement_splits_at_the_last_inner_at() {
     let cases = [
         ("@acme/tool", ("@acme/tool", None)),
@@ -325,10 +301,7 @@ fn reference(text: &str) -> String {
     }
 }
 
-#[specforge_test(
-    behavior = "parse_extension_specifier",
-    verify = "each add argument reads as one extension source"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn a_package_ref_is_a_scoped_name_and_a_requirement() {
     let cases = [
         ("@acme/tool", "@acme/tool latest"),                // I1
@@ -366,10 +339,7 @@ fn a_package_ref_is_a_scoped_name_and_a_requirement() {
     );
 }
 
-#[specforge_test(
-    behavior = "load_extension_declaration",
-    verify = "a declaration's default short name is its package name's base"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_declarations_default_short_name_is_its_package_names_base() {
     for name in [
         "@specforge/product",

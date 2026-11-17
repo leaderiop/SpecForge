@@ -22,10 +22,7 @@ fn opened() -> (tempfile::TempDir, Ledger) {
     (dir, ledger)
 }
 
-#[specforge_test(
-    behavior = "bring_session_up_to_date",
-    verify = "a source or check input written between its stamp and its read is seen next time"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_check_input_written_between_its_stamp_and_its_read_is_seen_next_time() {
     let (dir, mut ledger) = opened();
     let doc = std::fs::canonicalize(dir.path()).unwrap().join("guide.md");

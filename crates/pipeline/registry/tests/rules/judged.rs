@@ -72,10 +72,7 @@ fn declaration_of(
     declaration
 }
 
-#[spec(
-    behavior = "declare_judged_rule",
-    verify = "a judged rule is declared with its judge, outcomes and per-target selectors"
-)]
+#[spec(requirement = "FEATURE-058")]
 fn a_judged_rule_is_declared_with_selectors() {
     let built = built(descriptor(plan_check()));
     assert!(built.diagnostics.is_empty(), "{:?}", built.diagnostics);
@@ -88,10 +85,7 @@ fn a_judged_rule_is_declared_with_selectors() {
     );
 }
 
-#[spec(
-    behavior = "declare_judged_rule",
-    verify = "a malformed judged rule is W112 and is not registered"
-)]
+#[spec(requirement = "FEATURE-058")]
 fn a_malformed_judged_rule_is_w112() {
     let with = |edit: &dyn Fn(&mut Value)| {
         let mut judged = plan_check();
@@ -179,10 +173,7 @@ fn waiting(kind: &str, judged_while: &str) -> Value {
     json!({"kind": kind, "judged_while": judged_while, "inputs": [{"name": "it", "selector": "self"}]})
 }
 
-#[spec(
-    behavior = "declare_judged_rule",
-    verify = "a judged target waits for an owner state its kind has, and binds no verdict value of that kind"
-)]
+#[spec(requirement = "FEATURE-058")]
 fn a_judged_target_waits_for_an_owner_state_its_kind_has() {
     let built = owner_built(
         json!([waiting("plan", "complete"), waiting("task", "pending")]),
@@ -229,10 +220,7 @@ fn a_judged_target_waits_for_an_owner_state_its_kind_has() {
     assert!(built.diagnostics.is_empty(), "{:?}", built.diagnostics);
 }
 
-#[spec(
-    behavior = "declare_judged_rule",
-    verify = "no other rule of the extension reports a judged rules code"
-)]
+#[spec(requirement = "FEATURE-058")]
 fn a_declarative_rule_cannot_share_a_judged_rules_code() {
     let declarative: ValidationRuleDescriptor = serde_json::from_value(json!({
         "code": "W311", "severity": "warning", "check": "no_edges", "message_template": "x",
@@ -253,10 +241,7 @@ fn a_declarative_rule_cannot_share_a_judged_rules_code() {
     }
 }
 
-#[spec(
-    behavior = "declare_judged_rule",
-    verify = "a guard pass cannot report a judged rule's code"
-)]
+#[spec(requirement = "FEATURE-058")]
 fn a_guard_pass_cannot_report_a_judged_rules_code() {
     let mut declaration = declaration_of(vec![descriptor(plan_check())]);
     declaration.passes = declare("@test", |c| {
@@ -314,20 +299,14 @@ fn audit_built(selector: &str) -> Built {
     rules_of(vec![declaration])
 }
 
-#[spec(
-    behavior = "digest_judged_inputs",
-    verify = "a referrer selector goes on past its reference"
-)]
+#[spec(requirement = "FEATURE-058")]
 fn a_referrer_selector_goes_on_past_its_reference() {
     let built = audit_built("self.milestone<phase.milestone.requirements");
     assert!(built.coded("W112").is_empty(), "{:?}", built.diagnostics);
     assert_eq!(built.rules.iter().count(), 1);
 }
 
-#[spec(
-    behavior = "digest_judged_inputs",
-    verify = "a file input may name a path held in a string field"
-)]
+#[spec(requirement = "FEATURE-058")]
 fn file_of_a_string_field_is_admitted() {
     let built = audit_built("file(self.path)");
     assert!(built.coded("W112").is_empty(), "{:?}", built.diagnostics);
@@ -359,10 +338,7 @@ fn with_result_field(
     crate::support::build([declaration])
 }
 
-#[spec(
-    behavior = "declare_judged_rule",
-    verify = "a verdict-written field is set by exactly one judged rule, and is never required"
-)]
+#[spec(requirement = "FEATURE-058")]
 fn a_verdict_field_is_bound_by_one_judged_rule() {
     let bound = |values: Value| {
         let mut judged = json!({
@@ -393,10 +369,7 @@ fn a_verdict_field_is_bound_by_one_judged_rule() {
     );
 }
 
-#[spec(
-    behavior = "declare_judged_rule",
-    verify = "a chain into an unloaded optional peer's kind is inert, and into any other unloaded kind W112"
-)]
+#[spec(requirement = "FEATURE-058")]
 fn a_chain_into_an_unloaded_optional_peers_kind_is_inert() {
     let judged = json!({
         "judge": "checker", "outcomes": ["passed", "issues"], "passing": ["passed"],
@@ -438,10 +411,7 @@ fn a_chain_into_an_unloaded_optional_peers_kind_is_inert() {
     }
 }
 
-#[spec(
-    behavior = "declare_judged_rule",
-    verify = "a file() of a chain into an unloaded optional peer's kind is inert, and of any other unloaded kind W112"
-)]
+#[spec(requirement = "FEATURE-058")]
 fn a_file_of_a_chain_into_an_unloaded_optional_peers_kind_is_inert() {
     // `@ghosts`, which the host could enable, declares `ghost`.
     let ghosts = crate::support::candidates(&[declare("@ghosts", |c| {
@@ -533,10 +503,7 @@ fn filter_built(selector: &str) -> Built {
     rules_of(vec![declaration])
 }
 
-#[spec(
-    behavior = "digest_judged_inputs",
-    verify = "a selector's kind filter names an authored scalar field of the kind and values it declares"
-)]
+#[spec(requirement = "FEATURE-058")]
 fn a_kind_filter_names_an_authored_scalar_field_and_declared_values() {
     for selector in [
         "self<decision[origin=context].phase",

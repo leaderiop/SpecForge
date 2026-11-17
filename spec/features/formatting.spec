@@ -1,29 +1,12 @@
-// Formatting features
-//
-// Fix #8 — Why formatting lives in core, not an extension (P7: extensions over builtins):
-// Formatting uses a hybrid model. Core owns generic CST formatting — indentation,
-// spacing, alignment, wrapping, blank lines, comments, imports, and string literals.
-// This is purely syntactic (no domain knowledge, no entity awareness) and must
-// complete in <50ms for the LSP path (P8: seconds to value); Wasm round-trips
-// would violate that budget. Extensions can contribute entity-specific formatting
-// rules via ExtensionFormatRule (e.g., field ordering within extension-defined
-// blocks). Core delegates to these at format time through the contribution registry.
-// Because core never inspects entity kinds or fields, it satisfies P7's real test:
-// "does this require a compiler change when a new domain appears?" — it does not.
-
-use "behaviors/formatting"
-use "types/core"
-use "types/formatting"
-
-feature code_formatting "Code Formatting" {
-  status   done
-  problem  """
+requirement FEATURE-009 "Code Formatting" {
+  category "Feature"
+  tier     v1
+  text     """
     .spec files accumulate inconsistent formatting over time — varying indentation,
     trailing whitespace, ragged alignment, and unsorted imports. This creates noisy
     diffs, wastes AI agent tokens on style variations, and slows code review. There
     is no way to enforce a canonical style across a project or in CI.
-  """
-  solution """
+
     A CST-based formatter that walks the tree-sitter concrete syntax tree, applies
     deterministic formatting rules, and writes canonically formatted output. The
     formatter operates purely on syntax (no semantic analysis required), supports
@@ -32,14 +15,14 @@ feature code_formatting "Code Formatting" {
   """
 }
 
-feature lsp_formatting "LSP Formatting" {
-  status   done
-  problem  """
+requirement FEATURE-061 "LSP Formatting" {
+  category "Feature"
+  tier     v1
+  text     """
     Developers must manually format .spec files or rely on CLI commands after editing.
     Without textDocument/formatting support in the LSP server, format-on-save is not
     available and developers produce inconsistently formatted files.
-  """
-  solution """
+
     The LSP server implements textDocument/formatting and textDocument/rangeFormatting
     using the same formatting engine as the CLI. Format-on-save triggers full-document
     formatting within 50ms. Range formatting expands to block boundaries and produces

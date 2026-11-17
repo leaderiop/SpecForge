@@ -86,10 +86,7 @@ fn event_names_since(server: &impl Logs, since: usize, names: &[&str]) -> Vec<St
 }
 
 // 1
-#[specforge_test(
-    behavior = "mcp_mutation_completed",
-    verify = "files_changed is the number of files the call wrote, for every mutation tool"
-)]
+#[test]
 fn enabling_a_builtin_writes_one_file() {
     let mut server = empty_components();
     let root = server.root().to_path_buf();
@@ -110,10 +107,7 @@ fn enabling_a_builtin_writes_one_file() {
 }
 
 // 2
-#[specforge_test(
-    behavior = "mcp_mutation_completed",
-    verify = "files_changed is the number of files the call wrote, for every mutation tool"
-)]
+#[test]
 fn disabling_a_builtin_writes_one_file() {
     let mut server = empty_components();
     let root = server.root().to_path_buf();
@@ -176,10 +170,7 @@ fn enabled(root: &Path) -> Vec<Value> {
     config["extensions"].as_array().cloned().unwrap_or_default()
 }
 
-#[specforge_test(
-    behavior = "extension_added",
-    verify = "wasDuplicate is true when extension was already installed"
-)]
+#[test]
 fn a_duplicate_add_emits_was_duplicate() {
     let mut server = empty_components();
     let root = server.root().to_path_buf();
@@ -260,10 +251,7 @@ fn installing_and_removing_a_local_extension_write_three_files() {
 }
 
 // 5
-#[specforge_test(
-    behavior = "mcp_mutation_completed",
-    verify = "files_changed is the number of files the call wrote, for every mutation tool"
-)]
+#[test]
 fn init_with_a_local_extension_writes_five_files() {
     let mut server = unserved();
     let scratch = tempfile::TempDir::new().unwrap();
@@ -294,10 +282,7 @@ fn init_with_a_local_extension_writes_five_files() {
 }
 
 // 6
-#[specforge_test(
-    behavior = "mcp_mutation_completed",
-    verify = "files_changed is the number of files the call wrote, for every mutation tool"
-)]
+#[test]
 fn init_beside_a_complete_gitignore_writes_two_files() {
     let mut server = unserved();
     let scratch = tempfile::TempDir::new().unwrap();
@@ -325,10 +310,7 @@ fn init_beside_a_complete_gitignore_writes_two_files() {
 
 // 7
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "mcp_mutation_completed",
-    verify = "a mutation that fails after writing reports the files it wrote"
-)]
+#[test]
 fn a_format_that_fails_on_one_file_reports_what_it_wrote() {
     use std::os::unix::fs::PermissionsExt;
     let mut server = TestProject::new()
@@ -356,10 +338,7 @@ fn a_format_that_fails_on_one_file_reports_what_it_wrote() {
 }
 
 // 8
-#[specforge_test(
-    behavior = "mcp_mutation_completed",
-    verify = "files_changed is the number of files the call wrote, for every mutation tool"
-)]
+#[test]
 fn a_migration_writes_the_file_and_its_backup() {
     let mut server = TestProject::new()
         .file("old.spec", OLD)
@@ -607,10 +586,7 @@ fn the_domain_event_precedes_the_mutation_event() {
 }
 
 // 14 (split: the spec's payloads)
-#[specforge_test(
-    behavior = "extension_added",
-    verify = "emits extension_added with correct extensionSpecifier after specforge add"
-)]
+#[test]
 fn extension_added_names_the_specifier_and_the_total() {
     let mut server = empty_components();
     let root = server.root().to_path_buf();
@@ -639,10 +615,7 @@ fn extension_added_names_the_specifier_and_the_total() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "specforge.add_extension adds every specifier as one change, one extension_added per specifier"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn add_extension_adds_every_specifier_as_one_change() {
     let mut server = empty_components();
     let root = server.root().to_path_buf();
@@ -728,10 +701,7 @@ fn initialized(name: &str, extensions: Value) -> Vec<Value> {
     events(&server, "project_initialized")
 }
 
-#[specforge_test(
-    behavior = "project_initialized",
-    verify = "emits project_initialized with correct projectName and extensionCount"
-)]
+#[test]
 fn project_initialized_counts_the_extensions() {
     let none = initialized("newone", json!([]));
     assert_eq!(none.len(), 1, "{none:?}");
@@ -746,10 +716,7 @@ fn project_initialized_counts_the_extensions() {
     assert!(count >= 2, "{some:?}");
 }
 
-#[specforge_test(
-    behavior = "project_initialized",
-    verify = "specFilePath refers to the starter entity spec file, not specforge.json"
-)]
+#[test]
 fn project_initialized_names_the_starter_file() {
     let events = initialized("starter", json!([]));
     assert_eq!(
@@ -852,10 +819,7 @@ fn lists_what_it_wrote<S: std::ops::DerefMut<Target = McpServer> + Logs>(
     reply
 }
 
-#[specforge_test(
-    behavior = "mcp_mutation_completed",
-    verify = "a mutation's reply lists in files_written the files files_changed counts"
-)]
+#[test]
 fn every_mutation_reply_lists_what_it_wrote() {
     // Enable a builtin, enable it again, disable it.
     let mut server = empty_components();
@@ -1024,10 +988,7 @@ fn registry_installed_greet() -> Served {
 }
 
 // P1
-#[specforge_test(
-    behavior = "mcp_mutation_completed",
-    verify = "a call whose arguments ask for a preview records nothing and lists no files_written, whatever its operation answered"
-)]
+#[test]
 fn a_dry_run_is_a_preview_whatever_the_operation_answers() {
     let mut server = registry_installed_greet();
     let since = server.log().len();
@@ -1050,10 +1011,7 @@ fn a_dry_run_is_a_preview_whatever_the_operation_answers() {
 }
 
 // P2
-#[specforge_test(
-    behavior = "mcp_mutation_completed",
-    verify = "a mutation's reply lists in files_written the files files_changed counts"
-)]
+#[test]
 fn a_refused_preview_lists_nothing_and_a_refused_mutation_lists_no_file() {
     let mut server = rename_server();
     for (tool, preview, real) in [
@@ -1102,10 +1060,7 @@ fn a_refused_preview_lists_nothing_and_a_refused_mutation_lists_no_file() {
 }
 
 // P3
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "rename's updated diagnostics follow a successful write only: a preview and a failure carry none"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn rename_returns_diagnostics_after_a_successful_write_only() {
     let mut server = rename_server();
     let tool = "specforge.rename";

@@ -49,10 +49,7 @@ fn apply_writes_the_planned_files() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_edit_plan",
-    verify = "a typed edit writes the same bytes and report"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_typed_edit_writes_the_same_bytes_and_report() {
     let c = two_dirs();
     let root = root(&c);
@@ -77,10 +74,7 @@ fn a_typed_edit_writes_the_same_bytes_and_report() {
     assert!(!project.join(".specforge").exists());
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_typed_edit",
-    verify = "a failed write puts every file back"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 #[cfg(unix)]
 fn apply_writes_every_file_or_none() {
     use std::os::unix::fs::PermissionsExt;
@@ -100,10 +94,7 @@ fn apply_writes_every_file_or_none() {
     assert!(changed_since(&root, &before).is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "refuse_stale_revision",
-    verify = "a typed edit naming no revision is refused file_changed when its file changed since the compile"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn apply_refuses_a_file_changed_since_the_plan() {
     let c = two_dirs();
     let root = root(&c);

@@ -29,10 +29,7 @@ fn counter() -> specforge_extension_sdk::prelude::ContributionsBuilder {
     c
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "storing a collect's facts checks the project no second time"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn storing_a_collects_facts_checks_the_project_once() {
     let mut extensions = COLLECTED_EXTENSIONS.to_vec();
     extensions.push(COUNTER);

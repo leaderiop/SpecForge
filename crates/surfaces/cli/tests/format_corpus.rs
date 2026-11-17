@@ -175,22 +175,9 @@ fn mangle(source: &str) -> String {
     out
 }
 
-#[specforge_test(
-    invariant = "formatting_semantic_preservation",
-    verify = "format(spec) parses to an identical entity graph as spec"
-)]
-#[specforge_test(
-    invariant = "formatting_semantic_preservation",
-    verify = "formatting does not alter entity IDs, field values, or reference lists"
-)]
-#[specforge_test(
-    invariant = "formatting_idempotency",
-    verify = "formatting an already-formatted file produces identical output"
-)]
-#[specforge_test(
-    invariant = "comment_preservation",
-    verify = "every comment in input appears in formatted output"
-)]
+#[specforge_test(requirement = "INVARIANT-049")]
+#[specforge_test(requirement = "INVARIANT-048")]
+#[specforge_test(requirement = "INVARIANT-006")]
 fn formatting_the_corpus_changes_nothing_but_layout() {
     let root = repo_root();
     // The unformatted side runs on a copy too: `specforge export` writes

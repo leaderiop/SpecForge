@@ -21,10 +21,7 @@ fn walk<'t>(node: tree_sitter::Node<'t>, out: &mut Vec<tree_sitter::Node<'t>>) {
     }
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "classification agrees with the grammar on every spec file of the repository"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn tokens_agree_with_the_grammar() {
     let root = specforge_repo_root::repo_root();
     let project = specforge_project::testing::compile_at(
@@ -47,10 +44,7 @@ fn tokens_agree_with_the_grammar() {
     }
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "classification agrees with the grammar on the forms the repository's spec does not write"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn tokens_agree_with_the_grammar_on_the_forms_the_corpus_does_not_write() {
     let root = specforge_repo_root::repo_root();
     let project = specforge_project::testing::compile_at(

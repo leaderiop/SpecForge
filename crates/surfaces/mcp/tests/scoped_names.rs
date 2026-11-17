@@ -23,10 +23,7 @@ fn node_ids(entity: &Value) -> Vec<&str> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "expose_entity_as_mcp_resource",
-    verify = "an entity resource names an entity by its path as written, its percent-encoded path, a rooted path or a unique short form"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn an_mcp_uri_names_an_entity_by_its_encoded_path() {
     let mut server = serving(SCOPED);
     let (content, entity) = resource(&mut server, "specforge://graph/v1.0%2F03%2FD-01");
@@ -57,10 +54,7 @@ fn an_mcp_uri_names_an_entity_by_its_encoded_path() {
     );
 }
 
-#[specforge_test(
-    behavior = "expose_entity_as_mcp_resource",
-    verify = "an entity resource names an entity by its path as written, its percent-encoded path, a rooted path or a unique short form"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn a_path_id_is_read_as_written_in_both_entity_templates() {
     let mut server = serving(SCOPED);
     let (content, entity) = resource(&mut server, "specforge://graph/v1.0/03/D-01");

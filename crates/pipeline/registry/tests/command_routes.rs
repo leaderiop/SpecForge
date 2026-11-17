@@ -52,10 +52,7 @@ fn e039s(build: &RegistryBuild) -> Vec<String> {
 
 /// One id under two short names is two routes, `specforge a list` and
 /// `specforge b list`: both run.
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "one command id under two short names is routed twice, with no E039"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn one_command_id_under_two_short_names_is_not_e039() {
     let build = build_registries(declared(&[
         ("@acme/a", None, &["list"]),
@@ -68,10 +65,7 @@ fn one_command_id_under_two_short_names_is_not_e039() {
 /// The SDK's command prefix names the export (`cmd__a_list`), not the
 /// command's id, so it does not avoid a collision under one name, and does
 /// not make one under two.
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "an SDK command prefix names the export, not the route"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn an_sdk_command_prefix_names_the_export_not_the_route() {
     let extension = |name: &str, prefix: &str| {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new(name, "1.0.0"));
@@ -97,10 +91,7 @@ fn an_sdk_command_prefix_names_the_export_not_the_route() {
 
 /// `a-b` and `a_b` are one command line, `specforge t a-b`: only the first
 /// runs.
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "two command ids of one CLI name under one short name produce E039"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn two_ids_of_one_cli_name_under_one_short_name_are_e039() {
     let build = build_registries(declared(&[
         ("@acme/t", Some("t"), &["a-b"]),
@@ -114,10 +105,7 @@ fn two_ids_of_one_cli_name_under_one_short_name_are_e039() {
 }
 
 /// A raw-JSON guest can declare one command line twice.
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "one extension declaring one CLI name twice produces E039"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn one_extension_declaring_one_cli_name_twice_is_e039() {
     let build = build_registries(declared(&[("@acme/t", None, &["a-b", "a_b"])]));
 
@@ -141,10 +129,7 @@ fn one_cli_name_under_one_short_name_is_e039() {
 
 /// `specforge check` is the core command, so `@acme/check`'s commands have no CLI route: E114 says so, and MCP still
 /// serves them as `specforge.check.<id>`.
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "an extension whose short name a core command has is E114, and MCP still serves its commands"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_short_name_a_core_command_has_is_e114() {
     let build = build_registries(declared(&[("@acme/check", None, &["list"])]));
 

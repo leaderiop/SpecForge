@@ -43,10 +43,7 @@ fn codes_among<'a>(env: &'a Environment, wanted: &[&str]) -> Vec<&'a str> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "E069 names a mistyped key or a non-string item, and the rest of specforge.json is used"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn an_environment_reports_its_config_its_load_its_providers_then_its_build() {
     let dir = TempDir::new().unwrap();
     let root = dir.path();
@@ -93,10 +90,7 @@ fn an_environment_reports_its_config_its_load_its_providers_then_its_build() {
     assert_eq!(names, [RULES, "@acme/missing"]);
 }
 
-#[specforge_test(
-    invariant = "extensions_run_in_their_loading_runtime",
-    verify = "an environment holds the runtime it loaded its extensions in, and its session and compiled project read it there"
-)]
+#[specforge_test(requirement = "INVARIANT-031")]
 fn without_a_runtime_nothing_loads_and_each_entry_is_enabled_as_written() {
     let dir = TempDir::new().unwrap();
     let root = dir.path();
@@ -141,10 +135,7 @@ fn without_a_runtime_nothing_loads_and_each_entry_is_enabled_as_written() {
     assert_eq!(env.spec_root(), root.join("spec"));
 }
 
-#[specforge_test(
-    invariant = "extensions_run_in_their_loading_runtime",
-    verify = "an environment assembled from its loaded parts holds the runtime they were loaded in and probes its custom rules there; one assembled without a runtime holds no extension and enables each entry as written"
-)]
+#[specforge_test(requirement = "INVARIANT-031")]
 fn an_environment_assembles_from_the_parts_it_is_given() {
     let dir = TempDir::new().unwrap();
     let root = dir.path();
@@ -217,10 +208,7 @@ fn an_environment_assembles_from_the_parts_it_is_given() {
     );
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "the environment says what part of the setup each of its diagnostics is about, and reports an entry's load diagnostics together"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn an_entrys_load_diagnostics_come_together_in_entry_order() {
     let dir = TempDir::new().unwrap();
     let root = dir.path();
@@ -280,10 +268,7 @@ fn an_entrys_load_diagnostics_come_together_in_entry_order() {
     );
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "the effects ceiling in specforge.json narrows a declared capability with W171 at its key, and a named root resolves once at load"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_ceiling_narrows_a_declared_capability_with_w171() {
     let dir = TempDir::new().unwrap();
     let root = dir.path().join("p");

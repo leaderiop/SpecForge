@@ -319,10 +319,7 @@ mod tests {
             .collect()
     }
 
-    #[specforge_test(
-        behavior = "provide_mcp_infer_gaps_tool",
-        verify = "gaps never read source text: a public item only a string literal spells is no gap"
-    )]
+    #[specforge_test(requirement = "FEATURE-052")]
     fn gaps_never_read_source_text() {
         let gaps = gaps_of(&collected());
         assert_eq!(gap_names(&gaps), ["real_one"], "{gaps:?}");
@@ -332,10 +329,7 @@ mod tests {
         assert_eq!(gaps.by_directory["src"][0].item_kind, "function");
     }
 
-    #[specforge_test(
-        behavior = "provide_mcp_infer_gaps_tool",
-        verify = "an entity that only shares an item's name does not cover it"
-    )]
+    #[specforge_test(requirement = "FEATURE-052")]
     fn a_same_named_entity_covers_nothing() {
         let gaps = gaps_of(&collected());
         assert_eq!(gaps.covered_items, 0, "{gaps:?}");

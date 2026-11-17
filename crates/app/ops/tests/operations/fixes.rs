@@ -33,10 +33,8 @@ const TESTING: &[&str] = &[
 const UNTESTED: &str = "behavior first \"First\" {\n  contract \"c\"\n}\n\n\
                         behavior second \"Second\" {\n  contract \"c\"\n  verify unit \"s\"\n}\n";
 
-#[specforge_test(
-    behavior = "code_actions_for_missing_verify",
-    verify = "code action offered on untested testable entity"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn a_verify_stub_is_offered_for_an_entity_without_obligations() {
     let p = compile(TESTING, &[("flows.spec", UNTESTED)]);
     let fixes = fixes_of(&p, &FixQuery::default());
@@ -63,10 +61,8 @@ fn stubs(fixes: Vec<Fix>) -> Vec<(String, Option<String>)> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "code_actions_for_missing_verify",
-    verify = "no verify stub is offered for an entity a union body or an exempting flag exempts"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn no_verify_stub_for_an_entity_its_structure_exempts() {
     let p = compile(
         TESTING,
@@ -92,10 +88,8 @@ fn no_verify_stub_for_an_entity_its_structure_exempts() {
     assert!(w004[0].contains("'Plain'"), "{w004:?}");
 }
 
-#[specforge_test(
-    behavior = "code_actions_for_missing_verify",
-    verify = "a verify stub fixes the diagnostic that reports its entity, or none when nothing reports it"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn a_verify_stub_is_attributed_to_the_rule_that_reports_its_entity() {
     let extensions = [
         "@specforge/software",
@@ -159,10 +153,7 @@ fn untargeted_rule() -> specforge_extension_sdk::prelude::ContributionsBuilder {
     c
 }
 
-#[specforge_test(
-    behavior = "snapshot_entities_once",
-    verify = "a rule without a target kind applies to every kind, for the rule, the standing and the verify stub alike"
-)]
+#[specforge_test(requirement = "FEATURE-016")]
 fn an_untargeted_obligation_rule_stubs_every_kind_that_accepts_verify() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
@@ -205,10 +196,8 @@ fn an_untargeted_obligation_rule_stubs_every_kind_that_accepts_verify() {
     );
 }
 
-#[specforge_test(
-    behavior = "code_actions_for_missing_verify",
-    verify = "generated verify stubs added to entity block in .spec file"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn the_verify_stub_lands_inside_the_block() {
     let p = compile(TESTING, &[("flows.spec", UNTESTED)]);
     let fixes = fixes_of(&p, &FixQuery::default());
@@ -241,10 +230,8 @@ fn the_verify_stub_lands_inside_the_block() {
     assert_eq!(parsed.entities[0].obligations.len(), 1);
 }
 
-#[specforge_test(
-    behavior = "code_actions_for_missing_verify",
-    verify = "verify stub uses allowed_verify_kinds from KindRegistry"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn the_verify_stub_uses_the_kinds_first_allowed_verify_kind() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
@@ -293,10 +280,8 @@ fn verifiable_kinds() -> specforge_extension_sdk::prelude::ContributionsBuilder 
     c
 }
 
-#[specforge_test(
-    behavior = "code_actions_for_missing_verify",
-    verify = "stub format is verify <kind> entity_id TODO"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn the_verify_stub_names_the_entity_and_todo() {
     let p = compile(TESTING, &[("flows.spec", UNTESTED)]);
     let stub = fixes_of(&p, &FixQuery::default())
@@ -306,10 +291,8 @@ fn the_verify_stub_names_the_entity_and_todo() {
     assert_eq!(stub.edits[0].new_text, "  verify unit \"first — TODO\"\n");
 }
 
-#[specforge_test(
-    behavior = "code_actions_for_missing_verify",
-    verify = "code action kind is QuickFix"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn the_verify_stub_is_a_quick_fix() {
     let p = compile(TESTING, &[("flows.spec", UNTESTED)]);
     let stub = fixes_of(&p, &FixQuery::default())
@@ -334,10 +317,8 @@ fn the_verify_stub_is_a_quick_fix() {
     assert_eq!(titles(&by_code), ["Add verify stub for first"]);
 }
 
-#[specforge_test(
-    behavior = "code_actions_for_missing_verify",
-    verify = "no test source files or application code generated"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn the_verify_stub_edits_only_the_spec_file() {
     let p = compile(TESTING, &[("flows.spec", UNTESTED)]);
     for fix in fixes_of(&p, &FixQuery::default()) {
@@ -347,10 +328,8 @@ fn the_verify_stub_edits_only_the_spec_file() {
     }
 }
 
-#[specforge_test(
-    behavior = "code_actions_for_missing_verify",
-    verify = "code actions are those whose diagnostic or entity overlaps the requested range"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn fixes_are_those_overlapping_the_range() {
     let text = "behavior login \"Login\" {\n  contract \"c\"\n  invariants [sesion_limit]\n}\n\n\
                 behavior logout \"Logout\" {\n  contract \"c\"\n}\n";
@@ -397,10 +376,8 @@ fn stub_of(p: &Compiled) -> Fix {
         .unwrap_or_else(|| panic!("no stub: {:?}", titles(&fixes_of(p, &FixQuery::default()))))
 }
 
-#[specforge_test(
-    behavior = "code_action_create_entity_stub",
-    verify = "stub uses correct entity kind from FieldRegistry target_kind"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn the_stub_kind_is_the_fields_target_kind() {
     let p = compile(TESTING, &[("auth.spec", DANGLING)]);
     let stub = stub_of(&p);
@@ -446,10 +423,8 @@ fn invariants_project(target_kind: Option<&'static str>) -> (tempfile::TempDir, 
     (dir, project)
 }
 
-#[specforge_test(
-    behavior = "code_action_create_entity_stub",
-    verify = "no code action when enclosing field has no target_kind"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn no_stub_without_a_target_kind() {
     let stubs = |target_kind| {
         let (_dir, project) = invariants_project(target_kind);
@@ -470,10 +445,8 @@ fn no_stub_without_a_target_kind() {
     );
 }
 
-#[specforge_test(
-    behavior = "code_action_create_entity_stub",
-    verify = "stub goes after the last block of its kind in the current file"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn the_stub_is_appended_to_the_file() {
     let p = compile(TESTING, &[("auth.spec", DANGLING)]);
     let stub = stub_of(&p);
@@ -490,19 +463,15 @@ fn the_stub_is_appended_to_the_file() {
     assert_eq!(parsed.entities.len(), 2);
 }
 
-#[specforge_test(
-    behavior = "code_action_create_entity_stub",
-    verify = "code action kind is Refactor"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn the_stub_is_a_refactoring() {
     let p = compile(TESTING, &[("auth.spec", DANGLING)]);
     assert_eq!(stub_of(&p).kind, FixKind::Refactor);
 }
 
-#[specforge_test(
-    behavior = "code_action_create_entity_stub",
-    verify = "generated stub contains no application code or test files"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn the_stub_is_a_block_with_its_required_fields() {
     let p = compile(TESTING, &[("auth.spec", DANGLING)]);
     let stub = stub_of(&p);
@@ -535,10 +504,8 @@ fn unresolved(target: &str, entity: &str, field: &str, close: Option<&str>) -> D
     }
 }
 
-#[specforge_test(
-    behavior = "code_action_create_entity_stub",
-    verify = "the stub is read from the diagnostic's data, whatever its message says"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn the_stub_reads_target_entity_and_field_from_the_data() {
     let p = compile(TESTING, &[("auth.spec", DANGLING)]);
     let token = span("auth.spec", (2, 15), (2, 28));
@@ -576,10 +543,8 @@ fn no_stub_for_a_target_that_exists() {
 
 // code_action_replace_unresolved
 
-#[specforge_test(
-    behavior = "code_action_replace_unresolved",
-    verify = "an unresolved reference with a close match is replaced at its token"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn a_close_match_replaces_the_unresolved_token() {
     let p = nav();
     let query = FixQuery {
@@ -602,10 +567,8 @@ fn a_close_match_replaces_the_unresolved_token() {
     // A token like it, x_sesion_limit, is never hit: the span is the token.
 }
 
-#[specforge_test(
-    behavior = "code_action_replace_unresolved",
-    verify = "an unresolved import with a close match is replaced inside its quotes"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn a_close_match_replaces_the_unresolved_import_inside_its_quotes() {
     let p = compile(
         SOFTWARE,
@@ -627,10 +590,8 @@ fn a_close_match_replaces_the_unresolved_import_inside_its_quotes() {
     assert_eq!(apply("use \"autth\"\n", &fixes[0].edits), "use \"auth\"\n");
 }
 
-#[specforge_test(
-    behavior = "code_action_replace_unresolved",
-    verify = "the replacement is read from the diagnostic's data, whatever its message says"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn the_replacement_is_read_from_the_data() {
     let p = nav();
     let token = span("login.spec", (6, 15), (6, 27));

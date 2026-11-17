@@ -70,10 +70,7 @@ fn a_rootless_view_cannot_remove() {
     );
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "extension is removed from extensions list"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_builtin_named_by_the_view_is_removed_from_the_config() {
     let fixture = Assembled::new().config(&["@specforge/product"]);
     write_config(&fixture, r#"{"extensions": ["@specforge/product"]}"#);
@@ -93,10 +90,7 @@ fn a_builtin_named_by_the_view_is_removed_from_the_config() {
     assert_eq!(error.error.code, NOT_FOUND);
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "a name more than one specforge.json entry enables is refused as ambiguous, naming the entries"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_name_two_entries_enable_is_refused() {
     let fixture = Assembled::new().enabled(vec![
         crate::testing::unloaded("@sdk/greet"),
@@ -125,10 +119,7 @@ fn a_name_two_entries_enable_is_refused() {
     assert_eq!(files_under(fixture.root()), before);
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "a removal with an unreadable specforge.json is config_invalid and changes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_non_object_config_refuses_the_removal_before_any_write() {
     let fixture =
         installed(Assembled::new(), "@acme/x").config_problems(vec![ConfigProblem::NotAnObject {
@@ -155,10 +146,8 @@ fn a_non_object_config_refuses_the_removal_before_any_write() {
     }
 }
 
-#[specforge_test(
-    behavior = "management_operations_over_the_project_view",
-    verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
+#[specforge_test(requirement = "FEATURE-070")]
 fn remove_refuses_as_add_and_update_do() {
     use crate::config::testing::UNUSABLE;
     use crate::extension::{AddRequest, UpdateRequest, add, update};
@@ -211,10 +200,7 @@ fn remove_refuses_as_add_and_update_do() {
     }
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "a removal with an unreadable specforge.json is config_invalid and changes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_non_string_item_does_not_block_a_removal() {
     let fixture = Assembled::new()
         .config_json(serde_json::json!({"extensions": ["@specforge/product", 42]}))
@@ -269,10 +255,8 @@ fn an_install_is_dropped_from_the_config_before_it_is_uninstalled() {
     assert!(!lock.contains("@acme/x"), "{lock}");
 }
 
-#[specforge_test(
-    behavior = "management_operations_over_the_project_view",
-    verify = "list, doctor and remove read the lock the compile read, once"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
+#[specforge_test(requirement = "FEATURE-070")]
 fn remove_reads_the_lock_the_compile_read_not_the_disk() {
     let fixture = installed(Assembled::new().config(&["@acme/x"]), "@acme/x");
     write_config(&fixture, r#"{"extensions": ["@acme/x"]}"#);
@@ -293,10 +277,7 @@ fn remove_reads_the_lock_the_compile_read_not_the_disk() {
     assert!(!lock.contains("@acme/x"), "{lock}");
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "an enabled entry that is not installed is removed from specforge.json by its name"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn an_enabled_entry_that_is_not_installed_is_removed_by_its_name() {
     let fixture = Assembled::new().config(&["@specforge/product", "@acme/missing@1.2.0"]);
     write_config(
@@ -376,10 +357,7 @@ fn an_entry_of_unknown_origin_is_not_removed_under_an_unreadable_lock() {
     assert_eq!(files_under(fixture.root()), before);
 }
 
-#[specforge_test(
-    behavior = "read_lock_file",
-    verify = "add, update and remove refuse an unreadable lock with one refusal and the lock's own remedy"
-)]
+#[specforge_test(requirement = "FEATURE-138")]
 fn remove_refuses_an_unreadable_lock_as_add_and_update_do() {
     use crate::extension::{AddRequest, UpdateRequest, add, update};
 
@@ -451,10 +429,7 @@ fn a_builtin_named_by_a_stray_lock_entry_is_uninstalled_as_a_builtin() {
     assert_eq!(config["extensions"], serde_json::json!([]));
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "a .wasm file entry is removed by the name it declares or by its entry as written, leaving its file in place"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn remove_selects_a_file_entry_by_its_text_its_path_or_its_name() {
     let fixture = Assembled::new()
         .config(&["@sdk/greet=greet.wasm"])
@@ -521,10 +496,7 @@ fn an_unreadable_lock_is_why_nothing_is_installed() {
     );
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "the remove document names the extension's source and version whatever its origin"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn remove_document_names_source_and_version() {
     use specforge_installed::LockSource;
 
@@ -575,10 +547,7 @@ fn remove_document_names_source_and_version() {
     );
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn every_refusal_of_a_name_is_about_it() {
     let about = Some(RemoveField::Name);
     let subject = |fixture: &Assembled, name: &str| {
@@ -628,10 +597,7 @@ fn every_refusal_of_a_name_is_about_it() {
     );
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "a removal over a specforge.json changed since the compile writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_removal_over_a_config_changed_since_the_compile_writes_nothing() {
     let fixture = Assembled::new().config(&["@specforge/product"]);
     write_config(&fixture, r#"{"extensions": ["@specforge/product"]}"#);
@@ -708,10 +674,7 @@ fn a_removal_writes_nothing_outside_its_project_whatever_bound_its_caller_lends(
     );
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "removing a builtin no entry enables says it is not enabled, never that it is not installed"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_builtin_no_entry_enables_is_not_enabled_rather_than_not_installed() {
     let fixture = Assembled::new();
     write_config(&fixture, r#"{"extensions": []}"#);

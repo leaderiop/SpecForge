@@ -90,10 +90,8 @@ fn edge_triples(graph: &Graph) -> Vec<(String, String, String)> {
     edges
 }
 
-#[specforge_test(
-    behavior = "maintain_mutable_graph",
-    verify = "add and remove nodes from graph"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
+#[specforge_test(requirement = "FEATURE-050")]
 fn removing_a_file_removes_its_entities() {
     let mut build = verified(vec![
         behavior_in("a.spec", "alpha"),
@@ -108,10 +106,8 @@ fn removing_a_file_removes_its_entities() {
     assert!(build.graph().node("beta").is_some());
 }
 
-#[specforge_test(
-    behavior = "maintain_mutable_graph",
-    verify = "removing a node removes its edges"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
+#[specforge_test(requirement = "FEATURE-050")]
 fn removing_a_file_removes_the_edges_of_its_entities() {
     let mut build = verified(vec![
         feature_in("feat.spec", "feat", &["beh"]),
@@ -128,10 +124,8 @@ fn removing_a_file_removes_the_edges_of_its_entities() {
     );
 }
 
-#[specforge_test(
-    behavior = "maintain_mutable_graph",
-    verify = "removing a node removes its edges"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
+#[specforge_test(requirement = "FEATURE-050")]
 fn edges_to_updated_after_node_removal() {
     let mut build = verified(vec![
         behavior_in("a.spec", "a"),
@@ -157,10 +151,8 @@ fn edges_to_updated_after_node_removal() {
     );
 }
 
-#[specforge_test(
-    behavior = "maintain_mutable_graph",
-    verify = "graph consistency after batch mutations"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
+#[specforge_test(requirement = "FEATURE-050")]
 fn graph_consistency_after_batch_mutations() {
     let mut build = verified(vec![
         behavior_in("a.spec", "a"),
@@ -216,10 +208,7 @@ fn subgraph_for_file() {
 
 // === build_graph integration ===
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "graph contains one node per entity"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn build_graph_one_node_per_entity() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -245,10 +234,7 @@ behavior gamma "G" { features [alpha, beta] }
     );
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "graph contains one edge per resolved reference"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn build_graph_one_edge_per_resolved_reference() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -269,10 +255,7 @@ behavior gamma "G" { features [alpha, beta] }
     assert!(edges_from_gamma.iter().all(|e| e.label == "features"));
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "graph contains one edge per resolved reference"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn build_graph_unresolved_ref_produces_e003() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -295,10 +278,7 @@ behavior gamma "G" { features [alpha, nonexistent] }
     );
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "graph contains one node per entity"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn build_graph_duplicate_entity_id_produces_e002() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -314,10 +294,7 @@ fn build_graph_duplicate_entity_id_produces_e002() {
     assert_eq!(graph.node_count(), 1);
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "same ID with different kinds does not produce E002"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn same_id_different_kind_no_e002() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -350,10 +327,7 @@ fn same_id_different_kind_no_e002() {
     );
 }
 
-#[specforge_test(
-    behavior = "two_phase_parse_structural",
-    verify = "parse errors collected without aborting"
-)]
+#[specforge_test(requirement = "FEATURE-140")]
 fn build_graph_surfaces_parse_errors() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -385,10 +359,7 @@ behavior also_good "Also Good" { status done }
     );
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "graph contains one edge per resolved reference"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn build_graph_cross_file_references() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -409,10 +380,7 @@ fn build_graph_cross_file_references() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_did_you_mean_suggestions",
-    verify = "close match produces suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn build_graph_did_you_mean_for_close_match() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -436,10 +404,7 @@ behavior gamma "G" { features [alpha_parsr] }
     );
 }
 
-#[specforge_test(
-    behavior = "provide_did_you_mean_suggestions",
-    verify = "distant match produces no suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn build_graph_no_suggestion_for_distant_match() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -460,10 +425,7 @@ behavior gamma "G" { features [zzzzz_totally_unrelated] }
     );
 }
 
-#[specforge_test(
-    behavior = "provide_did_you_mean_suggestions",
-    verify = "suggestion appears in help text"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn build_graph_suggestion_appears_in_help_text() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -490,10 +452,7 @@ behavior gamma "G" { features [alpha_parsr] }
 
 // === edge types match relationship semantics ===
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "edge types match relationship semantics"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn edge_labels_match_field_names() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -534,10 +493,7 @@ behavior gamma "G" {
 
 // === ref blocks as graph nodes ===
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "graph contains one node per entity"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn ref_blocks_become_graph_nodes() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -554,10 +510,7 @@ ref gh.issue:42 "Support Wasm extensions"
     assert_eq!(ref_node.kind.raw, "ref");
 }
 
-#[specforge_test(
-    behavior = "resolve_external_ref_declarations",
-    verify = "ref node is added to graph with scheme metadata"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn ref_blocks_carry_scheme_metadata() {
     use specforge_graph::{FieldValue, build_graph};
     use specforge_parser::parse;
@@ -576,10 +529,7 @@ fn ref_blocks_carry_scheme_metadata() {
 
 // === resolve_external_ref_declarations ===
 
-#[specforge_test(
-    behavior = "resolve_external_ref_declarations",
-    verify = "ref with unknown scheme emits I005"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn ref_with_unknown_scheme_emits_i005() {
     use specforge_graph::{GraphConfig, build_graph_with_config};
     use specforge_parser::parse;
@@ -614,10 +564,7 @@ fn ref_with_no_providers_configured_skips_i005() {
     assert!(infos.is_empty(), "no I005 when no providers configured");
 }
 
-#[specforge_test(
-    behavior = "resolve_external_ref_declarations",
-    verify = "ref with known scheme is registered and marked for provider validation"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn ref_with_known_scheme_registered_and_no_i005() {
     use specforge_graph::{FieldValue, GraphConfig, build_graph_with_config};
     use specforge_parser::parse;
@@ -646,10 +593,7 @@ fn ref_with_known_scheme_registered_and_no_i005() {
 
 // === resolve_soft_cross_extension_references: installed keyword + missing entity ===
 
-#[specforge_test(
-    behavior = "resolve_soft_cross_extension_references",
-    verify = "installed extension with missing entity emits E003"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn installed_keyword_with_missing_entity_emits_e003() {
     use specforge_graph::{GraphConfig, build_graph_with_config};
     use specforge_parser::parse;
@@ -670,10 +614,7 @@ behavior gamma "G" { features [alpha, nonexistent] }
     assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
 }
 
-#[specforge_test(
-    behavior = "resolve_soft_cross_extension_references",
-    verify = "installed extension with imported file but missing entity emits E003"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn installed_keyword_cross_file_missing_entity_emits_e003() {
     use specforge_graph::{GraphConfig, build_graph_with_config};
     use specforge_parser::parse;
@@ -735,10 +676,7 @@ fn resolve_and_build(dir: &std::path::Path) -> (Graph, Vec<specforge_common::Dia
 // The E003 span covers the unresolved identifier token itself, not the
 // whole entity block, even when the bad entry is not first and the entity
 // spans several lines.
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "E003 span covers exactly the unresolved identifier token"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn e003_span_points_at_reference_token() {
     let dir = project_dir(&[(
         "main.spec",
@@ -765,10 +703,7 @@ entity order {
     assert_eq!(span.end_col, 33, "exclusive end column, one past 't'");
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "Link Entity References: entity reference linking holds — registries_populated, all_files_parsed, all_references_resolved, no_silent_ignoring"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn link_entity_references_contract() {
     // all_files_parsed: the references cross files.
     let dir = project_dir(&[
@@ -799,10 +734,7 @@ fn link_entity_references_contract() {
     assert!(e003[0].message.contains("nonexistent"));
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "cross-file duplicate entity ID produces E002 naming the first declaration"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn cross_file_duplicate_entity_id_produces_e002() {
     let dir = project_dir(&[
         (
@@ -834,10 +766,7 @@ fn cross_file_duplicate_entity_id_produces_e002() {
 
 // One ID declared as two kinds across files is an ambiguous identity, and
 // warns.
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "same ID different kind across files warns W060 with both kinds named"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn same_id_different_kind_across_files_warns_w060() {
     let dir = project_dir(&[
         (
@@ -858,10 +787,7 @@ fn same_id_different_kind_across_files_warns_w060() {
     assert!(msg.contains("behavior") && msg.contains("feature"), "{msg}");
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "graph contains one node per entity"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn end_to_end_resolve_and_build() {
     use specforge_graph::build_graph;
 
@@ -887,10 +813,7 @@ fn end_to_end_resolve_and_build() {
     assert_eq!(graph.edges_from("gamma")[0].target, "alpha");
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "graph contains one edge per resolved reference"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn end_to_end_with_errors() {
     use specforge_graph::build_graph;
 
@@ -912,10 +835,8 @@ behavior gamma "G" { features [alpha, nonexistent] }
 
 // === edge index correctness ===
 
-#[specforge_test(
-    behavior = "maintain_mutable_graph",
-    verify = "added edges are reflected in outgoing edge queries"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
+#[specforge_test(requirement = "FEATURE-050")]
 fn edges_from_returns_correct_edges_after_multiple_adds() {
     let mut graph = Graph::new();
     graph.add_node(make_node("a", "behavior"));
@@ -941,10 +862,7 @@ fn edges_from_returns_correct_edges_after_multiple_adds() {
 
 // === cycle detection in build_graph ===
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "build_graph emits W061 for reference cycles"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn build_graph_emits_w061_for_reference_cycles() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -965,10 +883,7 @@ behavior c "C" { contract "c" depends_on [a] }
     );
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "W061 names the cycle's entities in its data"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn w061_names_the_cycles_entities_in_its_data() {
     use specforge_common::DiagnosticData;
     use specforge_graph::build_graph;
@@ -998,10 +913,7 @@ behavior b "B" { contract "c" depends_on [a] }
     );
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "build_graph no W061 for acyclic refs"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn build_graph_no_w061_for_acyclic_refs() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -1018,10 +930,7 @@ behavior b "B" { contract "c" features [f] depends_on [a] }
     assert!(w061s.is_empty(), "acyclic graph should not produce W061");
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "graph contains one edge per resolved reference"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn union_type_variants_do_not_produce_unresolved_ref() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -1052,10 +961,7 @@ behavior my_behavior "B" {
 
 // === Phase 9: Predicate Query API ===
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "kind filter restricts results to specified entity kinds"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn filter_nodes_by_kind() {
     let mut graph = Graph::new();
     graph.add_node(make_node("login", "behavior"));
@@ -1071,10 +977,7 @@ fn filter_nodes_by_kind() {
     assert_eq!(invariants[0].id.raw.as_str(), "data_ok");
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "filter_nodes with field predicate"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn filter_nodes_by_field_value() {
     use specforge_parser::FieldValue;
 
@@ -1100,10 +1003,7 @@ fn filter_nodes_by_field_value() {
     assert_eq!(planned[0].id.raw.as_str(), "login");
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "kind filter restricts results to specified entity kinds"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn nodes_by_kind_returns_empty_for_unknown() {
     let mut graph = Graph::new();
     graph.add_node(make_node("login", "behavior"));
@@ -1122,10 +1022,7 @@ fn nodes_by_kind_returns_empty_for_unknown() {
 
 // --- one-way authoring, bidirectional query ---
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "depth 1 returns direct neighbors"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn subgraph_depth_finds_behavior_via_incoming_implements_edge() {
     let mut graph = Graph::new();
     // Feature has NO behaviors field -- it's a plain node
@@ -1147,10 +1044,7 @@ fn subgraph_depth_finds_behavior_via_incoming_implements_edge() {
     assert_eq!(sub.edges().len(), 1);
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "depth 1 returns direct neighbors"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn subgraph_depth_no_reverse_edge_needed_for_feature_behavior_link() {
     let mut graph = Graph::new();
     graph.add_node(make_node("feat_a", "feature"));
@@ -1166,10 +1060,7 @@ fn subgraph_depth_no_reverse_edge_needed_for_feature_behavior_link() {
     assert!(sub.node("beh_2").is_some());
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "depth 1 returns direct neighbors"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn subgraph_depth_invariant_found_via_incoming_enforced_by_edge() {
     let mut graph = Graph::new();
     graph.add_node(make_node("my_invariant", "invariant"));
@@ -1183,10 +1074,7 @@ fn subgraph_depth_invariant_found_via_incoming_enforced_by_edge() {
     assert!(sub.node("my_behavior").is_some());
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "depth 1 returns direct neighbors"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn subgraph_depth_constraint_found_via_incoming_constrains_edge() {
     let mut graph = Graph::new();
     graph.add_node(make_node("my_constraint", "constraint"));
@@ -1200,10 +1088,7 @@ fn subgraph_depth_constraint_found_via_incoming_constrains_edge() {
     assert!(sub.node("my_constraint").is_some());
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "depth 1 returns direct neighbors"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn subgraph_depth_event_found_via_incoming_produces_edge() {
     let mut graph = Graph::new();
     graph.add_node(make_node("my_event", "event"));
@@ -1221,10 +1106,7 @@ fn subgraph_depth_event_found_via_incoming_produces_edge() {
     assert!(sub.node("my_behavior").is_some());
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "depth 1 returns direct neighbors"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn subgraph_depth_event_found_via_incoming_consumes_edge() {
     let mut graph = Graph::new();
     graph.add_node(make_node("my_event", "event"));
@@ -1242,10 +1124,7 @@ fn subgraph_depth_event_found_via_incoming_consumes_edge() {
     assert!(sub.node("consumer_behavior").is_some());
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "depth 1 returns direct neighbors"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn subgraph_depth_invariant_found_via_incoming_invariants_edge() {
     let mut graph = Graph::new();
     graph.add_node(make_node("inv_1", "invariant"));
@@ -1264,10 +1143,7 @@ fn subgraph_depth_invariant_found_via_incoming_invariants_edge() {
 
 // === M3/M4: Diagnostics carry actionable suggestions ===
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "W061 carries actionable suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn w061_cycle_warning_has_suggestion() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -1297,10 +1173,7 @@ behavior c "C" { contract "c" depends_on [a] }
     );
 }
 
-#[specforge_test(
-    behavior = "detect_duplicate_entity_ids",
-    verify = "duplicate ID across files produces E002"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn e002_duplicate_entity_has_suggestion() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -1326,10 +1199,7 @@ fn e002_duplicate_entity_has_suggestion() {
     );
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "W060 carries actionable suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn w060_cross_kind_collision_has_suggestion() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -1353,10 +1223,7 @@ fn w060_cross_kind_collision_has_suggestion() {
 
 // --- every edge the build adds joins two entities ---
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "every edge connects two existing nodes"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn every_edge_the_build_adds_joins_two_entities() {
     let (graph, diagnostics) = specforge_graph::build_graph(&[
         parse(
@@ -1440,10 +1307,7 @@ fn reach_is_breadth_first_with_deterministic_paths() {
     assert!(Graph::reach_path(&reached, Sym::new("ghost")).is_empty());
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "depth N returns all entities within N hops"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn reach_stops_at_its_depth_bound() {
     let graph = diamond();
     let ids = |depth: usize| -> Vec<String> {
@@ -1478,10 +1342,7 @@ fn reach_from_an_unknown_root_is_none() {
 
 // === first declaration wins, in path order ===
 
-#[specforge_test(
-    behavior = "detect_duplicate_entity_ids",
-    verify = "duplicate ID across files produces E002"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_duplicate_goes_to_the_first_file_in_path_order() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -1498,10 +1359,7 @@ fn a_duplicate_goes_to_the_first_file_in_path_order() {
     assert_eq!(e002[0].span.as_ref().unwrap().file.as_str(), "b.spec");
 }
 
-#[specforge_test(
-    behavior = "detect_duplicate_entity_ids",
-    verify = "duplicate ID in same file produces E002"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn duplicate_id_in_the_same_file_produces_e002() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -1521,10 +1379,7 @@ behavior alpha "Second Alpha" { contract "second" }
     assert!(e002[0].message.contains("alpha"));
 }
 
-#[specforge_test(
-    behavior = "detect_duplicate_entity_ids",
-    verify = "E002 includes both source locations"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn e002_includes_both_source_locations() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -1557,10 +1412,7 @@ fn e002_includes_both_source_locations() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_duplicate_entity_ids",
-    verify = "Detect Duplicate Entity IDs: duplicate entity ID detection holds — all_files_parsed, duplicate_ids_diagnosed"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn duplicate_id_contract_consistency() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;

@@ -41,10 +41,9 @@ fn finding(entity_id: &str, gap: ReviewGap) -> ReviewFinding {
     }
 }
 
-#[specforge_test(
-    behavior = "review_coverage_gaps",
-    verify = "the review lists the coverage view's rows of the entities within depth hops of entity_id, or of every entity that counts toward coverage"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn the_review_lists_the_neighbourhood_s_rows() {
     let project = project();
     assert_eq!(reviewed(&project, Some("alpha"), 1), ["alpha"]);
@@ -57,10 +56,9 @@ fn the_review_lists_the_neighbourhood_s_rows() {
     );
 }
 
-#[specforge_test(
-    behavior = "review_coverage_gaps",
-    verify = "an entity that declares no obligation is a warning finding"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn an_entity_without_obligations_is_a_warning() {
     let project = project();
     let outcome = review(&project.view(), &ReviewRequest::default()).unwrap();
@@ -80,10 +78,9 @@ fn an_entity_without_obligations_is_a_warning() {
     );
 }
 
-#[specforge_test(
-    behavior = "review_coverage_gaps",
-    verify = "an unconnected entity is an info finding"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn an_unconnected_entity_is_an_info() {
     let project = project();
     let outcome = review(&project.view(), &ReviewRequest::default()).unwrap();
@@ -106,10 +103,9 @@ fn an_unconnected_entity_is_an_info() {
     assert_eq!(json["findings"][1]["severity"], "info");
 }
 
-#[specforge_test(
-    behavior = "review_coverage_gaps",
-    verify = "the review's depth defaults to one hop"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn review_defaults_to_one_hop() {
     assert_eq!(ReviewRequest::default().depth, None);
     let project = project();
@@ -126,10 +122,9 @@ fn review_defaults_to_one_hop() {
     assert_eq!(ids, reviewed(&project, Some("alpha"), 1));
 }
 
-#[specforge_test(
-    behavior = "review_coverage_gaps",
-    verify = "a project with nothing that counts toward coverage has no rows and no findings"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_review_of_nothing_testable_is_empty() {
     // Only a feature with no verify and no edges.
     let project =
@@ -138,10 +133,9 @@ fn a_review_of_nothing_testable_is_empty() {
     assert!(outcome.rows.is_empty() && outcome.findings.is_empty());
 }
 
-#[specforge_test(
-    behavior = "review_coverage_gaps",
-    verify = "a recorded report that cannot be read is the review's E045 failure"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn an_unreadable_report_is_e045() {
     let project = project();
     std::fs::write(project.root().join("specforge-report.json"), "{not json").unwrap();
@@ -149,10 +143,8 @@ fn an_unreadable_report_is_e045() {
     assert_eq!(error.error.code, "E045");
 }
 
-#[specforge_test(
-    behavior = "explore_the_graph",
-    verify = "the exploration and the review reach the same entities at the same depth"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn the_exploration_and_the_review_share_one_neighbourhood() {
     let chain: String = [
         ("a", Some("b")),

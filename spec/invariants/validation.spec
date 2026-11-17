@@ -1,46 +1,40 @@
-// Validation-specific invariants
-
-invariant reference_resolution_completeness "Reference Resolution Completeness" {
-  guarantee """
+requirement INVARIANT-117 "Reference Resolution Completeness" {
+  category "Invariant"
+  tier     v2
+  text     """
     Every entity ID in a reference list MUST resolve to a declared entity.
     The compiler MUST emit E003 for unresolvable hard references and I004
     for unresolvable soft references (cross-extension). No reference MUST be
     silently ignored.
   """
-  risk      high
-  verify property "every entity ID in a reference list resolves to a declared entity or emits a diagnostic"
-  verify unit "E003 is emitted for broken hard references and I004 for broken soft references"
 }
 
-invariant diagnostic_determinism "Diagnostic Determinism" {
-  guarantee """
+requirement INVARIANT-018 "Diagnostic Determinism" {
+  category "Invariant"
+  tier     v2
+  text     """
     Given identical .spec source files, the compiler MUST produce identical
     diagnostics in the same order. No diagnostic MUST depend on filesystem
     iteration order, hashmap ordering, or wall-clock time.
   """
-  risk      medium
-  verify property "identical source files produce identical diagnostics in the same order"
-  verify unit "diagnostic output does not depend on filesystem iteration order or hashmap ordering"
 }
 
-// testable_entity_classification is defined in invariants/zero-entity-core.spec
-// (merged from here to eliminate E002 duplicate entity ID)
-
-invariant validation_pipeline_ordering "Validation Phase Ordering" {
-  guarantee """
+requirement INVARIANT-145 "Validation Phase Ordering" {
+  category "Invariant"
+  tier     v2
+  text     """
     All structural validators and all declarative validators MUST complete
     before aggregate_diagnostic_summary fires. Both validator categories
     execute after graph_built. The ordering between structural and declarative
     validators is not mandated — they MAY execute concurrently as co-consumers
     of graph_built.
   """
-  risk      medium
-  verify integration "all validators complete before aggregate_diagnostic_summary fires"
-  verify property "no diagnostic reaches aggregate_diagnostic_summary before both validator categories complete"
 }
 
-invariant diagnostic_code_uniqueness "Diagnostic Code Uniqueness" {
-  guarantee """
+requirement INVARIANT-017 "Diagnostic Code Uniqueness" {
+  category "Invariant"
+  tier     v2
+  text     """
     Each diagnostic code (E###, W###, I###, A###, and the registry
     client's R### and R-<AREA>-###) MUST have exactly one meaning, one
     owner (core or one extension) and one level, all stated once in the
@@ -51,13 +45,4 @@ invariant diagnostic_code_uniqueness "Diagnostic Code Uniqueness" {
     its own catalogued code at the level its letter states, qualified by
     its namespace; any other is reported (W150).
   """
-  risk      high
-  verify property "Diagnostic Code Uniqueness guarantee holds"
-  verify unit "a core code's constant carries its catalogued level and owner"
-  verify unit "a core code's constant carries its catalogued machine marker"
-  verify unit "a host diagnostic's severity is its code's catalogued level"
-  verify unit "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
-  verify unit "a third-party extension's code is its namespace and its own local code"
-  verify unit "an extension's code never prints as a core code or another extension's"
-  verify unit "a diagnostic of a machine code is marked machine, and serializes the mark only when set"
 }

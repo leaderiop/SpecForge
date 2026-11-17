@@ -23,10 +23,7 @@ fn codes(diagnostics: &[specforge_common::Diagnostic]) -> Vec<&str> {
 /// An extension that fails to load, a missing import and a duplicate ID:
 /// one compile reports all three, each from its own layer, in `check`'s
 /// order (environment, resolver, graph).
-#[specforge_test(
-    invariant = "multi_error_collection",
-    verify = "the compiler does not halt after the first error"
-)]
+#[specforge_test(requirement = "INVARIANT-082")]
 fn one_compile_reports_every_layers_errors() {
     let dir = project(
         serde_json::json!({
@@ -74,10 +71,7 @@ fn the_context_view_keeps_the_spec_root_and_the_resolved_files() {
 
 /// A directory with no `specforge.json` at or above it is a loose root: the
 /// compile still runs, structurally, and its I002 says no project was found.
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "a loose root's I002 says no project was found and suggests init"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_loose_root_says_no_project_was_found() {
     let dir = TestProject::new()
         .without_config()
@@ -101,10 +95,7 @@ fn a_loose_root_says_no_project_was_found() {
 
 /// No extension configured: the compile still runs, structurally, and
 /// says so once, with an I002 info.
-#[specforge_test(
-    behavior = "graceful_degradation_without_extensions",
-    verify = "no extensions installed emits I002 info"
-)]
+#[specforge_test(requirement = "FEATURE-140")]
 fn a_project_without_extensions_reports_structural_only_mode() {
     let dir = project(
         serde_json::json!({ "name": "p", "version": "0.1.0" }),
@@ -124,10 +115,7 @@ fn a_project_without_extensions_reports_structural_only_mode() {
     );
 }
 
-#[specforge_test(
-    behavior = "graceful_degradation_without_extensions",
-    verify = "Graceful Degradation Without Extensions: graceful degradation holds — registries_populated_fired, i002_emitted, structural_mode_operational, valid_export_produced"
-)]
+#[specforge_test(requirement = "FEATURE-140")]
 fn graceful_degradation_contract() {
     let dir = project(
         serde_json::json!({ "name": "p", "version": "0.1.0" }),
@@ -159,10 +147,7 @@ fn graceful_degradation_contract() {
 
 /// Every configured extension fails to load: one E028 each, then the
 /// I002 that says the compile went on structurally.
-#[specforge_test(
-    behavior = "handle_all_extensions_failed_to_load",
-    verify = "all extensions failing produces per-extension E-level diagnostics"
-)]
+#[specforge_test(requirement = "FEATURE-140")]
 fn every_failed_extension_gets_its_own_error() {
     let dir = project(
         serde_json::json!({
@@ -184,10 +169,7 @@ fn every_failed_extension_gets_its_own_error() {
     assert!(errors[1].contains("@specforge/no-such-b"), "{errors:?}");
 }
 
-#[specforge_test(
-    behavior = "handle_all_extensions_failed_to_load",
-    verify = "system transitions to structural-only mode after all failures"
-)]
+#[specforge_test(requirement = "FEATURE-140")]
 fn all_failed_extensions_leave_a_structural_compile() {
     let dir = project(
         serde_json::json!({
@@ -220,10 +202,7 @@ fn all_failed_extensions_leave_a_structural_compile() {
 
 /// `@specforge/cargo-test` requires `@specforge/testing`: without it the
 /// compile fails with E027, which says what to install.
-#[specforge_test(
-    invariant = "peer_dependency_satisfaction",
-    verify = "unsatisfied peer dependency produces an error diagnostic"
-)]
+#[specforge_test(requirement = "INVARIANT-110")]
 fn a_missing_required_peer_fails_the_compile() {
     let dir = project(
         serde_json::json!({
@@ -250,10 +229,7 @@ fn a_missing_required_peer_fails_the_compile() {
 
 /// Optional peers may be absent: software (optional product) and testing
 /// (optional software, governance) load alone without a peer error.
-#[specforge_test(
-    invariant = "peer_dependency_satisfaction",
-    verify = "satisfied peer dependencies pass validation"
-)]
+#[specforge_test(requirement = "INVARIANT-110")]
 fn missing_optional_peers_are_not_reported() {
     for extension in ["@specforge/software", "@specforge/testing"] {
         let dir = project(
@@ -275,10 +251,7 @@ fn missing_optional_peers_are_not_reported() {
 /// `feature` belongs to @specforge/product, which the project doesn't
 /// enable: one E024 whose suggestion names product, and nothing else about
 /// that keyword.
-#[specforge_test(
-    behavior = "resolve_soft_cross_extension_references",
-    verify = "unknown keyword matching known extension gets E024 naming the extension"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_known_keyword_without_its_extension_is_one_e024_naming_it() {
     let dir = project(
         serde_json::json!({
@@ -299,10 +272,7 @@ fn a_known_keyword_without_its_extension_is_one_e024_naming_it() {
     assert!(!codes(&diagnostics).contains(&"I004"), "{diagnostics:?}");
 }
 
-#[specforge_test(
-    behavior = "resolve_soft_cross_extension_references",
-    verify = "Resolve Soft Cross-Extension References: soft cross-extension resolution holds — registries_populated_fired, known_extensions_catalog_available, suggestion_emitted, installed_extensions_resolved"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn soft_cross_extension_resolution_contract() {
     let dir = project(
         serde_json::json!({
@@ -350,10 +320,7 @@ fn soft_cross_extension_resolution_contract() {
 /// Define blocks are not supported: each is one W143, and none reaches the
 /// graph, so its body is not read as references (no E003) and its name is
 /// not checked as an ID (no E013 for `define behavior`).
-#[specforge_test(
-    behavior = "report_define_blocks",
-    verify = "a define block produces one W143 and adds no node to the graph"
-)]
+#[specforge_test(requirement = "FEATURE-140")]
 fn a_define_block_is_one_warning_and_no_node() {
     let dir = project(
         serde_json::json!({
@@ -432,10 +399,7 @@ fn compile_with_providers(
 
 /// A configured provider registers its scheme: a ref with that scheme is
 /// known, and a ref with another scheme is I005.
-#[specforge_test(
-    behavior = "register_provider_schemes",
-    verify = "Wasm-based provider scheme registered and validates ref"
-)]
+#[specforge_test(requirement = "FEATURE-107")]
 fn a_registered_provider_scheme_validates_refs() {
     let dir = served_project(
         serde_json::json!({
@@ -459,10 +423,7 @@ fn a_registered_provider_scheme_validates_refs() {
 
 /// Two providers declaring one scheme: E057 reaches `check`, and the first
 /// declared keeps the scheme.
-#[specforge_test(
-    behavior = "register_provider_schemes",
-    verify = "duplicate scheme from two providers produces E057"
-)]
+#[specforge_test(requirement = "FEATURE-107")]
 fn a_scheme_declared_twice_is_e057_on_compile() {
     let dir = served_project(
         serde_json::json!({
@@ -622,10 +583,7 @@ mod declared_in_process {
         dir.environment_in(runtime)
     }
 
-    #[specforge_test_macros::test(
-        behavior = "load_extension_declaration",
-        verify = "an extension that only declares commands registers its commands"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-028")]
     fn a_commands_only_extension_registers_its_commands() {
         let runtime = Arc::new(InProcessRuntime::new().with(commands_only));
         let env = load(&["@acme/cmds"], runtime);
@@ -644,10 +602,7 @@ mod declared_in_process {
         assert!(errors.is_empty(), "{errors:?}");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "load_extension_declaration",
-        verify = "the declared short name reaches the registry build"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-028")]
     fn the_declared_short_name_reaches_the_registry_build() {
         let runtime = Arc::new(InProcessRuntime::new().with(reports));
         let env = load(&["@acme/reports"], runtime);
@@ -658,10 +613,7 @@ mod declared_in_process {
         assert_eq!(declaration.short(), "rep");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "load_extension_declaration",
-        verify = "an unsupported protocol major version fails the load"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-028")]
     fn an_unsupported_protocol_major_fails_the_load() {
         let handshake = serde_json::to_vec(&specforge_protocol_types::HandshakeResponse {
             protocol_version: "3.0.0".to_string(),
@@ -684,10 +636,7 @@ mod declared_in_process {
         assert!(m.contains("@acme/reports") && m.contains(host), "{m}");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "load_extension_declaration",
-        verify = "a describe item key the protocol does not define produces W138"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-028")]
     fn an_unknown_describe_key_produces_a_warning() {
         let typo = || {
             let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/typo", "0.1.0"));
@@ -744,10 +693,7 @@ mod passes_of_the_declaration {
         )
     }
 
-    #[specforge_test_macros::test(
-        behavior = "build_registries_from_declarations",
-        verify = "a passes description that does not parse fails the extension's load"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-028")]
     fn a_passes_description_that_does_not_parse_fails_the_load() {
         let runtime = Arc::new(malformed_passes(serde_json::json!([{ "nam": "x" }])));
         let dir = project(
@@ -831,10 +777,7 @@ mod passes_of_the_declaration {
 /// A `specforge.json` that is there and can't be used: E069 first (an
 /// error), then an I002 that names the file, not "no extensions
 /// configured".
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "a specforge.json that is there and can't be used produces E069 first and an I002 that names it"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn an_unusable_config_is_e069_then_i002_naming_it() {
     let dir = TestProject::new().raw_config(r#"{ "extensions": ["#);
     let runtime = dir.runtime();
@@ -940,10 +883,7 @@ fn the_environment_reads_the_lock_once_at_its_root() {
 
 /// A non-string `extensions` item is one E069 (it is ignored); the other
 /// entries load, so there is no I002.
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "E069 names a mistyped key or a non-string item, and the rest of specforge.json is used"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_non_string_extension_entry_is_e069_and_the_others_load() {
     let dir = project(
         serde_json::json!({"extensions": ["@specforge/product", 42]}),
@@ -978,10 +918,7 @@ fn a_non_string_extension_entry_is_e069_and_the_others_load() {
 
 /// A `.spec` file discovery finds and that cannot be read is E025 naming
 /// its path, and is left out of the graph.
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "a source that cannot be read produces E025 naming it"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn an_unreadable_source_is_e025_naming_it() {
     let dir = project(
         serde_json::json!({
@@ -1041,10 +978,7 @@ fn install_greet(root: &Path) {
 
 /// A `specforge.json` entry that names no package is E072 and is not
 /// loaded: no module is looked for under a path it would escape.
-#[specforge_test(
-    behavior = "install_wasm_extension",
-    verify = "an extension is installed under the extensions directory of its project, by its package name"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn an_entry_that_names_no_package_is_e072_and_not_loaded() {
     let dir = project(
         serde_json::json!({
@@ -1069,10 +1003,7 @@ fn an_entry_that_names_no_package_is_e072_and_not_loaded() {
 
 /// A lock that cannot be read is reported once (E033), then each installed
 /// extension it leaves unloaded is E028 naming it.
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "an unreadable specforge.lock is reported once (E033) and each installed extension it leaves unloaded is E028 naming it"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn an_unreadable_lock_reports_e033_once_then_each_installed_extension() {
     let dir = project(
         serde_json::json!({"name": "p", "version": "0.1.0", "extensions": ["@sdk/greet"]}),
@@ -1129,10 +1060,7 @@ fn widget_extension(
     }
 }
 
-#[specforge_test(
-    invariant = "extension_load_order_determinism",
-    verify = "the same extensions give the same load order on every build, dependencies first"
-)]
+#[specforge_test(requirement = "INVARIANT-029")]
 fn a_project_listing_a_dependent_first_loads_its_peer_first() {
     let dir = served_project(
         serde_json::json!({

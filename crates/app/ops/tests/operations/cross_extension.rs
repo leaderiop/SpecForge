@@ -48,18 +48,12 @@ fn cross_ref_spec_edges() -> EdgeSet {
 
 // --- Phase 2a: Cross-extension references, I004 soft resolution, did-you-mean ---
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "reference list IDs create graph edges"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn cross_kind_references_resolve() {
     assert_eq!(checked_edges(specs::CROSS_REF), cross_ref_spec_edges());
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "unresolvable reference produces E003"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn unresolved_cross_ref_produces_e003() {
     let (_project, compiled) = built(&[(
         "main.spec",
@@ -79,10 +73,7 @@ behavior gamma "G" { contract "second" features [alpha, nonexistent_feature] }
     );
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "reference list IDs create graph edges"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn governance_references_software_entities() {
     let found = checked_edges(
         r#"
@@ -103,10 +94,7 @@ failure_mode parser_crash "PC" {
     );
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "reference list IDs create graph edges"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn product_references_software_entities() {
     let found = checked_edges(
         r#"
@@ -120,19 +108,13 @@ behavior parse_input "P" { contract "must parse" features [fast_parsing] }
     assert_eq!(found, edges(&[("parse_input", "fast_parsing", "features")]));
 }
 
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "JSON output contains all edges"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn export_includes_cross_kind_edges() {
     // Every reference-list entry of the spec, and nothing else.
     assert_eq!(checked_edges(specs::CROSS_REF), cross_ref_spec_edges());
 }
 
-#[specforge_test(
-    behavior = "compute_traceability_chain",
-    verify = "trace from entity shows upstream and downstream connections"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_crosses_extension_boundaries() {
     let (_project, compiled) = built(&[("main.spec", specs::CROSS_REF)]);
 
@@ -182,10 +164,7 @@ fn trace_crosses_extension_boundaries() {
     assert_eq!(downstream, set(&[]));
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "close match triggers did-you-mean suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn did_you_mean_works_across_entity_kinds() {
     let (_project, compiled) = built(&[(
         "main.spec",
@@ -209,18 +188,8 @@ behavior validate_graph "V" { contract "must validate" features [graph_validatio
     );
 }
 
-#[specforge_test(
-    behavior = "cp_missing_product_from_software",
-    verify = "I004 names the kind no enabled extension provides"
-)]
-#[specforge_test(
-    behavior = "cp_missing_product_from_software",
-    verify = "E003 not emitted for soft cross-extension reference"
-)]
-#[specforge_test(
-    behavior = "cp_missing_product_from_software",
-    verify = "references resolve after product is installed"
-)]
+#[specforge_test(requirement = "FEATURE-081")]
+#[specforge_test(requirement = "FEATURE-109")]
 fn software_without_product_treats_feature_references_as_soft() {
     let spec = r#"
 behavior user_login "Log in" {
@@ -279,10 +248,7 @@ behavior user_login "Log in" {
 
 // --- ADR 0117, ADR 0369: the linker names each extension that declares an absent target kind ---
 
-#[specforge_test(
-    behavior = "register_extension_entity_types",
-    verify = "I004 message includes unresolved kind name and suggested extension"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn an_absent_target_kinds_i004_names_the_extension_that_declares_it() {
     let project = TestProject::new()
         .enabling(&["@specforge/software"])
@@ -301,10 +267,7 @@ fn an_absent_target_kinds_i004_names_the_extension_that_declares_it() {
     );
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a reference to an existing entity of another kind than its field's target kind is E022 at the reference"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_wrong_kind_reference_to_an_absent_kind_is_e022_at_the_reference() {
     let project = TestProject::new()
         .enabling(&["@specforge/software"])

@@ -355,10 +355,7 @@ fn served(
     })
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a probe outside its checker's scopes is E090 and not performed"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_probe_outside_the_checkers_scopes_is_e090_and_not_performed() {
     let spec = "service a \"A\" {\n  near_a \"https://b.example/\"\n  no_files \"a.spec\"\n}\n";
     let scene = Scene::new(FakeHttp::new().route("https://b.example/", 200, ""), spec);
@@ -372,10 +369,7 @@ fn a_probe_outside_the_checkers_scopes_is_e090_and_not_performed() {
     assert!(rows.iter().all(|row| row.status == CheckStatus::Failed));
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "two values naming one URL make one request"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn two_values_naming_one_url_make_one_request() {
     let spec = format!("service a \"A\" {{\n  links [\"{A_URL}\", \"{A_URL}\"]\n}}\n");
     let scene = Scene::new(FakeHttp::new().route(A_URL, 200, ""), &spec);
@@ -390,10 +384,7 @@ fn two_values_naming_one_url_make_one_request() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a later check's probes are dropped after an earlier error"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_later_checks_probes_are_dropped_after_an_earlier_error() {
     let spec = "service a \"A\" {\n  strict_link \"http://a.example/\"\n}\n";
     let scene = Scene::new(FakeHttp::new(), spec);
@@ -410,10 +401,7 @@ fn a_later_checks_probes_are_dropped_after_an_earlier_error() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a value whose probe was not performed is not judged and counts toward I206"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn in_cached_mode_an_unrecorded_url_is_not_judged_and_counts_toward_i206() {
     let spec = format!("service a \"A\" {{\n  links [\"{A_URL}\", \"{A_URL}\"]\n}}\n");
     let scene = Scene::new(FakeHttp::new().route(A_URL, 404, ""), &spec);
@@ -433,10 +421,7 @@ fn in_cached_mode_an_unrecorded_url_is_not_judged_and_counts_toward_i206() {
     assert!(scene.http.requests().is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "an answer read from the journal is the answer a live request gave"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_cached_run_reads_what_the_online_run_observed() {
     let spec = format!("service a \"A\" {{\n  link \"{A_URL}\"\n}}\n");
     let scene = Scene::new(FakeHttp::new().route(A_URL, 404, ""), &spec);
@@ -459,10 +444,7 @@ fn a_cached_run_reads_what_the_online_run_observed() {
     assert_eq!(scene.http.requests().len(), 1);
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "only the scopes these values use are asked for with W170"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn without_approval_only_the_used_scopes_are_asked_w170() {
     let spec = format!("service a \"A\" {{\n  link \"{A_URL}\"\n}}\n");
     let scene = Scene::new(FakeHttp::new().route(A_URL, 200, ""), &spec);
@@ -476,10 +458,7 @@ fn without_approval_only_the_used_scopes_are_asked_w170() {
     assert!(scene.http.requests().is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a dns probe runs through the Http port under its checker's scope"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_dns_probe_runs_through_the_http_port_under_its_checkers_scope() {
     let spec = "service a \"A\" {\n  name \"a.example\"\n}\n";
     let scene = Scene::new(FakeHttp::new().name("a.example", &["192.0.2.1"]), spec);
@@ -498,10 +477,7 @@ fn a_dns_probe_runs_through_the_http_port_under_its_checkers_scope() {
     assert!(reported[0].message.contains("unreachable:dns"), "{found:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a file value that leaves its root is E094 on the value"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_file_value_that_leaves_its_root_is_e094_on_the_value() {
     for written in ["../../etc/passwd", "/etc/passwd"] {
         let spec = format!("service a \"A\" {{\n  file \"{written}\"\n}}\n");
@@ -528,10 +504,7 @@ fn a_file_value_that_leaves_its_root_is_e094_on_the_value() {
     assert_eq!(&line[span.start_col - 1..span.end_col - 1], "vault");
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a missing file suggests no name from outside its root"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_missing_file_suggests_no_name_from_outside_its_root() {
     let spec = "service a \"A\" {\n  file \"docs/guidee.md\"\n}\n";
     let scene = Scene::new(FakeHttp::new(), spec);
@@ -566,10 +539,7 @@ fn a_missing_file_suggests_no_name_from_outside_its_root() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "one extension's approval approves no other extension's request"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn one_extensions_approval_approves_no_other_extensions_request() {
     let spec = format!(
         "service a \"A\" {{\n  link \"{A_URL}\"\n}}\nwidget b \"B\" {{\n  link \"{A_URL}\"\n}}\n"
@@ -611,10 +581,7 @@ fn one_extensions_approval_approves_no_other_extensions_request() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a capability approved for another kind of call does not approve a check request"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_capability_approved_for_collect_does_not_approve_a_check_request() {
     fn kinds(name: &str, kinds: &[Operation]) -> ContributionsBuilder {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new(name, "1.0.0"));
@@ -658,10 +625,7 @@ fn a_capability_approved_for_collect_does_not_approve_a_check_request() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a redirect to a host outside the grant is refused on the checker's path"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_redirect_outside_the_grant_is_refused_on_the_checkers_path() {
     let there = "https://b.example/landed";
     let spec = format!("service a \"A\" {{\n  near_a \"{A_URL}\"\n}}\n");
@@ -677,10 +641,7 @@ fn a_redirect_outside_the_grant_is_refused_on_the_checkers_path() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "classify_project_changes",
-    verify = "a file a checked field names re-runs the checks"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-050")]
 fn a_created_file_clears_its_missing_finding_on_the_next_update() {
     let spec = "service a \"A\" {\n  file \"docs/new.md\"\n}\n";
     let scene = Scene::new(FakeHttp::new(), spec);
@@ -694,10 +655,7 @@ fn a_created_file_clears_its_missing_finding_on_the_next_update() {
     assert!(coded(&found, "pin.probes/E001").is_empty(), "{found:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a file probe reads a held prefix, and a walk stays under its root"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_file_probe_reads_a_held_prefix_and_a_walk_stays_under_its_root() {
     let spec = "service a \"A\" {\n  head_of \"docs/a.md\"\n  under \"docs\"\n}\n";
     let scene = Scene::new(FakeHttp::new(), spec);
@@ -739,10 +697,7 @@ fn a_file_probe_reads_a_held_prefix_and_a_walk_stays_under_its_root() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a git probe asks the Git port and needs no journal"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_git_probe_asks_the_git_port_in_cached_mode() {
     let spec = "service a \"A\" {\n  tracked \"nope\"\n}\n";
     let scene = Scene::new(FakeHttp::new(), spec);
@@ -767,10 +722,7 @@ fn a_git_probe_asks_the_git_port_in_cached_mode() {
     assert!(coded(&found, "I206").is_empty(), "{found:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a git probe this machine cannot answer is not judged"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_git_probe_needs_a_git_scope_and_a_repository() {
     let spec = "service a \"A\" {\n  tracked \"HEAD\"\n}\n";
     let scene = Scene::new(FakeHttp::new(), spec);

@@ -33,10 +33,7 @@ fn titles_at(lenses: &[Value], line: u64) -> Vec<&str> {
         .collect()
 }
 
-#[spec(
-    behavior = "entity_code_lens",
-    verify = "a lens counts an entity's references and verify statements as the compile reads them"
-)]
+#[spec(requirement = "FEATURE-046")]
 #[tokio::test]
 async fn a_lens_counts_what_the_compile_reads() {
     let (mut client, uri, _dir) =
@@ -72,10 +69,7 @@ async fn a_lens_counts_what_the_compile_reads() {
     );
 }
 
-#[spec(
-    behavior = "entity_code_lens",
-    verify = "a spec block's lens is at its string, the name it is written with"
-)]
+#[spec(requirement = "FEATURE-046")]
 #[tokio::test]
 async fn a_spec_blocks_lens_is_at_its_string() {
     let (mut client, uri, _dir) =
@@ -108,10 +102,7 @@ fn lensing(lens_refresh: bool) -> Served {
     served
 }
 
-#[spec(
-    behavior = "entity_code_lens",
-    verify = "a recompile asks only a client that declared refreshSupport to refresh its code lenses"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn a_recompile_asks_a_lens_refreshing_client_to_refresh() {
     let grown = "behavior login \"Login\" {\n  contract \"x\"\n}\nbehavior b \"B\" {\n  depends_on [login]\n}\n";
     for (support, asked) in [(true, true), (false, false)] {
@@ -121,10 +112,7 @@ fn a_recompile_asks_a_lens_refreshing_client_to_refresh() {
     }
 }
 
-#[spec(
-    behavior = "show_verdict_state",
-    verify = "a code lens says whether each verdict is fresh, failed or stale, and which inputs changed"
-)]
+#[spec(requirement = "FEATURE-058")]
 fn a_stale_verdict_has_a_code_lens_naming_its_inputs() {
     use specforge_project::testing::{GSD_JUDGED, GSD_JUDGED_SPEC, declare_gsd_judged};
     let served = crate::served::Served::new(&[("a.spec", GSD_JUDGED_SPEC)])
@@ -151,10 +139,7 @@ fn lens_titles(served: &Served) -> Vec<String> {
         .collect()
 }
 
-#[spec(
-    behavior = "show_trace_thread",
-    verify = "a code lens on a routed entity says its thread's summary"
-)]
+#[spec(requirement = "FEATURE-129")]
 fn a_routed_entity_has_a_thread_lens() {
     let titles = lens_titles(&crate::hover_thread::routed_served(GSD_ROUTED_SPEC));
     let threads: Vec<&String> = titles
@@ -170,10 +155,7 @@ fn a_routed_entity_has_a_thread_lens() {
     );
 }
 
-#[spec(
-    behavior = "show_trace_thread",
-    verify = "an entity of a kind no route starts at has no thread lens"
-)]
+#[spec(requirement = "FEATURE-129")]
 fn an_entity_without_a_route_has_no_thread_lens() {
     let served = crate::hover_thread::routed_served(GSD_ROUTED_SPEC);
     let lenses =

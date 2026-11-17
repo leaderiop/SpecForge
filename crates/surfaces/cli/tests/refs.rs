@@ -23,10 +23,7 @@ fn mcp(project: &TestProject, arguments: Value) -> Value {
     serde_json::from_str(text).unwrap()
 }
 
-#[specforge_test(
-    behavior = "provide_refs_cli",
-    verify = "refs prints the locations find_references returns"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn refs_prints_the_locations_find_references_returns() {
     let project = rv1();
     let cli = Cli::on(&project);
@@ -63,10 +60,7 @@ fn refs_prints_the_locations_find_references_returns() {
     assert_eq!(picked.exits(0).stdout, "Color\n");
 }
 
-#[specforge_test(
-    behavior = "provide_refs_cli",
-    verify = "refs of an unknown entity is E003"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn refs_of_an_unknown_entity_is_e003() {
     let project = rv1();
     let run = Cli::on(&project).run(&["refs", "ghost"]).exits(1);

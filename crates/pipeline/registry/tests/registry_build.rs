@@ -92,10 +92,7 @@ fn kinds_fields_and_edges_come_from_the_descriptors() {
     assert_eq!(build.declarations().len(), 2);
 }
 
-#[spec(
-    behavior = "load_extension_manifests",
-    verify = "two extensions loaded and registries populated without collision"
-)]
+#[spec(requirement = "FEATURE-028")]
 fn two_extensions_populate_without_collision() {
     let build = build_registries(vec![software(), product()]);
 
@@ -129,10 +126,7 @@ fn rules_include_the_manifest_rules_and_the_required_field_rules() {
     assert!(codes.contains(&("E006", "")), "{codes:?}");
 }
 
-#[spec(
-    behavior = "registry_build_graph_inputs",
-    verify = "the registry build derives every graph input from the declarations"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn derived_graph_inputs_match_the_manifests() {
     let build = build_registries(vec![software(), product()]);
     let inputs = build.graph_inputs();
@@ -199,10 +193,7 @@ fn surface_conflicts_come_last_in_the_builds_diagnostics() {
 
 /// With no extension loaded the host knows no kind, field or edge: every
 /// registry starts empty and stays so.
-#[spec(
-    behavior = "build_registries_from_declarations",
-    verify = "a build of no declarations has empty registries, no rules and no diagnostics"
-)]
+#[spec(requirement = "FEATURE-028")]
 fn no_declarations_build_empty_registries() {
     let build = build_registries(Vec::new());
 
@@ -271,10 +262,7 @@ fn registered(
 
 /// A rule whose code its extension may not use is still registered, as
 /// declared, and reported (W150) with the code, why, and the extension.
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "a rule whose code the extension may not use is reported (W150) and still registered"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_rule_with_a_code_it_may_not_use_is_reported() {
     let build = build_registries(vec![one_rule(
         "@acme/squat",
@@ -307,10 +295,7 @@ fn a_rule_with_a_code_it_may_not_use_is_reported() {
 
 /// The same code declared for several target kinds is one W150 per
 /// severity, and every rule is still registered.
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "a rule whose code the extension may not use is reported (W150) and still registered"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_misused_code_declared_for_several_kinds_is_reported_once_per_severity() {
     let mut c = extension("@acme/squat", "1.0.0");
     for (name, severity) in [
@@ -338,10 +323,7 @@ fn a_misused_code_declared_for_several_kinds_is_reported_once_per_severity() {
 
 /// `Codebook::check` is the verdict W150 reports: Ok when the host takes the code from the
 /// extension, the misuse otherwise.
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "a rule whose code the extension may not use is reported (W150) and still registered"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn the_code_book_is_the_verdict_w150_reports() {
     use specforge_diagnostics::{CodeMisuse, Level};
     let check = |name: &str, code: &str, severity| {
@@ -378,10 +360,7 @@ fn the_code_book_is_the_verdict_w150_reports() {
 
 /// A first-party extension's own catalogued rule at its catalogued level
 /// is not reported; at another level, or uncatalogued, it is.
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "a rule whose code the extension may not use is reported (W150) and still registered"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_first_party_rule_is_checked_against_the_catalog() {
     let own = build_registries(vec![one_rule(
         "@specforge/product",
@@ -433,10 +412,7 @@ fn a_third_party_rule_code_its_extension_catalogues_registers_silently() {
     );
 }
 
-#[spec(
-    behavior = "register_collector_contributions",
-    verify = "a collector's declared reads are checked as a pass's (W021) and listed with their owner"
-)]
+#[spec(requirement = "FEATURE-128")]
 fn a_collectors_malformed_read_is_w021_and_served_empty() {
     let mut c = extension("@acme/x", "1.0.0");
     c.collector("x", |collector| {
@@ -458,10 +434,7 @@ fn a_collectors_malformed_read_is_w021_and_served_empty() {
     );
 }
 
-#[spec(
-    behavior = "register_collector_contributions",
-    verify = "a kind may declare writer collector and its schemes, and a field that declares writer collector is W021"
-)]
+#[spec(requirement = "FEATURE-128")]
 fn a_field_declaring_writer_collector_is_w021_and_dropped() {
     let mut c = extension("@acme/x", "1.0.0");
     c.kind("test", |k| {
@@ -495,10 +468,7 @@ fn kind_declared(f: impl FnOnce(&mut KindBuilder)) -> ExtensionDeclaration {
     c.declaration()
 }
 
-#[spec(
-    behavior = "register_collector_contributions",
-    verify = "a kind's writer is human or collector, and only a collector-written kind declares schemes"
-)]
+#[spec(requirement = "FEATURE-128")]
 fn a_collected_kind_keeps_its_writer_and_schemes() {
     let build = build_registries(vec![kind_declared(|k| {
         k.collected(&["js", "rust_test"]);
@@ -511,10 +481,7 @@ fn a_collected_kind_keeps_its_writer_and_schemes() {
     assert_eq!(kind.schemes(), ["js", "rust_test"]);
 }
 
-#[spec(
-    behavior = "register_collector_contributions",
-    verify = "a kind's writer is human or collector, and only a collector-written kind declares schemes"
-)]
+#[spec(requirement = "FEATURE-128")]
 fn a_kind_writer_other_than_human_or_collector_is_w021() {
     let mut declaration = kind_declared(|_| {});
     declaration.entities[0].writer = Some("computed".to_string());
@@ -530,10 +497,7 @@ fn a_kind_writer_other_than_human_or_collector_is_w021() {
     assert_eq!(build.kinds().get("test").unwrap().declared.writer, None);
 }
 
-#[spec(
-    behavior = "register_collector_contributions",
-    verify = "a kind's writer is human or collector, and only a collector-written kind declares schemes"
-)]
+#[spec(requirement = "FEATURE-128")]
 fn schemes_without_writer_collector_are_w021_and_dropped() {
     let mut declaration = kind_declared(|_| {});
     declaration.entities[0].schemes = vec!["js".to_string()];
@@ -552,10 +516,7 @@ fn schemes_without_writer_collector_are_w021_and_dropped() {
     assert!(build.kinds().get("test").unwrap().schemes().is_empty());
 }
 
-#[spec(
-    behavior = "register_collector_contributions",
-    verify = "a kind's writer is human or collector, and only a collector-written kind declares schemes"
-)]
+#[spec(requirement = "FEATURE-128")]
 fn a_collected_kind_without_schemes_is_w021() {
     let build = build_registries(vec![kind_declared(|k| {
         k.collected(&["JS", "-x"]);
@@ -583,10 +544,7 @@ fn a_collected_kind_without_schemes_is_w021() {
     assert!(kind.schemes().is_empty());
 }
 
-#[spec(
-    behavior = "register_collector_contributions",
-    verify = "a kind's writer is human or collector, and only a collector-written kind declares schemes"
-)]
+#[spec(requirement = "FEATURE-128")]
 fn a_collected_kinds_scheme_a_provider_registers_is_w021() {
     let mut build = build_registries(vec![kind_declared(|k| {
         k.collected(&["gh", "js"]);

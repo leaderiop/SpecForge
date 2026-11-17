@@ -181,10 +181,7 @@ fn answered(result: WasmCallResult) -> Value {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "grant_a_host_port_call",
-    verify = "a command's port call inside its grant reaches the port"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn a_commands_port_call_inside_its_grant_reaches_the_port() {
     let fakes = lent();
     let answer = command(
@@ -199,10 +196,7 @@ fn a_commands_port_call_inside_its_grant_reaches_the_port() {
     assert!(fakes.call.take_denials().is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "grant_a_host_port_call",
-    verify = "a port call outside the grant is answered denied(scope) and reported as E090"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn a_port_call_outside_the_grant_is_denied_and_reported() {
     let fakes = lent();
     let answer = command(
@@ -373,10 +367,7 @@ fn a_loop_of_huge_denied_requests_keeps_a_bounded_list() {
     assert!(fakes.call.take_denials().is_empty(), "taken once");
 }
 
-#[specforge_test_macros::test(
-    behavior = "link_host_ports",
-    verify = "a pure call that calls a port is answered denied(call-kind) and no port runs"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn a_pure_call_that_calls_a_port_is_denied_its_call_kind() {
     let fakes = lent();
     let runtime = runtime();
@@ -428,10 +419,7 @@ fn a_command_is_kept_from_the_process_port_and_a_collector_reaches_it() {
     assert_eq!(fakes.process.requests().len(), 1);
 }
 
-#[specforge_test_macros::test(
-    behavior = "grant_a_host_port_call",
-    verify = "a port's answer is held to a quarter of the guest's memory and says it was truncated"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn a_ports_answer_is_held_to_a_quarter_of_the_guests_memory() {
     let fakes = lent_over(
         FakeHttp::new().route("https://example.test/big", 200, vec![0u8; 8 << 20]),
@@ -471,10 +459,7 @@ fn session(fakes: &Lent, kind: Operation) -> specforge_wasm::PortSession {
     )
 }
 
-#[specforge_test_macros::test(
-    behavior = "grant_a_host_port_call",
-    verify = "a secret the host attaches never shows in what a guest is answered"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn a_secret_the_host_attaches_never_shows_in_what_a_guest_is_answered() {
     let fakes = lent_over(
         FakeHttp::new().route_with(
@@ -533,10 +518,7 @@ fn a_redirect_to_a_host_outside_the_grant_never_carries_the_guest_there() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "grant_a_host_port_call",
-    verify = "a program a guest runs inherits no declared secret and cannot set its PATH or loader"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn a_program_a_guest_runs_inherits_no_declared_secret_and_cannot_set_its_path_or_loader() {
     let fakes = lent();
     let run = |env: Vec<EnvVar>| {
@@ -602,10 +584,7 @@ fn a_guest_never_sets_a_variable_through_a_prefix() {
     assert!(fakes.process.requests().is_empty(), "no program ran");
 }
 
-#[specforge_test_macros::test(
-    behavior = "grant_a_host_port_call",
-    verify = "a guest cannot open the private-address opt-in or read a withheld file at a commit"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn a_guest_cannot_open_the_private_address_opt_in_or_read_a_withheld_file_at_a_commit() {
     let dir = std::env::temp_dir();
     let fakes = lent_over(

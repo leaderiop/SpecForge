@@ -58,10 +58,7 @@ fn enhancements_list_the_edge_types_their_fields_write() {
     assert_eq!(entry.edge_types, ["Requires", "Ensures"]);
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor detects shadowed grammar-level constructs"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn a_kind_registered_twice_is_one_conflict_naming_the_keyword() {
     // What the registry build reports for a kind two extensions declare:
     // the keyword is the diagnostic's data, not a word of its message.
@@ -151,10 +148,7 @@ fn failing_entry(
     )
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor lists the extensions the extensions listing lists, each with its version, source and status"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_lists_the_extensions_the_listing_lists() {
     use specforge_installed::LoadProblem;
     let fixture = Assembled::new()
@@ -276,10 +270,7 @@ fn doctor_lists_load_failures_in_check_order() {
     assert_eq!(checks, ["@z/z did not load", "@a/a did not load"]);
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "a finding without its own suggestion quotes the catalogued explanation"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn a_finding_without_a_suggestion_quotes_the_catalogue() {
     use specforge_installed::LoadProblem;
     let fixture = Assembled::new().enabled(vec![
@@ -352,10 +343,7 @@ fn an_entity_id_that_is_a_kind_keyword_is_shadowed_but_not_a_conflict() {
     assert!(report.findings.iter().any(|f| f.code == "E013"));
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor reports a solver that does not run as the W098 analyze --prove reports, as a toolchain warning"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn a_solver_that_does_not_run_is_the_w098_prove_reports_as_a_toolchain_warning() {
     let report = diagnose(&Assembled::new().view(), &ScriptedSolver::not_found());
     assert_eq!(
@@ -374,10 +362,8 @@ fn a_solver_that_does_not_run_is_the_w098_prove_reports_as_a_toolchain_warning()
     assert_eq!(report.cache_status(), CacheStatus::Ok);
 }
 
-#[specforge_test(
-    behavior = "management_operations_over_the_project_view",
-    verify = "doctor reads the setup diagnostics of its view's environment, and E013 from what its view reports"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
+#[specforge_test(requirement = "FEATURE-070")]
 fn doctor_reads_the_diagnostics_its_view_reports() {
     let e028 = diag("E028", "extension '@acme/x' is not installed", None);
     let failing = Assembled::new().enabled(vec![failed(
@@ -424,10 +410,7 @@ fn finding_codes(report: &DoctorReport) -> Vec<(&str, FindingStatus)> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor in a directory without specforge.json reports config_missing as a warning"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_without_specforge_json_says_so() {
     let fixture = Assembled::new().without_config_file();
 
@@ -458,10 +441,7 @@ fn doctor_without_specforge_json_says_so() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor in a directory without specforge.json reports config_missing as a warning"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn a_rootless_view_has_no_config_missing_finding() {
     let fixture = Assembled::new().without_config_file();
 
@@ -509,10 +489,7 @@ fn project_with_a_changed_greet() -> (tempfile::TempDir, tempfile::TempDir) {
     (dir, files)
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor reports a missing or changed installed binary once, with the remedy its load gives"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_reports_a_changed_binary_once() {
     let (dir, _files) = project_with_a_changed_greet();
     let runtime = std::sync::Arc::new(crate::testing::candidates());
@@ -579,10 +556,7 @@ fn doctor_reports_a_changed_binary_once() {
     assert!(report.findings.is_empty(), "{:?}", report.findings);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_doctor_tool",
-    verify = "specforge.doctor reports an unusable specforge.json (E069) as a finding"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn an_unusable_config_is_an_error_finding() {
     // What the environment reports for a specforge.json that is not JSON.
     let fixture =
@@ -613,10 +587,7 @@ fn an_unusable_config_is_an_error_finding() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor reports every diagnostic the environment reports as one finding, with the part of the setup it is about and the diagnostic's severity"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn a_load_warning_is_a_finding_but_leaves_extensions_ok() {
     let fixture = Assembled::new()
         .enabled(vec![specforge_project::EnabledExtension {
@@ -632,10 +603,7 @@ fn a_load_warning_is_a_finding_but_leaves_extensions_ok() {
     assert!(report.ok() && report.extensions_ok());
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor reports a missing or changed installed binary once, with the remedy its load gives"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn without_a_root_a_missing_module_is_a_load_finding() {
     use specforge_installed::LoadProblem;
     let fixture = Assembled::new().enabled(vec![failing_entry(
@@ -729,10 +697,7 @@ fn declaring_capabilities() -> specforge_protocol_types::ExtensionDeclaration {
     c.declaration()
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor lists each capability with its grant here, and W170 only for the scopes a run here uses"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_lists_capabilities_and_w170_only_for_scopes_in_use() {
     use crate::analysis::grants::GrantState;
     let fixture = Assembled::new().declarations(vec![declaring_capabilities()]);
@@ -775,10 +740,7 @@ fn doctor_lists_capabilities_and_w170_only_for_scopes_in_use() {
     assert!(report.ok(), "a warning leaves doctor healthy");
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "a consent store doctor cannot use is a W186 grants finding"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn an_unusable_consent_store_is_a_doctor_finding() {
     let fixture = Assembled::new().declarations(vec![declaring_capabilities()]);
     fixture.write("Cargo.toml", "");

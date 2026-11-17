@@ -80,10 +80,8 @@ mod tests {
         OpError::new(OpErrorKind::InvalidInput, "bad", "bad value")
     }
 
-    #[specforge_test_macros::test(
-        behavior = "read_mcp_arguments_as_declared",
-        verify = "an operation's refusal of a core tool's call names the argument it is about"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-064")]
+    #[specforge_test_macros::test(requirement = "FEATURE-071")]
     fn a_refusal_names_the_argument_its_subject_is() {
         let named = Entry::refused(error().about(Field::Named));
         assert_eq!(named.argument.as_deref(), Some("x"));
@@ -103,10 +101,8 @@ mod tests {
         assert_eq!(Entry::refused(timeout).argument, None);
     }
 
-    #[specforge_test_macros::test(
-        behavior = "read_mcp_arguments_as_declared",
-        verify = "an operation's refusal of a core tool's call names the argument it is about"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-064")]
+    #[specforge_test_macros::test(requirement = "FEATURE-071")]
     fn a_failed_mutation_keeps_what_its_operation_left_written() {
         let left = error().with_writes(Writes::of([std::path::PathBuf::from("a.spec")]));
         let failed = Entry::failed(left.about(Field::Named));

@@ -58,10 +58,7 @@ fn ids(nodes: &[NodeChange]) -> Vec<&str> {
     nodes.iter().map(|n| n.id.as_str()).collect()
 }
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "added nodes appear in delta"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn added_nodes_appear_in_delta() {
     let mut new = Graph::new();
     new.add_node(make_node("foo", "behavior", "a.spec", 1));
@@ -80,10 +77,7 @@ fn added_nodes_appear_in_delta() {
     assert!(delta.removed_nodes.is_empty() && delta.modified_nodes.is_empty());
 }
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "removed nodes appear in delta"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn removed_nodes_appear_in_delta() {
     let mut old = Graph::new();
     old.add_node(make_node("bar", "feature", "b.spec", 5));
@@ -95,10 +89,7 @@ fn removed_nodes_appear_in_delta() {
     assert!(delta.added_nodes.is_empty());
 }
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "modified nodes list changed fields"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn modified_nodes_list_changed_fields() {
     let with_status = |status: &str, line: usize| {
         let mut node = make_node("baz", "behavior", "c.spec", line);
@@ -138,10 +129,7 @@ fn graph_with_metric(src: &str, line: usize) -> Graph {
     graph
 }
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "shifted expression positions are not a modification"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn expression_positions_are_not_a_modification() {
     // Same expression, shifted: the entity moved and the expression's
     // columns moved with it.
@@ -171,10 +159,7 @@ fn a_changed_expression_is_a_modification() {
     assert_eq!(delta.modified_nodes[0].changed_fields, ["metric"]);
 }
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "added and removed edges appear in delta"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn added_and_removed_edges_appear_in_delta() {
     let mut old = Graph::new();
     old.add_node(make_node("a", "behavior", "a.spec", 1));
@@ -197,10 +182,7 @@ fn added_and_removed_edges_appear_in_delta() {
     assert_eq!(delta.modified_nodes[0].changed_aspects, [NodeAspect::Edges]);
 }
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "affected files listed in delta"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn affected_files_listed_in_delta() {
     let mut old = Graph::new();
     old.add_node(make_node("x", "behavior", "file1.spec", 1));
@@ -212,10 +194,7 @@ fn affected_files_listed_in_delta() {
     assert_eq!(delta.affected_files, ["file1.spec", "file2.spec"]);
 }
 
-#[specforge_test(
-    invariant = "graph_delta_determinism",
-    verify = "GraphDelta arrays are sorted by EntityId.raw"
-)]
+#[specforge_test(requirement = "INVARIANT-052")]
 fn delta_arrays_sorted_by_entity_id() {
     let mut new = Graph::new();
     new.add_node(make_node("z_last", "behavior", "a.spec", 1));
@@ -227,10 +206,7 @@ fn delta_arrays_sorted_by_entity_id() {
     assert_eq!(ids(&delta.added_nodes), ["a_first", "m_middle", "z_last"]);
 }
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "Compute Graph Delta: graph delta computation holds — previous_graph_available"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn compute_graph_delta_contract() {
     let mut old = Graph::new();
     old.add_node(make_node("a", "behavior", "a.spec", 1));
@@ -273,10 +249,7 @@ fn old_and_new() -> (Graph, Graph) {
     (old, new)
 }
 
-#[specforge_test(
-    behavior = "validate_delta_correctness",
-    verify = "delta applied to old graph equals new graph"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn the_true_delta_applies() {
     let (old, new) = old_and_new();
     let good = GraphDelta {
@@ -290,10 +263,7 @@ fn the_true_delta_applies() {
     assert_eq!(compute_graph_delta(&old, &new).applies(&old, &new), Ok(()));
 }
 
-#[specforge_test(
-    behavior = "validate_delta_correctness",
-    verify = "a discrepancy is reported with a message naming what differs"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn a_wrong_delta_is_rejected_naming_what_differs() {
     let (old, new) = old_and_new();
     let good = GraphDelta {
@@ -352,10 +322,7 @@ fn a_wrong_delta_is_rejected_naming_what_differs() {
 /// With `--verify-incremental` (or a debug build) every update checks its
 /// delta against the graphs it joins (the session's tests); the check is
 /// [`GraphDelta::applies`].
-#[specforge_test(
-    behavior = "validate_delta_correctness",
-    verify = "Validate Delta Correctness: delta correctness validation holds — graph_delta_available, debug_mode_active, delta_verified, validation_event_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn validate_delta_correctness_contract() {
     let old = Graph::new();
     let mut new = Graph::new();
@@ -381,10 +348,7 @@ fn graph_with_kind_field(kind: &str, field: Option<&str>) -> Graph {
     graph
 }
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "a field named like an aspect is a changed field, never the aspect"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn a_field_named_like_an_aspect_is_a_field() {
     let field_changed = compute_graph_delta(
         &graph_with_kind_field("type", Some("struct")),

@@ -99,10 +99,7 @@ fn an_unparsable_report_refuses_every_view() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "provide_mcp_coverage_tool",
-    verify = "a report the OS refuses to read is a permission_denied error on every tool that reads it"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn a_locked_report_is_permission_denied_on_every_tool() {
     let mut served = served();
     if !lock(&served) {
@@ -119,10 +116,7 @@ fn a_locked_report_is_permission_denied_on_every_tool() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "a test_results file that does not exist is a file_not_found error"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn a_missing_named_report_is_file_not_found() {
     let mut served = served();
     let missing = served.root().join("none.json");
@@ -139,10 +133,7 @@ fn a_missing_named_report_is_file_not_found() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "a relative test_results names a file under the project's root"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn a_relative_test_results_is_under_the_project_root() {
     let mut served = served();
     served.write("r.json", r#"{"results":{}}"#);
@@ -174,10 +165,7 @@ fn format_verdict(text: &str, arguments: Value) -> (bool, Value, Value) {
     (failed, result["ok"].clone(), result["all_clean"].clone())
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "ok is the verdict specforge format exits by, in every mode"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn format_ok_is_the_cli_verdict() {
     // --check over a change: the CLI exits 1.
     assert_eq!(
@@ -240,10 +228,7 @@ fn loose(text: &str, name: &str) -> tempfile::TempDir {
     dir
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "a directory that is no project is formatted with the defaults, as specforge format formats it"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_directory_that_is_no_project_is_formatted_with_the_defaults() {
     let mut served = nothing_served();
     let dir = loose(MESSY, "a.spec");
@@ -279,10 +264,7 @@ fn a_directory_that_is_no_project_is_formatted_with_the_defaults() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_migrate_tool",
-    verify = "a directory that is no project is migrated as specforge migrate migrates it"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_directory_that_is_no_project_is_migrated() {
     let mut served = nothing_served();
     let dir = loose(
@@ -306,10 +288,7 @@ fn a_directory_that_is_no_project_is_migrated() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_migrate_tool",
-    verify = "a failed migration's error names its cause: a hook, a changed graph, a project that does not compile, or files that could not be migrated"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_migration_that_cannot_read_a_file_is_a_schema_mismatch() {
     let mut served = served();
     served.write(
@@ -331,10 +310,7 @@ fn a_migration_that_cannot_read_a_file_is_a_schema_mismatch() {
     assert_eq!(error["data"]["ok"], false, "{error}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_migrate_tool",
-    verify = "ok is the verdict specforge migrate exits by, and a failed migration's kind is the operation's"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn migrate_ok_is_the_cli_verdict() {
     // A migration that applies passes: exit 0.
     let mut applying = served_with_old();
@@ -374,10 +350,7 @@ fn served_with_old() -> Served {
 /// A `specforge.json` with an exclude entry that is no glob pattern: an E069 every run goes around.
 const CONFIG_WITH_A_PROBLEM: &str = r#"{"extensions": ["@specforge/software"], "exclude": ["["]}"#;
 
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "a problem in specforge.json the call goes around does not fail the call, and the files it formatted are listed"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn format_goes_around_a_config_problem_without_failing_the_call() {
     let mut served = served();
     served.write("messy.spec", MESSY);
@@ -392,10 +365,7 @@ fn format_goes_around_a_config_problem_without_failing_the_call() {
     assert_eq!(result["files_written"], json!(["messy.spec"]), "{result}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_migrate_tool",
-    verify = "a problem in specforge.json the migration goes around makes ok false and does not fail the call, dry run included"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn migrate_goes_around_a_config_problem_without_failing_the_call() {
     let mut preview = served_with_old();
     preview.write("specforge.json", CONFIG_WITH_A_PROBLEM);

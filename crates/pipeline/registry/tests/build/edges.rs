@@ -22,10 +22,7 @@ fn product_redeclaring_enforces() -> ExtensionDeclaration {
     product
 }
 
-#[spec(
-    behavior = "registry_build_edges",
-    verify = "edge type registered with label and description"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn an_edge_type_is_registered_with_its_label_and_description() {
     let declared = declare("@test/ext", |c| {
         c.kind("A", |k| {
@@ -63,10 +60,7 @@ fn an_edge_type_is_registered_with_its_label_and_description() {
     assert_eq!(build.edges().len(), 3);
 }
 
-#[spec(
-    behavior = "registry_build_edges",
-    verify = "source/target kind constraints recorded"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn an_edge_types_kind_constraints_are_recorded() {
     let build = build([software()]);
     let enforces = build.edges().get("enforces").unwrap();
@@ -84,10 +78,7 @@ fn an_edge_types_kind_constraints_are_recorded() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_edges",
-    verify = "a field's edge label no edge type declares is registered as an edge from the field's kind to its target kind"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_fields_undeclared_edge_label_is_registered_as_an_edge() {
     let declared = declare("@test/ext", |c| {
         c.kind("Task", |k| {
@@ -128,10 +119,7 @@ fn a_fields_undeclared_edge_label_is_registered_as_an_edge() {
     assert_eq!(coded(&build, "W021").len(), 2, "{:?}", diagnostics(&build));
 }
 
-#[spec(
-    behavior = "registry_build_edges",
-    verify = "an edge label several kinds write without declaring it names every writer, in load order"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn an_undeclared_edge_label_several_kinds_write_names_every_writer() {
     let first = || {
         declare("@test/first", |c| {
@@ -216,10 +204,7 @@ fn an_undeclared_edge_label_several_kinds_write_names_every_writer() {
     assert!(coded(&declared, "W018").is_empty());
 }
 
-#[spec(
-    behavior = "registry_build_edges",
-    verify = "an edge label a later extension declares again is W018 and the first in load order keeps it"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn an_edge_label_declared_twice_is_w018_and_the_first_keeps_it() {
     assert!(coded(&build([software(), product()]), "W018").is_empty());
 
@@ -267,10 +252,7 @@ fn an_edge_label_declared_twice_is_w018_and_the_first_keeps_it() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_edges",
-    verify = "Registry Build Registers Edge Types: edge type registration holds — declarations_in_load_order, edge_types_registered, every_writer_named, one_type_per_field, first_wins"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn edge_registration_holds() {
     // declarations_in_load_order: software, then product, which declares
     // `enforces` again.
@@ -333,10 +315,7 @@ fn edge_registration_holds() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_edges",
-    verify = "an edge type names every field that writes it: a kind's own, shared and enhancement fields alike"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_declared_edge_type_names_its_writers() {
     let declared = declare("@test/ext", |c| {
         c.kind("Task", |k| {
@@ -417,10 +396,7 @@ fn a_declared_edge_type_names_its_writers() {
     assert_eq!(label("task", "no_such_field"), None);
 }
 
-#[spec(
-    behavior = "registry_build_edges",
-    verify = "a field that writes a declared edge type from a kind outside its declared source kind, or to a kind outside its declared target kind, is W021 and writes no edge of that type"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_writer_outside_a_declared_end_is_w021_and_writes_nothing() {
     let declared = declare("@test/ext", |c| {
         c.kind("Job", |k| {
@@ -479,10 +455,7 @@ fn a_writer_outside_a_declared_end_is_w021_and_writes_nothing() {
     assert_eq!(relates.targets(), ["person"]);
 }
 
-#[spec(
-    behavior = "registry_build_edges",
-    verify = "a reference member of a typed block writes its edge type under its declared member path"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_block_members_edge_is_written_under_its_member_path() {
     let declared = declare("@test/ext", |c| {
         c.kind("A", |k| {

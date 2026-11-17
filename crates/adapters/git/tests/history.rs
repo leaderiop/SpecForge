@@ -84,16 +84,13 @@ fn place(repo: &Repo) -> GitPlace {
     }
 }
 
-#[specforge_test(port = "Git", verify = "Git contract is satisfied")]
+#[test]
 fn gix_keeps_the_git_contract() {
     let dir = tempfile::tempdir().unwrap();
     specforge_effects::testing::git_contract(&Gix::default(), dir.path());
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "history reads the commits files through a port"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn history_reads_the_commits_files() {
     let dir = tempfile::tempdir().unwrap();
     let repo = Repo::init(dir.path());
@@ -153,10 +150,7 @@ fn history_reads_the_commits_files() {
     }
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "history reads only the specs and the ledger of a commit"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn history_reads_only_the_specs_and_the_ledger() {
     let dir = tempfile::tempdir().unwrap();
     let repo = Repo::init(dir.path());
@@ -175,10 +169,7 @@ fn history_reads_only_the_specs_and_the_ledger() {
     assert_eq!(names, ["a.spec", "specforge-harness"]);
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "history reads named files at a commit in one question"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn history_reads_named_files_at_a_commit() {
     let dir = tempfile::tempdir().unwrap();
     let repo = Repo::init(dir.path());
@@ -202,10 +193,7 @@ fn history_reads_named_files_at_a_commit() {
     );
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "history lists a commit's tree with no content and no size"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn history_lists_a_commits_tree() {
     let dir = tempfile::tempdir().unwrap();
     let repo = Repo::init(dir.path());
@@ -237,10 +225,7 @@ fn history_lists_a_commits_tree() {
     );
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "history gives the sizes of the named files, and a missing blob is not fetched"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn history_gives_the_sizes_of_the_named_files() {
     let dir = tempfile::tempdir().unwrap();
     let repo = Repo::init(dir.path());
@@ -263,10 +248,7 @@ fn history_gives_the_sizes_of_the_named_files() {
 
 /// A partial clone that lacks `src/a.ts`'s blob: the repository names a promisor remote that cannot be reached, and
 /// the loose object is gone.
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "history gives the sizes of the named files, and a missing blob is not fetched"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_blob_a_partial_clone_lacks_reads_missing_and_is_never_fetched() {
     let dir = tempfile::tempdir().unwrap();
     let repo = Repo::init(&dir.path().join("clone"));
@@ -308,10 +290,7 @@ fn a_blob_a_partial_clone_lacks_reads_missing_and_is_never_fetched() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "git refuses a project directory that is not valid UTF-8"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_directory_that_is_not_utf8_is_refused() {
     use std::os::unix::ffi::OsStrExt;
     let dir = tempfile::tempdir().unwrap();
@@ -331,10 +310,7 @@ fn a_directory_that_is_not_utf8_is_refused() {
         .expect_err("refused");
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "history answers the branch and the typed status of a repository"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn history_answers_the_branch_and_status() {
     let dir = tempfile::tempdir().unwrap();
     let repo = Repo::init(dir.path());
@@ -361,10 +337,7 @@ fn history_answers_the_branch_and_status() {
 
 /// gsd-core 1.19.0 (#5048, #5699): a read-only status must not take the `.git/index.lock` a concurrent `git commit`
 /// holds. gix's status writes no index, so it answers beside the lock and leaves it.
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "history answers the branch and the typed status of a repository"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn status_takes_no_index_lock() {
     let dir = tempfile::tempdir().unwrap();
     let repo = Repo::init(dir.path());
@@ -381,10 +354,7 @@ fn status_takes_no_index_lock() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "history answers the branch and the typed status of a repository"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_tree_is_dirty_by_a_tracked_change_a_conflict_or_an_untracked_file() {
     let dir = tempfile::tempdir().unwrap();
     let repo = Repo::init(dir.path());
@@ -419,10 +389,7 @@ fn a_tree_is_dirty_by_a_tracked_change_a_conflict_or_an_untracked_file() {
     assert!(Gix::default().status(&place).unwrap().dirty(), "a conflict");
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "history answers the branch and the typed status of a repository"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn gix_fills_a_git_status_for_every_entry_kind() {
     let dir = tempfile::tempdir().unwrap();
     let repo = Repo::init(dir.path());

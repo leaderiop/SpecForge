@@ -7,10 +7,7 @@ use specforge_graph::{FieldValue, Written};
 use specforge_protocol_types::{Decimal, FieldType};
 use specforge_test_macros::test as specforge_test;
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a value that is not one word on an identifier field is E061"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn an_identifier_field_takes_one_word() {
     let form = FieldForm::new(FieldType::Identifier, Vec::new());
 
@@ -62,10 +59,7 @@ fn forms() -> FieldForms {
     FieldForms::new(declared, BTreeSet::from(["m".to_string()]), BTreeSet::new())
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a quoted word on a word field and a bare word on a text field are W159"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_field_type_writes_its_values_in_one_form() {
     let forms = forms();
     let rewrite = |field, written, text| {
@@ -98,10 +92,7 @@ fn a_field_type_writes_its_values_in_one_form() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a quoted number or boolean, a literal on a text field and a whole value on a list field are W159"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_value_is_rewritten_at_its_place_to_its_types_one_form() {
     let forms = forms();
     let at = |field, written, text, place| {
@@ -153,10 +144,7 @@ fn a_value_is_rewritten_at_its_place_to_its_types_one_form() {
     assert_eq!(at("texts", Written::Quoted, "gh.issue:1", Item), None);
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a bare word on a kind that takes members is not W159"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn rewrite_leaves_what_it_cannot_write() {
     let forms = forms();
     // Text with a space, or true/false, cannot be a bare word (a path can: ADR 0284).
@@ -203,10 +191,7 @@ fn rewrite_leaves_what_it_cannot_write() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a date field takes one calendar day, bare or quoted; any other value is E061"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_date_field_takes_one_calendar_day() {
     let form = FieldForm::new(FieldType::Date, Vec::new());
     for day in ["2026-03-01", "2024-02-29"] {
@@ -247,10 +232,7 @@ fn a_date_field_takes_one_calendar_day() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a quoted number or boolean, a literal on a text field and a whole value on a list field are W159"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_respelled_value_carries_its_spelling() {
     let forms = forms();
     let spelling = |field, written, text| {
@@ -275,10 +257,7 @@ fn a_respelled_value_carries_its_spelling() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a quoted number or boolean, a literal on a text field and a whole value on a list field are W159"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_list_on_a_number_a_boolean_or_a_date_field_keeps_its_items() {
     let forms = forms();
     for (field, text) in [("due", "2026-03-01"), ("num", "+3"), ("flag", "true")] {
@@ -311,10 +290,7 @@ fn word(text: &str) -> FieldValue {
     FieldValue::Identifier(text.into())
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a bare word is read by its field's declared type: a reference its name, an integer its difference, a date its day"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_declared_type_reads_a_bare_word() {
     let reference = FieldForm::new(FieldType::Reference, Vec::new());
     assert_eq!(read(&reference, word("03")), Ok(word("03")));
@@ -393,10 +369,7 @@ fn a_declared_type_reads_a_bare_word() {
     assert!(read(&identifier, word("a-b")).is_err());
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a number field reads a decimal word with a sign, a fraction, an exponent and leading zeros, and refuses any other word"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_number_field_reads_a_decimal_word() {
     let decimal = |text: &str| FieldValue::Number(Decimal::parse(text).unwrap());
     let number = FieldForm::new(FieldType::Number, Vec::new());
@@ -466,10 +439,7 @@ fn a_number_field_reads_a_decimal_word() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a decimal word on a text field is its text and on a reference field the name it spells"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_decimal_word_on_a_text_or_reference_field_keeps_its_text() {
     let tagged = |text: &str| FieldValue::Number(Decimal::parse(text).unwrap());
     for field_type in [FieldType::String, FieldType::Identifier] {
@@ -524,10 +494,7 @@ fn a_decimal_word_on_a_text_or_reference_field_keeps_its_text() {
     }
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a quoted number on a number field is W159 and written bare as given, or in its canonical text"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_quoted_number_is_w159_and_respelled_bare() {
     let forms = forms();
     let respell = |written, text: &str, place| {

@@ -67,34 +67,22 @@ fn check(host: Host) {
     assert_eq!(files, on_disk(&root));
 }
 
-#[specforge_test_macros::test(
-    behavior = "install_into_a_host",
-    verify = "Claude Code gets the agents, skills, slash commands, hooks, statusline and MCP entry of the fixture"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn claude_code_golden_is_the_fixture_rendered() {
     check(Host::ClaudeCode);
 }
 
-#[specforge_test_macros::test(
-    behavior = "install_into_a_host",
-    verify = "Codex gets agent TOML without an Anthropic model, skills, hooks.json and config.toml"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn codex_golden_is_the_fixture_rendered() {
     check(Host::Codex);
 }
 
-#[specforge_test_macros::test(
-    behavior = "install_into_a_host",
-    verify = "Cursor gets agents, skills, hooks.json and mcp.json, and reports the statusline and pre_compact as not rendered"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn cursor_golden_is_the_fixture_rendered() {
     check(Host::Cursor);
 }
 
-#[specforge_test_macros::test(
-    behavior = "install_into_a_host",
-    verify = "a command slash's CLI fallback names the host it was written for"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_command_fallback_names_the_host() {
     for host in Host::ALL {
         let files = written(host);
@@ -110,10 +98,7 @@ fn a_command_fallback_names_the_host() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "install_into_a_host",
-    verify = "Claude Code's slash skill leaves effort out, as upstream does"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_slash_skill_carries_no_effort() {
     let files = written(Host::ClaudeCode);
     let skill = &files[".claude/skills/t-plan-phase/SKILL.md"];
@@ -127,10 +112,7 @@ fn a_slash_skill_carries_no_effort() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "install_into_a_host",
-    verify = "Claude Code grants an agent, a skill or a slash command only the SpecForge tools it resolves, each by its name, never the whole server"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn claude_code_grants_only_the_specforge_tools_a_contribution_resolves() {
     let files = written(Host::ClaudeCode);
     for (path, text) in &files {

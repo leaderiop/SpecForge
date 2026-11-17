@@ -60,10 +60,7 @@ fn text(text: &str) -> SearchRequest<'_> {
     }
 }
 
-#[specforge_test(
-    behavior = "select_entities_over_the_view",
-    verify = "text search finds entities matching by name or contract"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn search_reads_names_then_string_field_text() {
     let project = project();
     assert_eq!(ids(&project, &text("alpha"))[0], "alpha");
@@ -71,10 +68,7 @@ fn search_reads_names_then_string_field_text() {
     assert_eq!(ids(&project, &text("system")), ["alpha"]);
 }
 
-#[specforge_test(
-    behavior = "select_entities_over_the_view",
-    verify = "empty query returns all entities up to limit"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn an_empty_text_finds_every_entity_up_to_the_limit() {
     let project = project();
     let mut all = ids(&project, &text(""));
@@ -87,10 +81,7 @@ fn an_empty_text_finds_every_entity_up_to_the_limit() {
     assert_eq!(ids(&project, &limited).len(), 2);
 }
 
-#[specforge_test(
-    behavior = "select_entities_over_the_view",
-    verify = "the references filter combines with the other filters"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn the_references_filter_is_anded_with_the_others() {
     let project = project();
     let referencing = |request: SearchRequest<'_>| {
@@ -144,10 +135,7 @@ pub(crate) const SHAPES: &str = "behavior dated \"Dated\" {\n  contract 2026-10-
     behavior bare \"Bare\" {\n  contract widget\n  produces [logged_in]\n}\n\
     event logged_in \"Logged in\" {\n}\n";
 
-#[specforge_test(
-    behavior = "select_entities_over_the_view",
-    verify = "the text search reads every field by the field-text rule, as the field filter does"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn the_text_search_reads_every_field_by_the_field_text_rule() {
     let p = crate::navigate::compile(
         &["@specforge/software", "@specforge/governance"],

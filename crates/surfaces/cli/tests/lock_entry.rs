@@ -32,10 +32,7 @@ fn acts(text: &str) -> bool {
     text != specforge_common::remedy::printable(&text)
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor reports a lock entry whose hash is not ASCII as an unreadable lock, without crashing"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_reports_a_lock_hash_that_is_not_ascii_as_unreadable() {
     let project = locked("wasm_hash", json!("aaaaaaaé"));
 
@@ -51,10 +48,7 @@ fn doctor_reports_a_lock_hash_that_is_not_ascii_as_unreadable() {
     );
 }
 
-#[specforge_test(
-    behavior = "install_wasm_extension",
-    verify = "an add over a lock entry whose key id holds a control character is refused with E033, written escaped"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn add_names_no_control_character_a_lock_key_holds() {
     let registry = serve(vec![Package::new(
         "@sdk/greet",
@@ -86,10 +80,7 @@ fn add_names_no_control_character_a_lock_key_holds() {
     );
 }
 
-#[specforge_test(
-    behavior = "read_lock_file",
-    verify = "check, extensions and doctor write no control character a lock entry's version, hash or peers hold"
-)]
+#[specforge_test(requirement = "FEATURE-138")]
 fn check_extensions_and_doctor_write_no_control_character_a_lock_entry_holds() {
     for (field, value) in [
         ("version", json!(format!("0.1.0{ESC}"))),

@@ -131,10 +131,7 @@ fn sent(runtime: &InProcessRuntime, pass: &str) -> (Vec<String>, Vec<String>) {
     (ids, edges)
 }
 
-#[specforge_test(
-    behavior = "run_check_phase_passes",
-    verify = "a pass that declares no facts input is sent no fact"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_pass_that_declares_no_facts_is_sent_no_fact() {
     let runtime = compiled_probe();
     let (ids, edges) = sent(&runtime, "plain");
@@ -148,10 +145,7 @@ fn a_pass_that_declares_no_facts_is_sent_no_fact() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_check_phase_passes",
-    verify = "a pass is sent exactly the facts of the kinds it declares"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_pass_is_sent_exactly_the_facts_of_the_kinds_it_declares() {
     let runtime = compiled_probe();
     let (ids, edges) = sent(&runtime, "scoped");
@@ -165,10 +159,7 @@ fn a_pass_is_sent_exactly_the_facts_of_the_kinds_it_declares() {
     assert_eq!(ids.len(), plain.len() + TESTS.len());
 }
 
-#[specforge_test(
-    behavior = "execute_validation_pattern",
-    verify = "a validation rule that names no kind judges no fact"
-)]
+#[specforge_test(requirement = "FEATURE-016")]
 fn a_kind_less_custom_rule_is_called_on_no_fact() {
     let runtime = compiled_probe();
     let calls: Vec<Value> = runtime
@@ -185,10 +176,7 @@ fn a_kind_less_custom_rule_is_called_on_no_fact() {
     assert!(ids.contains(&"T1"), "the authored truth is judged: {ids:?}");
 }
 
-#[specforge_test(
-    behavior = "run_check_phase_passes",
-    verify = "passes that declare the same facts and baseline kinds are sent one encoded input"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn passes_of_one_facts_and_baseline_share_one_encoding() {
     let (compiled, runtime) = probed();
     let baseline = specforge_project::baseline::Baseline::of_project(&compiled);

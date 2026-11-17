@@ -385,10 +385,7 @@ mod tests {
         json.to_string()
     }
 
-    #[specforge_test_macros::test(
-        type = "PackageSignature",
-        verify = "PackageSignature is the JSON of a publisher signature, and only a well-formed one reads"
-    )]
+    #[test]
     fn a_package_signature_is_this_json() {
         let signature = PackageSignature::sign(&key(), &content(), at());
         let json: serde_json::Value = serde_json::from_str(&signature.to_json()).unwrap();

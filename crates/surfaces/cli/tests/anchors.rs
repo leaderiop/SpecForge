@@ -65,10 +65,7 @@ fn mcp(project: &TestProject, tool: &str, arguments: Value) -> Value {
     serde_json::from_str(text).unwrap()
 }
 
-#[specforge_test(
-    behavior = "provide_anchors_cli",
-    verify = "anchors <entity> prints the rows find_implementation returns"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn anchors_of_an_entity_are_find_implementations_rows() {
     let project = anchored();
     let cli = Cli::on(&project);
@@ -99,10 +96,7 @@ fn anchors_of_an_entity_are_find_implementations_rows() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_anchors_cli",
-    verify = "anchors --file prints the rows find_spec_for_source returns"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn anchors_of_a_file_are_find_spec_for_sources_rows() {
     let project = anchored();
     let cli = Cli::on(&project);
@@ -129,10 +123,7 @@ fn anchors_of_a_file_are_find_spec_for_sources_rows() {
     assert!(stale.stderr.contains("warning[W198]"), "{}", stale.stderr);
 }
 
-#[specforge_test(
-    behavior = "provide_anchors_cli",
-    verify = "an entity and --file together are refused"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn an_entity_and_a_file_together_are_refused() {
     let project = anchored();
     let cli = Cli::on(&project);
@@ -147,10 +138,7 @@ fn an_entity_and_a_file_together_are_refused() {
     assert_eq!(neither.code, 2, "{}", neither.stderr);
 }
 
-#[specforge_test(
-    behavior = "provide_anchors_cli",
-    verify = "anchors answers a Rust test's file and line after a real collect"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn anchors_answers_a_collected_rust_item() {
     // The Rust packs' fixture crate, collected for real: `rust-cargo` reads `Cargo.toml`, `rust-source` the crate's
     // files through the host's reader; no command runs.

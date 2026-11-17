@@ -91,10 +91,7 @@ fn labels(document: &Value) -> Vec<&str> {
     labels
 }
 
-#[specforge_test(
-    behavior = "serve_schema_resource",
-    verify = "specforge schema outputs full schema as JSON"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn the_outcome_serializes_the_whole_schema() {
     let project = project();
     let outcome = plain(schema(&project.view(), &SchemaRequest::default()).unwrap());
@@ -139,10 +136,7 @@ fn the_outcome_serializes_the_whole_schema() {
     assert_eq!(text, serde_json::to_string_pretty(&outcome).unwrap());
 }
 
-#[specforge_test(
-    behavior = "serve_schema_resource",
-    verify = "--kind filter restricts to single entity kind"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn a_kind_keeps_its_entry_and_the_edges_that_touch_it() {
     let project = project();
     for (kind, edges) in [
@@ -162,7 +156,7 @@ fn a_kind_keeps_its_entry_and_the_edges_that_touch_it() {
     }
 }
 
-#[specforge_test(behavior = "serve_schema_resource", verify = "missing kind error")]
+#[specforge_test(requirement = "FEATURE-120")]
 fn an_unknown_kind_is_refused_naming_the_closest() {
     let project = project();
     let request = SchemaRequest {
@@ -178,10 +172,7 @@ fn an_unknown_kind_is_refused_naming_the_closest() {
     );
 }
 
-#[specforge_test(
-    behavior = "serve_schema_resource",
-    verify = "Serve Schema Resource: schema resource serving holds — validation_complete_fired, full_schema_output, kind_filter_supported, mcp_resource_available"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn serve_schema_contract() {
     let project = project();
     let view = project.view();
@@ -236,10 +227,7 @@ fn json_schema_refuses_dot() {
     );
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn schema_states_which_field_a_refusal_is_about() {
     use specforge_ops::read::schema::SchemaField;
     let request = SchemaRequest {
@@ -333,10 +321,7 @@ mod published {
 
     // --- Phase 1d: Schema command tests ---
 
-    #[specforge_test(
-        behavior = "serve_schema_resource",
-        verify = "specforge schema outputs full schema as JSON"
-    )]
+    #[specforge_test(requirement = "FEATURE-120")]
     fn schema_command_outputs_valid_json() {
         let (_project, compiled) = software_project();
         let parsed = schema_of(&compiled, &SchemaRequest::default());
@@ -399,10 +384,7 @@ mod published {
         assert!(schema_refused(&compiled, "nonexistent_kind"));
     }
 
-    #[specforge_test(
-        behavior = "publish_schema_specification",
-        verify = "published schema is valid JSON Schema"
-    )]
+    #[specforge_test(requirement = "FEATURE-048")]
     fn schema_publish_produces_json_schema_draft() {
         let (_software, with_software) = software_project();
         let (_bare, bare) = built(&[("main.spec", specs::SOFTWARE)]);
@@ -537,10 +519,7 @@ failure_mode parser_crash "Parser Crash" {
 }
 "#;
 
-    #[specforge_test(
-        behavior = "publish_schema_specification",
-        verify = "published schema validates known-good export"
-    )]
+    #[specforge_test(requirement = "FEATURE-048")]
     fn schema_publish_validates_a_real_export() {
         let project = TestProject::new()
             .enabling(&[
@@ -613,10 +592,7 @@ failure_mode parser_crash "Parser Crash" {
         );
     }
 
-    #[specforge_test(
-        behavior = "check_field_value_types",
-        verify = "an export with a coerced string_list validates against the published schema"
-    )]
+    #[specforge_test(requirement = "FEATURE-018")]
     fn schema_publish_validates_an_export_with_a_coerced_string_list() {
         let project = TestProject::new()
             .enabling(&["@specforge/software", "@specforge/governance"])
@@ -649,10 +625,7 @@ failure_mode fm1 "F" {
         );
     }
 
-    #[specforge_test(
-        behavior = "publish_schema_specification",
-        verify = "published schema describes all registered entity kinds"
-    )]
+    #[specforge_test(requirement = "FEATURE-048")]
     fn schema_publish_includes_node_kind_enum() {
         let (_project, compiled) = software_project();
         let parsed = published(&compiled, Format::Graph);
@@ -675,10 +648,7 @@ failure_mode fm1 "F" {
         assert_eq!(declared, names(&registered["entity_kinds"], "name"));
     }
 
-    #[specforge_test(
-        behavior = "publish_schema_specification",
-        verify = "published schema describes all edge types"
-    )]
+    #[specforge_test(requirement = "FEATURE-048")]
     fn schema_publish_includes_edge_label_enum() {
         let (_project, compiled) = software_project();
         let parsed = published(&compiled, Format::Graph);
@@ -731,10 +701,7 @@ failure_mode fm1 "F" {
         assert_eq!(strings(&edge_label["examples"]), declaring);
     }
 
-    #[specforge_test(
-        behavior = "embed_schema_in_export",
-        verify = "schema embedded as top-level key in full JSON export"
-    )]
+    #[specforge_test(requirement = "FEATURE-120")]
     fn export_v2_schema_has_entity_kinds() {
         let (_project, compiled) = built(&[("main.spec", specs::SOFTWARE)]);
 
@@ -746,10 +713,7 @@ failure_mode fm1 "F" {
         );
     }
 
-    #[specforge_test(
-        behavior = "embed_schema_in_export",
-        verify = "format_version set to 2.0 with schema"
-    )]
+    #[specforge_test(requirement = "FEATURE-120")]
     fn export_v2_schema_has_edge_types() {
         let (_project, compiled) = software_project();
         let parsed = exported(&compiled);
@@ -780,10 +744,7 @@ failure_mode fm1 "F" {
         assert_ne!(bare["format_version"], "2.0");
     }
 
-    #[specforge_test(
-        behavior = "negotiate_schema_version",
-        verify = "a requested version of the same major, not newer, is admitted and the export carries the current version"
-    )]
+    #[specforge_test(requirement = "FEATURE-048")]
     fn export_schema_version_negotiation() {
         let (_project, compiled) = built(&[("main.spec", specs::SOFTWARE)]);
         let versioned = |version: &'static str| {
@@ -805,10 +766,7 @@ failure_mode fm1 "F" {
         assert_eq!(refused.error.code, "incompatible_schema_version");
     }
 
-    #[specforge_test(
-        behavior = "embed_schema_in_export",
-        verify = "scoped exports carry schema_ref (url and content_hash) instead of embedded schema"
-    )]
+    #[specforge_test(requirement = "FEATURE-120")]
     fn export_scoped_v2_references_schema() {
         let (_project, compiled) = built(&[(
             "main.spec",
@@ -989,7 +947,7 @@ behavior gamma "G" { contract "first" features [alpha] }
         "crates/surfaces/cli/tests/fixtures/parity/body_parser_type",
         "crates/surfaces/cli/tests/fixtures/read_views/rv1",
         "crates/surfaces/cli/tests/fixtures/coverage/fx1",
-        "xtask/tests/fixtures/links",
+        "xtask/tests/fixtures/requirement-links",
     ];
 
     /// Every named format's export of the project against the format's published
@@ -1008,10 +966,7 @@ behavior gamma "G" { contract "first" features [alpha] }
         messages
     }
 
-    #[specforge_test(
-        behavior = "publish_schema_specification",
-        verify = "a context or brief export validates against the published schema of its format"
-    )]
+    #[specforge_test(requirement = "FEATURE-048")]
     fn agent_exports_validate_against_their_published_schema() {
         let project = TestProject::new()
         .enabling(&["@specforge/software", "@specforge/governance"])
@@ -1109,10 +1064,7 @@ decision d1 "D" {
 }
 "#;
 
-    #[specforge_test(
-        behavior = "publish_schema_specification",
-        verify = "an export of a project with no errors validates against the published schema"
-    )]
+    #[specforge_test(requirement = "FEATURE-048")]
     fn an_export_of_a_project_check_admits_validates_against_its_published_schema() {
         let project = TestProject::new()
             .enabling(&[
@@ -1129,14 +1081,8 @@ decision d1 "D" {
         assert!(messages.is_empty(), "{}", messages.join("\n"));
     }
 
-    #[specforge_test(
-        behavior = "export_agent_graph_format",
-        verify = "output conforms to Graph Protocol schema"
-    )]
-    #[specforge_test(
-        behavior = "publish_schema_specification",
-        verify = "this repository's and its example projects' exports validate against their published schemas"
-    )]
+    #[specforge_test(requirement = "FEATURE-001")]
+    #[specforge_test(requirement = "FEATURE-048")]
     fn this_repository_and_its_example_projects_export_what_they_publish() {
         for rel in PUBLISHED_PROJECTS {
             let project = copy_project(rel);

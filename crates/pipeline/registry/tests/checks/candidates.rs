@@ -24,10 +24,8 @@ fn without_suggestions(diagnostics: &[Diagnostic]) -> Vec<Diagnostic> {
         .collect()
 }
 
-#[spec(
-    behavior = "suggest_missing_extensions",
-    verify = "the candidate vocabulary changes only suggestions, never which diagnostics a check reports"
-)]
+#[spec(requirement = "FEATURE-140")]
+#[spec(requirement = "FEATURE-141")]
 fn the_candidate_vocabulary_changes_only_suggestions() {
     let bare = checked(&build([software()]), &[("t.spec", TEXT)]);
     let handed = build_with([software()], candidates(&[product(), formal()]));

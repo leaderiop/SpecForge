@@ -48,10 +48,7 @@ fn strings(value: &Value) -> Vec<&str> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "serve_context_pack",
-    verify = "a budgeted context read of a plan for its executor keeps every core member and cuts only enrich sections"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn a_1500_token_read_for_a_plans_executor_keeps_its_tasks_and_context() {
     let mut server = context_served();
     let (_, read) = resource(
@@ -87,10 +84,7 @@ fn a_1500_token_read_for_a_plans_executor_keeps_its_tasks_and_context() {
     assert!(core.iter().all(|id| !truncated.contains(id)), "{budget}");
 }
 
-#[specforge_test(
-    behavior = "serve_context_pack",
-    verify = "specforge://context/{+entity_id}?role= answers the role's pack, and depth or kinds beside role are refused naming the key"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn with_role_depth_and_kinds_are_refused_naming_the_key() {
     let mut server = context_served();
     for (query, key) in [("depth=1", "depth"), ("kinds=task", "kinds")] {
@@ -111,10 +105,7 @@ fn with_role_depth_and_kinds_are_refused_naming_the_key() {
     assert_eq!(reply["error"]["data"]["argument"], "role", "{reply}");
 }
 
-#[specforge_test(
-    behavior = "serve_context_pack",
-    verify = "specforge://context/{+entity_id}?role= answers the role's pack, and depth or kinds beside role are refused naming the key"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn the_role_read_is_byte_equal_to_the_context_tool() {
     let mut server = context_served();
     let read = resource_text(&read_resource(
@@ -130,10 +121,7 @@ fn the_role_read_is_byte_equal_to_the_context_tool() {
     assert_eq!(read, printed("gsd/executor", Some(1500)));
 }
 
-#[specforge_test(
-    behavior = "serve_context_pack",
-    verify = "specforge.context answers the pack specforge context prints"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn the_context_tool_answers_what_the_cli_prints() {
     let mut server = context_served();
     for (route, max_tokens) in [

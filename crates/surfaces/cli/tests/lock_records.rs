@@ -35,10 +35,7 @@ fn lock(project: &TestProject) -> Value {
         .unwrap()
 }
 
-#[specforge_test(
-    behavior = "load_wasm_module",
-    verify = "a lock entry whose binary declares another version or other peers is refused with E070 through check, and add of its file rewrites it"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
 fn a_lock_entry_its_binary_does_not_declare_is_e070_until_an_add_rewrites_it() {
     let project = greeting_project();
     project.write("greet.wasm", greet_wasm());
@@ -78,10 +75,7 @@ fn a_lock_entry_its_binary_does_not_declare_is_e070_until_an_add_rewrites_it() {
     assert!(ok, "{found:?}");
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor never calls the installed binaries healthy beside an E070 of a binary its lock entry does not record"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_calls_no_binary_healthy_beside_an_e070() {
     let project = greeting_project();
     project.write("greet.wasm", greet_wasm());

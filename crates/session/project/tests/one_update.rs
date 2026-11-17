@@ -89,10 +89,7 @@ fn created_guide(dir: &TestProject) -> PathBuf {
     guide
 }
 
-#[specforge_test(
-    behavior = "bring_session_up_to_date",
-    verify = "a source that reads as the session holds it does not drop a check input changed with it"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_current_source_and_a_changed_check_input_run_the_checks() {
     let rt = owed();
     let (dir, mut session) = opened(&rt);
@@ -150,10 +147,7 @@ fn a_relinked_source_and_a_changed_check_input_run_the_checks() {
     assert!(session.stale().is_empty());
 }
 
-#[specforge_test(
-    behavior = "bring_session_up_to_date",
-    verify = "a changed source and a changed check input run the checks once"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_changed_source_and_a_changed_check_input_run_the_checks_once() {
     let rt = owed();
     let (dir, mut session) = opened(&rt);
@@ -173,10 +167,7 @@ fn a_changed_source_and_a_changed_check_input_run_the_checks_once() {
     assert!(session.stale().is_empty());
 }
 
-#[specforge_test(
-    behavior = "bring_session_up_to_date",
-    verify = "an environment reload covers a check input changed with it"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn an_environment_change_covers_a_changed_check_input() {
     let rt = owed();
     let (dir, mut session) = opened(&rt);

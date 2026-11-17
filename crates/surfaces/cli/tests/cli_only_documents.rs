@@ -27,10 +27,7 @@ fn keys_of(diagnostic: &serde_json::Value) -> Vec<String> {
     keys
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "search's document writes its diagnostics as check does and carries no null"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn search_writes_its_diagnostics_as_check_does() {
     let dir = TestProject::new().config(|c| {
         c["registries"] = serde_json::json!([
@@ -51,10 +48,7 @@ fn search_writes_its_diagnostics_as_check_does() {
     assert_eq!(diagnostic["severity"], "Error");
 }
 
-#[specforge_test(
-    behavior = "validate_wasm_extension_locally",
-    verify = "specforge extension validate writes its diagnostics as check does"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn validate_writes_its_diagnostics_as_check_does() {
     let dir = TestProject::new().without_config();
     let probe = repo_root().join("fixtures/sandbox-probe/wasm/sandbox_probe.wasm");

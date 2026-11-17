@@ -67,10 +67,7 @@ mod tests {
         Diagnostic::new(code, what)
     }
 
-    #[specforge_test_macros::test(
-        behavior = "compute_schema_version",
-        verify = "every reader of the schema reports the notices export reports for the same record"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-048")]
     fn map_and_try_map_keep_the_notices() {
         let i016 = notice(codes::I016, "the schema cache could not be read");
         let mapped = Noticed::new(2, vec![i016.clone()]).map(|n| n * 2);

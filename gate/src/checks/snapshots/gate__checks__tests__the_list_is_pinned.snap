@@ -21,8 +21,8 @@ blob-size         hook       **/*.wasm, gate/src/blob_size.rs
                              every committed .wasm blob (the staged one, at the hook) is at most 2500000 B, or the allowance `gate/src/blob_size.rs` names for it (ADR 0338 D8, ADR 0366 D3)
 crate-map         hook       computed: ARCHITECTURE.md, crates/README.md, the root manifest, or a member's manifest or crate root
                              ARCHITECTURE.md's layer stack and crates/README.md's crate table are what the members' folders and descriptions say; every member has a description and crate docs
-links             hook       computed: a .spec file; a test file or one with a `verify =` attribute
-                             every test's verify text and entity is declared by the spec (A016, static)
+links             hook       computed: a .spec file; a test file or one with a spec-link attribute
+                             every spec-link attribute of the repository's tests names a requirement of the spec and carries no verify text (ADR 0374 D4)
 doc-links         hook       always
                              every relative link in a tracked Markdown file names a tracked file or directory
 root-layout       hook       always
@@ -46,8 +46,8 @@ doctests          quick      computed: a workspace member that holds a runnable 
 published-schemas quick      **/*.spec, **/specforge.json, extensions/**, crates/pipeline/emitter/**, crates/pipeline/graph/**, crates/pipeline/registry/**, crates/app/ops/tests/operations/schema.rs (after build)
                              every project's exports validate against the schema `specforge schema --publish` prints for their format
 specs             quick      **/*.spec, **/specforge.json, gate/baseline.json, extensions/**, crates/**/src/**, crates/**/Cargo.toml
-                             every project, as tracked, checks with no error and no warning above the baseline
-dogfood           full       always (after tests, guests)
-                             the tests' reports leave no unknown entity (W115), failing proof (A014) or undeclared obligation (A016)
+                             every project, as tracked (collected by @rust/cargo and @rust/source first when it loads them), checks with no error and no warning above the baseline
+dogfood           full       always (after tests)
+                             the tests' nextest reports, read through @rust/test, prove at least one requirement and fail none (ADR 0374 D5)
 builtins-verify   bootstrap  always
                              a cold clone rebuilds every committed blob to the vendored bytes

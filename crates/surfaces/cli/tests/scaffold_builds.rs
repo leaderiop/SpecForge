@@ -5,10 +5,7 @@ use crate::support::{Cli, TestProject};
 use specforge_test_macros::test as specforge_test;
 use std::fs;
 
-#[specforge_test(
-    behavior = "scaffold_wasm_extension_project",
-    verify = "a scaffold inside a cargo workspace is a workspace of its own"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn a_scaffold_inside_a_cargo_workspace_is_a_workspace_of_its_own() {
     let dir = TestProject::new().without_config();
     fs::write(dir.root().join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
@@ -57,10 +54,7 @@ fn a_scaffold_inside_a_cargo_workspace_is_a_workspace_of_its_own() {
     );
 }
 
-#[specforge_test(
-    behavior = "build_wasm_extension",
-    verify = "a build whose SDK does not resolve says so and names how to build against an unreleased SDK"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn a_build_whose_sdk_does_not_resolve_names_the_remedy() {
     let dir = TestProject::new().without_config();
     let krate = dir.root().join("needs-sdk");

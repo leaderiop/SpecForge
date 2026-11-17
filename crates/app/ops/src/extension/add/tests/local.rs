@@ -1,9 +1,7 @@
 use super::*;
 
-#[specforge_test(
-    behavior = "management_operations_over_the_project_view",
-    verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
+#[specforge_test(requirement = "FEATURE-070")]
 fn an_unusable_config_is_refused_before_anything_is_installed() {
     use crate::config::testing::{UNUSABLE, files_under};
 
@@ -38,10 +36,7 @@ fn an_unusable_config_is_refused_before_anything_is_installed() {
     }
 }
 
-#[specforge_test(
-    behavior = "install_wasm_extension",
-    verify = "an install of an extension whose binary changed after install replaces it"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn add_reinstalls_a_binary_that_changed() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
@@ -123,10 +118,7 @@ fn add_refuses_a_binary_that_claims_a_builtins_name() {
     assert_eq!(files_under(dir.path()), before);
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "add unresolvable extension rejects with diagnostic"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_local_path_that_names_nothing_is_e040() {
     use crate::config::testing::files_under;
     let dir = project_with(EMPTY_PROJECT);
@@ -180,10 +172,7 @@ fn an_empty_directory_is_no_extension_crate() {
     assert_eq!(files_under(dir.path()), before);
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a local crate directory installs the component its crate builds"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_crate_directory_installs_its_built_component() {
     let dir = project_with(EMPTY_PROJECT);
     let scratch = tempfile::tempdir().unwrap();
@@ -260,10 +249,7 @@ fn a_local_file_that_is_no_extension_is_e028() {
     assert_eq!(files_under(dir.path()), before);
 }
 
-#[specforge_test(
-    behavior = "install_wasm_extension",
-    verify = "an install over an unreadable specforge.lock is refused before anything is written"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn an_unreadable_lock_refuses_before_the_local_file_is_read() {
     let dir = project_with(EMPTY_PROJECT);
     std::fs::write(dir.path().join("specforge.lock"), "not a lock {{{").unwrap();
@@ -286,10 +272,7 @@ fn an_unreadable_lock_refuses_before_the_local_file_is_read() {
     );
 }
 
-#[specforge_test(
-    behavior = "install_wasm_extension",
-    verify = "add, init and publish read a candidate's declaration in the runtime their surface passes"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn a_candidate_is_read_in_the_runtime_the_caller_passes() {
     let dir = project_with(EMPTY_PROJECT);
     let files = tempfile::tempdir().unwrap();
@@ -402,10 +385,7 @@ fn an_add_writes_nothing_outside_its_project_whatever_bound_its_caller_lends() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "install_wasm_extension",
-    verify = "an add whose installs are all present writes only specforge.json, wherever its lock links"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn an_add_whose_installs_are_all_present_writes_no_lock_and_is_not_bounded_by_it() {
     use crate::config::testing::files_under;
     let dir = project_with(EMPTY_PROJECT);
@@ -467,10 +447,7 @@ fn an_add_whose_installs_are_all_present_writes_no_lock_and_is_not_bounded_by_it
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "install_wasm_extension",
-    verify = "an add of a local file whose path holds a control character is refused (E054) before anything is written"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn a_local_path_the_lock_cannot_record_is_refused_before_anything_is_written() {
     use crate::config::testing::files_under;
 
@@ -540,19 +517,13 @@ fn refused_before_anything_is_written(
     }
 }
 
-#[specforge_test(
-    behavior = "install_wasm_extension",
-    verify = "an add of a local file declaring a version that is not SemVer is refused (E072) before anything is written"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn a_local_file_declaring_a_version_that_is_no_semver_version_is_refused_before_anything_is_written()
  {
     refused_before_anything_is_written("E072", "0.1.x", &[]);
 }
 
-#[specforge_test(
-    behavior = "install_wasm_extension",
-    verify = "an add of a local file declaring a peer whose name holds a control character is refused (E027) before anything is written, the peer named escaped"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn a_local_file_declaring_a_peer_with_a_control_character_is_refused_before_anything_is_written() {
     let peer = specforge_protocol_types::PeerDependency {
         name: "@x/y\u{1b}[2J".to_string(),

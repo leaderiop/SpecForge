@@ -95,7 +95,7 @@ fn only_the_typed_origin_may_be_private_on_a_typed_request() {
     assert!(other_heads.requests().is_empty(), "the hop was requested");
 }
 
-#[specforge_test_macros::test(port = "Http", verify = "Http contract is satisfied")]
+#[test]
 fn the_client_keeps_the_http_contract() {
     specforge_effects::testing::http_contract(&Client::new());
 }

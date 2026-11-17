@@ -38,10 +38,7 @@ fn typed_fields() -> ExtensionDeclaration {
     })
 }
 
-#[spec(
-    behavior = "registry_build_graph_inputs",
-    verify = "a field's value coercion follows its registered type"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_fields_form_follows_its_registered_type() {
     let build = build([typed_fields()]);
     let inputs = build.graph_inputs();
@@ -81,10 +78,7 @@ fn a_fields_form_follows_its_registered_type() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_graph_inputs",
-    verify = "a derived reference field is a graph input only with a target kind and a known source"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_derived_reference_needs_a_target_kind_and_a_known_source() {
     let declaration = declare("@t/derived", |c| {
         c.kind("Shape", |k| {
@@ -140,10 +134,7 @@ fn a_derived_reference_needs_a_target_kind_and_a_known_source() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_graph_inputs",
-    verify = "Registry Build Derives the Graph Inputs: graph inputs hold — registries_populated, every_input_derived, registries_agree, deterministic, graph_built_in_the_build"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn the_graph_inputs_contract_holds() {
     let declared = || {
         [
@@ -190,10 +181,7 @@ fn the_graph_inputs_contract_holds() {
     assert_ne!(inputs, &GraphInputs::default());
 }
 
-#[spec(
-    behavior = "registry_build_graph_inputs",
-    verify = "a reference field's form says whether its target kind is loaded"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn the_field_forms_say_whether_each_target_kind_is_loaded() {
     let forms = build([declare("@t/ext", |c| {
         c.kind("Doc", |k| {
@@ -217,10 +205,7 @@ fn the_field_forms_say_whether_each_target_kind_is_loaded() {
     assert_eq!(forms.target("doc", "title"), None);
 }
 
-#[spec(
-    behavior = "registry_build_graph_inputs",
-    verify = "the graph inputs name the extension that owns each absent target kind"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn the_graph_inputs_name_each_absent_target_kinds_owner() {
     let product = declare("@t/product", |c| {
         c.kind("Feature", |k| {
@@ -307,10 +292,7 @@ fn the_graph_inputs_name_each_absent_target_kinds_owner() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_graph_inputs",
-    verify = "a graph built in the registry build reads its own graph inputs and the provider schemes it is handed"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_graph_built_in_the_registry_build_reads_its_inputs_and_schemes() {
     let build = build([tickets()]);
     let source = "ticket a \"A\" {\n  blocker b\n  urgent \"false\"\n}\nticket b \"B\" {\n}\nref jira.issue:7 \"Seven\"\n";

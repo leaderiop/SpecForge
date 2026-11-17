@@ -143,10 +143,7 @@ fn create(id: &str) -> Step {
 
 /// A plan the write completes reveals a waiting finding only when it is the plan the project held: never one the
 /// write creates, deletes and creates again, or renames, and never over a project whose checks were skipped.
-#[specforge_test(
-    behavior = "validate_typed_edit",
-    verify = "a finding on an entity the write creates, deletes or renames, or over skipped checks, is an error it adds"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn only_the_entity_the_project_held_reveals_a_finding() {
     let pending = compiled("plan PA \"PA\" {\n  flag true\n}\n");
     let complete = |id: &str| Step::Edit(crate::edit::set(id, "done", Input::One("true".into())));
@@ -181,10 +178,7 @@ fn only_the_entity_the_project_held_reveals_a_finding() {
     );
 }
 
-#[specforge_test(
-    behavior = "validate_typed_edit",
-    verify = "a finding a write reveals by moving its entity into the owner state its code waits for is no error the write adds"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_finding_a_write_reveals_is_no_error_it_adds() {
     // Pending: the finding that waits for completion is not reported; the other is.
     let pending = compiled("plan P \"P\" {\n  flag true\n}\n");

@@ -16,10 +16,7 @@ fn greet_project() -> TestProject {
     project
 }
 
-#[specforge_test(
-    behavior = "explain_diagnostic_code",
-    verify = "in a project, specforge explain explains a code its loaded extensions catalog: the code, its title, its level and its owner"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn explain_explains_a_code_the_projects_extension_catalogs() {
     let project = greet_project();
     let cli = Cli::on(&project);
@@ -48,10 +45,7 @@ fn explain_explains_a_code_the_projects_extension_catalogs() {
     );
 }
 
-#[specforge_test(
-    behavior = "explain_diagnostic_code",
-    verify = "outside a project specforge explain answers from the catalog alone: a code only an extension catalogs is unknown_code"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn outside_its_project_a_catalogued_code_is_unknown() {
     let loose = TestProject::new().without_config();
     let stderr = Cli::on(&loose)

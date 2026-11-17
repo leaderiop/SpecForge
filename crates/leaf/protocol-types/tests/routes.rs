@@ -66,10 +66,7 @@ fn route() -> RouteDescriptor {
         ..Default::default()
     }
 }
-#[specforge_test_macros::test(
-    behavior = "declare_trace_route",
-    verify = "a routes category round trips on the wire and a 1.14 guest is never asked for it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-129")]
 fn a_routes_category_round_trips() {
     let items = json!([{
         "name": "requirement-thread",
@@ -110,10 +107,7 @@ fn a_routes_category_round_trips() {
     assert!(stored.get("routes").is_none(), "{stored}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "declare_trace_route",
-    verify = "a routes category round trips on the wire and a 1.14 guest is never asked for it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-129")]
 fn a_1_14_guest_is_asked_no_routes_and_loads() {
     let loaded = ExtensionDeclaration::from_wire(
         handshake("1.14.0"),
@@ -134,10 +128,7 @@ fn a_1_14_guest_is_asked_no_routes_and_loads() {
     assert!(loaded.routes.is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "declare_trace_route",
-    verify = "an unknown key of a route, a step or an annotation is reported"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-129")]
 fn an_unknown_route_step_key_is_reported() {
     let mut unknown = Vec::new();
     ExtensionDeclaration::from_wire(

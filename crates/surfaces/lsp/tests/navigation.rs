@@ -8,10 +8,7 @@ use std::fs;
 
 // -- LineIndex::range (1-based → 0-based conversion) --------------------------
 
-#[spec(
-    behavior = "go_to_definition",
-    verify = "source spans convert from 1-based to 0-based for LSP"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn source_span_converts_1based_to_0based() {
     // Parser produces 1-based spans (line 3, col 1 means third line, first column)
     let span = SourceSpan {
@@ -28,10 +25,7 @@ fn source_span_converts_1based_to_0based() {
     assert_eq!((lsp.end.line, lsp.end.character), (4, 1));
 }
 
-#[spec(
-    behavior = "go_to_definition",
-    verify = "source spans convert from 1-based to 0-based for LSP"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn source_span_zero_saturates() {
     // Edge case: span with 0 values shouldn't underflow
     let span = SourceSpan {
@@ -67,10 +61,7 @@ fn goto(served: &crate::served::Served, file: &str) -> Option<tower_lsp::lsp_typ
 
 /// The resolver's cascade, not a hand-built `{root}/{import}.spec`: a
 /// relative path from a nested file and a directory's `index.spec`.
-#[spec(
-    behavior = "goto_import_definition",
-    verify = "go-to-def on use path navigates to target file"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn goto_import_resolves_relative_and_index_targets() {
     let served = crate::served::Served::new(&[
         ("models/index.spec", "term m \"M\" {}\n"),
@@ -103,10 +94,7 @@ fn goto_import_resolves_relative_and_index_targets() {
     assert_eq!(at(2), None);
 }
 
-#[spec(
-    behavior = "goto_import_definition",
-    verify = "go-to-def on use path navigates to target file"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn goto_import_navigates_to_file() {
     let served = crate::served::Served::new(&[
         ("behaviors/auth.spec", "behavior auth \"Auth\" {}\n"),
@@ -120,10 +108,7 @@ fn goto_import_navigates_to_file() {
     );
 }
 
-#[spec(
-    behavior = "goto_import_definition",
-    verify = "go-to-def on non-existent use path returns no result"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn goto_import_returns_none_for_missing() {
     let served = crate::served::Served::new(&[
         ("main.spec", "use \"nonexistent/path\"\n"),
@@ -137,10 +122,7 @@ fn goto_import_returns_none_for_missing() {
     assert_eq!(goto(&served, "sub/inside.spec"), None);
 }
 
-#[spec(
-    behavior = "goto_import_definition",
-    verify = "go-to-def on non-existent use path returns no result"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn goto_import_in_a_detached_workspace_is_none() {
     // No workspace folder: the compile resolves no import (ADR 0047 D4), though both buffers
     // are open.
@@ -159,10 +141,7 @@ fn goto_import_in_a_detached_workspace_is_none() {
 
 // -- goto_import_definition (LSP dispatch integration) ------------------------
 
-#[spec(
-    behavior = "goto_import_definition",
-    verify = "go-to-def on use path navigates to target file"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn goto_definition_dispatches_to_import_on_use_line() {
     // A document with a use statement: the cursor on it names its path, and
     // the definition is the imported file, from its first line.
@@ -195,10 +174,7 @@ fn definition_of_use_at_line_zero(
     specforge_lsp::answers::definition(state, uri, tower_lsp::lsp_types::Position::new(0, 5))
 }
 
-#[spec(
-    behavior = "goto_import_definition",
-    verify = "go-to-def on a use path names only a project source, an open unsaved document included"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn go_to_definition_on_a_use_names_an_open_unsaved_document() {
     let mut served = crate::served::Served::new(&[("a.spec", "use \"b\"\n\nterm a \"A\" {\n}\n")])
         .open(&["a.spec"]);
@@ -237,10 +213,7 @@ fn go_to_definition_on_a_use_names_an_open_unsaved_document() {
     );
 }
 
-#[spec(
-    behavior = "goto_import_definition",
-    verify = "go-to-def on a use path names only a project source, an open unsaved document included"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn go_to_definition_on_a_use_of_an_excluded_file_names_nothing() {
     let dir = tempfile::tempdir().unwrap();
     for (path, text) in [
@@ -261,10 +234,7 @@ fn go_to_definition_on_a_use_of_an_excluded_file_names_nothing() {
     assert_eq!(definition_of_use_at_line_zero(&served.state(), &main), None);
 }
 
-#[spec(
-    behavior = "goto_import_definition",
-    verify = "go-to-def on use path navigates to target file"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn go_to_definition_on_a_use_answers_while_the_session_is_out() {
     let mut served = crate::served::Served::new(&[
         ("types.spec", "term t \"T\" {\n}\n"),
@@ -318,10 +288,7 @@ fn citing_a_located_fact() -> crate::served::Served {
         .open(&["truths.spec"])
 }
 
-#[spec(
-    behavior = "go_to_definition",
-    verify = "definition on a fact reference opens the source range it was collected from"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn definition_on_a_fact_reference_opens_its_source() {
     let served = citing_a_located_fact();
     let truths = served.uri("truths.spec");

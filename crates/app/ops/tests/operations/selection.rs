@@ -30,10 +30,7 @@ fn assert_i020_for_behaviour(notices: &[specforge_common::Diagnostic]) {
     );
 }
 
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "a kind of kinds the project does not know matches nothing and is reported as I020, on every surface"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn export_reports_an_unknown_kind() {
     let project = project();
     let view = project.view();
@@ -50,10 +47,7 @@ fn export_reports_an_unknown_kind() {
     }
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "a depth without the entity it counts from is one refusal, about the entity, on every read"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn a_depth_without_its_entity_is_one_refusal() {
     let project = project();
     let view = project.view();
@@ -92,10 +86,7 @@ fn a_depth_without_its_entity_is_one_refusal() {
     assert_eq!(exported.subject, Some(ExportField::Scope));
 }
 
-#[specforge_test(
-    behavior = "select_entities_over_the_view",
-    verify = "an empty kind is a kind the project does not know: it lists nothing and is an I020 notice"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn an_empty_kind_is_a_kind_the_project_lacks() {
     let project = project();
     let view = project.view();
@@ -193,10 +184,9 @@ fn a_selection_refuses_a_depth_before_the_entity() {
     assert!(select(None, None).unwrap().entity.is_none());
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "a read selection selects what its entity reaches within its depth, of its kinds; the entity is selected only when its kind is kept, and an export draws it always"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn a_selection_selects_what_its_entity_reaches_of_its_kinds() {
     let project = linked();
     let view = project.view();

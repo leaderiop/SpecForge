@@ -135,10 +135,7 @@ fn r009(error: RegistryError) -> String {
     diagnostic.message
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_registry_reply",
-    verify = "a download larger than the size its reply declares is refused with R009 before it is read whole"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn a_download_larger_than_its_reply_declares_is_refused_before_it_is_read() {
     let registry = serve(
         Body::Length(metadata_json(Some(10)).into_bytes()),
@@ -155,10 +152,7 @@ fn a_download_larger_than_its_reply_declares_is_refused_before_it_is_read() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_registry_reply",
-    verify = "a download larger than the size its reply declares is refused with R009 before it is read whole"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn a_chunked_download_is_cut_at_the_size_its_reply_declares() {
     let registry = serve(
         Body::Length(metadata_json(Some(10)).into_bytes()),
@@ -175,10 +169,7 @@ fn a_chunked_download_is_cut_at_the_size_its_reply_declares() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_registry_reply",
-    verify = "a download whose reply declares no size is held to 64 MiB, the largest package a registry accepts"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn a_download_whose_reply_declares_no_size_is_held_to_64_mib() {
     let registry = serve(
         Body::Length(metadata_json(None).into_bytes()),
@@ -192,10 +183,7 @@ fn a_download_whose_reply_declares_no_size_is_held_to_64_mib() {
     assert!(message.contains("64 MiB"), "{message}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_registry_reply",
-    verify = "a registry answer larger than 64 MiB is refused with R009"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn a_registry_answer_larger_than_64_mib_is_refused() {
     let head = metadata_json(None);
     let head = head.strip_suffix('}').unwrap();
@@ -217,10 +205,7 @@ fn a_registry_answer_larger_than_64_mib_is_refused() {
     assert!(message.contains("64 MiB"), "{message}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "retry_registry_request",
-    verify = "a registry answer still arriving after the client's timeout is R004"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-110")]
 fn a_body_still_arriving_after_the_timeout_is_r004() {
     let registry = serve(
         Body::Length(metadata_json(None).into_bytes()),

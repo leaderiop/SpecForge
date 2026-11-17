@@ -18,10 +18,7 @@ fn stored(dir: &TestProject) -> String {
     std::fs::read_to_string(dir.home().join(".specforge/credentials.json")).unwrap()
 }
 
-#[specforge_test(
-    behavior = "validate_registry_credentials",
-    verify = "login refuses an unreadable credential store before any request, and keeps it"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn login_refuses_an_unreadable_credential_store_and_keeps_it() {
     let registry = crate::support::registry::serve(vec![]);
     let dir = project_on(&registry);
@@ -47,10 +44,7 @@ fn login_refuses_an_unreadable_credential_store_and_keeps_it() {
     assert_eq!(stored(&dir), BROKEN);
 }
 
-#[specforge_test(
-    behavior = "logout_registry",
-    verify = "logout refuses an unreadable credential store and deletes no secret"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn logout_refuses_an_unreadable_credential_store_and_keeps_the_secret() {
     // A secret kept by a real `login --token`; then the store breaks.
     let registry = crate::support::registry::serve(vec![]);

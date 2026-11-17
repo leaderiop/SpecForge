@@ -37,10 +37,7 @@ fn refused(root: &Path, field: &str, shown: &Value) {
     assert!(state.entries().is_empty(), "{field} {shown}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_lock_file",
-    verify = "a lock entry whose version is no SemVer version is E033, and the message shows no control character"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-138")]
 fn a_lock_entry_whose_version_is_no_semver_version_is_unreadable() {
     let dir = TempDir::new().unwrap();
     for version in [
@@ -56,10 +53,7 @@ fn a_lock_entry_whose_version_is_no_semver_version_is_unreadable() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_lock_file",
-    verify = "a lock entry whose hash is no SHA-256 in lowercase hex is E033, an empty one included"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-138")]
 fn a_lock_entry_whose_hash_is_no_lowercase_sha256_is_unreadable() {
     let dir = TempDir::new().unwrap();
     let upper = "ACC6D3776A303907FA229BCB80A8520406800A0DE2AA807B89DBAF5A3BE09F60";
@@ -77,10 +71,7 @@ fn a_lock_entry_whose_hash_is_no_lowercase_sha256_is_unreadable() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_lock_file",
-    verify = "a lock entry whose key id is no publisher key id is E033"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-138")]
 fn a_lock_entry_whose_key_is_no_publisher_key_id_is_unreadable() {
     let dir = TempDir::new().unwrap();
     for key in [
@@ -97,10 +88,7 @@ fn a_lock_entry_whose_key_is_no_publisher_key_id_is_unreadable() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_lock_file",
-    verify = "a lock entry whose recorded peer or local source holds a character a terminal acts on is E033"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-138")]
 fn a_lock_entry_whose_peer_or_local_source_holds_an_unprintable_character_is_unreadable() {
     let dir = TempDir::new().unwrap();
     for peer in [

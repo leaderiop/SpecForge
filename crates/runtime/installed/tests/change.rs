@@ -65,10 +65,7 @@ fn module_of(root: &Path, text: &str) -> PathBuf {
     Installed::at(root).module_path(&name(text))
 }
 
-#[specforge_test_macros::test(
-    behavior = "install_wasm_extension",
-    verify = "places binary atomically via temp dir"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-134")]
 fn a_committed_install_places_the_module_and_locks_it() {
     let dir = TempDir::new().unwrap();
     let root = dir.path();
@@ -92,10 +89,7 @@ fn a_committed_install_places_the_module_and_locks_it() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "extension_operation_atomicity",
-    verify = "failed install rolls back to previous state"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-030")]
 fn a_failed_install_puts_back_the_binary_and_the_lock() {
     let fresh = || {
         let dir = TempDir::new().unwrap();
@@ -147,10 +141,7 @@ fn a_failed_install_puts_back_the_binary_and_the_lock() {
     assert_eq!(snapshot(dir.path()), before);
 }
 
-#[specforge_test_macros::test(
-    behavior = "extension_operation_atomicity",
-    verify = "interrupted upgrade preserves original extension"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-030")]
 fn a_failed_upgrade_keeps_the_original_module() {
     let dir = project_with_a(b"original");
     let root = dir.path();
@@ -170,10 +161,7 @@ fn a_failed_upgrade_keeps_the_original_module() {
     assert_eq!(snapshot(root), before);
 }
 
-#[specforge_test_macros::test(
-    behavior = "uninstall_wasm_extension",
-    verify = "rolls back on failure"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-134")]
 fn a_failed_uninstall_puts_back_the_directory_and_the_lock() {
     let dir = project_with_a(b"original");
     let root = dir.path();
@@ -207,10 +195,7 @@ fn a_failed_uninstall_puts_back_the_directory_and_the_lock() {
     assert_eq!(snapshot(root), before);
 }
 
-#[specforge_test_macros::test(
-    behavior = "install_wasm_extension",
-    verify = "an install over an unreadable specforge.lock is refused before anything is written"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-134")]
 fn a_change_over_an_unreadable_lock_is_refused() {
     let dir = TempDir::new().unwrap();
     let root = dir.path();
@@ -330,10 +315,7 @@ fn committed_lists_the_files_it_changed() {
     assert_eq!(change.commit().unwrap().changed, Vec::<PathBuf>::new());
 }
 
-#[specforge_test_macros::test(
-    invariant = "extension_operation_atomicity",
-    verify = "a failed change puts back the modules and the lock and removes the directories it made"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-030")]
 fn a_failed_change_removes_the_directories_it_created() {
     let scratch = TempDir::new().unwrap();
     let root = scratch.path().join("fresh");

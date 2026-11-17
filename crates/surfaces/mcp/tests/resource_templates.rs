@@ -35,10 +35,7 @@ fn assert_refused(server: &mut McpServer, uri: &str, argument: &str) {
     assert_eq!(error["data"]["uri"], uri, "{uri}: {error}");
 }
 
-#[specforge_test(
-    behavior = "expose_entity_as_mcp_resource",
-    verify = "an empty entity_id, or one with an empty path segment, is invalid input naming entity_id, in both entity templates"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn an_entity_placeholder_is_a_non_empty_path() {
     let mut server = served();
     for uri in [
@@ -62,10 +59,7 @@ fn an_entity_placeholder_is_a_non_empty_path() {
     assert_eq!(error["data"]["code"], "entity_not_found", "{error}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_entities_by_kind",
-    verify = "the entities resource refuses an empty kind or one of more than one path segment as invalid input naming kind"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn a_kind_placeholder_is_one_non_empty_segment() {
     let mut server = served();
     for uri in [
@@ -88,10 +82,7 @@ fn served_with_refs() -> Served {
         .serve_components()
 }
 
-#[specforge_test(
-    behavior = "expose_entity_as_mcp_resource",
-    verify = "an entity_id that is a scheme ref ID reads that ref in both entity templates, and a text that is no entity ID is invalid input naming entity_id"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn a_scheme_ref_id_is_an_entity_id_in_both_entity_templates() {
     let mut server = served_with_refs();
     for (uri, id) in [

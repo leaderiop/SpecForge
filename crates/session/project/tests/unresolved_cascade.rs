@@ -22,10 +22,7 @@ const EDGE_RULES: [&str; 8] = [
     "W001", "W043", "W046", "I067", "I055", "I082", "I083", "I010",
 ];
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "one mistyped id is E003 alone: no builtin edge rule reports the entity whose field writes it"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn one_mistyped_id_is_e003_alone() {
     let compiled = TestProject::new()
         .enabling(&["@specforge/software", "@specforge/product"])

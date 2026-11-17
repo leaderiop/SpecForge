@@ -39,10 +39,9 @@ fn a_report_source_of_none_ignores_a_broken_recorded_report() {
     assert!(project.run(&options).is_ok());
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "the recorded test report is read at the view's root, never an ancestor's"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn a_sub_path_does_not_read_the_ancestors_report() {
     let project = Project::serving(
         InProcessRuntime::new()
@@ -118,18 +117,12 @@ fn gate_of(pass_name: &str, min: Option<f64>, summary: Value) -> Option<Gate> {
     analyze(&project.view(), &options).unwrap().gate
 }
 
-#[specforge_test(
-    behavior = "te_coverage_gate",
-    verify = "the analysis's ok is the run verdict, the gate included, and its JSON says where the gate landed"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn the_gate_is_not_requested_without_min() {
     assert_eq!(gate_of("all", None, tally(0, 4)), None);
 }
 
-#[specforge_test(
-    behavior = "te_coverage_gate",
-    verify = "the analysis's ok is the run verdict, the gate included, and its JSON says where the gate landed"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn the_gate_is_met_at_or_above_the_minimum() {
     assert_eq!(
         gate_of("all", Some(50.0), tally(2, 4)),
@@ -151,10 +144,7 @@ fn the_gate_is_met_at_or_above_the_minimum() {
     );
 }
 
-#[specforge_test(
-    behavior = "te_coverage_gate",
-    verify = "the analysis's ok is the run verdict, the gate included, and its JSON says where the gate landed"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn nothing_testable_satisfies_any_minimum() {
     assert!(matches!(
         gate_of("all", Some(100.0), tally(0, 0)),
@@ -162,10 +152,7 @@ fn nothing_testable_satisfies_any_minimum() {
     ));
 }
 
-#[specforge_test(
-    behavior = "te_coverage_gate",
-    verify = "the analysis's ok is the run verdict, the gate included, and its JSON says where the gate landed"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn the_gate_is_below_with_the_numbers_to_print() {
     assert_eq!(
         gate_of("all", Some(75.0), tally(1, 4)),
@@ -178,10 +165,7 @@ fn the_gate_is_below_with_the_numbers_to_print() {
     );
 }
 
-#[specforge_test(
-    behavior = "te_coverage_gate",
-    verify = "the analysis's ok is the run verdict, the gate included, and its JSON says where the gate landed"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn the_verdict_folds_the_gate_in() {
     let outcome = |gate: Option<Gate>| AnalyzeOutcome {
         passes: Vec::new(),
@@ -222,10 +206,7 @@ fn the_verdict_folds_the_gate_in() {
     assert!(json_of(&outcome(None)).get("gate").is_none());
 }
 
-#[specforge_test(
-    behavior = "te_coverage_gate",
-    verify = "the analysis's ok is the run verdict, the gate included, and its JSON says where the gate landed"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn the_gate_document_is_byte_stable() {
     let written = |gate: Option<Gate>| {
         serde_json::to_string(
@@ -267,10 +248,7 @@ fn the_gate_document_is_byte_stable() {
     assert!(!written(None).contains(r#""gate""#));
 }
 
-#[specforge_test(
-    behavior = "te_coverage_gate",
-    verify = "a gate without the coverage pass exits 2 with E068"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn a_minimum_without_the_coverage_pass_is_refused_before_any_pass_runs() {
     let project = Project::serving(
         InProcessRuntime::new()
@@ -305,10 +283,7 @@ fn a_minimum_without_the_coverage_pass_is_refused_before_any_pass_runs() {
     assert_eq!(error.code, "E068");
 }
 
-#[specforge_test(
-    behavior = "te_coverage_gate",
-    verify = "a minimum that is not a percentage is invalid input"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn a_minimum_outside_0_to_100_is_invalid_input() {
     let project = Project::new();
     for min in [-1.0, 100.5, f64::NAN] {
@@ -324,10 +299,7 @@ fn a_minimum_outside_0_to_100_is_invalid_input() {
     }
 }
 
-#[specforge_test(
-    behavior = "te_coverage_gate",
-    verify = "a gate without a readable coverage pass is not met"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn a_summary_of_another_shape_is_unreadable_not_zero() {
     assert_eq!(
         gate_of("all", Some(10.0), json!({"testable_total": "many"})),

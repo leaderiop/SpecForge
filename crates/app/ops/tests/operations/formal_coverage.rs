@@ -47,10 +47,7 @@ fn messages(project: &TestProject, code: &str) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "fa_track_coverage_discharge",
-    verify = "W035 and I008 name only the entities stats counts toward coverage"
-)]
+#[specforge_test(requirement = "FEATURE-033")]
 fn coverage_items_are_the_entities_stats_counts() {
     // Without testing nothing is testable: stats counts none, so formal names none.
     let bare = project(&[

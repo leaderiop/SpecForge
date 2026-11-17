@@ -252,10 +252,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "run_doctor_check",
-        verify = "an unreadable credential store is a credential failure in doctor"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-021")]
     fn an_unreadable_store_is_a_credential_failure() {
         let dir = tempfile::TempDir::new().unwrap();
         std::fs::write(
@@ -281,10 +278,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "run_doctor_check",
-        verify = "a stored token expiry that is not an RFC 3339 timestamp makes the credential store unreadable, and doctor writes no control character"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-021")]
     fn a_stored_expiry_that_is_no_timestamp_makes_the_store_unreadable() {
         let dir = tempfile::TempDir::new().unwrap();
         std::fs::write(

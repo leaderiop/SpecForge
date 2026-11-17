@@ -262,10 +262,7 @@ mod tests {
     use super::*;
     use specforge_test_macros::test as specforge_test;
 
-    #[specforge_test(
-        behavior = "validate_typed_edit",
-        verify = "an edit that adds an error is refused with E080 listing each error with its help line"
-    )]
+    #[specforge_test(requirement = "FEATURE-131")]
     fn e080_lists_each_added_error_with_its_help_line() {
         let mut bounded = Diagnostic::new(
             codes::E061,
@@ -283,10 +280,7 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        behavior = "roll_back_interrupted_write",
-        verify = "a pending journal another writer holds is no error this write adds"
-    )]
+    #[specforge_test(requirement = "FEATURE-131")]
     fn a_pending_journal_is_not_an_error_a_write_adds() {
         let mut pending = Diagnostic::new(codes::W167, "an interrupted write is pending rollback");
         // A preset that raises W167 makes it an error of the edited project.
@@ -295,10 +289,7 @@ mod tests {
         assert!(errors.is_empty() && rest.is_empty());
     }
 
-    #[specforge_test(
-        behavior = "validate_typed_edit",
-        verify = "a judged rules finding is no error a write adds"
-    )]
+    #[specforge_test(requirement = "FEATURE-131")]
     fn a_judged_finding_is_not_an_error_a_write_adds() {
         let error = |code: &str| {
             let mut d = Diagnostic::new(codes::E080, "x");
@@ -329,10 +320,7 @@ mod tests {
         assert!(errors.is_empty() && rest.is_empty());
     }
 
-    #[specforge_test(
-        behavior = "validate_typed_edit",
-        verify = "a diagnostic with a judged rules code from another origin is no judged finding"
-    )]
+    #[specforge_test(requirement = "FEATURE-131")]
     fn only_the_owning_extensions_diagnostic_is_a_judged_finding() {
         use specforge_project::testing::{gsd_judged_project, gsd_judged_runtime};
         use std::sync::Arc;
@@ -353,10 +341,7 @@ mod tests {
         assert!(!judged(&host));
     }
 
-    #[specforge_test(
-        behavior = "validate_typed_edit",
-        verify = "an extension's finding is paired by its subject, through the plan's moves"
-    )]
+    #[specforge_test(requirement = "FEATURE-131")]
     fn a_pass_finding_on_another_entity_is_an_added_error() {
         let before = [finding("v1.0/01/01-01/TR1")];
         let (errors, _) = added(
@@ -370,10 +355,7 @@ mod tests {
     }
 
     /// A guard, not red-first: it holds before and after, and fails if the relocation is dropped.
-    #[specforge_test(
-        behavior = "validate_typed_edit",
-        verify = "an extension's finding is paired by its subject, through the plan's moves"
-    )]
+    #[specforge_test(requirement = "FEATURE-131")]
     fn a_moved_entitys_finding_is_still_paired() {
         let before = [finding("v1.0/01/01-01/TR1")];
         let moves = [("v1.0/01".to_string(), "v1.0/02".to_string())];
@@ -398,10 +380,7 @@ mod tests {
         })
     }
 
-    #[specforge_test(
-        behavior = "answer_edit_plan",
-        verify = "a collector's plan is judged for host errors only"
-    )]
+    #[specforge_test(requirement = "FEATURE-128")]
     fn host_only_ignores_an_extensions_error_and_keeps_a_host_one() {
         let host = Diagnostic::untyped("E003", Severity::Error, "unresolved");
         let ext = finding("v1.0/01/01-01/TR1");
@@ -411,10 +390,7 @@ mod tests {
         assert_eq!(added(&[], vec![ext], |_| false, &[], false).0.len(), 1);
     }
 
-    #[specforge_test(
-        behavior = "validate_typed_edit",
-        verify = "only a finding the judged rules made is exempt"
-    )]
+    #[specforge_test(requirement = "FEATURE-131")]
     fn a_finding_the_judged_evaluation_did_not_make_is_counted() {
         use specforge_project::testing::{gsd_judged_project, gsd_judged_runtime};
         use std::sync::Arc;

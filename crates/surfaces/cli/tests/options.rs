@@ -460,10 +460,8 @@ fn enumerated_options_today() {
     insta::assert_snapshot!("enumerated_options_today", sections.join("\n"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "name_enumerated_options_once",
-    verify = "the CLI and MCP accept the same names for each enumerated argument"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-001")]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn cli_and_mcp_accept_the_same_names() {
     let paired = paired();
     let probed = run_probes(|label| paired.iter().any(|(l, _, _)| *l == label));

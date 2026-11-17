@@ -20,10 +20,7 @@ fn delete(id: &str, unlink_references: bool) -> Edit {
     }
 }
 
-#[specforge_test(
-    behavior = "rename_entity_id",
-    verify = "rename edits a use binding's imported name, never its alias"
-)]
+#[specforge_test(requirement = "FEATURE-111")]
 fn rename_edits_a_use_binding_and_never_its_alias() {
     let p = compile(
         SOFTWARE,
@@ -51,10 +48,7 @@ fn rename_edits_a_use_binding_and_never_its_alias() {
     );
 }
 
-#[specforge_test(
-    behavior = "delete_entity",
-    verify = "delete with unlink_references removes a use binding that imports it"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn delete_with_unlink_references_removes_a_use_binding() {
     let c = project(&[
         ("rules.spec", RULES),
@@ -137,10 +131,7 @@ fn a_delete_that_leaves_a_use_binding_reports_w027() {
     assert!(w027[0].message.contains("inv_b"), "{}", w027[0].message);
 }
 
-#[specforge_test(
-    behavior = "delete_entity",
-    verify = "delete with unlink_references removes the comment above a use statement it removes, never the format header"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn delete_with_unlink_references_removes_the_comment_above_a_use_it_removes() {
     let doc = "// specforge-format: 1.0\n// the rule login needs\nuse { inv_a } from \"rules.spec\"\n\nbehavior login \"Login\" {\n  category   command\n  contract   \"c\"\n  invariants [inv_a, inv_b]\n}\n";
     let c = project(&[("rules.spec", RULES), ("doc.spec", doc)]);

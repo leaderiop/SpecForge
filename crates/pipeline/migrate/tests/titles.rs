@@ -37,10 +37,7 @@ fn migrated(text: &str) -> String {
         .map_or_else(|| text.to_string(), |rewrite| rewrite.after.clone())
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "a doc comment directly above a block becomes its title"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_doc_comment_becomes_the_title() {
     assert_eq!(
         migrated("// Command payload.\ntype C {\n  id string\n}\n"),
@@ -48,10 +45,7 @@ fn a_doc_comment_becomes_the_title() {
     );
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "a multi-line doc comment becomes one title"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_multi_line_doc_comment_becomes_one_title() {
     assert_eq!(
         migrated("// One.\n// Two.\ntype C {\n}\n"),
@@ -59,10 +53,7 @@ fn a_multi_line_doc_comment_becomes_one_title() {
     );
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "a union takes its doc comment as its title"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_union_takes_its_doc_comment() {
     assert_eq!(
         migrated("// States.\ntype S = a | b\n"),
@@ -70,10 +61,7 @@ fn a_union_takes_its_doc_comment() {
     );
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "a block with no doc comment is titled with its id in words"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn no_doc_comment_gives_the_id_in_words() {
     assert_eq!(
         migrated(
@@ -83,10 +71,7 @@ fn no_doc_comment_gives_the_id_in_words() {
     );
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "a comment after a blank line is not lifted"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_comment_after_a_blank_line_is_not_lifted() {
     assert_eq!(
         migrated("// Section.\n\ntype Priority {\n}\n"),
@@ -94,10 +79,7 @@ fn a_comment_after_a_blank_line_is_not_lifted() {
     );
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "a trailing comment on the header stays"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_trailing_comment_on_the_header_stays() {
     assert_eq!(
         migrated("type J = string // note\n"),
@@ -105,10 +87,7 @@ fn a_trailing_comment_on_the_header_stays() {
     );
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "the format header is never lifted"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn the_format_header_is_never_lifted() {
     assert_eq!(
         migrated("// specforge-format: 1.0\ntype X {\n}\n"),
@@ -116,10 +95,7 @@ fn the_format_header_is_never_lifted() {
     );
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "quotes and backslashes in a doc comment are escaped in the title"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn quotes_and_backslashes_are_escaped() {
     let comment = "say \"hi\" with a \\ here";
     let text = migrated(&format!("// {comment}\ntype Q {{\n}}\n"));
@@ -128,28 +104,19 @@ fn quotes_and_backslashes_are_escaped() {
     assert_eq!(file.entities[0].title.as_deref(), Some(comment));
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "titled, define, spec and ref blocks are left alone"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_titled_block_and_define_spec_ref_blocks_are_left_alone() {
     let text = "// kept\nspec \"shop\" {\n}\n\ndefaults behavior {\n  ports [R]\n}\n\n// kept\ntype T \"Titled\" {\n}\n\n// kept\ndefine d {\n}\n\nref github.issue:org/repo#1 \"Issue\"\n";
     assert_eq!(migrated(text), text);
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "a file with a syntax error is left alone"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_file_with_a_syntax_error_is_left_alone() {
     let text = "// c\ntype X {\n  id string\n";
     assert_eq!(migrated(text), text);
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "the titles step is idempotent"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn the_step_is_idempotent() {
     for text in [
         "// Command payload.\ntype C {\n}\n",
@@ -163,10 +130,7 @@ fn the_step_is_idempotent() {
     }
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "the changes beyond the steps drop only a title the step added"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn beyond_steps_drops_only_titles_the_step_added() {
     let build = |text: &str| build_graph(&[parse(text, "a.spec")]).0;
     let before = build("type A {\n}\n\ntype B \"Old\" {\n}\n\ntype C {\n  id string\n}\n");
@@ -179,10 +143,7 @@ fn beyond_steps_drops_only_titles_the_step_added() {
     assert_eq!(ids, ["B", "C"], "{delta:?}");
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "a header whose name is on its second line takes its title after the name"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_header_whose_name_is_on_its_second_line_takes_its_title_after_the_name() {
     assert_eq!(
         migrated("feature\n  second_auth {\n  status proposed\n}\n"),
@@ -190,10 +151,7 @@ fn a_header_whose_name_is_on_its_second_line_takes_its_title_after_the_name() {
     );
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "a blank title is replaced where it is written: the doc comment, else the id in words"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_blank_title_is_replaced_where_it_is_written() {
     let rows = [
         (
@@ -226,19 +184,13 @@ fn a_blank_title_is_replaced_where_it_is_written() {
     assert!(failures.is_empty(), "{failures:#?}");
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "a spec block is left alone, its blank name included"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_spec_blocks_blank_name_is_left_alone() {
     let text = "// About\nspec \"\" {\n}\n";
     assert_eq!(migrated(text), text);
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "the changes beyond the steps drop only a title the step added"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn beyond_steps_drops_a_title_written_over_a_blank_one() {
     let build = |text: &str| build_graph(&[parse(text, "a.spec")]).0;
     let before = build("type A \"\" {\n}\n\ntype B \"Old\" {\n}\n");
@@ -250,10 +202,7 @@ fn beyond_steps_drops_a_title_written_over_a_blank_one() {
     assert_eq!(ids, ["B"], "{delta:?}");
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "a name holding a dash or a dot is its own title"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_name_holding_a_dash_or_a_dot_is_its_own_title() {
     assert_eq!(
         migrated("type v1.0 {\n  id string\n}\n"),

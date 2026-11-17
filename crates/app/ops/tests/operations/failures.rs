@@ -71,10 +71,9 @@ fn every_view(view: &ProjectView) -> Vec<(&'static str, OpError)> {
     ]
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "an unusable report is the same failure, of the kind the operation decides, on every view"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn an_unusable_report_is_one_failure_on_every_view() {
     let malformed = project();
     write_report(&malformed, "{");
@@ -121,10 +120,9 @@ fn an_unparsable_report_fails_every_view() {
 /// Over MCP the report is held inside the project: a link that leads out is one refusal on
 /// every view, and the target is never read (ADR 0139).
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "over MCP, a recorded report that leads outside the project is the same refusal on every view"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn a_report_linked_outside_is_one_refusal_on_every_contained_view() {
     let project = project();
     let outside = tempfile::tempdir().unwrap();
@@ -164,10 +162,9 @@ fn a_report_linked_outside_is_one_refusal_on_every_contained_view() {
 
 /// ADR 0092 D6: the CLI and the LSP follow the user's link to the report.
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "the CLI and the LSP read the recorded report where its link points"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn an_uncontained_view_follows_the_report_link() {
     let project = project();
     let outside = tempfile::tempdir().unwrap();
@@ -238,10 +235,7 @@ fn analyze_calls_a_missing_named_report_file_not_found() {
     assert_eq!(error.code, "E045");
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "hooks run for the project a sub-path is in"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn hooks_run_for_the_project_a_sub_path_is_in() {
     use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
     use specforge_ops::authoring::migrate::{Request, run};

@@ -261,10 +261,7 @@ mod tests {
         RegistryRoot::parse(text).unwrap()
     }
 
-    #[specforge_test_macros::test(
-        behavior = "configure_registries",
-        verify = "a registry url is the registry's root, and one ending in the protocol's version prefix is refused with E067 naming the root"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-030")]
     fn a_registry_root_is_an_http_url_without_the_version_prefix() {
         for (text, expected) in [
             ("https://registry.example", "https://registry.example"),
@@ -344,10 +341,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "resolve_registry_source",
-        verify = "every call goes to its address under the registry's root, where the server mounts it"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-030")]
     fn every_call_goes_where_its_route_is_mounted() {
         let name = PackageName::parse("@acme/tool").unwrap();
         let version = Version::parse("1.0.0").unwrap();
@@ -400,10 +394,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "check_registry_reply",
-        verify = "a download URL is an http or https URL or a path at the registry's root, else R009"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-030")]
     fn a_download_address_is_absolute_or_a_path_at_the_root() {
         let root = root("https://h/registry");
         assert_eq!(
@@ -430,10 +421,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "check_registry_reply",
-        verify = "a download address is its URL's serialization: no control or bidirectional character is kept"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-030")]
     fn a_download_address_is_its_urls_serialization() {
         let root = root("https://h/registry");
         for (wasm_url, expected) in [
@@ -456,10 +444,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "support_private_registries",
-        verify = "a download from another origin carries no credential"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-110")]
     fn a_download_elsewhere_carries_no_credential() {
         let root = root("http://a:1");
         assert!(root.same_origin("http://a:1/v1/packages/x/download"));

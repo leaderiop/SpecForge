@@ -11,10 +11,7 @@ fn project(file: &str, source: &str) -> TestProject {
 
 const CART: &str = "behavior add_item \"Add\" {\n  category \"cart\"\n  contract \"x\"\n}\n";
 
-#[specforge_test_macros::test(
-    behavior = "check_field_value_types",
-    verify = "a quoted word on a word field and a bare word on a text field are W159"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-018")]
 fn check_reports_a_tag_written_as_text() {
     let dir = project("spec/cart.spec", CART);
 
@@ -35,10 +32,7 @@ fn check_reports_a_tag_written_as_text() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "format_spec_files",
-    verify = "a value is written in its field's form, read from the project's declarations"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn format_writes_a_tag_bare() {
     let dir = project("spec/cart.spec", CART);
     let cli = Cli::on(&dir);
@@ -53,10 +47,7 @@ fn format_writes_a_tag_bare() {
     assert_eq!(before, after, "formatting the quotes keeps the graph");
 }
 
-#[specforge_test_macros::test(
-    behavior = "format_spec_files",
-    verify = "a value is written in its field's form, read from the project's declarations"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn format_quotes_text_written_bare() {
     let dir = project(
         "spec/events.spec",
@@ -76,10 +67,7 @@ const DEFAULTS: &str = "defaults behavior {\n  category \"cart\"\n}\n\n\
                         behavior add_item \"Add\" {\n  contract \"x\"\n}\n\n\
                         behavior remove_item \"Remove\" {\n  contract \"y\"\n}\n";
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "a defaults block's values are written in the forms of the kind it names"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn format_writes_a_defaults_blocks_values_in_the_forms_of_the_kind_it_names() {
     let dir = project("spec/cart.spec", DEFAULTS);
     let cli = Cli::on(&dir);
@@ -100,10 +88,7 @@ fn format_writes_a_defaults_blocks_values_in_the_forms_of_the_kind_it_names() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_value_types",
-    verify = "a value a defaults block writes in the other form is W159 once, at the default"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-018")]
 fn check_reports_a_defaults_value_in_the_other_form_once_at_the_default() {
     let dir = project("spec/cart.spec", DEFAULTS);
     let diagnostics = Cli::on(&dir).document(&["check"]).json;
@@ -129,10 +114,7 @@ fn governed(file: &str, source: &str) -> TestProject {
         .file(file, source)
 }
 
-#[specforge_test_macros::test(
-    behavior = "format_spec_files",
-    verify = "check, format and set agree on a quoted number, a quoted date and a whole value on a list field"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn check_format_and_set_agree_on_a_quoted_number_a_quoted_date_and_a_whole_value_on_a_list() {
     let dir = governed(
         "spec/g.spec",
@@ -180,10 +162,7 @@ fn check_format_and_set_agree_on_a_quoted_number_a_quoted_date_and_a_whole_value
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_value_types",
-    verify = "a decision's, a milestone's and a release's date is one calendar day; any other value is E061"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-018")]
 fn a_date_field_holds_one_calendar_day_written_bare() {
     let dir = TestProject::new()
         .enabling(&["@specforge/product", "@specforge/governance"])
@@ -245,10 +224,7 @@ fn a_date_field_holds_one_calendar_day_written_bare() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "new's help names a date field's value as YYYY-MM-DD"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn new_names_a_date_fields_value_as_a_calendar_day() {
     let dir = governed("spec/g.spec", "");
     let help = Cli::on(&dir).run(&["new", "decision", "--help"]).exits(0);
@@ -261,10 +237,7 @@ fn new_names_a_date_fields_value_as_a_calendar_day() {
 
 /// `new` takes a list of text as `set` takes it: one value is one item, commas and all, and the flag repeated gives
 /// several; a reference list also splits one value at its commas. Its help says so.
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "new takes a list field's items as set takes them, and its help says how"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn new_takes_a_list_fields_items_as_set_does() {
     let dir = governed("spec/g.spec", "");
     let cli = Cli::on(&dir);
@@ -318,10 +291,7 @@ fn new_takes_a_list_fields_items_as_set_does() {
 }
 
 /// Format keeps a padded value, check reports it before and after, and a typed edit of the block works.
-#[specforge_test_macros::test(
-    behavior = "format_spec_files",
-    verify = "format keeps a padded value, and check reports it after as before"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn format_keeps_a_padded_value_and_check_reports_it_after_as_before() {
     let text = "event ev_one \"E1\" {\n}\n\nbehavior bh_one \"B\" {\n  status   \" draft\"\n  produces [\" ev_one \"]\n}\n";
     let dir = project("spec/hello.spec", text);

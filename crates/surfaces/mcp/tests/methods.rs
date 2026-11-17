@@ -79,10 +79,7 @@ fn not_found(reply: &Option<Value>) -> bool {
         .is_some_and(|reply| reply["error"]["code"] == -32601)
 }
 
-#[specforge_test(
-    behavior = "serve_stateless_mcp_requests",
-    verify = "each method is answered in the revisions its method table row names and is -32601 in the others"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn each_method_is_served_in_its_revisions() {
     let dir = project();
     let mut handshake = McpServer::with_project_root(dir.path().to_path_buf());
@@ -127,10 +124,7 @@ fn each_method_is_served_in_its_revisions() {
     }
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a request that reads nothing of the project, such as server/discover, serves nothing; the next request that reads it serves the project created at the root"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_stateless_discover_serves_nothing() {
     let root = tempfile::TempDir::new().unwrap();
     let mut server = McpServer::with_project_root(root.path().to_path_buf());

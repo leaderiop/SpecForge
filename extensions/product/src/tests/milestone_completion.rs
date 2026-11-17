@@ -6,20 +6,14 @@ use specforge_test::prelude::*;
 
 // ── milestone completion ──────────────────────────────────────────────────
 
-#[specforge_test(
-    behavior = "pe_query_milestone_completion",
-    verify = "milestone with all features status=done returns ratio 1.0"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn a_milestone_whose_features_are_all_done_is_complete() {
     let mc = json_of("milestone_completion", json!({"milestone": "ms2"}), &plan());
     assert_eq!(mc["completion_ratio"], 1.0);
     assert_eq!(mc["done_features"], json!(["f1"]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_milestone_completion",
-    verify = "milestone with no done features returns ratio 0.0"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn a_milestone_with_no_done_feature_is_at_zero() {
     let g = plan()
         .node("ms4", "milestone", json!({"features": ["f2", "f3"]}))
@@ -34,10 +28,7 @@ fn a_milestone_with_no_done_feature_is_at_zero() {
     assert_eq!(mc["done_features"], json!([]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_milestone_completion",
-    verify = "empty milestone returns ratio 0.0 with zero features"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn an_empty_milestone_is_at_zero_without_dividing_by_zero() {
     let mc = json_of("milestone_completion", json!({"milestone": "ms3"}), &plan());
     assert_eq!(
@@ -47,10 +38,7 @@ fn an_empty_milestone_is_at_zero_without_dividing_by_zero() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_milestone_completion",
-    verify = "milestone with mix of done and non-done features returns partial ratio"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn a_milestone_half_done_is_at_one_half() {
     let mc = json_of("milestone_completion", json!({"milestone": "ms1"}), &plan());
     assert_eq!(mc["done_count"], 1);
@@ -58,10 +46,7 @@ fn a_milestone_half_done_is_at_one_half() {
     assert_eq!(mc["completion_ratio"], 0.5);
 }
 
-#[specforge_test(
-    behavior = "pe_query_milestone_completion",
-    verify = "milestone completion is deterministic across repeated queries"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn milestone_completion_is_deterministic() {
     let runtime = runtime();
     let g = plan();
@@ -84,10 +69,7 @@ fn milestone_completion_is_deterministic() {
     }
 }
 
-#[specforge_test(
-    behavior = "surface_milestone_completion",
-    verify = "milestone-completion returns MilestoneCompletionPayload JSON"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn milestone_completion_answers_its_payload() {
     let mc = json_of("milestone_completion", json!({"milestone": "ms1"}), &plan());
     let mut keys: Vec<&str> = mc.as_object().unwrap().keys().map(String::as_str).collect();
@@ -125,14 +107,7 @@ fn recorded() -> Value {
     }})
 }
 
-#[specforge_test(
-    behavior = "pe_query_milestone_completion",
-    verify = "a milestone's completion reports the features the recorded tests prove beside the done ones"
-)]
-#[specforge_test(
-    type = "FeatureEvidence",
-    verify = "a feature is proven when at least one behavior implements it and every one is proven"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn milestone_completion_reports_what_the_recorded_tests_prove() {
     let out = run_with(
         &runtime(),
@@ -155,10 +130,7 @@ fn milestone_completion_reports_what_the_recorded_tests_prove() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_milestone_completion",
-    verify = "human format shows the proven share and each feature's evidence beside its status"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn milestone_completion_shows_the_evidence_of_each_feature() {
     let out = run_with(
         &runtime(),
@@ -177,10 +149,7 @@ fn milestone_completion_shows_the_evidence_of_each_feature() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_milestone_completion",
-    verify = "without a recorded report the completion says no evidence is recorded, and an unreadable one says why"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn milestone_completion_without_evidence_says_so() {
     let none = json_of(
         "milestone_completion",
@@ -206,10 +175,7 @@ fn milestone_completion_without_evidence_says_so() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_milestone_completion",
-    verify = "missing milestone ID returns error with suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_mistyped_milestone_is_not_found_with_the_nearest() {
     let error = run_in(
         &runtime(),
@@ -224,10 +190,7 @@ fn a_mistyped_milestone_is_not_found_with_the_nearest() {
     assert_eq!(error["suggestion"], "ms1");
 }
 
-#[specforge_test(
-    behavior = "surface_milestone_completion",
-    verify = "human format shows ratio as percentage"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn milestone_completion_shows_a_percentage() {
     let out = human_of("milestone_completion", json!({"milestone": "ms1"}), &plan());
     assert_eq!(
@@ -237,10 +200,7 @@ fn milestone_completion_shows_a_percentage() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_milestone_completion",
-    verify = "exit code 0 on success, 1 on error"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn milestone_completion_exits_zero_or_one() {
     let runtime = runtime();
     let g = plan();

@@ -31,10 +31,7 @@ fn find(text: &str, needle: &str, nth: usize, offset: u32) -> (u32, u32) {
     (line, column + offset)
 }
 
-#[spec(
-    invariant = "lsp_utf16_positions",
-    verify = "the word under a cursor is found by its UTF-16 column"
-)]
+#[spec(requirement = "INVARIANT-064")]
 fn the_word_is_found_by_its_utf16_column() {
     // `contract ` = 9 units/bytes, 🚀 = 2 units/4 bytes, ` ` = 1 unit/byte,
     // `alpha_beta` spans units 12..22 (bytes 14..24).
@@ -182,10 +179,8 @@ fn the_entity_and_field_around_a_cursor() {
     assert_eq!(entity((16, 0)), None);
 }
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "a bracket inside a string opens no reference list"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn a_bracket_in_a_string_opens_no_list() {
     let text = "behavior alpha \"Alpha\" {\n  contract \"see [docs\"\n  \n}\n";
     let doc = doc(text);
@@ -228,10 +223,7 @@ const UNCLOSED: &str = concat!(
     "}\n",
 );
 
-#[spec(
-    behavior = "complete_keywords",
-    verify = "keywords are suggested after a top-level form that follows an unclosed body"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn a_union_and_an_inline_ref_end_an_unclosed_body() {
     let doc = doc(UNCLOSED);
     let fields = CompletionSite::Fields {
@@ -309,10 +301,7 @@ fn a_form_indented_like_the_open_one_ends_it() {
     );
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "the document resumes at every top-level form of the repository's spec after an unclosed body"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn every_top_level_form_of_the_corpora_ends_an_unclosed_body() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();

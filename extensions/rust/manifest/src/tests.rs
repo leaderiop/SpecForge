@@ -56,10 +56,8 @@ fn written(package: &Package) -> Vec<String> {
     package.targets.iter().map(Target::written).collect()
 }
 
-#[specforge_test(
-    behavior = "rc_read_manifests",
-    verify = "a member inherits its version, edition and rust-version from its workspace"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-108")]
 fn a_member_inherits_its_workspace_fields() {
     let packages = packages();
     let (app, base) = (package(&packages, "app"), package(&packages, "base"));
@@ -78,10 +76,8 @@ fn a_member_inherits_its_workspace_fields() {
     );
 }
 
-#[specforge_test(
-    behavior = "rc_read_manifests",
-    verify = "targets are discovered as cargo discovers them, autotests and a build script included"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-108")]
 fn targets_are_discovered_as_cargo_discovers_them() {
     let packages = packages();
     assert_eq!(
@@ -108,10 +104,8 @@ fn targets_are_discovered_as_cargo_discovers_them() {
     );
 }
 
-#[specforge_test(
-    behavior = "rc_read_manifests",
-    verify = "each target has the nextest binary id its tests run under"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-108")]
 fn each_target_has_its_nextest_binary_id() {
     let packages = packages();
     let app = package(&packages, "app");
@@ -144,10 +138,8 @@ fn each_target_has_its_nextest_binary_id() {
     assert_eq!(ids, expected, "a build script runs no tests");
 }
 
-#[specforge_test(
-    behavior = "rc_read_manifests",
-    verify = "a target round-trips through the text its package fact writes"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-108")]
 fn a_target_round_trips_through_its_fact_text() {
     for package in packages() {
         let fact = package.fact();
@@ -164,10 +156,8 @@ fn a_target_round_trips_through_its_fact_text() {
     }
 }
 
-#[specforge_test(
-    behavior = "rc_read_manifests",
-    verify = "path dependencies name the project packages they reach, never one outside it"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-108")]
 fn path_dependencies_name_the_project_packages_they_reach() {
     let packages = packages();
     assert_eq!(
@@ -183,10 +173,8 @@ fn path_dependencies_name_the_project_packages_they_reach() {
     assert!(package(&packages, "standalone").depends_on.is_empty());
 }
 
-#[specforge_test(
-    behavior = "rc_read_manifests",
-    verify = "a manifest that does not parse or complete is an error naming it"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-108")]
 fn a_manifest_that_does_not_parse_is_an_error_naming_it() {
     for (path, text) in [
         ("crates/bad/Cargo.toml", "[package\nname = \"bad\"\n"),
@@ -202,10 +190,8 @@ fn a_manifest_that_does_not_parse_is_an_error_naming_it() {
     }
 }
 
-#[specforge_test(
-    behavior = "rc_read_manifests",
-    verify = "a virtual manifest is no package"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-108")]
 fn a_virtual_manifest_is_no_package() {
     let names: Vec<String> = packages().iter().map(|p| p.id.to_string()).collect();
     assert_eq!(

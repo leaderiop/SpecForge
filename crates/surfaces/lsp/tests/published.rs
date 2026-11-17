@@ -26,10 +26,7 @@ async fn published(session: &mut Session, uri: &str, version: i64) -> Vec<Value>
     params["diagnostics"].as_array().unwrap().clone()
 }
 
-#[specforge_test_macros::test(
-    behavior = "lsp_format_document",
-    verify = "the formatter's diagnostics stay published until the document changes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-061")]
 #[tokio::test]
 async fn the_formatters_findings_stay_published_until_the_document_changes() {
     let dir = tempfile::TempDir::new().unwrap();
@@ -98,10 +95,7 @@ fn format(served: &mut Served, uri: &Url) -> Option<Publish> {
     served.publish_formatting(formatted.findings)
 }
 
-#[spec(
-    behavior = "lsp_format_document",
-    verify = "a formatting publish carries diagnostics of one document version"
-)]
+#[spec(requirement = "FEATURE-061")]
 fn a_formatting_publish_carries_one_version() {
     let mut served = Served::detached();
     let uri = uri_of_path("/buffer/f.spec");
@@ -159,10 +153,7 @@ fn a_formatting_publish_carries_one_version() {
     }
 }
 
-#[spec(
-    behavior = "hover_diagnostic",
-    verify = "hovering a region the formatter left unformatted shows its W142"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn hovering_the_kept_region_shows_its_w142() {
     let mut served = Served::detached();
     let uri = uri_of_path("/buffer/f.spec");
@@ -180,10 +171,7 @@ fn hovering_the_kept_region_shows_its_w142() {
     assert!(!hover.contains("W142"), "{hover}");
 }
 
-#[spec(
-    behavior = "lsp_format_document",
-    verify = "the formatter's diagnostics stay published until the document changes"
-)]
+#[spec(requirement = "FEATURE-061")]
 fn the_formatter_part_survives_another_documents_publish() {
     let mut served =
         Served::new(&[("f.spec", KEPT), ("g.spec", "type gamma \"G\" {}\n")]).open(&["f.spec"]);
@@ -203,10 +191,7 @@ fn the_formatter_part_survives_another_documents_publish() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "document_open_close",
-    verify = "a document in a nested project is no source of the workspace project and gets none of its diagnostics"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-062")]
 #[tokio::test]
 async fn a_document_in_a_nested_project_gets_none_of_the_workspace_projects_diagnostics() {
     let dir = tempfile::TempDir::new().unwrap();

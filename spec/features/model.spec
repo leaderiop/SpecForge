@@ -1,18 +1,14 @@
-// Logical Data Model features
-
-use "behaviors/model"
-
-feature logical_data_model "Logical Data Model Visualization" {
-  status   done
-  problem  """
+requirement FEATURE-060 "Logical Data Model Visualization" {
+  category "Feature"
+  tier     v2
+  text     """
     Users and AI agents have no way to visualize the schema-level structure
     of a SpecForge project — which entity kinds exist, what fields they have,
     and how they relate to each other via edge types. The existing specforge
     schema command outputs raw JSON Schema for programmatic consumption, not
     a human- or agent-readable data model. The existing specforge export
     --format=dot shows instance-level graphs, not schema structure.
-  """
-  solution """
+
     specforge model renders the schema-level meta-model as a logical data
     model in five formats: Markdown (default, LLM-friendly), Mermaid
     erDiagram (visual, renders in GitHub/IDEs), DOT (Graphviz with
@@ -27,14 +23,14 @@ feature logical_data_model "Logical Data Model Visualization" {
   """
 }
 
-feature model_multi_format "Multi-Format Model Output" {
-  status   done
-  problem  """
+requirement FEATURE-076 "Multi-Format Model Output" {
+  category "Feature"
+  tier     v2
+  text     """
     Different consumers need different output formats: terminals need
     readable text, GitHub needs Mermaid, Graphviz users need DOT, ERD
     tools need JSON or DBML, and LLMs need structured prose.
-  """
-  solution """
+
     Five format renderers share a single ModelIntermediate IR. Markdown
     is the default for terminal and LLM use. Mermaid erDiagram renders
     natively in GitHub markdown and IDE previews. DOT produces Graphviz
@@ -44,14 +40,14 @@ feature model_multi_format "Multi-Format Model Output" {
   """
 }
 
-feature model_filtering "Model Filtering and Scoping" {
-  status   done
-  problem  """
+requirement FEATURE-075 "Model Filtering and Scoping" {
+  category "Feature"
+  tier     v2
+  text     """
     With 23+ entity kinds across 4 extensions, the full model is noisy.
     Users need to focus on specific extensions, entity kinds, or
     neighborhoods of the kind graph.
-  """
-  solution """
+
     Three filtering dimensions: --extension narrows to a single
     extension's entity kinds. --kinds filters to specific entity kind
     names. --root with --depth builds a kind-level adjacency graph and
@@ -61,15 +57,15 @@ feature model_filtering "Model Filtering and Scoping" {
   """
 }
 
-feature model_agent_access "Model Access for AI Agents" {
-  status   done
-  problem  """
+requirement FEATURE-074 "Model Access for AI Agents" {
+  category "Feature"
+  tier     v2
+  text     """
     AI agents consuming spec graphs need to understand the schema structure
     to make correct first-attempt modifications. The raw GraphProtocolSchema
     JSON contains compiler metadata (testable, singleton, incremental) that
     is noise for agents trying to understand entity relationships.
-  """
-  solution """
+
     The specforge.model MCP tool exposes the logical data model in all
     five formats with the same filtering options as the CLI. The default
     Markdown format includes a framing preamble that explains entity kinds,

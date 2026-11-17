@@ -1,27 +1,19 @@
-// Embeddings extension — invariants for embedding cache and provider behavior
-
-use "behaviors/graph"
-use "behaviors/incremental"
-
-invariant embedding_cache_consistency "Embedding Cache Consistency" {
-  guarantee """
+requirement INVARIANT-022 "Embedding Cache Consistency" {
+  category "Invariant"
+  tier     v2
+  text     """
     The embedding cache MUST be invalidated when any entity's content or
     relationships change, ensuring semantic search results always reflect
     current graph state.
   """
-  risk      medium
-  verify property "embedding cache is invalidated when entity content changes"
-  verify unit "semantic search returns results consistent with current graph state"
-  verify unit "stale embeddings are never served after graph mutation"
 }
 
-invariant embedding_provider_determinism "Embedding Provider Determinism" {
-  guarantee """
+requirement INVARIANT-023 "Embedding Provider Determinism" {
+  category "Invariant"
+  tier     v2
+  text     """
     Given identical .spec files and identical EmbeddingProvider configuration,
     embedding generation and similarity search MUST produce identical results.
     Results MAY vary across different providers or model versions.
   """
-  risk      medium
-  verify property "identical spec files and provider config produce identical embeddings"
-  verify unit "different provider configurations may produce different results"
 }

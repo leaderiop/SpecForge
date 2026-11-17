@@ -17,10 +17,7 @@ fn codes(files: &[(&str, &str)]) -> Vec<(String, String)> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "an import path is read from the spec root among keys named from the project root"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn an_import_path_is_read_from_the_spec_dir_among_prefixed_keys() {
     let keys: BTreeSet<&str> = [
         "spec/a.spec",

@@ -68,10 +68,7 @@ fn a_store_keyed_by_aliases_is_unreadable() {
     assert!(error.message.contains("main"), "{}", error.message);
 }
 
-#[specforge_test_macros::test(
-    behavior = "authenticate_registry_request",
-    verify = "raw tokens never logged or stored in config"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-110")]
 fn a_credentials_debug_never_shows_its_token() {
     let credential = RegistryCredential::new(root("a"), "secret-token-value");
     let shown = format!("{credential:?}");
@@ -79,10 +76,7 @@ fn a_credentials_debug_never_shows_its_token() {
     assert!(!shown.contains("secret"), "{shown}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "authenticate_registry_request",
-    verify = "a 401 is R001 naming how to log in again"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-110")]
 fn a_401_is_r001_naming_how_to_log_in_again() {
     let diagnostic = RegistryError::Unauthorized {
         guidance: "token expired or invalid".to_string(),

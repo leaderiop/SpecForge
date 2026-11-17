@@ -1,10 +1,7 @@
 use super::*;
 use specforge_test_macros::test as specforge_test;
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "E069 names why specforge.json can't be used"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn parsing_a_config_text_is_reading_it_from_its_file() {
     let texts = [
         r#"{"name": "p", "spec_root": "spec", "exclude": ["gen"], "extensions": ["@a/b"],
@@ -188,10 +185,7 @@ fn a_missing_config_is_the_default_with_no_problem() {
     assert!(read.config.extensions.is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "E069 names why specforge.json can't be used"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn an_unparsable_config_names_the_line_and_column() {
     let dir = config_dir(br#"{ "extensions": ["@specforge/product",  }"#);
     let path = dir.path().join("specforge.json");
@@ -285,10 +279,7 @@ fn a_non_array_extensions_keeps_the_other_keys() {
     assert!(read.config.extensions.is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "E069 names a mistyped key or a non-string item, and the rest of specforge.json is used"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_mistyped_key_is_a_problem_and_its_default_is_used() {
     let dir = config_dir(br#"{"spec_root": 5, "extensions": [], "name": "p", "version": null}"#);
     let path = dir.path().join("specforge.json");
@@ -318,10 +309,7 @@ fn a_mistyped_key_is_a_problem_and_its_default_is_used() {
     assert_eq!(read.config.name.as_deref(), Some("p"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "E069 names a mistyped key or a non-string item, and the rest of specforge.json is used"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_non_string_item_is_a_problem_and_the_others_are_kept() {
     let dir = config_dir(br#"{"extensions": ["@specforge/product", 42], "exclude": ["a", {}]}"#);
     let path = dir.path().join("specforge.json");
@@ -364,10 +352,7 @@ fn a_non_string_item_is_a_problem_and_the_others_are_kept() {
     assert_eq!(written, ["a"]);
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "an exclude entry that can match no source is E069 and ignored"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn an_exclude_entry_that_can_match_no_source_is_e069_and_ignored() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
@@ -420,10 +405,8 @@ fn keys_are_read_in_the_order_the_file_writes_them() {
     assert!(keys_in_file_order("[1]").is_empty());
 }
 
-#[specforge_test(
-    behavior = "management_operations_over_the_project_view",
-    verify = "a config problem that leaves the sources or the extensions unknown blocks a rewrite"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
+#[specforge_test(requirement = "FEATURE-070")]
 fn which_problems_block_a_rewrite() {
     let path = PathBuf::from("specforge.json");
     let wrong_type = |key| ConfigProblem::WrongType {
@@ -480,10 +463,7 @@ fn which_problems_block_a_rewrite() {
     }
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "E069 names why specforge.json can't be used"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn e069_text_is_the_problem_s() {
     let path = PathBuf::from("specforge.json");
     let not_json = ConfigProblem::NotJson {

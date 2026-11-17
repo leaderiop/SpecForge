@@ -110,10 +110,7 @@ fn versions_list_in_store_order() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "resolve_registry_source",
-    verify = "a registry lists no stored version that is no SemVer version"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn versions_serve_no_stored_row_whose_version_is_no_semver_version() {
     let registry = LocalRegistry::start();
     registry.store(&reply("@acme/tool", "1.0.0", b"\0asm"), b"\0asm");
@@ -163,10 +160,7 @@ fn a_stored_signature_reads_back_typed() {
     assert_eq!(metadata.signature, Some(signature));
 }
 
-#[specforge_test_macros::test(
-    behavior = "search_registry",
-    verify = "a registry serves no stored package whose name is no package name"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn search_serves_no_stored_row_whose_name_is_no_package_name() {
     use specforge_registry_wire::SearchQuery;
     let registry = LocalRegistry::start();

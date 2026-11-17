@@ -142,10 +142,7 @@ async fn e2e_no_code_action_when_verify_exists() {
 /// did-you-mean suggestion.
 const MISSPELLED: &str = "invariant token_unique \"T\" {\n  guarantee \"g\"\n}\n\nbehavior login \"L\" {\n  invariants [tokn_unique]\n}\n";
 
-#[spec(
-    behavior = "emit_live_diagnostics",
-    verify = "code actions act on the diagnostics last published for the document"
-)]
+#[spec(requirement = "FEATURE-059")]
 #[tokio::test]
 async fn e2e_did_you_mean_quickfix_from_the_published_diagnostic() {
     let (mut client, uri, _dir) = Session::with_extensions(
@@ -195,10 +192,8 @@ async fn stub_action(uri: &str, client: &mut Session) -> Value {
         .unwrap_or_else(|| panic!("no stub action in {resp}"))
 }
 
-#[spec(
-    behavior = "code_action_create_entity_stub",
-    verify = "code action offered on E003 for non-existent entity"
-)]
+#[spec(requirement = "FEATURE-008")]
+#[spec(requirement = "FEATURE-024")]
 #[tokio::test]
 async fn e2e_stub_offered_for_a_dangling_reference() {
     let (mut client, uri, _dir) = Session::with_extensions(
@@ -215,10 +210,8 @@ async fn e2e_stub_offered_for_a_dangling_reference() {
     assert_eq!(action["title"], "Create invariant stub for session_limit");
 }
 
-#[spec(
-    behavior = "code_action_create_entity_stub",
-    verify = "stub uses correct entity kind from FieldRegistry target_kind"
-)]
+#[spec(requirement = "FEATURE-008")]
+#[spec(requirement = "FEATURE-024")]
 #[tokio::test]
 async fn e2e_stub_kind_comes_from_the_enclosing_field() {
     let (mut client, uri, _dir) = Session::with_extensions(
@@ -243,10 +236,8 @@ async fn e2e_stub_kind_comes_from_the_enclosing_field() {
     );
 }
 
-#[spec(
-    behavior = "code_action_create_entity_stub",
-    verify = "stub goes after the last block of its kind in the current file"
-)]
+#[spec(requirement = "FEATURE-008")]
+#[spec(requirement = "FEATURE-024")]
 #[tokio::test]
 async fn e2e_stub_is_appended_to_the_file() {
     let (mut client, uri, _dir) = Session::with_extensions(

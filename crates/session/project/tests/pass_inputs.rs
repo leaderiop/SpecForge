@@ -69,10 +69,7 @@ fn input_of(runtime: &InProcessRuntime, export: &str) -> String {
     serde_json::to_string_pretty(&call.input).unwrap()
 }
 
-#[specforge_test(
-    behavior = "run_check_phase_passes",
-    verify = "a pass declared for the check phase runs on every compile"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn pass_input_is_byte_equal_without_k11_k14() {
     let project = TestProject::new()
         .config(|c| c["name"] = "p".into())
@@ -185,19 +182,13 @@ fn owned() -> Vec<String> {
     pending_in(&runtime)
 }
 
-#[specforge_test(
-    behavior = "cc_owner_pending",
-    verify = "a scoped entity is pending while its owner is"
-)]
+#[specforge_test(requirement = "FEATURE-003")]
 fn a_scoped_entity_is_pending_while_its_owner_is() {
     // p2's computed status is draft: it and the truth it scopes are pending; p1 is complete, and so is its truth.
     assert_eq!(owned(), ["p2", "p2/t2"]);
 }
 
-#[specforge_test(
-    behavior = "cc_owner_pending",
-    verify = "an entity with no stated owner is not pending"
-)]
+#[specforge_test(requirement = "FEATURE-003")]
 fn an_entity_with_no_stated_owner_is_not_pending() {
     let pending = owned();
     for free in ["t3", "n1"] {

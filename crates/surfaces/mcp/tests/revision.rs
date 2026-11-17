@@ -30,10 +30,7 @@ fn send_raw(server: &mut McpServer, input: &str) -> Option<Value> {
         .map(|resp| serde_json::from_str(&resp).unwrap())
 }
 
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "answers with the client's protocol version when it supports it"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn initialize_echoes_a_supported_protocol_version() {
     for version in ["2025-11-25", "2025-06-18", "2025-03-26"] {
         let (_, answered) = negotiated(Some(version));
@@ -41,10 +38,7 @@ fn initialize_echoes_a_supported_protocol_version() {
     }
 }
 
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "answers an unsupported or missing protocol version with 2025-11-25"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn initialize_answers_other_versions_with_the_latest() {
     for version in [Some("2024-11-05"), Some("2099-01-01"), None] {
         let (_, answered) = negotiated(version);
@@ -52,10 +46,7 @@ fn initialize_answers_other_versions_with_the_latest() {
     }
 }
 
-#[specforge_test(
-    behavior = "follow_negotiated_mcp_revision",
-    verify = "a 2025-03-26 session answers a batch with the response to each request"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn batch_on_2025_03_26_gets_each_response() {
     let (mut server, _) = negotiated(Some("2025-03-26"));
     let batch = json!([
@@ -78,10 +69,7 @@ fn batch_on_2025_03_26_gets_each_response() {
     assert!(responses[2]["result"]["content"].is_array(), "{resp}");
 }
 
-#[specforge_test(
-    behavior = "follow_negotiated_mcp_revision",
-    verify = "a batch of notifications gets no response"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn batch_of_notifications_gets_no_response() {
     let (mut server, _) = negotiated(Some("2025-03-26"));
     let batch = json!([
@@ -91,10 +79,7 @@ fn batch_of_notifications_gets_no_response() {
     assert_eq!(send_raw(&mut server, &batch.to_string()), None);
 }
 
-#[specforge_test(
-    behavior = "follow_negotiated_mcp_revision",
-    verify = "an empty batch is an invalid request"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn empty_batch_is_invalid() {
     let (mut server, _) = negotiated(Some("2025-03-26"));
     let resp = send_raw(&mut server, "[]").unwrap();
@@ -102,10 +87,7 @@ fn empty_batch_is_invalid() {
     assert_eq!(resp.get("id"), Some(&Value::Null), "{resp}");
 }
 
-#[specforge_test(
-    behavior = "follow_negotiated_mcp_revision",
-    verify = "a session on a later revision rejects a batch with -32600"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn batch_on_later_revisions_is_rejected() {
     let batch = json!([request(1, "ping", json!({})), request(2, "ping", json!({}))]).to_string();
     for version in ["2025-06-18", "2025-11-25"] {
@@ -121,10 +103,7 @@ fn batch_on_later_revisions_is_rejected() {
     assert_eq!(resp["error"]["code"], -32600, "{resp}");
 }
 
-#[specforge_test(
-    behavior = "follow_negotiated_mcp_revision",
-    verify = "tool results carry an object payload as structuredContent from 2025-06-18"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn structured_content_from_2025_06_18() {
     for version in ["2025-06-18", "2025-11-25"] {
         let (mut server, _) = negotiated(Some(version));
@@ -155,10 +134,7 @@ fn structured_content_from_2025_06_18() {
     }
 }
 
-#[specforge_test(
-    behavior = "follow_negotiated_mcp_revision",
-    verify = "a 2025-03-26 session gets no structuredContent"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn no_structured_content_on_2025_03_26() {
     let (mut server, _) = negotiated(Some("2025-03-26"));
     let stats = call(
@@ -173,10 +149,7 @@ fn no_structured_content_on_2025_03_26() {
     );
 }
 
-#[specforge_test(
-    behavior = "list_mcp_resources",
-    verify = "templated resources are listed by resources/templates/list, not resources/list"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn templated_resources_are_resource_templates() {
     let (mut server, _) = negotiated(Some("2025-11-25"));
 
@@ -244,10 +217,7 @@ fn structured_server() -> (McpServer, tempfile::TempDir) {
     (server, dir)
 }
 
-#[specforge_test(
-    behavior = "follow_negotiated_mcp_revision",
-    verify = "each core tool with an object result declares an outputSchema its structured results conform to"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn structured_results_conform_to_each_tool_output_schema() {
     // Every core tool, over the fixture's reads and writes: each reply is
     // held to its tool's listed schema, additionalProperties included.
@@ -328,10 +298,7 @@ fn structured_results_conform_to_each_tool_output_schema() {
     }
 }
 
-#[specforge_test(
-    behavior = "follow_negotiated_mcp_revision",
-    verify = "a failed call of any tool carries no structuredContent: its McpError is the text block"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_failed_call_of_any_tool_has_no_structured_content() {
     let (mut server, _dir) = structured_server();
     for (tool, arguments, code) in [
@@ -362,10 +329,7 @@ fn a_failed_call_of_any_tool_has_no_structured_content() {
     }
 }
 
-#[specforge_test(
-    behavior = "follow_negotiated_mcp_revision",
-    verify = "a 2025-03-26 session is listed no outputSchema"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn output_schemas_are_listed_from_2025_06_18() {
     let listed = |version: &str| {
         let (mut server, _) = negotiated(Some(version));

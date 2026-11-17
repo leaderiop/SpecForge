@@ -58,10 +58,7 @@ fn png(width: u32, height: u32) -> Vec<u8> {
     out
 }
 
-#[specforge_test(
-    behavior = "checks_media",
-    verify = "a media checker reads a path under its root and an https URL by ranges, and refuses other schemes"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_media_checker_reads_a_path_under_its_root_and_a_url_by_ranges() {
     let plan = planned("image", "assets/a.png", json!({}));
     assert_eq!(
@@ -104,10 +101,7 @@ fn a_media_checker_reads_a_path_under_its_root_and_a_url_by_ranges() {
     assert_eq!(credentials.code, "E103");
 }
 
-#[specforge_test(
-    behavior = "checks_media",
-    verify = "an image of a format not allowed is E099, and one over its pixels or bytes is W177"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn an_image_not_allowed_is_e099_and_one_over_its_limits_is_w177() {
     assert!(found("image", json!({}), &png(64, 64)).is_empty());
     let only_gif = found("image", json!({"formats": ["gif"]}), &png(64, 64));
@@ -140,10 +134,7 @@ fn an_image_not_allowed_is_e099_and_one_over_its_limits_is_w177() {
     assert!(judged("image", "a.png", json!({}), part(cut, 0, 1 << 20)).is_empty());
 }
 
-#[specforge_test(
-    behavior = "checks_media",
-    verify = "an svg with active content is E113 at its line, and one not well formed or not svg is E099"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn an_svg_with_active_content_is_e113_and_one_not_svg_is_e099() {
     assert!(found(
         "svg",
@@ -179,10 +170,7 @@ fn an_svg_with_active_content_is_e113_and_one_not_svg_is_e099() {
     assert_eq!(codes(&over), ["W176"]);
 }
 
-#[specforge_test(
-    behavior = "checks_media",
-    verify = "a media file is known by its container, and one of another container or none is E099"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_media_file_is_known_by_its_container() {
     let mp4 = b"\0\0\0\x18ftypisom\0\0\0\0isommp42";
     assert!(found("media", json!({}), mp4).is_empty());
@@ -237,10 +225,7 @@ fn round(
         .expect("the round is judged")
 }
 
-#[specforge_test(
-    behavior = "checks_media",
-    verify = "a pdf reads its head and tail, asks for the spans its page tree needs, then counts its pages against max_pages"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_pdf_asks_for_the_spans_its_page_tree_needs() {
     let small = pdf(10, 10, 4);
     assert!(round(ends(&small), json!({"max_pages": 4}), None)
@@ -288,10 +273,7 @@ fn a_pdf_asks_for_the_spans_its_page_tree_needs() {
     assert_eq!(codes(&found("pdf", json!({}), b"GIF89a")), ["E099"]);
 }
 
-#[specforge_test(
-    behavior = "checks_media",
-    verify = "a remote file the network did not serve is a machine warning, and one that is gone is E099"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_remote_file_not_served_is_a_warning_and_one_gone_is_e099() {
     let http = |class: OutcomeClass, status: Option<u16>| {
         answer(

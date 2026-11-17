@@ -37,10 +37,7 @@ fn unreadable(root: &Path) -> String {
     }
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "a specforge.json that is not a regular file, or is over 64 MiB, is E069 at once, never waited on or read whole"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_config_that_is_a_named_pipe_is_unreadable_at_once() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("specforge.json");
@@ -55,10 +52,7 @@ fn a_config_that_is_a_named_pipe_is_unreadable_at_once() {
     assert!(text.contains("named pipe"), "{text}");
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "a specforge.json that is not a regular file, or is over 64 MiB, is E069 at once, never waited on or read whole"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_config_over_the_ceiling_is_unreadable_unread() {
     let dir = TempDir::new().unwrap();
     File::create(dir.path().join("specforge.json"))

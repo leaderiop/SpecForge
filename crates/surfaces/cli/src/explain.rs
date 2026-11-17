@@ -100,10 +100,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "print_diagnostics_structured",
-        verify = "specforge explain bolds the code only where its output is coloured"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-017")]
     fn explain_bolds_the_code_only_where_stdout_is_coloured() {
         let coloured = Facts {
             color_out: true,

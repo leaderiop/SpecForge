@@ -5,10 +5,7 @@ use crate::support::*;
 use serde_json::json;
 use specforge_test::prelude::*;
 
-#[specforge_test(
-    behavior = "answer_judged_inputs",
-    verify = "the verdict inputs tool answers what the inputs query answers"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn the_verdict_inputs_tool_matches_the_cli() {
     let mut server = TestProject::new()
         .file(

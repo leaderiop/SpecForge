@@ -169,10 +169,7 @@ mod tests {
         finding(found, &ProjectView::of(project.compiled()))
     }
 
-    #[specforge_test_macros::test(
-        behavior = "run_doctor_check",
-        verify = "doctor warns when the specforge on PATH speaks an older protocol than the project needs"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-021")]
     fn an_older_specforge_on_path_is_w169_naming_it_and_both_versions() {
         let finding = judged(Some(&answering(Some("specforge 0.2.0 (protocol 1.6.0)")))).unwrap();
 

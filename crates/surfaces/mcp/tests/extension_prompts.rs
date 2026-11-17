@@ -13,10 +13,7 @@ use std::sync::Arc;
 /// The core prompts, by name, in the order `prompts/list` gives them.
 const CORE: [&str; 5] = ["context", "review", "trace", "explore", "infer"];
 
-#[specforge_test_macros::test(
-    behavior = "serve_extension_prompt",
-    verify = "a project whose extensions declare no prompt lists and serves the core prompts unchanged"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-071")]
 fn a_project_without_extension_prompts_lists_the_core_prompts_unchanged() {
     let dir = project();
     let mut server = server(&dir);
@@ -80,10 +77,7 @@ fn listed(served: &mut Served) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_extension_prompt",
-    verify = "an extension prompt is listed after the core ones and served by prompts/get"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-071")]
 fn an_extension_prompt_is_listed_and_served() {
     let mut served = gsd("fine", "ok", json!({}));
     let names = listed(&mut served);
@@ -119,10 +113,7 @@ fn an_extension_prompt_is_listed_and_served() {
 /// The core prompts `prompts/list` gives before an extension's.
 const CORE_PROMPTS: usize = 5;
 
-#[specforge_test_macros::test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt whose when setting is off is not listed or served"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-071")]
 fn a_prompt_disabled_by_its_setting_is_not_served() {
     let mut served = gsd("fine", "ok", json!({"workflow.research": false}));
     let names = listed(&mut served);
@@ -142,10 +133,7 @@ fn a_prompt_disabled_by_its_setting_is_not_served() {
     assert!(reply.get("error").is_some(), "{reply}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_extension_prompt",
-    verify = "an agent renders any prompt through specforge.prompt, by name and arguments or by argv"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-071")]
 fn an_agent_renders_a_prompt_through_specforge_prompt() {
     let mut served = gsd("fine", "ok", json!({}));
     let by_name = rpc::tool(
@@ -189,10 +177,7 @@ fn an_agent_renders_a_prompt_through_specforge_prompt() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_extension_prompt",
-    verify = "the client names the host a prompt renders for, and a host argument overrides it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-071")]
 fn the_client_names_the_host_a_prompt_renders_for() {
     let host_of = |served: &mut Served, extra: Value| {
         let mut arguments = json!({"name": "specforge.t.plan_phase", "arguments": {"phase": "03"}});
@@ -226,10 +211,7 @@ fn the_client_names_the_host_a_prompt_renders_for() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "gate_a_command",
-    verify = "a gated command is refused gate_failed over MCP with its failing diagnostics, and its export is not called"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_gated_command_is_refused_over_mcp() {
     let mut served = gsd("fine", "blocked", json!({}));
     let reply = rpc::call_tool(
@@ -244,10 +226,7 @@ fn a_gated_command_is_refused_over_mcp() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "dispatch_surface_command",
-    verify = "an MCP command call is told the host the session's client named"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-125")]
 fn an_mcp_command_call_is_told_the_session_host() {
     let init = json!({"clientInfo": {"name": "claude-code", "version": "2"}});
     let mut named = gsd_for("fine", "ok", json!({}), init);
@@ -269,10 +248,7 @@ fn an_mcp_command_call_is_told_the_session_host() {
     assert!(!rpc::tool_text(&reply).contains("host "), "{reply}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_extension_prompt",
-    verify = "prompts/get of a prompt whose gate fails is a JSON-RPC error naming gate_failed, and its export is not called"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-071")]
 fn prompts_get_of_a_failing_gate_is_a_rpc_error() {
     let mut served = gsd(NO_CONTEXT, "ok", json!({}));
     let reply = rpc::call(
@@ -287,10 +263,7 @@ fn prompts_get_of_a_failing_gate_is_a_rpc_error() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_extension_prompt",
-    verify = "specforge.prompt refuses an unknown host, an unknown prompt (naming the served ones) and argv for a core prompt"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-071")]
 fn specforge_prompt_refuses_what_it_cannot_render() {
     let mut served = gsd("fine", "ok", json!({}));
     let mut refuse = |arguments: Value| {
@@ -311,10 +284,7 @@ fn specforge_prompt_refuses_what_it_cannot_render() {
     assert!(argv.contains("by name"), "{argv}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt's multi-line message reaches the agent with its lines, and other controls escaped"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-071")]
 fn a_multi_line_prompt_message_reaches_the_agent_whole() {
     use specforge_wasm::WasmCallResult;
     let answer =
@@ -336,10 +306,7 @@ fn a_multi_line_prompt_message_reaches_the_agent_whole() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_extension_prompt",
-    verify = "an mcp prompt that declares path takes it as its own argument over prompts/get as over specforge.prompt"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-071")]
 fn an_mcp_prompt_takes_its_own_path_argument() {
     let fixture = GsdPrompts::new().prompting(json!({
         "id": "ingest", "title": "Ingest", "description": "Ingest documents", "export": "prompt__ingest",

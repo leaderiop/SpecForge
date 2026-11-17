@@ -163,10 +163,7 @@ fn export_with_nonexistent_scope_exits_one() {
         .code(1);
 }
 
-#[specforge_test(
-    behavior = "export_agent_context_format",
-    verify = "non-existent scope entity produces E003 and exit code 1"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn a_context_export_of_a_missing_scope_is_e003() {
     let dir = TestProject::new()
         .without_config()
@@ -207,10 +204,7 @@ fn export_default_produces_v2_with_schema() {
     assert!(parsed["schema_version"].is_string());
 }
 
-#[specforge_test(
-    behavior = "embed_schema_in_export",
-    verify = "--no-schema suppresses schema and keeps format_version 1.0"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn export_no_schema_flag_produces_v1() {
     let dir = TestProject::new()
         .without_config()
@@ -236,10 +230,7 @@ fn export_no_schema_flag_produces_v1() {
     );
 }
 
-#[specforge_test(
-    behavior = "export_agent_brief_format",
-    verify = "the brief export leaves the schema out unless --with-schema is given"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn export_brief_omits_the_schema_unless_asked() {
     let dir = TestProject::new()
         .without_config()
@@ -261,10 +252,7 @@ fn export_brief_omits_the_schema_unless_asked() {
     assert!(full["schema"].is_object());
 }
 
-#[specforge_test(
-    behavior = "export_agent_context_format",
-    verify = "the context export leaves the schema out unless --with-schema is given"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn export_context_omits_the_schema_unless_asked() {
     let dir = TestProject::new()
         .without_config()
@@ -345,10 +333,7 @@ fn schema_publish_outputs_json_schema() {
     assert_eq!(parsed["title"], "SpecForge Graph Protocol");
 }
 
-#[specforge_test(
-    behavior = "export_agent_context_format",
-    verify = "export --format context keeps an invariant's guarantee"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn export_context_keeps_an_invariants_guarantee() {
     let dir = TestProject::new()
         .raw_config(r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"]}"#);
@@ -416,10 +401,7 @@ fn schema_tokens(dir: &TestProject) -> (serde_json::Value, usize) {
     (schema, tokens)
 }
 
-#[specforge_test(
-    behavior = "enforce_token_budget",
-    verify = "the graph export honours --max-tokens with the schema left out unless --with-schema is given"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn graph_export_honours_max_tokens_without_the_schema() {
     let dir = budget_project();
     let budget = 500;
@@ -440,10 +422,7 @@ fn graph_export_honours_max_tokens_without_the_schema() {
     assert_eq!(kept + truncated.len(), 9, "{parsed}");
 }
 
-#[specforge_test(
-    behavior = "enforce_token_budget",
-    verify = "an embedded schema counts toward the token budget"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn embedded_schema_counts_toward_the_budget() {
     let dir = budget_project();
     let (schema, schema_cost) = schema_tokens(&dir);
@@ -472,10 +451,7 @@ fn embedded_schema_counts_toward_the_budget() {
     );
 }
 
-#[specforge_test(
-    behavior = "enforce_token_budget",
-    verify = "a budget smaller than the embedded schema fails with E062 instead of truncating the schema"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn budget_smaller_than_the_schema_fails() {
     let dir = budget_project();
     let (_, schema_cost) = schema_tokens(&dir);
@@ -495,10 +471,7 @@ fn budget_smaller_than_the_schema_fails() {
     assert_eq!(code, 0, "{stderr}");
 }
 
-#[specforge_test(
-    behavior = "enforce_token_budget",
-    verify = "a budget below one entity yields the envelope with no entities and the truncation marker"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn budget_below_one_entity_yields_an_empty_envelope() {
     let dir = budget_project();
     // Every entity costs more than 100 tokens; the empty envelope less.
@@ -544,10 +517,7 @@ fn export_format(dir: &TestProject, format: &str, args: &[&str]) -> (i32, String
     )
 }
 
-#[specforge_test(
-    behavior = "enforce_token_budget",
-    verify = "the context and brief exports honour --max-tokens, listing the dropped entities under token_budget"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn context_and_brief_exports_honour_max_tokens() {
     let dir = budget_project();
     for format in ["context", "brief"] {
@@ -597,10 +567,7 @@ fn context_and_brief_exports_honour_max_tokens() {
     }
 }
 
-#[specforge_test(
-    behavior = "enforce_token_budget",
-    verify = "a context or brief export that cannot fit even without entities, or whose embedded schema is over the budget, fails with E062"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn context_and_brief_budgets_too_small_fail_with_e062() {
     let dir = budget_project();
     for format in ["context", "brief"] {
@@ -792,10 +759,7 @@ fn the_export_matrix() {
     }
 }
 
-#[specforge_test(
-    behavior = "enforce_token_budget",
-    verify = "a budget below the empty envelope fails with E062"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn budget_below_the_empty_envelope_fails() {
     let dir = budget_project();
 
@@ -805,10 +769,7 @@ fn budget_below_the_empty_envelope_fails() {
     assert!(stderr.contains("E062"), "{stderr}");
 }
 
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "--kind with --publish, and --format without it, are refused"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn publish_refuses_kind_and_format_needs_publish() {
     let dir = TestProject::new()
         .enabling(&["@specforge/software", "@specforge/governance"])

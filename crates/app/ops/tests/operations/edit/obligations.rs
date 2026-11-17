@@ -20,10 +20,7 @@ fn remove(id: &str, kind: Option<&str>, text: &str) -> Edit {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_obligation",
-    verify = "a verify line is added after the last one"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_verify_line_is_added_after_the_last() {
     let c = tasks();
     let text = after(
@@ -54,10 +51,7 @@ fn a_verify_line_is_added_to_a_block_with_none() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_obligation",
-    verify = "a verify line is removed by kind and text"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_verify_line_is_removed_by_kind_and_text() {
     let c = tasks();
     let text = after(
@@ -113,10 +107,7 @@ fn with(kind: Option<&str>, text: &str) -> Obligation {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_obligation",
-    verify = "a prefix is an obligation's kind only when it is one of the verify kinds its entity's kind accepts"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_prefix_is_a_kind_only_when_it_is_one_of_the_verify_kinds() {
     let kinds = ["unit".to_string(), "property".to_string()];
     let parsed = |text| Obligation::parse(text, &kinds);
@@ -129,10 +120,7 @@ fn a_prefix_is_a_kind_only_when_it_is_one_of_the_verify_kinds() {
     assert_eq!(Obligation::parse("unit: x", &[]), with(None, "unit: x"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_obligation",
-    verify = "an obligation the entity writes in either reading of a prefix is the one its text names"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn an_obligation_written_in_either_reading_is_the_one_named() {
     let c = compile(
         &["@specforge/software", "@specforge/testing"],

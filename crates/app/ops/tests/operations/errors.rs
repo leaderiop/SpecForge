@@ -61,10 +61,7 @@ fn trace_nonexistent_returns_entity_not_found() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "compute_traceability_chain",
-    verify = "tracing an entity the graph lacks is E003 naming the closest entity"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-130")]
 fn tracing_an_unknown_entity_is_e003_with_a_suggestion() {
     let project = Assembled::over(Default::default()).graph(build_graph());
     let trace = |id| {
@@ -86,10 +83,7 @@ fn tracing_an_unknown_entity_is_e003_with_a_suggestion() {
 }
 
 // A missing entity is one refusal on every read view.
-#[specforge_test_macros::test(
-    invariant = "mcp_structured_error_responses",
-    verify = "a missing entity is one E003 refusal naming the closest entity on every read view"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-067")]
 fn a_missing_entity_is_one_refusal() {
     use specforge_ops::read::export::{Request, export};
     use specforge_ops::read::navigate::Navigator;
@@ -273,10 +267,7 @@ fn add_package(
     .unwrap_err()
 }
 
-#[specforge_test_macros::test(
-    invariant = "mcp_structured_error_responses",
-    verify = "a package the registry or the trust check refuses is never an internal_error"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-067")]
 fn a_registry_refusal_is_never_an_internal_error() {
     use specforge_ops::OpErrorKind;
     use specforge_ops::asking::Asking;

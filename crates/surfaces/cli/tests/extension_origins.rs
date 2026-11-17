@@ -43,10 +43,7 @@ fn row(name: &str, source: &str, status: &str) -> (String, String, String) {
     (name.into(), source.into(), status.into())
 }
 
-#[specforge_test(
-    behavior = "list_installed_extensions",
-    verify = "an extension's source is where the extension load takes it from, whatever order its entries are in"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn each_source_is_where_the_load_took_the_extension() {
     let stale_lock = json!({"lockfile_version": 1, "entries": [
         {"name": "@specforge/product", "version": "9.9.9", "source": "registry", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"},

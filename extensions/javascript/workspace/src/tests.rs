@@ -29,10 +29,8 @@ fn owner<'w>(workspace: &'w Workspace, file: &'w str) -> Option<(&'w str, &'w st
         .map(|(package, under)| (package.name.as_str(), under))
 }
 
-#[specforge_test(
-    behavior = "js_resolve_owning_package",
-    verify = "a file is owned by its nearest named package"
-)]
+#[specforge_test(requirement = "FEATURE-056")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn a_file_is_owned_by_its_nearest_named_package() {
     let w = workspace(&[
         ("package.json", r#"{"name":"app"}"#),
@@ -49,10 +47,8 @@ fn a_file_is_owned_by_its_nearest_named_package() {
     );
 }
 
-#[specforge_test(
-    behavior = "js_resolve_owning_package",
-    verify = "an unnamed package.json leaves the file to the one above"
-)]
+#[specforge_test(requirement = "FEATURE-056")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn an_unnamed_package_json_leaves_the_file_to_the_one_above() {
     let w = workspace(&[
         (
@@ -73,10 +69,8 @@ fn an_unnamed_package_json_leaves_the_file_to_the_one_above() {
     assert_eq!(w.packages().len(), 1);
 }
 
-#[specforge_test(
-    behavior = "js_resolve_owning_package",
-    verify = "an unread or non-JSON package.json is no package"
-)]
+#[specforge_test(requirement = "FEATURE-056")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn an_unread_or_non_json_package_json_is_no_package() {
     let w = Workspace::of(&input(&[
         ("package.json", Some(r#"{"name":"app"}"#)),
@@ -94,10 +88,8 @@ fn an_unread_or_non_json_package_json_is_no_package() {
     assert_eq!(owner(&w, "b/x.js"), Some(("app", "b/x.js")));
 }
 
-#[specforge_test(
-    behavior = "js_resolve_owning_package",
-    verify = "a file under no named package has no owner"
-)]
+#[specforge_test(requirement = "FEATURE-056")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn a_file_under_no_named_package_has_no_owner() {
     let w = workspace(&[
         ("package.json", r#"{"private":true}"#),
@@ -108,10 +100,8 @@ fn a_file_under_no_named_package_has_no_owner() {
     assert_eq!(Workspace::of(&CollectInput::default()).owner("a.js"), None);
 }
 
-#[specforge_test(
-    behavior = "js_resolve_owning_package",
-    verify = "a sibling with a shared prefix does not own a file"
-)]
+#[specforge_test(requirement = "FEATURE-056")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn a_sibling_with_a_shared_prefix_does_not_own_a_file() {
     let w = workspace(&[
         ("package.json", r#"{"name":"app"}"#),
@@ -123,10 +113,8 @@ fn a_sibling_with_a_shared_prefix_does_not_own_a_file() {
     );
 }
 
-#[specforge_test(
-    behavior = "js_resolve_owning_package",
-    verify = "the root package owns what no nested one claims"
-)]
+#[specforge_test(requirement = "FEATURE-056")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn the_root_package_owns_what_no_nested_one_claims() {
     let w = workspace(&[
         ("packages/core/package.json", r#"{"name":"@acme/core"}"#),
@@ -143,10 +131,8 @@ fn the_root_package_owns_what_no_nested_one_claims() {
     );
 }
 
-#[specforge_test(
-    behavior = "js_resolve_owning_package",
-    verify = "a package keeps its version, its engines and the names it depends on"
-)]
+#[specforge_test(requirement = "FEATURE-056")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn a_package_keeps_its_version_and_the_names_it_depends_on() {
     let w = workspace(&[(
         "packages/core/package.json",
@@ -178,10 +164,8 @@ fn a_package_keeps_its_version_and_the_names_it_depends_on() {
     assert_eq!(unversioned.packages()[0].dir, "");
 }
 
-#[specforge_test(
-    behavior = "js_resolve_owning_package",
-    verify = "a second package of one name is named after its directory"
-)]
+#[specforge_test(requirement = "FEATURE-056")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn a_second_package_of_one_name_is_named_after_its_directory() {
     let w = workspace(&[
         ("examples/app/package.json", r#"{"name":"app"}"#),

@@ -125,10 +125,8 @@ fn fact<'o>(outcome: &'o Outcome, id: &str) -> &'o Fact {
         .unwrap_or_else(|| panic!("{COLLECTOR} answered no {id}"))
 }
 
-#[specforge_test_macros::test(
-    behavior = "js_declare_source_collector",
-    verify = "javascript-source runs without a command or consent"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-002")]
+#[specforge_test_macros::test(requirement = "FEATURE-056")]
 fn javascript_source_runs_without_a_command_or_consent() {
     let p = project(FIXTURE, false);
     let machine = ScriptedMachine::new();
@@ -143,10 +141,8 @@ fn javascript_source_runs_without_a_command_or_consent() {
     assert!(!ids(&outcome, "item").is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "js_mint_item_facts",
-    verify = "a fixture workspace's items are minted by the host's reader with ids, kinds and places"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-002")]
+#[specforge_test_macros::test(requirement = "FEATURE-056")]
 fn a_fixture_workspace_collects_its_items_with_ids_kinds_and_locations() {
     let outcome = collected(&project(FIXTURE, false));
     let core = |path: &str| format!("js:@acme/core/src/index.ts::{path}");
@@ -225,10 +221,7 @@ fn a_fixture_workspace_collects_its_items_with_ids_kinds_and_locations() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "js_select_source_files",
-    verify = "a test file mints no item beside its runner's test"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-056")]
 fn a_test_file_mints_no_item_beside_its_runners_test() {
     let p = project(FIXTURE, true);
     let outcome = collected_with(
@@ -250,10 +243,7 @@ fn a_test_file_mints_no_item_beside_its_runners_test() {
     assert!(from_tests.is_empty(), "{from_tests:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "js_select_source_files",
-    verify = "a file under no named package mints nothing"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-056")]
 fn a_file_under_no_named_package_mints_nothing() {
     let outcome = collected(&project(UNOWNED, false));
     assert_eq!(facts(&outcome, COLLECTOR), &[] as &[Fact]);
@@ -265,10 +255,8 @@ fn a_file_under_no_named_package_mints_nothing() {
     assert_eq!(runner.skip_reason, None, "it ran and found nothing to read");
 }
 
-#[specforge_test_macros::test(
-    behavior = "js_mint_item_facts",
-    verify = "the items point at their package fact"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-002")]
+#[specforge_test_macros::test(requirement = "FEATURE-056")]
 fn the_items_point_at_their_package_fact() {
     let p = project(FIXTURE, false);
     let mut outcome = collected(&p);
@@ -322,10 +310,8 @@ fn the_items_point_at_their_package_fact() {
     assert!(code.is_empty(), "{code:#?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "js_mint_item_facts",
-    verify = "a second collect writes the same facts"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-002")]
+#[specforge_test_macros::test(requirement = "FEATURE-056")]
 fn a_second_collect_writes_the_same_facts() {
     let p = project(FIXTURE, false);
     let first = collected(&p);

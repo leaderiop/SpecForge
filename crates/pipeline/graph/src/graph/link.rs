@@ -262,10 +262,7 @@ invariant inv_one "Invariant One" {
         crate::build_graph(&[specforge_parser::parse(source, "main.spec")])
     }
 
-    #[specforge_test(
-        behavior = "detect_dangling_references",
-        verify = "a reference to an existing entity without its edge fails the linker's assertion"
-    )]
+    #[specforge_test(requirement = "FEATURE-124")]
     #[should_panic(expected = "without their edge")]
     fn a_reference_without_its_edge_fails_the_assertion() {
         let (mut graph, _) = built(REFERENCING);
@@ -289,10 +286,7 @@ invariant inv_one "Invariant One" {
         assert_eq!(unlinked, [("alpha", "inv_one", "invariants")]);
     }
 
-    #[specforge_test(
-        behavior = "detect_dangling_references",
-        verify = "reference with corresponding graph edge passes"
-    )]
+    #[specforge_test(requirement = "FEATURE-124")]
     fn a_linked_reference_passes() {
         let (graph, _) = built(REFERENCING);
         graph.assert_linked(&GraphInputs::default());
@@ -303,20 +297,14 @@ invariant inv_one "Invariant One" {
         );
     }
 
-    #[specforge_test(
-        behavior = "detect_dangling_references",
-        verify = "an empty graph passes the linker's assertion"
-    )]
+    #[specforge_test(requirement = "FEATURE-124")]
     fn an_empty_graph_passes() {
         let (graph, _) = built("");
         assert_eq!(graph.edge_count(), 0);
         graph.assert_linked(&GraphInputs::default());
     }
 
-    #[specforge_test(
-        behavior = "detect_dangling_references",
-        verify = "Detect Dangling References: dangling reference detection holds — graph_built_fired, resolver_integrity_verified, no_duplicate_diagnostics"
-    )]
+    #[specforge_test(requirement = "FEATURE-124")]
     fn a_missing_target_is_e003_once() {
         // An unresolved id is the linker's E003, once; it names no existing
         // entity, so the assertion has nothing to say.

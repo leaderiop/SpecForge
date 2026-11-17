@@ -122,10 +122,7 @@ fn state_of(project: &TestProject) -> String {
         .expect("a judgement of W311")
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a prompt-judged verdict is recorded and goes stale like an agent's, and its rendered prompt lists the rules it judges"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_prompt_judged_verdict_is_recorded() {
     let project = gsd_judged_project("");
     assert_eq!(state_of(&project), "missing");
@@ -138,10 +135,7 @@ fn a_prompt_judged_verdict_is_recorded() {
     assert_eq!(state_of(&project), "fresh");
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a prompt-judged verdict is recorded and goes stale like an agent's, and its rendered prompt lists the rules it judges"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_verdict_from_another_extensions_command_is_refused() {
     let project = gsd_judged_project("");
     assert_ne!(
@@ -153,10 +147,7 @@ fn a_verdict_from_another_extensions_command_is_refused() {
     assert_eq!(state_of(&project), "missing");
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a prompt-judged verdict is recorded and goes stale like an agent's, and its rendered prompt lists the rules it judges"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_prompt_judged_verdict_goes_stale_like_an_agents() {
     let project = gsd_judged_project("");
     assert_eq!(record(&project, GSD_JUDGED, "prompt:plan_check"), "applied");
@@ -185,10 +176,7 @@ fn rendered(project: &TestProject, id: &str) -> Value {
     serde_json::to_value(rendered.payload).unwrap()
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a prompt-judged verdict is recorded and goes stale like an agent's, and its rendered prompt lists the rules it judges"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_rendered_prompt_lists_the_rules_it_judges() {
     let payload = rendered(&gsd_judged_project(""), "plan_check");
     let judged = payload["judged"].as_array().expect("a judged list");
@@ -199,10 +187,7 @@ fn a_rendered_prompt_lists_the_rules_it_judges() {
     assert_eq!(w311["passing"], json!(["passed"]));
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a prompt-judged verdict is recorded and goes stale like an agent's, and its rendered prompt lists the rules it judges"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_prompt_with_no_judged_rule_has_no_judged_key() {
     let payload = rendered(&gsd_judged_project(""), "plain");
     assert!(payload.get("judged").is_none(), "{payload}");

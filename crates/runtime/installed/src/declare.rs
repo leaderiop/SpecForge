@@ -89,10 +89,7 @@ mod tests {
 
     const SYNTAX: &str = "specforge:host/syntax@0.1.0";
 
-    #[specforge_test_macros::test(
-        behavior = "refuse_an_unbacked_port_import",
-        verify = "a syntax import is backed by an fs or a git capability"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-137")]
     fn a_syntax_import_backed_by_an_fs_capability_loads() {
         let bytes = b"\0asm a candidate that reads source";
         let ports: [fn(&str) -> Capability; 2] = [Capability::fs, Capability::git];

@@ -15,10 +15,7 @@ fn w061s(source: &str) -> Vec<specforge_common::Diagnostic> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "W061 names every entity of a cycle, one whose cycle closes through an entity already walked included"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn w061_names_every_entity_of_a_tangle_of_cycles() {
     let found = w061s(
         r#"
@@ -40,10 +37,7 @@ behavior delta "D" { contract "c" depends_on [beta] }
     assert_eq!(data.entities(), ["alpha", "beta", "gamma", "delta"]);
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "W061 is the same whatever order the references are written in"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn w061_is_the_same_whatever_order_the_references_are_written_in() {
     let written = |first: &str, second: &str| {
         w061s(&format!(
@@ -93,10 +87,7 @@ fn strings(cycle: &Cycle<Sym>) -> (Vec<&str>, Vec<&str>) {
     (names(&cycle.members), names(&cycle.path))
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "detects cycles in directed graph"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn cycles_finds_a_simple_cycle() {
     let graph = graph_of(&["a", "b", "c"], &[("a", "b"), ("b", "c"), ("c", "a")]);
 
@@ -109,20 +100,14 @@ fn cycles_finds_a_simple_cycle() {
     );
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "no false positives for acyclic graph"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn cycles_is_empty_for_a_dag() {
     let graph = graph_of(&["a", "b", "c"], &[("c", "a"), ("c", "b"), ("b", "a")]);
 
     assert!(graph.cycles().is_empty(), "DAG should have no cycles");
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "detects self-referencing cycle"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn cycles_finds_a_self_loop() {
     let graph = graph_of(&["a"], &[("a", "a")]);
 
@@ -132,10 +117,7 @@ fn cycles_finds_a_self_loop() {
     assert_eq!(strings(&cycles[0]), (vec!["a"], vec!["a", "a"]));
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "a built graph's cycles count every edge, a derived or single reference's included; W061 counts the written references only"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_built_graphs_cycles_count_every_edge_while_w061_counts_the_written_references() {
     let source = r#"
 shape Expr "Expr" {

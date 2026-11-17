@@ -1,16 +1,12 @@
-// @rust/cargo features
-
-use "extensions/rust/cargo/behaviors"
-
-feature rc_package_facts "Cargo Package Facts" {
-  status   in_progress
-  problem  """
+requirement FEATURE-108 "Cargo Package Facts" {
+  category "Feature"
+  tier     v2
+  text     """
     A spec could cite a Rust test but not the package or target that holds
     it: nothing read a project's Cargo.toml files into facts, so a package,
     its version, its targets and the project packages it depends on were
     names no check could resolve.
-  """
-  solution """
+
     The extension library specforge-rust-manifest reads every Cargo.toml
     the host serves with cargo_toml, cargo's own manifest model, over the
     file listing: workspace inheritance and target autodiscovery as cargo

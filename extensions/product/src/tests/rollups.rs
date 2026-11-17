@@ -81,10 +81,7 @@ fn progress_reversed() -> G {
     g
 }
 
-#[specforge_test(
-    behavior = "surface_deliverable_completion",
-    verify = "deliverable-completion returns DeliverableCompletionPayload JSON"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn deliverable_completion_answers_its_payload() {
     let dc = json_of(
         "deliverable_completion",
@@ -123,10 +120,7 @@ fn deliverable_completion_answers_its_payload() {
     assert!(human.contains("milestone  status"), "{human}");
 }
 
-#[specforge_test(
-    behavior = "surface_deliverable_completion",
-    verify = "missing deliverable ID returns error with suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn deliverable_completion_of_a_mistyped_deliverable_suggests_the_nearest() {
     let error = not_found_suggesting(
         "deliverable_completion",
@@ -136,10 +130,8 @@ fn deliverable_completion_of_a_mistyped_deliverable_suggests_the_nearest() {
     assert_eq!(error["suggestion"], "d1");
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_completion",
-    verify = "deliverable with all completed milestones returns ratio 1.0"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
+#[specforge_test(requirement = "FEATURE-102")]
 fn a_deliverable_whose_milestones_are_all_completed_is_complete() {
     let dc = json_of(
         "deliverable_completion",
@@ -155,10 +147,8 @@ fn a_deliverable_whose_milestones_are_all_completed_is_complete() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_completion",
-    verify = "deliverable with no completed milestones returns ratio 0.0"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
+#[specforge_test(requirement = "FEATURE-102")]
 fn a_deliverable_without_a_completed_milestone_is_at_zero() {
     // ms4 has no status: it is planned, not completed.
     let dc = json_of(
@@ -173,10 +163,8 @@ fn a_deliverable_without_a_completed_milestone_is_at_zero() {
     assert_eq!(dc["completion_ratio"], 0.0);
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_completion",
-    verify = "deliverable with zero milestones returns ratio 0.0"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
+#[specforge_test(requirement = "FEATURE-102")]
 fn a_deliverable_without_milestones_is_at_zero_without_dividing_by_zero() {
     let dc = json_of(
         "deliverable_completion",
@@ -190,10 +178,8 @@ fn a_deliverable_without_milestones_is_at_zero_without_dividing_by_zero() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_completion",
-    verify = "deliverable with mix of completed and non-completed milestones returns partial ratio"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
+#[specforge_test(requirement = "FEATURE-102")]
 fn a_deliverable_half_completed_is_at_one_half() {
     let dc = json_of(
         "deliverable_completion",
@@ -203,10 +189,8 @@ fn a_deliverable_half_completed_is_at_one_half() {
     assert_eq!(dc["completion_ratio"], 0.5);
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_completion",
-    verify = "deliverable completion is deterministic across repeated queries"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
+#[specforge_test(requirement = "FEATURE-102")]
 fn deliverable_completion_is_the_same_every_time_and_in_any_order() {
     let args = json!({"deliverable": "d2", "details": true});
     let first = json_of("deliverable_completion", args.clone(), &progress());
@@ -220,10 +204,7 @@ fn deliverable_completion_is_the_same_every_time_and_in_any_order() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_release_completion",
-    verify = "release-completion returns correct shipped/total ratio"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn release_completion_answers_shipped_over_total() {
     let rc = json_of("release_completion", json!({"release": "r1"}), &progress());
     assert_eq!(
@@ -239,10 +220,7 @@ fn release_completion_answers_shipped_over_total() {
     assert_eq!(error["suggestion"], "r1");
 }
 
-#[specforge_test(
-    behavior = "pe_query_release_completion",
-    verify = "release with 2/3 shipped returns ratio 0.667"
-)]
+#[specforge_test(requirement = "FEATURE-094")]
 fn a_release_with_two_of_three_shipped_is_at_two_thirds() {
     // d3 has no status: it is a draft, not shipped.
     let rc = json_of("release_completion", json!({"release": "r1"}), &progress());
@@ -250,10 +228,7 @@ fn a_release_with_two_of_three_shipped_is_at_two_thirds() {
     assert!((ratio - 0.667).abs() < 0.001, "{ratio}");
 }
 
-#[specforge_test(
-    behavior = "pe_query_release_completion",
-    verify = "release with no deliverables returns null ratio"
-)]
+#[specforge_test(requirement = "FEATURE-094")]
 fn a_release_without_deliverables_has_no_ratio() {
     let rc = json_of("release_completion", json!({"release": "r2"}), &progress());
     assert_eq!(
@@ -262,10 +237,7 @@ fn a_release_without_deliverables_has_no_ratio() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_deliverable_priority",
-    verify = "deliverable-priority returns DeliverablePriorityPayload JSON"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn deliverable_priority_answers_its_payload() {
     let dp = json_of(
         "deliverable_priority",
@@ -285,10 +257,7 @@ fn deliverable_priority_answers_its_payload() {
     assert_eq!(dp["priority"], Value::Null);
 }
 
-#[specforge_test(
-    behavior = "surface_deliverable_priority",
-    verify = "missing deliverable ID returns error with suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn deliverable_priority_of_a_mistyped_deliverable_suggests_the_nearest() {
     let error = not_found_suggesting(
         "deliverable_priority",
@@ -298,10 +267,7 @@ fn deliverable_priority_of_a_mistyped_deliverable_suggests_the_nearest() {
     assert_eq!(error["suggestion"], "d2");
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_priority",
-    verify = "deliverable with critical milestone returns critical priority"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn a_critical_milestone_makes_its_deliverable_critical() {
     let dp = json_of(
         "deliverable_priority",
@@ -311,10 +277,7 @@ fn a_critical_milestone_makes_its_deliverable_critical() {
     assert_eq!(dp["priority"], "critical");
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_priority",
-    verify = "deliverable with high journey and medium milestone returns high priority"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn a_high_journey_outranks_a_medium_milestone() {
     let dp = json_of(
         "deliverable_priority",
@@ -327,10 +290,7 @@ fn a_high_journey_outranks_a_medium_milestone() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_priority",
-    verify = "deliverable with no milestones and no journeys returns null priority"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn a_deliverable_with_no_constituents_has_no_priority() {
     let dp = json_of(
         "deliverable_priority",
@@ -343,10 +303,7 @@ fn a_deliverable_with_no_constituents_has_no_priority() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_priority",
-    verify = "deliverable where all constituents have null priority returns null priority"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn a_deliverable_whose_constituents_declare_no_priority_has_none() {
     // d4's ms4 and j2 declare none; none is not medium.
     let dp = json_of(
@@ -360,10 +317,7 @@ fn a_deliverable_whose_constituents_declare_no_priority_has_none() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_priority",
-    verify = "deliverable with one prioritized and five unprioritized returns the one priority"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn one_declared_priority_among_six_constituents_is_the_priority() {
     let dp = json_of(
         "deliverable_priority",
@@ -373,10 +327,7 @@ fn one_declared_priority_among_six_constituents_is_the_priority() {
     assert_eq!(dp["priority"], "high");
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_priority",
-    verify = "source_count counts only entities with explicit priority"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn the_source_count_is_the_constituents_with_a_priority() {
     // d5 has six constituents; only j1 declares a priority.
     let dp = json_of(
@@ -387,10 +338,7 @@ fn the_source_count_is_the_constituents_with_a_priority() {
     assert_eq!(dp["source_count"], 1);
 }
 
-#[specforge_test(
-    behavior = "pe_query_deliverable_priority",
-    verify = "deliverable priority is deterministic across repeated queries"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn deliverable_priority_is_the_same_every_time_and_in_any_order() {
     for d in ["d1", "d2", "d5"] {
         let args = json!({ "deliverable": d });
@@ -406,10 +354,7 @@ fn deliverable_priority_is_the_same_every_time_and_in_any_order() {
     }
 }
 
-#[specforge_test(
-    behavior = "surface_unscheduled_features",
-    verify = "product:unscheduled-features returns UnscheduledFeaturesPayload"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn unscheduled_features_answers_its_payload() {
     let uf = json_of("unscheduled_features", json!({}), &progress());
     assert_eq!(
@@ -423,10 +368,7 @@ fn unscheduled_features_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_unscheduled_features",
-    verify = "no unscheduled features returns empty list"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_plan_with_every_feature_scheduled_has_none_unscheduled() {
     let g = progress()
         .edge("ms2", "f3", "features")
@@ -438,10 +380,8 @@ fn a_plan_with_every_feature_scheduled_has_none_unscheduled() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_unscheduled_features",
-    verify = "feature in no milestone appears in unscheduled list"
-)]
+#[specforge_test(requirement = "FEATURE-089")]
+#[specforge_test(requirement = "FEATURE-090")]
 fn a_feature_in_no_milestone_is_unscheduled() {
     // f3 is a journey's feature, but no milestone's.
     let uf = json_of("unscheduled_features", json!({}), &progress());
@@ -449,20 +389,16 @@ fn a_feature_in_no_milestone_is_unscheduled() {
     assert!(uf["features"].as_array().unwrap().contains(&json!("f4")));
 }
 
-#[specforge_test(
-    behavior = "pe_query_unscheduled_features",
-    verify = "feature in one milestone is excluded from unscheduled list"
-)]
+#[specforge_test(requirement = "FEATURE-089")]
+#[specforge_test(requirement = "FEATURE-090")]
 fn a_feature_in_a_milestone_is_scheduled() {
     let uf = json_of("unscheduled_features", json!({}), &progress());
     assert!(!uf["features"].as_array().unwrap().contains(&json!("f1")));
     assert!(!uf["features"].as_array().unwrap().contains(&json!("f2")));
 }
 
-#[specforge_test(
-    behavior = "pe_query_unscheduled_features",
-    verify = "empty graph returns empty list"
-)]
+#[specforge_test(requirement = "FEATURE-089")]
+#[specforge_test(requirement = "FEATURE-090")]
 fn an_empty_graph_has_nothing_unscheduled() {
     let uf = json_of("unscheduled_features", json!({}), &G::default());
     assert_eq!(
@@ -471,10 +407,8 @@ fn an_empty_graph_has_nothing_unscheduled() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_unscheduled_features",
-    verify = "count + scheduled_count == total_features"
-)]
+#[specforge_test(requirement = "FEATURE-089")]
+#[specforge_test(requirement = "FEATURE-090")]
 fn unscheduled_and_scheduled_add_up_to_every_feature() {
     for g in [progress(), plan(), shipping(), G::default()] {
         let uf = json_of("unscheduled_features", json!({}), &g);
@@ -487,10 +421,7 @@ fn unscheduled_and_scheduled_add_up_to_every_feature() {
     }
 }
 
-#[specforge_test(
-    behavior = "product_new_query_correctness",
-    verify = "unscheduled features have zero MilestoneDeliversFeature edges"
-)]
+#[specforge_test(requirement = "RELIABILITY-16")]
 fn an_unscheduled_feature_is_one_no_milestone_lists() {
     // A journey or module listing a feature does not schedule it; a
     // milestone does.
@@ -504,10 +435,7 @@ fn an_unscheduled_feature_is_one_no_milestone_lists() {
     assert_eq!(uf["features"], json!(["f3"]));
 }
 
-#[specforge_test(
-    behavior = "surface_owner_workload",
-    verify = "owner-workload returns grouped ownership statistics"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn owner_workload_groups_entities_by_owner() {
     let ow = json_of("owner_workload", json!({}), &progress());
     assert_eq!(
@@ -545,10 +473,7 @@ fn owner_workload_groups_entities_by_owner() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_owner_workload",
-    verify = "owner-workload reports unowned entities"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn owner_workload_counts_the_unowned() {
     let ow = json_of("owner_workload", json!({}), &progress());
     assert_eq!(ow["unowned_count"], 9);
@@ -556,10 +481,7 @@ fn owner_workload_counts_the_unowned() {
     assert!(human.contains("Unowned: 9 of 15 entities"), "{human}");
 }
 
-#[specforge_test(
-    behavior = "pe_query_owner_workload",
-    verify = "single owner across multiple kinds returns correct breakdown"
-)]
+#[specforge_test(requirement = "FEATURE-087")]
 fn one_owner_across_kinds_is_broken_down_by_kind() {
     let g = G::default()
         .node("f1", "feature", json!({"owner": "al"}))
@@ -576,10 +498,7 @@ fn one_owner_across_kinds_is_broken_down_by_kind() {
     assert_eq!(ow["owners"][0]["entity_count"], 5);
 }
 
-#[specforge_test(
-    behavior = "pe_query_owner_workload",
-    verify = "entities without owner contribute to unowned_count"
-)]
+#[specforge_test(requirement = "FEATURE-087")]
 fn an_entity_without_an_owner_is_unowned() {
     // A module has no owner field: it is not counted at all.
     let g = G::default()
@@ -601,10 +520,7 @@ fn an_entity_without_an_owner_is_unowned() {
     assert_eq!(owned + 2, 3);
 }
 
-#[specforge_test(
-    behavior = "pe_query_owner_workload",
-    verify = "empty graph returns zero totals"
-)]
+#[specforge_test(requirement = "FEATURE-087")]
 fn an_empty_graph_has_no_workload() {
     let ow = json_of("owner_workload", json!({}), &G::default());
     assert_eq!(

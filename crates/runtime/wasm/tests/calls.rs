@@ -213,10 +213,7 @@ pub fn validator_context() -> ValidatorContext {
     typed(&wire("validate.input.json")[1])
 }
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "every extension call encodes its input as the protocol type the SDK decodes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn every_call_encodes_its_input_as_the_protocol_type() {
     let runtime = runtime();
     let calls = ExtensionCalls::new(&runtime);
@@ -274,10 +271,7 @@ fn every_call_encodes_its_input_as_the_protocol_type() {
     assert_eq!(received("migrate__x"), wire("migrate.input.json"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "every extension call decodes the protocol type the SDK encodes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn every_call_decodes_the_protocol_type() {
     let runtime = runtime();
     let calls = ExtensionCalls::new(&runtime);
@@ -325,10 +319,7 @@ fn every_call_decodes_the_protocol_type() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "a call whose export trapped is E028 naming the extension, the operation and the export"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_trapped_call_is_e028_naming_the_operation_the_export_and_the_extension() {
     for operation in Operation::ALL {
         let export = export_of(operation);
@@ -389,10 +380,7 @@ fn a_trapped_call_is_e028_naming_the_operation_the_export_and_the_extension() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "a call whose answer does not decode as its protocol type is E028, never a default"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn an_answer_that_does_not_decode_is_e028() {
     // Per operation: the type it owes, and answers that are not one —
     // not JSON, the wrong JSON type, a required field missing. Any JSON
@@ -489,10 +477,7 @@ fn an_answer_that_does_not_decode_is_e028() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "an unknown field in an answer is ignored and an absent optional field takes its default"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn unknown_fields_are_ignored_and_absent_optional_fields_default() {
     let answering = |export: &str, raw: &str| {
         runtime().answer_raw(EXT, export, WasmCallResult::Ok(raw.as_bytes().to_vec()))
@@ -567,10 +552,7 @@ fn span(line: usize) -> SourceSpan {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "a pass answer may be bare diagnostics or diagnostics with a summary, and its diagnostics come back in canonical order with an entity's span attached"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_pass_answer_is_bare_or_with_a_summary_and_its_diagnostics_are_canonical() {
     let runtime = runtime();
     let calls = ExtensionCalls::new(&runtime);
@@ -640,10 +622,7 @@ fn a_pass_answer_is_bare_or_with_a_summary_and_its_diagnostics_are_canonical() {
     assert_eq!(order, ["none", "a", "c", "b"]);
 }
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "Call Extension Exports: extension calls hold — extension_loaded, one_protocol_type, strict_answers, one_failure, no_silent_failure, runtimes_agree, pass_codes_checked"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn extension_calls_hold_their_contract() {
     let runtime = runtime();
     let calls = ExtensionCalls::new(&runtime);

@@ -18,10 +18,7 @@ fn newer_port_project() -> TestProject {
         .file("newer.wasm", importing(&[NEWER_PORT], PROTOCOL_VERSION))
 }
 
-#[specforge_test(
-    behavior = "load_wasm_module",
-    verify = "a component importing a host port this specforge does not provide is refused with E088 before it is instantiated, naming the port"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
 fn a_wasm_file_entry_importing_a_host_port_this_specforge_lacks_is_e088() {
     let project = newer_port_project().enabling(&["@specforge/software", "newer.wasm"]);
 
@@ -44,10 +41,7 @@ fn a_wasm_file_entry_importing_a_host_port_this_specforge_lacks_is_e088() {
     assert!(suggestion.starts_with("update specforge"), "{suggestion}");
 }
 
-#[specforge_test(
-    behavior = "load_wasm_module",
-    verify = "a component importing a host port this specforge does not provide is refused with E088 before it is instantiated, naming the port"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
 fn add_refuses_a_component_importing_a_host_port_this_specforge_lacks_with_e088() {
     let project = newer_port_project();
     let config = std::fs::read(project.root().join("specforge.json")).unwrap();

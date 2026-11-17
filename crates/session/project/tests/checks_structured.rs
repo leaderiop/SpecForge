@@ -36,10 +36,7 @@ fn columns_of(project: &TestProject, value: &str) -> usize {
     line.find(value).unwrap() + 1
 }
 
-#[specforge_test_macros::test(
-    behavior = "checks_structured",
-    verify = "a json file that does not parse is E097 at its line"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn a_json_file_that_does_not_parse_is_e097_at_its_line() {
     let project = refs_project(
         &["good.json", "bad.json"],
@@ -61,10 +58,7 @@ fn a_json_file_that_does_not_parse_is_e097_at_its_line() {
     assert!(parse[0].message.ends_with("at 3:1"), "{}", parse[0].message);
 }
 
-#[specforge_test_macros::test(
-    behavior = "checks_structured",
-    verify = "a missing pointer is E098 on the fragment"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn a_missing_pointer_is_e098_on_the_fragment() {
     let value = "ci.yaml#/jobs/tset";
     let project = refs_project(
@@ -86,10 +80,7 @@ fn a_missing_pointer_is_e098_on_the_fragment() {
     assert_eq!((span.start_line, span.start_col), (5, hash), "{span:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "checks_structured",
-    verify = "a missing heading is E098 listing the headings"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn a_missing_heading_is_e098_listing_the_headings() {
     let project = refs_project(
         &["docs/guide.md#install", "docs/guide.md#setup"],
@@ -108,10 +99,7 @@ fn a_missing_heading_is_e098_listing_the_headings() {
     assert!(help.contains("its headings: #guide, #install"), "{help}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "checks_structured",
-    verify = "a structured file over one MiB is W176"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn a_structured_file_over_one_mib_is_w176() {
     let large = format!("[{}0]", "0, ".repeat(400_000));
     let project = refs_project(&["large.json"], "@specforge/checks:json", json!({}))

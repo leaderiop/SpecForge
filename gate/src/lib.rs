@@ -9,6 +9,7 @@ mod checked_tree;
 mod checks;
 pub mod crate_map;
 mod doc_links;
+mod dogfood;
 mod gsd;
 pub mod judge;
 pub mod junit;

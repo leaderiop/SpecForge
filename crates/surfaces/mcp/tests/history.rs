@@ -24,10 +24,7 @@ fn codes(reply: &Value) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "validate since judges per request"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn validate_since_judges_per_request() {
     let runtime: SharedRuntime = Arc::new(gsd_history_runtime(json!([])));
     let project = TestProject::new()
@@ -57,10 +54,7 @@ fn validate_since_judges_per_request() {
     assert_eq!(unknown["result"]["isError"], true, "{unknown}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "validate's effects re-runs the check for that request only, and replay refuses nothing it holds"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn validate_effects_reruns_per_request() {
     let runtime: SharedRuntime = Arc::new(gsd_history_runtime(json!([])));
     let project = TestProject::new()

@@ -15,10 +15,7 @@ fn no_findings(_: &PassInput) -> Vec<PassDiagnostic> {
     Vec::new()
 }
 
-#[spec(
-    behavior = "registry_build_peer_dependencies",
-    verify = "satisfied peer dependency passes validation"
-)]
+#[spec(requirement = "FEATURE-136")]
 fn a_required_peer_in_range_passes() {
     let product = versioned(
         "@specforge/product",
@@ -29,10 +26,7 @@ fn a_required_peer_in_range_passes() {
     assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
 }
 
-#[spec(
-    behavior = "registry_build_peer_dependencies",
-    verify = "missing peer dependency produces hard error"
-)]
+#[spec(requirement = "FEATURE-136")]
 fn a_missing_required_peer_is_e027() {
     let build = build([versioned(
         "@specforge/product",
@@ -54,10 +48,7 @@ fn a_missing_required_peer_is_e027() {
     assert_eq!(codes(&build), ["E027"]);
 }
 
-#[spec(
-    behavior = "registry_build_peer_dependencies",
-    verify = "incompatible version produces hard error with required range"
-)]
+#[spec(requirement = "FEATURE-136")]
 fn a_peer_out_of_range_is_e027_naming_range_and_version() {
     let build = build([
         versioned("@specforge/software", "0.5.0", vec![]),
@@ -77,10 +68,7 @@ fn a_peer_out_of_range_is_e027_naming_range_and_version() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_peer_dependencies",
-    verify = "missing optional peer dependency passes validation"
-)]
+#[spec(requirement = "FEATURE-136")]
 fn a_missing_optional_peer_passes() {
     let build = build([versioned(
         "@specforge/software",
@@ -90,10 +78,7 @@ fn a_missing_optional_peer_passes() {
     assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
 }
 
-#[spec(
-    behavior = "registry_build_peer_dependencies",
-    verify = "installed optional peer outside its range produces hard error"
-)]
+#[spec(requirement = "FEATURE-136")]
 fn an_installed_optional_peer_out_of_range_is_e027() {
     let build = build([
         versioned("@specforge/product", "2.0.0", vec![]),
@@ -113,10 +98,7 @@ fn an_installed_optional_peer_out_of_range_is_e027() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_peer_dependencies",
-    verify = "a peer range matches as semver: caret, tilde or exact"
-)]
+#[spec(requirement = "FEATURE-136")]
 fn a_peer_range_matches_as_semver() {
     for (range, installed, satisfied) in [
         ("^1.0.0", "1.2.3", true),
@@ -141,10 +123,7 @@ fn a_peer_range_matches_as_semver() {
     }
 }
 
-#[spec(
-    behavior = "registry_build_peer_dependencies",
-    verify = "a peer range that is not SemVer is E073, whether its peer is loaded, missing or optional"
-)]
+#[spec(requirement = "FEATURE-136")]
 fn a_range_that_is_not_semver_is_e073_and_a_version_that_is_not_is_e027() {
     // Loaded, missing and optional-and-absent: the range is read first.
     let loaded = build([
@@ -178,10 +157,7 @@ fn a_range_that_is_not_semver_is_e073_and_a_version_that_is_not_is_e027() {
     }
 }
 
-#[spec(
-    behavior = "registry_build_peer_dependencies",
-    verify = "a peer loaded at a version that is not SemVer is E027"
-)]
+#[spec(requirement = "FEATURE-136")]
 fn a_peer_loaded_at_a_version_that_is_not_semver_is_e027() {
     let malformed_version = build([
         versioned("@specforge/software", "bad-version", vec![]),
@@ -203,10 +179,7 @@ fn a_peer_loaded_at_a_version_that_is_not_semver_is_e027() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_peer_dependencies",
-    verify = "an extension with an unsatisfied peer still registers its kinds"
-)]
+#[spec(requirement = "FEATURE-136")]
 fn an_extension_with_an_unsatisfied_peer_still_registers_its_kinds() {
     let mut product = declare("@specforge/product", |c| {
         c.kind("Feature", |k| {
@@ -224,10 +197,7 @@ fn an_extension_with_an_unsatisfied_peer_still_registers_its_kinds() {
     assert_eq!(feature.source_extension, "@specforge/product");
 }
 
-#[spec(
-    behavior = "registry_build_peer_dependencies",
-    verify = "Registry Build Checks Peer Dependencies: peer dependency checking holds — declarations_in_load_order, peers_checked, unsatisfied_failed, unreadable_failed"
-)]
+#[spec(requirement = "FEATURE-136")]
 fn peer_dependency_checking_holds() {
     // declarations_in_load_order: software, then an extension with a peer
     // in range, one out of range, one missing and one malformed, then an
@@ -262,10 +232,7 @@ fn peer_dependency_checking_holds() {
 /// Governance works without software (only ConstrainsBehavior targets a
 /// software kind), so its peer on software is optional; with the peer
 /// check on compile, a required one would fail governance-only projects.
-#[spec(
-    behavior = "ge_declare_manifest",
-    verify = "peer_dependencies includes optional @specforge/software"
-)]
+#[spec(requirement = "FEATURE-044")]
 fn governance_peer_on_software_is_optional() {
     let handshake = specforge_repo_root::repo_root()
         .join("crates/runtime/component/tests/declarations/specforge_governance/handshake.json");

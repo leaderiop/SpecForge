@@ -99,10 +99,7 @@ fn coded(project: &CompiledProject, code: &str) -> Vec<Diagnostic> {
         .collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a pure checker's finding is on the list item it read"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_pure_checkers_finding_is_on_the_list_item() {
     let spec = "service a \"A\" {\n  docs [\"fine\", \"TODO later\"]\n}\n";
     let project = checked(spec);
@@ -134,10 +131,7 @@ fn a_pure_checkers_finding_is_on_the_list_item() {
     assert_eq!(project.checked_values().of("a").len(), 2);
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a finding's byte range points inside the quotes of the value"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_finding_sub_span_points_inside_the_quotes() {
     let spec = "service a \"A\" {\n  home \"see TODO here\"\n}\n";
     let project = checked(spec);
@@ -159,10 +153,7 @@ fn a_value_with_an_escape_keeps_the_whole_value_as_its_span() {
     assert_eq!(&line[span.start_col - 1..span.end_col - 1], "\"a\\\"TODO\"");
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a code the checker did not declare is W150 and the finding is kept"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_code_the_checker_did_not_declare_is_w150_and_kept() {
     let project =
         checked("service a \"A\" {\n  code \"TODO\"\n}\nservice b \"B\" {\n  code \"TODO\"\n}\n");
@@ -172,10 +163,7 @@ fn a_code_the_checker_did_not_declare_is_w150_and_kept() {
     assert_eq!(coded(&project, "pin.values/W002").len(), 2);
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a failing checker is E028 once per run and its values are not judged"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_failing_checker_is_e028_once_and_its_values_are_not_judged() {
     let runtime = InProcessRuntime::new().with(extension).answer_raw(
         EXT,
@@ -206,10 +194,7 @@ fn a_failing_checker_is_e028_once_and_its_values_are_not_judged() {
     assert!(rows.iter().all(|r| r.outcome_class.is_none()), "{rows:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "any_of passes when one branch yields no error-level finding"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn any_of_passes_when_one_branch_does() {
     // `strict` errors, `no_todo` only warns: the value passes, with what the passing branch said.
     let project = checked("service a \"A\" {\n  either \"TODO\"\n}\n");
@@ -243,10 +228,7 @@ fn any_of_passes_when_one_branch_does() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a check on a block member reads each written item"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_check_on_a_block_member_reads_each_item() {
     let project = checked(
         "service a \"A\" {\n  links [\n    { href \"fine\" },\n    { href \"TODO\" },\n  ]\n}\n",
@@ -337,10 +319,7 @@ fn project_files(spec: &str) -> TestProject {
         .file("a.spec", spec)
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a checker asked again in a later run is not called"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_second_check_run_calls_no_checker() {
     let project = project_files(TODO);
     let runtime = Arc::new(InProcessRuntime::new().with(extension));
@@ -368,10 +347,7 @@ fn a_second_check_run_calls_no_checker() {
     assert_eq!(coded(session.project(), "pin.values/W001"), found);
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a cold run reads the checker cache from disk"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_cold_cli_run_reads_the_disk_cache() {
     let project = project_files(TODO);
     let runtime = Arc::new(InProcessRuntime::new().with(extension));
@@ -390,10 +366,7 @@ fn a_cold_cli_run_reads_the_disk_cache() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a detached project writes no checker cache"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_detached_journal_writes_no_cache() {
     let project = project_files(TODO);
     let runtime = Arc::new(InProcessRuntime::new().with(extension));
@@ -406,10 +379,7 @@ fn a_detached_journal_writes_no_cache() {
     assert!(!project.root().join(".specforge/effects/checks").exists());
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "changed args miss the checker cache"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn changed_args_miss_the_cache() {
     fn checking(args: serde_json::Value) -> ContributionsBuilder {
         let mut c = extension();
@@ -448,10 +418,7 @@ fn changed_args_miss_the_cache() {
     assert_eq!(asked(two, &project), 1);
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "changed settings miss the checker cache"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn changed_settings_miss_the_cache() {
     fn levelled() -> ContributionsBuilder {
         let mut c = extension();
@@ -473,10 +440,7 @@ fn changed_settings_miss_the_cache() {
     assert_eq!(asked(&project), 1);
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a new blob digest misses the checker cache"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_new_blob_digest_misses_the_cache() {
     use specforge_effects::Provenance;
     use specforge_wasm::WasmRuntime;
@@ -499,10 +463,7 @@ fn a_new_blob_digest_misses_the_cache() {
     assert_eq!(asked(b"blob two"), 1);
 }
 
-#[specforge_test_macros::test(
-    behavior = "digest_judged_inputs",
-    verify = "a verdict over a checked value digests its outcome class"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-058")]
 fn a_verdict_over_a_checked_value_digests_its_outcome_class() {
     use specforge_project::ValueOutcome;
 

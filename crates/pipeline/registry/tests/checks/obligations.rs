@@ -8,10 +8,8 @@ use specforge_common::codes;
 use crate::support::written::checked;
 use crate::support::{build, declare, software};
 
-#[spec(
-    behavior = "detect_unknown_entity_fields",
-    verify = "a field named verify is checked like any field"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-141")]
 fn a_field_named_verify_is_checked_like_any_field() {
     // `verify` followed by no string is a field (`verify string`), not a statement.
     let text = "behavior b1 \"B\" {\n  verify string\n}\n";
@@ -28,10 +26,8 @@ fn a_field_named_verify_is_checked_like_any_field() {
     );
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_fields",
-    verify = "verify statements on a kind no extension made testable produce W158"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-141")]
 fn statements_on_a_kind_that_accepts_none_are_w158() {
     let build = build([declare("@specforge/software", |c| {
         c.kind("Behavior", |k| {

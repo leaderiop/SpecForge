@@ -13,10 +13,7 @@ fn disabled_project(lock: Vec<LockFileEntry>) -> tempfile::TempDir {
     dir
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "add takes several specifiers and adds them as one change"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn several_specifiers_are_added_as_one_change() {
     let dir = project_with(EMPTY_PROJECT);
     let (_files, wasm) = greet_file();
@@ -66,10 +63,7 @@ fn several_specifiers_are_added_as_one_change() {
     assert_eq!(added.extensions_enabled, 2);
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "an add of several specifiers that refuses one writes nothing, its refusal naming that specifier"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_refused_specifier_writes_nothing_and_is_named() {
     use crate::config::testing::files_under;
     let dir = project_with(EMPTY_PROJECT);
@@ -158,10 +152,7 @@ fn registry_specified(reference: &str) -> String {
     reference.to_string()
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "an add of several specifiers judges their peers on the whole set, whatever their order"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn peers_are_judged_on_the_whole_set_whatever_the_order() {
     use crate::config::testing::files_under;
     let runtime = coupled_runtime();
@@ -244,10 +235,7 @@ fn peers_are_judged_on_the_whole_set_whatever_the_order() {
     }
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a specifier naming an extension an earlier one adds is a duplicate, and two adding it differently are refused"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_repeated_extension_is_a_duplicate_and_a_different_one_a_conflict() {
     use crate::config::testing::files_under;
 

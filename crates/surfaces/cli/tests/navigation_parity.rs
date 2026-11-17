@@ -913,10 +913,7 @@ fn outline_of_a_file_with_methods() {
 /// MCP `find_references` answers the occurrences the LSP's references
 /// answer, for each entity of each fixture, with and without the
 /// declaration: the same locations, one per occurrence.
-#[specforge_test(
-    behavior = "provide_mcp_find_references_tool",
-    verify = "find_references and the LSP's references answer the same occurrences"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn find_references_answers_what_the_lsp_answers() {
     // (fixture, file, 0-based line and character of an entity's name)
     let names: &[(&str, &str, u32, u32, &str)] = &[
@@ -962,10 +959,7 @@ fn find_references_answers_what_the_lsp_answers() {
 /// them, ADR 0228) are the workspace symbols in the same order,
 /// and in a reference list completion offers what search finds of the
 /// field's target kind.
-#[specforge_test(
-    behavior = "provide_mcp_search_tool",
-    verify = "search ranks exactly as LSP workspaceSymbol and completion rank"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn search_ranks_as_workspace_symbols_and_completion() {
     let p = project("nav");
     let queries = [
@@ -1006,10 +1000,7 @@ fn search_ranks_as_workspace_symbols_and_completion() {
 
 /// MCP suggest_fixes returns the fixes the LSP offers as code actions for
 /// the same file, each with the same title, kind and edits.
-#[specforge_test(
-    behavior = "provide_mcp_suggest_fixes_tool",
-    verify = "every suggestion carries the edits the LSP's code action applies"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn suggest_fixes_carries_the_code_actions_edits() {
     let nav = project("nav");
     let testing = project_of(
@@ -1044,10 +1035,7 @@ fn suggest_fixes_carries_the_code_actions_edits() {
 
 /// The LSP's document symbols are the tree MCP outline returns: entities
 /// in line order, methods nested as children, each selecting its name.
-#[specforge_test(
-    behavior = "outline_view",
-    verify = "the outline nests an entity's methods as the MCP outline does"
-)]
+#[specforge_test(requirement = "FEATURE-078")]
 fn document_symbols_nest_as_the_mcp_outline() {
     for (fixture, file) in [
         ("port", "store.spec"),

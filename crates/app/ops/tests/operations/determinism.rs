@@ -61,10 +61,7 @@ fn build_graph() -> Graph {
 }
 
 // B:deterministic_output — verify property "stats output is deterministic"
-#[specforge_test(
-    behavior = "deterministic_output",
-    verify = "same input produces identical output across runs"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn stats_output_is_deterministic() {
     let outputs: Vec<_> = (0..5)
         .map(|_| {
@@ -81,10 +78,7 @@ fn stats_output_is_deterministic() {
 }
 
 // B:deterministic_output — verify property "trace output is deterministic"
-#[specforge_test(
-    behavior = "deterministic_output",
-    verify = "same input produces identical output across runs"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn trace_output_is_deterministic() {
     let graph = build_graph();
     let outputs: Vec<_> = (0..5)

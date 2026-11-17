@@ -33,10 +33,7 @@ fn ids(document: &Value) -> Vec<&str> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "provide_search_cli",
-    verify = "search prints the entities specforge.search returns, best first"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn search_prints_the_hits_specforge_search_returns() {
     let project = rv1();
     let cli = Cli::on(&project);
@@ -63,10 +60,7 @@ fn search_prints_the_hits_specforge_search_returns() {
     assert_eq!(picked.exits(0).stdout, "alpha\n");
 }
 
-#[specforge_test(
-    behavior = "provide_search_cli",
-    verify = "search with --kinds keeps only those kinds"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn search_kinds_keeps_only_those_kinds() {
     let project = rv1();
     let run = Cli::on(&project).run(&["search", "", "--kinds", "type", "--format", "json"]);
@@ -76,10 +70,7 @@ fn search_kinds_keeps_only_those_kinds() {
     assert_eq!(found, ["Color", "Green", "Red"], "{document}");
 }
 
-#[specforge_test(
-    behavior = "provide_search_cli",
-    verify = "search with no hit says no entity matches"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn search_with_no_hit_says_no_entity_matches() {
     let project = rv1();
     let run = Cli::on(&project).run(&["search", "zzzzqqq"]).exits(0);

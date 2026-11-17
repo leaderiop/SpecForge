@@ -18,10 +18,7 @@ const TWO_FILES: [(&str, &str); 2] = [
     ),
 ];
 
-#[specforge_test_macros::test(
-    behavior = "delete_entity",
-    verify = "delete removes the block and the comment above it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn delete_removes_the_block_comment_and_one_blank_line() {
     let c = project(&TWO_FILES);
     let text = after(&c, "rules.spec", &[delete("done_stamped", true)]);
@@ -36,10 +33,7 @@ fn delete_removes_the_block_comment_and_one_blank_line() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "delete_entity",
-    verify = "delete keeps the format header above the block"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn delete_keeps_the_format_header_above_its_block() {
     let session = "type Session \"Session\" {\n  user string\n}\n";
     let login = "type Login \"Login\" {\n  user string\n}\n";
@@ -59,10 +53,7 @@ fn delete_keeps_the_format_header_above_its_block() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "delete_entity",
-    verify = "delete with unlink_references removes every reference"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn delete_with_unlink_references_plans_every_referrer() {
     let c = project(&TWO_FILES);
     let planned = plan(&c, &[delete("done_stamped", true)]).unwrap();
@@ -110,10 +101,7 @@ const ONE_VALUE: &str = "invariant inv_a \"A\" {\n  guarantee \"x\"\n}\n\nbehavi
 const UNDECLARED: &str = "invariant inv_a \"A\" {\n  guarantee \"x\"\n}\n\nbehavior b9 \"B9\" {\n  category c\n  watchers [inv_a]\n}\n";
 const DEFAULTED: &str = "defaults behavior {\n  invariants [inv_a]\n}\n\ninvariant inv_a \"A\" {\n  guarantee \"x\"\n}\n\nbehavior b1 \"B1\" {\n  category c\n}\n\nbehavior b2 \"B2\" {\n  category   c\n  invariants [inv_a]\n}\n";
 
-#[specforge_test_macros::test(
-    behavior = "delete_entity",
-    verify = "delete with unlink_references removes a scheme ref ID from a string list"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn delete_with_unlink_references_removes_a_scheme_ref_from_a_string_list() {
     let c = project(&[("a.spec", SCHEME)]);
     let text = after(&c, "a.spec", &[delete("gh.issue:42", true)]);
@@ -122,10 +110,7 @@ fn delete_with_unlink_references_removes_a_scheme_ref_from_a_string_list() {
     assert!(is_canonical(&c, &text));
 }
 
-#[specforge_test_macros::test(
-    behavior = "delete_entity",
-    verify = "delete with unlink_references removes a reference list written as one value"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn delete_with_unlink_references_removes_a_list_written_as_one_value() {
     let c = project(&[("a.spec", ONE_VALUE)]);
     let text = after(&c, "a.spec", &[delete("inv_a", true)]);
@@ -143,10 +128,7 @@ fn delete_with_unlink_references_refuses_an_undeclared_field() {
     assert!(message.contains("a.spec:7 (b9, watchers)"), "{message}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "delete_entity",
-    verify = "delete with unlink_references refuses a reference no typed edit writes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn delete_with_unlink_references_refuses_a_reference_written_in_a_default() {
     let c = project(&[("a.spec", DEFAULTED)]);
     let (code, message) = refused(&c, &[delete("inv_a", true)]);
@@ -163,10 +145,7 @@ const MEMBER: &str =
 const SIGNATURE: &str = "type User \"A user\" {\n  name string\n}\n\nport Users \"Users\" {\n  direction outbound\n  \
                          category  \"db\"\n  method find(id: string) -> User\n}\n";
 
-#[specforge_test_macros::test(
-    behavior = "delete_entity",
-    verify = "delete with unlink_references refuses a type name a derived field reads"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn delete_with_unlink_references_refuses_a_type_named_in_a_member() {
     let c = project(&[("a.spec", MEMBER)]);
     let (code, message) = refused(&c, &[delete("User", true)]);
@@ -210,10 +189,7 @@ fn delete_with_unlink_references_leaves_a_word_a_string_list_holds() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "delete_entity",
-    verify = "a delete keeps the file's final newline"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_delete_keeps_the_files_final_newline() {
     let c = project(&[(
         "a.spec",

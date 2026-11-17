@@ -67,10 +67,7 @@ fn round_trip_serialization() {
     );
 }
 
-#[specforge_test(
-    type = "InferenceManifest",
-    verify = "InferenceManifest round-trips through JSON serialization"
-)]
+#[test]
 fn sessions_round_trip_with_their_status() {
     let mut m = InferenceManifest::default();
     m.sessions.push(session("s-1", SessionStatus::Completed));
@@ -104,10 +101,7 @@ fn a_status_outside_the_three_is_refused() {
     assert!(message.contains("line 5 column"), "{message}");
 }
 
-#[specforge_test(
-    behavior = "load_inference_manifest",
-    verify = "load returns default manifest when file is missing"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn read_of_an_absent_file_is_none() {
     let dir = TempDir::new().unwrap();
     assert_eq!(InferenceManifest::read(dir.path()).unwrap(), None);
@@ -116,10 +110,7 @@ fn read_of_an_absent_file_is_none() {
     assert!(m.source_index.is_empty());
 }
 
-#[specforge_test(
-    behavior = "load_inference_manifest",
-    verify = "load rejects unsupported version"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn read_rejects_unsupported_version() {
     let dir = TempDir::new().unwrap();
     let content = r#"{"version": 999, "source_roots": [], "source_index": []}"#;
@@ -147,10 +138,7 @@ fn write_and_read_round_trip() {
     assert_eq!(loaded, m);
 }
 
-#[specforge_test(
-    behavior = "save_inference_manifest",
-    verify = "save uses atomic write (temp file + rename)"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn write_sorts_keys_and_leaves_no_temporary_file() {
     let dir = TempDir::new().unwrap();
     let mut m = InferenceManifest::default();
@@ -168,10 +156,7 @@ fn write_sorts_keys_and_leaves_no_temporary_file() {
     assert!(!dir.path().join("specforge-infer.json.tmp").exists());
 }
 
-#[specforge_test(
-    behavior = "save_inference_manifest",
-    verify = "save keeps keys the manifest does not define, at every level"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn a_rewrite_keeps_the_keys_it_does_not_define() {
     let dir = TempDir::new().unwrap();
     let text = r#"{

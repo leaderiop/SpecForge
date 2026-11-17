@@ -43,10 +43,7 @@ fn block_lines<'t>(text: &'t str, block_id: &str) -> Vec<&'t str> {
     out
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "every verb that changes a field written twice leaves the block writing it once, holding what it says"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn every_verb_leaves_a_field_written_twice_written_once() {
     let c = compile(SOFTWARE_FORMAL, &[("g.spec", REPEATED)]);
     // (edit, entity, field the graph is read at, what it holds after, key whose lines are counted, how many, writes)

@@ -49,10 +49,7 @@ fn analyze_clean_project_exits_zero() {
     assert_eq!(summary["obligations"], 1);
 }
 
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "a high-risk invariant without obligations is an A002 error"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn analyze_high_risk_unverified_invariant_fails() {
     let dir =
         project("invariant bad \"Never verified\" {\n  guarantee \"nothing\"\n  risk high\n}\n");
@@ -141,10 +138,7 @@ fn analyze_single_pass_selection() {
     assert_eq!(passes[0]["pass"], "@specforge/testing:coverage");
 }
 
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "invariant references count as enforcement"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn analyze_enforcement_maps_invariant_references() {
     // invariant referenced by a behavior via `invariants [...]` -> enforced;
     // an unreferenced invariant is counted as an orphan. Reporting it is
@@ -186,10 +180,7 @@ behavior keeper "Keeper" {
     );
 }
 
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "recorded test results prove entities and failing tests are A014"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn analyze_discharge_intent_and_proof() {
     let dir = project(concat!(
         "invariant held \"Held\" {\n",
@@ -255,10 +246,7 @@ fn analyze_discharge_intent_and_proof() {
     assert_eq!(summary["test_results"]["runner"], "manual");
 }
 
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "an obligation no passing test names is A015 and a test naming an undeclared obligation is A016"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn analyze_reports_unproven_and_undeclared_obligations() {
     let dir = project(concat!(
         "invariant unique_emails \"Unique emails\" {\n",
@@ -656,10 +644,7 @@ fn analyze_prove_satisfiable_constraint_exits_zero() {
     assert_eq!(prove["summary"]["unsatisfiable"], false);
 }
 
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "a proved formal claim discharges verify property obligations"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn analyze_proved_claims_discharge_verify_property_obligations() {
     // This test is a linked proof: skipping it would still record a pass,
     // so without z3 it fails instead (CI installs z3).
@@ -712,10 +697,8 @@ invariant responsive "System Stays Responsive" {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_unknown_entity_fields",
-    verify = "expression is checked like any other field (W020 where undeclared)"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
+#[specforge_test(requirement = "FEATURE-141")]
 fn analyze_reads_no_claim_from_an_expression_no_extension_declares() {
     // Without @specforge/formal nothing declares an invariant's
     // `expression`: check reports W020 and the prove pass reads no claim.
@@ -783,10 +766,7 @@ invariant responsive "System Stays Responsive" {
 // A formal `property` accepts verify statements (`supports_verify`) but its
 // kind is not declared testable, so it stays out of the coverage
 // denominator and is never A001.
-#[specforge_test(
-    invariant = "testable_entity_classification",
-    verify = "testable=false entity excluded from coverage"
-)]
+#[specforge_test(requirement = "INVARIANT-140")]
 fn analyze_coverage_leaves_out_kinds_not_declared_testable() {
     let dir = project(concat!(
         "behavior b1 \"Saves\" {\n  contract \"The system MUST save\"\n",
@@ -821,10 +801,8 @@ fn available_passes(message: &str) -> &str {
 
 // Analysis passes are an open set: the CLI takes any name and relays the
 // operation's refusal, so it runs and refuses what MCP does (ADR 0027 D6).
-#[specforge_test(
-    behavior = "name_enumerated_options_once",
-    verify = "the analysis passes the CLI accepts are the project's"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-064")]
 fn the_cli_runs_a_pass_an_extension_declares() {
     let tmp = TestProject::copy_of(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/read_views/rv1"),
@@ -870,10 +848,7 @@ fn the_cli_runs_a_pass_an_extension_declares() {
     assert_eq!(available_passes(message), available_passes(&stderr));
 }
 
-#[specforge_test_macros::test(
-    behavior = "fa_detect_unmatched_producers",
-    verify = "an event participating in a process counts as used and produces no W029"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-034")]
 fn an_event_in_a_process_is_used_and_not_w029() {
     let dir = TestProject::new()
         .raw_config(r#"{"extensions": ["@specforge/formal", "@specforge/software"]}"#);
@@ -973,10 +948,7 @@ fn a_z3_that_does_not_run_says_why() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "prove_declared_bounds_and_claims",
-    verify = "a solver that does not run is one W098, the finding doctor states, and nothing is solved"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn analyze_prove_without_z3_is_one_w098_and_strict_fails() {
     let dir = impossible_bounds();
     let (prove, code) = prove_report(&dir, &crate::toolchain::z3_absent(), &[]);
@@ -995,10 +967,7 @@ fn analyze_prove_without_z3_is_one_w098_and_strict_fails() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "prove_declared_bounds_and_claims",
-    verify = "a solver call ends at its timeout, even when the solver leaves a child process"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn doctor_answers_within_the_probe_timeout_when_z3_hangs() {
     let dir = impossible_bounds();
     let started = std::time::Instant::now();
@@ -1030,10 +999,7 @@ fn doctor_answers_within_the_probe_timeout_when_z3_hangs() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "run_doctor_check",
-    verify = "doctor's toolchain finding is the W098 specforge analyze --prove prints"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-021")]
 fn doctor_states_the_w098_analyze_prints_when_z3_is_missing() {
     let dir = impossible_bounds();
     let absent = crate::toolchain::z3_absent();
@@ -1073,10 +1039,7 @@ fn doctor_states_the_w098_analyze_prints_when_z3_is_missing() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "prove_declared_bounds_and_claims",
-    verify = "specforge analyze --prove-timeout sets the solver's timeout and needs --prove"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn prove_timeout_stops_a_slow_solve() {
     let dir = impossible_bounds();
     let started = std::time::Instant::now();

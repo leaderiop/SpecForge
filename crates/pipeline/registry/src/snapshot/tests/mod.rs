@@ -112,10 +112,7 @@ fn w004_ids(source: &str, abstract_behaviors: bool) -> Vec<String> {
     ids
 }
 
-#[specforge_test_macros::test(
-    behavior = "snapshot_entities_once",
-    verify = "a snapshot reads only a graph built in its registry build"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-016")]
 #[should_panic(expected = "an entity snapshot reads only a graph built in its Registry build")]
 fn a_graph_built_in_another_registry_build_is_not_read() {
     let registries = declared(&[("behavior", true, true)], false, vec![]);

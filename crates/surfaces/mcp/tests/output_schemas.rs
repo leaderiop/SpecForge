@@ -35,10 +35,7 @@ fn objects<'v>(schema: &'v Value, out: &mut Vec<&'v Value>) {
     }
 }
 
-#[specforge_test(
-    behavior = "follow_negotiated_mcp_revision",
-    verify = "every core tool's outputSchema is an object schema at its root"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn every_output_schema_root_is_an_object() {
     for (name, schema) in documents() {
         assert_eq!(
@@ -65,10 +62,7 @@ fn diagnostic_bodies(schema: &Value) -> usize {
         .count()
 }
 
-#[specforge_test(
-    behavior = "follow_negotiated_mcp_revision",
-    verify = "a type a reply holds more than once, or a domain type another spec file declares, is defined once under the outputSchema's $defs and referred to by $ref"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn each_named_shape_is_defined_once_per_document() {
     let mut holding = BTreeMap::new();
     for (name, schema) in documents() {
@@ -143,10 +137,7 @@ fn references<'v>(schema: &'v Value, path: &str, out: &mut Vec<(String, &'v Valu
     }
 }
 
-#[specforge_test(
-    behavior = "state_mcp_messages_as_spec_types",
-    verify = "a sent document's schema closes every object it holds but its listed open values, and repeats no object schema"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn no_object_schema_repeats_within_a_document() {
     for document in crate::support::documents::all() {
         let (name, schema) = (document.owner, document.schema);
@@ -177,10 +168,7 @@ fn a_reference_stands_alone() {
     }
 }
 
-#[specforge_test(
-    behavior = "follow_negotiated_mcp_revision",
-    verify = "every $ref in a core tool's outputSchema is a same-document pointer to a definition it holds"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn every_listed_reference_resolves() {
     let mut total = 0;
     for (name, schema) in documents() {

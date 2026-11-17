@@ -37,10 +37,7 @@ fn row(name: &str, source: &str, status: &str) -> (String, String, String) {
     (name.into(), source.into(), status.into())
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "check, doctor and the extensions listing report a .wasm file entry declaring no package name as E072 on its entry, not loaded"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_file_entry_declaring_no_package_name_is_refused_by_check_doctor_and_the_listing() {
     let project = project(&["x.wasm"]);
     project.write("x.wasm", greet_declaring(b"@SDK/greet"));
@@ -67,10 +64,7 @@ fn a_file_entry_declaring_no_package_name_is_refused_by_check_doctor_and_the_lis
     cli.run(&["doctor", "--format", "json"]).exits(1);
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "two .wasm file entries each run their own component in either order, when one declares the other's entry text"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn two_file_entries_keep_their_own_extensions_in_either_order() {
     for entries in [["first.wasm", "second.wasm"], ["second.wasm", "first.wasm"]] {
         let project = project(&entries);

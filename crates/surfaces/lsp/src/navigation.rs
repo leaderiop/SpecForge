@@ -520,10 +520,7 @@ mod tests {
         (state, uri)
     }
 
-    #[spec(
-        invariant = "lsp_utf16_positions",
-        verify = "a span converts against the text the project was compiled from, and is no range of a buffer typed since"
-    )]
+    #[spec(requirement = "INVARIANT-064")]
     fn a_span_converts_against_the_compiled_text_and_is_no_range_of_a_buffer_typed_since() {
         let dir = tempfile::tempdir().unwrap();
         let (mut state, uri) = serving(&dir);
@@ -550,10 +547,7 @@ mod tests {
         assert_eq!(state.compiled_text("a.spec").as_deref(), Some(COMPILED));
     }
 
-    #[spec(
-        invariant = "lsp_utf16_positions",
-        verify = "a span of a file the compile holds no text of has no range, never byte columns"
-    )]
+    #[spec(requirement = "INVARIANT-064")]
     fn a_span_of_a_file_without_compiled_text_has_no_range() {
         let dir = tempfile::tempdir().unwrap();
         let (mut state, _) = serving(&dir);
@@ -593,10 +587,8 @@ mod tests {
         state.set_session(session);
     }
 
-    #[spec(
-        behavior = "provide_extension_defined_lsp_icons",
-        verify = "default SymbolKind::Object when lsp_icon not specified"
-    )]
+    #[spec(requirement = "FEATURE-026")]
+    #[spec(requirement = "FEATURE-078")]
     fn a_kind_without_an_lsp_icon_is_an_object() {
         let mut registry = KindRegistry::new();
         assert_eq!(
@@ -618,10 +610,7 @@ mod tests {
         }
     }
 
-    #[spec(
-        invariant = "lsp_utf16_positions",
-        verify = "a fix is offered whole or not at all: never over a buffer typed since, nor a file with no compiled text"
-    )]
+    #[spec(requirement = "INVARIANT-064")]
     fn a_fix_is_offered_whole_or_not_at_all() {
         let dir = tempfile::tempdir().unwrap();
         let (mut state, uri) = serving(&dir);

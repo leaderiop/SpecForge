@@ -136,10 +136,7 @@ pub fn run_command_on(
     .map_err(refusal)
 }
 
-#[specforge_test(
-    behavior = "gate_a_command",
-    verify = "a command whose gate fails is refused before its export runs"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_command_whose_gate_fails_is_refused_before_its_export_runs() {
     let blocked = served(project("fine", "blocked", json!({})));
     let refused = run_command(&blocked, "execute_phase", json!({"phase": "03"}))
@@ -157,10 +154,7 @@ fn a_command_whose_gate_fails_is_refused_before_its_export_runs() {
     assert!(fine.called("cmd__execute_phase"));
 }
 
-#[specforge_test(
-    behavior = "gate_a_command",
-    verify = "a gate is scoped to its subject"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_gate_is_scoped_to_its_subject() {
     let project = project("fine", "ok", json!({}));
     project.write(
@@ -183,10 +177,7 @@ fn a_gate_is_scoped_to_its_subject() {
     assert_eq!(failing[0]["data"]["entity"], "v1.0/05/05-01");
 }
 
-#[specforge_test(
-    behavior = "gate_a_command",
-    verify = "a gate runs the guard passes it names"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_gate_runs_the_guard_passes_it_names() {
     let broken = served(project("fine", "broken", json!({})));
     assert!(
@@ -216,10 +207,7 @@ fn a_gate_runs_the_guard_passes_it_names() {
     run_command(&sound, "ship", json!({})).expect("nothing is broken");
 }
 
-#[specforge_test(
-    behavior = "gate_a_command",
-    verify = "a gate on a code its setting turns off passes"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_gate_on_a_code_its_setting_turns_off_passes() {
     let args = json!({"phase": "03"});
     let on = served(project("fine", "blocked", json!({"workflow.gates": true})));
@@ -231,10 +219,7 @@ fn a_gate_on_a_code_its_setting_turns_off_passes() {
     assert!(off.called("cmd__execute_phase"));
 }
 
-#[specforge_test(
-    behavior = "gate_a_command",
-    verify = "a warning a preset raises to an error fails a gate"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_raised_warning_fails_a_gate() {
     let args = json!({"phase": "03"});
     let compat = served(project("fine", "stale", json!({})));
@@ -246,10 +231,7 @@ fn a_raised_warning_fails_a_gate() {
     assert_eq!(refused.data["failing"][0]["code"], "t/W904", "{refused:?}");
 }
 
-#[specforge_test(
-    behavior = "gate_a_command",
-    verify = "a subject given as a short form is sent as its full path"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_subject_takes_a_short_form_and_is_sent_as_its_full_path() {
     let served = served(project("fine", "ok", json!({})));
     run_command(&served, "execute_phase", json!({"phase": "03"})).unwrap();
@@ -259,10 +241,7 @@ fn a_subject_takes_a_short_form_and_is_sent_as_its_full_path() {
     );
 }
 
-#[specforge_test(
-    behavior = "gate_a_command",
-    verify = "a subject that names no entity or several is refused before the gate runs"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_subject_that_names_no_entity_or_several_is_refused_before_the_gate() {
     let project = project("fine", "blocked", json!({}));
     project.write(
@@ -285,10 +264,7 @@ fn a_subject_that_names_no_entity_or_several_is_refused_before_the_gate() {
     assert!(!served.called("cmd__execute_phase"), "no export ran");
 }
 
-#[specforge_test(
-    behavior = "gate_a_command",
-    verify = "a guard pass that fails at a gate fails the gate, and the export is not called"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_guard_pass_that_cannot_run_fails_its_gate() {
     use specforge_wasm::{WasmCallResult, WasmTrapInfo};
     let trap = WasmCallResult::Trap(WasmTrapInfo {
@@ -307,10 +283,7 @@ fn a_guard_pass_that_cannot_run_fails_its_gate() {
     assert!(!broken.called("cmd__ship"));
 }
 
-#[specforge_test(
-    behavior = "gate_a_command",
-    verify = "a finding that names no entity is in a gate's scope by the block that holds its span"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_finding_with_only_a_span_is_scoped_by_its_block() {
     use specforge_wasm::WasmCallResult;
     let at = |line: u32| {
@@ -336,10 +309,7 @@ fn a_finding_with_only_a_span_is_scoped_by_its_block() {
     run_command(&build(8), "execute_phase", args).expect("line 8 is phase 04's block");
 }
 
-#[specforge_test(
-    behavior = "gate_a_command",
-    verify = "a gated writing command is refused gate_failed even as a dry run, and writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_gated_writing_command_is_refused_as_a_dry_run() {
     use specforge_extension_sdk::DeclaredCategory;
     use specforge_extension_sdk::prelude::{ContributionsBuilder, ExtensionMeta};

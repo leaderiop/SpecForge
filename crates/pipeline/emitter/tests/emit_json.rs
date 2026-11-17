@@ -46,7 +46,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
 
 // B:serialize_json_graph — verify unit "output is valid JSON"
 // B:serialize_json_graph — verify unit "empty graph produces valid JSON with empty nodes and edges arrays"
-#[specforge_test(behavior = "serialize_json_graph", verify = "output is valid JSON")]
+#[specforge_test(requirement = "FEATURE-057")]
 fn empty_graph_produces_valid_json_with_empty_arrays() {
     let graph = Graph::new();
     let json = crate::support::emit_json(&graph);
@@ -61,10 +61,7 @@ fn empty_graph_produces_valid_json_with_empty_arrays() {
 }
 
 // B:serialize_json_graph — verify unit "JSON output contains all nodes"
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "JSON output contains all nodes"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn json_contains_all_nodes() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha Behavior")));
@@ -86,10 +83,7 @@ fn json_contains_all_nodes() {
 }
 
 // B:serialize_json_graph — verify unit "JSON output contains all edges"
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "JSON output contains all edges"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn json_contains_all_edges() {
     let mut graph = Graph::new();
     graph.add_node(node("feat_a", "feature", Some("Feature A")));
@@ -111,10 +105,7 @@ fn json_contains_all_edges() {
 }
 
 // B:serialize_json_graph — verify unit "output includes schema_version field"
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "output includes schema_version field"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn json_includes_schema_version() {
     let graph = Graph::new();
     let json = crate::support::emit_json(&graph);
@@ -128,7 +119,7 @@ fn json_includes_schema_version() {
 
 // B:serialize_json_graph — verify unit "JSON output contains all nodes"
 // (covers field serialization within nodes)
-#[specforge_test(behavior = "serialize_json_graph")]
+#[specforge_test(requirement = "FEATURE-057")]
 fn json_includes_fields() {
     let mut fields = FieldMap::new();
     fields.push(
@@ -170,10 +161,7 @@ fn json_includes_fields() {
 }
 
 // B:serialize_json_graph — verify unit "empty graph produces valid JSON with empty nodes and edges arrays"
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "empty graph produces valid JSON with empty nodes and edges arrays"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn empty_graph_valid_json_with_empty_arrays() {
     let graph = Graph::new();
     let json = crate::support::emit_json(&graph);
@@ -184,10 +172,7 @@ fn empty_graph_valid_json_with_empty_arrays() {
 }
 
 // B:serialize_json_graph — verify unit "schema is included even for empty graph"
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "schema is included even for empty graph"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn schema_included_even_for_empty_graph() {
     let graph = Graph::new();
     let json = crate::support::emit_json(&graph);
@@ -200,10 +185,7 @@ fn schema_included_even_for_empty_graph() {
 }
 
 // B:serialize_json_graph — verify integration "structural-only graph (zero extensions) produces valid Graph Protocol JSON with raw keywords in kind field"
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "structural-only graph (zero extensions) produces valid Graph Protocol JSON with raw keywords in kind field"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn structural_only_graph_produces_valid_json_with_raw_keywords() {
     let mut graph = Graph::new();
     // Use non-standard keywords (simulating zero-extension / structural-only graph)
@@ -229,7 +211,7 @@ fn structural_only_graph_produces_valid_json_with_raw_keywords() {
 
 // B:serialize_json_graph — verify unit "JSON output contains all nodes"
 // (covers source location metadata within nodes)
-#[specforge_test(behavior = "serialize_json_graph")]
+#[specforge_test(requirement = "FEATURE-057")]
 fn json_includes_source_location() {
     let mut graph = Graph::new();
     graph.add_node(Node {
@@ -268,20 +250,14 @@ fn json_includes_source_location() {
 // -- A graph built with no extension still exports (moved from the
 // registry's detection tests).
 
-#[specforge_test(
-    behavior = "graceful_degradation_without_extensions",
-    verify = "structural parsing works without extensions"
-)]
+#[specforge_test(requirement = "FEATURE-140")]
 fn structural_parsing_works_without_extensions() {
     let source = "behavior my_beh \"Title\" {\n  contract \"test\"\n}\n";
     let parsed = specforge_parser::parse(source, "test.spec");
     assert_eq!(parsed.entities.len(), 1);
 }
 
-#[specforge_test(
-    behavior = "graceful_degradation_without_extensions",
-    verify = "graph built with generic nodes"
-)]
+#[specforge_test(requirement = "FEATURE-140")]
 fn the_graph_is_built_with_generic_nodes() {
     let source = "behavior my_beh \"Title\" {\n  contract \"test\"\n}\n";
     let parsed = specforge_parser::parse(source, "test.spec");
@@ -290,10 +266,7 @@ fn the_graph_is_built_with_generic_nodes() {
     assert_eq!(graph.node("my_beh").unwrap().kind.raw, "behavior");
 }
 
-#[specforge_test(
-    behavior = "graceful_degradation_without_extensions",
-    verify = "specforge export produces valid JSON from structural-only graph"
-)]
+#[specforge_test(requirement = "FEATURE-140")]
 fn export_is_valid_json_for_a_structural_only_graph() {
     let source = "thing my_thing \"A Thing\" {\n  data \"hello\"\n}\n";
     let parsed = specforge_parser::parse(source, "test.spec");
@@ -303,10 +276,7 @@ fn export_is_valid_json_for_a_structural_only_graph() {
     assert!(value.is_object());
 }
 
-#[specforge_test(
-    behavior = "graceful_degradation_without_extensions",
-    verify = "generic entity nodes appear as nodes in exported graph"
-)]
+#[specforge_test(requirement = "FEATURE-140")]
 fn generic_nodes_appear_in_the_exported_graph() {
     let source = "thing my_thing \"A Thing\" {\n  data \"hello\"\n}\n";
     let parsed = specforge_parser::parse(source, "test.spec");
@@ -317,10 +287,7 @@ fn generic_nodes_appear_in_the_exported_graph() {
     assert!(nodes.iter().any(|n| n["id"] == "my_thing"));
 }
 
-#[specforge_test(
-    behavior = "graceful_degradation_without_extensions",
-    verify = "references between generic entities produce edges"
-)]
+#[specforge_test(requirement = "FEATURE-140")]
 fn references_between_generic_entities_produce_edges() {
     let source = "thing a \"A\" {\n  refs [b]\n}\nthing b \"B\" {\n  data \"ok\"\n}\n";
     let parsed = specforge_parser::parse(source, "test.spec");
@@ -348,10 +315,7 @@ fn exported_fields(fields: FieldMap) -> serde_json::Value {
     parsed["nodes"][0]["fields"].clone()
 }
 
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "an expression group is written as its conjuncts, one per line, never as a parse tree"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn an_expression_group_is_written_as_its_conjuncts_one_per_line() {
     let mut fields = FieldMap::new();
     fields.push(
@@ -365,10 +329,7 @@ fn an_expression_group_is_written_as_its_conjuncts_one_per_line() {
     assert_eq!(written["metric"], serde_json::json!("a < 1\nb >= 2ms"));
 }
 
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "a value no K3 attribute shapes is written as it was before"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn an_export_without_k3_attributes_is_unchanged() {
     let mut inner = FieldMap::new();
     inner.push(Sym::new("m"), FieldValue::Integer(1));
@@ -430,10 +391,7 @@ fn an_export_without_k3_attributes_is_unchanged() {
     );
 }
 
-#[specforge_test(
-    behavior = "answer_judged_inputs",
-    verify = "inspect, query, the graph export and a command's graph list each entity's judgements"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn the_graph_export_lists_verdicts_and_judgements() {
     let text = "plan P \"P\" {\n  verdict gsd/W311 passed {\n    judge \"j\"\n    model \"m\"\n    at \"t\"\n    inputs { plan \"sha256:1\" }\n  }\n}\n";
     let file = specforge_parser::parse(text, "a.spec");

@@ -63,10 +63,7 @@ async fn status_of(router: &axum::Router, uri: &str) -> StatusCode {
     router.clone().oneshot(request).await.unwrap().status()
 }
 
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "the registry refuses a name or version that is not a package name or version"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 #[tokio::test]
 async fn a_download_is_the_stored_version_and_nothing_else() {
     let dir = tempfile::tempdir().unwrap();
@@ -133,10 +130,7 @@ async fn a_download_is_the_stored_version_and_nothing_else() {
     assert_eq!(status_of(&router, download).await, StatusCode::NOT_FOUND);
 }
 
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "the registry refuses a name or version that is not a package name or version"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 #[tokio::test]
 async fn an_upload_past_the_body_limit_is_too_large() {
     let dir = tempfile::tempdir().unwrap();
@@ -190,10 +184,7 @@ const SEGMENTS: [&str; 5] = [
     "latest",
 ];
 
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "the registry refuses a name or version that is not a package name or version"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 #[tokio::test]
 async fn a_segment_that_is_no_version_is_not_found_in_every_route() {
     let dir = tempfile::tempdir().unwrap();
@@ -237,10 +228,7 @@ async fn a_segment_that_is_no_version_is_not_found_in_every_route() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "the registry refuses a name or version that is not a package name or version"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 #[tokio::test]
 async fn a_yank_of_a_missing_version_is_not_found_and_a_yanked_one_is_gone_everywhere() {
     let dir = tempfile::tempdir().unwrap();
@@ -273,10 +261,7 @@ async fn a_yank_of_a_missing_version_is_not_found_and_a_yanked_one_is_gone_every
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "the registry refuses a name or version that is not a package name or version"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 #[tokio::test]
 async fn a_blob_that_misses_its_digest_is_an_integrity_violation() {
     let dir = tempfile::tempdir().unwrap();

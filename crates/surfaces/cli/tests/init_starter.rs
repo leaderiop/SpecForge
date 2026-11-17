@@ -3,10 +3,7 @@
 use crate::support::{Cli, TestProject};
 use specforge_test_macros::test as specforge_test;
 
-#[specforge_test(
-    behavior = "non_interactive_init",
-    verify = "a directory named after a kind init enables is refused as the project name, writing nothing"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_directory_named_after_a_kind_init_enables_is_refused_writing_nothing() {
     let dir = TestProject::new().without_config();
     let release = dir.root().join("release");
@@ -25,10 +22,7 @@ fn a_directory_named_after_a_kind_init_enables_is_refused_writing_nothing() {
     assert_eq!(std::fs::read_dir(&release).unwrap().count(), 0);
 }
 
-#[specforge_test(
-    behavior = "non_interactive_init",
-    verify = "an init whose version holds a quote or a backslash writes a starter that passes format --check and check"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_init_whose_version_holds_a_quote_formats_and_checks_clean() {
     let dir = TestProject::new().without_config();
     Cli::on(&dir)
@@ -61,10 +55,7 @@ fn an_init_whose_version_holds_a_quote_formats_and_checks_clean() {
     }
 }
 
-#[specforge_test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "the product starter's journey flow is a list of steps"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn the_product_starters_flow_is_a_list_of_steps() {
     let starter = include_str!("../../../../extensions/product/src/starter.spec")
         .replace("{project}", "demo")

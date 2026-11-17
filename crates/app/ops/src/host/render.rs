@@ -394,10 +394,7 @@ pub(crate) fn spec_root_spelled(view: &ProjectView<'_>, glob: &str) -> String {
 mod tests {
     use super::*;
 
-    #[specforge_test_macros::test(
-        behavior = "install_into_a_host",
-        verify = "a slash command's hint writes a prompt's free-text tail last"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-013")]
     fn a_free_text_tail_is_written_last_in_the_hint() {
         let arg = |name: &str, field_type: &str, required: bool, rest: bool| PromptArgDescriptor {
             name: name.into(),

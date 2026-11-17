@@ -192,10 +192,7 @@ mod tests {
     use super::*;
     use specforge_common::codes;
 
-    #[specforge_test_macros::test(
-        behavior = "compute_schema_version",
-        verify = "every reader of the schema reports the notices export reports for the same record"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-048")]
     fn a_noticed_read_answers_with_its_notices() {
         let i016 = Diagnostic::new(codes::I016, "the schema cache could not be read");
         let read = Noticed::new(Text("x".into()), vec![i016]);
@@ -206,10 +203,7 @@ mod tests {
         assert_eq!(diagnostics[0].code, "I016");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "follow_negotiated_mcp_revision",
-        verify = "a core tool's reply its output schema refuses is a schema_mismatch error, never structured content"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-072")]
     fn a_reply_its_schema_refuses_is_a_schema_mismatch() {
         let schema = json!({
             "type": "object",

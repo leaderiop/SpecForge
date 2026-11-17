@@ -35,10 +35,7 @@ fn columns(plan: &rename::RenamePlan) -> Vec<(usize, usize, usize)> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "find_all_references",
-    verify = "a name written in a field and in a method signature is one location each"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn a_name_written_in_the_field_and_in_a_signature_is_one_occurrence_each() {
     let p = compile(SOFTWARE, &[("store.spec", STORE)]);
 
@@ -51,10 +48,7 @@ fn a_name_written_in_the_field_and_in_a_signature_is_one_occurrence_each() {
     );
 }
 
-#[specforge_test(
-    behavior = "find_all_references",
-    verify = "a parameter's name is not a reference to the type it spells"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn a_parameters_name_is_no_occurrence() {
     let p = compile(SOFTWARE, &[("store.spec", STORE)]);
 
@@ -64,10 +58,7 @@ fn a_parameters_name_is_no_occurrence() {
     );
 }
 
-#[specforge_test(
-    behavior = "rename_entity_id",
-    verify = "rename edits a type named in a method signature and no parameter name"
-)]
+#[specforge_test(requirement = "FEATURE-111")]
 fn a_rename_edits_signature_types_and_no_parameter_name() {
     let p = compile(SOFTWARE, &[("store.spec", STORE)]);
 
@@ -80,10 +71,7 @@ fn a_rename_edits_signature_types_and_no_parameter_name() {
     );
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "a quoted union member derives no edge"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_quoted_union_variant_is_no_reference() {
     let p = compile(SOFTWARE, &[("level.spec", LEVEL)]);
 

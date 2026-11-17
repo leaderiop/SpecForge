@@ -13,10 +13,7 @@ use specforge_wasm::runtime::WasmRuntime;
 
 const NEWER_PORT: &str = "specforge:host/http@9.9.0";
 
-#[specforge_test(
-    behavior = "load_wasm_module",
-    verify = "a component importing a host port this specforge does not provide is refused with E088 before it is instantiated, naming the port"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
 fn a_component_importing_a_host_port_this_specforge_lacks_is_refused_naming_it() {
     let runtime = ComponentRuntime::new();
 
@@ -34,10 +31,7 @@ fn a_component_importing_a_host_port_this_specforge_lacks_is_refused_naming_it()
     assert!(!runtime.loaded_names().contains(&"@acme/newer".to_string()));
 }
 
-#[specforge_test(
-    behavior = "load_wasm_module",
-    verify = "a component importing a host port this specforge does not provide is refused with E088 before it is instantiated, naming the port"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
 fn a_component_importing_an_empty_host_port_instance_is_refused_too() {
     let runtime = ComponentRuntime::new();
 
@@ -50,10 +44,7 @@ fn a_component_importing_an_empty_host_port_instance_is_refused_too() {
     assert!(loaded.is_err(), "an empty instance of a host port loads");
 }
 
-#[specforge_test(
-    behavior = "load_wasm_module",
-    verify = "a component importing an interface that is neither WASI nor a specforge host port is refused with E028 naming it"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
 fn a_component_importing_a_foreign_interface_is_refused_naming_it() {
     let runtime = ComponentRuntime::new();
 

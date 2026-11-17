@@ -4,10 +4,8 @@
 
 use specforge_test_macros::test as spec;
 
-#[spec(
-    behavior = "collapse_grammar_to_generic_entity_block",
-    verify = "spec_block remains as separate grammar rule"
-)]
+#[spec(requirement = "FEATURE-123")]
+#[spec(requirement = "FEATURE-140")]
 fn a_spec_block_parses_without_extensions() {
     let parsed = specforge_parser::parse("spec \"my-spec\" {\n  version \"1.0\"\n}\n", "test.spec");
     assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
@@ -15,10 +13,8 @@ fn a_spec_block_parses_without_extensions() {
     assert_eq!(parsed.entities[0].kind.raw, "spec");
 }
 
-#[spec(
-    behavior = "collapse_grammar_to_generic_entity_block",
-    verify = "ref_block remains as separate grammar rule"
-)]
+#[spec(requirement = "FEATURE-123")]
+#[spec(requirement = "FEATURE-140")]
 fn a_ref_block_parses_without_extensions() {
     let parsed = specforge_parser::parse("ref gh.issue:42 \"Fix bug\"\n", "test.spec");
     assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
@@ -26,10 +22,8 @@ fn a_ref_block_parses_without_extensions() {
     assert_eq!(parsed.entities[0].kind.raw, "ref");
 }
 
-#[spec(
-    behavior = "collapse_grammar_to_generic_entity_block",
-    verify = "use_import remains as separate grammar rule"
-)]
+#[spec(requirement = "FEATURE-123")]
+#[spec(requirement = "FEATURE-140")]
 fn a_use_import_parses_without_extensions() {
     let parsed = specforge_parser::parse("use \"types/core\"\n", "test.spec");
     assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
@@ -37,10 +31,8 @@ fn a_use_import_parses_without_extensions() {
     assert!(parsed.entities.is_empty());
 }
 
-#[spec(
-    behavior = "collapse_grammar_to_generic_entity_block",
-    verify = "define_block remains as separate grammar rule"
-)]
+#[spec(requirement = "FEATURE-123")]
+#[spec(requirement = "FEATURE-140")]
 fn a_define_block_parses_without_extensions() {
     let parsed = specforge_parser::parse(
         "define user_story {\n  required [description]\n}\n",
@@ -72,10 +64,8 @@ fn the_parser_produces_the_structural_kinds() {
 // -- The grammar knows no entity kind: any keyword parses (moved from the
 // registry's detection tests).
 
-#[spec(
-    behavior = "collapse_grammar_to_generic_entity_block",
-    verify = "grammar has single generic entity_block rule"
-)]
+#[spec(requirement = "FEATURE-123")]
+#[spec(requirement = "FEATURE-140")]
 fn the_grammar_has_one_generic_entity_block_rule() {
     // Any keyword is accepted structurally: if the grammar had per-keyword
     // rules, an unknown keyword would fail to parse.
@@ -85,10 +75,8 @@ fn the_grammar_has_one_generic_entity_block_rule() {
     assert_eq!(parsed.entities[0].kind.raw, "recipe");
 }
 
-#[spec(
-    behavior = "collapse_grammar_to_generic_entity_block",
-    verify = "no per-keyword block rules remain in grammar"
-)]
+#[spec(requirement = "FEATURE-123")]
+#[spec(requirement = "FEATURE-140")]
 fn no_per_keyword_block_rules_remain_in_the_grammar() {
     for keyword in ["behavior", "invariant", "xyzzy", "custom_kind", "foobar"] {
         let source = format!("{keyword} test_id \"Title\" {{\n  contract \"test\"\n}}\n");
@@ -101,10 +89,8 @@ fn no_per_keyword_block_rules_remain_in_the_grammar() {
     }
 }
 
-#[spec(
-    behavior = "collapse_grammar_to_generic_entity_block",
-    verify = "Collapse Grammar to Generic Entity Block: grammar collapse holds — grammar_source_available, single_generic_rule, structural_rules_preserved, no_keyword_validation_in_grammar"
-)]
+#[spec(requirement = "FEATURE-123")]
+#[spec(requirement = "FEATURE-140")]
 fn the_grammar_collapse_contract_holds() {
     // single_generic_rule: any keyword parses.
     let source = "unknown_keyword test_id \"Title\" {\n  field \"value\"\n}\n";
@@ -116,10 +102,7 @@ fn the_grammar_collapse_contract_holds() {
     assert_eq!(spec_parsed.entities[0].kind.raw, "spec");
 }
 
-#[spec(
-    behavior = "two_phase_parse_structural",
-    verify = "unknown keyword parsed into generic entity node"
-)]
+#[spec(requirement = "FEATURE-140")]
 fn an_unknown_keyword_parses_into_a_generic_entity_node() {
     let source = "xyzzy test_id \"Unknown\" {\n  data \"hello\"\n}\n";
     let parsed = specforge_parser::parse(source, "test.spec");
@@ -128,10 +111,7 @@ fn an_unknown_keyword_parses_into_a_generic_entity_node() {
     assert_eq!(parsed.entities[0].id.raw, "test_id");
 }
 
-#[spec(
-    behavior = "two_phase_parse_structural",
-    verify = "no keyword validation in Phase 1"
-)]
+#[spec(requirement = "FEATURE-140")]
 fn the_parser_validates_no_keyword() {
     let source = "not_a_real_kind my_id \"Title\" {\n  stuff \"things\"\n}\n";
     let parsed = specforge_parser::parse(source, "test.spec");
@@ -142,10 +122,7 @@ fn the_parser_validates_no_keyword() {
     assert_eq!(parsed.entities.len(), 1);
 }
 
-#[spec(
-    behavior = "two_phase_parse_structural",
-    verify = "all .spec files parsed before Phase 2"
-)]
+#[spec(requirement = "FEATURE-140")]
 fn every_file_parses_before_any_validation() {
     let files = [
         ("a.spec", "behavior a \"A\" {\n  contract \"test\"\n}\n"),
@@ -171,10 +148,7 @@ fn parse_errors_are_collected_without_aborting() {
     );
 }
 
-#[spec(
-    behavior = "two_phase_parse_structural",
-    verify = "Two-Phase Parse: Structural: structural parsing holds — spec_files_available, structural_parse_produced, structural_parse_event_emitted, no_keyword_validation"
-)]
+#[spec(requirement = "FEATURE-140")]
 fn the_structural_parse_contract_holds() {
     let source = "custom_kind my_entity \"Title\" {\n  field \"value\"\n}\n";
     let parsed = specforge_parser::parse(source, "test.spec");

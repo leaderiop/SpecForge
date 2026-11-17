@@ -95,10 +95,7 @@ fn brand(project: TestProject, keep: impl Fn(&str) -> bool) -> (TestProject, Vec
     (project, paths)
 }
 
-#[specforge_test_macros::test(
-    behavior = "checks_media",
-    verify = "the repository's own brand images and logos pass image and svg"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn the_repositorys_brand_images_and_logos_pass() {
     for (checker, keep) in [
         (
@@ -118,10 +115,7 @@ fn the_repositorys_brand_images_and_logos_pass() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "checks_media",
-    verify = "an svg with an onload attribute is E113 at its line"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn an_svg_with_an_onload_attribute_is_e113_at_its_line() {
     let project = refs_project(&["clean.svg", "logo.svg"], "svg", json!({}))
         .file("clean.svg", "<svg xmlns=\"http://www.w3.org/2000/svg\"/>")
@@ -147,7 +141,7 @@ fn an_svg_with_an_onload_attribute_is_e113_at_its_line() {
     assert!(!active[0].machine);
 }
 
-#[specforge_test_macros::test(behavior = "checks_media", verify = "a png over max_pixels is W177")]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn a_png_over_max_pixels_is_w177() {
     let project = refs_project(
         &["small.png", "large.png"],
@@ -166,7 +160,7 @@ fn a_png_over_max_pixels_is_w177() {
     );
 }
 
-#[specforge_test_macros::test(behavior = "checks_media", verify = "a pdf over max_pages is W177")]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn a_pdf_over_max_pages_is_w177() {
     // The page tree sits past the head and the tail the first round reads: a second round reads it.
     let project = refs_project(
@@ -198,10 +192,7 @@ fn remote(refs: &[&str], checker: &str, args: Value, http: FakeHttp) -> Scene {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "checks_media",
-    verify = "a remote pdf is read by its tail through media-remote"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn a_remote_pdf_is_read_by_its_tail_through_media_remote() {
     let http = FakeHttp::new().route(SMALL, 200, pdf(10, 10, 5)).route(
         LARGE,
@@ -243,10 +234,7 @@ fn a_remote_pdf_is_read_by_its_tail_through_media_remote() {
     assert_eq!(ranges, ["bytes=-65536", "bytes=0-1023"]);
 }
 
-#[specforge_test_macros::test(
-    behavior = "checks_media",
-    verify = "an unapproved remote image is W170 and I206, not a finding"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn an_unapproved_remote_image_is_w170_and_i206_not_a_finding() {
     let image = "https://cdn.example/a.png";
     let scene = remote(

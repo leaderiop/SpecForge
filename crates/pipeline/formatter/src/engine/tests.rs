@@ -22,10 +22,7 @@ fn fmt_with(source: &str, config: &FormatConfig) -> String {
 
 // --- Slice 2: Tracer bullet (indent only) ---
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "indentation rules normalize to configured indent style"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_indent_normalizes_to_configured_style() {
     let input = "behavior foo \"Foo\" {\n      contract \"does stuff\"\n}\n";
     let result = fmt(input);
@@ -37,20 +34,14 @@ fn test_indent_normalizes_to_configured_style() {
 
 // --- Slice 3: Remaining 7 rules ---
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "spacing rules normalize single spaces between tokens"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_spacing_normalizes_single_spaces() {
     let input = "behavior foo   \"Foo\" {\n  contract   \"does stuff\"\n}\n";
     let result = fmt(input);
     assert!(result.contains("behavior foo \"Foo\" {"), "got: {result}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "alignment rules align field values within blocks"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_alignment_aligns_field_values() {
     let input = "behavior foo \"Foo\" {\n  invariants [a, b]\n  types [x]\n  ports [y]\n}\n";
     let result = fmt(input);
@@ -75,10 +66,7 @@ fn test_alignment_aligns_field_values() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "wrapping rules break long reference lists to multi-line"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_wrapping_breaks_long_lists() {
     let config = FormatConfig {
         indent_width: 2,
@@ -99,10 +87,7 @@ fn test_wrapping_breaks_long_lists() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "import sorting produces alphabetical order"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_import_sorting() {
     let input = "use \"types/core\"\nuse \"behaviors/auth\"\nuse \"events/compilation\"\n\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n";
     let result = fmt(input);
@@ -117,10 +102,7 @@ fn test_import_sorting() {
     assert!(import_lines[2].contains("types/core"), "got: {result}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "blank line rules enforce exactly one between blocks"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_blank_line_between_blocks() {
     let input = "behavior foo \"Foo\" {\n  contract \"a\"\n}\nbehavior bar \"Bar\" {\n  contract \"b\"\n}\n";
     let result = fmt(input);
@@ -128,20 +110,14 @@ fn test_blank_line_between_blocks() {
     assert!(result.contains("}\n\nbehavior bar"), "got: {result}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "comment rules normalize spacing around inline comments"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_comment_spacing_normalized() {
     let input = "//comment without space\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n";
     let result = fmt(input);
     assert!(result.contains("// comment without space"), "got: {result}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "comment rules normalize spacing around inline comments"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_normalize_comment_spacing() {
     assert_eq!(normalize_comment("//comment"), "// comment");
     assert_eq!(normalize_comment("// already good  "), "// already good");
@@ -159,10 +135,7 @@ fn test_normalize_comment_spacing() {
     assert!(result.contains("  // x"), "got: {result}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "indentation rules normalize to configured indent style"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn indent_follows_the_configured_width_and_tabs() {
     let input = "behavior foo \"Foo\" {\n  contract \"does stuff\"\n}\n";
     let four = FormatConfig {
@@ -186,10 +159,7 @@ fn indent_follows_the_configured_width_and_tabs() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "multiline string literals are kept byte-for-byte"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn multiline_strings_are_kept_byte_for_byte() {
     let input = "behavior foo \"Foo\" {\n  contract \"\"\"\n      First line\n        Second line\n  \"\"\"\n}\n";
     let result = fmt(input);
@@ -199,10 +169,7 @@ fn multiline_strings_are_kept_byte_for_byte() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "the formatted text has LF line endings and exactly one final newline"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn the_formatted_text_has_lf_endings_and_one_final_newline() {
     let canonical = "behavior a \"A\" {\n  contract \"x\"\n}\n";
     for input in [
@@ -232,10 +199,7 @@ fn the_formatted_text_has_lf_endings_and_one_final_newline() {
 
 // --- Behavior: apply_format_rules ---
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "two files differing only in whitespace produce identical output after formatting"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_whitespace_only_differences_produce_identical_output() {
     // Two files that differ only in whitespace should produce identical output
     let input_a =
@@ -254,10 +218,7 @@ fn test_whitespace_only_differences_produce_identical_output() {
 
 // --- Invariant: formatting_consistency ---
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "two files differing only in whitespace produce identical output after formatting"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_tab_and_space_indented_inputs_produce_same_output() {
     let space_input = "behavior foo \"Foo\" {\n    contract \"test\"\n    types [x]\n}\n";
     let tab_input = "behavior foo \"Foo\" {\n\tcontract \"test\"\n\ttypes [x]\n}\n";
@@ -273,10 +234,7 @@ fn test_tab_and_space_indented_inputs_produce_same_output() {
 
 // --- Invariant: formatting_semantic_preservation ---
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "Apply Format Rules: format rule application holds — cst_available, format_config_loaded, contribution_registry_available, deterministic_output, no_domain_logic, extension_rules_applied"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_formatting_does_not_alter_entity_ids_field_values_or_reference_lists() {
     let input = "behavior my_behavior \"My Behavior\" {\n      invariants    [inv_a, inv_b, inv_c]\n      types    [type_x, type_y]\n      ports    [port_z]\n      contract    \"does something important\"\n\n      verify unit \"test alpha\"\n      verify integration \"test beta\"\n}\n";
     let result = fmt(input);
@@ -316,10 +274,7 @@ fn test_formatting_does_not_alter_entity_ids_field_values_or_reference_lists() {
 
 // --- Invariant: format_rule_priority ---
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "indentation rules normalize to configured indent style"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_indent_rule_takes_precedence_over_spacing_rule() {
     // Indent rule (priority 1) should set the leading whitespace,
     // spacing rule (priority 3) should not override it
@@ -334,10 +289,7 @@ fn test_indent_rule_takes_precedence_over_spacing_rule() {
 
 // --- Invariant: format_rule_determinism ---
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "Apply Format Rules: format rule application holds — cst_available, format_config_loaded, contribution_registry_available, deterministic_output, no_domain_logic, extension_rules_applied"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_determinism_same_input_same_config_same_output() {
     let input = "behavior foo \"Foo\" {\n      contract   \"test\"\n    types [a, b]\n}\n";
     let config = FormatConfig::default();
@@ -350,10 +302,7 @@ fn test_determinism_same_input_same_config_same_output() {
 
 // --- Invariant: comment_preservation ---
 
-#[specforge_test_macros::test(
-    behavior = "preserve_comments",
-    verify = "no comments are lost after formatting"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_every_comment_in_input_appears_in_formatted_output() {
     let input = concat!(
         "// file header comment\n",
@@ -394,10 +343,7 @@ fn test_every_comment_in_input_appears_in_formatted_output() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "preserve_comments",
-    verify = "trailing comment attaches to preceding node on same line"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_trailing_comments_remain_attached_to_preceding_node() {
     let input = "behavior foo \"Foo\" { // trailing\n  contract \"stuff\"\n}\n";
     let result = fmt(input);
@@ -409,10 +355,7 @@ fn test_trailing_comments_remain_attached_to_preceding_node() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "preserve_comments",
-    verify = "leading comment attaches to following node"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_leading_comments_remain_attached_to_following_node() {
     let input = "// describes foo\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n";
     let result = fmt(input);
@@ -434,10 +377,7 @@ fn test_leading_comments_remain_attached_to_following_node() {
 
 // --- Contract: apply_format_rules ---
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "Apply Format Rules: format rule application holds — cst_available, format_config_loaded, contribution_registry_available, deterministic_output, no_domain_logic, extension_rules_applied"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_apply_format_rules_contract() {
     // requires: cst_available — source must parse into a CST
     // requires: format_config_loaded — config is resolved
@@ -473,10 +413,7 @@ fn test_apply_format_rules_contract() {
 
 // --- Invariant: formatting_semantic_preservation (property) ---
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "two files differing only in whitespace produce identical output after formatting"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_format_parses_to_identical_entity_graph() {
     let inputs = [
         "behavior login \"Login\" {\n  invariants [auth_required, session_valid]\n  types [Credentials, Session]\n  ports [AuthService]\n  contract \"authenticates the user\"\n\n  verify unit \"valid credentials succeed\"\n  verify integration \"session is created\"\n}\n",
@@ -581,10 +518,7 @@ fn test_format_parses_to_identical_entity_graph() {
 
 // --- Configured indentation (the width and tabs an editor asks for outside a project) ---
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "indentation rules normalize to configured indent style"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn a_configured_width_sets_the_indent() {
     // When no .specforgefmt.toml exists, the FormatConfig should use defaults
     // which correspond to what the editor would provide
@@ -623,10 +557,7 @@ fn a_configured_width_sets_the_indent() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "indentation rules normalize to configured indent style"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn use_tabs_indents_with_tabs() {
     let config = FormatConfig {
         indent_width: 2,

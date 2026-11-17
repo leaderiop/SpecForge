@@ -71,10 +71,7 @@ fn schema_version_other_major_is_rejected_with_range() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "negotiate_schema_version",
-    verify = "a requested version of another major, or a newer one, is refused as incompatible_schema_version naming the readable range"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-048")]
 fn a_refused_schema_version_is_not_a_peer_error() {
     let tmp = seeded();
     let root = tmp.root().join("src");

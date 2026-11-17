@@ -34,10 +34,7 @@ fn labels(served: &Served, uri: &Url, at: Position) -> Vec<String> {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "completion in specforge.json offers extension names, unwritten setting names and values"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn config_completion_offers_settings_keys_and_values() {
     // Extension names at the first level; the setting names not yet written (a snippet with the default) and a
     // family's closed keys at the second; enum values and true/false at a value.
@@ -90,10 +87,7 @@ fn config_completion_offers_settings_keys_and_values() {
     assert_eq!(labels(&served, &uri, at), ["true", "false"]);
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "hover on a setting key shows its type, default, effective value, origin and gated codes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn config_hover_shows_value_and_origin() {
     // explicit | preset (profile = strict) | default; gated codes and their state.
     let text = "{\n  \"settings\": {\n    \"@t/s\": {\n      \"pro|file\": \"strict\",\n      \"level\": 2\n    }\n  }\n}\n";
@@ -121,10 +115,7 @@ fn config_hover_shows_value_and_origin() {
     assert!(specforge_lsp::answers::hover(&state, &uri, Position::new(0, 0)).is_none());
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "specforge.json diagnostics follow the unsaved buffer and a save reloads the environment"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn config_diagnostics_follow_the_buffer_and_reload_on_save() {
     // E086 at its range on an unsaved edit; cleared on fix; a save reloads (a raise is visible in the .spec diagnostics).
     let typo = "{\n  \"settings\": {\n    \"@t/s\": {\n      \"levl\": 2\n    }\n  }\n}\n";
@@ -173,10 +164,7 @@ fn config_diagnostics_follow_the_buffer_and_reload_on_save() {
     assert!(raised, "{sent:#?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "completion in specforge.json offers extension names, unwritten setting names and values"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn completion_works_on_half_typed_json() {
     // VS Code closes the quote: `"lev|"` has no colon or value yet.
     let (served, uri, at) = editing(
@@ -191,10 +179,7 @@ fn completion_works_on_half_typed_json() {
     assert_eq!(labels(&served, &uri, at), ["\"compat\"", "\"strict\""]);
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "specforge.json diagnostics follow the unsaved buffer and a save reloads the environment"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_nested_specforge_json_is_not_the_projects_config() {
     let served = Served::new(&[
         ("a.spec", "gadget w \"W\" {}\n"),
@@ -213,10 +198,7 @@ fn a_nested_specforge_json_is_not_the_projects_config() {
     ));
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "specforge.json diagnostics follow the unsaved buffer and a save reloads the environment"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn specforge_json_findings_are_published_once_at_their_key() {
     let mut served = Served::new(&[("a.spec", "gadget w \"W\" {}\n")])
         .extension("@t/s", |c| *c = settings_extension())

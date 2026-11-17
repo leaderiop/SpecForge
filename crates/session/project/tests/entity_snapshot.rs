@@ -197,10 +197,7 @@ const ALPHA: &[(&str, &str)] = &[
     ("shape", "string | string[]"),
 ];
 
-#[specforge_test_macros::test(
-    behavior = "snapshot_entities_once",
-    verify = "every field an entity writes has one text, the same for declarative rules, custom validators and compiler passes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-016")]
 fn every_field_an_entity_writes_has_one_text() {
     let dir = project();
     let runtime = runtime();
@@ -238,10 +235,7 @@ fn every_field_an_entity_writes_has_one_text() {
     assert_eq!(seen, rules);
 }
 
-#[specforge_test_macros::test(
-    behavior = "snapshot_entities_once",
-    verify = "a field written twice reads as its first entry to declarative rules, custom validators and compiler passes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-016")]
 fn a_field_written_twice_reads_as_its_first_entry_to_every_reader() {
     let dir = TestProject::new()
         .config(|c| {
@@ -328,10 +322,7 @@ fn empty_values_extension() -> ContributionsBuilder {
     c
 }
 
-#[specforge_test_macros::test(
-    behavior = "snapshot_entities_once",
-    verify = "an empty list or block is written, with empty text, never left out or null"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-016")]
 fn an_empty_list_or_block_is_written() {
     let dir = TestProject::new()
         .config(|c| c["name"] = "empty".into())
@@ -373,10 +364,7 @@ fn testable_total(compiled: &CompiledProject) -> usize {
         .testable_total
 }
 
-#[specforge_test_macros::test(
-    behavior = "snapshot_entities_once",
-    verify = "a rule without a target kind applies to every kind, for the rule, the standing and the verify stub alike"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-016")]
 fn an_untargeted_obligation_rule_obliges_every_kind() {
     let dir = project();
     let runtime = runtime();
@@ -404,10 +392,7 @@ fn an_untargeted_obligation_rule_obliges_every_kind() {
     assert_eq!(testable_total(&compiled), 2);
 }
 
-#[specforge_test_macros::test(
-    behavior = "snapshot_entities_once",
-    verify = "a kind that accepts no verify statements owes no obligations, whatever rule applies to it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-016")]
 fn an_untargeted_obligation_rule_skips_kinds_that_accept_no_verify() {
     let dir = project();
     let runtime = runtime();
@@ -425,10 +410,7 @@ fn an_untargeted_obligation_rule_skips_kinds_that_accept_no_verify() {
     assert_eq!(testable_total(&compiled), 2);
 }
 
-#[specforge_test_macros::test(
-    behavior = "snapshot_entities_once",
-    verify = "the checks, the check passes and the coverage of one compile read one snapshot"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-016")]
 fn the_checks_passes_and_coverage_of_one_compile_read_one_snapshot() {
     let dir = project();
     let runtime = runtime();

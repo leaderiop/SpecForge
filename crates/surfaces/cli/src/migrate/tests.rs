@@ -51,10 +51,7 @@ fn migrate_refused(args: &[&str]) -> (Exit, String, String) {
     (exit, capture.stdout(), capture.stderr())
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_post_migration_integrity",
-    verify = "under --format json a refused migration writes nothing beside its document"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-122")]
 fn a_refused_migration_writes_nothing_beside_its_json_document() {
     let (exit, stdout, stderr) = migrate_refused(&["--format", "json"]);
 
@@ -84,10 +81,7 @@ fn a_refused_migration_tells_a_person_on_stderr() {
     assert!(stderr.contains("nothing was written"), "{stderr}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_post_migration_integrity",
-    verify = "a failed migration is told on stderr by its failure's message, naming no backup it did not make"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-122")]
 fn a_failed_migration_is_told_by_its_failures_message() {
     let (exit, _, stderr) = migrate_refused(&["--no-backup", "--format", "human"]);
 
@@ -96,10 +90,7 @@ fn a_failed_migration_is_told_by_its_failures_message() {
     assert!(!stderr.contains("backups"), "{stderr}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "generate_migration_diff",
-    verify = "a dry run the run would refuse exits 1"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-122")]
 fn a_dry_run_the_run_would_refuse_exits_failed() {
     let (exit, stdout, _) = migrate_refused(&["--dry-run", "--format", "json"]);
 

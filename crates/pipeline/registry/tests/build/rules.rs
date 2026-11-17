@@ -44,10 +44,7 @@ fn nth(build: &specforge_registry::RegistryBuild, i: usize) -> &Rule {
     build.rules().iter().nth(i).unwrap()
 }
 
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "every declared rule is in the build's rules with the extension that declared it"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn every_declared_rule_is_in_the_build_with_its_extension() {
     let a = declare("@ext/a", |c| {
         // Its rule targets software's kind: software is its peer.
@@ -78,10 +75,7 @@ fn every_declared_rule_is_in_the_build_with_its_extension() {
     assert_eq!(nth(&build, 1).check_kind(), CheckKind::NoOutgoingEdges);
 }
 
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "the extensions' rules are ordered by code"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn the_extensions_rules_are_ordered_by_code() {
     let a = rules(
         "@ext/a",
@@ -150,10 +144,7 @@ fn the_extensions_rules_are_ordered_by_code() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "the build drops a rule whose target kind or edge type no loaded extension declares"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn the_build_drops_a_rule_whose_target_kind_or_edge_type_no_extension_declares() {
     let ghostly = declare("@t/e", |c| {
         c.meta
@@ -197,10 +188,7 @@ fn the_build_drops_a_rule_whose_target_kind_or_edge_type_no_extension_declares()
     );
 }
 
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "extensions produce E006 rules for required fields"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn required_fields_get_e006_rules() {
     let declared = declare("@specforge/software", |c| {
         c.kind("Behavior", |k| {
@@ -248,10 +236,7 @@ fn required_fields_get_e006_rules() {
     assert!(crate::support::build([software()]).rules().is_empty());
 }
 
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "Registry Build Collects Rules: rule collection holds — declarations_in_load_order, rules_collected, duplicates_warned, required_enforced, unloaded_targets_inert, rule_codes_checked"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn rule_collection_holds() {
     // declarations_in_load_order: each extension's rules out of code order;
     // both declare W900; `b` has a required field and a rule (W903) for a

@@ -17,10 +17,7 @@ fn only_entity_fields(source: &str) -> Vec<(String, FieldValue)> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "a minus in an expression, a union variant and a scheme ref read as before a value is one word"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_minus_a_union_variant_and_a_scheme_ref_read_as_before() {
     let file = parse("type t = 01 | -1 | 2\n", "t.spec");
     assert!(file.errors.is_empty(), "{:?}", file.errors);
@@ -91,10 +88,7 @@ fn written(value: &FieldValue) -> Option<String> {
     })
 }
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "every bare scalar value of the repository's spec keeps its written text"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn every_bare_value_in_the_corpus_keeps_its_written_text() {
     let mut checked = 0usize;
     for (path, source) in corpus() {
@@ -130,10 +124,7 @@ const GSD_NAMES: [&str; 9] = [
     "AUTH-01", "03-02", "03.1", "999.1", "v1.0", "D-01", "G-03-1", "03", "10",
 ];
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "an entity header names an entity with a word holding a dash or a dot, or all digits"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_gsd_name_names_an_entity() {
     for name in GSD_NAMES {
         let file = parse(&format!("thing {name} \"T\" {{\n}}\n"), "t.spec");
@@ -143,10 +134,7 @@ fn a_gsd_name_names_an_entity() {
     }
 }
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "a field value or list item is one word, tagged by shape and kept as written"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_bare_value_or_list_item_is_one_word() {
     for (word, tag) in [
         ("03-02", "id"),
@@ -205,10 +193,7 @@ fn a_bare_value_or_list_item_is_one_word() {
     );
 }
 
-#[specforge_test(
-    behavior = "parse_use_imports",
-    verify = "a selective use binding may import a name holding a dash or a dot"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_use_binding_may_import_a_gsd_name() {
     let file = parse(
         "use { AUTH-01, v1.0 as release } from \"./gsd\"\n",
@@ -223,10 +208,7 @@ fn a_use_binding_may_import_a_gsd_name() {
     assert_eq!(read, [("AUTH-01", None), ("v1.0", Some("release"))]);
 }
 
-#[specforge_test(
-    behavior = "lex_spec_text",
-    verify = "a word is one lexeme in a value, list item, header name or binding slot and nowhere else"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_word_is_one_lexeme_in_a_value_or_name_slot_only() {
     let text = "thing AUTH-01 \"x\" {\n  a 03-02\n  b [v1.0, 2-1]\n  c 2026-10-26\n  d 007\n  e 1.5\n  f 1.5e3\n  m expr { a-b }\n}\nuse { D-01 } from \"x\"\n";
     let read: Vec<(LexemeKind, &str)> = lex(text).iter().map(|l| (l.kind, l.text(text))).collect();
@@ -243,10 +225,7 @@ fn a_word_is_one_lexeme_in_a_value_or_name_slot_only() {
     assert!(!read.iter().any(|(_, word)| *word == "a-b"), "{read:?}");
 }
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "a union's name stays an identifier: a dash in it is a syntax error"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_union_name_is_one_word() {
     let file = parse("type a-b = x\n", "t.spec");
     assert!(!file.errors.is_empty());

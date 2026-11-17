@@ -76,10 +76,7 @@ fn assert_printable(found: &[Diagnostic]) {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "an escape sequence in a probe's answer reaches a finding printable"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn an_escape_in_a_probes_answer_reaches_a_finding_printable() {
     let spec = format!("service a \"A\" {{\n  link \"{A_URL}\"\n}}\n");
     let scene = scene(FakeHttp::new().route(A_URL, 200, HOSTILE), &spec);
@@ -90,10 +87,7 @@ fn an_escape_in_a_probes_answer_reaches_a_finding_printable() {
     assert_printable(&found);
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a checker's memo read from disk reaches a finding printable"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_memo_read_from_disk_reaches_a_finding_printable() {
     let spec = format!("service a \"A\" {{\n  link \"{A_URL}\"\n}}\n");
     let scene = scene(FakeHttp::new().route(A_URL, 200, "plain"), &spec);
@@ -123,10 +117,7 @@ fn a_memo_read_from_disk_reaches_a_finding_printable() {
     assert_printable(&found);
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a spec string's escape reads no control character but a newline, a tab or a return"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_spec_strings_escapes_read_no_other_control_character() {
     let spec = r#"service a "A" {
   text "a\u001bb\x1bc\ed"

@@ -22,10 +22,7 @@ fn init_server() -> Served {
 }
 
 // E:mcp_initialized — verify integration "mcp initialization emits event with tool counts"
-#[specforge_test(
-    behavior = "mcp_initialized",
-    verify = "mcp initialization emits event with tool counts"
-)]
+#[test]
 fn event_mcp_initialized() {
     let mut server = init_server();
     // The core surface: 40 tools, 8 resources, 5 prompts; the project's one
@@ -59,10 +56,7 @@ fn event_mcp_initialized() {
 }
 
 // E:mcp_server_shutdown — verify integration "emits mcp_server_shutdown with correct counts when MCP server shuts down"
-#[specforge_test(
-    behavior = "mcp_server_shutdown",
-    verify = "emits mcp_server_shutdown with correct counts when MCP server shuts down"
-)]
+#[test]
 fn event_mcp_server_shutdown() {
     let mut server = init_server();
     // Two subscriptions and two notifications waiting to be sent: a new
@@ -86,10 +80,7 @@ fn event_mcp_server_shutdown() {
 }
 
 // E:mcp_initialization_failed — verify integration "emits mcp_initialization_failed when MCP server fails to initialize"
-#[specforge_test(
-    behavior = "mcp_initialization_failed",
-    verify = "emits mcp_initialization_failed when MCP server fails to initialize"
-)]
+#[test]
 fn event_mcp_initialization_failed() {
     let mut server = init_server();
     call(&mut server, "initialize", json!({}));
@@ -103,10 +94,7 @@ fn event_mcp_initialization_failed() {
 }
 
 // E:mcp_protocol_error_handled — verify integration "emits mcp_protocol_error_handled with correct errorCode for each error type"
-#[specforge_test(
-    behavior = "mcp_protocol_error_handled",
-    verify = "emits mcp_protocol_error_handled with correct errorCode for each error type"
-)]
+#[test]
 fn event_mcp_protocol_error_handled() {
     let mut server = logged(McpServer::new());
     server.handle_message("not valid json");
@@ -143,10 +131,7 @@ fn event_mcp_protocol_error_handled() {
 }
 
 // E:mcp_request_cancelled — verify integration "emits mcp_request_cancelled with correct requestId and wasInProgress flag"
-#[specforge_test(
-    behavior = "mcp_request_cancelled",
-    verify = "emits mcp_request_cancelled with correct requestId and wasInProgress flag"
-)]
+#[test]
 fn event_mcp_request_cancelled() {
     let mut server = init_server();
     call(&mut server, "ping", json!({}));
@@ -170,10 +155,7 @@ fn event_mcp_request_cancelled() {
 }
 
 // E:mcp_discovery_invoked — verify integration "emits mcp_discovery_invoked with correct discoveryType when agent lists tools, prompts, or resources"
-#[specforge_test(
-    behavior = "mcp_discovery_invoked",
-    verify = "emits mcp_discovery_invoked with correct discoveryType when agent lists tools, prompts, or resources"
-)]
+#[test]
 fn event_mcp_discovery_invoked() {
     let mut server = init_server();
     call(&mut server, "tools/list", json!({}));
@@ -199,10 +181,7 @@ fn event_mcp_discovery_invoked() {
 }
 
 // E:mcp_resource_read — verify integration "emits mcp_resource_read with correct resourceUri when agent reads any MCP resource"
-#[specforge_test(
-    behavior = "mcp_resource_read",
-    verify = "emits mcp_resource_read with correct resourceUri when agent reads any MCP resource"
-)]
+#[test]
 fn event_mcp_resource_read() {
     let mut server = init_server();
     call(
@@ -231,10 +210,7 @@ fn event_mcp_resource_read() {
 }
 
 // E:mcp_tool_invoked — verify integration "emits mcp_tool_invoked with correct toolName, category, and parameters for any tool call"
-#[specforge_test(
-    behavior = "mcp_tool_invoked",
-    verify = "emits mcp_tool_invoked with correct toolName, category, and parameters for any tool call"
-)]
+#[test]
 fn event_mcp_tool_invoked() {
     let mut server = init_server();
     call_tool(&mut server, "specforge.stats", json!({}));
@@ -265,10 +241,7 @@ fn event_mcp_tool_invoked() {
 }
 
 // E:mcp_prompt_invoked — verify integration "emits mcp_prompt_invoked with correct promptName and arguments"
-#[specforge_test(
-    behavior = "mcp_prompt_invoked",
-    verify = "emits mcp_prompt_invoked with correct promptName and arguments"
-)]
+#[test]
 fn event_mcp_prompt_invoked() {
     // The project declares the behavior `alpha`.
     let mut server = init_server();
@@ -294,10 +267,7 @@ fn event_mcp_prompt_invoked() {
 }
 
 // E:mcp_delta_notified — verify integration "emits mcp_delta_notified with correct notification type and delta summary"
-#[specforge_test(
-    behavior = "mcp_delta_notified",
-    verify = "emits mcp_delta_notified with correct notification type and delta summary"
-)]
+#[test]
 fn event_mcp_delta_notified() {
     // A project on disk, served; then a file written beside its own: the
     // routed read brings the project up to date and notifies.
@@ -334,10 +304,7 @@ fn event_mcp_delta_notified() {
 }
 
 // E:mcp_mutation_completed — verify integration "emits mcp_mutation_completed with structured outcome after each mutation tool"
-#[specforge_test(
-    behavior = "mcp_mutation_completed",
-    verify = "emits mcp_mutation_completed with structured outcome after each mutation tool"
-)]
+#[test]
 fn event_mcp_mutation_completed() {
     let mut server = init_server();
     // Two unformatted files: the formatter rewrites both.
@@ -364,10 +331,7 @@ fn event_mcp_mutation_completed() {
 }
 
 // E:mcp_subscription_created — verify integration "emits mcp_subscription_created for each resource a client subscribes to or a listen stream names"
-#[specforge_test(
-    behavior = "mcp_subscription_created",
-    verify = "emits mcp_subscription_created for each resource a client subscribes to or a listen stream names"
-)]
+#[test]
 fn event_mcp_subscription_created() {
     let mut server = init_server();
     call(
@@ -382,10 +346,7 @@ fn event_mcp_subscription_created() {
 }
 
 // E:mcp_subscription_removed — verify integration "emits mcp_subscription_removed for each resource whose subscription ends: unsubscribe, cancel, disconnect or shutdown"
-#[specforge_test(
-    behavior = "mcp_subscription_removed",
-    verify = "emits mcp_subscription_removed for each resource whose subscription ends: unsubscribe, cancel, disconnect or shutdown"
-)]
+#[test]
 fn event_mcp_subscription_removed() {
     let mut server = init_server();
     call(
@@ -465,7 +426,7 @@ fn core_session() -> (Logged, tempfile::TempDir) {
 /// `mcp_`) and no other, and each recorded event serializes to that shape.
 /// The other variants are the compilation and surface events, which other
 /// sessions record.
-#[specforge_test(behavior = "mcp_event_record")]
+#[specforge_test(requirement = "INVARIANT-065")]
 fn a_session_records_every_mcp_event() {
     let (server, _dir) = core_session();
     let events = recorded(&server);
@@ -556,10 +517,7 @@ fn the_recorded_sequence_of_a_session() {
     insta::assert_json_snapshot!(json!({"core": core, "surfaces": surfaces}));
 }
 
-#[specforge_test(
-    behavior = "mcp_event_record",
-    verify = "every event a recording sink keeps carries the time it was recorded"
-)]
+#[specforge_test(requirement = "INVARIANT-065")]
 fn a_log_stamps_each_event_with_the_time_it_was_recorded() {
     let before = chrono::Utc::now();
     let mut server = init_server();

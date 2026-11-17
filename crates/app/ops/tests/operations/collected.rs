@@ -88,10 +88,7 @@ fn typed(
     )
 }
 
-#[specforge_test(
-    behavior = "validate_typed_edit",
-    verify = "a collected entity is never created, edited or deleted by an edit, whoever asks"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_typed_edit_of_a_collected_entity_is_refused_for_every_caller() {
     let p = project();
     let compiled = compiled(&p);
@@ -125,10 +122,7 @@ fn a_typed_edit_of_a_collected_entity_is_refused_for_every_caller() {
     );
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "a collected entity is never created, edited or deleted by an edit, whoever asks"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn new_of_a_collected_kind_is_refused() {
     let p = project();
     let compiled = compiled(&p);
@@ -148,10 +142,7 @@ fn new_of_a_collected_kind_is_refused() {
     assert!(!p.root().join("b.spec").exists());
 }
 
-#[specforge_test(
-    behavior = "delete_entity",
-    verify = "a collected entity is never created, edited or deleted by an edit, whoever asks"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_delete_of_a_collected_entity_is_refused() {
     let p = project();
     let compiled = compiled(&p);
@@ -177,10 +168,7 @@ fn a_delete_of_a_collected_entity_is_refused() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename of a collected entity, or of one a fact names with no place, is refused with why"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_rename_of_a_collected_entity_is_refused_with_why() {
     let p = project();
     let compiled = compiled(&p);
@@ -202,10 +190,7 @@ fn a_rename_of_a_collected_entity_is_refused_with_why() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename of a collected entity, or of one a fact names with no place, is refused with why"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_rename_of_an_entity_a_fact_names_with_no_place_is_refused() {
     let p = project();
     let compiled = compiled(&p);
@@ -259,10 +244,7 @@ fn located(lines: &[usize]) -> TestProject {
     p
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename of an entity a fact names rewrites the source where the fact read it and marks its store stale"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_rename_of_an_entity_a_fact_names_rewrites_the_source_and_marks_the_store_stale() {
     let p = located(&[1]);
     let compiled = compiled(&p);
@@ -306,10 +288,7 @@ fn a_rename_of_an_entity_a_fact_names_rewrites_the_source_and_marks_the_store_st
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename whose source changed since the collect is refused as source_moved"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_rename_whose_source_moved_since_the_collect_is_source_moved() {
     let p = located(&[1]);
     std::fs::write(p.root().join("a.test.js"), format!("\n{SOURCE}")).unwrap();
@@ -374,10 +353,7 @@ pub(crate) fn covered_and_placed(p: &TestProject) -> (Vec<String>, bool) {
     (covered, placed)
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename of a name an earlier rename rewrote rewrites the source again where the first left it"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_second_rename_before_the_collect_rewrites_the_source_again() {
     let p = located(&[1]);
     rename_now(&p, "T1", "T2").unwrap();
@@ -397,10 +373,7 @@ fn a_second_rename_before_the_collect_rewrites_the_source_again() {
     assert_eq!(covered_and_placed(&p), (vec!["T3".to_string()], true));
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename of a name an earlier rename rewrote rewrites the source again where the first left it"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn three_renames_of_one_name_before_the_collect_each_rewrite_the_source() {
     let p = located(&[1, 3]);
 
@@ -452,10 +425,7 @@ pub(crate) fn two_named() -> TestProject {
     p
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename of a name an earlier rename rewrote rewrites the source again where the first left it"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_rename_finds_its_places_where_an_earlier_rename_of_another_name_shifted_them() {
     let p = two_named();
     rename_now(&p, "T1", "Longer").unwrap();
@@ -490,10 +460,7 @@ fn a_rename_finds_its_places_where_an_earlier_rename_of_another_name_shifted_the
     assert_eq!(at, [("Longer", 11, 17), ("T6", 18, 20)]);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename whose source changed since the collect is refused as source_moved"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_hand_edit_after_a_rename_still_refuses_the_next_as_source_moved() {
     let p = located(&[1]);
     rename_now(&p, "T1", "T2").unwrap();

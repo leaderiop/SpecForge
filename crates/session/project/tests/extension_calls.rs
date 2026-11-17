@@ -138,10 +138,7 @@ fn last_input(runtime: &InProcessRuntime, export: &str) -> Value {
 
 // ── C4 · compiler pass ──
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "every extension call encodes its input as the protocol type the SDK decodes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn c4_the_pass_input_of_an_analysis() {
     let dir = project();
     let runtime = Arc::new(runtime());
@@ -168,10 +165,7 @@ fn c4_the_pass_input_of_an_analysis() {
     golden("pass.input.json", &serde_json::to_value(&input).unwrap());
 }
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "every extension call encodes its input as the protocol type the SDK decodes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn c4_the_pass_input_of_a_compile_carries_the_baseline() {
     let dir = project();
     let head = fs::read(dir.root().join("a.spec")).unwrap();
@@ -207,10 +201,7 @@ fn pass_findings(diagnostics: &[Diagnostic]) -> Vec<&Diagnostic> {
         .collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "a pass answer may be bare diagnostics or diagnostics with a summary, and its diagnostics come back in canonical order with an entity's span attached"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn c4_a_pass_answer_is_bare_or_with_a_summary_and_comes_back_sorted() {
     let diagnostics = json!([
         {"code": "X2", "severity": "Warning", "message": "b", "span": span("z.spec", 3)},
@@ -259,10 +250,7 @@ fn c4_a_pass_answer_is_bare_or_with_a_summary_and_comes_back_sorted() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "run_check_phase_passes",
-    verify = "a trapping check pass is a diagnostic, not a crash"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn c4_a_failing_check_pass_is_e028() {
     let trapped = compile_answering(WasmCallResult::Trap(WasmTrapInfo {
         kind: "k".into(),
@@ -295,10 +283,7 @@ fn c4_a_failing_check_pass_is_e028() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "an analyze pass that traps is reported as an E028 finding of that pass"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn c4_a_failing_analyze_pass_is_an_e028_finding_of_its_report() {
     // flipped: was no report at all, a stderr line
     let dir = project();
@@ -337,10 +322,7 @@ fn c4_a_failing_analyze_pass_is_an_e028_finding_of_its_report() {
 
 // ── C6 · custom validator ──
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "every extension call encodes its input as the protocol type the SDK decodes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn c6_the_validator_context() {
     let dir = project();
     let runtime = Arc::new(runtime());
@@ -355,10 +337,7 @@ fn c6_the_validator_context() {
     golden("validate.input.json", &Value::Array(contexts));
 }
 
-#[specforge_test_macros::test(
-    behavior = "register_custom_validation_patterns",
-    verify = "a custom validator's verdict is read as the protocol's ValidatorVerdict, and a failure is reported once as W112"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-016")]
 fn c6_a_verdict_is_read_and_a_failure_is_w112_on_load() {
     let dir = project();
     let runtime = Arc::new(runtime().answer_raw(
@@ -425,10 +404,7 @@ fn runtime_with_trap() -> InProcessRuntime {
     )
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "every guest call but handshake and describe carries the extension's own settings and no other's"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn every_guest_call_but_describe_carries_its_settings() {
     use specforge_project::testing::{
         FOLLOWER_EXTENSION, SETTINGS_EXTENSION, follower_extension, settings_extension,

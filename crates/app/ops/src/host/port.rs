@@ -357,10 +357,7 @@ pub trait HostRenderer: Send + Sync {
 mod tests {
     use super::*;
 
-    #[specforge_test_macros::test(
-        behavior = "install_into_a_host",
-        verify = "a hook command repeats --paths per glob, so a glob holding a comma reaches the hook whole"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-013")]
     fn a_hook_command_passes_each_glob_whole() {
         let hook = RenderedHook {
             route: "t.g".into(),

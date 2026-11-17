@@ -115,10 +115,7 @@ fn sorted_node_ids(parsed: &serde_json::Value) -> Vec<String> {
 }
 
 // B:enforce_token_budget — verify unit "output within budget includes all entities"
-#[specforge_test(
-    behavior = "enforce_token_budget",
-    verify = "output within budget includes all entities"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn output_within_budget_includes_all_entities() {
     let graph = build_large_graph();
     // Large budget — everything fits
@@ -134,10 +131,7 @@ fn output_within_budget_includes_all_entities() {
 }
 
 // B:enforce_token_budget — verify unit "output exceeding budget truncates low-priority entities"
-#[specforge_test(
-    behavior = "enforce_token_budget",
-    verify = "output exceeding budget truncates low-priority entities"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn output_exceeding_budget_truncates_low_priority_entities() {
     let graph = build_hub_graph();
     let degree = |id: &str| HUB_DEGREES.iter().find(|(n, _)| *n == id).unwrap().1;
@@ -170,10 +164,7 @@ fn output_exceeding_budget_truncates_low_priority_entities() {
 }
 
 // B:enforce_token_budget — verify unit "TokenBudgetResult included in metadata when budget applied"
-#[specforge_test(
-    behavior = "enforce_token_budget",
-    verify = "TokenBudgetResult included in metadata when budget applied"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn token_budget_result_included_in_metadata() {
     let graph = build_large_graph();
     let result = crate::support::budgeted_json(&graph, 500);
@@ -189,10 +180,7 @@ fn token_budget_result_included_in_metadata() {
 }
 
 // B:enforce_token_budget — verify unit "truncated_entities lists omitted entity IDs"
-#[specforge_test(
-    behavior = "enforce_token_budget",
-    verify = "truncated_entities lists omitted entity IDs"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn truncated_entities_list_contains_omitted_ids() {
     let graph = build_large_graph();
     let result = crate::support::budgeted_json(&graph, 500);
@@ -223,10 +211,7 @@ fn truncated_entities_list_contains_omitted_ids() {
 }
 
 // B:enforce_token_budget — verify unit "no --max-tokens skips budget enforcement"
-#[specforge_test(
-    behavior = "enforce_token_budget",
-    verify = "no --max-tokens skips budget enforcement"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn no_max_tokens_skips_budget_enforcement() {
     let graph = build_large_graph();
     // The options `specforge export` and the MCP export tool build: no
@@ -265,7 +250,7 @@ fn no_max_tokens_skips_budget_enforcement() {
 
 // B:enforce_token_budget — verify unit "truncated_entities lists omitted entity IDs"
 // (validates no dangling edges remain after truncation)
-#[specforge_test(behavior = "enforce_token_budget")]
+#[specforge_test(requirement = "FEATURE-001")]
 fn no_dangling_edges_after_truncation() {
     let graph = build_large_graph();
     let result = crate::support::budgeted_json(&graph, 500);
@@ -295,10 +280,7 @@ fn no_dangling_edges_after_truncation() {
 }
 
 // B:enforce_token_budget — verify integration "export with max_tokens produces output within budget and includes metadata"
-#[specforge_test(
-    behavior = "enforce_token_budget",
-    verify = "export with max_tokens produces output within budget and includes metadata"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn export_with_max_tokens_within_budget_includes_metadata() {
     let graph = build_large_graph();
     // The graph export as the MCP export tool (and `specforge export
@@ -378,10 +360,7 @@ fn a_budget_counts_each_nodes_coverage_status() {
     }
 }
 
-#[specforge_test(
-    behavior = "enforce_token_budget",
-    verify = "an edge from an entity to itself adds nothing to its centrality"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn a_self_reference_adds_nothing_to_centrality() {
     use specforge_emitter::EmitOptions;
     use specforge_protocol_types::tokens::estimate_tokens;

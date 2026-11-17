@@ -231,10 +231,7 @@ mod tests {
     use specforge_common::codes;
     use specforge_ops::{RunVerdict, Writes};
 
-    #[specforge_test_macros::test(
-        behavior = "report_command_outcome",
-        verify = "under --format json a refusal is the error document on stdout and nothing on stderr"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-006")]
     fn a_refusal_writes_to_the_stream_its_format_names() {
         let error = OpError::coded(
             specforge_ops::OpErrorKind::EntityNotFound,
@@ -259,10 +256,7 @@ mod tests {
         assert_eq!(capture.stderr(), "error[E003]: gone\n");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "report_command_outcome",
-        verify = "a fixed-format command (export, schema, model, query, outline) refuses on stderr whatever its --format names, with nothing on stdout"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-006")]
     fn a_fixed_refusal_is_on_stderr() {
         let error = OpError::coded(
             specforge_ops::OpErrorKind::EntityNotFound,
@@ -285,10 +279,7 @@ mod tests {
         .with_writes(Writes::from_iter(["/p/specforge.json", "/p/spec/a.spec"]))
     }
 
-    #[specforge_test_macros::test(
-        behavior = "report_command_outcome",
-        verify = "an operation's refusal is error[CODE]: message, its hint and the files it left written, on stderr"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-006")]
     fn error_lines_name_code_hint_and_writes() {
         let error = failed_after_writing();
 
@@ -325,10 +316,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "report_command_outcome",
-        verify = "under --format json a refusal is the error document on stdout and nothing on stderr"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-006")]
     fn error_document_carries_files_written_only_when_written() {
         let json = |document: ErrorDocument| serde_json::to_value(document).unwrap();
         let plain = OpError::coded(
@@ -361,10 +349,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "report_command_outcome",
-        verify = "a passed run exits 0, a failed verdict or a refusal 1, a refusal of a measuring command 2"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-006")]
     fn the_exit_table() {
         assert_eq!(Exit::of_verdict(true).code(), 0);
         assert_eq!(Exit::of_verdict(false).code(), 1);

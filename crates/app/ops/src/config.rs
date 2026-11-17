@@ -124,10 +124,8 @@ mod tests {
         dir
     }
 
-    #[specforge_test(
-        behavior = "management_operations_over_the_project_view",
-        verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
-    )]
+    #[specforge_test(requirement = "FEATURE-028")]
+    #[specforge_test(requirement = "FEATURE-070")]
     fn one_refusal_for_every_unusable_config() {
         for config in testing::UNUSABLE {
             let dir = project(config);
@@ -193,10 +191,8 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        behavior = "management_operations_over_the_project_view",
-        verify = "a config problem that leaves the sources or the extensions unknown blocks a rewrite"
-    )]
+    #[specforge_test(requirement = "FEATURE-028")]
+    #[specforge_test(requirement = "FEATURE-070")]
     fn rewritable_refuses_what_hides_the_sources_and_keeps_the_rest() {
         for config in testing::HIDES_SOURCES {
             let dir = project(config);

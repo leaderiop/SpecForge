@@ -17,10 +17,7 @@ fn handshake(runtime: &InProcessRuntime, name: &str) -> Option<serde_json::Value
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "a .wasm file entry whose component declares no package name is E072 naming the entry, and nothing loads"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_file_entry_declaring_no_package_name_is_e072_naming_the_entry() {
     for (entry, path, declared) in [
         ("x.wasm", "x.wasm", "@acme/Tool"),
@@ -61,10 +58,7 @@ fn a_file_entry_declaring_no_package_name_is_e072_naming_the_entry() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "a .wasm file entry loads under a key no extension is admitted under, so it never replaces what another entry loaded"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_file_entrys_load_never_replaces_another_entrys_extension() {
     for order in [["first.wasm", "second.wasm"], ["second.wasm", "first.wasm"]] {
         let dir = TempDir::new().unwrap();
@@ -86,10 +80,7 @@ fn a_file_entrys_load_never_replaces_another_entrys_extension() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "a .wasm file entry declaring a name another entry already loads is refused, whatever its own text"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_file_entry_declaring_its_own_text_is_refused_when_another_entry_loads_that_name() {
     let dir = TempDir::new().unwrap();
     file(dir.path(), "x.wasm", b"\0asm x");

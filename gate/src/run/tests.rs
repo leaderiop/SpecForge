@@ -68,7 +68,7 @@ fn no_two_compiling_checks_overlap_and_after_is_respected() {
         let order = simulate(&steps, |running| running[pick.min(running.len() - 1)]);
         let at = |name: &str| order.iter().position(|&k| k == index(name)).unwrap();
         assert!(at("build") < at("tests") && at("build") < at("doctests"));
-        assert!(at("tests") < at("dogfood") && at("guests") < at("dogfood"));
+        assert!(at("tests") < at("dogfood"));
     }
     // clippy never starts while build runs: the first wave holds build or clippy, not both.
     let first = schedule(&steps, &vec![State::Pending; steps.len()]);
@@ -91,7 +91,6 @@ fn a_failed_after_blocks_its_dependents() {
     assert!(wave.blocked.contains(&index("doctests")));
     assert!(!wave.blocked.contains(&index("clippy")));
     states[index("tests")] = State::Blocked;
-    states[index("guests")] = State::Passed;
     let wave = schedule(&steps, &states);
     assert!(wave.blocked.contains(&index("dogfood")));
 }

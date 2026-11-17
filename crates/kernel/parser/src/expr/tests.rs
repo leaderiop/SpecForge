@@ -229,10 +229,7 @@ fn token_ranges(text: &str) -> (Ranges, Ranges) {
     (tokens, lexemes)
 }
 
-#[specforge_test_macros::test(
-    behavior = "lex_spec_text",
-    verify = "the expression tokenizer, the lexer and the grammar agree on every expression of the repository's spec"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-123")]
 fn the_tokenizer_agrees_with_the_lexer_and_the_grammar_on_the_corpus() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();

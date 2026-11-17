@@ -47,10 +47,7 @@ fn no_enabled_collector_is_e058_naming_how_to_add_one() {
     untouched(&fx, &machine);
 }
 
-#[specforge_test(
-    behavior = "auto_detect_collector",
-    verify = "no match emits E058 with available collectors"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn no_match_among_several_collectors_is_e058_listing_them() {
     let fx = Fixture::new(vec![Runner::new("first"), Runner::new("second")]);
     let machine = Machine::new();
@@ -134,10 +131,7 @@ fn a_report_location_declared_outside_is_e058() {
     untouched(&fx, &machine);
 }
 
-#[specforge_test(
-    behavior = "run_collector_command",
-    verify = "an unknown capture is refused"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn an_unknown_capture_is_refused() {
     let fx = Fixture::new(vec![Runner::new("acme").capturing("stderr")]);
     let machine = Machine::new().approving_everything();
@@ -356,10 +350,7 @@ fn a_report_that_cannot_be_written_is_e056() {
     assert!(machine.runs().is_empty());
 }
 
-#[specforge_test(
-    behavior = "approve_capability",
-    verify = "a ceiling that turns process off refuses collect with E090 before anything runs"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_ceiling_without_process_refuses_with_e090_before_anything_runs() {
     let fx = Fixture::configured(
         vec![Runner::new("acme").proving("a", "t")],

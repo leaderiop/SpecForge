@@ -115,10 +115,7 @@ fn mismatches(c: &Compiled, rows: Vec<Row<'_>>) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "every verb leaves a field holding what it says, own or inherited"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn every_verb_leaves_a_field_holding_what_it_says() {
     let c = compile(SOFTWARE_FORMAL, &[("g.spec", HOLDS)]);
     let rows: Vec<Row<'_>> = vec![
@@ -202,10 +199,7 @@ fn every_verb_leaves_a_field_holding_what_it_says() {
     assert!(bad.is_empty(), "{}", bad.join("\n"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "unset leaves a field holding none, once"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn unset_leaves_a_field_holding_none_once() {
     let c = compile(SOFTWARE_FORMAL, &[("g.spec", HOLDS)]);
     let rows: Vec<Row<'_>> = vec![

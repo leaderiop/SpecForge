@@ -76,10 +76,7 @@ fn findings(p: &TestProject, code: &str, entity: &str) -> Vec<Diagnostic> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a failing verdict on an error rule is recorded"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_failing_verdict_on_an_error_rule_records() {
     let p = gsd_judged_project("");
     let ops = verdict_on(&p, TRUTH, "gsd/E501", "failed", "gsd-verifier");
@@ -97,10 +94,7 @@ fn a_failing_verdict_on_an_error_rule_records() {
     assert!(!judgement.passed, "a failing verdict passes nothing");
 }
 
-#[specforge_test(
-    behavior = "validate_typed_edit",
-    verify = "a judged rules finding is no error a write adds"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_typed_edit_creating_a_judged_target_is_written() {
     let p = gsd_judged_project("");
     let truth = create("truth", "TR2", &[("plan", "03-02")]);
@@ -118,10 +112,7 @@ fn a_typed_edit_creating_a_judged_target_is_written() {
     );
 }
 
-#[specforge_test(
-    behavior = "validate_typed_edit",
-    verify = "a judged rules finding is no error a write adds"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_command_plan_creating_a_judged_target_is_applied() {
     let p = gsd_judged_project("");
     let ops = json!([{"op": "create", "kind": "truth", "id": "TR2", "title": "New", "file": "a.spec",
@@ -134,10 +125,7 @@ fn a_command_plan_creating_a_judged_target_is_applied() {
     );
 }
 
-#[specforge_test(
-    behavior = "validate_typed_edit",
-    verify = "a judged rules finding is no error a write adds"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn an_edit_that_stales_a_passing_verdict_is_written() {
     let p = gsd_judged_project("").file("src/auth/other.ts", "export const other = 1;\n");
     let ops = verdict_on(&p, TRUTH, "gsd/E501", "passed", "gsd-verifier");
@@ -156,10 +144,7 @@ fn an_edit_that_stales_a_passing_verdict_is_written() {
     );
 }
 
-#[specforge_test(
-    behavior = "validate_typed_edit",
-    verify = "a judged rules finding is no error a write adds"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn the_e080_message_names_no_judged_finding() {
     // A truth (judged: no verdict) and a truth whose plan does not exist: only the second refuses, and the message
     // names it alone.
@@ -173,10 +158,7 @@ fn the_e080_message_names_no_judged_finding() {
     assert!(!message.contains("no verdict"), "{message}");
 }
 
-#[specforge_test(
-    behavior = "validate_typed_edit",
-    verify = "a judged rules finding is no error a write adds"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_judged_finding_already_reported_is_not_reported_again() {
     let p = gsd_judged_project("");
     let compiled = compile(&p);
@@ -197,10 +179,7 @@ fn a_judged_finding_already_reported_is_not_reported_again() {
     assert!(!added.contains("no verdict"), "{added}");
 }
 
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "a migration counts no judged finding"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_migration_counts_no_judged_finding() {
     use specforge_ops::authoring::migrate::{MigrationInput, judge};
     let p = gsd_judged_project("");
@@ -223,10 +202,7 @@ fn a_migration_counts_no_judged_finding() {
     assert_eq!(verdict.added_errors, 0, "{:?}", verdict.post_diagnostics);
 }
 
-#[specforge_test(
-    behavior = "refuse_human_only_write",
-    verify = "a set_verdict on a human-only entity is still refused"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_set_verdict_on_a_human_only_entity_is_still_refused() {
     let p = gsd_judged_project("sealed_audit S1 \"S\" {}\n");
     let ops = verdict_on(&p, "S1", "gsd/W205", "legitimate", "gsd-package-auditor");

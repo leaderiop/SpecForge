@@ -24,10 +24,7 @@ fn block_of<'a>(text: &'a str, header: &str) -> &'a str {
     &rest[..end]
 }
 
-#[specforge_test_macros::test(
-    invariant = "typed_edit_canonical_form",
-    verify = "every block a typed edit writes is unchanged by format"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-144")]
 fn a_triple_quoted_value_is_indented_with_the_projects_tabs() {
     let c = configured("use_tabs = true\n");
     let text = after(
@@ -47,10 +44,7 @@ fn a_triple_quoted_value_is_indented_with_the_projects_tabs() {
     assert!(formats_to_itself(&c, &tabs, block));
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "a multi-line value is laid out with the project's format configuration"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_value_follows_the_projects_indent_width() {
     let c = configured("indent_width = 4\n");
     let text = after(
@@ -121,10 +115,7 @@ fn linked() -> (Compiled, tempfile::TempDir) {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "load_format_config",
-    verify = "a typed edit and init lay out with the defaults when their bound refuses the configuration"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn a_contained_view_lays_out_with_the_defaults_when_the_configuration_links_outside() {
     let (c, _outside) = linked();
 
@@ -144,10 +135,7 @@ fn a_contained_view_lays_out_with_the_defaults_when_the_configuration_links_outs
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "load_format_config",
-    verify = "an unbounded caller follows a linked configuration"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn an_uncontained_view_follows_a_linked_configuration() {
     let (c, _outside) = linked();
 

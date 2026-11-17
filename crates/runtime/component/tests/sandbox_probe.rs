@@ -28,10 +28,7 @@ use specforge_wasm::protocol::load_declaration;
 use specforge_wasm::testing::assert_port_contract;
 use specforge_wasm::{ExtensionCalls, WasmCallResult, WasmRuntime};
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "a cmd__ export is granted no capability, whatever sandbox its declaration asks for"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_command_export_is_granted_no_capability() {
     let runtime = probe_runtime();
     let declared = declared_surfaces(&runtime);
@@ -50,10 +47,7 @@ fn a_command_export_is_granted_no_capability() {
     bait.untouched();
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_tool",
-    verify = "an mcp__ tool export is granted no capability, whatever sandbox its declaration asks for"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn an_mcp_tool_export_is_granted_no_capability() {
     let runtime = probe_runtime();
     let declared = declared_surfaces(&runtime);
@@ -68,10 +62,7 @@ fn an_mcp_tool_export_is_granted_no_capability() {
     bait.untouched();
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_resource",
-    verify = "fs_write denied for resource contributions"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn an_mcp_resource_export_cannot_write() {
     let runtime = probe_runtime();
     let declared = declared_surfaces(&runtime);
@@ -96,10 +87,7 @@ fn an_mcp_resource_export_cannot_write() {
     bait.untouched();
 }
 
-#[specforge_test(
-    invariant = "surface_sandbox_ceiling",
-    verify = "a surface export whose sandbox override asks for every capability is granted none"
-)]
+#[specforge_test(requirement = "INVARIANT-134")]
 fn no_override_expands_the_ceiling() {
     let runtime = probe_runtime();
     let declared = declared_surfaces(&runtime);
@@ -142,10 +130,7 @@ fn no_override_expands_the_ceiling() {
     bait.untouched();
 }
 
-#[specforge_test(
-    invariant = "surface_sandbox_ceiling",
-    verify = "a surface's sandbox override grants nothing and is W153 at load"
-)]
+#[specforge_test(requirement = "INVARIANT-134")]
 fn the_probe_loads_with_one_w153_per_override() {
     let loaded = load_declaration(&probe_runtime(), PROBE).expect("the probe loads");
     assert!(
@@ -168,11 +153,7 @@ fn the_probe_loads_with_one_w153_per_override() {
 /// The component runtime keeps the contract every adapter of the
 /// `WasmRuntime` port keeps (`specforge_wasm::testing::assert_runtime_contract`,
 /// also run over the in-process runtime): the probe's `trap` command panics.
-#[specforge_test(
-    behavior = "call_extension_exports",
-    verify = "both runtimes report an unknown extension, an unrouted export, a guest error and a guest panic as traps"
-)]
-#[specforge_test(port = "WasmRuntime", verify = "WasmRuntime contract is satisfied")]
+#[specforge_test(requirement = "FEATURE-013")]
 fn the_component_runtime_keeps_the_runtime_contract() {
     specforge_wasm::testing::assert_runtime_contract(&probe_runtime(), PROBE, "cmd__trap");
 }
@@ -180,26 +161,8 @@ fn the_component_runtime_keeps_the_runtime_contract() {
 /// Whatever the export is and whatever it is told about, the host's
 /// context holds: the probe tries the root, a directory and a port the test
 /// offers it, and reaches none of them.
-#[specforge_test(
-    behavior = "enforce_wasm_sandbox",
-    verify = "an export reaches no directory: the root and a directory it is told about can be neither listed, read nor written"
-)]
-#[specforge_test(
-    behavior = "enforce_wasm_sandbox",
-    verify = "an export reaches no network: it can neither connect to a listening port nor resolve a name"
-)]
-#[specforge_test(
-    constraint = "wasm_sandbox_enforcement",
-    verify = "direct filesystem access from Wasm is blocked"
-)]
-#[specforge_test(
-    constraint = "wasm_sandbox_enforcement",
-    verify = "direct network access from Wasm is blocked"
-)]
-#[specforge_test(
-    constraint = "wasm_sandbox_enforcement",
-    verify = "an extension that tries every capability a component can reach is granted none"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
+#[specforge_test(requirement = "SECURITY-01")]
 fn an_export_reaches_no_file_and_no_socket() {
     let runtime = probe_runtime();
     let bait = Bait::new();
@@ -214,10 +177,7 @@ fn an_export_reaches_no_file_and_no_socket() {
     bait.untouched();
 }
 
-#[specforge_test(
-    behavior = "grant_a_host_port_call",
-    verify = "the sandbox probe reaches each of the five ports through its grant: a command four, a collector process"
-)]
+#[specforge_test(requirement = "FEATURE-137")]
 fn the_probe_reaches_each_port_through_its_grant() {
     let runtime = probe_runtime();
     let (http, process) = (
@@ -270,10 +230,7 @@ fn the_probe_reaches_each_port_through_its_grant() {
     assert_eq!(lent.take_denials().len(), 2);
 }
 
-#[specforge_test(
-    behavior = "link_host_ports",
-    verify = "a pure call that calls a port is answered denied(call-kind) and no port runs"
-)]
+#[specforge_test(requirement = "FEATURE-137")]
 fn the_probes_pass_is_denied_its_call_kind() {
     let runtime = probe_runtime();
     let input = json!({"port": "fs", "target": "a.md"}).to_string();
@@ -281,10 +238,7 @@ fn the_probes_pass_is_denied_its_call_kind() {
     assert_eq!(answer["denied"], "call_kind", "{answer}");
 }
 
-#[specforge_test(
-    behavior = "grant_a_host_port_call",
-    verify = "the in-process runtime answers a port call as the component runtime does"
-)]
+#[specforge_test(requirement = "FEATURE-137")]
 fn the_component_runtime_keeps_the_port_contract() {
     let runtime = probe_runtime();
     let http = Arc::new(FakeHttp::new().route("https://example.test/a", 200, "answer"));

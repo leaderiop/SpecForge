@@ -45,10 +45,7 @@ fn dot(project: &Assembled) -> String {
         .0
 }
 
-#[specforge_test(
-    behavior = "render_extension_defined_dot_shapes",
-    verify = "dot_fillcolor sets DOT node fillcolor and style=filled attributes"
-)]
+#[specforge_test(requirement = "FEATURE-027")]
 fn a_declared_fill_color_fills_the_node() {
     let text = dot(&styled());
     assert!(
@@ -57,10 +54,7 @@ fn a_declared_fill_color_fills_the_node() {
     );
 }
 
-#[specforge_test(
-    behavior = "render_extension_defined_edge_styles",
-    verify = "edge uses extension-defined edge_style"
-)]
+#[specforge_test(requirement = "FEATURE-027")]
 fn a_declared_edge_style_reaches_the_dot_edge() {
     let text = dot(&styled());
     assert!(

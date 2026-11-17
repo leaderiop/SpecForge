@@ -28,10 +28,7 @@ fn extension() -> ContributionsBuilder {
     c
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a project without settings reads and calls as it did before settings existed"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_project_without_settings_reads_and_calls_as_today() {
     let runtime = Arc::new(InProcessRuntime::new().with(extension));
     let compiled = TestProject::new()
@@ -74,10 +71,7 @@ fn codes_of(diagnostics: &[Diagnostic]) -> Vec<&str> {
     diagnostics.iter().map(|d| d.code.as_str()).collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a setting resolves explicit, else preset, else default, else unset, and records where it came from"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn settings_resolve_explicit_over_preset_over_default() {
     let of = |resolved: &ResolvedSettings, name: &str| {
         let setting = resolved.of("@t/s").unwrap().get(name).unwrap().clone();
@@ -153,10 +147,7 @@ fn settings_resolve_explicit_over_preset_over_default() {
     assert!(resolved.wire("@t/none").is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a preset that follows a peer extension's setting is inert while the peer is not loaded"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_follower_preset_reads_its_peers_setting() {
     let raised = |resolved: &ResolvedSettings| {
         resolved
@@ -184,10 +175,7 @@ fn a_follower_preset_reads_its_peers_setting() {
     let _ = settings_extension;
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a setting not used as written is E086 at its key with the line, the column and a suggestion"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_setting_not_used_as_written_is_e086_at_its_key() {
     let text = r#"{
   "extensions": ["@t/s", "@t/f"],
@@ -287,10 +275,7 @@ fn a_setting_not_used_as_written_is_e086_at_its_key() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a secret written in specforge.json is E087 and no diagnostic echoes its value"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_secret_in_specforge_json_is_e087_and_never_echoed() {
     let (resolved, found) = resolve(json!({"@t/s": {
         "api_key": "sk-live-1234",
@@ -328,10 +313,7 @@ fn a_secret_in_specforge_json_is_e087_and_never_echoed() {
     assert_eq!(resolved.wire("@t/s")["notes"], "sk-live-9999");
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "settings for an extension that is not enabled are W166 once and none for one that failed to load"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn settings_for_an_extension_not_enabled_are_w166() {
     let (resolved, found) = resolve(json!({"@t/other": {"x": 1, "y": 2}, "@t/s": {"flag": true}}));
     assert_eq!(codes_of(&found), ["W166"]);
@@ -358,10 +340,7 @@ fn settings_for_an_extension_not_enabled_are_w166() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a secret written in specforge.json is E087 and no diagnostic echoes its value"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_credential_under_an_unread_extension_is_e087_and_a_misspelt_token_setting_is_e086() {
     // Not enabled: W166 for the extension, E087 for the credential (its value is never echoed).
     let (_, found) = resolve(json!({"@t/other": {"api_key": "sk-live-1", "x": 1}}));
@@ -386,10 +365,7 @@ fn a_credential_under_an_unread_extension_is_e087_and_a_misspelt_token_setting_i
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "the environment reports a setting not used as written after the registry build's diagnostics"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_environment_reports_settings_diagnostics_last() {
     let project = Assembled::settings().config_json(settings_config(json!({"@t/s": {"levl": 1}})));
     let environment = project.compiled().environment();
@@ -416,10 +392,7 @@ fn resolve_raw(items: Value, settings: Value) -> (ResolvedSettings, Vec<Diagnost
     resolve_text(raw_settings(items), &text)
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a bool setting gates codes while it is on"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_bool_setting_gates_codes_while_it_is_on() {
     let items = json!([{"kind": "setting", "name": "x.enforce", "field_type": "bool", "default": false,
                         "gates_when_on": ["W900"]}]);
@@ -442,10 +415,7 @@ fn ratio_items() -> Value {
     json!([{"kind": "setting", "name": "x.ratio", "field_type": "number", "minimum": 0, "maximum": 100}])
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a number setting takes a decimal within its bounds"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_number_setting_takes_a_decimal() {
     let (resolved, found) = resolve_raw(ratio_items(), json!({"@t/s": {"x.ratio": 30.5}}));
     assert!(found.is_empty(), "{found:?}");
@@ -460,10 +430,7 @@ fn a_number_setting_takes_a_decimal() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a number setting takes a decimal within its bounds"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_number_setting_keeps_its_bounds() {
     let (_, found) = resolve_raw(ratio_items(), json!({"@t/s": {"x.ratio": 100.5}}));
     assert_eq!(codes_of(&found), ["E086"], "{found:?}");
@@ -474,10 +441,7 @@ fn a_number_setting_keeps_its_bounds() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a number setting's bounds are exact decimals"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_number_setting_takes_decimal_bounds() {
     let items = json!([{"kind": "setting", "name": "x.ratio", "field_type": "number", "minimum": 0.05, "maximum": 0.95}]);
     let (resolved, found) = resolve_raw(items.clone(), json!({"@t/s": {"x.ratio": 0.95}}));
@@ -507,10 +471,7 @@ fn a_number_setting_takes_decimal_bounds() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a number setting of more than 15 significant digits is refused"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_number_setting_of_more_than_fifteen_significant_digits_is_refused() {
     let (_, found) = resolve_raw(ratio_items(), json!({"@t/s": {"x.ratio": 0.1 + 0.2}}));
     assert_eq!(codes_of(&found), ["E086"], "{found:?}");
@@ -527,10 +488,7 @@ fn a_number_setting_of_more_than_fifteen_significant_digits_is_refused() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a number setting, its default and a preset's value are held in their one JSON form"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_number_setting_is_held_in_its_one_json_form() {
     let items = json!([
         {"kind": "setting", "name": "x.mode", "field_type": "enum", "enum_values": ["lax", "strict"]},

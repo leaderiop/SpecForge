@@ -1,10 +1,7 @@
 use super::*;
 use crate::registry::NO_REGISTRY;
 
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "an update of a name the lock does not hold is refused before any registry is asked"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn an_update_of_a_name_the_lock_does_not_hold_is_refused() {
     let dir = enabled_project(vec![entry("@acme/a", "1.0.0", "registry", &[])]);
     let registry = MemoryRegistry::new().serving(old("@acme/a", "1.1.0"));
@@ -61,10 +58,8 @@ fn no_lock_and_no_registry_fail_outright() {
     assert!(error.is(NO_REGISTRY), "{error:?}");
 }
 
-#[specforge_test(
-    behavior = "management_operations_over_the_project_view",
-    verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
+#[specforge_test(requirement = "FEATURE-070")]
 fn an_unusable_config_is_refused_before_the_lock_is_read() {
     use crate::config::testing::{UNUSABLE, files_under};
 
@@ -98,10 +93,7 @@ fn an_unusable_config_is_refused_before_the_lock_is_read() {
     }
 }
 
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "an update over an unreadable specforge.lock is refused as add refuses it, before any registry is asked"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn an_update_over_an_unreadable_lock_is_refused_as_add_refuses_it() {
     use crate::extension::{AddRequest, add};
 
@@ -133,10 +125,7 @@ fn an_update_over_an_unreadable_lock_is_refused_as_add_refuses_it() {
     );
 }
 
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "a refusal of the project's registry configuration or the user's credential store refuses the update once, before any registry is asked"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn a_registry_that_cannot_be_opened_refuses_the_update_once() {
     use crate::config::testing::files_under;
     for error in [

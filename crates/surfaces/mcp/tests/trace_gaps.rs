@@ -4,10 +4,7 @@ use crate::support::*;
 use serde_json::json;
 use specforge_test::prelude::*;
 
-#[specforge_test(
-    behavior = "provide_mcp_trace_prompt",
-    verify = "the trace prompt lists no gap for a field that writes a reference that does not resolve"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn an_unresolved_reference_is_no_trace_prompt_gap() {
     // `pay` writes a feature that does not exist, and no invariant.
     let mut server = TestProject::new()

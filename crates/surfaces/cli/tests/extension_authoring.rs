@@ -63,10 +63,7 @@ fn wasip2_installed() -> bool {
 // extension init
 // ===============================================================
 
-#[specforge_test(
-    behavior = "scaffold_wasm_extension_project",
-    verify = "scaffold creates an SDK crate declaring the extension"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn extension_init_creates_an_sdk_crate() {
     let (_dir, ext) = init("my-ext");
     let lib = fs::read_to_string(ext.join("src/lib.rs")).unwrap();
@@ -94,10 +91,7 @@ fn extension_init_creates_an_sdk_crate() {
     assert_eq!(written, [".cargo/config.toml", "Cargo.toml", "src/lib.rs"]);
 }
 
-#[specforge_test(
-    behavior = "scaffold_wasm_extension_project",
-    verify = "scaffold creates src/ with skeleton exports"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn extension_init_creates_src_lib_rs() {
     let (_dir, ext) = init("skeleton-ext");
     let lib = fs::read_to_string(ext.join("src/lib.rs")).unwrap();
@@ -114,10 +108,7 @@ fn extension_init_creates_src_lib_rs() {
     assert!(!lib.contains("_start"), "{lib}");
 }
 
-#[specforge_test(
-    behavior = "scaffold_wasm_extension_project",
-    verify = "scaffold builds for wasm32-wasip2"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn extension_init_targets_wasm32_wasip2() {
     let (_dir, ext) = init("target-ext");
     let config = fs::read_to_string(ext.join(".cargo/config.toml")).unwrap();
@@ -127,10 +118,7 @@ fn extension_init_targets_wasm32_wasip2() {
     assert!(!lib.contains("wasip1"), "{lib}");
 }
 
-#[specforge_test(
-    behavior = "scaffold_wasm_extension_project",
-    verify = "specforge extension init rejects when directory already exists"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn extension_init_rejects_existing_directory() {
     let dir = scratch();
     fs::create_dir(dir.root().join("taken")).unwrap();
@@ -151,10 +139,7 @@ fn extension_init_rejects_existing_directory() {
     assert_eq!(json_of(&output)["code"], "E065");
 }
 
-#[specforge_test(
-    behavior = "scaffold_wasm_extension_project",
-    verify = "specforge extension init refuses a builtin's name"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn extension_init_refuses_a_builtins_name() {
     let dir = scratch();
     let output = Cli::on(&dir)
@@ -175,10 +160,7 @@ fn extension_init_refuses_a_builtins_name() {
     assert!(!dir.root().join("product").exists());
 }
 
-#[specforge_test(
-    behavior = "scaffold_wasm_extension_project",
-    verify = "specforge extension init --format=json outputs structured JSON"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn extension_init_json_output() {
     let dir = scratch();
     let output = Cli::on(&dir)
@@ -205,10 +187,7 @@ fn extension_init_json_output() {
     );
 }
 
-#[specforge_test(
-    behavior = "scaffold_wasm_extension_project",
-    verify = "specforge extension init uses default name when --name not provided"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn extension_init_default_name() {
     let dir = scratch();
     Cli::on(&dir)
@@ -244,10 +223,7 @@ fn the_next_steps_name_the_crate_with_dir() {
 // extension build
 // ===============================================================
 
-#[specforge_test(
-    behavior = "build_wasm_extension",
-    verify = "specforge extension build validates project structure exists"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn extension_build_validates_structure() {
     let dir = scratch();
     let output = Cli::on(&dir)
@@ -265,10 +241,7 @@ fn extension_build_validates_structure() {
     );
 }
 
-#[specforge_test(
-    behavior = "build_wasm_extension",
-    verify = "build errors reported as ExtensionError diagnostics"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn extension_build_reports_a_failed_build() {
     let dir = scratch();
     fs::write(
@@ -295,10 +268,7 @@ fn extension_build_reports_a_failed_build() {
 }
 
 /// `init` prints `extension build --dir <relative>`; the build reads the component where cargo built it.
-#[specforge_test(
-    behavior = "build_wasm_extension",
-    verify = "specforge extension build with a relative --dir reads the component it built"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn extension_build_with_a_relative_dir_reads_what_it_built() {
     if !wasip2_installed() {
         eprintln!("skipped: the wasm32-wasip2 target is not installed");
@@ -360,10 +330,7 @@ fn without_coverage_environment(command: &mut assert_cmd::Command) {
 /// a component that declares a valid extension. Needs the wasm32-wasip2
 /// target (CI installs it); without it, the build is skipped. The SDK comes from a cargo
 /// configuration beside the crate, offline.
-#[specforge_test(
-    behavior = "build_wasm_extension",
-    verify = "build produces .wasm binary"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn a_scaffolded_extension_builds_and_validates() {
     if !wasip2_installed() {
         eprintln!("skipped: the wasm32-wasip2 target is not installed");
@@ -441,10 +408,7 @@ fn greet_wasm() -> PathBuf {
     specforge_component::committed::GREET.path()
 }
 
-#[specforge_test(
-    behavior = "validate_wasm_extension_locally",
-    verify = "specforge extension validate errors when no built component is found"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn extension_validate_without_a_built_component() {
     let dir = scratch();
     let output = Cli::on(&dir)
@@ -464,10 +428,7 @@ fn extension_validate_without_a_built_component() {
     );
 }
 
-#[specforge_test(
-    behavior = "validate_wasm_extension_locally",
-    verify = "specforge extension validate reports the declaration's registry build diagnostics"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn extension_validate_reports_the_registry_build_diagnostics() {
     // The sandbox probe, alone: the registry build of its declaration reports W153
     // (a builtin cannot be validated this way: its name is refused), and it is still valid.
@@ -502,10 +463,7 @@ fn extension_validate_reports_the_registry_build_diagnostics() {
     assert_eq!(json_of(&output)["code"], "E028");
 }
 
-#[specforge_test(
-    behavior = "validate_extension_manifest",
-    verify = "valid manifest passes validation"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn extension_validate_a_valid_declaration() {
     let project = scratch();
     let output = Cli::on(&project)
@@ -533,10 +491,7 @@ fn extension_validate_a_valid_declaration() {
         ));
 }
 
-#[specforge_test(
-    behavior = "validate_wasm_extension_locally",
-    verify = "specforge extension validate reports the protocol its component speaks"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn extension_validate_reports_the_protocol_its_component_speaks() {
     let project = scratch();
     let output = Cli::on(&project)
@@ -566,10 +521,7 @@ fn extension_validate_reports_the_protocol_its_component_speaks() {
 // Contract tests
 // ===============================================================
 
-#[specforge_test(
-    behavior = "scaffold_wasm_extension_project",
-    verify = "Scaffold Wasm Extension Project: Wasm extension scaffolding holds — filesystem_available, declaration_created, skeleton_exports_created, build_target_configured, extension_project_scaffolded_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn contract_init_creates_the_sdk_crate() {
     let (_dir, ext) = init("contract-ext");
     for file in ["Cargo.toml", ".cargo/config.toml", "src/lib.rs"] {
@@ -579,10 +531,7 @@ fn contract_init_creates_the_sdk_crate() {
     assert!(lib.contains(r#"name = "@local/contract-ext""#), "{lib}");
 }
 
-#[specforge_test(
-    behavior = "build_wasm_extension",
-    verify = "Build Wasm Extension: Wasm extension building holds — source_available, toolchain_available, wasm_binary_produced, build_errors_diagnosed, extension_built_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn contract_build_needs_a_crate() {
     // No crate: E040 before anything runs, on stderr in human form.
     let dir = scratch();
@@ -596,10 +545,7 @@ fn contract_build_needs_a_crate() {
         ));
 }
 
-#[specforge_test(
-    behavior = "validate_extension_manifest",
-    verify = "Validate Extension Manifest: extension declaration validation holds — declaration_loaded_fired, manifest_validated_emitted, invalid_manifest_diagnosed, schema_validated"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn contract_validate_exit_codes() {
     // A valid declaration exits 0, no component or a binary that is not an
     // extension exits 1.

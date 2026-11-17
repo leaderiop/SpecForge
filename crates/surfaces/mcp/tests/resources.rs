@@ -60,10 +60,7 @@ fn node_ids(parsed: &Value) -> Vec<&str> {
 }
 
 // B:expose_graph_as_mcp_resource — verify unit "returns full graph as JSON"
-#[specforge_test(
-    behavior = "expose_graph_as_mcp_resource",
-    verify = "specforge://graph resource returns full Graph Protocol JSON"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn graph_resource_returns_json() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph");
@@ -75,10 +72,7 @@ fn graph_resource_returns_json() {
 }
 
 // B:expose_graph_as_mcp_resource — verify unit "graph resource has correct MIME type"
-#[specforge_test(
-    behavior = "expose_graph_as_mcp_resource",
-    verify = "specforge://graph resource returns full Graph Protocol JSON"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn graph_resource_has_mime_type() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph");
@@ -124,10 +118,7 @@ fn kind_names(schema: &Value) -> Vec<&str> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "expose_schema_as_mcp_resource",
-    verify = "specforge://schema resource returns GraphProtocolSchema JSON"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn schema_resource_returns_the_graph_protocol_schema() {
     let mut server = builtin_project(&["@specforge/software"]);
 
@@ -156,10 +147,7 @@ fn schema_resource_returns_the_graph_protocol_schema() {
 }
 
 // B:expose_context_as_mcp_resource — verify unit "returns context-optimized graph"
-#[specforge_test(
-    behavior = "expose_context_as_mcp_resource",
-    verify = "specforge://context resource returns token-optimized format"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn context_resource_returns_context_graph() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://context");
@@ -196,10 +184,7 @@ fn context_resource_returns_context_graph() {
 }
 
 // B:expose_brief_as_mcp_resource — verify unit "returns brief graph"
-#[specforge_test(
-    behavior = "expose_brief_as_mcp_resource",
-    verify = "specforge://brief resource returns minimal IDs and edges format"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn brief_resource_returns_brief_graph() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://brief");
@@ -224,10 +209,7 @@ fn brief_resource_returns_brief_graph() {
 }
 
 // B:expose_diagnostics_as_mcp_resource — verify unit "returns diagnostics array"
-#[specforge_test(
-    behavior = "expose_diagnostics_as_mcp_resource",
-    verify = "specforge://diagnostics resource returns current DiagnosticBag as JSON"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn diagnostics_resource_returns_array() {
     // E003: a real unresolved reference; W901: a check-phase pass's
     // finding, reported after the graph checks.
@@ -249,10 +231,7 @@ fn diagnostics_resource_returns_array() {
 const UNRESOLVED_GHOST: &str = "unresolved reference 'ghost' in entity 'broken'";
 
 // B:expose_entity_as_mcp_resource — verify unit "returns entity subgraph"
-#[specforge_test(
-    behavior = "expose_entity_as_mcp_resource",
-    verify = "specforge://graph/{+entity_id} returns entity and its neighbors"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn entity_resource_returns_subgraph() {
     let mut server = test_server();
     add_unconnected_gamma(&server);
@@ -280,10 +259,7 @@ fn entity_resource_returns_subgraph() {
 }
 
 // B:expose_entity_as_mcp_resource — verify unit "returns error for unknown entity"
-#[specforge_test(
-    behavior = "expose_entity_as_mcp_resource",
-    verify = "non-existent entity_id returns 404 error"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn entity_resource_error_for_unknown() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph/nonexistent");
@@ -303,10 +279,7 @@ fn entity_resource_error_for_unknown() {
 }
 
 // B:expose_entity_as_mcp_resource — verify unit "returns error for empty entity ID"
-#[specforge_test(
-    behavior = "expose_entity_as_mcp_resource",
-    verify = "malformed entity_id returns 400 error"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn entity_resource_error_for_empty_id() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph/");
@@ -317,10 +290,7 @@ fn entity_resource_error_for_empty_id() {
 }
 
 // Resource read missing URI
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "missing required params produces -32602 Invalid params"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn resource_read_missing_uri() {
     let mut server = test_server();
     let resp = call(&mut server, "resources/read", json!({}));
@@ -329,10 +299,7 @@ fn resource_read_missing_uri() {
 }
 
 // Unknown resource URI
-#[specforge_test(
-    behavior = "expose_graph_as_mcp_resource",
-    verify = "returns error for unknown URI"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn resource_read_unknown_uri() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://unknown");
@@ -362,10 +329,7 @@ fn graph_includes_schema_version() {
 }
 
 // B:expose_graph_as_mcp_resource — verify unit "resource refreshes after recompilation"
-#[specforge_test(
-    behavior = "expose_graph_as_mcp_resource",
-    verify = "resource refreshes after recompilation"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn graph_refreshes_after_recompilation() {
     let mut server = test_server();
     let resp1 = read_resource(&mut server, "specforge://graph");
@@ -383,10 +347,7 @@ fn graph_refreshes_after_recompilation() {
     assert_eq!(count2, count1 + 1);
 }
 
-#[specforge_test(
-    behavior = "expose_schema_as_mcp_resource",
-    verify = "schema updates when extensions change"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn schema_updates_when_extensions_change() {
     let mut server = builtin_project(&["@specforge/software"]);
     let read = |server: &mut McpServer| -> Value {
@@ -415,10 +376,7 @@ fn schema_updates_when_extensions_change() {
 }
 
 // B:expose_context_as_mcp_resource — verify unit "resource refreshes after recompilation"
-#[specforge_test(
-    behavior = "expose_context_as_mcp_resource",
-    verify = "resource refreshes after recompilation"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn context_refreshes_after_recompilation() {
     let mut server = test_server();
     let resp1 = read_resource(&mut server, "specforge://context");
@@ -436,10 +394,7 @@ fn context_refreshes_after_recompilation() {
 }
 
 // B:expose_brief_as_mcp_resource — verify unit "resource refreshes after recompilation"
-#[specforge_test(
-    behavior = "expose_brief_as_mcp_resource",
-    verify = "resource refreshes after recompilation"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn brief_refreshes_after_recompilation() {
     let mut server = test_server();
     let resp1 = read_resource(&mut server, "specforge://brief");
@@ -457,10 +412,7 @@ fn brief_refreshes_after_recompilation() {
 }
 
 // B:expose_diagnostics_as_mcp_resource — verify unit "resource updates after recompilation"
-#[specforge_test(
-    behavior = "expose_diagnostics_as_mcp_resource",
-    verify = "resource updates after recompilation"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn diagnostics_updates_after_recompilation() {
     let mut server = test_server();
     let resp1 = read_resource(&mut server, "specforge://diagnostics");
@@ -488,10 +440,7 @@ fn diagnostics_updates_after_recompilation() {
 }
 
 // B:expose_diagnostics_as_mcp_resource — verify unit "each diagnostic includes severity, code, message, file, span"
-#[specforge_test(
-    behavior = "expose_diagnostics_as_mcp_resource",
-    verify = "each diagnostic includes severity, code, message, file, and span"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn diagnostics_fields_present() {
     // E003 at broken.spec line 2.
     let mut server = project().file("broken.spec", BROKEN).serve(&[extension()]);
@@ -511,10 +460,7 @@ fn diagnostics_fields_present() {
 }
 
 // B:expose_entity_as_mcp_resource — verify unit "malformed entity_id returns 400 error"
-#[specforge_test(
-    behavior = "expose_entity_as_mcp_resource",
-    verify = "malformed entity_id returns 400 error"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn entity_malformed_id_returns_error() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph/!@#$");
@@ -526,10 +472,7 @@ fn entity_malformed_id_returns_error() {
 }
 
 // B:expose_entity_as_mcp_resource — verify unit "resource refreshes after recompilation"
-#[specforge_test(
-    behavior = "expose_entity_as_mcp_resource",
-    verify = "resource refreshes after recompilation"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn entity_refreshes_after_recompilation() {
     let mut server = test_server();
     let resp1 = read_resource(&mut server, "specforge://graph/alpha");
@@ -570,10 +513,8 @@ fn entity_refreshes_after_recompilation() {
 // ---- C9-06: query parameters on graph resources ----
 
 // B:expose_graph_as_mcp_resource — verify unit "root query scopes the read to a subgraph with a schema_ref"
-#[specforge_test(
-    behavior = "serve_graph_resource",
-    verify = "scope query parameter restricts to subgraph"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-073")]
 fn graph_resource_root_scopes_with_schema_ref() {
     let mut server = test_server();
     add_unconnected_gamma(&server);
@@ -656,10 +597,8 @@ fn graph_resource_max_tokens_budgets() {
 }
 
 // `root` is what the resource has always read: it stays an alias of `scope`.
-#[specforge_test(
-    behavior = "serve_graph_resource",
-    verify = "root is accepted as an alias of the scope query parameter"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-073")]
 fn root_is_an_alias_of_scope() {
     let mut server = test_server();
     add_unconnected_gamma(&server);
@@ -681,10 +620,8 @@ fn root_is_an_alias_of_scope() {
 }
 
 // B:expose_context_as_mcp_resource — verify unit "context entity template scopes to the subgraph"
-#[specforge_test(
-    behavior = "serve_graph_resource",
-    verify = "scope query parameter restricts to subgraph"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-073")]
 fn context_entity_template_scopes() {
     let mut server = test_server();
     add_unconnected_gamma(&server);
@@ -752,10 +689,7 @@ fn context_entity_template_registered() {
     );
 }
 
-#[specforge_test(
-    behavior = "expose_diagnostics_as_mcp_resource",
-    verify = "each catalogued diagnostic in the resource carries its title"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn diagnostics_resource_gives_catalogued_codes_their_title() {
     // E003 is catalogued and the host's own; W901 is a third-party
     // extension's check-phase pass finding, which names its extension and

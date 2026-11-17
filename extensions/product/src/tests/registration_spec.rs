@@ -107,10 +107,8 @@ fn listed_fields(list: &str) -> BTreeMap<String, Listed> {
     fields
 }
 
-#[specforge_test(
-    behavior = "pe_register_field_definitions",
-    verify = "the field lists this behavior ensures are the declaration's, field for field"
-)]
+#[specforge_test(requirement = "FEATURE-080")]
+#[specforge_test(requirement = "FEATURE-098")]
 fn the_field_lists_are_the_declarations() {
     let declaration = crate::specforge_extension_build().declaration();
     let lines = block("pe_register_field_definitions");
@@ -182,10 +180,8 @@ fn the_field_lists_are_the_declarations() {
     assert_eq!(shared, ["tags"], "the spec says every kind also gets tags");
 }
 
-#[specforge_test(
-    behavior = "pe_register_edge_types",
-    verify = "the edge types this behavior ensures are the declaration's, with their kinds"
-)]
+#[specforge_test(requirement = "FEATURE-080")]
+#[specforge_test(requirement = "FEATURE-098")]
 fn the_edge_list_is_the_declarations() {
     let declaration = crate::specforge_extension_build().declaration();
     let mut listed = 0;

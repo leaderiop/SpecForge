@@ -520,10 +520,7 @@ mod tests {
 
     /// A graph that drifted from its sources outside the changed file is
     /// caught: the comparison names the node that differs.
-    #[specforge_test(
-        behavior = "rebuild_affected_subgraph",
-        verify = "debug --verify-incremental performs cold rebuild comparison"
-    )]
+    #[specforge_test(requirement = "FEATURE-050")]
     fn a_divergence_from_the_cold_build_is_reported() {
         let mut build = build(&[
             ("a.spec", "behavior foo \"Foo\" { contract \"x\" }"),
@@ -573,10 +570,7 @@ mod tests {
     }
 
     /// A node out of place is no change to the delta, but the verification places every node.
-    #[specforge_test(
-        behavior = "rebuild_affected_subgraph",
-        verify = "debug --verify-incremental performs cold rebuild comparison"
-    )]
+    #[specforge_test(requirement = "FEATURE-050")]
     fn a_node_out_of_place_is_a_divergence_the_delta_ignores() {
         let mut build = build(&[
             ("a.spec", "behavior foo \"Foo\" { contract \"x\" }"),
@@ -602,10 +596,7 @@ mod tests {
     }
 
     /// The diagnostics are compared too, in order.
-    #[specforge_test(
-        behavior = "rebuild_affected_subgraph",
-        verify = "a rebuild whose diagnostics differ from a cold build is reported"
-    )]
+    #[specforge_test(requirement = "FEATURE-050")]
     fn a_diagnostic_divergence_from_the_cold_build_is_reported() {
         let mut build = build(&[
             ("a.spec", "behavior foo \"Foo\" { contract \"x\" }"),

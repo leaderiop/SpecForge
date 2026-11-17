@@ -76,18 +76,7 @@ deliverable d_full "Full" {{
     )
 }
 
-#[specforge_test(
-    behavior = "detect_deliverables_with_no_journeys",
-    verify = "deliverable with no journeys produces W043"
-)]
-#[specforge_test(
-    behavior = "detect_deliverables_with_no_journeys",
-    verify = "deliverable with an empty journeys list produces W043"
-)]
-#[specforge_test(
-    behavior = "detect_deliverables_with_no_journeys",
-    verify = "deliverable with journeys suppresses W043"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn w043_reports_deliverables_without_journeys() {
     let diags = product_diagnostics(&deliverables_spec());
     assert_fires(&diags, "W043", "d_bare");
@@ -96,18 +85,7 @@ fn w043_reports_deliverables_without_journeys() {
     assert!(reported(&diags, "W043", "d_bare")[0].contains("supports no journeys"));
 }
 
-#[specforge_test(
-    behavior = "detect_deliverables_with_no_modules",
-    verify = "deliverable with no modules produces W046"
-)]
-#[specforge_test(
-    behavior = "detect_deliverables_with_no_modules",
-    verify = "deliverable with an empty modules list produces W046"
-)]
-#[specforge_test(
-    behavior = "detect_deliverables_with_no_modules",
-    verify = "deliverable with modules suppresses W046"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn w046_reports_deliverables_without_modules() {
     let diags = product_diagnostics(&deliverables_spec());
     assert_fires(&diags, "W046", "d_bare");
@@ -116,18 +94,7 @@ fn w046_reports_deliverables_without_modules() {
     assert!(reported(&diags, "W046", "d_bare")[0].contains("contains no modules"));
 }
 
-#[specforge_test(
-    behavior = "pe_validate_deliverable_completeness",
-    verify = "deliverable with journeys and modules passes both checks"
-)]
-#[specforge_test(
-    behavior = "pe_validate_deliverable_completeness",
-    verify = "deliverable with no journeys produces W043"
-)]
-#[specforge_test(
-    behavior = "pe_validate_deliverable_completeness",
-    verify = "deliverable with no modules produces W046"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn deliverable_completeness_checks_journeys_and_modules_separately() {
     let spec = format!(
         r#"{DELIVERABLE_PEERS}
@@ -155,18 +122,7 @@ deliverable both "Both" {{
     assert_quiet(&diags, "W046", "both");
 }
 
-#[specforge_test(
-    behavior = "detect_empty_milestones",
-    verify = "milestone with no features and no modules produces W049"
-)]
-#[specforge_test(
-    behavior = "detect_empty_milestones",
-    verify = "milestone with features suppresses W049"
-)]
-#[specforge_test(
-    behavior = "detect_empty_milestones",
-    verify = "milestone with modules but no features produces W049"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn w049_reads_only_the_features_field() {
     let diags = product_diagnostics(
         r#"
@@ -196,18 +152,7 @@ milestone modules_only "Modules only" {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_modules_with_no_features",
-    verify = "module with features suppresses I067"
-)]
-#[specforge_test(
-    behavior = "detect_modules_with_no_features",
-    verify = "module with empty features produces I067"
-)]
-#[specforge_test(
-    behavior = "detect_modules_with_no_features",
-    verify = "module with no features field produces I067"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn i067_reports_modules_without_features() {
     let diags = product_diagnostics(
         r#"
@@ -231,18 +176,7 @@ module bare "Bare" {
     assert!(reported(&diags, "I067", "bare")[0].contains("contains no features"));
 }
 
-#[specforge_test(
-    behavior = "detect_features_with_no_acceptance",
-    verify = "feature with no acceptance criteria produces I048"
-)]
-#[specforge_test(
-    behavior = "detect_features_with_no_acceptance",
-    verify = "feature with an empty acceptance list produces I048"
-)]
-#[specforge_test(
-    behavior = "detect_features_with_no_acceptance",
-    verify = "feature with acceptance criteria suppresses I048"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn i048_reports_features_without_acceptance() {
     let diags = product_diagnostics(
         r#"
@@ -265,30 +199,7 @@ feature accepted "Accepted" {
     assert!(reported(&diags, "I048", "bare")[0].contains("has no acceptance criteria"));
 }
 
-#[specforge_test(
-    behavior = "validate_deliverable_version_format",
-    verify = "deliverable with valid semver version passes"
-)]
-#[specforge_test(
-    behavior = "validate_deliverable_version_format",
-    verify = "deliverable with invalid version format produces I061"
-)]
-#[specforge_test(
-    behavior = "validate_deliverable_version_format",
-    verify = "deliverable with no version produces no I061"
-)]
-#[specforge_test(
-    behavior = "validate_deliverable_version_format",
-    verify = "deliverable with pre-release tag passes"
-)]
-#[specforge_test(
-    behavior = "validate_deliverable_version_format",
-    verify = "deliverable with build metadata passes"
-)]
-#[specforge_test(
-    behavior = "validate_deliverable_version_format",
-    verify = "deliverable with version 'v1.0' produces I061"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn i061_reports_deliverable_versions_that_are_not_semver() {
     let diags = product_diagnostics(
         r#"
@@ -325,38 +236,7 @@ deliverable unversioned "Unversioned" {
     assert!(reported(&diags, "I061", "v_prefixed")[0].contains("version 'v1.0'"));
 }
 
-#[specforge_test(
-    behavior = "validate_tag_format",
-    verify = "lowercase hyphen-separated tag passes"
-)]
-#[specforge_test(
-    behavior = "validate_tag_format",
-    verify = "uppercase tag produces I068"
-)]
-#[specforge_test(
-    behavior = "validate_tag_format",
-    verify = "tag with spaces produces I068"
-)]
-#[specforge_test(
-    behavior = "validate_tag_format",
-    verify = "tag with underscores produces I068"
-)]
-#[specforge_test(
-    behavior = "validate_tag_format",
-    verify = "tag with special characters produces I068"
-)]
-#[specforge_test(
-    behavior = "validate_tag_format",
-    verify = "single-character tag produces I068"
-)]
-#[specforge_test(
-    behavior = "validate_tag_format",
-    verify = "tag exceeding 50 chars produces I068"
-)]
-#[specforge_test(
-    behavior = "validate_tag_format",
-    verify = "empty string in tags array is silently ignored"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn i068_reports_tags_that_are_not_lowercase_hyphenated() {
     let long = "a".repeat(51);
     let fifty = "b".repeat(50);
@@ -412,10 +292,7 @@ term with_empty "With empty" {{
     assert!(reported(&diags, "I068", "underscored")[0].ends_with("tags [my_tag]"));
 }
 
-#[specforge_test(
-    behavior = "validate_tag_format",
-    verify = "tags on every product kind are checked"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn i068_checks_tags_on_every_product_kind() {
     let diags = product_diagnostics(
         r#"
@@ -461,18 +338,7 @@ release r1 "R" {
     assert!(reported(&diags, "I068", "r1")[0].starts_with("release 'r1' has a tag"));
 }
 
-#[specforge_test(
-    behavior = "validate_journey_flow_non_empty",
-    verify = "journey with empty flow produces I050"
-)]
-#[specforge_test(
-    behavior = "validate_journey_flow_non_empty",
-    verify = "journey with flow steps suppresses I050"
-)]
-#[specforge_test(
-    behavior = "validate_journey_flow_non_empty",
-    verify = "journey without a flow field produces E006 and no I050"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn i050_reports_journeys_with_an_empty_flow() {
     let diags = product_diagnostics(
         r#"
@@ -497,22 +363,7 @@ journey no_flow "No flow" {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_term_see_also_non_term_refs",
-    verify = "term see_also referencing another term produces no E022"
-)]
-#[specforge_test(
-    behavior = "detect_term_see_also_non_term_refs",
-    verify = "term see_also referencing a module produces E022"
-)]
-#[specforge_test(
-    behavior = "detect_term_see_also_non_term_refs",
-    verify = "term see_also referencing a feature produces E022"
-)]
-#[specforge_test(
-    behavior = "detect_term_see_also_non_term_refs",
-    verify = "term with empty see_also produces no E022"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn term_see_also_to_another_kind_is_e022() {
     let diags = product_diagnostics(
         r#"
@@ -556,18 +407,7 @@ term empty "Empty" {
     assert!(diags.iter().all(|(c, _)| c != "I056"));
 }
 
-#[specforge_test(
-    behavior = "detect_blocked_milestone_without_dependency",
-    verify = "blocked milestone with depends_on suppresses I057"
-)]
-#[specforge_test(
-    behavior = "detect_blocked_milestone_without_dependency",
-    verify = "blocked milestone without depends_on produces I057"
-)]
-#[specforge_test(
-    behavior = "detect_blocked_milestone_without_dependency",
-    verify = "in_progress milestone without depends_on suppresses I057"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn i057_reports_blocked_milestones_without_dependencies() {
     let diags = product_diagnostics(
         r#"
@@ -603,14 +443,7 @@ milestone running "Running" {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_blocked_milestone_without_reason",
-    verify = "blocked milestone with reason but no blockers produces I060"
-)]
-#[specforge_test(
-    behavior = "detect_blocked_milestone_without_reason",
-    verify = "blocked milestone with blockers but no reason produces no I060"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn i060_reads_blockers_not_reason() {
     let diags = product_diagnostics(
         r#"
@@ -628,14 +461,7 @@ milestone with_blockers "Blockers only" {
     assert_quiet(&diags, "I060", "with_blockers");
 }
 
-#[specforge_test(
-    behavior = "detect_journeys_without_persona",
-    verify = "journey with persona suppresses I054"
-)]
-#[specforge_test(
-    behavior = "detect_journeys_without_persona",
-    verify = "journey without persona produces I054"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn i054_reports_journeys_without_a_persona() {
     let diags = product_diagnostics(
         r#"
@@ -659,18 +485,7 @@ journey without_persona "Without" {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_journeys_without_channels",
-    verify = "journey with channels suppresses I055"
-)]
-#[specforge_test(
-    behavior = "detect_journeys_without_channels",
-    verify = "journey without channels produces I055"
-)]
-#[specforge_test(
-    behavior = "detect_journeys_without_channels",
-    verify = "journey with an empty channels list produces I055"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn i055_reports_journeys_without_channels() {
     let diags = product_diagnostics(
         r#"
@@ -705,26 +520,7 @@ milestone ms1 "MS" {
 }
 "#;
 
-#[specforge_test(
-    behavior = "detect_release_without_deliverables",
-    verify = "release with deliverables produces no I082"
-)]
-#[specforge_test(
-    behavior = "detect_release_without_deliverables",
-    verify = "release with empty deliverables list produces I082"
-)]
-#[specforge_test(
-    behavior = "detect_release_without_deliverables",
-    verify = "release without a deliverables field produces I082"
-)]
-#[specforge_test(
-    behavior = "detect_release_without_milestones",
-    verify = "release with milestones produces no I083"
-)]
-#[specforge_test(
-    behavior = "detect_release_without_milestones",
-    verify = "release without milestones produces I083"
-)]
+#[specforge_test(requirement = "FEATURE-094")]
 fn i082_i083_report_releases_without_deliverables_or_milestones() {
     let spec = format!(
         r#"{RELEASE_PEERS}
@@ -752,18 +548,7 @@ release bare "Bare" {{
     assert!(reported(&diags, "I083", "bare")[0].contains("completes no milestones"));
 }
 
-#[specforge_test(
-    behavior = "detect_recalled_release_without_reason",
-    verify = "recalled release with reason produces no I089"
-)]
-#[specforge_test(
-    behavior = "detect_recalled_release_without_reason",
-    verify = "recalled release without reason produces I089"
-)]
-#[specforge_test(
-    behavior = "detect_recalled_release_without_reason",
-    verify = "released release without reason produces no I089"
-)]
+#[specforge_test(requirement = "FEATURE-094")]
 fn i089_reports_recalled_releases_without_a_reason() {
     let diags = product_diagnostics(
         r#"
@@ -787,34 +572,9 @@ release shipped "Shipped" {
     assert_quiet(&diags, "I089", "shipped");
 }
 
-#[specforge_test(
-    behavior = "validate_milestone_target_date_format",
-    verify = "milestone with valid YYYY-MM-DD target_date passes"
-)]
-#[specforge_test(
-    behavior = "validate_milestone_target_date_format",
-    verify = "a milestone's target_date that is no calendar day is E061"
-)]
-#[specforge_test(
-    behavior = "validate_milestone_target_date_format",
-    verify = "milestone with no target_date produces no E061"
-)]
-#[specforge_test(
-    behavior = "detect_invalid_release_date",
-    verify = "a release_date that is a calendar day passes"
-)]
-#[specforge_test(
-    behavior = "detect_invalid_release_date",
-    verify = "a release_date that is no calendar day is E061"
-)]
-#[specforge_test(
-    behavior = "detect_invalid_start_date",
-    verify = "a start_date that is a calendar day passes"
-)]
-#[specforge_test(
-    behavior = "detect_invalid_start_date",
-    verify = "a start_date that is no calendar day is E061"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
+#[specforge_test(requirement = "FEATURE-094")]
+#[specforge_test(requirement = "FEATURE-096")]
 fn a_product_date_that_is_no_calendar_day_is_e061() {
     let diags = product_diagnostics(
         r#"
@@ -861,30 +621,7 @@ release prose_release "Prose release" {
     }
 }
 
-#[specforge_test(
-    behavior = "detect_missing_owner",
-    verify = "feature with owner produces no I080"
-)]
-#[specforge_test(
-    behavior = "detect_missing_owner",
-    verify = "feature without owner produces I080"
-)]
-#[specforge_test(
-    behavior = "detect_missing_owner",
-    verify = "milestone without owner produces I080"
-)]
-#[specforge_test(
-    behavior = "detect_missing_owner",
-    verify = "deliverable without owner produces I080"
-)]
-#[specforge_test(
-    behavior = "detect_missing_owner",
-    verify = "release without owner produces I080"
-)]
-#[specforge_test(
-    behavior = "detect_missing_owner",
-    verify = "journey without owner produces no I080"
-)]
+#[specforge_test(requirement = "FEATURE-087")]
 fn i080_reports_owned_kinds_without_an_owner() {
     let diags = product_diagnostics(
         r#"
@@ -920,14 +657,7 @@ journey j1 "J" {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_missing_effort",
-    verify = "feature with effort produces no I081"
-)]
-#[specforge_test(
-    behavior = "detect_missing_effort",
-    verify = "feature without effort produces I081"
-)]
+#[specforge_test(requirement = "FEATURE-082")]
 fn i081_reports_features_without_effort() {
     let diags = product_diagnostics(
         r#"
@@ -947,18 +677,7 @@ feature unsized "Unsized" {
 
 // ── lifecycle pass (check phase): W154, I063, I064, I065 ───────────────────
 
-#[specforge_test(
-    behavior = "detect_completed_milestone_with_unfinished_features",
-    verify = "completed milestone with an unfinished feature produces W154"
-)]
-#[specforge_test(
-    behavior = "detect_completed_milestone_with_unfinished_features",
-    verify = "completed milestone whose features are done or deprecated suppresses W154"
-)]
-#[specforge_test(
-    behavior = "detect_completed_milestone_with_unfinished_features",
-    verify = "in_progress milestone with unfinished features suppresses W154"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn w154_reports_unfinished_features_of_completed_milestones() {
     let diags = product_diagnostics(
         r#"
@@ -1007,22 +726,7 @@ milestone m_open "Open" {
     assert_quiet(&diags, "W154", "m_open");
 }
 
-#[specforge_test(
-    behavior = "detect_done_feature_with_incomplete_deps",
-    verify = "done feature with all done deps suppresses I063"
-)]
-#[specforge_test(
-    behavior = "detect_done_feature_with_incomplete_deps",
-    verify = "done feature with non-done dep produces I063"
-)]
-#[specforge_test(
-    behavior = "detect_done_feature_with_incomplete_deps",
-    verify = "in_progress feature with non-done dep suppresses I063"
-)]
-#[specforge_test(
-    behavior = "detect_done_feature_with_incomplete_deps",
-    verify = "done feature with no deps produces no I063"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn i063_reports_done_features_depending_on_unfinished_ones() {
     let diags = product_diagnostics(
         r#"
@@ -1056,18 +760,7 @@ feature busy "Busy" {
     assert_quiet(&diags, "I063", "base_done");
 }
 
-#[specforge_test(
-    behavior = "detect_milestone_temporal_inconsistency",
-    verify = "milestone before its dependency produces I064"
-)]
-#[specforge_test(
-    behavior = "detect_milestone_temporal_inconsistency",
-    verify = "milestone after its dependency suppresses I064"
-)]
-#[specforge_test(
-    behavior = "detect_milestone_temporal_inconsistency",
-    verify = "milestone or dependency without target_date produces no I064"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn i064_reports_milestones_due_before_their_dependencies() {
     let diags = product_diagnostics(
         r#"
@@ -1104,26 +797,8 @@ milestone on_undated "On undated" {
     assert_quiet(&diags, "I064", "on_undated");
 }
 
-#[specforge_test(
-    constraint = "product_deliverable_lifecycle_correctness",
-    verify = "I065 fires per incomplete milestone in shipped deliverable"
-)]
-#[specforge_test(
-    behavior = "detect_shipped_deliverable_incomplete_milestones",
-    verify = "shipped deliverable with all completed milestones suppresses I065"
-)]
-#[specforge_test(
-    behavior = "detect_shipped_deliverable_incomplete_milestones",
-    verify = "shipped deliverable with non-completed milestone produces I065"
-)]
-#[specforge_test(
-    behavior = "detect_shipped_deliverable_incomplete_milestones",
-    verify = "draft deliverable with non-completed milestone suppresses I065"
-)]
-#[specforge_test(
-    behavior = "detect_shipped_deliverable_incomplete_milestones",
-    verify = "shipped deliverable with no milestones produces no I065"
-)]
+#[specforge_test(requirement = "RELIABILITY-09")]
+#[specforge_test(requirement = "FEATURE-097")]
 fn i065_reports_shipped_deliverables_with_incomplete_milestones() {
     let diags = product_diagnostics(&format!(
         r#"{DELIVERABLE_PEERS}
@@ -1234,10 +909,7 @@ release r1 "Initial Release" {
 }
 "#;
 
-#[specforge_test(
-    behavior = "pe_query_milestone_timeline",
-    verify = "specforge check emits no I058 diagnostics (query-time only)"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn check_reports_no_overdue_milestone() {
     let diagnostics = product_diagnostics(OVERDUE_MILESTONE_PROJECT);
     // Infos are always reported, so an I058 would be among them.

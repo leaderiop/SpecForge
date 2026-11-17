@@ -67,10 +67,7 @@ fn edits(state: &LspState, uri: &Url, at: Position) -> Vec<String> {
     out
 }
 
-#[spec(
-    behavior = "apply_file_defaults",
-    verify = "a defaults block completes, hovers and navigates as the kind it names"
-)]
+#[spec(requirement = "FEATURE-047")]
 fn fields_of_the_named_kind_complete_inside_a_defaults_block() {
     let served = served("defaults behavior {\n  \n}\n");
     let names = complete(&served, 1, 2);
@@ -108,10 +105,7 @@ fn definition_from_a_default_reaches_the_entity() {
     );
 }
 
-#[spec(
-    behavior = "apply_file_defaults",
-    verify = "the editor shows an inherited reference's location once"
-)]
+#[spec(requirement = "FEATURE-047")]
 fn references_show_an_inherited_reference_once() {
     let served = served(SOURCE);
     let (state, uri) = (served.state(), served.uri("main.spec"));
@@ -151,10 +145,7 @@ fn the_kind_a_defaults_block_names_is_no_reference() {
 /// A default no block takes: no behavior in the file (W161).
 const UNTAKEN: &str = "defaults behavior {\n  ports [Repo]\n}\n\nport Repo \"Repo\" {\n}\n";
 
-#[spec(
-    behavior = "apply_file_defaults",
-    verify = "the editor shows a default no block takes"
-)]
+#[spec(requirement = "FEATURE-047")]
 fn references_show_a_default_no_block_takes() {
     let served = served(UNTAKEN);
     let (state, uri) = (served.state(), served.uri("main.spec"));
@@ -164,10 +155,7 @@ fn references_show_a_default_no_block_takes() {
     assert_eq!(edits(&state, &uri, at), ["1:9-13", "4:5-9"]);
 }
 
-#[spec(
-    behavior = "prepare_rename",
-    verify = "prepare rename answers on a default no block takes"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn prepare_rename_on_a_default_no_block_takes_has_a_rename_range() {
     let served = served(UNTAKEN);
     let (state, uri) = (served.state(), served.uri("main.spec"));

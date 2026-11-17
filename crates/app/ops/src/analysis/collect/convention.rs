@@ -139,10 +139,7 @@ mod tests {
         (entity.into(), name.into(), verify.map(str::to_string))
     }
 
-    #[specforge_test(
-        behavior = "resolve_test_conventions",
-        verify = "a double underscore splits the entity from the obligation"
-    )]
+    #[specforge_test(requirement = "FEATURE-128")]
     fn a_double_underscore_splits_the_entity_from_the_obligation() {
         assert_eq!(
             linked(
@@ -166,10 +163,7 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        behavior = "resolve_test_conventions",
-        verify = "an entity with single underscores is not split"
-    )]
+    #[specforge_test(requirement = "FEATURE-128")]
     fn an_entity_with_single_underscores_is_not_split() {
         assert_eq!(
             linked(&["cart_item__is_counted", "cart_item_is_counted"], &known()),
@@ -178,10 +172,7 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        behavior = "resolve_test_conventions",
-        verify = "the innermost module named after an entity links its tests"
-    )]
+    #[specforge_test(requirement = "FEATURE-128")]
     fn the_innermost_module_named_after_an_entity_links_its_tests() {
         assert_eq!(
             linked(
@@ -206,10 +197,7 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        behavior = "resolve_test_conventions",
-        verify = "a double underscore takes precedence over the module"
-    )]
+    #[specforge_test(requirement = "FEATURE-128")]
     fn a_double_underscore_takes_precedence_over_the_module() {
         assert_eq!(
             linked(&["cart::add_item__rejects_a_duplicate_item"], &known()),
@@ -221,10 +209,7 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        behavior = "resolve_test_conventions",
-        verify = "an obligation matches only when its slug is unique"
-    )]
+    #[specforge_test(requirement = "FEATURE-128")]
     fn an_obligation_matches_only_when_its_slug_is_unique() {
         assert_eq!(
             linked(&["twice__a_lt_b"], &known()),
@@ -233,10 +218,7 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        behavior = "resolve_test_conventions",
-        verify = "a name that splits into several entities is W137"
-    )]
+    #[specforge_test(requirement = "FEATURE-128")]
     fn a_name_that_splits_into_several_entities_is_w137() {
         let known =
             KnownEntities::from_iter([("a".to_string(), vec![]), ("a__b".to_string(), vec![])]);
@@ -248,10 +230,7 @@ mod tests {
         assert!(diagnostics[0].message.contains("a, a__b"));
     }
 
-    #[specforge_test(
-        behavior = "resolve_test_conventions",
-        verify = "a test no convention links is left out silently"
-    )]
+    #[specforge_test(requirement = "FEATURE-128")]
     fn a_test_no_convention_links_is_left_out_silently() {
         let (results, diagnostics) = resolve(
             &[

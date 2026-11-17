@@ -51,10 +51,7 @@ fn pairs(expected: &[(&str, &str)]) -> Vec<(String, String)> {
         .collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "recover_from_syntax_errors",
-    verify = "an unclosed body ends where the next top-level form starts, missing its closing brace"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-023")]
 fn an_unclosed_body_ends_at_the_next_form() {
     let source = r#"behavior a "A" {
   status done
@@ -127,10 +124,7 @@ behavior c {
     assert!(a.contains("guard expr { x < 1 }"), "{a}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "recover_from_syntax_errors",
-    verify = "a body member left half-typed ends where the next top-level form starts"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-023")]
 fn a_half_typed_member_ends_at_the_next_form() {
     for member in [
         "  st",                                             // a field's name, no value
@@ -163,10 +157,7 @@ fn a_half_typed_member_ends_at_the_next_form() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "recover_from_syntax_errors",
-    verify = "an unclosed body ends at a form indented no deeper than the form it opened"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-023")]
 fn indented_forms_end_an_unclosed_body() {
     let source = "  behavior a \"A\" {\n    status done\n    guard expr { x < 1 }\n  behavior b \"B\" {\n    status done\n  }\n";
     let tree = parse(source);
@@ -181,10 +172,7 @@ fn indented_forms_end_an_unclosed_body() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "recover_from_syntax_errors",
-    verify = "the grammar resumes at every top-level form of the repository's spec after an unclosed body"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-023")]
 fn the_grammar_resumes_after_every_unclosed_body_of_the_corpora() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
@@ -233,10 +221,7 @@ fn the_grammar_resumes_after_every_unclosed_body_of_the_corpora() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "recover_from_syntax_errors",
-    verify = "a body member left half-typed ends where the next top-level form starts"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-023")]
 fn the_grammar_resumes_after_every_half_typed_body_of_the_corpora() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
@@ -356,10 +341,7 @@ fn spec_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "recover_from_syntax_errors",
-    verify = "a list of blocks left half-typed ends where the next top-level form starts"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-023")]
 fn a_half_typed_block_list_ends_at_the_next_form() {
     let closed = "port p \"P\" {\n  requires [ { phase 02 } ]\n}\n";
     assert!(

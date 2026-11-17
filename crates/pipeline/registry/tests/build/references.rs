@@ -66,10 +66,7 @@ fn a_reference_to_its_target_kind_links_silently() {
     assert!(diags.is_empty(), "{diags:?}");
 }
 
-#[spec(
-    behavior = "link_entity_references",
-    verify = "a reference to an existing entity of another kind than its field's target kind is E022 at the reference"
-)]
+#[spec(requirement = "FEATURE-109")]
 fn a_reference_to_another_kind_is_e022_at_the_reference() {
     // A behavior id in the "features" field, which expects a feature.
     let diags = e022(

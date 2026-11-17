@@ -88,10 +88,8 @@ fn tasks_and_people() -> InProcessRuntime {
 }
 
 /// A field's `target_kind` naming a kind its peer registers is accepted.
-#[specforge_test(
-    behavior = "registry_build_declaration_consistency",
-    verify = "a target_kind the extension or a loaded peer declares passes"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
+#[specforge_test(requirement = "FEATURE-029")]
 fn a_target_kind_another_extension_registers_resolves() {
     let env = load(tasks_and_people(), &["@test/people", "@test/tasks"]);
 
@@ -103,10 +101,8 @@ fn a_target_kind_another_extension_registers_resolves() {
 
 /// A field's edge label naming an edge type the extension declares is
 /// accepted.
-#[specforge_test(
-    behavior = "registry_build_declaration_consistency",
-    verify = "an edge label the extension declares an edge type for passes"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
+#[specforge_test(requirement = "FEATURE-029")]
 fn an_edge_label_the_extension_declares_resolves() {
     let env = load(tasks_and_people(), &["@test/people", "@test/tasks"]);
 
@@ -120,10 +116,8 @@ fn an_edge_label_the_extension_declares_resolves() {
 
 /// A `target_kind` no loaded extension declares is a W021 warning naming
 /// the field, the kind and the reference; the extension still registers.
-#[specforge_test(
-    behavior = "registry_build_declaration_consistency",
-    verify = "a target_kind no loaded extension declares is a W021 warning"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
+#[specforge_test(requirement = "FEATURE-029")]
 fn an_unresolved_target_kind_is_w021() {
     let runtime = kind_extensions(vec![serde_json::json!({
         "name": "@test/tasks",
@@ -150,10 +144,8 @@ fn an_unresolved_target_kind_is_w021() {
 
 /// An edge label no edge type of the extension declares is a W021 warning
 /// naming the field and the label.
-#[specforge_test(
-    behavior = "registry_build_declaration_consistency",
-    verify = "an edge label the extension declares no edge type for is a W021 warning"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
+#[specforge_test(requirement = "FEATURE-029")]
 fn an_unresolved_edge_label_is_w021() {
     let runtime = kind_extensions(vec![serde_json::json!({
         "name": "@test/tasks",
@@ -185,10 +177,8 @@ fn an_unresolved_edge_label_is_w021() {
 
 /// A domain the host knows nothing of (cooking) cross-validates by
 /// structure alone: its references resolve, so nothing is reported.
-#[specforge_test(
-    behavior = "registry_build_declaration_consistency",
-    verify = "cross-validation uses no domain-specific logic"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
+#[specforge_test(requirement = "FEATURE-029")]
 fn a_domain_the_host_does_not_know_cross_validates_cleanly() {
     let runtime = kind_extensions(vec![serde_json::json!({
         "name": "@custom/cooking",
@@ -215,10 +205,8 @@ fn a_domain_the_host_does_not_know_cross_validates_cleanly() {
 /// Once every extension is in, resolvable references pass and unresolvable
 /// ones are warnings only: the extension still loads its kinds, so the
 /// user's compile is not failed by an extension's authoring error.
-#[specforge_test(
-    behavior = "registry_build_declaration_consistency",
-    verify = "a declaration's W021 does not fail the compile, and its kinds still register"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
+#[specforge_test(requirement = "FEATURE-029")]
 fn field_cross_validation_holds_on_load() {
     let runtime = kind_extensions(vec![
         serde_json::json!({
@@ -279,10 +267,7 @@ fn field_cross_validation_holds_on_load() {
 /// was registered would report the target (W021) and the `person` entity
 /// (E024). A real compile reports neither and resolves `owner` to `p1`, so
 /// every kind was registered before the first check.
-#[specforge_test(
-    behavior = "build_registries_from_declarations",
-    verify = "every loaded declaration is registered before a compile checks anything"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn population_completes_before_any_validation() {
     let runtime = kind_extensions(vec![
         serde_json::json!({
@@ -374,10 +359,8 @@ fn malformed_attributes() -> specforge_protocol_types::ExtensionDeclaration {
 
 /// A malformed K3 attribute is W021 (W019 for an unknown member type), the attribute is dropped and the field
 /// keeps the rest.
-#[specforge_test(
-    behavior = "registry_build_declaration_consistency",
-    verify = "a malformed members, target kinds or bound attribute is W021 and costs the attribute, not the field"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
+#[specforge_test(requirement = "FEATURE-029")]
 fn the_registry_refuses_a_malformed_k3_attribute() {
     let registries = specforge_registry::build_registries(vec![malformed_attributes()]);
     let diagnostics: Vec<Diagnostic> = registries.diagnostics().cloned().collect();

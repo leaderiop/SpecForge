@@ -31,10 +31,7 @@ fn beside_a_dangling_name() -> TestProject {
 
 /// A rename to the name a fact holds and nothing carries is a capture: the store would hold it twice, once for the
 /// renamed entity and once for nothing, and the next rename could not tell them apart.
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename to a name a fact holds for no entity is refused as name_captured"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_rename_to_a_name_a_fact_holds_for_no_entity_is_captured() {
     let p = beside_a_dangling_name();
 
@@ -51,10 +48,7 @@ fn a_rename_to_a_name_a_fact_holds_for_no_entity_is_captured() {
 
 /// A ledger whose renames already made two held names read as one (written before a capture was refused, or merged):
 /// a rename of that name writes a stale line for each, so the serve shifts and checks every place it wrote.
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename of a name two held names are read as writes a stale line for each"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_rename_of_a_name_two_held_names_read_as_writes_a_line_for_each() {
     let p = beside_a_dangling_name();
     p.write(
@@ -141,10 +135,7 @@ fn shared() -> (
 /// A store renames a name in every fact that holds it: when another fact holds the same name in the same field for
 /// something else (here no reference at all), the rename cannot rewrite only the renamed entity's places, and is
 /// refused.
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename of a name a fact of the same store holds for something else is refused as name_shared"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_rename_of_a_name_another_fact_holds_for_something_else_is_refused() {
     use specforge_ops::authoring::apply::Origin;
     use specforge_ops::authoring::rename;
@@ -187,10 +178,7 @@ fn a_rename_of_a_name_another_fact_holds_for_something_else_is_refused() {
 
 /// Two branches each renamed `T1` (to `T2`, to `T3`), and their ledgers merged: the store serves none of its renames,
 /// W202 says why, and a rename of a name it holds is refused until the next collect.
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename of a name a store holds while the ledger renames one of its names two ways is refused as stale_conflict"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_store_whose_ledger_renames_a_name_two_ways_serves_none_and_refuses_renames() {
     use specforge_project::harness::{Ledger, Line};
     let p = crate::collected::two_named();
@@ -307,10 +295,7 @@ fn every_store_holds(p: &TestProject, name: &str) -> (bool, Option<(usize, usize
 
 /// A store placed in a file a rename rewrote, holding none of the renamed names, is served shifted by what the rename
 /// wrote there: its places are exact in the text the rename left, and a rename of its own name applies.
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "every store placed in a file a rename rewrote is served shifted by it, and a rename of its own name applies"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_second_store_in_a_file_a_rename_rewrote_is_served_shifted() {
     let p = two_stores();
     rename_now(&p, "T1", "Longer").unwrap();

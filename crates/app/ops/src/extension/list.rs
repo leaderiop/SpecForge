@@ -178,10 +178,8 @@ mod tests {
     use specforge_project::testing::Assembled;
     use specforge_test_macros::test as specforge_test;
 
-    #[specforge_test(
-        behavior = "management_operations_over_the_project_view",
-        verify = "the extensions listing reads the config entries from the view, never specforge.json again"
-    )]
+    #[specforge_test(requirement = "FEATURE-028")]
+    #[specforge_test(requirement = "FEATURE-070")]
     fn the_listing_reads_the_config_from_the_view_not_from_disk() {
         let fixture = Assembled::new().config(&["@acme/missing@1.2.0"]);
         std::fs::write(
@@ -200,10 +198,8 @@ mod tests {
         assert_eq!(missing.source, "unknown");
     }
 
-    #[specforge_test(
-        behavior = "management_operations_over_the_project_view",
-        verify = "list, doctor and remove read the lock the compile read, once"
-    )]
+    #[specforge_test(requirement = "FEATURE-028")]
+    #[specforge_test(requirement = "FEATURE-070")]
     fn the_listing_reads_the_lock_the_compile_read_not_the_disk() {
         let fixture = Assembled::new().lock(&[("@acme/locked", "1.0.0", "registry")]);
         // The file changed after the compile read it.
@@ -220,10 +216,7 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        behavior = "list_installed_extensions",
-        verify = "a .wasm file entry is listed under the name it declares, loaded, with source file:<path>"
-    )]
+    #[specforge_test(requirement = "FEATURE-028")]
     fn a_file_entry_is_listed_with_its_file_origin() {
         let fixture = Assembled::new()
             .enabled(vec![EnabledExtension {
@@ -324,10 +317,7 @@ mod tests {
         assert_eq!(locked.source, "registry");
     }
 
-    #[specforge_test(
-        behavior = "list_configured_providers",
-        verify = "list shows all configured providers"
-    )]
+    #[specforge_test(requirement = "FEATURE-107")]
     fn the_providers_listing_reads_the_registration_from_the_view() {
         let fixture = Assembled::new().config_json(json!({
             "extensions": [],

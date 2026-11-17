@@ -158,10 +158,7 @@ fn invalid_json_produces_error() {
     assert_eq!(error.severity, Severity::Error);
 }
 
-#[specforge_test_macros::test(
-    behavior = "configure_registries",
-    verify = "a registry url is the registry's root, and one ending in the protocol's version prefix is refused with E067 naming the root"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn a_url_ending_in_the_version_prefix_is_refused_naming_the_root() {
     let json = r#"{"registries": [
         {"alias": "main", "url": "https://r.example/v1", "default_registry": true}
@@ -178,10 +175,7 @@ fn a_url_ending_in_the_version_prefix_is_refused_naming_the_root() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "configure_registries",
-    verify = "a registry url is the registry's root, and one ending in the protocol's version prefix is refused with E067 naming the root"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn a_url_that_is_not_an_http_url_is_refused() {
     for url in ["registry.example.com", "ftp://r.example"] {
         let json = format!(r#"{{"registries": [{{"alias": "main", "url": "{url}"}}]}}"#);
@@ -198,10 +192,7 @@ fn a_url_that_is_not_an_http_url_is_refused() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "configure_registries",
-    verify = "a scope_filter that is not a scope refuses every registry operation with E067 naming the scope to write"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn a_scope_filter_that_is_no_scope_is_e067_naming_the_scope_to_write() {
     for (text, write) in [
         ("sdk", Some("@sdk")),
@@ -239,10 +230,7 @@ fn a_scope_filter_that_is_no_scope_is_e067_naming_the_scope_to_write() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "configure_registries",
-    verify = "an entry whose alias holds a control character is E067, and an entry's text is quoted printable"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn a_registries_entry_is_quoted_printable_and_an_alias_with_a_control_character_is_e067() {
     use specforge_common::remedy::printable;
     let alias = r#"{"registries": [{"alias": "ev\u001b]0;T\u0007il", "url": "https://r.example", "default_registry": true}]}"#;

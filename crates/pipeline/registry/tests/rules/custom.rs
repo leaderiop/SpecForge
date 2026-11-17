@@ -31,10 +31,7 @@ fn failed() -> Verdict {
     }
 }
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "custom pattern dispatches to registered Wasm function"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn custom_pattern_dispatches_to_registered_wasm_function() {
     let built = one(custom("E200", "validate_naming", Some("behavior")));
     let calls = RefCell::new(Vec::new());
@@ -78,10 +75,7 @@ fn custom_pattern_dispatches_to_registered_wasm_function() {
     );
 }
 
-#[spec(
-    behavior = "register_custom_validation_patterns",
-    verify = "custom pattern dispatched to Wasm runtime during validation"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn custom_pattern_dispatched_to_wasm_runtime_during_validation() {
     let mut declared = custom("E200", "check", None);
     declared.message_template = "{id} failed".to_string();
@@ -98,10 +92,7 @@ fn custom_pattern_dispatched_to_wasm_runtime_during_validation() {
     assert_eq!(messages(&diagnostics), ["bad failed"]);
 }
 
-#[spec(
-    behavior = "register_custom_validation_patterns",
-    verify = "custom pattern failure emits configured diagnostic"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn custom_pattern_failure_emits_configured_diagnostic() {
     let mut declared = custom("E201", "always_fail", None);
     declared.message_template = "{kind} '{id}' custom check failed".to_string();
@@ -115,10 +106,7 @@ fn custom_pattern_failure_emits_configured_diagnostic() {
     assert_eq!(diagnostics[0].message, "behavior 'b1' custom check failed");
 }
 
-#[spec(
-    behavior = "register_custom_validation_patterns",
-    verify = "a custom rule whose function fails on entities produces one W148 per check naming how many were not checked"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_function_failing_on_entities_is_one_w148_per_check() {
     let built = rules(vec![
         custom("E202", "flaky", Some("behavior")),
@@ -193,10 +181,7 @@ fn a_function_failing_on_entities_is_one_w148_per_check() {
     assert!(built.rules.check(&over(&entities), &NoVerdicts).is_empty());
 }
 
-#[spec(
-    behavior = "register_custom_validation_patterns",
-    verify = "unresolvable wasm_function produces warning"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_function_that_cannot_answer_the_probe_is_w112_once() {
     let mut built = rules(vec![
         custom("E300", "validate__present", Some("gadget")),

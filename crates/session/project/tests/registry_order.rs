@@ -138,10 +138,7 @@ fn registry_diagnostics_keep_their_order() {
 
 // This project has no import cycle, so `diagnostic_determinism` is not at
 // risk from W113.
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "the environment reports its own diagnostics, then the registry build's, before any source"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_environment_reports_before_the_sources() {
     let dir = project_with(true);
     let runtime = Arc::new(colliding_extensions_with(true, true));
@@ -164,10 +161,7 @@ fn the_environment_reports_before_the_sources() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "the environment says what part of the setup each of its diagnostics is about, and reports an entry's load diagnostics together"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_environment_says_what_each_diagnostic_is_about() {
     use specforge_project::SetupPart::{Collision, Peers, Providers, Rules};
 
