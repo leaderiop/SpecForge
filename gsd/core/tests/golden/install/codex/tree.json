@@ -36,12 +36,12 @@
     "sha256": "256810ea61ddcede5a85fcd4dd6c83314e5ca7a7e192a6df77b52648c10e45a7"
   },
   ".codex/agents/gsd-plan-checker.toml": {
-    "bytes": 52537,
-    "sha256": "ee578bd07a2ea80d448a4d12be38da0a819ecb04dc1b405f2121017da0b40fe8"
+    "bytes": 52472,
+    "sha256": "8077d8a30655d9ee451644c69868e06b4fd41043777a0dfdd05d9358830413d4"
   },
   ".codex/agents/gsd-planner.toml": {
-    "bytes": 53885,
-    "sha256": "e7c87b4223d8c7e5ecd08348aefe8a7559f34cc05c6feaac7b06969cf5ac2a8c"
+    "bytes": 53713,
+    "sha256": "33f5296916508e706d13b9f9c682b6cb9031460daeee98b7196e4b52cbfdcc48"
   },
   ".codex/agents/gsd-project-researcher.toml": {
     "bytes": 16311,

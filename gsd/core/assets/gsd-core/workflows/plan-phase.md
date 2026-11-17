@@ -1274,8 +1274,8 @@ A requirement whose thread says `no plan` is uncovered ✗; every other reaches 
 
 **Step 3: Check the phase's decisions against the plans**
 
-Each `decision` of the phase is referenced by a plan's `decisions`: the decision-coverage rule prints one line per
-decision no plan lists (`specforge check --format json --pick '[code=gsd/E310].message'`). A decision it names is
+Each `decision` of the phase is cited by its id in a plan's text: the decision-coverage rule prints one line per
+decision no plan cites (`specforge check --format json --pick '[code=gsd/E310].message'`). A decision it names is
 potentially dropped.
 
 **Step 4: Report**
@@ -1296,7 +1296,7 @@ If gaps found:
 |--------|-------------|-------|
 | {id} | {the requirement's text} | None |
 
-{K} decisions of the phase in no plan's `decisions`:
+{K} decisions of the phase cited by no plan:
 - {decision} — recorded in the phase's context but no plan covers it
 
 Options:
@@ -1355,7 +1355,7 @@ to step 13b.
 
 **If `passed` is false:** Display the handler's `message` block. It already
 names each uncovered decision (`D-NN | category | text`) and tells the user
-what to do — list the id in a relevant plan's `decisions`, or
+what to do — cite the id in a relevant plan's `must_haves` / `truths`, or
 move the decision under `### Claude's Discretion` / tag it `[informational]`
 if it should not be tracked. Then offer:
 
