@@ -177,7 +177,7 @@ jobs:
   effect-plane:
     # The effect plane's adapters on the other two OSes (ADR 0335): the process group or Job kill, PATHEXT and `.cmd`
     # shims, the platform TLS verifier, the file walk and git through the runner. Not one of `cargo gate`'s shards; it
-    # builds only these crates.
+    # builds only these crates, and on Windows the named subset of ADR 0375 D4 too.
     name: Effect plane (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -186,6 +186,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
+      # The fixtures and snapshots are compared as LF, and a generated tree can pass 260 characters (ADR 0375 D4).
+      - name: Line endings and long paths, before checkout
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.longpaths true
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
@@ -200,6 +207,16 @@ jobs:
         run: cargo nextest run --no-fail-fast -p specforge-effects -p specforge-process -p specforge-fs -p specforge-http -p specforge-git
       - name: The collector machine's runner tests
         run: cargo nextest run -p specforge-ops --lib -E "test(/^analysis::collect::process::/)"
+      # The Windows subset (ADR 0375 D4): the tracked-tree copy, the user's home, absorb. This leg is not a gate shard.
+      - name: "Windows subset: checked_tree"
+        if: runner.os == 'Windows'
+        run: cargo nextest run --no-fail-fast -p gate -E 'test(/^checked_tree::/)'
+      - name: "Windows subset: USERPROFILE beside HOME"
+        if: runner.os == 'Windows'
+        run: cargo nextest run --no-fail-fast -p specforge-component --lib -E 'test(/user_compile_cache/)'
+      - name: "Windows subset: absorb"
+        if: runner.os == 'Windows'
+        run: cargo nextest run --no-fail-fast -p xtask --bin absorb --test absorb_e2e
 
   dogfood:
     # Each tests partition's nextest JUnit report lands in its own directory under target/nextest/ci (no
