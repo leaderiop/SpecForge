@@ -700,3 +700,46 @@ fn a_feature_two_phases_list_is_in_one_phase_and_the_target_checks_clean() {
     assert!(dropped(&ledger, "two", "features"), "{ledger}");
     assert!(!dropped(&ledger, "one", "features"), "{ledger}");
 }
+
+/// `--selection` is written only once the run passes its stops: a sample whose milestone two releases list stops before
+/// any write, and leaves no selection file behind, nor a target.
+#[test]
+#[ignore = "needs GSD_CORE_WASM"]
+fn a_stop_leaves_no_selection_behind() {
+    let dir = tempfile::tempdir().unwrap();
+    let (old, to) = (dir.path().join("old"), dir.path().join("new"));
+    let selection = dir.path().join("selection.json");
+    std::fs::create_dir_all(old.join("spec/product")).unwrap();
+    std::fs::write(
+        old.join("specforge.json"),
+        r#"{"name": "sampled", "spec_root": "spec", "extensions": ["@specforge/product"]}"#,
+    )
+    .unwrap();
+    // The wasm-host sample takes every entity of this file whole.
+    std::fs::write(
+        old.join("spec/product/personas.spec"),
+        "release one \"One\" {\n  version    \"0.1.0\"\n  status     planned\n  milestones [shared]\n}\n\n\
+         release two \"Two\" {\n  version    \"0.2.0\"\n  status     planned\n  milestones [shared]\n}\n\n\
+         milestone shared \"Shared\" {\n  description \"Listed twice.\"\n  status      planned\n}\n",
+    )
+    .unwrap();
+    let run = absorb(&[
+        "--from",
+        path(&old),
+        "--to",
+        path(&to),
+        "--only",
+        "sample:wasm-host",
+        "--selection",
+        path(&selection),
+    ]);
+    assert_eq!(run.code, 2, "{}", run.stderr);
+    assert!(
+        run.stderr.contains("stop(s) before any write")
+            && run.stderr.contains("listed by 2 releases"),
+        "{}",
+        run.stderr
+    );
+    assert!(!selection.exists(), "a stop writes no selection");
+    assert!(!to.exists(), "nor a target");
+}

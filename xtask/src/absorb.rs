@@ -22,8 +22,9 @@
 //!
 //! Exit 0: written. 1: the edit plan was refused (the refusal printed, the ledger written, the scaffold removed), or
 //! the ledger could not be completed once the plan wrote (the target rolled back, the ledger printed to stderr).
-//! 2: usage, I/O, a source with errors, or a stop before any write (every stop printed); the ledger is written before
-//! the plan applies, so a ledger that cannot be written is such a stop.
+//! 2: usage, I/O, a source with errors, or a stop before any write (every stop printed); the ledger, then the
+//! selection, are written once every stop has passed and before the plan applies, so a ledger that cannot be written
+//! is such a stop.
 #![expect(
     clippy::print_stdout,
     clippy::print_stderr,
@@ -175,18 +176,11 @@ fn run(args: &[String]) -> i32 {
         Err(why) => return refuse(&format!("--from {}: {why}", args.from.display())),
     };
     work.compiles += 1;
-    let scope = match args.sample {
-        Some(sample) => {
-            let selection = select::select(&old, sample);
-            if let Some(path) = &args.selection
-                && let Err(why) = write::output("selection", path, &selection.to_json())
-            {
-                return refuse(&why);
-            }
-            selection.scope()
-        }
-        None => args.scope.clone(),
-    };
+    // The sample's selection is computed here and written with the ledger, once every stop has passed.
+    let selection = args.sample.map(|sample| select::select(&old, sample));
+    let scope = selection
+        .as_ref()
+        .map_or_else(|| args.scope.clone(), select::Selection::scope);
     let entities = match scope.select(old.entities()) {
         Ok(entities) => entities,
         Err(why) => return refuse(&why),
@@ -244,6 +238,15 @@ fn run(args: &[String]) -> i32 {
     if let Err(io) = write::output("ledger", &ledger_path, &planned.ledger.to_json(&old.name)) {
         target.roll_back();
         return refuse(&format!("the ledger: {io}; nothing was written"));
+    }
+    if let (Some(path), Some(selection)) = (&args.selection, &selection)
+        && let Err(io) = write::output("selection", path, &selection.to_json())
+    {
+        target.roll_back();
+        return refuse(&format!(
+            "the selection: {io}; the target is rolled back, the ledger {} written",
+            ledger_path.display()
+        ));
     }
     if let Err(why) = target.apply(&planned.creates, &mut work) {
         target.roll_back();
