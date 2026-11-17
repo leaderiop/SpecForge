@@ -241,14 +241,18 @@ struct Planner {
     ids: Ids,
     /// Each old id of the run and the old kinds that hold it, so a reference the map does not hold says why.
     known: BTreeMap<String, Vec<(String, bool)>>,
+    /// Each requirement a written phase lists, by its new path, and the phase that keeps it: the first in source
+    /// order that lists it (ADR 0372 D7).
+    listings: BTreeMap<String, String>,
     drafts: BTreeMap<String, Draft>,
     order: Vec<String>,
     ledger: Ledger,
     checks: Vec<Check>,
 }
 
-/// Convert `entities` (each passed [`prechecks`]). The links and the id map come first; a reference is written
-/// through the map, and one to an entity the run does not convert is ledgered `dropped`, never stubbed.
+/// Convert `entities` (each passed [`prechecks`]). The links, the id map and the phases' listings come first; a
+/// reference is written through the map, and one to an entity the run does not convert is ledgered `dropped`, never
+/// stubbed.
 pub fn plan(entities: &[OldEntity]) -> Planned {
     let links = Links::of(entities).0;
     let ids = ids::assign(entities, &links).0;
@@ -267,6 +271,7 @@ pub fn plan(entities: &[OldEntity]) -> Planned {
         known,
         ..Planner::default()
     };
+    planner.listings_of(entities);
     for (e, whole) in entities.iter().zip(&wholes) {
         match whole {
             Some(reason) => planner.drop_whole(e, reason),

@@ -363,6 +363,87 @@ fn when_a_phase_is_written_a_requirement_no_phase_lists_is_v2() {
     );
 }
 
+/// The ledger's (kind, why) entries of the old (`kind`, `id`)'s `field`.
+fn why_of_kind(planned: &Planned, kind: &str, id: &str, field: &str) -> Vec<Why> {
+    planned
+        .ledger
+        .entries()
+        .filter(|e| e.kind == kind && e.id == id && e.field == field)
+        .map(|e| e.why.clone())
+        .collect()
+}
+
+/// A requirement several written phases list is in one phase, the first in source order that lists it; each later
+/// listing is ledgered `dropped`, naming that phase, so `gsd/E101` holds and the requirement keeps its tier (ADR 0372
+/// D7).
+#[test]
+fn a_requirement_several_phases_list_is_kept_by_the_first_in_source_order() {
+    let planned = planned(&[
+        release("one", "0.1.0", &["first", "second"]),
+        release("two", "0.2.0", &["third"]),
+        old(
+            "feature",
+            "store",
+            json!({"problem": "P", "status": "done"}),
+        ),
+        milestone("third", 5, json!({"features": ["store"]})),
+        milestone("first", 10, json!({"features": ["store"]})),
+        milestone("second", 20, json!({"features": ["store"]})),
+    ]);
+    assert_eq!(
+        field(&planned, "v0.2.0/01", "requirements"),
+        Some(&many(&["FEATURE-01"])),
+        "third is first in source order"
+    );
+    for phase in ["v0.1.0/01", "v0.1.0/02"] {
+        assert_eq!(field(&planned, phase, "requirements"), None, "{phase}");
+    }
+    for id in ["first", "second"] {
+        let entries = dropped(&planned, id, "features");
+        assert!(
+            matches!(entries.as_slice(), [(value, reason)]
+                if value == "store" && reason.contains("v0.2.0/01") && reason.contains("gsd/E101")),
+            "{id}: {entries:?}"
+        );
+    }
+    assert_eq!(
+        field_of(&planned, "feature", "store", "tier"),
+        Some(&one("v1"))
+    );
+    assert_eq!(why_of(&planned, "store", "tier"), []);
+}
+
+/// Two old kinds sharing an id: a milestone's `features` names the feature, so its phase lists the feature's
+/// requirement, and the invariant of the same id, which no phase lists, is `v2` (ADR 0372 D3, D7). A compiled source
+/// holds no such pair (its graph keeps the first declaration, warning W060), but the plan keys every listing by the
+/// new path all the same.
+#[test]
+fn a_listing_names_the_kind_its_field_references_when_two_kinds_share_an_id() {
+    let planned = planned(&[
+        old("invariant", "x", json!({"guarantee": "G"})),
+        old("feature", "x", json!({"problem": "P", "status": "done"})),
+        release("one", "0.1.0", &["first"]),
+        milestone("first", 10, json!({"features": ["x"]})),
+    ]);
+    assert_eq!(
+        field(&planned, "v0.1.0/01", "requirements"),
+        Some(&many(&["FEATURE-01"]))
+    );
+    assert_eq!(field_of(&planned, "feature", "x", "tier"), Some(&one("v1")));
+    assert_eq!(
+        field_of(&planned, "invariant", "x", "tier"),
+        Some(&one("v2"))
+    );
+    assert_eq!(why_of_kind(&planned, "feature", "x", "tier"), []);
+    assert_eq!(
+        why_of_kind(&planned, "invariant", "x", "tier"),
+        [Why::Filled {
+            field: "requirement.tier".to_string(),
+            value: json!("v2")
+        }]
+    );
+}
+
 #[test]
 fn the_id_map_is_total_one_to_one_and_repeatable() {
     let entities = [

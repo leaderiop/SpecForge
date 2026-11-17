@@ -651,3 +651,52 @@ fn an_old_id_that_is_a_kind_keyword_converts_under_its_gsd_id() {
         json!([{"kind": "decision", "old": "blocker", "new": "D-01"}])
     );
 }
+
+/// A source at `old` loading the product and governance builtins, its one spec file `spec/plan.spec` holding `text`.
+fn product_source(old: &Path, text: &str) {
+    std::fs::create_dir_all(old.join("spec")).unwrap();
+    std::fs::write(
+        old.join("specforge.json"),
+        r#"{"name": "planned", "spec_root": "spec", "extensions": ["@specforge/product", "@specforge/governance"]}"#,
+    )
+    .unwrap();
+    std::fs::write(old.join("spec/plan.spec"), text).unwrap();
+}
+
+/// A feature two converted milestones list is in one phase, the first in source order, and the later listing is
+/// ledgered `dropped`: the target reports no `gsd/E101`, and checks clean (ADR 0372 D7). (Two kinds sharing an id
+/// never reach absorb from a compiled source: the old graph keeps the first declaration, warning W060.)
+#[test]
+#[ignore = "needs GSD_CORE_WASM"]
+fn a_feature_two_phases_list_is_in_one_phase_and_the_target_checks_clean() {
+    let dir = tempfile::tempdir().unwrap();
+    let (old, to) = (dir.path().join("old"), dir.path().join("new"));
+    let cut = |id: &str, title: &str| {
+        format!(
+            "milestone {id} \"{title}\" {{\n  description   \"The {id} cut.\"\n  status        planned\n  \
+             features      [store]\n  exit_criteria [\"Entries are saved\", \"Entries are listed\"]\n}}\n\n"
+        )
+    };
+    product_source(
+        &old,
+        &format!(
+            "release first \"First\" {{\n  version    \"0.1.0\"\n  status     planned\n  milestones [one, two]\n}}\n\n\
+             {}{}feature store \"Store\" {{\n  problem \"Entries are lost.\"\n  status  done\n}}\n",
+            cut("one", "One"),
+            cut("two", "Two")
+        ),
+    );
+    let run = absorb(&["--from", path(&old), "--to", path(&to)]);
+    assert_eq!(run.code, 0, "{}", run.stderr);
+    assert_eq!(run.summary["target"]["errors"], 0, "{}", run.summary);
+    assert_eq!(run.summary["target"]["warnings"], 0, "{}", run.summary);
+    let written = std::fs::read_to_string(to.join("spec/plan.spec")).unwrap();
+    assert_eq!(
+        written.matches("[FEATURE-01]").count(),
+        1,
+        "one phase lists the requirement: {written}"
+    );
+    let ledger = std::fs::read_to_string(to.join("absorb-ledger.json")).unwrap();
+    assert!(dropped(&ledger, "two", "features"), "{ledger}");
+    assert!(!dropped(&ledger, "one", "features"), "{ledger}");
+}

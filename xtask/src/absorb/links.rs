@@ -1,7 +1,7 @@
-//! The facts a run reads across entities, computed once from the entities it converts (ADR 0372 D4): the release a
-//! milestone sits in, and the old ids a written phase lists as its requirements. A pure rule of one entity cannot see
-//! them: an old milestone names no release (the release lists it), and an old feature names no milestone (the
-//! milestone lists it). The id map ([`super::ids`]), the whole drops and the tier rule read them.
+//! The fact a run reads across entities before any id is assigned (ADR 0372 D4): the release a milestone sits in. A
+//! pure rule of one entity cannot see it: an old milestone names no release (the release lists it). The id map
+//! ([`super::ids`]) and the whole drops read it; which phase lists a requirement is resolved through the map, by new
+//! path, once the map is made (the planner's listings, ADR 0372 D7).
 
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -20,8 +20,6 @@ pub const MILESTONE: &str = "milestone";
 pub struct Links {
     /// Each converted milestone's release: the release among the run's entities whose `milestones` names it.
     release_of: BTreeMap<String, String>,
-    /// The old ids the `features` of a milestone with a release names: what the written phases list.
-    listed: BTreeSet<String>,
 }
 
 impl Links {
@@ -64,25 +62,12 @@ impl Links {
                 });
             }
         }
-        for milestone in entities
-            .iter()
-            .filter(|e| e.kind == MILESTONE && links.release_of.contains_key(&e.id))
-        {
-            links
-                .listed
-                .extend(listed_ids(milestone.fields.get("features")));
-        }
         (links, stops)
     }
 
     /// The release the milestone `id` sits in: none when no release of the run lists it, so it becomes no phase.
     pub fn release_of(&self, id: &str) -> Option<&str> {
         self.release_of.get(id).map(String::as_str)
-    }
-
-    /// Whether a written phase lists the old id `id` among its requirements.
-    pub fn listed(&self, id: &str) -> bool {
-        self.listed.contains(id)
     }
 
     /// Whether the run writes a phase: `gsd/E101` waits for the first one (ADR 0372 D7).

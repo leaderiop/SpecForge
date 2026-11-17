@@ -122,6 +122,8 @@ map is the ledger's `ids` section: total and one to one over the converted entit
 - **A milestone no converted release lists** is dropped whole: no version milestone is made for it.
 - **A reference to an entity the run does not convert** (outside the selection, dropped whole, or becoming another
   kind) is ledgered `dropped` with its reason, never stubbed.
+- **A reference names the old kind its field references**: a milestone's features a feature, its dependencies and a
+  release's milestones a milestone. Every listing is keyed by the new path it resolves to, never by the bare old id.
 - Every other release and milestone value is dropped with its reason.
 
 The phase's `milestone`, `requirements` and `depends_on` are the only homes that write a reference.
@@ -154,6 +156,12 @@ An invariant's `verify` lines, risk, references and formal expression, a constra
 When the run writes a phase, a requirement whose tier would be `v1` and that no written phase lists is written `v2`
 and ledgered `filled`, once, so `gsd/E101` holds. A run that writes no phase keeps the tiers status gives. On the root
 spec that is 69 requirements `v1` and 284 `v2` (9 by status, the rest by this rule).
+
+`gsd/E101` also reports a `v1` requirement several phases list. A requirement several written phases list is in one
+phase: the first in source order (file, line) that lists it keeps it, keeping its tier, and each later listing is
+ledgered `dropped`, naming that phase. This is `gsd/E101`'s own suggestion ("keep it in one phase and remove it from
+the others"), and the rule holds whatever the tier, so a phase's requirements never depend on a tier. Demoting the
+requirement to `v2` is rejected: it would unlist a requirement the old spec planned twice. The root spec has none.
 
 ## D8. Every ledger entry has one outcome, and a census holds it
 
