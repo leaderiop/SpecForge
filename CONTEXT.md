@@ -528,8 +528,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   enables what it names (`Installed::unloaded`); each entry records where the load takes it from, its **origin** (`Origin`: `builtin`, the lock entry's source, `file:<path>`, `unknown`; `Resolution::origin`, a repeated entry the one it repeats'), and whether it loaded, with or without a runtime; what an environment is assembled from says which
   (`specforge_project::ExtensionLoad`: `NoRuntime`, or what was loaded `In` a runtime).
 - **Builtin**: a component this specforge embeds, a row of `BUILTINS`, loaded by name (`specforge add @code/core`),
-  whatever its scope. Its crate is `extensions/<dir>` (named `@specforge/<dir>`) or `extensions/<family>/<pack>`
-  (named `@<family>/<pack>`), and holds a `wasm/` dir. Not the same as first party: a builtin outside `@specforge/`
+  whatever its scope. Its crate is `extensions/<dir>` (named `@specforge/<dir>`), `extensions/<family>/<pack>`
+  (named `@<family>/<pack>`), or `gsd/core` for `@gsd/core`, the one builtin outside `extensions/` (ADR 0366), and
+  holds a `wasm/` dir. Not the same as first party: a builtin outside `@specforge/`
   catalogues its codes and prints them namespaced, as a third party's do (`code/E101`, ADR 0328).
 - **First-party extension**: an extension of the `@specforge/` scope. Its codes are bare, in the static catalogue that
   generates `docs/diagnostics.md`, and it declares no `codes` (ADR 0286 D2, ADR 0328 D1).

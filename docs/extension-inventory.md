@@ -3,7 +3,9 @@
 What you get from this page: the catalogue of the extensions that ship with SpecForge, and exactly what each one
 declares. They are a **starter set**: examples of what extensions do, aimed at software and product work. None of
 them is part of the core, a project loads only the ones it lists in `specforge.json`, and your own extensions use
-the same SDK ([extension model](extension-model.md)).
+the same SDK ([extension model](extension-model.md)). One more builtin ships beside the starter set: `@gsd/core`, the
+GSD spec framework, vendored from `gsd/core` (its own catalogue is [gsd/core/README.md](../gsd/core/README.md)); the
+counts and tables below are the starter set's.
 
 Together the four vocabulary builtins declare 22 entity kinds and 56 edge types. Four more declare no kinds:
 `@specforge/testing` and the runner extensions `@specforge/cargo-test`, `@specforge/vitest` and
@@ -48,7 +50,7 @@ must be in the declared version range.
 
 | Family | State |
 |--------|-------|
-| `@gsd/*` (the GSD spec framework modelled as extensions) | Being designed; nothing built yet |
+| `@gsd/*` (the GSD spec framework modelled as extensions) | `@gsd/core` is a vendored builtin and `@gsd/security` is built from `gsd/`; the rest are not started ([gsd/README.md](../gsd/README.md)) |
 | BMAD, OpenSpec, SpecKit | Not started |
 
 ## @specforge/product
