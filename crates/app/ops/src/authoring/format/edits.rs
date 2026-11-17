@@ -146,9 +146,10 @@ pub(super) mod tests {
         );
     }
 
-    /// The corpora `crates/surfaces/cli/tests/format_corpus.rs` formats, and the parser's and CLI's fixtures.
+    /// The pre-swap root spec, frozen as a corpus (ADR 0374 D8), the other corpora
+    /// `crates/surfaces/cli/tests/format_corpus.rs` formats, and the parser's and CLI's fixtures.
     const CORPORA: [&str; 6] = [
-        "spec",
+        "fixtures/old-spec/spec",
         "examples/todo-app",
         "examples/shop",
         "integrations/rust/spec",
@@ -435,7 +436,7 @@ pub(super) mod tests {
             {
                 return 0;
             }
-            // Every 5th line, every 40th under `spec/`.
+            // Every 5th line, every 40th under the frozen spec.
             let step = if input.corpus == 0 { 40 } else { 5 };
             let lines = (0..input.text.lines().count()).step_by(step);
             let checked = lines.len();

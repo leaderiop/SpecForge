@@ -507,11 +507,38 @@ fn blobs_fed(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
 
 /// Paths outside every member (`gsd/` is a workspace of its own) that tests of a member read, each a file or a
 /// `<dir>/**` pattern with the members whose tests read it: a change there is no change to any member, so `member_of`
-/// cannot reach them.
-const READ_FROM_OUTSIDE: &[(&str, &[&str])] = &[(
-    "gsd/core/tests/golden/kinds.json",
-    &["specforge-component", "xtask"],
-)];
+/// cannot reach them. The root spec is read by the corpus (`specforge_parser::testing`), the CLI's self-check and
+/// format corpus and the published-schema test, the root's project file by the last three; the frozen pre-swap spec
+/// (ADR 0374 D8) by the corpus and the tests that need the old kinds.
+const READ_FROM_OUTSIDE: &[(&str, &[&str])] = &[
+    (
+        "fixtures/old-spec/**",
+        &[
+            "specforge-component",
+            "specforge-formatter",
+            "specforge-lsp",
+            "specforge-ops",
+            "specforge-parser",
+            "specforge-project",
+            "tree-sitter-specforge",
+        ],
+    ),
+    (
+        "gsd/core/tests/golden/kinds.json",
+        &["specforge-component", "xtask"],
+    ),
+    (
+        "spec/**",
+        &[
+            "specforge-cli",
+            "specforge-formatter",
+            "specforge-ops",
+            "specforge-parser",
+            "specforge-project",
+        ],
+    ),
+    ("specforge.json", &["specforge-cli", "specforge-ops"]),
+];
 
 /// The members holding a changed path, and the members that read a changed file outside the workspace
 /// ([`READ_FROM_OUTSIDE`]); a change to the root manifest, the lockfile or nextest's config reaches every member.

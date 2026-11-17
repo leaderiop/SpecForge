@@ -67,6 +67,13 @@ mod union_title;
 mod use_bindings;
 mod watchers;
 
+/// The pre-swap root project, frozen as a corpus (ADR 0374 D8): its project file loads the builtins the old kinds
+/// come from, so the tests that need those kinds open it rather than the repository's root.
+pub const OLD_PROJECT: &str = "fixtures/old-spec";
+
+/// The frozen project's spec root, the old kinds' syntax.
+pub const OLD_SPEC: &str = "fixtures/old-spec/spec";
+
 /// Every `.spec` file under `dir`, recursively.
 pub fn spec_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
     let Ok(entries) = std::fs::read_dir(dir) else {

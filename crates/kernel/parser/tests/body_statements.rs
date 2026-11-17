@@ -28,7 +28,7 @@ fn within_nested_block(node: tree_sitter::Node) -> bool {
 fn body_statements_are_the_grammars() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    for corpus in ["spec", "integrations/rust/spec", "examples"] {
+    for corpus in [crate::lex::OLD_SPEC, "integrations/rust/spec", "examples"] {
         crate::lex::spec_files(&root.join(corpus), &mut files);
     }
     // The forms of the language the corpora do not write.

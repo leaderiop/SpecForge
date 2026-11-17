@@ -236,7 +236,13 @@ fn token_ranges(text: &str) -> (Ranges, Ranges) {
 fn the_tokenizer_agrees_with_the_lexer_and_the_grammar_on_the_corpus() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    for dir in ["spec", "extensions", "examples", "integrations/rust/spec"] {
+    // The pre-swap root spec, frozen as a corpus (ADR 0374 D8), holds the old kinds' expressions.
+    for dir in [
+        "fixtures/old-spec/spec",
+        "extensions",
+        "examples",
+        "integrations/rust/spec",
+    ] {
         spec_files(&root.join(dir), &mut files);
     }
     assert!(files.len() > 150, "found only {} spec files", files.len());

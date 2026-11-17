@@ -1,13 +1,15 @@
-//! `spec/extensions/product/behaviors-registration.spec` lists the edge
-//! types and the fields each kind registers, as prose strings. These tests
-//! hold those lists to the live declaration, both ways, so a change to
-//! either side is noticed.
+//! `spec/extensions/product/behaviors-registration.spec` of the pre-swap root
+//! spec lists the edge types and the fields each kind registers, as prose
+//! strings. These tests hold the lists of its frozen copy (ADR 0374 D8) to the
+//! live declaration, both ways, so a change to the declaration is noticed.
 
 use specforge_protocol_types::FieldDescriptor;
 use specforge_test::prelude::*;
 use std::collections::BTreeMap;
 
-const SPEC: &str = include_str!("../../../../spec/extensions/product/behaviors-registration.spec");
+const SPEC: &str = include_str!(
+    "../../../../fixtures/old-spec/spec/extensions/product/behaviors-registration.spec"
+);
 
 /// The lines of the `behavior <name>` block, up to its closing brace.
 fn block(name: &str) -> Vec<&'static str> {

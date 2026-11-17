@@ -363,6 +363,50 @@ fn a_file_outside_the_workspace_that_a_member_tests_read_selects_that_member() {
     }
 }
 
+/// The root spec, its project file and the frozen pre-swap spec (ADR 0374 D8) belong to no member: a change to one
+/// selects the members whose tests read it, and another project's spec selects none.
+#[test]
+fn a_change_to_the_root_spec_or_its_frozen_copy_selects_the_tests_that_read_it() {
+    let (live, frozen) = (
+        "spec/specforge.spec",
+        "fixtures/old-spec/spec/glossary.spec",
+    );
+    for path in [live, "specforge.json", frozen] {
+        assert!(this_repo().member_of(path).is_none(), "{path}");
+    }
+    assert_eq!(
+        selection("tests", Mode::Quick, &[live]),
+        only(&[
+            "specforge-cli",
+            "specforge-formatter",
+            "specforge-ops",
+            "specforge-parser",
+            "specforge-project",
+        ])
+    );
+    assert_eq!(
+        selection("tests", Mode::Quick, &["specforge.json"]),
+        only(&["specforge-cli", "specforge-ops"])
+    );
+    assert_eq!(
+        selection("tests", Mode::Quick, &[frozen]),
+        only(&[
+            "specforge-component",
+            "specforge-formatter",
+            "specforge-lsp",
+            "specforge-ops",
+            "specforge-parser",
+            "specforge-project",
+            "tree-sitter-specforge",
+        ])
+    );
+    assert_eq!(
+        selection("tests", Mode::Quick, &["integrations/rust/spec/a.spec"]),
+        Selection::Skip,
+        "another project's spec is not the root's"
+    );
+}
+
 #[test]
 fn doctests_run_for_the_changed_members_that_hold_one() {
     assert_eq!(

@@ -174,7 +174,7 @@ fn walked_positions(text: &str) -> Vec<(usize, Position)> {
     verify = "the line index converts byte columns to UTF-16 and back on every line"
 )]
 fn line_index_agrees_with_a_char_walk_on_every_line() {
-    let spec = specforge_repo_root::repo_root().join("spec");
+    let spec = specforge_repo_root::repo_root().join(crate::OLD_SPEC);
     let mut texts = Vec::new();
     spec_texts(&spec, &mut texts);
     assert!(texts.len() > 150, "found only {} spec files", texts.len());

@@ -99,7 +99,7 @@ fn spec_files(dir: &Path, out: &mut Vec<PathBuf>) {
 fn every_repository_spec_parses_cleanly() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    for corpus in ["spec", "examples", "integrations/rust/spec"] {
+    for corpus in [crate::lex::OLD_SPEC, "examples", "integrations/rust/spec"] {
         spec_files(&root.join(corpus), &mut files);
     }
     assert!(files.len() > 150, "found only {} spec files", files.len());

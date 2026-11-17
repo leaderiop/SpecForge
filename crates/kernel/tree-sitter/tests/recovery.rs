@@ -10,6 +10,9 @@ use std::path::{Path, PathBuf};
 use tree_sitter::{Node, Parser, Tree};
 use tree_sitter_specforge::{LANGUAGE, kind};
 
+/// The pre-swap root spec, frozen as a corpus (ADR 0374 D8): the old kinds' bodies the grammar resumes after.
+const OLD_SPEC: &str = "fixtures/old-spec/spec";
+
 fn parse(source: &str) -> Tree {
     let mut parser = Parser::new();
     parser.set_language(&LANGUAGE.into()).unwrap();
@@ -185,7 +188,7 @@ fn indented_forms_end_an_unclosed_body() {
 fn the_grammar_resumes_after_every_unclosed_body_of_the_corpora() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    for corpus in ["spec", "integrations/rust/spec", "examples"] {
+    for corpus in [OLD_SPEC, "integrations/rust/spec", "examples"] {
         spec_files(&root.join(corpus), &mut files);
     }
     assert!(files.len() > 150, "found only {} spec files", files.len());
@@ -237,7 +240,7 @@ fn the_grammar_resumes_after_every_unclosed_body_of_the_corpora() {
 fn the_grammar_resumes_after_every_half_typed_body_of_the_corpora() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    for corpus in ["spec", "integrations/rust/spec", "examples"] {
+    for corpus in [OLD_SPEC, "integrations/rust/spec", "examples"] {
         spec_files(&root.join(corpus), &mut files);
     }
     let mut lost = Vec::new();

@@ -127,8 +127,9 @@ fn an_unscoped_project_keeps_each_id_its_name_and_each_edge_its_written_text() {
                 }
             }
         }
+        // The pre-swap root spec, frozen (ADR 0374 D8), is the one project the old builtins compile.
         specs
-            .entry(path.starts_with(root.join("spec")))
+            .entry(path.starts_with(root.join("fixtures/old-spec/spec")))
             .or_default()
             .push(file.clone());
         check(&project, vec![file]);

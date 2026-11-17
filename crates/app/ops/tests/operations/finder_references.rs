@@ -45,7 +45,8 @@ fn the_finders_holders_are_the_graphs_edges_over_the_repositorys_spec() {
 
     use specforge_ops::read::navigate::Direction;
 
-    let spec = specforge_repo_root::repo_root().join("spec");
+    // The pre-swap root spec, frozen as a corpus (ADR 0374 D8), under the builtins it loaded.
+    let spec = specforge_repo_root::repo_root().join("fixtures/old-spec/spec");
     let mut paths = Vec::new();
     collect(&spec, &mut paths);
     let texts: Vec<(String, String)> = paths

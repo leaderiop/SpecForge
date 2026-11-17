@@ -87,8 +87,8 @@ fn exports_called(runtime: &InProcessRuntime) -> Vec<String> {
     runtime.calls().into_iter().map(|c| c.export).collect()
 }
 
-/// Copy `from` (a spec root) into `to`, prefixing each `.spec` without a header with an old one; the number of files
-/// prefixed.
+/// Copy the `.spec` files under `from` into `to`, prefixing each one without a header with an old one; the number of
+/// files prefixed.
 fn copy_at_old_format(from: &Path, to: &Path) -> usize {
     let mut prefixed = 0;
     for entry in std::fs::read_dir(from).unwrap() {
@@ -115,17 +115,17 @@ fn copy_at_old_format(from: &Path, to: &Path) -> usize {
     invariant = "migration_semantic_preservation",
     verify = "migration that only changes formatting preserves graph structure"
 )]
-fn a_header_only_migration_of_the_dogfood_spec_keeps_its_graph() {
-    let repo = specforge_repo_root::repo_root();
+fn a_header_only_migration_of_the_frozen_spec_keeps_its_graph() {
+    // The pre-swap root project, frozen as a corpus (ADR 0374 D8): its project file and its spec.
+    let frozen = specforge_repo_root::repo_root().join("fixtures/old-spec");
     let dir = tempfile::TempDir::new().unwrap();
     std::fs::copy(
-        repo.join("specforge.json"),
+        frozen.join("specforge.json"),
         dir.path().join("specforge.json"),
     )
     .unwrap();
-    std::fs::create_dir_all(dir.path().join("spec")).unwrap();
-    let files = copy_at_old_format(&repo.join("spec"), &dir.path().join("spec"));
-    assert!(files > 100, "the corpus is the dogfood spec: {files}");
+    let files = copy_at_old_format(&frozen, dir.path());
+    assert!(files > 100, "the corpus is the frozen spec: {files}");
     let runtime = specforge_project::testing::component_runtime();
 
     let outcome = run(

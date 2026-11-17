@@ -316,7 +316,7 @@ fn a_form_indented_like_the_open_one_ends_it() {
 fn every_top_level_form_of_the_corpora_ends_an_unclosed_body() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    for corpus in ["spec", "integrations/rust/spec", "examples"] {
+    for corpus in [crate::OLD_SPEC, "integrations/rust/spec", "examples"] {
         crate::spec_files(&root.join(corpus), &mut files);
     }
     assert!(files.len() > 150, "found only {} spec files", files.len());

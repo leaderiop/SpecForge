@@ -10,6 +10,10 @@ use specforge_test_macros::test as specforge_test;
 use std::path::{Path, PathBuf};
 use tree_sitter_specforge::kind;
 
+/// The pre-swap root spec, frozen as a corpus (ADR 0374 D8): the old kinds' syntax these tests hold the lexer and
+/// the grammar to, which the live spec no longer writes.
+pub(crate) const OLD_SPEC: &str = "fixtures/old-spec/spec";
+
 /// The `.spec` files under `dir`, recursively.
 pub(crate) fn spec_files(dir: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
@@ -73,7 +77,7 @@ pub(crate) fn grammar_leaves(
 fn lexer_agrees_with_the_grammar() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    spec_files(&root.join("spec"), &mut files);
+    spec_files(&root.join(OLD_SPEC), &mut files);
     assert!(files.len() > 150, "found only {} spec files", files.len());
     for corpus in ["integrations/rust/spec", "examples"] {
         spec_files(&root.join(corpus), &mut files);
@@ -431,7 +435,7 @@ fn form_start_lines() {
 fn form_starts_are_the_grammars_top_level_nodes() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    for corpus in ["spec", "integrations/rust/spec", "examples"] {
+    for corpus in [OLD_SPEC, "integrations/rust/spec", "examples"] {
         spec_files(&root.join(corpus), &mut files);
     }
     files.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/lexemes.spec"));
@@ -526,7 +530,7 @@ fn grammar_ends_a_body_at(parser: &mut tree_sitter::Parser, line: &str) -> bool 
 fn the_grammars_scanner_reads_form_starts_as_the_lexer_does() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    for corpus in ["spec", "integrations/rust/spec", "examples"] {
+    for corpus in [OLD_SPEC, "integrations/rust/spec", "examples"] {
         spec_files(&root.join(corpus), &mut files);
     }
     files.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/lexemes.spec"));
@@ -607,7 +611,7 @@ fn the_grammars_scanner_reads_form_starts_as_the_lexer_does() {
 fn a_documents_form_starts_are_its_top_level_nodes() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    for corpus in ["spec", "integrations/rust/spec", "examples"] {
+    for corpus in [OLD_SPEC, "integrations/rust/spec", "examples"] {
         spec_files(&root.join(corpus), &mut files);
     }
     assert!(files.len() > 150);

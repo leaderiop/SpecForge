@@ -313,9 +313,10 @@ fn product_declares_the_commands_its_cli_surface_specifies() {
         .map(|c| c["export"].as_str().unwrap().to_string())
         .collect();
     declared.sort();
-    // Each surface behavior in surfaces-cli.spec names its export once.
+    // Each surface behavior in surfaces-cli.spec, frozen with the pre-swap spec (ADR 0374 D8), names its export once.
     let spec = std::fs::read_to_string(
-        specforge_repo_root::repo_root().join("spec/extensions/product/surfaces-cli.spec"),
+        specforge_repo_root::repo_root()
+            .join("fixtures/old-spec/spec/extensions/product/surfaces-cli.spec"),
     )
     .unwrap();
     let mut specified: Vec<String> = spec
