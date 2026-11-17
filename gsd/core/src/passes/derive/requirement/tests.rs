@@ -2,7 +2,8 @@ use serde_json::json;
 
 use super::*;
 
-/// R1, which no plan lists, and R2, which plan 01-01 lists, whose task T1 a commit names and a passing test names.
+/// R1, which no plan lists (so it reads its tests alone, and no test names it), and R2, which plan 01-01 lists, whose
+/// task T1 a commit names and a passing test names.
 fn project() -> PassInput {
     let value = json!({
         "entities": [
@@ -38,7 +39,7 @@ fn every_requirement_gets_its_proof() {
     let proofs = proofs(&input, &commits);
     assert_eq!(
         proofs,
-        BTreeMap::from([("R1", Proof::NoTask), ("R2", Proof::Proven)])
+        BTreeMap::from([("R1", Proof::NoTest), ("R2", Proof::Proven)])
     );
     let written: Vec<(String, String, serde_json::Value)> = values(&input, &proofs)
         .into_iter()
@@ -47,7 +48,7 @@ fn every_requirement_gets_its_proof() {
     assert_eq!(
         written,
         [
-            ("R1".to_string(), "proof".to_string(), json!("no_task")),
+            ("R1".to_string(), "proof".to_string(), json!("no_test")),
             ("R2".to_string(), "proof".to_string(), json!("proven")),
         ]
     );

@@ -384,19 +384,131 @@ fn proved(requirement: &str, status: TestStatus) -> (PassInput, Vec<Commit>) {
     (input, commits)
 }
 
-#[test]
-fn a_requirement_no_plan_names_has_no_task() {
-    let (mut input, commits) = traced("auto", true, &[(TASK, TestStatus::Passed)]);
-    input.edges.retain(|e| e.label != "requirements");
-    assert_eq!(requirement_proof(&input, &commits, "R1"), Proof::NoTask);
-    // A phase that lists the requirement is no task's plan.
+/// Pushes onto `input` an entity `id` of `kind` whose `requirement` is `requirement` and whose `checks` hold one row
+/// with the `ref` `reference`: a summary's coverage item when `kind` is `deliverable`.
+fn cover(input: &mut PassInput, kind: &str, id: &str, requirement: &str, reference: &str) {
+    input.entities.push(
+        serde_json::from_value(json!({
+            "id": id, "kind": kind, "fields": { "requirement": requirement },
+            "values": { "checks": [{ "kind": "unit", "ref": reference }] },
+        }))
+        .expect("an entity"),
+    );
     input.edges.push(PassEdge {
-        source: "v1.0/01".to_string(),
-        target: "R1".to_string(),
-        label: "requirements".to_string(),
+        source: id.to_string(),
+        target: requirement.to_string(),
+        label: "requirement".to_string(),
     });
-    assert_eq!(requirement_proof(&input, &commits, "R1"), Proof::NoTask);
+}
+
+const D1: &str = "v1.0/01/01-01/01-01-SUMMARY/D1";
+const ADDS_REF: &str = "test/tasks.test.js#adds";
+
+/// [`traced`] with a committed task, the test fact `adds` of `status` that names nothing, and a coverage item of
+/// R1 whose check names it.
+fn covered(status: TestStatus) -> (PassInput, Vec<Commit>) {
+    let (mut input, commits) = traced("auto", true, &[]);
+    add_test(&mut input, ADDS, "adds", FILE, status, &[]);
+    cover(&mut input, "deliverable", D1, "R1", ADDS_REF);
+    (input, commits)
+}
+
+#[test]
+fn a_passing_test_a_coverage_check_names_proves_a_listed_requirement() {
+    assert_eq!(proof_of(&covered(TestStatus::Passed)), Proof::Proven);
+}
+
+#[test]
+fn a_failed_coverage_check_fails_the_requirement() {
+    assert_eq!(proof_of(&covered(TestStatus::Failed)), Proof::Failed);
+}
+
+#[test]
+fn a_coverage_check_that_names_no_fact_proves_nothing() {
+    let (mut input, commits) = traced("auto", true, &[]);
+    add_test(&mut input, ADDS, "adds", FILE, TestStatus::Passed, &[]);
+    cover(
+        &mut input,
+        "deliverable",
+        D1,
+        "R1",
+        "test/tasks.test.js#gone",
+    );
+    assert_eq!(requirement_proof(&input, &commits, "R1"), Proof::NoTest);
+}
+
+#[test]
+fn only_a_deliverable_brings_its_checks() {
+    for kind in ["validation_row", "manual_check", "spec_prohibition"] {
+        let (mut input, commits) = traced("auto", true, &[]);
+        add_test(&mut input, ADDS, "adds", FILE, TestStatus::Passed, &[]);
+        cover(&mut input, kind, "v1.0/01/x/X1", "R1", ADDS_REF);
+        assert_eq!(
+            requirement_proof(&input, &commits, "R1"),
+            Proof::NoTest,
+            "{kind}"
+        );
+        assert!(Thread::of(&input).coverage("R1").is_empty(), "{kind}");
+    }
+}
+
+/// R1, listed by the phase `v1.0/01` and by no plan, with `tests` as test facts `(entity it names, status)`.
+fn unlisted(tests: &[(&str, TestStatus)]) -> PassInput {
+    let value = json!({ "entities": [
+        { "id": "R1", "kind": "requirement", "fields": { "text": "a task is added" } },
+        { "id": "v1.0/01", "kind": "phase", "values": { "requirements": ["R1"] } },
+    ], "edges": [] });
+    let mut input: PassInput =
+        serde_json::from_value(crate::passes::plans::with_field_edges(value))
+            .expect("a pass input");
+    for (n, (entity, status)) in tests.iter().enumerate() {
+        let id = format!("js:app/test/t.test.js#t{n}");
+        add_test(
+            &mut input,
+            &id,
+            &format!("t{n}"),
+            "test/t.test.js",
+            *status,
+            &[entity],
+        );
+    }
+    input
+}
+
+#[test]
+fn a_requirement_no_plan_lists_reads_its_tests_alone() {
+    let proof = |input: &PassInput| requirement_proof(input, &[], "R1");
+    // A phase's `requirements` lists it: no plan does, so no task is looked for.
+    assert!(requirement_tasks(&unlisted(&[]), "R1").is_empty());
+    assert_eq!(proof(&unlisted(&[])), Proof::NotRun);
+    assert_eq!(
+        proof(&unlisted(&[("T9", TestStatus::Passed)])),
+        Proof::NoTest
+    );
+    assert_eq!(
+        proof(&unlisted(&[("R1", TestStatus::Passed)])),
+        Proof::Proven
+    );
+    assert_eq!(
+        proof(&unlisted(&[("R1", TestStatus::Failed)])),
+        Proof::Failed
+    );
+    let mut input = unlisted(&[("T9", TestStatus::Passed)]);
+    add_test(&mut input, ADDS, "adds", FILE, TestStatus::Failed, &[]);
+    cover(&mut input, "deliverable", D1, "R1", ADDS_REF);
+    assert_eq!(proof(&input), Proof::Failed);
+}
+
+#[test]
+fn a_requirement_a_plan_lists_with_no_task_is_no_task() {
+    let (mut input, commits) = traced("auto", true, &[("R1", TestStatus::Passed)]);
+    input.entities.retain(|e| e.kind != "task");
+    input
+        .edges
+        .retain(|e| !(e.label == "plan" && e.source == TASK));
     assert!(requirement_tasks(&input, "R1").is_empty());
+    // A passing test that names the requirement does not stand in for the plan's missing task.
+    assert_eq!(requirement_proof(&input, &commits, "R1"), Proof::NoTask);
 }
 
 #[test]

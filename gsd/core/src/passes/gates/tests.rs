@@ -393,9 +393,9 @@ fn e515_names_the_first_missing_link_of_the_proof() {
         // The derive pass writes a proof for every requirement: none reads as a thread with no task.
         (None, "no task of its plans"),
         (Some("no_commit"), "no commit of its tasks"),
-        (Some("not_run"), "no passing test of its tasks"),
-        (Some("no_test"), "no passing test of its tasks"),
-        (Some("failed"), "no passing test of its tasks"),
+        (Some("not_run"), "no passing test"),
+        (Some("no_test"), "no passing test"),
+        (Some("failed"), "no passing test"),
     ] {
         let refused = e515(&traced(Some("v1.0/01"), "complete", proof));
         assert_eq!(codes(refused.clone()), ["E515"], "{proof:?}");

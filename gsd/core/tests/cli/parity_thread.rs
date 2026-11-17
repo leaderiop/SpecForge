@@ -263,14 +263,16 @@ fn the_requirements_proof_follows_its_thread() {
     let proof = |p: &Project, id: &str| p.fields_of(id)["proof"].clone();
     let p = taskboard();
     assert_eq!(proof(&p, "TASK-01"), "no_commit");
-    // v2's SYNC-01 is listed by no plan.
-    assert_eq!(proof(&p, "SYNC-01"), "no_task");
+    // No plan lists v2's SYNC-01: it reads its tests alone, and no test fact is collected yet.
+    assert_eq!(proof(&p, "SYNC-01"), "not_run");
     let (p, _) = thread_twin();
     succeeds(&p.collect(&["--runner", "gsd-git"]));
     assert_eq!(proof(&p, "TASK-01"), "not_run");
     let (p, _) = collected_thread();
     assert_eq!(proof(&p, "TASK-01"), "proven");
     assert_eq!(proof(&p, "TASK-02"), "no_commit");
+    // Test facts are collected, and none names SYNC-01 or is named by a check of its coverage.
+    assert_eq!(proof(&p, "SYNC-01"), "no_test");
     fail_the_first_test(&p);
     assert_eq!(proof(&p, "TASK-01"), "failed");
 }

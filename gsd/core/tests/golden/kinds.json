@@ -1460,7 +1460,7 @@
           },
           {
             "default_value": null,
-            "description": "how far its thread reaches: a task of its plans, a commit of one, a passing test; `proven` when whole",
+            "description": "how far its thread reaches: a task of its plans, a commit of one, a passing test (tagged with the task or the requirement, named in a truth's `proof`, or named by a check of its coverage item); `proven` when whole. A requirement no plan lists reads its tests alone",
             "edge": null,
             "enum_values": [
               "no_task",

@@ -88,7 +88,9 @@ pub const REQUIREMENT: Kind = Kind::new(
             "the code items the tasks of its plans name, held or not: sorted, each once; absent when none",
         ),
         en("proof", PROOF_STATES).c().doc(
-            "how far its thread reaches: a task of its plans, a commit of one, a passing test; `proven` when whole",
+            "how far its thread reaches: a task of its plans, a commit of one, a passing test (tagged with the task or \
+             the requirement, named in a truth's `proof`, or named by a check of its coverage item); `proven` when \
+             whole. A requirement no plan lists reads its tests alone",
         ),
         ens("shapes", super::spec::SHAPES)
             .doc("upstream's authored shapes override; an empty list proposes no edge"),
