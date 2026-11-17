@@ -1,0 +1,504 @@
+// Validation behaviors — core graph validation rules
+
+use "events/compilation"
+use "invariants/core"
+use "invariants/validation"
+use "invariants/zero-entity-core"
+use "ports/outbound"
+use "types/core"
+use "types/diagnostics"
+use "types/errors"
+use "types/graph"
+use "types/zero-entity-core"
+
+defaults behavior {
+  features [structural_validation]
+  types    [Diagnostic]
+}
+
+behavior detect_dangling_references "Detect Dangling References" {
+  invariants [
+    reference_resolution_completeness,
+    diagnostic_determinism,
+    validation_pipeline_ordering,
+  ]
+  category   validation
+  types      [Diagnostic, EntityId, ValidationCode, Severity, ValidationError, Graph, Edge]
+  consumes   [graph_built]
+  // Diagnostics from this validator flow into the declarative_validation_executed
+  // aggregate and ultimately to validation_complete. No separate event produced.
+  requires {
+    graph_built_fired "graph_built event has fired, confirming the in-memory graph is fully constructed"
+  }
+  ensures {
+    resolver_integrity_verified "Every reference list entry naming an existing entity has its graph edge after every link, cold or incremental"
+    no_duplicate_diagnostics    "A reference to a missing entity is the linker's E003 alone; nothing reports it again"
+  }
+  contract   """
+    This behavior is the linker's postcondition, not a check a user
+    sees. After every link (the cold build's and every incremental
+    update's), each entry of a reference list that names an existing
+    entity MUST have its graph edge, labeled with the field. A build with
+    debug assertions MUST fail on a reference without its edge: that is
+    a SpecForge bug, never a spec error. A reference to a missing entity
+    is E003, emitted once by the linker. E060, which reported the bug as
+    a diagnostic, is retired.
+  """
+  verify unit "a reference to an existing entity without its edge fails the linker's assertion"
+  verify unit "reference with corresponding graph edge passes"
+  verify unit "an empty graph passes the linker's assertion"
+  verify contract "Detect Dangling References: dangling reference detection holds — graph_built_fired, resolver_integrity_verified, no_duplicate_diagnostics"
+}
+
+behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
+  invariants [string_interning_consistency, entity_id_uniqueness]
+  category   validation
+  types      [Diagnostic, DuplicateIdError]
+  consumes   [all_files_parsed]
+  // Diagnostics from this validator flow into the declarative_validation_executed
+  // aggregate and ultimately to validation_complete. No separate event produced.
+  requires {
+    all_files_parsed "all_files_parsed event has fired, confirming every .spec file is parsed and entity IDs collected"
+  }
+  ensures {
+    duplicate_ids_diagnosed "Every duplicate entity ID has an E002 diagnostic emitted naming both declaration sites"
+  }
+  contract   """
+    The validator MUST detect entity names declared more than once in one
+    scope across all .spec files; the same name in two scopes is two
+    entities. Duplicates MUST produce an E002 diagnostic that names both
+    declaration sites (file, line, column). A fact id two fact stores hold
+    is E117 instead, naming both collectors and both stores: the first is
+    served (ADR 0346 D5).
+  """
+  verify unit "duplicate ID in same file produces E002"
+  verify unit "duplicate ID across files produces E002"
+  verify unit "E002 includes both source locations"
+  verify unit "a project with no scoped kind keeps each id its name, each edge its written text, and E002 and W060 on the same declarations"
+  verify unit "a name repeated in another scope is another entity with another path"
+  verify unit "a name repeated in one scope is E002 naming the path, or W060 for another kind, and a second spec block stays E002"
+  verify unit "an entity that writes no scope field is in the project scope"
+  verify unit "a fact id two stores hold is E117 naming both collectors, not E002"
+  verify contract "Detect Duplicate Entity IDs: duplicate entity ID detection holds — all_files_parsed, duplicate_ids_diagnosed"
+}
+
+behavior require_block_titles "Require Block Titles" {
+  invariants [entity_id_uniqueness]
+  category   validation
+  consumes   [all_files_parsed]
+  contract   """
+    The graph build MUST report E076 for every block that becomes a node
+    and has no title, or a blank one: entity blocks, unions, spec and ref.
+    A define block is never a node (W143) and needs none. The block MUST
+    still be placed in the graph, so hover, completion and navigation keep
+    working while it is typed. The check needs no extension and names no
+    kind; it follows the file in an incremental build. Its help names
+    specforge migrate exactly where the titles step writes the title: every
+    block it reports but a spec block, whose help says to write its name. Whether a block owes
+    a title is one answer of the graph (`title::owes_title`), which the titles
+    step, its judge and the typed create and retitle ask.
+  """
+  verify unit "a block with no title or a blank one is E076 and is still placed"
+  verify unit "an untitled union is E076"
+  verify unit "define, spec and ref blocks are not E076"
+  verify unit "E076 needs no extension and follows the file in an incremental build"
+  verify unit "E076 is reported exactly for the blocks the title rule says owe one"
+  verify unit "E076 names specforge migrate exactly where migrate writes the title"
+}
+
+// ── Domain-Specific Validation ──────────────────────────────
+// Domain-specific validations (unreferenced entity checks, unused reference
+// warnings, unverified entity warnings, trigger consistency checks, etc.)
+// are declared as ValidationRulePatterns in extension manifests and are
+// defined in their owning extension directories:
+//   - spec/extensions/software/validation-rules.spec
+//   - spec/extensions/product/validation-rules.spec
+//   - spec/extensions/governance/validation-rules.spec
+// The core compiler executes these patterns generically via the declarative
+// validation engine (see behaviors/zero-entity-core.spec).
+// Diagnostic codes (W001, W003, W004, W007, etc.) are defined by
+// their owning extensions, not by the core compiler.
+
+// ── Structural Validation (core — domain-agnostic) ───────────
+// DiagnosticBag accumulator pattern: core structural validators do not emit
+// individual diagnostic events. Instead, each validator appends Diagnostic
+// values into a shared DiagnosticBag. After all structural validators have
+// run, the bag is drained into the declarative_validation_executed aggregate
+// and forwarded to validation_complete. This avoids O(n) event fan-out for
+// large graphs and lets the pipeline batch diagnostics for deterministic
+// ordering (see diagnostic_determinism invariant).
+// Core structural validations operate on graph topology and field presence
+// WITHOUT knowledge of entity semantics. They check: dangling references,
+// duplicate IDs, import cycles, unreferenced structural nodes (W012 for any
+// grammar-level structural kind — ref, spec — with zero incoming edges),
+// (a file a field names is a value check's: @specforge/checks). Extension-defined entity kinds opt into
+// generic unreferenced detection via extension-defined `no_incoming_edges`
+// ValidationRulePatterns. Domain-specific unreferenced rules (e.g., W001 unreferenced
+// entity) are extension-defined ValidationRulePatterns.
+
+behavior detect_unreferenced_refs "Detect Unreferenced Refs" {
+  invariants [
+    reference_resolution_completeness,
+    diagnostic_determinism,
+    validation_pipeline_ordering,
+  ]
+  category   validation
+  types      [Diagnostic, EntityId, Graph]
+  consumes   [graph_built]
+  // Diagnostics from this validator flow into the declarative_validation_executed
+  // aggregate and ultimately to validation_complete. No separate event produced.
+  // H1: ref and spec are grammar-level structural constructs — parsed by the
+  // core grammar (like `use` and `define`), NOT extension-defined entity kinds.
+  // Because they are structural, their unreferenced detection belongs in core, not in
+  // extension manifests. Extension-defined entity kinds that want unreferenced
+  // detection declare a `no_incoming_edges` ValidationRulePattern in their
+  // extension manifest, which the declarative validation engine handles
+  // separately.
+  requires {
+    graph_built_fired "graph_built event has fired, confirming the in-memory graph is fully constructed with all edges"
+  }
+  ensures {
+    unreferenced_detected  "Every ref with zero incoming edges produces a W012 warning; a spec block, the root container, does not"
+    referenced_nodes_clean "Structural nodes with at least one incoming edge produce no warning"
+  }
+  contract   """
+    The registry build's checks MUST report every ref entity that has
+    zero incoming edges in the compiled graph as a W012 warning
+    identifying the unreferenced node. A spec block is the project's
+    root container: nothing references it, and it produces no W012.
+
+    This is a generic structural check applied uniformly to all
+    grammar-level structural kinds — it does not encode domain
+    knowledge about any specific kind. The set of structural kinds is
+    defined by the grammar (currently ref and spec), not by
+    extensions.
+
+    Extension-defined entity kinds that want generic unreferenced detection
+    declare a `no_incoming_edges` ValidationRulePattern in their
+    extension manifest, which the declarative validation engine
+    handles separately.
+  """
+  verify unit "unreferenced ref produces W012"
+  verify unit "referenced ref suppresses W012"
+  verify unit "unreferenced structural node of any grammar-level kind produces W012"
+  verify unit "structural node with at least one incoming edge suppresses W012"
+  verify contract "Detect Unreferenced Refs: unreferenced ref detection holds — graph_built_fired, unreferenced_detected, referenced_nodes_clean"
+  verify unit "spec block is a root container and does not produce W012"
+}
+
+// W017 (testable kind without verify support) is registry_build_kinds, in behaviors/zero-entity-registries.spec.
+
+// -- The Prove Pass ------------------------------------------------------------
+
+behavior prove_declared_bounds_and_claims "Prove Declared Bounds and Claims" {
+  invariants [diagnostic_determinism]
+  category   validation
+  types      [Diagnostic, ProofRole, FieldDescriptor, SolveFailure]
+  ports      [SmtSolver]
+  requires {
+    roles_declared "the fields the pass reads carry a proof role their extension declared (ADR 0009)"
+  }
+  ensures {
+    bounds_consistent "contradictory declared bounds are E046 citing every bound of the unsat core"
+    claims_checked    "an entailed claim is a proved claim; a claim not entailed is W139 with a counterexample"
+    one_warning       "a solver that does not run is one W098, worded where its adapter is"
+    bounded           "every call to the solver ends at its timeout"
+  }
+  contract   """
+    specforge analyze --prove runs the prove pass before the other passes
+    and reports it last. It asks the SMT solver once whether it runs here.
+    When it does not, the pass reports one W098 saying why (not on PATH, or
+    what `z3 --version` did), solves nothing, and its summary's solver is
+    null; specforge doctor states the same W098, word for word, as its
+    toolchain finding. When it runs, every bound's parseable lines are
+    asserted together: unsat is E046 citing every bound of the unsat core.
+    Each claim is checked as bounds and not claim: unsat proves it (a proved
+    claim, which the extension passes then receive), sat is W139 with a
+    counterexample rendered in the declared units, anything else is I098.
+    Every call to the solver ends at its timeout (the probe at 5 seconds, a
+    solve at --prove-timeout, 30 seconds by default), even when the solver
+    leaves a child process; a solve that timed out or failed is W098 and the
+    checks it did not answer are skipped. --prove-timeout without --prove is
+    a usage error. Without --prove, and always over MCP, no prove pass runs
+    and the extension passes receive no proved claims.
+  """
+  verify unit "contradictory declared bounds are E046 citing every bound of the unsat core"
+  verify unit "a claim the bounds do not entail is W139 with a counterexample in the declared units"
+  verify unit "a claim the bounds entail reaches the extension passes as a proved claim"
+  verify unit "a solver that does not run is one W098, the finding doctor states, and nothing is solved"
+  verify unit "a solver that times out or fails mid-run is W098 and the checks it did not answer are skipped"
+  verify unit "a solver call ends at its timeout, even when the solver leaves a child process"
+  verify integration "specforge analyze --prove-timeout sets the solver's timeout and needs --prove"
+}
+
+// -- The Contracts Pass --------------------------------------------------------
+
+behavior report_entities_without_contract_obligations "Report Entities Without Contract Obligations" {
+  invariants [diagnostic_determinism]
+  category   validation
+  requires {
+    contract_targets_declared "an extension declares which kinds are contract targets (contract_target)"
+  }
+  ensures {
+    unconstrained_reported "each entity of a contract-bearing kind that references no contract target is one A010"
+    counted                "the summary counts the contract entities, the unconstrained ones and the references"
+  }
+  contract   """
+    specforge analyze contracts runs the host's one built-in pass. A
+    contract-bearing kind is one with a reference field whose target kind an
+    extension declares a contract target. Each entity of such a kind that
+    references nothing in any of those fields (a list item or a single
+    reference) is one A010, an info, at the
+    entity's span; its suggestion names the kind's contract fields, sorted.
+    The summary counts contract_entities (entities with at least one such
+    reference), unconstrained_entities and obligation_references (the
+    non-empty contract fields). Entities are visited in ID order.
+  """
+  verify unit "an entity of a contract-bearing kind that references no contract target is A010, an info"
+  verify unit "a single contract reference is a contract obligation"
+  verify unit "the contracts pass's suggestion names the kind's contract fields, sorted"
+}
+
+behavior read_git_baseline "Read the Git Baseline" {
+  features [ci_integration]
+  category validation
+  ports    [FileSystem, Git]
+  requires {
+    history_declared "an immutable or append-only field, an append-only kind, or a pass naming a baseline kind is loaded"
+  }
+  ensures {
+    declared_only "git is never run, and no ref or ledger is a check input, unless something declares history"
+    same_without  "a project that declares no history reports the same inside and outside a repository"
+  }
+  contract """
+    History is the git baseline (ADR 0287): HEAD, or under check --since the merge-base of the revision and HEAD,
+    compiled in the current environment. It is read only when something declares history, so a project that declares
+    none runs no process and watches no ref.
+    A compute pass that declares reads reads the files the commit holds: what exists comes from the commit's tree, the
+    bytes of the files its reads name are fetched once (their size is asked first, so a file over the cap is never
+    fetched), and a link, a submodule or a file git cannot give is unreadable, never absent (ADR 0300).
+    The repository is located as git locates it: a search from below a GIT_CEILING_DIRECTORIES entry never reads the
+    ceiling nor above it, and a GIT_DIR or GIT_WORK_TREE naming another repository than the one the directory is in
+    is refused, never followed nor ignored (ADR 0352).
+  """
+  produces []
+  verify unit "a project that declares no history reads no git and watches no ref and no ledger"
+  verify unit "check reports the same inside and outside a git repository when nothing declares history"
+  verify unit "no history is I204 only when history is declared"
+  verify unit "an unreadable baseline is W164 and nothing is judged"
+  verify unit "the baseline is cached by commit, environment and the journal answers its checks read"
+  verify unit "history reads the commits files through a port"
+  verify unit "history reads named files at a commit in one question"
+  verify unit "history reads only the specs and the ledger of a commit"
+  verify unit "a compute pass at the baseline reads the commit's files"
+  verify unit "a glob read at the baseline lists the commit's tree"
+  verify unit "the baseline reads a source file through git, and a link at the commit is unreadable"
+  verify unit "history lists a commit's tree with no content and no size"
+  verify unit "history gives the sizes of the named files, and a missing blob is not fetched"
+  verify unit "git refuses a project directory that is not valid UTF-8"
+  verify unit "a search from below a git ceiling directory never reads the ceiling nor above it"
+  verify unit "a GIT_DIR or GIT_WORK_TREE naming another repository than the one a directory is in is refused"
+  verify unit "a baseline git could not fully read is used and not cached, and a tree error is not cached"
+  verify unit "a baseline whose listed file git then gives no bytes for is not cached"
+  verify unit "a cached baseline is compiled again once a journal record its checks read answers otherwise"
+  verify unit "a file git can never be asked for is permanently unreadable and the baseline is cached"
+  verify unit "a spec a compute pass reads at the baseline is not asked of git again"
+  verify unit "a project in a subdirectory of the repository reads its own files at the baseline"
+  verify unit "a path only a computed value names is read in a later run, and a short answer ends the loop"
+  verify unit "a baseline asks for the commit's tree only when a compute pass reads, and runs each compute pass once"
+  verify unit "a file git cannot give or a file over the cap is not absent at the baseline"
+  verify unit "check since judges history against the merge-base and refuses an unknown revision"
+  verify integration "check since reads history with no git program on PATH"
+  verify unit "validate since judges per request"
+}
+
+behavior judge_field_history "Judge Field History" {
+  category validation
+  requires {
+    registries_populated_fired "the field registry holds each field's declared writer and history flags"
+  }
+  ensures {
+    flags_declared "only an extension that declares a writer, immutable or append_only flag is judged by it"
+  }
+  contract """
+    A field declares who writes it (writer: computed or harness) and its history (immutable, append_only); a kind may
+    be append-only (ADR 0287). The builtins declare none, so their projects see no new diagnostic.
+  """
+  produces []
+  verify unit "no builtin or pinned example declaration declares a writer other than a collected kind's, an immutable or append-only flag, a baseline or computes"
+  verify unit "a field declares its writer and history, and the registry refuses a contradiction with W021"
+  verify unit "a kind is append-only and a pass computes fields and names the baseline it reads, or W021"
+  verify unit "a kind and a field may be human-only and a pass a guard, or W021"
+  verify unit "lifecycle_field is read and ignored: a kind that sends it loads without W138"
+  verify unit "an immutable value that differs from its baseline is E084"
+  verify unit "an immutable field unset at the baseline may be set once"
+  verify unit "an append-only list must extend its baseline"
+  verify unit "an append-only kind keeps its entities"
+  verify unit "a renamed scope is judged through its move record"
+  verify unit "a history flag that sits only on a block member is judged"
+  verify unit "a change inside a block of an append-only kind is one E084"
+  verify unit "a renumbering chain is judged through both move records at once"
+  verify unit "only a reference value is respelled by a move record"
+  verify unit "a file that does not parse is not judged against history"
+}
+
+behavior refuse_written_computed "Refuse a Written Computed Value" {
+  category validation
+  requires {
+    registries_populated_fired "the field registry holds each field's declared writer"
+  }
+  ensures {
+    e082_at_the_value  "a computed field or member written in a spec file is E082 at the written value, and the computed value wins"
+    typed_edit_refused "a typed edit of a computed, harness or immutable field is refused as E080 with that code"
+  }
+  contract """
+    A computed field is a compute pass's value and lives only in the compiled project (ADR 0287). Writing one in a
+    `.spec` file is E082, and a typed edit that would is refused as E080.
+  """
+  produces []
+  verify unit "a computed field written in a spec file is E082 at the value, and the computed value wins"
+  verify unit "a typed edit of a computed, harness or immutable field is refused"
+}
+
+behavior record_harness_values "Record Harness Values" {
+  features [ci_integration]
+  category validation
+  ports    [FileSystem]
+  requires {
+    harness_field_declared "a field declares writer harness"
+  }
+  ensures {
+    e083_without_line     "a harness value with no matching line in specforge-harness is E083"
+    ledger_read_leniently "a malformed line is W163 and ignored, and a ledger that is not canonical is I203"
+  }
+  contract """
+    A harness value is recorded by a line `<entity-path> <field> <sha256>` in the committed `specforge-harness`,
+    written only by a host write (ADR 0287). The digest is over the resolved value, so a rename's respelling does
+    not change it.
+  """
+  produces []
+  verify unit "the value digest reads the target of a reference, not its spelling"
+  verify unit "a harness value with no matching line in specforge-harness is E083"
+  verify unit "a context value with no matching line in specforge-harness is E083"
+  verify unit "a context writer round trips on the wire"
+  verify unit "the SDK declares a context field as the block of a context record"
+  verify unit "a context-written field is a block of route, digest and max_tokens, or it is W021 and its writer dropped"
+  verify unit "an entity digest leaves out a context-written value as it leaves out computed and verdict values"
+  verify unit "a malformed ledger line is W163 and ignored, and a bad header makes every harness value E083"
+  verify unit "a union-merged ledger reads, and is I203 once"
+  verify unit "a rename records its move and re-keys its lines"
+  verify unit "two writers both land their lines"
+  verify unit "a rename planned on an unchanged ledger re-keys a line another writer added"
+}
+
+behavior check_collected_kinds "Check Collected Kinds" {
+  features [ci_integration]
+  category validation
+  requires {
+    collected_kind_loaded "a loaded kind declares writer collector (ADR 0327)"
+  }
+  ensures {
+    e115_in_spec_file "an entity of a collected kind whose source is not a fact store is E115, at its block"
+    id_length_exempt  "a collected kind's ids are exempt from E014: their length is their tool's"
+  }
+  contract """
+    A kind its extension declares `writer: "collector"` has its entities from `specforge collect` only: they are
+    served from `.specforge/facts/<key>/<collector>.json` when `specforge-harness` records the store's digest. A
+    block of the kind in a spec file is E115 and is not a fact.
+  """
+  produces []
+  verify unit "an entity of a kind a collector writes, written in a spec file, is E115"
+}
+
+behavior check_field_values "Check Field Values" {
+  category   validation
+  invariants [validation_pipeline_ordering]
+  ports      [FileSystem]
+  consumes   [graph_built]
+  contract   """
+    Every value of a field that declares checks is given to its checkers. A checker
+    plans from the text alone, or names the effects it needs (probes) and judges what
+    they answered; its findings land on the value, under its extension's namespace.
+    What this machine did not perform is not judged, and nothing goes red for it.
+  """
+  verify unit "a pure checker's finding is on the list item it read"
+  verify unit "a finding's byte range points inside the quotes of the value"
+  verify unit "a code the checker did not declare is W150 and the finding is kept"
+  verify unit "a failing checker is E028 once per run and its values are not judged"
+  verify unit "any_of passes when one branch yields no error-level finding"
+  verify unit "a check on a block member reads each written item"
+  verify unit "a probe outside its checker's scopes is E090 and not performed"
+  verify unit "two values naming one URL make one request"
+  verify unit "a later check's probes are dropped after an earlier error"
+  verify unit "a value whose probe was not performed is not judged and counts toward I206"
+  verify unit "only the scopes these values use are asked for with W170"
+  verify unit "a dns probe runs through the Http port under its checker's scope"
+  verify unit "a file value that leaves its root is E094 on the value"
+  verify unit "a missing file suggests no name from outside its root"
+  verify unit "one extension's approval approves no other extension's request"
+  verify unit "a capability approved for another kind of call does not approve a check request"
+  verify unit "a redirect to a host outside the grant is refused on the checker's path"
+  verify unit "an answer read from the journal is the answer a live request gave"
+  verify unit "a git probe this machine cannot answer is not judged"
+  verify unit "a git probe asks the Git port and needs no journal"
+  verify unit "a file probe reads a held prefix, and a walk stays under its root"
+  verify unit "a suffix read serves a file's last bytes, where they start and the file's length"
+  verify unit "a 200 to a suffix request is sliced when small and range:ignored when large"
+  verify unit "a prefix and a suffix of one URL are two journal records"
+  verify unit "a second round reads the span the first named"
+  verify unit "a fourth round of probes is E028 naming the checker, and its value is not judged"
+  verify unit "a cached check replays every round without calling the guest"
+  verify unit "a POST query to a listed host is performed, kept to its capability's max_bytes, journaled by body and answered again"
+  verify unit "a POST query to a host only a value names is E090 and never sent"
+  verify unit "a checker asked again in a later run is not called"
+  verify unit "changed args miss the checker cache"
+  verify unit "changed settings miss the checker cache"
+  verify unit "a new blob digest misses the checker cache"
+  verify unit "a cold run reads the checker cache from disk"
+  verify unit "a detached project writes no checker cache"
+  verify unit "a record fetched with one extension's secret answers no other extension in any mode"
+  verify unit "a 401 one extension was answered does not answer another"
+  verify unit "a committed effect record or checker memo forges no pass"
+  verify unit "a checker whose when setting is off is not called and asks no scope"
+  verify unit "a spec root outside the project is an outside root a probe needs approval to read"
+  verify unit "what is over a run's budget is not run and counts toward I206 as budget"
+  verify unit "a judge call stays inside its guest's memory limit"
+  verify unit "an escape sequence in a probe's answer reaches a finding printable"
+  verify unit "a checker's memo read from disk reaches a finding printable"
+  verify unit "a spec string's escape reads no control character but a newline, a tab or a return"
+  verify unit "a redirect one extension's grant permits reaches no other extension without its own grant"
+}
+
+behavior check_values_by_owner_state "Check a Value When Its Owner Allows" {
+  category   validation
+  invariants [validation_pipeline_ordering]
+  ports      [FileSystem]
+  consumes   [graph_built]
+  contract   """
+    A field MAY declare checks_while (ADR 0350): complete, its checks wait until its
+    holder's owner is complete (a planned value), or pending, they run only while the
+    owner is pending (a while-open value). The registry MUST keep the gate only when
+    the field declares a check and its kind or a kind along its scoped_by chain declares
+    complete_when; any other gate is W199, dropped, and its checks run on every value.
+    Owner state MUST be read on the merged snapshot, after the compute passes, so a
+    computed status decides it. A value its owner holds back MUST call no checker: its
+    row says planned or closed, it counts toward neither I206 nor I207, and it is no
+    judged input. The planned values are counted once per compile in I213. Both stages
+    of the values phase share one budget. While its owner is pending, a planned path's
+    written form MUST still be read without the disk: an undeclared root is E095, an
+    absolute path or a climb out of its root E094, a backslash W175.
+  """
+  verify unit "an owner gate needs a check and a complete_when on its kind or a scope ancestor, else W199"
+  verify unit "a gate on a context-written field is kept with no declared check"
+  verify unit "a planned value's checks wait while its owner is pending, and its row says planned"
+  verify unit "a planned value is checked once its owner is complete, its computed state deciding"
+  verify unit "a kind with no complete_when follows its nearest scope ancestor's owner state"
+  verify unit "a value its owner holds back calls no checker"
+  verify unit "a while-open value is checked while its owner is pending, and its row says closed once it is complete"
+  verify unit "a gated value is no judged input, waiting or checked"
+  verify unit "a judged verdict over a gated value stays fresh when its owner completes"
+  verify unit "the values waiting for their owner are counted once in I213, by field, and never in I206 or I207"
+  verify unit "a gated value spends the compile's one value budget"
+  verify unit "a planned path that climbs out of its root is E094 while its owner is pending"
+  verify unit "a planned path naming an undeclared root is E095 while its owner is pending"
+}

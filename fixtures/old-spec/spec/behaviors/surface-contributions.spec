@@ -1,0 +1,419 @@
+// Surface contribution behaviors — CLI commands, MCP tools, MCP resources
+//
+// Extensions declare surface contributions in their manifest's `surfaces`
+// field. The registry build registers and checks them; the CLI and MCP
+// dispatch to the cmd__{id} and mcp__{name} exports. What the host cannot
+// check (export presence: a component guest routes every export through
+// one call) and what nothing configures (a per-contribution toggle) are
+// not specified (ADR 0011). On the guest side, an extension built with the
+// SDK declares each surface with its handler: the SDK derives the
+// `surfaces` payload and routes the exports from that one declaration, so
+// the guest routes every export it declares (ADR 0011, Adjustments).
+
+use "events/surface-contributions"
+use "events/wasm-extensions"
+use "invariants/mcp"
+use "invariants/surface"
+use "invariants/wasm"
+use "ports/inbound"
+use "ports/outbound"
+use "types/errors"
+use "types/mcp"
+use "types/surface"
+use "types/wasm"
+use "types/zero-entity-core"
+
+defaults behavior {
+  features [surface_contributions]
+}
+
+// ── Registration & Validation ───────────────────────────────
+
+behavior register_surface_contributions "Register Surface Contributions" {
+  invariants [surface_contribution_uniqueness]
+  category   command
+  types      [
+    ExtensionDeclaration,
+    SurfaceDescriptor,
+    CommandRoutes,
+    CommandRoute,
+    SurfaceType,
+    SurfaceError,
+  ]
+  consumes   [manifest_loaded]
+  requires {
+    manifest_loaded_fired "manifest_loaded event has fired, confirming extension manifests are parsed and available"
+  }
+  ensures {
+    all_surfaces_registered "Every CLI command is routed under its extension's short name and its CLI name (its id, `_` as `-`), the first in load then declaration order; every MCP tool and MCP resource is registered"
+    duplicates_detected     "A command routed under a name an earlier command has (one short name, one CLI name) runs on no surface and is E039 naming the command that has it; so is an MCP tool name or MCP resource name an earlier extension registered. One id under two short names is two names"
+    unparsed_fails_load     "A surfaces description that does not parse fails the extension's load with E028"
+  }
+  contract   """
+    When extension manifests are loaded, the compiler MUST parse the
+    surfaces field from each manifest, route every declared CLI command
+    under (the extension's short name, the command's CLI name) and
+    register its MCP tools and MCP resources (ADR 0097). A command routed
+    under a name an earlier command has, from another extension or the
+    same one, MUST run on no surface and produce E039, naming the command
+    that has the name; so MUST a duplicate MCP tool name or MCP resource
+    name across extensions. One command id under two short names is two
+    names, not a duplicate. An extension whose short name is a core
+    command's (`check`, `files`, `git`) and that declares commands or
+    prompts MUST produce E114: the CLI routes none of them, and MCP
+    still serves its commands.
+    Registration happens when the project's registries are built from
+    the manifests its extensions describe, before any surface export is
+    dispatched: surface contributions are declarative, like entity
+    kinds. A surfaces description that does not parse (an arg type
+    outside CommandArgType, a missing required field) MUST fail the
+    extension's load with E028, as any described category that does not
+    parse does: its surfaces are never silently dropped. The registry
+    build is pure; its diagnostics are its record, and it emits no event.
+  """
+  verify unit "commands parsed from manifest surfaces field"
+  verify unit "MCP tools parsed from manifest surfaces field"
+  verify unit "MCP resources parsed from manifest surfaces field"
+  verify unit "two extensions of one short name routing one CLI name produce E039"
+  verify unit "one command id under two short names is routed twice, with no E039"
+  verify unit "an SDK command prefix names the export, not the route"
+  verify unit "two command ids of one CLI name under one short name produce E039"
+  verify unit "one extension declaring one CLI name twice produces E039"
+  verify unit "duplicate MCP tool name across extensions produces E039"
+  verify unit "registration succeeds with no duplicates"
+  verify unit "an extension whose short name a core command has is E114, and MCP still serves its commands"
+  verify unit "a surfaces description that does not parse fails the extension's load"
+  verify unit "a prompt and a command of one route are E039, and the command is the one routed"
+  verify unit "a prompt declaration the registry refuses is W021 and the rest of the declaration is kept"
+  verify unit "a prompt the registry accepts is routed with its arguments, gates, steps and attribution, and no W021"
+  verify unit "a step's agent and an empty attribution are dropped alone, with a W021 each"
+  verify unit "a command whose gate the extension does not catalog, or whose subject is no arg, is W021 and not routed"
+  verify unit "two prompts of one route are E039 and the later is not routed"
+  verify unit "a prompt whose step names a command the registry dropped is dropped too, with a W021"
+  verify contract "Register Surface Contributions: surface contribution registration holds — manifest_loaded_fired, all_surfaces_registered, duplicates_detected, unparsed_fails_load"
+  verify unit "the registry refuses a second free-text tail and a tail that is not text, naming the arguments"
+  verify unit "a prompt argument may be named path or format, never host, argv, help, settings or secrets"
+  verify unit "an optional subject follows the required positional arguments"
+  verify unit "every setting a when names must be a bool setting of the extension"
+}
+
+behavior validate_mcp_tool_schemas "Validate MCP Tool Schemas" {
+  invariants [surface_schema_validity]
+  category   validation
+  types      [McpToolContribution, JsonSchema]
+  ensures {
+    malformed_refused "An explicit MCP tool whose input_schema or output_schema is not a JSON object produces E055 and is not registered"
+    wellformed_kept   "An explicit MCP tool whose schemas are JSON objects is registered"
+  }
+  contract   """
+    When the registries are built, every explicit MCP tool contribution
+    MUST have an input_schema that is a JSON object, and an output_schema,
+    when it declares one, that is a JSON object. A tool that does not MUST
+    produce E055 naming the tool, its extension and the schema, and MUST
+    NOT be registered, listed or dispatched. A tool's description is a
+    required field of its declaration. Command arg types need no check:
+    CommandArgType is closed, so an unknown one fails the surfaces
+    description's parse (register_surface_contributions).
+  """
+  verify unit "a tool whose input_schema is not a JSON object is E055 and not registered"
+  verify unit "a tool whose output_schema is not a JSON object is E055 and not registered"
+  verify unit "a tool whose schemas are JSON objects is registered"
+}
+
+// ── Auto-Promotion ──────────────────────────────────────────
+
+behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools" {
+  invariants [surface_contribution_uniqueness]
+  category   command
+  types      [CommandContribution, ExtensionCommand]
+  produces   [commands_auto_promoted]
+  requires {
+    surfaces_registered "the registry build has routed the project's CLI commands and registered its MCP tools"
+  }
+  ensures {
+    all_commands_promoted          "Every CLI command contribution the host does not refuse is auto-promoted to an MCP tool"
+    naming_convention_enforced     "Auto-promoted tools follow the specforge.{ext_short}.{cmd_id} naming pattern"
+    explicit_tool_wins             "Explicit MCP tool contributions take precedence over auto-promoted tools with I017 emitted"
+    commands_auto_promoted_emitted "commands_auto_promoted event is emitted after promotion completes"
+    schema_is_the_declaration      "The derived input_schema states each arg's type, one_of values, minimum, default and description; required lists the required args that are not flags; no undeclared property is accepted"
+  }
+  contract   """
+    After surface contributions are registered, the compiler MUST
+    auto-promote every CLI command contribution to an MCP tool with
+    the naming convention specforge.{ext_short}.{cmd_id}, but one the
+    host refuses on the command line (an arg named path, format or help,
+    or two args of one name): the one rule keeps both surfaces alike. The derived
+    input_schema MUST be computed from the command's args declaration
+    alone (specforge_ops::extension::command::ExtensionCommand): each arg's type,
+    its one_of values, its minimum, its default and its description;
+    required lists the required args that are not flags, since a flag is
+    false unless set; no undeclared property is accepted.
+    If an explicit MCP tool contribution already exists with the same
+    name, the explicit tool MUST win and I017 MUST be emitted.
+    The SDK MUST refuse to build an extension whose explicit MCP tool declares
+    path in its input_schema, as a property or a required name, by the one rule
+    the host also reads (specforge_protocol_types::tool_input), as it refuses a
+    command arg named path. An explicit MCP tool whose input_schema declares
+    path, as a property or a required name, MUST NOT be served, and I017 MUST
+    say why: path is the call target's on every call (ADR 0239), as an arg
+    named path is the host's on a command. Auto-promoted tools appear in list_mcp_tools
+    alongside explicit tools.
+  """
+  verify unit "CLI command auto-promoted to MCP tool"
+  verify unit "auto-promoted tool name follows specforge.{ext}.{cmd} pattern"
+  verify unit "derived input_schema computed from command args"
+  verify unit "explicit MCP tool wins over auto-promoted tool with I017"
+  verify unit "a command the CLI refuses, such as one declaring an arg named format, is not promoted"
+  verify unit "the derived input_schema states each arg's default and minimum and accepts no undeclared argument"
+  verify unit "a required flag is not required over MCP, as on the command line"
+  verify unit "an explicit extension tool named as a core tool is not listed, with I017"
+  verify unit "the SDK refuses to build an explicit MCP tool whose input schema declares path, as a property or a required name"
+  verify unit "an explicit extension tool whose input schema declares path is not listed, with I017"
+  verify integration "each auto-promoted tool is a command line of the same name whose help shows the tool's description and each of its arguments"
+  verify contract "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surfaces_registered, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted, schema_is_the_declaration"
+}
+
+// ── Dispatch ────────────────────────────────────────────────
+
+behavior dispatch_surface_command "Dispatch Surface Command" {
+  invariants [
+    surface_sandbox_ceiling,
+    wasm_sandbox_integrity,
+    extension_isolation,
+    extensions_run_in_their_loading_runtime,
+    mcp_structured_error_responses,
+  ]
+  category   command
+  types      [CommandContribution, CommandInput, CommandOutput, SurfaceError, WasmTrapInfo]
+  ports      [WasmRuntime]
+  produces   [surface_command_dispatched]
+  requires {
+    command_declared "The command is one an extension the project enables declares in its surfaces, read when the project's environment loaded"
+  }
+  ensures {
+    args_serialized                    "Command arguments, the project root (absolute and canonical, the same on both surfaces) and the graph (with its computed values and each entity's judgements) are serialized as JSON and passed to the cmd__ export"
+    sandbox_restricted                 "The cmd__ export is granted no capability (no preopened directory, environment, arguments, stdin or network), whatever sandbox override its declaration asks for"
+    traps_caught                       "Wasm traps are caught and reported as ExtensionError diagnostics"
+    output_returned                    "Exit code, stdout, and stderr are returned to the caller"
+    surface_command_dispatched_emitted "Over MCP, a surface_command_dispatched event records the command and its exit code once its export returns; the CLI has no event sink"
+    args_normalized_by_the_host        "Both surfaces send the export the args normalized by one rule before it runs: an absent arg takes its declared default, an unset flag is false, each value is its declared type, no undeclared arg is passed; a value the rule refuses is refused with the rule's message on both surfaces (INVALID_INPUT on the command line, invalid_input naming the arg over MCP), and the export is not called"
+    evidence_carried                   "The CommandInput carries what the project's recorded test report proves: absent without a report, unreadable with the reason when the report cannot be used, else the obligations, proven obligations and failing tests of every entity that counts toward coverage, scored by the coverage rule specforge stats reports"
+    one_operation                      "Both surfaces run a command through one operation over the project view: it normalizes the given args, attaches the project root, the evidence and the host's date, and calls the export; a surface reads its arguments in and renders the outcome"
+  }
+  contract   """
+    When a CLI command from an extension is invoked, the host MUST
+    serialize the command's input as JSON (CommandInput: its args, the
+    project root, absolute and canonical (symlinks resolved), the compiled graph, the format asked for, the
+    host's date, UTC, a fresh nonce (ADR 0341) and the evidence of the project's recorded test
+    report) and call the cmd__{id} export,
+    in the runtime that loaded the project's extensions to read their
+    declarations: only the extensions the project enables are loaded,
+    each compiled once per process (from the wasm compile cache when it
+    is warm), and dispatching a command loads no module. The CLI routes
+    specforge {ext_short} {command} to it, the command line built from
+    the declared args and the host's --path, --help and --format (human,
+    the default, or json; a command declaring an arg of one of those
+    names is refused, exit 2); an auto-promoted MCP tool runs the same
+    export with its arguments as the args, normalized by the rule the
+    command line applies (its declared defaults, false for an unset flag,
+    each value its declared type; an argument the rule refuses is an
+    isError result carrying invalid_input on that argument, with the
+    message the CLI writes, a missing one in the sentence every MCP tool uses
+    (Missing required parameter: <name>), and the export is not called), over the served graph, always
+    asking for json: a JSON object the command prints on success (with
+    nothing on stderr) is the tool result's structured content too, and
+    a failure that prints one JSON object on stderr and nothing on stdout
+    is an isError result carrying, as its text, the McpError its code names
+    (INVALID_INPUT is invalid_input, ENTITY_NOT_FOUND is entity_not_found,
+    any other code internal_error), its entity and suggestion kept; any other
+    failed output is internal_error carrying its exit code, stdout and
+    stderr; a successful run's output that is not one object (an array,
+    a scalar, prose) is text blocks. The extension renders both
+    formats; the host knows no payload (ADR 0011). The export
+    MUST be granted no capability: its WASI context preopens no
+    directory and passes no environment, arguments, inherited stdio or
+    network, so cwd is a path it is told, not one it can open, and the
+    graph is all it reads. A sandbox override a command declares (only a
+    guest built before ADR 0037 can) is not applied and is W153 at load:
+    with nothing granted there is nothing for it to withhold, and no
+    declaration grants more (surface_sandbox_ceiling).
+    Wasm traps MUST be caught and reported as ExtensionError
+    diagnostics, as is a declared export the guest does not route (the
+    host cannot list a component guest's exports, so presence is known
+    only by calling). An answer that is not a CommandOutput is an
+    ExtensionError (E028), like a trap: never exit 0 with the raw bytes.
+    Under --format json the CLI writes the error to stderr as one error
+    object of the shape commands write ({code, message, suggestion}),
+    and exits 1. A
+    usage error the command line catches before the command runs (a
+    value outside a one_of, a missing required arg, an unknown flag, a
+    value that is not an integer, or below the arg's minimum) is, under
+    --format json (wherever it
+    is on the command line), one INVALID_INPUT error object of that
+    shape on stderr ({code, message, suggestion?}, the message naming
+    the arg as declared and, for a one_of, its values), nothing on
+    stdout, exit 2; under human it is clap's usage text, exit 2; --help
+    is clap's, exit 0. The command's exit code, stdout, and stderr MUST be
+    returned to the caller. Both surfaces run a command through one
+    operation over the project view, so what the export receives for the
+    same arguments is the same on both; the CLI runs it over its compiled
+    project (its checks run, as MCP's served session's have). The MCP server records each command whose
+    export returned as a surface_command_dispatched event.
+  """
+  verify unit "the command runs in the runtime that read the project's declarations, which loaded only the extensions the project enables"
+  verify unit "args serialized as JSON to cmd__ export"
+  verify unit "a command is told the host that calls it, and nothing when none does"
+  verify unit "an extension command with no title is listed by its description, and a titled one by its title"
+  verify unit "the host option reaches a command on the command line, and a host that is none is refused"
+  verify unit "a command that declares a host argument keeps it as its own and is not told the calling host"
+  verify unit "an MCP command call is told the host the session's client named"
+  verify unit "a cmd__ export is granted no capability, whatever sandbox its declaration asks for"
+  verify unit "Wasm trap caught and reported as ExtensionError"
+  verify unit "exit code, stdout, stderr returned to CLI"
+  verify unit "a declared export the guest does not route is an ExtensionError when dispatched"
+  verify unit "the CommandInput carries the format the caller asked for and the host's date"
+  verify unit "every command call carries a fresh nonce from the host: 32 hex digits of the OS's entropy, never the same twice"
+  verify unit "one operation runs a command over the project view: it normalizes the args, attaches the evidence, the date and the project root, absolute and canonical, and calls the export"
+  verify unit "the CommandInput carries what the recorded tests prove, per entity that counts toward coverage"
+  verify unit "a command's input says when the recorded test report cannot be read, and carries no evidence without one"
+  verify unit "a command declaring an arg named format is refused on the command line"
+  verify unit "under --format json a command whose export trapped prints one JSON error object"
+  verify unit "a command whose output is not a CommandOutput is an ExtensionError, not exit 0 with the raw bytes"
+  verify unit "the host and the SDK normalize a command's args by the same rule"
+  verify unit "over MCP an argument the command's declaration refuses is invalid_input on that argument, with the message the CLI writes (a missing one in the sentence every MCP tool uses), and the export is not called"
+  verify unit "over MCP a command's own error object is the McpError its code names, its entity and suggestion kept"
+  verify unit "over MCP a command that fails without one error object is internal_error carrying its exit code, stdout and stderr"
+  verify integration "the CLI and MCP send a command's export the same args for the same input, its declared defaults applied by the host"
+  verify integration "under --format json a usage error the command line catches is one INVALID_INPUT error object on stderr, exit 2"
+  verify integration "over MCP a command is asked for json and its JSON output is the tool's structured content"
+  verify integration "the CLI and MCP send a command's export the same project root, absolute and canonical"
+  verify integration "a trapped command is E028 on both surfaces: one error object on the CLI's stderr under json, a structured MCP error over MCP"
+  verify integration "the CLI and MCP send a command the same evidence for the same recorded report"
+  verify unit "over MCP a command's JSON object output is the tool's structured content, and output that is not one object is text"
+  verify unit "the command line shows each declared arg by its shape, with its values, default and description, beside the host's --path and --format"
+  verify contract "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted, args_normalized_by_the_host, evidence_carried, one_operation"
+  verify unit "a command reads the state the host sends it, and none when it sent none"
+}
+
+behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
+  invariants [
+    surface_sandbox_ceiling,
+    wasm_sandbox_integrity,
+    extension_isolation,
+    mcp_structured_error_responses,
+  ]
+  category   command
+  types      [McpToolContribution, SurfaceError, WasmTrapInfo, JsonSchema]
+  ports      [WasmRuntime, McpProtocol]
+  consumes   [commands_auto_promoted]
+  produces   [surface_mcp_tool_dispatched]
+  requires {
+    tool_registered              "the tool is one the registry build registered: its schemas are JSON objects (validate_mcp_tool_schemas)"
+    commands_auto_promoted_fired "commands_auto_promoted event has fired, confirming auto-promoted tools are registered"
+  }
+  ensures {
+    input_validated                     "Input is validated against the tool's declared input_schema before dispatch"
+    sandbox_restricted                  "The mcp__ export is granted no capability, whatever sandbox override its declaration asks for"
+    traps_as_mcp_errors                 "Wasm traps are caught and returned as structured MCP error responses"
+    tool_result_returned                "Tool output is returned as a standard MCP tool result"
+    surface_mcp_tool_dispatched_emitted "surface_mcp_tool_dispatched event is emitted after tool execution completes"
+  }
+  contract   """
+    When an MCP tool contributed by an extension is invoked, the MCP
+    server MUST validate the input against the tool's declared
+    input_schema and call the mcp__{name} export with the validated
+    input JSON, in the runtime the served project's compile loaded. The
+    export MUST be granted no capability, like every surface export: a
+    sandbox override a tool declares (W153 at load) is not applied, and no
+    override grants more (surface_sandbox_ceiling). Wasm traps MUST be
+    caught and returned as structured MCP error responses. The tool
+    output MUST be returned as a standard MCP tool result. When the tool
+    declares an output_schema, an output that does not match it MUST be
+    returned as a schema_mismatch MCP error naming each violation, never
+    as the tool's structured result. A key the output_schema does not
+    allow (additionalProperties false) is such a violation, and so is one
+    that breaks a definition the schema refers to by a same-document $ref;
+    a $ref to anything outside the schema is never fetched and refuses
+    every output. The MCP server records each tool
+    whose export returned as a surface_mcp_tool_dispatched event. An
+    export the guest does not route is an E028 error, like a trap.
+  """
+  verify unit "input validated against declared input_schema"
+  verify unit "output that does not match the declared output_schema is a schema_mismatch error"
+  verify unit "an output with a key its declared output_schema does not allow is a schema_mismatch error"
+  verify unit "an output that breaks a definition its declared output_schema refers to by $ref is a schema_mismatch error"
+  verify unit "the served project's runtime is the one its compile loaded and serves later calls until the project reloads"
+  verify unit "input JSON passed to mcp__ export"
+  verify unit "an mcp__ tool export is granted no capability, whatever sandbox its declaration asks for"
+  verify unit "Wasm trap returned as structured MCP error"
+  verify unit "tool output returned as MCP tool result"
+  verify integration "a returned tool call is recorded as a surface_mcp_tool_dispatched event"
+  verify contract "Dispatch Surface MCP Tool: surface MCP tool dispatch holds — tool_registered, commands_auto_promoted_fired, input_validated, sandbox_restricted, traps_as_mcp_errors, tool_result_returned, surface_mcp_tool_dispatched_emitted"
+}
+
+behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
+  invariants [
+    surface_sandbox_ceiling,
+    wasm_sandbox_integrity,
+    extension_isolation,
+    mcp_structured_error_responses,
+  ]
+  category   command
+  types      [
+    McpResourceContribution,
+    McpResourceRequest,
+    McpResourceContent,
+    SurfaceError,
+    WasmTrapInfo,
+  ]
+  ports      [WasmRuntime, McpProtocol]
+  produces   [surface_mcp_resource_dispatched]
+  requires {
+    resource_registered "the resource is one the registry build registered for an extension the project enables"
+  }
+  ensures {
+    uri_matched                             "Requested URI is matched against registered URI templates"
+    fs_write_denied                         "MCP resources have no fs_write access (no capability at all), whatever their sandbox override asks for"
+    traps_as_mcp_errors                     "Wasm traps are caught and returned as an internal error whose data is an McpError with the E028 diagnostic"
+    content_returned                        "Resource content and mime_type are returned to the MCP client"
+    surface_mcp_resource_dispatched_emitted "surface_mcp_resource_dispatched event is emitted after resource read completes"
+  }
+  contract   """
+    When an MCP resource contributed by an extension is read, the MCP
+    server MUST match the requested URI against registered URI templates
+    and call the mcp__{name} export with the URI, in the runtime the
+    served project's compile loaded. MCP resources MUST NOT have
+    fs_write access: like every surface export, a resource's export is
+    granted no capability, whatever its sandbox override asks for
+    (surface_sandbox_ceiling). The export receives only the URI, not
+    the graph: a resource serves content that needs no project data
+    (graph queries are commands, served as tools). A read whose export
+    trapped, or that the guest does not route, MUST be a JSON-RPC
+    internal error (-32603) whose data is an McpError carrying the
+    diagnostic (E028) in diagnostic.code, never only in the message; so
+    is an answer that is not the resource's content and MIME type
+    (McpResourceContent), an ExtensionError (E028) like a trap: it is
+    never served as raw bytes. The URI is matched against the registered
+    templates after the core resources, whatever its scheme, by the rule
+    core resources follow: a template names every URI that starts with its
+    text before its first placeholder (what stands for the placeholder,
+    empty included, is the export's to read), and a URI without a
+    placeholder names itself, alone or followed by a query the export
+    reads; a template a core resource already serves is not served, and
+    is reported with I017. The resource
+    content and mime_type MUST be returned to the MCP client. The MCP
+    server records each read whose export returned as a
+    surface_mcp_resource_dispatched event.
+  """
+  verify unit "URI matched against registered templates"
+  verify unit "URI passed to mcp__ export"
+  verify unit "fs_write denied for resource contributions"
+  verify unit "Wasm trap returned as structured MCP error"
+  verify unit "resource content and mime_type returned to client"
+  verify unit "a resource whose answer is not its content and mime type is a structured MCP error"
+  verify unit "an extension resource template outside specforge://ext/ is read through its export"
+  verify unit "an extension resource template a core resource serves is not listed, with I017"
+  verify unit "a URI names a core or extension resource by one rule: a template's text before its first placeholder and anything after it, a plain URI alone or followed by a query"
+  verify integration "a returned resource read is recorded as a surface_mcp_resource_dispatched event"
+  verify contract "Dispatch Surface MCP Resource: surface MCP resource dispatch holds — resource_registered, uri_matched, fs_write_denied, traps_as_mcp_errors, content_returned, surface_mcp_resource_dispatched_emitted"
+}

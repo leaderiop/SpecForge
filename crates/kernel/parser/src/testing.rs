@@ -10,8 +10,9 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 /// The directories under the repository root whose `.spec` files are the
-/// corpus: every tracked one, and nothing a developer keeps untracked beside
-/// them.
+/// corpus: every tracked one under the live roots, plus the frozen pre-swap
+/// spec (ADR 0374 D8), which holds the old kinds' syntax the live spec no
+/// longer does; nothing a developer keeps untracked beside them.
 pub const CORPUS_ROOTS: &[&str] = &[
     "spec",
     "examples",
@@ -19,6 +20,7 @@ pub const CORPUS_ROOTS: &[&str] = &[
     "extensions",
     "crates",
     "xtask",
+    "fixtures/old-spec",
 ];
 
 /// Every `.spec` file under [`CORPUS_ROOTS`], read once, sorted by path, with

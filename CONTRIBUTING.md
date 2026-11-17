@@ -133,8 +133,8 @@ What builds and checks it:
 
 - [`gate/`](gate/) (`cargo gate`, the check list), [`xtask/`](xtask/) (build-blobs, revendor, check-links, perf-report, absorb),
   [`scripts/`](scripts/) (shell helpers the gate and the release run).
-- [`fixtures/`](fixtures/): extension fixtures the tests load; [`evaluation/`](evaluation/): the first-attempt
-  accuracy eval.
+- [`fixtures/`](fixtures/): extension fixtures and the frozen pre-swap spec the tests load (`fixtures/old-spec/`,
+  never edited); [`evaluation/`](evaluation/): the first-attempt accuracy eval.
 - `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `clippy.toml`, `.cargo/`, `.config/` (nextest),
   `.github/` (CI, release), `.githooks/` (the pre-commit hook), `.gitignore`, and `.gitattributes` (the rename
   ledger `specforge-harness` merges by union, the line `specforge collect` would otherwise add).

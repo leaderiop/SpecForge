@@ -1,0 +1,680 @@
+// Formatting behaviors — the code formatter pipeline
+
+use "events/compilation"
+use "invariants/core"
+use "invariants/formatting"
+use "ports/inbound"
+use "ports/outbound"
+use "types/config"
+use "types/core"
+use "types/formatting"
+
+defaults behavior {
+  features [code_formatting]
+}
+
+behavior format_spec_files "Format Spec Files" {
+  invariants [
+    formatting_idempotency,
+    formatting_consistency,
+    comment_preservation,
+    format_rule_determinism,
+    formatting_semantic_preservation,
+    document_project_paths,
+  ]
+  category   query
+  types      [FormatConfig, FormatDiff]
+  ports      [FileSystem, CompilerApi]
+  produces   [format_complete]
+  requires {
+    spec_files_available "target .spec files exist on disk and are readable"
+    format_config_loaded "FormatConfig has been resolved (from .specforgefmt.toml or defaults)"
+  }
+  ensures {
+    formatted_output_written  "formatted output is written back to disk for files that changed"
+    unchanged_files_preserved "files already in canonical format are not rewritten"
+    format_complete_emitted   "format_complete event is produced after successful formatting"
+    summary_printed           "names of changed files and a summary count are printed"
+    exit_code_reported        "exit code is 1 when a file cannot be read or written, has a region left unformatted, or specforge.json is not used as written; 0 otherwise"
+  }
+  contract   """
+    When specforge format is invoked with file paths or a project directory,
+    the system MUST parse each .spec file into a CST using tree-sitter,
+    apply formatting rules, and write the formatted output back to disk.
+    Files that are already correctly formatted MUST NOT be rewritten.
+    The command MUST print the names of changed files and a summary count.
+    A file the user named is printed as typed; a file the run found is
+    printed from the project root, as the document names it (ADR 0102).
+    A file that cannot be read or written, or that has a region left
+    unformatted (format_with_parse_errors), MUST make the command exit with
+    code 1; every other file is still formatted and written. A file whose
+    write fails MUST be left as it was: each file is replaced whole or not
+    at all.
+    Under --format json the command MUST print instead the format document
+    specforge.format answers (McpFormatResult) with the files it wrote, its
+    diagnostics and failures in the document, and nothing on stderr; the
+    exit code is the same. Every file the document names is named from the
+    project root, as files_written is (ADR 0102).
+    The project's specforge.json is read through the read the compile uses.
+    One that does not say which files are the project's sources (it can't
+    be used, or spec_root, exclude or extensions has the wrong type) MUST
+    refuse the run with config_invalid, the refusal specforge add gives,
+    before any file is read or written. Each other problem in it MUST be
+    reported as its E069 among the diagnostics and MUST make the command
+    exit 1; the files are still formatted.
+  """
+  verify unit "files matching the canonical format are not rewritten"
+  verify unit "a value is written in its field's form, read from the project's declarations"
+  verify unit "check, format and set agree on a quoted number, a quoted date and a whole value on a list field"
+  verify unit "format keeps a padded value, and check reports it after as before"
+  verify unit "changed files are printed to stdout"
+  verify unit "with no path typed, the human output names each file it found from the project root"
+  verify unit "summary count reflects actual changes"
+  verify integration "formatting all files in spec/ directory succeeds"
+  verify integration "a file whose write fails part-way is left whole and is not in files_written"
+  verify unit "a region left unformatted makes the run exit 1, the rest of the file still written"
+  verify unit "the format document names each changed file, each failed file with its kind, and the run's verdict"
+  verify unit "under --format json the run prints the format document on stdout and nothing on stderr"
+  verify unit "the format document names each file from the project root, whatever the working directory"
+  verify unit "an unbounded run formats a file with more than one name; a bounded one fails it and formats the others"
+  verify contract "Format Spec Files: spec file formatting holds — spec_files_available, format_config_loaded, formatted_output_written, unchanged_files_preserved, format_complete_emitted, summary_printed"
+  verify unit "a problem in specforge.json the run goes around is reported as E069 and makes the run exit 1, the files still formatted"
+}
+
+behavior preserve_comments "Preserve Comments During Formatting" {
+  invariants [comment_preservation]
+  category   command
+  types      [FormatConfig]
+  requires {
+    cst_available "the .spec file has been parsed into a CST with comment nodes present"
+  }
+  ensures {
+    all_comments_attached "every comment is attached to the correct CST node per the attachment algorithm"
+    no_comments_lost      "no comments are dropped or reordered during formatting"
+  }
+  contract   """
+    The formatter MUST attach every comment to the correct CST node using
+    the comment attachment algorithm: leading comments attach to the following
+    node, trailing comments attach to the preceding node on the same line,
+    section header comments attach to the next block group, and standalone
+    comment blocks separated by blank lines are preserved as-is. Comments
+    inside blocks stay between the statements they sat between, in every
+    block kind (spec, define, ref and entity blocks). A comment's text is
+    kept as written — `///`, `//!` and indentation after `//` included —
+    except that `//text` gains one space.
+    A statement the formatter rebuilds on one line (an import, an inline
+    ref, a union block, a field, a verify statement, a method) that holds a
+    comment between its tokens is kept as written instead, its first line
+    at the body's indentation, so no comment is dropped and none swallows
+    the code after it.
+    The format header is kept where it stands and is never a block's doc
+    comment; formatting never changes which comment lines are a block's doc
+    comment, as the parse reads them (ADR 0202).
+  """
+  verify unit "leading comment attaches to following node"
+  verify unit "trailing comment attaches to preceding node on same line"
+  verify unit "section header comment attaches to next block group"
+  verify unit "standalone comment block between blocks is preserved"
+  verify unit "a statement holding a comment between its tokens is kept as written"
+  verify property "no comments are lost after formatting"
+  verify property "formatting keeps each block's doc comment as the parse reads it"
+  verify unit "the format header stays where it is and documents no block"
+  verify contract "Preserve Comments During Formatting: comment preservation holds — cst_available, all_comments_attached, no_comments_lost"
+}
+
+behavior check_formatting "Check Formatting Without Modifying Files" {
+  // Dry-run mode: does not emit format_complete (no files modified)
+  category   validation
+  invariants [
+    formatting_idempotency,
+    formatting_consistency,
+    comment_preservation,
+    format_rule_determinism,
+    dry_run_side_effect_freedom,
+    formatting_semantic_preservation,
+  ]
+  types      [FormatConfig, FormatDiff]
+  ports      [FileSystem]
+  requires {
+    spec_files_available "target .spec files exist on disk and are readable"
+    format_config_loaded "FormatConfig has been resolved (from .specforgefmt.toml or defaults)"
+  }
+  ensures {
+    no_files_written          "no files are written to disk in check mode"
+    exit_code_correct         "exit code is 0 when every file is read and in canonical form and specforge.json is used as written; 1 when any would change, cannot be read, has a region left unformatted, or specforge.json has a problem (E069)"
+    unformatted_paths_printed "file paths of unformatted files are printed to stdout"
+  }
+  contract   """
+    When specforge format --check is invoked, the system MUST compare
+    what would be formatted against existing files on disk. If any file
+    would change, the command MUST exit with code 1 and print the file
+    paths. The system MUST NOT write any files in check mode. A file that
+    cannot be read, or that has a region left unformatted
+    (format_with_parse_errors), MUST also make the check exit with code 1.
+    A problem in specforge.json the check goes around (E069) MUST also make
+    it exit 1; one that does not say which files are the project's sources
+    refuses the check (config_invalid).
+  """
+  verify unit "already formatted files exit with code 0"
+  verify unit "unformatted files exit with code 1"
+  verify unit "check mode writes no files to disk"
+  verify unit "a file that cannot be read makes the check fail"
+  verify unit "a region left unformatted makes the check fail"
+  verify unit "under --format json a check that finds a change prints the document and exits 1"
+  verify contract "Check Formatting Without Modifying Files: formatting check holds — spec_files_available, format_config_loaded, no_files_written, exit_code_correct, unformatted_paths_printed"
+  verify unit "a problem in specforge.json the run goes around is an E069 that fails the check"
+}
+
+behavior show_formatting_diff "Show Formatting Diff" {
+  // Dry-run mode: does not emit format_complete (no files modified)
+  category   query
+  invariants [
+    formatting_idempotency,
+    formatting_consistency,
+    comment_preservation,
+    format_rule_determinism,
+    dry_run_side_effect_freedom,
+    formatting_semantic_preservation,
+  ]
+  types      [FormatDiff]
+  ports      [FileSystem]
+  requires {
+    spec_files_available "target .spec files exist on disk and are readable"
+    format_config_loaded "FormatConfig has been resolved (from .specforgefmt.toml or defaults)"
+  }
+  ensures {
+    no_files_written      "no files are written to disk in diff mode"
+    unified_diff_produced "a unified diff with --- and +++ headers is produced for each file that would change"
+  }
+  contract   """
+    When specforge format --diff is invoked, the system MUST produce
+    a unified diff of formatting changes for each file that would be
+    modified. The diff MUST use standard unified format with --- and +++
+    headers. The system MUST NOT write any files in diff mode. Under
+    --format json the diffs are the format document's: each changed file's
+    before and after text with its insertion and deletion counts.
+  """
+  verify unit "diff output uses unified format"
+  verify unit "under --format json --diff the document carries each changed file's before and after"
+  verify unit "diff mode writes no files to disk"
+  verify unit "unchanged files produce no diff output"
+  verify unit "an unchanged line is shown as context, never as removed and added"
+  verify contract "Show Formatting Diff: formatting diff holds — spec_files_available, format_config_loaded, no_files_written, unified_diff_produced"
+}
+
+behavior format_from_stdin "Format from Standard Input" {
+  invariants [
+    formatting_idempotency,
+    formatting_consistency,
+    comment_preservation,
+    format_rule_determinism,
+    formatting_semantic_preservation,
+  ]
+  category   query
+  types      [FormatConfig]
+  produces   [format_complete]
+  requires {
+    stdin_available      "standard input contains valid .spec content"
+    format_config_loaded "FormatConfig has been resolved (from .specforgefmt.toml or defaults)"
+  }
+  ensures {
+    stdout_produced         "formatted output is written to standard output"
+    no_files_touched        "no files are read from or written to disk"
+    format_complete_emitted "format_complete event is produced after successful formatting"
+  }
+  contract   """
+    When specforge format --stdin is invoked, the system MUST read
+    .spec content from standard input, format it, and write the
+    formatted output to standard output. This enables editor integrations
+    that pipe buffer contents through the formatter. The same formatting
+    guarantees (idempotency, consistency, comment preservation) apply as
+    for file-based formatting. In stdin mode, the format_complete event
+    MUST set filesChecked=1 and filesChanged to 0 (input already canonical)
+    or 1 (formatting applied). When the input has a region left
+    unformatted, the formatted text MUST still be printed and the command
+    MUST exit with code 1. Its output is the formatted text, so --stdin
+    MUST refuse --format json (invalid_input, the error document on stdout).
+    It MUST also refuse a path, --check and --diff as a refused command line
+    (exit 2): the text's place is --path.
+    Values are written in the forms of the declarations of the project the text belongs to.
+  """
+  verify unit "stdin content is formatted and written to stdout"
+  verify unit "--stdin refuses --format json with the error document"
+  verify unit "stdin with a region left unformatted prints the formatted text and exits 1"
+  verify unit "stdin mode does not read or write files"
+  verify unit "--stdin refuses a path, --check and --diff as a usage error"
+  verify property "stdin formatting is idempotent"
+  verify property "stdin formatting converges to canonical form"
+  verify contract "Format from Standard Input: stdin formatting holds — stdin_available, format_config_loaded, stdout_produced, no_files_touched, format_complete_emitted"
+}
+
+behavior load_format_config "Load Format Configuration" {
+  invariants [config_defaults_valid]
+  category   query
+  types      [FormatConfig]
+  ports      [FileSystem]
+  requires {
+    project_root_available "project root directory (containing specforge.json) is identifiable"
+    filesystem_accessible  "FileSystem port is available for reading configuration files"
+  }
+  ensures {
+    config_resolved          "FormatConfig is resolved from .specforgefmt.toml or defaults"
+    walk_bounded             "configuration discovery does not continue beyond the project root"
+    invalid_values_diagnosed "invalid configuration values produce diagnostics and fall back to defaults"
+  }
+  contract   """
+    The formatter MUST discover configuration by walking up from the
+    formatted file's directory toward the project root (the directory
+    containing specforge.json). The walk MUST stop at the project root
+    and MUST NOT continue beyond it. Configuration files outside the
+    project root MUST NOT be discovered. If .specforgefmt.toml is found,
+    it MUST be parsed and validated. Invalid values MUST produce
+    diagnostics and fall back to defaults. If no config file is found
+    within the project root boundary, defaults MUST be used. The walk
+    stops at the file's own project root, the nearest directory holding
+    specforge.json, whichever project the run started in. The
+    configuration MUST be read through the disk of the caller: over MCP a
+    configuration file that resolves outside the project, or that has more
+    than one name, MUST NOT be read; it is reported as W141 naming where
+    it lands or how many names it has, never what it holds, and the
+    defaults apply. The CLI and the LSP follow it. A run, a typed edit and
+    init read each configuration file once.
+  """
+  verify unit "config file in project root is loaded"
+  verify unit "config file in parent directory is discovered"
+  verify unit "config discovery walks from formatted file directory up to specforge.json parent then stops"
+  verify unit "config outside project root is not discovered"
+  verify unit "invalid indent_width produces diagnostic and uses default"
+  verify unit "missing config file uses defaults"
+  verify unit "a file's configuration does not depend on where format runs"
+  verify unit "a file is formatted with the configuration of its own project"
+  verify unit "a configuration file is read once per lookup, whichever directories share it"
+  verify unit "a configuration the disk cannot read is a W141 naming why, and its defaults apply"
+  verify unit "a bounded caller's configuration that leaves the bound or has more than one name is a W141 naming where it lands or how many names it has, never its content"
+  verify unit "an unbounded caller follows a linked configuration"
+  verify unit "a typed edit and init lay out with the defaults when their bound refuses the configuration"
+  verify unit "a bounded migration lays out with the defaults when its bound refuses the configuration"
+  verify contract "Load Format Configuration: format config loading holds — project_root_available, filesystem_accessible, config_resolved, walk_bounded, invalid_values_diagnosed"
+}
+
+behavior apply_format_rules "Apply Format Rules" {
+  // Extension format rules are discovered via the contribution registry at format time
+  category   query
+  invariants [
+    formatting_idempotency,
+    formatting_consistency,
+    comment_preservation,
+    format_rule_determinism,
+    format_rule_priority,
+    formatting_semantic_preservation,
+    cst_vocabulary_grammar_consistency,
+  ]
+  types      [
+    FormatConfig,
+    FormatRule,
+    IndentRule,
+    SpacingRule,
+    AlignmentRule,
+    WrappingRule,
+    NewlineRule,
+    CommentRule,
+    ImportRule,
+    StringRule,
+    ExtensionFormatRule,
+  ]
+  ports      [WasmRuntime]
+  requires {
+    cst_available                   "the .spec file has been parsed into a CST for rule engine traversal"
+    format_config_loaded            "FormatConfig has been resolved with indent style and width settings"
+    contribution_registry_available "in-memory contribution registry is populated with extension format rules"
+  }
+  ensures {
+    deterministic_output    "all rules produce deterministic output for the same input and configuration"
+    no_domain_logic         "rules operate on generic keyword blocks and fields with no extension-specific entity kind logic"
+    extension_rules_applied "extension-contributed format rules are executed at priority level 9 via WasmRuntime"
+  }
+  contract   """
+    The formatting rule engine MUST walk the CST and emit formatting
+    decisions for each whitespace region: keep, replace, insert, or remove.
+    Rules cover indentation, spacing, alignment, wrapping, blank lines,
+    comments and imports. The formatted text ends every line with LF
+    (CRLF line endings become LF, inside string literals too, a title's, a list item's and a verify text's included) and ends with
+    exactly one newline; no blank line opens or closes it, and a blank text
+    formats to the empty text. A value is written in its field's form
+    (ADR 0147), read as the parse reads it (a quoted text with its escapes read, a triple-quoted one dedented, never
+    otherwise trimmed, so a padded value is kept as written and check reports it, ADR 0247): a quoted word (on a reference list, a quoted entity id, scheme
+    refs included) on a field whose declared type writes it bare
+    loses its quotes, and a bare word on a text field gains them; a number, true or false and a calendar day is written bare on its field, a literal on a text field quoted, and a one-line whole value on a list field in brackets; a multi-line text on a list field is kept byte-for-byte; read from
+    the declarations of the document's own project, found from its place; a `defaults <kind>` block's values are read in the forms of the kind it names, as the graph applies them; nothing else in a string literal changes, and
+    a triple-quoted one is kept byte-for-byte. Statements keep their source
+    order; only runs of imports are sorted. An expression block's
+    expressions are indented one level inside it, its closing brace at its
+    field's level, whatever their indentation. Field keys align to the longest
+    key plus one; annotations of single-line values align in one column;
+    `verify [kind] "..."` statements are single-spaced. A list that does
+    not fit wraps one item per line, splitting only between items. All rules MUST produce
+    deterministic output for the same input and configuration. Rules
+    operate on generic keyword blocks and fields — they MUST NOT contain
+    logic specific to any extension-defined entity kind.
+
+    Extension-contributed format rules MUST be discovered from the
+    in-memory contribution registry (populated during extension loading)
+    and executed via the WasmRuntime port. Extension rules run at priority
+    level 9 (after all 8 core rules). When multiple extensions contribute
+    format rules, they MUST be applied in extension load order.
+  """
+  verify unit "format keeps a number's word as written and writes a quoted one bare"
+  verify unit "indentation rules normalize to configured indent style"
+  verify unit "format writes every bare word as it was written, a number-like word and a difference included"
+  verify unit "spacing rules normalize single spaces between tokens"
+  verify unit "alignment rules align field values within blocks"
+  verify unit "statements keep their source order"
+  verify unit "a union that does not fit wraps one variant per line"
+  verify unit "a union title survives formatting"
+  verify unit "wrapping rules break long reference lists to multi-line"
+  verify unit "import sorting produces alphabetical order"
+  verify unit "blank line rules enforce exactly one between blocks"
+  verify unit "comment rules normalize spacing around inline comments"
+  verify unit "multiline string literals are kept byte-for-byte"
+  verify unit "a value is written in its field's form, read from the project's declarations"
+  verify unit "without the project's declarations no value is rewritten"
+  verify unit "a defaults block's values are written in the forms of the kind it names"
+  verify unit "a number, a boolean, a literal and a whole value on a list field are written in their field's form"
+  verify unit "a multi-line text on a list field is left as written"
+  verify unit "a padded value is kept as written, as check reads it"
+  verify unit "format writes a value in another form exactly where W159's rule names one"
+  verify unit "a quoted number is written as the number it reads to"
+  verify unit "a document of the project the caller holds is written in its lent forms, without loading them again"
+  verify unit "another project's forms load once per run"
+  verify unit "a document outside any project is written as it is"
+  verify unit "an environment loaded at no project root lends no forms"
+  verify unit "text of a project that is no file is written in that project's forms"
+  verify unit "an expression block's lines are indented one level inside it, whatever their indentation"
+  verify property "two files differing only in whitespace produce identical output after formatting"
+  verify unit "the formatted text has LF line endings and exactly one final newline"
+  verify unit "a list of blocks is written one item a line, indented, with no commas"
+  verify contract "Apply Format Rules: format rule application holds — cst_available, format_config_loaded, contribution_registry_available, deterministic_output, no_domain_logic, extension_rules_applied"
+}
+
+behavior maintain_format_idempotency "Maintain Format Idempotency" {
+  invariants [formatting_idempotency, formatting_semantic_preservation]
+  category   query
+  types      [FormatConfig]
+  requires {
+    format_rules_available "all format rules (core and extension) are loaded and ready"
+  }
+  ensures {
+    idempotency_holds "format(format(x)) == format(x) for all valid inputs"
+    no_oscillation    "alignment and wrapping decisions are stable across consecutive runs"
+  }
+  contract   """
+    The formatter MUST satisfy the idempotency property: applying the
+    formatter twice produces the same output as applying it once.
+    This MUST be verified by property-based tests that generate random
+    valid .spec files and check format(format(x)) == format(x).
+    Any idempotency violation is treated as a P0 bug.
+  """
+  verify property "format(format(x)) == format(x) for random valid inputs"
+  verify unit "alignment rules do not oscillate between runs"
+  verify unit "wrapping decisions are stable across runs"
+  verify contract "Maintain Format Idempotency: format idempotency holds — format_rules_available, idempotency_holds, no_oscillation"
+}
+
+behavior lsp_format_document "LSP Format Document" {
+  features   [lsp_formatting]
+  invariants [
+    formatting_idempotency,
+    formatting_consistency,
+    comment_preservation,
+    format_rule_determinism,
+    formatting_semantic_preservation,
+  ]
+  category   query
+  types      [FormatConfig, TextEdit]
+  ports      [LspProtocol]
+  produces   [format_complete]
+  requires {
+    document_open        "the document is registered in the LSP open document set"
+    format_config_loaded "FormatConfig has been resolved for the document's project"
+  }
+  ensures {
+    textedit_list_returned  "a list of non-overlapping TextEdit operations is returned"
+    cli_parity_enforced     "applying the returned edits to the document gives exactly the text specforge format writes for the same file"
+    format_complete_emitted "format_complete event is produced after successful formatting"
+  }
+  contract   """
+    When the LSP server receives a textDocument/formatting request,
+    it MUST format the full document using the formatting engine and
+    return a list of TextEdit operations. Applied to the document, the
+    edits MUST give exactly the text specforge format writes for the
+    same file, byte for byte, each value in the form of its field in the
+    document's own project (the project its file is in, as for its
+    configuration; none outside a project), in one pass: an edit may span line
+    breaks, so blank lines are removed, a missing final newline is added and CRLF
+    line endings become LF. An edit replaces only the text formatting
+    changes, so text the formatter keeps, and an editor's cursor in it,
+    stays where it is.
+    The configuration is the one specforge format uses for that file: the
+    .specforgefmt.toml nearest the document's directory within its project,
+    else the defaults (see lsp_respect_editor_config). TextEdit coordinates
+    use 0-indexed lines and columns (LSP standard). TextEdit operations
+    in a response MUST NOT overlap. When the document contains parse
+    errors, the server MUST format well-formed regions and leave error
+    regions unchanged, consistent with format_with_parse_errors.
+    Diagnostics the formatter reports MUST be published alongside the
+    document's compile diagnostics, never in place of them, and stay
+    published with them while the document is the text they were
+    reported on: a later publish of the document keeps them and an edit
+    drops them. A publish MUST carry diagnostics of one document version:
+    formatting a document typed since its last compile publishes its
+    findings with the compile of that text.
+  """
+  verify unit "formatting request returns TextEdit list"
+  verify integration "formatting keeps the document's compile diagnostics published"
+  verify integration "the formatter's diagnostics stay published until the document changes"
+  verify unit "a formatting publish carries diagnostics of one document version"
+  verify unit "TextEdit coordinates are 0-indexed lines and columns"
+  verify unit "TextEdit operations in a response do not overlap"
+  verify integration "a nested project's document is written in its own project's field forms"
+  verify integration "the editor writes a nested project's values as specforge format does"
+  verify integration "a document formatted before its project opens is written in its project's field forms"
+  verify integration "a document of another project is written in that project's field forms, not the served project's"
+  verify integration "LSP format produces same result as CLI format"
+  verify integration "editor formatting reaches the text specforge format writes in one pass: blank lines removed, final newline added, CRLF made LF"
+  verify property "applying the formatting edits to the document gives the formatted text byte for byte"
+  verify integration "parse errors in document trigger format_with_parse_errors delegation"
+  verify performance "formats document within 50ms for files under 1000 lines"
+  verify contract "LSP Format Document: LSP document formatting holds — document_open, format_config_loaded, textedit_list_returned, cli_parity_enforced, format_complete_emitted"
+}
+
+behavior lsp_format_range "LSP Format Range" {
+  features   [lsp_formatting]
+  invariants [
+    formatting_idempotency,
+    formatting_consistency,
+    comment_preservation,
+    format_rule_determinism,
+    formatting_semantic_preservation,
+  ]
+  category   query
+  types      [FormatConfig, TextEdit]
+  ports      [LspProtocol]
+  produces   [format_complete]
+  requires {
+    document_open        "the document is registered in the LSP open document set"
+    format_config_loaded "FormatConfig has been resolved for the document's project"
+  }
+  ensures {
+    range_expanded          "the range is expanded to complete block boundaries before formatting"
+    textedit_list_returned  "a list of non-overlapping TextEdit operations for the affected region is returned"
+    full_format_parity      "the formatted range produces the same result as full-document formatting for affected blocks"
+    format_complete_emitted "format_complete event is produced after successful formatting"
+  }
+  contract   """
+    When the LSP server receives a textDocument/rangeFormatting request,
+    it MUST expand the range to complete block boundaries, format the
+    expanded range, and return TextEdit operations for the affected region.
+    TextEdit coordinates use 0-indexed lines and columns (LSP standard).
+    TextEdit operations in a response MUST NOT overlap. The formatted
+    range MUST produce the same result as full-document formatting for
+    the affected blocks, and every byte outside those blocks, line
+    endings included, MUST be left as it is. When the selected range
+    contains parse errors,
+    error regions within the range MUST be left unchanged.
+  """
+  verify unit "range is expanded to block boundaries"
+  verify unit "range formatting matches full formatting for affected blocks"
+  verify unit "range formatting changes no byte outside the blocks it touches"
+  verify integration "parse errors within range are left unchanged per format_with_parse_errors"
+  verify unit "a region left unformatted is reported at its document lines"
+  verify performance "formats range within 20ms for ranges under 200 lines"
+  verify contract "LSP Format Range: LSP range formatting holds — document_open, format_config_loaded, range_expanded, textedit_list_returned, full_format_parity, format_complete_emitted"
+}
+
+behavior lsp_respect_editor_config "LSP Respect Editor Config" {
+  features   [lsp_formatting]
+  invariants [config_defaults_valid, format_rule_determinism]
+  category   command
+  types      [FormatConfig]
+  ports      [LspProtocol]
+  requires {
+    lsp_initialized_fired "LSP server has been initialized and editor settings are available"
+  }
+  ensures {
+    config_precedence_enforced "inside a project, the project's format configuration (its .specforgefmt.toml, else the defaults) is used and editor settings are ignored"
+    editor_fallback_applied    "outside any project, editor-level tab size and insert-spaces are used"
+  }
+  contract   """
+    Inside a project (an ancestor directory holds specforge.json), LSP
+    formatting MUST use the configuration specforge format uses for the
+    file: the nearest .specforgefmt.toml, else the defaults. Editor settings
+    MUST NOT change it, so a file the editor formats passes
+    specforge format --check. Outside any project (an unsaved buffer, a file
+    with no specforge.json above it), LSP formatting MUST use the editor's
+    tab size and insert-spaces. When it ignores editor settings that differ
+    from the project's configuration, the server MUST say so once per
+    session and configuration, as a log message naming the configuration
+    it used.
+  """
+  verify unit "editor settings are used for a document outside any project"
+  verify unit "config file takes precedence over editor settings"
+  verify unit "a project without a config file formats with the defaults, not the editor's settings"
+  verify integration "a document outside any project is written with no field forms"
+  verify integration "the editor formats a project file as specforge format --check expects"
+  verify integration "the editor is told once when the project's configuration overrides its settings"
+  verify contract "LSP Respect Editor Config: editor config respect holds — lsp_initialized_fired, config_precedence_enforced, editor_fallback_applied"
+}
+
+behavior format_with_parse_errors "Format Files with Parse Errors" {
+  // formatting_consistency applies to well-formed regions only; error regions
+  // are preserved verbatim and do not participate in consistency checks.
+  category   query
+  invariants [
+    comment_preservation,
+    formatting_idempotency,
+    formatting_consistency,
+    format_rule_determinism,
+    formatting_semantic_preservation,
+  ]
+  types      [FormatConfig, FormatDiff]
+  ports      [FileSystem, LspProtocol]
+  requires {
+    cst_with_errors "the .spec file has been parsed into a CST that contains tree-sitter ERROR or MISSING nodes, or a string the parser's recovery ended"
+  }
+  ensures {
+    no_crash                      "the formatter does not crash or produce corrupted output"
+    well_formed_regions_formatted "well-formed regions of the file are formatted normally"
+    error_regions_preserved       "error regions are preserved verbatim with original whitespace byte-for-byte"
+    parse_error_diagnosed         "a diagnostic is emitted listing each file with parse errors and error line ranges"
+  }
+  contract   """
+    When the formatter encounters a .spec file that contains parse errors,
+    it MUST NOT crash or produce corrupted output. The formatter MUST read
+    the file's top-level forms as the parser reads them
+    (recover_from_syntax_errors: a string left unclosed, a body left
+    unclosed, a form start the grammar missed) and format every form the
+    parser reads whole. A form that holds a parse error (a tree-sitter ERROR
+    or MISSING node, or a string the parser's recovery ended) MUST be left
+    unchanged, from its first line to its last, blank lines after it
+    excluded; a form that shares a line with a form left unchanged is left
+    unchanged with it, so every source line is written at most once;
+    all original whitespace within it MUST be preserved
+    byte-for-byte, trailing whitespace aside. A diagnostic MUST be emitted
+    listing each file that could not be fully formatted due to parse errors,
+    one per form left unchanged (adjacent ones joined), including its line
+    range. The diagnostic MUST span the lines it kept, from its first line's
+    start to its last line's end, never past the document.
+  """
+  verify unit "file with syntax error is partially formatted without crash"
+  verify unit "well-formed blocks in a file with errors are still formatted"
+  verify unit "error regions are preserved verbatim in output"
+  verify unit "error region starts at first unparseable token"
+  verify unit "error region ends before next parseable top-level statement"
+  verify unit "whitespace within error regions is preserved byte-for-byte"
+  verify unit "diagnostic lists files with parse errors and error line ranges"
+  verify unit "a form the parser could not read whole is kept as written and the forms after it are formatted"
+  verify unit "the diagnostic spans every line of the form it kept, never past the document"
+  verify unit "a text holding a control character is left as written, with one E001"
+  verify unit "forms that share a line with a form left unchanged are kept with it, each line written once"
+  verify property "formatting any text never panics, and formatting its output again changes nothing"
+  verify contract "Format Files with Parse Errors: formatting with parse errors holds — cst_with_errors, no_crash, well_formed_regions_formatted, error_regions_preserved, parse_error_diagnosed"
+}
+
+behavior discover_format_targets "Discover Format Targets" {
+  invariants [discover_completeness]
+  category   query
+  types      [FormatConfig, CompilerConfig]
+  ports      [FileSystem]
+  requires {
+    project_root_available "project root directory (containing specforge.json) is identifiable for spec_root resolution"
+    filesystem_accessible  "FileSystem port is available for directory traversal"
+  }
+  ensures {
+    all_spec_files_discovered "all .spec files under spec_root are discovered when no explicit paths are given"
+    exclusions_applied        "files the project's exclude entries leave out are not discovered"
+    non_spec_skipped          "non-.spec files are skipped without error"
+  }
+  contract   """
+    When specforge format is invoked without explicit file paths, the
+    system MUST discover all .spec files under the spec_root defined in
+    specforge.json (the project root when unset): the files a compile
+    reads. Files the project's exclude entries leave out MUST NOT be
+    discovered; a file named explicitly is formatted all the same. A
+    directory named explicitly that holds specforge.json MUST be read as
+    that project's sources; walking any other named directory MUST take a
+    nested project's sources where it reaches that project's
+    specforge.json, never the rest of its files. A project's sources end
+    at every directory below its spec root that holds specforge.json
+    (resolve_use_imports): a run with no paths, or naming a project, MUST
+    NOT format a nested project's files, and a walk takes the sources of
+    each project it reaches, never those of a project nested in one of
+    them. When explicit paths are
+    provided, only those paths MUST be formatted. Directories provided as
+    arguments MUST be recursively searched for .spec files.
+    A directory is walked as discovery walks (no skipped directory
+    below it, no symlink, files only). A file reached by more than one
+    argument MUST be formatted once. Non-.spec
+    files MUST be skipped without error.
+    The specforge.json of every project whose sources the run selects (the
+    project, a named project, a nested project a walk reaches, the project
+    of a walked file) MUST be read before any file: one that does not say
+    which files are its sources refuses the whole run (config_invalid). A
+    file named explicitly selects no configuration and is formatted
+    whatever specforge.json says. A named path that names nothing MUST
+    refuse the run (file_not_found, about the paths) before any file is read.
+  """
+  verify unit "no arguments formats all .spec files under spec_root"
+  verify unit "files the project's exclude entries leave out are not formatted"
+  verify unit "a named directory that is a project formats that project's sources"
+  verify unit "explicit file paths format only those files"
+  verify unit "directory argument recursively discovers .spec files"
+  verify unit "non-.spec files are skipped with no error"
+  verify unit "a directory named like a .spec file is no target, walked or discovered"
+  verify unit "a file several arguments reach is formatted once"
+  verify contract "Discover Format Targets: format target discovery holds — project_root_available, filesystem_accessible, all_spec_files_discovered, exclusions_applied, non_spec_skipped"
+  verify unit "a specforge.json that does not say which files are the project's sources refuses the run, and nothing is written"
+  verify unit "a named file is formatted whatever specforge.json says"
+  verify unit "a named path that names nothing refuses the run about paths before any file is read"
+  verify unit "format refuses a path that names nothing and exits 1, so a mistyped directory fails a check"
+  verify unit "a project's sources end at a nested project, which a run from the project does not format"
+}

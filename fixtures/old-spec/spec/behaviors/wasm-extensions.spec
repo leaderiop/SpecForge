@@ -1,0 +1,1167 @@
+// Extension entity kinds, enhancements, conflicts, queries, contributions,
+// collectors, discovery, lock files, and doctor
+
+use "events/wasm-extensions"
+use "invariants/extensions"
+use "invariants/validation"
+use "invariants/wasm"
+use "ports/inbound"
+use "ports/outbound"
+use "types/config"
+use "types/errors"
+use "types/graph"
+use "types/wasm"
+use "types/zero-entity-core"
+
+defaults behavior {
+  features [test_result_collection]
+}
+
+// -- Query Extensions -----
+
+// -- Entity Kind Conflict Prevention -----
+
+// -- Entity Enhancement -----
+
+behavior load_extension_manifest "Load Extension Manifest" {
+  features   [extension_manifest]
+  invariants [extension_load_order_determinism]
+  category   command
+  types      [ExtensionDeclaration, ExtensionError]
+  ports      [FileSystem]
+  produces   [manifest_loaded]
+  requires {
+    extension_discovered "installed extension has been discovered with a known path to its .wasm binary"
+    filesystem_available "FileSystem port is available for reading the binary"
+  }
+  ensures {
+    manifest_loaded_emitted          "manifest_loaded event is emitted once the extension's declaration has been read"
+    malformed_manifest_diagnosed     "a declaration that cannot be read fails the extension's load with a diagnostic"
+    initialization_sequence_followed "per-extension initialization follows the documented 4-step sequence"
+  }
+  contract   """
+    When the compiler loads an extension, it MUST read the extension's
+    declaration from the .wasm binary itself (load_extension_declaration);
+    no sidecar file is read. A declaration that cannot be read MUST fail
+    the extension's load with a diagnostic (E028). There are no hardcoded
+    manifest factory methods — all extensions, including all installed
+    extensions, declare themselves. Bundled extensions are loaded from the
+    compiler's bundled resources.
+
+    INITIALIZATION SEQUENCE: The guaranteed initialization order is:
+      1. handshake — the extension's identity, protocol version and policy
+      2. describe — every declared category, once
+      3. build_registries_from_declarations — validate the declarations
+         and populate the kind, field and edge registries and the rules
+      4. register_surface_contributions — route the CLI commands and
+         register the MCP tools and MCP resources
+    Steps 1-2 run per extension in entry order (the extension load); step 3
+    puts the declarations in load order (registry_build_load_order) before
+    anything registers; steps 3-4 run once over every loaded declaration,
+    in that order.
+  """
+  verify unit "the declaration is read from the binary"
+  verify unit "a declaration that cannot be read produces a diagnostic"
+  verify unit "bundled extensions loaded from bundled resources directory"
+  verify unit "initialization follows the documented 4-step sequence"
+  verify contract "Load Extension Manifest: extension manifest loading holds — extension_discovered, filesystem_available, manifest_loaded_emitted, malformed_manifest_diagnosed, initialization_sequence_followed"
+}
+
+behavior register_entity_enhancements "Register Entity Enhancements" {
+  features   [entity_enhancement]
+  invariants [enhancement_field_uniqueness]
+  category   command
+  types      [ExtensionDeclaration, EntityEnhancementDescriptor, DynamicEdgeType]
+  requires {
+    manifests_validated "all extension manifests have been validated and entity kinds registered"
+  }
+  ensures {
+    enhancement_registered_emitted   "enhancement_registered event is emitted after fields are registered in FieldRegistry"
+    registration_before_resolve      "registration completes before the resolve phase begins"
+    registration_order_deterministic "registration order follows extensions array order in specforge.json"
+  }
+  contract   """
+    When an extension manifest declares entity enhancements, the compiler
+    MUST parse the enhancement declarations, validate that the target
+    entity kinds exist (an unknown target kind is an I004 info diagnostic), register the field-to-edge mappings in the
+    FieldRegistry, and register any dynamic edge types. Registration
+    MUST happen before the resolve phase begins. The order of
+    registration MUST follow the extensions array order in specforge.json.
+    An enhancement of a kind no loaded extension declares is conditional
+    when its extension declares an optional peer the project does not load:
+    it MUST be skipped without a diagnostic. Its fields MUST be registered
+    as its extension's.
+    An enhancement field MUST NOT overwrite a field the kind already
+    declares.
+  """
+  produces   [enhancement_registered]
+  verify unit "enhancement fields registered in FieldRegistry"
+  verify unit "unknown target kind produces I004 info diagnostic"
+  verify unit "an enhancement of an unknown kind whose extension's optional peer is not loaded is skipped silently"
+  verify unit "an enhancement with verify kinds makes its target kind testable"
+  verify unit "an enhancement's fields are credited to the extension that declares the enhancement"
+  verify unit "an enhancement of an unknown kind is skipped silently when its extension declares an optional peer the project does not load"
+  verify unit "enhanced reference fields create graph edges"
+  verify unit "enhanced data fields participate in type validation"
+  verify unit "registration order follows extensions array"
+  verify unit "enhancement field does NOT overwrite existing kind-level field"
+  verify contract "Register Entity Enhancements: entity enhancement registration holds — manifests_validated, enhancement_registered_emitted, registration_before_resolve, registration_order_deterministic"
+}
+
+// -- Contribution Model -----
+
+behavior call_extension_exports "Call Extension Exports" {
+  features   [contribution_based_extensions]
+  invariants [extension_isolation, extensions_run_in_their_loading_runtime]
+  category   command
+  types      [
+    CommandInput,
+    CommandOutput,
+    McpResourceRequest,
+    McpResourceContent,
+    PassInput,
+    PassOutput,
+    PassDiagnostic,
+    CollectInput,
+    CollectOutput,
+    ValidatorContext,
+    ValidatorVerdict,
+    MigrationInput,
+    WasmTrapInfo,
+  ]
+  ports      [WasmRuntime]
+  requires {
+    extension_loaded "the extension is one the project's runtime loaded"
+  }
+  ensures {
+    one_protocol_type  "each operation's input and answer is one specforge_protocol_types type the host and the SDK share"
+    strict_answers     "an answer that does not decode as its protocol type is E028; unknown fields are ignored and absent optional fields take their defaults"
+    one_failure        "a trap, an unrouted export, an extension not loaded or a malformed answer is E028 naming the operation, the export and the extension"
+    no_silent_failure  "no operation drops a failure: a pass's is a finding, a command's is the command's error"
+    runtimes_agree     "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
+    printable_text     "the text of a handshake, describe, pass or validator answer, and of a call's failure, is read printable; a command's output, an MCP tool's or resource's answer and a collector's are read as answered"
+    pass_codes_checked "a pass diagnostic whose code its extension may not use is kept and reported (W150)"
+  }
+  contract   """
+    The host performs twelve operations on a loaded extension, each one call
+    of one export over the WasmRuntime port: handshake and describe (the
+    declaration, ADR 0012), a command (cmd__), an MCP tool or resource
+    (mcp__), a compiler pass (__pass_<name>, one rule the SDK and the host share), a collector (collect__), a
+    custom validator (the rule's wasm_function), a migration hook, an MCP prompt (prompt__, ADR 0291), the body of an agent or skill (render__, ADR 0292) and a host hook (hook__, ADR 0292). Each sends one protocol type as
+    JSON and reads one protocol type back (specforge_protocol_types); an
+    optional field the host leaves unset is absent, never null. A trap, an
+    export the guest does not route, an extension the runtime did not load,
+    or an answer that does not decode is E028 naming the operation, the
+    export and the extension, with the suggestion to report it to the
+    extension's author. What a failure means is the operation's: a check
+    pass's is a compile diagnostic, an analyze pass's a finding of that
+    pass, a command's its E028 error, a collector's the collect error. A
+    migration hook's answer is not read. The text of a handshake, describe,
+    pass or validator answer, and of a call's failure, MUST be read
+    printable (ADR 0244); a command's output, an MCP tool's or resource's
+    answer and a collector's are read as answered.
+    A component guest builds its declaration once per instance and answers
+    the handshake and every describe from it.
+
+    A pass diagnostic keeps its severity and takes its extension's
+    namespace on its code; when the code is not one the extension may use
+    (a code its own catalog lists, at the level its letter states),
+    the host adds one W150 per code naming the extension and the pass.
+    Every diagnostic a rule or a pass of an extension produces names that
+    extension as its origin, and a code the extension may not use is not
+    titled or explained as its owner's.
+  """
+  verify unit "every operational payload is one protocol type the host and the SDK share"
+  verify unit "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
+  verify unit "both runtimes report an unknown extension, an unrouted export, a guest error and a guest panic as traps"
+  verify unit "every extension call encodes its input as the protocol type the SDK decodes"
+  verify unit "a guest answers the handshake and every describe from one declaration it builds once"
+  verify unit "every extension call decodes the protocol type the SDK encodes"
+  verify unit "a call whose export trapped is E028 naming the extension, the operation and the export"
+  verify unit "a call whose answer does not decode as its protocol type is E028, never a default"
+  verify unit "an unknown field in an answer is ignored and an absent optional field takes its default"
+  verify unit "a pass answer may be bare diagnostics or diagnostics with a summary, and its diagnostics come back in canonical order with an entity's span attached"
+  verify unit "an analyze pass that traps is reported as an E028 finding of that pass"
+  verify unit "an analyze pass runs in the view's runtime whether or not the view has a root"
+  verify unit "a pass, collector, custom rule or migration hook is declared with its handler, and its export answers through it"
+  verify unit "the SDK routes a compiler pass at the export the host calls it by"
+  verify unit "a pass input that does not encode fails each pass's call, naming its export, and nothing is sent"
+  verify unit "an export the guest's handler answers decodes its input and encodes its answer as a declared handler does"
+  verify unit "a pass diagnostic whose code the extension may not use is reported (W150) and kept"
+  verify unit "a diagnostic an extension reported names its extension, and a code it may not use is not described as its owner's"
+  verify unit "a pass's diagnostics and summary and a validator's verdict are read printable"
+  verify unit "a call failure's text from the guest is written printable in E028"
+  verify unit "a command's output and an MCP tool's answer are read as the extension answered them"
+  verify contract "Call Extension Exports: extension calls hold — extension_loaded, one_protocol_type, strict_answers, one_failure, no_silent_failure, runtimes_agree, pass_codes_checked"
+}
+
+// -- Check-Phase Passes and the Build Cache -----
+
+behavior run_check_phase_passes "Run Check-Phase Passes" {
+  features   [contribution_based_extensions]
+  invariants [extension_load_order_determinism]
+  category   validation
+  types      [ExtensionDeclaration, Diagnostic, WasmTrapInfo]
+  ports      [WasmRuntime]
+  requires {
+    graph_checked "the graph is built and its checks (core validation, the registry checks and the extensions' validation rules) have run"
+  }
+  ensures {
+    runs_every_compile     "a pass declared with phase check runs on every compile, after the graph checks"
+    reported_by_check      "its diagnostics join the compile's, with the codes and severities the pass returns, so specforge check, watch, the LSP and MCP report them"
+    analyze_only_otherwise "a pass without phase check runs only under analyze, and analyze does not run a check pass"
+    declared_order         "check passes run in the order their after/before constraints give, extension by extension in load order"
+    trap_is_diagnostic     "a check pass that traps or answers output that does not parse is E028, never a crash"
+    entity_span_attached   "a pass diagnostic with no span that names an entity gets that entity's span"
+    facts_as_declared      "a pass is sent the authored entities and the facts of the kinds its facts input names, and only the edges between what it is sent"
+  }
+  contract   """
+    An extension declares its compiler passes in `__describe passes`
+    (name, after, before, phase). A pass declared with `phase: "check"`
+    is part of the compile: the shared compiled project runs it after the
+    graph checks, so every surface reports what it finds and `specforge
+    check` exits 1 on its errors. Which passes are check passes is read
+    once, when the extensions load; a compile with none costs nothing.
+
+    The pass export `__pass_<name>` receives the same input an analyze
+    pass does (`entities`, `edges`; each entity carries `testable` and
+    `exempt`: it owes no obligations of its own, decided from the
+    registries; of the facts a collector wrote, only those of the kinds
+    its `facts` input names, and only the edges whose two ends it is
+    sent, ADR 0353), with no `test_results` or
+    `proved_claims` (a compile has neither) and with `previous`, the
+    git baseline of the kinds the pass names in `baseline`. Passes that
+    declare the same facts and baseline kinds are sent one input, encoded
+    once (ADR 0353 D4). It answers the same
+    output: diagnostics, bare or as `{diagnostics, summary}`; the summary
+    is ignored. Each diagnostic keeps the code and severity the pass gave
+    it (W150 beside it when the extension may not use the code). One
+    with no span that carries `entity: "<id>"` gets the span of that
+    entity. A trap or an answer that does not parse is E028 naming
+    the pass's export and its extension (call_extension_exports); the
+    other passes still run.
+
+    A pass with any other phase, or none, runs only under `specforge
+    analyze`, which skips check passes: their findings are the compile's.
+  """
+  produces   []
+  verify unit "a pass declared for the check phase runs on every compile"
+  verify unit "a check pass's diagnostics are reported by specforge check"
+  verify unit "a session reports a check pass's diagnostics after an update"
+  verify unit "a pass without the check phase runs only under analyze"
+  verify unit "check passes run in their declared after/before order"
+  verify unit "a trapping check pass is a diagnostic, not a crash"
+  verify unit "a pass diagnostic naming an entity gets that entity's span"
+  verify unit "a pass entity carries whether the host found it exempt"
+  verify unit "a pass that declares no facts input is sent no fact"
+  verify unit "a pass is sent exactly the facts of the kinds it declares"
+  verify unit "passes that declare the same facts and baseline kinds are sent one encoded input"
+  verify unit "the pass input carries each entity's exemption, which the SDK's PassEntity reads"
+  verify unit "a pass receives a typed block and a block list structured beside their text"
+  verify unit "previous is the baseline of the kinds a pass names"
+  verify unit "check --cache is a usage error and a specforge-cache.json is not read"
+}
+
+behavior compute_field_values "Compute Field Values" {
+  features   [contribution_based_extensions]
+  invariants [extension_load_order_determinism]
+  category   validation
+  types      [ExtensionDeclaration, Diagnostic, WasmTrapInfo]
+  ports      [WasmRuntime]
+  requires {
+    graph_built "the graph is built and its authored values are known"
+  }
+  ensures {
+    values_beside_the_graph "a compute pass's values join the snapshot before the rules and never the graph"
+    refused_is_w165         "a value the pass may not give is W165 and dropped"
+    shown_as_a_field        "every surface shows a computed value as a field and marks it computed"
+  }
+  contract   """
+    A pass declared with `phase: "compute"` names the fields it `computes` and answers `values` (ADR 0287). The
+    compiled project holds them beside the graph; rules, checks, query, MCP, the language server and exports read
+    them as fields, marked computed, and so does the graph a command, a prompt, a hook or a writing collector
+    receives (ADR 0299). A computed field is never required and never scaffolded.
+  """
+  produces   []
+  verify unit "a compute pass's value joins the snapshot beside the graph, which keeps the authored values"
+  verify unit "a value the pass may not give is W165 and dropped"
+  verify unit "a computed field or member is never required and never scaffolded"
+  verify unit "every surface shows a computed value as a field and marks it computed"
+  verify unit "the graph a command and a writing collector receive carries the computed values"
+  verify unit "the graph a hook with the graph input receives carries the computed values"
+  verify unit "a call over a checked project runs no compute pass"
+  verify unit "hover marks a computed field and completion offers none"
+  verify unit "MCP inspect shows a computed value"
+}
+
+// -- Collector Contribution Behaviors -----
+
+// Cross-ref: the collect flow (ADR 0002) spans these behaviors:
+// register_collector_contributions → auto_detect_collector →
+// approve_capability → run_collector_command → dispatch_collector →
+// ingest_collector_report. The CLI entry point is `specforge collect`; the
+// MCP entry point is provide_mcp_collect_tool (behaviors/mcp-operations.spec).
+behavior register_collector_contributions "Register Collector Contributions" {
+  invariants [extension_load_order_determinism]
+  category   query
+  types      [ExtensionDeclaration, CollectorDescriptor, CollectorAutoDetect]
+  ports      [WasmRuntime]
+  requires {
+    manifest_declares_collectors "an enabled extension's handshake raises the collectors flag and its describe payload lists collectors"
+  }
+  ensures {
+    collectors_listed       "every declared collector is listed with its extension, export, detection files, command and report location"
+    default_report_location "a collector with a command that names no report reads .specforge/reports/<name>.json"
+    ports_reader            "a collector with no command and no report is called with no report under run and no-run"
+  }
+  contract   """
+    Collectors come from the `collectors` describe payload of each enabled
+    extension, in manifest order. A collector names its pure export
+    (`collect__<name>`), the project-root files that select it, the argv
+    that runs its test runner (elements may contain the `{report}`
+    placeholder) and the report file or directory the runner writes,
+    relative to the project root, with no `..`; where it lands is the
+    request's containment. A collector with a command and no report
+    location reads `.specforge/reports/<name>.json`. A collector with no
+    command and no report reads through its ports: it is called under a
+    run and a no-run alike, reads no report, needs no approval, and a
+    `--report` run naming it is E058.
+  """
+  produces   [collector_registered]
+  verify unit "collector contribution parsed from manifest"
+  verify unit "a collector's declared reads are checked as a pass's (W021) and listed with their owner"
+  verify unit "a kind may declare writer collector and its schemes, and a field that declares writer collector is W021"
+  verify unit "a kind's writer is human or collector, and only a collector-written kind declares schemes"
+  verify unit "a facts input is served to a pass or a collector, and an empty or unknown kind or a second one is W021"
+  verify unit "a pass naming an authored kind in its facts input is W021"
+  verify unit "the SDK declares a facts input and the kinds a collector answers"
+  verify integration "a collector with no command and no report is called under run and no-run, and ran is false"
+  verify integration "a report run naming a collector that reads through its ports is E058"
+  verify integration "a collector that reads through its ports is lent its fs reads without an approval"
+  verify integration "a collector parses source through the syntax import, and what it found broken is noted once"
+  verify contract "Register Collector Contributions: collector contribution registration holds — manifest_declares_collectors, collectors_listed, default_report_location, ports_reader"
+}
+
+// NOTE: auto_detect_collector does not produce an event because dispatch is
+// CLI-initiated (specforge collect), not event-driven.
+behavior auto_detect_collector "Auto-Detect Collector" {
+  invariants [extension_load_order_determinism]
+  category   validation
+  types      [CollectorDescriptor, CollectorAutoDetect]
+  ports      [FileSystem]
+  consumes   [collector_registered]
+  requires {
+    collector_registered_fired "collector_registered event has fired, confirming collectors are available for auto-detection"
+  }
+  ensures {
+    all_matches_selected    "every collector whose detection files exist at the project root is selected"
+    runner_flag_selects_one "--runner selects exactly the collector with that name or extension"
+    single_collector_used   "a single enabled collector is used without detection"
+    no_match_diagnosed      "no collector, no match among several or an unknown --runner is E058, listing the available collectors"
+    ordered_by_facts        "a collector whose facts input names a kind another selected collector answers runs after it; a cycle is E119 before any runs"
+    repository_detected     "a collector detecting a repository is selected when the git port locates the project root in one, or refuses to read the one it is in"
+  }
+  contract   """
+    Without `--runner`, `specforge collect` selects every collector whose
+    detection files exist at the project root; the last segment of a
+    detection pattern may use `*` wildcards (`vitest.config.*`). A project
+    with Rust and TypeScript tests therefore collects from both runners.
+    A collector that detects a repository is also selected when the git
+    port's `locate`, which the collector's own git calls ask, finds the
+    project root in a repository (its top or below, a linked worktree
+    included), git's ceilings kept, so a project in a subdirectory of its
+    repository is detected. One the port refuses to read (a `GIT_DIR`
+    naming another repository) selects it too, and its `locate` says why;
+    with no git port, none does.
+    `--runner` names one collector by name or extension. When only one
+    collector is enabled, it is selected without detection: detection
+    only decides between several. When nothing can be
+    selected, the command fails with E058 and lists the collectors that are
+    available. The selected collectors run in declaration order, except that
+    a collector whose `facts` input names a kind another answers runs after
+    it; collectors whose inputs and answers form a cycle are E119, reported by
+    the registry build and refused by collect before anything runs.
+  """
+  produces   []
+  verify unit "a collector reading check outcomes is not run by a plain collect"
+  verify unit "a check outcomes input on anything but a collector is W021 and served empty"
+  verify unit "checks.publish adds a collector reading check outcomes to a plain collect, and never to a reports run"
+  verify unit "a collect owes the values phase only when a selected collector reads check outcomes"
+  verify unit "file pattern match selects collector"
+  verify unit "wildcards match within the last path segment"
+  verify unit "a repository above the project root selects a collector detecting a repository"
+  verify unit "no match emits E058 with available collectors"
+  verify integration "a single enabled collector is used without detection"
+  verify unit "collectors run in declaration order unless a facts input orders a producer first, and a cycle is E119"
+  verify unit "collectors whose facts inputs and answers form a cycle are E119 in the registry build"
+  verify integration "a collector whose facts input names a kind another answers runs after it"
+  verify integration "collectors whose facts inputs form a cycle are E119 before any of them runs"
+  verify contract "Auto-Detect Collector: collector auto-detection holds — collector_registered_fired, all_matches_selected, runner_flag_selects_one, single_collector_used, no_match_diagnosed, ordered_by_facts, repository_detected"
+}
+
+behavior approve_capability "Approve Capability" {
+  invariants [extension_isolation]
+  category   validation
+  types      [CollectorDescriptor, CapabilityApproval, RootApproval]
+  ports      [Consent, CollectorMachine]
+  requires {
+    command_declared "the selected collector names a process capability its extension declares"
+  }
+  ensures {
+    consent_outside_project   "approvals are stored in the user-level consent store, never in the project"
+    changed_command_reprompts "an approval covers one project, extension provenance and scope; a wider scope, a new argv or another blob asks again"
+    non_interactive_refuses   "without a terminal, or with JSON output, an unapproved command is refused with E059 unless --yes is passed"
+  }
+  contract   """
+    An extension's effects run only through its grant (ADR 0335 D2): what
+    it declares as a capability, held to the call kind's gate and the
+    project's effects ceiling, and approved on this machine. A collector's
+    command is its extension's process capability, so `specforge collect`
+    runs it only once this machine approves that capability, and a root
+    outside the project an fs capability reads needs its own approval.
+    The command's placeholders (`{report}`, `{config}`) are the host's to
+    fill with its own paths: no request, a guest's or a person's, is
+    admitted by a capability whose argv names one.
+    Every approval a run needs is decided before its first effect: a
+    terminal is asked once per scope or root, showing the extension and
+    the command or what the scope allows (y or yes, in any case, approves;
+    any other answer refuses), and a yes is remembered in
+    `~/.specforge/consent.json` (`$SPECFORGE_CONSENT_FILE` overrides; a
+    store inside the project is refused, whichever names it). An approval is keyed by project,
+    extension, provenance (a builtin by its name, a third-party extension
+    by its blob's digest) and scope, and stores the granted scope whole:
+    it covers a narrower grant, while a wider scope, a changed command or
+    a new blob asks again. `specforge grants` lists, approves and revokes
+    them. The store lives outside the project, so a cloned repository
+    can't approve its own effects; one that cannot be used is W186 and
+    approves nothing. Without a terminal, or with `--format json`,
+    nothing is asked: an unapproved command fails with E059, `--yes` runs
+    it without recording an approval, and `--no-run` parses an existing
+    report. A command the grant refuses (a ceiling that turns process off,
+    a command the capability does not declare) is E090 before anything
+    runs. The MCP server never prompts and runs only approved commands.
+  """
+  produces   []
+  verify unit "an approval is keyed by project, extension provenance and scope, and covers narrower grants"
+  verify unit "a changed config file asks again, as a changed command does"
+  verify unit "a command whose argv names a placeholder admits no request, its expansion included"
+  verify integration "a guest never runs its collector's command with a placeholder filled by itself"
+  verify unit "the terminal shows a collector's config file under its command"
+  verify unit "the consent store is replaced privately and atomically, never through a link"
+  verify unit "an approval is never written over a consent store that cannot be read"
+  verify integration "a third-party collector asks again after its blob changes"
+  verify integration "a ceiling that turns process off refuses collect with E090 before anything runs"
+  verify integration "unapproved command without a terminal fails with E059 and runs nothing"
+  verify integration "--yes runs the declared command"
+  verify unit "a terminal that can answer is asked; with nobody to ask, or under --format json, only an approved command runs"
+  verify contract "Approve Capability: consent holds — command_declared, consent_outside_project, changed_command_reprompts, non_interactive_refuses"
+}
+
+behavior run_collector_command "Run Collector Command" {
+  invariants [extension_isolation]
+  category   command
+  types      [CollectorDescriptor]
+  ports      [FileSystem, CollectorMachine, Process]
+  requires {
+    command_approved "approve_capability allowed the command"
+  }
+  ensures {
+    report_inside_project  "a report location outside the project (absolute or with ..) is refused with E058"
+    stale_report_ignored   "an earlier run's report is never read: a report file is removed before the command starts, and only report-directory files written during the run are read"
+    report_path_exported   "the command runs in the project root with SPECFORGE_REPORT set to the absolute report path and {report} expanded"
+    failing_tests_recorded "a non-zero exit is not an error when a report was written; no report is E045"
+    refused_before_running "every refusal that needs no run (a report location, a capture, a command, an approval) is decided for every selected collector before the first command runs"
+  }
+  contract   """
+    The host, not the extension, runs the approved command: extensions stay
+    pure wasm with no process access. The report location must stay inside
+    the project. So that an old report can't pass for a new run, the host
+    removes a report file before running, and reads only the `*.json` files
+    of a report directory that were written after the command started (it
+    deletes nothing there: other tools may keep files in it). The command runs
+    in the project root with stdin closed, `{report}` expanded in its
+    arguments and `SPECFORGE_REPORT` set to the absolute report path. Its
+    output goes to the terminal, to stderr under `--format json`, and
+    nowhere under MCP. Test runners exit non-zero when tests fail, so the
+    exit status only matters when no report was written, which is E045
+    for a collector `--runner` names or the one the project enabled. A
+    collector chosen by detection that gives no evidence (no report, no
+    captured output, a command that cannot start) is skipped instead: its
+    runner result gives its `skip_reason`, and the other collectors'
+    results, facts and plans are kept (ADR 0331). A collector that declares `capture: "stdout"` gets the command's
+    standard output too: it still reaches the terminal (or stderr) as it
+    is produced, and is also written to `<collector>.stdout.txt` inside a
+    report directory (next to a report file), which `--no-run` reads back.
+    A captured output counts as a report. Any other `capture` value is
+    E058. With several collectors, every refusal that needs no run (a
+    report location, a capture, a command, an approval) is decided for all
+    of them before the first command runs.
+  """
+  produces   []
+  verify unit "report path must stay inside the project"
+  verify unit "run ignores stale reports and sets the report env"
+  verify unit "command line expands the report placeholder"
+  verify unit "a captured stdout is kept in every output mode"
+  verify unit "an unknown capture is refused"
+  verify unit "a detected collector with no evidence is skipped and the others are kept"
+  verify unit "a named collector with no evidence is still E045"
+  verify unit "a collector command past its deadline is stopped"
+  verify unit "a .cmd shim on PATH runs as a collector command on Windows"
+  verify contract "Run Collector Command: collector command execution holds — command_approved, report_inside_project, stale_report_ignored, report_path_exported, failing_tests_recorded, refused_before_running"
+  verify integration "a declared config file is written before the run with {report} expanded, and {config} names it"
+  verify integration "a program that cannot be found names the collector's install line"
+  verify unit "the config's report path is escaped for a quoted TOML or JSON string"
+  verify integration "a link at the report, capture or config name is replaced, never written through"
+}
+
+behavior dispatch_collector "Dispatch Collector" {
+  invariants [wasm_sandbox_integrity, extension_isolation]
+  category   query
+  types      [CollectorDescriptor, CollectInput, CollectOutput, WasmTrapInfo]
+  ports      [WasmRuntime, FileSystem]
+  requires {
+    report_available "the collector's report exists: a file, or a directory of *.json files"
+  }
+  ensures {
+    collector_dispatched_emitted "collector_dispatched event is emitted after the export returns"
+    report_files_passed          "the export receives every report file with its project-relative path and text"
+    traps_reported               "a trap or malformed answer is E028"
+    named_reports_only           "with --report only the named files are read: nothing the collector declares about its report, capture or command is resolved or refused"
+    declared_files_passed        "a collector that declares reads receives their files' facts, held to the project as a pass's are"
+    facts_stored                 "a collector's admitted facts are stored under the collect's key and recorded by digest in specforge-harness, in one change under the write lock"
+    facts_served                 "a facts input is served the admitted facts of its kinds that earlier collectors answered, else the recorded stores'"
+    syntax_work_reported         "a collector that read source files through the host's syntax reader reports how many were parsed and how many came from the syntax cache (I214), and a cache that cannot be written is W200 once"
+  }
+  contract   """
+    The host reads the report (the file itself, or every `*.json` file
+    directly inside a report directory, in path order) and passes the files,
+    each named by its project path,
+    to the collector's pure export as the protocol's CollectInput
+    (`{"reports": [{"path", "content"}], "stdout"?}`, `stdout` being the
+    captured standard output when the collector declares one, absent
+    otherwise), and reads its answer as the protocol's CollectOutput
+    (specforge_protocol_types, through call_extension_exports).
+    The export answers with test results grouped by entity:
+    `{"entity_results": [{"entity_id", "test_results": [{"name", "status",
+    "verify"?, "duration_ms"?}]}], "unlinked"?: [{"name", "path",
+    "status"}]}`, where status is the protocol's TestStatus, passed, failed
+    or skipped, read strictly, and `unlinked` lists tests the report doesn't
+    link to an entity. A trap or an answer that is not a CollectOutput (a
+    test without a name, a status outside passed, failed and skipped, an
+    empty object) is E028 naming the collector, never empty results or a
+    skipped test. `--no-run`
+    skips running and dispatches the report (and captured output) the runner
+    already wrote at the declared location; `--report` dispatches only the
+    files it names, so a collector's declared report, capture and command are
+    neither resolved nor refused.
+    A collector that declares `reads` receives `files`: the facts and
+    capped text of the project files it names, read by the host after the
+    run and before the export, as a command's are (ADR 0293).
+    Every collector receives the project root as `cwd`; one that declares
+    `writes` also receives the date, the graph and the revisions. Its answer
+    may carry `facts`, the entities it observed (ADR 0327): facts of a kind
+    no loaded extension declares a collector writes, an empty id, an id in
+    none of its kind's schemes or a repeated id are E116, and none of that
+    collector's facts is stored; so is a fact of a kind the collector does
+    not list in its `answers` (ADR 0345 D3), and so is a fact placed (`at`,
+    `named_at`) at a file that is no key under the project root or no
+    regular file there (ADR 0346 D2). Each place's file is keyed from the
+    root, and the store records the sha256 of every file a place names, in
+    `sources`. The others are stored after every collector
+    ran, in `.specforge/facts/<key>/<collector>.json` (canonical JSON), under
+    HEAD's sha, `<sha>-dirty` for a dirty tree, or `worktree` with no commit
+    (I209 for either), and `specforge-harness` records one line per
+    collector, `<collector> facts:<key> <digest>`, replacing its last; the
+    store, the removal of its stores under other keys and the line are one
+    change under the write lock. A collector that declares a `facts` input
+    receives `facts`, sorted by kind and id: for each kind, the admitted facts
+    the collectors that ran before it in this collect answered, or, for a
+    kind none of them answers, the facts of the stores specforge-harness
+    records (ADR 0345 D3). A kind served from the stores that none of them
+    holds a fact of is W201, naming the collector, the kind and the declared
+    collectors that answer it (`--runner` still runs only what it names).
+    A collector whose guest asked the host to parse source files
+    (`specforge:host/syntax`, ADR 0345) reports that work (ADR 0353 D7):
+    its `syntax` in the answer counts the files parsed now, the files read
+    from the syntax cache and the bytes parsed, and I214 says it; a second
+    collect of an unchanged tree parses none. Parsed files the cache could
+    not take are W200, once per collect, with the error of the first write
+    that failed; the facts are still stored.
+  """
+  produces   [collector_dispatched]
+  verify unit "a collector named by the runner receives each checked value's outcome"
+  verify unit "a fact's places are stored as project keys with the digest of each file they name"
+  verify unit "a fact placed outside the project root is E116 and none of its collector's facts is stored"
+  verify unit "a collector reading check outcomes needs no command and no report"
+  verify unit "published outcomes are stored under the collect key"
+  verify unit "reads a file or every json file in a directory"
+  verify unit "the collector receives a CollectInput and answers a CollectOutput, and an answer that is not one is an error naming the collector"
+  verify unit "--report reads only the named files, whatever the collector declares"
+  verify unit "each report file reaches the collector by its project path, however it was named"
+  verify unit "a collector receives the facts of the files it declares it reads, and none when it declares none"
+  verify unit "a collector's read is held to the project and withholds a credential's text, as a pass's is"
+  verify unit "a read path whose case differs from the disk is absent on every OS"
+  verify unit "every collector is sent the project root as cwd; only a writing collector the date, the graph and the revisions"
+  verify unit "a collector's facts are stored under the key of the commit they were collected at and their digest is recorded in specforge-harness"
+  verify unit "facts that name a kind no collector writes, or an id outside its kind's schemes, are E116 and none of them is stored"
+  verify unit "a fact of a kind its collector does not declare it answers is E116 and none of its facts is stored"
+  verify unit "a dirty tree or a project in no repository files its facts under a key that says so, with I209"
+  verify integration "a facts input is served the admitted facts of its kinds that earlier collectors answered, sorted"
+  verify integration "a facts input no collector of the collect answers is served the recorded stores"
+  verify integration "a facts input served no fact of a kind is W201 naming the collectors that answer it"
+  verify unit "the recorded facts of a kind are those of the stores the ledger records, sorted"
+  verify integration "a second collect of an unchanged tree parses no file: each is read from the syntax cache"
+  verify integration "a collect after one file's edit parses that file alone"
+  verify integration "a syntax cache that cannot be written is W200 and the facts are still stored"
+  verify integration "storing a collect's facts checks the project no second time"
+  verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported, named_reports_only, declared_files_passed, facts_stored, facts_served, syntax_work_reported"
+}
+
+behavior ingest_collector_report "Ingest Collector Report" {
+  invariants [collector_output_conformance]
+  category   query
+  types      [CollectOutput, Graph]
+  ports      [FileSystem]
+  consumes   [collector_dispatched]
+  requires {
+    collector_dispatched_fired "collector_dispatched event has fired with the export's answer"
+    graph_available            "the compiled graph is available to check entity IDs"
+  }
+  ensures {
+    collector_report_ingested_emitted "collector_report_ingested event is emitted after the report is written"
+    runner_results_replaced           "a runner's earlier results are replaced; other runners' results are kept"
+    unknown_entities_warned           "results for undeclared entities are dropped with W115"
+    skipped_not_recorded              "skipped tests are counted but not recorded"
+    one_vocabulary                    "the report keeps the collect wire's TestResult and statuses"
+    merged_report_written             "the merged results are written to specforge-report.json, which analyze reads by default"
+  }
+  contract   """
+    Each runner's answer is merged into `specforge-report.json`: the
+    runner's earlier results are removed and its new ones added, so several
+    runners can report on one project. Every recorded test is the
+    collector's TestResult (its name, `passed` or `failed`, the `verify`
+    obligation it names, its duration) with the runner that recorded it.
+    The report is read strictly: a status outside passed, failed and
+    skipped, or a test without a name, makes it a report that cannot be
+    used (E045), and a collect that merges rewrites it. Results for entities the graph doesn't declare are
+    dropped with a W115 warning. Skipped tests prove nothing, so they're
+    counted but not recorded. `specforge analyze` reads the written report
+    without `--test-results`.
+    A collector's answer is merged only when it carries test results, or
+    the report holds that runner's tests (an emptied answer still clears
+    them); the report is written only when a merge changed it. A facts-only
+    or plan-only answer creates and rewrites no report (ADR 0327).
+  """
+  produces   [collector_report_ingested]
+  verify unit "merge replaces only the same runner"
+  verify unit "a collect whose answers carry facts and no test results creates and rewrites no report, in a run of one collector or several"
+  verify unit "the recorded test report speaks the collect vocabulary, and a status outside it is a report that cannot be used"
+  verify unit "the entities results may name are the entity snapshot's, with their obligation texts"
+  verify integration "collect then analyze scores the recorded tests"
+  verify contract "Ingest Collector Report: collector report ingestion holds — collector_dispatched_fired, graph_available, collector_report_ingested_emitted, runner_results_replaced, unknown_entities_warned, skipped_not_recorded, one_vocabulary, merged_report_written"
+  verify unit "collect files a test reported for an entity's short id under its full path"
+  verify unit "collect reads a rooted test id as its path"
+  verify unit "a rooted test id that is not exact stays unknown"
+  verify unit "an ambiguous short test id is W115 and names its candidates"
+  verify unit "collect matches a short test id at a segment boundary only"
+  verify unit "two spellings of one entity's test are recorded once"
+}
+
+behavior resolve_test_conventions "Resolve Test Naming Conventions" {
+  invariants [collector_output_conformance]
+  category   query
+  consumes   [collector_dispatched]
+  requires {
+    unlinked_returned "the collector returned the tests its report doesn't link"
+  }
+  ensures {
+    double_underscore_linked "entity_id__slug links the test to that entity"
+    module_linked            "otherwise the innermost module named after an entity links it"
+    obligation_by_slug       "the rest of the name proves the one obligation whose slug it is"
+    ambiguity_warned         "a name that splits into several entities is W137 and not linked"
+    unresolved_silent        "a test no convention links is left out without a diagnostic"
+  }
+  contract   """
+    A test the collector's report doesn't link (a plain `#[test]` seen in
+    libtest's output, say) is linked by its name before the merge. When
+    the part of the test's own name before a `__` is a declared entity ID,
+    the test belongs to that entity and the rest of the name is checked
+    against its obligations; otherwise the innermost enclosing module
+    named after an entity takes it, with the whole name checked. The test
+    proves the obligation whose slug equals the name's slug, when exactly
+    one does, and otherwise the entity alone. A name whose `__` splits
+    give more than one declared entity is W137 and stays unlinked. Tests
+    no rule links are dropped silently, since plain tests are the norm.
+    `specforge collect` reports how many tests it linked this way.
+  """
+  produces   []
+  verify unit "a double underscore splits the entity from the obligation"
+  verify unit "an entity with single underscores is not split"
+  verify unit "the innermost module named after an entity links its tests"
+  verify unit "a double underscore takes precedence over the module"
+  verify unit "an obligation matches only when its slug is unique"
+  verify unit "a name that splits into several entities is W137"
+  verify unit "a test no convention links is left out silently"
+  verify integration "collect links plain tests by naming convention"
+  verify integration "a plain cargo test proves obligations by naming convention"
+}
+
+behavior slug_obligation_text "Slug an Obligation Text" {
+  invariants [collector_output_conformance]
+  category   query
+  ensures {
+    one_algorithm "one algorithm slugs a text, held to the test vectors"
+  }
+  contract   """
+    A test named after an obligation carries the obligation's slug:
+    `<=`, `>=`, `<` and `>` become `lte`, `gte`, `lt` and `gt`, spaces
+    become underscores, ASCII letters are lowercased, every other character
+    outside `[a-z0-9_]` is dropped, runs of underscores collapse to one and
+    leading or trailing underscores are trimmed. The host carries this
+    algorithm once (`specforge_common::slug`), held to its test vectors;
+    the `specforge-test` crate needs no slug, since collect links tests
+    by name on the host.
+  """
+  verify unit "slug matches the shared test vectors"
+}
+
+// -- Discovery & Configuration -----
+
+behavior run_doctor_check "Run Doctor Check" {
+  features   [entity_enhancement]
+  // Doctor REPORTS on invariant violations — it does not ENFORCE them.
+  // Enforcement is done by the behaviors listed in each invariant's enforced_by.
+  category   validation
+  invariants [diagnostic_determinism]
+  types      [ExtensionDeclaration, EntityEnhancementDescriptor]
+  ports      [FileSystem]
+  consumes   [enhancement_registered]
+  requires {
+    enhancement_registered_fired "enhancement_registered event has fired, confirming FieldRegistry is built"
+    filesystem_available         "FileSystem port is available for reading extension manifests"
+  }
+  ensures {
+    doctor_check_completed_emitted "doctor_check_completed event is emitted after all checks finish"
+    report_produced                "human-readable report listing extensions, enhancements, and conflicts is produced"
+    json_output_supported          "--format json produces machine-readable JSON output for CI integration"
+  }
+  contract   """
+    When specforge doctor is invoked, the system MUST load all extension
+    manifests, build the FieldRegistry, detect all conflicts, and
+    produce a human-readable report listing installed extensions, their
+    enhancements, any conflicts with actionable resolution suggestions,
+    and additional checks (shadowed fields, unknown target entities,
+    edge label conflicts). An enabled extension that fails to load (E028:
+    not installed; E070: its binary is not the one the lock pins) MUST be
+    reported as an error. Every diagnostic the environment reports (what
+    specforge check reports before any source) MUST be one finding, at its
+    severity (error, warn or info), saying the part of the setup it is about
+    as the environment says it: the config, the lock, an extension load,
+    structural-only, the providers, a declaration, a peer, the registries, a
+    rule, a surface, or a conflict (two contributions claiming one name: a
+    kind keyword, an edge label, a rule code, a command, tool or resource,
+    a provider scheme); doctor MUST NOT decide that part from the code. The
+    one source diagnostic doctor reports is E013, an entity id that is a
+    keyword, as a shadowing finding. A missing or changed installed binary
+    is one binary finding, whose remediation is the command that reinstalls
+    it as its lock entry records it, each value one shell word, and an unreadable lock one lock finding;
+    the load diagnostics they cause are not listed again. The binaries
+    section states that hash check only: a binary that declares another
+    extension, version or peers than its entry records is the
+    extension-load error E070, and doctor MUST NOT call the installed
+    binaries healthy beside it. So doctor fails
+    whenever check fails on a diagnostic of the project's setup. The report
+    MUST carry its verdict (no
+    error-level finding), and specforge doctor --format json and
+    specforge.doctor MUST return the same report (the CLI adds the user's
+    credentials; a credential store that cannot be read is one unusable credential,
+    and so is one holding a token expiry that is not RFC 3339). Each peer requirement the compile reports unsatisfied
+    (E027, E073) MUST be an error finding with the remedy its diagnostic
+    suggests: doctor and check judge peers by one rule over the loaded
+    extensions (ADR 0041), so a peer a builtin or a .wasm file entry
+    satisfies is not reported. Doctor MUST list the extensions the
+    extensions listing lists, in its order, each with the version, source
+    and status the listing gives it. When the SMT solver specforge
+    analyze --prove asks does not run here, doctor MUST report it as one
+    warning finding about the toolchain: the W098 analyze --prove reports,
+    its message the check and its suggestion the remediation; the report's
+    z3_available is then false. specforge doctor MUST run the first
+    specforge on PATH (the one the hooks and the MCP server it installs
+    run) with --version and, when it speaks an older protocol minor than
+    the running specforge or an extension the project loads, or names no
+    protocol, report W169 naming its path and both versions; with no
+    specforge on PATH, an info finding says so (ADR 0326). Run in a
+    directory without specforge.json, doctor MUST report a warning finding
+    config_missing naming the directory; the run stays healthy. A
+    specforge.lock that exists but cannot be read (E033) MUST be reported
+    as an error finding. A
+    remediation that names a command MUST name one the user can run as
+    written. A finding whose diagnostic offers no
+    suggestion of its own MUST quote the catalogue's explanation of its
+    code. Doctor MUST list each extension's capabilities with their grant
+    here, as specforge grants lists them, and the named roots of
+    specforge.json; a consent store it cannot use is a W186 grants finding,
+    and an extension whose capabilities a run here uses unapproved is one
+    W170 grants finding, never one for a capability nothing here uses (ADR
+    0335 D2). specforge doctor --format json MUST produce machine-readable
+    JSON output for CI integration.
+  """
+  produces   [doctor_check_completed]
+  verify unit "doctor lists all installed extensions with enhancement counts"
+  verify unit "doctor lists all enhancements grouped by entity kind"
+  verify unit "doctor reports conflicts with resolution suggestions"
+  verify unit "doctor detects shadowed grammar-level constructs"
+  verify unit "doctor reports every diagnostic the environment reports as one finding, with the part of the setup it is about and the diagnostic's severity"
+  verify integration "doctor fails whenever check fails on a diagnostic of the project's setup"
+  verify unit "doctor --format json produces valid JSON output"
+  verify unit "doctor reports an extension that fails to load (E028, E070) as an error"
+  verify unit "an unreadable credential store is a credential failure in doctor"
+  verify unit "doctor reports a missing or changed installed binary once, with the remedy its load gives"
+  verify unit "doctor reports the peer requirements check reports, with the remedy each suggests"
+  verify unit "doctor warns when the specforge on PATH speaks an older protocol than the project needs"
+  verify unit "a peer a builtin satisfies is not reported"
+  verify unit "a finding without its own suggestion quotes the catalogued explanation"
+  verify unit "doctor lists the extensions the extensions listing lists, each with its version, source and status"
+  verify unit "doctor in a directory without specforge.json reports config_missing as a warning"
+  verify unit "a lock file that cannot be read is an error finding naming E033"
+  verify integration "check and doctor name a reinstall command whose recorded path is one shell word, however the lock spells it"
+  verify integration "the reinstall command a local install's check suggests runs as written and reinstalls it"
+  verify integration "the reinstall command a local install suggests runs from any directory of the project"
+  verify integration "doctor never calls the installed binaries healthy beside an E070 of a binary its lock entry does not record"
+  verify unit "doctor reports a solver that does not run as the W098 analyze --prove reports, as a toolchain warning"
+  verify integration "doctor's toolchain finding is the W098 specforge analyze --prove prints"
+  verify unit "doctor states each finding once, saying what it is about, and its verdict; the CLI and MCP return one report"
+  verify integration "doctor reports a lock entry whose hash is not ASCII as an unreadable lock, without crashing"
+  verify contract "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
+  verify unit "a stored token expiry that is not an RFC 3339 timestamp makes the credential store unreadable, and doctor writes no control character"
+  verify unit "doctor lists each capability with its grant here, and W170 only for the scopes a run here uses"
+  verify unit "a consent store doctor cannot use is a W186 grants finding"
+}
+
+// -- Extension Source Resolution -----
+
+behavior parse_extension_specifier "Parse Extension Specifier" {
+  features   [wasm_extension_installation]
+  invariants [registry_integrity]
+  category   command
+  types      [ExtensionSpecifier, ExtensionSource, ExtensionError, PackageName, VersionRequirement]
+  requires {
+    specifier_string_provided "a raw extension specifier string is provided for parsing"
+  }
+  ensures {
+    extension_specifier_parsed_emitted "extension_specifier_parsed event is emitted with structured source descriptor"
+    invalid_specifier_diagnosed        "invalid specifiers produce ExtensionError diagnostic with expected format"
+  }
+  contract   """
+    The system MUST read an add argument once into one source: a builtin's
+    name, with an optional @requirement read as a package reference's
+    (R-RES-003, E054), a git+ URL, a package reference @scope/name[@requirement] (it
+    starts with @ and does not end in .wasm), where the name is a
+    PackageName and the requirement a VersionRequirement (latest when
+    absent), or else a local path (a .wasm file or an extension's crate
+    directory, with or without ./). A package reference that is not one
+    MUST be refused with E054 before any registry is asked; its suggestion
+    names only the forms add installs (a builtin's name, a local path,
+    @scope/name[@version]), never a git+ URL, which is refused with E064 and
+    suggests those forms; a path that
+    names nothing is refused when it is read (resolve_extension_source); a requirement that is not one MUST be refused with
+    R-RES-003 before any registry is asked. No other code may split
+    name@requirement. Each string a change names (an add argument, an
+    add_extension specifier, an init extension) is one specifier: no
+    operation splits it, since a requirement may hold commas (>=1, <2).
+  """
+  produces   [extension_specifier_parsed]
+  verify unit "@scope/name@version parsed as registry source"
+  verify unit "./path parsed as local source"
+  verify unit "git:url#ref parsed as git source"
+  verify unit "invalid specifier produces ExtensionError"
+  verify unit "each add argument reads as one extension source"
+  verify unit "E054's suggestion names only the forms add installs, and E064 suggests them"
+  verify unit "a string holding commas is one extension specifier, for add and init alike"
+  verify unit "a specifier that is no builtin's name, git+ URL or @scope/name reference is a local path, a bare crate directory included"
+  verify unit "a package name is @scope/name or a local name, and always a relative path inside its directory"
+  verify unit "a package name crosses a registry URL as one segment"
+  verify unit "a version requirement is latest, one version or a SemVer requirement"
+  verify contract "Parse Extension Specifier: extension specifier parsing holds — specifier_string_provided, extension_specifier_parsed_emitted, invalid_specifier_diagnosed"
+}
+
+behavior resolve_extension_source "Resolve Extension Source" {
+  features   [wasm_extension_installation]
+  invariants [registry_integrity]
+  category   query
+  types      [ExtensionDeclaration, ExtensionSpecifier, ExtensionSource, ExtensionError]
+  ports      [FileSystem, RegistryClient]
+  consumes   [extension_specifier_parsed]
+  requires {
+    extension_specifier_parsed_fired "extension_specifier_parsed event has fired, confirming structured source descriptor is available"
+    source_ports_available           "FileSystem and RegistryClient ports are available for resolution"
+  }
+  ensures {
+    extension_source_resolved_emitted "extension_source_resolved event is emitted with concrete manifest and .wasm binary"
+    resolution_failure_diagnosed      "resolution failures produce ExtensionError diagnostic"
+  }
+  contract   """
+    Given a parsed extension specifier, the system MUST resolve it to a
+    concrete manifest and .wasm binary. Registry sources MUST query the
+    registry API. Local sources MUST read from the filesystem. Git sources
+    MUST clone or fetch the repository at the specified ref. Resolution
+    failures MUST produce a ExtensionError diagnostic. A local source is
+    read as publish and extension validate read a path (ADR 0172): nothing
+    at the path, a crate directory with no built component (or several,
+    none the crate's), and a file that can't be read are each one E040
+    with one message in every verb, naming the path as given; a bounded
+    read refuses a file with more than one name.
+  """
+  produces   [extension_source_resolved]
+  verify unit "registry source resolves via registry API"
+  verify unit "local source resolves from filesystem"
+  verify unit "git source resolves from repository"
+  verify unit "resolution failure produces ExtensionError"
+  verify unit "a local path is refused by add, init, publish and extension validate with one code and message per cause"
+  verify contract "Resolve Extension Source: extension source resolution holds — extension_specifier_parsed_fired, source_ports_available, extension_source_resolved_emitted, resolution_failure_diagnosed"
+}
+
+// -- Lock File Management -----
+
+behavior write_lock_file "Write Lock File" {
+  features   [wasm_lock_management]
+  invariants [extension_load_order_determinism, registry_integrity]
+  category   command
+  types      [ExtensionDeclaration, LockFile, LockFileEntry]
+  ports      [FileSystem]
+  requires {
+    extensions_resolved  "all extensions have been resolved with exact versions and wasm hashes"
+    filesystem_available "FileSystem port is available for writing lock file"
+  }
+  ensures {
+    lock_file_written_emitted "lock_file_written event is emitted after successful write"
+    output_deterministic      "same inputs always produce byte-identical lock file output"
+    write_atomic              "lock file is written atomically to prevent corruption"
+  }
+  contract   """
+    After resolving all extensions, the system MUST write a specforge.lock
+    file containing the exact resolved version and SHA256 wasm_hash for
+    each installed extension. The lock file format MUST be deterministic —
+    same inputs always produce byte-identical output. The
+    lock file MUST be written atomically to prevent corruption.
+  """
+  produces   [lock_file_written]
+  verify unit "lock file contains exact versions and wasm hashes"
+  verify unit "lock file output is deterministic"
+  verify unit "lock file written atomically"
+  verify contract "Write Lock File: lock file writing holds — extensions_resolved, filesystem_available, lock_file_written_emitted, output_deterministic, write_atomic"
+}
+
+behavior read_lock_file "Read Lock File" {
+  features   [wasm_lock_management]
+  invariants [extension_load_order_determinism]
+  category   command
+  types      [ExtensionDeclaration, LockFile, LockFileEntry, ExtensionError]
+  ports      [FileSystem]
+  consumes   [all_files_parsed]
+  requires {
+    all_files_parsed_fired "all_files_parsed event has fired, confirming spec files are parsed"
+    filesystem_available   "FileSystem port is available for reading lock file"
+  }
+  ensures {
+    lock_file_read_emitted  "lock_file_read event is emitted after lock file is processed"
+    locked_versions_used    "locked versions are used instead of resolving from sources when lock file exists"
+    malformed_lock_reported "a lock file that exists and can't be read is E033: nothing is known to be installed"
+  }
+  contract   """
+    When a specforge.lock file exists, the system MUST use the versions and
+    hashes it records. A lock file that exists and can't be read (not a regular file, over 64 MiB) or parsed is
+    E033, naming one remedy whatever made it unreadable (fix specforge.lock, or
+    delete it and install the extensions again with specforge add): no installed extension loads from it (each is E028 naming the
+    lock), and add, update and remove refuse to change what is installed
+    with one refusal, that E033 and its remedy, until it is fixed or deleted, so it is never silently replaced; a
+    change the lock does not decide (enabling or disabling a builtin or a .wasm file entry) still runs.
+    A lock entry's source MUST be registry or local:<path>, the path not empty and holding no character a
+    terminal acts on (a control or bidirectional control character); any other source makes the lock
+    unreadable (E033), and the message names it escaped, so no diagnostic carries a control character the
+    lock holds. The peers an entry records MUST hold no such character in a name or a range either. A lock entry's wasm_hash MUST be a SHA-256 in
+    lowercase hex (64 characters), never empty: any other makes the lock unreadable (E033). A lock entry's
+    version MUST be a SemVer version, and its key_id, when it has one, a publisher key id (16 lowercase hex
+    characters): any other makes the lock unreadable (E033).
+  """
+  produces   [lock_file_read]
+  verify unit "locked versions used when lock file exists"
+  verify unit "missing lock entry triggers resolution"
+  verify unit "an unreadable lock file is E033 and is never replaced by a change"
+  verify unit "a lock file that can't be read names one remedy, whatever made it unreadable"
+  verify unit "a specforge.lock that is not a regular file, or is over 64 MiB, is E033 at once, never waited on or read whole"
+  verify unit "add, update and remove refuse an unreadable lock with one refusal and the lock's own remedy"
+  verify unit "every surface refuses an unreadable lock as pinned: one code and one remedy on the CLI and over MCP"
+  verify unit "a lock entry whose source is no local path the lock can record is E033, and the message shows no control character"
+  verify unit "a lock entry's source is registry or local:<path>; any other source is E033"
+  verify integration "check prints no control character a lock entry's source holds"
+  verify unit "a lock entry whose version is no SemVer version is E033, and the message shows no control character"
+  verify unit "a lock entry whose hash is no SHA-256 in lowercase hex is E033, an empty one included"
+  verify unit "a lock entry whose key id is no publisher key id is E033"
+  verify unit "a lock entry whose recorded peer or local source holds a character a terminal acts on is E033"
+  verify integration "check, extensions and doctor write no control character a lock entry's version, hash or peers hold"
+  verify contract "Read Lock File: lock file reading holds — all_files_parsed_fired, filesystem_available, lock_file_read_emitted, locked_versions_used, malformed_lock_reported"
+}
+
+// ── Extension Update ──────────────────────────────────────────
+
+behavior update_all_extensions "Update All Extensions" {
+  features   [wasm_extension_maintenance]
+  invariants [
+    wasm_sandbox_integrity,
+    peer_dependency_satisfaction,
+    wasm_compile_cache_integrity,
+    extension_operation_atomicity,
+  ]
+  category   command
+  types      [ExtensionDeclaration, LockFileEntry, ExtensionError]
+  ports      [WasmRuntime]
+  requires {
+    extensions_installed "at least one extension is installed with a valid manifest"
+    registries_reachable "configured registries are reachable for version checks"
+  }
+  ensures {
+    batch_update_completed_emitted "batch_update_completed event is emitted after all upgrades are applied"
+    semver_constraints_respected   "an upgrade moves only to a newer version, within the locked version's caret range unless --major, never to the locked version or below"
+    lock_hashes_refreshed          "updated lock entries record the new binary hashes"
+    atomic_rollback_on_failure     "if any upgrade fails, all changes are rolled back"
+  }
+  contract   """
+    When specforge update is invoked, the system MUST check all installed
+    extensions for newer versions by querying their configured registries.
+    What an extension moves to is one rule, its upgrade target: the
+    highest published version newer than the locked one, within the
+    locked version's caret range, or any newer version with --major. A
+    pre-release is a target only on the locked version's own
+    MAJOR.MINOR.PATCH when the locked version is a pre-release of it
+    (2.0.0-beta.1 moves to 2.0.0-beta.2 or 2.0.0, never to 3.0.0-alpha.1),
+    and a release never moves to a pre-release. An update MUST NOT move an
+    extension to its locked version or below: an extension with nothing
+    newer is up_to_date, also when its locked version is no longer
+    published. After upgrading, the system
+    MUST refresh the lock file with the new binary hashes. An extension is
+    reported updated only when its new binary is written: one served with
+    the bytes the lock already pins under another version is refused as add
+    refuses it (E028). Peer dependency
+    conflicts introduced by upgrades MUST be detected and reported before
+    applying changes. Every upgrade is judged against the lock as the
+    whole update leaves it, whatever order the lock lists the extensions
+    in: an upgraded extension's peer ranges against the versions its peers
+    are left at, those this update moves included, and every locked
+    extension's ranges against the versions this update locks.
+    The peers judged are those of the project's peer set (the extensions
+    its specforge.json entries load: builtins, installed extensions and
+    .wasm file entries): an upgraded extension's required peer that no
+    entry enables, a builtin included, refuses that upgrade (E027, the
+    message specforge check gives); update enables nothing. If any
+    upgrade fails, the system MUST roll back all
+    changes and report the failure. A write that fails while the checked
+    upgrades are applied is the update's own failure, naming the file it
+    could not write (E032) or the lock (E033); every file is put back, and no
+    extension is reported updated. Only registry installs are updated: an
+    extension installed from a local file (source local:<path>) MUST NOT be
+    replaced from a registry. An update of one extension by name MUST
+    refuse a name the lock does not hold, before any registry is asked:
+    extension_not_found naming it (E072 when it is no package name; a
+    builtin's name is told that builtins update with specforge).
+    A specforge.lock that is there and can't be read MUST refuse the update
+    before any registry is asked, with the refusal add gives (E033, the
+    lock's own remedy); with no lock file the update is refused E033 naming
+    specforge add.
+    When a registry-installed extension is
+    to be updated and no registry is configured in specforge.json, update
+    MUST make no network call and MUST fail with E063, whose suggestion
+    names the registries key. So does a registries entry that can't be read
+    (E067) and a credentials.json that can't be read (R012): update opens its
+    registry once, before it asks about any registry install, and is refused
+    with that one error, as add is, with no extension's status and no
+    batch_update_completed; an update that selects no registry install opens
+    none.
+    Under --format json it prints the update document: ok (nothing
+    failed, so the update was written), each locked extension in lock
+    order with its status (updated, with its publisher's acceptance and
+    key id when signed; held_back when another extension failed;
+    up_to_date; not_from_registry; failed, with the failure's code,
+    message and suggestion), an extension_upgrade_completed payload per
+    extension the update moved (none when it was not applied), and the
+    batch_update_completed payload. A failed update prints the same
+    document and exits 1.
+  """
+  produces   [batch_update_completed]
+  verify unit "with no registry configured, update makes no network call and reports how to configure one"
+  verify unit "newer versions detected from registry"
+  verify unit "semver-compatible upgrades applied"
+  verify unit "major version skipped without --major flag"
+  verify unit "an update never moves an extension to its locked version or below, and a locked version no longer published is up to date"
+  verify integration "update --major on a pre-release lock never installs a lower release"
+  verify unit "lock file records new binary hashes after update"
+  verify unit "peer dependency conflicts detected before applying"
+  verify unit "every upgrade is judged against the lock as the whole update leaves it, whatever order the lock lists them in"
+  verify unit "an upgrade whose required peer no entry enables is refused, and update enables nothing"
+  verify unit "an update of a name the lock does not hold is refused before any registry is asked"
+  verify unit "an update over an unreadable specforge.lock is refused as add refuses it, before any registry is asked"
+  verify unit "a refusal of the project's registry configuration or the user's credential store refuses the update once, before any registry is asked"
+  verify unit "failed upgrade rolls back all changes"
+  verify unit "a write that fails while applying fails the update, naming what it could not write, and nothing is applied"
+  verify integration "update never replaces a locally installed extension from a registry"
+  verify unit "the update document lists every locked extension's status, held back when another failed"
+  verify unit "an upgrade served with the bytes the lock already pins is refused, never reported updated"
+  verify integration "update --format json prints every locked extension's status and the batch_update_completed payload"
+  verify contract "Update All Extensions: batch extension update holds — extensions_installed, registries_reachable, batch_update_completed_emitted, semver_constraints_respected, lock_hashes_refreshed, atomic_rollback_on_failure"
+}
+
+behavior answer_edit_plan "Answer an Edit Plan" {
+  invariants [extension_isolation]
+  category   command
+  contract   """
+    A command or a collector that declares `writes` answers typed operations, an edit plan, instead of writing
+    (ADR 0289): the host sends it the revision of every source and, to a collector, the graph, and applies the plan
+    it answers after the report, judged against the project with that report (ADR 0297). An extension holds no file system and no lock.
+  """
+  verify unit "a writing collector receives the graph and its plan is applied after the report"
+  verify unit "a writing collectors plan is judged against the report its collect wrote"
+  verify unit "a collector's plan is judged for host errors only"
+  verify unit "a writing collectors plan is applied within its calls containment"
+}
+
+behavior run_guard_passes "Run Guard Passes" {
+  invariants [extension_isolation]
+  category   validation
+  contract   """
+    A pass whose phase is `guard` runs only when a write is judged, after the check passes, over the project as the
+    write would leave it and the project before it (ADR 0289). Its findings refuse the write through E080; a compile
+    runs no guard pass and reports none.
+  """
+  verify unit "a guard pass refuses a write and is silent on compile"
+  verify unit "a plan a guard pass finds an error in is refused with E080 and nothing is written"
+  verify unit "a guard that already objects to the project does not refuse the write that fixes it"
+}
+
+behavior gate_a_command "Gate a Command" {
+  features   [contribution_based_extensions]
+  invariants [extension_isolation]
+  category   command
+  contract   """
+    A command may declare `gates`, local codes of its extension, and a `subject`, the arg holding the entity it acts
+    on (ADR 0291). Before its export runs, on the command line and over MCP, the host refuses the call
+    (`gate_failed`, kind precondition_failed) while the project's report, or a guard pass the gate names run now,
+    holds an error of a gated code in the subject's scope. A command that declares no gate runs as it always did.
+  """
+  verify unit "a command that declares no gate runs as it did"
+  verify unit "a command descriptor that declares no gate serializes as it did"
+  verify unit "a command whose gate fails is refused before its export runs"
+  verify unit "a gate is scoped to its subject"
+  verify unit "a gate runs the guard passes it names"
+  verify unit "a gate on a code its setting turns off passes"
+  verify unit "a warning a preset raises to an error fails a gate"
+  verify unit "a subject given as a short form is sent as its full path"
+  verify unit "a gated command is refused on the command line with its failing diagnostics, and its export is not called"
+  verify unit "a gated command is refused gate_failed over MCP with its failing diagnostics, and its export is not called"
+  verify unit "the SDK declares a command's gates and subject, a guard pass's reports and a prompt on the wire"
+  verify unit "a guard pass's input carries the trigger that made the host run it"
+  verify unit "a subject that names no entity or several is refused before the gate runs"
+  verify unit "a guard pass that fails at a gate fails the gate, and the export is not called"
+  verify unit "a finding that names no entity is in a gate's scope by the block that holds its span"
+  verify unit "a gated writing command is refused gate_failed even as a dry run, and writes nothing"
+  verify unit "an extension compares a pass's trigger kind to the SDK's TriggerKind"
+}

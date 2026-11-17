@@ -1,0 +1,539 @@
+// Zero-entity core — declarative validation engine and field validation
+
+use "events/compilation"
+use "invariants/core"
+use "invariants/zero-entity-core"
+use "ports/outbound"
+use "types/config"
+use "types/core"
+use "types/diagnostics"
+use "types/errors"
+use "types/wasm"
+use "types/zero-entity-core"
+
+defaults behavior {
+  features [declarative_validation_rules]
+}
+
+// -- Declarative Validation --------------------------------------------------
+
+// No consumes — synchronous helper the registry build runs (registry_build_rules)
+behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
+  invariants [zero_domain_knowledge_core, declarative_validation_determinism]
+  category   command
+  types      [ValidationRulePattern, ValidationPatternKind, FieldConstraint]
+  requires {
+    manifest_rules_available "Extension manifest's validationRules array is accessible as structured data"
+  }
+  ensures {
+    patterns_parsed     "Each validationRules entry parsed into a well-formed ValidationRulePattern"
+    unrecognized_warned "Unrecognized pattern kinds produce warning diagnostics with extension name"
+    ignored_warned      "Properties a check does not read produce W147; the rule is registered without them"
+  }
+  contract   """
+    When the registry build reads an extension declaration's validation
+    rules, it MUST turn each into a typed rule whose check carries exactly
+    what that check reads. The check MUST be one of the extension
+    vocabulary's kinds: no_incoming_edges, no_outgoing_edges, no_edges,
+    missing_field_when_flag_set, missing_required_field,
+    conditional_field_required, field_value_constraint, cycle_detection,
+    verify_kind_allowlist, no_verify_statements, custom.
+    A rule that cannot work as declared — an unrecognized check, a field,
+    constraint, edge type or wasm_function its check requires and lacks, an
+    empty values list, a regex that does not compile — or a rule that reads
+    verify statements on a declared kind that accepts none — MUST produce
+    W112 with the extension name and MUST NOT be registered. A property its
+    check does not read (an edge_type on a field check, a constraint on an
+    edge check, a wasm_function on a declarative check, a constraint kind
+    or a pattern or values its check does not read) MUST produce W147, and
+    the rule MUST be registered without it.
+  """
+  verify unit "parses no_incoming_edges pattern from manifest"
+  verify unit "parses missing_field_when_flag_set pattern from manifest"
+  verify unit "unrecognized pattern kind produces warning"
+  verify unit "a declared file_exists rule is W112 naming the checker that replaced it"
+  verify unit "all required fields validated on each rule"
+  verify unit "parses field_value_constraint pattern from manifest"
+  verify unit "a cycle_detection rule without an edge_type produces W112 and is not registered"
+  verify unit "a verify_kind_allowlist rule without values produces W112 and is not registered"
+  verify unit "a rule that reads verify statements on a kind that accepts none produces W112 and is not registered"
+  verify unit "a property its check does not read produces W147 and the rule is registered without it"
+  verify unit "a conditional_field_required constraint of another kind produces W147 and is read as when_field_equals"
+  verify contract "Parse Validation Rule Pattern: validation rule parsing holds — manifest_rules_available, patterns_parsed, unrecognized_warned, ignored_warned"
+}
+
+behavior execute_validation_pattern "Execute Validation Pattern" {
+  invariants [zero_domain_knowledge_core, declarative_validation_determinism]
+  category   command
+  types      [ValidationRulePattern, ValidationPatternKind, Diagnostic]
+  ports      [WasmRuntime]
+  consumes   [graph_built]
+  produces   [declarative_validation_executed]
+  requires {
+    patterns_parsed "ValidationRulePattern is parsed and well-formed"
+    graph_available "Compiled graph is available for querying"
+  }
+  ensures {
+    all_entities_matched "Pattern matched against all applicable entities in the graph"
+    violations_diagnosed "Diagnostics emitted for every pattern violation"
+  }
+  maintains {
+    deterministic_order "Patterns executed in code-sorted order producing identical diagnostics across runs"
+  }
+  contract   """
+    The declarative validation engine MUST execute each registered pattern
+    against the compiled graph. no_incoming_edges MUST check that every
+    entity of the target kind has at least one incoming edge from another
+    entity. no_outgoing_edges
+    MUST report an entity that points at nothing: no field writes a reference,
+    resolved or not, and no edge leaves it (with an edge type, only that edge
+    type's fields and edges). A reference that does not resolve is E003,
+    reported alone: no edge rule reports its cascade. no_edges MUST report an
+    entity no edge points at that points at nothing. An edge rule with an edge type counts only
+    the edges of that type: an edge is of the type its field writes from
+    the kind of the entity it starts at (registry_build_edges). The rule is
+    inert when no loaded field can write such an edge at its target kind.
+    missing_field_when_flag_set MUST check that
+    entities whose kind has the specified flag set to true have the specified field. field_value_constraint MUST
+    check that a named field on entities of the target kind satisfies a
+    value predicate (non-empty, matches regex, or is one of an allowed set).
+    cycle_detection MUST report each entity of the target kind (every
+    entity when no target kind is set) that sits on a cycle of the edges
+    of its edge type, whichever fields write them (every entity of a
+    strongly connected set of those edges, whichever entity the cycle
+    closes through).
+    A rule without a target kind applies to the authored entities of every
+    kind and to no fact (ADR 0353): a rule over a collector's kind names it. No
+    rule reads a path: a field whose value names a file carries a value
+    check (`@specforge/checks:file`), and a declared `file_exists` rule is
+    W112 naming it. custom MUST dispatch to the Wasm function registered by
+    register_custom_validation_patterns. Each pattern violation MUST
+    produce a diagnostic with the configured code and severity.
+  """
+  verify unit "no_incoming_edges detects unreferenced entities"
+  verify unit "no_outgoing_edges detects entities with zero outgoing edges"
+  verify unit "an edge rule counts only edges of its edge type and is dropped when no extension declares the kind at its far end"
+  verify unit "an edge rule over an edge type several kinds write without declaring it counts the edges of every writing kind"
+  verify unit "an edge rule does not count an edge of another edge type, whatever kinds it links"
+  verify unit "an edge rule reports no entity whose field of its edge type writes a reference that does not resolve: that is E003 alone"
+  verify unit "one mistyped id is E003 alone: no builtin edge rule reports the entity whose field writes it"
+  verify unit "missing_field_when_flag_set detects missing specified field on flagged entity"
+  verify unit "field_value_constraint rejects invalid field value"
+  verify unit "cycle_detection finds cycles in edge type"
+  verify unit "a cycle_detection rule without a target_kind reports every entity on a cycle of its edge type"
+  verify unit "cycle_detection follows every field that writes its edge type"
+  verify unit "a cycle_detection rule follows only the edges of its edge type, never another kind's field of the same name"
+  verify unit "a cycle_detection rule reports an entity whose cycle closes through an entity already reported"
+  verify unit "an edge rule no loaded field can satisfy at its target kind is inert"
+  verify unit "the builtin extensions' rules register with no W112, W147 or W021"
+  verify unit "custom pattern dispatches to registered Wasm function"
+  verify unit "pattern violation produces diagnostic with configured code and severity"
+  verify unit "an edge from an entity to itself is no incoming edge: a builtin no_incoming_edges rule reports an entity only it references"
+  verify unit "a reference an entity writes to itself gives its field its link: no_edges stays quiet and W061 reports it"
+  verify unit "a field_value_constraint over a declared member path judges each item of a typed block"
+  verify unit "a validation rule that names no kind judges no fact"
+  verify contract "Execute Validation Pattern: declarative validation holds — all_entities_matched, violations_diagnosed, deterministic_order"
+}
+
+behavior emit_diagnostic_from_pattern "Emit Diagnostic From Pattern" {
+  invariants [zero_domain_knowledge_core, declarative_validation_determinism]
+  category   command
+  types      [ValidationRulePattern, Diagnostic]
+  requires {
+    violation_detected "A declarative validation pattern has detected a violation for an entity"
+    pattern_configured "The pattern's messageTemplate, code, and severity fields are available"
+  }
+  ensures {
+    diagnostic_emitted    "Diagnostic emitted with interpolated message, configured code, and correct severity"
+    template_interpolated "All interpolation variables ({id}, {kind}, {field}, {value}, and {allowed} for a one_of constraint) resolved in messageTemplate"
+  }
+  contract   """
+    When a declarative validation pattern detects a violation, the engine
+    MUST emit a diagnostic using the pattern's messageTemplate with
+    interpolation variables: {id} for the entity ID, {kind} for the
+    entity kind, {field} for the field name, {value} for the field value,
+    {allowed} for a one_of constraint's values joined by commas.
+    The diagnostic code MUST be the pattern's code field. The severity
+    MUST match the pattern's severity field (error, warning, info).
+  """
+  verify unit "message template interpolates {id} and {kind}"
+  verify unit "message template interpolates {field} and {value}"
+  verify unit "message template interpolates {allowed} with a one_of rule's values"
+  verify unit "diagnostic code matches pattern code"
+  verify unit "diagnostic severity matches pattern severity"
+  verify contract "Emit Diagnostic From Pattern: pattern diagnostic emission holds — violation_detected, pattern_configured, diagnostic_emitted, template_interpolated"
+}
+
+behavior register_custom_validation_patterns "Register Custom Validation Patterns" {
+  invariants [zero_domain_knowledge_core, declarative_validation_determinism]
+  category   command
+  types      [ValidationRulePattern, CustomCall, ExtensionDeclaration]
+  ports      [WasmRuntime]
+  consumes   [extension_manifests_loaded]
+  requires {
+    extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
+    wasm_runtime_available           "WasmRuntime port is available for resolving and dispatching Wasm exports"
+  }
+  ensures {
+    custom_patterns_registered "Custom validation patterns registered alongside declarative patterns"
+    wasm_functions_resolved    "wasm_function fields resolved to Wasm exports or warnings emitted for unresolvable names"
+  }
+  contract   """
+    When an extension declares validation rules with check kind "custom",
+    the compiler MUST resolve the wasm_function field to a Wasm export in
+    the extension's module. The custom pattern MUST be registered alongside
+    declarative patterns. During validation, custom patterns MUST be
+    dispatched to the Wasm runtime via the extension's exported function.
+    The Wasm function receives the protocol's ValidatorContext (the entity,
+    the resolution of its references, the declared types and the host's
+    primitives) and answers the protocol's ValidatorVerdict (`pass`, or
+    `fail` with the offending field and value), read strictly: an answer
+    that is not a verdict is a failed call (call_extension_exports), never
+    a pass or a fail.
+    The function body MAY read the graph a call is handed for cross-entity
+    semantic checks and custom graph traversals.
+    On failure, the engine MUST emit a diagnostic using the pattern's
+    configured code, severity, and message template. Unresolvable
+    wasm_function names MUST produce a warning (W112) at registration
+    time: when the extensions load, each custom rule's wasm_function is
+    called once on an entity of the rule's target kind that declares
+    nothing, and a call that does not answer with a verdict is reported.
+    The rule stays registered. During validation, the entities whose call
+    fails are not checked; they MUST be reported once per rule per check
+    as W148, naming how many failed and the first one with its error, and
+    carrying every failed entity with its error as the diagnostic's data. A custom rule that names no
+    wasm_function MUST produce W112 and MUST NOT be registered.
+  """
+  verify unit "custom pattern registered with wasm_function reference"
+  verify unit "unresolvable wasm_function produces warning"
+  verify unit "custom rule without a wasm_function produces warning and is not registered"
+  verify unit "custom pattern dispatched to Wasm runtime during validation"
+  verify unit "custom pattern failure emits configured diagnostic"
+  verify unit "a custom validator's verdict is read as the protocol's ValidatorVerdict, and a failure is reported once as W112"
+  verify unit "a custom rule whose function fails on entities produces one W148 per check naming how many were not checked"
+  verify contract "Register Custom Validation Patterns: custom validation pattern registration holds — extension_manifests_loaded_fired, wasm_runtime_available, custom_patterns_registered, wasm_functions_resolved"
+}
+
+behavior snapshot_entities_once "Snapshot the Entities Once per Compile" {
+  invariants [
+    zero_domain_knowledge_core,
+    declarative_validation_determinism,
+    testable_entity_classification,
+  ]
+  category   command
+  types      [PassEntity, ValidatorContext, Diagnostic]
+  consumes   [graph_built]
+  requires {
+    graph_and_registries "the graph is built in the registry build that reads it (registry_build_graph_inputs)"
+  }
+  ensures {
+    one_text_per_field "every field an entity writes has one text, the same for every reader"
+    one_standing       "every entity has one standing: its kind testable or not, owing obligations or not, counting toward coverage or not"
+    built_once         "the checks, the check passes and the coverage of one compile read one snapshot"
+  }
+  contract   """
+    After the graph is built, the compiler MUST take one snapshot of its
+    entities, read with the registry build. Every check after the build
+    (the registry checks, the extensions' declarative and custom rules,
+    the check-phase passes) and the coverage of that compile MUST read
+    it. A session MUST take a new one with every update.
+
+    Edges: every edge the snapshot holds is typed by the edge type its
+    field writes from the kind it starts at, and each entity's edges are
+    counted in total and by that type. An edge whose field writes no edge
+    type has none and counts in the total only. An entity's edges are its
+    edges to and from other entities, as its degree counts them: an edge
+    from it to itself counts in neither, and the snapshot still holds it
+    for the cycle rules.
+
+    Field text: every field an entity writes has exactly one text, which
+    declarative rules match, custom validators receive as the field's
+    value (always a string) and compiler passes receive in `fields`. A
+    string, identifier or date is its text as written; an integer or a
+    boolean its literal; a list of strings or references its items
+    joined by ", "; a variant list or a type union its members joined by
+    " | "; a mixed list its items' texts joined by ", "; an expression
+    group its expressions joined by ", "; a block its keys joined by ", ". An empty list or
+    block is written and its text is empty. No written field is left
+    out and no value is null. A name written twice in one block is E081,
+    and every reader reads its first entry, the only one the graph keeps.
+    Beside its text, every written field keeps its value shape
+    (a quoted string, a bare word, a date, an integer, a boolean, a list
+    of strings, of references, mixed or of variants, a type union, a
+    block, an expression) and the span of its value,
+    for the host's own checks; neither crosses the protocol.
+
+    Standing: an entity's kind is testable when its extension says so.
+    It owes obligations of its own when a no_verify_statements rule
+    applies to its kind (a rule without a target kind applies to every
+    kind) and neither a union body, nor a set field whose registry entry
+    exempts obligations, nor its kind accepting no verify statements
+    exempts it. It counts toward coverage when its
+    kind is testable and it owes obligations or declares some: the
+    coverage rule's one counting rule, read with the standing's facts.
+    The rules, the pass input's `owes_none` (it owes none, and may still
+    count by declaring some), stats and the verify-stub fix all read this
+    one standing; every pass reads the pass entity's facts unaltered
+    (ADR 0269).
+
+    History: an unheld reference whose field its kind declares written
+    by the harness and immutable is marked history (ADR 0352 D2): it
+    records what held when it was written, never a missing fact.
+  """
+  verify unit "every field an entity writes has one text, the same for declarative rules, custom validators and compiler passes"
+  verify unit "a variant list or type union is its members joined by ' | ', a list or expression group its items joined by ', '"
+  verify unit "an empty list or block is written, with empty text, never left out or null"
+  verify unit "every edge in the snapshot is typed by the edge type its field writes from the kind it starts at, and counted by that type"
+  verify unit "an entity owes obligations when a no_verify_statements rule applies to its kind and neither a union body nor an exempting flag exempts it"
+  verify unit "a rule without a target kind applies to every kind, for the rule, the standing and the verify stub alike"
+  verify unit "a kind that accepts no verify statements owes no obligations, whatever rule applies to it"
+  verify unit "a field written twice reads as its first entry to declarative rules, custom validators and compiler passes"
+  verify unit "the checks, the check passes and the coverage of one compile read one snapshot"
+  verify unit "a session's snapshot follows every update"
+  verify unit "a snapshot reads only a graph built in its registry build"
+  verify unit "every written field keeps its value shape and value span beside its text"
+  verify unit "the coverage rule reads each entity as the pass input carries it"
+  verify unit "the standing counts an entity toward coverage exactly as the coverage rule counts the pass entity it sends"
+  verify unit "an entity's edge counts leave out an edge from it to itself, as its degree does, and the pass input carries those counts"
+  verify unit "an unheld reference of a field the harness writes once is history"
+}
+
+// -- Entity Checks -----------------------------------------------------------
+
+behavior check_entities_in_one_order "Check the Entities in One Order" {
+  features   [structural_validation, zero_entity_validation]
+  invariants [
+    diagnostic_determinism,
+    validation_pipeline_ordering,
+    registry_population_before_validation,
+    zero_domain_knowledge_core,
+  ]
+  category   validation
+  types      [RegistryBuild, Diagnostic]
+  consumes   [registries_populated]
+  requires {
+    snapshot_taken "the entity snapshot of the built graph is taken with the registry build it was built with"
+  }
+  ensures {
+    one_order      "the structural checks and the rule set run in one fixed order, the same on every surface"
+    one_gate       "with no entity kind registered, the checks that read kinds, fields and identifiers do not run"
+    gate_announced "extensions that load but declare no entity kind leave one W151 naming the entities nobody checks"
+    reads_no_file  "no check reads the file system"
+  }
+  contract   """
+    After the entity snapshot is taken, the registry build MUST run every
+    check over its records, in this order: unreferenced refs (W012),
+    unknown kinds (E024), reserved
+    entity IDs (E013), the identifier length contract (E014), unknown
+    fields (W020), verify statements on a kind that accepts none (W158),
+    field values that cannot be their declared type (E061), values
+    written in the other form than their field's (W159), then the
+    rule set: the extensions' rules by code, then the host's E006 rules.
+    Check, watch, the LSP and MCP MUST report them in this order, and no
+    check reads a graph node.
+
+    When no loaded extension declares an entity kind, the project is
+    structural-only: E024, E013, E014, W020, W158 and E061 MUST NOT run,
+    while W012 and the rules still do. With no extension loaded,
+    I002 says so. With extensions loaded that declare no kind, one
+    W151 MUST name how many entities, and of which kinds, are left
+    unchecked, instead of nothing.
+
+    An entity ID equal to a structural keyword (spec, ref, use, define)
+    or to a registered kind's keyword is E013. An ID shorter than 2 or
+    longer than 60 characters is E014.
+
+    E022, a reference whose field declares a target kind and names an
+    existing entity of another kind, is the linker's (link_entity_references):
+    a compile reports it with the graph build's diagnostics, before these
+    checks.
+
+    No check reads the file system: a path a field names is read by a
+    value checker, in the values phase.
+  """
+  verify unit "the structural checks run in one order: W012, E024, E013, E014, W020, W158, E061, W159, then the rule set, the host's E006 rules last"
+  verify unit "with no entity kind registered, E024, E013, E014, W020, W158 and E061 do not run, and W012 and the rules still do"
+  verify unit "extensions that load but declare no entity kind report one W151 naming the unchecked entities"
+  verify unit "an entity ID equal to a structural keyword or a registered kind's keyword is E013"
+  verify unit "an entity ID shorter than 2 or longer than 60 characters is E014"
+  verify unit "a fact's id is exempt from the identifier length contract"
+  verify unit "the entity-ID rule answers for an ID exactly what E013 and E014 report of it"
+  verify integration "a compile reports the structural checks in the order the registry build runs them"
+  verify unit "E013 and E014 judge an entity's name, not its path"
+}
+
+// -- Field Validation --------------------------------------------------------
+
+behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
+  features   [zero_entity_validation, dynamic_entity_registration]
+  invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   validation
+  types      [FieldRegistryEntry, KindRegistryEntry, Diagnostic]
+  consumes   [registries_populated]
+  requires {
+    registries_populated_fired "registries_populated event has fired, confirming FieldRegistry and KindRegistry are fully populated"
+  }
+  ensures {
+    unknown_fields_diagnosed "W020 warning emitted for every unrecognized field name on registered entity kinds, E079 when the name is the other side of a relation a reference field owns, its own kind's included"
+    cascading_avoided        "Field validation skipped for entities with unregistered kinds (already E024)"
+  }
+  contract   """
+    During Phase 2 semantic validation, the compiler MUST scan all parsed
+    entity blocks whose kind is registered in the KindRegistry and check
+    each field name against the FieldRegistry for that kind. Every field
+    name not present in the FieldRegistry for the entity's kind MUST
+    produce a W020 warning diagnostic with the entity's source span, the
+    unrecognized field name, and the entity kind name. Every name, `title`
+    and `expression` included, MUST be checked like any field: the
+    prove pass reads only fields an extension declares a proof role for
+    (ADR 0009), so an undeclared `expression` is W020. When a builtin
+    extension's enhancement declares the field on that kind (the candidate
+    vocabulary, e.g. an invariant's `expression` from @specforge/formal),
+    the W020 MUST suggest installing that extension, as E024 does for a
+    kind.
+    A field the kind does not register that is the other side of a relation
+    a reference field owns, its own kind's included (ADR 0150, ADR 0359),
+    MUST produce E079 instead of W020, naming the owning field and the
+    edit: a reference field that targets this kind, alone or among a
+    union's kinds, names it in its inverse_of (a self-relation's
+    included), or every id the field lists is an entity of one other kind
+    that owns a reference field into this kind. By its values alone, a
+    field of the kind's own relations is never the other side, and stays
+    W020.
+    `verify` statements are not fields (ADR 0094): a field named `verify`
+    MUST be checked like any field, and statements on a kind no
+    extension made testable (supports_verify) MUST produce W158. When the
+    entity's kind itself is unregistered (already reported as E024), field validation
+    MUST be skipped for that entity to avoid cascading diagnostics.
+  """
+  verify unit "unregistered field name produces W020"
+  verify unit "W020 includes field name, entity kind, and source span"
+  verify unit "registered field name does not produce W020"
+  verify unit "a body field named title is W020 where no extension declares it"
+  verify unit "a field named verify is checked like any field"
+  verify unit "verify statements on a kind no extension made testable produce W158"
+  verify unit "expression is checked like any other field (W020 where undeclared)"
+  verify unit "an undeclared field a builtin enhancement adds suggests its extension"
+  verify unit "a field written on the non-owning side of a relation is E079 naming the owning field"
+  verify unit "a reverse name an inverse_of declares is E079 even when its ids do not resolve"
+  verify unit "an event's trigger is E079 naming the produces and consumes fields"
+  verify unit "E079 names its owning fields in kind and field order"
+  verify unit "a reverse name a self-relation's inverse_of declares is E079 naming the owning field"
+  verify unit "a reverse name a union's inverse_of declares is E079 on each kind of the union"
+  verify unit "an unknown field of a kind's own relation stays W020"
+  verify unit "field validation skipped when entity kind is unregistered"
+  verify contract "Detect Unknown Entity Fields: unknown field detection holds — registries_populated_fired, unknown_fields_diagnosed, cascading_avoided"
+}
+
+behavior check_field_value_types "Check Field Value Types" {
+  features   [dynamic_entity_registration]
+  invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   validation
+  types      [FieldRegistryEntry, Diagnostic]
+  consumes   [registries_populated]
+  requires {
+    registries_populated_fired "registries_populated event has fired, confirming the FieldRegistry holds each field's declared type"
+  }
+  ensures {
+    off_form_warned      "W159 warning for every value written in the other form than its field's declared type gives it, at the value, unless E061 refuses the field"
+    single_values_listed "A string, bare word, integer, boolean or date on a string_list or reference_list field is stored as a one-item list, and a mixed list as a list of its items' text"
+    mismatches_diagnosed "E061 error for every value whose shape the field's declared type never takes, or whose value it refuses; a value it admits is one the published schema admits"
+    undeclared_untouched "Unknown fields keep their parsed value and produce no E061"
+  }
+  contract   """
+    The grammar parses every field value generically; the value's type
+    comes from the FieldRegistry, read through one field form per field
+    (ADR 0064). During Phase 2 semantic validation the compiler MUST
+    store each registered field's value as its declared type before
+    references resolve and before anything is exported: a single string,
+    integer, boolean or date on a string_list or reference_list field MUST
+    become a one-item list (a bare word the one-item reference list
+    `field [value]` parses to), and a list mixing strings, integers and
+    booleans the list of its items' text. A quoted integer or boolean on an
+    integer or bool field MUST become that integer or boolean, a quoted calendar day on a date field MUST become that date, and an
+    integer or boolean on a string or enum field MUST become its text. A bare word is read by its field's
+    declared type (ADR 0283): on a reference field a number, a date or `true` / `false` is the name it is
+    written as (`10`, `2026-10-26`), a negative number none; on an integer field `-?N(-N)*` is an integer
+    difference in checked 64-bit arithmetic (`2-1` is 1, `007` is 7) and a date is its difference
+    (`2026-10-26` is 1990), quoted or bare; on a number field a decimal word (`0.75`, `-0.25`, `007.5`,
+    `1.5e3`) or an integer is its exact decimal of at most 15 significant digits (ADR 0361), quoted or bare.
+    Coercion MUST NOT produce a diagnostic.
+
+    A stored value its declared type does not take MUST produce an E061
+    error at the value's source span naming the field, the declared type
+    and the value given (a string quoted as a .spec string writes it). A string field takes text, a bare word, a date, a
+    type union or an expression group; an enum one of its declared values
+    (suggesting the closest); an integer field an integer, a difference or a date (E061 names the operand that is no number); a number field one decimal of
+    at most 15 significant digits within the range a binary64 holds and within its bounds; a bool field
+    true or false; a date field one calendar day, `YYYY-MM-DD`, that exists; an identifier field one word (letters, digits and `_`,
+    starting with a letter or `_`), bare or quoted; a reference field one id;
+    a string_list or reference_list field a list; a block field a block. Fields no
+    extension registers keep their parsed value (W020 reports them). The
+    check MUST run wherever the registry checks run: check, watch and the
+    LSP. It reads each field's value shape and value span from the entity
+    snapshot, never a graph node.
+
+    A value written in the other form than its field's declared type gives
+    it MUST produce a W159 warning at the value, one per written value (a value
+    a `defaults <kind>` block writes is one value, reported once at the default and
+    naming the defaults block, however many blocks take it), naming the
+    field and the form (ADR 0147): bare for an enum, identifier or reference
+    value and each item of a reference list, quoted for text and each item of
+    a string list; an integer, true or false and a calendar day bare; a list
+    field's whole value in brackets, one item per value (a multi-line text
+    on a list field is one item: split it, format cannot). The check runs right after E061, only on a value E061
+    admits, and agrees with `specforge format`: a value is W159 exactly when
+    format rewrites it (both ask FieldForms::rewrite), except a default no block
+    takes, which is W161, and a multi-line text on a list field, which format cannot split. A bare word on a kind
+    that takes members is not W159: it may be a member's type; nor is a
+    quoted value that is not a word, or true or false, on a bare field.
+  """
+  verify unit "a single string on a string_list field becomes a one-item list"
+  verify unit "a single reference on a reference_list field becomes a one-item list"
+  verify unit "a value that is not the declared integer, bool or enum type is an error"
+  verify unit "no reference field of the repository's spec holds a bare number, date or boolean"
+  verify unit "a block field with no declared members is an open map of named text entries"
+  verify unit "no authored kind of a builtin or pinned example declares a member, a target union, a bound, an enum list or a block list"
+  verify unit "a reference field reads a bare word as the name it spells, whether or not the word could be a number or a date"
+  verify unit "a bare word is read by its field's declared type: a reference its name, an integer its difference, a date its day"
+  verify unit "a number field reads a decimal word with a sign, a fraction, an exponent and leading zeros, and refuses any other word"
+  verify unit "a decimal word on a text field is its text and on a reference field the name it spells"
+  verify unit "a quoted number on a number field is W159 and written bare as given, or in its canonical text"
+  verify integration "a number field reads its decimal word and exports the exact decimal as a JSON number"
+  verify integration "a number that is no decimal, has more than 15 significant digits or lies outside its bounds is E061"
+  verify unit "a list on a field declared as a single value is an error"
+  verify unit "an enum value suggests the closest declared value"
+  verify unit "an export with a coerced string_list validates against the published schema"
+  verify unit "a single integer, boolean or date, or a mixed list, on a list field becomes a list of strings"
+  verify unit "a value of a shape its declared type never takes is an error"
+  verify unit "a value the check admits is written as the published schema admits it"
+  verify unit "a value outside a builtin vocabulary is E061"
+  verify unit "a value that is not one word on an identifier field is E061"
+  verify unit "E061 quotes a string value as a .spec string writes it"
+  verify unit "a quoted word on a word field and a bare word on a text field are W159"
+  verify unit "a bare word on a kind that takes members is not W159"
+  verify unit "a value E061 refuses is not W159"
+  verify unit "a fact's word is read bare, and a collector's fact is never W159"
+  verify unit "a value a defaults block writes in the other form is W159 once, at the default"
+  verify unit "a quoted number or boolean, a literal on a text field and a whole value on a list field are W159"
+  verify unit "a list item's W159 writes the whole list in its field's form"
+  verify unit "a quoted number's W159 writes the number it reads to"
+  verify unit "a multi-line text on a list field is W159, naming each line as an item"
+  verify unit "a quoted calendar day on a date field is W159, written bare"
+  verify unit "a date field takes one calendar day, bare or quoted; any other value is E061"
+  verify unit "a decision's, a milestone's and a release's date is one calendar day; any other value is E061"
+  verify unit "an enum list takes the declared words, each once, and a scalar is a one-item list"
+  verify unit "a typed block reads and admits each member by its own declared type"
+  verify unit "an integer outside its declared minimum or maximum is E061 naming the bounds"
+  verify unit "a number is compared with its decimal bounds exactly"
+  verify unit "a JSON number a number form admits is held in its one JSON form, as a block member too"
+  verify unit "an open block admits a whole JSON number of any length and a fraction a decimal holds"
+  verify unit "E061, E006, W020 and the declarative rules reach every member of every item of a typed block"
+  verify unit "a field descriptor carries its members, target kinds and bounds on the wire"
+  verify unit "a typed block is stored with each member coerced by its form, and a single block on a block list is its one item"
+  verify unit "a block list takes a list of blocks and a typed block writes an object closed to its members"
+  verify unit "the walker yields every typed member of a stored value by its member path, and reading_at reads a declared member path"
+  verify unit "a member of a typed block is respelled by its own form, in a block and in each item of a block list"
+  verify unit "a member written in another form than its type gives is W159 at the member, named by its path"
+  verify contract "Check Field Value Types: declared field types hold — registries_populated_fired, off_form_warned, single_values_listed, mismatches_diagnosed, undeclared_untouched"
+}
