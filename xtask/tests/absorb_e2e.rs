@@ -664,8 +664,8 @@ fn product_source(old: &Path, text: &str) {
 }
 
 /// A feature two converted milestones list is in one phase, the first in source order, and the later listing is
-/// ledgered `dropped`: the target reports no `gsd/E101`, and checks clean (ADR 0372 D7). (Two kinds sharing an id
-/// never reach absorb from a compiled source: the old graph keeps the first declaration, warning W060.)
+/// ledgered `dropped`: the target reports no `gsd/E101`, and checks clean (ADR 0372 D7). (A source whose id two kinds
+/// share is refused before any write: its graph drops the second declaration, W060.)
 #[test]
 #[ignore = "needs GSD_CORE_WASM"]
 fn a_feature_two_phases_list_is_in_one_phase_and_the_target_checks_clean() {

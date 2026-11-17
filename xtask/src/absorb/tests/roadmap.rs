@@ -428,8 +428,8 @@ fn a_requirement_several_phases_list_is_kept_by_the_first_in_source_order() {
 
 /// Two old kinds sharing an id: a milestone's `features` names the feature, so its phase lists the feature's
 /// requirement, and the invariant of the same id, which no phase lists, is `v2` (ADR 0372 D3, D7). A compiled source
-/// holds no such pair (its graph keeps the first declaration, warning W060), but the plan keys every listing by the
-/// new path all the same.
+/// with such a pair is refused before the plan (its graph drops the second declaration, W060), but the plan keys every
+/// listing by the new path all the same.
 #[test]
 fn a_listing_names_the_kind_its_field_references_when_two_kinds_share_an_id() {
     let planned = planned(&[

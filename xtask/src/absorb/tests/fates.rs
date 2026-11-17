@@ -229,3 +229,32 @@ fn the_fixture_holds_every_old_kind_and_a_ref() {
     fated.insert("ref".to_string());
     assert_eq!(kinds, fated);
 }
+
+/// An id two kinds share: the old graph keeps the first declaration and drops the second, warning W060, so absorb
+/// could neither convert nor ledger it. The source is refused before any write, as one with errors is, each W060
+/// declaration named (ADR 0372 D2).
+#[test]
+fn a_source_whose_id_two_kinds_share_is_refused_naming_it() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("spec")).unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name": "shared", "spec_root": "spec", "extensions": ["@specforge/product", "@specforge/governance"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("spec/plan.spec"),
+        "feature store \"Store\" {\n  problem \"Entries are lost.\"\n  status  done\n}\n\n\
+         invariant store \"Store\" {\n  guarantee \"An entry MUST be kept.\"\n}\n",
+    )
+    .unwrap();
+    let Err(why) = read::compile(dir.path()) else {
+        panic!("a source with an id two kinds share is refused");
+    };
+    assert!(
+        why.contains("1 declaration(s) its graph drops")
+            && why.contains("spec/plan.spec:6: W060")
+            && why.contains("'store'"),
+        "{why}"
+    );
+}

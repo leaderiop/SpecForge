@@ -18,7 +18,7 @@ use std::sync::Arc;
 /// scaffolds fresh and the project module ledgers. A `ref` declaration is read, and dropped whole by its fate.
 const SCAFFOLDED: &str = "spec";
 
-/// How many of a refused source's errors are printed.
+/// How many of a refused source's errors, and of its dropped declarations, are printed.
 const ERRORS_SHOWN: usize = 10;
 
 /// The compiled old project.
@@ -90,36 +90,57 @@ pub fn authored(kind: &str, file: &str) -> bool {
     kind != SCAFFOLDED && !is_fact_store(file)
 }
 
-/// Compile the project at `from` with the builtins it names; refused when it reports an error, naming the first. No
-/// recorded item is required: no kept kind holds a proof (ADR 0370 D8).
+/// The warning of a declaration whose id another kind declared first: the graph keeps the first and drops this one.
+const DROPPED_DECLARATION: &str = "W060";
+
+/// Compile the project at `from` with the builtins it names; refused when it reports an error, or a declaration its
+/// graph drops (W060: an id another kind declared first), which absorb could neither convert nor ledger (ADR 0372
+/// D2). Each refusal names the first [`ERRORS_SHOWN`] of its kind. No recorded item is required: no kept kind holds a
+/// proof (ADR 0370 D8).
 pub fn compile(from: &Path) -> Result<Old, String> {
     let root = ProjectRoot::of(from).map_err(|e| format!("{}: {e:?}", from.display()))?;
     let project =
         CompiledProject::compile(&root, Some(Arc::new(ComponentRuntime::with_user_cache())));
-    let errors: Vec<String> = project
-        .diagnostics()
-        .into_iter()
-        .filter(|d| d.severity == Severity::Error)
-        .map(|d| {
-            let at = d
-                .span
-                .as_ref()
-                .map(|s| format!("{}:{}: ", s.file, s.start_line))
-                .unwrap_or_default();
-            format!("{at}{} {}", d.code, d.message)
-        })
-        .collect();
-    if !errors.is_empty() {
-        let shown: Vec<&str> = errors
+    let (mut errors, mut dropped) = (Vec::new(), Vec::new());
+    for d in project.diagnostics() {
+        let at = d
+            .span
+            .as_ref()
+            .map(|s| format!("{}:{}: ", s.file, s.start_line))
+            .unwrap_or_default();
+        let line = format!("{at}{} {}", d.code, d.message);
+        if d.severity == Severity::Error {
+            errors.push(line);
+        } else if d.code == DROPPED_DECLARATION {
+            dropped.push(line);
+        }
+    }
+    let listed = |lines: &[String]| {
+        let shown: Vec<&str> = lines
             .iter()
             .take(ERRORS_SHOWN)
             .map(String::as_str)
             .collect();
-        return Err(format!(
+        shown.join("\n  ")
+    };
+    let mut refusals = Vec::new();
+    if !errors.is_empty() {
+        refusals.push(format!(
             "the source reports {} error(s); fix them first:\n  {}",
             errors.len(),
-            shown.join("\n  ")
+            listed(&errors)
         ));
+    }
+    if !dropped.is_empty() {
+        refusals.push(format!(
+            "the source holds {} declaration(s) its graph drops, each an id another kind declared first, which absorb \
+             would lose; rename them first:\n  {}",
+            dropped.len(),
+            listed(&dropped)
+        ));
+    }
+    if !refusals.is_empty() {
+        return Err(refusals.join("\n"));
     }
     let name = Project::of(from, project.environment().config()).name;
     Ok(Old { name, project })

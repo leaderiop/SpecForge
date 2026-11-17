@@ -89,8 +89,15 @@ What stops a run before any write is the refused class: an entity of a kind with
 kind with no row, two entities given one new id, a category word with a letter outside ASCII (D3), an id the target
 refuses, a required value no rule fills. An empty required value (a blank text, an empty list) is a missing one: a
 phase whose name holds no ASCII letter or digit gets no slug, and a constraint whose only text is `""` gets no `text`,
-so the stop names each. An entity dropped whole ledgers its title and each of its fields, `verify` lines, `method`
-members and field annotations `dropped`, with its fate's reason.
+so the stop names each.
+
+A source whose old compile reports W060 is refused too, before any write, as one with errors is, each W060
+declaration named. W060 is a second declaration of an id another kind declared first: the old graph keeps the first
+and drops the second, so absorb could neither convert nor ledger it, and the run would lose it silently. The source
+renames one first. The root spec and the fixture hold none.
+
+An entity dropped whole ledgers its title and each of its fields, `verify` lines, `method` members and field
+annotations `dropped`, with its fate's reason.
 
 ## D3. Ids are GSD's, and the ledger maps old to new
 
