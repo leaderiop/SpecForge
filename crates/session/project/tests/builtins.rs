@@ -383,15 +383,19 @@ fn the_builtin_extensions_rules_register_cleanly() {
             names.len(),
             "{family:?}: {names:?}"
         );
-        // The count is the old set's: it holds the rules of the product, governance and software
-        // builtins.
-        if family == Family::Old {
-            assert!(
-                env.registries().rules().len() > 80,
-                "{}",
-                env.registries().rules().len()
-            );
-        }
+        // A floor per set, its live count rounded down to a multiple of ten (105 and 230 when set):
+        // a builtin whose rules stop registering drops the set's count under it. The old set's
+        // rules are mostly the product, governance and software builtins'; the gsd set's mostly
+        // `@gsd/core`'s.
+        let floor = match family {
+            Family::Old => 100,
+            Family::Gsd => 230,
+        };
+        let registered = env.registries().rules().len();
+        assert!(
+            registered >= floor,
+            "{family:?}: {registered} rules, under the floor of {floor}"
+        );
         let unworkable: Vec<&Diagnostic> = env
             .diagnostics()
             .filter(|d| ["W112", "W147", "W021"].contains(&d.code.as_str()))

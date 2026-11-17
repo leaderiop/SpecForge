@@ -77,21 +77,24 @@ fn the_two_sets_are_adr_0369s_and_every_builtin_is_in_one() {
             "'{name}' of the old set is no BUILTINS row"
         );
     }
-    let unvendored: Vec<&str> = gsd
-        .iter()
-        .copied()
-        .filter(|name| !rows.contains(name))
-        .collect();
-    assert!(
-        unvendored.is_empty() || unvendored == ["@gsd/core"],
-        "the gsd set names builtins with no row besides @gsd/core: {unvendored:?}"
-    );
+    for name in &gsd {
+        assert!(
+            rows.contains(name),
+            "'{name}' of the gsd set is no BUILTINS row"
+        );
+    }
 }
 
 #[test]
 fn each_set_builds_one_registry_with_no_e026_and_no_missing_peer() {
     for family in Family::ALL {
         let names = set(family);
+        // A misspelt name would shrink the set silently: each name is an embedded builtin.
+        assert_eq!(
+            family.builtins().count(),
+            family.names().len(),
+            "{family:?}: every name of the set is an embedded builtin"
+        );
         let declarations: Vec<_> = pinned_builtin_declarations()
             .unwrap()
             .into_iter()
@@ -211,9 +214,8 @@ fn the_gsd_set_alone_reports_no_e026(
 
 /// `@gsd/core` with its set alone reports no E026, here with its kinds read from the tracked golden, so
 /// it runs in every test run. The control shows the test can see E026, which is a registry build's: the
-/// same registry with the old-only builtins added reports it for the keywords they share. ADR 0366's
-/// vendoring change adds the `@gsd/core` row; `Family::Gsd` then loads it and the ignored test below
-/// needs no variable.
+/// same registry with the old-only builtins added reports it for the keywords they share. The vendored
+/// `@gsd/core` row loads with its set in `each_set_builds_one_registry_with_no_e026_and_no_missing_peer`.
 #[test]
 fn gsd_cores_kinds_golden_with_its_set_reports_no_e026() {
     let gsd = set(Family::Gsd);
