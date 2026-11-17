@@ -197,9 +197,9 @@ one row per authored field, no row for another field, every upstream line holdin
 
 ## plan.md
 
-Three rows of this section name the capability that reads a link field gsd-core does not write: `truth.requirement`
-(`gsd/E519`), `truth.proof` (a judged input of `gsd/E501`) and `task.items` (`gsd/W522`; `requirement.satisfied_by`
-reads the commits' `items_changed` instead). Each row goes with its field when the field leaves its kind.
+Two rows of this section name the capability that reads a link field gsd-core does not write: `truth.requirement`
+(`gsd/E519`) and `truth.proof` (a judged input of `gsd/E501`). Each row goes with its field when the field leaves its
+kind.
 
 | kind | field | source | the line holds |
 |---|---|---|---|
@@ -225,7 +225,6 @@ reads the commits' `items_changed` instead). Each row goes with its field when t
 | task | type | agents/gsd-planner.md:356 | <task type="auto"> |
 | task | files | agents/gsd-planner.md:169 | **<files>:** Exact file paths created or modified. |
 | task | read_first | agents/gsd-planner.md:177 | Code excerpts belong in `<read_first>` source files |
-| task | items | rule:gsd/W522 |  |
 | task | precondition | agents/gsd-planner.md:209 | **<precondition>** (optional, one prose line) |
 | task | reversibility | agents/gsd-planner.md:211 | **<reversibility>** (optional) |
 | task | action | agents/gsd-planner.md:173 | **<action>:** Specific implementation instructions |

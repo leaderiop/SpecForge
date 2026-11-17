@@ -118,7 +118,6 @@ fn the_task_and_checkpoint_kinds_declare_the_fields_of_the_model() {
             "type",
             "files",
             "read_first",
-            "items",
             "precondition",
             "reversibility",
             "action",
@@ -400,9 +399,9 @@ fn a_setup_done_is_a_harness_block_and_the_dashboard_a_block_list() {
     assert_eq!(kind_of("user_setup")["scoped_by"], "plan");
 }
 
-/// `plan.md` names 88 fields over its nine kinds (the review kinds are counted on their own). `task.commits` is read,
-/// not written (the inverse of `commit.task`), so it is no field: 87. `artifact.state` and `key_link.state`, computed
-/// by the scan, are 2 more: 89.
+/// `plan.md` names 87 fields over its nine kinds (the review kinds are counted on their own). `task.commits` is read,
+/// not written (the inverse of `commit.task`), so it is no field: 86. `artifact.state` and `key_link.state`, computed
+/// by the scan, are 2 more: 88.
 #[test]
 fn the_plan_kinds_declare_every_field_of_plan_md() {
     let kinds = [
@@ -417,7 +416,7 @@ fn the_plan_kinds_declare_every_field_of_plan_md() {
         "user_setup",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 88 - 1 + 2, "the kinds' fields");
+    assert_eq!(total, 87 - 1 + 2, "the kinds' fields");
 }
 
 /// The host refuses a computed field that two compute passes claim, and one that none does (W021): every `C` field of

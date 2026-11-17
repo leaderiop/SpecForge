@@ -55,8 +55,7 @@ fn every_requirement_gets_its_proof() {
 }
 
 /// Plans 01-01 and 02-01 list R2, plan 03-01 lists R3; each task is named by one recorded commit, whose
-/// `items_changed` is written as `items` gives it (`None`: unwritten). Every task also writes `items` of its own,
-/// which `satisfied_by` does not read.
+/// `items_changed` is written as `items` gives it (`None`: unwritten).
 fn itemized(items: &[(&str, &str, Option<Vec<&str>>)]) -> PassInput {
     let mut entities = vec![
         json!({ "id": "R2", "kind": "requirement", "fields": { "text": "a task is added" } }),
@@ -70,8 +69,7 @@ fn itemized(items: &[(&str, &str, Option<Vec<&str>>)]) -> PassInput {
         let (plan, _) = task.split_once('/').expect("a plan");
         let task = format!("v1.0/01/{task}");
         entities.push(json!({ "id": task, "kind": "task",
-                              "fields": { "plan": format!("v1.0/01/{plan}"), "type": task_type },
-                              "values": { "items": ["js:app/src/z.js::planned"] } }));
+                              "fields": { "plan": format!("v1.0/01/{plan}"), "type": task_type } }));
         let mut commit = json!({ "id": format!("abcdef12345{n}"), "kind": "commit",
                                  "fields": { "task": task, "at": format!("2026-10-29T10:00:0{n}Z") } });
         if let Some(changed) = changed {

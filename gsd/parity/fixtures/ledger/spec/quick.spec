@@ -12,7 +12,6 @@ task T1 "The total's column" {
   plan        261105-tcl
   type        auto
   files       ["src/lib.rs", "src/main.rs", "tests/totals.rs"]
-  items       ["rust:ledger::column"]
   action      "Add `column(cents)`: euros and cents, right-aligned in 14 characters; `ledger total` prints through it. Fold the total in an `i32` so the column's width is the value's width."
   verify_text "cargo test --test totals a_total_prints_in_a_column_of_fourteen"
   done        "A total prints in a column of fourteen"

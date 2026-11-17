@@ -15,7 +15,6 @@ task T1 "The entry model" {
   plan        v1.0/01/01-01
   type        auto
   files       ["Cargo.toml", "Cargo.lock", "src/lib.rs"]
-  items       ["rust:ledger::Entry", "rust:ledger::add"]
   action      "Create the `ledger` package (no dependencies) and `src/lib.rs` with `Entry { cents: i64, memo: String }` and `add(entries, cents, memo)`, which refuses a memo holding a tab or a line break; `line` and `parse` write and read the store's `<cents>\t<memo>` lines."
   verify_text "cargo build"
   done        "add appends an entry and refuses a memo with a tab"
@@ -125,7 +124,6 @@ task T1 "The total" {
   plan        v1.0/01/01-02
   type        auto
   files       ["src/lib.rs", "tests/totals.rs"]
-  items       ["rust:ledger::total"]
   action      "Add `total(entries)`: the sum of every entry's cents as an `i64`, so no realistic ledger overflows it. Test a mixed sum and a sum beyond `i32::MAX`."
   verify_text "cargo test --test totals"
   done        "The total tests pass"

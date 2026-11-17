@@ -406,7 +406,7 @@
     {
       "code": "W522",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "A code item a task or a commit names is anchored by a plan that reaches a requirement. It is a warning.",
+      "explanation": "A code item a recorded commit changed is anchored by a plan whose requirements name one. It is a warning.",
       "title": "Item anchored only by plans that reach no requirement"
     },
     {

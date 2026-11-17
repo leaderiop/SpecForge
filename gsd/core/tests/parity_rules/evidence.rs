@@ -483,7 +483,7 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 70] = [
         "W522",
         Evidence::Tests {
             fires: "an_item_of_a_plan_with_no_requirement_is_w522",
-            silent: "an_item_reached_by_a_truths_requirement_is_not_w522",
+            silent: "an_item_changed_by_a_commit_of_a_plan_with_a_requirement_is_not_w522",
         },
     ),
     (

@@ -74,9 +74,9 @@ fn the_twin_checks_green_before_any_collect() {
     let p = taskboard();
     p.check_exact(&[]);
     let codes = raw_codes(&p);
-    // T1 (done) names two items no collect has stored: W102 once per reference, and no error. The truths cite no
-    // test (no `proof`), so no test reference is left dangling.
-    assert_eq!(count(&codes, "code/W102"), 2, "{codes:?}");
+    // No task names an item and no truth cites a test (no `proof`): before a collect, no reference waits for a fact
+    // (`code/W102`) and none is left dangling.
+    assert_eq!(count(&codes, "code/W102"), 0, "{codes:?}");
     assert_eq!(
         (count(&codes, "code/E101"), count(&codes, "E003")),
         (0, 0),
@@ -183,8 +183,8 @@ fn the_twin_verdicts_are_fresh_over_the_thread() {
     assert_eq!(p.verify_phase("v1.0/01"), 0);
 }
 
-/// With the requirement taken off plan 01-01, each item its task names (`addTask`, `createBoard`) and the
-/// one only its commit changed (`completeTask`) is anchored by a plan that reaches no requirement.
+/// With the requirement taken off plan 01-01, each item its recorded commit changed (`addTask`, `completeTask`,
+/// `createBoard`) is anchored by a plan that reaches no requirement.
 #[test]
 fn the_twins_items_of_a_plan_with_no_requirement_are_w522() {
     let (p, _) = collected_thread();

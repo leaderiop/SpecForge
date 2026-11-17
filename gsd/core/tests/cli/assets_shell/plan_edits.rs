@@ -524,40 +524,6 @@ fn the_coverage_trace_names_an_uncovered_requirement() {
     );
 }
 
-/// The pattern mapper finds an analog from the graph: the store task's search, then the source its facts are anchored
-/// to.
-#[test]
-fn the_analog_lookup_names_the_anchored_task() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
-    let p = taskboard();
-    let run = p.collect(&[]);
-    assert_eq!(run.code, 0, "{}", run.all());
-    for body in [
-        "agents/gsd-pattern-mapper.md",
-        "agents/gsd-pattern-mapper.compact.md",
-    ] {
-        let text = asset(body);
-        let heading = if body.ends_with("compact.md") {
-            "Find the closest existing file"
-        } else {
-            "For each classified file, find the closest"
-        };
-        let lookup = typed::filled(
-            &typed::typed_fence(&text, heading),
-            &[("ROLE_WORDS", "board"), ("TASK_ID", "v1.0/01/01-01/T1")],
-        );
-        let (out, err, code) = sh.run_in(p.root(), &lookup);
-        assert_eq!(code, 0, "{body}: {out}{err}");
-        assert!(out.contains("v1.0/01/01-01/T1"), "{body}: {out}");
-        assert!(out.contains("src/tasks.js"), "{body}: {out}");
-        let (owner, err, code) = sh.run_in(p.root(), "specforge anchors --file src/tasks.js");
-        assert_eq!(code, 0, "{err}");
-        assert!(owner.contains("[task v1.0/01/01-01/T1]"), "{owner}");
-    }
-}
-
 /// The code spans of the line of `text` that starts with `start`, in order.
 fn spans(text: &str, start: &str) -> Vec<String> {
     gsd_kit::markdown::inline_code(super::line(text, start))

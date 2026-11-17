@@ -164,7 +164,7 @@ pub const RUST_TEST_COLLECTORS: [&str; 2] = ["rust-cargo", "rust-source"];
 
 /// The parity suite's ledger fixture: a Rust project whose CI is red, its `spec/` twin beside its `.planning/`,
 /// loading beside `@gsd/core` the builtins `evaluation/gsd-ab/tasks.json` names as the ledger's `thread` (the code
-/// facts and the Rust packs whose collectors read its manifest, its items and a nextest report); its proofs and items
+/// facts and the Rust packs whose collectors read its manifest, its items and a nextest report); its truths' proofs
 /// quiet until collected (`code/W102`), as the taskboard's.
 #[allow(
     dead_code,
@@ -303,9 +303,9 @@ impl Project {
         self
     }
 
-    /// The taskboard twin's setup: [`TWIN_BUILTINS`] loaded, and its truths' `proof`s quiet until collected: each of
-    /// the three says `code/W102` ("no facts were collected") on a copy no collect has run on, and the tests of the
-    /// other rules are not about facts. `parity_thread.rs` counts it raw.
+    /// The taskboard twin's setup: [`TWIN_BUILTINS`] loaded, and a reference to a fact quiet until collected: the twin
+    /// writes none, but a test that adds one gets `code/W102` ("no facts were collected") on a copy no collect has run
+    /// on, and the tests of the other rules are not about facts. `parity_thread.rs` counts it raw.
     fn twin(self) -> Self {
         self.with_builtins(&TWIN_BUILTINS).quieting("code/W102")
     }

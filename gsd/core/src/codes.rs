@@ -623,7 +623,7 @@ pub static CODES: &[Code] = &[
     code(
         "W522",
         "Item anchored only by plans that reach no requirement",
-        "A code item a task or a commit names is anchored by a plan that reaches a requirement",
+        "A code item a recorded commit changed is anchored by a plan whose requirements name one",
         "verify",
         Severity::Warning,
         Severity::Warning,
