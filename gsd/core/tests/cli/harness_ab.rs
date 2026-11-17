@@ -177,7 +177,6 @@ pub fn seeded(task: &str, arm: &str, flags: &[&str]) -> Result<Project, String> 
         _dir: dir,
         root,
         extensions: RefCell::new(extensions),
-        quiet: Vec::new(),
     })
 }
 

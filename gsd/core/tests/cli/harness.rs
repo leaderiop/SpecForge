@@ -124,8 +124,6 @@ pub struct Project {
     /// The loaded extensions as `(name, component)`, `@gsd/core` first; a builtin has no component. A cell:
     /// [`Project::node_tests`] loads the test packs on a shared project.
     extensions: RefCell<Vec<(String, Option<PathBuf>)>>,
-    /// The codes the fixture says by its own design, left out of [`Project::report_all`] ([`Project::quieting`]).
-    quiet: Vec<&'static str>,
 }
 
 pub fn project(name: &str) -> Project {
@@ -184,7 +182,6 @@ pub fn ledger() -> Project {
         .collect();
     from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/ledger"))
         .with_builtins(&thread)
-        .quieting("code/W102")
 }
 
 /// What a twin's `truth` and `summary` entities mirror in the `.planning/` at `planning`: each `must_haves` truth of
@@ -249,7 +246,6 @@ fn from_dir_at(source: &Path, inside: &str) -> Project {
             ("@gsd/core".to_string(), Some(wasm)),
             ("@specforge/checks".to_string(), None),
         ]),
-        quiet: Vec::new(),
     };
     p.settings(serde_json::json!({}));
     p
@@ -302,17 +298,9 @@ impl Project {
         self
     }
 
-    /// The taskboard twin's setup: [`TWIN_BUILTINS`] loaded, and a reference to a fact quiet until collected: the twin
-    /// writes none, but a test that adds one gets `code/W102` ("no facts were collected") on a copy no collect has run
-    /// on, and the tests of the other rules are not about facts. `parity_thread.rs` counts it raw.
+    /// The taskboard twin's setup: [`TWIN_BUILTINS`] loaded.
     fn twin(self) -> Self {
-        self.with_builtins(&TWIN_BUILTINS).quieting("code/W102")
-    }
-
-    /// Leaves `code` out of [`Project::report_all`] (and so of every report built on it) for this fixture alone.
-    fn quieting(mut self, code: &'static str) -> Self {
-        self.quiet.push(code);
-        self
+        self.with_builtins(&TWIN_BUILTINS)
     }
 
     /// Loads the builtins `names` too, by name, after `@gsd/core`.
@@ -559,13 +547,11 @@ impl Project {
         );
     }
 
-    /// [`Project::report`] with the judged rules' diagnostics; the fixture's quiet codes left out too
-    /// ([`Project::quieting`]).
+    /// [`Project::report`] with the judged rules' diagnostics.
     pub fn report_all(&self) -> Vec<(String, String)> {
         self.checked()
             .into_iter()
             .filter(|(code, _)| !matches!(code.as_str(), "I204" | "I205" | "I213"))
-            .filter(|(code, _)| !self.quiet.contains(&code.as_str()))
             .collect()
     }
 

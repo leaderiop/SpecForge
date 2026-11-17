@@ -60,7 +60,7 @@ fn traced(p: &Project, sha: &str) -> String {
     line
 }
 
-/// The codes of `specforge check --format json`, nothing left out: the twin's harness quiets `code/W102`.
+/// The codes of `specforge check --format json`, nothing left out.
 fn raw_codes(p: &Project) -> Vec<String> {
     p.checked().into_iter().map(|(code, _)| code).collect()
 }
