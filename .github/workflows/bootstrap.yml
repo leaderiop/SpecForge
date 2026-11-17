@@ -34,6 +34,8 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+# Every job starts a clock first and fails past its BUDGET_SECONDS last: the budget is the job's wall time on a
+# cold run times 1.25, under its timeout less five minutes (ADR 0375 D3).
 jobs:
   bootstrap:
     name: Fresh-clone bootstrap (builtin components)
@@ -42,7 +44,14 @@ jobs:
     # runner is several times slower. The bound stops a hung rebuild or a stalled toolchain install (a gate test
     # holds it).
     timeout-minutes: 45
+    env:
+      BUDGET_SECONDS: 1080
     steps:
+      - name: Start the build-time budget clock
+        shell: bash
+        run: |
+          echo "BUDGET_T0=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -77,3 +86,24 @@ jobs:
       # (ADR 0366 D4, ADR 0373 D2).
       - name: Prove the committed @gsd/core blob is the stager's build on the pinned rustc
         run: cargo nextest run -p xtask --run-ignored only -E 'test(committed_gsd_core_blob_is_the_stagers_build)'
+
+      - name: Build-time budget
+        shell: bash
+        run: |
+          whole='^[0-9]+$'
+          if ! [[ ${BUDGET_T0:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no clock: the job's first step recorded no BUDGET_T0"
+            exit 1
+          fi
+          if ! [[ ${BUDGET_SECONDS:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no budget: BUDGET_SECONDS is not a whole number of seconds"
+            exit 1
+          fi
+          took=$(( $(date +%s) - 10#$BUDGET_T0 ))
+          line="this job took $took s of its $BUDGET_SECONDS s build-time budget (ADR 0375 D3)"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          if (( took > 10#$BUDGET_SECONDS )); then
+            echo "::error title=Build-time budget::$line"
+            exit 1
+          fi
+          echo "$line"

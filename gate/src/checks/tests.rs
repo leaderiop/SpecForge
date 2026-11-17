@@ -399,6 +399,16 @@ fn a_file_outside_the_workspace_that_a_member_tests_read_selects_that_member() {
     }
 }
 
+/// The gate's tests read the workflows (their jobs' timeouts and budgets, ADR 0375 D3): a pull request that only
+/// edits a workflow runs them.
+#[test]
+fn a_change_to_a_workflow_selects_the_gates_tests() {
+    assert_eq!(
+        selection("tests", Mode::Quick, &[".github/workflows/ci.yml"]),
+        only(&["gate"])
+    );
+}
+
 /// The root spec, its project file and the frozen pre-swap spec (ADR 0374 D8) belong to no member: a change to one
 /// selects the members whose tests read it, and another project's spec selects none.
 #[test]

@@ -2,6 +2,7 @@ use super::*;
 use specforge_repo_root::repo_root;
 
 const CI: &str = ".github/workflows/ci.yml";
+const BOOTSTRAP: &str = ".github/workflows/bootstrap.yml";
 
 fn read(file: &str) -> String {
     std::fs::read_to_string(repo_root().join(file)).unwrap_or_else(|e| panic!("{file}: {e}"))
@@ -183,12 +184,141 @@ fn a_budget_over_its_cap_is_a_finding() {
     );
 }
 
-/// The `build` job has a budget under its timeout, starts with the clock and ends with the check (ADR 0375 D3).
+/// Each part of a budget a job lacks is a finding: no budget, no timeout, a matrix entry with no budget, a clock that is
+/// not the first step, a check that is not the last.
 #[test]
-fn the_build_job_has_a_budget_under_its_timeout() {
+fn each_missing_part_of_a_budget_is_a_finding() {
+    let whole = synthetic("10", "300");
+    let clock =
+        format!("      - name: {CLOCK}\n        shell: bash\n        run: |\n          date\n");
+    let cases = [
+        (
+            whole.replace("    env:\n      BUDGET_SECONDS: 300\n", ""),
+            "has no BUDGET_SECONDS",
+        ),
+        (
+            whole.replace("    timeout-minutes: 10\n", ""),
+            "has no timeout-minutes",
+        ),
+        (
+            whole
+                .replace("300", "${{ matrix.budget }}")
+                .replace(
+                    "    env:",
+                    "    strategy:\n      matrix:\n        include:\n          - os: a\n            budget: 60\n          \
+                     - os: b\n    env:",
+                ),
+            "has a matrix entry `os: b` with no budget",
+        ),
+        (
+            whole.replace(&format!("{clock}      - run: true\n"), &format!("      - run: true\n{clock}")),
+            "does not start with the step",
+        ),
+        (whole.clone() + "      - run: false\n", "does not end with the step"),
+    ];
+    for (workflow, says) in cases {
+        let found = findings("x.yml", &workflow);
+        assert!(
+            found.len() == 1 && found[0].contains("job `only`") && found[0].contains(says),
+            "{says}: {found:?}\n{workflow}"
+        );
+    }
+}
+
+/// Every job of `ci.yml` and `bootstrap.yml` has a budget under its timeout, starts with the clock and ends with the
+/// check, and each runs the same two scripts the tests above run on the `build` job (ADR 0375 D3).
+#[test]
+fn every_job_has_a_budget_under_its_timeout() {
+    let (clock, check) = (script(CI, "build", CLOCK), script(CI, "build", CHECK));
+    let mut ids = Vec::new();
+    for file in [CI, BOOTSTRAP] {
+        let workflow = read(file);
+        assert_eq!(findings(file, &workflow), Vec::<String>::new());
+        for job in jobs(&workflow) {
+            for (name, want) in [(CLOCK, &clock), (CHECK, &check)] {
+                assert_eq!(
+                    job.step(name).and_then(|step| step.script()).as_ref(),
+                    Some(want),
+                    "{file}: job `{}` runs another `{name}`",
+                    job.id
+                );
+            }
+            ids.push(job.id.to_string());
+        }
+    }
+    assert_eq!(
+        ids,
+        [
+            "ci",
+            "build",
+            "tests",
+            "effect-plane",
+            "windows-subset",
+            "dogfood",
+            "bootstrap"
+        ]
+    );
+}
+
+/// The timeouts are the decided ones: a job fits its budget by getting faster, never by a longer timeout.
+#[test]
+fn the_timeouts_are_the_decided_ones() {
+    let decided = [
+        ("ci", 40),
+        ("build", 40),
+        ("tests", 30),
+        ("effect-plane", 30),
+        ("windows-subset", 30),
+        ("dogfood", 20),
+        ("bootstrap", 45),
+    ];
+    let mut found = Vec::new();
+    for file in [CI, BOOTSTRAP] {
+        let workflow = read(file);
+        for job in jobs(&workflow) {
+            found.push((job.id.to_string(), job.timeout_minutes()));
+        }
+    }
+    let decided: Vec<(String, Option<u32>)> = decided
+        .iter()
+        .map(|(id, minutes)| (id.to_string(), Some(*minutes)))
+        .collect();
+    assert_eq!(found, decided);
+}
+
+/// The Windows job runs the named subset (ADR 0375 D4): the three filters as written, and line endings and long
+/// paths set before the checkout.
+#[test]
+fn the_windows_leg_runs_the_named_subset() {
     let workflow = read(CI);
     let jobs = jobs(&workflow);
-    let build = jobs.iter().find(|job| job.id == "build").unwrap();
-    assert_eq!(job_findings(CI, build), Vec::<String>::new());
-    assert_eq!(build.budgets(), Ok(vec![1680]));
+    let windows: Vec<&Job<'_>> = jobs
+        .iter()
+        .filter(|job| job.key("runs-on") == Some("windows-latest"))
+        .collect();
+    assert_eq!(windows.len(), 1, "one job runs on windows-latest");
+    let steps = windows[0].steps();
+    let runs: Vec<&str> = steps.iter().filter_map(|step| step.key("run")).collect();
+    for filter in [
+        "cargo nextest run --no-fail-fast -p gate -E 'test(/^checked_tree::/)'",
+        "cargo nextest run --no-fail-fast -p specforge-component --lib -E 'test(/user_compile_cache/)'",
+        "cargo nextest run --no-fail-fast -p xtask --bin absorb --test absorb_e2e",
+    ] {
+        assert!(runs.contains(&filter), "{filter} is not run: {runs:?}");
+    }
+    let checkout = steps
+        .iter()
+        .position(|step| step.key("uses") == Some("actions/checkout@v4"))
+        .expect("the Windows job checks out");
+    let config = steps.iter().position(|step| {
+        step.key("shell") == Some("bash")
+            && step.script().is_some_and(|script| {
+                script.contains("git config --global core.autocrlf false\n")
+                    && script.contains("git config --global core.longpaths true\n")
+            })
+    });
+    assert!(
+        config.is_some_and(|config| config < checkout),
+        "no bash step sets core.autocrlf false and core.longpaths true before the checkout"
+    );
 }

@@ -16,6 +16,8 @@ env:
   # 108s -> 79s). opt-level 0 was tried too: the build saved 77s, the tests lost 267s. CI backtraces lose file:line.
   CARGO_PROFILE_TEST_DEBUG: "0"
 
+# Every job starts a clock first and fails past its BUDGET_SECONDS last: the budget is the job's wall time on a
+# cold run times 1.25, under its timeout less five minutes (ADR 0375 D3).
 jobs:
   ci:
     # `cargo gate ci`'s lint, specs and gsd shards; the `build` job below holds build, the `tests` jobs the tests.
@@ -30,9 +32,11 @@ jobs:
         include:
           - shard: lint
             checks: rustfmt,clippy,doctests,audit
+            budget: 1440
           # The @gsd workspace on a runner of its own: its builds and black-box tests run beside lint and specs.
           - shard: gsd
             checks: gsd
+            budget: 2040
             # A key of its own: rust-cache never saves over a key it restored whole, so the old one would never hold
             # the workspace crates.
             cache: gsd-crates
@@ -41,7 +45,14 @@ jobs:
               gsd -> target/gsd
           - shard: specs
             checks: pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,blob-size,crate-map,links,doc-links,root-layout,builtins,guests,published-schemas,specs
+            budget: 2040
+    env:
+      BUDGET_SECONDS: ${{ matrix.budget }}
     steps:
+      - name: Start the build-time budget clock
+        shell: bash
+        run: |
+          echo "BUDGET_T0=$(date +%s)" >> "$GITHUB_ENV"
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -92,6 +103,26 @@ jobs:
       # A PR runs the checks its diff reaches (quick's triggers); main runs the whole list.
       - name: Run the shard's checks
         run: cargo gate ci --only ${{ matrix.checks }} ${{ github.event_name == 'pull_request' && format('--since origin/{0}', github.base_ref) || '' }}
+      - name: Build-time budget
+        shell: bash
+        run: |
+          whole='^[0-9]+$'
+          if ! [[ ${BUDGET_T0:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no clock: the job's first step recorded no BUDGET_T0"
+            exit 1
+          fi
+          if ! [[ ${BUDGET_SECONDS:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no budget: BUDGET_SECONDS is not a whole number of seconds"
+            exit 1
+          fi
+          took=$(( $(date +%s) - 10#$BUDGET_T0 ))
+          line="this job took $took s of its $BUDGET_SECONDS s build-time budget (ADR 0375 D3)"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          if (( took > 10#$BUDGET_SECONDS )); then
+            echo "::error title=Build-time budget::$line"
+            exit 1
+          fi
+          echo "$line"
 
   build:
     # Compiles the tests once into a nextest archive; the four `tests` jobs run it without compiling.
@@ -102,8 +133,6 @@ jobs:
       GATE_TEST_ARCHIVE: target/tests.tar.zst
       BUDGET_SECONDS: 1680
     steps:
-      # Every job starts a clock first and fails past its BUDGET_SECONDS last: the budget is the job's wall time on a
-      # cold run times 1.25, under its timeout less five minutes (ADR 0375 D3).
       - name: Start the build-time budget clock
         shell: bash
         run: |
@@ -162,11 +191,16 @@ jobs:
     env:
       GATE_TEST_ARCHIVE: target/tests.tar.zst
       GATE_TEST_PARTITION: ${{ matrix.part }}/4
+      BUDGET_SECONDS: 480
     strategy:
       fail-fast: false
       matrix:
         part: [1, 2, 3, 4]
     steps:
+      - name: Start the build-time budget clock
+        shell: bash
+        run: |
+          echo "BUDGET_T0=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -200,6 +234,26 @@ jobs:
           path: target/nextest/ci/junit.xml
           if-no-files-found: error
           retention-days: 1
+      - name: Build-time budget
+        shell: bash
+        run: |
+          whole='^[0-9]+$'
+          if ! [[ ${BUDGET_T0:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no clock: the job's first step recorded no BUDGET_T0"
+            exit 1
+          fi
+          if ! [[ ${BUDGET_SECONDS:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no budget: BUDGET_SECONDS is not a whole number of seconds"
+            exit 1
+          fi
+          took=$(( $(date +%s) - 10#$BUDGET_T0 ))
+          line="this job took $took s of its $BUDGET_SECONDS s build-time budget (ADR 0375 D3)"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          if (( took > 10#$BUDGET_SECONDS )); then
+            echo "::error title=Build-time budget::$line"
+            exit 1
+          fi
+          echo "$line"
 
   effect-plane:
     # The effect plane's adapters on the other two OSes (ADR 0335): the process group or Job kill, PATHEXT and `.cmd`
@@ -209,10 +263,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            budget: 1500
+          - os: macos-latest
+            budget: 1380
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    env:
+      BUDGET_SECONDS: ${{ matrix.budget }}
     steps:
+      - name: Start the build-time budget clock
+        shell: bash
+        run: |
+          echo "BUDGET_T0=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
@@ -227,6 +291,26 @@ jobs:
         run: cargo nextest run --no-fail-fast -p specforge-effects -p specforge-process -p specforge-fs -p specforge-http -p specforge-git
       - name: The collector machine's runner tests
         run: cargo nextest run -p specforge-ops --lib -E "test(/^analysis::collect::process::/)"
+      - name: Build-time budget
+        shell: bash
+        run: |
+          whole='^[0-9]+$'
+          if ! [[ ${BUDGET_T0:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no clock: the job's first step recorded no BUDGET_T0"
+            exit 1
+          fi
+          if ! [[ ${BUDGET_SECONDS:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no budget: BUDGET_SECONDS is not a whole number of seconds"
+            exit 1
+          fi
+          took=$(( $(date +%s) - 10#$BUDGET_T0 ))
+          line="this job took $took s of its $BUDGET_SECONDS s build-time budget (ADR 0375 D3)"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          if (( took > 10#$BUDGET_SECONDS )); then
+            echo "::error title=Build-time budget::$line"
+            exit 1
+          fi
+          echo "$line"
 
   windows-subset:
     # The Windows subset (ADR 0375 D4): the tracked-tree copy, the user's home, absorb. Not one of `cargo gate`'s
@@ -234,7 +318,13 @@ jobs:
     name: Windows subset
     runs-on: windows-latest
     timeout-minutes: 30
+    env:
+      BUDGET_SECONDS: 1500
     steps:
+      - name: Start the build-time budget clock
+        shell: bash
+        run: |
+          echo "BUDGET_T0=$(date +%s)" >> "$GITHUB_ENV"
       # The fixtures and snapshots are compared as LF, and a generated tree can pass 260 characters (ADR 0375 D4).
       - name: Line endings and long paths, before checkout
         shell: bash
@@ -256,6 +346,26 @@ jobs:
         run: cargo nextest run --no-fail-fast -p specforge-component --lib -E 'test(/user_compile_cache/)'
       - name: "Windows subset: absorb"
         run: cargo nextest run --no-fail-fast -p xtask --bin absorb --test absorb_e2e
+      - name: Build-time budget
+        shell: bash
+        run: |
+          whole='^[0-9]+$'
+          if ! [[ ${BUDGET_T0:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no clock: the job's first step recorded no BUDGET_T0"
+            exit 1
+          fi
+          if ! [[ ${BUDGET_SECONDS:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no budget: BUDGET_SECONDS is not a whole number of seconds"
+            exit 1
+          fi
+          took=$(( $(date +%s) - 10#$BUDGET_T0 ))
+          line="this job took $took s of its $BUDGET_SECONDS s build-time budget (ADR 0375 D3)"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          if (( took > 10#$BUDGET_SECONDS )); then
+            echo "::error title=Build-time budget::$line"
+            exit 1
+          fi
+          echo "$line"
 
   dogfood:
     # Each tests partition's nextest JUnit report lands in its own directory under target/nextest/ci (no
@@ -265,7 +375,13 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      BUDGET_SECONDS: 840
     steps:
+      - name: Start the build-time budget clock
+        shell: bash
+        run: |
+          echo "BUDGET_T0=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
@@ -278,5 +394,25 @@ jobs:
           path: target/nextest/ci
       - name: Run dogfood
         run: cargo gate ci --only dogfood
+      - name: Build-time budget
+        shell: bash
+        run: |
+          whole='^[0-9]+$'
+          if ! [[ ${BUDGET_T0:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no clock: the job's first step recorded no BUDGET_T0"
+            exit 1
+          fi
+          if ! [[ ${BUDGET_SECONDS:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no budget: BUDGET_SECONDS is not a whole number of seconds"
+            exit 1
+          fi
+          took=$(( $(date +%s) - 10#$BUDGET_T0 ))
+          line="this job took $took s of its $BUDGET_SECONDS s build-time budget (ADR 0375 D3)"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          if (( took > 10#$BUDGET_SECONDS )); then
+            echo "::error title=Build-time budget::$line"
+            exit 1
+          fi
+          echo "$line"
 
   # The fresh-clone bootstrap is bootstrap.yml: on a PR it runs only when a blob input changes.
