@@ -57,8 +57,8 @@ pub use snapshot::{EntitySnapshot, Standing};
 
 // --- Registry compilation: one build, and the graph checks ---
 pub use compilation::{
-    BuildPart, CHECK_PHASE, COMPUTE_PHASE, CandidateVocabulary, DeclaredPass, RegistryBuild,
-    build_registries, build_registries_with, extension_codes, reports,
+    BuildPart, CHECK_PHASE, COMPUTE_PHASE, CandidateVocabulary, DeclaredPass, Offered,
+    RegistryBuild, build_registries, build_registries_with, extension_codes, reports,
 };
 pub use inputs::{CallKind, read_problem, served};
 pub use rules::paths_named;

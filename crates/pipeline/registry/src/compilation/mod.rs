@@ -23,6 +23,6 @@ pub use build::{
     BuildPart, CHECK_PHASE, COMPUTE_PHASE, DeclaredPass, RegistryBuild, build_registries,
     build_registries_with,
 };
-pub use candidates::CandidateVocabulary;
 pub(crate) use candidates::UnloadedPeers;
+pub use candidates::{CandidateVocabulary, Offered};
 pub use codes::{extension_codes, reports};

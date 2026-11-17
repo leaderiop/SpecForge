@@ -458,6 +458,27 @@ fn product_declares_its_lifecycle_passes() {
     );
 }
 
+/// With the real vocabulary, `decision` has two declarers, `@gsd/core` and `@specforge/governance`.
+/// `@gsd/core` also declares `deliverable` and `milestone`, which the loaded `@specforge/product`
+/// registers, so adding it would be E026: the suggestion offers `@specforge/governance` alone
+/// (ADR 0373 D4).
+#[test]
+fn a_decision_beside_product_is_offered_governance_alone() {
+    let compiled = TestProject::new()
+        .enabling(&["@specforge/software", "@specforge/product"])
+        .file("main.spec", "decision chosen \"Chosen\" {\n}\n")
+        .compile();
+    let diagnostics = compiled.diagnostics();
+    let e024: Vec<&Diagnostic> = diagnostics.iter().filter(|d| d.code == "E024").collect();
+    assert_eq!(e024.len(), 1, "{diagnostics:?}");
+    let suggestion = e024[0].suggestion.as_deref().unwrap_or_default();
+    assert_eq!(
+        suggestion, "install it with: specforge add @specforge/governance",
+        "{diagnostics:?}"
+    );
+    assert!(!suggestion.contains("@gsd/core"), "{suggestion}");
+}
+
 #[specforge_test_macros::test(
     behavior = "ge_validate_unused_invariants",
     verify = "invariant nothing references produces W003"

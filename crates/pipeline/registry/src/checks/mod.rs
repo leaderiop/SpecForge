@@ -44,6 +44,7 @@ impl RegistryBuild {
             diagnostics.extend(kinds::unchecked(
                 entities,
                 !self.declarations().is_empty(),
+                &self.kinds,
                 &self.candidates,
             ));
         } else {

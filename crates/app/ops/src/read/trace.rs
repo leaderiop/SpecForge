@@ -470,7 +470,7 @@ fn skipped(candidates: &CandidateVocabulary, route: &Route) -> Vec<Diagnostic> {
                     route.name, skip.kind
                 ),
             )
-            .with_suggestion(candidates.kind_remedy(&skip.kind))
+            .with_suggestion(candidates.kind_remedy(&skip.kind, |_| false))
         })
         .collect()
 }

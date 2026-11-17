@@ -148,3 +148,63 @@ fn w151_names_every_extension_that_declares_the_first_kind() {
         "{diags:?}"
     );
 }
+
+/// `@x/a` and `@x/b` both declare `k`; `@x/a` also declares `j`, and `@x/b` declares `i` when
+/// `b_also_i`. E024 for a `k` beside a loaded extension that declares `loaded` (ADR 0373 D4).
+fn e024_for_k_beside(loaded: &[&str], b_also_i: bool) -> String {
+    let a = declare("@x/a", |c| {
+        c.kind("K", |k| {
+            k.keyword("k");
+        });
+        c.kind("J", |k| {
+            k.keyword("j");
+        });
+    });
+    let b = declare("@x/b", |c| {
+        c.kind("K", |k| {
+            k.keyword("k");
+        });
+        if b_also_i {
+            c.kind("I", |k| {
+                k.keyword("i");
+            });
+        }
+    });
+    let host = declare("@x/host", |c| {
+        for keyword in loaded {
+            c.kind(&keyword.to_uppercase(), |k| {
+                k.keyword(keyword);
+            });
+        }
+    });
+    let diags = checked(
+        &build_with([host], candidates(&[a, b])),
+        &[("t.spec", "k k1 \"K\" {\n}\n")],
+    );
+    let e024 = coded_in(&diags, "E024");
+    assert_eq!(e024.len(), 1, "{diags:?}");
+    e024[0].suggestion.clone().unwrap()
+}
+
+#[test]
+fn e024_offers_only_the_declarers_that_collide_with_nothing_loaded() {
+    // `@x/a` would declare `j` a second time (E026): `@x/b` alone.
+    assert_eq!(
+        e024_for_k_beside(&["j"], false),
+        "install it with: specforge add @x/b"
+    );
+    // Nothing loaded collides: both, as before.
+    assert_eq!(
+        e024_for_k_beside(&["z"], true),
+        "install one of the extensions that declare it with: `specforge add @x/a` or `specforge add @x/b`"
+    );
+}
+
+#[test]
+fn e024_offers_every_declarer_when_all_collide_and_says_so() {
+    assert_eq!(
+        e024_for_k_beside(&["j", "i"], true),
+        "install one of the extensions that declare it with: `specforge add @x/a` or `specforge add @x/b`; \
+         each also declares a kind a loaded extension declares, so adding one reports E026"
+    );
+}

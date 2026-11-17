@@ -107,7 +107,9 @@ impl CandidateVocabulary {
         text
     }
 
-    /// The extensions that declare the kind written `keyword`, sorted; empty when none does.
+    /// Every extension that declares the kind written `keyword`, sorted; empty when none does. A
+    /// suggestion does not read it: it reads [`Self::offered_declarers`], which leaves out the
+    /// declarers that would collide with a loaded kind.
     pub fn kind_owners(&self, keyword: &str) -> Vec<&str> {
         self.kinds
             .get(keyword)
@@ -122,32 +124,88 @@ impl CandidateVocabulary {
         self.kinds.keys().map(String::as_str)
     }
 
-    /// The sentence that installs a declarer of the kind written `keyword`, each declarer with its
-    /// own command, in the vocabulary's order (ADR 0369 D2); None when nothing declares it.
-    pub fn kind_install(&self, keyword: &str) -> Option<String> {
-        let commands: Vec<String> = self
-            .kind_owners(keyword)
-            .into_iter()
-            .map(|extension| specforge_common::remedy::command("specforge add {}", &[extension]))
+    /// The declarers of the kind written `keyword` that a suggestion offers (ADR 0373 D4, amending
+    /// ADR 0369 D2), given `registered`, whether a loaded extension already declares a kind keyword.
+    ///
+    /// A declarer is offered when no keyword the vocabulary credits to it is registered: adding
+    /// one that declares a loaded kind again is E026, so a suggestion that names it breaks the
+    /// project it means to fix. With `@gsd/core` beside the starter builtins, a project loading
+    /// `@specforge/product` that wrote a `decision` was told to add `@gsd/core` first, which
+    /// declares `deliverable` and `milestone` too. When every declarer collides, all of them are
+    /// offered and [`Offered::colliding`] says so, so a suggestion never goes silent. The order
+    /// stays the vocabulary's. E024, W151, I004, E022 and I210 all read this one rule.
+    pub fn offered_declarers(
+        &self,
+        keyword: &str,
+        registered: impl Fn(&str) -> bool,
+    ) -> Offered<'_> {
+        let declarers = self.kind_owners(keyword);
+        let clear: Vec<&str> = declarers
+            .iter()
+            .copied()
+            .filter(|declarer| !self.declares_any(declarer, &registered))
             .collect();
-        match commands.as_slice() {
-            [] => None,
-            [only] => Some(format!("install it with: {only}")),
-            several => Some(format!(
-                "install one of the extensions that declare it with: {}",
-                several
-                    .iter()
-                    .map(|command| format!("`{command}`"))
-                    .collect::<Vec<_>>()
-                    .join(" or ")
-            )),
+        if clear.is_empty() && !declarers.is_empty() {
+            Offered {
+                declarers,
+                colliding: true,
+            }
+        } else {
+            Offered {
+                declarers: clear,
+                colliding: false,
+            }
         }
     }
 
-    /// What to do about the kind written `keyword` that no loaded extension declares: install an extension that
-    /// declares it ([`Self::kind_install`]), else search for one (E024, I210).
-    pub fn kind_remedy(&self, keyword: &str) -> String {
-        self.kind_install(keyword).unwrap_or_else(|| {
+    /// Whether the vocabulary credits `extension` with a kind keyword `registered` holds.
+    fn declares_any(&self, extension: &str, registered: &impl Fn(&str) -> bool) -> bool {
+        self.kinds
+            .iter()
+            .any(|(keyword, owners)| owners.contains(extension) && registered(keyword))
+    }
+
+    /// The sentence that installs an offered declarer of the kind written `keyword`
+    /// ([`Self::offered_declarers`] over `registered`), each with its own command, in the
+    /// vocabulary's order; when every declarer collides with a loaded kind, one clause says so.
+    /// None when nothing declares it.
+    pub fn kind_install(&self, keyword: &str, registered: impl Fn(&str) -> bool) -> Option<String> {
+        let offered = self.offered_declarers(keyword, registered);
+        let commands: Vec<String> = offered
+            .declarers
+            .iter()
+            .map(|extension| specforge_common::remedy::command("specforge add {}", &[extension]))
+            .collect();
+        let (install, collision) = match commands.as_slice() {
+            [] => return None,
+            [only] => (
+                format!("install it with: {only}"),
+                "it also declares a kind a loaded extension declares, so adding it reports E026",
+            ),
+            several => (
+                format!(
+                    "install one of the extensions that declare it with: {}",
+                    several
+                        .iter()
+                        .map(|command| format!("`{command}`"))
+                        .collect::<Vec<_>>()
+                        .join(" or ")
+                ),
+                "each also declares a kind a loaded extension declares, so adding one reports E026",
+            ),
+        };
+        Some(if offered.colliding {
+            format!("{install}; {collision}")
+        } else {
+            install
+        })
+    }
+
+    /// What to do about the kind written `keyword` that no loaded extension declares, given
+    /// `registered` (the loaded kinds): install an offered declarer ([`Self::kind_install`]), else
+    /// search for one (E024, I210).
+    pub fn kind_remedy(&self, keyword: &str, registered: impl Fn(&str) -> bool) -> String {
+        self.kind_install(keyword, registered).unwrap_or_else(|| {
             format!(
                 "search for an extension that provides it with: {}",
                 specforge_common::remedy::command("specforge extensions search {}", &[keyword])
@@ -167,6 +225,16 @@ impl CandidateVocabulary {
     pub fn is_empty(&self) -> bool {
         self.kinds.is_empty() && self.fields.is_empty()
     }
+}
+
+/// The declarers of one kind keyword a suggestion offers ([`CandidateVocabulary::offered_declarers`],
+/// ADR 0373 D4).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Offered<'a> {
+    /// In the vocabulary's order; empty only when nothing declares the keyword.
+    pub declarers: Vec<&'a str>,
+    /// Every declarer also declares a loaded kind, so all of them are offered.
+    pub colliding: bool,
 }
 
 /// The optional peers of one declaration the project does not load, and the kinds the candidate
@@ -296,20 +364,89 @@ mod tests {
         declarations.push(second_gizmo());
         let v = CandidateVocabulary::of(&declarations).unwrap();
         assert_eq!(
-            v.kind_install("Widget").as_deref(),
+            v.kind_install("Widget", nothing).as_deref(),
             Some("install it with: specforge add @x/b")
         );
         assert_eq!(
-            v.kind_install("gizmo").as_deref(),
+            v.kind_install("gizmo", nothing).as_deref(),
             Some(
                 "install one of the extensions that declare it with: `specforge add @x/a` or `specforge add @x/c`"
             )
         );
-        assert_eq!(v.kind_install("xyzzy"), None);
-        assert_eq!(v.kind_remedy("gizmo"), v.kind_install("gizmo").unwrap());
+        assert_eq!(v.kind_install("xyzzy", nothing), None);
         assert_eq!(
-            v.kind_remedy("xyzzy"),
+            v.kind_remedy("gizmo", nothing),
+            v.kind_install("gizmo", nothing).unwrap()
+        );
+        assert_eq!(
+            v.kind_remedy("xyzzy", nothing),
             "search for an extension that provides it with: specforge extensions search xyzzy"
+        );
+    }
+
+    /// No kind is registered.
+    fn nothing(_: &str) -> bool {
+        false
+    }
+
+    /// `k` is declared by `@x/a` and `@x/b`; `@x/a` also declares `j`, `@x/b` also declares `i`.
+    fn k_twice() -> CandidateVocabulary {
+        let a = declare("@x/a", |c| {
+            c.kind("K", |k| {
+                k.keyword("k");
+            });
+            c.kind("J", |k| {
+                k.keyword("j");
+            });
+        });
+        let b = declare("@x/b", |c| {
+            c.kind("K", |k| {
+                k.keyword("k");
+            });
+            c.kind("I", |k| {
+                k.keyword("i");
+            });
+        });
+        CandidateVocabulary::of(&[a, b]).unwrap()
+    }
+
+    #[test]
+    fn a_declarer_that_declares_a_registered_kind_is_not_offered() {
+        let v = k_twice();
+        let offered = v.offered_declarers("k", |kind| kind == "j");
+        assert_eq!(offered.declarers, ["@x/b"]);
+        assert!(!offered.colliding);
+        assert_eq!(
+            v.kind_install("k", |kind| kind == "j").as_deref(),
+            Some("install it with: specforge add @x/b")
+        );
+        // Nothing registered: both, in the vocabulary's order.
+        let offered = v.offered_declarers("k", nothing);
+        assert_eq!(offered.declarers, ["@x/a", "@x/b"]);
+        assert!(!offered.colliding);
+        // A keyword nothing declares offers nothing, colliding or not.
+        let offered = v.offered_declarers("xyzzy", |_| true);
+        assert!(offered.declarers.is_empty() && !offered.colliding);
+    }
+
+    #[test]
+    fn when_every_declarer_collides_all_are_offered_and_the_sentence_says_why() {
+        let v = k_twice();
+        let both = |kind: &str| kind == "j" || kind == "i";
+        let offered = v.offered_declarers("k", both);
+        assert_eq!(offered.declarers, ["@x/a", "@x/b"]);
+        assert!(offered.colliding);
+        assert_eq!(
+            v.kind_remedy("k", both),
+            "install one of the extensions that declare it with: `specforge add @x/a` or `specforge add @x/b`; \
+             each also declares a kind a loaded extension declares, so adding one reports E026"
+        );
+        // One declarer, colliding: offered, with the clause.
+        assert_eq!(
+            v.kind_install("j", |kind| kind == "k").as_deref(),
+            Some(
+                "install it with: specforge add @x/a; it also declares a kind a loaded extension declares, so adding it reports E026"
+            )
         );
     }
 
@@ -404,7 +541,7 @@ mod tests {
     fn a_keyword_written_with_no_extension_is_not_named() {
         let v = CandidateVocabulary::from_json(r#"{"kinds": {"feature": []}}"#);
         assert_eq!(v.kind_keywords().count(), 0);
-        assert_eq!(v.kind_install("feature"), None);
+        assert_eq!(v.kind_install("feature", nothing), None);
         assert!(v.is_empty());
     }
 }

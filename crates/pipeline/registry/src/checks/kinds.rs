@@ -9,8 +9,9 @@ use crate::entity::EntityRecord;
 use crate::{CandidateVocabulary, KindRegistry};
 
 /// E024 for every entity whose kind is neither structural (`spec`, `ref`,
-/// `use`, `define`) nor registered, with every extension that declares it
-/// as the suggestion when the candidate vocabulary knows one.
+/// `use`, `define`) nor registered, with the extensions that declare it as
+/// the suggestion when the candidate vocabulary knows one: those that declare
+/// no kind `kinds` holds, else all of them, saying so (ADR 0373 D4).
 pub(super) fn unknown(
     entities: &[EntityRecord],
     kinds: &KindRegistry,
@@ -24,7 +25,7 @@ pub(super) fn unknown(
             continue;
         }
 
-        let suggestion = Some(candidates.kind_remedy(keyword));
+        let suggestion = Some(candidates.kind_remedy(keyword, |kind| kinds.contains(kind)));
 
         let mut diagnostic = Diagnostic::new(
             codes::E024,
@@ -52,9 +53,12 @@ const KINDS_NAMED: usize = 5;
 /// declares the first kind, naming every one the candidate vocabulary knows,
 /// each with its command ([`CandidateVocabulary::kind_install`], ADR 0369 D2),
 /// else searches for one. It has no span: it is about the project, like I002.
+/// The suggestion reads the rule E024 reads (ADR 0373 D4) over `kinds`, which
+/// is empty when it runs, so no declarer collides and none is left out.
 pub(super) fn unchecked(
     entities: &[EntityRecord],
     loaded: bool,
+    kinds: &KindRegistry,
     candidates: &CandidateVocabulary,
 ) -> Vec<Diagnostic> {
     if !loaded {
@@ -64,28 +68,30 @@ pub(super) fn unchecked(
         .iter()
         .filter(|record| !structural::is_structural(&record.kind))
         .collect();
-    let kinds: BTreeSet<&str> = unchecked
+    let written: BTreeSet<&str> = unchecked
         .iter()
         .map(|record| record.kind.as_str())
         .collect();
-    let Some(first) = kinds.iter().next().copied() else {
+    let Some(first) = written.iter().next().copied() else {
         return Vec::new();
     };
-    let named: Vec<&str> = kinds.iter().take(KINDS_NAMED).copied().collect();
+    let named: Vec<&str> = written.iter().take(KINDS_NAMED).copied().collect();
     let mut listed = named.join(", ");
-    if kinds.len() > KINDS_NAMED {
+    if written.len() > KINDS_NAMED {
         listed.push_str(", …");
     }
     let (count, noun, verb) = match unchecked.len() {
         1 => (1, "entity", "is"),
         n => (n, "entities", "are"),
     };
-    let suggestion = candidates.kind_install(first).unwrap_or_else(|| {
-        format!(
-            "enable the extension that declares them; search with: {}",
-            specforge_common::remedy::command("specforge extensions search {}", &[first])
-        )
-    });
+    let suggestion = candidates
+        .kind_install(first, |kind| kinds.contains(kind))
+        .unwrap_or_else(|| {
+            format!(
+                "enable the extension that declares them; search with: {}",
+                specforge_common::remedy::command("specforge extensions search {}", &[first])
+            )
+        });
     vec![
         Diagnostic::new(
             codes::W151,
