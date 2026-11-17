@@ -11,9 +11,10 @@ use std::path::{Component, Path};
 /// The `[patch.crates-io]` table for the stage, read from `config` (a `.cargo/config.toml` that
 /// lies in `base/.cargo/`, `base` from the repository root): each entry is an inline table holding
 /// only a `path`, re-rooted from `base` to the repository root. A top-level key other than `patch`
-/// (which the workspace's own build would honour and the stage would not), an entry with another
-/// key, a patched registry other than crates.io, or a path that is absolute or leaves the
-/// repository is an error naming it. An empty config gives an empty string.
+/// (which the workspace's own build would honour and the stage would not), a patched name that is
+/// not a crate name (it is written as a bare key), an entry with another key, a patched registry
+/// other than crates.io, or a path that is absolute or leaves the repository is an error naming
+/// it. An empty config gives an empty string.
 pub(super) fn stage_patch(config: &Path, base: &str) -> Result<String, String> {
     let shown = config.display();
     let text = std::fs::read_to_string(config).map_err(|e| format!("read {shown}: {e}"))?;
@@ -41,6 +42,13 @@ pub(super) fn stage_patch(config: &Path, base: &str) -> Result<String, String> {
             .ok_or_else(|| format!("{shown}: [patch.crates-io] is not a table"))?;
         out.push_str("[patch.crates-io]\n");
         for (name, entry) in entries {
+            // The name is written below as a bare TOML key; a crate name is always one.
+            let bare = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '-';
+            if name.is_empty() || !name.chars().all(bare) {
+                return Err(format!(
+                    "{shown}: the patched `{name}` is not a crate name (ASCII letters, digits, `_` and `-`)"
+                ));
+            }
             let path = entry
                 .as_table()
                 .filter(|fields| fields.len() == 1)

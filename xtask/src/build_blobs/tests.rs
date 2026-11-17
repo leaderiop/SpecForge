@@ -286,6 +286,25 @@ fn a_patch_entry_that_is_not_a_path_is_refused() {
     );
 }
 
+/// The patched name is written as a bare TOML key, so a name that would need quoting (no crate has one) is refused
+/// by name rather than written into a stage manifest that does not parse.
+#[test]
+fn a_patched_name_that_is_no_bare_key_is_refused_naming_it() {
+    for name in ["a.b", "my sdk", "sdk\"x", "ünï"] {
+        let quoted = toml::Value::String(name.to_owned());
+        let err = patch_of(&format!(
+            "[patch.crates-io]\n{quoted} = {{ path = \"../crates/x\" }}\n"
+        ))
+        .unwrap_err();
+        assert!(
+            err.contains(&format!("`{name}`")) && err.contains("not a crate name"),
+            "{name}: {err}"
+        );
+    }
+    let ok = patch_of("[patch.crates-io]\nSdk_2-x = { path = \"../crates/x\" }\n").unwrap();
+    assert_eq!(ok, "[patch.crates-io]\nSdk_2-x = { path = \"crates/x\" }\n");
+}
+
 /// The stage replays `[patch.crates-io]` and nothing else, so any other key of the config (which
 /// the gsd workspace's own build would honour) is refused by name rather than dropped unseen.
 #[test]
