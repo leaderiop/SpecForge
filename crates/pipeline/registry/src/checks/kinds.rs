@@ -53,12 +53,12 @@ const KINDS_NAMED: usize = 5;
 /// declares the first kind, naming every one the candidate vocabulary knows,
 /// each with its command ([`CandidateVocabulary::kind_install`], ADR 0369 D2),
 /// else searches for one. It has no span: it is about the project, like I002.
-/// The suggestion reads the rule E024 reads (ADR 0373 D4) over `kinds`, which
-/// is empty when it runs, so no declarer collides and none is left out.
+/// The suggestion reads the rule E024 reads (ADR 0373 D4) with no kind
+/// registered, since W151 runs only when the kind registry is empty: no
+/// declarer collides and none is left out.
 pub(super) fn unchecked(
     entities: &[EntityRecord],
     loaded: bool,
-    kinds: &KindRegistry,
     candidates: &CandidateVocabulary,
 ) -> Vec<Diagnostic> {
     if !loaded {
@@ -85,7 +85,7 @@ pub(super) fn unchecked(
         n => (n, "entities", "are"),
     };
     let suggestion = candidates
-        .kind_install(first, |kind| kinds.contains(kind))
+        .kind_install(first, |_| false)
         .unwrap_or_else(|| {
             format!(
                 "enable the extension that declares them; search with: {}",
