@@ -430,9 +430,10 @@ fn the_source_spec_root_decides_what_the_target_may_hold() {
         .claim(&["Cargo.toml".into(), "crates/a/old.spec".into()])
         .unwrap_err();
     assert!(
-        held.ends_with(
-            "already holds Cargo.toml, crates/a/old.spec: convert into a directory with no project"
-        ),
+        held.ends_with(&format!(
+            "already holds Cargo.toml, {}: convert into a directory with no project",
+            named.display()
+        )),
         "{held}"
     );
 }
