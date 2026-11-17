@@ -72,3 +72,123 @@ its kind, or given the capability that reads it. The test `tests/provenance.rs` 
 | methodology | diagnoses | gsd-core/workflows/discuss-phase-assumptions.md:224 | its diagnoses |
 | methodology | recommends | gsd-core/workflows/discuss-phase-assumptions.md:224 | recommendations |
 | methodology | apply_when | gsd-core/workflows/discuss-phase-assumptions.md:224 | triggering conditions |
+
+## discuss.md
+
+| kind | field | source | the line holds |
+|---|---|---|---|
+| context | phase | gsd-core/templates/context.md:3 | .planning/phases/XX-name/{phase_num}-CONTEXT.md |
+| context | plan | gsd-core/workflows/quick.md:457 | ${QUICK_DIR}/${quick_id}-CONTEXT.md |
+| context | gathered | gsd-core/templates/context.md:20 | **Gathered:** [date] |
+| context | boundary | gsd-core/templates/context.md:24 | ## Phase Boundary |
+| context | discretion | gsd-core/templates/context.md:43 | ### Claude's Discretion |
+| context | specifics | gsd-core/templates/context.md:49 | ## Specific Ideas |
+| context | canonical_refs | gsd-core/templates/context.md:58 | ## Canonical References |
+| context | reusable_assets | gsd-core/templates/context.md:78 | ### Reusable Assets |
+| context | patterns | gsd-core/templates/context.md:81 | ### Established Patterns |
+| context | integration_points | gsd-core/templates/context.md:84 | ### Integration Points |
+| decision | phase | gsd-core/templates/context.md:3 | .planning/phases/XX-name/{phase_num}-CONTEXT.md |
+| decision | plan | gsd-core/workflows/quick.md:457 | ${QUICK_DIR}/${quick_id}-CONTEXT.md |
+| decision | area | gsd-core/templates/context.md:33 | ### [Area 1 that was discussed] |
+| decision | text | gsd-core/templates/context.md:34 | **D-01:** [Specific decision made] |
+| decision | rationale | gsd-core/templates/project.md:71 | Decision \| Rationale \| Outcome |
+| decision | outcome | gsd-core/templates/project.md:73 | [✓ Good / ⚠️ Revisit / — Pending] |
+| decision | reversibility | gsd-core/references/planner-reversibility.md:57 | discuss-phase already recorded a rating and rationale |
+| decision | settled | rule:gsd/W311 |  |
+| decision | origin | rule:gsd/E310 |  |
+| deferred_idea | text | gsd-core/templates/context.md:90 | ## Deferred Ideas |
+| deferred_idea | phase | gsd-core/templates/context.md:3 | .planning/phases/XX-name/{phase_num}-CONTEXT.md |
+| deferred_idea | why | gsd-core/workflows/discuss-phase/templates/context.md:141 | reason it was deferred |
+| deferred_idea | origin | route:phase-context |  |
+| deferred_idea | status | gsd-core/workflows/progress/steps/forensic-audit.md:95 | status: resolved |
+| phase_spec | phase | gsd-core/templates/spec.md:3 | .planning/phases/XX-name/{phase_num}-SPEC.md |
+| phase_spec | created | gsd-core/templates/spec.md:21 | **Created:** [date] |
+| phase_spec | goal | gsd-core/templates/spec.md:25 | ## Goal |
+| phase_spec | background | gsd-core/templates/spec.md:29 | ## Background |
+| phase_spec | in_scope | gsd-core/templates/spec.md:49 | **In scope:** |
+| phase_spec | out_of_scope | gsd-core/templates/spec.md:53 | **Out of scope:** |
+| phase_spec | constraints | gsd-core/templates/spec.md:57 | ## Constraints |
+| phase_spec | acceptance | gsd-core/templates/spec.md:62 | ## Acceptance Criteria |
+| locked_req | spec | gsd-core/templates/spec.md:3 | {phase_num}-SPEC.md |
+| locked_req | title | gsd-core/templates/spec.md:35 | **[Short label]**: [Specific, testable statement.] |
+| locked_req | current | gsd-core/templates/spec.md:36 | - Current: [what exists or does NOT exist today] |
+| locked_req | target | gsd-core/templates/spec.md:37 | - Target: [what it should become after this phase] |
+| locked_req | acceptance | gsd-core/templates/spec.md:38 | - Acceptance: [concrete pass/fail check |
+| locked_req | traces | rule:gsd/W203 |  |
+| locked_req | shapes | gsd-core/references/edge-probe.md:44 | shapes? |
+| locked_req | text_en | gsd-core/references/edge-probe.md:44 | text_en? |
+| interview | spec | gsd-core/templates/spec.md:3 | {phase_num}-SPEC.md |
+| interview | round | gsd-core/templates/spec.md:111 | Format: round → question → answer → decision locked. |
+| interview | perspective | gsd-core/templates/spec.md:113 | Perspective |
+| interview | question | gsd-core/templates/spec.md:111 | Format: round → question → answer → decision locked. |
+| interview | answer | gsd-core/templates/spec.md:111 | Format: round → question → answer → decision locked. |
+| interview | locked | gsd-core/templates/spec.md:113 | Decision locked |
+| edge | spec | gsd-core/templates/spec.md:3 | {phase_num}-SPEC.md |
+| edge | requirement | gsd-core/references/edge-probe.md:128 | { requirement_id, category |
+| edge | category | gsd-core/references/edge-probe.md:128 | requirement_id, category, status |
+| edge | status | gsd-core/references/edge-probe.md:128 | category, status, verification |
+| edge | verification | gsd-core/references/edge-probe.md:128 | status, verification, resolution |
+| edge | resolution | gsd-core/references/edge-probe.md:128 | verification, resolution, reason |
+| edge | reason | gsd-core/references/edge-probe.md:128 | resolution, reason, probe |
+| spec_prohibition | spec | gsd-core/templates/spec.md:3 | {phase_num}-SPEC.md |
+| spec_prohibition | requirement | gsd-core/templates/spec.md:87 | Requirement \| Status \| Verification / Reason |
+| spec_prohibition | statement | gsd-core/templates/spec.md:87 | Prohibition (must-NOT statement) |
+| spec_prohibition | status | gsd-core/references/prohibition-probe.md:99 | **status** |
+| spec_prohibition | verification | gsd-core/references/prohibition-probe.md:105 | **verification** (only when |
+| spec_prohibition | reason | gsd-core/references/prohibition-probe.md:101 | accompanied by a required |
+| spec_prohibition | check_kind | gsd-core/references/prohibition-probe.md:163 | `check_kind` — `node-test` |
+| spec_prohibition | check_target | gsd-core/references/prohibition-probe.md:164 | `check_target` — the test file |
+| spec_prohibition | check_rule | gsd-core/references/prohibition-probe.md:165 | `check_rule` — the `ruleId` |
+| spec_prohibition | check_violation_fixture | gsd-core/references/prohibition-probe.md:166 | `check_violation_fixture` — path to a KNOWN-BAD subject |
+| spec_prohibition | check_clean_fixture | gsd-core/references/prohibition-probe.md:168 | `check_clean_fixture` — **optional** path |
+| discussion | phase | gsd-core/workflows/discuss-phase.md:455 | ${phase_dir}/${padded_phase}-DISCUSSION-LOG.md |
+| discussion | entries | gsd-core/workflows/discuss-phase.md:380 | accumulate area name, options presented |
+| discussion | checkpoint | gsd-core/workflows/discuss-phase.md:379 | Incremental checkpoint |
+| research | phase | agents/gsd-phase-researcher.md:270 | {phase_num}-RESEARCH.md |
+| research | plan | gsd-core/workflows/quick.md:465 | ${QUICK_DIR}/${quick_id}-RESEARCH.md |
+| research | domain | agents/gsd-phase-researcher.md:276 | **Domain:** [primary technology/problem domain] |
+| research | researched | agents/gsd-phase-researcher.md:275 | **Researched:** [date] |
+| research | confidence | agents/gsd-phase-researcher.md:277 | **Confidence:** [HIGH/MEDIUM/LOW] |
+| research | summary | agents/gsd-phase-researcher.md:279 | ## Summary |
+| research | user_constraints | agents/gsd-phase-researcher.md:771 | <user_constraints> |
+| research | responsibility_map | agents/gsd-phase-researcher.md:285 | ## Architectural Responsibility Map |
+| finding | research | agents/gsd-phase-researcher.md:279 | ## Summary |
+| finding | topic | agents/gsd-research-synthesizer.md:27 | STACK.md, FEATURES.md, ARCHITECTURE.md, PITFALLS.md |
+| finding | text | gsd-core/templates/research-project/SUMMARY.md:23 | ## Key Findings |
+| finding | confidence | gsd-core/templates/research-project/STACK.md:12 | **Confidence:** [HIGH/MEDIUM/LOW] |
+| finding | sources | agents/gsd-phase-researcher.md:28 | must be tagged with its source |
+| stack_choice | research | agents/gsd-phase-researcher.md:291 | ## Standard Stack |
+| stack_choice | name | agents/gsd-phase-researcher.md:294 | Library \| Version \| Purpose \| Why Standard |
+| stack_choice | version | agents/gsd-phase-researcher.md:294 | Version \| Purpose |
+| stack_choice | purpose | agents/gsd-phase-researcher.md:294 | Purpose \| Why Standard |
+| stack_choice | tier | agents/gsd-phase-researcher.md:293 | ### Core |
+| stack_choice | rejected_because | agents/gsd-phase-researcher.md:304 | Instead of \| Could Use \| Tradeoff |
+| pattern | research | agents/gsd-phase-researcher.md:336 | ## Architecture Patterns |
+| pattern | name | agents/gsd-phase-researcher.md:360 | ### Pattern 1: [Pattern Name] |
+| pattern | what | agents/gsd-phase-researcher.md:361 | **What:** [description] |
+| pattern | when | agents/gsd-phase-researcher.md:362 | **When to use:** [conditions] |
+| pattern | example | agents/gsd-phase-researcher.md:363 | **Example:** |
+| pattern | anti | agents/gsd-phase-researcher.md:369 | ### Anti-Patterns to Avoid |
+| pitfall | research | agents/gsd-phase-researcher.md:394 | ## Common Pitfalls |
+| pitfall | name | agents/gsd-phase-researcher.md:396 | ### Pitfall 1: [Name] |
+| pitfall | goes_wrong | agents/gsd-phase-researcher.md:397 | **What goes wrong:** [description] |
+| pitfall | why | agents/gsd-phase-researcher.md:398 | **Why it happens:** [root cause] |
+| pitfall | avoid | agents/gsd-phase-researcher.md:399 | **How to avoid:** [prevention strategy] |
+| pitfall | warning_signs | agents/gsd-phase-researcher.md:400 | **Warning signs:** [how to detect early] |
+| dont_hand_roll | research | agents/gsd-phase-researcher.md:372 | ## Don't Hand-Roll |
+| dont_hand_roll | problem | agents/gsd-phase-researcher.md:374 | Problem \| Don't Build |
+| dont_hand_roll | instead | agents/gsd-phase-researcher.md:374 | Don't Build \| Use Instead |
+| dont_hand_roll | why | agents/gsd-phase-researcher.md:374 | Use Instead \| Why |
+| open_question | research | agents/gsd-phase-researcher.md:432 | ## Open Questions |
+| open_question | question | agents/gsd-phase-researcher.md:434 | **[Question]** |
+| open_question | known | agents/gsd-phase-researcher.md:435 | What we know: [partial info] |
+| open_question | unclear | agents/gsd-phase-researcher.md:436 | What's unclear: [the gap] |
+| open_question | recommendation | agents/gsd-phase-researcher.md:437 | Recommendation: [how to handle] |
+| open_question | resolved_by | agents/gsd-plan-checker.md:633 | RESOLVED: Use |
+| source | research | agents/gsd-phase-researcher.md:503 | ## Sources |
+| source | url | agents/gsd-phase-researcher.md:507 | [Official docs URL] |
+| source | tier | agents/gsd-phase-researcher.md:505 | ### Primary (HIGH confidence) |
+| source | checked | agents/gsd-phase-researcher.md:507 | [what was checked] |
+| package_audit | research | agents/gsd-phase-researcher.md:321 | ## Package Legitimacy Audit |
+| package_audit | package | agents/gsd-phase-researcher.md:325 | Package \| Registry |
+| package_audit | registry | agents/gsd-phase-researcher.md:325 | Package \| Registry |
