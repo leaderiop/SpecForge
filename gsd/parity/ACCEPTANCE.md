@@ -222,7 +222,8 @@ Not verified:
   (`src/decision-coverage-support.cts`, `decisionMentioned`); SpecForge counts no paraphrase. Three smaller differences go
   with it. SpecForge reads the path written before the id and resolves it from the plan by its scope chain (`01/D-01` is
   phase 01's decision, a bare `D-01` the plan's own phase's), where upstream matches the id inside any path. A path that
-  names no decision (`src/D-01`) cites nothing. An id inside a fenced block or an HTML comment of a field counts, where
+  names no decision (`src/D-01`) cites nothing; a `/` after an id or after the mark closing one (`D-01/D-02`,
+  `REQ-01/D-02`, `(D-01)/D-02`) joins two words and is no path, so there both read alike. An id inside a fenced block or an HTML comment of a field counts, where
   upstream's plan gate strips both before it looks. No vendored verdict depends on any of these: every fixture decision's
   text is under six words.
 - `[decision-shipped-reach]` `gsd/W506` reads the text of a verified phase's complete plans, of their summaries (with the

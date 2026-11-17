@@ -83,7 +83,13 @@ fn a_path_names_another_phases_decision() {
     ] {
         assert_eq!(cited_in_02(written), ["v1.0/01/D-01"], "{written}");
     }
-    assert_eq!(cited_in_02("Keep /D-01"), ["D-01"], "rooted: the project's");
+    for written in ["Keep /D-01", "/D-01", "(/D-01)", "`/D-01`", "\"/D-01\""] {
+        assert_eq!(
+            cited_in_02(written),
+            ["D-01"],
+            "rooted, the project's: {written}"
+        );
+    }
     assert_eq!(
         cited_in_02("Keep 01/D-01 and D-01"),
         ["v1.0/01/D-01", "v1.0/02/D-01"]
@@ -95,6 +101,44 @@ fn a_path_that_names_no_decision_cites_nothing() {
     for written in ["src/D-01", "see src/D-01.js", "v1.0/03/D-01", "x/01/D-01"] {
         assert!(cited_in_02(written).is_empty(), "{written}");
     }
+}
+
+/// A slash after an id (`D-01/D-02`, `REQ-01/D-02`) or after the mark that closes one (`(D-01)/D-02`, `**D-01**/D-02`)
+/// joins two words: the id after it is read bare, as upstream's `\bD-NN\b` reads it. The project's own `D-02` is there
+/// so that a rooted reading of `/D-02` would show.
+#[test]
+fn a_slash_between_two_words_is_no_path() {
+    let input = input(vec![
+        entity(
+            "v1.0/02/D-02",
+            "decision",
+            json!({ "origin": "context", "text": "Write the file atomically" }),
+        ),
+        entity("D-02", "decision", json!({ "text": "One binary" })),
+    ]);
+    let cites = |text: &str| -> Vec<&str> {
+        cited(&decisions(&input), PLAN_02, text)
+            .into_iter()
+            .collect()
+    };
+    for written in [
+        "Implements D-01/D-02",
+        "Covers (D-01)/D-02",
+        "Covers **D-01**/D-02",
+        "Covers `D-01`/D-02",
+        "Covers [D-01]/D-02",
+    ] {
+        assert_eq!(
+            cites(written),
+            ["v1.0/02/D-01", "v1.0/02/D-02"],
+            "{written}"
+        );
+    }
+    for written in ["Implements REQ-01/D-02", "AUTH-01/D-02", "REQ2-01/D-02"] {
+        assert_eq!(cites(written), ["v1.0/02/D-02"], "{written}");
+    }
+    // The id ends the path; the phase after it still reads as one.
+    assert_eq!(cites("D-02/01/D-01"), ["v1.0/01/D-01", "v1.0/02/D-02"]);
 }
 
 #[test]

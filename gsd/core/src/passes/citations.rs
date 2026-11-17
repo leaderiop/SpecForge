@@ -5,7 +5,9 @@
 //! and its gap checker (`src/gap-checker.cts`) read it. The word is read with the path written before it (`01/D-01`,
 //! `v1.0/01/D-01`, a rooted `/v1.0/01/D-01`) and resolved from the plan by its scope chain
 //! ([`plans::written_target`], ADR 0284 D4): a bare `D-01` is the plan's own phase's decision, `01/D-01` phase 01's,
-//! and a path that resolves to no decision (`src/D-01`) cites nothing.
+//! and a path that resolves to no decision (`src/D-01`) cites nothing. A `/` that joins two words is no path: after an
+//! id (`D-01/D-02`, `REQ-01/D-02`) or after the mark that closes one (`(D-01)/D-02`, `**D-01**/D-02`), the id after it
+//! is read bare.
 //!
 //! Where it diverges from upstream (the parity acceptance list's `[decision-citation-id-only]`): no soft phrase (upstream
 //! also counts the first six normalised words of a decision's text), the path before the id is read (upstream matches
@@ -59,10 +61,42 @@ fn is_segment(byte: u8) -> bool {
     byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-')
 }
 
+/// Whether a run of segment bytes is shaped as a GSD id (`D-01`, `REQ-01`, `AUTH-01`): upstream's prefix-agnostic
+/// `[A-Z][A-Z0-9]*-[A-Za-z0-9_-]+` (`src/gap-checker.cts`, `parseRequirements`). Such a word is no scope segment.
+fn is_id(segment: &[u8]) -> bool {
+    let Some((first, rest)) = segment.split_first() else {
+        return false;
+    };
+    let prefix = rest
+        .iter()
+        .take_while(|b| b.is_ascii_uppercase() || b.is_ascii_digit())
+        .count();
+    first.is_ascii_uppercase()
+        && rest.get(prefix) == Some(&b'-')
+        && rest.len() > prefix + 1
+        && rest[prefix + 1..]
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+}
+
+/// Whether the `/` at `slash`, with no segment byte before it, begins a word (a rooted path): it is the text's first
+/// byte, or only opening marks (`(`, `[`, `{`, `<`, a quote or a backtick) stand between it and a space or the text's
+/// start. After a closing mark (`(D-01)/D-02`, `**D-01**/D-02`) it joins two words.
+fn begins_word(bytes: &[u8], slash: usize) -> bool {
+    let opened = bytes[..slash]
+        .iter()
+        .rev()
+        .find(|b| !matches!(b, b'(' | b'[' | b'{' | b'<' | b'"' | b'\'' | b'`'));
+    opened.is_none_or(u8::is_ascii_whitespace)
+}
+
 /// For each byte offset of `text` (and its end), where the token of a name starting there starts: the name extends
-/// left while the byte before it is `/`, over the run of segment bytes before that `/`; an empty run makes the `/` a
-/// rooted start and ends the walk. Computed left to right in one pass (a walk from a run's start is the walk of a name
-/// starting there), so reading every occurrence costs the text's length once.
+/// left while the byte before it is `/`, over the run of segment bytes before that `/`. An empty run makes the `/` a
+/// rooted start when it begins a word ([`begins_word`]) and ends the walk; a run shaped as an id ([`is_id`]) ends the
+/// walk before the `/`. Either way a `/` that joins two words (`D-01/D-02`, `REQ-01/D-02`, `(D-01)/D-02`) is no path,
+/// and the name after it is read bare, as upstream's `\bD-NN\b` reads it. Computed left to right in one pass (a walk
+/// from a run's start is the walk of a name starting there; the bytes [`is_id`] and [`begins_word`] read before one
+/// `/` are not read for another), so reading every occurrence costs the text's length once.
 fn token_starts(text: &str) -> Vec<usize> {
     let bytes = text.as_bytes();
     // `run[i]`: where the run of segment bytes ending just before `i` starts.
@@ -77,7 +111,9 @@ fn token_starts(text: &str) -> Vec<usize> {
             Some(slash) if bytes[slash] == b'/' => {
                 let segment = run[slash];
                 if segment == slash {
-                    slash
+                    if begins_word(bytes, slash) { slash } else { at }
+                } else if is_id(&bytes[segment..slash]) {
+                    at
                 } else {
                     start[segment]
                 }

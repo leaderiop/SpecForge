@@ -61,7 +61,10 @@ a word character is an ASCII letter, digit or `_`, and the case as written. This
 
 The word is read with the path written before it (`01/D-01`, `v1.0/01/D-01`, a rooted `/v1.0/01/D-01`) and resolved
 from the plan by its scope chain ([ADR 0284](0284-a-name-is-unique-within-its-scope.md) D4): a bare `D-01` is the
-plan's own phase's decision, `01/D-01` phase 01's.
+plan's own phase's decision, `01/D-01` phase 01's. A `/` that joins two words is no path: after a word shaped as a
+GSD id (upstream's `[A-Z][A-Z0-9]*-[A-Za-z0-9_-]+`, `src/gap-checker.cts`: `D-01/D-02`, `REQ-01/D-02`) or after a mark
+that closes a word (`(D-01)/D-02`, `**D-01**/D-02`), the id after it is read bare, as upstream reads it. A rooted path
+begins a word: at the text's start or after a space, behind opening marks only.
 
 The plan's text is its `objective`, `purpose` and `output`, and every field of its tasks, checkpoints, truths,
 artifacts, key links and prohibitions: upstream's designated sections, which are `<objective>`, the tasks and the
