@@ -13,7 +13,8 @@ claim about the repository: make it only when the repository shows it.
 - `specforge check` reports what the graph and the repository disagree on; `specforge query <id>` reads it
   (`--depth <n>` with its neighbours); `specforge gsd <verb>` runs a workflow step (`specforge gsd --help`).
 - `specforge collect` records the project's test runs and commits as facts; `specforge trace <requirement>` follows
-  a requirement to its plans, tasks, commits, tests and verdicts.
+  a requirement to its plans, tasks, commits and the items they changed, truths and verdicts, and the summaries'
+  coverage items.
 - The project's own test command is in its manifest (`npm test`, `cargo test`).
 <!-- /commands -->
 

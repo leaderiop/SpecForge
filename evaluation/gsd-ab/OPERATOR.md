@@ -4,6 +4,20 @@ What the operator does, in order, for every run of the A/B ([README.md](README.m
 done during a study, and everything in it is done the same way in every arm. `score.py` refuses a run file that
 breaks it.
 
+## What version 3 changes for the operator
+
+The corpus is `gsd-ab-v3` ([README.md](README.md) status): a v2 run file does not score against it.
+
+- Defects: S1 is retired, so no task seeds a test that never ran. S5 and S6 are seeded only in `taskboard-verify-01`
+  (both) and `ledger-verify-01` (S5); `vault-verify-01` seeds nothing and its ground truth is the unseeded vault's.
+  What B reports for S5 and S6 is `gsd/W408` on the deliverable whose check names the failed or deleted test; B0, with
+  no test facts, reports neither, and a truth's proof is read nowhere.
+- Claims: the `requirement` kind's B read is `specforge query <id> --depth 0 --format json` for the status and
+  `specforge trace <id> --partial --format json` for the truths of the plans that list it (`tasks.json#states`); it
+  reads no truth's `requirement` field.
+- Preflight (step 4 below): the fixtures' `baseline` lines were re-recorded for v3 on one machine. A difference on the
+  operator's build is explained, never recorded over.
+
 ## Before the first run
 
 1. Fix, once for the whole study, what every run file records unchanged:

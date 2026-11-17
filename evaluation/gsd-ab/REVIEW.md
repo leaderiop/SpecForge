@@ -1,6 +1,6 @@
 # GSD A/B review record (gate A)
 
-The record of the review that freezes version 2 of the protocol before any of its runs ([README.md](README.md) section 10). Two
+The record of the review that freezes the protocol before any of its runs ([README.md](README.md) section 10). Two
 reviewers read `evaluation/gsd-ab/` at one commit and fill one row each per item: the owner, and one independent
 agent given only this directory (not the plans or notes that produced it). A finding that is text is fixed in the
 commit that fills this record; one that changes a seed, a task or a script is fixed before it, with its test, and
@@ -53,4 +53,18 @@ waits for it).
 
 ## Close
 
-Ready to tag `gsd-ab-v2` at `<sha>`.
+Ready to tag `gsd-ab-v3` at `<sha>`.
+
+## Version 3
+
+v3 is reviewed at its own gate A before its tag `gsd-ab-v3` is set (it is not tagged yet). v2 was never tagged, so this
+record covers v2's additions too (arm Bv1, M7 and H3). What changed from v2:
+
+- S1 is retired (`tasks.json#retired`), with its reason.
+- S5 and S6 are signalled by `gsd/W408` on the deliverable whose check names the failed or deleted test, not by
+  `code/W401` and `code/E101` on a truth; where that is not seed-only a task does not seed the defect (`not_seeded`).
+  `taskboard-verify-01` seeds both, `ledger-verify-01` S5, `vault-verify-01` neither.
+- H2 is re-registered over S5 and S6, the defects marked `"thread": true`: a change of the registered hypothesis's
+  defect set (README section 1), so the reviewers read item 1 again.
+- The requirement kind's B read finds its truths through the plans that list the requirement.
+- The fixtures' preflight baselines are re-recorded.
