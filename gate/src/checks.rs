@@ -210,7 +210,7 @@ pub static CHECKS: &[Check] = &[
         ),
         compiles: false,
         after: &[],
-        fix: "target/debug/check-links names each finding: UNKNOWN (no such entity), KIND (not `requirement = \"<id>\"` of a requirement), VERIFY (drop the verify text); fix the attribute or the spec, then re-stage",
+        fix: "cargo run -q -p xtask --bin check-links names each finding (and <target>/gate/links.log holds them): UNKNOWN (no such entity), KIND (not `requirement = \"<id>\"` of a requirement), VERIFY (drop the verify text); fix the attribute or the spec, then re-stage",
         run: steps::links,
     },
     Check {
@@ -378,7 +378,7 @@ pub static CHECKS: &[Check] = &[
         trigger: Trigger::Always,
         compiles: false,
         after: &["tests"],
-        fix: "fix the failing test the log names (cargo nextest run --workspace --profile gate -E 'test(<its name>)'), then cargo gate full --only tests,dogfood",
+        fix: "<target>/gate/dogfood.log names each failed requirement: specforge anchors <id> --path <target>/gate/dogfood lists the tests that name it; run them (cargo nextest run --workspace --profile gate -E 'test(<name>)') and fix the one that fails; none proven: the tests did not run or named none. Then cargo gate full --only tests,dogfood",
         run: dogfood::run,
     },
     Check {

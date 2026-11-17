@@ -12,8 +12,8 @@ plan's text) and your plan, in full.
    scratch file and `git commit -F` it. Leave the round's `tracking.json` to the coordinator.
 3. Pins first: a characterization test asserts today's behaviour; the ticket that fixes the bug flips it in the same
    commit. A test links the requirement it proves with `#[specforge_test(requirement = "<id>")]`, one attribute per
-   requirement (stacked when it proves several), and no verify text; `target/debug/check-links` (the pre-commit
-   hook's `links` check) checks that each names a requirement of the spec.
+   requirement (stacked when it proves several), and no verify text; `cargo run -p xtask --bin check-links` (the
+   pre-commit hook's `links` check) checks that each names a requirement of the spec.
 4. After each ticket: the plan's targeted `cargo nextest run -p <crate> -E 'test(<filter>)'`, its deletion checks,
    `cargo clippy -p <crate> --all-targets -- -D warnings`, `cargo fmt --all`. So every commit builds and passes its own
    tests. At the end of the plan, once, the whole crates and their dependents: `cargo gate ci --since <the plan's first

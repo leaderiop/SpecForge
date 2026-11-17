@@ -64,8 +64,9 @@ specforge link archive_task --verify unit:"archiving an unknown task fails"
 specforge delete archive_task --unlink-references
 ```
 
-The `behavior` examples above are for a project that loads `@specforge/software`; in this repository, run the same
-commands with a `@gsd/core` kind such as `requirement`.
+The `behavior` examples above are for a project that loads `@specforge/software`. In this repository, `specforge new`,
+`set`, `link` and `delete` work the same on a `@gsd/core` kind such as `requirement`; `--verify` does not apply (a
+requirement takes no verify text: it is proven by a test that names it).
 
 A write is checked against the file as you last read it. `specforge set/unset/link/unlink/delete/new` take `--revision <sha256:..|absent>` (MCP: a `revision` on each edit; `specforge.inspect` returns an entity's `file` and `revision`), and when the file has changed since, the write is refused `stale_revision` and nothing is written: read the entity again, then retry. A kind or field declared `writer: human` is refused `human_only` to an agent: tell the person instead of working around it.
 
