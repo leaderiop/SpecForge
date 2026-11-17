@@ -29,7 +29,7 @@ Four loose ends from the swap round meet in CI. Every figure below was measured 
 of it starts every cache anew, and a change to a cache's path list bumps it: a changed path list is a new cache
 version, which orphans the old entry, as the `build` job's did. Every step names a `shared-key` instead of `key`, so
 the saved key carries no job id and a restore-only step can name a saver's key. The savers are `lint`, `gsd-crates`,
-`specs`, `build` and `effect-plane`, and a Windows-subset job's own key if D4's split happens, each saved only on main.
+`specs`, `build` and `effect-plane`, and `windows-subset`, the job D4's split made, each saved only on main.
 `dogfood` restores `specs`. The `tests` jobs carry no cache: they compile only `cargo gate`, and a restore of a
 2 GB cache costs more than that compile. `coverage.yml` and `release.yml` save nothing (`save-if: false`): the first
 would save an instrumented multi-GB cache the day its job passes, the second saves caches scoped to a tag, which nothing
@@ -65,23 +65,34 @@ job still finishes, and so names the job that slipped before a cold run lands on
 
 ## D4. The Windows leg runs a named subset
 
-On `windows-latest`, after the effect plane's two steps, `ci.yml` runs:
+On `windows-latest`, `ci.yml` runs three named steps. They run in a job of their own, `windows-subset` (`Windows
+subset`, 30 minutes, its own cache key saved only on main), because the effect-plane leg would have passed 1,500 s with
+them: its worst cold time, 1,413 s, plus the steps' 52 s, 300 s and 503 s on their first green run there (CI run
+44185508652) is 2,268 s. The effect-plane legs keep their two steps. What ran, on CI run 44190098653, the job's first
+run, with no cache (1,467 s):
 
-- `cargo nextest run --no-fail-fast -p gate -E 'test(/^checked_tree::/)'`: the copy of the tracked tree, its times
-  and modes, and a destination over 260 characters;
-- `cargo nextest run --no-fail-fast -p specforge-component --lib -E 'test(/user_compile_cache/)'`: the user's home
-  (D5);
-- `cargo nextest run --no-fail-fast -p xtask --bin absorb --test absorb_e2e`: absorb's unit and end-to-end tests,
-  including the three symbolic-link refusals, now on both operating systems with a link helper per system, and a
-  target over 260 characters.
+| Step | Filter | Tests run | What it covers |
+|------|--------|-----------|----------------|
+| `Windows subset: checked_tree` | `cargo nextest run --no-fail-fast -p gate -E 'test(/^checked_tree::/)'` | 4 tests run: 4 passed | the copy of the tracked tree, its times and modes, and a destination over 260 characters |
+| `Windows subset: USERPROFILE beside HOME` | `cargo nextest run --no-fail-fast -p specforge-component --lib -E 'test(/user_compile_cache/)'` | 6 tests run: 6 passed | the user's home (D5), with a drive-letter case that only Windows compiles |
+| `Windows subset: absorb` | `cargo nextest run --no-fail-fast -p xtask --bin absorb --test absorb_e2e` | 96 tests run: 96 passed | absorb's unit and end-to-end tests, including the three symbolic-link refusals and a target over 260 characters |
 
-Before checkout the leg sets `git config --global core.autocrlf false` and `core.longpaths true`, so a checkout keeps
-the line endings the tests expect and a long path is not cut by git. A Windows-only nextest override gives
-`binary_id(xtask::absorb_e2e)` a longer kill time, since each of its tests loads a wasm extension. A symbolic link a
-test cannot create fails the test; a directory falls back to a junction, which std reads as a symbolic link too. Nothing
-is skipped. The subset moves to a job of its own only when the Windows leg's cold time would pass 1,500 s.
+Before checkout the job sets `git config --global core.autocrlf false` and `core.longpaths true`, in bash so a failed
+config fails the step, so a checkout keeps the line endings the tests expect and a long path is not cut by git. A
+Windows-only nextest override gives `binary_id(xtask::absorb_e2e)` a longer kill time, since each of its tests loads a
+wasm extension. A symbolic link a test cannot create fails the test; a directory falls back to a junction, which std
+reads as a symbolic link too. Every symbolic-link test made its links: the three refusals passed, and their helpers
+panic rather than return without a link. nextest keeps a passing test's output, so the log does not say whether a
+directory link was a junction. Nothing is skipped.
 
-What stays `cfg(unix)`, each with its reason:
+The subset found two defects in SpecForge on its first runs, both fixed where they were, not in the tests. A wasm
+engine built with native unwind information off is refused by wasmtime on Windows, so every test that loads an
+extension failed: the engine now keeps it on Windows only. An import resolved its candidate path with the OS's
+separator, while source keys are joined by `/`, so every import across directories was E025 on Windows: a candidate is
+now keyed as a source key is minted, a relative name joined by `/` on every OS and an absolute path as the OS writes it.
+Two absorb tests compared a printed path with a `/` literal; they now build the expected path with the OS's separator.
+
+What stays `cfg(unix)`, each with its reason (getting the leg green added no test to the list):
 
 - `xtask/src/revendor.rs`'s three pinned-rustc tests and their helper: they run `sh` as a stand-in for `rustc`, and
   revendor is a maintainer tool whose only CI home is the Linux bootstrap job;
@@ -92,8 +103,9 @@ What stays `cfg(unix)`, each with its reason:
   Windows leg;
 - `xtask/src/build_blobs.rs` and `xtask/src/perf_report.rs` set only `HOME`: both are Linux-only tools.
 
-The rest of the workspace's `cfg(unix)` code is outside the named subset. The list is the planned one; what the leg ran
-is added as built.
+The rest of the workspace's `cfg(unix)` code is outside the named subset. One import moved under `cfg(unix)` on the
+way, and no test with it: the top-level import of `Ceiling` in `crates/adapters/process/tests/runner.rs` served only a
+test that was already `cfg(unix)`, which now imports it itself, so the Windows build of that suite no longer warns.
 
 The reason: the leg tests the host's file effects, and the copy, the compile cache's directory and absorb's writes are
 the code that touches Windows paths, links and line endings; a subset that fails on a link it cannot make, and not one
@@ -197,7 +209,7 @@ warning to keep, not a number to move to quiet it.
   entries; the bump is the last change of the work it measures.
 - Main's total cache is one generation of each key, which is under the 10 GiB cap.
 - A job past its budget fails the run before it reaches its timeout.
-- The Windows leg takes longer, by the compile and run of three more test targets.
+- A run takes one more Windows runner, the `windows-subset` job, and the effect-plane legs keep their time.
 - perf-report keeps warning every night until D6's trigger is met.
 
 ## Would reopen it
