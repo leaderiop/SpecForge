@@ -96,7 +96,9 @@ dropped whole ledgers its title and each of its fields, `verify` lines, `method`
 
 - **A requirement** is `<CAT>-<NN>`. Its category is a constraint's own `category` word capitalised, else the old
   kind's name (`Feature`, `Invariant`, `Constraint`). The prefix is the category's ASCII letters and digits
-  upper-cased, or the old kind's name when that is empty or starts with a digit. Numbers run from 1 per prefix in
+  upper-cased, or the old kind's name when that is empty, starts with a digit, or is the decisions' `D`. The heading
+  and the prefix therefore agree letter for letter for a category led by an ASCII letter (`Data-integrity`,
+  `DATAINTEGRITY-01`), and not otherwise (`9lives` is `CONSTRAINT-NN`). Numbers run from 1 per prefix in
   (old kind, old id) order, at least two digits and as many as the group's size needs. On the root spec:
   `FEATURE-001` to `FEATURE-141`, `INVARIANT-001` to `INVARIANT-149`, `RELIABILITY-01` to `-34`, `PERFORMANCE-01` to
   `-17`, `USABILITY-01` to `-05`, `PORTABILITY-01` to `-03`, `COMPATIBILITY-01` to `-02`, `INTEROPERABILITY-01`,
@@ -220,9 +222,10 @@ later change now has it.
   every one ledgered. Its `ids` section holds 469 entries, one per converted entity.
 - Phase numbers restart in each version milestone, and a selection numbers its own subset: an `--only` run numbers
   from 1, so its ids are not those of a whole-spec run.
-- Numbering groups requirements and decisions apart: a requirement's counter is its (new kind, prefix), so a
-  constraint whose category word is `D` never shares the decisions' `D-<NN>` numbers. Two entities of one old kind and
-  id are given one id, so the map's one-to-one stop still names them.
+- No requirement takes the decisions' prefix `D`: the target holds one id per entity whatever its kind, so a
+  requirement `D-01` beside the decision `D-01` would be one entity, and the edit plan refused. A constraint whose
+  category word is `d` is `CONSTRAINT-NN`, its heading still `D`. Two entities of one old kind and id are given one
+  id, so the map's one-to-one stop still names them.
 - **The failure modes.** None converts, and the ledger keeps all 35 with their values. For a person to author by hand
   at the swap, as a security requirement, if wanted, the eight candidates, each with its severity and the invariant it
   threatens:

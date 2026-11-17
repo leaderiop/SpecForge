@@ -206,23 +206,54 @@ fn every_new_id_matches_its_grammar() {
     assert_eq!(planned.ids.entries().count(), 7);
 }
 
+/// The written category and the id prefix agree, letter for letter, for a category led by an ASCII letter: the prefix is
+/// its ASCII letters and digits upper-cased. A category with no such lead, or whose prefix would be the decisions' `D`,
+/// is written as it is, and its prefix is the old kind's name (ADR 0372 D3).
 #[test]
-fn the_written_category_is_the_id_prefix_for_every_requirement() {
+fn the_written_category_is_the_id_prefix_for_a_letter_led_category_and_the_kind_name_otherwise() {
     let planned = planned(&[
         feature("store"),
         constraint("fast", Some("performance")),
         constraint("join", Some("inter-operability")),
+        constraint("integrity", Some("data-integrity")),
         constraint("plain", None),
+        constraint("lives", Some("9lives")),
+        constraint("marks", Some("--- !")),
+        constraint("short", Some("d")),
         old("invariant", "held", json!({"guarantee": "G"})),
     ]);
-    let written = requirements(&planned);
-    assert_eq!(written.len(), 5);
-    for (id, category) in written {
-        let letters: String = category
-            .chars()
-            .filter(char::is_ascii_alphanumeric)
-            .collect::<String>()
-            .to_ascii_uppercase();
-        assert_eq!(id.split_once('-').map(|(p, _)| p), Some(letters.as_str()));
-    }
+    assert_eq!(
+        requirements(&planned),
+        [
+            ("FEATURE-01", "Feature"),
+            ("PERFORMANCE-01", "Performance"),
+            ("INTEROPERABILITY-01", "Inter-operability"),
+            ("DATAINTEGRITY-01", "Data-integrity"),
+            ("CONSTRAINT-03", "Constraint"),
+            ("CONSTRAINT-01", "9lives"),
+            ("CONSTRAINT-02", "--- !"),
+            ("CONSTRAINT-04", "D"),
+            ("INVARIANT-01", "Invariant"),
+        ]
+        .map(|(id, category)| (id.to_string(), category.to_string()))
+    );
+}
+
+/// A requirement never takes the decisions' prefix: the target holds one id per entity whatever its kind, so a
+/// requirement `D-01` beside the decision `D-01` would be one entity. A category whose prefix would be `D` takes the
+/// old kind's name, and the decisions keep `D-<NN>` from 1 (ADR 0372 D3).
+#[test]
+fn a_category_whose_prefix_would_be_d_takes_the_old_kind_name_beside_the_decisions() {
+    let planned = planned(&[
+        constraint("short", Some("d")),
+        constraint("dotted", Some("d.")),
+        decision("parser"),
+    ]);
+    assert_eq!(new_path(&planned, "constraint", "dotted"), "CONSTRAINT-01");
+    assert_eq!(new_path(&planned, "constraint", "short"), "CONSTRAINT-02");
+    assert_eq!(new_path(&planned, "decision", "parser"), "D-01");
+    assert_eq!(
+        field_of(&planned, "constraint", "short", "category"),
+        Some(&one("D"))
+    );
 }

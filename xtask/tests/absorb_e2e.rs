@@ -769,3 +769,25 @@ fn an_empty_required_value_stops_the_run_as_missing() {
     );
     assert!(!to.exists(), "the scaffold is removed");
 }
+
+/// A constraint of category `d` converts beside a decision: its id is `CONSTRAINT-01`, never the decision's `D-01`.
+#[test]
+#[ignore = "needs GSD_CORE_WASM"]
+fn a_constraint_of_category_d_converts_beside_a_decision() {
+    let dir = tempfile::tempdir().unwrap();
+    let (old, to) = (dir.path().join("old"), dir.path().join("new"));
+    product_source(
+        &old,
+        "constraint short \"Short\" {\n  description \"Short words.\"\n  category    \"d\"\n}\n\n\
+         decision one_parser \"One Parser\" {\n  status   accepted\n  context  \"Readers drift.\"\n  \
+         decision \"Read with one parser.\"\n}\n",
+    );
+    let run = absorb(&["--from", path(&old), "--to", path(&to)]);
+    assert_eq!(run.code, 0, "{}", run.stderr);
+    assert_eq!(run.summary["target"]["errors"], 0, "{}", run.summary);
+    let written = std::fs::read_to_string(to.join("spec/plan.spec")).unwrap();
+    assert!(
+        written.contains("requirement CONSTRAINT-01") && written.contains("decision D-01"),
+        "{written}"
+    );
+}

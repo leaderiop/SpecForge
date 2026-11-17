@@ -4,14 +4,17 @@
 //!
 //! - A requirement is `<CAT>-<NN>`. Its category ([`category`]) is a constraint's own `category` word, its first
 //!   letter upper-cased, else the old kind's name (`Feature`, `Invariant`, `Constraint`); the prefix is the category's
-//!   ASCII letters and digits upper-cased, or the old kind's name when that is empty or starts with a digit. The same
-//!   rule writes the requirement's `category`, so its heading and its id agree.
+//!   ASCII letters and digits upper-cased. The same rule writes the requirement's `category`, so for a category led
+//!   by an ASCII letter the heading and the id agree letter for letter (`Data-integrity`, `DATAINTEGRITY-01`). When
+//!   the letters are empty, start with a digit, or are the decisions' `D`, the prefix is the old kind's name and the
+//!   heading is written as it is (`9lives`, `CONSTRAINT-01`; `D`, `CONSTRAINT-02`).
 //! - A decision in force is `D-<NN>`, at project scope (its create writes no `phase`).
 //! - Numbers run from 1 per (new kind, prefix) in (old kind, old id) order, bytewise, at least two digits and as
 //!   many as the group's size needs: on the root spec `FEATURE-001` to `FEATURE-141`, `INVARIANT-001` to
 //!   `INVARIANT-149`, `RELIABILITY-01` to `RELIABILITY-34`, `PERFORMANCE-01` to `PERFORMANCE-17`, `SECURITY-01`, and
-//!   `D-001` to `D-100`. Old kinds whose requirements share a prefix share its counter, so no two share a number, and
-//!   a requirement whose prefix is `D` never takes a decision's.
+//!   `D-001` to `D-100`. Old kinds whose requirements share a prefix share its counter, so no two share a number. No
+//!   requirement takes the prefix `D`: the target holds one id per entity whatever its kind, so a requirement `D-01`
+//!   beside the decision `D-01` would be one entity, and the plan refused.
 //! - A release's milestone is `v<version>`. A milestone a converted release lists is a phase under that version
 //!   milestone, numbered from `01` in source order (file, line) within its release; its path is `<version id>/<NN>`
 //!   and its create's id the number alone, placed by its `milestone` field (a name holds no `/`).
@@ -29,6 +32,8 @@ use super::read::OldEntity;
 /// The new kinds whose ids are numbered GSD's way.
 const REQUIREMENT: &str = "requirement";
 const DECISION: &str = "decision";
+/// A decision's id prefix, which no requirement takes.
+const DECISION_PREFIX: &str = "D";
 
 /// The scope field of each new kind absorb writes that is scoped (ADR 0284): a phase is placed by its milestone.
 pub const SCOPED: &[(&str, &str)] = &[("phase", "milestone")];
@@ -172,15 +177,15 @@ pub fn category(e: &OldEntity) -> String {
 }
 
 /// The id prefix of a requirement of `category` converted from an old `kind`: the category's ASCII letters and digits,
-/// upper-cased; the old kind's name upper-cased when that is empty or starts with a digit. It matches
-/// `^[A-Z][A-Z0-9]*$`.
+/// upper-cased; the old kind's name upper-cased when that is empty, starts with a digit, or is the decisions' `D`. It
+/// matches `^[A-Z][A-Z0-9]*$`, and is never `D`.
 fn prefix(category: &str, kind: &str) -> String {
     let letters = category
         .chars()
         .filter(char::is_ascii_alphanumeric)
         .collect::<String>()
         .to_ascii_uppercase();
-    if letters.starts_with(|c: char| c.is_ascii_uppercase()) {
+    if letters.starts_with(|c: char| c.is_ascii_uppercase()) && letters != DECISION_PREFIX {
         letters
     } else {
         kind.to_ascii_uppercase()
@@ -195,7 +200,7 @@ fn numbered(entities: &[OldEntity], links: &Links) -> BTreeMap<(String, String),
     for e in entities {
         let group = match plan::converts_to(e, links) {
             Some(REQUIREMENT) => (REQUIREMENT, prefix(&category(e), &e.kind)),
-            Some(DECISION) => (DECISION, "D".to_string()),
+            Some(DECISION) => (DECISION, DECISION_PREFIX.to_string()),
             _ => continue,
         };
         groups
