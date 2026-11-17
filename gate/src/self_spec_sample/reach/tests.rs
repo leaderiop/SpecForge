@@ -133,7 +133,32 @@ fn a_cited_test_names_its_package_at_any_depth_of_the_ledger() {
         ["specforge-ops", "specforge-wasm"].map(String::from).into()
     );
     let missing = cited_packages(&dir.path().join("none.json")).unwrap_err();
-    assert!(missing.contains("the sample's ledger golden"), "{missing}");
+    assert!(missing.contains("the sample's ledger"), "{missing}");
+}
+
+/// A test the summary cites whose package the ledger does not name is one the trigger would not reach.
+#[test]
+fn a_cited_test_the_ledger_does_not_name_is_unreached() {
+    let reached = BTreeSet::from(["specforge-ops".to_string()]);
+    let cited = [
+        "rust:specforge-ops::operations#a::b",
+        "rust:specforge-wasm#c",
+        "rust:no test id",
+        "unit:x#y",
+    ]
+    .map(String::from);
+    assert_eq!(
+        unreached(&cited, &reached),
+        ["rust:specforge-wasm#c", "rust:no test id", "unit:x#y"]
+    );
+    assert!(unreached(&cited[..1], &reached).is_empty());
+    assert!(
+        unreached(&[], &BTreeSet::new()).is_empty(),
+        "none cited, none unreached"
+    );
+    assert_eq!(package_of("rust:a::b#m::t"), Some("a"));
+    assert_eq!(package_of("rust:a#n::u"), Some("a"));
+    assert_eq!(package_of("rust:a"), None);
 }
 
 /// Every file of the converter's module tree reaches the sample, wherever it is added: what the hand-written list

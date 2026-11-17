@@ -1,4 +1,5 @@
 use super::*;
+use serde_json::json;
 
 #[test]
 fn a_specforge_call_carries_no_cargo_credential() {
@@ -170,6 +171,29 @@ fn no_fingerprint_where_cargo_builds_is_an_error_never_nothing_compiled() {
     std::fs::create_dir_all(dir.path().join("debug/build/pkg/aaaa/out")).unwrap();
     let empty = units(&dir.path().join("debug")).unwrap_err();
     assert!(empty.contains("cannot be judged"), "{empty}");
+}
+
+/// absorb cites no test since ADR 0370 D8, so an empty `cited_tests` is a run with none; a missing key or another
+/// shape is absorb's output changing, never read as "none cited".
+#[test]
+fn a_summary_without_a_cited_tests_array_is_refused() {
+    assert_eq!(
+        cited_tests(&json!({"cited_tests": []})).unwrap(),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        cited_tests(&json!({"cited_tests": ["rust:a#b"]})).unwrap(),
+        ["rust:a#b"]
+    );
+    for summary in [
+        json!({"converted": 1}),
+        json!({"cited_tests": null}),
+        json!({"cited_tests": "rust:a#b"}),
+        json!({"cited_tests": ["rust:a#b", 2]}),
+    ] {
+        let why = cited_tests(&summary).unwrap_err();
+        assert!(why.contains("no cited_tests array"), "{why}");
+    }
 }
 
 #[test]

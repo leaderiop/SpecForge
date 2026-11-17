@@ -56,31 +56,45 @@ pub fn reached(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
 }
 
 /// The packages holding a test the sample cites, read from the ledger golden: every `rust:<binary id>#<test>` it
-/// holds, at any depth, names its package before the binary id's first `::`.
+/// holds, at any depth, names its package ([`package_of`]). absorb's summary cites none since ADR 0370 D8, and a run
+/// that cites one the ledger does not name stops ([`unreached`]), so this source and the run cannot drift apart.
 pub fn cited_packages(ledger: &Path) -> Result<BTreeSet<String>, String> {
     let text = std::fs::read_to_string(ledger)
-        .map_err(|e| format!("the sample's ledger golden {}: {e}", ledger.display()))?;
+        .map_err(|e| format!("the sample's ledger {}: {e}", ledger.display()))?;
     let value: Value = serde_json::from_str(&text)
-        .map_err(|e| format!("the sample's ledger golden {}: {e}", ledger.display()))?;
+        .map_err(|e| format!("the sample's ledger {}: {e}", ledger.display()))?;
     let mut found = BTreeSet::new();
     let mut todo = vec![&value];
     while let Some(value) = todo.pop() {
         match value {
-            Value::String(id) => {
-                if let Some((binary, _)) = id.strip_prefix("rust:").and_then(|r| r.split_once('#'))
-                {
-                    let package = binary
-                        .split_once("::")
-                        .map_or(binary, |(package, _)| package);
-                    found.insert(package.to_string());
-                }
-            }
+            Value::String(id) => found.extend(package_of(id).map(String::from)),
             Value::Array(items) => todo.extend(items),
             Value::Object(fields) => todo.extend(fields.values()),
             _ => {}
         }
     }
     Ok(found)
+}
+
+/// The package of a test id `rust:<binary id>#<test>`: the binary id up to its first `::`. None for another form.
+pub fn package_of(id: &str) -> Option<&str> {
+    let (binary, _) = id.strip_prefix("rust:")?.split_once('#')?;
+    Some(
+        binary
+            .split_once("::")
+            .map_or(binary, |(package, _)| package),
+    )
+}
+
+/// The tests of `cited` whose package `reached` (the [`cited_packages`] of the run's ledger, which the golden then
+/// equals) does not name, in order: the run would build them, yet the trigger, reading the golden, would not reach
+/// them. An id of another form names no package, so it is one of them.
+pub fn unreached<'c>(cited: &'c [String], reached: &BTreeSet<String>) -> Vec<&'c str> {
+    cited
+        .iter()
+        .map(String::as_str)
+        .filter(|id| package_of(id).is_none_or(|package| !reached.contains(package)))
+        .collect()
 }
 
 /// The members the run builds from: each program's package and each cited test's, with their normal and build

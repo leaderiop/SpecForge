@@ -62,9 +62,6 @@ pub struct Planned {
     pub converted: usize,
     /// Entities the converter created that the old project did not hold.
     pub created: usize,
-    /// The test ids the written proofs name: what a gate runs to hold them. Always empty since ADR 0370 D8: no kept
-    /// kind holds a proof, so absorb cites no test. The self-spec sample reads it until it retires at the swap.
-    pub cited: BTreeSet<String>,
 }
 
 impl Planned {
@@ -472,7 +469,6 @@ impl Planner {
             checks,
             converted,
             created,
-            cited: BTreeSet::new(),
         }
     }
 }

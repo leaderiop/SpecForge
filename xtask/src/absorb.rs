@@ -259,7 +259,7 @@ fn run(args: &[String]) -> i32 {
         "converted": planned.converted,
         "created": planned.created,
         "creates": planned.creates.len(),
-        "cited_tests": planned.cited,
+        "cited_tests": [],
         "ledger": planned.ledger.counts(),
         "work": work,
         "target": {"errors": errors, "warnings": warnings, "infos": infos, "findings": findings},

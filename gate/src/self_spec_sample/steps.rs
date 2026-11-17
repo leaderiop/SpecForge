@@ -199,13 +199,16 @@ fn sample(ctx: &Ctx, dir: &Path) -> Result<(), String> {
     converting.env("GSD_CORE_WASM", &wasm.core);
     let summary: Value = serde_json::from_str(&step("absorb", converting)?)
         .map_err(|e| format!("absorb printed no JSON summary: {e}"))?;
-    let cited: Vec<String> = summary["cited_tests"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str)
-        .map(String::from)
-        .collect();
+    let cited = cited_tests(&summary)?;
+    let unreached = super::reach::unreached(&cited, &super::reach::cited_packages(&ledger)?);
+    if !unreached.is_empty() {
+        return Err(format!(
+            "absorb cited {} test(s) whose package its ledger names nowhere, so the sample's trigger, which reads \
+             the ledger golden, would not reach them: {}",
+            unreached.len(),
+            unreached.join(", ")
+        ));
+    }
     // No citation, no run: nextest given `none()` may write no report. absorb cites no test since ADR 0370 D8, so
     // the run is skipped, and the log says so.
     let filter = (!cited.is_empty()).then(|| filterset(&cited)).transpose()?;
@@ -480,6 +483,18 @@ fn not_unicode(vars: impl Iterator<Item = (OsString, OsString)>) -> Vec<String> 
 
 fn read(path: &Path) -> Result<String, String> {
     std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))
+}
+
+/// The tests absorb's summary cites: its `cited_tests`, an array of test ids. A summary without one, or with another
+/// value there, is refused rather than read as citing none: absorb's output changed shape.
+fn cited_tests(summary: &Value) -> Result<Vec<String>, String> {
+    let shape = || format!("absorb's summary holds no cited_tests array of test ids: {summary}");
+    summary["cited_tests"]
+        .as_array()
+        .ok_or_else(shape)?
+        .iter()
+        .map(|id| id.as_str().map(String::from).ok_or_else(shape))
+        .collect()
 }
 
 /// Cargo's build directory, from `cargo metadata`'s JSON: `build_directory` (which `build.build-dir` moves), else
