@@ -119,7 +119,7 @@ Which workstream is active is session state, not a field ([execute.md](execute.m
 `lesson.retrospective` (the relation's inverse is named `lessons`).
 
 **lesson**: name `L1`, scoped by its retrospective. `retrospective → retrospective` (absent for what
-`/gsd-extract-learnings` writes, which is in the project scope), `text str R`, `milestone → milestone`, `top bool`.
+`/gsd-extract-learnings` writes, which is in the project scope), `text str R`, `top bool`.
 Also holds what `/gsd-extract-learnings` writes (`LEARNINGS.md`), with `kind enum{decision, lesson, pattern, surprise}`:
 those lessons are named `L-<phase>-<n>` (the phase is in the id, not a field), live in `spec/lessons.spec`, and have no counts (they are the lessons of each kind).
 `graduated {disposition enum{promoted, deferred, dismissed} R, target → decision, until → phase, at ts R} H`: what

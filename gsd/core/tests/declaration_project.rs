@@ -112,7 +112,6 @@ fn the_learning_kinds_declare_the_fields_of_the_model() {
         [
             "retrospective",
             "text",
-            "milestone",
             "top",
             "kind",
             "graduated",
@@ -125,9 +124,9 @@ fn the_learning_kinds_declare_the_fields_of_the_model() {
     );
 }
 
-/// `project.md` lists 8 kinds and 69 top-level fields. The fixes of the model add the milestone's `workstream` and
+/// `project.md` lists 8 kinds and 68 top-level fields. The fixes of the model add the milestone's `workstream` and
 /// the lesson's `retrospective`; the milestone's computed `progress` (r38) is a third addition; two fields are read back from their inverse, not declared (the requirement's
-/// `phase` from `phase.requirements`, the retrospective's `lessons` from `lesson.retrospective`): 69 + 3 - 2.
+/// `phase` from `phase.requirements`, the retrospective's `lessons` from `lesson.retrospective`): 68 + 3 - 2.
 #[test]
 fn the_roadmap_kinds_declare_every_field_of_project_md() {
     let kinds = [
@@ -146,7 +145,7 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
     // + 2: the requirement's computed `proof` (its thread's state) and `satisfied_by` (the items its tasks name).
     assert_eq!(
         total,
-        69 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 2,
+        68 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 2,
         "the kinds' fields"
     );
 }

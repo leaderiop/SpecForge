@@ -43,7 +43,6 @@ pub const LESSON: Kind = Kind::new(
             .inverse("lessons")
             .doc("the retrospective that scopes it"),
         str("text").prose().r(),
-        rf("milestone", "milestone"),
         bool("top"),
         en("kind", LESSON_KINDS).doc("what /gsd-extract-learnings classified it as"),
         block("graduated", GRADUATED).h().doc(

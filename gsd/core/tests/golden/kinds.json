@@ -106,15 +106,6 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
-        "label": "LessonMilestone",
-        "source_kind": "lesson",
-        "target_kind": "milestone"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
         "label": "LessonGraduatedTarget",
         "source_kind": "lesson",
         "target_kind": "decision"
@@ -2308,16 +2299,6 @@
             "name": "text",
             "required": true,
             "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": null,
-            "edge": "LessonMilestone",
-            "field_type": "reference",
-            "inverse_of": null,
-            "name": "milestone",
-            "required": false,
-            "target_kind": "milestone"
           },
           {
             "default_value": null,

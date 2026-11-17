@@ -104,7 +104,6 @@ fn a_lesson_written_as_the_text_says_checks_clean() {
     }
     let line = joined
         .replace("${PHASE_NUMBER}", "02")
-        .replace("$MILESTONE", "v1.0")
         .replace("<short title>", "Keep it small")
         .replace(
             "<what was decided, why it was decided, Source: artifact>",
