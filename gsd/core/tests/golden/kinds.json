@@ -5876,17 +5876,6 @@
           },
           {
             "default_value": null,
-            "description": "who raised it",
-            "edge": null,
-            "field_type": "string",
-            "immutable": true,
-            "inverse_of": null,
-            "name": "reviewer",
-            "required": true,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
             "description": "the finding",
             "edge": null,
             "field_type": "string",

@@ -370,7 +370,7 @@ fn the_disposition_kind_is_append_only_and_every_field_immutable() {
     assert_eq!(disposition["append_only"], true);
     assert_eq!(disposition["scoped_by"], "plan");
     let fields = disposition["fields"].as_array().expect("fields");
-    assert_eq!(fields.len(), 7);
+    assert_eq!(fields.len(), 6);
     for field in fields {
         assert_eq!(field["immutable"], true, "{}", field["name"]);
     }
@@ -401,7 +401,7 @@ fn a_setup_done_is_a_harness_block_and_the_dashboard_a_block_list() {
     assert_eq!(kind_of("user_setup")["scoped_by"], "plan");
 }
 
-/// `plan.md` lists 80 fields over its nine kinds (the review kinds are counted on their own). The model fixes: `task.commits` waits for `commit`, which is 1
+/// `plan.md` lists 79 fields over its nine kinds (the review kinds are counted on their own). The model fixes: `task.commits` waits for `commit`, which is 1
 /// fewer, and `task.verify_text`, `task.verify_paths` (gsd/E320), `checkpoint.action` and `checkpoint.verification`
 /// are 4 more: 81 - 1 + 4 = 84. `plan.gap_closure` is declared with the UAT kinds, and `artifact.state` and
 /// `key_link.state` (computed by the scan) are 2 more: 86. `plan.estimate_slices` (the smart-zone budget's answer) is 1 more, and `disposition.concern` 1 more.
@@ -419,7 +419,7 @@ fn the_plan_kinds_declare_every_field_of_plan_md() {
         "user_setup",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 80 - 1 + 4 + 2 + 3 + 1 + 1 + 1, "the kinds' fields");
+    assert_eq!(total, 79 - 1 + 4 + 2 + 3 + 1 + 1 + 1, "the kinds' fields");
 }
 
 /// The host refuses a computed field that two compute passes claim, and one that none does (W021): every `C` field of

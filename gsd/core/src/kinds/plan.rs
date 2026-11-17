@@ -169,7 +169,6 @@ pub const DISPOSITION: Kind = Kind::new(
     &[
         rf("plan", "plan").r().i().doc("parent"),
         int("round").r().i().doc("the review round"),
-        str("reviewer").r().i().doc("who raised it"),
         str("feedback").r().i().doc("the finding"),
         en("outcome", OUTCOME).r().i().doc("addressed or deferred"),
         str("reason").prose().i().doc("why it was deferred"),

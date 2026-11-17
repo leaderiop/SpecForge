@@ -168,7 +168,6 @@ prohibition PR1 "No partial files" {
 disposition DSP1 "Name the file format" {
   plan     v1.0/02/02-01
   round    1
-  reviewer "codex"
   feedback "The plan does not say which file format the store writes"
   outcome  addressed
 }

@@ -201,7 +201,6 @@ fn the_convergence_step_counts_the_open_concerns() {
             ("DISPOSITION_ID", "DP1"),
             ("CONCERN_ID", "v1.0/02/RV1/RC1"),
             ("ROUND", "1"),
-            ("REVIEWER", "codex"),
             ("FEEDBACK", "Rename not atomic"),
             ("OUTCOME", "addressed"),
             ("REASON", "Task 1 writes then renames on the same volume"),

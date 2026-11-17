@@ -112,7 +112,7 @@ GSD: the `must_haves:` block. Each item is an entity, so a verifier's verdict ca
 ## disposition
 
 GSD: the plan's `## Review Dispositions Ledger`, written by `/gsd-plan-review-convergence`. Append-only. Name `DSP1`.
-`plan → plan R`, `round int R`, `reviewer str R`, `feedback str R`, `outcome enum{addressed, deferred} R`, `reason str`, `concern → review_concern` (the review concern it rules on: its status reads the disposition with the highest round).
+`plan → plan R`, `round int R`, `feedback str R`, `outcome enum{addressed, deferred} R`, `reason str`, `concern → review_concern` (the review concern it rules on: its status reads the disposition with the highest round).
 
 ## user_setup
 

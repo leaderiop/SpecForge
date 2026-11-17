@@ -250,7 +250,7 @@ fn the_readme_example_checks_clean() {
     p.check_exact(&[]);
 }
 
-const DISPOSITION: &str = "disposition DSP1 \"Name the file format\" {\n  plan     v1.0/02/02-01\n  round    1\n  reviewer \"codex\"\n  feedback \"The plan does not say which file format the store writes\"\n  outcome  addressed\n}\n";
+const DISPOSITION: &str = "disposition DSP1 \"Name the file format\" {\n  plan     v1.0/02/02-01\n  round    1\n  feedback \"The plan does not say which file format the store writes\"\n  outcome  addressed\n}\n";
 
 #[test]
 fn a_rewritten_disposition_is_refused() {
@@ -276,7 +276,7 @@ fn an_appended_disposition_is_clean() {
         "spec/plans.spec",
         DISPOSITION,
         &format!(
-            "{DISPOSITION}\ndisposition DSP2 \"Pin the path\" {{\n  plan     v1.0/02/02-01\n  round    2\n  reviewer \"codex\"\n  feedback \"The data directory is not pinned\"\n  outcome  deferred\n  reason   \"Decided in phase 3\"\n}}\n"
+            "{DISPOSITION}\ndisposition DSP2 \"Pin the path\" {{\n  plan     v1.0/02/02-01\n  round    2\n  feedback \"The data directory is not pinned\"\n  outcome  deferred\n  reason   \"Decided in phase 3\"\n}}\n"
         ),
     );
     assert_eq!(p.codes(), Vec::<String>::new());
