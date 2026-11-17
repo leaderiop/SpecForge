@@ -89,12 +89,23 @@ Where their content lives in GSD:
 - **task:** the type `manual`. gsd-core's task types are `auto`, `tdd` and `tracer` and the checkpoints
   (`gsd-core/references/planner-guidance.md:37-44`, `agents/gsd-planner.md:231-249`,
   `gsd-core/references/checkpoints.md:113`).
+- **phase:** `tag`. **methodology:** `status` and `superseded_by`. **lesson:** `milestone`. **disposition:**
+  `reviewer`. These five came to light when D1's table was written: no upstream line writes them and no capability
+  reads them. Upstream's lessons carry a phase only, and its review ledger has no reviewer column and asks for no
+  reviewer enum (`gsd-core/references/planner-reviews.md:78`): who raised a concern stays reachable through the
+  disposition's `concern`, whose `reviewers` the review round records.
+
+`pause.reason` and `blocker.plan` came to light with them and stay, because upstream writes both: a pause's reason is
+STATE.md's `Stopped at:` (`gsd-core/templates/state.md:98`), and a blocker's plan is the plan of the
+`last_gate_trip: {plan_id}/{task_id}` the executor records when a TDD gate trips (`agents/gsd-executor.md:426`).
 
 `requirement.shapes` and `requirement.text_en` stay: upstream's edge probe reads both (`src/edge-probe.cts:59-64`,
 `gsd-core/references/edge-probe.md:44-57`, `gsd-core/references/specless-probe-fallback.md:87-88`).
 
 Every asset line that learned a flag for one of these fields carries upstream's text again: the `specforge new
-requirement` and `specforge new decision` lines, `/gsd-verify-work` recording a UAT test's journey. The port lock,
+requirement` and `specforge new decision` lines, `/gsd-verify-work` recording a UAT test's journey; the `specforge
+new lesson` line of `/gsd-extract-learnings` and the `specforge new disposition` line of the review ledger lose their
+`--milestone` and `--reviewer`, with nothing in their place. The port lock,
 `gsd/core/tests/port.lock`, records the text.
 
 ## D4. A decision supersedes nothing

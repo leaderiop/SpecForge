@@ -336,6 +336,7 @@ Four rows of this section name the capability that reads a link field gsd-core d
 | deviation | files | gsd-core/templates/summary.md:122 | - **Files modified:** [file paths] |
 | pause | phase | gsd-core/workflows/pause-work.md:83 | "phase": "{phase_number}", |
 | pause | plan | gsd-core/workflows/pause-work.md:86 | "plan": {current_plan_number}, |
+| pause | reason | gsd-core/templates/state.md:98 | Stopped at: |
 | pause | handoff | gsd-core/workflows/pause-work.md:131 | **Write handoff to the path determined in the detect step** |
 | handoff | phase | gsd-core/workflows/pause-work.md:136 | phase: XX-name |
 | handoff | task | gsd-core/workflows/pause-work.md:137 | task: 3 |
@@ -349,6 +350,7 @@ Four rows of this section name the capability that reads a link field gsd-core d
 | handoff | next_action | gsd-core/workflows/pause-work.md:217 | <next_action> |
 | blocker | text | gsd-core/templates/state.md:81 | ### Blockers/Concerns |
 | blocker | phase | gsd-core/templates/state.md:184 | - Prefix with originating phase |
+| blocker | plan | agents/gsd-executor.md:426 | last_gate_trip: {plan_id}/{task_id} |
 | blocker | resolved | gsd-core/templates/state.md:185 | - Cleared when addressed |
 | quick_batch | items | gsd-core/workflows/quick-batch/steps/batch-init.md:46 | j.items.length |
 

@@ -155,7 +155,10 @@ pub const PAUSE: Kind = Kind::new(
             .h()
             .doc("written by the pausing command, with the host's clock"),
         str("by").h().doc("who paused"),
-        str("reason").prose().r().doc("why the work stopped"),
+        str("reason")
+            .prose()
+            .r()
+            .doc("where and why the work stopped (STATE.md's `Stopped at:`)"),
         rf("handoff", "handoff").doc("`.continue-here.md`"),
     ],
 )
@@ -189,7 +192,7 @@ pub const BLOCKER: Kind = Kind::new(
     &[
         str("text").prose().r().doc("the blocker"),
         rf("phase", "phase").doc("the phase it blocks"),
-        rf("plan", "plan").doc("the plan it blocks"),
+        rf("plan", "plan").doc("the plan whose gate tripped (STATE.md's `last_gate_trip`), or that it blocks"),
         rf("gate", "task")
             .h()
             .doc("the task whose TDD gate tripped (STATE.md's `last_gate_trip`), written by `raise_blocker --gate`"),

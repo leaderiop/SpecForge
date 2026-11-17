@@ -7469,7 +7469,7 @@
           },
           {
             "default_value": null,
-            "description": "why the work stopped",
+            "description": "where and why the work stopped (STATE.md's `Stopped at:`)",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -7684,7 +7684,7 @@
           },
           {
             "default_value": null,
-            "description": "the plan it blocks",
+            "description": "the plan whose gate tripped (STATE.md's `last_gate_trip`), or that it blocks",
             "edge": "BlockerPlan",
             "field_type": "reference",
             "inverse_of": null,
