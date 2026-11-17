@@ -33,7 +33,7 @@ impl Planner {
             },
             // The id map assigned the id from this value before any draft.
             How::Id => {}
-            How::Parent => self.parent(e, row.field, field, value),
+            How::Parent => self.parent(e, row.field, value),
             How::Requirements => self.requirements(e, row.field, field, value),
             How::Earlier => self.earlier(e, row.field, field, value),
             How::Category => {

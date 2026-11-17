@@ -100,22 +100,13 @@ impl Planner {
         fills
     }
 
-    /// A release's `milestones`: each listed milestone's phase sits under this release's milestone (its scope field,
-    /// which the draft holds from the map); one the run writes no phase for is ledgered `dropped`.
-    pub(super) fn parent(&mut self, e: &OldEntity, old_field: &str, field: &str, value: &Value) {
-        let Some(parent) = self.ids.path(&e.kind, &e.id) else {
-            return;
-        };
+    /// A release's `milestones`: each listed milestone's phase sits under this release's milestone already, its scope
+    /// field written by its draft from the map; one the run writes no phase for is ledgered `dropped`. A listed phase
+    /// under another version milestone cannot be: `Links::of` stops a milestone two releases list before any plan.
+    pub(super) fn parent(&mut self, e: &OldEntity, old_field: &str, value: &Value) {
         for item in how::items(value) {
-            match self.named(&item, "phase", MILESTONE) {
-                Ok(new) if new.scope.as_ref().map(|(_, scope)| scope) == Some(&parent) => {
-                    let path = new.path();
-                    if let Some(draft) = self.drafts.get_mut(&path) {
-                        draft.set(field, Input::One(parent.clone()));
-                    }
-                }
-                Ok(_) => self.dropped(e, old_field, &item, OTHER_MILESTONE.to_string()),
-                Err(why) => self.dropped(e, old_field, &item, why),
+            if let Err(why) = self.named(&item, "phase", MILESTONE) {
+                self.dropped(e, old_field, &item, why);
             }
         }
     }

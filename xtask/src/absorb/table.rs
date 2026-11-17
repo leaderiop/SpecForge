@@ -66,8 +66,8 @@ pub enum How {
     /// The entity's id, which the id map assigns from the value (a release's version): it writes no field, and its
     /// field is [`ID`].
     Id,
-    /// Each listed milestone's phase placed under this entity's milestone: its scope field set to this new id. A
-    /// listed milestone the run writes no phase for is ledgered `dropped`.
+    /// Each listed milestone's phase placed under this entity's milestone: the id map gives the phase this scope, and
+    /// its draft writes it. A listed milestone the run writes no phase for is ledgered `dropped`.
     Parent,
     /// Each listed old id as the requirement it becomes, through the id map; one that becomes none is ledgered
     /// `dropped` with why.
